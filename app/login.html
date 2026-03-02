@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>코디뱅크 로그인</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+  <script src="config.js"></script>
+  <script src="codibank.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Outfit','Noto Sans KR','ui-sans-serif','system-ui'], serif: ['Playfair Display','ui-serif','Georgia'] },
+          colors: {
+            primary: '#111111',
+            accent: '#C5A358',
+            bg: '#FFFFFF',
+            card: '#FFFFFF',
+            line: 'rgba(17,17,17,0.08)',
+            muted: '#F9FAFB',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { min-height: max(884px, 100dvh); -webkit-tap-highlight-color: transparent; }
+    /* 로그인/회원가입 전용: 카드가 돋보이도록 아주 은은한 배경 톤 */
+    body { background: radial-gradient(circle at 20% 0%, rgba(197,163,88,0.14), transparent 45%), radial-gradient(circle at 80% -10%, rgba(15,23,42,0.06), transparent 40%), #F9FAFB; }
+  </style>
+</head>
+<body class="bg-muted text-slate-900 min-h-screen font-sans">
+  <div class="max-w-md mx-auto px-6 py-10">
+    <header class="mb-10">
+      <a href="../index.html" class="text-sm text-slate-500 hover:text-slate-900">← 랜딩으로</a>
+      <h1 class="mt-6 text-2xl font-extrabold tracking-tight font-serif">코디뱅크 로그인</h1>
+      <p class="mt-2 text-slate-600 text-sm leading-relaxed">
+        우리 서비스는 <b class="text-slate-900">휴대폰이 필수</b>이지만, 초기에는 비용/거부감 이슈를 고려해
+        <b class="text-slate-900">이메일을 ID</b>로 사용합니다.
+      </p>
+    </header>
+
+    <!-- Email Login (Primary) -->
+    <section class="bg-card border border-line rounded-3xl p-6 shadow-sm">
+      <h2 class="text-sm font-extrabold tracking-tight">이메일(ID)로 로그인</h2>
+      <p class="mt-2 text-xs text-slate-500 leading-relaxed">
+        비밀번호 규칙: <b class="text-slate-900">4자리 이상</b>, <b class="text-slate-900">영문+숫자 조합</b>
+      </p>
+
+      <form id="loginForm" class="mt-5 space-y-4">
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-600">이메일(ID)</label>
+          <input id="email" type="email" autocomplete="username" required
+                 class="mt-2 w-full rounded-2xl bg-white border border-slate-200 px-4 py-3 focus:border-accent/70 focus:ring-2 focus:ring-accent/20"
+                 placeholder="name@example.com" />
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-600">비밀번호</label>
+          <input id="password" type="password" autocomplete="current-password" required minlength="4" pattern="(?=.*[A-Za-z])(?=.*\d).{4,}"
+                 class="mt-2 w-full rounded-2xl bg-white border border-slate-200 px-4 py-3 focus:border-accent/70 focus:ring-2 focus:ring-accent/20"
+                 placeholder="영문+숫자 포함" />
+          <div class="mt-2 flex items-center justify-between">
+            <p id="pwHint" class="text-[11px] text-slate-500">예) ab12</p>
+            <button type="button" id="togglePw" class="text-[11px] text-slate-600 hover:text-slate-900">비밀번호 보기</button>
+          </div>
+        </div>
+
+        <div id="errorBox" class="hidden rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700"></div>
+
+        <button type="submit" class="w-full rounded-2xl bg-primary text-white py-4 font-extrabold active:scale-[0.99]">
+          로그인
+        </button>
+      </form>
+
+      <div class="mt-5 flex items-center gap-3">
+        <div class="h-px flex-1 bg-slate-200"></div>
+        <span class="text-xs text-slate-500">또는</span>
+        <div class="h-px flex-1 bg-slate-200"></div>
+      </div>
+
+      <div class="mt-5 space-y-3">
+        <button id="naverLoginBtn" type="button" class="w-full rounded-2xl bg-white border border-slate-200 text-slate-900 py-4 font-extrabold tracking-tight active:scale-[0.99]">
+          네이버로 계속하기
+        </button>
+        <button id="kakaoLoginBtn" type="button" class="w-full rounded-2xl bg-white border border-slate-200 text-slate-900 py-4 font-extrabold tracking-tight active:scale-[0.99]">
+          카카오로 계속하기
+        </button>
+      </div>
+    </section>
+
+    <section class="mt-10 bg-card border border-line rounded-3xl p-6 shadow-sm">
+      <h2 class="text-sm font-extrabold tracking-tight">계정이 없으신가요?</h2>
+      <p class="mt-2 text-sm text-slate-600">ID(이메일)·비밀번호 설정 후 바로 옷 등록을 시작할 수 있어요.</p>
+      <a href="signup.html" class="mt-4 inline-flex items-center justify-center w-full rounded-2xl bg-accent text-black py-4 font-extrabold shadow-sm active:scale-[0.99]">회원가입</a>
+    </section>
+
+    <footer class="mt-10 text-xs text-slate-500 leading-relaxed">
+      * Prototype 화면입니다. 실제 서비스에서는 개인정보 처리방침/이용약관 동의, 계정 연동/탈퇴가 포함됩니다.
+    </footer>
+  </div>
+
+  <script>
+    // 이미 로그인 되어 있으면 바로 마이페이지로
+    const existing = (window.CodiBank && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;
+    if (existing) {
+      window.location.replace('mypage.html');
+    }
+
+    const loginForm = document.getElementById('loginForm');
+    const emailEl = document.getElementById('email');
+    const pwEl = document.getElementById('password');
+    const errorBox = document.getElementById('errorBox');
+    const togglePw = document.getElementById('togglePw');
+    const pwHint = document.getElementById('pwHint');
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.classList.remove('hidden');
+    }
+
+    function clearError() {
+      errorBox.textContent = '';
+      errorBox.classList.add('hidden');
+    }
+
+    togglePw.addEventListener('click', () => {
+      const isPw = pwEl.getAttribute('type') === 'password';
+      pwEl.setAttribute('type', isPw ? 'text' : 'password');
+      togglePw.textContent = isPw ? '비밀번호 숨기기' : '비밀번호 보기';
+    });
+
+    pwEl.addEventListener('input', () => {
+      const ok = CodiBank.passwordMeetsRule(pwEl.value);
+      pwHint.textContent = ok ? '✅ 규칙 충족' : '비밀번호 규칙: 4자리 이상, 영문+숫자 포함';
+      pwHint.className = ok ? 'text-[11px] text-green-600' : 'text-[11px] text-slate-500';
+    });
+
+
+    // 간편 로그인(데모) : 실제 OAuth 연동 전, 버튼이 "작동"하도록 로컬 계정으로 로그인 처리
+    const naverBtn = document.getElementById('naverLoginBtn');
+    const kakaoBtn = document.getElementById('kakaoLoginBtn');
+
+    function social(provider){
+      clearError();
+      if (!window.CodiBank || !CodiBank.socialLogin) {
+        showError('간편로그인을 사용할 수 없습니다. codibank.js 로드 상태를 확인해주세요.');
+        return;
+      }
+      const res = CodiBank.socialLogin(provider);
+      if (!res.ok) {
+        showError(res.error || '간편로그인에 실패했습니다.');
+        return;
+      }
+      window.location.href = 'mypage.html';
+    }
+
+    naverBtn?.addEventListener('click', () => social('naver'));
+    kakaoBtn?.addEventListener('click', () => social('kakao'));
+
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      clearError();
+
+      const email = emailEl.value;
+      const pw = pwEl.value;
+
+      if (String(pw || '').length < 4) {
+        showError('비밀번호는 최소 4자리 이상 입력해주세요.');
+        return;
+      }
+
+      const res = CodiBank.login(email, pw);
+      if (!res.ok) {
+        showError(res.error || '로그인에 실패했습니다.');
+        return;
+      }
+      window.location.href = 'mypage.html';
+    });
+  </script>
+</body>
+</html>

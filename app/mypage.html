@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>내정보 - 코디뱅크</title>
+
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+  <script src="config.js"></script>
+  <script src="codibank.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Noto Sans KR', 'ui-sans-serif', 'system-ui'] },
+          colors: {
+            primary: '#111111',
+            accent: '#C5A358',
+            bg: '#FFFFFF',
+            card: '#FFFFFF',
+            card2: '#F9FAFB',
+            line: 'rgba(17,17,17,0.08)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { min-height: max(884px, 100dvh); -webkit-tap-highlight-color: transparent; }
+    .ios-blur { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24; }
+    .material-symbols-outlined.filled { font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24; }
+  </style>
+</head>
+<body class="bg-bg text-slate-900 min-h-screen font-sans">
+  <div class="max-w-md mx-auto px-6 py-10 pb-28">
+    <header class="mb-8">
+      <h1 class="text-2xl font-extrabold tracking-tight">내정보</h1>
+      <p class="mt-2 text-slate-600 text-sm">계정/플랜/옷장/공유·판매를 한 곳에서 관리합니다.</p>
+    </header>
+
+    <!-- Profile Card -->
+    <section class="bg-card border border-line rounded-3xl p-6 shadow-sm">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex-1 min-w-0">
+          <p class="text-[11px] text-slate-500 font-semibold">계정</p>
+          <p id="userEmail" class="mt-1 text-lg font-extrabold tracking-tight truncate">—</p>
+          <p id="userPhone" class="mt-1 text-sm text-slate-600 truncate">—</p>
+        </div>
+        <div class="text-right flex-shrink-0 min-w-[96px]">
+          <p class="text-[11px] text-slate-500 font-semibold">플랜</p>
+          <p id="userPlan" class="mt-1 text-lg font-extrabold text-accent whitespace-nowrap">무료</p>
+          <p id="planLimit" class="mt-1 text-xs text-slate-500 whitespace-nowrap">카테고리별 5개</p>
+        </div>
+      </div>
+
+      <div class="mt-5 grid grid-cols-2 gap-3">
+        <div class="rounded-2xl border border-line bg-card2 p-4">
+          <p class="text-[10px] text-slate-500 font-semibold">성별</p>
+          <p id="userGender" class="mt-2 font-extrabold">—</p>
+        </div>
+        <div class="rounded-2xl border border-line bg-card2 p-4">
+          <p class="text-[10px] text-slate-500 font-semibold">나이대</p>
+          <p id="userAgeGroup" class="mt-2 font-extrabold">—</p>
+        </div>
+        <div class="rounded-2xl border border-line bg-card2 p-4">
+          <p class="text-[10px] text-slate-500 font-semibold">키</p>
+          <p id="userHeight" class="mt-2 font-extrabold">—</p>
+        </div>
+        <div class="rounded-2xl border border-line bg-card2 p-4">
+          <p class="text-[10px] text-slate-500 font-semibold">몸무게</p>
+          <p id="userWeight" class="mt-2 font-extrabold">—</p>
+        </div>
+      </div>
+
+      <!-- Profile Edit (NEW) -->
+      <div class="mt-5 pt-5 border-t border-slate-200">
+        <div class="flex items-end justify-between">
+          <div>
+            <p class="text-[11px] font-extrabold tracking-[0.24em] text-accent">PROFILE</p>
+            <h3 class="mt-1 text-base font-extrabold tracking-tight">프로필 수정</h3>
+            <p class="mt-1 text-[12px] text-slate-500">키/몸무게/성별/나이대를 수정하면 AI 추천 코디 정확도가 좋아져요.</p>
+          </div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-2 gap-3">
+          <div class="col-span-2">
+            <label class="text-[11px] font-extrabold text-slate-600">닉네임(선택)</label>
+            <input id="editNickname" type="text" maxlength="20" class="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold" placeholder="예: 테드" />
+          </div>
+          <div class="col-span-2">
+            <label class="text-[11px] font-extrabold text-slate-600">휴대폰 번호</label>
+            <input id="editPhone" type="tel" class="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold" placeholder="01012345678" />
+          </div>
+          <div>
+            <label class="text-[11px] font-extrabold text-slate-600">성별</label>
+            <select id="editGender" class="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold">
+              <option value="">선택</option>
+              <option value="M">남</option>
+              <option value="F">여</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[11px] font-extrabold text-slate-600">나이대</label>
+            <select id="editAgeGroup" class="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold">
+              <option value="">선택</option>
+              <option value="10s">10대</option>
+              <option value="20s">20대</option>
+              <option value="30s">30대</option>
+              <option value="40s">40대</option>
+              <option value="50s">50대</option>
+              <option value="60p">60대+</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[11px] font-extrabold text-slate-600">키(cm)</label>
+            <input id="editHeight" type="number" inputmode="numeric" min="0" max="250" class="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold" placeholder="175" />
+          </div>
+          <div>
+            <label class="text-[11px] font-extrabold text-slate-600">몸무게(kg)</label>
+            <input id="editWeight" type="number" inputmode="numeric" min="0" max="250" class="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold" placeholder="70" />
+          </div>
+        </div>
+
+        <button id="saveProfileBtn" class="mt-4 w-full rounded-2xl bg-primary text-white py-4 font-extrabold active:scale-[0.99]">
+          저장하기
+        </button>
+        <p id="saveProfileMsg" class="mt-2 text-[11px] text-slate-500"></p>
+      </div>
+
+      <div class="mt-4 rounded-2xl border border-line bg-card2 p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-[10px] text-slate-500 font-semibold">지역(날씨)</p>
+            <p id="userLocation" class="mt-2 font-semibold">—</p>
+            <p id="locationSub" class="mt-1 text-[11px] text-slate-500">—</p>
+          </div>
+          <button id="refreshLocationBtn" class="px-3 py-2 rounded-xl bg-white border border-line text-xs font-extrabold text-slate-700 active:scale-95">
+            현재 위치
+          </button>
+        </div>
+      </div>
+
+      <!-- AI 가상피팅 (optional) -->
+      <div class="mt-4 rounded-2xl border border-line bg-card2 p-4">
+        <p class="text-[10px] text-slate-500 font-semibold">AI 가상피팅(선택)</p>
+        <p class="mt-2 text-sm font-extrabold tracking-tight">얼굴 사진</p>
+        <p class="mt-1 text-[11px] text-slate-500 leading-relaxed">
+          등록한 얼굴 사진은 옷장 화면의 <b class="text-slate-700">AI 가상피팅 스타일링</b> 미리보기에 반영됩니다. (기본: 로컬 저장 / AI 서버 연결 시 생성에만 사용)
+        </p>
+
+        <div class="mt-3 flex items-center gap-4">
+          <div class="w-14 h-14 rounded-full bg-white border border-line overflow-hidden flex items-center justify-center" id="mpFacePreviewWrap">
+            <span id="mpFacePreviewIcon" class="text-slate-400 text-[11px] font-extrabold">없음</span>
+            <img id="mpFacePreviewImg" class="hidden w-full h-full object-cover" alt="얼굴 미리보기" />
+          </div>
+          <div class="flex-1">
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" id="mpFaceCaptureBtn" class="rounded-2xl bg-white border border-line px-3 py-2.5 text-xs font-extrabold text-slate-800 active:scale-[0.99]">촬영</button>
+              <button type="button" id="mpFacePickBtn" class="rounded-2xl bg-white border border-line px-3 py-2.5 text-xs font-extrabold text-slate-800 active:scale-[0.99]">선택</button>
+            </div>
+            <button type="button" id="mpFaceClearBtn" class="mt-2 w-full rounded-2xl bg-white/60 border border-line px-3 py-2 text-[11px] font-extrabold text-slate-600 active:scale-[0.99] hidden">삭제</button>
+          </div>
+        </div>
+
+        <input id="mpFaceCaptureInput" type="file" accept="image/*" capture="user" class="hidden" />
+        <input id="mpFacePickInput" type="file" accept="image/*" class="hidden" />
+      </div>
+    </section>
+
+    <!-- Quick Actions -->
+    <section class="mt-6 grid grid-cols-2 gap-3">
+      <a href="closet.html" class="rounded-3xl bg-primary text-white p-5 font-extrabold active:scale-[0.99] transition shadow-sm">
+        내옷장
+        <p class="mt-1 text-xs font-bold text-white/70">아이템 관리</p>
+      </a>
+      <a href="pricing.html" class="rounded-3xl bg-card border border-line p-5 font-extrabold active:scale-[0.99] transition shadow-sm">
+        구독 플랜
+        <p class="mt-1 text-xs font-bold text-slate-500">업그레이드/한도</p>
+      </a>
+      <a href="share.html" class="rounded-3xl bg-card border border-line p-5 font-extrabold active:scale-[0.99] transition shadow-sm">
+        공유
+        <p class="mt-1 text-xs font-bold text-slate-500">아이템 나눔</p>
+      </a>
+      <a href="sale.html" class="rounded-3xl bg-card border border-line p-5 font-extrabold active:scale-[0.99] transition shadow-sm">
+        판매
+        <p class="mt-1 text-xs font-bold text-slate-500">중고 판매</p>
+      </a>
+    </section>
+
+    <!-- Logout -->
+    <section class="mt-6 bg-card border border-line rounded-3xl p-6 shadow-sm">
+      <button id="logoutBtn" class="w-full rounded-2xl bg-card2 border border-line py-4 font-extrabold text-slate-900 active:scale-[0.99]">
+        로그아웃
+      </button>
+
+      <div class="mt-4 pt-4 border-t border-line">
+        <button id="deleteAccountBtn" class="w-full rounded-2xl bg-red-50 border border-red-200 py-4 font-extrabold text-red-700 active:scale-[0.99]">
+          회원탈퇴
+        </button>
+        <p class="mt-2 text-[11px] text-red-700/80 leading-relaxed">
+          * 회원탈퇴 시 내 계정/아이템/코디앨범 데이터가 이 기기(LocalStorage)에서 삭제됩니다.
+        </p>
+      </div>
+      <p class="mt-3 text-xs text-slate-500 leading-relaxed">
+        * Prototype 환경에서는 로컬 저장소(LocalStorage)에 계정/아이템이 저장됩니다.
+      </p>
+    </section>
+  </div>
+
+  <!-- Bottom Nav -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white/95 ios-blur border-t border-slate-200 pt-3 pb-8 px-6 z-50">
+      <div class="flex justify-between items-center max-w-sm mx-auto">
+        <a href="closet.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">checkroom</span><span class="text-[10px] font-extrabold">내옷장</span></a>
+        <a href="camera.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">add_a_photo</span><span class="text-[10px] font-extrabold">item등록</span></a>
+        <a href="album.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">photo_library</span><span class="text-[10px] font-extrabold">코디앨범</span></a>
+        <a href="share-sale.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">storefront</span><span class="text-[10px] font-extrabold">공유판매</span></a>
+        <a href="mypage.html" class="flex flex-col items-center gap-1 text-accent"><span class="material-symbols-outlined filled text-2xl">person</span><span class="text-[10px] font-extrabold">My</span></a>
+      </div>
+    </nav>
+<div class="fixed bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-slate-300 rounded-full z-[60]"></div>
+
+  <script>
+    // Auth
+    if (!CodiBank.requireAuth('login.html')) {
+      // redirected
+    }
+
+    const user = CodiBank.getCurrentUser();
+    if (!user) {
+      // redirected already
+    }
+
+    const plan = CodiBank.getUserPlan(user.email);
+    const limit = CodiBank.getPlanLimit(plan);
+    const planKo = (p) => ({ FREE: '무료', SILVER: '실버', GOLD: '골드', DIAMOND: '다이아' }[String(p || '').toUpperCase()] || p);
+
+    const emailNode = document.getElementById('userEmail');
+    emailNode.textContent = user.email;
+    emailNode.title = user.email;
+    const phoneNode = document.getElementById('userPhone');
+    phoneNode.textContent = user.phone ? `📱 ${user.phone}` : '—';
+    phoneNode.title = user.phone || '';
+    document.getElementById('userPlan').textContent = planKo(plan);
+    document.getElementById('planLimit').textContent = `카테고리별 ${limit === Infinity ? '무제한' : limit + '개'}`;
+    document.getElementById('userGender').textContent = user.gender === 'M' ? '남' : (user.gender === 'F' ? '여' : '—');
+    const ageKo = (a) => ({ '10s': '10대', '20s': '20대', '30s': '30대', '40s': '40대', '50s': '50대', '60p': '60대+' }[String(a || '')] || '—');
+    document.getElementById('userAgeGroup').textContent = ageKo(user.ageGroup);
+    document.getElementById('userHeight').textContent = user.height ? `${user.height}cm` : '—';
+    document.getElementById('userWeight').textContent = user.weight ? `${user.weight}kg` : '—';
+    const locationEl = document.getElementById('userLocation');
+    const locationSubEl = document.getElementById('locationSub');
+    const refreshBtn = document.getElementById('refreshLocationBtn');
+
+    locationEl.textContent = user.location || '—';
+    locationSubEl.textContent = (user.geo && user.geo.updatedAt)
+      ? `마지막 업데이트: ${new Date(user.geo.updatedAt).toLocaleString()}`
+      : 'GPS 권한을 허용하면 더 정확해요.';
+
+    async function refreshLocation() {
+      locationEl.textContent = '위치 확인 중…';
+      locationSubEl.textContent = '잠시만 기다려주세요.';
+      try {
+        const locRes = await CodiBank.getSmartLocation({ language: 'ko', timeoutMs: 9000 });
+        if (locRes && locRes.ok) {
+          locationEl.textContent = locRes.label || '현재 위치';
+          const sourceLabel = (locRes.source === 'gps') ? 'GPS 기반' : 'IP 기반(대략)';
+          const acc = (locRes.accuracy && locRes.source === 'gps') ? ` · ±${Math.round(locRes.accuracy)}m` : '';
+          const ts = new Date();
+          locationSubEl.textContent = `${sourceLabel}${acc} · ${ts.toLocaleTimeString()}`;
+
+          CodiBank.updateUserProfile(user.email, {
+            location: locRes.label || user.location || '',
+            geo: {
+              lat: locRes.lat,
+              lon: locRes.lon,
+              source: locRes.source,
+              accuracy: locRes.accuracy,
+              updatedAt: CodiBank.nowIso(),
+            },
+          });
+          return;
+        }
+      } catch (e) {
+        console.warn('refreshLocation failed', e);
+      }
+      locationEl.textContent = user.location || '—';
+      locationSubEl.textContent = '위치 정보를 가져오지 못했어요. 네트워크/권한을 확인해주세요.';
+    }
+
+    refreshBtn.addEventListener('click', refreshLocation);
+    // 자동 1회 업데이트(테스트 편의)
+    refreshLocation();
+
+    // ===== Avatar face (optional) =====
+    const mpFacePreviewImg = document.getElementById('mpFacePreviewImg');
+    const mpFacePreviewIcon = document.getElementById('mpFacePreviewIcon');
+    const mpFaceCaptureBtn = document.getElementById('mpFaceCaptureBtn');
+    const mpFacePickBtn = document.getElementById('mpFacePickBtn');
+    const mpFaceClearBtn = document.getElementById('mpFaceClearBtn');
+    const mpFaceCaptureInput = document.getElementById('mpFaceCaptureInput');
+    const mpFacePickInput = document.getElementById('mpFacePickInput');
+
+    let mpAvatarFaceRef = user.avatarFace || '';
+    let mpAvatarBusy = false;
+
+    // ===== Profile edit (NEW) =====
+    const editNickname = document.getElementById('editNickname');
+    const editPhone = document.getElementById('editPhone');
+    const editGender = document.getElementById('editGender');
+    const editAgeGroup = document.getElementById('editAgeGroup');
+    const editHeight = document.getElementById('editHeight');
+    const editWeight = document.getElementById('editWeight');
+    const saveProfileBtn = document.getElementById('saveProfileBtn');
+    const saveProfileMsg = document.getElementById('saveProfileMsg');
+
+    if (editNickname) editNickname.value = String(user.nickname || '');
+    if (editPhone) editPhone.value = String(user.phone || '');
+    if (editGender) editGender.value = String(user.gender || '');
+    if (editAgeGroup) editAgeGroup.value = String(user.ageGroup || '');
+    if (editHeight) editHeight.value = user.height ? String(user.height) : '';
+    if (editWeight) editWeight.value = user.weight ? String(user.weight) : '';
+
+    function toIntOrEmpty(v){
+      const s = String(v || '').trim();
+      if (!s) return '';
+      const n = Math.floor(Number(s));
+      return Number.isFinite(n) ? n : '';
+    }
+
+    saveProfileBtn.addEventListener('click', async () => {
+      const patch = {
+        nickname: String(editNickname.value || '').trim(),
+        phone: String(editPhone.value || '').trim(),
+        gender: String(editGender.value || '').trim(),
+        ageGroup: String(editAgeGroup.value || '').trim(),
+        height: toIntOrEmpty(editHeight.value),
+        weight: toIntOrEmpty(editWeight.value),
+      };
+
+      if (!patch.phone || patch.phone.length < 8) {
+        alert('휴대폰 번호를 정확히 입력해주세요.');
+        return;
+      }
+
+      saveProfileBtn.disabled = true;
+      saveProfileBtn.style.opacity = '0.7';
+      saveProfileMsg.textContent = '저장 중…';
+
+      try {
+        const res = CodiBank.updateUserProfile(user.email, patch);
+        if (!res || !res.ok) {
+          alert((res && res.error) ? res.error : '저장에 실패했습니다.');
+          return;
+        }
+        saveProfileMsg.textContent = '저장 완료!';
+        // 화면 즉시 반영
+        setTimeout(() => window.location.reload(), 350);
+      } finally {
+        saveProfileBtn.disabled = false;
+        saveProfileBtn.style.opacity = '1';
+      }
+    });
+
+    function mpSetPreview(src) {
+      if (!src) {
+        mpFacePreviewImg.classList.add('hidden');
+        mpFacePreviewImg.removeAttribute('src');
+        mpFacePreviewIcon.classList.remove('hidden');
+        mpFaceClearBtn.classList.add('hidden');
+        return;
+      }
+      mpFacePreviewImg.src = src;
+      mpFacePreviewImg.classList.remove('hidden');
+      mpFacePreviewIcon.classList.add('hidden');
+      mpFaceClearBtn.classList.remove('hidden');
+    }
+
+    function mpReadFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(String(fr.result || ''));
+        fr.onerror = () => reject(fr.error || new Error('File read failed'));
+        fr.readAsDataURL(file);
+      });
+    }
+
+    async function mpResizeImageDataUrl(dataUrl, maxSide, quality) {
+      const max = Number(maxSide || 640);
+      const q = typeof quality === 'number' ? quality : 0.86;
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const w0 = img.width || 1;
+          const h0 = img.height || 1;
+          const scale = Math.min(1, max / Math.max(w0, h0));
+          const w = Math.max(1, Math.round(w0 * scale));
+          const h = Math.max(1, Math.round(h0 * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          try {
+            resolve(canvas.toDataURL('image/jpeg', q));
+          } catch (_) {
+            resolve(dataUrl);
+          }
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      });
+    }
+
+    async function mpLoadExistingFace() {
+      if (!mpAvatarFaceRef) {
+        mpSetPreview('');
+        return;
+      }
+      const src = await CodiBank.getImageSrc(mpAvatarFaceRef);
+      mpSetPreview(src || '');
+    }
+    mpLoadExistingFace();
+
+    async function mpHandleFaceFile(file) {
+      if (!file) return;
+      try {
+        mpAvatarBusy = true;
+        const raw = await mpReadFileAsDataUrl(file);
+        const resized = await mpResizeImageDataUrl(raw, 640, 0.86);
+        mpAvatarFaceRef = await CodiBank.saveImage(resized);
+        const src = await CodiBank.getImageSrc(mpAvatarFaceRef);
+        mpSetPreview(src || resized);
+        CodiBank.updateUserProfile(user.email, { avatarFace: mpAvatarFaceRef || '' });
+      } catch (e) {
+        console.warn('avatar face update failed', e);
+        alert('얼굴 사진을 저장하지 못했어요. 다시 시도해주세요.');
+      } finally {
+        mpAvatarBusy = false;
+        try { mpFaceCaptureInput.value = ''; } catch (_) {}
+        try { mpFacePickInput.value = ''; } catch (_) {}
+      }
+    }
+
+    mpFaceCaptureBtn.addEventListener('click', () => mpFaceCaptureInput.click());
+    mpFacePickBtn.addEventListener('click', () => mpFacePickInput.click());
+    mpFaceCaptureInput.addEventListener('change', (e) => mpHandleFaceFile((e.target.files || [])[0]));
+    mpFacePickInput.addEventListener('change', (e) => mpHandleFaceFile((e.target.files || [])[0]));
+
+    mpFaceClearBtn.addEventListener('click', () => {
+      if (mpAvatarBusy) return;
+      mpAvatarFaceRef = '';
+      mpSetPreview('');
+      CodiBank.updateUserProfile(user.email, { avatarFace: '' });
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      CodiBank.logout('login.html');
+    });
+
+    // 회원탈퇴(계정 삭제)
+    document.getElementById('deleteAccountBtn')?.addEventListener('click', () => {
+      try {
+        const email = user?.email || '';
+        if (!email) return;
+
+        const ok = confirm('정말 회원탈퇴 하시겠어요?\n\n- 내 계정/아이템/코디앨범이 이 기기에서 삭제됩니다.\n- 이 작업은 되돌릴 수 없습니다.');
+        if (!ok) return;
+
+        const typed = prompt("탈퇴를 진행하려면 '탈퇴' 라고 입력해주세요.");
+        if (String(typed || '').trim() !== '탈퇴') {
+          alert('회원탈퇴가 취소되었습니다.');
+          return;
+        }
+
+        if (!window.CodiBank || !CodiBank.deleteUserAccount) {
+          alert('회원탈퇴 기능을 사용할 수 없습니다. (코드 로딩 오류)');
+          return;
+        }
+
+        const res = CodiBank.deleteUserAccount(email);
+        if (res && res.ok === true) {
+          alert('회원탈퇴가 완료되었습니다.');
+          window.location.href = 'signup.html';
+        } else {
+          alert((res && res.error) ? res.error : '회원탈퇴에 실패했습니다.');
+        }
+      } catch (e) {
+        console.warn('delete account failed:', e);
+        alert('회원탈퇴 처리 중 오류가 발생했습니다.');
+      }
+    });
+  </script>
+</body>
+</html>

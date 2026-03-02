@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>착착옷장 — 옷장 앞 고민, 끝.</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #08070A;
+  --bg-elevated: #111015;
+  --bg-card: #18171C;
+  --bg-card-hover: #1F1E24;
+  --surface: #232228;
+  --border: rgba(255,255,255,0.06);
+  --border-hover: rgba(255,255,255,0.12);
+  --text: #F5F5F7;
+  --text-sub: #A1A1AA;
+  --text-muted: #71717A;
+  --amber: #F59E0B;
+  --amber-soft: #FDE68A;
+  --amber-glow: rgba(245,158,11,0.12);
+  --amber-glow-strong: rgba(245,158,11,0.25);
+  --rose: #FB7185;
+  --rose-glow: rgba(251,113,133,0.12);
+  --green: #34D399;
+  --green-glow: rgba(52,211,153,0.12);
+  --r: 16px;
+  --r-sm: 10px;
+  --r-lg: 24px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Noto Sans KR',sans-serif;
+  background:var(--bg);color:var(--text);
+  overflow-x:hidden;-webkit-font-smoothing:antialiased;
+}
+body::after{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:9999;
+}
+.container{max-width:1080px;margin:0 auto;padding:0 24px;}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:18px 0;transition:all .4s;}
+nav.scrolled{background:rgba(8,7,10,0.88);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);padding:14px 0;}
+nav .container{display:flex;justify-content:space-between;align-items:center;}
+.logo{font-family:'Outfit',sans-serif;font-weight:700;font-size:1.35rem;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:10px;letter-spacing:-0.5px;}
+.logo-mark{width:30px;height:30px;background:var(--amber);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;transform:rotate(-4deg);}
+.nav-links{display:flex;align-items:center;gap:28px;}
+.nav-links a{color:var(--text-sub);text-decoration:none;font-size:.85rem;font-weight:400;transition:color .3s;}
+.nav-links a:hover{color:var(--text);}
+.nav-cta{padding:9px 22px;background:var(--amber);color:var(--bg);border:none;border-radius:100px;font-weight:600;font-size:.82rem;cursor:pointer;transition:all .3s;font-family:'Noto Sans KR',sans-serif;}
+.nav-cta:hover{background:var(--amber-soft);box-shadow:0 6px 24px rgba(245,158,11,.3);}
+
+/* ======== PART 1 — 상단 ======== */
+.part-top{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:120px 0 80px;position:relative;overflow:hidden;}
+.part-top::before{content:'';position:absolute;top:-20%;right:-15%;width:700px;height:700px;background:radial-gradient(circle,rgba(251,113,133,0.04) 0%,transparent 70%);pointer-events:none;}
+
+.problem-keyword{text-align:center;margin-bottom:72px;}
+.problem-keyword .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.72rem;font-weight:600;color:var(--rose);text-transform:uppercase;letter-spacing:2.5px;margin-bottom:24px;}
+.problem-keyword .eyebrow::before{content:'';width:20px;height:1px;background:var(--rose);}
+.problem-keyword h1{font-size:clamp(1.8rem,4.5vw,3.2rem);font-weight:900;line-height:1.35;letter-spacing:-1.5px;max-width:700px;margin:0 auto;}
+.problem-keyword h1 .highlight{background:linear-gradient(135deg,var(--rose),#F97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+
+.common-behaviors{margin-bottom:72px;}
+.behavior-label{text-align:center;font-size:.78rem;color:var(--text-muted);margin-bottom:24px;font-weight:400;letter-spacing:.5px;}
+.behavior-pills{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;max-width:740px;margin:0 auto;}
+.behavior-pill{display:flex;align-items:center;gap:10px;padding:14px 22px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:100px;font-size:.88rem;font-weight:400;color:var(--text-sub);transition:all .3s;cursor:default;}
+.behavior-pill:hover{border-color:var(--border-hover);background:var(--bg-card);color:var(--text);}
+.behavior-pill .bp-icon{font-size:1.1rem;flex-shrink:0;}
+
+.frustration{text-align:center;}
+.frustration-divider{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:32px;}
+.frustration-divider .line{width:60px;height:1px;background:var(--border);}
+.frustration-divider .label{font-size:.72rem;color:var(--text-muted);font-weight:500;letter-spacing:2px;text-transform:uppercase;}
+.frustration h2{font-size:clamp(1.3rem,3vw,2rem);font-weight:700;line-height:1.5;letter-spacing:-.5px;color:var(--text-sub);max-width:600px;margin:0 auto 12px;}
+.frustration h2 strong{color:var(--text);font-weight:900;}
+.frustration .subtext{font-size:.92rem;color:var(--text-muted);font-weight:300;line-height:1.7;}
+
+.scroll-hint{text-align:center;margin-top:64px;animation:bounce 2s infinite;}
+.scroll-hint span{display:inline-block;width:28px;height:44px;border:2px solid var(--border);border-radius:14px;position:relative;}
+.scroll-hint span::after{content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);width:3px;height:8px;background:var(--text-muted);border-radius:2px;animation:scroll-dot 2s infinite;}
+@keyframes scroll-dot{0%{opacity:1;transform:translateX(-50%) translateY(0);}100%{opacity:0;transform:translateX(-50%) translateY(12px);}}
+@keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(6px);}}
+
+
+/* ======== PART 2 — 중간 ======== */
+.part-mid{padding:120px 0 0;position:relative;}
+.part-mid::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(245,158,11,.15),transparent);}
+
+.empathy-block{text-align:center;margin-bottom:80px;}
+.empathy-block .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.72rem;font-weight:600;color:var(--amber);text-transform:uppercase;letter-spacing:2.5px;margin-bottom:24px;}
+.empathy-block .eyebrow::before,.empathy-block .eyebrow::after{content:'';width:20px;height:1px;background:var(--amber);}
+.brand-statement{font-size:clamp(1.6rem,4vw,2.8rem);font-weight:900;line-height:1.4;letter-spacing:-1.5px;max-width:750px;margin:0 auto 20px;}
+.brand-statement .glow{background:linear-gradient(135deg,var(--amber),#FB923C);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.brand-sub{font-size:1.05rem;color:var(--text-sub);font-weight:300;line-height:1.8;max-width:520px;margin:0 auto;}
+
+/* === 서비스 카드 — 세로 배열 + 이미지 === */
+.services-section{margin-bottom:100px;}
+.services-intro{text-align:center;margin-bottom:48px;}
+.services-intro h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;letter-spacing:-.3px;}
+.services-intro p{font-size:.88rem;color:var(--text-muted);font-weight:300;}
+
+.service-stack{
+  display:flex;flex-direction:column;gap:20px;
+  max-width:880px;margin:0 auto;
+}
+.svc-card{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  background:var(--bg-elevated);
+  border:1px solid var(--border);
+  border-radius:var(--r-lg);
+  overflow:hidden;
+  transition:all .4s;
+  min-height:280px;
+}
+.svc-card:hover{
+  border-color:var(--border-hover);
+  transform:translateY(-3px);
+  box-shadow:0 24px 64px rgba(0,0,0,.35);
+}
+.svc-card:nth-child(even){direction:rtl;}
+.svc-card:nth-child(even)>*{direction:ltr;}
+
+.svc-visual{
+  position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg-card);
+}
+.svc-scene{
+  width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center;
+  padding:32px;
+  position:relative;
+}
+
+/* Scene 1: 촬영 등록 */
+.scene-capture{
+  display:flex;flex-direction:column;align-items:center;gap:16px;
+}
+.capture-phone{
+  width:120px;height:160px;
+  background:var(--bg);border-radius:20px;
+  border:2px solid rgba(255,255,255,.08);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative;
+  box-shadow:0 16px 40px rgba(0,0,0,.4);
+}
+.capture-lens{
+  width:40px;height:40px;border-radius:50%;
+  border:3px solid var(--amber);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.2rem;margin-bottom:8px;
+  animation:pulse-ring 2s infinite;
+}
+@keyframes pulse-ring{
+  0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.3);}
+  50%{box-shadow:0 0 0 10px rgba(245,158,11,0);}
+}
+.capture-label{font-size:.6rem;color:var(--text-muted);font-weight:500;letter-spacing:1px;}
+.capture-arrow{
+  display:flex;align-items:center;gap:8px;
+  color:var(--amber);font-size:.72rem;font-weight:600;
+}
+.capture-arrow .arrow-line{width:40px;height:1px;background:var(--amber);}
+.capture-categories{
+  display:flex;gap:8px;
+}
+.capture-cat{
+  width:48px;height:48px;
+  background:var(--bg);border-radius:12px;
+  border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.2rem;
+  animation:pop-in .5s ease both;
+}
+.capture-cat:nth-child(2){animation-delay:.1s;}
+.capture-cat:nth-child(3){animation-delay:.2s;}
+.capture-cat:nth-child(4){animation-delay:.3s;}
+.capture-cat:nth-child(5){animation-delay:.4s;}
+@keyframes pop-in{from{opacity:0;transform:scale(.7);}to{opacity:1;transform:scale(1);}}
+
+/* Scene 2: AI 코디 */
+.scene-codi{
+  display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+.codi-input{
+  display:flex;gap:10px;align-items:center;
+  margin-bottom:4px;
+}
+.codi-chip{
+  padding:6px 14px;border-radius:100px;
+  font-size:.68rem;font-weight:500;
+  background:var(--bg);border:1px solid var(--border);
+  color:var(--text-sub);
+}
+.codi-chip.active{border-color:var(--amber);color:var(--amber);background:var(--amber-glow);}
+.codi-result{
+  display:flex;gap:10px;align-items:flex-end;
+  padding:16px 20px;
+  background:var(--bg);border-radius:16px;
+  border:1px solid rgba(245,158,11,.12);
+  box-shadow:0 8px 30px rgba(0,0,0,.3);
+}
+.codi-piece{
+  width:52px;height:64px;
+  background:var(--surface);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.5rem;border:1px solid var(--border);
+}
+.codi-piece.highlight{
+  border-color:var(--amber);
+  box-shadow:0 0 12px rgba(245,158,11,.15);
+  transform:translateY(-4px);
+}
+.codi-badge{
+  position:absolute;top:20px;right:20px;
+  padding:5px 12px;border-radius:100px;
+  font-size:.62rem;font-weight:600;
+  background:var(--amber);color:var(--bg);
+}
+
+/* Scene 3: AI 사이즈 */
+.scene-size{
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+}
+.size-input-row{
+  display:flex;gap:12px;
+}
+.size-input-box{
+  padding:10px 16px;background:var(--bg);border-radius:10px;
+  border:1px solid var(--border);text-align:center;
+}
+.size-input-label{font-size:.55rem;color:var(--text-muted);display:block;margin-bottom:2px;letter-spacing:.5px;text-transform:uppercase;}
+.size-input-val{font-family:'Outfit',sans-serif;font-size:1.1rem;font-weight:700;color:var(--text);}
+.size-arrow-down{
+  font-size:1.2rem;color:var(--amber);
+  animation:arrow-bounce 1.5s infinite;
+}
+@keyframes arrow-bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(4px);}}
+.size-result-card{
+  background:var(--bg);border-radius:14px;
+  border:1px solid rgba(52,211,153,.15);
+  padding:16px 24px;text-align:center;
+  box-shadow:0 8px 30px rgba(0,0,0,.3);
+}
+.size-result-label{font-size:.62rem;color:var(--green);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
+.size-result-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;
+}
+.size-r-item{
+  padding:6px;background:var(--surface);border-radius:8px;
+}
+.size-r-item .sr-label{font-size:.5rem;color:var(--text-muted);}
+.size-r-item .sr-val{font-family:'Outfit',sans-serif;font-size:.82rem;font-weight:600;color:var(--text);}
+.size-big{
+  font-family:'Outfit',sans-serif;
+  font-size:2.4rem;font-weight:800;
+  background:linear-gradient(135deg,var(--green),var(--amber));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+
+.svc-text{
+  padding:40px 36px;
+  display:flex;flex-direction:column;justify-content:center;
+}
+.svc-num{
+  font-family:'Outfit',sans-serif;
+  font-size:.7rem;font-weight:700;color:var(--amber);
+  letter-spacing:2px;margin-bottom:14px;
+}
+.svc-text h4{
+  font-size:1.3rem;font-weight:800;letter-spacing:-.5px;
+  margin-bottom:12px;line-height:1.35;
+}
+.svc-text p{
+  font-size:.9rem;color:var(--text-sub);line-height:1.7;font-weight:300;
+  margin-bottom:18px;
+}
+.svc-tag{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 16px;border-radius:100px;
+  font-size:.72rem;font-weight:600;
+  background:var(--amber-glow);color:var(--amber);
+  border:1px solid rgba(245,158,11,.12);
+  width:fit-content;
+}
+
+/* CTA BRIDGE */
+.cta-bridge{text-align:center;padding:80px 0 120px;position:relative;}
+.cta-bridge::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:1px;height:60px;background:linear-gradient(180deg,var(--border),var(--amber-glow-strong));}
+.cta-bridge .prompt{font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:8px;letter-spacing:-.3px;}
+.cta-bridge .prompt-sub{font-size:.85rem;color:var(--text-muted);font-weight:300;margin-bottom:32px;}
+.cta-buttons{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;}
+.btn-main{padding:16px 40px;background:var(--amber);color:var(--bg);border:none;border-radius:100px;font-size:.95rem;font-weight:700;cursor:pointer;transition:all .3s;font-family:'Noto Sans KR',sans-serif;display:flex;align-items:center;gap:8px;}
+.btn-main:hover{background:var(--amber-soft);transform:translateY(-2px);box-shadow:0 12px 40px rgba(245,158,11,.35);}
+.btn-ghost{padding:16px 36px;background:transparent;color:var(--text);border:1px solid var(--border-hover);border-radius:100px;font-size:.95rem;font-weight:500;cursor:pointer;transition:all .3s;font-family:'Noto Sans KR',sans-serif;}
+.btn-ghost:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-glow);}
+
+
+/* ======== PART 3 — 하단 ======== */
+.part-bottom{padding:0 0 120px;position:relative;}
+.part-bottom::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(52,211,153,.15),transparent);}
+
+.showcase{padding:120px 0 80px;text-align:center;}
+.showcase .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.72rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:2.5px;margin-bottom:20px;}
+.showcase .eyebrow::before,.showcase .eyebrow::after{content:'';width:20px;height:1px;background:var(--green);}
+.showcase h2{font-size:clamp(1.5rem,3.5vw,2.4rem);font-weight:900;letter-spacing:-1px;margin-bottom:12px;line-height:1.3;}
+.showcase h2 .accent{color:var(--amber);}
+.showcase .desc{font-size:.95rem;color:var(--text-sub);font-weight:300;margin-bottom:56px;line-height:1.7;}
+
+/* Phone Mockup */
+.phone-wrap{display:flex;justify-content:center;margin-bottom:80px;}
+.phone{
+  width:290px;height:600px;background:var(--bg-elevated);border-radius:38px;
+  border:2px solid rgba(255,255,255,.07);overflow:hidden;
+  box-shadow:0 50px 100px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03),inset 0 1px 0 rgba(255,255,255,.04);
+  position:relative;
+}
+.phone-notch{width:110px;height:26px;background:var(--bg);border-radius:0 0 16px 16px;margin:0 auto;position:relative;z-index:3;}
+.phone-inner{padding:10px 16px 16px;overflow:hidden;}
+.phone-title{text-align:center;font-size:.92rem;font-weight:700;padding:10px 0 16px;letter-spacing:-.3px;}
+.phone-cat{margin-bottom:14px;}
+.phone-cat-label{font-size:.62rem;font-weight:600;color:var(--amber);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;}
+.phone-items{display:flex;gap:8px;}
+.phone-item{flex:1;height:76px;background:var(--bg-card);border-radius:12px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.5rem;transition:all .3s;}
+.phone-item.on{border-color:var(--amber);box-shadow:0 0 16px rgba(245,158,11,.12);}
+.phone-bottom-bar{display:flex;justify-content:space-around;padding:12px 0 4px;margin-top:8px;border-top:1px solid var(--border);}
+.phone-tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.56rem;color:var(--text-muted);font-weight:400;}
+.phone-tab.active{color:var(--amber);}
+.phone-tab .tab-icon{font-size:1rem;}
+
+/* === 6 기능 바둑판 그리드 === */
+.feat-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  grid-template-rows:repeat(2,1fr);
+  gap:2px;
+  border-radius:var(--r-lg);
+  overflow:hidden;
+  margin-bottom:80px;
+}
+.feat-cell{
+  background:var(--bg-elevated);
+  padding:36px 28px;
+  display:flex;flex-direction:column;
+  transition:all .35s;
+  position:relative;
+  overflow:hidden;
+}
+.feat-cell::before{
+  content:'';position:absolute;inset:0;
+  opacity:0;transition:opacity .35s;
+}
+.feat-cell:nth-child(1)::before{background:linear-gradient(135deg,rgba(245,158,11,.06),transparent 60%);}
+.feat-cell:nth-child(2)::before{background:linear-gradient(135deg,rgba(251,113,133,.06),transparent 60%);}
+.feat-cell:nth-child(3)::before{background:linear-gradient(135deg,rgba(52,211,153,.06),transparent 60%);}
+.feat-cell:nth-child(4)::before{background:linear-gradient(135deg,rgba(52,211,153,.06),transparent 60%);}
+.feat-cell:nth-child(5)::before{background:linear-gradient(135deg,rgba(245,158,11,.06),transparent 60%);}
+.feat-cell:nth-child(6)::before{background:linear-gradient(135deg,rgba(251,113,133,.06),transparent 60%);}
+.feat-cell:hover::before{opacity:1;}
+.feat-cell:hover{background:var(--bg-card);}
+.feat-cell>*{position:relative;z-index:1;}
+.fc-icon{
+  width:42px;height:42px;border-radius:11px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.3rem;margin-bottom:16px;flex-shrink:0;
+  border:1px solid var(--border);
+}
+.fc-icon.c1{background:var(--amber-glow);}
+.fc-icon.c2{background:var(--rose-glow);}
+.fc-icon.c3{background:var(--green-glow);}
+.feat-cell h5{font-size:.92rem;font-weight:700;margin-bottom:6px;letter-spacing:-.2px;}
+.feat-cell p{font-size:.78rem;color:var(--text-sub);line-height:1.55;font-weight:300;}
+
+/* === 혜택 — 강조 비주얼 === */
+.benefits{padding:0 0 0;margin-bottom:60px;}
+.benefits-header{text-align:center;margin-bottom:56px;}
+.benefits-header h3{font-size:1.3rem;font-weight:900;letter-spacing:-.5px;margin-bottom:8px;}
+.benefits-header p{font-size:.88rem;color:var(--text-muted);font-weight:300;}
+
+.benefit-showcase{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+}
+.benefit-card{
+  position:relative;
+  padding:48px 36px;
+  border-radius:var(--r-lg);
+  overflow:hidden;
+  display:flex;flex-direction:column;justify-content:flex-end;
+  min-height:280px;
+}
+.benefit-card::before{
+  content:'';position:absolute;inset:0;z-index:0;
+}
+.benefit-card.time-card{
+  background:linear-gradient(160deg,#1a1510 0%,#120f0a 100%);
+  border:1px solid rgba(245,158,11,.08);
+}
+.benefit-card.time-card::before{
+  background:radial-gradient(ellipse at 70% 20%,rgba(245,158,11,.08),transparent 65%);
+}
+.benefit-card.free-card{
+  background:linear-gradient(160deg,#0f1510 0%,#0a120e 100%);
+  border:1px solid rgba(52,211,153,.08);
+}
+.benefit-card.free-card::before{
+  background:radial-gradient(ellipse at 30% 20%,rgba(52,211,153,.08),transparent 65%);
+}
+
+.bc-big-visual{
+  position:relative;z-index:1;
+  margin-bottom:24px;
+}
+.bc-big-num{
+  font-family:'Outfit',sans-serif;
+  font-weight:900;line-height:1;
+  letter-spacing:-3px;
+}
+.time-card .bc-big-num{
+  font-size:clamp(4rem,8vw,5.5rem);
+  background:linear-gradient(135deg,var(--amber),#FB923C);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.free-card .bc-big-num{
+  font-size:clamp(3.5rem,7vw,4.8rem);
+  background:linear-gradient(135deg,var(--green),#6EE7B7);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.bc-big-unit{
+  font-family:'Outfit',sans-serif;
+  font-size:1.4rem;font-weight:700;
+  color:var(--text);
+  margin-left:4px;
+}
+
+.bc-info{position:relative;z-index:1;}
+.bc-info h4{
+  font-size:1.1rem;font-weight:800;letter-spacing:-.3px;
+  margin-bottom:6px;
+}
+.bc-info p{
+  font-size:.85rem;color:var(--text-sub);line-height:1.6;font-weight:300;
+}
+
+/* 최종 CTA */
+.final-cta{
+  background:linear-gradient(135deg,var(--bg-elevated),rgba(245,158,11,.03));
+  border:1px solid rgba(245,158,11,.08);
+  border-radius:var(--r-lg);padding:56px 40px;text-align:center;
+  position:relative;overflow:hidden;
+}
+.final-cta::before{content:'';position:absolute;top:-80px;left:50%;transform:translateX(-50%);width:400px;height:200px;background:radial-gradient(ellipse,rgba(245,158,11,.06),transparent 70%);}
+.final-cta h3{font-size:1.4rem;font-weight:900;letter-spacing:-.5px;margin-bottom:10px;position:relative;}
+.final-cta p{font-size:.88rem;color:var(--text-sub);font-weight:300;margin-bottom:28px;line-height:1.7;position:relative;}
+.final-cta .btn-main{margin:0 auto;position:relative;}
+
+/* FOOTER */
+footer{padding:40px 0;border-top:1px solid var(--border);margin-top:80px;}
+footer .container{display:flex;justify-content:space-between;align-items:center;}
+footer p{font-size:.78rem;color:var(--text-muted);font-weight:300;}
+
+/* ANIMATIONS */
+.anim{opacity:0;transform:translateY(36px);transition:all .7s cubic-bezier(.16,1,.3,1);}
+.anim.show{opacity:1;transform:translateY(0);}
+.anim-d1{transition-delay:.08s;}
+.anim-d2{transition-delay:.16s;}
+.anim-d3{transition-delay:.24s;}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .svc-card{grid-template-columns:1fr;min-height:auto;}
+  .svc-card:nth-child(even){direction:ltr;}
+  .svc-visual{min-height:220px;}
+  .feat-grid{grid-template-columns:1fr 1fr;}
+  .benefit-showcase{grid-template-columns:1fr;}
+  .nav-links a{display:none;}
+}
+@media(max-width:600px){
+  .svc-card{grid-template-columns:1fr;}
+  .svc-text{padding:28px 24px;}
+  .feat-grid{grid-template-columns:1fr;}
+  .behavior-pills{gap:8px;}
+  .behavior-pill{padding:11px 16px;font-size:.82rem;}
+  .phone{width:250px;height:530px;}
+  .cta-buttons{flex-direction:column;align-items:center;}
+  .final-cta{padding:44px 24px;}
+  .benefit-card{min-height:220px;padding:36px 28px;}
+  footer .container{flex-direction:column;gap:12px;text-align:center;}
+}
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <div class="container">
+    <a href="#" class="logo"><div class="logo-mark">👔</div>착착옷장</a>
+    <div class="nav-links">
+      <a href="#solution">서비스 소개</a>
+      <a href="#closet">온라인 옷장</a>
+      <a class="nav-cta" href="app/login.html">시작하기</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ======== PART 1 — 상단 ======== -->
+<section class="part-top">
+  <div class="container">
+    <div class="problem-keyword anim">
+      <div class="eyebrow">매일 반복되는 당신의 아침</div>
+      <h1>옷은 넘치는데,<br><span class="highlight">오늘 입을 옷이 없다.</span></h1>
+    </div>
+    <div class="common-behaviors anim anim-d1">
+      <div class="behavior-label">그래서 우리가 하는 일들 —</div>
+      <div class="behavior-pills">
+        <div class="behavior-pill"><span class="bp-icon">🛒</span> 또 새 옷을 산다</div>
+        <div class="behavior-pill"><span class="bp-icon">📱</span> 코디 사진을 검색한다</div>
+        <div class="behavior-pill"><span class="bp-icon">👤</span> 친구에게 물어본다</div>
+        <div class="behavior-pill"><span class="bp-icon">🪞</span> 갈아입고 또 갈아입는다</div>
+        <div class="behavior-pill"><span class="bp-icon">😮‍💨</span> 결국 "아무거나" 입고 나간다</div>
+      </div>
+    </div>
+    <div class="frustration anim anim-d2">
+      <div class="frustration-divider">
+        <div class="line"></div><div class="label">그런데</div><div class="line"></div>
+      </div>
+      <h2>옷을 새로 사도, 코디를 찾아봐도,<br><strong>옷장 앞 15분은 사라지지 않는다.</strong></h2>
+      <p class="subtext">문제는 옷이 아니라, 내 옷장을 제대로 모르는 것.</p>
+    </div>
+    <div class="scroll-hint anim anim-d3"><span></span></div>
+  </div>
+</section>
+
+<!-- ======== PART 2 — 중간 ======== -->
+<section class="part-mid" id="solution">
+  <div class="container">
+    <div class="empathy-block anim">
+      <div class="eyebrow">Solution</div>
+      <h2 class="brand-statement">옷장을 꺼내 손 안에 넣었다.<br><span class="glow">착착, 입고 나가세요.</span></h2>
+      <p class="brand-sub">당신의 옷장을 모바일로 옮기고, AI가 오늘의 코디를 추천합니다.<br>날씨, 일정, 체형까지 고려한 스마트 옷장 서비스.</p>
+    </div>
+
+    <div class="services-section">
+      <div class="services-intro anim">
+        <h3>착착옷장이 해드리는 일</h3>
+        <p>복잡한 건 우리가, 당신은 고르기만</p>
+      </div>
+
+      <div class="service-stack">
+        <!-- 1. 촬영 등록 -->
+        <div class="svc-card anim">
+          <div class="svc-visual">
+            <div class="svc-scene">
+              <div class="scene-capture">
+                <div class="capture-phone">
+                  <div class="capture-lens">📷</div>
+                  <div class="capture-label">촬영</div>
+                </div>
+                <div class="capture-arrow">
+                  <div class="arrow-line"></div>
+                  → 자동 분류
+                  <div class="arrow-line"></div>
+                </div>
+                <div class="capture-categories">
+                  <div class="capture-cat">🧥</div>
+                  <div class="capture-cat">👔</div>
+                  <div class="capture-cat">👖</div>
+                  <div class="capture-cat">🧥</div>
+                  <div class="capture-cat">👞</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="svc-text">
+            <div class="svc-num">STEP 01</div>
+            <h4>촬영 한 장이면<br>등록 끝</h4>
+            <p>옷 사진을 찍으면 자켓, 탑, 바지, 코트, 신발로 자동 분류되어 내 온라인 옷장에 저장됩니다. 복잡한 입력 없이 사진만 찍으세요.</p>
+            <div class="svc-tag">✦ 자동 분류</div>
+          </div>
+        </div>
+
+        <!-- 2. AI 코디 -->
+        <div class="svc-card anim">
+          <div class="svc-visual">
+            <div class="svc-scene">
+              <div class="codi-badge">AI 추천</div>
+              <div class="scene-codi">
+                <div class="codi-input">
+                  <div class="codi-chip active">☀️ 맑음 12°</div>
+                  <div class="codi-chip active">💼 면접</div>
+                  <div class="codi-chip">📍 강남</div>
+                </div>
+                <div style="font-size:.65rem;color:var(--text-muted);margin-bottom:4px;">▼ AI 분석 결과</div>
+                <div class="codi-result">
+                  <div class="codi-piece highlight">🧥</div>
+                  <div class="codi-piece">👔</div>
+                  <div class="codi-piece">👖</div>
+                  <div class="codi-piece">👞</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="svc-text">
+            <div class="svc-num">STEP 02</div>
+            <h4>AI가 오늘의<br>코디를 추천</h4>
+            <p>날씨, 일정, TPO를 분석해서 내 옷장에 있는 옷으로 최적의 조합을 만들어 드려요. 마음에 안 들면 스와이프 한 번이면 새로운 스타일.</p>
+            <div class="svc-tag">✦ 맞춤 추천</div>
+          </div>
+        </div>
+
+        <!-- 3. AI 사이즈 -->
+        <div class="svc-card anim">
+          <div class="svc-visual">
+            <div class="svc-scene">
+              <div class="scene-size">
+                <div class="size-input-row">
+                  <div class="size-input-box">
+                    <span class="size-input-label">키</span>
+                    <span class="size-input-val">175</span>
+                  </div>
+                  <div class="size-input-box">
+                    <span class="size-input-label">몸무게</span>
+                    <span class="size-input-val">78</span>
+                  </div>
+                </div>
+                <div class="size-arrow-down">⬇</div>
+                <div class="size-result-card">
+                  <div class="size-result-label">AI 분석 완료</div>
+                  <div class="size-big">M–L</div>
+                  <div class="size-result-grid">
+                    <div class="size-r-item"><div class="sr-label">목둘레</div><div class="sr-val">16.5"</div></div>
+                    <div class="size-r-item"><div class="sr-label">어깨</div><div class="sr-val">18.5"</div></div>
+                    <div class="size-r-item"><div class="sr-label">가슴</div><div class="sr-val">43.5"</div></div>
+                    <div class="size-r-item"><div class="sr-label">소매</div><div class="sr-val">24.3"</div></div>
+                    <div class="size-r-item"><div class="sr-label">허리</div><div class="sr-val">40.5"</div></div>
+                    <div class="size-r-item"><div class="sr-label">기장</div><div class="sr-val">30.5"</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="svc-text">
+            <div class="svc-num">STEP 03</div>
+            <h4>키·몸무게만으로<br>정확한 사이즈</h4>
+            <p>6,800+명의 인체 데이터와 400건의 실측 데이터로 학습한 AI가 목둘레, 어깨, 가슴, 소매, 허리, 기장까지 정확하게 예측합니다.</p>
+            <div class="svc-tag">✦ 92% 정확도</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cta-bridge anim" id="try">
+      <p class="prompt">내 옷장, 한번 경험해볼까요?</p>
+      <p class="prompt-sub">회원가입 없이도 AI 사이즈 추천을 먼저 체험할 수 있어요.</p>
+      <div class="cta-buttons">
+        <button class="btn-main">회원가입하기 ✦</button>
+        <button class="btn-ghost">로그인 없이 테스트 →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======== PART 3 — 하단 ======== -->
+<section class="part-bottom" id="closet">
+  <div class="container">
+    <div class="showcase">
+      <div class="eyebrow">Closet Preview</div>
+      <h2 class="anim">내 손 안의 옷장, <span class="accent">착착 클로젯</span></h2>
+      <p class="desc anim">옷장이 스마트폰 안에 들어왔습니다. 주요 기능을 확인해보세요.</p>
+
+      <div class="phone-wrap anim">
+        <div class="phone">
+          <div class="phone-notch"></div>
+          <div class="phone-inner">
+            <div class="phone-title">My Closet</div>
+            <div class="phone-cat">
+              <div class="phone-cat-label">Jacket</div>
+              <div class="phone-items">
+                <div class="phone-item on">🧥</div>
+                <div class="phone-item">🧥</div>
+                <div class="phone-item">🧥</div>
+              </div>
+            </div>
+            <div class="phone-cat">
+              <div class="phone-cat-label">Top</div>
+              <div class="phone-items">
+                <div class="phone-item">👔</div>
+                <div class="phone-item on">👕</div>
+                <div class="phone-item">👔</div>
+              </div>
+            </div>
+            <div class="phone-cat">
+              <div class="phone-cat-label">Pants</div>
+              <div class="phone-items">
+                <div class="phone-item">👖</div>
+                <div class="phone-item">👖</div>
+                <div class="phone-item on">👖</div>
+              </div>
+            </div>
+            <div class="phone-cat">
+              <div class="phone-cat-label">Shoes</div>
+              <div class="phone-items">
+                <div class="phone-item on">👞</div>
+                <div class="phone-item">👟</div>
+                <div class="phone-item">👞</div>
+              </div>
+            </div>
+            <div class="phone-bottom-bar">
+              <div class="phone-tab active"><span class="tab-icon">🏠</span> 옷장</div>
+              <div class="phone-tab"><span class="tab-icon">✨</span> 코디</div>
+              <div class="phone-tab"><span class="tab-icon">📐</span> 사이즈</div>
+              <div class="phone-tab"><span class="tab-icon">👤</span> MY</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6 기능 바둑판 그리드 -->
+    <div class="feat-grid anim">
+      <div class="feat-cell">
+        <div class="fc-icon c1">📸</div>
+        <h5>스마트 옷장</h5>
+        <p>사진 한 장으로 자동 분류. 자켓, 탑, 바지, 코트, 신발까지 카테고리별 정리</p>
+      </div>
+      <div class="feat-cell">
+        <div class="fc-icon c2">🌤️</div>
+        <h5>날씨 × TPO 코디</h5>
+        <p>실시간 날씨, 장소, 일정 목적에 맞춰 내 옷장에서 최적의 코디 추천</p>
+      </div>
+      <div class="feat-cell">
+        <div class="fc-icon c3">📐</div>
+        <h5>AI 사이즈 추천</h5>
+        <p>키·몸무게 입력만으로 6가지 핵심 치수를 92% 정확도로 예측</p>
+      </div>
+      <div class="feat-cell">
+        <div class="fc-icon c3">🔥</div>
+        <h5>Today's Codi</h5>
+        <p>오늘의 코디를 공유하고 좋아요를 받으면 포인트 적립. Hot Codi 선정 혜택</p>
+      </div>
+      <div class="feat-cell">
+        <div class="fc-icon c1">🎽</div>
+        <h5>구독 & 대여</h5>
+        <p>정장, 면접복, 행사복을 월 구독으로 합리적 대여. 필요할 때만 입고 반납</p>
+      </div>
+      <div class="feat-cell">
+        <div class="fc-icon c2">♻️</div>
+        <h5>기부 & 포인트</h5>
+        <p>안 입는 옷을 기부하면 포인트 적립. 포인트로 구독료 결제까지 가능</p>
+      </div>
+    </div>
+
+    <!-- 혜택 — 강조 비주얼 -->
+    <div class="benefits">
+      <div class="benefits-header anim">
+        <h3>지금 시작하면, 이게 달라집니다</h3>
+        <p>회원가입 후 바로 누리는 혜택</p>
+      </div>
+
+      <div class="benefit-showcase anim">
+        <div class="benefit-card time-card">
+          <div class="bc-big-visual">
+            <span class="bc-big-num">15</span><span class="bc-big-unit">min</span>
+          </div>
+          <div class="bc-info">
+            <h4>매일 아침 15분 절약</h4>
+            <p>AI가 오늘의 코디를 미리 준비해드립니다.<br>옷장 앞 고민 시간, 이제 0분.</p>
+          </div>
+        </div>
+        <div class="benefit-card free-card">
+          <div class="bc-big-visual">
+            <span class="bc-big-num">FREE</span>
+          </div>
+          <div class="bc-info">
+            <h4>첫 달 무료 구독</h4>
+            <p>사전 등록 회원 한정, 프리미엄 기능을<br>첫 달 동안 무료로 체험하세요.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 최종 CTA -->
+    <div class="final-cta anim">
+      <h3>옷장 앞에서 보내는 시간, 아깝지 않으세요?</h3>
+      <p>착착옷장이 당신의 매일 아침을 바꿔드립니다. 지금 시작하세요.</p>
+      <a class="btn-main" href="app/login.html">무료로 시작하기 →</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <a href="#" class="logo" style="font-size:1.15rem;"><div class="logo-mark" style="width:26px;height:26px;font-size:13px;">👔</div>착착옷장</a>
+    <p>© 2026 착착옷장 Chakchak Closet. All rights reserved.</p>
+  </div>
+</footer>
+
+<script>
+const nav=document.getElementById('nav');
+window.addEventListener('scroll',()=>{nav.classList.toggle('scrolled',window.scrollY>60);});
+
+const io=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('show');io.unobserve(e.target);}});
+},{threshold:0.08,rootMargin:'0px 0px -40px 0px'});
+document.querySelectorAll('.anim').forEach(el=>io.observe(el));
+
+const phoneItems=document.querySelectorAll('.phone-item');
+setInterval(()=>{
+  phoneItems.forEach(p=>p.classList.remove('on'));
+  const cats=[[0,1,2],[3,4,5],[6,7,8],[9,10,11]];
+  cats.forEach(cat=>{const pick=cat[Math.floor(Math.random()*cat.length)];if(phoneItems[pick])phoneItems[pick].classList.add('on');});
+},2500);
+
+// === Prototype Navigation (CodiBank) ===
+function go(url){ window.location.href = url; }
+
+// 상단 CTA → 로그인
+document.querySelectorAll('.nav-cta').forEach((btn)=>{
+  btn.addEventListener('click', ()=>go('app/login.html'));
+});
+
+// 중간 CTA: 회원가입하기 → 회원가입
+document.querySelectorAll('#try .btn-main').forEach((btn)=>{
+  btn.addEventListener('click', ()=>go('app/signup.html'));
+});
+
+// 로그인 없이 테스트 → 아이템 상세(코디/사이즈 화면 시연)
+document.querySelectorAll('#try .btn-ghost').forEach((btn)=>{
+  btn.addEventListener('click', ()=>go('app/item.html'));
+});
+
+// 하단 최종 CTA → 로그인
+document.querySelectorAll('.final-cta .btn-main').forEach((btn)=>{
+  btn.addEventListener('click', ()=>go('app/login.html'));
+});
+
+</script>
+</body>
+</html>

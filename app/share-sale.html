@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>공유판매 - 코디뱅크</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,200..700,0..1,-50..200" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+  <script src="config.js"></script>
+  <script src="codibank.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Noto Sans KR', 'ui-sans-serif', 'system-ui'],
+            display: ['Playfair Display', 'ui-serif', 'Georgia'],
+          },
+          colors: {
+            primary: '#111111',
+            accent: '#C5A358',
+            bg: '#FFFFFF',
+            card: '#FFFFFF',
+            card2: '#F9FAFB',
+            line: 'rgba(17,17,17,0.08)',
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    body { min-height: max(884px, 100dvh); -webkit-tap-highlight-color: transparent; }
+    .ios-blur { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+  </style>
+</head>
+<body class="bg-bg text-slate-900 font-sans">
+  <div class="max-w-md mx-auto">
+    <header class="px-6 pt-10 pb-6">
+      <p class="text-xs tracking-[0.2em] font-semibold text-accent">CODIBANK</p>
+      <h1 class="mt-2 text-2xl font-extrabold tracking-tight font-serif">공유판매</h1>
+      <p class="mt-2 text-sm text-slate-600 leading-relaxed">
+        테스트 단계에서는 <b class="text-slate-900">공유</b>와 <b class="text-slate-900">판매</b>를 한 페이지에서 탭으로 구분해 제공합니다.
+      </p>
+
+      <!-- Tabs -->
+      <div class="mt-5 bg-white border border-slate-200 rounded-2xl p-2 flex gap-2 shadow-sm">
+        <button id="tabShare" class="flex-1 py-2 rounded-xl text-sm font-extrabold">공유</button>
+        <button id="tabSale" class="flex-1 py-2 rounded-xl text-sm font-extrabold">판매</button>
+      </div>
+    </header>
+
+    <main class="px-6 pb-28">
+      <!-- SHARE -->
+      <section id="panelShare" class="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-2xl">share</span>
+          <h2 class="text-lg font-extrabold">공유</h2>
+        </div>
+        <p class="mt-3 text-sm text-slate-600 leading-relaxed">
+          코디앨범에서 생성된 코디 이미지의 <b class="text-slate-900">공유하기</b> 버튼을 누르면
+          휴대폰 공유 시트(메시지/카카오톡 등)로 연결됩니다.
+        </p>
+        <div class="mt-6 rounded-2xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-700">
+          <b class="text-slate-900">Tip</b><br/>
+          공유 기능은 브라우저가 <span class="font-semibold">Web Share API</span>를 지원할 때 가장 자연스럽게 동작합니다.
+        </div>
+      </section>
+
+      <!-- SALE -->
+      <section id="panelSale" class="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm hidden mt-6">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-2xl">shopping_bag</span>
+          <h2 class="text-lg font-extrabold">판매</h2>
+        </div>
+        <p class="mt-3 text-sm text-slate-600 leading-relaxed">
+          테스트 단계에서는 간단히 <b class="text-slate-900">준비중</b> 화면으로 표시합니다.
+        </p>
+        <div class="mt-6 rounded-2xl bg-slate-50 border border-slate-200 p-5 text-center">
+          <span class="material-symbols-outlined text-4xl text-slate-700">hourglass_top</span>
+          <p class="mt-2 text-base font-extrabold">준비중</p>
+          <p class="mt-2 text-sm text-slate-600">추후 중고판매/연동 기능이 확장됩니다.</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- FOOTBAR -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/95 ios-blur border-t border-slate-200 pt-3 pb-8 px-6 z-50">
+      <div class="flex justify-between items-center max-w-sm mx-auto">
+        <a href="closet.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">checkroom</span><span class="text-[10px] font-extrabold">내옷장</span></a>
+        <a href="camera.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">add_a_photo</span><span class="text-[10px] font-extrabold">item등록</span></a>
+        <a href="album.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">photo_library</span><span class="text-[10px] font-extrabold">코디앨범</span></a>
+        <a href="share-sale.html" class="flex flex-col items-center gap-1 text-accent"><span class="material-symbols-outlined filled text-2xl">storefront</span><span class="text-[10px] font-extrabold">공유판매</span></a>
+        <a href="mypage.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">person</span><span class="text-[10px] font-extrabold">My</span></a>
+      </div>
+    </nav>
+  </div>
+
+  <script>
+    // 로그인 가드(기존 정책 유지)
+    CodiBank.guard();
+
+    const tabShare = document.getElementById('tabShare');
+    const tabSale = document.getElementById('tabSale');
+    const panelShare = document.getElementById('panelShare');
+    const panelSale = document.getElementById('panelSale');
+
+    function setActive(tab){
+      const isShare = tab === 'share';
+      // button style
+      const on = 'bg-primary text-white';
+      const off = 'bg-white text-slate-700';
+      tabShare.className = 'flex-1 py-2 rounded-xl text-sm font-extrabold ' + (isShare ? on : off);
+      tabSale.className = 'flex-1 py-2 rounded-xl text-sm font-extrabold ' + (!isShare ? on : off);
+
+      panelShare.classList.toggle('hidden', !isShare);
+      panelSale.classList.toggle('hidden', isShare);
+
+      const url = new URL(location.href);
+      url.searchParams.set('tab', isShare ? 'share' : 'sale');
+      history.replaceState({}, '', url.toString());
+    }
+
+    tabShare.addEventListener('click', () => setActive('share'));
+    tabSale.addEventListener('click', () => setActive('sale'));
+
+    // init from query
+    const q = new URLSearchParams(location.search);
+    const init = (q.get('tab') || 'share').toLowerCase();
+    setActive(init === 'sale' ? 'sale' : 'share');
+  </script>
+</body>
+</html>
