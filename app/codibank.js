@@ -541,6 +541,8 @@ function getBackendBaseResolved() {
       userEmail: e,
       categoryKey,
       color: item.color || '',
+      subColor: item.subColor || '',       // ✅ 보조 컬러 (Claude Vision 반환)
+      styleTag: item.styleTag || '',       // ✅ 스타일 태그 (캐주얼/포멀/미니멀 등)
       brand: item.brand || '',
       note: item.note || item.description || '',
       images: item.images || {},

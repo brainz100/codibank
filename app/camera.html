@@ -4,7 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>아이템 등록 - 코디뱅크</title>
-
+  <!-- ⚡ 즉시 인증 체크: body 렌더 전 실행 → 깜빡임 완전 차단 -->
+  <style>html{visibility:hidden}</style>
+  <script>
+  (function(){
+    try {
+      var raw = localStorage.getItem('codibank_session');
+      if (!raw) {
+        window.location.replace('index.html');
+      } else {
+        document.documentElement.style.visibility = 'visible';
+      }
+    } catch(e) {
+      window.location.replace('index.html');
+    }
+  })();
+  </script>
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
@@ -1215,10 +1230,14 @@
         const styleTag = (_claudeClassifyResult && _claudeClassifyResult.style_tag)
           ? _claudeClassifyResult.style_tag
           : inferStyleTagFromPreds(_lastMnPreds);
+        // ✅ 보조 컬러 (Claude Vision이 반환한 sub_color)
+        const subColorName = (_claudeClassifyResult && _claudeClassifyResult.sub_color)
+          ? _claudeClassifyResult.sub_color : '';
         const lengthTag = (_claudeClassifyResult && _claudeClassifyResult.length) ? _claudeClassifyResult.length : '';
         const cvNote = (_claudeClassifyResult && _claudeClassifyResult.note) ? _claudeClassifyResult.note : '';
         const noteParts = [];
         if (colorName) noteParts.push(colorName);
+        if (subColorName) noteParts.push(subColorName);
         if (styleTag) noteParts.push(styleTag);
         if (lengthTag) noteParts.push(lengthTag);
         noteParts.push(catLabel);
@@ -1228,13 +1247,15 @@
         const result = CodiBank.addItem(user.email, {
           categoryKey,
           color: colorName || '',
+          subColor: subColorName || '',     // ✅ 보조 컬러 top-level 저장
+          styleTag: styleTag || '',         // ✅ 스타일 태그 top-level 저장
           brand: brandGuess || '',
           note: noteText,
           images,
           meta: {
             source: 'camera',
-            ai: { category: !!categoryKey, color: !!colorName, brand: !!brandGuess },
-            note: { auto: true, styleTag: styleTag || '' },
+            ai: { category: !!categoryKey, color: !!colorName, brand: !!brandGuess, subColor: !!subColorName },
+            note: { auto: true, styleTag: styleTag || '', subColor: subColorName || '' },
             optionalImages: { back: !!(shotBlob.back || shots.back), brand: !!(shotBlob.brand || shots.brand) },
           },
         });

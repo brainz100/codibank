@@ -4,6 +4,23 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>내옷장 - 코디뱅크</title>
+  <!-- ⚡ 즉시 인증 체크: body 렌더 전 실행 → 깜빡임 완전 차단 -->
+  <style>html{visibility:hidden}</style>
+  <script>
+  (function(){
+    try {
+      var raw = localStorage.getItem('codibank_session');
+      if (!raw) {
+        window.location.replace('index.html');
+      } else {
+        // 인증 확인 → 즉시 표시 (body 렌더 전에 visible 복원)
+        document.documentElement.style.visibility = 'visible';
+      }
+    } catch(e) {
+      window.location.replace('index.html');
+    }
+  })();
+  </script>
   <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -99,21 +116,21 @@
     .day-toggle.armed{opacity:1;border-width:2.5px;background:#111;border-color:#111;color:#fff;box-shadow:0 14px 34px rgba(0,0,0,0.18);}
     .vto-btn:disabled{opacity:0.45;cursor:not-allowed;}
     @media(prefers-reduced-motion:reduce){.clothing-layer{transition:none!important;}.vto-spinner{animation:none!important;}.vto-step{animation:none!important;}}
+
+    /* ── 매칭 배지 ── */
+    .match-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:800;letter-spacing:-0.01em;white-space:nowrap;}
+    .match-badge.high{background:rgba(197,163,88,0.13);color:#8a6a10;border:1px solid rgba(197,163,88,0.4);}
+    .match-badge.mid{background:rgba(100,160,100,0.10);color:#2a6a3a;border:1px solid rgba(100,160,100,0.3);}
+    .match-badge.low{background:rgba(0,0,0,0.05);color:#888;border:1px solid rgba(0,0,0,0.10);}
+    .match-badge.none{background:rgba(0,0,0,0.04);color:#aaa;border:1px solid rgba(0,0,0,0.08);}
+    /* 3번째(센터) 카드 매칭 오버레이 */
+    .match-overlay{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);z-index:40;pointer-events:none;transition:opacity 200ms;}
+    .clothing-layer:not(.layer-3) .match-overlay{opacity:0;}
   </style>
 </head>
 <body class="bg-background-light text-slate-900">
 
-<!-- 상태바 -->
-<div class="fixed top-0 w-full z-50 px-6 py-3 flex justify-between items-center bg-white/80 ios-blur border-b border-slate-100">
-  <span class="text-sm font-semibold">9:41</span>
-  <div class="flex gap-1.5 items-center text-slate-700">
-    <span class="material-symbols-outlined text-[16px]">signal_cellular_alt</span>
-    <span class="material-symbols-outlined text-[16px]">wifi</span>
-    <span class="material-symbols-outlined text-[16px]">battery_full</span>
-  </div>
-</div>
-
-<header class="pt-16 px-6 pb-2">
+<header class="pt-6 px-6 pb-2">
   <div class="flex items-start justify-between">
     <div>
       <h1 class="text-2xl font-serif leading-tight">내옷장</h1>
@@ -375,7 +392,8 @@ const S = {
   // ✅ 추천 코디 키워드(카테고리-컬러) 및 디지털 옷장 매칭 상태
   stylist: null,
   matchPairs: [],
-  matchByCat: {}
+  matchByCat: {},
+  matchScoreByCat: {}  // 카테고리별 매칭 퍼센트 (0~100)
 };
 const getPur = k => PURPOSES.find(p=>p.key===k)||PURPOSES[0];
 const pNum = v => {const n=Number(v);return Number.isFinite(n)?n:null;};
@@ -446,32 +464,97 @@ function normalizeKColorName(name){
   return String(name||'').trim();
 }
 
-function pickBestItemByColor(items, desiredColor){
-  const want = normalizeKColorName(desiredColor);
-  let best=null, bestScore=-1;
-  (items||[]).forEach((it, idx)=>{
-    const got = normalizeKColorName(it?.color || '');
-    let score = 0;
-    if(want && got){
-      if(got.includes(want) || want.includes(got)) score = 10;
-      else {
-        // 네이비~블루, 베이지~브라운 같은 근접군
-        const near = (
-          (want==='네이비' && got==='블루') || (want==='블루' && got==='네이비') ||
-          (want==='베이지' && got==='브라운') || (want==='브라운' && got==='베이지') ||
-          (want==='그레이' && (got==='블랙' || got==='화이트')) ||
-          (got==='그레이' && (want==='블랙' || want==='화이트'))
-        );
-        score = near ? 6 : 0;
-      }
-    } else if(want && !got) {
-      score = 1;
-    }
-    // 동일 점수면 최신(배열 앞쪽) 우선
-    score = score - (idx * 0.001);
-    if(score > bestScore){ bestScore = score; best = it; }
+// ══════════════════════════════════════════════════════════════
+// ✅ 10점 만점 매칭 엔진
+//    1순위 카테고리 일치: 4점 (카테고리별로 분리 저장이므로 항상 4점)
+//    2순위 컬러 일치:     3점 (주컬러 완전일치 3, 근사치 2, 서브컬러 1, 없음 0)
+//    3순위 스타일 일치:   3점 (완전일치 3, 유사 2, 없음 0)
+//    합계 최대 10점 → "스타일링 매칭 N점"
+// ══════════════════════════════════════════════════════════════
+
+// 컬러 근접군 맵 (유사 컬러 → 부분 점수)
+const COLOR_NEAR_MAP = [
+  ['네이비', '블루', '인디고'],
+  ['베이지', '브라운', '카멜'],
+  ['그레이', '블랙', '화이트'],
+  ['카키', '올리브', '그린'],
+  ['버건디', '레드', '와인'],
+  ['핑크', '코랄', '살구'],
+  ['옐로우', '머스타드', '골드'],
+];
+
+function colorMatchScore(want, have, haveSub){
+  // 3점 만점: 주컬러 완전 3, 근사 2, 서브컬러 1, 없음 0
+  const w = normalizeKColorName(want || '');
+  const h = normalizeKColorName(have || '');
+  const hs = normalizeKColorName(haveSub || '');
+  if(!w) return 0;
+  // 주컬러 완전 일치
+  if(h && (h === w || h.includes(w) || w.includes(h))) return 3;
+  // 서브컬러 완전 일치
+  if(hs && (hs === w || hs.includes(w) || w.includes(hs))) return 1;
+  // 근접 컬러군
+  for(const group of COLOR_NEAR_MAP){
+    if(group.includes(w) && (group.includes(h) || group.includes(hs))) return 2;
+  }
+  return 0;
+}
+
+// 스타일 태그 근접군 (같은 그룹이면 2점)
+const STYLE_NEAR_MAP = [
+  ['미니멀', 'minimal', 'scandi', 'monochrome', 'genderless'],
+  ['캐주얼', 'casual', 'street', 'y2k', 'basic'],
+  ['포멀', 'formal', 'business', 'chic', 'classic'],
+  ['스포티', 'sporty', 'athleisure', 'outdoor', 'techwear'],
+  ['빈티지', 'vintage', 'retro'],
+  ['스트릿', 'street', 'urban', 'hip-hop'],
+  ['로맨틱', 'romantic', 'feminine', 'soft'],
+  ['워크웨어', 'workwear', 'utility'],
+];
+
+function styleMatchScore(wantStyle, haveStyle){
+  // 3점 만점: 완전 3, 유사 2, 없음 0
+  if(!wantStyle || !haveStyle) return 0;
+  const w = String(wantStyle).toLowerCase().trim();
+  const h = String(haveStyle).toLowerCase().trim();
+  if(!w || !h) return 0;
+  if(w === h || w.includes(h) || h.includes(w)) return 3;
+  for(const group of STYLE_NEAR_MAP){
+    if(group.some(g => w.includes(g)) && group.some(g => h.includes(g))) return 2;
+  }
+  return 0;
+}
+
+// 카테고리 내에서 가장 매칭 점수가 높은 아이템 선택 (10점 만점)
+function pickBestItemByScore(items, pair){
+  // pair = { key, color, style }
+  const wantColor = pair.color || '';
+  const wantStyle = pair.style || '';
+  let best = null, bestScore = -1;
+  (items || []).forEach((it, idx) => {
+    // 1) 카테고리: 이미 같은 카테고리 내에서 호출되므로 4점 고정
+    const catPts = 4;
+    // 2) 컬러: 주컬러 + 서브컬러 비교
+    const colPts = colorMatchScore(wantColor, it?.color, it?.subColor);
+    // 3) 스타일: styleTag 비교
+    const stylePts = styleMatchScore(wantStyle, it?.styleTag || it?.meta?.note?.styleTag || '');
+    let total = catPts + colPts + stylePts;
+    // 최신 아이템 미세 우선 (동점 해소)
+    total -= idx * 0.001;
+    if(total > bestScore){ bestScore = total; best = it; }
   });
-  return best;
+  // rawScore: 카테고리 4점 제외한 순수 매칭 점수 (컬러3 + 스타일3 = 6점 기준)
+  const rawFull = best ? Math.max(0, bestScore + 0.001) : 0;
+  return { item: best, rawScore: rawFull };
+}
+
+// rawScore → 10점 만점 정수 변환
+function rawScoreTo10(rawScore, hasItem){
+  if(!hasItem || rawScore <= 0) return 0;
+  // catPts(4) 고정 + col(0~3) + style(0~3) = 4~10점
+  // rawScore가 4+3+3=10에서 idx 보정만큼 감소
+  const pts = Math.round(Math.min(10, Math.max(0, rawScore)));
+  return pts;
 }
 
 // ── AI 추천 스타일링 사용량(월) 표시/제한 ─────────────────────
@@ -619,20 +702,22 @@ function localPalette(pk,temp,seed){
   return season(temp)==='warm'?{...p,outer:p.top}:p;
 }
 
-// 추천 코디에서 "카테고리-컬러" 키워드를 뽑아 디지털 옷장과 매칭하기 위한 데이터
+// 추천 코디에서 "카테고리-컬러-스타일" 키워드를 뽑아 디지털 옷장과 매칭하기 위한 데이터
 function buildMatchPairsFromPalette(palette, temp){
   const t = Number(temp);
   const isCold = Number.isFinite(t) ? (t <= 7) : false;
   const outerKey = isCold ? 'coat' : 'jacket';
+  // stylist.tag로 스타일 분류 가져오기 (없으면 빈 문자열)
+  const styleTag = (S.stylist && S.stylist.tag) ? S.stylist.tag : '';
   const pairs = [
-    { key: outerKey, color: colorNameFromHex(palette?.outer) },
-    { key: 'top',   color: colorNameFromHex(palette?.top) },
-    { key: 'pants', color: colorNameFromHex(palette?.pants) },
-    { key: 'shoes', color: colorNameFromHex(palette?.shoes) },
+    { key: outerKey, color: colorNameFromHex(palette?.outer), style: styleTag },
+    { key: 'top',    color: colorNameFromHex(palette?.top),   style: styleTag },
+    { key: 'pants',  color: colorNameFromHex(palette?.pants), style: styleTag },
+    { key: 'shoes',  color: colorNameFromHex(palette?.shoes), style: styleTag },
   ];
   // 쌀쌀/추운 날엔 포인트(스카프/목도리)도 추가
   if (Number.isFinite(t) && t <= 12) {
-    pairs.push({ key: 'scarf', color: colorNameFromHex(palette?.accent) || '' });
+    pairs.push({ key: 'scarf', color: colorNameFromHex(palette?.accent) || '', style: styleTag });
   }
   return pairs.map(p=>({
     ...p,
@@ -830,6 +915,8 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
 
   // 팔레트: 기존 로컬 팔레트 사용
   const palette = localPalette(pk, t, seed + (stylist.seedOffset||0));
+  // ✅ stylist 먼저 S에 저장 → buildMatchPairsFromPalette에서 S.stylist.tag 사용
+  S.stylist = stylist;
   const matchPairs = buildMatchPairsFromPalette(palette, t);
 
   // 얼굴 사진을 등록한 경우, 아주 짧은 피부톤 안내(추정치)
@@ -1445,18 +1532,28 @@ async function updateVTO(opts={}){
     matchRow.classList.toggle('hidden', pairs.length===0);
   }
 
-  // ✅ 추천 코디(카테고리-컬러) → 디지털 옷장 아이템 매칭
+  // ✅ 추천 코디 10점 매칭 (카테고리4 + 컬러3 + 스타일3)
   try{
     const map={};
+    const scoreMap={};
     (S.matchPairs||[]).forEach(p=>{
       const items=CodiBank.getItemsByUserAndCategory(user.email, p.key);
-      const best=pickBestItemByColor(items, p.color);
-      if(best && best.id) map[p.key]=best.id;
+      if(!items || items.length === 0){ scoreMap[p.key]=0; return; }
+      const { item: best, rawScore } = pickBestItemByScore(items, p);
+      if(best && best.id){
+        map[p.key]=best.id;
+        scoreMap[p.key]=rawScoreTo10(rawScore, true);
+      } else {
+        map[p.key]=items[0].id;
+        scoreMap[p.key]=4;
+      }
     });
     S.matchByCat = map;
+    S.matchScoreByCat = scoreMap;
   }catch(e){
     console.warn('matchByCat 실패:', e);
     S.matchByCat = {};
+    S.matchScoreByCat = {};
   }
   // 매칭 결과를 카테고리 덱(3번째 카드)에 반영
   try{ renderCategories(qCategory, highlightId); }catch(_e){}
@@ -2039,7 +2136,11 @@ function sparkle(){clearSpk();document.querySelectorAll('#fitChips .fit-chip[dat
 async function generateStyling(opts={}){
   const bumpSeed = !!opts.bumpSeed;
   if(S.busy) return;
-  if(bumpSeed) S.seed += 1;
+  if(bumpSeed){
+    // ✅ 완전 랜덤 seed: 단순 +1 증가가 아닌 매번 새로운 난수
+    // → 스타일리스트 ID, 팔레트, 프롬프트 변주가 모두 완전히 달라짐
+    S.seed = Math.floor(Math.random() * 89999) + 1000;
+  }
 
   updateQuotaBadge();
   const okQuota = canGenerateNow();
@@ -2461,11 +2562,10 @@ function layerContent(el,item,catKey){
   el.dataset.catKey=String(catKey||'');
   el.href=item?.id?`item.html?id=${encodeURIComponent(item.id)}`:`camera.html?category=${encodeURIComponent(catKey)}`;
 
-  // ✅ 추천 코디 매칭 아이템이면 강조(스파클)
+  // ✅ 추천 코디 매칭 아이템이면 강조(스파클) + 퍼센트 배지
   const recId = (S.hasGenerated && S.matchByCat && S.matchByCat[catKey]) ? String(S.matchByCat[catKey]) : '';
-  if(recId && nid && nid===recId){
-    el.classList.add('sparkle');
-  }
+  const isMatched = recId && nid && nid===recId;
+  if(isMatched) el.classList.add('sparkle');
 
   const ref=item?.images?.front||item?.images?.brand||item?.images?.back||'';
   const rt=`${nid}::${ref}`;
@@ -2479,6 +2579,8 @@ function layerContent(el,item,catKey){
     tx.className='layer-ph mt-2';
     tx.textContent=item?.id?'이미지 없음':'추가';
     el.appendChild(tx);
+    // 매칭 오버레이 (이미지 없어도 매칭 정보 표시)
+    if(isMatched) el.appendChild(_makeMatchOverlay(catKey));
     return;
   }
   const ph=document.createElement('div');
@@ -2489,7 +2591,23 @@ function layerContent(el,item,catKey){
     if(el.dataset.renderToken!==rt)return;
     if(!src){ph.textContent='이미지 없음';return;}
     el.innerHTML=`<img class="layer-img" alt="아이템" src="${src}"/>`;
+    // 이미지 로드 후 매칭 오버레이 삽입
+    if(isMatched) el.appendChild(_makeMatchOverlay(catKey));
   });
+}
+
+// 3번째 카드 매칭 10점 오버레이 생성
+function _makeMatchOverlay(catKey){
+  const pts = (S.matchScoreByCat && S.matchScoreByCat[catKey]) || 0;
+  const ov = document.createElement('div');
+  ov.className = 'match-overlay';
+  let cls, txt;
+  if(pts >= 8)     { cls='high'; txt=`스타일링 매칭 ${pts}점`; }
+  else if(pts >= 5){ cls='mid';  txt=`스타일링 매칭 ${pts}점`; }
+  else if(pts > 0) { cls='low';  txt=`매칭 ${pts}점`; }
+  else             { cls='none'; txt='매칭 정보 없음'; }
+  ov.innerHTML=`<span class="match-badge ${cls}">✦ ${txt}</span>`;
+  return ov;
 }
 function slc(el,n){el.classList.remove('layer-1','layer-2','layer-3','layer-4','layer-5');el.classList.add(`layer-${n}`);}
 function rotL(a){if(!a.length)return a;return a.slice(1).concat(a[0]);}
@@ -2500,7 +2618,22 @@ function attachSwipe(deck,ctrl){let dn=false,sx=0,sy=0;const TH=48;deck.addEvent
 function buildSection(catMeta,items){
   const sec=document.createElement('section');sec.className='mt-0';sec.dataset.catKey=catMeta.key;
   const hdr=document.createElement('div');hdr.className='px-6 mb-4 flex justify-between items-center';
-  hdr.innerHTML=`<div class="w-8"></div><div class="flex-1 text-center"><div class="text-[14px] font-extrabold tracking-tight text-slate-900">${escH(catMeta.label)}&nbsp;&nbsp;<span class=\"text-accent\">${items.length}건</span></div></div><button class="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm active:scale-95"><span class="material-symbols-outlined filled text-[18px]">add</span></button>`;
+  // ── 10점 매칭 배지 계산 ──
+  const catMatchPct = (S.hasGenerated && S.matchScoreByCat) ? (S.matchScoreByCat[catMeta.key] ?? -1) : -1;
+  const catMatchId  = (S.hasGenerated && S.matchByCat) ? S.matchByCat[catMeta.key] : null;
+  let badgeHtml = '';
+  if(S.hasGenerated){
+    if(catMatchId && catMatchPct >= 8){
+      badgeHtml = `<div class="mt-1.5"><span class="match-badge high">✦ 스타일링 매칭 ${catMatchPct}점</span></div>`;
+    } else if(catMatchId && catMatchPct >= 5){
+      badgeHtml = `<div class="mt-1.5"><span class="match-badge mid">✦ 스타일링 매칭 ${catMatchPct}점</span></div>`;
+    } else if(catMatchId && catMatchPct > 0){
+      badgeHtml = `<div class="mt-1.5"><span class="match-badge low">스타일링 매칭 ${catMatchPct}점</span></div>`;
+    } else {
+      badgeHtml = `<div class="mt-1.5"><span class="match-badge none">유사 아이템 없음</span></div>`;
+    }
+  }
+  hdr.innerHTML=`<div class="w-8"></div><div class="flex-1 text-center"><div class="text-[14px] font-extrabold tracking-tight text-slate-900">${escH(catMeta.label)}&nbsp;&nbsp;<span class=\"text-accent\">${items.length}건</span></div>${badgeHtml}</div><button class="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm active:scale-95"><span class="material-symbols-outlined filled text-[18px]">add</span></button>`;
   hdr.querySelector('button').addEventListener('click',()=>{window.location.href=`camera.html?category=${encodeURIComponent(catMeta.key)}`;});
   // (요청) 카테고리별 배경 박스(컬러 그라데이션) 삭제 + 구분 라인만 유지
   // - 좌/우 경계선 없이 위/아래 라인만 보이도록 border-top/bottom 유지
