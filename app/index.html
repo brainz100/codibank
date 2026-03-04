@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>코디뱅크 - AI 패션 코디네이터</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="codibank.js"></script>
+  <script>tailwind.config={theme:{extend:{colors:{primary:"#111111",accent:"#C5A358","background-light":"#F9FAFB"},fontFamily:{display:["Outfit","Noto Sans KR","sans-serif"]}}}};</script>
+  <style>
+    *{-webkit-tap-highlight-color:transparent;}
+    body{font-family:'Outfit','Noto Sans KR',sans-serif;background:#0a0a0f;color:#fff;min-height:100dvh;overflow-x:hidden;}
+    .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 24;}
+    .material-symbols-outlined.filled{font-variation-settings:'FILL' 1,'wght' 650,'GRAD' 0,'opsz' 24;}
+
+    /* 배경 그라디언트 */
+    .bg-gradient-mesh{
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(197,163,88,0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(197,163,88,0.10) 0%, transparent 55%),
+        radial-gradient(ellipse 100% 80% at 50% 50%, rgba(15,15,30,1) 0%, #0a0a0f 100%);
+    }
+
+    /* 로고 그라디언트 텍스트 */
+    .logo-text{
+      background:linear-gradient(135deg,#C5A358 0%,#e8c97a 40%,#C5A358 70%,#9a7a3a 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+
+    /* CTA 버튼 */
+    .btn-primary{
+      background:linear-gradient(135deg,#C5A358,#d4b068);
+      color:#1a1000;font-weight:800;border-radius:16px;
+      box-shadow:0 8px 32px rgba(197,163,88,0.35);
+      transition:all 220ms ease;
+    }
+    .btn-primary:active{transform:scale(0.97);box-shadow:0 4px 16px rgba(197,163,88,0.25);}
+
+    .btn-secondary{
+      background:rgba(255,255,255,0.07);
+      border:1.5px solid rgba(255,255,255,0.15);
+      color:rgba(255,255,255,0.85);font-weight:700;border-radius:16px;
+      transition:all 220ms ease;backdrop-filter:blur(8px);
+    }
+    .btn-secondary:active{transform:scale(0.97);background:rgba(255,255,255,0.12);}
+
+    /* 피처 카드 */
+    .feature-card{
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:20px;padding:20px;
+      backdrop-filter:blur(12px);
+    }
+
+    /* 애니메이션 */
+    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    @keyframes shimmerGold{0%,100%{opacity:0.7}50%{opacity:1}}
+
+    .anim-1{animation:fadeUp 700ms cubic-bezier(0.16,1,0.3,1) 100ms both;}
+    .anim-2{animation:fadeUp 700ms cubic-bezier(0.16,1,0.3,1) 220ms both;}
+    .anim-3{animation:fadeUp 700ms cubic-bezier(0.16,1,0.3,1) 340ms both;}
+    .anim-4{animation:fadeUp 700ms cubic-bezier(0.16,1,0.3,1) 460ms both;}
+    .anim-5{animation:fadeUp 700ms cubic-bezier(0.16,1,0.3,1) 560ms both;}
+    .float-anim{animation:float 4s ease-in-out infinite;}
+
+    /* 구분선 */
+    .divider{height:1px;background:linear-gradient(90deg,transparent,rgba(197,163,88,0.3),transparent);}
+
+    /* 스피너 */
+    .spinner{width:32px;height:32px;border:2.5px solid rgba(197,163,88,0.2);border-top-color:#C5A358;border-radius:50%;animation:spin 0.8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body class="bg-gradient-mesh">
+
+  <!-- 로딩 화면 -->
+  <div id="loadingScreen" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#0a0a0f]">
+    <div class="flex flex-col items-center gap-4">
+      <div class="spinner"></div>
+      <p class="text-[11px] font-bold tracking-[0.3em] text-accent/60 uppercase">CODIBANK</p>
+    </div>
+  </div>
+
+  <!-- 랜딩 페이지 (비로그인 상태) -->
+  <div id="landingPage" class="hidden min-h-dvh flex flex-col">
+
+    <!-- 헤더 -->
+    <header class="px-6 pt-12 pb-2 flex items-center justify-between">
+      <div class="anim-1">
+        <p class="text-[10px] font-extrabold tracking-[0.4em] text-accent/70 uppercase mb-0.5">AI Fashion</p>
+        <h1 class="text-[22px] font-extrabold logo-text tracking-tight">CODIBANK</h1>
+      </div>
+      <a href="login.html" class="anim-1 px-4 py-2 rounded-full border border-white/15 text-[12px] font-bold text-white/70 hover:border-accent/40 transition-colors">
+        로그인
+      </a>
+    </header>
+
+    <!-- 메인 히어로 -->
+    <main class="flex-1 px-6 pt-8 pb-6">
+
+      <!-- 히어로 텍스트 -->
+      <div class="anim-2 mb-8">
+        <h2 class="text-[32px] font-extrabold leading-tight tracking-tight mb-3">
+          AI가 매일<br/>
+          <span class="logo-text">완벽한 코디</span>를<br/>
+          제안해드려요
+        </h2>
+        <p class="text-[14px] text-white/55 leading-relaxed font-medium">
+          날씨·목적·체형을 분석해서<br/>당신만을 위한 스타일링을 추천합니다.
+        </p>
+      </div>
+
+      <!-- 피처 카드 3개 -->
+      <div class="anim-3 space-y-3 mb-8">
+        <div class="feature-card flex items-center gap-4">
+          <div class="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style="background:rgba(197,163,88,0.15)">
+            <span class="material-symbols-outlined filled text-accent text-[22px]">psychology</span>
+          </div>
+          <div>
+            <p class="text-[13px] font-extrabold text-white">AI 코디 추천</p>
+            <p class="text-[11px] text-white/45 mt-0.5">날씨·목적·체형 기반 맞춤 스타일링</p>
+          </div>
+        </div>
+        <div class="feature-card flex items-center gap-4">
+          <div class="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style="background:rgba(197,163,88,0.15)">
+            <span class="material-symbols-outlined filled text-accent text-[22px]">checkroom</span>
+          </div>
+          <div>
+            <p class="text-[13px] font-extrabold text-white">디지털 옷장</p>
+            <p class="text-[11px] text-white/45 mt-0.5">내 옷을 카테고리별로 디지털화</p>
+          </div>
+        </div>
+        <div class="feature-card flex items-center gap-4">
+          <div class="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style="background:rgba(197,163,88,0.15)">
+            <span class="material-symbols-outlined filled text-accent text-[22px]">storefront</span>
+          </div>
+          <div>
+            <p class="text-[13px] font-extrabold text-white">공유 · 판매</p>
+            <p class="text-[11px] text-white/45 mt-0.5">안 입는 옷을 빌려주고 포인트 적립</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 구분선 -->
+      <div class="divider mb-6 anim-3"></div>
+
+      <!-- CTA 버튼 -->
+      <div class="anim-4 space-y-3">
+        <a href="signup.html" class="btn-primary w-full py-4 flex items-center justify-center gap-2 text-[15px]">
+          <span class="material-symbols-outlined filled text-[18px]">person_add</span>
+          무료로 시작하기
+        </a>
+        <a href="login.html" class="btn-secondary w-full py-4 flex items-center justify-center gap-2 text-[15px]">
+          이미 계정이 있어요
+        </a>
+      </div>
+
+      <!-- 하단 문구 -->
+      <p class="anim-5 text-center text-[10px] text-white/25 mt-6 leading-relaxed">
+        가입하면 <span class="text-accent/60">AI 스타일링 무료 체험</span> 제공<br/>
+        신용카드 없이 바로 시작 가능
+      </p>
+
+    </main>
+  </div>
+
+  <script>
+  (function(){
+    // ── 로그인 상태 확인 후 라우팅 ──
+    function checkAuthAndRoute(){
+      try{
+        // CodiBank.js의 getCurrentUser() 사용
+        const user = (window.CodiBank && CodiBank.getCurrentUser)
+          ? CodiBank.getCurrentUser()
+          : null;
+
+        if(user && user.email){
+          // ✅ 로그인 상태 → 내옷장으로 이동
+          window.location.replace('closet.html');
+        } else {
+          // ❌ 비로그인 → 랜딩 페이지 표시
+          showLanding();
+        }
+      } catch(e){
+        showLanding();
+      }
+    }
+
+    function showLanding(){
+      document.getElementById('loadingScreen').style.display = 'none';
+      document.getElementById('landingPage').classList.remove('hidden');
+    }
+
+    // codibank.js 로드 대기 후 실행
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', function(){
+        setTimeout(checkAuthAndRoute, 150);
+      });
+    } else {
+      setTimeout(checkAuthAndRoute, 150);
+    }
+  })();
+  </script>
+</body>
+</html>

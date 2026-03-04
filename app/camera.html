@@ -922,10 +922,76 @@
     }
 
 
+    // ===== Claude Vision API 기반 정밀 분류 =====
+    // MobileNet보다 훨씬 정확: 코트/자켓 기장 구분, 색상, 스타일까지 한번에
+    let _claudeClassifyResult = null;
+
+    async function classifyWithClaudeVision(dataUrl, hintCategory) {
+      if (!dataUrl || !dataUrl.startsWith('data:image')) return null;
+      try {
+        const cfg = (window.CodiBank && CodiBank.getConfig) ? CodiBank.getConfig() : {};
+        const backendBase = String(cfg.backendBase || '').trim()
+          || ((window.CodiBank && CodiBank.getBackendBaseResolved) ? String(CodiBank.getBackendBaseResolved() || '').trim() : '');
+        if (!backendBase) return null;
+
+        // base64 데이터만 추출 (data:image/jpeg;base64, 제거)
+        const match = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
+        if (!match) return null;
+        const mediaType = match[1];
+        const b64 = match[2];
+
+        // 이미지 크기 줄이기 (분류용은 512px 충분)
+        let smallB64 = b64;
+        try {
+          const img = await new Promise((res, rej) => { const i = new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=dataUrl; });
+          const MAX = 512;
+          if (img.naturalWidth > MAX || img.naturalHeight > MAX) {
+            const scale = MAX / Math.max(img.naturalWidth, img.naturalHeight);
+            const c = document.createElement('canvas');
+            c.width = Math.round(img.naturalWidth * scale);
+            c.height = Math.round(img.naturalHeight * scale);
+            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+            const small = c.toDataURL('image/jpeg', 0.80);
+            smallB64 = small.split(',')[1] || b64;
+          }
+        } catch(_) {}
+
+        const resp = await fetch(backendBase.replace(/\/$/, '') + '/api/ai/classify-item', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image_b64: smallB64, media_type: mediaType, hint_category: hintCategory || '' }),
+          signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined,
+        });
+        if (!resp.ok) return null;
+        const json = await resp.json();
+        if (json.ok && json.category) {
+          _claudeClassifyResult = json;
+          return json;
+        }
+        return null;
+      } catch(e) {
+        console.warn('[ClaudeVision 분류 실패]', e);
+        return null;
+      }
+    }
+
     async function guessCategoryKeyFromImage(dataUrl) {
       if (preferredCategoryKey) return preferredCategoryKey;
 
       setAiProgress(52, 'AI 카테고리 분류 중…');
+
+      // 1순위: Claude Vision API (정밀 분류)
+      try {
+        const cvResult = await classifyWithClaudeVision(dataUrl, preferredCategoryKey);
+        if (cvResult && cvResult.category) {
+          console.log('[Claude Vision 분류]', cvResult);
+          return cvResult.category;
+        }
+      } catch(e) {
+        console.warn('Claude Vision 분류 실패, MobileNet 폴백:', e);
+      }
+
+      // 2순위: MobileNet (오프라인 폴백)
       try {
         const result = await classifyWithMobileNet(dataUrl);
         if (result) return result;
@@ -1048,11 +1114,16 @@
         aiCat.textContent = CodiBank.getCategoryMetaByKey(categoryKey, user.email).label;
       }
 
-      // 2) Color
+      // 2) Color - Claude Vision 결과 우선 사용
       try {
         setAiProgress(45, '컬러 분석 중…');
         aiColor.textContent = '분석 중…';
-        colorName = await Promise.race([guessColorNameFromDataUrl(getAnalysisSrc('front')), promiseTimeout(4000, '')]);
+        // Claude Vision이 이미 컬러 정보를 반환했으면 그대로 사용
+        if (_claudeClassifyResult && _claudeClassifyResult.color) {
+          colorName = _claudeClassifyResult.color;
+        } else {
+          colorName = await Promise.race([guessColorNameFromDataUrl(getAnalysisSrc('front')), promiseTimeout(4000, '')]);
+        }
         aiColor.textContent = colorName || '미정';
       } catch (e) {
         console.warn('color ai failed', e);
@@ -1138,15 +1209,20 @@
         if (shotBlob.back || shots.back) images.back = await CodiBank.saveImage(shots.back);
         if (shotBlob.brand || shots.brand) images.brand = await CodiBank.saveImage(shots.brand);
 
-        // ✅ 아이템 특징(설명) 자동 생성
+        // ✅ 아이템 특징(설명) 자동 생성 - Claude Vision 결과 우선 사용
         // - 잘못된 분석은 상세페이지에서 수정 가능
         const catLabel = (CodiBank.getCategoryMetaByKey(categoryKey, user.email)?.label) || categoryKey;
-        const styleTag = inferStyleTagFromPreds(_lastMnPreds);
+        const styleTag = (_claudeClassifyResult && _claudeClassifyResult.style_tag)
+          ? _claudeClassifyResult.style_tag
+          : inferStyleTagFromPreds(_lastMnPreds);
+        const lengthTag = (_claudeClassifyResult && _claudeClassifyResult.length) ? _claudeClassifyResult.length : '';
+        const cvNote = (_claudeClassifyResult && _claudeClassifyResult.note) ? _claudeClassifyResult.note : '';
         const noteParts = [];
         if (colorName) noteParts.push(colorName);
         if (styleTag) noteParts.push(styleTag);
+        if (lengthTag) noteParts.push(lengthTag);
         noteParts.push(catLabel);
-        let noteText = noteParts.join(' ').replace(/\s+/g, ' ').trim();
+        let noteText = cvNote || noteParts.join(' ').replace(/\s+/g, ' ').trim();
         if (!noteText) noteText = '아이템';
 
         const result = CodiBank.addItem(user.email, {
