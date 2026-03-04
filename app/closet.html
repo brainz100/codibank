@@ -205,6 +205,7 @@
           </div>
           <p id="codiExplain" class="text-[13px] font-semibold text-slate-700 leading-relaxed">목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.</p>
           <div id="kwRow" class="mt-2 flex flex-wrap gap-1 hidden"></div>
+          <div id="matchRow" class="mt-2 flex flex-wrap gap-1 hidden"></div>
         </div>
 
         <!-- VTO 캔버스 -->
@@ -369,12 +370,109 @@ const S = {
   wxByDate: {},
   weatherRaw: null,
   tok: '',
-  claudeOk: false
+  claudeOk: false,
+
+  // ✅ 추천 코디 키워드(카테고리-컬러) 및 디지털 옷장 매칭 상태
+  stylist: null,
+  matchPairs: [],
+  matchByCat: {}
 };
 const getPur = k => PURPOSES.find(p=>p.key===k)||PURPOSES[0];
 const pNum = v => {const n=Number(v);return Number.isFinite(n)?n:null;};
 const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
 const trunc = (s,n) => {const t=String(s||'').trim();return t.length<=n?t:t.slice(0,n);};
+
+// ── Color helpers (hex -> 한국어 컬러명) ─────────────────────
+function _hexToRgb(hex){
+  const h=String(hex||'').replace('#','').trim();
+  if(!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  const r=parseInt(h.slice(0,2),16), g=parseInt(h.slice(2,4),16), b=parseInt(h.slice(4,6),16);
+  return {r,g,b};
+}
+function _rgbToHsl(r,g,b){
+  r/=255; g/=255; b/=255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b);
+  let h=0,s=0; const l=(max+min)/2;
+  if(max!==min){
+    const d=max-min;
+    s=l>0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max){
+      case r: h=(g-b)/d + (g<b?6:0); break;
+      case g: h=(b-r)/d + 2; break;
+      case b: h=(r-g)/d + 4; break;
+    }
+    h/=6;
+  }
+  return {h:h*360, s:s*100, l:l*100};
+}
+function colorNameFromHex(hex){
+  const rgb=_hexToRgb(hex);
+  if(!rgb) return '';
+  const {h,s,l}=_rgbToHsl(rgb.r,rgb.g,rgb.b);
+  if(l>=92 && s<=18) return '화이트';
+  if(l<=12 && s<=25) return '블랙';
+  if(s<=14) return (l>=55 ? '라이트그레이' : '그레이');
+  if(h<15 || h>=345) return (l<45?'버건디':'레드');
+  if(h<45) return (l<50?'브라운':'베이지');
+  if(h<70) return '옐로';
+  if(h<155) return '그린';
+  if(h<205) return '스카이블루';
+  if(h<250) return (l<45?'네이비':'블루');
+  if(h<290) return '퍼플';
+  if(h<345) return '핑크';
+  return '기타';
+}
+function normalizeKColorName(name){
+  const t=String(name||'').toLowerCase().replace(/\s+/g,'').trim();
+  if(!t) return '';
+  const map = [
+    {k:['black','블랙','검정','검은','흑'], v:'블랙'},
+    {k:['white','화이트','하양','흰','백'], v:'화이트'},
+    {k:['gray','grey','그레이','회색','라이트그레이'], v:'그레이'},
+    {k:['navy','네이비','남색'], v:'네이비'},
+    {k:['blue','블루','파랑','청'], v:'블루'},
+    {k:['green','그린','초록'], v:'그린'},
+    {k:['beige','베이지','아이보리','크림'], v:'베이지'},
+    {k:['brown','브라운','갈색'], v:'브라운'},
+    {k:['red','레드','빨강','적'], v:'레드'},
+    {k:['pink','핑크','분홍'], v:'핑크'},
+    {k:['purple','퍼플','보라'], v:'퍼플'},
+    {k:['yellow','옐로','노랑'], v:'옐로'},
+    {k:['orange','오렌지'], v:'오렌지'},
+  ];
+  for(const r of map){
+    if(r.k.some(x=>t.includes(String(x).toLowerCase().replace(/\s+/g,'')))) return r.v;
+  }
+  return String(name||'').trim();
+}
+
+function pickBestItemByColor(items, desiredColor){
+  const want = normalizeKColorName(desiredColor);
+  let best=null, bestScore=-1;
+  (items||[]).forEach((it, idx)=>{
+    const got = normalizeKColorName(it?.color || '');
+    let score = 0;
+    if(want && got){
+      if(got.includes(want) || want.includes(got)) score = 10;
+      else {
+        // 네이비~블루, 베이지~브라운 같은 근접군
+        const near = (
+          (want==='네이비' && got==='블루') || (want==='블루' && got==='네이비') ||
+          (want==='베이지' && got==='브라운') || (want==='브라운' && got==='베이지') ||
+          (want==='그레이' && (got==='블랙' || got==='화이트')) ||
+          (got==='그레이' && (want==='블랙' || want==='화이트'))
+        );
+        score = near ? 6 : 0;
+      }
+    } else if(want && !got) {
+      score = 1;
+    }
+    // 동일 점수면 최신(배열 앞쪽) 우선
+    score = score - (idx * 0.001);
+    if(score > bestScore){ bestScore = score; best = it; }
+  });
+  return best;
+}
 
 // ── AI 추천 스타일링 사용량(월) 표시/제한 ─────────────────────
 function updateQuotaBadge(){
@@ -521,6 +619,27 @@ function localPalette(pk,temp,seed){
   return season(temp)==='warm'?{...p,outer:p.top}:p;
 }
 
+// 추천 코디에서 "카테고리-컬러" 키워드를 뽑아 디지털 옷장과 매칭하기 위한 데이터
+function buildMatchPairsFromPalette(palette, temp){
+  const t = Number(temp);
+  const isCold = Number.isFinite(t) ? (t <= 7) : false;
+  const outerKey = isCold ? 'coat' : 'jacket';
+  const pairs = [
+    { key: outerKey, color: colorNameFromHex(palette?.outer) },
+    { key: 'top',   color: colorNameFromHex(palette?.top) },
+    { key: 'pants', color: colorNameFromHex(palette?.pants) },
+    { key: 'shoes', color: colorNameFromHex(palette?.shoes) },
+  ];
+  // 쌀쌀/추운 날엔 포인트(스카프/목도리)도 추가
+  if (Number.isFinite(t) && t <= 12) {
+    pairs.push({ key: 'scarf', color: colorNameFromHex(palette?.accent) || '' });
+  }
+  return pairs.map(p=>({
+    ...p,
+    label: (CodiBank.getCategoryMetaByKey(p.key, user.email)?.label) || p.key,
+  })).filter(p=>p.color);
+}
+
 async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   // ✅ 로컬(브라우저)에서 바로 동작하는 "AI 스타일 추천"
   // - 외부 유료 API/키 없이도 데모가 항상 돌아가도록 설계
@@ -535,6 +654,45 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const g = profile?.gender === 'M' ? '남성' : (profile?.gender === 'F' ? '여성' : '');
   const age = profile?.ageGroup ? String(profile.ageGroup) : '';
   const hw = (profile?.height && profile?.weight) ? `키${profile.height}·${profile.weight}kg` : (profile?.height ? `키${profile.height}` : '');
+
+  // ✅ 지역 문화(기본 톤) + 랜덤 스타일리스트 페르소나
+  const loc = String(wx?.location || '').trim();
+  const culture = (()=>{
+    const s = loc.toLowerCase();
+    if(!s) return { code:'GLOBAL', label:'글로벌', hint:'현지 분위기에 과하지 않게 맞춘' };
+    if(/[\u3131-\uD79D]/.test(loc) || s.includes('korea') || s.includes('kr')){
+      return { code:'KR', label:'한국', hint:'한국 도심 라이프스타일(깔끔한 실루엣/레이어드)에 맞춘' };
+    }
+    if(s.includes('japan') || s.includes('tokyo') || s.includes('osaka')){
+      return { code:'JP', label:'일본', hint:'일본 감성(미니멀/정돈된 레이어)에 맞춘' };
+    }
+    if(s.includes('france') || s.includes('paris')){
+      return { code:'FR', label:'프랑스', hint:'프렌치 시크(심플+포인트)에 맞춘' };
+    }
+    if(s.includes('usa') || s.includes('united states') || s.includes('new york') || s.includes('los angeles') || s.includes('la')){
+      return { code:'US', label:'미국', hint:'아메리칸 캐주얼/워크웨어 감성에 맞춘' };
+    }
+    return { code:'GLOBAL', label:loc, hint:'현지 분위기에 맞춘' };
+  })();
+  const stylist = (()=>{
+    const hash32 = (str)=>{
+      let h=2166136261;
+      for(let i=0;i<str.length;i++){h^=str.charCodeAt(i); h=(h*16777619)>>>0;}
+      return h>>>0;
+    };
+    const id = (hash32(`${seed}|${pk}|${loc}|${purposeName}|${day||''}`) % 9000) + 1;
+    const archetypes = [
+      { voice:'미니멀 클래식', tag:'minimal', desc:'뉴트럴 중심, 실루엣 정리, 과한 디테일 최소화' },
+      { voice:'K-스트릿 캐주얼', tag:'street', desc:'레이어드와 포인트 아이템으로 트렌디하게' },
+      { voice:'프렌치 시크', tag:'chic', desc:'단정한 기본 + 한 가지 포인트로 완성' },
+      { voice:'스포티 애슬레저', tag:'athleisure', desc:'활동성/기능성 우선, 컬러는 안정적으로' },
+      { voice:'스마트 비즈니스', tag:'business', desc:'깔끔한 톤온톤, 소재/핏을 정돈' },
+      { voice:'워크웨어 무드', tag:'workwear', desc:'탄탄한 소재감, 아우터 중심의 안정감' },
+      { voice:'세미포멀 데일리', tag:'smartcasual', desc:'오피스·약속 모두 가능한 균형감' },
+    ];
+    const arch = archetypes[id % archetypes.length];
+    return { id, cultureCode: culture.code, cultureHint: culture.hint, seedOffset: id % 37, ...arch };
+  })();
 
   // 온도 기반 레이어링 팁
   let layerTip = '';
@@ -558,7 +716,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     custom: '맞춤',
   };
   const baseTitle = titleMap[pk] || purposeName || '오늘의';
-  const styleTitle = `${baseTitle} 코디`;
+  const styleTitle = `${baseTitle} · ${stylist.voice}`;
 
 // 400자 이내 설명 (v17)
   const _dayStr = String(day||'').trim();
@@ -582,7 +740,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   };
 
   const layerSentence = layerTip ? `기온을 고려해 ${layerTip} 중심으로 체온 조절이 쉬운 구성이 좋아요.` : '';
-  const baseSentence = `${dLab} ${tTxt}${wxTxt ? ' ' + wxTxt : ''} 날씨를 기준으로 ${purposeName} 목적에 가장 잘 어울리게 스타일을 잡았어요.`.replace(/\s+/g,' ').trim();
+  const baseSentence = `${dLab} ${tTxt}${wxTxt ? ' ' + wxTxt : ''} 날씨를 기준으로 ${purposeName} 목적에 ${stylist.cultureHint} ${stylist.voice} 스타일(스타일리스트 #${stylist.id})로 구성했어요.`.replace(/\s+/g,' ').trim();
   const purposeSentence = (purposeTips[pk] || '상황에 맞게 과하지 않게 밸런스를 맞추는 것이 핵심이에요.');
   const colorSentence = '베이스는 뉴트럴(블랙/네이비/오프화이트)로 정돈하고, 포인트 컬러는 1가지로만 주면 전체가 훨씬 고급스럽게 정리됩니다.';
 
@@ -597,7 +755,8 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const keywords = Array.from(new Set([seasonKw, ...kws])).slice(0,4);
 
   // 팔레트: 기존 로컬 팔레트 사용
-  const palette = localPalette(pk, t, seed);
+  const palette = localPalette(pk, t, seed + (stylist.seedOffset||0));
+  const matchPairs = buildMatchPairsFromPalette(palette, t);
 
   // 얼굴 사진을 등록한 경우, 아주 짧은 피부톤 안내(추정치)
   let skinTip = '';
@@ -605,7 +764,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     skinTip = '얼굴을 등록했어요';
   }
 
-  return { styleTitle, explanation, keywords, layerTip, skinTip, palette };
+  return { styleTitle, explanation, keywords, layerTip, skinTip, palette, stylist, matchPairs };
 }
 
 
@@ -701,10 +860,22 @@ async function renderVTO(canvas, palette, opts){
   // ─ 2. 신체 비례 계산 ─
   const hCm=pNum(profile?.height), wKg=pNum(profile?.weight), gdr=String(profile?.gender||'');
   let sy=1.0, sx=1.0;
-  if(hCm) sy=clamp(hCm/170, 0.87, 1.13);
-  if(hCm&&wKg){const m=hCm/100; sx=clamp(1+(wKg/(m*m)-22)*0.022, 0.83, 1.20);}
-  const shldrM=gdr==='M'?1.12:0.93;
-  const hipM=gdr==='F'?1.08:0.97;
+  let shBoost=1.0, hipBoost=1.0;
+  if(hCm) sy=clamp(hCm/170, 0.86, 1.14);
+  if(hCm&&wKg){
+    const m=hCm/100;
+    const bmi=(wKg/(m*m));
+    const base=(gdr==='F')?21:22;
+    const d=bmi-base;
+    // ✅ 키/몸무게(=BMI)를 숫자 그대로 넣어도 모델이 잘 못 느낄 수 있어
+    // 프론트의 프리뷰(실루엣)에서는 폭 변화가 더 명확하게 보이도록 계수 조정
+    const dd = d>=0 ? d*0.032 : d*0.024;
+    sx=clamp(1+dd, 0.82, 1.28);
+    hipBoost=clamp(1+dd*1.10, 0.80, 1.32);
+    shBoost=clamp(1+dd*0.70, 0.85, 1.22);
+  }
+  const shldrM=(gdr==='M'?1.12:0.93) * shBoost;
+  const hipM=(gdr==='F'?1.08:0.97) * hipBoost;
 
   // 기준점
   const cx=cw/2, baseY=ch*0.968;
@@ -1075,7 +1246,7 @@ async function updateVTO(opts={}){
   // 유틸: timeout POST JSON
   const postJson = async (url, body, timeoutMs)=>{
     const ctl = new AbortController();
-    const t = setTimeout(()=>ctl.abort(), timeoutMs||25000);
+    const t = setTimeout(()=>ctl.abort(), timeoutMs||90000);
     try{
       const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal:ctl.signal});
       const j = await r.json().catch(()=>null);
@@ -1153,11 +1324,15 @@ async function updateVTO(opts={}){
     keywords=r.keywords||keywords;
     layerTip=r.layerTip||'';
     skinTip=r.skinTip||'';
+    S.stylist = r.stylist || null;
+    S.matchPairs = (r.matchPairs && Array.isArray(r.matchPairs)) ? r.matchPairs : buildMatchPairsFromPalette(palette, S.wx.temp);
   }catch(e){
     console.warn('AI 분석 폴백:',e);
     const pm=getPur(S.pk),tTxt=S.wx.temp!==null?`${S.wx.temp}°`:'';
     explain=trunc(`${tTxt}${S.wx.text?' '+S.wx.text:''} 날씨에 어울리는 ${pm.label} 스타일이에요.`.trim(), 400);
     styleTitle=`${pm.label} 코디`;
+    S.stylist = null;
+    S.matchPairs = buildMatchPairsFromPalette(palette, S.wx.temp);
   }
   if(S.tok!==tok)return;
 
@@ -1180,6 +1355,37 @@ async function updateVTO(opts={}){
     });
     kwRow.classList.toggle('hidden', !(keywords&&keywords.length));
   }
+
+  // ✅ (카테고리-컬러) 키워드: 디지털 옷장 매칭용
+  const matchRow=document.getElementById('matchRow');
+  if(matchRow){
+    matchRow.innerHTML='';
+    const pairs=(S.matchPairs||[]).slice(0,6);
+    pairs.forEach((p)=>{
+      const c=document.createElement('span');
+      c.className='px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-white text-slate-700 border border-slate-200';
+      const shortLabel = (p.key==='top') ? '탑/셔츠' : (p.key==='pants') ? '바지/치마' : (p.key==='shoes') ? '구두/신발' : (p.key==='scarf') ? '스카프' : (p.label || p.key);
+      c.textContent = `${shortLabel}-${p.color}`;
+      matchRow.appendChild(c);
+    });
+    matchRow.classList.toggle('hidden', pairs.length===0);
+  }
+
+  // ✅ 추천 코디(카테고리-컬러) → 디지털 옷장 아이템 매칭
+  try{
+    const map={};
+    (S.matchPairs||[]).forEach(p=>{
+      const items=CodiBank.getItemsByUserAndCategory(user.email, p.key);
+      const best=pickBestItemByColor(items, p.color);
+      if(best && best.id) map[p.key]=best.id;
+    });
+    S.matchByCat = map;
+  }catch(e){
+    console.warn('matchByCat 실패:', e);
+    S.matchByCat = {};
+  }
+  // 매칭 결과를 카테고리 덱(3번째 카드)에 반영
+  try{ renderCategories(qCategory, highlightId); }catch(_e){}
 
   // 4) 이미지 생성 (REMOTE(OpenAI) 우선)
   // 런타임 설정
@@ -1215,11 +1421,13 @@ async function updateVTO(opts={}){
       }catch(_){}
       const payload={
         user:{email:user?.email||'',gender:user?.gender||'',ageGroup:user?.ageGroup||'',height:user?.height||'',weight:user?.weight||''},
-        weather:{temp:S.wx.temp,text:S.wx.text||'',location:user?.location||''},
+        weather:{temp:S.wx.temp,text:S.wx.text||'',location:(S.wx.location||user?.location||'')},
         forDateKey: getSelectedDateKey(),
         purposeKey:S.pk,
         purposeLabel:(S.pk==='custom' ? (String(S.customPurpose||'').trim()||'맞춤') : (getPur(S.pk).label||'')),
         styleTitle,explanation:explain,keywords,
+        stylist: S.stylist || null,
+        matchPairs: Array.isArray(S.matchPairs) ? S.matchPairs : [],
         seed:S.seed,
         faceImage: faceDataUrl || null,
         size:'1024x1536',
@@ -2171,7 +2379,44 @@ const TINT={coat:'59,130,246',jacket:'245,158,11',top:'16,185,129',pants:'99,102
 function deckBg(k){const rgb=TINT[k]||TINT.etc;return`background:radial-gradient(120% 140% at 18% 0%,rgba(${rgb},0.22) 0%,rgba(${rgb},0.10) 42%,rgba(255,255,255,1) 78%),linear-gradient(180deg,rgba(255,255,255,1) 0%,rgba(249,250,251,1) 100%);`;}
 let _dc=null;
 function playTick(){try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;if(!_dc)_dc=new AC();if(_dc.state==='suspended')_dc.resume().catch(()=>{});const t0=_dc.currentTime;[[820,0,0.035,0.10],[540,0.03,0.04,0.07]].forEach(([f,s,d,p])=>{const o=_dc.createOscillator(),g=_dc.createGain();o.type='square';o.frequency.setValueAtTime(f,t0+s);g.gain.setValueAtTime(0.0001,t0+s);g.gain.exponentialRampToValueAtTime(p,t0+s+0.004);g.gain.exponentialRampToValueAtTime(0.0001,t0+s+d);o.connect(g);g.connect(_dc.destination);o.start(t0+s);o.stop(t0+s+d+0.01);});}catch(_){}}
-function layerContent(el,item,catKey){el.innerHTML='';el.classList.remove('sparkle');const nid=item?.id?String(item.id):'';el.dataset.itemId=nid;el.dataset.catKey=String(catKey||'');el.href=item?.id?`item.html?id=${encodeURIComponent(item.id)}`:`camera.html?category=${encodeURIComponent(catKey)}`;const ref=item?.images?.front||'';const rt=`${nid}::${ref}`;el.dataset.renderToken=rt;if(!ref){const ic=document.createElement('span');ic.className='material-symbols-outlined layer-icon';ic.textContent=item?.id?'image':'add_a_photo';el.appendChild(ic);const tx=document.createElement('div');tx.className='layer-ph mt-2';tx.textContent=item?.id?'이미지 없음':'추가';el.appendChild(tx);return;}const ph=document.createElement('div');ph.className='layer-ph';ph.textContent='…';el.appendChild(ph);CodiBank.getImageSrc(ref).then(src=>{if(el.dataset.renderToken!==rt)return;if(!src){ph.textContent='이미지 없음';return;}el.innerHTML=`<img class="layer-img" alt="아이템" src="${src}"/>`;});}
+function layerContent(el,item,catKey){
+  el.innerHTML='';
+  el.classList.remove('sparkle');
+  const nid=item?.id?String(item.id):'';
+  el.dataset.itemId=nid;
+  el.dataset.catKey=String(catKey||'');
+  el.href=item?.id?`item.html?id=${encodeURIComponent(item.id)}`:`camera.html?category=${encodeURIComponent(catKey)}`;
+
+  // ✅ 추천 코디 매칭 아이템이면 강조(스파클)
+  const recId = (S.hasGenerated && S.matchByCat && S.matchByCat[catKey]) ? String(S.matchByCat[catKey]) : '';
+  if(recId && nid && nid===recId){
+    el.classList.add('sparkle');
+  }
+
+  const ref=item?.images?.front||item?.images?.brand||item?.images?.back||'';
+  const rt=`${nid}::${ref}`;
+  el.dataset.renderToken=rt;
+  if(!ref){
+    const ic=document.createElement('span');
+    ic.className='material-symbols-outlined layer-icon';
+    ic.textContent=item?.id?'image':'add_a_photo';
+    el.appendChild(ic);
+    const tx=document.createElement('div');
+    tx.className='layer-ph mt-2';
+    tx.textContent=item?.id?'이미지 없음':'추가';
+    el.appendChild(tx);
+    return;
+  }
+  const ph=document.createElement('div');
+  ph.className='layer-ph';
+  ph.textContent='…';
+  el.appendChild(ph);
+  CodiBank.getImageSrc(ref).then(src=>{
+    if(el.dataset.renderToken!==rt)return;
+    if(!src){ph.textContent='이미지 없음';return;}
+    el.innerHTML=`<img class="layer-img" alt="아이템" src="${src}"/>`;
+  });
+}
 function slc(el,n){el.classList.remove('layer-1','layer-2','layer-3','layer-4','layer-5');el.classList.add(`layer-${n}`);}
 function rotL(a){if(!a.length)return a;return a.slice(1).concat(a[0]);}
 function rotR(a){if(!a.length)return a;return[a[a.length-1]].concat(a.slice(0,-1));}
@@ -2192,12 +2437,32 @@ function buildSection(catMeta,items){
   const ctrl={catKey:catMeta.key,items:Array.isArray(items)?items:[],startIndex:0,windowIndices:[-1,-1,-1,-1,-1],els:[],animating:false,
     shift(dir){if(this.animating)return;const l=this.items.length;if(l<=0)return;this.animating=true;playTick();deck.classList.add('is-shifting');const MOVE=520,EXIT=200,POP=380,UNL=EXIT+MOVE+120;if(l>=5){this.startIndex=mod(this.startIndex+(dir>0?1:-1),l);this.windowIndices=[0,1,2,3,4].map(i=>mod(this.startIndex+i,l));}else{this.windowIndices=(dir>0)?rotL(this.windowIndices):rotR(this.windowIndices);}const oe=this.els.slice(),lv=dir>0?oe[0]:oe[oe.length-1];if(!lv){this.animating=false;deck.classList.remove('is-shifting');return;}const ne=dir>0?oe.slice(1).concat(lv):[lv].concat(oe.slice(0,-1));this.els=ne;this.els.forEach(e=>e.classList.remove('exit-left','exit-right','enter-from-left','enter-from-right','center-pop'));lv.classList.add(dir>0?'exit-left':'exit-right');for(let i=0;i<ne.length;i++){if((dir>0&&i===4)||(dir<0&&i===0))continue;slc(ne[i],i+1);}const ce=ne[2];if(ce)setTimeout(()=>{if(!this.animating)return;ce.classList.remove('center-pop');try{void ce.offsetHeight;}catch(_){}ce.classList.add('center-pop');setTimeout(()=>ce.classList.remove('center-pop'),560);},POP);setTimeout(()=>{if(!this.animating)return;lv.classList.remove('exit-left','exit-right');const ep=dir>0?5:1,ei=dir>0?this.windowIndices[4]:this.windowIndices[0];layerContent(lv,ei>=0?this.items[ei]:null,this.catKey);lv.classList.add('no-transition');slc(lv,ep);lv.classList.add(dir>0?'enter-from-right':'enter-from-left');try{void lv.offsetHeight;}catch(_){}lv.classList.remove('no-transition');requestAnimationFrame(()=>lv.classList.remove(dir>0?'enter-from-right':'enter-from-left'));},EXIT);setTimeout(()=>{this.animating=false;deck.classList.remove('is-shifting');if(lv)lv.classList.remove('exit-left','exit-right','enter-from-left','enter-from-right','no-transition');},UNL);}};
   const l=ctrl.items.length;
-  if(highlightId&&l>0&&l>=5){const hi=ctrl.items.findIndex(x=>x&&x.id===highlightId);if(hi>=0)ctrl.startIndex=mod(hi-2,l);}
+  // ✅ 기본: 최신 등록 아이템이 3번째(가운데) 카드에 오도록 startIndex 보정
+  if(l>=5) ctrl.startIndex = mod(-2, l);
+
+  // ✅ 추천 코디 매칭 아이템(카테고리별) 우선으로 가운데에 배치
+  const recId = (S.hasGenerated && S.matchByCat && S.matchByCat[catMeta.key]) ? String(S.matchByCat[catMeta.key]) : '';
+  const preferredId = recId || (highlightId ? String(highlightId) : '');
+  let preferredIndex = -1;
+  if(preferredId && l>0){
+    preferredIndex = ctrl.items.findIndex(x=>x&&String(x.id)===preferredId);
+    if(preferredIndex>=0 && l>=5) ctrl.startIndex = mod(preferredIndex-2, l);
+  }
   ctrl.windowIndices=initWin(ctrl.items,ctrl.startIndex);
-  if(highlightId&&l>0&&l<5){const hi=ctrl.items.findIndex(x=>x&&x.id===highlightId);if(hi>=0){let w=ctrl.windowIndices.slice();const sh=2-hi;if(sh>0)for(let i=0;i<sh;i++)w=rotR(w);else if(sh<0)for(let i=0;i<Math.abs(sh);i++)w=rotL(w);ctrl.windowIndices=w;}}
+  // l<5에서도 가운데(3번째) 카드에 (추천/하이라이트/최신) 아이템이 오도록 회전
+  if(l>0&&l<5){
+    const hi = (preferredIndex>=0) ? preferredIndex : 0;
+    let w=ctrl.windowIndices.slice();
+    const sh=2-hi;
+    if(sh>0)for(let i=0;i<sh;i++)w=rotR(w);
+    else if(sh<0)for(let i=0;i<Math.abs(sh);i++)w=rotL(w);
+    ctrl.windowIndices=w;
+  }
   for(let pos=1;pos<=5;pos++){const a=document.createElement('a');a.className=`clothing-layer layer-${pos}`;const idx=ctrl.windowIndices[pos-1];layerContent(a,idx>=0?ctrl.items[idx]:null,catMeta.key);ctrl.els.push(a);deck.appendChild(a);}
   attachSwipe(deck,ctrl);
-  const hl=(focusCat&&focusCat===catMeta.key)||(highlightId&&ctrl.items.some(x=>x&&x.id===highlightId));
+  const hl=(focusCat&&focusCat===catMeta.key)
+    || (highlightId&&ctrl.items.some(x=>x&&String(x.id)===String(highlightId)))
+    || (!!recId);
   if(hl){deck.classList.add('deck-highlight','pulse-ring');setTimeout(()=>deck.classList.remove('pulse-ring'),1600);}
   sec.appendChild(hdr);dw.appendChild(deck);sec.appendChild(dw);return sec;
 }

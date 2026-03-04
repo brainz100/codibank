@@ -108,12 +108,12 @@ function getBackendBaseResolved() {
   const DEFAULT_CATEGORIES = [
     { key: 'coat', label: '코트' },
     { key: 'jacket', label: '자켓' },
-    { key: 'top', label: '탑' },
-    { key: 'pants', label: '바지' },
+    { key: 'top', label: '탑/셔츠/블라우스' },
+    { key: 'pants', label: '바지/스커트' },
     { key: 'socks', label: '양말' },
-    { key: 'shoes', label: '구두' },
+    { key: 'shoes', label: '구두/운동화' },
     { key: 'watch', label: '시계' },
-    { key: 'scarf', label: '스카프' },
+    { key: 'scarf', label: '스카프/목도리' },
     { key: 'etc', label: '기타' },
   ];
 
@@ -126,6 +126,11 @@ function getBackendBaseResolved() {
     GOLD: 100,
     DIAMOND: Infinity,
   };
+
+  // 저장공간/성능을 고려한 운영 한도(카테고리별 최대 등록수)
+  // - 플랜 한도와 별개로, 카테고리당 200개를 최상위 하드캡으로 둡니다.
+  // - 200개 초과가 필요하면 운영자 승인/조치로 상향(서버/DB 정책 포함)하도록 설계합니다.
+  const CATEGORY_MAX_ITEMS = 200;
 
   // ==============================
   // AI 추천 스타일링 생성(이미지) 사용량 제한
@@ -517,13 +522,16 @@ function getBackendBaseResolved() {
   function addItem(email, item) {
     const e = normalizeEmail(email);
     const plan = getUserPlan(e);
-    const limit = getPlanLimit(plan);
+    const planLimit = getPlanLimit(plan);
+    const effectiveLimit = (planLimit === Infinity)
+      ? CATEGORY_MAX_ITEMS
+      : Math.min(Math.max(0, Number(planLimit || 0)), CATEGORY_MAX_ITEMS);
     const categoryKey = item.categoryKey;
     const currentCount = getItemsByUserAndCategory(e, categoryKey).length;
-    if (currentCount >= limit) {
+    if (currentCount >= effectiveLimit) {
       return {
         ok: false,
-        error: `현재 플랜(${plan})의 카테고리별 업로드 한도(${limit === Infinity ? '무제한' : limit + '개'})를 초과했습니다.`,
+        error: `현재 플랜(${plan})의 카테고리별 업로드 한도(${planLimit === Infinity ? '무제한' : planLimit + '개'}) 또는 운영 한도(카테고리당 ${CATEGORY_MAX_ITEMS}개)를 초과했습니다.`,
       };
     }
 
@@ -534,6 +542,7 @@ function getBackendBaseResolved() {
       categoryKey,
       color: item.color || '',
       brand: item.brand || '',
+      note: item.note || item.description || '',
       images: item.images || {},
       createdAt: item.createdAt || nowIso(),
       meta: item.meta || {},
@@ -581,12 +590,15 @@ function getBackendBaseResolved() {
     const nextCategory = (patch && patch.categoryKey !== undefined) ? String(patch.categoryKey || '') : String(before.categoryKey || '');
     if (nextCategory && nextCategory !== String(before.categoryKey || '')) {
       const plan = getUserPlan(e);
-      const limit = getPlanLimit(plan);
+      const planLimit = getPlanLimit(plan);
+      const effectiveLimit = (planLimit === Infinity)
+        ? CATEGORY_MAX_ITEMS
+        : Math.min(Math.max(0, Number(planLimit || 0)), CATEGORY_MAX_ITEMS);
       const currentCount = getItemsByUserAndCategory(e, nextCategory).filter((it) => it.id !== id).length;
-      if (currentCount >= limit) {
+      if (currentCount >= effectiveLimit) {
         return {
           ok: false,
-          error: `현재 플랜(${plan})의 카테고리별 업로드 한도(${limit === Infinity ? '무제한' : limit + '개'})를 초과했습니다.`,
+          error: `현재 플랜(${plan})의 카테고리별 업로드 한도(${planLimit === Infinity ? '무제한' : planLimit + '개'}) 또는 운영 한도(카테고리당 ${CATEGORY_MAX_ITEMS}개)를 초과했습니다.`,
         };
       }
       next.categoryKey = nextCategory;
@@ -595,6 +607,7 @@ function getBackendBaseResolved() {
 
     if (patch && patch.color !== undefined) next.color = String(patch.color || '');
     if (patch && patch.brand !== undefined) next.brand = String(patch.brand || '');
+    if (patch && patch.note !== undefined) next.note = String(patch.note || '');
 
     if (patch && patch.images) {
       next.images = Object.assign({}, before.images || {}, patch.images || {});

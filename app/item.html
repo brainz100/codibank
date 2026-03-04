@@ -106,9 +106,7 @@
 <span id="itemBrandTag" class="px-2.5 py-1 rounded-full bg-accent/10 text-accent text-[10px] font-bold tracking-tight">Premium Blend</span>
 <span id="itemColorTag" class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 text-[10px] font-bold tracking-tight">컬러 미정</span>
 </div>
-<p class="text-slate-600 dark:text-zinc-400 leading-relaxed text-sm">
-                생활방수 코튼 혼방 소재로 봄·가을에 활용하기 좋아요. 클래식한 실루엣과 허리 벨트, 스톰 플랩 디테일로 깔끔하면서도 실용적인 느낌을 줍니다.
-            </p>
+<p id="itemNote" class="text-slate-600 dark:text-zinc-400 leading-relaxed text-sm"></p>
 </div>
 <div class="mt-10 grid grid-cols-2 gap-4">
 <button id="editBtn" class="py-4 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-2 text-slate-700 dark:text-zinc-300 font-semibold shadow-sm active:scale-95 transition-transform">
@@ -148,8 +146,14 @@
         <input id="editColor" type="text" class="mt-2 w-full rounded-2xl border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold" placeholder="예: 블랙, 네이비" />
       </div>
 
+      <div>
+        <label class="text-xs font-extrabold text-slate-600 dark:text-zinc-300">아이템 설명</label>
+        <textarea id="editNote" rows="3" class="mt-2 w-full rounded-2xl border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold px-3 py-2" placeholder="예: 네이비 데님 자켓 · 캐주얼 · 봄/가을"></textarea>
+        <p class="mt-2 text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">* 자동 생성된 특징이 잘못되면 여기서 수정할 수 있어요.</p>
+      </div>
+
       <p class="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
-        * 카테고리/컬러/브랜드는 언제든 수정할 수 있어요.
+        * 카테고리/컬러/브랜드/설명은 언제든 수정할 수 있어요.
       </p>
 
       <div class="flex gap-2 pt-2">
@@ -204,6 +208,9 @@
     document.getElementById('itemTitle').textContent = item.brand ? `${item.brand}` : '아이템';
     document.getElementById('itemBrandTag').textContent = item.brand ? item.brand : (item.color ? item.color : 'AI 등록');
     document.getElementById('itemColorTag').textContent = item.color ? item.color : '컬러 미정';
+    document.getElementById('itemNote').textContent = (item.note && String(item.note).trim())
+      ? String(item.note).trim()
+      : '아이템 설명이 아직 없습니다. “수정”에서 특징을 추가해보세요.';
 
     // Images
     const main = document.getElementById('mainImage');
@@ -277,6 +284,7 @@
   const editCategory = document.getElementById('editCategory');
   const editBrand = document.getElementById('editBrand');
   const editColor = document.getElementById('editColor');
+  const editNote = document.getElementById('editNote');
 
   function openEditModal() {
     if (!editModal || !currentItem) return;
@@ -290,6 +298,7 @@
     editCategory.value = String(currentItem.categoryKey || 'etc');
     editBrand.value = String(currentItem.brand || '');
     editColor.value = String(currentItem.color || '');
+    if (editNote) editNote.value = String(currentItem.note || '');
 
     editModal.classList.remove('hidden');
     editModal.classList.add('flex');
@@ -312,6 +321,7 @@
       categoryKey: String(editCategory.value || currentItem.categoryKey || 'etc'),
       brand: String(editBrand.value || '').trim(),
       color: String(editColor.value || '').trim(),
+      note: String(editNote?.value || '').trim(),
     };
 
     const res = CodiBank.updateItem(user.email, currentItem.id, patch);

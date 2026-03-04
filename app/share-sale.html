@@ -1,133 +1,769 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>공유판매 - 코디뱅크</title>
-  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,200..700,0..1,-50..200" />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
   <script src="config.js"></script>
   <script src="codibank.js"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Noto Sans KR', 'ui-sans-serif', 'system-ui'],
-            display: ['Playfair Display', 'ui-serif', 'Georgia'],
-          },
-          colors: {
-            primary: '#111111',
-            accent: '#C5A358',
-            bg: '#FFFFFF',
-            card: '#FFFFFF',
-            card2: '#F9FAFB',
-            line: 'rgba(17,17,17,0.08)',
-          },
-        },
-      },
-    }
-  </script>
+  <script>tailwind.config={theme:{extend:{colors:{primary:"#111111",accent:"#C5A358","background-light":"#F9FAFB",surface:"#FFFFFF"},fontFamily:{display:["Outfit","Noto Sans KR","sans-serif"],serif:["Playfair Display","serif"]},borderRadius:{DEFAULT:"1.25rem"}}}};</script>
   <style>
-    body { min-height: max(884px, 100dvh); -webkit-tap-highlight-color: transparent; }
-    .ios-blur { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    body{font-family:'Outfit','Noto Sans KR',sans-serif;-webkit-tap-highlight-color:transparent;background:#F9FAFB;}
+    .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 24;}
+    .material-symbols-outlined.filled{font-variation-settings:'FILL' 1,'wght' 650,'GRAD' 0,'opsz' 24;}
+    .no-scrollbar::-webkit-scrollbar{display:none;}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
+    .ios-blur{backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
+
+    /* 탭 */
+    .tab-btn{flex:1;padding:10px 0;font-size:14px;font-weight:800;border-radius:12px;transition:all 200ms ease;color:rgba(15,23,42,0.45);}
+    .tab-btn.active{background:#111;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,0.18);}
+
+    /* 아이템 카드 */
+    .item-card{background:#fff;border-radius:1.4rem;overflow:hidden;border:1px solid rgba(17,17,17,0.07);box-shadow:0 4px 20px rgba(0,0,0,0.07);transition:transform 180ms ease,box-shadow 180ms ease;-webkit-tap-highlight-color:transparent;}
+    .item-card:active{transform:scale(0.975);box-shadow:0 2px 10px rgba(0,0,0,0.08);}
+    .item-img{width:100%;aspect-ratio:3/4;object-fit:cover;background:linear-gradient(135deg,#f1f5f9 0%,#e2e8f0 100%);display:flex;align-items:center;justify-content:center;}
+    .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:0.02em;}
+    .badge-share{background:rgba(197,163,88,0.15);color:rgba(120,88,22,0.95);border:1px solid rgba(197,163,88,0.35);}
+    .badge-sell{background:rgba(17,17,17,0.08);color:rgba(17,17,17,0.75);border:1px solid rgba(17,17,17,0.15);}
+    .badge-new{background:rgba(34,197,94,0.12);color:rgba(21,128,61,0.9);border:1px solid rgba(34,197,94,0.25);}
+    .badge-popular{background:rgba(239,68,68,0.10);color:rgba(185,28,28,0.85);border:1px solid rgba(239,68,68,0.20);}
+
+    /* 좋아요 버튼 */
+    .like-btn{width:34px;height:34px;border-radius:999px;background:rgba(255,255,255,0.92);border:1px solid rgba(17,17,17,0.10);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 160ms ease;backdrop-filter:blur(8px);}
+    .like-btn:active{transform:scale(0.88);}
+    .like-btn.liked{background:rgba(239,68,68,0.10);border-color:rgba(239,68,68,0.30);}
+    .like-btn.liked .material-symbols-outlined{color:#ef4444;font-variation-settings:'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 24;}
+
+    /* 찜하기 버튼 */
+    .wish-btn{width:34px;height:34px;border-radius:999px;background:rgba(255,255,255,0.92);border:1px solid rgba(17,17,17,0.10);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 160ms ease;backdrop-filter:blur(8px);}
+    .wish-btn:active{transform:scale(0.88);}
+    .wish-btn.wished{background:rgba(197,163,88,0.12);border-color:rgba(197,163,88,0.40);}
+    .wish-btn.wished .material-symbols-outlined{color:#C5A358;font-variation-settings:'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 24;}
+
+    /* 구매/신청 버튼 */
+    .action-btn{width:100%;padding:12px 0;border-radius:12px;font-size:13px;font-weight:800;text-align:center;transition:all 160ms ease;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+    .action-btn:active{transform:scale(0.97);}
+    .btn-share-req{background:rgba(197,163,88,0.13);color:rgba(120,88,22,0.95);border:1.5px solid rgba(197,163,88,0.45);}
+    .btn-buy{background:#111;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,0.22);}
+
+    /* 필터 칩 */
+    .filter-chip{padding:6px 14px;border-radius:999px;font-size:11px;font-weight:700;border:1.5px solid rgba(17,17,17,0.12);background:#fff;color:rgba(17,17,17,0.55);cursor:pointer;transition:all 160ms ease;white-space:nowrap;}
+    .filter-chip.active{background:#111;color:#fff;border-color:#111;}
+
+    /* 포인트 배지 */
+    .point-badge{background:linear-gradient(135deg,rgba(197,163,88,0.18),rgba(197,163,88,0.08));border:1px solid rgba(197,163,88,0.35);border-radius:10px;padding:6px 10px;}
+
+    /* 공유 날짜 선택 */
+    .date-chip{padding:6px 12px;border-radius:10px;font-size:11px;font-weight:700;border:1.5px solid rgba(17,17,17,0.12);background:#fff;color:rgba(17,17,17,0.6);cursor:pointer;transition:all 160px ease;}
+    .date-chip.selected{background:rgba(197,163,88,0.13);border-color:rgba(197,163,88,0.5);color:rgba(120,88,22,0.95);}
+
+    /* 모달 */
+    .modal-sheet{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.45);}
+    .modal-sheet.hidden{display:none;}
+    .modal-body{width:100%;max-width:480px;background:#fff;border-radius:1.75rem 1.75rem 0 0;padding:24px 20px 40px;max-height:85vh;overflow-y:auto;}
+
+    /* 섹션 구분선 */
+    .section-divider{height:8px;background:#f1f5f9;margin:0 -24px;}
+
+    /* 스켈레톤 */
+    @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+    .skeleton{background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:800px 100%;animation:shimmer 1.4s ease-in-out infinite;}
+
+    /* 가격 취소선 */
+    .price-original{text-decoration:line-through;color:rgba(17,17,17,0.35);}
+
+    /* 공유횟수 아이콘 */
+    .share-count{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:rgba(17,17,17,0.4);}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    .fade-up{animation:fadeUp 380ms cubic-bezier(0.16,1,0.3,1) both;}
+    .fade-up-1{animation-delay:60ms;}
+    .fade-up-2{animation-delay:120ms;}
+    .fade-up-3{animation-delay:180ms;}
+    .fade-up-4{animation-delay:240ms;}
+
+    /* 빈 상태 */
+    .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:60px 24px;text-align:center;}
   </style>
 </head>
-<body class="bg-bg text-slate-900 font-sans">
-  <div class="max-w-md mx-auto">
-    <header class="px-6 pt-10 pb-6">
-      <p class="text-xs tracking-[0.2em] font-semibold text-accent">CODIBANK</p>
-      <h1 class="mt-2 text-2xl font-extrabold tracking-tight font-serif">공유판매</h1>
-      <p class="mt-2 text-sm text-slate-600 leading-relaxed">
-        테스트 단계에서는 <b class="text-slate-900">공유</b>와 <b class="text-slate-900">판매</b>를 한 페이지에서 탭으로 구분해 제공합니다.
-      </p>
+<body class="bg-background-light text-slate-900 min-h-screen">
 
-      <!-- Tabs -->
-      <div class="mt-5 bg-white border border-slate-200 rounded-2xl p-2 flex gap-2 shadow-sm">
-        <button id="tabShare" class="flex-1 py-2 rounded-xl text-sm font-extrabold">공유</button>
-        <button id="tabSale" class="flex-1 py-2 rounded-xl text-sm font-extrabold">판매</button>
+  <!-- 헤더 -->
+  <header class="sticky top-0 z-50 ios-blur bg-white/85 border-b border-slate-100">
+    <div class="max-w-sm mx-auto px-5 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] font-extrabold tracking-[0.3em] text-accent">CODIBANK</span>
       </div>
-    </header>
+      <h1 class="text-[16px] font-extrabold tracking-tight">공유 · 판매</h1>
+      <button id="searchBtn" class="w-9 h-9 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center active:scale-95 transition-transform">
+        <span class="material-symbols-outlined text-[19px] text-slate-600">search</span>
+      </button>
+    </div>
 
-    <main class="px-6 pb-28">
-      <!-- SHARE -->
-      <section id="panelShare" class="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
-        <div class="flex items-center gap-3">
-          <span class="material-symbols-outlined text-2xl">share</span>
-          <h2 class="text-lg font-extrabold">공유</h2>
-        </div>
-        <p class="mt-3 text-sm text-slate-600 leading-relaxed">
-          코디앨범에서 생성된 코디 이미지의 <b class="text-slate-900">공유하기</b> 버튼을 누르면
-          휴대폰 공유 시트(메시지/카카오톡 등)로 연결됩니다.
-        </p>
-        <div class="mt-6 rounded-2xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-700">
-          <b class="text-slate-900">Tip</b><br/>
-          공유 기능은 브라우저가 <span class="font-semibold">Web Share API</span>를 지원할 때 가장 자연스럽게 동작합니다.
-        </div>
-      </section>
-
-      <!-- SALE -->
-      <section id="panelSale" class="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm hidden mt-6">
-        <div class="flex items-center gap-3">
-          <span class="material-symbols-outlined text-2xl">shopping_bag</span>
-          <h2 class="text-lg font-extrabold">판매</h2>
-        </div>
-        <p class="mt-3 text-sm text-slate-600 leading-relaxed">
-          테스트 단계에서는 간단히 <b class="text-slate-900">준비중</b> 화면으로 표시합니다.
-        </p>
-        <div class="mt-6 rounded-2xl bg-slate-50 border border-slate-200 p-5 text-center">
-          <span class="material-symbols-outlined text-4xl text-slate-700">hourglass_top</span>
-          <p class="mt-2 text-base font-extrabold">준비중</p>
-          <p class="mt-2 text-sm text-slate-600">추후 중고판매/연동 기능이 확장됩니다.</p>
-        </div>
-      </section>
-    </main>
-
-    <!-- FOOTBAR -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white/95 ios-blur border-t border-slate-200 pt-3 pb-8 px-6 z-50">
-      <div class="flex justify-between items-center max-w-sm mx-auto">
-        <a href="closet.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">checkroom</span><span class="text-[10px] font-extrabold">내옷장</span></a>
-        <a href="camera.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">add_a_photo</span><span class="text-[10px] font-extrabold">item등록</span></a>
-        <a href="album.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">photo_library</span><span class="text-[10px] font-extrabold">코디앨범</span></a>
-        <a href="share-sale.html" class="flex flex-col items-center gap-1 text-accent"><span class="material-symbols-outlined filled text-2xl">storefront</span><span class="text-[10px] font-extrabold">공유판매</span></a>
-        <a href="mypage.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">person</span><span class="text-[10px] font-extrabold">My</span></a>
+    <!-- 탭 -->
+    <div class="max-w-sm mx-auto px-5 pb-3">
+      <div class="flex gap-2 bg-slate-100 p-1 rounded-[14px]">
+        <button id="tabShare" class="tab-btn active" onclick="switchTab('share')">
+          <span class="flex items-center justify-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px]">swap_horiz</span>공유·대여
+          </span>
+        </button>
+        <button id="tabSell" class="tab-btn" onclick="switchTab('sell')">
+          <span class="flex items-center justify-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px]">sell</span>판매
+          </span>
+        </button>
       </div>
-    </nav>
+    </div>
+  </header>
+
+  <main class="max-w-sm mx-auto pb-28">
+
+    <!-- ===== 공유·대여 탭 ===== -->
+    <div id="shareTab" class="px-4 pt-4">
+
+      <!-- 안내 배너 -->
+      <div class="point-badge flex items-start gap-3 mb-4 fade-up">
+        <span class="material-symbols-outlined filled text-accent text-[22px] mt-0.5 flex-shrink-0">workspace_premium</span>
+        <div>
+          <p class="text-[12px] font-extrabold text-slate-800">내 옷을 공유하면 <span class="text-accent">1,000P</span> 적립!</p>
+          <p class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">내 디지털 옷장의 아이템을 다른 사용자에게 빌려주세요. 공유할 때마다 포인트가 자동 적립됩니다.</p>
+        </div>
+      </div>
+
+      <!-- 필터 칩 -->
+      <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-4 fade-up fade-up-1">
+        <button class="filter-chip active" onclick="filterShare(this,'all')">전체</button>
+        <button class="filter-chip" onclick="filterShare(this,'jacket')">자켓/아우터</button>
+        <button class="filter-chip" onclick="filterShare(this,'top')">탑/셔츠</button>
+        <button class="filter-chip" onclick="filterShare(this,'pants')">바지/스커트</button>
+        <button class="filter-chip" onclick="filterShare(this,'shoes')">구두/운동화</button>
+        <button class="filter-chip" onclick="filterShare(this,'acc')">액세서리</button>
+      </div>
+
+      <!-- 공유 아이템 그리드 -->
+      <div id="shareGrid" class="grid grid-cols-2 gap-3">
+
+        <!-- 샘플 카드 1 -->
+        <div class="item-card fade-up fade-up-2">
+          <div class="item-img relative bg-slate-100">
+            <div class="w-full aspect-[3/4] flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+              <span class="material-symbols-outlined text-[48px] text-slate-300">checkroom</span>
+            </div>
+            <div class="absolute top-2 left-2 flex gap-1 flex-wrap">
+              <span class="badge badge-share">공유</span>
+              <span class="badge badge-new">NEW</span>
+            </div>
+            <div class="absolute top-2 right-2 flex flex-col gap-1">
+              <button class="like-btn" onclick="toggleLike(this)">
+                <span class="material-symbols-outlined text-[17px] text-slate-400">favorite</span>
+              </button>
+              <button class="wish-btn" onclick="toggleWish(this)">
+                <span class="material-symbols-outlined text-[17px] text-slate-400">bookmark</span>
+              </button>
+            </div>
+          </div>
+          <div class="p-3">
+            <div class="flex items-center justify-between mb-1">
+              <p class="text-[12px] font-extrabold text-slate-800 truncate">네이비 수트 자켓</p>
+            </div>
+            <p class="text-[10px] text-slate-400 mb-2">@style_min · 공유 <span class="font-bold text-slate-600">3회</span></p>
+            <!-- 포인트 -->
+            <div class="flex items-center gap-1 mb-2">
+              <span class="material-symbols-outlined filled text-accent text-[14px]">workspace_premium</span>
+              <span class="text-[11px] font-extrabold text-accent">1,000P 적립</span>
+            </div>
+            <!-- 공유 가능 날짜 -->
+            <p class="text-[10px] text-slate-400 mb-1.5">공유 가능일 <span class="font-bold text-slate-600">5일 이후~</span></p>
+            <!-- 공유방식 -->
+            <p class="text-[10px] text-slate-400 mb-2.5">택배 착불 · 사이즈 M</p>
+            <button class="action-btn btn-share-req" onclick="openShareReq(this)">
+              공유 신청하기
+            </button>
+          </div>
+        </div>
+
+        <!-- 샘플 카드 2 -->
+        <div class="item-card fade-up fade-up-3">
+          <div class="item-img relative bg-slate-100">
+            <div class="w-full aspect-[3/4] flex items-center justify-center bg-gradient-to-br from-zinc-100 to-zinc-200">
+              <span class="material-symbols-outlined text-[48px] text-slate-300">checkroom</span>
+            </div>
+            <div class="absolute top-2 left-2 flex gap-1 flex-wrap">
+              <span class="badge badge-share">공유</span>
+              <span class="badge badge-popular">인기</span>
+            </div>
+            <div class="absolute top-2 right-2 flex flex-col gap-1">
+              <button class="like-btn liked" onclick="toggleLike(this)">
+                <span class="material-symbols-outlined text-[17px]">favorite</span>
+              </button>
+              <button class="wish-btn" onclick="toggleWish(this)">
+                <span class="material-symbols-outlined text-[17px] text-slate-400">bookmark</span>
+              </button>
+            </div>
+          </div>
+          <div class="p-3">
+            <div class="flex items-center justify-between mb-1">
+              <p class="text-[12px] font-extrabold text-slate-800 truncate">화이트 드레스 셔츠</p>
+            </div>
+            <p class="text-[10px] text-slate-400 mb-2">@modern_k · 공유 <span class="font-bold text-slate-600">7회</span></p>
+            <div class="flex items-center gap-1 mb-2">
+              <span class="material-symbols-outlined filled text-accent text-[14px]">workspace_premium</span>
+              <span class="text-[11px] font-extrabold text-accent">1,000P 적립</span>
+            </div>
+            <p class="text-[10px] text-slate-400 mb-1.5">공유 가능일 <span class="font-bold text-slate-600">5일 이후~</span></p>
+            <p class="text-[10px] text-slate-400 mb-2.5">택배 착불 · 사이즈 L</p>
+            <button class="action-btn btn-share-req" onclick="openShareReq(this)">
+              공유 신청하기
+            </button>
+          </div>
+        </div>
+
+        <!-- 샘플 카드 3 -->
+        <div class="item-card fade-up fade-up-4">
+          <div class="item-img relative bg-slate-100">
+            <div class="w-full aspect-[3/4] flex items-center justify-center bg-gradient-to-br from-stone-100 to-stone-200">
+              <span class="material-symbols-outlined text-[48px] text-slate-300">checkroom</span>
+            </div>
+            <div class="absolute top-2 left-2">
+              <span class="badge badge-share">공유</span>
+            </div>
+            <div class="absolute top-2 right-2 flex flex-col gap-1">
+              <button class="like-btn" onclick="toggleLike(this)">
+                <span class="material-symbols-outlined text-[17px] text-slate-400">favorite</span>
+              </button>
+              <button class="wish-btn wished" onclick="toggleWish(this)">
+                <span class="material-symbols-outlined text-[17px]">bookmark</span>
+              </button>
+            </div>
+          </div>
+          <div class="p-3">
+            <p class="text-[12px] font-extrabold text-slate-800 truncate mb-1">베이지 슬랙스</p>
+            <p class="text-[10px] text-slate-400 mb-2">@daily_cho · 공유 <span class="font-bold text-slate-600">2회</span></p>
+            <div class="flex items-center gap-1 mb-2">
+              <span class="material-symbols-outlined filled text-accent text-[14px]">workspace_premium</span>
+              <span class="text-[11px] font-extrabold text-accent">1,000P 적립</span>
+            </div>
+            <p class="text-[10px] text-slate-400 mb-1.5">공유 가능일 <span class="font-bold text-slate-600">5일 이후~</span></p>
+            <p class="text-[10px] text-slate-400 mb-2.5">택배 착불 · 사이즈 32</p>
+            <button class="action-btn btn-share-req" onclick="openShareReq(this)">
+              공유 신청하기
+            </button>
+          </div>
+        </div>
+
+        <!-- 샘플 카드 4 -->
+        <div class="item-card fade-up fade-up-4">
+          <div class="item-img relative bg-slate-100">
+            <div class="w-full aspect-[3/4] flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
+              <span class="material-symbols-outlined text-[48px] text-blue-200">checkroom</span>
+            </div>
+            <div class="absolute top-2 left-2">
+              <span class="badge badge-share">공유</span>
+            </div>
+            <div class="absolute top-2 right-2 flex flex-col gap-1">
+              <button class="like-btn" onclick="toggleLike(this)">
+                <span class="material-symbols-outlined text-[17px] text-slate-400">favorite</span>
+              </button>
+              <button class="wish-btn" onclick="toggleWish(this)">
+                <span class="material-symbols-outlined text-[17px] text-slate-400">bookmark</span>
+              </button>
+            </div>
+          </div>
+          <div class="p-3">
+            <p class="text-[12px] font-extrabold text-slate-800 truncate mb-1">네이비 데님 자켓</p>
+            <p class="text-[10px] text-slate-400 mb-2">@casua_l · 공유 <span class="font-bold text-slate-600">5회</span></p>
+            <div class="flex items-center gap-1 mb-2">
+              <span class="material-symbols-outlined filled text-accent text-[14px]">workspace_premium</span>
+              <span class="text-[11px] font-extrabold text-accent">1,000P 적립</span>
+            </div>
+            <p class="text-[10px] text-slate-400 mb-1.5">공유 가능일 <span class="font-bold text-slate-600">5일 이후~</span></p>
+            <p class="text-[10px] text-slate-400 mb-2.5">택배 착불 · 사이즈 M</p>
+            <button class="action-btn btn-share-req" onclick="openShareReq(this)">
+              공유 신청하기
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 내 아이템 공유 등록 버튼 -->
+      <button onclick="openMyShare()" class="mt-5 mb-2 w-full py-4 rounded-2xl border-2 border-dashed border-accent/40 bg-accent/5 flex items-center justify-center gap-2 text-[13px] font-extrabold text-accent active:scale-[0.99] transition-transform">
+        <span class="material-symbols-outlined filled text-[18px]">add_circle</span>
+        내 아이템 공유 등록하기
+      </button>
+
+    </div>
+
+    <!-- ===== 판매 탭 ===== -->
+    <div id="sellTab" class="px-4 pt-4 hidden">
+
+      <!-- 안내 배너 -->
+      <div class="bg-slate-900 rounded-2xl p-4 mb-4 flex items-start gap-3 fade-up">
+        <span class="material-symbols-outlined filled text-[22px] mt-0.5 flex-shrink-0" style="color:#C5A358;">sell</span>
+        <div>
+          <p class="text-[12px] font-extrabold text-white">내 옷을 판매해보세요</p>
+          <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">안 입는 옷을 등록하고 판매 수익을 얻으세요. 코디뱅크가 안전하게 연결해드립니다.</p>
+        </div>
+      </div>
+
+      <!-- 필터 칩 -->
+      <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-4 fade-up fade-up-1">
+        <button class="filter-chip active" onclick="filterSell(this,'all')">전체</button>
+        <button class="filter-chip" onclick="filterSell(this,'low')">낮은가격순</button>
+        <button class="filter-chip" onclick="filterSell(this,'high')">높은가격순</button>
+        <button class="filter-chip" onclick="filterSell(this,'new')">최신등록순</button>
+        <button class="filter-chip" onclick="filterSell(this,'pop')">인기순</button>
+      </div>
+
+      <!-- 판매 아이템 그리드 -->
+      <div id="sellGrid" class="grid grid-cols-2 gap-3">
+
+        <!-- 판매 카드 1 -->
+        <div class="item-card fade-up fade-up-2">
+          <div class="item-img relative bg-slate-100">
+            <div class="w-full aspect-[3/4] flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+              <span class="material-symbols-outlined text-[48px] text-slate-300">checkroom</span>
+            </div>
+            <div class="absolute top-2 left-2 flex gap-1 flex-wrap">
+              <span class="badge badge-sell">판매</span>
+              <span class="badge badge-new">NEW</span>
+            </div>
+            <div class="absolute top-2 right-2 flex flex-col gap-1">
+              <button class="like-btn" onclick="toggleLike(this)">
+                <span class="material-symbols-outlined text-[17px] text-slate-400">favorite</span>
+              </button>
+              <button class="wish-btn" onclick="toggleWish(this)">
+                <span class="material-symbols-outlined text-[17px] text-slate-400">bookmark</span>
+              </button>
+            </div>
+          </div>
+          <div class="p-3">
+            <p class="text-[12px] font-extrabold text-slate-800 truncate mb-0.5">그레이 울 코트</p>
+            <p class="text-[10px] text-slate-400 mb-1.5">@style_min · 공유 <span class="font-bold">3회</span></p>
+            <!-- 가격 -->
+            <div class="mb-1">
+              <span class="text-[14px] font-extrabold text-slate-900">85,000원</span>
+            </div>
+            <p class="text-[10px] price-original mb-2">정가 280,000원</p>
+            <!-- 좋아요 수 -->
+            <div class="flex items-center gap-2 mb-2.5">
+              <span class="share-count"><span class="material-symbols-outlined text-[12px]">favorite</span>24</span>
+              <span class="share-count"><span class="material-symbols-outlined text-[12px]">swap_horiz</span>공유 3회</span>
+            </div>
+            <button class="action-btn btn-buy" onclick="openBuy(this)">
+              구매하기
+            </button>
+          </div>
+        </div>
+
+        <!-- 판매 카드 2 -->
+        <div class="item-card fade-up fade-up-3">
+          <div class="item-img relative bg-slate-100">
+            <div class="w-full aspect-[3/4] flex items-center justify-center bg-gradient-to-br from-amber-50 to-amber-100">
+              <span class="material-symbols-outlined text-[48px] text-amber-200">checkroom</span>
+            </div>
+            <div class="absolute top-2 left-2 flex gap-1 flex-wrap">
+              <span class="badge badge-sell">판매</span>
+              <span class="badge badge-popular">인기</span>
+            </div>
+            <div class="absolute top-2 right-2 flex flex-col gap-1">
+              <button class="like-btn liked" onclick="toggleLike(this)">
+                <span class="material-symbols-outlined text-[17px]">favorite</span>
+              </button>
+              <button class="wish-btn wished" onclick="toggleWish(this)">
+                <span class="material-symbols-outlined text-[17px]">bookmark</span>
+              </button>
+            </div>
+          </div>
+          <div class="p-3">
+            <p class="text-[12px] font-extrabold text-slate-800 truncate mb-0.5">카멜 트렌치코트</p>
+            <p class="text-[10px] text-slate-400 mb-1.5">@coat_k · 공유 <span class="font-bold">8회</span></p>
+            <div class="mb-1">
+              <span class="text-[14px] font-extrabold text-slate-900">120,000원</span>
+            </div>
+            <p class="text-[10px] price-original mb-2">정가 450,000원</p>
+            <div class="flex items-center gap-2 mb-2.5">
+              <span class="share-count"><span class="material-symbols-outlined text-[12px]">favorite</span>58</span>
+              <span class="share-count"><span class="material-symbols-outlined text-[12px]">swap_horiz</span>공유 8회</span>
+            </div>
+            <button class="action-btn btn-buy" onclick="openBuy(this)">
+              구매하기
+            </button>
+          </div>
+        </div>
+
+        <!-- 판매 카드 3 -->
+        <div class="item-card fade-up fade-up-4">
+          <div class="item-img relative bg-slate-100">
+            <div class="w-full aspect-[3/4] flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+              <span class="material-symbols-outlined text-[48px] text-slate-300">checkroom</span>
+            </div>
+            <div class="absolute top-2 left-2">
+              <span class="badge badge-sell">판매</span>
+            </div>
+            <div class="absolute top-2 right-2 flex flex-col gap-1">
+              <button class="like-btn" onclick="toggleLike(this)">
+                <span class="material-symbols-outlined text-[17px] text-slate-400">favorite</span>
+              </button>
+              <button class="wish-btn" onclick="toggleWish(this)">
+                <span class="material-symbols-outlined text-[17px] text-slate-400">bookmark</span>
+              </button>
+            </div>
+          </div>
+          <div class="p-3">
+            <p class="text-[12px] font-extrabold text-slate-800 truncate mb-0.5">블랙 슬림핏 팬츠</p>
+            <p class="text-[10px] text-slate-400 mb-1.5">@basic_w · 공유 <span class="font-bold">1회</span></p>
+            <div class="mb-1">
+              <span class="text-[14px] font-extrabold text-slate-900">38,000원</span>
+            </div>
+            <p class="text-[10px] price-original mb-2">정가 89,000원</p>
+            <div class="flex items-center gap-2 mb-2.5">
+              <span class="share-count"><span class="material-symbols-outlined text-[12px]">favorite</span>11</span>
+              <span class="share-count"><span class="material-symbols-outlined text-[12px]">swap_horiz</span>공유 1회</span>
+            </div>
+            <button class="action-btn btn-buy" onclick="openBuy(this)">
+              구매하기
+            </button>
+          </div>
+        </div>
+
+        <!-- 판매 카드 4 -->
+        <div class="item-card fade-up fade-up-4">
+          <div class="item-img relative bg-slate-100">
+            <div class="w-full aspect-[3/4] flex items-center justify-center bg-gradient-to-br from-rose-50 to-rose-100">
+              <span class="material-symbols-outlined text-[48px] text-rose-200">checkroom</span>
+            </div>
+            <div class="absolute top-2 left-2">
+              <span class="badge badge-sell">판매</span>
+            </div>
+            <div class="absolute top-2 right-2 flex flex-col gap-1">
+              <button class="like-btn" onclick="toggleLike(this)">
+                <span class="material-symbols-outlined text-[17px] text-slate-400">favorite</span>
+              </button>
+              <button class="wish-btn" onclick="toggleWish(this)">
+                <span class="material-symbols-outlined text-[17px] text-slate-400">bookmark</span>
+              </button>
+            </div>
+          </div>
+          <div class="p-3">
+            <p class="text-[12px] font-extrabold text-slate-800 truncate mb-0.5">로즈핑크 블라우스</p>
+            <p class="text-[10px] text-slate-400 mb-1.5">@chic_j · 공유 <span class="font-bold">0회</span></p>
+            <div class="mb-1">
+              <span class="text-[14px] font-extrabold text-slate-900">42,000원</span>
+            </div>
+            <p class="text-[10px] price-original mb-2">정가 95,000원</p>
+            <div class="flex items-center gap-2 mb-2.5">
+              <span class="share-count"><span class="material-symbols-outlined text-[12px]">favorite</span>7</span>
+              <span class="share-count"><span class="material-symbols-outlined text-[12px]">swap_horiz</span>공유 0회</span>
+            </div>
+            <button class="action-btn btn-buy" onclick="openBuy(this)">
+              구매하기
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 내 아이템 판매 등록 버튼 -->
+      <button onclick="openMySell()" class="mt-5 mb-2 w-full py-4 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center gap-2 text-[13px] font-extrabold text-slate-600 active:scale-[0.99] transition-transform">
+        <span class="material-symbols-outlined filled text-[18px]">add_circle</span>
+        내 아이템 판매 등록하기
+      </button>
+
+    </div>
+
+  </main>
+
+  <!-- ===== 하단 내비게이션 ===== -->
+  <nav class="fixed bottom-0 inset-x-0 z-50 ios-blur bg-white/90 border-t border-slate-100">
+    <div class="max-w-sm mx-auto px-4 py-2 flex justify-between items-center">
+      <a href="closet.html" class="flex flex-col items-center gap-1 text-slate-500">
+        <span class="material-symbols-outlined text-2xl">checkroom</span>
+        <span class="text-[10px] font-extrabold">내옷장</span>
+      </a>
+      <a href="camera.html" class="flex flex-col items-center gap-1 text-slate-500">
+        <span class="material-symbols-outlined text-2xl">add_a_photo</span>
+        <span class="text-[10px] font-extrabold">item등록</span>
+      </a>
+      <a href="album.html" class="flex flex-col items-center gap-1 text-slate-500">
+        <span class="material-symbols-outlined text-2xl">photo_library</span>
+        <span class="text-[10px] font-extrabold">코디앨범</span>
+      </a>
+      <a href="share-sale.html" class="flex flex-col items-center gap-1 text-accent">
+        <span class="material-symbols-outlined filled text-2xl">storefront</span>
+        <span class="text-[10px] font-extrabold">공유판매</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- ===== 공유 신청 모달 ===== -->
+  <div id="shareReqModal" class="modal-sheet hidden">
+    <div class="modal-body">
+      <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-5"></div>
+      <h3 class="text-[17px] font-extrabold tracking-tight mb-1">공유 신청</h3>
+      <p class="text-[12px] text-slate-400 mb-5">아이템을 빌릴 날짜와 방법을 선택하세요.</p>
+
+      <!-- 신청자 닉네임 -->
+      <div class="mb-4">
+        <label class="text-[11px] font-extrabold text-slate-500 mb-1.5 block">신청자 닉네임</label>
+        <div class="px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-[13px] font-bold text-slate-700" id="reqNickname">@내 닉네임</div>
+      </div>
+
+      <!-- 희망 날짜 -->
+      <div class="mb-4">
+        <label class="text-[11px] font-extrabold text-slate-500 mb-1.5 block">희망 공유 날짜 <span class="text-accent">(오늘 기준 5일 이후~)</span></label>
+        <div id="dateChips" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <!-- 공유 방식 -->
+      <div class="mb-5">
+        <label class="text-[11px] font-extrabold text-slate-500 mb-1.5 block">공유 방식</label>
+        <div class="flex gap-2">
+          <button class="date-chip selected flex-1" onclick="selectDelivery(this,'parcel')">택배 착불</button>
+          <button class="date-chip flex-1" onclick="selectDelivery(this,'direct')">직접 전달</button>
+        </div>
+      </div>
+
+      <!-- 포인트 적립 안내 -->
+      <div class="point-badge flex items-center gap-2 mb-5">
+        <span class="material-symbols-outlined filled text-accent text-[18px]">workspace_premium</span>
+        <p class="text-[11px] font-extrabold text-slate-700">공유 완료 시 <span class="text-accent">1,000P</span> 자동 적립</p>
+      </div>
+
+      <button class="action-btn btn-share-req" onclick="submitShareReq()">신청 완료</button>
+      <button class="mt-2 w-full py-3 rounded-2xl text-[13px] font-bold text-slate-500 active:scale-95 transition-transform" onclick="closeShareModal()">취소</button>
+    </div>
   </div>
 
-  <script>
-    // 로그인 가드(기존 정책 유지)
-    CodiBank.guard();
+  <!-- ===== 구매 모달 ===== -->
+  <div id="buyModal" class="modal-sheet hidden">
+    <div class="modal-body">
+      <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-5"></div>
+      <h3 class="text-[17px] font-extrabold tracking-tight mb-1">구매하기</h3>
+      <p class="text-[12px] text-slate-400 mb-5">구매 전 아이템 상태를 확인해주세요.</p>
 
+      <!-- 구매 정보 -->
+      <div class="bg-slate-50 rounded-2xl p-4 mb-4 space-y-3">
+        <div class="flex justify-between">
+          <span class="text-[12px] text-slate-500 font-semibold">판매자</span>
+          <span class="text-[12px] font-extrabold text-slate-800" id="buySellerNick">@style_min</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-[12px] text-slate-500 font-semibold">공유 횟수</span>
+          <span class="text-[12px] font-extrabold text-slate-800" id="buyShareCount">3회</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-[12px] text-slate-500 font-semibold">판매가</span>
+          <span class="text-[14px] font-extrabold text-slate-900" id="buyPrice">85,000원</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-[12px] text-slate-500 font-semibold">원가</span>
+          <span class="text-[12px] price-original" id="buyOriginalPrice">280,000원</span>
+        </div>
+      </div>
+
+      <!-- 좋아요/찜 -->
+      <div class="flex gap-3 mb-5">
+        <button class="flex-1 py-3 rounded-2xl border border-slate-200 flex items-center justify-center gap-1.5 text-[12px] font-bold text-slate-600 active:scale-95 transition-transform">
+          <span class="material-symbols-outlined text-[17px] text-red-400">favorite</span>좋아요
+        </button>
+        <button class="flex-1 py-3 rounded-2xl border border-slate-200 flex items-center justify-center gap-1.5 text-[12px] font-bold text-slate-600 active:scale-95 transition-transform">
+          <span class="material-symbols-outlined text-[17px] text-accent">bookmark</span>찜하기
+        </button>
+      </div>
+
+      <button class="action-btn btn-buy mb-2" onclick="confirmBuy()">구매 확정</button>
+      <button class="w-full py-3 rounded-2xl text-[13px] font-bold text-slate-500 active:scale-95 transition-transform" onclick="closeBuyModal()">취소</button>
+    </div>
+  </div>
+
+  <!-- ===== 내 아이템 공유 등록 모달 ===== -->
+  <div id="myShareModal" class="modal-sheet hidden">
+    <div class="modal-body">
+      <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-5"></div>
+      <h3 class="text-[17px] font-extrabold tracking-tight mb-1">내 아이템 공유 등록</h3>
+      <p class="text-[12px] text-slate-400 mb-5">디지털 옷장에서 공유할 아이템을 선택하세요.</p>
+      <div id="myItemList" class="space-y-2 max-h-52 overflow-y-auto no-scrollbar mb-4">
+        <p class="text-[12px] text-slate-400 text-center py-8">내옷장에서 아이템을 먼저 등록해주세요.</p>
+      </div>
+      <button class="action-btn btn-share-req" onclick="closeMyShareModal()">닫기</button>
+    </div>
+  </div>
+
+  <!-- ===== 내 아이템 판매 등록 모달 ===== -->
+  <div id="mySellModal" class="modal-sheet hidden">
+    <div class="modal-body">
+      <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-5"></div>
+      <h3 class="text-[17px] font-extrabold tracking-tight mb-1">내 아이템 판매 등록</h3>
+      <p class="text-[12px] text-slate-400 mb-5">디지털 옷장에서 판매할 아이템을 선택하세요.</p>
+      <div id="mySellItemList" class="space-y-2 max-h-52 overflow-y-auto no-scrollbar mb-4">
+        <p class="text-[12px] text-slate-400 text-center py-8">내옷장에서 아이템을 먼저 등록해주세요.</p>
+      </div>
+      <button class="action-btn btn-buy" onclick="closeMySellModal()">닫기</button>
+    </div>
+  </div>
+
+  <!-- ===== 완료 토스트 ===== -->
+  <div id="toast" class="fixed bottom-24 inset-x-0 flex justify-center z-[100] pointer-events-none">
+    <div id="toastMsg" class="hidden bg-slate-900 text-white text-[13px] font-bold px-5 py-3 rounded-2xl shadow-xl">완료되었습니다.</div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ── 탭 전환 ──
+  window.switchTab = function(tab) {
+    const shareTab = document.getElementById('shareTab');
+    const sellTab = document.getElementById('sellTab');
     const tabShare = document.getElementById('tabShare');
-    const tabSale = document.getElementById('tabSale');
-    const panelShare = document.getElementById('panelShare');
-    const panelSale = document.getElementById('panelSale');
-
-    function setActive(tab){
-      const isShare = tab === 'share';
-      // button style
-      const on = 'bg-primary text-white';
-      const off = 'bg-white text-slate-700';
-      tabShare.className = 'flex-1 py-2 rounded-xl text-sm font-extrabold ' + (isShare ? on : off);
-      tabSale.className = 'flex-1 py-2 rounded-xl text-sm font-extrabold ' + (!isShare ? on : off);
-
-      panelShare.classList.toggle('hidden', !isShare);
-      panelSale.classList.toggle('hidden', isShare);
-
-      const url = new URL(location.href);
-      url.searchParams.set('tab', isShare ? 'share' : 'sale');
-      history.replaceState({}, '', url.toString());
+    const tabSell = document.getElementById('tabSell');
+    if(tab === 'share'){
+      shareTab.classList.remove('hidden');
+      sellTab.classList.add('hidden');
+      tabShare.classList.add('active');
+      tabSell.classList.remove('active');
+    } else {
+      sellTab.classList.remove('hidden');
+      shareTab.classList.add('hidden');
+      tabSell.classList.add('active');
+      tabShare.classList.remove('active');
     }
+  };
 
-    tabShare.addEventListener('click', () => setActive('share'));
-    tabSale.addEventListener('click', () => setActive('sale'));
+  // ── 좋아요 토글 ──
+  window.toggleLike = function(btn){
+    btn.classList.toggle('liked');
+    const ico = btn.querySelector('.material-symbols-outlined');
+    if(btn.classList.contains('liked')){
+      ico.style.color = '#ef4444';
+      ico.style.fontVariationSettings = "'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 24";
+    } else {
+      ico.style.color = '';
+      ico.style.fontVariationSettings = '';
+    }
+  };
 
-    // init from query
-    const q = new URLSearchParams(location.search);
-    const init = (q.get('tab') || 'share').toLowerCase();
-    setActive(init === 'sale' ? 'sale' : 'share');
-  </script>
+  // ── 찜하기 토글 ──
+  window.toggleWish = function(btn){
+    btn.classList.toggle('wished');
+    const ico = btn.querySelector('.material-symbols-outlined');
+    if(btn.classList.contains('wished')){
+      ico.style.color = '#C5A358';
+      ico.style.fontVariationSettings = "'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 24";
+    } else {
+      ico.style.color = '';
+      ico.style.fontVariationSettings = '';
+    }
+  };
+
+  // ── 필터 칩 ──
+  window.filterShare = function(el, cat){ document.querySelectorAll('#shareTab .filter-chip').forEach(c=>c.classList.remove('active')); el.classList.add('active'); };
+  window.filterSell = function(el, sort){ document.querySelectorAll('#sellTab .filter-chip').forEach(c=>c.classList.remove('active')); el.classList.add('active'); };
+
+  // ── 택배 방식 선택 ──
+  window.selectDelivery = function(btn, type){
+    document.querySelectorAll('#shareReqModal .date-chip').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  };
+
+  // ── 공유 신청 모달 ──
+  window.openShareReq = function(btn){
+    const modal = document.getElementById('shareReqModal');
+    modal.classList.remove('hidden');
+    // 날짜 칩 생성 (오늘+5일 이후 7개)
+    const chips = document.getElementById('dateChips');
+    chips.innerHTML = '';
+    const today = new Date();
+    for(let i=5; i<=11; i++){
+      const d = new Date(today);
+      d.setDate(today.getDate()+i);
+      const label = `${d.getMonth()+1}/${d.getDate()}(${['일','월','화','수','목','금','토'][d.getDay()]})`;
+      const c = document.createElement('button');
+      c.className = 'date-chip' + (i===5?' selected':'');
+      c.textContent = label;
+      c.onclick = function(){ document.querySelectorAll('#dateChips .date-chip').forEach(x=>x.classList.remove('selected')); this.classList.add('selected'); };
+      chips.appendChild(c);
+    }
+    // 닉네임
+    try{
+      const user = CodiBank && CodiBank.getSession ? CodiBank.getSession() : null;
+      if(user && user.nickname) document.getElementById('reqNickname').textContent = '@' + user.nickname;
+    }catch(_){}
+  };
+  window.closeShareModal = function(){ document.getElementById('shareReqModal').classList.add('hidden'); };
+  window.submitShareReq = function(){
+    document.getElementById('shareReqModal').classList.add('hidden');
+    showToast('공유 신청이 완료됐어요! 🎉');
+  };
+
+  // ── 구매 모달 ──
+  window.openBuy = function(btn){
+    document.getElementById('buyModal').classList.remove('hidden');
+  };
+  window.closeBuyModal = function(){ document.getElementById('buyModal').classList.add('hidden'); };
+  window.confirmBuy = function(){
+    document.getElementById('buyModal').classList.add('hidden');
+    showToast('구매 신청이 완료됐어요! 🛍️');
+  };
+
+  // ── 내 공유 등록 모달 ──
+  window.openMyShare = function(){ document.getElementById('myShareModal').classList.remove('hidden'); };
+  window.closeMyShareModal = function(){ document.getElementById('myShareModal').classList.add('hidden'); };
+
+  // ── 내 판매 등록 모달 ──
+  window.openMySell = function(){ document.getElementById('mySellModal').classList.remove('hidden'); };
+  window.closeMySellModal = function(){ document.getElementById('mySellModal').classList.add('hidden'); };
+
+  // ── 토스트 ──
+  let _toastTimer;
+  function showToast(msg){
+    const el = document.getElementById('toastMsg');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(()=>el.classList.add('hidden'), 2600);
+  }
+
+  // ── 모달 바깥 클릭 닫기 ──
+  ['shareReqModal','buyModal','myShareModal','mySellModal'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('click', e=>{ if(e.target===el) el.classList.add('hidden'); });
+  });
+
+  // ── 내 아이템 불러오기 (향후 확장용) ──
+  function loadMyItems(){
+    try{
+      const user = CodiBank && CodiBank.getSession ? CodiBank.getSession() : null;
+      if(!user) return;
+      const items = CodiBank.getItemsByUser ? CodiBank.getItemsByUser(user.email) : [];
+      const shareList = document.getElementById('myItemList');
+      const sellList = document.getElementById('mySellItemList');
+      if(!items || !items.length) return;
+      const html = items.slice(0,10).map(it=>`
+        <div class="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+          <div class="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center flex-shrink-0">
+            <span class="material-symbols-outlined text-slate-400 text-[18px]">checkroom</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-[12px] font-extrabold text-slate-800 truncate">${it.brand||'아이템'}</p>
+            <p class="text-[10px] text-slate-400">${it.color||''}</p>
+          </div>
+          <button class="px-3 py-1.5 rounded-full bg-accent/10 text-accent text-[10px] font-extrabold border border-accent/25">선택</button>
+        </div>
+      `).join('');
+      if(shareList) shareList.innerHTML = html;
+      if(sellList) sellList.innerHTML = html;
+    }catch(e){}
+  }
+  loadMyItems();
+
+})();
+</script>
 </body>
 </html>

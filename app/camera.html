@@ -798,6 +798,8 @@
     // - AI가 헷갈릴 때를 대비해, 상세페이지에서 카테고리를 언제든 수정 가능
 
     let _mnModel = null;
+    // 마지막 MobileNet 예측(설명/스타일 태그 생성에 사용)
+    let _lastMnPreds = null;
 
     async function getMobileNetModel() {
       if (_mnModel) return _mnModel;
@@ -820,14 +822,17 @@
     }
 
     const CAT_RULES = [
-      { key: 'coat',   kws: ['trench', 'overcoat', 'coat', 'fur coat', 'raincoat', 'cloak'] },
-      { key: 'jacket', kws: ['jacket', 'blazer', 'suit', 'sports jacket', 'bomber', 'parka', 'windbreaker', 'leather jacket', 'jean jacket', 'denim jacket'] },
-      { key: 'top',    kws: ['shirt', 't-shirt', 'tee', 'jersey', 'sweater', 'hoodie', 'sweatshirt', 'cardigan', 'blouse', 'tank', 'vest', 'pullover'] },
-      { key: 'pants',  kws: ['jean', 'jeans', 'trousers', 'pants', 'shorts', 'skirt', 'miniskirt', 'leggings'] },
-      { key: 'shoes',  kws: ['shoe', 'sneaker', 'running shoe', 'boot', 'loafer', 'sandal', 'slipper'] },
+      // ✅ MobileNet 라벨(영문) 기반 분류 규칙
+      // - 실제 촬영 이미지에서 코트/자켓이 '탑'으로 잘못 분류되는 케이스가 많아
+      //   아우터 관련 키워드를 넓게 잡고, 필요 시 '탑→아우터' 보정을 수행합니다.
+      { key: 'coat',   kws: ['trench', 'overcoat', 'coat', 'fur coat', 'raincoat', 'cloak', 'puffer', 'down jacket', 'parka', 'anorak', 'duffel', 'pea coat', 'poncho', 'cape', 'macintosh', 'greatcoat'] },
+      { key: 'jacket', kws: ['jacket', 'blazer', 'sports jacket', 'windbreaker', 'bomber', 'leather jacket', 'jean jacket', 'denim jacket', 'suit', 'suit jacket', 'track jacket', 'motorcycle jacket'] },
+      { key: 'top',    kws: ['shirt', 'dress shirt', 't-shirt', 'tee', 'jersey', 'sweater', 'hoodie', 'sweatshirt', 'cardigan', 'blouse', 'tank', 'vest', 'pullover', 'polo'] },
+      { key: 'pants',  kws: ['jean', 'jeans', 'trousers', 'pants', 'shorts', 'skirt', 'miniskirt', 'leggings', 'chinos'] },
+      { key: 'shoes',  kws: ['shoe', 'sneaker', 'running shoe', 'boot', 'loafer', 'sandal', 'slipper', 'heel', 'high heel'] },
       { key: 'socks',  kws: ['sock', 'stocking'] },
-      { key: 'scarf',  kws: ['scarf', 'stole', 'boa', 'tie', 'bow tie'] },
-      { key: 'watch',  kws: ['watch'] },
+      { key: 'scarf',  kws: ['scarf', 'stole', 'boa', 'muffler', 'neckwear', 'tie', 'bow tie'] },
+      { key: 'watch',  kws: ['watch', 'wristwatch', 'digital watch'] },
     ];
 
     function mapPredictionsToCategory(preds) {
@@ -855,7 +860,19 @@
       });
 
       // 너무 애매하면 null (상세에서 수정 가능)
-      if (bestKey && bestScore >= 0.08) return bestKey;
+      if (bestKey && bestScore >= 0.08) {
+        // ✅ 코트/자켓이 탑으로 쏠리는 문제를 줄이는 보정
+        // - best가 top이어도 coat/jacket 점수가 충분히 높으면 아우터로 승격
+        if (bestKey === 'top') {
+          const coatS = Number(scores.coat || 0);
+          const jacketS = Number(scores.jacket || 0);
+          const outerS = Math.max(coatS, jacketS);
+          if (outerS >= Math.max(0.05, bestScore * 0.60)) {
+            return (coatS >= jacketS) ? 'coat' : 'jacket';
+          }
+        }
+        return bestKey;
+      }
 
       // top-1 direct match
       const top = _normLabel(arr?.[0]?.className);
@@ -891,6 +908,7 @@
         ]);
 
         if (!preds || !preds.length) return null;
+        _lastMnPreds = preds;
         const cat = mapPredictionsToCategory(preds);
         if (cat) {
           console.log('MobileNet 분류:', cat, preds);
@@ -915,6 +933,34 @@
         console.warn('MobileNet 분류 실패:', e);
       }
       return 'etc';
+    }
+
+    // ===== 간단한 스타일 태그 추론(모델 예측 라벨 기반) =====
+    function inferStyleTagFromPreds(preds){
+      const t = _normLabel(preds?.[0]?.className || '');
+      if(!t) return '';
+      const rules = [
+        { kw: ['leather'], tag: '가죽' },
+        { kw: ['denim','jean'], tag: '데님' },
+        { kw: ['trench'], tag: '트렌치' },
+        { kw: ['bomber'], tag: '봄버' },
+        { kw: ['parka','anorak'], tag: '아웃도어' },
+        { kw: ['windbreaker','track'], tag: '윈드브레이커' },
+        { kw: ['hoodie'], tag: '후디' },
+        { kw: ['cardigan'], tag: '가디건' },
+        { kw: ['sweater','pullover'], tag: '니트' },
+        { kw: ['blazer','suit'], tag: '포멀' },
+        { kw: ['sneaker','running shoe'], tag: '스니커즈' },
+        { kw: ['boot'], tag: '부츠' },
+        { kw: ['loafer'], tag: '로퍼' },
+        { kw: ['sandal'], tag: '샌들' },
+        { kw: ['skirt','miniskirt'], tag: '스커트' },
+        { kw: ['leggings'], tag: '레깅스' },
+      ];
+      for(const r of rules){
+        if(r.kw.some(k=>t.includes(k))) return r.tag;
+      }
+      return '';
     }
 
     // ===== AI helpers: Brand (OCR) =====
@@ -1092,14 +1138,27 @@
         if (shotBlob.back || shots.back) images.back = await CodiBank.saveImage(shots.back);
         if (shotBlob.brand || shots.brand) images.brand = await CodiBank.saveImage(shots.brand);
 
+        // ✅ 아이템 특징(설명) 자동 생성
+        // - 잘못된 분석은 상세페이지에서 수정 가능
+        const catLabel = (CodiBank.getCategoryMetaByKey(categoryKey, user.email)?.label) || categoryKey;
+        const styleTag = inferStyleTagFromPreds(_lastMnPreds);
+        const noteParts = [];
+        if (colorName) noteParts.push(colorName);
+        if (styleTag) noteParts.push(styleTag);
+        noteParts.push(catLabel);
+        let noteText = noteParts.join(' ').replace(/\s+/g, ' ').trim();
+        if (!noteText) noteText = '아이템';
+
         const result = CodiBank.addItem(user.email, {
           categoryKey,
           color: colorName || '',
           brand: brandGuess || '',
+          note: noteText,
           images,
           meta: {
             source: 'camera',
             ai: { category: !!categoryKey, color: !!colorName, brand: !!brandGuess },
+            note: { auto: true, styleTag: styleTag || '' },
             optionalImages: { back: !!(shotBlob.back || shots.back), brand: !!(shotBlob.brand || shots.brand) },
           },
         });
