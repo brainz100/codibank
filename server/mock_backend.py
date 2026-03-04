@@ -259,6 +259,93 @@ def _culture_hint(location: str) -> str:
     return f"Keep the styling culturally appropriate for: {location}."
 
 
+def _variation_hint(seed: Any) -> str:
+    """seed 값으로 완전히 다른 스타일 변주를 생성.
+    
+    '다시코디' 요청 시 매번 랜덤 seed가 전달되므로,
+    OpenAI가 이전과 전혀 다른 이미지를 생성하도록 강제합니다.
+    seed가 동일하면 동일한 변주, 다르면 완전히 다른 변주.
+    """
+    try:
+        s = int(seed) if seed is not None else 0
+    except Exception:
+        s = 0
+
+    if s == 0:
+        return ""
+
+    # 색상 팔레트 변주 (5가지 계열 × seed 기반 선택)
+    palette_variants = [
+        "dominant palette: deep navy + ivory + camel accent",
+        "dominant palette: all-black + white contrast + silver accent",
+        "dominant palette: warm beige + chocolate brown + rust accent",
+        "dominant palette: charcoal gray + pale blue + gold accent",
+        "dominant palette: forest green + cream + cognac accent",
+        "dominant palette: burgundy + dark gray + blush accent",
+        "dominant palette: off-white + sand + terracotta accent",
+        "dominant palette: cobalt blue + white + yellow accent",
+        "dominant palette: dusty pink + warm white + taupe accent",
+        "dominant palette: olive + ecru + burnt sienna accent",
+    ]
+
+    # 아우터 변주 (다시코디마다 다른 아우터 강제)
+    outer_variants = [
+        "key outer piece: structured trench coat",
+        "key outer piece: oversized wool coat",
+        "key outer piece: tailored blazer",
+        "key outer piece: quilted puffer jacket",
+        "key outer piece: slim leather jacket",
+        "key outer piece: chunky knit cardigan",
+        "key outer piece: bomber jacket",
+        "key outer piece: double-breasted peacoat",
+        "key outer piece: denim jacket",
+        "key outer piece: zip-up fleece jacket",
+    ]
+
+    # 바텀 변주
+    bottom_variants = [
+        "bottoms: slim straight trousers",
+        "bottoms: wide-leg tailored pants",
+        "bottoms: fitted straight jeans",
+        "bottoms: pleated chino trousers",
+        "bottoms: cargo-detail jogger pants",
+        "bottoms: cropped wide trousers",
+        "bottoms: slim corduroy pants",
+        "bottoms: straight-cut dark denim",
+        "bottoms: relaxed linen trousers",
+        "bottoms: slim tapered sweatpants",
+    ]
+
+    # 신발 변주
+    shoe_variants = [
+        "footwear: minimalist white leather sneakers",
+        "footwear: polished oxford shoes",
+        "footwear: chunky sole platform sneakers",
+        "footwear: suede chelsea boots",
+        "footwear: clean running sneakers",
+        "footwear: leather loafers",
+        "footwear: high-top canvas sneakers",
+        "footwear: ankle boots with side zip",
+        "footwear: classic slip-on sneakers",
+        "footwear: Derby leather shoes",
+    ]
+
+    p_idx = s % len(palette_variants)
+    o_idx = (s // 7) % len(outer_variants)
+    b_idx = (s // 13) % len(bottom_variants)
+    sh_idx = (s // 19) % len(shoe_variants)
+
+    lines = [
+        f"FRESH STYLING SESSION #{s} — completely independent from all previous sessions.",
+        "This is a brand-new stylist taking over from scratch. Ignore any prior outfit.",
+        palette_variants[p_idx],
+        outer_variants[o_idx],
+        bottom_variants[b_idx],
+        shoe_variants[sh_idx],
+    ]
+    return " | ".join(lines) + "."
+
+
 def _stylist_hint(stylist: Any) -> str:
     """프론트에서 생성한 스타일리스트 페르소나를 프롬프트에 반영."""
 
@@ -527,6 +614,9 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
     culture_rule = _culture_hint(location) if location else ""
     stylist_rule = _stylist_hint(payload.get("stylist"))
     match_rule = _matchpairs_hint(payload.get("matchPairs"))
+    # ✅ seed 기반 완전 변주 힌트 - 다시코디마다 완전히 다른 이미지 강제
+    seed_val = payload.get("seed") or 0
+    variation_rule = _variation_hint(seed_val)
 
     kw_str = ", ".join([str(k) for k in keywords if str(k).strip()][:6])
 
@@ -566,9 +656,11 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
     short = short[:100]
 
     # 메인 프롬프트
+    # variation_rule을 최상단에 배치 → OpenAI가 "새 세션" 신호를 가장 먼저 읽음
     prompt = (
-        "Photorealistic full-body fashion lookbook photo. "
-        f"A {profile_str} wearing a {purpose_desc}. "
+        (f"{variation_rule} " if variation_rule else "")
+        + "Photorealistic full-body fashion lookbook photo. "
+        + f"A {profile_str} wearing a {purpose_desc}. "
         + (f"Body guidance: {body_rule}. " if body_rule else "")
         + (f"Location: {location}. " if location else "")
         + (f"{culture_rule} " if culture_rule else "")
