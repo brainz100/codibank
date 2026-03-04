@@ -35,8 +35,8 @@
     .no-scrollbar::-webkit-scrollbar{display:none;}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
 
     /* === 카드 덱 === */
-    .closet-container{position:relative;height:400px;display:flex;align-items:center;justify-content:center;perspective:1300px;touch-action:pan-y;}
-    .clothing-layer{position:absolute;width:160px;height:264px;border-radius:1.55rem;overflow:hidden;background:#fff;border:1px solid rgba(17,17,17,0.06);box-shadow:0 14px 34px rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center;text-decoration:none;user-select:none;-webkit-user-select:none;will-change:transform,opacity,filter;transform-origin:50% 62%;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform-style:preserve-3d;transition:transform 520ms cubic-bezier(0.16,1,0.3,1),opacity 320ms cubic-bezier(0.2,0.8,0.2,1),filter 320ms cubic-bezier(0.2,0.8,0.2,1),box-shadow 520ms cubic-bezier(0.16,1,0.3,1),border-color 420ms ease;}
+    .closet-container{position:relative;height:310px;display:flex;align-items:center;justify-content:center;perspective:1300px;touch-action:pan-y;overflow:hidden;}
+    .clothing-layer{position:absolute;width:148px;height:246px;border-radius:1.55rem;overflow:hidden;background:#fff;border:1px solid rgba(17,17,17,0.06);box-shadow:0 14px 34px rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center;text-decoration:none;user-select:none;-webkit-user-select:none;will-change:transform,opacity,filter;transform-origin:50% 62%;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform-style:preserve-3d;transition:transform 520ms cubic-bezier(0.16,1,0.3,1),opacity 320ms cubic-bezier(0.2,0.8,0.2,1),filter 320ms cubic-bezier(0.2,0.8,0.2,1),box-shadow 520ms cubic-bezier(0.16,1,0.3,1),border-color 420ms ease;}
     .clothing-layer::before{content:'';position:absolute;inset:-40% -60%;pointer-events:none;opacity:0;transform:translateX(-120%) rotate(12deg);background:linear-gradient(120deg,transparent 0%,rgba(255,255,255,0.75) 45%,transparent 60%);}
     @keyframes cardShine{0%{transform:translateX(-120%) rotate(12deg);opacity:0}15%{opacity:0.5}100%{transform:translateX(140%) rotate(12deg);opacity:0}}
     .clothing-layer.sparkle{border-color:rgba(197,163,88,0.8);box-shadow:0 26px 62px -22px rgba(197,163,88,0.35),0 18px 36px rgba(0,0,0,0.12);}
@@ -45,7 +45,7 @@
     .layer-5{transform:translateX(148px) scale(0.88) translateZ(-90px) rotateY(-10deg);z-index:10;opacity:0.54;filter:blur(0.85px);}
     .layer-2{transform:translateX(-86px) scale(1.08) translateZ(-45px) rotateY(6deg);z-index:20;opacity:0.94;}
     .layer-4{transform:translateX(86px) scale(1.08) translateZ(-45px) rotateY(-6deg);z-index:20;opacity:0.94;}
-    .layer-3{transform:translateX(0) scale(1.35) translateZ(70px) rotateY(0deg);z-index:30;box-shadow:0 32px 70px -22px rgba(0,0,0,0.40);border-color:rgba(197,163,88,0.55);}
+    .layer-3{transform:translateX(0) scale(1.22) translateZ(60px) rotateY(0deg);z-index:30;box-shadow:0 24px 56px -18px rgba(0,0,0,0.40);border-color:rgba(197,163,88,0.55);}
     .deck-highlight .layer-3{border:2px solid rgba(197,163,88,0.9);}
     .closet-container.is-shifting .clothing-layer:not(.layer-3){filter:blur(1.15px);}
     .clothing-layer.exit-left{pointer-events:none;transition:transform 200ms cubic-bezier(0.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2.6px);transform:translateX(-210px) scale(0.52) translateZ(-140px) rotateY(16deg) rotate(-6deg);}
@@ -1533,6 +1533,8 @@ async function updateVTO(opts={}){
   }
 
   // ✅ 추천 코디 10점 매칭 (카테고리4 + 컬러3 + 스타일3)
+  // ⚠️ 중요: renderCategories 호출 전에 반드시 hasGenerated=true 설정해야 배지 표시됨
+  S.hasGenerated = true;
   try{
     const map={};
     const scoreMap={};
@@ -2638,8 +2640,8 @@ function buildSection(catMeta,items){
   // (요청) 카테고리별 배경 박스(컬러 그라데이션) 삭제 + 구분 라인만 유지
   // - 좌/우 경계선 없이 위/아래 라인만 보이도록 border-top/bottom 유지
   const dw=document.createElement('div');
-  dw.className='mx-4 border-t border-b border-slate-200 overflow-visible';
-  dw.style.cssText='padding: 22px 0;';
+  dw.className='mx-4 border-t border-b border-slate-200';
+  dw.style.cssText='padding: 14px 0; overflow: hidden;';
   const deck=document.createElement('div');deck.className='closet-container';
   const ctrl={catKey:catMeta.key,items:Array.isArray(items)?items:[],startIndex:0,windowIndices:[-1,-1,-1,-1,-1],els:[],animating:false,
     shift(dir){if(this.animating)return;const l=this.items.length;if(l<=0)return;this.animating=true;playTick();deck.classList.add('is-shifting');const MOVE=520,EXIT=200,POP=380,UNL=EXIT+MOVE+120;if(l>=5){this.startIndex=mod(this.startIndex+(dir>0?1:-1),l);this.windowIndices=[0,1,2,3,4].map(i=>mod(this.startIndex+i,l));}else{this.windowIndices=(dir>0)?rotL(this.windowIndices):rotR(this.windowIndices);}const oe=this.els.slice(),lv=dir>0?oe[0]:oe[oe.length-1];if(!lv){this.animating=false;deck.classList.remove('is-shifting');return;}const ne=dir>0?oe.slice(1).concat(lv):[lv].concat(oe.slice(0,-1));this.els=ne;this.els.forEach(e=>e.classList.remove('exit-left','exit-right','enter-from-left','enter-from-right','center-pop'));lv.classList.add(dir>0?'exit-left':'exit-right');for(let i=0;i<ne.length;i++){if((dir>0&&i===4)||(dir<0&&i===0))continue;slc(ne[i],i+1);}const ce=ne[2];if(ce)setTimeout(()=>{if(!this.animating)return;ce.classList.remove('center-pop');try{void ce.offsetHeight;}catch(_){}ce.classList.add('center-pop');setTimeout(()=>ce.classList.remove('center-pop'),560);},POP);setTimeout(()=>{if(!this.animating)return;lv.classList.remove('exit-left','exit-right');const ep=dir>0?5:1,ei=dir>0?this.windowIndices[4]:this.windowIndices[0];layerContent(lv,ei>=0?this.items[ei]:null,this.catKey);lv.classList.add('no-transition');slc(lv,ep);lv.classList.add(dir>0?'enter-from-right':'enter-from-left');try{void lv.offsetHeight;}catch(_){}lv.classList.remove('no-transition');requestAnimationFrame(()=>lv.classList.remove(dir>0?'enter-from-right':'enter-from-left'));},EXIT);setTimeout(()=>{this.animating=false;deck.classList.remove('is-shifting');if(lv)lv.classList.remove('exit-left','exit-right','enter-from-left','enter-from-right','no-transition');},UNL);}};

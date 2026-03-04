@@ -14,6 +14,14 @@
         window.location.replace('index.html');
       } else {
         document.documentElement.style.visibility = 'visible';
+        // ✅ history에 closet.html을 삽입해서 camera → 외부앱 복귀 시 closet으로 돌아가게 처리
+        // pageshow: 외부 앱(카카오 등)에서 복귀할 때 persisted=true로 발생
+        window.addEventListener('pageshow', function(e) {
+          if (e.persisted) {
+            // BFCache(뒤로가기 캐시)에서 복원된 경우 → closet으로 이동
+            window.location.replace('closet.html');
+          }
+        });
       }
     } catch(e) {
       window.location.replace('index.html');
@@ -1270,7 +1278,7 @@
         setAiProgress(100, '완료! 옷장으로 이동합니다.');
         setTimeout(() => {
           closeAiModal();
-          window.location.href = `closet.html?category=${encodeURIComponent(categoryKey)}&highlight=${encodeURIComponent(result.item.id)}`;
+          window.location.replace(`closet.html?category=${encodeURIComponent(categoryKey)}&highlight=${encodeURIComponent(result.item.id)}`);
         }, 600);
       } catch (e) {
         console.error(e);
