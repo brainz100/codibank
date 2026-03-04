@@ -170,38 +170,48 @@
 
   <script>
   (function(){
-    // ── 로그인 상태 확인 후 라우팅 ──
+    // ── 코디뱅크 진입 라우터 ──
+    // 규칙 1: 비로그인 → 랜딩 페이지 표시
+    // 규칙 2: 로그인 상태 → 내옷장(closet.html)으로 즉시 이동
+
     function checkAuthAndRoute(){
       try{
-        // CodiBank.js의 getCurrentUser() 사용
-        const user = (window.CodiBank && CodiBank.getCurrentUser)
-          ? CodiBank.getCurrentUser()
-          : null;
+        // codibank.js가 아직 초기화 전일 수 있으므로 안전하게 체크
+        if(!window.CodiBank || typeof CodiBank.getCurrentUser !== 'function'){
+          // 0.3초 후 재시도
+          setTimeout(checkAuthAndRoute, 300);
+          return;
+        }
+
+        const user = CodiBank.getCurrentUser();
 
         if(user && user.email){
-          // ✅ 로그인 상태 → 내옷장으로 이동
+          // ✅ 로그인 상태 → 내옷장으로 즉시 이동 (뒤로가기 방지: replace)
           window.location.replace('closet.html');
         } else {
           // ❌ 비로그인 → 랜딩 페이지 표시
           showLanding();
         }
       } catch(e){
+        console.warn('[CodiBank Router]', e);
         showLanding();
       }
     }
 
     function showLanding(){
-      document.getElementById('loadingScreen').style.display = 'none';
-      document.getElementById('landingPage').classList.remove('hidden');
+      const loading = document.getElementById('loadingScreen');
+      const landing = document.getElementById('landingPage');
+      if(loading) loading.style.display = 'none';
+      if(landing) landing.classList.remove('hidden');
     }
 
-    // codibank.js 로드 대기 후 실행
+    // DOMContentLoaded 이후에 실행 (codibank.js 로드 보장)
     if(document.readyState === 'loading'){
       document.addEventListener('DOMContentLoaded', function(){
-        setTimeout(checkAuthAndRoute, 150);
+        setTimeout(checkAuthAndRoute, 100);
       });
     } else {
-      setTimeout(checkAuthAndRoute, 150);
+      setTimeout(checkAuthAndRoute, 100);
     }
   })();
   </script>

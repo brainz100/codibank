@@ -324,7 +324,7 @@
    - 단일 Canvas VTO (얼굴+몸+옷 완전 합성)
    - 의상 실루엣 명확하게 개선
    ============================================================ */
-if (!CodiBank.requireAuth('login.html')) {}
+if (!CodiBank.requireAuth('index.html')) {}
 const user = CodiBank.getCurrentUser();
 console.info('[CodiBank] closet build: v18.6.3 (2026-02-26)');
 
@@ -681,17 +681,91 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
       return h>>>0;
     };
     const id = (hash32(`${seed}|${pk}|${loc}|${purposeName}|${day||''}`) % 9000) + 1;
+
+    // ══════════════════════════════════════════════════════
+    // 21개 세분화 스타일리스트 - 각각 완전히 다른 시그니처
+    // ══════════════════════════════════════════════════════
     const archetypes = [
-      { voice:'미니멀 클래식', tag:'minimal', desc:'뉴트럴 중심, 실루엣 정리, 과한 디테일 최소화' },
-      { voice:'K-스트릿 캐주얼', tag:'street', desc:'레이어드와 포인트 아이템으로 트렌디하게' },
-      { voice:'프렌치 시크', tag:'chic', desc:'단정한 기본 + 한 가지 포인트로 완성' },
-      { voice:'스포티 애슬레저', tag:'athleisure', desc:'활동성/기능성 우선, 컬러는 안정적으로' },
-      { voice:'스마트 비즈니스', tag:'business', desc:'깔끔한 톤온톤, 소재/핏을 정돈' },
-      { voice:'워크웨어 무드', tag:'workwear', desc:'탄탄한 소재감, 아우터 중심의 안정감' },
-      { voice:'세미포멀 데일리', tag:'smartcasual', desc:'오피스·약속 모두 가능한 균형감' },
+      // ── 미니멀 계열 (3종) ──
+      { voice:'스칸디나비안 미니멀', tag:'minimal', subTag:'scandi',
+        desc:'화이트·그레이·베이지 팔레트, 과장 없는 실루엣, 소재감으로 승부' },
+      { voice:'모노크롬 엣지', tag:'minimal', subTag:'monochrome',
+        desc:'단일 컬러 톤온톤, 블랙 또는 오프화이트 중심, 핏이 전부' },
+      { voice:'젠더리스 베이직', tag:'minimal', subTag:'genderless',
+        desc:'성별 구분 없는 오버핏 기본템, 컬러블록 없이 텍스처 대비' },
+
+      // ── 스트릿/캐주얼 계열 (3종) ──
+      { voice:'K-스트릿 레이어드', tag:'street', subTag:'k-layered',
+        desc:'후디+자켓 레이어드, 와이드 팬츠, 슈즈에 포인트' },
+      { voice:'워크웨어 유틸리티', tag:'street', subTag:'utility',
+        desc:'카고 디테일, 덤블 소재, 실용적 포켓, 어스톤 배색' },
+      { voice:'Y2K 캐주얼', tag:'street', subTag:'y2k',
+        desc:'크롭 실루엣, 로우라이즈, 컬러풀 포인트 아이템 1개' },
+
+      // ── 시크/포멀 계열 (3종) ──
+      { voice:'프렌치 시크', tag:'chic', subTag:'french',
+        desc:'단정한 기본 + 한 가지 포인트, 과하지 않은 우아함' },
+      { voice:'이탈리안 럭스', tag:'chic', subTag:'italian',
+        desc:'테일러드 핏, 중후한 소재, 뉴트럴+딥 와인 또는 올리브 포인트' },
+      { voice:'모던 비즈니스', tag:'business', subTag:'modern-biz',
+        desc:'슬림핏 수트라인, 화이트 셔츠 기반, 타이 없이 깔끔하게' },
+
+      // ── 스포티/액티브 계열 (3종) ──
+      { voice:'프리미엄 애슬레저', tag:'athleisure', subTag:'premium-ath',
+        desc:'로고 없는 테크웨어 소재, 뉴트럴 스포티, 레깅스+볼드 재킷' },
+      { voice:'아웃도어 어드벤처', tag:'athleisure', subTag:'outdoor',
+        desc:'기능성 아우터, 레이어드 베이스, 부츠 또는 트레킹화' },
+      { voice:'테크웨어 엣지', tag:'athleisure', subTag:'tech',
+        desc:'방수·경량 소재, 집업 레이어링, 다크 팔레트 + 형광 포인트' },
+
+      // ── 데이트/소셜 계열 (3종) ──
+      { voice:'로맨틱 데일리', tag:'smartcasual', subTag:'romantic',
+        desc:'플로럴 또는 파스텔 포인트 1개, 페미닌한 실루엣, 부드러운 소재' },
+      { voice:'클린 캐주얼', tag:'smartcasual', subTag:'clean',
+        desc:'무지 티셔츠+슬랙스 기본 조합, 컬러 배합만으로 완성' },
+      { voice:'스마트 세미포멀', tag:'smartcasual', subTag:'semi-formal',
+        desc:'블레이저+캐주얼 팬츠, 스니커즈로 포인트, 오피스·약속 겸용' },
+
+      // ── 계절 특화 (3종) ──
+      { voice:'레이어드 쿨웨더', tag:'workwear', subTag:'layered-cool',
+        desc:'코트+니트+이너 3단 레이어, 따뜻한 어스톤, 롱부츠 또는 첼시' },
+      { voice:'서머 리조트', tag:'workwear', subTag:'summer',
+        desc:'린넨·코튼 소재, 밝은 팔레트, 샌들이나 에스파드류' },
+      { voice:'트랜지션 시즌', tag:'workwear', subTag:'transition',
+        desc:'봄가을 중간 레이어드, 트렌치코트 또는 가디건이 키 아이템' },
+
+      // ── 문화권 특화 (3종) ──
+      { voice:'도쿄 미니멀 스트릿', tag:'minimal', subTag:'tokyo',
+        desc:'일본 감성 정돈된 레이어, 와이드 실루엣, 화이트·블랙·카키' },
+      { voice:'뉴욕 파워캐주얼', tag:'street', subTag:'nyc',
+        desc:'오버사이즈 아우터, 슬림 이너, 흑백 대비 강한 컬러블록' },
+      { voice:'서울 트렌드세터', tag:'street', subTag:'seoul',
+        desc:'최신 K패션 믹스매치, 레이어드 포인트, 유니크 슈즈 강조' },
     ];
-    const arch = archetypes[id % archetypes.length];
-    return { id, cultureCode: culture.code, cultureHint: culture.hint, seedOffset: id % 37, ...arch };
+
+    // ── 목적별 스타일리스트 가중치 (반복 방지) ──
+    const purposeBias = {
+      commute:      [2, 8, 14, 16],          // 비즈니스/스마트캐주얼 계열
+      business:     [6, 7, 8, 14],           // 시크/포멀 계열
+      meet:         [1, 12, 13, 14],         // 클린/로맨틱/세미포멀
+      date:         [12, 13, 1, 3],          // 로맨틱/클린/미니멀
+      exercise:     [9, 10, 11],             // 액티브 계열
+      weekendTrip:  [4, 5, 10, 16],         // 스트릿/아웃도어
+      overseasTrip: [10, 18, 19, 15],       // 아웃도어/문화권
+      presentation: [7, 8, 14, 6],          // 이탈리안/모던비즈/시크
+    };
+
+    // 목적별 후보군 → seed 기반 선택 (같은 seed라도 목적이 다르면 다른 스타일리스트)
+    const bias = purposeBias[pk] || null;
+    let arch;
+    if (bias && bias.length > 0) {
+      // 목적 후보군 안에서 seed 기반 선택
+      const bIdx = id % bias.length;
+      arch = archetypes[bias[bIdx]] || archetypes[id % archetypes.length];
+    } else {
+      arch = archetypes[id % archetypes.length];
+    }
+    return { id, cultureCode: culture.code, cultureHint: culture.hint, seedOffset: id % 97, ...arch };
   })();
 
   // 온도 기반 레이어링 팁

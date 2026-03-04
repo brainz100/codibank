@@ -250,7 +250,7 @@ function getBackendBaseResolved() {
   }
 
   function requireAuth(redirectTo) {
-    const to = redirectTo || 'login.html';
+    const to = redirectTo || 'index.html';
     if (!getCurrentUser()) {
       window.location.replace(to);
       return false;
