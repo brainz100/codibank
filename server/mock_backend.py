@@ -1029,6 +1029,108 @@ def ai_styling():
         )
 
 
+@app.post("/api/ai/classify-item")
+def classify_item():
+    """
+    Claude Vision API를 이용한 패션 아이템 카테고리/컬러/스타일 분류
+    - MobileNet(브라우저)보다 훨씬 정확한 분류 가능
+    - 코트/자켓/탑 등 기장 구분, 색상, 브랜드 힌트까지 추출
+    """
+    import anthropic as _anthropic_sdk
+
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        return jsonify(
+            ok=False,
+            error="ANTHROPIC_API_KEY가 설정되지 않았습니다.",
+        ), 400
+
+    try:
+        data = request.get_json(force=True) or {}
+        image_b64 = data.get("image_b64", "")
+        media_type = data.get("media_type", "image/jpeg")
+        hint_category = str(data.get("hint_category") or "").strip()
+
+        if not image_b64:
+            return jsonify(ok=False, error="image_b64가 없습니다."), 400
+
+        client = _anthropic_sdk.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+        category_hint = f"사용자가 선택한 힌트 카테고리: {hint_category}. 이것을 참고하되, 이미지 분석 결과가 더 정확하면 우선합니다." if hint_category else ""
+
+        prompt = f"""당신은 패션 전문가입니다. 이미지를 보고 의류/패션 아이템을 정확하게 분류하세요.
+
+{category_hint}
+
+다음 카테고리 중 하나를 선택하세요:
+- coat: 코트 (롱코트, 트렌치코트, 패딩, 다운재킷, 파카 등 허리 아래로 내려오는 아우터)
+- jacket: 자켓 (블레이저, 야구점퍼, 청자켓, 가죽자켓, 수트자켓, 바람막이 등 허리선 아우터)
+- top: 탑/셔츠/블라우스 (티셔츠, 셔츠, 블라우스, 니트, 후디, 가디건, 조끼 등 상의)
+- pants: 바지/스커트 (청바지, 슬랙스, 치마, 레깅스, 반바지 등 하의)
+- shoes: 구두/운동화 (운동화, 구두, 부츠, 샌들, 로퍼 등 신발류)
+- socks: 양말
+- watch: 시계
+- scarf: 스카프/목도리/머플러
+- etc: 기타 (가방, 모자, 벨트 등)
+
+JSON만 반환하세요 (다른 텍스트 없이):
+{{
+  "category": "카테고리키",
+  "color": "주요 컬러(한국어, 예: 블랙, 네이비, 화이트, 베이지, 그레이, 브라운, 블루, 그린, 레드, 핑크)",
+  "sub_color": "보조 컬러(없으면 빈 문자열)",
+  "style_tag": "스타일 태그(예: 캐주얼, 포멀, 스포티, 미니멀, 스트릿, 빈티지)",
+  "length": "기장(coat/jacket/top만: 롱/미들/숏, 나머지는 빈 문자열)",
+  "brand_hint": "브랜드 힌트(보이면 브랜드명, 없으면 빈 문자열)",
+  "confidence": "high/medium/low",
+  "note": "간단한 아이템 설명(20자 이내, 한국어)"
+}}"""
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=300,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": image_b64,
+                            },
+                        },
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ],
+        )
+
+        raw = (response.content[0].text or "").strip()
+        # JSON 파싱
+        import json as _json
+        try:
+            # 마크다운 코드블록 제거
+            clean = raw.replace("```json", "").replace("```", "").strip()
+            result = _json.loads(clean)
+        except Exception:
+            # 파싱 실패시 기본값
+            result = {
+                "category": hint_category or "etc",
+                "color": "",
+                "sub_color": "",
+                "style_tag": "",
+                "length": "",
+                "brand_hint": "",
+                "confidence": "low",
+                "note": "",
+            }
+
+        return jsonify(ok=True, **result)
+
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 500
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8787"))
     # ✅ 안정성 기본값: debug OFF
