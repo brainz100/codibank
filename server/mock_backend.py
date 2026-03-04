@@ -267,28 +267,65 @@ def _stylist_hint(stylist: Any) -> str:
     if isinstance(stylist, dict):
         sid = stylist.get("id")
         tag = (stylist.get("tag") or "").lower().strip()
+        sub_tag = (stylist.get("subTag") or "").lower().strip()
         voice = (stylist.get("voice") or "").strip()
         desc = (stylist.get("desc") or "").strip()
 
-        tag_map = {
-            "minimal": "minimal classic",
-            "street": "K-street casual",
-            "chic": "French chic",
-            "athleisure": "sporty athleisure",
-            "business": "smart business",
-            "workwear": "workwear mood",
-            "smartcasual": "smart casual",
+        # 세분화된 21개 스타일리스트 → 영문 스타일 지시어 매핑
+        sub_tag_map = {
+            # 미니멀 계열
+            "scandi":       "Scandinavian minimal: white/gray/beige palette, clean silhouette, texture over color",
+            "monochrome":   "Monochrome edge: single-color tonal dressing, black or off-white, fit-focused",
+            "genderless":   "Genderless basic: oversized neutral basics, texture contrast without color blocks",
+            # 스트릿 계열
+            "k-layered":    "K-street layered: hoodie under jacket, wide pants, statement shoes",
+            "utility":      "Workwear utility: cargo details, earth tones, functional pockets, durable fabrics",
+            "y2k":          "Y2K casual: crop silhouettes, one colorful accent piece, low-rise proportions",
+            # 시크/포멀 계열
+            "french":       "French chic: understated base with one elegant accent, effortless refinement",
+            "italian":      "Italian luxe: tailored fit, rich textures, neutral plus deep wine or olive accent",
+            "modern-biz":   "Modern business: slim-fit suiting, white shirt base, no tie, polished and clean",
+            # 스포티 계열
+            "premium-ath":  "Premium athleisure: logo-free technical fabrics, neutral sporty palette, bold jacket",
+            "outdoor":      "Outdoor adventure: functional outerwear, layered base, boots or trail shoes",
+            "tech":         "Techwear: water-resistant lightweight fabrics, zip layers, dark palette with one neon accent",
+            # 데이트/소셜 계열
+            "romantic":     "Romantic daily: one floral or pastel accent, feminine silhouette, soft fabrics",
+            "clean":        "Clean casual: solid tee and slacks, color pairing as the only statement",
+            "semi-formal":  "Smart semi-formal: blazer with casual pants, sneakers as accent, office-to-outing",
+            # 계절 특화
+            "layered-cool": "Layered cool-weather: coat plus knit plus inner 3-layer, earth tones, long boots",
+            "summer":       "Summer resort: linen or cotton, bright palette, sandals or espadrilles",
+            "transition":   "Transition season: trench coat or cardigan as key piece, light layering",
+            # 문화권 특화
+            "tokyo":        "Tokyo minimal street: tidy wide silhouette, white/black/khaki palette",
+            "nyc":          "NYC power casual: oversized outer, slim inner, bold black-white contrast",
+            "seoul":        "Seoul trendsetter: K-fashion mix-match, layered accent, unique shoes as focal point",
         }
-        tag_en = tag_map.get(tag, tag)
+
+        # subTag가 있으면 세부 지시어 사용, 없으면 일반 tag 매핑
+        if sub_tag and sub_tag in sub_tag_map:
+            style_directive = sub_tag_map[sub_tag]
+        else:
+            tag_map = {
+                "minimal":     "minimal classic: neutral palette, clean silhouette",
+                "street":      "K-street casual: layered, trendy, statement pieces",
+                "chic":        "French chic: simple base with one elegant accent",
+                "athleisure":  "sporty athleisure: functional, active-ready",
+                "business":    "smart business: tonal, well-fitted, polished",
+                "workwear":    "workwear mood: sturdy fabrics, outerwear-focused",
+                "smartcasual": "smart casual: balanced, versatile office-to-outing",
+            }
+            style_directive = tag_map.get(tag, tag)
 
         bits = []
         if sid is not None:
             bits.append(f"stylist #{sid}")
-        if tag_en:
-            bits.append(tag_en)
-        if voice and voice != tag_en:
+        if voice:
             bits.append(voice)
-        if desc:
+        if style_directive:
+            bits.append(style_directive)
+        if desc and desc != style_directive:
             bits.append(desc)
         if not bits:
             return ""
@@ -501,6 +538,21 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
     else:
         weather_rule = "Use balanced layering suitable for mild weather."
 
+    # ══════════════════════════════════════════════════════
+    # ⛔ 절대 금지 규칙 (HARD RULES - 반드시 지켜야 함)
+    # ══════════════════════════════════════════════════════
+    hard_rules = (
+        "ABSOLUTE OUTFIT RULES — NEVER VIOLATE: "
+        "(1) EXACTLY ONE outer layer: either one coat OR one jacket, NEVER both, NEVER two jackets, NEVER two coats. "
+        "(2) EXACTLY ONE scarf OR muffler OR necktie total — never two or more neckwear items simultaneously. "
+        "(3) EXACTLY ONE bag OR backpack OR tote — never two bags at once. "
+        "(4) EXACTLY ONE hat OR cap — never two headwear items. "
+        "(5) EXACTLY ONE pair of shoes — never two pairs visible. "
+        "(6) Each clothing category appears EXACTLY ONCE in the outfit. "
+        "(7) The complete outfit must be a single coherent look — no mismatched duplicate layers. "
+        "Violating any of these rules is strictly forbidden."
+    )
+
     # 결과 설명(100자 이내는 프론트에서 추가로 trim 가능)
     short = explanation
     if not short:
@@ -526,6 +578,7 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
         + f"Style theme: {purpose_tag}. "
         + f"Keywords: {kw_str}. "
         + f"{weather_rule} "
+        + f"{hard_rules} "
         + "Clean studio background, soft natural lighting, sharp focus. "
         + "No text, no watermark, no logo, no brand marks. "
         + "High quality outfit details, realistic body shape and proportions."
