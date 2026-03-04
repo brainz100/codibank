@@ -146,6 +146,8 @@ def _make_ai_cache_key(payload: Dict[str, Any], face_bytes: bytes | None) -> str
         "purposeLabel": payload.get("purposeLabel") or "",
         "seed": payload.get("seed") or 0,
         "forDateKey": payload.get("forDateKey") or payload.get("dateKey") or "",
+        "size": payload.get("size") or "",
+        "quality": payload.get("quality") or "",
         "user": {
             "gender": user.get("gender") or "",
             "ageGroup": user.get("ageGroup") or "",
@@ -157,6 +159,10 @@ def _make_ai_cache_key(payload: Dict[str, Any], face_bytes: bytes | None) -> str
             "text": weather.get("text") or "",
             "location": weather.get("location") or "",
         },
+        "styleTitle": payload.get("styleTitle") or "",
+        "keywords": payload.get("keywords") or [],
+        "stylist": payload.get("stylist") or {},
+        "matchPairs": payload.get("matchPairs") or [],
     }
 
     if face_bytes:
@@ -179,6 +185,161 @@ def get_client() -> OpenAI:
 
 def _now_ms() -> int:
     return int(time.time() * 1000)
+
+
+def _safe_float(x: Any) -> float | None:
+    try:
+        if x is None:
+            return None
+        if isinstance(x, (int, float)):
+            return float(x)
+        s = str(x).strip()
+        if not s:
+            return None
+        return float(s)
+    except Exception:
+        return None
+
+
+def _body_shape_desc(user: Dict[str, Any]) -> str:
+    """키/몸무게 숫자만 넣으면 모델이 체형 차이를 약하게 반영하는 경우가 있어,
+    BMI 기반의 간단한 '체형 설명'을 함께 제공합니다."""
+
+    h = _safe_float(user.get("height"))
+    w = _safe_float(user.get("weight"))
+    gender = (user.get("gender") or "").upper()
+    if not h or not w:
+        return ""
+    if h <= 0:
+        return ""
+    m = h / 100.0
+    if m <= 0:
+        return ""
+    bmi = w / (m * m)
+
+    # (참고) 아시아권 BMI 기준은 더 보수적이지만, 여기서는 이미지 체형 가이드를 위해 단순화합니다.
+    if bmi < 18.5:
+        build = "slim"
+    elif bmi < 23:
+        build = "average"
+    elif bmi < 27:
+        build = "athletic"
+    elif bmi < 32:
+        build = "stocky"
+    else:
+        build = "plus-size"
+
+    extra = []
+    if gender == "M":
+        extra.append("masculine proportions")
+    elif gender == "F":
+        extra.append("feminine proportions")
+
+    return f"body build: {build} (BMI≈{bmi:.1f}); proportions must reflect {int(h)}cm & {int(w)}kg" + (
+        f"; {', '.join(extra)}" if extra else ""
+    )
+
+
+def _culture_hint(location: str) -> str:
+    s = (location or "").strip().lower()
+    if not s:
+        return "Keep the styling culturally appropriate for the user's location."
+    # KR
+    if any(k in s for k in ["seoul", "korea", "kr", "busan", "incheon", "daejeon", "daegu", "gwangju"]):
+        return "Base the look on contemporary Korean city fashion sensibilities: clean silhouette, neat layering, subtle trend accents."
+    # JP
+    if any(k in s for k in ["tokyo", "osaka", "japan", "jp"]):
+        return "Base the look on Japanese urban sensibilities: minimal, tidy layering, restrained palette."
+    # FR
+    if any(k in s for k in ["paris", "france", "fr"]):
+        return "Base the look on Parisian/French chic: understated elegance with one subtle statement."
+    # US
+    if any(k in s for k in ["new york", "los angeles", "usa", "united states", "us"]):
+        return "Base the look on US urban casual: relaxed, practical, wearable." 
+    return f"Keep the styling culturally appropriate for: {location}."
+
+
+def _stylist_hint(stylist: Any) -> str:
+    """프론트에서 생성한 스타일리스트 페르소나를 프롬프트에 반영."""
+
+    if not stylist:
+        return ""
+    if isinstance(stylist, dict):
+        sid = stylist.get("id")
+        tag = (stylist.get("tag") or "").lower().strip()
+        voice = (stylist.get("voice") or "").strip()
+        desc = (stylist.get("desc") or "").strip()
+
+        tag_map = {
+            "minimal": "minimal classic",
+            "street": "K-street casual",
+            "chic": "French chic",
+            "athleisure": "sporty athleisure",
+            "business": "smart business",
+            "workwear": "workwear mood",
+            "smartcasual": "smart casual",
+        }
+        tag_en = tag_map.get(tag, tag)
+
+        bits = []
+        if sid is not None:
+            bits.append(f"stylist #{sid}")
+        if tag_en:
+            bits.append(tag_en)
+        if voice and voice != tag_en:
+            bits.append(voice)
+        if desc:
+            bits.append(desc)
+        if not bits:
+            return ""
+        return "Stylist persona: " + "; ".join(bits) + "."
+    return ""
+
+
+def _matchpairs_hint(match_pairs: Any) -> str:
+    """프론트에서 뽑아낸 카테고리-컬러 키워드를 프롬프트에 반영(색감 일관성 강화)."""
+
+    if not match_pairs or not isinstance(match_pairs, list):
+        return ""
+    color_map = {
+        "블랙": "black",
+        "화이트": "white",
+        "그레이": "gray",
+        "라이트그레이": "light gray",
+        "네이비": "navy",
+        "블루": "blue",
+        "스카이블루": "sky blue",
+        "그린": "green",
+        "베이지": "beige",
+        "브라운": "brown",
+        "레드": "red",
+        "핑크": "pink",
+        "퍼플": "purple",
+        "옐로": "yellow",
+        "오렌지": "orange",
+    }
+    cat_map = {
+        "coat": "coat",
+        "jacket": "jacket",
+        "top": "top",
+        "pants": "bottoms",
+        "shoes": "shoes",
+        "scarf": "scarf",
+    }
+    parts = []
+    for p in match_pairs:
+        if not isinstance(p, dict):
+            continue
+        k = str(p.get("key") or "").strip()
+        c = str(p.get("color") or "").strip()
+        if not k or not c:
+            continue
+        c_en = color_map.get(c, c)
+        k_en = cat_map.get(k, k)
+        parts.append(f"{k_en}: {c_en}")
+    if not parts:
+        return ""
+    return "Outfit color targets: " + ", ".join(parts) + "."
 
 
 def _sdk_version() -> str:
@@ -323,6 +484,13 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
         profile_bits.append(f"{weight}kg")
     profile_str = ", ".join(profile_bits) if profile_bits else "person"
 
+    # ✅ 체형(키/몸무게) + 문화권 + 스타일리스트 + (카테고리-컬러) 타겟
+    body_rule = _body_shape_desc(user)
+    location = str(weather.get("location", "")).strip()
+    culture_rule = _culture_hint(location) if location else ""
+    stylist_rule = _stylist_hint(payload.get("stylist"))
+    match_rule = _matchpairs_hint(payload.get("matchPairs"))
+
     kw_str = ", ".join([str(k) for k in keywords if str(k).strip()][:6])
 
     # 온도 버킷에 따른 레이어링 가이드
@@ -349,13 +517,18 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
     prompt = (
         "Photorealistic full-body fashion lookbook photo. "
         f"A {profile_str} wearing a {purpose_desc}. "
-        f"Weather: {bucket}. Condition: {cond or 'clear'}. "
-        f"Style theme: {purpose_tag}. "
-        f"Keywords: {kw_str}. "
-        f"{weather_rule} "
-        "Clean studio background, soft natural lighting, sharp focus. "
-        "No text, no watermark, no logo, no brand marks. "
-        "High quality outfit details, realistic proportions."
+        + (f"Body guidance: {body_rule}. " if body_rule else "")
+        + (f"Location: {location}. " if location else "")
+        + (f"{culture_rule} " if culture_rule else "")
+        + (f"{stylist_rule} " if stylist_rule else "")
+        + (f"{match_rule} " if match_rule else "")
+        + f"Weather: {bucket}. Condition: {cond or 'clear'}. "
+        + f"Style theme: {purpose_tag}. "
+        + f"Keywords: {kw_str}. "
+        + f"{weather_rule} "
+        + "Clean studio background, soft natural lighting, sharp focus. "
+        + "No text, no watermark, no logo, no brand marks. "
+        + "High quality outfit details, realistic body shape and proportions."
     )
 
     # style_title이 있으면 약하게 힌트로 추가
