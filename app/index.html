@@ -4,6 +4,24 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>코디뱅크 - AI 패션 코디네이터</title>
+  <!-- ⚡ 최우선 실행: 로그인 상태면 body 렌더 전 즉시 내옷장으로 이동 -->
+  <style>html{visibility:hidden}</style>
+  <script>
+  (function(){
+    try {
+      var raw = localStorage.getItem('codibank_session');
+      if (raw) {
+        // 로그인 상태: 랜딩 페이지 한 글자도 안 보이고 즉시 이동
+        window.location.replace('closet.html');
+      } else {
+        // 비로그인: 랜딩 표시
+        document.documentElement.style.visibility = 'visible';
+      }
+    } catch(e) {
+      document.documentElement.style.visibility = 'visible';
+    }
+  })();
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -77,12 +95,10 @@
 </head>
 <body class="bg-gradient-mesh">
 
-  <!-- 로딩 화면 -->
-  <div id="loadingScreen" class="fixed inset-0 z-[100] flex items-center justify-center bg-[#0a0a0f]">
-    <div class="flex flex-col items-center gap-4">
-      <div class="spinner"></div>
-      <p class="text-[11px] font-bold tracking-[0.3em] text-accent/60 uppercase">CODIBANK</p>
-    </div>
+  <!-- 로딩 화면: Tailwind CDN 로드 전에도 동작하도록 인라인 스타일 사용 -->
+  <div id="loadingScreen" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0a0a0f;">
+    <div class="spinner"></div>
+    <p style="margin-top:16px;font-size:11px;font-weight:700;letter-spacing:0.3em;color:rgba(197,163,88,0.6);text-transform:uppercase;font-family:Outfit,sans-serif;">CODIBANK</p>
   </div>
 
   <!-- 랜딩 페이지 (비로그인 상태) -->
@@ -170,48 +186,34 @@
 
   <script>
   (function(){
-    // ── 코디뱅크 진입 라우터 ──
-    // 규칙 1: 비로그인 → 랜딩 페이지 표시
-    // 규칙 2: 로그인 상태 → 내옷장(closet.html)으로 즉시 이동
-
-    function checkAuthAndRoute(){
-      try{
-        // codibank.js가 아직 초기화 전일 수 있으므로 안전하게 체크
-        if(!window.CodiBank || typeof CodiBank.getCurrentUser !== 'function'){
-          // 0.3초 후 재시도
-          setTimeout(checkAuthAndRoute, 300);
-          return;
-        }
-
-        const user = CodiBank.getCurrentUser();
-
-        if(user && user.email){
-          // ✅ 로그인 상태 → 내옷장으로 즉시 이동 (뒤로가기 방지: replace)
-          window.location.replace('closet.html');
-        } else {
-          // ❌ 비로그인 → 랜딩 페이지 표시
-          showLanding();
-        }
-      } catch(e){
-        console.warn('[CodiBank Router]', e);
-        showLanding();
-      }
-    }
-
+    // head 스크립트에서 이미 처리됨:
+    // - 로그인: closet.html로 리다이렉트 (여기까지 안 옴)
+    // - 비로그인: html visible 처리 후 랜딩 표시
+    // 여기서는 codibank.js 이중 체크만 수행
     function showLanding(){
-      const loading = document.getElementById('loadingScreen');
-      const landing = document.getElementById('landingPage');
+      var loading = document.getElementById('loadingScreen');
+      var landing = document.getElementById('landingPage');
       if(loading) loading.style.display = 'none';
       if(landing) landing.classList.remove('hidden');
     }
 
-    // DOMContentLoaded 이후에 실행 (codibank.js 로드 보장)
+    function doubleCheck(){
+      try {
+        if(window.CodiBank && typeof CodiBank.getCurrentUser === 'function'){
+          var user = CodiBank.getCurrentUser();
+          if(user && user.email){
+            window.location.replace('closet.html');
+            return;
+          }
+        }
+      } catch(e){}
+      showLanding();
+    }
+
     if(document.readyState === 'loading'){
-      document.addEventListener('DOMContentLoaded', function(){
-        setTimeout(checkAuthAndRoute, 100);
-      });
+      document.addEventListener('DOMContentLoaded', doubleCheck);
     } else {
-      setTimeout(checkAuthAndRoute, 100);
+      doubleCheck();
     }
   })();
   </script>

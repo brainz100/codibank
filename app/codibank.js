@@ -608,6 +608,8 @@ function getBackendBaseResolved() {
     }
 
     if (patch && patch.color !== undefined) next.color = String(patch.color || '');
+    if (patch && patch.subColor !== undefined) next.subColor = String(patch.subColor || '');
+    if (patch && patch.styleTag !== undefined) next.styleTag = String(patch.styleTag || '');
     if (patch && patch.brand !== undefined) next.brand = String(patch.brand || '');
     if (patch && patch.note !== undefined) next.note = String(patch.note || '');
 

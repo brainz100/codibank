@@ -3,6 +3,22 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>아이템 상세 - 코디뱅크</title>
+<!-- ⚡ 즉시 인증 체크: body 렌더 전 실행 → 깜빡임 완전 차단 -->
+<style>html{visibility:hidden}</style>
+<script>
+(function(){
+  try {
+    var raw = localStorage.getItem('codibank_session');
+    if (!raw) {
+      window.location.replace('index.html');
+    } else {
+      document.documentElement.style.visibility = 'visible';
+    }
+  } catch(e) {
+    window.location.replace('index.html');
+  }
+})();
+</script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
   <script src="config.js"></script>
   <script src="codibank.js"></script>
@@ -144,6 +160,10 @@
       <div>
         <label class="text-xs font-extrabold text-slate-600 dark:text-zinc-300">컬러</label>
         <input id="editColor" type="text" class="mt-2 w-full rounded-2xl border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold" placeholder="예: 블랙, 네이비" />
+        <label class="block text-[11px] font-extrabold tracking-widest text-slate-500 mt-4">보조 컬러</label>
+        <input id="editSubColor" type="text" class="mt-2 w-full rounded-2xl border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold" placeholder="예: 화이트, 베이지 (없으면 공란)" />
+        <label class="block text-[11px] font-extrabold tracking-widest text-slate-500 mt-4">스타일 태그</label>
+        <input id="editStyleTag" type="text" class="mt-2 w-full rounded-2xl border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold" placeholder="예: 캐주얼, 포멀, 미니멀, 스트릿" />
       </div>
 
       <div>
@@ -284,6 +304,8 @@
   const editCategory = document.getElementById('editCategory');
   const editBrand = document.getElementById('editBrand');
   const editColor = document.getElementById('editColor');
+  const editSubColor = document.getElementById('editSubColor');
+  const editStyleTag = document.getElementById('editStyleTag');
   const editNote = document.getElementById('editNote');
 
   function openEditModal() {
@@ -298,6 +320,8 @@
     editCategory.value = String(currentItem.categoryKey || 'etc');
     editBrand.value = String(currentItem.brand || '');
     editColor.value = String(currentItem.color || '');
+    if(editSubColor) editSubColor.value = String(currentItem.subColor || '');
+    if(editStyleTag) editStyleTag.value = String(currentItem.styleTag || currentItem.meta?.note?.styleTag || '');
     if (editNote) editNote.value = String(currentItem.note || '');
 
     editModal.classList.remove('hidden');
@@ -321,6 +345,8 @@
       categoryKey: String(editCategory.value || currentItem.categoryKey || 'etc'),
       brand: String(editBrand.value || '').trim(),
       color: String(editColor.value || '').trim(),
+      subColor: String(editSubColor?.value || '').trim(),
+      styleTag: String(editStyleTag?.value || '').trim(),
       note: String(editNote?.value || '').trim(),
     };
 

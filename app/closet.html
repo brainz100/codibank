@@ -393,7 +393,7 @@ const S = {
   stylist: null,
   matchPairs: [],
   matchByCat: {},
-  matchScoreByCat: {}  // 카테고리별 매칭 퍼센트 (0~100)
+  matchScoreByCat: {}  // 카테고리별 매칭 점수 (0~10점 만점)
 };
 const getPur = k => PURPOSES.find(p=>p.key===k)||PURPOSES[0];
 const pNum = v => {const n=Number(v);return Number.isFinite(n)?n:null;};
@@ -2562,7 +2562,7 @@ function layerContent(el,item,catKey){
   el.dataset.catKey=String(catKey||'');
   el.href=item?.id?`item.html?id=${encodeURIComponent(item.id)}`:`camera.html?category=${encodeURIComponent(catKey)}`;
 
-  // ✅ 추천 코디 매칭 아이템이면 강조(스파클) + 퍼센트 배지
+  // ✅ 추천 코디 매칭 아이템이면 강조(스파클) + 10점 매칭 배지
   const recId = (S.hasGenerated && S.matchByCat && S.matchByCat[catKey]) ? String(S.matchByCat[catKey]) : '';
   const isMatched = recId && nid && nid===recId;
   if(isMatched) el.classList.add('sparkle');
