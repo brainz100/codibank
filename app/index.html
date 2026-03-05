@@ -4,17 +4,16 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>코디뱅크 - AI 패션 코디네이터</title>
-  <!-- ⚡ 최우선 실행: 로그인 상태면 body 렌더 전 즉시 내옷장으로 이동 -->
+
+  <!-- ⚡ 최우선 실행: 로그인 상태면 즉시 내옷장으로 이동 -->
   <style>html{visibility:hidden}</style>
   <script>
   (function(){
     try {
       var raw = localStorage.getItem('codibank_session');
       if (raw) {
-        // 로그인 상태: 랜딩 페이지 한 글자도 안 보이고 즉시 이동
         window.location.replace('closet.html');
       } else {
-        // 비로그인: 랜딩 표시
         document.documentElement.style.visibility = 'visible';
       }
     } catch(e) {
@@ -22,182 +21,196 @@
     }
   })();
   </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
   <script src="codibank.js"></script>
-  <script>tailwind.config={theme:{extend:{colors:{primary:"#111111",accent:"#C5A358","background-light":"#F9FAFB"},fontFamily:{display:["Outfit","Noto Sans KR","sans-serif"]}}}};</script>
+  <script>tailwind.config={theme:{extend:{colors:{accent:"#C5A358"},fontFamily:{display:["Outfit","Noto Sans KR","sans-serif"]}}}};</script>
+
   <style>
-    *{-webkit-tap-highlight-color:transparent;}
-    body{font-family:'Outfit','Noto Sans KR',sans-serif;background:#0a0a0f;color:#fff;min-height:100dvh;overflow-x:hidden;}
+    *{-webkit-tap-highlight-color:transparent;box-sizing:border-box;}
+    html,body{margin:0;padding:0;}
+    body{
+      font-family:'Outfit','Noto Sans KR',sans-serif;
+      background:#111217;
+      color:#fff;
+      min-height:100dvh;
+      overflow-x:hidden;
+    }
     .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 24;}
     .material-symbols-outlined.filled{font-variation-settings:'FILL' 1,'wght' 650,'GRAD' 0,'opsz' 24;}
 
-    /* 배경 그라디언트 */
-    .bg-gradient-mesh{
+    /* 배경 */
+    .page-bg{
+      min-height:100dvh;
       background:
-        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(197,163,88,0.18) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(197,163,88,0.10) 0%, transparent 55%),
-        radial-gradient(ellipse 100% 80% at 50% 50%, rgba(15,15,30,1) 0%, #0a0a0f 100%);
+        radial-gradient(ellipse 90% 55% at 15% 8%, rgba(197,163,88,0.16) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 50% at 85% 85%, rgba(197,163,88,0.09) 0%, transparent 55%),
+        #111217;
     }
 
-    /* 로고 그라디언트 텍스트 */
-    .logo-text{
-      background:linear-gradient(135deg,#C5A358 0%,#e8c97a 40%,#C5A358 70%,#9a7a3a 100%);
-      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    /* 골드 그라디언트 텍스트 */
+    .gold-text{
+      background:linear-gradient(135deg,#C5A358 0%,#e8ca78 45%,#C5A358 75%,#9a7a3a 100%);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      background-clip:text;
     }
-
-    /* CTA 버튼 */
-    .btn-primary{
-      background:linear-gradient(135deg,#C5A358,#d4b068);
-      color:#1a1000;font-weight:800;border-radius:16px;
-      box-shadow:0 8px 32px rgba(197,163,88,0.35);
-      transition:all 220ms ease;
-    }
-    .btn-primary:active{transform:scale(0.97);box-shadow:0 4px 16px rgba(197,163,88,0.25);}
-
-    .btn-secondary{
-      background:rgba(255,255,255,0.07);
-      border:1.5px solid rgba(255,255,255,0.15);
-      color:rgba(255,255,255,0.85);font-weight:700;border-radius:16px;
-      transition:all 220ms ease;backdrop-filter:blur(8px);
-    }
-    .btn-secondary:active{transform:scale(0.97);background:rgba(255,255,255,0.12);}
 
     /* 피처 카드 */
     .feature-card{
       background:rgba(255,255,255,0.04);
-      border:1px solid rgba(255,255,255,0.08);
-      border-radius:20px;padding:20px;
-      backdrop-filter:blur(12px);
+      border:1px solid rgba(255,255,255,0.09);
+      border-radius:18px;
+      padding:18px 20px;
+    }
+    .feature-icon{
+      width:44px;height:44px;
+      border-radius:14px;
+      background:rgba(197,163,88,0.14);
+      display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;
     }
 
-    /* 애니메이션 */
-    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-    @keyframes shimmerGold{0%,100%{opacity:0.7}50%{opacity:1}}
+    /* CTA 버튼 */
+    .btn-gold{
+      width:100%;padding:17px 0;
+      background:linear-gradient(135deg,#C5A358,#d4b368);
+      color:#1a1000;font-weight:800;font-size:15px;
+      border:none;border-radius:16px;
+      box-shadow:0 8px 30px rgba(197,163,88,0.30);
+      display:flex;align-items:center;justify-content:center;gap:8px;
+      cursor:pointer;text-decoration:none;
+      transition:transform 160ms ease,box-shadow 160ms ease;
+    }
+    .btn-gold:active{transform:scale(0.97);box-shadow:0 4px 14px rgba(197,163,88,0.22);}
 
-    .anim-1{animation:fadeUp 700ms cubic-bezier(0.16,1,0.3,1) 100ms both;}
-    .anim-2{animation:fadeUp 700ms cubic-bezier(0.16,1,0.3,1) 220ms both;}
-    .anim-3{animation:fadeUp 700ms cubic-bezier(0.16,1,0.3,1) 340ms both;}
-    .anim-4{animation:fadeUp 700ms cubic-bezier(0.16,1,0.3,1) 460ms both;}
-    .anim-5{animation:fadeUp 700ms cubic-bezier(0.16,1,0.3,1) 560ms both;}
-    .float-anim{animation:float 4s ease-in-out infinite;}
+    .btn-dark{
+      width:100%;padding:16px 0;
+      background:rgba(255,255,255,0.06);
+      border:1.5px solid rgba(255,255,255,0.13);
+      color:rgba(255,255,255,0.82);font-weight:700;font-size:15px;
+      border-radius:16px;
+      display:flex;align-items:center;justify-content:center;
+      cursor:pointer;text-decoration:none;
+      transition:transform 160ms ease,background 160ms ease;
+    }
+    .btn-dark:active{transform:scale(0.97);background:rgba(255,255,255,0.10);}
 
     /* 구분선 */
-    .divider{height:1px;background:linear-gradient(90deg,transparent,rgba(197,163,88,0.3),transparent);}
+    .divider{height:1px;background:linear-gradient(90deg,transparent,rgba(197,163,88,0.25),transparent);}
+
+    /* 애니메이션 */
+    @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+    .a1{animation:fadeUp 650ms cubic-bezier(0.16,1,0.3,1) 80ms both;}
+    .a2{animation:fadeUp 650ms cubic-bezier(0.16,1,0.3,1) 180ms both;}
+    .a3{animation:fadeUp 650ms cubic-bezier(0.16,1,0.3,1) 290ms both;}
+    .a4{animation:fadeUp 650ms cubic-bezier(0.16,1,0.3,1) 390ms both;}
+    .a5{animation:fadeUp 650ms cubic-bezier(0.16,1,0.3,1) 470ms both;}
 
     /* 스피너 */
-    .spinner{width:32px;height:32px;border:2.5px solid rgba(197,163,88,0.2);border-top-color:#C5A358;border-radius:50%;animation:spin 0.8s linear infinite;}
     @keyframes spin{to{transform:rotate(360deg)}}
+    .spinner{width:30px;height:30px;border:2.5px solid rgba(197,163,88,0.2);border-top-color:#C5A358;border-radius:50%;animation:spin 0.8s linear infinite;}
+
+    /* PC 레이아웃 */
+    @media(min-width:640px){
+      .landing-inner{max-width:420px;margin:0 auto;}
+    }
   </style>
 </head>
-<body class="bg-gradient-mesh">
+<body>
 
-  <!-- 로딩 화면: Tailwind CDN 로드 전에도 동작하도록 인라인 스타일 사용 -->
-  <div id="loadingScreen" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0a0a0f;">
+  <!-- 로딩 화면 -->
+  <div id="loadingScreen" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#111217;">
     <div class="spinner"></div>
-    <p style="margin-top:16px;font-size:11px;font-weight:700;letter-spacing:0.3em;color:rgba(197,163,88,0.6);text-transform:uppercase;font-family:Outfit,sans-serif;">CODIBANK</p>
+    <p style="margin-top:14px;font-size:11px;font-weight:700;letter-spacing:0.35em;color:rgba(197,163,88,0.55);text-transform:uppercase;font-family:Outfit,sans-serif;">CODIBANK</p>
   </div>
 
-  <!-- 랜딩 페이지 (비로그인 상태) -->
-  <div id="landingPage" class="hidden min-h-dvh flex flex-col">
-
-    <!-- 헤더 -->
-    <header class="px-6 pt-12 pb-2 flex items-center justify-between">
-      <div class="anim-1">
-        <p class="text-[10px] font-extrabold tracking-[0.4em] text-accent/70 uppercase mb-0.5">AI Fashion</p>
-        <h1 class="text-[22px] font-extrabold logo-text tracking-tight">CODIBANK</h1>
-      </div>
-      <a href="login.html" class="anim-1 px-4 py-2 rounded-full border border-white/15 text-[12px] font-bold text-white/70 hover:border-accent/40 transition-colors">
-        로그인
-      </a>
-    </header>
-
-    <!-- 메인 히어로 -->
-    <main class="flex-1 px-6 pt-8 pb-6">
+  <!-- 랜딩 페이지 -->
+  <div id="landingPage" class="page-bg hidden" style="min-height:100dvh;display:flex;flex-direction:column;">
+    <div class="landing-inner" style="flex:1;display:flex;flex-direction:column;padding:52px 24px 32px;">
 
       <!-- 히어로 텍스트 -->
-      <div class="anim-2 mb-8">
-        <h2 class="text-[32px] font-extrabold leading-tight tracking-tight mb-3">
+      <div class="a1" style="margin-bottom:36px;">
+        <h1 style="font-size:clamp(28px,8vw,38px);font-weight:900;line-height:1.22;letter-spacing:-0.02em;margin:0 0 14px;">
           AI가 매일<br/>
-          <span class="logo-text">완벽한 코디</span>를<br/>
+          <span class="gold-text">완벽한 코디</span>를<br/>
           제안해드려요
-        </h2>
-        <p class="text-[14px] text-white/55 leading-relaxed font-medium">
+        </h1>
+        <p style="font-size:14px;color:rgba(255,255,255,0.50);line-height:1.7;font-weight:500;margin:0;">
           날씨·목적·체형을 분석해서<br/>당신만을 위한 스타일링을 추천합니다.
         </p>
       </div>
 
       <!-- 피처 카드 3개 -->
-      <div class="anim-3 space-y-3 mb-8">
-        <div class="feature-card flex items-center gap-4">
-          <div class="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style="background:rgba(197,163,88,0.15)">
-            <span class="material-symbols-outlined filled text-accent text-[22px]">psychology</span>
+      <div class="a2" style="display:flex;flex-direction:column;gap:10px;margin-bottom:36px;">
+
+        <div class="feature-card" style="display:flex;align-items:center;gap:16px;">
+          <div class="feature-icon">
+            <span class="material-symbols-outlined filled" style="color:#C5A358;font-size:22px;">psychology</span>
           </div>
           <div>
-            <p class="text-[13px] font-extrabold text-white">AI 코디 추천</p>
-            <p class="text-[11px] text-white/45 mt-0.5">날씨·목적·체형 기반 맞춤 스타일링</p>
+            <p style="font-size:13px;font-weight:800;color:#fff;margin:0 0 3px;">AI 코디 추천</p>
+            <p style="font-size:11px;color:rgba(255,255,255,0.42);margin:0;">날씨·목적·체형 기반 맞춤 스타일링</p>
           </div>
         </div>
-        <div class="feature-card flex items-center gap-4">
-          <div class="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style="background:rgba(197,163,88,0.15)">
-            <span class="material-symbols-outlined filled text-accent text-[22px]">checkroom</span>
+
+        <div class="feature-card" style="display:flex;align-items:center;gap:16px;">
+          <div class="feature-icon">
+            <span class="material-symbols-outlined filled" style="color:#C5A358;font-size:22px;">checkroom</span>
           </div>
           <div>
-            <p class="text-[13px] font-extrabold text-white">디지털 옷장</p>
-            <p class="text-[11px] text-white/45 mt-0.5">내 옷을 카테고리별로 디지털화</p>
+            <p style="font-size:13px;font-weight:800;color:#fff;margin:0 0 3px;">디지털 옷장</p>
+            <p style="font-size:11px;color:rgba(255,255,255,0.42);margin:0;">내 옷을 카테고리별로 디지털화</p>
           </div>
         </div>
-        <div class="feature-card flex items-center gap-4">
-          <div class="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style="background:rgba(197,163,88,0.15)">
-            <span class="material-symbols-outlined filled text-accent text-[22px]">storefront</span>
+
+        <div class="feature-card" style="display:flex;align-items:center;gap:16px;">
+          <div class="feature-icon">
+            <span class="material-symbols-outlined filled" style="color:#C5A358;font-size:22px;">storefront</span>
           </div>
           <div>
-            <p class="text-[13px] font-extrabold text-white">공유 · 판매</p>
-            <p class="text-[11px] text-white/45 mt-0.5">안 입는 옷을 빌려주고 포인트 적립</p>
+            <p style="font-size:13px;font-weight:800;color:#fff;margin:0 0 3px;">공유 · 판매</p>
+            <p style="font-size:11px;color:rgba(255,255,255,0.42);margin:0;">안 입는 옷을 빌려주고 포인트 적립</p>
           </div>
         </div>
+
       </div>
 
       <!-- 구분선 -->
-      <div class="divider mb-6 anim-3"></div>
+      <div class="divider a3" style="margin-bottom:28px;"></div>
 
       <!-- CTA 버튼 -->
-      <div class="anim-4 space-y-3">
-        <a href="signup.html" class="btn-primary w-full py-4 flex items-center justify-center gap-2 text-[15px]">
-          <span class="material-symbols-outlined filled text-[18px]">person_add</span>
+      <div class="a4" style="display:flex;flex-direction:column;gap:10px;">
+        <a href="signup.html" class="btn-gold">
+          <span class="material-symbols-outlined filled" style="font-size:18px;">person_add</span>
           무료로 시작하기
         </a>
-        <a href="login.html" class="btn-secondary w-full py-4 flex items-center justify-center gap-2 text-[15px]">
+        <a href="login.html" class="btn-dark">
           이미 계정이 있어요
         </a>
       </div>
 
       <!-- 하단 문구 -->
-      <p class="anim-5 text-center text-[10px] text-white/25 mt-6 leading-relaxed">
-        가입하면 <span class="text-accent/60">AI 스타일링 무료 체험</span> 제공<br/>
+      <p class="a5" style="text-align:center;font-size:10px;color:rgba(255,255,255,0.22);margin-top:20px;line-height:1.7;">
+        가입하면 <span style="color:rgba(197,163,88,0.55);">AI 스타일링 무료 체험</span> 제공<br/>
         신용카드 없이 바로 시작 가능
       </p>
 
-    </main>
+    </div>
   </div>
 
   <script>
   (function(){
-    // head 스크립트에서 이미 처리됨:
-    // - 로그인: closet.html로 리다이렉트 (여기까지 안 옴)
-    // - 비로그인: html visible 처리 후 랜딩 표시
-    // 여기서는 codibank.js 이중 체크만 수행
     function showLanding(){
       var loading = document.getElementById('loadingScreen');
       var landing = document.getElementById('landingPage');
       if(loading) loading.style.display = 'none';
-      if(landing) landing.classList.remove('hidden');
+      if(landing){ landing.classList.remove('hidden'); landing.style.display = 'flex'; }
     }
 
-    function doubleCheck(){
+    function check(){
       try {
         if(window.CodiBank && typeof CodiBank.getCurrentUser === 'function'){
           var user = CodiBank.getCurrentUser();
@@ -211,11 +224,12 @@
     }
 
     if(document.readyState === 'loading'){
-      document.addEventListener('DOMContentLoaded', doubleCheck);
+      document.addEventListener('DOMContentLoaded', check);
     } else {
-      doubleCheck();
+      check();
     }
   })();
   </script>
+
 </body>
 </html>
