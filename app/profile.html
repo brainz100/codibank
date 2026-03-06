@@ -263,16 +263,25 @@ function loadUser(){
     if(b.dataset.v === _ageVal) b.classList.add('on');
   });
 
-  // 프로필 사진
-  const photoSrc = _user.photo || _user.faceImg || '';
-  if(photoSrc){
+  // 프로필 사진 로드 (비동기 - IndexedDB 지원)
+  const photoSrc = _user.photo || '';
+  if (photoSrc) {
     document.getElementById('photoPreview').src = photoSrc;
     document.getElementById('photoPreview').style.display = 'block';
     document.getElementById('photoDefault').style.display = 'none';
+  } else if (_user.avatarFace && window.CodiBank && CodiBank.getImageSrc) {
+    // avatarFace(IndexedDB id)가 있으면 비동기 로드
+    CodiBank.getImageSrc(_user.avatarFace).then(src => {
+      if (src) {
+        document.getElementById('photoPreview').src = src;
+        document.getElementById('photoPreview').style.display = 'block';
+        document.getElementById('photoDefault').style.display = 'none';
+      }
+    }).catch(() => {});
   }
 }
 
-function doSave(){
+async function doSave(){
   if(!_user) return;
 
   const pw  = document.getElementById('fPw').value;
@@ -294,7 +303,24 @@ function doSave(){
   };
 
   if(pw) patch.password = pw;
-  if(_photoData) patch.photo = _photoData;
+
+  // 사진 저장: dataURL → IndexedDB 저장 → avatarFace(id)로 저장
+  // closet.html이 user.avatarFace를 CodiBank.getImageSrc()로 읽으므로 반드시 동일 필드명 사용
+  if(_photoData){
+    patch.photo = _photoData; // 마이페이지 표시용 (dataURL 직접)
+    // IndexedDB에도 저장하여 closet.html AI 스타일링에 사용
+    if(CodiBank.saveImage){
+      try {
+        const imgId = await CodiBank.saveImage(_photoData);
+        patch.avatarFace = imgId; // closet.html이 읽는 필드
+      } catch(e) {
+        // saveImage 실패 시 dataURL 그대로 avatarFace에 저장 (폴백)
+        patch.avatarFace = _photoData;
+      }
+    } else {
+      patch.avatarFace = _photoData;
+    }
+  }
 
   const res = CodiBank.updateUserProfile ? CodiBank.updateUserProfile(_user.email, patch) : { ok: false };
 
