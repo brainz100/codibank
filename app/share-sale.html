@@ -5,7 +5,118 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>공유판매 - 코디뱅크</title>
   <!-- ⚡ 즉시 인증 체크: body 렌더 전 실행 → 깜빡임 완전 차단 -->
-  <style>html{visibility:hidden}</style>
+  <style>html{visibility:hidden}
+/* ── CodiBank 공통 풋바 v2 ── */
+.cb-nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:9000;
+  background:rgba(7,25,82,0.95);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-top:1px solid rgba(151,254,237,0.12);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.cb-nav-inner{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  max-width:480px;margin:0 auto;
+  padding:10px 8px 8px;
+}
+.cb-nav-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:rgba(255,255,255,0.38);text-decoration:none;
+  font-size:10px;font-weight:700;letter-spacing:-.01em;
+  padding:0 2px;transition:color .18s;
+  font-family:'Pretendard','Noto Sans KR',sans-serif;
+  cursor:pointer;border:none;background:none;
+}
+.cb-nav-item .cb-icon{
+  font-size:24px;
+  font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24;
+  font-family:'Material Symbols Outlined';
+}
+.cb-nav-item.cb-active{color:#97FEED;}
+.cb-nav-item.cb-active .cb-icon{
+  font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;
+}
+.cb-nav-center{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  padding-bottom:0;
+}
+.cb-nav-plus{
+  width:54px;height:54px;border-radius:50%;
+  background:#97FEED;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;top:-14px;
+  box-shadow:0 0 24px rgba(151,254,237,0.45);
+  border:4px solid #071952;
+  cursor:pointer;text-decoration:none;
+  transition:transform .14s;
+  font-family:'Material Symbols Outlined';
+  font-size:28px;color:#071952;
+  font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;
+}
+.cb-nav-plus:active{transform:scale(.91);}
+.cb-nav-plus-lbl{
+  color:#97FEED;font-size:10px;font-weight:800;
+  margin-top:-11px;letter-spacing:-.01em;
+  font-family:'Pretendard','Noto Sans KR',sans-serif;
+}
+.cb-spacer{height:76px;}
+
+
+
+/* ════ CodiBank 공통 풋바 (확정판) ════ */
+.cb-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 99999;
+  background: #071952;
+  border-top: 2px solid rgba(151,254,237,0.18);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.cb-nav-inner {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  max-width: 480px; margin: 0 auto;
+  padding: 10px 8px 8px; height: 64px;
+}
+.cb-nav-tab {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 3px;
+  color: rgba(255,255,255,0.35); text-decoration: none;
+  font-size: 10px; font-weight: 700; letter-spacing: -.01em;
+  font-family: 'Pretendard','Noto Sans KR','Outfit',sans-serif;
+  transition: color .15s;
+}
+.cb-nav-tab .ni {
+  font-family: 'Material Symbols Outlined';
+  font-size: 24px; line-height: 1;
+  font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 24;
+}
+.cb-nav-tab.on { color: #97FEED; }
+.cb-nav-tab.on .ni { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+
+.cb-nav-add-wrap {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; padding-bottom: 2px;
+}
+.cb-nav-add {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: #97FEED;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; top: -12px;
+  box-shadow: 0 0 20px rgba(151,254,237,0.5);
+  border: 4px solid #071952;
+  text-decoration: none;
+  font-family: 'Material Symbols Outlined';
+  font-size: 26px; color: #071952; line-height: 1;
+  font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+  transition: transform .13s;
+}
+.cb-nav-add:active { transform: scale(.9); }
+.cb-nav-add-lbl {
+  color: #97FEED; font-size: 10px; font-weight: 800;
+  margin-top: -8px;
+  font-family: 'Pretendard','Noto Sans KR','Outfit',sans-serif;
+}
+.cb-spacer { height: 72px; }
+
+</style>
   <script>
   (function(){
     try {
@@ -495,30 +606,9 @@
   </main>
 
   <!-- ===== 하단 내비게이션 ===== -->
-  <nav class="fixed bottom-0 inset-x-0 z-50 ios-blur bg-white/90 border-t border-slate-100">
-    <div class="max-w-sm mx-auto px-4 py-2 flex justify-between items-center">
-      <a href="closet.html" class="flex flex-col items-center gap-1 text-slate-500">
-        <span class="material-symbols-outlined text-2xl">checkroom</span>
-        <span class="text-[10px] font-extrabold">내옷장</span>
-      </a>
-      <a href="camera.html" class="flex flex-col items-center gap-1 text-slate-500">
-        <span class="material-symbols-outlined text-2xl">add_a_photo</span>
-        <span class="text-[10px] font-extrabold">item등록</span>
-      </a>
-      <a href="album.html" class="flex flex-col items-center gap-1 text-slate-500">
-        <span class="material-symbols-outlined text-2xl">photo_library</span>
-        <span class="text-[10px] font-extrabold">코디앨범</span>
-      </a>
-      <a href="share-sale.html" class="flex flex-col items-center gap-1 text-accent">
-        <span class="material-symbols-outlined filled text-2xl">storefront</span>
-        <span class="text-[10px] font-extrabold">공유판매</span>
-      </a>
-      <a href="mypage.html" class="flex flex-col items-center gap-1 text-slate-500">
-        <span class="material-symbols-outlined text-2xl">person</span>
-        <span class="text-[10px] font-extrabold">My</span>
-      </a>
-    </div>
-  </nav>
+  
+
+
 
   <!-- ===== 공유 신청 모달 ===== -->
   <div id="shareReqModal" class="modal-sheet hidden">
@@ -790,5 +880,27 @@
 
 })();
 </script>
+<!-- CodiBank 공통 풋바 -->
+<nav class="cb-nav">
+  <div class="cb-nav-inner">
+    <a href="closet.html" class="cb-nav-tab">
+      <span class="ni">grid_view</span><span>내옷장</span>
+    </a>
+    <a href="album.html" class="cb-nav-tab">
+      <span class="ni">auto_awesome_motion</span><span>코디앨범</span>
+    </a>
+    <div class="cb-nav-add-wrap">
+      <a href="camera.html" class="cb-nav-add">add</a>
+      <span class="cb-nav-add-lbl">ITEM등록</span>
+    </div>
+    <a href="share-sale.html" class="cb-nav-tab on">
+      <span class="ni">local_mall</span><span>공유판매</span>
+    </a>
+    <a href="mypage.html" class="cb-nav-tab">
+      <span class="ni">person_outline</span><span>MY</span>
+    </a>
+  </div>
+</nav>
+<div class="cb-spacer"></div>
 </body>
 </html>
