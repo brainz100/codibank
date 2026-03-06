@@ -3,22 +3,6 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>아이템 상세 - 코디뱅크</title>
-<!-- ⚡ 즉시 인증 체크: body 렌더 전 실행 → 깜빡임 완전 차단 -->
-<style>html{visibility:hidden}</style>
-<script>
-(function(){
-  try {
-    var raw = localStorage.getItem('codibank_session');
-    if (!raw) {
-      window.location.replace('index.html');
-    } else {
-      document.documentElement.style.visibility = 'visible';
-    }
-  } catch(e) {
-    window.location.replace('index.html');
-  }
-})();
-</script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
   <script src="config.js"></script>
   <script src="codibank.js"></script>
@@ -62,7 +46,57 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
-    </style>
+    
+/* ── CodiBank 공통 풋바 ── */
+.cb-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 9000;
+  background: rgba(7,25,82,0.94);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.cb-nav-inner {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  max-width: 480px; margin: 0 auto;
+  padding: 10px 4px 6px;
+}
+.cb-nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  color: rgba(255,255,255,0.38); text-decoration: none;
+  font-size: 10px; font-weight: 600; letter-spacing: -.01em;
+  padding: 0 2px; transition: color .18s;
+  font-family: 'Pretendard','Noto Sans KR',sans-serif;
+}
+.cb-nav-item .cb-icon { font-size: 24px; font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24; }
+.cb-nav-item.cb-active { color: #97FEED; }
+.cb-nav-item.cb-active .cb-icon { font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24; }
+.cb-nav-center {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  margin-bottom: 4px;
+}
+.cb-nav-plus-btn {
+  width: 54px; height: 54px; border-radius: 50%;
+  background: #97FEED;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; top: -14px;
+  box-shadow: 0 0 22px rgba(151,254,237,0.45);
+  border: 4px solid #071952;
+  cursor: pointer; text-decoration: none;
+  transition: transform .15s;
+}
+.cb-nav-plus-btn:active { transform: scale(.92); }
+.cb-nav-plus-btn .material-symbols-outlined {
+  color: #071952; font-size: 28px;
+  font-variation-settings: 'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;
+}
+.cb-nav-plus-label {
+  color: #97FEED; font-size: 10px; font-weight: 700;
+  margin-top: -10px; letter-spacing: -.01em;
+  font-family: 'Pretendard','Noto Sans KR',sans-serif;
+}
+.cb-nav-spacer { height: 76px; }
+
+  </style>
 <style>
         body {
             min-height: max(884px, 100dvh);
@@ -75,7 +109,15 @@
   </style>
   </head>
 <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
-<header class="pt-6 px-6 pb-4">
+<div class="fixed top-0 w-full z-50 px-6 py-3 flex justify-between items-center bg-background-light/80 dark:bg-background-dark/80 ios-blur">
+<span class="text-sm font-semibold">9:41</span>
+<div class="flex gap-1.5 items-center">
+<span class="material-symbols-outlined text-[16px]">signal_cellular_alt</span>
+<span class="material-symbols-outlined text-[16px]">wifi</span>
+<span class="material-symbols-outlined text-[16px]">battery_full</span>
+</div>
+</div>
+<header class="pt-16 px-6 pb-4">
 <div class="flex items-center justify-between">
 <button id="backBtn" class="w-10 h-10 rounded-full flex items-center justify-center bg-white dark:bg-zinc-900 shadow-sm active:scale-95 transition-transform">
 <span class="material-symbols-outlined text-slate-600 dark:text-slate-300">arrow_back_ios_new</span>
@@ -152,10 +194,6 @@
       <div>
         <label class="text-xs font-extrabold text-slate-600 dark:text-zinc-300">컬러</label>
         <input id="editColor" type="text" class="mt-2 w-full rounded-2xl border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold" placeholder="예: 블랙, 네이비" />
-        <label class="block text-[11px] font-extrabold tracking-widest text-slate-500 mt-4">보조 컬러</label>
-        <input id="editSubColor" type="text" class="mt-2 w-full rounded-2xl border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold" placeholder="예: 화이트, 베이지 (없으면 공란)" />
-        <label class="block text-[11px] font-extrabold tracking-widest text-slate-500 mt-4">스타일 태그</label>
-        <input id="editStyleTag" type="text" class="mt-2 w-full rounded-2xl border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm font-semibold" placeholder="예: 캐주얼, 포멀, 미니멀, 스트릿" />
       </div>
 
       <div>
@@ -177,21 +215,41 @@
 </div>
 
 </main>
-<nav class="fixed bottom-0 left-0 right-0 bg-white/95 ios-blur border-t border-slate-200 pt-3 pb-8 px-6 z-50">
-      <div class="flex justify-between items-center max-w-sm mx-auto">
-        <a href="closet.html" class="flex flex-col items-center gap-1 text-accent"><span class="material-symbols-outlined filled text-2xl">checkroom</span><span class="text-[10px] font-extrabold">내옷장</span></a>
-        <a href="camera.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">add_a_photo</span><span class="text-[10px] font-extrabold">item등록</span></a>
-        <a href="album.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">photo_library</span><span class="text-[10px] font-extrabold">코디앨범</span></a>
-        <a href="share-sale.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">storefront</span><span class="text-[10px] font-extrabold">공유판매</span></a>
-        <a href="mypage.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">person</span><span class="text-[10px] font-extrabold">My</span></a>
-      </div>
-    </nav>
-<div class="fixed bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-slate-300 rounded-full z-[60]"></div>
+
+<!-- ── CodiBank 공통 풋바 ── -->
+<nav class="cb-nav" aria-label="하단 네비게이션">
+  <div class="cb-nav-inner">
+    <a href="closet.html" class="cb-nav-item cb-active">
+      <span class="material-symbols-outlined cb-icon">grid_view</span>
+      <span>내옷장</span>
+    </a>
+    <a href="album.html" class="cb-nav-item">
+      <span class="material-symbols-outlined cb-icon">auto_awesome_motion</span>
+      <span>코디앨범</span>
+    </a>
+    <div class="cb-nav-center">
+      <a href="camera.html" class="cb-nav-plus-btn">
+        <span class="material-symbols-outlined">add</span>
+      </a>
+      <span class="cb-nav-plus-label">ITEM등록</span>
+    </div>
+    <a href="share-sale.html" class="cb-nav-item">
+      <span class="material-symbols-outlined cb-icon">local_mall</span>
+      <span>공유판매</span>
+    </a>
+    <a href="mypage.html" class="cb-nav-item">
+      <span class="material-symbols-outlined cb-icon">person_outline</span>
+      <span>MY</span>
+    </a>
+  </div>
+</nav>
+<div class="cb-nav-spacer"></div>
+
 
 <script>
   // Auth
   if (window.CodiBank && CodiBank.requireAuth) {
-    CodiBank.requireAuth('index.html');
+    CodiBank.requireAuth('login.html');
   }
   const user = CodiBank.getCurrentUser();
 
@@ -296,8 +354,6 @@
   const editCategory = document.getElementById('editCategory');
   const editBrand = document.getElementById('editBrand');
   const editColor = document.getElementById('editColor');
-  const editSubColor = document.getElementById('editSubColor');
-  const editStyleTag = document.getElementById('editStyleTag');
   const editNote = document.getElementById('editNote');
 
   function openEditModal() {
@@ -312,8 +368,6 @@
     editCategory.value = String(currentItem.categoryKey || 'etc');
     editBrand.value = String(currentItem.brand || '');
     editColor.value = String(currentItem.color || '');
-    if(editSubColor) editSubColor.value = String(currentItem.subColor || '');
-    if(editStyleTag) editStyleTag.value = String(currentItem.styleTag || currentItem.meta?.note?.styleTag || '');
     if (editNote) editNote.value = String(currentItem.note || '');
 
     editModal.classList.remove('hidden');
@@ -337,8 +391,6 @@
       categoryKey: String(editCategory.value || currentItem.categoryKey || 'etc'),
       brand: String(editBrand.value || '').trim(),
       color: String(editColor.value || '').trim(),
-      subColor: String(editSubColor?.value || '').trim(),
-      styleTag: String(editStyleTag?.value || '').trim(),
       note: String(editNote?.value || '').trim(),
     };
 

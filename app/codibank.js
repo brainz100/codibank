@@ -250,7 +250,7 @@ function getBackendBaseResolved() {
   }
 
   function requireAuth(redirectTo) {
-    const to = redirectTo || 'index.html';
+    const to = redirectTo || 'login.html';
     if (!getCurrentUser()) {
       window.location.replace(to);
       return false;
@@ -541,8 +541,6 @@ function getBackendBaseResolved() {
       userEmail: e,
       categoryKey,
       color: item.color || '',
-      subColor: item.subColor || '',       // ✅ 보조 컬러 (Claude Vision 반환)
-      styleTag: item.styleTag || '',       // ✅ 스타일 태그 (캐주얼/포멀/미니멀 등)
       brand: item.brand || '',
       note: item.note || item.description || '',
       images: item.images || {},
@@ -608,8 +606,6 @@ function getBackendBaseResolved() {
     }
 
     if (patch && patch.color !== undefined) next.color = String(patch.color || '');
-    if (patch && patch.subColor !== undefined) next.subColor = String(patch.subColor || '');
-    if (patch && patch.styleTag !== undefined) next.styleTag = String(patch.styleTag || '');
     if (patch && patch.brand !== undefined) next.brand = String(patch.brand || '');
     if (patch && patch.note !== undefined) next.note = String(patch.note || '');
 
