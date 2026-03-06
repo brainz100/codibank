@@ -1,848 +1,439 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html class="dark" lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>착착옷장 — 옷장 앞 고민, 끝.</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>CODIBANK - AI Fashion Stylist</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          primary: "#97FEED",
+          "deep-navy": "#071952",
+          "teal-dark": "#0B666A",
+          "teal-medium": "#35A29F",
+          "light-cyan": "#97FEED",
+          "background-dark": "#071952",
+        },
+        fontFamily: { sans: ["Pretendard", "sans-serif"] },
+        screens: { md: "768px" },
+      },
+    },
+  };
+</script>
+<style type="text/tailwindcss">
+  @layer base {
+    body {
+      @apply bg-[#071952] text-white font-sans antialiased overflow-x-hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+  }
+</style>
 <style>
-:root {
-  --bg: #08070A;
-  --bg-elevated: #111015;
-  --bg-card: #18171C;
-  --bg-card-hover: #1F1E24;
-  --surface: #232228;
-  --border: rgba(255,255,255,0.06);
-  --border-hover: rgba(255,255,255,0.12);
-  --text: #F5F5F7;
-  --text-sub: #A1A1AA;
-  --text-muted: #71717A;
-  --amber: #F59E0B;
-  --amber-soft: #FDE68A;
-  --amber-glow: rgba(245,158,11,0.12);
-  --amber-glow-strong: rgba(245,158,11,0.25);
-  --rose: #FB7185;
-  --rose-glow: rgba(251,113,133,0.12);
-  --green: #34D399;
-  --green-glow: rgba(52,211,153,0.12);
-  --r: 16px;
-  --r-sm: 10px;
-  --r-lg: 24px;
-}
-*{margin:0;padding:0;box-sizing:border-box;}
-html{scroll-behavior:smooth;}
-body{
-  font-family:'Noto Sans KR',sans-serif;
-  background:var(--bg);color:var(--text);
-  overflow-x:hidden;-webkit-font-smoothing:antialiased;
-}
-body::after{
-  content:'';position:fixed;inset:0;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
-  pointer-events:none;z-index:9999;
-}
-.container{max-width:1080px;margin:0 auto;padding:0 24px;}
+  :root {
+    --primary: #97FEED;
+    --navy: #071952;
+    --teal-d: #0B666A;
+    --teal-m: #35A29F;
+  }
 
-/* NAV */
-nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:18px 0;transition:all .4s;}
-nav.scrolled{background:rgba(8,7,10,0.88);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);padding:14px 0;}
-nav .container{display:flex;justify-content:space-between;align-items:center;}
-.logo{font-family:'Outfit',sans-serif;font-weight:700;font-size:1.35rem;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:10px;letter-spacing:-0.5px;}
-.logo-mark{width:30px;height:30px;background:var(--amber);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;transform:rotate(-4deg);}
-.nav-links{display:flex;align-items:center;gap:28px;}
-.nav-links a{color:var(--text-sub);text-decoration:none;font-size:.85rem;font-weight:400;transition:color .3s;}
-.nav-links a:hover{color:var(--text);}
-.nav-cta{padding:9px 22px;background:var(--amber);color:var(--bg);border:none;border-radius:100px;font-weight:600;font-size:.82rem;cursor:pointer;transition:all .3s;font-family:'Noto Sans KR',sans-serif;}
-.nav-cta:hover{background:var(--amber-soft);box-shadow:0 6px 24px rgba(245,158,11,.3);}
+  /* ── 공통 ── */
+  .glass-card {
+    background: linear-gradient(135deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.03) 100%);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,.1);
+  }
+  .feat-border { border: 1px solid rgba(151,254,237,.1); }
+  .text-glow   { text-shadow: 0 0 12px rgba(151,254,237,.45); }
+  .nav-glow    { box-shadow: 0 0 25px rgba(151,254,237,.35); }
+  .btn-glow    { box-shadow: 0 0 20px rgba(151,254,237,.22); }
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 24;
+  }
+  .bg-mesh {
+    background:
+      radial-gradient(at 0% 0%,   rgba(11,102,106,.28) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(53,162,159,.18) 0px, transparent 50%),
+      radial-gradient(at 50% 80%, rgba(7,25,82,.5)     0px, transparent 100%);
+  }
+  .cta:active { transform: scale(.97); filter: brightness(.9); }
 
-/* ======== PART 1 — 상단 ======== */
-.part-top{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:120px 0 80px;position:relative;overflow:hidden;}
-.part-top::before{content:'';position:absolute;top:-20%;right:-15%;width:700px;height:700px;background:radial-gradient(circle,rgba(251,113,133,0.04) 0%,transparent 70%);pointer-events:none;}
+  /* ══════════════════════════════════
+     MOBILE  (max-width: 767px)
+  ══════════════════════════════════ */
+  .mobile-view { display: flex; }
+  .pc-view     { display: none; }
 
-.problem-keyword{text-align:center;margin-bottom:72px;}
-.problem-keyword .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.72rem;font-weight:600;color:var(--rose);text-transform:uppercase;letter-spacing:2.5px;margin-bottom:24px;}
-.problem-keyword .eyebrow::before{content:'';width:20px;height:1px;background:var(--rose);}
-.problem-keyword h1{font-size:clamp(1.8rem,4.5vw,3.2rem);font-weight:900;line-height:1.35;letter-spacing:-1.5px;max-width:700px;margin:0 auto;}
-.problem-keyword h1 .highlight{background:linear-gradient(135deg,var(--rose),#F97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+  /* nav bar safe area */
+  .ios-safe { padding-bottom: env(safe-area-inset-bottom); }
 
-.common-behaviors{margin-bottom:72px;}
-.behavior-label{text-align:center;font-size:.78rem;color:var(--text-muted);margin-bottom:24px;font-weight:400;letter-spacing:.5px;}
-.behavior-pills{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;max-width:740px;margin:0 auto;}
-.behavior-pill{display:flex;align-items:center;gap:10px;padding:14px 22px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:100px;font-size:.88rem;font-weight:400;color:var(--text-sub);transition:all .3s;cursor:default;}
-.behavior-pill:hover{border-color:var(--border-hover);background:var(--bg-card);color:var(--text);}
-.behavior-pill .bp-icon{font-size:1.1rem;flex-shrink:0;}
-
-.frustration{text-align:center;}
-.frustration-divider{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:32px;}
-.frustration-divider .line{width:60px;height:1px;background:var(--border);}
-.frustration-divider .label{font-size:.72rem;color:var(--text-muted);font-weight:500;letter-spacing:2px;text-transform:uppercase;}
-.frustration h2{font-size:clamp(1.3rem,3vw,2rem);font-weight:700;line-height:1.5;letter-spacing:-.5px;color:var(--text-sub);max-width:600px;margin:0 auto 12px;}
-.frustration h2 strong{color:var(--text);font-weight:900;}
-.frustration .subtext{font-size:.92rem;color:var(--text-muted);font-weight:300;line-height:1.7;}
-
-.scroll-hint{text-align:center;margin-top:64px;animation:bounce 2s infinite;}
-.scroll-hint span{display:inline-block;width:28px;height:44px;border:2px solid var(--border);border-radius:14px;position:relative;}
-.scroll-hint span::after{content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);width:3px;height:8px;background:var(--text-muted);border-radius:2px;animation:scroll-dot 2s infinite;}
-@keyframes scroll-dot{0%{opacity:1;transform:translateX(-50%) translateY(0);}100%{opacity:0;transform:translateX(-50%) translateY(12px);}}
-@keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(6px);}}
-
-
-/* ======== PART 2 — 중간 ======== */
-.part-mid{padding:120px 0 0;position:relative;}
-.part-mid::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(245,158,11,.15),transparent);}
-
-.empathy-block{text-align:center;margin-bottom:80px;}
-.empathy-block .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.72rem;font-weight:600;color:var(--amber);text-transform:uppercase;letter-spacing:2.5px;margin-bottom:24px;}
-.empathy-block .eyebrow::before,.empathy-block .eyebrow::after{content:'';width:20px;height:1px;background:var(--amber);}
-.brand-statement{font-size:clamp(1.6rem,4vw,2.8rem);font-weight:900;line-height:1.4;letter-spacing:-1.5px;max-width:750px;margin:0 auto 20px;}
-.brand-statement .glow{background:linear-gradient(135deg,var(--amber),#FB923C);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.brand-sub{font-size:1.05rem;color:var(--text-sub);font-weight:300;line-height:1.8;max-width:520px;margin:0 auto;}
-
-/* === 서비스 카드 — 세로 배열 + 이미지 === */
-.services-section{margin-bottom:100px;}
-.services-intro{text-align:center;margin-bottom:48px;}
-.services-intro h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;letter-spacing:-.3px;}
-.services-intro p{font-size:.88rem;color:var(--text-muted);font-weight:300;}
-
-.service-stack{
-  display:flex;flex-direction:column;gap:20px;
-  max-width:880px;margin:0 auto;
-}
-.svc-card{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  background:var(--bg-elevated);
-  border:1px solid var(--border);
-  border-radius:var(--r-lg);
-  overflow:hidden;
-  transition:all .4s;
-  min-height:280px;
-}
-.svc-card:hover{
-  border-color:var(--border-hover);
-  transform:translateY(-3px);
-  box-shadow:0 24px 64px rgba(0,0,0,.35);
-}
-.svc-card:nth-child(even){direction:rtl;}
-.svc-card:nth-child(even)>*{direction:ltr;}
-
-.svc-visual{
-  position:relative;overflow:hidden;
-  display:flex;align-items:center;justify-content:center;
-  background:var(--bg-card);
-}
-.svc-scene{
-  width:100%;height:100%;
-  display:flex;align-items:center;justify-content:center;
-  padding:32px;
-  position:relative;
-}
-
-/* Scene 1: 촬영 등록 */
-.scene-capture{
-  display:flex;flex-direction:column;align-items:center;gap:16px;
-}
-.capture-phone{
-  width:120px;height:160px;
-  background:var(--bg);border-radius:20px;
-  border:2px solid rgba(255,255,255,.08);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  position:relative;
-  box-shadow:0 16px 40px rgba(0,0,0,.4);
-}
-.capture-lens{
-  width:40px;height:40px;border-radius:50%;
-  border:3px solid var(--amber);
-  display:flex;align-items:center;justify-content:center;
-  font-size:1.2rem;margin-bottom:8px;
-  animation:pulse-ring 2s infinite;
-}
-@keyframes pulse-ring{
-  0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.3);}
-  50%{box-shadow:0 0 0 10px rgba(245,158,11,0);}
-}
-.capture-label{font-size:.6rem;color:var(--text-muted);font-weight:500;letter-spacing:1px;}
-.capture-arrow{
-  display:flex;align-items:center;gap:8px;
-  color:var(--amber);font-size:.72rem;font-weight:600;
-}
-.capture-arrow .arrow-line{width:40px;height:1px;background:var(--amber);}
-.capture-categories{
-  display:flex;gap:8px;
-}
-.capture-cat{
-  width:48px;height:48px;
-  background:var(--bg);border-radius:12px;
-  border:1px solid var(--border);
-  display:flex;align-items:center;justify-content:center;
-  font-size:1.2rem;
-  animation:pop-in .5s ease both;
-}
-.capture-cat:nth-child(2){animation-delay:.1s;}
-.capture-cat:nth-child(3){animation-delay:.2s;}
-.capture-cat:nth-child(4){animation-delay:.3s;}
-.capture-cat:nth-child(5){animation-delay:.4s;}
-@keyframes pop-in{from{opacity:0;transform:scale(.7);}to{opacity:1;transform:scale(1);}}
-
-/* Scene 2: AI 코디 */
-.scene-codi{
-  display:flex;flex-direction:column;align-items:center;gap:12px;
-}
-.codi-input{
-  display:flex;gap:10px;align-items:center;
-  margin-bottom:4px;
-}
-.codi-chip{
-  padding:6px 14px;border-radius:100px;
-  font-size:.68rem;font-weight:500;
-  background:var(--bg);border:1px solid var(--border);
-  color:var(--text-sub);
-}
-.codi-chip.active{border-color:var(--amber);color:var(--amber);background:var(--amber-glow);}
-.codi-result{
-  display:flex;gap:10px;align-items:flex-end;
-  padding:16px 20px;
-  background:var(--bg);border-radius:16px;
-  border:1px solid rgba(245,158,11,.12);
-  box-shadow:0 8px 30px rgba(0,0,0,.3);
-}
-.codi-piece{
-  width:52px;height:64px;
-  background:var(--surface);border-radius:10px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:1.5rem;border:1px solid var(--border);
-}
-.codi-piece.highlight{
-  border-color:var(--amber);
-  box-shadow:0 0 12px rgba(245,158,11,.15);
-  transform:translateY(-4px);
-}
-.codi-badge{
-  position:absolute;top:20px;right:20px;
-  padding:5px 12px;border-radius:100px;
-  font-size:.62rem;font-weight:600;
-  background:var(--amber);color:var(--bg);
-}
-
-/* Scene 3: AI 사이즈 */
-.scene-size{
-  display:flex;flex-direction:column;align-items:center;gap:14px;
-}
-.size-input-row{
-  display:flex;gap:12px;
-}
-.size-input-box{
-  padding:10px 16px;background:var(--bg);border-radius:10px;
-  border:1px solid var(--border);text-align:center;
-}
-.size-input-label{font-size:.55rem;color:var(--text-muted);display:block;margin-bottom:2px;letter-spacing:.5px;text-transform:uppercase;}
-.size-input-val{font-family:'Outfit',sans-serif;font-size:1.1rem;font-weight:700;color:var(--text);}
-.size-arrow-down{
-  font-size:1.2rem;color:var(--amber);
-  animation:arrow-bounce 1.5s infinite;
-}
-@keyframes arrow-bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(4px);}}
-.size-result-card{
-  background:var(--bg);border-radius:14px;
-  border:1px solid rgba(52,211,153,.15);
-  padding:16px 24px;text-align:center;
-  box-shadow:0 8px 30px rgba(0,0,0,.3);
-}
-.size-result-label{font-size:.62rem;color:var(--green);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
-.size-result-grid{
-  display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;
-}
-.size-r-item{
-  padding:6px;background:var(--surface);border-radius:8px;
-}
-.size-r-item .sr-label{font-size:.5rem;color:var(--text-muted);}
-.size-r-item .sr-val{font-family:'Outfit',sans-serif;font-size:.82rem;font-weight:600;color:var(--text);}
-.size-big{
-  font-family:'Outfit',sans-serif;
-  font-size:2.4rem;font-weight:800;
-  background:linear-gradient(135deg,var(--green),var(--amber));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  background-clip:text;
-}
-
-.svc-text{
-  padding:40px 36px;
-  display:flex;flex-direction:column;justify-content:center;
-}
-.svc-num{
-  font-family:'Outfit',sans-serif;
-  font-size:.7rem;font-weight:700;color:var(--amber);
-  letter-spacing:2px;margin-bottom:14px;
-}
-.svc-text h4{
-  font-size:1.3rem;font-weight:800;letter-spacing:-.5px;
-  margin-bottom:12px;line-height:1.35;
-}
-.svc-text p{
-  font-size:.9rem;color:var(--text-sub);line-height:1.7;font-weight:300;
-  margin-bottom:18px;
-}
-.svc-tag{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:6px 16px;border-radius:100px;
-  font-size:.72rem;font-weight:600;
-  background:var(--amber-glow);color:var(--amber);
-  border:1px solid rgba(245,158,11,.12);
-  width:fit-content;
-}
-
-/* CTA BRIDGE */
-.cta-bridge{text-align:center;padding:80px 0 120px;position:relative;}
-.cta-bridge::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:1px;height:60px;background:linear-gradient(180deg,var(--border),var(--amber-glow-strong));}
-.cta-bridge .prompt{font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:8px;letter-spacing:-.3px;}
-.cta-bridge .prompt-sub{font-size:.85rem;color:var(--text-muted);font-weight:300;margin-bottom:32px;}
-.cta-buttons{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;}
-.btn-main{padding:16px 40px;background:var(--amber);color:var(--bg);border:none;border-radius:100px;font-size:.95rem;font-weight:700;cursor:pointer;transition:all .3s;font-family:'Noto Sans KR',sans-serif;display:flex;align-items:center;gap:8px;}
-.btn-main:hover{background:var(--amber-soft);transform:translateY(-2px);box-shadow:0 12px 40px rgba(245,158,11,.35);}
-.btn-ghost{padding:16px 36px;background:transparent;color:var(--text);border:1px solid var(--border-hover);border-radius:100px;font-size:.95rem;font-weight:500;cursor:pointer;transition:all .3s;font-family:'Noto Sans KR',sans-serif;}
-.btn-ghost:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-glow);}
-
-
-/* ======== PART 3 — 하단 ======== */
-.part-bottom{padding:0 0 120px;position:relative;}
-.part-bottom::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(52,211,153,.15),transparent);}
-
-.showcase{padding:120px 0 80px;text-align:center;}
-.showcase .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.72rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:2.5px;margin-bottom:20px;}
-.showcase .eyebrow::before,.showcase .eyebrow::after{content:'';width:20px;height:1px;background:var(--green);}
-.showcase h2{font-size:clamp(1.5rem,3.5vw,2.4rem);font-weight:900;letter-spacing:-1px;margin-bottom:12px;line-height:1.3;}
-.showcase h2 .accent{color:var(--amber);}
-.showcase .desc{font-size:.95rem;color:var(--text-sub);font-weight:300;margin-bottom:56px;line-height:1.7;}
-
-/* Phone Mockup */
-.phone-wrap{display:flex;justify-content:center;margin-bottom:80px;}
-.phone{
-  width:290px;height:600px;background:var(--bg-elevated);border-radius:38px;
-  border:2px solid rgba(255,255,255,.07);overflow:hidden;
-  box-shadow:0 50px 100px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03),inset 0 1px 0 rgba(255,255,255,.04);
-  position:relative;
-}
-.phone-notch{width:110px;height:26px;background:var(--bg);border-radius:0 0 16px 16px;margin:0 auto;position:relative;z-index:3;}
-.phone-inner{padding:10px 16px 16px;overflow:hidden;}
-.phone-title{text-align:center;font-size:.92rem;font-weight:700;padding:10px 0 16px;letter-spacing:-.3px;}
-.phone-cat{margin-bottom:14px;}
-.phone-cat-label{font-size:.62rem;font-weight:600;color:var(--amber);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;}
-.phone-items{display:flex;gap:8px;}
-.phone-item{flex:1;height:76px;background:var(--bg-card);border-radius:12px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.5rem;transition:all .3s;}
-.phone-item.on{border-color:var(--amber);box-shadow:0 0 16px rgba(245,158,11,.12);}
-.phone-bottom-bar{display:flex;justify-content:space-around;padding:12px 0 4px;margin-top:8px;border-top:1px solid var(--border);}
-.phone-tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.56rem;color:var(--text-muted);font-weight:400;}
-.phone-tab.active{color:var(--amber);}
-.phone-tab .tab-icon{font-size:1rem;}
-
-/* === 6 기능 바둑판 그리드 === */
-.feat-grid{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  grid-template-rows:repeat(2,1fr);
-  gap:2px;
-  border-radius:var(--r-lg);
-  overflow:hidden;
-  margin-bottom:80px;
-}
-.feat-cell{
-  background:var(--bg-elevated);
-  padding:36px 28px;
-  display:flex;flex-direction:column;
-  transition:all .35s;
-  position:relative;
-  overflow:hidden;
-}
-.feat-cell::before{
-  content:'';position:absolute;inset:0;
-  opacity:0;transition:opacity .35s;
-}
-.feat-cell:nth-child(1)::before{background:linear-gradient(135deg,rgba(245,158,11,.06),transparent 60%);}
-.feat-cell:nth-child(2)::before{background:linear-gradient(135deg,rgba(251,113,133,.06),transparent 60%);}
-.feat-cell:nth-child(3)::before{background:linear-gradient(135deg,rgba(52,211,153,.06),transparent 60%);}
-.feat-cell:nth-child(4)::before{background:linear-gradient(135deg,rgba(52,211,153,.06),transparent 60%);}
-.feat-cell:nth-child(5)::before{background:linear-gradient(135deg,rgba(245,158,11,.06),transparent 60%);}
-.feat-cell:nth-child(6)::before{background:linear-gradient(135deg,rgba(251,113,133,.06),transparent 60%);}
-.feat-cell:hover::before{opacity:1;}
-.feat-cell:hover{background:var(--bg-card);}
-.feat-cell>*{position:relative;z-index:1;}
-.fc-icon{
-  width:42px;height:42px;border-radius:11px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:1.3rem;margin-bottom:16px;flex-shrink:0;
-  border:1px solid var(--border);
-}
-.fc-icon.c1{background:var(--amber-glow);}
-.fc-icon.c2{background:var(--rose-glow);}
-.fc-icon.c3{background:var(--green-glow);}
-.feat-cell h5{font-size:.92rem;font-weight:700;margin-bottom:6px;letter-spacing:-.2px;}
-.feat-cell p{font-size:.78rem;color:var(--text-sub);line-height:1.55;font-weight:300;}
-
-/* === 혜택 — 강조 비주얼 === */
-.benefits{padding:0 0 0;margin-bottom:60px;}
-.benefits-header{text-align:center;margin-bottom:56px;}
-.benefits-header h3{font-size:1.3rem;font-weight:900;letter-spacing:-.5px;margin-bottom:8px;}
-.benefits-header p{font-size:.88rem;color:var(--text-muted);font-weight:300;}
-
-.benefit-showcase{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:20px;
-}
-.benefit-card{
-  position:relative;
-  padding:48px 36px;
-  border-radius:var(--r-lg);
-  overflow:hidden;
-  display:flex;flex-direction:column;justify-content:flex-end;
-  min-height:280px;
-}
-.benefit-card::before{
-  content:'';position:absolute;inset:0;z-index:0;
-}
-.benefit-card.time-card{
-  background:linear-gradient(160deg,#1a1510 0%,#120f0a 100%);
-  border:1px solid rgba(245,158,11,.08);
-}
-.benefit-card.time-card::before{
-  background:radial-gradient(ellipse at 70% 20%,rgba(245,158,11,.08),transparent 65%);
-}
-.benefit-card.free-card{
-  background:linear-gradient(160deg,#0f1510 0%,#0a120e 100%);
-  border:1px solid rgba(52,211,153,.08);
-}
-.benefit-card.free-card::before{
-  background:radial-gradient(ellipse at 30% 20%,rgba(52,211,153,.08),transparent 65%);
-}
-
-.bc-big-visual{
-  position:relative;z-index:1;
-  margin-bottom:24px;
-}
-.bc-big-num{
-  font-family:'Outfit',sans-serif;
-  font-weight:900;line-height:1;
-  letter-spacing:-3px;
-}
-.time-card .bc-big-num{
-  font-size:clamp(4rem,8vw,5.5rem);
-  background:linear-gradient(135deg,var(--amber),#FB923C);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  background-clip:text;
-}
-.free-card .bc-big-num{
-  font-size:clamp(3.5rem,7vw,4.8rem);
-  background:linear-gradient(135deg,var(--green),#6EE7B7);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  background-clip:text;
-}
-.bc-big-unit{
-  font-family:'Outfit',sans-serif;
-  font-size:1.4rem;font-weight:700;
-  color:var(--text);
-  margin-left:4px;
-}
-
-.bc-info{position:relative;z-index:1;}
-.bc-info h4{
-  font-size:1.1rem;font-weight:800;letter-spacing:-.3px;
-  margin-bottom:6px;
-}
-.bc-info p{
-  font-size:.85rem;color:var(--text-sub);line-height:1.6;font-weight:300;
-}
-
-/* 최종 CTA */
-.final-cta{
-  background:linear-gradient(135deg,var(--bg-elevated),rgba(245,158,11,.03));
-  border:1px solid rgba(245,158,11,.08);
-  border-radius:var(--r-lg);padding:56px 40px;text-align:center;
-  position:relative;overflow:hidden;
-}
-.final-cta::before{content:'';position:absolute;top:-80px;left:50%;transform:translateX(-50%);width:400px;height:200px;background:radial-gradient(ellipse,rgba(245,158,11,.06),transparent 70%);}
-.final-cta h3{font-size:1.4rem;font-weight:900;letter-spacing:-.5px;margin-bottom:10px;position:relative;}
-.final-cta p{font-size:.88rem;color:var(--text-sub);font-weight:300;margin-bottom:28px;line-height:1.7;position:relative;}
-.final-cta .btn-main{margin:0 auto;position:relative;}
-
-/* FOOTER */
-footer{padding:40px 0;border-top:1px solid var(--border);margin-top:80px;}
-footer .container{display:flex;justify-content:space-between;align-items:center;}
-footer p{font-size:.78rem;color:var(--text-muted);font-weight:300;}
-
-/* ANIMATIONS */
-.anim{opacity:0;transform:translateY(36px);transition:all .7s cubic-bezier(.16,1,.3,1);}
-.anim.show{opacity:1;transform:translateY(0);}
-.anim-d1{transition-delay:.08s;}
-.anim-d2{transition-delay:.16s;}
-.anim-d3{transition-delay:.24s;}
-
-/* RESPONSIVE */
-@media(max-width:900px){
-  .svc-card{grid-template-columns:1fr;min-height:auto;}
-  .svc-card:nth-child(even){direction:ltr;}
-  .svc-visual{min-height:220px;}
-  .feat-grid{grid-template-columns:1fr 1fr;}
-  .benefit-showcase{grid-template-columns:1fr;}
-  .nav-links a{display:none;}
-}
-@media(max-width:600px){
-  .svc-card{grid-template-columns:1fr;}
-  .svc-text{padding:28px 24px;}
-  .feat-grid{grid-template-columns:1fr;}
-  .behavior-pills{gap:8px;}
-  .behavior-pill{padding:11px 16px;font-size:.82rem;}
-  .phone{width:250px;height:530px;}
-  .cta-buttons{flex-direction:column;align-items:center;}
-  .final-cta{padding:44px 24px;}
-  .benefit-card{min-height:220px;padding:36px 28px;}
-  footer .container{flex-direction:column;gap:12px;text-align:center;}
-}
+  /* ══════════════════════════════════
+     PC  (min-width: 768px)
+  ══════════════════════════════════ */
+  @media (min-width: 768px) {
+    .mobile-view { display: none !important; }
+    .pc-view     { display: block !important; }
+  }
 </style>
 </head>
-<body>
+<body class="min-h-screen relative">
 
-<nav id="nav">
-  <div class="container">
-    <a href="#" class="logo"><div class="logo-mark">👔</div>착착옷장</a>
-    <div class="nav-links">
-      <a href="#solution">서비스 소개</a>
-      <a href="#closet">온라인 옷장</a>
-      <a class="nav-cta" href="app/login.html">시작하기</a>
-    </div>
-  </div>
-</nav>
+<!-- 배경 -->
+<div class="fixed inset-0 pointer-events-none z-0 bg-mesh"></div>
+<div class="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-15">
+  <svg class="absolute top-0 right-0 w-1/2 h-1/2 translate-x-1/4 -translate-y-1/4" viewBox="0 0 400 400" fill="none">
+    <circle cx="200" cy="50"  r="1"   fill="#97FEED"/>
+    <circle cx="350" cy="150" r="1.5" fill="#97FEED"/>
+    <circle cx="100" cy="180" r="1"   fill="#97FEED"/>
+    <circle cx="280" cy="300" r="1.5" fill="#97FEED"/>
+    <line x1="200" y1="50"  x2="350" y2="150" stroke="rgba(151,254,237,.35)" stroke-width=".5"/>
+    <line x1="200" y1="50"  x2="100" y2="180" stroke="rgba(151,254,237,.35)" stroke-width=".5"/>
+    <line x1="350" y1="150" x2="280" y2="300" stroke="rgba(151,254,237,.35)" stroke-width=".5"/>
+    <line x1="100" y1="180" x2="280" y2="300" stroke="rgba(151,254,237,.35)" stroke-width=".5"/>
+  </svg>
+</div>
 
-<!-- ======== PART 1 — 상단 ======== -->
-<section class="part-top">
-  <div class="container">
-    <div class="problem-keyword anim">
-      <div class="eyebrow">매일 반복되는 당신의 아침</div>
-      <h1>옷은 넘치는데,<br><span class="highlight">오늘 입을 옷이 없다.</span></h1>
-    </div>
-    <div class="common-behaviors anim anim-d1">
-      <div class="behavior-label">그래서 우리가 하는 일들 —</div>
-      <div class="behavior-pills">
-        <div class="behavior-pill"><span class="bp-icon">🛒</span> 또 새 옷을 산다</div>
-        <div class="behavior-pill"><span class="bp-icon">📱</span> 코디 사진을 검색한다</div>
-        <div class="behavior-pill"><span class="bp-icon">👤</span> 친구에게 물어본다</div>
-        <div class="behavior-pill"><span class="bp-icon">🪞</span> 갈아입고 또 갈아입는다</div>
-        <div class="behavior-pill"><span class="bp-icon">😮‍💨</span> 결국 "아무거나" 입고 나간다</div>
+<!-- ╔══════════════════════════════════════╗
+     ║         MOBILE LAYOUT               ║
+     ╚══════════════════════════════════════╝ -->
+<div class="mobile-view flex-col min-h-screen">
+  <main class="relative z-10 w-full max-w-[440px] mx-auto flex flex-col min-h-screen px-5 pt-12 pb-44">
+
+    <!-- Hero -->
+    <header class="mb-10">
+      <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/5 border border-[#97FEED]/20 mb-6">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#97FEED] animate-pulse"></span>
+        <span class="text-[10px] uppercase tracking-widest font-bold text-[#97FEED]">AI Stylist Alpha</span>
+      </div>
+      <h1 class="text-[clamp(2.2rem,10vw,3rem)] font-extrabold tracking-tight leading-[1.1] mb-5">
+        <span class="block">AI가 매일</span>
+        <span class="text-[#97FEED] text-glow block">완벽한 코디</span>
+        <span class="block text-white/90">제안해드려요</span>
+      </h1>
+      <p class="text-[clamp(1rem,4vw,1.1rem)] text-slate-300/80 leading-relaxed font-medium max-w-[280px]">
+        날씨·목적·체형을 분석해서 당신만을 위한 스타일링을 추천합니다.
+      </p>
+    </header>
+
+    <!-- Feature cards -->
+    <section class="space-y-4">
+      <div class="glass-card feat-border p-5 rounded-[24px] flex items-center space-x-4">
+        <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-[#0B666A]/40 to-transparent flex items-center justify-center border border-[#0B666A]/30">
+          <span class="material-symbols-outlined text-[#35A29F] text-2xl">psychology</span>
+        </div>
+        <div class="flex-grow">
+          <h3 class="text-base font-bold text-white mb-0.5">AI 코디 추천</h3>
+          <p class="text-xs text-slate-400">맞춤형 스타일링 제안</p>
+        </div>
+        <span class="material-symbols-outlined text-slate-500">chevron_right</span>
+      </div>
+      <div class="glass-card feat-border p-5 rounded-[24px] flex items-center space-x-4">
+        <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-[#35A29F]/30 to-transparent flex items-center justify-center border border-[#35A29F]/30">
+          <span class="material-symbols-outlined text-[#35A29F] text-2xl">checkroom</span>
+        </div>
+        <div class="flex-grow">
+          <h3 class="text-base font-bold text-white mb-0.5">디지털 옷장</h3>
+          <p class="text-xs text-slate-400">내 옷을 디지털화하여 관리</p>
+        </div>
+        <span class="material-symbols-outlined text-slate-500">chevron_right</span>
+      </div>
+      <div class="glass-card feat-border p-5 rounded-[24px] flex items-center space-x-4">
+        <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-[#0B666A]/40 to-transparent flex items-center justify-center border border-[#0B666A]/30">
+          <span class="material-symbols-outlined text-[#35A29F] text-2xl">storefront</span>
+        </div>
+        <div class="flex-grow">
+          <h3 class="text-base font-bold text-white mb-0.5">공유·판매</h3>
+          <p class="text-xs text-slate-400">빌려주고 포인트 적립</p>
+        </div>
+        <span class="material-symbols-outlined text-slate-500">chevron_right</span>
+      </div>
+    </section>
+
+    <!-- Tagline -->
+    <section class="mt-14 mb-10 text-center">
+      <h2 class="text-[28px] font-extrabold leading-tight text-white">
+        옷은 넘치는데
+        <span class="block text-[#35A29F] mt-1">오늘 입을 옷은 없다!</span>
+      </h2>
+      <div class="h-1 w-12 bg-[#35A29F]/40 mx-auto my-4 rounded-full"></div>
+      <p class="text-base font-bold text-slate-300">
+        codibank에서 <span class="text-[#35A29F]">AI서비스</span>로 해결합니다.
+      </p>
+    </section>
+
+    <!-- CTA -->
+    <section class="space-y-4">
+      <button class="cta w-full bg-gradient-to-r from-[#0B666A] to-[#35A29F] text-white font-extrabold py-5 rounded-[20px] flex items-center justify-center shadow-lg text-lg">
+        로그인
+      </button>
+      <button class="cta w-full py-4 rounded-[20px] bg-[#071952] border border-[#35A29F] text-slate-200 font-semibold">
+        회원가입
+      </button>
+    </section>
+  </main>
+
+  <!-- Bottom Nav -->
+  <nav class="fixed bottom-0 left-0 right-0 z-50">
+    <div class="bg-[#071952]/90 backdrop-blur-xl border-t border-white/10 ios-safe">
+      <div class="max-w-[440px] mx-auto flex justify-between items-end px-2 pt-3 pb-2">
+        <button class="flex-1 flex flex-col items-center">
+          <span class="material-symbols-outlined text-[24px] mb-1.5" style="font-variation-settings:'wght' 200;color:#97FEED">grid_view</span>
+          <span class="text-[10px] font-medium tracking-tight" style="color:#97FEED">내옷장</span>
+        </button>
+        <button class="flex-1 flex flex-col items-center">
+          <span class="material-symbols-outlined text-[24px] mb-1.5 text-white/45" style="font-variation-settings:'wght' 200">auto_awesome_motion</span>
+          <span class="text-[10px] font-medium tracking-tight text-white/45">코디앨범</span>
+        </button>
+        <div class="flex-1 flex flex-col items-center mb-2">
+          <button class="relative -top-4 w-[58px] h-[58px] bg-[#97FEED] rounded-full flex items-center justify-center nav-glow border-4 border-[#071952]">
+            <span class="material-symbols-outlined text-[#071952] text-[32px]" style="font-variation-settings:'wght' 400">add</span>
+          </button>
+          <span class="text-[10px] font-bold tracking-tight text-[#97FEED] text-glow -mt-2">ITEM등록</span>
+        </div>
+        <button class="flex-1 flex flex-col items-center">
+          <span class="material-symbols-outlined text-[24px] mb-1.5 text-white/45" style="font-variation-settings:'wght' 200">local_mall</span>
+          <span class="text-[10px] font-medium tracking-tight text-white/45">공유판매</span>
+        </button>
+        <button class="flex-1 flex flex-col items-center">
+          <span class="material-symbols-outlined text-[24px] mb-1.5 text-white/45" style="font-variation-settings:'wght' 200">person_outline</span>
+          <span class="text-[10px] font-medium tracking-tight text-white/45">MY</span>
+        </button>
       </div>
     </div>
-    <div class="frustration anim anim-d2">
-      <div class="frustration-divider">
-        <div class="line"></div><div class="label">그런데</div><div class="line"></div>
-      </div>
-      <h2>옷을 새로 사도, 코디를 찾아봐도,<br><strong>옷장 앞 15분은 사라지지 않는다.</strong></h2>
-      <p class="subtext">문제는 옷이 아니라, 내 옷장을 제대로 모르는 것.</p>
+  </nav>
+  <div class="fixed bottom-0 left-0 right-0 h-8 bg-[#071952] z-40"></div>
+</div>
+
+<!-- ╔══════════════════════════════════════╗
+     ║          PC LAYOUT                  ║
+     ╚══════════════════════════════════════╝ -->
+<div class="pc-view">
+
+  <!-- Top Nav -->
+  <nav class="sticky top-0 z-50 w-full bg-[#071952]/80 backdrop-blur-xl border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-6 h-20 flex items-center">
+      <a class="text-2xl font-black tracking-tighter text-white" href="#">
+        CODI<span class="text-[#97FEED]">BANK</span>
+      </a>
     </div>
-    <div class="scroll-hint anim anim-d3"><span></span></div>
-  </div>
-</section>
+  </nav>
 
-<!-- ======== PART 2 — 중간 ======== -->
-<section class="part-mid" id="solution">
-  <div class="container">
-    <div class="empathy-block anim">
-      <div class="eyebrow">Solution</div>
-      <h2 class="brand-statement">옷장을 꺼내 손 안에 넣었다.<br><span class="glow">착착, 입고 나가세요.</span></h2>
-      <p class="brand-sub">당신의 옷장을 모바일로 옮기고, AI가 오늘의 코디를 추천합니다.<br>날씨, 일정, 체형까지 고려한 스마트 옷장 서비스.</p>
+  <main class="relative z-10 max-w-7xl mx-auto px-6 py-16 lg:py-24">
+
+    <!-- Hero text -->
+    <div class="text-center mb-16 lg:mb-20">
+      <div class="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-white/5 border border-[#97FEED]/20 mb-8">
+        <span class="w-2 h-2 rounded-full bg-[#97FEED] animate-pulse"></span>
+        <span class="text-[12px] uppercase tracking-[.2em] font-bold text-[#97FEED]">AI Stylist Alpha v2.0</span>
+      </div>
+      <h1 class="text-5xl lg:text-7xl font-extrabold tracking-tight leading-[1.2] mb-8">
+        <span class="text-white/95">AI가 매일 </span>
+        <span class="text-[#97FEED] text-glow">완벽한 코디</span>
+        <span class="text-white/90"> 제안해드려요</span>
+      </h1>
+      <p class="text-xl text-slate-300/80 leading-relaxed font-medium max-w-2xl mx-auto">
+        날씨·목적·체형을 분석해서 당신만을 위한<br class="hidden md:block"/>
+        퍼스널 스타일링을 실시간으로 추천합니다.
+      </p>
     </div>
 
-    <div class="services-section">
-      <div class="services-intro anim">
-        <h3>착착옷장이 해드리는 일</h3>
-        <p>복잡한 건 우리가, 당신은 고르기만</p>
-      </div>
+    <!-- 3-column demo -->
+    <div class="grid lg:grid-cols-3 gap-8 mb-16 items-start">
 
-      <div class="service-stack">
-        <!-- 1. 촬영 등록 -->
-        <div class="svc-card anim">
-          <div class="svc-visual">
-            <div class="svc-scene">
-              <div class="scene-capture">
-                <div class="capture-phone">
-                  <div class="capture-lens">📷</div>
-                  <div class="capture-label">촬영</div>
-                </div>
-                <div class="capture-arrow">
-                  <div class="arrow-line"></div>
-                  → 자동 분류
-                  <div class="arrow-line"></div>
-                </div>
-                <div class="capture-categories">
-                  <div class="capture-cat">🧥</div>
-                  <div class="capture-cat">👔</div>
-                  <div class="capture-cat">👖</div>
-                  <div class="capture-cat">🧥</div>
-                  <div class="capture-cat">👞</div>
-                </div>
-              </div>
+      <!-- Col 1: UI panel -->
+      <div class="glass-card feat-border rounded-[32px] overflow-hidden flex flex-col h-[640px]">
+        <!-- Weather -->
+        <div class="p-8 border-b border-white/10 bg-white/5">
+          <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center text-sm text-white/60">
+              <span class="material-symbols-outlined text-sm mr-1">location_on</span> 서울특별시
             </div>
+            <div class="text-sm text-white/60">2026.03.05 (목)</div>
           </div>
-          <div class="svc-text">
-            <div class="svc-num">STEP 01</div>
-            <h4>촬영 한 장이면<br>등록 끝</h4>
-            <p>옷 사진을 찍으면 자켓, 탑, 바지, 코트, 신발로 자동 분류되어 내 온라인 옷장에 저장됩니다. 복잡한 입력 없이 사진만 찍으세요.</p>
-            <div class="svc-tag">✦ 자동 분류</div>
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-6xl font-light">8°</div>
+            <div class="text-right">
+              <span class="material-symbols-outlined text-4xl text-yellow-400">cloud</span>
+              <div class="text-sm font-medium">흐림</div>
+            </div>
           </div>
         </div>
-
-        <!-- 2. AI 코디 -->
-        <div class="svc-card anim">
-          <div class="svc-visual">
-            <div class="svc-scene">
-              <div class="codi-badge">AI 추천</div>
-              <div class="scene-codi">
-                <div class="codi-input">
-                  <div class="codi-chip active">☀️ 맑음 12°</div>
-                  <div class="codi-chip active">💼 면접</div>
-                  <div class="codi-chip">📍 강남</div>
-                </div>
-                <div style="font-size:.65rem;color:var(--text-muted);margin-bottom:4px;">▼ AI 분석 결과</div>
-                <div class="codi-result">
-                  <div class="codi-piece highlight">🧥</div>
-                  <div class="codi-piece">👔</div>
-                  <div class="codi-piece">👖</div>
-                  <div class="codi-piece">👞</div>
-                </div>
+        <!-- Steps -->
+        <div class="flex-1 overflow-y-auto p-8 space-y-8">
+          <div>
+            <h4 class="text-[#97FEED] text-xs font-bold uppercase tracking-widest mb-4">Step 1. 코디 목적</h4>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col items-center text-center space-y-2 hover:bg-white/10 transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-white/60">work</span>
+                <span class="text-sm font-medium">출퇴근</span>
+              </div>
+              <div class="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col items-center text-center space-y-2 hover:bg-white/10 transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-white/60">business_center</span>
+                <span class="text-sm font-medium">비즈니스</span>
+              </div>
+              <div class="bg-[#97FEED]/10 border border-[#97FEED]/30 p-4 rounded-2xl flex flex-col items-center text-center space-y-2 cursor-pointer shadow-[0_0_15px_rgba(151,254,237,.1)]">
+                <span class="material-symbols-outlined text-[#97FEED]">groups</span>
+                <span class="text-sm font-bold text-[#97FEED]">지인모임</span>
+              </div>
+              <div class="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col items-center text-center space-y-2 hover:bg-white/10 transition-colors cursor-pointer">
+                <span class="material-symbols-outlined text-white/60">weekend</span>
+                <span class="text-sm font-medium">주말외출</span>
               </div>
             </div>
           </div>
-          <div class="svc-text">
-            <div class="svc-num">STEP 02</div>
-            <h4>AI가 오늘의<br>코디를 추천</h4>
-            <p>날씨, 일정, TPO를 분석해서 내 옷장에 있는 옷으로 최적의 조합을 만들어 드려요. 마음에 안 들면 스와이프 한 번이면 새로운 스타일.</p>
-            <div class="svc-tag">✦ 맞춤 추천</div>
-          </div>
-        </div>
-
-        <!-- 3. AI 사이즈 -->
-        <div class="svc-card anim">
-          <div class="svc-visual">
-            <div class="svc-scene">
-              <div class="scene-size">
-                <div class="size-input-row">
-                  <div class="size-input-box">
-                    <span class="size-input-label">키</span>
-                    <span class="size-input-val">175</span>
-                  </div>
-                  <div class="size-input-box">
-                    <span class="size-input-label">몸무게</span>
-                    <span class="size-input-val">78</span>
-                  </div>
-                </div>
-                <div class="size-arrow-down">⬇</div>
-                <div class="size-result-card">
-                  <div class="size-result-label">AI 분석 완료</div>
-                  <div class="size-big">M–L</div>
-                  <div class="size-result-grid">
-                    <div class="size-r-item"><div class="sr-label">목둘레</div><div class="sr-val">16.5"</div></div>
-                    <div class="size-r-item"><div class="sr-label">어깨</div><div class="sr-val">18.5"</div></div>
-                    <div class="size-r-item"><div class="sr-label">가슴</div><div class="sr-val">43.5"</div></div>
-                    <div class="size-r-item"><div class="sr-label">소매</div><div class="sr-val">24.3"</div></div>
-                    <div class="size-r-item"><div class="sr-label">허리</div><div class="sr-val">40.5"</div></div>
-                    <div class="size-r-item"><div class="sr-label">기장</div><div class="sr-val">30.5"</div></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="svc-text">
-            <div class="svc-num">STEP 03</div>
-            <h4>키·몸무게만으로<br>정확한 사이즈</h4>
-            <p>6,800+명의 인체 데이터와 400건의 실측 데이터로 학습한 AI가 목둘레, 어깨, 가슴, 소매, 허리, 기장까지 정확하게 예측합니다.</p>
-            <div class="svc-tag">✦ 92% 정확도</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="cta-bridge anim" id="try">
-      <p class="prompt">내 옷장, 한번 경험해볼까요?</p>
-      <p class="prompt-sub">회원가입 없이도 AI 사이즈 추천을 먼저 체험할 수 있어요.</p>
-      <div class="cta-buttons">
-        <button class="btn-main">회원가입하기 ✦</button>
-        <button class="btn-ghost">로그인 없이 테스트 →</button>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ======== PART 3 — 하단 ======== -->
-<section class="part-bottom" id="closet">
-  <div class="container">
-    <div class="showcase">
-      <div class="eyebrow">Closet Preview</div>
-      <h2 class="anim">내 손 안의 옷장, <span class="accent">착착 클로젯</span></h2>
-      <p class="desc anim">옷장이 스마트폰 안에 들어왔습니다. 주요 기능을 확인해보세요.</p>
-
-      <div class="phone-wrap anim">
-        <div class="phone">
-          <div class="phone-notch"></div>
-          <div class="phone-inner">
-            <div class="phone-title">My Closet</div>
-            <div class="phone-cat">
-              <div class="phone-cat-label">Jacket</div>
-              <div class="phone-items">
-                <div class="phone-item on">🧥</div>
-                <div class="phone-item">🧥</div>
-                <div class="phone-item">🧥</div>
-              </div>
-            </div>
-            <div class="phone-cat">
-              <div class="phone-cat-label">Top</div>
-              <div class="phone-items">
-                <div class="phone-item">👔</div>
-                <div class="phone-item on">👕</div>
-                <div class="phone-item">👔</div>
-              </div>
-            </div>
-            <div class="phone-cat">
-              <div class="phone-cat-label">Pants</div>
-              <div class="phone-items">
-                <div class="phone-item">👖</div>
-                <div class="phone-item">👖</div>
-                <div class="phone-item on">👖</div>
-              </div>
-            </div>
-            <div class="phone-cat">
-              <div class="phone-cat-label">Shoes</div>
-              <div class="phone-items">
-                <div class="phone-item on">👞</div>
-                <div class="phone-item">👟</div>
-                <div class="phone-item">👞</div>
-              </div>
-            </div>
-            <div class="phone-bottom-bar">
-              <div class="phone-tab active"><span class="tab-icon">🏠</span> 옷장</div>
-              <div class="phone-tab"><span class="tab-icon">✨</span> 코디</div>
-              <div class="phone-tab"><span class="tab-icon">📐</span> 사이즈</div>
-              <div class="phone-tab"><span class="tab-icon">👤</span> MY</div>
+          <div class="bg-white/5 rounded-2xl p-5 border border-white/10">
+            <h4 class="text-[#97FEED] text-xs font-bold uppercase tracking-widest mb-3">Step 2. AI 코디 생성</h4>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-white/60">코디 날짜 선택</span>
+              <span class="bg-[#071952] px-3 py-1.5 rounded-lg border border-white/10">2026. 03. 05.</span>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 6 기능 바둑판 그리드 -->
-    <div class="feat-grid anim">
-      <div class="feat-cell">
-        <div class="fc-icon c1">📸</div>
-        <h5>스마트 옷장</h5>
-        <p>사진 한 장으로 자동 분류. 자켓, 탑, 바지, 코트, 신발까지 카테고리별 정리</p>
-      </div>
-      <div class="feat-cell">
-        <div class="fc-icon c2">🌤️</div>
-        <h5>날씨 × TPO 코디</h5>
-        <p>실시간 날씨, 장소, 일정 목적에 맞춰 내 옷장에서 최적의 코디 추천</p>
-      </div>
-      <div class="feat-cell">
-        <div class="fc-icon c3">📐</div>
-        <h5>AI 사이즈 추천</h5>
-        <p>키·몸무게 입력만으로 6가지 핵심 치수를 92% 정확도로 예측</p>
-      </div>
-      <div class="feat-cell">
-        <div class="fc-icon c3">🔥</div>
-        <h5>Today's Codi</h5>
-        <p>오늘의 코디를 공유하고 좋아요를 받으면 포인트 적립. Hot Codi 선정 혜택</p>
-      </div>
-      <div class="feat-cell">
-        <div class="fc-icon c1">🎽</div>
-        <h5>구독 & 대여</h5>
-        <p>정장, 면접복, 행사복을 월 구독으로 합리적 대여. 필요할 때만 입고 반납</p>
-      </div>
-      <div class="feat-cell">
-        <div class="fc-icon c2">♻️</div>
-        <h5>기부 & 포인트</h5>
-        <p>안 입는 옷을 기부하면 포인트 적립. 포인트로 구독료 결제까지 가능</p>
-      </div>
-    </div>
-
-    <!-- 혜택 — 강조 비주얼 -->
-    <div class="benefits">
-      <div class="benefits-header anim">
-        <h3>지금 시작하면, 이게 달라집니다</h3>
-        <p>회원가입 후 바로 누리는 혜택</p>
-      </div>
-
-      <div class="benefit-showcase anim">
-        <div class="benefit-card time-card">
-          <div class="bc-big-visual">
-            <span class="bc-big-num">15</span><span class="bc-big-unit">min</span>
-          </div>
-          <div class="bc-info">
-            <h4>매일 아침 15분 절약</h4>
-            <p>AI가 오늘의 코디를 미리 준비해드립니다.<br>옷장 앞 고민 시간, 이제 0분.</p>
-          </div>
+      <!-- Col 2: Female outfit -->
+      <div class="glass-card feat-border rounded-[32px] overflow-hidden h-[640px] flex flex-col">
+        <div class="relative flex-1 bg-[#F5F5F5] overflow-hidden m-4 rounded-[24px]">
+          <img alt="Female Styling" class="w-full h-full object-cover object-center"
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBiOIa9eFd_atGLgci78pRT2zOI608AM7aOFHLJ6H9lyir8iugYplSmJrR8_ms59SPH0o9tl9o0I1sY3O57RsqVR4D-6ZU9HJN4MdSUwbp_QzjtJ3Zo0fpaIWuQaahKhr4_AcMBuvwhXGCeC5gLpvdOyeYrBZEnT8uY06uRplzMyPgvmOXjYghlSgFSi2z04pgEGkA1Am4U_vSWD7f1YMQ1F_8-duFtwa8p9LYD9xtBV4SUluR_xM7B0JOX4uHcCGWgXzcRn9jUAo"/>
         </div>
-        <div class="benefit-card free-card">
-          <div class="bc-big-visual">
-            <span class="bc-big-num">FREE</span>
-          </div>
-          <div class="bc-info">
-            <h4>첫 달 무료 구독</h4>
-            <p>사전 등록 회원 한정, 프리미엄 기능을<br>첫 달 동안 무료로 체험하세요.</p>
+        <div class="px-6 pb-6">
+          <div class="flex gap-2">
+            <button class="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center space-x-1">
+              <span class="material-symbols-outlined text-sm">download</span><span>저장하기</span>
+            </button>
+            <button class="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center space-x-1">
+              <span class="material-symbols-outlined text-sm">refresh</span><span>다시 코디</span>
+            </button>
+            <button class="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center space-x-1">
+              <span class="material-symbols-outlined text-sm">share</span><span>공유</span>
+            </button>
           </div>
         </div>
       </div>
+
+      <!-- Col 3: Male outfit -->
+      <div class="glass-card feat-border rounded-[32px] overflow-hidden h-[640px] flex flex-col">
+        <div class="relative flex-1 bg-[#F5F5F5] overflow-hidden m-4 rounded-[24px]">
+          <img alt="Male Styling" class="w-full h-full object-cover object-top"
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBM1oK1dTlwOJV1PMvhZ45JY17dbjbYlMbbJV_7FS-5RYr4bnJl2I6mjlB_LSb4UBBbPOwplfsQcUViS-cMzcLbF3cYlj-GxCcEQcgLYeAIe29C3NfEOE0jIYQeR4MAcAJ9G7acr4v6dfaga4m1a2hX_bPc1GhXkv2XaqNas_ADanFkmcBBqG1w2N9CCG3imxnIc96TeGSFMQlbbnz2u40KwOT2ht64plLK_WMsQXxBDXvECZtblxATdS1eOTmVlL-0dy_zxMtoFXs"/>
+        </div>
+        <div class="px-6 pb-6">
+          <div class="flex gap-2">
+            <button class="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center space-x-1">
+              <span class="material-symbols-outlined text-sm">download</span><span>저장하기</span>
+            </button>
+            <button class="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center space-x-1">
+              <span class="material-symbols-outlined text-sm">refresh</span><span>다시 코디</span>
+            </button>
+            <button class="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center space-x-1">
+              <span class="material-symbols-outlined text-sm">share</span><span>공유</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div><!-- /3-col -->
+
+    <!-- Start CTA -->
+    <div class="flex justify-center mb-32">
+      <button class="cta px-14 py-5 bg-gradient-to-r from-[#0B666A] to-[#35A29F] text-white font-extrabold rounded-2xl flex items-center space-x-4 shadow-xl text-xl btn-glow">
+        <span>지금 시작하기</span>
+        <span class="material-symbols-outlined text-2xl">arrow_forward</span>
+      </button>
     </div>
 
-    <!-- 최종 CTA -->
-    <div class="final-cta anim">
-      <h3>옷장 앞에서 보내는 시간, 아깝지 않으세요?</h3>
-      <p>착착옷장이 당신의 매일 아침을 바꿔드립니다. 지금 시작하세요.</p>
-      <a class="btn-main" href="app/login.html">무료로 시작하기 →</a>
+    <!-- Feature section -->
+    <div class="mb-32">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl lg:text-4xl font-extrabold text-white mb-6">
+          핸드폰에 AI 패션 스타일리스트 수 천명이 준비되어 있습니다.
+        </h2>
+        <div class="h-1.5 w-16 bg-[#97FEED]/40 mx-auto rounded-full mb-6"></div>
+        <p class="text-lg text-slate-300 font-medium max-w-3xl mx-auto">
+          오프라인 옷장에 방치된 옷들을 AI가 모바일 옷장에서 추천코디에 맞게 추천합니다.
+        </p>
+      </div>
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="glass-card feat-border p-8 rounded-[32px] hover:-translate-y-2 transition-all duration-500 group">
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#0B666A]/40 to-transparent flex items-center justify-center border border-[#0B666A]/30 mb-6 group-hover:border-[#97FEED]/50 transition-colors">
+            <span class="material-symbols-outlined text-[#97FEED] text-3xl">psychology</span>
+          </div>
+          <h3 class="text-2xl font-bold text-white mb-3">AI 코디 추천</h3>
+          <p class="text-slate-400 leading-relaxed mb-6">당신의 취향과 TPO를 분석해 매일 아침 새로운 스타일링을 제안합니다.</p>
+          <div class="flex items-center text-[#97FEED] font-bold cursor-pointer">
+            더 알아보기 <span class="material-symbols-outlined ml-1">chevron_right</span>
+          </div>
+        </div>
+        <div class="glass-card feat-border p-8 rounded-[32px] hover:-translate-y-2 transition-all duration-500 group">
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#35A29F]/30 to-transparent flex items-center justify-center border border-[#35A29F]/30 mb-6 group-hover:border-[#97FEED]/50 transition-colors">
+            <span class="material-symbols-outlined text-[#97FEED] text-3xl">checkroom</span>
+          </div>
+          <h3 class="text-2xl font-bold text-white mb-3">디지털 옷장</h3>
+          <p class="text-slate-400 leading-relaxed mb-6">내 모든 옷을 스마트폰 속으로. 언제 어디서든 옷장을 확인하고 관리하세요.</p>
+          <div class="flex items-center text-[#97FEED] font-bold cursor-pointer">
+            더 알아보기 <span class="material-symbols-outlined ml-1">chevron_right</span>
+          </div>
+        </div>
+        <div class="glass-card feat-border p-8 rounded-[32px] hover:-translate-y-2 transition-all duration-500 group">
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#0B666A]/40 to-transparent flex items-center justify-center border border-[#0B666A]/30 mb-6 group-hover:border-[#97FEED]/50 transition-colors">
+            <span class="material-symbols-outlined text-[#97FEED] text-3xl">storefront</span>
+          </div>
+          <h3 class="text-2xl font-bold text-white mb-3">공유·판매</h3>
+          <p class="text-slate-400 leading-relaxed mb-6">안 입는 옷은 대여하거나 판매하여 포인트를 적립하고 새로운 스타일을 시도하세요.</p>
+          <div class="flex items-center text-[#97FEED] font-bold cursor-pointer">
+            더 알아보기 <span class="material-symbols-outlined ml-1">chevron_right</span>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
-</section>
 
-<footer>
-  <div class="container">
-    <a href="#" class="logo" style="font-size:1.15rem;"><div class="logo-mark" style="width:26px;height:26px;font-size:13px;">👔</div>착착옷장</a>
-    <p>© 2026 착착옷장 Chakchak Closet. All rights reserved.</p>
-  </div>
-</footer>
+    <!-- Bottom CTA banner -->
+    <section class="glass-card feat-border rounded-[40px] p-12 lg:p-20 relative overflow-hidden text-center">
+      <div class="absolute inset-0 bg-gradient-to-br from-[#35A29F]/5 to-transparent"></div>
+      <div class="relative z-10 max-w-4xl mx-auto">
+        <h2 class="font-black mb-1 flex flex-col items-center">
+          <span class="text-3xl lg:text-4xl mb-4 text-white">옷장 속 옷은 넘치는데</span>
+          <span class="text-[4.5rem] lg:text-[6rem] leading-[1.1] tracking-tight mb-8">
+            <span class="text-red-500">항상</span> 입을 옷은 없다 !!
+          </span>
+        </h2>
+        <p class="text-slate-300 text-lg mb-12">codibank에서 AI 추천코디 서비스로 해결해드립니다.</p>
+        <div class="flex flex-col sm:flex-row justify-center gap-4">
+          <button class="cta px-12 py-5 bg-[#97FEED] text-[#071952] font-black text-xl rounded-2xl btn-glow hover:scale-105 transition-all">
+            코디뱅크 로그인
+          </button>
+          <button class="cta px-12 py-5 bg-[#071952] border border-[#35A29F] text-slate-200 font-bold text-xl rounded-2xl hover:bg-white/5 transition-all">
+            회원가입
+          </button>
+        </div>
+      </div>
+    </section>
 
-<script>
-const nav=document.getElementById('nav');
-window.addEventListener('scroll',()=>{nav.classList.toggle('scrolled',window.scrollY>60);});
+  </main>
 
-const io=new IntersectionObserver(entries=>{
-  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('show');io.unobserve(e.target);}});
-},{threshold:0.08,rootMargin:'0px 0px -40px 0px'});
-document.querySelectorAll('.anim').forEach(el=>io.observe(el));
+  <!-- Footer -->
+  <footer class="border-t border-white/10 bg-[#071952]/50 py-12 relative z-10 mt-12">
+    <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center text-slate-500 text-sm">
+      <div class="mb-4 md:mb-0">
+        <span class="font-black text-white/50 tracking-tighter text-xl mr-6">CODIBANK</span>
+        © 2024 AI Fashion Inc. All rights reserved.
+      </div>
+      <div class="flex space-x-8">
+        <a class="hover:text-[#97FEED] transition-colors" href="#">이용약관</a>
+        <a class="hover:text-[#97FEED] transition-colors" href="#">개인정보처리방침</a>
+        <a class="hover:text-[#97FEED] transition-colors" href="#">문의하기</a>
+      </div>
+    </div>
+  </footer>
+</div><!-- /pc-view -->
 
-const phoneItems=document.querySelectorAll('.phone-item');
-setInterval(()=>{
-  phoneItems.forEach(p=>p.classList.remove('on'));
-  const cats=[[0,1,2],[3,4,5],[6,7,8],[9,10,11]];
-  cats.forEach(cat=>{const pick=cat[Math.floor(Math.random()*cat.length)];if(phoneItems[pick])phoneItems[pick].classList.add('on');});
-},2500);
-
-// === Prototype Navigation (CodiBank) ===
-function go(url){ window.location.href = url; }
-
-// 상단 CTA → 로그인
-document.querySelectorAll('.nav-cta').forEach((btn)=>{
-  btn.addEventListener('click', ()=>go('app/login.html'));
-});
-
-// 중간 CTA: 회원가입하기 → 회원가입
-document.querySelectorAll('#try .btn-main').forEach((btn)=>{
-  btn.addEventListener('click', ()=>go('app/signup.html'));
-});
-
-// 로그인 없이 테스트 → 아이템 상세(코디/사이즈 화면 시연)
-document.querySelectorAll('#try .btn-ghost').forEach((btn)=>{
-  btn.addEventListener('click', ()=>go('app/item.html'));
-});
-
-// 하단 최종 CTA → 로그인
-document.querySelectorAll('.final-cta .btn-main').forEach((btn)=>{
-  btn.addEventListener('click', ()=>go('app/login.html'));
-});
-
-</script>
 </body>
 </html>
