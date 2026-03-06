@@ -1,398 +1,222 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html class="dark" lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>코디뱅크 회원가입</title>
-  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
-  <script src="config.js"></script>
-  <script src="codibank.js"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Outfit','Noto Sans KR','ui-sans-serif','system-ui'], serif: ['Playfair Display','ui-serif','Georgia'] },
-          colors: {
-            primary: '#111111',
-            accent: '#C5A358',
-            bg: '#FFFFFF',
-            card: '#FFFFFF',
-            muted: '#F9FAFB',
-            line: 'rgba(17,17,17,0.08)',
-          }
-        }
-      }
-    }
-  </script>
-  <style>
-    body { min-height: max(884px, 100dvh); -webkit-tap-highlight-color: transparent; }
-    /* 로그인/회원가입 전용: 카드가 돋보이도록 아주 은은한 배경 톤 */
-    body { background: radial-gradient(circle at 20% 0%, rgba(197,163,88,0.14), transparent 45%), radial-gradient(circle at 80% -10%, rgba(15,23,42,0.06), transparent 40%), #F9FAFB; }
-  </style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>CODIBANK - 회원가입</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+  body { font-family: 'Pretendard', sans-serif; background: #071952; color: #fff; min-height: 100dvh; }
+  .glass { background: linear-gradient(135deg,rgba(255,255,255,.09) 0%,rgba(255,255,255,.03) 100%); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,.12); }
+  .input-field {
+    width: 100%; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.15);
+    border-radius: 14px; padding: 14px 16px; color: #fff; font-size: 15px; outline: none;
+    transition: border-color .2s; -webkit-appearance: none;
+  }
+  .input-field:focus { border-color: #97FEED; }
+  .input-field::placeholder { color: rgba(255,255,255,.35); }
+  .field-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.5); margin-bottom: 6px; letter-spacing: .04em; }
+  .btn-primary { background: linear-gradient(135deg,#0B666A,#35A29F); color: #fff; font-weight: 800; border: none; border-radius: 16px; padding: 16px; font-size: 17px; cursor: pointer; width: 100%; transition: transform .15s; }
+  .btn-primary:active { transform: scale(.97); }
+  .select-group { display: flex; gap: 8px; }
+  .sel-btn {
+    flex: 1; padding: 12px 8px; border-radius: 12px; border: 1.5px solid rgba(255,255,255,.15);
+    background: rgba(255,255,255,.05); color: rgba(255,255,255,.6); font-size: 14px; font-weight: 600;
+    cursor: pointer; text-align: center; transition: all .2s;
+  }
+  .sel-btn.active { border-color: #97FEED; background: rgba(151,254,237,.12); color: #97FEED; }
+  .err-msg { color: #ff6b6b; font-size: 13px; margin-top: 8px; display: none; }
+  .err-msg.show { display: block; }
+  .step-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.2); transition: background .3s; }
+  .step-dot.active { background: #97FEED; }
+  .bg-mesh {
+    background:
+      radial-gradient(at 0% 0%, rgba(11,102,106,.28) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(53,162,159,.18) 0px, transparent 50%);
+  }
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24; }
+  .step-panel { display: none; }
+  .step-panel.active { display: block; }
+</style>
 </head>
-<body class="bg-muted text-slate-900 min-h-screen font-sans">
-  <div class="max-w-md mx-auto px-6 py-10">
-    <header class="mb-10">
-      <a href="login.html" class="text-sm text-slate-500 hover:text-slate-900">← 로그인</a>
-      <h1 class="mt-6 text-2xl font-extrabold tracking-tight font-serif">회원가입</h1>
-      <p class="mt-2 text-slate-600 text-sm leading-relaxed">
-        MVP: 키/몸무게/성별/나이대로 코디 추천을 시작합니다. 얼굴 사진(선택)을 등록하면 <b>AI 가상피팅 스타일링</b> 미리보기에 반영됩니다.
-      </p>
-    </header>
+<body class="bg-mesh">
 
-    <form id="signupForm" class="space-y-5">
-      <!-- Account / ID -->
-      <div class="bg-card border border-line rounded-3xl p-6 space-y-4 shadow-sm">
-        <h2 class="text-sm font-extrabold tracking-tight">계정 정보</h2>
-        <p class="text-xs text-slate-500 leading-relaxed">
-          ID는 <b class="text-slate-900">이메일</b>을 사용합니다. 서비스 이용을 위해 <b class="text-slate-900">휴대폰 번호</b>도 필수로 받습니다.
-          (초기에는 SMS 인증 없이 저장만 합니다)
-        </p>
+<div class="min-h-screen flex flex-col items-center justify-center px-5 py-12">
 
+  <!-- 로고 -->
+  <a href="../index.html" class="mb-8 text-3xl font-black tracking-tighter">
+    CODI<span style="color:#97FEED">BANK</span>
+  </a>
+
+  <!-- 카드 -->
+  <div class="glass rounded-[28px] w-full max-w-[420px] p-8">
+
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-2xl font-extrabold mb-1">회원가입</h2>
+        <p class="text-sm text-white/50" id="stepLabel">STEP 1 / 2 — 계정 정보</p>
+      </div>
+      <div class="flex gap-2">
+        <div class="step-dot active" id="dot1"></div>
+        <div class="step-dot"        id="dot2"></div>
+      </div>
+    </div>
+
+    <!-- ── STEP 1: 계정 정보 ── -->
+    <div class="step-panel active" id="step1">
+      <div class="space-y-4">
         <div>
-          <label class="block text-[11px] font-semibold text-slate-600">이메일(ID)</label>
-          <input id="email" type="email" autocomplete="username" required
-                 class="mt-2 w-full rounded-2xl bg-white border border-slate-200 px-4 py-3 focus:border-accent/70 focus:ring-2 focus:ring-accent/20" placeholder="name@example.com" />
+          <p class="field-label">이메일 (아이디)</p>
+          <input id="s1_email" type="email" class="input-field" placeholder="example@email.com"/>
         </div>
-
         <div>
-          <label class="block text-[11px] font-semibold text-slate-600">휴대폰 번호</label>
-          <input id="phone" type="tel" inputmode="tel" required
-                 class="mt-2 w-full rounded-2xl bg-white border border-slate-200 px-4 py-3 focus:border-accent/70 focus:ring-2 focus:ring-accent/20" placeholder="010-1234-5678" />
-          <p class="mt-2 text-xs text-slate-500">계정 복구/공유·판매 안전을 위해 사용됩니다.</p>
+          <p class="field-label">비밀번호 (영문+숫자 4자 이상)</p>
+          <input id="s1_pw" type="password" class="input-field" placeholder="비밀번호"/>
         </div>
-
         <div>
-          <label class="block text-[11px] font-semibold text-slate-600">비밀번호</label>
-          <input id="password" type="password" autocomplete="new-password" required minlength="4" pattern="(?=.*[A-Za-z])(?=.*\d).{4,}"
-                 class="mt-2 w-full rounded-2xl bg-white border border-slate-200 px-4 py-3 focus:border-accent/70 focus:ring-2 focus:ring-accent/20" placeholder="영문+숫자 포함 (4자리 이상)" />
-          <p id="pwRule" class="mt-2 text-xs text-slate-500">비밀번호 규칙: 4자리 이상, 영문+숫자 포함</p>
+          <p class="field-label">비밀번호 확인</p>
+          <input id="s1_pw2" type="password" class="input-field" placeholder="비밀번호 재입력"/>
         </div>
-
         <div>
-          <label class="block text-[11px] font-semibold text-slate-600">비밀번호 확인</label>
-          <input id="password2" type="password" autocomplete="new-password" required minlength="4" pattern="(?=.*[A-Za-z])(?=.*\d).{4,}"
-                 class="mt-2 w-full rounded-2xl bg-white border border-slate-200 px-4 py-3 focus:border-accent/70 focus:ring-2 focus:ring-accent/20" placeholder="비밀번호 재입력" />
-          <p id="pwMatch" class="mt-2 text-xs text-slate-500"> </p>
+          <p class="field-label">휴대폰 번호</p>
+          <input id="s1_phone" type="tel" class="input-field" placeholder="010-0000-0000"/>
+        </div>
+        <p id="s1Err" class="err-msg"></p>
+        <button class="btn-primary" onclick="goStep2()">다음 단계</button>
+      </div>
+    </div>
+
+    <!-- ── STEP 2: 체형/스타일 정보 ── -->
+    <div class="step-panel" id="step2">
+      <div class="space-y-5">
+        <div>
+          <p class="field-label">성별</p>
+          <div class="select-group">
+            <div class="sel-btn" onclick="selectGender('male',this)">남성</div>
+            <div class="sel-btn" onclick="selectGender('female',this)">여성</div>
+            <div class="sel-btn" onclick="selectGender('other',this)">기타</div>
+          </div>
+        </div>
+        <div>
+          <p class="field-label">연령대</p>
+          <div class="select-group flex-wrap" style="flex-wrap:wrap">
+            <div class="sel-btn" onclick="selectAge('10s',this)">10대</div>
+            <div class="sel-btn" onclick="selectAge('20s',this)">20대</div>
+            <div class="sel-btn" onclick="selectAge('30s',this)">30대</div>
+            <div class="sel-btn" onclick="selectAge('40s',this)">40대</div>
+            <div class="sel-btn" onclick="selectAge('50s+',this)">50대+</div>
+          </div>
+        </div>
+        <div class="flex gap-4">
+          <div class="flex-1">
+            <p class="field-label">키 (cm)</p>
+            <input id="s2_height" type="number" class="input-field" placeholder="170"/>
+          </div>
+          <div class="flex-1">
+            <p class="field-label">몸무게 (kg)</p>
+            <input id="s2_weight" type="number" class="input-field" placeholder="65"/>
+          </div>
+        </div>
+        <p id="s2Err" class="err-msg"></p>
+
+        <div class="flex gap-3 mt-2">
+          <button onclick="goStep1()" class="sel-btn" style="flex:.8">
+            <span class="material-symbols-outlined text-sm align-middle">arrow_back</span> 이전
+          </button>
+          <button class="btn-primary" style="flex:2" onclick="doSignup()">가입 완료</button>
         </div>
       </div>
+    </div>
 
-      <!-- Basic profile for recommendations -->
-      <div class="bg-card border border-line rounded-3xl p-6 space-y-4 shadow-sm">
-        <h2 class="text-sm font-extrabold tracking-tight">추천 기본 정보</h2>
-        <p class="text-xs text-slate-500 leading-relaxed">
-          MVP: 키/몸무게/성별/나이대로 추천 정확도를 올립니다. (추후 체형/실측 확장)
-        </p>
-
-        <div>
-          <label class="block text-[11px] font-semibold text-slate-600">성별</label>
-          <div class="mt-3 grid grid-cols-2 gap-3">
-            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-4 py-3">
-              <input type="radio" name="gender" value="M" required />
-              <span class="text-sm font-semibold">남</span>
-            </label>
-            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-4 py-3">
-              <input type="radio" name="gender" value="F" required />
-              <span class="text-sm font-semibold">여</span>
-            </label>
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-[11px] font-semibold text-slate-600">나이대</label>
-          <div class="mt-3 grid grid-cols-3 gap-3">
-            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-4 py-3">
-              <input type="radio" name="ageGroup" value="10s" required />
-              <span class="text-sm font-semibold">10대</span>
-            </label>
-            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-4 py-3">
-              <input type="radio" name="ageGroup" value="20s" required />
-              <span class="text-sm font-semibold">20대</span>
-            </label>
-            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-4 py-3">
-              <input type="radio" name="ageGroup" value="30s" required />
-              <span class="text-sm font-semibold">30대</span>
-            </label>
-            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-4 py-3">
-              <input type="radio" name="ageGroup" value="40s" required />
-              <span class="text-sm font-semibold">40대</span>
-            </label>
-            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-4 py-3">
-              <input type="radio" name="ageGroup" value="50s" required />
-              <span class="text-sm font-semibold">50대</span>
-            </label>
-            <label class="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-4 py-3">
-              <input type="radio" name="ageGroup" value="60p" required />
-              <span class="text-sm font-semibold">60+</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-600">키(cm)</label>
-            <input id="height" type="number" min="120" max="220" required class="mt-2 w-full rounded-2xl bg-white border border-slate-200 px-4 py-3 focus:border-accent/70 focus:ring-2 focus:ring-accent/20" placeholder="175" />
-          </div>
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-600">몸무게(kg)</label>
-            <input id="weight" type="number" min="30" max="200" required class="mt-2 w-full rounded-2xl bg-white border border-slate-200 px-4 py-3 focus:border-accent/70 focus:ring-2 focus:ring-accent/20" placeholder="78" />
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-[11px] font-semibold text-slate-600">지역(날씨)</label>
-          <input id="location" type="text" required class="mt-2 w-full rounded-2xl bg-white border border-slate-200 px-4 py-3 focus:border-accent/70 focus:ring-2 focus:ring-accent/20" placeholder="서울" />
-          <p class="mt-2 text-xs text-slate-500">날씨/TPO 추천을 위해 지역을 사용합니다.</p>
-        </div>
-
-        <!-- Avatar Face (optional) -->
-        <div class="pt-2">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <label class="block text-[11px] font-semibold text-slate-600">얼굴 사진(선택)</label>
-              <p class="mt-2 text-xs text-slate-500 leading-relaxed">
-                얼굴 사진을 등록하면 <b class="text-slate-800">AI 가상피팅 스타일링</b>(날씨·체형·나이대·코디목적 기반) 미리보기에 반영됩니다.
-                사진은 <b class="text-slate-800">이 기기(브라우저) 로컬</b>에 저장됩니다. (AI 서버 연결 시) 추천 이미지 생성에만 사용될 수 있으며, 언제든 삭제할 수 있어요.
-              </p>
-            </div>
-          </div>
-
-          <div class="mt-4 flex items-center gap-4">
-            <div class="w-16 h-16 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center" id="facePreviewWrap">
-              <span id="facePreviewIcon" class="text-slate-400 text-xs font-bold">없음</span>
-              <img id="facePreviewImg" class="hidden w-full h-full object-cover" alt="얼굴 미리보기" />
-            </div>
-            <div class="flex-1">
-              <div class="grid grid-cols-2 gap-3">
-                <button type="button" id="faceCaptureBtn" class="rounded-2xl bg-white border border-slate-200 px-4 py-3 text-sm font-extrabold text-slate-800 active:scale-[0.99]">
-                  촬영하기
-                </button>
-                <button type="button" id="facePickBtn" class="rounded-2xl bg-white border border-slate-200 px-4 py-3 text-sm font-extrabold text-slate-800 active:scale-[0.99]">
-                  사진 선택
-                </button>
-              </div>
-              <button type="button" id="faceClearBtn" class="mt-3 w-full rounded-2xl bg-slate-50 border border-slate-200 px-4 py-2.5 text-xs font-extrabold text-slate-600 active:scale-[0.99] hidden">
-                사진 삭제
-              </button>
-            </div>
-          </div>
-
-          <input id="faceCaptureInput" type="file" accept="image/*" capture="user" class="hidden" />
-          <input id="facePickInput" type="file" accept="image/*" class="hidden" />
-        </div>
-      </div>
-
-      <div class="bg-card border border-line rounded-3xl p-6 shadow-sm">
-        <label class="flex items-start gap-3">
-          <input type="checkbox" required class="mt-1" />
-          <span class="text-sm text-slate-700">
-            (필수) 이용약관 및 개인정보 처리방침에 동의합니다.
-          </span>
-        </label>
-
-        <div id="errorBox" class="hidden mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700"></div>
-
-        <button type="submit" class="mt-5 w-full rounded-2xl bg-accent text-black py-4 font-extrabold shadow-sm active:scale-[0.99]">
-          가입하고 시작하기
-        </button>
-      </div>
-    </form>
-
-    <footer class="mt-10 text-xs text-slate-500 leading-relaxed">
-      * Prototype 화면입니다. 실제 서비스에서는 이메일/연락처, 계정 연동, 법적 고지, 미성년자 정책 등이 포함될 수 있습니다.
-    </footer>
   </div>
 
-  <script>
-    // 이미 로그인 되어 있으면 마이페이지로
-    const existing = (window.CodiBank && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;
-    if (existing) {
-      window.location.replace('mypage.html');
-    }
+  <a href="login.html" class="mt-6 flex items-center gap-1 text-sm text-white/40 hover:text-white/70 transition-colors">
+    이미 계정이 있으신가요? <strong style="color:#97FEED" class="ml-1">로그인</strong>
+  </a>
+</div>
 
-    const form = document.getElementById('signupForm');
-    const emailEl = document.getElementById('email');
-    const phoneEl = document.getElementById('phone');
-    const pwEl = document.getElementById('password');
-    const pw2El = document.getElementById('password2');
-    const heightEl = document.getElementById('height');
-    const weightEl = document.getElementById('weight');
-    const locationEl = document.getElementById('location');
-    const pwRule = document.getElementById('pwRule');
-    const pwMatch = document.getElementById('pwMatch');
-    const errorBox = document.getElementById('errorBox');
+<script src="codibank.js"></script>
+<script>
+  // 이미 로그인된 경우
+  if (window.CodiBank && window.CodiBank.getCurrentUser && window.CodiBank.getCurrentUser()) {
+    location.replace('closet.html');
+  }
 
-    function showError(msg) {
-      errorBox.textContent = msg;
-      errorBox.classList.remove('hidden');
-    }
+  let selectedGender  = '';
+  let selectedAgeGroup = '';
 
-    function clearError() {
-      errorBox.textContent = '';
-      errorBox.classList.add('hidden');
-    }
-
-    function updatePwUi() {
-      const ok = CodiBank.passwordMeetsRule(pwEl.value);
-      pwRule.textContent = ok ? '✅ 비밀번호 규칙 충족' : '비밀번호 규칙: 4자리 이상, 영문+숫자 포함';
-      pwRule.className = ok ? 'mt-2 text-xs text-green-600' : 'mt-2 text-xs text-slate-500';
-
-      const match = pwEl.value && pwEl.value === pw2El.value;
-      if (!pw2El.value) {
-        pwMatch.textContent = ' ';
-        pwMatch.className = 'mt-2 text-xs text-slate-500';
-      } else {
-        pwMatch.textContent = match ? '✅ 비밀번호가 일치합니다' : '❌ 비밀번호가 일치하지 않습니다';
-        pwMatch.className = match ? 'mt-2 text-xs text-green-600' : 'mt-2 text-xs text-red-600';
-      }
-    }
-
-    pwEl.addEventListener('input', updatePwUi);
-    pw2El.addEventListener('input', updatePwUi);
-
-    // ===== Avatar face (optional) =====
-    const facePreviewImg = document.getElementById('facePreviewImg');
-    const facePreviewIcon = document.getElementById('facePreviewIcon');
-    const faceCaptureBtn = document.getElementById('faceCaptureBtn');
-    const facePickBtn = document.getElementById('facePickBtn');
-    const faceClearBtn = document.getElementById('faceClearBtn');
-    const faceCaptureInput = document.getElementById('faceCaptureInput');
-    const facePickInput = document.getElementById('facePickInput');
-
-    let avatarFaceRef = '';
-    let avatarFaceBusy = false;
-
-    function setFacePreview(src) {
-      if (!src) {
-        facePreviewImg.classList.add('hidden');
-        facePreviewImg.removeAttribute('src');
-        facePreviewIcon.classList.remove('hidden');
-        faceClearBtn.classList.add('hidden');
-        return;
-      }
-      facePreviewImg.src = src;
-      facePreviewImg.classList.remove('hidden');
-      facePreviewIcon.classList.add('hidden');
-      faceClearBtn.classList.remove('hidden');
-    }
-
-    function readFileAsDataUrl(file) {
-      return new Promise((resolve, reject) => {
-        const fr = new FileReader();
-        fr.onload = () => resolve(String(fr.result || ''));
-        fr.onerror = () => reject(fr.error || new Error('File read failed'));
-        fr.readAsDataURL(file);
-      });
-    }
-
-    async function resizeImageDataUrl(dataUrl, maxSide, quality) {
-      const max = Number(maxSide || 640);
-      const q = typeof quality === 'number' ? quality : 0.86;
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          const w0 = img.width || 1;
-          const h0 = img.height || 1;
-          const scale = Math.min(1, max / Math.max(w0, h0));
-          const w = Math.max(1, Math.round(w0 * scale));
-          const h = Math.max(1, Math.round(h0 * scale));
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, w, h);
-          try {
-            resolve(canvas.toDataURL('image/jpeg', q));
-          } catch (_) {
-            resolve(dataUrl);
-          }
-        };
-        img.onerror = () => resolve(dataUrl);
-        img.src = dataUrl;
-      });
-    }
-
-    async function handleFaceFile(file) {
-      if (!file) return;
-      try {
-        avatarFaceBusy = true;
-        const raw = await readFileAsDataUrl(file);
-        const resized = await resizeImageDataUrl(raw, 640, 0.86);
-        // IndexedDB 저장(가능 시) → user.profile에는 ref만 저장
-        avatarFaceRef = await CodiBank.saveImage(resized);
-        const src = await CodiBank.getImageSrc(avatarFaceRef);
-        setFacePreview(src || resized);
-      } catch (e) {
-        console.warn('face image 처리 실패', e);
-        alert('얼굴 사진을 처리하지 못했어요. 다른 사진으로 다시 시도해주세요.');
-      } finally {
-        avatarFaceBusy = false;
-        // 같은 파일 재선택을 위해 value 초기화
-        try { faceCaptureInput.value = ''; } catch (_) {}
-        try { facePickInput.value = ''; } catch (_) {}
-      }
-    }
-
-    faceCaptureBtn.addEventListener('click', () => faceCaptureInput.click());
-    facePickBtn.addEventListener('click', () => facePickInput.click());
-    faceCaptureInput.addEventListener('change', (e) => handleFaceFile((e.target.files || [])[0]));
-    facePickInput.addEventListener('change', (e) => handleFaceFile((e.target.files || [])[0]));
-
-    faceClearBtn.addEventListener('click', () => {
-      avatarFaceRef = '';
-      setFacePreview('');
+  function selectGender(val, el) {
+    selectedGender = val;
+    document.querySelectorAll('#step2 .sel-btn').forEach(b => {
+      if (['male','female','other'].some(g => b.textContent.includes({male:'남성',female:'여성',other:'기타'}[g]) && g === val)) b.classList.add('active');
+      else if (['남성','여성','기타'].includes(b.textContent.trim())) b.classList.remove('active');
     });
+    el.classList.add('active');
+  }
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      clearError();
-
-      if (avatarFaceBusy) {
-        showError('얼굴 사진을 처리 중입니다. 잠시 후 다시 시도해주세요.');
-        return;
-      }
-
-      const email = emailEl.value;
-      const phone = phoneEl.value;
-      const password = pwEl.value;
-      const password2 = pw2El.value;
-
-      if (!CodiBank.passwordMeetsRule(password)) {
-        showError('비밀번호 규칙을 만족해야 합니다. (4자리 이상, 영문+숫자 포함)');
-        return;
-      }
-      if (password !== password2) {
-        showError('비밀번호 확인이 일치하지 않습니다.');
-        return;
-      }
-
-      const genderEl = document.querySelector('input[name="gender"]:checked');
-      const gender = genderEl ? genderEl.value : '';
-
-      const ageEl = document.querySelector('input[name="ageGroup"]:checked');
-      const ageGroup = ageEl ? ageEl.value : '';
-
-      const res = CodiBank.signup({
-        email,
-        phone,
-        password,
-        gender,
-        ageGroup,
-        height: heightEl.value,
-        weight: weightEl.value,
-        location: locationEl.value,
-        avatarFace: avatarFaceRef || '',
+  function selectAge(val, el) {
+    selectedAgeGroup = val;
+    ['10대','20대','30대','40대','50대+'].forEach(txt => {
+      document.querySelectorAll('#step2 .sel-btn').forEach(b => {
+        if (b.textContent.trim() === txt) b.classList.remove('active');
       });
-
-      if (!res.ok) {
-        showError(res.error || '회원가입에 실패했습니다.');
-        return;
-      }
-
-      alert('Prototype: 가입 완료! 무료 플랜으로 시작합니다.');
-      window.location.href = 'mypage.html';
     });
-  </script>
+    el.classList.add('active');
+  }
+
+  function showErr(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg; el.classList.add('show');
+  }
+  function clearErr(id) { document.getElementById(id).classList.remove('show'); }
+
+  function goStep2() {
+    clearErr('s1Err');
+    const email = document.getElementById('s1_email').value.trim();
+    const pw    = document.getElementById('s1_pw').value;
+    const pw2   = document.getElementById('s1_pw2').value;
+    const phone = document.getElementById('s1_phone').value.trim();
+
+    if (!email)        return showErr('s1Err','이메일을 입력해주세요.');
+    if (!pw)           return showErr('s1Err','비밀번호를 입력해주세요.');
+    if (pw !== pw2)    return showErr('s1Err','비밀번호가 일치하지 않습니다.');
+    if (!phone)        return showErr('s1Err','휴대폰 번호를 입력해주세요.');
+
+    document.getElementById('step1').classList.remove('active');
+    document.getElementById('step2').classList.add('active');
+    document.getElementById('dot1').classList.remove('active');
+    document.getElementById('dot2').classList.add('active');
+    document.getElementById('stepLabel').textContent = 'STEP 2 / 2 — 체형 정보';
+  }
+
+  function goStep1() {
+    document.getElementById('step2').classList.remove('active');
+    document.getElementById('step1').classList.add('active');
+    document.getElementById('dot2').classList.remove('active');
+    document.getElementById('dot1').classList.add('active');
+    document.getElementById('stepLabel').textContent = 'STEP 1 / 2 — 계정 정보';
+  }
+
+  function doSignup() {
+    clearErr('s2Err');
+    const payload = {
+      email:    document.getElementById('s1_email').value.trim(),
+      password: document.getElementById('s1_pw').value,
+      phone:    document.getElementById('s1_phone').value.trim(),
+      gender:   selectedGender,
+      ageGroup: selectedAgeGroup,
+      height:   document.getElementById('s2_height').value,
+      weight:   document.getElementById('s2_weight').value,
+    };
+    const res = window.CodiBank.signup(payload);
+    if (res.ok) {
+      location.replace('closet.html');
+    } else {
+      showErr('s2Err', res.error || '회원가입에 실패했습니다.');
+    }
+  }
+</script>
 </body>
 </html>
