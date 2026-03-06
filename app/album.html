@@ -4,189 +4,232 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <title>코디앨범 - 코디뱅크</title>
-<style>html{visibility:hidden}
-
-/* ════ CodiBank 공통 풋바 (확정판) ════ */
-.cb-nav {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 99999;
-  background: #071952;
-  border-top: 2px solid rgba(151,254,237,0.18);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-.cb-nav-inner {
-  display: flex; justify-content: space-between; align-items: flex-end;
-  max-width: 480px; margin: 0 auto;
-  padding: 10px 8px 8px; height: 64px;
-}
-.cb-nav-tab {
-  flex: 1; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 3px;
-  color: rgba(255,255,255,0.35); text-decoration: none;
-  font-size: 10px; font-weight: 700; letter-spacing: -.01em;
-  font-family: 'Pretendard','Noto Sans KR','Outfit',sans-serif;
-  transition: color .15s;
-}
-.cb-nav-tab .ni {
-  font-family: 'Material Symbols Outlined';
-  font-size: 24px; line-height: 1;
-  font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 24;
-}
-.cb-nav-tab.on { color: #97FEED; }
-.cb-nav-tab.on .ni { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-
-.cb-nav-add-wrap {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; padding-bottom: 2px;
-}
-.cb-nav-add {
-  width: 52px; height: 52px; border-radius: 50%;
-  background: #97FEED;
-  display: flex; align-items: center; justify-content: center;
-  position: relative; top: -12px;
-  box-shadow: 0 0 20px rgba(151,254,237,0.5);
-  border: 4px solid #071952;
-  text-decoration: none;
-  font-family: 'Material Symbols Outlined';
-  font-size: 26px; color: #071952; line-height: 1;
-  font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
-  transition: transform .13s;
-}
-.cb-nav-add:active { transform: scale(.9); }
-.cb-nav-add-lbl {
-  color: #97FEED; font-size: 10px; font-weight: 800;
-  margin-top: -8px;
-  font-family: 'Pretendard','Noto Sans KR','Outfit',sans-serif;
-}
-.cb-spacer { height: 72px; }
-
-</style>
+<style>html{visibility:hidden}</style>
 <script>
 (function(){
-  try{var s=localStorage.getItem('codibank_session');if(!s)window.location.replace('login.html');else document.documentElement.style.visibility='visible';}
-  catch(e){window.location.replace('login.html');}
+  try{
+    var s=localStorage.getItem('codibank_session');
+    if(!s){ window.location.replace('login.html'); }
+    else { document.documentElement.style.visibility='visible'; }
+  }catch(e){ document.documentElement.style.visibility='visible'; }
 })();
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="codibank.js"></script>
+<script>tailwind.config={theme:{extend:{colors:{primary:"#111111",accent:"#C5A358","background-light":"#F9FAFB"},fontFamily:{display:["Outfit","Noto Sans KR","sans-serif"]}}}}</script>
 <style>
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-  html,body{min-height:100dvh;width:100%;background:#071952;color:#fff;
-    font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-tap-highlight-color:transparent;}
-  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24;}
-  header{position:sticky;top:0;z-index:100;background:rgba(7,25,82,0.92);
-    backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.08);
-    padding:16px 20px;display:flex;align-items:center;gap:12px;}
-  header h1{font-size:18px;font-weight:800;}
-  .badge{background:rgba(151,254,237,0.15);border:1px solid rgba(151,254,237,0.3);
-    color:#97FEED;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;}
-  .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;
-    min-height:60vh;gap:16px;color:rgba(255,255,255,0.35);}
-  .empty-state .ico{font-size:56px;color:rgba(151,254,237,0.25);}
-  .empty-state p{font-size:15px;font-weight:600;text-align:center;line-height:1.6;}
-  .btn-go{display:inline-flex;align-items:center;gap:6px;margin-top:8px;
-    padding:14px 28px;border-radius:16px;border:none;cursor:pointer;
-    background:linear-gradient(135deg,#0B666A,#35A29F);
-    color:#fff;font-size:15px;font-weight:700;font-family:inherit;}
+  *{-webkit-tap-highlight-color:transparent;}
+  body{font-family:'Outfit','Noto Sans KR',sans-serif;background:#F9FAFB;color:#111;min-height:100dvh;}
+  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 24;}
+  .filled{font-variation-settings:'FILL' 1,'wght' 650,'GRAD' 0,'opsz' 24 !important;}
+  .ios-blur{backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
+  @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── CodiBank 공통 풋바 v2 ── */
-.cb-nav{
-  position:fixed;bottom:0;left:0;right:0;z-index:9000;
-  background:rgba(7,25,82,0.95);
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border-top:1px solid rgba(151,254,237,0.12);
-  padding-bottom:env(safe-area-inset-bottom);
-}
-.cb-nav-inner{
-  display:flex;justify-content:space-between;align-items:flex-end;
-  max-width:480px;margin:0 auto;
-  padding:10px 8px 8px;
-}
-.cb-nav-item{
-  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
-  color:rgba(255,255,255,0.38);text-decoration:none;
-  font-size:10px;font-weight:700;letter-spacing:-.01em;
-  padding:0 2px;transition:color .18s;
-  font-family:'Pretendard','Noto Sans KR',sans-serif;
-  cursor:pointer;border:none;background:none;
-}
-.cb-nav-item .cb-icon{
-  font-size:24px;
-  font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24;
-  font-family:'Material Symbols Outlined';
-}
-.cb-nav-item.cb-active{color:#97FEED;}
-.cb-nav-item.cb-active .cb-icon{
-  font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;
-}
-.cb-nav-center{
-  flex:1;display:flex;flex-direction:column;align-items:center;
-  padding-bottom:0;
-}
-.cb-nav-plus{
-  width:54px;height:54px;border-radius:50%;
-  background:#97FEED;
-  display:flex;align-items:center;justify-content:center;
-  position:relative;top:-14px;
-  box-shadow:0 0 24px rgba(151,254,237,0.45);
-  border:4px solid #071952;
-  cursor:pointer;text-decoration:none;
-  transition:transform .14s;
-  font-family:'Material Symbols Outlined';
-  font-size:28px;color:#071952;
-  font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;
-}
-.cb-nav-plus:active{transform:scale(.91);}
-.cb-nav-plus-lbl{
-  color:#97FEED;font-size:10px;font-weight:800;
-  margin-top:-11px;letter-spacing:-.01em;
-  font-family:'Pretendard','Noto Sans KR',sans-serif;
-}
-.cb-spacer{height:76px;}
+  /* 공통 풋바 */
+  .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#071952;border-top:2px solid rgba(151,254,237,0.18);padding-bottom:env(safe-area-inset-bottom,0px);}
+  .cb-nav-inner{display:flex;justify-content:space-between;align-items:flex-end;max-width:480px;margin:0 auto;padding:10px 8px 8px;height:64px;}
+  .cb-nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:rgba(255,255,255,0.35);text-decoration:none;font-size:10px;font-weight:700;font-family:'Outfit','Noto Sans KR',sans-serif;transition:color .15s;}
+  .cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:24px;line-height:1;font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24;}
+  .cb-nav-tab.on{color:#97FEED;}
+  .cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;}
+  .cb-nav-add-wrap{flex:1;display:flex;flex-direction:column;align-items:center;padding-bottom:2px;}
+  .cb-nav-add{width:52px;height:52px;border-radius:50%;background:#97FEED;display:flex;align-items:center;justify-content:center;position:relative;top:-12px;box-shadow:0 0 20px rgba(151,254,237,0.5);border:4px solid #071952;text-decoration:none;font-family:'Material Symbols Outlined';font-size:26px;color:#071952;line-height:1;font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;transition:transform .13s;}
+  .cb-nav-add:active{transform:scale(.9);}
+  .cb-nav-add-lbl{color:#97FEED;font-size:10px;font-weight:800;margin-top:-8px;font-family:'Outfit','Noto Sans KR',sans-serif;}
+  .cb-spacer{height:72px;}
 
+  /* 앨범 그리드 */
+  .album-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:12px 16px 16px;}
+  .album-card{background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.07);position:relative;cursor:pointer;transition:transform .15s;}
+  .album-card:active{transform:scale(.97);}
+  .card-img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;background:#eee;}
+  .card-placeholder{width:100%;aspect-ratio:3/4;background:linear-gradient(135deg,#f5f5f5,#e8e8e8);display:flex;align-items:center;justify-content:center;}
+  .card-info{padding:10px 12px 12px;}
+  .card-date{font-size:11px;font-weight:700;color:#C5A358;}
+  .card-purpose{font-size:13px;font-weight:800;color:#111;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .card-weather{font-size:11px;color:#999;margin-top:1px;}
+  .card-del{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,0.4);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+  /* 빈 상태 */
+  .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px;padding:24px;text-align:center;}
+
+  /* 상세 모달 */
+  .modal-bg{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;padding:20px;}
+  .modal-box{background:#fff;border-radius:28px;overflow:hidden;width:100%;max-width:360px;position:relative;}
+  .modal-close{position:absolute;top:12px;right:12px;z-index:10;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.5);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .modal-img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;background:#eee;}
+  .modal-body{padding:18px 20px 20px;}
 </style>
 </head>
 <body>
-<header>
-  <span class="material-symbols-outlined" style="color:#97FEED;font-size:26px;">auto_awesome_motion</span>
-  <h1>코디앨범</h1>
-  <span class="badge">AI 추천</span>
+
+<!-- 헤더 -->
+<header class="sticky top-0 z-50 bg-white/95 ios-blur border-b border-slate-100 px-5 py-3 flex items-center justify-between">
+  <div class="flex items-center gap-2">
+    <span class="material-symbols-outlined filled text-accent text-[24px]">auto_awesome_motion</span>
+    <h1 class="text-[17px] font-extrabold">코디앨범</h1>
+  </div>
+  <div class="flex items-center gap-2">
+    <span id="cntBadge" class="text-[11px] font-bold text-slate-400"></span>
+    <button id="clearBtn" onclick="clearAll()" class="hidden text-[11px] font-bold text-red-400 border border-red-200 px-3 py-1 rounded-full">전체삭제</button>
+  </div>
 </header>
 
-<main style="padding:20px 20px 100px;">
-  <div class="empty-state">
-    <span class="material-symbols-outlined ico">style</span>
-    <p>아직 저장된 코디가 없어요.<br/>AI 코디 추천을 받고 앨범에 저장해보세요!</p>
-    <button class="btn-go" onclick="location.href='closet.html'">
-      <span class="material-symbols-outlined" style="font-size:18px;">psychology</span>
-      AI 코디 추천 받기
-    </button>
+<!-- 로딩 -->
+<div id="loadEl" class="empty">
+  <div style="width:32px;height:32px;border:3px solid #f0f0f0;border-top-color:#C5A358;border-radius:50%;animation:spin .8s linear infinite;"></div>
+  <p class="text-[13px] text-slate-400 font-semibold">불러오는 중…</p>
+</div>
+
+<!-- 빈 상태 -->
+<div id="emptyEl" class="empty hidden">
+  <div style="width:80px;height:80px;border-radius:50%;background:rgba(197,163,88,0.1);display:flex;align-items:center;justify-content:center;">
+    <span class="material-symbols-outlined filled text-accent" style="font-size:40px;">style</span>
   </div>
-</main>
+  <div>
+    <p class="text-[17px] font-extrabold text-slate-700 mb-2">저장된 코디가 없어요</p>
+    <p class="text-[13px] text-slate-400 leading-relaxed">내옷장에서 AI 코디를 추천받고<br/>저장하기를 눌러보세요!</p>
+  </div>
+  <a href="closet.html" class="mt-2 px-6 py-3 rounded-2xl font-extrabold text-[14px] flex items-center gap-2" style="background:linear-gradient(135deg,#C5A358,#d4b068);color:#1a1000;text-decoration:none;">
+    <span class="material-symbols-outlined filled" style="font-size:18px;">psychology</span>
+    AI 코디 추천 받기
+  </a>
+</div>
 
+<!-- 앨범 그리드 -->
+<div id="grid" class="album-grid hidden"></div>
 
+<div class="cb-spacer"></div>
 
-<script src="codibank.js"></script>
-<!-- CodiBank 공통 풋바 -->
+<!-- 상세 모달 -->
+<div id="modal" class="modal-bg hidden" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">
+      <span class="material-symbols-outlined" style="color:#fff;font-size:18px;">close</span>
+    </button>
+    <img id="mImg" class="modal-img" src="" alt=""/>
+    <div class="modal-body">
+      <p id="mDate" class="text-[12px] font-bold text-accent mb-1"></p>
+      <p id="mPurpose" class="text-[18px] font-extrabold text-slate-800 mb-1"></p>
+      <p id="mWeather" class="text-[13px] text-slate-500 mb-4"></p>
+      <div class="flex gap-2">
+        <button onclick="doDownload()" class="flex-1 py-3 rounded-xl font-bold text-[13px] flex items-center justify-center gap-1 bg-slate-100 text-slate-700">
+          <span class="material-symbols-outlined" style="font-size:16px;">download</span>저장
+        </button>
+        <button onclick="doShare()" class="flex-1 py-3 rounded-xl font-bold text-[13px] flex items-center justify-center gap-1" style="background:linear-gradient(135deg,#C5A358,#d4b068);color:#1a1000;">
+          <span class="material-symbols-outlined filled" style="font-size:16px;">share</span>공유
+        </button>
+      </div>
+      <button onclick="doDelete()" class="w-full mt-3 py-2.5 rounded-xl font-bold text-[12px] text-red-400 border border-red-100">이 코디 삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 풋바 -->
 <nav class="cb-nav">
   <div class="cb-nav-inner">
-    <a href="closet.html" class="cb-nav-tab">
-      <span class="ni">grid_view</span><span>내옷장</span>
-    </a>
-    <a href="album.html" class="cb-nav-tab on">
-      <span class="ni">auto_awesome_motion</span><span>코디앨범</span>
-    </a>
+    <a href="closet.html" class="cb-nav-tab"><span class="ni">grid_view</span><span>내옷장</span></a>
+    <a href="album.html" class="cb-nav-tab on"><span class="ni">auto_awesome_motion</span><span>코디앨범</span></a>
     <div class="cb-nav-add-wrap">
       <a href="camera.html" class="cb-nav-add">add</a>
       <span class="cb-nav-add-lbl">ITEM등록</span>
     </div>
-    <a href="share-sale.html" class="cb-nav-tab">
-      <span class="ni">local_mall</span><span>공유판매</span>
-    </a>
-    <a href="mypage.html" class="cb-nav-tab">
-      <span class="ni">person_outline</span><span>MY</span>
-    </a>
+    <a href="share-sale.html" class="cb-nav-tab"><span class="ni">local_mall</span><span>공유판매</span></a>
+    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person_outline</span><span>MY</span></a>
   </div>
 </nav>
-<div class="cb-spacer"></div>
+
+<script>
+let _user=null, _entries=[], _cur=null;
+
+function fmt(iso){
+  if(!iso)return'';
+  const d=new Date(iso);
+  const days=['일','월','화','수','목','금','토'];
+  return `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+}
+
+function mkCard(e){
+  const div=document.createElement('div');
+  div.className='album-card';
+  div.onclick=()=>openModal(e);
+  const src=e.imageRef||'';
+  div.innerHTML=`
+    ${src?`<img class="card-img" src="${src}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:''}
+    <div class="card-placeholder" style="${src?'display:none':''}">
+      <span class="material-symbols-outlined" style="font-size:40px;color:#ccc;">style</span>
+    </div>
+    <div class="card-info">
+      <p class="card-date">${fmt(e.createdAt)}</p>
+      <p class="card-purpose">${e.purposeLabel||'코디'}</p>
+      <p class="card-weather">${[e.weatherText,e.temp!=null?e.temp+'°C':''].filter(Boolean).join(' ')}</p>
+    </div>
+    <button class="card-del" onclick="event.stopPropagation();delEntry('${e.id}')">
+      <span class="material-symbols-outlined" style="color:#fff;font-size:15px;">delete</span>
+    </button>`;
+  return div;
+}
+
+function render(){
+  _user=window.CodiBank&&CodiBank.getCurrentUser?CodiBank.getCurrentUser():null;
+  if(!_user){location.replace('login.html');return;}
+  _entries=CodiBank.getAiAlbumEntries?CodiBank.getAiAlbumEntries(_user.email):[];
+  document.getElementById('loadEl').classList.add('hidden');
+  if(!_entries||!_entries.length){
+    document.getElementById('emptyEl').classList.remove('hidden');
+    document.getElementById('cntBadge').textContent='0장';
+    return;
+  }
+  document.getElementById('cntBadge').textContent=_entries.length+'장';
+  document.getElementById('clearBtn').classList.remove('hidden');
+  const g=document.getElementById('grid');
+  g.classList.remove('hidden');
+  g.innerHTML='';
+  _entries.forEach(e=>g.appendChild(mkCard(e)));
+}
+
+function delEntry(id){
+  if(!confirm('이 코디를 삭제할까요?'))return;
+  CodiBank.deleteAiAlbumEntry&&CodiBank.deleteAiAlbumEntry(_user.email,id);
+  closeModal(); render();
+}
+function clearAll(){
+  if(!confirm(_entries.length+'장 전체를 삭제할까요?'))return;
+  _entries.forEach(e=>CodiBank.deleteAiAlbumEntry&&CodiBank.deleteAiAlbumEntry(_user.email,e.id));
+  render();
+}
+
+function openModal(e){
+  _cur=e;
+  document.getElementById('mImg').src=e.imageRef||'';
+  document.getElementById('mDate').textContent=fmt(e.createdAt);
+  document.getElementById('mPurpose').textContent=e.purposeLabel||'코디';
+  document.getElementById('mWeather').textContent=[e.weatherText,e.temp!=null?e.temp+'°C':''].filter(Boolean).join(' · ');
+  document.getElementById('modal').classList.remove('hidden');
+}
+function closeModal(){document.getElementById('modal').classList.add('hidden');_cur=null;}
+function doDelete(){if(_cur)delEntry(_cur.id);}
+
+function doDownload(){
+  if(!_cur||!_cur.imageRef){alert('이미지를 찾을 수 없습니다.');return;}
+  const a=document.createElement('a');a.href=_cur.imageRef;a.download='codibank.png';a.click();
+}
+async function doShare(){
+  if(!_cur)return;
+  const src=_cur.imageRef;
+  if(navigator.share&&src){
+    try{
+      const res=await fetch(src);const blob=await res.blob();
+      const f=new File([blob],'codibank.png',{type:'image/png'});
+      if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({title:'코디뱅크 AI 추천 코디',files:[f]});return;}
+    }catch(e){}
+  }
+  doDownload();
+}
+
+document.addEventListener('DOMContentLoaded',render);
+</script>
 </body>
 </html>

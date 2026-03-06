@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>프로필 수정 - 코디뱅크</title>
+<style>html{visibility:hidden}</style>
+<script>
+(function(){
+  try{
+    var s=localStorage.getItem('codibank_session');
+    if(!s){window.location.replace('login.html');}
+    else{document.documentElement.style.visibility='visible';}
+  }catch(e){document.documentElement.style.visibility='visible';}
+})();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="codibank.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{min-height:100dvh;width:100%;background:#F9FAFB;color:#111;font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-tap-highlight-color:transparent;}
+.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 24;}
+.filled{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24 !important;}
+.ios-blur{backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
+
+/* 헤더 */
+header{position:sticky;top:0;z-index:100;background:rgba(249,250,251,0.95);backdrop-filter:blur(16px);border-bottom:1px solid #f0f0f0;padding:14px 20px;display:flex;align-items:center;gap:12px;}
+header h1{font-size:17px;font-weight:800;}
+
+/* 프로필 사진 */
+.photo-area{display:flex;flex-direction:column;align-items:center;padding:28px 20px 20px;}
+.photo-ring{position:relative;width:100px;height:100px;}
+.photo-img{width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid #C5A358;}
+.photo-placeholder{width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,#C5A358,#d4b068);display:flex;align-items:center;justify-content:center;border:3px solid #C5A358;}
+.photo-edit-btn{position:absolute;bottom:0;right:0;width:30px;height:30px;border-radius:50%;background:#111;border:2px solid #fff;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+#photoInput{display:none;}
+
+/* 섹션 */
+.section{background:#fff;border-radius:20px;margin:0 16px 16px;overflow:hidden;box-shadow:0 1px 8px rgba(0,0,0,0.05);}
+.section-title{font-size:11px;font-weight:700;color:#999;letter-spacing:.06em;padding:16px 20px 8px;}
+
+/* 입력 필드 */
+.field{display:flex;align-items:center;padding:14px 20px;border-bottom:1px solid #f5f5f5;gap:12px;}
+.field:last-child{border-bottom:none;}
+.field-icon{color:#C5A358;flex-shrink:0;}
+.field-body{flex:1;}
+.field-label{font-size:11px;font-weight:600;color:#aaa;margin-bottom:3px;}
+.field-input{width:100%;border:none;outline:none;font-size:15px;font-weight:600;color:#111;font-family:inherit;background:transparent;}
+.field-input::placeholder{color:#ccc;font-weight:400;}
+.field-input[type=number]{-moz-appearance:textfield;}
+.field-input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
+
+/* 선택 버튼 그룹 */
+.sel-group{display:flex;gap:8px;padding:12px 20px 16px;flex-wrap:wrap;}
+.sel-btn{padding:9px 16px;border-radius:12px;border:1.5px solid #e8e8e8;background:#fff;font-size:13px;font-weight:600;color:#888;cursor:pointer;font-family:inherit;transition:all .15s;}
+.sel-btn.on{border-color:#C5A358;background:rgba(197,163,88,0.1);color:#C5A358;}
+
+/* 저장 버튼 */
+.save-btn{display:block;width:calc(100% - 32px);margin:8px 16px 24px;padding:16px;border:none;border-radius:18px;background:linear-gradient(135deg,#C5A358,#d4b068);color:#1a1000;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer;text-align:center;transition:transform .13s;}
+.save-btn:active{transform:scale(.97);}
+
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#111;color:#fff;font-size:13px;font-weight:700;padding:12px 24px;border-radius:24px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
+.toast.show{opacity:1;}
+
+/* 공통 풋바 */
+.cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#071952;border-top:2px solid rgba(151,254,237,0.18);padding-bottom:env(safe-area-inset-bottom,0px);}
+.cb-nav-inner{display:flex;justify-content:space-between;align-items:flex-end;max-width:480px;margin:0 auto;padding:10px 8px 8px;height:64px;}
+.cb-nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:rgba(255,255,255,0.35);text-decoration:none;font-size:10px;font-weight:700;font-family:'Pretendard','Noto Sans KR',sans-serif;transition:color .15s;}
+.cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:24px;line-height:1;font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24;}
+.cb-nav-tab.on{color:#97FEED;}
+.cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;}
+.cb-nav-add-wrap{flex:1;display:flex;flex-direction:column;align-items:center;padding-bottom:2px;}
+.cb-nav-add{width:52px;height:52px;border-radius:50%;background:#97FEED;display:flex;align-items:center;justify-content:center;position:relative;top:-12px;box-shadow:0 0 20px rgba(151,254,237,0.5);border:4px solid #071952;text-decoration:none;font-family:'Material Symbols Outlined';font-size:26px;color:#071952;line-height:1;font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;transition:transform .13s;}
+.cb-nav-add:active{transform:scale(.9);}
+.cb-nav-add-lbl{color:#97FEED;font-size:10px;font-weight:800;margin-top:-8px;font-family:'Pretendard','Noto Sans KR',sans-serif;}
+.cb-spacer{height:72px;}
+</style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<header>
+  <button onclick="history.back()" style="width:36px;height:36px;border-radius:50%;border:1px solid #eee;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
+    <span class="material-symbols-outlined" style="font-size:20px;">arrow_back</span>
+  </button>
+  <h1>프로필 수정</h1>
+  <span style="flex:1"></span>
+</header>
+
+<!-- 프로필 사진 -->
+<div class="photo-area">
+  <div class="photo-ring">
+    <img id="photoPreview" class="photo-img" src="" alt="" style="display:none;"/>
+    <div id="photoDefault" class="photo-placeholder">
+      <span class="material-symbols-outlined filled" style="font-size:44px;color:#fff;font-variation-settings:'FILL' 1,'wght' 300,'GRAD' 0,'opsz' 44;">person</span>
+    </div>
+    <label for="photoInput" class="photo-edit-btn">
+      <span class="material-symbols-outlined" style="color:#fff;font-size:16px;">photo_camera</span>
+    </label>
+    <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto(event)"/>
+  </div>
+  <p style="margin-top:10px;font-size:12px;color:#aaa;font-weight:600;">프로필 사진 변경</p>
+</div>
+
+<!-- 기본 정보 -->
+<p class="section-title" style="margin:0 16px 4px;padding:0 4px;">기본 정보</p>
+<div class="section">
+  <div class="field">
+    <span class="material-symbols-outlined field-icon">badge</span>
+    <div class="field-body">
+      <p class="field-label">닉네임</p>
+      <input id="fNickname" type="text" class="field-input" placeholder="닉네임 입력"/>
+    </div>
+  </div>
+  <div class="field">
+    <span class="material-symbols-outlined field-icon">mail</span>
+    <div class="field-body">
+      <p class="field-label">이메일 (아이디)</p>
+      <input id="fEmail" type="email" class="field-input" readonly style="color:#aaa;cursor:not-allowed;"/>
+    </div>
+  </div>
+  <div class="field">
+    <span class="material-symbols-outlined field-icon">phone</span>
+    <div class="field-body">
+      <p class="field-label">휴대폰 번호</p>
+      <input id="fPhone" type="tel" class="field-input" placeholder="010-0000-0000"/>
+    </div>
+  </div>
+</div>
+
+<!-- 체형 정보 -->
+<p class="section-title" style="margin:0 16px 4px;padding:0 4px;">체형 정보 <span style="color:#C5A358;font-size:10px;">(AI 코디 정확도 향상)</span></p>
+<div class="section">
+  <p class="field-label" style="padding:14px 20px 4px;">성별</p>
+  <div class="sel-group" id="genderGroup">
+    <button class="sel-btn" data-v="male" onclick="selGender(this)">남성</button>
+    <button class="sel-btn" data-v="female" onclick="selGender(this)">여성</button>
+    <button class="sel-btn" data-v="other" onclick="selGender(this)">기타</button>
+  </div>
+  <p class="field-label" style="padding:4px 20px 4px;">연령대</p>
+  <div class="sel-group" id="ageGroup">
+    <button class="sel-btn" data-v="10s" onclick="selAge(this)">10대</button>
+    <button class="sel-btn" data-v="20s" onclick="selAge(this)">20대</button>
+    <button class="sel-btn" data-v="30s" onclick="selAge(this)">30대</button>
+    <button class="sel-btn" data-v="40s" onclick="selAge(this)">40대</button>
+    <button class="sel-btn" data-v="50s+" onclick="selAge(this)">50대+</button>
+  </div>
+  <div class="field" style="border-top:1px solid #f5f5f5;">
+    <span class="material-symbols-outlined field-icon">height</span>
+    <div class="field-body">
+      <p class="field-label">키</p>
+      <input id="fHeight" type="number" class="field-input" placeholder="cm"/>
+    </div>
+    <span style="font-size:14px;color:#aaa;font-weight:600;">cm</span>
+  </div>
+  <div class="field">
+    <span class="material-symbols-outlined field-icon">fitness_center</span>
+    <div class="field-body">
+      <p class="field-label">몸무게</p>
+      <input id="fWeight" type="number" class="field-input" placeholder="kg"/>
+    </div>
+    <span style="font-size:14px;color:#aaa;font-weight:600;">kg</span>
+  </div>
+</div>
+
+<!-- 비밀번호 변경 -->
+<p class="section-title" style="margin:0 16px 4px;padding:0 4px;">비밀번호 변경 <span style="color:#aaa;font-size:10px;">(변경 시에만 입력)</span></p>
+<div class="section">
+  <div class="field">
+    <span class="material-symbols-outlined field-icon">lock</span>
+    <div class="field-body">
+      <p class="field-label">새 비밀번호</p>
+      <input id="fPw" type="password" class="field-input" placeholder="영문+숫자 4자 이상"/>
+    </div>
+  </div>
+  <div class="field">
+    <span class="material-symbols-outlined field-icon">lock_reset</span>
+    <div class="field-body">
+      <p class="field-label">비밀번호 확인</p>
+      <input id="fPw2" type="password" class="field-input" placeholder="비밀번호 재입력"/>
+    </div>
+  </div>
+</div>
+
+<button class="save-btn" onclick="doSave()">저장하기</button>
+
+<div class="cb-spacer"></div>
+
+<!-- 풋바 -->
+<nav class="cb-nav">
+  <div class="cb-nav-inner">
+    <a href="closet.html" class="cb-nav-tab"><span class="ni">grid_view</span><span>내옷장</span></a>
+    <a href="album.html" class="cb-nav-tab"><span class="ni">auto_awesome_motion</span><span>코디앨범</span></a>
+    <div class="cb-nav-add-wrap">
+      <a href="camera.html" class="cb-nav-add">add</a>
+      <span class="cb-nav-add-lbl">ITEM등록</span>
+    </div>
+    <a href="share-sale.html" class="cb-nav-tab"><span class="ni">local_mall</span><span>공유판매</span></a>
+    <a href="mypage.html" class="cb-nav-tab on"><span class="ni">person_outline</span><span>MY</span></a>
+  </div>
+</nav>
+
+<div id="toast" class="toast"></div>
+
+<script>
+let _user = null;
+let _genderVal = '';
+let _ageVal = '';
+let _photoData = null;
+
+function showToast(msg, dur=2200){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), dur);
+}
+
+function selGender(el){
+  _genderVal = el.dataset.v;
+  document.querySelectorAll('#genderGroup .sel-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+function selAge(el){
+  _ageVal = el.dataset.v;
+  document.querySelectorAll('#ageGroup .sel-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function previewPhoto(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  if(file.size > 5*1024*1024){ showToast('5MB 이하 이미지를 선택해주세요.'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    _photoData = ev.target.result;
+    document.getElementById('photoPreview').src = _photoData;
+    document.getElementById('photoPreview').style.display = 'block';
+    document.getElementById('photoDefault').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function loadUser(){
+  _user = window.CodiBank && CodiBank.getCurrentUser ? CodiBank.getCurrentUser() : null;
+  if(!_user){ location.replace('login.html'); return; }
+
+  // 기본 정보 채우기
+  document.getElementById('fNickname').value = _user.nickname || '';
+  document.getElementById('fEmail').value    = _user.email    || '';
+  document.getElementById('fPhone').value    = _user.phone    || '';
+  document.getElementById('fHeight').value   = _user.height   || '';
+  document.getElementById('fWeight').value   = _user.weight   || '';
+
+  // 성별 선택 복원
+  _genderVal = _user.gender || '';
+  document.querySelectorAll('#genderGroup .sel-btn').forEach(b=>{
+    if(b.dataset.v === _genderVal) b.classList.add('on');
+  });
+
+  // 연령대 선택 복원
+  _ageVal = _user.ageGroup || '';
+  document.querySelectorAll('#ageGroup .sel-btn').forEach(b=>{
+    if(b.dataset.v === _ageVal) b.classList.add('on');
+  });
+
+  // 프로필 사진
+  const photoSrc = _user.photo || _user.faceImg || '';
+  if(photoSrc){
+    document.getElementById('photoPreview').src = photoSrc;
+    document.getElementById('photoPreview').style.display = 'block';
+    document.getElementById('photoDefault').style.display = 'none';
+  }
+}
+
+function doSave(){
+  if(!_user) return;
+
+  const pw  = document.getElementById('fPw').value;
+  const pw2 = document.getElementById('fPw2').value;
+
+  // 비밀번호 변경 시 검증
+  if(pw || pw2){
+    if(pw !== pw2){ showToast('비밀번호가 일치하지 않습니다.'); return; }
+    if(pw.length < 4){ showToast('비밀번호는 4자 이상 입력해주세요.'); return; }
+  }
+
+  const patch = {
+    nickname : document.getElementById('fNickname').value.trim() || _user.nickname,
+    phone    : document.getElementById('fPhone').value.trim()    || _user.phone,
+    gender   : _genderVal || _user.gender,
+    ageGroup : _ageVal    || _user.ageGroup,
+    height   : Number(document.getElementById('fHeight').value)  || _user.height,
+    weight   : Number(document.getElementById('fWeight').value)  || _user.weight,
+  };
+
+  if(pw) patch.password = pw;
+  if(_photoData) patch.photo = _photoData;
+
+  const res = CodiBank.updateUserProfile ? CodiBank.updateUserProfile(_user.email, patch) : { ok: false };
+
+  if(res && res.ok){
+    showToast('✅ 프로필이 저장되었습니다.');
+    setTimeout(()=>history.back(), 1800);
+  } else {
+    showToast('저장에 실패했습니다. 다시 시도해주세요.');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', loadUser);
+</script>
+</body>
+</html>
