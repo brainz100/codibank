@@ -417,9 +417,6 @@
       <h1 class="text-2xl font-bold tracking-tight text-white">내옷장</h1>
       <p class="text-[11px] font-semibold mt-0.5" style="color:rgba(151,254,237,0.6);letter-spacing:.12em;">MY CLOSET · AI STYLIST</p>
     </div>
-    <div class="flex items-center gap-2">
-      <span id="aiQuota" class="ai-badge gray">남은 0회</span>
-    </div>
   </div>
 </header>
 
@@ -503,11 +500,6 @@
     <p id="dayToast" class="hidden mt-2 text-[12px] font-semibold" style="color:rgba(248,113,113,0.9);"></p>
     <p id="doubleTapGuide" class="hidden mt-2 text-[11px]" style="color:rgba(151,254,237,0.7);"></p>
 
-    <!-- AI 분석 설명문 -->
-    <p class="mt-5 mb-4 text-center text-[12px] font-medium leading-relaxed px-4" style="color:rgba(151,254,237,0.85);">
-      내 얼굴, 신체사이즈, 코디 목적, 위치 기반 날씨를<br/>종합 분석합니다.
-    </p>
-
     <!-- ★ AI 스타일리스트 호출 버튼 ★ -->
     <button id="aiCallBtn" type="button" class="w-full flex items-center px-8 active:scale-[0.98] transition-all"
       style="min-height:80px;border-radius:18px;background:linear-gradient(105deg,#137373 0%,#1a9e9e 45%,#137373 100%);border:1px solid rgba(151,254,237,0.3);box-shadow:0 0 30px rgba(19,115,115,0.5),0 0 60px rgba(151,254,237,0.08);position:relative;overflow:hidden;cursor:pointer;">
@@ -537,18 +529,6 @@
       </li>
     </ul>
 
-    <!-- INFORMATION 글래스 박스 -->
-    <div class="mt-6 rounded-3xl p-5" style="background:rgba(19,115,115,0.15);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(158,249,239,0.15);box-shadow:0 4px 24px rgba(0,0,0,0.2);">
-      <div class="flex items-center gap-3 mb-3">
-        <div class="w-6 h-6 rounded-full flex items-center justify-center" style="background:rgba(151,254,237,0.1);">
-          <span class="material-symbols-outlined text-base font-bold" style="color:rgba(71,176,172,1);">info</span>
-        </div>
-        <span class="text-[11px] font-bold uppercase tracking-widest" style="color:#97FEED;">Information</span>
-      </div>
-      <p class="text-[13px] leading-relaxed font-light" style="color:rgba(255,255,255,0.75);">
-        AI가 실시간 <span style="color:#97FEED;font-weight:500;">날씨 데이터</span>와 사용자의 <span style="color:#97FEED;font-weight:500;">취향 선호도</span>를 정밀 분석하여 오늘의 최적 맞춤 제안을 준비하고 있습니다.
-      </p>
-    </div>
   </section>
 
   <!-- ── AI 스타일리스트 포인트 (설명 + 키워드) ── -->
@@ -572,13 +552,14 @@
         <p class="text-[10px] font-extrabold tracking-[0.18em] mb-2" style="color:rgba(151,254,237,0.6);">카테고리별 코디 키워드</p>
         <div id="catKwRow" class="flex flex-col gap-1.5"></div>
       </div>
-      <div id="matchRow" class="mt-2 flex flex-wrap gap-1 hidden"></div>
+      <div id="matchRow" style="display:none;"></div>
     </div>
 
     <!-- VTO 영역 -->
     <div>
       <div class="flex items-center justify-between mb-3">
         <p class="text-[13px] font-extrabold text-white">코디추천 AI 스타일링</p>
+        <span id="aiQuota" class="ai-badge gray">남은 0회</span>
       </div>
       <div class="vto-wrap" id="vtoWrap" style="border:1px solid rgba(151,254,237,0.15);background:#050f2a;">
         <div id="vtoOverlay" class="vto-overlay" style="background:linear-gradient(180deg,#0d1f4a,#071952);">
@@ -2674,21 +2655,46 @@ function renderHourly(h, dayOffset=0){
   }
   const base = new Date();
   base.setDate(base.getDate() + Number(dayOffset||0));
-  const hk = localHourKey(base);
   const dk = localDateKey(base);
+  const now = new Date();
 
-  let si = h.time.findIndex(t=>String(t).startsWith(hk));
-  if(si<0) si = h.time.findIndex(t=>String(t).startsWith(dk));
-  if(si<0) si = 0;
+  // 오늘: 현재 시간 이후 4개 / 미래 날짜: 해당 날 오전부터 4개(9,12,15,18시)
+  let slots = [];
+  if(Number(dayOffset||0) === 0){
+    // 오늘 - 현재 시간 이후
+    const hk = localHourKey(now);
+    let si = h.time.findIndex(t=>String(t).startsWith(hk));
+    if(si<0) si = h.time.findIndex(t=>String(t).startsWith(dk));
+    if(si<0) si = 0;
+    slots = [0,3,6,9].map(off=>si+off).filter(i=>i<h.time.length);
+  } else {
+    // 미래 날짜 - 해당 날의 9,12,15,18시 슬롯
+    const preferHours = [9,12,15,18];
+    preferHours.forEach(targetHr=>{
+      const tStr = `${dk}T${String(targetHr).padStart(2,'0')}:00`;
+      const idx = h.time.findIndex(t=>String(t).startsWith(tStr));
+      if(idx>=0) slots.push(idx);
+    });
+    // 해당 날 슬롯이 없으면 날짜 시작점에서 3시간 간격
+    if(slots.length===0){
+      let si = h.time.findIndex(t=>String(t).startsWith(dk));
+      if(si>=0) slots = [0,3,6,9].map(off=>si+off).filter(i=>i<h.time.length);
+    }
+  }
 
-  [0,3,6,9].forEach(off=>{
-    const i=si+off;
+  if(slots.length===0){
+    wE.hourly.innerHTML='<div class="text-xs text-white/70">시간 예보 없음</div>';
+    return;
+  }
+
+  slots.slice(0,4).forEach(i=>{
     if(i>=h.time.length) return;
     const wx=CodiBank.weatherCodeToKorean(h.weather_code?.[i]);
     const hr = parseInt(String(h.time[i]||'').slice(11,13),10);
+    const temp = Math.round(Number(h.temperature_2m[i]));
     const box=document.createElement('div');
     box.className='flex flex-col items-center bg-white/5 px-3 py-2 rounded-xl min-w-[58px] border border-white/10';
-    box.innerHTML=`<span class="text-[10px] text-white/70">${Number.isFinite(hr)?hr:'--'}시</span><span class="material-symbols-outlined text-sm my-1">${wx.icon}</span><span class="text-xs font-semibold">${Math.round(Number(h.temperature_2m[i]))||'--'}°</span>`;
+    box.innerHTML=`<span class="text-[10px] text-white/70">${Number.isFinite(hr)?hr+'시':'--'}</span><span class="material-symbols-outlined text-sm my-1" style="color:#97FEED;">${wx.icon}</span><span class="text-xs font-semibold text-white">${Number.isFinite(temp)?temp+'°':'--°'}</span>`;
     wE.hourly.appendChild(box);
   });
 }
