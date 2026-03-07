@@ -100,6 +100,19 @@
     .vto-btn:disabled{opacity:0.45;cursor:not-allowed;}
     @media(prefers-reduced-motion:reduce){.clothing-layer{transition:none!important;}.vto-spinner{animation:none!important;}.vto-step{animation:none!important;}}
   </style>
+<style>
+.cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#071952;border-top:2px solid rgba(151,254,237,0.18);padding-bottom:env(safe-area-inset-bottom,0px);}
+.cb-nav-inner{display:flex;justify-content:space-between;align-items:flex-end;max-width:480px;margin:0 auto;padding:10px 8px 8px;height:64px;}
+.cb-nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:rgba(255,255,255,0.35);text-decoration:none;font-size:10px;font-weight:700;font-family:'Outfit','Noto Sans KR',sans-serif;transition:color .15s;}
+.cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:24px;line-height:1;font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24;}
+.cb-nav-tab.on{color:#97FEED;}
+.cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;}
+.cb-nav-add-wrap{flex:1;display:flex;flex-direction:column;align-items:center;padding-bottom:2px;}
+.cb-nav-add{width:52px;height:52px;border-radius:50%;background:#97FEED;display:flex;align-items:center;justify-content:center;position:relative;top:-12px;box-shadow:0 0 20px rgba(151,254,237,0.5);border:4px solid #071952;text-decoration:none;font-family:'Material Symbols Outlined';font-size:26px;color:#071952;line-height:1;font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;transition:transform .13s;}
+.cb-nav-add:active{transform:scale(.9);}
+.cb-nav-add-lbl{color:#97FEED;font-size:10px;font-weight:800;margin-top:-8px;font-family:'Outfit','Noto Sans KR',sans-serif;}
+.cb-spacer{height:72px;}
+</style>
 </head>
 <body class="bg-background-light text-slate-900">
 
@@ -268,17 +281,20 @@
   </section>
 </main>
 
-<!-- 하단 네비게이션 -->
-<nav class="fixed bottom-0 left-0 right-0 bg-white/95 ios-blur border-t border-slate-200 pt-3 pb-8 px-6 z-50">
-      <div class="flex justify-between items-center max-w-sm mx-auto">
-        <a href="closet.html" class="flex flex-col items-center gap-1 text-accent"><span class="material-symbols-outlined filled text-2xl">checkroom</span><span class="text-[10px] font-extrabold">내옷장</span></a>
-        <a href="camera.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">add_a_photo</span><span class="text-[10px] font-extrabold">item등록</span></a>
-        <a href="album.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">photo_library</span><span class="text-[10px] font-extrabold">코디앨범</span></a>
-        <a href="share-sale.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">storefront</span><span class="text-[10px] font-extrabold">공유판매</span></a>
-        <a href="mypage.html" class="flex flex-col items-center gap-1 text-slate-500"><span class="material-symbols-outlined text-2xl">person</span><span class="text-[10px] font-extrabold">My</span></a>
-      </div>
-    </nav>
-<div class="fixed bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-slate-300 rounded-full z-[60]"></div>
+<!-- CodiBank 공통 풋바 -->
+<div class="cb-spacer"></div>
+<nav class="cb-nav">
+  <div class="cb-nav-inner">
+    <a href="closet.html" class="cb-nav-tab on"><span class="ni">grid_view</span><span>내옷장</span></a>
+    <a href="album.html" class="cb-nav-tab"><span class="ni">auto_awesome_motion</span><span>코디앨범</span></a>
+    <div class="cb-nav-add-wrap">
+      <a href="camera.html" class="cb-nav-add">add</a>
+      <span class="cb-nav-add-lbl">ITEM등록</span>
+    </div>
+    <a href="share-sale.html" class="cb-nav-tab"><span class="ni">local_mall</span><span>공유판매</span></a>
+    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person_outline</span><span>MY</span></a>
+  </div>
+</nav>
 
 <!-- 카테고리 선택 모달 -->
 <div id="pickCatModal" class="hidden fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm">
@@ -1492,9 +1508,12 @@ async function updateVTO(opts={}){
       // cached=true면 OpenAI 호출 없이 파일만 반환된 상태(사용량/앨범 저장은 생략)
       didGenerateNew = data ? !(data && data.cached === true) : false;
 
-      // 캐시 저장 (localStorage): 가능하면 상대경로(/uploads/..)로 저장
+      // 캐시 저장: displaySrc(절대URL)를 우선 저장 → album.html이 환경 무관하게 로드 가능
       try{
-        const refToSave = (imgRef || String(data?.path || '').trim() || '');
+        // displaySrc = 'https://codibank-api.onrender.com/uploads/xxx.jpg' (완전한 URL)
+        // imgRef     = '/uploads/xxx.jpg' (상대경로 → album.html에서 URL 재조합 필요)
+        // → displaySrc를 generatedRef로 저장해야 앨범 이미지가 항상 표시됨
+        const refToSave = r?.displaySrc || (imgRef && imgRef.startsWith('/uploads/') ? `${aiBase}${imgRef}` : imgRef) || String(data?.path || '').trim() || '';
         if(refToSave){
           generatedRef = refToSave;
           localStorage.setItem(cacheKey, refToSave);
