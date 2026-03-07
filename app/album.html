@@ -307,18 +307,26 @@ function fmt(iso) {
   return `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
-// ── 이미지 src 비동기 해석 (핵심 수정!)
-// imageRef: IndexedDB id / dataURL / /uploads/... / blob: / http(s)://
+// ── 이미지 src 비동기 해석
+// imageRef: /uploads/xxx.jpg | dataURL | blob: | https://... | IndexedDB id
 async function resolveImg(ref) {
   if (!ref) return '';
   const r = String(ref);
-  // dataURL, blob, http(s) → 그대로
+
+  // dataURL, blob, 절대URL → 그대로
   if (r.startsWith('data:') || r.startsWith('blob:') || r.startsWith('http')) return r;
-  // 서버 경로 → getImageSrc로 resolve
+
+  // /uploads/ 경로 → 현재 origin 기준으로 조합
+  // (프론트/백엔드가 같은 Render 서비스이므로 window.location.origin이 정확한 base)
+  if (r.startsWith('/uploads/')) {
+    return window.location.origin + r;
+  }
+
+  // IndexedDB id → getImageSrc로 해석
   if (window.CodiBank && CodiBank.getImageSrc) {
     try {
       const src = await CodiBank.getImageSrc(r);
-      return src || r;
+      if (src) return src;
     } catch(_) {}
   }
   return r;
