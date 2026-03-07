@@ -412,7 +412,6 @@ const S = {
   categoryKeywords: {},
   bodyType: null,
   matchScoreMap: {},
-  matchDetailMap: {},
   matchByCat: {}
 };
 const getPur = k => PURPOSES.find(p=>p.key===k)||PURPOSES[0];
@@ -484,152 +483,32 @@ function normalizeKColorName(name){
   return String(name||'').trim();
 }
 
-// ══════════════════════════════════════════════════════════
-// 코디뱅크 매칭 점수 시스템 (최대 10P)
-// ──────────────────────────────────────────────────────────
-// [카테고리] 동일=4P / 대체가능=2P / 불일치=0P
-// [컬러]     동일=3P / 유사=2P   / 대체가능=1P / 대비(반대)=0P
-// [디자인]   동일=3P / 유사=2P   / 대체가능=1P
-// ══════════════════════════════════════════════════════════
-
-// ── 카테고리 대체 그룹 정의
-const CAT_SUBSTITUTE_MAP = {
-  coat:   ['jacket','padding'],   // 코트 ↔ 자켓/패딩
-  jacket: ['coat','padding'],
-  padding:['coat','jacket'],
-  top:    ['shirt','knit','tshirt'],
-  shirt:  ['top','knit'],
-  knit:   ['top','shirt'],
-  tshirt: ['top'],
-  pants:  ['slacks','jeans','skirt'],
-  slacks: ['pants','jeans'],
-  jeans:  ['pants','slacks'],
-  skirt:  ['pants'],
-  shoes:  ['sneakers','loafers','boots'],
-  sneakers:['shoes','loafers'],
-  loafers: ['shoes','sneakers'],
-  boots:   ['shoes'],
-  scarf:  ['muffler','neckwear'],
-  muffler:['scarf','neckwear'],
-};
-
-// ── 컬러 유사 / 대체 / 대비 그룹
-const COLOR_SIMILAR = [
-  new Set(['블랙','그레이']),
-  new Set(['화이트','베이지','크림','아이보리']),
-  new Set(['네이비','블루','인디고']),
-  new Set(['브라운','베이지','카키','카멜']),
-  new Set(['그린','카키','올리브']),
-  new Set(['레드','버건디','와인','핑크']),
-  new Set(['옐로','오렌지','머스타드']),
-  new Set(['퍼플','라벤더']),
-];
-const COLOR_SUBSTITUTE = [
-  new Set(['블랙','네이비','그레이']),       // 다크 뉴트럴
-  new Set(['화이트','베이지','라이트그레이']),// 라이트 뉴트럴
-  new Set(['브라운','그린','카키']),          // 어스톤
-];
-const COLOR_CONTRAST = [
-  ['블랙','화이트'],['네이비','화이트'],['네이비','옐로'],
-  ['레드','그린'],['블루','오렌지'],['퍼플','옐로'],
-];
-
-function scoreColor(want, got){
-  if(!want || !got) return 1; // 정보 없으면 대체가능 취급
-  if(want === got) return 3;  // 동일
-  // 대비(반대)
-  if(COLOR_CONTRAST.some(p=>(p[0]===want&&p[1]===got)||(p[1]===want&&p[0]===got))) return 0;
-  // 유사
-  if(COLOR_SIMILAR.some(s=>s.has(want)&&s.has(got))) return 2;
-  // 대체가능
-  if(COLOR_SUBSTITUTE.some(s=>s.has(want)&&s.has(got))) return 1;
-  return 0;
-}
-
-function scoreCategory(wantKey, gotKey){
-  if(!wantKey || !gotKey) return 0;
-  const w = String(wantKey).toLowerCase();
-  const g = String(gotKey).toLowerCase();
-  if(w === g) return 4;  // 동일
-  const subs = CAT_SUBSTITUTE_MAP[w] || [];
-  if(subs.some(s => g.includes(s) || s.includes(g))) return 2; // 대체가능
-  return 0;
-}
-
-function scoreDesign(wantItem, gotItem){
-  // 디자인 정보: subColor(패턴), note(특징 메모)에서 유추
-  // 현재 아이템 데이터 구조에서 pattern/design 필드가 있으면 사용
-  const wPat = String(wantItem?.pattern || wantItem?.subColor || '').toLowerCase();
-  const gPat = String(gotItem?.pattern || gotItem?.subColor || '').toLowerCase();
-  if(!wPat && !gPat) return 2; // 둘 다 정보 없으면 유사 취급(2P)
-  if(!wPat || !gPat) return 1; // 한쪽 없으면 대체가능(1P)
-  if(wPat === gPat) return 3;  // 동일
-  // 같은 패턴 계열
-  const plainGroup = ['단색','솔리드','plain','solid'];
-  const patternGroup = ['체크','스트라이프','플레이드','격자','줄무늬'];
-  const wIsPlain = plainGroup.some(p=>wPat.includes(p));
-  const gIsPlain = plainGroup.some(p=>gPat.includes(p));
-  const wIsPat  = patternGroup.some(p=>wPat.includes(p));
-  const gIsPat  = patternGroup.some(p=>gPat.includes(p));
-  if(wIsPlain && gIsPlain) return 3;   // 둘 다 단색=동일
-  if(wIsPat   && gIsPat)   return 2;   // 둘 다 패턴=유사
-  if(wIsPlain && gIsPat)   return 1;   // 단색↔패턴=대체가능
-  if(wIsPat   && gIsPlain) return 1;
-  return 2; // 기타 조합=유사
-}
-
-// ── 카테고리 전체 아이템 대상 매칭 점수 계산 + 최고점 아이템 반환
-function pickBestItemByScore(wantPair, allCatItems){
-  // wantPair = { key(카테고리), color, label }
-  // allCatItems: [{ id, categoryKey, color, subColor, pattern, note, ... }, ...]
-  if(!allCatItems || !allCatItems.length) return null;
-  const wantColor = normalizeKColorName(wantPair.color);
-  const wantCatKey = String(wantPair.key || '').toLowerCase();
-
-  let best = null, bestTotal = -1;
-
-  allCatItems.forEach((item, idx) => {
-    const gotCatKey  = String(item?.categoryKey || item?.category || '').toLowerCase();
-    const gotColor   = normalizeKColorName(item?.color || '');
-
-    const catScore    = scoreCategory(wantCatKey, gotCatKey);
-    const colorScore  = scoreColor(wantColor, gotColor);
-    const designScore = scoreDesign(wantPair, item);
-
-    const total = catScore + colorScore + designScore;
-    // 카테고리 완전 불일치(0P)면 매칭 대상 제외
-    if(catScore === 0) return;
-
-    // 동점이면 최신(앞쪽) 우선
-    const tiebreak = total - idx * 0.001;
-    if(tiebreak > bestTotal){
-      bestTotal = tiebreak;
-      best = { ...item, _catScore: catScore, _colorScore: colorScore, _designScore: designScore, _totalScore: total };
-    }
-  });
-
-  if(best) best._matchScore = Math.min(10, best._totalScore);
-  return best;
-}
-
-// 하위호환: 카테고리별 단일 아이템 목록으로 호출될 때 (기존 matchByCat 로직 호환)
-function pickBestItemByColor(items, desiredColor, catKey){
-  // catKey가 있으면 새 점수 시스템으로 위임
-  if(catKey){
-    const fakePair = { key: catKey, color: desiredColor };
-    const result = pickBestItemByScore(fakePair, items);
-    return result;
-  }
-  // catKey 없으면 컬러 점수만(레거시)
+function pickBestItemByColor(items, desiredColor){
   const want = normalizeKColorName(desiredColor);
-  let best=null, bestScore=-1;
+  let best=null, bestScore=-1, bestRawScore=0;
   (items||[]).forEach((it, idx)=>{
     const got = normalizeKColorName(it?.color || '');
-    const cs = scoreColor(want, got);
-    const s  = cs - idx * 0.001;
-    if(s > bestScore){ bestScore=s; best=it; }
+    let score = 0;
+    if(want && got){
+      if(got.includes(want) || want.includes(got)) score = 10;
+      else {
+        const near = (
+          (want==='네이비' && got==='블루') || (want==='블루' && got==='네이비') ||
+          (want==='베이지' && got==='브라운') || (want==='브라운' && got==='베이지') ||
+          (want==='그레이' && (got==='블랙' || got==='화이트')) ||
+          (got==='그레이' && (want==='블랙' || want==='화이트'))
+        );
+        score = near ? 6 : 0;
+      }
+    } else if(want && !got) {
+      score = 1;
+    }
+    score = score - (idx * 0.001);
+    if(score > bestScore){ bestScore = score; bestRawScore = Math.floor(score); best = it; }
   });
-  if(best) best._matchScore = best ? Math.round((scoreColor(want, normalizeKColorName(best?.color||'')) / 3) * 6) : 0;
+  // matchScore: 컬러 완전일치=95, 근접=75, 컬러정보없음=55
+  const matchScore = !best ? 0 : bestRawScore>=10 ? 95 : bestRawScore>=6 ? 75 : 55;
+  if(best) best._matchScore = matchScore;
   return best;
 }
 
@@ -1607,35 +1486,20 @@ async function updateVTO(opts={}){
     matchRow.classList.toggle('hidden', pairs.length===0);
   }
 
-  // ✅ 추천 코디(카테고리-컬러) → 디지털 옷장 아이템 매칭 (새 10P 점수 시스템)
+  // ✅ 추천 코디(카테고리-컬러) → 디지털 옷장 아이템 매칭
   try{
     const map={};
     const scoreMap={};
-    const detailMap={}; // { itemId: { catScore, colorScore, designScore, total } }
     (S.matchPairs||[]).forEach(p=>{
-      // 해당 카테고리 아이템만 가져오기 (카테고리 동일=4P 조건 충족 보장)
-      const items = CodiBank.getItemsByUserAndCategory(user.email, p.key);
-      // 점수 계산: pickBestItemByScore로 카테고리+컬러+디자인 종합
-      const best = pickBestItemByScore(p, items);
-      if(best && best.id){
-        map[p.key] = best.id;
-        scoreMap[best.id] = best._matchScore || 0;
-        detailMap[best.id] = {
-          catScore:    best._catScore    || 0,
-          colorScore:  best._colorScore  || 0,
-          designScore: best._designScore || 0,
-          total:       best._totalScore  || 0,
-        };
-      }
+      const items=CodiBank.getItemsByUserAndCategory(user.email, p.key);
+      const best=pickBestItemByColor(items, p.color);
+      if(best && best.id){ map[p.key]=best.id; if(best._matchScore) scoreMap[best.id]=best._matchScore; }
     });
-    S.matchByCat   = map;
-    S.matchScoreMap= scoreMap;
-    S.matchDetailMap = detailMap;
+    S.matchByCat = map;
+    S.matchScoreMap = scoreMap;
   }catch(e){
     console.warn('matchByCat 실패:', e);
     S.matchByCat = {};
-    S.matchScoreMap = {};
-    S.matchDetailMap = {};
   }
   // 매칭 결과를 카테고리 덱(3번째 카드)에 반영
   try{ renderCategories(qCategory, highlightId); }catch(_e){}
@@ -2652,17 +2516,11 @@ function layerContent(el,item,catKey){
   // 매칭 배지 (이미지 하단 오른쪽)
   const prevBadge = el.querySelector('.match-score-badge');
   if(prevBadge) prevBadge.remove();
-  const iid = item && item.id ? String(item.id) : '';
-  const scoreVal   = isMatched && iid && S.matchScoreMap   ? (S.matchScoreMap[iid]   || 0) : 0;
-  const detailVal  = isMatched && iid && S.matchDetailMap  ? (S.matchDetailMap[iid]  || null) : null;
+  const scoreVal = isMatched && item && item.id && S.matchScoreMap ? (S.matchScoreMap[String(item.id)] || 0) : 0;
   if(isMatched && scoreVal){
     const badge = document.createElement('div');
     badge.className = 'match-score-badge';
-    // 10P 척도 표시 + 세부 내역 툴팁
-    badge.textContent = `MATCH ${scoreVal}P`;
-    if(detailVal){
-      badge.title = `카테고리 ${detailVal.catScore}P + 컬러 ${detailVal.colorScore}P + 디자인 ${detailVal.designScore}P = ${detailVal.total}P`;
-    }
+    badge.textContent = `매칭 ${scoreVal}%`;
     el.appendChild(badge);
   }
 
