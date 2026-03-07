@@ -1269,13 +1269,44 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     explanation = `[${bodyType.tag} 체형 커버] ${bodyType.tip} / ${explanation}`.slice(0, 400);
   }
 
-  // ✅ 카테고리별 키워드 (모바일옷장 매칭 표시용)
+  // ✅ 카테고리별 키워드 (모바일옷장 매칭 표시용) - seed 기반 스타일 키워드 포함
+  // stylist.tag 별 디자인 키워드 (다시코디 시 seed 변화에 따라 달라짐)
+  const designKwPool = {
+    minimal:     ['슬림핏','클린라인','모노톤','뉴트럴'],
+    street:      ['오버사이즈','레이어드','믹스매치','빅실루엣'],
+    chic:        ['테일러드','포인트1','세미핏','샤프'],
+    athleisure:  ['스트레치','기능성','릴렉스핏','스포티'],
+    business:    ['클래식핏','테일러드','슈트핏','깔끔'],
+    workwear:    ['스트레이트','워크웨어','볼드','안정적'],
+    smartcasual: ['세미핏','균형감','스마트','캐주얼'],
+  };
+  const dPool = designKwPool[stylist.tag] || ['클린','정돈','베이직'];
+  const sd = Number(seed || 0);
+  const dKw1 = dPool[sd % dPool.length];
+  const dKw2 = dPool[(sd + 1) % dPool.length];
+  const dKw3 = dPool[(sd + 2) % dPool.length];
+
+  // 신발 스타일 변형 (seed 짝/홀로 구분)
+  const shoeStyleMap = {
+    commute:     sd%2===0 ? '로퍼' : '더비슈즈',
+    business:    sd%2===0 ? '옥스포드' : '첼시부츠',
+    weekendOut:  sd%2===0 ? '스니커즈' : '캔버스',
+    weekendTrip: sd%2===0 ? '트레일런닝화' : '워킹슈즈',
+    domesticTrip:sd%2===0 ? '스니커즈' : '슬립온',
+    overseasTrip:sd%2===0 ? '스니커즈' : '첼시부츠',
+    meet:        sd%2===0 ? '로퍼' : '첼시부츠',
+    blindDate:   sd%2===0 ? '더비슈즈' : '첼시부츠',
+    partyLook:   sd%2===0 ? '첼시부츠' : '슬립온',
+    custom:      sd%2===0 ? '로퍼' : '스니커즈',
+  };
+  const shoeStyle = shoeStyleMap[pk] || (sd%2===0 ? '로퍼' : '스니커즈');
+
   const categoryKeywords = {
-    outer:  [colorNameFromHex(palette?.outer),  layerTip || stylist.voice].filter(Boolean),
-    top:    [colorNameFromHex(palette?.top),     seasonKw || '기본'].filter(Boolean),
-    bottom: [colorNameFromHex(palette?.pants),   '핏'].filter(Boolean),
-    shoes:  [colorNameFromHex(palette?.shoes)].filter(Boolean),
-    scarf:  palette?.accent ? [colorNameFromHex(palette?.accent), '포인트'].filter(Boolean) : [],
+    outer:  [colorNameFromHex(palette?.outer),  layerTip, stylist.voice].filter(Boolean),
+    top:    [colorNameFromHex(palette?.top),     seasonKw, dKw1].filter(Boolean),
+    bottom: [colorNameFromHex(palette?.pants),   dKw2].filter(Boolean),
+    shoes:  [colorNameFromHex(palette?.shoes),   shoeStyle].filter(Boolean),
+    scarf:  palette?.accent ? [colorNameFromHex(palette?.accent), dKw3 || '포인트'].filter(Boolean) : [],
   };
 
   return { styleTitle, explanation, keywords, categoryKeywords, bodyType, layerTip, skinTip, palette, stylist, matchPairs };
@@ -2646,55 +2677,79 @@ function getSelectedDateKey(){
   return k;
 }
 
-function renderHourly(h, dayOffset=0){
+// ── 다음 4일 일별 예보 표시 (내일/모레/글피/그다음날)
+function renderHourly(h, _dayOffset=0){
+  // h 파라미터는 hourly 이지만 daily 데이터를 우선 사용
   if(!wE.hourly) return;
   wE.hourly.innerHTML='';
+  const daily = S.weatherRaw?.daily;
+  const DAY_KO = ['일','월','화','수','목','금','토'];
+  const DAY_LABEL = ['내일','모레','글피','그 다음날'];
+
+  if(daily?.time && daily.time.length > 1){
+    // daily 데이터 사용: 오늘(인덱스0)을 제외한 다음 4일
+    const todayIdx = 0;
+    const slots = [1,2,3,4].filter(i => i < daily.time.length);
+    if(!slots.length){
+      wE.hourly.innerHTML='<div class="text-xs text-white/70">예보 없음</div>';
+      return;
+    }
+    slots.forEach((dayIdx, relIdx) => {
+      const timeStr = daily.time[dayIdx] || '';
+      const d = timeStr ? new Date(timeStr + 'T00:00:00') : null;
+      const dowStr = d ? DAY_KO[d.getDay()] : '';
+      const dateNum = d ? d.getDate() : '';
+      const code = daily.weather_code?.[dayIdx];
+      const wx = CodiBank.weatherCodeToKorean(code);
+      const tmax = Number(daily.temperature_2m_max?.[dayIdx]);
+      const tmin = Number(daily.temperature_2m_min?.[dayIdx]);
+      const tempStr = (Number.isFinite(tmax) && Number.isFinite(tmin))
+        ? `${Math.round(tmax)}/${Math.round(tmin)}°`
+        : (Number.isFinite(tmax) ? `${Math.round(tmax)}°` : '--°');
+
+      const box = document.createElement('div');
+      box.className = 'flex flex-col items-center px-3 py-2.5 rounded-xl min-w-[62px] border';
+      box.style.cssText = 'background:rgba(255,255,255,0.06);border-color:rgba(151,254,237,0.12);';
+      const label = DAY_LABEL[relIdx] || '';
+      const dayColor = d ? (d.getDay()===0 ? 'rgba(248,113,113,0.9)' : (d.getDay()===6 ? 'rgba(96,165,250,0.9)' : 'rgba(255,255,255,0.65)')) : 'rgba(255,255,255,0.65)';
+      box.innerHTML = `
+        <span class="text-[10px] font-bold" style="color:rgba(151,254,237,0.8);">${label}</span>
+        <span class="text-[10px] font-medium mt-0.5" style="color:${dayColor};">${dowStr} ${dateNum}</span>
+        <span class="material-symbols-outlined text-base my-1" style="color:#97FEED;">${wx.icon}</span>
+        <span class="text-[11px] font-semibold text-white">${tempStr}</span>
+      `;
+      wE.hourly.appendChild(box);
+    });
+    return;
+  }
+
+  // fallback: hourly 데이터로 내일~4일 대표값 표시
   if(!h?.time||!h?.temperature_2m){
     wE.hourly.innerHTML='<div class="text-xs text-white/70">예보 없음</div>';
     return;
   }
-  const base = new Date();
-  base.setDate(base.getDate() + Number(dayOffset||0));
-  const dk = localDateKey(base);
-  const now = new Date();
-
-  // 오늘: 현재 시간 이후 4개 / 미래 날짜: 해당 날 오전부터 4개(9,12,15,18시)
-  let slots = [];
-  if(Number(dayOffset||0) === 0){
-    // 오늘 - 현재 시간 이후
-    const hk = localHourKey(now);
-    let si = h.time.findIndex(t=>String(t).startsWith(hk));
-    if(si<0) si = h.time.findIndex(t=>String(t).startsWith(dk));
-    if(si<0) si = 0;
-    slots = [0,3,6,9].map(off=>si+off).filter(i=>i<h.time.length);
-  } else {
-    // 미래 날짜 - 해당 날의 9,12,15,18시 슬롯
-    const preferHours = [9,12,15,18];
-    preferHours.forEach(targetHr=>{
-      const tStr = `${dk}T${String(targetHr).padStart(2,'0')}:00`;
-      const idx = h.time.findIndex(t=>String(t).startsWith(tStr));
-      if(idx>=0) slots.push(idx);
-    });
-    // 해당 날 슬롯이 없으면 날짜 시작점에서 3시간 간격
-    if(slots.length===0){
-      let si = h.time.findIndex(t=>String(t).startsWith(dk));
-      if(si>=0) slots = [0,3,6,9].map(off=>si+off).filter(i=>i<h.time.length);
-    }
-  }
-
-  if(slots.length===0){
-    wE.hourly.innerHTML='<div class="text-xs text-white/70">시간 예보 없음</div>';
-    return;
-  }
-
-  slots.slice(0,4).forEach(i=>{
-    if(i>=h.time.length) return;
-    const wx=CodiBank.weatherCodeToKorean(h.weather_code?.[i]);
-    const hr = parseInt(String(h.time[i]||'').slice(11,13),10);
-    const temp = Math.round(Number(h.temperature_2m[i]));
-    const box=document.createElement('div');
-    box.className='flex flex-col items-center bg-white/5 px-3 py-2 rounded-xl min-w-[58px] border border-white/10';
-    box.innerHTML=`<span class="text-[10px] text-white/70">${Number.isFinite(hr)?hr+'시':'--'}</span><span class="material-symbols-outlined text-sm my-1" style="color:#97FEED;">${wx.icon}</span><span class="text-xs font-semibold text-white">${Number.isFinite(temp)?temp+'°':'--°'}</span>`;
+  const today = new Date();
+  [1,2,3,4].forEach((off, relIdx)=>{
+    const d = new Date(today);
+    d.setDate(today.getDate() + off);
+    const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const noonStr = `${dk}T12:00`;
+    let idx = h.time.findIndex(t=>String(t).startsWith(noonStr));
+    if(idx<0) idx = h.time.findIndex(t=>String(t).startsWith(dk));
+    if(idx<0) return;
+    const wx = CodiBank.weatherCodeToKorean(h.weather_code?.[idx]);
+    const temp = Math.round(Number(h.temperature_2m[idx]));
+    const label = DAY_LABEL[relIdx] || '';
+    const dayColor = d.getDay()===0 ? 'rgba(248,113,113,0.9)' : (d.getDay()===6 ? 'rgba(96,165,250,0.9)' : 'rgba(255,255,255,0.65)');
+    const box = document.createElement('div');
+    box.className = 'flex flex-col items-center px-3 py-2.5 rounded-xl min-w-[62px] border';
+    box.style.cssText = 'background:rgba(255,255,255,0.06);border-color:rgba(151,254,237,0.12);';
+    box.innerHTML = `
+      <span class="text-[10px] font-bold" style="color:rgba(151,254,237,0.8);">${label}</span>
+      <span class="text-[10px] font-medium mt-0.5" style="color:${dayColor};">${DAY_KO[d.getDay()]} ${d.getDate()}</span>
+      <span class="material-symbols-outlined text-base my-1" style="color:#97FEED;">${wx.icon}</span>
+      <span class="text-[11px] font-semibold text-white">${Number.isFinite(temp)?temp+'°':'--°'}</span>
+    `;
     wE.hourly.appendChild(box);
   });
 }
@@ -2765,7 +2820,10 @@ function applySelectedWeatherUI(){
   if(wE.desc) wE.desc.textContent = (S.wx.text||wxMeta.text||'날씨');
   if(wE.icon) wE.icon.textContent = (wxMeta.icon||'cloud');
 
-  if(S.weatherRaw?.hourly) renderHourly(S.weatherRaw.hourly, off);
+  // 일별 예보: daily 데이터 있으면 daily 우선, 아니면 hourly fallback
+  if(S.weatherRaw?.daily || S.weatherRaw?.hourly){
+    renderHourly(S.weatherRaw?.hourly || null, off);
+  }
 }
 
 async function initWeather(){
