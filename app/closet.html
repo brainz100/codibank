@@ -17,32 +17,173 @@
     .material-symbols-outlined.filled{font-variation-settings:'FILL' 1,'wght' 650,'GRAD' 0,'opsz' 24;}
     .no-scrollbar::-webkit-scrollbar{display:none;}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
 
-    /* === 카드 덱 === */
-    .closet-container{position:relative;height:400px;display:flex;align-items:center;justify-content:center;perspective:1300px;touch-action:pan-y;}
-    .clothing-layer{position:absolute;width:160px;height:264px;border-radius:1.55rem;overflow:hidden;background:#fff;border:1px solid rgba(17,17,17,0.06);box-shadow:0 14px 34px rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center;text-decoration:none;user-select:none;-webkit-user-select:none;will-change:transform,opacity,filter;transform-origin:50% 62%;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform-style:preserve-3d;transition:transform 520ms cubic-bezier(0.16,1,0.3,1),opacity 320ms cubic-bezier(0.2,0.8,0.2,1),filter 320ms cubic-bezier(0.2,0.8,0.2,1),box-shadow 520ms cubic-bezier(0.16,1,0.3,1),border-color 420ms ease;}
-    .clothing-layer::before{content:'';position:absolute;inset:-40% -60%;pointer-events:none;opacity:0;transform:translateX(-120%) rotate(12deg);background:linear-gradient(120deg,transparent 0%,rgba(255,255,255,0.75) 45%,transparent 60%);}
-    @keyframes cardShine{0%{transform:translateX(-120%) rotate(12deg);opacity:0}15%{opacity:0.5}100%{transform:translateX(140%) rotate(12deg);opacity:0}}
-    .clothing-layer.sparkle{border-color:rgba(197,163,88,0.8);box-shadow:0 26px 62px -22px rgba(197,163,88,0.35),0 18px 36px rgba(0,0,0,0.12);}
+    /* ══════════════════════════════════════
+       모바일옷장 카드 덱 – 다크 네이비 디자인
+       m_closet_0308 + pc_mcloset0305 통합
+       ══════════════════════════════════════ */
+
+    /* ── 모바일: 5카드 스택 ── */
+    .closet-container{
+      position:relative;height:300px;
+      display:flex;align-items:center;justify-content:center;
+      perspective:1300px;touch-action:pan-y;
+    }
+    .clothing-layer{
+      position:absolute;width:160px;height:240px;
+      border-radius:14px;overflow:hidden;
+      background:#0a1931;
+      border:1px solid rgba(151,254,237,0.12);
+      box-shadow:0 10px 25px rgba(0,0,0,0.4);
+      display:flex;align-items:center;justify-content:center;
+      text-decoration:none;user-select:none;-webkit-user-select:none;
+      will-change:transform,opacity,filter;
+      transform-origin:50% 62%;backface-visibility:hidden;
+      -webkit-backface-visibility:hidden;transform-style:preserve-3d;
+      transition:transform 520ms cubic-bezier(0.16,1,0.3,1),
+                 opacity 320ms cubic-bezier(0.2,0.8,0.2,1),
+                 filter 320ms cubic-bezier(0.2,0.8,0.2,1),
+                 box-shadow 520ms cubic-bezier(0.16,1,0.3,1),
+                 border-color 420ms ease;
+    }
+    .clothing-layer::before{
+      content:'';position:absolute;inset:-40% -60%;pointer-events:none;
+      opacity:0;transform:translateX(-120%) rotate(12deg);
+      background:linear-gradient(120deg,transparent 0%,rgba(151,254,237,0.35) 45%,transparent 60%);
+    }
+    @keyframes cardShine{
+      0%{transform:translateX(-120%) rotate(12deg);opacity:0}
+      15%{opacity:0.6}
+      100%{transform:translateX(140%) rotate(12deg);opacity:0}
+    }
+    /* sparkle = 매칭 아이템 강조 */
+    .clothing-layer.sparkle{
+      border-color:#70dbd4 !important;
+      box-shadow:0 0 22px rgba(112,219,212,0.55),0 18px 36px rgba(0,0,0,0.35) !important;
+    }
     .clothing-layer.sparkle::before{opacity:1;animation:cardShine 980ms cubic-bezier(0.16,1,0.3,1) 2;}
-    .layer-1{transform:translateX(-148px) scale(0.88) translateZ(-90px) rotateY(10deg);z-index:10;opacity:0.54;filter:blur(0.85px);}
-    .layer-5{transform:translateX(148px) scale(0.88) translateZ(-90px) rotateY(-10deg);z-index:10;opacity:0.54;filter:blur(0.85px);}
-    .layer-2{transform:translateX(-86px) scale(1.08) translateZ(-45px) rotateY(6deg);z-index:20;opacity:0.94;}
-    .layer-4{transform:translateX(86px) scale(1.08) translateZ(-45px) rotateY(-6deg);z-index:20;opacity:0.94;}
-    .layer-3{transform:translateX(0) scale(1.35) translateZ(70px) rotateY(0deg);z-index:30;box-shadow:0 32px 70px -22px rgba(0,0,0,0.40);border-color:rgba(197,163,88,0.55);}
-    .deck-highlight .layer-3{border:2px solid rgba(197,163,88,0.9);}
-    .closet-container.is-shifting .clothing-layer:not(.layer-3){filter:blur(1.15px);}
+
+    /* 5카드 위치 */
+    .layer-1{transform:translateX(-148px) scale(0.75) translateZ(-90px) rotateY(10deg);z-index:10;opacity:0.4;filter:brightness(0.5) grayscale(40%);}
+    .layer-5{transform:translateX(148px) scale(0.75) translateZ(-90px) rotateY(-10deg);z-index:10;opacity:0.4;filter:brightness(0.5) grayscale(40%);}
+    .layer-2{transform:translateX(-82px) scale(0.85) translateZ(-45px) rotateY(6deg);z-index:20;opacity:0.7;filter:brightness(0.7) grayscale(25%);}
+    .layer-4{transform:translateX(82px) scale(0.85) translateZ(-45px) rotateY(-6deg);z-index:20;opacity:0.7;filter:brightness(0.7) grayscale(25%);}
+    .layer-3{
+      transform:translateX(0) scale(1) translateZ(70px) rotateY(0deg);
+      z-index:30;
+      border:2px solid #70dbd4 !important;
+      box-shadow:0 0 20px rgba(112,219,212,0.4),0 10px 25px rgba(0,0,0,0.5) !important;
+    }
+    .deck-highlight .layer-3{border:2px solid #a2fdf0 !important;box-shadow:0 0 30px rgba(162,253,240,0.6),0 10px 25px rgba(0,0,0,0.5) !important;}
+    .closet-container.is-shifting .clothing-layer:not(.layer-3){filter:blur(1px);}
+
+    /* 카드 애니메이션 */
     .clothing-layer.exit-left{pointer-events:none;transition:transform 200ms cubic-bezier(0.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2.6px);transform:translateX(-210px) scale(0.52) translateZ(-140px) rotateY(16deg) rotate(-6deg);}
     .clothing-layer.exit-right{pointer-events:none;transition:transform 200ms cubic-bezier(0.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2.6px);transform:translateX(210px) scale(0.52) translateZ(-140px) rotateY(-16deg) rotate(6deg);}
     .clothing-layer.enter-from-right{transform:translateX(210px) scale(0.52) translateZ(-140px) rotateY(-16deg) rotate(6deg);opacity:0;filter:blur(2.6px);}
     .clothing-layer.enter-from-left{transform:translateX(-210px) scale(0.52) translateZ(-140px) rotateY(16deg) rotate(-6deg);opacity:0;filter:blur(2.6px);}
-    @keyframes centerPop{0%{transform:translateX(0) scale(1.35) translateZ(70px) rotateY(0deg)}55%{transform:translateX(0) scale(1.40) translateZ(110px) rotateY(0deg)}100%{transform:translateX(0) scale(1.35) translateZ(70px) rotateY(0deg)}}
+    @keyframes centerPop{0%{transform:translateX(0) scale(1) translateZ(70px) rotateY(0deg)}55%{transform:translateX(0) scale(1.04) translateZ(100px) rotateY(0deg)}100%{transform:translateX(0) scale(1) translateZ(70px) rotateY(0deg)}}
     .center-pop{animation:centerPop 520ms cubic-bezier(0.16,1,0.3,1) 1;}
     .no-transition{transition:none !important;}
+
+    /* 카드 내부 */
     .layer-img{width:100%;height:100%;object-fit:cover;display:block;}
-    .layer-ph{font-size:12px;color:rgba(15,23,42,0.55);font-weight:700;text-align:center;padding:0 10px;}
-    .layer-icon{font-size:44px;color:rgba(15,23,42,0.22);}
-    @keyframes pulseRing{0%{box-shadow:0 0 0 0 rgba(197,163,88,0.35)}70%{box-shadow:0 0 0 18px rgba(197,163,88,0)}100%{box-shadow:0 0 0 0 rgba(197,163,88,0)}}
-    .pulse-ring{animation:pulseRing 1.4s ease-out 1;border-radius:2rem;}
+    .layer-ph{font-size:11px;color:rgba(255,255,255,0.4);font-weight:700;text-align:center;padding:0 10px;}
+    .layer-icon{font-size:40px;color:rgba(151,254,237,0.25);}
+
+    /* 카드 하단 레이블 (중앙카드) */
+    .card-label{
+      position:absolute;bottom:0;left:0;right:0;
+      padding:8px 10px 10px;
+      background:linear-gradient(to top,rgba(10,25,49,0.92) 0%,rgba(10,25,49,0.4) 70%,transparent 100%);
+      font-size:9px;font-weight:800;color:#a2fdf0;
+      letter-spacing:.12em;text-transform:uppercase;
+    }
+
+    /* MATCH 배지 (센터카드 우상단) */
+    .match-score-badge{
+      position:absolute;top:7px;right:7px;bottom:auto !important;
+      background:#a2fdf0;color:#0a1931;
+      font-size:9px;font-weight:900;
+      padding:3px 7px;border-radius:20px;
+      letter-spacing:.04em;pointer-events:none;
+      box-shadow:0 2px 8px rgba(162,253,240,0.5);z-index:10;
+      text-transform:uppercase;
+    }
+
+    /* pulseRing */
+    @keyframes pulseRing{0%{box-shadow:0 0 0 0 rgba(112,219,212,0.5)}70%{box-shadow:0 0 0 18px rgba(112,219,212,0)}100%{box-shadow:0 0 0 0 rgba(112,219,212,0)}}
+    .pulse-ring{animation:pulseRing 1.4s ease-out 1;border-radius:1rem;}
+
+    /* ── 카테고리 섹션 헤더 ── */
+    .cat-sec-header{
+      text-align:center;margin-bottom:16px;padding:0 16px;
+    }
+    .cat-sec-title{
+      font-size:18px;font-weight:800;color:#fff;
+      display:inline-block;padding-bottom:6px;
+      border-bottom:2.5px solid #129490;
+    }
+    .cat-sec-count{ color:#70dbd4; }
+
+    /* ── codibank 어드바이스 박스 ── */
+    .cat-advice-box{
+      margin:0 20px 12px;
+      padding:12px 14px;border-radius:12px;
+      background:rgba(0,95,99,0.18);
+      border:1px solid rgba(18,148,144,0.35);
+      display:flex;align-items:center;gap:8px;
+    }
+    .cat-advice-label{font-size:12px;font-weight:800;color:#a2fdf0;white-space:nowrap;}
+    .cat-advice-text{font-size:12px;color:rgba(255,255,255,0.85);line-height:1.4;}
+    .cat-advice-score{color:#a2fdf0;font-weight:900;}
+
+    /* ── SWIPE 힌트 ── */
+    .cat-swipe-hint{
+      display:flex;align-items:center;justify-content:center;gap:6px;
+      margin-bottom:6px;
+    }
+    .cat-swipe-hint .swipe-arrow{
+      font-family:'Material Symbols Outlined';font-size:13px;
+      color:rgba(18,148,144,0.55);font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+    }
+    .cat-swipe-hint .swipe-text{
+      font-size:9px;font-weight:800;letter-spacing:.2em;
+      color:#129490;text-transform:uppercase;
+    }
+
+    /* ── PC 반응형 (768px+): 카드 더 크게, 더 많이 표시 ── */
+    @media(min-width:768px){
+      .closet-container{height:480px;}
+      .clothing-layer{width:220px;height:340px;border-radius:16px;}
+      .layer-1{transform:translateX(-220px) scale(0.65) translateZ(-90px) rotateY(8deg);}
+      .layer-5{transform:translateX(220px) scale(0.65) translateZ(-90px) rotateY(-8deg);}
+      .layer-2{transform:translateX(-128px) scale(0.82) translateZ(-45px) rotateY(5deg);}
+      .layer-4{transform:translateX(128px) scale(0.82) translateZ(-45px) rotateY(-5deg);}
+      .layer-3{transform:translateX(0) scale(1) translateZ(80px) rotateY(0deg);}
+      .clothing-layer.exit-left{transform:translateX(-320px) scale(0.52) translateZ(-140px) rotateY(16deg) rotate(-6deg);}
+      .clothing-layer.exit-right{transform:translateX(320px) scale(0.52) translateZ(-140px) rotateY(-16deg) rotate(6deg);}
+      .clothing-layer.enter-from-right{transform:translateX(320px) scale(0.52) translateZ(-140px) rotateY(-16deg) rotate(6deg);}
+      .clothing-layer.enter-from-left{transform:translateX(-320px) scale(0.52) translateZ(-140px) rotateY(16deg) rotate(-6deg);}
+      @keyframes centerPop{0%{transform:translateX(0) scale(1) translateZ(80px) rotateY(0deg)}55%{transform:translateX(0) scale(1.04) translateZ(120px) rotateY(0deg)}100%{transform:translateX(0) scale(1) translateZ(80px) rotateY(0deg)}}
+      .cat-advice-box{margin:0 32px 14px;}
+      .cat-sec-title{font-size:22px;}
+      .match-score-badge{font-size:10px;padding:4px 9px;top:10px;right:10px;}
+    }
+    @media(min-width:1024px){
+      .closet-container{height:560px;}
+      .clothing-layer{width:260px;height:400px;border-radius:18px;}
+      .layer-1{transform:translateX(-280px) scale(0.6) translateZ(-90px) rotateY(7deg);}
+      .layer-5{transform:translateX(280px) scale(0.6) translateZ(-90px) rotateY(-7deg);}
+      .layer-2{transform:translateX(-168px) scale(0.78) translateZ(-45px) rotateY(4deg);}
+      .layer-4{transform:translateX(168px) scale(0.78) translateZ(-45px) rotateY(-4deg);}
+      .layer-3{transform:translateX(0) scale(1) translateZ(80px) rotateY(0deg);}
+      .clothing-layer.exit-left{transform:translateX(-400px) scale(0.52) translateZ(-140px) rotateY(16deg) rotate(-6deg);}
+      .clothing-layer.exit-right{transform:translateX(400px) scale(0.52) translateZ(-140px) rotateY(-16deg) rotate(6deg);}
+      .clothing-layer.enter-from-right{transform:translateX(400px) scale(0.52) translateZ(-140px) rotateY(-16deg) rotate(6deg);}
+      .clothing-layer.enter-from-left{transform:translateX(-400px) scale(0.52) translateZ(-140px) rotateY(16deg) rotate(-6deg);}
+      .cat-advice-box{margin:0 64px 16px;}
+      .match-score-badge{font-size:11px;top:12px;right:12px;}
+    }
 
     /* === 코디 목적 그리드 === */
     .purpose-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
@@ -99,7 +240,7 @@
     .day-toggle.armed{opacity:1;border-width:2.5px;background:#111;border-color:#111;color:#fff;box-shadow:0 14px 34px rgba(0,0,0,0.18);}
     .vto-btn:disabled{opacity:0.45;cursor:not-allowed;}
     @media(prefers-reduced-motion:reduce){.clothing-layer{transition:none!important;}.vto-spinner{animation:none!important;}.vto-step{animation:none!important;}}
-    .match-score-badge{position:absolute;bottom:6px;right:6px;background:linear-gradient(135deg,#35A29F,#0B666A);color:#fff;font-size:9px;font-weight:800;padding:3px 7px;border-radius:20px;letter-spacing:.04em;pointer-events:none;box-shadow:0 2px 8px rgba(53,162,159,.45);z-index:10;}
+
   </style>
 
 <style>
@@ -363,8 +504,7 @@
 #dayToast { color: rgba(248,113,113,0.9) !important; }
 #doubleTapGuide { color: rgba(151,254,237,0.7) !important; }
 
-/* match-score-badge 다크 */
-.match-score-badge { background: linear-gradient(135deg,#35A29F,#0B666A); }
+
 
 /* catKw chip 다크 */
 .kw-cat-chip {
@@ -598,23 +738,15 @@
   </section>
 
   <!-- 내 모바일 옷장 (다크) -->
-  <section class="px-5 mt-8">
+  <section class="px-0 mt-8">
     <div class="pt-2">
-      <div class="pb-4 mb-2" style="border-bottom:1px solid rgba(151,254,237,0.15);">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-[18px] font-extrabold tracking-tight text-white">모바일옷장</h2>
-            <p class="text-[10px] font-extrabold tracking-[0.18em] mt-0.5" style="color:#97FEED;">MY DIGITAL WARDROBE</p>
-          </div>
-          <span class="text-[10px] font-bold px-2 py-1 rounded-full" style="background:rgba(151,254,237,0.1);color:rgba(151,254,237,0.6);">← 스와이프 →</span>
-        </div>
-        <p class="text-xs mt-2 leading-relaxed" style="color:rgba(255,255,255,0.5);">
-          오프라인 패션 아이템을 카테고리별로 등록하면 AI 추천 코디와 자동 매칭됩니다.<br/>
-          <span style="color:#97FEED;font-weight:700;">3번째 카드</span>에 AI가 선정한 매칭 아이템이 자동으로 배치돼요.
-        </p>
+      <!-- 모바일옷장 섹션 메인 타이틀 -->
+      <div class="text-center pt-8 pb-6" style="border-bottom:1px solid rgba(151,254,237,0.1);">
+        <h2 class="text-[22px] md:text-[56px] font-black tracking-tight text-white md:tracking-tighter">모바일 옷장</h2>
+        <p class="text-[10px] md:text-[12px] font-bold tracking-[0.28em] mt-1" style="color:#70dbd4;">PERSONAL DIGITAL CLOSET</p>
       </div>
 
-      <div id="catList" class="space-y-12 py-6"></div>
+      <div id="catList" class="space-y-0 py-4"></div>
 
       <div class="pb-6">
         <button id="openAddCategory" class="w-full py-4 rounded-3xl font-extrabold text-[13px] flex items-center justify-center gap-2 active:scale-[0.99] transition-all text-white"
@@ -3097,7 +3229,10 @@ function layerContent(el,item,catKey){
   CodiBank.getImageSrc(ref).then(src=>{
     if(el.dataset.renderToken!==rt)return;
     if(!src){ph.textContent='이미지 없음';return;}
-    el.innerHTML=`<img class="layer-img" alt="아이템" src="${src}"/>`;
+    // 이미지 + 하단 레이블 (center card = layer-3)
+    const brandTxt = (item?.brand||item?.color||item?.subColor||'').slice(0,18).toUpperCase() || '';
+    el.innerHTML=`<img class="layer-img" alt="아이템" src="${src}"/>`
+      + (brandTxt ? `<div class="card-label">${brandTxt}</div>` : '');
   });
 }
 function slc(el,n){el.classList.remove('layer-1','layer-2','layer-3','layer-4','layer-5');el.classList.add(`layer-${n}`);}
@@ -3107,15 +3242,61 @@ function mod(n,m){return((n%m)+m)%m;}
 function initWin(items,si){const l=items.length;if(l<=0)return[-1,-1,-1,-1,-1];if(l>=5)return[0,1,2,3,4].map(i=>mod(si+i,l));return[0,1,2,3,4].map(i=>i<l?i:-1);}
 function attachSwipe(deck,ctrl){let dn=false,sx=0,sy=0;const TH=48;deck.addEventListener('pointerdown',e=>{dn=true;sx=e.clientX;sy=e.clientY;try{deck.setPointerCapture(e.pointerId);}catch(_){}});deck.addEventListener('pointermove',e=>{if(!dn)return;const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy))e.preventDefault();},{passive:false});function end(e){if(!dn)return;dn=false;const dx=(e.clientX||0)-sx,dy=(e.clientY||0)-sy;if(Math.abs(dx)>TH&&Math.abs(dx)>Math.abs(dy)){dx<0?ctrl.shift(+1):ctrl.shift(-1);}}deck.addEventListener('pointerup',end);deck.addEventListener('pointercancel',()=>{dn=false;});deck.addEventListener('lostpointercapture',()=>{dn=false;});}
 function buildSection(catMeta,items){
-  const sec=document.createElement('section');sec.className='mt-0';sec.dataset.catKey=catMeta.key;
-  const hdr=document.createElement('div');hdr.className='px-6 mb-4 flex justify-between items-center';
-  hdr.innerHTML=`<div class="w-8"></div><div class="flex-1 text-center"><div class="text-[14px] font-extrabold tracking-tight text-slate-900">${escH(catMeta.label)}&nbsp;&nbsp;<span class=\"text-accent\">${items.length}건</span></div></div><button class="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm active:scale-95"><span class="material-symbols-outlined filled text-[18px]">add</span></button>`;
-  hdr.querySelector('button').addEventListener('click',()=>{window.location.href=`camera.html?category=${encodeURIComponent(catMeta.key)}`;});
-  // (요청) 카테고리별 배경 박스(컬러 그라데이션) 삭제 + 구분 라인만 유지
-  // - 좌/우 경계선 없이 위/아래 라인만 보이도록 border-top/bottom 유지
+  // ── 섹션 루트 ──
+  const sec=document.createElement('section');
+  sec.className='mb-0';
+  sec.dataset.catKey=catMeta.key;
+
+  // ── 헤더: 카테고리명 + 건수 (모바일: 중앙정렬 / PC: 중앙정렬, 타이틀 큼) ──
+  const hdr=document.createElement('div');
+  hdr.className='px-6 pt-8 pb-1 flex flex-col items-center relative';
+  const addBtn=document.createElement('button');
+  addBtn.className='absolute right-6 top-8 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform';
+  addBtn.style.cssText='background:rgba(151,254,237,0.1);border:1px solid rgba(151,254,237,0.2);';
+  addBtn.innerHTML='<span class="material-symbols-outlined filled text-[16px]" style="color:#97FEED;">add</span>';
+  addBtn.addEventListener('click',()=>{window.location.href=`camera.html?category=${encodeURIComponent(catMeta.key)}`;});
+  const titleEl=document.createElement('h2');
+  titleEl.className='text-[18px] md:text-[28px] lg:text-[32px] font-extrabold md:font-black text-white pb-1.5';
+  titleEl.style.cssText='border-bottom:2.5px solid #129490;display:inline-block;';
+  titleEl.innerHTML=`${escH(catMeta.label)}&nbsp;<span style="color:#70dbd4;">${items.length}개</span>`;
+  hdr.appendChild(titleEl);
+  hdr.appendChild(addBtn);
+
+  // ── advice 박스: 매칭점수 또는 기본 안내 ──
+  const recId=(S.hasGenerated&&S.matchByCat&&S.matchByCat[catMeta.key])?String(S.matchByCat[catMeta.key]):'';
+  const iid=recId;
+  const scoreVal=(recId&&S.matchScoreMap)?( S.matchScoreMap[iid]||0):0;
+  const detailVal=(recId&&S.matchDetailMap)?(S.matchDetailMap[iid]||null):null;
+
+  const advBox=document.createElement('div');
+  advBox.className='mx-6 mt-4 mb-3 px-4 py-3 rounded-xl flex items-center gap-2';
+  advBox.style.cssText='background:rgba(0,95,99,0.15);border:1px solid rgba(18,148,144,0.3);';
+  let advHtml='';
+  if(scoreVal){
+    let tip=detailVal?`카테고리 ${detailVal.catScore}P + 컬러 ${detailVal.colorScore}P + 디자인 ${detailVal.designScore}P`:'AI 추천';
+    advHtml=`<span style="font-size:12px;font-weight:800;color:#a2fdf0;white-space:nowrap;">codibank :</span>`
+           +`<span style="font-size:12px;color:rgba(255,255,255,0.85);">이 아이템은 추천코디와 매칭점수 <span style="color:#a2fdf0;font-weight:900;">${scoreVal}P</span> <span style="font-size:10px;color:rgba(255,255,255,0.4);">(${tip})</span></span>`;
+  } else if(S.hasGenerated){
+    advHtml=`<span style="font-size:12px;font-weight:800;color:#a2fdf0;white-space:nowrap;">codibank :</span>`
+           +`<span style="font-size:12px;color:rgba(255,255,255,0.6);">AI 추천코디와 카드를 스와이프해서 비교해보세요</span>`;
+  } else {
+    advHtml=`<span style="font-size:12px;font-weight:800;color:rgba(151,254,237,0.5);white-space:nowrap;">codibank :</span>`
+           +`<span style="font-size:12px;color:rgba(255,255,255,0.4);">← 스와이프로 아이템을 확인하세요</span>`;
+  }
+  advBox.innerHTML=advHtml;
+
+  // ── SWIPE 힌트 ──
+  const swipeHint=document.createElement('div');
+  swipeHint.className='flex justify-center items-center gap-2 mb-2';
+  swipeHint.innerHTML=`
+    <span class="material-symbols-outlined" style="font-size:14px;color:rgba(18,148,144,0.55);">west</span>
+    <span style="font-size:9px;font-weight:800;letter-spacing:.22em;color:#129490;text-transform:uppercase;">Swipe to Explore</span>
+    <span class="material-symbols-outlined" style="font-size:14px;color:rgba(18,148,144,0.55);">east</span>`;
+
+  // ── 카드 덱 컨테이너 ──
   const dw=document.createElement('div');
-  dw.className='mx-4 border-t border-b border-slate-200 overflow-visible';
-  dw.style.cssText='padding: 22px 0;';
+  dw.className='overflow-visible';
+  dw.style.cssText='padding:8px 0 16px;';
   const deck=document.createElement('div');deck.className='closet-container';
   const ctrl={catKey:catMeta.key,items:Array.isArray(items)?items:[],startIndex:0,windowIndices:[-1,-1,-1,-1,-1],els:[],animating:false,
     shift(dir){if(this.animating)return;const l=this.items.length;if(l<=0)return;this.animating=true;playTick();deck.classList.add('is-shifting');const MOVE=520,EXIT=200,POP=380,UNL=EXIT+MOVE+120;if(l>=5){this.startIndex=mod(this.startIndex+(dir>0?1:-1),l);this.windowIndices=[0,1,2,3,4].map(i=>mod(this.startIndex+i,l));}else{this.windowIndices=(dir>0)?rotL(this.windowIndices):rotR(this.windowIndices);}const oe=this.els.slice(),lv=dir>0?oe[0]:oe[oe.length-1];if(!lv){this.animating=false;deck.classList.remove('is-shifting');return;}const ne=dir>0?oe.slice(1).concat(lv):[lv].concat(oe.slice(0,-1));this.els=ne;this.els.forEach(e=>e.classList.remove('exit-left','exit-right','enter-from-left','enter-from-right','center-pop'));lv.classList.add(dir>0?'exit-left':'exit-right');for(let i=0;i<ne.length;i++){if((dir>0&&i===4)||(dir<0&&i===0))continue;slc(ne[i],i+1);}const ce=ne[2];if(ce)setTimeout(()=>{if(!this.animating)return;ce.classList.remove('center-pop');try{void ce.offsetHeight;}catch(_){}ce.classList.add('center-pop');setTimeout(()=>ce.classList.remove('center-pop'),560);},POP);setTimeout(()=>{if(!this.animating)return;lv.classList.remove('exit-left','exit-right');const ep=dir>0?5:1,ei=dir>0?this.windowIndices[4]:this.windowIndices[0];layerContent(lv,ei>=0?this.items[ei]:null,this.catKey);lv.classList.add('no-transition');slc(lv,ep);lv.classList.add(dir>0?'enter-from-right':'enter-from-left');try{void lv.offsetHeight;}catch(_){}lv.classList.remove('no-transition');requestAnimationFrame(()=>lv.classList.remove(dir>0?'enter-from-right':'enter-from-left'));},EXIT);setTimeout(()=>{this.animating=false;deck.classList.remove('is-shifting');if(lv)lv.classList.remove('exit-left','exit-right','enter-from-left','enter-from-right','no-transition');},UNL);}};
@@ -3147,7 +3328,21 @@ function buildSection(catMeta,items){
     || (highlightId&&ctrl.items.some(x=>x&&String(x.id)===String(highlightId)))
     || (!!recId);
   if(hl){deck.classList.add('deck-highlight','pulse-ring');setTimeout(()=>deck.classList.remove('pulse-ring'),1600);}
-  sec.appendChild(hdr);dw.appendChild(deck);sec.appendChild(dw);return sec;
+
+  // ── 섹션 조립 ──
+  dw.appendChild(deck);
+  sec.appendChild(hdr);
+  sec.appendChild(advBox);
+  sec.appendChild(swipeHint);
+  sec.appendChild(dw);
+
+  // ── 섹션 구분선 ──
+  const divider=document.createElement('div');
+  divider.className='mx-10 my-2';
+  divider.style.cssText='border-top:1px solid rgba(255,255,255,0.05);';
+  sec.appendChild(divider);
+
+  return sec;
 }
 function renderCategories(){catListEl.innerHTML='';CodiBank.getCategoriesForUser(user.email).forEach(c=>{catListEl.appendChild(buildSection(c,CodiBank.getItemsByUserAndCategory(user.email,c.key)));});if(focusCat){const t=document.querySelector(`[data-cat-key="${CSS.escape(focusCat)}"]`);if(t)setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),120);}}
 renderCategories();
