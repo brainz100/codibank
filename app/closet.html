@@ -49,8 +49,8 @@
     .purpose-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 6px;border-radius:14px;border:1.5px solid rgba(15,23,42,0.08);background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.04);font-size:11px;font-weight:800;color:rgba(15,23,42,0.68);cursor:pointer;transition:all 180ms ease;-webkit-tap-highlight-color:transparent;user-select:none;}
     .purpose-card .material-symbols-outlined{font-size:22px;transition:color 180ms ease;}
     .purpose-card:active{transform:scale(0.96);}
-    .purpose-card.active{background:rgba(197,163,88,0.13);border-color:rgba(197,163,88,0.6);color:rgba(120,88,22,0.95);box-shadow:0 8px 20px rgba(197,163,88,0.18);}
-    .purpose-card.active .material-symbols-outlined{font-variation-settings:'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 24;}
+    .purpose-card.active{background:rgba(18,148,144,0.3);border-color:#70dbd4;color:#a2fdf0;box-shadow:0 8px 24px rgba(18,148,144,0.35);}
+    .purpose-card.active .material-symbols-outlined{font-variation-settings:'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 24;color:#a2fdf0 !important;}
 
     /* === VTO 캔버스 === */
     /*
@@ -101,6 +101,18 @@
     @media(prefers-reduced-motion:reduce){.clothing-layer{transition:none!important;}.vto-spinner{animation:none!important;}.vto-step{animation:none!important;}}
     .match-score-badge{position:absolute;bottom:6px;right:6px;background:linear-gradient(135deg,#35A29F,#0B666A);color:#fff;font-size:9px;font-weight:800;padding:3px 7px;border-radius:20px;letter-spacing:.04em;pointer-events:none;box-shadow:0 2px 8px rgba(53,162,159,.45);z-index:10;}
 
+    /* ── AI 호출 버튼 상태 ── */
+    #aiCallBtn.ready {
+      background: linear-gradient(105deg,#137373 0%,#1a9e9e 45%,#137373 100%) !important;
+      border: 1px solid rgba(151,254,237,0.3) !important;
+      box-shadow: 0 0 30px rgba(19,115,115,0.5), 0 0 60px rgba(151,254,237,0.08) !important;
+    }
+    #aiCallBtn.busy {
+      background: linear-gradient(105deg,#0a4040 0%,#0d6060 45%,#0a4040 100%) !important;
+      border: 1px solid rgba(151,254,237,0.5) !important;
+      box-shadow: 0 0 40px rgba(19,115,115,0.7) !important;
+      cursor: wait !important;
+    }
     /* ── 모바일옷장 다크 디자인 (m_closet_0308) ── */
     /* 카드 배경: 다크 네이비 */
     .clothing-layer { background: #0d1f3c !important; border-color: rgba(112,219,212,0.15) !important; }
@@ -360,12 +372,12 @@
 }
 .purpose-card .material-symbols-outlined { color: rgba(151,254,237,0.6) !important; }
 .purpose-card.active {
-  background: rgba(53,162,159,0.25) !important;
-  border-color: rgba(151,254,237,0.7) !important;
-  color: #97FEED !important;
-  box-shadow: 0 8px 20px rgba(53,162,159,0.25) !important;
+  background: rgba(18,148,144,0.3) !important;
+  border-color: #70dbd4 !important;
+  color: #a2fdf0 !important;
+  box-shadow: 0 8px 24px rgba(18,148,144,0.35) !important;
 }
-.purpose-card.active .material-symbols-outlined { color: #97FEED !important; }
+.purpose-card.active .material-symbols-outlined { color: #a2fdf0 !important; font-variation-settings:'FILL' 1,'wght' 700,'GRAD' 0,'opsz' 24 !important; }
 
 /* ── 날짜 카드 ── */
 .dc {
@@ -539,14 +551,14 @@
 
     <!-- ★ AI 스타일리스트 호출 버튼 ★ -->
     <button id="aiCallBtn" type="button" class="w-full flex items-center px-8 active:scale-[0.98] transition-all"
-      style="min-height:80px;border-radius:18px;background:linear-gradient(105deg,#137373 0%,#1a9e9e 45%,#137373 100%);border:1px solid rgba(151,254,237,0.3);box-shadow:0 0 30px rgba(19,115,115,0.5),0 0 60px rgba(151,254,237,0.08);position:relative;overflow:hidden;cursor:pointer;">
-      <span style="position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(151,254,237,0.1) 0%,transparent 60%);pointer-events:none;"></span>
+      style="min-height:80px;border-radius:18px;background:rgba(255,255,255,0.04);border:1.5px dashed rgba(151,254,237,0.25);box-shadow:none;position:relative;overflow:hidden;cursor:pointer;transition:background 0.3s,border 0.3s,box-shadow 0.3s;">
+      <span id="aiCallGlow" style="position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(151,254,237,0.0) 0%,transparent 60%);pointer-events:none;transition:background 0.3s;"></span>
       <div class="flex items-center justify-center mr-4">
-        <span class="material-symbols-outlined text-3xl" style="color:#97FEED;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 32;">auto_awesome</span>
+        <span id="aiCallIcon" class="material-symbols-outlined text-3xl" style="color:rgba(151,254,237,0.35);font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 32;transition:color 0.3s;">auto_awesome</span>
       </div>
       <div class="flex-1 text-right">
-        <span class="text-[17px] font-bold text-white block tracking-tight">AI 스타일리스트 호출</span>
-        <span class="block text-[9px] font-bold uppercase mt-0.5" style="color:rgba(151,254,237,0.8);letter-spacing:.15em;">Start Intelligent Styling</span>
+        <span id="aiCallMainText" class="text-[17px] font-bold block tracking-tight" style="color:rgba(255,255,255,0.4);transition:color 0.3s;">AI 스타일리스트 호출</span>
+        <span id="aiCallSubText" class="block text-[9px] font-bold uppercase mt-0.5" style="color:rgba(151,254,237,0.3);letter-spacing:.15em;transition:color 0.3s;">목적과 날짜를 먼저 선택하세요</span>
       </div>
     </button>
 
@@ -568,26 +580,49 @@
 
   </section>
 
-  <!-- ── AI 스타일리스트 포인트 (설명 + 키워드) ── -->
+  <!-- ── 추천코디 상세 설명 + AI 스타일리스트 포인트 ── -->
   <section class="px-5 mt-6">
-    <div class="p-4 rounded-2xl mb-4" style="background:rgba(19,115,115,0.13);border:1px solid rgba(151,254,237,0.15);">
-      <div class="flex items-center justify-between mb-2">
-        <p class="text-[10px] font-extrabold tracking-[0.22em]" style="color:#97FEED;">✦ AI 스타일리스트 포인트</p>
-        <p id="vtoMeta" class="text-[10px]" style="color:rgba(255,255,255,0.4);"></p>
+
+    <!-- ① 추천코디 상세 설명 박스 -->
+    <div id="codiDetailBox" class="rounded-2xl mb-3 overflow-hidden" style="background:rgba(7,25,82,0.7);border:1px solid rgba(151,254,237,0.18);">
+      <!-- 헤더 바 -->
+      <div class="flex items-center justify-between px-4 py-2.5" style="background:rgba(18,148,144,0.18);border-bottom:1px solid rgba(151,254,237,0.1);">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-[14px]" style="color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 14;">style</span>
+          <p class="text-[10px] font-extrabold tracking-[0.2em]" style="color:#97FEED;">AI 추천코디 분석</p>
+        </div>
+        <p id="vtoMeta" class="text-[10px]" style="color:rgba(255,255,255,0.35);"></p>
       </div>
+      <!-- 컨텍스트 태그 (목적/날짜/온도/지역) -->
+      <div id="codiContextRow" class="flex flex-wrap gap-1.5 px-4 pt-3 pb-1"></div>
       <!-- 체형 뱃지 -->
-      <div id="bodyTypeBadge" class="hidden mb-2">
+      <div id="bodyTypeBadge" class="hidden px-4 pb-1">
         <span id="bodyTypeTxt" class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full" style="background:rgba(53,162,159,0.2);border:1px solid rgba(151,254,237,0.3);color:#97FEED;">
           <span class="material-symbols-outlined" style="font-size:13px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 13;">accessibility_new</span>
           <span id="bodyTypeLabel"></span>
         </span>
       </div>
-      <p id="codiExplain" class="text-[13px] leading-relaxed" style="color:rgba(255,255,255,0.7);font-weight:400;">목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.</p>
-      <div id="kwRow" class="mt-2 flex flex-wrap gap-1 hidden"></div>
+      <!-- 상세 설명 (400자) -->
+      <div class="px-4 pb-3 pt-2">
+        <p id="codiExplain" class="text-[13px] leading-[1.75] font-normal" style="color:rgba(255,255,255,0.78);">목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.</p>
+      </div>
+    </div>
+
+    <!-- ② AI 스타일리스트 포인트 박스 -->
+    <div id="codiPointBox" class="rounded-2xl mb-4" style="background:rgba(19,115,115,0.10);border:1px solid rgba(151,254,237,0.12);">
+      <div class="flex items-center justify-between px-4 py-2.5" style="border-bottom:1px solid rgba(151,254,237,0.08);">
+        <p class="text-[10px] font-extrabold tracking-[0.22em]" style="color:rgba(151,254,237,0.75);">✦ AI 스타일리스트 포인트</p>
+      </div>
+      <!-- 스타일 키워드 -->
+      <div class="px-4 pt-3 pb-1">
+        <p class="text-[9px] font-extrabold tracking-[0.18em] mb-1.5" style="color:rgba(151,254,237,0.45);">스타일 키워드</p>
+        <div id="kwRow" class="flex flex-wrap gap-1 hidden"></div>
+      </div>
       <!-- 카테고리별 키워드 -->
-      <div id="catKwSection" class="hidden mt-3 pt-3" style="border-top:1px solid rgba(151,254,237,0.12);">
-        <p class="text-[10px] font-extrabold tracking-[0.18em] mb-2" style="color:rgba(151,254,237,0.6);">카테고리별 코디 키워드</p>
+      <div id="catKwSection" class="hidden px-4 pt-2 pb-3">
+        <p class="text-[9px] font-extrabold tracking-[0.18em] mb-2 mt-1" style="color:rgba(151,254,237,0.45);">카테고리별 코디 포인트</p>
         <div id="catKwRow" class="flex flex-col gap-1.5"></div>
+        <p class="text-[10px] mt-2.5 leading-relaxed" style="color:rgba(151,254,237,0.4);">↓ 아래 모바일 옷장과 AI 매칭 분석 중</p>
       </div>
       <div id="matchRow" style="display:none;"></div>
     </div>
@@ -1924,11 +1959,41 @@ async function updateVTO(opts={}){
   if(S.tok!==tok)return;
 
   // 3) 설명 UI 반영
+  // ── 컨텍스트 태그 (목적/날짜/온도/지역) ──
+  try{
+    const ctxRow = document.getElementById('codiContextRow');
+    if(ctxRow){
+      ctxRow.innerHTML = '';
+      const tags = [];
+      // 목적
+      const pLabel = (S.pk==='custom') ? (String(S.customPurpose||'').trim()||'맞춤') : (getPur(S.pk)?.label||'');
+      if(pLabel) tags.push({ icon:'checkroom', txt: pLabel });
+      // 날짜
+      const _ds = S.selDateKey || '';
+      const _dLabel = S.day==='today' ? '오늘' : (_ds ? _ds.replace(/-/g,'.').slice(5) : '내일');
+      tags.push({ icon:'calendar_month', txt: _dLabel });
+      // 온도
+      if(S.wx && S.wx.temp !== null && S.wx.temp !== undefined)
+        tags.push({ icon:'thermostat', txt: `${S.wx.temp}°` });
+      // 날씨 텍스트
+      if(S.wx && S.wx.text) tags.push({ icon:'partly_cloudy_day', txt: S.wx.text });
+      // 지역
+      if(S.wx && S.wx.location) tags.push({ icon:'location_on', txt: String(S.wx.location).slice(0,10) });
+      tags.forEach(t=>{
+        const span = document.createElement('span');
+        span.className = 'inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full';
+        span.style.cssText = 'background:rgba(18,148,144,0.18);border:1px solid rgba(151,254,237,0.2);color:#a2fdf0;';
+        span.innerHTML = `<span class="material-symbols-outlined" style="font-size:11px;color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 11;">${t.icon}</span>${t.txt}`;
+        ctxRow.appendChild(span);
+      });
+    }
+  }catch(_){}
+
+  // ── 추천코디 설명 (400자) ──
   const expEl=document.getElementById('codiExplain');
   if(expEl){
     let txt=explain||'날씨와 목적에 맞는 코디를 추천했어요.';
-    if(layerTip)txt+=` · ${layerTip}`;
-    // v17: 최대 400자
+    if(layerTip) txt += ` · ${layerTip}`;
     expEl.textContent=trunc(txt, 400);
   }
   const kwRow=document.getElementById('kwRow');
@@ -1936,11 +2001,12 @@ async function updateVTO(opts={}){
     kwRow.innerHTML='';
     (keywords||[]).slice(0,4).forEach((kw,i)=>{
       const c=document.createElement('span');
-      c.className=`px-2.5 py-1 rounded-full text-[10px] font-bold ${i===0?'bg-accent/15 text-accent border border-accent/30':'bg-slate-100 text-slate-600 border border-slate-200'}`;
+      c.className='px-2.5 py-1 rounded-full text-[10px] font-bold';
+      c.style.cssText = i===0 ? 'background:rgba(18,148,144,0.25);border:1px solid rgba(151,254,237,0.4);color:#a2fdf0;' : 'background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);';
       c.textContent=kw;
       kwRow.appendChild(c);
     });
-    kwRow.classList.toggle('hidden', !(keywords&&keywords.length));
+    if(keywords && keywords.length > 0){ kwRow.classList.remove('hidden'); } else { kwRow.classList.add('hidden'); }
   }
 
   // ✅ 체형 커버 뱃지
@@ -1972,18 +2038,19 @@ async function updateVTO(opts={}){
         const row = document.createElement('div');
         row.className = 'flex items-center gap-1.5 flex-wrap';
         const lbl = document.createElement('span');
-        lbl.className = 'text-[10px] font-extrabold text-slate-500 min-w-[48px]';
+        lbl.className = 'text-[10px] font-extrabold min-w-[48px]'; lbl.style.color='rgba(151,254,237,0.55)';
         lbl.textContent = catKwLabels[k] || k;
         row.appendChild(lbl);
         kws.forEach(kw=>{
           const chip = document.createElement('span');
-          chip.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent/10 border border-accent/25 text-accent';
+          chip.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold';
+          chip.style.cssText = 'background:rgba(18,148,144,0.18);border:1px solid rgba(151,254,237,0.28);color:#a2fdf0;';
           chip.textContent = kw;
           row.appendChild(chip);
         });
         catKwRow.appendChild(row);
       });
-      catKwSection.classList.remove('hidden');
+      if(catKwSection){ catKwSection.classList.remove('hidden'); catKwSection.style.display=''; }
     } else if(catKwSection){
       catKwSection.classList.add('hidden');
     }
@@ -2037,6 +2104,8 @@ async function updateVTO(opts={}){
   }
   // 매칭 결과를 카테고리 덱(3번째 카드)에 반영
   try{ renderCategories(qCategory, highlightId); }catch(_e){}
+  // 매칭 후 버튼 상태 복원
+  try{ updateAiCallBtn(); }catch(_){} 
 
   // 4) 이미지 생성 (REMOTE(OpenAI) 우선)
   // 런타임 설정
@@ -2293,6 +2362,35 @@ function renderPurposeGrid(){
 function setActivePurpose(k){
   document.querySelectorAll('[data-purpose]').forEach(b=>{const on=b.dataset.purpose===k;b.classList.toggle('active',on);b.setAttribute('aria-pressed',on?'true':'false');});
 }
+function updateAiCallBtn(){
+  const btn = document.getElementById('aiCallBtn');
+  const mainTxt = document.getElementById('aiCallMainText');
+  const subTxt  = document.getElementById('aiCallSubText');
+  const icon    = document.getElementById('aiCallIcon');
+  const glow    = document.getElementById('aiCallGlow');
+  if(!btn) return;
+  const hasP = !!(S.pk && S.pk !== '');
+  const busy = !!S.busy;
+  btn.classList.remove('ready','busy');
+  if(busy){
+    btn.classList.add('busy');
+    if(mainTxt){ mainTxt.textContent='AI 스타일링 작업중'; mainTxt.style.color='#a2fdf0'; }
+    if(subTxt){ subTxt.textContent='잠시만 기다려주세요…'; subTxt.style.color='rgba(151,254,237,0.7)'; }
+    if(icon){ icon.style.color='#97FEED'; icon.style.fontVariationSettings="'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 32"; }
+    if(glow){ glow.style.background='radial-gradient(circle,rgba(151,254,237,0.15) 0%,transparent 60%)'; }
+  } else if(hasP){
+    btn.classList.add('ready');
+    if(mainTxt){ mainTxt.textContent='AI 스타일리스트 호출'; mainTxt.style.color='#fff'; }
+    if(subTxt){ subTxt.textContent='Start Intelligent Styling'; subTxt.style.color='rgba(151,254,237,0.8)'; }
+    if(icon){ icon.style.color='#97FEED'; icon.style.fontVariationSettings="'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 32"; }
+    if(glow){ glow.style.background='radial-gradient(circle,rgba(151,254,237,0.1) 0%,transparent 60%)'; }
+  } else {
+    if(mainTxt){ mainTxt.textContent='AI 스타일리스트 호출'; mainTxt.style.color='rgba(255,255,255,0.4)'; }
+    if(subTxt){ subTxt.textContent='목적과 날짜를 먼저 선택하세요'; subTxt.style.color='rgba(151,254,237,0.3)'; }
+    if(icon){ icon.style.color='rgba(151,254,237,0.35)'; icon.style.fontVariationSettings="'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 32"; }
+    if(glow){ glow.style.background='radial-gradient(circle,rgba(151,254,237,0.0) 0%,transparent 60%)'; }
+  }
+}
 function setPurpose(k){
   S.pk = k;
   user.codiPurposeKey = k;
@@ -2303,6 +2401,7 @@ function setPurpose(k){
   CodiBank.updateUserProfile(user.email, patch);
   renderPurposeGrid();
   setMetaLine();
+  updateAiCallBtn();   // ← 목적 선택 시 버튼 활성화
 
   // 조건 변경 -> 추천 결과 리셋(사용자가 '추천코디생성'을 눌러 생성)
   S.seed = 0;
@@ -2637,6 +2736,7 @@ async function generateStyling(opts={}){
   // 생성 중에는 중복 요청 방지
   S.busy = true;
   setGenUiEnabled(false);
+  updateAiCallBtn();
   try{
     setMetaLine();
     await updateVTO({refresh:bumpSeed});
@@ -2646,6 +2746,7 @@ async function generateStyling(opts={}){
     S.busy = false;
     updateQuotaBadge();
     setGenUiEnabled(canGenerateNow());
+    updateAiCallBtn();
   }
 }
 
@@ -3375,6 +3476,8 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   buildDateCards();
   document.addEventListener('forecastLoaded', buildDateCards);
   setTimeout(buildDateCards, 1500); // 예보 로드 후 재빌드
+  // 초기 버튼 상태 설정
+  try{ updateAiCallBtn(); }catch(_){}
 })();
 
 </script>
