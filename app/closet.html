@@ -619,7 +619,10 @@
     <!-- ② AI 스타일리스트 포인트 박스 -->
     <div id="codiPointBox" class="rounded-2xl mb-4" style="background:rgba(19,115,115,0.10);border:1px solid rgba(151,254,237,0.12);">
       <div class="flex items-center justify-between px-4 py-2.5" style="border-bottom:1px solid rgba(151,254,237,0.08);">
+        <div class="flex items-center gap-2">
         <p class="text-[10px] font-extrabold tracking-[0.22em]" style="color:rgba(151,254,237,0.75);">✦ AI 스타일링 포인트</p>
+        <span id="stylistBadge" class="hidden text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(18,148,144,0.25);border:1px solid rgba(151,254,237,0.3);color:#97FEED;"></span>
+      </div>
       </div>
       <!-- 스타일 키워드 -->
       <div class="px-4 pt-3 pb-1">
@@ -1967,6 +1970,7 @@ async function updateVTO(opts={}){
     S.matchPairs = (r.matchPairs && Array.isArray(r.matchPairs)) ? r.matchPairs : buildMatchPairsFromPalette(palette, S.wx.temp);
     S.categoryKeywords = r.categoryKeywords || {};
     S.bodyType = r.bodyType || null;
+    S.keywords = Array.isArray(r.keywords) ? r.keywords : keywords;
   }catch(e){
     console.warn('AI 분석 폴백:',e.message||e);
     const pm=getPur(S.pk);
@@ -1992,6 +1996,7 @@ async function updateVTO(opts={}){
       shoes: [colorNameFromHex(palette?.shoes)].filter(Boolean),
     };
     S.bodyType = null;
+    S.keywords = keywords;
     try { S.matchPairs = buildMatchPairsFromPalette(palette, S.wx.temp); } catch(_){ S.matchPairs = []; }
   }
   if(S.tok!==tok)return;
@@ -2037,6 +2042,7 @@ async function updateVTO(opts={}){
   const kwRow=document.getElementById('kwRow');
   if(kwRow){
     kwRow.innerHTML='';
+    kwRow.classList.add('hidden'); // 항상 초기화 후 재렌더링
     (keywords||[]).slice(0,4).forEach((kw,i)=>{
       const c=document.createElement('span');
       c.className='px-2.5 py-1 rounded-full text-[10px] font-bold';
@@ -2061,38 +2067,8 @@ async function updateVTO(opts={}){
     }
   }catch(_){}
 
-  // ✅ 카테고리별 키워드 표시
-  try{
-    const catKwSection = document.getElementById('catKwSection');
-    const catKwRow = document.getElementById('catKwRow');
-    const catKwLabels = { outer:'아우터', top:'탑/셔츠', bottom:'하의', pants:'하의/스커트', shoes:'신발/구두', scarf:'스카프·포인트' };
-    const ckw = S.categoryKeywords || {};
-    const catKeys = Object.keys(ckw).filter(k => ckw[k] && ckw[k].length);
-    if(catKwRow && catKeys.length){
-      catKwRow.innerHTML = '';
-      catKeys.forEach(k=>{
-        const kws = ckw[k].filter(Boolean);
-        if(!kws.length) return;
-        const row = document.createElement('div');
-        row.className = 'flex items-center gap-1.5 flex-wrap';
-        const lbl = document.createElement('span');
-        lbl.className = 'text-[10px] font-extrabold min-w-[48px]'; lbl.style.color='rgba(151,254,237,0.55)';
-        lbl.textContent = catKwLabels[k] || k;
-        row.appendChild(lbl);
-        kws.forEach(kw=>{
-          const chip = document.createElement('span');
-          chip.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold';
-          chip.style.cssText = 'background:rgba(18,148,144,0.18);border:1px solid rgba(151,254,237,0.28);color:#a2fdf0;';
-          chip.textContent = kw;
-          row.appendChild(chip);
-        });
-        catKwRow.appendChild(row);
-      });
-      if(catKwSection){ catKwSection.classList.remove('hidden'); catKwSection.style.display=''; }
-    } else if(catKwSection){
-      catKwSection.classList.add('hidden');
-    }
-  }catch(_){}
+  // ✅ AI 스타일링 포인트 렌더링 (함수로 분리 - 다시코디 시 명시적 호출)
+  renderStylingPoint();
 
   // ✅ (카테고리-컬러) 키워드: 디지털 옷장 매칭용
   const matchRow=document.getElementById('matchRow');
@@ -2769,7 +2745,77 @@ let _spk=null;
 function clearSpk(){document.querySelectorAll('.clothing-layer.sparkle,.chip-sparkle').forEach(e=>e.classList.remove('sparkle','chip-sparkle'));}
 function sparkle(){clearSpk();document.querySelectorAll('#fitChips .fit-chip[data-item-id]').forEach(e=>e.classList.add('chip-sparkle'));if(_spk)clearTimeout(_spk);_spk=setTimeout(clearSpk,3800);}
 
-async function generateStyling(opts={}){
+// ── AI 스타일링 포인트 렌더링 함수 (다시코디 시 명시적 재호출) ──
+function renderStylingPoint(){
+  // 스타일리스트 뱃지
+  try{
+    const sBadge = document.getElementById('stylistBadge');
+    if(sBadge){
+      if(S.stylist && S.stylist.voice){
+        sBadge.textContent = `${S.stylist.voice} #${S.stylist.id}`;
+        sBadge.classList.remove('hidden');
+      } else {
+        sBadge.classList.add('hidden');
+      }
+    }
+  }catch(_){}
+
+  // 스타일 키워드 (kwRow)
+  try{
+    const kwRow = document.getElementById('kwRow');
+    if(kwRow){
+      kwRow.innerHTML = '';
+      kwRow.classList.add('hidden');
+      const keywords = S.keywords || [];
+      keywords.slice(0,4).forEach((kw,i)=>{
+        const chip = document.createElement('span');
+        chip.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold';
+        chip.style.cssText = i===0
+          ? 'background:rgba(18,148,144,0.25);border:1px solid rgba(151,254,237,0.4);color:#a2fdf0;'
+          : 'background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);';
+        chip.textContent = kw;
+        kwRow.appendChild(chip);
+      });
+      if(keywords.length > 0) kwRow.classList.remove('hidden');
+    }
+  }catch(_){}
+
+  // 카테고리별 코디 포인트 (catKwSection)
+  try{
+    const catKwSection = document.getElementById('catKwSection');
+    const catKwRow = document.getElementById('catKwRow');
+    if(!catKwRow) return;
+    const catKwLabels = { outer:'아우터', top:'탑/셔츠', bottom:'하의', pants:'하의/스커트', shoes:'신발/구두', scarf:'스카프·포인트' };
+    const ckw = S.categoryKeywords || {};
+    const catKeys = Object.keys(ckw).filter(k => ckw[k] && Array.isArray(ckw[k]) && ckw[k].length);
+    // 항상 초기화 먼저
+    catKwRow.innerHTML = '';
+    if(catKwSection) catKwSection.classList.add('hidden');
+    if(!catKeys.length) return;
+    catKeys.forEach(k=>{
+      const kws = ckw[k].filter(Boolean);
+      if(!kws.length) return;
+      const row = document.createElement('div');
+      row.className = 'flex items-center gap-1.5 flex-wrap';
+      const lbl = document.createElement('span');
+      lbl.className = 'text-[10px] font-extrabold min-w-[48px]';
+      lbl.style.color = 'rgba(151,254,237,0.55)';
+      lbl.textContent = catKwLabels[k] || k;
+      row.appendChild(lbl);
+      kws.forEach(kw=>{
+        const chip = document.createElement('span');
+        chip.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold';
+        chip.style.cssText = 'background:rgba(18,148,144,0.18);border:1px solid rgba(151,254,237,0.28);color:#a2fdf0;';
+        chip.textContent = kw;
+        row.appendChild(chip);
+      });
+      catKwRow.appendChild(row);
+    });
+    if(catKwSection){ catKwSection.classList.remove('hidden'); catKwSection.style.display=''; }
+  }catch(e){ console.warn('renderStylingPoint 에러:', e); }
+}
+
+async function generateStyling(opts={}) {
   const bumpSeed = !!opts.bumpSeed;
   if(S.busy) return;
   if(bumpSeed) S.seed += 1;
@@ -2799,6 +2845,8 @@ async function generateStyling(opts={}){
     updateQuotaBadge();
     setGenUiEnabled(canGenerateNow());
     updateAiCallBtn();
+    // 다시코디 후 AI 스타일링 포인트 명시적 재렌더링
+    try{ renderStylingPoint(); }catch(_){}
   }
 }
 
