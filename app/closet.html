@@ -102,11 +102,19 @@
     .match-score-badge{position:absolute;bottom:6px;right:6px;background:linear-gradient(135deg,#35A29F,#0B666A);color:#fff;font-size:9px;font-weight:800;padding:3px 7px;border-radius:20px;letter-spacing:.04em;pointer-events:none;box-shadow:0 2px 8px rgba(53,162,159,.45);z-index:10;}
 
     /* ── AI 호출 버튼 상태 ── */
+    /* ready: 메인컬러(네이비 그라데이션) - 목적 선택 후 호출 전 */
     #aiCallBtn.ready {
-      background: linear-gradient(105deg,#137373 0%,#1a9e9e 45%,#137373 100%) !important;
-      border: 1px solid rgba(151,254,237,0.3) !important;
-      box-shadow: 0 0 30px rgba(19,115,115,0.5), 0 0 60px rgba(151,254,237,0.08) !important;
+      background: linear-gradient(135deg,#071952 0%,#0b2a6b 50%,#071952 100%) !important;
+      border: 1.5px solid rgba(151,254,237,0.35) !important;
+      box-shadow: 0 4px 24px rgba(7,25,82,0.5) !important;
     }
+    /* done: 서브컬러(teal) - AI 스타일링 완료 후 */
+    #aiCallBtn.done {
+      background: linear-gradient(105deg,#137373 0%,#1a9e9e 45%,#137373 100%) !important;
+      border: 1px solid rgba(151,254,237,0.5) !important;
+      box-shadow: 0 0 30px rgba(19,115,115,0.6), 0 0 60px rgba(151,254,237,0.12) !important;
+    }
+    /* busy: 어두운 teal - 작업중 */
     #aiCallBtn.busy {
       background: linear-gradient(105deg,#0a4040 0%,#0d6060 45%,#0a4040 100%) !important;
       border: 1px solid rgba(151,254,237,0.5) !important;
@@ -372,10 +380,10 @@
 }
 .purpose-card .material-symbols-outlined { color: rgba(151,254,237,0.6) !important; }
 .purpose-card.active {
-  background: rgba(18,148,144,0.3) !important;
+  background: rgba(18,148,144,0.45) !important;
   border-color: #70dbd4 !important;
   color: #a2fdf0 !important;
-  box-shadow: 0 8px 24px rgba(18,148,144,0.35) !important;
+  box-shadow: 0 8px 28px rgba(18,148,144,0.5), inset 0 0 0 1px rgba(151,254,237,0.15) !important;
 }
 .purpose-card.active .material-symbols-outlined { color: #a2fdf0 !important; font-variation-settings:'FILL' 1,'wght' 700,'GRAD' 0,'opsz' 24 !important; }
 
@@ -589,7 +597,7 @@
       <div class="flex items-center justify-between px-4 py-2.5" style="background:rgba(18,148,144,0.18);border-bottom:1px solid rgba(151,254,237,0.1);">
         <div class="flex items-center gap-2">
           <span class="material-symbols-outlined text-[14px]" style="color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 14;">style</span>
-          <p class="text-[10px] font-extrabold tracking-[0.2em]" style="color:#97FEED;">AI 추천코디 분석</p>
+          <p class="text-[10px] font-extrabold tracking-[0.2em]" style="color:#97FEED;">추천코디 디테일 설명</p>
         </div>
         <p id="vtoMeta" class="text-[10px]" style="color:rgba(255,255,255,0.35);"></p>
       </div>
@@ -611,7 +619,7 @@
     <!-- ② AI 스타일리스트 포인트 박스 -->
     <div id="codiPointBox" class="rounded-2xl mb-4" style="background:rgba(19,115,115,0.10);border:1px solid rgba(151,254,237,0.12);">
       <div class="flex items-center justify-between px-4 py-2.5" style="border-bottom:1px solid rgba(151,254,237,0.08);">
-        <p class="text-[10px] font-extrabold tracking-[0.22em]" style="color:rgba(151,254,237,0.75);">✦ AI 스타일리스트 포인트</p>
+        <p class="text-[10px] font-extrabold tracking-[0.22em]" style="color:rgba(151,254,237,0.75);">✦ 추천코디 카테고리별 포인트</p>
       </div>
       <!-- 스타일 키워드 -->
       <div class="px-4 pt-3 pb-1">
@@ -622,7 +630,7 @@
       <div id="catKwSection" class="hidden px-4 pt-2 pb-3">
         <p class="text-[9px] font-extrabold tracking-[0.18em] mb-2 mt-1" style="color:rgba(151,254,237,0.45);">카테고리별 코디 포인트</p>
         <div id="catKwRow" class="flex flex-col gap-1.5"></div>
-        <p class="text-[10px] mt-2.5 leading-relaxed" style="color:rgba(151,254,237,0.4);">↓ 아래 모바일 옷장과 AI 매칭 분석 중</p>
+        <p class="text-[10px] mt-2.5 leading-relaxed" style="color:rgba(151,254,237,0.4);">↓ 아래 디지털 옷장에서 가장 유사한 아이템을 자동 매칭합니다</p>
       </div>
       <div id="matchRow" style="display:none;"></div>
     </div>
@@ -630,7 +638,7 @@
     <!-- VTO 영역 -->
     <div>
       <div class="flex items-center justify-between mb-3">
-        <p class="text-[13px] font-extrabold text-white">코디추천 AI 스타일링</p>
+        <p class="text-[13px] font-extrabold text-white">STEP 3. 추천코디 Ai 스타일링</p>
         <span id="aiQuota" class="ai-badge gray">남은 0회</span>
       </div>
       <div class="vto-wrap" id="vtoWrap" style="border:1px solid rgba(151,254,237,0.15);background:#050f2a;">
@@ -750,7 +758,7 @@
    ============================================================ */
 if (!CodiBank.requireAuth('login.html')) {}
 const user = CodiBank.getCurrentUser();
-console.info('[CodiBank] closet build: v18.6.3 (2026-02-26)');
+console.info('[CodiBank] closet build: v19.0-matchfix (2026-03-04)');
 
 {
   const plan=CodiBank.getUserPlan(user.email),lim=CodiBank.getPlanLimit(plan);
@@ -877,18 +885,18 @@ function normalizeKColorName(name){
 // ══════════════════════════════════════════════════════════
 // 코디뱅크 매칭 점수 시스템 (최대 10P)
 // ──────────────────────────────────────────────────────────
-// [카테고리] 동일=4P / 대체가능=2P / 불일치=0P
-// [컬러]     동일=3P / 유사=2P   / 대체가능=1P / 대비(반대)=0P
-// [디자인]   동일=3P / 유사=2P   / 대체가능=1P
+// [카테고리] 동일=4P / 유사=2P / 없음=0P
+// [컬러]     동일=3P / 유사=1P / 없음=0P
+// [디자인]   동일=3P / 유사=1P / 없음=0P
 // ══════════════════════════════════════════════════════════
 
-// ── 카테고리 대체 그룹 정의
 const CAT_SUBSTITUTE_MAP = {
-  coat:   ['jacket','padding'],   // 코트 ↔ 자켓/패딩
+  coat:   ['jacket','padding'],
   jacket: ['coat','padding'],
   padding:['coat','jacket'],
-  top:    ['shirt','knit','tshirt'],
-  shirt:  ['top','knit'],
+  top:    ['shirt','knit','tshirt','blouse'],
+  shirt:  ['top','knit','blouse'],
+  blouse: ['top','shirt'],
   knit:   ['top','shirt'],
   tshirt: ['top'],
   pants:  ['slacks','jeans','skirt'],
@@ -903,10 +911,9 @@ const CAT_SUBSTITUTE_MAP = {
   muffler:['scarf','neckwear'],
 };
 
-// ── 컬러 유사 / 대체 / 대비 그룹
 const COLOR_SIMILAR = [
   new Set(['블랙','그레이']),
-  new Set(['화이트','베이지','크림','아이보리']),
+  new Set(['화이트','베이지','크림','아이보리','라이트그레이']),
   new Set(['네이비','블루','인디고']),
   new Set(['브라운','베이지','카키','카멜']),
   new Set(['그린','카키','올리브']),
@@ -914,25 +921,11 @@ const COLOR_SIMILAR = [
   new Set(['옐로','오렌지','머스타드']),
   new Set(['퍼플','라벤더']),
 ];
-const COLOR_SUBSTITUTE = [
-  new Set(['블랙','네이비','그레이']),       // 다크 뉴트럴
-  new Set(['화이트','베이지','라이트그레이']),// 라이트 뉴트럴
-  new Set(['브라운','그린','카키']),          // 어스톤
-];
-const COLOR_CONTRAST = [
-  ['블랙','화이트'],['네이비','화이트'],['네이비','옐로'],
-  ['레드','그린'],['블루','오렌지'],['퍼플','옐로'],
-];
 
 function scoreColor(want, got){
-  if(!want || !got) return 1; // 정보 없으면 대체가능 취급
-  if(want === got) return 3;  // 동일
-  // 대비(반대)
-  if(COLOR_CONTRAST.some(p=>(p[0]===want&&p[1]===got)||(p[1]===want&&p[0]===got))) return 0;
-  // 유사
-  if(COLOR_SIMILAR.some(s=>s.has(want)&&s.has(got))) return 2;
-  // 대체가능
-  if(COLOR_SUBSTITUTE.some(s=>s.has(want)&&s.has(got))) return 1;
+  if(!want || !got) return 0;
+  if(want === got) return 3;
+  if(COLOR_SIMILAR.some(s=>s.has(want)&&s.has(got))) return 1;
   return 0;
 }
 
@@ -940,77 +933,105 @@ function scoreCategory(wantKey, gotKey){
   if(!wantKey || !gotKey) return 0;
   const w = String(wantKey).toLowerCase();
   const g = String(gotKey).toLowerCase();
-  if(w === g) return 4;  // 동일
+  if(w === g) return 4;
   const subs = CAT_SUBSTITUTE_MAP[w] || [];
-  if(subs.some(s => g.includes(s) || s.includes(g))) return 2; // 대체가능
+  if(subs.some(s => g === s || g.includes(s) || s.includes(g))) return 2;
   return 0;
 }
 
-function scoreDesign(wantItem, gotItem){
-  // 디자인 정보: subColor(패턴), note(특징 메모)에서 유추
-  // 현재 아이템 데이터 구조에서 pattern/design 필드가 있으면 사용
-  const wPat = String(wantItem?.pattern || wantItem?.subColor || '').toLowerCase();
-  const gPat = String(gotItem?.pattern || gotItem?.subColor || '').toLowerCase();
-  if(!wPat && !gPat) return 2; // 둘 다 정보 없으면 유사 취급(2P)
-  if(!wPat || !gPat) return 1; // 한쪽 없으면 대체가능(1P)
-  if(wPat === gPat) return 3;  // 동일
-  // 같은 패턴 계열
-  const plainGroup = ['단색','솔리드','plain','solid'];
-  const patternGroup = ['체크','스트라이프','플레이드','격자','줄무늬'];
-  const wIsPlain = plainGroup.some(p=>wPat.includes(p));
-  const gIsPlain = plainGroup.some(p=>gPat.includes(p));
-  const wIsPat  = patternGroup.some(p=>wPat.includes(p));
-  const gIsPat  = patternGroup.some(p=>gPat.includes(p));
-  if(wIsPlain && gIsPlain) return 3;   // 둘 다 단색=동일
-  if(wIsPat   && gIsPat)   return 2;   // 둘 다 패턴=유사
-  if(wIsPlain && gIsPat)   return 1;   // 단색↔패턴=대체가능
-  if(wIsPat   && gIsPlain) return 1;
-  return 2; // 기타 조합=유사
+function tokenizeStyle(v){
+  return String(v||'').toLowerCase()
+    .replace(/[\/,_()\-]+/g,' ')
+    .split(/\s+/)
+    .map(x=>x.trim())
+    .filter(Boolean);
 }
 
-// ── 카테고리 전체 아이템 대상 매칭 점수 계산 + 최고점 아이템 반환
+function scoreDesign(wantItem, gotItem){
+  const wantTags = Array.from(new Set([
+    ...tokenizeStyle(wantItem?.design || ''),
+    ...tokenizeStyle(wantItem?.styleTags || ''),
+    ...tokenizeStyle(Array.isArray(wantItem?.designs)?wantItem.designs.join(' '):wantItem?.designs || ''),
+  ]));
+  const gotTags = Array.from(new Set([
+    ...tokenizeStyle(gotItem?.pattern || ''),
+    ...tokenizeStyle(gotItem?.subColor || ''),
+    ...tokenizeStyle(gotItem?.note || ''),
+    ...tokenizeStyle(gotItem?.style || ''),
+    ...tokenizeStyle(Array.isArray(gotItem?.tags)?gotItem.tags.join(' '):gotItem?.tags || ''),
+  ]));
+  if(!wantTags.length || !gotTags.length) return 0;
+  const exact = wantTags.some(t=>gotTags.includes(t));
+  if(exact) return 3;
+  const similarGroups = [
+    ['미니멀','클린','심플','정돈'],
+    ['레이어링','레이어드','레이어'],
+    ['포멀','클래식','테일러드','단정'],
+    ['캐주얼','데일리','편안'],
+    ['스포티','액티브','애슬레저','기능성'],
+    ['와이드','릴렉스','오버사이즈'],
+    ['슬림','슬림핏','샤프'],
+  ].map(g=>g.map(x=>String(x).toLowerCase()));
+  const similar = similarGroups.some(group=>group.some(t=>wantTags.includes(t)) && group.some(t=>gotTags.includes(t)));
+  return similar ? 1 : 0;
+}
+
+function buildPairSpecMap(matchPairs, categoryKeywords, keywords, stylist, temp){
+  const out = {};
+  const kwMap = categoryKeywords || {};
+  const globalDesigns = Array.isArray(keywords) ? keywords.slice(0,4) : [];
+  const stylistKw = Array.from(new Set([
+    ...tokenizeStyle(stylist?.voice || ''),
+    ...tokenizeStyle(stylist?.tag || ''),
+  ]));
+  (matchPairs||[]).forEach(p=>{
+    const k = String(p?.key||'').toLowerCase();
+    const designs = [];
+    const raw = kwMap[k] || kwMap[(k==='pants'?'bottom':k)] || kwMap[(k==='coat'||k==='jacket'?'outer':k)] || [];
+    raw.forEach(x=>{ if(x && x!==p.color) designs.push(x); });
+    stylistKw.forEach(x=>{ if(x) designs.push(x); });
+    globalDesigns.forEach(x=>{ if(x && !String(x).includes('°')) designs.push(x); });
+    if(Number.isFinite(Number(temp))){
+      if(Number(temp)<=7) designs.push('레이어링','보온');
+      else if(Number(temp)>=24) designs.push('경량','통기성');
+    }
+    out[k] = {
+      key:k,
+      label:p.label || k,
+      color:p.color || '',
+      designs:Array.from(new Set(designs.filter(Boolean))).slice(0,3)
+    };
+  });
+  return out;
+}
+
 function pickBestItemByScore(wantPair, allCatItems){
-  // wantPair = { key(카테고리), color, label }
-  // allCatItems: [{ id, categoryKey, color, subColor, pattern, note, ... }, ...]
   if(!allCatItems || !allCatItems.length) return null;
   const wantColor = normalizeKColorName(wantPair.color);
   const wantCatKey = String(wantPair.key || '').toLowerCase();
-
   let best = null, bestTotal = -1;
-
   allCatItems.forEach((item, idx) => {
     const gotCatKey  = String(item?.categoryKey || item?.category || '').toLowerCase();
     const gotColor   = normalizeKColorName(item?.color || '');
-
     const catScore    = scoreCategory(wantCatKey, gotCatKey);
     const colorScore  = scoreColor(wantColor, gotColor);
     const designScore = scoreDesign(wantPair, item);
-
     const total = catScore + colorScore + designScore;
-    // 카테고리 완전 불일치(0P)면 매칭 대상 제외
-    if(catScore === 0) return;
-
-    // 동점이면 최신(앞쪽) 우선
     const tiebreak = total - idx * 0.001;
     if(tiebreak > bestTotal){
       bestTotal = tiebreak;
       best = { ...item, _catScore: catScore, _colorScore: colorScore, _designScore: designScore, _totalScore: total };
     }
   });
-
-  if(best) best._matchScore = Math.min(10, best._totalScore);
+  if(best) best._matchScore = Math.max(0, Math.min(10, best._totalScore || 0));
   return best;
 }
 
-// 하위호환: 카테고리별 단일 아이템 목록으로 호출될 때 (기존 matchByCat 로직 호환)
 function pickBestItemByColor(items, desiredColor, catKey){
-  // catKey가 있으면 새 점수 시스템으로 위임
   if(catKey){
-    const fakePair = { key: catKey, color: desiredColor };
-    const result = pickBestItemByScore(fakePair, items);
-    return result;
+    const fakePair = { key: catKey, color: desiredColor, designs: [] };
+    return pickBestItemByScore(fakePair, items);
   }
-  // catKey 없으면 컬러 점수만(레거시)
   const want = normalizeKColorName(desiredColor);
   let best=null, bestScore=-1;
   (items||[]).forEach((it, idx)=>{
@@ -1019,7 +1040,7 @@ function pickBestItemByColor(items, desiredColor, catKey){
     const s  = cs - idx * 0.001;
     if(s > bestScore){ bestScore=s; best=it; }
   });
-  if(best) best._matchScore = best ? Math.round((scoreColor(want, normalizeKColorName(best?.color||'')) / 3) * 6) : 0;
+  if(best) best._matchScore = scoreColor(want, normalizeKColorName(best?.color||''));
   return best;
 }
 
@@ -1267,7 +1288,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const baseTitle = titleMap[pk] || purposeName || '오늘의';
   const styleTitle = `${baseTitle} · ${stylist.voice}`;
 
-// 400자 이내 설명 (v17)
+  // ─ 설명용 기본값 ─
   const _dayStr = String(day||'').trim();
   const _d = _dayStr.toLowerCase();
   const dLab = (_d==='tomorrow') ? '내일' : (_d==='today') ? '오늘' : (/^\d{4}-\d{2}-\d{2}$/.test(_dayStr) ? _dayStr.replace(/-/g,'.') : '오늘');
@@ -1275,80 +1296,15 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const wxTxt = (wx && wx.text) ? String(wx.text).trim() : '';
   const who = [g, age, hw].filter(Boolean).join('·');
 
-  const purposeTips = {
-    commute: '출퇴근은 편안함과 단정함의 균형이 중요해요. 신발과 아우터로 완성도를 올려보세요.',
-    business: '비즈니스는 깔끔한 실루엣과 소재감이 포인트예요. 컬러는 2~3개로 정리하면 좋아요.',
-    weekendOut: '주말외출은 활동성을 살리되, 상·하의 한쪽은 톤을 맞춰 안정감을 주세요.',
-    weekendTrip: '주말여행은 레이어링과 수납(아우터/백)이 중요해요. 온도변화에 대비해요.',
-    domesticTrip: '국내여행은 실용성과 사진발을 함께! 편한 신발 + 포인트 컬러 1개가 좋아요.',
-    overseasTrip: '해외여행은 이동이 많으니 편한 착화감이 우선. 레이어로 체온조절을 해요.',
-    meet: '지인모임은 과하지 않게 “잘 꾸민 느낌”이 좋아요. 컬러 포인트를 1개만 주면 깔끔해요.',
-    blindDate: '소개팅은 첫인상이 중요해요. 과한 로고/색보단 깔끔한 톤 + 소재감으로 호감도를 높여요.',
-    partyLook: '파티룩은 포인트 아이템 1개(컬러/소재/액세서리)를 중심으로 전체 톤을 정리해보세요.',
-    custom: '직접입력 목적은 상황에 맞는 포인트가 달라요. 목적 키워드를 중심으로 컬러·소재를 맞춰보세요.',
-  };
-
-  const layerSentence = layerTip ? `기온을 고려해 ${layerTip} 중심으로 체온 조절이 쉬운 구성이 좋아요.` : '';
-  const baseSentence = `${dLab} ${tTxt}${wxTxt ? ' ' + wxTxt : ''} 날씨를 기준으로 ${purposeName} 목적에 ${stylist.cultureHint} ${stylist.voice} 스타일(#${stylist.id})로 구성했어요.`.replace(/\s+/g,' ').trim();
-  // seed별 스타일 어드바이스 (다시코디마다 달라짐)
-  const _advPool = [
-    `${dKw1} 핏에 ${colorNameFromHex(palette?.top)||'뉴트럴'} 상의를 중심으로 레이어드하면 완성도가 높아져요.`,
-    `이번 포인트는 ${dKw2} 실루엣. 신발 한 가지로만 포인트를 주면 전체가 정돈돼요.`,
-    `${dKw3} 무드로 아우터를 선택하고, 이너는 한 톤 밝게 더해보세요.`,
-    `${shoeStyle} 선택이 이번 코디의 완성도를 좌우해요. 상·하의는 ${colorNameFromHex(palette?.pants)||'다크'} 톤으로 맞추세요.`,
-    `${colorNameFromHex(palette?.outer)||'아우터'} 컬러가 룩의 기준점이에요. 이너와 하의는 1~2톤 밝게 배치하세요.`,
-    `${stylist.voice} 스타일 핵심은 과하지 않게. 아이템 3가지로 완성하는 미니멀 코디를 시도해보세요.`,
-    `${dKw1}과 ${dKw3}의 조합이 포인트예요. 레이어링 순서를 바꾸면 분위기가 달라져요.`,
-  ];
-  const _advSentence = _advPool[sd % _advPool.length];
-  const purposeSentence = (purposeTips[pk] || '상황에 맞게 과하지 않게 밸런스를 맞추는 것이 핵심이에요.');
-  const colorSentence = '베이스는 뉴트럴(블랙/네이비/오프화이트)로 정돈하고, 포인트 컬러는 1가지로만 주면 전체가 훨씬 고급스럽게 정리됩니다.';
-
-  let explanation = `${baseSentence} ${_advSentence} ${layerSentence} ${purposeSentence}`.replace(/\s+/g,' ').trim();
-  if (who) explanation = `${who} 기준 · ${explanation}`;
-  explanation = trunc(explanation, 400);
-
-  // 키워드: 목적 기본 키워드 + 계절
-  const kws = (pk==='custom' ? [purposeName] : (pm?.kw || [])).filter(Boolean).slice(0,3);
-  const s = season(t);
-  const seasonKw = (s==='winter') ? '보온' : (s==='cool') ? '레이어링' : (s==='warm') ? '경량' : '클린';
-  const keywords = Array.from(new Set([seasonKw, dKw1, ...kws])).slice(0,4);
-
-  // 팔레트: 기존 로컬 팔레트 사용
+  // ── [1] 팔레트 먼저 ──
   const palette = localPalette(pk, t, seed + (stylist.seedOffset||0));
   const matchPairs = buildMatchPairsFromPalette(palette, t);
 
-  // 얼굴 사진을 등록한 경우, 아주 짧은 피부톤 안내(추정치)
-  let skinTip = '';
-  if (faceSrc && faceSrc.startsWith('data:')) {
-    skinTip = '얼굴을 등록했어요';
-  }
-
-  // ✅ 체형 분석 → 단점 커버 코디 전략
-  const bodyType = (()=>{
-    const h = parseFloat(profile?.height || 0);
-    const w = parseFloat(profile?.weight || 0);
-    if (!h || !w) return null;
-    const bmi = w / ((h / 100) ** 2);
-    const isM = profile?.gender === 'M';
-    if (bmi >= 28)  return { tag:'비만형',  tip: isM ? '어두운 하의로 하체 무게감을 줄이고, 브이넥/오픈칼라 아우터로 상체를 날씬하게 연출하세요.' : 'A라인 스커트나 와이드팬츠로 하체 라인을 커버하고, 상의는 허리 위에서 정리하세요.' };
-    if (bmi >= 25)  return { tag:'통통형',  tip: isM ? '세로 방향 패턴과 다크 톤으로 슬림하게 보이도록 구성했어요. 아우터는 스트레이트 핏을 선택하세요.' : '허리라인을 강조하는 벨트 또는 터크인으로 비율을 높여보세요.' };
-    if (bmi < 17.5) return { tag:'마른형',   tip: isM ? '레이어링과 텍스처 소재(코듀로이/니트)로 볼륨감을 살렸어요. 밝은 컬러나 체크 패턴도 좋아요.' : '볼륨 소매나 러플 디테일로 여성스러운 볼륨감을 더해보세요.' };
-    if (h >= 180 && isM) return { tag:'장신형', tip: '긴 코트와 풀렝스 팬츠로 비율을 완성하세요. 과감한 컬러도 잘 어울려요.' };
-    if (h <= 162 && isM) return { tag:'단신형', tip: '크롭 아우터와 하이라이즈 팬츠로 다리를 길어 보이게 연출했어요. 톤온톤 코디가 효과적이에요.' };
-    return null;
-  })();
-
-  if (bodyType) {
-    explanation = `[${bodyType.tag} 체형 커버] ${bodyType.tip} / ${explanation}`.slice(0, 400);
-  }
-
-  // ✅ 카테고리별 키워드 (모바일옷장 매칭 표시용) - seed 기반 스타일 키워드 포함
-  // stylist.tag 별 디자인 키워드 (다시코디 시 seed 변화에 따라 달라짐)
+  // ── [2] seed + 스타일리스트 태그 → 디자인 키워드 ──
   const designKwPool = {
     minimal:     ['슬림핏','클린라인','모노톤','뉴트럴'],
     street:      ['오버사이즈','레이어드','믹스매치','빅실루엣'],
-    chic:        ['테일러드','포인트1','세미핏','샤프'],
+    chic:        ['테일러드','포인트컬러','세미핏','샤프'],
     athleisure:  ['스트레치','기능성','릴렉스핏','스포티'],
     business:    ['클래식핏','테일러드','슈트핏','깔끔'],
     workwear:    ['스트레이트','워크웨어','볼드','안정적'],
@@ -1360,7 +1316,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const dKw2 = dPool[(sd + 1) % dPool.length];
   const dKw3 = dPool[(sd + 2) % dPool.length];
 
-  // 신발 스타일 변형 (seed 짝/홀로 구분)
+  // ── [3] 신발 스타일 ──
   const shoeStyleMap = {
     commute:     sd%2===0 ? '로퍼' : '더비슈즈',
     business:    sd%2===0 ? '옥스포드' : '첼시부츠',
@@ -1375,8 +1331,72 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   };
   const shoeStyle = shoeStyleMap[pk] || (sd%2===0 ? '로퍼' : '스니커즈');
 
+  // ── [4] 계절 키워드 ──
+  const _s = season(t);
+  const seasonKw = (_s==='winter') ? '보온' : (_s==='cool') ? '레이어링' : (_s==='warm') ? '경량' : '클린';
+
+  // ── [5] 목적별 스타일 팁 ──
+  const purposeTips = {
+    commute: '출퇴근은 편안함과 단정함의 균형이 중요해요. 신발과 아우터로 완성도를 올려보세요.',
+    business: '비즈니스는 깔끔한 실루엣과 소재감이 포인트예요. 컬러는 2~3개로 정리하면 좋아요.',
+    weekendOut: '주말외출은 활동성을 살리되, 상·하의 한쪽은 톤을 맞춰 안정감을 주세요.',
+    weekendTrip: '주말여행은 레이어링과 수납(아우터/백)이 중요해요. 온도변화에 대비해요.',
+    domesticTrip: '국내여행은 실용성과 사진발을 함께! 편한 신발 + 포인트 컬러 1개가 좋아요.',
+    overseasTrip: '해외여행은 이동이 많으니 편한 착화감이 우선. 레이어로 체온조절을 해요.',
+    meet: '지인모임은 과하지 않게 "잘 꾸민 느낌"이 좋아요. 컬러 포인트를 1개만 주면 깔끔해요.',
+    blindDate: '소개팅은 첫인상이 중요해요. 과한 로고/색보단 깔끔한 톤 + 소재감으로 호감도를 높여요.',
+    partyLook: '파티룩은 포인트 아이템 1개(컬러/소재/액세서리)를 중심으로 전체 톤을 정리해보세요.',
+    custom: '직접입력 목적은 상황에 맞는 포인트가 달라요. 목적 키워드를 중심으로 컬러·소재를 맞춰보세요.',
+  };
+
+  // ── [6] explanation 조합 ─ 모든 변수 준비 완료 ──
+  const layerSentence = layerTip ? `기온을 고려해 ${layerTip} 중심으로 체온 조절이 쉬운 구성이 좋아요.` : '';
+  const baseSentence = `${dLab} ${tTxt}${wxTxt ? ' ' + wxTxt : ''} 날씨를 기준으로 ${purposeName} 목적에 ${stylist.cultureHint} ${stylist.voice} 스타일(스타일리스트 #${stylist.id})로 구성했어요.`.replace(/\s+/g,' ').trim();
+  const purposeSentence = (purposeTips[pk] || '상황에 맞게 과하지 않게 밸런스를 맞추는 것이 핵심이에요.');
+
+  // seed별 어드바이스 (다시코디마다 변경)
+  const advPool = [
+    `${dKw1} 핏에 ${colorNameFromHex(palette?.top)||'뉴트럴'} 상의를 중심으로 레이어드하면 완성도가 높아져요.`,
+    `이번 포인트는 ${dKw2} 실루엣. ${shoeStyle}로 포인트를 주면 전체가 자연스럽게 정돈돼요.`,
+    `${dKw3} 무드로 아우터를 선택하고, 이너는 한 톤 밝게 더해보세요.`,
+    `${shoeStyle} 선택이 이번 코디의 완성도를 좌우해요. 상·하의는 ${colorNameFromHex(palette?.pants)||'다크'} 톤으로 맞추세요.`,
+    `${colorNameFromHex(palette?.outer)||'아우터'} 컬러가 룩의 기준점이에요. 이너와 하의는 1~2톤 밝게 배치하세요.`,
+    `${stylist.voice} 스타일의 핵심은 과하지 않게. ${dKw1} 감성 아이템 3가지로 완성하는 미니멀 코디를 시도해보세요.`,
+    `${dKw1}과 ${dKw3}의 조합이 포인트예요. 레이어링 순서를 바꾸면 완전히 다른 분위기가 나요.`,
+  ];
+  const advSentence = advPool[sd % advPool.length];
+
+  let explanation = `${baseSentence} ${advSentence} ${layerSentence} ${purposeSentence}`.replace(/\s+/g,' ').trim();
+  if (who) explanation = `${who} 기준 · ${explanation}`;
+  explanation = trunc(explanation, 400);
+
+  // ── [7] 키워드 ──
+  const kws = (pk==='custom' ? [purposeName] : (pm?.kw || [])).filter(Boolean).slice(0,3);
+  const keywords = Array.from(new Set([seasonKw, dKw1, ...kws])).slice(0,4);
+
+  // ── [8] 얼굴 사진 ──
+  let skinTip = '';
+  if (faceSrc && faceSrc.startsWith('data:')) skinTip = '얼굴을 등록했어요';
+
+  // ── [9] 체형 분석 ──
+  const bodyType = (()=>{
+    const h = parseFloat(profile?.height || 0);
+    const w = parseFloat(profile?.weight || 0);
+    if (!h || !w) return null;
+    const bmi = w / ((h / 100) ** 2);
+    const isM = profile?.gender === 'M';
+    if (bmi >= 28)  return { tag:'비만형',  tip: isM ? '어두운 하의로 하체 무게감을 줄이고, 브이넥/오픈칼라 아우터로 상체를 날씬하게 연출하세요.' : 'A라인 스커트나 와이드팬츠로 하체 라인을 커버하고, 상의는 허리 위에서 정리하세요.' };
+    if (bmi >= 25)  return { tag:'통통형',  tip: isM ? '세로 방향 패턴과 다크 톤으로 슬림하게 보이도록 구성했어요. 아우터는 스트레이트 핏을 선택하세요.' : '허리라인을 강조하는 벨트 또는 터크인으로 비율을 높여보세요.' };
+    if (bmi < 17.5) return { tag:'마른형',   tip: isM ? '레이어링과 텍스처 소재(코듀로이/니트)로 볼륨감을 살렸어요. 밝은 컬러나 체크 패턴도 좋아요.' : '볼륨 소매나 러플 디테일로 여성스러운 볼륨감을 더해보세요.' };
+    if (h >= 180 && isM) return { tag:'장신형', tip: '긴 코트와 풀렝스 팬츠로 비율을 완성하세요. 과감한 컬러도 잘 어울려요.' };
+    if (h <= 162 && isM) return { tag:'단신형', tip: '크롭 아우터와 하이라이즈 팬츠로 다리를 길어 보이게 연출했어요. 톤온톤 코디가 효과적이에요.' };
+    return null;
+  })();
+  if (bodyType) explanation = `[${bodyType.tag} 체형 커버] ${bodyType.tip} / ${explanation}`.slice(0, 400);
+
+  // ── [10] 카테고리별 키워드 (모바일옷장 매칭용) ──
   const categoryKeywords = {
-    outer:  [colorNameFromHex(palette?.outer),  layerTip, stylist.voice].filter(Boolean),
+    outer:  [colorNameFromHex(palette?.outer),  layerTip||seasonKw, stylist.voice].filter(Boolean),
     top:    [colorNameFromHex(palette?.top),     seasonKw, dKw1].filter(Boolean),
     bottom: [colorNameFromHex(palette?.pants),   dKw2].filter(Boolean),
     shoes:  [colorNameFromHex(palette?.shoes),   shoeStyle].filter(Boolean),
@@ -1384,6 +1404,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   };
 
   return { styleTitle, explanation, keywords, categoryKeywords, bodyType, layerTip, skinTip, palette, stylist, matchPairs };
+}
 }
 
 
@@ -1945,16 +1966,34 @@ async function updateVTO(opts={}){
     skinTip=r.skinTip||'';
     S.stylist = r.stylist || null;
     S.matchPairs = (r.matchPairs && Array.isArray(r.matchPairs)) ? r.matchPairs : buildMatchPairsFromPalette(palette, S.wx.temp);
-    S.categoryKeywords = r.categoryKeywords || {};
+    S.categoryKeywords = (r.categoryKeywords && Object.keys(r.categoryKeywords||{}).length) ? r.categoryKeywords : {};
+    if(!explain){
+      const _pLabel = (S.pk==='custom') ? (String(S.customPurpose||'').trim()||'맞춤') : (getPur(S.pk)?.label||'추천');
+      const _wx = [S.wx.temp!==null?`${S.wx.temp}°`:'', S.wx.text||''].filter(Boolean).join(' ');
+      explain = trunc(`${_pLabel} 상황에 맞춰 ${_wx} 날씨를 고려한 코디예요. 코디 포인트와 컬러 조합을 아래에서 확인하세요.`, 400);
+    }
+    const pairSpecMap = buildPairSpecMap(S.matchPairs, S.categoryKeywords, keywords, S.stylist, S.wx.temp);
+    S.categoryKeywords = pairSpecMap;
     S.bodyType = r.bodyType || null;
   }catch(e){
     console.warn('AI 분석 폴백:',e);
-    const pm=getPur(S.pk),tTxt=S.wx.temp!==null?`${S.wx.temp}°`:'';
-    explain=trunc(`${tTxt}${S.wx.text?' '+S.wx.text:''} 날씨에 어울리는 ${pm.label} 스타일이에요.`.trim(), 400);
+    const pm=getPur(S.pk);
+    const _fTxt=S.wx.temp!==null?`${S.wx.temp}°`:'';
+    const _fWx=S.wx.text?` ${S.wx.text}`:'';
+    const _fTips={
+      commute:'출퇴근은 편안함과 단정함의 균형이 핵심이에요. 신발과 아우터로 완성도를 올리고, 컬러는 뉴트럴 2가지로 정리해보세요.',
+      business:'비즈니스 룩은 깔끔한 실루엣과 소재감이 포인트예요. 컬러는 2~3개, 아우터로 전체를 마무리하면 좋아요.',
+      weekendOut:'주말외출은 활동성과 스타일의 균형이 중요해요. 상·하의 한쪽은 톤을 맞춰 안정감을 주고, 신발로 포인트를 주세요.',
+      weekendTrip:'주말여행은 레이어링과 편안한 신발이 기본이에요. 온도 변화에 대비해 가벼운 아우터를 꼭 챙기세요.',
+      meet:'지인모임은 "잘 차려입은 느낌"이 좋아요. 과하지 않게 컬러 포인트 1개를 더하면 세련된 인상을 줄 수 있어요.',
+    };
+    const _fTip = _fTips[S.pk] || '목적과 날씨에 맞게 레이어링하고, 뉴트럴 컬러를 베이스로 포인트 아이템 한 가지를 더해보세요.';
+    explain=trunc(`${_fTxt}${_fWx} 날씨에 어울리는 ${pm.label} 스타일이에요. ${_fTip}`.trim(), 400);
     styleTitle=`${pm.label} 코디`;
     S.stylist = null;
     S.matchPairs = buildMatchPairsFromPalette(palette, S.wx.temp);
-    S.categoryKeywords = {}; S.bodyType = null;
+    S.categoryKeywords = buildPairSpecMap(S.matchPairs, {}, keywords, null, S.wx.temp);
+    S.bodyType = null;
   }
   if(S.tok!==tok)return;
 
@@ -2027,21 +2066,31 @@ async function updateVTO(opts={}){
   try{
     const catKwSection = document.getElementById('catKwSection');
     const catKwRow = document.getElementById('catKwRow');
-    const catKwLabels = { outer:'아우터', top:'탑/셔츠', bottom:'하의', pants:'하의', shoes:'신발/구두', scarf:'스카프/포인트' };
-    const ckw = S.categoryKeywords || {};
-    const catKeys = Object.keys(ckw).filter(k => ckw[k] && ckw[k].length);
+    const catKwLabels = { outer:'아우터', top:'탑/셔츠', bottom:'하의', pants:'하의/스커트', shoes:'신발/구두', scarf:'스카프·포인트' };
+    let ckw = S.categoryKeywords || {};
+    if(!ckw || !Object.keys(ckw).length){ ckw = buildPairSpecMap(S.matchPairs||[], {}, keywords||[], S.stylist, S.wx?.temp); S.categoryKeywords = ckw; }
+    const catKeys = Object.keys(ckw).filter(k => {
+      const v = ckw[k];
+      return Array.isArray(v) ? v.length : !!(v && (v.color || (v.designs&&v.designs.length)));
+    });
     if(catKwRow && catKeys.length){
       catKwRow.innerHTML = '';
       catKeys.forEach(k=>{
-        const kws = ckw[k].filter(Boolean);
+        const spec = ckw[k] || {};
+        const kws = Array.isArray(spec) ? spec.filter(Boolean) : [spec.color, ...(spec.designs||[])].filter(Boolean);
         if(!kws.length) return;
         const row = document.createElement('div');
-        row.className = 'flex items-center gap-1.5 flex-wrap';
+        row.className = 'flex items-start gap-1.5 flex-wrap';
         const lbl = document.createElement('span');
-        lbl.className = 'text-[10px] font-extrabold min-w-[48px]'; lbl.style.color='rgba(151,254,237,0.55)';
-        lbl.textContent = catKwLabels[k] || k;
+        lbl.className = 'text-[10px] font-extrabold min-w-[70px]'; lbl.style.color='rgba(151,254,237,0.72)';
+        lbl.textContent = catKwLabels[k] || spec.label || k;
         row.appendChild(lbl);
-        kws.forEach(kw=>{
+        const lead = document.createElement('span');
+        lead.className='px-2 py-0.5 rounded-full text-[10px] font-black';
+        lead.style.cssText='background:rgba(255,255,255,0.08);border:1px solid rgba(151,254,237,0.18);color:#fff;';
+        lead.textContent = spec.color ? `${spec.color}` : '포인트';
+        row.appendChild(lead);
+        (spec.designs||[]).slice(0,3).forEach(kw=>{
           const chip = document.createElement('span');
           chip.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold';
           chip.style.cssText = 'background:rgba(18,148,144,0.18);border:1px solid rgba(151,254,237,0.28);color:#a2fdf0;';
@@ -2076,14 +2125,15 @@ async function updateVTO(opts={}){
     const map={};
     const scoreMap={};
     const detailMap={}; // { itemId: { catScore, colorScore, designScore, total } }
+    const pairSpecMap = S.categoryKeywords || {};
     (S.matchPairs||[]).forEach(p=>{
-      // coat↔jacket 등 대체 카테고리까지 함께 조회 → scoreCategory로 4P/2P 구분
-      const _subK = CAT_SUBSTITUTE_MAP[String(p.key||'').toLowerCase()] || [];
-      const items = [p.key, ..._subK].flatMap(k => CodiBank.getItemsByUserAndCategory(user.email, k) || []);
-      // 점수 계산: pickBestItemByScore로 카테고리+컬러+디자인 종합
-      const best = pickBestItemByScore(p, items);
+      const wantKey = String(p.key||'').toLowerCase();
+      const wantSpec = Object.assign({}, p, pairSpecMap[wantKey] || {});
+      const _subK = CAT_SUBSTITUTE_MAP[wantKey] || [];
+      const items = [wantKey, ..._subK].flatMap(k => CodiBank.getItemsByUserAndCategory(user.email, k) || []);
+      const best = pickBestItemByScore(wantSpec, items);
       if(best && best.id){
-        map[p.key] = best.id;
+        map[wantKey] = best.id;
         scoreMap[best.id] = best._matchScore || 0;
         detailMap[best.id] = {
           catScore:    best._catScore    || 0,
@@ -2270,6 +2320,7 @@ async function updateVTO(opts={}){
 
   setVtoState('ready');
   S.hasGenerated = true;
+  try{ updateAiCallBtn(); }catch(_){} // ← 완료: done(teal) 상태로
 
   // 사용량 차감(성공적으로 "새 이미지"를 만든 경우에만)
   if(didGenerateNew){
@@ -2371,24 +2422,36 @@ function updateAiCallBtn(){
   if(!btn) return;
   const hasP = !!(S.pk && S.pk !== '');
   const busy = !!S.busy;
-  btn.classList.remove('ready','busy');
+  const done = !!S.hasGenerated && !busy;
+  btn.classList.remove('ready','busy','done');
+
   if(busy){
+    // 작업중: 어두운 teal + "AI 스타일링 작업중"
     btn.classList.add('busy');
     if(mainTxt){ mainTxt.textContent='AI 스타일링 작업중'; mainTxt.style.color='#a2fdf0'; }
     if(subTxt){ subTxt.textContent='잠시만 기다려주세요…'; subTxt.style.color='rgba(151,254,237,0.7)'; }
-    if(icon){ icon.style.color='#97FEED'; icon.style.fontVariationSettings="'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 32"; }
+    if(icon){ icon.style.color='#97FEED'; icon.style.fontVariationSettings="'FILL' 1,'wght' 700,'GRAD' 0,'opsz' 32"; }
     if(glow){ glow.style.background='radial-gradient(circle,rgba(151,254,237,0.15) 0%,transparent 60%)'; }
+  } else if(done){
+    // 완료: 서브컬러(teal) + "AI 스타일링 호출 완료"
+    btn.classList.add('done');
+    if(mainTxt){ mainTxt.textContent='AI 스타일링 호출 완료'; mainTxt.style.color='#fff'; }
+    if(subTxt){ subTxt.textContent='다시코디 버튼으로 새 스타일리스트 호출'; subTxt.style.color='rgba(255,255,255,0.7)'; }
+    if(icon){ icon.style.color='#97FEED'; icon.style.fontVariationSettings="'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 32"; }
+    if(glow){ glow.style.background='radial-gradient(circle,rgba(151,254,237,0.12) 0%,transparent 60%)'; }
   } else if(hasP){
+    // 목적 선택됨, 아직 미호출: 메인컬러(네이비) 
     btn.classList.add('ready');
     if(mainTxt){ mainTxt.textContent='AI 스타일리스트 호출'; mainTxt.style.color='#fff'; }
-    if(subTxt){ subTxt.textContent='Start Intelligent Styling'; subTxt.style.color='rgba(151,254,237,0.8)'; }
-    if(icon){ icon.style.color='#97FEED'; icon.style.fontVariationSettings="'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 32"; }
-    if(glow){ glow.style.background='radial-gradient(circle,rgba(151,254,237,0.1) 0%,transparent 60%)'; }
+    if(subTxt){ subTxt.textContent='Start Intelligent Styling'; subTxt.style.color='rgba(151,254,237,0.7)'; }
+    if(icon){ icon.style.color='rgba(151,254,237,0.8)'; icon.style.fontVariationSettings="'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 32"; }
+    if(glow){ glow.style.background='radial-gradient(circle,rgba(151,254,237,0.06) 0%,transparent 60%)'; }
   } else {
-    if(mainTxt){ mainTxt.textContent='AI 스타일리스트 호출'; mainTxt.style.color='rgba(255,255,255,0.4)'; }
-    if(subTxt){ subTxt.textContent='목적과 날짜를 먼저 선택하세요'; subTxt.style.color='rgba(151,254,237,0.3)'; }
-    if(icon){ icon.style.color='rgba(151,254,237,0.35)'; icon.style.fontVariationSettings="'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 32"; }
-    if(glow){ glow.style.background='radial-gradient(circle,rgba(151,254,237,0.0) 0%,transparent 60%)'; }
+    // 미선택: 비활성
+    if(mainTxt){ mainTxt.textContent='AI 스타일리스트 호출'; mainTxt.style.color='rgba(255,255,255,0.35)'; }
+    if(subTxt){ subTxt.textContent='코디 목적을 먼저 선택하세요'; subTxt.style.color='rgba(151,254,237,0.25)'; }
+    if(icon){ icon.style.color='rgba(151,254,237,0.25)'; icon.style.fontVariationSettings="'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 32"; }
+    if(glow){ glow.style.background='none'; }
   }
 }
 function setPurpose(k){
@@ -2411,8 +2474,9 @@ function setPurpose(k){
 
 // ─ 오늘/내일(예보) 2-스텝 선택 ─
 function setStylingTitle(){
+  // STEP 1 타이틀은 항상 '코디 목적 선택'으로 유지
   const el=document.getElementById('stylingTitle');
-  if(el) el.textContent='Ai 추천 코디';
+  if(el) el.textContent='코디 목적 선택';
 }
 
 const dayTodayBtnEl = document.getElementById('dayTodayBtn');
@@ -3259,7 +3323,7 @@ function buildSection(catMeta,items){
   const titleEl=document.createElement('h3');
   titleEl.className='text-[17px] font-bold text-white';
   titleEl.style.cssText='border-bottom:2px solid #129490;padding-bottom:5px;display:inline-block;';
-  titleEl.innerHTML=`${escH(catMeta.label)}&nbsp;<span style="color:#70dbd4;">${items.length}개</span>`;
+  titleEl.innerHTML=`${escH(catMeta.label)}&nbsp;<span style="color:#70dbd4;">${String(items.length).padStart(2,'0')}건</span>`;
   const addBtn=document.createElement('button');
   addBtn.className='absolute right-5 top-7 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform';
   addBtn.style.cssText='background:rgba(151,254,237,0.08);border:1px solid rgba(151,254,237,0.2);';
@@ -3274,13 +3338,17 @@ function buildSection(catMeta,items){
   const score0=recId0&&S.matchScoreMap?(S.matchScoreMap[recId0]||0):0;
   const detail0=recId0&&S.matchDetailMap?(S.matchDetailMap[recId0]||null):null;
   const adv=document.createElement('div');adv.className='m-adv';
-  if(score0){
-    const tip=detail0?`카테고리 ${detail0.catScore}P + 컬러 ${detail0.colorScore}P + 디자인 ${detail0.designScore}P`:'';
-    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt">이 아이템은 추천코디와 매칭점수 <strong style="color:#a2fdf0;">${score0}P</strong>`+(tip?` <span style="font-size:10px;color:rgba(255,255,255,0.4);">(${tip})</span>`:'')+'</span>';
+  if(items.length===0){
+    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.72);">등록된 아이템이 없어요. 등록하면 매칭해드립니다.</span>`;
   } else if(S.hasGenerated){
-    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">스와이프해서 AI 추천 아이템을 확인하세요</span>`;
+    if(score0 >= 1){
+      const tip=detail0?`카테고리 ${detail0.catScore}P + 컬러 ${detail0.colorScore}P + 디자인 ${detail0.designScore}P`:'';
+      adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt">추천이미지와 일치하는 매칭점수 <strong style="color:#a2fdf0;">${score0}점</strong>`+(tip?` <span style="font-size:10px;color:rgba(255,255,255,0.45);">(${tip})</span>`:'')+'</span>';
+    } else {
+      adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.62);">추천이미지와 유사한 아이템 없음 <strong style="color:#fff;">0P</strong></span>`;
+    }
   } else {
-    adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">← 스와이프로 아이템을 탐색하세요</span>`;
+    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.52);">추천코디를 생성하면 이 카테고리에서 가장 유사한 아이템을 자동 매칭합니다.</span>`;
   }
   sec.appendChild(adv);
 
@@ -3436,7 +3504,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   function updateDateGuide(mode){
     const g = document.getElementById('doubleTapGuide');
     if(!g) return;
-    g.textContent = 'AI 스타일리스트 호출 버튼을 눌러 코디를 생성하세요.';
+    g.textContent = '✦ AI 스타일리스트 호출 버튼을 클릭하세요';
     g.classList.remove('hidden');
   }
 
