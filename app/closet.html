@@ -1212,241 +1212,515 @@ function buildMatchPairsFromPalette(palette, temp){
 }
 
 async function callClaude({faceSrc,wx,pk,profile,seed,day}){
-  // ✅ 로컬(브라우저)에서 바로 동작하는 "AI 스타일 추천"
-  // - 외부 유료 API/키 없이도 데모가 항상 돌아가도록 설계
-  // - 날씨 + 목적 + (성별/나이대/키/몸무게) 기반으로 스타일 타이틀/설명/키워드/팔레트 생성
 
   const pm = getPur(pk);
-  const t = (wx && wx.temp !== undefined) ? wx.temp : null;
+  const t  = (wx && wx.temp !== undefined) ? wx.temp : null;
+  const nt = Number.isFinite(Number(t)) ? Number(t) : 15;
+  const sd = Number(seed || 0);
 
-  const customText = (pk==='custom') ? String(profile?.codiPurposeCustom||'').trim() : '';
+  const customText  = (pk==='custom') ? String(profile?.codiPurposeCustom||'').trim() : '';
   const purposeName = (pk==='custom') ? (customText || '맞춤') : (pm?.label || '');
 
-  const g = profile?.gender === 'M' ? '남성' : (profile?.gender === 'F' ? '여성' : '');
-  const age = profile?.ageGroup ? String(profile.ageGroup) : '';
-  const hw = (profile?.height && profile?.weight) ? `키${profile.height}·${profile.weight}kg` : (profile?.height ? `키${profile.height}` : '');
-
-  // ✅ 지역 문화(기본 톤) + 랜덤 스타일리스트 페르소나
-  const loc = String(wx?.location || '').trim();
-  const culture = (()=>{
-    const s = loc.toLowerCase();
-    if(!s) return { code:'GLOBAL', label:'글로벌', hint:'현지 분위기에 과하지 않게 맞춘' };
-    if(/[\u3131-\uD79D]/.test(loc) || s.includes('korea') || s.includes('kr')){
-      return { code:'KR', label:'한국', hint:'한국 도심 라이프스타일(깔끔한 실루엣/레이어드)에 맞춘' };
-    }
-    if(s.includes('japan') || s.includes('tokyo') || s.includes('osaka')){
-      return { code:'JP', label:'일본', hint:'일본 감성(미니멀/정돈된 레이어)에 맞춘' };
-    }
-    if(s.includes('france') || s.includes('paris')){
-      return { code:'FR', label:'프랑스', hint:'프렌치 시크(심플+포인트)에 맞춘' };
-    }
-    if(s.includes('usa') || s.includes('united states') || s.includes('new york') || s.includes('los angeles') || s.includes('la')){
-      return { code:'US', label:'미국', hint:'아메리칸 캐주얼/워크웨어 감성에 맞춘' };
-    }
-    return { code:'GLOBAL', label:loc, hint:'현지 분위기에 맞춘' };
-  })();
-  const stylist = (()=>{
-    const hash32 = (str)=>{
-      let h=2166136261;
-      for(let i=0;i<str.length;i++){h^=str.charCodeAt(i); h=(h*16777619)>>>0;}
-      return h>>>0;
-    };
-    const id = (hash32(`${seed}|${pk}|${loc}|${purposeName}|${day||''}`) % 9000) + 1;
-    const archetypes = [
-      { voice:'미니멀 클래식', tag:'minimal', desc:'뉴트럴 중심, 실루엣 정리, 과한 디테일 최소화' },
-      { voice:'K-스트릿 캐주얼', tag:'street', desc:'레이어드와 포인트 아이템으로 트렌디하게' },
-      { voice:'프렌치 시크', tag:'chic', desc:'단정한 기본 + 한 가지 포인트로 완성' },
-      { voice:'스포티 애슬레저', tag:'athleisure', desc:'활동성/기능성 우선, 컬러는 안정적으로' },
-      { voice:'스마트 비즈니스', tag:'business', desc:'깔끔한 톤온톤, 소재/핏을 정돈' },
-      { voice:'워크웨어 무드', tag:'workwear', desc:'탄탄한 소재감, 아우터 중심의 안정감' },
-      { voice:'세미포멀 데일리', tag:'smartcasual', desc:'오피스·약속 모두 가능한 균형감' },
-    ];
-    const arch = archetypes[id % archetypes.length];
-    return { id, cultureCode: culture.code, cultureHint: culture.hint, seedOffset: id % 37, ...arch };
-  })();
-
-  // 온도 기반 레이어링 팁
-  let layerTip = '';
-  if (Number.isFinite(Number(t))) {
-    const nt = Number(t);
-    if (nt <= 5) layerTip = '코트+니트 레이어링';
-    else if (nt <= 12) layerTip = '자켓/코트 추천';
-    else if (nt <= 18) layerTip = '가벼운 자켓 OK';
-    else if (nt >= 26) layerTip = '통기성 좋은 소재';
-  }  // 목적 기반 스타일 네이밍
-  const titleMap = {
-    commute: '출퇴근',
-    business: '비즈니스',
-    weekendOut: '주말외출',
-    weekendTrip: '주말여행',
-    domesticTrip: '국내여행',
-    overseasTrip: '해외여행',
-    meet: '지인모임',
-    blindDate: '소개팅',
-    partyLook: '파티룩',
-    custom: '맞춤',
-  };
-  const baseTitle = titleMap[pk] || purposeName || '오늘의';
-  const styleTitle = `${baseTitle} · ${stylist.voice}`;
-
-  // ─ 설명용 기본값 ─
-  const _dayStr = String(day||'').trim();
-  const _d = _dayStr.toLowerCase();
-  const dLab = (_d==='tomorrow') ? '내일' : (_d==='today') ? '오늘' : (/^\d{4}-\d{2}-\d{2}$/.test(_dayStr) ? _dayStr.replace(/-/g,'.') : '오늘');
-  const tTxt = Number.isFinite(Number(t)) ? `${Math.round(Number(t))}°` : '';
-  const wxTxt = (wx && wx.text) ? String(wx.text).trim() : '';
+  const g   = profile?.gender === 'M' ? '남성' : (profile?.gender === 'F' ? '여성' : '남성');
+  const age = profile?.ageGroup ? String(profile.ageGroup) : '30대';
+  const hw  = (profile?.height && profile?.weight)
+    ? `키${profile.height}·${profile.weight}kg` : (profile?.height ? `키${profile.height}` : '');
   const who = [g, age, hw].filter(Boolean).join('·');
 
-  // ── [1] 팔레트 먼저 ──
-  const palette = localPalette(pk, t, seed + (stylist.seedOffset||0));
-  // matchPairs는 마지막에 안전하게 계산 (user 스코프 의존성 문제 방지)
+  // ── [1] 지역 컨텍스트 ──
+  const loc  = String(wx?.location || '').trim();
+  const _ls  = loc.toLowerCase();
+  const ethnicity = (/[\u3131-\uD79D]/.test(loc)||_ls.includes('korea')||_ls.includes('seoul'))
+    ? 'Korean' : _ls.includes('japan')||_ls.includes('tokyo') ? 'Japanese'
+    : _ls.includes('china') ? 'Chinese' : 'Asian';
+  const locationHint = (/[\u3131-\uD79D]/.test(loc)||_ls.includes('korea'))
+    ? '한국 도심' : loc || '도심';
 
-  // ── [2] seed + 스타일리스트 태그 → 디자인 키워드 ──
-  const designKwPool = {
-    minimal:     ['슬림핏','클린라인','모노톤','뉴트럴'],
-    street:      ['오버사이즈','레이어드','믹스매치','빅실루엣'],
-    chic:        ['테일러드','포인트컬러','세미핏','샤프'],
-    athleisure:  ['스트레치','기능성','릴렉스핏','스포티'],
-    business:    ['클래식핏','테일러드','슈트핏','깔끔'],
-    workwear:    ['스트레이트','워크웨어','볼드','안정적'],
-    smartcasual: ['세미핏','균형감','스마트','캐주얼'],
+  // ── [2] 70 PERSONA DATABASE (7 TPO × 10) ──
+  const PERSONA_DB = {
+    commute: [
+      { voice:'모던 미니멀리스트', en:'Modern Minimalist',
+        palette:{outer:'#1C1C1E',top:'#F5F5F0',pants:'#3D3D3D',shoes:'#1C1C1E',accent:'#C8B89A'},
+        designKws:['슬림핏','모노톤','레이어드','미니멀','클린라인','뉴트럴'],
+        shoe:'더비슈즈', silhouette:'슬림', layerStyle:'터틀넥+슬림코트' },
+      { voice:'어반 테크웨어', en:'Urban Techwear',
+        palette:{outer:'#0A0A0A',top:'#1A1A2E',pants:'#16213E',shoes:'#0F3460',accent:'#E94560'},
+        designKws:['테크웨어','기능성','스트레치','유틸리티','다크','쉘자켓'],
+        shoe:'테크러너', silhouette:'릴렉스', layerStyle:'쉘재킷+카고팬츠' },
+      { voice:'스마트 캐주얼', en:'Smart Casual',
+        palette:{outer:'#2C3E50',top:'#ECF0F1',pants:'#7F8C8D',shoes:'#2C3E50',accent:'#E67E22'},
+        designKws:['세미핏','균형감','스마트','캐주얼','포인트','정돈'],
+        shoe:'로퍼', silhouette:'세미슬림', layerStyle:'하운드투스자켓+차콜팬츠' },
+      { voice:'클래식 프레피', en:'Classic Preppy',
+        palette:{outer:'#1B3A6B',top:'#FFFEF7',pants:'#8B4513',shoes:'#4A2511',accent:'#C41E3A'},
+        designKws:['프레피','클래식','체크','헤링본','블레이저','버튼다운'],
+        shoe:'태슬로퍼', silhouette:'클래식', layerStyle:'네이비블레이저+카키치노' },
+      { voice:'컴포트 워크웨어', en:'Comfort Workwear',
+        palette:{outer:'#4A4A4A',top:'#E8E4DC',pants:'#6B6B6B',shoes:'#3C3C3C',accent:'#8B7355'},
+        designKws:['편안함','스트레치','기능성','워크','어스톤','편안한핏'],
+        shoe:'청키스니커즈', silhouette:'릴렉스', layerStyle:'후리스집업+스트레이트팬츠' },
+      { voice:'프렌치 시크', en:'French Chic',
+        palette:{outer:'#2F2F2F',top:'#F7F3EE',pants:'#1A1A1A',shoes:'#8B0000',accent:'#C8A882'},
+        designKws:['시크','에피소드','마린룩','스트라이프','베레모','포인트'],
+        shoe:'첼시부츠', silhouette:'테일러드', layerStyle:'스트라이프셔츠+테일러드트렌치' },
+      { voice:'비즈니스 놈코어', en:'Business Normcore',
+        palette:{outer:'#8B8B8B',top:'#FFFFFF',pants:'#4A4A4A',shoes:'#2C2C2C',accent:'#B8B8B8'},
+        designKws:['놈코어','베이직','심플','무지','정제된','실용적'],
+        shoe:'옥스포드', silhouette:'스트레이트', layerStyle:'회색수트+화이트셔츠' },
+      { voice:'바이크 커뮤터', en:'Bike Commuter',
+        palette:{outer:'#1A3A1A',top:'#2D5016',pants:'#1C1C1E',shoes:'#FF6B00',accent:'#FFCC00'},
+        designKws:['바이크','방수','반사재','기능성','컴팩트','스포티'],
+        shoe:'워킹슈즈', silhouette:'릴렉스', layerStyle:'윈드브레이커+퍼포먼스팬츠' },
+      { voice:'웨더 디펜더', en:'Weather Defender',
+        palette:{outer:'#1F3B4D',top:'#D4E8F0',pants:'#2C4A5A',shoes:'#1A1A2E',accent:'#4FC3F7'},
+        designKws:['방수','아우터','레이어','방한','기능성','클린'],
+        shoe:'고어텍스부츠', silhouette:'볼드', layerStyle:'다운파카+워터프루프팬츠' },
+      { voice:'에코 프렌들리', en:'Eco-Friendly',
+        palette:{outer:'#3D5A3E',top:'#C8D5B9',pants:'#5C4827',shoes:'#6B4E3D',accent:'#8FBC8F'},
+        designKws:['내추럴','어스톤','오가닉','리사이클','린넨','친환경'],
+        shoe:'캔버스스니커즈', silhouette:'릴렉스', layerStyle:'오가닉코튼셔츠+어스톤팬츠' },
+    ],
+    business: [
+      { voice:'클래식 사르토리아', en:'Classic Sartoria',
+        palette:{outer:'#1A1A2E',top:'#FAFAFA',pants:'#16213E',shoes:'#0A0A0A',accent:'#C8A000'},
+        designKws:['수트','라펠','포켓치프','이탈리안핏','테일러드','클래식'],
+        shoe:'옥스포드', silhouette:'테일러드', layerStyle:'네이비더블수트+화이트셔츠' },
+      { voice:'파워 드레서', en:'Power Dresser',
+        palette:{outer:'#0D0D0D',top:'#F8F4EE',pants:'#1A1A1A',shoes:'#0A0A0A',accent:'#8B0000'},
+        designKws:['파워','볼드숄더','스트럭처드','다크','임팩트','권위'],
+        shoe:'스트레이트팁', silhouette:'스트럭처드', layerStyle:'차콜더블수트+건메탈타이' },
+      { voice:'올드머니 럭셔리', en:'Old Money Luxury',
+        palette:{outer:'#5C4033',top:'#FAF7F0',pants:'#3D2B1F',shoes:'#4A2511',accent:'#C8B89A'},
+        designKws:['캐시미어','클럽컬러','헤리티지','로고리스','고급소재','퀴어트럭셔리'],
+        shoe:'모크크로코로퍼', silhouette:'클래식', layerStyle:'카멜코트+아이보리터틀넥' },
+      { voice:'모던 브리티시', en:'Modern British',
+        palette:{outer:'#1C3A2E',top:'#E8E4D8',pants:'#2A4A3A',shoes:'#1A2A1A',accent:'#8B6914'},
+        designKws:['헤링본','글렌체크','트위드','브리티시','핀스트라이프','리젠트'],
+        shoe:'브로그', silhouette:'테일러드슬림', layerStyle:'헤링본수트+버튼다운' },
+      { voice:'소프트 젠틀', en:'Soft Gentle',
+        palette:{outer:'#B0C4DE',top:'#FAFAFA',pants:'#778899',shoes:'#4A5568',accent:'#E8D5B7'},
+        designKws:['파스텔','소프트','젠틀','세미포멀','뉴트럴','부드러운'],
+        shoe:'수에드로퍼', silhouette:'세미슬림', layerStyle:'라이트그레이수트+소프트블루셔츠' },
+      { voice:'컨템포러리 비즈', en:'Contemporary Biz',
+        palette:{outer:'#2D3436',top:'#DFE6E9',pants:'#636E72',shoes:'#2D3436',accent:'#0984E3'},
+        designKws:['모던','세미포멀','테크소재','미니멀','블레이저','슬랙스'],
+        shoe:'청키더비', silhouette:'세미슬림', layerStyle:'그레이블레이저+테크팬츠' },
+      { voice:'테일러드 아웃도어', en:'Tailored Outdoor',
+        palette:{outer:'#3C5A3C',top:'#F5F0E8',pants:'#2C4A2C',shoes:'#4A3728',accent:'#8B6914'},
+        designKws:['고어텍스','아웃도어','테일러드','기능성','하이브리드','필드'],
+        shoe:'트레킹더비', silhouette:'스트레이트', layerStyle:'아웃도어블레이저+카고슬랙스' },
+      { voice:'노타이 스페셜리스트', en:'Tieless Specialist',
+        palette:{outer:'#34495E',top:'#ECF0F1',pants:'#2C3E50',shoes:'#1A252F',accent:'#16A085'},
+        designKws:['노타이','오픈칼라','모던포멀','크루넥','언버튼','세련된'],
+        shoe:'클린스니커즈', silhouette:'슬림', layerStyle:'다크수트+오픈칼라셔츠' },
+      { voice:'비즈 아방가르드', en:'Business Avant-garde',
+        palette:{outer:'#1A0A2E',top:'#E8E0F0',pants:'#2D1B4E',shoes:'#1A0A2E',accent:'#9B59B6'},
+        designKws:['아방가르드','비대칭','언발란스','퍼플','실험적','전위적'],
+        shoe:'플랫폼더비', silhouette:'오버사이즈', layerStyle:'비대칭재킷+와이드슬랙스' },
+      { voice:'클라이밋 어댑터', en:'Climate Adapter',
+        palette:{outer:'#4A5568',top:'#E2E8F0',pants:'#2D3748',shoes:'#1A202C',accent:'#38B2AC'},
+        designKws:['레이어블','온도조절','기능소재','탈착','올시즌','베르사타일'],
+        shoe:'워터프루프더비', silhouette:'스트레이트', layerStyle:'3in1재킷+온도조절팬츠' },
+    ],
+    social: [
+      { voice:'트렌드세터', en:'Trendsetter',
+        palette:{outer:'#FF6B6B',top:'#FFEAA7',pants:'#2D3436',shoes:'#0A0A0A',accent:'#FD79A8'},
+        designKws:['트렌디','믹스매치','컬러블로킹','포인트','시즌컬러','핫아이템'],
+        shoe:'청키스니커즈', silhouette:'오버사이즈', layerStyle:'컬러블로킹아웃터+그래픽티' },
+      { voice:'스트릿 하이엔드', en:'Street High-end',
+        palette:{outer:'#1A1A1A',top:'#F0F0F0',pants:'#1A1A1A',shoes:'#1A1A1A',accent:'#FFD700'},
+        designKws:['럭스스트릿','로고','골드포인트','하이스트릿','다크','프리미엄'],
+        shoe:'하이탑스니커즈', silhouette:'오버사이즈', layerStyle:'프리미엄후디+와이드팬츠+골드체인' },
+      { voice:'미니멀 보이프렌드', en:'Minimal Boyfriend',
+        palette:{outer:'#95A5A6',top:'#FAFAFA',pants:'#E8E8E8',shoes:'#D5D8DC',accent:'#BDC3C7'},
+        designKws:['릴렉스','오버핏','쿨한','그레이톤','미니멀','젠더리스'],
+        shoe:'뮬', silhouette:'오버사이즈', layerStyle:'오버핏셔츠+조거팬츠' },
+      { voice:'레트로 빈티지', en:'Retro Vintage',
+        palette:{outer:'#8B4513',top:'#F5DEB3',pants:'#DEB887',shoes:'#8B4513',accent:'#CD853F'},
+        designKws:['빈티지','레트로','아메카지','워싱','플레어','70s'],
+        shoe:'플랫폼부츠', silhouette:'플레어', layerStyle:'코듀로이재킷+플레어데님' },
+      { voice:'아방가르드', en:'Avant-garde',
+        palette:{outer:'#2C2C54',top:'#ECECEC',pants:'#40407A',shoes:'#0A0A0A',accent:'#FF4757'},
+        designKws:['아방가르드','비대칭','드레이핑','실험적','조형적','언발란스'],
+        shoe:'아방가르드부츠', silhouette:'오버사이즈', layerStyle:'비대칭드레이프코트+와이드팬츠' },
+      { voice:'Y2K 리바이벌', en:'Y2K Revival',
+        palette:{outer:'#E91E8C',top:'#00BCD4',pants:'#7C4DFF',shoes:'#FF6D00',accent:'#76FF03'},
+        designKws:['Y2K','크롭','메탈릭','홀로그램','컬러풀','2000년대'],
+        shoe:'플랫폼스니커즈', silhouette:'크롭', layerStyle:'메탈릭크롭자켓+로우라이즈팬츠' },
+      { voice:'컬러 팝', en:'Color Point Pop',
+        palette:{outer:'#FF5722',top:'#FFFFFF',pants:'#212121',shoes:'#FF5722',accent:'#FFC107'},
+        designKws:['컬러포인트','원색','팝','포인트아이템','흑백기반','강렬한'],
+        shoe:'컬러스니커즈', silhouette:'슬림', layerStyle:'화이트베이스+오렌지포인트코트' },
+      { voice:'그런지 반항아', en:'Grunge Rebellion',
+        palette:{outer:'#1A1A1A',top:'#4A4A4A',pants:'#2C2C2C',shoes:'#1A1A1A',accent:'#8B0000'},
+        designKws:['그런지','데스트로이드','레이어드','다크','체인','밴드티'],
+        shoe:'닥터마틴', silhouette:'오버사이즈', layerStyle:'오버핏플란넬+데스트로이드진' },
+      { voice:'긱 시크', en:'Geek Chic',
+        palette:{outer:'#2F4F8F',top:'#E8EAF6',pants:'#37474F',shoes:'#1A237E',accent:'#FF6F00'},
+        designKws:['긱시크','옥스포드','체크','안경','패치','레이어드'],
+        shoe:'화이트스니커즈', silhouette:'클래식슬림', layerStyle:'체크셔츠+카디건+슬림진' },
+      { voice:'로맨틱 보헤미안', en:'Romantic Bohemian',
+        palette:{outer:'#D4A96A',top:'#FDF3E3',pants:'#8B7355',shoes:'#6B4C2A',accent:'#C8956C'},
+        designKws:['보헤미안','플로럴','레이스','어스톤','레이어드','낭만적'],
+        shoe:'에스파드리유', silhouette:'플로우', layerStyle:'플로럴블라우스+린넨팬츠+베스트' },
+    ],
+    weekendOut: [
+      { voice:'코지 릴렉서', en:'Cozy Relaxer',
+        palette:{outer:'#8B7355',top:'#F5F0E8',pants:'#6B6B6B',shoes:'#4A4A4A',accent:'#D4B896'},
+        designKws:['코지','오버핏','니트','스웨트','릴렉스','홈웨어'],
+        shoe:'울리슬리퍼', silhouette:'오버사이즈', layerStyle:'오버핏니트+조거팬츠' },
+      { voice:'시티 보이', en:'City Boy',
+        palette:{outer:'#2C3E50',top:'#FFFFFF',pants:'#2C2C2C',shoes:'#1A1A1A',accent:'#3498DB'},
+        designKws:['시티','어반','스트릿','크루넥','스웨트셔츠','스니커즈'],
+        shoe:'에어맥스', silhouette:'릴렉스', layerStyle:'크루넥스웨트+카고팬츠' },
+      { voice:'스포티 액티브', en:'Sporty & Active',
+        palette:{outer:'#1A237E',top:'#E3F2FD',pants:'#0D47A1',shoes:'#FF6F00',accent:'#FF6F00'},
+        designKws:['스포티','애슬레저','퍼포먼스','러닝','테크패브릭','활동성'],
+        shoe:'러닝화', silhouette:'슬림', layerStyle:'트랙수트+스포츠아웃터' },
+      { voice:'아메카지', en:'Amekaji',
+        palette:{outer:'#8B4513',top:'#F5DEB3',pants:'#1C3A6B',shoes:'#4A2511',accent:'#CD853F'},
+        designKws:['아메카지','데님','워크부츠','플란넬','체인지','레이어드'],
+        shoe:'레드윙부츠', silhouette:'스트레이트', layerStyle:'데님자켓+체크플란넬+워싱진' },
+      { voice:'위켄드 캠퍼', en:'Weekend Camper',
+        palette:{outer:'#3C5A3C',top:'#F5F0E0',pants:'#5C4827',shoes:'#4A3728',accent:'#FF8C00'},
+        designKws:['캠핑','아웃도어','고프코어','패딩','방수','기능성'],
+        shoe:'하이킹부츠', silhouette:'릴렉스', layerStyle:'마운틴파카+카고팬츠' },
+      { voice:'카페 칠러', en:'Cafe Chiller',
+        palette:{outer:'#A0522D',top:'#FFF8DC',pants:'#D2691E',shoes:'#8B6914',accent:'#DEB887'},
+        designKws:['카페','어스톤','코지','레이어드','니트','캐주얼'],
+        shoe:'카멜첼시부츠', silhouette:'세미릴렉스', layerStyle:'오버핏가디건+슬랙스' },
+      { voice:'데님 마스터', en:'Denim Master',
+        palette:{outer:'#1C3A6B',top:'#FFFFFF',pants:'#4169E1',shoes:'#1C1C1E',accent:'#C8B89A'},
+        designKws:['데님온데님','캐나디안포멀','인디고','워싱','테일러드데님','데님'],
+        shoe:'화이트청키스니커즈', silhouette:'스트레이트', layerStyle:'데님트러커+데님팬츠+화이트티' },
+      { voice:'레더 앤 바이커', en:'Leather & Biker',
+        palette:{outer:'#0A0A0A',top:'#1C1C1C',pants:'#1A1A1A',shoes:'#0A0A0A',accent:'#C0C0C0'},
+        designKws:['레더','바이커','메탈','모터사이클','다크','체인'],
+        shoe:'바이커부츠', silhouette:'슬림', layerStyle:'레더라이더자켓+슬림블랙진' },
+      { voice:'오버사이즈 마에스트로', en:'Oversize Maestro',
+        palette:{outer:'#C8B89A',top:'#FFFEF7',pants:'#8B7355',shoes:'#4A4A4A',accent:'#D4A96A'},
+        designKws:['오버사이즈','볼드실루엣','드롭숄더','빅핏','레이어드','헤비'],
+        shoe:'청키부츠', silhouette:'오버사이즈', layerStyle:'오버사이즈코트+박시티+와이드팬츠' },
+      { voice:'리조트 라운저', en:'Resort Lounger',
+        palette:{outer:'#87CEEB',top:'#FFFEF7',pants:'#F4A460',shoes:'#DEB887',accent:'#20B2AA'},
+        designKws:['리조트','하와이안','린넨','라이트','밝은컬러','릴렉스'],
+        shoe:'에스파드리유', silhouette:'릴렉스', layerStyle:'린넨셔츠+쇼츠+레이어드' },
+    ],
+    weekendTrip: [
+      { voice:'고프코어', en:'Gorpcore',
+        palette:{outer:'#2E5E2E',top:'#C8D5B9',pants:'#4A5240',shoes:'#8B6914',accent:'#FF8C00'},
+        designKws:['고프코어','기능성','아웃도어','레이어','트레일','고어텍스'],
+        shoe:'트레일러너', silhouette:'릴렉스', layerStyle:'패딩조끼+플리스+카고팬츠' },
+      { voice:'트래블 테크', en:'Travel Tech',
+        palette:{outer:'#1A1A2E',top:'#16213E',pants:'#0F3460',shoes:'#1A1A2E',accent:'#E94560'},
+        designKws:['트래블','테크','경량','주름방지','기능성','스마트'],
+        shoe:'트래블스니커즈', silhouette:'슬림', layerStyle:'트래블자켓+테크팬츠' },
+      { voice:'레이어드 마스터', en:'Layered Master',
+        palette:{outer:'#4A3728',top:'#E8D5B7',pants:'#5C4827',shoes:'#3C2A1A',accent:'#D4A96A'},
+        designKws:['레이어드','믹스앤매치','온도조절','겹치기','어스톤','텍스처'],
+        shoe:'워킹부츠', silhouette:'볼드', layerStyle:'다운베스트+플란넬+코듀로이팬츠' },
+      { voice:'로드트립 드라이버', en:'Road Trip Driver',
+        palette:{outer:'#2C3E50',top:'#ECF0F1',pants:'#34495E',shoes:'#2C3E50',accent:'#E67E22'},
+        designKws:['로드트립','어메리칸','캐주얼','스트레이트','데님','클래식'],
+        shoe:'화이트로우스니커즈', silhouette:'스트레이트', layerStyle:'MA-1봄버+청바지+후드티' },
+      { voice:'헤리티지 워크웨어', en:'Heritage Workwear',
+        palette:{outer:'#5C4827',top:'#E8D5B7',pants:'#3C2A1A',shoes:'#4A3728',accent:'#8B6914'},
+        designKws:['헤리티지','워크웨어','캔버스','데님','체인스티치','아메카지'],
+        shoe:'엔지니어부츠', silhouette:'스트레이트', layerStyle:'캔버스워크재킷+데님오버롤' },
+      { voice:'백패커', en:'Backpacker',
+        palette:{outer:'#3C5A3C',top:'#C8D5B9',pants:'#4A5240',shoes:'#6B4E3D',accent:'#FF8C00'},
+        designKws:['백팩','경량','트레킹','레이어블','그린','실용적'],
+        shoe:'트레킹샌들', silhouette:'릴렉스', layerStyle:'경량다운+컨버터블팬츠' },
+      { voice:'포토제닉 투어리스트', en:'Photogenic Tourist',
+        palette:{outer:'#E8B4B8',top:'#FAFAFA',pants:'#C9A0DC',shoes:'#FFFFFF',accent:'#FFB347'},
+        designKws:['인스타','포토제닉','파스텔','밝은','트렌디','소셜'],
+        shoe:'화이트스니커즈', silhouette:'슬림', layerStyle:'파스텔블루셋업+컬러팝악세서리' },
+      { voice:'컬러블록 플레이어', en:'Color Block Player',
+        palette:{outer:'#E74C3C',top:'#3498DB',pants:'#2ECC71',shoes:'#F39C12',accent:'#9B59B6'},
+        designKws:['컬러블로킹','대담한','원색','믹스','팝아트','대조'],
+        shoe:'컬러화이트스니커즈', silhouette:'릴렉스', layerStyle:'컬러블록바람막이+와이드팬츠' },
+      { voice:'트레일 러너', en:'Trail Runner',
+        palette:{outer:'#FF6F00',top:'#1A1A2E',pants:'#2C3E50',shoes:'#FF6F00',accent:'#76FF03'},
+        designKws:['트레일','런닝','기능성','경량','다이나믹','퍼포먼스'],
+        shoe:'트레일러닝화', silhouette:'슬림', layerStyle:'윈드브레이커+퍼포먼스타이츠' },
+      { voice:'컨트리사이드 젠틀맨', en:'Countryside Gentleman',
+        palette:{outer:'#4A5E3A',top:'#F5F0E8',pants:'#5C4827',shoes:'#4A3728',accent:'#8B6914'},
+        designKws:['컨트리','트위드','헌팅','왁스코튼','귀족적','영국식'],
+        shoe:'브로그', silhouette:'클래식', layerStyle:'왁스코튼재킷+코듀로이팬츠' },
+    ],
+    overseasTrip: [
+      { voice:'제트셋 시크', en:'Jet-set Chic',
+        palette:{outer:'#1A1A2E',top:'#FAF0E6',pants:'#2C2C54',shoes:'#1A1A2E',accent:'#C8A000'},
+        designKws:['럭셔리','제트셋','시크','모노크롬','에디토리얼','글로시'],
+        shoe:'레더첼시부츠', silhouette:'슬림', layerStyle:'블랙마스터코트+모노크롬룩' },
+      { voice:'글로벌 노마드', en:'Global Nomad',
+        palette:{outer:'#8B7355',top:'#F5F0E8',pants:'#6B5A45',shoes:'#4A3728',accent:'#D4A96A'},
+        designKws:['노마드','글로벌','어스톤','레이어블','내추럴','크래프트'],
+        shoe:'슬리폰', silhouette:'릴렉스', layerStyle:'린넨코트+와이드팬츠+스카프' },
+      { voice:'올웨더 어댑터', en:'All-weather Adapter',
+        palette:{outer:'#2C3E50',top:'#ECF0F1',pants:'#34495E',shoes:'#2C3E50',accent:'#1ABC9C'},
+        designKws:['올웨더','기능성','방수','경량','레이어블','스마트'],
+        shoe:'고어텍스스니커즈', silhouette:'스트레이트', layerStyle:'3in1재킷+방수팬츠' },
+      { voice:'메트로폴리탄', en:'Metropolitan',
+        palette:{outer:'#1C1C1E',top:'#F5F5F7',pants:'#3A3A3C',shoes:'#1C1C1E',accent:'#FF375F'},
+        designKws:['메트로','어반','코즈모폴리탄','모던','소피스티케이트','시티'],
+        shoe:'레더스니커즈', silhouette:'슬림', layerStyle:'그레이코트+블랙팬츠+팝컬러백' },
+      { voice:'하이엔드 리조트', en:'High-end Resort',
+        palette:{outer:'#F0E6D3',top:'#FFFEF7',pants:'#E8D5B7',shoes:'#C8A882'},
+        designKws:['리조트','럭셔리','린넨','화이트','크림','우아한'],
+        shoe:'에스파드리유', silhouette:'릴렉스', layerStyle:'크림린넨셋업+골드악세서리' },
+      { voice:'이지케어', en:'Easy Care',
+        palette:{outer:'#778899',top:'#F0F4F8',pants:'#4A5568',shoes:'#2D3748',accent:'#63B3ED'},
+        designKws:['주름방지','폴리','기능성','워시앤웨어','경량','심플'],
+        shoe:'컬러스니커즈', silhouette:'스트레이트', layerStyle:'이지케어블레이저+클린슬랙스' },
+      { voice:'미니멀 패커', en:'Minimal Packer',
+        palette:{outer:'#2D3748',top:'#E2E8F0',pants:'#4A5568',shoes:'#2D3748',accent:'#68D391'},
+        designKws:['미니멀','패킹','다용도','뉴트럴','심플','레이어블'],
+        shoe:'화이트스니커즈', silhouette:'슬림', layerStyle:'뉴트럴코트+뉴트럴팬츠+기본티' },
+      { voice:'컬처럴 카멜레온', en:'Cultural Chameleon',
+        palette:{outer:'#6B3F6B',top:'#F5E6FF',pants:'#4A2D4A',shoes:'#2C1A2C',accent:'#FF79C6'},
+        designKws:['글로벌','컬처럴','에스닉믹스','보헤미안','크로스컬처','다양성'],
+        shoe:'에스닉플랫', silhouette:'플로우', layerStyle:'에스닉믹스아우터+드레이프팬츠' },
+      { voice:'세이프티 트래블러', en:'Safety Traveler',
+        palette:{outer:'#4A5568',top:'#E2E8F0',pants:'#2D3748',shoes:'#1A202C',accent:'#F6E05E'},
+        designKws:['실용성','RFID','은닉주머니','안전','기능성','심플'],
+        shoe:'워킹화', silhouette:'스트레이트', layerStyle:'트래블베스트+테크팬츠' },
+      { voice:'블레저 노마드', en:'Bleisure Nomad',
+        palette:{outer:'#1A1A2E',top:'#FAFAFA',pants:'#2C2C54',shoes:'#1A1A2E',accent:'#5E81F4'},
+        designKws:['블레저','비즈캐주얼','플렉시블','스마트','모던','듀얼'],
+        shoe:'레더청키스니커즈', silhouette:'세미슬림', layerStyle:'블레이저+테크팬츠+슬릭티' },
+    ],
+    custom: [
+      { voice:'프롬프트 디자이너', en:'Prompt Designer',
+        palette:{outer:'#1A1A2E',top:'#E8E0F0',pants:'#2D1B4E',shoes:'#1A0A2E',accent:'#9B59B6'},
+        designKws:['맞춤','창의적','실험적','유니크','컨셉추얼','개성'],
+        shoe:'컨셉슈즈', silhouette:'실험적', layerStyle:'컨셉아우터+유니크아이템조합' },
+      { voice:'무드 믹스매처', en:'Mood Mix-matcher',
+        palette:{outer:'#2C3E50',top:'#ECF0F1',pants:'#8B7355',shoes:'#4A3728',accent:'#E67E22'},
+        designKws:['무드','믹스매치','레이어드','콜라주','혼합','감성'],
+        shoe:'믹스매치슈즈', silhouette:'오버사이즈', layerStyle:'무드믹스코트+이질적아이템조합' },
+      { voice:'컬러 스페셜리스트', en:'Color Specialist',
+        palette:{outer:'#E74C3C',top:'#3498DB',pants:'#2ECC71',shoes:'#F39C12',accent:'#9B59B6'},
+        designKws:['컬러','색채','대담한','팝컬러','채도높은','컬러이론'],
+        shoe:'컬러스니커즈', silhouette:'슬림', layerStyle:'컬러코디네이션아우터+대담한컬러조합' },
+      { voice:'핏 엔지니어', en:'Fit Engineer',
+        palette:{outer:'#1A1A1A',top:'#FFFFFF',pants:'#2C2C2C',shoes:'#1A1A1A',accent:'#C8C8C8'},
+        designKws:['실루엣','핏','비례','프로포션','테일러드','구조적'],
+        shoe:'클린레더슈즈', silhouette:'테일러드', layerStyle:'구조적아우터+비례완벽한팬츠' },
+      { voice:'브랜드 큐레이터', en:'Brand Curator',
+        palette:{outer:'#0A0A0A',top:'#F8F4EE',pants:'#1A1A1A',shoes:'#0A0A0A',accent:'#C8A000'},
+        designKws:['브랜드','로고','하이패션','컬렉션','에디션','큐레이션'],
+        shoe:'디자이너화', silhouette:'다양', layerStyle:'시즌컬렉션키아이템중심코디' },
+      { voice:'젠더리스 크리에이터', en:'Genderless Creator',
+        palette:{outer:'#95A5A6',top:'#FAFAFA',pants:'#7F8C8D',shoes:'#BDC3C7',accent:'#E8D5B7'},
+        designKws:['젠더리스','중성적','오버핏','소프트','유니섹스','경계없는'],
+        shoe:'젠더리스화', silhouette:'오버사이즈', layerStyle:'젠더리스오버코트+언더셔츠' },
+      { voice:'서브컬처 매니악', en:'Subculture Maniac',
+        palette:{outer:'#1A1A1A',top:'#4A4A4A',pants:'#2C2C2C',shoes:'#0A0A0A',accent:'#FF0000'},
+        designKws:['서브컬처','스트릿','반문화','빈티지','그런지','언더그라운드'],
+        shoe:'플랫폼부츠', silhouette:'오버사이즈', layerStyle:'서브컬처믹스아우터+진짜개성' },
+      { voice:'타임 트래블러', en:'Time Traveler',
+        palette:{outer:'#5C4827',top:'#F5DEB3',pants:'#8B4513',shoes:'#4A2511',accent:'#C8A000'},
+        designKws:['빈티지','레트로','헤리티지','시대믹스','아카이브','클래식'],
+        shoe:'빈티지부츠', silhouette:'클래식', layerStyle:'아카이브피스+빈티지아이템믹스' },
+      { voice:'시네마틱 디렉터', en:'Cinematic Director',
+        palette:{outer:'#1C1C1E',top:'#F5F5F0',pants:'#3A3A3C',shoes:'#1C1C1E',accent:'#FFD700'},
+        designKws:['시네마틱','드라마틱','무비룩','레거시','아이코닉','스타일'],
+        shoe:'시그니처슈즈', silhouette:'드라마틱', layerStyle:'시네마틱스테이트먼트코트+심플이너' },
+      { voice:'시즌리스 크리에이터', en:'Seasonless Creator',
+        palette:{outer:'#4A4A4A',top:'#E8E8E8',pants:'#6B6B6B',shoes:'#3C3C3C',accent:'#A0A0A0'},
+        designKws:['시즌리스','올라운드','뉴트럴','소재믹스','레이어블','베이직'],
+        shoe:'시즌리스화', silhouette:'세미릴렉스', layerStyle:'뉴트럴올시즌아우터+소재믹스' },
+    ],
   };
-  const dPool = designKwPool[stylist.tag] || ['클린','정돈','베이직'];
-  const sd = Number(seed || 0);
+
+  // TPO 매핑
+  const tpoKey = (()=>{
+    if(pk==='commute'||pk==='business') return pk;
+    if(pk==='meet'||pk==='blindDate'||pk==='partyLook') return 'social';
+    if(pk==='weekendOut') return 'weekendOut';
+    if(pk==='weekendTrip'||pk==='domesticTrip') return 'weekendTrip';
+    if(pk==='overseasTrip') return 'overseasTrip';
+    return 'custom';
+  })();
+  const personas = PERSONA_DB[tpoKey] || PERSONA_DB.commute;
+
+  // ── [3] 다시코디: seed % 10으로 TPO 내 완전히 다른 페르소나 강제 순환
+  const personaIdx = sd % personas.length;
+  const persona = personas[personaIdx];
+
+  // ── [4] stylist 객체 구성
+  const stylist = {
+    id:          (sd * 37 + personaIdx * 13 + 1) % 9000 + 1,
+    voice:       persona.voice,
+    en:          persona.en,
+    tag:         persona.en.toLowerCase().replace(/\s+/g,'_'),
+    cultureHint: `${locationHint} 감성에 맞는`,
+    cultureCode: ethnicity.toUpperCase().slice(0,2),
+    seedOffset:  personaIdx,
+    desc:        persona.layerStyle,
+  };
+
+  // ── [5] 페르소나 고유 팔레트 (온도 보정)
+  let palette = { ...persona.palette };
+  if(!palette.accent) palette.accent = '#C8B89A';
+  // 더운 날씨: 아우터를 상의 컬러로 교체(레이어 제거)
+  if(nt >= 22) palette = {...palette, outer: palette.top};
+  // 영하: 팔레트 전체를 약간 더 어둡게 (이미 각 persona가 계절 반영)
+
+  // ── [6] 디자인 키워드 (페르소나별 고유 6개+에서 순환)
+  const dPool = persona.designKws;
   const dKw1 = dPool[sd % dPool.length];
-  const dKw2 = dPool[(sd + 1) % dPool.length];
-  const dKw3 = dPool[(sd + 2) % dPool.length];
+  const dKw2 = dPool[(sd+1) % dPool.length];
+  const dKw3 = dPool[(sd+2) % dPool.length];
+  const shoeStyle = persona.shoe;
 
-  // ── [3] 신발 스타일 ──
-  const shoeStyleMap = {
-    commute:     sd%2===0 ? '로퍼' : '더비슈즈',
-    business:    sd%2===0 ? '옥스포드' : '첼시부츠',
-    weekendOut:  sd%2===0 ? '스니커즈' : '캔버스',
-    weekendTrip: sd%2===0 ? '트레일런닝화' : '워킹슈즈',
-    domesticTrip:sd%2===0 ? '스니커즈' : '슬립온',
-    overseasTrip:sd%2===0 ? '스니커즈' : '첼시부츠',
-    meet:        sd%2===0 ? '로퍼' : '첼시부츠',
-    blindDate:   sd%2===0 ? '더비슈즈' : '첼시부츠',
-    partyLook:   sd%2===0 ? '첼시부츠' : '슬립온',
-    custom:      sd%2===0 ? '로퍼' : '스니커즈',
-  };
-  const shoeStyle = shoeStyleMap[pk] || (sd%2===0 ? '로퍼' : '스니커즈');
+  // ── [7] 온도 레이어링
+  const layerTip = (()=>{
+    if(!Number.isFinite(nt)) return '';
+    if(nt<=3)  return `${persona.layerStyle} + 두꺼운 이너`;
+    if(nt<=10) return `${persona.layerStyle} 레이어링`;
+    if(nt<=17) return `${persona.layerStyle.split('+')[0].trim()} 위주`;
+    if(nt>=24) return '통기성 소재 중심';
+    return persona.layerStyle;
+  })();
 
-  // ── [4] 계절 키워드 ──
-  const _s = season(t);
-  const seasonKw = (_s==='winter') ? '보온' : (_s==='cool') ? '레이어링' : (_s==='warm') ? '경량' : '클린';
+  const seasonKw = nt<=5?'보온':nt<=12?'레이어링':nt<=19?'미들레이어':'경량소재';
+  const _outerItem = nt<=7?'코트':nt<=15?'자켓':'가디건';
 
-  // ── [5] 목적별 스타일 팁 ──
-  const purposeTips = {
-    commute: '출퇴근은 편안함과 단정함의 균형이 중요해요. 신발과 아우터로 완성도를 올려보세요.',
-    business: '비즈니스는 깔끔한 실루엣과 소재감이 포인트예요. 컬러는 2~3개로 정리하면 좋아요.',
-    weekendOut: '주말외출은 활동성을 살리되, 상·하의 한쪽은 톤을 맞춰 안정감을 주세요.',
-    weekendTrip: '주말여행은 레이어링과 수납(아우터/백)이 중요해요. 온도변화에 대비해요.',
-    domesticTrip: '국내여행은 실용성과 사진발을 함께! 편한 신발 + 포인트 컬러 1개가 좋아요.',
-    overseasTrip: '해외여행은 이동이 많으니 편한 착화감이 우선. 레이어로 체온조절을 해요.',
-    meet: '지인모임은 과하지 않게 "잘 꾸민 느낌"이 좋아요. 컬러 포인트를 1개만 주면 깔끔해요.',
-    blindDate: '소개팅은 첫인상이 중요해요. 과한 로고/색보단 깔끔한 톤 + 소재감으로 호감도를 높여요.',
-    partyLook: '파티룩은 포인트 아이템 1개(컬러/소재/액세서리)를 중심으로 전체 톤을 정리해보세요.',
-    custom: '직접입력 목적은 상황에 맞는 포인트가 달라요. 목적 키워드를 중심으로 컬러·소재를 맞춰보세요.',
-  };
+  // ── [8] 날씨/날짜 텍스트
+  const _dayStr = String(day||'').trim();
+  const _d = _dayStr.toLowerCase();
+  const dLab = (_d==='tomorrow')?'내일':(_d==='today')?'오늘':(/^\d{4}-\d{2}-\d{2}$/.test(_dayStr)?_dayStr.replace(/-/g,'/').slice(5):'');
+  const tTxt = Number.isFinite(nt)?`${Math.round(nt)}°`:'';
+  const wxTxt = (wx&&wx.text)?String(wx.text).trim():'';
 
-  // ── [6] explanation 조합 ─ 모든 변수 준비 완료 ──
-  const layerSentence = layerTip ? `기온을 고려해 ${layerTip} 중심으로 체온 조절이 쉬운 구성이 좋아요.` : '';
-  const baseSentence = `${dLab} ${tTxt}${wxTxt ? ' ' + wxTxt : ''} 날씨를 기준으로 ${purposeName} 목적에 ${stylist.cultureHint} ${stylist.voice} 스타일(스타일리스트 #${stylist.id})로 구성했어요.`.replace(/\s+/g,' ').trim();
-  const purposeSentence = (purposeTips[pk] || '상황에 맞게 과하지 않게 밸런스를 맞추는 것이 핵심이에요.');
-
-  // seed별 어드바이스 (다시코디마다 변경)
-  const advPool = [
-    `${dKw1} 핏에 ${colorNameFromHex(palette?.top)||'뉴트럴'} 상의를 중심으로 레이어드하면 완성도가 높아져요.`,
-    `이번 포인트는 ${dKw2} 실루엣. ${shoeStyle}로 포인트를 주면 전체가 자연스럽게 정돈돼요.`,
-    `${dKw3} 무드로 아우터를 선택하고, 이너는 한 톤 밝게 더해보세요.`,
-    `${shoeStyle} 선택이 이번 코디의 완성도를 좌우해요. 상·하의는 ${colorNameFromHex(palette?.pants)||'다크'} 톤으로 맞추세요.`,
-    `${colorNameFromHex(palette?.outer)||'아우터'} 컬러가 룩의 기준점이에요. 이너와 하의는 1~2톤 밝게 배치하세요.`,
-    `${stylist.voice} 스타일의 핵심은 과하지 않게. ${dKw1} 감성 아이템 3가지로 완성하는 미니멀 코디를 시도해보세요.`,
-    `${dKw1}과 ${dKw3}의 조합이 포인트예요. 레이어링 순서를 바꾸면 완전히 다른 분위기가 나요.`,
-  ];
-  const advSentence = advPool[sd % advPool.length];
-
-  // ── 컬러 지시문: 이미지와 텍스트가 동일한 컬러를 공유하도록
-  const outerColorName = colorNameFromHex(palette?.outer) || '';
-  const topColorName   = colorNameFromHex(palette?.top)   || '';
-  const pantsColorName = colorNameFromHex(palette?.pants) || '';
-  const accentColorName= colorNameFromHex(palette?.accent) || '';
-  const _outerItem = (Number.isFinite(Number(t)) && Number(t) <= 7) ? '코트' : '자켓';
-  const colorSentence = [
-    outerColorName  ? `${_outerItem}(${outerColorName})` : '',
-    topColorName    ? `상의(${topColorName})` : '',
-    pantsColorName  ? `하의(${pantsColorName})` : '',
-    accentColorName ? `포인트(${accentColorName})` : '',
-  ].filter(Boolean).join(' · ');
-
-  // 직접입력 최우선 반영
-  const customSentence = (pk==='custom' && customText)
-    ? `★직접요청: "${customText}"에 맞춰 컬러·아이템 선택.`
+  // ── [9] 직접입력 처리
+  const customSentence = (pk==='custom'&&customText)
+    ? `★직접요청: "${customText}"에 맞춰 컬러·아이템 선택. `
     : '';
 
-  let explanation = `${baseSentence} ${advSentence} ${layerSentence} ${purposeSentence}`.replace(/\s+/g,' ').trim();
-  if(colorSentence) explanation = `[컬러] ${colorSentence} / ${explanation}`;
-  if(customSentence) explanation = `${customSentence} ${explanation}`;
-  if (who) explanation = `${who} 기준 · ${explanation}`;
-  explanation = trunc(explanation, 400);
+  // ── [10] 컬러명
+  const outerC = colorNameFromHex(palette.outer)||'';
+  const topC   = colorNameFromHex(palette.top)||'';
+  const pantsC = colorNameFromHex(palette.pants)||'';
+  const shoesC = colorNameFromHex(palette.shoes)||'';
+  const accentC= colorNameFromHex(palette.accent)||'';
 
-  // ── [7] 키워드 ── (직접입력 시 customText에서 키워드 추출)
-  let kws = (pk==='custom' ? [purposeName] : (pm?.kw || [])).filter(Boolean).slice(0,3);
-  if (pk==='custom' && customText) {
-    const _colorWords = ['레드','블루','네이비','화이트','블랙','그레이','베이지','브라운','그린','카키','버건디','올리브','크림','아이보리','코랄','퍼플','핑크','민트'];
-    const _styleWords = ['캐주얼','포멀','미니멀','스트릿','스포티','클래식','빈티지','모던','심플','시크','러블리','세련','트렌디'];
-    const _foundKw = [..._colorWords.filter(w=>customText.includes(w)), ..._styleWords.filter(w=>customText.includes(w))];
-    if(_foundKw.length > 0) kws = _foundKw.slice(0,3);
-  }
-  const keywords = Array.from(new Set([seasonKw, dKw1, ...kws])).slice(0,4);
+  // ── [11] 컬러 지시문
+  const colorDirective = [
+    outerC?`${_outerItem}(${outerC})`:'',
+    topC?`상의(${topC})`:'',
+    pantsC?`하의(${pantsC})`:'',
+    shoesC?`신발(${shoesC})`:'',
+    accentC?`포인트(${accentC})`:'',
+  ].filter(Boolean).join(' · ');
 
-  // ── [8] 얼굴 사진 ──
-  let skinTip = '';
-  if (faceSrc && faceSrc.startsWith('data:')) skinTip = '얼굴을 등록했어요';
-
-  // ── [9] 체형 분석 ──
+  // ── [12] 체형
   const bodyType = (()=>{
-    const h = parseFloat(profile?.height || 0);
-    const w = parseFloat(profile?.weight || 0);
-    if (!h || !w) return null;
-    const bmi = w / ((h / 100) ** 2);
-    const isM = profile?.gender === 'M';
-    if (bmi >= 28)  return { tag:'비만형',  tip: isM ? '어두운 하의로 하체 무게감을 줄이고, 브이넥/오픈칼라 아우터로 상체를 날씬하게 연출하세요.' : 'A라인 스커트나 와이드팬츠로 하체 라인을 커버하고, 상의는 허리 위에서 정리하세요.' };
-    if (bmi >= 25)  return { tag:'통통형',  tip: isM ? '세로 방향 패턴과 다크 톤으로 슬림하게 보이도록 구성했어요. 아우터는 스트레이트 핏을 선택하세요.' : '허리라인을 강조하는 벨트 또는 터크인으로 비율을 높여보세요.' };
-    if (bmi < 17.5) return { tag:'마른형',   tip: isM ? '레이어링과 텍스처 소재(코듀로이/니트)로 볼륨감을 살렸어요. 밝은 컬러나 체크 패턴도 좋아요.' : '볼륨 소매나 러플 디테일로 여성스러운 볼륨감을 더해보세요.' };
-    if (h >= 180 && isM) return { tag:'장신형', tip: '긴 코트와 풀렝스 팬츠로 비율을 완성하세요. 과감한 컬러도 잘 어울려요.' };
-    if (h <= 162 && isM) return { tag:'단신형', tip: '크롭 아우터와 하이라이즈 팬츠로 다리를 길어 보이게 연출했어요. 톤온톤 코디가 효과적이에요.' };
+    const h=parseFloat(profile?.height||0),w=parseFloat(profile?.weight||0);
+    if(!h||!w) return null;
+    const bmi=w/((h/100)**2), isM=profile?.gender==='M';
+    if(bmi>=28)  return {tag:'비만형', tip:isM?'어두운 하의로 하체 무게감을 줄이고, 브이넥/오픈칼라 아우터로 상체를 날씬하게':'A라인 스커트로 하체 커버, 상체는 단색 심플하게'};
+    if(bmi>=25)  return {tag:'통통형', tip:isM?'세로 패턴과 다크톤으로 슬림하게. 스트레이트핏 선택':'허리라인 강조, 어두운 하의'};
+    if(bmi<17.5) return {tag:'마른형', tip:isM?'레이어링과 텍스처 소재로 볼륨감 강조':'볼륨소매나 러플로 풍성하게'};
+    if(h>=180&&isM) return {tag:'장신형', tip:'긴 코트와 풀렝스 팬츠로 비율 완성. 과감한 컬러 OK'};
+    if(h<=162&&isM) return {tag:'단신형', tip:'크롭 아우터와 하이라이즈 팬츠로 다리 길게 연출'};
     return null;
   })();
-  if (bodyType) explanation = `[${bodyType.tag} 체형 커버] ${bodyType.tip} / ${explanation}`.slice(0, 400);
 
-  // ── [10] 카테고리별 키워드 (모바일옷장 매칭용) ──
+  // ── [13] explanation 조합
+  const baseSentence = `${dLab?dLab+' ':''}${tTxt}${wxTxt?' '+wxTxt:''} ${persona.en} 페르소나 — ${persona.voice} 스타일(스타일리스트 #${stylist.id})`.trim();
+  const colorSentence = `[컬러] ${colorDirective}`;
+  const layerSentence = layerTip?`[레이어링] ${layerTip}.`:'';
+  const purposeSentence = pk==='custom'&&customText?`[요청] ${customText}`:`[스타일] ${persona.desc}`;
+  const detailSentence = `${dKw1} 핏에 ${dKw2} 실루엣. ${shoeStyle}로 포인트.`;
+
+  let explanation = [customSentence, baseSentence, colorSentence, detailSentence, layerSentence, purposeSentence].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
+  if(who) explanation = `${who} · ${explanation}`;
+  if(bodyType) explanation = `[${bodyType.tag}체형] ${bodyType.tip} / ${explanation}`;
+  explanation = trunc(explanation, 400);
+
+  // ── [14] 키워드
+  let kws = (pk==='custom'&&customText)
+    ? [...customText.split(/[\s,]+/).filter(w=>w.length>=2)].slice(0,3)
+    : (pm?.kw||[]).slice(0,2);
+  const keywords = Array.from(new Set([seasonKw, dKw1, dKw2, ...kws])).slice(0,4);
+
+  // ── [15] styleTitle
+  const titleMap = {commute:'출퇴근',business:'비즈니스',weekendOut:'주말외출',weekendTrip:'주말여행',domesticTrip:'국내여행',overseasTrip:'해외여행',meet:'지인모임',blindDate:'소개팅',partyLook:'파티룩',custom:'맞춤'};
+  const baseTitle = titleMap[pk]||purposeName||'오늘의';
+  const styleTitle = `${baseTitle} · ${persona.voice}`;
+
+  // ── [16] skinTip + categoryKeywords
+  const skinTip = (faceSrc&&faceSrc.startsWith('data:'))?'얼굴 등록':'';
+  const bodyFlawNote = bodyType ? bodyType.tip : '';
+
   const categoryKeywords = {
-    outer:  [colorNameFromHex(palette?.outer),  layerTip||seasonKw, stylist.voice].filter(Boolean),
-    top:    [colorNameFromHex(palette?.top),     seasonKw, dKw1].filter(Boolean),
-    bottom: [colorNameFromHex(palette?.pants),   dKw2].filter(Boolean),
-    shoes:  [colorNameFromHex(palette?.shoes),   shoeStyle].filter(Boolean),
-    scarf:  palette?.accent ? [colorNameFromHex(palette?.accent), dKw3 || '포인트'].filter(Boolean) : [],
+    outer:  [outerC, layerTip||seasonKw, persona.voice].filter(Boolean),
+    top:    [topC, dKw1, seasonKw].filter(Boolean),
+    bottom: [pantsC, dKw2].filter(Boolean),
+    shoes:  [shoesC, shoeStyle].filter(Boolean),
+    scarf:  accentC?[accentC, dKw3]:['포인트악세서리'],
   };
 
-  // ── [마지막] matchPairs - try/catch로 안전하게 계산 ──
+  // ── [17] 이미지 프롬프트 (서버 DALL-E 3에 직접 전달)
+  const genderLabel = profile?.gender==='M' ? 'man' : profile?.gender==='F' ? 'woman' : 'man';
+  const ageLabel = (() => {
+    const a = String(age||'30대');
+    if(a.includes('10')||a.includes('teen')) return 'in his early 20s';
+    if(a.includes('20')) return 'in his mid-20s';
+    if(a.includes('30')) return 'in his 30s';
+    if(a.includes('40')) return 'in his 40s';
+    if(a.includes('50')) return 'in his 50s';
+    return 'in his 30s';
+  })();
+
+  const weatherNote = wxTxt&&tTxt?`${tTxt}, ${wxTxt} weather in ${loc||'city'}`:`${tTxt||'mild'} weather`;
+  const bodyFlawPrompt = bodyType ? (
+    bodyType.tag==='비만형'||bodyType.tag==='통통형' ? 'dark-toned bottoms to slim the silhouette, structured outerwear with V-neck or open collar' :
+    bodyType.tag==='마른형' ? 'layered textured fabrics to add volume' :
+    bodyType.tag==='단신형' ? 'cropped outerwear with high-waist pants to elongate legs' :
+    bodyType.tag==='장신형' ? 'long coat with full-length trousers for perfect proportions' : ''
+  ) : '';
+
+  const outerColorEn = (()=>{
+    const m={'화이트':'white','블랙':'black','네이비':'navy','그레이':'gray','라이트그레이':'light gray','베이지':'beige','브라운':'brown','카키':'khaki','버건디':'burgundy','레드':'red','블루':'blue','그린':'green','올리브':'olive','크림':'cream','퍼플':'purple','핑크':'pink','오렌지':'orange','코랄':'coral','민트':'mint','스카이블루':'sky blue','옐로':'yellow','건메탈':'gunmetal'};
+    return m[outerC]||outerC||'dark';
+  })();
+  const topColorEn = (()=>{
+    const m={'화이트':'white','블랙':'black','네이비':'navy','그레이':'gray','라이트그레이':'light gray','베이지':'beige','브라운':'brown','크림':'cream','아이보리':'ivory','블루':'blue','그린':'green'};
+    return m[topC]||topC||'neutral';
+  })();
+  const pantsColorEn = (()=>{
+    const m={'화이트':'white','블랙':'black','네이비':'navy','그레이':'gray','다크그레이':'dark gray','베이지':'beige','브라운':'brown','카키':'khaki','블루':'blue','그린':'green','올리브':'olive dark'};
+    return m[pantsC]||pantsC||'dark';
+  })();
+
+  const personaStyleDesc = `${persona.en} style persona: ${dKw1} silhouette, ${dKw2} aesthetic, ${shoeStyle.replace(/[가-힣]+/g,'').trim()||'leather shoes'}`;
+
+  const imagePrompt = [
+    `A realistic full-body fashion photography of a ${ageLabel} ${ethnicity} ${genderLabel}`,
+    `wearing a ${outerColorEn} ${_outerItem==='코트'?'coat':_outerItem==='자켓'?'jacket':'cardigan'},`,
+    `${topColorEn} top, ${pantsColorEn} pants, and ${shoeStyle.replace(/[가-힣]/g,'').trim()||'shoes'}.`,
+    `${personaStyleDesc}.`,
+    bodyFlawPrompt?`${bodyFlawPrompt}.`:'',
+    `Looking directly at the camera, frontal face view, slight natural smile.`,
+    `Standing in a ${nt<=5?'winter city street':'modern urban'} setting.`,
+    `${weatherNote}. Professional fashion editorial lighting, high resolution, sharp details.`,
+    `Korean fashion magazine style, full body visible from head to toe.`,
+  ].filter(Boolean).join(' ');
+
+  // ── [18] matchPairs
   let matchPairs = [];
-  try { matchPairs = buildMatchPairsFromPalette(palette, t); } catch(_matchErr) {
-    // 카테고리 라벨 없이 기본 페어만
-    const isCold = Number.isFinite(Number(t)) ? (Number(t) <= 7) : false;
-    matchPairs = [
-      { key: isCold?'coat':'jacket', color: colorNameFromHex(palette?.outer), label: isCold?'코트':'자켓' },
-      { key: 'top',   color: colorNameFromHex(palette?.top),   label: '상의' },
-      { key: 'pants', color: colorNameFromHex(palette?.pants), label: '하의' },
-      { key: 'shoes', color: colorNameFromHex(palette?.shoes), label: '신발' },
-    ].filter(p=>p.color);
-  }
+  try { matchPairs = buildMatchPairsFromPalette(palette, t); } catch(_){ matchPairs=[]; }
 
-  return { styleTitle, explanation, keywords, categoryKeywords, bodyType, layerTip, skinTip, palette, stylist, matchPairs };
+  return {
+    styleTitle, explanation, keywords, categoryKeywords,
+    bodyType, layerTip, skinTip, palette, stylist,
+    matchPairs, imagePrompt,
+  };
 }
-
-
 
 function loadImg(src){
   return new Promise((res,rej)=>{
@@ -2008,6 +2282,7 @@ async function updateVTO(opts={}){
     S.categoryKeywords = r.categoryKeywords || {};
     S.bodyType = r.bodyType || null;
     S.keywords = Array.isArray(r.keywords) ? r.keywords : keywords;
+    S.imagePrompt = r.imagePrompt || '';
   }catch(e){
     console.warn('AI 분석 폴백:',e.message||e);
     const pm=getPur(S.pk);
@@ -2222,6 +2497,7 @@ async function updateVTO(opts={}){
         purposeLabel:(S.pk==='custom' ? (_customTxt||'맞춤') : (getPur(S.pk).label||'')),
         customText: _customTxt,
         styleTitle,explanation:explain,keywords,
+        imagePrompt: S.imagePrompt || '',
         stylist: S.stylist || null,
         matchPairs: Array.isArray(S.matchPairs) ? S.matchPairs : [],
         palette: _pal,
