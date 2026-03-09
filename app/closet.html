@@ -1219,6 +1219,16 @@ function buildMatchPairsFromPalette(palette, temp){
   })).filter(p=>p.color);
 }
 
+// ════════════════════════════════════════════════════════════════
+// callClaude — 4단계: AI 스타일리스트 선정 + 추천코디 SPEC 생성
+//
+// ■ 이 함수의 출력은 항상 MASTER SPEC에서 파생됨 (절대 변경 금지)
+//   SPEC → categoryKeywords(화면표시) + imagePrompt(이미지생성)
+//   두 출력이 동일 소스에서 생성되므로 컬러/스타일 불일치 구조적 불가
+//
+// ■ 다시코디: seed += 1 → 새 personaIdx → 새 SPEC → 동일 로직 실행
+//   날짜변경 / 목적변경 시에도 이 함수가 재호출되어 동일 로직 적용
+// ════════════════════════════════════════════════════════════════
 async function callClaude({faceSrc,wx,pk,profile,seed,day}){
 
   const pm = getPur(pk);
@@ -1557,9 +1567,23 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const personaIdx = sd % personas.length;
   const persona = personas[personaIdx];
 
-  // ── [4] stylist 객체 구성
+  // ── [4] AI 스타일리스트 실명 테이블 (숫자 ID 대신 실제 이름 사용)
+  // TPO별로 실제 패션 감성에 맞는 이름 10명 × 7 TPO = 70명
+  const STYLIST_NAMES = {
+    commute:     ['Mia','Ethan','Sophia','Daniel','Chloe','Noah','Emma','Liam','Ava','Lucas'],
+    business:    ['James','Olivia','William','Isabella','Benjamin','Charlotte','Alexander','Amelia','Henry','Victoria'],
+    social:      ['Zara','Leo','Luna','Finn','Stella','Kai','Nova','Axel','Iris','Jude'],
+    weekendOut:  ['Jake','Lily','Owen','Nora','Miles','Hazel','Cole','Ruby','Dean','Mia'],
+    weekendTrip: ['Max','Elena','Sam','Freya','Theo','Ingrid','Rory','Astrid','Flynn','Skye'],
+    overseasTrip:['Marco','Sofia','Luca','Giulia','Rafael','Camille','Henri','Yasmine','Kenji','Aisha'],
+    custom:      ['Alex','Jordan','Robin','Sage','Quinn','River','Avery','Blake','Reese','Morgan'],
+  };
+  const _namePool = STYLIST_NAMES[tpoKey] || STYLIST_NAMES.custom;
+  const stylistName = _namePool[personaIdx % _namePool.length];
+
+  // stylist 객체 — name 필드 추가 (화면에 "Lucy · Modern Minimalist" 형태로 표시)
   const stylist = {
-    id:          (sd * 37 + personaIdx * 13 + 1) % 9000 + 1,
+    name:        stylistName,
     voice:       persona.voice,
     en:          persona.en,
     tag:         persona.en.toLowerCase().replace(/\s+/g,'_'),
@@ -1716,6 +1740,46 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     },
   };
 
+  // ── SPEC 확장: 가방/시계/양말 — TPO·계절 기반 추천 (카테고리 완결)
+  const _extSpec = (()=>{
+    // 가방 추천
+    const bagMap = {
+      commute:     nt<=7?{ko:'블랙 브리프케이스',en:'black briefcase'}:{ko:'다크네이비 토트백',en:'dark navy tote bag'},
+      business:    {ko:'블랙 레더 서류가방',en:'black leather document bag'},
+      social:      {ko:'미니 크로스백',en:'mini crossbody bag'},
+      weekendOut:  {ko:'캐주얼 백팩',en:'casual backpack'},
+      weekendTrip: {ko:'경량 데이팩',en:'lightweight daypack'},
+      overseasTrip:{ko:'스마트 여행가방',en:'smart carry-on luggage'},
+      custom:      {ko:'멀티포켓 백팩',en:'multi-pocket backpack'},
+    };
+    // 시계 추천
+    const watchMap = {
+      commute:     {ko:'슬림 메탈 시계',en:'slim metal dress watch'},
+      business:    {ko:'클래식 레더밴드 시계',en:'classic leather-strap watch'},
+      social:      {ko:'트렌디 컬러 시계',en:'trendy color-dial watch'},
+      weekendOut:  {ko:'캐주얼 패브릭밴드 시계',en:'casual fabric-strap watch'},
+      weekendTrip: {ko:'아웃도어 스마트워치',en:'outdoor smartwatch'},
+      overseasTrip:{ko:'경량 멀티타임존 시계',en:'lightweight multi-timezone watch'},
+      custom:      {ko:'스타일 포인트 시계',en:'statement watch'},
+    };
+    // 양말 추천
+    const socksMap = {
+      commute:     nt<=7?{ko:'울 블랙 앵클삭스',en:'wool black ankle socks'}:{ko:'면 그레이 앵클삭스',en:'cotton gray ankle socks'},
+      business:    {ko:'다크 드레스삭스',en:'dark dress socks'},
+      social:      {ko:'포인트 컬러 삭스',en:'accent-color statement socks'},
+      weekendOut:  {ko:'흰 쿠션 스니커삭스',en:'white cushioned sneaker socks'},
+      weekendTrip: {ko:'하이킹 쿠션삭스',en:'cushioned hiking socks'},
+      overseasTrip:{ko:'컴프레션 여행삭스',en:'compression travel socks'},
+      custom:      {ko:'미드길이 캐주얼삭스',en:'mid-length casual socks'},
+    };
+    const _tp = tpoKey;
+    return {
+      bag:   bagMap[_tp]   || {ko:'토트백',en:'tote bag'},
+      watch: watchMap[_tp] || {ko:'심플 시계',en:'minimalist watch'},
+      socks: socksMap[_tp] || {ko:'앵클삭스',en:'ankle socks'},
+    };
+  })();
+
   // ── [10] 체형 분석
   const bodyType = (()=>{
     const h=parseFloat(profile?.height||0),w=parseFloat(profile?.weight||0);
@@ -1739,7 +1803,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   ].filter(Boolean).join(' · ');
 
   // ── [12] explanation: SPEC 한국어에서 파생
-  const baseSentence = `${dLab?dLab+' ':''}${tTxt}${wxTxt?' '+wxTxt:''} ${persona.en} 페르소나 — ${persona.voice} 스타일(스타일리스트 #${stylist.id})`.trim();
+  const baseSentence = `${dLab?dLab+' ':''}${tTxt}${wxTxt?' '+wxTxt:''} ${persona.en} 페르소나 — ${persona.voice} (by ${stylist.name})`.trim();
   const colorSentence = `[컬러] ${colorDirective}`;
   const layerSentence = layerTip?`[레이어링] ${layerTip}.`:'';
   const purposeSentence = pk==='custom'&&customText?`[요청] ${customText}`:`[스타일] ${persona.desc}`;
@@ -1762,14 +1826,20 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const styleTitle = `${baseTitle} · ${persona.voice}`;
   const skinTip = (faceSrc&&faceSrc.startsWith('data:'))?'얼굴 등록':'';
 
+  // ══════════════════════════════════════════════════════════════
   // ── [15] categoryKeywords: SPEC.ko에서만 파생 → 화면 포인트 표시
   // ※ 절대 변경 금지 — imagePrompt와 동일 소스 보장
+  // ── 전체 카테고리: 아우터/탑/하의/신발/스카프/가방/시계/양말
+  // ══════════════════════════════════════════════════════════════
   const categoryKeywords = {
     outer:  [SPEC.outer.ko,  SPEC.outer.layer,  SPEC.outer.style].filter(Boolean),
     top:    [SPEC.top.ko,    SPEC.top.kw1,      seasonKw].filter(Boolean),
     bottom: [SPEC.pants.ko,  SPEC.pants.kw2].filter(Boolean),
     shoes:  [SPEC.shoes.ko,  SPEC.shoes.itemKo].filter(Boolean),
     scarf:  SPEC.accent.ko ? [SPEC.accent.ko, SPEC.accent.kw3] : ['포인트악세서리'],
+    bag:    [_extSpec.bag.ko].filter(Boolean),
+    watch:  [_extSpec.watch.ko].filter(Boolean),
+    socks:  [_extSpec.socks.ko].filter(Boolean),
   };
 
   // ── [16] imagePrompt: SPEC.en에서만 파생 → DALL-E 이미지 생성
@@ -1800,6 +1870,9 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     `[3] PANTS: ${SPEC.pants.en} trousers — must be ${SPEC.pants.en}, NOT black unless specified as black.`,
     `[4] SHOES: ${SPEC.shoes.en} ${SPEC.shoes.itemEn} — MUST be ${SPEC.shoes.en} colored ${SPEC.shoes.itemEn}, NOT white unless specified.`,
     (SPEC.accent.ko && SPEC.accent.ko!=='포인트악세서리') ? `[5] SCARF/ACCENT: ${SPEC.accent.en} — must be ${SPEC.accent.en} colored scarf or accessory.` : '',
+    `[6] BAG: ${_extSpec.bag.en}.`,
+    `[7] WATCH: ${_extSpec.watch.en}.`,
+    `[8] SOCKS: ${_extSpec.socks.en}.`,
     `Style: ${persona.en} persona. Silhouette: ${persona.layerStyle}.`,
     bodyFlawPrompt||'',
     `Looking directly at camera, frontal face view, slight natural smile. Full body head to toe.`,
@@ -1814,7 +1887,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   return {
     styleTitle, explanation, keywords, categoryKeywords,
     bodyType, layerTip, skinTip, palette, stylist,
-    matchPairs, imagePrompt,
+    matchPairs, imagePrompt, extSpec: _extSpec,
   };
 }
 
@@ -2379,6 +2452,7 @@ async function updateVTO(opts={}){
     S.bodyType = r.bodyType || null;
     S.keywords = Array.isArray(r.keywords) ? r.keywords : keywords;
     S.imagePrompt = r.imagePrompt || '';
+    S.extSpec    = r.extSpec    || {};
   }catch(e){
     console.warn('AI 분석 폴백:',e.message||e);
     const pm=getPur(S.pk);
@@ -3188,107 +3262,151 @@ let _spk=null;
 function clearSpk(){document.querySelectorAll('.clothing-layer.sparkle,.chip-sparkle').forEach(e=>e.classList.remove('sparkle','chip-sparkle'));}
 function sparkle(){clearSpk();document.querySelectorAll('#fitChips .fit-chip[data-item-id]').forEach(e=>e.classList.add('chip-sparkle'));if(_spk)clearTimeout(_spk);_spk=setTimeout(clearSpk,3800);}
 
-// ── AI 스타일링 포인트 렌더링 함수 (다시코디 시 명시적 재호출) ──
+// ════════════════════════════════════════════════════════════════
+// renderStylingPoint — AI 스타일링 포인트 렌더링
+// ※ 절대 변경 금지: categoryKeywords(SPEC.ko)에서만 파생된 값을 표시
+// 호출: 최초 생성 완료 후 / 다시코디 완료 후 (generateStyling finally)
+// ════════════════════════════════════════════════════════════════
 function renderStylingPoint(){
-  // 스타일리스트 뱃지
+
+  // ── 1. 스타일리스트 뱃지: "Mia · 모던 미니멀리스트" 형태
   try{
-    const sBadge = document.getElementById('stylistBadge');
+    const sBadge = document.getElementById("stylistBadge");
     if(sBadge){
       if(S.stylist && S.stylist.voice){
-        sBadge.textContent = `${S.stylist.voice} #${S.stylist.id}`;
-        sBadge.classList.remove('hidden');
+        const nm = S.stylist.name || "";
+        sBadge.textContent = nm ? nm + " · " + S.stylist.voice : S.stylist.voice;
+        sBadge.classList.remove("hidden");
       } else {
-        sBadge.classList.add('hidden');
+        sBadge.classList.add("hidden");
       }
     }
   }catch(_){}
 
-  // 스타일 키워드 (kwRow)
+  // ── 2. 스타일 키워드 칩 (kwRow)
   try{
-    const kwRow = document.getElementById('kwRow');
+    const kwRow = document.getElementById("kwRow");
     if(kwRow){
-      kwRow.innerHTML = '';
-      kwRow.classList.add('hidden');
-      const keywords = S.keywords || [];
-      keywords.slice(0,4).forEach((kw,i)=>{
-        const chip = document.createElement('span');
-        chip.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold';
+      kwRow.innerHTML = "";
+      kwRow.classList.add("hidden");
+      (S.keywords||[]).slice(0,4).forEach((kw,i)=>{
+        const chip = document.createElement("span");
+        chip.className = "px-2.5 py-1 rounded-full text-[10px] font-bold";
         chip.style.cssText = i===0
-          ? 'background:rgba(18,148,144,0.25);border:1px solid rgba(151,254,237,0.4);color:#a2fdf0;'
-          : 'background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);';
+          ? "background:rgba(18,148,144,0.25);border:1px solid rgba(151,254,237,0.4);color:#a2fdf0;"
+          : "background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);";
         chip.textContent = kw;
         kwRow.appendChild(chip);
       });
-      if(keywords.length > 0) kwRow.classList.remove('hidden');
+      if((S.keywords||[]).length) kwRow.classList.remove("hidden");
     }
   }catch(_){}
 
-  // 카테고리별 코디 포인트 (catKwSection)
+  // ── 3. 카테고리별 AI 스타일링 포인트 (catKwSection)
+  // 카테고리 순서 영구 고정: 아우터→탑→하의→신발→스카프→가방→시계→양말
+  // ※ 이 순서와 키값은 절대 변경하지 않는다
   try{
-    const catKwSection = document.getElementById('catKwSection');
-    const catKwRow = document.getElementById('catKwRow');
+    const catKwSection = document.getElementById("catKwSection");
+    const catKwRow     = document.getElementById("catKwRow");
     if(!catKwRow) return;
-    const catKwLabels = { outer:'아우터', top:'탑/셔츠', bottom:'하의', pants:'하의/스커트', shoes:'신발/구두', scarf:'스카프·포인트' };
+
+    const CAT_LABELS = [
+      { key:"outer",  label:"아우터",       icon:"🧥" },
+      { key:"top",    label:"탑/셔츠",      icon:"👔" },
+      { key:"bottom", label:"하의",         icon:"👖" },
+      { key:"shoes",  label:"신발",         icon:"👟" },
+      { key:"scarf",  label:"스카프·포인트", icon:"🧣" },
+      { key:"bag",    label:"가방",         icon:"👜" },
+      { key:"watch",  label:"시계",         icon:"⌚" },
+      { key:"socks",  label:"양말",         icon:"🧦" },
+    ];
+
     const ckw = S.categoryKeywords || {};
-    const catKeys = Object.keys(ckw).filter(k => ckw[k] && Array.isArray(ckw[k]) && ckw[k].length);
-    // 항상 초기화 먼저
-    catKwRow.innerHTML = '';
-    if(catKwSection) catKwSection.classList.add('hidden');
-    if(!catKeys.length) return;
-    catKeys.forEach(k=>{
-      const kws = ckw[k].filter(Boolean);
+    catKwRow.innerHTML = "";
+    if(catKwSection) catKwSection.classList.add("hidden");
+
+    let hasAny = false;
+    CAT_LABELS.forEach(({key,label,icon})=>{
+      const kws = (ckw[key]||[]).filter(Boolean);
       if(!kws.length) return;
-      const row = document.createElement('div');
-      row.className = 'flex items-center gap-1.5 flex-wrap';
-      const lbl = document.createElement('span');
-      lbl.className = 'text-[10px] font-extrabold min-w-[48px]';
-      lbl.style.color = 'rgba(151,254,237,0.55)';
-      lbl.textContent = catKwLabels[k] || k;
+      hasAny = true;
+      const row = document.createElement("div");
+      row.className = "flex items-center gap-1.5 flex-wrap";
+      const lbl = document.createElement("span");
+      lbl.className = "text-[10px] font-extrabold min-w-[68px] flex items-center gap-0.5";
+      lbl.style.color = "rgba(151,254,237,0.6)";
+      lbl.textContent = icon + " " + label;
       row.appendChild(lbl);
-      kws.forEach(kw=>{
-        const chip = document.createElement('span');
-        chip.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold';
-        chip.style.cssText = 'background:rgba(18,148,144,0.18);border:1px solid rgba(151,254,237,0.28);color:#a2fdf0;';
+      kws.forEach((kw,i)=>{
+        const chip = document.createElement("span");
+        chip.className = "px-2 py-0.5 rounded-full text-[10px] font-bold";
+        chip.style.cssText = i===0
+          ? "background:rgba(18,148,144,0.22);border:1px solid rgba(151,254,237,0.35);color:#a2fdf0;"
+          : "background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.65);";
         chip.textContent = kw;
         row.appendChild(chip);
       });
       catKwRow.appendChild(row);
     });
-    if(catKwSection){ catKwSection.classList.remove('hidden'); catKwSection.style.display=''; }
-  }catch(e){ console.warn('renderStylingPoint 에러:', e); }
+
+    if(hasAny && catKwSection){
+      catKwSection.classList.remove("hidden");
+      catKwSection.style.display = "";
+    }
+  }catch(e){ console.warn("renderStylingPoint error:", e); }
 }
 
+// ════════════════════════════════════════════════════════════════
+// generateStyling — 추천코디 8단계 프로세스 실행 (절대 변경 금지)
+//
+// [7단계 추천코디 로직 - 이 함수가 orchestrate]
+// 1단계: 위치/날짜/온도 확인 (wx, day)
+// 2단계: 목적 확인 + 세분화 (pk → TPO)
+// 3단계: 얼굴사진/신체사이즈 반영 (profile, faceSrc)
+// 4단계: AI 스타일리스트 선정 → 추천코디 프롬프트 생성 (callClaude)
+//        → MASTER SPEC으로 카테고리별 컬러+스타일 정의
+// 5단계: 추천코디분석 표시 + AI 스타일링 포인트 렌더링 (renderStylingPoint)
+// 6단계: DALL-E 이미지 생성 (updateVTO → /api/ai/styling)
+// 7단계: 이용횟수 1회 차감 (CodiBank.useAiStyling)
+// 8단계: 모바일옷장 아이템 매칭 점수화 (matchPairs)
+// ════════════════════════════════════════════════════════════════
 async function generateStyling(opts={}) {
   const bumpSeed = !!opts.bumpSeed;
   if(S.busy) return;
   if(bumpSeed) S.seed += 1;
 
+  // [사전] 이용횟수 확인 (7단계 차감 전 검증)
   updateQuotaBadge();
   const okQuota = canGenerateNow();
   setGenUiEnabled(okQuota);
   if(!okQuota){
-    // 기존에 생성된 이미지가 있으면 유지하고, 없을 때만 빈 상태로 표시
     if(!S.hasGenerated) resetStylingBox('이용 가능 횟수 없음');
-    const expEl=document.getElementById('codiExplain');
-    if(expEl) expEl.textContent='AI 추천 스타일링 이용 가능 횟수를 모두 사용했어요. 구독 플랜을 업그레이드해주세요.';
+    const expEl = document.getElementById('codiExplain');
+    if(expEl){
+      expEl.textContent = '⚠️ AI 스타일링 이용 가능 횟수를 모두 사용했어요.';
+      expEl.innerHTML  += '<br><small style="opacity:0.7">유료 구독 또는 플랜 업그레이드 후 계속 이용하실 수 있어요.</small>';
+    }
+    // 구독 유도 배지 표시 (있을 경우)
+    try{ const upEl=document.getElementById('upgradeBanner'); if(upEl) upEl.classList.remove('hidden'); }catch(_){}
     return;
   }
 
-  // 생성 중에는 중복 요청 방지
+  // 생성 중 중복 요청 방지
   S.busy = true;
   setGenUiEnabled(false);
   updateAiCallBtn();
   try{
     setMetaLine();
+    // 4~6단계 실행 (callClaude → imagePrompt → DALL-E)
     await updateVTO({refresh:bumpSeed});
   }catch(e){
-    console.error('VTO:',e);
+    console.error('generateStyling VTO error:', e);
   }finally{
     S.busy = false;
     updateQuotaBadge();
     setGenUiEnabled(canGenerateNow());
     updateAiCallBtn();
-    // 다시코디 후 AI 스타일링 포인트 명시적 재렌더링
+    // 5단계: AI 스타일링 포인트 명시적 재렌더링 (다시코디 포함 항상 실행)
     try{ renderStylingPoint(); }catch(_){}
   }
 }
