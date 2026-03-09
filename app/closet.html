@@ -597,7 +597,7 @@
       <div class="flex items-center justify-between px-4 py-2.5" style="background:rgba(18,148,144,0.18);border-bottom:1px solid rgba(151,254,237,0.1);">
         <div class="flex items-center gap-2">
           <span class="material-symbols-outlined text-[14px]" style="color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 14;">style</span>
-          <p class="text-[10px] font-extrabold tracking-[0.2em]" style="color:#97FEED;">추천코디 디테일 설명</p>
+          <p class="text-[10px] font-extrabold tracking-[0.2em]" style="color:#97FEED;">AI 추천코디 분석</p>
         </div>
         <p id="vtoMeta" class="text-[10px]" style="color:rgba(255,255,255,0.35);"></p>
       </div>
@@ -619,7 +619,7 @@
     <!-- ② AI 스타일리스트 포인트 박스 -->
     <div id="codiPointBox" class="rounded-2xl mb-4" style="background:rgba(19,115,115,0.10);border:1px solid rgba(151,254,237,0.12);">
       <div class="flex items-center justify-between px-4 py-2.5" style="border-bottom:1px solid rgba(151,254,237,0.08);">
-        <p class="text-[10px] font-extrabold tracking-[0.22em]" style="color:rgba(151,254,237,0.75);">✦ 추천코디 카테고리별 포인트</p>
+        <p class="text-[10px] font-extrabold tracking-[0.22em]" style="color:rgba(151,254,237,0.75);">✦ AI 스타일링 포인트</p>
       </div>
       <!-- 스타일 키워드 -->
       <div class="px-4 pt-3 pb-1">
@@ -630,7 +630,7 @@
       <div id="catKwSection" class="hidden px-4 pt-2 pb-3">
         <p class="text-[9px] font-extrabold tracking-[0.18em] mb-2 mt-1" style="color:rgba(151,254,237,0.45);">카테고리별 코디 포인트</p>
         <div id="catKwRow" class="flex flex-col gap-1.5"></div>
-        <p class="text-[10px] mt-2.5 leading-relaxed" style="color:rgba(151,254,237,0.4);">↓ 아래 디지털 옷장에서 가장 유사한 아이템을 자동 매칭합니다</p>
+        <p class="text-[10px] mt-2.5 leading-relaxed" style="color:rgba(151,254,237,0.4);">↓ 아래 모바일 옷장과 AI 매칭 분석 중</p>
       </div>
       <div id="matchRow" style="display:none;"></div>
     </div>
@@ -638,7 +638,7 @@
     <!-- VTO 영역 -->
     <div>
       <div class="flex items-center justify-between mb-3">
-        <p class="text-[13px] font-extrabold text-white">STEP 3. 추천코디 Ai 스타일링</p>
+        <p class="text-[13px] font-extrabold text-white">코디추천 AI 스타일링</p>
         <span id="aiQuota" class="ai-badge gray">남은 0회</span>
       </div>
       <div class="vto-wrap" id="vtoWrap" style="border:1px solid rgba(151,254,237,0.15);background:#050f2a;">
@@ -758,7 +758,7 @@
    ============================================================ */
 if (!CodiBank.requireAuth('login.html')) {}
 const user = CodiBank.getCurrentUser();
-console.info('[CodiBank] closet build: v19.0-matchfix (2026-03-04)');
+console.info('[CodiBank] closet build: v18.6.3 (2026-02-26)');
 
 {
   const plan=CodiBank.getUserPlan(user.email),lim=CodiBank.getPlanLimit(plan);
@@ -885,18 +885,18 @@ function normalizeKColorName(name){
 // ══════════════════════════════════════════════════════════
 // 코디뱅크 매칭 점수 시스템 (최대 10P)
 // ──────────────────────────────────────────────────────────
-// [카테고리] 동일=4P / 유사=2P / 없음=0P
-// [컬러]     동일=3P / 유사=1P / 없음=0P
-// [디자인]   동일=3P / 유사=1P / 없음=0P
+// [카테고리] 동일=4P / 대체가능=2P / 불일치=0P
+// [컬러]     동일=3P / 유사=2P   / 대체가능=1P / 대비(반대)=0P
+// [디자인]   동일=3P / 유사=2P   / 대체가능=1P
 // ══════════════════════════════════════════════════════════
 
+// ── 카테고리 대체 그룹 정의
 const CAT_SUBSTITUTE_MAP = {
-  coat:   ['jacket','padding'],
+  coat:   ['jacket','padding'],   // 코트 ↔ 자켓/패딩
   jacket: ['coat','padding'],
   padding:['coat','jacket'],
-  top:    ['shirt','knit','tshirt','blouse'],
-  shirt:  ['top','knit','blouse'],
-  blouse: ['top','shirt'],
+  top:    ['shirt','knit','tshirt'],
+  shirt:  ['top','knit'],
   knit:   ['top','shirt'],
   tshirt: ['top'],
   pants:  ['slacks','jeans','skirt'],
@@ -911,9 +911,10 @@ const CAT_SUBSTITUTE_MAP = {
   muffler:['scarf','neckwear'],
 };
 
+// ── 컬러 유사 / 대체 / 대비 그룹
 const COLOR_SIMILAR = [
   new Set(['블랙','그레이']),
-  new Set(['화이트','베이지','크림','아이보리','라이트그레이']),
+  new Set(['화이트','베이지','크림','아이보리']),
   new Set(['네이비','블루','인디고']),
   new Set(['브라운','베이지','카키','카멜']),
   new Set(['그린','카키','올리브']),
@@ -921,11 +922,25 @@ const COLOR_SIMILAR = [
   new Set(['옐로','오렌지','머스타드']),
   new Set(['퍼플','라벤더']),
 ];
+const COLOR_SUBSTITUTE = [
+  new Set(['블랙','네이비','그레이']),       // 다크 뉴트럴
+  new Set(['화이트','베이지','라이트그레이']),// 라이트 뉴트럴
+  new Set(['브라운','그린','카키']),          // 어스톤
+];
+const COLOR_CONTRAST = [
+  ['블랙','화이트'],['네이비','화이트'],['네이비','옐로'],
+  ['레드','그린'],['블루','오렌지'],['퍼플','옐로'],
+];
 
 function scoreColor(want, got){
-  if(!want || !got) return 0;
-  if(want === got) return 3;
-  if(COLOR_SIMILAR.some(s=>s.has(want)&&s.has(got))) return 1;
+  if(!want || !got) return 1; // 정보 없으면 대체가능 취급
+  if(want === got) return 3;  // 동일
+  // 대비(반대)
+  if(COLOR_CONTRAST.some(p=>(p[0]===want&&p[1]===got)||(p[1]===want&&p[0]===got))) return 0;
+  // 유사
+  if(COLOR_SIMILAR.some(s=>s.has(want)&&s.has(got))) return 2;
+  // 대체가능
+  if(COLOR_SUBSTITUTE.some(s=>s.has(want)&&s.has(got))) return 1;
   return 0;
 }
 
@@ -933,105 +948,77 @@ function scoreCategory(wantKey, gotKey){
   if(!wantKey || !gotKey) return 0;
   const w = String(wantKey).toLowerCase();
   const g = String(gotKey).toLowerCase();
-  if(w === g) return 4;
+  if(w === g) return 4;  // 동일
   const subs = CAT_SUBSTITUTE_MAP[w] || [];
-  if(subs.some(s => g === s || g.includes(s) || s.includes(g))) return 2;
+  if(subs.some(s => g.includes(s) || s.includes(g))) return 2; // 대체가능
   return 0;
 }
 
-function tokenizeStyle(v){
-  return String(v||'').toLowerCase()
-    .replace(/[\/,_()\-]+/g,' ')
-    .split(/\s+/)
-    .map(x=>x.trim())
-    .filter(Boolean);
-}
-
 function scoreDesign(wantItem, gotItem){
-  const wantTags = Array.from(new Set([
-    ...tokenizeStyle(wantItem?.design || ''),
-    ...tokenizeStyle(wantItem?.styleTags || ''),
-    ...tokenizeStyle(Array.isArray(wantItem?.designs)?wantItem.designs.join(' '):wantItem?.designs || ''),
-  ]));
-  const gotTags = Array.from(new Set([
-    ...tokenizeStyle(gotItem?.pattern || ''),
-    ...tokenizeStyle(gotItem?.subColor || ''),
-    ...tokenizeStyle(gotItem?.note || ''),
-    ...tokenizeStyle(gotItem?.style || ''),
-    ...tokenizeStyle(Array.isArray(gotItem?.tags)?gotItem.tags.join(' '):gotItem?.tags || ''),
-  ]));
-  if(!wantTags.length || !gotTags.length) return 0;
-  const exact = wantTags.some(t=>gotTags.includes(t));
-  if(exact) return 3;
-  const similarGroups = [
-    ['미니멀','클린','심플','정돈'],
-    ['레이어링','레이어드','레이어'],
-    ['포멀','클래식','테일러드','단정'],
-    ['캐주얼','데일리','편안'],
-    ['스포티','액티브','애슬레저','기능성'],
-    ['와이드','릴렉스','오버사이즈'],
-    ['슬림','슬림핏','샤프'],
-  ].map(g=>g.map(x=>String(x).toLowerCase()));
-  const similar = similarGroups.some(group=>group.some(t=>wantTags.includes(t)) && group.some(t=>gotTags.includes(t)));
-  return similar ? 1 : 0;
+  // 디자인 정보: subColor(패턴), note(특징 메모)에서 유추
+  // 현재 아이템 데이터 구조에서 pattern/design 필드가 있으면 사용
+  const wPat = String(wantItem?.pattern || wantItem?.subColor || '').toLowerCase();
+  const gPat = String(gotItem?.pattern || gotItem?.subColor || '').toLowerCase();
+  if(!wPat && !gPat) return 2; // 둘 다 정보 없으면 유사 취급(2P)
+  if(!wPat || !gPat) return 1; // 한쪽 없으면 대체가능(1P)
+  if(wPat === gPat) return 3;  // 동일
+  // 같은 패턴 계열
+  const plainGroup = ['단색','솔리드','plain','solid'];
+  const patternGroup = ['체크','스트라이프','플레이드','격자','줄무늬'];
+  const wIsPlain = plainGroup.some(p=>wPat.includes(p));
+  const gIsPlain = plainGroup.some(p=>gPat.includes(p));
+  const wIsPat  = patternGroup.some(p=>wPat.includes(p));
+  const gIsPat  = patternGroup.some(p=>gPat.includes(p));
+  if(wIsPlain && gIsPlain) return 3;   // 둘 다 단색=동일
+  if(wIsPat   && gIsPat)   return 2;   // 둘 다 패턴=유사
+  if(wIsPlain && gIsPat)   return 1;   // 단색↔패턴=대체가능
+  if(wIsPat   && gIsPlain) return 1;
+  return 2; // 기타 조합=유사
 }
 
-function buildPairSpecMap(matchPairs, categoryKeywords, keywords, stylist, temp){
-  const out = {};
-  const kwMap = categoryKeywords || {};
-  const globalDesigns = Array.isArray(keywords) ? keywords.slice(0,4) : [];
-  const stylistKw = Array.from(new Set([
-    ...tokenizeStyle(stylist?.voice || ''),
-    ...tokenizeStyle(stylist?.tag || ''),
-  ]));
-  (matchPairs||[]).forEach(p=>{
-    const k = String(p?.key||'').toLowerCase();
-    const designs = [];
-    const raw = kwMap[k] || kwMap[(k==='pants'?'bottom':k)] || kwMap[(k==='coat'||k==='jacket'?'outer':k)] || [];
-    raw.forEach(x=>{ if(x && x!==p.color) designs.push(x); });
-    stylistKw.forEach(x=>{ if(x) designs.push(x); });
-    globalDesigns.forEach(x=>{ if(x && !String(x).includes('°')) designs.push(x); });
-    if(Number.isFinite(Number(temp))){
-      if(Number(temp)<=7) designs.push('레이어링','보온');
-      else if(Number(temp)>=24) designs.push('경량','통기성');
-    }
-    out[k] = {
-      key:k,
-      label:p.label || k,
-      color:p.color || '',
-      designs:Array.from(new Set(designs.filter(Boolean))).slice(0,3)
-    };
-  });
-  return out;
-}
-
+// ── 카테고리 전체 아이템 대상 매칭 점수 계산 + 최고점 아이템 반환
 function pickBestItemByScore(wantPair, allCatItems){
+  // wantPair = { key(카테고리), color, label }
+  // allCatItems: [{ id, categoryKey, color, subColor, pattern, note, ... }, ...]
   if(!allCatItems || !allCatItems.length) return null;
   const wantColor = normalizeKColorName(wantPair.color);
   const wantCatKey = String(wantPair.key || '').toLowerCase();
+
   let best = null, bestTotal = -1;
+
   allCatItems.forEach((item, idx) => {
     const gotCatKey  = String(item?.categoryKey || item?.category || '').toLowerCase();
     const gotColor   = normalizeKColorName(item?.color || '');
+
     const catScore    = scoreCategory(wantCatKey, gotCatKey);
     const colorScore  = scoreColor(wantColor, gotColor);
     const designScore = scoreDesign(wantPair, item);
+
     const total = catScore + colorScore + designScore;
+    // 카테고리 완전 불일치(0P)면 매칭 대상 제외
+    if(catScore === 0) return;
+
+    // 동점이면 최신(앞쪽) 우선
     const tiebreak = total - idx * 0.001;
     if(tiebreak > bestTotal){
       bestTotal = tiebreak;
       best = { ...item, _catScore: catScore, _colorScore: colorScore, _designScore: designScore, _totalScore: total };
     }
   });
-  if(best) best._matchScore = Math.max(0, Math.min(10, best._totalScore || 0));
+
+  if(best) best._matchScore = Math.min(10, best._totalScore);
   return best;
 }
 
+// 하위호환: 카테고리별 단일 아이템 목록으로 호출될 때 (기존 matchByCat 로직 호환)
 function pickBestItemByColor(items, desiredColor, catKey){
+  // catKey가 있으면 새 점수 시스템으로 위임
   if(catKey){
-    const fakePair = { key: catKey, color: desiredColor, designs: [] };
-    return pickBestItemByScore(fakePair, items);
+    const fakePair = { key: catKey, color: desiredColor };
+    const result = pickBestItemByScore(fakePair, items);
+    return result;
   }
+  // catKey 없으면 컬러 점수만(레거시)
   const want = normalizeKColorName(desiredColor);
   let best=null, bestScore=-1;
   (items||[]).forEach((it, idx)=>{
@@ -1040,7 +1027,7 @@ function pickBestItemByColor(items, desiredColor, catKey){
     const s  = cs - idx * 0.001;
     if(s > bestScore){ bestScore=s; best=it; }
   });
-  if(best) best._matchScore = scoreColor(want, normalizeKColorName(best?.color||''));
+  if(best) best._matchScore = best ? Math.round((scoreColor(want, normalizeKColorName(best?.color||'')) / 3) * 6) : 0;
   return best;
 }
 
@@ -1206,7 +1193,7 @@ function buildMatchPairsFromPalette(palette, temp){
   }
   return pairs.map(p=>({
     ...p,
-    label: (CodiBank.getCategoryMetaByKey(p.key, user.email)?.label) || p.key,
+    label: (CodiBank?.getCategoryMetaByKey?.(p.key, user?.email)?.label) || p.key,
   })).filter(p=>p.color);
 }
 
@@ -1298,7 +1285,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
 
   // ── [1] 팔레트 먼저 ──
   const palette = localPalette(pk, t, seed + (stylist.seedOffset||0));
-  const matchPairs = buildMatchPairsFromPalette(palette, t);
+  // matchPairs는 마지막에 안전하게 계산 (user 스코프 의존성 문제 방지)
 
   // ── [2] seed + 스타일리스트 태그 → 디자인 키워드 ──
   const designKwPool = {
@@ -1403,8 +1390,20 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     scarf:  palette?.accent ? [colorNameFromHex(palette?.accent), dKw3 || '포인트'].filter(Boolean) : [],
   };
 
+  // ── [마지막] matchPairs - try/catch로 안전하게 계산 ──
+  let matchPairs = [];
+  try { matchPairs = buildMatchPairsFromPalette(palette, t); } catch(_matchErr) {
+    // 카테고리 라벨 없이 기본 페어만
+    const isCold = Number.isFinite(Number(t)) ? (Number(t) <= 7) : false;
+    matchPairs = [
+      { key: isCold?'coat':'jacket', color: colorNameFromHex(palette?.outer), label: isCold?'코트':'자켓' },
+      { key: 'top',   color: colorNameFromHex(palette?.top),   label: '상의' },
+      { key: 'pants', color: colorNameFromHex(palette?.pants), label: '하의' },
+      { key: 'shoes', color: colorNameFromHex(palette?.shoes), label: '신발' },
+    ].filter(p=>p.color);
+  }
+
   return { styleTitle, explanation, keywords, categoryKeywords, bodyType, layerTip, skinTip, palette, stylist, matchPairs };
-}
 }
 
 
@@ -1966,17 +1965,10 @@ async function updateVTO(opts={}){
     skinTip=r.skinTip||'';
     S.stylist = r.stylist || null;
     S.matchPairs = (r.matchPairs && Array.isArray(r.matchPairs)) ? r.matchPairs : buildMatchPairsFromPalette(palette, S.wx.temp);
-    S.categoryKeywords = (r.categoryKeywords && Object.keys(r.categoryKeywords||{}).length) ? r.categoryKeywords : {};
-    if(!explain){
-      const _pLabel = (S.pk==='custom') ? (String(S.customPurpose||'').trim()||'맞춤') : (getPur(S.pk)?.label||'추천');
-      const _wx = [S.wx.temp!==null?`${S.wx.temp}°`:'', S.wx.text||''].filter(Boolean).join(' ');
-      explain = trunc(`${_pLabel} 상황에 맞춰 ${_wx} 날씨를 고려한 코디예요. 코디 포인트와 컬러 조합을 아래에서 확인하세요.`, 400);
-    }
-    const pairSpecMap = buildPairSpecMap(S.matchPairs, S.categoryKeywords, keywords, S.stylist, S.wx.temp);
-    S.categoryKeywords = pairSpecMap;
+    S.categoryKeywords = r.categoryKeywords || {};
     S.bodyType = r.bodyType || null;
   }catch(e){
-    console.warn('AI 분석 폴백:',e);
+    console.warn('AI 분석 폴백:',e.message||e);
     const pm=getPur(S.pk);
     const _fTxt=S.wx.temp!==null?`${S.wx.temp}°`:'';
     const _fWx=S.wx.text?` ${S.wx.text}`:'';
@@ -1985,15 +1977,22 @@ async function updateVTO(opts={}){
       business:'비즈니스 룩은 깔끔한 실루엣과 소재감이 포인트예요. 컬러는 2~3개, 아우터로 전체를 마무리하면 좋아요.',
       weekendOut:'주말외출은 활동성과 스타일의 균형이 중요해요. 상·하의 한쪽은 톤을 맞춰 안정감을 주고, 신발로 포인트를 주세요.',
       weekendTrip:'주말여행은 레이어링과 편안한 신발이 기본이에요. 온도 변화에 대비해 가벼운 아우터를 꼭 챙기세요.',
-      meet:'지인모임은 "잘 차려입은 느낌"이 좋아요. 과하지 않게 컬러 포인트 1개를 더하면 세련된 인상을 줄 수 있어요.',
+      meet:'지인모임은"잘 차려입은 느낌"이 좋아요. 과하지 않게 컬러 포인트 1개를 더하면 세련된 인상을 줄 수 있어요.',
     };
     const _fTip = _fTips[S.pk] || '목적과 날씨에 맞게 레이어링하고, 뉴트럴 컬러를 베이스로 포인트 아이템 한 가지를 더해보세요.';
     explain=trunc(`${_fTxt}${_fWx} 날씨에 어울리는 ${pm.label} 스타일이에요. ${_fTip}`.trim(), 400);
     styleTitle=`${pm.label} 코디`;
     S.stylist = null;
-    S.matchPairs = buildMatchPairsFromPalette(palette, S.wx.temp);
-    S.categoryKeywords = buildPairSpecMap(S.matchPairs, {}, keywords, null, S.wx.temp);
+    // 폴백에서도 categoryKeywords를 palette 기반으로 생성
+    const _fbSeason = (()=>{ const n=Number(S.wx?.temp); if(!Number.isFinite(n)) return '클린'; if(n<=5) return '보온'; if(n<=12) return '레이어링'; if(n<=19) return '클린'; return '경량'; })();
+    S.categoryKeywords = {
+      outer: [colorNameFromHex(palette?.outer), _fbSeason].filter(Boolean),
+      top:   [colorNameFromHex(palette?.top), _fbSeason].filter(Boolean),
+      bottom:[colorNameFromHex(palette?.pants)].filter(Boolean),
+      shoes: [colorNameFromHex(palette?.shoes)].filter(Boolean),
+    };
     S.bodyType = null;
+    try { S.matchPairs = buildMatchPairsFromPalette(palette, S.wx.temp); } catch(_){ S.matchPairs = []; }
   }
   if(S.tok!==tok)return;
 
@@ -2067,30 +2066,20 @@ async function updateVTO(opts={}){
     const catKwSection = document.getElementById('catKwSection');
     const catKwRow = document.getElementById('catKwRow');
     const catKwLabels = { outer:'아우터', top:'탑/셔츠', bottom:'하의', pants:'하의/스커트', shoes:'신발/구두', scarf:'스카프·포인트' };
-    let ckw = S.categoryKeywords || {};
-    if(!ckw || !Object.keys(ckw).length){ ckw = buildPairSpecMap(S.matchPairs||[], {}, keywords||[], S.stylist, S.wx?.temp); S.categoryKeywords = ckw; }
-    const catKeys = Object.keys(ckw).filter(k => {
-      const v = ckw[k];
-      return Array.isArray(v) ? v.length : !!(v && (v.color || (v.designs&&v.designs.length)));
-    });
+    const ckw = S.categoryKeywords || {};
+    const catKeys = Object.keys(ckw).filter(k => ckw[k] && ckw[k].length);
     if(catKwRow && catKeys.length){
       catKwRow.innerHTML = '';
       catKeys.forEach(k=>{
-        const spec = ckw[k] || {};
-        const kws = Array.isArray(spec) ? spec.filter(Boolean) : [spec.color, ...(spec.designs||[])].filter(Boolean);
+        const kws = ckw[k].filter(Boolean);
         if(!kws.length) return;
         const row = document.createElement('div');
-        row.className = 'flex items-start gap-1.5 flex-wrap';
+        row.className = 'flex items-center gap-1.5 flex-wrap';
         const lbl = document.createElement('span');
-        lbl.className = 'text-[10px] font-extrabold min-w-[70px]'; lbl.style.color='rgba(151,254,237,0.72)';
-        lbl.textContent = catKwLabels[k] || spec.label || k;
+        lbl.className = 'text-[10px] font-extrabold min-w-[48px]'; lbl.style.color='rgba(151,254,237,0.55)';
+        lbl.textContent = catKwLabels[k] || k;
         row.appendChild(lbl);
-        const lead = document.createElement('span');
-        lead.className='px-2 py-0.5 rounded-full text-[10px] font-black';
-        lead.style.cssText='background:rgba(255,255,255,0.08);border:1px solid rgba(151,254,237,0.18);color:#fff;';
-        lead.textContent = spec.color ? `${spec.color}` : '포인트';
-        row.appendChild(lead);
-        (spec.designs||[]).slice(0,3).forEach(kw=>{
+        kws.forEach(kw=>{
           const chip = document.createElement('span');
           chip.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold';
           chip.style.cssText = 'background:rgba(18,148,144,0.18);border:1px solid rgba(151,254,237,0.28);color:#a2fdf0;';
@@ -2125,15 +2114,14 @@ async function updateVTO(opts={}){
     const map={};
     const scoreMap={};
     const detailMap={}; // { itemId: { catScore, colorScore, designScore, total } }
-    const pairSpecMap = S.categoryKeywords || {};
     (S.matchPairs||[]).forEach(p=>{
-      const wantKey = String(p.key||'').toLowerCase();
-      const wantSpec = Object.assign({}, p, pairSpecMap[wantKey] || {});
-      const _subK = CAT_SUBSTITUTE_MAP[wantKey] || [];
-      const items = [wantKey, ..._subK].flatMap(k => CodiBank.getItemsByUserAndCategory(user.email, k) || []);
-      const best = pickBestItemByScore(wantSpec, items);
+      // coat↔jacket 등 대체 카테고리까지 함께 조회 → scoreCategory로 4P/2P 구분
+      const _subK = CAT_SUBSTITUTE_MAP[String(p.key||'').toLowerCase()] || [];
+      const items = [p.key, ..._subK].flatMap(k => CodiBank.getItemsByUserAndCategory(user.email, k) || []);
+      // 점수 계산: pickBestItemByScore로 카테고리+컬러+디자인 종합
+      const best = pickBestItemByScore(p, items);
       if(best && best.id){
-        map[wantKey] = best.id;
+        map[p.key] = best.id;
         scoreMap[best.id] = best._matchScore || 0;
         detailMap[best.id] = {
           catScore:    best._catScore    || 0,
@@ -3323,7 +3311,7 @@ function buildSection(catMeta,items){
   const titleEl=document.createElement('h3');
   titleEl.className='text-[17px] font-bold text-white';
   titleEl.style.cssText='border-bottom:2px solid #129490;padding-bottom:5px;display:inline-block;';
-  titleEl.innerHTML=`${escH(catMeta.label)}&nbsp;<span style="color:#70dbd4;">${String(items.length).padStart(2,'0')}건</span>`;
+  titleEl.innerHTML=`${escH(catMeta.label)}&nbsp;<span style="color:#70dbd4;">${items.length}개</span>`;
   const addBtn=document.createElement('button');
   addBtn.className='absolute right-5 top-7 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform';
   addBtn.style.cssText='background:rgba(151,254,237,0.08);border:1px solid rgba(151,254,237,0.2);';
@@ -3338,17 +3326,13 @@ function buildSection(catMeta,items){
   const score0=recId0&&S.matchScoreMap?(S.matchScoreMap[recId0]||0):0;
   const detail0=recId0&&S.matchDetailMap?(S.matchDetailMap[recId0]||null):null;
   const adv=document.createElement('div');adv.className='m-adv';
-  if(items.length===0){
-    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.72);">등록된 아이템이 없어요. 등록하면 매칭해드립니다.</span>`;
+  if(score0){
+    const tip=detail0?`카테고리 ${detail0.catScore}P + 컬러 ${detail0.colorScore}P + 디자인 ${detail0.designScore}P`:'';
+    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt">이 아이템은 추천코디와 매칭점수 <strong style="color:#a2fdf0;">${score0}P</strong>`+(tip?` <span style="font-size:10px;color:rgba(255,255,255,0.4);">(${tip})</span>`:'')+'</span>';
   } else if(S.hasGenerated){
-    if(score0 >= 1){
-      const tip=detail0?`카테고리 ${detail0.catScore}P + 컬러 ${detail0.colorScore}P + 디자인 ${detail0.designScore}P`:'';
-      adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt">추천이미지와 일치하는 매칭점수 <strong style="color:#a2fdf0;">${score0}점</strong>`+(tip?` <span style="font-size:10px;color:rgba(255,255,255,0.45);">(${tip})</span>`:'')+'</span>';
-    } else {
-      adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.62);">추천이미지와 유사한 아이템 없음 <strong style="color:#fff;">0P</strong></span>`;
-    }
+    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">스와이프해서 AI 추천 아이템을 확인하세요</span>`;
   } else {
-    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.52);">추천코디를 생성하면 이 카테고리에서 가장 유사한 아이템을 자동 매칭합니다.</span>`;
+    adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">← 스와이프로 아이템을 탐색하세요</span>`;
   }
   sec.appendChild(adv);
 
