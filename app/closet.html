@@ -1567,6 +1567,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     cultureCode: ethnicity.toUpperCase().slice(0,2),
     seedOffset:  personaIdx,
     desc:        persona.layerStyle,
+    shoe:        persona.shoe,
   };
 
   // ── [5] 페르소나 고유 팔레트 (온도 보정)
@@ -1644,7 +1645,8 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const purposeSentence = pk==='custom'&&customText?`[요청] ${customText}`:`[스타일] ${persona.desc}`;
   const detailSentence = `${dKw1} 핏에 ${dKw2} 실루엣. ${shoeStyle}로 포인트.`;
 
-  let explanation = [customSentence, baseSentence, colorSentence, detailSentence, layerSentence, purposeSentence].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
+  const shoeDirective = `[신발] ${accentC||''} ${shoeStyle}(${shoesC||''})`.replace(/\s+/g,' ').trim();
+  let explanation = [customSentence, baseSentence, colorSentence, shoeDirective, detailSentence, layerSentence, purposeSentence].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
   if(who) explanation = `${who} · ${explanation}`;
   if(bodyType) explanation = `[${bodyType.tag}체형] ${bodyType.tip} / ${explanation}`;
   explanation = trunc(explanation, 400);
@@ -1692,67 +1694,99 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     bodyType.tag==='장신형' ? 'long coat with full-length trousers for perfect proportions' : ''
   ) : '';
 
-  const outerColorEn = (()=>{
-    const m={'화이트':'white','블랙':'black','네이비':'navy','그레이':'gray','라이트그레이':'light gray','베이지':'beige','브라운':'brown','카키':'khaki','버건디':'burgundy','레드':'red','블루':'blue','그린':'green','올리브':'olive','크림':'cream','퍼플':'purple','핑크':'pink','오렌지':'orange','코랄':'coral','민트':'mint','스카이블루':'sky blue','옐로':'yellow','건메탈':'gunmetal'};
-    return m[outerC]||outerC||'dark';
-  })();
-  const topColorEn = (()=>{
-    const m={'화이트':'white','블랙':'black','네이비':'navy','그레이':'gray','라이트그레이':'light gray','베이지':'beige','브라운':'brown','크림':'cream','아이보리':'ivory','블루':'blue','그린':'green'};
-    return m[topC]||topC||'neutral';
-  })();
-  const pantsColorEn = (()=>{
-    const m={'화이트':'white','블랙':'black','네이비':'navy','그레이':'gray','다크그레이':'dark gray','베이지':'beige','브라운':'brown','카키':'khaki','블루':'blue','그린':'green','올리브':'olive dark'};
-    return m[pantsC]||pantsC||'dark';
-  })();
-
-  // 신발 컬러 → 영어
-  const _shoeColorEn = (()=>{
-    const m={'화이트':'white','블랙':'black','네이비':'navy','그레이':'gray','베이지':'beige','브라운':'brown','카키':'khaki','버건디':'burgundy','레드':'red','블루':'blue','그린':'green','올리브':'olive','오렌지':'orange','옐로':'yellow','크림':'cream','그린':'green','라이트그레이':'light gray'};
-    return m[shoesC]||shoesC||'black';
-  })();
-
-  // 신발 스타일 → 영어 (categoryKeywords의 shoeStyle과 동기화)
-  const _shoeStyleEn = (()=>{
-    const m={
-      '더비슈즈':'derby shoes','태슬로퍼':'tassel loafers','로퍼':'loafers',
-      '옥스포드':'oxford shoes','첼시부츠':'chelsea boots','수에드로퍼':'suede loafers',
-      '청키더비':'chunky derby shoes','트레킹더비':'trekking derby shoes',
-      '스트레이트팁':'straight-tip oxford shoes','모크크로코로퍼':'mock-croc loafers',
-      '브로그':'brogue shoes','워터프루프더비':'waterproof derby shoes',
-      '플랫폼더비':'platform derby shoes','클린스니커즈':'clean white sneakers',
-      '에어맥스':'Air Max sneakers','러닝화':'running shoes','트레일러너':'trail runners',
-      '트레일러닝화':'trail running shoes','하이킹부츠':'hiking boots',
-      '레드윙부츠':'Red Wing work boots','워킹부츠':'walking boots','워킹슈즈':'walking shoes',
-      '고어텍스부츠':'Gore-Tex boots','바이커부츠':'biker boots','닥터마틴':'Dr. Martens boots',
-      '청키부츠':'chunky boots','첼시부츠':'chelsea boots','플랫폼부츠':'platform boots',
-      '에스파드리유':'espadrilles','화이트스니커즈':'white sneakers',
-      '청키스니커즈':'chunky sneakers','하이탑스니커즈':'high-top sneakers',
-      '플랫폼스니커즈':'platform sneakers','컬러스니커즈':'colored sneakers',
-      '레더스니커즈':'leather sneakers','화이트로우스니커즈':'white low sneakers',
-      '화이트청키스니커즈':'white chunky sneakers','캔버스스니커즈':'canvas sneakers',
-      '슬리폰':'slip-on shoes','뮬':'mules','카멜첼시부츠':'camel chelsea boots',
-      '레더첼시부츠':'leather chelsea boots','엔지니어부츠':'engineer boots',
-      '레더청키스니커즈':'chunky leather sneakers','트래블스니커즈':'travel sneakers',
-      '고어텍스스니커즈':'Gore-Tex sneakers','에스닉플랫':'ethnic flat shoes',
-      '디자이너화':'designer shoes','젠더리스화':'genderless shoes','시그니처슈즈':'signature shoes',
-      '시즌리스화':'seasonless shoes','빈티지부츠':'vintage boots','컨셉슈즈':'concept shoes',
-      '믹스매치슈즈':'mix-match shoes','울리슬리퍼':'woolen slippers','트레킹샌들':'trekking sandals',
+  // ══════════════════════════════════════════════════════════
+  // 단일 koToEn: 한국어 컬러명 → 영어 (categoryKeywords와 동일 소스)
+  // imagePrompt는 오직 이 함수로만 변환 → 텍스트/이미지 100% 일치 보장
+  // ══════════════════════════════════════════════════════════
+  const koToEn = (ko) => {
+    const m = {
+      '화이트':'white','아이보리':'ivory','크림':'cream','베이지':'beige',
+      '블랙':'black','차콜':'charcoal gray','건메탈':'gunmetal',
+      '그레이':'gray','라이트그레이':'light gray','다크그레이':'dark gray',
+      '네이비':'navy blue','다크네이비':'dark navy',
+      '블루':'blue','스카이블루':'sky blue','코발트블루':'cobalt blue',
+      '그린':'green','카키':'khaki','올리브':'olive','다크그린':'dark green','민트':'mint green','세이지':'sage green',
+      '브라운':'brown','카멜':'camel','탄':'tan','코냑':'cognac brown',
+      '버건디':'burgundy','와인':'wine red','마룬':'maroon',
+      '레드':'red','코랄':'coral red',
+      '오렌지':'orange','머스타드':'mustard yellow','옐로':'yellow',
+      '퍼플':'purple','라벤더':'lavender',
+      '핑크':'pink','로즈':'rose',
     };
-    return m[shoeStyle] || shoeStyle.replace(/[가-힣]+/g,' ').trim() || 'leather shoes';
+    return m[String(ko||'')] || String(ko||'');
+  };
+
+  // 신발 스타일 한국어 → 영어 (단일 맵)
+  const shoeStyleToEn = (s) => {
+    const m = {
+      // 포멀/드레스
+      '더비슈즈':'derby shoes','태슬로퍼':'tassel loafers','로퍼':'loafers',
+      '옥스포드':'oxford shoes','수에드로퍼':'suede loafers','스트레이트팁':'straight-tip oxfords',
+      '모크크로코로퍼':'mock-croc loafers','브로그':'brogue shoes','클린레더슈즈':'clean leather shoes',
+      '레더첼시부츠':'leather chelsea boots','카멜첼시부츠':'camel chelsea boots',
+      '첼시부츠':'chelsea boots','청키더비':'chunky derby shoes','트레킹더비':'trekking derby shoes',
+      '워터프루프더비':'waterproof derby shoes','플랫폼더비':'platform derby shoes',
+      '디자이너화':'designer shoes',
+      // 부츠
+      '하이킹부츠':'hiking boots','레드윙부츠':'Red Wing work boots','워킹부츠':'walking boots',
+      '고어텍스부츠':'Gore-Tex boots','바이커부츠':'biker boots',
+      '닥터마틴':'Dr. Martens boots','청키부츠':'chunky boots','플랫폼부츠':'platform boots',
+      '엔지니어부츠':'engineer boots','빈티지부츠':'vintage boots',
+      // 스니커즈/테크
+      '테크러너':'tech runner sneakers','트레일러너':'trail runner sneakers',
+      '트레일러닝화':'trail running shoes','러닝화':'running shoes',
+      '에어맥스':'Air Max sneakers','클린스니커즈':'clean minimal sneakers',
+      '화이트스니커즈':'white sneakers','청키스니커즈':'chunky sneakers',
+      '하이탑스니커즈':'high-top sneakers','플랫폼스니커즈':'platform sneakers',
+      '컬러스니커즈':'colorful sneakers','레더스니커즈':'leather sneakers',
+      '화이트로우스니커즈':'white low-top sneakers','화이트청키스니커즈':'white chunky sneakers',
+      '캔버스스니커즈':'canvas sneakers','레더청키스니커즈':'chunky leather sneakers',
+      '트래블스니커즈':'travel sneakers','고어텍스스니커즈':'Gore-Tex sneakers',
+      '워킹슈즈':'walking shoes','시즌리스화':'minimalist sneakers',
+      // 캐주얼/기타
+      '에스파드리유':'espadrilles','뮬':'mules','슬리폰':'slip-on shoes',
+      '울리슬리퍼':'wool slippers','트레킹샌들':'trekking sandals',
+      '에스닉플랫':'ethnic flat shoes','젠더리스화':'genderless shoes',
+      '시그니처슈즈':'designer shoes','컨셉슈즈':'concept fashion shoes',
+      '믹스매치슈즈':'mixed style shoes',
+    };
+    return m[String(s||'')] || 'sneakers';
+  };
+
+  // 아우터 아이템 영어
+  const _outerTypeEn = _outerItem==='코트'?'coat':_outerItem==='자켓'?'jacket':'cardigan';
+
+  // ── categoryKeywords에서 직접 컬러 추출 (텍스트 표시와 동일 소스)
+  const _outerColorKo  = categoryKeywords.outer[0]  || outerC  || '';
+  const _topColorKo    = categoryKeywords.top[0]    || topC    || '';
+  const _pantsColorKo  = categoryKeywords.bottom[0] || pantsC  || '';
+  const _shoesColorKo  = categoryKeywords.shoes[0]  || shoesC  || '';
+  const _accentColorKo = categoryKeywords.scarf[0]  || accentC || '';
+  const _shoeStyleKo   = categoryKeywords.shoes[1]  || shoeStyle || '';
+
+  // 포인트 아이템명 (스카프/포인트)
+  const _accentItemName = (()=>{
+    const s = _shoeStyleKo;
+    if(accentC && palette.accent) return '스카프';
+    return '포인트 아이템';
   })();
 
-  const personaStyleDesc = `${persona.en} style persona: ${dKw1} silhouette, ${dKw2} aesthetic, ${shoeStyle.replace(/[가-힣]+/g,'').trim()||'leather shoes'}`;
-
+  // ── imagePrompt: categoryKeywords와 100% 동일 소스에서 생성
   const imagePrompt = [
-    `A realistic full-body fashion photography of a ${ageLabel} ${ethnicity} ${genderLabel}`,
-    `wearing a ${outerColorEn} ${_outerItem==='코트'?'coat':_outerItem==='자켓'?'jacket':'cardigan'},`,
-    `${topColorEn} top, ${pantsColorEn} pants, and ${_shoeColorEn} ${_shoeStyleEn}.`,
-    `${personaStyleDesc}.`,
-    bodyFlawPrompt?`${bodyFlawPrompt}.`:'',
+    `A realistic full-body fashion photography of a ${ageLabel} ${ethnicity} ${genderLabel}.`,
+    `EXACT outfit — follow each item color precisely:`,
+    `ITEM 1 - OUTERWEAR: ${koToEn(_outerColorKo)} ${_outerTypeEn} (color: ${koToEn(_outerColorKo)}).`,
+    `ITEM 2 - TOP: ${koToEn(_topColorKo)} shirt or top (color: ${koToEn(_topColorKo)}).`,
+    `ITEM 3 - PANTS: ${koToEn(_pantsColorKo)} trousers (color: ${koToEn(_pantsColorKo)}, NOT black unless specified as black).`,
+    `ITEM 4 - SHOES: ${koToEn(_shoesColorKo)} ${shoeStyleToEn(_shoeStyleKo)} — CRITICAL: shoes must be ${koToEn(_shoesColorKo)} colored, not white, not black unless specified.`,
+    _accentColorKo && _accentColorKo!=='포인트악세서리'
+      ? `ITEM 5 - SCARF/ACCENT: ${koToEn(_accentColorKo)} scarf or accent accessory (color: ${koToEn(_accentColorKo)}).`
+      : '',
+    `Style persona: ${persona.en}. ${personaStyleDesc}.`,
+    bodyFlawPrompt ? `Fit: ${bodyFlawPrompt}.` : '',
     `Looking directly at the camera, frontal face view, slight natural smile.`,
-    `Standing in a ${nt<=5?'winter city street':'modern urban'} setting.`,
-    `${weatherNote}. Professional fashion editorial lighting, high resolution, sharp details.`,
-    `Korean fashion magazine style, full body visible from head to toe.`,
+    `Full body visible from head to toe. ${nt<=5?'Winter city setting.':'Modern urban setting.'}`,
+    `Professional Korean fashion magazine photography, high resolution, editorial lighting.`,
   ].filter(Boolean).join(' ');
 
   // ── [18] matchPairs
@@ -2521,12 +2555,14 @@ async function updateVTO(opts={}){
       // ── 이미지 프롬프트에 직접 반영될 컬러 지시문 생성
       const _customTxt = (S.pk==='custom') ? String(S.customPurpose||'').trim() : '';
       const _outerType = (Number.isFinite(Number(S.wx?.temp)) && Number(S.wx.temp) <= 7) ? '코트' : '자켓';
+      // colorDirective: categoryKeywords와 동일 소스 사용
+      const _ckw = S.categoryKeywords || {};
       const _colorDirective = [
-        paletteLabels.outer  ? `아우터(${_outerType}) 컬러: ${paletteLabels.outer}` : '',
-        paletteLabels.top    ? `상의 컬러: ${paletteLabels.top}` : '',
-        paletteLabels.pants  ? `하의 컬러: ${paletteLabels.pants}` : '',
-        paletteLabels.shoes  ? `신발 컬러: ${paletteLabels.shoes}` : '',
-        paletteLabels.accent ? `포인트 컬러: ${paletteLabels.accent}` : '',
+        (_ckw.outer  &&_ckw.outer[0])  ? `아우터 컬러: ${_ckw.outer[0]} ${_outerType}` : (paletteLabels.outer  ? `아우터 컬러: ${paletteLabels.outer}` : ''),
+        (_ckw.top    &&_ckw.top[0])    ? `상의 컬러: ${_ckw.top[0]}` : (paletteLabels.top ? `상의 컬러: ${paletteLabels.top}` : ''),
+        (_ckw.bottom &&_ckw.bottom[0]) ? `하의 컬러: ${_ckw.bottom[0]}` : (paletteLabels.pants ? `하의 컬러: ${paletteLabels.pants}` : ''),
+        (_ckw.shoes  &&_ckw.shoes[0])  ? `신발: ${_ckw.shoes[0]} ${_ckw.shoes[1]||''}`.trim() : (paletteLabels.shoes ? `신발 컬러: ${paletteLabels.shoes}` : ''),
+        (_ckw.scarf  &&_ckw.scarf[0]&&_ckw.scarf[0]!=='포인트악세서리') ? `포인트: ${_ckw.scarf[0]}` : (paletteLabels.accent ? `포인트 컬러: ${paletteLabels.accent}` : ''),
       ].filter(Boolean).join(', ');
       // ── 직접입력 텍스트에서 추가 키워드 추출
       const _customDirective = _customTxt
