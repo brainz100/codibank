@@ -210,8 +210,8 @@
 .purpose-card-dark:active{transform:scale(.96);}
 .purpose-card-dark.active{
   background:rgba(53,162,159,0.35);
-  border-color:#35A29F;
-  box-shadow: 0 0 0 2px rgba(53,162,159,0.4);
+  border-color:#97FEED;
+  box-shadow: 0 8px 24px rgba(53,162,159,0.35);
   color:#97FEED;
   box-shadow:0 8px 20px rgba(53,162,159,.25);
 }
@@ -373,21 +373,29 @@
 </style>
 
 <style>
-/* ── purpose-card 다크 오버라이드 ── */
+/* ── purpose-card 다크 테마 오버라이드 ── */
+/* 디폴트: 7개 모두 완전히 동일한 미선택 상태 */
 .purpose-card {
   background: rgba(255,255,255,0.05) !important;
-  border-color: rgba(151,254,237,0.15) !important;
-  color: rgba(255,255,255,0.65) !important;
+  border: 1.5px solid rgba(151,254,237,0.15) !important;
+  color: rgba(255,255,255,0.6) !important;
+  box-shadow: none !important;
 }
-.purpose-card .material-symbols-outlined { color: rgba(151,254,237,0.6) !important; }
+.purpose-card .material-symbols-outlined {
+  color: rgba(151,254,237,0.55) !important;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24 !important;
+}
+/* 선택됨: date-card.dc-active 와 동일한 디자인 */
 .purpose-card.active {
   background: rgba(53,162,159,0.35) !important;
-  border-color: #35A29F !important;
-  color: #97FEED !important;
-  box-shadow: 0 0 0 2px rgba(53,162,159,0.4), 0 4px 16px rgba(53,162,159,0.25) !important;
-  box-shadow: 0 8px 28px rgba(18,148,144,0.5), inset 0 0 0 1px rgba(151,254,237,0.15) !important;
+  border: 1.5px solid #97FEED !important;
+  color: rgba(151,254,237,0.95) !important;
+  box-shadow: 0 8px 24px rgba(53,162,159,0.35) !important;
 }
-.purpose-card.active .material-symbols-outlined { color: #a2fdf0 !important; font-variation-settings:'FILL' 1,'wght' 700,'GRAD' 0,'opsz' 24 !important; }
+.purpose-card.active .material-symbols-outlined {
+  color: #97FEED !important;
+  font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 24 !important;
+}
 
 /* ── 날짜 카드 ── */
 .dc {
@@ -1697,12 +1705,48 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     return m[pantsC]||pantsC||'dark';
   })();
 
+  // 신발 컬러 → 영어
+  const _shoeColorEn = (()=>{
+    const m={'화이트':'white','블랙':'black','네이비':'navy','그레이':'gray','베이지':'beige','브라운':'brown','카키':'khaki','버건디':'burgundy','레드':'red','블루':'blue','그린':'green','올리브':'olive','오렌지':'orange','옐로':'yellow','크림':'cream','그린':'green','라이트그레이':'light gray'};
+    return m[shoesC]||shoesC||'black';
+  })();
+
+  // 신발 스타일 → 영어 (categoryKeywords의 shoeStyle과 동기화)
+  const _shoeStyleEn = (()=>{
+    const m={
+      '더비슈즈':'derby shoes','태슬로퍼':'tassel loafers','로퍼':'loafers',
+      '옥스포드':'oxford shoes','첼시부츠':'chelsea boots','수에드로퍼':'suede loafers',
+      '청키더비':'chunky derby shoes','트레킹더비':'trekking derby shoes',
+      '스트레이트팁':'straight-tip oxford shoes','모크크로코로퍼':'mock-croc loafers',
+      '브로그':'brogue shoes','워터프루프더비':'waterproof derby shoes',
+      '플랫폼더비':'platform derby shoes','클린스니커즈':'clean white sneakers',
+      '에어맥스':'Air Max sneakers','러닝화':'running shoes','트레일러너':'trail runners',
+      '트레일러닝화':'trail running shoes','하이킹부츠':'hiking boots',
+      '레드윙부츠':'Red Wing work boots','워킹부츠':'walking boots','워킹슈즈':'walking shoes',
+      '고어텍스부츠':'Gore-Tex boots','바이커부츠':'biker boots','닥터마틴':'Dr. Martens boots',
+      '청키부츠':'chunky boots','첼시부츠':'chelsea boots','플랫폼부츠':'platform boots',
+      '에스파드리유':'espadrilles','화이트스니커즈':'white sneakers',
+      '청키스니커즈':'chunky sneakers','하이탑스니커즈':'high-top sneakers',
+      '플랫폼스니커즈':'platform sneakers','컬러스니커즈':'colored sneakers',
+      '레더스니커즈':'leather sneakers','화이트로우스니커즈':'white low sneakers',
+      '화이트청키스니커즈':'white chunky sneakers','캔버스스니커즈':'canvas sneakers',
+      '슬리폰':'slip-on shoes','뮬':'mules','카멜첼시부츠':'camel chelsea boots',
+      '레더첼시부츠':'leather chelsea boots','엔지니어부츠':'engineer boots',
+      '레더청키스니커즈':'chunky leather sneakers','트래블스니커즈':'travel sneakers',
+      '고어텍스스니커즈':'Gore-Tex sneakers','에스닉플랫':'ethnic flat shoes',
+      '디자이너화':'designer shoes','젠더리스화':'genderless shoes','시그니처슈즈':'signature shoes',
+      '시즌리스화':'seasonless shoes','빈티지부츠':'vintage boots','컨셉슈즈':'concept shoes',
+      '믹스매치슈즈':'mix-match shoes','울리슬리퍼':'woolen slippers','트레킹샌들':'trekking sandals',
+    };
+    return m[shoeStyle] || shoeStyle.replace(/[가-힣]+/g,' ').trim() || 'leather shoes';
+  })();
+
   const personaStyleDesc = `${persona.en} style persona: ${dKw1} silhouette, ${dKw2} aesthetic, ${shoeStyle.replace(/[가-힣]+/g,'').trim()||'leather shoes'}`;
 
   const imagePrompt = [
     `A realistic full-body fashion photography of a ${ageLabel} ${ethnicity} ${genderLabel}`,
     `wearing a ${outerColorEn} ${_outerItem==='코트'?'coat':_outerItem==='자켓'?'jacket':'cardigan'},`,
-    `${topColorEn} top, ${pantsColorEn} pants, and ${shoeStyle.replace(/[가-힣]/g,'').trim()||'shoes'}.`,
+    `${topColorEn} top, ${pantsColorEn} pants, and ${_shoeColorEn} ${_shoeStyleEn}.`,
     `${personaStyleDesc}.`,
     bodyFlawPrompt?`${bodyFlawPrompt}.`:'',
     `Looking directly at the camera, frontal face view, slight natural smile.`,
