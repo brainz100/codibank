@@ -209,8 +209,9 @@
 .purpose-card-dark .material-symbols-outlined{font-size:22px;transition:color 180ms ease;color:rgba(151,254,237,.6);}
 .purpose-card-dark:active{transform:scale(.96);}
 .purpose-card-dark.active{
-  background:rgba(53,162,159,.25);
-  border-color:rgba(151,254,237,.7);
+  background:rgba(53,162,159,0.35);
+  border-color:#35A29F;
+  box-shadow: 0 0 0 2px rgba(53,162,159,0.4);
   color:#97FEED;
   box-shadow:0 8px 20px rgba(53,162,159,.25);
 }
@@ -380,9 +381,10 @@
 }
 .purpose-card .material-symbols-outlined { color: rgba(151,254,237,0.6) !important; }
 .purpose-card.active {
-  background: rgba(18,148,144,0.45) !important;
-  border-color: #70dbd4 !important;
-  color: #a2fdf0 !important;
+  background: rgba(53,162,159,0.35) !important;
+  border-color: #35A29F !important;
+  color: #97FEED !important;
+  box-shadow: 0 0 0 2px rgba(53,162,159,0.4), 0 4px 16px rgba(53,162,159,0.25) !important;
   box-shadow: 0 8px 28px rgba(18,148,144,0.5), inset 0 0 0 1px rgba(151,254,237,0.15) !important;
 }
 .purpose-card.active .material-symbols-outlined { color: #a2fdf0 !important; font-variation-settings:'FILL' 1,'wght' 700,'GRAD' 0,'opsz' 24 !important; }
@@ -668,8 +670,9 @@
           style="height:44px;border-radius:14px;background:rgba(255,255,255,0.07);border:1px solid rgba(151,254,237,0.2);color:rgba(255,255,255,0.8);cursor:pointer;font-family:'Outfit','Noto Sans KR',sans-serif;">
           <span class="material-symbols-outlined text-[16px]">download</span>저장
         </button>
-        <button id="againBtn" type="button" class="flex-1 flex items-center justify-center gap-1.5 font-bold text-[12px] active:scale-[0.97] transition-all"
-          style="height:44px;border-radius:14px;background:linear-gradient(135deg,#35A29F,#0B666A);border:none;color:#fff;cursor:pointer;box-shadow:0 6px 18px rgba(53,162,159,0.4);font-family:'Outfit','Noto Sans KR',sans-serif;">
+        <button id="againBtn" type="button" disabled
+          class="flex-1 flex items-center justify-center gap-1.5 font-bold text-[12px] transition-all"
+          style="height:44px;border-radius:14px;background:rgba(255,255,255,0.06);border:1.5px dashed rgba(151,254,237,0.2);color:rgba(255,255,255,0.3);cursor:not-allowed;font-family:'Outfit','Noto Sans KR',sans-serif;">
           <span class="material-symbols-outlined text-[16px]">refresh</span>다시 코디
         </button>
         <button id="shareBtn" type="button" class="flex-1 flex items-center justify-center gap-1.5 font-bold text-[12px] active:scale-[0.97] transition-all"
@@ -1069,7 +1072,15 @@ function setGenUiEnabled(enabled){
   if(tBtn) tBtn.disabled = busy;
   if(mBtn) mBtn.disabled = busy;
   // 다시 코디는 잔여 횟수(또는 무제한)일 때만 활성화
-  if(againBtn) againBtn.disabled = busy || !en || !S.hasGenerated;
+  if(againBtn){
+    const canAgain = !busy && en && !!S.hasGenerated;
+    againBtn.disabled = !canAgain;
+    if(canAgain){
+      againBtn.style.cssText = "height:44px;border-radius:14px;background:linear-gradient(135deg,#35A29F,#0B666A);border:none;color:#fff;cursor:pointer;box-shadow:0 6px 18px rgba(53,162,159,0.4);font-family:'Outfit','Noto Sans KR',sans-serif;";
+    } else {
+      againBtn.style.cssText = "height:44px;border-radius:14px;background:rgba(255,255,255,0.06);border:1.5px dashed rgba(151,254,237,0.2);color:rgba(255,255,255,0.3);cursor:not-allowed;font-family:'Outfit','Noto Sans KR',sans-serif;";
+    }
+  }
 }
 
 function canGenerateNow(){
@@ -1356,12 +1367,38 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   ];
   const advSentence = advPool[sd % advPool.length];
 
+  // ── 컬러 지시문: 이미지와 텍스트가 동일한 컬러를 공유하도록
+  const outerColorName = colorNameFromHex(palette?.outer) || '';
+  const topColorName   = colorNameFromHex(palette?.top)   || '';
+  const pantsColorName = colorNameFromHex(palette?.pants) || '';
+  const accentColorName= colorNameFromHex(palette?.accent) || '';
+  const _outerItem = (Number.isFinite(Number(t)) && Number(t) <= 7) ? '코트' : '자켓';
+  const colorSentence = [
+    outerColorName  ? `${_outerItem}(${outerColorName})` : '',
+    topColorName    ? `상의(${topColorName})` : '',
+    pantsColorName  ? `하의(${pantsColorName})` : '',
+    accentColorName ? `포인트(${accentColorName})` : '',
+  ].filter(Boolean).join(' · ');
+
+  // 직접입력 최우선 반영
+  const customSentence = (pk==='custom' && customText)
+    ? `★직접요청: "${customText}"에 맞춰 컬러·아이템 선택.`
+    : '';
+
   let explanation = `${baseSentence} ${advSentence} ${layerSentence} ${purposeSentence}`.replace(/\s+/g,' ').trim();
+  if(colorSentence) explanation = `[컬러] ${colorSentence} / ${explanation}`;
+  if(customSentence) explanation = `${customSentence} ${explanation}`;
   if (who) explanation = `${who} 기준 · ${explanation}`;
   explanation = trunc(explanation, 400);
 
-  // ── [7] 키워드 ──
-  const kws = (pk==='custom' ? [purposeName] : (pm?.kw || [])).filter(Boolean).slice(0,3);
+  // ── [7] 키워드 ── (직접입력 시 customText에서 키워드 추출)
+  let kws = (pk==='custom' ? [purposeName] : (pm?.kw || [])).filter(Boolean).slice(0,3);
+  if (pk==='custom' && customText) {
+    const _colorWords = ['레드','블루','네이비','화이트','블랙','그레이','베이지','브라운','그린','카키','버건디','올리브','크림','아이보리','코랄','퍼플','핑크','민트'];
+    const _styleWords = ['캐주얼','포멀','미니멀','스트릿','스포티','클래식','빈티지','모던','심플','시크','러블리','세련','트렌디'];
+    const _foundKw = [..._colorWords.filter(w=>customText.includes(w)), ..._styleWords.filter(w=>customText.includes(w))];
+    if(_foundKw.length > 0) kws = _foundKw.slice(0,3);
+  }
   const keywords = Array.from(new Set([seasonKw, dKw1, ...kws])).slice(0,4);
 
   // ── [8] 얼굴 사진 ──
@@ -1958,7 +1995,7 @@ async function updateVTO(opts={}){
 
   if(stepEl) stepEl.textContent='AI 코디 분석 중…';
   try{
-    const r=await callClaude({faceSrc,wx:S.wx,pk:S.pk,profile:{gender:user?.gender,ageGroup:user?.ageGroup,height:user?.height,weight:user?.weight},seed:S.seed,day:(S.day==='today'?'today':(S.selDateKey||'tomorrow'))});
+    const r=await callClaude({faceSrc,wx:S.wx,pk:S.pk,profile:{gender:user?.gender,ageGroup:user?.ageGroup,height:user?.height,weight:user?.weight,codiPurposeCustom:S.customPurpose||''},seed:S.seed,day:(S.day==='today'?'today':(S.selDateKey||'tomorrow'))});
     if(S.tok!==tok)return;
     if(r.palette)palette=r.palette;
     explain=trunc(r.explanation||'',400);
@@ -2153,15 +2190,45 @@ async function updateVTO(opts={}){
           faceDataUrl = await shrinkDataUrl(faceDataUrl, 320, 0.70);
         }
       }catch(_){}
+      // ── 컬러 팔레트를 한국어 이름으로 변환해서 프롬프트에 명시
+      const _pal = palette || {};
+      const paletteLabels = {
+        outer:  colorNameFromHex(_pal.outer)  || '',
+        top:    colorNameFromHex(_pal.top)    || '',
+        pants:  colorNameFromHex(_pal.pants)  || '',
+        shoes:  colorNameFromHex(_pal.shoes)  || '',
+        accent: colorNameFromHex(_pal.accent) || '',
+      };
+      // ── 이미지 프롬프트에 직접 반영될 컬러 지시문 생성
+      const _customTxt = (S.pk==='custom') ? String(S.customPurpose||'').trim() : '';
+      const _outerType = (Number.isFinite(Number(S.wx?.temp)) && Number(S.wx.temp) <= 7) ? '코트' : '자켓';
+      const _colorDirective = [
+        paletteLabels.outer  ? `아우터(${_outerType}) 컬러: ${paletteLabels.outer}` : '',
+        paletteLabels.top    ? `상의 컬러: ${paletteLabels.top}` : '',
+        paletteLabels.pants  ? `하의 컬러: ${paletteLabels.pants}` : '',
+        paletteLabels.shoes  ? `신발 컬러: ${paletteLabels.shoes}` : '',
+        paletteLabels.accent ? `포인트 컬러: ${paletteLabels.accent}` : '',
+      ].filter(Boolean).join(', ');
+      // ── 직접입력 텍스트에서 추가 키워드 추출
+      const _customDirective = _customTxt
+        ? `[사용자 직접 요청] "${_customTxt}" — 이 요청 내용을 최우선으로 반영해 컬러·스타일·아이템을 선택하세요.`
+        : '';
+
       const payload={
         user:{email:user?.email||'',gender:user?.gender||'',ageGroup:user?.ageGroup||'',height:user?.height||'',weight:user?.weight||''},
         weather:{temp:S.wx.temp,text:S.wx.text||'',location:(S.wx.location||user?.location||'')},
         forDateKey: getSelectedDateKey(),
         purposeKey:S.pk,
-        purposeLabel:(S.pk==='custom' ? (String(S.customPurpose||'').trim()||'맞춤') : (getPur(S.pk).label||'')),
+        purposeLabel:(S.pk==='custom' ? (_customTxt||'맞춤') : (getPur(S.pk).label||'')),
+        customText: _customTxt,
         styleTitle,explanation:explain,keywords,
         stylist: S.stylist || null,
         matchPairs: Array.isArray(S.matchPairs) ? S.matchPairs : [],
+        palette: _pal,
+        paletteLabels,
+        colorDirective: _colorDirective,
+        customDirective: _customDirective,
+        categoryKeywords: S.categoryKeywords || {},
         seed:S.seed,
         faceImage: faceDataUrl || null,
         size:'1024x1536',
@@ -2285,6 +2352,7 @@ async function updateVTO(opts={}){
   setVtoState('ready');
   S.hasGenerated = true;
   try{ updateAiCallBtn(); }catch(_){} // ← 완료: done(teal) 상태로
+  try{ setGenUiEnabled(canGenerateNow()); }catch(_){} // 다시코디 버튼 활성화
 
   // 사용량 차감(성공적으로 "새 이미지"를 만든 경우에만)
   if(didGenerateNew){
