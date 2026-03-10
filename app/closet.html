@@ -1001,9 +1001,11 @@ function normalizeKColorName(name){
 
 // ── 카테고리 대체 그룹 정의
 const CAT_SUBSTITUTE_MAP = {
-  coat:   ['jacket','padding'],   // 코트 ↔ 자켓/패딩
-  jacket: ['coat','padding'],
-  padding:['coat','jacket'],
+  outer:   ['coat','jacket','padding','cardigan'], // 아우터 ↔ 코트/자켓/패딩/가디건
+  coat:    ['jacket','padding','outer','cardigan'],// 코트 ↔ 자켓/패딩/아우터/가디건
+  jacket:  ['coat','padding','outer','cardigan'],  // 자켓 ↔ 코트/패딩/아우터/가디건
+  padding: ['coat','jacket','outer'],
+  cardigan:['outer','jacket','coat'],              // 가디건 ↔ 아우터/자켓/코트
   top:    ['shirt','knit','tshirt'],
   shirt:  ['top','knit'],
   knit:   ['top','shirt'],
@@ -1296,8 +1298,9 @@ function localPalette(pk,temp,seed){
 // 추천 코디에서 "카테고리-컬러" 키워드를 뽑아 디지털 옷장과 매칭하기 위한 데이터
 function buildMatchPairsFromPalette(palette, temp){
   const t = Number(temp);
-  const isCold = Number.isFinite(t) ? (t <= 7) : false;
-  const outerKey = isCold ? 'coat' : 'jacket';
+  // 온도별 아우터 카테고리 키 (CAT_SUBSTITUTE_MAP으로 대체 카테고리 자동 검색)
+  // <=7°C → coat(코트) / 8~15°C → jacket(자켓) / >15°C → outer(아우터, 가디건 포함)
+  const outerKey = Number.isFinite(t) ? (t<=7?'coat':t<=15?'jacket':'outer') : 'jacket';
   const pairs = [
     { key: outerKey, color: colorNameFromHex(palette?.outer) },
     { key: 'top',   color: colorNameFromHex(palette?.top) },
@@ -1795,6 +1798,46 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const _outerItemKo = nt<=7?'코트':nt<=15?'자켓':'가디건';
   const _outerItemEn = nt<=7?'coat':nt<=15?'jacket':'cardigan';
 
+  // [C-2] 페르소나 layerStyle 아우터 타입 → 영어 변환 맵
+  // imagePrompt [1] OUTERWEAR에 자켓 타입이 구체적으로 반영되도록 (generic 'jacket' 대신)
+  const _OUTER_KO_EN = {
+    '3in1재킷':'3-in-1 jacket','MA-1봄버':'MA-1 bomber jacket',
+    '경량다운':'lightweight down jacket','구조적아우터':'structured outerwear jacket',
+    '그레이블레이저':'gray blazer','그레이코트':'gray overcoat',
+    '네이비더블수트':'navy double-breasted suit','네이비블레이저':'navy blazer',
+    '뉴트럴올시즌아우터':'neutral all-season jacket','뉴트럴코트':'neutral overcoat',
+    '다운베스트':'down vest','다운파카':'down parka','다크수트':'dark suit jacket',
+    '데님자켓':'denim jacket','데님트러커':'denim trucker jacket',
+    '라이트그레이수트':'light gray suit jacket','레더라이더자켓':'leather rider jacket',
+    '린넨코트':'linen coat','마운틴파카':'mountain parka',
+    '메탈릭크롭자켓':'metallic crop jacket','무드믹스코트':'oversized statement coat',
+    '블랙마스터코트':'black longcoat','블레이저':'blazer',
+    '비대칭드레이프코트':'asymmetric drape coat','비대칭재킷':'asymmetric jacket',
+    '서브컬처믹스아우터':'mixed subculture jacket','쉘재킷':'shell jacket',
+    '시네마틱스테이트먼트코트':'cinematic statement coat',
+    '아웃도어블레이저':'outdoor blazer','에스닉믹스아우터':'ethnic-inspired jacket',
+    '오버사이즈코트':'oversized coat','오버핏가디건':'oversized cardigan',
+    '왁스코튼재킷':'wax cotton jacket','윈드브레이커':'windbreaker jacket',
+    '이지케어블레이저':'easy-care blazer','젠더리스오버코트':'genderless overcoat',
+    '차콜더블수트':'charcoal double-breasted suit','카멜코트':'camel coat',
+    '캔버스워크재킷':'canvas work jacket','컨셉아우터':'concept outerwear jacket',
+    '컬러블로킹아웃터':'color-block jacket','컬러블록바람막이':'color-block windbreaker',
+    '컬러코디네이션아우터':'color-coordinated jacket','코듀로이재킷':'corduroy jacket',
+    '크림린넨셋업':'cream linen blazer','트래블베스트':'travel vest',
+    '트래블자켓':'travel jacket','트랙수트':'track jacket',
+    '파스텔블루셋업':'pastel blue blazer','패딩조끼':'padded vest',
+    '프리미엄후디':'premium hoodie','하운드투스자켓':'houndstooth jacket',
+    '헤링본수트':'herringbone suit jacket','화이트베이스':'white overcoat',
+    '회색수트':'gray suit jacket','후리스집업':'fleece zip-up jacket',
+    '아카이브피스':'archive-piece jacket','시즌컬렉션키아이템중심코디':'seasonal key-piece jacket',
+    '서브컬처믹스아우터':'subculture mix jacket',
+  };
+  // layerStyle 첫 토큰이 아우터 아이템인 경우 영어 타입 추출
+  const _layerFirstKo = (persona.layerStyle||'').split('+')[0].trim();
+  const _outerDetailEn = _OUTER_KO_EN[_layerFirstKo] || null;
+  // 구체적 타입이 있으면 우선 사용, 없으면 온도 기반 generic 사용
+  const _outerItemEnFinal = _outerDetailEn || _outerItemEn;
+
   // ── MASTER SPEC: 페르소나 팔레트 → 한국어+영어 동시 생성 ──
   // 이 SPEC이 화면표시와 이미지생성의 유일한 소스
   const SPEC = {
@@ -1802,7 +1845,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
       ko:     colorNameFromHex(palette.outer) || '',
       en:     _koColorEn(colorNameFromHex(palette.outer) || ''),
       itemKo: _outerItemKo,
-      itemEn: _outerItemEn,
+      itemEn: _outerItemEnFinal,
       layer:  layerTip || seasonKw,
       style:  persona.voice,
     },
@@ -2648,11 +2691,14 @@ async function updateVTO(opts={}){
     const _fbSeason = (()=>{ const n=Number(S.wx?.temp); if(!Number.isFinite(n)) return '클린'; if(n<=5) return '보온'; if(n<=12) return '레이어링'; if(n<=19) return '클린'; return '경량'; })();
     // 폴백 categoryKeywords: 8개 카테고리 완전 통일 (SPEC 불가 시 palette 기반)
     const _fbTpoKey = String(S.pk||'commute');
+    // 온도별 아우터 아이템명 (SPEC과 동일 기준)
+    const _fbTemp = Number(S.wx?.temp);
+    const _fbOuterItem = Number.isFinite(_fbTemp) ? (_fbTemp<=7?'코트':_fbTemp<=15?'자켓':'가디건') : '자켓';
     const _fbBagMap = {commute:'블랙 토트백',business:'블랙 서류가방',social:'미니 크로스백',weekendOut:'캐주얼 백팩',weekendTrip:'데이팩',overseasTrip:'여행 캐리온',custom:'멀티 백팩'};
     const _fbWatchMap = {commute:'슬림 메탈시계',business:'클래식 시계',social:'트렌디 시계',weekendOut:'캐주얼 시계',weekendTrip:'스마트워치',overseasTrip:'경량 시계',custom:'포인트 시계'};
     const _fbSocksMap = {commute:'앵클삭스',business:'드레스삭스',social:'포인트삭스',weekendOut:'스니커삭스',weekendTrip:'쿠션삭스',overseasTrip:'여행삭스',custom:'캐주얼삭스'};
     S.categoryKeywords = {
-      outer:  [colorNameFromHex(palette?.outer), _fbSeason, '아우터'].filter(Boolean),
+      outer:  [colorNameFromHex(palette?.outer), _fbOuterItem, _fbSeason].filter(Boolean),
       top:    [colorNameFromHex(palette?.top),   _fbSeason].filter(Boolean),
       bottom: [colorNameFromHex(palette?.pants)].filter(Boolean),
       shoes:  [colorNameFromHex(palette?.shoes), '신발'].filter(Boolean),
@@ -2829,7 +2875,8 @@ async function updateVTO(opts={}){
       };
       // ── 이미지 프롬프트에 직접 반영될 컬러 지시문 생성
       const _customTxt = (S.pk==='custom') ? String(S.customPurpose||'').trim() : '';
-      const _outerType = (Number.isFinite(Number(S.wx?.temp)) && Number(S.wx.temp) <= 7) ? '코트' : '자켓';
+      const _nt2 = Number(S.wx?.temp);
+      const _outerType = Number.isFinite(_nt2) ? (_nt2<=7?'코트':_nt2<=15?'자켓':'가디건') : '자켓';
       // _colorDirective: S.categoryKeywords(SPEC 기반) 우선 사용
       // → updateVTO가 서버에 전달하는 컬러 지시문도 화면 포인트와 동일 소스
       const _ckw = S.categoryKeywords || {};
@@ -4205,10 +4252,16 @@ renderCategories();
     {key:'watch',  label:'시계',         icon:'⌚'},
     {key:'socks',  label:'양말',         icon:'🧦'},
   ];
-  // coat↔jacket 등 대체 카테고리 맵 (buildSection과 동일)
-  const SUB = {outer:['coat','jacket'],coat:['outer','jacket'],jacket:['outer','coat'],
-               bottom:['pants','skirt'],pants:['bottom'],shoes:['sneakers','loafers'],
-               top:['shirt','blouse'],scarf:['accent']};
+  // CAT_SUBSTITUTE_MAP과 동일하게 유지 (자켓/코트/패딩/가디건 모두 포함)
+  const SUB = {
+    outer:   ['coat','jacket','padding','cardigan'],
+    coat:    ['jacket','padding','outer','cardigan'],
+    jacket:  ['coat','padding','outer','cardigan'],
+    padding: ['coat','jacket','outer'],
+    cardigan:['outer','jacket','coat'],
+    bottom:['pants','skirt'],pants:['bottom'],shoes:['sneakers','loafers'],
+    top:['shirt','blouse'],scarf:['accent'],
+  };
 
   function buildMatchPanel(){
     const body    = document.getElementById('cmpBody');
