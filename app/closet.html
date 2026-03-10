@@ -451,6 +451,82 @@
   border-color: rgba(151,254,237,0.15) !important;
   color: rgba(255,255,255,0.7) !important;
 }
+
+/* ── 모바일 옷장 토글 버튼 ── */
+#closetToggleBtn {
+  width:100%; cursor:pointer;
+  padding:16px 20px 12px;
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  background:rgba(255,255,255,0.04);
+  border:1.5px solid rgba(151,254,237,0.2);
+  border-radius:20px;
+  transition:background .25s, border-color .25s, box-shadow .25s;
+  font-family:'Outfit','Noto Sans KR',sans-serif;
+}
+#closetToggleBtn.ctb-on {
+  background:rgba(18,148,144,0.22);
+  border-color:rgba(151,254,237,0.65);
+  box-shadow:0 0 20px rgba(151,254,237,0.08);
+}
+#closetToggleBtn .ctb-title {
+  font-size:20px; font-weight:900; color:#70dbd4; letter-spacing:-.02em;
+  transition:color .2s;
+}
+#closetToggleBtn.ctb-on .ctb-title { color:#a2fdf0; }
+#closetToggleBtn .ctb-sub {
+  font-size:10px; font-weight:700; color:rgba(151,254,237,0.45); letter-spacing:.03em;
+  transition:color .2s;
+}
+#closetToggleBtn.ctb-on .ctb-sub { color:rgba(151,254,237,0.7); }
+
+/* ── 유사도 패널 ── */
+#closetMatchPanel { display:none; margin:0 5px 12px; }
+#closetMatchPanel.cmp-open { display:block; }
+.cmp-header {
+  display:flex; align-items:center; gap:6px;
+  padding:9px 14px;
+  background:rgba(18,148,144,0.18);
+  border:1px solid rgba(151,254,237,0.18);
+  border-bottom:none;
+  border-radius:14px 14px 0 0;
+}
+.cmp-header-txt { font-size:10px; font-weight:900; color:#97FEED; letter-spacing:.1em; }
+.cmp-body {
+  border:1px solid rgba(151,254,237,0.12);
+  border-radius:0 0 14px 14px; overflow:hidden;
+}
+.cmp-row {
+  display:grid; grid-template-columns:20px 62px 1fr 10px 1fr 38px;
+  align-items:center; gap:4px;
+  padding:8px 12px;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+  background:rgba(7,25,82,0.55);
+}
+.cmp-row:last-child { border-bottom:none; }
+.cmp-row:nth-child(even) { background:rgba(13,31,60,0.6); }
+.cmp-icon { font-size:14px; text-align:center; }
+.cmp-cat { font-size:9px; font-weight:900; color:rgba(151,254,237,0.7); }
+.cmp-ai-kws { font-size:9px; color:rgba(255,255,255,0.45); line-height:1.4; }
+.cmp-arrow { font-size:10px; color:rgba(151,254,237,0.3); text-align:center; }
+.cmp-item-name { font-size:9px; font-weight:700; color:rgba(255,255,255,0.8); line-height:1.4; }
+.cmp-score-badge {
+  font-size:10px; font-weight:900; text-align:right; padding:2px 5px;
+  border-radius:6px; white-space:nowrap;
+}
+.cmp-score-high { color:#a2fdf0; background:rgba(18,148,144,0.25); }
+.cmp-score-mid  { color:#fbbf24; background:rgba(251,191,36,0.15); }
+.cmp-score-low  { color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.05); }
+.cmp-no-item    { padding:8px 12px; font-size:9px; color:rgba(255,255,255,0.25); font-style:italic; }
+.cmp-bar-wrap   { grid-column:1/-1; height:2px; background:rgba(255,255,255,0.06); border-radius:2px; margin:0 0 2px; }
+.cmp-bar        { height:2px; border-radius:2px; transition:width .6s ease; }
+.cmp-summary {
+  padding:9px 14px;
+  border-top:1px solid rgba(151,254,237,0.08);
+  background:rgba(18,148,144,0.08);
+  font-size:10px; font-weight:700; color:rgba(151,254,237,0.7);
+  display:flex; align-items:center; gap:6px;
+}
+
 </style>
 <style>
 .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#071952;border-top:2px solid rgba(151,254,237,0.18);padding-bottom:env(safe-area-inset-bottom,0px);}
@@ -694,9 +770,28 @@
   <!-- 내 모바일 옷장 (다크 m_closet_0308) -->
   <section class="px-0 mt-8">
     <div class="pt-2">
-      <!-- 타이틀: 모바일 옷장 -->
-      <div class="text-center py-7" style="border-bottom:1px solid rgba(151,254,237,0.1);">
-        <h2 class="text-[22px] font-black tracking-tight" style="color:#70dbd4;">모바일 옷장</h2>
+
+      <!-- ★ 모바일 옷장 토글 버튼 -->
+      <div class="px-5 pb-3">
+        <button id="closetToggleBtn" type="button">
+          <span class="ctb-title">모바일 옷장</span>
+          <span class="ctb-sub">클릭하면 AI가 추천한 코디를 내 옷에서 찾아드립니다</span>
+        </button>
+      </div>
+
+      <!-- ★ 유사도 분석 패널 (토글 시 표시) -->
+      <div id="closetMatchPanel">
+        <div class="cmp-header">
+          <span class="material-symbols-outlined text-[14px]" style="color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 14;">compare_arrows</span>
+          <span class="cmp-header-txt">AI 추천코디 × 내 옷장 유사도 분석</span>
+        </div>
+        <div class="cmp-body" id="cmpBody">
+          <div class="cmp-no-item">AI 코디를 먼저 생성하면 유사도를 분석해드려요.</div>
+        </div>
+        <div class="cmp-summary" id="cmpSummary" style="display:none;">
+          <span class="material-symbols-outlined text-[13px]" style="font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 13;">auto_awesome</span>
+          <span id="cmpSummaryText"></span>
+        </div>
       </div>
 
       <div id="catList" class="space-y-0 py-2"></div>
@@ -2686,6 +2781,8 @@ async function updateVTO(opts={}){
   }
   // 매칭 결과를 카테고리 덱(3번째 카드)에 반영
   try{ renderCategories(qCategory, highlightId); }catch(_e){}
+  // 유사도 패널이 열려 있으면 자동 갱신
+  try{ if(typeof window._refreshClosetMatchPanel==='function') window._refreshClosetMatchPanel(); }catch(_){}
   // 매칭 후 버튼 상태 복원
   try{ updateAiCallBtn(); }catch(_){} 
 
@@ -4075,6 +4172,156 @@ function buildSection(catMeta,items){
 }
 function renderCategories(){catListEl.innerHTML='';CodiBank.getCategoriesForUser(user.email).forEach(c=>{catListEl.appendChild(buildSection(c,CodiBank.getItemsByUserAndCategory(user.email,c.key)));});if(focusCat){const t=document.querySelector(`[data-cat-key="${CSS.escape(focusCat)}"]`);if(t)setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),120);}}
 renderCategories();
+
+// ── 모바일 옷장 토글 버튼 ────────────────────────────────────
+(function(){
+  const btn   = document.getElementById('closetToggleBtn');
+  const panel = document.getElementById('closetMatchPanel');
+  if(!btn || !panel) return;
+
+  // ── 유사도 계산 ──
+  // 텍스트 토큰 공통 비율로 유사도 0~100 산출
+  function tokenize(str){ return String(str||'').toLowerCase().replace(/[^가-힣a-z0-9\s]/g,'').split(/\s+/).filter(Boolean); }
+  function similarity(aiKws, itemFields){
+    const aiSet = new Set(aiKws.flatMap(k=>tokenize(k)));
+    if(!aiSet.size) return 0;
+    const itToks = itemFields.flatMap(f=>tokenize(f));
+    let hit = 0;
+    aiSet.forEach(tok=>{ if(itToks.some(t=>t.includes(tok)||tok.includes(t))) hit++; });
+    // 아이템 필드와 ai 키워드 쌍방향 교차 점수도 반영
+    const itSet = new Set(itToks);
+    itSet.forEach(tok=>{ if([...aiSet].some(a=>a.includes(tok)||tok.includes(a))) hit += 0.3; });
+    return Math.min(100, Math.round((hit / aiSet.size) * 100));
+  }
+
+  // ── 패널 렌더 ──
+  const CAT_DEF = [
+    {key:'outer',  label:'아우터',       icon:'🧥'},
+    {key:'top',    label:'탑/셔츠',      icon:'👔'},
+    {key:'bottom', label:'하의',         icon:'👖'},
+    {key:'shoes',  label:'신발',         icon:'👟'},
+    {key:'scarf',  label:'스카프·포인트',icon:'🧣'},
+    {key:'bag',    label:'가방',         icon:'👜'},
+    {key:'watch',  label:'시계',         icon:'⌚'},
+    {key:'socks',  label:'양말',         icon:'🧦'},
+  ];
+  // coat↔jacket 등 대체 카테고리 맵 (buildSection과 동일)
+  const SUB = {outer:['coat','jacket'],coat:['outer','jacket'],jacket:['outer','coat'],
+               bottom:['pants','skirt'],pants:['bottom'],shoes:['sneakers','loafers'],
+               top:['shirt','blouse'],scarf:['accent']};
+
+  function buildMatchPanel(){
+    const body    = document.getElementById('cmpBody');
+    const summary = document.getElementById('cmpSummary');
+    const sumTxt  = document.getElementById('cmpSummaryText');
+    if(!body) return;
+
+    const ckw = S.categoryKeywords || {};
+    const hasAI = S.hasGenerated && Object.keys(ckw).length > 0;
+
+    if(!hasAI){
+      body.innerHTML = '<div class="cmp-no-item">AI 코디를 먼저 생성하면 유사도를 분석해드려요.</div>';
+      if(summary) summary.style.display = 'none';
+      return;
+    }
+
+    let html = '';
+    let totalScore = 0, scoredCount = 0;
+
+    CAT_DEF.forEach(({key, label, icon})=>{
+      const aiKws = (ckw[key]||[]).filter(Boolean);
+      if(!aiKws.length) return;
+
+      // 카테고리 + 대체 카테고리 아이템 모두 수집
+      const subKeys = SUB[key] || [];
+      const items   = [key, ...subKeys]
+        .flatMap(k => (CodiBank.getItemsByUserAndCategory ? CodiBank.getItemsByUserAndCategory(user.email, k) : []) || [])
+        .filter(Boolean);
+
+      const aiText = aiKws.join(' · ');
+
+      if(!items.length){
+        html += `<div class="cmp-row">
+          <span class="cmp-icon">${icon}</span>
+          <span class="cmp-cat">${escH(label)}</span>
+          <span class="cmp-ai-kws" style="grid-column:3/7;color:rgba(151,254,237,0.35);">${escH(aiText)} — <em style="color:rgba(255,255,255,0.2);">아이템 없음</em></span>
+        </div>`;
+        return;
+      }
+
+      // 아이템별 유사도 계산 → 가장 높은 것 선택
+      let best = null, bestScore = -1;
+      items.forEach(it=>{
+        const fields = [it.brand, it.color, it.subColor, it.note, it.size, it.category, it.categoryKey]
+          .filter(Boolean).map(String);
+        const sc = similarity(aiKws, fields);
+        if(sc > bestScore){ bestScore = sc; best = it; }
+      });
+
+      totalScore += bestScore;
+      scoredCount++;
+
+      const scoreClass = bestScore >= 60 ? 'cmp-score-high' : bestScore >= 30 ? 'cmp-score-mid' : 'cmp-score-low';
+      const barColor   = bestScore >= 60 ? '#a2fdf0' : bestScore >= 30 ? '#fbbf24' : 'rgba(255,255,255,0.2)';
+      const itemLabel  = escH(best?.brand || best?.color || '아이템');
+      const itemSub    = best?.color ? ` · ${escH(best.color)}` : '';
+
+      html += `<div class="cmp-row">
+        <span class="cmp-icon">${icon}</span>
+        <span class="cmp-cat">${escH(label)}</span>
+        <span class="cmp-ai-kws">${escH(aiText)}</span>
+        <span class="cmp-arrow">›</span>
+        <span class="cmp-item-name">${itemLabel}${itemSub}</span>
+        <span class="cmp-score-badge ${scoreClass}">${bestScore}%</span>
+      </div>
+      <div class="cmp-row" style="padding-top:0;padding-bottom:6px;grid-template-columns:1fr;">
+        <div class="cmp-bar-wrap"><div class="cmp-bar" style="width:${bestScore}%;background:${barColor};"></div></div>
+      </div>`;
+    });
+
+    if(!html){
+      body.innerHTML = '<div class="cmp-no-item">카테고리별 AI 추천 키워드가 아직 없어요.</div>';
+      if(summary) summary.style.display = 'none';
+      return;
+    }
+
+    body.innerHTML = html;
+
+    // 요약
+    if(summary && sumTxt && scoredCount > 0){
+      const avg = Math.round(totalScore / scoredCount);
+      const msg = avg >= 65 ? `내 옷장이 오늘 AI 추천코디와 ${avg}% 매칭돼요! 지금 바로 입어보세요 ✦`
+                : avg >= 35 ? `평균 ${avg}% 매칭. 부족한 카테고리 아이템을 추가해보세요.`
+                : `평균 ${avg}% 매칭. 아이템을 더 등록하면 정확도가 높아져요.`;
+      sumTxt.textContent = msg;
+      summary.style.display = 'flex';
+    }
+  }
+
+  // ── 토글 클릭 ──
+  let isOn = false;
+  btn.addEventListener('click', ()=>{
+    isOn = !isOn;
+    btn.classList.toggle('ctb-on', isOn);
+    panel.classList.toggle('cmp-open', isOn);
+
+    const titleEl = btn.querySelector('.ctb-title');
+    const subEl   = btn.querySelector('.ctb-sub');
+    if(isOn){
+      if(titleEl) titleEl.textContent = '모바일 옷장 Styling';
+      if(subEl)   subEl.textContent   = 'AI 추천코디와 내 옷장 유사도 분석 중…';
+      buildMatchPanel();
+      if(subEl) setTimeout(()=>{ subEl.textContent = 'AI 추천코디와 내 옷장을 비교한 결과예요'; }, 400);
+    } else {
+      if(titleEl) titleEl.textContent = '모바일 옷장';
+      if(subEl)   subEl.textContent   = '클릭하면 AI가 추천한 코디를 내 옷에서 찾아드립니다';
+    }
+  });
+
+  // 외부에서 호출 가능하도록 등록 (AI 생성 완료 후 패널 갱신)
+  window._refreshClosetMatchPanel = ()=>{ if(isOn) buildMatchPanel(); };
+})();
+
 
 // 검색
 function openSearch(){document.getElementById('searchModal')?.classList.remove('hidden');setTimeout(()=>document.getElementById('searchInput')?.focus(),50);}
