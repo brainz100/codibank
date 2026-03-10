@@ -464,9 +464,6 @@
 .cb-nav-add:active{transform:scale(.9);}
 .cb-nav-add-lbl{color:#97FEED;font-size:10px;font-weight:800;margin-top:-8px;font-family:'Outfit','Noto Sans KR',sans-serif;}
 .cb-spacer{height:72px;}
-/* ── 아이템 활용법 팁 ── */
-.item-usage-tip{margin-top:5px;font-size:10px;line-height:1.55;color:rgba(151,254,237,0.7);padding:6px 10px;border-radius:8px;background:rgba(18,148,144,0.1);border:1px solid rgba(151,254,237,0.1);}
-
 </style>
 </head>
 <body style="background:#071952;" class="text-white selection:bg-teal-400/20">
@@ -702,16 +699,6 @@
         <h2 class="text-[22px] font-black tracking-tight" style="color:#70dbd4;">모바일 옷장</h2>
       </div>
 
-      <!-- 옷장 AI 분석 현황 바 -->
-      <div id="closetStatBar" class="mx-5 mt-4 mb-1 px-4 py-3 rounded-2xl flex items-center gap-3" style="background:rgba(18,148,144,0.10);border:1px solid rgba(151,254,237,0.12);">
-        <span class="material-symbols-outlined text-[18px]" style="color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 18;">checkroom</span>
-        <div class="flex-1 min-w-0">
-          <p id="closetStatText" class="text-[11px] font-bold" style="color:rgba(151,254,237,0.85);">옷장 현황 확인 중…</p>
-          <p id="closetMatchText" class="text-[10px] mt-0.5" style="color:rgba(255,255,255,0.4);"></p>
-        </div>
-        <a href="camera.html" class="shrink-0 px-3 py-1.5 rounded-full text-[10px] font-extrabold" style="background:rgba(53,162,159,0.2);border:1px solid rgba(151,254,237,0.3);color:#a2fdf0;">+ 추가</a>
-      </div>
-
       <div id="catList" class="space-y-0 py-2"></div>
 
       <div class="pb-6">
@@ -820,10 +807,6 @@ const S = {
   seed: 0,
   hasGenerated: false,
   busy: false,
-  imagePrompt: '',
-  codiStory: '',
-  keywords: [],
-  extSpec: {},
   wx: {temp:null,text:'',code:null},
   wxAll: {
     today: {temp:null,text:'',code:null},
@@ -2350,7 +2333,6 @@ async function updateVTO(opts={}){
   if(!overlay||!canvas)return;
 
   const refresh = !!(opts && opts.refresh);
-  const imageOnly = !!(opts && opts.imageOnly); // 다시코디: 이미지만 재생성 (Story/Category 유지)
 
   // v17: 추천 스타일링 박스 상태(없음/생성중/완료)
   const setVtoState = (state, opts={})=>{
@@ -2534,8 +2516,6 @@ async function updateVTO(opts={}){
   let layerTip='',skinTip='';
 
   if(stepEl) stepEl.textContent='AI 코디 분석 중…';
-  // imageOnly=true (다시코디)이면 callClaude 생략 → 기존 S.categoryKeywords/codiStory/imagePrompt 재사용
-  if(!imageOnly){
   try{
     const r=await callClaude({faceSrc,wx:S.wx,pk:S.pk,profile:{gender:user?.gender,ageGroup:user?.ageGroup,height:user?.height,weight:user?.weight,codiPurposeCustom:S.customPurpose||''},seed:S.seed,day:(S.day==='today'?'today':(S.selDateKey||'tomorrow'))});
     if(S.tok!==tok)return;
@@ -2589,14 +2569,6 @@ async function updateVTO(opts={}){
     S.bodyType = null;
     S.keywords = keywords;
     try { S.matchPairs = buildMatchPairsFromPalette(palette, S.wx.temp); } catch(_){ S.matchPairs = []; }
-  }
-  } // end if(!imageOnly) — imageOnly=true(다시코디)일 때는 기존 S.categoryKeywords/codiStory/imagePrompt 유지
-  if(imageOnly){
-    // 다시코디: 기존 설명/키워드 그대로 재사용, 이미지만 새로 생성
-    explain     = S.codiStory   || explain;
-    styleTitle  = styleTitle    || (S.stylist?.voice || '');
-    keywords    = S.keywords    || keywords;
-    if(!S.imagePrompt) setVtoState('loading', { step:'코디 이미지 준비중…' });
   }
   if(S.tok!==tok)return;
 
@@ -2714,8 +2686,6 @@ async function updateVTO(opts={}){
   }
   // 매칭 결과를 카테고리 덱(3번째 카드)에 반영
   try{ renderCategories(qCategory, highlightId); }catch(_e){}
-  // 옷장 현황 바 업데이트 (매칭 결과 반영)
-  try{ updateClosetStatBar(); }catch(_){}
   // 매칭 후 버튼 상태 복원
   try{ updateAiCallBtn(); }catch(_){} 
 
@@ -3488,22 +3458,8 @@ function renderStylingPoint(){
 // ════════════════════════════════════════════════════════════════
 async function generateStyling(opts={}) {
   const bumpSeed = !!opts.bumpSeed;
-  const imageOnly = !!opts.imageOnly;
   if(S.busy) return;
-
-  // ── 스타일리스트 자동 선택: 동일 TPO 내에서 매번 랜덤 (순차 증가 아님)
-  // 다시코디(bumpSeed)도 같은 방식 — 항상 다른 스타일리스트가 나오도록
-  const tpoPersonas = (PERSONA_DB[S.pk] || PERSONA_DB['commute'] || []);
-  const len = tpoPersonas.length || 10;
-  if(bumpSeed){
-    // 다시코디: 현재 seed와 다른 인덱스로 강제 변경
-    let next;
-    do { next = Math.floor(Math.random() * len); } while(next === S.seed % len && len > 1);
-    S.seed = next;
-  } else {
-    // 최초 생성: 완전 랜덤
-    S.seed = Math.floor(Math.random() * len);
-  }
+  if(bumpSeed) S.seed += 1;
 
   // [사전] 이용횟수 확인 (7단계 차감 전 검증)
   updateQuotaBadge();
@@ -3528,7 +3484,7 @@ async function generateStyling(opts={}) {
   try{
     setMetaLine();
     // 4~6단계 실행 (callClaude → imagePrompt → DALL-E)
-    await updateVTO({refresh:bumpSeed, imageOnly});
+    await updateVTO({refresh:bumpSeed});
   }catch(e){
     console.error('generateStyling VTO error:', e);
   }finally{
@@ -3966,7 +3922,6 @@ resetVtoState('empty','추천 이미지 없음');
 
 document.getElementById('againBtn')?.addEventListener('click',()=>generateStyling({ bumpSeed:true }));
 
-// ── 스타일리스트 모드 버튼 핸들러 ──────────────────────────
 // 날씨 초기화(성공/실패 모두 UI는 유지)
 initWeather().then(()=>{ try{ syncDayUi(); setMetaLine(); }catch(_){} });
 
@@ -4016,23 +3971,11 @@ function layerContent(el,item,catKey){
   if(!ref){
     const ic=document.createElement('span');
     ic.className='material-symbols-outlined layer-icon';
-    if(item?.id){
-      // 등록된 아이템이지만 사진 없음 → 사진 촬영 안내
-      ic.textContent='add_a_photo';
-      ic.style.cssText='color:rgba(151,254,237,0.5);';
-    } else {
-      // 빈 슬롯 → 아이템 추가 안내
-      ic.textContent='add_a_photo';
-      ic.style.cssText='color:rgba(151,254,237,0.3);';
-    }
+    ic.textContent=item?.id?'image':'add_a_photo';
     el.appendChild(ic);
     const tx=document.createElement('div');
     tx.className='layer-ph mt-2';
-    if(item?.id){
-      tx.innerHTML='<span style="font-size:10px;color:rgba(151,254,237,0.6);font-weight:800;">사진 등록</span>';
-    } else {
-      tx.innerHTML='<span style="font-size:10px;color:rgba(255,255,255,0.3);">추가</span>';
-    }
+    tx.textContent=item?.id?'이미지 없음':'추가';
     el.appendChild(tx);
     return;
   }
@@ -4080,18 +4023,9 @@ function buildSection(catMeta,items){
   const adv=document.createElement('div');adv.className='m-adv';
   if(score0){
     const tip=detail0?`카테고리 ${detail0.catScore}P + 컬러 ${detail0.colorScore}P + 디자인 ${detail0.designScore}P`:'';
-    const matchedItem = recId0 ? (CodiBank.getItemsByUser(user.email)||[]).find(x=>x&&String(x.id)===recId0) : null;
-    const itemLabel = matchedItem ? (matchedItem.brand||matchedItem.color||catMeta.label) : catMeta.label;
-    const catKws = (S.categoryKeywords?.[catMeta.key]||[]).slice(0,2).filter(Boolean);
-    const usageTip = catKws.length
-      ? `${catKws.join(' · ')} 포인트로 활용하세요.`
-      : (S.stylist?.voice ? `${S.stylist.voice} 스타일에 완벽히 어울려요.` : '오늘 코디의 핵심 아이템이에요.');
-    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt">이 아이템은 추천코디와 매칭점수 <strong style="color:#a2fdf0;">${score0}P</strong>`+(tip?` <span style="font-size:10px;color:rgba(255,255,255,0.4);">(${tip})</span>`:'')+'</span>'
-      +`<div class="item-usage-tip">✦ ${escH(itemLabel)} — ${escH(usageTip)}</div>`;
+    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt">이 아이템은 추천코디와 매칭점수 <strong style="color:#a2fdf0;">${score0}P</strong>`+(tip?` <span style="font-size:10px;color:rgba(255,255,255,0.4);">(${tip})</span>`:'')+'</span>';
   } else if(S.hasGenerated){
-    const catKws2 = (S.categoryKeywords?.[catMeta.key]||[]).slice(0,2).filter(Boolean);
-    const hintTxt = catKws2.length ? `AI 추천: ${catKws2.join(' · ')} 아이템을 추가해보세요` : '스와이프해서 AI 추천 아이템을 확인하세요';
-    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">${hintTxt}</span>`;
+    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">스와이프해서 AI 추천 아이템을 확인하세요</span>`;
   } else {
     adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">← 스와이프로 아이템을 탐색하세요</span>`;
   }
@@ -4141,29 +4075,6 @@ function buildSection(catMeta,items){
 }
 function renderCategories(){catListEl.innerHTML='';CodiBank.getCategoriesForUser(user.email).forEach(c=>{catListEl.appendChild(buildSection(c,CodiBank.getItemsByUserAndCategory(user.email,c.key)));});if(focusCat){const t=document.querySelector(`[data-cat-key="${CSS.escape(focusCat)}"]`);if(t)setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),120);}}
 renderCategories();
-
-// ── 모바일 옷장 현황 바 업데이트 ──────────────────────────
-function updateClosetStatBar(){
-  try{
-    const statEl  = document.getElementById('closetStatText');
-    const matchEl = document.getElementById('closetMatchText');
-    if(!statEl) return;
-    const allItems = (CodiBank.getItemsByUser&&CodiBank.getItemsByUser(user.email)) || [];
-    const cats = (CodiBank.getCategoriesForUser&&CodiBank.getCategoriesForUser(user.email)) || [];
-    const withPhoto = allItems.filter(it=>it.images&&(it.images.front||it.images.brand||it.images.back)).length;
-    statEl.textContent = `총 ${allItems.length}개 아이템 · ${cats.length}개 카테고리 · 사진 ${withPhoto}개`;
-    if(S.hasGenerated && matchEl){
-      const matchedCount = Object.values(S.matchByCat||{}).filter(Boolean).length;
-      const totalCat = Object.keys(S.categoryKeywords||{}).length || 8;
-      matchEl.textContent = matchedCount > 0
-        ? `✦ AI 추천코디 매칭 ${matchedCount}/${totalCat} 카테고리`
-        : '✦ AI 코디 후 내 아이템과 매칭 분석';
-    } else if(matchEl){
-      matchEl.textContent = allItems.length > 0 ? '✦ AI 코디 호출 후 내 아이템과 자동 매칭' : '✦ 아이템을 등록하면 AI가 내 옷장과 매칭해줘요';
-    }
-  }catch(_){}
-}
-updateClosetStatBar();
 
 // 검색
 function openSearch(){document.getElementById('searchModal')?.classList.remove('hidden');setTimeout(()=>document.getElementById('searchInput')?.focus(),50);}
