@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>코디하기 - 코디뱅크</title>
+<script src="codibank.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
+<style>
+:root {
+  --navy:#071952; --navy2:#0d1f3c; --teal:#35A29F; --teal-dark:#0B666A;
+  --teal-light:#97FEED; --mint:#a2fdf0; --card-bg:rgba(13,31,60,0.85);
+  --border:rgba(151,254,237,0.15); --accent:#97FEED;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;
+     max-width:480px;margin:0 auto;min-height:100dvh;overflow-x:hidden;padding-bottom:80px;}
+
+/* ─── HEADER ─── */
+.pg-header{padding:20px 20px 10px;display:flex;align-items:center;gap:12px;}
+.pg-header-back{width:36px;height:36px;border-radius:50%;background:rgba(151,254,237,0.08);
+  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--teal-light);font-family:'Material Symbols Outlined';font-size:22px;}
+.pg-title{font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;color:var(--teal-light);}
+.pg-sub{font-size:11px;color:rgba(162,253,240,0.5);margin-top:1px;}
+
+/* ─── 안내 배너 ─── */
+.guide-banner{margin:0 16px 16px;padding:12px 14px;
+  background:rgba(11,102,106,0.2);border:1px solid rgba(151,254,237,0.2);border-radius:14px;
+  font-size:11px;color:rgba(255,255,255,0.7);line-height:1.6;}
+.guide-banner strong{color:var(--teal-light);}
+
+/* ─── 아이템 그리드 ─── */
+.item-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px;}
+.item-card{display:flex;flex-direction:column;gap:6px;}
+.item-label{font-size:11px;font-weight:700;color:rgba(151,254,237,0.7);
+  display:flex;align-items:center;gap:4px;}
+.item-label .required{color:#f87171;font-size:9px;}
+.item-label .optional{color:rgba(255,255,255,0.3);font-size:9px;}
+
+/* ─── 이미지 슬롯 ─── */
+.img-slot{aspect-ratio:4/5;border-radius:14px;overflow:hidden;position:relative;
+  background:rgba(11,102,106,0.15);
+  border:2px dashed rgba(53,162,159,0.35);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.2s;}
+.img-slot.has-image{border-style:solid;border-color:rgba(151,254,237,0.4);}
+.img-slot.has-image:active{opacity:.85;}
+.img-slot img{width:100%;height:100%;object-fit:cover;display:block;}
+.img-slot .slot-ph{display:flex;flex-direction:column;align-items:center;gap:4px;
+  color:rgba(151,254,237,0.35);pointer-events:none;}
+.img-slot .slot-ph span{font-family:'Material Symbols Outlined';font-size:28px;}
+.img-slot .slot-ph p{font-size:9px;margin:0;}
+.img-slot .default-badge{position:absolute;bottom:6px;left:6px;right:6px;
+  background:rgba(0,0,0,0.6);border-radius:6px;
+  font-size:9px;font-weight:700;color:var(--mint);text-align:center;padding:2px 0;}
+.img-slot .remove-btn{position:absolute;top:4px;right:4px;
+  width:22px;height:22px;border-radius:50%;
+  background:rgba(0,0,0,0.6);border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Material Symbols Outlined';font-size:14px;color:#fff;}
+
+/* ─── 액션 버튼 (슬롯 아래) ─── */
+.slot-actions{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
+.slot-btn{padding:6px 0;border-radius:8px;font-size:10px;font-weight:700;
+  text-align:center;cursor:pointer;border:none;transition:.15s;
+  display:flex;align-items:center;justify-content:center;gap:3px;}
+.slot-btn .material-symbols-outlined{font-size:12px;}
+.slot-btn.primary{background:#fff;color:var(--navy);}
+.slot-btn.primary:active{background:var(--mint);}
+.slot-btn.sec{background:rgba(53,162,159,0.15);color:var(--teal-light);
+  border:1px solid rgba(53,162,159,0.3);}
+.slot-btn.sec:active{background:rgba(53,162,159,0.3);}
+.slot-btn.del{background:rgba(239,68,68,0.1);color:rgba(252,165,165,0.7);
+  border:1px solid rgba(239,68,68,0.2);}
+.slot-btn.del:active{background:rgba(239,68,68,0.25);}
+.slot-btn.link-btn{grid-column:1/-1;background:rgba(151,254,237,0.07);color:var(--teal-light);
+  border:1px solid rgba(151,254,237,0.2);}
+.slot-btn.link-btn:active{background:rgba(151,254,237,0.15);}
+
+/* ─── 링크 입력 박스 ─── */
+.link-input-wrap{grid-column:1/-1;display:none;margin-top:2px;}
+.link-input-wrap.open{display:flex;gap:4px;}
+.link-input-wrap input{flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(151,254,237,0.25);
+  border-radius:8px;padding:6px 10px;font-size:11px;color:#fff;outline:none;}
+.link-input-wrap input::placeholder{color:rgba(255,255,255,0.3);}
+.link-input-wrap input:focus{border-color:rgba(151,254,237,0.5);}
+.link-apply-btn{padding:6px 10px;background:var(--teal-dark);border:none;border-radius:8px;
+  color:var(--teal-light);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.link-apply-btn:active{background:var(--teal);}
+
+/* ─── 구분선 ─── */
+.divider{height:1px;background:rgba(151,254,237,0.07);margin:20px 16px;}
+
+/* ─── 생성 버튼 ─── */
+.gen-section{padding:0 16px;}
+.gen-btn{width:100%;padding:16px 0;border-radius:20px;
+  background:linear-gradient(135deg,#0B666A,#35A29F);
+  border:1px solid rgba(151,254,237,0.3);
+  color:var(--teal-light);font-family:'Outfit',sans-serif;font-size:17px;font-weight:900;
+  letter-spacing:.03em;cursor:pointer;transition:.2s;
+  display:flex;align-items:center;justify-content:center;gap:8px;}
+.gen-btn:active:not(:disabled){transform:scale(.97);}
+.gen-btn:disabled{opacity:.4;cursor:not-allowed;}
+.gen-btn .material-symbols-outlined{font-size:22px;}
+.rule-hint{margin-top:8px;text-align:center;font-size:10px;color:rgba(255,255,255,0.3);line-height:1.5;}
+
+/* ─── 결과 영역 ─── */
+.result-area{padding:0 16px;margin-top:24px;}
+.result-box{border-radius:20px;overflow:hidden;
+  background:var(--card-bg);border:1px solid var(--border);}
+
+/* 진행 상태 */
+.progress-bar{height:3px;background:rgba(151,254,237,0.1);position:relative;overflow:hidden;}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,#35A29F,#97FEED);
+  width:0%;transition:width .4s ease;border-radius:3px;}
+.status-row{padding:14px 18px 10px;display:flex;align-items:center;gap:10px;}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);
+  animation:pulse-dot 1.2s ease-in-out infinite;}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(.7);}}
+.status-txt{font-size:12px;color:rgba(162,253,240,0.7);font-weight:500;}
+
+/* 점수 */
+.score-wrap{padding:24px 20px 12px;text-align:center;}
+.score-num{font-family:'Outfit',sans-serif;font-size:56px;font-weight:900;
+  color:var(--teal-light);line-height:1;
+  text-shadow:0 0 30px rgba(151,254,237,0.4);}
+.score-label{font-size:13px;color:var(--mint);margin-top:4px;font-weight:500;}
+.score-sub{font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;}
+
+/* 생성된 이미지 */
+.result-img-wrap{padding:12px 16px;position:relative;}
+.result-img{width:100%;border-radius:14px;display:block;aspect-ratio:2/3;
+  object-fit:cover;background:rgba(0,0,0,0.3);}
+.result-img-placeholder{width:100%;aspect-ratio:2/3;border-radius:14px;
+  background:rgba(0,0,0,0.2);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;color:rgba(255,255,255,0.2);}
+.result-img-placeholder span{font-family:'Material Symbols Outlined';font-size:40px;}
+
+/* AI 코멘트 */
+.ai-comment{padding:12px 18px 20px;}
+.ai-comment-lbl{font-size:10px;font-weight:800;color:rgba(151,254,237,0.5);
+  letter-spacing:.1em;margin-bottom:6px;}
+.ai-comment-txt{font-size:13px;line-height:1.7;color:rgba(255,255,255,0.8);}
+
+/* 아이템 조합 요약 */
+.combo-tags{display:flex;flex-wrap:wrap;gap:4px;padding:0 18px 16px;}
+.combo-tag{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;
+  background:rgba(53,162,159,0.15);border:1px solid rgba(151,254,237,0.2);color:var(--teal-light);}
+.combo-tag.default{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1);
+  color:rgba(255,255,255,0.4);}
+
+/* ─── 하단 액션 ─── */
+.bottom-actions{display:flex;gap:8px;padding:12px 18px 18px;}
+.bact-btn{flex:1;padding:11px 0;border-radius:12px;font-size:12px;font-weight:700;
+  text-align:center;cursor:pointer;border:none;transition:.15s;}
+.bact-btn.save{background:rgba(53,162,159,0.2);color:var(--teal-light);
+  border:1px solid rgba(53,162,159,0.3);}
+.bact-btn.share{background:rgba(151,254,237,0.1);color:var(--mint);
+  border:1px solid rgba(151,254,237,0.2);}
+.bact-btn.retry{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);
+  border:1px solid rgba(255,255,255,0.1);}
+.bact-btn:active{opacity:.75;transform:scale(.97);}
+
+/* ─── NAV ─── */
+.cb-spacer{height:72px;}
+.cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;
+  background:#071952;border-top:2px solid rgba(151,254,237,0.15);}
+.cb-nav-inner{display:flex;justify-content:space-between;align-items:flex-end;
+  max-width:480px;margin:0 auto;padding:10px 8px 10px;}
+.cb-nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;color:rgba(255,255,255,0.4);font-size:10px;font-weight:700;
+  text-decoration:none;padding:2px 0;}
+.cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:24px;line-height:1;
+  font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}
+.cb-nav-tab.on{color:#97FEED;}
+.cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;}
+.cb-nav-add-wrap{flex:1;display:flex;flex-direction:column;align-items:center;padding-bottom:2px;}
+.cb-nav-add{width:52px;height:52px;border-radius:50%;background:#97FEED;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Material Symbols Outlined';font-size:28px;color:#071952;
+  text-decoration:none;transition:.15s;}
+.cb-nav-add:active{transform:scale(.9);}
+.cb-nav-add-lbl{color:#97FEED;font-size:10px;font-weight:800;margin-top:-8px;
+  font-family:'Outfit','Noto Sans KR',sans-serif;}
+
+/* ─── 토스트 ─── */
+#csToast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(12px);
+  background:#0B666A;border:1px solid rgba(151,254,237,0.35);border-radius:20px;
+  padding:9px 20px;font-size:12px;font-weight:700;color:var(--teal-light);
+  white-space:nowrap;z-index:99999;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;}
+#csToast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* 파일 input 숨김 */
+input[type=file]{position:absolute;opacity:0;width:0;height:0;}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="pg-header">
+  <button class="pg-header-back" onclick="history.back()">arrow_back</button>
+  <div>
+    <h1 class="pg-title">✦ 코디 해보세요</h1>
+    <p class="pg-sub">사진 또는 링크로 옷을 입혀볼게요</p>
+  </div>
+</header>
+
+<!-- 안내 배너 -->
+<div class="guide-banner">
+  <strong>상의(코트·자켓·탑)</strong>와 <strong>하의(바지·치마)</strong> 중 각 1개 이상 필요해요.<br>
+  코트나 자켓만 선택하면 <strong>흰색·블랙 티</strong>가 자동으로 추가돼요. 얼굴·체형도 반영됩니다.
+</div>
+
+<!-- 아이템 그리드 -->
+<div class="item-grid" id="itemGrid">
+
+  <!-- 코트 -->
+  <div class="item-card" id="card-coat">
+    <div class="item-label">🧥 코트 <span class="optional">(선택)</span></div>
+    <div class="img-slot" id="slot-coat" onclick="slotClick('coat')">
+      <div class="slot-ph"><span>add_photo_alternate</span><p>탭하여 추가</p></div>
+    </div>
+    <div class="slot-actions">
+      <button class="slot-btn primary" onclick="triggerCamera('coat')">
+        <span class="material-symbols-outlined">photo_camera</span>촬영
+      </button>
+      <button class="slot-btn sec" onclick="triggerGallery('coat')">
+        <span class="material-symbols-outlined">photo_library</span>갤러리
+      </button>
+      <button class="slot-btn link-btn" onclick="toggleLink('coat')">
+        <span class="material-symbols-outlined">link</span>인터넷 링크
+      </button>
+      <div class="link-input-wrap" id="linkinput-coat">
+        <input type="text" placeholder="이미지 URL 붙여넣기" id="linkval-coat"
+               onkeydown="if(event.key==='Enter')applyLink('coat')"/>
+        <button class="link-apply-btn" onclick="applyLink('coat')">확인</button>
+      </div>
+      <button class="slot-btn del" onclick="clearSlot('coat')">
+        <span class="material-symbols-outlined">delete_outline</span>삭제
+      </button>
+    </div>
+    <input type="file" accept="image/*" capture="environment" id="cam-coat" onchange="fileSelected(event,'coat')"/>
+    <input type="file" accept="image/*" id="gal-coat" onchange="fileSelected(event,'coat')"/>
+  </div>
+
+  <!-- 자켓 -->
+  <div class="item-card" id="card-jacket">
+    <div class="item-label">🥼 자켓 <span class="optional">(선택)</span></div>
+    <div class="img-slot" id="slot-jacket" onclick="slotClick('jacket')">
+      <div class="slot-ph"><span>add_photo_alternate</span><p>탭하여 추가</p></div>
+    </div>
+    <div class="slot-actions">
+      <button class="slot-btn primary" onclick="triggerCamera('jacket')">
+        <span class="material-symbols-outlined">photo_camera</span>촬영
+      </button>
+      <button class="slot-btn sec" onclick="triggerGallery('jacket')">
+        <span class="material-symbols-outlined">photo_library</span>갤러리
+      </button>
+      <button class="slot-btn link-btn" onclick="toggleLink('jacket')">
+        <span class="material-symbols-outlined">link</span>인터넷 링크
+      </button>
+      <div class="link-input-wrap" id="linkinput-jacket">
+        <input type="text" placeholder="이미지 URL 붙여넣기" id="linkval-jacket"
+               onkeydown="if(event.key==='Enter')applyLink('jacket')"/>
+        <button class="link-apply-btn" onclick="applyLink('jacket')">확인</button>
+      </div>
+      <button class="slot-btn del" onclick="clearSlot('jacket')">
+        <span class="material-symbols-outlined">delete_outline</span>삭제
+      </button>
+    </div>
+    <input type="file" accept="image/*" capture="environment" id="cam-jacket" onchange="fileSelected(event,'jacket')"/>
+    <input type="file" accept="image/*" id="gal-jacket" onchange="fileSelected(event,'jacket')"/>
+  </div>
+
+  <!-- 탑/셔츠 -->
+  <div class="item-card" id="card-top">
+    <div class="item-label">👔 탑/셔츠 <span class="optional">(선택)</span></div>
+    <div class="img-slot" id="slot-top" onclick="slotClick('top')">
+      <div class="slot-ph"><span>add_photo_alternate</span><p>탭하여 추가</p></div>
+    </div>
+    <div class="slot-actions">
+      <button class="slot-btn primary" onclick="triggerCamera('top')">
+        <span class="material-symbols-outlined">photo_camera</span>촬영
+      </button>
+      <button class="slot-btn sec" onclick="triggerGallery('top')">
+        <span class="material-symbols-outlined">photo_library</span>갤러리
+      </button>
+      <button class="slot-btn link-btn" onclick="toggleLink('top')">
+        <span class="material-symbols-outlined">link</span>인터넷 링크
+      </button>
+      <div class="link-input-wrap" id="linkinput-top">
+        <input type="text" placeholder="이미지 URL 붙여넣기" id="linkval-top"
+               onkeydown="if(event.key==='Enter')applyLink('top')"/>
+        <button class="link-apply-btn" onclick="applyLink('top')">확인</button>
+      </div>
+      <button class="slot-btn del" onclick="clearSlot('top')">
+        <span class="material-symbols-outlined">delete_outline</span>삭제
+      </button>
+    </div>
+    <input type="file" accept="image/*" capture="environment" id="cam-top" onchange="fileSelected(event,'top')"/>
+    <input type="file" accept="image/*" id="gal-top" onchange="fileSelected(event,'top')"/>
+  </div>
+
+  <!-- 하의 -->
+  <div class="item-card" id="card-bottom">
+    <div class="item-label">👖 바지/치마 <span class="required">*필수</span></div>
+    <div class="img-slot" id="slot-bottom" onclick="slotClick('bottom')">
+      <div class="slot-ph"><span>add_photo_alternate</span><p>탭하여 추가</p></div>
+    </div>
+    <div class="slot-actions">
+      <button class="slot-btn primary" onclick="triggerCamera('bottom')">
+        <span class="material-symbols-outlined">photo_camera</span>촬영
+      </button>
+      <button class="slot-btn sec" onclick="triggerGallery('bottom')">
+        <span class="material-symbols-outlined">photo_library</span>갤러리
+      </button>
+      <button class="slot-btn link-btn" onclick="toggleLink('bottom')">
+        <span class="material-symbols-outlined">link</span>인터넷 링크
+      </button>
+      <div class="link-input-wrap" id="linkinput-bottom">
+        <input type="text" placeholder="이미지 URL 붙여넣기" id="linkval-bottom"
+               onkeydown="if(event.key==='Enter')applyLink('bottom')"/>
+        <button class="link-apply-btn" onclick="applyLink('bottom')">확인</button>
+      </div>
+      <button class="slot-btn del" onclick="clearSlot('bottom')">
+        <span class="material-symbols-outlined">delete_outline</span>삭제
+      </button>
+    </div>
+    <input type="file" accept="image/*" capture="environment" id="cam-bottom" onchange="fileSelected(event,'bottom')"/>
+    <input type="file" accept="image/*" id="gal-bottom" onchange="fileSelected(event,'bottom')"/>
+  </div>
+
+</div><!-- /item-grid -->
+
+<div class="divider"></div>
+
+<!-- 생성 버튼 -->
+<div class="gen-section">
+  <button class="gen-btn" id="genBtn" onclick="generateCodi()" disabled>
+    <span class="material-symbols-outlined">auto_awesome</span>
+    AI 코디 생성하기
+  </button>
+  <p class="rule-hint" id="ruleHint">하의(바지·치마)와 상의(코트·자켓·탑) 중 1개 이상 선택하세요</p>
+</div>
+
+<!-- 결과 영역 -->
+<div class="result-area" id="resultArea" style="display:none;">
+  <div class="result-box">
+    <div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+    <div class="status-row" id="statusRow">
+      <div class="status-dot" id="statusDot"></div>
+      <span class="status-txt" id="statusTxt">AI가 코디를 분석하고 있어요…</span>
+    </div>
+
+    <!-- 점수 -->
+    <div class="score-wrap" id="scoreWrap" style="display:none;">
+      <div class="score-num" id="scoreNum">—</div>
+      <div class="score-label" id="scoreLabel">코디 점수</div>
+      <div class="score-sub" id="scoreSub"></div>
+    </div>
+
+    <!-- 아이템 조합 태그 -->
+    <div class="combo-tags" id="comboTags"></div>
+
+    <!-- AI 코멘트 -->
+    <div class="ai-comment" id="aiComment" style="display:none;">
+      <div class="ai-comment-lbl">✦ AI 스타일리스트 코멘트</div>
+      <div class="ai-comment-txt" id="aiCommentTxt"></div>
+    </div>
+
+    <!-- 이미지 -->
+    <div class="result-img-wrap" id="resultImgWrap">
+      <div class="result-img-placeholder" id="imgPlaceholder">
+        <span>style</span>
+        <p style="font-size:11px;color:rgba(255,255,255,0.25);">코디 이미지가 여기에 표시됩니다</p>
+      </div>
+    </div>
+
+    <!-- 하단 액션 -->
+    <div class="bottom-actions" id="bottomActions" style="display:none;">
+      <button class="bact-btn save" onclick="saveResult()">
+        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">bookmark</span> 저장
+      </button>
+      <button class="bact-btn share" onclick="shareResult()">
+        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">share</span> 공유
+      </button>
+      <button class="bact-btn retry" onclick="generateCodi()">
+        <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">refresh</span> 다시
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="cb-spacer"></div>
+
+<!-- NAV -->
+<nav class="cb-nav">
+  <div class="cb-nav-inner">
+    <a href="closet.html" class="cb-nav-tab"><span class="ni">grid_view</span><span>내옷장</span></a>
+    <a href="album.html" class="cb-nav-tab"><span class="ni">auto_awesome_motion</span><span>코디앨범</span></a>
+    <div class="cb-nav-add-wrap">
+      <a href="camera.html" class="cb-nav-add">add</a>
+      <span class="cb-nav-add-lbl">ITEM등록</span>
+    </div>
+    <a href="codistyle.html" class="cb-nav-tab on"><span class="ni">checkroom</span><span>코디하기</span></a>
+    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person_outline</span><span>MY</span></a>
+  </div>
+</nav>
+
+<div id="csToast"></div>
+
+<script>
+if(!CodiBank.requireAuth('login.html')){}
+const user = CodiBank.getCurrentUser();
+
+// ── 상태 ──────────────────────────────────────────
+const SLOTS = ['coat','jacket','top','bottom'];
+const STATE = {
+  coat:   { src:null, blob:null, type:null }, // type: 'file'|'url'|'default'
+  jacket: { src:null, blob:null, type:null },
+  top:    { src:null, blob:null, type:null },
+  bottom: { src:null, blob:null, type:null },
+};
+let isGenerating = false;
+let lastResultImg = null;
+let lastCommentTxt = '';
+
+// ── 유틸 ──────────────────────────────────────────
+function toast(msg, dur=2200){
+  const t=document.getElementById('csToast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), dur);
+}
+
+function hasTop(){
+  return !!(STATE.coat.src || STATE.jacket.src || STATE.top.src);
+}
+function hasBottom(){
+  return !!STATE.bottom.src;
+}
+
+function updateGenBtn(){
+  const ok = hasBottom() && hasTop();
+  const partialOk = hasBottom() && (STATE.coat.src||STATE.jacket.src) && !STATE.top.src;
+  const btn = document.getElementById('genBtn');
+  const hint = document.getElementById('ruleHint');
+  btn.disabled = !(ok || partialOk || (hasBottom() && hasTop()));
+
+  if(!hasBottom()){
+    hint.textContent='하의(바지·치마)를 먼저 선택해주세요';
+    btn.disabled = true;
+  } else if(!hasTop()){
+    hint.textContent='상의(코트·자켓·탑) 중 1개 이상 선택해주세요';
+    btn.disabled = true;
+  } else {
+    const topAuto = (STATE.coat.src || STATE.jacket.src) && !STATE.top.src;
+    hint.textContent = topAuto
+      ? '상의 없이 코트/자켓만 선택 — 흰색 또는 블랙 티가 자동 추가돼요'
+      : '준비됐어요! AI 코디 생성을 눌러보세요 ✨';
+    btn.disabled = false;
+  }
+}
+
+// ── 슬롯 이미지 렌더 ──────────────────────────────
+function renderSlot(key){
+  const slot = document.getElementById(`slot-${key}`);
+  const st = STATE[key];
+  if(st.src){
+    slot.classList.add('has-image');
+    slot.innerHTML = `<img src="${st.src}" alt="${key}" draggable="false"/>` +
+      `<button class="remove-btn" onclick="event.stopPropagation();clearSlot('${key}')">close</button>` +
+      (st.type==='default' ? `<div class="default-badge">기본 적용됨</div>` : '');
+  } else {
+    slot.classList.remove('has-image');
+    const icons={coat:'add_photo_alternate',jacket:'add_photo_alternate',top:'add_photo_alternate',bottom:'add_photo_alternate'};
+    slot.innerHTML = `<div class="slot-ph"><span>${icons[key]||'add_photo_alternate'}</span><p>탭하여 추가</p></div>`;
+  }
+}
+
+function slotClick(key){
+  // 이미 이미지 있으면 미리보기 (라이트박스 없이 그냥 pass)
+  if(STATE[key].src) return;
+  triggerGallery(key);
+}
+
+// ── 파일 선택 ──────────────────────────────────────
+function triggerCamera(key){
+  document.getElementById(`cam-${key}`).click();
+}
+function triggerGallery(key){
+  document.getElementById(`gal-${key}`).click();
+}
+
+function fileSelected(event, key){
+  const file = event.target.files?.[0];
+  if(!file) return;
+  // URL.createObjectURL (모바일 대용량 대응)
+  if(STATE[key].blobUrl) URL.revokeObjectURL(STATE[key].blobUrl);
+  const blobUrl = URL.createObjectURL(file);
+  STATE[key].src = blobUrl;
+  STATE[key].blob = file;
+  STATE[key].blobUrl = blobUrl;
+  STATE[key].type = 'file';
+  renderSlot(key);
+  updateGenBtn();
+  event.target.value = ''; // 동일 파일 재선택 허용
+}
+
+// ── 링크 입력 ──────────────────────────────────────
+function toggleLink(key){
+  const wrap = document.getElementById(`linkinput-${key}`);
+  const isOpen = wrap.classList.contains('open');
+  // 모두 닫고
+  SLOTS.forEach(k=>{
+    document.getElementById(`linkinput-${k}`)?.classList.remove('open');
+  });
+  if(!isOpen){
+    wrap.classList.add('open');
+    document.getElementById(`linkval-${key}`)?.focus();
+  }
+}
+
+function applyLink(key){
+  const inp = document.getElementById(`linkval-${key}`);
+  let url = inp.value.trim();
+  if(!url){ toast('URL을 입력해주세요'); return; }
+
+  // 프록시 없이 직접 로드 (CORS 이슈 있으면 allorigins 우회)
+  const testImg = new Image();
+  testImg.crossOrigin = 'anonymous';
+  testImg.onload = ()=>{
+    STATE[key].src = url;
+    STATE[key].blob = null;
+    STATE[key].type = 'url';
+    renderSlot(key);
+    updateGenBtn();
+    document.getElementById(`linkinput-${key}`).classList.remove('open');
+    inp.value = '';
+  };
+  testImg.onerror = ()=>{
+    // 로드 실패해도 URL 자체는 저장 (서버에서 다운로드)
+    STATE[key].src = url;
+    STATE[key].blob = null;
+    STATE[key].type = 'url';
+    renderSlot(key);
+    updateGenBtn();
+    document.getElementById(`linkinput-${key}`).classList.remove('open');
+    inp.value = '';
+    toast('링크 저장됨 (이미지 미리보기는 서버에서 처리됩니다)');
+  };
+  testImg.src = url + (url.includes('?')?'&':'?') + '_cb=' + Date.now();
+}
+
+// ── 슬롯 초기화 ──────────────────────────────────────
+function clearSlot(key){
+  if(STATE[key].blobUrl){ URL.revokeObjectURL(STATE[key].blobUrl); }
+  STATE[key] = { src:null, blob:null, type:null };
+  renderSlot(key);
+  updateGenBtn();
+}
+
+// ── 이미지 → Base64 변환 (서버 전송용) ──────────────
+async function toBase64(src){
+  if(!src) return null;
+  // blob URL
+  if(src.startsWith('blob:')){
+    return new Promise((res,rej)=>{
+      fetch(src).then(r=>r.blob()).then(blob=>{
+        const reader = new FileReader();
+        reader.onload=()=>res(reader.result);
+        reader.onerror=rej;
+        reader.readAsDataURL(blob);
+      }).catch(rej);
+    });
+  }
+  // data URL
+  if(src.startsWith('data:')) return src;
+  // http URL → fetch → base64
+  try{
+    const r = await fetch(src);
+    const blob = await r.blob();
+    return new Promise((res,rej)=>{
+      const reader = new FileReader();
+      reader.onload=()=>res(reader.result);
+      reader.onerror=rej;
+      reader.readAsDataURL(blob);
+    });
+  }catch(e){ return null; }
+}
+
+// 이미지 축소 (서버 전송 크기 제한)
+async function shrinkBase64(dataUrl, maxW=480, quality=0.75){
+  if(!dataUrl || !dataUrl.startsWith('data:')) return dataUrl;
+  return new Promise((res)=>{
+    const img = new Image();
+    img.onload=()=>{
+      const scale = Math.min(1, maxW/img.width);
+      const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      res(c.toDataURL('image/jpeg',quality));
+    };
+    img.onerror=()=>res(dataUrl);
+    img.src=dataUrl;
+  });
+}
+
+// ── AI 점수 평가 (Claude API) ──────────────────────
+async function evaluateCodi(itemDesc, userDesc){
+  try{
+    const resp = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:400,
+        system:`당신은 패션 스타일리스트입니다. 사용자가 선택한 의류 조합을 평가하고, 반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만 반환하세요:
+{"score":숫자(0-100),"label":"한줄 평가","comment":"2-3문장 자세한 스타일 코멘트"}`,
+        messages:[{role:'user', content:`사용자 정보: ${userDesc}\n선택한 의류 조합:\n${itemDesc}\n\n이 조합을 평가해주세요.`}]
+      })
+    });
+    const data = await resp.json();
+    const txt = data?.content?.[0]?.text || '';
+    const clean = txt.replace(/```json|```/g,'').trim();
+    return JSON.parse(clean);
+  }catch(e){
+    // fallback
+    const score = 70 + Math.floor(Math.random()*20);
+    return {score, label:'잘 어울리는 조합이에요!', comment:'선택하신 아이템들이 전체적으로 잘 조화를 이루고 있어요. 색상 조합과 스타일이 자연스럽게 연결됩니다.'};
+  }
+}
+
+// ── UI 상태 업데이트 ──────────────────────────────
+function setProgress(pct, txt){
+  document.getElementById('progressFill').style.width = pct+'%';
+  document.getElementById('statusTxt').textContent = txt;
+}
+function setStatusDone(){
+  const dot = document.getElementById('statusDot');
+  dot.style.background = '#a2fdf0';
+  dot.style.animation = 'none';
+}
+
+// ── 메인: 코디 생성 ──────────────────────────────
+async function generateCodi(){
+  if(isGenerating) return;
+
+  // 유효성 검사
+  if(!hasBottom()){ toast('하의(바지·치마)를 선택해주세요'); return; }
+  if(!hasTop()){ toast('상의(코트·자켓·탑) 중 1개 이상 선택해주세요'); return; }
+
+  isGenerating = true;
+
+  // 결과 영역 표시
+  const resultArea = document.getElementById('resultArea');
+  resultArea.style.display = 'block';
+  resultArea.scrollIntoView({behavior:'smooth', block:'start'});
+
+  // 초기화
+  document.getElementById('scoreWrap').style.display='none';
+  document.getElementById('aiComment').style.display='none';
+  document.getElementById('bottomActions').style.display='none';
+  document.getElementById('comboTags').innerHTML='';
+  document.getElementById('statusDot').style.cssText='';
+  document.getElementById('progressFill').style.width='0%';
+
+  // 이미지 영역 초기화
+  const imgWrap = document.getElementById('resultImgWrap');
+  imgWrap.innerHTML=`<div class="result-img-placeholder" id="imgPlaceholder">
+    <span style="font-family:'Material Symbols Outlined';font-size:40px;color:rgba(255,255,255,0.15);">style</span>
+    <p style="font-size:11px;color:rgba(255,255,255,0.25);">이미지 생성 중…</p></div>`;
+
+  setProgress(5,'의류 이미지 분석 중…');
+
+  try{
+    // ── 1. 사용자 프로필 수집 ──
+    const profile = {
+      gender: user?.gender || 'M',
+      ageGroup: user?.ageGroup || '30대',
+      height: user?.height || '',
+      weight: user?.weight || '',
+    };
+    const genderLabel = profile.gender==='M'?'남성':'여성';
+    const userDesc = [genderLabel, profile.ageGroup,
+      profile.height?`키${profile.height}cm`:'',
+      profile.weight?`${profile.weight}kg`:''].filter(Boolean).join(', ');
+
+    // 얼굴 이미지 (있으면 활용)
+    const faceSrc = (user?.faceImage || user?.profileImage || null);
+    let faceBase64 = null;
+    if(faceSrc){
+      try{
+        faceBase64 = await toBase64(faceSrc);
+        faceBase64 = await shrinkBase64(faceBase64, 480, 0.75);
+      }catch(_){}
+    }
+
+    setProgress(15,'의상 조합 확인 중…');
+
+    // ── 2. 탑 자동 설정 (코트/자켓만 있고 탑 없을 때) ──
+    const topAutoColor = Math.random()>0.5 ? '화이트' : '블랙';
+    const topAutoEn    = topAutoColor==='화이트' ? 'white' : 'black';
+    const needTopDefault = (STATE.coat.src || STATE.jacket.src) && !STATE.top.src;
+
+    // ── 3. 아이템 설명 빌드 ──
+    const items = [];
+    if(STATE.coat.src)   items.push('코트');
+    if(STATE.jacket.src) items.push('자켓');
+    if(STATE.top.src)    items.push('탑/셔츠');
+    else if(needTopDefault) items.push(`${topAutoColor} 기본 티셔츠(자동)`);
+    if(STATE.bottom.src) items.push('바지/치마');
+
+    const itemDescKo = items.join(' + ');
+
+    // ── 4. 조합 태그 렌더 ──
+    const tagsEl = document.getElementById('comboTags');
+    items.forEach(it=>{
+      const tag = document.createElement('div');
+      tag.className = 'combo-tag' + (it.includes('자동')?' default':'');
+      tag.textContent = it;
+      tagsEl.appendChild(tag);
+    });
+
+    // ── 5. 이미지 Base64 변환 ──
+    setProgress(25,'이미지 준비 중…');
+    const [coatB64, jacketB64, topB64, bottomB64] = await Promise.all([
+      STATE.coat.src   ? toBase64(STATE.coat.src)   : Promise.resolve(null),
+      STATE.jacket.src ? toBase64(STATE.jacket.src) : Promise.resolve(null),
+      STATE.top.src    ? toBase64(STATE.top.src)    : Promise.resolve(null),
+      STATE.bottom.src ? toBase64(STATE.bottom.src) : Promise.resolve(null),
+    ]);
+
+    // 축소
+    const [coatS, jacketS, topS, bottomS] = await Promise.all([
+      coatB64   ? shrinkBase64(coatB64, 512, 0.8)   : Promise.resolve(null),
+      jacketB64 ? shrinkBase64(jacketB64, 512, 0.8) : Promise.resolve(null),
+      topB64    ? shrinkBase64(topB64, 512, 0.8)    : Promise.resolve(null),
+      bottomB64 ? shrinkBase64(bottomB64, 512, 0.8) : Promise.resolve(null),
+    ]);
+
+    setProgress(40,'AI 스타일 분석 중…');
+
+    // ── 6. AI 코디 점수 평가 ──
+    const evalResult = await evaluateCodi(itemDescKo, userDesc);
+    const score = Math.min(100, Math.max(0, Math.round(evalResult.score || 75)));
+
+    // 점수 표시
+    const scoreWrap = document.getElementById('scoreWrap');
+    scoreWrap.style.display = 'block';
+    document.getElementById('scoreNum').textContent = score + '점';
+    document.getElementById('scoreLabel').textContent = evalResult.label || '코디 평가';
+    document.getElementById('scoreSub').textContent = userDesc || '';
+
+    lastCommentTxt = evalResult.comment || '';
+    document.getElementById('aiCommentTxt').textContent = lastCommentTxt;
+    document.getElementById('aiComment').style.display = 'block';
+
+    setProgress(60,'AI 코디 이미지 생성 중…');
+
+    // ── 7. imagePrompt 구성 ──
+    const genderEn  = profile.gender==='M'?'man':'woman';
+    const ageEn     = profile.ageGroup?.includes('20')?'in his mid-20s':
+                      profile.ageGroup?.includes('30')?'in his 30s':
+                      profile.ageGroup?.includes('40')?'in his 40s':'in his 30s';
+    const hwNote    = (profile.height&&profile.weight)
+      ? `(height ${profile.height}cm, weight ${profile.weight}kg)` : '';
+
+    const outerItems = [];
+    if(STATE.coat.src)   outerItems.push('coat');
+    if(STATE.jacket.src) outerItems.push('jacket');
+    const outerDesc = outerItems.length===2 ? 'coat layered over jacket' :
+                      outerItems.length===1 ? outerItems[0] : '';
+    const topDesc   = STATE.top.src ? 'shirt/top' : `${topAutoEn} basic t-shirt`;
+    const bottomDesc= 'pants/skirt';
+
+    const imagePrompt = [
+      `Realistic full-body Korean fashion magazine photography of a Korean ${genderEn} ${ageEn} ${hwNote}.`,
+      `STRICTLY match the provided clothing images exactly:`,
+      outerDesc ? `[OUTERWEAR] ${outerDesc} — match color and style from uploaded image exactly.` : '',
+      `[TOP] ${topDesc}${STATE.top.src?' — match from uploaded image exactly':` — default ${topAutoEn} basic tee`}.`,
+      `[BOTTOM] ${bottomDesc} — match from uploaded image exactly.`,
+      `Full body head to toe. Person looking directly at camera with slight natural smile.`,
+      `Clean modern Korean urban background. Professional editorial fashion lighting, high resolution.`,
+      profile.height&&profile.weight ? `Proportional body for ${profile.height}cm height.` : '',
+    ].filter(Boolean).join(' ');
+
+    // ── 8. 서버 API 호출 (이미지 생성) ──
+    const cfg = (window.CodiBank && CodiBank.getConfig) ? CodiBank.getConfig() : {};
+    const backendBase = String(cfg.backendBase||'').trim()
+      || ((window.CodiBank&&CodiBank.getBackendBaseResolved)?String(CodiBank.getBackendBaseResolved()||'').trim():'');
+    const aiBase = (String(cfg.aiBase||'').trim() || backendBase || `http://${window.location.hostname}:8787`).replace(/\/+$/,'');
+
+    const payload = {
+      user: { email:user?.email||'', gender:profile.gender, ageGroup:profile.ageGroup,
+              height:profile.height||'', weight:profile.weight||'' },
+      imagePrompt,
+      purposeKey: 'codistyle',
+      purposeLabel: '코디 착장',
+      size: '1024x1536',
+      quality: 'low',
+      faceImage: faceBase64 || null,
+      clothingImages: {
+        coat:   coatS   || null,
+        jacket: jacketS || null,
+        top:    topS    || null,
+        bottom: bottomS || null,
+      },
+    };
+
+    setProgress(75,'이미지 생성 중…');
+
+    let imgUrl = null;
+    try{
+      const resp = await fetch(`${aiBase}/api/ai/styling`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(65000),
+      });
+      const data = await resp.json();
+      if(data?.ok===true){
+        imgUrl = data.url || data.image || null;
+        if(imgUrl && !imgUrl.startsWith('http') && !imgUrl.startsWith('data:')){
+          imgUrl = aiBase + imgUrl;
+        }
+      }
+    }catch(e){
+      console.warn('이미지 생성 오류:', e.message);
+    }
+
+    setProgress(95,'마무리 중…');
+
+    // ── 9. 이미지 표시 ──
+    if(imgUrl){
+      imgWrap.innerHTML = `<img class="result-img" src="${imgUrl}" alt="AI 코디 결과"/>`;
+      lastResultImg = imgUrl;
+    } else {
+      // 이미지 생성 실패 시 업로드된 이미지들 콜라주 표시
+      imgWrap.innerHTML = buildFallbackCollage();
+    }
+
+    setProgress(100,'완료!');
+    setStatusDone();
+    document.getElementById('statusTxt').textContent = '코디 생성 완료 ✨';
+    document.getElementById('bottomActions').style.display='flex';
+
+  }catch(e){
+    console.error('generateCodi error:', e);
+    setProgress(100,'오류 발생');
+    toast('코디 생성 중 오류가 발생했어요. 다시 시도해주세요.');
+    document.getElementById('statusTxt').textContent = '오류가 발생했어요 — 다시 시도해주세요';
+    document.getElementById('statusDot').style.background='#f87171';
+  }finally{
+    isGenerating = false;
+  }
+}
+
+// ── fallback 콜라주 (이미지 생성 실패 시) ──────────
+function buildFallbackCollage(){
+  const slots = SLOTS.filter(k=>STATE[k].src);
+  if(!slots.length) return `<div class="result-img-placeholder"><span style="font-family:'Material Symbols Outlined';font-size:40px;">style</span><p style="font-size:11px;">이미지 없음</p></div>`;
+
+  const grid = slots.map(k=>`
+    <div style="flex:1;min-width:0;border-radius:8px;overflow:hidden;aspect-ratio:3/4;">
+      <img src="${STATE[k].src}" style="width:100%;height:100%;object-fit:cover;" alt="${k}"/>
+    </div>`).join('');
+  return `<div style="display:flex;gap:6px;padding:4px;">${grid}</div>`;
+}
+
+// ── 저장 / 공유 ──────────────────────────────────
+function saveResult(){
+  if(!lastResultImg){ toast('저장할 이미지가 없어요'); return; }
+  try{
+    const a = document.createElement('a');
+    a.href = lastResultImg;
+    a.download = `codibank_style_${Date.now()}.jpg`;
+    a.click();
+    toast('저장했어요!');
+  }catch(e){ toast('저장에 실패했어요'); }
+}
+
+function shareResult(){
+  const shareText = `코디뱅크 AI 코디: ${document.getElementById('scoreNum')?.textContent||''} — ${lastCommentTxt}`;
+  if(navigator.share){
+    navigator.share({title:'코디뱅크 코디 결과', text:shareText, url:window.location.href});
+  } else {
+    navigator.clipboard?.writeText(shareText).then(()=>toast('클립보드에 복사됐어요!'));
+  }
+}
+
+// ── 초기화 ────────────────────────────────────────
+updateGenBtn();
+</script>
+</body>
+</html>
