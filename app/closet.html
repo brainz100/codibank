@@ -139,6 +139,24 @@
     .m-adv { margin: 12px 20px 10px; padding: 11px 14px; border-radius: 12px; background: rgba(0,95,99,0.15); border: 1px solid rgba(18,148,144,0.3); display: flex; align-items: center; gap: 8px; }
     .m-adv-lbl { font-size: 12px; font-weight: 800; color: #a2fdf0; white-space: nowrap; }
     .m-adv-txt { font-size: 12px; color: rgba(255,255,255,0.82); line-height: 1.4; }
+    /* adv 박스 — 유사도 분석 모드 */
+    .m-adv.m-adv-sim {
+      flex-direction: column; align-items: stretch; gap: 6px;
+      background: rgba(18,148,144,0.12);
+      border-color: rgba(151,254,237,0.25);
+    }
+    .m-adv-sim-top { display:flex; align-items:center; gap:6px; }
+    .m-adv-sim-kws { font-size:10px; color:rgba(151,254,237,0.6); flex:1; line-height:1.4; }
+    .m-adv-sim-score {
+      font-size:11px; font-weight:900; padding:2px 7px; border-radius:8px; white-space:nowrap;
+    }
+    .m-adv-sim-score.sh { color:#a2fdf0; background:rgba(18,148,144,0.3); }
+    .m-adv-sim-score.sm { color:#fbbf24; background:rgba(251,191,36,0.15); }
+    .m-adv-sim-score.sl { color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.06); }
+    .m-adv-sim-bar-wrap { height:2px; background:rgba(255,255,255,0.07); border-radius:2px; }
+    .m-adv-sim-bar { height:2px; border-radius:2px; transition:width .5s ease; }
+    .m-adv-sim-item { font-size:10px; font-weight:700; color:rgba(255,255,255,0.75); }
+    .m-adv-sim-noitem { font-size:10px; color:rgba(255,255,255,0.25); font-style:italic; }
     /* SWIPE 힌트 */
     .m-swipe { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 4px; }
     .m-swipe-arr { font-family: 'Material Symbols Outlined'; font-size: 13px; color: rgba(18,148,144,0.55); font-variation-settings: 'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
@@ -4140,6 +4158,52 @@ function rotR(a){if(!a.length)return a;return[a[a.length-1]].concat(a.slice(0,-1
 function mod(n,m){return((n%m)+m)%m;}
 function initWin(items,si){const l=items.length;if(l<=0)return[-1,-1,-1,-1,-1];if(l>=5)return[0,1,2,3,4].map(i=>mod(si+i,l));return[0,1,2,3,4].map(i=>i<l?i:-1);}
 function attachSwipe(deck,ctrl){let dn=false,sx=0,sy=0;const TH=48;deck.addEventListener('pointerdown',e=>{dn=true;sx=e.clientX;sy=e.clientY;try{deck.setPointerCapture(e.pointerId);}catch(_){}});deck.addEventListener('pointermove',e=>{if(!dn)return;const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy))e.preventDefault();},{passive:false});function end(e){if(!dn)return;dn=false;const dx=(e.clientX||0)-sx,dy=(e.clientY||0)-sy;if(Math.abs(dx)>TH&&Math.abs(dx)>Math.abs(dy)){dx<0?ctrl.shift(+1):ctrl.shift(-1);}}deck.addEventListener('pointerup',end);deck.addEventListener('pointercancel',()=>{dn=false;});deck.addEventListener('lostpointercapture',()=>{dn=false;});}
+// ── 전역 유사도 헬퍼 (buildSection + closetMatchPanel 공유) ──────────
+function _simTokenize(str){ return String(str||'').toLowerCase().replace(/[^가-힣a-z0-9\s]/g,'').split(/\s+/).filter(Boolean); }
+function _simScore(aiKws, itemFields){
+  const aiSet = new Set(aiKws.flatMap(k=>_simTokenize(k)));
+  if(!aiSet.size) return 0;
+  const itToks = itemFields.flatMap(f=>_simTokenize(f));
+  let hit = 0;
+  aiSet.forEach(tok=>{ if(itToks.some(t=>t.includes(tok)||tok.includes(t))) hit++; });
+  const itSet = new Set(itToks);
+  itSet.forEach(tok=>{ if([...aiSet].some(a=>a.includes(tok)||tok.includes(a))) hit += 0.3; });
+  return Math.min(100, Math.round((hit / aiSet.size) * 100));
+}
+// 카테고리 키 → {aiKws, best(item), score} 반환
+function _getCatSimData(catKey){
+  const ckw = S.categoryKeywords || {};
+  // catKey가 'outer'처럼 catKw 키와 다를 수 있으므로 직접 + 대체 검색
+  const _subKeys = (CAT_SUBSTITUTE_MAP[catKey]||[]);
+  // categoryKeywords의 키는 outer/top/bottom/shoes/scarf/bag/watch/socks
+  // catMeta.key (coat/jacket 등)를 outer 계열로 매핑
+  const _outerSet = new Set(['outer','coat','jacket','padding','cardigan']);
+  const _bottomSet = new Set(['bottom','pants','slacks','jeans','skirt']);
+  const _topSet = new Set(['top','shirt','knit','tshirt','blouse']);
+  const _shoesSet = new Set(['shoes','sneakers','loafers','boots']);
+  const _scarfSet = new Set(['scarf','muffler','neckwear','accent']);
+  let ckwKey = catKey;
+  if(_outerSet.has(catKey)) ckwKey = 'outer';
+  else if(_bottomSet.has(catKey)) ckwKey = 'bottom';
+  else if(_topSet.has(catKey)) ckwKey = 'top';
+  else if(_shoesSet.has(catKey)) ckwKey = 'shoes';
+  else if(_scarfSet.has(catKey)) ckwKey = 'scarf';
+  const aiKws = (ckw[ckwKey]||[]).filter(Boolean);
+  if(!aiKws.length) return null;
+  const allKeys = [catKey, ..._subKeys];
+  const allItems = allKeys
+    .flatMap(k=>(CodiBank.getItemsByUserAndCategory?CodiBank.getItemsByUserAndCategory(user.email,k):[]) || [])
+    .filter(Boolean);
+  if(!allItems.length) return {aiKws, best:null, score:0};
+  let best=null, bestScore=-1;
+  allItems.forEach(it=>{
+    const fields=[it.brand,it.color,it.subColor,it.note,it.size,it.category,it.categoryKey].filter(Boolean).map(String);
+    const sc=_simScore(aiKws,fields);
+    if(sc>bestScore){bestScore=sc;best=it;}
+  });
+  return {aiKws, best, score:bestScore};
+}
+
 function buildSection(catMeta,items){
   // ── 섹션 루트 ──
   const sec=document.createElement('section');sec.className='mt-0';sec.dataset.catKey=catMeta.key;
@@ -4165,7 +4229,37 @@ function buildSection(catMeta,items){
   const score0=recId0&&S.matchScoreMap?(S.matchScoreMap[recId0]||0):0;
   const detail0=recId0&&S.matchDetailMap?(S.matchDetailMap[recId0]||null):null;
   const adv=document.createElement('div');adv.className='m-adv';
-  if(score0){
+
+  // 토글(모바일 옷장 Styling) ON 여부 확인
+  const _simOn = document.getElementById('closetToggleBtn')?.classList.contains('ctb-on');
+
+  if(_simOn && S.hasGenerated){
+    // ── 유사도 분석 모드 ──
+    const simData = _getCatSimData(catMeta.key);
+    if(simData && simData.aiKws.length){
+      adv.classList.add('m-adv-sim');
+      const sc = simData.score;
+      const scClass = sc>=60?'sh':sc>=30?'sm':'sl';
+      const barColor = sc>=60?'#a2fdf0':sc>=30?'#fbbf24':'rgba(255,255,255,0.2)';
+      const kwsText = simData.aiKws.join(' · ');
+      const itemLabel = simData.best
+        ? (simData.best.brand||simData.best.color||'아이템')
+        : null;
+      const itemSub = (simData.best?.color && simData.best?.brand) ? ` · ${escH(simData.best.color)}` : '';
+      adv.innerHTML =
+        `<div class="m-adv-sim-top">` +
+          `<span class="m-adv-lbl">codibank :</span>` +
+          `<span class="m-adv-sim-kws">${escH(kwsText)}</span>` +
+          `<span class="m-adv-sim-score ${scClass}">${sc}%</span>` +
+        `</div>` +
+        `<div class="m-adv-sim-bar-wrap"><div class="m-adv-sim-bar" style="width:${sc}%;background:${barColor};"></div></div>` +
+        (itemLabel
+          ? `<div class="m-adv-sim-item">› ${escH(itemLabel)}${itemSub}</div>`
+          : `<div class="m-adv-sim-noitem">등록된 아이템 없음 — 추가해보세요</div>`);
+    } else {
+      adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">AI 코디 키워드 없음</span>`;
+    }
+  } else if(score0){
     const tip=detail0?`카테고리 ${detail0.catScore}P + 컬러 ${detail0.colorScore}P + 디자인 ${detail0.designScore}P`:'';
     adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt">이 아이템은 추천코디와 매칭점수 <strong style="color:#a2fdf0;">${score0}P</strong>`+(tip?` <span style="font-size:10px;color:rgba(255,255,255,0.4);">(${tip})</span>`:'')+'</span>';
   } else if(S.hasGenerated){
@@ -4226,20 +4320,9 @@ renderCategories();
   const panel = document.getElementById('closetMatchPanel');
   if(!btn || !panel) return;
 
-  // ── 유사도 계산 ──
-  // 텍스트 토큰 공통 비율로 유사도 0~100 산출
-  function tokenize(str){ return String(str||'').toLowerCase().replace(/[^가-힣a-z0-9\s]/g,'').split(/\s+/).filter(Boolean); }
-  function similarity(aiKws, itemFields){
-    const aiSet = new Set(aiKws.flatMap(k=>tokenize(k)));
-    if(!aiSet.size) return 0;
-    const itToks = itemFields.flatMap(f=>tokenize(f));
-    let hit = 0;
-    aiSet.forEach(tok=>{ if(itToks.some(t=>t.includes(tok)||tok.includes(t))) hit++; });
-    // 아이템 필드와 ai 키워드 쌍방향 교차 점수도 반영
-    const itSet = new Set(itToks);
-    itSet.forEach(tok=>{ if([...aiSet].some(a=>a.includes(tok)||tok.includes(a))) hit += 0.3; });
-    return Math.min(100, Math.round((hit / aiSet.size) * 100));
-  }
+  // ── 유사도 계산 (전역 _simScore/_simTokenize 위임) ──
+  const tokenize = _simTokenize;
+  const similarity = _simScore;
 
   // ── 패널 렌더 ──
   const CAT_DEF = [
@@ -4364,15 +4447,24 @@ renderCategories();
       if(titleEl) titleEl.textContent = '모바일 옷장 Styling';
       if(subEl)   subEl.textContent   = 'AI 추천코디와 내 옷장 유사도 분석 중…';
       buildMatchPanel();
+      // ★ 각 카테고리 adv 박스에 유사도 반영
+      try{ renderCategories(); }catch(_){}
       if(subEl) setTimeout(()=>{ subEl.textContent = 'AI 추천코디와 내 옷장을 비교한 결과예요'; }, 400);
     } else {
       if(titleEl) titleEl.textContent = '모바일 옷장';
       if(subEl)   subEl.textContent   = '클릭하면 AI가 추천한 코디를 내 옷에서 찾아드립니다';
+      // ★ 유사도 모드 해제 → adv 박스 원래대로
+      try{ renderCategories(); }catch(_){}
     }
   });
 
   // 외부에서 호출 가능하도록 등록 (AI 생성 완료 후 패널 갱신)
-  window._refreshClosetMatchPanel = ()=>{ if(isOn) buildMatchPanel(); };
+  window._refreshClosetMatchPanel = ()=>{
+    if(isOn){
+      buildMatchPanel();
+      try{ renderCategories(); }catch(_){}
+    }
+  };
 })();
 
 
