@@ -228,12 +228,12 @@ input[type=file]{position:absolute;opacity:0;width:0;height:0;}
   <button class="back-btn" onclick="history.back()">arrow_back</button>
   <div>
     <h1 class="pg-title">✦ 코디 해보세요</h1>
-    <p class="pg-sub">내 옷·찜한 옷을 직접 입어볼게요</p>
+    <p class="pg-sub">상의·하의와 얼굴, 체형을 반영한 생성형 AI 착장 이미지를 만듭니다</p>
   </div>
 </header>
 
 <div class="guide-banner">
-  <strong>상의</strong>와 <strong>하의</strong>를 각각 등록하면 AI가 <strong>실제 착장 이미지</strong>를 생성해줘요.<br>
+  <strong>상의</strong>와 <strong>하의</strong>를 각각 등록하면 생성형 AI가 <strong>얼굴·체형을 반영한 실제 착장 이미지</strong>를 생성해줘요.<br>
   사진 촬영, 갤러리 선택, 또는 <strong>쇼핑몰 링크</strong>를 붙여넣으면 대표 이미지를 자동으로 가져옵니다.
 </div>
 
@@ -346,7 +346,7 @@ input[type=file]{position:absolute;opacity:0;width:0;height:0;}
 
 <div class="gen-wrap">
   <button class="gen-btn" id="genBtn" onclick="generate()" disabled>
-    <span class="mi">auto_awesome</span>AI 착장 이미지 생성
+    <span class="mi">auto_awesome</span>생성형 AI 착장 이미지 생성
   </button>
   <p class="rule-hint" id="ruleHint">상의와 하의를 모두 등록하면 생성이 시작됩니다</p>
 </div>
@@ -425,6 +425,10 @@ let lastComment = '';
 
 function getSrc(k){ return ST[k].blobUrl || ST[k].displayUrl || null; }
 function hasSrc(k){ return !!(ST[k].blobUrl || ST[k].displayUrl); }
+function getRemoteUrl(k){
+  const u = String(ST[k].displayUrl||'').trim();
+  return /^https?:\/\//i.test(u) ? u : '';
+}
 
 /* ══ 슬롯 렌더 ══ */
 function renderSlot(k){
@@ -832,14 +836,16 @@ async function generate(){
     setProgress(48, '착장 이미지 프롬프트 준비 중…');
 
     const imagePrompt = [
-      'Realistic full-body Korean fashion editorial photograph of a Korean '+genderEn+' '+ageEn+' '+hwNote+'.',
-      'Show a complete outfit with top and bottom clothing:',
-      '[TOP] The person is wearing a top/shirt/jacket as selected by the user. Match color and style from the reference.',
-      '[BOTTOM] The person is wearing pants or skirt as selected by the user. Match color and style from the reference.',
-      'Full body visible from head to toe. Person faces camera directly, natural slight smile.',
-      'Clean modern Korean street or studio background.',
-      'Professional fashion editorial lighting. High resolution. Realistic fabric texture and clothing details.',
-      (height&&weight)?'Body proportions appropriate for '+height+'cm height.':'',
+      'Create a photorealistic full-body Korean fashion editorial try-on image.',
+      `The subject should look like the same ${genderEn} user ${ageEn} ${hwNote}. Preserve realistic face identity when the face image is provided.`,
+      'Use the provided outfit reference images exactly as the wardrobe references:',
+      '- Reference TOP image: preserve category, color, silhouette, neckline, sleeve, texture and key details.',
+      '- Reference BOTTOM image: preserve category, color, silhouette, length and fabric feeling.',
+      'Dress the same person in the selected top and bottom together as a complete outfit.',
+      'Keep the body proportions realistic for the given height and weight. Make the fitting look natural and wearable, not like a mannequin.',
+      'Show the whole body from head to toe, front-facing, natural posture, modern Korean fashion editorial mood.',
+      'Clean studio or minimal city background, realistic shadows, high detail fabric texture.',
+      'No text, no watermark, no logo, no extra accessories unless naturally needed.'
     ].filter(Boolean).join(' ');
 
     /* ── 7. 얼굴 이미지 ── */
@@ -862,7 +868,10 @@ async function generate(){
     const cfg = (window.CodiBank&&CodiBank.getConfig) ? CodiBank.getConfig() : {};
     const backendBase = String(cfg.backendBase||'').trim()
       || ((window.CodiBank&&CodiBank.getBackendBaseResolved)?String(CodiBank.getBackendBaseResolved()||'').trim():'');
-    const aiBase = (String(cfg.aiBase||'').trim()||backendBase||'http://'+window.location.hostname+':8787').replace(/\/+$/,'');
+    let aiBase = (String(cfg.aiBase||'').trim()||backendBase||('http://'+window.location.hostname+':8787')).replace(/\/+$/,'');
+    if(window.location.protocol==='https:' && /^http:\/\//i.test(aiBase)){
+      aiBase = aiBase.replace(/^http:\/\//i,'https://');
+    }
 
     /* ── 9. payload (closet.html 서버 호환 구조) ──
        ★ purposeKey = 'weekendOut' (서버 유효 값)
@@ -894,17 +903,26 @@ async function generate(){
       categoryKeywords: {},
       seed: Date.now(),
       faceImage: faceDataUrl||null,
-      // 상하의 이미지 (서버가 참고용으로 활용 가능)
+      mode: 'codistyle',
+      // 상·하의 참조 이미지 (dataURL 우선, 링크는 별도 전달)
       clothingImages: {
-        top:    topSmall    || null,
-        bottom: bottomSmall || null,
+        top:    topSmall    || topRaw    || null,
+        bottom: bottomSmall || bottomRaw || null,
       },
+      clothingImageUrls: {
+        top:    (topSmall||topRaw)    ? null : getRemoteUrl('top'),
+        bottom: (bottomSmall||bottomRaw) ? null : getRemoteUrl('bottom'),
+      },
+      topSummary:    topSrcType==='link'    ? '쇼핑몰 링크 상의' : (topSrcType==='cam' ? '촬영한 상의' : '갤러리 상의'),
+      bottomSummary: bottomSrcType==='link' ? '쇼핑몰 링크 하의' : (bottomSrcType==='cam' ? '촬영한 하의' : '갤러리 하의'),
+      output_format: 'jpeg',
+      output_compression: 80,
       size:    '1024x1536',
       quality: 'low',
     };
 
     /* ── 10. 서버 호출 (closet.html callRemote 패턴 동일) ── */
-    setProgress(75, 'AI 착장 이미지 생성 중…');
+    setProgress(75, '생성형 AI 착장 이미지 생성 중…');
 
     async function callRemote(faceOpt){
       const p = Object.assign({}, payload, {faceImage: faceOpt||null});
@@ -959,7 +977,7 @@ async function generate(){
     console.error('generate() error:', e);
     setDot('err');
     setProgress(100, '오류가 발생했어요');
-    showErr('AI 착장 이미지 생성 실패: '+e.message+'<br>다시 시도하거나, 다른 이미지로 시도해보세요.');
+    showErr('생성형 AI 착장 이미지 생성 실패: '+e.message+'<br>다시 시도하거나, 다른 이미지로 시도해보세요.');
     toast('이미지 생성에 실패했어요. 아래 자세한 내용을 확인하세요.', 4000);
 
     // fallback: 선택한 이미지 나란히 표시
