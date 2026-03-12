@@ -125,6 +125,83 @@ def _download_remote_image(url: str, timeout: int = 12) -> Tuple[str, bytes]:
         return mime, data
 
 
+def _fetch_remote_html(url: str, timeout: int = 12) -> Tuple[str, str]:
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Referer": urllib.parse.urlsplit(url).scheme + "://" + urllib.parse.urlsplit(url).netloc + "/",
+        },
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        final_url = getattr(resp, "geturl", lambda: url)() or url
+        charset = resp.headers.get_content_charset() or "utf-8"
+        raw = resp.read()
+        html = raw.decode(charset, errors="ignore")
+        return final_url, html
+
+
+def _absolutize_url(page_url: str, maybe_url: str) -> str:
+    s = (maybe_url or "").strip()
+    if not s:
+        return ""
+    if s.startswith("//"):
+        return "https:" + s
+    return urllib.parse.urljoin(page_url, s)
+
+
+def _looks_bad_img(url: str) -> bool:
+    u = (url or "").lower()
+    bad_bits = ["logo", "icon", "sprite", "avatar", "banner", "badge", "thumb"]
+    return any(b in u for b in bad_bits)
+
+
+def _extract_best_image_from_html(page_url: str, html: str) -> str:
+    patterns = [
+        r'<meta[^>]+property=["\']og:image(?::url)?["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image(?::url)?["\']',
+        r'<meta[^>]+name=["\']twitter:image(?::src)?["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']twitter:image(?::src)?["\']',
+    ]
+    for pat in patterns:
+        m = re.search(pat, html, re.I | re.S)
+        if m:
+            cand = _absolutize_url(page_url, m.group(1))
+            if cand and not _looks_bad_img(cand):
+                return cand
+
+    img_matches = re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', html, re.I | re.S)
+    candidates = []
+    for src in img_matches:
+        absu = _absolutize_url(page_url, src)
+        if not absu or _looks_bad_img(absu):
+            continue
+        if not re.search(r'\.(jpg|jpeg|png|webp|gif|avif|bmp)(\?|$)', absu, re.I):
+            continue
+        candidates.append(absu)
+    if candidates:
+        # 긴 URL/뒤쪽 파일명일수록 상세 이미지일 가능성이 높음
+        candidates.sort(key=lambda s: (len(s), s.count('/')), reverse=True)
+        return candidates[0]
+    return ""
+
+
+def _resolve_representative_image(url: str) -> Tuple[str, str]:
+    src = (url or "").strip()
+    if not src:
+        raise ValueError("url is required")
+    if re.search(r'\.(jpg|jpeg|png|webp|gif|avif|bmp)(\?|$)', src, re.I):
+        return src, "직접 이미지 URL"
+    final_url, html = _fetch_remote_html(src)
+    img_url = _extract_best_image_from_html(final_url, html)
+    if not img_url:
+        raise ValueError("대표 이미지를 찾지 못했어요. 직접 이미지 URL(jpg/png/webp)을 넣어주세요.")
+    return img_url, "쇼핑몰 대표 이미지"
+
+
 def _mime_to_ext(mime: str) -> str:
     m = str(mime or "").lower()
     if "png" in m:
@@ -141,9 +218,17 @@ def _collect_ref_images(payload: Dict[str, Any]) -> Tuple[list[tuple[str, str, b
     face_bytes_for_key: bytes | None = None
 
     face_data_url = payload.get("faceImage")
+    face_url = str(payload.get("faceImageUrl") or "").strip()
     if face_data_url:
         try:
             mime, img_bytes = _data_url_to_bytes(str(face_data_url))
+            refs.append(("face", mime, img_bytes))
+            face_bytes_for_key = img_bytes
+        except Exception:
+            face_bytes_for_key = None
+    elif face_url.startswith(("http://", "https://")):
+        try:
+            mime, img_bytes = _download_remote_image(face_url)
             refs.append(("face", mime, img_bytes))
             face_bytes_for_key = img_bytes
         except Exception:
@@ -618,48 +703,68 @@ def serve_upload(filename: str):
 def storage_upload():
     """브라우저에서 촬영/선택한 이미지를 서버에 저장합니다.
 
-    입력(JSON): { dataUrl: "data:image/...;base64,...", slot?: "front|back|brand", email?: "..." }
-    출력: { ok:true, path:"/uploads/xxx.jpg", url:"http://host:8787/uploads/xxx.jpg" }
-
-    왜 필요한가?
-    - 일부 모바일 브라우저에서 로컬(IndexedDB/Blob URL) 이미지가
-      매우 짧게 보였다가 사라지는 현상이 있어, 데모 안정성을 위해
-      서버 파일로 저장해 참조하도록 합니다.
+    지원 입력
+    1) JSON: { dataUrl: "data:image/...;base64,...", slot?: "front|back|brand", email?: "..." }
+    2) multipart/form-data: file 필드 + slot(optional)
     """
-    payload = request.get_json(silent=True) or {}
-    data_url = str(payload.get("dataUrl") or "").strip()
-    if not data_url:
-        return jsonify(ok=False, error="dataUrl이 필요합니다."), 400
-
-    try:
-        mime, img_bytes = _data_url_to_bytes(data_url)
-    except Exception:
-        return jsonify(ok=False, error="이미지 형식이 올바르지 않습니다(dataUrl)."), 400
-
-    # 확장자 결정
+    img_bytes = b""
     ext = "jpg"
-    m = (mime or "").lower()
-    if "png" in m:
-        ext = "png"
-    elif "webp" in m:
-        ext = "webp"
-    elif "jpeg" in m or "jpg" in m:
-        ext = "jpg"
 
-    # 파일명(슬롯/시간/난수)
-    slot = re.sub(r"[^a-z0-9_-]+", "", str(payload.get("slot") or "img").lower())[:16] or "img"
+    if request.files and request.files.get("file"):
+        f = request.files.get("file")
+        raw = f.read() or b""
+        if not raw:
+            return jsonify(ok=False, error="업로드된 파일이 비어있습니다."), 400
+        mime = str(getattr(f, "mimetype", "") or "image/jpeg")
+        img_bytes = raw
+        ext = _mime_to_ext(mime)
+        slot = re.sub(r"[^a-z0-9_-]+", "", str(request.form.get("slot") or "img").lower())[:16] or "img"
+    else:
+        payload = request.get_json(silent=True) or {}
+        data_url = str(payload.get("dataUrl") or "").strip()
+        if not data_url:
+            return jsonify(ok=False, error="dataUrl 또는 file이 필요합니다."), 400
+        try:
+            mime, img_bytes = _data_url_to_bytes(data_url)
+        except Exception:
+            return jsonify(ok=False, error="이미지 형식이 올바르지 않습니다(dataUrl)."), 400
+        ext = _mime_to_ext(mime)
+        slot = re.sub(r"[^a-z0-9_-]+", "", str(payload.get("slot") or "img").lower())[:16] or "img"
+
     fname = f"{slot}_{_now_ms()}_{os.urandom(3).hex()}.{ext}"
-    fpath = os.path.join(_UPLOAD_DIR, fname)
-
     try:
-        with open(fpath, "wb") as f:
-            f.write(img_bytes)
+        rel = _write_upload_bytes(slot, ext, img_bytes, fixed_name=fname)
     except Exception as e:
         return jsonify(ok=False, error=f"서버 저장 실패: {e}"), 500
 
-    rel = f"{_UPLOAD_PREFIX}{fname}"
     base = _public_base()
     return jsonify(ok=True, path=rel, url=f"{base}{rel}")
+
+
+@app.post("/api/link/resolve-image")
+def link_resolve_image():
+    payload = request.get_json(silent=True) or {}
+    url = str(payload.get("url") or "").strip()
+    if not url.startswith(("http://", "https://")):
+        return jsonify(ok=False, error="http:// 또는 https://로 시작하는 URL을 입력해주세요."), 400
+    try:
+        img_url, label = _resolve_representative_image(url)
+        mime, img_bytes = _download_remote_image(img_url)
+        ext = _mime_to_ext(mime)
+        rel = _write_upload_bytes("link", ext, img_bytes)
+        base = _public_base()
+        return jsonify(ok=True, label=label, sourceUrl=url, resolvedImageUrl=img_url, path=rel, url=f"{base}{rel}")
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 400
+
+
+@app.get("/api/link/resolve-image")
+def link_resolve_image_get():
+    url = str(request.args.get("url") or "").strip()
+    if not url:
+        return jsonify(ok=False, error="url 파라미터가 필요합니다."), 400
+    request._cached_json = {"url": url}  # type: ignore[attr-defined]
+    return link_resolve_image()
 
 
 @app.get("/api/ai/diagnose")
