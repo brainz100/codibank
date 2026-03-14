@@ -276,10 +276,10 @@ input[type=file]{display:none}
     <a href="album.html" class="cb-nav-tab"><span class="ni">auto_awesome_motion</span><span>코디앨범</span></a>
     <div class="cb-nav-add-wrap">
       <a href="camera.html" class="cb-nav-add">add</a>
-      <div class="cb-nav-add-lbl">item등록</div>
+      <span class="cb-nav-add-lbl">ITEM등록</span>
     </div>
     <a href="codistyle.html" class="cb-nav-tab on"><span class="ni">checkroom</span><span>코디하기</span></a>
-    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span>My</span></a>
+    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person_outline</span><span>MY</span></a>
   </div>
 </nav>
 
@@ -563,9 +563,12 @@ async function slotToPart(k){
    ★ 상의+하의+얼굴 이미지 동시 전달
    ★ 10~30초 내 착장 이미지 생성
 ════════════════════════════════════════ */
+/* ★ 이미지 생성 전용 모델만 사용
+   gemini-2.0-flash-exp        → 텍스트 전용, 이미지 생성 불가
+   gemini-2.0-flash-exp-image-generation → 이미지 생성 지원 */
 var GEMINI_MODELS=[
+  'gemini-2.0-flash-exp-image-generation',
   'gemini-2.0-flash-preview-image-generation',
-  'gemini-2.0-flash-exp',
 ];
 
 async function callGemini(imgParts,prompt,apiKey){
