@@ -1457,11 +1457,11 @@ async function uploadImageToServer(dataUrl, opts) {
       'camera.html': 'camera.html',
       'closet.html': 'closet.html',
       'album.html': 'album.html',
-      'share-sale.html': 'share-sale.html',
-      'share.html': 'share-sale.html',    // 레거시 페이지도 공유판매 탭으로
-      'sale.html': 'share-sale.html',     // 레거시 페이지도 공유판매 탭으로
-      'share-item.html': 'share-sale.html',
-      'sale-item.html': 'share-sale.html',
+      'share-sale.html': 'codistyle.html',
+      'share.html': 'codistyle.html',    // 레거시 페이지도 코디하기 탭으로
+      'sale.html': 'codistyle.html',     // 레거시 페이지도 코디하기 탭으로
+      'share-item.html': 'codistyle.html',
+      'sale-item.html': 'codistyle.html',
       'mypage.html': 'mypage.html',
       'pricing.html': 'mypage.html',
       'login.html': 'mypage.html',
