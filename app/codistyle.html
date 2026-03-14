@@ -714,16 +714,12 @@ function toast(msg,dur){
    MAIN — generate()
    
    흐름:
-   1. slotToPart('top')   → 상의 base64 inline_data
-   2. slotToPart('bottom')→ 하의 base64 inline_data
-   3. 얼굴 dataUrl → shrink → inline_data
-   4. callGemini(이미지3장 + 프롬프트)
-      → Gemini가 착장 이미지 생성 (base64 반환)
-   5. 결과 표시
-   
-   ★ /api/codistyle/generate 없음 (서버 의존 없음)
-   ★ /api/ai/styling 없음
-   ★ 오직 Gemini API만 사용
+   1. 이미지 → base64 변환
+   2. [1순위] Gemini API 직접 호출 (실제 의류 이미지 참조)
+      → 성공 시 즉시 표시
+   3. [폴백] Gemini 실패 시 → Claude Vision으로 의류 분석
+      → 서버 /api/ai/styling (closet.html 검증된 방법)
+      → 사용자에게 에러 없이 자동 전환
 ════════════════════════════════════════ */
 async function generate(){
   if(busy) return;
@@ -740,7 +736,6 @@ async function generate(){
   document.getElementById('resultOk').style.display='none';
   document.getElementById('resultErr').style.display='none';
   document.getElementById('stepsList').style.display='flex';
-  // 로그 패널 초기화
   var logWrap=document.getElementById('genLogWrap');
   logWrap.style.display='none';
   document.getElementById('genLog').innerHTML='';
@@ -749,20 +744,22 @@ async function generate(){
     '<div class="spin"><div class="ring"></div><div>이미지를 준비하고 있어요…</div></div>';
 
   try{
+    /* ── 프로필 ── */
     var gender=(user&&user.gender)||'M';
     var age=(user&&user.ageGroup)||'30대';
     var height=(user&&user.height)?String(user.height):'';
     var weight=(user&&user.weight)?String(user.weight):'';
     var genderEn=gender==='M'?'man':'woman';
     var hw=(height&&weight)?'height '+height+'cm weight '+weight+'kg':'';
+    var userDesc=[gender==='M'?'남성':'여성',age,height?'키'+height+'cm':'',weight?weight+'kg':''].filter(Boolean).join(', ');
 
-    /* ── STEP 1: 이미지 변환 ── */
+    /* ════ STEP 1: 이미지 → base64 변환 ════ */
     setStep(1,'active');
     addLog('📦 이미지 변환 시작');
     var topPart=await slotToPart('top');
     var bottomPart=await slotToPart('bottom');
-    addLog((topPart?'✅':'⚠️')+' 상의: '+(topPart?'base64 변환 완료':'이미지 없음 (텍스트로 대체)'));
-    addLog((bottomPart?'✅':'⚠️')+' 하의: '+(bottomPart?'base64 변환 완료':'이미지 없음 (텍스트로 대체)'));
+    addLog((topPart?'✅':'⚠️')+' 상의: '+(topPart?'base64 변환 완료':'이미지 없음'));
+    addLog((bottomPart?'✅':'⚠️')+' 하의: '+(bottomPart?'base64 변환 완료':'이미지 없음'));
     var facePart=null;
     if(faceDataUrl&&faceDataUrl.startsWith('data:')){
       facePart=toInlinePart(await shrink(faceDataUrl,480,0.80));
@@ -771,92 +768,232 @@ async function generate(){
     setStep(1,'done');
     logWrap.style.display='block';
 
-    /* ── STEP 2: Gemini 호출 ── */
+    /* ════ STEP 2: [1순위] Gemini API 직접 호출 ════ */
     setStep(2,'active');
     document.getElementById('resultStage').innerHTML=
       '<div class="spin"><div class="ring"></div><div>'
-      +'Gemini AI가 착장 이미지를 생성하고 있어요…<br>'
+      +'Gemini AI로 착장 이미지를 생성하고 있어요…<br>'
       +'<small style="opacity:.55">(15~30초 소요)</small></div></div>';
 
     var imgParts=[];
-    var desc=[];
-    if(facePart){imgParts.push(facePart);desc.push('첫 번째 이미지는 착장할 사람의 얼굴 사진입니다. 이 얼굴을 정확히 유지하세요.');}
-    if(topPart){imgParts.push(topPart);desc.push('다음 이미지는 상의입니다. 색상·실루엣·디자인을 정확히 재현하세요.');}
-    if(bottomPart){imgParts.push(bottomPart);desc.push('다음 이미지는 하의입니다. 색상·실루엣·디자인을 정확히 재현하세요.');}
-    var topFb=!topPart&&(ST.top.imageUrl||ST.top.rawUrl)?'상의 참고 URL: '+(ST.top.imageUrl||ST.top.rawUrl):'';
-    var botFb=!bottomPart&&(ST.bottom.imageUrl||ST.bottom.rawUrl)?'하의 참고 URL: '+(ST.bottom.imageUrl||ST.bottom.rawUrl):'';
+    if(facePart) imgParts.push(facePart);
+    if(topPart)  imgParts.push(topPart);
+    if(bottomPart) imgParts.push(bottomPart);
+
+    var descParts=[];
+    if(facePart)   descParts.push('첫 번째 이미지는 착장할 사람의 얼굴 사진입니다. 이 얼굴을 정확히 유지하세요.');
+    if(topPart)    descParts.push('다음 이미지는 상의입니다. 색상·실루엣·디자인을 정확히 재현하세요.');
+    if(bottomPart) descParts.push('다음 이미지는 하의입니다. 색상·실루엣·디자인을 정확히 재현하세요.');
 
     var prompt=[
       '전신 패션 착장 사진을 생성해주세요.',
       '피사체: 한국인 '+genderEn+(age?' '+age:'')+(hw?' ('+hw+')':'')+'.',
-      desc.join(' '), topFb, botFb,
-      facePart?'얼굴 사진의 인물 얼굴 특징을 최대한 유지해서 해당 인물이 옷을 입은 것처럼 생성해주세요.':'자연스러운 표정으로 카메라를 바라보고 있습니다.',
-      topPart?'제공된 상의 이미지의 옷을 정확히 입히세요 — 색상, 핏, 소재, 디자인 디테일을 그대로 반영하세요.':'',
-      bottomPart?'제공된 하의 이미지의 옷을 정확히 입히세요 — 색상, 핏, 소재, 디자인 디테일을 그대로 반영하세요.':'',
-      '머리부터 발끝까지 전신이 보이도록 하세요. 깔끔한 한국 도시 혹은 스튜디오 배경.',
-      '전문 패션 에디토리얼 조명. 사실적인 직물 텍스처. 텍스트나 워터마크 없음.',
+      descParts.join(' '),
+      facePart?'얼굴 사진의 인물 특징을 최대한 유지하세요.':'자연스러운 표정으로 카메라를 바라봅니다.',
+      topPart?'상의 이미지의 옷을 정확히 입히세요 — 색상, 핏, 소재, 디자인 디테일 그대로.':'',
+      bottomPart?'하의 이미지의 옷을 정확히 입히세요 — 색상, 핏, 소재, 디자인 디테일 그대로.':'',
+      '머리부터 발끝까지 전신. 깔끔한 한국 도시 혹은 스튜디오 배경.',
+      '전문 패션 에디토리얼 조명. 사실적인 직물 텍스처. 텍스트·워터마크 없음.',
     ].filter(Boolean).join(' ');
 
-    // Gemini 호출 (진행 상태를 stage에 실시간 반영)
-    var result=await callGemini(imgParts,prompt,apiKey,function(cur,total,label){
+    var geminiResult=null;
+    try{
+      geminiResult=await callGemini(imgParts,prompt,apiKey,function(cur,total,label){
+        document.getElementById('resultStage').innerHTML=
+          '<div class="spin"><div class="ring"></div><div>'
+          +'Gemini 시도 '+cur+'/'+total+'<br>'
+          +'<small style="opacity:.6">'+label+'</small>'
+          +'</div></div>';
+      });
+    }catch(geminiErr){
+      if(geminiErr.message&&geminiErr.message.startsWith('KEY:')){
+        throw geminiErr; // API 키 오류는 폴백 없이 즉시 처리
+      }
+      /* Gemini 실패 → 서버 폴백 */
+      addLog('');
+      addLog('⚡ Gemini 실패 → 서버 방식으로 자동 전환');
       document.getElementById('resultStage').innerHTML=
         '<div class="spin"><div class="ring"></div><div>'
-        +'Gemini 시도 '+cur+'/'+total+'<br>'
-        +'<small style="opacity:.6">'+label+'</small>'
-        +'</div></div>';
-    });
+        +'서버 AI로 착장 이미지를 생성하고 있어요…<br>'
+        +'<small style="opacity:.55">(30~60초 소요)</small></div></div>';
+      geminiResult = await callServerFallback(topPart, bottomPart, facePart, userDesc, genderEn, height, weight);
+    }
 
     setStep(2,'done'); setStep(3,'active');
 
-    /* ── STEP 3: 성공 → 생성 이미지만 표시 ── */
-    var dataUrl='data:'+result.mime+';base64,'+result.b64;
-    lastResult=dataUrl;
+    /* ════ STEP 3: 결과 표시 ════ */
+    // Gemini 결과 (base64) or 서버 결과 (URL)
+    if(geminiResult.b64){
+      lastResult='data:'+geminiResult.mime+';base64,'+geminiResult.b64;
+    } else {
+      lastResult=geminiResult.url;
+    }
+
     document.getElementById('resultStage').innerHTML=
-      '<img src="'+dataUrl+'" alt="AI 착장 이미지" style="width:100%;height:100%;object-fit:cover;display:block"/>';
+      '<img src="'+lastResult+'" alt="AI 착장 이미지" style="width:100%;height:100%;object-fit:cover;display:block"'
+      +' onerror="this.onerror=null;this.style.objectFit=\'contain\'"/>';
+
     var ok=document.getElementById('resultOk');
     ok.style.display='block';
-    ok.textContent='✨ 착장 이미지 생성 완료 ('+result.ver+'/'+result.model+')';
+    ok.textContent='✨ 착장 이미지 생성 완료! ('+(geminiResult.source||'AI')+')';
     document.getElementById('resultActions').style.display='flex';
     setStep(3,'done');
     setTimeout(function(){
       document.getElementById('stepsList').style.display='none';
-      logWrap.style.display='none'; // 성공 시 로그 숨김
-    },2000);
+      logWrap.style.display='none';
+    },2500);
 
   }catch(e){
     console.error('generate 오류:',e);
-    setStep(1,'wait'); setStep(2,'err'||'wait'); setStep(3,'wait');
+    setStep(1,'wait'); setStep(2,'wait'); setStep(3,'wait');
+    logWrap.style.display='block';
 
-    /* 실패 시: 에러 상세 표시, 소스 이미지 나열 안 함 */
     var isKey=e.message&&e.message.startsWith('KEY:');
     var errEl=document.getElementById('resultErr');
     errEl.style.display='block';
-    logWrap.style.display='block'; // 실패 시 로그 표시
 
-    // resultStage에 에러 아이콘 표시 (소스 이미지 대신)
     document.getElementById('resultStage').innerHTML=
       '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px 20px;text-align:center;">'
-      +'<span class="mi" style="font-size:48px;color:rgba(248,113,113,.5)">error</span>'
-      +'<div style="font-size:12px;color:rgba(255,255,255,.35);line-height:1.6">'
-      +(isKey?'API 키를 확인해주세요':'착장 이미지 생성에 실패했어요<br>아래 로그를 확인하고 다시 시도해주세요')
+      +'<span class="mi" style="font-size:52px;color:rgba(248,113,113,.4)">error_outline</span>'
+      +'<div style="font-size:12px;color:rgba(255,255,255,.35);line-height:1.65">'
+      +(isKey?'API 키를 확인해주세요':'이미지 생성에 실패했어요<br>아래 로그와 안내를 확인해주세요')
       +'</div></div>';
 
     if(isKey){
       localStorage.removeItem(KEY_LS); checkKey();
-      errEl.innerHTML='<b>⚠️ API 키 인증 실패</b>'
+      errEl.innerHTML='<b>⚠️ API 키 오류</b>'
         +'API 키가 유효하지 않아요.<br>'
         +'<a href="https://aistudio.google.com/apikey" target="_blank" style="color:#97FEED">'
         +'Google AI Studio</a>에서 새 키를 발급받아 위 배너에 입력해주세요.';
     }else{
-      errEl.innerHTML='<b>⚠️ 착장 이미지 생성 실패</b>'
-        +'아래 로그에 자세한 내용이 있어요.<br><br>'
-        +'<b>모두 404가 나오는 경우:</b><br>'
-        +'→ API 키에 이미지 생성 권한이 없을 수 있어요.<br>'
-        +'→ <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#97FEED">Google AI Studio</a>에서<br>'
-        +'&nbsp;&nbsp;① Gemini 2.0 Flash Image Generation 모델을 직접 테스트해보세요<br>'
-        +'&nbsp;&nbsp;② 동일 API 키가 이미지 생성 가능한지 확인해주세요';
+      errEl.innerHTML='<b>⚠️ 이미지 생성 실패 (Gemini + 서버 모두 실패)</b>'
+        +'네트워크 연결을 확인하고 잠시 후 다시 시도해주세요.<br><br>'
+        +'오류: '+(e.message||'알 수 없는 오류').split('\n')[0].substring(0,100);
     }
   }finally{busy=false;}
+}
+
+/* ════════════════════════════════════════
+   서버 폴백 — Claude Vision으로 의류 분석
+   → 서버 /api/ai/styling (closet.html 동일 방법)
+════════════════════════════════════════ */
+async function callServerFallback(topPart, bottomPart, facePart, userDesc, genderEn, height, weight){
+  addLog('🔍 Claude Vision으로 의류 분석 중…');
+
+  /* ① Claude Vision으로 상의/하의 묘사 생성 */
+  async function analyzeCloth(part, label){
+    if(!part) return label==='top'?'a stylish top garment':'stylish bottom pants or skirt';
+    try{
+      var resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-20250514',
+          max_tokens:150,
+          system:'Fashion analyst. Describe this garment in 1 sentence (English): exact color, material, style/cut, key details.',
+          messages:[{role:'user',content:[
+            {type:'image',source:{type:'base64',media_type:part.inline_data.mime_type,data:part.inline_data.data}},
+            {type:'text',text:'Describe this '+(label==='top'?'upper garment':'lower garment')+' precisely.'}
+          ]}]
+        })
+      });
+      var d=await resp.json();
+      return ((d.content&&d.content[0]&&d.content[0].text)||'').trim()||label==='top'?'a stylish top':'stylish pants';
+    }catch(e){ return label==='top'?'a stylish top garment':'stylish pants or skirt'; }
+  }
+
+  var topDesc    = await analyzeCloth(topPart,    'top');
+  var bottomDesc = await analyzeCloth(bottomPart, 'bottom');
+  addLog('✅ 상의 분석: '+topDesc.substring(0,50));
+  addLog('✅ 하의 분석: '+bottomDesc.substring(0,50));
+
+  /* ② 서버 설정 */
+  var cfg=(window.CodiBank&&CodiBank.getConfig)?CodiBank.getConfig():{};
+  var backendBase=String(cfg.backendBase||'').trim()
+    ||((window.CodiBank&&CodiBank.getBackendBaseResolved)?String(CodiBank.getBackendBaseResolved()||'').trim():'');
+  var aiBase=(String(cfg.aiBase||'').trim()||backendBase||'https://codibank-api.onrender.com').replace(/\/+$/,'');
+  if(aiBase.startsWith('http://')&&window.location.protocol==='https:')
+    aiBase=aiBase.replace('http://','https://');
+
+  /* ③ imagePrompt 빌드 */
+  var hw=(height&&weight)?'(height '+height+'cm, weight '+(weight||'?')+'kg)':'';
+  var imagePrompt=[
+    'Photorealistic full-body Korean fashion editorial photo of a Korean '+genderEn+' '+hw+'.',
+    'Wearing '+topDesc+' on top.',
+    'Wearing '+bottomDesc+' on bottom.',
+    'Full body head to toe, facing camera, natural slight smile.',
+    'Clean modern Korean urban or studio background, professional fashion lighting.',
+    'Photorealistic fabric textures. No text, no watermarks.',
+  ].join(' ');
+
+  /* ④ 얼굴 dataUrl */
+  var faceDataUrlForServer='';
+  if(facePart&&facePart.inline_data){
+    faceDataUrlForServer='data:'+facePart.inline_data.mime_type+';base64,'+facePart.inline_data.data;
+  }
+
+  /* ⑤ 서버 호출 (closet.html 완전 동일 패턴) */
+  addLog('🌐 서버 /api/ai/styling 요청 중… (최대 65초)');
+
+  function postJson(url, body, ms){
+    var ctl=new AbortController();
+    var t=setTimeout(function(){ctl.abort();},ms||65000);
+    return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:ctl.signal})
+      .then(function(r){
+        return r.json().catch(function(){return null;}).then(function(j){
+          if(!r.ok) throw new Error((j&&j.error)||'HTTP '+r.status);
+          return j;
+        });
+      }).finally(function(){clearTimeout(t);});
+  }
+
+  var payload={
+    user:{email:(user&&user.email)||'',gender:(user&&user.gender)||'M',ageGroup:(user&&user.ageGroup)||'30대',height:height||'',weight:weight||''},
+    weather:{temp:15,text:'mild',location:(user&&user.location)||'서울'},
+    purposeKey:'weekendOut',
+    purposeLabel:'코디하기',
+    styleTitle:'코디하기 착장',
+    explanation:'',
+    keywords:['착장','코디하기'],
+    imagePrompt:imagePrompt,
+    stylist:null, matchPairs:[], palette:{}, paletteLabels:{},
+    colorDirective:'', customDirective:'', categoryKeywords:{},
+    seed:Date.now(),
+    faceImage:faceDataUrlForServer||null,
+    size:'1024x1536',
+    quality:'low',
+  };
+
+  async function tryServer(withFace){
+    var p=Object.assign({},payload,{faceImage:withFace?faceDataUrlForServer:null});
+    var data=await postJson(aiBase+'/api/ai/styling',p,65000);
+    if(!data||data.ok!==true) throw new Error((data&&data.error)||'서버 응답 오류');
+    var rawUrl=String(data.url||data.image||'').trim();
+    var imgRef=String(data.path||'').trim();
+    if(!imgRef&&rawUrl){var mm=rawUrl.match(/\/uploads\/[^?#]+/);if(mm) imgRef=mm[0];}
+    var displaySrc='';
+    if(imgRef&&imgRef.startsWith('/uploads/')) displaySrc=aiBase+imgRef;
+    if(!displaySrc&&rawUrl) displaySrc=rawUrl;
+    if(!displaySrc) throw new Error('서버가 이미지 URL을 반환하지 않았어요');
+    return displaySrc;
+  }
+
+  var resultUrl='';
+  try{
+    resultUrl=await tryServer(true);
+    addLog('✅ 서버 응답 성공 (얼굴 포함)');
+  }catch(e1){
+    addLog('⚠️ 얼굴 포함 실패, 얼굴 없이 재시도…');
+    try{
+      resultUrl=await tryServer(false);
+      addLog('✅ 서버 응답 성공 (얼굴 없이)');
+    }catch(e2){
+      addLog('❌ 서버도 실패: '+e2.message.substring(0,60));
+      throw new Error('Gemini 및 서버 모두 실패: '+e2.message);
+    }
+  }
+
+  return {url:resultUrl, source:'서버 AI'};
 }
 
 /* 저장 / 공유 */
