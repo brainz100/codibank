@@ -66,20 +66,9 @@ CORS(app)
 # ✅ [버그1 수정] 얼굴 사진(base64) 포함 시 요청 바디가 커질 수 있어 허용 크기 확대
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024  # 25MB
 
-# 이미지 저장소
-# - 로컬: ~/.codibank/uploads
-# - 배포: CODIBANK_UPLOAD_DIR 또는 RAILWAY/Render 디스크 경로 우선
-_upload_root = str(os.getenv("CODIBANK_UPLOAD_DIR") or "").strip()
-if not _upload_root:
-    _railway = str(os.getenv("RAILWAY_VOLUME_MOUNT_PATH") or "").strip()
-    _render_disk = str(os.getenv("RENDER_DISK_MOUNT_PATH") or "").strip()
-    _upload_root = _railway or _render_disk or os.path.join(os.path.expanduser("~"), ".codibank")
-_UPLOAD_DIR = os.path.join(_upload_root, "uploads")
+# 간단 이미지 저장소(프로토타입)
+_UPLOAD_DIR = os.path.join(_HERE, "uploads")
 os.makedirs(_UPLOAD_DIR, exist_ok=True)
-
-# 레거시(server/uploads) 폴더도 읽기 전용 폴백으로 유지
-_LEGACY_UPLOAD_DIR = os.path.join(_HERE, "uploads")
-os.makedirs(_LEGACY_UPLOAD_DIR, exist_ok=True)
 
 # 브라우저에서 저장된 경로를 그대로 쓰기 위해 고정 prefix 사용
 _UPLOAD_PREFIX = "/uploads/"
@@ -136,93 +125,6 @@ def _download_remote_image(url: str, timeout: int = 12) -> Tuple[str, bytes]:
         return mime, data
 
 
-def _fetch_remote_html(url: str, timeout: int = 12) -> Tuple[str, str]:
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Referer": urllib.parse.urlsplit(url).scheme + "://" + urllib.parse.urlsplit(url).netloc + "/",
-        },
-        method="GET",
-    )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        final_url = getattr(resp, "geturl", lambda: url)() or url
-        charset = resp.headers.get_content_charset() or "utf-8"
-        raw = resp.read()
-        html = raw.decode(charset, errors="ignore")
-        return final_url, html
-
-
-def _absolutize_url(page_url: str, maybe_url: str) -> str:
-    s = (maybe_url or "").strip()
-    if not s:
-        return ""
-    if s.startswith("//"):
-        return "https:" + s
-    return urllib.parse.urljoin(page_url, s)
-
-
-def _looks_bad_img(url: str) -> bool:
-    u = (url or "").lower()
-    bad_bits = ["logo", "icon", "sprite", "avatar", "banner", "badge", "thumb"]
-    return any(b in u for b in bad_bits)
-
-
-def _extract_best_image_from_html(page_url: str, html: str) -> str:
-    patterns = [
-        r'<meta[^>]+property=["\']og:image(?::url)?["\'][^>]+content=["\']([^"\']+)["\']',
-        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image(?::url)?["\']',
-        r'<meta[^>]+name=["\']twitter:image(?::src)?["\'][^>]+content=["\']([^"\']+)["\']',
-        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']twitter:image(?::src)?["\']',
-    ]
-    for pat in patterns:
-        m = re.search(pat, html, re.I | re.S)
-        if m:
-            cand = _absolutize_url(page_url, m.group(1))
-            if cand and not _looks_bad_img(cand):
-                return cand
-
-    # JSON-LD product image
-    for pat in [
-        r'"image"\s*:\s*\[\s*"([^"\']+)"',
-        r'"image"\s*:\s*"([^"\']+)"',
-    ]:
-        m = re.search(pat, html, re.I | re.S)
-        if m:
-            cand = _absolutize_url(page_url, m.group(1))
-            if cand and not _looks_bad_img(cand):
-                return cand
-
-    img_matches = re.findall(r'<img[^>]+src=["\']([^"\']+)["\']', html, re.I | re.S)
-    candidates = []
-    for src in img_matches:
-        absu = _absolutize_url(page_url, src)
-        if not absu or _looks_bad_img(absu):
-            continue
-        if not re.search(r'\.(jpg|jpeg|png|webp|gif|avif|bmp)(\?|$)', absu, re.I):
-            continue
-        candidates.append(absu)
-    if candidates:
-        candidates.sort(key=lambda s: (len(s), s.count('/')), reverse=True)
-        return candidates[0]
-    return ""
-
-
-def _resolve_representative_image(url: str) -> Tuple[str, str]:
-    src = (url or "").strip()
-    if not src:
-        raise ValueError("url is required")
-    if re.search(r'\.(jpg|jpeg|png|webp|gif|avif|bmp)(\?|$)', src, re.I):
-        return src, "직접 이미지 URL"
-    final_url, html = _fetch_remote_html(src)
-    img_url = _extract_best_image_from_html(final_url, html)
-    if not img_url:
-        raise ValueError("대표 이미지를 찾지 못했어요. 직접 이미지 URL(jpg/png/webp)을 넣어주세요.")
-    return img_url, "쇼핑몰 대표 이미지"
-
-
 def _mime_to_ext(mime: str) -> str:
     m = str(mime or "").lower()
     if "png" in m:
@@ -239,17 +141,9 @@ def _collect_ref_images(payload: Dict[str, Any]) -> Tuple[list[tuple[str, str, b
     face_bytes_for_key: bytes | None = None
 
     face_data_url = payload.get("faceImage")
-    face_url = str(payload.get("faceImageUrl") or "").strip()
     if face_data_url:
         try:
             mime, img_bytes = _data_url_to_bytes(str(face_data_url))
-            refs.append(("face", mime, img_bytes))
-            face_bytes_for_key = img_bytes
-        except Exception:
-            face_bytes_for_key = None
-    elif face_url.startswith(("http://", "https://")):
-        try:
-            mime, img_bytes = _download_remote_image(face_url)
             refs.append(("face", mime, img_bytes))
             face_bytes_for_key = img_bytes
         except Exception:
@@ -697,308 +591,75 @@ def health():
             "no_face": os.getenv("CODIBANK_OPENAI_IMAGE_MODEL", "gpt-image-1.5"),
             "with_face": os.getenv("CODIBANK_OPENAI_IMAGE_MODEL_FACE", "gpt-image-1.5"),
         },
-        has_gemini_key=_safe_bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")),
-        codistyle_model=os.getenv("CODISTYLE_GEMINI_MODEL", "gemini-2.5-flash-image"),
-        upload_dir=_UPLOAD_DIR,
-        legacy_upload_dir=_LEGACY_UPLOAD_DIR,
     )
 
 
 @app.get("/uploads/<path:filename>")
 def serve_upload(filename: str):
-    """업로드된 이미지를 서빙합니다."""
-    from flask import after_this_request, abort
+    """업로드된 이미지를 서빙합니다.
+
+    - 프로토타입/로컬 테스트용
+    - 모바일(같은 Wi-Fi)에서 이미지 URL로 접근 가능
+    - ✅ [버그1·2 수정] CORS + Cache-Control 헤더 추가
+      · crossOrigin=anonymous 설정된 canvas가 taint 없이 이미지를 그릴 수 있도록 CORS 허용
+      · immutable 캐싱으로 재접근 시 빠른 로딩 보장
+    """
+    from flask import after_this_request
     @after_this_request
     def add_headers(response):
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
-        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        response.headers["Cache-Control"] = "public, max-age=86400, immutable"
         return response
-
-    cur = os.path.join(_UPLOAD_DIR, filename)
-    if os.path.isfile(cur):
-        return send_from_directory(_UPLOAD_DIR, filename)
-    legacy = os.path.join(_LEGACY_UPLOAD_DIR, filename)
-    if os.path.isfile(legacy):
-        return send_from_directory(_LEGACY_UPLOAD_DIR, filename)
-    return abort(404)
-
+    return send_from_directory(_UPLOAD_DIR, filename)
 
 
 @app.post("/api/storage/upload")
 def storage_upload():
     """브라우저에서 촬영/선택한 이미지를 서버에 저장합니다.
 
-    지원 입력
-    1) JSON: { dataUrl: "data:image/...;base64,...", slot?: "front|back|brand", email?: "..." }
-    2) multipart/form-data: file 필드 + slot(optional)
+    입력(JSON): { dataUrl: "data:image/...;base64,...", slot?: "front|back|brand", email?: "..." }
+    출력: { ok:true, path:"/uploads/xxx.jpg", url:"http://host:8787/uploads/xxx.jpg" }
+
+    왜 필요한가?
+    - 일부 모바일 브라우저에서 로컬(IndexedDB/Blob URL) 이미지가
+      매우 짧게 보였다가 사라지는 현상이 있어, 데모 안정성을 위해
+      서버 파일로 저장해 참조하도록 합니다.
     """
-    img_bytes = b""
-    ext = "jpg"
+    payload = request.get_json(silent=True) or {}
+    data_url = str(payload.get("dataUrl") or "").strip()
+    if not data_url:
+        return jsonify(ok=False, error="dataUrl이 필요합니다."), 400
 
-    if request.files and request.files.get("file"):
-        f = request.files.get("file")
-        raw = f.read() or b""
-        if not raw:
-            return jsonify(ok=False, error="업로드된 파일이 비어있습니다."), 400
-        mime = str(getattr(f, "mimetype", "") or "image/jpeg")
-        img_bytes = raw
-        ext = _mime_to_ext(mime)
-        slot = re.sub(r"[^a-z0-9_-]+", "", str(request.form.get("slot") or "img").lower())[:16] or "img"
-    else:
-        payload = request.get_json(silent=True) or {}
-        data_url = str(payload.get("dataUrl") or "").strip()
-        if not data_url:
-            return jsonify(ok=False, error="dataUrl 또는 file이 필요합니다."), 400
-        try:
-            mime, img_bytes = _data_url_to_bytes(data_url)
-        except Exception:
-            return jsonify(ok=False, error="이미지 형식이 올바르지 않습니다(dataUrl)."), 400
-        ext = _mime_to_ext(mime)
-        slot = re.sub(r"[^a-z0-9_-]+", "", str(payload.get("slot") or "img").lower())[:16] or "img"
-
-    fname = f"{slot}_{_now_ms()}_{os.urandom(3).hex()}.{ext}"
     try:
-        rel = _write_upload_bytes(slot, ext, img_bytes, fixed_name=fname)
+        mime, img_bytes = _data_url_to_bytes(data_url)
+    except Exception:
+        return jsonify(ok=False, error="이미지 형식이 올바르지 않습니다(dataUrl)."), 400
+
+    # 확장자 결정
+    ext = "jpg"
+    m = (mime or "").lower()
+    if "png" in m:
+        ext = "png"
+    elif "webp" in m:
+        ext = "webp"
+    elif "jpeg" in m or "jpg" in m:
+        ext = "jpg"
+
+    # 파일명(슬롯/시간/난수)
+    slot = re.sub(r"[^a-z0-9_-]+", "", str(payload.get("slot") or "img").lower())[:16] or "img"
+    fname = f"{slot}_{_now_ms()}_{os.urandom(3).hex()}.{ext}"
+    fpath = os.path.join(_UPLOAD_DIR, fname)
+
+    try:
+        with open(fpath, "wb") as f:
+            f.write(img_bytes)
     except Exception as e:
         return jsonify(ok=False, error=f"서버 저장 실패: {e}"), 500
 
+    rel = f"{_UPLOAD_PREFIX}{fname}"
     base = _public_base()
     return jsonify(ok=True, path=rel, url=f"{base}{rel}")
-
-
-@app.post("/api/link/resolve-image")
-def link_resolve_image():
-    payload = request.get_json(silent=True) or {}
-    url = str(payload.get("url") or "").strip()
-    if not url.startswith(("http://", "https://")):
-        return jsonify(ok=False, error="http:// 또는 https://로 시작하는 URL을 입력해주세요."), 400
-    try:
-        img_url, label = _resolve_representative_image(url)
-        mime, img_bytes = _download_remote_image(img_url)
-        ext = _mime_to_ext(mime)
-        rel = _write_upload_bytes("link", ext, img_bytes)
-        base = _public_base()
-        return jsonify(ok=True, label=label, sourceUrl=url, resolvedImageUrl=img_url, path=rel, url=f"{base}{rel}")
-    except Exception as e:
-        return jsonify(ok=False, error=str(e)), 400
-
-
-@app.get("/api/link/resolve-image")
-def link_resolve_image_get():
-    url = str(request.args.get("url") or "").strip()
-    if not url:
-        return jsonify(ok=False, error="url 파라미터가 필요합니다."), 400
-    request._cached_json = {"url": url}  # type: ignore[attr-defined]
-    return link_resolve_image()
-
-
-
-
-def _gemini_api_key() -> str:
-    return str(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
-
-
-def _gemini_models() -> list[str]:
-    primary = str(os.getenv("CODISTYLE_GEMINI_MODEL") or "gemini-2.5-flash-image").strip() or "gemini-2.5-flash-image"
-    models = [primary]
-    extra = [m.strip() for m in str(os.getenv("CODISTYLE_GEMINI_FALLBACK_MODELS") or "").split(",") if m.strip()]
-    use_preview = str(os.getenv("CODISTYLE_USE_PREVIEW_FALLBACK") or "0").strip().lower() in ("1","true","yes","on")
-    if use_preview and "gemini-3.1-flash-image-preview" not in extra and primary != "gemini-3.1-flash-image-preview":
-        extra.append("gemini-3.1-flash-image-preview")
-    for m in extra:
-        if m and m not in models:
-            models.append(m)
-    return models
-
-
-def _normalize_remote_or_local_image(src: str) -> tuple[str, bytes]:
-    s = str(src or "").strip()
-    if not s:
-        raise ValueError("empty image source")
-    if s.startswith("data:image/"):
-        return _data_url_to_bytes(s)
-    if s.startswith("/uploads/"):
-        fname = s[len(_UPLOAD_PREFIX):]
-        cur = os.path.join(_UPLOAD_DIR, fname)
-        legacy = os.path.join(_LEGACY_UPLOAD_DIR, fname)
-        fpath = cur if os.path.isfile(cur) else legacy
-        if not os.path.isfile(fpath):
-            raise FileNotFoundError(f"upload not found: {s}")
-        with open(fpath, "rb") as f:
-            raw = f.read()
-        ext = fname.rsplit(".",1)[-1].lower() if "." in fname else "jpg"
-        mime = {"png":"image/png","webp":"image/webp","jpg":"image/jpeg","jpeg":"image/jpeg"}.get(ext, "image/jpeg")
-        return mime, raw
-    if s.startswith(("http://", "https://")):
-        return _download_remote_image(s)
-    raise ValueError("unsupported image source")
-
-
-def _codistyle_prompt(payload: Dict[str, Any]) -> str:
-    user = payload.get("user") or {}
-    gender = _gender_en(str(user.get("gender") or ""))
-    age = _korean_to_en_age(str(user.get("ageGroup") or ""))
-    height = str(user.get("height") or "").strip()
-    weight = str(user.get("weight") or "").strip()
-    hw = f"{height}cm, {weight}kg" if height and weight else (f"{height}cm" if height else "")
-    location = str((payload.get("weather") or {}).get("location") or payload.get("location") or "서울").strip() or "서울"
-    prompt = (
-        "Create a photorealistic full-body fashion try-on image. "
-        f"The subject should look like the person from the face reference: {gender}, age {age}. "
-        f"Use realistic body proportions for {hw or 'the provided body size'}. "
-        f"This is a modern Korean fashion look appropriate for {location}. "
-        "Use the provided upper-body garment image as the exact top reference and the provided lower-body garment image as the exact bottom reference. "
-        "Preserve clothing category, color, silhouette and key design details from both garment images. "
-        "Show the full body from head to toe, standing naturally, studio or clean street background, fashion editorial quality. "
-        "No extra garments not present in the references. No text, no watermark, no logo. "
-        "Keep the face identity consistent if face reference is provided."
-    )
-    return prompt
-
-
-def _gemini_generate_content(model: str, prompt: str, refs: list[tuple[str, str, bytes]]) -> tuple[bytes, str, str]:
-    api_key = _gemini_api_key()
-    if not api_key:
-        raise RuntimeError("GEMINI_API_KEY가 없습니다. Render 환경변수에 GEMINI_API_KEY 또는 GOOGLE_API_KEY를 설정해주세요.")
-
-    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-    parts = [{"text": prompt}]
-    for _label, mime, raw in refs:
-        parts.append({"inline_data": {"mime_type": mime, "data": base64.b64encode(raw).decode("ascii")}})
-
-    body = {
-        "contents": [{"parts": parts}],
-        "generationConfig": {
-            "responseModalities": ["TEXT", "IMAGE"],
-            "imageConfig": {"aspectRatio": "2:3"}
-        }
-    }
-    raw_body = json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(
-        endpoint,
-        data=raw_body,
-        headers={
-            "Content-Type": "application/json",
-            "x-goog-api-key": api_key,
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", errors="ignore")
-        raise RuntimeError(f"Gemini HTTP {e.code}: {detail[:400]}")
-    except Exception as e:
-        raise RuntimeError(f"Gemini 요청 실패: {e}")
-
-    cands = data.get("candidates") or []
-    if not cands:
-        raise RuntimeError("Gemini 응답에 candidates가 없습니다.")
-    parts = ((cands[0] or {}).get("content") or {}).get("parts") or []
-
-    text_parts: list[str] = []
-    image_bytes = b""
-    image_mime = "image/png"
-    for part in parts:
-        if isinstance(part, dict):
-            txt = part.get("text")
-            if txt:
-                text_parts.append(str(txt))
-            inline = part.get("inlineData") or part.get("inline_data") or {}
-            if inline.get("data"):
-                image_bytes = base64.b64decode(inline.get("data"))
-                image_mime = str(inline.get("mimeType") or inline.get("mime_type") or "image/png")
-                break
-    if not image_bytes:
-        raise RuntimeError("Gemini 응답에서 이미지 데이터를 찾지 못했습니다.")
-    return image_bytes, image_mime, "\n".join([t.strip() for t in text_parts if str(t).strip()])[:400]
-
-
-def _make_codistyle_cache_key(payload: Dict[str, Any], refs: list[tuple[str, str, bytes]]) -> str:
-    user = payload.get("user") or {}
-    body = {
-        "mode": "codistyle",
-        "user": {
-            "gender": user.get("gender") or "",
-            "ageGroup": user.get("ageGroup") or "",
-            "height": user.get("height") or "",
-            "weight": user.get("weight") or "",
-        },
-        "refs": [f"{label}:{_sha256_hex(raw)[:16]}" for label, _mime, raw in refs],
-        "seed": payload.get("seed") or 0,
-    }
-    return _sha256_hex(json.dumps(body, sort_keys=True, ensure_ascii=False).encode("utf-8"))[:24]
-
-
-@app.get("/api/codistyle/diagnose")
-def codistyle_diagnose():
-    return jsonify(
-        ok=bool(_gemini_api_key()),
-        has_gemini_key=bool(_gemini_api_key()),
-        models=_gemini_models(),
-        hint="ok=true면 Gemini 키는 읽혔습니다. 생성 실패 시 링크해석/입력이미지/모델 접근을 점검하세요.",
-    )
-
-
-@app.post("/api/codistyle/generate")
-def codistyle_generate():
-    payload = request.get_json(silent=True) or {}
-
-    # 입력 이미지 수집: face/top/bottom
-    refs: list[tuple[str, str, bytes]] = []
-    face_src = str(payload.get("faceImageUrl") or payload.get("faceImage") or "").strip()
-    top_src = str((payload.get("clothingImageUrls") or {}).get("top") or (payload.get("clothingImages") or {}).get("top") or payload.get("topImageUrl") or payload.get("topImage") or "").strip()
-    bottom_src = str((payload.get("clothingImageUrls") or {}).get("bottom") or (payload.get("clothingImages") or {}).get("bottom") or payload.get("bottomImageUrl") or payload.get("bottomImage") or "").strip()
-
-    if face_src:
-        try:
-            mime, raw = _normalize_remote_or_local_image(face_src)
-            refs.append(("face", mime, raw))
-        except Exception:
-            pass
-    if top_src:
-        mime, raw = _normalize_remote_or_local_image(top_src)
-        refs.append(("top", mime, raw))
-    if bottom_src:
-        mime, raw = _normalize_remote_or_local_image(bottom_src)
-        refs.append(("bottom", mime, raw))
-
-    if not any(r[0] == "top" for r in refs) or not any(r[0] == "bottom" for r in refs):
-        return jsonify(ok=False, error="상의와 하의 이미지를 모두 준비해주세요."), 400
-
-    prompt = _codistyle_prompt(payload)
-    cache_key = _make_codistyle_cache_key(payload, refs)
-    cache_fname = f"codistyle_{cache_key}.png"
-    cache_path = os.path.join(_UPLOAD_DIR, cache_fname)
-    if os.path.exists(cache_path):
-        rel = f"{_UPLOAD_PREFIX}{cache_fname}"
-        base = _public_base()
-        return jsonify(ok=True, image=f"{base}{rel}", url=f"{base}{rel}", path=rel, model="cache", comment="선택한 상의/하의 기준으로 저장된 착장 이미지를 다시 불러왔어요.")
-
-    last_err: Exception | None = None
-    for model in _gemini_models():
-        try:
-            img_bytes, img_mime, comment = _gemini_generate_content(model, prompt, refs)
-            ext = _mime_to_ext(img_mime)
-            # ext 맞춰 캐시 파일명 조정
-            cache_fname2 = f"codistyle_{cache_key}.{ext}"
-            rel = _write_upload_bytes("codistyle", ext, img_bytes, fixed_name=cache_fname2)
-            base = _public_base()
-            return jsonify(
-                ok=True,
-                image=f"{base}{rel}",
-                url=f"{base}{rel}",
-                path=rel,
-                model=model,
-                comment=(comment or "선택한 상의와 하의를 기준으로 착장 이미지를 생성했어요.")[:400],
-            )
-        except Exception as e:
-            last_err = e
-            continue
-
-    return jsonify(ok=False, error=str(last_err or "Gemini 이미지 생성 실패"), models=_gemini_models()), 500
 
 
 @app.get("/api/ai/diagnose")
@@ -1199,3 +860,168 @@ if __name__ == "__main__":
     # - 투자자 데모/외부 공유 목적이면 debug=False가 훨씬 안전합니다.
     debug = str(os.getenv("CODIBANK_DEBUG", "0")).strip().lower() in ("1", "true", "yes", "on")
     app.run(host="0.0.0.0", port=port, debug=debug, use_reloader=debug)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# /api/codistyle/generate
+# 코디하기 착장 이미지 생성 (Gemini 이미지 생성 모델 사용)
+#
+# ★ 핵심 수정:
+#   - topImageDataUrl / bottomImageDataUrl (base64) 우선 처리
+#   - topImageUrl / bottomImageUrl (HTTP) 폴백 (Render self-download 문제 우회)
+#   - Render free tier ephemeral disk 문제 완전 해결
+# ─────────────────────────────────────────────────────────────────────────────
+
+import google.generativeai as genai  # type: ignore
+from PIL import Image as PILImage  # type: ignore
+import PIL
+
+_CODISTYLE_MODEL = os.getenv("CODIBANK_CODISTYLE_MODEL", "gemini-2.0-flash-exp-image-generation")
+_GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
+
+
+def _normalize_image_src(data_url_field: str, url_field: str) -> Tuple[str, bytes]:
+    """
+    이미지 소스를 정규화해서 (mime, bytes) 반환.
+    data URL 필드 우선 → HTTP URL 폴백
+    ★ HTTP URL 폴백은 Render self-download 문제가 있으므로 base64 우선 필수
+    """
+    # 1순위: base64 data URL (HTTP 다운로드 없음 → 안전)
+    if data_url_field and data_url_field.strip().startswith("data:"):
+        return _data_url_to_bytes(data_url_field.strip())
+    # 2순위: HTTP URL (Render에서 자기 자신에게 요청 시 timeout 가능)
+    if url_field and url_field.strip().startswith(("http://", "https://")):
+        return _download_remote_image(url_field.strip(), timeout=20)
+    raise ValueError("이미지 소스가 없습니다 (data URL 또는 HTTP URL 필요)")
+
+
+def _bytes_to_pil(mime: str, data: bytes) -> "PILImage.Image":
+    import io
+    return PILImage.open(io.BytesIO(data))
+
+
+@app.post("/api/codistyle/generate")
+def codistyle_generate():
+    """
+    코디하기 착장 이미지 생성
+    입력:
+      topImageDataUrl    (str) base64 data URL - 상의 이미지 ← 우선
+      topImageUrl        (str) HTTP URL        - 상의 이미지 ← 폴백
+      bottomImageDataUrl (str) base64 data URL - 하의 이미지 ← 우선
+      bottomImageUrl     (str) HTTP URL        - 하의 이미지 ← 폴백
+      faceImageDataUrl   (str, optional) 얼굴 base64
+      user               (dict, optional) 사용자 정보
+      location           (str, optional) 위치
+    출력:
+      { ok: true, path: "/uploads/xxx.jpg", url: "https://...", comment: "..." }
+    """
+    if not _GEMINI_API_KEY:
+        return jsonify(ok=False, error="GEMINI_API_KEY가 설정되지 않았습니다."), 400
+
+    payload = request.get_json(silent=True) or {}
+
+    top_data    = str(payload.get("topImageDataUrl")    or "").strip()
+    top_url     = str(payload.get("topImageUrl")        or "").strip()
+    bottom_data = str(payload.get("bottomImageDataUrl") or "").strip()
+    bottom_url  = str(payload.get("bottomImageUrl")     or "").strip()
+    face_data   = str(payload.get("faceImageDataUrl")   or "").strip()
+    user_info   = payload.get("user") or {}
+    location    = str(payload.get("location") or "서울").strip()
+
+    if not (top_data or top_url):
+        return jsonify(ok=False, error="상의 이미지가 필요합니다 (topImageDataUrl 또는 topImageUrl)"), 400
+    if not (bottom_data or bottom_url):
+        return jsonify(ok=False, error="하의 이미지가 필요합니다 (bottomImageDataUrl 또는 bottomImageUrl)"), 400
+
+    try:
+        # ── 이미지 로드 ──
+        top_mime,    top_bytes    = _normalize_image_src(top_data,    top_url)
+        bottom_mime, bottom_bytes = _normalize_image_src(bottom_data, bottom_url)
+
+        top_img    = _bytes_to_pil(top_mime,    top_bytes)
+        bottom_img = _bytes_to_pil(bottom_mime, bottom_bytes)
+
+        face_img = None
+        if face_data and face_data.startswith("data:"):
+            try:
+                face_mime, face_bytes = _data_url_to_bytes(face_data)
+                face_img = _bytes_to_pil(face_mime, face_bytes)
+            except Exception:
+                face_img = None
+
+        # ── 사용자 정보 ──
+        gender   = str(user_info.get("gender")   or "M").strip()
+        age      = str(user_info.get("ageGroup")  or "30대").strip()
+        height   = str(user_info.get("height")    or "").strip()
+        weight   = str(user_info.get("weight")    or "").strip()
+        gender_en = "man" if gender.upper() == "M" else "woman"
+        hw_note  = f"(height {height}cm, weight {weight}kg)" if height and weight else ""
+
+        # ── Gemini 프롬프트 ──
+        prompt_parts = [
+            f"Create a photorealistic full-body Korean fashion editorial photo of a Korean {gender_en}, {age} {hw_note}.",
+        ]
+        if face_img:
+            prompt_parts.append("The first image is the face reference — preserve the exact facial identity.")
+        prompt_parts += [
+            "The second image is the upper garment (top/jacket). Reproduce exact color, silhouette, and design details.",
+            "The third image is the lower garment (pants/skirt). Reproduce exact color, silhouette, and design details.",
+            "Show full body from head to toe. Person faces camera with natural slight smile.",
+            f"Clean modern Korean urban or studio background. Location: {location}.",
+            "Professional fashion editorial lighting. Photorealistic fabric textures. No text. No watermarks.",
+        ]
+        prompt = " ".join(prompt_parts)
+
+        # ── Gemini API 호출 ──
+        genai.configure(api_key=_GEMINI_API_KEY)
+        model = genai.GenerativeModel(_CODISTYLE_MODEL)
+
+        images = []
+        if face_img:
+            images.append(face_img)
+        images.append(top_img)
+        images.append(bottom_img)
+
+        response = model.generate_content(
+            [prompt] + images,
+            generation_config=genai.GenerationConfig(
+                response_modalities=["IMAGE", "TEXT"],
+                temperature=0.7,
+            ),
+        )
+
+        # ── 응답에서 이미지 추출 ──
+        result_img_bytes = None
+        for part in response.candidates[0].content.parts:
+            if hasattr(part, "inline_data") and part.inline_data and part.inline_data.data:
+                result_img_bytes = part.inline_data.data
+                break
+
+        if not result_img_bytes:
+            # 텍스트 응답 확인
+            text_parts = [p.text for p in response.candidates[0].content.parts if hasattr(p, "text") and p.text]
+            reason = response.candidates[0].finish_reason if response.candidates else "UNKNOWN"
+            raise ValueError(f"Gemini가 이미지를 생성하지 않았습니다. finish_reason={reason}. {' '.join(text_parts)[:200]}")
+
+        # ── 결과 저장 ──
+        rel = _write_upload_bytes("codistyle", "jpg", result_img_bytes)
+        base = _public_base()
+
+        comment = ""
+        for part in response.candidates[0].content.parts:
+            if hasattr(part, "text") and part.text:
+                comment = part.text.strip()[:200]
+                break
+
+        return jsonify(
+            ok=True,
+            path=rel,
+            image=f"{base}{rel}",
+            url=f"{base}{rel}",
+            comment=comment or "AI 착장 이미지가 생성됐어요!",
+            model=_CODISTYLE_MODEL,
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify(ok=False, error=str(e)), 500
