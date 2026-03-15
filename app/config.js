@@ -1,7 +1,7 @@
 // - 필요 시 app/config.example.js 를 참고해 값만 수정하세요.
 
 window.CODIBANK_CONFIG = {
-  backendBase: "https://codibank.onrender.com ",
+  backendBase: "https://codibank-api.onrender.com ",
   weatherProvider: "OPEN_METEO_DEV", // 프로토타입 기본(상업 운영 시 KMA 전환 권장)
   kmaServiceKey: "",
   allowOpenMeteoDev: true,
