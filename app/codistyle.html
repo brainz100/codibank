@@ -404,32 +404,33 @@ async function uploadSlot(k, file){
   updateBtn();
 
   try{
-    /* dataUrl → blob → FormData */
+    /* dataUrl → base64 변환 */
     var dataUrl = await new Promise(function(res,rej){
       var fr=new FileReader();
       fr.onload=function(){res(fr.result);}; fr.onerror=rej;
       fr.readAsDataURL(file);
     });
-    /* 축소 (서버 전송 최적화) */
+    /* 축소 */
     dataUrl = await downscale(dataUrl, 1200, 0.86);
     /* ★ base64 저장 — generate()에서 payload에 직접 포함 */
     ST[k].dataUrl = dataUrl;
 
-    /* base64 → Blob */
-    var arr=dataUrl.split(','), mime=(arr[0].match(/:(.*?);/)||[])[1]||'image/jpeg';
-    var bstr=atob(arr[1]), n=bstr.length, u8=new Uint8Array(n);
-    while(n--) u8[n]=bstr.charCodeAt(n);
-    var blob=new Blob([u8],{type:mime});
-
-    var form=new FormData();
-    form.append('slot', k);
-    form.append('email', (user&&user.email)||'');
-    form.append('file', blob, k+'.jpg');
+    /* ★ 서버는 JSON {dataUrl, slot, email} 형식 기대
+       (FormData + file blob 아님) */
+    var slot_name = k === 'top' ? 'top' : 'bottom';
+    var body = JSON.stringify({
+      dataUrl: dataUrl,
+      slot:    slot_name,
+      email:   (user&&user.email)||''
+    });
 
     var ctl=new AbortController();
     var timer=setTimeout(function(){ctl.abort();}, 45000);
     var res=await fetch(SERVER+'/api/storage/upload',{
-      method:'POST', body:form, signal:ctl.signal
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:   body,
+      signal: ctl.signal
     });
     clearTimeout(timer);
 
