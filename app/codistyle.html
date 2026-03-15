@@ -10,14 +10,13 @@
 <style>
 :root{
   --navy:#071952;--teal:#35A29F;--teal2:#0B666A;--mint:#97FEED;
-  --line:rgba(151,254,237,.18);--danger:#fca5a5;
+  --line:rgba(151,254,237,.18);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
 body{background:var(--navy);color:#fff;font-family:'Noto Sans KR',sans-serif;
      max-width:480px;margin-inline:auto;min-height:100dvh;padding-bottom:92px;}
 .mi{font-family:'Material Symbols Outlined';font-weight:400;font-style:normal;line-height:1;}
 
-/* ─ 헤더 */
 .header{display:flex;align-items:center;gap:12px;padding:18px 16px 10px;}
 .back{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);
   background:rgba(151,254,237,.08);color:var(--mint);display:flex;align-items:center;
@@ -25,34 +24,44 @@ body{background:var(--navy);color:#fff;font-family:'Noto Sans KR',sans-serif;
 .h-title{font-family:'Outfit',sans-serif;font-size:24px;font-weight:900;color:var(--mint);}
 .h-sub{font-size:11px;color:rgba(255,255,255,.46);margin-top:3px;}
 
-/* ─ 안내 배너 */
 .banner{margin:0 16px 16px;background:rgba(11,102,106,.16);border:1px solid rgba(151,254,237,.16);
   border-radius:16px;padding:13px 15px;font-size:12px;line-height:1.7;color:rgba(255,255,255,.72);}
 .banner strong{color:var(--mint);}
 
-/* ─ 섹션 */
 .sec{padding:0 16px 16px;}
 .sec-title{font-size:14px;font-weight:800;color:var(--mint);
   display:flex;align-items:center;gap:8px;margin-bottom:10px;}
 .req{font-size:10px;padding:2px 7px;border-radius:999px;
   background:rgba(248,113,113,.16);border:1px solid rgba(248,113,113,.28);color:#fecaca;}
 
-/* ─ 카드 레이아웃 */
 .row{display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:10px;align-items:start;}
 .card{aspect-ratio:1/1.4;border-radius:18px;overflow:hidden;
   background:rgba(11,102,106,.12);border:2px dashed rgba(53,162,159,.4);
   position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;}
 .card.filled{border-style:solid;border-color:rgba(151,254,237,.42);}
+.card.uploading{border-color:rgba(255,200,80,.5);background:rgba(255,200,80,.05);}
 .card img{width:100%;height:100%;object-fit:contain;background:#081634;display:block;}
 .ph{display:flex;flex-direction:column;align-items:center;gap:8px;
   color:rgba(151,254,237,.38);pointer-events:none;}
 .ph .mi{font-size:42px;} .ph p{font-size:12px;}
-.badge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.58);
+.card-badge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.62);
   padding:4px 8px;border-radius:10px;font-size:10px;font-weight:800;color:var(--mint);}
-.rm{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;
-  border:none;background:rgba(0,0,0,.68);color:#fff;
-  display:flex;align-items:center;justify-content:center;cursor:pointer;
+.card-rm{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;
+  border:none;background:rgba(0,0,0,.68);color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
   font-family:'Material Symbols Outlined';font-size:16px;}
+.upload-overlay{position:absolute;inset:0;background:rgba(7,25,82,.75);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;}
+.upload-ring{width:36px;height:36px;border-radius:50%;
+  border:3px solid rgba(151,254,237,.2);border-top-color:var(--mint);
+  animation:sp .8s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg)}}
+.upload-txt{font-size:11px;color:var(--mint);font-weight:700;}
+
+.status-bar{margin-top:6px;font-size:11px;min-height:18px;padding:0 2px;
+  display:flex;align-items:center;gap:5px;}
+.status-bar .mi{font-size:13px;}
+.st-ok{color:#a7f3d0;} .st-err{color:#fca5a5;} .st-load{color:rgba(162,253,240,.65);}
 
 .side{display:flex;flex-direction:column;gap:8px;}
 .btn{border:none;border-radius:14px;padding:14px 10px;font-size:12px;font-weight:800;
@@ -60,31 +69,8 @@ body{background:var(--navy);color:#fff;font-family:'Noto Sans KR',sans-serif;
 .btn .mi{font-size:20px;}
 .btn.cam{background:#fff;color:var(--navy);}
 .btn.sel{background:rgba(53,162,159,.18);border:1px solid rgba(53,162,159,.3);color:var(--mint);}
-.btn.lnk{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.55);}
 
-/* ─ 링크 패널 */
-.lp{display:none;flex-direction:column;gap:8px;
-  background:rgba(4,14,46,.95);border:1px solid rgba(151,254,237,.2);
-  border-radius:14px;padding:13px;margin-top:10px;}
-.lp.open{display:flex;}
-.lp-hint{font-size:10.5px;color:rgba(255,255,255,.5);line-height:1.6;
-  background:rgba(53,162,159,.08);border-radius:8px;padding:8px 10px;}
-.lp-hint b{color:var(--mint);}
-.lp-inp{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(151,254,237,.25);
-  border-radius:9px;padding:10px 12px;font-size:12px;color:#fff;outline:none;}
-.lp-inp::placeholder{color:rgba(255,255,255,.22);}
-.lp-inp:focus{border-color:rgba(151,254,237,.5);}
-.lp-st{font-size:11px;min-height:16px;display:flex;align-items:center;gap:5px;}
-.lp-st .mi{font-size:13px;}
-.lp-btns{display:flex;gap:7px;}
-.lp-ok{flex:1;padding:10px;background:var(--teal2);border:none;border-radius:9px;
-  color:var(--mint);font-size:12px;font-weight:800;cursor:pointer;}
-.lp-ok:active{background:var(--teal);} .lp-ok:disabled{opacity:.38;cursor:not-allowed;}
-.lp-cancel{padding:10px 13px;background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.1);border-radius:9px;
-  color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;}
-
-/* ─ 얼굴 섹션 */
+/* 얼굴 섹션 */
 .face-row{display:flex;align-items:center;gap:14px;margin:0 16px 16px;
   background:rgba(7,25,82,.5);border:1px solid var(--line);border-radius:16px;padding:13px 15px;}
 .face-circle{width:62px;height:62px;border-radius:50%;overflow:hidden;flex-shrink:0;
@@ -104,7 +90,6 @@ body{background:var(--navy);color:#fff;font-family:'Noto Sans KR',sans-serif;
 
 .div{height:1px;background:rgba(151,254,237,.08);margin:2px 16px 16px;}
 
-/* ─ 생성 버튼 */
 .gen-wrap{padding:0 16px;}
 .gen-btn{width:100%;border:none;border-radius:22px;
   background:linear-gradient(135deg,var(--teal2),var(--teal));
@@ -117,40 +102,37 @@ body{background:var(--navy);color:#fff;font-family:'Noto Sans KR',sans-serif;
 .gen-note{text-align:center;font-size:11px;color:rgba(255,255,255,.42);
   line-height:1.65;margin-top:10px;}
 
-/* ─ 결과 영역 */
+/* 결과 영역 */
 .result{padding:18px 16px 0;display:none;}
 .res-box{border-radius:22px;background:rgba(13,31,60,.88);
   border:1px solid var(--line);overflow:hidden;}
 .res-head{padding:16px 18px 8px;font-size:14px;font-weight:800;color:var(--mint);}
 
-/* ─ 단계 진행 표시 */
+/* 단계 UI */
 .steps-wrap{padding:0 18px 12px;display:flex;flex-direction:column;gap:6px;}
 .step-row{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;
   border-radius:10px;transition:.2s;}
-.step-row.wait{opacity:.35;}
+.step-row.wait{opacity:.3;}
 .step-row.active{background:rgba(53,162,159,.1);opacity:1;}
 .step-row.done{background:rgba(16,185,129,.07);opacity:1;}
 .step-row.fail{background:rgba(248,113,113,.09);opacity:1;}
-.step-icon{font-family:'Material Symbols Outlined';font-size:18px;flex-shrink:0;
-  margin-top:1px;transition:.2s;}
+.step-icon{font-family:'Material Symbols Outlined';font-size:18px;flex-shrink:0;margin-top:1px;}
 .step-row.wait  .step-icon{color:rgba(255,255,255,.25);}
 .step-row.active .step-icon{color:var(--mint);animation:si-spin .8s linear infinite;}
 .step-row.done   .step-icon{color:#6ee7b7;}
 .step-row.fail   .step-icon{color:#f87171;}
 @keyframes si-spin{to{transform:rotate(360deg)}}
 .step-body{flex:1;min-width:0;}
-.step-title{font-size:12px;font-weight:700;color:rgba(255,255,255,.75);margin-bottom:2px;}
+.step-title{font-size:12px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:2px;}
 .step-row.active .step-title{color:var(--mint);}
 .step-row.done   .step-title{color:#a7f3d0;}
 .step-row.fail   .step-title{color:#fca5a5;}
-/* 에러 상세 */
-.step-err{font-size:10.5px;line-height:1.65;color:rgba(252,165,165,.8);
-  background:rgba(248,113,113,.08);border-radius:7px;padding:7px 9px;margin-top:5px;
-  font-family:monospace;word-break:break-all;white-space:pre-wrap;}
-/* 성공 상세 */
-.step-ok{font-size:10.5px;color:rgba(167,243,208,.65);margin-top:2px;}
+.step-detail{font-size:10.5px;color:rgba(255,255,255,.45);margin-top:2px;}
+.step-err{font-size:10.5px;line-height:1.65;color:rgba(252,165,165,.85);
+  background:rgba(248,113,113,.08);border-radius:7px;padding:7px 9px;
+  margin-top:5px;font-family:monospace;word-break:break-all;white-space:pre-wrap;}
 
-/* ─ 결과 이미지 */
+/* 결과 이미지 */
 .res-ct{padding:0 14px 14px;}
 .res-stage{border-radius:18px;overflow:hidden;background:rgba(255,255,255,.04);
   aspect-ratio:2/3;display:flex;align-items:center;justify-content:center;}
@@ -160,19 +142,17 @@ body{background:var(--navy);color:#fff;font-family:'Noto Sans KR',sans-serif;
 .ring{width:42px;height:42px;border-radius:50%;
   border:3px solid rgba(151,254,237,.15);border-top-color:var(--mint);
   animation:sp .85s linear infinite;}
-@keyframes sp{to{transform:rotate(360deg)}}
 .ok-box{margin-top:10px;border-radius:14px;
   border:1px solid rgba(16,185,129,.22);background:rgba(16,185,129,.08);
   padding:12px 14px;font-size:12px;line-height:1.6;color:#bbf7d0;}
 .actions{display:flex;gap:8px;padding:12px 14px 16px;}
-.ab{flex:1;border-radius:14px;padding:12px 0;border:none;
-  font-size:13px;font-weight:800;display:flex;justify-content:center;align-items:center;gap:6px;cursor:pointer;}
+.ab{flex:1;border-radius:14px;padding:12px 0;border:none;font-size:13px;font-weight:800;
+  display:flex;justify-content:center;align-items:center;gap:6px;cursor:pointer;}
 .ab.save{background:rgba(53,162,159,.18);border:1px solid rgba(53,162,159,.3);color:var(--mint);}
 .ab.share{background:#fff;color:var(--navy);}
 .ab.retry{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.55);}
 .ab:active{opacity:.75;transform:scale(.96);}
 
-/* ─ cb-nav */
 .cb-spacer{height:80px;}
 .cb-nav{position:fixed;left:0;right:0;bottom:0;background:#071952;
   border-top:2px solid rgba(151,254,237,.15);z-index:99999;}
@@ -198,41 +178,28 @@ input[type=file]{display:none;}
   <a href="closet.html" class="back"><span class="mi">arrow_back</span></a>
   <div>
     <div class="h-title">✦ 코디하기</div>
-    <div class="h-sub">상의·하의 사진 → AI 착장 이미지 생성</div>
+    <div class="h-sub">상의·하의 사진 → Gemini AI 착장 이미지 생성</div>
   </div>
 </header>
 
 <div class="banner">
-  <strong>상의</strong>와 <strong>하의</strong>를 등록하면 AI가 착장 이미지를 만들어드려요.<br>
-  사진 촬영, 갤러리 선택, 또는 쇼핑몰 <strong>이미지 URL</strong>을 붙여넣으세요.
+  <strong>상의</strong>와 <strong>하의</strong>를 등록하면 Gemini AI가 착장 이미지를 만들어드려요.<br>
+  얼굴 사진을 추가하면 내 얼굴로 입혀드려요.
 </div>
 
 <!-- 상의 -->
 <section class="sec">
   <div class="sec-title"><span class="mi">checkroom</span>상의 <span class="req">필수</span></div>
   <div class="row">
-    <div class="card" id="topCard" onclick="if(!this.classList.contains('filled'))trigGal('top')">
+    <div class="card" id="topCard" onclick="if(!this.classList.contains('filled')&&!this.classList.contains('uploading'))trigGal('top')">
       <div class="ph"><span class="mi">add_photo_alternate</span><p>상의 이미지</p></div>
     </div>
     <div class="side">
       <button class="btn cam" onclick="trigCam('top')"><span class="mi">photo_camera</span>사진촬영</button>
       <button class="btn sel" onclick="trigGal('top')"><span class="mi">photo_library</span>사진선택</button>
-      <button class="btn lnk" onclick="togLink('top')"><span class="mi">link</span>링크</button>
     </div>
   </div>
-  <div class="lp" id="lp-top">
-    <div class="lp-hint">
-      <b>① 이미지 꾹 누르기 → "이미지 주소 복사" → 붙여넣기</b><br>
-      ② 무신사·에이블리 등 상품 URL (대표이미지 자동 추출)
-    </div>
-    <input class="lp-inp" id="li-top" type="url" placeholder="https://..." inputmode="url"
-      onkeydown="if(event.key==='Enter'){event.preventDefault();applyLink('top');}"/>
-    <div class="lp-st" id="ls-top"></div>
-    <div class="lp-btns">
-      <button class="lp-ok" id="lbtn-top" onclick="applyLink('top')">이미지 등록</button>
-      <button class="lp-cancel" onclick="closeLink('top')">취소</button>
-    </div>
-  </div>
+  <div class="status-bar" id="topStatus"></div>
   <input type="file" accept="image/*" capture="environment" id="cam-top" onchange="onFile(event,'top')"/>
   <input type="file" accept="image/*" id="gal-top" onchange="onFile(event,'top')"/>
 </section>
@@ -243,28 +210,15 @@ input[type=file]{display:none;}
 <section class="sec">
   <div class="sec-title"><span class="mi">straighten</span>하의 <span class="req">필수</span></div>
   <div class="row">
-    <div class="card" id="bottomCard" onclick="if(!this.classList.contains('filled'))trigGal('bottom')">
+    <div class="card" id="bottomCard" onclick="if(!this.classList.contains('filled')&&!this.classList.contains('uploading'))trigGal('bottom')">
       <div class="ph"><span class="mi">add_photo_alternate</span><p>하의 이미지</p></div>
     </div>
     <div class="side">
       <button class="btn cam" onclick="trigCam('bottom')"><span class="mi">photo_camera</span>사진촬영</button>
       <button class="btn sel" onclick="trigGal('bottom')"><span class="mi">photo_library</span>사진선택</button>
-      <button class="btn lnk" onclick="togLink('bottom')"><span class="mi">link</span>링크</button>
     </div>
   </div>
-  <div class="lp" id="lp-bottom">
-    <div class="lp-hint">
-      <b>① 이미지 꾹 누르기 → "이미지 주소 복사" → 붙여넣기</b><br>
-      ② 무신사·에이블리 등 상품 URL (대표이미지 자동 추출)
-    </div>
-    <input class="lp-inp" id="li-bottom" type="url" placeholder="https://..." inputmode="url"
-      onkeydown="if(event.key==='Enter'){event.preventDefault();applyLink('bottom');}"/>
-    <div class="lp-st" id="ls-bottom"></div>
-    <div class="lp-btns">
-      <button class="lp-ok" id="lbtn-bottom" onclick="applyLink('bottom')">이미지 등록</button>
-      <button class="lp-cancel" onclick="closeLink('bottom')">취소</button>
-    </div>
-  </div>
+  <div class="status-bar" id="bottomStatus"></div>
   <input type="file" accept="image/*" capture="environment" id="cam-bottom" onchange="onFile(event,'bottom')"/>
   <input type="file" accept="image/*" id="gal-bottom" onchange="onFile(event,'bottom')"/>
 </section>
@@ -298,27 +252,24 @@ input[type=file]{display:none;}
 <section class="result" id="resultSection">
   <div class="res-box">
     <div class="res-head">✦ 코디하기 결과</div>
-
-    <!-- 단계별 진행 상황 -->
     <div class="steps-wrap" id="stepsWrap">
       <div class="step-row wait" id="srow1">
-        <span class="step-icon mi">image_search</span>
+        <span class="step-icon mi">upload</span>
         <div class="step-body">
-          <div class="step-title" id="stitle1">STEP 1 — 이미지 준비 및 변환</div>
-          <div class="step-ok" id="sok1" style="display:none"></div>
+          <div class="step-title" id="stitle1">STEP 1 — 이미지 서버 업로드</div>
+          <div class="step-detail" id="sdetail1"></div>
           <div class="step-err" id="serr1" style="display:none"></div>
         </div>
       </div>
       <div class="step-row wait" id="srow2">
         <span class="step-icon mi">auto_awesome</span>
         <div class="step-body">
-          <div class="step-title" id="stitle2">STEP 2 — 서버 AI 착장 이미지 생성</div>
-          <div class="step-ok" id="sok2" style="display:none"></div>
+          <div class="step-title" id="stitle2">STEP 2 — Gemini AI 착장 이미지 생성</div>
+          <div class="step-detail" id="sdetail2"></div>
           <div class="step-err" id="serr2" style="display:none"></div>
         </div>
       </div>
     </div>
-
     <div class="res-ct">
       <div class="res-stage" id="resultStage">
         <div style="color:rgba(255,255,255,.15);display:flex;flex-direction:column;align-items:center;gap:12px;">
@@ -351,86 +302,171 @@ input[type=file]{display:none;}
 </nav>
 
 <script>
-/* ══════════════════════════════════════════
-   인증
-══════════════════════════════════════════ */
+/* ══ 인증 ══ */
 if(window.CodiBank && CodiBank.requireAuth) CodiBank.requireAuth('login.html');
-var user=(window.CodiBank&&CodiBank.getCurrentUser)?CodiBank.getCurrentUser():null;
+var user = (window.CodiBank&&CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;
+
+/* ══════════════════════════════════════════
+   서버 URL
+   GPT 버전과 동일: getCodistyleBase() → codibank-api.onrender.com
+   ★ config.js의 codistyleBase 우선, 없으면 하드코딩 폴백
+══════════════════════════════════════════ */
+function getServerBase(){
+  var cfg = (window.CodiBank&&CodiBank.getConfig) ? CodiBank.getConfig() : {};
+  var explicit = String(
+    (window.CODIBANK_CONFIG&&window.CODIBANK_CONFIG.codistyleBase) ||
+    cfg.codistyleBase || cfg.backendBase || ''
+  ).trim().replace(/\/+$/,'');
+  if(explicit && !explicit.includes(':8787') && explicit.includes('onrender')){
+    return explicit;
+  }
+  /* ★ 하드코딩 폴백 — health에서 확인된 실제 서버 URL */
+  return 'https://codibank-api.onrender.com';
+}
+var SERVER = getServerBase();
 
 /* ══════════════════════════════════════════
    슬롯 상태
+   serverPath: 서버에 업로드 후 받은 경로 (예: /uploads/top_xxx.jpg)
+   localUrl: 브라우저 blob URL (미리보기용)
+   uploading: 업로드 진행 중 여부
 ══════════════════════════════════════════ */
-var SLOTS=['top','bottom'];
-var ST={
-  top:   {blobUrl:null, dataUrl:null, imageUrl:null, rawUrl:null, srcType:null},
-  bottom:{blobUrl:null, dataUrl:null, imageUrl:null, rawUrl:null, srcType:null}
+var SLOTS = ['top','bottom'];
+var ST = {
+  top:    {localUrl:'', serverPath:'', uploading:false},
+  bottom: {localUrl:'', serverPath:'', uploading:false}
 };
-var faceDataUrl=null, lastResult=null, busy=false;
+var faceDataUrl = null;
+var lastResultUrl = null;
+var busy = false;
 
-function hasItem(k){ return !!(ST[k].blobUrl||ST[k].dataUrl||ST[k].imageUrl||ST[k].rawUrl); }
+function isReady(k){ return !!ST[k].serverPath && !ST[k].uploading; }
+function hasSrc(k){  return !!ST[k].localUrl || !!ST[k].serverPath; }
 
-/* ══════════════════════════════════════════
-   카드 렌더
-══════════════════════════════════════════ */
+/* ══ 카드 렌더 ══ */
 function renderCard(k){
-  var c=document.getElementById(k+'Card');
-  var label=k==='top'?'상의':'하의';
-  if(!hasItem(k)){
+  var c = document.getElementById(k+'Card');
+  var label = k==='top'?'상의':'하의';
+  if(!hasSrc(k)){
     c.className='card';
-    c.innerHTML='<div class="ph"><span class="mi">add_photo_alternate</span><p>'+label+' 이미지</p></div>';
+    c.innerHTML='<div class="ph"><span class="mi">add_photo_alternate</span><p>'+label+'</p></div>';
     return;
   }
-  var t=ST[k].srcType, em=t==='cam'?'📷':t==='gal'?'🖼':'🔗';
-  var disp=ST[k].blobUrl||ST[k].imageUrl||null;
-  var rm='<button class="rm" onclick="event.stopPropagation();removeSlot(\''+k+'\')">close</button>';
-  c.className='card filled';
-  if(disp){
-    c.innerHTML='<span class="badge">'+em+' '+label+'</span>'+rm
-      +'<img src="'+disp+'" alt="'+label+'" onerror="onCardErr(this,\''+k+'\')">';
-  } else {
-    c.innerHTML='<span class="badge">'+em+' '+label+'</span>'+rm
-      +'<div class="ph" style="gap:6px;padding:16px 8px">'
-      +'<span class="mi" style="font-size:32px;color:rgba(53,162,159,.8)">check_circle</span>'
-      +'<p style="color:rgba(255,255,255,.5);font-size:10px;text-align:center">링크 등록 완료</p></div>';
+  var rm='<button class="card-rm" onclick="event.stopPropagation();removeSlot(\''+k+'\')">close</button>';
+  if(ST[k].uploading){
+    c.className='card uploading';
+    c.innerHTML=(ST[k].localUrl?'<img src="'+ST[k].localUrl+'" alt="'+label+'">':'')
+      +'<div class="upload-overlay">'
+      +'<div class="upload-ring"></div>'
+      +'<div class="upload-txt">서버 업로드 중…</div></div>'+rm;
+  } else if(ST[k].serverPath){
+    c.className='card filled';
+    c.innerHTML='<span class="card-badge">✓ '+label+'</span>'
+      +(ST[k].localUrl?'<img src="'+ST[k].localUrl+'" alt="'+label+'">':
+        '<div class="ph" style="gap:6px;padding:16px 8px">'
+        +'<span class="mi" style="font-size:32px;color:rgba(53,162,159,.8)">check_circle</span>'
+        +'<p style="font-size:10px;color:rgba(255,255,255,.5)">업로드 완료</p></div>')
+      +rm;
   }
 }
-function onCardErr(img,k){
-  var c=document.getElementById(k+'Card');
-  var label=k==='top'?'상의':'하의';
-  var rm='<button class="rm" onclick="event.stopPropagation();removeSlot(\''+k+'\')">close</button>';
-  c.innerHTML='<span class="badge">🔗 '+label+'</span>'+rm
-    +'<div class="ph" style="gap:6px;padding:16px 8px">'
-    +'<span class="mi" style="font-size:32px;color:rgba(53,162,159,.8)">check_circle</span>'
-    +'<p style="color:rgba(255,255,255,.5);font-size:10px;text-align:center">링크 등록됨</p></div>';
+
+function setStatus(k, icon, msg, cls){
+  var el = document.getElementById(k+'Status');
+  el.className = 'status-bar'+(cls?' '+cls:'');
+  el.innerHTML = icon ? '<span class="mi" style="font-size:13px">'+icon+'</span><span>'+msg+'</span>' : '';
 }
+
 function removeSlot(k){
-  if(ST[k].blobUrl) try{URL.revokeObjectURL(ST[k].blobUrl);}catch(e){}
-  ST[k]={blobUrl:null,dataUrl:null,imageUrl:null,rawUrl:null,srcType:null};
-  closeLink(k); document.getElementById('li-'+k).value='';
+  if(ST[k].localUrl) try{URL.revokeObjectURL(ST[k].localUrl);}catch(e){}
+  ST[k] = {localUrl:'', serverPath:'', uploading:false};
+  setStatus(k,'','');
   renderCard(k); updateBtn();
 }
 
-/* ══════════════════════════════════════════
-   파일 처리
-══════════════════════════════════════════ */
-function trigCam(k){document.getElementById('cam-'+k).click();}
-function trigGal(k){document.getElementById('gal-'+k).click();}
+/* ══ 파일 처리 + 자동 서버 업로드 ══ */
+function trigCam(k){ document.getElementById('cam-'+k).click(); }
+function trigGal(k){ document.getElementById('gal-'+k).click(); }
 
 function onFile(e,k){
-  var f=e.target.files&&e.target.files[0]; if(!f) return;
-  if(ST[k].blobUrl) try{URL.revokeObjectURL(ST[k].blobUrl);}catch(er){}
-  ST[k]={blobUrl:URL.createObjectURL(f),dataUrl:null,imageUrl:null,rawUrl:null,
-         srcType:e.target.id.startsWith('cam')?'cam':'gal'};
-  closeLink(k); renderCard(k); updateBtn(); e.target.value='';
-  // 백그라운드 dataUrl 변환
-  var fr=new FileReader();
-  fr.onload=function(){ST[k].dataUrl=fr.result;};
-  fr.readAsDataURL(f);
+  var f = e.target.files&&e.target.files[0]; if(!f) return;
+  if(ST[k].localUrl) try{URL.revokeObjectURL(ST[k].localUrl);}catch(er){}
+  ST[k].localUrl = URL.createObjectURL(f);
+  ST[k].serverPath = '';
+  ST[k].uploading = false;
+  renderCard(k); e.target.value='';
+  uploadSlot(k, f);
 }
 
-/* ══════════════════════════════════════════
-   얼굴
-══════════════════════════════════════════ */
+async function uploadSlot(k, file){
+  ST[k].uploading = true;
+  renderCard(k);
+  setStatus(k,'hourglass_top','서버에 업로드 중…','st-load');
+  updateBtn();
+
+  try{
+    /* dataUrl → blob → FormData */
+    var dataUrl = await new Promise(function(res,rej){
+      var fr=new FileReader();
+      fr.onload=function(){res(fr.result);}; fr.onerror=rej;
+      fr.readAsDataURL(file);
+    });
+    /* 축소 (서버 전송 최적화) */
+    dataUrl = await downscale(dataUrl, 1200, 0.86);
+
+    /* base64 → Blob */
+    var arr=dataUrl.split(','), mime=(arr[0].match(/:(.*?);/)||[])[1]||'image/jpeg';
+    var bstr=atob(arr[1]), n=bstr.length, u8=new Uint8Array(n);
+    while(n--) u8[n]=bstr.charCodeAt(n);
+    var blob=new Blob([u8],{type:mime});
+
+    var form=new FormData();
+    form.append('slot', k);
+    form.append('email', (user&&user.email)||'');
+    form.append('file', blob, k+'.jpg');
+
+    var ctl=new AbortController();
+    var timer=setTimeout(function(){ctl.abort();}, 45000);
+    var res=await fetch(SERVER+'/api/storage/upload',{
+      method:'POST', body:form, signal:ctl.signal
+    });
+    clearTimeout(timer);
+
+    var j=await res.json().catch(function(){return {};});
+    if(!res.ok || !j || j.ok!==true || !j.path){
+      throw new Error((j&&j.error)||('업로드 실패 HTTP '+res.status));
+    }
+
+    ST[k].serverPath = String(j.path||'');
+    ST[k].uploading  = false;
+    setStatus(k,'check_circle','업로드 완료 ✓','st-ok');
+    renderCard(k); updateBtn();
+
+  }catch(err){
+    ST[k].uploading  = false;
+    ST[k].serverPath = '';
+    setStatus(k,'error','업로드 실패: '+(err.message||'알 수 없는 오류'),'st-err');
+    renderCard(k); updateBtn();
+  }
+}
+
+/* ══ 이미지 축소 ══ */
+function downscale(dataUrl, maxSide, quality){
+  return new Promise(function(res){
+    var img=new Image();
+    img.onload=function(){
+      var iw=img.naturalWidth, ih=img.naturalHeight;
+      var sc=Math.min(1,maxSide/Math.max(iw,ih));
+      var c=document.createElement('canvas');
+      c.width=Math.round(iw*sc); c.height=Math.round(ih*sc);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      res(c.toDataURL('image/jpeg',quality));
+    };
+    img.onerror=function(){res(dataUrl);};
+    img.src=dataUrl;
+  });
+}
+
+/* ══ 얼굴 ══ */
 function onFaceFile(e){
   var f=e.target.files&&e.target.files[0]; if(!f) return;
   var fr=new FileReader();
@@ -451,432 +487,183 @@ function loadFaceFromProfile(){
   document.getElementById('faceTag').style.display='inline-block';
 }
 
-/* ══════════════════════════════════════════
-   링크 처리
-══════════════════════════════════════════ */
-var linkBusy={top:false,bottom:false};
-function togLink(k){
-  var lp=document.getElementById('lp-'+k), was=lp.classList.contains('open');
-  SLOTS.forEach(function(x){closeLink(x);});
-  if(!was){lp.classList.add('open');setTimeout(function(){document.getElementById('li-'+k).focus();},80);}
-}
-function closeLink(k){
-  document.getElementById('lp-'+k).classList.remove('open');
-  document.getElementById('ls-'+k).innerHTML='';
-}
-function setLS(k,icon,msg,col){
-  var el=document.getElementById('ls-'+k);
-  el.style.color=col||'rgba(162,253,240,.65)';
-  el.innerHTML=icon?'<span class="mi" style="font-size:13px">'+icon+'</span><span>'+msg+'</span>':'';
-}
-function isImgUrl(u){return /\.(jpe?g|png|webp|gif|avif|bmp)(\?.*)?$/i.test(u);}
-
-async function extractImg(url){
-  if(isImgUrl(url)) return url;
-  var r=await Promise.allSettled([
-    fetch('https://api.microlink.io?url='+encodeURIComponent(url)+'&meta=true',{signal:AbortSignal.timeout(7000)})
-      .then(function(r){return r.json();}).then(function(d){
-        var u=d&&d.data&&d.data.image&&d.data.image.url;
-        if(!u||!/^https?:\/\//.test(u)) throw new Error('no img'); return u;
-      }),
-    fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)})
-      .then(function(r){return r.text();}).then(function(h){
-        var pts=[/<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["']/i,
-                 /<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:image["']/i];
-        for(var i=0;i<pts.length;i++){var m=h.match(pts[i]);if(m&&/^https?:\/\//.test(m[1]))return m[1].trim();}
-        throw new Error('not found');
-      })
-  ]);
-  for(var i=0;i<r.length;i++){if(r[i].status==='fulfilled'&&/^https?:\/\//.test(r[i].value))return r[i].value;}
-  return null;
-}
-
-async function applyLink(k){
-  var url=(document.getElementById('li-'+k).value||'').trim();
-  if(!url){toast('URL을 입력해주세요');return;}
-  if(!/^https?:\/\//i.test(url)){toast('https://로 시작하는 URL을 입력해주세요');return;}
-  if(linkBusy[k]) return;
-  linkBusy[k]=true; document.getElementById('lbtn-'+k).disabled=true;
-  setLS(k,'hourglass_top','이미지 추출 중…');
-  try{
-    var imgUrl=await extractImg(url);
-    if(ST[k].blobUrl) try{URL.revokeObjectURL(ST[k].blobUrl);}catch(er){}
-    ST[k]={blobUrl:null,dataUrl:null,imageUrl:imgUrl||null,rawUrl:url,srcType:'link'};
-    setLS(k,imgUrl?'check_circle':'link',imgUrl?'이미지 추출 완료':'링크 등록 완료',imgUrl?'#a7f3d0':'rgba(162,253,240,.65)');
-    setTimeout(function(){closeLink(k);renderCard(k);updateBtn();},600);
-  }catch(e){
-    ST[k]={blobUrl:null,dataUrl:null,imageUrl:null,rawUrl:url,srcType:'link'};
-    setLS(k,'link','링크 등록 완료','rgba(162,253,240,.65)');
-    setTimeout(function(){closeLink(k);renderCard(k);updateBtn();},700);
-  }finally{linkBusy[k]=false;document.getElementById('lbtn-'+k).disabled=false;}
-}
-
-/* ══════════════════════════════════════════
-   버튼 상태
-══════════════════════════════════════════ */
+/* ══ 버튼 상태 ══ */
 function updateBtn(){
   var btn=document.getElementById('genBtn'), note=document.getElementById('genNote');
-  var ht=hasItem('top'), hb=hasItem('bottom');
-  if(!ht&&!hb){btn.disabled=true;note.textContent='상의와 하의 이미지를 모두 등록해주세요';}
-  else if(!ht){btn.disabled=true;note.textContent='상의 이미지를 추가해주세요';}
-  else if(!hb){btn.disabled=true;note.textContent='하의 이미지를 추가해주세요';}
+  var rt=isReady('top'), rb=isReady('bottom');
+  var ut=ST.top.uploading, ub=ST.bottom.uploading;
+  if(ut||ub){btn.disabled=true;note.textContent='이미지를 서버에 업로드하고 있어요…';}
+  else if(!hasSrc('top')&&!hasSrc('bottom')){btn.disabled=true;note.textContent='상의와 하의 이미지를 모두 등록해주세요';}
+  else if(!hasSrc('top')){btn.disabled=true;note.textContent='상의 이미지를 추가해주세요';}
+  else if(!hasSrc('bottom')){btn.disabled=true;note.textContent='하의 이미지를 추가해주세요';}
+  else if(!rt&&!rb){btn.disabled=true;note.textContent='업로드가 완료되면 생성할 수 있어요';}
+  else if(!rt){btn.disabled=true;note.textContent='상의 업로드를 기다리고 있어요…';}
+  else if(!rb){btn.disabled=true;note.textContent='하의 업로드를 기다리고 있어요…';}
   else{btn.disabled=false;note.textContent='준비 완료! AI가 착장 이미지를 생성할게요 ✨';}
 }
 
-/* ══════════════════════════════════════════
-   단계 UI 헬퍼
-══════════════════════════════════════════ */
-function setStepState(n, state, title, okMsg, errMsg){
+/* ══ 단계 UI ══ */
+function setStep(n, state, title, detail, errMsg){
   var row=document.getElementById('srow'+n);
-  var icon=row.querySelector('.step-icon');
-  var t=document.getElementById('stitle'+n);
-  var ok=document.getElementById('sok'+n);
-  var err=document.getElementById('serr'+n);
   row.className='step-row '+state;
-  if(title) t.textContent=title;
-  var iconMap={wait:'image_search psychology auto_awesome'.split(' ')[n-1],
+  var iconMap={wait:'upload auto_awesome'.split(' ')[n-1],
                active:'autorenew',done:'check_circle',fail:'cancel'};
-  if(n===1) iconMap.wait='image_search';
-  if(n===2) iconMap.wait='psychology';
-  if(n===3) iconMap.wait='auto_awesome';
-  icon.textContent=iconMap[state]||iconMap.wait;
-  if(okMsg){ok.style.display='block';ok.textContent=okMsg;}else{ok.style.display='none';}
-  if(errMsg){err.style.display='block';err.textContent=errMsg;}else{err.style.display='none';}
-}
-
-/* ══════════════════════════════════════════
-   이미지 유틸
-══════════════════════════════════════════ */
-function shrink(dataUrl,maxPx,q){
-  return new Promise(function(res){
-    if(!dataUrl||!dataUrl.startsWith('data:')){res(dataUrl);return;}
-    maxPx=maxPx||800;q=q||0.82;
-    if(dataUrl.length<70000){res(dataUrl);return;}
-    var img=new Image();
-    img.onload=function(){
-      var iw=img.naturalWidth,ih=img.naturalHeight;
-      var sc=Math.min(1,maxPx/Math.max(iw,ih));
-      var c=document.createElement('canvas');
-      c.width=Math.round(iw*sc);c.height=Math.round(ih*sc);
-      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-      res(c.toDataURL('image/jpeg',q));
-    };
-    img.onerror=function(){res(dataUrl);}; img.src=dataUrl;
-  });
-}
-
-async function blobToDataUrl(blobUrl){
-  if(!blobUrl||!blobUrl.startsWith('blob:')) return '';
-  try{
-    var b=await fetch(blobUrl).then(function(r){return r.blob();});
-    return await new Promise(function(res,rej){
-      var fr=new FileReader();fr.onload=function(){res(fr.result);};fr.onerror=rej;fr.readAsDataURL(b);
-    });
-  }catch(e){return '';}
-}
-
-/* 슬롯 → base64 dataUrl (Claude Vision / 서버 전송용) */
-async function slotToDataUrl(k){
-  var s=ST[k];
-  if(s.dataUrl&&s.dataUrl.startsWith('data:')) return s.dataUrl;
-  if(s.blobUrl&&s.blobUrl.startsWith('blob:')){
-    var d=await blobToDataUrl(s.blobUrl);
-    if(d){s.dataUrl=d; return d;}
+  if(n===1) iconMap.wait='upload';
+  if(n===2) iconMap.wait='auto_awesome';
+  row.querySelector('.step-icon').textContent=iconMap[state]||iconMap.wait;
+  if(title) document.getElementById('stitle'+n).textContent=title;
+  var det=document.getElementById('sdetail'+n);
+  if(detail!==undefined){det.style.display=detail?'block':'none';det.textContent=detail||'';}
+  var err=document.getElementById('serr'+n);
+  if(errMsg!==undefined){
+    err.style.display=errMsg?'block':'none';
+    err.textContent=errMsg||'';
   }
-  // 링크 이미지 URL → fetch → base64
-  var fetchUrl=s.imageUrl||null;
-  if(fetchUrl&&/^https?:\/\//.test(fetchUrl)){
-    try{
-      var r=await fetch(fetchUrl,{signal:AbortSignal.timeout(8000)});
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      var b=await r.blob();
-      var d2=await new Promise(function(res,rej){
-        var fr=new FileReader();fr.onload=function(){res(fr.result);};fr.onerror=rej;fr.readAsDataURL(b);
-      });
-      s.dataUrl=d2; return d2;
-    }catch(e1){
-      try{
-        var r2=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(fetchUrl),{signal:AbortSignal.timeout(10000)});
-        if(!r2.ok) throw new Error('proxy HTTP '+r2.status);
-        var b2=await r2.blob();
-        var d3=await new Promise(function(res,rej){
-          var fr=new FileReader();fr.onload=function(){res(fr.result);};fr.onerror=rej;fr.readAsDataURL(b2);
-        });
-        s.dataUrl=d3; return d3;
-      }catch(e2){ return ''; }
-    }
-  }
-  return '';
-}
-
-/* ══════════════════════════════════════════
-   Claude Vision API — 의류 이미지 분석
-   ★ closet.html의 callClaude와 동일한 API 패턴
-══════════════════════════════════════════ */
-/* ══════════════════════════════════════════
-   의류 묘사 생성 (텍스트 기반)
-   ★ 브라우저에서 Anthropic API 직접 호출 불가 (CORS + 키 노출 문제)
-   ★ 이미지에서 색상/타입 추출해서 영문 프롬프트 자동 생성
-   ★ 서버가 imagePrompt를 그대로 DALL-E에 전달
-══════════════════════════════════════════ */
-function buildGarmentPrompt(srcType, slot, label){
-  /* 슬롯 타입별 기본 묘사 */
-  var base = label==='top'
-    ? 'a fashionable upper-body garment (top/shirt/jacket/coat)'
-    : 'stylish lower-body garment (pants/skirt/shorts)';
-  /* 링크 소스면 "from a fashion shopping mall" 힌트 추가 */
-  if(srcType==='link') base = 'a stylish '+( label==='top'?'top/jacket':'pants/skirt')+' from a Korean fashion brand';
-  return base;
-}
-
-/* ══════════════════════════════════════════
-   서버 호출 — closet.html과 IDENTICAL 패턴
-   ★ CodiBank.getBackendBaseResolved() 사용
-   ★ postJson timeout 35000ms (closet.html 동일)
-   ★ purposeKey = 'weekendOut' (유효한 값)
-══════════════════════════════════════════ */
-function getAiBase(){
-  var cfg=(window.CodiBank&&CodiBank.getConfig)?CodiBank.getConfig():{};
-  var backendBase=String(cfg.backendBase||'').trim()
-    ||((window.CodiBank&&CodiBank.getBackendBaseResolved)?String(CodiBank.getBackendBaseResolved()||'').trim():'');
-  var aiBase=(String(cfg.aiBase||'').trim()||backendBase||('https://'+window.location.hostname)).replace(/\/+$/,'');
-  // http → https 강제 (Render 배포 환경)
-  if(aiBase.startsWith('http://')&&window.location.protocol==='https:')
-    aiBase=aiBase.replace('http://','https://');
-  return aiBase;
-}
-
-async function postJson(url, body, ms){
-  var ctl=new AbortController();
-  var t=setTimeout(function(){ctl.abort();},ms||35000);
-  try{
-    var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(body),signal:ctl.signal});
-    var j=await r.json().catch(function(){return null;});
-    if(!r.ok) throw new Error((j&&j.error)||'HTTP '+r.status);
-    return j;
-  }finally{clearTimeout(t);}
-}
-
-async function callStylingServer(imagePrompt, faceImg, profile){
-  var aiBase=getAiBase();
-  if(!aiBase) throw new Error('서버 URL을 가져올 수 없어요 (CodiBank.getBackendBaseResolved 반환값 없음)');
-
-  var payload={
-    user:{
-      email:(user&&user.email)||'',
-      gender:profile.gender||'M',
-      ageGroup:profile.age||'30대',
-      height:profile.height||'',
-      weight:profile.weight||''
-    },
-    weather:{temp:15,text:'mild',location:(user&&user.location)||'서울'},
-    purposeKey:'weekendOut',   // ★ 서버 유효값
-    purposeLabel:'코디하기',
-    styleTitle:'코디하기 착장',
-    explanation:'',
-    keywords:['착장','코디하기'],
-    imagePrompt:imagePrompt,   // ★ Claude Vision이 생성한 프롬프트
-    stylist:null, matchPairs:[], palette:{}, paletteLabels:{},
-    colorDirective:'', customDirective:'', categoryKeywords:{},
-    seed:Date.now(),
-    faceImage:faceImg||null,
-    size:'1024x1536',
-    quality:'low'
-  };
-
-  var data=await postJson(aiBase+'/api/ai/styling', payload, 35000);
-  if(!data||data.ok!==true) throw new Error((data&&data.error)||'서버 응답 오류 (ok!==true)');
-
-  // closet.html 동일 응답 처리
-  var rawUrl=String(data.url||data.image||'').trim();
-  var imgRef=String(data.path||'').trim();
-  if(!imgRef&&rawUrl){var mm=rawUrl.match(/\/uploads\/[^?#]+/);if(mm) imgRef=mm[0];}
-  var displaySrc='';
-  if(imgRef&&imgRef.startsWith('/uploads/')) displaySrc=getAiBase()+imgRef;
-  if(!displaySrc&&rawUrl) displaySrc=rawUrl;
-  if(!displaySrc) throw new Error('서버가 이미지 URL을 반환하지 않았어요');
-  return displaySrc;
 }
 
 /* ══════════════════════════════════════════
    MAIN — generate()
-
-   흐름 (closet.html 벤치마킹):
-   STEP 1: 이미지 → base64 변환
-   STEP 2: Claude Vision → 상의/하의 의류 묘사 (imagePrompt 생성)
-   STEP 3: 서버 /api/ai/styling → DALL-E 착장 이미지
    
-   ★ Gemini 없음 — Google API 키 불필요
-   ★ closet.html과 완전 동일한 서버 호출 패턴
-   ★ 단계별 에러를 화면에 정확히 표시
+   흐름:
+   STEP 1: 이미지가 서버에 업로드됐는지 확인 (이미 완료됨)
+   STEP 2: POST /api/codistyle/generate
+     → 서버가 Gemini(gemini-2.5-flash-image)로 착장 이미지 생성
+     → 서버의 Gemini API 키 사용 (브라우저에 키 불필요)
+   
+   ★ health 확인: has_gemini_key=true, codistyle_model=gemini-2.5-flash-image
+   ★ GPT 버전과 동일한 서버 호출 패턴
 ══════════════════════════════════════════ */
 async function generate(){
   if(busy) return;
-  if(!hasItem('top')){toast('상의를 먼저 등록해주세요');return;}
-  if(!hasItem('bottom')){toast('하의를 먼저 등록해주세요');return;}
+  if(!isReady('top')){toast(ST.top.uploading?'상의 업로드 중입니다…':'상의를 먼저 등록해주세요');return;}
+  if(!isReady('bottom')){toast(ST.bottom.uploading?'하의 업로드 중입니다…':'하의를 먼저 등록해주세요');return;}
 
-  busy=true; lastResult=null;
+  busy=true; lastResultUrl=null;
+
   var rs=document.getElementById('resultSection');
   rs.style.display='block';
   rs.scrollIntoView({behavior:'smooth',block:'start'});
   document.getElementById('resultActions').style.display='none';
   document.getElementById('resultOk').style.display='none';
-  // 단계 리셋
-  setStepState(1,'wait','STEP 1 — 이미지 준비 및 변환','','');
-  setStepState(2,'wait','STEP 2 — 서버 AI 착장 이미지 생성','','');
+  setStep(1,'wait',undefined,undefined,undefined);
+  setStep(2,'wait',undefined,undefined,undefined);
   document.getElementById('resultStage').innerHTML=
-    '<div class="spin"><div class="ring"></div><div>이미지를 준비하고 있어요…</div></div>';
+    '<div class="spin"><div class="ring"></div><div>AI 착장 이미지를 생성하고 있어요…</div></div>';
 
   try{
-    /* ── 프로필 ── */
-    var gender=(user&&user.gender)||'M';
-    var age=(user&&user.ageGroup)||'30대';
-    var height=(user&&user.height)?String(user.height):'';
-    var weight=(user&&user.weight)?String(user.weight):'';
-    var genderEn=gender==='M'?'man':'woman';
-    var hw=(height&&weight)?'(height '+height+'cm, weight '+weight+'kg)':'';
+    /* STEP 1: 업로드 확인 */
+    setStep(1,'done','STEP 1 — 이미지 업로드 완료',
+      '상의: '+SERVER+ST.top.serverPath+'  하의: '+SERVER+ST.bottom.serverPath,
+      undefined);
 
-    /* ════ STEP 1: 이미지 → base64 ════ */
-    setStepState(1,'active','STEP 1 — 이미지 준비 및 변환 중…');
-    document.getElementById('resultStage').innerHTML=
-      '<div class="spin"><div class="ring"></div><div>이미지를 변환하고 있어요…</div></div>';
-
-    var topDataUrl='', bottomDataUrl='', faceForServer='';
-    var step1Details=[];
-
-    topDataUrl=await slotToDataUrl('top');
-    if(!topDataUrl) throw new Error('STEP1_TOP: 상의 이미지를 가져올 수 없어요.\n'
-      +'원인: 이미지 URL이 CORS로 차단됐을 수 있어요.\n'
-      +'해결: 갤러리에서 직접 사진을 선택해주세요.');
-    var topShrunken=await shrink(topDataUrl,800,0.82);
-    step1Details.push('✅ 상의: '+Math.round(topShrunken.length/1024)+'KB');
-
-    bottomDataUrl=await slotToDataUrl('bottom');
-    if(!bottomDataUrl) throw new Error('STEP1_BOTTOM: 하의 이미지를 가져올 수 없어요.\n'
-      +'원인: 이미지 URL이 CORS로 차단됐을 수 있어요.\n'
-      +'해결: 갤러리에서 직접 사진을 선택해주세요.');
-    var bottomShrunken=await shrink(bottomDataUrl,800,0.82);
-    step1Details.push('✅ 하의: '+Math.round(bottomShrunken.length/1024)+'KB');
-
-    if(faceDataUrl&&faceDataUrl.startsWith('data:')){
-      faceForServer=await shrink(faceDataUrl,480,0.78);
-      if(faceForServer.length>110000) faceForServer=await shrink(faceDataUrl,320,0.70);
-      step1Details.push('✅ 얼굴: '+Math.round(faceForServer.length/1024)+'KB');
-    } else {
-      step1Details.push('— 얼굴: 없음 (선택 항목)');
-    }
-
-    setStepState(1,'done','STEP 1 — 이미지 변환 완료',step1Details.join('  ·  '),'');
-
-    /* ════ imagePrompt 빌드 ════ */
-    var topDesc    = buildGarmentPrompt(ST.top.srcType,    'top',    'top');
-    var bottomDesc = buildGarmentPrompt(ST.bottom.srcType, 'bottom', 'bottom');
-
-    var imagePrompt=[
-      'Photorealistic full-body Korean fashion editorial photo.',
-      'Subject: Korean '+genderEn+', '+age+' '+hw+'.',
-      faceForServer?'Preserve the exact facial identity from the face reference image.':'Natural expression, facing camera.',
-      'TOP garment: '+topDesc+'. Reproduce the exact clothing from the reference image.',
-      'BOTTOM garment: '+bottomDesc+'. Reproduce the exact clothing from the reference image.',
-      'Full body head to toe. Clean modern Korean urban or studio background.',
-      'Professional fashion editorial lighting. Photorealistic fabric textures. No text. No watermarks.',
-    ].join(' ');
-
-    /* ════ STEP 2: 서버 /api/ai/styling ════ */
-    var aiBase=getAiBase();
-    setStepState(2,'active','STEP 2 — 서버 AI 착장 이미지 생성 중 ('+aiBase+')');
+    /* STEP 2: /api/codistyle/generate 호출 */
+    setStep(2,'active','STEP 2 — Gemini AI 착장 이미지 생성 중… ('+SERVER+')',
+      'gemini-2.5-flash-image 모델 사용',undefined);
     document.getElementById('resultStage').innerHTML=
       '<div class="spin"><div class="ring"></div><div>'
-      +'AI가 착장 이미지를 생성하고 있어요…<br>'
-      +'<small style="opacity:.55">(30~60초 소요)</small></div></div>';
+      +'Gemini AI가 착장 이미지를 생성하고 있어요…<br>'
+      +'<small style="opacity:.55">(15~30초 소요)</small></div></div>';
 
-    var resultUrl='';
-    var profile={gender:gender,age:age,height:height,weight:weight};
+    var payload={
+      mode:'codistyle',
+      user:{
+        email:  (user&&user.email)   ||'',
+        gender: (user&&user.gender)  ||'M',
+        ageGroup:(user&&user.ageGroup)||'30대',
+        height: (user&&user.height)  ?String(user.height):'',
+        weight: (user&&user.weight)  ?String(user.weight):'',
+      },
+      location: (user&&user.location)||'서울',
+      topImageUrl:    SERVER + ST.top.serverPath,
+      bottomImageUrl: SERVER + ST.bottom.serverPath,
+      faceImageDataUrl: faceDataUrl || null,
+    };
 
-    // 1차: 얼굴 포함 시도
-    try{
-      resultUrl=await callStylingServer(imagePrompt, faceForServer||null, profile);
-      setStepState(2,'done','STEP 2 — 착장 이미지 생성 완료','이미지 생성 성공 ✨','');
-    }catch(e1){
-      if(faceForServer){
-        // 2차: 얼굴 없이 재시도
-        setStepState(2,'active','STEP 2 — 재시도 중 (얼굴 제외)…');
-        try{
-          resultUrl=await callStylingServer(imagePrompt, null, profile);
-          setStepState(2,'done','STEP 2 — 착장 이미지 생성 완료','얼굴 제외하고 생성 성공','');
-        }catch(e2){
-          throw new Error('STEP2: 서버 이미지 생성 실패\n\n'
-            +'1차 오류 (얼굴 포함): '+e1.message+'\n'
-            +'2차 오류 (얼굴 없이): '+e2.message+'\n\n'
-            +'서버 URL: '+aiBase+'\n'
-            +'확인: Render 서버 정상 동작 여부, OPENAI_API_KEY 설정 여부');
-        }
-      } else {
-        throw new Error('STEP2: 서버 이미지 생성 실패\n\n'
-          +'오류: '+e1.message+'\n\n'
-          +'서버 URL: '+aiBase+'\n'
-          +'확인: Render 서버 정상 동작 여부, OPENAI_API_KEY 설정 여부');
-      }
+    var ctl=new AbortController();
+    var timer=setTimeout(function(){ctl.abort();}, 90000);
+    var res=await fetch(SERVER+'/api/codistyle/generate',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload),
+      signal:ctl.signal
+    });
+    clearTimeout(timer);
+
+    var j=await res.json().catch(function(){return {};});
+    if(!res.ok || !j || j.ok!==true){
+      throw new Error((j&&j.error)||('HTTP '+res.status
+        +'\n\n서버 URL: '+SERVER
+        +'\n엔드포인트: /api/codistyle/generate'
+        +'\n응답: '+JSON.stringify(j).substring(0,200)));
     }
 
-    /* ════ 결과 표시 ════ */
-    lastResult=resultUrl;
+    var src = j.path ? (SERVER+j.path) : (j.image||j.url||'');
+    if(!src) throw new Error('서버가 이미지 경로를 반환하지 않았어요.\n응답: '+JSON.stringify(j).substring(0,200));
+
+    /* 성공 */
+    lastResultUrl = src;
     document.getElementById('resultStage').innerHTML=
-      '<img src="'+resultUrl+'" alt="AI 착장 이미지" style="width:100%;height:100%;object-fit:cover;display:block"'
+      '<img src="'+src+'" alt="AI 착장 이미지" style="width:100%;height:100%;object-fit:cover;display:block"'
       +' onerror="this.style.objectFit=\'contain\';this.onerror=null;"/>';
+
+    setStep(2,'done','STEP 2 — 착장 이미지 생성 완료 ✨',
+      (j.comment||'').slice(0,80)||'Gemini AI 이미지 생성 성공',undefined);
+
     var ok=document.getElementById('resultOk');
     ok.style.display='block';
-    ok.textContent='✨ 착장 이미지 생성 완료!';
+    ok.textContent='✨ '+(j.comment||'착장 이미지가 생성됐어요!').slice(0,120);
     document.getElementById('resultActions').style.display='flex';
+
+    /* 앨범 저장 */
+    try{
+      if(window.CodiBank&&CodiBank.addAiAlbumEntry&&user&&user.email){
+        CodiBank.addAiAlbumEntry(user.email,{
+          imageRef:j.path||src, weatherText:'', temp:'',
+          purpose:'코디하기', note:'코디하기 결과',
+          createdAt:new Date().toISOString()
+        });
+      }
+    }catch(_){}
 
   }catch(e){
     console.error('generate 오류:', e);
-    var msg=e.message||'알 수 없는 오류';
+    var msg = e.message||'알 수 없는 오류';
+    var isTimeout = e.name==='AbortError'||e.name==='TimeoutError'||msg.includes('abort');
 
-    // 어느 STEP에서 실패했는지 자동 감지
-    if(msg.startsWith('STEP1_TOP')){
-      setStepState(1,'fail','STEP 1 — 실패','',msg.replace('STEP1_TOP: ',''));
-      setStepState(2,'wait'); setStepState(3,'wait');
-    } else if(msg.startsWith('STEP1_BOTTOM')){
-      setStepState(1,'fail','STEP 1 — 실패','',msg.replace('STEP1_BOTTOM: ',''));
-      setStepState(2,'wait'); setStepState(3,'wait');
-    } else if(msg.startsWith('STEP2')){
-      setStepState(2,'fail','STEP 2 — 서버 실패','',msg.replace('STEP3: ',''));
-    } else {
-      // 알 수 없는 단계
-      setStepState(3,'fail','오류 발생','',msg);
-    }
+    setStep(2,'fail',
+      isTimeout?'STEP 2 — 시간 초과 (서버 응답 없음)':'STEP 2 — 생성 실패',
+      undefined,
+      isTimeout
+        ? '서버 응답 대기 중 시간 초과 (90초)\n\nRender 서버가 절전 상태일 수 있어요.\n→ 30초 후 다시 시도해주세요.\n→ render.com 대시보드에서 서비스 상태를 확인해주세요.'
+        : msg
+    );
 
     document.getElementById('resultStage').innerHTML=
-      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;'
-      +'gap:14px;padding:30px 20px;text-align:center;">'
+      '<div style="display:flex;flex-direction:column;align-items:center;'
+      +'justify-content:center;gap:14px;padding:30px 20px;text-align:center;">'
       +'<span class="mi" style="font-size:52px;color:rgba(248,113,113,.4)">error_outline</span>'
       +'<div style="font-size:12px;color:rgba(255,255,255,.35);line-height:1.65">'
-      +'이미지 생성에 실패했어요<br>위 단계에서 오류 내용을 확인해주세요</div></div>';
+      +'이미지 생성에 실패했어요<br>위 STEP 2 오류 내용을 확인해주세요</div></div>';
 
-    // 다시 버튼 표시
     document.getElementById('resultActions').style.display='flex';
   }finally{
     busy=false;
   }
 }
 
-/* ══════════════════════════════════════════
-   저장 / 공유
-══════════════════════════════════════════ */
+/* ══ 저장 / 공유 ══ */
 document.getElementById('saveBtn').addEventListener('click',function(){
-  if(!lastResult){toast('저장할 이미지가 없어요');return;}
+  if(!lastResultUrl){toast('저장할 이미지가 없어요');return;}
   var a=document.createElement('a');
-  a.href=lastResult; a.download='codibank_'+Date.now()+'.jpg'; a.click();
+  a.href=lastResultUrl; a.download='codibank_'+Date.now()+'.jpg'; a.click();
   toast('저장했어요!');
 });
 document.getElementById('shareBtn').addEventListener('click',function(){
-  if(!lastResult){toast('공유할 이미지가 없어요');return;}
+  if(!lastResultUrl){toast('공유할 이미지가 없어요');return;}
   if(navigator.share){
-    navigator.share({title:'코디뱅크 코디하기',url:lastResult}).catch(function(){});
-  } else if(navigator.clipboard){
-    navigator.clipboard.writeText(lastResult).then(function(){toast('이미지 URL 복사됐어요!');});
+    navigator.share({title:'코디뱅크 코디하기',url:lastResultUrl}).catch(function(){});
+  }else if(navigator.clipboard){
+    navigator.clipboard.writeText(lastResultUrl).then(function(){toast('링크 복사됐어요!');});
   }
 });
 
