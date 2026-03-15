@@ -871,10 +871,6 @@ if __name__ == "__main__":
 #   - Render free tier ephemeral disk 문제 완전 해결
 # ─────────────────────────────────────────────────────────────────────────────
 
-import google.generativeai as genai  # type: ignore
-from PIL import Image as PILImage  # type: ignore
-import PIL
-
 _CODISTYLE_MODEL = os.getenv("CODIBANK_CODISTYLE_MODEL", "gemini-2.0-flash-exp-image-generation")
 _GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
 
@@ -894,8 +890,9 @@ def _normalize_image_src(data_url_field: str, url_field: str) -> Tuple[str, byte
     raise ValueError("이미지 소스가 없습니다 (data URL 또는 HTTP URL 필요)")
 
 
-def _bytes_to_pil(mime: str, data: bytes) -> "PILImage.Image":
+def _bytes_to_pil(mime: str, data: bytes):
     import io
+    from PIL import Image as PILImage
     return PILImage.open(io.BytesIO(data))
 
 
@@ -916,6 +913,13 @@ def codistyle_generate():
     """
     if not _GEMINI_API_KEY:
         return jsonify(ok=False, error="GEMINI_API_KEY가 설정되지 않았습니다."), 400
+
+    # ★ lazy import — 서버 시작 시 모듈 없어도 gunicorn 정상 시작
+    try:
+        import google.generativeai as genai  # type: ignore
+        from PIL import Image as PILImage    # type: ignore
+    except ImportError as ie:
+        return jsonify(ok=False, error=f"필요한 패키지 미설치: {ie}. requirements.txt에 google-generativeai, Pillow 추가 필요"), 500
 
     payload = request.get_json(silent=True) or {}
 
