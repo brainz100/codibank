@@ -333,8 +333,8 @@ var SERVER = getServerBase();
 ══════════════════════════════════════════ */
 var SLOTS = ['top','bottom'];
 var ST = {
-  top:    {localUrl:'', serverPath:'', uploading:false},
-  bottom: {localUrl:'', serverPath:'', uploading:false}
+  top:    {localUrl:'', dataUrl:'', serverPath:'', uploading:false},
+  bottom: {localUrl:'', dataUrl:'', serverPath:'', uploading:false}
 };
 var faceDataUrl = null;
 var lastResultUrl = null;
@@ -378,7 +378,7 @@ function setStatus(k, icon, msg, cls){
 
 function removeSlot(k){
   if(ST[k].localUrl) try{URL.revokeObjectURL(ST[k].localUrl);}catch(e){}
-  ST[k] = {localUrl:'', serverPath:'', uploading:false};
+  ST[k] = {localUrl:'', dataUrl:'', serverPath:'', uploading:false};
   setStatus(k,'','');
   renderCard(k); updateBtn();
 }
@@ -412,6 +412,8 @@ async function uploadSlot(k, file){
     });
     /* 축소 (서버 전송 최적화) */
     dataUrl = await downscale(dataUrl, 1200, 0.86);
+    /* ★ base64 저장 — generate()에서 payload에 직접 포함 */
+    ST[k].dataUrl = dataUrl;
 
     /* base64 → Blob */
     var arr=dataUrl.split(','), mime=(arr[0].match(/:(.*?);/)||[])[1]||'image/jpeg';
@@ -567,16 +569,21 @@ async function generate(){
     var payload={
       mode:'codistyle',
       user:{
-        email:  (user&&user.email)   ||'',
-        gender: (user&&user.gender)  ||'M',
+        email:   (user&&user.email)   ||'',
+        gender:  (user&&user.gender)  ||'M',
         ageGroup:(user&&user.ageGroup)||'30대',
-        height: (user&&user.height)  ?String(user.height):'',
-        weight: (user&&user.weight)  ?String(user.weight):'',
+        height:  (user&&user.height)  ?String(user.height):'',
+        weight:  (user&&user.weight)  ?String(user.weight):'',
       },
-      location: (user&&user.location)||'서울',
+      location:(user&&user.location)||'서울',
+      /* ★ base64 우선 — 서버가 HTTP 재다운로드 없이 직접 처리
+         Render ephemeral disk 문제(0바이트 timeout) 완전 우회 */
+      topImageDataUrl:    ST.top.dataUrl    || null,
+      bottomImageDataUrl: ST.bottom.dataUrl || null,
+      faceImageDataUrl:   faceDataUrl       || null,
+      /* HTTP URL 폴백 (서버가 혹시 dataUrl 처리 못할 경우) */
       topImageUrl:    SERVER + ST.top.serverPath,
       bottomImageUrl: SERVER + ST.bottom.serverPath,
-      faceImageDataUrl: faceDataUrl || null,
     };
 
     var ctl=new AbortController();
