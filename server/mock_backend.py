@@ -987,10 +987,10 @@ def codistyle_generate():
 
         response = model.generate_content(
             [prompt] + images,
-            generation_config=genai.GenerationConfig(
-                response_modalities=["IMAGE", "TEXT"],
-                temperature=0.7,
-            ),
+            generation_config={
+                "response_modalities": ["IMAGE", "TEXT"],
+                "temperature": 0.7,
+            },
         )
 
         # ── 응답에서 이미지 추출 ──
