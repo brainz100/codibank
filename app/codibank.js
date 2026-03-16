@@ -21,23 +21,21 @@
   // ==============================
   function getConfig() {
     const cfg = (typeof window !== 'undefined' && window.CODIBANK_CONFIG) ? window.CODIBANK_CONFIG : {};
+    const host = (typeof window !== 'undefined' && window.location && window.location.hostname) ? String(window.location.hostname).trim().toLowerCase() : '';
+    const isProd = host === 'codibank.kr' || host === 'www.codibank.kr';
+    const defaults = isProd ? {
+      backendBase: 'https://codibank.onrender.com',
+      aiBase: 'https://codibank.onrender.com',
+      codistyleBase: 'https://codibank-api.onrender.com',
+    } : {};
     return {
-      // Backend (proxy) base URL, e.g. "http://192.168.0.12:8787".
-      // If empty, calls are made to the current origin.
-      backendBase: String(cfg.backendBase || cfg.BACKEND_BASE || '').trim(),
-
-      // Weather provider: "KMA" (data.go.kr) recommended for commercial, "OPEN_METEO_DEV" for prototype only.
+      backendBase: String(cfg.backendBase || cfg.BACKEND_BASE || defaults.backendBase || '').trim(),
       weatherProvider: String(cfg.weatherProvider || cfg.WEATHER_PROVIDER || 'OPEN_METEO_DEV').trim(),
       allowOpenMeteoDev: cfg.allowOpenMeteoDev !== undefined ? !!cfg.allowOpenMeteoDev : (cfg.ALLOW_OPEN_METEO_DEV_ONLY !== undefined ? !!cfg.ALLOW_OPEN_METEO_DEV_ONLY : true),
-
-      // KMA (data.go.kr) service key (DEV ONLY; for production use backend proxy)
       kmaServiceKey: String(cfg.kmaServiceKey || cfg.KMA_SERVICE_KEY || '').trim(),
-
-      // AI styling provider: "REMOTE" (backend) or "LOCAL" (browser canvas).
-      aiProvider: String(cfg.aiProvider || cfg.AI_PROVIDER || 'LOCAL').trim(),
-
-      // Optional: separate AI base (defaults to backendBase)
-      aiBase: String(cfg.aiBase || cfg.AI_BASE || '').trim(),
+      aiProvider: String(cfg.aiProvider || cfg.AI_PROVIDER || 'REMOTE').trim(),
+      aiBase: String(cfg.aiBase || cfg.AI_BASE || defaults.aiBase || '').trim(),
+      codistyleBase: String(cfg.codistyleBase || cfg.CODISTYLE_BASE || cfg.geminiBase || cfg.GEMINI_BASE || defaults.codistyleBase || '').trim(),
     };
   }
 
@@ -92,6 +90,13 @@ function getBackendBaseResolved() {
   }
 
   return raw ? raw.replace(/\/$/, '') : '';
+}
+
+function getCodistyleBaseResolved() {
+  const cfg = getConfig();
+  const raw = String(cfg.codistyleBase || '').trim();
+  if (!raw) return getBackendBaseResolved();
+  return raw.replace(/\/$/, '');
 }
 
 
@@ -1457,11 +1462,11 @@ async function uploadImageToServer(dataUrl, opts) {
       'camera.html': 'camera.html',
       'closet.html': 'closet.html',
       'album.html': 'album.html',
-      'share-sale.html': 'codistyle.html',
-      'share.html': 'codistyle.html',    // 레거시 페이지도 코디하기 탭으로
-      'sale.html': 'codistyle.html',     // 레거시 페이지도 코디하기 탭으로
-      'share-item.html': 'codistyle.html',
-      'sale-item.html': 'codistyle.html',
+      'share-sale.html': 'share-sale.html',
+      'share.html': 'share-sale.html',    // 레거시 페이지도 공유판매 탭으로
+      'sale.html': 'share-sale.html',     // 레거시 페이지도 공유판매 탭으로
+      'share-item.html': 'share-sale.html',
+      'sale-item.html': 'share-sale.html',
       'mypage.html': 'mypage.html',
       'pricing.html': 'mypage.html',
       'login.html': 'mypage.html',
@@ -1513,6 +1518,32 @@ async function uploadImageToServer(dataUrl, opts) {
       window.addEventListener('hashchange', initBottomNavActive);
     }
   } catch (_) {}
+
+  function normalizeFooterTabs(){
+    try{
+      const tabs = Array.from(document.querySelectorAll('.cb-nav-tab, nav a'));
+      tabs.forEach((a)=>{
+        const href = String(a.getAttribute('href')||'');
+        const txt = String(a.textContent||'').replace(/\s+/g,' ').trim();
+        if(href.includes('share-sale') || txt.includes('공유판매')){
+          a.setAttribute('href','codistyle.html');
+          const spans = a.querySelectorAll('span');
+          if(spans.length){
+            spans[spans.length-1].textContent = '코디하기';
+          }else{
+            a.textContent = '코디하기';
+          }
+        }
+      });
+    }catch(_){ }
+  }
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', normalizeFooterTabs);
+    } else {
+      normalizeFooterTabs();
+    }
+  }
 
 window.CodiBank = {
     // config
@@ -1584,5 +1615,6 @@ window.CodiBank = {
     getSmartLocation,
     getWeatherByCoords,
     weatherCodeToKorean,
+    getCodistyleBaseResolved,
   };
 })();
