@@ -337,12 +337,22 @@ async function generate(){
   try{
     const base=codistyleBase(); if(!base) throw new Error('Gemini 백엔드 주소가 없습니다');
     const payload={
-      user:{ gender:user.gender||'', ageGroup:user.ageGroup||'', height:user.height||'', weight:user.weight||'' },
-      topPath: ST.top.serverPath,
-      bottomPath: ST.bottom.serverPath,
-      faceImage: faceDataUrl || null,   /* ★ 서버가 "faceImage" 키로 읽음 */
-      size:'1024x1536',
-      quality:'low'
+      user:{
+        gender:   user.gender   || 'M',
+        ageGroup: user.ageGroup || '30대',
+        height:   user.height   || '',
+        weight:   user.weight   || '',
+      },
+      /* ★ 서버가 읽는 키: topImageDataUrl / bottomImageDataUrl / faceImageDataUrl */
+      topImageDataUrl:    ST.top.dataUrl    || null,   // base64 우선
+      bottomImageDataUrl: ST.bottom.dataUrl || null,   // base64 우선
+      faceImageDataUrl:   faceDataUrl       || null,   // 얼굴 base64
+      /* HTTP URL 폴백 (base64 없을 경우) */
+      topImageUrl:    ST.top.serverPath    ? base + ST.top.serverPath    : '',
+      bottomImageUrl: ST.bottom.serverPath ? base + ST.bottom.serverPath : '',
+      location: (user.location || '서울'),
+      size: '1024x1536',
+      quality: 'low',
     };
     setProgress(38,'Gemini에 요청 중…');
     const r=await fetch(base + '/api/codistyle/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
