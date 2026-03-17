@@ -914,13 +914,7 @@ def codistyle_generate():
     if not _GEMINI_API_KEY:
         return jsonify(ok=False, error="GEMINI_API_KEY가 설정되지 않았습니다."), 400
 
-    # ★ lazy import — 서버 시작 시 모듈 없어도 gunicorn 정상 시작
-    try:
-        import google.generativeai as genai  # type: ignore
-        from PIL import Image as PILImage    # type: ignore
-    except ImportError as ie:
-        return jsonify(ok=False, error=f"필요한 패키지 미설치: {ie}. requirements.txt에 google-generativeai, Pillow 추가 필요"), 500
-
+    # ★ requests는 requirements.txt에 이미 있음 — SDK 불필요
     payload = request.get_json(silent=True) or {}
 
     top_data    = str(payload.get("topImageDataUrl")    or "").strip()
@@ -1004,45 +998,91 @@ def codistyle_generate():
             + "Professional fashion editorial lighting. Photorealistic. No text. No watermarks."
         )
 
-        # ── Gemini API 호출 ──
-        genai.configure(api_key=_GEMINI_API_KEY)
-        model = genai.GenerativeModel(_CODISTYLE_MODEL)
+        # ── Gemini REST API 직접 호출 ──
+        # SDK(google.generativeai)는 v1beta 고정 → 일부 모델 404
+        # REST API 직접 호출로 v1alpha 우선 사용
+        import base64 as _b64
+        import json as _json
 
-        images = []
+        def _img_to_part(pil_img, mime="image/jpeg"):
+            import io
+            buf = io.BytesIO()
+            pil_img.save(buf, format="JPEG", quality=85)
+            return {
+                "inline_data": {
+                    "mime_type": mime,
+                    "data": _b64.b64encode(buf.getvalue()).decode()
+                }
+            }
+
+        parts = [{"text": prompt}]
         if face_img:
-            images.append(face_img)
-        images.append(top_img)
-        images.append(bottom_img)
+            parts.append(_img_to_part(face_img))
+        parts.append(_img_to_part(top_img))
+        parts.append(_img_to_part(bottom_img))
 
-        response = model.generate_content(
-            [prompt] + images,
-            generation_config={
-                "response_modalities": ["IMAGE", "TEXT"],
+        body = {
+            "contents": [{"role": "user", "parts": parts}],
+            "generationConfig": {
+                "responseModalities": ["IMAGE", "TEXT"],
                 "temperature": 0.7,
-            },
-        )
+            }
+        }
+
+        # v1alpha 우선 → v1beta 폴백
+        api_versions = ["v1alpha", "v1beta"]
+        resp_json = None
+        last_err = None
+        for ver in api_versions:
+            url = (f"https://generativelanguage.googleapis.com/{ver}/models/"
+                   f"{_CODISTYLE_MODEL}:generateContent?key={_GEMINI_API_KEY}")
+            try:
+                api_resp = requests.post(
+                    url,
+                    json=body,
+                    headers={"Content-Type": "application/json"},
+                    timeout=120,
+                )
+                if api_resp.status_code == 200:
+                    resp_json = api_resp.json()
+                    break
+                elif api_resp.status_code == 404:
+                    last_err = f"HTTP 404 ({ver}): {api_resp.text[:200]}"
+                    continue
+                else:
+                    raise ValueError(f"Gemini HTTP {api_resp.status_code}: {api_resp.text[:300]}")
+            except requests.exceptions.Timeout:
+                raise ValueError("Gemini API 타임아웃 (120초). 다시 시도해주세요.")
+
+        if resp_json is None:
+            raise ValueError(f"모든 API 버전 실패. 마지막 오류: {last_err}")
 
         # ── 응답에서 이미지 추출 ──
         result_img_bytes = None
-        for part in response.candidates[0].content.parts:
-            if hasattr(part, "inline_data") and part.inline_data and part.inline_data.data:
-                result_img_bytes = part.inline_data.data
+        candidates = resp_json.get("candidates", [])
+        if not candidates:
+            raise ValueError(f"Gemini 응답에 candidates 없음: {str(resp_json)[:300]}")
+
+        parts_out = candidates[0].get("content", {}).get("parts", [])
+        for part in parts_out:
+            inline = part.get("inline_data", {})
+            if inline.get("data"):
+                result_img_bytes = _b64.b64decode(inline["data"])
                 break
 
         if not result_img_bytes:
-            # 텍스트 응답 확인
-            text_parts = [p.text for p in response.candidates[0].content.parts if hasattr(p, "text") and p.text]
-            reason = response.candidates[0].finish_reason if response.candidates else "UNKNOWN"
-            raise ValueError(f"Gemini가 이미지를 생성하지 않았습니다. finish_reason={reason}. {' '.join(text_parts)[:200]}")
+            finish_reason = candidates[0].get("finishReason", "UNKNOWN")
+            text_out = " ".join(p.get("text", "") for p in parts_out if p.get("text"))
+            raise ValueError(f"Gemini 이미지 미생성. finishReason={finish_reason}. {text_out[:200]}")
 
         # ── 결과 저장 ──
         rel = _write_upload_bytes("codistyle", "jpg", result_img_bytes)
         base = _public_base()
 
         comment = ""
-        for part in response.candidates[0].content.parts:
-            if hasattr(part, "text") and part.text:
-                comment = part.text.strip()[:200]
+        for part in parts_out:
+            if part.get("text"):
+                comment = part["text"].strip()[:200]
                 break
 
         return jsonify(
