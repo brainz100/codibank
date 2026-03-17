@@ -998,30 +998,27 @@ def codistyle_generate():
     hw_en     = f"height {height}cm, weight {weight}kg" if height and weight else ""
 
     # 이미지 로드 → base64
-    def _to_b64(src):
-        src = str(src or "").strip()
-        if not src:
-            return None, None
-        try:
-            if src.startswith("data:"):
-                # data URL: 헤더 분리
-                header, b64 = src.split(",", 1)
-                mime = header.split(":")[1].split(";")[0]
-                return mime, b64
-            # 서버 경로 → HTTP 다운로드
-            url = src if src.startswith("http") else f"https://codibank-api.onrender.com{src}"
-            import urllib.request as _ur
-            req = _ur.Request(url, headers={"User-Agent": "CodiBankBot/1.0"})
-            with _ur.urlopen(req, timeout=20) as r:
-                raw = r.read()
-            mime = str(r.headers.get_content_type() or "image/jpeg")
-            return mime, base64.b64encode(raw).decode()
-        except Exception as e:
-            return None, None
+    # ★ dataUrl(base64) 우선 — HTTP 다운로드 없이 직접 처리
+    def _to_b64(data_url_val, path_val=None):
+        # 1순위: data URL (브라우저가 직접 전달)
+        src = str(data_url_val or "").strip()
+        if src.startswith("data:"):
+            header, b64 = src.split(",", 1)
+            mime = header.split(":")[1].split(";")[0]
+            return mime, b64
+        # 2순위: 로컬 파일 직접 읽기 (서버 디스크)
+        path = str(path_val or "").strip()
+        if path.startswith("/uploads/"):
+            fpath = os.path.join(_UPLOAD_DIR, os.path.basename(path))
+            if os.path.exists(fpath):
+                with open(fpath, "rb") as fh:
+                    raw = fh.read()
+                return "image/jpeg", base64.b64encode(raw).decode()
+        return None, None
 
-    top_mime,    top_b64    = _to_b64(payload.get("topPath"))
-    bottom_mime, bottom_b64 = _to_b64(payload.get("bottomPath"))
-    face_mime,   face_b64   = _to_b64(payload.get("faceImage"))
+    top_mime,    top_b64    = _to_b64(payload.get("topDataUrl"),    payload.get("topPath"))
+    bottom_mime, bottom_b64 = _to_b64(payload.get("bottomDataUrl"), payload.get("bottomPath"))
+    face_mime,   face_b64   = _to_b64(payload.get("faceImage"),     None)
 
     if not top_b64 or not bottom_b64:
         return jsonify(ok=False, error="상의/하의 이미지가 필요합니다"), 400
