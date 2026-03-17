@@ -192,8 +192,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 if(!CodiBank.requireAuth('login.html')){}
 const user = CodiBank.getCurrentUser() || {};
 const ST = {
-  top:    { preview:'', serverPath:'', uploading:false },
-  bottom: { preview:'', serverPath:'', uploading:false },
+  top:    { preview:'', serverPath:'', dataUrl:'', uploading:false },
+  bottom: { preview:'', serverPath:'', dataUrl:'', uploading:false },
 };
 let busy=false, lastImgUrl='', faceDataUrl='';
 
@@ -285,7 +285,7 @@ function renderSlot(k){
 function setStatus(k, text, err){ const e=document.getElementById('st-'+k); e.textContent=text||''; e.className='slot-status'+(err?' err':''); }
 function pickFile(k){ document.getElementById('file-'+k).click(); }
 function pickCamera(k){ document.getElementById('cam-'+k).click(); }
-function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', uploading:false }; renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); }
+function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false }; renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); }
 async function fileToBlob(file){ return file; }
 async function compressImage(file, maxSize=1400, quality=0.82){
   const url=URL.createObjectURL(file);
@@ -324,6 +324,7 @@ async function onFile(ev,k){
     setStatus(k,'서버에 업로드중…', false);
     const path = await uploadBlob(k, compressed);
     ST[k].serverPath = path;
+    ST[k].dataUrl    = await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=()=>res('');fr.readAsDataURL(compressed);});
     ST[k].uploading = false;
     renderSlot(k); setStatus(k,'업로드 완료', false); updateGenerateBtn();
   }catch(e){
@@ -343,6 +344,8 @@ async function generate(){
       user:{ gender:user.gender||'', ageGroup:user.ageGroup||'', height:user.height||'', weight:user.weight||'' },
       topPath: ST.top.serverPath,
       bottomPath: ST.bottom.serverPath,
+      topDataUrl: ST.top.dataUrl || null,
+      bottomDataUrl: ST.bottom.dataUrl || null,
       faceImage: faceDataUrl || null,   /* ★ 서버가 "faceImage" 키로 읽음 */
       size:'1024x1536',
       quality:'low'
