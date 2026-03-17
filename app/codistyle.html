@@ -255,8 +255,12 @@ function codistyleBase(){
   const cfg = (window.CodiBank && CodiBank.getConfig) ? CodiBank.getConfig() : {};
   const direct = String(cfg.codistyleBase || '').trim();
   if(direct) return direct.replace(/\/$/,'');
-  if(window.CodiBank && CodiBank.getCodistyleBaseResolved) return String(CodiBank.getCodistyleBaseResolved()||'').replace(/\/$/,'');
-  return '';
+  if(window.CodiBank && CodiBank.getCodistyleBaseResolved){
+    const resolved = String(CodiBank.getCodistyleBaseResolved()||'').replace(/\/$/,'');
+    if(resolved && !resolved.includes(':8787')) return resolved;
+  }
+  /* ★ 하드코딩 폴백 — 항상 작동 보장 */
+  return 'https://codibank-api.onrender.com';
 }
 function setProgress(pct, txt){ document.getElementById('progFill').style.width=pct+'%'; if(txt) document.getElementById('sTxt').textContent=txt; }
 function setDot(s){ const d=document.getElementById('sDot'); d.className='status-dot'+(s==='done'?' done':s==='err'?' err':''); }
