@@ -978,8 +978,12 @@ def ai_styling():
 # ★ 외부 패키지 없음, requests만 사용 (기존 설치됨)
 # ★ 원본 코드 구조 일절 수정 없음, 끝에 추가만
 # ─────────────────────────────────────────────────────────
-_CODISTYLE_MODEL = os.getenv("CODIBANK_CODISTYLE_MODEL", "gemini-2.5-flash-preview-image")
-_GEMINI_KEY      = os.getenv("GEMINI_API_KEY", "")
+_CODISTYLE_MODEL = (
+    os.getenv("CODISTYLE_GEMINI_MODEL") or          # Render 실제 환경변수명
+    os.getenv("CODIBANK_CODISTYLE_MODEL") or         # 폴백
+    "gemini-2.5-flash-image"                         # 기본값 (Render 설정값과 동일)
+)
+_GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
 
 @app.post("/api/codistyle/generate")
 def codistyle_generate():
@@ -1064,11 +1068,12 @@ def codistyle_generate():
         }
     }
 
-    # Gemini REST API 호출 (v1alpha → v1beta 폴백)
+    # Gemini REST API 호출
+    # v1beta 우선 (최신 모델 공식 지원) → v1alpha → v1 순서
     import urllib.request as _ur2, json as _json
     last_err = None
     resp_json = None
-    for ver in ("v1alpha", "v1beta"):
+    for ver in ("v1beta", "v1alpha", "v1"):
         url = (f"https://generativelanguage.googleapis.com/{ver}/models/"
                f"{_CODISTYLE_MODEL}:generateContent?key={_GEMINI_KEY}")
         req_data = _json.dumps(body).encode()
@@ -1079,10 +1084,11 @@ def codistyle_generate():
                 resp_json = _json.loads(r.read())
             break
         except _ur2.HTTPError as e:
-            last_err = f"HTTP {e.code} ({ver}): {e.read()[:200].decode(errors='replace')}"
-            if e.code == 404:
-                continue
-            break
+            err_body = e.read()[:300].decode(errors='replace')
+            last_err = f"HTTP {e.code} ({ver}): {err_body}"
+            if e.code in (404, 400):
+                continue  # 다음 버전 시도
+            break  # 다른 에러는 중단
         except Exception as e:
             last_err = str(e)
             break
