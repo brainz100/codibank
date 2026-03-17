@@ -318,7 +318,7 @@ async function generate(){
       user:{ gender:user.gender||'', ageGroup:user.ageGroup||'', height:user.height||'', weight:user.weight||'' },
       topPath: ST.top.serverPath,
       bottomPath: ST.bottom.serverPath,
-      faceImageDataUrl: faceDataUrl || null,
+      faceImage: faceDataUrl || null,   /* ★ 서버가 "faceImage" 키로 읽음 */
       size:'1024x1536',
       quality:'low'
     };
@@ -332,6 +332,20 @@ async function generate(){
     document.getElementById('imgWrap').innerHTML='<img class="result-img" src="'+lastImgUrl+'" alt="AI 착장 이미지">';
     document.getElementById('bActions').style.display='flex';
     setDot('done'); setProgress(100,'착장 이미지 생성 완료 ✨');
+
+    /* ── 코디앨범 자동 저장 ── */
+    try{
+      if(window.CodiBank && CodiBank.addAiAlbumEntry && user.email){
+        CodiBank.addAiAlbumEntry(user.email, {
+          imageRef:  lastImgUrl,
+          weatherText: '',
+          temp: '',
+          purpose: '코디하기',
+          note: '코디하기 AI 착장 이미지',
+          createdAt: new Date().toISOString()
+        });
+      }
+    }catch(_){}
   }catch(e){
     setDot('err'); setProgress(100,'생성 중 오류가 발생했어요');
     showErr('⚠️ AI 착장 이미지 생성 실패: '+(e.message||e));
