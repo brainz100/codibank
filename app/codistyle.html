@@ -256,10 +256,9 @@ function codistyleBase(){
   const direct = String(cfg.codistyleBase || '').trim();
   if(direct) return direct.replace(/\/$/,'');
   if(window.CodiBank && CodiBank.getCodistyleBaseResolved){
-    const resolved = String(CodiBank.getCodistyleBaseResolved()||'').replace(/\/$/,'');
-    if(resolved && !resolved.includes(':8787')) return resolved;
+    const r = String(CodiBank.getCodistyleBaseResolved()||'').replace(/\/$/,'');
+    if(r && !r.includes(':8787')) return r;
   }
-  /* ★ 하드코딩 폴백 — 항상 작동 보장 */
   return 'https://codibank-api.onrender.com';
 }
 function setProgress(pct, txt){ document.getElementById('progFill').style.width=pct+'%'; if(txt) document.getElementById('sTxt').textContent=txt; }
@@ -303,28 +302,10 @@ async function compressImage(file, maxSize=1400, quality=0.82){
 }
 async function uploadBlob(k, blob){
   const base=codistyleBase(); if(!base) throw new Error('Gemini 백엔드 주소가 없습니다');
-
-  /* blob → base64 dataUrl 변환 */
-  const dataUrl = await new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onload  = () => res(fr.result);
-    fr.onerror = () => rej(new Error('파일 읽기 실패'));
-    fr.readAsDataURL(blob);
-  });
-
-  /* ★ dataUrl 저장 — generate() 시 base64로 직접 전달 */
-  ST[k].dataUrl = dataUrl;
-
-  /* ★ 서버는 JSON {dataUrl, slot, email} 형식 기대 */
-  const r=await fetch(base + '/api/storage/upload', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      dataUrl: dataUrl,
-      slot:    'codistyle_' + k,
-      email:   (user && user.email) || '',
-    }),
-  });
+  const fd=new FormData();
+  fd.append('file', blob, k+'.jpg');
+  fd.append('slot', 'codistyle_'+k);
+  const r=await fetch(base + '/api/storage/upload', { method:'POST', body: fd });
   const j=await r.json().catch(()=>null);
   if(!r.ok || !j || j.ok!==true) throw new Error((j&&j.error)||('HTTP '+r.status));
   return String(j.path || '');
@@ -359,22 +340,12 @@ async function generate(){
   try{
     const base=codistyleBase(); if(!base) throw new Error('Gemini 백엔드 주소가 없습니다');
     const payload={
-      user:{
-        gender:   user.gender   || 'M',
-        ageGroup: user.ageGroup || '30대',
-        height:   user.height   || '',
-        weight:   user.weight   || '',
-      },
-      /* ★ 서버가 읽는 키: topImageDataUrl / bottomImageDataUrl / faceImageDataUrl */
-      topImageDataUrl:    ST.top.dataUrl    || null,   // base64 우선
-      bottomImageDataUrl: ST.bottom.dataUrl || null,   // base64 우선
-      faceImage:          faceDataUrl       || null,   // 원본 서버 키
-      /* HTTP URL 폴백 (base64 없을 경우) */
-      topImageUrl:    ST.top.serverPath    ? base + ST.top.serverPath    : '',
-      bottomImageUrl: ST.bottom.serverPath ? base + ST.bottom.serverPath : '',
-      location: (user.location || '서울'),
-      size: '1024x1536',
-      quality: 'low',
+      user:{ gender:user.gender||'', ageGroup:user.ageGroup||'', height:user.height||'', weight:user.weight||'' },
+      topPath: ST.top.serverPath,
+      bottomPath: ST.bottom.serverPath,
+      faceImage: faceDataUrl || null,   /* ★ 서버가 "faceImage" 키로 읽음 */
+      size:'1024x1536',
+      quality:'low'
     };
     setProgress(38,'Gemini에 요청 중…');
     const r=await fetch(base + '/api/codistyle/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
