@@ -871,7 +871,7 @@ if __name__ == "__main__":
 #   - Render free tier ephemeral disk 문제 완전 해결
 # ─────────────────────────────────────────────────────────────────────────────
 
-_CODISTYLE_MODEL = os.getenv("CODIBANK_CODISTYLE_MODEL", "gemini-2.0-flash-exp-image-generation")
+_CODISTYLE_MODEL = os.getenv("CODIBANK_CODISTYLE_MODEL", "gemini-2.5-flash-preview-image")
 _GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
 
 
