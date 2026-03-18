@@ -1167,29 +1167,71 @@ function pickBestItemByColor(items, desiredColor, catKey){
   return best;
 }
 
-// ── AI 추천 스타일링 사용량(월) 표시/제한 ─────────────────────
+// ── AI 코디 생성 사용량 — 내옷장 + 코디하기 통합 관리 ─────────
+// ★ codistyle.html과 동일한 cb_usage_ 키를 공유
+const PLANS = {
+  free:    { label:'무료',   monthlyTotal:6,     dailyLimit:null },
+  silver:  { label:'실버',   monthlyTotal:40,    dailyLimit:3 },
+  gold:    { label:'골드',   monthlyTotal:150,   dailyLimit:10 },
+  diamond: { label:'다이아', monthlyTotal:99999, dailyLimit:30 },
+};
+function _usageKey(){ return 'cb_usage_' + (user.email||'guest'); }
+function getUnifiedUsage(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(_usageKey()) || '{}');
+    const now = new Date();
+    const monthKey = now.getFullYear()+'-'+(now.getMonth()+1);
+    const dayKey = now.toISOString().slice(0,10);
+    if(raw.month !== monthKey){ raw.month=monthKey; raw.monthCount=0; }
+    if(raw.day !== dayKey){ raw.day=dayKey; raw.dayCount=0; }
+    return raw;
+  }catch(_){ return { month:'', monthCount:0, day:'', dayCount:0 }; }
+}
+function recordUnifiedUsage(){
+  const u = getUnifiedUsage();
+  u.monthCount = (u.monthCount||0) + 1;
+  u.dayCount = (u.dayCount||0) + 1;
+  try{ localStorage.setItem(_usageKey(), JSON.stringify(u)); }catch(_){}
+}
+function checkUnifiedUsage(){
+  const planId = (user.plan || 'free').toLowerCase();
+  const plan = PLANS[planId] || PLANS.free;
+  const u = getUnifiedUsage();
+  if(u.monthCount >= plan.monthlyTotal)
+    return { blocked:true, remaining:0, reason: plan.label+' 플랜 월간 이용횟수를 모두 사용했어요.' };
+  if(plan.dailyLimit && u.dayCount >= plan.dailyLimit)
+    return { blocked:true, remaining: plan.monthlyTotal - u.monthCount, reason: '오늘 일일 한도('+plan.dailyLimit+'회)를 모두 사용했어요.' };
+  return { blocked:false, remaining: plan.monthlyTotal - u.monthCount, dailyRemaining: plan.dailyLimit ? (plan.dailyLimit - u.dayCount) : null };
+}
+
 function updateQuotaBadge(){
   const badge=document.getElementById('aiQuota');
   if(!badge) return;
   try{
-    const usage = (window.CodiBank && CodiBank.getAiStylingUsage) ? CodiBank.getAiStylingUsage(user.email) : null;
-    if(!usage || usage.ok!==true){
+    const ck = checkUnifiedUsage();
+    if(ck.blocked){
       badge.className='ai-badge danger';
-      badge.textContent='남은 0회';
+      badge.textContent='한도 초과';
       return;
     }
-    if(usage.limit===Infinity){
+    if(ck.remaining > 9999){
       badge.className='ai-badge claude';
       badge.textContent='무제한';
       return;
     }
-    const rem = Math.max(0, Number(usage.remaining||0));
-    badge.className = `ai-badge ${rem<=2?'danger':'gray'}`;
-    badge.textContent = `남은 ${rem}회`;
+    const daily = ck.dailyRemaining !== null ? ' (오늘 '+ck.dailyRemaining+')' : '';
+    badge.className = `ai-badge ${ck.remaining<=2?'danger':'gray'}`;
+    badge.textContent = `남은 ${ck.remaining}회${daily}`;
   }catch(_){
     badge.className='ai-badge gray';
     badge.textContent='남은 0회';
   }
+}
+
+function canGenerateNow(){
+  try{
+    return !checkUnifiedUsage().blocked;
+  }catch(_){return false;}
 }
 
 function setGenUiEnabled(enabled){
@@ -1198,10 +1240,8 @@ function setGenUiEnabled(enabled){
   const mBtn=document.getElementById('dayTomorrowBtn');
   const againBtn=document.getElementById('againBtn');
   const busy = !!S.busy;
-  // 날짜 버튼은 "생성 중"에만 잠깐 비활성화(레이스/중복 요청 방지)
   if(tBtn) tBtn.disabled = busy;
   if(mBtn) mBtn.disabled = busy;
-  // 다시 코디는 잔여 횟수(또는 무제한)일 때만 활성화
   if(againBtn){
     const canAgain = !busy && en && !!S.hasGenerated;
     againBtn.disabled = !canAgain;
@@ -1211,15 +1251,6 @@ function setGenUiEnabled(enabled){
       againBtn.style.cssText = "height:44px;border-radius:14px;background:rgba(255,255,255,0.06);border:1.5px dashed rgba(151,254,237,0.2);color:rgba(255,255,255,0.3);cursor:not-allowed;font-family:'Outfit','Noto Sans KR',sans-serif;";
     }
   }
-}
-
-function canGenerateNow(){
-  try{
-    const usage = (window.CodiBank && CodiBank.getAiStylingUsage) ? CodiBank.getAiStylingUsage(user.email) : null;
-    if(!usage || usage.ok!==true) return false;
-    if(usage.limit===Infinity) return true;
-    return Number(usage.remaining||0) > 0;
-  }catch(_){return false;}
 }
 
 function resetStylingBox(msg){
@@ -3098,9 +3129,7 @@ async function updateVTO(opts={}){
   // 사용량 차감(성공적으로 "새 이미지"를 만든 경우에만)
   if(didGenerateNew){
     try{
-      if(window.CodiBank && CodiBank.consumeAiStyling){
-        CodiBank.consumeAiStyling(user.email, 1);
-      }
+      recordUnifiedUsage();  // ★ 통합 사용량 기록 (내옷장 + 코디하기 공유)
     }catch(_){}
 
     // ✅ 코디앨범 저장: imageRef를 절대URL로 저장해 album.html에서 환경 무관하게 로드
