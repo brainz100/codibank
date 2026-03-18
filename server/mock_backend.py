@@ -975,13 +975,13 @@ def ai_styling():
 
 # ─────────────────────────────────────────────────────────
 # /api/codistyle/generate  — Gemini 착장 이미지 생성
-# ★ 외부 패키지 없음, requests만 사용 (기존 설치됨)
-# ★ 원본 코드 구조 일절 수정 없음, 끝에 추가만
+# ★ google-genai 공식 SDK 사용 (REST API는 이미지 생성 모델에서 미작동)
+# ★ google-generativeai(구버전)이 아닌 google-genai(신버전) 필수
 # ─────────────────────────────────────────────────────────
 _CODISTYLE_MODEL = (
-    os.getenv("CODISTYLE_GEMINI_MODEL") or          # Render 실제 환경변수명
-    os.getenv("CODIBANK_CODISTYLE_MODEL") or         # 폴백
-    "gemini-2.5-flash-image"                         # 기본값 (Render 설정값과 동일)
+    os.getenv("CODISTYLE_GEMINI_MODEL") or
+    os.getenv("CODIBANK_CODISTYLE_MODEL") or
+    "gemini-2.5-flash-image"
 )
 _GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
 
@@ -989,6 +989,13 @@ _GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
 def codistyle_generate():
     if not _GEMINI_KEY:
         return jsonify(ok=False, error="GEMINI_API_KEY 미설정"), 400
+
+    # ── google-genai SDK import (lazy, 서버 시작 시 오류 방지) ──
+    try:
+        from google import genai as _genai
+        from google.genai import types as _gtypes
+    except ImportError:
+        return jsonify(ok=False, error="google-genai 패키지 미설치. pip install google-genai 필요"), 500
 
     payload   = request.get_json(silent=True) or {}
     user_info = payload.get("user") or {}
@@ -1001,34 +1008,31 @@ def codistyle_generate():
     hw_ko     = f"키 {height}cm, 몸무게 {weight}kg" if height and weight else ""
     hw_en     = f"height {height}cm, weight {weight}kg" if height and weight else ""
 
-    # 이미지 로드 → base64
-    # ★ dataUrl(base64) 우선 — HTTP 다운로드 없이 직접 처리
-    def _to_b64(data_url_val, path_val=None):
-        # 1순위: data URL (브라우저가 직접 전달)
+    # ── 이미지 로드 → bytes ──
+    def _to_bytes(data_url_val, path_val=None):
+        """dataUrl 또는 로컬파일 → (mime, raw_bytes)"""
         src = str(data_url_val or "").strip()
         if src.startswith("data:"):
             header, b64 = src.split(",", 1)
             mime = header.split(":")[1].split(";")[0]
-            return mime, b64
-        # 2순위: 로컬 파일 직접 읽기 (서버 디스크)
+            return mime, base64.b64decode(b64)
         path = str(path_val or "").strip()
         if path.startswith("/uploads/"):
             fpath = os.path.join(_UPLOAD_DIR, os.path.basename(path))
             if os.path.exists(fpath):
                 with open(fpath, "rb") as fh:
-                    raw = fh.read()
-                return "image/jpeg", base64.b64encode(raw).decode()
+                    return "image/jpeg", fh.read()
         return None, None
 
-    top_mime,    top_b64    = _to_b64(payload.get("topDataUrl"),    payload.get("topPath"))
-    bottom_mime, bottom_b64 = _to_b64(payload.get("bottomDataUrl"), payload.get("bottomPath"))
-    face_mime,   face_b64   = _to_b64(payload.get("faceImage"),     None)
+    top_mime,    top_bytes    = _to_bytes(payload.get("topDataUrl"),    payload.get("topPath"))
+    bottom_mime, bottom_bytes = _to_bytes(payload.get("bottomDataUrl"), payload.get("bottomPath"))
+    face_mime,   face_bytes   = _to_bytes(payload.get("faceImage"),     None)
 
-    if not top_b64 or not bottom_b64:
+    if not top_bytes or not bottom_bytes:
         return jsonify(ok=False, error="상의/하의 이미지가 필요합니다"), 400
 
-    # 프롬프트
-    if face_b64:
+    # ── 프롬프트 구성 ──
+    if face_bytes:
         face_line = (
             f"The FIRST image is the face reference of the actual person ({gender_ko}"
             + (f", {hw_ko}" if hw_ko else "") + "). "
@@ -1043,75 +1047,66 @@ def codistyle_generate():
         )
         img_desc = "FIRST image=upper garment, SECOND image=lower garment."
 
+    # 한국어 보조 지시 (얼굴 유무에 따라 다르게)
+    if face_bytes:
+        ko_instruction = "첨부한 얼굴 이미지의 인물이 상의와 하의를 입고 있는 전신 모습을 생성해주세요. "
+    else:
+        ko_instruction = "첨부한 상의와 하의를 입고 있는 전신 모습을 생성해주세요. "
+
     prompt = (
         "Create a photorealistic full-body Korean fashion editorial photo. "
         + face_line
         + img_desc + " "
-        "얼굴 이미지와 신체 사이즈를 고려하고, 함께 첨부한 상의와 하의를 입고 있는 모습을 반영해주세요. "
-        "Reproduce the EXACT color, fabric, silhouette, logo of each garment from the reference images. "
+        + ko_instruction
+        + "Reproduce the EXACT color, fabric, silhouette, logo of each garment from the reference images. "
         "Full body head to toe visible. Clean Korean urban or studio background. "
         "Professional fashion editorial lighting. Photorealistic. No text. No watermarks."
     )
 
-    # parts 구성
-    parts = [{"text": prompt}]
-    if face_b64:
-        parts.append({"inline_data": {"mime_type": face_mime or "image/jpeg", "data": face_b64}})
-    parts.append({"inline_data": {"mime_type": top_mime    or "image/jpeg", "data": top_b64}})
-    parts.append({"inline_data": {"mime_type": bottom_mime or "image/jpeg", "data": bottom_b64}})
+    # ── contents 구성: [텍스트, 얼굴(선택), 상의, 하의] ──
+    contents = [prompt]
+    if face_bytes:
+        contents.append(_gtypes.Part.from_bytes(data=face_bytes, mime_type=face_mime or "image/jpeg"))
+    contents.append(_gtypes.Part.from_bytes(data=top_bytes,    mime_type=top_mime    or "image/jpeg"))
+    contents.append(_gtypes.Part.from_bytes(data=bottom_bytes, mime_type=bottom_mime or "image/jpeg"))
 
-    body = {
-        "contents": [{"role": "user", "parts": parts}],
-        "generationConfig": {
-            "responseModalities": ["IMAGE", "TEXT"],
-            "temperature": 0.7,
-        }
-    }
+    # ── Gemini API 호출 (google-genai SDK) ──
+    try:
+        client = _genai.Client(api_key=_GEMINI_KEY)
+        response = client.models.generate_content(
+            model=_CODISTYLE_MODEL,
+            contents=contents,
+            config=_gtypes.GenerateContentConfig(
+                response_modalities=["IMAGE", "TEXT"],
+                temperature=0.7,
+            ),
+        )
+    except Exception as e:
+        return jsonify(ok=False, error=f"Gemini SDK 호출 실패: {str(e)[:300]}"), 500
 
-    # Gemini REST API 호출
-    # v1beta 우선 (최신 모델 공식 지원) → v1alpha → v1 순서
-    import urllib.request as _ur2, json as _json
-    last_err = None
-    resp_json = None
-    for ver in ("v1beta", "v1alpha", "v1"):
-        url = (f"https://generativelanguage.googleapis.com/{ver}/models/"
-               f"{_CODISTYLE_MODEL}:generateContent?key={_GEMINI_KEY}")
-        req_data = _json.dumps(body).encode()
-        req = _ur2.Request(url, data=req_data,
-                           headers={"Content-Type": "application/json"}, method="POST")
-        try:
-            with _ur2.urlopen(req, timeout=120) as r:
-                resp_json = _json.loads(r.read())
-            break
-        except _ur2.HTTPError as e:
-            err_body = e.read()[:300].decode(errors='replace')
-            last_err = f"HTTP {e.code} ({ver}): {err_body}"
-            if e.code in (404, 400):
-                continue  # 다음 버전 시도
-            break  # 다른 에러는 중단
-        except Exception as e:
-            last_err = str(e)
-            break
-
-    if not resp_json:
-        return jsonify(ok=False, error=f"Gemini 호출 실패: {last_err}"), 500
-
-    # 결과 추출
-    candidates = resp_json.get("candidates", [])
-    if not candidates:
-        return jsonify(ok=False, error=f"응답 없음: {str(resp_json)[:200]}"), 500
-
+    # ── 응답에서 이미지 추출 ──
     img_bytes = None
     comment   = ""
-    for part in candidates[0].get("content", {}).get("parts", []):
-        if part.get("inline_data", {}).get("data"):
-            img_bytes = base64.b64decode(part["inline_data"]["data"])
-        elif part.get("text"):
-            comment = part["text"].strip()[:200]
+    try:
+        for part in response.candidates[0].content.parts:
+            if part.inline_data and part.inline_data.data:
+                img_bytes = part.inline_data.data
+                # SDK는 이미 bytes로 반환 (base64 디코딩 불필요)
+            elif part.text:
+                comment = part.text.strip()[:200]
+    except (IndexError, AttributeError) as e:
+        return jsonify(ok=False, error=f"응답 파싱 실패: {str(e)[:200]}"), 500
 
     if not img_bytes:
-        reason = candidates[0].get("finishReason", "UNKNOWN")
-        return jsonify(ok=False, error=f"이미지 미생성 finishReason={reason} {comment[:100]}"), 500
+        try:
+            finish = response.candidates[0].finish_reason
+        except Exception:
+            finish = "UNKNOWN"
+        return jsonify(ok=False, error=f"이미지 미생성 finishReason={finish} {comment[:100]}"), 500
+
+    # img_bytes가 bytes인지 확인 (혹시 base64 문자열이면 디코딩)
+    if isinstance(img_bytes, str):
+        img_bytes = base64.b64decode(img_bytes)
 
     rel  = _write_upload_bytes("codistyle", "jpg", img_bytes)
     base = _public_base()
