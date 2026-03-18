@@ -165,7 +165,7 @@ async function verifyOtp(){
   if(code.length!==6) return showErr('s2Err','6자리 코드를 입력해주세요.');
   const btn=document.getElementById('btnVerify'); btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> 확인 중…';
   try{
-    const{error}=await sb.auth.verifyOtp({email:sEmail,token:code,type:'signup'});
+    const{error}=await sb.auth.verifyOtp({email:sEmail,token:code,type:'email'});
     if(error){ if(error.message.includes('expired')) throw new Error('코드가 만료됐습니다. 재발송해주세요.'); throw new Error(error.message||'인증 실패'); }
     showStep('step3',3,'STEP 3 / 3 — 체형 정보');
   }catch(e){ showErr('s2Err',e.message); }
