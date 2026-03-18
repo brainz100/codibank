@@ -990,12 +990,21 @@ def codistyle_generate():
     if not _GEMINI_KEY:
         return jsonify(ok=False, error="GEMINI_API_KEY 미설정"), 400
 
-    # ── google-genai SDK import (lazy, 서버 시작 시 오류 방지) ──
+    # ── SDK 감지: google-genai(신) 우선 → google-generativeai(구) 폴백 ──
+    _SDK = None  # "new" 또는 "old"
     try:
         from google import genai as _genai
         from google.genai import types as _gtypes
+        _SDK = "new"
     except ImportError:
-        return jsonify(ok=False, error="google-genai 패키지 미설치. pip install google-genai 필요"), 500
+        pass
+
+    if not _SDK:
+        try:
+            import google.generativeai as _genai_old
+            _SDK = "old"
+        except ImportError:
+            return jsonify(ok=False, error="Gemini SDK 미설치. google-genai 또는 google-generativeai 필요"), 500
 
     payload   = request.get_json(silent=True) or {}
     user_info = payload.get("user") or {}
@@ -1063,26 +1072,61 @@ def codistyle_generate():
         "Professional fashion editorial lighting. Photorealistic. No text. No watermarks."
     )
 
-    # ── contents 구성: [텍스트, 얼굴(선택), 상의, 하의] ──
-    contents = [prompt]
-    if face_bytes:
-        contents.append(_gtypes.Part.from_bytes(data=face_bytes, mime_type=face_mime or "image/jpeg"))
-    contents.append(_gtypes.Part.from_bytes(data=top_bytes,    mime_type=top_mime    or "image/jpeg"))
-    contents.append(_gtypes.Part.from_bytes(data=bottom_bytes, mime_type=bottom_mime or "image/jpeg"))
-
-    # ── Gemini API 호출 (google-genai SDK) ──
+    # ── Gemini API 호출 (신/구 SDK 분기) ──
     try:
-        client = _genai.Client(api_key=_GEMINI_KEY)
-        response = client.models.generate_content(
-            model=_CODISTYLE_MODEL,
-            contents=contents,
-            config=_gtypes.GenerateContentConfig(
-                response_modalities=["IMAGE", "TEXT"],
-                temperature=0.7,
-            ),
-        )
+        if _SDK == "new":
+            # ★ google-genai (신규 공식 SDK) ★
+            contents = [prompt]
+            if face_bytes:
+                contents.append(_gtypes.Part.from_bytes(data=face_bytes, mime_type=face_mime or "image/jpeg"))
+            contents.append(_gtypes.Part.from_bytes(data=top_bytes,    mime_type=top_mime    or "image/jpeg"))
+            contents.append(_gtypes.Part.from_bytes(data=bottom_bytes, mime_type=bottom_mime or "image/jpeg"))
+
+            client = _genai.Client(api_key=_GEMINI_KEY)
+            response = client.models.generate_content(
+                model=_CODISTYLE_MODEL,
+                contents=contents,
+                config=_gtypes.GenerateContentConfig(
+                    response_modalities=["IMAGE", "TEXT"],
+                    temperature=0.7,
+                ),
+            )
+        else:
+            # ★ google-generativeai (구 SDK, 이미 설치됨) ★
+            from PIL import Image as _PILImage
+            _genai_old.configure(api_key=_GEMINI_KEY)
+            model = _genai_old.GenerativeModel(_CODISTYLE_MODEL)
+
+            # bytes → PIL Image 변환
+            def _bytes_to_pil(raw):
+                return _PILImage.open(io.BytesIO(raw))
+
+            contents_old = [prompt]
+            if face_bytes:
+                contents_old.append(_bytes_to_pil(face_bytes))
+            contents_old.append(_bytes_to_pil(top_bytes))
+            contents_old.append(_bytes_to_pil(bottom_bytes))
+
+            # 구 SDK에서 response_modalities 지원 여부 불확실
+            # → dict 방식으로 전달 시도 → 실패하면 GenerationConfig 방식
+            try:
+                response = model.generate_content(
+                    contents_old,
+                    generation_config={
+                        "response_modalities": ["IMAGE", "TEXT"],
+                        "temperature": 0.7,
+                    },
+                )
+            except TypeError:
+                # dict 방식 실패 시 GenerationConfig 객체 사용
+                response = model.generate_content(
+                    contents_old,
+                    generation_config=_genai_old.GenerationConfig(
+                        temperature=0.7,
+                    ),
+                )
     except Exception as e:
-        return jsonify(ok=False, error=f"Gemini SDK 호출 실패: {str(e)[:300]}"), 500
+        return jsonify(ok=False, error=f"Gemini 호출 실패 ({_SDK}): {str(e)[:300]}"), 500
 
     # ── 응답에서 이미지 추출 ──
     img_bytes = None
@@ -1115,6 +1159,7 @@ def codistyle_generate():
         image=f"{base}{rel}", url=f"{base}{rel}",
         comment=comment or "AI 착장 이미지 생성 완료!",
         model=_CODISTYLE_MODEL,
+        sdk=_SDK,
     )
 
 
