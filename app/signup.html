@@ -66,10 +66,6 @@
       <div><label class="field-label">이메일 (아이디)</label><input id="s1_email" type="email" class="input" placeholder="example@email.com"/></div>
       <div><label class="field-label">비밀번호 (영문+숫자 6자 이상)</label><input id="s1_pw" type="password" class="input" placeholder="비밀번호"/></div>
       <div><label class="field-label">비밀번호 확인</label><input id="s1_pw2" type="password" class="input" placeholder="비밀번호 재입력"/></div>
-      <div><label class="field-label">휴대폰 번호 <span class="opt-label">(선택)</span></label><input id="s1_phone" type="tel" class="input" placeholder="010-0000-0000"/></div>
-      <p id="s1Err" class="err"></p>
-      <button class="btn-primary" id="btnStep1" onclick="sendVerification()">이메일 인증 요청 →</button>
-    </div>
 
     <!-- STEP 2: 이메일 인증 대기 (링크 방식) -->
     <div class="panel" id="step2">
@@ -109,7 +105,7 @@ let sb; try{ sb=window.supabase.createClient(SB_URL,SB_KEY); }catch(e){ console.
 
 if(window.CodiBank&&CodiBank.getCurrentUser&&CodiBank.getCurrentUser()) location.replace('closet.html');
 
-let G='',A='',sEmail='',sPw='',sPhone='';
+let G='',A='',sEmail='',sPw='';
 function sel(t,v,el){ if(t==='G')G=v; else A=v; el.closest('.sel-group').querySelectorAll('.sel-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
 function showErr(id,m){const e=document.getElementById(id);e.textContent=m;e.classList.add('show');}
 function clrErr(id){document.getElementById(id).classList.remove('show');}
@@ -127,11 +123,11 @@ async function sendVerification(){
   const em=document.getElementById('s1_email').value.trim();
   const pw=document.getElementById('s1_pw').value;
   const pw2=document.getElementById('s1_pw2').value;
-  const ph=document.getElementById('s1_phone').value.trim();
+  
   if(!em||!em.includes('@')) return showErr('s1Err','올바른 이메일을 입력해주세요.');
   if(!pw||pw.length<6) return showErr('s1Err','비밀번호는 6자 이상이어야 합니다.');
   if(pw!==pw2) return showErr('s1Err','비밀번호가 일치하지 않습니다.');
-  sEmail=em; sPw=pw; sPhone=ph;
+  sEmail=em; sPw=pw;
   const btn=document.getElementById('btnStep1'); btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> 발송 중…';
   try{
     if(!sb) throw new Error('인증 서버 연결 실패');
@@ -139,7 +135,7 @@ async function sendVerification(){
       email:em,
       password:pw,
       options:{
-        data:{phone:ph||''},
+        data:{},
         emailRedirectTo:'https://codibank.kr/app/signup.html?verified=true'
       }
     });
@@ -210,7 +206,7 @@ function doSignup(){
   const res=window.CodiBank.signup({
     email:sEmail,
     password:sPw||'supabase_verified',
-    phone:sPhone||'',
+    phone:'',
     gender:G,
     ageGroup:A,
     height:document.getElementById('s3_height').value,

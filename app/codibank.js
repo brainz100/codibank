@@ -21,21 +21,26 @@
   // ==============================
   function getConfig() {
     const cfg = (typeof window !== 'undefined' && window.CODIBANK_CONFIG) ? window.CODIBANK_CONFIG : {};
-    const host = (typeof window !== 'undefined' && window.location && window.location.hostname) ? String(window.location.hostname).trim().toLowerCase() : '';
-    const isProd = host === 'codibank.kr' || host === 'www.codibank.kr';
-    const defaults = isProd ? {
-      backendBase: 'https://codibank.onrender.com',
-      aiBase: 'https://codibank.onrender.com',
-      codistyleBase: 'https://codibank-api.onrender.com',
-    } : {};
     return {
-      backendBase: String(cfg.backendBase || cfg.BACKEND_BASE || defaults.backendBase || '').trim(),
+      // Backend (proxy) base URL, e.g. "http://192.168.0.12:8787".
+      // If empty, calls are made to the current origin.
+      backendBase: String(cfg.backendBase || cfg.BACKEND_BASE || '').trim(),
+
+      // Weather provider: "KMA" (data.go.kr) recommended for commercial, "OPEN_METEO_DEV" for prototype only.
       weatherProvider: String(cfg.weatherProvider || cfg.WEATHER_PROVIDER || 'OPEN_METEO_DEV').trim(),
       allowOpenMeteoDev: cfg.allowOpenMeteoDev !== undefined ? !!cfg.allowOpenMeteoDev : (cfg.ALLOW_OPEN_METEO_DEV_ONLY !== undefined ? !!cfg.ALLOW_OPEN_METEO_DEV_ONLY : true),
+
+      // KMA (data.go.kr) service key (DEV ONLY; for production use backend proxy)
       kmaServiceKey: String(cfg.kmaServiceKey || cfg.KMA_SERVICE_KEY || '').trim(),
-      aiProvider: String(cfg.aiProvider || cfg.AI_PROVIDER || 'REMOTE').trim(),
-      aiBase: String(cfg.aiBase || cfg.AI_BASE || defaults.aiBase || '').trim(),
-      codistyleBase: String(cfg.codistyleBase || cfg.CODISTYLE_BASE || cfg.geminiBase || cfg.GEMINI_BASE || defaults.codistyleBase || '').trim(),
+
+      // AI styling provider: "REMOTE" (backend) or "LOCAL" (browser canvas).
+      aiProvider: String(cfg.aiProvider || cfg.AI_PROVIDER || 'LOCAL').trim(),
+
+      // Optional: separate AI base (defaults to backendBase)
+      aiBase: String(cfg.aiBase || cfg.AI_BASE || '').trim(),
+
+      // Optional: separate storage/assets base for uploaded images
+      storageBase: String(cfg.storageBase || cfg.STORAGE_BASE || '').trim(),
     };
   }
 
@@ -53,6 +58,61 @@
 // - If backendBase is not set in config.js, we derive it from current hostname.
 //   (This is important for mobile testing over Wi‑Fi.)
 // ==============================
+
+function _uniqueStrings(arr) {
+  return Array.from(new Set((arr || []).map(v => String(v || '').trim()).filter(Boolean)));
+}
+
+function getStorageBasesResolved() {
+  const cfg = getConfig();
+  const out = [];
+  const push = (v) => { if (v) out.push(String(v).trim().replace(/\/$/, '')); };
+  try {
+    push(cfg.storageBase);
+    push(cfg.backendBase);
+    push(cfg.aiBase);
+    const loc = (typeof window !== 'undefined' && window.location) ? window.location : null;
+    const host = loc && loc.hostname ? String(loc.hostname).trim() : '';
+    const origin = loc && loc.origin ? String(loc.origin).trim() : '';
+    if (origin && !/localhost|127\.0\.0\.1/.test(host)) push(origin);
+    // 운영 도메인 기본 폴백: 이미지는 주로 메인 백엔드(codibank.onrender.com)에 있고,
+    // 일부는 분리 API(codibank-api.onrender.com)에 저장될 수 있어 둘 다 시도합니다.
+    if (/codibank\.kr$/i.test(host)) {
+      push('https://codibank.onrender.com');
+      push('https://codibank-api.onrender.com');
+    }
+  } catch (_) {}
+  return _uniqueStrings(out);
+}
+
+function _probeImageUrl(url, timeoutMs) {
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      let done = false;
+      const t = setTimeout(() => {
+        if (done) return;
+        done = true;
+        try { img.src = ''; } catch (_) {}
+        resolve(false);
+      }, Number(timeoutMs || 6000));
+      img.onload = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        resolve(true);
+      };
+      img.onerror = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        resolve(false);
+      };
+      img.src = url;
+    } catch (_) { resolve(false); }
+  });
+}
+
 function getBackendBaseResolved() {
   const cfg = getConfig();
   const raw = String(cfg.backendBase || '').trim();
@@ -90,13 +150,6 @@ function getBackendBaseResolved() {
   }
 
   return raw ? raw.replace(/\/$/, '') : '';
-}
-
-function getCodistyleBaseResolved() {
-  const cfg = getConfig();
-  const raw = String(cfg.codistyleBase || '').trim();
-  if (!raw) return getBackendBaseResolved();
-  return raw.replace(/\/$/, '');
 }
 
 
@@ -663,9 +716,8 @@ function signup(payload) {
     const email = normalizeEmail(payload.email);
     if (!email) return { ok: false, error: '이메일(ID)을 입력해주세요.' };
     if (getUser(email)) return { ok: false, error: '이미 가입된 이메일(ID)입니다.' };
-    if (!payload.phone || String(payload.phone).trim().length < 8) {
-      return { ok: false, error: '휴대폰 번호를 입력해주세요.' };
-    }
+    // 휴대폰 번호는 선택 (프로필에서 나중에 입력)
+    const phoneVal = payload.phone ? String(payload.phone).trim() : '';
     if (!passwordMeetsRule(payload.password)) {
       return { ok: false, error: '비밀번호 규칙(4자리 이상, 영문+숫자 포함)을 확인해주세요.' };
     }
@@ -673,7 +725,7 @@ function signup(payload) {
     const user = {
       email,
       password: String(payload.password),
-      phone: String(payload.phone).trim(),
+      phone: phoneVal,
       gender: payload.gender || '',
       ageGroup: payload.ageGroup || '',
       height: payload.height || '',
@@ -825,10 +877,16 @@ function signup(payload) {
 // 절대 URL(서버에 저장된 이미지 등)
 if (ref.startsWith('http://') || ref.startsWith('https://')) return ref;
 
-// 서버 업로드 경로(/uploads/...)는 현재 호스트:8787로 해석
+// 서버 업로드 경로(/uploads/...)는 현재 운영 백엔드/스토리지 호스트 후보를 순차 시도합니다.
 if (ref.startsWith('/uploads/')) {
-  const base = getBackendBaseResolved();
-  return base ? resolveBaseUrl(base, ref) : ref;
+  const candidates = getStorageBasesResolved().map(b => resolveBaseUrl(b, ref));
+  for (const url of candidates) {
+    try {
+      const ok = await _probeImageUrl(url, 4500);
+      if (ok) return url;
+    } catch (_) {}
+  }
+  return candidates[0] || ref;
 }
 
     // 캐시된 objectURL
@@ -1519,32 +1577,6 @@ async function uploadImageToServer(dataUrl, opts) {
     }
   } catch (_) {}
 
-  function normalizeFooterTabs(){
-    try{
-      const tabs = Array.from(document.querySelectorAll('.cb-nav-tab, nav a'));
-      tabs.forEach((a)=>{
-        const href = String(a.getAttribute('href')||'');
-        const txt = String(a.textContent||'').replace(/\s+/g,' ').trim();
-        if(href.includes('share-sale') || txt.includes('공유판매')){
-          a.setAttribute('href','codistyle.html');
-          const spans = a.querySelectorAll('span');
-          if(spans.length){
-            spans[spans.length-1].textContent = '코디하기';
-          }else{
-            a.textContent = '코디하기';
-          }
-        }
-      });
-    }catch(_){ }
-  }
-  if (typeof document !== 'undefined') {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', normalizeFooterTabs);
-    } else {
-      normalizeFooterTabs();
-    }
-  }
-
 window.CodiBank = {
     // config
     getConfig,
@@ -1615,6 +1647,5 @@ window.CodiBank = {
     getSmartLocation,
     getWeatherByCoords,
     weatherCodeToKorean,
-    getCodistyleBaseResolved,
   };
 })();
