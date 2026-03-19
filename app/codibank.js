@@ -1,3 +1,22 @@
+/* ==============================
+   🔥 추가된 핵심 코드 (파일 맨 위 아무 위치에 추가)
+============================== */
+
+// 얼굴 이미지 통합 처리
+function getUserFaceImageUnified(user) {
+  if (!user) return null;
+  if (user.avatarFace) return user.avatarFace;
+  if (user.photo) return user.photo;
+  return null;
+}
+
+// 얼굴 저장 통합 (반드시 이것 사용)
+function setUserFaceImageUnified(user, dataUrl) {
+  if (!user) return;
+  user.avatarFace = dataUrl;
+  user.photo = dataUrl;
+}
+
 /*
   CodiBank Prototype Core
   - LocalStorage 기반 (서버/DB 없이) 임시 테스트가 가능한 수준의 동작을 제공
