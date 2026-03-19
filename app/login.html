@@ -6,6 +6,7 @@
 <title>CODIBANK - 로그인</title>
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
   html,body{
@@ -225,27 +226,76 @@
 
 <script src="codibank.js"></script>
 <script>
+  const SB_URL='https://drgsayvlpzcacurcczjq.supabase.co';
+  const SB_KEY='sb_publishable_yDe0qZZ0r6Yy3SNqZELPzw_eW2YonL7';
+  let sb; try{ sb=window.supabase.createClient(SB_URL,SB_KEY); }catch(e){ console.error('Supabase init fail', e); }
+
   if(window.CodiBank&&window.CodiBank.getCurrentUser&&window.CodiBank.getCurrentUser())
     location.replace('closet.html');
 
   function showErr(msg){const e=document.getElementById('loginErr');e.textContent=msg;e.classList.add('show');}
   function clearErr(){document.getElementById('loginErr').classList.remove('show');}
 
-  function doLogin(){
+  async function bridgeLocalUser(email,pw,user){
+    try{
+      const meta=(user&&user.user_metadata)||{};
+      if(window.CodiBank&&window.CodiBank.updateUserProfile){
+        window.CodiBank.updateUserProfile(email,{
+          password:pw,
+          phone:meta.phone||'',
+          gender:meta.gender||'',
+          ageGroup:meta.ageGroup||'',
+          height:meta.height||'',
+          weight:meta.weight||''
+        });
+      }
+      let signupRes = window.CodiBank && window.CodiBank.signup ? window.CodiBank.signup({
+        email, password:pw, phone:meta.phone||'00000000', gender:meta.gender||'', ageGroup:meta.ageGroup||'', height:meta.height||'', weight:meta.weight||''
+      }) : { ok:false };
+      if(!(signupRes && signupRes.ok) && window.CodiBank && window.CodiBank.updateUserProfile){
+        window.CodiBank.updateUserProfile(email,{
+          password:pw,
+          phone:meta.phone||'00000000',
+          gender:meta.gender||'',
+          ageGroup:meta.ageGroup||'',
+          height:meta.height||'',
+          weight:meta.weight||''
+        });
+      }
+      const res = window.CodiBank && window.CodiBank.login ? window.CodiBank.login(email,pw) : { ok:false, error:'로컬 세션 생성 실패' };
+      return res;
+    }catch(e){
+      console.warn('bridgeLocalUser failed', e);
+      return { ok:false, error:'세션 동기화 실패' };
+    }
+  }
+
+  async function doLogin(){
     clearErr();
     const email=document.getElementById('email').value.trim();
     const pw=document.getElementById('password').value;
     if(!email)return showErr('이메일을 입력해주세요.');
     if(!pw)return showErr('비밀번호를 입력해주세요.');
-    const res=window.CodiBank.login(email,pw);
-    if(res.ok)location.replace('closet.html');
-    else showErr(res.error||'로그인에 실패했습니다.');
+    if(!sb)return showErr('인증 서버 연결에 실패했습니다.');
+    try{
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+      if(error){
+        const msg = String(error.message||'');
+        if(msg.toLowerCase().includes('email not confirmed')) return showErr('이메일 인증을 먼저 완료해주세요.');
+        return showErr(msg || '로그인에 실패했습니다.');
+      }
+      const bridge = await bridgeLocalUser(email,pw,data.user);
+      if(bridge && bridge.ok) location.replace('closet.html');
+      else showErr((bridge&&bridge.error)||'로그인 동기화에 실패했습니다.');
+    }catch(e){
+      showErr(e.message||'로그인에 실패했습니다.');
+    }
   }
-  function socialLogin(p){
-    const res=window.CodiBank.socialLogin(p);
-    if(res.ok)location.replace('closet.html');
-    else showErr(res.error||'소셜 로그인에 실패했습니다.');
+
+  function socialLogin(){
+    showErr('네이버/카카오 로그인은 아직 실제 연동 전입니다. 테스트 기간에는 이메일 로그인만 사용해주세요.');
   }
+
   document.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 </script>
 
