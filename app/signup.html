@@ -17,7 +17,7 @@
   .input:focus{border-color:#97FEED;}.input::placeholder{color:rgba(255,255,255,.32);}
   .btn-primary{width:100%;padding:16px;border:none;border-radius:16px;cursor:pointer;background:linear-gradient(135deg,#0B666A,#35A29F);color:#fff;font-size:17px;font-weight:800;font-family:inherit;transition:transform .14s;}
   .btn-primary:active{transform:scale(.97);}.btn-primary:disabled{opacity:.4;cursor:not-allowed;}
-  .btn-ghost{flex:1;padding:14px 8px;border-radius:14px;cursor:pointer;border:1.5px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:14px;font-weight:600;font-family:inherit;}
+  .btn-ghost{padding:14px 16px;border-radius:14px;cursor:pointer;border:1.5px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:14px;font-weight:600;font-family:inherit;}
   .sel-group{display:flex;gap:8px;flex-wrap:wrap;}
   .sel-btn{flex:1;min-width:60px;padding:11px 6px;border-radius:12px;cursor:pointer;border:1.5px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:rgba(255,255,255,.55);font-size:13px;font-weight:600;font-family:inherit;text-align:center;transition:all .18s;}
   .sel-btn.active{border-color:#97FEED;background:rgba(151,254,237,.13);color:#97FEED;}
@@ -26,7 +26,7 @@
   .err{color:#ff6b6b;font-size:13px;display:none;margin-top:6px;}.err.show{display:block;}
   .panel{display:none;}.panel.active{display:flex;flex-direction:column;gap:16px;}
   .link-teal{color:#97FEED;font-weight:700;text-decoration:none;}
-  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24;}
+  .mi{font-family:'Material Symbols Outlined';font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24;}
   .row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .spinner-sm{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:#97FEED;border-radius:50%;animation:spin .7s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -35,9 +35,11 @@
   .email-sent-box h3{font-size:18px;font-weight:800;margin-bottom:8px;}
   .email-sent-box p{font-size:13px;color:rgba(255,255,255,.5);line-height:1.7;}
   .email-sent-box b{color:#97FEED;}
-  .check-btn{width:100%;padding:14px;border:none;border-radius:14px;cursor:pointer;background:rgba(53,162,159,0.18);color:var(--teal-light,#97FEED);font-size:15px;font-weight:700;font-family:inherit;border:1px solid rgba(53,162,159,0.35);transition:all .15s;}
-  .check-btn:active{background:rgba(53,162,159,0.3);}
-  .opt-label{font-size:11px;color:rgba(255,255,255,.3);margin-left:4px;}
+  .check-btn{width:100%;padding:14px;border:none;border-radius:14px;cursor:pointer;background:rgba(53,162,159,0.18);color:#97FEED;font-size:15px;font-weight:700;font-family:inherit;border:1px solid rgba(53,162,159,0.35);}
+  .step-header{display:flex;align-items:center;gap:12px;margin-bottom:24px;}
+  .step-back{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,.5);font-size:20px;transition:all .15s;flex-shrink:0;}
+  .step-back:hover{background:rgba(255,255,255,.1);color:#fff;}
+  .step-back.hidden{visibility:hidden;}
   .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#071952;border-top:2px solid rgba(151,254,237,0.18);padding-bottom:env(safe-area-inset-bottom,0px);}
   .cb-nav-inner{display:flex;justify-content:space-between;align-items:flex-end;max-width:480px;margin:0 auto;padding:10px 8px 8px;height:64px;}
   .cb-nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:rgba(255,255,255,0.35);text-decoration:none;font-size:10px;font-weight:700;font-family:'Pretendard',sans-serif;}
@@ -53,47 +55,66 @@
 <div style="min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px 100px;">
   <a href="../index.html" style="font-size:28px;font-weight:900;letter-spacing:-.04em;color:#fff;text-decoration:none;margin-bottom:32px;">CODI<span style="color:#97FEED">BANK</span></a>
   <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-      <div>
-        <h2 style="font-size:24px;font-weight:800;margin-bottom:3px;">회원가입</h2>
-        <p id="stepLabel" style="font-size:13px;color:rgba(255,255,255,.45);">STEP 1 / 3 — 계정 정보</p>
-      </div>
-      <div style="display:flex;gap:8px;"><div class="step-dot active" id="dot1"></div><div class="step-dot" id="dot2"></div><div class="step-dot" id="dot3"></div></div>
-    </div>
 
-    <!-- STEP 1: 계정 정보 -->
+    <!-- ═══ STEP 1: 계정 정보 ═══ -->
     <div class="panel active" id="step1">
+      <div class="step-header">
+        <a href="../index.html" class="step-back"><span class="mi">arrow_back</span></a>
+        <div style="flex:1;">
+          <h2 style="font-size:22px;font-weight:800;margin-bottom:2px;">회원가입</h2>
+          <p style="font-size:12px;color:rgba(255,255,255,.4);">STEP 1 / 3 — 계정 정보</p>
+        </div>
+        <div style="display:flex;gap:6px;"><div class="step-dot active"></div><div class="step-dot"></div><div class="step-dot"></div></div>
+      </div>
       <div><label class="field-label">이메일 (아이디)</label><input id="s1_email" type="email" class="input" placeholder="example@email.com"/></div>
       <div><label class="field-label">비밀번호 (영문+숫자 6자 이상)</label><input id="s1_pw" type="password" class="input" placeholder="비밀번호"/></div>
       <div><label class="field-label">비밀번호 확인</label><input id="s1_pw2" type="password" class="input" placeholder="비밀번호 재입력"/></div>
+      <p id="s1Err" class="err"></p>
+      <button class="btn-primary" id="btnStep1" onclick="sendVerification()">이메일 인증 요청 →</button>
+      <p style="text-align:center;margin-top:12px;font-size:14px;color:rgba(255,255,255,.38);">이미 계정이 있으신가요? <a href="login.html" class="link-teal">로그인</a></p>
+    </div>
 
-    <!-- STEP 2: 이메일 인증 대기 (링크 방식) -->
+    <!-- ═══ STEP 2: 이메일 인증 대기 ═══ -->
     <div class="panel" id="step2">
+      <div class="step-header">
+        <button class="step-back" onclick="showStep('step1',1)"><span class="mi">arrow_back</span></button>
+        <div style="flex:1;">
+          <h2 style="font-size:22px;font-weight:800;margin-bottom:2px;">회원가입</h2>
+          <p style="font-size:12px;color:rgba(255,255,255,.4);">STEP 2 / 3 — 이메일 인증</p>
+        </div>
+        <div style="display:flex;gap:6px;"><div class="step-dot active"></div><div class="step-dot active"></div><div class="step-dot"></div></div>
+      </div>
       <div class="email-sent-box">
-        <span class="material-symbols-outlined icon">mark_email_read</span>
+        <span class="mi icon">mark_email_read</span>
         <h3>인증 이메일을 보냈습니다</h3>
         <p><b id="otpEmail"></b> 으로 인증 링크를 보냈습니다.<br>이메일을 확인하고 <b>인증하기 버튼</b>을 클릭해주세요.</p>
         <p style="margin-top:12px;font-size:12px;color:rgba(255,255,255,.3);">메일이 안 보이면 스팸함을 확인해주세요.</p>
       </div>
       <button class="check-btn" onclick="checkVerified()">✓ 인증 완료했어요</button>
       <p id="s2Err" class="err"></p>
-      <div style="display:flex;gap:10px;margin-top:4px;">
-        <button class="btn-ghost" style="flex:1;font-size:13px;" onclick="resendEmail()">인증 메일 재발송</button>
-        <button class="btn-ghost" style="flex:1;font-size:13px;" onclick="showStep('step1',1,'STEP 1 / 3 — 계정 정보')">← 이메일 수정</button>
-      </div>
+      <button class="btn-ghost" style="width:100%;" onclick="resendEmail()">인증 메일 재발송</button>
     </div>
 
-    <!-- STEP 3: 체형 정보 -->
+    <!-- ═══ STEP 3: 체형 정보 ═══ -->
     <div class="panel" id="step3">
-      <div style="text-align:center;margin-bottom:8px;"><span class="material-symbols-outlined" style="font-size:32px;color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400;">check_circle</span><p style="font-size:14px;color:#97FEED;font-weight:700;margin-top:4px;">이메일 인증 완료!</p></div>
+      <div class="step-header">
+        <div class="step-back hidden"><span class="mi">arrow_back</span></div>
+        <div style="flex:1;">
+          <h2 style="font-size:22px;font-weight:800;margin-bottom:2px;">회원가입</h2>
+          <p style="font-size:12px;color:rgba(255,255,255,.4);">STEP 3 / 3 — 체형 정보</p>
+        </div>
+        <div style="display:flex;gap:6px;"><div class="step-dot active"></div><div class="step-dot active"></div><div class="step-dot active"></div></div>
+      </div>
+      <div style="text-align:center;margin-bottom:4px;">
+        <span class="mi" style="font-size:32px;color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400;">check_circle</span>
+        <p style="font-size:14px;color:#97FEED;font-weight:700;margin-top:4px;">이메일 인증 완료!</p>
+      </div>
       <div><label class="field-label">성별</label><div class="sel-group"><button class="sel-btn" onclick="sel('G','male',this)">남성</button><button class="sel-btn" onclick="sel('G','female',this)">여성</button><button class="sel-btn" onclick="sel('G','other',this)">기타</button></div></div>
       <div><label class="field-label">연령대</label><div class="sel-group"><button class="sel-btn" onclick="sel('A','10s',this)">10대</button><button class="sel-btn" onclick="sel('A','20s',this)">20대</button><button class="sel-btn" onclick="sel('A','30s',this)">30대</button><button class="sel-btn" onclick="sel('A','40s',this)">40대</button><button class="sel-btn" onclick="sel('A','50s+',this)">50대+</button></div></div>
       <div class="row-2"><div><label class="field-label">키 (cm)</label><input id="s3_height" type="number" class="input" placeholder="170"/></div><div><label class="field-label">몸무게 (kg)</label><input id="s3_weight" type="number" class="input" placeholder="65"/></div></div>
       <p id="s3Err" class="err"></p>
       <button class="btn-primary" onclick="doSignup()">가입 완료</button>
     </div>
-
-    <p style="text-align:center;margin-top:20px;font-size:14px;color:rgba(255,255,255,.38);">이미 계정이 있으신가요? <a href="login.html" class="link-teal">로그인</a></p>
   </div>
 </div>
 
@@ -109,12 +130,9 @@ let G='',A='',sEmail='',sPw='';
 function sel(t,v,el){ if(t==='G')G=v; else A=v; el.closest('.sel-group').querySelectorAll('.sel-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
 function showErr(id,m){const e=document.getElementById(id);e.textContent=m;e.classList.add('show');}
 function clrErr(id){document.getElementById(id).classList.remove('show');}
-function showStep(id,dot,label){
+function showStep(id,dot){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  document.querySelectorAll('.step-dot').forEach(d=>d.classList.remove('active'));
-  for(let i=1;i<=dot;i++) document.getElementById('dot'+i).classList.add('active');
-  document.getElementById('stepLabel').textContent=label;
 }
 
 /* ── STEP 1 → 인증 이메일 발송 ── */
@@ -123,7 +141,6 @@ async function sendVerification(){
   const em=document.getElementById('s1_email').value.trim();
   const pw=document.getElementById('s1_pw').value;
   const pw2=document.getElementById('s1_pw2').value;
-  
   if(!em||!em.includes('@')) return showErr('s1Err','올바른 이메일을 입력해주세요.');
   if(!pw||pw.length<6) return showErr('s1Err','비밀번호는 6자 이상이어야 합니다.');
   if(pw!==pw2) return showErr('s1Err','비밀번호가 일치하지 않습니다.');
@@ -132,26 +149,20 @@ async function sendVerification(){
   try{
     if(!sb) throw new Error('인증 서버 연결 실패');
     const{data,error}=await sb.auth.signUp({
-      email:em,
-      password:pw,
-      options:{
-        data:{},
-        emailRedirectTo:'https://codibank.kr/app/signup.html?verified=true'
-      }
+      email:em, password:pw,
+      options:{ emailRedirectTo:'https://codibank.kr/app/signup.html?verified=true' }
     });
     if(error){
       if(error.message.includes('already')) throw new Error('이미 가입된 이메일입니다. 로그인해주세요.');
       if(error.status===429) throw new Error('잠시 후 다시 시도해주세요.');
       throw new Error(error.message);
     }
-    /* Confirm email 꺼져있으면 session 바로 반환 → 바로 STEP 3 */
     if(data&&data.session){
-      showStep('step3',3,'STEP 3 / 3 — 체형 정보');
+      showStep('step3',3);
       return;
     }
-    /* Confirm email 켜져있으면 인증 대기 화면 */
     document.getElementById('otpEmail').textContent=em;
-    showStep('step2',2,'STEP 2 / 3 — 이메일 인증');
+    showStep('step2',2);
   }catch(e){ showErr('s1Err',e.message||'오류가 발생했습니다.'); }
   finally{ btn.disabled=false; btn.innerHTML='이메일 인증 요청 →'; }
 }
@@ -160,16 +171,13 @@ async function sendVerification(){
 async function checkVerified(){
   clrErr('s2Err');
   try{
-    /* Supabase에 로그인 시도 → 인증 완료되었으면 성공 */
     const{data,error}=await sb.auth.signInWithPassword({email:sEmail,password:sPw});
     if(error){
-      if(error.message.includes('not confirmed')||error.message.includes('Email not confirmed')){
+      if(error.message.includes('not confirmed')||error.message.includes('Email not confirmed'))
         return showErr('s2Err','아직 인증이 완료되지 않았습니다. 이메일을 확인해주세요.');
-      }
       throw new Error(error.message);
     }
-    /* 인증 완료 → STEP 3 */
-    showStep('step3',3,'STEP 3 / 3 — 체형 정보');
+    showStep('step3',3);
   }catch(e){ showErr('s2Err',e.message||'인증 확인 실패'); }
 }
 
@@ -179,36 +187,30 @@ async function resendEmail(){
   try{
     const{error}=await sb.auth.resend({type:'signup',email:sEmail});
     if(error) throw error;
-    showErr('s2Err',''); // 에러 지우기
-    document.getElementById('s2Err').classList.remove('show');
     alert('인증 이메일을 재발송했습니다. 메일함을 확인해주세요.');
   }catch(e){ showErr('s2Err','재발송 실패: '+(e.message||'잠시 후 다시 시도해주세요.')); }
 }
 
-/* ── 이메일 링크 클릭 후 돌아온 경우 자동 처리 ── */
-(async function checkRedirect(){
+/* ── 이메일 링크 클릭 후 돌아온 경우 ── */
+(async function(){
   const params=new URLSearchParams(location.search);
   if(params.get('verified')==='true'){
-    /* URL에서 verified 파라미터 확인 → Supabase 세션 체크 */
-    const{data}=await sb.auth.getSession();
-    if(data&&data.session){
-      sEmail=data.session.user.email;
-      sPw=''; /* 이미 Supabase 로그인 상태 */
-      showStep('step3',3,'STEP 3 / 3 — 체형 정보');
-    }
+    try{
+      const{data}=await sb.auth.getSession();
+      if(data&&data.session){
+        sEmail=data.session.user.email;
+        showStep('step3',3);
+      }
+    }catch(_){}
   }
 })();
 
 /* ── STEP 3 → 가입 완료 ── */
 function doSignup(){
   clrErr('s3Err');
-  /* Supabase에 이미 인증된 상태 → CodiBank 로컬에도 유저 생성 */
   const res=window.CodiBank.signup({
-    email:sEmail,
-    password:sPw||'supabase_verified',
-    phone:'',
-    gender:G,
-    ageGroup:A,
+    email:sEmail, password:sPw||'supabase_verified', phone:'',
+    gender:G, ageGroup:A,
     height:document.getElementById('s3_height').value,
     weight:document.getElementById('s3_weight').value,
   });

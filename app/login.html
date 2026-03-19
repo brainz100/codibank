@@ -6,173 +6,31 @@
 <title>CODIBANK - 로그인</title>
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-  html,body{
-    min-height:100dvh; width:100%;
-    background:#071952;
-    color:#fff;
-    font-family:'Pretendard','Noto Sans KR',sans-serif;
-    -webkit-tap-highlight-color:transparent;
-  }
-  .bg-mesh{
-    background:
-      radial-gradient(at 0% 0%,rgba(11,102,106,.30) 0px,transparent 55%),
-      radial-gradient(at 100% 100%,rgba(53,162,159,.20) 0px,transparent 55%),
-      #071952;
-    min-height:100dvh;
-  }
-  .card{
-    background:linear-gradient(135deg,rgba(255,255,255,.09) 0%,rgba(255,255,255,.04) 100%);
-    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-    border:1px solid rgba(255,255,255,.13);
-    border-radius:28px; padding:32px 28px;
-    width:100%; max-width:420px;
-  }
+  html,body{min-height:100dvh;width:100%;background:#071952;color:#fff;font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-tap-highlight-color:transparent;}
+  .bg-mesh{background:radial-gradient(at 0% 0%,rgba(11,102,106,.30) 0px,transparent 55%),radial-gradient(at 100% 100%,rgba(53,162,159,.20) 0px,transparent 55%),#071952;min-height:100dvh;}
+  .card{background:linear-gradient(135deg,rgba(255,255,255,.09) 0%,rgba(255,255,255,.04) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.13);border-radius:28px;padding:32px 28px;width:100%;max-width:420px;}
   .field-wrap{display:flex;flex-direction:column;gap:6px;}
   .field-label{font-size:12px;font-weight:600;color:rgba(255,255,255,.5);letter-spacing:.04em;}
-  .input{
-    width:100%; background:rgba(255,255,255,.07);
-    border:1.5px solid rgba(255,255,255,.16); border-radius:14px;
-    padding:14px 16px; color:#fff; font-size:15px; outline:none;
-    font-family:inherit; transition:border-color .2s;
-  }
-  .input:focus{border-color:#97FEED;}
-  .input::placeholder{color:rgba(255,255,255,.32);}
-  .btn-primary{
-    width:100%; padding:16px; border:none; border-radius:16px; cursor:pointer;
-    background:linear-gradient(135deg,#0B666A,#35A29F);
-    color:#fff; font-size:17px; font-weight:800; font-family:inherit;
-    transition:transform .14s,filter .14s;
-  }
+  .input{width:100%;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.16);border-radius:14px;padding:14px 16px;color:#fff;font-size:15px;outline:none;font-family:inherit;transition:border-color .2s;}
+  .input:focus{border-color:#97FEED;}.input::placeholder{color:rgba(255,255,255,.32);}
+  .btn-primary{width:100%;padding:16px;border:none;border-radius:16px;cursor:pointer;background:linear-gradient(135deg,#0B666A,#35A29F);color:#fff;font-size:17px;font-weight:800;font-family:inherit;transition:transform .14s,filter .14s;}
   .btn-primary:active{transform:scale(.97);filter:brightness(.9);}
-  .btn-naver{
-    width:100%;padding:14px;border:none;border-radius:14px;cursor:pointer;
-    background:#03C75A;color:#fff;font-size:15px;font-weight:700;font-family:inherit;
-  }
-  .btn-kakao{
-    width:100%;padding:14px;border:none;border-radius:14px;cursor:pointer;
-    background:#FEE500;color:#3C1E1E;font-size:15px;font-weight:700;font-family:inherit;
-  }
-  .divider{display:flex;align-items:center;gap:12px;}
-  .divider-line{flex:1;height:1px;background:rgba(255,255,255,.1);}
-  .divider-txt{font-size:12px;color:rgba(255,255,255,.3);white-space:nowrap;}
-  .err{color:#ff6b6b;font-size:13px;display:none;}
-  .err.show{display:block;}
+  .err{color:#ff6b6b;font-size:13px;display:none;}.err.show{display:block;}
   .link-teal{color:#97FEED;font-weight:700;text-decoration:none;}
-  .back-link{
-    display:inline-flex;align-items:center;gap:4px;
-    color:rgba(255,255,255,.38);font-size:13px;text-decoration:none;
-    transition:color .2s;
-  }
+  .back-link{display:inline-flex;align-items:center;gap:4px;color:rgba(255,255,255,.38);font-size:13px;text-decoration:none;transition:color .2s;}
   .back-link:hover{color:rgba(255,255,255,.7);}
-  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24;}
-
-/* ── CodiBank 공통 풋바 ── */
-.cb-nav {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 9000;
-  background: rgba(7,25,82,0.94);
-  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-  border-top: 1px solid rgba(255,255,255,0.1);
-  padding-bottom: env(safe-area-inset-bottom);
-}
-.cb-nav-inner {
-  display: flex; justify-content: space-between; align-items: flex-end;
-  max-width: 480px; margin: 0 auto;
-  padding: 10px 4px 6px;
-}
-.cb-nav-item {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
-  color: rgba(255,255,255,0.38); text-decoration: none;
-  font-size: 10px; font-weight: 600; letter-spacing: -.01em;
-  padding: 0 2px; transition: color .18s;
-  font-family: 'Pretendard','Noto Sans KR',sans-serif;
-}
-.cb-nav-item .cb-icon { font-size: 24px; font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24; }
-.cb-nav-item.cb-active { color: #97FEED; }
-.cb-nav-item.cb-active .cb-icon { font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24; }
-.cb-nav-center {
-  flex: 1; display: flex; flex-direction: column; align-items: center;
-  margin-bottom: 4px;
-}
-.cb-nav-plus-btn {
-  width: 54px; height: 54px; border-radius: 50%;
-  background: #97FEED;
-  display: flex; align-items: center; justify-content: center;
-  position: relative; top: -14px;
-  box-shadow: 0 0 22px rgba(151,254,237,0.45);
-  border: 4px solid #071952;
-  cursor: pointer; text-decoration: none;
-  transition: transform .15s;
-}
-.cb-nav-plus-btn:active { transform: scale(.92); }
-.cb-nav-plus-btn .material-symbols-outlined {
-  color: #071952; font-size: 28px;
-  font-variation-settings: 'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;
-}
-.cb-nav-plus-label {
-  color: #97FEED; font-size: 10px; font-weight: 700;
-  margin-top: -10px; letter-spacing: -.01em;
-  font-family: 'Pretendard','Noto Sans KR',sans-serif;
-}
-.cb-nav-spacer { height: 76px; }
-
-
-
-/* ════ CodiBank 공통 풋바 (확정판) ════ */
-.cb-nav {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 99999;
-  background: #071952;
-  border-top: 2px solid rgba(151,254,237,0.18);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-.cb-nav-inner {
-  display: flex; justify-content: space-between; align-items: flex-end;
-  max-width: 480px; margin: 0 auto;
-  padding: 10px 8px 8px; height: 64px;
-}
-.cb-nav-tab {
-  flex: 1; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 3px;
-  color: rgba(255,255,255,0.35); text-decoration: none;
-  font-size: 10px; font-weight: 700; letter-spacing: -.01em;
-  font-family: 'Pretendard','Noto Sans KR','Outfit',sans-serif;
-  transition: color .15s;
-}
-.cb-nav-tab .ni {
-  font-family: 'Material Symbols Outlined';
-  font-size: 24px; line-height: 1;
-  font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 24;
-}
-.cb-nav-tab.on { color: #97FEED; }
-.cb-nav-tab.on .ni { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-
-.cb-nav-add-wrap {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; padding-bottom: 2px;
-}
-.cb-nav-add {
-  width: 52px; height: 52px; border-radius: 50%;
-  background: #97FEED;
-  display: flex; align-items: center; justify-content: center;
-  position: relative; top: -12px;
-  box-shadow: 0 0 20px rgba(151,254,237,0.5);
-  border: 4px solid #071952;
-  text-decoration: none;
-  font-family: 'Material Symbols Outlined';
-  font-size: 26px; color: #071952; line-height: 1;
-  font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
-  transition: transform .13s;
-}
-.cb-nav-add:active { transform: scale(.9); }
-.cb-nav-add-lbl {
-  color: #97FEED; font-size: 10px; font-weight: 800;
-  margin-top: -8px;
-  font-family: 'Pretendard','Noto Sans KR','Outfit',sans-serif;
-}
-.cb-spacer { height: 72px; }
-
+  .mi{font-family:'Material Symbols Outlined';font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24;}
+  .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#071952;border-top:2px solid rgba(151,254,237,0.18);padding-bottom:env(safe-area-inset-bottom,0px);}
+  .cb-nav-inner{display:flex;justify-content:space-between;align-items:flex-end;max-width:480px;margin:0 auto;padding:10px 8px 8px;height:64px;}
+  .cb-nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:rgba(255,255,255,0.35);text-decoration:none;font-size:10px;font-weight:700;font-family:'Pretendard',sans-serif;}
+  .cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:24px;line-height:1;font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24;}
+  .cb-nav-tab.on{color:#97FEED;}.cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;}
+  .cb-nav-add-wrap{flex:1;display:flex;flex-direction:column;align-items:center;padding-bottom:2px;}
+  .cb-nav-add{width:52px;height:52px;border-radius:50%;background:#97FEED;display:flex;align-items:center;justify-content:center;position:relative;top:-12px;box-shadow:0 0 20px rgba(151,254,237,0.5);border:4px solid #071952;text-decoration:none;font-family:'Material Symbols Outlined';font-size:26px;color:#071952;font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;}
+  .cb-nav-add-lbl{color:#97FEED;font-size:10px;font-weight:800;margin-top:-8px;}
+  .cb-spacer{height:72px;}
 </style>
 </head>
 <body class="bg-mesh">
@@ -186,19 +44,7 @@
     <h2 style="font-size:24px;font-weight:800;margin-bottom:4px;">로그인</h2>
     <p style="font-size:14px;color:rgba(255,255,255,.45);margin-bottom:28px;">코디뱅크 계정으로 시작하세요</p>
 
-    <!-- 소셜 -->
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
-      <button class="btn-naver" onclick="socialLogin('naver')">네이버로 시작하기</button>
-      <button class="btn-kakao" onclick="socialLogin('kakao')">카카오로 시작하기</button>
-    </div>
-
-    <div class="divider" style="margin-bottom:24px;">
-      <div class="divider-line"></div>
-      <span class="divider-txt">또는 이메일로 로그인</span>
-      <div class="divider-line"></div>
-    </div>
-
-    <!-- 이메일 폼 -->
+    <!-- 이메일 로그인 -->
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div class="field-wrap">
         <label class="field-label">이메일</label>
@@ -218,110 +64,37 @@
   </div>
 
   <a href="../index.html" class="back-link" style="margin-top:24px;">
-    <span class="material-symbols-outlined" style="font-size:16px;">arrow_back</span>
+    <span class="mi" style="font-size:16px;">arrow_back</span>
     처음 화면으로
   </a>
 </div>
 
-
 <script src="codibank.js"></script>
 <script>
-  const SB_URL='https://drgsayvlpzcacurcczjq.supabase.co';
-  const SB_KEY='sb_publishable_yDe0qZZ0r6Yy3SNqZELPzw_eW2YonL7';
-  let sb; try{ sb=window.supabase.createClient(SB_URL,SB_KEY); }catch(e){ console.error('Supabase init fail', e); }
-
   if(window.CodiBank&&window.CodiBank.getCurrentUser&&window.CodiBank.getCurrentUser())
     location.replace('closet.html');
 
   function showErr(msg){const e=document.getElementById('loginErr');e.textContent=msg;e.classList.add('show');}
   function clearErr(){document.getElementById('loginErr').classList.remove('show');}
 
-  async function bridgeLocalUser(email,pw,user){
-    try{
-      const meta=(user&&user.user_metadata)||{};
-      if(window.CodiBank&&window.CodiBank.updateUserProfile){
-        window.CodiBank.updateUserProfile(email,{
-          password:pw,
-          phone:meta.phone||'',
-          gender:meta.gender||'',
-          ageGroup:meta.ageGroup||'',
-          height:meta.height||'',
-          weight:meta.weight||''
-        });
-      }
-      let signupRes = window.CodiBank && window.CodiBank.signup ? window.CodiBank.signup({
-        email, password:pw, phone:meta.phone||'00000000', gender:meta.gender||'', ageGroup:meta.ageGroup||'', height:meta.height||'', weight:meta.weight||''
-      }) : { ok:false };
-      if(!(signupRes && signupRes.ok) && window.CodiBank && window.CodiBank.updateUserProfile){
-        window.CodiBank.updateUserProfile(email,{
-          password:pw,
-          phone:meta.phone||'00000000',
-          gender:meta.gender||'',
-          ageGroup:meta.ageGroup||'',
-          height:meta.height||'',
-          weight:meta.weight||''
-        });
-      }
-      const res = window.CodiBank && window.CodiBank.login ? window.CodiBank.login(email,pw) : { ok:false, error:'로컬 세션 생성 실패' };
-      return res;
-    }catch(e){
-      console.warn('bridgeLocalUser failed', e);
-      return { ok:false, error:'세션 동기화 실패' };
-    }
-  }
-
-  async function doLogin(){
+  function doLogin(){
     clearErr();
     const email=document.getElementById('email').value.trim();
     const pw=document.getElementById('password').value;
     if(!email)return showErr('이메일을 입력해주세요.');
     if(!pw)return showErr('비밀번호를 입력해주세요.');
-    if(!sb)return showErr('인증 서버 연결에 실패했습니다.');
-    try{
-      const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
-      if(error){
-        const msg = String(error.message||'');
-        if(msg.toLowerCase().includes('email not confirmed')) return showErr('이메일 인증을 먼저 완료해주세요.');
-        return showErr(msg || '로그인에 실패했습니다.');
-      }
-      const bridge = await bridgeLocalUser(email,pw,data.user);
-      if(bridge && bridge.ok) location.replace('closet.html');
-      else showErr((bridge&&bridge.error)||'로그인 동기화에 실패했습니다.');
-    }catch(e){
-      showErr(e.message||'로그인에 실패했습니다.');
-    }
+    const res=window.CodiBank.login(email,pw);
+    if(res.ok)location.replace('closet.html');
+    else showErr(res.error||'로그인에 실패했습니다.');
   }
-
-  function socialLogin(){
-    showErr('네이버/카카오 로그인은 아직 실제 연동 전입니다. 테스트 기간에는 이메일 로그인만 사용해주세요.');
-  }
-
   document.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 </script>
 
-
-
-<!-- CodiBank 공통 풋바 -->
-<nav class="cb-nav">
-  <div class="cb-nav-inner">
-    <a href="closet.html" class="cb-nav-tab">
-      <span class="ni">grid_view</span><span>내옷장</span>
-    </a>
-    <a href="album.html" class="cb-nav-tab">
-      <span class="ni">auto_awesome_motion</span><span>코디앨범</span>
-    </a>
-    <div class="cb-nav-add-wrap">
-      <a href="camera.html" class="cb-nav-add">add</a>
-      <span class="cb-nav-add-lbl">ITEM등록</span>
-    </div>
-    <a href="codistyle.html" class="cb-nav-tab">
-      <span class="ni">checkroom</span><span>코디하기</span>
-    </a>
-    <a href="mypage.html" class="cb-nav-tab on">
-      <span class="ni">person_outline</span><span>MY</span>
-    </a>
-  </div>
-</nav>
-<div class="cb-spacer"></div>
-</body>
-</html>
+<nav class="cb-nav"><div class="cb-nav-inner">
+  <a href="closet.html" class="cb-nav-tab"><span class="ni">grid_view</span><span>내옷장</span></a>
+  <a href="album.html" class="cb-nav-tab"><span class="ni">auto_awesome_motion</span><span>코디앨범</span></a>
+  <div class="cb-nav-add-wrap"><a href="camera.html" class="cb-nav-add">add</a><span class="cb-nav-add-lbl">ITEM등록</span></div>
+  <a href="codistyle.html" class="cb-nav-tab"><span class="ni">checkroom</span><span>코디하기</span></a>
+  <a href="mypage.html" class="cb-nav-tab on"><span class="ni">person_outline</span><span>MY</span></a>
+</div></nav><div class="cb-spacer"></div>
+</body></html>
