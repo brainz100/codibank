@@ -825,13 +825,155 @@ def ai_diagnose():
         return jsonify(ok=False, error=str(e)), 500
 
 
+def _ai_styling_via_gemini(
+    payload: Dict[str, Any],
+    prompt: str,
+    short: str,
+    ref_images: list[tuple[str, str, bytes]],
+    cache_fname: str,
+    ext: str,
+):
+    """얼굴 사진이 포함된 /api/ai/styling 요청을 Gemini로 처리합니다.
+
+    DALL-E는 텍스트→이미지 전용이라 참조 얼굴을 반영할 수 없지만,
+    Gemini는 이미지+텍스트 멀티모달이므로 얼굴 특징을 보존할 수 있습니다.
+    /api/codistyle/generate와 동일한 Gemini SDK 호출 로직을 재사용합니다.
+    """
+
+    # ── SDK 감지: google-genai(신) 우선 → google-generativeai(구) 폴백 ──
+    _SDK = None
+    _genai = None
+    _gtypes = None
+    _genai_old = None
+
+    try:
+        from google import genai as _genai_mod
+        from google.genai import types as _gtypes_mod
+        _genai = _genai_mod
+        _gtypes = _gtypes_mod
+        _SDK = "new"
+    except ImportError:
+        pass
+
+    if not _SDK:
+        try:
+            import google.generativeai as _genai_old_mod
+            _genai_old = _genai_old_mod
+            _SDK = "old"
+        except ImportError:
+            return jsonify(ok=False, error="Gemini SDK 미설치. google-genai 또는 google-generativeai 필요"), 500
+
+    # ── 사용자 정보 추출 ──
+    user_info = payload.get("user") or {}
+    gender = str(user_info.get("gender", "M")).strip().upper()
+    gender_en = "woman" if gender == "F" else "man"
+    gender_ko = "여성" if gender == "F" else "남성"
+    age = str(user_info.get("ageGroup", "30대")).strip()
+    height = str(user_info.get("height", "")).strip()
+    weight = str(user_info.get("weight", "")).strip()
+    hw_ko = f"키 {height}cm, 몸무게 {weight}kg" if height and weight else ""
+
+    # ── 얼굴 강조 프롬프트 보강 ──
+    gemini_prompt = (
+        prompt + " "
+        "CRITICALLY IMPORTANT: The FIRST image is the face reference photo. "
+        "You MUST preserve the EXACT facial features, skin tone, hair style and color of this person. "
+        "Generate the image as if THIS EXACT PERSON is wearing the recommended outfit. "
+        f"Subject: Korean {gender_en}, {age}"
+        + (f", {hw_ko}" if hw_ko else "") + ". "
+        "Full body head to toe visible. Photorealistic fashion editorial."
+    )
+
+    # ── 이미지 파트 구성: 얼굴 → 상의 → 하의 순서 ──
+    face_parts = [(mime, raw) for label, mime, raw in ref_images if label == "face"]
+    top_parts = [(mime, raw) for label, mime, raw in ref_images if label == "top"]
+    bottom_parts = [(mime, raw) for label, mime, raw in ref_images if label == "bottom"]
+    ordered_parts = face_parts + top_parts + bottom_parts
+
+    model_name = _CODISTYLE_MODEL
+
+    try:
+        if _SDK == "new":
+            contents = [gemini_prompt]
+            for mime, raw in ordered_parts:
+                contents.append(_gtypes.Part.from_bytes(data=raw, mime_type=mime or "image/jpeg"))
+
+            client = _genai.Client(api_key=_GEMINI_KEY)
+            response = client.models.generate_content(
+                model=model_name,
+                contents=contents,
+                config=_gtypes.GenerateContentConfig(
+                    response_modalities=["IMAGE", "TEXT"],
+                    temperature=0.7,
+                ),
+            )
+        else:
+            from PIL import Image as _PILImage
+            _genai_old.configure(api_key=_GEMINI_KEY)
+            model = _genai_old.GenerativeModel(model_name)
+
+            contents_old = [gemini_prompt]
+            for mime, raw in ordered_parts:
+                contents_old.append(_PILImage.open(io.BytesIO(raw)))
+
+            try:
+                response = model.generate_content(
+                    contents_old,
+                    generation_config={"response_modalities": ["IMAGE", "TEXT"], "temperature": 0.7},
+                )
+            except TypeError:
+                response = model.generate_content(
+                    contents_old,
+                    generation_config=_genai_old.GenerationConfig(temperature=0.7),
+                )
+    except Exception as e:
+        return jsonify(ok=False, error=f"Gemini 호출 실패 ({_SDK}): {str(e)[:300]}"), 500
+
+    # ── 응답에서 이미지 추출 ──
+    img_bytes = None
+    comment = ""
+    try:
+        for part in response.candidates[0].content.parts:
+            if part.inline_data and part.inline_data.data:
+                img_bytes = part.inline_data.data
+            elif part.text:
+                comment = part.text.strip()[:200]
+    except (IndexError, AttributeError) as e:
+        return jsonify(ok=False, error=f"응답 파싱 실패: {str(e)[:200]}"), 500
+
+    if not img_bytes:
+        try:
+            finish = response.candidates[0].finish_reason
+        except Exception:
+            finish = "UNKNOWN"
+        return jsonify(ok=False, error=f"이미지 미생성 finishReason={finish} {comment[:100]}"), 500
+
+    if isinstance(img_bytes, str):
+        img_bytes = base64.b64decode(img_bytes)
+
+    rel = _write_upload_bytes("ai", ext, img_bytes, fixed_name=cache_fname)
+    base = _public_base()
+    return jsonify(
+        ok=True,
+        image=f"{base}{rel}",
+        path=rel,
+        url=f"{base}{rel}",
+        explanation=short or comment or "AI 코디 이미지 생성 완료!",
+        model=f"gemini:{model_name}",
+        cached=False,
+        prompt=gemini_prompt if os.getenv("CODIBANK_DEBUG_PROMPT") == "1" else None,
+    )
+
+
 @app.post("/api/ai/styling")
 def ai_styling():
-    # API Key 체크
-    if not os.getenv("OPENAI_API_KEY"):
+    # API Key 체크: OpenAI 또는 Gemini 중 하나라도 있으면 진행
+    has_openai = bool(os.getenv("OPENAI_API_KEY"))
+    has_gemini = bool(_GEMINI_KEY)
+    if not has_openai and not has_gemini:
         return jsonify(
             ok=False,
-            error="OPENAI_API_KEY가 설정되지 않았습니다. 서버 환경변수에 API Key를 설정해주세요.",
+            error="OPENAI_API_KEY 또는 GEMINI_API_KEY가 설정되지 않았습니다. 서버 환경변수에 API Key를 설정해주세요.",
         ), 400
 
     payload = request.get_json(silent=True) or {}
@@ -866,9 +1008,21 @@ def ai_styling():
             cached=True,
         )
 
-    # 모델 선택
-    # - 기본은 gpt-image-1.5
-    # - 계정/조직에 따라 특정 모델 접근이 막혀있을 수 있어 후보군을 두고 순차 시도합니다.
+    # ── ★ 얼굴 사진이 있으면 Gemini 우선 사용 ──
+    # DALL-E(OpenAI)는 텍스트→이미지 모델이라 참조 얼굴 사진을 반영 못합니다.
+    # Gemini는 이미지+텍스트 멀티모달이므로 얼굴 특징을 그대로 보존합니다.
+    has_face = any(r[0] == "face" for r in ref_images)
+
+    if has_face and _GEMINI_KEY:
+        return _ai_styling_via_gemini(payload, prompt, short, ref_images, cache_fname, ext)
+
+    # ── 얼굴 없음 또는 GEMINI_KEY 미설정 → 기존 OpenAI 경로 ──
+    if not has_openai:
+        return jsonify(
+            ok=False,
+            error="얼굴 사진 없이 코디 생성하려면 OPENAI_API_KEY가 필요합니다.",
+        ), 400
+
     model_no_face = os.getenv("CODIBANK_OPENAI_IMAGE_MODEL", "gpt-image-1.5")
     model_with_face = os.getenv("CODIBANK_OPENAI_IMAGE_MODEL_FACE", "gpt-image-1.5")
 
@@ -911,7 +1065,6 @@ def ai_styling():
                         last_err = e
                         if _is_model_access_error(str(e)):
                             continue
-                        # 다음 변형(예: 얼굴 제외)으로도 시도합니다.
                         continue
                 if model_used:
                     break
@@ -944,12 +1097,9 @@ def ai_styling():
         b64 = resp.data[0].b64_json
         img_bytes = base64.b64decode(b64)
 
-        # 파일 저장(코디앨범 안정성)
         rel = _write_upload_bytes("ai", ext, img_bytes, fixed_name=cache_fname)
         base = _public_base()
 
-        # 프론트 호환을 위해 image 필드는 path로 제공(가벼움)
-        # 필요하면 프론트에서 url을 써도 됩니다.
         return jsonify(
             ok=True,
             image=f"{base}{rel}",
