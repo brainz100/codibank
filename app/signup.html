@@ -28,15 +28,16 @@
   .link-teal{color:#97FEED;font-weight:700;text-decoration:none;}
   .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24;}
   .row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-  .otp-wrap{display:flex;gap:8px;justify-content:center;}
-  .otp-input{width:48px;height:56px;border-radius:14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.16);color:#97FEED;font-size:24px;font-weight:800;text-align:center;outline:none;font-family:'Pretendard',sans-serif;}
-  .otp-input:focus{border-color:#97FEED;}
-  .otp-info{text-align:center;font-size:13px;color:rgba(255,255,255,.45);line-height:1.7;}
-  .otp-info b{color:#97FEED;}
-  .resend-btn{background:none;border:none;color:#97FEED;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;padding:4px 8px;}
-  .resend-btn:disabled{color:rgba(255,255,255,.25);cursor:not-allowed;}
   .spinner-sm{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:#97FEED;border-radius:50%;animation:spin .7s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg)}}
+  .email-sent-box{text-align:center;padding:20px 0;}
+  .email-sent-box .icon{font-size:56px;color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;margin-bottom:12px;}
+  .email-sent-box h3{font-size:18px;font-weight:800;margin-bottom:8px;}
+  .email-sent-box p{font-size:13px;color:rgba(255,255,255,.5);line-height:1.7;}
+  .email-sent-box b{color:#97FEED;}
+  .check-btn{width:100%;padding:14px;border:none;border-radius:14px;cursor:pointer;background:rgba(53,162,159,0.18);color:var(--teal-light,#97FEED);font-size:15px;font-weight:700;font-family:inherit;border:1px solid rgba(53,162,159,0.35);transition:all .15s;}
+  .check-btn:active{background:rgba(53,162,159,0.3);}
+  .opt-label{font-size:11px;color:rgba(255,255,255,.3);margin-left:4px;}
   .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#071952;border-top:2px solid rgba(151,254,237,0.18);padding-bottom:env(safe-area-inset-bottom,0px);}
   .cb-nav-inner{display:flex;justify-content:space-between;align-items:flex-end;max-width:480px;margin:0 auto;padding:10px 8px 8px;height:64px;}
   .cb-nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:rgba(255,255,255,0.35);text-decoration:none;font-size:10px;font-weight:700;font-family:'Pretendard',sans-serif;}
@@ -63,30 +64,27 @@
     <!-- STEP 1: 계정 정보 -->
     <div class="panel active" id="step1">
       <div><label class="field-label">이메일 (아이디)</label><input id="s1_email" type="email" class="input" placeholder="example@email.com"/></div>
-      <div><label class="field-label">비밀번호 (영문+숫자 4자 이상)</label><input id="s1_pw" type="password" class="input" placeholder="비밀번호"/></div>
+      <div><label class="field-label">비밀번호 (영문+숫자 6자 이상)</label><input id="s1_pw" type="password" class="input" placeholder="비밀번호"/></div>
       <div><label class="field-label">비밀번호 확인</label><input id="s1_pw2" type="password" class="input" placeholder="비밀번호 재입력"/></div>
-      <div><label class="field-label">휴대폰 번호</label><input id="s1_phone" type="tel" class="input" placeholder="010-0000-0000"/></div>
+      <div><label class="field-label">휴대폰 번호 <span class="opt-label">(선택)</span></label><input id="s1_phone" type="tel" class="input" placeholder="010-0000-0000"/></div>
       <p id="s1Err" class="err"></p>
-      <button class="btn-primary" id="btnStep1" onclick="goOtpStep()">인증 이메일 발송 →</button>
+      <button class="btn-primary" id="btnStep1" onclick="sendVerification()">이메일 인증 요청 →</button>
     </div>
 
-    <!-- STEP 2: 이메일 인증 OTP -->
+    <!-- STEP 2: 이메일 인증 대기 (링크 방식) -->
     <div class="panel" id="step2">
-      <div class="otp-info"><b id="otpEmail"></b> 으로<br>인증 코드를 발송했습니다.</div>
-      <div class="otp-wrap">
-        <input class="otp-input" maxlength="1" inputmode="numeric" data-idx="0"/>
-        <input class="otp-input" maxlength="1" inputmode="numeric" data-idx="1"/>
-        <input class="otp-input" maxlength="1" inputmode="numeric" data-idx="2"/>
-        <input class="otp-input" maxlength="1" inputmode="numeric" data-idx="3"/>
-        <input class="otp-input" maxlength="1" inputmode="numeric" data-idx="4"/>
-        <input class="otp-input" maxlength="1" inputmode="numeric" data-idx="5"/>
+      <div class="email-sent-box">
+        <span class="material-symbols-outlined icon">mark_email_read</span>
+        <h3>인증 이메일을 보냈습니다</h3>
+        <p><b id="otpEmail"></b> 으로 인증 링크를 보냈습니다.<br>이메일을 확인하고 <b>인증하기 버튼</b>을 클릭해주세요.</p>
+        <p style="margin-top:12px;font-size:12px;color:rgba(255,255,255,.3);">메일이 안 보이면 스팸함을 확인해주세요.</p>
       </div>
+      <button class="check-btn" onclick="checkVerified()">✓ 인증 완료했어요</button>
       <p id="s2Err" class="err"></p>
-      <button class="btn-primary" id="btnVerify" onclick="verifyOtp()">인증 확인</button>
-      <div style="text-align:center;margin-top:4px;">
-        <button class="resend-btn" id="resendBtn" onclick="resendOtp()" disabled>재발송 (<span id="resendTimer">60</span>초)</button>
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button class="btn-ghost" style="flex:1;font-size:13px;" onclick="resendEmail()">인증 메일 재발송</button>
+        <button class="btn-ghost" style="flex:1;font-size:13px;" onclick="showStep('step1',1,'STEP 1 / 3 — 계정 정보')">← 이메일 수정</button>
       </div>
-      <div style="text-align:center;"><button class="btn-ghost" style="width:auto;padding:10px 20px;font-size:13px;" onclick="showStep('step1',1,'STEP 1 / 3 — 계정 정보')">← 이메일 수정</button></div>
     </div>
 
     <!-- STEP 3: 체형 정보 -->
@@ -111,7 +109,7 @@ let sb; try{ sb=window.supabase.createClient(SB_URL,SB_KEY); }catch(e){ console.
 
 if(window.CodiBank&&CodiBank.getCurrentUser&&CodiBank.getCurrentUser()) location.replace('closet.html');
 
-let G='',A='',sEmail='',sPw='',sPhone='',resendIv=null;
+let G='',A='',sEmail='',sPw='',sPhone='';
 function sel(t,v,el){ if(t==='G')G=v; else A=v; el.closest('.sel-group').querySelectorAll('.sel-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
 function showErr(id,m){const e=document.getElementById(id);e.textContent=m;e.classList.add('show');}
 function clrErr(id){document.getElementById(id).classList.remove('show');}
@@ -123,69 +121,101 @@ function showStep(id,dot,label){
   document.getElementById('stepLabel').textContent=label;
 }
 
-/* OTP 입력 UX */
-document.querySelectorAll('.otp-input').forEach(inp=>{
-  inp.addEventListener('input',function(){ this.value=this.value.replace(/\D/g,''); if(this.value&&+this.dataset.idx<5){ const nx=document.querySelector('.otp-input[data-idx="'+(+this.dataset.idx+1)+'"]'); if(nx)nx.focus(); }});
-  inp.addEventListener('keydown',function(e){ if(e.key==='Backspace'&&!this.value&&+this.dataset.idx>0){ const pv=document.querySelector('.otp-input[data-idx="'+(+this.dataset.idx-1)+'"]'); if(pv){pv.focus();pv.value='';} }});
-  inp.addEventListener('paste',function(e){ e.preventDefault(); const t=(e.clipboardData||window.clipboardData).getData('text').replace(/\D/g,'').slice(0,6); document.querySelectorAll('.otp-input').forEach((el,i)=>{el.value=t[i]||'';}); if(t.length===6) document.querySelector('.otp-input[data-idx="5"]').focus(); });
-});
-function getOtp(){ return Array.from(document.querySelectorAll('.otp-input')).map(i=>i.value).join(''); }
-
-/* STEP 1 → 이메일 발송 */
-async function goOtpStep(){
+/* ── STEP 1 → 인증 이메일 발송 ── */
+async function sendVerification(){
   clrErr('s1Err');
   const em=document.getElementById('s1_email').value.trim();
   const pw=document.getElementById('s1_pw').value;
   const pw2=document.getElementById('s1_pw2').value;
   const ph=document.getElementById('s1_phone').value.trim();
   if(!em||!em.includes('@')) return showErr('s1Err','올바른 이메일을 입력해주세요.');
-  if(!pw||pw.length<4) return showErr('s1Err','비밀번호는 4자 이상이어야 합니다.');
+  if(!pw||pw.length<6) return showErr('s1Err','비밀번호는 6자 이상이어야 합니다.');
   if(pw!==pw2) return showErr('s1Err','비밀번호가 일치하지 않습니다.');
-  if(!ph||ph.length<8) return showErr('s1Err','휴대폰 번호를 입력해주세요.');
   sEmail=em; sPw=pw; sPhone=ph;
   const btn=document.getElementById('btnStep1'); btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> 발송 중…';
   try{
-    if(!sb) throw new Error('Supabase 연결 실패');
-    const{data,error}=await sb.auth.signUp({email:em,password:pw,options:{data:{phone:ph}}});
+    if(!sb) throw new Error('인증 서버 연결 실패');
+    const{data,error}=await sb.auth.signUp({
+      email:em,
+      password:pw,
+      options:{
+        data:{phone:ph||''},
+        emailRedirectTo:'https://codibank.kr/app/signup.html?verified=true'
+      }
+    });
     if(error){
-      if(error.message.includes('already')) throw new Error('이미 가입된 이메일입니다.');
-      if(error.status===429||error.message.includes('rate')) throw new Error('잠시 후 다시 시도해주세요.');
-      if(error.message.includes('confirmation')||error.message.includes('sending')) throw new Error('이메일 발송 실패. 잠시 후 다시 시도해주세요.');
+      if(error.message.includes('already')) throw new Error('이미 가입된 이메일입니다. 로그인해주세요.');
+      if(error.status===429) throw new Error('잠시 후 다시 시도해주세요.');
       throw new Error(error.message);
     }
-    /* Confirm email이 꺼져있으면 session이 바로 반환됨 → OTP 스킵 */
-    if(data && data.session){
+    /* Confirm email 꺼져있으면 session 바로 반환 → 바로 STEP 3 */
+    if(data&&data.session){
       showStep('step3',3,'STEP 3 / 3 — 체형 정보');
-    } else {
-      document.getElementById('otpEmail').textContent=em;
-      showStep('step2',2,'STEP 2 / 3 — 이메일 인증');
-      startTimer(); document.querySelector('.otp-input[data-idx="0"]').focus();
+      return;
     }
+    /* Confirm email 켜져있으면 인증 대기 화면 */
+    document.getElementById('otpEmail').textContent=em;
+    showStep('step2',2,'STEP 2 / 3 — 이메일 인증');
   }catch(e){ showErr('s1Err',e.message||'오류가 발생했습니다.'); }
-  finally{ btn.disabled=false; btn.innerHTML='인증 이메일 발송 →'; }
+  finally{ btn.disabled=false; btn.innerHTML='이메일 인증 요청 →'; }
 }
 
-/* OTP 검증 */
-async function verifyOtp(){
-  clrErr('s2Err'); const code=getOtp();
-  if(code.length!==6) return showErr('s2Err','6자리 코드를 입력해주세요.');
-  const btn=document.getElementById('btnVerify'); btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> 확인 중…';
+/* ── 인증 완료 확인 ── */
+async function checkVerified(){
+  clrErr('s2Err');
   try{
-    const{error}=await sb.auth.verifyOtp({email:sEmail,token:code,type:'email'});
-    if(error){ if(error.message.includes('expired')) throw new Error('코드가 만료됐습니다. 재발송해주세요.'); throw new Error(error.message||'인증 실패'); }
+    /* Supabase에 로그인 시도 → 인증 완료되었으면 성공 */
+    const{data,error}=await sb.auth.signInWithPassword({email:sEmail,password:sPw});
+    if(error){
+      if(error.message.includes('not confirmed')||error.message.includes('Email not confirmed')){
+        return showErr('s2Err','아직 인증이 완료되지 않았습니다. 이메일을 확인해주세요.');
+      }
+      throw new Error(error.message);
+    }
+    /* 인증 완료 → STEP 3 */
     showStep('step3',3,'STEP 3 / 3 — 체형 정보');
-  }catch(e){ showErr('s2Err',e.message); }
-  finally{ btn.disabled=false; btn.innerHTML='인증 확인'; }
+  }catch(e){ showErr('s2Err',e.message||'인증 확인 실패'); }
 }
 
-/* 재발송 */
-function startTimer(){ let s=60; const b=document.getElementById('resendBtn'),t=document.getElementById('resendTimer'); b.disabled=true; if(resendIv)clearInterval(resendIv); resendIv=setInterval(()=>{ s--; t.textContent=s; if(s<=0){clearInterval(resendIv);b.disabled=false;b.textContent='인증 코드 재발송';}},1000); }
-async function resendOtp(){ const b=document.getElementById('resendBtn'); b.disabled=true; b.textContent='발송 중…'; try{ await sb.auth.resend({type:'signup',email:sEmail}); document.querySelectorAll('.otp-input').forEach(i=>i.value=''); startTimer(); }catch(e){ showErr('s2Err','재발송 실패'); b.disabled=false; b.textContent='인증 코드 재발송'; }}
+/* ── 인증 메일 재발송 ── */
+async function resendEmail(){
+  clrErr('s2Err');
+  try{
+    const{error}=await sb.auth.resend({type:'signup',email:sEmail});
+    if(error) throw error;
+    showErr('s2Err',''); // 에러 지우기
+    document.getElementById('s2Err').classList.remove('show');
+    alert('인증 이메일을 재발송했습니다. 메일함을 확인해주세요.');
+  }catch(e){ showErr('s2Err','재발송 실패: '+(e.message||'잠시 후 다시 시도해주세요.')); }
+}
 
-/* STEP 3 → 가입 완료 */
+/* ── 이메일 링크 클릭 후 돌아온 경우 자동 처리 ── */
+(async function checkRedirect(){
+  const params=new URLSearchParams(location.search);
+  if(params.get('verified')==='true'){
+    /* URL에서 verified 파라미터 확인 → Supabase 세션 체크 */
+    const{data}=await sb.auth.getSession();
+    if(data&&data.session){
+      sEmail=data.session.user.email;
+      sPw=''; /* 이미 Supabase 로그인 상태 */
+      showStep('step3',3,'STEP 3 / 3 — 체형 정보');
+    }
+  }
+})();
+
+/* ── STEP 3 → 가입 완료 ── */
 function doSignup(){
   clrErr('s3Err');
-  const res=window.CodiBank.signup({email:sEmail,password:sPw,phone:sPhone,gender:G,ageGroup:A,height:document.getElementById('s3_height').value,weight:document.getElementById('s3_weight').value});
+  /* Supabase에 이미 인증된 상태 → CodiBank 로컬에도 유저 생성 */
+  const res=window.CodiBank.signup({
+    email:sEmail,
+    password:sPw||'supabase_verified',
+    phone:sPhone||'',
+    gender:G,
+    ageGroup:A,
+    height:document.getElementById('s3_height').value,
+    weight:document.getElementById('s3_weight').value,
+  });
   if(res.ok) location.replace('closet.html');
   else showErr('s3Err',res.error||'회원가입에 실패했습니다.');
 }
