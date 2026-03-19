@@ -2145,7 +2145,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     socks:  [_extSpec.socks.ko].filter(Boolean),
   };
 
-  // ── [16] imagePrompt: SPEC.en에서만 파생 → AI 이미지 생성
+  // ── [16] imagePrompt: SPEC.en에서만 파생 → DALL-E 이미지 생성
   // ※ 절대 변경 금지 — categoryKeywords와 동일 소스 보장
   const genderLabel = profile?.gender==='M'?'man':profile?.gender==='F'?'woman':'man';
   const ageLabel = (()=>{
@@ -2646,7 +2646,7 @@ async function updateVTO(opts={}){
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, CW, CH);
   };
 
-  // 유틸: blob URL -> dataURL (AI 이미지 편집용)
+  // 유틸: blob URL -> dataURL (OpenAI 이미지 편집용)
   const toDataUrl = async (src)=>{
     if(!src) return '';
     const s = String(src);
@@ -2727,9 +2727,15 @@ async function updateVTO(opts={}){
   if(hint) hint.style.display='none';
 
   // 1) 얼굴 로드 (로컬 폴백/프롬프트용)
-  const faceRef=user?.avatarFace?String(user.avatarFace).trim():'';
   let faceSrc='',faceImg=null;
-  if(faceRef){try{faceSrc=await CodiBank.getImageSrc(faceRef);}catch(_){} }
+  try{
+    if(typeof CodiBank.getUserFaceImageSrc === 'function'){
+      faceSrc = await CodiBank.getUserFaceImageSrc(user);
+    }else{
+      const faceRef = String(user?.avatarFace || user?.photo || '').trim();
+      if(faceRef) faceSrc = await CodiBank.getImageSrc(faceRef);
+    }
+  }catch(_){ faceSrc=''; }
   if(faceSrc){
     if(stepEl) stepEl.textContent='얼굴 사진 불러오는 중…';
     try{faceImg=await loadImg(faceSrc);}catch(e){console.warn('얼굴 로드 실패:',e);faceImg=null;faceSrc='';}
@@ -2925,7 +2931,7 @@ async function updateVTO(opts={}){
   // 매칭 후 버튼 상태 복원
   try{ updateAiCallBtn(); }catch(_){} 
 
-  // 4) 이미지 생성 (REMOTE: 얼굴 있으면 Gemini, 없으면 OpenAI)
+  // 4) 이미지 생성 (REMOTE(OpenAI) 우선)
   // 런타임 설정
   // - config.example.js 주석: aiBase가 비어있으면 backendBase를 사용하도록 의도되어 있습니다.
   // - 하지만 외부 배포/도메인 변경 시 backendBase만 설정하고 aiBase를 비워두면,
@@ -2943,12 +2949,12 @@ async function updateVTO(opts={}){
 
   if(wantRemote){
     try{
-      if(stepEl) stepEl.textContent= hasCache ? 'AI 업데이트 중…' : 'AI 이미지 생성 중…';
-      if(metaEl) metaEl.textContent = AI_DEBUG ? 'AI 생성중…' : '';
+      if(stepEl) stepEl.textContent= hasCache ? 'OpenAI 업데이트 중…' : 'OpenAI 이미지 생성 중…';
+      if(metaEl) metaEl.textContent = AI_DEBUG ? 'OpenAI 생성중…' : '';
 
       let faceDataUrl = faceSrc ? await toDataUrl(faceSrc) : '';
-      // ✅ 얼굴 이미지 압축: 480px + quality 0.75
-      // 얼굴 사진은 Gemini에게 얼굴 특징 보존용으로 전달됩니다.
+      // ✅ [버그1 수정] 얼굴 이미지 강화 압축: 480px + quality 0.75 (이전: 640px/0.85)
+      // 얼굴 사진은 OpenAI에게 참고용으로 전달되는 것이므로 고해상도 불필요.
       // base64 기준 ~60KB 이내로 유지해 413 에러 및 타임아웃을 예방합니다.
       try{
         faceDataUrl = await shrinkDataUrl(faceDataUrl, 480, 0.75);
@@ -3007,11 +3013,11 @@ async function updateVTO(opts={}){
         quality:'low'
       };
 
-      // (안정화) AI 호출은 네트워크/요금/바디크기 등에 따라 간헐적으로 실패할 수 있어
-      // 1) 얼굴 포함으로 1회 시도(Gemini) → 2) 실패 시 얼굴 없이 1회 재시도(OpenAI 폴백)
+      // (안정화) OpenAI 호출은 네트워크/요금/바디크기 등에 따라 간헐적으로 실패할 수 있어
+      // 1) 얼굴 포함으로 1회 시도 → 2) 실패 시 얼굴 없이 1회 재시도(요청 바디 축소)
       const callRemote = async (faceDataUrlOpt)=>{
         const p = Object.assign({}, payload, { faceImage: faceDataUrlOpt || null });
-        const data = await postJson(`${aiBase}/api/ai/styling`, p, 50000);
+        const data = await postJson(`${aiBase}/api/ai/styling`, p, 35000);
         if(S.tok!==tok)return null;
         if(!data || data.ok!==true) throw new Error(data?.error||'AI 이미지 생성 실패');
 
@@ -3025,7 +3031,7 @@ async function updateVTO(opts={}){
 
         // ✅ [버그1 수정] displaySrc 결정 로직 개선
         // 이전: getImageSrc(imgRef) → IndexedDB 조회 → 서버 파일은 IDB에 없음 → 항상 '' 반환
-        //        → displaySrc = rawUrl(외부 CDN) → 만료 시 이미지 소멸
+        //        → displaySrc = rawUrl(OpenAI CDN) → 만료 시 이미지 소멸
         // 수정: imgRef(/uploads/..)가 있으면 백엔드 서버 URL로 직접 구성 (안정적, 만료 없음)
         let displaySrc = '';
         if(imgRef && imgRef.startsWith('/uploads/')){
@@ -3062,7 +3068,7 @@ async function updateVTO(opts={}){
       const data = r?.data || null;
       const imgRef = r?.imgRef || '';
       usedRemote = !!data;
-      // cached=true면 AI 호출 없이 파일만 반환된 상태(사용량/앨범 저장은 생략)
+      // cached=true면 OpenAI 호출 없이 파일만 반환된 상태(사용량/앨범 저장은 생략)
       didGenerateNew = data ? !(data && data.cached === true) : false;
 
       // 캐시 저장: displaySrc(절대URL)를 우선 저장 → album.html이 환경 무관하게 로드 가능
@@ -3089,10 +3095,10 @@ async function updateVTO(opts={}){
         }
       }
     }catch(e){
-      console.warn('AI 서버 실패(로컬 폴백):', e);
+      console.warn('OpenAI 서버 실패(로컬 폴백):', e);
       if(metaEl){
         if(AI_DEBUG){
-          metaEl.textContent = hasCache ? `AI 실패 · 캐시 표시중 (${shortErr(e)})` : `AI 실패 · 로컬 폴백 (${shortErr(e)})`;
+          metaEl.textContent = hasCache ? `OpenAI 실패 · 캐시 표시중 (${shortErr(e)})` : `OpenAI 실패 · 로컬 폴백 (${shortErr(e)})`;
         } else {
           metaEl.textContent='';
         }
@@ -3688,7 +3694,7 @@ function renderStylingPoint(){
 // 4단계: AI 스타일리스트 선정 → 추천코디 프롬프트 생성 (callClaude)
 //        → MASTER SPEC으로 카테고리별 컬러+스타일 정의
 // 5단계: 추천코디분석 표시 + AI 스타일링 포인트 렌더링 (renderStylingPoint)
-// 6단계: AI 이미지 생성 (updateVTO → /api/ai/styling → 얼굴 있으면 Gemini, 없으면 OpenAI)
+// 6단계: DALL-E 이미지 생성 (updateVTO → /api/ai/styling)
 // 7단계: 이용횟수 1회 차감 (CodiBank.useAiStyling)
 // 8단계: 모바일옷장 아이템 매칭 점수화 (matchPairs)
 // ════════════════════════════════════════════════════════════════
@@ -3719,7 +3725,7 @@ async function generateStyling(opts={}) {
   updateAiCallBtn();
   try{
     setMetaLine();
-    // 4~6단계 실행 (callClaude → imagePrompt → AI 이미지 생성)
+    // 4~6단계 실행 (callClaude → imagePrompt → DALL-E)
     await updateVTO({refresh:bumpSeed});
   }catch(e){
     console.error('generateStyling VTO error:', e);
