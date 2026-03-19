@@ -101,21 +101,6 @@
   .menu-section{margin:16px 0 4px 20px;font-size:11px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:.08em;}
   .badge-plan{background:rgba(151,254,237,.15);border:1px solid rgba(151,254,237,.3);
     color:#97FEED;font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;}
-  .usage-card{
-    margin:0 20px 12px;border-radius:20px;padding:18px 20px;
-    background:linear-gradient(135deg,rgba(11,102,106,.18),rgba(53,162,159,.08));
-    border:1px solid rgba(151,254,237,.15);
-  }
-  .usage-header{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
-  .usage-title{font-size:13px;font-weight:700;color:rgba(151,254,237,.85);}
-  .usage-bars{display:flex;flex-direction:column;gap:10px;}
-  .usage-row{display:flex;align-items:center;gap:10px;}
-  .usage-label{width:52px;font-size:11px;font-weight:600;color:rgba(255,255,255,.5);flex-shrink:0;}
-  .usage-bar-wrap{flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;}
-  .usage-bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#35A29F,#97FEED);transition:width .6s ease;}
-  .usage-bar-fill.daily{background:linear-gradient(90deg,#0B666A,#35A29F);}
-  .usage-num{width:60px;text-align:right;font-size:11px;font-weight:700;color:rgba(255,255,255,.65);flex-shrink:0;}
-  .usage-hint{margin-top:10px;font-size:10px;color:rgba(255,255,255,.3);text-align:center;}
   .btn-logout{
     margin:24px 20px;width:calc(100% - 40px);padding:15px;border-radius:16px;border:none;cursor:pointer;
     background:rgba(255,107,107,.12);border:1px solid rgba(255,107,107,.25);
@@ -199,27 +184,6 @@
     </div>
   </div>
 
-  <!-- 사용량 요약 -->
-  <div class="usage-card" id="usageCard">
-    <div class="usage-header">
-      <span class="material-symbols-outlined" style="font-size:18px;color:#97FEED;">bar_chart</span>
-      <span class="usage-title">AI 코디 생성 사용량</span>
-    </div>
-    <div class="usage-bars">
-      <div class="usage-row">
-        <div class="usage-label">이번 달</div>
-        <div class="usage-bar-wrap"><div class="usage-bar-fill" id="monthBar" style="width:0%"></div></div>
-        <div class="usage-num" id="monthNum">0 / 6</div>
-      </div>
-      <div class="usage-row">
-        <div class="usage-label">오늘</div>
-        <div class="usage-bar-wrap"><div class="usage-bar-fill daily" id="dayBar" style="width:0%"></div></div>
-        <div class="usage-num" id="dayNum">0 / ∞</div>
-      </div>
-    </div>
-    <div class="usage-hint" id="usageHint">내옷장 + 코디하기 통합 사용 기준</div>
-  </div>
-
   <!-- 메뉴 -->
   <p class="menu-section">계정 관리</p>
   <div class="menu-item" onclick="location.href='profile.html'">
@@ -245,13 +209,15 @@
     </div>
     <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
   </div>
-  <div class="menu-item" onclick="location.href='share-sale.html'">
+  <!-- 공유판매: 추후 오픈 예정
+  <div class="menu-item" onclick="location.href='codistyle.html'">
     <div class="menu-item-left">
       <span class="material-symbols-outlined" style="color:#35A29F">storefront</span>
       공유·판매 관리
     </div>
     <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
   </div>
+  -->
 
   <p class="menu-section">기타</p>
   <div class="menu-item" onclick="alert('이용약관 준비 중입니다.')">
@@ -276,13 +242,6 @@
 
 <script src="codibank.js"></script>
 <script>
-  const PLANS = {
-    free:    { label:'무료 (Free)',     monthlyTotal:6,     dailyLimit:null },
-    silver:  { label:'실버 (Silver)',   monthlyTotal:40,    dailyLimit:3 },
-    gold:    { label:'골드 (Gold)',     monthlyTotal:150,   dailyLimit:10 },
-    diamond: { label:'다이아 (Diamond)',monthlyTotal:99999, dailyLimit:30 },
-  };
-
   // 사용자 정보 표시
   (async function(){
     try {
@@ -291,12 +250,11 @@
 
       document.getElementById('userName').textContent  = u.nickname || u.email.split('@')[0] || '사용자';
       document.getElementById('userEmail').textContent = u.email || '';
-
-      const planId = (u.plan || 'free').toLowerCase();
-      const plan = PLANS[planId] || PLANS.free;
-      document.getElementById('userPlan').textContent = plan.label;
+      document.getElementById('userPlan').textContent  = (u.plan || 'FREE') + ' 플랜';
 
       // ── 프로필 사진 로드 ──
+      // 1순위: user.photo (dataURL 직접 저장)
+      // 2순위: user.avatarFace → getImageSrc (IndexedDB)
       let photoSrc = u.photo || '';
       if (!photoSrc && u.avatarFace && window.CodiBank && CodiBank.getImageSrc) {
         try { photoSrc = await CodiBank.getImageSrc(u.avatarFace); } catch(_) {}
@@ -308,31 +266,6 @@
         img.style.display = 'block';
         icon.style.display = 'none';
       }
-
-      // ── 사용량 표시 ──
-      try {
-        const key = 'cb_usage_' + (u.email || 'guest');
-        const raw = JSON.parse(localStorage.getItem(key) || '{}');
-        const now = new Date();
-        const monthKey = now.getFullYear()+'-'+(now.getMonth()+1);
-        const dayKey = now.toISOString().slice(0,10);
-        const mCount = (raw.month === monthKey) ? (raw.monthCount||0) : 0;
-        const dCount = (raw.day === dayKey) ? (raw.dayCount||0) : 0;
-
-        const mTotal = plan.monthlyTotal;
-        const dTotal = plan.dailyLimit;
-        const mPct = Math.min(100, Math.round(mCount / mTotal * 100));
-        const dPct = dTotal ? Math.min(100, Math.round(dCount / dTotal * 100)) : 0;
-
-        document.getElementById('monthBar').style.width = mPct + '%';
-        document.getElementById('monthNum').textContent = mCount + ' / ' + (mTotal > 9999 ? '∞' : mTotal);
-        document.getElementById('dayBar').style.width = dPct + '%';
-        document.getElementById('dayNum').textContent = dCount + ' / ' + (dTotal || '∞');
-
-        if(mPct >= 90) document.getElementById('monthBar').style.background = 'linear-gradient(90deg,#ef4444,#f87171)';
-        if(dPct >= 90) document.getElementById('dayBar').style.background = 'linear-gradient(90deg,#ef4444,#f87171)';
-      } catch(_){}
-
     } catch(e) { console.warn('mypage init error', e); }
   })();
 
@@ -356,8 +289,8 @@
       <a href="camera.html" class="cb-nav-add">add</a>
       <span class="cb-nav-add-lbl">ITEM등록</span>
     </div>
-    <a href="share-sale.html" class="cb-nav-tab">
-      <span class="ni">local_mall</span><span>공유판매</span>
+    <a href="codistyle.html" class="cb-nav-tab">
+      <span class="ni">checkroom</span><span>코디하기</span>
     </a>
     <a href="mypage.html" class="cb-nav-tab on">
       <span class="ni">person_outline</span><span>MY</span>
