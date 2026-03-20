@@ -80,8 +80,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 .bab.save{background:#fff;color:var(--navy)}
 .bab.share{background:rgba(53,162,159,0.15);color:var(--teal-light);border:1px solid rgba(53,162,159,0.3)}
 .bab.retry{background:rgba(151,254,237,0.08);color:var(--mint);border:1px solid rgba(151,254,237,0.2)}
-.cb-spacer{height:14px}.cb-nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;background:rgba(7,25,82,0.96);backdrop-filter:blur(10px);border-top:1px solid rgba(151,254,237,0.14);padding:12px 14px calc(12px + env(safe-area-inset-bottom));z-index:60}.cb-nav-inner{display:flex;align-items:flex-end;justify-content:space-between;gap:6px}.cb-nav-tab{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;text-decoration:none;color:rgba(255,255,255,0.45);font-size:11px;font-weight:700}.cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:24px;color:inherit}.cb-nav-tab.on{color:var(--teal-light)}
-.cb-nav-add-wrap{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:74px}.cb-nav-add{position:relative;top:-8px;width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--teal-light),#6ee7e0);color:var(--navy);text-decoration:none;font-family:'Material Symbols Outlined';font-size:34px;font-weight:400;box-shadow:0 10px 22px rgba(151,254,237,0.18);border:4px solid rgba(7,25,82,0.98)}.cb-nav-add-lbl{margin-top:-2px;font-size:11px;font-weight:800;color:var(--teal-light)}
+/* ── 풋바: Floating Glassmorphic Bar ── */
+.cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px 10px;pointer-events:none;padding-bottom:max(10px,env(safe-area-inset-bottom));}
+.cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px;}
+.cb-nav-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:rgba(216,226,255,.4);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s;font-family:'Inter','Noto Sans KR',sans-serif;}
+.cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 22;}
+.cb-nav-tab .nl{font-size:9px;font-weight:600;letter-spacing:.02em;}
+.cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px;}
+.cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
+.cb-spacer{height:82px;}
 @media (max-width:390px){.slot-row{grid-template-columns:minmax(0,1fr) 98px}.sb{min-height:74px;padding:12px 6px}.pg-title{font-size:21px}}
 </style>
 </head>
@@ -181,13 +188,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 </div>
 
 <div class="cb-spacer"></div>
-<nav class="cb-nav"><div class="cb-nav-inner">
-  <a href="closet.html" class="cb-nav-tab"><span class="ni">grid_view</span><span>내옷장</span></a>
-  <a href="album.html" class="cb-nav-tab"><span class="ni">auto_awesome_motion</span><span>코디앨범</span></a>
-  <div class="cb-nav-add-wrap"><a href="camera.html" class="cb-nav-add">add</a><span class="cb-nav-add-lbl">ITEM등록</span></div>
-  <a href="codistyle.html" class="cb-nav-tab on"><span class="ni">checkroom</span><span>코디하기</span></a>
-  <a href="mypage.html" class="cb-nav-tab"><span class="ni">person_outline</span><span>MY</span></a>
-</div></nav>
+<nav class="cb-nav">
+  <div class="cb-nav-inner">
+    <a href="closet.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">내옷장</span></a>
+    <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
+    <a href="camera.html" class="cb-nav-tab"><span class="ni">add_circle</span><span class="nl">ITEM등록</span></a>
+    <a href="codistyle.html" class="cb-nav-tab on"><span class="ni">accessibility_new</span><span class="nl">코디하기</span></a>
+    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
+  </div>
+</nav>
 
 <script>
 if(!CodiBank.requireAuth('login.html')){}
