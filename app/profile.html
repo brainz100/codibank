@@ -230,12 +230,35 @@ function previewPhoto(e){
   const file = e.target.files[0];
   if(!file) return;
   if(file.size > 5*1024*1024){ showToast('5MB 이하 이미지를 선택해주세요.'); return; }
+
+  // 이미지를 압축(최대 600px, JPEG 0.78)하여 localStorage/IDB 안정성 확보
   const reader = new FileReader();
   reader.onload = ev => {
-    _photoData = ev.target.result;
-    document.getElementById('photoPreview').src = _photoData;
-    document.getElementById('photoPreview').style.display = 'block';
-    document.getElementById('photoDefault').style.display = 'none';
+    const rawData = ev.target.result;
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const MAX = 600, q = 0.78;
+        const w = img.naturalWidth, h = img.naturalHeight;
+        const scale = Math.min(1, MAX / Math.max(w, h));
+        const nw = Math.round(w * scale), nh = Math.round(h * scale);
+        const c = document.createElement('canvas'); c.width = nw; c.height = nh;
+        const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, nw, nh);
+        _photoData = c.toDataURL('image/jpeg', q);
+      } catch(_) {
+        _photoData = rawData; // 압축 실패 시 원본
+      }
+      document.getElementById('photoPreview').src = _photoData;
+      document.getElementById('photoPreview').style.display = 'block';
+      document.getElementById('photoDefault').style.display = 'none';
+    };
+    img.onerror = () => {
+      _photoData = rawData;
+      document.getElementById('photoPreview').src = _photoData;
+      document.getElementById('photoPreview').style.display = 'block';
+      document.getElementById('photoDefault').style.display = 'none';
+    };
+    img.src = rawData;
   };
   reader.readAsDataURL(file);
 }
@@ -263,14 +286,21 @@ function loadUser(){
     if(b.dataset.v === _ageVal) b.classList.add('on');
   });
 
-  // 프로필 사진 로드 (비동기 - IndexedDB 지원)
+  // 프로필 사진 로드 (getUserFaceImageSrc 통합 사용)
   const photoSrc = _user.photo || '';
   if (photoSrc) {
     document.getElementById('photoPreview').src = photoSrc;
     document.getElementById('photoPreview').style.display = 'block';
     document.getElementById('photoDefault').style.display = 'none';
+  } else if (window.CodiBank && typeof CodiBank.getUserFaceImageSrc === 'function') {
+    CodiBank.getUserFaceImageSrc(_user).then(src => {
+      if (src) {
+        document.getElementById('photoPreview').src = src;
+        document.getElementById('photoPreview').style.display = 'block';
+        document.getElementById('photoDefault').style.display = 'none';
+      }
+    }).catch(() => {});
   } else if (_user.avatarFace && window.CodiBank && CodiBank.getImageSrc) {
-    // avatarFace(IndexedDB id)가 있으면 비동기 로드
     CodiBank.getImageSrc(_user.avatarFace).then(src => {
       if (src) {
         document.getElementById('photoPreview').src = src;
@@ -304,17 +334,32 @@ async function doSave(){
 
   if(pw) patch.password = pw;
 
-  // 사진 저장: dataURL → IndexedDB 저장 → avatarFace(id)로 저장
-  // closet.html이 user.avatarFace를 CodiBank.getImageSrc()로 읽으므로 반드시 동일 필드명 사용
+  // 사진 저장 전략:
+  // 1) avatarFace → IndexedDB에 저장한 id (closet/codistyle에서 getUserFaceImageSrc로 로드)
+  // 2) photo → 소형 썸네일 dataURL (localStorage에 안전하게 저장, mypage 표시용)
   if(_photoData){
-    patch.photo = _photoData; // 마이페이지 표시용 (dataURL 직접)
-    // IndexedDB에도 저장하여 closet.html AI 스타일링에 사용
-    if(CodiBank.saveImage){
+    // 소형 썸네일 생성 (120px, localStorage 안전)
+    let thumbData = '';
+    try {
+      const tImg = new Image();
+      await new Promise((res, rej) => { tImg.onload = res; tImg.onerror = rej; tImg.src = _photoData; });
+      const tw = tImg.naturalWidth, th = tImg.naturalHeight;
+      const ts = Math.min(1, 120 / Math.max(tw, th));
+      const tnw = Math.round(tw * ts), tnh = Math.round(th * ts);
+      const tc = document.createElement('canvas'); tc.width = tnw; tc.height = tnh;
+      tc.getContext('2d').drawImage(tImg, 0, 0, tnw, tnh);
+      thumbData = tc.toDataURL('image/jpeg', 0.6);
+    } catch(_) { thumbData = ''; }
+
+    // photo: 썸네일(작으므로 localStorage 안전) 또는 압축된 원본
+    patch.photo = thumbData || _photoData;
+
+    // avatarFace: IndexedDB에 원본 저장 → id 반환
+    if(typeof CodiBank.saveImage === 'function'){
       try {
         const imgId = await CodiBank.saveImage(_photoData);
-        patch.avatarFace = imgId; // closet.html이 읽는 필드
+        patch.avatarFace = imgId;
       } catch(e) {
-        // saveImage 실패 시 dataURL 그대로 avatarFace에 저장 (폴백)
         patch.avatarFace = _photoData;
       }
     } else {

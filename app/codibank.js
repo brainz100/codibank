@@ -1,21 +1,6 @@
 /* ==============================
-   🔥 추가된 핵심 코드 (파일 맨 위 아무 위치에 추가)
+   CodiBank Prototype Core (face image unified via getUserFaceImageSrc inside IIFE)
 ============================== */
-
-// 얼굴 이미지 통합 처리
-function getUserFaceImageUnified(user) {
-  if (!user) return null;
-  if (user.avatarFace) return user.avatarFace;
-  if (user.photo) return user.photo;
-  return null;
-}
-
-// 얼굴 저장 통합 (반드시 이것 사용)
-function setUserFaceImageUnified(user, dataUrl) {
-  if (!user) return;
-  user.avatarFace = dataUrl;
-  user.photo = dataUrl;
-}
 
 /*
   CodiBank Prototype Core
@@ -1038,6 +1023,35 @@ if (ref.startsWith('/uploads/')) {
     _imageUrlCache.clear();
   }
 
+  // ==============================
+  // 프로필 얼굴 이미지 통합 로드 (cascading fallback)
+  // avatarFace(IDB id) → photo(dataURL) → '' 순서로 시도
+  // closet.html, codistyle.html 모두 이 함수를 사용
+  // ==============================
+  async function getUserFaceImageSrc(user) {
+    if (!user) return '';
+
+    // 1차: avatarFace (IndexedDB id 또는 dataURL/URL)
+    var faceRef = String(user.avatarFace || '').trim();
+    if (faceRef) {
+      try {
+        var src = await getImageSrc(faceRef);
+        if (src) return src;
+      } catch (_) {}
+    }
+
+    // 2차: photo (dataURL 직접 저장분)
+    var photoRef = String(user.photo || '').trim();
+    if (photoRef) {
+      try {
+        var src2 = await getImageSrc(photoRef);
+        if (src2) return src2;
+      } catch (_) {}
+    }
+
+    return '';
+  }
+
 // ==============================
 // Server storage (prototype)
 // - Some mobile browsers may evict large local images quickly.
@@ -1660,6 +1674,7 @@ window.CodiBank = {
     saveImage,
     uploadImageToServer,
     getImageSrc,
+    getUserFaceImageSrc,
     clearImageSrcCache,
 
     // location & weather
