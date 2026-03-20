@@ -4,6 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>코디하기 - 코디뱅크</title>
+<script src="config.js"></script>
 <script src="codibank.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
@@ -192,8 +193,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 if(!CodiBank.requireAuth('login.html')){}
 const user = CodiBank.getCurrentUser() || {};
 const ST = {
-  top:    { preview:'', serverPath:'', uploading:false },
-  bottom: { preview:'', serverPath:'', uploading:false },
+  top:    { preview:'', serverPath:'', dataUrl:'', uploading:false },
+  bottom: { preview:'', serverPath:'', dataUrl:'', uploading:false },
 };
 let busy=false, lastImgUrl='', faceDataUrl='';
 
@@ -258,9 +259,22 @@ function resizeFaceDataUrl(src, maxSize, quality){
 }
 function codistyleBase(){
   const cfg = (window.CodiBank && CodiBank.getConfig) ? CodiBank.getConfig() : {};
-  const direct = String(cfg.codistyleBase || '').trim();
+
+  // 1순위: config에 명시적으로 설정된 backendBase
+  const direct = String(cfg.backendBase || '').trim();
   if(direct) return direct.replace(/\/$/,'');
-  if(window.CodiBank && CodiBank.getCodistyleBaseResolved) return String(CodiBank.getCodistyleBaseResolved()||'').replace(/\/$/,'');
+
+  // 2순위: codibank.js의 자동 해석 (Wi-Fi IP 등)
+  if(window.CodiBank && CodiBank.getBackendBaseResolved){
+    const resolved = String(CodiBank.getBackendBaseResolved()||'').trim();
+    if(resolved) return resolved.replace(/\/$/,'');
+  }
+
+  // 3순위: 현재 origin (Vercel 등에서 같은 도메인 프록시 사용 시)
+  if(window.location && window.location.origin && !window.location.origin.includes('localhost')){
+    return window.location.origin;
+  }
+
   return '';
 }
 function setProgress(pct, txt){ document.getElementById('progFill').style.width=pct+'%'; if(txt) document.getElementById('sTxt').textContent=txt; }
@@ -287,7 +301,7 @@ function renderSlot(k){
 function setStatus(k, text, err){ const e=document.getElementById('st-'+k); e.textContent=text||''; e.className='slot-status'+(err?' err':''); }
 function pickFile(k){ document.getElementById('file-'+k).click(); }
 function pickCamera(k){ document.getElementById('cam-'+k).click(); }
-function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', uploading:false }; renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); }
+function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false }; renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); }
 async function fileToBlob(file){ return file; }
 async function compressImage(file, maxSize=1400, quality=0.82){
   const url=URL.createObjectURL(file);
@@ -323,6 +337,12 @@ async function onFile(ev,k){
   renderSlot(k); setStatus(k,'이미지 준비중…', false); updateGenerateBtn();
   try{
     const compressed = await compressImage(file, 1400, 0.82);
+    // v53 구조: base64 dataUrl 캡처 (서버가 dataUrl 우선 처리)
+    try{
+      const fr = new FileReader();
+      const du = await new Promise((res,rej)=>{fr.onload=()=>res(fr.result);fr.onerror=()=>res('');fr.readAsDataURL(compressed);});
+      ST[k].dataUrl = du || '';
+    }catch(_){ ST[k].dataUrl = ''; }
     setStatus(k,'서버에 업로드중…', false);
     const path = await uploadBlob(k, compressed);
     ST[k].serverPath = path;
@@ -345,6 +365,8 @@ async function generate(){
       user:{ gender:user.gender||'', ageGroup:user.ageGroup||'', height:user.height||'', weight:user.weight||'' },
       topPath: ST.top.serverPath,
       bottomPath: ST.bottom.serverPath,
+      topDataUrl: ST.top.dataUrl || null,
+      bottomDataUrl: ST.bottom.dataUrl || null,
       faceImage: faceDataUrl || null,   /* ★ 서버가 "faceImage" 키로 읽음 */
       size:'1024x1536',
       quality:'low'
