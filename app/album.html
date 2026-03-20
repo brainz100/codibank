@@ -186,8 +186,20 @@ let _user = null, _entries = [], _cur = null;
 function fmt(iso) {
   if (!iso) return '';
   const d = new Date(iso);
+  if (window.CodiBankI18n && CodiBankI18n.isEn()) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    return `${months[d.getMonth()]} ${d.getDate()} (${days[d.getDay()]})`;
+  }
   const days = ['일','월','화','수','목','금','토'];
   return `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+}
+
+var PURPOSE_EN = {'출퇴근':'Commute','비즈니스':'Business','주말외출':'Weekend','주말여행':'Weekend Trip','국내여행':'Domestic Trip','해외여행':'Overseas Trip','지인모임':'Social','소개팅':'Blind Date','파티룩':'Party','맞춤':'Custom','코디':'Outfit'};
+function tPurpose(label) {
+  if (!label) return (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'Outfit' : '코디';
+  if (window.CodiBankI18n && CodiBankI18n.isEn()) return PURPOSE_EN[label] || label;
+  return label;
 }
 
 async function resolveImg(ref) {
@@ -214,7 +226,7 @@ function mkCard(entry) {
     </div>
     <div class="acard-info">
       <p class="acard-date">${fmt(entry.createdAt)}</p>
-      <p class="acard-purpose">${entry.purposeLabel || '코디'}</p>
+      <p class="acard-purpose">${tPurpose(entry.purposeLabel)}</p>
     </div>
   `;
   wrap.addEventListener('click', () => openModal(entry));
@@ -271,7 +283,7 @@ async function openModal(entry) {
   const modal = document.getElementById('modal');
   const img = document.getElementById('mImg');
   document.getElementById('mDate').textContent    = fmt(entry.createdAt);
-  document.getElementById('mPurpose').textContent = entry.purposeLabel || '코디';
+  document.getElementById('mPurpose').textContent = tPurpose(entry.purposeLabel);
   const kwSec = document.getElementById('mKeywordSection');
   const kwWrap = document.getElementById('mKeywords');
   const kws = Array.isArray(entry.keywords) ? entry.keywords.filter(Boolean) : [];
