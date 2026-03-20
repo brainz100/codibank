@@ -82,6 +82,16 @@
     .mobile-view { display: none !important; }
     .pc-view     { display: block !important; }
   }
+
+/* ── 풋바: Floating Glassmorphic Bar ── */
+.cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px 10px;pointer-events:none;padding-bottom:max(10px,env(safe-area-inset-bottom));}
+.cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px;}
+.cb-nav-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:rgba(216,226,255,.4);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s;font-family:'Inter','Noto Sans KR',sans-serif;}
+.cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 22;}
+.cb-nav-tab .nl{font-size:9px;font-weight:600;letter-spacing:.02em;}
+.cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px;}
+.cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
+.cb-spacer{height:82px;}
 </style>
 </head>
 <body class="min-h-screen relative">
@@ -151,7 +161,7 @@
         </div>
         <div class="flex-grow">
           <h3 class="text-base font-bold text-white mb-0.5">코디하기</h3>
-          <p class="text-xs text-slate-400">이 옷이 어울릴까 궁금할 때 코디해보세요</p>
+          <p class="text-xs text-slate-400">AI가 추천하는 나만의 코디</p>
         </div>
         <span class="material-symbols-outlined text-slate-500">chevron_right</span>
       </div>
@@ -181,35 +191,15 @@
   </main>
 
   <!-- Bottom Nav -->
-  <nav class="fixed bottom-0 left-0 right-0 z-50">
-    <div class="bg-[#071952]/90 backdrop-blur-xl border-t border-white/10 ios-safe">
-      <div class="max-w-[440px] mx-auto flex justify-between items-end px-2 pt-3 pb-2">
-        <button class="flex-1 flex flex-col items-center" onclick="location.href='app/closet.html'">
-          <span class="material-symbols-outlined text-[24px] mb-1.5" style="font-variation-settings:'wght' 200;color:#97FEED">grid_view</span>
-          <span class="text-[10px] font-medium tracking-tight" style="color:#97FEED">내옷장</span>
-        </button>
-        <button class="flex-1 flex flex-col items-center" onclick="location.href='app/closet.html'">
-          <span class="material-symbols-outlined text-[24px] mb-1.5 text-white/45" style="font-variation-settings:'wght' 200">auto_awesome_motion</span>
-          <span class="text-[10px] font-medium tracking-tight text-white/45">코디앨범</span>
-        </button>
-        <div class="flex-1 flex flex-col items-center mb-2">
-          <button class="relative -top-4 w-[58px] h-[58px] bg-[#97FEED] rounded-full flex items-center justify-center nav-glow border-4 border-[#071952]" onclick="location.href='app/camera.html'">
-            <span class="material-symbols-outlined text-[#071952] text-[32px]" style="font-variation-settings:'wght' 400">add</span>
-          </button>
-          <span class="text-[10px] font-bold tracking-tight text-[#97FEED] text-glow -mt-2">ITEM등록</span>
-        </div>
-        <button class="flex-1 flex flex-col items-center" onclick="location.href='app/codistyle.html'">
-          <span class="material-symbols-outlined text-[24px] mb-1.5 text-white/45" style="font-variation-settings:'wght' 200">checkroom</span>
-          <span class="text-[10px] font-medium tracking-tight text-white/45">코디하기</span>
-        </button>
-        <button class="flex-1 flex flex-col items-center" onclick="location.href='app/login.html'">
-          <span class="material-symbols-outlined text-[24px] mb-1.5 text-white/45" style="font-variation-settings:'wght' 200">person_outline</span>
-          <span class="text-[10px] font-medium tracking-tight text-white/45">MY</span>
-        </button>
-      </div>
+  <nav class="cb-nav">
+    <div class="cb-nav-inner">
+      <a href="app/closet.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">내옷장</span></a>
+      <a href="app/album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
+      <a href="app/camera.html" class="cb-nav-tab"><span class="ni">add_circle</span><span class="nl">ITEM등록</span></a>
+      <a href="app/codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">코디하기</span></a>
+      <a href="app/mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
     </div>
   </nav>
-  <div class="fixed bottom-0 left-0 right-0 h-8 bg-[#071952] z-40"></div>
 </div>
 
 <!-- ╔══════════════════════════════════════╗
@@ -385,7 +375,7 @@
             <span class="material-symbols-outlined text-[#97FEED] text-3xl">checkroom</span>
           </div>
           <h3 class="text-2xl font-bold text-white mb-3">코디하기</h3>
-          <p class="text-slate-400 leading-relaxed mb-6">이 옷이 어울릴까 궁금할 때 코디해보세요. AI가 상의와 하의를 조합해 착장 이미지를 만들어 드립니다.</p>
+          <p class="text-slate-400 leading-relaxed mb-6">AI 스타일리스트가 당신의 옷장과 체형에 맞는 최적의 코디를 추천합니다.</p>
           <a href="app/codistyle.html" class="flex items-center text-[#97FEED] font-bold cursor-pointer hover:gap-2 transition-all">더 알아보기 <span class="material-symbols-outlined ml-1">chevron_right</span></a>
         </div>
       </div>
