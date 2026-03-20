@@ -1,0 +1,432 @@
+/* ══════════════════════════════════════════
+   CodiBank i18n (한국어 기본 / English 선택)
+   - localStorage('codibank_lang')에 'ko' 또는 'en' 저장
+   - 각 페이지에서 <script src="i18n.js"></script> 추가
+   - DOMContentLoaded 시 자동 적용
+══════════════════════════════════════════ */
+(function(){
+'use strict';
+
+var LANG_KEY = 'codibank_lang';
+
+// ── 번역 사전 (페이지별) ──
+var DICT = {
+
+  // 공통 (풋바, 토스트 등)
+  _common: {
+    '내옷장':          'Closet',
+    '코디앨범':        'Album',
+    'ITEM등록':        'Add Item',
+    '코디하기':        'Style It',
+    '전체삭제':        'Delete All',
+    '저장':            'Save',
+    '공유':            'Share',
+    '삭제':            'Delete',
+    '로그인':          'Log In',
+    '회원가입':        'Sign Up',
+    '로그아웃':        'Log Out',
+    '취소':            'Cancel',
+    '확인':            'OK',
+    '닫기':            'Close',
+    '필수':            'Required',
+    '선택':            'Optional',
+  },
+
+  // closet.html
+  closet: {
+    '내옷장 - 코디뱅크':                    'My Closet - CodiBank',
+    '위치 확인 중…':                        'Checking location…',
+    '로딩중':                               'Loading',
+    '오늘':                                 'Today',
+    '코디 목적 선택':                        'Select Purpose',
+    '직접입력 (최대 30자)':                  'Custom input (max 30 chars)',
+    '30자 이내로 입력해주세요.':              'Please enter within 30 characters.',
+    '코디 날짜 선택':                        'Select Date',
+    '코디를 생성할 날짜를 선택하세요':        'Choose a date for your outfit',
+    '오늘의 코디':                           "Today's Outfit",
+    '내일의 코디':                           "Tomorrow's Outfit",
+    'AI 스타일리스트 호출':                  'Call AI Stylist',
+    '목적과 날짜를 먼저 선택하세요':          'Select purpose and date first',
+    '코디 목적별 AI 스타일리스트가 수 백명씩 준비돼있다.': 'Hundreds of AI stylists ready for each purpose.',
+    '키워드로 코디 스타일을 분석해준다.':      'Analyzes your style with keywords.',
+    '모바일 옷장에서 쉽게 코디할 수 있는 해법을 제공한다.': 'Easy outfit solutions from your mobile closet.',
+    'AI 추천코디 이야기':                    'AI Styling Story',
+    '목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.': 'Select a purpose and AI recommends weather-appropriate outfits.',
+    '✦ AI 스타일링 포인트':                  '✦ AI Styling Points',
+    '스타일 키워드':                         'Style Keywords',
+    '카테고리별 코디 포인트':                 'Category Styling Points',
+    '↓ 아래 모바일 옷장과 AI 매칭 분석 중':  '↓ Matching with your mobile closet',
+    '코디추천 AI 스타일링':                  'AI Styling Recommendation',
+    '추천 이미지 생성중':                    'Generating outfit image',
+    '초기화 중…':                            'Initializing…',
+    '얼굴 사진 불러오는 중…':                'Loading face photo…',
+    '출퇴근':                               'Commute',
+    '비즈니스':                              'Business',
+    '캐주얼':                               'Casual',
+    '데이트':                               'Date',
+    '여행':                                 'Travel',
+    '주말여행':                              'Weekend Trip',
+    '운동/레저':                             'Sports/Leisure',
+    '결혼식/행사':                           'Wedding/Event',
+    '면접':                                 'Interview',
+    '주말외출':                              'Weekend Out',
+    '지인모임':                              'Social Gathering',
+    '파티':                                 'Party',
+    '등산':                                 'Hiking',
+  },
+
+  // codistyle.html
+  codistyle: {
+    '코디하기 - 코디뱅크':                   'Style It - CodiBank',
+    '지금은 가장 안정적인 방식부터 확인합니다.': 'Starting with the most stable method.',
+    '링크/얼굴/체형은 잠시 빼고,':            'Setting aside links/face/body type,',
+    '상의 사진 1장 + 하의 사진 1장':          '1 top photo + 1 bottom photo',
+    '만으로 AI 착장 이미지를 생성합니다.':     ' to generate AI outfit images.',
+    '상의':                                 'Top',
+    '하의':                                 'Bottom',
+    '상의 이미지':                           'Top Image',
+    '하의 이미지':                           'Bottom Image',
+    '사진촬영':                              'Camera',
+    '사진선택':                              'Gallery',
+    '링크':                                 'Link',
+    '준비중':                               'Coming Soon',
+    '상의 삭제':                             'Remove Top',
+    '하의 삭제':                             'Remove Bottom',
+    '얼굴 사진':                             'Face Photo',
+    '(선택)':                                '(Optional)',
+    '내 얼굴로 착장 이미지를 만들어요.':       'Create outfit images with your face.',
+    '프로필 사진 자동 불러오기':               'Auto-load profile photo',
+    '✓ 등록됨':                              '✓ Registered',
+    '이미지 준비중…':                         'Preparing image…',
+    '서버에 업로드중…':                       'Uploading…',
+    '업로드 완료':                            'Upload complete',
+    '착장 이미지 생성':                       'Generate Outfit',
+    '상의와 하의를 모두 업로드하면 생성이 가능합니다': 'Upload both top and bottom to generate',
+    '준비 완료 — 생성 버튼을 눌러주세요':      'Ready — tap Generate',
+    'Gemini가 착장 이미지를 생성하고 있어요…': 'Gemini is generating your outfit…',
+    '(10~25초 소요)':                         '(10-25 seconds)',
+    '1차 안정화:':                            'Phase 1:',
+    '선택한 상의/하의 사진만':                 'Selected top/bottom photos only',
+    '으로 Gemini 착장 이미지를 생성합니다.':    ' — generating Gemini outfit images.',
+  },
+
+  // camera.html
+  camera: {
+    '아이템 등록 - 코디뱅크':                 'Add Item - CodiBank',
+    '내 옷 장':                              'My Closet',
+    '아이템 등록':                            'Add Item',
+    '당신의 오프라인 패션아이템을 촬영하세요':  'Photograph your fashion items',
+    '전면 아이템':                            'Front Item',
+    '1장(필수)':                              '1 photo (required)',
+    '아이템의 전면(최소 1장)을 촬영하는 것은 필수입니다.': 'At least 1 front photo is required.',
+    '전면 사진을 추가해주세요':                'Please add a front photo',
+    '촬영':                                  'Capture',
+    '사진 선택':                              'Gallery',
+    '후면 아이템':                            'Back Item',
+    '후면은 선택 촬영입니다. 가능하면 촬영해두면 확인이 쉬워져요.': 'Back photo is optional but helpful.',
+    '후면 사진(선택)':                         'Back photo (optional)',
+    '브랜드/기타':                            'Brand/Other',
+    '로고/택/브랜드 정보는 선택입니다. 자동 인식 정확도가 올라가요.': 'Brand info is optional. Improves auto-recognition.',
+    '브랜드/택/기타 정보(선택)':               'Brand/tag/other info (optional)',
+    '전면 촬영 후 등록':                      'Register after front photo',
+    '카테고리':                               'Category',
+    '촬영 또는':                              'Capture or',
+    '이미 촬영한 사진 선택':                   'select existing photos',
+    '도 가능합니다.':                          '.',
+    '만 있어도 등록할 수 있어요.':             ' is enough to register.',
+  },
+
+  // mypage.html
+  mypage: {
+    '마이페이지 - 코디뱅크':                  'My Page - CodiBank',
+    '마이페이지':                             'My Page',
+    '사용자':                                'User',
+    '계정 관리':                              'Account',
+    '프로필 수정':                            'Edit Profile',
+    '구독 플랜':                              'Subscription',
+    '서비스':                                'Services',
+    '내 옷장 바로가기':                       'Go to My Closet',
+    '공유·판매 관리':                          'Share & Sell',
+    '기타':                                  'Others',
+    '이용약관':                               'Terms of Service',
+    '이용약관 준비 중입니다.':                  'Terms of Service coming soon.',
+    '개인정보처리방침':                         'Privacy Policy',
+    '개인정보처리방침 준비 중입니다.':           'Privacy Policy coming soon.',
+    '플랜':                                   ' Plan',
+  },
+
+  // profile.html
+  profile: {
+    '프로필 수정 - 코디뱅크':                  'Edit Profile - CodiBank',
+    '프로필 수정':                             'Edit Profile',
+    '프로필 사진 변경':                        'Change Photo',
+    '기본 정보':                               'Basic Info',
+    '닉네임':                                 'Nickname',
+    '이메일 (아이디)':                         'Email (ID)',
+    '휴대폰 번호':                             'Phone',
+    '체형 정보':                               'Body Info',
+    '(AI 코디 정확도 향상)':                   '(Improves AI accuracy)',
+    '성별':                                   'Gender',
+    '남성':                                   'Male',
+    '여성':                                   'Female',
+    '연령대':                                 'Age Group',
+    '10대':                                   'Teens',
+    '20대':                                   '20s',
+    '30대':                                   '30s',
+    '40대':                                   '40s',
+    '50대+':                                  '50s+',
+    '키':                                     'Height',
+    '몸무게':                                 'Weight',
+    '비밀번호 변경':                           'Change Password',
+    '(변경 시에만 입력)':                      '(Only when changing)',
+    '새 비밀번호':                             'New Password',
+    '영문+숫자 4자 이상':                      '4+ chars, letters & numbers',
+    '비밀번호 확인':                           'Confirm Password',
+    '비밀번호 재입력':                         'Re-enter password',
+    '저장하기':                               'Save',
+    '✅ 프로필이 저장되었습니다.':               '✅ Profile saved.',
+    '저장에 실패했습니다. 다시 시도해주세요.':   'Save failed. Please try again.',
+  },
+
+  // index.html (랜딩페이지)
+  index: {
+    'AI가 매일':                     'Every day, AI crafts',
+    '완벽한 코디':                   'the perfect outfit',
+    '제안해드려요':                   'just for you',
+    '날씨·목적·체형을 분석해서 당신만을 위한 스타일링을 추천합니다.': 'We analyze weather, occasion & body type to recommend your personalized styling.',
+    'AI 코디 추천':                  'AI Styling',
+    '맞춤형 스타일링 제안':           'Personalized style recommendations',
+    '디지털 옷장':                    'Digital Closet',
+    '내 옷을 디지털화하여 관리':       'Digitize and manage your wardrobe',
+    '코디하기':                      'Style It',
+    'AI가 추천하는 나만의 코디':      'AI-powered outfit coordination',
+    '옷은 넘치는데':                  'Your closet is full,',
+    '오늘 입을 옷은 없다!':          'but nothing to wear!',
+    'codibank에서 ':                 'Solved with ',
+    'AI서비스':                      'AI Service',
+    '로 해결합니다.':                 ' by CodiBank.',
+    '지금 시작하기':                  'Get Started',
+    '코디뱅크 로그인':                'Log In to CodiBank',
+    '날씨·목적·체형을 분석해서 당신만을 위한': 'Analyzing weather, occasion & body type',
+    '퍼스널 스타일링을 실시간으로 추천합니다.': 'for real-time personal styling.',
+    '핸드폰에 AI 패션 스타일리스트 수 천명이 준비되어 있습니다.': 'Thousands of AI stylists ready in your phone.',
+    '오프라인 옷장에 방치된 옷들을 AI가 모바일 옷장에서 추천코디에 맞게 추천합니다.': 'AI recommends outfits from your offline closet.',
+    '당신의 취향과 TPO를 분석해 매일 아침 새로운 스타일링을 제안합니다.': 'Analyzes your taste and TPO for daily styling.',
+    '내 모든 옷을 스마트폰 속으로. 언제 어디서든 옷장을 확인하고 관리하세요.': 'All your clothes in your phone. Manage anytime, anywhere.',
+    'AI 스타일리스트가 당신의 옷장과 체형에 맞는 최적의 코디를 추천합니다.': 'AI recommends the best outfits for you.',
+    '더 알아보기':                    'Learn More',
+    '옷장 속 옷은 넘치는데':          'Your closet is overflowing,',
+    '항상':                          'yet',
+    ' 입을 옷은 없다 !!':            ' nothing to wear !!',
+    'codibank에서 AI 추천코디 서비스로 해결해드립니다.': "CodiBank's AI styling has you covered.",
+    '서울특별시':      'Seoul',
+    '흐림':           'Cloudy',
+    '출퇴근':          'Commute',
+    '비즈니스':        'Business',
+    '지인모임':        'Social',
+    '주말외출':        'Weekend',
+    '코디 날짜 선택':  'Select date',
+    '저장하기':        'Save',
+    '다시 코디':       'Retry',
+  },
+
+  // album.html
+  album: {
+    '코디앨범 - 코디뱅크':                     'Outfit Album - CodiBank',
+    '앨범 불러오는 중…':                       'Loading album…',
+    '저장된 코디가 없어요':                     'No saved outfits',
+    '내옷장에서 AI 코디를 추천받고':            'Get AI outfit recommendations',
+    '저장하기를 눌러보세요!':                   'and save them!',
+    'AI 코디 추천 받기':                       'Get AI Styling',
+    '이미지를 불러올 수 없습니다.':             'Unable to load image.',
+    '이 코디를 삭제할까요?':                    'Delete this outfit?',
+    '장을 모두 삭제할까요?':                    ' outfits?',
+    '코디':                                   'Outfit',
+    '장':                                     '',
+  },
+
+};
+
+// ── 현재 페이지 감지 ──
+function detectPage() {
+  var path = location.pathname.toLowerCase();
+  if (path.includes('closet'))    return 'closet';
+  if (path.includes('codistyle')) return 'codistyle';
+  if (path.includes('camera'))    return 'camera';
+  if (path.includes('mypage'))    return 'mypage';
+  if (path.includes('profile'))   return 'profile';
+  if (path.includes('album'))     return 'album';
+  if (path.includes('item'))      return 'closet'; // item은 closet 소속
+  if (path === '/' || path.includes('index')) return 'index';
+  return '';
+}
+
+// ── 병합된 사전 생성 ──
+function getMergedDict() {
+  var page = detectPage();
+  var merged = {};
+  // 공통
+  var c = DICT._common || {};
+  for (var k in c) merged[k] = c[k];
+  // 페이지별
+  var p = DICT[page] || {};
+  for (var k2 in p) merged[k2] = p[k2];
+  return merged;
+}
+
+// ── 현재 언어 ──
+function getLang() {
+  try { return localStorage.getItem(LANG_KEY) || 'ko'; } catch(e) { return 'ko'; }
+}
+function setLang(lang) {
+  try { localStorage.setItem(LANG_KEY, lang); } catch(e) {}
+}
+
+// ── 텍스트 노드 수집 ──
+var _origMap = new WeakMap();
+function collectTextNodes(root) {
+  var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  var nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  return nodes;
+}
+
+// ── 번역 적용 ──
+function applyTranslation() {
+  var lang = getLang();
+  if (lang === 'ko') {
+    // 원본 복원
+    collectTextNodes(document.body).forEach(function(node) {
+      if (_origMap.has(node)) node.textContent = _origMap.get(node);
+    });
+    // title 복원
+    if (document._origTitle) document.title = document._origTitle;
+    return;
+  }
+
+  var dict = getMergedDict();
+  // 키를 길이 내림차순으로 정렬 (긴 텍스트 우선 매칭)
+  var keys = Object.keys(dict).sort(function(a, b) { return b.length - a.length; });
+
+  collectTextNodes(document.body).forEach(function(node) {
+    if (!_origMap.has(node)) _origMap.set(node, node.textContent);
+    var orig = _origMap.get(node);
+    var text = orig;
+    var trimmed = text.trim();
+
+    // 정확히 일치
+    if (dict[trimmed] !== undefined) {
+      node.textContent = text.replace(trimmed, dict[trimmed]);
+      return;
+    }
+    // 부분 매칭
+    for (var i = 0; i < keys.length; i++) {
+      if (text.indexOf(keys[i]) !== -1) {
+        text = text.replace(keys[i], dict[keys[i]]);
+      }
+    }
+    if (text !== orig) node.textContent = text;
+  });
+
+  // title 번역
+  if (!document._origTitle) document._origTitle = document.title;
+  var tt = document.title;
+  for (var j = 0; j < keys.length; j++) {
+    if (tt.indexOf(keys[j]) !== -1) tt = tt.replace(keys[j], dict[keys[j]]);
+  }
+  document.title = tt;
+
+  // placeholder 번역
+  document.querySelectorAll('input[placeholder], textarea[placeholder]').forEach(function(el) {
+    if (!el._origPh) el._origPh = el.placeholder;
+    var ph = el._origPh;
+    for (var i = 0; i < keys.length; i++) {
+      if (ph.indexOf(keys[i]) !== -1) ph = ph.replace(keys[i], dict[keys[i]]);
+    }
+    el.placeholder = ph;
+  });
+}
+
+// ── 언어 토글 버튼 삽입 ──
+function insertLangToggle() {
+  // 이미 있으면 스킵
+  if (document.getElementById('cb-lang-toggle')) return;
+
+  var lang = getLang();
+  var div = document.createElement('div');
+  div.id = 'cb-lang-toggle';
+  div.style.cssText = 'position:fixed;top:10px;right:10px;z-index:999999;display:flex;border-radius:9999px;overflow:hidden;background:rgba(7,19,42,.65);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(76,219,206,.2);font-family:Inter,Noto Sans KR,sans-serif;font-size:11px;font-weight:700;';
+
+  var koBtn = document.createElement('button');
+  koBtn.textContent = '한국어';
+  koBtn.id = 'cb-lang-ko';
+  koBtn.style.cssText = 'padding:5px 12px;cursor:pointer;transition:all .2s;border:none;font-family:inherit;font-size:inherit;font-weight:inherit;letter-spacing:.03em;background:none;color:rgba(216,226,255,.5);';
+
+  var enBtn = document.createElement('button');
+  enBtn.textContent = 'EN';
+  enBtn.id = 'cb-lang-en';
+  enBtn.style.cssText = koBtn.style.cssText;
+
+  function updateBtns(l) {
+    if (l === 'ko') {
+      koBtn.style.background = 'linear-gradient(135deg,#4cdbce,#13bbaf)';
+      koBtn.style.color = '#003733';
+      koBtn.style.borderRadius = '9999px';
+      enBtn.style.background = 'none';
+      enBtn.style.color = 'rgba(216,226,255,.5)';
+      enBtn.style.borderRadius = '0';
+    } else {
+      enBtn.style.background = 'linear-gradient(135deg,#4cdbce,#13bbaf)';
+      enBtn.style.color = '#003733';
+      enBtn.style.borderRadius = '9999px';
+      koBtn.style.background = 'none';
+      koBtn.style.color = 'rgba(216,226,255,.5)';
+      koBtn.style.borderRadius = '0';
+    }
+  }
+
+  koBtn.onclick = function() { setLang('ko'); updateBtns('ko'); applyTranslation(); };
+  enBtn.onclick = function() { setLang('en'); updateBtns('en'); applyTranslation(); };
+
+  div.appendChild(koBtn);
+  div.appendChild(enBtn);
+  document.body.appendChild(div);
+  updateBtns(lang);
+}
+
+// ── 공개 API ──
+window.CodiBankI18n = {
+  getLang: getLang,
+  setLang: function(lang) { setLang(lang); applyTranslation(); },
+  apply: applyTranslation,
+  t: function(ko, en) { return getLang() === 'en' ? (en || ko) : ko; },
+  isEn: function() { return getLang() === 'en'; },
+};
+
+// ── 자동 초기화 ──
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function() {
+    insertLangToggle();
+    if (getLang() !== 'ko') applyTranslation();
+  });
+} else {
+  insertLangToggle();
+  if (getLang() !== 'ko') applyTranslation();
+}
+
+// MutationObserver: 동적 콘텐츠에도 번역 적용
+var _applyTimer = null;
+var observer = new MutationObserver(function() {
+  if (getLang() === 'ko') return;
+  clearTimeout(_applyTimer);
+  _applyTimer = setTimeout(applyTranslation, 200);
+});
+if (document.body) {
+  observer.observe(document.body, { childList: true, subtree: true });
+} else {
+  document.addEventListener('DOMContentLoaded', function() {
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+}
+
+})();

@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
   <script src="config.js"></script>
   <script src="codibank.js"></script>
+<script src="i18n.js"></script>
   <script>tailwind.config={theme:{extend:{colors:{primary:"#111111",accent:"#C5A358","background-light":"#F9FAFB",surface:"#FFFFFF"},fontFamily:{display:["Outfit","Noto Sans KR","sans-serif"],serif:["Playfair Display","serif"]},borderRadius:{DEFAULT:"1.25rem"}}}};</script>
   <style>
     body{font-family:'Outfit','Noto Sans KR',sans-serif;-webkit-tap-highlight-color:transparent;background:#F9FAFB;}
@@ -2096,10 +2097,35 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     codiStory = sentences || (stylistName + '이(가) ' + _pLabel + ' 코디를 준비했어요. **' + persona.voice + '** 스타일의 ' + _outer + ' 코디입니다.');
   })();
 
+  // ── 영어 모드: codiStory 영어 버전 생성 ──
+  if(window.CodiBankI18n && CodiBankI18n.isEn()){
+    const _pLabelEn = persona.en || persona.voice;
+    const _wxEn = (Number.isFinite(nt) ? nt+'°C' : '') + ' ' + (wxTxt||'');
+    const _outerEn = SPEC.outer.en || '';
+    const _topEn = SPEC.top.en || '';
+    const _pantsEn = SPEC.pants.en || '';
+    const _shoesEn = SPEC.shoes.en || '';
+    const _accentEn = SPEC.accent.en || '';
+    const _kwsEn = (persona.designKws||[]).slice(0,2).join(', ');
+    codiStory = [
+      stylistName + ' styled your **' + _pLabelEn + '** outfit.',
+      _wxEn ? 'For ' + _wxEn.trim() + ' weather,' : '',
+      'a **' + _pLabelEn + '** layered look is recommended.',
+      _outerEn ? 'Outer: **' + _outerEn + '**.' : '',
+      _topEn ? 'Top: **' + _topEn + '**.' : '',
+      _pantsEn ? 'Bottom: **' + _pantsEn + '**.' : '',
+      _shoesEn ? 'Shoes: **' + _shoesEn + '**.' : '',
+      _accentEn ? 'Accent: **' + _accentEn + '**.' : '',
+      _kwsEn ? 'A **' + _kwsEn + '** mood styling.' : '',
+    ].filter(Boolean).join(' ').replace(/\s{2,}/g,' ').trim();
+  }
+
   // ── [14] styleTitle
   const titleMap = {commute:'출퇴근',business:'비즈니스',weekendOut:'주말외출',weekendTrip:'주말여행',domesticTrip:'국내여행',overseasTrip:'해외여행',meet:'지인모임',blindDate:'소개팅',partyLook:'파티룩',custom:'맞춤'};
-  const baseTitle = titleMap[pk]||purposeName||'오늘의';
-  const styleTitle = `${baseTitle} · ${persona.voice}`;
+  const titleMapEn = {commute:'Commute',business:'Business',weekendOut:'Weekend',weekendTrip:'Trip',domesticTrip:'Domestic Trip',overseasTrip:'Overseas Trip',meet:'Social',blindDate:'Blind Date',partyLook:'Party',custom:'Custom'};
+  const _isEn = window.CodiBankI18n && CodiBankI18n.isEn();
+  const baseTitle = _isEn ? (titleMapEn[pk]||purposeName||'Today') : (titleMap[pk]||purposeName||'오늘의');
+  const styleTitle = `${baseTitle} · ${_isEn ? (persona.en||persona.voice) : persona.voice}`;
   const skinTip = (faceSrc&&faceSrc.startsWith('data:'))?'얼굴 등록':'';
 
   // ══════════════════════════════════════════════════════════════
