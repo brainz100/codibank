@@ -64,27 +64,24 @@ html,body{min-height:100dvh;background:#071952;color:#fff;font-family:'Outfit','
 
 /* ── 상세 모달 ── */
 .modal-bg{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.88);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(10px);}
-.modal-box{background:#0d2061;border:1px solid rgba(151,254,237,0.15);border-radius:28px 28px 0 0;width:100%;max-width:480px;overflow:hidden;overflow-y:auto;max-height:95dvh;animation:slideUp .28s cubic-bezier(.16,1,.3,1);}
+.modal-box{background:#0d2061;border:1px solid rgba(151,254,237,0.15);border-radius:20px 20px 0 0;width:100%;max-width:480px;overflow:hidden;overflow-y:auto;max-height:95dvh;animation:slideUp .28s cubic-bezier(.16,1,.3,1);}
 
-/* 모달 이미지 - 빈 공간 최소화, 이미지에 맞게 크기 자동 조절 */
-.modal-img-wrap{width:100%;background:#0a1d45;overflow:hidden;position:relative;}
-.modal-img{width:100%;display:block;max-height:60dvh;object-fit:contain;}
-.modal-close{position:absolute;top:14px;right:14px;z-index:10;width:34px;height:34px;border-radius:50%;background:rgba(7,25,82,0.75);border:1px solid rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(8px);}
+/* 모달 이미지 - 상단 여백 0, 스크롤 없이 버튼까지 보이도록 높이 제한 */
+.modal-img-wrap{width:100%;background:#0a1d45;overflow:hidden;position:relative;line-height:0;}
+.modal-img{width:100%;display:block;max-height:52dvh;object-fit:cover;}
+.modal-close{position:absolute;top:10px;right:10px;z-index:10;width:32px;height:32px;border-radius:50%;background:rgba(7,25,82,0.75);border:1px solid rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(8px);}
 
 /* 모달 정보 */
-.modal-body{padding:16px 20px 28px;}
-.modal-date{font-size:12px;font-weight:700;color:#97FEED;letter-spacing:.04em;margin-bottom:4px;}
-.modal-purpose{font-size:22px;font-weight:800;color:#fff;margin-bottom:16px;}
+.modal-body{padding:12px 20px 20px;}
+.modal-date{font-size:12px;font-weight:700;color:#97FEED;letter-spacing:.04em;margin-bottom:2px;}
+.modal-purpose{font-size:20px;font-weight:800;color:#fff;margin-bottom:10px;}
 
 /* AI 스타일리스트 키워드 */
 .modal-style-label{font-size:11px;font-weight:700;color:rgba(151,254,237,.7);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;}
-.modal-keywords{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+.modal-keywords{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
 .kw-chip{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(53,162,159,.18);border:1px solid rgba(151,254,237,.2);color:#97FEED;white-space:nowrap;}
 
-/* AI 설명 */
-.modal-explain{font-size:12px;line-height:1.7;color:rgba(255,255,255,.55);background:rgba(255,255,255,.04);border-radius:12px;padding:12px 14px;margin-bottom:20px;}
-
-/* 버튼 3개 */
+/* ── 버튼 3개 ── */
 .modal-btns{display:flex;gap:8px;margin-bottom:10px;}
 .modal-btn-dl{flex:1;padding:13px 8px;border-radius:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.8);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;font-family:inherit;transition:background .15s;}
 .modal-btn-dl:active{background:rgba(255,255,255,.15);}
@@ -166,11 +163,6 @@ html,body{min-height:100dvh;background:#071952;color:#fff;font-family:'Outfit','
       <div id="mKeywordSection" style="display:none;">
         <p class="modal-style-label">✦ AI 스타일리스트 코디 키워드</p>
         <div id="mKeywords" class="modal-keywords"></div>
-      </div>
-
-      <!-- AI 설명 -->
-      <div id="mExplainSection" style="display:none;">
-        <p id="mExplain" class="modal-explain"></p>
       </div>
 
       <!-- 버튼: 저장 / 공유 / 삭제 -->
@@ -321,17 +313,6 @@ async function openModal(entry) {
     kwSec.style.display = 'block';
   } else {
     kwSec.style.display = 'none';
-  }
-
-  // 설명
-  const exSec = document.getElementById('mExplainSection');
-  const exEl  = document.getElementById('mExplain');
-  const ex = String(entry.explanation || entry.explain || '').trim();
-  if (ex) {
-    exEl.textContent = ex;
-    exSec.style.display = 'block';
-  } else {
-    exSec.style.display = 'none';
   }
 
   // 이미지 로드
