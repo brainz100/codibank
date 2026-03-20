@@ -319,6 +319,94 @@ var DICT = {
     '장':                                     '',
   },
 
+  // login.html
+  login: {
+    '로그인':                        'Log In',
+    '코디뱅크 계정으로 시작하세요':    'Sign in with your CodiBank account',
+    '이메일':                        'Email',
+    '비밀번호':                      'Password',
+    '계정이 없으신가요?':             "Don't have an account?",
+    '이메일을 입력해주세요.':          'Please enter your email.',
+    '비밀번호를 입력해주세요.':        'Please enter your password.',
+    '로그인에 실패했습니다.':          'Login failed.',
+    '처음 화면으로':                  'Back to Home',
+  },
+
+  // signup.html
+  signup: {
+    '회원가입':                      'Sign Up',
+    'STEP 1 / 3 — 계정 정보':       'STEP 1 / 3 — Account Info',
+    'STEP 2 / 3 — 이메일 인증':     'STEP 2 / 3 — Email Verification',
+    'STEP 3 / 3 — 체형 정보':       'STEP 3 / 3 — Body Info',
+    '이메일 (아이디)':               'Email (ID)',
+    '비밀번호 (영문+숫자 6자 이상)':  'Password (6+ chars, letters & numbers)',
+    '비밀번호 (영문+숫자 4자 이상)':  'Password (4+ chars, letters & numbers)',
+    '비밀번호 확인':                 'Confirm Password',
+    '이메일 인증 요청 →':            'Send Verification →',
+    '인증 이메일을 보냈습니다':       'Verification email sent',
+    '으로 인증 링크를 보냈습니다.':    ' — check your inbox.',
+    '이메일을 확인하고':             'Check your email and',
+    '인증하기 버튼':                 'click the verify button',
+    '을 클릭해주세요.':              '.',
+    '메일이 안 보이면 스팸함을 확인해주세요.': "Can't find it? Check your spam folder.",
+    '✓ 인증 완료했어요':             '✓ Verified',
+    '인증 메일 재발송':              'Resend Email',
+    '이메일 인증 완료!':             'Email Verified!',
+    '성별':                          'Gender',
+    '남성':                          'Male',
+    '여성':                          'Female',
+    '연령대':                        'Age Group',
+    '10대':    'Teens', '20대':    '20s', '30대':    '30s',
+    '40대':    '40s',   '50대+':   '50s+',
+    '키 (cm)':                       'Height (cm)',
+    '몸무게 (kg)':                   'Weight (kg)',
+    '가입 완료':                     'Complete Sign Up',
+    '이미 계정이 있으신가요?':        'Already have an account?',
+    '처음 화면으로':                 'Back to Home',
+    '올바른 이메일을 입력해주세요.':   'Please enter a valid email.',
+    '이미 가입된 이메일입니다. 로그인해주세요.': 'Email already registered. Please log in.',
+    '잠시 후 다시 시도해주세요.':      'Please try again later.',
+    '오류가 발생했습니다.':           'An error occurred.',
+    '아직 인증이 완료되지 않았습니다. 이메일을 확인해주세요.': 'Not verified yet. Check your email.',
+    '인증 이메일을 재발송했습니다. 메일함을 확인해주세요.': 'Verification email resent. Check your inbox.',
+    '회원가입에 실패했습니다.':       'Sign up failed.',
+    '발송 중…':                      'Sending…',
+  },
+
+  // pricing.html
+  pricing: {
+    '코디뱅크 구독 플랜':            'CodiBank Subscription Plans',
+    '← 앱으로':                     '← Back to App',
+    '현재 플랜':                     'Current Plan',
+    '무료':                          'Free',
+    '실버':                          'Silver',
+    '골드':                          'Gold',
+    '다이아':                        'Diamond',
+    '추천':                          'Best',
+    '코디 생성':                     'Outfit Generation',
+    '총 6회':                        '6 total',
+    '월 40회':                       '40/month',
+    '월 150회':                      '150/month',
+    '일일 한도':                     'Daily Limit',
+    '당일 소진 시 종료':              'Until depleted',
+    '7일간':                         '7 days',
+    '30일간':                        '30 days',
+    '영구 저장':                     'Permanent',
+    '영구':                          'Permanent',
+    '기능':                          'Feature',
+    '월 요금':                       'Monthly Fee',
+    '플랜별 권한 요약':               'Plan Comparison',
+    '코디 생성 (AI 통합권)':          'Outfit Gen (AI Combined)',
+    '일일 사용 한도':                 'Daily Limit',
+    '자유 선택':                     'Any',
+    '데이터 보관':                   'Data Retention',
+    '사용량 로딩 중…':               'Loading usage…',
+    '플랜이 저장되었습니다.':         'Plan saved.',
+    '이번 달':                       'This month',
+    '회 사용':                       ' used',
+    '(최초)':                        '(initial)',
+  },
+
 };
 
 // ── 현재 페이지 감지 ──
@@ -330,7 +418,10 @@ function detectPage() {
   if (path.includes('mypage'))    return 'mypage';
   if (path.includes('profile'))   return 'profile';
   if (path.includes('album'))     return 'album';
-  if (path.includes('item'))      return 'closet'; // item은 closet 소속
+  if (path.includes('item'))      return 'closet';
+  if (path.includes('login'))     return 'login';
+  if (path.includes('signup'))    return 'signup';
+  if (path.includes('pricing'))   return 'pricing';
   if (path === '/' || path.includes('index')) return 'index';
   return '';
 }
@@ -421,10 +512,11 @@ function applyTranslation() {
   });
 }
 
-// ── 언어 토글 버튼 삽입 ──
+// ── 언어 토글 버튼 삽입 (랜딩페이지 + 마이페이지에서만) ──
 function insertLangToggle() {
-  // 이미 있으면 스킵
   if (document.getElementById('cb-lang-toggle')) return;
+  var page = detectPage();
+  if (page !== 'index' && page !== 'mypage') return;
 
   var lang = getLang();
   var div = document.createElement('div');
