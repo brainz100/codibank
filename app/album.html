@@ -14,129 +14,114 @@
   }catch(e){ document.documentElement.style.visibility='visible'; }
 })();
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script src="codibank.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html,body{min-height:100dvh;background:#071952;color:#fff;font-family:'Outfit','Noto Sans KR',sans-serif;-webkit-tap-highlight-color:transparent;}
-.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 24;}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+html,body{min-height:100dvh;background:#07132a;color:#d8e2ff;font-family:'Inter','Noto Sans KR',sans-serif;-webkit-tap-highlight-color:transparent;}
+.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}
 
-/* ── 헤더 ── */
-.hdr{position:sticky;top:0;z-index:100;background:rgba(7,25,82,0.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(151,254,237,0.12);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
-.hdr-left{display:flex;align-items:center;gap:10px;}
-.hdr-icon{width:36px;height:36px;border-radius:12px;background:rgba(53,162,159,0.25);display:flex;align-items:center;justify-content:center;}
-.hdr-title{font-size:18px;font-weight:800;letter-spacing:-.02em;}
-.hdr-right{display:flex;align-items:center;gap:10px;}
-.cnt-badge{font-size:12px;font-weight:700;color:#97FEED;letter-spacing:.03em;}
-.clear-btn{font-size:11px;font-weight:700;color:rgba(255,100,100,.9);border:1px solid rgba(255,100,100,.3);background:rgba(255,100,100,.08);padding:6px 12px;border-radius:20px;cursor:pointer;transition:all .15s;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulseGlow{0%,100%{opacity:.25}50%{opacity:.5}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── 헤더: Glassmorphic ── */
+.hdr{position:sticky;top:0;z-index:100;background:rgba(7,19,42,0.6);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:14px 24px;display:flex;align-items:center;justify-content:center;}
+.hdr-title{font-family:'Manrope',sans-serif;font-size:15px;font-weight:800;color:#4cdbce;letter-spacing:.18em;text-transform:uppercase;}
+.hdr-badge{position:absolute;right:80px;font-family:'Inter',sans-serif;font-size:11px;font-weight:600;color:rgba(216,226,255,.45);letter-spacing:.04em;}
 
 /* ── 로딩 / 빈 상태 ── */
-.center-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;gap:20px;padding:32px 24px;text-align:center;}
-.empty-icon-wrap{width:90px;height:90px;border-radius:50%;background:rgba(53,162,159,0.15);border:2px solid rgba(151,254,237,0.15);display:flex;align-items:center;justify-content:center;}
-.empty-title{font-size:18px;font-weight:800;color:rgba(255,255,255,.9);margin-bottom:6px;}
-.empty-sub{font-size:13px;color:rgba(255,255,255,.4);line-height:1.6;}
-.empty-cta{margin-top:8px;padding:14px 28px;border-radius:20px;font-size:14px;font-weight:800;background:linear-gradient(135deg,#35A29F,#0B666A);color:#fff;text-decoration:none;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(53,162,159,.35);transition:transform .13s;}
+.center-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;gap:24px;padding:32px 24px;text-align:center;}
+.empty-icon-wrap{width:88px;height:88px;border-radius:50%;background:linear-gradient(135deg,rgba(76,219,206,.12),rgba(19,187,175,.08));display:flex;align-items:center;justify-content:center;}
+.empty-title{font-family:'Manrope',sans-serif;font-size:18px;font-weight:800;color:rgba(216,226,255,.9);margin-bottom:6px;}
+.empty-sub{font-size:13px;color:rgba(216,226,255,.35);line-height:1.7;}
+.empty-cta{margin-top:8px;padding:14px 32px;border-radius:9999px;font-size:13px;font-weight:700;background:linear-gradient(135deg,#4cdbce,#13bbaf);color:#003733;text-decoration:none;display:flex;align-items:center;gap:8px;box-shadow:0 12px 32px rgba(76,219,206,.25);transition:transform .15s;font-family:'Inter',sans-serif;}
 .empty-cta:active{transform:scale(.96);}
 
 /* ── 그리드 ── */
-.album-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:10px 14px;animation:fadeUp .4s cubic-bezier(.16,1,.3,1) both;}
+.album-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;padding:16px 20px;animation:fadeUp .5s cubic-bezier(.16,1,.3,1) both;}
 
 /* ── 카드 ── */
-.acard{background:rgba(255,255,255,0.05);border:1px solid rgba(151,254,237,0.1);border-radius:18px;overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s;}
+.acard{background:rgba(20,31,55,.6);border-radius:1rem;overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s;position:relative;}
 .acard:active{transform:scale(.97);}
-.acard:hover{border-color:rgba(151,254,237,0.25);box-shadow:0 8px 24px rgba(53,162,159,0.15);}
-
-/* 이미지 영역 - 1:1.6 세로 비율 (전신 코디에 최적화) */
-.acard-img-wrap{position:relative;width:100%;aspect-ratio:10/16;background:#0a1d45;display:flex;align-items:center;justify-content:center;overflow:hidden;}
-.acard-img{width:100%;height:100%;object-fit:cover;display:block;transition:opacity .3s;}
-.acard-skeleton{position:absolute;inset:0;background:linear-gradient(90deg,rgba(255,255,255,.04) 0%,rgba(255,255,255,.10) 50%,rgba(255,255,255,.04) 100%);background-size:200% 100%;animation:shimmer 1.4s infinite linear;}
+.acard-img-wrap{position:relative;width:100%;aspect-ratio:10/16;background:#0f1b32;overflow:hidden;}
+.acard-img{width:100%;height:100%;object-fit:cover;display:block;transition:opacity .4s;}
+.acard-skeleton{position:absolute;inset:0;background:linear-gradient(90deg,rgba(216,226,255,.03) 0%,rgba(216,226,255,.08) 50%,rgba(216,226,255,.03) 100%);background-size:200% 100%;animation:shimmer 1.4s infinite linear;}
 .acard-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
+.acard-info{padding:10px 12px 14px;}
+.acard-date{font-size:10px;font-weight:600;color:rgba(216,226,255,.4);letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px;}
+.acard-purpose{font-family:'Manrope',sans-serif;font-size:14px;font-weight:800;color:#d8e2ff;line-height:1.2;}
 
-/* 카드 정보 - 이미지 아래 별도 영역 */
-.acard-info{padding:10px 12px 12px;}
-.acard-date{font-size:10px;font-weight:700;color:#97FEED;letter-spacing:.04em;margin-bottom:3px;}
-.acard-purpose{font-size:14px;font-weight:800;color:#fff;line-height:1.2;}
+/* ── 모달: 전체화면 ── */
+.modal-bg{position:fixed;inset:0;z-index:500;background:#07132a;display:flex;flex-direction:column;overflow:hidden;}
+.modal-scroll{width:100%;max-width:520px;margin:0 auto;overflow-y:auto;flex:1;display:flex;flex-direction:column;-webkit-overflow-scrolling:touch;}
 
-/* ── 상세 모달 ── */
-.modal-bg{position:fixed;inset:0;z-index:500;background:#0d2061;display:flex;flex-direction:column;}
-.modal-box{background:#0d2061;width:100%;max-width:480px;margin:0 auto;overflow-y:auto;flex:1;}
-
-/* 모달 이미지 - 전체 이미지 표시 (잘림 없음), 버튼 공간 확보 */
-.modal-img-wrap{width:100%;background:#0a1d45;overflow:hidden;position:relative;line-height:0;}
-.modal-img{width:100%;display:block;max-height:55dvh;object-fit:contain;}
-.modal-close{position:absolute;top:10px;right:10px;z-index:10;width:32px;height:32px;border-radius:50%;background:rgba(7,25,82,0.75);border:1px solid rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(8px);}
+/* 모달 이미지 */
+.modal-img-section{position:relative;padding:0 20px;margin-top:16px;flex-shrink:0;}
+.modal-img-glow{position:absolute;inset:-4px;background:linear-gradient(180deg,rgba(76,219,206,.15),transparent 60%);border-radius:2rem;filter:blur(1px);opacity:.4;animation:pulseGlow 3s ease-in-out infinite;pointer-events:none;}
+.modal-img-card{position:relative;border-radius:1rem;overflow:hidden;background:#0f1b32;box-shadow:0 32px 64px -12px rgba(2,13,36,.5);}
+.modal-img{width:100%;aspect-ratio:10/16;max-height:52dvh;object-fit:contain;display:block;background:#0f1b32;}
+.modal-close{position:absolute;top:12px;right:12px;z-index:10;width:36px;height:36px;border-radius:50%;background:rgba(7,19,42,.6);backdrop-filter:blur(16px);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.modal-close:active{background:rgba(7,19,42,.9);}
 
 /* 모달 정보 */
-.modal-body{padding:12px 20px 20px;}
-.modal-date{font-size:12px;font-weight:700;color:#97FEED;letter-spacing:.04em;margin-bottom:2px;}
-.modal-purpose{font-size:20px;font-weight:800;color:#fff;margin-bottom:10px;}
-
-/* AI 스타일리스트 키워드 */
-.modal-style-label{font-size:11px;font-weight:700;color:rgba(151,254,237,.7);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;}
+.modal-body{padding:20px 24px 12px;flex-shrink:0;}
+.modal-title-row{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;}
+.modal-purpose{font-family:'Manrope',sans-serif;font-size:26px;font-weight:800;color:#d8e2ff;letter-spacing:-.02em;}
+.modal-date{font-size:11px;font-weight:500;color:rgba(216,226,255,.4);letter-spacing:.06em;text-transform:uppercase;}
 .modal-keywords{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
-.kw-chip{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(53,162,159,.18);border:1px solid rgba(151,254,237,.2);color:#97FEED;white-space:nowrap;}
+.kw-chip{padding:6px 14px;border-radius:9999px;font-size:11px;font-weight:600;background:rgba(15,27,50,.8);border:1px solid rgba(60,73,71,.2);color:rgba(187,202,199,.9);white-space:nowrap;}
 
-/* ── 버튼 3개 ── */
-.modal-btns{display:flex;gap:8px;margin-bottom:10px;}
-.modal-btn-dl{flex:1;padding:13px 8px;border-radius:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.8);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;font-family:inherit;transition:background .15s;}
-.modal-btn-dl:active{background:rgba(255,255,255,.15);}
-.modal-btn-share{flex:1;padding:13px 8px;border-radius:14px;background:linear-gradient(135deg,#35A29F,#0B666A);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;font-family:inherit;border:none;box-shadow:0 6px 18px rgba(53,162,159,.4);transition:transform .13s;}
-.modal-btn-share:active{transform:scale(.97);}
-.modal-btn-del{flex:1;padding:13px 8px;border-radius:14px;background:rgba(255,60,60,.08);border:1px solid rgba(255,60,60,.2);color:rgba(255,120,120,.9);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;font-family:inherit;transition:background .15s;}
-.modal-btn-del:active{background:rgba(255,60,60,.2);}
+/* 버튼 */
+.modal-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 24px 28px;}
+.btn-save{padding:14px 8px;border-radius:9999px;background:linear-gradient(135deg,#4cdbce,#13bbaf);color:#003733;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:4px;cursor:pointer;font-family:'Inter',sans-serif;border:none;box-shadow:0 8px 24px rgba(76,219,206,.3);transition:transform .13s;}
+.btn-save:active{transform:scale(.95);}
+.btn-share{padding:14px 8px;border-radius:9999px;background:rgba(52,74,104,.6);color:rgba(163,186,221,.95);font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:4px;cursor:pointer;font-family:'Inter',sans-serif;border:none;transition:all .15s;}
+.btn-share:active{background:rgba(52,74,104,.9);}
+.btn-del{padding:14px 8px;border-radius:9999px;background:rgba(30,42,66,.6);border:1px solid rgba(255,180,171,.15);color:rgba(255,180,171,.85);font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:4px;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;}
+.btn-del:active{background:rgba(147,0,10,.15);}
 
-/* ── 풋바 ── */
-.cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#071952;border-top:2px solid rgba(151,254,237,0.18);padding-bottom:env(safe-area-inset-bottom,0px);}
-.cb-nav-inner{display:flex;justify-content:space-between;align-items:flex-end;max-width:480px;margin:0 auto;padding:10px 8px 8px;height:64px;}
-.cb-nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:rgba(255,255,255,0.35);text-decoration:none;font-size:10px;font-weight:700;font-family:'Outfit','Noto Sans KR',sans-serif;transition:color .15s;}
-.cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:24px;line-height:1;font-variation-settings:'FILL' 0,'wght' 200,'GRAD' 0,'opsz' 24;}
-.cb-nav-tab.on{color:#97FEED;}
-.cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;}
-.cb-nav-add-wrap{flex:1;display:flex;flex-direction:column;align-items:center;padding-bottom:2px;}
-.cb-nav-add{width:52px;height:52px;border-radius:50%;background:#97FEED;display:flex;align-items:center;justify-content:center;position:relative;top:-12px;box-shadow:0 0 20px rgba(151,254,237,0.5);border:4px solid #071952;text-decoration:none;font-family:'Material Symbols Outlined';font-size:26px;color:#071952;line-height:1;font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;transition:transform .13s;}
-.cb-nav-add:active{transform:scale(.9);}
-.cb-nav-add-lbl{color:#97FEED;font-size:10px;font-weight:800;margin-top:-8px;font-family:'Outfit','Noto Sans KR',sans-serif;}
-.cb-spacer{height:72px;}
+/* ── 풋바: Floating Glassmorphic ── */
+.cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px 12px;pointer-events:none;}
+.cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:60px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 32px 64px -12px rgba(2,13,36,.5);display:flex;justify-content:space-around;align-items:center;padding:0 8px;}
+.cb-nav-tab{display:flex;align-items:center;justify-content:center;color:rgba(216,226,255,.45);text-decoration:none;transition:color .2s;padding:10px 14px;border-radius:9999px;}
+.cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 22;}
+.cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);}
+.cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
+.cb-spacer{height:84px;}
+
+/* 전체삭제 */
+.clear-btn{font-size:10px;font-weight:600;color:rgba(255,180,171,.6);background:none;border:none;padding:6px 12px;border-radius:9999px;cursor:pointer;position:absolute;right:20px;}
 </style>
 </head>
 <body>
 
 <!-- 헤더 -->
 <header class="hdr">
-  <div class="hdr-left">
-    <div class="hdr-icon">
-      <span class="material-symbols-outlined" style="color:#97FEED;font-size:20px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 20;">auto_awesome_motion</span>
-    </div>
-    <h1 class="hdr-title">코디앨범</h1>
-  </div>
-  <div class="hdr-right">
-    <span id="cntBadge" class="cnt-badge"></span>
-    <button id="clearBtn" class="clear-btn" style="display:none;" onclick="clearAll()">전체삭제</button>
-  </div>
+  <h1 class="hdr-title">Digital Atelier</h1>
+  <span id="cntBadge" class="hdr-badge"></span>
+  <button id="clearBtn" class="clear-btn" style="display:none;" onclick="clearAll()">전체삭제</button>
 </header>
 
 <!-- 로딩 -->
 <div id="loadEl" class="center-state">
-  <div style="width:36px;height:36px;border:3px solid rgba(151,254,237,.15);border-top-color:#97FEED;border-radius:50%;animation:spin .8s linear infinite;"></div>
-  <p style="font-size:13px;color:rgba(255,255,255,.4);font-weight:600;">앨범 불러오는 중…</p>
+  <div style="width:36px;height:36px;border:2px solid rgba(76,219,206,.12);border-top-color:#4cdbce;border-radius:50%;animation:spin .8s linear infinite;"></div>
+  <p style="font-size:12px;color:rgba(216,226,255,.35);font-weight:500;">앨범 불러오는 중…</p>
 </div>
 
 <!-- 빈 상태 -->
 <div id="emptyEl" class="center-state" style="display:none;">
   <div class="empty-icon-wrap">
-    <span class="material-symbols-outlined" style="font-size:44px;color:#97FEED;font-variation-settings:'FILL' 1,'wght' 300,'GRAD' 0,'opsz' 44;">style</span>
+    <span class="material-symbols-outlined" style="font-size:40px;color:#4cdbce;font-variation-settings:'FILL' 1,'wght' 300,'GRAD' 0,'opsz' 40;">style</span>
   </div>
   <div>
     <p class="empty-title">저장된 코디가 없어요</p>
     <p class="empty-sub">내옷장에서 AI 코디를 추천받고<br/>저장하기를 눌러보세요!</p>
   </div>
   <a href="closet.html" class="empty-cta">
-    <span class="material-symbols-outlined" style="font-size:18px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 18;">psychology</span>
+    <span class="material-symbols-outlined" style="font-size:16px;font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 16;">psychology</span>
     AI 코디 추천 받기
   </a>
 </div>
@@ -148,35 +133,35 @@ html,body{min-height:100dvh;background:#071952;color:#fff;font-family:'Outfit','
 
 <!-- 상세 모달 -->
 <div id="modal" class="modal-bg" style="display:none;" onclick="if(event.target===this)closeModal()">
-  <div class="modal-box" style="position:relative;">
-    <div class="modal-img-wrap">
-      <button class="modal-close" onclick="closeModal()">
-        <span class="material-symbols-outlined" style="color:rgba(255,255,255,.8);font-size:18px;">close</span>
-      </button>
-      <img id="mImg" class="modal-img" src="" alt=""/>
+  <div class="modal-scroll">
+    <div class="modal-img-section">
+      <div class="modal-img-glow"></div>
+      <div class="modal-img-card">
+        <button class="modal-close" onclick="closeModal()">
+          <span class="material-symbols-outlined" style="color:rgba(216,226,255,.8);font-size:18px;">close</span>
+        </button>
+        <img id="mImg" class="modal-img" src="" alt=""/>
+      </div>
     </div>
     <div class="modal-body">
-      <p id="mDate" class="modal-date"></p>
-      <p id="mPurpose" class="modal-purpose"></p>
-
-      <!-- AI 스타일리스트 키워드 -->
+      <div class="modal-title-row">
+        <p id="mPurpose" class="modal-purpose"></p>
+        <p id="mDate" class="modal-date"></p>
+      </div>
       <div id="mKeywordSection" style="display:none;">
-        <p class="modal-style-label">✦ AI 스타일리스트 코디 키워드</p>
         <div id="mKeywords" class="modal-keywords"></div>
       </div>
-
-      <!-- 버튼: 저장 / 공유 / 삭제 -->
-      <div class="modal-btns">
-        <button class="modal-btn-dl" onclick="doDownload()">
-          <span class="material-symbols-outlined" style="font-size:15px;">download</span>저장
-        </button>
-        <button class="modal-btn-share" onclick="doShare()">
-          <span class="material-symbols-outlined" style="font-size:15px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 15;">share</span>공유
-        </button>
-        <button class="modal-btn-del" onclick="doDelete()">
-          <span class="material-symbols-outlined" style="font-size:15px;">delete</span>삭제
-        </button>
-      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-save" onclick="doDownload()">
+        <span class="material-symbols-outlined" style="font-size:16px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 16;">bookmark</span>저장
+      </button>
+      <button class="btn-share" onclick="doShare()">
+        <span class="material-symbols-outlined" style="font-size:16px;">share</span>공유
+      </button>
+      <button class="btn-del" onclick="doDelete()">
+        <span class="material-symbols-outlined" style="font-size:16px;">delete</span>삭제
+      </button>
     </div>
   </div>
 </div>
@@ -184,14 +169,11 @@ html,body{min-height:100dvh;background:#071952;color:#fff;font-family:'Outfit','
 <!-- 풋바 -->
 <nav class="cb-nav">
   <div class="cb-nav-inner">
-    <a href="closet.html" class="cb-nav-tab"><span class="ni">grid_view</span><span>내옷장</span></a>
-    <a href="album.html" class="cb-nav-tab on"><span class="ni">auto_awesome_motion</span><span>코디앨범</span></a>
-    <div class="cb-nav-add-wrap">
-      <a href="camera.html" class="cb-nav-add">add</a>
-      <span class="cb-nav-add-lbl">ITEM등록</span>
-    </div>
-    <a href="share-sale.html" class="cb-nav-tab"><span class="ni">local_mall</span><span>공유판매</span></a>
-    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person_outline</span><span>MY</span></a>
+    <a href="closet.html" class="cb-nav-tab"><span class="ni">checkroom</span></a>
+    <a href="album.html" class="cb-nav-tab on"><span class="ni">collections</span></a>
+    <a href="camera.html" class="cb-nav-tab"><span class="ni">add_circle</span></a>
+    <a href="share-sale.html" class="cb-nav-tab"><span class="ni">shopping_bag</span></a>
+    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span></a>
   </div>
 </nav>
 
@@ -199,7 +181,6 @@ html,body{min-height:100dvh;background:#071952;color:#fff;font-family:'Outfit','
 'use strict';
 let _user = null, _entries = [], _cur = null;
 
-// ── 날짜 포맷
 function fmt(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -207,7 +188,6 @@ function fmt(iso) {
   return `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
-// ── 이미지 src 해석
 async function resolveImg(ref) {
   if (!ref) return '';
   const r = String(ref);
@@ -219,7 +199,6 @@ async function resolveImg(ref) {
   return r;
 }
 
-// ── 카드 생성 (이미지 + 날짜 + 목적만 표시, 삭제 버튼 없음)
 function mkCard(entry) {
   const wrap = document.createElement('div');
   wrap.className = 'acard';
@@ -227,7 +206,7 @@ function mkCard(entry) {
     <div class="acard-img-wrap">
       <div class="acard-skeleton" id="sk_${entry.id}"></div>
       <div class="acard-placeholder" id="ph_${entry.id}" style="display:none;">
-        <span class="material-symbols-outlined" style="font-size:36px;color:rgba(255,255,255,.15);">style</span>
+        <span class="material-symbols-outlined" style="font-size:32px;color:rgba(216,226,255,.1);">style</span>
       </div>
       <img id="img_${entry.id}" class="acard-img" src="" alt="" style="opacity:0;"/>
     </div>
@@ -237,8 +216,6 @@ function mkCard(entry) {
     </div>
   `;
   wrap.addEventListener('click', () => openModal(entry));
-
-  // 비동기 이미지 로드
   resolveImg(entry.imageRef).then(src => {
     const img = document.getElementById('img_' + entry.id);
     const sk  = document.getElementById('sk_'  + entry.id);
@@ -257,31 +234,24 @@ function mkCard(entry) {
   return wrap;
 }
 
-// ── 렌더
 async function render() {
   _user = window.CodiBank && CodiBank.getCurrentUser ? CodiBank.getCurrentUser() : null;
   if (!_user) { location.replace('login.html'); return; }
-
   _entries = (CodiBank.getAiAlbumEntries ? CodiBank.getAiAlbumEntries(_user.email) : []) || [];
-
   document.getElementById('loadEl').style.display = 'none';
-
   if (!_entries.length) {
     document.getElementById('emptyEl').style.display = 'flex';
     document.getElementById('cntBadge').textContent = '0장';
     return;
   }
-
   document.getElementById('cntBadge').textContent = _entries.length + '장';
   document.getElementById('clearBtn').style.display = 'block';
-
   const grid = document.getElementById('grid');
   grid.style.display = 'grid';
   grid.innerHTML = '';
   _entries.forEach(e => grid.appendChild(mkCard(e)));
 }
 
-// ── 삭제
 function delEntry(id) {
   if (!confirm('이 코디를 삭제할까요?')) return;
   CodiBank.deleteAiAlbumEntry && CodiBank.deleteAiAlbumEntry(_user.email, id);
@@ -294,37 +264,24 @@ function clearAll() {
   render();
 }
 
-// ── 모달 열기 (날짜+목적+날씨+키워드+설명 표시)
 async function openModal(entry) {
   _cur = entry;
   const modal = document.getElementById('modal');
   const img = document.getElementById('mImg');
-
-  // 기본 정보
   document.getElementById('mDate').textContent    = fmt(entry.createdAt);
   document.getElementById('mPurpose').textContent = entry.purposeLabel || '코디';
-
-  // 키워드
   const kwSec = document.getElementById('mKeywordSection');
   const kwWrap = document.getElementById('mKeywords');
   const kws = Array.isArray(entry.keywords) ? entry.keywords.filter(Boolean) : [];
   if (kws.length) {
     kwWrap.innerHTML = kws.map(k => `<span class="kw-chip">${k}</span>`).join('');
     kwSec.style.display = 'block';
-  } else {
-    kwSec.style.display = 'none';
-  }
-
-  // 이미지 로드
+  } else { kwSec.style.display = 'none'; }
   img.style.opacity = '0';
   modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
-
   const src = await resolveImg(entry.imageRef);
-  if (src) {
-    img.onload = () => { img.style.opacity = '1'; };
-    img.src = src;
-  }
+  if (src) { img.onload = () => { img.style.opacity = '1'; }; img.src = src; }
 }
 
 function closeModal() {
@@ -333,21 +290,18 @@ function closeModal() {
   _cur = null;
 }
 
-// ── 저장/공유/삭제
 async function doDownload() {
   if (!_cur) return;
   const src = await resolveImg(_cur.imageRef);
   if (!src) { alert('이미지를 불러올 수 없습니다.'); return; }
-  const a = document.createElement('a');
-  a.href = src; a.download = 'codibank.png'; a.click();
+  const a = document.createElement('a'); a.href = src; a.download = 'codibank.png'; a.click();
 }
 async function doShare() {
   if (!_cur) return;
   const src = await resolveImg(_cur.imageRef);
   if (navigator.share && src) {
     try {
-      const res = await fetch(src);
-      const blob = await res.blob();
+      const res = await fetch(src); const blob = await res.blob();
       const f = new File([blob], 'codibank.png', { type: 'image/png' });
       if (navigator.canShare && navigator.canShare({ files: [f] })) {
         await navigator.share({ title: '코디뱅크 AI 추천 코디', files: [f] }); return;
