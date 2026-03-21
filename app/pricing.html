@@ -40,6 +40,13 @@
 .cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
 .cb-spacer{height:82px;}
 </style>
+<link rel="manifest" href="/manifest.json"/>
+<meta name="theme-color" content="#07132a"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="CodiBank"/>
+<link rel="apple-touch-icon" href="/app/icons/icon-192.png"/>
+<script src="pwa-register.js" defer></script>
 </head>
 <body class="bg-bg text-slate-900 min-h-screen font-sans">
   <div class="max-w-5xl mx-auto px-6 py-12">
@@ -173,16 +180,20 @@
   </div>
 
   <script>
-    const planInfo = {
-      FREE:    { label:'무료',  limit:'코디 생성 총 6회 (최초)', daily:'당일 소진 시 종료', data:'7일간 저장' },
-      SILVER:  { label:'실버',  limit:'코디 생성 월 40회',       daily:'일 3회',           data:'30일간 저장' },
-      GOLD:    { label:'골드',  limit:'코디 생성 월 150회',      daily:'일 10회',          data:'영구 저장' },
-      DIAMOND: { label:'다이아', limit:'코디 생성 무제한(FUP)',   daily:'일 30회',          data:'영구 저장' },
+    const _isEn = () => window.CodiBankI18n && CodiBankI18n.isEn();
+
+    const planInfoKo = {
+      FREE:    { label:'무료',   labelEn:'Free',    limit:'코디 생성 총 6회 (최초)',  limitEn:'Outfit Gen: 6 total (initial)',  daily:'당일 소진 시 종료', dailyEn:'Until depleted', data:'7일간 저장',  dataEn:'7 days storage' },
+      SILVER:  { label:'실버',   labelEn:'Silver',   limit:'코디 생성 월 40회',        limitEn:'Outfit Gen: 40/month',          daily:'일 3회',            dailyEn:'3/day',          data:'30일간 저장', dataEn:'30 days storage' },
+      GOLD:    { label:'골드',   labelEn:'Gold',     limit:'코디 생성 월 150회',       limitEn:'Outfit Gen: 150/month',         daily:'일 10회',           dailyEn:'10/day',         data:'영구 저장',   dataEn:'Permanent' },
+      DIAMOND: { label:'다이아', labelEn:'Diamond',  limit:'코디 생성 무제한(FUP)',    limitEn:'Outfit Gen: Unlimited(FUP)',     daily:'일 30회',           dailyEn:'30/day',         data:'영구 저장',   dataEn:'Permanent' },
     };
 
-    const planKo = (p) => (planInfo[String(p||'').toUpperCase()] || planInfo.FREE).label;
+    const planLabel = (p) => {
+      const info = planInfoKo[String(p||'').toUpperCase()] || planInfoKo.FREE;
+      return _isEn() ? info.labelEn : info.label;
+    };
 
-    // Auth
     if (window.CodiBank && CodiBank.requireAuth) {
       CodiBank.requireAuth('login.html');
     }
@@ -190,11 +201,12 @@
     function loadPlan(){
       const u = (window.CodiBank && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;
       const plan = u ? (CodiBank.getUserPlan ? CodiBank.getUserPlan(u.email) : 'FREE') : (localStorage.getItem('codibank_plan') || 'FREE').toUpperCase();
-      const info = planInfo[plan] || planInfo.FREE;
-      document.getElementById('currentPlan').innerText = info.label + ' 플랜';
-      document.getElementById('currentLimit').innerText = info.limit + ' / ' + info.daily;
+      const info = planInfoKo[plan] || planInfoKo.FREE;
+      const en = _isEn();
 
-      // 통합 사용량 표시
+      document.getElementById('currentPlan').innerText = (en ? info.labelEn : info.label) + (en ? ' Plan' : ' 플랜');
+      document.getElementById('currentLimit').innerText = (en ? info.limitEn : info.limit) + ' / ' + (en ? info.dailyEn : info.daily);
+
       const aiEl = document.getElementById('currentAiLimit');
       if(aiEl){
         try{
@@ -205,9 +217,11 @@
           const dayKey = now.toISOString().slice(0,10);
           const mCount = (raw.month === monthKey) ? (raw.monthCount||0) : 0;
           const dCount = (raw.day === dayKey) ? (raw.dayCount||0) : 0;
-          aiEl.innerText = '이번 달 '+mCount+'회 사용 · 오늘 '+dCount+'회 사용';
+          aiEl.innerText = en
+            ? 'This month: '+mCount+' used · Today: '+dCount+' used'
+            : '이번 달 '+mCount+'회 사용 · 오늘 '+dCount+'회 사용';
         }catch(_){
-          aiEl.innerText = info.data;
+          aiEl.innerText = en ? info.dataEn : info.data;
         }
       }
     }
@@ -220,7 +234,8 @@
         localStorage.setItem('codibank_plan', plan);
       }
       loadPlan();
-      alert(planKo(plan)+' 플랜이 저장되었습니다.');
+      const en = _isEn();
+      alert(planLabel(plan) + (en ? ' plan saved.' : ' 플랜이 저장되었습니다.'));
     }
 
     loadPlan();
