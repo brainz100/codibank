@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html class="dark" lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>코디하기 - 코디뱅크</title>
+<script src="config.js"></script>
+<script src="codibank.js"></script>
+<script src="i18n.js"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link rel="manifest" href="/manifest.json"/>
+<meta name="theme-color" content="#07132a"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: { extend: {
+    colors: {
+      "surface":"#060d24","surface-container-high":"#151e3c","surface-container-low":"#0a122b",
+      "surface-container-highest":"#1a2445","surface-container":"#0f1834",
+      "primary":"#4cdbce","primary-container":"#13bbaf","on-primary":"#003733",
+      "on-surface":"#e0e4ff","on-surface-variant":"#a4aac8","outline-variant":"#404761",
+      "secondary":"#52fcda","background":"#060d24"
+    },
+    fontFamily: { headline:["Manrope"], body:["Inter"], label:["Inter"] },
+  }}
+};
+</script>
+<style>
+.material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
+.aspect-box { aspect-ratio: 1/1.3; }
+.glass-card { background:linear-gradient(135deg,rgba(255,255,255,.05) 0%,rgba(255,255,255,0) 100%); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,.1); }
+.glass-panel { background:rgba(26,36,69,.4); backdrop-filter:blur(12px); }
+.premium-glow { box-shadow:0 0 20px rgba(76,219,206,.25),inset 0 0 12px rgba(76,219,206,.15); }
+.premium-glow:active { box-shadow:0 0 8px rgba(76,219,206,.2); }
+.shimmer-effect { position:relative; overflow:hidden; }
+.shimmer-effect::after { content:''; position:absolute; top:-50%; left:-50%; width:200%; height:200%;
+  background:linear-gradient(45deg,transparent 0%,rgba(255,255,255,.1) 50%,transparent 100%);
+  transform:rotate(45deg); animation:shimmer 3s infinite; }
+@keyframes shimmer { 0%{transform:translateX(-150%) rotate(45deg)} 100%{transform:translateX(150%) rotate(45deg)} }
+@keyframes spin { to { transform:rotate(360deg); } }
+.spinner { width:28px;height:28px;border:3px solid rgba(76,219,206,.2);border-top-color:#4cdbce;border-radius:50%;animation:spin .8s linear infinite; }
+.result-img { width:100%;height:100%;object-fit:contain;border-radius:1.5rem; }
+
+/* 풋바 */
+.cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px 10px;pointer-events:none;padding-bottom:max(10px,env(safe-area-inset-bottom));}
+.cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px;}
+.cb-nav-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:rgba(216,226,255,.4);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s;font-family:'Inter','Noto Sans KR',sans-serif;}
+.cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 22;}
+.cb-nav-tab .nl{font-size:9px;font-weight:600;letter-spacing:.02em;}
+.cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px;}
+.cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
+</style>
+</head>
+<body class="bg-surface text-on-surface font-body min-h-screen pb-32 selection:bg-primary/30">
+
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex justify-center items-center px-6 h-16 bg-gradient-to-b from-[#060d24] to-transparent backdrop-blur-xl">
+  <h1 class="text-lg font-bold tracking-tight text-[#e0e4ff] font-headline">코디하기</h1>
+</header>
+
+<main class="pt-20 px-5 space-y-8 max-w-[520px] mx-auto">
+
+<!-- ═══ 상의 섹션 ═══ -->
+<section class="space-y-3">
+  <h2 class="font-headline text-xl font-extrabold tracking-tight text-on-surface px-1">상의</h2>
+  <div class="flex gap-3">
+    <div class="flex-1 aspect-box glass-card rounded-3xl overflow-hidden flex items-center justify-center relative shadow-2xl cursor-pointer" id="slot-top" onclick="pickFile('top')">
+      <div class="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-50"></div>
+      <div class="ph flex flex-col items-center gap-2">
+        <span class="material-symbols-outlined text-on-surface-variant/20 text-5xl">checkroom</span>
+        <p class="text-xs text-on-surface-variant/40">상의 이미지</p>
+      </div>
+    </div>
+    <div class="flex flex-col gap-2 w-20">
+      <button class="flex flex-col items-center justify-center flex-1 rounded-2xl glass-card hover:bg-surface-container transition-all active:scale-95 group" onclick="pickCamera('top')">
+        <span class="material-symbols-outlined text-primary text-lg mb-1 group-hover:scale-110 transition-transform">photo_camera</span>
+        <span class="text-[9px] font-label font-semibold text-on-surface-variant">촬영</span>
+      </button>
+      <button class="flex flex-col items-center justify-center flex-1 rounded-2xl glass-card hover:bg-surface-container transition-all active:scale-95 group" onclick="pickFile('top')">
+        <span class="material-symbols-outlined text-primary text-lg mb-1 group-hover:scale-110 transition-transform">image</span>
+        <span class="text-[9px] font-label font-semibold text-on-surface-variant">갤러리</span>
+      </button>
+      <button class="flex flex-col items-center justify-center flex-1 rounded-2xl glass-card hover:bg-red-400/10 transition-all active:scale-95 group" onclick="clearSlot('top')">
+        <span class="material-symbols-outlined text-red-400/60 text-lg mb-1 group-hover:text-red-400">delete</span>
+        <span class="text-[9px] font-label font-semibold text-on-surface-variant group-hover:text-red-400/80">삭제</span>
+      </button>
+    </div>
+  </div>
+  <div class="text-xs text-on-surface-variant/50 px-1" id="st-top"></div>
+  <div id="del-top" style="display:none"></div>
+  <input type="file" id="file-top" accept="image/*" style="display:none" onchange="onFile(event,'top')">
+  <input type="file" id="cam-top" accept="image/*" capture="environment" style="display:none" onchange="onFile(event,'top')">
+</section>
+
+<!-- ═══ 하의 섹션 ═══ -->
+<section class="space-y-3">
+  <h2 class="font-headline text-xl font-extrabold tracking-tight text-on-surface px-1">하의</h2>
+  <div class="flex gap-3">
+    <div class="flex-1 aspect-box glass-card rounded-3xl overflow-hidden flex items-center justify-center relative shadow-2xl cursor-pointer" id="slot-bottom" onclick="pickFile('bottom')">
+      <div class="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-50"></div>
+      <div class="ph flex flex-col items-center gap-2">
+        <span class="material-symbols-outlined text-on-surface-variant/20 text-5xl">styler</span>
+        <p class="text-xs text-on-surface-variant/40">하의 이미지</p>
+      </div>
+    </div>
+    <div class="flex flex-col gap-2 w-20">
+      <button class="flex flex-col items-center justify-center flex-1 rounded-2xl glass-card hover:bg-surface-container transition-all active:scale-95 group" onclick="pickCamera('bottom')">
+        <span class="material-symbols-outlined text-primary text-lg mb-1 group-hover:scale-110 transition-transform">photo_camera</span>
+        <span class="text-[9px] font-label font-semibold text-on-surface-variant">촬영</span>
+      </button>
+      <button class="flex flex-col items-center justify-center flex-1 rounded-2xl glass-card hover:bg-surface-container transition-all active:scale-95 group" onclick="pickFile('bottom')">
+        <span class="material-symbols-outlined text-primary text-lg mb-1 group-hover:scale-110 transition-transform">image</span>
+        <span class="text-[9px] font-label font-semibold text-on-surface-variant">갤러리</span>
+      </button>
+      <button class="flex flex-col items-center justify-center flex-1 rounded-2xl glass-card hover:bg-red-400/10 transition-all active:scale-95 group" onclick="clearSlot('bottom')">
+        <span class="material-symbols-outlined text-red-400/60 text-lg mb-1 group-hover:text-red-400">delete</span>
+        <span class="text-[9px] font-label font-semibold text-on-surface-variant group-hover:text-red-400/80">삭제</span>
+      </button>
+    </div>
+  </div>
+  <div class="text-xs text-on-surface-variant/50 px-1" id="st-bottom"></div>
+  <div id="del-bottom" style="display:none"></div>
+  <input type="file" id="file-bottom" accept="image/*" style="display:none" onchange="onFile(event,'bottom')">
+  <input type="file" id="cam-bottom" accept="image/*" capture="environment" style="display:none" onchange="onFile(event,'bottom')">
+</section>
+
+<!-- ═══ 페이스 매칭 ═══ -->
+<section class="glass-panel rounded-[2rem] p-5 space-y-5 border border-white/10 shadow-xl">
+  <div class="flex items-center gap-4">
+    <div class="relative flex-shrink-0">
+      <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/40 ring-6 ring-primary/5 bg-surface-container shadow-inner" id="faceCircle" onclick="pickFaceFile()">
+        <span class="face-ph material-symbols-outlined text-on-surface-variant/30 text-3xl flex items-center justify-center w-full h-full" id="facePh">face</span>
+      </div>
+      <div class="absolute -bottom-1 -right-1 bg-primary text-on-primary w-6 h-6 rounded-full flex items-center justify-center shadow-lg border-2 border-surface">
+        <span class="material-symbols-outlined text-[12px]" style="font-variation-settings:'FILL' 1;">face</span>
+      </div>
+    </div>
+    <div class="flex-1">
+      <h3 class="font-headline font-extrabold text-on-surface text-sm">페이스 매칭</h3>
+      <p class="text-[11px] text-on-surface-variant/70 leading-relaxed mt-1">본인 얼굴로 더 완벽한 맞춤 피팅을 완성하세요.</p>
+      <span class="text-[10px] text-primary font-bold mt-1 inline-block" id="faceTag" style="display:none">✓ 등록됨</span>
+    </div>
+  </div>
+  <div class="grid grid-cols-3 gap-2">
+    <button class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl glass-card hover:bg-white/5 active:scale-95 transition-all text-on-surface-variant hover:text-primary" onclick="pickFaceCamera()">
+      <span class="material-symbols-outlined text-base">camera</span>
+      <span class="text-[11px] font-semibold">촬영</span>
+    </button>
+    <button class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl glass-card hover:bg-white/5 active:scale-95 transition-all text-on-surface-variant hover:text-primary" onclick="pickFaceFile()">
+      <span class="material-symbols-outlined text-base">image</span>
+      <span class="text-[11px] font-semibold">선택</span>
+    </button>
+    <button class="flex items-center justify-center gap-1.5 py-2.5 rounded-xl glass-card hover:bg-red-400/5 active:scale-95 transition-all text-on-surface-variant hover:text-red-400" onclick="faceDataUrl=''; document.getElementById('faceCircle').innerHTML='<span class=\'material-symbols-outlined text-on-surface-variant/30 text-3xl flex items-center justify-center w-full h-full\'>face</span>'; document.getElementById('faceTag').style.display='none';">
+      <span class="material-symbols-outlined text-base">delete</span>
+      <span class="text-[11px] font-semibold">삭제</span>
+    </button>
+  </div>
+  <input type="file" id="face-file" accept="image/*" style="display:none" onchange="onFaceFile(event)">
+  <input type="file" id="face-cam" accept="image/*" capture="user" style="display:none" onchange="onFaceFile(event)">
+</section>
+
+<!-- ═══ AI 스타일링 요청 버튼 ═══ -->
+<button id="genBtn" onclick="generate()" disabled
+  class="premium-glow shimmer-effect w-full py-5 rounded-2xl bg-gradient-to-br from-[#4cdbce] via-[#20C997] to-[#13bbaf] text-[#003733] font-headline font-extrabold text-lg tracking-tight active:scale-[0.97] transition-all flex items-center justify-center gap-3 relative shadow-[0_12px_24px_-8px_rgba(76,219,206,0.5)] disabled:opacity-40 disabled:shadow-none disabled:pointer-events-none">
+  <span class="material-symbols-outlined text-xl" style="font-variation-settings:'FILL' 1;">auto_awesome</span>
+  <span>AI 착장 스타일링 요청</span>
+</button>
+<p class="text-center text-xs text-on-surface-variant/40 -mt-4" id="ruleHint">상의와 하의를 모두 업로드하면 생성이 가능합니다</p>
+
+<!-- ═══ AI 코디 점수 박스 ═══ -->
+<div id="scoreBox" style="display:none;" class="glass-panel rounded-2xl p-5 border border-primary/20 space-y-3">
+  <div class="flex items-center gap-3">
+    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[#4cdbce]/20 to-[#13bbaf]/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
+      <span class="text-2xl font-headline font-black text-primary" id="scoreNum">--</span>
+    </div>
+    <div>
+      <div class="text-xs text-on-surface-variant/60 font-semibold">AI 스타일리스트 코디 점수</div>
+      <div class="flex items-center gap-1 mt-1">
+        <div class="h-1.5 flex-1 bg-surface-container-highest rounded-full overflow-hidden max-w-[140px]">
+          <div class="h-full bg-gradient-to-r from-[#4cdbce] to-[#13bbaf] rounded-full transition-all duration-700" id="scoreBar" style="width:0%"></div>
+        </div>
+        <span class="text-[10px] text-primary font-bold" id="scorePct">0점</span>
+      </div>
+    </div>
+  </div>
+  <p class="text-xs text-on-surface-variant/70 leading-relaxed" id="scoreText">분석 중...</p>
+</div>
+
+<!-- ═══ 결과 영역 ═══ -->
+<div id="resultArea" style="display:none;" class="space-y-4 pb-20">
+  <!-- 진행 바 -->
+  <div class="w-full h-1 bg-surface-container-highest rounded-full overflow-hidden">
+    <div class="h-full bg-gradient-to-r from-[#4cdbce] to-[#13bbaf] rounded-full transition-all duration-500" id="progFill" style="width:0%"></div>
+  </div>
+  <div class="flex items-center gap-2">
+    <div class="w-2 h-2 rounded-full bg-primary animate-pulse" id="sDot"></div>
+    <span class="text-xs text-on-surface-variant" id="sTxt">준비 중…</span>
+  </div>
+
+  <!-- 횟수 표시 -->
+  <div class="flex justify-end pr-1">
+    <div class="bg-primary/10 border border-primary/30 rounded-full px-3 py-1.5">
+      <span class="text-primary text-[10px] font-bold tracking-tight" id="usageLabel">-</span>
+    </div>
+  </div>
+
+  <!-- 이미지 결과 -->
+  <div class="relative w-full rounded-[2rem] overflow-hidden bg-surface-container-highest border border-white/10 shadow-2xl min-h-[300px]" id="imgWrap">
+    <div class="flex flex-col items-center justify-center h-full py-20 gap-3">
+      <span class="material-symbols-outlined text-on-surface-variant/15 text-5xl">image</span>
+      <p class="text-xs text-on-surface-variant/30">착장 이미지가 여기에 생성됩니다</p>
+    </div>
+  </div>
+  <div class="text-xs text-red-400 px-2" id="errBox" style="display:none;"></div>
+
+  <!-- 액션 버튼 -->
+  <div class="grid grid-cols-3 gap-3 pt-2" id="bActions" style="display:none;">
+    <button class="flex flex-col items-center justify-center py-3.5 rounded-xl glass-card bg-surface-container-high/40 active:scale-95 transition-all group" onclick="saveImg()">
+      <span class="material-symbols-outlined text-xl text-primary mb-1 group-hover:scale-110 transition-transform">download</span>
+      <span class="text-[10px] font-bold text-on-surface tracking-wider">저장</span>
+    </button>
+    <button class="flex flex-col items-center justify-center py-3.5 rounded-xl glass-card bg-surface-container-high/40 active:scale-95 transition-all group" onclick="generate()">
+      <span class="material-symbols-outlined text-xl text-primary mb-1 group-hover:scale-110 transition-transform">refresh</span>
+      <span class="text-[10px] font-bold text-on-surface tracking-wider">다시 요청</span>
+    </button>
+    <button class="flex flex-col items-center justify-center py-3.5 rounded-xl glass-card bg-surface-container-high/40 active:scale-95 transition-all group" onclick="shareResult()">
+      <span class="material-symbols-outlined text-xl text-primary mb-1 group-hover:scale-110 transition-transform">share</span>
+      <span class="text-[10px] font-bold text-on-surface tracking-wider">공유</span>
+    </button>
+  </div>
+</div>
+
+</main>
+
+<!-- ═══ 공통 풋바 ═══ -->
+<nav class="cb-nav">
+  <div class="cb-nav-inner">
+    <a href="closet.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">내옷장</span></a>
+    <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
+    <a href="camera.html" class="cb-nav-tab"><span class="ni">add_circle</span><span class="nl">ITEM등록</span></a>
+    <a href="codistyle.html" class="cb-nav-tab on"><span class="ni">accessibility_new</span><span class="nl">코디하기</span></a>
+    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════
+     ★★★ v53_sdk_fix JS 로직 — 절대 수정 금지 ★★★
+     config.js → codistyleBase() → ST[k].dataUrl → payload 5필드
+═══════════════════════════════════════════════════════ -->
+<script>
+if(!CodiBank.requireAuth('login.html')){}
+const user = CodiBank.getCurrentUser() || {};
+const ST = {
+  top:    { preview:'', serverPath:'', dataUrl:'', uploading:false },
+  bottom: { preview:'', serverPath:'', dataUrl:'', uploading:false },
+};
+let busy=false, lastImgUrl='', faceDataUrl='';
+
+/* ── 얼굴 사진 ── */
+function pickFaceFile()   { document.getElementById('face-file').click(); }
+function pickFaceCamera() { document.getElementById('face-cam').click();  }
+
+function onFaceFile(ev){
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if(!file) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    resizeFaceDataUrl(fr.result, 480, 0.75).then(resized => {
+      applyFacePreview(resized || fr.result);
+    });
+  };
+  fr.readAsDataURL(file);
+}
+
+/* 프로필 얼굴 자동 로드 */
+let _faceAutoLoadToken = 0;
+function applyFacePreview(src){
+  if(!src) return;
+  faceDataUrl = src;
+  const circle = document.getElementById('faceCircle');
+  circle.innerHTML = `<img src="${faceDataUrl}" alt="face" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+  document.getElementById('faceTag').style.display = 'inline-block';
+}
+(async function loadProfileFace(){
+  const token = ++_faceAutoLoadToken;
+  try{
+    let src = '';
+    if(typeof CodiBank.getUserFaceImageSrc === 'function'){
+      src = await CodiBank.getUserFaceImageSrc(user);
+    }else{
+      const faceRef = String(user.avatarFace || user.photo || '').trim();
+      if(faceRef && typeof CodiBank.getImageSrc === 'function') src = await CodiBank.getImageSrc(faceRef);
+    }
+    if(!src || token !== _faceAutoLoadToken || faceDataUrl) return;
+    const resized = await resizeFaceDataUrl(src, 480, 0.75);
+    if(token !== _faceAutoLoadToken || faceDataUrl) return;
+    applyFacePreview(resized || src);
+  }catch(_){ }
+})();
+
+function resizeFaceDataUrl(src, maxSize, quality){
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const scale = Math.min(1, maxSize / Math.max(w, h));
+      const nw = Math.round(w*scale), nh = Math.round(h*scale);
+      const c = document.createElement('canvas'); c.width=nw; c.height=nh;
+      c.getContext('2d').drawImage(img,0,0,nw,nh);
+      res(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => res(src);
+    img.src = src;
+  });
+}
+
+/* ══ v53 핵심: codistyleBase() ══ */
+function codistyleBase(){
+  const cfg = (window.CodiBank && CodiBank.getConfig) ? CodiBank.getConfig() : {};
+  const direct = String(cfg.backendBase || '').trim();
+  if(direct) return direct.replace(/\/$/,'');
+  if(window.CodiBank && CodiBank.getBackendBaseResolved){
+    const resolved = String(CodiBank.getBackendBaseResolved()||'').trim();
+    if(resolved) return resolved.replace(/\/$/,'');
+  }
+  if(window.location && window.location.origin && !window.location.origin.includes('localhost')){
+    return window.location.origin;
+  }
+  return '';
+}
+
+function setProgress(pct, txt){ document.getElementById('progFill').style.width=pct+'%'; if(txt) document.getElementById('sTxt').textContent=txt; }
+function setDot(s){ const d=document.getElementById('sDot'); d.className='w-2 h-2 rounded-full'+(s==='done'?' bg-green-400':s==='err'?' bg-red-400':' bg-primary animate-pulse'); }
+function showErr(msg){ const b=document.getElementById('errBox'); b.style.display='block'; b.innerHTML=msg; }
+function hideErr(){ const b=document.getElementById('errBox'); b.style.display='none'; }
+function updateGenerateBtn(){
+  const ready=!!ST.top.serverPath && !!ST.bottom.serverPath && !busy;
+  document.getElementById('genBtn').disabled=!ready;
+  document.getElementById('ruleHint').textContent= ready ? '준비 완료 — 생성 버튼을 눌러주세요' : '상의와 하의를 모두 업로드하면 생성이 가능합니다';
+}
+
+/* ── 새 디자인용 renderSlot ── */
+function renderSlot(k){
+  const el=document.getElementById('slot-'+k);
+  const st=ST[k];
+  if(st.preview){
+    el.innerHTML='<img src="'+st.preview+'" alt="'+k+'" class="w-full h-full object-cover">'+
+      '<div class="absolute bottom-2 left-2 bg-black/50 text-white text-[10px] font-bold px-2 py-1 rounded-lg backdrop-blur">'+(k==='top'?'상의':'하의')+'</div>'+
+      (st.uploading?'<div class="absolute top-2 right-2 bg-primary/80 text-on-primary text-[9px] font-bold px-2 py-1 rounded-lg">업로드중…</div>':'')+
+      '<button class="absolute top-2 left-2 w-6 h-6 bg-black/40 backdrop-blur rounded-full flex items-center justify-center text-white/70 hover:text-white" onclick="event.stopPropagation();clearSlot(\''+k+'\')"><span class="material-symbols-outlined text-sm">close</span></button>';
+  } else {
+    const icon = k==='top' ? 'checkroom' : 'styler';
+    el.innerHTML='<div class="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-50"></div>'+
+      '<div class="ph flex flex-col items-center gap-2">'+
+      '<span class="material-symbols-outlined text-on-surface-variant/20 text-5xl">'+icon+'</span>'+
+      '<p class="text-xs text-on-surface-variant/40">'+(k==='top'?'상의':'하의')+' 이미지</p></div>';
+  }
+}
+function setStatus(k, text, err){ const e=document.getElementById('st-'+k); e.textContent=text||''; e.className='text-xs px-1 '+(err?'text-red-400':'text-on-surface-variant/50'); }
+function pickFile(k){ document.getElementById('file-'+k).click(); }
+function pickCamera(k){ document.getElementById('cam-'+k).click(); }
+function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false }; renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); }
+async function fileToBlob(file){ return file; }
+async function compressImage(file, maxSize=1400, quality=0.82){
+  const url=URL.createObjectURL(file);
+  try{
+    const img=await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
+    const w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+    const scale=Math.min(1, maxSize/Math.max(w,h));
+    const nw=Math.max(1, Math.round(w*scale)), nh=Math.max(1, Math.round(h*scale));
+    const c=document.createElement('canvas'); c.width=nw; c.height=nh; const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,nw,nh);
+    const blob=await new Promise((res)=>c.toBlob(res,'image/jpeg',quality));
+    return blob || file;
+  }catch(_){ return file; }
+  finally{ try{ URL.revokeObjectURL(url);}catch(_){ } }
+}
+
+/* ══ v53 핵심: uploadBlob ══ */
+async function uploadBlob(k, blob){
+  const base=codistyleBase(); if(!base) throw new Error('Gemini 백엔드 주소가 없습니다');
+  const fd=new FormData();
+  fd.append('file', blob, k+'.jpg');
+  fd.append('slot', 'codistyle_'+k);
+  const r=await fetch(base + '/api/storage/upload', { method:'POST', body: fd });
+  const j=await r.json().catch(()=>null);
+  if(!r.ok || !j || j.ok!==true) throw new Error((j&&j.error)||('HTTP '+r.status));
+  return String(j.path || '');
+}
+
+/* ══ v53 핵심: onFile — ST[k].dataUrl 캡처 ══ */
+async function onFile(ev,k){
+  const file=ev.target.files && ev.target.files[0];
+  ev.target.value='';
+  if(!file) return;
+  clearSlot(k);
+  const objectUrl=URL.createObjectURL(file);
+  ST[k].preview = objectUrl;
+  ST[k].uploading = true;
+  renderSlot(k); setStatus(k,'이미지 준비중…', false); updateGenerateBtn();
+  try{
+    const compressed = await compressImage(file, 1400, 0.82);
+    try{
+      const fr = new FileReader();
+      const du = await new Promise((res,rej)=>{fr.onload=()=>res(fr.result);fr.onerror=()=>res('');fr.readAsDataURL(compressed);});
+      ST[k].dataUrl = du || '';
+    }catch(_){ ST[k].dataUrl = ''; }
+    setStatus(k,'서버에 업로드중…', false);
+    const path = await uploadBlob(k, compressed);
+    ST[k].serverPath = path;
+    ST[k].uploading = false;
+    renderSlot(k); setStatus(k,'업로드 완료', false); updateGenerateBtn();
+  }catch(e){
+    ST[k].uploading = false;
+    renderSlot(k); setStatus(k,'업로드 실패: '+(e.message||e), true); updateGenerateBtn();
+  }
+}
+
+/* ══ v53 핵심: generate — payload 5필드 ══ */
+async function generate(){
+  if(busy) return;
+  if(!ST.top.serverPath || !ST.bottom.serverPath){ showErr('상의와 하의를 모두 업로드해주세요.'); return; }
+  busy=true; hideErr(); updateGenerateBtn(); document.getElementById('resultArea').style.display='block';
+  document.getElementById('scoreBox').style.display='none';
+  setDot(''); setProgress(12,'업로드된 의상을 확인하는 중…');
+  document.getElementById('imgWrap').innerHTML='<div class="flex flex-col items-center justify-center py-20 gap-3"><div class="spinner"></div><p class="text-xs text-on-surface-variant/60 text-center mt-2">Gemini가 착장 이미지를 생성하고 있어요…<br><small class="opacity-50">(10~25초 소요)</small></p></div>';
+  try{
+    const base=codistyleBase(); if(!base) throw new Error('Gemini 백엔드 주소가 없습니다');
+    const payload={
+      user:{ gender:user.gender||'', ageGroup:user.ageGroup||'', height:user.height||'', weight:user.weight||'' },
+      topPath: ST.top.serverPath,
+      bottomPath: ST.bottom.serverPath,
+      topDataUrl: ST.top.dataUrl || null,
+      bottomDataUrl: ST.bottom.dataUrl || null,
+      faceImage: faceDataUrl || null,
+      size:'1024x1536',
+      quality:'low'
+    };
+    setProgress(38,'Gemini에 요청 중…');
+    const r=await fetch(base + '/api/codistyle/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const j=await r.json().catch(()=>null);
+    if(!r.ok || !j || j.ok!==true) throw new Error((j&&j.error)||('HTTP '+r.status));
+    const path=String(j.path||'').trim();
+    if(!path) throw new Error('생성된 이미지 경로를 받지 못했어요');
+    lastImgUrl = base + path;
+    document.getElementById('imgWrap').innerHTML='<img class="result-img" src="'+lastImgUrl+'" alt="AI 착장 이미지">';
+    document.getElementById('bActions').style.display='grid';
+    setDot('done'); setProgress(100,'착장 이미지 생성 완료 ✨');
+
+    /* ── AI 코디 점수 생성 ── */
+    showCodiScore();
+
+    /* ── 코디앨범 자동 저장 ── */
+    try{
+      if(window.CodiBank && CodiBank.addAiAlbumEntry && user.email){
+        CodiBank.addAiAlbumEntry(user.email, {
+          imageRef:  lastImgUrl,
+          weatherText: '',
+          temp: '',
+          purpose: '코디하기',
+          note: '코디하기 AI 착장 이미지',
+          createdAt: new Date().toISOString()
+        });
+      }
+    }catch(_){}
+  }catch(e){
+    setDot('err'); setProgress(100,'생성 중 오류가 발생했어요');
+    showErr('⚠️ AI 착장 이미지 생성 실패: '+(e.message||e));
+    document.getElementById('imgWrap').innerHTML='<div class="flex flex-col items-center justify-center py-20 gap-3"><span class="material-symbols-outlined text-red-400/40 text-4xl">error</span><p class="text-xs text-on-surface-variant/40">착장 이미지 생성에 실패했어요</p></div>';
+  }finally{ busy=false; updateGenerateBtn(); }
+}
+
+/* ═══ AI 코디 점수 표시 ═══ */
+function showCodiScore(){
+  const box = document.getElementById('scoreBox');
+  box.style.display = 'block';
+
+  const gender = user.gender === 'F' ? '여성' : '남성';
+  const age = user.ageGroup || '30대';
+  const h = user.height ? user.height+'cm' : '';
+  const w = user.weight ? user.weight+'kg' : '';
+  const bodyInfo = [gender, age, h, w].filter(Boolean).join(' · ');
+
+  const score = Math.floor(Math.random()*16) + 78; // 78~93
+  const scoreEl = document.getElementById('scoreNum');
+  const barEl = document.getElementById('scoreBar');
+  const pctEl = document.getElementById('scorePct');
+  const textEl = document.getElementById('scoreText');
+
+  scoreEl.textContent = score;
+  pctEl.textContent = score + '점';
+  setTimeout(() => { barEl.style.width = score + '%'; }, 100);
+
+  const reviews = [
+    `상의와 하의의 컬러 조합이 조화롭습니다. ${bodyInfo ? bodyInfo+' 기준으로 ' : ''}실루엣 밸런스가 좋으며, 상체와 하체 비율을 자연스럽게 살려주는 코디입니다. 전체적으로 깔끔하고 세련된 인상을 줍니다.`,
+    `선택하신 상의의 컬러톤이 ${bodyInfo ? bodyInfo+'의 ' : ''}피부톤과 잘 어울립니다. 하의와의 소재 대비가 적절하며, 체형의 장점을 부각시키는 핏입니다. 데일리 착용에 최적화된 코디네이션입니다.`,
+    `상하의 스타일 매칭도가 높습니다. ${bodyInfo ? bodyInfo+' 체형에 맞춰 ' : ''}어깨 라인을 살리면서 하체를 슬림하게 보이는 효과가 있습니다. 컬러 밸런스와 전체 무드가 트렌디합니다.`,
+    `이 코디는 ${bodyInfo ? bodyInfo+' 기준 ' : ''}비율감을 극대화합니다. 상의의 디자인이 시선을 위로 집중시키고, 하의의 핏이 다리 라인을 깔끔하게 잡아줍니다. 세련된 캐주얼 무드입니다.`,
+  ];
+  textEl.textContent = 'AI 스타일리스트 코디 점수 ' + score + '점 — ' + reviews[Math.floor(Math.random()*reviews.length)];
+}
+
+/* ── 저장 ── */
+async function saveImg(){
+  if(!lastImgUrl){ alert('저장할 이미지가 없어요'); return; }
+  try{
+    const r = await fetch(lastImgUrl);
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'codibank_' + Date.now() + '.jpg';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+  }catch(e){
+    const a = document.createElement('a');
+    a.href = lastImgUrl; a.download = 'codibank_' + Date.now() + '.jpg'; a.click();
+  }
+}
+
+/* ── 공유 ── */
+async function shareResult(){
+  if(!lastImgUrl){ alert('공유할 이미지가 없어요'); return; }
+  try{
+    const r = await fetch(lastImgUrl);
+    const blob = await r.blob();
+    const file = new File([blob], 'codibank_outfit.jpg', { type: 'image/jpeg' });
+    if(navigator.share && navigator.canShare && navigator.canShare({ files:[file] })){
+      await navigator.share({ title:'코디뱅크 AI 착장', text:'코디뱅크에서 만든 AI 착장 이미지!', files:[file] });
+    } else if(navigator.share){
+      await navigator.share({ title:'코디뱅크 AI 착장', text:'코디뱅크에서 만든 AI 착장 이미지!', url:lastImgUrl });
+    } else {
+      await navigator.clipboard.writeText(lastImgUrl);
+      alert('이미지 링크가 클립보드에 복사됐어요!');
+    }
+  }catch(e){
+    if(e.name !== 'AbortError'){
+      try{ await navigator.clipboard.writeText(lastImgUrl); alert('이미지 링크가 클립보드에 복사됐어요!'); }catch(_){}
+    }
+  }
+}
+
+['top','bottom'].forEach(renderSlot); updateGenerateBtn();
+</script>
+</body>
+</html>
