@@ -226,6 +226,7 @@ var DICT = {
     '이용약관 준비 중입니다.':                  'Terms of Service coming soon.',
     '개인정보처리방침':                         'Privacy Policy',
     '개인정보처리방침 준비 중입니다.':           'Privacy Policy coming soon.',
+    '환불정책':                                 'Refund Policy',
     '플랜':                                   ' Plan',
   },
 
@@ -472,6 +473,9 @@ function detectPage() {
   if (path.includes('login'))     return 'login';
   if (path.includes('signup'))    return 'signup';
   if (path.includes('pricing'))   return 'pricing';
+  if (path.includes('refund'))    return 'refund';
+  if (path.includes('terms'))     return 'terms';
+  if (path.includes('privacy'))   return 'privacy';
   if (path === '/' || path.includes('index')) return 'index';
   return '';
 }

@@ -129,22 +129,45 @@
   -->
 
   <p class="menu-section">기타</p>
-  <div class="menu-item" onclick="alert(window.CodiBankI18n&&CodiBankI18n.isEn()?'Terms of Service coming soon.':'이용약관 준비 중입니다.')">
+  <div class="menu-item" onclick="location.href='terms.html'">
     <div class="menu-item-left">
       <span class="material-symbols-outlined" style="color:rgba(255,255,255,.4)">description</span>
       이용약관
     </div>
     <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
   </div>
-  <div class="menu-item" onclick="alert(window.CodiBankI18n&&CodiBankI18n.isEn()?'Privacy Policy coming soon.':'개인정보처리방침 준비 중입니다.')">
+  <div class="menu-item" onclick="location.href='privacy.html'">
     <div class="menu-item-left">
       <span class="material-symbols-outlined" style="color:rgba(255,255,255,.4)">privacy_tip</span>
       개인정보처리방침
     </div>
     <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
   </div>
+  <div class="menu-item" onclick="location.href='refund.html'">
+    <div class="menu-item-left">
+      <span class="material-symbols-outlined" style="color:rgba(255,255,255,.4)">receipt_long</span>
+      환불정책
+    </div>
+    <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
+  </div>
 
   <button class="btn-logout" onclick="doLogout()">로그아웃</button>
+
+  <!-- 회사 정보 -->
+  <div id="company-footer-ko" style="margin-top:28px;padding:20px 0;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(216,226,255,.25);line-height:1.8;text-align:center;">
+    주식회사 종로신사 | 대표이사 신용남<br/>
+    운영책임자 백태섭 | 02-743-1850<br/>
+    서울시 종로구 종로 223, 우교빌딩 4층<br/>
+    <a href="mailto:codibank.kr@gmail.com" style="color:rgba(76,219,206,.5);text-decoration:none;">codibank.kr@gmail.com</a><br/>
+    <span style="font-size:10px;color:rgba(216,226,255,.15);">&copy; 2026 CodiBank. All rights reserved.</span>
+  </div>
+  <div id="company-footer-en" style="display:none;margin-top:28px;padding:20px 0;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(216,226,255,.25);line-height:1.8;text-align:center;">
+    Jongro Shinsa Co., Ltd. | CEO: Yongnam Shin<br/>
+    Operations Manager: Taesub Baek | +82-2-743-1850<br/>
+    4F Ugyo Bldg, 223 Jongro, Jongro-gu, Seoul, Korea<br/>
+    <a href="mailto:codibank.kr@gmail.com" style="color:rgba(76,219,206,.5);text-decoration:none;">codibank.kr@gmail.com</a><br/>
+    <span style="font-size:10px;color:rgba(216,226,255,.15);">&copy; 2026 CodiBank. All rights reserved.</span>
+  </div>
 </main>
 
 <script src="codibank.js"></script>
@@ -178,11 +201,22 @@
   })();
 
   function doLogout() {
-    if (!confirm('로그아웃 하시겠습니까?')) return;
+    const en = window.CodiBankI18n && CodiBankI18n.isEn();
+    if (!confirm(en ? 'Log out?' : '로그아웃 하시겠습니까?')) return;
     try { window.CodiBank && window.CodiBank.logout && window.CodiBank.logout(); } catch(e) {}
     try { localStorage.removeItem('codibank_session'); } catch(e) {}
     location.replace('login.html');
   }
+
+  // 회사 정보 푸터 + i18n
+  setTimeout(() => {
+    const en = window.CodiBankI18n && CodiBankI18n.isEn();
+    const fko = document.getElementById('company-footer-ko');
+    const fen = document.getElementById('company-footer-en');
+    if(fko) fko.style.display = en ? 'none' : 'block';
+    if(fen) fen.style.display = en ? 'block' : 'none';
+  }, 300);
+
 </script>
 <!-- CodiBank 공통 풋바 -->
 <nav class="cb-nav">
