@@ -1,0 +1,20 @@
+services:
+  # ── 백엔드 (Python Flask) ──────────────────────────────
+  - type: web
+    name: codibank-api
+    runtime: python
+    region: singapore        # 한국에서 가장 가까운 Render 리전
+    plan: free
+    buildCommand: pip install -r server/requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 server.mock_backend:app
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false          # Render 대시보드에서 직접 입력 (코드에 노출 안 됨)
+      - key: ANTHROPIC_API_KEY
+        sync: false          # Render 대시보드에서 직접 입력
+      - key: CODIBANK_DATA_DIR
+        value: /tmp/codibank_data
+      - key: CODIBANK_UPLOAD_DIR
+        value: /tmp/codibank_data/uploads
+      - key: FLASK_ENV
+        value: production
