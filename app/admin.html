@@ -7,134 +7,48 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{min-height:100dvh;background:#f8f9fc;color:#1a1a2e;font-family:'Inter','Noto Sans KR',sans-serif;font-size:14px}
-.mi{font-family:'Material Symbols Outlined';font-variation-settings:'FILL' 0,'wght' 300}
-.gate{display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:20px}
-.gate-box{max-width:360px;width:100%;background:#fff;border:1px solid #e8eaf0;border-radius:20px;padding:36px 28px;text-align:center;box-shadow:0 4px 24px rgba(7,25,82,.06)}
-.gate-box h1{font-size:20px;font-weight:800;color:#071952;margin-bottom:6px}
-.gate-box p{font-size:12px;color:#888;margin-bottom:24px}
-.gate-input{width:100%;padding:12px 16px;border:1.5px solid #dde0e8;border-radius:12px;background:#f8f9fc;color:#1a1a2e;font-size:14px;font-family:inherit;outline:none;margin-bottom:12px}
-.gate-input:focus{border-color:#35A29F;box-shadow:0 0 0 3px rgba(53,162,159,.12)}
-.gate-btn{width:100%;padding:13px;border:none;border-radius:12px;background:#071952;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
-.gate-btn:hover{background:#0B2266}
-.gate-err{color:#e53e3e;font-size:12px;margin-top:8px;display:none}
-.page{max-width:900px;margin:0 auto;padding:20px 20px 60px;display:none}
-.top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid #e8eaf0}
-.top-bar h1{font-size:20px;font-weight:800;color:#071952}
-.top-bar .logout{font-size:12px;color:#888;cursor:pointer;padding:6px 14px;border-radius:8px;border:1px solid #dde0e8;background:#fff;font-family:inherit}
-.top-bar .logout:hover{border-color:#071952;color:#071952}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:28px}
-.card{background:#fff;border:1px solid #e8eaf0;border-radius:14px;padding:16px 18px;box-shadow:0 2px 8px rgba(7,25,82,.03)}
-.card-label{font-size:10px;font-weight:700;color:#999;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
-.card-val{font-size:26px;font-weight:800;color:#071952}
-.card-sub{font-size:11px;color:#aaa;margin-top:2px}
-.card.ok .card-val{color:#0B666A}
-.card.err .card-val{color:#e53e3e}
-.sec{margin-bottom:28px}
-.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.sec-title{font-size:14px;font-weight:700;color:#071952;display:flex;align-items:center;gap:6px}
-.sec-title .mi{font-size:18px;color:#35A29F;font-variation-settings:'FILL' 1}
-.tbl-wrap{overflow-x:auto;background:#fff;border:1px solid #e8eaf0;border-radius:12px;box-shadow:0 2px 8px rgba(7,25,82,.03)}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{background:#f8f9fc;padding:10px 14px;text-align:left;font-weight:600;color:#666;border-bottom:1px solid #e8eaf0;white-space:nowrap}
-td{padding:10px 14px;border-bottom:1px solid #f2f3f6;color:#333}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:#f8f9fc}
-.act-btn{padding:5px 12px;border:1px solid #dde0e8;border-radius:8px;background:#fff;color:#666;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap}
-.act-btn:hover{border-color:#071952;color:#071952}
-.act-btn.del:hover{border-color:#e53e3e;color:#e53e3e}
-.search-bar{display:flex;gap:8px;padding:14px;border-bottom:1px solid #e8eaf0}
-.search-bar input{flex:1;padding:8px 14px;border:1.5px solid #e8eaf0;border-radius:10px;background:#f8f9fc;color:#333;font-size:13px;font-family:inherit;outline:none}
-.search-bar input:focus{border-color:#35A29F}
-.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
-.link-card{display:flex;align-items:center;gap:10px;padding:14px 16px;background:#fff;border:1px solid #e8eaf0;border-radius:12px;text-decoration:none;color:#333;box-shadow:0 2px 8px rgba(7,25,82,.03)}
-.link-card:hover{border-color:#35A29F;box-shadow:0 4px 16px rgba(53,162,159,.1)}
-.link-card .mi{font-size:22px;color:#071952;font-variation-settings:'FILL' 1}
-.link-card span{font-size:12px;font-weight:600}
-.badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:9999px}
-.badge-ok{background:#e6f7f1;color:#0B666A}
-.badge-err{background:#fde8e8;color:#e53e3e}
-.badge-warn{background:#fff8e6;color:#c17b00}
-.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-80px);z-index:9999;background:#071952;border-radius:12px;padding:10px 22px;font-size:13px;font-weight:600;color:#fff;opacity:0;transition:all .35s;pointer-events:none;box-shadow:0 8px 24px rgba(7,25,82,.2)}
-.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
-.toast.err{background:#e53e3e}
-.loading{text-align:center;padding:28px;color:#aaa;font-size:12px}
-@keyframes spin{to{transform:rotate(360deg)}}
-.spin{display:inline-block;width:14px;height:14px;border:2px solid #dde0e8;border-top-color:#35A29F;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
-.refresh-btn{padding:5px 14px;border:1px solid #dde0e8;border-radius:8px;background:#fff;color:#888;font-size:11px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px}
-.refresh-btn:hover{border-color:#071952;color:#071952}
-.refresh-btn .mi{font-size:14px}
-.empty{text-align:center;padding:28px 20px;color:#aaa}
-.empty a{color:#35A29F;font-weight:600}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{min-height:100dvh;background:#f8f9fc;color:#1a1a2e;font-family:'Inter','Noto Sans KR',sans-serif;font-size:14px}.mi{font-family:'Material Symbols Outlined';font-variation-settings:'FILL' 0,'wght' 300}.gate{display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:20px}.gate-box{max-width:360px;width:100%;background:#fff;border:1px solid #e8eaf0;border-radius:20px;padding:36px 28px;text-align:center;box-shadow:0 4px 24px rgba(7,25,82,.06)}.gate-box h1{font-size:20px;font-weight:800;color:#071952;margin-bottom:6px}.gate-box p{font-size:12px;color:#888;margin-bottom:24px}.gate-input{width:100%;padding:12px 16px;border:1.5px solid #dde0e8;border-radius:12px;background:#f8f9fc;color:#1a1a2e;font-size:14px;font-family:inherit;outline:none;margin-bottom:12px}.gate-input:focus{border-color:#35A29F}.gate-btn{width:100%;padding:13px;border:none;border-radius:12px;background:#071952;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}.gate-err{color:#e53e3e;font-size:12px;margin-top:8px;display:none}.page{max-width:960px;margin:0 auto;padding:20px 20px 60px;display:none}.top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid #e8eaf0}.top-bar h1{font-size:20px;font-weight:800;color:#071952}.top-bar .logout{font-size:12px;color:#888;cursor:pointer;padding:6px 14px;border-radius:8px;border:1px solid #dde0e8;background:#fff;font-family:inherit}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px}.card{background:#fff;border:1px solid #e8eaf0;border-radius:14px;padding:14px 16px}.card-label{font-size:9px;font-weight:700;color:#999;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}.card-val{font-size:22px;font-weight:800;color:#071952}.card-sub{font-size:10px;color:#aaa;margin-top:2px}.card.ok .card-val{color:#0B666A}.card.err .card-val{color:#e53e3e}.tabs{display:flex;gap:2px;margin-bottom:20px;border-bottom:2px solid #e8eaf0;overflow-x:auto}.tab{padding:10px 16px;font-size:12px;font-weight:600;color:#888;cursor:pointer;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;background:none;font-family:inherit;white-space:nowrap}.tab.on{color:#071952;border-bottom-color:#35A29F}.tab-panel{display:none}.tab-panel.on{display:block}.sec{margin-bottom:24px}.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.sec-title{font-size:13px;font-weight:700;color:#071952;display:flex;align-items:center;gap:6px}.sec-title .mi{font-size:16px;color:#35A29F;font-variation-settings:'FILL' 1}.tbl-wrap{overflow-x:auto;background:#fff;border:1px solid #e8eaf0;border-radius:12px}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#f8f9fc;padding:9px 12px;text-align:left;font-weight:600;color:#666;border-bottom:1px solid #e8eaf0;white-space:nowrap}td{padding:9px 12px;border-bottom:1px solid #f2f3f6;color:#333}tr:last-child td{border-bottom:none}tr:hover td{background:#f8f9fc}.act-btn{padding:4px 10px;border:1px solid #dde0e8;border-radius:8px;background:#fff;color:#666;font-size:11px;cursor:pointer;font-family:inherit}.act-btn.del:hover{border-color:#e53e3e;color:#e53e3e}.search-bar{display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid #e8eaf0}.search-bar input,.search-bar select{padding:7px 10px;border:1.5px solid #e8eaf0;border-radius:8px;background:#f8f9fc;color:#333;font-size:12px;font-family:inherit;outline:none}.search-bar input{flex:1}.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}.link-card{display:flex;align-items:center;gap:8px;padding:12px 14px;background:#fff;border:1px solid #e8eaf0;border-radius:12px;text-decoration:none;color:#333}.link-card:hover{border-color:#35A29F}.link-card .mi{font-size:20px;color:#071952;font-variation-settings:'FILL' 1}.link-card span{font-size:11px;font-weight:600}.badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:9999px}.badge-ok{background:#e6f7f1;color:#0B666A}.badge-err{background:#fde8e8;color:#e53e3e}.badge-warn{background:#fff8e6;color:#c17b00}.badge-blue{background:#e6f0fb;color:#1a5fb4}.badge-purple{background:#f0e6fb;color:#6a1fb4}.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-80px);z-index:9999;background:#071952;border-radius:12px;padding:10px 22px;font-size:13px;font-weight:600;color:#fff;opacity:0;transition:all .35s;pointer-events:none}.toast.show{transform:translateX(-50%) translateY(0);opacity:1}.toast.err{background:#e53e3e}.loading{text-align:center;padding:24px;color:#aaa;font-size:12px}@keyframes spin{to{transform:rotate(360deg)}}.spin{display:inline-block;width:14px;height:14px;border:2px solid #dde0e8;border-top-color:#35A29F;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}.refresh-btn{padding:4px 12px;border:1px solid #dde0e8;border-radius:8px;background:#fff;color:#888;font-size:11px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px}.refresh-btn:hover{color:#071952}.refresh-btn .mi{font-size:14px}.empty{text-align:center;padding:20px;color:#aaa;font-size:12px}.empty a{color:#35A29F;font-weight:600}.stat-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.stat-chip{background:#fff;border:1px solid #e8eaf0;border-radius:8px;padding:6px 12px;font-size:11px;display:flex;align-items:center;gap:4px}.stat-chip b{color:#071952;font-size:14px}
 </style>
 </head>
 <body>
-<div class="gate" id="gate">
-  <div class="gate-box">
-    <h1>CodiBank Admin</h1>
-    <p>관리자 비밀번호를 입력하세요</p>
-    <input type="password" class="gate-input" id="pwInput" placeholder="비밀번호" onkeydown="if(event.key==='Enter')tryLogin()">
-    <button class="gate-btn" onclick="tryLogin()">로그인</button>
-    <div class="gate-err" id="gateErr">비밀번호가 올바르지 않습니다</div>
-  </div>
-</div>
+<div class="gate" id="gate"><div class="gate-box"><h1>CodiBank Admin</h1><p>관리자 비밀번호를 입력하세요</p><input type="password" class="gate-input" id="pwInput" placeholder="비밀번호" onkeydown="if(event.key==='Enter')tryLogin()"><button class="gate-btn" onclick="tryLogin()">로그인</button><div class="gate-err" id="gateErr">비밀번호가 올바르지 않습니다</div></div></div>
 <div class="page" id="main">
-  <div class="top-bar">
-    <h1>CodiBank Admin</h1>
-    <button class="logout" onclick="doLogout()">로그아웃</button>
-  </div>
-  <div class="cards">
-    <div class="card" id="cardServer"><div class="card-label">서버 상태</div><div class="card-val">—</div><div class="card-sub">확인 중...</div></div>
-    <div class="card" id="cardUsers"><div class="card-label">전체 유저</div><div class="card-val">—</div><div class="card-sub">Supabase Auth</div></div>
-    <div class="card" id="cardModel"><div class="card-label">AI 모델</div><div class="card-val" style="font-size:14px">—</div><div class="card-sub">Gemini</div></div>
-    <div class="card" id="cardApi"><div class="card-label">API 키</div><div class="card-val">—</div><div class="card-sub">Gemini Key</div></div>
-  </div>
-  <div class="sec">
-    <div class="sec-head"><div class="sec-title"><span class="mi">group</span> 유저 관리</div><button class="refresh-btn" onclick="loadUsers()"><span class="mi">refresh</span>새로고침</button></div>
-    <div class="tbl-wrap">
-      <div class="search-bar"><input type="text" id="userSearch" placeholder="이메일 검색..." oninput="filterUsers()"></div>
-      <table><thead><tr><th>이메일</th><th>가입일</th><th>최근 로그인</th><th>상태</th><th>관리</th></tr></thead>
-      <tbody id="userTbody"><tr><td colspan="5" class="loading"><span class="spin"></span> 로딩 중...</td></tr></tbody></table>
-    </div>
-  </div>
-  <div class="sec">
-    <div class="sec-head"><div class="sec-title"><span class="mi">dns</span> 서버 환경 정보</div><button class="refresh-btn" onclick="loadHealth()"><span class="mi">refresh</span>새로고침</button></div>
-    <div class="tbl-wrap"><table><thead><tr><th>항목</th><th>값</th><th>상태</th></tr></thead>
-    <tbody id="envTbody"><tr><td colspan="3" class="loading"><span class="spin"></span> 로딩 중...</td></tr></tbody></table></div>
-  </div>
-  <div class="sec">
-    <div class="sec-head"><div class="sec-title"><span class="mi">link</span> 관리 대시보드 바로가기</div></div>
-    <div class="links">
-      <a class="link-card" href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/auth/users" target="_blank"><span class="mi">shield_person</span><span>Supabase Users</span></a>
-      <a class="link-card" href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/editor" target="_blank"><span class="mi">table_chart</span><span>Supabase DB</span></a>
-      <a class="link-card" href="https://dashboard.render.com" target="_blank"><span class="mi">cloud</span><span>Render 서버</span></a>
-      <a class="link-card" href="https://dash.cloudflare.com" target="_blank"><span class="mi">cloud_upload</span><span>Cloudflare R2</span></a>
-      <a class="link-card" href="https://vercel.com/dashboard" target="_blank"><span class="mi">rocket_launch</span><span>Vercel 배포</span></a>
-      <a class="link-card" href="https://codibank-api.onrender.com/health" target="_blank"><span class="mi">monitor_heart</span><span>서버 Health</span></a>
-    </div>
-  </div>
+<div class="top-bar"><h1>CodiBank Admin</h1><button class="logout" onclick="doLogout()">로그아웃</button></div>
+<div class="cards"><div class="card" id="cServer"><div class="card-label">서버</div><div class="card-val">—</div><div class="card-sub">확인 중</div></div><div class="card" id="cUsers"><div class="card-label">유저</div><div class="card-val">—</div><div class="card-sub">Supabase</div></div><div class="card" id="cPay"><div class="card-label">결제</div><div class="card-val">0</div><div class="card-sub">총 건수</div></div><div class="card" id="cRev"><div class="card-label">매출</div><div class="card-val">₩0</div><div class="card-sub">총 매출</div></div><div class="card" id="cStyle"><div class="card-label">스타일링</div><div class="card-val">0</div><div class="card-sub">총 이용</div></div><div class="card" id="cItem"><div class="card-label">아이템</div><div class="card-val">0</div><div class="card-sub">등록 수</div></div></div>
+<div class="tabs"><button class="tab on" onclick="stab(this,'users')">유저 관리</button><button class="tab" onclick="stab(this,'pay')">결제 내역</button><button class="tab" onclick="stab(this,'style')">스타일링</button><button class="tab" onclick="stab(this,'items')">아이템</button><button class="tab" onclick="stab(this,'settings')">설정</button></div>
+<div class="tab-panel on" id="p-users"><div class="sec"><div class="sec-head"><div class="sec-title"><span class="mi">group</span> 유저 관리</div><button class="refresh-btn" onclick="ldU()"><span class="mi">refresh</span>새로고침</button></div><div class="tbl-wrap"><div class="search-bar"><input type="text" id="qU" placeholder="이메일 검색..." oninput="fU()"></div><table><thead><tr><th>이메일</th><th>가입일</th><th>최근로그인</th><th>상태</th><th>관리</th></tr></thead><tbody id="tU"></tbody></table></div></div></div>
+<div class="tab-panel" id="p-pay"><div class="sec"><div class="sec-head"><div class="sec-title"><span class="mi">payments</span> 결제 내역</div><button class="refresh-btn" onclick="ldP()"><span class="mi">refresh</span>새로고침</button></div><div class="tbl-wrap"><div class="search-bar"><input type="text" id="qP" placeholder="이메일 검색..." oninput="fP()"></div><table><thead><tr><th>이메일</th><th>요금제</th><th>금액</th><th>포인트</th><th>상태</th><th>결제일</th></tr></thead><tbody id="tP"></tbody></table></div></div></div>
+<div class="tab-panel" id="p-style"><div class="sec"><div class="sec-head"><div class="sec-title"><span class="mi">auto_awesome</span> 스타일링 이용</div><button class="refresh-btn" onclick="ldS()"><span class="mi">refresh</span>새로고침</button></div><div id="sStats" class="stat-row"></div><div class="tbl-wrap"><div class="search-bar"><input type="text" id="qS" placeholder="이메일 검색..." oninput="fS()"></div><table><thead><tr><th>이메일</th><th>유형</th><th>포인트</th><th>일시</th></tr></thead><tbody id="tS"></tbody></table></div></div></div>
+<div class="tab-panel" id="p-items"><div class="sec"><div class="sec-head"><div class="sec-title"><span class="mi">checkroom</span> 등록 아이템</div><button class="refresh-btn" onclick="ldI()"><span class="mi">refresh</span>새로고침</button></div><div id="iStats" class="stat-row"></div><div class="tbl-wrap"><div class="search-bar"><input type="text" id="qI" placeholder="이메일 검색..." oninput="fI()"><select id="qIC" onchange="fI()"><option value="">전체</option><option value="top">상의</option><option value="bottom">하의</option><option value="outer">아우터</option><option value="shoes">신발</option><option value="bag">가방</option><option value="acc">악세서리</option></select></div><table><thead><tr><th>이메일</th><th>카테고리</th><th>이미지</th><th>이름</th><th>등록일</th></tr></thead><tbody id="tI"></tbody></table></div></div></div>
+<div class="tab-panel" id="p-settings"><div class="sec"><div class="sec-head"><div class="sec-title"><span class="mi">dns</span> 서버 환경 정보</div><button class="refresh-btn" onclick="ldH()"><span class="mi">refresh</span>새로고침</button></div><div class="tbl-wrap"><table><thead><tr><th>항목</th><th>값</th><th>상태</th></tr></thead><tbody id="tE"></tbody></table></div></div><div class="sec"><div class="sec-head"><div class="sec-title"><span class="mi">link</span> 바로가기</div></div><div class="links"><a class="link-card" href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/auth/users" target="_blank"><span class="mi">shield_person</span><span>Supabase Users</span></a><a class="link-card" href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/editor" target="_blank"><span class="mi">table_chart</span><span>Supabase DB</span></a><a class="link-card" href="https://dashboard.render.com" target="_blank"><span class="mi">cloud</span><span>Render</span></a><a class="link-card" href="https://dash.cloudflare.com" target="_blank"><span class="mi">cloud_upload</span><span>R2</span></a><a class="link-card" href="https://vercel.com/dashboard" target="_blank"><span class="mi">rocket_launch</span><span>Vercel</span></a><a class="link-card" href="https://codibank-api.onrender.com/health" target="_blank"><span class="mi">monitor_heart</span><span>Health</span></a></div></div></div>
 </div>
 <div class="toast" id="toast"></div>
 <script src="config.js"></script>
 <script>
-var ADMIN_PW_HASH='5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8';
-var BACKEND=(function(){try{var c=window.CODIBANK_CONFIG||{};return(c.backendBase||'https://codibank-api.onrender.com').replace(/\/$/,'')}catch(e){return'https://codibank-api.onrender.com'}})();
-var allUsers=[];
-function getKey(){return sessionStorage.getItem('cb_admin')||''}
-async function sha256(m){var b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(m));return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,'0')}).join('')}
-async function tryLogin(){var h=await sha256(document.getElementById('pwInput').value);if(h===ADMIN_PW_HASH){sessionStorage.setItem('cb_admin',h);showMain()}else{document.getElementById('gateErr').style.display='block';document.getElementById('pwInput').value=''}}
-function checkAuth(){if(sessionStorage.getItem('cb_admin')===ADMIN_PW_HASH)showMain()}
-function showMain(){document.getElementById('gate').style.display='none';document.getElementById('main').style.display='block';loadHealth();loadUsers()}
+var H='5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',B=(function(){try{return(window.CODIBANK_CONFIG.backendBase||'https://codibank-api.onrender.com').replace(/\/$/,'')}catch(e){return'https://codibank-api.onrender.com'}})(),aU=[],aP=[],aS=[],aI=[];
+function K(){return sessionStorage.getItem('cb_admin')||''}function fd(s){return s?new Date(s).toLocaleDateString('ko'):'—'}function fm(n){return'\u20A9'+Number(n||0).toLocaleString()}function cd(id,v,s,ok){var e=document.getElementById(id);if(!e)return;e.querySelector('.card-val').textContent=v;e.querySelector('.card-sub').textContent=s;e.className='card '+(ok===true?'ok':ok===false?'err':'')}
+async function sha256(m){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(m)))).map(function(x){return x.toString(16).padStart(2,'0')}).join('')}
+async function tryLogin(){var h=await sha256(document.getElementById('pwInput').value);if(h===H){sessionStorage.setItem('cb_admin',h);showMain()}else{document.getElementById('gateErr').style.display='block';document.getElementById('pwInput').value=''}}
+function checkAuth(){if(sessionStorage.getItem('cb_admin')===H)showMain()}
+function showMain(){document.getElementById('gate').style.display='none';document.getElementById('main').style.display='block';ldH();ldU();ldP();ldS();ldI();ldD()}
 function doLogout(){sessionStorage.removeItem('cb_admin');location.reload()}
-function card(id,val,sub,ok){var el=document.getElementById(id);el.querySelector('.card-val').textContent=val;el.querySelector('.card-sub').textContent=sub;el.className='card '+(ok===true?'ok':ok===false?'err':'')}
-async function loadHealth(){try{var r=await fetch(BACKEND+'/health');var j=await r.json();card('cardServer',j.ok?'ONLINE':'ERROR',new Date().toLocaleTimeString(),j.ok);card('cardModel',(j.codistyle_model||j.model||'—').replace('gemini-',''),'Gemini',true);var k=j.gemini_key_present||j.api_key_present||false;card('cardApi',k?'OK':'MISSING',k?'키 확인됨':'키 없음!',k);renderEnv(j)}catch(e){card('cardServer','OFFLINE',e.message||'연결 실패',false);card('cardModel','—','확인 불가',null);card('cardApi','—','확인 불가',null);document.getElementById('envTbody').innerHTML='<tr><td colspan="3" style="color:#e53e3e;padding:16px">서버 연결 실패</td></tr>'}}
-function renderEnv(j){var html='';var keys=Object.keys(j);for(var i=0;i<keys.length;i++){var k=keys[i];var v=j[k];var val=typeof v==='boolean'?(v?'Yes':'No'):(typeof v==='object'?JSON.stringify(v):String(v));var badge=typeof v==='boolean'?(v?'<span class="badge badge-ok">정상</span>':'<span class="badge badge-err">확인필요</span>'):'<span class="badge badge-warn">—</span>';html+='<tr><td style="font-weight:600;color:#071952">'+k+'</td><td>'+val+'</td><td>'+badge+'</td></tr>'}document.getElementById('envTbody').innerHTML=html}
-async function loadUsers(){document.getElementById('userTbody').innerHTML='<tr><td colspan="5" class="loading"><span class="spin"></span> 로딩 중...</td></tr>';try{var r=await fetch(BACKEND+'/admin/users?key='+getKey());if(!r.ok){var err=await r.json().catch(function(){return{}});throw new Error(err.error||'HTTP '+r.status)}var j=await r.json();allUsers=j.users||[];card('cardUsers',allUsers.length,'Supabase Auth',null);renderUsers(allUsers)}catch(e){document.getElementById('userTbody').innerHTML='<tr><td colspan="5" class="empty"><p>유저 목록을 불러올 수 없습니다</p><p style="font-size:11px;color:#bbb;margin-top:8px">오류: '+e.message+'<br>Supabase에서 직접 관리: <a href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/auth/users" target="_blank">바로가기</a></p></td></tr>'}}
-function renderUsers(users){if(!users.length){document.getElementById('userTbody').innerHTML='<tr><td colspan="5" class="empty"><p>등록된 유저가 없습니다</p></td></tr>';return}var html='';for(var i=0;i<users.length;i++){var u=users[i];var e=u.email||'—';var c=u.created_at?new Date(u.created_at).toLocaleDateString('ko'):'—';var l=u.last_sign_in_at?new Date(u.last_sign_in_at).toLocaleDateString('ko'):'—';var b=u.email_confirmed_at?'<span class="badge badge-ok">인증됨</span>':'<span class="badge badge-warn">미인증</span>';html+='<tr><td style="font-weight:600;color:#071952">'+e+'</td><td>'+c+'</td><td>'+l+'</td><td>'+b+'</td><td><button class="act-btn del" onclick="deleteUser(\''+u.id+'\',\''+e+'\')">삭제</button></td></tr>'}document.getElementById('userTbody').innerHTML=html}
-function filterUsers(){var q=document.getElementById('userSearch').value.toLowerCase().trim();if(!q)return renderUsers(allUsers);var filtered=[];for(var i=0;i<allUsers.length;i++){if((allUsers[i].email||'').toLowerCase().indexOf(q)>=0)filtered.push(allUsers[i])}renderUsers(filtered)}
-async function deleteUser(uid,email){if(!confirm('정말 "'+email+'" 유저를 삭제하시겠습니까?'))return;try{var r=await fetch(BACKEND+'/admin/users/'+uid+'?key='+getKey(),{method:'DELETE'});if(!r.ok)throw new Error('HTTP '+r.status);showToast(email+' 삭제 완료');loadUsers()}catch(e){showToast('삭제 실패: '+e.message,true)}}
-function showToast(msg,err){var el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(err?' err':'');setTimeout(function(){el.className='toast'},3500)}
+function stab(el,n){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on')});document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('on')});el.classList.add('on');var p=document.getElementById('p-'+n);if(p)p.classList.add('on')}
+function toast(m,err){var e=document.getElementById('toast');e.textContent=m;e.className='toast show'+(err?' err':'');setTimeout(function(){e.className='toast'},3500)}
+async function ldH(){try{var r=await fetch(B+'/health');var j=await r.json();cd('cServer',j.ok?'ONLINE':'ERROR',new Date().toLocaleTimeString(),j.ok);var h='',ks=Object.keys(j);for(var i=0;i<ks.length;i++){var k=ks[i],v=j[k],val=typeof v==='boolean'?(v?'Yes':'No'):(typeof v==='object'?JSON.stringify(v):String(v)),bg=typeof v==='boolean'?(v?'<span class="badge badge-ok">정상</span>':'<span class="badge badge-err">확인</span>'):'<span class="badge badge-warn">—</span>';h+='<tr><td style="font-weight:600;color:#071952">'+k+'</td><td>'+val+'</td><td>'+bg+'</td></tr>'}document.getElementById('tE').innerHTML=h}catch(e){cd('cServer','OFFLINE','연결 실패',false)}}
+async function ldD(){try{var r=await fetch(B+'/admin/dashboard?key='+K());if(!r.ok)return;var j=await r.json();cd('cPay',j.total_payments||0,'총 건수',null);cd('cRev',fm(j.total_revenue),'총 매출',null);cd('cStyle',j.total_stylings||0,'총 이용',null);cd('cItem',j.total_items||0,'등록 수',null)}catch(e){}}
+async function ldU(){document.getElementById('tU').innerHTML='<tr><td colspan="5" class="loading"><span class="spin"></span></td></tr>';try{var r=await fetch(B+'/admin/users?key='+K());if(!r.ok)throw 0;var j=await r.json();aU=j.users||[];cd('cUsers',aU.length,'Supabase',null);rU(aU)}catch(e){document.getElementById('tU').innerHTML='<tr><td colspan="5" class="empty">유저를 불러올 수 없습니다 <a href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/auth/users" target="_blank">Supabase</a></td></tr>'}}
+function rU(l){if(!l.length){document.getElementById('tU').innerHTML='<tr><td colspan="5" class="empty">유저 없음</td></tr>';return}var h='';for(var i=0;i<l.length;i++){var u=l[i];h+='<tr><td style="font-weight:600;color:#071952">'+(u.email||'')+'</td><td>'+fd(u.created_at)+'</td><td>'+fd(u.last_sign_in_at)+'</td><td>'+(u.email_confirmed_at?'<span class="badge badge-ok">인증</span>':'<span class="badge badge-warn">미인증</span>')+'</td><td><button class="act-btn del" onclick="delU(\''+u.id+'\',\''+(u.email||'')+'\')">삭제</button></td></tr>'}document.getElementById('tU').innerHTML=h}
+function fU(){var q=document.getElementById('qU').value.toLowerCase();rU(q?aU.filter(function(u){return(u.email||'').toLowerCase().indexOf(q)>=0}):aU)}
+async function delU(id,em){if(!confirm('"'+em+'" 삭제?'))return;try{var r=await fetch(B+'/admin/users/'+id+'?key='+K(),{method:'DELETE'});if(!r.ok)throw 0;toast(em+' 삭제');ldU()}catch(e){toast('삭제 실패',true)}}
+async function ldP(){document.getElementById('tP').innerHTML='<tr><td colspan="6" class="loading"><span class="spin"></span></td></tr>';try{var r=await fetch(B+'/admin/payments?key='+K());if(!r.ok)throw 0;var j=await r.json();aP=j.payments||[];rP(aP)}catch(e){document.getElementById('tP').innerHTML='<tr><td colspan="6" class="empty">결제 데이터 없음<br><small style="color:#bbb">결제 시 자동 기록</small></td></tr>'}}
+function rP(l){if(!l.length){document.getElementById('tP').innerHTML='<tr><td colspan="6" class="empty">결제 내역 없음</td></tr>';return}var h='';for(var i=0;i<l.length;i++){var p=l[i];h+='<tr><td style="font-weight:600;color:#071952">'+p.email+'</td><td>'+p.plan_name+'</td><td>'+fm(p.amount)+'</td><td>'+Number(p.points_granted||0).toLocaleString()+'P</td><td>'+(p.status==='completed'?'<span class="badge badge-ok">완료</span>':'<span class="badge badge-err">'+p.status+'</span>')+'</td><td>'+fd(p.created_at)+'</td></tr>'}document.getElementById('tP').innerHTML=h}
+function fP(){var q=document.getElementById('qP').value.toLowerCase();rP(q?aP.filter(function(p){return(p.email||'').toLowerCase().indexOf(q)>=0}):aP)}
+async function ldS(){document.getElementById('tS').innerHTML='<tr><td colspan="4" class="loading"><span class="spin"></span></td></tr>';try{var r=await fetch(B+'/admin/styling-logs?key='+K());if(!r.ok)throw 0;var j=await r.json();aS=j.logs||[];var bu=j.by_user||{},sh='',ek=Object.keys(bu);for(var i=0;i<ek.length;i++)sh+='<div class="stat-chip"><span>'+ek[i]+'</span><b>'+bu[ek[i]]+'회</b></div>';document.getElementById('sStats').innerHTML=sh||'<div class="stat-chip">이용 데이터 없음</div>';rS(aS)}catch(e){document.getElementById('tS').innerHTML='<tr><td colspan="4" class="empty">스타일링 데이터 없음</td></tr>';document.getElementById('sStats').innerHTML=''}}
+function rS(l){if(!l.length){document.getElementById('tS').innerHTML='<tr><td colspan="4" class="empty">이용 내역 없음</td></tr>';return}var h='';for(var i=0;i<l.length;i++){var s=l[i];h+='<tr><td style="font-weight:600;color:#071952">'+s.email+'</td><td>'+(s.type==='codistyle'?'<span class="badge badge-blue">코디하기</span>':'<span class="badge badge-purple">내옷장</span>')+'</td><td>'+s.points_used+'P</td><td>'+fd(s.created_at)+'</td></tr>'}document.getElementById('tS').innerHTML=h}
+function fS(){var q=document.getElementById('qS').value.toLowerCase();rS(q?aS.filter(function(s){return(s.email||'').toLowerCase().indexOf(q)>=0}):aS)}
+async function ldI(){document.getElementById('tI').innerHTML='<tr><td colspan="5" class="loading"><span class="spin"></span></td></tr>';try{var r=await fetch(B+'/admin/items?key='+K());if(!r.ok)throw 0;var j=await r.json();aI=j.items||[];var bc=j.by_category||{},cn={top:'상의',bottom:'하의',outer:'아우터',shoes:'신발',bag:'가방',acc:'악세서리'},sh='',ck=Object.keys(bc);for(var i=0;i<ck.length;i++)sh+='<div class="stat-chip"><span>'+(cn[ck[i]]||ck[i])+'</span><b>'+bc[ck[i]]+'개</b></div>';document.getElementById('iStats').innerHTML=sh||'<div class="stat-chip">아이템 없음</div>';rI(aI)}catch(e){document.getElementById('tI').innerHTML='<tr><td colspan="5" class="empty">아이템 데이터 없음</td></tr>';document.getElementById('iStats').innerHTML=''}}
+function rI(l){if(!l.length){document.getElementById('tI').innerHTML='<tr><td colspan="5" class="empty">아이템 없음</td></tr>';return}var cn={top:'상의',bottom:'하의',outer:'아우터',shoes:'신발',bag:'가방',acc:'악세서리'},h='';for(var i=0;i<l.length;i++){var it=l[i],img=it.image_url?'<img src="'+it.image_url+'" style="width:32px;height:32px;border-radius:6px;object-fit:cover">':'—';h+='<tr><td style="font-weight:600;color:#071952">'+it.email+'</td><td><span class="badge badge-blue">'+(cn[it.category]||it.category)+'</span></td><td>'+img+'</td><td>'+(it.item_name||'—')+'</td><td>'+fd(it.created_at)+'</td></tr>'}document.getElementById('tI').innerHTML=h}
+function fI(){var q=document.getElementById('qI').value.toLowerCase(),c=document.getElementById('qIC').value,f=aI;if(q)f=f.filter(function(it){return(it.email||'').toLowerCase().indexOf(q)>=0});if(c)f=f.filter(function(it){return it.category===c});rI(f)}
 checkAuth();
 </script>
 </body>
