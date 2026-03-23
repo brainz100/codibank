@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>CodiBank Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100dvh;background:#071952;color:#e0e4ff;font-family:'Inter','Noto Sans KR',sans-serif;font-size:14px}
+.mi{font-family:'Material Symbols Outlined';font-variation-settings:'FILL' 0,'wght' 300}
+
+/* Auth Gate */
+.gate{display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:20px}
+.gate-box{max-width:360px;width:100%;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:32px 28px;text-align:center}
+.gate-box h1{font-size:20px;font-weight:800;margin-bottom:6px}
+.gate-box p{font-size:12px;color:rgba(216,226,255,.35);margin-bottom:24px}
+.gate-input{width:100%;padding:12px 16px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.04);color:#e0e4ff;font-size:14px;font-family:inherit;outline:none;margin-bottom:12px}
+.gate-input:focus{border-color:#35A29F}
+.gate-btn{width:100%;padding:12px;border:none;border-radius:12px;background:linear-gradient(135deg,#35A29F,#0B666A);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+.gate-err{color:#ff6b6b;font-size:12px;margin-top:8px;display:none}
+
+/* Layout */
+.page{max-width:800px;margin:0 auto;padding:16px 16px 40px;display:none}
+.top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.top-bar h1{font-size:18px;font-weight:800}
+.top-bar .logout{font-size:12px;color:rgba(216,226,255,.4);cursor:pointer;padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:none}
+
+/* Cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:20px}
+.card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px 16px}
+.card-label{font-size:10px;font-weight:700;color:rgba(216,226,255,.35);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.card-val{font-size:24px;font-weight:800;color:#97FEED}
+.card-sub{font-size:11px;color:rgba(216,226,255,.3);margin-top:2px}
+.card.ok .card-val{color:#69db7c}
+.card.err .card-val{color:#ff6b6b}
+
+/* Section */
+.sec{margin-bottom:24px}
+.sec-title{font-size:13px;font-weight:700;color:rgba(216,226,255,.4);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.sec-title .mi{font-size:16px;font-variation-settings:'FILL' 1}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:rgba(255,255,255,.04);padding:8px 10px;text-align:left;font-weight:600;color:rgba(216,226,255,.5);border-bottom:1px solid rgba(255,255,255,.08);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04);color:rgba(216,226,255,.7)}
+tr:hover td{background:rgba(255,255,255,.02)}
+.act-btn{padding:4px 10px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:none;color:rgba(216,226,255,.5);font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.act-btn:hover{border-color:#35A29F;color:#97FEED}
+.act-btn.del:hover{border-color:#ff6b6b;color:#ff6b6b}
+
+/* Search */
+.search-bar{display:flex;gap:8px;margin-bottom:12px}
+.search-bar input{flex:1;padding:8px 14px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.03);color:#e0e4ff;font-size:13px;font-family:inherit;outline:none}
+.search-bar input:focus{border-color:#35A29F}
+.search-bar button{padding:8px 16px;border:none;border-radius:10px;background:#35A29F;color:#071952;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap}
+
+/* Quick Links */
+.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.link-card{display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;text-decoration:none;color:#e0e4ff;transition:all .15s}
+.link-card:hover{border-color:#35A29F;background:rgba(53,162,159,.06)}
+.link-card .mi{font-size:20px;color:#97FEED;font-variation-settings:'FILL' 1}
+.link-card span{font-size:12px;font-weight:600}
+
+/* Toast */
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-80px);z-index:9999;background:rgba(7,25,82,.95);backdrop-filter:blur(16px);border:1px solid rgba(53,162,159,.3);border-radius:12px;padding:10px 20px;font-size:13px;font-weight:600;color:#97FEED;opacity:0;transition:all .35s;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.err{border-color:rgba(255,107,107,.3);color:#ff6b6b}
+
+/* Loading */
+.loading{text-align:center;padding:32px;color:rgba(216,226,255,.3);font-size:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(151,254,237,.2);border-top-color:#97FEED;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+
+/* Refresh btn */
+.refresh-btn{padding:4px 12px;border:1px solid rgba(255,255,255,.08);border-radius:8px;background:none;color:rgba(216,226,255,.4);font-size:11px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px}
+.refresh-btn:hover{border-color:#35A29F;color:#97FEED}
+.refresh-btn .mi{font-size:14px}
+</style>
+</head>
+<body>
+
+<!-- Auth Gate -->
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <h1>CodiBank Admin</h1>
+    <p>관리자 비밀번호를 입력하세요</p>
+    <input type="password" class="gate-input" id="pwInput" placeholder="비밀번호" onkeydown="if(event.key==='Enter')tryLogin()">
+    <button class="gate-btn" onclick="tryLogin()">로그인</button>
+    <div class="gate-err" id="gateErr">비밀번호가 올바르지 않습니다</div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="page" id="main">
+  <div class="top-bar">
+    <h1>CodiBank Admin</h1>
+    <button class="logout" onclick="doLogout()">로그아웃</button>
+  </div>
+
+  <!-- 대시보드 카드 -->
+  <div class="cards" id="dashCards">
+    <div class="card" id="cardServer">
+      <div class="card-label">서버 상태</div>
+      <div class="card-val">—</div>
+      <div class="card-sub">확인 중...</div>
+    </div>
+    <div class="card" id="cardUsers">
+      <div class="card-label">전체 유저</div>
+      <div class="card-val">—</div>
+      <div class="card-sub">Supabase Auth</div>
+    </div>
+    <div class="card" id="cardModel">
+      <div class="card-label">AI 모델</div>
+      <div class="card-val" style="font-size:14px">—</div>
+      <div class="card-sub">Gemini</div>
+    </div>
+    <div class="card" id="cardApi">
+      <div class="card-label">API 키</div>
+      <div class="card-val">—</div>
+      <div class="card-sub">Gemini Key</div>
+    </div>
+  </div>
+
+  <!-- 유저 관리 -->
+  <div class="sec" id="secUsers">
+    <div class="sec-title" style="justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:6px"><span class="mi" style="color:#97FEED">group</span> 유저 관리</div>
+      <button class="refresh-btn" onclick="loadUsers()"><span class="mi">refresh</span>새로고침</button>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="userSearch" placeholder="이메일 검색..." oninput="filterUsers()">
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>이메일</th><th>가입일</th><th>최근 로그인</th><th>상태</th><th>관리</th></tr></thead>
+        <tbody id="userTbody"><tr><td colspan="5" class="loading"><span class="spin"></span> 로딩 중...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 서버 환경변수 -->
+  <div class="sec">
+    <div class="sec-title"><span class="mi" style="color:#35A29F">dns</span> 서버 환경 정보</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>값</th><th>상태</th></tr></thead>
+        <tbody id="envTbody"><tr><td colspan="3" class="loading"><span class="spin"></span> 로딩 중...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 빠른 링크 -->
+  <div class="sec">
+    <div class="sec-title"><span class="mi" style="color:#97FEED">link</span> 관리 대시보드 바로가기</div>
+    <div class="links">
+      <a class="link-card" href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/auth/users" target="_blank">
+        <span class="mi">shield_person</span><span>Supabase Users</span>
+      </a>
+      <a class="link-card" href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/editor" target="_blank">
+        <span class="mi">table_chart</span><span>Supabase DB</span>
+      </a>
+      <a class="link-card" href="https://dashboard.render.com" target="_blank">
+        <span class="mi">cloud</span><span>Render 서버</span>
+      </a>
+      <a class="link-card" href="https://dash.cloudflare.com" target="_blank">
+        <span class="mi">cloud_upload</span><span>Cloudflare R2</span>
+      </a>
+      <a class="link-card" href="https://vercel.com/dashboard" target="_blank">
+        <span class="mi">rocket_launch</span><span>Vercel 배포</span>
+      </a>
+      <a class="link-card" href="https://codibank-api.onrender.com/health" target="_blank">
+        <span class="mi">monitor_heart</span><span>서버 Health</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script>
+/* ══════════════════════════════════
+   CodiBank Admin Dashboard
+   ══════════════════════════════════ */
+
+const ADMIN_PW_HASH = '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8'; // sha256('password')
+const BACKEND = (() => {
+  try {
+    const cfg = window.CODIBANK_CONFIG || {};
+    return (cfg.backendBase || 'https://codibank-api.onrender.com').replace(/\/$/,'');
+  } catch(e) { return 'https://codibank-api.onrender.com'; }
+})();
+
+let allUsers = [];
+
+/* ── Auth ── */
+async function sha256(msg) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,'0')).join('');
+}
+async function tryLogin() {
+  const pw = document.getElementById('pwInput').value;
+  const hash = await sha256(pw);
+  if (hash === ADMIN_PW_HASH) {
+    sessionStorage.setItem('cb_admin', hash);
+    showMain();
+  } else {
+    document.getElementById('gateErr').style.display = 'block';
+    document.getElementById('pwInput').value = '';
+  }
+}
+function checkAuth() {
+  if (sessionStorage.getItem('cb_admin') === ADMIN_PW_HASH) showMain();
+}
+function showMain() {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  loadDashboard();
+}
+function doLogout() {
+  sessionStorage.removeItem('cb_admin');
+  location.reload();
+}
+
+/* ── Dashboard ── */
+async function loadDashboard() {
+  loadHealth();
+  loadUsers();
+}
+
+async function loadHealth() {
+  const card = (id, val, sub, ok) => {
+    const el = document.getElementById(id);
+    el.querySelector('.card-val').textContent = val;
+    el.querySelector('.card-sub').textContent = sub;
+    el.className = 'card ' + (ok === true ? 'ok' : ok === false ? 'err' : '');
+  };
+  try {
+    const r = await fetch(BACKEND + '/health', { signal: AbortSignal.timeout(10000) });
+    const j = await r.json();
+    card('cardServer', j.ok ? 'ONLINE' : 'ERROR', new Date().toLocaleTimeString(), j.ok);
+    const model = j.codistyle_model || j.model || '—';
+    card('cardModel', model.replace('gemini-',''), 'Gemini', true);
+    const hasKey = j.gemini_key_present || j.api_key_present || false;
+    card('cardApi', hasKey ? 'OK' : 'MISSING', hasKey ? '키 존재 확인' : '키 없음!', hasKey);
+    renderEnv(j);
+  } catch(e) {
+    card('cardServer', 'OFFLINE', e.message || '연결 실패', false);
+    card('cardModel', '—', '확인 불가', null);
+    card('cardApi', '—', '확인 불가', null);
+    document.getElementById('envTbody').innerHTML = '<tr><td colspan="3" style="color:#ff6b6b">서버 연결 실패: '+e.message+'</td></tr>';
+  }
+}
+
+function renderEnv(j) {
+  const rows = Object.entries(j).map(([k,v]) => {
+    const val = typeof v === 'boolean' ? (v ? '✅ Yes' : '❌ No') : String(v);
+    const ok = typeof v === 'boolean' ? (v ? '정상' : '확인 필요') : '—';
+    return `<tr><td style="font-weight:600">${k}</td><td>${val}</td><td>${ok}</td></tr>`;
+  }).join('');
+  document.getElementById('envTbody').innerHTML = rows || '<tr><td colspan="3">데이터 없음</td></tr>';
+}
+
+/* ── Users ── */
+async function loadUsers() {
+  document.getElementById('userTbody').innerHTML = '<tr><td colspan="5" class="loading"><span class="spin"></span> 로딩 중...</td></tr>';
+  try {
+    const r = await fetch(BACKEND + '/admin/users', {
+      headers: { 'X-Admin-Key': sessionStorage.getItem('cb_admin') || '' },
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    allUsers = j.users || [];
+    document.getElementById('cardUsers').querySelector('.card-val').textContent = allUsers.length;
+    renderUsers(allUsers);
+  } catch(e) {
+    document.getElementById('userTbody').innerHTML =
+      '<tr><td colspan="5" style="color:rgba(216,226,255,.3)">유저 목록을 불러올 수 없습니다.<br><br>'+
+      '<span style="font-size:11px">백엔드에 /admin/users 엔드포인트를 추가하세요.<br>'+
+      'Supabase Dashboard에서 직접 관리: <a href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/auth/users" target="_blank" style="color:#97FEED">바로가기</a></span></td></tr>';
+    document.getElementById('cardUsers').querySelector('.card-val').textContent = '—';
+  }
+}
+
+function renderUsers(users) {
+  if (!users.length) {
+    document.getElementById('userTbody').innerHTML = '<tr><td colspan="5" style="color:rgba(216,226,255,.3)">유저가 없습니다</td></tr>';
+    return;
+  }
+  document.getElementById('userTbody').innerHTML = users.map(u => {
+    const email = u.email || '—';
+    const created = u.created_at ? new Date(u.created_at).toLocaleDateString('ko') : '—';
+    const lastSign = u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString('ko') : '—';
+    const confirmed = u.email_confirmed_at ? '인증됨' : '미인증';
+    const confirmColor = u.email_confirmed_at ? '#69db7c' : '#ffa94d';
+    return `<tr>
+      <td style="font-weight:600">${email}</td>
+      <td>${created}</td>
+      <td>${lastSign}</td>
+      <td><span style="color:${confirmColor};font-size:11px;font-weight:600">${confirmed}</span></td>
+      <td><button class="act-btn del" onclick="deleteUser('${u.id}','${email}')">삭제</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterUsers() {
+  const q = document.getElementById('userSearch').value.toLowerCase().trim();
+  if (!q) return renderUsers(allUsers);
+  renderUsers(allUsers.filter(u => (u.email||'').toLowerCase().includes(q)));
+}
+
+async function deleteUser(uid, email) {
+  if (!confirm(`정말 "${email}" 유저를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return;
+  try {
+    const r = await fetch(BACKEND + '/admin/users/' + uid, {
+      method: 'DELETE',
+      headers: { 'X-Admin-Key': sessionStorage.getItem('cb_admin') || '' }
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    showToast('✅ ' + email + ' 삭제 완료');
+    loadUsers();
+  } catch(e) {
+    showToast('❌ 삭제 실패: ' + e.message, true);
+  }
+}
+
+/* ── Toast ── */
+function showToast(msg, isErr) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isErr ? ' err' : '');
+  setTimeout(() => el.className = 'toast', 3500);
+}
+
+/* ── Init ── */
+checkAuth();
+</script>
+</body>
+</html>
