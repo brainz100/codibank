@@ -61,7 +61,7 @@ load_dotenv(os.path.join(os.path.dirname(_HERE), ".env"))
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
-CORS(app)
+CORS(app, allow_headers=["Content-Type", "X-Admin-Key", "Authorization"])
 
 # 얼굴 사진(DataURL)까지 포함되면 요청 바디가 커질 수 있어 넉넉히 허용합니다(10MB).
 # ✅ [버그1 수정] 얼굴 사진(base64) 포함 시 요청 바디가 커질 수 있어 허용 크기 확대
