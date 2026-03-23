@@ -1405,6 +1405,200 @@ def admin_stats():
     stats["gemini_model"] = os.environ.get('CODISTYLE_GEMINI_MODEL','not set')
     return jsonify(stats)
 
+# ── Supabase DB 헬퍼 ──
+def sb_query(method, table, params=None, body=None):
+    """Supabase REST API로 DB 테이블 접근"""
+    url = f"{supabase_url()}/rest/v1/{table}"
+    if params:
+        url += '?' + '&'.join(f'{k}={v}' for k, v in params.items())
+    headers = supabase_admin_headers()
+    headers['Prefer'] = 'return=representation'
+    if method == 'GET':
+        r = http_requests.get(url, headers=headers, timeout=10)
+    elif method == 'POST':
+        r = http_requests.post(url, headers=headers, json=body, timeout=10)
+    elif method == 'DELETE':
+        r = http_requests.delete(url, headers=headers, timeout=10)
+    else:
+        r = http_requests.request(method, url, headers=headers, json=body, timeout=10)
+    return r
+
+
+# ══════════════════════════════════════
+# A) 프론트엔드 추적 API (인증 불필요 - 이용자 호출용)
+# ══════════════════════════════════════
+
+@app.post("/api/track/payment")
+def track_payment():
+    """결제 완료 시 프론트에서 호출"""
+    try:
+        d = request.get_json(force=True)
+        body = {
+            'user_id': d.get('user_id'),
+            'email': d.get('email', ''),
+            'plan_id': d.get('plan_id', ''),
+            'plan_name': d.get('plan_name', ''),
+            'amount': d.get('amount', 0),
+            'currency': d.get('currency', 'KRW'),
+            'points_granted': d.get('points_granted', 0),
+            'imp_uid': d.get('imp_uid', ''),
+            'merchant_uid': d.get('merchant_uid', ''),
+            'status': 'completed'
+        }
+        r = sb_query('POST', 'payments', body=body)
+        if r.status_code in (200, 201):
+            return jsonify({"ok": True})
+        return jsonify({"ok": False, "error": r.text}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.post("/api/track/styling")
+def track_styling():
+    """스타일링 사용 시 프론트에서 호출"""
+    try:
+        d = request.get_json(force=True)
+        body = {
+            'user_id': d.get('user_id'),
+            'email': d.get('email', ''),
+            'type': d.get('type', 'codistyle'),
+            'points_used': d.get('points_used', 100)
+        }
+        r = sb_query('POST', 'styling_logs', body=body)
+        if r.status_code in (200, 201):
+            return jsonify({"ok": True})
+        return jsonify({"ok": False, "error": r.text}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.post("/api/track/item")
+def track_item():
+    """아이템 등록 시 프론트에서 호출"""
+    try:
+        d = request.get_json(force=True)
+        body = {
+            'user_id': d.get('user_id'),
+            'email': d.get('email', ''),
+            'category': d.get('category', ''),
+            'image_url': d.get('image_url', ''),
+            'item_name': d.get('item_name', '')
+        }
+        r = sb_query('POST', 'user_items', body=body)
+        if r.status_code in (200, 201):
+            return jsonify({"ok": True})
+        return jsonify({"ok": False, "error": r.text}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ══════════════════════════════════════
+# B) 관리자 조회 API (인증 필요)
+# ══════════════════════════════════════
+
+@app.get("/admin/payments")
+def admin_payments():
+    """결제 내역 조회"""
+    if not verify_admin(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        email = request.args.get('email', '')
+        params = {'order': 'created_at.desc', 'limit': '100'}
+        if email:
+            params['email'] = f'eq.{email}'
+        r = sb_query('GET', 'payments', params=params)
+        if r.status_code != 200:
+            return jsonify({"error": f"DB error: {r.status_code}"}), r.status_code
+        data = r.json()
+        total_revenue = sum(p.get('amount', 0) for p in data)
+        return jsonify({"ok": True, "payments": data, "total": len(data), "total_revenue": total_revenue})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.get("/admin/styling-logs")
+def admin_styling_logs():
+    """스타일링 이용 로그 조회"""
+    if not verify_admin(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        email = request.args.get('email', '')
+        params = {'order': 'created_at.desc', 'limit': '200'}
+        if email:
+            params['email'] = f'eq.{email}'
+        r = sb_query('GET', 'styling_logs', params=params)
+        if r.status_code != 200:
+            return jsonify({"error": f"DB error: {r.status_code}"}), r.status_code
+        data = r.json()
+        # 유저별 집계
+        user_counts = {}
+        for log in data:
+            e = log.get('email', '')
+            user_counts[e] = user_counts.get(e, 0) + 1
+        return jsonify({"ok": True, "logs": data, "total": len(data), "by_user": user_counts})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.get("/admin/items")
+def admin_items():
+    """등록 아이템 조회"""
+    if not verify_admin(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        email = request.args.get('email', '')
+        category = request.args.get('category', '')
+        params = {'order': 'created_at.desc', 'limit': '200'}
+        if email:
+            params['email'] = f'eq.{email}'
+        if category:
+            params['category'] = f'eq.{category}'
+        r = sb_query('GET', 'user_items', params=params)
+        if r.status_code != 200:
+            return jsonify({"error": f"DB error: {r.status_code}"}), r.status_code
+        data = r.json()
+        # 카테고리별 집계
+        cat_counts = {}
+        for item in data:
+            c = item.get('category', 'other')
+            cat_counts[c] = cat_counts.get(c, 0) + 1
+        return jsonify({"ok": True, "items": data, "total": len(data), "by_category": cat_counts})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.get("/admin/dashboard")
+def admin_dashboard_stats():
+    """대시보드 통합 통계"""
+    if not verify_admin(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    stats = {"ok": True}
+    try:
+        # 결제 통계
+        r = sb_query('GET', 'payments', params={'select': 'amount,created_at', 'limit': '1000'})
+        if r.status_code == 200:
+            payments = r.json()
+            stats['total_payments'] = len(payments)
+            stats['total_revenue'] = sum(p.get('amount', 0) for p in payments)
+        # 스타일링 통계
+        r = sb_query('GET', 'styling_logs', params={'select': 'id', 'limit': '10000'})
+        if r.status_code == 200:
+            stats['total_stylings'] = len(r.json())
+        # 아이템 통계
+        r = sb_query('GET', 'user_items', params={'select': 'category', 'limit': '10000'})
+        if r.status_code == 200:
+            items = r.json()
+            stats['total_items'] = len(items)
+            cat_counts = {}
+            for item in items:
+                c = item.get('category', 'other')
+                cat_counts[c] = cat_counts.get(c, 0) + 1
+            stats['items_by_category'] = cat_counts
+    except Exception as e:
+        stats['error'] = str(e)
+    return jsonify(stats)
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8787"))
     # ✅ 안정성 기본값: debug OFF
