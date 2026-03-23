@@ -33,6 +33,7 @@ import urllib.request
 import urllib.parse
 import urllib.error
 from typing import Any, Dict, Tuple
+import requests as http_requests
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory
@@ -1312,6 +1313,97 @@ def codistyle_generate():
         sdk=_SDK,
     )
 
+# ── 관리자 인증 헬퍼 ──
+def verify_admin(req):
+    """X-Admin-Key 헤더의 sha256 해시가 ADMIN_PW_HASH와 일치하는지 확인"""
+    expected = os.environ.get('ADMIN_PW_HASH', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8')
+    provided = (req.headers.get('X-Admin-Key') or '').strip()
+    if not provided or provided != expected:
+        return False
+    return True
+
+def supabase_admin_headers():
+    """Supabase Admin API용 헤더 (service_role 키 사용)"""
+    key = os.environ.get('SUPABASE_SERVICE_KEY', '')
+    return {
+        'apikey': key,
+        'Authorization': f'Bearer {key}',
+        'Content-Type': 'application/json'
+    }
+
+def supabase_url():
+    return os.environ.get('SUPABASE_URL', 'https://drgsayvlpzcacurcczjq.supabase.co')
+
+
+# ══════════════════════════════════════
+# Admin API 엔드포인트
+# ══════════════════════════════════════
+
+@app.get("/admin/users")
+def admin_list_users():
+    """유저 목록 조회"""
+    if not verify_admin(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        url = f"{supabase_url()}/auth/v1/admin/users?per_page=500"
+        r = http_requests.get(url, headers=supabase_admin_headers(), timeout=10)
+        if r.status_code != 200:
+            return jsonify({"error": f"Supabase error: {r.status_code}", "detail": r.text}), r.status_code
+        data = r.json()
+        users = data.get('users', data) if isinstance(data, dict) else data
+        return jsonify({"ok": True, "users": users, "total": len(users)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.delete("/admin/users/<uid>")
+def admin_delete_user(uid):
+    """유저 삭제"""
+    if not verify_admin(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        url = f"{supabase_url()}/auth/v1/admin/users/{uid}"
+        r = http_requests.delete(url, headers=supabase_admin_headers(), timeout=10)
+        if r.status_code not in (200, 204):
+            return jsonify({"error": f"Supabase error: {r.status_code}", "detail": r.text}), r.status_code
+        return jsonify({"ok": True, "deleted": uid})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.get("/admin/stats")
+def admin_stats():
+    """서비스 통계 (유저 수, 서버 상태 등)"""
+    if not verify_admin(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    stats = {"ok": True}
+    # 유저 수
+    try:
+        url = f"{supabase_url()}/auth/v1/admin/users?per_page=1"
+        r = http_requests.get(url, headers=supabase_admin_headers(), timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            # Supabase returns total in headers or body
+            stats["total_users"] = len(data.get('users', []))
+    except:
+        stats["total_users"] = -1
+    # R2 연결 상태
+    try:
+        import boto3
+        s3 = boto3.client('s3',
+            endpoint_url=os.environ.get('R2_ENDPOINT',''),
+            aws_access_key_id=os.environ.get('R2_ACCESS_KEY_ID',''),
+            aws_secret_access_key=os.environ.get('R2_SECRET_ACCESS_KEY',''))
+        bucket = os.environ.get('R2_BUCKET_NAME','codibank')
+        resp = s3.list_objects_v2(Bucket=bucket, MaxKeys=1)
+        stats["r2_connected"] = True
+        stats["r2_bucket"] = bucket
+    except:
+        stats["r2_connected"] = False
+    # Gemini 키 상태
+    stats["gemini_key_present"] = bool(os.environ.get('GEMINI_API_KEY',''))
+    stats["gemini_model"] = os.environ.get('CODISTYLE_GEMINI_MODEL','not set')
+    return jsonify(stats)
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8787"))
