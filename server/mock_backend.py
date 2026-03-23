@@ -1317,7 +1317,7 @@ def codistyle_generate():
 def verify_admin(req):
     """X-Admin-Key 헤더의 sha256 해시가 ADMIN_PW_HASH와 일치하는지 확인"""
     expected = os.environ.get('ADMIN_PW_HASH', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8')
-    provided = (req.headers.get('X-Admin-Key') or '').strip()
+    provided = (req.args.get('key') or req.headers.get('X-Admin-Key') or '').strip()
     if not provided or provided != expected:
         return False
     return True
