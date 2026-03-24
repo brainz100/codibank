@@ -1178,6 +1178,8 @@
         }
 
         setAiProgress(100, '완료! 옷장으로 이동합니다.');
+        // ── 관리자 대시보드 추적 ──
+        try{ if(window.CodiBankTrack) CodiBankTrack.item(categoryKey, {item_name: noteText, image_url: (images && images[0]) || ''}); }catch(_){}
         setTimeout(() => {
           closeAiModal();
           window.location.href = `closet.html?category=${encodeURIComponent(categoryKey)}&highlight=${encodeURIComponent(result.item.id)}`;

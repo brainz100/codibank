@@ -1683,3 +1683,107 @@ window.CodiBank = {
     weatherCodeToKorean,
   };
 })();
+/* ══════════════════════════════════════
+   CodiBank Tracking API — codibank.js 맨 아래에 추가
+   사용자 활동을 Supabase DB에 기록
+══════════════════════════════════════ */
+
+(function(){
+  var _trackBase = '';
+  function getTrackBase(){
+    if(_trackBase) return _trackBase;
+    try {
+      var cfg = window.CODIBANK_CONFIG || {};
+      _trackBase = (cfg.backendBase || 'https://codibank-api.onrender.com').replace(/\/$/,'');
+    } catch(e) {
+      _trackBase = 'https://codibank-api.onrender.com';
+    }
+    return _trackBase;
+  }
+
+  function getCurrentUserInfo(){
+    try {
+      var u = window.CodiBank && CodiBank.getCurrentUser ? CodiBank.getCurrentUser() : null;
+      if(!u) return null;
+      return {
+        user_id: u.id || '',
+        email: u.email || '',
+        gender: u.gender || '',
+        plan: u.plan || 'free'
+      };
+    } catch(e) { return null; }
+  }
+
+  /**
+   * 스타일링 이용 추적
+   * @param {string} type - 'closet' 또는 'codistyle'
+   * @param {object} extra - { purpose, points_used } 등 추가 데이터
+   */
+  window.CodiBankTrack = window.CodiBankTrack || {};
+
+  CodiBankTrack.styling = function(type, extra){
+    var u = getCurrentUserInfo();
+    if(!u) return;
+    var body = {
+      user_id: u.user_id,
+      email: u.email,
+      type: type || 'codistyle',
+      points_used: (extra && extra.points_used) || 100,
+      gender: u.gender,
+      plan: u.plan,
+      purpose: (extra && extra.purpose) || ''
+    };
+    fetch(getTrackBase() + '/api/track/styling', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    }).catch(function(){});
+  };
+
+  /**
+   * 아이템 등록 추적
+   * @param {string} category - 'top', 'bottom', 'outer', 'shoes', 'bag', 'acc'
+   * @param {object} extra - { image_url, item_name }
+   */
+  CodiBankTrack.item = function(category, extra){
+    var u = getCurrentUserInfo();
+    if(!u) return;
+    var body = {
+      user_id: u.user_id,
+      email: u.email,
+      category: category || '',
+      image_url: (extra && extra.image_url) || '',
+      item_name: (extra && extra.item_name) || ''
+    };
+    fetch(getTrackBase() + '/api/track/item', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    }).catch(function(){});
+  };
+
+  /**
+   * 결제 추적
+   * @param {object} data - { plan_id, plan_name, amount, currency, points_granted, imp_uid, merchant_uid }
+   */
+  CodiBankTrack.payment = function(data){
+    var u = getCurrentUserInfo();
+    if(!u) return;
+    var body = {
+      user_id: u.user_id,
+      email: u.email,
+      plan_id: data.plan_id || '',
+      plan_name: data.plan_name || '',
+      amount: data.amount || 0,
+      currency: data.currency || 'KRW',
+      points_granted: data.points_granted || 0,
+      imp_uid: data.imp_uid || '',
+      merchant_uid: data.merchant_uid || ''
+    };
+    fetch(getTrackBase() + '/api/track/payment', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    }).catch(function(){});
+  };
+})();

@@ -1462,7 +1462,10 @@ def track_styling():
             'user_id': d.get('user_id'),
             'email': d.get('email', ''),
             'type': d.get('type', 'codistyle'),
-            'points_used': d.get('points_used', 100)
+            'points_used': d.get('points_used', 100),
+            'gender': d.get('gender', ''),
+            'purpose': d.get('purpose', ''),
+            'plan': d.get('plan', 'free')
         }
         r = sb_query('POST', 'styling_logs', body=body)
         if r.status_code in (200, 201):

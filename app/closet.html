@@ -3206,6 +3206,8 @@ async function updateVTO(opts={}){
       }
     }catch(e){ console.warn('album save failed', e); }
   }
+  // ── 관리자 대시보드 추적 ──
+  try{ if(window.CodiBankTrack) CodiBankTrack.styling('closet', {purpose: (S.pk==='custom' ? (String(S.customPurpose||'').trim()||'직접입력') : (getPur(S.pk)?.label||'')) || ''}); }catch(_){}
   // 화면의 잔여 카운트 최신화
   try{ updateQuotaBadge(); setGenUiEnabled(canGenerateNow()); }catch(_){ }
   if(!faceImg && hint) hint.style.display='flex';

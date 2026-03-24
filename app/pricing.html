@@ -358,6 +358,9 @@ function applyPlan(plan, impUid, merchantUid) {
   const isUnlimited = plan.points < 0;
   const label = isUnlimited ? (en ? 'Unlimited activated!' : '무제한 구독 시작!') : (plan.points.toLocaleString() + 'P ' + (en ? 'charged!' : '충전 완료!'));
   showToast('✅ ' + label, 'ok');
+
+  // ── 관리자 대시보드 결제 추적 ──
+  try{ if(window.CodiBankTrack) CodiBankTrack.payment({plan_id: plan.id, plan_name: (en ? plan.nameEn : plan.nameKo), amount: en ? plan.priceUsd : plan.price, currency: en ? 'USD' : 'KRW', points_granted: plan.points > 0 ? plan.points : 0, imp_uid: impUid, merchant_uid: merchantUid}); }catch(_){}
 }
 
 /* ── 모바일 리다이렉트 복귀 ── */
