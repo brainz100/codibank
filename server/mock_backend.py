@@ -1434,7 +1434,7 @@ def track_payment():
     try:
         d = request.get_json(force=True)
         body = {
-            'user_id': d.get('user_id'),
+            'user_id': d.get('user_id') or None,
             'email': d.get('email', ''),
             'plan_id': d.get('plan_id', ''),
             'plan_name': d.get('plan_name', ''),
@@ -1459,7 +1459,7 @@ def track_styling():
     try:
         d = request.get_json(force=True)
         body = {
-            'user_id': d.get('user_id'),
+            'user_id': d.get('user_id') or None,
             'email': d.get('email', ''),
             'type': d.get('type', 'codistyle'),
             'points_used': d.get('points_used', 100),
@@ -1481,7 +1481,7 @@ def track_item():
     try:
         d = request.get_json(force=True)
         body = {
-            'user_id': d.get('user_id'),
+            'user_id': d.get('user_id') or None,
             'email': d.get('email', ''),
             'category': d.get('category', ''),
             'image_url': d.get('image_url', ''),
