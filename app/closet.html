@@ -1727,13 +1727,13 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   // ── [4] AI 스타일리스트 실명 테이블 (숫자 ID 대신 실제 이름 사용)
   // TPO별로 실제 패션 감성에 맞는 이름 10명 × 7 TPO = 70명
   const STYLIST_NAMES = {
-    commute:     ['Mia','Ethan','Sophia','Daniel','Chloe','Noah','Emma','Liam','Ava','Lucas'],
-    business:    ['James','Olivia','William','Isabella','Benjamin','Charlotte','Alexander','Amelia','Henry','Victoria'],
-    social:      ['Zara','Leo','Luna','Finn','Stella','Kai','Nova','Axel','Iris','Jude'],
-    weekendOut:  ['Jake','Lily','Owen','Nora','Miles','Hazel','Cole','Ruby','Dean','Mia'],
-    weekendTrip: ['Max','Elena','Sam','Freya','Theo','Ingrid','Rory','Astrid','Flynn','Skye'],
-    overseasTrip:['Marco','Sofia','Luca','Giulia','Rafael','Camille','Henri','Yasmine','Kenji','Aisha'],
-    custom:      ['Alex','Jordan','Robin','Sage','Quinn','River','Avery','Blake','Reese','Morgan'],
+    commute:     ['Mia','Ethan','Sophia','Daniel','Chloe','Noah','Emma','Liam','Ava','Lucas','Harper','Sebastian','Isla','Theodore','Aria'],
+    business:    ['James','Olivia','William','Isabella','Benjamin','Charlotte','Alexander','Amelia','Henry','Victoria','Eleanor','Nicholas','Grace','Edward','Penelope'],
+    social:      ['Zara','Leo','Luna','Finn','Stella','Kai','Nova','Axel','Iris','Jude','Sienna','Felix','Violet','Hugo','Aurora'],
+    weekendOut:  ['Jake','Lily','Owen','Nora','Miles','Hazel','Cole','Ruby','Dean','Mia','Eloise','Oscar','Clara','Atlas','Ivy'],
+    weekendTrip: ['Max','Elena','Sam','Freya','Theo','Ingrid','Rory','Astrid','Flynn','Skye','Leif','Linnea','Anders','Signe','Lars'],
+    overseasTrip:['Marco','Sofia','Luca','Giulia','Rafael','Camille','Henri','Yasmine','Kenji','Aisha','Priya','Dmitri','Yuki','Carlos','Fatima'],
+    custom:      ['Alex','Jordan','Robin','Sage','Quinn','River','Avery','Blake','Reese','Morgan','Rowan','Emery','Finley','Harlow','Lennox'],
   };
   const _namePool = STYLIST_NAMES[tpoKey] || STYLIST_NAMES.custom;
   const stylistName = _namePool[personaIdx % _namePool.length];
@@ -2085,46 +2085,86 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     const _bag    = _extSpec.bag.ko   ? '가방은 **' + _extSpec.bag.ko + '**,' : '';
     const _watch  = _extSpec.watch.ko ? '시계는 **' + _extSpec.watch.ko + '**' : '';
 
-    // 문장 조합
+    // 문장 조합 — World-Class AI Stylist 포맷
+    const _regionMap = {
+      Mia:'Milan',Ethan:'New York',Sophia:'Paris',Daniel:'London',Chloe:'Seoul',Noah:'Tokyo',Emma:'Copenhagen',Liam:'Los Angeles',Ava:'Stockholm',Lucas:'Barcelona',Harper:'Chicago',Sebastian:'Munich',Isla:'Edinburgh',Theodore:'Amsterdam',Aria:'Vienna',
+      James:'London',Olivia:'Milan',William:'New York',Isabella:'Paris',Benjamin:'Seoul',Charlotte:'Tokyo',Alexander:'Stockholm',Amelia:'Copenhagen',Henry:'Los Angeles',Victoria:'Barcelona',Eleanor:'Dublin',Nicholas:'Zürich',Grace:'Sydney',Edward:'Hong Kong',Penelope:'São Paulo',
+      Zara:'Milan',Leo:'Paris',Luna:'Seoul',Finn:'Berlin',Stella:'New York',Kai:'Tokyo',Nova:'London',Axel:'Stockholm',Iris:'Barcelona',Jude:'Los Angeles',Sienna:'Florence',Felix:'Vienna',Violet:'Montreal',Hugo:'Brussels',Aurora:'Helsinki',
+      Jake:'Los Angeles',Lily:'Seoul',Owen:'London',Nora:'Copenhagen',Miles:'New York',Hazel:'Tokyo',Cole:'Paris',Ruby:'Milan',Dean:'Berlin',Eloise:'Bordeaux',Oscar:'Melbourne',Clara:'Prague',Atlas:'Athens',Ivy:'Singapore',
+      Max:'Berlin',Elena:'Barcelona',Sam:'London',Freya:'Copenhagen',Theo:'Paris',Ingrid:'Stockholm',Rory:'New York',Astrid:'Seoul',Flynn:'Tokyo',Skye:'Milan',Leif:'Oslo',Linnea:'Gothenburg',Anders:'Helsinki',Signe:'Reykjavik',Lars:'Bergen',
+      Marco:'Milan',Sofia:'Barcelona',Luca:'Paris',Giulia:'Rome',Rafael:'Madrid',Camille:'Paris',Henri:'London',Yasmine:'Dubai',Kenji:'Tokyo',Aisha:'Seoul',Priya:'Mumbai',Dmitri:'Moscow',Yuki:'Osaka',Carlos:'Mexico City',Fatima:'Marrakech',
+      Alex:'New York',Jordan:'London',Robin:'Paris',Sage:'Seoul',Quinn:'Tokyo',River:'Los Angeles',Avery:'Milan',Blake:'Berlin',Reese:'Stockholm',Morgan:'Copenhagen',Rowan:'Dublin',Emery:'Toronto',Finley:'Cape Town',Harlow:'Shanghai',Lennox:'Edinburgh',
+    };
+    const _region = _regionMap[stylistName] || 'Seoul';
+    const _technique = persona.layerStyle.split('+')[0].trim() || '토널 레이어링';
+    const _keyItem = _outer || _top || _pants || '핵심 아이템';
+    const _ageLabel = String(age||'30대');
+    const _bodyBenefit = bodyType
+      ? bodyType.tip.split(/[.·]/)[0].trim()
+      : '편안한 착용감과 세련된 실루엣';
+
     const sentences = [
-      stylistName + '이(가) **' + _pLabel + '** 코디를 완성했어요.',
-      _wx + ' 날씨에 ' + _body + '**' + persona.voice + '** 스타일로 ' + _layer + ' 레이어링을 추천해요.',
-      _outerLayerMode.canLayer
-        ? ('겉에는 **' + SPEC.outer.ko + ' 코트**를 걸치고, **' + SPEC.outer.ko + ' 자켓** 레이어드도 어울려요. ' + _outerLayerMode.desc)
-        : (_outer ? '겉에는 **' + _outer + '**을 걸치고,' : ''),
-      (!_outerLayerMode.canLayer && _outerLayerMode.desc) ? _outerLayerMode.desc : '',
-      _top    ? '안에는 **' + _top + '**를 매치했어요.'             : '',
-      _pants  ? '하의는 **' + _pants + '**로 깔끔하게 연결했어요.' : '',
-      _shoes  ? '발에는 **' + _shoes + '**로 룩을 마무리해요.'     : '',
-      _accent ? '**' + _accent + '**으로 포인트를 더했어요.'       : '',
+      '🌟 **World-Class AI Fashion Stylist:** ' + stylistName + ' from ' + _region,
+      '',
+      '**"' + _pLabel + '"을 위한 오늘의 트렌드 스타일링 포인트:**',
+      '',
+      '이번 룩에서 저의 시그니처 기법인 **' + _technique + '**을 활용해,',
+      _ageLabel + '에 딱 맞는 세련되고 트렌디한 무드를 완성했어요.',
+      '**' + _keyItem + '**이 컨템포러리한 엣지를 더하면서도 ' + _bodyBenefit + '을 보장합니다.',
+      _wx + ' 날씨를 고려해 ' + _body + '**' + persona.voice + '** 스타일로 구성했어요.',
+      _outer  ? '아우터는 **' + _outer + '**,' : '',
+      _top    ? '이너는 **' + _top + '**,' : '',
+      _pants  ? '하의는 **' + _pants + '**,' : '',
+      _shoes  ? '슈즈는 **' + _shoes + '**로 마무리했어요.' : '',
+      _accent ? '**' + _accent + '**으로 포인트를 더했습니다.' : '',
       [_bag, _watch].filter(Boolean).join(' ') || '',
-      _kws    ? '**' + _kws + '** 무드가 돋보이는 스타일링이에요.' : '',
-    ].filter(Boolean).join(' ').replace(/\s{2,}/g, ' ').trim();
+      '당신의 프로필에 맞춰 컬러와 텍스처를 세심하게 선택했어요.',
+      _kws ? '**' + _kws + '** 무드가 돋보이는 퍼스널 큐레이션입니다.' : '진정한 스타일은 맞춤 큐레이션에서 빛나니까요.',
+    ].filter(s => s !== '').join(' ').replace(/\s{2,}/g, ' ').replace(/, ,/g, ',').trim();
 
     codiStory = sentences || (stylistName + '이(가) ' + _pLabel + ' 코디를 준비했어요. **' + persona.voice + '** 스타일의 ' + _outer + ' 코디입니다.');
   })();
 
   // ── 영어 모드: codiStory 영어 버전 생성 ──
   if(window.CodiBankI18n && CodiBankI18n.isEn()){
+    const _regionMap = {
+      Mia:'Milan',Ethan:'New York',Sophia:'Paris',Daniel:'London',Chloe:'Seoul',Noah:'Tokyo',Emma:'Copenhagen',Liam:'Los Angeles',Ava:'Stockholm',Lucas:'Barcelona',Harper:'Chicago',Sebastian:'Munich',Isla:'Edinburgh',Theodore:'Amsterdam',Aria:'Vienna',
+      James:'London',Olivia:'Milan',William:'New York',Isabella:'Paris',Benjamin:'Seoul',Charlotte:'Tokyo',Alexander:'Stockholm',Amelia:'Copenhagen',Henry:'Los Angeles',Victoria:'Barcelona',Eleanor:'Dublin',Nicholas:'Zürich',Grace:'Sydney',Edward:'Hong Kong',Penelope:'São Paulo',
+      Zara:'Milan',Leo:'Paris',Luna:'Seoul',Finn:'Berlin',Stella:'New York',Kai:'Tokyo',Nova:'London',Axel:'Stockholm',Iris:'Barcelona',Jude:'Los Angeles',Sienna:'Florence',Felix:'Vienna',Violet:'Montreal',Hugo:'Brussels',Aurora:'Helsinki',
+      Jake:'Los Angeles',Lily:'Seoul',Owen:'London',Nora:'Copenhagen',Miles:'New York',Hazel:'Tokyo',Cole:'Paris',Ruby:'Milan',Dean:'Berlin',Eloise:'Bordeaux',Oscar:'Melbourne',Clara:'Prague',Atlas:'Athens',Ivy:'Singapore',
+      Max:'Berlin',Elena:'Barcelona',Sam:'London',Freya:'Copenhagen',Theo:'Paris',Ingrid:'Stockholm',Rory:'New York',Astrid:'Seoul',Flynn:'Tokyo',Skye:'Milan',Leif:'Oslo',Linnea:'Gothenburg',Anders:'Helsinki',Signe:'Reykjavik',Lars:'Bergen',
+      Marco:'Milan',Sofia:'Barcelona',Luca:'Paris',Giulia:'Rome',Rafael:'Madrid',Camille:'Paris',Henri:'London',Yasmine:'Dubai',Kenji:'Tokyo',Aisha:'Seoul',Priya:'Mumbai',Dmitri:'Moscow',Yuki:'Osaka',Carlos:'Mexico City',Fatima:'Marrakech',
+      Alex:'New York',Jordan:'London',Robin:'Paris',Sage:'Seoul',Quinn:'Tokyo',River:'Los Angeles',Avery:'Milan',Blake:'Berlin',Reese:'Stockholm',Morgan:'Copenhagen',Rowan:'Dublin',Emery:'Toronto',Finley:'Cape Town',Harlow:'Shanghai',Lennox:'Edinburgh',
+    };
+    const _region = _regionMap[stylistName] || 'Seoul';
     const _pLabelEn = persona.en || persona.voice;
     const _wxEn = (Number.isFinite(nt) ? nt+'°C' : '') + ' ' + (wxTxt||'');
+    const _technique = (persona.layerStyle||'').split('+')[0].trim() || 'tonal layering';
     const _outerEn = SPEC.outer.en || '';
     const _topEn = SPEC.top.en || '';
     const _pantsEn = SPEC.pants.en || '';
-    const _shoesEn = SPEC.shoes.en || '';
+    const _shoesEn = SPEC.shoes.en ? SPEC.shoes.en + ' ' + SPEC.shoes.itemEn : '';
     const _accentEn = SPEC.accent.en || '';
-    const _kwsEn = (persona.designKws||[]).slice(0,2).join(', ');
+    const _keyItemEn = _outerEn || _topEn || _pantsEn || 'the key item';
+    const _ageEn = String(age||'30s').replace('대','s');
+    const _bodyBenefitEn = bodyType
+      ? (bodyType.tag==='비만형'||bodyType.tag==='통통형' ? 'a streamlined silhouette' : bodyType.tag==='마른형' ? 'added volume and presence' : bodyType.tag==='단신형' ? 'elongated proportions' : 'comfortable elegance')
+      : 'comfortable elegance';
     codiStory = [
-      stylistName + ' styled your **' + _pLabelEn + '** outfit.',
-      _wxEn ? 'For ' + _wxEn.trim() + ' weather,' : '',
-      'a **' + _pLabelEn + '** layered look is recommended.',
-      _outerEn ? 'Outer: **' + _outerEn + '**.' : '',
-      _topEn ? 'Top: **' + _topEn + '**.' : '',
-      _pantsEn ? 'Bottom: **' + _pantsEn + '**.' : '',
-      _shoesEn ? 'Shoes: **' + _shoesEn + '**.' : '',
+      '🌟 **Your World-Class AI Fashion Stylist:** ' + stylistName + ' from ' + _region,
+      '',
+      '**Today\'s Trend-Forward Styling Point for "' + _pLabelEn + '":**',
+      '',
+      'For this look, I utilized my signature **' + _technique + '** to create a highly sophisticated and trendy vibe perfectly suited for someone in their **' + _ageEn + '**.',
+      'The **' + _keyItemEn + '** adds a contemporary edge while ensuring ' + _bodyBenefitEn + '.',
+      _wxEn.trim() ? 'Styled for ' + _wxEn.trim() + ' weather.' : '',
+      _outerEn  ? 'Outer: **' + _outerEn + '**.' : '',
+      _topEn    ? 'Top: **' + _topEn + '**.' : '',
+      _pantsEn  ? 'Bottom: **' + _pantsEn + '**.' : '',
+      _shoesEn  ? 'Shoes: **' + _shoesEn + '**.' : '',
       _accentEn ? 'Accent: **' + _accentEn + '**.' : '',
-      _kwsEn ? 'A **' + _kwsEn + '** mood styling.' : '',
-    ].filter(Boolean).join(' ').replace(/\s{2,}/g,' ').trim();
+      'I carefully selected these precise colors and textures to complement your profile, proving that true style only gets better with the right personalized curation.',
+    ].filter(s => s !== '').join(' ').replace(/\s{2,}/g,' ').trim();
   }
 
   // ── [14] styleTitle
@@ -2195,6 +2235,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
 
   const imagePrompt = [
     `Realistic full-body Korean fashion magazine photography of ${ageLabel} ${ethnicity} ${genderLabel}.`,
+    `CRITICAL BODY PROPORTION RULES: Head-to-body ratio must be exactly 1:7.5. Head occupies top 12% of frame. Torso from shoulders to waist is 30% of body height. Legs from waist to feet are 50% of body height. Arms reach mid-thigh. All body parts must be anatomically correct with natural human proportions. NO distorted, elongated, or shortened limbs. NO unrealistic face or body features.`,
     `STRICTLY follow exact item colors below — do NOT substitute any color:`,
     `[1] OUTERWEAR: ${SPEC.outer.en} ${SPEC.outer.itemEn} — must be ${SPEC.outer.en} colored.`,
     `[2] TOP: ${SPEC.top.en} — must be ${SPEC.top.en} colored, not white unless specified.`,
@@ -2206,9 +2247,9 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     `[8] SOCKS: ${_extSpec.socks.en}.`,
     `Style: ${persona.en} persona. Silhouette: ${persona.layerStyle}.`,
     bodyFlawPrompt||'',
-    `Looking directly at camera, frontal face view, slight natural smile. Full body head to toe.`,
-    `${nt<=5?'Winter city street setting.':'Clean modern urban background.'}`,
-    `${weatherNote}. Professional editorial fashion lighting, high resolution, sharp detail on all clothing.`,
+    `Pose: Standing straight, looking directly at camera, frontal face view, slight natural smile. Full body from top of head to bottom of shoes visible in frame. Feet firmly on ground level.`,
+    `BACKGROUND: Solid flat single-color pastel background ONLY. Use a soft muted pastel tone that contrasts with the outfit colors for maximum visibility. NO patterns, NO gradients, NO scenery, NO objects, NO textures — just one solid pastel color (e.g., soft pink #F5D5CB, light mint #D4EDDA, pale lavender #E8DAEF, soft peach #FDEBD0, light sky #D6EAF8, cream #FEF9E7). The background must be completely uniform and flat.`,
+    `${weatherNote}. Professional editorial fashion studio lighting, high resolution, sharp detail on all clothing items.`,
   ].filter(Boolean).join(' ');
 
     // ── [18] matchPairs
