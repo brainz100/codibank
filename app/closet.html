@@ -1786,7 +1786,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
 
   // ── [9] 직접입력 처리
   const customSentence = (pk==='custom'&&customText)
-    ? `★직접요청: "${customText}"에 맞춰 컬러·아이템 선택. `
+    ? `CUSTOM REQUEST: The user specifically requested "${customText}" style. MUST incorporate this request into outfit selection, colors, and overall styling direction. This is the highest priority styling instruction.`
     : '';
 
   // ══════════════════════════════════════════════════════════════
@@ -2216,14 +2216,42 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   // ── [16] imagePrompt: SPEC.en에서만 파생 → DALL-E 이미지 생성
   // ※ 절대 변경 금지 — categoryKeywords와 동일 소스 보장
   const genderLabel = profile?.gender==='M'?'man':profile?.gender==='F'?'woman':'man';
+  const genderPronoun = profile?.gender==='F'?'her':'his';
   const ageLabel = (()=>{
     const a=String(age||'30대');
-    if(a.includes('10')||a.includes('teen')) return 'a man in his early 20s';
-    if(a.includes('20')) return 'a man in his mid-20s';
-    if(a.includes('30')) return 'a man in his 30s';
-    if(a.includes('40')) return 'a man in his 40s';
-    if(a.includes('50')) return 'a man in his 50s';
-    return 'a man in his 30s';
+    const g=profile?.gender==='F'?'woman':'man';
+    if(a.includes('10')||a.includes('teen')) return `a ${g} in ${genderPronoun} early 20s`;
+    if(a.includes('20')) return `a ${g} in ${genderPronoun} mid-20s`;
+    if(a.includes('30')) return `a ${g} in ${genderPronoun} 30s`;
+    if(a.includes('40')) return `a ${g} in ${genderPronoun} 40s`;
+    if(a.includes('50')) return `a ${g} in ${genderPronoun} 50s`;
+    if(a.includes('60')) return `a ${g} in ${genderPronoun} 60s`;
+    return `a ${g} in ${genderPronoun} 30s`;
+  })();
+  // 키/몸무게 → 체형 프롬프트
+  const hCm = parseFloat(profile?.height||0);
+  const wKg = parseFloat(profile?.weight||0);
+  const bodyBuildPrompt = (()=>{
+    if(!hCm || !wKg) return '';
+    const bmi = wKg/((hCm/100)**2);
+    const isFemale = profile?.gender==='F';
+    let build = '';
+    if(bmi >= 28) build = 'heavy-set build';
+    else if(bmi >= 25) build = 'slightly stocky build';
+    else if(bmi < 17.5) build = 'very slim/lean build';
+    else if(bmi < 20) build = 'slim build';
+    else build = 'average build';
+    let heightDesc = '';
+    if(isFemale){
+      if(hCm >= 172) heightDesc = 'tall';
+      else if(hCm <= 155) heightDesc = 'petite';
+      else heightDesc = 'medium height';
+    } else {
+      if(hCm >= 183) heightDesc = 'tall';
+      else if(hCm <= 165) heightDesc = 'shorter stature';
+      else heightDesc = 'medium height';
+    }
+    return `MUST reflect this exact body type: ${heightDesc} (${Math.round(hCm)}cm), ${build} (${Math.round(wKg)}kg). Clothing fit and silhouette must match this physique realistically.`;
   })();
   const weatherNote = wxTxt&&tTxt?`${tTxt}, ${wxTxt} weather`:`${tTxt||'mild'} weather`;
   const bodyFlawPrompt = bodyType ? (
@@ -2235,7 +2263,9 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
 
   const imagePrompt = [
     `Realistic full-body Korean fashion magazine photography of ${ageLabel} ${ethnicity} ${genderLabel}.`,
+    bodyBuildPrompt||'',
     `CRITICAL BODY PROPORTION RULES: Head-to-body ratio must be exactly 1:7.5. Head occupies top 12% of frame. Torso from shoulders to waist is 30% of body height. Legs from waist to feet are 50% of body height. Arms reach mid-thigh. All body parts must be anatomically correct with natural human proportions. NO distorted, elongated, or shortened limbs. NO unrealistic face or body features.`,
+    customSentence||'',
     `STRICTLY follow exact item colors below — do NOT substitute any color:`,
     `[1] OUTERWEAR: ${SPEC.outer.en} ${SPEC.outer.itemEn} — must be ${SPEC.outer.en} colored.`,
     `[2] TOP: ${SPEC.top.en} — must be ${SPEC.top.en} colored, not white unless specified.`,
