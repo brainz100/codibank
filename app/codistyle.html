@@ -222,26 +222,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 </div>
 
 <!-- Styling Score — 버튼과 착장이미지 사이 -->
-<div id="csScoreBox" style="margin:0 16px 20px;padding:20px;border-radius:16px;background:rgba(151,254,237,.04);border:1px solid rgba(151,254,237,.1);">
-  <div style="display:flex;align-items:center;justify-content:space-between;">
-    <div>
-      <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:.1em;margin-bottom:6px;">STYLING SCORE</div>
-      <div style="display:flex;align-items:baseline;gap:4px;">
-        <span style="font-size:48px;font-weight:900;color:#97FEED;letter-spacing:-2px;line-height:1;" id="csScoreNum">—</span>
-        <span style="font-size:16px;font-weight:700;color:rgba(151,254,237,.45);">점</span>
-      </div>
-    </div>
-    <div style="width:80px;height:80px;border-radius:50%;border:4px solid rgba(151,254,237,.08);display:flex;align-items:center;justify-content:center;position:relative;">
-      <svg width="80" height="80" style="position:absolute;top:0;left:0;transform:rotate(-90deg);">
-        <circle cx="40" cy="40" r="36" fill="none" stroke="rgba(151,254,237,.08)" stroke-width="4"/>
-        <circle id="csScoreCircle" cx="40" cy="40" r="36" fill="none" stroke="#97FEED" stroke-width="4" stroke-dasharray="226" stroke-dashoffset="226" stroke-linecap="round" style="transition:stroke-dashoffset 1.2s ease;"/>
-      </svg>
-      <span style="font-size:11px;font-weight:800;color:rgba(151,254,237,.6);" id="csScorePct">—</span>
-    </div>
+<div id="csScoreBox" style="margin:0 16px 20px;padding:18px 20px;border-radius:16px;background:rgba(151,254,237,.04);border:1px solid rgba(151,254,237,.1);">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+    <span style="font-size:15px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:.02em;">Styling Score</span>
+    <span style="font-size:36px;font-weight:900;color:#97FEED;letter-spacing:-1px;line-height:1;" id="csScoreNum">—</span>
+    <span style="font-size:14px;font-weight:700;color:rgba(151,254,237,.4);">점</span>
   </div>
-  <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(151,254,237,.06);">
-    <p style="font-size:12px;color:rgba(255,255,255,.35);line-height:1.7;" id="csScoreText">착장 이미지가 생성되면 AI 스타일링 점수가 표시됩니다</p>
-  </div>
+  <p style="font-size:12px;color:rgba(255,255,255,.35);line-height:1.7;" id="csScoreText">착장 이미지가 생성되면 AI 스타일링 점수가 표시됩니다</p>
 </div>
 
 <div class="result-area" id="resultArea">
@@ -441,10 +428,8 @@ async function generate(){
   document.getElementById('genBtnText').textContent='착장 이미지 생성중입니다';
   document.getElementById('genBtnIcon').textContent='hourglass_top';
   document.getElementById('csScoreNum').textContent='—';
-  document.getElementById('csScorePct').textContent='—';
   document.getElementById('csScoreText').textContent='착장 이미지 생성 중...';
   document.getElementById('csScoreText').style.color='rgba(255,255,255,.35)';
-  document.getElementById('csScoreCircle').style.strokeDashoffset='226';
   setDot(''); setProgress(12,'업로드된 의상을 확인하는 중…');
   document.getElementById('imgWrap').innerHTML='<div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br><small style="opacity:.55">(10~25초 소요)</small></p></div>';
   try{
@@ -462,7 +447,7 @@ async function generate(){
     }
     const styleHint = [
       bodyHint,
-      '###MANDATORY_BACKGROUND_OVERRIDE### The ENTIRE background of this image MUST be a single solid flat pastel color. This is NON-NEGOTIABLE. Pick ONE color: #F5D5CB (pink), #D4EDDA (mint), #E8DAEF (lavender), #FDEBD0 (peach), #D6EAF8 (sky), or #FEF9E7 (cream). The background must be 100% uniform with ZERO variation. ABSOLUTELY FORBIDDEN: streets, buildings, rooms, furniture, trees, sky, clouds, walls, floors, windows, any recognizable environment or setting. The person must appear as if photographed in a studio with a single-color paper backdrop.',
+      'BACKGROUND: Analyze the colors of the outfit (top and bottom garments) being worn, then choose a LIGHT PASTEL SOLID COLOR that creates clear visual CONTRAST against those outfit colors. Use only ONE uniform flat color — no patterns, no gradients, no environment, no objects. Studio paper backdrop only.',
       'PANTS: Must be FULL LENGTH reaching shoes. NO cropped, NO ankle-length.',
       'ANATOMY: Both hands 5 fingers each. No distortion. Natural proportions.',
       'STYLE: Realistic Korean fashion magazine editorial studio photography.',
@@ -501,10 +486,8 @@ async function generate(){
         `이 코디는 ${bodyTxt?bodyTxt+' 기준 ':''}비율감을 극대화합니다. 상의의 디자인이 시선을 위로 집중시키고, 하의의 핏이 다리 라인을 깔끔하게 잡아줍니다.`,
       ];
       document.getElementById('csScoreNum').textContent = score;
-      document.getElementById('csScorePct').textContent = score;
       document.getElementById('csScoreText').textContent = reviews[Math.floor(Math.random()*reviews.length)];
       document.getElementById('csScoreText').style.color='rgba(255,255,255,.55)';
-      setTimeout(()=>{ document.getElementById('csScoreCircle').style.strokeDashoffset = String(226 - (226 * score / 100)); }, 200);
     }catch(_){}
 
     /* ── 코디앨범 자동 저장 ── */
