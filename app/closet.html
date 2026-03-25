@@ -67,7 +67,29 @@
     .vto-wrap.is-refreshing .vto-overlay{background:rgba(255,255,255,0.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
 
     @keyframes spin{to{transform:rotate(360deg)}}
-    .vto-spinner{width:40px;height:40px;border:3px solid rgba(15,23,42,0.10);border-top-color:rgba(197,163,88,0.95);border-radius:50%;animation:spin 0.85s linear infinite;}
+    .vto-spinner{display:none!important;}
+    .cb-rainbow{font-size:32px;font-weight:900;letter-spacing:3px;font-family:'Manrope','Inter',sans-serif;display:flex;justify-content:center;align-items:center;gap:1px;}
+    .cb-rainbow span{color:rgba(255,255,255,0.15);transition:color 0.4s ease;}
+    .cb-rainbow.active span{animation:rbFill 2.4s infinite;}
+    .cb-rainbow.active span:nth-child(1){animation-delay:0s}
+    .cb-rainbow.active span:nth-child(2){animation-delay:0.2s}
+    .cb-rainbow.active span:nth-child(3){animation-delay:0.4s}
+    .cb-rainbow.active span:nth-child(4){animation-delay:0.6s}
+    .cb-rainbow.active span:nth-child(5){animation-delay:0.8s}
+    .cb-rainbow.active span:nth-child(6){animation-delay:1.0s}
+    .cb-rainbow.active span:nth-child(7){animation-delay:1.2s}
+    .cb-rainbow.active span:nth-child(8){animation-delay:1.4s}
+    @keyframes rbFill{
+      0%{color:rgba(255,255,255,0.15)}
+      12%{color:#FF6B6B}
+      24%{color:#FFA94D}
+      36%{color:#FFD43B}
+      48%{color:#69DB7C}
+      60%{color:#4DABF7}
+      72%{color:#9775FA}
+      84%{color:#DA77F2}
+      100%{color:rgba(255,255,255,0.15)}
+    }
     .vto-ld{font-size:12px;font-weight:800;color:rgba(15,23,42,0.62);text-align:center;}
     @keyframes blink{0%,100%{opacity:0.5}50%{opacity:1}}
     .vto-step{font-size:11px;color:rgba(120,88,22,0.92);font-weight:900;animation:blink 1.3s infinite;}
@@ -99,7 +121,7 @@
     /* 2단계: 추천코디생성(트리거) */
     .day-toggle.armed{opacity:1;border-width:2.5px;background:#111;border-color:#111;color:#fff;box-shadow:0 14px 34px rgba(0,0,0,0.18);}
     .vto-btn:disabled{opacity:0.45;cursor:not-allowed;}
-    @media(prefers-reduced-motion:reduce){.clothing-layer{transition:none!important;}.vto-spinner{animation:none!important;}.vto-step{animation:none!important;}}
+    @media(prefers-reduced-motion:reduce){.clothing-layer{transition:none!important;}.cb-rainbow.active span{animation:none!important;}.vto-step{animation:none!important;}}
     .match-score-badge{position:absolute;bottom:6px;right:6px;background:linear-gradient(135deg,#35A29F,#0B666A);color:#fff;font-size:9px;font-weight:800;padding:3px 7px;border-radius:20px;letter-spacing:.04em;pointer-events:none;box-shadow:0 2px 8px rgba(53,162,159,.45);z-index:10;}
 
     /* ── AI 호출 버튼 상태 ── */
@@ -353,7 +375,7 @@
 .vto-wrap-dark .vto-overlay{background:linear-gradient(180deg,#0d1f4a,#071952);}
 .vto-wrap-dark .vto-ld{color:rgba(255,255,255,.5);}
 .vto-wrap-dark .vto-step{color:var(--cb-mint);}
-.vto-wrap-dark .vto-spinner{border-color:rgba(151,254,237,.15);border-top-color:var(--cb-mint);}
+.vto-wrap-dark .cb-rainbow span{color:rgba(255,255,255,0.12);}
 
 /* 다크 vto 버튼 */
 .vto-btns-dark{display:flex;gap:8px;margin-top:12px;}
@@ -764,7 +786,7 @@
       </div>
       <div class="vto-wrap" id="vtoWrap" style="border:1px solid rgba(151,254,237,0.15);background:#050f2a;">
         <div id="vtoOverlay" class="vto-overlay" style="background:linear-gradient(180deg,#0d1f4a,#071952);">
-          <div id="vtoSpinner" class="vto-spinner" style="display:none;border-color:rgba(151,254,237,0.15);border-top-color:#97FEED;"></div>
+          <div id="vtoSpinner" class="cb-rainbow" style="display:none;"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div>
           <div class="text-center">
             <div id="vtoStateText" class="vto-ld" style="color:rgba(255,255,255,0.45);">추천 이미지 없음</div>
             <div id="vtoStep" class="vto-step" style="display:none;color:#97FEED;">초기화 중…</div>
@@ -1266,7 +1288,7 @@ function resetStylingBox(msg){
   const metaEl=document.getElementById('vtoMeta');
   if(overlay) overlay.style.display='';
   if(canvas) canvas.style.display='none';
-  if(spinnerEl) spinnerEl.style.display='none';
+  if(spinnerEl){ spinnerEl.style.display='none'; spinnerEl.classList.remove('active'); }
   if(stepEl) stepEl.style.display='none';
   if(stateTextEl) stateTextEl.textContent = msg || '추천 이미지 없음';
   if(hint) hint.style.display='none';
@@ -1304,14 +1326,14 @@ function resetVtoState(state, msg){
   if(st==='loading'){
     overlay.style.display='';
     canvas.style.display='none';
-    if(spinnerEl) spinnerEl.style.display='';
+    if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('active'); }
     if(stepEl){ stepEl.style.display=''; stepEl.textContent='초기화 중…'; }
     if(stateTextEl) stateTextEl.textContent = msg || '추천 이미지 생성중';
   }else if(st==='refreshing'){
     overlay.style.display='';
     canvas.style.display='block';
     if(wrapEl) wrapEl.classList.add('is-refreshing');
-    if(spinnerEl) spinnerEl.style.display='';
+    if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('active'); }
     if(stepEl){ stepEl.style.display=''; stepEl.textContent='새로운 코디를 준비 중…'; }
     if(stateTextEl) stateTextEl.textContent = msg || '다시 코디이미지 생성중';
   }else{
@@ -2104,7 +2126,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
       : '편안한 착용감과 세련된 실루엣';
 
     const sentences = [
-      '🌟 **World-Class AI Fashion Stylist:** ' + stylistName + ' from ' + _region,
+      'Top Special Stylist_' + stylistName + ' live in ' + _region,
       '',
       '**"' + _pLabel + '"을 위한 오늘의 트렌드 스타일링 포인트:**',
       '',
@@ -2151,7 +2173,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
       ? (bodyType.tag==='비만형'||bodyType.tag==='통통형' ? 'a streamlined silhouette' : bodyType.tag==='마른형' ? 'added volume and presence' : bodyType.tag==='단신형' ? 'elongated proportions' : 'comfortable elegance')
       : 'comfortable elegance';
     codiStory = [
-      '🌟 **Your World-Class AI Fashion Stylist:** ' + stylistName + ' from ' + _region,
+      'Top Special Stylist_' + stylistName + ' live in ' + _region,
       '',
       '**Today\'s Trend-Forward Styling Point for "' + _pLabelEn + '":**',
       '',
@@ -2670,7 +2692,7 @@ async function updateVTO(opts={}){
     if(state==='ready'){
       overlay.style.display='none';
       canvas.style.display='block';
-      if(spinnerEl) spinnerEl.style.display='none';
+      if(spinnerEl){ spinnerEl.style.display='none'; spinnerEl.classList.remove('active'); }
       if(stepEl) stepEl.style.display='none';
       return;
     }
@@ -2680,7 +2702,7 @@ async function updateVTO(opts={}){
     // 기존 이미지가 있는 상태에서 "다시 코디"를 누른 경우: 캔버스를 유지한 채 블러 + 오버레이로 표시
     if(state==='refreshing'){
       canvas.style.display='block';
-      if(spinnerEl) spinnerEl.style.display='';
+      if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('active'); }
       if(stateTextEl) stateTextEl.textContent = msg || '다시 코디이미지 생성중';
       if(stepEl){
         stepEl.style.display='';
@@ -2692,7 +2714,7 @@ async function updateVTO(opts={}){
     // 초기 생성: 캔버스를 숨기고 로딩/빈 상태 표시
     canvas.style.display='none';
     if(state==='loading'){
-      if(spinnerEl) spinnerEl.style.display='';
+      if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('active'); }
       if(stateTextEl) stateTextEl.textContent = msg || '추천 이미지 생성중';
       if(stepEl){
         stepEl.style.display='';
@@ -2702,7 +2724,7 @@ async function updateVTO(opts={}){
     }
 
     // empty
-    if(spinnerEl) spinnerEl.style.display='none';
+    if(spinnerEl){ spinnerEl.style.display='none'; spinnerEl.classList.remove('active'); }
     if(stateTextEl) stateTextEl.textContent = msg || '추천 이미지 없음';
     if(stepEl) stepEl.style.display='none';
   };
