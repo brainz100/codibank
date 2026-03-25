@@ -481,6 +481,9 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
             )
         else:
             prompt = prompt + " Keep the upper and lower garments faithful to the provided reference images, preserve category, color and silhouette. If face reference exists, preserve facial identity. No text, no watermark."
+        style_hint = str(payload.get("styleHint") or "").strip()
+        if style_hint:
+            prompt += " " + style_hint
         return prompt, short
 
     # 프롬프트는 "텍스트 없음" 강제
@@ -882,7 +885,7 @@ def _ai_styling_via_gemini(
         "Generate the image as if THIS EXACT PERSON is wearing the recommended outfit. "
         f"Subject: Korean {gender_en}, {age}"
         + (f", {hw_ko}" if hw_ko else "") + ". "
-        "Full body head to toe visible. Photorealistic fashion editorial."
+        "Full body head to toe visible. Photorealistic fashion editorial. BACKGROUND: Use a SOLID FLAT single-color PASTEL background ONLY. Choose a soft pastel tone (pink, mint, lavender, peach, sky blue, cream) that CONTRASTS with the outfit colors. NO street scenes, NO buildings, NO rooms, NO nature, NO patterns — just ONE flat pastel color."
     )
 
     # ── 이미지 파트 구성: 얼굴 → 상의 → 하의 순서 ──
