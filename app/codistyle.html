@@ -165,30 +165,51 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 <div class="divider"></div>
 
 <!-- 얼굴과 신체 사이즈 -->
-<div class="face-section">
-  <div class="face-circle" id="faceCircle" onclick="pickFaceFile()">
-    <span class="face-ph" id="facePh">face</span>
-  </div>
-  <div class="face-info">
-    <b>얼굴과 신체 사이즈</b>
-    <span>프로필 얼굴 사진 자동 불러오기</span>
-    <div id="bodyInfoDisplay" style="margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-      <span style="font-size:11px;color:rgba(151,254,237,.8);font-weight:700;" id="bodyHeightLabel">키: —</span>
-      <span style="font-size:11px;color:rgba(151,254,237,.8);font-weight:700;" id="bodyWeightLabel">몸무게: —</span>
-      <button onclick="openBodyEdit()" style="font-size:9px;padding:2px 8px;border-radius:6px;border:1px solid rgba(151,254,237,.3);background:rgba(151,254,237,.1);color:#97FEED;cursor:pointer;font-family:inherit;">수정</button>
+<div class="face-section" style="flex-direction:column;align-items:stretch;gap:0;">
+  <!-- 상단: 얼굴사진 + 정보 + 촬영/선택 -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+    <div class="face-circle" id="faceCircle" onclick="pickFaceFile()" style="flex-shrink:0;">
+      <span class="face-ph" id="facePh">face</span>
     </div>
-    <div id="bodyEditForm" style="display:none;margin-top:6px;">
-      <div style="display:flex;gap:6px;align-items:center;">
-        <input type="number" id="editHeight" placeholder="키(cm)" style="width:70px;padding:4px 8px;border-radius:6px;border:1px solid rgba(151,254,237,.3);background:rgba(7,25,82,.8);color:#fff;font-size:11px;font-family:inherit;">
-        <input type="number" id="editWeight" placeholder="몸무게(kg)" style="width:80px;padding:4px 8px;border-radius:6px;border:1px solid rgba(151,254,237,.3);background:rgba(7,25,82,.8);color:#fff;font-size:11px;font-family:inherit;">
-        <button onclick="saveBodyInfo()" style="font-size:9px;padding:4px 10px;border-radius:6px;border:none;background:#35A29F;color:#fff;cursor:pointer;font-weight:700;font-family:inherit;">저장</button>
-        <button onclick="cancelBodyEdit()" style="font-size:9px;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.5);cursor:pointer;font-family:inherit;">취소</button>
+    <div style="flex:1;min-width:0;">
+      <b style="font-size:13px;color:#fff;">얼굴과 신체 사이즈</b>
+      <span style="display:block;font-size:10px;color:rgba(255,255,255,.4);margin-top:2px;">프로필 얼굴 사진 자동 불러오기</span>
+    </div>
+    <div style="display:flex;gap:6px;flex-shrink:0;">
+      <button class="face-btn cam" onclick="pickFaceCamera()" style="padding:8px 12px;"><span class="mi" style="font-size:16px;">photo_camera</span>촬영</button>
+      <button class="face-btn gal" onclick="pickFaceFile()" style="padding:8px 12px;"><span class="mi" style="font-size:16px;">photo_library</span>선택</button>
+    </div>
+  </div>
+  <!-- 하단: 키/몸무게 카드 -->
+  <div id="bodyInfoDisplay" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.12);">
+    <div style="display:flex;gap:16px;flex:1;">
+      <div>
+        <span style="font-size:9px;color:rgba(255,255,255,.35);font-weight:600;letter-spacing:.05em;">키</span>
+        <div style="font-size:18px;font-weight:900;color:#97FEED;line-height:1.2;" id="bodyHeightLabel">—</div>
+      </div>
+      <div>
+        <span style="font-size:9px;color:rgba(255,255,255,.35);font-weight:600;letter-spacing:.05em;">몸무게</span>
+        <div style="font-size:18px;font-weight:900;color:#97FEED;line-height:1.2;" id="bodyWeightLabel">—</div>
       </div>
     </div>
+    <button onclick="openBodyEdit()" id="bodyEditBtn" style="font-size:10px;padding:6px 14px;border-radius:8px;border:1px solid rgba(151,254,237,.25);background:rgba(151,254,237,.08);color:#97FEED;cursor:pointer;font-weight:700;font-family:inherit;white-space:nowrap;">수정</button>
   </div>
-  <div class="face-btns">
-    <button class="face-btn cam" onclick="pickFaceCamera()"><span class="mi">photo_camera</span>촬영</button>
-    <button class="face-btn gal" onclick="pickFaceFile()"><span class="mi">photo_library</span>선택</button>
+  <!-- 수정 폼 (숨김) -->
+  <div id="bodyEditForm" style="display:none;padding:12px 14px;border-radius:12px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.15);margin-top:-1px;">
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div style="flex:1;">
+        <label style="font-size:9px;color:rgba(255,255,255,.35);font-weight:600;">키 (cm)</label>
+        <input type="number" id="editHeight" placeholder="175" style="display:block;width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:16px;font-weight:700;font-family:inherit;margin-top:3px;">
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:9px;color:rgba(255,255,255,.35);font-weight:600;">몸무게 (kg)</label>
+        <input type="number" id="editWeight" placeholder="70" style="display:block;width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:16px;font-weight:700;font-family:inherit;margin-top:3px;">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding-top:14px;">
+        <button onclick="saveBodyInfo()" style="font-size:11px;padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#35A29F,#2D8B87);color:#fff;cursor:pointer;font-weight:800;font-family:inherit;">저장</button>
+        <button onclick="cancelBodyEdit()" style="font-size:10px;padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.4);cursor:pointer;font-family:inherit;">취소</button>
+      </div>
+    </div>
   </div>
   <input type="file" id="face-file" accept="image/*" style="display:none" onchange="onFaceFile(event)">
   <input type="file" id="face-cam" accept="image/*" capture="user" style="display:none" onchange="onFaceFile(event)">
@@ -398,6 +419,24 @@ async function generate(){
   document.getElementById('imgWrap').innerHTML='<div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br><small style="opacity:.55">(10~25초 소요)</small></p></div>';
   try{
     const base=codistyleBase(); if(!base) throw new Error('Gemini 백엔드 주소가 없습니다');
+    // 체형 프롬프트 생성
+    const _h = parseFloat(user.height||0), _w = parseFloat(user.weight||0);
+    const _g = user.gender === 'F' ? 'woman' : 'man';
+    const _age = user.ageGroup || '30s';
+    let bodyHint = '';
+    if(_h && _w){
+      const bmi = _w/((_h/100)**2);
+      let build = bmi>=28?'heavy-set':bmi>=25?'slightly stocky':bmi<17.5?'very slim':bmi<20?'slim':'average';
+      let hDesc = _g==='woman'?(_h>=172?'tall':_h<=155?'petite':'medium height'):(_h>=183?'tall':_h<=165?'shorter':'medium height');
+      bodyHint = `The person is a Korean ${_g} in ${_age}, ${hDesc} (${Math.round(_h)}cm), ${build} build (${Math.round(_w)}kg). MUST reflect this exact body type realistically in the generated image.`;
+    }
+    const styleHint = [
+      bodyHint,
+      'BACKGROUND: Use a solid flat single-color PASTEL background that CONTRASTS with the outfit colors for maximum visibility. Choose from soft pink #F5D5CB, light mint #D4EDDA, pale lavender #E8DAEF, soft peach #FDEBD0, light sky #D6EAF8, cream #FEF9E7. NO patterns, NO gradients, NO scenery — just one uniform pastel color.',
+      'Full-length trousers ONLY — NO cropped, NO ankle-length pants. Pants must reach the shoes.',
+      'Both hands must have exactly 5 fingers. No body distortion or warping. Natural studio photography look.',
+    ].filter(Boolean).join(' ');
+
     const payload={
       user:{ gender:user.gender||'', ageGroup:user.ageGroup||'', height:user.height||'', weight:user.weight||'' },
       topPath: ST.top.serverPath,
@@ -405,6 +444,7 @@ async function generate(){
       topDataUrl: ST.top.dataUrl || null,
       bottomDataUrl: ST.bottom.dataUrl || null,
       faceImage: faceDataUrl || null,   /* ★ 서버가 "faceImage" 키로 읽음 */
+      styleHint: styleHint,             /* ★ 서버가 Gemini 프롬프트에 포함 */
       size:'1024x1536',
       quality:'low'
     };
@@ -501,18 +541,18 @@ async function shareResult(){
 function displayBodyInfo() {
   const h = user.height || '';
   const w = user.weight || '';
-  document.getElementById('bodyHeightLabel').textContent = '키: ' + (h ? h + 'cm' : '미등록');
-  document.getElementById('bodyWeightLabel').textContent = '몸무게: ' + (w ? w + 'kg' : '미등록');
+  document.getElementById('bodyHeightLabel').textContent = h ? h + 'cm' : '미등록';
+  document.getElementById('bodyWeightLabel').textContent = w ? w + 'kg' : '미등록';
 }
 function openBodyEdit() {
   document.getElementById('editHeight').value = user.height || '';
   document.getElementById('editWeight').value = user.weight || '';
   document.getElementById('bodyEditForm').style.display = 'block';
-  document.getElementById('bodyInfoDisplay').querySelector('button').style.display = 'none';
+  document.getElementById('bodyInfoDisplay').style.display = 'none';
 }
 function cancelBodyEdit() {
   document.getElementById('bodyEditForm').style.display = 'none';
-  document.getElementById('bodyInfoDisplay').querySelector('button').style.display = '';
+  document.getElementById('bodyInfoDisplay').style.display = 'flex';
 }
 function saveBodyInfo() {
   const h = document.getElementById('editHeight').value.trim();
