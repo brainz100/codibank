@@ -221,7 +221,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 </div>
 
 <!-- Styling Score 박스 (생성 완료 후 표시) -->
-<div id="csScoreBox" style="display:none;padding:14px 16px;border-radius:14px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.12);margin-top:8px;">
+<div id="csScoreBox" style="padding:14px 16px;border-radius:14px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.12);margin-top:8px;">
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
     <div style="display:flex;align-items:baseline;gap:4px;">
       <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);">Styling Score</span>
@@ -229,7 +229,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
       <span style="font-size:12px;font-weight:600;color:rgba(151,254,237,.6);">점</span>
     </div>
   </div>
-  <p style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.6;" id="csScoreText"></p>
+  <p style="font-size:12px;color:rgba(255,255,255,.35);line-height:1.6;" id="csScoreText">착장 이미지가 생성되면 AI 스타일링 점수가 표시됩니다</p>
 </div>
 
 <div class="result-area" id="resultArea">
@@ -428,7 +428,9 @@ async function generate(){
   busy=true; hideErr(); updateGenerateBtn();
   document.getElementById('genBtnText').textContent='착장 이미지 생성중입니다';
   document.getElementById('genBtnIcon').textContent='hourglass_top';
-  document.getElementById('csScoreBox').style.display='none';
+  document.getElementById('csScoreNum').textContent='—';
+  document.getElementById('csScoreText').textContent='착장 이미지 생성 중...';
+  document.getElementById('csScoreText').style.color='rgba(255,255,255,.35)';
   setDot(''); setProgress(12,'업로드된 의상을 확인하는 중…');
   document.getElementById('imgWrap').innerHTML='<div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br><small style="opacity:.55">(10~25초 소요)</small></p></div>';
   try{
@@ -486,7 +488,7 @@ async function generate(){
       ];
       document.getElementById('csScoreNum').textContent = score;
       document.getElementById('csScoreText').textContent = reviews[Math.floor(Math.random()*reviews.length)];
-      document.getElementById('csScoreBox').style.display = 'block';
+      document.getElementById('csScoreText').style.color='rgba(255,255,255,.55)';
     }catch(_){}
 
     /* ── 코디앨범 자동 저장 ── */
