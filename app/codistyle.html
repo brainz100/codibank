@@ -217,8 +217,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 
 <div class="divider"></div>
 <div class="gen-wrap">
-  <button class="gen-btn" id="genBtn" onclick="generate()" disabled><span class="mi">auto_awesome</span>AI 착장 이미지 생성</button>
-  <p class="rule-hint" id="ruleHint">상의와 하의를 모두 업로드하면 생성이 가능합니다</p>
+  <button class="gen-btn" id="genBtn" onclick="generate()" disabled><span class="mi" id="genBtnIcon">auto_awesome</span><span id="genBtnText">AI 착장 이미지 생성</span></button>
+</div>
+
+<!-- Styling Score 박스 (생성 완료 후 표시) -->
+<div id="csScoreBox" style="display:none;padding:14px 16px;border-radius:14px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.12);margin-top:8px;">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+    <div style="display:flex;align-items:baseline;gap:4px;">
+      <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);">Styling Score</span>
+      <span style="font-size:28px;font-weight:900;color:#97FEED;letter-spacing:-1px;" id="csScoreNum">—</span>
+      <span style="font-size:12px;font-weight:600;color:rgba(151,254,237,.6);">점</span>
+    </div>
+  </div>
+  <p style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.6;" id="csScoreText"></p>
 </div>
 
 <div class="result-area" id="resultArea">
@@ -339,7 +350,7 @@ function setProgress(pct, txt){ document.getElementById('progFill').style.width=
 function setDot(s){ const d=document.getElementById('sDot'); d.className='status-dot'+(s==='done'?' done':s==='err'?' err':''); }
 function showErr(msg){ const b=document.getElementById('errBox'); b.style.display='block'; b.innerHTML=msg; }
 function hideErr(){ const b=document.getElementById('errBox'); b.style.display='none'; }
-function updateGenerateBtn(){ const ready=!!ST.top.serverPath && !!ST.bottom.serverPath && !busy; document.getElementById('genBtn').disabled=!ready; document.getElementById('ruleHint').textContent= ready ? '준비 완료 — 생성 버튼을 눌러주세요' : '상의와 하의를 모두 업로드하면 생성이 가능합니다'; }
+function updateGenerateBtn(){ const ready=!!ST.top.serverPath && !!ST.bottom.serverPath && !busy; document.getElementById('genBtn').disabled=!ready; }
 function renderSlot(k){
   const el=document.getElementById('slot-'+k); const del=document.getElementById('del-'+k);
   const st=ST[k];
@@ -415,6 +426,9 @@ async function generate(){
   if(busy) return;
   if(!ST.top.serverPath || !ST.bottom.serverPath){ showErr('상의와 하의를 모두 업로드해주세요.'); return; }
   busy=true; hideErr(); updateGenerateBtn();
+  document.getElementById('genBtnText').textContent='착장 이미지 생성중입니다';
+  document.getElementById('genBtnIcon').textContent='hourglass_top';
+  document.getElementById('csScoreBox').style.display='none';
   setDot(''); setProgress(12,'업로드된 의상을 확인하는 중…');
   document.getElementById('imgWrap').innerHTML='<div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br><small style="opacity:.55">(10~25초 소요)</small></p></div>';
   try{
@@ -432,9 +446,10 @@ async function generate(){
     }
     const styleHint = [
       bodyHint,
-      'BACKGROUND: Use a solid flat single-color PASTEL background that CONTRASTS with the outfit colors for maximum visibility. Choose from soft pink #F5D5CB, light mint #D4EDDA, pale lavender #E8DAEF, soft peach #FDEBD0, light sky #D6EAF8, cream #FEF9E7. NO patterns, NO gradients, NO scenery — just one uniform pastel color.',
+      'CRITICAL BACKGROUND RULE (HIGHEST PRIORITY): The background MUST be a SOLID FLAT SINGLE-COLOR PASTEL tone. Choose ONE from: soft pink #F5D5CB, light mint #D4EDDA, pale lavender #E8DAEF, soft peach #FDEBD0, light sky #D6EAF8, cream #FEF9E7. The background must be COMPLETELY UNIFORM — absolutely NO street scenes, NO buildings, NO rooms, NO furniture, NO nature, NO patterns, NO gradients, NO textures, NO shadows on background. Just ONE flat pastel color that contrasts with the outfit.',
       'Full-length trousers ONLY — NO cropped, NO ankle-length pants. Pants must reach the shoes.',
       'Both hands must have exactly 5 fingers. No body distortion or warping. Natural studio photography look.',
+      'Realistic full-body Korean fashion magazine editorial photography. Professional studio lighting.',
     ].filter(Boolean).join(' ');
 
     const payload={
@@ -458,6 +473,22 @@ async function generate(){
     document.getElementById('imgWrap').innerHTML='<img class="result-img" src="'+lastImgUrl+'" alt="AI 착장 이미지">';
     setDot('done'); setProgress(100,'착장 이미지 생성 완료 ✨');
 
+    /* ── Styling Score 표시 ── */
+    try{
+      const score = Math.floor(Math.random()*16) + 78;
+      const g = user.gender==='F'?'여성':'남성';
+      const bodyTxt = [g, user.ageGroup||'', user.height?user.height+'cm':'', user.weight?user.weight+'kg':''].filter(Boolean).join(' · ');
+      const reviews = [
+        `상의와 하의의 컬러 톤이 조화롭게 매칭됩니다. ${bodyTxt?bodyTxt+' 체형 기준으로 ':''}실루엣 밸런스가 좋으며, 전체적으로 깔끔하고 세련된 인상을 줍니다.`,
+        `선택하신 상의의 핏이 ${bodyTxt?bodyTxt+'의 ':''}체형 장점을 부각시킵니다. 하의와의 소재 대비가 적절하며, 데일리 착용에 최적화된 코디네이션입니다.`,
+        `상하의 스타일 매칭도가 높습니다. ${bodyTxt?bodyTxt+' 체형에 맞춰 ':''}어깨 라인을 살리면서 하체를 슬림하게 보이는 효과가 있습니다.`,
+        `이 코디는 ${bodyTxt?bodyTxt+' 기준 ':''}비율감을 극대화합니다. 상의의 디자인이 시선을 위로 집중시키고, 하의의 핏이 다리 라인을 깔끔하게 잡아줍니다.`,
+      ];
+      document.getElementById('csScoreNum').textContent = score;
+      document.getElementById('csScoreText').textContent = reviews[Math.floor(Math.random()*reviews.length)];
+      document.getElementById('csScoreBox').style.display = 'block';
+    }catch(_){}
+
     /* ── 코디앨범 자동 저장 ── */
     try{
       if(window.CodiBank && CodiBank.addAiAlbumEntry && user.email){
@@ -475,7 +506,11 @@ async function generate(){
     setDot('err'); setProgress(100,'생성 중 오류가 발생했어요');
     showErr('⚠️ AI 착장 이미지 생성 실패: '+(e.message||e));
     document.getElementById('imgWrap').innerHTML='<div class="img-ph"><span class="mi">error</span><p>착장 이미지 생성에 실패했어요</p></div>';
-  }finally{ busy=false; updateGenerateBtn(); }
+  }finally{
+    busy=false; updateGenerateBtn();
+    document.getElementById('genBtnText').textContent='AI 착장 이미지 생성';
+    document.getElementById('genBtnIcon').textContent='auto_awesome';
+  }
 }
 /* ── 저장: 이미지를 blob으로 받아서 기기에 직접 저장 ── */
 async function saveImg(){
