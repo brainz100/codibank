@@ -1732,27 +1732,60 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   })();
   const personas = PERSONA_DB[tpoKey] || PERSONA_DB.commute;
 
-  // ── [3] 다시코디: seed % 10으로 TPO 내 완전히 다른 페르소나 강제 순환
+  // ── [3] 다시코디: seed % personas.length로 TPO 내 다른 페르소나 순환
   const personaIdx = sd % personas.length;
   const persona = personas[personaIdx];
 
-  // ── [4] AI 스타일리스트 실명 테이블 (숫자 ID 대신 실제 이름 사용)
-  // TPO별로 실제 패션 감성에 맞는 이름 10명 × 7 TPO = 70명
-  const STYLIST_NAMES = {
-    commute:     ['Mia','Ethan','Sophia','Daniel','Chloe','Noah','Emma','Liam','Ava','Lucas','Harper','Sebastian','Isla','Theodore','Aria'],
-    business:    ['James','Olivia','William','Isabella','Benjamin','Charlotte','Alexander','Amelia','Henry','Victoria','Eleanor','Nicholas','Grace','Edward','Penelope'],
-    social:      ['Zara','Leo','Luna','Finn','Stella','Kai','Nova','Axel','Iris','Jude','Sienna','Felix','Violet','Hugo','Aurora'],
-    weekendOut:  ['Jake','Lily','Owen','Nora','Miles','Hazel','Cole','Ruby','Dean','Mia','Eloise','Oscar','Clara','Atlas','Ivy'],
-    weekendTrip: ['Max','Elena','Sam','Freya','Theo','Ingrid','Rory','Astrid','Flynn','Skye','Leif','Linnea','Anders','Signe','Lars'],
-    overseasTrip:['Marco','Sofia','Luca','Giulia','Rafael','Camille','Henri','Yasmine','Kenji','Aisha','Priya','Dmitri','Yuki','Carlos','Fatima'],
-    custom:      ['Alex','Jordan','Robin','Sage','Quinn','River','Avery','Blake','Reese','Morgan','Rowan','Emery','Finley','Harlow','Lennox'],
-  };
-  const _namePool = STYLIST_NAMES[tpoKey] || STYLIST_NAMES.custom;
-  const stylistName = _namePool[personaIdx % _namePool.length];
+  // ── [4] AI 스타일리스트 대규모 풀 (수천 명)
+  // 이름 풀 (100명) × 도시 풀 자동 조합 → TPO별 고유 이름 선정
+  const _FIRST_NAMES = [
+    'Mia','Ethan','Sophia','Daniel','Chloe','Noah','Emma','Liam','Ava','Lucas',
+    'Harper','Sebastian','Isla','Theodore','Aria','James','Olivia','William','Isabella','Benjamin',
+    'Charlotte','Alexander','Amelia','Henry','Victoria','Eleanor','Nicholas','Grace','Edward','Penelope',
+    'Zara','Leo','Luna','Finn','Stella','Kai','Nova','Axel','Iris','Jude',
+    'Sienna','Felix','Violet','Hugo','Aurora','Jake','Lily','Owen','Nora','Miles',
+    'Hazel','Cole','Ruby','Dean','Eloise','Oscar','Clara','Atlas','Ivy','Max',
+    'Elena','Sam','Freya','Theo','Ingrid','Rory','Astrid','Flynn','Skye','Leif',
+    'Marco','Sofia','Luca','Giulia','Rafael','Camille','Henri','Yasmine','Kenji','Aisha',
+    'Priya','Dmitri','Yuki','Carlos','Fatima','Alex','Jordan','Robin','Sage','Quinn',
+    'River','Avery','Blake','Reese','Morgan','Rowan','Emery','Finley','Harlow','Lennox',
+  ];
+  const _CITIES = [
+    'Milan','New York','Paris','London','Seoul','Tokyo','Copenhagen','Los Angeles','Stockholm','Barcelona',
+    'Chicago','Munich','Edinburgh','Amsterdam','Vienna','Dublin','Zürich','Sydney','Hong Kong','São Paulo',
+    'Florence','Montreal','Brussels','Helsinki','Bordeaux','Prague','Athens','Singapore','Melbourne','Oslo',
+    'Gothenburg','Reykjavik','Bergen','Mumbai','Moscow','Osaka','Mexico City','Marrakech','Toronto','Cape Town',
+    'Shanghai','Rome','Madrid','Dubai','Berlin','Warsaw','Lisbon','Budapest','Manila','Bangkok',
+  ];
+
+  // 동일 날짜+코디목적에서 이미 사용된 스타일리스트 추적
+  const _dateKey = String(day||'today');
+  const _usedKey = `cb_used_stylists_${pk}_${_dateKey}`;
+  let _usedStylists = [];
+  try { _usedStylists = JSON.parse(localStorage.getItem(_usedKey) || '[]'); } catch(_){}
+
+  // seed 기반으로 이름+도시 선정 (이전에 사용된 조합 건너뛰기)
+  let stylistName = '', stylistCity = '';
+  const _totalPool = _FIRST_NAMES.length * _CITIES.length; // 100×50=5000명
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const idx = (sd + attempt) % _totalPool;
+    const nameIdx = idx % _FIRST_NAMES.length;
+    const cityIdx = Math.floor(idx / _FIRST_NAMES.length) % _CITIES.length;
+    const candidate = _FIRST_NAMES[nameIdx] + '_' + _CITIES[cityIdx];
+    if (!_usedStylists.includes(candidate) || attempt >= 40) {
+      stylistName = _FIRST_NAMES[nameIdx];
+      stylistCity = _CITIES[cityIdx];
+      _usedStylists.push(candidate);
+      try { localStorage.setItem(_usedKey, JSON.stringify(_usedStylists.slice(-200))); } catch(_){}
+      break;
+    }
+  }
+  if (!stylistName) { stylistName = _FIRST_NAMES[sd % _FIRST_NAMES.length]; stylistCity = _CITIES[sd % _CITIES.length]; }
 
   // stylist 객체 — name 필드 추가 (화면에 "Lucy · Modern Minimalist" 형태로 표시)
   const stylist = {
     name:        stylistName,
+    city:        stylistCity,
     voice:       persona.voice,
     en:          persona.en,
     tag:         persona.en.toLowerCase().replace(/\s+/g,'_'),
@@ -2097,17 +2130,8 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     const _bag    = _extSpec.bag.ko   ? '가방은 **' + _extSpec.bag.ko + '**,' : '';
     const _watch  = _extSpec.watch.ko ? '시계는 **' + _extSpec.watch.ko + '**' : '';
 
-    // 문장 조합 — World-Class AI Stylist 포맷
-    const _regionMap = {
-      Mia:'Milan',Ethan:'New York',Sophia:'Paris',Daniel:'London',Chloe:'Seoul',Noah:'Tokyo',Emma:'Copenhagen',Liam:'Los Angeles',Ava:'Stockholm',Lucas:'Barcelona',Harper:'Chicago',Sebastian:'Munich',Isla:'Edinburgh',Theodore:'Amsterdam',Aria:'Vienna',
-      James:'London',Olivia:'Milan',William:'New York',Isabella:'Paris',Benjamin:'Seoul',Charlotte:'Tokyo',Alexander:'Stockholm',Amelia:'Copenhagen',Henry:'Los Angeles',Victoria:'Barcelona',Eleanor:'Dublin',Nicholas:'Zürich',Grace:'Sydney',Edward:'Hong Kong',Penelope:'São Paulo',
-      Zara:'Milan',Leo:'Paris',Luna:'Seoul',Finn:'Berlin',Stella:'New York',Kai:'Tokyo',Nova:'London',Axel:'Stockholm',Iris:'Barcelona',Jude:'Los Angeles',Sienna:'Florence',Felix:'Vienna',Violet:'Montreal',Hugo:'Brussels',Aurora:'Helsinki',
-      Jake:'Los Angeles',Lily:'Seoul',Owen:'London',Nora:'Copenhagen',Miles:'New York',Hazel:'Tokyo',Cole:'Paris',Ruby:'Milan',Dean:'Berlin',Eloise:'Bordeaux',Oscar:'Melbourne',Clara:'Prague',Atlas:'Athens',Ivy:'Singapore',
-      Max:'Berlin',Elena:'Barcelona',Sam:'London',Freya:'Copenhagen',Theo:'Paris',Ingrid:'Stockholm',Rory:'New York',Astrid:'Seoul',Flynn:'Tokyo',Skye:'Milan',Leif:'Oslo',Linnea:'Gothenburg',Anders:'Helsinki',Signe:'Reykjavik',Lars:'Bergen',
-      Marco:'Milan',Sofia:'Barcelona',Luca:'Paris',Giulia:'Rome',Rafael:'Madrid',Camille:'Paris',Henri:'London',Yasmine:'Dubai',Kenji:'Tokyo',Aisha:'Seoul',Priya:'Mumbai',Dmitri:'Moscow',Yuki:'Osaka',Carlos:'Mexico City',Fatima:'Marrakech',
-      Alex:'New York',Jordan:'London',Robin:'Paris',Sage:'Seoul',Quinn:'Tokyo',River:'Los Angeles',Avery:'Milan',Blake:'Berlin',Reese:'Stockholm',Morgan:'Copenhagen',Rowan:'Dublin',Emery:'Toronto',Finley:'Cape Town',Harlow:'Shanghai',Lennox:'Edinburgh',
-    };
-    const _region = _regionMap[stylistName] || 'Seoul';
+    // 문장 조합 — Top Special Stylist 포맷
+    const _region = stylistCity || 'Seoul';
     const _technique = persona.layerStyle.split('+')[0].trim() || '토널 레이어링';
     const _keyItem = _outer || _top || _pants || '핵심 아이템';
     const _ageLabel = String(age||'30대');
@@ -2139,16 +2163,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
 
   // ── 영어 모드: codiStory 영어 버전 생성 ──
   if(window.CodiBankI18n && CodiBankI18n.isEn()){
-    const _regionMap = {
-      Mia:'Milan',Ethan:'New York',Sophia:'Paris',Daniel:'London',Chloe:'Seoul',Noah:'Tokyo',Emma:'Copenhagen',Liam:'Los Angeles',Ava:'Stockholm',Lucas:'Barcelona',Harper:'Chicago',Sebastian:'Munich',Isla:'Edinburgh',Theodore:'Amsterdam',Aria:'Vienna',
-      James:'London',Olivia:'Milan',William:'New York',Isabella:'Paris',Benjamin:'Seoul',Charlotte:'Tokyo',Alexander:'Stockholm',Amelia:'Copenhagen',Henry:'Los Angeles',Victoria:'Barcelona',Eleanor:'Dublin',Nicholas:'Zürich',Grace:'Sydney',Edward:'Hong Kong',Penelope:'São Paulo',
-      Zara:'Milan',Leo:'Paris',Luna:'Seoul',Finn:'Berlin',Stella:'New York',Kai:'Tokyo',Nova:'London',Axel:'Stockholm',Iris:'Barcelona',Jude:'Los Angeles',Sienna:'Florence',Felix:'Vienna',Violet:'Montreal',Hugo:'Brussels',Aurora:'Helsinki',
-      Jake:'Los Angeles',Lily:'Seoul',Owen:'London',Nora:'Copenhagen',Miles:'New York',Hazel:'Tokyo',Cole:'Paris',Ruby:'Milan',Dean:'Berlin',Eloise:'Bordeaux',Oscar:'Melbourne',Clara:'Prague',Atlas:'Athens',Ivy:'Singapore',
-      Max:'Berlin',Elena:'Barcelona',Sam:'London',Freya:'Copenhagen',Theo:'Paris',Ingrid:'Stockholm',Rory:'New York',Astrid:'Seoul',Flynn:'Tokyo',Skye:'Milan',Leif:'Oslo',Linnea:'Gothenburg',Anders:'Helsinki',Signe:'Reykjavik',Lars:'Bergen',
-      Marco:'Milan',Sofia:'Barcelona',Luca:'Paris',Giulia:'Rome',Rafael:'Madrid',Camille:'Paris',Henri:'London',Yasmine:'Dubai',Kenji:'Tokyo',Aisha:'Seoul',Priya:'Mumbai',Dmitri:'Moscow',Yuki:'Osaka',Carlos:'Mexico City',Fatima:'Marrakech',
-      Alex:'New York',Jordan:'London',Robin:'Paris',Sage:'Seoul',Quinn:'Tokyo',River:'Los Angeles',Avery:'Milan',Blake:'Berlin',Reese:'Stockholm',Morgan:'Copenhagen',Rowan:'Dublin',Emery:'Toronto',Finley:'Cape Town',Harlow:'Shanghai',Lennox:'Edinburgh',
-    };
-    const _region = _regionMap[stylistName] || 'Seoul';
+    const _region = stylistCity || 'Seoul';
     const _pLabelEn = persona.en || persona.voice;
     const _wxEn = (Number.isFinite(nt) ? nt+'°C' : '') + ' ' + (wxTxt||'');
     const _technique = (persona.layerStyle||'').split('+')[0].trim() || 'tonal layering';
@@ -2200,7 +2215,10 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   // ══════════════════════════════════════════════════════════════
   // 페르소나별 악세서리 변동 (personaIdx 기반 - 스타일리스트마다 다른 조합)
   const _skipBag = (personaIdx % 3 === 2); // 매 3번째 스타일리스트는 가방 없음
-  const _skipScarf = (personaIdx % 4 !== 0); // 4번째만 스카프 있음 (75% 확률 없음)
+  // 목도리: 반드시 온도 0도 이하 + 12~2월 사이에만 추천 (그 외 무조건 생략)
+  const _currentMonth = new Date().getMonth() + 1; // 1~12
+  const _isWinterMonth = (_currentMonth === 12 || _currentMonth === 1 || _currentMonth === 2);
+  const _skipScarf = !(Number.isFinite(nt) && nt <= 0 && _isWinterMonth);
   const _skipWatch = (personaIdx % 5 === 0); // 매 5번째 스타일리스트는 시계 없음
 
   const _cCat = (koColor, itemKo) => {
@@ -3297,6 +3315,9 @@ async function updateVTO(opts={}){
             styleTitle: styleTitle || '',
             explanation: explain || '',
             keywords: Array.isArray(keywords) ? keywords : [],
+            stylistName: S.stylist?.name || '',
+            stylistCity: S.stylist?.city || '',
+            liked: false,
             createdAt: new Date().toISOString(),
           });
         }
