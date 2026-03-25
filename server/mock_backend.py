@@ -476,7 +476,7 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
                 "Show the whole body from head to toe. "
                 f"Weather: {bucket}. Condition: {cond or 'clear'}. Purpose: {purpose_desc}. "
                 f"Location culture hint: {str(weather.get('location') or '').strip() or 'Seoul'}. "
-                "Natural proportions, realistic try-on, clean fashion editorial background. "
+                "Natural proportions, realistic try-on. BACKGROUND: Choose a light pastel solid color that contrasts with the outfit colors. Studio paper backdrop only — no environment, no objects. "
                 "No text, no watermark, no logo."
             )
         else:
