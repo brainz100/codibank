@@ -598,17 +598,7 @@
 </head>
 <body style="background:#071952;" class="text-white selection:bg-teal-400/20">
 
-<!-- 상태바 (다크) -->
-<div class="fixed top-0 w-full z-50 px-6 py-3 flex justify-between items-center" style="background:rgba(7,25,82,0.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(151,254,237,0.1);">
-  <span class="text-sm font-semibold text-white/80">9:41</span>
-  <div class="flex gap-1.5 items-center text-white/60">
-    <span class="material-symbols-outlined text-[16px]">signal_cellular_alt</span>
-    <span class="material-symbols-outlined text-[16px]">wifi</span>
-    <span class="material-symbols-outlined text-[16px]">battery_full</span>
-  </div>
-</div>
-
-<header class="pt-16 px-6 pb-4" style="background:linear-gradient(180deg,#071952 0%,#0D2E5E 100%);">
+<header class="px-6 pt-4 pb-4" style="background:linear-gradient(180deg,#071952 0%,#0D2E5E 100%);">
   <div class="flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold tracking-tight text-white">내옷장</h1>
@@ -2208,6 +2198,11 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   //
   // 소스 구조: SPEC(한국어) ↔ imagePrompt(영어) = 동일 palette hex에서 파생
   // ══════════════════════════════════════════════════════════════
+  // 페르소나별 악세서리 변동 (personaIdx 기반 - 스타일리스트마다 다른 조합)
+  const _skipBag = (personaIdx % 3 === 2); // 매 3번째 스타일리스트는 가방 없음
+  const _skipScarf = (personaIdx % 4 !== 0); // 4번째만 스카프 있음 (75% 확률 없음)
+  const _skipWatch = (personaIdx % 5 === 0); // 매 5번째 스타일리스트는 시계 없음
+
   const _cCat = (koColor, itemKo) => {
     const color = String(koColor || '').trim();
     const item  = String(itemKo  || '').trim();
@@ -2227,11 +2222,11 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     bottom: [_cCat(SPEC.pants.ko, SPEC.pants.itemKo || '하의'), persona.designKws[1]].filter(Boolean),
     // 신발: "블랙 더비슈즈" (신발 스타일명이 이미 페르소나별 고유)
     shoes:  [_cCat(SPEC.shoes.ko, SPEC.shoes.itemKo)].filter(Boolean),
-    // 스카프/포인트
-    scarf:  SPEC.accent.ko ? [SPEC.accent.ko + ' 포인트'] : ['포인트 악세서리'],
-    // 가방/시계/양말: TPO·계절 기반 (목적이 같으면 동일 — 정상 동작)
-    bag:    [_extSpec.bag.ko].filter(Boolean),
-    watch:  [_extSpec.watch.ko].filter(Boolean),
+    // 스카프/포인트 — 스타일리스트에 따라 생략 가능
+    scarf:  (!_skipScarf && SPEC.accent.ko) ? [SPEC.accent.ko + ' 포인트'] : [],
+    // 가방/시계/양말 — 스타일리스트에 따라 생략 가능
+    bag:    !_skipBag ? [_extSpec.bag.ko].filter(Boolean) : [],
+    watch:  !_skipWatch ? [_extSpec.watch.ko].filter(Boolean) : [],
     socks:  [_extSpec.socks.ko].filter(Boolean),
   };
 
@@ -2284,24 +2279,33 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   ) : '';
 
   const imagePrompt = [
-    `Realistic full-body Korean fashion magazine photography of ${ageLabel} ${ethnicity} ${genderLabel}.`,
+    `Realistic full-body Korean fashion magazine editorial photography of ${ageLabel} ${ethnicity} ${genderLabel}.`,
     bodyBuildPrompt||'',
-    `CRITICAL BODY PROPORTION RULES: Head-to-body ratio must be exactly 1:7.5. Head occupies top 12% of frame. Torso from shoulders to waist is 30% of body height. Legs from waist to feet are 50% of body height. Arms reach mid-thigh. All body parts must be anatomically correct with natural human proportions. NO distorted, elongated, or shortened limbs. NO unrealistic face or body features.`,
+    `ABSOLUTE ANATOMY RULES (HIGHEST PRIORITY - VIOLATION = FAILURE):`,
+    `- Head-to-body ratio MUST be 1:7.5. Head = top 12% of frame.`,
+    `- Torso (shoulders to waist) = 30% of total height. Waist must be at natural position.`,
+    `- Legs (waist to feet) = 50% of total height.`,
+    `- Both arms must be fully visible, natural length reaching mid-thigh, with 5 fingers each clearly visible.`,
+    `- Both hands must be anatomically correct with proper finger count and proportions.`,
+    `- Face must have two symmetrical eyes, one nose, one mouth — all proportionally correct.`,
+    `- Torso must NOT be distorted, squeezed, stretched, or have any unnatural folds or warping.`,
+    `- The jacket/outerwear must drape naturally over the torso with no bizarre creasing or melting effect.`,
+    `- NO extra limbs, NO merged body parts, NO floating objects attached to body.`,
     customSentence||'',
     `STRICTLY follow exact item colors below — do NOT substitute any color:`,
-    `[1] OUTERWEAR: ${SPEC.outer.en} ${SPEC.outer.itemEn} — must be ${SPEC.outer.en} colored.`,
+    `[1] OUTERWEAR: ${SPEC.outer.en} ${SPEC.outer.itemEn} — must be ${SPEC.outer.en} colored, buttoned or unbuttoned naturally.`,
     `[2] TOP: ${SPEC.top.en} — must be ${SPEC.top.en} colored, not white unless specified.`,
-    `[3] PANTS: ${SPEC.pants.en} trousers — must be ${SPEC.pants.en}, NOT black unless specified as black.`,
+    `[3] PANTS: ${SPEC.pants.en} FULL-LENGTH trousers — MUST be ${SPEC.pants.en} colored. CRITICAL: Pants MUST be FULL LENGTH reaching to the top of shoes. NO cropped pants, NO ankle-length pants, NO capri pants, NO rolled-up cuffs unless explicitly specified. Standard straight or slim-fit full-length trousers with hem touching the shoes.`,
     `[4] SHOES: ${SPEC.shoes.en} ${SPEC.shoes.itemEn} — MUST be ${SPEC.shoes.en} colored ${SPEC.shoes.itemEn}, NOT white unless specified.`,
-    (SPEC.accent.ko && SPEC.accent.ko!=='포인트악세서리') ? `[5] SCARF/ACCENT: ${SPEC.accent.en} — must be ${SPEC.accent.en} colored scarf or accessory.` : '',
-    `[6] BAG: ${_extSpec.bag.en}.`,
-    `[7] WATCH: ${_extSpec.watch.en}.`,
+    (!_skipScarf && SPEC.accent.ko && SPEC.accent.ko!=='포인트악세서리') ? `[5] SCARF/ACCENT: ${SPEC.accent.en} — must be ${SPEC.accent.en} colored scarf or accessory.` : '',
+    !_skipBag ? `[6] BAG: ${_extSpec.bag.en}. Held naturally in one hand or on shoulder.` : '',
+    !_skipWatch ? `[7] WATCH: ${_extSpec.watch.en}.` : '',
     `[8] SOCKS: ${_extSpec.socks.en}.`,
     `Style: ${persona.en} persona. Silhouette: ${persona.layerStyle}.`,
     bodyFlawPrompt||'',
-    `Pose: Standing straight, looking directly at camera, frontal face view, slight natural smile. Full body from top of head to bottom of shoes visible in frame. Feet firmly on ground level.`,
+    `Pose: Standing straight with relaxed natural posture, looking directly at camera, frontal face view, slight natural smile. Both arms hanging naturally at sides or one hand slightly in pocket. Full body from top of head to bottom of shoes visible in frame. Feet shoulder-width apart, firmly on ground.`,
     `BACKGROUND: Solid flat single-color pastel background ONLY. Use a soft muted pastel tone that contrasts with the outfit colors for maximum visibility. NO patterns, NO gradients, NO scenery, NO objects, NO textures — just one solid pastel color (e.g., soft pink #F5D5CB, light mint #D4EDDA, pale lavender #E8DAEF, soft peach #FDEBD0, light sky #D6EAF8, cream #FEF9E7). The background must be completely uniform and flat.`,
-    `${weatherNote}. Professional editorial fashion studio lighting, high resolution, sharp detail on all clothing items.`,
+    `${weatherNote}. Professional editorial fashion studio lighting, even illumination, high resolution, sharp detail on all clothing items. Photo must look like a real person photographed in a studio — NOT an illustration or CGI render.`,
   ].filter(Boolean).join(' ');
 
     // ── [18] matchPairs
