@@ -885,7 +885,7 @@ def _ai_styling_via_gemini(
         "Generate the image as if THIS EXACT PERSON is wearing the recommended outfit. "
         f"Subject: Korean {gender_en}, {age}"
         + (f", {hw_ko}" if hw_ko else "") + ". "
-        "Full body head to toe visible. Photorealistic fashion editorial. BACKGROUND: Use a SOLID FLAT single-color PASTEL background ONLY. Choose a soft pastel tone (pink, mint, lavender, peach, sky blue, cream) that CONTRASTS with the outfit colors. NO street scenes, NO buildings, NO rooms, NO nature, NO patterns — just ONE flat pastel color."
+        "Full body head to toe visible. Photorealistic fashion editorial."
     )
 
     # ── 이미지 파트 구성: 얼굴 → 상의 → 하의 순서 ──
