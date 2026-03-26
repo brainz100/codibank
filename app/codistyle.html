@@ -445,12 +445,22 @@ async function generate(){
       let hDesc = _g==='woman'?(_h>=172?'tall':_h<=155?'petite':'medium height'):(_h>=183?'tall':_h<=165?'shorter':'medium height');
       bodyHint = `The person is a Korean ${_g} in ${_age}, ${hDesc} (${Math.round(_h)}cm), ${build} build (${Math.round(_w)}kg). MUST reflect this exact body type realistically in the generated image.`;
     }
-    const styleHint = [
-      bodyHint,
-      'BACKGROUND: Analyze the colors of the outfit (top and bottom garments) being worn, then choose a LIGHT PASTEL SOLID COLOR that creates clear visual CONTRAST against those outfit colors. Use only ONE uniform flat color — no patterns, no gradients, no environment, no objects. Studio paper backdrop only.',
+    // ★ 핵심: closet.html과 동일하게 imagePrompt를 전송해야
+    //   서버 build_prompt()가 기본 "editorial background"를 사용하지 않음
+    const _genderEn = user.gender==='F'?'woman':'man';
+    const _ageEn = user.ageGroup || '30s';
+    const imagePrompt = [
+      `Realistic full-body Korean fashion magazine editorial photography of a Korean ${_genderEn} in ${_ageEn}.`,
+      bodyHint || '',
+      'Use the provided reference images for the outfit: one upper-body garment and one lower-body garment.',
+      'Preserve the clothing category, color, silhouette and major design details from the references.',
+      'If a face reference is provided, preserve the same facial identity.',
+      'Show the whole body from head to toe.',
       'PANTS: Must be FULL LENGTH reaching shoes. NO cropped, NO ankle-length.',
-      'ANATOMY: Both hands 5 fingers each. No distortion. Natural proportions.',
-      'STYLE: Realistic Korean fashion magazine editorial studio photography.',
+      'ANATOMY: Both hands must have exactly 5 fingers each. No body distortion. Natural proportions.',
+      'Pose: Standing straight with relaxed natural posture, full body visible, feet on ground.',
+      'BACKGROUND: Solid flat single-color pastel background ONLY. Use a soft muted pastel tone that contrasts with the outfit colors for maximum visibility. NO patterns, NO gradients, NO scenery, NO objects, NO textures — just one solid pastel color (e.g., soft pink #F5D5CB, light mint #D4EDDA, pale lavender #E8DAEF, soft peach #FDEBD0, light sky #D6EAF8, cream #FEF9E7). The background must be completely uniform and flat.',
+      'Professional studio lighting, even illumination, high resolution. No text, no watermark, no logo.',
     ].filter(Boolean).join(' ');
 
     const payload={
@@ -460,7 +470,7 @@ async function generate(){
       topDataUrl: ST.top.dataUrl || null,
       bottomDataUrl: ST.bottom.dataUrl || null,
       faceImage: faceDataUrl || null,   /* ★ 서버가 "faceImage" 키로 읽음 */
-      styleHint: styleHint,             /* ★ 서버가 Gemini 프롬프트에 포함 */
+      imagePrompt: imagePrompt,          /* ★ closet과 동일! 서버가 기본 프롬프트 대신 이것을 사용 */
       size:'1024x1536',
       quality:'low'
     };
