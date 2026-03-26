@@ -71,7 +71,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 .prog-bar{height:3px;background:rgba(151,254,237,0.08)}
 .prog-fill{height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);transition:width .4s ease;border-radius:3px}
 .status-row{display:flex;align-items:center;gap:10px;padding:16px 18px 10px}.status-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;animation:pdot 1.2s ease-in-out infinite}@keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}.status-dot.done{background:var(--mint);animation:none}.status-dot.err{background:#f87171;animation:none}.status-txt{font-size:12px;color:rgba(162,253,240,0.7);font-weight:500}
-.result-img-wrap{padding:10px 14px}.result-img{width:100%;border-radius:16px;display:block;aspect-ratio:2/3;object-fit:cover;background:rgba(0,0,0,.25)}
+.result-img-wrap{padding:10px 14px}.result-img{width:100%;border-radius:16px;display:block;aspect-ratio:2/3;object-fit:cover;background:#F6EEF2}
 .img-ph{width:100%;aspect-ratio:2/3;border-radius:16px;background:rgba(0,0,0,0.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:rgba(255,255,255,0.18)}
 .img-ph .mi{font-family:'Material Symbols Outlined';font-size:50px}.img-ph p{font-size:12px}
 .img-spin{width:100%;aspect-ratio:2/3;border-radius:16px;background:rgba(0,0,0,0.2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
@@ -166,79 +166,45 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 <div class="divider"></div>
 
 <!-- 코디 프로필 -->
-<div class="section-title" style="padding:0 16px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+<div style="padding:0 16px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
   <span class="mi" style="font-size:18px;color:var(--mint);">person</span>
   <b style="font-size:14px;color:#fff;" id="codiProfileTitle">코디 프로필</b>
-  <span style="font-size:10px;color:rgba(255,255,255,.3);margin-left:auto;">프로필에서 자동 불러오기</span>
+  <span style="font-size:10px;color:rgba(255,255,255,.3);margin-left:auto;" id="codiProfileSub">프로필에서 자동 불러오기</span>
 </div>
 <div class="face-section" style="flex-direction:column;align-items:stretch;gap:0;">
-  <!-- 상단: 얼굴사진 + 촬영/선택 -->
+  <!-- 얼굴 + 촬영/선택 -->
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
     <div class="face-circle" id="faceCircle" onclick="pickFaceFile()" style="flex-shrink:0;">
       <span class="face-ph" id="facePh">face</span>
     </div>
     <div style="flex:1;min-width:0;">
-      <span style="font-size:11px;color:rgba(255,255,255,.5);">프로필 얼굴 사진 자동 불러오기</span>
+      <span style="font-size:11px;color:rgba(255,255,255,.5);" id="faceDescText">프로필 정보 적용</span>
     </div>
     <div style="display:flex;gap:6px;flex-shrink:0;">
       <button class="face-btn cam" onclick="pickFaceCamera()" style="padding:8px 12px;"><span class="mi" style="font-size:16px;">photo_camera</span>촬영</button>
       <button class="face-btn gal" onclick="pickFaceFile()" style="padding:8px 12px;"><span class="mi" style="font-size:16px;">photo_library</span>선택</button>
     </div>
   </div>
-  <!-- 하단: 성별/나이/키/몸무게 카드 -->
+  <!-- 성별/나이대/키/몸무게 -->
   <div id="bodyInfoDisplay" style="display:flex;align-items:center;gap:0;padding:12px 14px;border-radius:12px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.12);">
     <div style="display:flex;gap:0;flex:1;align-items:center;">
-      <div style="text-align:center;flex:1;">
-        <span style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">성별</span>
-        <div style="font-size:15px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyGenderLabel">—</div>
-      </div>
+      <div style="text-align:center;flex:1;"><span style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">성별</span><div style="font-size:15px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyGenderLabel">—</div></div>
       <div style="width:1px;height:22px;background:rgba(151,254,237,.1);"></div>
-      <div style="text-align:center;flex:1;">
-        <span style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">나이대</span>
-        <div style="font-size:15px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyAgeLabel">—</div>
-      </div>
+      <div style="text-align:center;flex:1;"><span style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">나이대</span><div style="font-size:15px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyAgeLabel">—</div></div>
       <div style="width:1px;height:22px;background:rgba(151,254,237,.1);"></div>
-      <div style="text-align:center;flex:1;">
-        <span style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">키</span>
-        <div style="font-size:15px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyHeightLabel">—</div>
-      </div>
+      <div style="text-align:center;flex:1;"><span style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">키</span><div style="font-size:15px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyHeightLabel">—</div></div>
       <div style="width:1px;height:22px;background:rgba(151,254,237,.1);"></div>
-      <div style="text-align:center;flex:1;">
-        <span style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">몸무게</span>
-        <div style="font-size:15px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyWeightLabel">—</div>
-      </div>
+      <div style="text-align:center;flex:1;"><span style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">몸무게</span><div style="font-size:15px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyWeightLabel">—</div></div>
     </div>
     <button onclick="openBodyEdit()" style="font-size:10px;padding:6px 12px;border-radius:8px;border:1px solid rgba(151,254,237,.25);background:rgba(151,254,237,.08);color:#97FEED;cursor:pointer;font-weight:700;font-family:inherit;white-space:nowrap;margin-left:8px;">수정</button>
   </div>
   <!-- 수정 폼 -->
   <div id="bodyEditForm" style="display:none;padding:12px 14px;border-radius:12px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.15);margin-top:4px;">
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
-      <div style="flex:1;">
-        <label style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">성별</label>
-        <select id="editGender" style="display:block;width:100%;padding:7px 6px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:2px;">
-          <option value="M">남성</option>
-          <option value="F">여성</option>
-        </select>
-      </div>
-      <div style="flex:1;">
-        <label style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">나이대</label>
-        <select id="editAge" style="display:block;width:100%;padding:7px 6px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:2px;">
-          <option value="10s">10대</option>
-          <option value="20s">20대</option>
-          <option value="30s">30대</option>
-          <option value="40s">40대</option>
-          <option value="50s">50대</option>
-          <option value="60s">60대</option>
-        </select>
-      </div>
-      <div style="flex:1;">
-        <label style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">키(cm)</label>
-        <input type="number" id="editHeight" placeholder="175" style="display:block;width:100%;padding:7px 8px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:2px;">
-      </div>
-      <div style="flex:1;">
-        <label style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">몸무게(kg)</label>
-        <input type="number" id="editWeight" placeholder="70" style="display:block;width:100%;padding:7px 8px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:2px;">
-      </div>
+      <div style="flex:1;"><label style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">성별</label><select id="editGender" style="display:block;width:100%;padding:7px 6px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:2px;"><option value="M">남성</option><option value="F">여성</option></select></div>
+      <div style="flex:1;"><label style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">나이대</label><select id="editAge" style="display:block;width:100%;padding:7px 6px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:2px;"><option value="10s">10대</option><option value="20s">20대</option><option value="30s">30대</option><option value="40s">40대</option><option value="50s">50대</option><option value="60s">60대</option></select></div>
+      <div style="flex:1;"><label style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">키(cm)</label><input type="number" id="editHeight" placeholder="175" style="display:block;width:100%;padding:7px 8px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:2px;"></div>
+      <div style="flex:1;"><label style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">몸무게(kg)</label><input type="number" id="editWeight" placeholder="70" style="display:block;width:100%;padding:7px 8px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:2px;"></div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button onclick="cancelBodyEdit()" style="font-size:11px;padding:7px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.4);cursor:pointer;font-family:inherit;">취소</button>
@@ -299,6 +265,7 @@ const ST = {
   bottom: { preview:'', serverPath:'', dataUrl:'', uploading:false },
 };
 let busy=false, lastImgUrl='', faceDataUrl='';
+
 
 /* ── 얼굴 사진 ── */
 function pickFaceFile()   { document.getElementById('face-file').click(); }
@@ -467,7 +434,7 @@ async function generate(){
   document.getElementById('imgWrap').innerHTML='<div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br><small style="opacity:.55">(10~25초 소요)</small></p></div>';
   try{
     const base=codistyleBase(); if(!base) throw new Error('Gemini 백엔드 주소가 없습니다');
-    // 체형 프롬프트 생성 (코디프로필에서 읽기)
+    // 체형 프롬프트 생성
     const _h = parseFloat(codiProfile.height||0), _w = parseFloat(codiProfile.weight||0);
     const _g = codiProfile.gender === 'F' ? 'woman' : 'man';
     const _gKo = codiProfile.gender === 'F' ? '여성' : '남성';
@@ -486,8 +453,7 @@ async function generate(){
     const faceHint = hasFace
       ? 'FACE REFERENCE (HIGHEST PRIORITY): The FIRST image is the face reference photo. You MUST preserve the EXACT facial features, face shape, skin tone, hair style, hair color, eyeglasses (if any), and facial expression of this person. The generated image must look like THIS EXACT PERSON wearing the outfit — not a different person.'
       : '';
-    // ★ 핵심: closet.html과 동일하게 imagePrompt를 전송해야
-    //   서버 build_prompt()가 기본 "editorial background"를 사용하지 않음
+    // ★ Gemini 1회 생성으로 파스텔 배경 완성 (2차 후처리 없음)
     const imagePrompt = [
       `Realistic full-body Korean fashion magazine editorial photography of a Korean ${_g} in ${_age}.`,
       bodyHint,
@@ -504,19 +470,18 @@ async function generate(){
 
     const payload={
       user:{ gender:codiProfile.gender||'', ageGroup:codiProfile.ageGroup||'', height:codiProfile.height||'', weight:codiProfile.weight||'' },
-      imagePrompt: imagePrompt,          /* ★ 최상단 배치: 서버가 반드시 읽도록 */
+      imagePrompt: imagePrompt,
       topPath: ST.top.serverPath,
       bottomPath: ST.bottom.serverPath,
       topDataUrl: ST.top.dataUrl || null,
       bottomDataUrl: ST.bottom.dataUrl || null,
       faceImage: faceDataUrl || null,
-      styleHint: imagePrompt,            /* ★ 백업: 서버가 imagePrompt 못 읽을 경우 대비 */
+      styleHint: imagePrompt,
       size:'1024x1536',
       quality:'low',
-      _ts: Date.now()                    /* ★ 캐시 방지: 매 호출마다 다른 값 */
+      _ts: Date.now()
     };
     setProgress(38,'Gemini에 요청 중…');
-    console.log('[CodiStyle] imagePrompt 포함:', !!payload.imagePrompt, 'length:', (payload.imagePrompt||'').length, 'BACKGROUND 포함:', (payload.imagePrompt||'').includes('BACKGROUND'));
     const r=await fetch(base + '/api/codistyle/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const j=await r.json().catch(()=>null);
     if(!r.ok || !j || j.ok!==true) throw new Error((j&&j.error)||('HTTP '+r.status));
@@ -525,14 +490,13 @@ async function generate(){
     lastImgUrl = base + path;
     document.getElementById('imgWrap').innerHTML='<img class="result-img" src="'+lastImgUrl+'" alt="AI 착장 이미지">';
     setDot('done'); setProgress(100,'착장 이미지 생성 완료 ✨');
-    // 세션에 저장 (페이지 이동 후 복귀 시 유지)
     try{ sessionStorage.setItem('cb_cs_lastImg', lastImgUrl); }catch(_){}
 
     /* ── Styling Score 표시 ── */
     try{
       const score = Math.floor(Math.random()*16) + 78;
       const g = codiProfile.gender==='F'?'여성':'남성';
-      const bodyTxt = [g, _ageMap[codiProfile.ageGroup]||'', codiProfile.height?codiProfile.height+'cm':'', codiProfile.weight?codiProfile.weight+'kg':''].filter(Boolean).join(' · ');
+      const bodyTxt = [g, codiProfile.ageGroup||'', codiProfile.height?codiProfile.height+'cm':'', codiProfile.weight?codiProfile.weight+'kg':''].filter(Boolean).join(' · ');
       const reviews = [
         `상의와 하의의 컬러 톤이 조화롭게 매칭됩니다. ${bodyTxt?bodyTxt+' 체형 기준으로 ':''}실루엣 밸런스가 좋으며, 전체적으로 깔끔하고 세련된 인상을 줍니다.`,
         `선택하신 상의의 핏이 ${bodyTxt?bodyTxt+'의 ':''}체형 장점을 부각시킵니다. 하의와의 소재 대비가 적절하며, 데일리 착용에 최적화된 코디네이션입니다.`,
@@ -633,7 +597,7 @@ try{
   const saved = sessionStorage.getItem('cb_cs_lastImg');
   if(saved){
     lastImgUrl = saved;
-    document.getElementById('imgWrap').innerHTML='<img class="result-img" src="'+lastImgUrl+'" alt="AI 착장 이미지">';
+    document.getElementById('imgWrap').innerHTML='<img class="result-img" src="'+lastImgUrl+'" alt="AI 착장 이미지" >';
     setDot('done'); setProgress(100,'착장 이미지 생성 완료 ✨');
     const ss = sessionStorage.getItem('cb_cs_score');
     const st = sessionStorage.getItem('cb_cs_scoreText');
@@ -641,7 +605,7 @@ try{
   }
 }catch(_){}
 
-// ── 코디 프로필 (프로필에서 불러오되, 수정은 코디하기에서만 사용) ──
+// ── 코디 프로필 (프로필에서 불러오되, 수정은 sessionStorage에만) ──
 const _ageMap = {'10s':'10대','20s':'20대','30s':'30대','40s':'40대','50s':'50대','60s':'60대'};
 const codiProfile = {
   gender: user.gender || 'M',
@@ -651,7 +615,7 @@ const codiProfile = {
 };
 try{
   const _cp = JSON.parse(sessionStorage.getItem('cb_codiProfile')||'null');
-  if(_cp){ codiProfile.gender=_cp.gender||codiProfile.gender; codiProfile.ageGroup=_cp.ageGroup||codiProfile.ageGroup; codiProfile.height=_cp.height||codiProfile.height; codiProfile.weight=_cp.weight||codiProfile.weight; }
+  if(_cp){ if(_cp.gender) codiProfile.gender=_cp.gender; if(_cp.ageGroup) codiProfile.ageGroup=_cp.ageGroup; if(_cp.height) codiProfile.height=_cp.height; if(_cp.weight) codiProfile.weight=_cp.weight; }
 }catch(_){}
 
 function displayBodyInfo() {
@@ -684,6 +648,6 @@ function saveBodyInfo() {
   displayBodyInfo();
 }
 displayBodyInfo();
-try{ if(window.CodiBankI18n && CodiBankI18n.isEn()) document.getElementById('codiProfileTitle').textContent='Codi Profile'; }catch(_){}
+try{ if(window.CodiBankI18n && CodiBankI18n.isEn()){ document.getElementById('codiProfileTitle').textContent='Codi Profile'; document.getElementById('codiProfileSub').textContent='Auto-loaded from profile'; document.getElementById('faceDescText').textContent='Profile info applied'; }}catch(_){}
 </script>
 </body></html>
