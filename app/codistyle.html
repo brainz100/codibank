@@ -484,16 +484,19 @@ async function generate(){
 
     const payload={
       user:{ gender:user.gender||'', ageGroup:user.ageGroup||'', height:user.height||'', weight:user.weight||'' },
+      imagePrompt: imagePrompt,          /* ★ 최상단 배치: 서버가 반드시 읽도록 */
       topPath: ST.top.serverPath,
       bottomPath: ST.bottom.serverPath,
       topDataUrl: ST.top.dataUrl || null,
       bottomDataUrl: ST.bottom.dataUrl || null,
-      faceImage: faceDataUrl || null,   /* ★ 서버가 "faceImage" 키로 읽음 */
-      imagePrompt: imagePrompt,          /* ★ closet과 동일! 서버가 기본 프롬프트 대신 이것을 사용 */
+      faceImage: faceDataUrl || null,
+      styleHint: imagePrompt,            /* ★ 백업: 서버가 imagePrompt 못 읽을 경우 대비 */
       size:'1024x1536',
-      quality:'low'
+      quality:'low',
+      _ts: Date.now()                    /* ★ 캐시 방지: 매 호출마다 다른 값 */
     };
     setProgress(38,'Gemini에 요청 중…');
+    console.log('[CodiStyle] imagePrompt 포함:', !!payload.imagePrompt, 'length:', (payload.imagePrompt||'').length, 'BACKGROUND 포함:', (payload.imagePrompt||'').includes('BACKGROUND'));
     const r=await fetch(base + '/api/codistyle/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const j=await r.json().catch(()=>null);
     if(!r.ok || !j || j.ok!==true) throw new Error((j&&j.error)||('HTTP '+r.status));
