@@ -483,6 +483,8 @@ async function generate(){
     lastImgUrl = base + path;
     document.getElementById('imgWrap').innerHTML='<img class="result-img" src="'+lastImgUrl+'" alt="AI 착장 이미지">';
     setDot('done'); setProgress(100,'착장 이미지 생성 완료 ✨');
+    // 세션에 저장 (페이지 이동 후 복귀 시 유지)
+    try{ sessionStorage.setItem('cb_cs_lastImg', lastImgUrl); }catch(_){}
 
     /* ── Styling Score 표시 ── */
     try{
@@ -498,6 +500,7 @@ async function generate(){
       document.getElementById('csScoreNum').textContent = score;
       document.getElementById('csScoreText').textContent = reviews[Math.floor(Math.random()*reviews.length)];
       document.getElementById('csScoreText').style.color='rgba(255,255,255,.55)';
+      try{ sessionStorage.setItem('cb_cs_score', score); sessionStorage.setItem('cb_cs_scoreText', document.getElementById('csScoreText').textContent); }catch(_){}
     }catch(_){}
 
     /* ── 코디앨범 자동 저장 ── */
@@ -582,6 +585,19 @@ async function shareResult(){
   }
 }
 ['top','bottom'].forEach(renderSlot); updateGenerateBtn();
+
+// ── 페이지 복귀 시 이전 생성 이미지+스코어 복원 ──
+try{
+  const saved = sessionStorage.getItem('cb_cs_lastImg');
+  if(saved){
+    lastImgUrl = saved;
+    document.getElementById('imgWrap').innerHTML='<img class="result-img" src="'+lastImgUrl+'" alt="AI 착장 이미지">';
+    setDot('done'); setProgress(100,'착장 이미지 생성 완료 ✨');
+    const ss = sessionStorage.getItem('cb_cs_score');
+    const st = sessionStorage.getItem('cb_cs_scoreText');
+    if(ss){ document.getElementById('csScoreNum').textContent=ss; document.getElementById('csScoreText').textContent=st||''; document.getElementById('csScoreText').style.color='rgba(255,255,255,.55)'; }
+  }
+}catch(_){}
 
 // ── 신체 사이즈 표시/수정 ──
 function displayBodyInfo() {

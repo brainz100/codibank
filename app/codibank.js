@@ -1404,9 +1404,9 @@ async function uploadImageToServer(dataUrl, opts) {
     const e = normalizeEmail(email);
     if (!e) return { ok: false, error: '이메일이 없습니다.' };
 
-    // 데모/관리자 계정은 실수 방지
-    if (e === normalizeEmail('admin@test')) {
-      return { ok: false, error: 'admin 계정은 탈퇴할 수 없습니다.' };
+    // 관리자 계정은 실수 방지
+    if (e === normalizeEmail('test@codibank.kr')) {
+      return { ok: false, error: '관리자 계정은 탈퇴할 수 없습니다.' };
     }
 
     try {
@@ -1457,8 +1457,18 @@ async function uploadImageToServer(dataUrl, opts) {
      ============================================================ */
   function ensureAdminAccount() {
     try {
-      const email = normalizeEmail('admin@test');
       const users = getUsers();
+
+      // 기존 admin@test 삭제
+      const oldAdmin = normalizeEmail('admin@test');
+      if (users[oldAdmin]) {
+        delete users[oldAdmin];
+        try { localStorage.removeItem('cb_points_' + oldAdmin); } catch(_){}
+        try { localStorage.removeItem('cb_sub_' + oldAdmin); } catch(_){}
+      }
+
+      // 새 관리자: test@codibank.kr
+      const email = normalizeEmail('test@codibank.kr');
       const existing = users[email];
       if (!existing) {
         users[email] = {
@@ -1466,26 +1476,25 @@ async function uploadImageToServer(dataUrl, opts) {
           password: 'pass1234',
           createdAt: nowIso(),
           updatedAt: nowIso(),
-          plan: 'DIAMOND',
-          // 데모 기본값
-          phone: '01000000000',
+          plan: 'ADMIN',
+          phone: '',
           gender: 'M',
           ageGroup: '40s',
           height: 175,
           weight: 70,
-          nickname: 'Admin',
+          nickname: 'CodiBank Admin',
         };
-        setUsers(users);
       } else {
-        let changed = false;
-        if (!existing.password) { existing.password = 'pass1234'; changed = true; }
-        if (!existing.plan) { existing.plan = 'DIAMOND'; changed = true; }
-        if (changed) {
-          existing.updatedAt = nowIso();
-          users[email] = existing;
-          setUsers(users);
-        }
+        if (existing.plan !== 'ADMIN') { existing.plan = 'ADMIN'; existing.updatedAt = nowIso(); }
+        if (!existing.password) { existing.password = 'pass1234'; existing.updatedAt = nowIso(); }
+        users[email] = existing;
       }
+      setUsers(users);
+
+      // 무한 포인트 보장
+      localStorage.setItem('cb_points_' + email, '999999');
+      localStorage.setItem('cb_sub_' + email, 'subB');
+
       return { ok: true };
     } catch (e) {
       console.warn('ensureAdminAccount failed:', e);
@@ -1786,4 +1795,24 @@ window.CodiBank = {
       body: JSON.stringify(body)
     }).catch(function(){});
   };
+})();
+
+/* ═══ 30분 비활성 자동 로그아웃 ═══ */
+(function(){
+  var IDLE_MS = 30 * 60 * 1000; // 30분
+  var _idleTimer = null;
+  function resetIdle(){
+    if(_idleTimer) clearTimeout(_idleTimer);
+    _idleTimer = setTimeout(function(){
+      if(window.CodiBank && CodiBank.getCurrentUser && CodiBank.getCurrentUser()){
+        try{ sessionStorage.clear(); }catch(_){}
+        if(window.CodiBank && CodiBank.logout) CodiBank.logout('login.html');
+        else window.location.href = 'login.html';
+      }
+    }, IDLE_MS);
+  }
+  ['click','touchstart','keydown','scroll','mousemove'].forEach(function(ev){
+    document.addEventListener(ev, resetIdle, {passive:true});
+  });
+  resetIdle();
 })();
