@@ -49,15 +49,15 @@ html,body{min-height:100dvh;background:#07132a;color:#d8e2ff;font-family:'Inter'
 .acard:active{transform:scale(.97);}
 .acard-img-wrap{position:relative;width:100%;aspect-ratio:10/16;background:#0f1b32;overflow:hidden;}
 .acard-img{width:100%;height:100%;object-fit:cover;display:block;transition:opacity .4s;}
-.acard-skeleton{position:absolute;inset:0;background:linear-gradient(90deg,rgba(216,226,255,.03) 0%,rgba(216,226,255,.08) 50%,rgba(216,226,255,.03) 100%);background-size:200% 100%;animation:shimmer 1.4s infinite linear;}
-.acard-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
+.acard-skeleton{position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,rgba(216,226,255,.03) 0%,rgba(216,226,255,.08) 50%,rgba(216,226,255,.03) 100%);background-size:200% 100%;animation:shimmer 1.4s infinite linear;}
+.acard-placeholder{position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;}
 .acard-info{padding:10px 12px 14px;}
 .acard-date{font-size:10px;font-weight:600;color:rgba(216,226,255,.4);letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px;}
 .acard-purpose{font-family:'Manrope',sans-serif;font-size:14px;font-weight:800;color:#d8e2ff;line-height:1.2;}
 .acard-stylist{font-size:9px;font-weight:600;color:rgba(151,254,237,.6);margin-top:3px;letter-spacing:.03em;}
-.acard-like{position:absolute;top:10px;right:10px;background:none !important;border:none;outline:none;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;padding:0;-webkit-tap-highlight-color:transparent;}
-.acard-like .heart-icon{font-family:'Material Symbols Outlined';font-size:28px;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;color:rgba(255,255,255,.75);filter:drop-shadow(0 1px 4px rgba(0,0,0,.6));transition:all .25s;}
-.acard-like.liked .heart-icon{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;color:#C8385E;filter:drop-shadow(0 1px 3px rgba(200,56,94,.5));}
+.acard-like{position:absolute;top:8px;right:8px;width:40px;height:40px;background:none !important;border:none;outline:none;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;padding:0;-webkit-tap-highlight-color:transparent;}
+.acard-like .material-symbols-outlined{font-size:28px;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;color:rgba(255,255,255,.8);filter:drop-shadow(0 1px 4px rgba(0,0,0,.7));transition:all .25s;pointer-events:none;}
+.acard-like.liked .material-symbols-outlined{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;color:#C8385E;filter:drop-shadow(0 1px 3px rgba(200,56,94,.5));}
 
 /* ── 모달: 전체화면 ── */
 .modal-bg{position:fixed;inset:0;z-index:500;background:#07132a;display:flex;flex-direction:column;overflow:hidden;}
@@ -239,7 +239,7 @@ function mkCard(entry) {
       </div>
       <img id="img_${entry.id}" class="acard-img" src="" alt="" style="opacity:0;"/>
       <button class="acard-like ${isLiked?'liked':''}" id="like_${entry.id}" onclick="event.stopPropagation();toggleLike('${entry.id}')">
-        <span class="heart-icon">favorite</span>
+        <span class="material-symbols-outlined">favorite</span>
       </button>
     </div>
     <div class="acard-info">

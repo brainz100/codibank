@@ -71,7 +71,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 .prog-bar{height:3px;background:rgba(151,254,237,0.08)}
 .prog-fill{height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);transition:width .4s ease;border-radius:3px}
 .status-row{display:flex;align-items:center;gap:10px;padding:16px 18px 10px}.status-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;animation:pdot 1.2s ease-in-out infinite}@keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}.status-dot.done{background:var(--mint);animation:none}.status-dot.err{background:#f87171;animation:none}.status-txt{font-size:12px;color:rgba(162,253,240,0.7);font-weight:500}
-.result-img-wrap{padding:10px 14px}.result-img{width:100%;border-radius:16px;display:block;aspect-ratio:2/3;object-fit:cover;background:#F6EEF2}
+.result-img-wrap{padding:10px 14px}.result-img{width:100%;border-radius:16px;display:block;aspect-ratio:2/3;object-fit:cover}
 .img-ph{width:100%;aspect-ratio:2/3;border-radius:16px;background:rgba(0,0,0,0.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:rgba(255,255,255,0.18)}
 .img-ph .mi{font-family:'Material Symbols Outlined';font-size:50px}.img-ph p{font-size:12px}
 .img-spin{width:100%;aspect-ratio:2/3;border-radius:16px;background:rgba(0,0,0,0.2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
@@ -488,6 +488,15 @@ async function generate(){
     const path=String(j.path||'').trim();
     if(!path) throw new Error('생성된 이미지 경로를 받지 못했어요');
     lastImgUrl = base + path;
+    setProgress(85,'이미지를 불러오는 중…');
+    // 이미지를 완전히 로드한 후에만 표시 (파스텔 배경 깜빡임 방지)
+    await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = resolve;
+      img.onerror = resolve; // 에러여도 진행
+      img.src = lastImgUrl;
+      setTimeout(resolve, 8000); // 최대 8초 대기
+    });
     document.getElementById('imgWrap').innerHTML='<img class="result-img" src="'+lastImgUrl+'" alt="AI 착장 이미지">';
     setDot('done'); setProgress(100,'착장 이미지 생성 완료 ✨');
     try{ sessionStorage.setItem('cb_cs_lastImg', lastImgUrl); }catch(_){}
