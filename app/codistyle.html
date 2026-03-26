@@ -136,10 +136,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
         <button class="sb cam" onclick="pickCamera('top')"><span class="mi">photo_camera</span>사진촬영</button>
         <button class="sb gal" onclick="pickFile('top')"><span class="mi">photo_library</span>사진선택</button>
         <button class="sb lnk" type="button" disabled><span class="mi">link</span>링크<br>준비중</button>
+        <button class="sb" id="del-top" style="display:none;background:rgba(239,68,68,.08);color:rgba(252,165,165,.65);border:1px solid rgba(239,68,68,.15);" onclick="clearSlot('top')"><span class="mi">delete_outline</span>상의삭제</button>
       </div>
     </div>
     <div class="slot-status" id="st-top"></div>
-    <button class="del-btn" id="del-top" style="display:none" onclick="clearSlot('top')"><span class="mi">delete_outline</span>상의 삭제</button>
     <input type="file" id="file-top" accept="image/*" style="display:none" onchange="onFile(event,'top')">
     <input type="file" id="cam-top" accept="image/*" capture="environment" style="display:none" onchange="onFile(event,'top')">
   </section>
@@ -154,10 +154,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
         <button class="sb cam" onclick="pickCamera('bottom')"><span class="mi">photo_camera</span>사진촬영</button>
         <button class="sb gal" onclick="pickFile('bottom')"><span class="mi">photo_library</span>사진선택</button>
         <button class="sb lnk" type="button" disabled><span class="mi">link</span>링크<br>준비중</button>
+        <button class="sb" id="del-bottom" style="display:none;background:rgba(239,68,68,.08);color:rgba(252,165,165,.65);border:1px solid rgba(239,68,68,.15);" onclick="clearSlot('bottom')"><span class="mi">delete_outline</span>하의삭제</button>
       </div>
     </div>
     <div class="slot-status" id="st-bottom"></div>
-    <button class="del-btn" id="del-bottom" style="display:none" onclick="clearSlot('bottom')"><span class="mi">delete_outline</span>하의 삭제</button>
     <input type="file" id="file-bottom" accept="image/*" style="display:none" onchange="onFile(event,'bottom')">
     <input type="file" id="cam-bottom" accept="image/*" capture="environment" style="display:none" onchange="onFile(event,'bottom')">
   </section>
@@ -166,10 +166,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 <div class="divider"></div>
 
 <!-- 코디 프로필 -->
-<div style="padding:0 16px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-  <span class="mi" style="font-size:18px;color:var(--mint);">person</span>
+<div style="padding:0 16px;margin-bottom:8px;">
   <b style="font-size:14px;color:#fff;" id="codiProfileTitle">코디 프로필</b>
-  <span style="font-size:10px;color:rgba(255,255,255,.3);margin-left:auto;" id="codiProfileSub">프로필에서 자동 불러오기</span>
 </div>
 <div class="face-section" style="flex-direction:column;align-items:stretch;gap:0;">
   <!-- 얼굴 + 촬영/선택 -->
@@ -241,8 +239,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
   </div>
   <div class="b-actions" id="bActions">
     <button class="bab save" onclick="saveImg()"><span class="mi">save_alt</span>저장</button>
-    <button class="bab retry" onclick="generate()"><span class="mi">refresh</span>다시</button>
+    <button class="bab retry" onclick="generate()"><span class="mi">refresh</span>다시요청</button>
     <button class="bab share" onclick="shareResult()"><span class="mi">share</span>공유</button>
+    <button class="bab" onclick="resetAll()" style="background:rgba(239,68,68,.08);color:rgba(252,165,165,.7);border:1px solid rgba(239,68,68,.2);"><span class="mi">restart_alt</span>리셋</button>
   </div>
 </div>
 
@@ -370,6 +369,16 @@ function setStatus(k, text, err){ const e=document.getElementById('st-'+k); e.te
 function pickFile(k){ document.getElementById('file-'+k).click(); }
 function pickCamera(k){ document.getElementById('cam-'+k).click(); }
 function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false }; renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); }
+function resetAll(){
+  clearSlot('top'); clearSlot('bottom');
+  lastImgUrl='';
+  document.getElementById('imgWrap').innerHTML='<div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.3">상의와 하의를 업로드하고 생성 버튼을 눌러주세요</p></div>';
+  document.getElementById('csScoreNum').textContent='—';
+  document.getElementById('csScoreText').textContent='착장 이미지가 생성되면 AI 스타일링 점수가 표시됩니다';
+  document.getElementById('csScoreText').style.color='rgba(255,255,255,.35)';
+  setDot(''); setProgress(0,'');
+  try{ sessionStorage.removeItem('cb_cs_lastImg'); sessionStorage.removeItem('cb_cs_score'); sessionStorage.removeItem('cb_cs_scoreText'); }catch(_){}
+}
 async function fileToBlob(file){ return file; }
 async function compressImage(file, maxSize=1400, quality=0.82){
   const url=URL.createObjectURL(file);
@@ -434,40 +443,69 @@ async function generate(){
   document.getElementById('imgWrap').innerHTML='<div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br><small style="opacity:.55">(10~25초 소요)</small></p></div>';
   try{
     const base=codistyleBase(); if(!base) throw new Error('Gemini 백엔드 주소가 없습니다');
-    // 체형 프롬프트 생성
-    const _h = parseFloat(codiProfile.height||0), _w = parseFloat(codiProfile.weight||0);
-    const _g = codiProfile.gender === 'F' ? 'woman' : 'man';
-    const _gKo = codiProfile.gender === 'F' ? '여성' : '남성';
-    const _age = codiProfile.ageGroup || '30s';
-    let bodyHint = '';
-    if(_h && _w){
-      const bmi = _w/((_h/100)**2);
-      let build = bmi>=28?'heavy-set':bmi>=25?'slightly stocky':bmi<17.5?'very slim':bmi<20?'slim':'average';
-      let hDesc = _g==='woman'?(_h>=172?'tall':_h<=155?'petite':'medium height'):(_h>=183?'tall':_h<=165?'shorter':'medium height');
-      bodyHint = `BODY TYPE (MUST REFLECT): Korean ${_g}, age ${_age}, ${hDesc} (${Math.round(_h)}cm), ${build} build (${Math.round(_w)}kg). The generated person MUST match this exact body type — height, weight, and build must be visually accurate.`;
-    } else {
-      bodyHint = `SUBJECT: Korean ${_g}, age ${_age}. The generated person must clearly appear as a Korean ${_g}.`;
-    }
-    // 얼굴 강조 프롬프트
-    const hasFace = !!faceDataUrl;
-    const faceHint = hasFace
-      ? 'FACE REFERENCE (HIGHEST PRIORITY): The FIRST image is the face reference photo. You MUST preserve the EXACT facial features, face shape, skin tone, hair style, hair color, eyeglasses (if any), and facial expression of this person. The generated image must look like THIS EXACT PERSON wearing the outfit — not a different person.'
-      : '';
-    // ★ Gemini 1회 생성으로 파스텔 배경 완성 (2차 후처리 없음)
-    const imagePrompt = [
-      `Realistic full-body Korean fashion magazine editorial photography of a Korean ${_g} in ${_age}.`,
-      bodyHint,
-      faceHint,
-      'Use the provided reference images for the outfit: one upper-body garment and one lower-body garment.',
-      'Preserve the clothing category, color, silhouette and major design details from the references.',
-      'Show the whole body from head to toe.',
-      'PANTS: Must be FULL LENGTH reaching shoes. NO cropped, NO ankle-length.',
-      'ANATOMY: Both hands must have exactly 5 fingers each. No body distortion. Natural proportions.',
-      'Pose: Standing straight with relaxed natural posture, full body visible, feet on ground.',
-      'BACKGROUND: Solid flat single-color pastel background ONLY. Use a soft muted pastel tone that contrasts with the outfit colors for maximum visibility. NO patterns, NO gradients, NO scenery, NO objects, NO textures — just one solid pastel color (e.g., soft pink #F5D5CB, light mint #D4EDDA, pale lavender #E8DAEF, soft peach #FDEBD0, light sky #D6EAF8, cream #FEF9E7). The background must be completely uniform and flat.',
-      'Professional studio lighting, even illumination, high resolution. No text, no watermark, no logo.',
-    ].filter(Boolean).join(' ');
 
+    // ═══════════════════════════════════════════════════
+    // 코디하기 New 프롬프트 — Codibank Styling Protocol
+    // ═══════════════════════════════════════════════════
+
+    // ── Subject Profile ──
+    const _h = parseFloat(codiProfile.height||0), _w = parseFloat(codiProfile.weight||0);
+    const _gender = codiProfile.gender === 'F' ? 'Female' : 'Male';
+    const _genderEn = codiProfile.gender === 'F' ? 'woman' : 'man';
+    const _gKo = codiProfile.gender === 'F' ? '여성' : '남성';
+    const _ageMap2 = {'10s':'teens','20s':'mid-20s','30s':'early 30s','40s':'early 40s','50s':'early 50s','60s':'early 60s'};
+    const _ageEn = _ageMap2[codiProfile.ageGroup] || 'early 30s';
+    const _physique = (_h && _w) ? `${Math.round(_h)}cm, ${Math.round(_w)}kg` : '';
+
+    // ── Re-generation: 매번 다른 포즈/레이어/신발 ──
+    const _poses = [
+      'natural standing, one hand slightly in pocket, slight confident smile',
+      'dynamic step forward with relaxed arms at sides',
+      'slight body turn (3/4 angle) with hands clasped in front',
+      'casual lean with weight on one leg, arms naturally hanging',
+    ];
+    const _innerLayers = [
+      'a plain white crew-neck t-shirt',
+      'a soft grey V-neck inner tee',
+      'a navy round-neck undershirt',
+      'a thin black mock-neck base layer',
+    ];
+    const _footwear = [
+      'white minimal sneakers for a clean casual look',
+      'black leather loafers for smart-casual elegance',
+      'tan suede slip-ons for relaxed sophistication',
+      'classic dark brown derby shoes for a polished finish',
+    ];
+    const _ri = (arr) => arr[Math.floor(Math.random()*arr.length)];
+
+    // ── Build Prompt (첨부 문서 100% 반영) ──
+    const imagePrompt = [
+      // I. CORE OBJECTIVE
+      'Generate a realistic, full-body photograph of a specific individual, faithfully wearing the exact provided top and bottom garments, presented against a clean solid pastel background.',
+
+      // II-1. Subject Profile
+      `SUBJECT PROFILE: Gender=${_gender}. Age Appearance=${_ageEn}. Face=Must perfectly match the facial features and identity of the provided User Face Reference Image.`
+      + (_physique ? ` Physique=Must reflect exact ${_physique}, ensuring realistic body proportions.` : ''),
+
+      // II-2. Garment Integrity (100% Fidelity)
+      'GARMENT INTEGRITY (100% FIDELITY): TOP=The first clothing reference image. Reproduce exact design, color, texture, pattern, fit — must appear naturally worn, not superimposed. BOTTOM=The second clothing reference image. Reproduce exact design, color, texture, pattern, fit — must appear naturally worn. EXECUTION RULE: Do NOT interpret or alter the core design of these two items. They must be recognizable as the identical items in the reference images.',
+
+      // II-3. Styling & Presentation
+      `POSE & COMPOSITION: A ${_ri(_poses)}, full-body standing pose that clearly showcases both top and bottom. Full body from head to toe must be visible in frame.`,
+      `ACCESSORIES & LAYERS: Add ${_ri(_innerLayers)} as an inner layer if the top allows layering. Add a complementary belt or watch if it suits the style concept.`,
+      `FOOTWEAR: ${_ri(_footwear)}.`,
+      'LIGHTING: Crisp, even, studio-quality lighting to highlight fabric texture and garment details.',
+
+      // II-3. Background (ABSOLUTE RULE)
+      'BACKGROUND (ABSOLUTE MANDATORY RULE): A solid, uniform, matte PASTEL-TONE color background — choose one that provides HIGH CONTRAST to the coordinate colors (e.g., solid pastel mint, solid pastel beige, solid pastel lavender, solid pastel pink, solid pastel sky blue, solid cream). The background must be completely uniform edge to edge like studio paper. ZERO exceptions: NO room, NO street, NO wall texture, NO floor, NO gradient, NO pattern, NO objects, NO scenery, NO environment of any kind. JUST ONE FLAT SOLID PASTEL COLOR.',
+
+      // II-4. Technical
+      'ANATOMY: Natural human proportions. Both hands must have exactly 5 fingers each. No body distortion.',
+      'PANTS: Must be FULL LENGTH reaching shoes. No cropped, no ankle-length.',
+      'OUTPUT: Photorealistic quality. No text, no watermark, no logo in the image.',
+    ].join(' ');
+
+    // ── Payload (styleHint 제거 — 서버 중복 방지) ──
     const payload={
       user:{ gender:codiProfile.gender||'', ageGroup:codiProfile.ageGroup||'', height:codiProfile.height||'', weight:codiProfile.weight||'' },
       imagePrompt: imagePrompt,
@@ -476,7 +514,6 @@ async function generate(){
       topDataUrl: ST.top.dataUrl || null,
       bottomDataUrl: ST.bottom.dataUrl || null,
       faceImage: faceDataUrl || null,
-      styleHint: imagePrompt,
       size:'1024x1536',
       quality:'low',
       _ts: Date.now()
@@ -615,16 +652,19 @@ try{
 }catch(_){}
 
 // ── 코디 프로필 (프로필에서 불러오되, 수정은 sessionStorage에만) ──
-const _ageMap = {'10s':'10대','20s':'20대','30s':'30대','40s':'40대','50s':'50대','60s':'60대'};
+const _ageMap = {'10s':'10대','20s':'20대','30s':'30대','40s':'40대','50s':'50대','50s+':'50대+','60s':'60대'};
+// 성별: profile.html은 'male'/'female'/'other'로 저장, 여기서는 M/F로 통일
+function _gMap(g){ const v=String(g||'').toLowerCase(); if(v==='male'||v==='m') return 'M'; if(v==='female'||v==='f') return 'F'; return ''; }
+function _aMap(a){ const v=String(a||''); if(v==='50s+') return '50s'; return v; }
 const codiProfile = {
-  gender: user.gender || 'M',
-  ageGroup: user.ageGroup || '30s',
+  gender: _gMap(user.gender) || '',
+  ageGroup: _aMap(user.ageGroup) || '30s',
   height: user.height || '',
   weight: user.weight || ''
 };
 try{
   const _cp = JSON.parse(sessionStorage.getItem('cb_codiProfile')||'null');
-  if(_cp){ if(_cp.gender) codiProfile.gender=_cp.gender; if(_cp.ageGroup) codiProfile.ageGroup=_cp.ageGroup; if(_cp.height) codiProfile.height=_cp.height; if(_cp.weight) codiProfile.weight=_cp.weight; }
+  if(_cp){ if(_cp.gender) codiProfile.gender=_gMap(_cp.gender)||codiProfile.gender; if(_cp.ageGroup) codiProfile.ageGroup=_cp.ageGroup; if(_cp.height) codiProfile.height=_cp.height; if(_cp.weight) codiProfile.weight=_cp.weight; }
 }catch(_){}
 
 function displayBodyInfo() {
@@ -657,6 +697,6 @@ function saveBodyInfo() {
   displayBodyInfo();
 }
 displayBodyInfo();
-try{ if(window.CodiBankI18n && CodiBankI18n.isEn()){ document.getElementById('codiProfileTitle').textContent='Codi Profile'; document.getElementById('codiProfileSub').textContent='Auto-loaded from profile'; document.getElementById('faceDescText').textContent='Profile info applied'; }}catch(_){}
+try{ if(window.CodiBankI18n && CodiBankI18n.isEn()){ document.getElementById('codiProfileTitle').textContent='Codi Profile'; document.getElementById('faceDescText').textContent='Profile info applied'; }}catch(_){}
 </script>
 </body></html>
