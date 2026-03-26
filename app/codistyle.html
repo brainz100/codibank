@@ -165,64 +165,84 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 
 <div class="divider"></div>
 
-<!-- 얼굴과 신체 사이즈 -->
+<!-- 코디 프로필 -->
+<div class="section-title" style="padding:0 16px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+  <span class="mi" style="font-size:18px;color:var(--mint);">person</span>
+  <b style="font-size:14px;color:#fff;" id="codiProfileTitle">코디 프로필</b>
+  <span style="font-size:10px;color:rgba(255,255,255,.3);margin-left:auto;">프로필에서 자동 불러오기</span>
+</div>
 <div class="face-section" style="flex-direction:column;align-items:stretch;gap:0;">
-  <!-- 상단: 얼굴사진 + 정보 + 촬영/선택 -->
+  <!-- 상단: 얼굴사진 + 촬영/선택 -->
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
     <div class="face-circle" id="faceCircle" onclick="pickFaceFile()" style="flex-shrink:0;">
       <span class="face-ph" id="facePh">face</span>
     </div>
     <div style="flex:1;min-width:0;">
-      <b style="font-size:13px;color:#fff;">얼굴과 신체 사이즈</b>
-      <span style="display:block;font-size:10px;color:rgba(255,255,255,.4);margin-top:2px;">프로필 얼굴 사진 자동 불러오기</span>
+      <span style="font-size:11px;color:rgba(255,255,255,.5);">프로필 얼굴 사진 자동 불러오기</span>
     </div>
     <div style="display:flex;gap:6px;flex-shrink:0;">
       <button class="face-btn cam" onclick="pickFaceCamera()" style="padding:8px 12px;"><span class="mi" style="font-size:16px;">photo_camera</span>촬영</button>
       <button class="face-btn gal" onclick="pickFaceFile()" style="padding:8px 12px;"><span class="mi" style="font-size:16px;">photo_library</span>선택</button>
     </div>
   </div>
-  <!-- 하단: 성별/키/몸무게 카드 -->
-  <div id="bodyInfoDisplay" style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.12);">
-    <div style="display:flex;gap:14px;flex:1;align-items:center;">
-      <div style="text-align:center;">
-        <span style="font-size:9px;color:rgba(255,255,255,.35);font-weight:600;letter-spacing:.05em;">성별</span>
-        <div style="font-size:16px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyGenderLabel">—</div>
+  <!-- 하단: 성별/나이/키/몸무게 카드 -->
+  <div id="bodyInfoDisplay" style="display:flex;align-items:center;gap:0;padding:12px 14px;border-radius:12px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.12);">
+    <div style="display:flex;gap:0;flex:1;align-items:center;">
+      <div style="text-align:center;flex:1;">
+        <span style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">성별</span>
+        <div style="font-size:15px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyGenderLabel">—</div>
       </div>
-      <div style="width:1px;height:24px;background:rgba(151,254,237,.12);"></div>
-      <div style="text-align:center;">
-        <span style="font-size:9px;color:rgba(255,255,255,.35);font-weight:600;letter-spacing:.05em;">키</span>
-        <div style="font-size:16px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyHeightLabel">—</div>
+      <div style="width:1px;height:22px;background:rgba(151,254,237,.1);"></div>
+      <div style="text-align:center;flex:1;">
+        <span style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">나이대</span>
+        <div style="font-size:15px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyAgeLabel">—</div>
       </div>
-      <div style="width:1px;height:24px;background:rgba(151,254,237,.12);"></div>
-      <div style="text-align:center;">
-        <span style="font-size:9px;color:rgba(255,255,255,.35);font-weight:600;letter-spacing:.05em;">몸무게</span>
-        <div style="font-size:16px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyWeightLabel">—</div>
+      <div style="width:1px;height:22px;background:rgba(151,254,237,.1);"></div>
+      <div style="text-align:center;flex:1;">
+        <span style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">키</span>
+        <div style="font-size:15px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyHeightLabel">—</div>
+      </div>
+      <div style="width:1px;height:22px;background:rgba(151,254,237,.1);"></div>
+      <div style="text-align:center;flex:1;">
+        <span style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">몸무게</span>
+        <div style="font-size:15px;font-weight:900;color:#97FEED;line-height:1.3;margin-top:2px;" id="bodyWeightLabel">—</div>
       </div>
     </div>
-    <button onclick="openBodyEdit()" id="bodyEditBtn" style="font-size:10px;padding:6px 14px;border-radius:8px;border:1px solid rgba(151,254,237,.25);background:rgba(151,254,237,.08);color:#97FEED;cursor:pointer;font-weight:700;font-family:inherit;white-space:nowrap;">수정</button>
+    <button onclick="openBodyEdit()" style="font-size:10px;padding:6px 12px;border-radius:8px;border:1px solid rgba(151,254,237,.25);background:rgba(151,254,237,.08);color:#97FEED;cursor:pointer;font-weight:700;font-family:inherit;white-space:nowrap;margin-left:8px;">수정</button>
   </div>
-  <!-- 수정 폼 (숨김) -->
-  <div id="bodyEditForm" style="display:none;padding:12px 14px;border-radius:12px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.15);margin-top:-1px;">
-    <div style="display:flex;gap:8px;align-items:center;">
-      <div style="flex:0 0 70px;">
-        <label style="font-size:9px;color:rgba(255,255,255,.35);font-weight:600;">성별</label>
-        <select id="editGender" style="display:block;width:100%;padding:8px 6px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:14px;font-weight:700;font-family:inherit;margin-top:3px;-webkit-appearance:none;">
+  <!-- 수정 폼 -->
+  <div id="bodyEditForm" style="display:none;padding:12px 14px;border-radius:12px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.15);margin-top:4px;">
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+      <div style="flex:1;">
+        <label style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">성별</label>
+        <select id="editGender" style="display:block;width:100%;padding:7px 6px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:2px;">
           <option value="M">남성</option>
           <option value="F">여성</option>
         </select>
       </div>
       <div style="flex:1;">
-        <label style="font-size:9px;color:rgba(255,255,255,.35);font-weight:600;">키 (cm)</label>
-        <input type="number" id="editHeight" placeholder="175" style="display:block;width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:14px;font-weight:700;font-family:inherit;margin-top:3px;">
+        <label style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">나이대</label>
+        <select id="editAge" style="display:block;width:100%;padding:7px 6px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:2px;">
+          <option value="10s">10대</option>
+          <option value="20s">20대</option>
+          <option value="30s">30대</option>
+          <option value="40s">40대</option>
+          <option value="50s">50대</option>
+          <option value="60s">60대</option>
+        </select>
       </div>
       <div style="flex:1;">
-        <label style="font-size:9px;color:rgba(255,255,255,.35);font-weight:600;">몸무게 (kg)</label>
-        <input type="number" id="editWeight" placeholder="70" style="display:block;width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:14px;font-weight:700;font-family:inherit;margin-top:3px;">
+        <label style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">키(cm)</label>
+        <input type="number" id="editHeight" placeholder="175" style="display:block;width:100%;padding:7px 8px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:2px;">
       </div>
-      <div style="display:flex;flex-direction:column;gap:4px;padding-top:14px;">
-        <button onclick="saveBodyInfo()" style="font-size:11px;padding:8px 14px;border-radius:8px;border:none;background:linear-gradient(135deg,#35A29F,#2D8B87);color:#fff;cursor:pointer;font-weight:800;font-family:inherit;">저장</button>
-        <button onclick="cancelBodyEdit()" style="font-size:10px;padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.4);cursor:pointer;font-family:inherit;">취소</button>
+      <div style="flex:1;">
+        <label style="font-size:9px;color:rgba(255,255,255,.3);font-weight:600;">몸무게(kg)</label>
+        <input type="number" id="editWeight" placeholder="70" style="display:block;width:100%;padding:7px 8px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:2px;">
       </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="cancelBodyEdit()" style="font-size:11px;padding:7px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.4);cursor:pointer;font-family:inherit;">취소</button>
+      <button onclick="saveBodyInfo()" style="font-size:11px;padding:7px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#35A29F,#2D8B87);color:#fff;cursor:pointer;font-weight:800;font-family:inherit;">저장</button>
     </div>
   </div>
   <input type="file" id="face-file" accept="image/*" style="display:none" onchange="onFaceFile(event)">
@@ -447,11 +467,11 @@ async function generate(){
   document.getElementById('imgWrap').innerHTML='<div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br><small style="opacity:.55">(10~25초 소요)</small></p></div>';
   try{
     const base=codistyleBase(); if(!base) throw new Error('Gemini 백엔드 주소가 없습니다');
-    // 체형 프롬프트 생성
-    const _h = parseFloat(user.height||0), _w = parseFloat(user.weight||0);
-    const _g = user.gender === 'F' ? 'woman' : 'man';
-    const _gKo = user.gender === 'F' ? '여성' : '남성';
-    const _age = user.ageGroup || '30s';
+    // 체형 프롬프트 생성 (코디프로필에서 읽기)
+    const _h = parseFloat(codiProfile.height||0), _w = parseFloat(codiProfile.weight||0);
+    const _g = codiProfile.gender === 'F' ? 'woman' : 'man';
+    const _gKo = codiProfile.gender === 'F' ? '여성' : '남성';
+    const _age = codiProfile.ageGroup || '30s';
     let bodyHint = '';
     if(_h && _w){
       const bmi = _w/((_h/100)**2);
@@ -483,7 +503,7 @@ async function generate(){
     ].filter(Boolean).join(' ');
 
     const payload={
-      user:{ gender:user.gender||'', ageGroup:user.ageGroup||'', height:user.height||'', weight:user.weight||'' },
+      user:{ gender:codiProfile.gender||'', ageGroup:codiProfile.ageGroup||'', height:codiProfile.height||'', weight:codiProfile.weight||'' },
       imagePrompt: imagePrompt,          /* ★ 최상단 배치: 서버가 반드시 읽도록 */
       topPath: ST.top.serverPath,
       bottomPath: ST.bottom.serverPath,
@@ -511,8 +531,8 @@ async function generate(){
     /* ── Styling Score 표시 ── */
     try{
       const score = Math.floor(Math.random()*16) + 78;
-      const g = user.gender==='F'?'여성':'남성';
-      const bodyTxt = [g, user.ageGroup||'', user.height?user.height+'cm':'', user.weight?user.weight+'kg':''].filter(Boolean).join(' · ');
+      const g = codiProfile.gender==='F'?'여성':'남성';
+      const bodyTxt = [g, _ageMap[codiProfile.ageGroup]||'', codiProfile.height?codiProfile.height+'cm':'', codiProfile.weight?codiProfile.weight+'kg':''].filter(Boolean).join(' · ');
       const reviews = [
         `상의와 하의의 컬러 톤이 조화롭게 매칭됩니다. ${bodyTxt?bodyTxt+' 체형 기준으로 ':''}실루엣 밸런스가 좋으며, 전체적으로 깔끔하고 세련된 인상을 줍니다.`,
         `선택하신 상의의 핏이 ${bodyTxt?bodyTxt+'의 ':''}체형 장점을 부각시킵니다. 하의와의 소재 대비가 적절하며, 데일리 착용에 최적화된 코디네이션입니다.`,
@@ -621,19 +641,30 @@ try{
   }
 }catch(_){}
 
-// ── 신체 사이즈 표시/수정 ──
+// ── 코디 프로필 (프로필에서 불러오되, 수정은 코디하기에서만 사용) ──
+const _ageMap = {'10s':'10대','20s':'20대','30s':'30대','40s':'40대','50s':'50대','60s':'60대'};
+const codiProfile = {
+  gender: user.gender || 'M',
+  ageGroup: user.ageGroup || '30s',
+  height: user.height || '',
+  weight: user.weight || ''
+};
+try{
+  const _cp = JSON.parse(sessionStorage.getItem('cb_codiProfile')||'null');
+  if(_cp){ codiProfile.gender=_cp.gender||codiProfile.gender; codiProfile.ageGroup=_cp.ageGroup||codiProfile.ageGroup; codiProfile.height=_cp.height||codiProfile.height; codiProfile.weight=_cp.weight||codiProfile.weight; }
+}catch(_){}
+
 function displayBodyInfo() {
-  const h = user.height || '';
-  const w = user.weight || '';
-  const g = user.gender || '';
-  document.getElementById('bodyGenderLabel').textContent = g==='F'?'여성':g==='M'?'남성':'미등록';
-  document.getElementById('bodyHeightLabel').textContent = h ? h + 'cm' : '미등록';
-  document.getElementById('bodyWeightLabel').textContent = w ? w + 'kg' : '미등록';
+  document.getElementById('bodyGenderLabel').textContent = codiProfile.gender==='F'?'여성':codiProfile.gender==='M'?'남성':'—';
+  document.getElementById('bodyAgeLabel').textContent = _ageMap[codiProfile.ageGroup] || codiProfile.ageGroup || '—';
+  document.getElementById('bodyHeightLabel').textContent = codiProfile.height ? codiProfile.height+'cm' : '—';
+  document.getElementById('bodyWeightLabel').textContent = codiProfile.weight ? codiProfile.weight+'kg' : '—';
 }
 function openBodyEdit() {
-  document.getElementById('editGender').value = user.gender || 'M';
-  document.getElementById('editHeight').value = user.height || '';
-  document.getElementById('editWeight').value = user.weight || '';
+  document.getElementById('editGender').value = codiProfile.gender || 'M';
+  document.getElementById('editAge').value = codiProfile.ageGroup || '30s';
+  document.getElementById('editHeight').value = codiProfile.height || '';
+  document.getElementById('editWeight').value = codiProfile.weight || '';
   document.getElementById('bodyEditForm').style.display = 'block';
   document.getElementById('bodyInfoDisplay').style.display = 'none';
 }
@@ -642,25 +673,17 @@ function cancelBodyEdit() {
   document.getElementById('bodyInfoDisplay').style.display = 'flex';
 }
 function saveBodyInfo() {
-  const g = document.getElementById('editGender').value;
+  codiProfile.gender = document.getElementById('editGender').value || 'M';
+  codiProfile.ageGroup = document.getElementById('editAge').value || '30s';
   const h = document.getElementById('editHeight').value.trim();
   const w = document.getElementById('editWeight').value.trim();
-  if (g) user.gender = g;
-  if (h) user.height = parseInt(h);
-  if (w) user.weight = parseInt(w);
-  try {
-    if (window.CodiBank && CodiBank.updateUser) {
-      CodiBank.updateUser(user.email, { gender: user.gender, height: user.height, weight: user.weight });
-    } else {
-      const key = 'cb_user_' + (user.email || 'guest');
-      const saved = JSON.parse(localStorage.getItem(key) || '{}');
-      saved.gender = user.gender; saved.height = user.height; saved.weight = user.weight;
-      localStorage.setItem(key, JSON.stringify(saved));
-    }
-  } catch(_){}
-  displayBodyInfo();
+  if(h) codiProfile.height = parseInt(h);
+  if(w) codiProfile.weight = parseInt(w);
+  try{ sessionStorage.setItem('cb_codiProfile', JSON.stringify(codiProfile)); }catch(_){}
   cancelBodyEdit();
+  displayBodyInfo();
 }
 displayBodyInfo();
+try{ if(window.CodiBankI18n && CodiBankI18n.isEn()) document.getElementById('codiProfileTitle').textContent='Codi Profile'; }catch(_){}
 </script>
 </body></html>
