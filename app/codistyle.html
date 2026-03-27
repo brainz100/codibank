@@ -105,6 +105,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 .cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
 .cb-spacer{height:82px;}
 @media (max-width:390px){.slot-row{grid-template-columns:minmax(0,1fr) 98px}.sb{min-height:74px;padding:12px 6px}.pg-title{font-size:21px}}
+
+/* ── 저장 완료 토스트 ── */
+#csSaveToast{
+  position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+  background:rgba(7,19,42,0.96);color:rgba(76,219,206,1);
+  font-size:13px;font-weight:700;padding:10px 22px;border-radius:20px;
+  border:1px solid rgba(76,219,206,0.4);
+  pointer-events:none;z-index:9999;
+  opacity:0;transition:opacity 0.15s;
+  white-space:nowrap;
+}
+#csSaveToast.show{opacity:1;}
 </style>
 <link rel="manifest" href="/manifest.json"/>
 <meta name="theme-color" content="#07132a"/>
@@ -115,6 +127,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 <script src="pwa-register.js" defer></script>
 </head>
 <body>
+<!-- ── 저장 완료 토스트 ── -->
+<div id="csSaveToast">✓ 저장되었습니다</div>
 <header class="pg-header">
   <button class="back-btn" onclick="history.back()">arrow_back_ios_new</button>
   <div>
@@ -605,13 +619,12 @@ async function generate(){
       img.src = lastImgUrl;
       setTimeout(resolve, 8000); // 최대 8초 대기
     });
-    // ★ codibank 워터마크 오버레이 — 이미지를 canvas로 그려서 하단 API 워터마크 가림
+    // ★ 이미지를 canvas로 그려서 깔끔하게 표시 (워터마크 없음)
     const _wmImg = new Image();
     _wmImg.crossOrigin = 'anonymous';
     _wmImg.onload = function(){
       try{
         const _wc = document.createElement('canvas');
-        const _dpr = Math.min(window.devicePixelRatio||1, 2);
         _wc.width = Math.round(_wmImg.naturalWidth);
         _wc.height = Math.round(_wmImg.naturalHeight);
         _wc.style.width = '100%';
@@ -619,16 +632,7 @@ async function generate(){
         _wc.style.display = 'block';
         const _ctx = _wc.getContext('2d');
         _ctx.drawImage(_wmImg, 0, 0, _wc.width, _wc.height);
-        // 하단 워터마크 바
-        const _wmH = Math.round(_wc.height * 0.045);
-        _ctx.fillStyle = 'rgba(7,25,82,0.92)';
-        _ctx.fillRect(0, _wc.height - _wmH, _wc.width, _wmH);
-        const _fs = Math.max(16, Math.round(_wmH * 0.55));
-        _ctx.font = '700 '+_fs+'px "Outfit", sans-serif';
-        _ctx.textAlign = 'center';
-        _ctx.textBaseline = 'middle';
-        _ctx.fillStyle = 'rgba(151,254,237,0.65)';
-        _ctx.fillText('codibank', _wc.width/2, _wc.height - _wmH/2);
+        // ✦ 워터마크 없이 원본 이미지 그대로 표시
         document.getElementById('imgWrap').innerHTML = '';
         document.getElementById('imgWrap').appendChild(_wc);
         // canvas를 blob URL로 저장 (다운로드/공유용)
@@ -689,6 +693,13 @@ async function generate(){
 /* ── 저장: 이미지를 blob으로 받아서 기기에 직접 저장 ── */
 async function saveImg(){
   if(!lastImgUrl){ alert('저장할 이미지가 없어요'); return; }
+  const _showSaveToast = () => {
+    const toast = document.getElementById('csSaveToast');
+    if(toast){
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 800);
+    }
+  };
   try{
     const r = await fetch(lastImgUrl);
     const blob = await r.blob();
@@ -700,12 +711,14 @@ async function saveImg(){
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 3000);
+    _showSaveToast();
   }catch(e){
     /* fetch 실패 시 직접 링크 다운로드 폴백 */
     const a = document.createElement('a');
     a.href = lastImgUrl;
     a.download = 'codibank_' + Date.now() + '.jpg';
     a.click();
+    _showSaveToast();
   }
 }
 
