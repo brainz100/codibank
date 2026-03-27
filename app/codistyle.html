@@ -563,6 +563,17 @@ async function generate(){
     ];
     const _ri = (arr) => arr[Math.floor(Math.random()*arr.length)];
 
+    // ── Gender-aware Pants Fit & Length Rules ──
+    const _pantsFitRule = _genderEn === 'man'
+      ? 'PANTS FIT (MEN — ABSOLUTE, NO EXCEPTIONS): NEVER use skinny fit, ultra-slim fit, or spray-on tight fit for men. ALWAYS use straight fit / regular fit / tapered fit / relaxed fit / wide-leg fit. This rule has zero exceptions.'
+      : (codiProfile.ageGroup === '20s' || codiProfile.ageGroup === '10s')
+        ? 'PANTS FIT (WOMEN 20s): Skinny fit jeans are allowed for casual looks on slim body types. Straight, tapered, wide-leg, and relaxed fits also fine. Do NOT use skinny fit for formal or structured outfits.'
+        : 'PANTS FIT (WOMEN): Straight / tapered / wide-leg / relaxed / flare preferred. Skinny fit only acceptable for casual looks on young slim women.';
+
+    const _pantsLengthRule = _genderEn === 'man'
+      ? 'PANTS LENGTH (MEN — ABSOLUTE, NO EXCEPTIONS): NEVER cropped, NEVER 7/8 length, NEVER ankle-exposed hemline. Hem MUST reach the ankle and rest on the shoe top. Only explicit shorts are allowed to be short.'
+      : 'PANTS LENGTH (WOMEN): Full-length preferred for formal/smart looks. 7/8-length or cropped acceptable for casual or street-style looks.';
+
     // ── Build Prompt (첨부 문서 100% 반영) ──
     const imagePrompt = [
       // I. CORE OBJECTIVE
@@ -586,8 +597,9 @@ async function generate(){
 
       // II-4. Technical
       'ANATOMY: Natural human proportions. Both hands must have exactly 5 fingers each. No body distortion.',
-      'PANTS: Must be FULL LENGTH reaching shoes. No cropped, no ankle-length.',
-      'OUTPUT: Photorealistic quality. No text, no watermark, no logo in the image.',
+      _pantsFitRule,
+      _pantsLengthRule,
+      'OUTPUT: Photorealistic quality. No text, no watermark, no logo, no AI marks, no embedded text of any kind in the image.',
     ].join(' ');
 
     // ── Payload (styleHint 제거 — 서버 중복 방지) ──
