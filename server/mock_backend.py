@@ -476,7 +476,33 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
                 "Show the whole body from head to toe. "
                 f"Weather: {bucket}. Condition: {cond or 'clear'}. Purpose: {purpose_desc}. "
                 f"Location culture hint: {str(weather.get('location') or '').strip() or 'Seoul'}. "
-                "Natural proportions, realistic try-on. BACKGROUND: Choose a light pastel solid color that contrasts with the outfit colors. Studio paper backdrop only — no environment, no objects. "
+                "Natural proportions, realistic try-on. "
+
+                # ── 배경 (CRITICAL) ──
+                "BACKGROUND (ABSOLUTE MANDATORY): "
+                "The background MUST be a SINGLE SOLID FLAT PASTEL COLOR only. "
+                "Choose a pastel that CONTRASTS clearly with the outfit: "
+                "dark outfit → light pastel (cream, pale mint, soft ivory); "
+                "light outfit → slightly deeper pastel (soft lavender, muted peach, pale sage). "
+                "Completely uniform and flat from edge to edge — like studio backdrop paper. "
+                "FORBIDDEN: rooms, streets, walls, floors, gradients, patterns, objects, environments of any kind. "
+                "ONLY ONE FLAT SOLID PASTEL COLOR. No exceptions. "
+
+                # ── 신체비율 (CRITICAL) ──
+                "BODY PROPORTION (CRITICAL): Upper body (head to waist) must be 40% or less of total height. "
+                "Lower body (waist to feet) must be 60% or more of total height. 3:7 upper-to-lower ratio is MANDATORY. "
+                "5:5 or 4:6 ratio is a generation FAILURE. Legs must appear long and naturally proportioned. "
+
+                # ── 바지 길이 ──
+                "PANTS LENGTH (ABSOLUTE): Pants must reach full ankle length — hem visible just above the shoe top. "
+                "Cropped, 7/8, or calf-length pants are FORBIDDEN. "
+
+                # ── 양말 ──
+                "SOCKS: Both feet must wear IDENTICAL socks — same color and pattern on both sides. Mismatched socks are FORBIDDEN. "
+
+                # ── 스타일리스트 ──
+                "STYLIST RULE: Recommend only real-life wearable outfits. No experimental, runway, fashion-show, or avant-garde styling. "
+
                 "No text, no watermark, no logo."
             )
         else:
@@ -530,9 +556,42 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
         f"Style theme: {purpose_tag}. "
         f"Keywords: {kw_str}. "
         f"{weather_rule} "
-        "Clean studio background, soft natural lighting, sharp focus. "
+
+        # ── 신체비율 (CRITICAL) ──
+        "BODY PROPORTION (CRITICAL — ABSOLUTE RULE): "
+        "The upper body (head to waist) must occupy NO MORE than 40% of the total body height. "
+        "The lower body (waist to feet) must occupy AT LEAST 60% of the total body height. "
+        "This 3:7 head-to-toe ratio is MANDATORY. A 5:5 or 4:6 ratio is FORBIDDEN and considered a generation failure. "
+        "Legs must appear long, naturally proportioned, and elongated. "
+
+        # ── 바지 길이 (CRITICAL) ──
+        "PANTS LENGTH (ABSOLUTE RULE): Pants/trousers MUST reach all the way down to the ankle bone — full ankle length. "
+        "Cropped pants, 7/8 length, calf-length, and any pants ending above the ankle are STRICTLY FORBIDDEN. "
+        "The trouser hem must be visible just above or touching the top of the shoes. "
+
+        # ── 양말 (STRICT) ──
+        "SOCKS (STRICT): Both left and right socks MUST be IDENTICAL in color and pattern. "
+        "Mismatched socks (different colors on each foot) are ABSOLUTELY FORBIDDEN — this is considered an abnormal recommendation. "
+
+        # ── 스타일리스트 철학 ──
+        "STYLIST PHILOSOPHY (MANDATORY): You are a practical real-life personal stylist helping everyday people dress well — NOT a fashion designer. "
+        "Recommend ONLY outfits that ordinary people would comfortably wear in real daily life. "
+        "STRICTLY FORBIDDEN: experimental outfits, fashion show looks, runway aesthetics, avant-garde combinations, asymmetric styling, dramatic oversized silhouettes, unusual color-blocking, or any look that would seem out of place on the street. "
+        "All recommendations must be wearable, socially appropriate, and make the person look naturally stylish. "
+
+        # ── 배경 (CRITICAL) ──
+        "BACKGROUND (ABSOLUTE MANDATORY — HIGHEST PRIORITY RULE): "
+        "The background MUST be a SINGLE SOLID FLAT PASTEL COLOR only. "
+        "Choose a pastel color that CONTRASTS clearly with the outfit so the clothing is fully visible: "
+        "if the outfit is dark, use light pastel (cream, pale mint, soft ivory, light sky blue); "
+        "if the outfit is light/white, use a slightly deeper pastel (soft lavender, muted peach, pale sage). "
+        "The background must be completely uniform and flat from edge to edge — like professional studio backdrop paper. "
+        "ABSOLUTELY FORBIDDEN: rooms, streets, walls, floors, gradients, patterns, textures, objects, scenery, or any environment. "
+        "ONLY ONE FLAT SOLID PASTEL COLOR. No exceptions. "
+
+        "Soft studio lighting, sharp focus. "
         "No text, no watermark, no logo, no brand marks. "
-        "High quality outfit details, realistic proportions."
+        "High quality outfit details."
     )
 
     # style_title이 있으면 약하게 힌트로 추가
@@ -885,7 +944,31 @@ def _ai_styling_via_gemini(
         "Generate the image as if THIS EXACT PERSON is wearing the recommended outfit. "
         f"Subject: Korean {gender_en}, {age}"
         + (f", {hw_ko}" if hw_ko else "") + ". "
-        "Full body head to toe visible. Photorealistic fashion editorial."
+        "Full body head to toe visible. Photorealistic fashion editorial. "
+
+        # ── 배경 (CRITICAL) ──
+        "BACKGROUND (ABSOLUTE MANDATORY): "
+        "The background MUST be a SINGLE SOLID FLAT PASTEL COLOR only. "
+        "Choose a pastel that CONTRASTS clearly with the outfit: "
+        "dark outfit → light pastel (cream, pale mint, soft ivory, light sky blue); "
+        "light/white outfit → slightly deeper pastel (soft lavender, muted peach, pale sage). "
+        "Completely uniform and flat from edge to edge — studio backdrop paper style. "
+        "ABSOLUTELY FORBIDDEN: rooms, streets, walls, floors, gradients, patterns, objects, or any environment. "
+        "ONLY ONE FLAT SOLID PASTEL COLOR. No exceptions. "
+
+        # ── 신체비율 (CRITICAL) ──
+        "BODY PROPORTION (CRITICAL): Upper body (head to waist) must be 40% or less of total height. "
+        "Lower body (waist to feet) must be 60% or more of total height. "
+        "3:7 upper-to-lower ratio MANDATORY. A 5:5 ratio is a FAILURE. Legs must appear long and well-proportioned. "
+
+        # ── 바지 길이 ──
+        "PANTS (ABSOLUTE): Full ankle-length trousers only. Hem must reach just above the shoe. Cropped or 7/8 pants are FORBIDDEN. "
+
+        # ── 양말 ──
+        "SOCKS: Both feet must wear IDENTICAL socks — same color and same pattern. Mismatched socks are ABSOLUTELY FORBIDDEN. "
+
+        # ── 스타일리스트 철학 ──
+        "STYLIST RULE: Everyday practical styling only. No experimental, runway, or avant-garde outfits. All looks must be wearable in real Korean daily life. "
     )
 
     # ── 이미지 파트 구성: 얼굴 → 상의 → 하의 순서 ──
@@ -1222,8 +1305,38 @@ def codistyle_generate():
         + img_desc + " "
         + ko_instruction
         + "Reproduce the EXACT color, fabric, silhouette, logo of each garment from the reference images. "
-        "Full body head to toe visible. Clean Korean urban or studio background. "
-        "Professional fashion editorial lighting. Photorealistic. No text. No watermarks."
+        "Full body head to toe visible. "
+
+        # ── 배경 (CRITICAL) ──
+        "BACKGROUND (ABSOLUTE MANDATORY — HIGHEST PRIORITY): "
+        "The background MUST be a SINGLE SOLID FLAT PASTEL COLOR only. "
+        "Choose a pastel color that CONTRASTS clearly with the outfit: "
+        "dark outfit → light pastel (cream, pale mint, soft ivory, light sky blue); "
+        "light/white outfit → slightly deeper pastel (soft lavender, muted peach, pale sage). "
+        "Completely uniform and flat edge to edge — professional studio backdrop paper style. "
+        "ABSOLUTELY FORBIDDEN: rooms, streets, walls, floors, gradients, patterns, textures, objects, scenery, or any environment. "
+        "ONLY ONE FLAT SOLID PASTEL COLOR. No exceptions. "
+
+        "Professional fashion editorial lighting. Photorealistic. No text. No watermarks. "
+
+        # ── 신체비율 (CRITICAL) ──
+        "BODY PROPORTION (CRITICAL — ABSOLUTE RULE): "
+        "Upper body (head to waist) must occupy 40% or LESS of total body height. "
+        "Lower body (waist to feet) must occupy 60% or MORE of total body height. "
+        "The 3:7 upper-to-lower ratio is MANDATORY. A 5:5 or equal ratio is a generation FAILURE. "
+        "Legs must look long, natural, and well-proportioned. "
+
+        # ── 바지 길이 ──
+        "PANTS LENGTH (ABSOLUTE): Pants/trousers must reach full ankle length — the hem must be visible just above or touching the shoe top. "
+        "Cropped pants, 7/8 length, or any pants ending above the ankle are STRICTLY FORBIDDEN. "
+
+        # ── 양말 ──
+        "SOCKS: Both left and right socks MUST be the same color and pattern. Mismatched socks between feet are FORBIDDEN. "
+
+        # ── 스타일리스트 철학 ──
+        "STYLIST RULE (MANDATORY): This is a practical daily-life personal styling service, NOT a fashion show. "
+        "Recommend only real-world wearable outfits. No experimental, avant-garde, runway, or asymmetric styling. "
+        "All color combinations and silhouettes must look natural and socially appropriate in everyday Korean life. "
     )
 
     # ── Gemini API 호출 (신/구 SDK 분기) ──
