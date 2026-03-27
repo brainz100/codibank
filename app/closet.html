@@ -1184,11 +1184,12 @@ function pickBestItemByColor(items, desiredColor, catKey){
 
 // ── AI 코디 생성 사용량 — 내옷장 + 코디하기 통합 관리 ─────────
 // ★ codistyle.html과 동일한 cb_usage_ 키를 공유
+// ★ pricing.html 기준: 추천코디(closet)와 코디하기(codistyle) 분리 카운트
 const PLANS = {
-  free:    { label:'무료',   monthlyTotal:6,     dailyLimit:null },
-  silver:  { label:'실버',   monthlyTotal:40,    dailyLimit:3 },
-  gold:    { label:'골드',   monthlyTotal:150,   dailyLimit:10 },
-  diamond: { label:'다이아', monthlyTotal:99999, dailyLimit:30 },
+  free:    { label:'무료',   closetMonthly:3,    codistyleMonthly:5,    dailyLimit:null },
+  silver:  { label:'실버',   closetMonthly:30,   codistyleMonthly:30,   dailyLimit:null },
+  gold:    { label:'골드',   closetMonthly:50,   codistyleMonthly:60,   dailyLimit:null },
+  diamond: { label:'다이아', closetMonthly:99999, codistyleMonthly:99999, dailyLimit:30 },
 };
 function _usageKey(){ return 'cb_usage_' + (user.email||'guest'); }
 function getUnifiedUsage(){
@@ -1197,33 +1198,47 @@ function getUnifiedUsage(){
     const now = new Date();
     const monthKey = now.getFullYear()+'-'+(now.getMonth()+1);
     const dayKey = now.toISOString().slice(0,10);
-    if(raw.month !== monthKey){ raw.month=monthKey; raw.monthCount=0; }
+    if(raw.month !== monthKey){ raw.month=monthKey; raw.closetCount=0; raw.codistyleCount=0; raw.monthCount=0; }
     if(raw.day !== dayKey){ raw.day=dayKey; raw.dayCount=0; }
+    // 하위 호환: 기존 monthCount만 있는 경우
+    if(!('closetCount' in raw)) raw.closetCount = raw.monthCount || 0;
+    if(!('codistyleCount' in raw)) raw.codistyleCount = 0;
     return raw;
-  }catch(_){ return { month:'', monthCount:0, day:'', dayCount:0 }; }
+  }catch(_){ return { month:'', closetCount:0, codistyleCount:0, monthCount:0, day:'', dayCount:0 }; }
 }
-function recordUnifiedUsage(){
+function recordUnifiedUsage(feature){
+  // feature: 'closet' 또는 'codistyle'
   const u = getUnifiedUsage();
-  u.monthCount = (u.monthCount||0) + 1;
+  if(feature === 'codistyle'){
+    u.codistyleCount = (u.codistyleCount||0) + 1;
+  } else {
+    u.closetCount = (u.closetCount||0) + 1;
+  }
+  u.monthCount = (u.closetCount||0) + (u.codistyleCount||0);
   u.dayCount = (u.dayCount||0) + 1;
   try{ localStorage.setItem(_usageKey(), JSON.stringify(u)); }catch(_){}
 }
-function checkUnifiedUsage(){
+function checkUnifiedUsage(feature){
+  // feature: 'closet' 또는 'codistyle'
+  const ft = feature || 'closet';
   const planId = (user.plan || 'free').toLowerCase();
   const plan = PLANS[planId] || PLANS.free;
   const u = getUnifiedUsage();
-  if(u.monthCount >= plan.monthlyTotal)
-    return { blocked:true, remaining:0, reason: plan.label+' 플랜 월간 이용횟수를 모두 사용했어요.' };
+  const limit = ft === 'codistyle' ? plan.codistyleMonthly : plan.closetMonthly;
+  const used = ft === 'codistyle' ? (u.codistyleCount||0) : (u.closetCount||0);
+  const remaining = Math.max(0, limit - used);
+  if(used >= limit)
+    return { blocked:true, remaining:0, reason: plan.label+' 플랜 '+(ft==='codistyle'?'코디하기':'추천코디')+' 월간 이용횟수를 모두 사용했어요.' };
   if(plan.dailyLimit && u.dayCount >= plan.dailyLimit)
-    return { blocked:true, remaining: plan.monthlyTotal - u.monthCount, reason: '오늘 일일 한도('+plan.dailyLimit+'회)를 모두 사용했어요.' };
-  return { blocked:false, remaining: plan.monthlyTotal - u.monthCount, dailyRemaining: plan.dailyLimit ? (plan.dailyLimit - u.dayCount) : null };
+    return { blocked:true, remaining, reason: '오늘 일일 한도('+plan.dailyLimit+'회)를 모두 사용했어요.' };
+  return { blocked:false, remaining, dailyRemaining: plan.dailyLimit ? (plan.dailyLimit - u.dayCount) : null };
 }
 
 function updateQuotaBadge(){
   const badge=document.getElementById('aiQuota');
   if(!badge) return;
   try{
-    const ck = checkUnifiedUsage();
+    const ck = checkUnifiedUsage('closet');
     if(ck.blocked){
       badge.className='ai-badge danger';
       badge.textContent='한도 초과';
@@ -1236,7 +1251,7 @@ function updateQuotaBadge(){
     }
     const daily = ck.dailyRemaining !== null ? ' (오늘 '+ck.dailyRemaining+')' : '';
     badge.className = `ai-badge ${ck.remaining<=2?'danger':'gray'}`;
-    badge.textContent = `남은 ${ck.remaining}회${daily}`;
+    badge.textContent = `추천코디 남은 ${ck.remaining}회${daily}`;
   }catch(_){
     badge.className='ai-badge gray';
     badge.textContent='남은 0회';
@@ -1245,7 +1260,7 @@ function updateQuotaBadge(){
 
 function canGenerateNow(){
   try{
-    return !checkUnifiedUsage().blocked;
+    return !checkUnifiedUsage('closet').blocked;
   }catch(_){return false;}
 }
 
@@ -1378,8 +1393,10 @@ function buildMatchPairsFromPalette(palette, temp){
     { key: 'pants', color: colorNameFromHex(palette?.pants) },
     { key: 'shoes', color: colorNameFromHex(palette?.shoes) },
   ];
-  // 쌀쌀/추운 날엔 포인트(스카프/목도리)도 추가
-  if (Number.isFinite(t) && t <= 12) {
+  // 목도리: 0도 이하 + 겨울(12~2월)에만 팔레트에 추가
+  const _cmPal = new Date().getMonth() + 1;
+  const _isWinterPal = (_cmPal === 12 || _cmPal === 1 || _cmPal === 2);
+  if (Number.isFinite(t) && t <= 0 && _isWinterPal) {
     pairs.push({ key: 'scarf', color: colorNameFromHex(palette?.accent) || '' });
   }
   return pairs.map(p=>({
@@ -1799,7 +1816,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   let palette = { ...persona.palette };
   if(!palette.accent) palette.accent = '#C8B89A';
   // 더운 날씨: 아우터를 상의 컬러로 교체(레이어 제거)
-  if(nt >= 22) palette = {...palette, outer: palette.top};
+  if(nt >= 20) palette = {...palette, outer: palette.top};
   // 영하: 팔레트 전체를 약간 더 어둡게 (이미 각 persona가 계절 반영)
 
   // ── [6] 디자인 키워드 (페르소나별 고유 6개+에서 순환)
@@ -1998,13 +2015,25 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
       itemKo: persona.shoe,
       itemEn: _koShoeEn(persona.shoe),
     },
-    accent: {
-      ko:     palette.accent ? (colorNameFromHex(palette.accent) || '') : '',
-      en:     palette.accent ? _koColorEn(colorNameFromHex(palette.accent) || '') : '',
-      itemKo: '스카프·포인트',
-      itemEn: 'scarf or accent accessory',
-      kw3:    dKw3,
-    },
+    accent: (() => {
+      // 목도리: 0도 이하 + 12~2월에만
+      // 스카프: 여성에게만 랜덤으로
+      const _cm = new Date().getMonth() + 1;
+      const _isW = (_cm === 12 || _cm === 1 || _cm === 2);
+      const _isFemale = profile?.gender === 'F';
+      const _shouldMuffler = Number.isFinite(nt) && nt <= 0 && _isW;
+      const _shouldScarf = _isFemale && Math.random() > 0.5;
+      if (!_shouldMuffler && !_shouldScarf) return { ko:'', en:'', itemKo:'', itemEn:'', kw3:dKw3 };
+      const _itemKo = _shouldMuffler ? '머플러' : '스카프';
+      const _itemEn = _shouldMuffler ? 'muffler' : 'lightweight scarf';
+      return {
+        ko:     palette.accent ? (colorNameFromHex(palette.accent) || '') : '',
+        en:     palette.accent ? _koColorEn(colorNameFromHex(palette.accent) || '') : '',
+        itemKo: _itemKo,
+        itemEn: _itemEn,
+        kw3:    dKw3,
+      };
+    })(),
   };
 
   // ── SPEC 확장: 가방/시계/양말 — TPO·계절 기반 추천 (카테고리 완결)
@@ -2102,63 +2131,98 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     : [];
   const keywords = Array.from(new Set([..._fashionKws, ..._customKws])).slice(0,5);
 
-  // ── [13-B] AI 추천코디 이야기 — 스타일링 코칭 스토리 텍스트 생성
+  // ── [13-B] AI 추천코디 이야기 — 스타일리스트 코칭 스토리 텍스트 생성
   // ✦ let으로 선언 후 IIFE로 채움 (빈 문자열 절대 불가 보장)
   let codiStory = '';
   // ✦ 규칙: imagePrompt / explanation 내용은 절대 노출 금지
   // ✦ 이 텍스트만 codiExplain에 표시됨 — S.codiStory에 저장
   // ✦ 다시코디 시: 새 persona → 새 SPEC → 새 codiStory 자동 재생성
   (()=>{
-    // 목적 레이블
     const _pLabel = pk==='custom' && customText ? customText : (pm?.label || '오늘의 코디');
-    // 날씨 텍스트
     const _wx = [tTxt, wxTxt].filter(Boolean).join(' ') || '오늘';
-    // 아이템 묘사
-    const _outer  = [SPEC.outer.ko, SPEC.outer.itemKo].filter(Boolean).join(' ');
-    const _top    = SPEC.top.ko    ? SPEC.top.ko + ' 상의'              : '';
-    const _pants  = [SPEC.pants.ko, SPEC.pants.itemKo].filter(Boolean).join(' ');
-    const _shoes  = [SPEC.shoes.ko, SPEC.shoes.itemKo].filter(Boolean).join(' ');
-    const _accent = (SPEC.accent.ko && SPEC.accent.ko !== '포인트악세서리')
-                    ? SPEC.accent.ko + ' 포인트 아이템' : '';
-    // 체형 코치
-    const _body   = bodyType ? bodyType.tip.split(/[.·]/)[0].trim() + '을 고려해, ' : '';
-    // 레이어링 핵심어
-    const _layer  = (layerTip || persona.layerStyle).split('+')[0].trim();
-    // 감성 키워드 (페르소나 고유)
-    const _kws    = (persona.designKws || []).slice(0,2).join('·');
-    // 가방/시계 추천
-    const _bag    = _extSpec.bag.ko   ? '가방은 **' + _extSpec.bag.ko + '**,' : '';
-    const _watch  = _extSpec.watch.ko ? '시계는 **' + _extSpec.watch.ko + '**' : '';
-
-    // 문장 조합 — Top Special Stylist 포맷
     const _region = stylistCity || 'Seoul';
-    const _technique = persona.layerStyle.split('+')[0].trim() || '토널 레이어링';
-    const _keyItem = _outer || _top || _pants || '핵심 아이템';
-    const _ageLabel = String(age||'30대');
-    const _bodyBenefit = bodyType
-      ? bodyType.tip.split(/[.·]/)[0].trim()
-      : '편안한 착용감과 세련된 실루엣';
 
-    const sentences = [
-      'Top Special Stylist_' + stylistName + ' live in ' + _region,
-      '',
-      '**"' + _pLabel + '"을 위한 오늘의 트렌드 스타일링 포인트:**',
-      '',
-      '이번 룩에서 저의 시그니처 기법인 **' + _technique + '**을 활용해,',
-      _ageLabel + '에 딱 맞는 세련되고 트렌디한 무드를 완성했어요.',
-      '**' + _keyItem + '**이 컨템포러리한 엣지를 더하면서도 ' + _bodyBenefit + '을 보장합니다.',
-      _wx + ' 날씨를 고려해 ' + _body + '**' + persona.voice + '** 스타일로 구성했어요.',
-      _outer  ? '아우터는 **' + _outer + '**,' : '',
-      _top    ? '이너는 **' + _top + '**,' : '',
-      _pants  ? '하의는 **' + _pants + '**,' : '',
-      _shoes  ? '슈즈는 **' + _shoes + '**로 마무리했어요.' : '',
-      _accent ? '**' + _accent + '**으로 포인트를 더했습니다.' : '',
-      [_bag, _watch].filter(Boolean).join(' ') || '',
-      '당신의 프로필에 맞춰 컬러와 텍스처를 세심하게 선택했어요.',
-      _kws ? '**' + _kws + '** 무드가 돋보이는 퍼스널 큐레이션입니다.' : '진정한 스타일은 맞춤 큐레이션에서 빛나니까요.',
-    ].filter(s => s !== '').join(' ').replace(/\s{2,}/g, ' ').replace(/, ,/g, ',').trim();
+    // ── 컬러 의미 사전 ──
+    const _colorMeaning = {
+      '화이트':'깨끗함과 신뢰감','블랙':'세련되고 파워풀한 무드','네이비':'지적이고 차분한 분위기','차콜':'모던한 중후함',
+      '그레이':'균형 잡힌 세련미','베이지':'부드럽고 따뜻한 톤','카키':'자연스럽고 활동적인 느낌','올리브':'세련된 어스 톤',
+      '버건디':'깊이 있는 세련미','와인':'고급스러운 성숙미','크림':'부드럽고 우아한 톤','아이보리':'단정하고 깔끔한 인상',
+      '라이트블루':'상쾌하고 청량한 감성','스카이블루':'밝고 활기찬 분위기','딥블루':'신뢰감과 안정감','브라운':'따뜻하고 자연스러운 톤',
+      '카멜':'품격 있는 클래식 무드','탄':'차분하고 절제된 분위기','테라코타':'개성 있는 온기',
+    };
+    const _getColorTip = (koColor) => {
+      if(!koColor) return '';
+      for(const [k,v] of Object.entries(_colorMeaning)){
+        if(koColor.includes(k)) return v;
+      }
+      return '';
+    };
 
-    codiStory = sentences || (stylistName + '이(가) ' + _pLabel + ' 코디를 준비했어요. **' + persona.voice + '** 스타일의 ' + _outer + ' 코디입니다.');
+    // ── 아이템 묘사 ──
+    const _outer = [SPEC.outer.ko, SPEC.outer.itemKo].filter(Boolean).join(' ');
+    const _top = SPEC.top.ko ? SPEC.top.ko + ' 상의' : '';
+    const _pants = [SPEC.pants.ko, SPEC.pants.itemKo].filter(Boolean).join(' ');
+    const _shoes = [SPEC.shoes.ko, SPEC.shoes.itemKo].filter(Boolean).join(' ');
+
+    // ── 컬러 포인트 ──
+    const _topColorTip = _getColorTip(SPEC.top.ko);
+    const _pantsColorTip = _getColorTip(SPEC.pants.ko);
+    const _outerColorTip = _getColorTip(SPEC.outer.ko);
+
+    // ── 스타일리스트 추천 이유 ──
+    const _bodyAdvice = bodyType ? bodyType.tip.split(/[.·]/)[0].trim() : '';
+    const _technique = (persona.layerStyle||'').split('+')[0].trim() || '톤매칭';
+
+    // ── 액세서리 포인트 (있을 경우만) ──
+    const _accentItem = (SPEC.accent.ko && SPEC.accent.ko !== '포인트악세서리') ? SPEC.accent.ko : '';
+    const _bagItem = _extSpec.bag.ko || '';
+    const _watchItem = _extSpec.watch.ko || '';
+    const _accParts = [];
+    if(_accentItem) _accParts.push('**' + _accentItem + '**으로 스타일 포인트');
+    if(_bagItem && personaIdx % 3 !== 2) _accParts.push('**' + _bagItem + '** 가방으로 실용성');
+    if(_watchItem && personaIdx % 4 === 0) _accParts.push('**' + _watchItem + '** 시계로 완성도');
+
+    // ── 문장 조합 (500자 이내) ──
+    const parts = [];
+
+    // 1. 스타일리스트 소개
+    parts.push('**' + stylistName + '** - lives in ' + _region);
+
+    // 2. 추천 이유
+    parts.push('');
+    parts.push('**"' + _pLabel + '" 코디를 추천합니다.**');
+    parts.push(_wx + ' 날씨에 맞춰 **' + _technique + '** 기법으로 구성했어요.' + (_bodyAdvice ? ' ' + _bodyAdvice + '을 살리는 핏을 선택했습니다.' : ''));
+
+    // 3. 상의 포인트
+    if(_top){
+      const cTip = _topColorTip ? ' ' + _topColorTip + '을 전달해요.' : '';
+      parts.push('**상의** — ' + _top + '을 선택했어요.' + cTip);
+    }
+
+    // 4. 하의 포인트
+    if(_pants){
+      const cTip = _pantsColorTip ? ' ' + _pantsColorTip + '이 돋보입니다.' : '';
+      parts.push('**하의** — ' + _pants + '으로 매칭했어요.' + cTip);
+    }
+
+    // 5. 아우터 (있을 경우)
+    if(_outer && Number.isFinite(nt) && nt < 20){
+      const cTip = _outerColorTip ? ' ' + _outerColorTip + '을 더합니다.' : '';
+      parts.push('**아우터** — ' + _outer + '으로 완성도를 높였어요.' + cTip);
+    }
+
+    // 6. 슈즈
+    if(_shoes) parts.push('**슈즈** — ' + _shoes + '로 마무리했어요.');
+
+    // 7. 액세사리 포인트 (옵션)
+    if(_accParts.length > 0){
+      parts.push('**액세사리** — ' + _accParts.join(', ') + '를 더했습니다.');
+    }
+
+    codiStory = parts.filter(s => s !== undefined).join(' ').replace(/\s{2,}/g, ' ').replace(/, ,/g, ',').trim();
+    // 500자 제한
+    if(codiStory.length > 500) codiStory = codiStory.substring(0, 497) + '...';
+    if(!codiStory) codiStory = stylistName + '이(가) ' + _pLabel + ' 코디를 준비했어요. **' + persona.voice + '** 스타일의 코디입니다.';
   })();
 
   // ── 영어 모드: codiStory 영어 버전 생성 ──
@@ -2170,28 +2234,26 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     const _outerEn = SPEC.outer.en || '';
     const _topEn = SPEC.top.en || '';
     const _pantsEn = SPEC.pants.en || '';
-    const _shoesEn = SPEC.shoes.en ? SPEC.shoes.en + ' ' + SPEC.shoes.itemEn : '';
+    const _shoesEn = SPEC.shoes.en ? SPEC.shoes.en + ' ' + (SPEC.shoes.itemEn||'') : '';
     const _accentEn = SPEC.accent.en || '';
-    const _keyItemEn = _outerEn || _topEn || _pantsEn || 'the key item';
-    const _ageEn = String(age||'30s').replace('대','s');
-    const _bodyBenefitEn = bodyType
-      ? (bodyType.tag==='비만형'||bodyType.tag==='통통형' ? 'a streamlined silhouette' : bodyType.tag==='마른형' ? 'added volume and presence' : bodyType.tag==='단신형' ? 'elongated proportions' : 'comfortable elegance')
-      : 'comfortable elegance';
+    const _bagEn = _extSpec.bag.en || '';
+    const _watchEn = _extSpec.watch.en || '';
+    const _accPartsEn = [];
+    if(_accentEn) _accPartsEn.push('**' + _accentEn + '** accent');
+    if(_bagEn && personaIdx % 3 !== 2) _accPartsEn.push('**' + _bagEn + '** bag');
+    if(_watchEn && personaIdx % 4 === 0) _accPartsEn.push('**' + _watchEn + '** watch');
     codiStory = [
-      'Top Special Stylist_' + stylistName + ' live in ' + _region,
+      '**' + stylistName + '** - lives in ' + _region,
       '',
-      '**Today\'s Trend-Forward Styling Point for "' + _pLabelEn + '":**',
-      '',
-      'For this look, I utilized my signature **' + _technique + '** to create a highly sophisticated and trendy vibe perfectly suited for someone in their **' + _ageEn + '**.',
-      'The **' + _keyItemEn + '** adds a contemporary edge while ensuring ' + _bodyBenefitEn + '.',
-      _wxEn.trim() ? 'Styled for ' + _wxEn.trim() + ' weather.' : '',
-      _outerEn  ? 'Outer: **' + _outerEn + '**.' : '',
-      _topEn    ? 'Top: **' + _topEn + '**.' : '',
-      _pantsEn  ? 'Bottom: **' + _pantsEn + '**.' : '',
-      _shoesEn  ? 'Shoes: **' + _shoesEn + '**.' : '',
-      _accentEn ? 'Accent: **' + _accentEn + '**.' : '',
-      'I carefully selected these precise colors and textures to complement your profile, proving that true style only gets better with the right personalized curation.',
+      '**My recommendation for "' + _pLabelEn + '":**',
+      _wxEn.trim() ? 'Styled for ' + _wxEn.trim() + ' weather using **' + _technique + '** technique.' : '',
+      _topEn ? '**Top** — ' + _topEn + ' for a refined look.' : '',
+      _pantsEn ? '**Bottom** — ' + _pantsEn + ' for balanced proportions.' : '',
+      (_outerEn && Number.isFinite(nt) && nt < 20) ? '**Outer** — ' + _outerEn + ' adds depth.' : '',
+      _shoesEn ? '**Shoes** — ' + _shoesEn + ' to complete the look.' : '',
+      _accPartsEn.length > 0 ? '**Accessories** — ' + _accPartsEn.join(', ') + '.' : '',
     ].filter(s => s !== '').join(' ').replace(/\s{2,}/g,' ').trim();
+    if(codiStory.length > 500) codiStory = codiStory.substring(0, 497) + '...';
   }
 
   // ── [14] styleTitle
@@ -2213,13 +2275,16 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   //
   // 소스 구조: SPEC(한국어) ↔ imagePrompt(영어) = 동일 palette hex에서 파생
   // ══════════════════════════════════════════════════════════════
-  // 페르소나별 악세서리 변동 (personaIdx 기반 - 스타일리스트마다 다른 조합)
-  const _skipBag = (personaIdx % 3 === 2); // 매 3번째 스타일리스트는 가방 없음
-  // 목도리: 반드시 온도 0도 이하 + 12~2월 사이에만 추천 (그 외 무조건 생략)
-  const _currentMonth = new Date().getMonth() + 1; // 1~12
+  // 페르소나별 악세서리 변동
+  const _skipBag = (personaIdx % 3 === 2) || Math.random() > 0.6;
+  // 목도리: 0도 이하 + 12~2월 / 스카프: 여성만 랜덤
+  const _currentMonth = new Date().getMonth() + 1;
   const _isWinterMonth = (_currentMonth === 12 || _currentMonth === 1 || _currentMonth === 2);
-  const _skipScarf = !(Number.isFinite(nt) && nt <= 0 && _isWinterMonth);
-  const _skipWatch = (personaIdx % 5 === 0); // 매 5번째 스타일리스트는 시계 없음
+  const _isFemaleAcc = profile?.gender === 'F';
+  const _hasMuffler = Number.isFinite(nt) && nt <= 0 && _isWinterMonth;
+  const _hasScarf = _isFemaleAcc && Math.random() > 0.5;
+  const _skipScarf = !(_hasMuffler || _hasScarf);
+  const _skipWatch = (personaIdx % 4 !== 0);
 
   const _cCat = (koColor, itemKo) => {
     const color = String(koColor || '').trim();
@@ -2230,10 +2295,12 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     return null;
   };
   const categoryKeywords = {
-    // 아우터: 온도 기반 코트/자켓/레이어드 명시 + 페르소나 목소리
-    outer: _outerLayerMode.canLayer
-      ? [_cCat(SPEC.outer.ko, '코트'), _cCat(SPEC.outer.ko, '자켓 레이어드'), persona.voice].filter(Boolean)
-      : [_cCat(SPEC.outer.ko, SPEC.outer.itemKo), persona.voice].filter(Boolean),
+    // 아우터: 20도 이상이면 아우터 제외, 그 외 온도 기반 코트/자켓/레이어드
+    outer: (Number.isFinite(nt) && nt >= 20)
+      ? []
+      : _outerLayerMode.canLayer
+        ? [_cCat(SPEC.outer.ko, '코트'), _cCat(SPEC.outer.ko, '자켓 레이어드'), persona.voice].filter(Boolean)
+        : [_cCat(SPEC.outer.ko, SPEC.outer.itemKo), persona.voice].filter(Boolean),
     // 탑: "화이트 상의" + 페르소나 디자인 키워드①
     top:    [_cCat(SPEC.top.ko, '상의'), persona.designKws[0]].filter(Boolean),
     // 하의: "네이비 하의" + 페르소나 디자인 키워드②
@@ -2299,31 +2366,23 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const imagePrompt = [
     `Realistic full-body Korean fashion magazine editorial photography of ${ageLabel} ${ethnicity} ${genderLabel}.`,
     bodyBuildPrompt||'',
-    `ABSOLUTE ANATOMY RULES (HIGHEST PRIORITY - VIOLATION = FAILURE):`,
-    `- Head-to-body ratio MUST be 1:7.5. Head = top 12% of frame.`,
-    `- Torso (shoulders to waist) = 30% of total height. Waist must be at natural position.`,
-    `- Legs (waist to feet) = 50% of total height.`,
-    `- Both arms must be fully visible, natural length reaching mid-thigh, with 5 fingers each clearly visible.`,
-    `- Both hands must be anatomically correct with proper finger count and proportions.`,
-    `- Face must have two symmetrical eyes, one nose, one mouth — all proportionally correct.`,
-    `- Torso must NOT be distorted, squeezed, stretched, or have any unnatural folds or warping.`,
-    `- The jacket/outerwear must drape naturally over the torso with no bizarre creasing or melting effect.`,
-    `- NO extra limbs, NO merged body parts, NO floating objects attached to body.`,
+    'FULL-BODY SHOT (CRITICAL): This MUST be a full-body shot showing the complete person from the top of the head to the bottom of the shoes. The person should be well-proportioned within the 2:3 vertical frame — naturally centered with comfortable margins above the head and below the feet. NO upper-body-only crop, NO waist-up crop, NO zoomed-in composition. The entire outfit including shoes must be fully visible.',
+    'ANATOMY: Natural human proportions. Both hands 5 fingers each. No distortion.',
     customSentence||'',
     `STRICTLY follow exact item colors below — do NOT substitute any color:`,
-    `[1] OUTERWEAR: ${SPEC.outer.en} ${SPEC.outer.itemEn} — must be ${SPEC.outer.en} colored, buttoned or unbuttoned naturally.`,
+    (Number.isFinite(nt) && nt >= 20) ? '' : `[1] OUTERWEAR: ${SPEC.outer.en} ${SPEC.outer.itemEn} — must be ${SPEC.outer.en} colored.`,
     `[2] TOP: ${SPEC.top.en} — must be ${SPEC.top.en} colored, not white unless specified.`,
-    `[3] PANTS: ${SPEC.pants.en} FULL-LENGTH trousers — MUST be ${SPEC.pants.en} colored. CRITICAL: Pants MUST be FULL LENGTH reaching to the top of shoes. NO cropped pants, NO ankle-length pants, NO capri pants, NO rolled-up cuffs unless explicitly specified. Standard straight or slim-fit full-length trousers with hem touching the shoes.`,
-    `[4] SHOES: ${SPEC.shoes.en} ${SPEC.shoes.itemEn} — MUST be ${SPEC.shoes.en} colored ${SPEC.shoes.itemEn}, NOT white unless specified.`,
-    (!_skipScarf && SPEC.accent.ko && SPEC.accent.ko!=='포인트악세서리') ? `[5] SCARF/ACCENT: ${SPEC.accent.en} — must be ${SPEC.accent.en} colored scarf or accessory.` : '',
-    !_skipBag ? `[6] BAG: ${_extSpec.bag.en}. Held naturally in one hand or on shoulder.` : '',
+    `[3] PANTS: ${SPEC.pants.en} FULL-LENGTH trousers — MUST be ${SPEC.pants.en} colored. Pants MUST reach to the top of shoes. NO cropped, NO ankle-length.`,
+    `[4] SHOES: ${SPEC.shoes.en} ${SPEC.shoes.itemEn} — MUST be ${SPEC.shoes.en} colored.`,
+    (!_skipScarf && SPEC.accent.ko && SPEC.accent.ko!=='포인트악세서리') ? `[5] ${SPEC.accent.itemEn.toUpperCase()}: ${SPEC.accent.en} colored ${SPEC.accent.itemEn}.` : '',
+    !_skipBag ? `[6] BAG: ${_extSpec.bag.en}.` : '',
     !_skipWatch ? `[7] WATCH: ${_extSpec.watch.en}.` : '',
     `[8] SOCKS: ${_extSpec.socks.en}.`,
     `Style: ${persona.en} persona. Silhouette: ${persona.layerStyle}.`,
     bodyFlawPrompt||'',
-    `Pose: Standing straight with relaxed natural posture, looking directly at camera, frontal face view, slight natural smile. Both arms hanging naturally at sides or one hand slightly in pocket. Full body from top of head to bottom of shoes visible in frame. Feet shoulder-width apart, firmly on ground.`,
-    `BACKGROUND: Solid flat single-color pastel background ONLY. Use a soft muted pastel tone that contrasts with the outfit colors for maximum visibility. NO patterns, NO gradients, NO scenery, NO objects, NO textures — just one solid pastel color (e.g., soft pink #F5D5CB, light mint #D4EDDA, pale lavender #E8DAEF, soft peach #FDEBD0, light sky #D6EAF8, cream #FEF9E7). The background must be completely uniform and flat.`,
-    `${weatherNote}. Professional editorial fashion studio lighting, even illumination, high resolution, sharp detail on all clothing items. Photo must look like a real person photographed in a studio — NOT an illustration or CGI render.`,
+    'POSE: Natural, relaxed standing pose. Frontal view, slight smile. Both feet on the ground, weight balanced. NO awkward, exaggerated, or unnatural poses. NO sitting, NO leaning, NO jumping.',
+    'BACKGROUND (ABSOLUTE MANDATORY — MOST IMPORTANT RULE): The background must be a SINGLE SOLID FLAT PASTEL COLOR that CONTRASTS with the outfit to make the clothing clearly visible. If the outfit is dark, use a lighter pastel (cream, pale pink, light mint). If the outfit is light, use a slightly deeper pastel (soft lavender, muted sky blue, warm peach). The background must be completely uniform and flat edge to edge — like professional studio backdrop paper. ABSOLUTELY NO room, NO street, NO wall, NO floor, NO gradient, NO pattern, NO objects, NO scenery, NO environment. ONLY ONE FLAT SOLID PASTEL COLOR.',
+    `${weatherNote}. Professional studio lighting, even illumination, high resolution. Photorealistic — NOT illustration, NOT CGI. ABSOLUTELY NO TEXT of any kind in the image — no labels, no captions, no watermarks, no logos, no stamps, no signatures. The image must contain ONLY the person and the solid pastel background.`,
   ].filter(Boolean).join(' ');
 
     // ── [18] matchPairs
@@ -2781,12 +2840,22 @@ async function updateVTO(opts={}){
     const img = await loadImg(src);
     const iw = img.naturalWidth || img.width;
     const ih = img.naturalHeight || img.height;
+    // ✦ 하단 크롭 제거 — 전체 이미지 사용 (신발 짤림 방지)
     const scale = Math.max(CW/iw, CH/ih);
     const sw = CW/scale, sh = CH/scale;
     const sx = Math.max(0,(iw - sw)/2);
     const sy = Math.max(0,(ih - sh)/2);
     ctx.clearRect(0,0,CW,CH);
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, CW, CH);
+    // ✦ codibank 워터마크 오버레이 (API 워터마크 완전 가림)
+    const wmH = 38;
+    ctx.fillStyle = 'rgba(7,25,82,0.92)';
+    ctx.fillRect(0, CH - wmH, CW, wmH);
+    ctx.font = '700 14px "Outfit", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(151,254,237,0.65)';
+    ctx.fillText('codibank', CW/2, CH - wmH/2);
   };
 
   // 유틸: blob URL -> dataURL (OpenAI 이미지 편집용)
@@ -2891,7 +2960,8 @@ async function updateVTO(opts={}){
 
   if(stepEl) stepEl.textContent='AI 코디 분석 중…';
   try{
-    const r=await callClaude({faceSrc,wx:S.wx,pk:S.pk,profile:{gender:user?.gender,ageGroup:user?.ageGroup,height:user?.height,weight:user?.weight,codiPurposeCustom:S.customPurpose||''},seed:S.seed,day:(S.day==='today'?'today':(S.selDateKey||'tomorrow'))});
+    const _nGender = (g)=>{ const v=String(g||'').toLowerCase(); if(v==='male'||v==='m') return 'M'; if(v==='female'||v==='f') return 'F'; return 'M'; };
+    const r=await callClaude({faceSrc,wx:S.wx,pk:S.pk,profile:{gender:_nGender(user?.gender),ageGroup:user?.ageGroup,height:user?.height,weight:user?.weight,codiPurposeCustom:S.customPurpose||''},seed:S.seed,day:(S.day==='today'?'today':(S.selDateKey||'tomorrow'))});
     if(S.tok!==tok)return;
     if(r.palette)palette=r.palette;
     explain=trunc(r.explanation||'',400);
@@ -2937,20 +3007,29 @@ async function updateVTO(opts={}){
     const _fbWatchMap = {commute:'슬림 메탈시계',business:'클래식 시계',social:'트렌디 시계',weekendOut:'캐주얼 시계',weekendTrip:'스마트워치',overseasTrip:'여행용 시계',meet:'심플 시계'};
     const _fbSocksMap = {commute:'앵클삭스',business:'드레스삭스',social:'포인트삭스',weekendOut:'스니커삭스',weekendTrip:'쿠션삭스',overseasTrip:'여행삭스',meet:'앵클삭스'};
     S.outerLabel = _fbOuterLabel;
+    // 폴백: 악세서리는 조건부 (목도리: 0도이하+겨울 / 스카프: 여성만)
+    const _fbMonth = new Date().getMonth() + 1;
+    const _fbIsWinter = (_fbMonth === 12 || _fbMonth === 1 || _fbMonth === 2);
+    const _fbIsFemale = (String(user?.gender||'').toLowerCase()==='female' || user?.gender==='F');
+    const _fbHasMuffler = Number.isFinite(_fbTemp) && _fbTemp <= 0 && _fbIsWinter;
+    const _fbHasScarf = _fbIsFemale && Math.random() > 0.5;
     S.categoryKeywords = {
       outer: _fbCanLayer
         ? [colorNameFromHex(palette?.outer)+' 코트', colorNameFromHex(palette?.outer)+' 자켓 레이어드', _fbSeason].filter(Boolean)
-        : [colorNameFromHex(palette?.outer), _fbOuterItem, _fbSeason].filter(Boolean),
+        : (Number.isFinite(_fbTemp) && _fbTemp >= 20)
+          ? [colorNameFromHex(palette?.top), _fbSeason].filter(Boolean)
+          : [colorNameFromHex(palette?.outer), _fbOuterItem, _fbSeason].filter(Boolean),
       top:    [colorNameFromHex(palette?.top),   _fbSeason].filter(Boolean),
       bottom: [colorNameFromHex(palette?.pants)].filter(Boolean),
       shoes:  [colorNameFromHex(palette?.shoes), '신발'].filter(Boolean),
-      scarf:  ['포인트 악세서리'],
-      bag:    [_fbBagMap[_fbTpoKey]  || '토트백'],
-      watch:  [_fbWatchMap[_fbTpoKey]|| '심플 시계'],
+      scarf:  (_fbHasMuffler || _fbHasScarf) ? [_fbHasMuffler ? '머플러' : '스카프'] : [],
+      bag:    Math.random() > 0.4 ? [_fbBagMap[_fbTpoKey] || '토트백'] : [],
+      watch:  Math.random() > 0.75 ? [_fbWatchMap[_fbTpoKey] || '심플 시계'] : [],
       socks:  [_fbSocksMap[_fbTpoKey]|| '앵클삭스'],
     };
     S.bodyType = null;
     S.keywords = keywords;
+    S.codiStory = explain; // 폴백에서도 codiStory 설정
     try { S.matchPairs = buildMatchPairsFromPalette(palette, S.wx.temp); } catch(_){ S.matchPairs = []; }
   }
   if(S.tok!==tok)return;
@@ -3254,7 +3333,8 @@ async function updateVTO(opts={}){
     if(stepEl) stepEl.textContent='스타일링 이미지 생성 중…';
     try{
       didGenerateNew=true;
-      await renderVTO(canvas,palette,{pk:S.pk,wx:S.wx,profile:{gender:user?.gender,height:user?.height,weight:user?.weight},faceImg,styleTitle,explain,keywords});
+      const _nG2 = (g)=>{ const v=String(g||'').toLowerCase(); return (v==='male'||v==='m')?'M':(v==='female'||v==='f')?'F':'M'; };
+      await renderVTO(canvas,palette,{pk:S.pk,wx:S.wx,profile:{gender:_nG2(user?.gender),height:user?.height,weight:user?.weight},faceImg,styleTitle,explain,keywords});
 
       // 로컬 렌더 결과도 서버 파일로 저장(코디앨범 안정성)
       try{
@@ -3278,7 +3358,7 @@ async function updateVTO(opts={}){
   // 사용량 차감(성공적으로 "새 이미지"를 만든 경우에만)
   if(didGenerateNew){
     try{
-      recordUnifiedUsage();  // ★ 통합 사용량 기록 (내옷장 + 코디하기 공유)
+      recordUnifiedUsage('closet');  // ★ 추천코디 사용량 기록
     }catch(_){}
 
     // ✅ 코디앨범 저장: imageRef를 절대URL로 저장해 album.html에서 환경 무관하게 로드

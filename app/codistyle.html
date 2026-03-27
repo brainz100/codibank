@@ -214,8 +214,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 </div>
 
 <div class="divider"></div>
-<div class="gen-wrap" style="margin-bottom:20px;">
+<div class="gen-wrap" style="margin-bottom:12px;">
   <button class="gen-btn" id="genBtn" onclick="generate()" disabled><span class="mi" id="genBtnIcon">auto_awesome</span><span id="genBtnText">AI 착장 이미지 생성</span></button>
+</div>
+
+<!-- ★ 코디하기 사용횟수 박스 -->
+<div style="display:flex;justify-content:flex-end;padding:0 16px;margin-bottom:8px;">
+  <div id="csUsageBadge" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;background:rgba(151,254,237,.1);border:1px solid rgba(151,254,237,.2);color:#97FEED;">코디하기 남은 0회</div>
 </div>
 
 <!-- Styling Score — 버튼과 착장이미지 사이 -->
@@ -264,6 +269,69 @@ const ST = {
   bottom: { preview:'', serverPath:'', dataUrl:'', uploading:false },
 };
 let busy=false, lastImgUrl='', faceDataUrl='';
+
+// ★ 코디하기 사용횟수 시스템 — closet.html과 동일한 cb_usage_ 키 공유
+const CS_PLANS = {
+  free:    { label:'무료',   codistyleMonthly:5,    dailyLimit:null },
+  silver:  { label:'실버',   codistyleMonthly:30,   dailyLimit:null },
+  gold:    { label:'골드',   codistyleMonthly:60,   dailyLimit:null },
+  diamond: { label:'다이아', codistyleMonthly:99999, dailyLimit:30 },
+};
+function _csUsageKey(){ return 'cb_usage_' + (user.email||'guest'); }
+function getCSUsage(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(_csUsageKey()) || '{}');
+    const now = new Date();
+    const monthKey = now.getFullYear()+'-'+(now.getMonth()+1);
+    const dayKey = now.toISOString().slice(0,10);
+    if(raw.month !== monthKey){ raw.month=monthKey; raw.closetCount=0; raw.codistyleCount=0; raw.monthCount=0; }
+    if(raw.day !== dayKey){ raw.day=dayKey; raw.dayCount=0; }
+    if(!('codistyleCount' in raw)) raw.codistyleCount = 0;
+    if(!('closetCount' in raw)) raw.closetCount = raw.monthCount || 0;
+    return raw;
+  }catch(_){ return { month:'', closetCount:0, codistyleCount:0, monthCount:0, day:'', dayCount:0 }; }
+}
+function recordCSUsage(){
+  const u = getCSUsage();
+  u.codistyleCount = (u.codistyleCount||0) + 1;
+  u.monthCount = (u.closetCount||0) + (u.codistyleCount||0);
+  u.dayCount = (u.dayCount||0) + 1;
+  try{ localStorage.setItem(_csUsageKey(), JSON.stringify(u)); }catch(_){}
+}
+function checkCSUsage(){
+  const planId = (user.plan || 'free').toLowerCase();
+  const plan = CS_PLANS[planId] || CS_PLANS.free;
+  const u = getCSUsage();
+  const used = u.codistyleCount||0;
+  const remaining = Math.max(0, plan.codistyleMonthly - used);
+  if(used >= plan.codistyleMonthly)
+    return { blocked:true, remaining:0, reason: plan.label+' 플랜 코디하기 월간 이용횟수를 모두 사용했어요.' };
+  if(plan.dailyLimit && u.dayCount >= plan.dailyLimit)
+    return { blocked:true, remaining, reason: '오늘 일일 한도('+plan.dailyLimit+'회)를 모두 사용했어요.' };
+  return { blocked:false, remaining, dailyRemaining: plan.dailyLimit ? (plan.dailyLimit - u.dayCount) : null };
+}
+function updateCSUsageBadge(){
+  const badge = document.getElementById('csUsageBadge');
+  if(!badge) return;
+  try{
+    const ck = checkCSUsage();
+    if(ck.blocked){
+      badge.style.background='rgba(239,68,68,.12)'; badge.style.borderColor='rgba(239,68,68,.3)'; badge.style.color='#fca5a5';
+      badge.textContent='한도 초과';
+      return;
+    }
+    if(ck.remaining > 9999){
+      badge.style.background='linear-gradient(135deg,rgba(53,162,159,.25),rgba(99,102,241,.12))'; badge.style.borderColor='rgba(151,254,237,.4)'; badge.style.color='#97FEED';
+      badge.textContent='무제한';
+      return;
+    }
+    const daily = ck.dailyRemaining !== null ? ' (오늘 '+ck.dailyRemaining+')' : '';
+    if(ck.remaining <= 2){ badge.style.background='rgba(239,68,68,.12)'; badge.style.borderColor='rgba(239,68,68,.3)'; badge.style.color='#fca5a5'; }
+    else { badge.style.background='rgba(151,254,237,.1)'; badge.style.borderColor='rgba(151,254,237,.2)'; badge.style.color='#97FEED'; }
+    badge.textContent = '코디하기 남은 ' + ck.remaining + '회' + daily;
+  }catch(_){ badge.textContent='남은 0회'; }
+}
+updateCSUsageBadge();
 
 
 /* ── 얼굴 사진 ── */
@@ -433,6 +501,9 @@ async function onFile(ev,k){
 async function generate(){
   if(busy) return;
   if(!ST.top.serverPath || !ST.bottom.serverPath){ showErr('상의와 하의를 모두 업로드해주세요.'); return; }
+  // ★ 사용횟수 체크
+  const usageCheck = checkCSUsage();
+  if(usageCheck.blocked){ showErr('⚠️ ' + usageCheck.reason + '<br><a href="pricing.html" style="color:#97FEED;font-weight:700;">플랜 업그레이드 →</a>'); return; }
   busy=true; hideErr(); updateGenerateBtn();
   document.getElementById('genBtnText').textContent='착장 이미지 생성중입니다';
   document.getElementById('genBtnIcon').textContent='hourglass_top';
@@ -534,7 +605,42 @@ async function generate(){
       img.src = lastImgUrl;
       setTimeout(resolve, 8000); // 최대 8초 대기
     });
-    document.getElementById('imgWrap').innerHTML='<img class="result-img" src="'+lastImgUrl+'" alt="AI 착장 이미지">';
+    // ★ codibank 워터마크 오버레이 — 이미지를 canvas로 그려서 하단 API 워터마크 가림
+    const _wmImg = new Image();
+    _wmImg.crossOrigin = 'anonymous';
+    _wmImg.onload = function(){
+      try{
+        const _wc = document.createElement('canvas');
+        const _dpr = Math.min(window.devicePixelRatio||1, 2);
+        _wc.width = Math.round(_wmImg.naturalWidth);
+        _wc.height = Math.round(_wmImg.naturalHeight);
+        _wc.style.width = '100%';
+        _wc.style.borderRadius = '16px';
+        _wc.style.display = 'block';
+        const _ctx = _wc.getContext('2d');
+        _ctx.drawImage(_wmImg, 0, 0, _wc.width, _wc.height);
+        // 하단 워터마크 바
+        const _wmH = Math.round(_wc.height * 0.045);
+        _ctx.fillStyle = 'rgba(7,25,82,0.92)';
+        _ctx.fillRect(0, _wc.height - _wmH, _wc.width, _wmH);
+        const _fs = Math.max(16, Math.round(_wmH * 0.55));
+        _ctx.font = '700 '+_fs+'px "Outfit", sans-serif';
+        _ctx.textAlign = 'center';
+        _ctx.textBaseline = 'middle';
+        _ctx.fillStyle = 'rgba(151,254,237,0.65)';
+        _ctx.fillText('codibank', _wc.width/2, _wc.height - _wmH/2);
+        document.getElementById('imgWrap').innerHTML = '';
+        document.getElementById('imgWrap').appendChild(_wc);
+        // canvas를 blob URL로 저장 (다운로드/공유용)
+        try{ _wc.toBlob(function(b){ if(b) lastImgUrl = URL.createObjectURL(b); }, 'image/png'); }catch(_){}
+      }catch(_){
+        document.getElementById('imgWrap').innerHTML='<img class="result-img" src="'+lastImgUrl+'" alt="AI 착장 이미지">';
+      }
+    };
+    _wmImg.onerror = function(){
+      document.getElementById('imgWrap').innerHTML='<img class="result-img" src="'+lastImgUrl+'" alt="AI 착장 이미지">';
+    };
+    _wmImg.src = lastImgUrl;
     setDot('done'); setProgress(100,'착장 이미지 생성 완료 ✨');
     try{ sessionStorage.setItem('cb_cs_lastImg', lastImgUrl); }catch(_){}
 
@@ -568,6 +674,8 @@ async function generate(){
         });
       }
     }catch(_){}
+    // ★ 사용횟수 기록
+    try{ recordCSUsage(); updateCSUsageBadge(); }catch(_){}
   }catch(e){
     setDot('err'); setProgress(100,'생성 중 오류가 발생했어요');
     showErr('⚠️ AI 착장 이미지 생성 실패: '+(e.message||e));
