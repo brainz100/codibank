@@ -429,6 +429,67 @@ def _purpose_to_style(purpose_key: str, purpose_label: str) -> Tuple[str, str]:
     return (pl, "well-balanced everyday outfit")
 
 
+def _build_gender_style_rules(gender_en: str, age_group: str) -> str:
+    """
+    성별·나이대에 따른 핵심 스타일 규칙 반환.
+    Gemini, OpenAI 양쪽 모든 프롬프트에 동일하게 삽입된다.
+    """
+    is_male = (gender_en in ("male", "man"))
+    is_female = not is_male
+    # 20~35세 여성 = 스키니 허용 대상
+    young_female_groups = ("10s", "20s", "30s")
+    is_young_female = is_female and (age_group in young_female_groups)
+
+    if is_male:
+        fit_rule = (
+            "PANTS FIT — MEN (ABSOLUTE, NO EXCEPTIONS): "
+            "NEVER use skinny fit, ultra-slim fit, or spray-on tight fit for men. "
+            "ALWAYS use straight fit / regular fit / tapered fit / relaxed fit / wide-leg fit. "
+            "This applies to ALL bottom garments: trousers, chinos, jeans, slacks, joggers."
+        )
+        length_rule = (
+            "PANTS LENGTH — MEN (ABSOLUTE, NO EXCEPTIONS): "
+            "NEVER use cropped length, 7/8 length, or any ankle-exposed hemline. "
+            "ALWAYS full-length: hem must reach the ankle and rest on top of the shoe. "
+            "Only explicitly designed shorts (반바지) may be short."
+        )
+    elif is_young_female:
+        fit_rule = (
+            "PANTS FIT — WOMEN (20s–30s): "
+            "Skinny fit jeans are ALLOWED for casual looks on slim body types. "
+            "Also fine: straight, tapered, wide-leg, relaxed, flare. "
+            "Do NOT use skinny fit for formal, office, or structured outfits."
+        )
+        length_rule = (
+            "PANTS LENGTH — WOMEN: "
+            "Full-length (ankle-covering) preferred for formal/smart looks. "
+            "7/8-length or cropped is acceptable for casual or street-style looks. "
+            "Match length to the overall style direction."
+        )
+    else:
+        fit_rule = (
+            "PANTS FIT — WOMEN: "
+            "Straight / tapered / wide-leg / relaxed / flare are preferred. "
+            "Skinny fit acceptable ONLY for young women (20s–early 30s) in casual jeans looks. "
+            "Avoid skinny fit for formal, business, or structured outfits."
+        )
+        length_rule = (
+            "PANTS LENGTH — WOMEN: "
+            "Full-length preferred for formal/smart looks. "
+            "7/8-length or cropped acceptable for casual or street-style looks."
+        )
+
+    return (
+        "GENDER-SPECIFIC STYLE RULES (MANDATORY — APPLIES TO ALL AI MODELS): "
+        f"{fit_rule} "
+        f"{length_rule} "
+        "WATERMARK (ZERO TOLERANCE): The generated image must contain ABSOLUTELY NO watermarks, "
+        "AI logos, text overlays, copyright marks, or any embedded text. Clean studio photo only. "
+        "CULTURAL ACCURACY: Outfit must match current real trends for the stated city and age group. "
+        "Do NOT mix cultural styles from unrelated regions or demographics."
+    )
+
+
 def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
     """(prompt, short_explanation)"""
     user = payload.get("user") or {}
@@ -467,6 +528,8 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
         short = short[:100]
         prompt = str(payload.get("imagePrompt") or "").strip()
         if not prompt:
+            age_group_raw = str(user.get("ageGroup", "30s"))
+            _gender_style_rules = _build_gender_style_rules(gender, age_group_raw)
             prompt = (
                 "Create a photorealistic full-body fashion styling image. "
                 f"The subject should look like the user: {gender}, age {age}, {height or ''}cm, {weight or ''}kg. "
@@ -477,6 +540,9 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
                 f"Weather: {bucket}. Condition: {cond or 'clear'}. Purpose: {purpose_desc}. "
                 f"Location culture hint: {str(weather.get('location') or '').strip() or 'Seoul'}. "
                 "Natural proportions, realistic try-on. "
+
+                # ── 성별 핏/기장 규칙 (CRITICAL) ──
+                f"{_gender_style_rules} "
 
                 # ── 배경 (CRITICAL) ──
                 "BACKGROUND (ABSOLUTE MANDATORY): "
@@ -492,10 +558,6 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
                 "BODY PROPORTION (CRITICAL): Upper body (head to waist) must be 40% or less of total height. "
                 "Lower body (waist to feet) must be 60% or more of total height. 3:7 upper-to-lower ratio is MANDATORY. "
                 "5:5 or 4:6 ratio is a generation FAILURE. Legs must appear long and naturally proportioned. "
-
-                # ── 바지 길이 ──
-                "PANTS LENGTH (ABSOLUTE): Pants must reach full ankle length — hem visible just above the shoe top. "
-                "Cropped, 7/8, or calf-length pants are FORBIDDEN. "
 
                 # ── 양말 ──
                 "SOCKS: Both feet must wear IDENTICAL socks — same color and pattern on both sides. Mismatched socks are FORBIDDEN. "
@@ -515,6 +577,7 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
     # 프롬프트는 "텍스트 없음" 강제
     # - 브랜드 로고/워터마크/문구 방지
     # - 'full-body'와 'lookbook' 톤으로 안정적인 결과 유도
+    _gender_style_rules_main = _build_gender_style_rules(gender, str(user.get("ageGroup", "30s")))
     profile_bits = []
     if gender in ("male", "female"):
         profile_bits.append(gender)
@@ -557,17 +620,15 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
         f"Keywords: {kw_str}. "
         f"{weather_rule} "
 
+        # ── 성별별 핏/기장 규칙 (CRITICAL) ──
+        f"{_gender_style_rules_main} "
+
         # ── 신체비율 (CRITICAL) ──
         "BODY PROPORTION (CRITICAL — ABSOLUTE RULE): "
         "The upper body (head to waist) must occupy NO MORE than 40% of the total body height. "
         "The lower body (waist to feet) must occupy AT LEAST 60% of the total body height. "
         "This 3:7 head-to-toe ratio is MANDATORY. A 5:5 or 4:6 ratio is FORBIDDEN and considered a generation failure. "
         "Legs must appear long, naturally proportioned, and elongated. "
-
-        # ── 바지 길이 (CRITICAL) ──
-        "PANTS LENGTH (ABSOLUTE RULE): Pants/trousers MUST reach all the way down to the ankle bone — full ankle length. "
-        "Cropped pants, 7/8 length, calf-length, and any pants ending above the ankle are STRICTLY FORBIDDEN. "
-        "The trouser hem must be visible just above or touching the top of the shoes. "
 
         # ── 양말 (STRICT) ──
         "SOCKS (STRICT): Both left and right socks MUST be IDENTICAL in color and pattern. "
@@ -937,6 +998,7 @@ def _ai_styling_via_gemini(
     hw_ko = f"키 {height}cm, 몸무게 {weight}kg" if height and weight else ""
 
     # ── 얼굴 강조 프롬프트 보강 ──
+    _gemini_gender_rules = _build_gender_style_rules(gender_en, str(user_info.get("ageGroup", "30s")))
     gemini_prompt = (
         prompt + " "
         "CRITICALLY IMPORTANT: The FIRST image is the face reference photo. "
@@ -945,6 +1007,9 @@ def _ai_styling_via_gemini(
         f"Subject: Korean {gender_en}, {age}"
         + (f", {hw_ko}" if hw_ko else "") + ". "
         "Full body head to toe visible. Photorealistic fashion editorial. "
+
+        # ── 성별 핏/기장 규칙 (CRITICAL) ──
+        f"{_gemini_gender_rules} "
 
         # ── 배경 (CRITICAL) ──
         "BACKGROUND (ABSOLUTE MANDATORY): "
@@ -960,9 +1025,6 @@ def _ai_styling_via_gemini(
         "BODY PROPORTION (CRITICAL): Upper body (head to waist) must be 40% or less of total height. "
         "Lower body (waist to feet) must be 60% or more of total height. "
         "3:7 upper-to-lower ratio MANDATORY. A 5:5 ratio is a FAILURE. Legs must appear long and well-proportioned. "
-
-        # ── 바지 길이 ──
-        "PANTS (ABSOLUTE): Full ankle-length trousers only. Hem must reach just above the shoe. Cropped or 7/8 pants are FORBIDDEN. "
 
         # ── 양말 ──
         "SOCKS: Both feet must wear IDENTICAL socks — same color and same pattern. Mismatched socks are ABSOLUTELY FORBIDDEN. "
@@ -1299,6 +1361,9 @@ def codistyle_generate():
     else:
         ko_instruction = "첨부한 상의와 하의를 입고 있는 전신 모습을 생성해주세요. "
 
+    # ── 성별별 핏/기장 규칙 ──
+    _codi_gender_rules = _build_gender_style_rules(gender_en, str(user_info.get("ageGroup", "30s")))
+
     prompt = (
         "Create a photorealistic full-body Korean fashion editorial photo. "
         + face_line
@@ -1306,6 +1371,9 @@ def codistyle_generate():
         + ko_instruction
         + "Reproduce the EXACT color, fabric, silhouette, logo of each garment from the reference images. "
         "Full body head to toe visible. "
+
+        # ── 성별 핏/기장 규칙 (CRITICAL) ──
+        f"{_codi_gender_rules} "
 
         # ── 배경 (CRITICAL) ──
         "BACKGROUND (ABSOLUTE MANDATORY — HIGHEST PRIORITY): "
@@ -1325,10 +1393,6 @@ def codistyle_generate():
         "Lower body (waist to feet) must occupy 60% or MORE of total body height. "
         "The 3:7 upper-to-lower ratio is MANDATORY. A 5:5 or equal ratio is a generation FAILURE. "
         "Legs must look long, natural, and well-proportioned. "
-
-        # ── 바지 길이 ──
-        "PANTS LENGTH (ABSOLUTE): Pants/trousers must reach full ankle length — the hem must be visible just above or touching the shoe top. "
-        "Cropped pants, 7/8 length, or any pants ending above the ankle are STRICTLY FORBIDDEN. "
 
         # ── 양말 ──
         "SOCKS: Both left and right socks MUST be the same color and pattern. Mismatched socks between feet are FORBIDDEN. "
