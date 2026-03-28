@@ -1054,13 +1054,16 @@ def _ai_styling_via_gemini(
 
 @app.post("/api/ai/styling")
 def ai_styling():
-    # API Key 체크: OpenAI 또는 Gemini 중 하나라도 있으면 진행
+    # ══════════════════════════════════════════════════════
+    # 내옷장 AI 코디 추천: 항상 OpenAI API 전용
+    # 코디하기 착장 이미지: /api/codistyle/generate (Gemini 전용)
+    # 두 API를 혼용하거나 임의 전환하지 않음
+    # ══════════════════════════════════════════════════════
     has_openai = bool(os.getenv("OPENAI_API_KEY"))
-    has_gemini = bool(_GEMINI_KEY)
-    if not has_openai and not has_gemini:
+    if not has_openai:
         return jsonify(
             ok=False,
-            error="OPENAI_API_KEY 또는 GEMINI_API_KEY가 설정되지 않았습니다. 서버 환경변수에 API Key를 설정해주세요.",
+            error="OPENAI_API_KEY가 설정되지 않았습니다. 내옷장 AI 코디는 OpenAI API가 필요합니다.",
         ), 400
 
     payload = request.get_json(silent=True) or {}
@@ -1095,19 +1098,13 @@ def ai_styling():
             cached=True,
         )
 
-    # ── ★ 얼굴 사진이 있으면 Gemini 우선 사용 ──
-    # DALL-E(OpenAI)는 텍스트→이미지 모델이라 참조 얼굴 사진을 반영 못합니다.
-    # Gemini는 이미지+텍스트 멀티모달이므로 얼굴 특징을 그대로 보존합니다.
-    has_face = any(r[0] == "face" for r in ref_images)
-
-    if has_face and _GEMINI_KEY:
-        return _ai_styling_via_gemini(payload, prompt, short, ref_images, cache_fname, ext)
-
-    # ── 얼굴 없음 또는 GEMINI_KEY 미설정 → 기존 OpenAI 경로 ──
+    # ── 내옷장(/api/ai/styling)은 항상 OpenAI만 사용 ──
+    # 코디하기(/api/codistyle/generate)는 항상 Gemini 사용 (별도 엔드포인트)
+    # 두 API를 절대 혼용하지 않음
     if not has_openai:
         return jsonify(
             ok=False,
-            error="얼굴 사진 없이 코디 생성하려면 OPENAI_API_KEY가 필요합니다.",
+            error="OPENAI_API_KEY가 설정되지 않았습니다. 내옷장 AI 코디는 OpenAI API가 필요합니다.",
         ), 400
 
     model_no_face = os.getenv("CODIBANK_OPENAI_IMAGE_MODEL", "gpt-image-1.5")
