@@ -1966,28 +1966,35 @@ def admin_change_password():
     if not current_pw or not new_pw or not confirm_pw:
         return jsonify({"ok": False, "error": "모든 필드를 입력해주세요."}), 400
 
-    # 현재 비밀번호 검증
-    expected_hash = os.environ.get("ADMIN_PW_HASH", "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8")
+    # 현재 비밀번호 검증 — _ADMIN_DB 기준 (X-Admin-Key 헤더로 로그인한 어드민 찾기)
+    provided_key  = (request.args.get("key") or request.headers.get("X-Admin-Key") or "").strip()
     current_hash  = _hl.sha256(current_pw.encode("utf-8")).hexdigest()
-    if current_hash != expected_hash:
+
+    # X-Admin-Key(로그인 시 발급된 해시)로 호출자 이메일 특정
+    caller_email, caller_info = _get_admin_by_hash(provided_key)
+
+    if not caller_info:
+        return jsonify({"ok": False, "error": "세션이 만료되었습니다. 다시 로그인해주세요."}), 401
+
+    # 입력한 현재 비밀번호가 _ADMIN_DB의 해시와 일치하는지 확인
+    if current_hash != caller_info.get("hash", ""):
         return jsonify({"ok": False, "error": "현재 비밀번호가 올바르지 않습니다."}), 400
 
     # 새 비밀번호 유효성 검사
     if new_pw != confirm_pw:
         return jsonify({"ok": False, "error": "새 비밀번호와 확인 비밀번호가 일치하지 않습니다."}), 400
-    if len(new_pw) < 8:
-        return jsonify({"ok": False, "error": "새 비밀번호는 8자 이상이어야 합니다."}), 400
+    if len(new_pw) < 4:
+        return jsonify({"ok": False, "error": "새 비밀번호는 4자 이상이어야 합니다."}), 400
     if new_pw == current_pw:
         return jsonify({"ok": False, "error": "현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다."}), 400
 
-    # 새 해시 생성 및 메모리 즉시 적용 (Render 수동 업데이트 불필요)
+    # 새 해시 생성 → _ADMIN_DB 즉시 갱신 (재시작 없이 반영)
     new_hash = _hl.sha256(new_pw.encode("utf-8")).hexdigest()
-    os.environ["ADMIN_PW_HASH"] = new_hash
-    # _ADMIN_DB 동기화
-    caller_email, caller_info = _get_admin_by_hash(expected_hash)
-    if caller_email:
-        _ADMIN_DB[caller_email]["hash"] = new_hash
-        _save_admin_db()
+    _ADMIN_DB[caller_email]["hash"] = new_hash
+    _save_admin_db()
+    # 마스터 어드민이면 환경변수도 동기화
+    if caller_info.get("role") == "MASTER":
+        os.environ["ADMIN_PW_HASH"] = new_hash
 
     return jsonify({
         "ok": True,
