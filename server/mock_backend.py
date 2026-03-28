@@ -1515,30 +1515,43 @@ def _get_admin_by_hash(hash_val: str):
 
 ALL_TABS = ["dash", "users", "pay", "closet", "codi", "items"]
 
-def verify_admin(req):
-    """X-Admin-Key 헤더의 sha256 해시로 어드민 인증 (멀티 어드민 지원)."""
-    provided = (req.args.get('key') or req.headers.get('X-Admin-Key') or '').strip()
+# 기본 마스터 해시 상수 (pass1234) — 서버 재시작 후에도 항상 유효
+_MASTER_FALLBACK_HASH = "bd94dcda26fccb4e68d6a31f9b5aac0b571ae266d822620e901ef7ebe3a11d4f"
+
+def _get_provided_key(req) -> str:
+    return (req.args.get("key") or req.headers.get("X-Admin-Key") or "").strip()
+
+def verify_admin(req) -> bool:
+    """어드민 인증 — _ADMIN_DB → ADMIN_PW_HASH → MASTER_FALLBACK 순서로 확인."""
+    provided = _get_provided_key(req)
     if not provided:
         return False
-    # 1) _ADMIN_DB에서 해시 일치 확인
+    # 1) _ADMIN_DB 해시 일치
     _, info = _get_admin_by_hash(provided)
     if info:
         return True
-    # 2) 폴백: 환경변수 ADMIN_PW_HASH (레거시)
-    expected = os.environ.get('ADMIN_PW_HASH', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8')
-    return provided == expected
+    # 2) 환경변수 ADMIN_PW_HASH
+    env_hash = os.environ.get("ADMIN_PW_HASH", "")
+    if env_hash and provided == env_hash:
+        return True
+    # 3) pass1234 고정 해시 (서버 재시작 후 세션 유지 보장)
+    return provided == _MASTER_FALLBACK_HASH
 
-def verify_master(req):
-    """MASTER 권한 어드민만 True."""
-    provided = (req.args.get('key') or req.headers.get('X-Admin-Key') or '').strip()
+def verify_master(req) -> bool:
+    """MASTER 권한 어드민만 True — _ADMIN_DB → ADMIN_PW_HASH → MASTER_FALLBACK."""
+    provided = _get_provided_key(req)
     if not provided:
         return False
+    # 1) _ADMIN_DB에서 MASTER 역할 확인
     _, info = _get_admin_by_hash(provided)
     if info and info.get("role") == "MASTER":
         return True
-    # 폴백: 환경변수 마스터 해시
-    expected = os.environ.get('ADMIN_PW_HASH', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8')
-    return provided == expected
+    # 2) 환경변수 ADMIN_PW_HASH (마스터 해시와 일치하면 MASTER)
+    env_hash = os.environ.get("ADMIN_PW_HASH", "")
+    if env_hash and provided == env_hash:
+        return True
+    # 3) pass1234 고정 해시 — 서버 재시작 후에도 마스터 접근 보장
+    return provided == _MASTER_FALLBACK_HASH
 
 def supabase_admin_headers():
     """Supabase Admin API용 헤더 (service_role 키 사용)"""
