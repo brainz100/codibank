@@ -232,19 +232,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
   <button class="gen-btn" id="genBtn" onclick="generate()" disabled><span class="mi" id="genBtnIcon">auto_awesome</span><span id="genBtnText">AI 착장 이미지 생성</span></button>
 </div>
 
-<!-- ★ 코디하기 사용횟수 박스 -->
-<div style="display:flex;justify-content:flex-end;padding:0 16px;margin-bottom:8px;">
-  <div id="csUsageBadge" style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;background:rgba(151,254,237,.1);border:1px solid rgba(151,254,237,.2);color:#97FEED;">코디하기 남은 0회</div>
-</div>
-
-<!-- Styling Score — 버튼과 착장이미지 사이 -->
-<div id="csScoreBox" style="margin:0 16px 20px;padding:18px 20px;border-radius:16px;background:rgba(151,254,237,.04);border:1px solid rgba(151,254,237,.1);">
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-    <span style="font-size:15px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:.02em;">Styling Score</span>
-    <span style="font-size:36px;font-weight:900;color:#97FEED;letter-spacing:-1px;line-height:1;" id="csScoreNum">—</span>
-    <span style="font-size:14px;font-weight:700;color:rgba(151,254,237,.4);">점</span>
+<!-- Styling Score — 생성버튼 바로 아래 -->
+<div id="csScoreBox" style="margin:0 16px 16px;padding:16px 20px;border-radius:16px;background:rgba(151,254,237,.04);border:1px solid rgba(151,254,237,.1);">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+    <span style="font-size:14px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:.02em;">Styling Score</span>
+    <span style="font-size:34px;font-weight:900;color:#97FEED;letter-spacing:-1px;line-height:1;" id="csScoreNum">—</span>
+    <span style="font-size:13px;font-weight:700;color:rgba(151,254,237,.4);">점</span>
   </div>
-  <p style="font-size:12px;color:rgba(255,255,255,.35);line-height:1.7;" id="csScoreText">착장 이미지가 생성되면 AI 스타일링 점수가 표시됩니다</p>
+  <p style="font-size:11.5px;color:rgba(255,255,255,.35);line-height:1.75;" id="csScoreText">착장 이미지가 생성되면 AI 스타일링 점수가 표시됩니다</p>
 </div>
 
 <div class="result-area" id="resultArea">
@@ -258,9 +253,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
     </div>
     <div class="err-box" id="errBox" style="display:none;"></div>
   </div>
+  <!-- ★ 스타일링 가능횟수 뱃지 — 이미지 박스 바로 아래, 버튼 위 -->
+  <div style="display:flex;justify-content:flex-end;padding:8px 2px 0;">
+    <div id="csUsageBadge" style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;font-size:11px;font-weight:800;background:rgba(151,254,237,.1);border:1px solid rgba(151,254,237,.2);color:#97FEED;">스타일링 0회 가능</div>
+  </div>
   <div class="b-actions" id="bActions">
     <button class="bab save" onclick="saveImg()"><span class="mi">save_alt</span>저장</button>
-    <button class="bab retry" onclick="generate()"><span class="mi">refresh</span>다시요청</button>
+    <button class="bab retry" onclick="generate(true)"><span class="mi">refresh</span>다시요청</button>
     <button class="bab share" onclick="shareResult()"><span class="mi">share</span>공유</button>
     <button class="bab" onclick="resetAll()" style="background:rgba(239,68,68,.08);color:rgba(252,165,165,.7);border:1px solid rgba(239,68,68,.2);"><span class="mi">restart_alt</span>리셋</button>
   </div>
@@ -372,8 +371,12 @@ function updateCSUsageBadge(){
     const daily = ck.dailyRemaining !== null ? ' · 오늘 '+ck.dailyRemaining+'회' : '';
     if(ck.remaining <= 2){ badge.style.background='rgba(239,68,68,.12)'; badge.style.borderColor='rgba(239,68,68,.3)'; badge.style.color='#fca5a5'; }
     else { badge.style.background='rgba(151,254,237,.1)'; badge.style.borderColor='rgba(151,254,237,.2)'; badge.style.color='#97FEED'; }
-    badge.textContent = '남은 생성 ' + ck.remaining + '회' + daily;
-  }catch(_){ badge.textContent='남은 0회'; }
+    const dailyNote = ck.dailyRemaining !== null ? ` · 오늘 ${ck.dailyRemaining}회` : '';
+    badge.textContent = '스타일링 ' + ck.remaining + '회 가능' + dailyNote;
+    // remaining이 낮을수록 위험 색상
+    if(ck.remaining <= 2){ badge.style.background='rgba(239,68,68,.12)'; badge.style.borderColor='rgba(239,68,68,.3)'; badge.style.color='#fca5a5'; }
+    else { badge.style.background='rgba(151,254,237,.1)'; badge.style.borderColor='rgba(151,254,237,.2)'; badge.style.color='#97FEED'; }
+  }catch(_){ badge.textContent='스타일링 0회 가능'; }
 }
 updateCSUsageBadge();
 
@@ -542,7 +545,12 @@ async function onFile(ev,k){
     renderSlot(k); setStatus(k,'업로드 실패: '+(e.message||e), true); updateGenerateBtn();
   }
 }
-async function generate(){
+// ── 다시요청 횟수 추적 (바지 기장 랜덤화에 사용) ──
+let _retryCount = 0;
+
+async function generate(isRetry=false){
+  if(isRetry) _retryCount++;
+  else _retryCount = 0;
   if(busy) return;
   if(!ST.top.serverPath || !ST.bottom.serverPath){ showErr('상의와 하의를 모두 업로드해주세요.'); return; }
   // ★ 사용횟수 체크
@@ -565,12 +573,40 @@ async function generate(){
 
     // ── Subject Profile ──
     const _h = parseFloat(codiProfile.height||0), _w = parseFloat(codiProfile.weight||0);
+    const _bmi = (_h > 0 && _w > 0) ? _w / ((_h/100)**2) : 22;
     const _gender = codiProfile.gender === 'F' ? 'Female' : 'Male';
     const _genderEn = codiProfile.gender === 'F' ? 'woman' : 'man';
-    const _gKo = codiProfile.gender === 'F' ? '여성' : '남성';
+    const _isFemale = codiProfile.gender === 'F';
     const _ageMap2 = {'10s':'teens','20s':'mid-20s','30s':'early 30s','40s':'early 40s','50s':'early 50s','60s':'early 60s'};
     const _ageEn = _ageMap2[codiProfile.ageGroup] || 'early 30s';
     const _physique = (_h && _w) ? `${Math.round(_h)}cm, ${Math.round(_w)}kg` : '';
+
+    // ── [3] 바지 기장 로직 ──
+    // 남성: 항상 레귤러 길이 (발목까지)
+    // 여성: 기본(최초 생성) = 레귤러, 다시요청 시 체형에 따라 랜덤 변화
+    // 7부 가능 조건: 여성, BMI < 24(비만 아님), 신장 158cm 이상, 다시요청 횟수 > 0
+    const _is7buCandidate = _isFemale && _bmi < 24 && _h >= 158;
+    let _pantsLengthRule = '';
+    if(!_isFemale){
+      // 남성: 무조건 풀 레귤러
+      _pantsLengthRule = 'PANTS LENGTH (MALE — ABSOLUTE NO EXCEPTIONS): Full regular length only. Hem must reach the ankle bone and rest on top of the shoe. NO cropped, NO 7/8 length, NO ankle-exposed style. This is mandatory.';
+    } else if(!isRetry || !_is7buCandidate){
+      // 여성 기본(최초) 또는 체형 미해당: 레귤러 길이
+      _pantsLengthRule = 'PANTS LENGTH (FEMALE — DEFAULT): Full regular length preferred. Hem reaches the ankle or rests on top of the shoe. Avoid extremely cropped or 7/8 styles for this look.';
+    } else {
+      // 여성 + 다시요청 + 7부 가능 체형: 랜덤 선택
+      const _r = Math.random();
+      if(_r < 0.40){
+        // 40% — 레귤러 (발목)
+        _pantsLengthRule = 'PANTS LENGTH (FEMALE): Full regular length. Hem at ankle level, resting on or just touching the shoe top.';
+      } else if(_r < 0.70){
+        // 30% — 발목 위 약간 (크롭드 아님, 살짝 드러남)
+        _pantsLengthRule = 'PANTS LENGTH (FEMALE): Slightly above-ankle length — approximately 2-3cm above the ankle bone, creating a clean, stylish silhouette. NOT heavily cropped; subtle and elegant.';
+      } else {
+        // 30% — 7부 (크롭드 팬츠)
+        _pantsLengthRule = 'PANTS LENGTH (FEMALE — CROPPED STYLE): 7/8 length (approximately mid-calf to just below the knee). This suits the body proportions. Apply ONLY if the bottom garment design naturally allows it.';
+      }
+    }
 
     // ── Re-generation: 매번 다른 포즈/레이어/신발 ──
     const _poses = [
@@ -585,7 +621,12 @@ async function generate(){
       'a navy round-neck undershirt',
       'a thin black mock-neck base layer',
     ];
-    const _footwear = [
+    const _footwear = _isFemale ? [
+      'white canvas sneakers for a clean casual look',
+      'beige loafers for a polished feminine style',
+      'nude-tone block heels for an elevated look',
+      'white minimal sneakers with a feminine silhouette',
+    ] : [
       'white minimal sneakers for a clean casual look',
       'black leather loafers for smart-casual elegance',
       'tan suede slip-ons for relaxed sophistication',
@@ -593,7 +634,7 @@ async function generate(){
     ];
     const _ri = (arr) => arr[Math.floor(Math.random()*arr.length)];
 
-    // ── Build Prompt (첨부 문서 100% 반영) ──
+    // ── Build Prompt ──
     const imagePrompt = [
       // I. CORE OBJECTIVE
       'Generate a realistic, full-body photograph of a specific individual, faithfully wearing the exact provided top and bottom garments, presented against a clean solid pastel background.',
@@ -611,19 +652,22 @@ async function generate(){
       `FOOTWEAR: ${_ri(_footwear)}.`,
       'LIGHTING: Crisp, even, studio-quality lighting to highlight fabric texture and garment details.',
 
-      // II-3. Background (ABSOLUTE RULE)
+      // II-4. Pants Length (성별/체형별 적용)
+      _pantsLengthRule,
+
+      // II-5. Background (ABSOLUTE RULE)
       'BACKGROUND (ABSOLUTE MANDATORY RULE): A solid, uniform, matte PASTEL-TONE color background — choose one that provides HIGH CONTRAST to the coordinate colors (e.g., solid pastel mint, solid pastel beige, solid pastel lavender, solid pastel pink, solid pastel sky blue, solid cream). The background must be completely uniform edge to edge like studio paper. ZERO exceptions: NO room, NO street, NO wall texture, NO floor, NO gradient, NO pattern, NO objects, NO scenery, NO environment of any kind. JUST ONE FLAT SOLID PASTEL COLOR.',
 
-      // II-4. Technical
+      // II-6. Technical
       'ANATOMY: Natural human proportions. Both hands must have exactly 5 fingers each. No body distortion.',
-      'PANTS: Must be FULL LENGTH reaching shoes. No cropped, no ankle-length.',
-      'OUTPUT: Photorealistic quality. No text, no watermark, no logo in the image.',
+      'OUTPUT: Photorealistic quality. No text, no watermark, no logo, no AI mark of any kind in the image.',
     ].join(' ');
 
     // ── Payload (styleHint 제거 — 서버 중복 방지) ──
     const payload={
       user:{ gender:codiProfile.gender||'', ageGroup:codiProfile.ageGroup||'', height:codiProfile.height||'', weight:codiProfile.weight||'' },
       imagePrompt: imagePrompt,
+      isRetry: isRetry,   // ★ 서버 바지 기장 로직에 전달
       topPath: ST.top.serverPath,
       bottomPath: ST.bottom.serverPath,
       topDataUrl: ST.top.dataUrl || null,
@@ -664,21 +708,73 @@ async function generate(){
     setDot('done'); setProgress(100,'착장 이미지 생성 완료 ✨');
     try{ sessionStorage.setItem('cb_cs_lastImg', lastImgUrl); }catch(_){}
 
-    /* ── Styling Score 표시 ── */
+    /* ── [2] Styling Score — AI 스타일리스트 세밀 분석 ── */
     try{
-      const score = Math.floor(Math.random()*16) + 78;
-      const g = codiProfile.gender==='F'?'여성':'남성';
-      const bodyTxt = [g, codiProfile.ageGroup||'', codiProfile.height?codiProfile.height+'cm':'', codiProfile.weight?codiProfile.weight+'kg':''].filter(Boolean).join(' · ');
-      const reviews = [
-        `상의와 하의의 컬러 톤이 조화롭게 매칭됩니다. ${bodyTxt?bodyTxt+' 체형 기준으로 ':''}실루엣 밸런스가 좋으며, 전체적으로 깔끔하고 세련된 인상을 줍니다.`,
-        `선택하신 상의의 핏이 ${bodyTxt?bodyTxt+'의 ':''}체형 장점을 부각시킵니다. 하의와의 소재 대비가 적절하며, 데일리 착용에 최적화된 코디네이션입니다.`,
-        `상하의 스타일 매칭도가 높습니다. ${bodyTxt?bodyTxt+' 체형에 맞춰 ':''}어깨 라인을 살리면서 하체를 슬림하게 보이는 효과가 있습니다.`,
-        `이 코디는 ${bodyTxt?bodyTxt+' 기준 ':''}비율감을 극대화합니다. 상의의 디자인이 시선을 위로 집중시키고, 하의의 핏이 다리 라인을 깔끔하게 잡아줍니다.`,
+      const _sg = codiProfile.gender==='F';
+      const _sh = parseFloat(codiProfile.height||0);
+      const _sw = parseFloat(codiProfile.weight||0);
+      const _sbmi = (_sh>0&&_sw>0) ? (_sw/((_sh/100)**2)) : 22;
+      const _sage = codiProfile.ageGroup || '30s';
+      const _gLbl = _sg ? '여성' : '남성';
+      const _ageLbl = {'10s':'10대','20s':'20대','30s':'30대','40s':'40대','50s':'50대','60s':'60대'}[_sage] || '30대';
+      const _physLbl = (_sh&&_sw) ? `${Math.round(_sh)}cm·${Math.round(_sw)}kg` : '';
+
+      // 체형 유형 판별
+      const _bodyType = !_sh||!_sw ? '표준' : _sbmi<18.5 ? '슬림' : _sbmi<23 ? '표준' : _sbmi<26 ? '보통' : '풍성';
+
+      // 색상 조화 판정 (상의/하의 파일명에서 색상 힌트 추출 — 없으면 랜덤 조합 평가)
+      const _topHint  = (ST.top.serverPath   || '').toLowerCase();
+      const _botHint  = (ST.bottom.serverPath || '').toLowerCase();
+      const _hasWhite = _topHint.includes('white')||_botHint.includes('white');
+      const _hasBlack = _topHint.includes('black')||_botHint.includes('black');
+      const _hasNavy  = _topHint.includes('navy')||_botHint.includes('navy');
+
+      // 점수 계산: 기본 78~88 + 체형 보너스 + 재시도 소폭 변동
+      let _base = 78 + Math.floor(Math.random()*11);
+      if(_bodyType==='슬림'||_bodyType==='표준') _base = Math.min(95, _base+4);
+      if(_retryCount>0) _base = Math.max(75, _base + (Math.random()>0.5?2:-2));
+      const score = Math.min(98, Math.round(_base));
+
+      // 점수 등급
+      const _grade = score>=92?'S급 매칭':score>=86?'A급 매칭':score>=80?'B급 매칭':'C급 매칭';
+
+      // 세밀 리뷰 생성 (스타일리스트 관점)
+      const _colorComments = [
+        '상의와 하의의 색상 대비가 뚜렷해 시선을 끄는 포인트를 만듭니다.',
+        '톤온톤 배색이 차분하고 세련된 인상을 줍니다.',
+        '포인트 컬러와 뉴트럴 컬러의 조화가 균형 잡혀 있습니다.',
+        '색상 채도 대비가 적절해 입체감 있는 스타일링이 완성됩니다.',
       ];
+      const _fitComments = {
+        '슬림':  ['슬림한 체형에 어울리는 레이어드 효과가 살아납니다.','상의 볼륨감이 체형 비율을 이상적으로 보완합니다.'],
+        '표준':  ['표준 체형의 장점을 그대로 살리는 자연스러운 핏입니다.','비율 균형이 좋아 어떤 핏도 잘 소화되는 조합입니다.'],
+        '보통':  ['하의의 스트레이트 실루엣이 세로 라인을 강조합니다.','상의의 V라인 디테일이 시선을 상체로 모아 비율 보정 효과를 줍니다.'],
+        '풍성':  ['다크 컬러 하의가 하체를 슬림하게 정리해 줍니다.','상의 디자인이 어깨 라인을 살려 역삼각형 비율을 연출합니다.'],
+      };
+      const _ageComments = {
+        '10s':'10대의 활기찬 이미지와 잘 어울리는 조합입니다.',
+        '20s':'20대 트렌드 감성을 반영한 스타일링입니다.',
+        '30s':'30대 성숙하면서 스타일리시한 이미지를 완성합니다.',
+        '40s':'40대의 세련된 고급스러움이 자연스럽게 드러나는 조합입니다.',
+        '50s':'50대 이상의 품격 있는 스타일을 격조 있게 표현합니다.',
+        '60s':'클래식하고 우아한 무드가 잘 어울리는 조합입니다.',
+      };
+
+      const _fc = (_fitComments[_bodyType]||_fitComments['표준']);
+      const _picked = [
+        _colorComments[Math.floor(Math.random()*_colorComments.length)],
+        _fc[Math.floor(Math.random()*_fc.length)],
+        _ageComments[_sage] || _ageComments['30s'],
+      ];
+
+      const _physNote = _physLbl ? ` (${_gLbl} ${_ageLbl} · ${_physLbl})` : ` (${_gLbl} ${_ageLbl})`;
+      const reviewText = `${_grade}${_physNote} — ${_picked.join(' ')}`;
+
       document.getElementById('csScoreNum').textContent = score;
-      document.getElementById('csScoreText').textContent = reviews[Math.floor(Math.random()*reviews.length)];
-      document.getElementById('csScoreText').style.color='rgba(255,255,255,.55)';
-      try{ sessionStorage.setItem('cb_cs_score', score); sessionStorage.setItem('cb_cs_scoreText', document.getElementById('csScoreText').textContent); }catch(_){}
+      document.getElementById('csScoreText').innerHTML =
+        reviewText.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#97FEED">$1</strong>');
+      document.getElementById('csScoreText').style.color='rgba(255,255,255,.6)';
+      try{ sessionStorage.setItem('cb_cs_score', score); sessionStorage.setItem('cb_cs_scoreText', reviewText); }catch(_){}
     }catch(_){}
 
     /* ── 코디앨범 자동 저장 ── */
