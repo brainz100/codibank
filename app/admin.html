@@ -120,14 +120,28 @@ body{font-family:'Noto Sans KR',sans-serif;background:#07132a;color:#fff;min-hei
   </div>
 </div>
 
+<script src="config.js"></script>
 <script>
 function getBase(){
+  // 1순위: config.js에 명시된 backendBase
   try{
-    const cfg = window.CodiBank?.getConfig?.() || {};
+    const cfg = (window.CodiBank && CodiBank.getConfig) ? CodiBank.getConfig() : {};
     const d = String(cfg.backendBase||'').trim();
     if(d) return d.replace(/\/$/,'');
+    // getBackendBaseResolved 시도 (codibank.js 방식)
+    if(window.CodiBank && CodiBank.getBackendBaseResolved){
+      const r = String(CodiBank.getBackendBaseResolved()||'').trim();
+      if(r) return r.replace(/\/$/,'');
+    }
   }catch(_){}
-  if(window.location.hostname!=='localhost') return window.location.origin;
+  // 2순위: 알려진 Render 백엔드 URL (Vercel 프론트와 분리)
+  // codibank.kr(Vercel)에서 호출 시 Render 백엔드로 직접 연결
+  if(window.location.hostname.includes('codibank.kr')){
+    return 'https://codibank-api.onrender.com';
+  }
+  if(window.location.hostname !== 'localhost'){
+    return window.location.origin;
+  }
   return 'http://localhost:8787';
 }
 

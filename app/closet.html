@@ -1205,61 +1205,94 @@ function pickBestItemByColor(items, desiredColor, catKey){
 // ── AI 코디 생성 사용량 — 내옷장 + 코디하기 통합 관리 ─────────
 // ★ codistyle.html과 동일한 cb_usage_ 키를 공유
 // ★ pricing.html 기준: 추천코디(closet)와 코디하기(codistyle) 분리 카운트
+// ── 플랜 정의 (pricing.html 플랜과 반드시 동일하게 유지) ──
+// totalMonthly: 내옷장+코디하기 합산 월 생성 한도
+// dailyTotal:   내옷장+코디하기 합산 일 생성 한도
+// ── 플랜 정의 (pricing.html 플랜과 반드시 동일하게 유지) ──
+// closet 추천코디: closetMonthly 기준
+// codistyle 코디하기: codistyleMonthly 기준
+// totalMonthly: 두 기능 합산 월 한도 (closetMonthly + codistyleMonthly)
+// pricing.html 플랜과 반드시 동일 유지
+// 실버 ₩5,900(정상 ₩6,900) | 골드 ₩39,900(정상 ₩59,900) | 다이아 ₩59,900(정상 ₩79,900)
 const PLANS = {
-  free:    { label:'무료',   closetMonthly:5,    codistyleMonthly:5,    dailyLimit:null,  dailyCloset:null, dailyCodi:null },
-  silver:  { label:'실버',   closetMonthly:999,  codistyleMonthly:999,  dailyLimit:null,  dailyCloset:10,   dailyCodi:5   },
-  gold:    { label:'골드',   closetMonthly:999,  codistyleMonthly:999,  dailyLimit:null,  dailyCloset:20,   dailyCodi:10  },
-  diamond: { label:'다이아', closetMonthly:9999, codistyleMonthly:9999, dailyLimit:null,  dailyCloset:50,   dailyCodi:30  },
+  free:    { label:'무료',   closetMonthly:3,   codistyleMonthly:5,    totalMonthly:8,    dailyTotal:null },
+  silver:  { label:'실버',   closetMonthly:30,  codistyleMonthly:30,   totalMonthly:60,   dailyTotal:null },
+  gold:    { label:'골드',   closetMonthly:50,  codistyleMonthly:100,  totalMonthly:150,  dailyTotal:null },
+  diamond: { label:'다이아', closetMonthly:9999,codistyleMonthly:9999, totalMonthly:9999, dailyTotal:30  },
 };
 function _usageKey(){ return 'cb_usage_' + (user.email||'guest'); }
+// ── 합산 사용량 추적 (내옷장 + 코디하기 통합) ──
+// pricing.html 구독 상품의 이미지 생성 횟수와 반드시 동일하게 유지
 function getUnifiedUsage(){
   try{
     const raw = JSON.parse(localStorage.getItem(_usageKey()) || '{}');
     const now = new Date();
     const monthKey = now.getFullYear()+'-'+(now.getMonth()+1);
     const dayKey = now.toISOString().slice(0,10);
-    if(raw.month !== monthKey){ raw.month=monthKey; raw.closetCount=0; raw.codistyleCount=0; raw.monthCount=0; }
-    if(raw.day !== dayKey){ raw.day=dayKey; raw.dayCount=0; raw.dayClosetCount=0; raw.dayCodiCount=0; }
+    if(raw.month !== monthKey){
+      raw.month=monthKey;
+      raw.closetCount=0; raw.codistyleCount=0;
+      raw.totalCount=0;  // 합산 월 카운터
+    }
+    if(raw.day !== dayKey){
+      raw.day=dayKey;
+      raw.dayClosetCount=0; raw.dayCodiCount=0;
+      raw.dayTotal=0;        // 합산 일 카운터
+    }
     // 하위 호환
-    if(!('closetCount' in raw))    raw.closetCount    = raw.monthCount || 0;
+    if(!('closetCount' in raw))    raw.closetCount    = 0;
     if(!('codistyleCount' in raw)) raw.codistyleCount = 0;
+    if(!('totalCount' in raw))     raw.totalCount     = (raw.closetCount||0)+(raw.codistyleCount||0);
     if(!('dayClosetCount' in raw)) raw.dayClosetCount = 0;
     if(!('dayCodiCount' in raw))   raw.dayCodiCount   = 0;
+    if(!('dayTotal' in raw))       raw.dayTotal       = (raw.dayClosetCount||0)+(raw.dayCodiCount||0);
     return raw;
-  }catch(_){ return { month:'', closetCount:0, codistyleCount:0, monthCount:0, day:'', dayCount:0, dayClosetCount:0, dayCodiCount:0 }; }
+  }catch(_){
+    return { month:'', closetCount:0, codistyleCount:0, totalCount:0,
+             day:'', dayClosetCount:0, dayCodiCount:0, dayTotal:0 };
+  }
 }
 function recordUnifiedUsage(feature){
   const u = getUnifiedUsage();
   if(feature === 'codistyle'){
-    u.codistyleCount = (u.codistyleCount||0) + 1;
-    u.dayCodiCount   = (u.dayCodiCount||0)   + 1;
+    u.codistyleCount  = (u.codistyleCount||0)  + 1;
+    u.dayCodiCount    = (u.dayCodiCount||0)    + 1;
   } else {
-    u.closetCount    = (u.closetCount||0)    + 1;
-    u.dayClosetCount = (u.dayClosetCount||0) + 1;
+    u.closetCount     = (u.closetCount||0)     + 1;
+    u.dayClosetCount  = (u.dayClosetCount||0)  + 1;
   }
-  u.monthCount = (u.closetCount||0) + (u.codistyleCount||0);
-  u.dayCount   = (u.dayClosetCount||0) + (u.dayCodiCount||0);
+  // 합산 카운터 갱신 (pricing.html 구독 한도와 동일 기준)
+  u.totalCount = (u.closetCount||0) + (u.codistyleCount||0);
+  u.dayTotal   = (u.dayClosetCount||0) + (u.dayCodiCount||0);
   try{ localStorage.setItem(_usageKey(), JSON.stringify(u)); }catch(_){}
 }
 function checkUnifiedUsage(feature){
-  // feature: 'closet' 또는 'codistyle'
-  const ft = feature || 'closet';
+  // feature: 'closet'(내옷장) 또는 'codistyle'(코디하기)
   const planId = (user.plan || 'free').toLowerCase();
   const plan = PLANS[planId] || PLANS.free;
   const u = getUnifiedUsage();
-  const limit = ft === 'codistyle' ? plan.codistyleMonthly : plan.closetMonthly;
-  const used  = ft === 'codistyle' ? (u.codistyleCount||0) : (u.closetCount||0);
-  const remaining = Math.max(0, limit - used);
-  // 월간 한도 초과
-  if(used >= limit)
-    return { blocked:true, remaining:0, reason: plan.label+' 플랜 '+(ft==='codistyle'?'코디하기':'추천코디')+' 이용횟수를 모두 사용했어요.' };
-  // 기능별 일일 한도
-  const dailyLimitForFt = ft === 'codistyle' ? plan.dailyCodi : plan.dailyCloset;
-  const usedToday = ft === 'codistyle' ? (u.dayCodiCount||0) : (u.dayClosetCount||0);
-  if(dailyLimitForFt && usedToday >= dailyLimitForFt)
-    return { blocked:true, remaining, reason: '오늘 일일 한도('+dailyLimitForFt+'회)를 모두 사용했어요. 내일 다시 이용해주세요.' };
-  const dailyRemaining = dailyLimitForFt ? Math.max(0, dailyLimitForFt - usedToday) : null;
-  return { blocked:false, remaining, dailyRemaining };
+
+  // 기능별 개별 한도 체크
+  const isCodi     = feature === 'codistyle';
+  const featureUsed  = isCodi ? (u.codistyleCount||0) : (u.closetCount||0);
+  const featureLimit = isCodi ? plan.codistyleMonthly : plan.closetMonthly;
+  const remaining    = Math.max(0, featureLimit - featureUsed);
+  const featureLabel = isCodi ? '코디하기' : '추천코디';
+
+  // 월간 기능별 한도 초과
+  if(featureUsed >= featureLimit)
+    return { blocked:true, remaining:0,
+      reason: plan.label+' 플랜 '+featureLabel+' 월 한도('+featureLimit+'회)를 모두 사용했어요.' };
+
+  // 다이아몬드 일일 합산 한도 (dailyTotal 적용)
+  const dailyLimit  = plan.dailyTotal;
+  const dayUsed     = u.dayTotal || 0;
+  const dayRemaining = dailyLimit ? Math.max(0, dailyLimit - dayUsed) : null;
+  if(dailyLimit && dayUsed >= dailyLimit)
+    return { blocked:true, remaining,
+      reason: '오늘 일일 한도('+dailyLimit+'회)를 모두 사용했어요. 내일 다시 이용해주세요.' };
+
+  return { blocked:false, remaining, dailyRemaining: dayRemaining };
 }
 
 function updateQuotaBadge(){
@@ -1272,9 +1305,10 @@ function updateQuotaBadge(){
       badge.textContent='한도 초과';
       return;
     }
+    // 합산 잔여 횟수 표시 (내옷장+코디하기 통합)
     const daily = ck.dailyRemaining !== null ? ' · 오늘 '+ck.dailyRemaining+'회' : '';
     badge.className = `ai-badge ${ck.remaining<=2?'danger':'gray'}`;
-    badge.textContent = `추천코디 남은 ${ck.remaining}회${daily}`;
+    badge.textContent = `남은 생성 ${ck.remaining}회${daily}`;
   }catch(_){
     badge.className='ai-badge gray';
     badge.textContent='남은 0회';

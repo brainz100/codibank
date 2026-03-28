@@ -3,413 +3,427 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<title>코디뱅크 포인트 & 구독</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<title>코디뱅크 구독 플랜</title>
+<script src="config.js"></script>
+<script src="codibank.js"></script>
+<script src="i18n.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
 <script src="https://cdn.iamport.kr/v1/iamport.js"></script>
 <link rel="manifest" href="/manifest.json"/>
 <meta name="theme-color" content="#07132a"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html{-webkit-tap-highlight-color:transparent;}
-body{min-height:100dvh;background:#07132a;color:#d8e2ff;font-family:'Inter','Noto Sans KR',sans-serif;}
-.mi{font-family:'Material Symbols Outlined';font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 24;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Noto Sans KR',sans-serif;background:#07132a;color:#d8e2ff;min-height:100dvh}
+.mi{font-family:'Material Symbols Outlined';font-size:20px;line-height:1;vertical-align:middle}
 
-.page{max-width:480px;margin:0 auto;padding:20px 16px 120px;}
-.back{display:inline-flex;align-items:center;gap:4px;color:rgba(216,226,255,.4);font-size:13px;text-decoration:none;margin-bottom:16px;}
-h1{font-size:22px;font-weight:900;letter-spacing:-.03em;margin-bottom:4px;}
-.sub{font-size:12px;color:rgba(216,226,255,.35);margin-bottom:20px;line-height:1.5;}
+.page{max-width:480px;margin:0 auto;padding:0 16px 140px}
 
-.bal{background:linear-gradient(135deg,rgba(76,219,206,.1),rgba(19,187,175,.05));border:1px solid rgba(76,219,206,.18);border-radius:18px;padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;}
-.bal-left .bal-label{font-size:10px;font-weight:700;color:rgba(216,226,255,.35);letter-spacing:.08em;text-transform:uppercase;}
-.bal-left .bal-num{font-size:32px;font-weight:900;color:#4cdbce;margin-top:2px;}
-.bal-left .bal-unit{font-size:13px;font-weight:600;color:rgba(216,226,255,.4);}
-.bal-right{text-align:right;font-size:11px;color:rgba(216,226,255,.3);line-height:1.6;}
+/* 헤더 */
+.pg-header{display:flex;align-items:center;gap:12px;padding:20px 0 16px}
+.back-btn{width:38px;height:38px;border-radius:50%;background:rgba(151,254,237,0.08);border:1px solid rgba(151,254,237,0.15);cursor:pointer;color:#97FEED;display:flex;align-items:center;justify-content:center;text-decoration:none;flex-shrink:0}
+.pg-title{font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;color:#97FEED}
+.pg-sub{font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px}
 
-.section-label{font-size:11px;font-weight:700;color:rgba(216,226,255,.3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;padding-left:4px;}
+/* 현재 상태 */
+.status-card{background:rgba(11,102,106,0.2);border:1px solid rgba(53,162,159,0.2);border-radius:16px;padding:14px 18px;margin-bottom:24px}
+.status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.status-plan{font-size:13px;font-weight:700;color:#97FEED}
+.status-usage{font-size:12px;color:rgba(255,255,255,0.45)}
+.usage-bar{height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-top:5px}
+.usage-fill{height:100%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .4s}
 
-.pkg-grid{display:flex;flex-direction:column;gap:10px;margin-bottom:24px;}
-.pkg{position:relative;background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.07);border-radius:16px;padding:16px 18px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:14px;}
-.pkg:hover{background:rgba(255,255,255,.06);}
-.pkg.sel{border-color:#4cdbce;background:rgba(76,219,206,.07);box-shadow:0 0 24px rgba(76,219,206,.08);}
-.pkg.best::after{content:attr(data-badge);position:absolute;top:-9px;right:14px;background:linear-gradient(135deg,#4cdbce,#13bbaf);color:#003733;font-size:9px;font-weight:800;padding:2px 10px;border-radius:9999px;letter-spacing:.02em;}
-.pkg-radio{width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,.12);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;}
-.pkg.sel .pkg-radio{border-color:#4cdbce;background:#4cdbce;}
-.pkg.sel .pkg-radio::after{content:'';width:7px;height:7px;border-radius:50%;background:#003733;}
-.pkg-body{flex:1;min-width:0;}
-.pkg-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:3px;}
-.pkg-name{font-size:14px;font-weight:800;}
-.pkg-price{font-size:18px;font-weight:900;}
-.pkg-price small{font-size:11px;font-weight:600;color:rgba(216,226,255,.35);}
-.pkg-details{font-size:11px;color:rgba(216,226,255,.35);line-height:1.6;}
-.pkg-details b{color:rgba(216,226,255,.7);font-weight:700;}
-.pkg-tag{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:9999px;margin-top:4px;}
-.tag-point{background:rgba(76,219,206,.12);color:#4cdbce;}
-.tag-sub{background:rgba(55,138,221,.12);color:#85B7EB;}
-.tag-storage{background:rgba(239,159,39,.1);color:#EF9F27;}
+/* 플랜 카드 */
+.section-label{font-size:10px;font-weight:700;letter-spacing:.12em;color:rgba(151,254,237,0.4);margin-bottom:14px}
+.plan-grid{display:flex;flex-direction:column;gap:14px;margin-bottom:24px}
 
-.divider{height:1px;background:rgba(255,255,255,.06);margin:4px 0 20px;}
+.plan-card{border-radius:20px;padding:20px;cursor:pointer;border:2px solid transparent;background:rgba(13,31,60,0.8);transition:.15s;position:relative;overflow:visible}
+.plan-card:active{transform:scale(.99)}
+.plan-card.selected{border-color:#35A29F}
+.plan-card.card-free{border-color:rgba(255,255,255,0.08)}
+.plan-card.card-silver{border-color:rgba(192,192,192,0.2)}
+.plan-card.card-gold{border-color:rgba(255,215,0,0.25);background:rgba(146,102,10,0.08)}
+.plan-card.card-diamond{border-color:rgba(196,181,253,0.25);background:rgba(76,29,149,0.08)}
+.plan-card.card-gold.selected{border-color:#FFD700}
+.plan-card.card-diamond.selected{border-color:#C4B5FD}
 
-.pay-btn{width:100%;padding:15px;border:none;border-radius:14px;background:linear-gradient(135deg,#4cdbce,#13bbaf);color:#003733;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;}
-.pay-btn:active{transform:scale(.97);filter:brightness(.9);}
-.pay-btn:disabled{opacity:.35;cursor:not-allowed;transform:none;}
-.pay-btn .mi{font-size:20px;font-variation-settings:'FILL' 1,'wght' 500;}
+.rec-badge{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#0B666A,#35A29F);color:#fff;font-size:10px;font-weight:800;padding:3px 16px;border-radius:20px;white-space:nowrap;letter-spacing:.02em}
 
-.methods{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;justify-content:center;}
-.method-tag{font-size:10px;color:rgba(216,226,255,.3);background:rgba(255,255,255,.04);padding:3px 10px;border-radius:9999px;}
+.plan-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.plan-name-wrap{}
+.plan-name{font-family:'Outfit',sans-serif;font-size:18px;font-weight:900}
+.plan-name.free{color:rgba(255,255,255,0.6)}
+.plan-name.silver{color:#C0C0C0}
+.plan-name.gold{color:#FFD700}
+.plan-name.diamond{color:#C4B5FD}
+.plan-tier{font-size:10px;font-weight:700;letter-spacing:.08em;color:rgba(255,255,255,0.35);display:block;margin-top:1px}
 
-.info-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:14px 16px;margin-top:20px;font-size:11px;color:rgba(216,226,255,.3);line-height:1.7;}
-.info-box b{color:rgba(216,226,255,.55);font-weight:700;}
+.plan-price-wrap{text-align:right}
+.plan-price{font-family:'Outfit',sans-serif;font-size:26px;font-weight:900;color:#fff;line-height:1}
+.plan-price.free{font-size:22px;color:rgba(255,255,255,0.45)}
+.plan-price-normal{font-size:14px;color:rgba(255,255,255,0.35);text-decoration:line-through;margin-bottom:1px}
+.plan-price-discount{font-size:10px;font-weight:700;background:rgba(239,68,68,0.2);color:#fca5a5;border:1px solid rgba(239,68,68,0.35);border-radius:6px;padding:2px 8px;display:inline-block;margin-bottom:4px;letter-spacing:.02em}
+.plan-period{font-size:11px;color:rgba(255,255,255,0.35)}
 
-.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-80px);z-index:99999;background:rgba(7,19,42,.95);backdrop-filter:blur(16px);border:1px solid rgba(76,219,206,.3);border-radius:14px;padding:12px 22px;font-size:13px;font-weight:600;opacity:0;transition:all .4s ease-out;pointer-events:none;white-space:nowrap;}
-.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
-.toast.ok{border-color:rgba(76,219,206,.5);color:#4cdbce;}
-.toast.err{border-color:rgba(255,107,107,.4);color:#ff6b6b;}
+.divider{height:1px;background:rgba(151,254,237,0.07);margin:12px 0}
 
-.cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px 10px;pointer-events:none;padding-bottom:max(10px,env(safe-area-inset-bottom));}
-.cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px;}
-.cb-nav-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:rgba(216,226,255,.4);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s;font-family:'Inter','Noto Sans KR',sans-serif;}
-.cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 22;}
-.cb-nav-tab .nl{font-size:9px;font-weight:600;letter-spacing:.02em;}
-.cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px;}
-.cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
+.feat-list{display:flex;flex-direction:column;gap:7px}
+.feat{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:rgba(255,255,255,0.7);line-height:1.4}
+.feat .mi{font-size:15px;flex-shrink:0;margin-top:1px}
+.feat .mi.check{color:#35A29F}
+.feat .mi.x{color:rgba(255,255,255,0.2)}
+.feat strong{color:#fff;font-weight:700}
+.feat .sub{font-size:10.5px;color:rgba(151,254,237,0.55);display:block;margin-top:1px}
+
+/* 결제 버튼 */
+.pay-wrap{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;background:rgba(7,19,42,0.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(151,254,237,0.08);z-index:200}
+.pay-wrap-inner{max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:6px}
+.pay-btn{width:100%;padding:16px;border-radius:16px;border:none;color:#fff;font-family:'Outfit',sans-serif;font-size:17px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
+.pay-btn.default{background:linear-gradient(135deg,#0B666A,#35A29F)}
+.pay-btn.gold-btn{background:linear-gradient(135deg,#92660A,#D4A017)}
+.pay-btn.diamond-btn{background:linear-gradient(135deg,#4C1D95,#7C3AED)}
+.pay-btn:disabled{opacity:.35;cursor:not-allowed;background:rgba(53,162,159,0.3) !important}
+.pay-btn:not(:disabled):active{opacity:.85}
+.pay-note{text-align:center;font-size:11px;color:rgba(255,255,255,0.3)}
+
+/* 안내 박스 */
+.info-box{background:rgba(53,162,159,0.06);border:1px solid rgba(53,162,159,0.12);border-radius:14px;padding:16px 18px;font-size:12px;color:rgba(255,255,255,0.5);line-height:1.85}
+.info-box b{color:rgba(151,254,237,0.65);display:block;margin-bottom:3px;margin-top:10px}
+.info-box b:first-child{margin-top:0}
+
+/* 풋바 */
+.cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px;padding-bottom:max(10px,env(safe-area-inset-bottom));pointer-events:none}
+.cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px}
+.cb-nav-tab{display:flex;flex-direction:column;align-items:center;gap:2px;color:rgba(216,226,255,.4);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s}
+.cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1}
+.cb-nav-tab .nl{font-size:9px;font-weight:600}
+.cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px}
+
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);padding:10px 22px;border-radius:20px;font-size:13px;font-weight:700;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9999}
+.toast.show{opacity:1}
+.toast.ok{background:rgba(11,102,106,.95);color:#97FEED;border:1px solid rgba(151,254,237,.3)}
+.toast.err{background:rgba(239,68,68,.95);color:#fff}
 </style>
 </head>
 <body>
 <div class="page">
-  <a href="mypage.html" class="back"><span class="mi" style="font-size:16px;">arrow_back</span> <span id="t-back">마이페이지</span></a>
-
-  <h1 id="t-title">포인트 & 구독</h1>
-  <p class="sub" id="t-sub">AI 코디 생성 1회 = 100P 차감 · 아이템 AI 분석은 무료</p>
-
-  <!-- 잔액 -->
-  <div class="bal">
-    <div class="bal-left">
-      <div class="bal-label" id="t-bal-label">MY POINTS</div>
-      <div><span class="bal-num" id="balNum">-</span><span class="bal-unit"> P</span></div>
+  <div class="pg-header">
+    <a href="mypage.html" class="back-btn"><span class="mi">arrow_back_ios_new</span></a>
+    <div>
+      <div class="pg-title">구독 플랜</div>
+      <div class="pg-sub">코디 생성 = 내옷장 + 코디하기 합산 기준</div>
     </div>
-    <div class="bal-right" id="balInfo"></div>
   </div>
 
-  <!-- 포인트 충전 -->
-  <div class="section-label" id="t-sec-point">POINT CHARGE</div>
-  <div class="pkg-grid" id="pointGrid"></div>
-
-  <div class="divider"></div>
-
-  <!-- 구독 -->
-  <div class="section-label" id="t-sec-sub">SUBSCRIPTION</div>
-  <div class="pkg-grid" id="subGrid"></div>
-
-  <!-- 결제 버튼 -->
-  <button class="pay-btn" id="payBtn" disabled onclick="doPay()">
-    <span class="mi">lock</span>
-    <span id="payBtnText">선택하세요</span>
-  </button>
-
-  <div class="methods">
-    <span class="method-tag">신용카드</span>
-    <span class="method-tag">카카오페이</span>
-    <span class="method-tag">네이버페이</span>
-    <span class="method-tag">토스페이</span>
-    <span class="method-tag">계좌이체</span>
+  <!-- 현재 상태 -->
+  <div class="status-card">
+    <div class="status-row">
+      <span class="status-plan" id="curPlanLabel">로딩중…</span>
+      <span class="status-usage" id="curUsageLabel"></span>
+    </div>
+    <div class="usage-bar"><div class="usage-fill" id="usageFill" style="width:0%"></div></div>
   </div>
 
-  <!-- 정보 박스 -->
-  <div class="info-box">
-    <b id="t-storage-title">이미지 보관 안내</b><br/>
-    <span id="t-storage-point">포인트 이용자: 코디이미지·등록이미지는 포인트 0P 소진 후 7일까지 보관되며, 이후 모든 이미지가 자동 삭제됩니다.</span><br/>
-    <span id="t-storage-sub">구독 이용자: 코디이미지·등록이미지는 구독 기간 중 보관되며, 구독 종료 후 30일까지 보관 후 모든 이미지가 자동 삭제됩니다.</span><br/><br/>
-    <b id="t-consume-title">포인트 차감 기준</b><br/>
-    <span id="t-consume-body">AI 코디 추천(내옷장) = 100P / AI 착장 생성(코디하기) = 100P / 아이템 AI 분석 = 무료</span>
+  <div class="section-label">SUBSCRIPTION PLAN</div>
+  <div class="plan-grid" id="planGrid"></div>
+
+  <!-- 안내 박스 -->
+  <div class="info-box" style="margin-bottom:90px">
+    <b>코디 생성 횟수 기준</b>
+    내옷장 AI 추천 + 코디하기 착장 이미지를 합산하여 횟수를 계산합니다.
+    <b>데이터 보관 정책</b>
+    · 무료: 가입 시 6회 제공, 소진 후 7일 이미지 보관 후 자동 삭제<br/>
+    · 실버: 구독 종료 후 <strong style="color:#97FEED">30일</strong> 이미지 보관, 이후 자동 삭제<br/>
+    · 골드: 구독 종료 후 <strong style="color:#FFD700">90일</strong> 이미지 보관, 이후 자동 삭제<br/>
+    · 다이아: 이미지 <strong style="color:#C4B5FD">영구 보관</strong>
+    <b>FUP(공정 이용 정책)</b>
+    다이아 플랜의 무제한은 일일 30회 한도 내에서 운영됩니다.
   </div>
 </div>
 
-<!-- 토스트 -->
+<!-- 결제 버튼 영역 -->
+<div class="pay-wrap" id="payWrap" style="display:none">
+  <div class="pay-wrap-inner">
+    <button class="pay-btn default" id="payBtn" onclick="doPay()">
+      <span class="mi">lock</span>
+      <span id="payBtnTxt">구독하기</span>
+    </button>
+    <div class="pay-note" id="payNote"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
-<!-- 풋바 -->
 <nav class="cb-nav"><div class="cb-nav-inner">
   <a href="closet.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">내옷장</span></a>
   <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
   <a href="camera.html" class="cb-nav-tab"><span class="ni">add_circle</span><span class="nl">ITEM등록</span></a>
   <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">코디하기</span></a>
-  <a href="mypage.html" class="cb-nav-tab on"><span class="ni">person</span><span class="nl">MY</span></a>
+  <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
 </div></nav>
 
-<script src="config.js"></script>
-<script src="codibank.js"></script>
-<script src="i18n.js"></script>
 <script>
-/* ══════════════════════════════════════════
-   CodiBank Pricing — Point & Subscription
-   PortOne + TossPayments
-══════════════════════════════════════════ */
+if(!CodiBank.requireAuth('login.html')){}
+const user = CodiBank.getCurrentUser() || {};
+const _en = () => window.CodiBankI18n?.isEn?.() || false;
 
-const PORTONE = {
-  merchantId: 'imp19424728',
-  channelKey: '',
-  pg: 'tosspayments',
-  testMode: true,
-};
-
-const _en = () => window.CodiBankI18n && CodiBankI18n.isEn();
-
-/* ── 요금 체계 ── */
-const PLANS = [
+// ══════════════════════════════════════════════════
+// 플랜 정의 — closet.html / codistyle.html과 반드시 동일
+// ══════════════════════════════════════════════════
+// price: 실제 결제 금액(할인가), normalPrice: 정상가 (strikethrough 표시)
+const PLANS_DEF = [
   {
-    id:'pointA', type:'point',
-    nameKo:'포인트 A', nameEn:'Point A',
-    price: 4900, priceUsd: 3.99,
-    points: 3000,
-    uses: 30,
-    dailyLimit: null,
-    items: 5,
-    storageKo:'코디이미지는 포인트 소진 후 7일까지 보관됨', storageEn:'Outfit images kept 7 days after points run out',
-    descKo:'AI 코디 30회 · 카테고리별 아이템 5개',
-    descEn:'30 AI outfits · 5 items per category',
+    id: 'free',
+    tier: 'FREE',
+    nameKo: '무료', nameEn: 'Free',
+    price: 0, normalPrice: null, priceUsd: 0, normalPriceUsd: null,
+    discountLabel: null,
+    totalMonthly: 6, dailyTotal: null,
+    cardClass: 'card-free',
+    nameClass: 'free',
+    recommended: false,
+    features: [
+      { icon:'check', ko:'코디 생성 <strong>총 6회</strong> 제공 (가입 시)', en:'<strong>6 outfit</strong> generations (on signup)' },
+      { icon:'check', ko:'카테고리별 아이템등록 <strong>5개</strong>', en:'<strong>5 items</strong> per category' },
+      { icon:'check', ko:'AI 코디 추천 기본 기능', en:'Basic AI outfit recommendation' },
+      { icon:'x',     ko:'이미지 보관: 소진 후 <strong>7일</strong>', en:'Images kept <strong>7 days</strong> after use' },
+    ],
   },
   {
-    id:'pointB', type:'point',
-    nameKo:'포인트 B', nameEn:'Point B',
-    price: 9900, priceUsd: 6.99,
-    points: 10000,
-    uses: 100,
-    dailyLimit: null,
-    items: 10,
-    storageKo:'코디이미지는 포인트 소진 후 7일까지 보관됨', storageEn:'Outfit images kept 7 days after points run out',
-    descKo:'AI 코디 100회 · 카테고리별 아이템 10개',
-    descEn:'100 AI outfits · 10 items per category',
+    id: 'silver',
+    tier: 'SILVER',
+    nameKo: '실버', nameEn: 'Silver',
+    price: 5900, normalPrice: 6900, priceUsd: 3.99, normalPriceUsd: 4.99,
+    discountLabel: '지금 할인가',
+    totalMonthly: 40, dailyTotal: null,
+    cardClass: 'card-silver',
+    nameClass: 'silver',
+    recommended: false,
+    features: [
+      { icon:'check', ko:'코디 생성 <strong>월 40회</strong> (합산)', en:'<strong>40 outfits/month</strong> combined' },
+      { icon:'check', ko:'카테고리별 아이템등록 <strong>30개</strong>', en:'<strong>30 items</strong> per category' },
+      { icon:'check', ko:'구독 종료 후 <strong>30일</strong> 이미지 보관', en:'Images kept <strong>30 days</strong> after cancel' },
+    ],
   },
   {
-    id:'subA', type:'sub', best: true,
-    nameKo:'구독 A', nameEn:'Subscribe A',
-    price: 15000, priceUsd: 9.99,
-    points: 120000,
-    uses: 1200,
-    dailyLimit: 10,
-    items: 20,
-    storageKo:'코디이미지·등록이미지 구독 종료 후 30일까지 보관됨', storageEn:'All images kept 30 days after subscription ends',
-    descKo:'120,000P/월 · 1일 10회 · 카테고리별 20개',
-    descEn:'120,000P/mo · 10/day · 20 items/category',
+    id: 'gold',
+    tier: 'GOLD ⭐',
+    nameKo: '골드', nameEn: 'Gold',
+    price: 39900, normalPrice: 59900, priceUsd: 26.99, normalPriceUsd: 39.99,
+    discountLabel: '오늘 할인가',
+    totalMonthly: 150, dailyTotal: null,
+    cardClass: 'card-gold',
+    nameClass: 'gold',
+    recommended: true,
+    btnClass: 'gold-btn',
+    features: [
+      { icon:'check', ko:'코디 생성 <strong>월 150회</strong> (합산)', en:'<strong>150 outfits/month</strong> combined' },
+      { icon:'check', ko:'카테고리별 아이템등록 <strong>100개</strong>', en:'<strong>100 items</strong> per category' },
+      { icon:'check', ko:'구독 종료 후 <strong>90일</strong> 이미지 보관', en:'Images kept <strong>90 days</strong> after cancel' },
+    ],
   },
   {
-    id:'subB', type:'sub',
-    nameKo:'구독 B', nameEn:'Subscribe B',
-    price: 25000, priceUsd: 16.99,
-    points: -1, // unlimited
-    uses: -1,
-    dailyLimit: 15,
-    items: -1, // unlimited
-    storageKo:'코디이미지·등록이미지 구독 종료 후 30일까지 보관됨', storageEn:'All images kept 30 days after subscription ends',
-    descKo:'무제한 · 1일 15회 · 아이템 무제한',
-    descEn:'Unlimited · 15/day · Unlimited items',
+    id: 'diamond',
+    tier: 'DIAMOND',
+    nameKo: '다이아', nameEn: 'Diamond',
+    price: 59900, normalPrice: 79900, priceUsd: 39.99, normalPriceUsd: 53.99,
+    discountLabel: '이번달 신청자 특가',
+    totalMonthly: 9999, dailyTotal: 30,
+    cardClass: 'card-diamond',
+    nameClass: 'diamond',
+    recommended: false,
+    btnClass: 'diamond-btn',
+    features: [
+      { icon:'check', ko:'코디 생성 <strong>무제한</strong> (FUP)', en:'<strong>Unlimited</strong> outfits (FUP)' },
+      { icon:'check', ko:'1일 최대 <strong>30회</strong>', en:'<strong>30 times/day</strong> max', sub:true },
+      { icon:'check', ko:'카테고리별 아이템등록 <strong>무제한</strong>', en:'<strong>Unlimited</strong> items per category' },
+      { icon:'check', ko:'이미지 <strong>영구 보관</strong>', en:'<strong>Permanent</strong> image storage' },
+    ],
   },
 ];
 
-let selectedPlan = null;
+let selectedPlanId = null;
 
-/* ── 유저/포인트 ── */
-function getUser() { return (window.CodiBank && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null; }
-function ptKey() { return 'cb_points_' + ((getUser()?.email) || 'guest'); }
-function getPoints() { try { return parseInt(localStorage.getItem(ptKey()) || '600', 10); } catch(e) { return 600; } }
-function setPoints(n) { localStorage.setItem(ptKey(), String(Math.max(0, n))); }
-function addPoints(n) { setPoints(getPoints() + n); }
-
-function getUsage() {
-  try {
-    const key = 'cb_usage_' + ((getUser()?.email) || 'guest');
-    const raw = JSON.parse(localStorage.getItem(key) || '{}');
-    const now = new Date();
-    const mk = now.getFullYear() + '-' + (now.getMonth()+1);
-    const dk = now.toISOString().slice(0,10);
-    return { month: (raw.month === mk) ? (raw.monthCount||0) : 0, today: (raw.day === dk) ? (raw.dayCount||0) : 0 };
-  } catch(e) { return { month:0, today:0 }; }
-}
-
-function getCurrentSub() {
-  try { return localStorage.getItem('cb_sub_' + ((getUser()?.email)||'guest')) || ''; } catch(e) { return ''; }
-}
-
-/* ── 렌더링 ── */
-function renderBalance() {
-  const pts = getPoints();
-  const usage = getUsage();
-  const sub = getCurrentSub();
+// ── 플랜 카드 렌더링 ──
+function renderPlans(){
   const en = _en();
-  document.getElementById('balNum').textContent = pts >= 100000 ? '∞' : pts.toLocaleString();
-  const subLabel = sub === 'subA' ? (en ? 'Subscribe A' : '구독 A') : sub === 'subB' ? (en ? 'Subscribe B' : '구독 B') : '';
-  document.getElementById('balInfo').innerHTML = (subLabel ? '<b style="color:rgba(133,183,235,.8)">' + subLabel + '</b><br/>' : '')
-    + (en ? 'This month: ' + usage.month + ' used' : '이번 달 ' + usage.month + '회 사용')
-    + '<br/>' + (en ? 'Today: ' + usage.today + ' used' : '오늘 ' + usage.today + '회 사용');
-}
-
-function renderCards() {
-  const en = _en();
-  const pointGrid = document.getElementById('pointGrid');
-  const subGrid = document.getElementById('subGrid');
-
-  pointGrid.innerHTML = PLANS.filter(p => p.type === 'point').map(p => cardHTML(p, en)).join('');
-  subGrid.innerHTML = PLANS.filter(p => p.type === 'sub').map(p => cardHTML(p, en)).join('');
-}
-
-function cardHTML(p, en) {
-  const isUnlimited = p.points < 0;
-  const priceStr = en
-    ? '$' + p.priceUsd + (p.type === 'sub' ? '<small>/mo</small>' : '')
-    : '₩' + p.price.toLocaleString() + (p.type === 'sub' ? '<small>/월</small>' : '');
-  const pointStr = isUnlimited ? (en ? 'Unlimited' : '무제한') : p.points.toLocaleString() + 'P';
-  const storageStr = en ? p.storageEn : p.storageKo;
-  const descStr = en ? p.descEn : p.descKo;
-  const tagClass = p.type === 'point' ? 'tag-point' : 'tag-sub';
-  const tagLabel = p.type === 'point' ? (en ? 'ONE-TIME' : '1회 충전') : (en ? 'MONTHLY' : '월 구독');
-  const badgeAttr = p.best ? ' data-badge="' + (en ? 'BEST' : '추천') + '"' : '';
-
-  return `<div class="pkg ${p.best ? 'best' : ''}" data-id="${p.id}"${badgeAttr} onclick="selectPlan('${p.id}')">
-    <div class="pkg-radio"></div>
-    <div class="pkg-body">
-      <div class="pkg-top">
-        <span class="pkg-name">${en ? p.nameEn : p.nameKo}</span>
-        <span class="pkg-price">${priceStr}</span>
-      </div>
-      <div class="pkg-details">
-        <b>${pointStr}</b> · ${descStr}<br/>
-        <span class="pkg-tag ${tagClass}">${tagLabel}</span>
-        <span class="pkg-tag tag-storage">${storageStr}</span>
-      </div>
-    </div>
-  </div>`;
-}
-
-function selectPlan(id) {
-  selectedPlan = PLANS.find(p => p.id === id);
-  document.querySelectorAll('.pkg').forEach(el => el.classList.toggle('sel', el.dataset.id === id));
-  const btn = document.getElementById('payBtn');
-  const txt = document.getElementById('payBtnText');
-  btn.disabled = false;
-  btn.querySelector('.mi').textContent = 'shopping_cart';
-  const en = _en();
-  const priceLabel = en ? '$' + selectedPlan.priceUsd : '₩' + selectedPlan.price.toLocaleString();
-  const label = selectedPlan.type === 'sub'
-    ? (en ? 'Subscribe' : '구독하기')
-    : (en ? 'Purchase' : '결제하기');
-  txt.textContent = priceLabel + ' ' + label;
-}
-
-/* ── 결제 ── */
-function doPay() {
-  if (!selectedPlan) return;
-  const user = getUser();
-  if (!window.IMP) return showToast(_en() ? 'Payment SDK loading...' : '결제 SDK 로딩 중...', 'err');
-
-  IMP.init(PORTONE.merchantId);
-  const en = _en();
-  const uid = 'cb_' + selectedPlan.id + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-  const isUnlimited = selectedPlan.points < 0;
-  const ptsLabel = isUnlimited ? (en ? 'Unlimited' : '무제한') : selectedPlan.points.toLocaleString() + 'P';
-  const payAmount = en ? selectedPlan.priceUsd : selectedPlan.price;
-  const payCurrency = en ? 'USD' : 'KRW';
-
-  const payData = {
-    pg: PORTONE.pg + (PORTONE.channelKey ? '.' + PORTONE.channelKey : ''),
-    pay_method: 'card',
-    merchant_uid: uid,
-    name: 'CodiBank ' + (en ? selectedPlan.nameEn : selectedPlan.nameKo) + ' (' + ptsLabel + ')',
-    amount: PORTONE.testMode ? 0 : payAmount,
-    buyer_email: user?.email || '',
-    buyer_name: user?.nickname || '',
-    currency: payCurrency,
-    m_redirect_url: location.origin + '/app/pricing.html?pay=ok&plan=' + selectedPlan.id,
-  };
-
-  IMP.request_pay(payData, function(rsp) {
-    if (rsp.success) {
-      applyPlan(selectedPlan, rsp.imp_uid, uid);
+  const curPlanId = (user.plan||'free').toLowerCase();
+  document.getElementById('planGrid').innerHTML = PLANS_DEF.map(p => {
+    const isCurrent = (p.id === curPlanId);
+    // 가격 표시: 정상가(취소선) + 할인 뱃지 + 할인가
+    let priceBlock = '';
+    if(p.price === 0){
+      priceBlock = `<div class="plan-price free">${en?'Free':'무료'}</div>`;
     } else {
-      showToast(rsp.error_msg || (en ? 'Payment cancelled' : '결제가 취소되었습니다'), 'err');
+      const normalStr = en ? `$${p.normalPriceUsd}` : `₩${p.normalPrice.toLocaleString()}`;
+      const discStr   = en ? `$${p.priceUsd}` : `₩${p.price.toLocaleString()}`;
+      const period    = en ? '/mo' : '/월';
+      const badge     = p.discountLabel ? `<div class="plan-price-discount">${p.discountLabel}</div>` : '';
+      const normal    = p.normalPrice ? `<div class="plan-price-normal">${normalStr}${period}</div>` : '';
+      priceBlock = `${badge}${normal}<div class="plan-price ${p.nameClass}">${discStr}<span class="plan-period">${period}</span></div>`;
+    }
+    const periodStr = '';  // priceBlock에 포함됨
+
+    const feats = p.features.map(f => {
+      const txt = en ? f.en : f.ko;
+      const subNote = f.sub ? `<span class="sub">${en?'Daily limit (closet + codi)':'내옷장+코디하기 합산 일일 한도'}</span>` : '';
+      return `<div class="feat"><span class="mi ${f.icon === 'check' ? 'check' : 'x'}">${f.icon === 'check' ? 'check_circle' : 'cancel'}</span><span>${txt}${subNote}</span></div>`;
+    }).join('');
+
+    const curBadge = isCurrent ? `<div style="position:absolute;top:-11px;right:16px;background:rgba(53,162,159,0.9);color:#fff;font-size:10px;font-weight:800;padding:3px 12px;border-radius:20px;">${en?'Current':'현재 플랜'}</div>` : '';
+    const recBadge = p.recommended && !isCurrent ? `<div class="rec-badge">${en?'⭐ Recommended':'⭐ 추천'}</div>` : '';
+
+    return `
+    <div class="plan-card ${p.cardClass}${isCurrent?' selected':''}" id="card-${p.id}" onclick="selectPlan('${p.id}')">
+      ${recBadge}${curBadge}
+      <div class="plan-top">
+        <div class="plan-name-wrap">
+          <div class="plan-name ${p.nameClass}">${en?p.nameEn:p.nameKo}</div>
+          <span class="plan-tier">${p.tier}</span>
+        </div>
+        <div class="plan-price-wrap">
+          ${priceBlock}
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="feat-list">${feats}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectPlan(id){
+  const plan = PLANS_DEF.find(p => p.id === id);
+  if(!plan) return;
+  const en = _en();
+  const curPlanId = (user.plan||'free').toLowerCase();
+
+  selectedPlanId = id;
+  document.querySelectorAll('.plan-card').forEach(el => el.classList.remove('selected'));
+  document.getElementById('card-'+id).classList.add('selected');
+
+  const wrap = document.getElementById('payWrap');
+  const btn  = document.getElementById('payBtn');
+  const txt  = document.getElementById('payBtnTxt');
+  const note = document.getElementById('payNote');
+
+  if(id === 'free'){
+    wrap.style.display = 'none';
+    return;
+  }
+  if(id === curPlanId){
+    wrap.style.display = 'block';
+    btn.disabled = true;
+    txt.textContent = en ? 'Current Plan' : '현재 이용중인 플랜';
+    note.textContent = '';
+    return;
+  }
+
+  const priceLabel = en ? `$${plan.priceUsd}/mo` : `₩${plan.price.toLocaleString()}/월`;
+  // 할인 중이면 버튼에도 할인가 표시
+  const discountSuffix = plan.discountLabel ? ` (${plan.discountLabel})` : '';
+  btn.className = 'pay-btn ' + (plan.btnClass || 'default');
+  btn.disabled = false;
+  txt.textContent = `${priceLabel} ${en?'Subscribe':'구독하기'}`;
+  note.textContent = en ? 'Powered by Toss Payments · Secure payment' : '토스페이먼츠 안전결제';
+  wrap.style.display = 'block';
+}
+
+// ── 현재 플랜 상태 표시 ──
+function renderStatus(){
+  const en = _en();
+  const planId = (user.plan||'free').toLowerCase();
+  const planDef = PLANS_DEF.find(p=>p.id===planId) || PLANS_DEF[0];
+  const planNames = {free:en?'Free Plan':'무료 플랜',silver:en?'Silver':'실버',gold:en?'Gold':'골드',diamond:en?'Diamond':'다이아'};
+  document.getElementById('curPlanLabel').textContent = planNames[planId] || (en?'Free Plan':'무료 플랜');
+
+  try{
+    const key = 'cb_usage_'+(user.email||'guest');
+    const raw = JSON.parse(localStorage.getItem(key)||'{}');
+    const totalUsed = raw.totalCount || 0;
+    const limit = planDef.totalMonthly;
+    const isUnlimited = limit >= 9999;
+    const pct = isUnlimited ? Math.min(100, Math.round(totalUsed/300*100)) : Math.min(100, Math.round(totalUsed/limit*100));
+    const usedTxt = isUnlimited
+      ? (en?`Used: ${totalUsed}`:`사용: ${totalUsed}회`)
+      : (en?`${totalUsed}/${limit} used`:`${totalUsed}/${limit}회 사용`);
+    document.getElementById('curUsageLabel').textContent = usedTxt;
+    document.getElementById('usageFill').style.width = pct+'%';
+    document.getElementById('usageFill').style.background = pct>80
+      ? 'linear-gradient(90deg,#ef4444,#fca5a5)'
+      : 'linear-gradient(90deg,#35A29F,#97FEED)';
+  }catch(_){}
+}
+
+// ── 결제 (포트원 SDK) ──
+function doPay(){
+  const plan = PLANS_DEF.find(p => p.id === selectedPlanId);
+  if(!plan || plan.price === 0) return;
+  const en = _en();
+
+  const merchantId  = window.PORTONE_CONFIG?.merchantId  || 'imp00000000';
+  const channelKey  = window.PORTONE_CONFIG?.channelKey  || '';
+  const isTest      = window.PORTONE_CONFIG?.testMode !== false;
+
+  IMP.init(merchantId);
+  const merchantUid = `cb_${plan.id}_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+
+  IMP.request_pay({
+    pg: channelKey ? ('tosspayments.'+channelKey) : 'tosspayments',
+    pay_method: 'card',
+    merchant_uid: merchantUid,
+    name: en ? `CodiBank ${plan.nameEn}` : `코디뱅크 ${plan.nameKo}`,
+    amount: isTest ? 0 : plan.price,
+    buyer_email: user.email||'',
+    buyer_name: user.nickname||user.email?.split('@')[0]||'',
+    currency: 'KRW',
+    m_redirect_url: location.origin+'/app/pricing.html?payment=done',
+  }, function(rsp){
+    if(rsp.success){
+      applyPlan(rsp.imp_uid, merchantUid, plan);
+    } else {
+      const msg = rsp.error_msg||(en?'Payment cancelled':'결제가 취소되었습니다');
+      showToast(msg, 'err');
     }
   });
 }
 
-function applyPlan(plan, impUid, merchantUid) {
+async function applyPlan(impUid, merchantUid, plan){
   const en = _en();
-  const userKey = (getUser()?.email) || 'guest';
+  try{
+    // 실제 운영: 서버에서 포트원 결제 검증 후 Supabase user_metadata.plan 업데이트
+    // const res = await fetch(backendBase+'/api/payment/verify', {method:'POST',...});
 
-  if (plan.type === 'sub') {
-    localStorage.setItem('cb_sub_' + userKey, plan.id);
-    localStorage.setItem('cb_sub_start_' + userKey, new Date().toISOString());
-    if (plan.points > 0) setPoints(plan.points);
-    else setPoints(999999);
-  } else {
-    addPoints(plan.points);
-    localStorage.setItem('cb_point_charged_' + userKey, new Date().toISOString());
-  }
+    // 테스트 모드: 로컬 적용
+    const u = CodiBank.getCurrentUser()||{};
+    u.plan = plan.id;
+    localStorage.setItem('cb_user', JSON.stringify(u));
 
-  // 결제 기록
-  try {
-    const logs = JSON.parse(localStorage.getItem('cb_payments_' + userKey) || '[]');
-    logs.push({ imp_uid: impUid, merchant_uid: merchantUid, plan: plan.id, amount: plan.price, date: new Date().toISOString() });
-    localStorage.setItem('cb_payments_' + userKey, JSON.stringify(logs.slice(-50)));
-  } catch(e) {}
-
-  renderBalance();
-  const isUnlimited = plan.points < 0;
-  const label = isUnlimited ? (en ? 'Unlimited activated!' : '무제한 구독 시작!') : (plan.points.toLocaleString() + 'P ' + (en ? 'charged!' : '충전 완료!'));
-  showToast('✅ ' + label, 'ok');
-
-  // ── 관리자 대시보드 결제 추적 ──
-  try{ if(window.CodiBankTrack) CodiBankTrack.payment({plan_id: plan.id, plan_name: (en ? plan.nameEn : plan.nameKo), amount: en ? plan.priceUsd : plan.price, currency: en ? 'USD' : 'KRW', points_granted: plan.points > 0 ? plan.points : 0, imp_uid: impUid, merchant_uid: merchantUid}); }catch(_){}
-}
-
-/* ── 모바일 리다이렉트 복귀 ── */
-function handleRedirect() {
-  const p = new URLSearchParams(location.search);
-  if (p.get('pay') === 'ok') {
-    const plan = PLANS.find(pl => pl.id === p.get('plan'));
-    if (plan) applyPlan(plan, p.get('imp_uid') || '', '');
-    history.replaceState(null, '', location.pathname);
+    showToast(en?`✅ ${plan.nameEn} activated!`:`✅ ${plan.nameKo} 구독 시작!`, 'ok');
+    setTimeout(()=>{ renderStatus(); renderPlans(); }, 800);
+  }catch(e){
+    showToast(en?'❌ '+e.message:'❌ 오류: '+e.message,'err');
   }
 }
 
-/* ── i18n 적용 ── */
-function applyLang() {
-  const en = _en();
-  const t = (id, ko, enT) => { const el = document.getElementById(id); if (el) el.textContent = enT && en ? enT : ko; };
-  t('t-back', '마이페이지', 'My Page');
-  t('t-title', '포인트 & 구독', 'Points & Subscription');
-  t('t-sub', 'AI 코디 생성 1회 = 100P 차감 · 아이템 AI 분석은 무료', '1 AI outfit = 100P · Item AI analysis is free');
-  t('t-bal-label', 'MY POINTS', 'MY POINTS');
-  t('t-sec-point', 'POINT CHARGE', 'POINT CHARGE');
-  t('t-sec-sub', 'SUBSCRIPTION', 'SUBSCRIPTION');
-  t('t-storage-title', '이미지 보관 안내', 'Image storage notice');
-  t('t-storage-point', '포인트 이용자: 코디이미지·등록이미지는 포인트 0P 소진 후 7일까지 보관되며, 이후 모든 이미지가 자동 삭제됩니다.', 'Point users: All outfit images and registered item images are kept for 7 days after your points reach 0P, then automatically deleted.');
-  t('t-storage-sub', '구독 이용자: 코디이미지·등록이미지는 구독 기간 중 보관되며, 구독 종료 후 30일까지 보관 후 모든 이미지가 자동 삭제됩니다.', 'Subscribers: All images are retained during your subscription and kept for 30 days after cancellation, then automatically deleted.');
-  t('t-consume-title', '포인트 차감 기준', 'Point consumption');
-  t('t-consume-body', 'AI 코디 추천(내옷장) = 100P / AI 착장 생성(코디하기) = 100P / 아이템 AI 분석 = 무료', 'AI outfit (Closet) = 100P / AI styling (Style It) = 100P / Item analysis = Free');
+function showToast(msg,type){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className='toast show '+(type||'ok');
+  setTimeout(()=>{el.className='toast';},3000);
+}
 
-  if (!selectedPlan) {
-    document.getElementById('payBtnText').textContent = en ? 'Select a plan' : '선택하세요';
+// ── 모바일 리다이렉트 복귀 ──
+(function(){
+  const p=new URLSearchParams(location.search);
+  if(p.get('payment')==='done'){
+    showToast(_en()?'✅ Payment completed!':'✅ 결제 완료!','ok');
+    history.replaceState(null,'',location.pathname);
   }
-  renderCards();
-  renderBalance();
-  if (selectedPlan) selectPlan(selectedPlan.id);
-}
+})();
 
-/* ── 토스트 ── */
-function showToast(msg, type) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'toast show ' + (type || 'ok');
-  setTimeout(() => el.className = 'toast', 3500);
-}
-
-/* ── 초기화 ── */
-document.addEventListener('DOMContentLoaded', () => {
-  handleRedirect();
-  applyLang();
-});
+renderPlans();
+renderStatus();
 </script>
 </body>
 </html>
