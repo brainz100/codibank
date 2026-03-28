@@ -228,6 +228,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 </div>
 
 <div class="divider"></div>
+<!-- ★ 스타일링 가능횟수 뱃지 — 생성버튼 바로 위 -->
+<div style="display:flex;justify-content:flex-end;padding:0 16px;margin-bottom:8px;margin-top:4px;">
+  <div id="csUsageBadge" style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;font-size:11px;font-weight:800;background:rgba(151,254,237,.1);border:1px solid rgba(151,254,237,.2);color:#97FEED;">스타일링 0회 가능</div>
+</div>
 <div class="gen-wrap" style="margin-bottom:12px;">
   <button class="gen-btn" id="genBtn" onclick="generate()" disabled><span class="mi" id="genBtnIcon">auto_awesome</span><span id="genBtnText">AI 착장 이미지 생성</span></button>
 </div>
@@ -252,10 +256,6 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
       </div>
     </div>
     <div class="err-box" id="errBox" style="display:none;"></div>
-  </div>
-  <!-- ★ 스타일링 가능횟수 뱃지 — 이미지 박스 바로 아래, 버튼 위 -->
-  <div style="display:flex;justify-content:flex-end;padding:8px 2px 0;">
-    <div id="csUsageBadge" style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;font-size:11px;font-weight:800;background:rgba(151,254,237,.1);border:1px solid rgba(151,254,237,.2);color:#97FEED;">스타일링 0회 가능</div>
   </div>
   <div class="b-actions" id="bActions">
     <button class="bab save" onclick="saveImg()"><span class="mi">save_alt</span>저장</button>
@@ -708,72 +708,117 @@ async function generate(isRetry=false){
     setDot('done'); setProgress(100,'착장 이미지 생성 완료 ✨');
     try{ sessionStorage.setItem('cb_cs_lastImg', lastImgUrl); }catch(_){}
 
-    /* ── [2] Styling Score — AI 스타일리스트 세밀 분석 ── */
+    /* ── [2] Styling Score — AI 스타일리스트 상의·하의 세밀 분석 ── */
     try{
-      const _sg = codiProfile.gender==='F';
-      const _sh = parseFloat(codiProfile.height||0);
-      const _sw = parseFloat(codiProfile.weight||0);
+      const _sg   = codiProfile.gender==='F';
+      const _sh   = parseFloat(codiProfile.height||0);
+      const _sw   = parseFloat(codiProfile.weight||0);
       const _sbmi = (_sh>0&&_sw>0) ? (_sw/((_sh/100)**2)) : 22;
       const _sage = codiProfile.ageGroup || '30s';
       const _gLbl = _sg ? '여성' : '남성';
-      const _ageLbl = {'10s':'10대','20s':'20대','30s':'30대','40s':'40대','50s':'50대','60s':'60대'}[_sage] || '30대';
-      const _physLbl = (_sh&&_sw) ? `${Math.round(_sh)}cm·${Math.round(_sw)}kg` : '';
+      const _ageLbl = {'10s':'10대','20s':'20대','30s':'30대','40s':'40대','50s':'50대','60s':'60대'}[_sage]||'30대';
+      const _physLbl = (_sh&&_sw) ? `${Math.round(_sh)}cm ${Math.round(_sw)}kg` : '';
 
-      // 체형 유형 판별
-      const _bodyType = !_sh||!_sw ? '표준' : _sbmi<18.5 ? '슬림' : _sbmi<23 ? '표준' : _sbmi<26 ? '보통' : '풍성';
+      // ── 체형 분류 ──
+      const _bodyType = !_sh||!_sw ? '표준' : _sbmi<18.5?'슬림':_sbmi<23?'표준':_sbmi<26?'보통':'풍성';
+      const _bmi_detail = !_sh||!_sw ? '' : `BMI ${_sbmi.toFixed(1)}(${_bodyType})`;
 
-      // 색상 조화 판정 (상의/하의 파일명에서 색상 힌트 추출 — 없으면 랜덤 조합 평가)
-      const _topHint  = (ST.top.serverPath   || '').toLowerCase();
-      const _botHint  = (ST.bottom.serverPath || '').toLowerCase();
-      const _hasWhite = _topHint.includes('white')||_botHint.includes('white');
-      const _hasBlack = _topHint.includes('black')||_botHint.includes('black');
-      const _hasNavy  = _topHint.includes('navy')||_botHint.includes('navy');
+      // ── 상의/하의 레이블에서 카테고리·색상 힌트 추출 ──
+      const _topLabel  = (ST.top.label   || ST.top.serverPath   || '').toLowerCase();
+      const _botLabel  = (ST.bottom.label|| ST.bottom.serverPath|| '').toLowerCase();
 
-      // 점수 계산: 기본 78~88 + 체형 보너스 + 재시도 소폭 변동
+      // 카테고리 추출
+      const _topCat = _topLabel.includes('니트')||_topLabel.includes('knit')?'니트':
+                      _topLabel.includes('셔츠')||_topLabel.includes('shirt')?'셔츠':
+                      _topLabel.includes('맨투맨')||_topLabel.includes('sweat')?'맨투맨':
+                      _topLabel.includes('자켓')||_topLabel.includes('jacket')?'자켓':
+                      _topLabel.includes('블라우스')||_topLabel.includes('blouse')?'블라우스':'상의';
+      const _botCat = _botLabel.includes('슬랙스')||_botLabel.includes('slacks')?'슬랙스':
+                      _botLabel.includes('데님')||_botLabel.includes('denim')||_botLabel.includes('진')||_botLabel.includes('jean')?'데님 팬츠':
+                      _botLabel.includes('치노')||_botLabel.includes('chino')?'치노 팬츠':
+                      _botLabel.includes('스커트')||_botLabel.includes('skirt')?'스커트':
+                      _botLabel.includes('와이드')||_botLabel.includes('wide')?'와이드 팬츠':'하의';
+
+      // 색상 힌트 추출
+      const _colors = {
+        '블랙':'다크 컬러','검정':'다크 컬러','black':'다크 컬러',
+        '화이트':'화이트','흰':'화이트','white':'화이트',
+        '네이비':'딥 네이비','navy':'딥 네이비',
+        '그레이':'그레이','회색':'그레이','gray':'그레이','grey':'그레이',
+        '베이지':'뉴트럴 베이지','beige':'뉴트럴 베이지','크림':'뉴트럴 베이지',
+        '브라운':'어스 톤','brown':'어스 톤',
+        '블루':'블루','blue':'블루',
+        '그린':'그린','green':'그린',
+        '레드':'레드','red':'레드',
+      };
+      let _topColor='', _botColor='';
+      Object.keys(_colors).forEach(k=>{
+        if(_topLabel.includes(k)&&!_topColor) _topColor=_colors[k];
+        if(_botLabel.includes(k)&&!_botColor) _botColor=_colors[k];
+      });
+
+      // ── 점수 산출 ──
       let _base = 78 + Math.floor(Math.random()*11);
       if(_bodyType==='슬림'||_bodyType==='표준') _base = Math.min(95, _base+4);
       if(_retryCount>0) _base = Math.max(75, _base + (Math.random()>0.5?2:-2));
       const score = Math.min(98, Math.round(_base));
-
-      // 점수 등급
       const _grade = score>=92?'S급 매칭':score>=86?'A급 매칭':score>=80?'B급 매칭':'C급 매칭';
 
-      // 세밀 리뷰 생성 (스타일리스트 관점)
-      const _colorComments = [
-        '상의와 하의의 색상 대비가 뚜렷해 시선을 끄는 포인트를 만듭니다.',
-        '톤온톤 배색이 차분하고 세련된 인상을 줍니다.',
-        '포인트 컬러와 뉴트럴 컬러의 조화가 균형 잡혀 있습니다.',
-        '색상 채도 대비가 적절해 입체감 있는 스타일링이 완성됩니다.',
-      ];
-      const _fitComments = {
-        '슬림':  ['슬림한 체형에 어울리는 레이어드 효과가 살아납니다.','상의 볼륨감이 체형 비율을 이상적으로 보완합니다.'],
-        '표준':  ['표준 체형의 장점을 그대로 살리는 자연스러운 핏입니다.','비율 균형이 좋아 어떤 핏도 잘 소화되는 조합입니다.'],
-        '보통':  ['하의의 스트레이트 실루엣이 세로 라인을 강조합니다.','상의의 V라인 디테일이 시선을 상체로 모아 비율 보정 효과를 줍니다.'],
-        '풍성':  ['다크 컬러 하의가 하체를 슬림하게 정리해 줍니다.','상의 디자인이 어깨 라인을 살려 역삼각형 비율을 연출합니다.'],
-      };
-      const _ageComments = {
-        '10s':'10대의 활기찬 이미지와 잘 어울리는 조합입니다.',
-        '20s':'20대 트렌드 감성을 반영한 스타일링입니다.',
-        '30s':'30대 성숙하면서 스타일리시한 이미지를 완성합니다.',
-        '40s':'40대의 세련된 고급스러움이 자연스럽게 드러나는 조합입니다.',
-        '50s':'50대 이상의 품격 있는 스타일을 격조 있게 표현합니다.',
-        '60s':'클래식하고 우아한 무드가 잘 어울리는 조합입니다.',
-      };
+      // ── 상의 분석 ──
+      const _topAnalysis = {
+        '슬림':  `${_topCat}의 핏이 슬림한 체형 라인을 자연스럽게 드러내며, 어깨 실루엣을 깔끔하게 잡아줍니다.`,
+        '표준':  `${_topCat}은 표준 체형에 균형감 있게 맞아, 어깨부터 허리까지 자연스러운 라인이 연출됩니다.`,
+        '보통':  `${_topCat}의 넉넉한 여유분이 상체를 편안하게 감싸며, 시선을 상단으로 집중시켜 비율감을 높여줍니다.`,
+        '풍성':  `${_topCat}의 다크 컬러나 수직 패턴이 있다면 상체를 슬림하게 정리하는 효과를 극대화합니다.`,
+      }[_bodyType] || `${_topCat}의 디자인이 체형에 잘 어울립니다.`;
 
-      const _fc = (_fitComments[_bodyType]||_fitComments['표준']);
-      const _picked = [
-        _colorComments[Math.floor(Math.random()*_colorComments.length)],
-        _fc[Math.floor(Math.random()*_fc.length)],
-        _ageComments[_sage] || _ageComments['30s'],
-      ];
+      // ── 하의 분석 ──
+      const _botAnalysis = {
+        '슬림':  `${_botCat}는 슬림 실루엣의 장점을 부각하며, 다리 라인을 길고 우아하게 연출합니다.`,
+        '표준':  `${_botCat}는 허리부터 발목까지 비율을 자연스럽게 이어주며, 전체적인 균형을 완성합니다.`,
+        '보통':  `${_botCat}의 스트레이트 실루엣이 하체 세로 라인을 강조해 실제보다 날씬한 인상을 줍니다.`,
+        '풍성':  `${_botCat}는 하체를 감싸며 안정감 있는 실루엣을 만들어, 무게감 없이 깔끔하게 마무리됩니다.`,
+      }[_bodyType] || `${_botCat}의 핏이 체형에 맞게 연출됩니다.`;
 
-      const _physNote = _physLbl ? ` (${_gLbl} ${_ageLbl} · ${_physLbl})` : ` (${_gLbl} ${_ageLbl})`;
-      const reviewText = `${_grade}${_physNote} — ${_picked.join(' ')}`;
+      // ── 컬러 조화 분석 ──
+      let _colorAnalysis = '';
+      if(_topColor && _botColor){
+        if(_topColor===_botColor)
+          _colorAnalysis = `상하의 ${_topColor} 톤온톤 배색이 세련되고 통일감 있는 인상을 만듭니다.`;
+        else if((_topColor.includes('다크')||_topColor.includes('딥'))&&(_botColor.includes('뉴트럴')||_botColor.includes('베이지')))
+          _colorAnalysis = `${_topColor} 상의와 ${_botColor} 하의의 명암 대비가 세련된 도시적 분위기를 완성합니다.`;
+        else if((_botColor.includes('다크')||_botColor.includes('딥'))&&(_topColor.includes('뉴트럴')||_topColor.includes('화이트')))
+          _colorAnalysis = `${_topColor} 상의에 ${_botColor} 하의를 매칭해 하체를 슬림하게 정리하는 효과적인 배색입니다.`;
+        else
+          _colorAnalysis = `${_topColor} 상의와 ${_botColor} 하의의 컬러 조화가 자연스럽고 균형 잡힌 착장을 만듭니다.`;
+      } else {
+        _colorAnalysis = '상하의 컬러 조화가 자연스러워 데일리 착용에 적합한 배색입니다.';
+      }
+
+      // ── 나이대별 총평 ──
+      const _ageAnalysis = {
+        '10s': `${_ageLbl}의 활동적이고 트렌디한 감성에 잘 맞는 조합으로, 캐주얼한 데일리룩에 최적입니다.`,
+        '20s': `${_ageLbl}의 세련된 스트릿 감성과 잘 어울리며, 다양한 TPO에 유연하게 활용 가능한 스타일입니다.`,
+        '30s': `${_ageLbl}의 성숙하고 스타일리시한 이미지를 완성하며, 비즈니스 캐주얼부터 데이트룩까지 폭넓게 소화됩니다.`,
+        '40s': `${_ageLbl}의 품격과 세련미를 자연스럽게 드러내는 조합으로, 격조 있는 일상룩에 적합합니다.`,
+        '50s': `${_ageLbl}의 차분하고 우아한 매력을 극대화하는 배색으로, 편안하면서도 단정한 인상을 줍니다.`,
+        '60s': `클래식하고 품위 있는 ${_ageLbl}의 스타일을 더욱 돋보이게 하는 조합입니다.`,
+      }[_sage] || '전반적으로 완성도 높은 코디네이션입니다.';
+
+      // ── 최종 리뷰 조합 ──
+      const _header = `${_grade} · ${_gLbl} ${_ageLbl}` + (_physLbl ? ` · ${_physLbl}` : '');
+      const reviewText = `[${_header}]
+상의 분석: ${_topAnalysis}
+하의 분석: ${_botAnalysis}
+컬러 조화: ${_colorAnalysis}
+총평: ${_ageAnalysis}`;
 
       document.getElementById('csScoreNum').textContent = score;
       document.getElementById('csScoreText').innerHTML =
-        reviewText.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#97FEED">$1</strong>');
-      document.getElementById('csScoreText').style.color='rgba(255,255,255,.6)';
+        reviewText.replace(/\[([^\]]+)\]/g, '<strong style="color:#97FEED;font-size:12px;">$1</strong>')
+                  .replace(/\n(상의 분석|하의 분석|컬러 조화|총평):/g, '<br><span style="color:rgba(151,254,237,.6);font-weight:700;font-size:10.5px;">$1:</span>')
+                  .replace(/\n/g,'<br>');
+      document.getElementById('csScoreText').style.color='rgba(255,255,255,.65)';
       try{ sessionStorage.setItem('cb_cs_score', score); sessionStorage.setItem('cb_cs_scoreText', reviewText); }catch(_){}
     }catch(_){}
 

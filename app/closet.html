@@ -1267,26 +1267,24 @@ function recordUnifiedUsage(feature){
   try{ localStorage.setItem(_usageKey(), JSON.stringify(u)); }catch(_){}
 }
 function checkUnifiedUsage(feature){
-  // feature: 'closet'(내옷장) 또는 'codistyle'(코디하기)
+  // ★ 내옷장+코디하기 합산(totalMonthly - totalCount) 기준으로 통일
+  // → 내옷장/코디하기 어디서 사용해도 동일한 잔여 횟수 표시
   const planId = (user.plan || 'free').toLowerCase();
   const plan = PLANS[planId] || PLANS.free;
   const u = getUnifiedUsage();
 
-  // 기능별 개별 한도 체크
-  const isCodi     = feature === 'codistyle';
-  const featureUsed  = isCodi ? (u.codistyleCount||0) : (u.closetCount||0);
-  const featureLimit = isCodi ? plan.codistyleMonthly : plan.closetMonthly;
-  const remaining    = Math.max(0, featureLimit - featureUsed);
-  const featureLabel = isCodi ? '코디하기' : '추천코디';
+  const totalUsed    = u.totalCount || 0;       // 합산 월 사용량
+  const totalLimit   = plan.totalMonthly;        // 합산 월 한도
+  const remaining    = Math.max(0, totalLimit - totalUsed);
 
-  // 월간 기능별 한도 초과
-  if(featureUsed >= featureLimit)
+  // 월간 합산 한도 초과
+  if(totalUsed >= totalLimit)
     return { blocked:true, remaining:0,
-      reason: plan.label+' 플랜 '+featureLabel+' 월 한도('+featureLimit+'회)를 모두 사용했어요.' };
+      reason: plan.label+' 플랜 이미지 생성 한도('+totalLimit+'회)를 모두 사용했어요.' };
 
-  // 다이아몬드 일일 합산 한도 (dailyTotal 적용)
-  const dailyLimit  = plan.dailyTotal;
-  const dayUsed     = u.dayTotal || 0;
+  // 다이아몬드 일일 합산 한도
+  const dailyLimit   = plan.dailyTotal;
+  const dayUsed      = u.dayTotal || 0;
   const dayRemaining = dailyLimit ? Math.max(0, dailyLimit - dayUsed) : null;
   if(dailyLimit && dayUsed >= dailyLimit)
     return { blocked:true, remaining,
