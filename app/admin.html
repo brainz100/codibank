@@ -435,8 +435,9 @@ async function ldAdmins(){
       var perms=a.permissions||[];
       var permTxt=perms.includes('all')?'전체':perms.map(function(p){return TAB_NAMES[p]||p}).join(', ');
       var roleBadge=a.role==='MASTER'?'<span class="badge b-sub">MASTER</span>':'<span class="badge b-pt">SUB</span>';
-      var delBtn=a.role==='MASTER'?'<span style="font-size:10px;color:#999">마스터</span>':'<button class="ab del" onclick="delAdmin(''+a.email+'')">삭제</button>';
-      var editBtn='<button class="ab" onclick="openPermEdit(''+a.email+'',''+a.name+'','+JSON.stringify(a.permissions)+')" style="margin-right:4px">권한수정</button>';
+      var ee=a.email.replace(/'/g,"\\'");var en=(a.name||'').replace(/'/g,"\\'");
+      var delBtn=a.role==='MASTER'?'<span style="font-size:10px;color:#999">마스터</span>':'<button class="ab del" onclick="delAdmin(\''+ee+'\')">삭제</button>';
+      var editBtn='<button class="ab" onclick="openPermEdit(\''+ee+'\',\''+en+'\','+JSON.stringify(a.permissions)+')" style="margin-right:4px">권한수정</button>';
       h+='<tr><td style="font-weight:600;color:#071952">'+a.email+'</td><td>'+a.name+'</td><td>'+roleBadge+'</td><td style="font-size:10px;color:#555">'+permTxt+'</td><td>'+fd(a.created_at)+'</td><td>'+editBtn+delBtn+'</td></tr>';
     });
     tbody.innerHTML=h;
@@ -491,6 +492,7 @@ async function delAdmin(em){
   }catch(e){toast('오류: '+e.message,true);}
 }
 function openPermEdit(email,name,curPerms){
+  var ee2=email.replace(/'/g,"\\'");
   var ALL=['dash','users','pay','closet','codi','items'];
   var NAMES={dash:'일반현황',users:'회원현황',pay:'결제현황',closet:'내옷장',codi:'코디하기',items:'아이템등록'};
   var hasAll=curPerms.includes('all');
@@ -504,8 +506,8 @@ function openPermEdit(email,name,curPerms){
     +'<div style="font-size:11px;color:#888;margin-bottom:14px;">'+email+'</div>'
     +'<div id="permBoxes">'+boxes+'</div>'
     +'<div style="display:flex;gap:8px;margin-top:14px;">'
-    +'<button onclick="savePermEdit(''+email+'')" style="flex:1;padding:9px;border:none;border-radius:8px;background:#071952;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">저장</button>'
-    +'<button onclick="document.getElementById('permModal').remove()" style="flex:1;padding:9px;border:1px solid #dde0e8;border-radius:8px;background:#fff;font-size:12px;cursor:pointer;">취소</button>'
+    +'<button onclick="savePermEdit(\''+ee2+'\')" style="flex:1;padding:9px;border:none;border-radius:8px;background:#071952;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">저장</button>'
+    +'<button onclick="document.getElementById(\'permModal\').remove()" style="flex:1;padding:9px;border:1px solid #dde0e8;border-radius:8px;background:#fff;font-size:12px;cursor:pointer;">취소</button>'
     +'</div></div></div>';
   var el=document.createElement('div');el.id='permModal';el.innerHTML=html;
   document.body.appendChild(el);
