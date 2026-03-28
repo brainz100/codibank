@@ -90,8 +90,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 .spin-txt{font-size:12px;color:rgba(162,253,240,0.55);text-align:center;line-height:1.7}
 .err-box{margin:0 14px 14px;padding:12px 14px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:12px;font-size:11px;color:#fca5a5;line-height:1.6}
 .b-actions{display:flex;gap:8px;padding:14px 16px 18px}
-.bab{flex:1;padding:15px 0;border-radius:14px;font-size:13px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.12s;display:flex;align-items:center;justify-content:center;gap:6px}
-.bab .mi{font-family:'Material Symbols Outlined';font-size:20px}
+.bab{flex:1;padding:12px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.12s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.bab .mi{font-family:'Material Symbols Outlined';font-size:22px;line-height:1}
 .bab.save{background:#fff;color:var(--navy)}
 .bab.share{background:rgba(53,162,159,0.15);color:var(--teal-light);border:1px solid rgba(53,162,159,0.3)}
 .bab.retry{background:rgba(151,254,237,0.08);color:var(--mint);border:1px solid rgba(151,254,237,0.2)}
@@ -113,7 +113,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
   font-size:13px;font-weight:700;padding:10px 22px;border-radius:20px;
   border:1px solid rgba(76,219,206,0.4);
   pointer-events:none;z-index:9999;
-  opacity:0;transition:opacity 0.15s;
+  opacity:0;transition:opacity 0.25s ease-out;
   white-space:nowrap;
 }
 #csSaveToast.show{opacity:1;}
@@ -228,10 +228,6 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 </div>
 
 <div class="divider"></div>
-<!-- ★ 스타일링 가능횟수 뱃지 — 생성버튼 바로 위 -->
-<div style="display:flex;justify-content:flex-end;padding:0 16px;margin-bottom:8px;margin-top:4px;">
-  <div id="csUsageBadge" style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;font-size:11px;font-weight:800;background:rgba(151,254,237,.1);border:1px solid rgba(151,254,237,.2);color:#97FEED;">스타일링 0회 가능</div>
-</div>
 <div class="gen-wrap" style="margin-bottom:12px;">
   <button class="gen-btn" id="genBtn" onclick="generate()" disabled><span class="mi" id="genBtnIcon">auto_awesome</span><span id="genBtnText">AI 착장 이미지 생성</span></button>
 </div>
@@ -244,6 +240,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
     <span style="font-size:13px;font-weight:700;color:rgba(151,254,237,.4);">점</span>
   </div>
   <p style="font-size:11.5px;color:rgba(255,255,255,.35);line-height:1.75;" id="csScoreText">착장 이미지가 생성되면 AI 스타일링 점수가 표시됩니다</p>
+</div>
+
+<!-- ★ 스타일링 가능횟수 뱃지 — 스코어박스↔이미지박스 사이 -->
+<div style="display:flex;justify-content:flex-end;padding:0 16px;margin-bottom:10px;margin-top:-4px;">
+  <div id="csUsageBadge" style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;font-size:11px;font-weight:800;background:rgba(151,254,237,.1);border:1px solid rgba(151,254,237,.2);color:#97FEED;">스타일링 0회 가능</div>
 </div>
 
 <div class="result-area" id="resultArea">
@@ -581,31 +582,19 @@ async function generate(isRetry=false){
     const _ageEn = _ageMap2[codiProfile.ageGroup] || 'early 30s';
     const _physique = (_h && _w) ? `${Math.round(_h)}cm, ${Math.round(_w)}kg` : '';
 
-    // ── [3] 바지 기장 로직 ──
-    // 남성: 항상 레귤러 길이 (발목까지)
-    // 여성: 기본(최초 생성) = 레귤러, 다시요청 시 체형에 따라 랜덤 변화
-    // 7부 가능 조건: 여성, BMI < 24(비만 아님), 신장 158cm 이상, 다시요청 횟수 > 0
-    const _is7buCandidate = _isFemale && _bmi < 24 && _h >= 158;
+    // ── [3] 바지 기장 로직 — 사용자 명시 요청 시에만 7부 허용 ──
+    // request7bu: 사용자가 직접 "7부" 요청한 경우만 true (기본 false)
+    const _request7bu = false; // 향후 사용자 입력 UI 연동 시 변경
     let _pantsLengthRule = '';
-    if(!_isFemale){
-      // 남성: 무조건 풀 레귤러
-      _pantsLengthRule = 'PANTS LENGTH (MALE — ABSOLUTE NO EXCEPTIONS): Full regular length only. Hem must reach the ankle bone and rest on top of the shoe. NO cropped, NO 7/8 length, NO ankle-exposed style. This is mandatory.';
-    } else if(!isRetry || !_is7buCandidate){
-      // 여성 기본(최초) 또는 체형 미해당: 레귤러 길이
-      _pantsLengthRule = 'PANTS LENGTH (FEMALE — DEFAULT): Full regular length preferred. Hem reaches the ankle or rests on top of the shoe. Avoid extremely cropped or 7/8 styles for this look.';
+    if(_request7bu){
+      // 사용자 명시 요청 시에만 7부 허용
+      _pantsLengthRule = 'PANTS LENGTH (USER-REQUESTED 7/8): The user has explicitly requested 7/8 length. Generate cropped hem ending mid-calf. Apply faithfully.';
+    } else if(!_isFemale){
+      // 남성: 예외 없이 풀 레귤러
+      _pantsLengthRule = 'PANTS LENGTH (MALE — ABSOLUTE, NO EXCEPTIONS): Full regular length ONLY. Hem at ankle bone, resting on top of the shoe. NO cropped, NO 7/8, NO above-ankle. Overrides all reference images.';
     } else {
-      // 여성 + 다시요청 + 7부 가능 체형: 랜덤 선택
-      const _r = Math.random();
-      if(_r < 0.40){
-        // 40% — 레귤러 (발목)
-        _pantsLengthRule = 'PANTS LENGTH (FEMALE): Full regular length. Hem at ankle level, resting on or just touching the shoe top.';
-      } else if(_r < 0.70){
-        // 30% — 발목 위 약간 (크롭드 아님, 살짝 드러남)
-        _pantsLengthRule = 'PANTS LENGTH (FEMALE): Slightly above-ankle length — approximately 2-3cm above the ankle bone, creating a clean, stylish silhouette. NOT heavily cropped; subtle and elegant.';
-      } else {
-        // 30% — 7부 (크롭드 팬츠)
-        _pantsLengthRule = 'PANTS LENGTH (FEMALE — CROPPED STYLE): 7/8 length (approximately mid-calf to just below the knee). This suits the body proportions. Apply ONLY if the bottom garment design naturally allows it.';
-      }
+      // 여성 (최초·다시요청 무관): 풀 레귤러 강제
+      _pantsLengthRule = 'PANTS LENGTH (FULL REGULAR — MANDATORY): Pants MUST reach full ankle length. Cropped, 7/8, and above-ankle are STRICTLY FORBIDDEN regardless of body type, retry, or style trend. No exceptions.';
     }
 
     // ── Re-generation: 매번 다른 포즈/레이어/신발 ──
@@ -667,7 +656,8 @@ async function generate(isRetry=false){
     const payload={
       user:{ gender:codiProfile.gender||'', ageGroup:codiProfile.ageGroup||'', height:codiProfile.height||'', weight:codiProfile.weight||'' },
       imagePrompt: imagePrompt,
-      isRetry: isRetry,   // ★ 서버 바지 기장 로직에 전달
+      isRetry: isRetry,        // 서버 전달
+      request7bu: _request7bu, // ★ 사용자 명시 7부 요청 여부 (기본 false)
       topPath: ST.top.serverPath,
       bottomPath: ST.bottom.serverPath,
       topDataUrl: ST.top.dataUrl || null,
@@ -852,10 +842,14 @@ async function saveImg(){
   if(!lastImgUrl){ alert('저장할 이미지가 없어요'); return; }
   const _showSaveToast = () => {
     const toast = document.getElementById('csSaveToast');
-    if(toast){
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 800);
-    }
+    if(!toast) return;
+    // show 클래스 추가 → 다음 프레임에서 즉시 제거 → CSS transition이 fade-out
+    toast.classList.add('show');
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        toast.classList.remove('show');
+      });
+    });
   };
   try{
     const r = await fetch(lastImgUrl);
