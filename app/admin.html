@@ -29,7 +29,13 @@
 </style>
 </head>
 <body>
-<div class="gate" id="gate"><div class="gate-box"><h1>CodiBank Admin</h1><p>관리자 비밀번호를 입력하세요</p><input type="password" class="g-in" id="pwIn" placeholder="비밀번호" onkeydown="if(event.key==='Enter')tryLogin()"><button class="g-btn" onclick="tryLogin()">로그인</button><div class="g-err" id="gErr">비밀번호가 올바르지 않습니다</div></div></div>
+<div class="gate" id="gate"><div class="gate-box">
+  <h1>CodiBank Admin</h1><p>관리자 계정으로 로그인하세요</p>
+  <input type="email" class="g-in" id="loginEmail" placeholder="이메일" onkeydown="if(event.key==='Enter')document.getElementById('pwIn').focus()">
+  <input type="password" class="g-in" id="pwIn" placeholder="비밀번호" onkeydown="if(event.key==='Enter')tryLogin()">
+  <button class="g-btn" onclick="tryLogin()">로그인</button>
+  <div class="g-err" id="gErr">이메일 또는 비밀번호가 올바르지 않습니다</div>
+</div></div>
 <div class="page" id="main">
 <div class="top"><h1>CodiBank Admin</h1><div class="top-r"><a href="https://codibank-api.onrender.com/health" target="_blank"><span class="mi">monitor_heart</span>Health</a><button onclick="doLogout()">로그아웃</button></div></div>
 <div class="tabs">
@@ -168,76 +174,112 @@
 </div></div>
 </div>
 
-<!-- ═══ 계정관리 ═══ -->
+<!-- ═══ 계정관리 (MASTER 전용) ═══ -->
 <div class="tp" id="p-acct">
-<div class="sec">
-  <div class="sec-h"><div class="sec-t"><span class="mi">admin_panel_settings</span>관리자 계정 관리</div></div>
-  <div style="background:#fff;border:1px solid #e2e4ea;border-radius:12px;padding:16px;">
-    <div style="margin-bottom:16px;padding:12px 14px;background:#f0faf9;border:1px solid #d0ebe8;border-radius:10px;">
-      <div style="font-size:10px;font-weight:700;color:#0B666A;letter-spacing:.05em;margin-bottom:6px;">현재 관리자 계정</div>
-      <div style="font-size:14px;font-weight:800;color:#071952;">test@codibank.kr</div>
-      <div style="font-size:11px;color:#666;margin-top:2px;">비밀번호: pass1234 · Plan: ADMIN · 포인트: 무한</div>
+
+<!-- 현재 로그인 어드민 정보 -->
+<div class="row" style="margin-bottom:12px;">
+  <div style="background:#f0faf9;border:1px solid #d0ebe8;border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div style="font-size:10px;font-weight:700;color:#0B666A;letter-spacing:.05em;">로그인 계정</div>
+      <div style="font-size:14px;font-weight:800;color:#071952;" id="acCurrentEmail">—</div>
+      <div style="font-size:11px;color:#666;margin-top:2px;" id="acCurrentRole">—</div>
     </div>
-    <div style="font-size:12px;font-weight:700;color:#071952;margin-bottom:10px;">테스트 계정 생성</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;">
-      <div style="flex:1;min-width:140px;">
-        <label style="font-size:10px;color:#888;font-weight:600;">이메일</label>
-        <input id="acNewEmail" placeholder="test@example.com" style="display:block;width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
-      </div>
-      <div style="min-width:100px;">
-        <label style="font-size:10px;color:#888;font-weight:600;">비밀번호</label>
-        <input id="acNewPw" value="pass1234" style="display:block;width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
-      </div>
-      <div style="min-width:80px;">
-        <label style="font-size:10px;color:#888;font-weight:600;">포인트</label>
-        <input id="acNewPts" value="999999" type="number" style="display:block;width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
-      </div>
-      <button onclick="createTestAccount()" style="padding:8px 16px;border:none;border-radius:8px;background:#071952;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">생성</button>
-    </div>
-    <div style="font-size:10px;color:#999;margin-top:6px;">이메일 인증 없이 바로 로그인 가능한 테스트 계정을 생성합니다.</div>
+    <span id="acMasterBadge" style="display:none;background:#071952;color:#fff;font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;">MASTER</span>
   </div>
 </div>
-<div class="sec" style="margin-top:14px;">
-  <div class="sec-h"><div class="sec-t"><span class="mi">list</span>생성된 테스트 계정 목록</div><button class="rb" onclick="renderTestAccounts()"><span class="mi">refresh</span>새로고침</button></div>
+
+<!-- 어드민 목록 (MASTER 전용) -->
+<div class="sec" id="secAdminList">
+  <div class="sec-h">
+    <div class="sec-t"><span class="mi">manage_accounts</span>어드민 계정 목록</div>
+    <button class="rb" onclick="ldAdmins()"><span class="mi">refresh</span>새로고침</button>
+  </div>
   <div class="tw">
-    <table><thead><tr><th>이메일</th><th>비밀번호</th><th>포인트</th><th>Plan</th><th>생성일</th><th>관리</th></tr></thead><tbody id="tAc"></tbody></table>
+    <table>
+      <thead><tr><th>이메일</th><th>이름</th><th>역할</th><th>접근 가능 탭</th><th>생성일</th><th>관리</th></tr></thead>
+      <tbody id="tAdmins"></tbody>
+    </table>
   </div>
 </div>
-<div class="sec" style="margin-top:14px;">
-  <div class="sec-h"><div class="sec-t"><span class="mi">password</span>관리자 비밀번호 변경</div></div>
+
+<!-- 신규 어드민 생성 (MASTER 전용) -->
+<div class="sec" id="secCreateAdmin" style="margin-top:14px;">
+  <div class="sec-h"><div class="sec-t"><span class="mi">person_add</span>신규 어드민 생성</div></div>
   <div style="background:#fff;border:1px solid #e2e4ea;border-radius:12px;padding:16px;">
-    <div style="display:grid;gap:8px;grid-template-columns:1fr 1fr 1fr;margin-bottom:10px;">
+    <div style="display:grid;gap:8px;grid-template-columns:1fr 1fr 1fr;margin-bottom:12px;">
       <div>
-        <label style="font-size:10px;color:#888;font-weight:600;display:block;margin-bottom:3px;">현재 비밀번호</label>
-        <input id="acOldPw" type="password" placeholder="현재 비밀번호" style="width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
+        <label style="font-size:10px;color:#888;font-weight:600;display:block;margin-bottom:3px;">이메일</label>
+        <input id="newAdminEmail" type="email" placeholder="admin@example.com" style="width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
       </div>
       <div>
-        <label style="font-size:10px;color:#888;font-weight:600;display:block;margin-bottom:3px;">새 비밀번호 (4자 이상)</label>
-        <input id="acNewAdminPw" type="password" placeholder="새 비밀번호" style="width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
+        <label style="font-size:10px;color:#888;font-weight:600;display:block;margin-bottom:3px;">이름</label>
+        <input id="newAdminName" placeholder="홍길동" style="width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
       </div>
       <div>
-        <label style="font-size:10px;color:#888;font-weight:600;display:block;margin-bottom:3px;">새 비밀번호 확인</label>
-        <input id="acConfirmAdminPw" type="password" placeholder="재입력" onkeydown="if(event.key==='Enter')changeAdminPw()" style="width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
+        <label style="font-size:10px;color:#888;font-weight:600;display:block;margin-bottom:3px;">초기 비밀번호</label>
+        <input id="newAdminPw" type="password" placeholder="4자 이상" style="width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
       </div>
     </div>
-    <button onclick="changeAdminPw()" style="padding:8px 20px;border:none;border-radius:8px;background:#e53e3e;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">비밀번호 변경</button>
-    <div id="pwHashResult" style="display:none;margin-top:12px;padding:10px 12px;background:#f0faf9;border:1px solid #d0ebe8;border-radius:8px;font-size:11px;color:#0B666A;">
-      <strong style="display:block;margin-bottom:4px;">🔑 Render 환경변수 ADMIN_PW_HASH 값:</strong>
-      <span id="pwHashVal" style="font-family:monospace;word-break:break-all;font-size:10px;color:#333;"></span>
-      <button onclick="navigator.clipboard.writeText(document.getElementById('pwHashVal').textContent).then(()=>toast('복사 완료'))" style="display:block;margin-top:6px;padding:4px 10px;border:1px solid #d0ebe8;border-radius:6px;background:#fff;font-size:10px;cursor:pointer;font-family:inherit;">복사</button>
-      <p style="margin-top:5px;font-size:10px;color:#888;">Render 대시보드 → Environment → ADMIN_PW_HASH에 붙여넣고 재배포하세요.</p>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:10px;font-weight:700;color:#555;margin-bottom:6px;">접근 권한 (탭)</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;" id="newAdminPerms">
+        <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" value="dash" checked> 일반현황</label>
+        <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" value="users" checked> 회원현황</label>
+        <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" value="pay" checked> 결제현황</label>
+        <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" value="closet" checked> 내옷장</label>
+        <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" value="codi" checked> 코디하기</label>
+        <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" value="items" checked> 아이템등록</label>
+      </div>
+    </div>
+    <button onclick="createAdmin()" style="padding:8px 20px;border:none;border-radius:8px;background:#071952;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">어드민 생성</button>
+  </div>
+</div>
+
+<!-- 비밀번호 변경 — ID 선택 후 변경 -->
+<div class="sec" style="margin-top:14px;">
+  <div class="sec-h"><div class="sec-t"><span class="mi">password</span>비밀번호 변경</div></div>
+  <div style="background:#fff;border:1px solid #e2e4ea;border-radius:12px;padding:16px;">
+    <div style="margin-bottom:10px;">
+      <label style="font-size:10px;color:#888;font-weight:600;display:block;margin-bottom:3px;">변경할 계정 선택</label>
+      <select id="pwTargetSelect" onchange="onPwTargetChange()" style="width:100%;max-width:320px;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
+        <option value="">계정을 선택하세요</option>
+      </select>
+    </div>
+    <div id="pwChangeForm" style="display:none;">
+      <div style="display:grid;gap:8px;grid-template-columns:1fr 1fr;margin-bottom:10px;">
+        <div>
+          <label style="font-size:10px;color:#888;font-weight:600;display:block;margin-bottom:3px;">새 비밀번호 (4자 이상)</label>
+          <input id="acNewAdminPw" type="password" placeholder="새 비밀번호" style="width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
+        </div>
+        <div>
+          <label style="font-size:10px;color:#888;font-weight:600;display:block;margin-bottom:3px;">새 비밀번호 확인</label>
+          <input id="acConfirmAdminPw" type="password" placeholder="재입력" onkeydown="if(event.key==='Enter')changeSelectedAdminPw()" style="width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
+        </div>
+      </div>
+      <!-- 자신의 계정 변경 시에만 현재 비밀번호 요구 -->
+      <div id="curPwWrap" style="display:none;margin-bottom:10px;">
+        <label style="font-size:10px;color:#888;font-weight:600;display:block;margin-bottom:3px;">현재 비밀번호 (본인 계정)</label>
+        <input id="acOldPw" type="password" placeholder="현재 비밀번호" style="width:100%;max-width:240px;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
+      </div>
+      <button onclick="changeSelectedAdminPw()" style="padding:8px 20px;border:none;border-radius:8px;background:#e53e3e;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">비밀번호 변경</button>
+      <div id="pwChangeResult" style="display:none;margin-top:10px;padding:8px 12px;border-radius:8px;font-size:11px;"></div>
     </div>
   </div>
 </div>
+
 </div>
 
 </div>
 <div class="toast" id="toast"></div>
 <script src="config.js"></script>
 <script>
-var PW='5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',B=(function(){try{return(window.CODIBANK_CONFIG.backendBase||'https://codibank-api.onrender.com').replace(/\/$/,'')}catch(e){return'https://codibank-api.onrender.com'}})();
+var B=(function(){try{return(window.CODIBANK_CONFIG.backendBase||'https://codibank-api.onrender.com').replace(/\/$/,'')}catch(e){return'https://codibank-api.onrender.com'}})();
 var aU=[],aP=[],aS=[],aI=[],charts={},pgState={U:1,P:1,Cl:1,Cd:1,It:1};
-function K(){return sessionStorage.getItem('cb_admin')||''}
+// 멀티 어드민 상태
+var _ME={email:'',role:'',name:'',permissions:[],hash:''};
+function K(){return _ME.hash||sessionStorage.getItem('cb_admin')||''}
+function isMaster(){return _ME.role==='MASTER'||_ME.role==='';}
 function fd(s){if(!s)return'-';var d=new Date(s);return d.getFullYear()+'.'+(d.getMonth()+1)+'.'+d.getDate()}
 function fdt(s){if(!s)return'-';var d=new Date(s);return d.getFullYear()+'.'+(d.getMonth()+1)+'.'+d.getDate()+' '+d.getHours()+':'+String(d.getMinutes()).padStart(2,'0')}
 function fm(n){return'\u20A9'+Number(n||0).toLocaleString()}
@@ -254,13 +296,71 @@ function paginate(arr,pg,pp){var total=Math.ceil(arr.length/pp)||1;if(pg>total)p
 function mkChart(id,type,labels,datasets,opts){if(charts[id])charts[id].destroy();var ctx=document.getElementById(id);if(!ctx)return;charts[id]=new Chart(ctx,{type:type,data:{labels:labels,datasets:datasets},options:Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:datasets.length>1||type==='doughnut',labels:{font:{size:10}}}},scales:type==='doughnut'?{}:{x:{ticks:{font:{size:9}}},y:{ticks:{font:{size:9}}}}},opts||{})})}
 // Auth
 async function sha256(m){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(m)))).map(function(x){return x.toString(16).padStart(2,'0')}).join('')}
-async function tryLogin(){var h=await sha256(document.getElementById('pwIn').value);if(h===PW){sessionStorage.setItem('cb_admin',h);showMain()}else{document.getElementById('gErr').style.display='block';document.getElementById('pwIn').value=''}}
-function checkAuth(){if(sessionStorage.getItem('cb_admin')===PW)showMain()}
-function showMain(){document.getElementById('gate').style.display='none';document.getElementById('main').style.display='block';ldAll()}
-function doLogout(){sessionStorage.removeItem('cb_admin');location.reload()}
+async function tryLogin(){
+  var em=document.getElementById('loginEmail').value.trim().toLowerCase();
+  var pw=document.getElementById('pwIn').value;
+  if(!em||!pw){document.getElementById('gErr').style.display='block';return;}
+  try{
+    var r=await fetch(B+'/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:em,password:pw})});
+    var d=await r.json();
+    if(!d.ok){document.getElementById('gErr').style.display='block';document.getElementById('pwIn').value='';return;}
+    _ME={email:d.email,role:d.role,name:d.name,permissions:d.permissions,hash:d.hash};
+    sessionStorage.setItem('cb_admin',d.hash);
+    sessionStorage.setItem('cb_admin_me',JSON.stringify(_ME));
+    showMain();
+  }catch(e){
+    // 서버 연결 불가 시 폴백 (기존 단일 비밀번호 방식)
+    var h=await sha256(pw);
+    var fallback=localStorage.getItem('cb_admin_pw')||'5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8';
+    if(h===fallback){
+      _ME={email:em,role:'MASTER',name:'마스터',permissions:['all'],hash:h};
+      sessionStorage.setItem('cb_admin',h);
+      sessionStorage.setItem('cb_admin_me',JSON.stringify(_ME));
+      showMain();
+    } else {
+      document.getElementById('gErr').style.display='block';
+      document.getElementById('pwIn').value='';
+    }
+  }
+}
+function checkAuth(){
+  var saved=sessionStorage.getItem('cb_admin_me');
+  if(saved){try{_ME=JSON.parse(saved);}catch(e){}}
+  if(_ME.hash)showMain();
+}
+function showMain(){
+  document.getElementById('gate').style.display='none';
+  document.getElementById('main').style.display='block';
+  // 현재 계정 정보 표시
+  document.getElementById('acCurrentEmail').textContent=_ME.email||'—';
+  document.getElementById('acCurrentRole').textContent=_ME.role==='MASTER'?'마스터 관리자':'서브 관리자 · '+(_ME.name||'');
+  if(_ME.role==='MASTER')document.getElementById('acMasterBadge').style.display='inline';
+  // 권한에 따른 탭 가시성 제어
+  applyPermissions();
+  ldAll();
+}
+function doLogout(){sessionStorage.removeItem('cb_admin');sessionStorage.removeItem('cb_admin_me');_ME={email:'',role:'',name:'',permissions:[],hash:''};location.reload();}
+function applyPermissions(){
+  var perms=_ME.permissions||[];
+  var hasAll=perms.includes('all')||_ME.role==='MASTER';
+  var tabs={dash:'일반현황',users:'회원현황',pay:'결제현황',closet:'내옷장 추천코디',codi:'코디하기',items:'아이템등록'};
+  document.querySelectorAll('.tab').forEach(function(btn){
+    var fn=btn.getAttribute('onclick')||'';
+    var m=fn.match(/stab\(this,'([^']+)'\)/);
+    if(!m)return;
+    var t=m[1];
+    if(t==='acct'){btn.style.display=_ME.role==='MASTER'?'':'none';return;}
+    btn.style.display=(hasAll||perms.includes(t))?'':'none';
+  });
+  // 계정관리 섹션 마스터 전용
+  if(_ME.role!=='MASTER'){
+    var s=document.getElementById('secAdminList');if(s)s.style.display='none';
+    var s2=document.getElementById('secCreateAdmin');if(s2)s2.style.display='none';
+  }
+}
 function stab(el,n){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on')});document.querySelectorAll('.tp').forEach(function(p){p.classList.remove('on')});el.classList.add('on');document.getElementById('p-'+n).classList.add('on')}
 function toast(m,e){var el=document.getElementById('toast');el.textContent=m;el.className='toast show'+(e?' err':'');setTimeout(function(){el.className='toast'},3000)}
-function ldAll(){ldH();ldU();ldP();ldS();ldI()}
+function ldAll(){ldH();ldU();ldP();ldS();ldI();if(isMaster())ldAdmins();}
 // Health
 async function ldH(){try{var r=await fetch(B+'/health');var j=await r.json();kpi('kServer',j.ok?'ONLINE':'ERROR',new Date().toLocaleTimeString())}catch(e){kpi('kServer','OFFLINE','연결실패')}}
 // Users
@@ -316,96 +416,162 @@ function renderIt(){var q=document.getElementById('qIt').value.toLowerCase(),s=d
 if(!pg.data.length){document.getElementById('tIt').innerHTML='<tr><td colspan="5" class="empty">아이템 없음</td></tr>';return}
 var h='';pg.data.forEach(function(x){var img=x.image_url?'<img src="'+x.image_url+'" style="width:28px;height:28px;border-radius:5px;object-fit:cover">':'-';h+='<tr><td style="font-weight:600;color:#071952">'+x.email+'</td><td><span class="badge b-pt">'+(CN[x.category]||x.category)+'</span></td><td>'+img+'</td><td>'+(x.item_name||'-')+'</td><td>'+fd(x.created_at)+'</td></tr>'});document.getElementById('tIt').innerHTML=h}
 function pgIt2(d){pgState.It+=d;renderIt()}
-// ═══ 계정관리 ═══
-function createTestAccount(){
-  var em=document.getElementById('acNewEmail').value.trim().toLowerCase();
-  var pw=document.getElementById('acNewPw').value.trim();
-  var pts=parseInt(document.getElementById('acNewPts').value)||999999;
-  if(!em||!em.includes('@')){toast('이메일을 입력하세요',true);return;}
-  if(!pw){toast('비밀번호를 입력하세요',true);return;}
+// ═══ 계정관리 (멀티 어드민) ═══
+async function ldAdmins(){
+  var tbody=document.getElementById('tAdmins');
+  if(!tbody)return;
+  tbody.innerHTML='<tr><td colspan="6" class="ld"><span class="sp"></span></td></tr>';
   try{
-    var key='codibank_users';
-    var users=JSON.parse(localStorage.getItem(key)||'{}');
-    users[em]={email:em,password:pw,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),plan:'ADMIN',gender:'M',ageGroup:'30s',height:175,weight:70,nickname:em.split('@')[0],isTestAccount:true};
-    localStorage.setItem(key,JSON.stringify(users));
-    localStorage.setItem('cb_points_'+em,String(pts));
-    localStorage.setItem('cb_sub_'+em,'subB');
-    toast('✅ '+em+' 계정 생성 완료');
-    document.getElementById('acNewEmail').value='';
-    renderTestAccounts();
-  }catch(e){toast('생성 실패: '+e,true);}
-}
-function renderTestAccounts(){
-  var tbody=document.getElementById('tAc');
-  try{
-    var users=JSON.parse(localStorage.getItem('codibank_users')||'{}');
-    var rows=[];
-    Object.keys(users).forEach(function(em){
-      var u=users[em];
-      if(u.plan==='ADMIN'||u.isTestAccount){
-        var pts=localStorage.getItem('cb_points_'+em)||'0';
-        rows.push({email:em,pw:u.password||'?',pts:pts,plan:u.plan||'FREE',date:u.createdAt||''});
-      }
-    });
-    if(!rows.length){tbody.innerHTML='<tr><td colspan="6" class="empty">테스트 계정 없음</td></tr>';return;}
+    var r=await fetch(B+'/admin/admins',{headers:{'X-Admin-Key':K()}});
+    var d=await r.json();
+    if(!d.ok){tbody.innerHTML='<tr><td colspan="6" class="empty">'+d.error+'</td></tr>';return;}
+    var admins=d.admins||[];
+    // 비밀번호 변경 드롭다운 갱신
+    buildPwSelect(admins);
+    if(!admins.length){tbody.innerHTML='<tr><td colspan="6" class="empty">어드민 없음</td></tr>';return;}
+    var TAB_NAMES={dash:'일반현황',users:'회원현황',pay:'결제현황',closet:'내옷장',codi:'코디하기',items:'아이템등록'};
     var h='';
-    rows.forEach(function(r){
-      h+='<tr><td style="font-weight:600;color:#071952">'+r.email+'</td><td>'+r.pw+'</td><td style="font-weight:700;color:#0B666A">'+Number(r.pts).toLocaleString()+'P</td><td><span class="badge b-sub">'+r.plan+'</span></td><td>'+fd(r.date)+'</td><td>'+(r.email==='test@codibank.kr'?'<span style="font-size:10px;color:#999;">기본</span>':'<button class="ab del" onclick="delTestAccount(\''+r.email+'\')">삭제</button>')+'</td></tr>';
+    admins.forEach(function(a){
+      var perms=a.permissions||[];
+      var permTxt=perms.includes('all')?'전체':perms.map(function(p){return TAB_NAMES[p]||p}).join(', ');
+      var roleBadge=a.role==='MASTER'?'<span class="badge b-sub">MASTER</span>':'<span class="badge b-pt">SUB</span>';
+      var delBtn=a.role==='MASTER'?'<span style="font-size:10px;color:#999">마스터</span>':'<button class="ab del" onclick="delAdmin(''+a.email+'')">삭제</button>';
+      var editBtn='<button class="ab" onclick="openPermEdit(''+a.email+'',''+a.name+'','+JSON.stringify(a.permissions)+')" style="margin-right:4px">권한수정</button>';
+      h+='<tr><td style="font-weight:600;color:#071952">'+a.email+'</td><td>'+a.name+'</td><td>'+roleBadge+'</td><td style="font-size:10px;color:#555">'+permTxt+'</td><td>'+fd(a.created_at)+'</td><td>'+editBtn+delBtn+'</td></tr>';
     });
     tbody.innerHTML=h;
-  }catch(e){tbody.innerHTML='<tr><td colspan="6" class="empty">오류</td></tr>';}
+  }catch(e){tbody.innerHTML='<tr><td colspan="6" class="empty">로드 실패: '+e.message+'</td></tr>';}
 }
-function delTestAccount(em){
-  if(!confirm('"'+em+'" 삭제?'))return;
-  if(em==='test@codibank.kr'){toast('기본 관리자는 삭제할 수 없습니다',true);return;}
-  try{
-    var users=JSON.parse(localStorage.getItem('codibank_users')||'{}');
-    delete users[em];
-    localStorage.setItem('codibank_users',JSON.stringify(users));
-    localStorage.removeItem('cb_points_'+em);
-    localStorage.removeItem('cb_sub_'+em);
-    toast(em+' 삭제 완료');
-    renderTestAccounts();
-  }catch(e){toast('삭제 실패',true);}
-}
-async function changeAdminPw(){
-  var old=document.getElementById('acOldPw').value;
-  var nw=document.getElementById('acNewAdminPw').value;
-  var conf=document.getElementById('acConfirmAdminPw')?document.getElementById('acConfirmAdminPw').value:nw;
-  if(!old||!nw){toast('비밀번호를 입력하세요',true);return;}
-  if(nw.length<4){toast('비밀번호 4자 이상',true);return;}
-  if(nw!==conf){toast('새 비밀번호가 일치하지 않습니다',true);return;}
-  var h=await sha256(old);
-  if(h!==PW){toast('현재 비밀번호가 틀립니다',true);return;}
-  // 서버 API 호출 (mock_backend.py /admin/change-password)
-  try{
-    var r=await fetch(B+'/admin/change-password',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-Admin-Key':h},
-      body:JSON.stringify({currentPassword:old,newPassword:nw,confirmPassword:conf})
-    });
-    var d=await r.json();
-    if(!d.ok){toast('서버 오류: '+(d.error||r.status),true);return;}
-  }catch(e){
-    // 서버 연결 실패 시 로컬만 저장 (오프라인 대응)
-    console.warn('서버 PW 변경 실패, 로컬만 저장:', e.message);
+function buildPwSelect(admins){
+  var sel=document.getElementById('pwTargetSelect');
+  if(!sel)return;
+  var opts='<option value="">계정을 선택하세요</option>';
+  (admins||[]).forEach(function(a){
+    opts+='<option value="'+a.email+'">'+a.email+' ('+( a.role==='MASTER'?'MASTER':'SUB')+')</option>';
+  });
+  // 자신의 계정이 없으면 추가
+  if(_ME.email&&!(admins||[]).find(function(a){return a.email===_ME.email;})){
+    opts+='<option value="'+_ME.email+'">'+_ME.email+' (나)</option>';
   }
-  var nh=await sha256(nw);
-  PW=nh;
-  sessionStorage.setItem('cb_admin',PW);
-  localStorage.setItem('cb_admin_pw',PW);
-  // 새 해시 표시
-  var hd=document.getElementById('pwHashResult');
-  if(hd){hd.style.display='block';document.getElementById('pwHashVal').textContent=nh;}
-  toast('✅ 비밀번호 변경 완료. Render 환경변수 ADMIN_PW_HASH도 업데이트하세요');
-  document.getElementById('acOldPw').value='';
-  document.getElementById('acNewAdminPw').value='';
-  if(document.getElementById('acConfirmAdminPw'))document.getElementById('acConfirmAdminPw').value='';
+  sel.innerHTML=opts;
 }
-// 저장된 비밀번호 복원
+function onPwTargetChange(){
+  var sel=document.getElementById('pwTargetSelect');
+  var form=document.getElementById('pwChangeForm');
+  var curWrap=document.getElementById('curPwWrap');
+  if(!sel.value){form.style.display='none';return;}
+  form.style.display='block';
+  // 자신의 계정 변경이면 현재 비밀번호 필요 (MASTER가 타인 변경은 불필요)
+  var isSelf=(sel.value===_ME.email);
+  var isSubChangingSelf=(_ME.role!=='MASTER'&&isSelf);
+  curWrap.style.display=(isSubChangingSelf||isSelf)?'block':'none';
+}
+async function createAdmin(){
+  var em=document.getElementById('newAdminEmail').value.trim().toLowerCase();
+  var name=document.getElementById('newAdminName').value.trim();
+  var pw=document.getElementById('newAdminPw').value;
+  var perms=[];
+  document.querySelectorAll('#newAdminPerms input[type=checkbox]:checked').forEach(function(cb){perms.push(cb.value);});
+  if(!em||!pw){toast('이메일과 비밀번호를 입력하세요',true);return;}
+  if(pw.length<4){toast('비밀번호 4자 이상',true);return;}
+  try{
+    var r=await fetch(B+'/admin/admins',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Key':K()},body:JSON.stringify({email:em,password:pw,name:name||em,permissions:perms})});
+    var d=await r.json();
+    if(d.ok){toast('✅ '+em+' 어드민 생성 완료');document.getElementById('newAdminEmail').value='';document.getElementById('newAdminName').value='';document.getElementById('newAdminPw').value='';ldAdmins();}
+    else toast('생성 실패: '+d.error,true);
+  }catch(e){toast('오류: '+e.message,true);}
+}
+async function delAdmin(em){
+  if(!confirm('"'+em+'" 어드민을 삭제하시겠습니까?'))return;
+  try{
+    var r=await fetch(B+'/admin/admins/'+encodeURIComponent(em),{method:'DELETE',headers:{'X-Admin-Key':K()}});
+    var d=await r.json();
+    if(d.ok){toast(em+' 삭제 완료');ldAdmins();}
+    else toast('삭제 실패: '+d.error,true);
+  }catch(e){toast('오류: '+e.message,true);}
+}
+function openPermEdit(email,name,curPerms){
+  var ALL=['dash','users','pay','closet','codi','items'];
+  var NAMES={dash:'일반현황',users:'회원현황',pay:'결제현황',closet:'내옷장',codi:'코디하기',items:'아이템등록'};
+  var hasAll=curPerms.includes('all');
+  var boxes=ALL.map(function(t){
+    var chk=(hasAll||curPerms.includes(t))?'checked':'';
+    return '<label style="font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer;margin-bottom:6px;"><input type="checkbox" value="'+t+'" '+chk+'> '+NAMES[t]+'</label>';
+  }).join('');
+  var html='<div style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;">'
+    +'<div style="background:#fff;border-radius:14px;padding:24px;width:300px;box-shadow:0 8px 30px rgba(0,0,0,0.15);">'
+    +'<div style="font-size:13px;font-weight:700;color:#071952;margin-bottom:4px;">권한 수정</div>'
+    +'<div style="font-size:11px;color:#888;margin-bottom:14px;">'+email+'</div>'
+    +'<div id="permBoxes">'+boxes+'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:14px;">'
+    +'<button onclick="savePermEdit(''+email+'')" style="flex:1;padding:9px;border:none;border-radius:8px;background:#071952;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">저장</button>'
+    +'<button onclick="document.getElementById('permModal').remove()" style="flex:1;padding:9px;border:1px solid #dde0e8;border-radius:8px;background:#fff;font-size:12px;cursor:pointer;">취소</button>'
+    +'</div></div></div>';
+  var el=document.createElement('div');el.id='permModal';el.innerHTML=html;
+  document.body.appendChild(el);
+}
+async function savePermEdit(email){
+  var perms=[];
+  document.querySelectorAll('#permBoxes input:checked').forEach(function(cb){perms.push(cb.value);});
+  try{
+    var r=await fetch(B+'/admin/admins/'+encodeURIComponent(email),{method:'PUT',headers:{'Content-Type':'application/json','X-Admin-Key':K()},body:JSON.stringify({permissions:perms})});
+    var d=await r.json();
+    if(d.ok){toast('✅ 권한 저장 완료');document.getElementById('permModal').remove();ldAdmins();}
+    else toast('저장 실패: '+d.error,true);
+  }catch(e){toast('오류: '+e.message,true);}
+}
+async function changeSelectedAdminPw(){
+  var targetEmail=document.getElementById('pwTargetSelect').value;
+  var nw=document.getElementById('acNewAdminPw').value;
+  var conf=document.getElementById('acConfirmAdminPw').value;
+  var old=document.getElementById('acOldPw').value;
+  var isSelf=(targetEmail===_ME.email);
+  if(!targetEmail){toast('변경할 계정을 선택하세요',true);return;}
+  if(!nw||!conf){toast('새 비밀번호를 입력하세요',true);return;}
+  if(nw!==conf){toast('새 비밀번호가 일치하지 않습니다',true);return;}
+  if(nw.length<4){toast('비밀번호 4자 이상',true);return;}
+  var result=document.getElementById('pwChangeResult');
+  result.style.display='none';
+  try{
+    var payload={newPassword:nw,confirmPassword:conf};
+    if(isSelf){
+      // 본인 비밀번호 변경 → /admin/change-password 사용
+      if(!old){toast('현재 비밀번호를 입력하세요',true);return;}
+      payload.currentPassword=old;
+      var r=await fetch(B+'/admin/change-password',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Key':K()},body:JSON.stringify(payload)});
+      var d=await r.json();
+      if(!d.ok){toast('변경 실패: '+d.error,true);return;}
+      // 세션 키 갱신
+      var nh=await sha256(nw);
+      _ME.hash=nh;
+      sessionStorage.setItem('cb_admin',nh);
+      sessionStorage.setItem('cb_admin_me',JSON.stringify(_ME));
+    } else {
+      // 타인 비밀번호 변경 (MASTER 전용) → /admin/admins/<email> PUT
+      var r=await fetch(B+'/admin/admins/'+encodeURIComponent(targetEmail),{method:'PUT',headers:{'Content-Type':'application/json','X-Admin-Key':K()},body:JSON.stringify({newPassword:nw})});
+      var d=await r.json();
+      if(!d.ok){toast('변경 실패: '+d.error,true);return;}
+    }
+    result.style.display='block';
+    result.style.background='#f0faf9';result.style.border='1px solid #d0ebe8';result.style.color='#0B666A';
+    result.textContent='✅ '+targetEmail+' 비밀번호가 즉시 변경되었습니다.';
+    document.getElementById('acNewAdminPw').value='';
+    document.getElementById('acConfirmAdminPw').value='';
+    document.getElementById('acOldPw').value='';
+    document.getElementById('pwTargetSelect').value='';
+    document.getElementById('pwChangeForm').style.display='none';
+    toast('✅ 비밀번호 변경 완료');
+  }catch(e){toast('오류: '+e.message,true);}
+}
+// 레거시 함수 (사용 안하지만 호환성 유지)
+function createTestAccount(){}
+function renderTestAccounts(){}
+function delTestAccount(){}
+async function changeAdminPw(){}
+// 저장된 세션 복원
 (function(){
-  var saved=localStorage.getItem('cb_admin_pw');
-  if(saved){PW=saved;}
+  var saved=sessionStorage.getItem('cb_admin_me');
+  if(saved){try{_ME=JSON.parse(saved);}catch(e){}}
   checkAuth();
 })();
 </script>
