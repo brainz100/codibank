@@ -2,279 +2,412 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>CodiBank 관리자</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Outfit:wght@700;900&display=swap" rel="stylesheet"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>CodiBank Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Noto Sans KR',sans-serif;background:#07132a;color:#fff;min-height:100vh}
-.admin-login{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px}
-.login-card{width:100%;max-width:360px;background:rgba(13,31,60,0.9);border:1px solid rgba(151,254,237,0.15);border-radius:20px;padding:32px 28px}
-.login-title{font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;color:#97FEED;margin-bottom:6px}
-.login-sub{font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:24px}
-.field{margin-bottom:14px}
-.field label{display:block;font-size:11px;font-weight:700;color:rgba(151,254,237,0.7);margin-bottom:5px}
-.field input{width:100%;padding:11px 14px;border-radius:10px;border:1px solid rgba(151,254,237,0.2);background:rgba(7,25,82,0.8);color:#fff;font-size:14px;font-family:inherit;outline:none}
-.field input:focus{border-color:rgba(151,254,237,0.5)}
-.btn-primary{width:100%;padding:13px;border-radius:12px;background:linear-gradient(135deg,#0B666A,#35A29F);border:none;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
-.err-msg{font-size:12px;color:#fca5a5;margin-top:8px;text-align:center}
-.dashboard{display:none;max-width:900px;margin:0 auto;padding:24px 18px}
-.dash-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px}
-.dash-title{font-family:'Outfit',sans-serif;font-size:24px;font-weight:900;color:#97FEED}
-.btn-logout{padding:8px 16px;border-radius:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
-.tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
-.tab{padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid rgba(151,254,237,0.15);background:transparent;color:rgba(255,255,255,0.5);font-family:inherit;transition:.15s}
-.tab.on{background:rgba(53,162,159,0.2);border-color:rgba(53,162,159,0.4);color:#97FEED}
-.card{background:rgba(13,31,60,0.8);border:1px solid rgba(151,254,237,0.1);border-radius:16px;padding:20px;margin-bottom:16px}
-.card-title{font-size:14px;font-weight:700;color:#97FEED;margin-bottom:14px}
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
-.stat-box{background:rgba(53,162,159,0.08);border:1px solid rgba(53,162,159,0.15);border-radius:12px;padding:14px;text-align:center}
-.stat-num{font-size:26px;font-weight:900;color:#97FEED;line-height:1}
-.stat-label{font-size:11px;color:rgba(255,255,255,0.45);margin-top:4px}
-.user-table{width:100%;border-collapse:collapse;font-size:12px}
-.user-table th{background:rgba(53,162,159,0.15);color:#97FEED;font-weight:700;padding:8px 10px;text-align:left;border-bottom:1px solid rgba(151,254,237,0.1)}
-.user-table td{padding:8px 10px;border-bottom:1px solid rgba(151,254,237,0.06);color:rgba(255,255,255,0.75);vertical-align:middle}
-.plan-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px}
-.plan-free{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5)}
-.plan-silver{background:rgba(192,192,192,0.15);color:#C0C0C0}
-.plan-gold{background:rgba(255,215,0,0.15);color:#FFD700}
-.plan-diamond{background:rgba(185,242,255,0.15);color:#B9F2FF}
-.btn-del{padding:4px 10px;border-radius:7px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#fca5a5;font-size:11px;cursor:pointer;font-family:inherit}
-.pw-section{max-width:420px}
-.pw-result{margin-top:10px;padding:10px 14px;border-radius:10px;font-size:12px;display:none;line-height:1.6}
-.pw-result.ok{background:rgba(53,162,159,0.15);border:1px solid rgba(53,162,159,0.3);color:#97FEED}
-.pw-result.err{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5}
-.hash-display{margin-top:10px;padding:12px;border-radius:8px;background:rgba(0,0,0,0.3);border:1px solid rgba(151,254,237,0.1);font-size:11px;color:rgba(255,255,255,0.5);word-break:break-all;display:none}
-.hash-display strong{display:block;color:#97FEED;margin-bottom:6px;font-size:12px}
-.loading{text-align:center;padding:30px;color:rgba(255,255,255,0.35);font-size:13px}
-.section-tab{display:none}
-.section-tab.on{display:block}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{min-height:100dvh;background:#f5f6fa;color:#1a1a2e;font-family:'Inter','Noto Sans KR',sans-serif;font-size:13px}.mi{font-family:'Material Symbols Outlined';font-variation-settings:'FILL' 0,'wght' 300}
+.gate{display:flex;align-items:center;justify-content:center;min-height:100dvh}.gate-box{max-width:340px;width:100%;background:#fff;border:1px solid #e2e4ea;border-radius:20px;padding:32px 24px;text-align:center;box-shadow:0 4px 20px rgba(7,25,82,.05)}.gate-box h1{font-size:18px;font-weight:800;color:#071952;margin-bottom:4px}.gate-box p{font-size:11px;color:#888;margin-bottom:20px}.g-in{width:100%;padding:11px 14px;border:1.5px solid #dde0e8;border-radius:10px;background:#f8f9fc;color:#1a1a2e;font-size:13px;font-family:inherit;outline:none;margin-bottom:10px}.g-in:focus{border-color:#35A29F}.g-btn{width:100%;padding:12px;border:none;border-radius:10px;background:#071952;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}.g-err{color:#e53e3e;font-size:11px;margin-top:6px;display:none}
+.page{max-width:1200px;margin:0 auto;padding:16px 16px 60px;display:none}.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #e2e4ea}.top h1{font-size:17px;font-weight:800;color:#071952}.top-r{display:flex;gap:6px;align-items:center}.top-r a,.top-r button{font-size:11px;color:#888;padding:5px 12px;border-radius:7px;border:1px solid #dde0e8;background:#fff;font-family:inherit;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:3px}.top-r .mi{font-size:14px}
+.tabs{display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid #e2e4ea;overflow-x:auto;-webkit-overflow-scrolling:touch}.tab{padding:8px 14px;font-size:11px;font-weight:600;color:#999;cursor:pointer;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;background:none;font-family:inherit;white-space:nowrap}.tab.on{color:#071952;border-bottom-color:#35A29F}.tp{display:none}.tp.on{display:block}
+.row{display:grid;gap:10px;margin-bottom:14px}.r2{grid-template-columns:1fr 1fr}.r3{grid-template-columns:1fr 1fr 1fr}.r4{grid-template-columns:1fr 1fr 1fr 1fr}@media(max-width:768px){.r2,.r3,.r4{grid-template-columns:1fr 1fr}}@media(max-width:480px){.r2,.r3,.r4{grid-template-columns:1fr}}
+.kpi{background:#fff;border:1px solid #e2e4ea;border-radius:12px;padding:14px 16px}.kpi-l{font-size:9px;font-weight:700;color:#999;letter-spacing:.04em;text-transform:uppercase;margin-bottom:3px}.kpi-v{font-size:22px;font-weight:800;color:#071952}.kpi-s{font-size:10px;color:#aaa;margin-top:1px}.kpi.g .kpi-v{color:#0B666A}.kpi.r .kpi-v{color:#e53e3e}
+.chart-box{background:#fff;border:1px solid #e2e4ea;border-radius:12px;padding:14px}.chart-box h3{font-size:11px;font-weight:700;color:#071952;margin-bottom:8px}.chart-wrap{position:relative;height:220px}
+.sec{margin-bottom:16px}.sec-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px}.sec-t{font-size:12px;font-weight:700;color:#071952;display:flex;align-items:center;gap:4px}.sec-t .mi{font-size:15px;color:#35A29F;font-variation-settings:'FILL' 1}
+.tw{overflow-x:auto;background:#fff;border:1px solid #e2e4ea;border-radius:10px}table{width:100%;border-collapse:collapse;font-size:11px}th{background:#f8f9fc;padding:7px 10px;text-align:left;font-weight:600;color:#666;border-bottom:1px solid #e2e4ea;white-space:nowrap}td{padding:7px 10px;border-bottom:1px solid #f2f3f6;color:#333}tr:last-child td{border-bottom:none}tr:hover td{background:#fafbfd}
+.cb{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid #e2e4ea;flex-wrap:wrap;align-items:center}.cb input,.cb select{padding:6px 9px;border:1.5px solid #e2e4ea;border-radius:7px;background:#f8f9fc;color:#333;font-size:11px;font-family:inherit;outline:none}.cb input{flex:1;min-width:120px}.cb input:focus{border-color:#35A29F}.cb select{min-width:80px}
+.ab{padding:3px 8px;border:1px solid #dde0e8;border-radius:6px;background:#fff;color:#666;font-size:10px;cursor:pointer;font-family:inherit}.ab.del:hover{border-color:#e53e3e;color:#e53e3e}
+.rb{padding:3px 10px;border:1px solid #dde0e8;border-radius:7px;background:#fff;color:#888;font-size:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:3px}.rb:hover{color:#071952}.rb .mi{font-size:13px}
+.badge{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:9999px}.b-free{background:#f0f1f5;color:#666}.b-pt{background:#e6f7f1;color:#0B666A}.b-sub{background:#e6f0fb;color:#1a5fb4}.b-ok{background:#e6f7f1;color:#0B666A}.b-err{background:#fde8e8;color:#e53e3e}.b-w{background:#fff8e6;color:#c17b00}.b-m{background:#e6f0fb;color:#1a5fb4}.b-f{background:#fce6f4;color:#b41a6a}
+.toast{position:fixed;top:14px;left:50%;transform:translateX(-50%) translateY(-80px);z-index:9999;background:#071952;border-radius:10px;padding:8px 18px;font-size:12px;font-weight:600;color:#fff;opacity:0;transition:all .3s;pointer-events:none}.toast.show{transform:translateX(-50%) translateY(0);opacity:1}.toast.err{background:#e53e3e}
+.ld{text-align:center;padding:16px;color:#aaa;font-size:11px}@keyframes spin{to{transform:rotate(360deg)}}.sp{display:inline-block;width:12px;height:12px;border:2px solid #dde0e8;border-top-color:#35A29F;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:4px}
+.empty{text-align:center;padding:16px;color:#aaa;font-size:11px}.empty a{color:#35A29F;font-weight:600}
+.pager{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-top:1px solid #e2e4ea;font-size:11px;color:#888}.pager select{padding:3px 6px;border:1px solid #e2e4ea;border-radius:5px;font-size:11px;font-family:inherit}.pager button{padding:3px 10px;border:1px solid #e2e4ea;border-radius:5px;background:#fff;font-size:11px;cursor:pointer;font-family:inherit}.pager button:disabled{opacity:.3;cursor:default}
+.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin-top:12px}.lk{display:flex;align-items:center;gap:6px;padding:9px 10px;background:#fff;border:1px solid #e2e4ea;border-radius:9px;text-decoration:none;color:#333;font-size:10px;font-weight:600}.lk:hover{border-color:#35A29F}.lk .mi{font-size:16px;color:#071952;font-variation-settings:'FILL' 1}
 </style>
 </head>
 <body>
-
-<div class="admin-login" id="loginScreen">
-  <div class="login-card">
-    <div class="login-title">CodiBank Admin</div>
-    <div class="login-sub">관리자 전용 페이지입니다</div>
-    <div class="field">
-      <label>관리자 비밀번호</label>
-      <input type="password" id="loginPw" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')doLogin()"/>
-    </div>
-    <button class="btn-primary" onclick="doLogin()">로그인</button>
-    <div class="err-msg" id="loginErr"></div>
-  </div>
+<div class="gate" id="gate"><div class="gate-box"><h1>CodiBank Admin</h1><p>관리자 비밀번호를 입력하세요</p><input type="password" class="g-in" id="pwIn" placeholder="비밀번호" onkeydown="if(event.key==='Enter')tryLogin()"><button class="g-btn" onclick="tryLogin()">로그인</button><div class="g-err" id="gErr">비밀번호가 올바르지 않습니다</div></div></div>
+<div class="page" id="main">
+<div class="top"><h1>CodiBank Admin</h1><div class="top-r"><a href="https://codibank-api.onrender.com/health" target="_blank"><span class="mi">monitor_heart</span>Health</a><button onclick="doLogout()">로그아웃</button></div></div>
+<div class="tabs">
+<button class="tab on" onclick="stab(this,'dash')">일반현황</button>
+<button class="tab" onclick="stab(this,'users')">회원현황</button>
+<button class="tab" onclick="stab(this,'pay')">결제현황</button>
+<button class="tab" onclick="stab(this,'closet')">내옷장 추천코디</button>
+<button class="tab" onclick="stab(this,'codi')">코디하기</button>
+<button class="tab" onclick="stab(this,'items')">아이템등록</button>
+<button class="tab" onclick="stab(this,'acct')">계정관리</button>
 </div>
 
-<div class="dashboard" id="dashScreen">
-  <div class="dash-header">
-    <div class="dash-title">CodiBank Admin</div>
-    <button class="btn-logout" onclick="doLogout()">로그아웃</button>
-  </div>
-  <div class="tabs">
-    <button class="tab on" onclick="switchTab('stats',this)">통계</button>
-    <button class="tab" onclick="switchTab('users',this)">회원관리</button>
-    <button class="tab" onclick="switchTab('security',this)">보안설정</button>
-  </div>
+<!-- ═══ 일반현황 ═══ -->
+<div class="tp on" id="p-dash">
+<div class="row r4">
+<div class="kpi" id="kServer"><div class="kpi-l">서버</div><div class="kpi-v">—</div><div class="kpi-s">확인 중</div></div>
+<div class="kpi" id="kUsers"><div class="kpi-l">전체 회원</div><div class="kpi-v">—</div><div class="kpi-s">누적</div></div>
+<div class="kpi" id="kToday"><div class="kpi-l">오늘 가입</div><div class="kpi-v">0</div><div class="kpi-s">명</div></div>
+<div class="kpi" id="kRevenue"><div class="kpi-l">총 매출</div><div class="kpi-v">₩0</div><div class="kpi-s">누적</div></div>
+</div>
+<div class="row r4">
+<div class="kpi" id="kPayCnt"><div class="kpi-l">총 결제</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="kpi" id="kCloset"><div class="kpi-l">내옷장 코디</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="kpi" id="kCodi"><div class="kpi-l">코디하기</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="kpi" id="kItem"><div class="kpi-l">아이템 등록</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+</div>
+<div class="row r2">
+<div class="chart-box"><h3>회원 가입 추이 (월별)</h3><div class="chart-wrap"><canvas id="chUserMonth"></canvas></div></div>
+<div class="chart-box"><h3>매출 추이 (월별)</h3><div class="chart-wrap"><canvas id="chRevMonth"></canvas></div></div>
+</div>
+<div class="row r2">
+<div class="chart-box"><h3>스타일링 이용 (월별)</h3><div class="chart-wrap"><canvas id="chStyleMonth"></canvas></div></div>
+<div class="chart-box"><h3>아이템 등록 (카테고리별)</h3><div class="chart-wrap"><canvas id="chItemCat"></canvas></div></div>
+</div>
+<div class="row r2">
+<div class="chart-box"><h3>회원 성별 비율</h3><div class="chart-wrap"><canvas id="chGender"></canvas></div></div>
+<div class="chart-box"><h3>회원 구분 비율</h3><div class="chart-wrap"><canvas id="chPlan"></canvas></div></div>
+</div>
+<div class="links">
+<a class="lk" href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/auth/users" target="_blank"><span class="mi">shield_person</span>Supabase</a>
+<a class="lk" href="https://dashboard.render.com" target="_blank"><span class="mi">cloud</span>Render</a>
+<a class="lk" href="https://dash.cloudflare.com" target="_blank"><span class="mi">cloud_upload</span>R2</a>
+<a class="lk" href="https://vercel.com/dashboard" target="_blank"><span class="mi">rocket_launch</span>Vercel</a>
+</div>
+</div>
 
-  <div class="section-tab on" id="tab-stats">
-    <div class="card">
-      <div class="card-title">서비스 현황</div>
-      <div class="stat-grid">
-        <div class="stat-box"><div class="stat-num" id="statUsers">—</div><div class="stat-label">총 회원수</div></div>
-        <div class="stat-box"><div class="stat-num" id="statStyleCnt">—</div><div class="stat-label">총 스타일링</div></div>
-        <div class="stat-box"><div class="stat-num" id="statRevenue">—</div><div class="stat-label">총 매출(원)</div></div>
-        <div class="stat-box"><div class="stat-num" id="statItems">—</div><div class="stat-label">등록 아이템</div></div>
-        <div class="stat-box"><div class="stat-num" id="statGemini" style="font-size:14px">—</div><div class="stat-label">Gemini 모델</div></div>
-        <div class="stat-box"><div class="stat-num" id="statR2" style="font-size:14px">—</div><div class="stat-label">R2 스토리지</div></div>
+<!-- ═══ 회원현황 ═══ -->
+<div class="tp" id="p-users">
+<div class="row r4">
+<div class="kpi" id="kuTotal"><div class="kpi-l">전체</div><div class="kpi-v">—</div><div class="kpi-s">명</div></div>
+<div class="kpi" id="kuMonth"><div class="kpi-l">이번 달</div><div class="kpi-v">0</div><div class="kpi-s">명</div></div>
+<div class="kpi" id="kuWeek"><div class="kpi-l">이번 주</div><div class="kpi-v">0</div><div class="kpi-s">명</div></div>
+<div class="kpi" id="kuToday"><div class="kpi-l">오늘</div><div class="kpi-v">0</div><div class="kpi-s">명</div></div>
+</div>
+<div class="row r2">
+<div class="chart-box"><h3>월별 가입 추이</h3><div class="chart-wrap"><canvas id="chU2"></canvas></div></div>
+<div class="chart-box"><h3>성별 / 회원구분</h3><div class="chart-wrap"><canvas id="chU3"></canvas></div></div>
+</div>
+<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">group</span>회원 목록</div><button class="rb" onclick="ldU()"><span class="mi">refresh</span>새로고침</button></div>
+<div class="tw"><div class="cb"><input id="qU" placeholder="이메일 검색..." oninput="fU()"><select id="sU" onchange="fU()"><option value="c_d">가입일 최신순</option><option value="c_a">가입일 오래된순</option><option value="l_d">최근로그인순</option><option value="e_a">이메일순</option></select></div>
+<table><thead><tr><th>회원ID</th><th>가입일</th><th>최근로그인</th><th>회원구분</th><th>성별</th><th>상태</th><th>관리</th></tr></thead><tbody id="tU"></tbody></table>
+<div class="pager" id="pgU"><span></span><span><button onclick="pgU(-1)">◀</button> <span id="pgUt">1/1</span> <button onclick="pgU(1)">▶</button> <select id="ppU" onchange="fU()"><option>20</option><option>50</option><option>100</option></select>건</span></div>
+</div></div>
+</div>
+
+<!-- ═══ 결제현황 ═══ -->
+<div class="tp" id="p-pay">
+<div class="row r4">
+<div class="kpi" id="kpTotal"><div class="kpi-l">총 매출</div><div class="kpi-v">₩0</div><div class="kpi-s">누적</div></div>
+<div class="kpi" id="kpMonth"><div class="kpi-l">이번 달</div><div class="kpi-v">₩0</div><div class="kpi-s"></div></div>
+<div class="kpi" id="kpWeek"><div class="kpi-l">이번 주</div><div class="kpi-v">₩0</div><div class="kpi-s"></div></div>
+<div class="kpi" id="kpToday"><div class="kpi-l">오늘</div><div class="kpi-v">₩0</div><div class="kpi-s"></div></div>
+</div>
+<div class="row r2">
+<div class="chart-box"><h3>월별 매출</h3><div class="chart-wrap"><canvas id="chP2"></canvas></div></div>
+<div class="chart-box"><h3>요금제별 비율</h3><div class="chart-wrap"><canvas id="chP3"></canvas></div></div>
+</div>
+<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">payments</span>결제 내역</div><button class="rb" onclick="ldP()"><span class="mi">refresh</span>새로고침</button></div>
+<div class="tw"><div class="cb"><input id="qP" placeholder="이메일 검색..." oninput="fP()"><select id="sP" onchange="fP()"><option value="d_d">결제일 최신순</option><option value="d_a">오래된순</option><option value="a_d">금액 높은순</option></select><select id="fPlan" onchange="fP()"><option value="">전체</option><option value="pointA">포인트A</option><option value="pointB">포인트B</option><option value="subA">구독A</option><option value="subB">구독B</option></select></div>
+<table><thead><tr><th>결제일</th><th>이용자</th><th>금액</th><th>포인트</th><th>요금제</th><th>상태</th></tr></thead><tbody id="tP"></tbody></table>
+<div class="pager" id="pgP"><span></span><span><button onclick="pgP2(-1)">◀</button> <span id="pgPt">1/1</span> <button onclick="pgP2(1)">▶</button> <select id="ppP" onchange="fP()"><option>20</option><option>50</option><option>100</option></select>건</span></div>
+</div></div>
+</div>
+
+<!-- ═══ 내옷장 ═══ -->
+<div class="tp" id="p-closet">
+<div class="row r3">
+<div class="kpi" id="kcTotal"><div class="kpi-l">전체</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="kpi" id="kcMonth"><div class="kpi-l">이번 달</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="kpi" id="kcToday"><div class="kpi-l">오늘</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+</div>
+<div class="row r2">
+<div class="chart-box"><h3>월별 이용 추이</h3><div class="chart-wrap"><canvas id="chCl2"></canvas></div></div>
+<div class="chart-box"><h3>코디목적별</h3><div class="chart-wrap"><canvas id="chCl3"></canvas></div></div>
+</div>
+<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">checkroom</span>내옷장 추천코디</div><button class="rb" onclick="ldS()"><span class="mi">refresh</span>새로고침</button></div>
+<div class="tw"><div class="cb"><input id="qCl" placeholder="이메일 검색..." oninput="fCl()"><select id="sCl" onchange="fCl()"><option value="d_d">최신순</option><option value="d_a">오래된순</option></select><select id="fGCl" onchange="fCl()"><option value="">전체</option><option value="M">남</option><option value="F">여</option></select></div>
+<table><thead><tr><th>이용자</th><th>코디목적</th><th>코디일자</th><th>회원구분</th><th>성별</th><th>포인트</th></tr></thead><tbody id="tCl"></tbody></table>
+<div class="pager"><span></span><span><button onclick="pgCl2(-1)">◀</button> <span id="pgClt">1/1</span> <button onclick="pgCl2(1)">▶</button> <select id="ppCl" onchange="fCl()"><option>20</option><option>50</option></select>건</span></div>
+</div></div>
+</div>
+
+<!-- ═══ 코디하기 ═══ -->
+<div class="tp" id="p-codi">
+<div class="row r3">
+<div class="kpi" id="kdTotal"><div class="kpi-l">전체</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="kpi" id="kdMonth"><div class="kpi-l">이번 달</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="kpi" id="kdToday"><div class="kpi-l">오늘</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+</div>
+<div class="row r2">
+<div class="chart-box"><h3>월별 이용 추이</h3><div class="chart-wrap"><canvas id="chCd2"></canvas></div></div>
+<div class="chart-box"><h3>성별 비율</h3><div class="chart-wrap"><canvas id="chCd3"></canvas></div></div>
+</div>
+<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">auto_awesome</span>코디하기 현황</div><button class="rb" onclick="ldS()"><span class="mi">refresh</span>새로고침</button></div>
+<div class="tw"><div class="cb"><input id="qCd" placeholder="이메일 검색..." oninput="fCd()"><select id="sCd" onchange="fCd()"><option value="d_d">최신순</option><option value="d_a">오래된순</option></select><select id="fGCd" onchange="fCd()"><option value="">전체</option><option value="M">남</option><option value="F">여</option></select></div>
+<table><thead><tr><th>이용자</th><th>코디일자</th><th>회원구분</th><th>성별</th><th>포인트</th></tr></thead><tbody id="tCd"></tbody></table>
+<div class="pager"><span></span><span><button onclick="pgCd2(-1)">◀</button> <span id="pgCdt">1/1</span> <button onclick="pgCd2(1)">▶</button> <select id="ppCd" onchange="fCd()"><option>20</option><option>50</option></select>건</span></div>
+</div></div>
+</div>
+
+<!-- ═══ 아이템등록 ═══ -->
+<div class="tp" id="p-items">
+<div class="row r3">
+<div class="kpi" id="kiTotal"><div class="kpi-l">전체</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="kpi" id="kiMonth"><div class="kpi-l">이번 달</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="kpi" id="kiToday"><div class="kpi-l">오늘</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+</div>
+<div class="row r2">
+<div class="chart-box"><h3>월별 등록 추이</h3><div class="chart-wrap"><canvas id="chIt2"></canvas></div></div>
+<div class="chart-box"><h3>카테고리별</h3><div class="chart-wrap"><canvas id="chIt3"></canvas></div></div>
+</div>
+<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">inventory_2</span>아이템 등록 현황</div><button class="rb" onclick="ldI()"><span class="mi">refresh</span>새로고침</button></div>
+<div class="tw"><div class="cb"><input id="qIt" placeholder="이메일 검색..." oninput="fIt()"><select id="sIt" onchange="fIt()"><option value="d_d">최신순</option><option value="d_a">오래된순</option></select><select id="fCat" onchange="fIt()"><option value="">전체</option><option value="top">상의</option><option value="bottom">하의</option><option value="outer">아우터</option><option value="shoes">신발</option><option value="bag">가방</option><option value="acc">악세서리</option></select></div>
+<table><thead><tr><th>이용자</th><th>카테고리</th><th>이미지</th><th>이름</th><th>등록일</th></tr></thead><tbody id="tIt"></tbody></table>
+<div class="pager"><span></span><span><button onclick="pgIt2(-1)">◀</button> <span id="pgItt">1/1</span> <button onclick="pgIt2(1)">▶</button> <select id="ppIt" onchange="fIt()"><option>20</option><option>50</option></select>건</span></div>
+</div></div>
+</div>
+
+<!-- ═══ 계정관리 ═══ -->
+<div class="tp" id="p-acct">
+<div class="sec">
+  <div class="sec-h"><div class="sec-t"><span class="mi">admin_panel_settings</span>관리자 계정 관리</div></div>
+  <div style="background:#fff;border:1px solid #e2e4ea;border-radius:12px;padding:16px;">
+    <div style="margin-bottom:16px;padding:12px 14px;background:#f0faf9;border:1px solid #d0ebe8;border-radius:10px;">
+      <div style="font-size:10px;font-weight:700;color:#0B666A;letter-spacing:.05em;margin-bottom:6px;">현재 관리자 계정</div>
+      <div style="font-size:14px;font-weight:800;color:#071952;"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="c8bcadbbbc88aba7aca1aaa9a6a3e6a3ba">[email&#160;protected]</a></div>
+      <div style="font-size:11px;color:#666;margin-top:2px;">비밀번호: pass1234 · Plan: ADMIN · 포인트: 무한</div>
+    </div>
+    <div style="font-size:12px;font-weight:700;color:#071952;margin-bottom:10px;">테스트 계정 생성</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;">
+      <div style="flex:1;min-width:140px;">
+        <label style="font-size:10px;color:#888;font-weight:600;">이메일</label>
+        <input id="acNewEmail" placeholder="test@example.com" style="display:block;width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
+      </div>
+      <div style="min-width:100px;">
+        <label style="font-size:10px;color:#888;font-weight:600;">비밀번호</label>
+        <input id="acNewPw" value="pass1234" style="display:block;width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
+      </div>
+      <div style="min-width:80px;">
+        <label style="font-size:10px;color:#888;font-weight:600;">포인트</label>
+        <input id="acNewPts" value="999999" type="number" style="display:block;width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
+      </div>
+      <button onclick="createTestAccount()" style="padding:8px 16px;border:none;border-radius:8px;background:#071952;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">생성</button>
+    </div>
+    <div style="font-size:10px;color:#999;margin-top:6px;">이메일 인증 없이 바로 로그인 가능한 테스트 계정을 생성합니다.</div>
+  </div>
+</div>
+<div class="sec" style="margin-top:14px;">
+  <div class="sec-h"><div class="sec-t"><span class="mi">list</span>생성된 테스트 계정 목록</div><button class="rb" onclick="renderTestAccounts()"><span class="mi">refresh</span>새로고침</button></div>
+  <div class="tw">
+    <table><thead><tr><th>이메일</th><th>비밀번호</th><th>포인트</th><th>Plan</th><th>생성일</th><th>관리</th></tr></thead><tbody id="tAc"></tbody></table>
+  </div>
+</div>
+<div class="sec" style="margin-top:14px;">
+  <div class="sec-h"><div class="sec-t"><span class="mi">password</span>관리자 비밀번호 변경</div></div>
+  <div style="background:#fff;border:1px solid #e2e4ea;border-radius:12px;padding:16px;">
+    <div style="display:grid;gap:8px;grid-template-columns:1fr 1fr 1fr;margin-bottom:10px;">
+      <div>
+        <label style="font-size:10px;color:#888;font-weight:600;display:block;margin-bottom:3px;">현재 비밀번호</label>
+        <input id="acOldPw" type="password" placeholder="현재 비밀번호" style="width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
+      </div>
+      <div>
+        <label style="font-size:10px;color:#888;font-weight:600;display:block;margin-bottom:3px;">새 비밀번호 (4자 이상)</label>
+        <input id="acNewAdminPw" type="password" placeholder="새 비밀번호" style="width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
+      </div>
+      <div>
+        <label style="font-size:10px;color:#888;font-weight:600;display:block;margin-bottom:3px;">새 비밀번호 확인</label>
+        <input id="acConfirmAdminPw" type="password" placeholder="재입력" onkeydown="if(event.key==='Enter')changeAdminPw()" style="width:100%;padding:8px 10px;border:1.5px solid #dde0e8;border-radius:8px;font-size:12px;font-family:inherit;background:#f8f9fc;">
       </div>
     </div>
-  </div>
-
-  <div class="section-tab" id="tab-users">
-    <div class="card">
-      <div class="card-title">회원 목록</div>
-      <div id="userTableWrap" class="loading">불러오는 중...</div>
-    </div>
-  </div>
-
-  <div class="section-tab" id="tab-security">
-    <div class="card pw-section">
-      <div class="card-title">관리자 비밀번호 변경</div>
-      <p style="font-size:12px;color:rgba(255,255,255,0.45);margin-bottom:16px;line-height:1.7">
-        변경 후 <strong style="color:#97FEED">Render 환경변수 ADMIN_PW_HASH</strong>도 업데이트해야 서버 재시작 후에도 유지됩니다.<br>
-        아래에서 새 해시값을 복사해 붙여넣으세요.
-      </p>
-      <div class="field"><label>현재 비밀번호</label><input type="password" id="curPw" placeholder="현재 비밀번호"/></div>
-      <div class="field"><label>새 비밀번호 (8자 이상)</label><input type="password" id="newPw" placeholder="새 비밀번호"/></div>
-      <div class="field"><label>새 비밀번호 확인</label><input type="password" id="confirmPw" placeholder="새 비밀번호 재입력" onkeydown="if(event.key==='Enter')changePassword()"/></div>
-      <button class="btn-primary" onclick="changePassword()">비밀번호 변경</button>
-      <div class="pw-result" id="pwResult"></div>
-      <div class="hash-display" id="hashDisplay">
-        <strong>Render 환경변수 ADMIN_PW_HASH 값:</strong>
-        <div id="hashValue" style="margin-bottom:8px"></div>
-        <button style="padding:6px 14px;border-radius:7px;background:rgba(53,162,159,0.2);border:1px solid rgba(53,162,159,0.3);color:#97FEED;font-size:11px;cursor:pointer;font-family:inherit" onclick="copyHash()">복사</button>
-        <p style="margin-top:8px;color:rgba(255,255,255,0.35);font-size:11px">Render 대시보드 → Environment → ADMIN_PW_HASH에 붙여넣고 재배포하세요.</p>
-      </div>
+    <button onclick="changeAdminPw()" style="padding:8px 20px;border:none;border-radius:8px;background:#e53e3e;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">비밀번호 변경</button>
+    <div id="pwHashResult" style="display:none;margin-top:12px;padding:10px 12px;background:#f0faf9;border:1px solid #d0ebe8;border-radius:8px;font-size:11px;color:#0B666A;">
+      <strong style="display:block;margin-bottom:4px;">🔑 Render 환경변수 ADMIN_PW_HASH 값:</strong>
+      <span id="pwHashVal" style="font-family:monospace;word-break:break-all;font-size:10px;color:#333;"></span>
+      <button onclick="navigator.clipboard.writeText(document.getElementById('pwHashVal').textContent).then(()=>toast('복사 완료'))" style="display:block;margin-top:6px;padding:4px 10px;border:1px solid #d0ebe8;border-radius:6px;background:#fff;font-size:10px;cursor:pointer;font-family:inherit;">복사</button>
+      <p style="margin-top:5px;font-size:10px;color:#888;">Render 대시보드 → Environment → ADMIN_PW_HASH에 붙여넣고 재배포하세요.</p>
     </div>
   </div>
 </div>
+</div>
 
-<script src="config.js"></script>
+</div>
+<div class="toast" id="toast"></div>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="config.js"></script>
 <script>
-function getBase(){
-  // 1순위: config.js에 명시된 backendBase
+var PW='5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',B=(function(){try{return(window.CODIBANK_CONFIG.backendBase||'https://codibank-api.onrender.com').replace(/\/$/,'')}catch(e){return'https://codibank-api.onrender.com'}})();
+var aU=[],aP=[],aS=[],aI=[],charts={},pgState={U:1,P:1,Cl:1,Cd:1,It:1};
+function K(){return sessionStorage.getItem('cb_admin')||''}
+function fd(s){if(!s)return'-';var d=new Date(s);return d.getFullYear()+'.'+(d.getMonth()+1)+'.'+d.getDate()}
+function fdt(s){if(!s)return'-';var d=new Date(s);return d.getFullYear()+'.'+(d.getMonth()+1)+'.'+d.getDate()+' '+d.getHours()+':'+String(d.getMinutes()).padStart(2,'0')}
+function fm(n){return'\u20A9'+Number(n||0).toLocaleString()}
+function kpi(id,v,s){var e=document.getElementById(id);if(!e)return;e.querySelector('.kpi-v').textContent=v;if(s)e.querySelector('.kpi-s').textContent=s}
+function pb(p){if(!p||p==='free')return'<span class="badge b-free">무료</span>';if(String(p).indexOf('point')>=0)return'<span class="badge b-pt">포인트</span>';if(String(p).indexOf('sub')>=0)return'<span class="badge b-sub">구독</span>';return'<span class="badge b-free">'+p+'</span>'}
+function gb(g){return g==='M'?'<span class="badge b-m">남</span>':g==='F'?'<span class="badge b-f">여</span>':'<span class="badge b-free">-</span>'}
+var CN={top:'상의',bottom:'하의',outer:'아우터',shoes:'신발',bag:'가방',acc:'악세서리'};
+function sortA(a,k,d){return a.slice().sort(function(x,y){var va=x[k]||'',vb=y[k]||'';if(typeof va==='number')return d==='a'?va-vb:vb-va;return d==='a'?String(va).localeCompare(String(vb)):String(vb).localeCompare(String(va))})}
+function monthKey(s){if(!s)return'';var d=new Date(s);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
+function isThisMonth(s){var n=new Date(),d=new Date(s);return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()}
+function isThisWeek(s){var n=new Date(),d=new Date(s);var ws=new Date(n);ws.setDate(n.getDate()-n.getDay());ws.setHours(0,0,0,0);return d>=ws}
+function isToday(s){var n=new Date(),d=new Date(s);return d.toDateString()===n.toDateString()}
+function paginate(arr,pg,pp){var total=Math.ceil(arr.length/pp)||1;if(pg>total)pg=total;if(pg<1)pg=1;return{data:arr.slice((pg-1)*pp,pg*pp),page:pg,total:total}}
+function mkChart(id,type,labels,datasets,opts){if(charts[id])charts[id].destroy();var ctx=document.getElementById(id);if(!ctx)return;charts[id]=new Chart(ctx,{type:type,data:{labels:labels,datasets:datasets},options:Object.assign({responsive:true,maintainAspectRatio:false,plugins:{legend:{display:datasets.length>1||type==='doughnut',labels:{font:{size:10}}}},scales:type==='doughnut'?{}:{x:{ticks:{font:{size:9}}},y:{ticks:{font:{size:9}}}}},opts||{})})}
+// Auth
+async function sha256(m){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(m)))).map(function(x){return x.toString(16).padStart(2,'0')}).join('')}
+async function tryLogin(){var h=await sha256(document.getElementById('pwIn').value);if(h===PW){sessionStorage.setItem('cb_admin',h);showMain()}else{document.getElementById('gErr').style.display='block';document.getElementById('pwIn').value=''}}
+function checkAuth(){if(sessionStorage.getItem('cb_admin')===PW)showMain()}
+function showMain(){document.getElementById('gate').style.display='none';document.getElementById('main').style.display='block';ldAll()}
+function doLogout(){sessionStorage.removeItem('cb_admin');location.reload()}
+function stab(el,n){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on')});document.querySelectorAll('.tp').forEach(function(p){p.classList.remove('on')});el.classList.add('on');document.getElementById('p-'+n).classList.add('on')}
+function toast(m,e){var el=document.getElementById('toast');el.textContent=m;el.className='toast show'+(e?' err':'');setTimeout(function(){el.className='toast'},3000)}
+function ldAll(){ldH();ldU();ldP();ldS();ldI()}
+// Health
+async function ldH(){try{var r=await fetch(B+'/health');var j=await r.json();kpi('kServer',j.ok?'ONLINE':'ERROR',new Date().toLocaleTimeString())}catch(e){kpi('kServer','OFFLINE','연결실패')}}
+// Users
+async function ldU(){document.getElementById('tU').innerHTML='<tr><td colspan="7" class="ld"><span class="sp"></span></td></tr>';try{var r=await fetch(B+'/admin/users?key='+K());if(!r.ok)throw 0;aU=(await r.json()).users||[];kpi('kUsers',aU.length);kpi('kuTotal',aU.length);kpi('kuMonth',aU.filter(function(u){return isThisMonth(u.created_at)}).length);kpi('kuWeek',aU.filter(function(u){return isThisWeek(u.created_at)}).length);var td=aU.filter(function(u){return isToday(u.created_at)}).length;kpi('kuToday',td);kpi('kToday',td);fU();drawUserCharts()}catch(e){document.getElementById('tU').innerHTML='<tr><td colspan="7" class="empty"><a href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/auth/users" target="_blank">Supabase</a></td></tr>'}}
+function drawUserCharts(){var mo={};aU.forEach(function(u){var k=monthKey(u.created_at);mo[k]=(mo[k]||0)+1});var ks=Object.keys(mo).sort().slice(-6);mkChart('chUserMonth','bar',ks,[{label:'가입',data:ks.map(function(k){return mo[k]}),backgroundColor:'#35A29F'}]);mkChart('chU2','bar',ks,[{label:'가입',data:ks.map(function(k){return mo[k]}),backgroundColor:'#35A29F'}]);
+var gm=0,gf=0,pFree=0,pPt=0,pSub=0;aU.forEach(function(u){var md=u.user_metadata||{};if(md.gender==='M')gm++;else if(md.gender==='F')gf++;var p=md.plan||'free';if(String(p).indexOf('sub')>=0)pSub++;else if(String(p).indexOf('point')>=0)pPt++;else pFree++});
+mkChart('chGender','doughnut',['남성','여성','미설정'],[{data:[gm,gf,aU.length-gm-gf],backgroundColor:['#1a5fb4','#b41a6a','#ccc']}]);
+mkChart('chPlan','doughnut',['무료','포인트','구독'],[{data:[pFree,pPt,pSub],backgroundColor:['#999','#0B666A','#1a5fb4']}]);
+mkChart('chU3','doughnut',['남성','여성','미설정'],[{data:[gm,gf,aU.length-gm-gf],backgroundColor:['#1a5fb4','#b41a6a','#ccc']}])}
+function fU(){pgState.U=1;renderU()}
+function renderU(){var q=document.getElementById('qU').value.toLowerCase(),s=document.getElementById('sU').value,pp=parseInt(document.getElementById('ppU').value),l=aU;if(q)l=l.filter(function(u){return(u.email||'').toLowerCase().indexOf(q)>=0});var sk=s.split('_')[0]==='c'?'created_at':s.split('_')[0]==='l'?'last_sign_in_at':'email';l=sortA(l,sk,s.split('_')[1]);var pg=paginate(l,pgState.U,pp);document.getElementById('pgUt').textContent=pg.page+'/'+pg.total;
+if(!pg.data.length){document.getElementById('tU').innerHTML='<tr><td colspan="7" class="empty">데이터 없음</td></tr>';return}
+var h='';pg.data.forEach(function(u){var md=u.user_metadata||{};h+='<tr><td style="font-weight:600;color:#071952">'+(u.email||'')+'</td><td>'+fd(u.created_at)+'</td><td>'+fd(u.last_sign_in_at)+'</td><td>'+pb(md.plan)+'</td><td>'+gb(md.gender)+'</td><td>'+(u.email_confirmed_at?'<span class="badge b-ok">인증</span>':'<span class="badge b-w">미인증</span>')+'</td><td><button class="ab del" onclick="delU(\''+u.id+'\',\''+(u.email||'')+'\')">삭제</button></td></tr>'});document.getElementById('tU').innerHTML=h}
+function pgU(d){pgState.U+=d;renderU()}
+async function delU(id,em){if(!confirm('"'+em+'" 삭제?'))return;try{await fetch(B+'/admin/users/'+id+'?key='+K(),{method:'DELETE'});toast(em+' 삭제');ldU()}catch(e){toast('실패',true)}}
+// Payments
+async function ldP(){document.getElementById('tP').innerHTML='<tr><td colspan="6" class="ld"><span class="sp"></span></td></tr>';try{var r=await fetch(B+'/admin/payments?key='+K());if(!r.ok)throw 0;aP=(await r.json()).payments||[];var tot=0,tm=0,tw=0,tt=0;aP.forEach(function(p){if(p.status!=='completed')return;tot+=p.amount||0;if(isThisMonth(p.created_at))tm+=p.amount||0;if(isThisWeek(p.created_at))tw+=p.amount||0;if(isToday(p.created_at))tt+=p.amount||0});kpi('kRevenue',fm(tot));kpi('kPayCnt',aP.length);kpi('kpTotal',fm(tot));kpi('kpMonth',fm(tm));kpi('kpWeek',fm(tw));kpi('kpToday',fm(tt));fP();drawPayCharts()}catch(e){document.getElementById('tP').innerHTML='<tr><td colspan="6" class="empty">데이터 없음</td></tr>'}}
+function drawPayCharts(){var mo={},plans={};aP.forEach(function(p){if(p.status!=='completed')return;var k=monthKey(p.created_at);mo[k]=(mo[k]||0)+(p.amount||0);plans[p.plan_id]=(plans[p.plan_id]||0)+1});var ks=Object.keys(mo).sort().slice(-6);mkChart('chRevMonth','bar',ks,[{label:'매출',data:ks.map(function(k){return mo[k]}),backgroundColor:'#071952'}]);mkChart('chP2','bar',ks,[{label:'매출',data:ks.map(function(k){return mo[k]}),backgroundColor:'#071952'}]);
+var pk=Object.keys(plans);mkChart('chP3','doughnut',pk,[{data:pk.map(function(k){return plans[k]}),backgroundColor:['#0B666A','#35A29F','#1a5fb4','#6a1fb4']}])}
+function fP(){pgState.P=1;renderP()}
+function renderP(){var q=document.getElementById('qP').value.toLowerCase(),s=document.getElementById('sP').value,pl=document.getElementById('fPlan').value,pp=parseInt(document.getElementById('ppP').value),l=aP;if(q)l=l.filter(function(x){return(x.email||'').toLowerCase().indexOf(q)>=0});if(pl)l=l.filter(function(x){return x.plan_id===pl});var sk=s.split('_')[0]==='d'?'created_at':'amount';l=sortA(l,sk,s.split('_')[1]);var pg=paginate(l,pgState.P,pp);document.getElementById('pgPt').textContent=pg.page+'/'+pg.total;
+if(!pg.data.length){document.getElementById('tP').innerHTML='<tr><td colspan="6" class="empty">결제 내역 없음</td></tr>';return}
+var h='';pg.data.forEach(function(x){h+='<tr><td>'+fdt(x.created_at)+'</td><td style="font-weight:600;color:#071952">'+x.email+'</td><td style="font-weight:700">'+fm(x.amount)+'</td><td>'+Number(x.points_granted||0).toLocaleString()+'P</td><td>'+pb(x.plan_id)+'</td><td>'+(x.status==='completed'?'<span class="badge b-ok">완료</span>':'<span class="badge b-err">'+x.status+'</span>')+'</td></tr>'});document.getElementById('tP').innerHTML=h}
+function pgP2(d){pgState.P+=d;renderP()}
+// Styling
+async function ldS(){['tCl','tCd'].forEach(function(id){document.getElementById(id).innerHTML='<tr><td colspan="6" class="ld"><span class="sp"></span></td></tr>'});try{var r=await fetch(B+'/admin/styling-logs?key='+K());if(!r.ok)throw 0;aS=(await r.json()).logs||[];var cl=aS.filter(function(s){return s.type==='closet'}),co=aS.filter(function(s){return s.type==='codistyle'});
+kpi('kCloset',cl.length);kpi('kcTotal',cl.length);kpi('kcMonth',cl.filter(function(s){return isThisMonth(s.created_at)}).length);kpi('kcToday',cl.filter(function(s){return isToday(s.created_at)}).length);
+kpi('kCodi',co.length);kpi('kdTotal',co.length);kpi('kdMonth',co.filter(function(s){return isThisMonth(s.created_at)}).length);kpi('kdToday',co.filter(function(s){return isToday(s.created_at)}).length);
+fCl();fCd();drawStyleCharts(cl,co)}catch(e){document.getElementById('tCl').innerHTML='<tr><td colspan="6" class="empty">데이터 없음</td></tr>';document.getElementById('tCd').innerHTML='<tr><td colspan="5" class="empty">데이터 없음</td></tr>'}}
+function drawStyleCharts(cl,co){var moCl={},moCo={},purp={},gCo={M:0,F:0,O:0};cl.forEach(function(s){var k=monthKey(s.created_at);moCl[k]=(moCl[k]||0)+1;var p=s.purpose||'일상';purp[p]=(purp[p]||0)+1});co.forEach(function(s){var k=monthKey(s.created_at);moCo[k]=(moCo[k]||0)+1;if(s.gender==='M')gCo.M++;else if(s.gender==='F')gCo.F++;else gCo.O++});
+var allK=Object.keys(Object.assign({},moCl,moCo)).sort().slice(-6);mkChart('chStyleMonth','bar',allK,[{label:'내옷장',data:allK.map(function(k){return moCl[k]||0}),backgroundColor:'#35A29F'},{label:'코디하기',data:allK.map(function(k){return moCo[k]||0}),backgroundColor:'#071952'}]);
+mkChart('chCl2','bar',allK,[{label:'내옷장',data:allK.map(function(k){return moCl[k]||0}),backgroundColor:'#35A29F'}]);
+var pk=Object.keys(purp);mkChart('chCl3','doughnut',pk,[{data:pk.map(function(k){return purp[k]}),backgroundColor:['#35A29F','#0B666A','#1a5fb4','#6a1fb4','#b41a6a','#e53e3e','#c17b00']}]);
+mkChart('chCd2','bar',allK,[{label:'코디하기',data:allK.map(function(k){return moCo[k]||0}),backgroundColor:'#071952'}]);
+mkChart('chCd3','doughnut',['남','여','미설정'],[{data:[gCo.M,gCo.F,gCo.O],backgroundColor:['#1a5fb4','#b41a6a','#ccc']}])}
+function fCl(){pgState.Cl=1;renderCl()}
+function renderCl(){var q=document.getElementById('qCl').value.toLowerCase(),s=document.getElementById('sCl').value,g=document.getElementById('fGCl').value,pp=parseInt(document.getElementById('ppCl').value),l=aS.filter(function(x){return x.type==='closet'});if(q)l=l.filter(function(x){return(x.email||'').toLowerCase().indexOf(q)>=0});if(g)l=l.filter(function(x){return(x.gender||'')===g});l=sortA(l,'created_at',s.split('_')[1]);var pg=paginate(l,pgState.Cl,pp);document.getElementById('pgClt').textContent=pg.page+'/'+pg.total;
+if(!pg.data.length){document.getElementById('tCl').innerHTML='<tr><td colspan="6" class="empty">데이터 없음</td></tr>';return}
+var h='';pg.data.forEach(function(x){h+='<tr><td style="font-weight:600;color:#071952">'+x.email+'</td><td>'+(x.purpose||'일상')+'</td><td>'+fdt(x.created_at)+'</td><td>'+pb(x.plan)+'</td><td>'+gb(x.gender)+'</td><td>'+x.points_used+'P</td></tr>'});document.getElementById('tCl').innerHTML=h}
+function pgCl2(d){pgState.Cl+=d;renderCl()}
+function fCd(){pgState.Cd=1;renderCd()}
+function renderCd(){var q=document.getElementById('qCd').value.toLowerCase(),s=document.getElementById('sCd').value,g=document.getElementById('fGCd').value,pp=parseInt(document.getElementById('ppCd').value),l=aS.filter(function(x){return x.type==='codistyle'});if(q)l=l.filter(function(x){return(x.email||'').toLowerCase().indexOf(q)>=0});if(g)l=l.filter(function(x){return(x.gender||'')===g});l=sortA(l,'created_at',s.split('_')[1]);var pg=paginate(l,pgState.Cd,pp);document.getElementById('pgCdt').textContent=pg.page+'/'+pg.total;
+if(!pg.data.length){document.getElementById('tCd').innerHTML='<tr><td colspan="5" class="empty">데이터 없음</td></tr>';return}
+var h='';pg.data.forEach(function(x){h+='<tr><td style="font-weight:600;color:#071952">'+x.email+'</td><td>'+fdt(x.created_at)+'</td><td>'+pb(x.plan)+'</td><td>'+gb(x.gender)+'</td><td>'+x.points_used+'P</td></tr>'});document.getElementById('tCd').innerHTML=h}
+function pgCd2(d){pgState.Cd+=d;renderCd()}
+// Items
+async function ldI(){document.getElementById('tIt').innerHTML='<tr><td colspan="5" class="ld"><span class="sp"></span></td></tr>';try{var r=await fetch(B+'/admin/items?key='+K());if(!r.ok)throw 0;var j=await r.json();aI=j.items||[];kpi('kItem',aI.length);kpi('kiTotal',aI.length);kpi('kiMonth',aI.filter(function(x){return isThisMonth(x.created_at)}).length);kpi('kiToday',aI.filter(function(x){return isToday(x.created_at)}).length);fIt();drawItemCharts()}catch(e){document.getElementById('tIt').innerHTML='<tr><td colspan="5" class="empty">데이터 없음</td></tr>'}}
+function drawItemCharts(){var mo={},cats={};aI.forEach(function(x){var k=monthKey(x.created_at);mo[k]=(mo[k]||0)+1;var c=x.category||'기타';cats[c]=(cats[c]||0)+1});var ks=Object.keys(mo).sort().slice(-6);mkChart('chIt2','bar',ks,[{label:'등록',data:ks.map(function(k){return mo[k]}),backgroundColor:'#0B666A'}]);
+var ck=Object.keys(cats);mkChart('chItemCat','doughnut',ck.map(function(c){return CN[c]||c}),[{data:ck.map(function(c){return cats[c]}),backgroundColor:['#35A29F','#071952','#0B666A','#1a5fb4','#6a1fb4','#b41a6a']}]);
+mkChart('chIt3','doughnut',ck.map(function(c){return CN[c]||c}),[{data:ck.map(function(c){return cats[c]}),backgroundColor:['#35A29F','#071952','#0B666A','#1a5fb4','#6a1fb4','#b41a6a']}])}
+function fIt(){pgState.It=1;renderIt()}
+function renderIt(){var q=document.getElementById('qIt').value.toLowerCase(),s=document.getElementById('sIt').value,c=document.getElementById('fCat').value,pp=parseInt(document.getElementById('ppIt').value),l=aI;if(q)l=l.filter(function(x){return(x.email||'').toLowerCase().indexOf(q)>=0});if(c)l=l.filter(function(x){return x.category===c});l=sortA(l,'created_at',s.split('_')[1]);var pg=paginate(l,pgState.It,pp);document.getElementById('pgItt').textContent=pg.page+'/'+pg.total;
+if(!pg.data.length){document.getElementById('tIt').innerHTML='<tr><td colspan="5" class="empty">아이템 없음</td></tr>';return}
+var h='';pg.data.forEach(function(x){var img=x.image_url?'<img src="'+x.image_url+'" style="width:28px;height:28px;border-radius:5px;object-fit:cover">':'-';h+='<tr><td style="font-weight:600;color:#071952">'+x.email+'</td><td><span class="badge b-pt">'+(CN[x.category]||x.category)+'</span></td><td>'+img+'</td><td>'+(x.item_name||'-')+'</td><td>'+fd(x.created_at)+'</td></tr>'});document.getElementById('tIt').innerHTML=h}
+function pgIt2(d){pgState.It+=d;renderIt()}
+// ═══ 계정관리 ═══
+function createTestAccount(){
+  var em=document.getElementById('acNewEmail').value.trim().toLowerCase();
+  var pw=document.getElementById('acNewPw').value.trim();
+  var pts=parseInt(document.getElementById('acNewPts').value)||999999;
+  if(!em||!em.includes('@')){toast('이메일을 입력하세요',true);return;}
+  if(!pw){toast('비밀번호를 입력하세요',true);return;}
   try{
-    const cfg = (window.CodiBank && CodiBank.getConfig) ? CodiBank.getConfig() : {};
-    const d = String(cfg.backendBase||'').trim();
-    if(d) return d.replace(/\/$/,'');
-    // getBackendBaseResolved 시도 (codibank.js 방식)
-    if(window.CodiBank && CodiBank.getBackendBaseResolved){
-      const r = String(CodiBank.getBackendBaseResolved()||'').trim();
-      if(r) return r.replace(/\/$/,'');
-    }
-  }catch(_){}
-  // 2순위: 알려진 Render 백엔드 URL (Vercel 프론트와 분리)
-  // codibank.kr(Vercel)에서 호출 시 Render 백엔드로 직접 연결
-  if(window.location.hostname.includes('codibank.kr')){
-    return 'https://codibank-api.onrender.com';
-  }
-  if(window.location.hostname !== 'localhost'){
-    return window.location.origin;
-  }
-  return 'http://localhost:8787';
+    var key='codibank_users';
+    var users=JSON.parse(localStorage.getItem(key)||'{}');
+    users[em]={email:em,password:pw,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),plan:'ADMIN',gender:'M',ageGroup:'30s',height:175,weight:70,nickname:em.split('@')[0],isTestAccount:true};
+    localStorage.setItem(key,JSON.stringify(users));
+    localStorage.setItem('cb_points_'+em,String(pts));
+    localStorage.setItem('cb_sub_'+em,'subB');
+    toast('✅ '+em+' 계정 생성 완료');
+    document.getElementById('acNewEmail').value='';
+    renderTestAccounts();
+  }catch(e){toast('생성 실패: '+e,true);}
 }
-
-let _adminKey='';
-
-async function sha256hex(str){
-  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
-async function doLogin(){
-  const pw=document.getElementById('loginPw').value.trim();
-  if(!pw){document.getElementById('loginErr').textContent='비밀번호를 입력해주세요.';return;}
-  const hash=await sha256hex(pw);
+function renderTestAccounts(){
+  var tbody=document.getElementById('tAc');
   try{
-    const r=await fetch(getBase()+'/admin/stats',{headers:{'X-Admin-Key':hash}});
-    if(r.status===401){document.getElementById('loginErr').textContent='비밀번호가 올바르지 않습니다.';return;}
-    if(!r.ok){document.getElementById('loginErr').textContent='서버 오류: '+r.status;return;}
-    _adminKey=hash;
-    document.getElementById('loginScreen').style.display='none';
-    document.getElementById('dashScreen').style.display='block';
-    loadStats(await r.json());
-    loadUsers();
-  }catch(e){document.getElementById('loginErr').textContent='연결 실패: '+e.message;}
-}
-
-function doLogout(){
-  _adminKey='';
-  document.getElementById('loginPw').value='';
-  document.getElementById('loginErr').textContent='';
-  document.getElementById('dashScreen').style.display='none';
-  document.getElementById('loginScreen').style.display='flex';
-}
-
-function switchTab(name,btn){
-  document.querySelectorAll('.section-tab').forEach(el=>el.classList.remove('on'));
-  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('on'));
-  document.getElementById('tab-'+name).classList.add('on');
-  if(btn) btn.classList.add('on');
-}
-
-function loadStats(data){
-  document.getElementById('statUsers').textContent   = data.total_users??'—';
-  document.getElementById('statStyleCnt').textContent= data.total_stylings??'—';
-  document.getElementById('statRevenue').textContent = (data.total_revenue??0).toLocaleString();
-  document.getElementById('statItems').textContent   = data.total_items??'—';
-  document.getElementById('statGemini').textContent  = data.gemini_model||'—';
-  document.getElementById('statR2').textContent      = data.r2_connected?'연결됨':'미연결';
-}
-
-async function loadUsers(){
-  try{
-    const r=await fetch(getBase()+'/admin/users',{headers:{'X-Admin-Key':_adminKey}});
-    const data=await r.json();
-    if(!data.ok){document.getElementById('userTableWrap').innerHTML='<p style="color:#fca5a5">'+data.error+'</p>';return;}
-    const users=data.users||[];
-    if(!users.length){document.getElementById('userTableWrap').innerHTML='<p style="color:rgba(255,255,255,0.4)">회원이 없습니다.</p>';return;}
-    const planBadge=p=>{
-      const cls={free:'plan-free',silver:'plan-silver',gold:'plan-gold',diamond:'plan-diamond'}[p]||'plan-free';
-      const lbl={free:'무료',silver:'실버',gold:'골드',diamond:'다이아'}[p]||p||'무료';
-      return '<span class="plan-badge '+cls+'">'+lbl+'</span>';
-    };
-    const rows=users.map(u=>{
-      const email=u.email||'—';
-      const plan=(u.user_metadata?.plan||'free').toLowerCase();
-      const created=u.created_at?u.created_at.slice(0,10):'—';
-      return '<tr><td>'+email+'</td><td>'+planBadge(plan)+'</td><td>'+created+'</td>'
-        +'<td><button class="btn-del" onclick="deleteUser(\''+u.id+'\',\''+email+'\')">삭제</button></td></tr>';
-    }).join('');
-    document.getElementById('userTableWrap').innerHTML=
-      '<div style="overflow-x:auto"><table class="user-table">'
-      +'<tr><th>이메일</th><th>플랜</th><th>가입일</th><th>관리</th></tr>'
-      +rows+'</table></div>'
-      +'<p style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:8px">총 '+users.length+'명</p>';
-  }catch(e){document.getElementById('userTableWrap').innerHTML='<p style="color:#fca5a5">로드 실패: '+e.message+'</p>';}
-}
-
-async function deleteUser(uid,email){
-  if(!confirm(email+' 계정을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
-  try{
-    const r=await fetch(getBase()+'/admin/users/'+uid,{method:'DELETE',headers:{'X-Admin-Key':_adminKey}});
-    const data=await r.json();
-    if(data.ok){alert('삭제되었습니다.');loadUsers();}
-    else alert('삭제 실패: '+(data.error||r.status));
-  }catch(e){alert('오류: '+e.message);}
-}
-
-async function changePassword(){
-  const curPw=document.getElementById('curPw').value;
-  const newPw=document.getElementById('newPw').value;
-  const confirmPw=document.getElementById('confirmPw').value;
-  const resultEl=document.getElementById('pwResult');
-  const hashEl=document.getElementById('hashDisplay');
-  resultEl.style.display='none'; hashEl.style.display='none';
-  if(!curPw||!newPw||!confirmPw){showPwResult(false,'모든 필드를 입력해주세요.');return;}
-  try{
-    const curHash=await sha256hex(curPw);
-    const r=await fetch(getBase()+'/admin/change-password',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-Admin-Key':curHash},
-      body:JSON.stringify({currentPassword:curPw,newPassword:newPw,confirmPassword:confirmPw})
+    var users=JSON.parse(localStorage.getItem('codibank_users')||'{}');
+    var rows=[];
+    Object.keys(users).forEach(function(em){
+      var u=users[em];
+      if(u.plan==='ADMIN'||u.isTestAccount){
+        var pts=localStorage.getItem('cb_points_'+em)||'0';
+        rows.push({email:em,pw:u.password||'?',pts:pts,plan:u.plan||'FREE',date:u.createdAt||''});
+      }
     });
-    const data=await r.json();
-    if(data.ok){
-      showPwResult(true,'비밀번호가 변경되었습니다. 다음 로그인부터 새 비밀번호를 사용하세요.');
-      const newHash=await sha256hex(newPw);
-      document.getElementById('hashValue').textContent=newHash;
-      hashEl.style.display='block';
-      _adminKey=newHash;
-      document.getElementById('curPw').value='';
-      document.getElementById('newPw').value='';
-      document.getElementById('confirmPw').value='';
-    } else {showPwResult(false,(data.error||'변경 실패'));}
-  }catch(e){showPwResult(false,'오류: '+e.message);}
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="6" class="empty">테스트 계정 없음</td></tr>';return;}
+    var h='';
+    rows.forEach(function(r){
+      h+='<tr><td style="font-weight:600;color:#071952">'+r.email+'</td><td>'+r.pw+'</td><td style="font-weight:700;color:#0B666A">'+Number(r.pts).toLocaleString()+'P</td><td><span class="badge b-sub">'+r.plan+'</span></td><td>'+fd(r.date)+'</td><td>'+(r.email==='test@codibank.kr'?'<span style="font-size:10px;color:#999;">기본</span>':'<button class="ab del" onclick="delTestAccount(\''+r.email+'\')">삭제</button>')+'</td></tr>';
+    });
+    tbody.innerHTML=h;
+  }catch(e){tbody.innerHTML='<tr><td colspan="6" class="empty">오류</td></tr>';}
 }
-
-function showPwResult(ok,msg){
-  const el=document.getElementById('pwResult');
-  el.className='pw-result '+(ok?'ok':'err');
-  el.textContent=msg;
-  el.style.display='block';
+function delTestAccount(em){
+  if(!confirm('"'+em+'" 삭제?'))return;
+  if(em==='test@codibank.kr'){toast('기본 관리자는 삭제할 수 없습니다',true);return;}
+  try{
+    var users=JSON.parse(localStorage.getItem('codibank_users')||'{}');
+    delete users[em];
+    localStorage.setItem('codibank_users',JSON.stringify(users));
+    localStorage.removeItem('cb_points_'+em);
+    localStorage.removeItem('cb_sub_'+em);
+    toast(em+' 삭제 완료');
+    renderTestAccounts();
+  }catch(e){toast('삭제 실패',true);}
 }
-
-function copyHash(){
-  const v=document.getElementById('hashValue').textContent;
-  navigator.clipboard.writeText(v).then(()=>alert('복사되었습니다!')).catch(()=>{});
+async function changeAdminPw(){
+  var old=document.getElementById('acOldPw').value;
+  var nw=document.getElementById('acNewAdminPw').value;
+  var conf=document.getElementById('acConfirmAdminPw')?document.getElementById('acConfirmAdminPw').value:nw;
+  if(!old||!nw){toast('비밀번호를 입력하세요',true);return;}
+  if(nw.length<4){toast('비밀번호 4자 이상',true);return;}
+  if(nw!==conf){toast('새 비밀번호가 일치하지 않습니다',true);return;}
+  var h=await sha256(old);
+  if(h!==PW){toast('현재 비밀번호가 틀립니다',true);return;}
+  // 서버 API 호출 (mock_backend.py /admin/change-password)
+  try{
+    var r=await fetch(B+'/admin/change-password',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Admin-Key':h},
+      body:JSON.stringify({currentPassword:old,newPassword:nw,confirmPassword:conf})
+    });
+    var d=await r.json();
+    if(!d.ok){toast('서버 오류: '+(d.error||r.status),true);return;}
+  }catch(e){
+    // 서버 연결 실패 시 로컬만 저장 (오프라인 대응)
+    console.warn('서버 PW 변경 실패, 로컬만 저장:', e.message);
+  }
+  var nh=await sha256(nw);
+  PW=nh;
+  sessionStorage.setItem('cb_admin',PW);
+  localStorage.setItem('cb_admin_pw',PW);
+  // 새 해시 표시
+  var hd=document.getElementById('pwHashResult');
+  if(hd){hd.style.display='block';document.getElementById('pwHashVal').textContent=nh;}
+  toast('✅ 비밀번호 변경 완료. Render 환경변수 ADMIN_PW_HASH도 업데이트하세요');
+  document.getElementById('acOldPw').value='';
+  document.getElementById('acNewAdminPw').value='';
+  if(document.getElementById('acConfirmAdminPw'))document.getElementById('acConfirmAdminPw').value='';
 }
-
-window.addEventListener('load',()=>{
-  const s=document.createElement('script');
-  s.src='config.js';s.onerror=()=>{};
-  document.head.appendChild(s);
-});
+// 저장된 비밀번호 복원
+(function(){
+  var saved=localStorage.getItem('cb_admin_pw');
+  if(saved){PW=saved;}
+  checkAuth();
+})();
 </script>
 </body>
 </html>
