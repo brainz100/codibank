@@ -1495,9 +1495,11 @@ def _init_admin_db():
             return
         except Exception:
             pass
-    master_hash = os.environ.get("ADMIN_PW_HASH", "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8")
+    # 기본 마스터 계정: admin@codibank.kr / pass1234
+    # Render 환경변수 ADMIN_PW_HASH가 있으면 그 값 사용 (변경 후 반영)
+    master_hash = os.environ.get("ADMIN_PW_HASH", "bd94dcda26fccb4e68d6a31f9b5aac0b571ae266d822620e901ef7ebe3a11d4f")
     _ADMIN_DB = {
-        "master@codibank.kr": {
+        "admin@codibank.kr": {
             "role": "MASTER",
             "hash": master_hash,
             "permissions": ["all"],
