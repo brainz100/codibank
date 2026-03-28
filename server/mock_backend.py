@@ -466,6 +466,9 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
         short = explanation or f"{t_txt} {cond} 날씨에 맞춘 착장 이미지".strip()
         short = short[:100]
         prompt = str(payload.get("imagePrompt") or "").strip()
+        # imagePrompt에 이미 custom 요청이 포함됨 (프론트에서 최우선 삽입)
+        # 추가 검증: imagePrompt가 없는 경우 payload에서 custom 텍스트 직접 추출
+        _custom_req = str(payload.get("customRequest") or payload.get("customText") or "").strip()
         if not prompt:
             prompt = (
                 "Create a photorealistic full-body fashion styling image. "
@@ -578,6 +581,8 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
         "Recommend ONLY outfits that ordinary people would comfortably wear in real daily life. "
         "STRICTLY FORBIDDEN: experimental outfits, fashion show looks, runway aesthetics, avant-garde combinations, asymmetric styling, dramatic oversized silhouettes, unusual color-blocking, or any look that would seem out of place on the street. "
         "All recommendations must be wearable, socially appropriate, and make the person look naturally stylish. "
+        "COLOR HARMONY (IMPORTANT): Top and bottom should be in complementary or contrasting tones — avoid making all garments the exact same dark color (all-black, all-purple, all-navy) UNLESS the user specifically requested a monochrome look. "
+        "Shoes and accessories should complement rather than perfectly match the main garments. Create natural color variation. "
 
         # ── 배경 (CRITICAL) ──
         "BACKGROUND (ABSOLUTE MANDATORY — HIGHEST PRIORITY RULE): "
@@ -2001,6 +2006,104 @@ def admin_change_password():
         "message": "비밀번호가 즉시 변경되었습니다.",
         "new_hash": new_hash,
     })
+
+
+
+# ══════════════════════════════════════════════════════════════
+# 사용횟수 조정 API (MASTER 어드민 전용)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 설계:
+#   - 사용횟수는 각 유저 브라우저 localStorage에 저장됨
+#   - 어드민이 Supabase 'user_usage_bonus' 테이블에 보너스 값 저장
+#   - 앱(closet.html/codistyle.html)이 로딩 시 /api/usage/bonus/<email>로 조회
+#   - 조회된 bonus가 있으면 해당 월 한도에 더해 적용
+# ══════════════════════════════════════════════════════════════
+
+# ── Bonus 읽기 (앱에서 호출, 인증 불필요)
+@app.get("/api/usage/bonus/<email>")
+def get_usage_bonus(email):
+    """특정 이메일의 사용횟수 보너스 조회."""
+    try:
+        email = email.strip().lower()
+        now_ym = _json.loads(__import__('datetime').datetime.now().strftime('"%Y-%m"'))
+        params = {
+            "email": f"eq.{email}",
+            "month": f"eq.{now_ym}",
+            "select": "closet_bonus,codi_bonus",
+            "limit": "1",
+        }
+        r = sb_query("GET", "user_usage_bonus", params=params)
+        if r.status_code == 200:
+            rows = r.json()
+            if rows:
+                return jsonify({"ok": True, "closet_bonus": rows[0].get("closet_bonus", 0),
+                                "codi_bonus": rows[0].get("codi_bonus", 0), "month": now_ym})
+        return jsonify({"ok": True, "closet_bonus": 0, "codi_bonus": 0, "month": now_ym})
+    except Exception as e:
+        return jsonify({"ok": True, "closet_bonus": 0, "codi_bonus": 0, "error": str(e)})
+
+
+# ── Bonus 설정 (MASTER 전용)
+@app.post("/admin/usage/set-bonus")
+def admin_set_usage_bonus():
+    """유저의 사용횟수 보너스 설정 (MASTER 전용)."""
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+    try:
+        data = request.get_json(silent=True) or {}
+        email       = str(data.get("email", "")).strip().lower()
+        closet_b    = int(data.get("closet_bonus", 0))
+        codi_b      = int(data.get("codi_bonus", 0))
+        month       = str(data.get("month") or __import__('datetime').datetime.now().strftime("%Y-%m"))
+        if not email:
+            return jsonify({"ok": False, "error": "email 필수"}), 400
+        if closet_b < 0 or codi_b < 0:
+            return jsonify({"ok": False, "error": "보너스는 0 이상이어야 합니다"}), 400
+
+        # upsert: email+month 조합으로 중복 방지
+        body = {"email": email, "month": month, "closet_bonus": closet_b, "codi_bonus": codi_b,
+                "updated_at": __import__('datetime').datetime.utcnow().isoformat() + "Z",
+                "updated_by": (request.args.get("key") or request.headers.get("X-Admin-Key", ""))[:16]}
+
+        # Supabase upsert (on_conflict: email,month)
+        import requests as _rq
+        url = f"{supabase_url()}/rest/v1/user_usage_bonus"
+        headers = supabase_admin_headers()
+        headers["Prefer"] = "resolution=merge-duplicates,return=representation"
+        r = _rq.post(url, headers=headers, json=body, timeout=10)
+        if r.status_code in (200, 201):
+            return jsonify({"ok": True, "email": email, "month": month,
+                            "closet_bonus": closet_b, "codi_bonus": codi_b})
+        # 테이블 없으면 메모리 폴백 (서버 재시작 시 초기화)
+        if not hasattr(app, "_usage_bonus_cache"):
+            app._usage_bonus_cache = {}
+        app._usage_bonus_cache[f"{email}:{month}"] = {"closet_bonus": closet_b, "codi_bonus": codi_b}
+        return jsonify({"ok": True, "email": email, "month": month,
+                        "closet_bonus": closet_b, "codi_bonus": codi_b, "note": "memory_fallback"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ── 보너스 현황 조회 (MASTER 전용)
+@app.get("/admin/usage/bonus-list")
+def admin_usage_bonus_list():
+    """이달 보너스 지급 현황 전체 조회 (MASTER 전용)."""
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+    try:
+        now_ym = __import__('datetime').datetime.now().strftime("%Y-%m")
+        params = {"month": f"eq.{now_ym}", "order": "updated_at.desc", "limit": "500"}
+        r = sb_query("GET", "user_usage_bonus", params=params)
+        if r.status_code == 200:
+            return jsonify({"ok": True, "list": r.json(), "month": now_ym})
+        # 메모리 폴백
+        if hasattr(app, "_usage_bonus_cache"):
+            rows = [{"email": k.split(":")[0], "month": k.split(":")[1], **v}
+                    for k, v in app._usage_bonus_cache.items() if k.endswith(now_ym)]
+            return jsonify({"ok": True, "list": rows, "month": now_ym, "note": "memory_fallback"})
+        return jsonify({"ok": True, "list": [], "month": now_ym})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 if __name__ == "__main__":
