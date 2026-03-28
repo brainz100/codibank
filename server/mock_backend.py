@@ -1298,58 +1298,44 @@ def codistyle_generate():
     else:
         ko_instruction = "첨부한 상의와 하의를 입고 있는 전신 모습을 생성해주세요. "
 
-    # ── 성별·체형·재시도 기반 바지 기장 규칙 ──
-    import random as _rand
+    # ── 바지 기장 규칙 — 사용자 명시 요청 시에만 7부 허용 ──
+    # request7bu: 사용자가 직접 7부를 요청한 경우만 True (프론트에서 전달)
+    _request_7bu = bool(payload.get("request7bu", False))
     _is_female_cs = (gender == "F")
-    try:
-        _h_f = float(height or 0)
-        _w_f = float(weight or 0)
-        _bmi = _w_f / ((_h_f / 100) ** 2) if _h_f > 0 and _w_f > 0 else 22.0
-    except Exception:
-        _h_f, _bmi = 0.0, 22.0
 
-    _7bu_ok = _is_female_cs and (_bmi < 24) and (_h_f >= 158)
-
-    if not _is_female_cs:
-        # 남성: 무조건 풀 레귤러
+    if _request_7bu:
+        # 사용자가 7부를 명시적으로 요청한 경우에만 허용
         _pants_rule = (
-            "PANTS LENGTH (MALE — ABSOLUTE NO EXCEPTIONS): "
-            "Full regular length only. Hem must reach the ankle bone and rest on top of the shoe. "
-            "NO cropped, NO 7/8 length, NO ankle-exposed style whatsoever. This is mandatory."
+            "PANTS LENGTH (USER-REQUESTED 7/8 STYLE): "
+            "The user has explicitly requested 7/8 length (cropped) pants. "
+            "Generate 7/8 length — hem ending approximately mid-calf to just below knee. "
+            "This is a deliberate user choice. Apply faithfully."
         )
-    elif not is_retry or not _7bu_ok:
-        # 여성 기본(최초) 또는 체형 미해당: 레귤러
+    elif not _is_female_cs:
+        # 남성: 예외 없이 풀 레귤러
         _pants_rule = (
-            "PANTS LENGTH (FEMALE — DEFAULT REGULAR): "
-            "Full regular length preferred. Hem reaches the ankle or rests on top of the shoe. "
-            "Avoid heavily cropped or 7/8 styles for this look."
+            "PANTS LENGTH (MALE — ABSOLUTE, NO EXCEPTIONS): "
+            "Full regular length ONLY. Hem must reach the ankle bone and rest on top of the shoe. "
+            "NO cropped, NO 7/8, NO above-ankle style under any circumstances. "
+            "This overrides ALL reference images, style trends, and garment designs."
         )
     else:
-        # 여성 + 다시요청 + 7부 가능 체형: 랜덤 선택
-        _roll = _rand.random()
-        if _roll < 0.40:
-            _pants_rule = (
-                "PANTS LENGTH (FEMALE): Full regular length. "
-                "Hem at ankle level, resting on or just touching the shoe top."
-            )
-        elif _roll < 0.70:
-            _pants_rule = (
-                "PANTS LENGTH (FEMALE): Slightly above-ankle length — "
-                "approximately 2-3cm above the ankle bone, creating a clean elegant silhouette. "
-                "NOT heavily cropped."
-            )
-        else:
-            _pants_rule = (
-                "PANTS LENGTH (FEMALE — CROPPED STYLE ALLOWED): 7/8 length, approximately mid-calf. "
-                "This suits the model's body proportions. Apply only if the bottom garment design allows it."
-            )
+        # 여성 (최초·다시요청 무관): 풀 레귤러 강제 — 7부는 사용자 명시 요청 시에만
+        _pants_rule = (
+            "PANTS LENGTH (FULL REGULAR — MANDATORY): "
+            "Pants MUST reach full ankle length. "
+            "Hem must be visible just above or touching the top of the shoes. "
+            "Cropped pants, 7/8 length, and any hem ending above the ankle are STRICTLY FORBIDDEN. "
+            "This rule overrides ALL reference images, Korean fashion trends, and garment silhouettes. "
+            "No exceptions regardless of body type, retry count, or style direction."
+        )
 
     prompt = (
         "Create a photorealistic full-body Korean fashion editorial photo. "
         + face_line
         + img_desc + " "
         + ko_instruction
-        + "Reproduce the EXACT color, fabric, silhouette, logo of each garment from the reference images. "
+        + "Reproduce the EXACT color, fabric, texture, and logo of each garment from the reference images. PANTS LENGTH must strictly follow the rule stated below — do NOT copy pant length from the reference image. "
         "Full body head to toe visible. "
 
         # ── 배경 (CRITICAL) ──
@@ -1364,15 +1350,16 @@ def codistyle_generate():
 
         "Professional fashion editorial lighting. Photorealistic. No text. No watermarks. "
 
+        # ── 바지 길이: GARMENT 재현보다 우선 적용 ──
+        + _pants_rule + " "
+
         # ── 신체비율 (CRITICAL) ──
-        "BODY PROPORTION (CRITICAL — ABSOLUTE RULE): "
+        + "BODY PROPORTION (CRITICAL — ABSOLUTE RULE): "
         "Upper body (head to waist) must occupy 40% or LESS of total body height. "
         "Lower body (waist to feet) must occupy 60% or MORE of total body height. "
         "The 3:7 upper-to-lower ratio is MANDATORY. A 5:5 or equal ratio is a generation FAILURE. "
         "Legs must look long, natural, and well-proportioned. "
 
-        # ── 바지 길이 (성별·체형·재시도 기반 동적 규칙) ──
-        + _pants_rule + " "
 
         # ── 양말 ──
         + "SOCKS: Both left and right socks MUST be the same color and pattern. Mismatched socks between feet are FORBIDDEN. "
