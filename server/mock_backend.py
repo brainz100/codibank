@@ -1474,13 +1474,77 @@ def codistyle_generate():
     )
 
 # ── 관리자 인증 헬퍼 ──
+# ════════════════════════════════════════════════════
+# 멀티 어드민 시스템
+# ════════════════════════════════════════════════════
+import json as _json
+
+# 어드민 계정 인메모리 DB
+# 구조: { "email": { "role": "MASTER"|"SUB", "hash": sha256, "permissions": [...], "created_at": "" } }
+_ADMIN_DB: dict = {}
+
+def _admin_db_key() -> str:
+    return "CB_ADMIN_ACCOUNTS_JSON"
+
+def _init_admin_db():
+    global _ADMIN_DB
+    raw = os.environ.get(_admin_db_key(), "")
+    if raw:
+        try:
+            _ADMIN_DB = _json.loads(raw)
+            return
+        except Exception:
+            pass
+    master_hash = os.environ.get("ADMIN_PW_HASH", "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8")
+    _ADMIN_DB = {
+        "master@codibank.kr": {
+            "role": "MASTER",
+            "hash": master_hash,
+            "permissions": ["all"],
+            "created_at": "",
+            "name": "마스터 관리자",
+        }
+    }
+
+_init_admin_db()
+
+def _save_admin_db():
+    """변경사항을 환경변수(인메모리)에 저장 — 재시작 전까지 유효."""
+    os.environ[_admin_db_key()] = _json.dumps(_ADMIN_DB, ensure_ascii=False)
+
+def _get_admin_by_hash(hash_val: str):
+    """해시로 어드민 정보 반환."""
+    for email, info in _ADMIN_DB.items():
+        if info.get("hash") == hash_val:
+            return email, info
+    return None, None
+
+ALL_TABS = ["dash", "users", "pay", "closet", "codi", "items"]
+
 def verify_admin(req):
-    """X-Admin-Key 헤더의 sha256 해시가 ADMIN_PW_HASH와 일치하는지 확인"""
-    expected = os.environ.get('ADMIN_PW_HASH', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8')
+    """X-Admin-Key 헤더의 sha256 해시로 어드민 인증 (멀티 어드민 지원)."""
     provided = (req.args.get('key') or req.headers.get('X-Admin-Key') or '').strip()
-    if not provided or provided != expected:
+    if not provided:
         return False
-    return True
+    # 1) _ADMIN_DB에서 해시 일치 확인
+    _, info = _get_admin_by_hash(provided)
+    if info:
+        return True
+    # 2) 폴백: 환경변수 ADMIN_PW_HASH (레거시)
+    expected = os.environ.get('ADMIN_PW_HASH', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8')
+    return provided == expected
+
+def verify_master(req):
+    """MASTER 권한 어드민만 True."""
+    provided = (req.args.get('key') or req.headers.get('X-Admin-Key') or '').strip()
+    if not provided:
+        return False
+    _, info = _get_admin_by_hash(provided)
+    if info and info.get("role") == "MASTER":
+        return True
+    # 폴백: 환경변수 마스터 해시
+    expected = os.environ.get('ADMIN_PW_HASH', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8')
+    return provided == expected
 
 def supabase_admin_headers():
     """Supabase Admin API용 헤더 (service_role 키 사용)"""
@@ -1762,6 +1826,120 @@ def admin_dashboard_stats():
     return jsonify(stats)
 
 
+@app.post("/admin/login")
+def admin_login():
+    """이메일+비밀번호로 로그인 → 역할+권한 반환."""
+    import hashlib as _hl
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email") or "").strip().lower()
+    pw    = str(data.get("password") or "").strip()
+    if not email or not pw:
+        return jsonify({"ok": False, "error": "이메일과 비밀번호를 입력하세요."}), 400
+    pw_hash = _hl.sha256(pw.encode()).hexdigest()
+    info = _ADMIN_DB.get(email)
+    if not info or info.get("hash") != pw_hash:
+        return jsonify({"ok": False, "error": "이메일 또는 비밀번호가 올바르지 않습니다."}), 401
+    return jsonify({
+        "ok": True,
+        "email": email,
+        "role": info.get("role", "SUB"),
+        "name": info.get("name", email),
+        "permissions": info.get("permissions", ALL_TABS),
+        "hash": pw_hash,
+    })
+
+
+@app.get("/admin/admins")
+def admin_list_admins():
+    """어드민 목록 조회 (MASTER 전용)."""
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한이 필요합니다."}), 403
+    result = []
+    for email, info in _ADMIN_DB.items():
+        result.append({
+            "email": email,
+            "name": info.get("name", email),
+            "role": info.get("role", "SUB"),
+            "permissions": info.get("permissions", ALL_TABS),
+            "created_at": info.get("created_at", ""),
+        })
+    return jsonify({"ok": True, "admins": result})
+
+
+@app.post("/admin/admins")
+def admin_create_admin():
+    """신규 어드민 생성 (MASTER 전용)."""
+    import hashlib as _hl
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한이 필요합니다."}), 403
+    data = request.get_json(silent=True) or {}
+    email       = str(data.get("email") or "").strip().lower()
+    pw          = str(data.get("password") or "").strip()
+    name        = str(data.get("name") or email).strip()
+    role        = "SUB"
+    permissions = data.get("permissions") or ALL_TABS
+    if not email or not pw:
+        return jsonify({"ok": False, "error": "이메일과 비밀번호를 입력하세요."}), 400
+    if email in _ADMIN_DB:
+        return jsonify({"ok": False, "error": "이미 존재하는 어드민 계정입니다."}), 400
+    if len(pw) < 4:
+        return jsonify({"ok": False, "error": "비밀번호 4자 이상"}), 400
+    from datetime import datetime
+    _ADMIN_DB[email] = {
+        "role": role,
+        "hash": _hl.sha256(pw.encode()).hexdigest(),
+        "name": name,
+        "permissions": permissions,
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    _save_admin_db()
+    return jsonify({"ok": True, "email": email})
+
+
+@app.put("/admin/admins/<admin_email>")
+def admin_update_admin(admin_email):
+    """어드민 권한/비밀번호 수정 (MASTER 전용)."""
+    import hashlib as _hl
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한이 필요합니다."}), 403
+    email = admin_email.strip().lower()
+    if email not in _ADMIN_DB:
+        return jsonify({"ok": False, "error": "존재하지 않는 어드민입니다."}), 404
+    data = request.get_json(silent=True) or {}
+    # 비밀번호 변경
+    new_pw = str(data.get("newPassword") or "").strip()
+    if new_pw:
+        if len(new_pw) < 4:
+            return jsonify({"ok": False, "error": "비밀번호 4자 이상"}), 400
+        _ADMIN_DB[email]["hash"] = _hl.sha256(new_pw.encode()).hexdigest()
+        # 마스터 어드민이면 환경변수도 동기화
+        if _ADMIN_DB[email].get("role") == "MASTER":
+            os.environ["ADMIN_PW_HASH"] = _ADMIN_DB[email]["hash"]
+    # 권한 변경
+    if "permissions" in data:
+        _ADMIN_DB[email]["permissions"] = data["permissions"]
+    # 이름 변경
+    if "name" in data:
+        _ADMIN_DB[email]["name"] = data["name"]
+    _save_admin_db()
+    return jsonify({"ok": True})
+
+
+@app.delete("/admin/admins/<admin_email>")
+def admin_delete_admin(admin_email):
+    """서브 어드민 삭제 (MASTER 전용, 마스터 본인 삭제 불가)."""
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한이 필요합니다."}), 403
+    email = admin_email.strip().lower()
+    if email not in _ADMIN_DB:
+        return jsonify({"ok": False, "error": "존재하지 않는 어드민입니다."}), 404
+    if _ADMIN_DB[email].get("role") == "MASTER":
+        return jsonify({"ok": False, "error": "마스터 어드민은 삭제할 수 없습니다."}), 400
+    del _ADMIN_DB[email]
+    _save_admin_db()
+    return jsonify({"ok": True})
+
+
 @app.post("/admin/change-password")
 def admin_change_password():
     """어드민 비밀번호 변경 — 현재 비밀번호 검증 후 새 비밀번호로 교체.
@@ -1795,18 +1973,19 @@ def admin_change_password():
     if new_pw == current_pw:
         return jsonify({"ok": False, "error": "현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다."}), 400
 
-    # 새 해시 생성 및 메모리 적용
+    # 새 해시 생성 및 메모리 즉시 적용 (Render 수동 업데이트 불필요)
     new_hash = _hl.sha256(new_pw.encode("utf-8")).hexdigest()
     os.environ["ADMIN_PW_HASH"] = new_hash
+    # _ADMIN_DB 동기화
+    caller_email, caller_info = _get_admin_by_hash(expected_hash)
+    if caller_email:
+        _ADMIN_DB[caller_email]["hash"] = new_hash
+        _save_admin_db()
 
     return jsonify({
         "ok": True,
-        "message": "비밀번호가 변경되었습니다.",
+        "message": "비밀번호가 즉시 변경되었습니다.",
         "new_hash": new_hash,
-        "render_guide": (
-            "영구 반영을 위해 Render 대시보드 → Environment → "
-            f"ADMIN_PW_HASH 값을 '{new_hash}'로 업데이트하고 서버를 재배포해주세요."
-        )
     })
 
 
