@@ -2106,6 +2106,135 @@ def admin_usage_bonus_list():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+
+# ══════════════════════════════════════════════════════════════
+# 테스트 계정 생성 + 회원 사용횟수 지급 API
+# ══════════════════════════════════════════════════════════════
+
+@app.post("/admin/create-test-accounts")
+def admin_create_test_accounts():
+    """test01~test10@codibank.kr 테스트 계정 10개 이메일 인증 없이 생성 (MASTER 전용)."""
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+
+    import requests as _rq
+    results = []
+    _sb_url = supabase_url()
+    _headers = supabase_admin_headers()
+
+    for i in range(1, 11):
+        email = f"test{i:02d}@codibank.kr"
+        pw    = f"codibank{i:02d}!"   # 기본 비밀번호
+
+        body = {
+            "email":              email,
+            "password":           pw,
+            "email_confirm":      True,   # 이메일 인증 완료 처리
+            "user_metadata": {
+                "plan":    "free",
+                "gender":  "M" if i % 2 == 1 else "F",
+                "ageGroup": "30s",
+                "height":  170 + i,
+                "weight":  65 + i,
+                "nickname": f"테스트{i:02d}",
+            }
+        }
+        url = f"{_sb_url}/auth/v1/admin/users"
+        r = _rq.post(url, headers=_headers, json=body, timeout=15)
+        if r.status_code in (200, 201):
+            results.append({"email": email, "password": pw, "status": "created"})
+        elif r.status_code == 422 and "already" in r.text.lower():
+            results.append({"email": email, "password": pw, "status": "already_exists"})
+        else:
+            results.append({"email": email, "password": pw, "status": "failed",
+                             "detail": r.text[:200]})
+
+    created = [r for r in results if r["status"] == "created"]
+    exists  = [r for r in results if r["status"] == "already_exists"]
+    failed  = [r for r in results if r["status"] == "failed"]
+
+    return jsonify({
+        "ok": True,
+        "summary": f"생성:{len(created)} / 이미존재:{len(exists)} / 실패:{len(failed)}",
+        "results": results,
+        "default_password_pattern": "codibank01! ~ codibank10!",
+    })
+
+
+# ── 회원 사용횟수 지급 (MASTER 전용) — 특정 회원 email 기준
+@app.post("/admin/member/set-bonus")
+def admin_member_set_bonus():
+    """회원(일반 유저)에게 이번달 이미지 생성 보너스 지급 (MASTER 전용)."""
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+    try:
+        import requests as _rq
+        data        = request.get_json(silent=True) or {}
+        email       = str(data.get("email", "")).strip().lower()
+        closet_b    = max(0, int(data.get("closet_bonus", 0)))
+        codi_b      = max(0, int(data.get("codi_bonus", 0)))
+        reset_usage = bool(data.get("reset_usage", False))  # 월 사용횟수 리셋 여부
+        month       = str(data.get("month") or __import__('datetime').datetime.now().strftime("%Y-%m"))
+
+        if not email:
+            return jsonify({"ok": False, "error": "email 필수"}), 400
+
+        # Supabase user_usage_bonus 테이블 upsert
+        bonus_body = {
+            "email": email, "month": month,
+            "closet_bonus": closet_b, "codi_bonus": codi_b,
+            "updated_at": __import__('datetime').datetime.utcnow().isoformat() + "Z",
+            "updated_by": (request.headers.get("X-Admin-Key") or "")[:16],
+        }
+        url     = f"{supabase_url()}/rest/v1/user_usage_bonus"
+        headers = supabase_admin_headers()
+        headers["Prefer"] = "resolution=merge-duplicates,return=representation"
+        r = _rq.post(url, headers=headers, json=bonus_body, timeout=10)
+
+        # Supabase 실패 시 메모리 폴백
+        if r.status_code not in (200, 201):
+            if not hasattr(app, "_usage_bonus_cache"):
+                app._usage_bonus_cache = {}
+            app._usage_bonus_cache[f"{email}:{month}"] = {
+                "closet_bonus": closet_b, "codi_bonus": codi_b
+            }
+
+        return jsonify({
+            "ok": True, "email": email, "month": month,
+            "closet_bonus": closet_b, "codi_bonus": codi_b,
+            "note": "memory_fallback" if r.status_code not in (200, 201) else "saved_to_supabase",
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ── 특정 회원 보너스 조회 (MASTER 전용)
+@app.get("/admin/member/bonus/<email>")
+def admin_member_get_bonus(email):
+    """특정 회원의 이달 보너스 조회 (MASTER 전용)."""
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+    try:
+        email  = email.strip().lower()
+        now_ym = __import__('datetime').datetime.now().strftime("%Y-%m")
+        params = {"email": f"eq.{email}", "month": f"eq.{now_ym}", "limit": "1"}
+        r      = sb_query("GET", "user_usage_bonus", params=params)
+        if r.status_code == 200:
+            rows = r.json()
+            if rows:
+                return jsonify({"ok": True, **rows[0]})
+        # 메모리 폴백 확인
+        if hasattr(app, "_usage_bonus_cache"):
+            key = f"{email}:{now_ym}"
+            if key in app._usage_bonus_cache:
+                return jsonify({"ok": True, "email": email, "month": now_ym,
+                                **app._usage_bonus_cache[key]})
+        return jsonify({"ok": True, "email": email, "month": now_ym,
+                        "closet_bonus": 0, "codi_bonus": 0})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8787"))
     # ✅ 안정성 기본값: debug OFF
