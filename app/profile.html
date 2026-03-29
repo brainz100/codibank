@@ -32,8 +32,8 @@ header h1{font-size:17px;font-weight:800;}
 /* 프로필 사진 */
 .photo-area{display:flex;flex-direction:column;align-items:center;padding:28px 20px 20px;}
 .photo-ring{position:relative;width:100px;height:100px;}
-.photo-img{width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid #C5A358;}
-.photo-placeholder{width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,#C5A358,#d4b068);display:flex;align-items:center;justify-content:center;border:3px solid #C5A358;}
+.photo-img{width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid #0B666A;}
+.photo-placeholder{width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,#0B666A,#35A29F);display:flex;align-items:center;justify-content:center;border:3px solid #0B666A;}
 .photo-edit-btn{position:absolute;bottom:0;right:0;width:30px;height:30px;border-radius:50%;background:#111;border:2px solid #fff;display:flex;align-items:center;justify-content:center;cursor:pointer;}
 #photoInput{display:none;}
 
@@ -44,7 +44,7 @@ header h1{font-size:17px;font-weight:800;}
 /* 입력 필드 */
 .field{display:flex;align-items:center;padding:14px 20px;border-bottom:1px solid #f5f5f5;gap:12px;}
 .field:last-child{border-bottom:none;}
-.field-icon{color:#C5A358;flex-shrink:0;}
+.field-icon{color:#0B666A;flex-shrink:0;}
 .field-body{flex:1;}
 .field-label{font-size:11px;font-weight:600;color:#aaa;margin-bottom:3px;}
 .field-input{width:100%;border:none;outline:none;font-size:15px;font-weight:600;color:#111;font-family:inherit;background:transparent;}
@@ -55,10 +55,10 @@ header h1{font-size:17px;font-weight:800;}
 /* 선택 버튼 그룹 */
 .sel-group{display:flex;gap:8px;padding:12px 20px 16px;flex-wrap:wrap;}
 .sel-btn{padding:9px 16px;border-radius:12px;border:1.5px solid #e8e8e8;background:#fff;font-size:13px;font-weight:600;color:#888;cursor:pointer;font-family:inherit;transition:all .15s;}
-.sel-btn.on{border-color:#C5A358;background:rgba(197,163,88,0.1);color:#C5A358;}
+.sel-btn.on{border-color:#0B666A;background:rgba(11,102,106,0.08);color:#0B666A;}
 
 /* 저장 버튼 */
-.save-btn{display:block;width:calc(100% - 32px);margin:8px 16px 24px;padding:16px;border:none;border-radius:18px;background:linear-gradient(135deg,#C5A358,#d4b068);color:#1a1000;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer;text-align:center;transition:transform .13s;}
+.save-btn{display:block;width:calc(100% - 32px);margin:8px 16px 24px;padding:16px;border:none;border-radius:18px;background:linear-gradient(135deg,#0B666A,#35A29F);color:#fff;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer;text-align:center;transition:transform .13s;}
 .save-btn:active{transform:scale(.97);}
 
 .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#111;color:#fff;font-size:13px;font-weight:700;padding:12px 24px;border-radius:24px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
@@ -136,7 +136,7 @@ header h1{font-size:17px;font-weight:800;}
 </div>
 
 <!-- 체형 정보 -->
-<p class="section-title" style="margin:0 16px 4px;padding:0 4px;">체형 정보 <span style="color:#C5A358;font-size:10px;">(AI 코디 정확도 향상)</span></p>
+<p class="section-title" style="margin:0 16px 4px;padding:0 4px;">체형 정보 <span style="color:#0B666A;font-size:10px;">(AI 코디 정확도 향상)</span></p>
 <div class="section">
   <p class="field-label" style="padding:14px 20px 4px;">성별</p>
   <div class="sel-group" id="genderGroup">
@@ -370,7 +370,7 @@ async function doSave(){
     }
   }
 
-  const res = CodiBank.updateUserProfile ? CodiBank.updateUserProfile(_user.email, patch) : { ok: false };
+  const res = CodiBank.updateUserProfile ? await CodiBank.updateUserProfile(_user.email, patch) : { ok: false };
 
   if(res && res.ok){
     showToast('✅ 프로필이 저장되었습니다.');

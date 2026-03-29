@@ -1206,19 +1206,24 @@ function pickBestItemByColor(items, desiredColor, catKey){
 // ★ codistyle.html과 동일한 cb_usage_ 키를 공유
 // ── 서버 보너스 캐시 (페이지 로딩 시 1회 조회)
 let _usageBonusCache = {total_bonus:0, fetched:false};
-async function _fetchUsageBonus(){
-  if(_usageBonusCache.fetched) return;
-  _usageBonusCache.fetched = true;
+async function _fetchUsageBonus(force){
+  // force=true 이면 캐시 무시하고 재조회
+  if(_usageBonusCache.fetched && !force) return;
   try{
     const em = user?.email;
-    if(!em) return;
+    if(!em) return;   // 이메일 없으면 조회 불가 — fetched 플래그 세우지 않음
     const backendBase = (typeof getBackendBaseResolved==='function') ? getBackendBaseResolved()
       : (typeof CodiBank?.getBackendBaseResolved==='function' ? CodiBank.getBackendBaseResolved() : '');
     if(!backendBase) return;
+    _usageBonusCache.fetched = true;  // 이메일 확인 후 플래그 설정
     const r = await fetch(backendBase + '/api/usage/bonus/' + encodeURIComponent(em));
     if(r.ok){
       const d = await r.json();
-      _usageBonusCache.total_bonus = parseInt(d.total_bonus||0);
+      const tb = parseInt(d.total_bonus||0);
+      if(tb !== _usageBonusCache.total_bonus){
+        _usageBonusCache.total_bonus = tb;
+        console.info('[CodiBank] 사용횟수 보너스 적용:', tb, '회');
+      }
     }
   }catch(_){}
 }
@@ -1235,9 +1240,10 @@ _fetchUsageBonus().catch(()=>{});
 // pricing.html 플랜과 반드시 동일 유지
 // 실버 ₩5,900(정상 ₩6,900) | 골드 ₩39,900(정상 ₩59,900) | 다이아 ₩59,900(정상 ₩79,900)
 const PLANS = {
-  free:    { label:'무료',   closetMonthly:3,   codistyleMonthly:5,    totalMonthly:8,    dailyTotal:null },
-  silver:  { label:'실버',   closetMonthly:30,  codistyleMonthly:30,   totalMonthly:60,   dailyTotal:null },
-  gold:    { label:'골드',   closetMonthly:50,  codistyleMonthly:100,  totalMonthly:150,  dailyTotal:null },
+  // 내옷장/코디하기 동일 숫자 → 단일 공유 풀. 어느 쪽이든 1회 차감
+  free:    { label:'무료',   closetMonthly:5,   codistyleMonthly:5,    totalMonthly:5,    dailyTotal:null },
+  silver:  { label:'실버',   closetMonthly:30,  codistyleMonthly:30,   totalMonthly:30,   dailyTotal:null },
+  gold:    { label:'골드',   closetMonthly:60,  codistyleMonthly:60,   totalMonthly:60,   dailyTotal:null },
   diamond: { label:'다이아', closetMonthly:9999,codistyleMonthly:9999, totalMonthly:9999, dailyTotal:30  },
 };
 function _usageKey(){ return 'cb_usage_' + (user.email||'guest'); }
@@ -5177,3 +5183,5 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
 })();
 
 </script>
+</body>
+</html>
