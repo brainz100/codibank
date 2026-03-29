@@ -1520,6 +1520,53 @@ def _init_admin_db():
 
 _init_admin_db()
 
+
+def _auto_sync_master_to_supabase():
+    """서버 시작 5초 후 MASTER 계정을 Supabase에 자동 동기화.
+    CodiBank 앱(Supabase 로그인)에서도 admin@codibank.kr / pass1234 로 로그인 가능.
+    """
+    import threading as _th
+    def _run():
+        import time as _t2; _t2.sleep(5)
+        try:
+            import requests as _rq2
+            _sb = supabase_url()
+            _hdr = supabase_admin_headers()
+            _PASS1234 = "bd94dcda26fccb4e68d6a31f9b5aac0b571ae266d822620e901ef7ebe3a11d4f"
+            # 기존 Supabase 유저 uid 맵 가져오기
+            lr = _rq2.get(f"{_sb}/auth/v1/admin/users?per_page=1000", headers=_hdr, timeout=15)
+            uid_map = {}
+            if lr.status_code == 200:
+                ud = lr.json()
+                ul = ud.get("users", ud) if isinstance(ud, dict) else ud
+                for u in ul:
+                    uid_map[u.get("email","").lower()] = u.get("id")
+            # MASTER 계정만 동기화
+            for em, info in list(_ADMIN_DB.items()):
+                if info.get("role") != "MASTER":
+                    continue
+                pw = "pass1234"  # MASTER 기본 비밀번호
+                sb_body = {
+                    "email": em, "password": pw, "email_confirm": True,
+                    "user_metadata": {"email": em, "nickname": info.get("name", em),
+                                      "plan": "free", "role": "admin"},
+                    "app_metadata":  {"provider": "email", "providers": ["email"]},
+                }
+                uid = uid_map.get(em.lower())
+                if uid:
+                    _rq2.put(f"{_sb}/auth/v1/admin/users/{uid}", headers=_hdr,
+                             json={"password": pw, "email_confirm": True,
+                                   "user_metadata": sb_body["user_metadata"]}, timeout=15)
+                else:
+                    _rq2.post(f"{_sb}/auth/v1/admin/users", headers=_hdr,
+                              json=sb_body, timeout=15)
+        except Exception:
+            pass
+    _th.Thread(target=_run, daemon=True).start()
+
+_auto_sync_master_to_supabase()
+
+
 def _save_admin_db():
     """변경사항을 환경변수(인메모리)에 저장 — 재시작 전까지 유효."""
     os.environ[_admin_db_key()] = _json.dumps(_ADMIN_DB, ensure_ascii=False)
@@ -2249,11 +2296,28 @@ def admin_create_test_accounts():
     exists  = [r for r in results if r["status"] == "already_exists"]
     failed  = [r for r in results if r["status"] in ("failed", "update_failed", "uid_not_found", "already_exists_error")]
 
+    # ── 성공한 테스트 계정을 _ADMIN_DB에도 등록 (관리자페이지 로그인 가능)
+    import hashlib as _hlx
+    from datetime import datetime as _dt
+    for r_ in results:
+        if r_["status"] in ("created", "updated"):
+            em_ = r_["email"]
+            pw_ = r_["password"]
+            _ADMIN_DB[em_] = {
+                "role":        "SUB",
+                "hash":        _hlx.sha256(pw_.encode()).hexdigest(),
+                "name":        em_.split("@")[0],
+                "permissions": ["dash", "users", "closet", "codi"],
+                "created_at":  _dt.utcnow().isoformat(),
+            }
+    _save_admin_db()
+
     return jsonify({
         "ok": True,
         "summary": f"신규생성:{len(created)} / 비밀번호업데이트:{len(updated)} / 실패:{len(failed)}",
         "results": results,
         "default_password_pattern": "Test01!234 ~ Test10!234",
+        "note": "테스트 계정이 Supabase + 관리자페이지에 모두 등록됐습니다.",
     })
 
 
@@ -2352,8 +2416,14 @@ def admin_sync_to_supabase():
     except Exception:
         pass
 
+    _P1234_HASH = "bd94dcda26fccb4e68d6a31f9b5aac0b571ae266d822620e901ef7ebe3a11d4f"
     for email, info in _ADMIN_DB.items():
-        pw   = password_map.get(email) or default_pw
+        if email in password_map:
+            pw = password_map[email]
+        elif info.get("hash") == _P1234_HASH:
+            pw = "pass1234"
+        else:
+            pw = default_pw
         name = info.get("name", email)
         sb_body = {
             "email":         email,
