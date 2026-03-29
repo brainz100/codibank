@@ -79,23 +79,52 @@
 <script src="codibank.js"></script>
 <script src="i18n.js"></script>
 <script>
+  // 이미 로그인된 경우 바로 이동
   if(window.CodiBank&&window.CodiBank.getCurrentUser&&window.CodiBank.getCurrentUser())
     location.replace('closet.html');
 
   function showErr(msg){const e=document.getElementById('loginErr');e.textContent=msg;e.classList.add('show');}
   function clearErr(){document.getElementById('loginErr').classList.remove('show');}
 
-  function doLogin(){
+  // ★ 핵심 수정: async/await — CodiBank.login()은 Supabase 비동기 호출
+  async function doLogin(){
     clearErr();
-    const email=document.getElementById('email').value.trim();
-    const pw=document.getElementById('password').value;
-    if(!email)return showErr('이메일을 입력해주세요.');
-    if(!pw)return showErr('비밀번호를 입력해주세요.');
-    const res=window.CodiBank.login(email,pw);
-    if(res.ok)location.replace('closet.html');
-    else showErr(res.error||'로그인에 실패했습니다.');
+    const email = document.getElementById('email').value.trim();
+    const pw    = document.getElementById('password').value;
+    if(!email) return showErr('이메일을 입력해주세요.');
+    if(!pw)    return showErr('비밀번호를 입력해주세요.');
+
+    // 로딩 상태
+    const btn = document.querySelector('.btn-primary');
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '로그인 중...';
+
+    try {
+      // CodiBank.login()이 Promise를 반환하는 경우와 동기 결과 모두 처리
+      const res = await Promise.resolve(window.CodiBank.login(email, pw));
+
+      if(res && res.ok){
+        location.replace('closet.html');
+      } else {
+        const errMsg = (res && res.error) ? res.error : '로그인에 실패했습니다.';
+        // Supabase 에러 메시지 한국어 변환
+        const errKo = errMsg.includes('Invalid login credentials') ? '이메일 또는 비밀번호가 올바르지 않습니다.'
+                    : errMsg.includes('Email not confirmed')        ? '이메일 인증이 필요합니다. 이메일을 확인해주세요.'
+                    : errMsg.includes('User not found')             ? '가입된 계정을 찾을 수 없습니다.'
+                    : errMsg.includes('Too many requests')          ? '잠시 후 다시 시도해주세요.'
+                    : errMsg;
+        showErr(errKo);
+      }
+    } catch(e) {
+      showErr('로그인 중 오류가 발생했습니다: ' + (e.message || String(e)));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
   }
-  document.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+
+  document.addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 </script>
 
 <nav class="cb-nav">

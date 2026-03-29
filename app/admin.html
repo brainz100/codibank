@@ -235,6 +235,30 @@
     <div id="diagResult" style="margin-top:8px;font-size:11px;"></div>
   </div>
 
+  <!-- STEP 1-B: 실제 로그인 테스트 -->
+  <div style="border:1px solid #e0e7ff;border-radius:8px;padding:12px;margin-bottom:10px;background:#f8f9ff;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:8px;">
+      <span style="background:#1a5fb4;color:#fff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:10px;margin-right:6px;flex-shrink:0;">✓</span>
+      실제 로그인 동작 테스트 <span style="font-size:10px;font-weight:400;color:#666;">(핵심 원인 파악)</span>
+    </div>
+    <p style="font-size:11px;color:#888;margin-bottom:8px;">서버에서 직접 Supabase signInWithPassword를 호출해 앱과 동일한 로그인을 테스트합니다.</p>
+    <div style="display:grid;grid-template-columns:1fr 130px 1fr;gap:8px;align-items:end;margin-bottom:8px;">
+      <div>
+        <label style="font-size:10px;font-weight:700;color:#555;display:block;margin-bottom:3px;">테스트 이메일</label>
+        <input id="testLoginEmail" value="admin@codibank.kr" style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:700;color:#555;display:block;margin-bottom:3px;">비밀번호</label>
+        <input id="testLoginPw" type="password" value="pass1234" style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="testLogin(false)" style="flex:1;padding:8px 0;background:#1a5fb4;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;height:36px;">로그인 테스트</button>
+        <button onclick="testLogin(true)" style="flex:1;padding:8px 0;background:#e65100;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;height:36px;white-space:nowrap;">+비밀번호 리셋</button>
+      </div>
+    </div>
+    <div id="testLoginResult" style="font-size:11px;"></div>
+  </div>
+
   <!-- STEP 2: 이메일 인증 일괄처리 -->
   <div style="border:1px solid #fce8d8;border-radius:8px;padding:12px;margin-bottom:10px;background:#fffbf8;">
     <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:8px;">
@@ -588,6 +612,64 @@ async function runSupabaseDiag(){
       if(det) det.open=true;
     }
   }catch(e){res.innerHTML='<span style="color:#e53e3e">❌ 연결 실패: '+e.message+'</span>';}
+}
+
+async function testLogin(resetPw){
+  var em=document.getElementById('testLoginEmail').value.trim();
+  var pw=document.getElementById('testLoginPw').value.trim();
+  var res=document.getElementById('testLoginResult');
+  res.style.color='#666'; res.textContent='테스트 중...';
+  try{
+    var r=await authFetch(B+'/admin/debug/test-login',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:em,password:pw,reset_password:resetPw||false})
+    });
+    var d=await r.json();
+
+    var bg=d.signin_ok?'#f0faf9':'#fff8e1';
+    var bc=d.signin_ok?'#d0ebe8':'#ffe0b2';
+    var html='<div style="padding:10px;background:'+bg+';border-radius:6px;border:1px solid '+bc+';font-size:11px;line-height:1.9;">';
+
+    // 핵심 진단 결과
+    html+='<b style="font-size:12px;">' + (d.diagnosis||'진단 결과 없음') + '</b><hr style="border:none;border-top:1px solid #ddd;margin:6px 0;">';
+
+    // 상세 항목
+    html+='<table style="width:100%;border-collapse:collapse;">';
+    var rows=[
+      ['Supabase URL', d.supabase_url],
+      ['ANON KEY', d.anon_key_set ? ('설정됨 · ' + d.anon_key_format) : '❌ 미설정'],
+      ['SERVICE KEY', d.service_key_set ? '✅ 설정됨' : '❌ 미설정'],
+      ['계정 존재', d.user_exists ? '✅ 있음' : '❌ 없음'],
+      ['이메일 인증', d.confirmed ? '✅ 완료' : '❌ 미인증 ('+d.email_confirmed_at+')'],
+      ['로그인 결과', d.signin_result || '테스트 안됨'],
+      ['로그인 에러', d.signin_error || '-'],
+    ];
+    if(resetPw) rows.push(['비밀번호 리셋', d.password_reset_ok ? '✅ 성공' : '❌ 실패 ('+d.password_reset_status+')']);
+    rows.forEach(function(row){
+      html+='<tr><td style="padding:2px 8px;color:#666;white-space:nowrap;">'+row[0]+'</td><td style="padding:2px 8px;font-weight:600;">'+row[1]+'</td></tr>';
+    });
+    html+='</table>';
+
+    // ANON KEY 미설정이면 해결 안내
+    if(!d.anon_key_set || d.anon_key_format==='sb_publishable(신형-미지원)'){
+      html+='<div style="margin-top:8px;padding:8px;background:#fff3f3;border-radius:5px;color:#c62828;">';
+      html+='<b>⚠ SUPABASE_ANON_KEY 문제</b><br>';
+      html+='Render 환경변수에 <code>SUPABASE_ANON_KEY</code>를 추가하고, 값은 <b>eyJhbGci...</b> 형식의 JWT anon key여야 합니다.<br>';
+      html+='<a href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/settings/api" target="_blank" style="color:#1a5fb4;">Supabase API 설정에서 anon public 키 확인 →</a>';
+      html+='</div>';
+    }
+
+    // 로그인 성공인데 앱에서 안 되는 경우
+    if(d.signin_ok){
+      html+='<div style="margin-top:8px;padding:8px;background:#e8f5e9;border-radius:5px;color:#2e7d32;">';
+      html+='<b>✅ 서버 로그인 성공</b> — 앱에서 안 된다면 <b>config.js</b>의 SUPABASE_ANON_KEY 또는 URL을 확인하세요.<br>';
+      html+='config.js가 최신 배포인지, anon key가 JWT 형식인지 확인하세요.';
+      html+='</div>';
+    }
+
+    html+='</div>';
+    res.innerHTML=html;
+  }catch(e){res.innerHTML='<span style="color:#e53e3e">❌ '+e.message+'</span>';}
 }
 
 async function confirmAllEmails(){
