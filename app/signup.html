@@ -6,7 +6,7 @@
 <title>CODIBANK - 회원가입</title>
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
   html,body{min-height:100dvh;width:100%;background:#071952;color:#fff;font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-tap-highlight-color:transparent;}
@@ -120,17 +120,24 @@
       <div><label class="field-label">연령대</label><div class="sel-group"><button class="sel-btn" onclick="sel('A','10s',this)">10대</button><button class="sel-btn" onclick="sel('A','20s',this)">20대</button><button class="sel-btn" onclick="sel('A','30s',this)">30대</button><button class="sel-btn" onclick="sel('A','40s',this)">40대</button><button class="sel-btn" onclick="sel('A','50s+',this)">50대+</button></div></div>
       <div class="row-2"><div><label class="field-label">키 (cm)</label><input id="s3_height" type="number" class="input" placeholder="170"/></div><div><label class="field-label">몸무게 (kg)</label><input id="s3_weight" type="number" class="input" placeholder="65"/></div></div>
       <p id="s3Err" class="err"></p>
-      <button class="btn-primary" onclick="doSignup()">가입 완료</button>
+      <button class="btn-primary" id="btnStep3" onclick="doSignup()">가입 완료</button>
     </div>
   </div>
 </div>
 
+<script src="config.js"></script>
 <script src="codibank.js"></script>
 <script src="i18n.js"></script>
 <script>
-const SB_URL='https://drgsayvlpzcacurcczjq.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyZ3NheXZscHpjYWN1cmNjempxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjU4MTMsImV4cCI6MjA4OTQwMTgxM30.4_M245-q2LeFKRf6go587R0U2ocPNa9iSv3qHCQMOPA';
-let sb; try{ sb=window.supabase.createClient(SB_URL,SB_KEY); }catch(e){ console.error('Supabase init fail',e); }
+// codibank.js의 단일 Supabase 클라이언트 사용 (config.js의 supabaseAnonKey 기반)
+// 별도 클라이언트 생성 시 세션 충돌 발생 → getSupabaseClient()로 통일
+let sb;
+(function(){
+  // codibank.js 로드 후 클라이언트 가져오기
+  function _init(){ sb = window.CodiBank && window.CodiBank.getSupabaseClient ? window.CodiBank.getSupabaseClient() : null; }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', _init);
+  else _init();
+})();
 
 if(window.CodiBank&&CodiBank.getCurrentUser&&CodiBank.getCurrentUser()) location.replace('closet.html');
 
@@ -145,6 +152,7 @@ function showStep(id,dot){
 
 /* ── STEP 1 → 인증 이메일 발송 ── */
 async function sendVerification(){
+  if(!sb) sb = window.CodiBank && window.CodiBank.getSupabaseClient ? window.CodiBank.getSupabaseClient() : null;
   clrErr('s1Err');
   const em=document.getElementById('s1_email').value.trim();
   const pw=document.getElementById('s1_pw').value;
@@ -177,6 +185,7 @@ async function sendVerification(){
 
 /* ── 인증 완료 확인 ── */
 async function checkVerified(){
+  if(!sb) sb = window.CodiBank && window.CodiBank.getSupabaseClient ? window.CodiBank.getSupabaseClient() : null;
   clrErr('s2Err');
   try{
     const{data,error}=await sb.auth.signInWithPassword({email:sEmail,password:sPw});
@@ -191,6 +200,7 @@ async function checkVerified(){
 
 /* ── 인증 메일 재발송 ── */
 async function resendEmail(){
+  if(!sb) sb = window.CodiBank && window.CodiBank.getSupabaseClient ? window.CodiBank.getSupabaseClient() : null;
   clrErr('s2Err');
   try{
     const{error}=await sb.auth.resend({type:'signup',email:sEmail});
@@ -214,16 +224,27 @@ async function resendEmail(){
 })();
 
 /* ── STEP 3 → 가입 완료 ── */
-function doSignup(){
+async function doSignup(){
   clrErr('s3Err');
-  const res=window.CodiBank.signup({
-    email:sEmail, password:sPw||'supabase_verified', phone:'',
-    gender:G, ageGroup:A,
-    height:document.getElementById('s3_height').value,
-    weight:document.getElementById('s3_weight').value,
-  });
-  if(res.ok) location.replace('closet.html');
-  else showErr('s3Err',res.error||'회원가입에 실패했습니다.');
+  const btn=document.getElementById('btnStep3');
+  if(btn){ btn.disabled=true; btn.textContent='저장 중...'; }
+  try{
+    const res = await Promise.resolve(window.CodiBank.signup({
+      email:sEmail, password:sPw||'supabase_verified', phone:'',
+      gender:G, ageGroup:A,
+      height:document.getElementById('s3_height').value,
+      weight:document.getElementById('s3_weight').value,
+    }));
+    if(res && res.ok){
+      location.replace('closet.html');
+    } else {
+      showErr('s3Err',(res&&res.error)||'회원가입에 실패했습니다.');
+    }
+  }catch(e){
+    showErr('s3Err',e.message||'오류가 발생했습니다.');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='가입 완료'; }
+  }
 }
 </script>
 <nav class="cb-nav">

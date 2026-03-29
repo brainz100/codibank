@@ -1,7 +1,3 @@
-/* ==============================
-   CodiBank Prototype Core (face image unified via getUserFaceImageSrc inside IIFE)
-============================== */
-
 /*
   CodiBank Prototype Core
   - LocalStorage 기반 (서버/DB 없이) 임시 테스트가 가능한 수준의 동작을 제공
@@ -158,12 +154,73 @@ function getBackendBaseResolved() {
 
 
   const KEYS = {
-    USERS: 'codibank_users',
-    SESSION: 'codibank_session',
-    ITEMS: 'codibank_items',
-    // pricing.html과의 호환을 위해 유지
-    PLAN: 'codibank_plan',
+    USERS:   'codibank_users',    // 로컬 캐시용 (Supabase 세션에서 채워짐)
+    SESSION: 'codibank_session',  // 로컬 세션 캐시
+    ITEMS:   'codibank_items',    // 아이템 데이터 (로컬 유지)
+    PLAN:    'codibank_plan',     // pricing.html 호환
   };
+
+  // ══════════════════════════════════════════════════════
+  // Supabase 클라이언트 초기화
+  // config.js → window.CODIBANK_CONFIG.supabaseUrl / supabaseAnonKey
+  // ══════════════════════════════════════════════════════
+  const _SB_URL  = (typeof window !== 'undefined' && window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.supabaseUrl)
+    ? window.CODIBANK_CONFIG.supabaseUrl
+    : 'https://drgsayvlpzcacurcczjq.supabase.co';
+
+  const _SB_ANON = (typeof window !== 'undefined' && window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.supabaseAnonKey)
+    ? window.CODIBANK_CONFIG.supabaseAnonKey
+    : '';
+
+  let _sbClient = null;
+  function _getSupabase() {
+    if (_sbClient) return _sbClient;
+    if (!_SB_ANON) {
+      console.warn('[CodiBank] supabaseAnonKey 미설정 — config.js에서 설정하세요.');
+      return null;
+    }
+    try {
+      // Supabase JS SDK v2 (UMD: window.supabase.createClient)
+      const factory = (typeof window !== 'undefined' && window.supabase && window.supabase.createClient)
+        ? window.supabase.createClient
+        : (typeof supabase !== 'undefined' && supabase.createClient ? supabase.createClient : null);
+      if (!factory) { console.warn('[CodiBank] Supabase SDK 미로드'); return null; }
+      _sbClient = factory(_SB_URL, _SB_ANON, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      });
+      return _sbClient;
+    } catch (e) {
+      console.warn('[CodiBank] Supabase 초기화 실패:', e);
+      return null;
+    }
+  }
+
+  // 현재 Supabase 세션 캐시 (동기 접근용)
+  let _cachedSession  = null;
+  let _cachedUser     = null;    // Supabase user → CodiBank user 형태로 변환한 캐시
+  let _sessionFetched = false;
+
+  // Supabase user → CodiBank user 형태로 변환
+  function _sbUserToCb(sbUser) {
+    if (!sbUser) return null;
+    const m = sbUser.user_metadata || {};
+    return {
+      email:            sbUser.email || '',
+      gender:           m.gender     || '',
+      ageGroup:         m.ageGroup   || '',
+      height:           m.height     || '',
+      weight:           m.weight     || '',
+      location:         m.location   || '',
+      nickname:         m.nickname   || m.name || '',
+      avatarFace:       m.avatarFace || '',
+      plan:             m.plan       || 'FREE',
+      categories:       m.categories || DEFAULT_CATEGORIES.map((c) => c.key),
+      customCategories: m.customCategories || [],
+      createdAt:        sbUser.created_at  || nowIso(),
+      updatedAt:        m.updatedAt  || nowIso(),
+      sbId:             sbUser.id,
+    };
+  }
 
   // ✅ 기본 카테고리(옷장 페이지 기준 고정 순서)
   // 코트, 자켓, 탑, 바지, 양말, 구두, 시계, 스카프, 기타
@@ -260,70 +317,90 @@ function getBackendBaseResolved() {
     return /^(?=.*[A-Za-z])(?=.*\d).{4,}$/.test(String(pw || ''));
   }
 
-  function getUsers() {
-    return loadJson(KEYS.USERS, {});
-  }
-
-  function setUsers(users) {
-    saveJson(KEYS.USERS, users);
-  }
+  // ── 로컬 캐시용 (아이템/앨범 데이터는 로컬 유지)
+  function getUsers() { return loadJson(KEYS.USERS, {}); }
+  function setUsers(users) { saveJson(KEYS.USERS, users); }
 
   function getUser(email) {
+    if (_cachedUser && normalizeEmail(_cachedUser.email) === normalizeEmail(email)) return _cachedUser;
     const users = getUsers();
     return users[normalizeEmail(email)] || null;
   }
 
   function upsertUser(user) {
+    const e = normalizeEmail(user.email);
+    if (!e) return;
     const users = getUsers();
-    users[normalizeEmail(user.email)] = user;
-    setUsers(users);
+    users[e] = Object.assign({}, users[e] || {}, user, { email: e });
+    saveJson(KEYS.USERS, users);
+    if (_cachedUser && normalizeEmail(_cachedUser.email) === e) {
+      _cachedUser = Object.assign({}, _cachedUser, user);
+    }
   }
 
-  function updateUserProfile(email, patch) {
+  // ── Supabase 기반 프로필 업데이트
+  async function updateUserProfile(email, patch) {
     const e = normalizeEmail(email);
     const u = getUser(e);
-    if (!u) return { ok: false, error: '사용자를 찾을 수 없습니다.' };
-    const next = Object.assign({}, u, patch || {}, { updatedAt: nowIso() });
+    const next = Object.assign({}, u || { email: e }, patch || {}, { updatedAt: nowIso() });
     upsertUser(next);
+    if (_cachedUser && normalizeEmail(_cachedUser.email) === e) _cachedUser = next;
+    try {
+      const sb = _getSupabase();
+      if (sb) await sb.auth.updateUser({ data: Object.assign({}, patch, { updatedAt: nowIso() }) });
+    } catch (_) {}
     return { ok: true, user: next };
   }
 
-  function getSession() {
-    return loadJson(KEYS.SESSION, null);
-  }
-
-  function setSession(session) {
-    saveJson(KEYS.SESSION, session);
-  }
-
+  // ── 세션 캐시
+  function getSession() { return _cachedSession || loadJson(KEYS.SESSION, null); }
+  function setSession(s) { _cachedSession = s; saveJson(KEYS.SESSION, s); }
   function clearSession() {
+    _cachedSession = null; _cachedUser = null; _sessionFetched = false;
     localStorage.removeItem(KEYS.SESSION);
   }
 
+  // ── 현재 로그인 유저 (동기 — 캐시 기반)
   function getCurrentUser() {
-    const session = getSession();
-    if (!session || !session.email) return null;
-    const u = getUser(session.email);
-    if (!u) {
-      clearSession();
-      return null;
+    if (_cachedUser) return _cachedUser;
+    const sess = getSession();
+    if (sess && sess.email) {
+      const u = getUser(sess.email);
+      if (u) { _cachedUser = u; return u; }
     }
-    return u;
+    return null;
   }
 
+  // ── 인증 가드 (동기 + Supabase 세션 비동기 확인)
   function requireAuth(redirectTo) {
     const to = redirectTo || 'login.html';
-    if (!getCurrentUser()) {
+    if (getCurrentUser()) return true;
+    const sb = _getSupabase();
+    if (sb) {
+      sb.auth.getSession().then(({ data }) => {
+        if (data && data.session && data.session.user) {
+          _cachedSession = { email: data.session.user.email, loggedInAt: nowIso() };
+          _cachedUser    = _sbUserToCb(data.session.user);
+          upsertUser(_cachedUser);
+          localStorage.setItem(KEYS.PLAN, _cachedUser.plan || 'FREE');
+        } else {
+          window.location.replace(to);
+        }
+      }).catch(() => window.location.replace(to));
+    } else {
       window.location.replace(to);
-      return false;
     }
-    return true;
+    return false;
   }
 
-  function logout(redirectTo) {
+  // ── 로그아웃
+  async function logout(redirectTo) {
+    try { const sb = _getSupabase(); if (sb) await sb.auth.signOut(); } catch (_) {}
     clearSession();
+    localStorage.setItem(KEYS.PLAN, 'FREE');
     if (redirectTo) window.location.href = redirectTo;
   }
+
 
   function migrateUserItemsCategories(email, allowedSet) {
     const e = normalizeEmail(email);
@@ -716,56 +793,127 @@ function getBackendBaseResolved() {
   }
 
 
-function signup(payload) {
+// ── Supabase 회원가입
+  async function signup(payload) {
     const email = normalizeEmail(payload.email);
-    if (!email) return { ok: false, error: '이메일(ID)을 입력해주세요.' };
-    if (getUser(email)) return { ok: false, error: '이미 가입된 이메일(ID)입니다.' };
-    // 휴대폰 번호는 선택 (프로필에서 나중에 입력)
-    const phoneVal = payload.phone ? String(payload.phone).trim() : '';
+    if (!email) return { ok: false, error: '이메일을 입력해주세요.' };
     if (!passwordMeetsRule(payload.password)) {
       return { ok: false, error: '비밀번호 규칙(4자리 이상, 영문+숫자 포함)을 확인해주세요.' };
     }
+    const sb = _getSupabase();
+    if (!sb) return { ok: false, error: 'Supabase 연결 실패. config.js의 supabaseAnonKey를 확인하세요.' };
 
-    const user = {
+    const meta = {
       email,
-      password: String(payload.password),
-      phone: phoneVal,
-      gender: payload.gender || '',
-      ageGroup: payload.ageGroup || '',
-      height: payload.height || '',
-      weight: payload.weight || '',
-      location: payload.location || '',
-      // (선택) 얼굴 사진(가상피팅/프로필용) 이미지 참조
-      // - DataURL 또는 IndexedDB imageId(saveImage 결과)
-      avatarFace: payload.avatarFace || '',
-      plan: 'FREE',
-      categories: DEFAULT_CATEGORIES.map((c) => c.key),
+      gender:           payload.gender    || '',
+      ageGroup:         payload.ageGroup  || '',
+      height:           payload.height    || '',
+      weight:           payload.weight    || '',
+      location:         payload.location  || '',
+      nickname:         payload.nickname  || email.split('@')[0],
+      avatarFace:       payload.avatarFace || '',
+      plan:             'FREE',
+      categories:       DEFAULT_CATEGORIES.map((c) => c.key),
       customCategories: [],
-      createdAt: nowIso(),
+      createdAt:        nowIso(),
     };
-    upsertUser(user);
-    // pricing.html 호환
-    localStorage.setItem(KEYS.PLAN, 'FREE');
 
-    setSession({ email, loggedInAt: nowIso() });
-    return { ok: true, user };
+    try {
+      // ── 이미 Supabase 세션이 있는 경우 (signup.html STEP2에서 로그인 완료된 경우)
+      // signUp 재호출 없이 user_metadata만 업데이트
+      const { data: sessData } = await sb.auth.getSession();
+      if (sessData && sessData.session && sessData.session.user) {
+        // 이미 인증된 세션 — 프로필 메타데이터만 업데이트
+        await sb.auth.updateUser({ data: meta });
+        const cbUser = _sbUserToCb(
+          Object.assign({}, sessData.session.user, { user_metadata: Object.assign({}, sessData.session.user.user_metadata, meta) })
+        );
+        _cachedUser    = cbUser;
+        _cachedSession = { email, loggedInAt: nowIso() };
+        upsertUser(cbUser);
+        localStorage.setItem(KEYS.PLAN, cbUser.plan || 'FREE');
+        setSession(_cachedSession);
+        return { ok: true, user: cbUser };
+      }
+
+      // ── 세션 없음 — 신규 signUp
+      const { data, error } = await sb.auth.signUp({
+        email,
+        password: String(payload.password),   // Supabase Auth 파라미터 (meta에는 저장 안 함)
+        options: { data: meta },
+      });
+      if (error) {
+        const msg = error.message || '';
+        return { ok: false, error:
+          msg.includes('already registered') ? '이미 가입된 이메일입니다.' :
+          msg.includes('invalid') ? '유효하지 않은 이메일입니다.' : msg };
+      }
+      const cbUser = _sbUserToCb(data.user);
+      _cachedUser    = cbUser;
+      _cachedSession = { email, loggedInAt: nowIso() };
+      upsertUser(cbUser);
+      localStorage.setItem(KEYS.PLAN, 'FREE');
+      setSession(_cachedSession);
+      return { ok: true, user: cbUser };
+    } catch (e) {
+      return { ok: false, error: String(e && (e.message || e)) };
+    }
   }
 
-  function login(email, password) {
+  // ── Supabase 로그인
+  async function login(email, password) {
     const e = normalizeEmail(email);
-    const u = getUser(e);
-    if (!u) return { ok: false, error: '가입된 계정을 찾을 수 없습니다.' };
-    if (String(u.password) !== String(password || '')) return { ok: false, error: '비밀번호가 올바르지 않습니다.' };
-    setSession({ email: e, loggedInAt: nowIso() });
-    // pricing.html 호환
-    localStorage.setItem(KEYS.PLAN, getUserPlan(e));
-    return { ok: true, user: u };
+    if (!e) return { ok: false, error: '이메일을 입력해주세요.' };
+    const sb = _getSupabase();
+    if (!sb) return { ok: false, error: 'Supabase 연결 실패. config.js의 supabaseAnonKey를 확인하세요.' };
+
+    try {
+      const { data, error } = await sb.auth.signInWithPassword({ email: e, password: String(password || '') });
+      if (error) {
+        const msg = error.message || '';
+        return { ok: false, error:
+          (msg.includes('Invalid login credentials') || msg.includes('invalid_credentials'))
+            ? '이메일 또는 비밀번호가 올바르지 않습니다.' :
+          msg.includes('Email not confirmed')
+            ? '이메일 인증이 필요합니다. 이메일을 확인해주세요.' :
+          msg.includes('User not found')
+            ? '가입된 계정을 찾을 수 없습니다.' : msg };
+      }
+      // 세션 캐시 갱신
+      const cbUser = _sbUserToCb(data.user);
+      _cachedUser    = cbUser;
+      _cachedSession = { email: e, loggedInAt: nowIso() };
+      upsertUser(cbUser);
+      localStorage.setItem(KEYS.PLAN, cbUser.plan || 'FREE');
+      setSession(_cachedSession);
+      return { ok: true, user: cbUser };
+    } catch (e) {
+      return { ok: false, error: String(e && (e.message || e)) };
+    }
   }
 
-  // 최초 접근 시, 데모용 계정이 아예 없을 때만 가볍게 안내
+  // ── 세션 초기화 (앱 로드 시 Supabase 세션 복원)
+  async function _initSession() {
+    try {
+      const sb = _getSupabase();
+      if (!sb) return;
+      const { data } = await sb.auth.getSession();
+      if (data && data.session && data.session.user) {
+        const cbUser = _sbUserToCb(data.session.user);
+        _cachedUser    = cbUser;
+        _cachedSession = { email: cbUser.email, loggedInAt: nowIso() };
+        upsertUser(cbUser);
+        localStorage.setItem(KEYS.PLAN, cbUser.plan || 'FREE');
+        setSession(_cachedSession);
+      }
+      _sessionFetched = true;
+    } catch (_) {}
+  }
+  // 앱 로드 시 즉시 세션 복원 시도
+  _initSession();
+
   function hasAnyUser() {
-    const users = getUsers();
-    return Object.keys(users).length > 0;
+    return !!getCurrentUser();
   }
 
   // =============================
@@ -1021,35 +1169,6 @@ if (ref.startsWith('/uploads/')) {
       });
     } catch (_) {}
     _imageUrlCache.clear();
-  }
-
-  // ==============================
-  // 프로필 얼굴 이미지 통합 로드 (cascading fallback)
-  // avatarFace(IDB id) → photo(dataURL) → '' 순서로 시도
-  // closet.html, codistyle.html 모두 이 함수를 사용
-  // ==============================
-  async function getUserFaceImageSrc(user) {
-    if (!user) return '';
-
-    // 1차: avatarFace (IndexedDB id 또는 dataURL/URL)
-    var faceRef = String(user.avatarFace || '').trim();
-    if (faceRef) {
-      try {
-        var src = await getImageSrc(faceRef);
-        if (src) return src;
-      } catch (_) {}
-    }
-
-    // 2차: photo (dataURL 직접 저장분)
-    var photoRef = String(user.photo || '').trim();
-    if (photoRef) {
-      try {
-        var src2 = await getImageSrc(photoRef);
-        if (src2) return src2;
-      } catch (_) {}
-    }
-
-    return '';
   }
 
 // ==============================
@@ -1400,54 +1519,39 @@ async function uploadImageToServer(dataUrl, opts) {
      - 서버 업로드 파일(/uploads/..)은 데모 서버의 파일이므로 즉시 삭제하지 않습니다.
        (필요하면 추후 서버에 삭제 API를 추가)
      ============================================================ */
-  function deleteUserAccount(email) {
+  async function deleteUserAccount(email) {
     const e = normalizeEmail(email);
     if (!e) return { ok: false, error: '이메일이 없습니다.' };
-
-    // 관리자 계정은 실수 방지
-    if (e === normalizeEmail('test@codibank.kr')) {
-      return { ok: false, error: '관리자 계정은 탈퇴할 수 없습니다.' };
-    }
-
     try {
-      // 1) user 제거
+      // 1) Supabase 로그아웃 (세션 제거)
+      const sb = _getSupabase();
+      if (sb) await sb.auth.signOut();
+      clearSession();
+
+      // 2) 로컬 데이터 정리
       const users = getUsers();
-      if (!users || !users[e]) return { ok: false, error: '사용자를 찾을 수 없습니다.' };
       delete users[e];
       setUsers(users);
-
-      // 2) 세션 제거
-      try {
-        const sess = getSession();
-        if (sess && normalizeEmail(sess.email) === e) clearSession();
-      } catch (_) {}
-
-      // 3) 아이템 제거
       try {
         const items = getAllItems();
-        const nextItems = (Array.isArray(items) ? items : []).filter(
-          (it) => normalizeEmail(it && it.userEmail) !== e
-        );
-        setAllItems(nextItems);
+        setAllItems((Array.isArray(items)?items:[]).filter(it=>normalizeEmail(it&&it.userEmail)!==e));
       } catch (_) {}
-
-      // 4) 코디앨범 제거
       try {
         const all = getAiAlbumAll();
-        const next = (Array.isArray(all) ? all : []).filter(
-          (x) => normalizeEmail(x && x.email) !== e
-        );
-        setAiAlbumAll(next);
+        setAiAlbumAll((Array.isArray(all)?all:[]).filter(x=>normalizeEmail(x&&x.email)!==e));
       } catch (_) {}
+      try { localStorage.removeItem(`codibank_weather_cache_v1_${e}`); } catch (_) {}
 
-      // 5) 페이지 캐시(날씨/AI 이미지 등) 일부 정리
+      // 3) 서버 경유 Supabase 계정 삭제 (service_role 필요 → 백엔드 API)
       try {
-        localStorage.removeItem(`codibank_weather_cache_v1_${e}`);
+        const base = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || '';
+        if (base) await fetch(base + '/api/user/delete', { method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: e }) });
       } catch (_) {}
 
       return { ok: true };
     } catch (err) {
-      console.warn('deleteUserAccount failed:', err);
       return { ok: false, error: '회원탈퇴 처리 중 오류가 발생했습니다.' };
     }
   }
@@ -1455,55 +1559,8 @@ async function uploadImageToServer(dataUrl, opts) {
   /* ============================================================
      관리자 계정 (버전이 바뀌어도 유지)
      ============================================================ */
-  function ensureAdminAccount() {
-    try {
-      const users = getUsers();
-
-      // 기존 admin@test 삭제
-      const oldAdmin = normalizeEmail('admin@test');
-      if (users[oldAdmin]) {
-        delete users[oldAdmin];
-        try { localStorage.removeItem('cb_points_' + oldAdmin); } catch(_){}
-        try { localStorage.removeItem('cb_sub_' + oldAdmin); } catch(_){}
-      }
-
-      // 새 관리자: test@codibank.kr
-      const email = normalizeEmail('test@codibank.kr');
-      const existing = users[email];
-      if (!existing) {
-        users[email] = {
-          email,
-          password: 'pass1234',
-          createdAt: nowIso(),
-          updatedAt: nowIso(),
-          plan: 'ADMIN',
-          phone: '',
-          gender: 'M',
-          ageGroup: '40s',
-          height: 175,
-          weight: 70,
-          nickname: 'CodiBank Admin',
-        };
-      } else {
-        if (existing.plan !== 'ADMIN') { existing.plan = 'ADMIN'; existing.updatedAt = nowIso(); }
-        if (!existing.password) { existing.password = 'pass1234'; existing.updatedAt = nowIso(); }
-        users[email] = existing;
-      }
-      setUsers(users);
-
-      // 무한 포인트 보장
-      localStorage.setItem('cb_points_' + email, '999999');
-      localStorage.setItem('cb_sub_' + email, 'subB');
-
-      return { ok: true };
-    } catch (e) {
-      console.warn('ensureAdminAccount failed:', e);
-      return { ok: false, error: String(e && (e.message || e)) };
-    }
-  }
-
-  // 즉시 보장(앱 로드시 1회)
-  ensureAdminAccount();
+  // ensureAdminAccount: Supabase 기반으로 전환 후 로컬 demo 계정 불필요
+  function ensureAdminAccount() { return { ok: true }; }
 
   /* ============================================================
      간편로그인(데모)
@@ -1633,6 +1690,7 @@ window.CodiBank = {
     // auth
     ensureAdminAccount,
     socialLogin,
+    getSupabaseClient: _getSupabase,   // signup.html 등 외부에서 단일 클라이언트 사용
 
     hasAnyUser,
     getCurrentUser,
@@ -1683,7 +1741,6 @@ window.CodiBank = {
     saveImage,
     uploadImageToServer,
     getImageSrc,
-    getUserFaceImageSrc,
     clearImageSrcCache,
 
     // location & weather
@@ -1691,128 +1748,4 @@ window.CodiBank = {
     getWeatherByCoords,
     weatherCodeToKorean,
   };
-})();
-/* ══════════════════════════════════════
-   CodiBank Tracking API — codibank.js 맨 아래에 추가
-   사용자 활동을 Supabase DB에 기록
-══════════════════════════════════════ */
-
-(function(){
-  var _trackBase = '';
-  function getTrackBase(){
-    if(_trackBase) return _trackBase;
-    try {
-      var cfg = window.CODIBANK_CONFIG || {};
-      _trackBase = (cfg.backendBase || 'https://codibank-api.onrender.com').replace(/\/$/,'');
-    } catch(e) {
-      _trackBase = 'https://codibank-api.onrender.com';
-    }
-    return _trackBase;
-  }
-
-  function getCurrentUserInfo(){
-    try {
-      var u = window.CodiBank && CodiBank.getCurrentUser ? CodiBank.getCurrentUser() : null;
-      if(!u) return null;
-      return {
-        user_id: u.id || '',
-        email: u.email || '',
-        gender: u.gender || '',
-        plan: u.plan || 'free'
-      };
-    } catch(e) { return null; }
-  }
-
-  /**
-   * 스타일링 이용 추적
-   * @param {string} type - 'closet' 또는 'codistyle'
-   * @param {object} extra - { purpose, points_used } 등 추가 데이터
-   */
-  window.CodiBankTrack = window.CodiBankTrack || {};
-
-  CodiBankTrack.styling = function(type, extra){
-    var u = getCurrentUserInfo();
-    if(!u) return;
-    var body = {
-      user_id: u.user_id,
-      email: u.email,
-      type: type || 'codistyle',
-      points_used: (extra && extra.points_used) || 100,
-      gender: u.gender,
-      plan: u.plan,
-      purpose: (extra && extra.purpose) || ''
-    };
-    fetch(getTrackBase() + '/api/track/styling', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(body)
-    }).catch(function(){});
-  };
-
-  /**
-   * 아이템 등록 추적
-   * @param {string} category - 'top', 'bottom', 'outer', 'shoes', 'bag', 'acc'
-   * @param {object} extra - { image_url, item_name }
-   */
-  CodiBankTrack.item = function(category, extra){
-    var u = getCurrentUserInfo();
-    if(!u) return;
-    var body = {
-      user_id: u.user_id,
-      email: u.email,
-      category: category || '',
-      image_url: (extra && extra.image_url) || '',
-      item_name: (extra && extra.item_name) || ''
-    };
-    fetch(getTrackBase() + '/api/track/item', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(body)
-    }).catch(function(){});
-  };
-
-  /**
-   * 결제 추적
-   * @param {object} data - { plan_id, plan_name, amount, currency, points_granted, imp_uid, merchant_uid }
-   */
-  CodiBankTrack.payment = function(data){
-    var u = getCurrentUserInfo();
-    if(!u) return;
-    var body = {
-      user_id: u.user_id,
-      email: u.email,
-      plan_id: data.plan_id || '',
-      plan_name: data.plan_name || '',
-      amount: data.amount || 0,
-      currency: data.currency || 'KRW',
-      points_granted: data.points_granted || 0,
-      imp_uid: data.imp_uid || '',
-      merchant_uid: data.merchant_uid || ''
-    };
-    fetch(getTrackBase() + '/api/track/payment', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(body)
-    }).catch(function(){});
-  };
-})();
-
-/* ═══ 30분 비활성 자동 로그아웃 ═══ */
-(function(){
-  var IDLE_MS = 30 * 60 * 1000; // 30분
-  var _idleTimer = null;
-  function resetIdle(){
-    if(_idleTimer) clearTimeout(_idleTimer);
-    _idleTimer = setTimeout(function(){
-      if(window.CodiBank && CodiBank.getCurrentUser && CodiBank.getCurrentUser()){
-        try{ sessionStorage.clear(); }catch(_){}
-        if(window.CodiBank && CodiBank.logout) CodiBank.logout('login.html');
-        else window.location.href = 'login.html';
-      }
-    }, IDLE_MS);
-  }
-  ['click','touchstart','keydown','scroll','mousemove'].forEach(function(ev){
-    document.addEventListener(ev, resetIdle, {passive:true});
-  });
-  resetIdle();
 })();
