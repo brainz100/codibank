@@ -2132,19 +2132,29 @@ def get_usage_bonus(email):
     """특정 이메일의 사용횟수 보너스 조회."""
     try:
         email = email.strip().lower()
-        now_ym = _json.loads(__import__('datetime').datetime.now().strftime('"%Y-%m"'))
+        now_ym = __import__('datetime').datetime.now().strftime("%Y-%m")
         params = {
             "email": f"eq.{email}",
             "month": f"eq.{now_ym}",
             "select": "total_bonus",
             "limit": "1",
         }
-        r = sb_query("GET", "user_usage_bonus", params=params)
-        if r.status_code == 200:
-            rows = r.json()
-            if rows:
-                tb = int(rows[0].get("total_bonus", 0))
-                return jsonify({"ok": True, "total_bonus": tb, "month": now_ym})
+        # 1) Supabase 테이블 조회
+        try:
+            r = sb_query("GET", "user_usage_bonus", params=params)
+            if r.status_code == 200:
+                rows = r.json()
+                if rows:
+                    tb = int(rows[0].get("total_bonus", 0))
+                    return jsonify({"ok": True, "total_bonus": tb, "month": now_ym})
+        except Exception:
+            pass
+        # 2) Supabase 실패 시 서버 메모리 폴백 확인
+        if hasattr(app, "_usage_bonus_cache"):
+            key = f"{email}:{now_ym}"
+            if key in app._usage_bonus_cache:
+                tb = int(app._usage_bonus_cache[key].get("total_bonus", 0))
+                return jsonify({"ok": True, "total_bonus": tb, "month": now_ym, "source": "memory"})
         return jsonify({"ok": True, "total_bonus": 0, "month": now_ym})
     except Exception as e:
         return jsonify({"ok": True, "total_bonus": 0, "error": str(e)})
@@ -2793,6 +2803,62 @@ def admin_debug_test_login():
             result["diagnosis"] = f"🔴 로그인 실패: {err}"
 
     return jsonify(result)
+
+
+
+@app.post("/admin/debug/create-bonus-table")
+def admin_create_bonus_table():
+    """user_usage_bonus 테이블이 없으면 생성 시도 (MASTER 전용).
+    Supabase에서 SQL Editor로 직접 실행하는 DDL도 반환합니다.
+    """
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+
+    ddl = """
+CREATE TABLE IF NOT EXISTS public.user_usage_bonus (
+  email       TEXT NOT NULL,
+  month       TEXT NOT NULL,
+  total_bonus INTEGER DEFAULT 0,
+  updated_at  TIMESTAMPTZ DEFAULT now(),
+  updated_by  TEXT,
+  PRIMARY KEY (email, month)
+);
+ALTER TABLE public.user_usage_bonus ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_all" ON public.user_usage_bonus
+  FOR ALL USING (true) WITH CHECK (true);
+"""
+    import requests as _rq
+    _sb  = supabase_url()
+    _hdr = supabase_admin_headers()
+
+    # Supabase REST API로 테이블 존재 확인
+    try:
+        test = _rq.get(f"{_sb}/rest/v1/user_usage_bonus?limit=1",
+                        headers=_hdr, timeout=10)
+        if test.status_code == 200:
+            return jsonify({
+                "ok": True,
+                "table_exists": True,
+                "message": "테이블이 이미 존재합니다. 보너스 지급이 정상 작동합니다.",
+            })
+        elif test.status_code == 404 or '42P01' in test.text:
+            return jsonify({
+                "ok": False,
+                "table_exists": False,
+                "message": "테이블 없음 — Supabase SQL Editor에서 아래 SQL을 실행하세요.",
+                "sql": ddl.strip(),
+                "sql_editor_url": f"https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/sql/new",
+            })
+        else:
+            return jsonify({
+                "ok": False,
+                "table_exists": False,
+                "status": test.status_code,
+                "detail": test.text[:300],
+                "sql": ddl.strip(),
+            })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "sql": ddl.strip()})
 
 
 if __name__ == "__main__":
