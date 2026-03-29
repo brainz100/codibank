@@ -2504,11 +2504,20 @@ def admin_debug_supabase():
         if lr.status_code == 200:
             ud = lr.json()
             ul = ud.get("users", ud) if isinstance(ud, dict) else ud
-            emails = [u.get("email","").lower() for u in ul]
-            admin_exists = "admin@codibank.kr" in emails
+            emails_confirmed = {}
+            for u in ul:
+                em_l = u.get("email","").lower()
+                emails_confirmed[em_l] = {
+                    "exists": True,
+                    "confirmed": bool(u.get("email_confirmed_at")),
+                    "confirmed_at": u.get("email_confirmed_at",""),
+                }
+            admin_exists = "admin@codibank.kr" in emails_confirmed
+            result["admin_confirmed"] = emails_confirmed.get("admin@codibank.kr",{}).get("confirmed", False)
             for i in range(1, 11):
                 em = f"test{i:02d}@codibank.kr"
-                test_exists[em] = em in emails
+                info = emails_confirmed.get(em, {"exists": False, "confirmed": False})
+                test_exists[em] = info
             result["total_supabase_users"] = len(ul)
     except Exception as e:
         result["list_exception"] = str(e)[:200]
@@ -2599,6 +2608,76 @@ def admin_debug_force_create():
             if final_ok else
             "실패. steps 확인 후 SUPABASE_SERVICE_KEY가 service_role 키인지 확인하세요."
         ),
+    })
+
+
+
+@app.post("/admin/debug/confirm-all-emails")
+def admin_confirm_all_emails():
+    """Supabase의 admin + test01~10 계정 email_confirmed_at을 지금 시각으로 일괄 설정.
+    이메일 미인증으로 로그인 안 되는 문제를 직접 해결합니다 (MASTER 전용).
+    """
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+    import requests as _rq
+    _sb  = supabase_url()
+    _hdr = supabase_admin_headers()
+
+    svc_key = os.environ.get("SUPABASE_SERVICE_KEY","")
+    if not svc_key:
+        return jsonify({"ok": False,
+                        "error": "SUPABASE_SERVICE_KEY 환경변수 없음",
+                        "action": "Render 환경변수에 SUPABASE_SERVICE_KEY(service_role 키) 추가 후 재배포"})
+
+    # 대상 이메일 목록
+    targets = ["admin@codibank.kr"] + [f"test{i:02d}@codibank.kr" for i in range(1, 11)]
+    data = request.get_json(silent=True) or {}
+    extra = data.get("extra_emails") or []
+    targets += [e.strip().lower() for e in extra if e.strip()]
+
+    # Supabase 유저 목록에서 uid 조회
+    try:
+        lr = _rq.get(f"{_sb}/auth/v1/admin/users?per_page=1000", headers=_hdr, timeout=15)
+        if lr.status_code != 200:
+            return jsonify({"ok": False, "error": f"유저 목록 조회 실패: {lr.status_code}", "body": lr.text[:300]})
+        ud  = lr.json()
+        ul  = ud.get("users", ud) if isinstance(ud, dict) else ud
+        uid_map = {u.get("email","").lower(): u for u in ul}
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"유저 목록 조회 예외: {str(e)}"})
+
+    results = []
+    for email in targets:
+        u = uid_map.get(email)
+        if not u:
+            results.append({"email": email, "status": "not_found"})
+            continue
+        uid = u.get("id")
+        already = bool(u.get("email_confirmed_at"))
+        # PUT으로 email_confirm: True 강제 설정
+        try:
+            pr = _rq.put(
+                f"{_sb}/auth/v1/admin/users/{uid}",
+                headers=_hdr,
+                json={"email_confirm": True},
+                timeout=15
+            )
+            if pr.status_code in (200, 201):
+                results.append({"email": email, "status": "confirmed", "was_already": already})
+            else:
+                results.append({"email": email, "status": f"failed_{pr.status_code}",
+                                 "detail": pr.text[:200]})
+        except Exception as e:
+            results.append({"email": email, "status": f"error: {str(e)[:80]}"})
+
+    ok_count   = sum(1 for r in results if r["status"] == "confirmed")
+    fail_count = sum(1 for r in results if "fail" in r["status"] or "error" in r["status"])
+    return jsonify({
+        "ok":         fail_count == 0,
+        "confirmed":  ok_count,
+        "failed":     fail_count,
+        "results":    results,
+        "next_step":  f"✅ {ok_count}개 인증 완료. 이제 CodiBank 앱에서 로그인하세요." if ok_count > 0 else "실패. SUPABASE_SERVICE_KEY를 확인하세요.",
     })
 
 
