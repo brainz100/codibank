@@ -2681,6 +2681,120 @@ def admin_confirm_all_emails():
     })
 
 
+
+@app.post("/admin/debug/test-login")
+def admin_debug_test_login():
+    """CodiBank 앱과 동일한 방식으로 Supabase signInWithPassword를 서버에서 직접 테스트.
+    프론트 config.js 없이도 Supabase 인증 동작을 검증합니다 (MASTER 전용).
+    """
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+
+    import requests as _rq
+    data     = request.get_json(silent=True) or {}
+    email    = str(data.get("email")    or "admin@codibank.kr").strip().lower()
+    password = str(data.get("password") or "pass1234").strip()
+
+    _sb      = supabase_url()
+    svc_key  = os.environ.get("SUPABASE_SERVICE_KEY", "")
+    anon_key = os.environ.get("SUPABASE_ANON_KEY", "")
+
+    result = {
+        "email":            email,
+        "supabase_url":     _sb,
+        "service_key_set":  bool(svc_key),
+        "anon_key_set":     bool(anon_key),
+        "anon_key_format":  ("JWT(eyJ...)" if anon_key.startswith("eyJ") else
+                             ("sb_publishable(신형-미지원)" if anon_key.startswith("sb_") else
+                              ("미설정" if not anon_key else "알수없는형식"))),
+    }
+
+    # ── 테스트 1: service_role 키로 해당 유저 정보 조회 (계정 상태 재확인)
+    try:
+        lr = _rq.get(f"{_sb}/auth/v1/admin/users?per_page=1000",
+                      headers={"apikey": svc_key, "Authorization": f"Bearer {svc_key}",
+                               "Content-Type": "application/json"}, timeout=10)
+        if lr.status_code == 200:
+            ud  = lr.json()
+            ul  = ud.get("users", ud) if isinstance(ud, dict) else ud
+            usr = next((u for u in ul if u.get("email","").lower() == email), None)
+            if usr:
+                result["user_exists"]         = True
+                result["email_confirmed_at"]  = usr.get("email_confirmed_at") or "NULL"
+                result["confirmed"]           = bool(usr.get("email_confirmed_at"))
+                result["last_sign_in"]        = usr.get("last_sign_in_at") or "없음"
+                result["uid"]                 = usr.get("id","")
+            else:
+                result["user_exists"] = False
+                result["user_exists_note"] = "Supabase에 해당 이메일 없음"
+    except Exception as e:
+        result["user_lookup_error"] = str(e)[:100]
+
+    # ── 테스트 2: anon key로 실제 signInWithPassword 호출 (앱과 동일)
+    if anon_key:
+        try:
+            tr = _rq.post(
+                f"{_sb}/auth/v1/token?grant_type=password",
+                headers={"apikey": anon_key, "Content-Type": "application/json"},
+                json={"email": email, "password": password},
+                timeout=10
+            )
+            result["signin_status"]   = tr.status_code
+            result["signin_ok"]       = tr.status_code == 200
+            if tr.status_code == 200:
+                rd = tr.json()
+                result["signin_result"] = "✅ 로그인 성공"
+                result["token_type"]    = rd.get("token_type", "")
+                result["access_token"]  = (rd.get("access_token") or "")[:30] + "..."
+            else:
+                rd = tr.json()
+                result["signin_result"] = "❌ 로그인 실패"
+                result["signin_error"]  = rd.get("error_description") or rd.get("msg") or tr.text[:200]
+                result["signin_code"]   = rd.get("error", "")
+        except Exception as e:
+            result["signin_exception"] = str(e)[:100]
+    else:
+        result["signin_result"] = "⚠ SUPABASE_ANON_KEY 미설정 — anon key 없이는 앱 로그인 불가"
+        result["signin_ok"]     = False
+
+    # ── 테스트 3: service_role 키로 임시 비밀번호 강제 리셋 (테스트 목적)
+    if data.get("reset_password") and svc_key and result.get("uid"):
+        try:
+            rr = _rq.put(
+                f"{_sb}/auth/v1/admin/users/{result['uid']}",
+                headers={"apikey": svc_key, "Authorization": f"Bearer {svc_key}",
+                         "Content-Type": "application/json"},
+                json={"password": password, "email_confirm": True},
+                timeout=10
+            )
+            result["password_reset_status"] = rr.status_code
+            result["password_reset_ok"]     = rr.status_code in (200, 201)
+        except Exception as e:
+            result["password_reset_error"] = str(e)[:100]
+
+    # ── 진단 요약
+    if not anon_key:
+        result["diagnosis"] = "🔴 SUPABASE_ANON_KEY 환경변수 없음 → 앱 로그인 불가 (config.js의 키도 확인 필요)"
+    elif not anon_key.startswith("eyJ"):
+        result["diagnosis"] = "🔴 ANON_KEY가 JWT 형식(eyJ...)이 아님 → Supabase JS SDK v2는 JWT anon key 필요"
+    elif not result.get("user_exists"):
+        result["diagnosis"] = "🔴 Supabase에 계정 없음"
+    elif not result.get("confirmed"):
+        result["diagnosis"] = "🔴 이메일 미인증 (email_confirmed_at = NULL)"
+    elif result.get("signin_ok"):
+        result["diagnosis"] = "✅ 서버 로그인 성공. 앱 config.js의 SUPABASE_ANON_KEY 또는 URL 확인 필요"
+    else:
+        err = result.get("signin_error", "")
+        if "Invalid login credentials" in err:
+            result["diagnosis"] = "🔴 비밀번호 불일치 → reset_password:true 로 재호출하여 비밀번호 리셋"
+        elif "Email not confirmed" in err:
+            result["diagnosis"] = "🔴 이메일 미인증 (API는 confirmed 표시지만 실제 불일치)"
+        else:
+            result["diagnosis"] = f"🔴 로그인 실패: {err}"
+
+    return jsonify(result)
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8787"))
     # ✅ 안정성 기본값: debug OFF
