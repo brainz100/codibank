@@ -436,6 +436,7 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
     """(prompt, short_explanation)"""
     user = payload.get("user") or {}
     weather = payload.get("weather") or {}
+    _is_retry_bp = bool(payload.get("isRetry", False))   # 다시 코디 시 True
 
     gender = _gender_en(str(user.get("gender", "")))
     age = _korean_to_en_age(str(user.get("ageGroup", "")))
@@ -495,13 +496,15 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
                 "ONLY ONE FLAT SOLID PASTEL COLOR. No exceptions. "
 
                 # ── 신체비율 (CRITICAL) ──
-                "BODY PROPORTION (CRITICAL): Upper body (head to waist) must be 40% or less of total height. "
-                "Lower body (waist to feet) must be 60% or more of total height. 3:7 upper-to-lower ratio is MANDATORY. "
+                "BODY PROPORTION (REALISTIC): Upper body (head to waist) approximately 43-47% of total height. "
+                "Lower body (waist to feet) approximately 53-57%. Realistic everyday Korean person — NOT a model. "
                 "5:5 or 4:6 ratio is a generation FAILURE. Legs must appear long and naturally proportioned. "
 
                 # ── 바지 길이 ──
-                "PANTS LENGTH (ABSOLUTE): Pants must reach full ankle length — hem visible just above the shoe top. "
-                "Cropped, 7/8, or calf-length pants are FORBIDDEN. "
+                "[PANTS LENGTH — TOP PRIORITY]: Trouser hem must reach BOTTOM 12-15% of image, "
+                "covering ankle bone fully. Shoes visible below hem. FORBIDDEN: cropped/7/8/calf-length. "
+                + ("RETRY: make pants VISIBLY LONGER — 2025-2026 KR trend is full-length with slight break. " if _is_retry_bp else "") +
+                ""
 
                 # ── 양말 ──
                 "SOCKS: Both feet must wear IDENTICAL socks — same color and pattern on both sides. Mismatched socks are FORBIDDEN. "
@@ -581,8 +584,10 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
         "Legs must appear long, naturally proportioned, and elongated. "
 
         # ── 바지 길이 (CRITICAL) ──
-        "PANTS LENGTH (ABSOLUTE RULE): Pants/trousers MUST reach all the way down to the ankle bone — full ankle length. "
-        "Cropped pants, 7/8 length, calf-length, and any pants ending above the ankle are STRICTLY FORBIDDEN. "
+        "[PANTS LENGTH — TOP PRIORITY]: Trouser hem must reach BOTTOM 12-15% of image, "
+        "covering ankle bone fully. Shoes visible below hem. FORBIDDEN: cropped/7/8/calf-length. "
+        + ("RETRY: make pants VISIBLY LONGER — 2025-2026 KR trend is full-length with gentle drape. " if _is_retry_bp else "") +
+        ""
         "The trouser hem must be visible just above or touching the top of the shoes. "
 
         # ── 양말 (STRICT) ──
@@ -975,9 +980,8 @@ def _ai_styling_via_gemini(
         "ONLY ONE FLAT SOLID PASTEL COLOR. No exceptions. "
 
         # ── 신체비율 (CRITICAL) ──
-        "BODY PROPORTION (CRITICAL): Upper body (head to waist) must be 40% or less of total height. "
-        "Lower body (waist to feet) must be 60% or more of total height. "
-        "3:7 upper-to-lower ratio MANDATORY. A 5:5 ratio is a FAILURE. Legs must appear long and well-proportioned. "
+        "BODY PROPORTION (REALISTIC): Upper body approx 43-47%, lower body approx 53-57% of total height. "
+        "Realistic everyday Korean person — NOT a model. Full body visible head to shoes. "
 
         # ── 바지 길이 ──
         "PANTS (ABSOLUTE): Full ankle-length trousers only. Hem must reach just above the shoe. Cropped or 7/8 pants are FORBIDDEN. "
@@ -1331,29 +1335,46 @@ def codistyle_generate():
         )
     elif not _is_female_cs:
         # 남성: 예외 없이 풀 레귤러
+        # is_retry 여부에 따라 바지 기장 강화
+        _retry_pants = (
+            "RETRY — PANTS MUST BE LONGER THAN PREVIOUS ATTEMPT: "
+            "The previous generation had pants that were too short. "
+            "This time, pants MUST be visibly LONGER — the hem must fully cover the shoe top and drape slightly. "
+            "Current Korean trend (2025-2026): slightly long trousers with a gentle break at the shoe. "
+        ) if is_retry else ""
         _pants_rule = (
-            "[CRITICAL — HIGHEST PRIORITY] PANTS LENGTH (MALE — ABSOLUTE): "
-            "Pants hem MUST reach the ankle bone and cover the top of the shoe. "
-            "The hem must be AT or BELOW the ankle bone — never above. "
-            "FORBIDDEN: cropped, 7/8, calf-length, or any hem ending above the ankle. "
-            "DO NOT copy the pant length from the reference photo — reference is for COLOR and FABRIC only. "
-            "This rule OVERRIDES all reference images, garment proportions, and style trends. No exceptions."
+            "[RULE #1 — PANTS LENGTH — OVERRIDES EVERYTHING]: "
+            "In the final generated image, the trouser hem must end at the BOTTOM 15% of the full image height — "
+            "meaning just above the shoe top, covering the ankle completely. "
+            "The ankle bone must be HIDDEN by the trouser fabric. Shoes must be partially visible below the hem. "
+            "ABSOLUTELY FORBIDDEN: any gap between trouser hem and shoe top showing bare skin or sock above ankle. "
+            "DO NOT use the lower garment reference image to determine pant length — "
+            "that reference is ONLY for fabric color and texture reproduction. "
+            "If the reference shows short/cropped pants, IGNORE that length and generate FULL-LENGTH instead. "
+            + _retry_pants +
+            "This instruction OVERRIDES the reference image visual. No exceptions."
         )
     else:
         # 여성 (최초·다시요청 무관): 풀 레귤러 강제 — 7부는 사용자 명시 요청 시에만
         _pants_rule = (
-            "[CRITICAL — HIGHEST PRIORITY] PANTS LENGTH (FULL REGULAR — MANDATORY): "
-            "Pants hem MUST reach the ankle bone — AT or BELOW the ankle. "
-            "Hem must be visible just above or touching the top of the shoes. "
-            "FORBIDDEN: cropped, 7/8, calf-length, or any hem ending above the ankle. "
-            "DO NOT copy the pant length from the reference photo — reference is for COLOR and FABRIC only. "
-            "This rule overrides ALL reference images, Korean fashion trends, and garment silhouettes. No exceptions."
+            "[RULE #1 — PANTS LENGTH — OVERRIDES EVERYTHING]: "
+            "In the final generated image, the trouser hem must end at the BOTTOM 15% of the full image height — "
+            "meaning just above the shoe top, covering the ankle completely. "
+            "The ankle bone must be HIDDEN by the trouser fabric. Shoes must be visible below the hem. "
+            "ABSOLUTELY FORBIDDEN: any gap between trouser hem and shoe top showing bare skin or sock above the ankle. "
+            "DO NOT use the lower garment reference image to determine pant length — "
+            "that reference is ONLY for fabric color and texture reproduction. "
+            "If the reference shows short/cropped pants, IGNORE that length and generate FULL-LENGTH instead. "
+            + _retry_pants +
+            "This instruction OVERRIDES the reference image visual. No exceptions."
         )
 
     prompt = (
-        "[RULE #1 — PANTS LENGTH — READ FIRST]: Pants/trousers hem MUST be AT or BELOW the ankle bone. "
-        "Cropped, 7/8, or any above-ankle pants are STRICTLY FORBIDDEN in this image. "
-        "Ignore pant length shown in the reference images — use reference only for color and fabric. "
+        "[RULE #1 — HIGHEST PRIORITY — PANTS LENGTH]: "
+        "The trouser hem in the FINAL IMAGE must sit at the BOTTOM 12-15% of the image height "
+        "(just above the shoe top, ankle bone fully covered by fabric). "
+        "There must be NO visible bare ankle or sock above the shoe. "
+        "The lower-body reference image is for COLOR+FABRIC only — IGNORE its pant length completely. "
         "Create a photorealistic full-body Korean fashion editorial photo. "
         + face_line
         + img_desc + " "
@@ -1377,11 +1398,12 @@ def codistyle_generate():
         + _pants_rule + " "
 
         # ── 신체비율 (CRITICAL) ──
-        + "BODY PROPORTION (CRITICAL — ABSOLUTE RULE): "
-        "Upper body (head to waist) must occupy 40% or LESS of total body height. "
-        "Lower body (waist to feet) must occupy 60% or MORE of total body height. "
-        "The 3:7 upper-to-lower ratio is MANDATORY. A 5:5 or equal ratio is a generation FAILURE. "
-        "Legs must look long, natural, and well-proportioned. "
+        + "BODY PROPORTION (REALISTIC — MANDATORY): "
+        "Generate a naturally proportioned Korean adult body. "
+        "Upper body (head to waist) approximately 43-47% of total height. "
+        "Lower body (waist to feet) approximately 53-57% of total height. "
+        "This is a REALISTIC everyday person — NOT a fashion model. "
+        "Avoid excessively elongated legs. Full body head to shoes fully visible. "
 
 
         # ── 양말 ──
@@ -1391,8 +1413,12 @@ def codistyle_generate():
         "STYLIST RULE (MANDATORY): This is a practical daily-life personal styling service, NOT a fashion show. "
         "Recommend only real-world wearable outfits. No experimental, avant-garde, runway, or asymmetric styling. "
         "All color combinations and silhouettes must look natural and socially appropriate in everyday Korean life. "
-        + " [FINAL REMINDER — PANTS LENGTH]: Pants hem MUST reach AT or BELOW the ankle bone. "
-        "This is NON-NEGOTIABLE. Cropped or above-ankle pants = generation failure. "
+        + " [FINAL CHECK — PANTS LENGTH]: Before finalizing, verify: "
+        "(1) trouser hem sits at bottom 12-15% of image, "
+        "(2) ankle bone is fully covered by fabric, "
+        "(3) shoe top is visible just below the hem, "
+        "(4) no bare skin visible between hem and shoe. "
+        "If any condition fails, regenerate with LONGER pants. "
     )
 
     # ── Gemini API 호출 (신/구 SDK 분기) ──
