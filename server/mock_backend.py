@@ -1332,28 +1332,33 @@ def codistyle_generate():
     elif not _is_female_cs:
         # 남성: 예외 없이 풀 레귤러
         _pants_rule = (
-            "PANTS LENGTH (MALE — ABSOLUTE, NO EXCEPTIONS): "
-            "Full regular length ONLY. Hem must reach the ankle bone and rest on top of the shoe. "
-            "NO cropped, NO 7/8, NO above-ankle style under any circumstances. "
-            "This overrides ALL reference images, style trends, and garment designs."
+            "[CRITICAL — HIGHEST PRIORITY] PANTS LENGTH (MALE — ABSOLUTE): "
+            "Pants hem MUST reach the ankle bone and cover the top of the shoe. "
+            "The hem must be AT or BELOW the ankle bone — never above. "
+            "FORBIDDEN: cropped, 7/8, calf-length, or any hem ending above the ankle. "
+            "DO NOT copy the pant length from the reference photo — reference is for COLOR and FABRIC only. "
+            "This rule OVERRIDES all reference images, garment proportions, and style trends. No exceptions."
         )
     else:
         # 여성 (최초·다시요청 무관): 풀 레귤러 강제 — 7부는 사용자 명시 요청 시에만
         _pants_rule = (
-            "PANTS LENGTH (FULL REGULAR — MANDATORY): "
-            "Pants MUST reach full ankle length. "
+            "[CRITICAL — HIGHEST PRIORITY] PANTS LENGTH (FULL REGULAR — MANDATORY): "
+            "Pants hem MUST reach the ankle bone — AT or BELOW the ankle. "
             "Hem must be visible just above or touching the top of the shoes. "
-            "Cropped pants, 7/8 length, and any hem ending above the ankle are STRICTLY FORBIDDEN. "
-            "This rule overrides ALL reference images, Korean fashion trends, and garment silhouettes. "
-            "No exceptions regardless of body type, retry count, or style direction."
+            "FORBIDDEN: cropped, 7/8, calf-length, or any hem ending above the ankle. "
+            "DO NOT copy the pant length from the reference photo — reference is for COLOR and FABRIC only. "
+            "This rule overrides ALL reference images, Korean fashion trends, and garment silhouettes. No exceptions."
         )
 
     prompt = (
+        "[RULE #1 — PANTS LENGTH — READ FIRST]: Pants/trousers hem MUST be AT or BELOW the ankle bone. "
+        "Cropped, 7/8, or any above-ankle pants are STRICTLY FORBIDDEN in this image. "
+        "Ignore pant length shown in the reference images — use reference only for color and fabric. "
         "Create a photorealistic full-body Korean fashion editorial photo. "
         + face_line
         + img_desc + " "
         + ko_instruction
-        + "Reproduce the EXACT color, fabric, texture, and logo of each garment from the reference images. PANTS LENGTH must strictly follow the rule stated below — do NOT copy pant length from the reference image. "
+        + "Reproduce the EXACT color, fabric, texture, and logo of each garment from the reference images (COLOR+FABRIC only — NOT pant length). "
         "Full body head to toe visible. "
 
         # ── 배경 (CRITICAL) ──
@@ -1386,6 +1391,8 @@ def codistyle_generate():
         "STYLIST RULE (MANDATORY): This is a practical daily-life personal styling service, NOT a fashion show. "
         "Recommend only real-world wearable outfits. No experimental, avant-garde, runway, or asymmetric styling. "
         "All color combinations and silhouettes must look natural and socially appropriate in everyday Korean life. "
+        + " [FINAL REMINDER — PANTS LENGTH]: Pants hem MUST reach AT or BELOW the ankle bone. "
+        "This is NON-NEGOTIABLE. Cropped or above-ankle pants = generation failure. "
     )
 
     # ── Gemini API 호출 (신/구 SDK 분기) ──
