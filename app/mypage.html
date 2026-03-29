@@ -105,7 +105,10 @@
   <div class="menu-item" onclick="location.href='pricing.html'">
     <div class="menu-item-left">
       <span class="material-symbols-outlined" style="color:#35A29F">workspace_premium</span>
-      구독 플랜
+      <div>
+        <div>구독 플랜</div>
+        <div id="mypageQuota" style="font-size:11px;color:rgba(151,254,237,0.6);font-weight:600;margin-top:1px;"></div>
+      </div>
     </div>
     <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
   </div>
@@ -158,19 +161,19 @@
     주식회사 종로신사 | 대표이사 신용남<br/>
     운영책임자 백태섭 | 02-743-1850<br/>
     서울시 종로구 종로 223, 우교빌딩 4층<br/>
-    <a href="mailto:codibank.kr@gmail.com" style="color:rgba(76,219,206,.5);text-decoration:none;">codibank.kr@gmail.com</a><br/>
+    <a href="/cdn-cgi/l/email-protection#62010d060b00030c094c091022050f030b0e4c010d0f" style="color:rgba(76,219,206,.5);text-decoration:none;"><span class="__cf_email__" data-cfemail="a1c2cec5c8c3c0cfca8fcad3e1c6ccc0c8cd8fc2cecc">[email&#160;protected]</span></a><br/>
     <span style="font-size:10px;color:rgba(216,226,255,.15);">&copy; 2026 CodiBank. All rights reserved.</span>
   </div>
   <div id="company-footer-en" style="display:none;margin-top:28px;padding:20px 0;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(216,226,255,.25);line-height:1.8;text-align:center;">
     Jongro Shinsa Co., Ltd. | CEO: Yongnam Shin<br/>
     Operations Manager: Taesub Baek | +82-2-743-1850<br/>
     4F Ugyo Bldg, 223 Jongro, Jongro-gu, Seoul, Korea<br/>
-    <a href="mailto:codibank.kr@gmail.com" style="color:rgba(76,219,206,.5);text-decoration:none;">codibank.kr@gmail.com</a><br/>
+    <a href="/cdn-cgi/l/email-protection#6e0d010a070c0f000540051c2e09030f0702400d0103" style="color:rgba(76,219,206,.5);text-decoration:none;"><span class="__cf_email__" data-cfemail="6e0d010a070c0f000540051c2e09030f0702400d0103">[email&#160;protected]</span></a><br/>
     <span style="font-size:10px;color:rgba(216,226,255,.15);">&copy; 2026 CodiBank. All rights reserved.</span>
   </div>
 </main>
 
-<script src="codibank.js"></script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="codibank.js"></script>
 <script src="i18n.js"></script>
 <script>
   // 사용자 정보 표시
@@ -182,6 +185,23 @@
       document.getElementById('userName').textContent  = u.nickname || u.email.split('@')[0] || '사용자';
       document.getElementById('userEmail').textContent = u.email || '';
       document.getElementById('userPlan').textContent  = (u.plan || 'FREE') + ' 플랜';
+
+      // ── 구독/보너스 정보 표시 ──
+      try{
+        const infoKey = 'cb_plan_info_'+(u.email||'guest');
+        const infoRaw = localStorage.getItem(infoKey);
+        const el = document.getElementById('mypageQuota');
+        if(infoRaw && el){
+          const info = JSON.parse(infoRaw);
+          const nowYM = new Date().toISOString().slice(0,7);
+          if(info.updatedAt === nowYM){
+            const used = info.totalUsed || 0;
+            const total = info.totalLimit >= 9999 ? '무제한' : info.totalLimit;
+            const bonus = info.bonusTotal > 0 ? ' (+보너스 '+info.bonusTotal+'회)' : '';
+            el.textContent = (info.totalLimit >= 9999 ? '∞' : Math.max(0, info.totalLimit - used)) + '회 가능' + bonus;
+          }
+        }
+      }catch(_){}
 
       // ── 프로필 사진 로드 ──
       // 1순위: user.photo (dataURL 직접 저장)

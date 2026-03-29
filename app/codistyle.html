@@ -305,44 +305,34 @@ const CS_PLANS = {
   gold:    { label:'골드',   codistyleMonthly:60,   totalMonthly:60,   dailyTotal:null },
   diamond: { label:'다이아', codistyleMonthly:9999, totalMonthly:9999, dailyTotal:30  },
 // ── 서버 보너스 캐시 (페이지 로딩 시 1회 조회)
-let _csBonusCache = {total_bonus:0, fetched:false};
-async function _fetchCSBonus(force){
-  if(_csBonusCache.fetched && !force) return;
+// ── 사용 한도: pricing.html이 저장한 cb_plan_info 참조
+function _getCSPlanInfo(){
   try{
-    const em = user?.email;
-    if(!em) return;  // 이메일 없으면 조회 불가 — fetched 플래그 세우지 않음
-    const _bb = typeof CodiBank?.getBackendBaseResolved==='function' ? CodiBank.getBackendBaseResolved() : '';
-    if(!_bb) return;
-    _csBonusCache.fetched = true;
-    const r = await fetch(_bb.replace(/\/$/,'') + '/api/usage/bonus/' + encodeURIComponent(em));
-    if(r.ok){
-      const d=await r.json();
-      const tb = parseInt(d.total_bonus||0);
-      if(tb !== _csBonusCache.total_bonus){
-        _csBonusCache.total_bonus = tb;
-        console.info('[CodiBank] 코디하기 보너스 적용:', tb, '회');
-      }
+    const key = 'cb_plan_info_'+(user?.email||'guest');
+    const raw = localStorage.getItem(key);
+    if(raw){
+      const info = JSON.parse(raw);
+      const nowYM = new Date().toISOString().slice(0,7);
+      if(info.updatedAt === nowYM) return info;
     }
   }catch(_){}
+  return null;
 }
-_fetchCSBonus().catch(()=>{});
-// Supabase 세션 완료 후 재시도
+// ── 코디 프로필: Supabase 세션 복원 후 재초기화
 if(window.CodiBank && CodiBank.onSessionReady){
   CodiBank.onSessionReady(function(cbUser){
-    if(cbUser && cbUser.email){
-      // user 객체 갱신
-      if(!user.email){ user.email=cbUser.email; user.plan=cbUser.plan||'FREE';
-        user.gender=cbUser.gender; user.ageGroup=cbUser.ageGroup;
-        user.height=cbUser.height; user.weight=cbUser.weight; }
-      // 보너스 재조회
-      if(!_csBonusCache.fetched) _fetchCSBonus().catch(()=>{}).then(function(){ updateCSUsageBadge&&updateCSUsageBadge(); });
-      // 코디 프로필 재초기화
-      if(!codiProfile.gender && cbUser.gender){ codiProfile.gender=_gMap(cbUser.gender); }
-      if(!codiProfile.height && cbUser.height){ codiProfile.height=cbUser.height; }
-      if(!codiProfile.weight && cbUser.weight){ codiProfile.weight=cbUser.weight; }
-      if(!codiProfile.ageGroup && cbUser.ageGroup){ codiProfile.ageGroup=_aMap(cbUser.ageGroup); }
-      displayBodyInfo && displayBodyInfo();
+    if(!cbUser) return;
+    if(!user.email && cbUser.email){
+      user.email=cbUser.email; user.plan=cbUser.plan||'FREE';
+      user.gender=cbUser.gender; user.ageGroup=cbUser.ageGroup;
+      user.height=cbUser.height; user.weight=cbUser.weight;
     }
+    if(!codiProfile.gender && cbUser.gender) codiProfile.gender=_gMap(cbUser.gender);
+    if(!codiProfile.height && cbUser.height) codiProfile.height=cbUser.height;
+    if(!codiProfile.weight && cbUser.weight) codiProfile.weight=cbUser.weight;
+    if(!codiProfile.ageGroup && cbUser.ageGroup) codiProfile.ageGroup=_aMap(cbUser.ageGroup);
+    displayBodyInfo && displayBodyInfo();
+    updateCSUsageBadge && updateCSUsageBadge();
   });
 }
 
@@ -389,8 +379,8 @@ function checkCSUsage(){
   const u = getCSUsage();
   // 합산 기준 체크 (내옷장+코디하기 통합) + 어드민 보너스 반영
   const totalUsed    = u.totalCount || 0;
-  const _bonus       = _csBonusCache.total_bonus || 0;
-  const totalLimit   = plan.totalMonthly + _bonus;   // 보너스 합산
+  const _csInfo      = _getCSPlanInfo();
+  const totalLimit   = _csInfo ? _csInfo.totalLimit : plan.totalMonthly;
   const remaining    = Math.max(0, totalLimit - totalUsed);
   const dayUsed      = u.dayTotal || 0;
   const dailyLimit   = plan.dailyTotal;

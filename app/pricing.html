@@ -19,7 +19,7 @@
 body{font-family:'Noto Sans KR',sans-serif;background:#07132a;color:#d8e2ff;min-height:100dvh}
 .mi{font-family:'Material Symbols Outlined';font-size:20px;line-height:1;vertical-align:middle}
 
-.page{max-width:480px;margin:0 auto;padding:0 16px 140px}
+.page{max-width:480px;margin:0 auto;padding:0 16px 80px}
 
 /* 헤더 */
 .pg-header{display:flex;align-items:center;gap:12px;padding:20px 0 16px}
@@ -37,7 +37,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#07132a;color:#d8e2ff;min-
 
 /* 플랜 카드 */
 .section-label{font-size:10px;font-weight:700;letter-spacing:.12em;color:rgba(151,254,237,0.4);margin-bottom:14px}
-.plan-grid{display:flex;flex-direction:column;gap:14px;margin-bottom:24px}
+.plan-grid{display:flex;flex-direction:column;gap:14px;margin-bottom:12px}
 
 .plan-card{border-radius:20px;padding:20px;cursor:pointer;border:2px solid transparent;background:rgba(13,31,60,0.8);transition:.15s;position:relative;overflow:visible}
 .plan-card:active{transform:scale(.99)}
@@ -78,7 +78,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#07132a;color:#d8e2ff;min-
 .feat .sub{font-size:10.5px;color:rgba(151,254,237,0.55);display:block;margin-top:1px}
 
 /* 결제 버튼 */
-.pay-wrap{position:fixed;bottom:0;left:0;right:0;padding:12px 16px;background:rgba(7,19,42,0.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(151,254,237,0.08);z-index:200}
+.pay-wrap{position:fixed;bottom:0;left:0;right:0;padding:10px 16px calc(10px + max(70px,env(safe-area-inset-bottom) + 70px));background:rgba(7,19,42,0.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(151,254,237,0.08);z-index:100000}
 .pay-wrap-inner{max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:6px}
 .pay-btn{width:100%;padding:16px;border-radius:16px;border:none;color:#fff;font-family:'Outfit',sans-serif;font-size:17px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
 .pay-btn.default{background:linear-gradient(135deg,#0B666A,#35A29F)}
@@ -89,7 +89,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#07132a;color:#d8e2ff;min-
 .pay-note{text-align:center;font-size:11px;color:rgba(255,255,255,0.3)}
 
 /* 안내 박스 */
-.info-box{background:rgba(53,162,159,0.06);border:1px solid rgba(53,162,159,0.12);border-radius:14px;padding:16px 18px;font-size:12px;color:rgba(255,255,255,0.5);line-height:1.85}
+.info-box{background:rgba(53,162,159,0.06);border:1px solid rgba(53,162,159,0.12);border-radius:14px;padding:12px 16px;font-size:12px;color:rgba(255,255,255,0.5);line-height:1.75}
 .info-box b{color:rgba(151,254,237,0.65);display:block;margin-bottom:3px;margin-top:10px}
 .info-box b:first-child{margin-top:0}
 
@@ -117,20 +117,29 @@ body{font-family:'Noto Sans KR',sans-serif;background:#07132a;color:#d8e2ff;min-
     </div>
   </div>
 
-  <!-- 현재 상태 -->
+  <!-- 현재 상태 + 보너스 -->
   <div class="status-card">
     <div class="status-row">
       <span class="status-plan" id="curPlanLabel">로딩중…</span>
       <span class="status-usage" id="curUsageLabel"></span>
     </div>
     <div class="usage-bar"><div class="usage-fill" id="usageFill" style="width:0%"></div></div>
+    <!-- 이미지 생성 가능 횟수 (구독 + 보너스) -->
+    <div id="quotaInfoBox" style="margin-top:10px;padding:10px 12px;background:rgba(151,254,237,0.06);border-radius:10px;border:1px solid rgba(151,254,237,0.15);display:none;">
+      <div style="font-size:11px;color:rgba(151,254,237,0.55);font-weight:700;margin-bottom:4px;letter-spacing:.04em;">이달 이미지 생성 가능 횟수</div>
+      <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">
+        <span id="quotaTotal" style="font-size:22px;font-weight:900;color:#97FEED;">—</span>
+        <span style="font-size:12px;color:rgba(255,255,255,0.4);">회 가능</span>
+        <span id="quotaBreakdown" style="font-size:11px;color:rgba(255,255,255,0.35);margin-left:4px;"></span>
+      </div>
+    </div>
   </div>
 
   <div class="section-label">SUBSCRIPTION PLAN</div>
   <div class="plan-grid" id="planGrid"></div>
 
   <!-- 안내 박스 -->
-  <div class="info-box" style="margin-bottom:90px">
+  <div class="info-box" style="margin-bottom:16px">
     <b>코디 생성 횟수 기준</b>
     내옷장 AI 추천 + 코디하기 착장 이미지를 합산하여 횟수를 계산합니다.
     <b>데이터 보관 정책</b>
@@ -330,29 +339,73 @@ function selectPlan(id){
   wrap.style.display = 'block';
 }
 
-// ── 현재 플랜 상태 표시 ──
-function renderStatus(){
+// ── 현재 플랜 상태 표시 + 보너스 조회 → cb_plan_info 저장 ──
+async function renderStatus(){
   const en = _en();
   const planId = (user.plan||'free').toLowerCase();
   const planDef = PLANS_DEF.find(p=>p.id===planId) || PLANS_DEF[0];
   const planNames = {free:en?'Free Plan':'무료 플랜',silver:en?'Silver':'실버',gold:en?'Gold':'골드',diamond:en?'Diamond':'다이아'};
   document.getElementById('curPlanLabel').textContent = planNames[planId] || (en?'Free Plan':'무료 플랜');
 
+  // 사용량 표시
+  let totalUsed = 0;
   try{
     const key = 'cb_usage_'+(user.email||'guest');
     const raw = JSON.parse(localStorage.getItem(key)||'{}');
-    const totalUsed = raw.totalCount || 0;
-    const limit = planDef.totalMonthly;
-    const isUnlimited = limit >= 9999;
-    const pct = isUnlimited ? Math.min(100, Math.round(totalUsed/300*100)) : Math.min(100, Math.round(totalUsed/limit*100));
-    const usedTxt = isUnlimited
-      ? (en?`Used: ${totalUsed}`:`사용: ${totalUsed}회`)
-      : (en?`${totalUsed}/${limit} used`:`${totalUsed}/${limit}회 사용`);
-    document.getElementById('curUsageLabel').textContent = usedTxt;
-    document.getElementById('usageFill').style.width = pct+'%';
-    document.getElementById('usageFill').style.background = pct>80
-      ? 'linear-gradient(90deg,#ef4444,#fca5a5)'
-      : 'linear-gradient(90deg,#35A29F,#97FEED)';
+    totalUsed = raw.totalCount || 0;
+  }catch(_){}
+
+  // 보너스 조회 (백엔드 API)
+  let bonusTotal = 0;
+  try{
+    const bb = (typeof CodiBank.getBackendBaseResolved==='function') ? CodiBank.getBackendBaseResolved() : '';
+    if(bb && user.email){
+      const r = await fetch(bb+'/api/usage/bonus/'+encodeURIComponent(user.email));
+      if(r.ok){ const d=await r.json(); bonusTotal = parseInt(d.total_bonus||0); }
+    }
+  }catch(_){}
+
+  const baseLimit = planDef.totalMonthly >= 9999 ? 9999 : planDef.totalMonthly;
+  const totalLimit = baseLimit + bonusTotal;
+  const isUnlimited = baseLimit >= 9999;
+
+  // 사용량 바
+  const pct = isUnlimited ? Math.min(100,Math.round(totalUsed/300*100)) : Math.min(100,Math.round(totalUsed/Math.max(totalLimit,1)*100));
+  const usedTxt = isUnlimited
+    ? (en?`Used: ${totalUsed}`:`사용: ${totalUsed}회`)
+    : (en?`${totalUsed}/${totalLimit} used`:`${totalUsed}/${totalLimit}회 사용`);
+  document.getElementById('curUsageLabel').textContent = usedTxt;
+  document.getElementById('usageFill').style.width = pct+'%';
+  document.getElementById('usageFill').style.background = pct>80
+    ? 'linear-gradient(90deg,#ef4444,#fca5a5)'
+    : 'linear-gradient(90deg,#35A29F,#97FEED)';
+
+  // ── 가능 횟수 박스 표시
+  const quotaBox = document.getElementById('quotaInfoBox');
+  const quotaTotal = document.getElementById('quotaTotal');
+  const quotaBreakdown = document.getElementById('quotaBreakdown');
+  if(quotaBox && quotaTotal){
+    const remaining = isUnlimited ? '∞' : Math.max(0, totalLimit - totalUsed);
+    quotaTotal.textContent = remaining;
+    if(bonusTotal > 0){
+      quotaBreakdown.textContent = '(구독 '+(isUnlimited?'무제한':baseLimit)+'회 + 보너스 '+bonusTotal+'회)';
+    } else {
+      quotaBreakdown.textContent = '('+planNames[planId]+' 기본)';
+    }
+    quotaBox.style.display = 'block';
+  }
+
+  // ── cb_plan_info 저장 → closet/codistyle에서 참조
+  try{
+    const info = {
+      planId: planId,
+      baseLimit: baseLimit,
+      bonusTotal: bonusTotal,
+      totalLimit: totalLimit,
+      totalUsed: totalUsed,
+      updatedAt: new Date().toISOString().slice(0,7), // YYYY-MM
+    };
+    localStorage.setItem('cb_plan_info_'+(user.email||'guest'), JSON.stringify(info));
   }catch(_){}
 }
 
