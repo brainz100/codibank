@@ -393,18 +393,32 @@
 .vto-status-dot{width:8px;height:8px;border-radius:50%;background:#35A29F;flex-shrink:0;animation:pdot 1.2s ease-in-out infinite;}
 .vto-status-dot.done{background:#97FEED;animation:none;}
 .vto-status-txt{font-size:12px;color:rgba(162,253,240,0.7);font-weight:500;}
-.vto-prog-bar{height:3px;background:rgba(151,254,237,0.08);border-radius:2px;margin-bottom:10px;}
-.vto-prog-fill{height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);transition:width .4s ease;border-radius:2px;}
+/* .vto-prog-bar removed */
+/* .vto-prog-fill removed */
 .vto-result-wrap{position:relative;}
 .vto-result-box{width:100%;aspect-ratio:1/1.6;border-radius:16px;overflow:hidden;background:#050f2a;position:relative;display:flex;align-items:center;justify-content:center;}
 .vto-img-spin{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;position:absolute;inset:0;}
-.vto-spin-txt{font-size:12px;color:rgba(162,253,240,0.55);text-align:center;line-height:1.7;}
+.vto-spin-txt{font-size:12px;color:rgba(162,253,240,0.45);text-align:center;line-height:1.7;padding:0 20px;}
+/* codibank 레인보우 텍스트 — 코디하기 동일 */
+.cb-rainbow-vto{font-size:36px;font-weight:900;letter-spacing:4px;font-family:'Manrope','Inter',sans-serif;display:flex;justify-content:center;align-items:center;gap:1px;}
+.cb-rainbow-vto span{color:rgba(255,255,255,0.12);}
+.cb-rainbow-vto.animating span{animation:rbFillCs 2.4s infinite;}
+.cb-rainbow-vto span:nth-child(1){animation-delay:0s}
+.cb-rainbow-vto span:nth-child(2){animation-delay:0.2s}
+.cb-rainbow-vto span:nth-child(3){animation-delay:0.4s}
+.cb-rainbow-vto span:nth-child(4){animation-delay:0.6s}
+.cb-rainbow-vto span:nth-child(5){animation-delay:0.8s}
+.cb-rainbow-vto span:nth-child(6){animation-delay:1.0s}
+.cb-rainbow-vto span:nth-child(7){animation-delay:1.2s}
+.cb-rainbow-vto span:nth-child(8){animation-delay:1.4s}
 .vto-b-actions{display:flex;gap:8px;padding:12px 0 6px;}
-.vto-bab{flex:1;padding:12px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.12s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
-.vto-bab:disabled{opacity:0.4;cursor:not-allowed;}
-.vto-save{background:#fff;color:#071952;}
-.vto-retry{background:rgba(151,254,237,0.08);color:#97FEED;border:1px solid rgba(151,254,237,0.2);}
-.vto-share{background:rgba(53,162,159,0.15);color:#35A29F;border:1px solid rgba(53,162,159,0.3);}
+/* 버튼 공통 */
+.vto-bab{flex:1;padding:14px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:64px;}
+/* 대기 상태: 3개 동일 */
+.vto-btn-inactive{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.35);border:1px solid rgba(151,254,237,0.12);cursor:not-allowed;}
+/* 활성 상태: 서브컬러 동일 적용 */
+.vto-btn-active{background:rgba(53,162,159,0.18);color:#97FEED;border:1px solid rgba(151,254,237,0.35);cursor:pointer;}
+.vto-btn-active:active{transform:scale(.97);background:rgba(53,162,159,0.28);}
 /* canvas는 result-box 내부에 절대 위치 */
 #vtoCanvas.vto-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;border-radius:16px;}
 .vto-btn-dark:active{transform:scale(.97);background:rgba(255,255,255,.14);}
@@ -620,6 +634,7 @@
 .cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
 .cb-spacer{height:82px;}
 @keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
+@keyframes rbFillCs{0%{color:rgba(255,255,255,0.12)}12%{color:#FF6B6B}24%{color:#FFA94D}36%{color:#FFD43B}48%{color:#69DB7C}60%{color:#4DABF7}72%{color:#9775FA}84%{color:#DA77F2}100%{color:rgba(255,255,255,0.12)}}
 </style>
 <link rel="manifest" href="/manifest.json"/>
 <meta name="theme-color" content="#07132a"/>
@@ -803,29 +818,28 @@
       <div id="matchRow" style="display:none;"></div>
     </div>
 
-    <!-- VTO 영역 — 코디하기 스타일 적용 -->
+    <!-- VTO 영역 -->
     <div>
-      <!-- 상태 표시 행 (코디하기 동일 구조) -->
-      <div class="vto-status-row" id="vtoStatusRow">
-        <div class="vto-status-dot" id="vtoStatusDot"></div>
-        <span class="vto-status-txt" id="vtoStateText">추천 이미지 없음</span>
-        <span id="aiQuota" class="ai-badge gray" style="margin-left:auto;">남은 0회</span>
+      <!-- 횟수 뱃지 + 상태텍스트 (상단) -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span class="vto-status-txt" id="vtoStateText" style="font-size:12px;color:rgba(162,253,240,0.7);font-weight:500;"></span>
+        <span id="aiQuota" class="ai-badge gray">남은 0회</span>
       </div>
-      <!-- 진행 바 -->
-      <div class="vto-prog-bar"><div class="vto-prog-fill" id="vtoProgFill"></div></div>
 
-      <!-- 이미지 박스 (코디하기 result-img-box 동일 디자인) -->
+      <!-- 이미지 박스 이중 구조 (코디하기 동일 디자인) -->
       <div class="vto-result-wrap" id="vtoWrap">
+        <!-- 외부 박스 (테두리) -->
         <div class="vto-result-box" id="vtoResultBox">
-          <!-- 로딩/초기 상태 -->
+          <!-- 내부 대기/로딩 화면 — 코디하기 img-spin 동일 구조 -->
           <div class="vto-img-spin" id="vtoOverlay">
-            <div id="vtoSpinner" class="cb-rainbow" style="display:none;"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div>
-            <div class="text-center">
-              <div class="vto-spin-txt">코디 목적을 선택하고 생성 버튼을 누르세요</div>
-              <div id="vtoStep" class="vto-step" style="display:none;color:#97FEED;">초기화 중…</div>
+            <!-- codibank 레인보우 텍스트 -->
+            <div id="vtoSpinner" class="cb-rainbow-vto" style="display:none;">
+              <span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span>
             </div>
+            <p class="vto-spin-txt" id="vtoSpinTxt">코디 목적을 선택하고 생성 버튼을 누르세요</p>
+            <div id="vtoStep" class="vto-step" style="display:none;">초기화 중…</div>
           </div>
-          <!-- 결과 캔버스 -->
+          <!-- 결과 캔버스 (생성 완료 후 표시) -->
           <canvas id="vtoCanvas" class="vto-canvas" style="display:none;"></canvas>
         </div>
         <!-- 얼굴 등록 힌트 -->
@@ -839,15 +853,15 @@
         </div>
       </div>
 
-      <!-- 버튼 행 (코디하기 b-actions 동일 디자인) -->
+      <!-- 버튼 3개 — 대기:동일 스타일 / 활성:서브컬러 -->
       <div class="vto-b-actions">
-        <button id="saveBtn" type="button" class="vto-bab vto-save">
+        <button id="saveBtn" type="button" class="vto-bab vto-btn-inactive" disabled>
           <span class="material-symbols-outlined" style="font-size:18px;">save_alt</span>저장
         </button>
-        <button id="againBtn" type="button" disabled class="vto-bab vto-retry">
-          <span class="material-symbols-outlined" style="font-size:18px;">refresh</span>다시 코디
+        <button id="againBtn" type="button" class="vto-bab vto-btn-inactive" disabled>
+          <span class="material-symbols-outlined" style="font-size:18px;">refresh</span>다시요청
         </button>
-        <button id="shareBtn" type="button" class="vto-bab vto-share">
+        <button id="shareBtn" type="button" class="vto-bab vto-btn-inactive" disabled>
           <span class="material-symbols-outlined" style="font-size:18px;">share</span>공유
         </button>
       </div>
@@ -1374,13 +1388,21 @@ function setGenUiEnabled(enabled){
   if(tBtn) tBtn.disabled = busy;
   if(mBtn) mBtn.disabled = busy;
   if(againBtn){
-    const canAgain = !busy && en && !!S.hasGenerated;
-    againBtn.disabled = !canAgain;
-    if(canAgain){
-      againBtn.style.cssText = "height:44px;border-radius:14px;background:linear-gradient(135deg,#35A29F,#0B666A);border:none;color:#fff;cursor:pointer;box-shadow:0 6px 18px rgba(53,162,159,0.4);font-family:'Outfit','Noto Sans KR',sans-serif;";
-    } else {
-      againBtn.style.cssText = "height:44px;border-radius:14px;background:rgba(255,255,255,0.06);border:1.5px dashed rgba(151,254,237,0.2);color:rgba(255,255,255,0.3);cursor:not-allowed;font-family:'Outfit','Noto Sans KR',sans-serif;";
-    }
+    const saveBtn  = document.getElementById('saveBtn');
+    const shareBtn = document.getElementById('shareBtn');
+    const canGen   = !busy && en && !!S.hasGenerated;
+    // 3개 버튼 동시 활성/비활성
+    [saveBtn, againBtn, shareBtn].forEach(function(btn){
+      if(!btn) return;
+      btn.disabled = !canGen;
+      if(canGen){
+        btn.className = 'vto-bab vto-btn-active';
+      } else {
+        btn.className = 'vto-bab vto-btn-inactive';
+      }
+      // cssText 초기화 (이전 인라인 스타일 제거)
+      btn.style.cssText = '';
+    });
   }
 }
 
@@ -1392,17 +1414,17 @@ function resetStylingBox(msg){
   const hint=document.getElementById('vtoHint');
   const stepEl=document.getElementById('vtoStep');
   const metaEl=document.getElementById('vtoMeta');
-  const dotEl=document.getElementById('vtoStatusDot');
-  const progEl=document.getElementById('vtoProgFill');
+  // (removed: vtoStatusDot/vtoProgFill deleted)
+  // (removed: vtoStatusDot/vtoProgFill deleted)
   if(overlay) overlay.style.display='';
   if(canvas) canvas.style.display='none';
-  if(spinnerEl){ spinnerEl.style.display='none'; spinnerEl.classList.remove('active'); }
+  if(spinnerEl){ spinnerEl.style.display='none'; spinnerEl.classList.remove('animating'); }
   if(stepEl) stepEl.style.display='none';
   if(stateTextEl) stateTextEl.textContent = msg || '추천 이미지 없음';
   if(hint) hint.style.display='none';
   if(metaEl) metaEl.textContent='';
-  if(dotEl){ dotEl.className='vto-status-dot'; }
-  if(progEl){ progEl.style.width='0%'; }
+  // (removed: vtoStatusDot/vtoProgFill deleted)
+  // (removed: vtoStatusDot/vtoProgFill deleted)
   try{
     if(canvas){
       const ctx=canvas.getContext('2d');
@@ -1433,25 +1455,25 @@ function resetVtoState(state, msg){
     return;
   }
 
-  const dotEl2=document.getElementById('vtoStatusDot');
-  const progEl2=document.getElementById('vtoProgFill');
+  // (removed: vtoStatusDot/vtoProgFill deleted)
+  // (removed: vtoStatusDot/vtoProgFill deleted)
   if(st==='loading'){
     overlay.style.display='';
     canvas.style.display='none';
-    if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('active'); }
+    if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('animating'); }
     if(stepEl){ stepEl.style.display=''; stepEl.textContent='초기화 중…'; }
     if(stateTextEl) stateTextEl.textContent = msg || '추천 이미지 생성중';
-    if(dotEl2) dotEl2.className='vto-status-dot';
-    if(progEl2) progEl2.style.width='30%';
+  // (removed: vtoStatusDot/vtoProgFill deleted)
+  // (removed: vtoStatusDot/vtoProgFill deleted)
   }else if(st==='refreshing'){
     overlay.style.display='';
     canvas.style.display='block';
     if(wrapEl) wrapEl.classList.add('is-refreshing');
-    if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('active'); }
+    if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('animating'); }
     if(stepEl){ stepEl.style.display=''; stepEl.textContent='새로운 코디를 준비 중…'; }
     if(stateTextEl) stateTextEl.textContent = msg || '다시 코디이미지 생성중';
-    if(dotEl2) dotEl2.className='vto-status-dot';
-    if(progEl2) progEl2.style.width='10%';
+  // (removed: vtoStatusDot/vtoProgFill deleted)
+  // (removed: vtoStatusDot/vtoProgFill deleted)
   }else{
     resetStylingBox(msg);
   }
@@ -3032,7 +3054,7 @@ async function updateVTO(opts={}){
     if(state==='ready'){
       overlay.style.display='none';
       canvas.style.display='block';
-      if(spinnerEl){ spinnerEl.style.display='none'; spinnerEl.classList.remove('active'); }
+      if(spinnerEl){ spinnerEl.style.display='none'; spinnerEl.classList.remove('animating'); }
       if(stepEl) stepEl.style.display='none';
       return;
     }
@@ -3042,7 +3064,7 @@ async function updateVTO(opts={}){
     // 기존 이미지가 있는 상태에서 "다시 코디"를 누른 경우: 캔버스를 유지한 채 블러 + 오버레이로 표시
     if(state==='refreshing'){
       canvas.style.display='block';
-      if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('active'); }
+      if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('animating'); }
       if(stateTextEl) stateTextEl.textContent = msg || '다시 코디이미지 생성중';
       if(stepEl){
         stepEl.style.display='';
@@ -3054,7 +3076,7 @@ async function updateVTO(opts={}){
     // 초기 생성: 캔버스를 숨기고 로딩/빈 상태 표시
     canvas.style.display='none';
     if(state==='loading'){
-      if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('active'); }
+      if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('animating'); }
       if(stateTextEl) stateTextEl.textContent = msg || '추천 이미지 생성중';
       if(stepEl){
         stepEl.style.display='';
@@ -3064,7 +3086,7 @@ async function updateVTO(opts={}){
     }
 
     // empty
-    if(spinnerEl){ spinnerEl.style.display='none'; spinnerEl.classList.remove('active'); }
+    if(spinnerEl){ spinnerEl.style.display='none'; spinnerEl.classList.remove('animating'); }
     if(stateTextEl) stateTextEl.textContent = msg || '추천 이미지 없음';
     if(stepEl) stepEl.style.display='none';
   };
@@ -3519,11 +3541,15 @@ async function updateVTO(opts={}){
         if(!displaySrc) throw new Error(data?.error||'이미지 URL 없음');
 
         await drawCover(displaySrc);
-        // 상태 dot done + 진행바 100%
-        const _dotDone=document.getElementById('vtoStatusDot');
-        const _progDone=document.getElementById('vtoProgFill');
-        if(_dotDone){ _dotDone.className='vto-status-dot done'; }
-        if(_progDone){ _progDone.style.width='100%'; }
+        // 생성 완료: blur 해제 + rainbow 정지 + 상태 텍스트
+        const _canvasDone = document.getElementById('vtoCanvas');
+        if(_canvasDone){
+          _canvasDone.style.transition = 'filter 0.5s ease, opacity 0.5s ease';
+          _canvasDone.style.filter = 'none';
+          _canvasDone.style.opacity = '1';
+        }
+        const _spinDone = document.getElementById('vtoSpinner');
+        if(_spinDone){ _spinDone.classList.remove('animating'); _spinDone.style.display='none'; }
         const _stDone=document.getElementById('vtoStateText');
         if(_stDone) _stDone.textContent='추천 스타일링 완료 ✨';
         return { data, imgRef, displaySrc };
@@ -4667,7 +4693,23 @@ updateQuotaBadge();
 setGenUiEnabled(canGenerateNow());
 resetVtoState('empty','추천 이미지 없음');
 
-document.getElementById('againBtn')?.addEventListener('click',()=>generateStyling({ bumpSeed:true }));
+document.getElementById('againBtn')?.addEventListener('click', function(){
+  // 기존 이미지 blur + rainbow 애니메이션 (사라지지 않고 흐려짐)
+  const _canvas = document.getElementById('vtoCanvas');
+  const _spinner = document.getElementById('vtoSpinner');
+  const _spinTxt = document.getElementById('vtoSpinTxt');
+  if(_canvas && _canvas.style.display !== 'none'){
+    _canvas.style.transition = 'filter 0.4s ease, opacity 0.4s ease';
+    _canvas.style.filter = 'blur(8px) brightness(0.35)';
+    _canvas.style.opacity = '0.45';
+  }
+  if(_spinner){
+    _spinner.style.display = '';
+    _spinner.classList.add('animating');
+  }
+  if(_spinTxt) _spinTxt.textContent = '새로운 스타일링을 준비 중...';
+  generateStyling({ bumpSeed:true });
+});
 
 // 날씨 초기화(성공/실패 모두 UI는 유지)
 initWeather().then(()=>{ try{ syncDayUi(); setMetaLine(); }catch(_){} });
