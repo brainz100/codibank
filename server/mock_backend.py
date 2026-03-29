@@ -1910,6 +1910,7 @@ def admin_create_admin():
     if len(pw) < 4:
         return jsonify({"ok": False, "error": "비밀번호 4자 이상"}), 400
     from datetime import datetime
+    import requests as _rq
     _ADMIN_DB[email] = {
         "role": role,
         "hash": _hl.sha256(pw.encode()).hexdigest(),
@@ -1918,7 +1919,53 @@ def admin_create_admin():
         "created_at": datetime.utcnow().isoformat(),
     }
     _save_admin_db()
-    return jsonify({"ok": True, "email": email})
+
+    # ── Supabase에도 동일 계정 등록 (CodiBank 앱 로그인 가능하도록)
+    sb_result = "skipped"
+    try:
+        _sb_url = supabase_url()
+        _headers = supabase_admin_headers()
+        sb_body = {
+            "email":         email,
+            "password":      pw,
+            "email_confirm": True,
+            "user_metadata": {
+                "email":    email,
+                "nickname": name,
+                "plan":     "free",
+                "role":     "admin",
+            },
+            "app_metadata": {
+                "provider":  "email",
+                "providers": ["email"],
+                "role":      "admin",
+            },
+        }
+        sb_r = _rq.post(f"{_sb_url}/auth/v1/admin/users",
+                         headers=_headers, json=sb_body, timeout=15)
+        if sb_r.status_code in (200, 201):
+            sb_result = "created"
+        elif sb_r.status_code == 422:
+            # 이미 존재 → uid 찾아서 비밀번호 업데이트
+            lr = _rq.get(f"{_sb_url}/auth/v1/admin/users?per_page=1000",
+                          headers=_headers, timeout=15)
+            if lr.status_code == 200:
+                ud = lr.json()
+                ul = ud.get("users", ud) if isinstance(ud, dict) else ud
+                uid = next((u["id"] for u in ul if u.get("email","").lower()==email), None)
+                if uid:
+                    pu = _rq.put(f"{_sb_url}/auth/v1/admin/users/{uid}",
+                                  headers=_headers,
+                                  json={"password": pw, "email_confirm": True,
+                                        "user_metadata": sb_body["user_metadata"]},
+                                  timeout=15)
+                    sb_result = "updated" if pu.status_code in (200,201) else f"put_failed:{pu.status_code}"
+        else:
+            sb_result = f"failed:{sb_r.status_code}"
+    except Exception as _se:
+        sb_result = f"error:{str(_se)[:80]}"
+
+    return jsonify({"ok": True, "email": email, "supabase": sb_result})
 
 
 @app.put("/admin/admins/<admin_email>")
@@ -2273,6 +2320,82 @@ def admin_member_get_bonus(email):
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
+
+
+@app.post("/admin/sync-to-supabase")
+def admin_sync_to_supabase():
+    """_ADMIN_DB의 모든 어드민 계정을 Supabase에 동기화 (MASTER 전용).
+    어드민이 CodiBank 앱에도 로그인 가능하도록 Supabase 계정을 생성/업데이트합니다.
+    비밀번호는 요청 body의 password_map {email: pw} 또는 기본값 'pass1234'를 사용합니다.
+    """
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+    import requests as _rq
+    data = request.get_json(silent=True) or {}
+    password_map = data.get("password_map") or {}   # {email: password}
+    default_pw   = str(data.get("default_password") or "pass1234")
+
+    _sb_url = supabase_url()
+    _headers = supabase_admin_headers()
+    results = []
+
+    # 기존 Supabase 유저 목록 미리 가져오기 (uid 검색용)
+    existing_uid_map = {}
+    try:
+        lr = _rq.get(f"{_sb_url}/auth/v1/admin/users?per_page=1000",
+                      headers=_headers, timeout=15)
+        if lr.status_code == 200:
+            ud = lr.json()
+            ul = ud.get("users", ud) if isinstance(ud, dict) else ud
+            for u in ul:
+                existing_uid_map[u.get("email","").lower()] = u.get("id")
+    except Exception:
+        pass
+
+    for email, info in _ADMIN_DB.items():
+        pw   = password_map.get(email) or default_pw
+        name = info.get("name", email)
+        sb_body = {
+            "email":         email,
+            "password":      pw,
+            "email_confirm": True,
+            "user_metadata": {
+                "email":    email,
+                "nickname": name,
+                "plan":     "free",
+                "role":     "admin",
+            },
+            "app_metadata": {
+                "provider":  "email",
+                "providers": ["email"],
+                "role":      "admin",
+            },
+        }
+        try:
+            uid = existing_uid_map.get(email.lower())
+            if uid:
+                # 이미 존재 → 비밀번호 업데이트
+                pr = _rq.put(f"{_sb_url}/auth/v1/admin/users/{uid}",
+                              headers=_headers,
+                              json={"password": pw, "email_confirm": True,
+                                    "user_metadata": sb_body["user_metadata"]},
+                              timeout=15)
+                status = "updated" if pr.status_code in (200,201) else f"put_failed:{pr.status_code}"
+            else:
+                # 신규 생성
+                cr = _rq.post(f"{_sb_url}/auth/v1/admin/users",
+                               headers=_headers, json=sb_body, timeout=15)
+                status = "created" if cr.status_code in (200,201) else f"post_failed:{cr.status_code}"
+        except Exception as e:
+            status = f"error:{str(e)[:60]}"
+        results.append({"email": email, "password": pw, "status": status})
+
+    return jsonify({
+        "ok":     True,
+        "synced": len(results),
+        "results": results,
+        "note": "어드민 계정이 Supabase에 동기화됐습니다. CodiBank 앱에서 동일한 이메일/비밀번호로 로그인하세요.",
+    })
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8787"))
