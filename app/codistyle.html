@@ -304,6 +304,22 @@ const CS_PLANS = {
   gold:    { label:'골드',   codistyleMonthly:100,  totalMonthly:150,  dailyTotal:null },
   diamond: { label:'다이아', codistyleMonthly:9999, totalMonthly:9999, dailyTotal:30  },
 };
+// ── 서버 보너스 캐시 (페이지 로딩 시 1회 조회)
+let _csBonusCache = {total_bonus:0, fetched:false};
+async function _fetchCSBonus(){
+  if(_csBonusCache.fetched) return;
+  _csBonusCache.fetched = true;
+  try{
+    const em = user?.email;
+    if(!em) return;
+    const _bb = typeof CodiBank?.getBackendBaseResolved==='function' ? CodiBank.getBackendBaseResolved() : '';
+    if(!_bb) return;
+    const r = await fetch(_bb.replace(/\/$/,'') + '/api/usage/bonus/' + encodeURIComponent(em));
+    if(r.ok){ const d=await r.json(); _csBonusCache.total_bonus=parseInt(d.total_bonus||0); }
+  }catch(_){}
+}
+_fetchCSBonus().catch(()=>{});
+
 function _csUsageKey(){ return 'cb_usage_' + (user.email||'guest'); }
 // ── 코디하기 합산 사용량 (closet.html과 동일 localStorage 키 공유) ──
 function getCSUsage(){
@@ -345,9 +361,10 @@ function checkCSUsage(){
   const planId = (user.plan || 'free').toLowerCase();
   const plan = CS_PLANS[planId] || CS_PLANS.free;
   const u = getCSUsage();
-  // 합산 기준 체크 (내옷장+코디하기 통합)
+  // 합산 기준 체크 (내옷장+코디하기 통합) + 어드민 보너스 반영
   const totalUsed    = u.totalCount || 0;
-  const totalLimit   = plan.totalMonthly;
+  const _bonus       = _csBonusCache.total_bonus || 0;
+  const totalLimit   = plan.totalMonthly + _bonus;   // 보너스 합산
   const remaining    = Math.max(0, totalLimit - totalUsed);
   const dayUsed      = u.dayTotal || 0;
   const dailyLimit   = plan.dailyTotal;

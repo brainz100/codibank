@@ -1204,6 +1204,26 @@ function pickBestItemByColor(items, desiredColor, catKey){
 
 // ── AI 코디 생성 사용량 — 내옷장 + 코디하기 통합 관리 ─────────
 // ★ codistyle.html과 동일한 cb_usage_ 키를 공유
+// ── 서버 보너스 캐시 (페이지 로딩 시 1회 조회)
+let _usageBonusCache = {total_bonus:0, fetched:false};
+async function _fetchUsageBonus(){
+  if(_usageBonusCache.fetched) return;
+  _usageBonusCache.fetched = true;
+  try{
+    const em = user?.email;
+    if(!em) return;
+    const backendBase = (typeof getBackendBaseResolved==='function') ? getBackendBaseResolved()
+      : (typeof CodiBank?.getBackendBaseResolved==='function' ? CodiBank.getBackendBaseResolved() : '');
+    if(!backendBase) return;
+    const r = await fetch(backendBase + '/api/usage/bonus/' + encodeURIComponent(em));
+    if(r.ok){
+      const d = await r.json();
+      _usageBonusCache.total_bonus = parseInt(d.total_bonus||0);
+    }
+  }catch(_){}
+}
+// 페이지 로딩 시 비동기로 미리 조회
+_fetchUsageBonus().catch(()=>{});
 // ★ pricing.html 기준: 추천코디(closet)와 코디하기(codistyle) 분리 카운트
 // ── 플랜 정의 (pricing.html 플랜과 반드시 동일하게 유지) ──
 // totalMonthly: 내옷장+코디하기 합산 월 생성 한도
@@ -1268,13 +1288,15 @@ function recordUnifiedUsage(feature){
 }
 function checkUnifiedUsage(feature){
   // ★ 내옷장+코디하기 합산(totalMonthly - totalCount) 기준으로 통일
+  // 서버 보너스 반영 (어드민이 지급한 추가 횟수)
+  const _bonusTotal  = _usageBonusCache.total_bonus || 0;
   // → 내옷장/코디하기 어디서 사용해도 동일한 잔여 횟수 표시
   const planId = (user.plan || 'free').toLowerCase();
   const plan = PLANS[planId] || PLANS.free;
   const u = getUnifiedUsage();
 
   const totalUsed    = u.totalCount || 0;       // 합산 월 사용량
-  const totalLimit   = plan.totalMonthly;        // 합산 월 한도
+  const totalLimit   = plan.totalMonthly + _bonusTotal;  // 합산 월 한도 + 어드민 보너스
   const remaining    = Math.max(0, totalLimit - totalUsed);
 
   // 월간 합산 한도 초과
@@ -1750,46 +1772,56 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
         shoe:'레더청키스니커즈', silhouette:'세미슬림', layerStyle:'블레이저+테크팬츠+슬릭티' },
     ],
     custom: [
-      { voice:'프롬프트 디자이너', en:'Prompt Designer',
-        palette:{outer:'#1A1A2E',top:'#E8E0F0',pants:'#2D1B4E',shoes:'#1A0A2E',accent:'#9B59B6'},
-        designKws:['맞춤','창의적','실험적','유니크','컨셉추얼','개성'],
-        shoe:'컨셉슈즈', silhouette:'실험적', layerStyle:'컨셉아우터+유니크아이템조합' },
-      { voice:'무드 믹스매처', en:'Mood Mix-matcher',
-        palette:{outer:'#2C3E50',top:'#ECF0F1',pants:'#8B7355',shoes:'#4A3728',accent:'#E67E22'},
-        designKws:['무드','믹스매치','레이어드','콜라주','혼합','감성'],
-        shoe:'믹스매치슈즈', silhouette:'오버사이즈', layerStyle:'무드믹스코트+이질적아이템조합' },
-      { voice:'컬러 스페셜리스트', en:'Color Specialist',
-        palette:{outer:'#E74C3C',top:'#3498DB',pants:'#2ECC71',shoes:'#F39C12',accent:'#9B59B6'},
-        designKws:['컬러','색채','대담한','팝컬러','채도높은','컬러이론'],
-        shoe:'컬러스니커즈', silhouette:'슬림', layerStyle:'컬러코디네이션아우터+대담한컬러조합' },
-      { voice:'핏 엔지니어', en:'Fit Engineer',
-        palette:{outer:'#1A1A1A',top:'#FFFFFF',pants:'#2C2C2C',shoes:'#1A1A1A',accent:'#C8C8C8'},
-        designKws:['실루엣','핏','비례','프로포션','테일러드','구조적'],
-        shoe:'클린레더슈즈', silhouette:'테일러드', layerStyle:'구조적아우터+비례완벽한팬츠' },
-      { voice:'브랜드 큐레이터', en:'Brand Curator',
-        palette:{outer:'#0A0A0A',top:'#F8F4EE',pants:'#1A1A1A',shoes:'#0A0A0A',accent:'#C8A000'},
-        designKws:['브랜드','로고','하이패션','컬렉션','에디션','큐레이션'],
-        shoe:'디자이너화', silhouette:'다양', layerStyle:'시즌컬렉션키아이템중심코디' },
-      { voice:'젠더리스 크리에이터', en:'Genderless Creator',
-        palette:{outer:'#95A5A6',top:'#FAFAFA',pants:'#7F8C8D',shoes:'#BDC3C7',accent:'#E8D5B7'},
-        designKws:['젠더리스','중성적','오버핏','소프트','유니섹스','경계없는'],
-        shoe:'젠더리스화', silhouette:'오버사이즈', layerStyle:'젠더리스오버코트+언더셔츠' },
-      { voice:'서브컬처 매니악', en:'Subculture Maniac',
-        palette:{outer:'#1A1A1A',top:'#4A4A4A',pants:'#2C2C2C',shoes:'#0A0A0A',accent:'#FF0000'},
-        designKws:['서브컬처','스트릿','반문화','빈티지','그런지','언더그라운드'],
-        shoe:'플랫폼부츠', silhouette:'오버사이즈', layerStyle:'서브컬처믹스아우터+진짜개성' },
-      { voice:'타임 트래블러', en:'Time Traveler',
-        palette:{outer:'#5C4827',top:'#F5DEB3',pants:'#8B4513',shoes:'#4A2511',accent:'#C8A000'},
-        designKws:['빈티지','레트로','헤리티지','시대믹스','아카이브','클래식'],
-        shoe:'빈티지부츠', silhouette:'클래식', layerStyle:'아카이브피스+빈티지아이템믹스' },
-      { voice:'시네마틱 디렉터', en:'Cinematic Director',
-        palette:{outer:'#1C1C1E',top:'#F5F5F0',pants:'#3A3A3C',shoes:'#1C1C1E',accent:'#FFD700'},
-        designKws:['시네마틱','드라마틱','무비룩','레거시','아이코닉','스타일'],
-        shoe:'시그니처슈즈', silhouette:'드라마틱', layerStyle:'시네마틱스테이트먼트코트+심플이너' },
-      { voice:'시즌리스 크리에이터', en:'Seasonless Creator',
-        palette:{outer:'#4A4A4A',top:'#E8E8E8',pants:'#6B6B6B',shoes:'#3C3C3C',accent:'#A0A0A0'},
-        designKws:['시즌리스','올라운드','뉴트럴','소재믹스','레이어블','베이직'],
-        shoe:'시즌리스화', silhouette:'세미릴렉스', layerStyle:'뉴트럴올시즌아우터+소재믹스' },
+      // [1] 요청 기반 스타일리스트 — 컨텍스트 중심, 실용적 해석
+      { voice:'라이프스타일 큐레이터', en:'Lifestyle Curator',
+        palette:{outer:'#2C3E50',top:'#D4C5A9',pants:'#4A5568',shoes:'#3D2B1F',accent:'#C8934A'},
+        designKws:['라이프스타일','컨텍스트','일상적','균형감','자연스러운','실용미'],
+        shoe:'클린더비', silhouette:'세미릴렉스', layerStyle:'다크네이비자켓+내추럴톤이너' },
+      // [2] 컬러 밸런스 — 상하의 대비 중시, 과도한 통일 지양
+      { voice:'컬러 밸런서', en:'Color Balancer',
+        palette:{outer:'#1B2848',top:'#F0EDE0',pants:'#5C6B4A',shoes:'#4A3728',accent:'#D4A574'},
+        designKws:['색채균형','대비','투톤','컬러블록','자연스러운대비','배색이론'],
+        shoe:'스웨이드로퍼', silhouette:'스트레이트', layerStyle:'네이비아우터+어스톤하의컬러대비' },
+      // [3] 소재 전문가 — 질감/소재 조합
+      { voice:'소재 아키텍트', en:'Material Architect',
+        palette:{outer:'#3D2B1F',top:'#E8E4D8',pants:'#5A5040',shoes:'#2C2C2C',accent:'#B8956A'},
+        designKws:['소재','텍스처','울','가죽','코듀로이','레이어드질감'],
+        shoe:'청키레더부츠', silhouette:'릴렉스', layerStyle:'울코트+면이너+코듀로이팬츠소재믹스' },
+      // [4] 핏 전문가 — 실루엣/비례 최적화
+      { voice:'핏 아키텍트', en:'Fit Architect',
+        palette:{outer:'#1C1C1E',top:'#F0EDE0',pants:'#4A5568',shoes:'#2A2A2A',accent:'#9B9B9B'},
+        designKws:['실루엣','비례','핏','구조적','라인','프로포션'],
+        shoe:'클린화이트스니커즈', silhouette:'테일러드슬림', layerStyle:'구조적자켓+스트레이트팬츠비율최적화' },
+      // [5] 데일리 스마트 — 캐주얼과 스마트의 균형
+      { voice:'데일리 스마트리스트', en:'Daily Smartist',
+        palette:{outer:'#4A5568',top:'#DBEAFE',pants:'#374151',shoes:'#4A3728',accent:'#93C5FD'},
+        designKws:['데일리','스마트캐주얼','균형','착용감','매일입을수있는','실용'],
+        shoe:'스웨이드더비', silhouette:'세미슬림', layerStyle:'그레이블레이저+스카이블루이너' },
+      // [6] 모노톤 스페셜리스트 — 단색 톤온톤 (의도적)
+      { voice:'톤온톤 마에스트로', en:'Tone-on-Tone Maestro',
+        palette:{outer:'#2D3748',top:'#4A5568',pants:'#718096',shoes:'#1A202C',accent:'#A0AEC0'},
+        designKws:['톤온톤','모노크롬','명도차','계층감','세련','미니멀리즘'],
+        shoe:'클린레더스니커즈', silhouette:'슬림', layerStyle:'그레이계열명도차레이어링' },
+      // [7] 레트로 모던 — 과거+현재 절충
+      { voice:'레트로 모더니스트', en:'Retro Modernist',
+        palette:{outer:'#5C4827',top:'#F0EDE0',pants:'#3A4A5A',shoe:'#4A3728',accent:'#C8A000'},
+        designKws:['레트로','헤리티지','아카이브','클래식현대화','시대믹스','핀스트라이프'],
+        shoe:'브로그', silhouette:'클래식', layerStyle:'헤링본자켓+클래식팬츠현대적해석' },
+      // [8] 스포티 엘레강스 — 운동감+우아함
+      { voice:'스포티 엘레강트', en:'Sporty Elegant',
+        palette:{outer:'#1A202C',top:'#E2E8F0',pants:'#2D4A6A',shoes:'#1A1A1A',accent:'#60A5FA'},
+        designKws:['스포티','엘레강스','애슬레틱','테크소재','기능미','세련된스포츠'],
+        shoe:'프리미엄스니커즈', silhouette:'테이퍼드', layerStyle:'스포츠재킷+슬림조거팬츠' },
+      // [9] 어반 내추럴 — 도시적 자연미
+      { voice:'어반 내추럴리스트', en:'Urban Naturalist',
+        palette:{outer:'#4D5A38',top:'#E8D5B0',pants:'#6B5A3A',shoes:'#4A3728',accent:'#8B7A4A'},
+        designKws:['어스톤','자연','내추럴','유기적','친환경소재','미니멀어스'],
+        shoe:'레더첼시부츠', silhouette:'릴렉스', layerStyle:'어스톤아우터+내추럴이너레이어링' },
+      // [10] 트렌드 해석가 — 최신 트렌드의 현실적 적용
+      { voice:'트렌드 트랜슬레이터', en:'Trend Translator',
+        palette:{outer:'#374151',top:'#F9FAFB',pants:'#7C3AED',shoes:'#1F2937',accent:'#DDD6FE'},
+        designKws:['트렌드','현실적적용','시즌','포인트컬러','스테이트먼트','업데이트'],
+        shoe:'플랫폼스니커즈', silhouette:'오버사이즈', layerStyle:'뉴트럴톤에포인트컬러트렌드아이템' },
     ],
   };
 
@@ -1872,7 +1904,63 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   if(!palette.accent) palette.accent = '#C8B89A';
   // 더운 날씨: 아우터를 상의 컬러로 교체(레이어 제거)
   if(nt >= 20) palette = {...palette, outer: palette.top};
-  // 영하: 팔레트 전체를 약간 더 어둡게 (이미 각 persona가 계절 반영)
+
+  // ── [직접입력 CRITICAL FIX] customText 키워드 → palette 오버라이드
+  // 이 블록이 imagePrompt의 SPEC 색상 명령보다 반드시 먼저 팔레트를 결정해야 함
+  if(pk==='custom' && customText){
+    const _ct = customText;
+    // 수트/정장 패턴 (outer+pants 동일색)
+    if(/블랙수트|검정수트|수트.*?블랙|수트.*?검정/.test(_ct)){ palette.outer='#1C1C1E'; palette.pants='#1C1C1E'; }
+    else if(/네이비수트|남색수트|수트.*?네이비|수트.*?남색/.test(_ct)){ palette.outer='#1B2848'; palette.pants='#1B2848'; }
+    else if(/그레이수트|회색수트|차콜수트|수트.*?그레|수트.*?차콜/.test(_ct)){ palette.outer='#3A3A3A'; palette.pants='#3A3A3A'; }
+    else if(/수트|정장|슈트/.test(_ct)){ palette.outer='#1A1A1A'; palette.pants='#1A1A1A'; }
+    // 상의 색상 패턴
+    if(/화이트셔츠|흰셔츠|흰색셔츠|화이트 셔츠/.test(_ct)){ palette.top='#F5F5F0'; }
+    else if(/블랙셔츠|검정셔츠|검은셔츠/.test(_ct)){ palette.top='#1C1C1E'; }
+    else if(/블루셔츠|파란셔츠|하늘셔츠/.test(_ct)){ palette.top='#2A5A8A'; }
+    else if(/스트라이프셔츠|줄무늬셔츠/.test(_ct)){ palette.top='#E8E4D8'; }
+    // 하의 색상 패턴
+    if(/청바지|데님팬츠|블루진|청팬츠/.test(_ct)){ palette.pants='#2A4A6A'; }
+    else if(/블랙팬츠|검정팬츠|블랙 팬츠/.test(_ct)){ palette.pants='#1C1C1E'; }
+    else if(/카키팬츠|카키 팬츠|올리브팬츠/.test(_ct)){ palette.pants='#5C6B4A'; }
+    else if(/베이지팬츠|베이지 팬츠|크림팬츠/.test(_ct)){ palette.pants='#C8B89A'; }
+    else if(/그레이팬츠|차콜팬츠|회색팬츠/.test(_ct)){ palette.pants='#4A5568'; }
+    // 일반 색상 키워드 (위에서 처리 안 된 경우 outer에 적용)
+    const _colKw = {
+      '블랙':'#1C1C1E','검정':'#1C1C1E','검은':'#1C1C1E',
+      '네이비':'#1B2848','남색':'#1B2848',
+      '카키':'#5C6B4A','올리브':'#4D5A38',
+      '베이지':'#C8B89A','크림':'#EDE8DA',
+      '브라운':'#7B4A2A','갈색':'#7B4A2A',
+      '버건디':'#6B1A2A','와인':'#7B1A2E',
+      '그레이':'#5A6270','회색':'#5A6270','차콜':'#3A3A3A',
+      '카멜':'#C8934A','낙타':'#C8934A',
+    };
+    for(const [kw, hex] of Object.entries(_colKw)){
+      if(_ct.includes(kw) && !/(수트|정장|셔츠|팬츠|바지|자켓|코트)/.test(_ct.slice(_ct.indexOf(kw)-1, _ct.indexOf(kw)+4))){
+        palette.outer = hex; break; // 첫 번째 미처리 색상어는 아우터에
+      }
+    }
+  }
+
+  // ── 컬러 조화 보정: 올블랙/올퍼플/올동일 방지 (정장/수트 제외)
+  const _isFormalIntent = /수트|정장|슈트/.test(customText||'') || pk==='business';
+  if(!_isFormalIntent){
+    // outer와 pants가 거의 같은 어두운 색이면 → pants를 중간톤으로 교체
+    const _lumin = h => { const r=parseInt(h.slice(1,3),16), g=parseInt(h.slice(3,5),16), b=parseInt(h.slice(5,7),16); return (r+g+b)/765; };
+    const _ldiff = Math.abs(_lumin(palette.outer) - _lumin(palette.pants));
+    const _avgLum = (_lumin(palette.outer) + _lumin(palette.pants)) / 2;
+    if(_ldiff < 0.08 && _avgLum < 0.25){
+      // 둘 다 어두운 유사색 → pants를 중간 계열로
+      const _midPants = ['#4A5568','#3D5A3D','#5C4A3D','#4A4A6B','#5A5040'][(sd+5)%5];
+      palette = {...palette, pants: _midPants};
+    }
+    // 신발도 outer와 완전히 동일하면 → 한 톤 조정
+    if(palette.shoes === palette.outer || palette.shoes === palette.pants){
+      const _altShoe = _lumin(palette.outer) < 0.3 ? '#4A3728' : '#1C1C1E';
+      palette = {...palette, shoes: _altShoe};
+    }
+  }
 
   // ── [6] 디자인 키워드 (페르소나별 고유 6개+에서 순환)
   const dPool = persona.designKws;
@@ -1903,7 +1991,11 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
 
   // ── [9] 직접입력 처리
   const customSentence = (pk==='custom'&&customText)
-    ? `CUSTOM REQUEST: The user specifically requested "${customText}" style. MUST incorporate this request into outfit selection, colors, and overall styling direction. This is the highest priority styling instruction.`
+    ? `[HIGHEST PRIORITY — USER DIRECT REQUEST]: The user explicitly requested: "${customText}". ` +
+      `This specific request MUST override all default palette and style decisions below. ` +
+      `All garment colors, styles, and item choices MUST faithfully reflect this exact request. ` +
+      `If the request mentions specific garments (e.g., suit, white shirt, blue jeans), ` +
+      `those items MUST appear in the image exactly as described.`
     : '';
 
   // ══════════════════════════════════════════════════════════════
@@ -2224,60 +2316,110 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     const _pantsColorTip = _getColorTip(SPEC.pants.ko);
     const _outerColorTip = _getColorTip(SPEC.outer.ko);
 
-    // ── 스타일리스트 추천 이유 ──
+    // ══ 전문적 codiStory 생성 ══
     const _bodyAdvice = bodyType ? bodyType.tip.split(/[.·]/)[0].trim() : '';
-    const _technique = (persona.layerStyle||'').split('+')[0].trim() || '톤매칭';
+    const _technique  = (persona.layerStyle||'').split('+')[0].trim() || '밸런스 레이어링';
 
-    // ── 액세서리 포인트 (있을 경우만) ──
-    const _accentItem = (SPEC.accent.ko && SPEC.accent.ko !== '포인트악세서리') ? SPEC.accent.ko : '';
-    const _bagItem = _extSpec.bag.ko || '';
-    const _watchItem = _extSpec.watch.ko || '';
-    const _accParts = [];
-    if(_accentItem) _accParts.push('**' + _accentItem + '**으로 스타일 포인트');
-    if(_bagItem && personaIdx % 3 !== 2) _accParts.push('**' + _bagItem + '** 가방으로 실용성');
-    if(_watchItem && personaIdx % 4 === 0) _accParts.push('**' + _watchItem + '** 시계로 완성도');
+    // 소재/핏 DB (persona.en별 전문 표현)
+    const _fabricDB = {
+      'Modern Minimalist':   {fabric:'슬림핏 울혼방 팬츠와 면폴리 블렌드 이너', fit:'몸에 자연스럽게 떨어지는 드레이프'},
+      'Lifestyle Curator':   {fabric:'내추럴 린넨 혼방과 소프트 면소재', fit:'움직임이 편안한 릴렉스 실루엣'},
+      'Color Balancer':      {fabric:'고밀도 울 트위드 자켓과 데님 팬츠', fit:'상체는 구조적, 하체는 여유있게'},
+      'Material Architect':  {fabric:'더블페이스 울 코트에 코튼 셔츠, 코듀로이 팬츠', fit:'소재마다 다른 질감으로 레이어드'},
+      'Fit Architect':       {fabric:'텐셀 혼방 이너와 스트레치 울 슬랙스', fit:'3:7 비례로 다리 라인을 극대화'},
+      'Daily Smartist':      {fabric:'피케 면 이너와 울폴리 블레이저', fit:'어깨선이 딱 맞는 클린 핏'},
+      'Tone-on-Tone Maestro':{fabric:'명도 차이를 둔 그레이 계열 니트와 슬랙스', fit:'동일 색조 안에서 소재 질감으로 변화'},
+      'Retro Modernist':     {fabric:'헤링본 울 자켓과 면 혼방 슬랙스', fit:'클래식 테일러링에 현대적 실루엣'},
+      'Sporty Elegant':      {fabric:'테크 니트 재킷과 스판덱스 혼방 테이퍼드 팬츠', fit:'활동적이면서도 도시적인 세미슬림'},
+      'Urban Naturalist':    {fabric:'올가닉 코튼 이너와 리사이클 울 아우터', fit:'몸을 자연스럽게 감싸는 이지핏'},
+      'Trend Translator':    {fabric:'시즌 트렌드 소재와 클래식 기본 아이템 믹스', fit:'트렌드를 과하지 않게 적용한 실용 핏'},
+      'Smart Casual':        {fabric:'코튼폴리 혼방 셔츠와 울 혼방 슬랙스', fit:'캐주얼하지만 단정한 스마트 핏'},
+    };
+    const _fd = _fabricDB[persona.en] || {fabric:'계절에 맞는 소재 조합', fit:'자연스러운 실루엣'};
 
-    // ── 문장 조합 (500자 이내) ──
-    const parts = [];
+    // 컬러 이론 해설 DB
+    const _colorTheoryDB = [
+      ()=>`${SPEC.outer.ko||'다크톤'} 아우터와 ${SPEC.top.ko||'밝은'} 이너의 명도 대비가 시선을 자연스럽게 상체로 집중시켜요. 패션 컬러이론의 **명도 대비** 기법입니다.`,
+      ()=>`${SPEC.pants.ko||'하의'} 컬러가 ${SPEC.outer.ko||'아우터'} 톤보다 한 단계 밝아지면서 **투톤 그라데이션** 효과로 키가 커 보이는 착시를 줍니다.`,
+      ()=>`상하의 컬러 채도를 비슷하게 맞추고 신발은 한 톤 다운시켜 **앙상블 밸런스**를 완성했어요. 전체적으로 흐트러지지 않는 정돈감이 생깁니다.`,
+      ()=>`${SPEC.top.ko||'이너'}의 따뜻한 톤과 ${SPEC.outer.ko||'아우터'}의 차가운 톤이 만나는 **보색 인접 배색**. 포인트가 생기면서도 튀지 않아요.`,
+    ];
+    const _colorTip = _colorTheoryDB[sd%4]();
 
-    // 1. 스타일리스트 소개
-    parts.push('**' + stylistName + '** - lives in ' + _region);
+    // 체형별 핏 어드바이스
+    const _fitAdviceDB = {
+      '마른형':  `마른 체형엔 ${_fd.fabric}처럼 소재에 약간의 볼륨감을 더하면 자연스러운 실루엣이 나와요.`,
+      '통통형':  `어두운 ${SPEC.pants.ko||'하의'} 컬러로 하체를 슬림하게 정돈하고, 상의는 구조적인 핏으로 포인트를 줬어요.`,
+      '비만형':  `세로 선이 강한 핏을 선택해 전체적으로 라인을 살렸어요. ${SPEC.outer.ko||'다크 아우터'}가 시선을 분산시켜 줍니다.`,
+      '장신형':  `세로 선이 지나치게 강조되지 않도록 가로 포인트를 줘서 균형잡힌 비율로 완성했어요.`,
+      '단신형':  `하이라이즈 핏과 동색 계열 배색으로 다리를 길어 보이게 연출했어요. ${_fd.fit}.`,
+    };
+    const _fitTip = bodyType && _fitAdviceDB[bodyType.tag] ? _fitAdviceDB[bodyType.tag] : '';
 
-    // 2. 추천 이유
-    parts.push('');
-    parts.push('**"' + _pLabel + '" 코디를 추천합니다.**');
-    parts.push(_wx + ' 날씨에 맞춰 **' + _technique + '** 기법으로 구성했어요.' + (_bodyAdvice ? ' ' + _bodyAdvice + '을 살리는 핏을 선택했습니다.' : ''));
+    // 스타일리스트 개인 철학 문장 (persona.voice별)
+    const _philosophyDB = {
+      '라이프스타일 큐레이터': '옷은 삶의 맥락을 담아야 해요. 당신이 살아가는 공간과 어울리는 코디를 골랐습니다.',
+      '컬러 밸런서':          '완벽한 코디는 한 가지 색이 아니라, 색들이 대화하는 방식에 있어요.',
+      '소재 아키텍트':        '소재의 질감이 다르면 같은 색도 다른 이야기를 해요. 손끝으로 느껴지는 코디입니다.',
+      '핏 아키텍트':          '몸의 비례를 가장 잘 살리는 실루엣이 최고의 스타일링입니다. 핏이 전부예요.',
+      '데일리 스마트리스트':  '매일 입어도 질리지 않는 옷이 진짜 좋은 옷이에요. 오늘도 내일도 입을 수 있는 코디입니다.',
+      '톤온톤 마에스트로':    '같은 색의 다른 깊이감을 즐기는 것이 진정한 패션의 여유입니다.',
+      '레트로 모더니스트':    '과거의 디자인 언어를 현재의 문법으로 번역하는 것이 제 역할이에요.',
+      '스포티 엘레강트':      '움직임과 우아함은 대립하지 않아요. 둘을 하나로 연결하는 것이 제 미학입니다.',
+      '어반 내추럴리스트':    '도시에서 자연의 색을 입는 것. 그것이 가장 현대적인 감성이라고 생각해요.',
+      '트렌드 트랜슬레이터':  '트렌드는 도구예요. 유행을 당신의 라이프스타일에 맞게 번역하는 것이 진짜 스타일링입니다.',
+      '프롬프트 디자이너':    '당신의 요청에서 가장 좋은 스타일을 끌어내는 것이 제 전문입니다.',
+      '모던 미니멀리스트':    '불필요한 것을 없애고 나면 진짜 중요한 것만 남아요.',
+    };
+    const _philosophy = _philosophyDB[persona.voice] || '당신에게 가장 잘 어울리는 코디를 선택했어요.';
 
-    // 3. 상의 포인트
-    if(_top){
-      const cTip = _topColorTip ? ' ' + _topColorTip + '을 전달해요.' : '';
-      parts.push('**상의** — ' + _top + '을 선택했어요.' + cTip);
-    }
+    // ── 문장 조합 (500자 이내, 전문적 + 개성있게) ──
+    const parts2 = [];
 
-    // 4. 하의 포인트
-    if(_pants){
-      const cTip = _pantsColorTip ? ' ' + _pantsColorTip + '이 돋보입니다.' : '';
-      parts.push('**하의** — ' + _pants + '으로 매칭했어요.' + cTip);
-    }
+    // 1. 스타일리스트 소개 + 철학
+    parts2.push('**' + stylistName + '** (' + _region + ' 기반 · ' + persona.voice + ')');
 
-    // 5. 아우터 (있을 경우)
+    // 2. 코디 컨셉 + 날씨 맥락
+    parts2.push('');
+    parts2.push('"**' + _pLabel + '**" — ' + _philosophy);
+    if(_wx) parts2.push(_wx + ' 날씨에 ' + _technique + ' 스타일링으로 답했어요.' + (_bodyAdvice ? ' ' + _bodyAdvice + '.' : ''));
+
+    // 3. 색상 조합 해설 (컬러이론 포함)
+    parts2.push(_colorTip);
+
+    // 4. 아우터 (있을 경우)
     if(_outer && Number.isFinite(nt) && nt < 20){
-      const cTip = _outerColorTip ? ' ' + _outerColorTip + '을 더합니다.' : '';
-      parts.push('**아우터** — ' + _outer + '으로 완성도를 높였어요.' + cTip);
+      parts2.push('**아우터** — ' + _outer + '. ' + _fd.fabric.split('와')[0] + '처럼 소재감이 살아있는 선택이에요.');
     }
 
-    // 6. 슈즈
-    if(_shoes) parts.push('**슈즈** — ' + _shoes + '로 마무리했어요.');
-
-    // 7. 액세사리 포인트 (옵션)
-    if(_accParts.length > 0){
-      parts.push('**액세사리** — ' + _accParts.join(', ') + '를 더했습니다.');
+    // 5. 상의 + 하의 (핏 디테일 포함)
+    if(_top && _pants){
+      const _topC = _topColorTip ? _topColorTip + '의 인상을 주는 ' : '';
+      const _pnC  = _pantsColorTip ? ' ' + _pantsColorTip + '이 하체를 안정감 있게 잡아줘요.' : '';
+      parts2.push('**상의** ' + _topC + _top + ' — **하의** ' + _pants + '.' + _pnC);
+      parts2.push(_fd.fit + '으로 자연스러운 착용감을 완성했습니다.');
+    } else {
+      if(_top) parts2.push('**상의** — ' + _top + '. ' + (_topColorTip||'이 코디의 핵심 포인트') + '.');
+      if(_pants) parts2.push('**하의** — ' + _pants + '. ' + (_pantsColorTip ? _pantsColorTip+'이 돋보입니다.' : ''));
     }
 
-    codiStory = parts.filter(s => s !== undefined && s !== '').join('\n').replace(/\n{3,}/g, '\n\n').trim();
-    // 500자 제한
-    if(codiStory.length > 500) codiStory = codiStory.substring(0, 497) + '...';
-    if(!codiStory) codiStory = stylistName + '이(가) ' + _pLabel + ' 코디를 준비했어요. **' + persona.voice + '** 스타일의 코디입니다.';
+    // 6. 체형 핏 팁 (있을 경우)
+    if(_fitTip) parts2.push(_fitTip);
+
+    // 7. 슈즈 + 액세서리 (전문가 이유 포함)
+    const _accLine = [];
+    const _accentItem = (SPEC.accent.ko && SPEC.accent.ko !== '포인트악세서리') ? SPEC.accent.ko : '';
+    const _bagItem    = _extSpec.bag.ko || '';
+    const _watchItem  = _extSpec.watch.ko || '';
+    if(_shoes) _accLine.push('슈즈는 **' + _shoes + '**');
+    if(_accentItem) _accLine.push('**' + _accentItem + '**으로 포인트');
+    if(_bagItem && personaIdx%3!==2) _accLine.push('**' + _bagItem + '**으로 실용성과 완성도');
+    if(_watchItem && personaIdx%4===0) _accLine.push('**' + _watchItem + '**으로 마무리');
+    if(_accLine.length > 0) parts2.push(_accLine.join(' · ') + '.');
+
+    codiStory = parts2.filter(s => s !== undefined && s !== '').join('\n').replace(/\n{3,}/g,'\n\n').trim();
+    if(codiStory.length > 580) codiStory = codiStory.substring(0, 577) + '...';
+    if(!codiStory) codiStory = '**' + stylistName + '** — ' + _pLabel + ' 코디. **' + persona.voice + '** 스타일로 완성했어요.';
   })();
 
   // ── 영어 모드: codiStory 영어 버전 생성 ──
@@ -2420,11 +2562,11 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
 
   const imagePrompt = [
     `Realistic full-body Korean fashion magazine editorial photography of ${ageLabel} ${ethnicity} ${genderLabel}.`,
+    customSentence||'',
     bodyBuildPrompt||'',
     'FULL-BODY SHOT (CRITICAL): This MUST be a full-body shot showing the complete person from the top of the head to the bottom of the shoes. The person should be well-proportioned within the 2:3 vertical frame — naturally centered with comfortable margins above the head and below the feet. NO upper-body-only crop, NO waist-up crop, NO zoomed-in composition. The entire outfit including shoes must be fully visible.',
     'BODY PROPORTION (ABSOLUTE CRITICAL RULE): Upper body from head to waist must occupy MAXIMUM 40% of total body height. Lower body from waist to feet must occupy MINIMUM 60% of total body height. This 3:7 upper-to-lower ratio is NON-NEGOTIABLE. A 5:5 or 4:6 ratio is a complete generation failure. Legs must appear naturally long and elongated — never shortened or compressed.',
     'ANATOMY: Natural human proportions. Both hands 5 fingers each. No distortion.',
-    customSentence||'',
     `STRICTLY follow exact item colors below — do NOT substitute any color:`,
     (Number.isFinite(nt) && nt >= 20) ? '' : `[1] OUTERWEAR: ${SPEC.outer.en} ${SPEC.outer.itemEn} — must be ${SPEC.outer.en} colored.`,
     `[2] TOP: ${SPEC.top.en} — must be ${SPEC.top.en} colored, not white unless specified.`,
