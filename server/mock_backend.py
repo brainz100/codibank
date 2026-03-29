@@ -424,9 +424,12 @@ def _purpose_to_style(purpose_key: str, purpose_label: str) -> Tuple[str, str]:
             "date",
             "stylish casual outfit for a date",
         )
-    # fallback
-    pl = (purpose_label or "").strip() or "everyday"
-    return (pl, "well-balanced everyday outfit")
+    # custom(직접입력): purposeLabel = 사용자가 직접 입력한 텍스트
+    pl = (purpose_label or "").strip()
+    if pl:
+        # 사용자 입력 텍스트를 purpose_desc로 직접 사용 — DALL-E 프롬프트 핵심 의도
+        return (pl, pl)
+    return ("everyday", "well-balanced everyday outfit")
 
 
 def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
@@ -515,6 +518,15 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
             prompt += " " + style_hint
         return prompt, short
 
+    # ── custom(직접입력) 텍스트 추출
+    # payload.customText: 사용자가 입력한 코디목적 원문
+    _custom_text = str(payload.get("customText") or "").strip()
+    if not _custom_text:
+        import re as _re2
+        _cd = str(payload.get("customDirective") or "")
+        _m2 = _re2.search(r'["](.*?)["]', _cd)
+        if _m2: _custom_text = _m2.group(1).strip()
+
     # 프롬프트는 "텍스트 없음" 강제
     # - 브랜드 로고/워터마크/문구 방지
     # - 'full-body'와 'lookbook' 톤으로 안정적인 결과 유도
@@ -553,10 +565,11 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
 
     # 메인 프롬프트
     prompt = (
+        _custom_override +
         "Photorealistic full-body fashion lookbook photo. "
-        f"A {profile_str} wearing a {purpose_desc}. "
+        f"A {profile_str} wearing {(_custom_text or purpose_desc)}. "
         f"Weather: {bucket}. Condition: {cond or 'clear'}. "
-        f"Style theme: {purpose_tag}. "
+        f"Style theme: {_custom_text or purpose_tag}. "
         f"Keywords: {kw_str}. "
         f"{weather_rule} "
 
@@ -2146,21 +2159,54 @@ def admin_create_test_accounts():
         r = _rq.post(url, headers=_headers, json=body, timeout=15)
         if r.status_code in (200, 201):
             results.append({"email": email, "password": pw, "status": "created"})
-        elif r.status_code == 422 and "already" in r.text.lower():
-            results.append({"email": email, "password": pw, "status": "already_exists"})
+        elif r.status_code == 422:
+            # 이미 존재하는 계정 → uid 조회 후 PUT으로 비밀번호 + 인증 강제 업데이트
+            try:
+                # 유저 목록에서 email로 uid 찾기
+                list_url = f"{_sb_url}/auth/v1/admin/users?page=1&per_page=1000"
+                lr = _rq.get(list_url, headers=_headers, timeout=15)
+                uid = None
+                if lr.status_code == 200:
+                    users_data = lr.json()
+                    user_list = users_data.get("users", users_data) if isinstance(users_data, dict) else users_data
+                    for u in user_list:
+                        if u.get("email", "").lower() == email.lower():
+                            uid = u.get("id")
+                            break
+                if uid:
+                    # PUT으로 비밀번호 + email_confirm 강제 업데이트
+                    patch_url = f"{_sb_url}/auth/v1/admin/users/{uid}"
+                    patch_body = {
+                        "password":      pw,
+                        "email_confirm": True,
+                        "user_metadata": body["user_metadata"],
+                        "app_metadata":  body["app_metadata"],
+                    }
+                    pr = _rq.put(patch_url, headers=_headers, json=patch_body, timeout=15)
+                    if pr.status_code in (200, 201):
+                        results.append({"email": email, "password": pw, "status": "updated"})
+                    else:
+                        results.append({"email": email, "password": pw, "status": "update_failed",
+                                         "detail": pr.text[:200]})
+                else:
+                    results.append({"email": email, "password": pw, "status": "uid_not_found"})
+            except Exception as ex:
+                results.append({"email": email, "password": pw, "status": "already_exists_error",
+                                 "detail": str(ex)[:200]})
         else:
             results.append({"email": email, "password": pw, "status": "failed",
                              "detail": r.text[:200]})
 
     created = [r for r in results if r["status"] == "created"]
+    updated = [r for r in results if r["status"] == "updated"]
     exists  = [r for r in results if r["status"] == "already_exists"]
-    failed  = [r for r in results if r["status"] == "failed"]
+    failed  = [r for r in results if r["status"] in ("failed", "update_failed", "uid_not_found", "already_exists_error")]
 
     return jsonify({
         "ok": True,
-        "summary": f"생성:{len(created)} / 이미존재:{len(exists)} / 실패:{len(failed)}",
+        "summary": f"신규생성:{len(created)} / 비밀번호업데이트:{len(updated)} / 실패:{len(failed)}",
         "results": results,
-        "default_password_pattern": "codibank01! ~ codibank10!",
+        "default_password_pattern": "Test01!234 ~ Test10!234",
     })
 
 
