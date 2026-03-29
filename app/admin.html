@@ -292,11 +292,11 @@
       <code style="display:block;background:#1a1a2e;color:#7ec8e3;padding:10px;border-radius:5px;margin:6px 0;font-size:10px;white-space:pre;line-height:1.6;">UPDATE auth.users
 SET email_confirmed_at = now(), updated_at = now()
 WHERE email IN (
-  'admin@codibank.kr',
-  'test01@codibank.kr','test02@codibank.kr','test03@codibank.kr',
-  'test04@codibank.kr','test05@codibank.kr','test06@codibank.kr',
-  'test07@codibank.kr','test08@codibank.kr','test09@codibank.kr',
-  'test10@codibank.kr'
+  '<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="1f7e7b7276715f7c707b767d7e717431746d">[email&#160;protected]</a>',
+  '<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="5125342225616011323e353833303f3a7f3a23">[email&#160;protected]</a>','<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2c58495f581c1e6c4f4348454e4d424702475e">[email&#160;protected]</a>','<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="d6a2b3a5a2e6e596b5b9b2bfb4b7b8bdf8bda4">[email&#160;protected]</a>',
+  '<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="1460716760242054777b707d76757a7f3a7f66">[email&#160;protected]</a>','<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="4430213730747104272b202d26252a2f6a2f36">[email&#160;protected]</a>','<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="9ce8f9efe8acaadcfff3f8f5fefdf2f7b2f7ee">[email&#160;protected]</a>',
+  '<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="4337263037737403202c272a21222d286d2831">[email&#160;protected]</a>','<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="0571607671353d45666a616c67646b6e2b6e77">[email&#160;protected]</a>','<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="c7b3a2b4b3f7fe87a4a8a3aea5a6a9ace9acb5">[email&#160;protected]</a>',
+  '<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="6511001611545525060a010c07040b0e4b0e17">[email&#160;protected]</a>'
 );</code>
       <b>SUPABASE_SERVICE_KEY 확인:</b>
       <a href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/settings/api" target="_blank" style="color:#1a5fb4;">Supabase API 설정</a> → service_role 키 복사 →
@@ -311,7 +311,7 @@ WHERE email IN (
     <div class="sec-t"><span class="mi">science</span>테스트 계정 관리</div>
   </div>
   <p style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.7;">
-    <b>test01~test10@codibank.kr</b> 10개 계정을 이메일 인증 없이 Supabase + 관리자페이지에 동시 등록합니다.<br>
+    <b><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="087c6d7b7c3839767c6d7b7c3938486b676c616a69666326637a">[email&#160;protected]</a></b> 10개 계정을 이메일 인증 없이 Supabase + 관리자페이지에 동시 등록합니다.<br>
     ✦ 비밀번호: <code style="background:#f0f4ff;padding:1px 6px;border-radius:3px;font-size:11px;">Test01!234 ~ Test10!234</code> (홀수=남성, 짝수=여성, FREE 플랜)<br>
     ✦ 이미 생성된 계정은 버튼을 다시 누르면 <b>비밀번호 자동 갱신 + 이메일 인증 처리</b>됩니다.
   </p>
@@ -1037,34 +1037,36 @@ async function changeSelectedAdminPw(){
   if(nw!==conf){toast('새 비밀번호가 일치하지 않습니다',true);return;}
   if(nw.length<4){toast('비밀번호 4자 이상',true);return;}
   var result=document.getElementById('pwChangeResult');
-  result.style.display='none';
   try{
-    var payload={newPassword:nw,confirmPassword:conf};
     if(isSelf){
-      // 본인 비밀번호 변경 → /admin/change-password 사용
+      // 본인 비밀번호 변경
       if(!old){toast('현재 비밀번호를 입력하세요',true);return;}
-      payload.currentPassword=old;
-      var r=await authFetch(B+'/admin/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      var r=await authFetch(B+'/admin/change-password',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({currentPassword:old,newPassword:nw,confirmPassword:conf})});
       var d=await r.json();
-      if(!d.ok){toast('변경 실패: '+d.error,true);return;}
-      // 세션 키 갱신
-      var nh=await sha256(nw);
+      if(!d.ok){toast('변경 실패: '+(d.error||'오류'),true);return;}
+      var nh=d.new_hash||await sha256(nw);
       _ME.hash=nh;
       sessionStorage.setItem('cb_admin',nh);
       sessionStorage.setItem('cb_admin_me',JSON.stringify(_ME));
     } else {
-      // 타인 비밀번호 변경 (MASTER 전용) → /admin/admins/<email> PUT
+      // 타인 비밀번호 변경 (MASTER 전용)
       var r=await authFetch(B+'/admin/admins/'+encodeURIComponent(targetEmail),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({newPassword:nw})});
       var d=await r.json();
       if(!d.ok){toast('변경 실패: '+d.error,true);return;}
     }
-    result.style.display='block';
-    result.style.background='#f0faf9';result.style.border='1px solid #d0ebe8';result.style.color='#0B666A';
-    result.textContent='✅ '+targetEmail+' 비밀번호가 즉시 변경되었습니다.';
+    if(result){
+      result.style.display='block';
+      result.style.background='#f0faf9';result.style.border='1px solid #d0ebe8';result.style.color='#0B666A';
+      result.textContent='✅ '+targetEmail+' 비밀번호가 즉시 변경되었습니다.';
+    }
     document.getElementById('acNewAdminPw').value='';
     document.getElementById('acConfirmAdminPw').value='';
     document.getElementById('acOldPw').value='';
-    document.g
+    document.getElementById('pwTargetSelect').value='';
+    document.getElementById('pwChangeForm').style.display='none';
+    toast('✅ 비밀번호 변경 완료');
+  }catch(e){toast('오류: '+e.message,true);}
 }
 </script>
 </body>
