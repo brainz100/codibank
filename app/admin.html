@@ -94,27 +94,92 @@
 <div class="chart-box"><h3>월별 가입 추이</h3><div class="chart-wrap"><canvas id="chU2"></canvas></div></div>
 <div class="chart-box"><h3>성별 / 회원구분</h3><div class="chart-wrap"><canvas id="chU3"></canvas></div></div>
 </div>
-<!-- ★ 어드민→Supabase 동기화 (MASTER 전용) -->
-<div class="sec" id="secSyncSupabase" style="display:none;border:2px solid #e53e3e20;background:rgba(229,62,62,0.03);">
+<!-- ★ CodiBank 앱 로그인 동기화 (MASTER 전용) -->
+<div class="sec" id="secSyncSupabase" style="display:none;border:2px solid #e53e3e30;background:#fff8f8;">
   <div class="sec-h">
-    <div class="sec-t"><span class="mi">sync</span>CodiBank 앱 로그인 동기화</div>
+    <div class="sec-t"><span class="mi">manage_accounts</span>CodiBank 앱 로그인 동기화</div>
+    <button class="rb" onclick="runSupabaseDiag()"><span class="mi">bug_report</span>진단 실행</button>
   </div>
-  <p style="font-size:11px;color:#555;margin-bottom:10px;line-height:1.7;">
-    ✦ 어드민 계정은 관리자페이지 전용이므로 CodiBank 앱에서 별도 로그인이 필요합니다.<br>
-    ✦ 아래 버튼을 누르면 모든 어드민 계정을 <b>Supabase에 동기화</b>합니다.<br>
-    ✦ 동기화 후 각 어드민은 <b>관리자페이지 비밀번호와 동일한 비밀번호</b>로 CodiBank 앱 로그인이 가능합니다.<br>
-    <span style="color:#e53e3e;font-weight:700;">⚠ 현재 비밀번호를 기억하지 못하면 "기본 비밀번호" 입력 후 동기화 버튼을 누르세요.</span>
+  <p style="font-size:11px;color:#555;margin-bottom:12px;line-height:1.8;">
+    ✦ <b>원인</b>: 어드민 계정은 서버 내부에만 존재 → CodiBank 앱(Supabase 인증)에 없음<br>
+    ✦ <b>해결</b>: 아래 3단계를 순서대로 진행하세요
   </p>
-  <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-    <div style="flex:1;">
-      <label style="font-size:10px;font-weight:700;color:#e53e3e;display:block;margin-bottom:3px;">기본 비밀번호 (비밀번호를 모르는 계정에 적용)</label>
-      <input id="syncDefaultPw" type="password" value="pass1234" placeholder="pass1234" style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+
+  <!-- STEP 1: 진단 -->
+  <div style="border:1px solid #e0e0e0;border-radius:8px;padding:12px;margin-bottom:10px;background:#fff;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:8px;">
+      <span style="background:#071952;color:#fff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:10px;margin-right:6px;">1</span>
+      Supabase 연결 상태 진단
     </div>
-    <button onclick="syncAdminsToSupabase()" style="padding:9px 20px;background:#e53e3e;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;margin-top:16px;">
-      <span class="mi" style="font-family:'Material Symbols Outlined';vertical-align:middle;font-size:15px;">cloud_sync</span> Supabase 동기화
+    <button onclick="runSupabaseDiag()" style="padding:7px 16px;background:#1a5fb4;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">
+      진단 실행
     </button>
+    <div id="diagResult" style="margin-top:8px;font-size:11px;"></div>
   </div>
-  <div id="syncResult" style="font-size:11px;min-height:16px;"></div>
+
+  <!-- STEP 2: 강제 등록 -->
+  <div style="border:1px solid #e0e0e0;border-radius:8px;padding:12px;margin-bottom:10px;background:#fff;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:8px;">
+      <span style="background:#071952;color:#fff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:10px;margin-right:6px;">2</span>
+      Supabase 강제 등록 (API 자동 처리)
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 130px 1fr;gap:8px;align-items:end;margin-bottom:8px;">
+      <div>
+        <label style="font-size:10px;font-weight:700;color:#555;display:block;margin-bottom:3px;">등록할 이메일</label>
+        <input id="forceEmail" value="admin@codibank.kr" style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+      </div>
+      <div>
+        <label style="font-size:10px;font-weight:700;color:#555;display:block;margin-bottom:3px;">비밀번호</label>
+        <input id="forcePw" type="password" value="pass1234" style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+      </div>
+      <button onclick="forceCreateAdmin()" style="padding:8px 0;background:#0B666A;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;height:36px;">Supabase 등록</button>
+    </div>
+    <div id="forceResult" style="font-size:11px;"></div>
+  </div>
+
+  <!-- STEP 3: 일괄 동기화 -->
+  <div style="border:1px solid #e0e0e0;border-radius:8px;padding:12px;background:#fff;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:8px;">
+      <span style="background:#071952;color:#fff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:10px;margin-right:6px;">3</span>
+      모든 어드민 계정 일괄 동기화
+    </div>
+    <div style="display:flex;gap:8px;align-items:end;">
+      <div style="flex:1;">
+        <label style="font-size:10px;font-weight:700;color:#555;display:block;margin-bottom:3px;">미지정 계정 기본 비밀번호</label>
+        <input id="syncDefaultPw" type="password" value="pass1234" placeholder="pass1234" style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+      </div>
+      <button onclick="syncAdminsToSupabase()" style="padding:8px 20px;background:#e53e3e;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;height:36px;">
+        전체 일괄 동기화
+      </button>
+    </div>
+    <div id="syncResult" style="margin-top:8px;font-size:11px;"></div>
+  </div>
+
+  <!-- STEP 4: 수동 안내 (API 실패 시) -->
+  <details style="margin-top:10px;">
+    <summary style="font-size:11px;font-weight:700;color:#e53e3e;cursor:pointer;padding:6px 0;">
+      ⚠ API 방법이 모두 실패하면? Supabase 대시보드에서 직접 등록
+    </summary>
+    <div style="margin-top:8px;padding:10px;background:#fff3f3;border-radius:6px;font-size:11px;line-height:2;">
+      <b>방법 1 — Supabase 대시보드 (가장 확실)</b><br>
+      1. <a href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/auth/users" target="_blank" style="color:#1a5fb4;font-weight:700;">Supabase Auth Users 페이지 열기 →</a><br>
+      2. 우측 상단 <b>"Add user"</b> 버튼 클릭<br>
+      3. Email: <code style="background:#fff;padding:1px 5px;border-radius:3px;">admin@codibank.kr</code><br>
+      4. Password: <code style="background:#fff;padding:1px 5px;border-radius:3px;">pass1234</code><br>
+      5. <b>"Auto Confirm User"</b> 체크박스 ON → Create user<br><br>
+      <b>방법 2 — Supabase SQL Editor</b><br>
+      <a href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/sql/new" target="_blank" style="color:#1a5fb4;font-weight:700;">SQL Editor 열기 →</a><br>
+      아래 SQL을 실행하세요:<br>
+      <code style="display:block;background:#1a1a2e;color:#7ec8e3;padding:8px;border-radius:4px;margin-top:4px;white-space:pre;font-size:10px;">SELECT auth.uid();</code>
+      <div style="margin-top:4px;color:#888;font-size:10px;">※ Supabase는 SQL로 직접 auth.users 삽입이 불가합니다 (대시보드 UI 사용)</div><br>
+      <b>방법 3 — SUPABASE_SERVICE_KEY 확인</b><br>
+      <a href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/settings/api" target="_blank" style="color:#1a5fb4;font-weight:700;">Supabase API 설정 열기 →</a><br>
+      → <b>service_role</b> 키 복사<br>
+      → <a href="https://dashboard.render.com" target="_blank" style="color:#1a5fb4;font-weight:700;">Render 대시보드</a> → Environment Variables<br>
+      → <code style="background:#fff;padding:1px 5px;border-radius:3px;">SUPABASE_SERVICE_KEY</code> = (복사한 service_role 키)<br>
+      → 저장 후 Render 재배포 → 2단계 다시 시도
+    </div>
+  </details>
 </div>
 
 <!-- ★ 테스트 계정 생성 (MASTER 전용) -->
@@ -473,6 +538,75 @@ async function authFetch(url,opts){
   return r;
 }
 // ═══ 테스트 계정 생성 ═══
+async function runSupabaseDiag(){
+  var res=document.getElementById('diagResult');
+  res.innerHTML='<span style="color:#666">진단 중...</span>';
+  try{
+    var r=await authFetch(B+'/admin/debug/supabase-status');
+    var d=await r.json();
+    if(!d.ok&&d.error){res.innerHTML='<span style="color:#e53e3e">❌ '+d.error+'</span>';return;}
+    var keyOk=d.service_key_set;
+    var apiOk=d.api_ok;
+    var adminOk=d.admin_in_supabase;
+    var html='<table style="width:100%;font-size:11px;border-collapse:collapse;margin-top:4px;">';
+    html+='<tr><td style="padding:3px 8px;color:#555">SUPABASE_SERVICE_KEY</td><td style="padding:3px 8px"><span class="badge '+(keyOk?'b-ok':'b-err')+'">'+(keyOk?'설정됨 ('+d.service_key_prefix+')':'❌ 미설정')+'</span></td></tr>';
+    html+='<tr><td style="padding:3px 8px;color:#555">Supabase API 연결</td><td style="padding:3px 8px"><span class="badge '+(apiOk?'b-ok':'b-err')+'">'+(apiOk?'✅ 정상 ('+d.api_status_code+')':'❌ 실패 ('+d.api_status_code+')')+'</span></td></tr>';
+    html+='<tr><td style="padding:3px 8px;color:#555">admin@codibank.kr</td><td style="padding:3px 8px"><span class="badge '+(adminOk?'b-ok':'b-w')+'">'+(adminOk?'✅ Supabase에 존재':'⚠ 없음 → 2단계 실행')+'</span></td></tr>';
+    html+='<tr><td style="padding:3px 8px;color:#555">Supabase 총 유저</td><td style="padding:3px 8px">'+( d.total_supabase_users||0)+'명</td></tr>';
+    if(!keyOk){
+      html+='<tr><td colspan="2" style="padding:6px 8px;color:#e53e3e;font-weight:700;">⚠ SUPABASE_SERVICE_KEY가 없습니다. Render 환경변수에 service_role 키를 추가하세요. (아래 방법 3 참고)</td></tr>';
+    } else if(!apiOk){
+      html+='<tr><td colspan="2" style="padding:6px 8px;color:#e53e3e;font-weight:700;">⚠ API 연결 실패: '+( d.api_error||'응답 없음')+'</td></tr>';
+    }
+    html+='</table>';
+    // 테스트 계정 현황
+    if(d.test_accounts){
+      var tk=Object.keys(d.test_accounts);
+      var ex=tk.filter(function(k){return d.test_accounts[k]}).length;
+      html+='<div style="margin-top:6px;font-size:11px;color:#555">테스트 계정: <b>'+ex+'/'+tk.length+'개</b> Supabase에 존재</div>';
+    }
+    res.innerHTML=html;
+    // API 실패 시 수동 안내 펼치기
+    if(!apiOk||!keyOk){
+      var det=document.querySelector('#secSyncSupabase details');
+      if(det) det.open=true;
+    }
+  }catch(e){res.innerHTML='<span style="color:#e53e3e">❌ 연결 실패: '+e.message+'</span>';}
+}
+
+async function forceCreateAdmin(){
+  var em=document.getElementById('forceEmail').value.trim();
+  var pw=document.getElementById('forcePw').value.trim();
+  var res=document.getElementById('forceResult');
+  if(!em||!pw){res.style.color='#e53e3e';res.textContent='이메일과 비밀번호를 입력하세요';return;}
+  res.style.color='#666';res.textContent='Supabase에 등록 중...';
+  try{
+    var r=await authFetch(B+'/admin/debug/force-create-admin',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:em,password:pw})
+    });
+    var d=await r.json();
+    if(d.ok){
+      res.innerHTML='<div style="padding:8px;background:#f0faf9;border-radius:6px;border:1px solid #d0ebe8;">'
+        +'<b style="color:#0B666A">✅ 성공! ('+d.action+')</b><br>'
+        +'<span style="color:#444">CodiBank 앱에서 <b>'+d.email+'</b> / <b>'+d.password_used+'</b> 로 로그인하세요.</span>'
+        +'</div>';
+      // 진단도 자동 재실행
+      setTimeout(runSupabaseDiag, 500);
+    } else {
+      res.innerHTML='<div style="padding:8px;background:#fff3f3;border-radius:6px;border:1px solid #f5c6c6;">'
+        +'<b style="color:#e53e3e">❌ 실패</b><br>'
+        +(d.action?'<span style="color:#444">'+d.action+'</span><br>':'')
+        +(d.error?'<span style="color:#e53e3e">'+d.error+'</span><br>':'')
+        +(d.where_to_find?'<span style="color:#888">키 위치: <a href="'+d.where_to_find+'" target="_blank">Supabase API 설정</a></span>':'')
+        +'</div>';
+      // 수동 안내 펼치기
+      var det=document.querySelector('#secSyncSupabase details');
+      if(det) det.open=true;
+    }
+  }catch(e){res.innerHTML='<span style="color:#e53e3e">❌ '+e.message+'</span>';}
+}
+
 async function syncAdminsToSupabase(){
   var dpw=document.getElementById('syncDefaultPw').value.trim()||'pass1234';
   var res=document.getElementById('syncResult');
@@ -595,7 +729,8 @@ function ldAll(){
   if(isMaster()){
     ldAdmins();
     ldUsageBonus();
-    setTimeout(loadMemberBonuses, 1200); // 회원 목록 로딩 후 보너스 조회
+    setTimeout(loadMemberBonuses, 1200);
+    setTimeout(runSupabaseDiag, 800); // 자동 진단 실행
     ['secUsageAdj','secTestAcct','secMemberBonus','secSyncSupabase'].forEach(function(id){
       var el=document.getElementById(id); if(el) el.style.display='block';
     });
