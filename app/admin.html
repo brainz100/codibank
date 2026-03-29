@@ -756,7 +756,8 @@ async function checkBonusTable(){
       html+='<a href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/sql/new" target="_blank" style="color:#1a5fb4;display:block;margin:4px 0;">SQL Editor 열기 →</a>';
       if(d.sql){
         html+='<code style="display:block;background:#1a1a2e;color:#7ec8e3;padding:10px;border-radius:5px;margin-top:6px;font-size:10px;white-space:pre;line-height:1.6;">'+d.sql.replace(/</g,'&lt;')+'</code>';
-        html+='<button onclick="navigator.clipboard.writeText('+JSON.stringify(d.sql||'')+').then(()=>toast('SQL 복사됨'))" style="margin-top:6px;padding:5px 12px;background:#071952;color:#fff;border:none;border-radius:5px;font-size:11px;cursor:pointer;">SQL 복사</button>';
+        html+='<button onclick="navigator.clipboard.writeText(this.dataset.sql).then(function(){toast(\'SQL 복사됨\')})" data-sql="" style="margin-top:6px;padding:5px 12px;background:#071952;color:#fff;border:none;border-radius:5px;font-size:11px;cursor:pointer;">SQL 복사</button>';
+        res.querySelector('button[data-sql=""]').dataset.sql = d.sql||'';
       }
       html+='</div>';
       res.innerHTML=html;
