@@ -2029,18 +2029,18 @@ def get_usage_bonus(email):
         params = {
             "email": f"eq.{email}",
             "month": f"eq.{now_ym}",
-            "select": "closet_bonus,codi_bonus",
+            "select": "total_bonus",
             "limit": "1",
         }
         r = sb_query("GET", "user_usage_bonus", params=params)
         if r.status_code == 200:
             rows = r.json()
             if rows:
-                return jsonify({"ok": True, "closet_bonus": rows[0].get("closet_bonus", 0),
-                                "codi_bonus": rows[0].get("codi_bonus", 0), "month": now_ym})
-        return jsonify({"ok": True, "closet_bonus": 0, "codi_bonus": 0, "month": now_ym})
+                tb = int(rows[0].get("total_bonus", 0))
+                return jsonify({"ok": True, "total_bonus": tb, "month": now_ym})
+        return jsonify({"ok": True, "total_bonus": 0, "month": now_ym})
     except Exception as e:
-        return jsonify({"ok": True, "closet_bonus": 0, "codi_bonus": 0, "error": str(e)})
+        return jsonify({"ok": True, "total_bonus": 0, "error": str(e)})
 
 
 # ── Bonus 설정 (MASTER 전용)
@@ -2052,34 +2052,29 @@ def admin_set_usage_bonus():
     try:
         data = request.get_json(silent=True) or {}
         email       = str(data.get("email", "")).strip().lower()
-        closet_b    = int(data.get("closet_bonus", 0))
-        codi_b      = int(data.get("codi_bonus", 0))
+        total_b     = max(0, int(data.get("total_bonus", data.get("closet_bonus", 0)) or 0))
         month       = str(data.get("month") or __import__('datetime').datetime.now().strftime("%Y-%m"))
         if not email:
             return jsonify({"ok": False, "error": "email 필수"}), 400
-        if closet_b < 0 or codi_b < 0:
+        if total_b < 0:
             return jsonify({"ok": False, "error": "보너스는 0 이상이어야 합니다"}), 400
 
-        # upsert: email+month 조합으로 중복 방지
-        body = {"email": email, "month": month, "closet_bonus": closet_b, "codi_bonus": codi_b,
+        body = {"email": email, "month": month, "total_bonus": total_b,
                 "updated_at": __import__('datetime').datetime.utcnow().isoformat() + "Z",
-                "updated_by": (request.args.get("key") or request.headers.get("X-Admin-Key", ""))[:16]}
+                "updated_by": (request.headers.get("X-Admin-Key") or "")[:16]}
 
-        # Supabase upsert (on_conflict: email,month)
         import requests as _rq
         url = f"{supabase_url()}/rest/v1/user_usage_bonus"
         headers = supabase_admin_headers()
         headers["Prefer"] = "resolution=merge-duplicates,return=representation"
         r = _rq.post(url, headers=headers, json=body, timeout=10)
         if r.status_code in (200, 201):
-            return jsonify({"ok": True, "email": email, "month": month,
-                            "closet_bonus": closet_b, "codi_bonus": codi_b})
-        # 테이블 없으면 메모리 폴백 (서버 재시작 시 초기화)
+            return jsonify({"ok": True, "email": email, "month": month, "total_bonus": total_b})
         if not hasattr(app, "_usage_bonus_cache"):
             app._usage_bonus_cache = {}
-        app._usage_bonus_cache[f"{email}:{month}"] = {"closet_bonus": closet_b, "codi_bonus": codi_b}
+        app._usage_bonus_cache[f"{email}:{month}"] = {"total_bonus": total_b}
         return jsonify({"ok": True, "email": email, "month": month,
-                        "closet_bonus": closet_b, "codi_bonus": codi_b, "note": "memory_fallback"})
+                        "total_bonus": total_b, "note": "memory_fallback"})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -2092,7 +2087,8 @@ def admin_usage_bonus_list():
         return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
     try:
         now_ym = __import__('datetime').datetime.now().strftime("%Y-%m")
-        params = {"month": f"eq.{now_ym}", "order": "updated_at.desc", "limit": "500"}
+        params = {"month": f"eq.{now_ym}", "order": "updated_at.desc", "limit": "500",
+                  "select": "email,month,total_bonus,updated_at"}
         r = sb_query("GET", "user_usage_bonus", params=params)
         if r.status_code == 200:
             return jsonify({"ok": True, "list": r.json(), "month": now_ym})
@@ -2124,20 +2120,27 @@ def admin_create_test_accounts():
 
     for i in range(1, 11):
         email = f"test{i:02d}@codibank.kr"
-        pw    = f"codibank{i:02d}!"   # 기본 비밀번호
+        pw    = f"Test{i:02d}!234"   # 기본 비밀번호 (Test01!234 ~ Test10!234)
 
         body = {
-            "email":              email,
-            "password":           pw,
-            "email_confirm":      True,   # 이메일 인증 완료 처리
+            "email":         email,
+            "password":      pw,
+            "email_confirm": True,      # 이메일 인증 완료 → 즉시 로그인 가능
+            # Supabase Admin API: user_metadata는 JWT에 포함되어 앱에서 읽힘
             "user_metadata": {
-                "plan":    "free",
-                "gender":  "M" if i % 2 == 1 else "F",
+                "plan":     "free",
+                "gender":   "M" if i % 2 == 1 else "F",
                 "ageGroup": "30s",
-                "height":  170 + i,
-                "weight":  65 + i,
+                "height":   str(170 + i),
+                "weight":   str(65 + i),
                 "nickname": f"테스트{i:02d}",
-            }
+                "email":    email,
+            },
+            # app_metadata: 서버 측 메타데이터 (provider 정보 등)
+            "app_metadata": {
+                "provider":  "email",
+                "providers": ["email"],
+            },
         }
         url = f"{_sb_url}/auth/v1/admin/users"
         r = _rq.post(url, headers=_headers, json=body, timeout=15)
@@ -2171,18 +2174,14 @@ def admin_member_set_bonus():
         import requests as _rq
         data        = request.get_json(silent=True) or {}
         email       = str(data.get("email", "")).strip().lower()
-        closet_b    = max(0, int(data.get("closet_bonus", 0)))
-        codi_b      = max(0, int(data.get("codi_bonus", 0)))
-        reset_usage = bool(data.get("reset_usage", False))  # 월 사용횟수 리셋 여부
+        total_b     = max(0, int(data.get("total_bonus", data.get("closet_bonus", 0)) or 0))
         month       = str(data.get("month") or __import__('datetime').datetime.now().strftime("%Y-%m"))
 
         if not email:
             return jsonify({"ok": False, "error": "email 필수"}), 400
 
-        # Supabase user_usage_bonus 테이블 upsert
         bonus_body = {
-            "email": email, "month": month,
-            "closet_bonus": closet_b, "codi_bonus": codi_b,
+            "email": email, "month": month, "total_bonus": total_b,
             "updated_at": __import__('datetime').datetime.utcnow().isoformat() + "Z",
             "updated_by": (request.headers.get("X-Admin-Key") or "")[:16],
         }
@@ -2191,17 +2190,13 @@ def admin_member_set_bonus():
         headers["Prefer"] = "resolution=merge-duplicates,return=representation"
         r = _rq.post(url, headers=headers, json=bonus_body, timeout=10)
 
-        # Supabase 실패 시 메모리 폴백
         if r.status_code not in (200, 201):
             if not hasattr(app, "_usage_bonus_cache"):
                 app._usage_bonus_cache = {}
-            app._usage_bonus_cache[f"{email}:{month}"] = {
-                "closet_bonus": closet_b, "codi_bonus": codi_b
-            }
+            app._usage_bonus_cache[f"{email}:{month}"] = {"total_bonus": total_b}
 
         return jsonify({
-            "ok": True, "email": email, "month": month,
-            "closet_bonus": closet_b, "codi_bonus": codi_b,
+            "ok": True, "email": email, "month": month, "total_bonus": total_b,
             "note": "memory_fallback" if r.status_code not in (200, 201) else "saved_to_supabase",
         })
     except Exception as e:
@@ -2223,14 +2218,12 @@ def admin_member_get_bonus(email):
             rows = r.json()
             if rows:
                 return jsonify({"ok": True, **rows[0]})
-        # 메모리 폴백 확인
         if hasattr(app, "_usage_bonus_cache"):
             key = f"{email}:{now_ym}"
             if key in app._usage_bonus_cache:
                 return jsonify({"ok": True, "email": email, "month": now_ym,
                                 **app._usage_bonus_cache[key]})
-        return jsonify({"ok": True, "email": email, "month": now_ym,
-                        "closet_bonus": 0, "codi_bonus": 0})
+        return jsonify({"ok": True, "email": email, "month": now_ym, "total_bonus": 0})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
