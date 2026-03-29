@@ -101,7 +101,7 @@
   </div>
   <p style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.7;">
     <b><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="4337263037737203202c272a21222d286d2831">[email&#160;protected]</a> ~ <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="fe8a9b8d8acfcebe9d919a979c9f9095d0958c">[email&#160;protected]</a></b> 10개 계정을 이메일 인증 없이 Supabase에 등록합니다.<br>
-    ✦ 기본 비밀번호: <code style="background:#f0f4ff;padding:1px 6px;border-radius:3px;font-size:11px;">codibank01! ~ codibank10!</code> (홀수=남성, 짝수=여성, 기본플랜=FREE)
+    ✦ 기본 비밀번호: <code style="background:#f0f4ff;padding:1px 6px;border-radius:3px;font-size:11px;">Test01!234 ~ Test10!234</code> (홀수=남성, 짝수=여성, 기본플랜=FREE)<br>✦ 이미 생성된 계정은 버튼을 다시 누르면 <b>비밀번호가 자동 갱신</b>됩니다.
   </p>
   <button onclick="createTestAccounts()" style="padding:9px 22px;background:#0B666A;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;">
     <span class="mi" style="font-family:'Material Symbols Outlined';vertical-align:middle;font-size:16px;">add_circle</span> 테스트 계정 10개 생성
@@ -461,7 +461,10 @@ async function createTestAccounts(){
       html+='<table style="margin-top:6px;width:100%;font-size:11px;border-collapse:collapse;">';
       html+='<tr style="background:#f0f4ff"><th style="padding:4px 8px;text-align:left;">이메일</th><th style="padding:4px 8px">비밀번호</th><th style="padding:4px 8px">결과</th></tr>';
       (d.results||[]).forEach(function(x){
-        var badge=x.status==='created'?'<span class="badge b-ok">생성완료</span>':x.status==='already_exists'?'<span class="badge b-w">이미존재</span>':'<span class="badge b-err">실패</span>';
+        var badge=x.status==='created'?'<span class="badge b-ok">생성완료</span>'
+          :x.status==='updated'?'<span class="badge b-ok" style="background:#1a5fb4">비밀번호갱신</span>'
+          :x.status==='already_exists'?'<span class="badge b-w">이미존재</span>'
+          :'<span class="badge b-err">실패: '+(x.detail||x.status)+'</span>';
         html+='<tr><td style="padding:3px 8px;font-weight:600">'+x.email+'</td><td style="padding:3px 8px;font-family:monospace">'+x.password+'</td><td style="padding:3px 8px">'+badge+'</td></tr>';
       });
       html+='</table>';

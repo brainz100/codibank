@@ -2381,8 +2381,15 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
 
     // 2. 코디 컨셉 + 날씨 맥락
     parts2.push('');
-    parts2.push('"**' + _pLabel + '**" — ' + _philosophy);
-    if(_wx) parts2.push(_wx + ' 날씨에 ' + _technique + ' 스타일링으로 답했어요.' + (_bodyAdvice ? ' ' + _bodyAdvice + '.' : ''));
+    // custom(직접입력)이면 사용자 요청 텍스트를 그대로 강조
+    if(pk==='custom' && customText){
+      parts2.push('"**' + customText + '**" 코디를 추천합니다.');
+      parts2.push(_philosophy);
+      if(_wx) parts2.push(_wx + ' 날씨 조건에 맞춰, 요청하신 코디를 최우선으로 반영했어요.' + (_bodyAdvice ? ' ' + _bodyAdvice + '.' : ''));
+    } else {
+      parts2.push('"**' + _pLabel + '**" — ' + _philosophy);
+      if(_wx) parts2.push(_wx + ' 날씨에 ' + _technique + ' 스타일링으로 답했어요.' + (_bodyAdvice ? ' ' + _bodyAdvice + '.' : ''));
+    }
 
     // 3. 색상 조합 해설 (컬러이론 포함)
     parts2.push(_colorTip);
@@ -2560,14 +2567,29 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     bodyType.tag==='장신형' ? 'Use long coat with full-length trousers for perfect proportions.' : ''
   ) : '';
 
+  // ── custom(직접입력)일 때 imagePrompt를 사용자 요청 중심으로 완전 재생성
+  // SPEC 색상명령은 customText를 해석한 palette에서 파생됐으므로 신뢰할 수 있음
+  // 단, 일반 텍스트로 이루어진 custom 요청은 SPEC보다 명시적으로 우선시함
   const imagePrompt = [
-    `Realistic full-body Korean fashion magazine editorial photography of ${ageLabel} ${ethnicity} ${genderLabel}.`,
-    customSentence||'',
+    // [최우선] 직접입력 요청 — DALL-E가 가장 먼저, 가장 강하게 반영
+    (pk==='custom' && customText)
+      ? `[HIGHEST PRIORITY — MUST FULFILL EXACTLY]: The user requested: "${customText}". ` +
+        `ALL garments, colors, silhouette, and style MUST reflect this exact request literally. ` +
+        `If the request says "black suit and white shirt", generate a black suit + white shirt. ` +
+        `Do NOT substitute, reinterpret, or ignore any element of this request. ` +
+        `This instruction overrides all default styling decisions below.`
+      : `Realistic full-body Korean fashion magazine editorial photography of ${ageLabel} ${ethnicity} ${genderLabel}.`,
+    // [기본] 사진 설명 (custom일 때도 추가)
+    (pk==='custom' && customText)
+      ? `Realistic full-body Korean fashion magazine editorial photography of ${ageLabel} ${ethnicity} ${genderLabel}.`
+      : '',
     bodyBuildPrompt||'',
     'FULL-BODY SHOT (CRITICAL): This MUST be a full-body shot showing the complete person from the top of the head to the bottom of the shoes. The person should be well-proportioned within the 2:3 vertical frame — naturally centered with comfortable margins above the head and below the feet. NO upper-body-only crop, NO waist-up crop, NO zoomed-in composition. The entire outfit including shoes must be fully visible.',
     'BODY PROPORTION (ABSOLUTE CRITICAL RULE): Upper body from head to waist must occupy MAXIMUM 40% of total body height. Lower body from waist to feet must occupy MINIMUM 60% of total body height. This 3:7 upper-to-lower ratio is NON-NEGOTIABLE. A 5:5 or 4:6 ratio is a complete generation failure. Legs must appear naturally long and elongated — never shortened or compressed.',
     'ANATOMY: Natural human proportions. Both hands 5 fingers each. No distortion.',
-    `STRICTLY follow exact item colors below — do NOT substitute any color:`,
+    (pk==='custom' && customText)
+      ? `REFERENCE COLORS (apply only if consistent with the user's request above): `
+      : `STRICTLY follow exact item colors below — do NOT substitute any color:`,
     (Number.isFinite(nt) && nt >= 20) ? '' : `[1] OUTERWEAR: ${SPEC.outer.en} ${SPEC.outer.itemEn} — must be ${SPEC.outer.en} colored.`,
     `[2] TOP: ${SPEC.top.en} — must be ${SPEC.top.en} colored, not white unless specified.`,
     `[3] PANTS: ${SPEC.pants.en} FULL-LENGTH trousers — MUST be ${SPEC.pants.en} colored. Pants MUST reach to the top of shoes. NO cropped, NO ankle-length.`,
@@ -2582,6 +2604,11 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     'BACKGROUND (ABSOLUTE MANDATORY — MOST IMPORTANT RULE): The background must be a SINGLE SOLID FLAT PASTEL COLOR that CONTRASTS with the outfit to make the clothing clearly visible. If the outfit is dark, use a lighter pastel (cream, pale pink, light mint). If the outfit is light, use a slightly deeper pastel (soft lavender, muted sky blue, warm peach). The background must be completely uniform and flat edge to edge — like professional studio backdrop paper. ABSOLUTELY NO room, NO street, NO wall, NO floor, NO gradient, NO pattern, NO objects, NO scenery, NO environment. ONLY ONE FLAT SOLID PASTEL COLOR.',
     `${weatherNote}. Professional studio lighting, even illumination, high resolution. Photorealistic — NOT illustration, NOT CGI. ABSOLUTELY NO TEXT of any kind in the image — no labels, no captions, no watermarks, no logos, no stamps, no signatures. The image must contain ONLY the person and the solid pastel background.`,
     'STYLIST RULE (MANDATORY): This is a practical real-life personal styling service. Recommend ONLY outfits that ordinary people wear comfortably in daily life. STRICTLY FORBIDDEN: experimental looks, fashion show aesthetics, runway-style outfits, avant-garde color combinations, asymmetric styling, or any look that would seem unusual or out-of-place on a Korean street. Every styling decision must be socially natural and wearable.',
+    // [최종 재강조] custom 요청이 있으면 마지막에 한 번 더 강조 (DALL-E 후반 지시 우선 특성 활용)
+    (pk==='custom' && customText)
+      ? `FINAL REMINDER — TOP PRIORITY: Generate the outfit for "${customText}". ` +
+        `This is the user's direct request and MUST be the primary basis of the generated image.`
+      : '',
   ].filter(Boolean).join(' ');
 
     // ── [18] matchPairs
