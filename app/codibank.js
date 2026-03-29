@@ -893,6 +893,13 @@ function getBackendBaseResolved() {
   }
 
   // ── 세션 초기화 (앱 로드 시 Supabase 세션 복원)
+  // 세션 준비 완료 콜백 (closet/codistyle에서 user 재설정용)
+  const _sessionCallbacks = [];
+  function onSessionReady(fn) {
+    if (_cachedUser) { try { fn(_cachedUser); } catch(_) {} }
+    else _sessionCallbacks.push(fn);
+  }
+
   async function _initSession() {
     try {
       const sb = _getSupabase();
@@ -905,6 +912,9 @@ function getBackendBaseResolved() {
         upsertUser(cbUser);
         localStorage.setItem(KEYS.PLAN, cbUser.plan || 'FREE');
         setSession(_cachedSession);
+        // 등록된 콜백 실행
+        _sessionCallbacks.forEach(function(fn){ try { fn(cbUser); } catch(_) {} });
+        _sessionCallbacks.length = 0;
       }
       _sessionFetched = true;
     } catch (_) {}
@@ -1691,6 +1701,7 @@ window.CodiBank = {
     ensureAdminAccount,
     socialLogin,
     getSupabaseClient: _getSupabase,   // signup.html 등 외부에서 단일 클라이언트 사용
+    onSessionReady,
 
     hasAnyUser,
     getCurrentUser,

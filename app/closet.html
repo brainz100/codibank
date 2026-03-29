@@ -1229,6 +1229,14 @@ async function _fetchUsageBonus(force){
 }
 // 페이지 로딩 시 비동기로 미리 조회
 _fetchUsageBonus().catch(()=>{});
+// Supabase 세션 복원 완료 후 재시도 (로그인 직후 email이 없을 경우 대비)
+if(window.CodiBank && CodiBank.onSessionReady){
+  CodiBank.onSessionReady(function(cbUser){
+    if(cbUser && cbUser.email && !_usageBonusCache.fetched){
+      _fetchUsageBonus().catch(()=>{}).then(function(){ updateQuotaBadge && updateQuotaBadge(); });
+    }
+  });
+}
 // ★ pricing.html 기준: 추천코디(closet)와 코디하기(codistyle) 분리 카운트
 // ── 플랜 정의 (pricing.html 플랜과 반드시 동일하게 유지) ──
 // totalMonthly: 내옷장+코디하기 합산 월 생성 한도
