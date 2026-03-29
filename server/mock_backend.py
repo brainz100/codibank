@@ -2467,6 +2467,141 @@ def admin_sync_to_supabase():
         "note": "어드민 계정이 Supabase에 동기화됐습니다. CodiBank 앱에서 동일한 이메일/비밀번호로 로그인하세요.",
     })
 
+
+@app.get("/admin/debug/supabase-status")
+def admin_debug_supabase():
+    """Supabase 연결 상태 + admin 계정 존재 여부 진단 (MASTER 전용)."""
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+    import requests as _rq
+    _sb  = supabase_url()
+    _hdr = supabase_admin_headers()
+    result = {
+        "supabase_url": _sb,
+        "service_key_set": bool(os.environ.get("SUPABASE_SERVICE_KEY", "")),
+        "service_key_prefix": (os.environ.get("SUPABASE_SERVICE_KEY", "")[:20] + "...") if os.environ.get("SUPABASE_SERVICE_KEY") else "NOT SET",
+    }
+    # Supabase Admin API 테스트 — 유저 목록 1명만 가져오기
+    try:
+        tr = _rq.get(f"{_sb}/auth/v1/admin/users?per_page=1", headers=_hdr, timeout=10)
+        result["api_status_code"] = tr.status_code
+        result["api_ok"] = tr.status_code == 200
+        if tr.status_code == 200:
+            ud = tr.json()
+            ul = ud.get("users", ud) if isinstance(ud, dict) else ud
+            result["total_users_sample"] = len(ul)
+        else:
+            result["api_error"] = tr.text[:300]
+    except Exception as e:
+        result["api_exception"] = str(e)[:200]
+        result["api_ok"] = False
+
+    # admin@codibank.kr Supabase 존재 여부
+    admin_exists = False
+    test_exists  = {}
+    try:
+        lr = _rq.get(f"{_sb}/auth/v1/admin/users?per_page=1000", headers=_hdr, timeout=15)
+        if lr.status_code == 200:
+            ud = lr.json()
+            ul = ud.get("users", ud) if isinstance(ud, dict) else ud
+            emails = [u.get("email","").lower() for u in ul]
+            admin_exists = "admin@codibank.kr" in emails
+            for i in range(1, 11):
+                em = f"test{i:02d}@codibank.kr"
+                test_exists[em] = em in emails
+            result["total_supabase_users"] = len(ul)
+    except Exception as e:
+        result["list_exception"] = str(e)[:200]
+
+    result["admin_in_supabase"]  = admin_exists
+    result["test_accounts"] = test_exists
+    result["_admin_db_accounts"] = list(_ADMIN_DB.keys())
+
+    return jsonify(result)
+
+
+@app.post("/admin/debug/force-create-admin")
+def admin_debug_force_create():
+    """admin@codibank.kr를 Supabase에 강제 생성/업데이트 (MASTER 전용).
+    진단 후 직접 호출로 즉시 해결.
+    """
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+    import requests as _rq
+    data = request.get_json(silent=True) or {}
+    target_email = str(data.get("email") or "admin@codibank.kr").strip().lower()
+    password     = str(data.get("password") or "pass1234").strip()
+
+    _sb  = supabase_url()
+    _hdr = supabase_admin_headers()
+    steps = []
+
+    # 1단계: 서비스 키 확인
+    svc_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+    if not svc_key:
+        return jsonify({
+            "ok": False,
+            "error": "SUPABASE_SERVICE_KEY 환경변수가 설정되지 않았습니다.",
+            "action": "Render 대시보드 → Environment → SUPABASE_SERVICE_KEY에 Supabase service_role 키를 추가하세요.",
+            "where_to_find": f"https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/settings/api → service_role 키",
+        })
+    steps.append({"step": "service_key_check", "ok": True})
+
+    # 2단계: 기존 유저 uid 조회
+    uid = None
+    try:
+        lr = _rq.get(f"{_sb}/auth/v1/admin/users?per_page=1000", headers=_hdr, timeout=15)
+        steps.append({"step": "list_users", "status": lr.status_code})
+        if lr.status_code == 200:
+            ud = lr.json()
+            ul = ud.get("users", ud) if isinstance(ud, dict) else ud
+            for u in ul:
+                if u.get("email","").lower() == target_email:
+                    uid = u.get("id")
+                    break
+    except Exception as e:
+        steps.append({"step": "list_users", "error": str(e)[:100]})
+
+    sb_body = {
+        "email": target_email, "password": password, "email_confirm": True,
+        "user_metadata": {
+            "email": target_email, "nickname": "마스터 관리자",
+            "plan": "free", "role": "admin",
+        },
+        "app_metadata": {"provider": "email", "providers": ["email"]},
+    }
+
+    # 3단계: 생성 또는 업데이트
+    if uid:
+        pr = _rq.put(f"{_sb}/auth/v1/admin/users/{uid}", headers=_hdr,
+                     json={"password": password, "email_confirm": True,
+                           "user_metadata": sb_body["user_metadata"]}, timeout=15)
+        steps.append({"step": "put_update", "status": pr.status_code,
+                      "ok": pr.status_code in (200, 201),
+                      "response": pr.text[:200] if pr.status_code not in (200,201) else "ok"})
+        action = "updated"
+    else:
+        cr = _rq.post(f"{_sb}/auth/v1/admin/users", headers=_hdr, json=sb_body, timeout=15)
+        steps.append({"step": "post_create", "status": cr.status_code,
+                      "ok": cr.status_code in (200, 201),
+                      "response": cr.text[:300] if cr.status_code not in (200,201) else "ok"})
+        action = "created" if cr.status_code in (200,201) else "failed"
+
+    final_ok = any(s.get("ok") for s in steps if s.get("step") in ("put_update","post_create"))
+    return jsonify({
+        "ok": final_ok,
+        "email": target_email,
+        "password_used": password,
+        "action": action,
+        "steps": steps,
+        "next_step": (
+            f"성공! CodiBank 앱에서 {target_email} / {password} 로 로그인하세요."
+            if final_ok else
+            "실패. steps 확인 후 SUPABASE_SERVICE_KEY가 service_role 키인지 확인하세요."
+        ),
+    })
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8787"))
     # ✅ 안정성 기본값: debug OFF
