@@ -387,6 +387,26 @@
   display:flex;align-items:center;justify-content:center;gap:5px;
   cursor:pointer;transition:all .13s;font-family:'Outfit','Noto Sans KR',sans-serif;
 }
+
+/* ── 코디하기 스타일 적용 (내옷장 AI 결과 박스) ── */
+.vto-status-row{display:flex;align-items:center;gap:10px;padding:10px 2px 8px;}
+.vto-status-dot{width:8px;height:8px;border-radius:50%;background:#35A29F;flex-shrink:0;animation:pdot 1.2s ease-in-out infinite;}
+.vto-status-dot.done{background:#97FEED;animation:none;}
+.vto-status-txt{font-size:12px;color:rgba(162,253,240,0.7);font-weight:500;}
+.vto-prog-bar{height:3px;background:rgba(151,254,237,0.08);border-radius:2px;margin-bottom:10px;}
+.vto-prog-fill{height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);transition:width .4s ease;border-radius:2px;}
+.vto-result-wrap{position:relative;}
+.vto-result-box{width:100%;aspect-ratio:1/1.6;border-radius:16px;overflow:hidden;background:#050f2a;position:relative;display:flex;align-items:center;justify-content:center;}
+.vto-img-spin{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;position:absolute;inset:0;}
+.vto-spin-txt{font-size:12px;color:rgba(162,253,240,0.55);text-align:center;line-height:1.7;}
+.vto-b-actions{display:flex;gap:8px;padding:12px 0 6px;}
+.vto-bab{flex:1;padding:12px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.12s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
+.vto-bab:disabled{opacity:0.4;cursor:not-allowed;}
+.vto-save{background:#fff;color:#071952;}
+.vto-retry{background:rgba(151,254,237,0.08);color:#97FEED;border:1px solid rgba(151,254,237,0.2);}
+.vto-share{background:rgba(53,162,159,0.15);color:#35A29F;border:1px solid rgba(53,162,159,0.3);}
+/* canvas는 result-box 내부에 절대 위치 */
+#vtoCanvas.vto-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;border-radius:16px;}
 .vto-btn-dark:active{transform:scale(.97);background:rgba(255,255,255,.14);}
 .vto-btn-dark.primary{
   background:linear-gradient(135deg,#35A29F,#0B666A);
@@ -599,6 +619,7 @@
 .cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px;}
 .cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
 .cb-spacer{height:82px;}
+@keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
 </style>
 <link rel="manifest" href="/manifest.json"/>
 <meta name="theme-color" content="#07132a"/>
@@ -782,21 +803,32 @@
       <div id="matchRow" style="display:none;"></div>
     </div>
 
-    <!-- VTO 영역 -->
+    <!-- VTO 영역 — 코디하기 스타일 적용 -->
     <div>
-      <div class="flex items-center justify-between mb-3">
-        <p class="text-[13px] font-extrabold text-white">코디추천 AI 스타일링</p>
-        <span id="aiQuota" class="ai-badge gray">남은 0회</span>
+      <!-- 상태 표시 행 (코디하기 동일 구조) -->
+      <div class="vto-status-row" id="vtoStatusRow">
+        <div class="vto-status-dot" id="vtoStatusDot"></div>
+        <span class="vto-status-txt" id="vtoStateText">추천 이미지 없음</span>
+        <span id="aiQuota" class="ai-badge gray" style="margin-left:auto;">남은 0회</span>
       </div>
-      <div class="vto-wrap" id="vtoWrap" style="border:1px solid rgba(151,254,237,0.15);background:#050f2a;">
-        <div id="vtoOverlay" class="vto-overlay" style="background:linear-gradient(180deg,#0d1f4a,#071952);">
-          <div id="vtoSpinner" class="cb-rainbow" style="display:none;"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div>
-          <div class="text-center">
-            <div id="vtoStateText" class="vto-ld" style="color:rgba(255,255,255,0.45);">추천 이미지 없음</div>
-            <div id="vtoStep" class="vto-step" style="display:none;color:#97FEED;">초기화 중…</div>
+      <!-- 진행 바 -->
+      <div class="vto-prog-bar"><div class="vto-prog-fill" id="vtoProgFill"></div></div>
+
+      <!-- 이미지 박스 (코디하기 result-img-box 동일 디자인) -->
+      <div class="vto-result-wrap" id="vtoWrap">
+        <div class="vto-result-box" id="vtoResultBox">
+          <!-- 로딩/초기 상태 -->
+          <div class="vto-img-spin" id="vtoOverlay">
+            <div id="vtoSpinner" class="cb-rainbow" style="display:none;"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div>
+            <div class="text-center">
+              <div class="vto-spin-txt">코디 목적을 선택하고 생성 버튼을 누르세요</div>
+              <div id="vtoStep" class="vto-step" style="display:none;color:#97FEED;">초기화 중…</div>
+            </div>
           </div>
+          <!-- 결과 캔버스 -->
+          <canvas id="vtoCanvas" class="vto-canvas" style="display:none;"></canvas>
         </div>
-        <canvas id="vtoCanvas" class="vto-canvas" style="display:none;"></canvas>
+        <!-- 얼굴 등록 힌트 -->
         <div id="vtoHint" class="vto-hint" style="display:none;background:rgba(7,25,82,0.95);border:1px solid rgba(151,254,237,0.15);">
           <span class="material-symbols-outlined" style="color:rgba(151,254,237,0.8);">face</span>
           <div class="flex-1">
@@ -806,20 +838,17 @@
           <a href="mypage.html" style="flex-shrink:0;padding:6px 11px;border-radius:999px;background:rgba(53,162,159,0.2);border:1px solid rgba(151,254,237,0.3);color:#97FEED;font-size:11px;font-weight:900;text-decoration:none;">등록</a>
         </div>
       </div>
-      <!-- VTO 버튼 (다크) -->
-      <div class="flex gap-2 mt-3">
-        <button id="saveBtn" type="button" class="flex-1 flex items-center justify-center gap-1.5 font-bold text-[12px] active:scale-[0.97] transition-all"
-          style="height:44px;border-radius:14px;background:rgba(255,255,255,0.07);border:1px solid rgba(151,254,237,0.2);color:rgba(255,255,255,0.8);cursor:pointer;font-family:'Outfit','Noto Sans KR',sans-serif;">
-          <span class="material-symbols-outlined text-[16px]">download</span>저장
+
+      <!-- 버튼 행 (코디하기 b-actions 동일 디자인) -->
+      <div class="vto-b-actions">
+        <button id="saveBtn" type="button" class="vto-bab vto-save">
+          <span class="material-symbols-outlined" style="font-size:18px;">save_alt</span>저장
         </button>
-        <button id="againBtn" type="button" disabled
-          class="flex-1 flex items-center justify-center gap-1.5 font-bold text-[12px] transition-all"
-          style="height:44px;border-radius:14px;background:rgba(255,255,255,0.06);border:1.5px dashed rgba(151,254,237,0.2);color:rgba(255,255,255,0.3);cursor:not-allowed;font-family:'Outfit','Noto Sans KR',sans-serif;">
-          <span class="material-symbols-outlined text-[16px]">refresh</span>다시 코디
+        <button id="againBtn" type="button" disabled class="vto-bab vto-retry">
+          <span class="material-symbols-outlined" style="font-size:18px;">refresh</span>다시 코디
         </button>
-        <button id="shareBtn" type="button" class="flex-1 flex items-center justify-center gap-1.5 font-bold text-[12px] active:scale-[0.97] transition-all"
-          style="height:44px;border-radius:14px;background:rgba(255,255,255,0.07);border:1px solid rgba(151,254,237,0.2);color:rgba(151,254,237,0.9);cursor:pointer;font-family:'Outfit','Noto Sans KR',sans-serif;">
-          <span class="material-symbols-outlined text-[16px]">share</span>공유
+        <button id="shareBtn" type="button" class="vto-bab vto-share">
+          <span class="material-symbols-outlined" style="font-size:18px;">share</span>공유
         </button>
       </div>
     </div>
@@ -1363,6 +1392,8 @@ function resetStylingBox(msg){
   const hint=document.getElementById('vtoHint');
   const stepEl=document.getElementById('vtoStep');
   const metaEl=document.getElementById('vtoMeta');
+  const dotEl=document.getElementById('vtoStatusDot');
+  const progEl=document.getElementById('vtoProgFill');
   if(overlay) overlay.style.display='';
   if(canvas) canvas.style.display='none';
   if(spinnerEl){ spinnerEl.style.display='none'; spinnerEl.classList.remove('active'); }
@@ -1370,6 +1401,8 @@ function resetStylingBox(msg){
   if(stateTextEl) stateTextEl.textContent = msg || '추천 이미지 없음';
   if(hint) hint.style.display='none';
   if(metaEl) metaEl.textContent='';
+  if(dotEl){ dotEl.className='vto-status-dot'; }
+  if(progEl){ progEl.style.width='0%'; }
   try{
     if(canvas){
       const ctx=canvas.getContext('2d');
@@ -1400,12 +1433,16 @@ function resetVtoState(state, msg){
     return;
   }
 
+  const dotEl2=document.getElementById('vtoStatusDot');
+  const progEl2=document.getElementById('vtoProgFill');
   if(st==='loading'){
     overlay.style.display='';
     canvas.style.display='none';
     if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('active'); }
     if(stepEl){ stepEl.style.display=''; stepEl.textContent='초기화 중…'; }
     if(stateTextEl) stateTextEl.textContent = msg || '추천 이미지 생성중';
+    if(dotEl2) dotEl2.className='vto-status-dot';
+    if(progEl2) progEl2.style.width='30%';
   }else if(st==='refreshing'){
     overlay.style.display='';
     canvas.style.display='block';
@@ -1413,6 +1450,8 @@ function resetVtoState(state, msg){
     if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('active'); }
     if(stepEl){ stepEl.style.display=''; stepEl.textContent='새로운 코디를 준비 중…'; }
     if(stateTextEl) stateTextEl.textContent = msg || '다시 코디이미지 생성중';
+    if(dotEl2) dotEl2.className='vto-status-dot';
+    if(progEl2) progEl2.style.width='10%';
   }else{
     resetStylingBox(msg);
   }
@@ -1849,12 +1888,11 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     'Priya','Dmitri','Yuki','Carlos','Fatima','Alex','Jordan','Robin','Sage','Quinn',
     'River','Avery','Blake','Reese','Morgan','Rowan','Emery','Finley','Harlow','Lennox',
   ];
+  // 스타일리스트 거주 도시: 서울(한국), 런던(영국), 뉴욕(미국) 3개만
   const _CITIES = [
-    'Milan','New York','Paris','London','Seoul','Tokyo','Copenhagen','Los Angeles','Stockholm','Barcelona',
-    'Chicago','Munich','Edinburgh','Amsterdam','Vienna','Dublin','Zürich','Sydney','Hong Kong','São Paulo',
-    'Florence','Montreal','Brussels','Helsinki','Bordeaux','Prague','Athens','Singapore','Melbourne','Oslo',
-    'Gothenburg','Reykjavik','Bergen','Mumbai','Moscow','Osaka','Mexico City','Marrakech','Toronto','Cape Town',
-    'Shanghai','Rome','Madrid','Dubai','Berlin','Warsaw','Lisbon','Budapest','Manila','Bangkok',
+    'Seoul','Seoul','Seoul','Seoul','Seoul',
+    'London (UK)','London (UK)','London (UK)','London (UK)','London (UK)',
+    'New York (USA)','New York (USA)','New York (USA)','New York (USA)','New York (USA)',
   ];
 
   // 동일 날짜+코디목적에서 이미 사용된 스타일리스트 추적
@@ -2587,7 +2625,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
       : `STRICTLY follow exact item colors below — do NOT substitute any color:`,
     (Number.isFinite(nt) && nt >= 20) ? '' : `[1] OUTERWEAR: ${SPEC.outer.en} ${SPEC.outer.itemEn} — must be ${SPEC.outer.en} colored.`,
     `[2] TOP: ${SPEC.top.en} — must be ${SPEC.top.en} colored, not white unless specified.`,
-    `[3] PANTS: ${SPEC.pants.en} FULL-LENGTH trousers — MUST be ${SPEC.pants.en} colored. Pants MUST reach to the top of shoes. NO cropped, NO ankle-length.`,
+    `[3] PANTS: ${SPEC.pants.en} FULL-LENGTH trousers — MUST be ${SPEC.pants.en} colored. Pants hem MUST reach AT or BELOW the ankle bone — resting on top of shoes. STRICTLY FORBIDDEN: cropped, 7/8, or any hem above the ankle.`,
     `[4] SHOES: ${SPEC.shoes.en} ${SPEC.shoes.itemEn} — MUST be ${SPEC.shoes.en} colored.`,
     (!_skipScarf && SPEC.accent.ko && SPEC.accent.ko!=='포인트악세서리') ? `[5] ${SPEC.accent.itemEn.toUpperCase()}: ${SPEC.accent.en} colored ${SPEC.accent.itemEn}.` : '',
     !_skipBag ? `[6] BAG: ${_extSpec.bag.en}.` : '',
@@ -2667,7 +2705,7 @@ async function renderVTO(canvas, palette, opts){
 
   // v17: vtoWrap(고정 비율) 사이즈에 맞춰 캔버스 해상도만 맞추고, 표시 크기는 100%로 유지
   const DPR = Math.min(window.devicePixelRatio||1, 2);
-  const wrap = document.getElementById('vtoWrap') || canvas.parentElement;
+  const wrap = document.getElementById('vtoResultBox') || document.getElementById('vtoWrap') || canvas.parentElement;
   const rect = wrap ? wrap.getBoundingClientRect() : null;
   const CW  = Math.round((rect && rect.width) ? rect.width : (wrap ? (wrap.clientWidth||320) : 320));
   const CH0 = (rect && rect.height) ? rect.height : (wrap ? wrap.clientHeight : 0);
@@ -3480,6 +3518,13 @@ async function updateVTO(opts={}){
         if(!displaySrc) throw new Error(data?.error||'이미지 URL 없음');
 
         await drawCover(displaySrc);
+        // 상태 dot done + 진행바 100%
+        const _dotDone=document.getElementById('vtoStatusDot');
+        const _progDone=document.getElementById('vtoProgFill');
+        if(_dotDone){ _dotDone.className='vto-status-dot done'; }
+        if(_progDone){ _progDone.style.width='100%'; }
+        const _stDone=document.getElementById('vtoStateText');
+        if(_stDone) _stDone.textContent='추천 스타일링 완료 ✨';
         return { data, imgRef, displaySrc };
       };
 
