@@ -32,7 +32,7 @@
     "내옷장에서 AI 코디를 추천받고":"Get AI outfit recommendations from My Closet",
     "저장하기를 눌러보세요!":"and tap Save!",
     "AI 코디 추천 받기":"Get AI Outfit",
-    "전체삭제":"Delete All",
+    "전체삭제":"Delete All","저장일자":"By Date","좋아요":"Liked","코디목적":"By Purpose",
     "저장":"Save","공유":"Share","삭제":"Delete",
     "✓ 저장되었습니다":"✓ Saved",
   };
@@ -57,7 +57,10 @@
     // 4) title
     var t = document.querySelector('title');
     if(t && _T[t.textContent.trim()]) t.textContent = _T[t.textContent.trim()];
-    // 5) lang
+    // 5) select option 번역
+    var sel = document.getElementById('sortSel');
+    if(sel){ var opts=sel.querySelectorAll('option'); opts.forEach(function(o){ if(_T[o.textContent.trim()]) o.textContent=_T[o.textContent.trim()]; }); }
+    // 6) lang
     document.documentElement.setAttribute('lang','en');
   };
   // 언어 전환 감지
@@ -94,7 +97,7 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Inter'
 /* ── 헤더: Glassmorphic ── */
 .hdr{position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(24px);padding:14px 24px;display:flex;align-items:center;justify-content:center;}
 .hdr-title{font-family:'Pretendard','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;color:#0B666A;letter-spacing:.04em;}
-.hdr-badge{position:absolute;right:80px;font-family:'Inter',sans-serif;font-size:11px;font-weight:600;color:rgba(216,226,255,.45);letter-spacing:.04em;}
+.hdr-badge{display:none;} .sort-sel{border:1px solid rgba(11,102,106,.25);background:#fff;font-size:12px;font-weight:700;color:#0B666A;cursor:pointer;padding:5px 24px 5px 10px;border-radius:8px;outline:none;appearance:none;-webkit-appearance:none;font-family:inherit;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%230B666A'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;}
 
 /* ── 로딩 / 빈 상태 ── */
 .center-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;gap:24px;padding:32px 24px;text-align:center;}
@@ -108,7 +111,7 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Inter'
 .album-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;padding:16px 20px;animation:fadeUp .5s cubic-bezier(.16,1,.3,1) both;}
 
 /* ── 카드 ── */
-.acard{background:#071952;border-radius:1rem;overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s;-webkit-tap-highlight-color:transparent;box-shadow:0 8px 24px rgba(7,25,82,.25);border:1.5px solid rgba(53,162,159,.55);}
+.acard{background:#071952;border-radius:1rem;overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 16px rgba(0,0,0,.18),0 1px 4px rgba(0,0,0,.12);border:1.5px solid rgba(160,170,185,.35);}
 .acard:active{transform:scale(.97);}
 .acard-img-wrap{position:relative;width:100%;aspect-ratio:10/16;background:#050f2a;overflow:hidden;border-bottom:1px solid rgba(53,162,159,.35);}
 .acard-img{width:100%;height:100%;object-fit:cover;display:block;transition:opacity .4s;}
@@ -119,10 +122,10 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Inter'
 .acard-purpose{font-family:'Manrope',sans-serif;font-size:14px;font-weight:800;color:#ffffff;line-height:1.2;}
 .acard-stylist{font-size:9px;font-weight:600;color:#97FEED;margin-top:3px;letter-spacing:.03em;}
 .acard-like{position:absolute;top:8px;right:8px;width:40px;height:40px;background:none !important;border:none;outline:none;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;padding:0;-webkit-tap-highlight-color:transparent;}
-.acard-like .heart-ico{width:28px;height:28px;display:block;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5));transition:transform .2s ease, filter .25s ease;pointer-events:none;}
+.acard-like .heart-ico{width:28px;height:28px;display:block;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5));transition:transform .15s ease, filter .2s ease;pointer-events:none;}
 .acard-like .heart-ico path{fill:transparent;stroke:rgba(255,255,255,.92);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;transition:fill .25s ease, stroke .25s ease;}
 .acard-like.liked .heart-ico{filter:drop-shadow(0 2px 6px rgba(177,75,103,.42));}
-.acard-like.liked .heart-ico path{fill:#B14B67;stroke:#B14B67;}
+.acard-like.liked .heart-ico path{fill:#C0394B;stroke:#C0394B;}
 
 /* ── 모달: 전체화면 ── */
 .modal-bg{position:fixed;inset:0;z-index:500;background:#ffffff;display:flex;flex-direction:column;overflow:hidden;}
@@ -163,8 +166,8 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Inter'
 .cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
 .cb-spacer{height:82px;}
 
-/* 전체삭제 */
-.clear-btn{font-size:10px;font-weight:600;color:rgba(255,180,171,.6);background:none;border:none;padding:6px 12px;border-radius:9999px;cursor:pointer;position:absolute;right:20px;}
+/* 전체삭제 버튼 숨김 */
+.clear-btn{display:none !important;}
 </style>
 <link rel="manifest" href="/manifest.json"/>
 <meta name="theme-color" content="#07132a"/>
@@ -179,6 +182,12 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Inter'
 <!-- 헤더 -->
 <header class="hdr">
   <h1 class="hdr-title" id="albumTitle">코디 앨범</h1>
+  <!-- 정렬 셀렉트 -->
+  <select id="sortSel" class="sort-sel" onchange="applySort(this.value)" aria-label="정렬">
+    <option value="date">저장일자</option>
+    <option value="liked">좋아요</option>
+    <option value="purpose">코디목적</option>
+  </select>
   <span id="cntBadge" class="hdr-badge"></span>
   <button id="clearBtn" class="clear-btn" style="display:none;" onclick="clearAll()">전체삭제</button>
 </header>
@@ -308,7 +317,7 @@ function mkCard(entry) {
       <img id="img_${entry.id}" class="acard-img" src="" alt="" style="opacity:0;"/>
       <button class="acard-like ${isLiked?'liked':''}" id="like_${entry.id}" type="button" aria-label="좋아요" onclick="event.stopPropagation();toggleLike('${entry.id}')">
         <svg class="heart-ico" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 20.8l-1.1-1C5.1 14.6 2 11.8 2 8.3 2 5.8 3.9 4 6.3 4c1.5 0 3 .7 3.9 1.9C11.1 4.7 12.6 4 14.1 4 16.5 4 18.4 5.8 18.4 8.3c0 3.5-3.1 6.3-8.9 11.5l-1.1 1z"></path>
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
         </svg>
       </button>
     </div>
@@ -344,15 +353,45 @@ async function render() {
   document.getElementById('loadEl').style.display = 'none';
   if (!_entries.length) {
     document.getElementById('emptyEl').style.display = 'flex';
-    document.getElementById('cntBadge').textContent = '0장';
     return;
   }
-  document.getElementById('cntBadge').textContent = _entries.length + '장';
-  document.getElementById('clearBtn').style.display = 'block';
+  const sortVal = (document.getElementById('sortSel') || {}).value || 'date';
+  const sorted = sortEntries(_entries, sortVal);
   const grid = document.getElementById('grid');
   grid.style.display = 'grid';
   grid.innerHTML = '';
-  _entries.forEach(e => grid.appendChild(mkCard(e)));
+  sorted.forEach(e => grid.appendChild(mkCard(e)));
+}
+
+// 정렬 함수
+function sortEntries(arr, mode) {
+  const copy = [...arr];
+  if (mode === 'liked') {
+    // 좋아요한 것 먼저, 그 다음 날짜순
+    copy.sort((a, b) => {
+      if (!!b.liked !== !!a.liked) return b.liked ? 1 : -1;
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+  } else if (mode === 'purpose') {
+    // 코디목적 가나다순
+    copy.sort((a, b) => {
+      const pa = (a.purposeLabel || '').localeCompare(b.purposeLabel || '', 'ko');
+      return pa !== 0 ? pa : (b.createdAt || 0) - (a.createdAt || 0);
+    });
+  } else {
+    // 저장일자 최신순 (기본)
+    copy.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  }
+  return copy;
+}
+
+// 정렬 변경 시 호출
+function applySort(val) {
+  if (!_entries || !_entries.length) return;
+  const sorted = sortEntries(_entries, val);
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  sorted.forEach(e => grid.appendChild(mkCard(e)));
 }
 
 function delEntry(id) {
@@ -441,8 +480,11 @@ function toggleLike(entryId) {
       if (entries[idx].liked) {
         btn.classList.add('liked');
         // 하트 채워지는 애니메이션
+        // 즉각적인 채움 + 스케일 애니메이션
+        const path = btn.querySelector('.heart-ico path');
+        if(path){ path.style.fill='#C0394B'; path.style.stroke='#C0394B'; }
         const icon = btn.querySelector('.heart-ico');
-        if(icon){ icon.style.transform='scale(1.35)'; setTimeout(()=>{ icon.style.transform='scale(1)'; },200); }
+        if(icon){ icon.style.transform='scale(1.4)'; setTimeout(()=>{ icon.style.transform='scale(1)'; },180); }
       } else {
         btn.classList.remove('liked');
       }
