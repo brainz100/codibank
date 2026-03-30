@@ -7,6 +7,203 @@
 <script src="config.js"></script>
 <script src="codibank.js"></script>
 <script src="i18n.js"></script>
+<script>
+// ─────────────────────────────────────────────────────
+// CodiBank 공통 i18n 번역 사전 + applyI18n()
+// 모든 페이지에서 스크립트 끝에 applyI18n() 호출
+// ─────────────────────────────────────────────────────
+(function(){
+  const _T = {
+    // ── 공통 내비게이션 ──
+    "내옷장":           "My Closet",
+    "코디앨범":         "Codi Album",
+    "코디 앨범":        "Codi Album",
+    "ITEM등록":         "Add Item",
+    "코디하기":         "Codi Style",
+    "MY":              "MY",
+
+    // ── 내옷장 (closet.html) ──
+    "내옷장 - 코디뱅크":  "My Closet - CodiBank",
+    "코디 목적 선택":     "Choose Outfit Goal",
+    "직접입력 (최대 30자)":"Custom (max 30 chars)",
+    "30자 이내로 입력해주세요.":"Please enter up to 30 characters.",
+    "코디 날짜 선택":     "Choose Outfit Date",
+    "코디를 생성할 날짜를 선택하세요":"Select the date for your outfit",
+    "오늘의 코디":        "Today's Outfit",
+    "내일의 코디":        "Tomorrow's Outfit",
+    "스타일링 추천받기":  "Get Style Recommendations",
+    "AI 스타일리스트 요청하기": "Request AI Stylist",
+    "목적과 날짜를 먼저 선택하세요": "Please select a goal and date first",
+    "코디 목적별 AI 스타일리스트가 수 백명씩 준비돼있다.":
+      "Hundreds of AI stylists are ready for each outfit goal.",
+    "키워드로 코디 스타일을 분석해준다.":
+      "Analyzes your style with keywords.",
+    "모바일 옷장에서 쉽게 코디할 수 있는 해법을 제공한다.":
+      "Provides easy outfit solutions from your mobile closet.",
+    "AI 추천코디 이야기":  "AI Outfit Story",
+    "목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.":
+      "Select a goal and AI will recommend outfits based on the weather.",
+    "✦ AI 스타일링 포인트": "✦ AI Styling Points",
+    "스타일 키워드":       "Style Keywords",
+    "카테고리별 코디 포인트": "Outfit Points by Category",
+    "↓ 아래 모바일 옷장과 AI 매칭 분석 중": "↓ Analyzing match with your mobile closet below",
+    "남은 0회":           "0 left",
+    "코디 목적을 선택하고 생성 버튼을 누르세요": "Select outfit goal and tap generate",
+    "초기화 중…":         "Initializing…",
+    "얼굴 사진을 등록하면 내 얼굴로 스타일링!": "Register your face photo to style with your face!",
+    "마이페이지에서 얼굴 사진을 등록하면 내 얼굴에 코디를 입혀드려요.":
+      "Go to My Page to register your photo and style outfits on your face.",
+    "등록":              "Register",
+    "저장":              "Save",
+    "다시요청":           "Retry",
+    "공유":              "Share",
+    "모바일 옷장":        "Mobile Closet",
+    "클릭하면 AI가 추천한 코디를 내 옷에서 찾아드립니다":
+      "Tap to find AI outfit matches in your closet",
+    "AI 추천코디 × 내 옷장 유사도 분석": "AI Outfit × Closet Similarity Analysis",
+    "AI 코디를 먼저 생성하면 유사도를 분석해드려요.":
+      "Generate an AI outfit first to see similarity analysis.",
+    "검색 결과가 없어요": "No results found",
+    "등록된 아이템 없음 — 추가해보세요": "No items registered — add some!",
+    "← 스와이프로 아이템을 탐색하세요": "← Swipe to browse items",
+    "로딩중":             "Loading",
+    "✓ 저장되었습니다":   "✓ Saved",
+    "위치 확인 중…":      "Checking location…",
+    "개인정보처리방침":    "Privacy Policy",
+
+    // ── 코디하기 (codistyle.html) ──
+    "코디하기 - 코디뱅크": "Codi Style - CodiBank",
+    "상의":               "Top",
+    "하의":               "Bottom",
+    "상의 이미지":         "Top Image",
+    "하의 이미지":         "Bottom Image",
+    "상의삭제":           "Remove Top",
+    "하의삭제":           "Remove Bottom",
+    "상의와 하의를 업로드하고 생성 버튼을 눌러주세요":
+      "Upload top and bottom, then tap generate",
+    "AI 착장 이미지 생성": "Generate AI Outfit",
+    "AI가 착장 이미지를 생성하고 있어요…": "AI is generating your outfit image…",
+    "(10~25초 소요)":      "(10–25 sec)",
+    "사진촬영":           "Take Photo",
+    "사진선택":           "Choose Photo",
+    "선택":               "Select",
+    "링크":               "Link",
+    "다시요청":           "Retry",
+    "리셋":               "Reset",
+    "코디 프로필":         "Outfit Profile",
+    "프로필 정보 적용":    "Apply Profile Info",
+    "성별":               "Gender",
+    "나이대":             "Age Group",
+    "키":                 "Height",
+    "몸무게":             "Weight",
+    "몸무게(kg)":          "Weight (kg)",
+    "남성":               "Male",
+    "여성":               "Female",
+    "수정":               "Edit",
+    "업로드 완료":         "Upload complete",
+    "10대": "Teens", "20대": "20s", "30대": "30s",
+    "40대": "40s",   "50대": "50s", "60대": "60s",
+    "스타일링 점수 분석 중…": "Analyzing styling score…",
+    "Styling Score":       "Styling Score",
+    "착장 이미지 생성 완료 ✨": "Outfit image ready ✨",
+
+    // ── 코디앨범 (album.html) ──
+    "코디 앨범 - 코디뱅크": "Codi Album - CodiBank",
+    "앨범 불러오는 중…":   "Loading album…",
+    "저장된 코디가 없어요": "No saved outfits yet",
+    "내옷장에서 AI 코디를 추천받고": "Get AI outfit recommendations from My Closet",
+    "저장하기를 눌러보세요!": "and tap Save!",
+    "AI 코디 추천 받기":   "Get AI Outfit",
+    "전체삭제":           "Delete All",
+
+    // ── 마이페이지 (mypage.html) ──
+    "마이페이지":          "My Page",
+    "마이페이지 - 코디뱅크": "My Page - CodiBank",
+    "계정 관리":           "Account",
+    "프로필 수정":         "Edit Profile",
+    "구독 플랜":           "Subscription",
+    "서비스":              "Services",
+    "내 옷장 바로가기":    "Go to My Closet",
+    "기타":               "More",
+    "이용약관":            "Terms of Use",
+    "환불정책":            "Refund Policy",
+    "로그아웃":            "Log Out",
+    "사용자":              "User",
+
+    // ── 구독플랜 (pricing.html) ──
+    "구독 플랜":           "Subscription Plans",
+    "구독 플랜 - 코디뱅크": "Subscription - CodiBank",
+    "구독하기":            "Subscribe",
+    "현재 플랜":           "Current Plan",
+    "로딩중…":             "Loading…",
+    "FUP(공정 이용 정책)": "FUP (Fair Use Policy)",
+    "코디 생성 횟수 기준":  "Outfit Generation Limits",
+    "내옷장 AI 추천 + 코디하기 착장 이미지를 합산하여 횟수를 계산합니다.":
+      "My Closet AI + Codi Style outfit images are counted together.",
+    "데이터 보관 정책":     "Data Retention Policy",
+    "다이아 플랜의 무제한은 일일 30회 한도 내에서 운영됩니다.":
+      "Diamond plan unlimited is subject to a daily limit of 30.",
+  };
+
+  window._cbI18n = _T;
+
+  window.applyI18n = function(){
+    if(!(window.CodiBankI18n && CodiBankI18n.isEn())) return;
+    // 1) data-i18n 속성 우선
+    document.querySelectorAll('[data-i18n]').forEach(function(el){
+      var key = el.getAttribute('data-i18n');
+      if(_T[key]) el.textContent = _T[key];
+    });
+    // 2) 텍스트 노드 순회 번역
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+    var node;
+    while((node = walker.nextNode())){
+      var txt = node.nodeValue.trim();
+      if(txt && _T[txt]){
+        node.nodeValue = node.nodeValue.replace(txt, _T[txt]);
+      }
+    }
+    // 3) placeholder 번역
+    document.querySelectorAll('[placeholder]').forEach(function(el){
+      var ph = el.getAttribute('placeholder');
+      if(_T[ph]) el.setAttribute('placeholder', _T[ph]);
+    });
+    // 4) title 태그
+    var titleEl = document.querySelector('title');
+    if(titleEl && _T[titleEl.textContent.trim()]){
+      titleEl.textContent = _T[titleEl.textContent.trim()];
+    }
+    // 5) html lang 속성
+    document.documentElement.setAttribute('lang','en');
+  };
+})();
+if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){setTimeout(applyI18n,200);})}else{setTimeout(applyI18n,200);}
+
+// 언어 전환 감지 — localStorage 변경 또는 CodiBankI18n 패치
+(function(){
+  // 1) localStorage 'cb_lang' 변경 감지
+  var _lastLang = localStorage.getItem('cb_lang') || 'ko';
+  setInterval(function(){
+    var cur = localStorage.getItem('cb_lang') || 'ko';
+    if(cur !== _lastLang){
+      _lastLang = cur;
+      setTimeout(applyI18n, 100);
+    }
+  }, 500);
+  // 2) CodiBankI18n.setLang 패치 (존재할 경우)
+  var _patchTry = setInterval(function(){
+    if(window.CodiBankI18n && CodiBankI18n.setLang){
+      var _orig = CodiBankI18n.setLang.bind(CodiBankI18n);
+      CodiBankI18n.setLang = function(lang){
+        _orig(lang);
+        setTimeout(applyI18n, 150);
+      };
+      clearInterval(_patchTry);
+    }
+  }, 300);
+})();
+
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet"/>
 <script src="https://cdn.iamport.kr/v1/iamport.js"></script>
