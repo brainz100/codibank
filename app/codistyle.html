@@ -113,7 +113,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
   font-size:13px;font-weight:700;padding:10px 22px;border-radius:20px;
   border:1px solid rgba(76,219,206,0.4);
   pointer-events:none;z-index:9999;
-  opacity:0;transition:opacity 0.25s ease-out;
+  opacity:0;transition:opacity 0.3s ease-out;
   white-space:nowrap;
 }
 #csSaveToast.show{opacity:1;}
@@ -322,16 +322,25 @@ function _getCSPlanInfo(){
 // ── 코디 프로필: Supabase 세션 복원 후 재초기화
 if(window.CodiBank && CodiBank.onSessionReady){
   CodiBank.onSessionReady(function(cbUser){
-    if(!cbUser) return;
-    if(!user.email && cbUser.email){
-      user.email=cbUser.email; user.plan=cbUser.plan||'FREE';
-      user.gender=cbUser.gender; user.ageGroup=cbUser.ageGroup;
-      user.height=cbUser.height; user.weight=cbUser.weight;
-    }
-    if(!codiProfile.gender && cbUser.gender) codiProfile.gender=_gMap(cbUser.gender);
-    if(!codiProfile.height && cbUser.height) codiProfile.height=cbUser.height;
-    if(!codiProfile.weight && cbUser.weight) codiProfile.weight=cbUser.weight;
-    if(!codiProfile.ageGroup && cbUser.ageGroup) codiProfile.ageGroup=_aMap(cbUser.ageGroup);
+    if(!cbUser || !cbUser.email) return;
+    // 항상 최신 Supabase 데이터로 user 객체 갱신 (로그인 여부 무관)
+    user.email    = cbUser.email;
+    user.plan     = cbUser.plan     || user.plan    || 'FREE';
+    user.gender   = cbUser.gender   || user.gender  || '';
+    user.ageGroup = cbUser.ageGroup || user.ageGroup|| '';
+    user.height   = cbUser.height   || user.height  || '';
+    user.weight   = cbUser.weight   || user.weight  || '';
+    // codiProfile: 세션에 값이 있으면 무조건 덮어씀 (sessionStorage 수정 우선)
+    const _cp = (function(){ try{ return JSON.parse(sessionStorage.getItem('cb_codiProfile')||'null'); }catch(_){ return null; } })();
+    if(cbUser.gender && !_cp?.gender)   codiProfile.gender   = _gMap(cbUser.gender);
+    if(cbUser.ageGroup && !_cp?.ageGroup) codiProfile.ageGroup = _aMap(cbUser.ageGroup);
+    if(cbUser.height  && !_cp?.height)  codiProfile.height   = cbUser.height;
+    if(cbUser.weight  && !_cp?.weight)  codiProfile.weight   = cbUser.weight;
+    // 값이 없으면 user에서 재시도
+    if(!codiProfile.height && user.height)  codiProfile.height = user.height;
+    if(!codiProfile.weight && user.weight)  codiProfile.weight = user.weight;
+    if(!codiProfile.gender && user.gender)  codiProfile.gender = _gMap(user.gender);
+    if(!codiProfile.ageGroup && user.ageGroup) codiProfile.ageGroup = _aMap(user.ageGroup);
     displayBodyInfo && displayBodyInfo();
     updateCSUsageBadge && updateCSUsageBadge();
   });
@@ -877,13 +886,8 @@ async function saveImg(){
   const _showSaveToast = () => {
     const toast = document.getElementById('csSaveToast');
     if(!toast) return;
-    // show 클래스 추가 → 다음 프레임에서 즉시 제거 → CSS transition이 fade-out
     toast.classList.add('show');
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        toast.classList.remove('show');
-      });
-    });
+    setTimeout(() => toast.classList.remove('show'), 500);
   };
   try{
     const r = await fetch(lastImgUrl);
