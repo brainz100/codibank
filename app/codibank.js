@@ -1415,7 +1415,7 @@ async function uploadImageToServer(dataUrl, opts) {
     // v17
     // - "오늘/내일" 코디 추천을 위해 2일 예보까지 가져옵니다.
     // - daily(최고/최저/날씨코드)는 내일의 대표값(평균 온도+요약 코드) 계산에 사용합니다.
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=temperature_2m,weather_code,is_day&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=7&timezone=${encodeURIComponent(tz)}`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=temperature_2m,weather_code,is_day&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=14&timezone=${encodeURIComponent(tz)}`;
     return fetchJsonWithTimeout(url, timeoutMs);
   }
 

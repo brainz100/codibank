@@ -594,12 +594,24 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 /* .vto-prog-bar removed */
 /* .vto-prog-fill removed */
 .vto-result-wrap{position:relative;}
+.vto-outer-layer{
+  position:relative;
+  border-radius:22px;
+  background:#020a1a;
+  padding:10px;
+  box-shadow:0 12px 40px rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.3);
+  margin-bottom:0;
+}
+.vto-outer-layer .vto-result-wrap{
+  border-radius:14px;
+  overflow:hidden;
+}
 .vto-result-box{width:100%;aspect-ratio:1/1.6;border-radius:16px;overflow:hidden;background:#050f2a;position:relative;display:flex;align-items:center;justify-content:center;}
 .vto-img-spin{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;position:absolute;inset:0;}
 .vto-spin-txt{font-size:12px;color:rgba(162,253,240,0.45);text-align:center;line-height:1.7;padding:0 20px;}
 /* codibank 레인보우 텍스트 — 코디하기 동일 */
 .cb-rainbow-vto{font-size:36px;font-weight:900;letter-spacing:4px;font-family:'Manrope','Inter',sans-serif;display:flex;justify-content:center;align-items:center;gap:1px;}
-.cb-rainbow-vto span{color:rgba(255,255,255,0.12);}
+.cb-rainbow-vto span{color:rgba(255,255,255,0.25);}  /* 기본: 정적 흰색 */
 .cb-rainbow-vto.animating span{animation:rbFillCs 2.4s infinite;}
 .cb-rainbow-vto span:nth-child(1){animation-delay:0s}
 .cb-rainbow-vto span:nth-child(2){animation-delay:0.2s}
@@ -1028,17 +1040,18 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         <span id="aiQuota" class="ai-badge gray">남은 0회</span>
       </div>
 
-      <!-- 이미지 박스 이중 구조 (코디하기 동일 디자인) -->
+      <!-- 이미지 박스 — 외부 어두운 네이비 레이어 + 내부 이미지 박스 -->
+      <div class="vto-outer-layer">
       <div class="vto-result-wrap" id="vtoWrap">
         <!-- 외부 박스 (테두리) -->
         <div class="vto-result-box" id="vtoResultBox">
           <!-- 내부 대기/로딩 화면 — 코디하기 img-spin 동일 구조 -->
           <div class="vto-img-spin" id="vtoOverlay">
             <!-- codibank 레인보우 텍스트 -->
-            <div id="vtoSpinner" class="cb-rainbow-vto" style="display:none;">
+            <div id="vtoSpinner" class="cb-rainbow-vto" style="display:flex;">
               <span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span>
             </div>
-            <p class="vto-spin-txt" id="vtoSpinTxt">코디 목적을 선택하고 생성 버튼을 누르세요</p>
+            <p class="vto-spin-txt" id="vtoSpinTxt" style="color:rgba(162,253,240,0.55);">코디 목적을 선택하고 생성 버튼을 누르세요</p>
             <div id="vtoStep" class="vto-step" style="display:none;">초기화 중…</div>
           </div>
           <!-- 결과 캔버스 (생성 완료 후 표시) -->
@@ -1054,6 +1067,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
           <a href="mypage.html" style="flex-shrink:0;padding:6px 11px;border-radius:999px;background:rgba(53,162,159,0.2);border:1px solid rgba(151,254,237,0.3);color:#97FEED;font-size:11px;font-weight:900;text-decoration:none;">등록</a>
         </div>
       </div>
+      </div><!-- /vto-outer-layer -->
 
       <!-- 버튼 3개 — 대기:동일 스타일 / 활성:서브컬러 -->
       <div class="vto-b-actions">
@@ -1620,7 +1634,7 @@ function resetStylingBox(msg){
   // (removed: vtoStatusDot/vtoProgFill deleted)
   if(overlay) overlay.style.display='';
   if(canvas) canvas.style.display='none';
-  if(spinnerEl){ spinnerEl.style.display='none'; spinnerEl.classList.remove('animating'); }
+  if(spinnerEl){ spinnerEl.style.display='flex'; spinnerEl.classList.remove('animating'); }
   if(stepEl) stepEl.style.display='none';
   if(stateTextEl) stateTextEl.textContent = msg || '추천 이미지 없음';
   if(hint) hint.style.display='none';
