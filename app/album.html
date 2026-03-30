@@ -122,12 +122,8 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Inter'
 .acard-purpose{font-family:'Manrope',sans-serif;font-size:14px;font-weight:800;color:#ffffff;line-height:1.2;}
 .acard-stylist{font-size:9px;font-weight:600;color:#97FEED;margin-top:3px;letter-spacing:.03em;}
 .acard-like{position:absolute;top:8px;right:8px;width:40px;height:40px;background:none !important;border:none;outline:none;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;padding:0;-webkit-tap-highlight-color:transparent;}
-.acard-like .h-wrap{width:28px;height:28px;position:relative;filter:drop-shadow(0 1px 4px rgba(0,0,0,.6));}
-.acard-like .h-off{display:block;}
-.acard-like .h-on{display:none;}
-.acard-like.liked .h-off{display:none;}
-.acard-like.liked .h-on{display:block;}
-.acard-like.liked .h-wrap{animation:heartPop .2s ease;}
+.acard-like .heart-emoji{font-size:24px;line-height:1;text-shadow:0 1px 4px rgba(0,0,0,.5);transition:transform .15s ease;pointer-events:none;display:block;}
+.acard-like.liked .heart-emoji{transform:scale(1.3);animation:heartPop .2s ease;}
 @keyframes heartPop{0%{transform:scale(1)}50%{transform:scale(1.4)}100%{transform:scale(1)}}
 
 /* ── 모달: 전체화면 ── */
@@ -320,18 +316,7 @@ function mkCard(entry) {
       </div>
       <img id="img_${entry.id}" class="acard-img" src="" alt="" style="opacity:0;"/>
       <button class="acard-like ${isLiked?'liked':''}" id="like_${entry.id}" type="button" aria-label="좋아요" onclick="event.stopPropagation();toggleLike('${entry.id}')">
-        <div class="h-wrap">
-          <!-- 기본: 흰색 외곽선 하트 -->
-          <svg class="h-off" viewBox="0 0 24 24" width="28" height="28">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-              fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <!-- liked: 빨간 채움 하트 -->
-          <svg class="h-on" viewBox="0 0 24 24" width="28" height="28">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-              fill="#C0394B" stroke="#C0394B" stroke-width="1"/>
-          </svg>
-        </div>
+        <span class="heart-emoji">${isLiked?'❤️':'🤍'}</span>
       </button>
     </div>
     <div class="acard-info">
@@ -490,10 +475,13 @@ function toggleLike(entryId) {
     localStorage.setItem(key, JSON.stringify(entries));
     const btn = document.getElementById('like_' + entryId);
     if (btn) {
+      const emoji = btn.querySelector('.heart-emoji');
       if (entries[idx].liked) {
         btn.classList.add('liked');
+        if (emoji) emoji.textContent = '❤️';
       } else {
         btn.classList.remove('liked');
+        if (emoji) emoji.textContent = '🤍';
       }
     }
   } catch(e) { console.warn('toggleLike error:', e); }
