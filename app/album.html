@@ -95,9 +95,9 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Inter'
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ── 헤더: Glassmorphic ── */
-.hdr{position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(24px);padding:14px 24px;display:flex;align-items:center;justify-content:center;}
-.hdr-title{font-family:'Pretendard','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;color:#0B666A;letter-spacing:.04em;}
-.hdr-badge{display:none;} .sort-sel{border:1px solid rgba(11,102,106,.25);background:#fff;font-size:12px;font-weight:700;color:#0B666A;cursor:pointer;padding:5px 24px 5px 10px;border-radius:8px;outline:none;appearance:none;-webkit-appearance:none;font-family:inherit;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%230B666A'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;}
+.hdr{position:sticky;top:0;z-index:100;background:rgba(255,255,255,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:12px 20px 0;border-bottom:1px solid rgba(0,0,0,.08);}
+.hdr-title{font-family:'Pretendard','Noto Sans KR',sans-serif;font-size:16px;font-weight:800;color:#0B666A;letter-spacing:.04em;display:block;text-align:center;padding-bottom:10px;}
+.hdr-badge{display:none;} .sort-wrap{display:flex;justify-content:flex-end;padding:6px 0 10px;} .sort-sel{border:1px solid rgba(11,102,106,.25);background:#fff;font-size:11px;font-weight:700;color:#0B666A;cursor:pointer;padding:5px 24px 5px 10px;border-radius:8px;outline:none;appearance:none;-webkit-appearance:none;font-family:inherit;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%230B666A'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;}
 
 /* ── 로딩 / 빈 상태 ── */
 .center-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;gap:24px;padding:32px 24px;text-align:center;}
@@ -111,7 +111,7 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Inter'
 .album-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;padding:16px 20px;animation:fadeUp .5s cubic-bezier(.16,1,.3,1) both;}
 
 /* ── 카드 ── */
-.acard{background:#071952;border-radius:1rem;overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 16px rgba(0,0,0,.18),0 1px 4px rgba(0,0,0,.12);border:1.5px solid rgba(160,170,185,.35);}
+.acard{background:#071952;border-radius:1rem;overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 16px rgba(0,0,0,.18),0 1px 4px rgba(0,0,0,.12);border:1.5px solid #ffffff;}
 .acard:active{transform:scale(.97);}
 .acard-img-wrap{position:relative;width:100%;aspect-ratio:10/16;background:#050f2a;overflow:hidden;border-bottom:1px solid rgba(53,162,159,.35);}
 .acard-img{width:100%;height:100%;object-fit:cover;display:block;transition:opacity .4s;}
@@ -123,9 +123,8 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Inter'
 .acard-stylist{font-size:9px;font-weight:600;color:#97FEED;margin-top:3px;letter-spacing:.03em;}
 .acard-like{position:absolute;top:8px;right:8px;width:40px;height:40px;background:none !important;border:none;outline:none;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;padding:0;-webkit-tap-highlight-color:transparent;}
 .acard-like .heart-ico{width:28px;height:28px;display:block;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5));transition:transform .15s ease, filter .2s ease;pointer-events:none;}
-.acard-like .heart-ico path{fill:transparent;stroke:rgba(255,255,255,.92);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;transition:fill .25s ease, stroke .25s ease;}
-.acard-like.liked .heart-ico{filter:drop-shadow(0 2px 6px rgba(177,75,103,.42));}
-.acard-like.liked .heart-ico path{fill:#C0394B;stroke:#C0394B;}
+.acard-like .heart-ico path{fill:none;stroke:rgba(255,255,255,.9);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.acard-like.liked .heart-ico path{fill:#C0394B !important;stroke:#C0394B !important;}
 
 /* ── 모달: 전체화면 ── */
 .modal-bg{position:fixed;inset:0;z-index:500;background:#ffffff;display:flex;flex-direction:column;overflow:hidden;}
@@ -182,12 +181,13 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Inter'
 <!-- 헤더 -->
 <header class="hdr">
   <h1 class="hdr-title" id="albumTitle">코디 앨범</h1>
-  <!-- 정렬 셀렉트 -->
-  <select id="sortSel" class="sort-sel" onchange="applySort(this.value)" aria-label="정렬">
-    <option value="date">저장일자</option>
-    <option value="liked">좋아요</option>
-    <option value="purpose">코디목적</option>
-  </select>
+  <div class="sort-wrap">
+    <select id="sortSel" class="sort-sel" onchange="applySort(this.value)" aria-label="정렬">
+      <option value="date">저장일자</option>
+      <option value="liked">좋아요</option>
+      <option value="purpose">코디목적</option>
+    </select>
+  </div>
   <span id="cntBadge" class="hdr-badge"></span>
   <button id="clearBtn" class="clear-btn" style="display:none;" onclick="clearAll()">전체삭제</button>
 </header>
@@ -316,8 +316,11 @@ function mkCard(entry) {
       </div>
       <img id="img_${entry.id}" class="acard-img" src="" alt="" style="opacity:0;"/>
       <button class="acard-like ${isLiked?'liked':''}" id="like_${entry.id}" type="button" aria-label="좋아요" onclick="event.stopPropagation();toggleLike('${entry.id}')">
-        <svg class="heart-ico" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        <svg class="heart-ico" viewBox="0 0 24 24" aria-hidden="true" style="transition:transform .16s ease;">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+            fill="${isLiked?'#C0394B':'none'}"
+            stroke="${isLiked?'#C0394B':'rgba(255,255,255,0.9)'}"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
     </div>
@@ -477,16 +480,16 @@ function toggleLike(entryId) {
     localStorage.setItem(key, JSON.stringify(entries));
     const btn = document.getElementById('like_' + entryId);
     if (btn) {
+      const path = btn.querySelector('path');
+      const svg  = btn.querySelector('svg');
       if (entries[idx].liked) {
         btn.classList.add('liked');
-        // 하트 채워지는 애니메이션
-        // 즉각적인 채움 + 스케일 애니메이션
-        const path = btn.querySelector('.heart-ico path');
-        if(path){ path.style.fill='#C0394B'; path.style.stroke='#C0394B'; }
-        const icon = btn.querySelector('.heart-ico');
-        if(icon){ icon.style.transform='scale(1.4)'; setTimeout(()=>{ icon.style.transform='scale(1)'; },180); }
+        // setAttribute로 직접 강제 — style/CSS보다 우선
+        if (path) { path.setAttribute('fill', '#C0394B'); path.setAttribute('stroke', '#C0394B'); }
+        if (svg)  { svg.style.transform='scale(1.35)'; setTimeout(()=>{ svg.style.transform='scale(1)'; },160); }
       } else {
         btn.classList.remove('liked');
+        if (path) { path.setAttribute('fill', 'none'); path.setAttribute('stroke', 'rgba(255,255,255,0.9)'); }
       }
     }
   } catch(e) { console.warn('toggleLike error:', e); }
