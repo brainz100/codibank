@@ -1171,6 +1171,45 @@ function renderU(){
 function pgU(d){pgState.U+=d;renderU()}
 async function delU(id,em){if(!confirm('"'+em+'" 삭제?'))return;try{await authFetch(B+'/admin/users/'+id,{method:'DELETE'});toast(em+' 삭제');ldU()}catch(e){toast('실패',true)}}
 // Payments
+async function ldH(){try{var r=await authFetch(B+'/health');var j=await r.json();kpi('kServer',j.ok?'ONLINE':'ERROR',new Date().toLocaleTimeString())}catch(e){kpi('kServer','OFFLINE','연결실패')}}
+// Users
+async function ldU(){document.getElementById('tU').innerHTML='<tr><td colspan="7" class="ld"><span class="sp"></span></td></tr>';try{var r=await authFetch(B+'/admin/users');if(!r.ok)throw 0;aU=(await r.json()).users||[];kpi('kUsers',aU.length);kpi('kuTotal',aU.length);kpi('kuMonth',aU.filter(function(u){return isThisMonth(u.created_at)}).length);kpi('kuWeek',aU.filter(function(u){return isThisWeek(u.created_at)}).length);var td=aU.filter(function(u){return isToday(u.created_at)}).length;kpi('kuToday',td);kpi('kToday',td);fU();drawUserCharts()}catch(e){document.getElementById('tU').innerHTML='<tr><td colspan="7" class="empty"><a href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/auth/users" target="_blank">Supabase</a></td></tr>'}}
+function drawUserCharts(){var mo={};aU.forEach(function(u){var k=monthKey(u.created_at);mo[k]=(mo[k]||0)+1});var ks=Object.keys(mo).sort().slice(-6);mkChart('chUserMonth','bar',ks,[{label:'가입',data:ks.map(function(k){return mo[k]}),backgroundColor:'#35A29F'}]);mkChart('chU2','bar',ks,[{label:'가입',data:ks.map(function(k){return mo[k]}),backgroundColor:'#35A29F'}]);
+var gm=0,gf=0,pFree=0,pPt=0,pSub=0;aU.forEach(function(u){var md=u.user_metadata||{};if(md.gender==='M')gm++;else if(md.gender==='F')gf++;var p=md.plan||'free';if(String(p).indexOf('sub')>=0)pSub++;else if(String(p).indexOf('point')>=0)pPt++;else pFree++});
+mkChart('chGender','doughnut',['남성','여성','미설정'],[{data:[gm,gf,aU.length-gm-gf],backgroundColor:['#1a5fb4','#b41a6a','#ccc']}]);
+mkChart('chPlan','doughnut',['무료','포인트','구독'],[{data:[pFree,pPt,pSub],backgroundColor:['#999','#0B666A','#1a5fb4']}]);
+mkChart('chU3','doughnut',['남성','여성','미설정'],[{data:[gm,gf,aU.length-gm-gf],backgroundColor:['#1a5fb4','#b41a6a','#ccc']}])}
+function fU(){pgState.U=1;renderU()}
+function renderU(){
+  var q=document.getElementById('qU').value.toLowerCase(),s=document.getElementById('sU').value,pp=parseInt(document.getElementById('ppU').value),l=aU;
+  if(q)l=l.filter(function(u){return(u.email||'').toLowerCase().indexOf(q)>=0});
+  var sk=s.split('_')[0]==='c'?'created_at':s.split('_')[0]==='l'?'last_sign_in_at':'email';
+  l=sortA(l,sk,s.split('_')[1]);
+  var pg=paginate(l,pgState.U,pp);document.getElementById('pgUt').textContent=pg.page+'/'+pg.total;
+  if(!pg.data.length){document.getElementById('tU').innerHTML='<tr><td colspan="8" class="empty">데이터 없음</td></tr>';return}
+  var h='';
+  pg.data.forEach(function(u){
+    var md=u.user_metadata||{};
+    var ee=encodeURIComponent(u.email||'');
+    var bonusInfo=_memberBonusCache[u.email]||{cl:0,co:0};
+    var bonusTxt=bonusInfo.tb?'<span style="font-size:11px;font-weight:800;color:#0B666A">+'+bonusInfo.tb+'회</span>':'<span style="color:#ccc;font-size:10px">없음</span>';
+    var bonusBtn=isMaster()?'<button class="ab" onclick="quickBonus(\''+( u.email||'')+'\')">횟수지급</button>':'';
+    h+='<tr>'
+      +'<td style="font-weight:600;color:#071952">'+(u.email||'')+'</td>'
+      +'<td>'+fd(u.created_at)+'</td>'
+      +'<td>'+fd(u.last_sign_in_at)+'</td>'
+      +'<td>'+pb(md.plan)+'</td>'
+      +'<td>'+gb(md.gender)+'</td>'
+      +'<td>'+(u.email_confirmed_at?'<span class="badge b-ok">인증</span>':'<span class="badge b-w">미인증</span>')+'</td>'
+      +'<td>'+bonusTxt+'</td>'
+      +'<td>'+bonusBtn+'<button class="ab del" onclick="delU(\''+u.id+'\',\''+(u.email||'')+'\')">삭제</button></td>'
+      +'</tr>';
+  });
+  document.getElementById('tU').innerHTML=h;
+}
+function pgU(d){pgState.U+=d;renderU()}
+async function delU(id,em){if(!confirm('"'+em+'" 삭제?'))return;try{await authFetch(B+'/admin/users/'+id,{method:'DELETE'});toast(em+' 삭제');ldU()}catch(e){toast('실패',true)}}
+// Payments
 async function ldP(){document.getElementById('tP').innerHTML='<tr><td colspan="6" class="ld"><span class="sp"></span></td></tr>';try{var r=await authFetch(B+'/admin/payments');if(!r.ok)throw 0;aP=(await r.json()).payments||[];var tot=0,tm=0,tw=0,tt=0;aP.forEach(function(p){if(p.status!=='completed')return;tot+=p.amount||0;if(isThisMonth(p.created_at))tm+=p.amount||0;if(isThisWeek(p.created_at))tw+=p.amount||0;if(isToday(p.created_at))tt+=p.amount||0});kpi('kRevenue',fm(tot));kpi('kPayCnt',aP.length);kpi('kpTotal',fm(tot));kpi('kpMonth',fm(tm));kpi('kpWeek',fm(tw));kpi('kpToday',fm(tt));fP();drawPayCharts()}catch(e){document.getElementById('tP').innerHTML='<tr><td colspan="6" class="empty">데이터 없음</td></tr>'}}
 function drawPayCharts(){var mo={},plans={};aP.forEach(function(p){if(p.status!=='completed')return;var k=monthKey(p.created_at);mo[k]=(mo[k]||0)+(p.amount||0);plans[p.plan_id]=(plans[p.plan_id]||0)+1});var ks=Object.keys(mo).sort().slice(-6);mkChart('chRevMonth','bar',ks,[{label:'매출',data:ks.map(function(k){return mo[k]}),backgroundColor:'#071952'}]);mkChart('chP2','bar',ks,[{label:'매출',data:ks.map(function(k){return mo[k]}),backgroundColor:'#071952'}]);
 var pk=Object.keys(plans);mkChart('chP3','doughnut',pk,[{data:pk.map(function(k){return plans[k]}),backgroundColor:['#0B666A','#35A29F','#1a5fb4','#6a1fb4']}])}
