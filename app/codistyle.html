@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-2ZWQ7K7H0V"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-2ZWQ7K7H0V');
+</script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>코디하기 - 코디뱅크</title>
@@ -776,6 +784,8 @@ async function onFile(ev,k){
       const fr = new FileReader();
       const du = await new Promise((res,rej)=>{fr.onload=()=>res(fr.result);fr.onerror=()=>res('');fr.readAsDataURL(compressed);});
       ST[k].dataUrl = du || '';
+      // 상의/하의 미리보기 sessionStorage 저장 (페이지 복귀 시 복원용)
+      try{ sessionStorage.setItem('cb_cs_st_'+k, ST[k].dataUrl); }catch(_){}
     }catch(_){ ST[k].dataUrl = ''; }
     setStatus(k,'서버에 업로드중…', false);
     const path = await uploadBlob(k, compressed);
@@ -937,7 +947,10 @@ async function generate(isRetry=false){
     };
     _wmImg.src = lastImgUrl;
     setDot('done'); setProgress(100,'착장 이미지 생성 완료 ✨');
-    try{ sessionStorage.setItem('cb_cs_lastImg', lastImgUrl); }catch(_){}
+    try{
+      sessionStorage.setItem('cb_cs_lastImg', lastImgUrl);
+      sessionStorage.setItem('cb_cs_ts', String(Date.now()));
+    }catch(_){}
 
     /* ── [2] Styling Score — AI 스타일리스트 상의·하의 세밀 분석 ── */
     try{
@@ -1146,18 +1159,64 @@ async function shareResult(){
 }
 ['top','bottom'].forEach(renderSlot); updateGenerateBtn();
 
-// ── 페이지 복귀 시 이전 생성 이미지+스코어 복원 ──
-try{
-  const saved = sessionStorage.getItem('cb_cs_lastImg');
-  if(saved){
-    lastImgUrl = saved;
-    document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><img class="result-img" src="'+lastImgUrl+'" alt="AI 착장 이미지"></div>';
-    setDot('done'); setProgress(100,'착장 이미지 생성 완료 ✨');
-    const ss = sessionStorage.getItem('cb_cs_score');
-    const st = sessionStorage.getItem('cb_cs_scoreText');
-    if(ss){ document.getElementById('csScoreNum').textContent=ss; document.getElementById('csScoreText').textContent=st||''; document.getElementById('csScoreText').style.color='rgba(255,255,255,.55)'; }
+// ── 페이지 복귀 시 이전 생성 이미지+스코어+상의하의 복원 ──
+(function(){
+  var TIMEOUT_MS = 30 * 60 * 1000; // 30분
+  // 생성 이미지 복원
+  try{
+    const saved = sessionStorage.getItem('cb_cs_lastImg');
+    const ts    = parseInt(sessionStorage.getItem('cb_cs_ts')||'0');
+    if(saved && (Date.now()-ts < TIMEOUT_MS || !ts)){
+      lastImgUrl = saved;
+      document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><img class="result-img" src="'+lastImgUrl+'" alt="AI 착장 이미지"></div>';
+      setDot('done'); setProgress(100,'착장 이미지 생성 완료 ✨');
+      const ss = sessionStorage.getItem('cb_cs_score');
+      const st = sessionStorage.getItem('cb_cs_scoreText');
+      if(ss){ document.getElementById('csScoreNum').textContent=ss; document.getElementById('csScoreText').textContent=st||''; document.getElementById('csScoreText').style.color='rgba(255,255,255,.55)'; }
+    } else if(saved && ts && (Date.now()-ts >= TIMEOUT_MS)){
+      // 30분 초과 → 삭제
+      ['cb_cs_lastImg','cb_cs_score','cb_cs_scoreText','cb_cs_ts','cb_cs_st_top','cb_cs_st_bottom'].forEach(function(k){ try{sessionStorage.removeItem(k);}catch(_){} });
+    }
+  }catch(_){}
+  // 상의/하의 미리보기 복원
+  try{
+    ['top','bottom'].forEach(function(k){
+      const du = sessionStorage.getItem('cb_cs_st_'+k);
+      if(!du) return;
+      ST[k].dataUrl = du;
+      const wrap = document.getElementById('img-wrap-'+k);
+      if(wrap){
+        wrap.innerHTML = '<img src="'+du+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px;" alt="">';
+      }
+    });
+  }catch(_){}
+})();
+
+// pageshow: bfcache 복귀
+window.addEventListener('pageshow', function(e){
+  if(e.persisted){
+    const saved = sessionStorage.getItem('cb_cs_lastImg');
+    if(saved && !lastImgUrl){
+      lastImgUrl = saved;
+      document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><img class="result-img" src="'+saved+'" alt="AI 착장 이미지"></div>';
+      setDot('done');
+    }
   }
-}catch(_){}
+});
+// visibilitychange: 탭/앱 전환 후 복귀 시
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible'){
+    try{
+      const saved = sessionStorage.getItem('cb_cs_lastImg');
+      const ts    = parseInt(sessionStorage.getItem('cb_cs_ts')||'0');
+      if(saved && !lastImgUrl && (Date.now()-ts < 30*60*1000 || !ts)){
+        lastImgUrl = saved;
+        document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><img class="result-img" src="'+saved+'" alt="AI 착장 이미지"></div>';
+        setDot('done');
+      }
+    }catch(_){}
+  }
+});
 
 // ── 코디 프로필 (프로필에서 불러오되, 수정은 sessionStorage에만) ──
 const _ageMap = {'10s':'10대','20s':'20대','30s':'30대','40s':'40대','50s':'50대','50s+':'50대+','60s':'60대'};

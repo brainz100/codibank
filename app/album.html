@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-2ZWQ7K7H0V"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-2ZWQ7K7H0V');
+</script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <title>코디 앨범 - 코디뱅크</title>
@@ -298,8 +306,16 @@ function tPurpose(label) {
 async function resolveImg(ref) {
   if (!ref) return '';
   const r = String(ref);
+  // 완전한 URL이면 그대로 사용
   if (r.startsWith('data:') || r.startsWith('blob:') || r.startsWith('http')) return r;
-  if (r.startsWith('/uploads/')) return window.location.origin + r;
+  // /uploads/ 상대경로 → 백엔드(Render) 절대 URL로 변환
+  if (r.startsWith('/uploads/')) {
+    const backendBase = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase)
+      ? window.CODIBANK_CONFIG.backendBase
+      : 'https://codibank-api.onrender.com';
+    return backendBase + r;
+  }
+  // CodiBank.getImageSrc 시도
   if (window.CodiBank && CodiBank.getImageSrc) {
     try { const s = await CodiBank.getImageSrc(r); if (s) return s; } catch(_) {}
   }
@@ -360,16 +376,21 @@ function mkCard(entry) {
     const img = document.getElementById('img_' + entry.id);
     const sk  = document.getElementById('sk_'  + entry.id);
     const ph  = document.getElementById('ph_'  + entry.id);
+    if (!src) { if(sk) sk.style.display='none'; if(ph) ph.style.display='flex'; return; }
     if (!img) return;
-    if (src) {
-      img.onload = () => { img.style.opacity='1'; if(sk) sk.style.display='none'; };
-      img.onerror = () => { if(sk) sk.style.display='none'; if(ph) ph.style.display='flex'; img.style.display='none'; };
-      img.src = src;
-    } else {
-      if(sk) sk.style.display='none';
-      if(ph) ph.style.display='flex';
-      img.style.display='none';
-    }
+    img.onload  = () => { img.style.opacity='1'; if(sk) sk.style.display='none'; };
+    img.onerror = () => {
+      // 이미지 로드 실패 시 백엔드 URL로 재시도
+      if(!img.dataset.retried && !src.startsWith('data:')){
+        img.dataset.retried = '1';
+        const base = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase)
+          ? window.CODIBANK_CONFIG.backendBase : 'https://codibank-api.onrender.com';
+        const alt = src.startsWith('/') ? base + src : src;
+        if(alt !== src) { img.src = alt; return; }
+      }
+      if(sk) sk.style.display='none'; if(ph) ph.style.display='flex';
+    };
+    img.src = src;
   });
   return wrap;
 }
@@ -523,6 +544,20 @@ function toggleLike(entryId) {
 }
 
 document.addEventListener('DOMContentLoaded', render);
+
+// 탭/앱 전환 후 복귀 시 앨범 재렌더링 (이미지가 사라진 경우 복원)
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible'){
+    // 이미지 src가 빈 경우에만 재렌더링
+    var emptyImgs = document.querySelectorAll('.acard-img[src=""]');
+    if(emptyImgs.length > 0) render();
+  }
+});
+
+// pageshow: bfcache에서 복귀 시
+window.addEventListener('pageshow', function(e){
+  if(e.persisted) render();
+});
 </script>
 </body>
 </html>

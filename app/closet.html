@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-2ZWQ7K7H0V"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-2ZWQ7K7H0V');
+</script>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>내옷장 - 코디뱅크</title>
@@ -1648,6 +1656,8 @@ function resetStylingBox(msg){
       if(ctx) ctx.clearRect(0,0,canvas.width,canvas.height);
     }
   }catch(_){ }
+
+  try{ sessionStorage.removeItem('cb_closet_snap'); }catch(_){}
 }
 
 // (v18.3 hotfix)
@@ -3858,6 +3868,19 @@ async function updateVTO(opts={}){
   S.hasGenerated = true;
   try{ updateAiCallBtn(); }catch(_){} // ← 완료: done(teal) 상태로
   try{ setGenUiEnabled(canGenerateNow()); }catch(_){} // 다시코디 버튼 활성화
+  // ✅ 생성 완료 상태 sessionStorage에 저장 (페이지 이탈 후 복귀 시 복원용)
+  try{
+    const _cv = document.getElementById('vtoCanvas');
+    if(_cv && _cv.style.display !== 'none'){
+      const _snap = {
+        ts: Date.now(),
+        dataUrl: _cv.toDataURL('image/jpeg', 0.85),
+        story: S.codiStory || '',
+        stateText: document.getElementById('vtoStateText')?.textContent || ''
+      };
+      sessionStorage.setItem('cb_closet_snap', JSON.stringify(_snap));
+    }
+  }catch(_e){}
 
   // 사용량 차감(성공적으로 "새 이미지"를 만든 경우에만)
   if(didGenerateNew){
@@ -5487,6 +5510,82 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   setTimeout(buildDateCards, 1500); // 예보 로드 후 재빌드
   // 초기 버튼 상태 설정
   try{ updateAiCallBtn(); }catch(_){}
+})();
+
+
+// ══════════════════════════════════════════════════
+// closet: 페이지 복귀 시 이미지 상태 복원 + 30분 타임아웃
+// ══════════════════════════════════════════════════
+(function(){
+  var SNAP_KEY = 'cb_closet_snap';
+  var TIMEOUT_MS = 30 * 60 * 1000; // 30분
+
+  function _restoreSnap(){
+    try{
+      var raw = sessionStorage.getItem(SNAP_KEY);
+      if(!raw) return;
+      var snap = JSON.parse(raw);
+      if(!snap || !snap.dataUrl) return;
+      if(Date.now() - (snap.ts||0) > TIMEOUT_MS){
+        sessionStorage.removeItem(SNAP_KEY); return;
+      }
+      var canvas  = document.getElementById('vtoCanvas');
+      var overlay = document.getElementById('vtoOverlay');
+      if(!canvas) return;
+      var img = new Image();
+      img.onload = function(){
+        canvas.width  = img.naturalWidth  || 512;
+        canvas.height = img.naturalHeight || 820;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        canvas.style.display = 'block';
+        if(overlay) overlay.style.display = 'none';
+        // codiStory 복원
+        if(snap.story){
+          S.codiStory = snap.story;
+          var expEl = document.getElementById('codiExplain');
+          if(expEl){
+            expEl.innerHTML = snap.story
+              .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+              .replace(/\n/g, '<br>');
+          }
+        }
+        // 상태 텍스트 복원
+        var stEl = document.getElementById('vtoStateText');
+        if(stEl && snap.stateText) stEl.textContent = snap.stateText;
+        // S 상태 복원
+        S.hasGenerated = true;
+        try{ updateAiCallBtn(); }catch(_){}
+        try{ setGenUiEnabled(true); }catch(_){}
+        // 저장/다시요청/공유 버튼 활성화
+        ['saveBtn','againBtn','shareBtn'].forEach(function(id){
+          var btn = document.getElementById(id);
+          if(btn){
+            btn.disabled = false;
+            btn.classList.remove('vto-btn-inactive');
+            btn.classList.add('vto-btn-active');
+          }
+        });
+      };
+      img.onerror = function(){ sessionStorage.removeItem(SNAP_KEY); };
+      img.src = snap.dataUrl;
+    }catch(_e){ console.warn('[closet restore]', _e); }
+  }
+
+  // 페이지 최초 로드 시 복원 시도
+  window.addEventListener('load', function(){ setTimeout(_restoreSnap, 400); });
+
+  // visibilitychange: 탭/앱 전환 후 돌아올 때
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible' && !S.hasGenerated){
+      _restoreSnap();
+    }
+  });
+
+  // pageshow: 뒤로가기 캐시(bfcache)에서 복귀 시
+  window.addEventListener('pageshow', function(e){
+    if(e.persisted && !S.hasGenerated){ _restoreSnap(); }
+  });
 })();
 
 </script>
