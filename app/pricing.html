@@ -131,9 +131,6 @@
     "프로필 수정":         "Edit Profile",
     "구독 플랜":           "Subscription",
     "서비스":              "Services",
-    "내 옷장 바로가기":    "Go to My Closet",
-    "기타":               "More",
-    "이용약관":            "Terms of Use",
     "환불정책":            "Refund Policy",
     "로그아웃":            "Log Out",
     "사용자":              "User",
@@ -221,38 +218,46 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:'Noto Sans KR',sans-serif;background:#ffffff;color:#111827;min-height:100dvh}
+:root{
+  --main:#071952;--main2:#0a2470;
+  --sub:#0B666A;--sub2:#35A29F;
+  --accent:#97FEED;
+  --bg:#f5f7fb;--card-bg:#ffffff;
+  --text:#111827;--text2:#374151;--text3:#6b7280;
+  --border:#e5e7eb;
+}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh}
 .mi{font-family:'Material Symbols Outlined';font-size:20px;line-height:1;vertical-align:middle}
 
 .page{max-width:480px;margin:0 auto;padding:0 16px 80px}
 
 /* 헤더 */
 .pg-header{display:flex;align-items:center;gap:12px;padding:20px 0 16px}
-.back-btn{width:38px;height:38px;border-radius:50%;background:rgba(151,254,237,0.08);border:1px solid rgba(151,254,237,0.15);cursor:pointer;color:#97FEED;display:flex;align-items:center;justify-content:center;text-decoration:none;flex-shrink:0}
-.pg-title{font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;color:#97FEED}
-.pg-sub{font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px}
+.back-btn{width:38px;height:38px;border-radius:50%;background:#fff;border:1.5px solid var(--border);cursor:pointer;color:var(--main);display:flex;align-items:center;justify-content:center;text-decoration:none;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.pg-title{font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;color:var(--main)}
+.pg-sub{font-size:11px;color:var(--text3);margin-top:2px}
 
 /* 현재 상태 */
-.status-card{background:rgba(11,102,106,0.2);border:1px solid rgba(53,162,159,0.2);border-radius:16px;padding:14px 18px;margin-bottom:24px}
-.status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.status-card{background:var(--main);border:none;border-radius:18px;padding:18px 20px;margin-bottom:24px;box-shadow:0 4px 20px rgba(7,25,82,.2)}
+.status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .status-plan{font-size:13px;font-weight:700;color:#97FEED}
-.status-usage{font-size:12px;color:rgba(255,255,255,0.45)}
-.usage-bar{height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-top:5px}
-.usage-fill{height:100%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .4s}
+.status-usage{font-size:12px;color:rgba(255,255,255,0.5)}
+.usage-bar{height:5px;background:rgba(255,255,255,0.12);border-radius:3px;overflow:hidden;margin-top:6px}
+.usage-fill{height:100%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .5s}
 
 /* 플랜 카드 */
-.section-label{font-size:10px;font-weight:700;letter-spacing:.12em;color:rgba(151,254,237,0.4);margin-bottom:14px}
+.section-label{font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--text3);margin-bottom:14px}
 .plan-grid{display:flex;flex-direction:column;gap:14px;margin-bottom:12px}
 
-.plan-card{border-radius:20px;padding:20px;cursor:pointer;border:2px solid rgba(7,25,82,.15);background:#071952;transition:.15s;position:relative;overflow:visible}
-.plan-card:active{transform:scale(.99)}
-.plan-card.selected{border-color:#35A29F}
-.plan-card.card-free{border-color:rgba(255,255,255,0.08)}
-.plan-card.card-silver{border-color:rgba(192,192,192,0.2)}
-.plan-card.card-gold{border-color:rgba(255,215,0,0.25);background:rgba(146,102,10,0.08)}
-.plan-card.card-diamond{border-color:rgba(196,181,253,0.25);background:rgba(76,29,149,0.08)}
-.plan-card.card-gold.selected{border-color:#FFD700}
-.plan-card.card-diamond.selected{border-color:#C4B5FD}
+.plan-card{border-radius:20px;padding:20px;cursor:pointer;border:2px solid transparent;background:var(--main);transition:all .18s;position:relative;overflow:visible;box-shadow:0 4px 16px rgba(7,25,82,.15)}
+.plan-card:active{transform:scale(.985)}
+.plan-card.selected{border-color:var(--sub2);box-shadow:0 6px 24px rgba(11,102,106,.3)}
+.plan-card.card-free{background:var(--main)}
+.plan-card.card-silver{background:linear-gradient(135deg,#1a2744,#0f1e3a)}
+.plan-card.card-gold{background:linear-gradient(135deg,#1e1600,#2a1f00)}
+.plan-card.card-diamond{background:linear-gradient(135deg,#12063a,#1a0a52)}
+.plan-card.card-gold.selected{border-color:#FFD700;box-shadow:0 6px 24px rgba(255,215,0,.2)}
+.plan-card.card-diamond.selected{border-color:#C4B5FD;box-shadow:0 6px 24px rgba(196,181,253,.2)}
 
 .rec-badge{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#0B666A,#35A29F);color:#fff;font-size:10px;font-weight:800;padding:3px 16px;border-radius:20px;white-space:nowrap;letter-spacing:.02em}
 
@@ -283,7 +288,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#ffffff;color:#111827;min-
 .feat .sub{font-size:10.5px;color:rgba(151,254,237,0.55);display:block;margin-top:1px}
 
 /* 결제 버튼 */
-.pay-wrap{position:fixed;bottom:0;left:0;right:0;padding:10px 16px calc(10px + max(70px,env(safe-area-inset-bottom) + 70px));background:rgba(7,19,42,0.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(151,254,237,0.08);z-index:100000}
+.pay-wrap{position:fixed;bottom:0;left:0;right:0;padding:10px 16px calc(10px + max(70px,env(safe-area-inset-bottom) + 70px));background:rgba(255,255,255,0.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--border);z-index:100000;box-shadow:0 -4px 20px rgba(0,0,0,.06)}
 .pay-wrap-inner{max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:6px}
 .pay-btn{width:100%;padding:16px;border-radius:16px;border:none;color:#fff;font-family:'Outfit',sans-serif;font-size:17px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
 .pay-btn.default{background:linear-gradient(135deg,#0B666A,#35A29F)}
@@ -291,17 +296,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:#ffffff;color:#111827;min-
 .pay-btn.diamond-btn{background:linear-gradient(135deg,#4C1D95,#7C3AED)}
 .pay-btn:disabled{opacity:.35;cursor:not-allowed;background:rgba(53,162,159,0.3) !important}
 .pay-btn:not(:disabled):active{opacity:.85}
-.pay-note{text-align:center;font-size:11px;color:rgba(255,255,255,0.3)}
+.pay-note{text-align:center;font-size:11px;color:var(--text3)}
 
 /* 안내 박스 */
-.info-box{background:rgba(53,162,159,0.06);border:1px solid rgba(53,162,159,0.12);border-radius:14px;padding:12px 16px;font-size:12px;color:rgba(255,255,255,0.5);line-height:1.75}
-.info-box b{color:rgba(151,254,237,0.65);display:block;margin-bottom:3px;margin-top:10px}
+.info-box{background:#ffffff;border:1px solid var(--border);border-radius:14px;padding:14px 18px;font-size:12px;color:var(--text3);line-height:1.8;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.info-box b{color:var(--sub);display:block;margin-bottom:3px;margin-top:10px}
 .info-box b:first-child{margin-top:0}
 
 /* 풋바 */
 .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px;padding-bottom:max(10px,env(safe-area-inset-bottom));pointer-events:none}
 .cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px}
-.cb-nav-tab{display:flex;flex-direction:column;align-items:center;gap:2px;color:rgba(0,0,0,.4);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s}
+.cb-nav-tab{display:flex;flex-direction:column;align-items:center;gap:2px;color:rgba(216,226,255,.5);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s}
 .cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1}
 .cb-nav-tab .nl{font-size:9px;font-weight:600}
 .cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px}
@@ -331,17 +336,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:#ffffff;color:#111827;min-
     </div>
     <div class="usage-bar"><div class="usage-fill" id="usageFill" style="width:0%"></div></div>
     <!-- 이미지 생성 가능 횟수 (구독 + 보너스) -->
-    <div id="quotaInfoBox" style="margin-top:10px;padding:10px 12px;background:rgba(151,254,237,0.06);border-radius:10px;border:1px solid rgba(151,254,237,0.15);display:none;">
-      <div style="font-size:11px;color:rgba(151,254,237,0.55);font-weight:700;margin-bottom:4px;letter-spacing:.04em;">이달 이미지 생성 가능 횟수</div>
+    <div id="quotaInfoBox" style="margin-top:10px;padding:10px 14px;background:rgba(151,254,237,0.1);border-radius:10px;border:1px solid rgba(151,254,237,0.25);display:none;">
+      <div style="font-size:11px;color:rgba(151,254,237,0.75);font-weight:700;margin-bottom:4px;letter-spacing:.04em;">이달 이미지 생성 가능 횟수</div>
       <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">
-        <span id="quotaTotal" style="font-size:22px;font-weight:900;color:#97FEED;">—</span>
-        <span style="font-size:12px;color:rgba(255,255,255,0.4);">회 가능</span>
-        <span id="quotaBreakdown" style="font-size:11px;color:rgba(255,255,255,0.35);margin-left:4px;"></span>
+        <span id="quotaTotal" style="font-size:24px;font-weight:900;color:#fff;">—</span>
+        <span style="font-size:12px;color:rgba(255,255,255,0.55);">회 가능</span>
+        <span id="quotaBreakdown" style="font-size:11px;color:rgba(151,254,237,0.6);margin-left:4px;"></span>
       </div>
     </div>
   </div>
 
-  <div class="section-label">SUBSCRIPTION PLAN</div>
+  <div class="section-label" style="color:var(--text3);">SUBSCRIPTION PLAN</div>
   <div class="plan-grid" id="planGrid"></div>
 
   <!-- 안내 박스 -->
