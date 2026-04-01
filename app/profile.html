@@ -176,13 +176,17 @@ header h1{font-size:17px;font-weight:800;}
     <button onclick="reAnalyzePersonalColor()" style="margin-top:10px;width:100%;padding:9px;border:1.5px solid #0B666A;background:#fff;color:#0B666A;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">다시 분석</button>
   </div>
   <div id="pcEmpty" style="padding:14px 20px;text-align:center;">
-    <div style="font-size:12px;color:#aaa;margin-bottom:8px;">프로필 사진을 저장하면 AI가 퍼스널컬러를 자동 분석합니다</div>
-    <div style="display:flex;gap:6px;justify-content:center;">
-      <span style="width:16px;height:16px;border-radius:50%;background:#FFB347;"></span>
-      <span style="width:16px;height:16px;border-radius:50%;background:#87CEEB;"></span>
-      <span style="width:16px;height:16px;border-radius:50%;background:#CD853F;"></span>
-      <span style="width:16px;height:16px;border-radius:50%;background:#B0C4DE;"></span>
+    <div style="font-size:12px;color:#aaa;margin-bottom:10px;">프로필 사진을 선택한 후 분석을 시작하세요</div>
+    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:12px;">
+      <span style="width:14px;height:14px;border-radius:50%;background:#FFB347;"></span>
+      <span style="width:14px;height:14px;border-radius:50%;background:#87CEEB;"></span>
+      <span style="width:14px;height:14px;border-radius:50%;background:#CD853F;"></span>
+      <span style="width:14px;height:14px;border-radius:50%;background:#B0C4DE;"></span>
     </div>
+    <button id="pcAnalyzeBtn" onclick="startPersonalColorAnalysis()" disabled
+      style="width:100%;padding:11px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#e0e0e0;color:#aaa;transition:all .2s;">
+      🎨 퍼스널컬러 분석하기
+    </button>
   </div>
 </div>
 <!-- 체형 정보 -->
@@ -298,8 +302,9 @@ function previewPhoto(e){
         const c = document.createElement('canvas'); c.width = nw; c.height = nh;
         const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, nw, nh);
         _photoData = c.toDataURL('image/jpeg', q);
-        // 사진 선택 즉시 퍼스널컬러 자동 분석
-        if(typeof analyzePersonalColor === 'function') analyzePersonalColor(_photoData);
+        // 사진 선택 → 분석 버튼 활성화
+        const _pcBtn = document.getElementById('pcAnalyzeBtn');
+        if(_pcBtn){ _pcBtn.disabled=false; _pcBtn.style.background='linear-gradient(135deg,#0B666A,#35A29F)'; _pcBtn.style.color='#fff'; }
       } catch(_) {
         _photoData = rawData; // 압축 실패 시 원본
       }
@@ -454,6 +459,8 @@ function renderPersonalColor(pc) {
   if(empty)   empty.style.display   = 'none';
   if(loading) loading.style.display = 'none';
   if(result)  result.style.display  = 'block';
+  // 분석 버튼 숨기기
+  try{ const b=document.getElementById('pcAnalyzeBtn'); if(b) b.style.display='none'; }catch(_){}
 
   const dot = document.getElementById('pcSeasonDot');
   if(dot) dot.style.background = SEASON_COLORS[pc.season] || '#97FEED';
@@ -553,6 +560,13 @@ async function reAnalyzePersonalColor() {
   await analyzePersonalColor(_photoData);
 }
 
+
+function startPersonalColorAnalysis() {
+  if(!_photoData){ showToast('먼저 프로필 사진을 선택해주세요.'); return; }
+  const btn = document.getElementById('pcAnalyzeBtn');
+  if(btn){ btn.disabled=true; btn.textContent='분석 중…'; }
+  analyzePersonalColor(_photoData);
+}
 </script>
 </body>
 </html>

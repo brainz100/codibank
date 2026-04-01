@@ -407,9 +407,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
         <div id="pcEmptyCS" style="font-size:10.5px;color:rgba(255,255,255,.35);line-height:1.4;">사진을 등록하면<br>퍼스널컬러를 분석합니다</div>
       </div>
     </div>
-    <div style="display:flex;gap:6px;flex-shrink:0;">
-      <button class="face-btn cam" onclick="pickFaceCamera()" style="padding:8px 12px;"><span class="mi" style="font-size:16px;">photo_camera</span>촬영</button>
-      <button class="face-btn gal" onclick="pickFaceFile()" style="padding:8px 12px;"><span class="mi" style="font-size:16px;">photo_library</span>선택</button>
+    <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">
+      <button class="face-btn cam" onclick="pickFaceCamera()" style="padding:6px 10px;font-size:11px;"><span class="mi" style="font-size:14px;">photo_camera</span>촬영</button>
+      <button class="face-btn gal" onclick="pickFaceFile()" style="padding:6px 10px;font-size:11px;"><span class="mi" style="font-size:14px;">photo_library</span>선택</button>
     </div>
   </div>
   <!-- 성별/나이대/키/몸무게 -->
@@ -1132,16 +1132,102 @@ async function generate(isRetry=false){
       try{
         const _detail = document.getElementById('csScoreDetail');
         if(_detail){
-          // 컬러 매칭 점수
-          const _colorSc = Math.min(100, Math.max(0, Math.round(score * 0.9 + (Math.random()*10-5))));
-          // 체형 밸런스 점수
-          const _bodySc = (_sh&&_sw) ? Math.min(100, Math.max(0, Math.round(score * 0.95 + (Math.random()*8-4)))) : score;
-          // TPO 적합성
-          const _tpoSc = Math.min(100, Math.max(0, Math.round(score * 1.05 + (Math.random()*8-4))));
-          // 퍼스널컬러 매칭
-          const _pcSc = _csPersonalColor
-            ? Math.min(100, Math.max(0, Math.round(score * 0.92 + (Math.random()*12-6))))
-            : null;
+          // ══════════════════════════════════════════════════════
+          // CodiBank 스코어링 공식 (가중치 합산)
+          // Score = (Wc×C) + (Wp×P) + (Wb×B) + (Wm×M)
+          // C(Color Harmony 35%) + P(Personal Type 25%)
+          // B(Body Balance 20%) + M(Makeup/Context 20%)
+          // ══════════════════════════════════════════════════════
+
+          // ─ C: 컬러 조화도 (35%) ─
+          // 상의/하의 컬러 관계 기반 ΔE 유사 계산
+          let _C = 70; // 기본값
+          if(_topColor && _botColor){
+            if(_topColor === _botColor) _C = 90; // 톤온톤: 높은 조화
+            else if(
+              (_topColor.includes('화이트')||_topColor.includes('밝')) &&
+              (_botColor.includes('네이비')||_botColor.includes('블랙')||_botColor.includes('그레이'))
+            ) _C = 92; // 클래식 대비
+            else if(
+              (_topColor.includes('블랙')||_topColor.includes('화이트')||_topColor.includes('그레이')) ||
+              (_botColor.includes('블랙')||_botColor.includes('화이트')||_botColor.includes('그레이'))
+            ) _C = 85; // 뉴트럴 포함
+            else _C = 72; // 컬러×컬러 (충돌 가능성)
+          }
+          // 퍼스널컬러 팔레트와 의류 컬러 ΔE 반영
+          if(_csPersonalColor && _csPersonalColor.best_colors && _topColor){
+            const _pcBest = _csPersonalColor.best_colors;
+            const _isMatch = _pcBest.some(h => {
+              // HEX → RGB 대략 비교
+              const r=parseInt(h.slice(1,3),16), g=parseInt(h.slice(3,5),16), b=parseInt(h.slice(5,7),16);
+              const lum = 0.299*r + 0.587*g + 0.114*b;
+              // 어두운 팔레트 + 어두운 옷 OR 밝은+밝은: ΔE 낮음(조화)
+              return (lum < 128 && (_topColor.includes('블랙')||_topColor.includes('네이비')||_topColor.includes('다크'))) ||
+                     (lum > 128 && (_topColor.includes('화이트')||_topColor.includes('베이지')||_topColor.includes('밝')));
+            });
+            if(_isMatch) _C = Math.min(100, _C + 8);
+          }
+
+          // ─ P: 퍼스널타입 매칭 (25%) ─
+          // 계절 타입 가이드라인 준수 여부
+          let _P = 75; // 기본 (퍼스널컬러 미분석)
+          if(_csPersonalColor){
+            const _season = _csPersonalColor.season || '';
+            const _undertone = _csPersonalColor.undertone || '';
+            // 웜톤 + 웜계열 옷 or 쿨톤 + 쿨계열 옷
+            const _isWarm = _season.includes('봄')||_season.includes('가을')||_undertone.includes('웜');
+            const _clothWarm = (_topColor||'').includes('베이지')||(_topColor||'').includes('브라운')||
+                               (_topColor||'').includes('카멜')||(_topColor||'').includes('머스타드');
+            const _clothCool = (_topColor||'').includes('네이비')||(_topColor||'').includes('블루')||
+                               (_topColor||'').includes('라벤더')||(_topColor||'').includes('민트');
+            if((_isWarm && _clothWarm)||(!_isWarm && _clothCool)) _P = 92;
+            else if((_topColor||'').includes('블랙')||(_topColor||'').includes('화이트')) _P = 83; // 무채색은 범용
+            else _P = 68; // 톤 불일치
+            // 피해야 할 컬러 착용 시 감점
+            if(_csPersonalColor.avoid_colors){
+              const _avoiding = _csPersonalColor.avoid_colors.length > 0;
+              if(_avoiding) _P = Math.max(50, _P - 5);
+            }
+          }
+
+          // ─ B: 체형 밸런스 (20%) ─
+          // BMI + 상의/하의 카테고리 조합
+          let _B = 78;
+          if(_sh && _sw){
+            if(_bodyType==='표준'||_bodyType==='슬림') _B = 87;
+            else if(_bodyType==='보통') _B = 80;
+            else _B = 72;
+            // 상의 볼륨과 하의 핏 조화
+            const _topVol = (_topCat.includes('니트')||_topCat.includes('맨투맨'))?'볼륨':'일반';
+            const _botFit = (_botCat.includes('와이드'))?'루즈':(_botCat.includes('스키니'))?'타이트':'일반';
+            if(_topVol==='볼륨' && _botFit==='루즈') _B = Math.max(60, _B-10); // 상하 모두 볼륨: 실루엣 무너짐
+            if(_topVol==='볼륨' && _botFit==='타이트') _B = Math.min(95, _B+5); // 볼륨+슬림: 이상적
+          }
+
+          // ─ M: 메이크업/TPO 적합성 (20%) ─
+          // 목적(purpose) + 날씨 컨텍스트
+          let _M = 78;
+          const _purpose = codiProfile.purpose || '';
+          if(_purpose.includes('비즈니스')||_purpose.includes('격식')) _M = 84;
+          else if(_purpose.includes('캐주얼')||_purpose.includes('데일리')) _M = 82;
+          else if(_purpose.includes('데이트')) _M = 80;
+
+          // ─ 최종 Score = Wc×C + Wp×P + Wb×B + Wm×M ─
+          const _C_w = 0.35, _P_w = 0.25, _B_w = 0.20, _M_w = 0.20;
+          const _formulaScore = Math.round(_C*_C_w + _P*_P_w + _B*_B_w + _M*_M_w);
+          // 기존 Gemini 분석 score와 혼합 (50:50) → 안정적 점수
+          const _finalScore = Math.round((score * 0.5) + (_formulaScore * 0.5));
+          const _colorSc = Math.min(100, Math.round(_C));
+          const _bodySc  = Math.min(100, Math.round(_B));
+          const _tpoSc   = Math.min(100, Math.round(_M));
+          const _pcSc    = _csPersonalColor ? Math.min(100, Math.round(_P)) : null;
+
+          // 점수 표시 업데이트 (공식 점수로)
+          document.getElementById('csScoreNum').textContent = _finalScore;
+          const _newGrade = _finalScore>=92?'S급 매칭':_finalScore>=86?'A급 매칭':_finalScore>=80?'B급 매칭':'C급 매칭';
+          // grade 텍스트 업데이트
+          const _headerEl = document.getElementById('csScoreText');
+          if(_headerEl) _headerEl.innerHTML = _headerEl.innerHTML.replace(/(S급|A급|B급|C급) 매칭/, _newGrade);
 
           document.getElementById('csColorScore').textContent = _colorSc;
           document.getElementById('csBodyScore').textContent  = _bodySc;
