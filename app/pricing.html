@@ -221,7 +221,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:'Noto Sans KR',sans-serif;background:#07132a;color:#d8e2ff;min-height:100dvh}
+body{font-family:'Noto Sans KR',sans-serif;background:#ffffff;color:#111827;min-height:100dvh}
 .mi{font-family:'Material Symbols Outlined';font-size:20px;line-height:1;vertical-align:middle}
 
 .page{max-width:480px;margin:0 auto;padding:0 16px 80px}
@@ -244,7 +244,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#07132a;color:#d8e2ff;min-
 .section-label{font-size:10px;font-weight:700;letter-spacing:.12em;color:rgba(151,254,237,0.4);margin-bottom:14px}
 .plan-grid{display:flex;flex-direction:column;gap:14px;margin-bottom:12px}
 
-.plan-card{border-radius:20px;padding:20px;cursor:pointer;border:2px solid transparent;background:rgba(13,31,60,0.8);transition:.15s;position:relative;overflow:visible}
+.plan-card{border-radius:20px;padding:20px;cursor:pointer;border:2px solid rgba(7,25,82,.15);background:#071952;transition:.15s;position:relative;overflow:visible}
 .plan-card:active{transform:scale(.99)}
 .plan-card.selected{border-color:#35A29F}
 .plan-card.card-free{border-color:rgba(255,255,255,0.08)}
@@ -301,7 +301,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#07132a;color:#d8e2ff;min-
 /* 풋바 */
 .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px;padding-bottom:max(10px,env(safe-area-inset-bottom));pointer-events:none}
 .cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px}
-.cb-nav-tab{display:flex;flex-direction:column;align-items:center;gap:2px;color:rgba(216,226,255,.4);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s}
+.cb-nav-tab{display:flex;flex-direction:column;align-items:center;gap:2px;color:rgba(0,0,0,.4);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s}
 .cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1}
 .cb-nav-tab .nl{font-size:9px;font-weight:600}
 .cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px}
@@ -683,6 +683,15 @@ function showToast(msg,type){
 
 renderPlans();
 renderStatus();
+
+// 실시간 업데이트: 탭 복귀 시 재조회
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible') renderStatus();
+});
+window.addEventListener('pageshow', function(e){
+  if(e.persisted) renderStatus();
+});
+
 </script>
 </body>
 </html>

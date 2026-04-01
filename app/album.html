@@ -353,6 +353,8 @@ function mkCard(entry) {
   let _pressTimer = null;
   let _pressing = false;
   const _startPress = (e) => {
+    // 터치 시작 시 브라우저 기본 동작(팝업) 방지
+    if(e.type === 'touchstart') e.preventDefault();
     _pressing = false;
     _pressTimer = setTimeout(() => {
       _pressing = true;
@@ -364,10 +366,12 @@ function mkCard(entry) {
     if (_pressing) e.preventDefault();
   };
   wrap.addEventListener('mousedown', _startPress);
-  wrap.addEventListener('touchstart', _startPress, {passive:true});
+  wrap.addEventListener('touchstart', _startPress, {passive:false});
   wrap.addEventListener('mouseup', _endPress);
   wrap.addEventListener('touchend', _endPress);
   wrap.addEventListener('mouseleave', () => clearTimeout(_pressTimer));
+  // 브라우저 기본 컨텍스트 메뉴(이미지 복사/공유 팝업) 차단
+  wrap.addEventListener('contextmenu', (e) => e.preventDefault());
   wrap.addEventListener('click', (e) => {
     if (_pressing) { _pressing = false; return; }
     openModal(entry);

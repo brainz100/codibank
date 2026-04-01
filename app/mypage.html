@@ -163,6 +163,11 @@
     <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
   </div>
 
+  <!-- 회원탈퇴 링크 -->
+  <div style="text-align:center;margin-top:32px;margin-bottom:12px;">
+    <a href="withdraw.html" style="font-size:12px;color:rgba(255,255,255,.25);text-decoration:underline;text-underline-offset:3px;">회원탈퇴</a>
+  </div>
+
   <button class="btn-logout" onclick="doLogout()">로그아웃</button>
 
   <!-- 회사 정보 -->
@@ -392,22 +397,59 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       document.getElementById('userEmail').textContent = u.email || '';
       document.getElementById('userPlan').textContent  = (u.plan || 'FREE') + ' 플랜';
 
-      // ── 구독/보너스 정보 표시 ──
-      try{
-        const infoKey = 'cb_plan_info_'+(u.email||'guest');
-        const infoRaw = localStorage.getItem(infoKey);
+      // ── 구독/보너스 정보 실시간 표시 ──
+      (async function(){
         const el = document.getElementById('mypageQuota');
-        if(infoRaw && el){
-          const info = JSON.parse(infoRaw);
-          const nowYM = new Date().toISOString().slice(0,7);
-          if(info.updatedAt === nowYM){
-            const used = info.totalUsed || 0;
-            const total = info.totalLimit >= 9999 ? '무제한' : info.totalLimit;
-            const bonus = info.bonusTotal > 0 ? ' (+보너스 '+info.bonusTotal+'회)' : '';
-            el.textContent = (info.totalLimit >= 9999 ? '∞' : Math.max(0, info.totalLimit - used)) + '회 가능' + bonus;
-          }
+        if(!el || !u.email) return;
+        el.textContent = '조회 중…';
+        try{
+          const bb = (window.CodiBank && typeof CodiBank.getBackendBaseResolved==='function')
+            ? CodiBank.getBackendBaseResolved()
+            : (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || 'https://codibank-api.onrender.com';
+          // 보너스 API 조회
+          let bonusTotal = 0;
+          try{
+            const rb = await fetch(bb+'/api/usage/bonus/'+encodeURIComponent(u.email));
+            if(rb.ok){ const db = await rb.json(); bonusTotal = parseInt(db.total_bonus||0); }
+          }catch(_){}
+          // 사용량
+          let totalUsed = 0;
+          try{
+            const key = 'cb_usage_'+(u.email);
+            const raw = JSON.parse(localStorage.getItem(key)||'{}');
+            totalUsed = raw.totalCount || 0;
+          }catch(_){}
+          // 플랜 기본 한도
+          const LIMITS = {free:6, silver:30, gold:60, diamond:9999};
+          const planId = (u.plan||'free').toLowerCase().replace(/\s+/,'');
+          const baseLimit = LIMITS[planId] || 6;
+          const totalLimit = baseLimit + bonusTotal;
+          const remaining = totalLimit >= 9999 ? '무제한' : Math.max(0, totalLimit - totalUsed);
+          const bonusText = bonusTotal > 0 ? ' (+보너스 '+bonusTotal+'회)' : '';
+          el.textContent = remaining + '회 가능' + bonusText;
+          // localStorage도 업데이트
+          try{
+            const infoKey = 'cb_plan_info_'+(u.email);
+            localStorage.setItem(infoKey, JSON.stringify({
+              updatedAt: new Date().toISOString().slice(0,7),
+              totalLimit, totalUsed, bonusTotal
+            }));
+          }catch(_){}
+        }catch(_){
+          // 폴백: localStorage
+          try{
+            const infoKey = 'cb_plan_info_'+(u.email);
+            const infoRaw = localStorage.getItem(infoKey);
+            if(infoRaw){
+              const info = JSON.parse(infoRaw);
+              const used = info.totalUsed || 0;
+              const bonus = info.bonusTotal > 0 ? ' (+보너스 '+info.bonusTotal+'회)' : '';
+              const rem = info.totalLimit >= 9999 ? '무제한' : Math.max(0, info.totalLimit - used);
+              el.textContent = rem + '회 가능' + bonus;
+            }
+          }catch(_e){}
         }
-      }catch(_){}
+      })();
 
       // ── 프로필 사진 로드 ──
       // 1순위: user.photo (dataURL 직접 저장)
