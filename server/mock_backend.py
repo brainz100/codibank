@@ -954,6 +954,16 @@ def _ai_styling_via_gemini(
     gender = str(user_info.get("gender", "M")).strip().upper()
     gender_en = "woman" if gender == "F" else "man"
     gender_ko = "여성" if gender == "F" else "남성"
+
+    # 퍼스널컬러 프롬프트 블록
+    _pc_text = ""
+    if personal_color:
+        _pc_s = personal_color.get("season","")
+        _pc_u = personal_color.get("undertone","")
+        _pc_best  = ", ".join((personal_color.get("best_colors") or [])[:3])
+        _pc_avoid = ", ".join((personal_color.get("avoid_colors") or [])[:2])
+        if _pc_s:
+            _pc_text = f"""\n⭐ 사용자 퍼스널컬러: {_pc_s} ({_pc_u})\n  - 잘 어울리는 컬러: {_pc_best}\n  - 피해야 할 컬러: {_pc_avoid}\n  → 이 착장이 퍼스널컬러와의 조화를 스타일링 점수에 반드시 반영할 것"""
     age = str(user_info.get("ageGroup", "30대")).strip()
     height = str(user_info.get("height", "")).strip()
     weight = str(user_info.get("weight", "")).strip()
@@ -1263,7 +1273,8 @@ def codistyle_generate():
             return jsonify(ok=False, error="Gemini SDK 미설치. google-genai 또는 google-generativeai 필요"), 500
 
     payload   = request.get_json(silent=True) or {}
-    user_info = payload.get("user") or {}
+    user_info      = payload.get("user") or {}
+    personal_color = payload.get("personalColor") or None  # 퍼스널컬러 데이터
     gender    = str(user_info.get("gender", "M")).strip().upper()
     gender_en = "woman" if gender == "F" else "man"
     gender_ko = "여성" if gender == "F" else "남성"
@@ -1320,10 +1331,10 @@ def codistyle_generate():
     else:
         ko_instruction = "첨부한 상의와 하의를 입고 있는 전신 모습을 생성해주세요. "
 
-    # ── 바지 기장 규칙 ──
-    # 1차(기본): 발목을 완전히 덮는 풀 레귤러 강제 (성별·나이대 무관)
-    # 다시요청:  바지단이 바닥에 닿는 수준으로 더욱 강제
+    # ── 바지 기장 규칙 — 사용자 명시 요청 시에만 7부 허용 ──
+    # request7bu: 사용자가 직접 7부를 요청한 경우만 True (프론트에서 전달)
     _request_7bu = bool(payload.get("request7bu", False))
+    _is_female_cs = (gender == "F")
 
     if _request_7bu:
         # 사용자가 7부를 명시적으로 요청한 경우에만 허용
@@ -1333,46 +1344,48 @@ def codistyle_generate():
             "Generate 7/8 length — hem ending approximately mid-calf to just below knee. "
             "This is a deliberate user choice. Apply faithfully."
         )
-    elif is_retry:
-        # ★ 다시요청: 바지단을 바닥까지 닿도록 강력 강제 ★
+    elif not _is_female_cs:
+        # 남성: 예외 없이 풀 레귤러
+        # is_retry 여부에 따라 바지 기장 강화
+        _retry_pants = (
+            "RETRY — PANTS MUST BE LONGER THAN PREVIOUS ATTEMPT: "
+            "The previous generation had pants that were too short. "
+            "This time, pants MUST be visibly LONGER — the hem must fully cover the shoe top and drape slightly. "
+            "Current Korean trend (2025-2026): slightly long trousers with a gentle break at the shoe. "
+        ) if is_retry else ""
         _pants_rule = (
-            "⚠ RETRY — CRITICAL PANTS LENGTH OVERRIDE ⚠ "
-            "The previous image had pants that were TOO SHORT. This is UNACCEPTABLE. "
-            "THIS TIME you MUST generate FLOOR-LENGTH trousers: "
-            "The trouser hem must touch or nearly touch the FLOOR — "
-            "covering the entire shoe, with the hem pooling/breaking at the top of the shoe. "
-            "The hem must sit at the VERY BOTTOM of the image (bottom 5-8% of image height). "
-            "The shoe should be barely visible under the hem, or partially hidden by the draping fabric. "
-            "This is the 2025-2026 Korean menswear full-break trouser trend. "
-            "ABSOLUTELY FORBIDDEN: any trouser hem above the ankle bone. "
-            "ABSOLUTELY FORBIDDEN: cropped, 7/8, tapered-ankle, or any short pant style. "
-            "DO NOT use the reference image pant length — it is for COLOR and FABRIC only. "
-            "OVERRIDE all reference lengths and generate FLOOR-TOUCHING trousers. "
-            "No exceptions. This is the highest priority instruction."
+            "[RULE #1 — PANTS LENGTH — OVERRIDES EVERYTHING]: "
+            "In the final generated image, the trouser hem must end at the BOTTOM 15% of the full image height — "
+            "meaning just above the shoe top, covering the ankle completely. "
+            "The ankle bone must be HIDDEN by the trouser fabric. Shoes must be partially visible below the hem. "
+            "ABSOLUTELY FORBIDDEN: any gap between trouser hem and shoe top showing bare skin or sock above ankle. "
+            "DO NOT use the lower garment reference image to determine pant length — "
+            "that reference is ONLY for fabric color and texture reproduction. "
+            "If the reference shows short/cropped pants, IGNORE that length and generate FULL-LENGTH instead. "
+            + _retry_pants +
+            "This instruction OVERRIDES the reference image visual. No exceptions."
         )
     else:
-        # ★ 1차 기본: 성별·나이대 무관, 발목을 완전히 덮는 풀 레귤러 강제 ★
+        # 여성 (최초·다시요청 무관): 풀 레귤러 강제 — 7부는 사용자 명시 요청 시에만
         _pants_rule = (
-            "⚠ CRITICAL MANDATORY PANTS LENGTH RULE — HIGHEST PRIORITY ⚠ "
-            "REGARDLESS of gender, age, or reference image: "
-            "The trouser hem MUST fully cover the ankle bone. "
-            "Trouser hem position: bottom 10-15% of the total image height. "
-            "The ankle must be COMPLETELY HIDDEN under the trouser fabric. "
-            "The shoe top should be barely visible just below the trouser hem. "
-            "There must be ZERO visible bare skin or sock between trouser hem and shoe. "
-            "DO NOT reference the lower garment image for length — use it for COLOR and FABRIC ONLY. "
-            "If the reference image shows short/cropped/7-8 pants, COMPLETELY IGNORE that length. "
-            "Generate FULL ANKLE-COVERING trousers regardless of what the reference shows. "
-            "This applies to both men and women. No exceptions. "
-            "FORBIDDEN styles: cropped pants, 7/8 pants, tapered ankle, calf-length, above-ankle hem."
+            "[RULE #1 — PANTS LENGTH — OVERRIDES EVERYTHING]: "
+            "In the final generated image, the trouser hem must end at the BOTTOM 15% of the full image height — "
+            "meaning just above the shoe top, covering the ankle completely. "
+            "The ankle bone must be HIDDEN by the trouser fabric. Shoes must be visible below the hem. "
+            "ABSOLUTELY FORBIDDEN: any gap between trouser hem and shoe top showing bare skin or sock above the ankle. "
+            "DO NOT use the lower garment reference image to determine pant length — "
+            "that reference is ONLY for fabric color and texture reproduction. "
+            "If the reference shows short/cropped pants, IGNORE that length and generate FULL-LENGTH instead. "
+            + _retry_pants +
+            "This instruction OVERRIDES the reference image visual. No exceptions."
         )
 
     prompt = (
-        "⚠ ABSOLUTE RULE #1 — PANTS LENGTH — CANNOT BE OVERRIDDEN BY ANYTHING: "
-        "The trouser hem in the FINAL IMAGE must fully cover the ankle bone. "
-        "Hem position: bottom 10-15% of image height (just above shoe top). "
-        "ZERO bare ankle/skin/sock visible between hem and shoe top. "
-        "Lower-body reference image = COLOR and FABRIC ONLY. Its length is IRRELEVANT. "
+        "[RULE #1 — HIGHEST PRIORITY — PANTS LENGTH]: "
+        "The trouser hem in the FINAL IMAGE must sit at the BOTTOM 12-15% of the image height "
+        "(just above the shoe top, ankle bone fully covered by fabric). "
+        "There must be NO visible bare ankle or sock above the shoe. "
+        "The lower-body reference image is for COLOR+FABRIC only — IGNORE its pant length completely. "
         "Create a photorealistic full-body Korean fashion editorial photo. "
         + face_line
         + img_desc + " "
@@ -1391,6 +1404,9 @@ def codistyle_generate():
         "ONLY ONE FLAT SOLID PASTEL COLOR. No exceptions. "
 
         "Professional fashion editorial lighting. Photorealistic. No text. No watermarks. "
+
+        # ── 퍼스널컬러 반영 ──
+        + (_pc_text + " " if _pc_text else "")
 
         # ── 바지 길이: GARMENT 재현보다 우선 적용 ──
         + _pants_rule + " "
@@ -1411,12 +1427,12 @@ def codistyle_generate():
         "STYLIST RULE (MANDATORY): This is a practical daily-life personal styling service, NOT a fashion show. "
         "Recommend only real-world wearable outfits. No experimental, avant-garde, runway, or asymmetric styling. "
         "All color combinations and silhouettes must look natural and socially appropriate in everyday Korean life. "
-        + " ⚠ MANDATORY FINAL VERIFICATION — PANTS: Before rendering, confirm ALL: "
-        "(1) trouser hem covers ankle bone completely — bottom 10-15% of image, "
-        "(2) ZERO bare skin or sock visible between hem and shoe, "
-        "(3) shoe is only partially visible below the hem (not the full shoe), "
-        "(4) if ANY condition fails → generate LONGER pants, no exceptions. "
-        "This is a hard constraint. Do not generate short, cropped, or ankle-length pants. "
+        + " [FINAL CHECK — PANTS LENGTH]: Before finalizing, verify: "
+        "(1) trouser hem sits at bottom 12-15% of image, "
+        "(2) ankle bone is fully covered by fabric, "
+        "(3) shoe top is visible just below the hem, "
+        "(4) no bare skin visible between hem and shoe. "
+        "If any condition fails, regenerate with LONGER pants. "
     )
 
     # ── Gemini API 호출 (신/구 SDK 분기) ──
@@ -1800,6 +1816,276 @@ def track_styling():
         return jsonify({"ok": False, "error": r.text}), 400
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+
+@app.post("/api/ai/analyze-item")
+def ai_analyze_item():
+    """
+    의류 아이템 이미지를 Gemini Vision으로 분석:
+    카테고리, 메인컬러(HEX), 패턴, 소재, 핏, 디자인 포인트, 스타일 키워드
+    """
+    if not _GEMINI_KEY:
+        return jsonify(ok=False, error="GEMINI_API_KEY 미설정"), 400
+
+    try:
+        d = request.get_json(force=True) or {}
+        image_data = d.get("image")          # base64 또는 URL
+        image_url  = d.get("image_url", "")  # /uploads/ 경로
+
+        if not image_data and not image_url:
+            return jsonify(ok=False, error="이미지 없음"), 400
+
+        # ── 이미지 데이터 준비 ──
+        img_bytes = None
+        img_mime  = "image/jpeg"
+
+        if image_data:
+            # base64 dataURL
+            import base64
+            if "," in image_data:
+                header, b64 = image_data.split(",", 1)
+                if "png" in header: img_mime = "image/png"
+                elif "webp" in header: img_mime = "image/webp"
+            else:
+                b64 = image_data
+            img_bytes = base64.b64decode(b64)
+
+        elif image_url:
+            # /uploads/ 경로 → R2 또는 로컬에서 로드
+            import requests as _rq
+            _backend = request.host_url.rstrip("/")
+            full_url = image_url if image_url.startswith("http") else _backend + image_url
+            resp = _rq.get(full_url, timeout=10)
+            if resp.status_code == 200:
+                img_bytes = resp.content
+                ct = resp.headers.get("content-type", "image/jpeg")
+                img_mime = ct.split(";")[0].strip()
+            else:
+                return jsonify(ok=False, error="이미지 로드 실패"), 400
+
+        if not img_bytes:
+            return jsonify(ok=False, error="이미지 데이터 없음"), 400
+
+        # ── Gemini Vision 프롬프트 ──
+        PROMPT = """
+당신은 세계 최고의 패션 전문가 AI입니다.
+이 의류 이미지를 분석하고 아래 JSON 형식으로만 응답하세요. JSON 외 다른 텍스트는 절대 포함하지 마세요.
+
+{
+  "category": "top|bottom|outer|shoes|bag|acc|etc 중 하나",
+  "sub_category": "예: 티셔츠/블라우스/청바지/슬랙스/패딩/스니커즈 등 세부 품목",
+  "main_color": "#RRGGBB 형식의 주요 색상 HEX",
+  "main_color_name": "색상 이름 (한국어): 예: 네이비블루, 아이보리, 카멜브라운 등",
+  "sub_color": "#RRGGBB 또는 null",
+  "sub_color_name": "보조 색상 이름 (한국어) 또는 null",
+  "pattern": "단색|스트라이프|체크|도트|플로럴|기하학|카무플라주|그래픽|레터링|애니멀|페이즐리|추상 중 하나",
+  "material": "면|린넨|울|캐시미어|실크|폴리에스터|나일론|데님|가죽|니트|혼방|기타 중 하나 이상 (쉼표 구분)",
+  "fit": "오버사이즈|루즈|레귤러|슬림|스키니 중 하나",
+  "season": "봄여름|가을겨울|사계절|여름전용|겨울전용 중 하나",
+  "style_keywords": ["캐주얼|포멀|스트릿|미니멀|빈티지|스포티|로맨틱|클래식 중 최대 3개"],
+  "design_points": "이 아이템의 디자인 특징 1~2문장 (한국어)",
+  "coordinate_hint": "이 아이템과 잘 어울리는 하의/상의/아우터 추천 (한국어 1문장)"
+}
+
+분석 기준:
+- 배경을 무시하고 의류 아이템에만 집중
+- 정확도를 최우선으로 (모르면 가장 유사한 값 선택)
+- 반드시 유효한 JSON만 반환
+"""
+
+        # ── Gemini SDK 호출 (codistyle_generate와 동일 방식) ──
+        _SDK = None
+        try:
+            from google import genai as _gmod
+            from google.genai import types as _gtypes
+            _SDK = "new"
+        except ImportError:
+            pass
+        if not _SDK:
+            try:
+                import google.generativeai as _gmod
+                _SDK = "old"
+            except ImportError:
+                pass
+        if not _SDK:
+            return jsonify(ok=False, error="Gemini SDK 없음"), 500
+
+        result_text = None
+
+        if _SDK == "new":
+            _cli = _gmod.Client(api_key=_GEMINI_KEY)
+            _img_part = _gtypes.Part.from_bytes(data=img_bytes, mime_type=img_mime)
+            _resp = _cli.models.generate_content(
+                model="gemini-2.5-flash-preview-04-17",
+                contents=[_gtypes.Content(parts=[_img_part, _gtypes.Part.from_text(text=PROMPT)])],
+            )
+            result_text = _resp.text if hasattr(_resp, "text") else str(_resp)
+        else:
+            _gmod.configure(api_key=_GEMINI_KEY)
+            import PIL.Image as _PILImage
+            import io
+            _pil = _PILImage.open(io.BytesIO(img_bytes))
+            _model = _gmod.GenerativeModel("gemini-1.5-flash")
+            _resp = _model.generate_content([PROMPT, _pil])
+            result_text = _resp.text
+
+        # ── JSON 파싱 ──
+        import json, re as _re
+        result_text = result_text.strip()
+        # 마크다운 코드블록 제거
+        result_text = _re.sub(r"```json\s*", "", result_text)
+        result_text = _re.sub(r"```\s*", "", result_text)
+        result_text = result_text.strip()
+
+        try:
+            analysis = json.loads(result_text)
+        except json.JSONDecodeError:
+            # 중괄호 사이만 추출
+            m = _re.search(r"\{.*\}", result_text, _re.DOTALL)
+            if m:
+                analysis = json.loads(m.group())
+            else:
+                return jsonify(ok=False, error="JSON 파싱 실패", raw=result_text[:300]), 500
+
+        return jsonify(ok=True, analysis=analysis)
+
+    except Exception as e:
+        import traceback
+        return jsonify(ok=False, error=str(e), trace=traceback.format_exc()[-500:]), 500
+
+
+
+@app.post("/api/ai/personal-color")
+def ai_personal_color():
+    """
+    얼굴 사진에서 퍼스널컬러 분석:
+    GPT-4o Vision → 계절 타입 + 어울리는 컬러 팔레트
+    """
+    try:
+        d = request.get_json(force=True) or {}
+        image_data = d.get("image")  # base64 dataURL
+
+        if not image_data:
+            return jsonify(ok=False, error="이미지 없음"), 400
+
+        # base64 디코딩
+        import base64
+        if "," in image_data:
+            header, b64 = image_data.split(",", 1)
+            img_mime = "image/png" if "png" in header else "image/jpeg"
+        else:
+            b64 = image_data
+            img_mime = "image/jpeg"
+        img_bytes = base64.b64decode(b64)
+
+        PROMPT = """당신은 전문 퍼스널컬러 컨설턴트입니다.
+이 사람의 사진을 보고 퍼스널컬러를 분석하세요.
+아래 JSON 형식으로만 응답하세요. JSON 외 다른 텍스트는 절대 포함하지 마세요.
+
+{
+  "season": "봄웜 | 여름쿨 | 가을웜 | 겨울쿨 중 하나",
+  "season_en": "Spring Warm | Summer Cool | Autumn Warm | Winter Cool 중 하나",
+  "undertone": "웜톤 | 쿨톤 중 하나",
+  "skin_tone": "밝은 | 중간 | 어두운 중 하나",
+  "best_colors": ["#HEX1", "#HEX2", "#HEX3", "#HEX4", "#HEX5"],
+  "best_color_names": ["색상명1(한국어)", "색상명2", "색상명3", "색상명4", "색상명5"],
+  "avoid_colors": ["#HEX1", "#HEX2"],
+  "avoid_color_names": ["피할색1(한국어)", "피할색2"],
+  "summary": "퍼스널컬러 한줄 요약 (예: 겨울쿨톤 - 선명하고 차가운 컬러가 잘 어울려요)",
+  "style_tip": "이 계절 타입에게 어울리는 패션 스타일 팁 1~2문장 (한국어)"
+}
+
+분석 기준:
+- 피부 언더톤(웜/쿨), 피부 밝기, 머리카락·눈동자 색상 종합 판단
+- 사진 조명 보정 후 자연스러운 피부톤 추정
+- 반드시 유효한 JSON만 반환"""
+
+        # GPT-4o Vision 호출
+        _openai_key = os.environ.get("OPENAI_API_KEY", "")
+        if not _openai_key:
+            # Gemini 폴백
+            return _personal_color_gemini(img_bytes, img_mime, PROMPT)
+
+        from openai import OpenAI as _OAI
+        client = _OAI(api_key=_openai_key)
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {
+                        "url": f"data:{img_mime};base64,{b64}",
+                        "detail": "high"
+                    }},
+                    {"type": "text", "text": PROMPT}
+                ]
+            }],
+            max_tokens=800,
+            temperature=0.1
+        )
+        result_text = resp.choices[0].message.content.strip()
+
+        import json, re as _re
+        result_text = _re.sub(r"```json\s*", "", result_text)
+        result_text = _re.sub(r"```\s*", "", result_text).strip()
+        try:
+            pc = json.loads(result_text)
+        except json.JSONDecodeError:
+            m = _re.search(r"\{.*\}", result_text, _re.DOTALL)
+            pc = json.loads(m.group()) if m else {}
+
+        return jsonify(ok=True, personal_color=pc)
+
+    except Exception as e:
+        import traceback
+        return jsonify(ok=False, error=str(e), trace=traceback.format_exc()[-300:]), 500
+
+
+def _personal_color_gemini(img_bytes, img_mime, prompt):
+    """퍼스널컬러 Gemini 폴백"""
+    try:
+        _SDK = None
+        try:
+            from google import genai as _gmod
+            from google.genai import types as _gtypes
+            _SDK = "new"
+        except ImportError:
+            try:
+                import google.generativeai as _gmod
+                _SDK = "old"
+            except ImportError:
+                pass
+        if not _SDK:
+            return jsonify(ok=False, error="AI SDK 없음"), 500
+
+        if _SDK == "new":
+            _cli = _gmod.Client(api_key=_GEMINI_KEY)
+            _img_part = _gtypes.Part.from_bytes(data=img_bytes, mime_type=img_mime)
+            _resp = _cli.models.generate_content(
+                model="gemini-2.5-flash-preview-04-17",
+                contents=[_gtypes.Content(parts=[_img_part, _gtypes.Part.from_text(text=prompt)])],
+            )
+            result_text = _resp.text if hasattr(_resp, "text") else str(_resp)
+        else:
+            _gmod.configure(api_key=_GEMINI_KEY)
+            import PIL.Image as _PILImage, io
+            _pil = _PILImage.open(io.BytesIO(img_bytes))
+            _model = _gmod.GenerativeModel("gemini-1.5-flash")
+            _resp = _model.generate_content([prompt, _pil])
+            result_text = _resp.text
+
+        import json, re as _re
+        result_text = _re.sub(r"```json\s*", "", result_text.strip())
+        result_text = _re.sub(r"```\s*", "", result_text).strip()
+        try:
+            pc = json.loads(result_text)
+        except:
+            m = _re.search(r"\{.*\}", result_text, _re.DOTALL)
+            pc = json.loads(m.group()) if m else {}
+        return jsonify(ok=True, personal_color=pc, model="gemini")
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 500
 
 
 @app.post("/api/track/item")
