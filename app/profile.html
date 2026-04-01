@@ -50,7 +50,7 @@ header h1{font-size:17px;font-weight:800;}
 .section-title{font-size:11px;font-weight:700;color:#999;letter-spacing:.06em;padding:16px 20px 8px;}
 
 /* 입력 필드 */
-.field{display:flex;align-items:center;padding:14px 20px;border-bottom:1px solid #f5f5f5;gap:12px;}
+.field{display:flex;align-items:center;padding:11px 20px;border-bottom:1px solid #f5f5f5;gap:12px;}
 .field:last-child{border-bottom:none;}
 .field-icon{color:#0B666A;flex-shrink:0;}
 .field-body{flex:1;}
@@ -143,6 +143,48 @@ header h1{font-size:17px;font-weight:800;}
   </div>
 </div>
 
+<!-- 퍼스널 컬러 정보 -->
+<p class="section-title" style="margin:0 16px 4px;padding:0 4px;">퍼스널 컬러 <span style="color:#0B666A;font-size:10px;">(AI 피부톤 분석)</span></p>
+<div class="section" id="pcSection" style="margin:0 16px 12px;">
+  <div id="pcLoading" style="display:none;padding:14px 20px;text-align:center;">
+    <span style="font-size:12px;color:#888;">퍼스널컬러 분석 중…</span>
+    <div style="height:3px;background:#f0f0f0;border-radius:2px;margin:8px 0;overflow:hidden;">
+      <div id="pcProgress" style="height:100%;background:linear-gradient(90deg,#0B666A,#35A29F);width:0%;transition:width .4s;border-radius:2px;"></div>
+    </div>
+  </div>
+  <div id="pcResult" style="display:none;padding:14px 20px;">
+    <!-- 시즌 + 언더톤 -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div id="pcSeasonDot" style="width:14px;height:14px;border-radius:50%;background:#97FEED;flex-shrink:0;"></div>
+      <div>
+        <div id="pcSeason" style="font-size:14px;font-weight:800;color:#111;"></div>
+        <div id="pcUndertone" style="font-size:11px;color:#888;margin-top:1px;"></div>
+      </div>
+    </div>
+    <!-- 어울리는 컬러 팔레트 -->
+    <div style="margin-bottom:8px;">
+      <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.05em;margin-bottom:6px;">잘 어울리는 컬러</div>
+      <div id="pcBestColors" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+    <!-- 피해야 할 컬러 -->
+    <div style="margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.05em;margin-bottom:6px;">피해야 할 컬러</div>
+      <div id="pcAvoidColors" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+    <!-- 스타일 팁 -->
+    <div id="pcTip" style="font-size:11.5px;color:#555;line-height:1.6;background:#f8faff;border-radius:8px;padding:8px 12px;"></div>
+    <button onclick="reAnalyzePersonalColor()" style="margin-top:10px;width:100%;padding:9px;border:1.5px solid #0B666A;background:#fff;color:#0B666A;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">다시 분석</button>
+  </div>
+  <div id="pcEmpty" style="padding:14px 20px;text-align:center;">
+    <div style="font-size:12px;color:#aaa;margin-bottom:8px;">프로필 사진을 저장하면 AI가 퍼스널컬러를 자동 분석합니다</div>
+    <div style="display:flex;gap:6px;justify-content:center;">
+      <span style="width:16px;height:16px;border-radius:50%;background:#FFB347;"></span>
+      <span style="width:16px;height:16px;border-radius:50%;background:#87CEEB;"></span>
+      <span style="width:16px;height:16px;border-radius:50%;background:#CD853F;"></span>
+      <span style="width:16px;height:16px;border-radius:50%;background:#B0C4DE;"></span>
+    </div>
+  </div>
+</div>
 <!-- 체형 정보 -->
 <p class="section-title" style="margin:0 16px 4px;padding:0 4px;">체형 정보 <span style="color:#0B666A;font-size:10px;">(AI 코디 정확도 향상)</span></p>
 <div class="section">
@@ -220,6 +262,8 @@ let _genderVal = '';
 let _ageVal = '';
 let _photoData = null;
 
+    // 퍼스널컬러 자동 분석
+    analyzePersonalColor(_photoData);
 function showToast(msg, dur=2200){
   const t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
@@ -321,6 +365,8 @@ function loadUser(){
     }).catch(() => {});
   }
 }
+  // 기존 퍼스널컬러 로드
+  loadPersonalColorFromStorage();
 
 async function doSave(){
   if(!_user) return;
@@ -389,6 +435,124 @@ async function doSave(){
 }
 
 document.addEventListener('DOMContentLoaded', loadUser);
+
+// ══════════════════════════════════════════════════════
+// 퍼스널컬러 분석
+// ══════════════════════════════════════════════════════
+const SEASON_COLORS = {
+  '봄웜':'#FFB347','Spring Warm':'#FFB347',
+  '여름쿨':'#87CEEB','Summer Cool':'#87CEEB',
+  '가을웜':'#CD853F','Autumn Warm':'#CD853F',
+  '겨울쿨':'#6A7FDB','Winter Cool':'#6A7FDB'
+};
+
+function renderPersonalColor(pc) {
+  if(!pc) return;
+  const empty   = document.getElementById('pcEmpty');
+  const loading = document.getElementById('pcLoading');
+  const result  = document.getElementById('pcResult');
+  if(empty)   empty.style.display   = 'none';
+  if(loading) loading.style.display = 'none';
+  if(result)  result.style.display  = 'block';
+
+  const dot = document.getElementById('pcSeasonDot');
+  if(dot) dot.style.background = SEASON_COLORS[pc.season] || '#97FEED';
+
+  const season = document.getElementById('pcSeason');
+  if(season) season.textContent = pc.season || '';
+
+  const undertone = document.getElementById('pcUndertone');
+  if(undertone) undertone.textContent = (pc.undertone||'') + (pc.skin_tone ? ' · ' + pc.skin_tone + ' 피부' : '');
+
+  // 어울리는 컬러
+  const bestWrap = document.getElementById('pcBestColors');
+  if(bestWrap && pc.best_colors) {
+    bestWrap.innerHTML = pc.best_colors.map((hex, i) => {
+      const name = (pc.best_color_names && pc.best_color_names[i]) || hex;
+      return `<div title="${name}" style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+        <div style="width:28px;height:28px;border-radius:50%;background:${hex};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.12);"></div>
+        <span style="font-size:9px;color:#888;">${name.length>4?name.slice(0,4)+'…':name}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // 피해야 할 컬러
+  const avoidWrap = document.getElementById('pcAvoidColors');
+  if(avoidWrap && pc.avoid_colors) {
+    avoidWrap.innerHTML = pc.avoid_colors.map((hex, i) => {
+      const name = (pc.avoid_color_names && pc.avoid_color_names[i]) || hex;
+      return `<div title="${name}" style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+        <div style="width:28px;height:28px;border-radius:50%;background:${hex};border:2px solid #fee;box-shadow:0 1px 4px rgba(0,0,0,.12);opacity:.7;"></div>
+        <span style="font-size:9px;color:#bbb;">${name.length>4?name.slice(0,4)+'…':name}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // 스타일 팁
+  const tip = document.getElementById('pcTip');
+  if(tip) tip.textContent = pc.style_tip || pc.summary || '';
+}
+
+function loadPersonalColorFromStorage() {
+  try{
+    const key = 'cb_personal_color_' + (_user?.email||'');
+    const raw = localStorage.getItem(key);
+    if(raw) { renderPersonalColor(JSON.parse(raw)); }
+  }catch(_){}
+}
+
+async function analyzePersonalColor(imageDataUrl) {
+  if(!imageDataUrl) return;
+  const loading = document.getElementById('pcLoading');
+  const empty   = document.getElementById('pcEmpty');
+  const result  = document.getElementById('pcResult');
+  const prog    = document.getElementById('pcProgress');
+  if(empty)   empty.style.display   = 'none';
+  if(result)  result.style.display  = 'none';
+  if(loading) loading.style.display = 'block';
+
+  let pct = 10;
+  const tick = setInterval(() => { pct = Math.min(pct+8, 85); if(prog) prog.style.width=pct+'%'; }, 600);
+
+  try{
+    const bb = (window.CODIBANK_CONFIG?.backendBase) || 'https://codibank-api.onrender.com';
+    const r = await Promise.race([
+      fetch(bb + '/api/ai/personal-color', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({image: imageDataUrl})
+      }),
+      new Promise((_,rej) => setTimeout(() => rej(new Error('timeout')), 25000))
+    ]);
+    clearInterval(tick);
+    if(prog) prog.style.width = '100%';
+
+    const d = await r.json();
+    if(d.ok && d.personal_color) {
+      // localStorage 저장
+      try{
+        const key = 'cb_personal_color_' + (_user?.email||'');
+        localStorage.setItem(key, JSON.stringify(d.personal_color));
+      }catch(_){}
+      renderPersonalColor(d.personal_color);
+      showToast('퍼스널컬러 분석 완료!');
+    } else {
+      if(loading) loading.style.display = 'none';
+      if(empty)   empty.style.display   = 'block';
+    }
+  }catch(e){
+    clearInterval(tick);
+    if(loading) loading.style.display = 'none';
+    if(empty)   empty.style.display   = 'block';
+    console.warn('[퍼스널컬러 분석 실패]', e);
+  }
+}
+
+async function reAnalyzePersonalColor() {
+  if(!_photoData) { showToast('먼저 프로필 사진을 선택해주세요.'); return; }
+  await analyzePersonalColor(_photoData);
+}
+
 </script>
 </body>
 </html>

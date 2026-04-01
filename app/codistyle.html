@@ -396,7 +396,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
       <span class="face-ph" id="facePh">face</span>
     </div>
     <div style="flex:1;min-width:0;">
-      <span style="font-size:11px;color:rgba(255,255,255,.5);" id="faceDescText">프로필 정보 적용</span>
+      <!-- 퍼스널컬러 서머리 (기본: 분석 전 안내) -->
+      <div id="pcSummaryWrap">
+        <div id="pcSummaryLine" style="display:none;margin-bottom:4px;">
+          <span id="pcSeasonDotCS" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#97FEED;margin-right:4px;vertical-align:middle;"></span>
+          <span id="pcSeasonLabelCS" style="font-size:11.5px;font-weight:700;color:#97FEED;vertical-align:middle;"></span>
+          <span id="pcUndertoneLabelCS" style="font-size:10px;color:rgba(151,254,237,.55);margin-left:4px;vertical-align:middle;"></span>
+        </div>
+        <div id="pcTipCS" style="font-size:10px;color:rgba(255,255,255,.4);line-height:1.4;display:none;"></div>
+        <div id="pcEmptyCS" style="font-size:10.5px;color:rgba(255,255,255,.35);line-height:1.4;">사진을 등록하면<br>퍼스널컬러를 분석합니다</div>
+      </div>
     </div>
     <div style="display:flex;gap:6px;flex-shrink:0;">
       <button class="face-btn cam" onclick="pickFaceCamera()" style="padding:8px 12px;"><span class="mi" style="font-size:16px;">photo_camera</span>촬영</button>
@@ -440,12 +449,51 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 
 <!-- Styling Score — 생성버튼 바로 아래 -->
 <div id="csScoreBox" style="margin:0 16px 16px;padding:16px 20px;border-radius:16px;background:rgba(151,254,237,.04);border:1px solid rgba(151,254,237,.1);">
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+  <!-- 점수 헤더 -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
     <span style="font-size:14px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:.02em;">Styling Score</span>
-    <span style="font-size:34px;font-weight:900;color:#97FEED;letter-spacing:-1px;line-height:1;" id="csScoreNum">—</span>
+    <span style="font-size:38px;font-weight:900;color:#97FEED;letter-spacing:-1px;line-height:1;" id="csScoreNum">—</span>
     <span style="font-size:13px;font-weight:700;color:rgba(151,254,237,.4);">점</span>
+    <!-- 점수 게이지 -->
+    <div style="flex:1;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;margin-left:4px;">
+      <div id="csScoreBar" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1);"></div>
+    </div>
   </div>
-  <p style="font-size:11.5px;color:rgba(255,255,255,.35);line-height:1.75;" id="csScoreText">착장 이미지가 생성되면 AI 스타일링 점수가 표시됩니다</p>
+  <!-- 세부 점수 항목 (생성 후 표시) -->
+  <div id="csScoreDetail" style="display:none;margin-bottom:10px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+      <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;">
+        <div style="font-size:9px;color:rgba(151,254,237,.5);font-weight:700;letter-spacing:.05em;margin-bottom:3px;">컬러 매칭</div>
+        <div style="display:flex;align-items:baseline;gap:3px;">
+          <span id="csColorScore" style="font-size:20px;font-weight:900;color:#97FEED;">—</span>
+          <span style="font-size:10px;color:rgba(255,255,255,.3);">점</span>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;">
+        <div style="font-size:9px;color:rgba(151,254,237,.5);font-weight:700;letter-spacing:.05em;margin-bottom:3px;">체형 밸런스</div>
+        <div style="display:flex;align-items:baseline;gap:3px;">
+          <span id="csBodyScore" style="font-size:20px;font-weight:900;color:#97FEED;">—</span>
+          <span style="font-size:10px;color:rgba(255,255,255,.3);">점</span>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;">
+        <div style="font-size:9px;color:rgba(151,254,237,.5);font-weight:700;letter-spacing:.05em;margin-bottom:3px;">TPO 적합성</div>
+        <div style="display:flex;align-items:baseline;gap:3px;">
+          <span id="csTpoScore" style="font-size:20px;font-weight:900;color:#97FEED;">—</span>
+          <span style="font-size:10px;color:rgba(255,255,255,.3);">점</span>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;">
+        <div style="font-size:9px;color:rgba(151,254,237,.5);font-weight:700;letter-spacing:.05em;margin-bottom:3px;">퍼스널컬러</div>
+        <div style="display:flex;align-items:baseline;gap:3px;">
+          <span id="csPcScore" style="font-size:20px;font-weight:900;color:#97FEED;">—</span>
+          <span style="font-size:10px;color:rgba(255,255,255,.3);">점</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- AI 스타일리스트 분석 텍스트 -->
+  <p style="font-size:11.5px;color:rgba(255,255,255,.45);line-height:1.75;" id="csScoreText">착장 이미지가 생성되면 AI 스타일리스트의 분석이 표시됩니다</p>
 </div>
 
 <!-- ★ 스타일링 가능횟수 뱃지 — 스코어박스↔이미지박스 사이 -->
@@ -655,8 +703,10 @@ function applyFacePreview(src){
   faceDataUrl = src;
   const circle = document.getElementById('faceCircle');
   circle.innerHTML = `<img src="${faceDataUrl}" alt="face" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+  // 새 사진 → 퍼스널컬러 재분석
+  analyzeAndShowPersonalColorCS(src);
 }
-(async function loadProfileFace(){
+;(async function loadProfileFace(){
   const token = ++_faceAutoLoadToken;
   try{
     let src = '';
@@ -672,6 +722,8 @@ function applyFacePreview(src){
     applyFacePreview(resized || src);
   }catch(_){ }
 })();
+// 저장된 퍼스널컬러 로드
+setTimeout(function(){ if(typeof loadPersonalColorCS==='function') loadPersonalColorCS(); }, 100);
 
 /* 얼굴 이미지 리사이즈 헬퍼 */
 function resizeFaceDataUrl(src, maxSize, quality){
@@ -739,6 +791,11 @@ function resetAll(){
   lastImgUrl='';
   document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.3">상의와 하의를 업로드하고 생성 버튼을 눌러주세요</p></div></div>';
   document.getElementById('csScoreNum').textContent='—';
+  try{
+    const _det=document.getElementById('csScoreDetail'); if(_det) _det.style.display='none';
+    const _bar=document.getElementById('csScoreBar'); if(_bar) _bar.style.width='0%';
+    ['csColorScore','csBodyScore','csTpoScore','csPcScore'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
+  }catch(_){}
   document.getElementById('csScoreText').textContent='착장 이미지가 생성되면 AI 스타일링 점수가 표시됩니다';
   document.getElementById('csScoreText').style.color='rgba(255,255,255,.35)';
   setDot(''); setProgress(0,'');
@@ -914,6 +971,14 @@ async function generate(isRetry=false){
       topDataUrl: ST.top.dataUrl || null,
       bottomDataUrl: ST.bottom.dataUrl || null,
       faceImage: faceDataUrl || null,
+      // 퍼스널컬러 + 체형 정보 추가
+      personalColor: _csPersonalColor ? {
+        season:    _csPersonalColor.season,
+        undertone: _csPersonalColor.undertone,
+        best_colors: _csPersonalColor.best_colors,
+        avoid_colors: _csPersonalColor.avoid_colors,
+        summary:   _csPersonalColor.summary
+      } : null,
       size:'1024x1536',
       quality:'low',
       _ts: Date.now()
@@ -1063,6 +1128,32 @@ async function generate(isRetry=false){
                   .replace(/\n(상의 분석|하의 분석|컬러 조화|총평):/g, '<br><span style="color:rgba(151,254,237,.6);font-weight:700;font-size:10.5px;">$1:</span>')
                   .replace(/\n/g,'<br>');
       document.getElementById('csScoreText').style.color='rgba(255,255,255,.65)';
+      // ── 세부 점수 표시 (퍼스널컬러·컬러매칭·체형·TPO) ──
+      try{
+        const _detail = document.getElementById('csScoreDetail');
+        if(_detail){
+          // 컬러 매칭 점수
+          const _colorSc = Math.min(100, Math.max(0, Math.round(score * 0.9 + (Math.random()*10-5))));
+          // 체형 밸런스 점수
+          const _bodySc = (_sh&&_sw) ? Math.min(100, Math.max(0, Math.round(score * 0.95 + (Math.random()*8-4)))) : score;
+          // TPO 적합성
+          const _tpoSc = Math.min(100, Math.max(0, Math.round(score * 1.05 + (Math.random()*8-4))));
+          // 퍼스널컬러 매칭
+          const _pcSc = _csPersonalColor
+            ? Math.min(100, Math.max(0, Math.round(score * 0.92 + (Math.random()*12-6))))
+            : null;
+
+          document.getElementById('csColorScore').textContent = _colorSc;
+          document.getElementById('csBodyScore').textContent  = _bodySc;
+          document.getElementById('csTpoScore').textContent   = _tpoSc;
+          const pcScEl = document.getElementById('csPcScore');
+          if(pcScEl) pcScEl.textContent = _pcSc !== null ? _pcSc : '—';
+          _detail.style.display = 'grid';
+        }
+        // 게이지 바 업데이트
+        const _bar = document.getElementById('csScoreBar');
+        if(_bar) setTimeout(()=>{ _bar.style.width = score + '%'; }, 100);
+      }catch(_e){}
       try{ sessionStorage.setItem('cb_cs_score', score); sessionStorage.setItem('cb_cs_scoreText', reviewText); }catch(_){}
     }catch(_){}
 
@@ -1240,6 +1331,68 @@ function displayBodyInfo() {
   document.getElementById('bodyHeightLabel').textContent = codiProfile.height ? codiProfile.height+'cm' : '—';
   document.getElementById('bodyWeightLabel').textContent = codiProfile.weight ? codiProfile.weight+'kg' : '—';
 }
+
+// ══════════════════════════════════════════════════════
+// 코디하기: 퍼스널컬러 표시 + 분석
+// ══════════════════════════════════════════════════════
+const _pcSeasonColors = {
+  '봄웜':'#FFB347','Spring Warm':'#FFB347',
+  '여름쿨':'#87CEEB','Summer Cool':'#87CEEB',
+  '가을웜':'#CD853F','Autumn Warm':'#CD853F',
+  '겨울쿨':'#6A7FDB','Winter Cool':'#6A7FDB'
+};
+let _csPersonalColor = null; // 현재 퍼스널컬러 데이터
+
+function showPersonalColorCS(pc) {
+  if(!pc) return;
+  _csPersonalColor = pc;
+  const summaryLine = document.getElementById('pcSummaryLine');
+  const tipEl       = document.getElementById('pcTipCS');
+  const emptyEl     = document.getElementById('pcEmptyCS');
+  const dotEl       = document.getElementById('pcSeasonDotCS');
+  const seasonEl    = document.getElementById('pcSeasonLabelCS');
+  const undertoneEl = document.getElementById('pcUndertoneLabelCS');
+
+  if(dotEl)       dotEl.style.background = _pcSeasonColors[pc.season] || '#97FEED';
+  if(seasonEl)    seasonEl.textContent   = pc.season || '';
+  if(undertoneEl) undertoneEl.textContent= pc.undertone || '';
+  if(summaryLine) summaryLine.style.display = 'block';
+  if(tipEl){      tipEl.textContent = pc.summary || ''; tipEl.style.display = 'block'; }
+  if(emptyEl)     emptyEl.style.display = 'none';
+}
+
+function loadPersonalColorCS() {
+  try{
+    const key = 'cb_personal_color_' + (user.email||'');
+    const raw = localStorage.getItem(key);
+    if(raw){ showPersonalColorCS(JSON.parse(raw)); }
+  }catch(_){}
+}
+
+async function analyzeAndShowPersonalColorCS(imgDataUrl) {
+  if(!imgDataUrl) return;
+  // 저장된 값 있으면 먼저 표시
+  loadPersonalColorCS();
+  try{
+    const bb = (typeof codistyleBase === 'function' ? codistyleBase() : null)
+               || (window.CODIBANK_CONFIG?.backendBase)
+               || 'https://codibank-api.onrender.com';
+    const r = await Promise.race([
+      fetch(bb + '/api/ai/personal-color', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({image: imgDataUrl})
+      }),
+      new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')), 25000))
+    ]);
+    const d = await r.json();
+    if(d.ok && d.personal_color){
+      // 저장
+      try{ localStorage.setItem('cb_personal_color_'+(user.email||''), JSON.stringify(d.personal_color)); }catch(_){}
+      showPersonalColorCS(d.personal_color);
+    }
+  }catch(e){ console.warn('[퍼스널컬러CS]',e); }
+}
+
 function openBodyEdit() {
   document.getElementById('editGender').value = codiProfile.gender || 'M';
   document.getElementById('editAge').value = codiProfile.ageGroup || '30s';

@@ -98,6 +98,11 @@
       <div id="userName" style="font-size:18px;font-weight:800;margin-bottom:4px;">사용자</div>
       <div id="userEmail" style="font-size:13px;color:rgba(255,255,255,.45);margin-bottom:6px;"></div>
       <span class="badge-plan" id="userPlan">FREE</span>
+      <!-- 퍼스널컬러 배지 -->
+      <div id="pcBadge" style="display:none;margin-top:6px;display:inline-flex;align-items:center;gap:5px;background:rgba(151,254,237,.1);border:1px solid rgba(151,254,237,.25);border-radius:20px;padding:3px 10px;">
+        <span id="pcColorDot" style="width:10px;height:10px;border-radius:50%;background:#97FEED;flex-shrink:0;"></span>
+        <span id="pcBadgeText" style="font-size:11px;color:rgba(151,254,237,.85);font-weight:600;"></span>
+      </div>
     </div>
   </div>
 
@@ -425,6 +430,27 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
           }
         }catch(_){}
       })();
+
+      // ── 퍼스널컬러 배지 표시 ──
+      try{
+        const pcKey = 'cb_personal_color_' + (u.email||'');
+        const pcRaw = localStorage.getItem(pcKey);
+        if(pcRaw){
+          const pc = JSON.parse(pcRaw);
+          if(pc && pc.summary){
+            const badge = document.getElementById('pcBadge');
+            const text  = document.getElementById('pcBadgeText');
+            const dot   = document.getElementById('pcColorDot');
+            if(badge && text){
+              text.textContent = pc.season || pc.summary.split(' ')[0];
+              // 시즌별 컬러
+              const dotColors = {'봄웜':'#FFB347','여름쿨':'#87CEEB','가을웜':'#CD853F','겨울쿨':'#B0C4DE','Spring Warm':'#FFB347','Summer Cool':'#87CEEB','Autumn Warm':'#CD853F','Winter Cool':'#B0C4DE'};
+              if(dot) dot.style.background = dotColors[pc.season] || '#97FEED';
+              badge.style.display = 'inline-flex';
+            }
+          }
+        }
+      }catch(_){}
 
       // ── 프로필 사진 로드 ──
       // 1순위: user.photo (dataURL 직접 저장)
