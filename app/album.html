@@ -353,39 +353,46 @@ function mkCard(entry) {
     </div>
   `;
   // 길게 누르기(500ms) → 찜 / 짧은 탭 → 모달
-  // ── 탭/클릭 → 상세 모달 / 길게 누르기(500ms) → 찜 ──
-  let _pt = null, _isLong = false, _startT = 0;
+  // ── 탭/클릭 → 상세 모달 / 길게 누르기(500ms) → 찜 / 스크롤은 무시 ──
+  let _pt = null, _isLong = false, _startX = 0, _startY = 0, _moved = false;
 
   const _ts = (e) => {
     _isLong = false;
-    _startT = Date.now();
+    _moved  = false;
+    const t = e.touches ? e.touches[0] : e;
+    _startX = t.clientX;
+    _startY = t.clientY;
+    // 길게 누르기 타이머 (500ms)
     _pt = setTimeout(() => {
-      _isLong = true;
-      toggleLike(entry.id);
-      // 진동 피드백 (지원 기기)
-      if(navigator.vibrate) navigator.vibrate(30);
+      if(!_moved){          // 스크롤 중이면 무시
+        _isLong = true;
+        toggleLike(entry.id);
+        if(navigator.vibrate) navigator.vibrate(30);
+      }
     }, 500);
+  };
+  const _tm = (e) => {
+    // 10px 이상 이동하면 스크롤로 판단 → 타이머 취소
+    const t = e.touches ? e.touches[0] : e;
+    const dx = Math.abs(t.clientX - _startX);
+    const dy = Math.abs(t.clientY - _startY);
+    if(dx > 10 || dy > 10){
+      _moved = true;
+      clearTimeout(_pt);
+    }
   };
   const _te = (e) => {
     clearTimeout(_pt);
-    if (_isLong) { _isLong = false; return; } // 길게 누르기 처리됨
-    // 짧은 탭 → 모달 오픈 (touchend에서 직접 처리)
-    if(Date.now() - _startT < 500){
-      e.preventDefault(); // 이중 클릭 방지
-      openModal(entry);
-    }
-  };
-  const _tc = (e) => {
-    // 마우스 클릭 (PC 환경)
-    if(!_isLong) openModal(entry);
-    _isLong = false;
+    if(_isLong){ _isLong = false; return; }  // 길게 누르기 완료
+    if(_moved)  return;                        // 스크롤 → 무시
+    // 짧은 탭 → 모달 오픈
+    openModal(entry);
   };
 
   wrap.addEventListener('touchstart', _ts, {passive:true});
-  wrap.addEventListener('touchend',   _te, {passive:false});
-  wrap.addEventListener('touchmove',  () => clearTimeout(_pt), {passive:true});
-  wrap.addEventListener('click',      _tc);
-  // 데스크탑 우클릭 팝업 차단
+  wrap.addEventListener('touchmove',  _tm, {passive:true});
+  wrap.addEventListener('touchend',   _te, {passive:true});
+  wrap.addEventListener('click', () => { if(!_isLong && !_moved) openModal(entry); });
   wrap.addEventListener('contextmenu', (e) => e.preventDefault());
   resolveImg(entry.imageRef).then(src => {
     const img = document.getElementById('img_' + entry.id);
