@@ -193,7 +193,10 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Inter'
 <!-- 헤더 -->
 <header class="hdr">
   <h1 class="hdr-title" id="albumTitle">코디 앨범</h1>
-  <p style="font-size:11px;color:rgba(0,0,0,.45);font-weight:500;text-align:left;padding:4px 0 0;line-height:1.5;">특별하게 마음에 드는 추천 스타일링 이미지를 길게 눌러주세요</p>
+  <div style="display:flex;align-items:center;gap:6px;margin-top:6px;padding:8px 12px;background:linear-gradient(135deg,rgba(11,102,106,.08),rgba(53,162,159,.05));border:1px solid rgba(11,102,106,.2);border-radius:10px;">
+    <span style="font-size:16px;flex-shrink:0;">❤️</span>
+    <p style="font-size:11.5px;color:#0B666A;font-weight:600;line-height:1.5;"><b style="color:#071952;">길게 누르면</b> 마음에 드는 스타일링을 찜할 수 있어요</p>
+  </div>
   <div class="sort-wrap">
     <select id="sortSel" class="sort-sel" onchange="applySort(this.value)" aria-label="정렬">
       <option value="date">저장일자</option>
@@ -350,32 +353,40 @@ function mkCard(entry) {
     </div>
   `;
   // 길게 누르기(500ms) → 찜 / 짧은 탭 → 모달
-  let _pressTimer = null;
-  let _pressing = false;
-  const _startPress = (e) => {
-    // 터치 시작 시 브라우저 기본 동작(팝업) 방지
-    if(e.type === 'touchstart') e.preventDefault();
-    _pressing = false;
-    _pressTimer = setTimeout(() => {
-      _pressing = true;
+  // ── 탭/클릭 → 상세 모달 / 길게 누르기(500ms) → 찜 ──
+  let _pt = null, _isLong = false, _startT = 0;
+
+  const _ts = (e) => {
+    _isLong = false;
+    _startT = Date.now();
+    _pt = setTimeout(() => {
+      _isLong = true;
       toggleLike(entry.id);
+      // 진동 피드백 (지원 기기)
+      if(navigator.vibrate) navigator.vibrate(30);
     }, 500);
   };
-  const _endPress = (e) => {
-    clearTimeout(_pressTimer);
-    if (_pressing) e.preventDefault();
+  const _te = (e) => {
+    clearTimeout(_pt);
+    if (_isLong) { _isLong = false; return; } // 길게 누르기 처리됨
+    // 짧은 탭 → 모달 오픈 (touchend에서 직접 처리)
+    if(Date.now() - _startT < 500){
+      e.preventDefault(); // 이중 클릭 방지
+      openModal(entry);
+    }
   };
-  wrap.addEventListener('mousedown', _startPress);
-  wrap.addEventListener('touchstart', _startPress, {passive:false});
-  wrap.addEventListener('mouseup', _endPress);
-  wrap.addEventListener('touchend', _endPress);
-  wrap.addEventListener('mouseleave', () => clearTimeout(_pressTimer));
-  // 브라우저 기본 컨텍스트 메뉴(이미지 복사/공유 팝업) 차단
+  const _tc = (e) => {
+    // 마우스 클릭 (PC 환경)
+    if(!_isLong) openModal(entry);
+    _isLong = false;
+  };
+
+  wrap.addEventListener('touchstart', _ts, {passive:true});
+  wrap.addEventListener('touchend',   _te, {passive:false});
+  wrap.addEventListener('touchmove',  () => clearTimeout(_pt), {passive:true});
+  wrap.addEventListener('click',      _tc);
+  // 데스크탑 우클릭 팝업 차단
   wrap.addEventListener('contextmenu', (e) => e.preventDefault());
-  wrap.addEventListener('click', (e) => {
-    if (_pressing) { _pressing = false; return; }
-    openModal(entry);
-  });
   resolveImg(entry.imageRef).then(src => {
     const img = document.getElementById('img_' + entry.id);
     const sk  = document.getElementById('sk_'  + entry.id);
