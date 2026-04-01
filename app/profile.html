@@ -262,8 +262,6 @@ let _genderVal = '';
 let _ageVal = '';
 let _photoData = null;
 
-    // 퍼스널컬러 자동 분석
-    analyzePersonalColor(_photoData);
 function showToast(msg, dur=2200){
   const t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
@@ -300,6 +298,8 @@ function previewPhoto(e){
         const c = document.createElement('canvas'); c.width = nw; c.height = nh;
         const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, nw, nh);
         _photoData = c.toDataURL('image/jpeg', q);
+        // 사진 선택 즉시 퍼스널컬러 자동 분석
+        if(typeof analyzePersonalColor === 'function') analyzePersonalColor(_photoData);
       } catch(_) {
         _photoData = rawData; // 압축 실패 시 원본
       }
