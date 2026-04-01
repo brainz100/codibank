@@ -1274,7 +1274,6 @@ def codistyle_generate():
 
     payload   = request.get_json(silent=True) or {}
     user_info      = payload.get("user") or {}
-    personal_color = payload.get("personalColor") or None  # 퍼스널컬러 데이터
     gender    = str(user_info.get("gender", "M")).strip().upper()
     gender_en = "woman" if gender == "F" else "man"
     gender_ko = "여성" if gender == "F" else "남성"
@@ -1285,6 +1284,22 @@ def codistyle_generate():
     hw_en     = f"height {height}cm, weight {weight}kg" if height and weight else ""
     # ── 다시요청 여부 (프론트에서 generate(true) 호출 시 전송) ──
     is_retry  = bool(payload.get("isRetry", False))
+
+    # ── 퍼스널컬러 프롬프트 블록 ──
+    _pc_text = ""
+    personal_color = payload.get("personalColor") or None
+    if personal_color:
+        _pc_s = personal_color.get("season", "")
+        _pc_u = personal_color.get("undertone", "")
+        _pc_best  = ", ".join((personal_color.get("best_colors") or [])[:3])
+        _pc_avoid = ", ".join((personal_color.get("avoid_colors") or [])[:2])
+        if _pc_s:
+            _pc_text = (
+                f" [USER PERSONAL COLOR: {_pc_s} ({_pc_u})."
+                f" Best colors: {_pc_best}."
+                f" Avoid colors: {_pc_avoid}."
+                " When scoring style, factor in personal color harmony.]"
+            )
 
     # ── 이미지 로드 → bytes ──
     def _to_bytes(data_url_val, path_val=None):
