@@ -217,100 +217,250 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
+
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
-  --main:#071952;--main2:#0a2470;
-  --sub:#0B666A;--sub2:#35A29F;
-  --accent:#97FEED;
-  --bg:#f5f7fb;--card-bg:#ffffff;
-  --text:#111827;--text2:#374151;--text3:#6b7280;
-  --border:#e5e7eb;
+  /* ── 코어 팔레트 ── */
+  --navy:       #071952;
+  --navy-mid:   #0d2460;
+  --teal:       #0B666A;
+  --teal-light: #35A29F;
+  --mint:       #97FEED;
+
+  /* ── 배경 ── */
+  --bg:         #f4f6fb;
+  --surface:    #ffffff;
+
+  /* ── 텍스트 ── */
+  --tx-dark:    #0d1b3e;
+  --tx-mid:     #3d5280;
+  --tx-muted:   #8898b4;
+
+  /* ── 플랜별 시그니처 컬러 ── */
+  --free-bg:    #f0f4ff;
+  --free-bd:    #d4dcf4;
+  --free-tx:    #4a5c8a;
+
+  --silver-bg:  #f8faff;
+  --silver-bd:  #c8d4e8;
+  --silver-ac:  #8fa3c8;
+  --silver-tx:  #3a4f7a;
+
+  --gold-bg:    #071952;     /* 추천 카드: 네이비 배경 */
+  --gold-bd:    #d4a017;
+  --gold-ac:    #FFD060;
+
+  --diamond-bg: #120a3a;
+  --diamond-bd: #9b7dff;
+  --diamond-ac: #c4b5fd;
 }
-body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh}
+
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-dark);min-height:100dvh}
 .mi{font-family:'Material Symbols Outlined';font-size:20px;line-height:1;vertical-align:middle}
+.page{max-width:480px;margin:0 auto;padding:0 16px 120px}
 
-.page{max-width:480px;margin:0 auto;padding:0 16px 80px}
-
-/* 헤더 */
+/* ── 헤더 ── */
 .pg-header{display:flex;align-items:center;gap:12px;padding:20px 0 16px}
-.back-btn{width:38px;height:38px;border-radius:50%;background:#fff;border:1.5px solid var(--border);cursor:pointer;color:var(--main);display:flex;align-items:center;justify-content:center;text-decoration:none;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-.pg-title{font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;color:var(--main)}
-.pg-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.back-btn{width:38px;height:38px;border-radius:50%;background:var(--surface);border:1.5px solid #dde4f0;cursor:pointer;color:var(--navy);display:flex;align-items:center;justify-content:center;text-decoration:none;flex-shrink:0;box-shadow:0 1px 6px rgba(7,25,82,.08)}
+.pg-title{font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;color:var(--navy)}
+.pg-sub{font-size:11px;color:var(--tx-muted);margin-top:2px}
 
-/* 현재 상태 */
-.status-card{background:var(--main);border:none;border-radius:18px;padding:18px 20px;margin-bottom:24px;box-shadow:0 4px 20px rgba(7,25,82,.2)}
+/* ── 현황 카드 ── */
+.status-card{
+  background:var(--navy);
+  border-radius:20px;
+  padding:20px;
+  margin-bottom:28px;
+  box-shadow:0 8px 32px rgba(7,25,82,.22);
+  position:relative;
+  overflow:hidden;
+}
+.status-card::before{
+  content:'';position:absolute;top:-40px;right:-30px;
+  width:160px;height:160px;
+  background:radial-gradient(circle,rgba(151,254,237,.12),transparent 70%);
+  pointer-events:none;
+}
 .status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-.status-plan{font-size:13px;font-weight:700;color:#97FEED}
-.status-usage{font-size:12px;color:rgba(255,255,255,0.5)}
-.usage-bar{height:5px;background:rgba(255,255,255,0.12);border-radius:3px;overflow:hidden;margin-top:6px}
-.usage-fill{height:100%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .5s}
+.status-plan{font-size:13px;font-weight:700;color:var(--mint)}
+.status-usage{font-size:12px;color:rgba(255,255,255,.45)}
+.usage-bar{height:5px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;margin-top:8px}
+.usage-fill{height:100%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .6s cubic-bezier(.4,0,.2,1)}
 
-/* 플랜 카드 */
-.section-label{font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--text3);margin-bottom:14px}
-.plan-grid{display:flex;flex-direction:column;gap:14px;margin-bottom:12px}
+/* ── 섹션 라벨 ── */
+.section-label{font-size:10px;font-weight:800;letter-spacing:.14em;color:var(--tx-muted);margin-bottom:16px;padding-left:2px}
 
-.plan-card{border-radius:20px;padding:20px;cursor:pointer;border:2px solid transparent;background:var(--main);transition:all .18s;position:relative;overflow:visible;box-shadow:0 4px 16px rgba(7,25,82,.15)}
+/* ── 플랜 그리드 ── */
+.plan-grid{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+
+/* ── 플랜 카드 공통 ── */
+.plan-card{
+  border-radius:18px;
+  padding:20px;
+  cursor:pointer;
+  border:1.5px solid transparent;
+  transition:transform .18s,box-shadow .18s,border-color .18s;
+  position:relative;
+  overflow:visible;
+}
 .plan-card:active{transform:scale(.985)}
-.plan-card.selected{border-color:var(--sub2);box-shadow:0 6px 24px rgba(11,102,106,.3)}
-.plan-card.card-free{background:var(--main)}
-.plan-card.card-silver{background:linear-gradient(135deg,#1a2744,#0f1e3a)}
-.plan-card.card-gold{background:linear-gradient(135deg,#1e1600,#2a1f00)}
-.plan-card.card-diamond{background:linear-gradient(135deg,#12063a,#1a0a52)}
-.plan-card.card-gold.selected{border-color:#FFD700;box-shadow:0 6px 24px rgba(255,215,0,.2)}
-.plan-card.card-diamond.selected{border-color:#C4B5FD;box-shadow:0 6px 24px rgba(196,181,253,.2)}
 
-.rec-badge{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#0B666A,#35A29F);color:#fff;font-size:10px;font-weight:800;padding:3px 16px;border-radius:20px;white-space:nowrap;letter-spacing:.02em}
+/* FREE */
+.plan-card.card-free{
+  background:var(--free-bg);
+  border-color:var(--free-bd);
+  box-shadow:0 2px 8px rgba(7,25,82,.06);
+}
+.plan-card.card-free.selected{
+  border-color:#8fa3d4;
+  box-shadow:0 4px 16px rgba(7,25,82,.12);
+}
 
-.plan-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
-.plan-name-wrap{}
-.plan-name{font-family:'Outfit',sans-serif;font-size:18px;font-weight:900}
-.plan-name.free{color:rgba(255,255,255,0.6)}
-.plan-name.silver{color:#C0C0C0}
-.plan-name.gold{color:#FFD700}
-.plan-name.diamond{color:#C4B5FD}
-.plan-tier{font-size:10px;font-weight:700;letter-spacing:.08em;color:rgba(255,255,255,0.35);display:block;margin-top:1px}
+/* SILVER */
+.plan-card.card-silver{
+  background:var(--silver-bg);
+  border-color:var(--silver-bd);
+  box-shadow:0 2px 10px rgba(100,120,160,.1);
+}
+.plan-card.card-silver.selected{
+  border-color:var(--silver-ac);
+  box-shadow:0 4px 20px rgba(100,130,180,.18);
+}
 
+/* GOLD — 추천 카드: 다크 배경으로 확실한 대비 */
+.plan-card.card-gold{
+  background:var(--gold-bg);
+  border-color:rgba(212,160,23,.35);
+  box-shadow:0 8px 32px rgba(7,25,82,.28);
+  margin:-2px -4px;          /* 살짝 튀어나오게 */
+  padding:24px;
+  border-radius:22px;
+}
+.plan-card.card-gold.selected{
+  border-color:var(--gold-bd);
+  box-shadow:0 12px 40px rgba(212,160,23,.22),0 4px 16px rgba(7,25,82,.3);
+}
+
+/* DIAMOND */
+.plan-card.card-diamond{
+  background:var(--diamond-bg);
+  border-color:rgba(155,125,255,.25);
+  box-shadow:0 4px 20px rgba(18,10,58,.35);
+}
+.plan-card.card-diamond.selected{
+  border-color:var(--diamond-bd);
+  box-shadow:0 8px 32px rgba(155,125,255,.2);
+}
+
+/* ── 추천 배지 ── */
+.rec-badge{
+  position:absolute;top:-13px;left:50%;
+  transform:translateX(-50%);
+  background:linear-gradient(135deg,#d4a017,#ffd060);
+  color:#1a0e00;
+  font-size:10px;font-weight:900;
+  padding:4px 18px;
+  border-radius:999px;
+  white-space:nowrap;
+  letter-spacing:.04em;
+  box-shadow:0 3px 12px rgba(212,160,23,.4);
+}
+
+/* ── 카드 내부 ── */
+.plan-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+.plan-name{font-family:'Outfit',sans-serif;font-size:19px;font-weight:900}
+.plan-tier{font-size:10px;font-weight:700;letter-spacing:.1em;display:block;margin-top:2px}
+
+/* 플랜별 텍스트 컬러 */
+.plan-name.free{color:var(--free-tx)}
+.plan-tier.free{color:var(--tx-muted)}
+
+.plan-name.silver{color:var(--silver-tx)}
+.plan-tier.silver{color:var(--silver-ac)}
+
+.plan-name.gold{color:var(--gold-ac)}
+.plan-tier.gold{color:rgba(212,160,23,.6)}
+
+.plan-name.diamond{color:var(--diamond-ac)}
+.plan-tier.diamond{color:rgba(155,125,255,.55)}
+
+/* 가격 */
 .plan-price-wrap{text-align:right}
-.plan-price{font-family:'Outfit',sans-serif;font-size:26px;font-weight:900;color:#fff;line-height:1}
-.plan-price.free{font-size:22px;color:rgba(255,255,255,0.45)}
-.plan-price-normal{font-size:14px;color:rgba(255,255,255,0.35);text-decoration:line-through;margin-bottom:1px}
-.plan-price-discount{font-size:10px;font-weight:700;background:rgba(239,68,68,0.2);color:#fca5a5;border:1px solid rgba(239,68,68,0.35);border-radius:6px;padding:2px 8px;display:inline-block;margin-bottom:4px;letter-spacing:.02em}
-.plan-period{font-size:11px;color:rgba(255,255,255,0.35)}
+.plan-price{font-family:'Outfit',sans-serif;font-size:26px;font-weight:900;line-height:1}
+.plan-price.free{font-size:20px;color:var(--tx-muted)}
+.plan-price.silver{color:var(--silver-tx)}
+.plan-price.gold{color:#fff}
+.plan-price.diamond{color:var(--diamond-ac)}
+.plan-price-normal{font-size:13px;text-decoration:line-through;margin-bottom:2px}
+.plan-price-normal.silver{color:rgba(58,79,122,.35)}
+.plan-price-normal.gold{color:rgba(255,255,255,.25)}
+.plan-price-normal.diamond{color:rgba(196,181,253,.25)}
+.plan-price-discount{
+  font-size:10px;font-weight:800;
+  padding:2px 8px;
+  border-radius:6px;
+  display:inline-block;margin-bottom:4px;
+  letter-spacing:.02em;
+}
+.plan-price-discount.silver{background:rgba(239,68,68,.08);color:#dc2626;border:1px solid rgba(239,68,68,.2)}
+.plan-price-discount.gold{background:rgba(212,160,23,.15);color:var(--gold-ac);border:1px solid rgba(212,160,23,.3)}
+.plan-price-discount.diamond{background:rgba(155,125,255,.15);color:var(--diamond-ac);border:1px solid rgba(155,125,255,.25)}
+.plan-period{font-size:11px}
+.plan-period.silver{color:var(--tx-muted)}
+.plan-period.gold{color:rgba(255,255,255,.4)}
+.plan-period.diamond{color:rgba(196,181,253,.4)}
 
-.divider{height:1px;background:rgba(151,254,237,0.07);margin:12px 0}
+/* 구분선 */
+.divider{height:1px;margin:14px 0}
+.card-free  .divider{background:rgba(7,25,82,.08)}
+.card-silver .divider{background:rgba(7,25,82,.08)}
+.card-gold   .divider{background:rgba(255,255,255,.1)}
+.card-diamond .divider{background:rgba(155,125,255,.12)}
 
-.feat-list{display:flex;flex-direction:column;gap:7px}
-.feat{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:rgba(255,255,255,0.7);line-height:1.4}
-.feat .mi{font-size:15px;flex-shrink:0;margin-top:1px}
-.feat .mi.check{color:#35A29F}
-.feat .mi.x{color:rgba(255,255,255,0.2)}
-.feat strong{color:#fff;font-weight:700}
-.feat .sub{font-size:10.5px;color:rgba(151,254,237,0.55);display:block;margin-top:1px}
+/* 혜택 목록 */
+.feat-list{display:flex;flex-direction:column;gap:8px}
+.feat{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;line-height:1.4}
+.feat .mi{font-size:16px;flex-shrink:0;margin-top:0}
 
-/* 결제 버튼 */
-.pay-wrap{position:fixed;bottom:0;left:0;right:0;padding:10px 16px calc(10px + max(70px,env(safe-area-inset-bottom) + 70px));background:rgba(255,255,255,0.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--border);z-index:100000;box-shadow:0 -4px 20px rgba(0,0,0,.06)}
+.card-free   .feat{color:var(--free-tx)} .card-free   .feat .mi.check{color:var(--teal)} .card-free   .feat .mi.x{color:#c0cce0}
+.card-silver .feat{color:var(--silver-tx)} .card-silver .feat .mi.check{color:var(--teal)} .card-silver .feat .mi.x{color:#b0bdd4}
+.card-gold   .feat{color:rgba(255,255,255,.75)} .card-gold   .feat .mi.check{color:var(--mint)} .card-gold   .feat .mi.x{color:rgba(255,255,255,.2)}
+.card-diamond .feat{color:rgba(196,181,253,.75)} .card-diamond .feat .mi.check{color:var(--diamond-ac)} .card-diamond .feat .mi.x{color:rgba(155,125,255,.2)}
+
+.feat strong{font-weight:700}
+.card-free   .feat strong{color:var(--navy)}
+.card-silver .feat strong{color:var(--navy-mid)}
+.card-gold   .feat strong{color:#fff}
+.card-diamond .feat strong{color:var(--diamond-ac)}
+
+.feat .sub{font-size:10.5px;display:block;margin-top:1px}
+.card-gold    .feat .sub{color:rgba(151,254,237,.55)}
+.card-diamond .feat .sub{color:rgba(155,125,255,.5)}
+
+/* ── 결제 버튼 영역 ── */
+.pay-wrap{position:fixed;bottom:0;left:0;right:0;padding:12px 16px calc(12px + max(70px,env(safe-area-inset-bottom) + 70px));background:rgba(255,255,255,.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid #e8eef8;z-index:100000;box-shadow:0 -4px 20px rgba(7,25,82,.07)}
 .pay-wrap-inner{max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:6px}
-.pay-btn{width:100%;padding:16px;border-radius:16px;border:none;color:#fff;font-family:'Outfit',sans-serif;font-size:17px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
+.pay-btn{width:100%;padding:16px;border-radius:16px;border:none;color:#fff;font-family:'Outfit',sans-serif;font-size:17px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s;letter-spacing:.02em}
 .pay-btn.default{background:linear-gradient(135deg,#0B666A,#35A29F)}
 .pay-btn.gold-btn{background:linear-gradient(135deg,#92660A,#D4A017)}
 .pay-btn.diamond-btn{background:linear-gradient(135deg,#4C1D95,#7C3AED)}
-.pay-btn:disabled{opacity:.35;cursor:not-allowed;background:rgba(53,162,159,0.3) !important}
+.pay-btn:disabled{opacity:.3;cursor:not-allowed;background:rgba(53,162,159,0.25) !important}
 .pay-btn:not(:disabled):active{opacity:.85}
-.pay-note{text-align:center;font-size:11px;color:var(--text3)}
+.pay-note{text-align:center;font-size:11px;color:var(--tx-muted)}
 
-/* 안내 박스 */
-.info-box{background:#ffffff;border:1px solid var(--border);border-radius:14px;padding:14px 18px;font-size:12px;color:var(--text3);line-height:1.8;box-shadow:0 1px 4px rgba(0,0,0,.04)}
-.info-box b{color:var(--sub);display:block;margin-bottom:3px;margin-top:10px}
+/* ── 안내 박스 ── */
+.info-box{background:var(--surface);border:1px solid #e2e8f4;border-radius:16px;padding:16px 18px;font-size:12px;color:var(--tx-mid);line-height:1.8;box-shadow:0 1px 6px rgba(7,25,82,.04)}
+.info-box b{color:var(--teal);display:block;margin-bottom:3px;margin-top:10px;font-weight:700}
 .info-box b:first-child{margin-top:0}
 
-/* 풋바 */
+/* ── 풋바 ── */
 .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px;padding-bottom:max(10px,env(safe-area-inset-bottom));pointer-events:none}
 .cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px}
 .cb-nav-tab{display:flex;flex-direction:column;align-items:center;gap:2px;color:rgba(216,226,255,.5);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s}
 .cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1}
 .cb-nav-tab .nl{font-size:9px;font-weight:600}
 .cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px}
-
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);padding:10px 22px;border-radius:20px;font-size:13px;font-weight:700;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9999}
 .toast.show{opacity:1}
 .toast.ok{background:rgba(11,102,106,.95);color:#97FEED;border:1px solid rgba(151,254,237,.3)}
@@ -480,9 +630,9 @@ function renderPlans(){
       const normalStr = en ? `$${p.normalPriceUsd}` : `₩${p.normalPrice.toLocaleString()}`;
       const discStr   = en ? `$${p.priceUsd}` : `₩${p.price.toLocaleString()}`;
       const period    = en ? '/mo' : '/월';
-      const badge     = p.discountLabel ? `<div class="plan-price-discount">${p.discountLabel}</div>` : '';
-      const normal    = p.normalPrice ? `<div class="plan-price-normal">${normalStr}${period}</div>` : '';
-      priceBlock = `${badge}${normal}<div class="plan-price ${p.nameClass}">${discStr}<span class="plan-period">${period}</span></div>`;
+      const badge     = p.discountLabel ? `<div class="plan-price-discount ${p.nameClass}">${p.discountLabel}</div>` : '';
+      const normal    = p.normalPrice ? `<div class="plan-price-normal ${p.nameClass}">${normalStr}${period}</div>` : '';
+      priceBlock = `${badge}${normal}<div class="plan-price ${p.nameClass}">${discStr}<span class="plan-period ${p.nameClass}">${period}</span></div>`;
     }
     const periodStr = '';  // priceBlock에 포함됨
 
