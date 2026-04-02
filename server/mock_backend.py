@@ -65,31 +65,30 @@ load_dotenv(os.path.join(os.path.dirname(_HERE), ".env"))
 # rembg(배경제거) + Lykdat(속성분석) + Marqo(유사도매칭)
 # ══════════════════════════════════════════════════════════════
 
-# ── [STEP 1] rembg: 의류 배경 제거 ──────────────────────────
-_rembg_session = None
-
-def _get_rembg():
-    global _rembg_session
-    if _rembg_session is None:
-        try:
-            from rembg import new_session
-            _rembg_session = new_session("u2net_cloth_seg")
-            print("[rembg] ✅ 배경 제거 모델 로드 완료")
-        except Exception as e:
-            print(f"[rembg] ⚠ 로드 실패 (계속 진행): {e}")
-    return _rembg_session
+# ── [STEP 1] rembg: 의류 배경 제거 (HF Space API) ────────────
+_REMBG_API_URL = os.getenv("REMBG_API_URL", "").rstrip("/")
 
 def remove_clothing_bg(img_bytes: bytes) -> bytes:
-    """의류 배경 제거 — 실패해도 원본 반환 (폴백)"""
+    """HF Space rembg API로 의류 배경 제거 — 실패 시 원본 반환"""
+    if not _REMBG_API_URL:
+        print("[rembg] ⚠ REMBG_API_URL 미설정, 원본 사용")
+        return img_bytes
     try:
-        from rembg import remove as rembg_remove
-        session = _get_rembg()
-        if session:
-            result = rembg_remove(img_bytes, session=session)
-            print("[rembg] ✅ 배경 제거 완료")
-            return result
+        resp = http_requests.post(
+            f"{_REMBG_API_URL}/remove-bg",
+            files={"file": ("image.jpg", img_bytes, "image/jpeg")},
+            timeout=30
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("ok") and data.get("image"):
+                b64 = data["image"].split(",", 1)[1]
+                result = base64.b64decode(b64)
+                print("[rembg] ✅ HF Space 배경 제거 완료")
+                return result
+        print(f"[rembg] ⚠ HF Space 응답 오류: {resp.status_code}")
     except Exception as e:
-        print(f"[rembg] 배경 제거 실패, 원본 사용: {e}")
+        print(f"[rembg] ⚠ HF Space 호출 실패, 원본 사용: {e}")
     return img_bytes
 
 # ── [STEP 2] Lykdat: 패션 속성 태깅 ──────────────────────────
@@ -1032,6 +1031,11 @@ def storage_upload():
             return jsonify(ok=False, error="이미지 형식이 올바르지 않습니다(dataUrl)."), 400
         ext = _mime_to_ext(mime)
         slot = re.sub(r"[^a-z0-9_-]+", "", str(payload.get("slot") or "img").lower())[:16] or "img"
+
+    # 의류 아이템 업로드 시 배경 제거 (얼굴/프로필 제외)
+    if slot not in ("face", "profile", "avatar"):
+        img_bytes = remove_clothing_bg(img_bytes)
+        ext = "png"  # 배경 제거 결과는 PNG(투명 배경)
 
     fname = f"{slot}_{_now_ms()}_{os.urandom(3).hex()}.{ext}"
     try:
