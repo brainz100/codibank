@@ -1034,10 +1034,10 @@ def storage_upload():
 
     # 의류 아이템 업로드 시 배경 제거 (얼굴/프로필 제외)
     if slot not in ("face", "profile", "avatar"):
-        img_bytes = remove_clothing_bg(img_bytes)
-        ext = "png"  # 배경 제거 결과는 PNG(투명 배경)
-
-    fname = f"{slot}_{_now_ms()}_{os.urandom(3).hex()}.{ext}"
+        _cleaned = remove_clothing_bg(img_bytes)
+        if _cleaned is not img_bytes:  # 배경 제거 성공 시만 PNG로 전환
+            img_bytes = _cleaned
+            ext = "png"
     try:
         rel = _write_upload_bytes(slot, ext, img_bytes, fixed_name=fname)
     except Exception as e:
@@ -2211,7 +2211,7 @@ def ai_analyze_item():
             _cli = _gmod.Client(api_key=_GEMINI_KEY)
             _img_part = _gtypes.Part.from_bytes(data=img_bytes, mime_type=img_mime)
             _resp = _cli.models.generate_content(
-                model="gemini-2.5-flash-preview-04-17",
+                model=_CODISTYLE_MODEL,
                 contents=[_gtypes.Content(parts=[_img_part, _gtypes.Part.from_text(text=PROMPT)])],
             )
             result_text = _resp.text if hasattr(_resp, "text") else str(_resp)
@@ -2435,7 +2435,7 @@ def _personal_color_gemini(img_bytes, img_mime, prompt):
             _cli = _gmod.Client(api_key=_GEMINI_KEY)
             _img_part = _gtypes.Part.from_bytes(data=img_bytes, mime_type=img_mime)
             _resp = _cli.models.generate_content(
-                model="gemini-2.5-flash-preview-04-17",
+                model=_CODISTYLE_MODEL,
                 contents=[_gtypes.Content(parts=[_img_part, _gtypes.Part.from_text(text=prompt)])],
             )
             result_text = _resp.text if hasattr(_resp, "text") else str(_resp)
