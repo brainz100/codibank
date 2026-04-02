@@ -188,6 +188,59 @@ def cosine_similarity(v1: list, v2: list) -> float:
     except Exception:
         return 0.0
 
+
+# ══════════════════════════════════════════════════════════════
+# Cloudflare R2 전역 클라이언트 (서버 시작 시 1회 초기화)
+# ══════════════════════════════════════════════════════════════
+_R2_CLIENT = None
+_R2_BUCKET = os.getenv("R2_BUCKET_NAME", "codibank")
+_R2_PUB_URL = os.getenv("R2_PUBLIC_URL", "").rstrip("/")  # 예: https://pub.codibank.r2.dev
+
+def _get_r2():
+    global _R2_CLIENT
+    if _R2_CLIENT is not None:
+        return _R2_CLIENT
+    ep  = os.getenv("R2_ENDPOINT", "")
+    ak  = os.getenv("R2_ACCESS_KEY_ID", "")
+    sk  = os.getenv("R2_SECRET_ACCESS_KEY", "")
+    if not (ep and ak and sk):
+        return None
+    try:
+        import boto3
+        _R2_CLIENT = boto3.client(
+            "s3",
+            endpoint_url=ep,
+            aws_access_key_id=ak,
+            aws_secret_access_key=sk,
+            region_name="auto",
+        )
+        print("[R2] ✅ 클라이언트 초기화 완료")
+    except Exception as e:
+        print(f"[R2] ⚠ 초기화 실패: {e}")
+        _R2_CLIENT = None
+    return _R2_CLIENT
+
+def _upload_to_r2(fname: str, data: bytes, mime: str = "image/jpeg") -> str | None:
+    """R2에 파일 업로드 → 공개 URL 반환 (실패 시 None)"""
+    r2 = _get_r2()
+    if not r2:
+        return None
+    try:
+        r2.put_object(
+            Bucket=_R2_BUCKET,
+            Key=f"uploads/{fname}",
+            Body=data,
+            ContentType=mime,
+            CacheControl="public, max-age=31536000",
+        )
+        # 공개 URL 반환 (R2_PUBLIC_URL 설정 시 사용, 없으면 /uploads/ 경로)
+        if _R2_PUB_URL:
+            return f"{_R2_PUB_URL}/uploads/{fname}"
+        return f"/uploads/{fname}"
+    except Exception as e:
+        print(f"[R2] 업로드 실패 ({fname}): {e}")
+        return None
+
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 CORS(app, allow_headers=["Content-Type", "X-Admin-Key", "Authorization"])
@@ -214,19 +267,27 @@ def _sha256_hex(data: bytes) -> str:
 
 
 def _write_upload_bytes(slot: str, ext: str, data: bytes, *, fixed_name: str | None = None) -> str:
-    """uploads 폴더에 바이너리를 저장하고 상대 경로(/uploads/..)를 반환"""
+    """이미지 저장: R2 우선 → 로컬 폴백. 상대 경로(/uploads/..) 반환"""
 
     slot = re.sub(r"[^a-z0-9_-]+", "", str(slot or "img").lower())[:16] or "img"
-    ext = re.sub(r"[^a-z0-9]+", "", str(ext or "jpg").lower()) or "jpg"
+    ext  = re.sub(r"[^a-z0-9]+",   "", str(ext  or "jpg").lower())  or "jpg"
+    fname = fixed_name or f"{slot}_{_now_ms()}_{os.urandom(3).hex()}.{ext}"
 
-    if fixed_name:
-        fname = fixed_name
-    else:
-        fname = f"{slot}_{_now_ms()}_{os.urandom(3).hex()}.{ext}"
+    # 1순위: Cloudflare R2 업로드
+    mime_map = {"jpg":"image/jpeg","jpeg":"image/jpeg","png":"image/png",
+                "webp":"image/webp","gif":"image/gif"}
+    mime = mime_map.get(ext, "image/jpeg")
+    r2_url = _upload_to_r2(fname, data, mime)
+    if r2_url:
+        print(f"[R2] ✅ 업로드 완료: {fname}")
+        # R2 공개 URL이 절대경로면 그대로, /uploads/ 상대경로면 그대로 반환
+        return r2_url if r2_url.startswith("http") else f"{_UPLOAD_PREFIX}{fname}"
 
+    # 2순위: 로컬 파일시스템 폴백
     fpath = os.path.join(_UPLOAD_DIR, fname)
     with open(fpath, "wb") as f:
         f.write(data)
+    print(f"[로컬] 저장 완료 (R2 없음): {fname}")
     return f"{_UPLOAD_PREFIX}{fname}"
 
 
@@ -896,6 +957,8 @@ def health():
         has_openai_key=_safe_bool(os.getenv("OPENAI_API_KEY")),
         # ── AI 기술 상태 ──
         rembg_ready=(_rembg_session is not None),
+        r2_ready=(_get_r2() is not None),
+        r2_pub_url=bool(_R2_PUB_URL),
         lykdat_ready=bool(_LYKDAT_KEY),
         fashion_model_ready=(_fashion_model is not None),
         gemini_ready=bool(_GEMINI_KEY),
@@ -911,14 +974,26 @@ def health():
 
 @app.get("/uploads/<path:filename>")
 def serve_upload(filename: str):
-    """업로드된 이미지를 서빙합니다.
+    """업로드된 이미지 서빙: R2 공개 URL 있으면 redirect, 없으면 로컬 파일"""
+    from flask import redirect as _redir
 
-    - 프로토타입/로컬 테스트용
-    - 모바일(같은 Wi-Fi)에서 이미지 URL로 접근 가능
-    - ✅ [버그1·2 수정] CORS + Cache-Control 헤더 추가
-      · crossOrigin=anonymous 설정된 canvas가 taint 없이 이미지를 그릴 수 있도록 CORS 허용
-      · immutable 캐싱으로 재접근 시 빠른 로딩 보장
-    """
+    # ── R2 공개 URL이 설정돼 있으면 redirect (이미지가 R2에 있음)
+    if _R2_PUB_URL:
+        r2_url = f"{_R2_PUB_URL}/uploads/{filename}"
+        resp = _redir(r2_url, 302)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Cache-Control"] = "public, max-age=31536000"
+        return resp
+
+    # ── 로컬 파일 서빙 (R2 없는 경우 폴백)
+    from flask import after_this_request
+    @after_this_request
+    def add_headers(response):
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
     from flask import after_this_request
     @after_this_request
     def add_headers(response):
@@ -2016,11 +2091,21 @@ def ai_analyze_item():
         if not img_bytes:
             return jsonify(ok=False, error="이미지 데이터 없음"), 400
 
-        # ── [STEP 1] rembg: 배경 제거 ──
+        # ── [STEP 1] rembg: 배경 제거 (타임아웃 15초) ──
         _orig_mime = img_mime  # 원본 mime 보존
-        _cleaned   = remove_clothing_bg(img_bytes)
+        try:
+            import concurrent.futures as _cf
+            with _cf.ThreadPoolExecutor(max_workers=1) as _ex:
+                _fut = _ex.submit(remove_clothing_bg, img_bytes)
+                try:
+                    _cleaned = _fut.result(timeout=15)
+                except _cf.TimeoutError:
+                    print("[rembg] 타임아웃 — 원본 이미지 사용")
+                    _cleaned = img_bytes
+        except Exception as _re:
+            print(f"[rembg] 오류: {_re}")
+            _cleaned = img_bytes
         if _cleaned is not img_bytes:
-            # rembg 성공 → PNG로 변환됨
             img_bytes = _cleaned
             img_mime  = "image/png"
         # rembg 실패 시 → img_bytes/img_mime 원본 유지
