@@ -724,6 +724,8 @@ function applyFacePreview(src){
 })();
 // 저장된 퍼스널컬러 로드
 setTimeout(function(){ if(typeof loadPersonalColorCS==='function') loadPersonalColorCS(); }, 100);
+// 초기 프로필 정보 표시 (Supabase 세션 기다리지 않고 바로 표시)
+setTimeout(function(){ if(typeof displayBodyInfo==='function') displayBodyInfo(); }, 50);
 
 /* 얼굴 이미지 리사이즈 헬퍼 */
 function resizeFaceDataUrl(src, maxSize, quality){
@@ -1408,7 +1410,22 @@ const codiProfile = {
 };
 try{
   const _cp = JSON.parse(sessionStorage.getItem('cb_codiProfile')||'null');
-  if(_cp){ if(_cp.gender) codiProfile.gender=_gMap(_cp.gender)||codiProfile.gender; if(_cp.ageGroup) codiProfile.ageGroup=_cp.ageGroup; if(_cp.height) codiProfile.height=_cp.height; if(_cp.weight) codiProfile.weight=_cp.weight; }
+  if(_cp){
+    if(_cp.gender)   codiProfile.gender   = _gMap(_cp.gender) || codiProfile.gender;
+    if(_cp.ageGroup) codiProfile.ageGroup = _cp.ageGroup;
+    if(_cp.height)   codiProfile.height   = _cp.height;
+    if(_cp.weight)   codiProfile.weight   = _cp.weight;
+  }
+}catch(_){}
+// localStorage에서도 보완 (profile.html에서 저장한 데이터)
+try{
+  const _lu = CodiBank && CodiBank.getCurrentUser ? CodiBank.getCurrentUser() : null;
+  if(_lu){
+    if(!codiProfile.height && _lu.height)   codiProfile.height   = _lu.height;
+    if(!codiProfile.weight && _lu.weight)   codiProfile.weight   = _lu.weight;
+    if(!codiProfile.gender && _lu.gender)   codiProfile.gender   = _gMap(_lu.gender);
+    if(!codiProfile.ageGroup && _lu.ageGroup) codiProfile.ageGroup = _aMap(_lu.ageGroup);
+  }
 }catch(_){}
 
 function displayBodyInfo() {

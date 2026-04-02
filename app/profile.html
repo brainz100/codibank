@@ -305,11 +305,8 @@ function previewPhoto(e){
         const c = document.createElement('canvas'); c.width = nw; c.height = nh;
         const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, nw, nh);
         _photoData = c.toDataURL('image/jpeg', q);
-        // 사진 선택 → 분석 버튼 활성화
-        const _pcBtn = document.getElementById('pcAnalyzeBtn');
-        const _pcTxt = document.getElementById('pcBtnText');
-        const _en = window.CodiBankI18n && CodiBankI18n.isEn();
-        if(_pcBtn){ _pcBtn.disabled=false; _pcBtn.style.background='linear-gradient(135deg,#0B666A,#35A29F)'; _pcBtn.style.color='#fff'; }
+        // 사진 선택 → 버튼 상태 업데이트
+        updatePcBtnState();
         if(_pcTxt){ _pcTxt.textContent = _en ? '🎨 Analyze Personal Color' : '🎨 퍼스널컬러 분석'; }
       } catch(_) {
         _photoData = rawData; // 압축 실패 시 원본
@@ -375,11 +372,13 @@ function loadUser(){
       }
     }).catch(() => {});
   }
-}
-  // 기존 퍼스널컬러 로드
+  // 기존 퍼스널컬러 로드 (_user 설정 후 실행)
   loadPersonalColorFromStorage();
+  // 버튼 상태 초기화
+  updatePcBtnState();
   // 언어 적용
   setTimeout(applyPcI18n, 200);
+}
 
 async function doSave(){
   if(!_user) return;
@@ -449,6 +448,17 @@ async function doSave(){
 
 document.addEventListener('DOMContentLoaded', loadUser);
 
+// ── Supabase 세션 복원 후 퍼스널컬러 재로드 ──
+if (window.CodiBank && CodiBank.onSessionReady) {
+  CodiBank.onSessionReady(function(cbUser) {
+    if (!cbUser || !cbUser.email) return;
+    // _user가 이미 세팅됐지만 이메일이 다를 수 있으므로 재로드
+    _user = cbUser;
+    loadPersonalColorFromStorage();
+    updatePcBtnState();
+  });
+}
+
 // ══════════════════════════════════════════════════════
 // 퍼스널컬러 분석
 // ══════════════════════════════════════════════════════
@@ -468,13 +478,8 @@ function renderPersonalColor(pc) {
   if(loading) loading.style.display = 'none';
   if(result)  result.style.display  = 'block';
   // 버튼 → "다시 분석"으로 변경 (숨기지 않음)
-  try{
-    const b=document.getElementById('pcAnalyzeBtn');
-    const t=document.getElementById('pcBtnText');
-    if(b){ b.disabled=false; b.style.background='linear-gradient(135deg,#0B666A,#35A29F)'; b.style.color='#fff'; }
-    if(t){ const _en = window.CodiBankI18n && CodiBankI18n.isEn();
-           t.textContent = _en ? '🔄 Re-analyze' : '🔄 다시 분석'; }
-  }catch(_){}
+  // 버튼 상태 업데이트 (다시 분석으로 전환)
+  setTimeout(updatePcBtnState, 100);
   // pcEmpty 숨기기
   try{ document.getElementById('pcEmpty').style.display='none'; }catch(_){}
 
@@ -591,6 +596,39 @@ async function reAnalyzePersonalColor() {
   await analyzePersonalColor(_photoData);
 }
 
+
+
+// ── 퍼스널컬러 버튼 상태 관리 ────────────────────────────
+// 사진 없음 → 비활성화 | 사진 있음 → "퍼스널컬러 분석" 활성화
+// 분석 결과 있음 → "다시 분석" 활성화
+function updatePcBtnState() {
+  const btn = document.getElementById('pcAnalyzeBtn');
+  const txt = document.getElementById('pcBtnText');
+  if (!btn || !txt) return;
+  const _en = window.CodiBankI18n && CodiBankI18n.isEn();
+  const hasPhoto = !!_photoData;
+  const hasResult = document.getElementById('pcResult')?.style.display === 'block';
+
+  if (!hasPhoto) {
+    // 사진 없음 → 비활성화
+    btn.disabled = true;
+    btn.style.background = '#e0e0e0';
+    btn.style.color = '#aaa';
+    txt.textContent = _en ? '🎨 Analyze Personal Color' : '🎨 퍼스널컬러 분석';
+  } else if (hasResult) {
+    // 분석 완료 → "다시 분석" 활성화
+    btn.disabled = false;
+    btn.style.background = 'linear-gradient(135deg,#0B666A,#35A29F)';
+    btn.style.color = '#fff';
+    txt.textContent = _en ? '🔄 Re-analyze' : '🔄 다시 분석';
+  } else {
+    // 사진 있음, 분석 전 → "퍼스널컬러 분석" 활성화
+    btn.disabled = false;
+    btn.style.background = 'linear-gradient(135deg,#0B666A,#35A29F)';
+    btn.style.color = '#fff';
+    txt.textContent = _en ? '🎨 Analyze Personal Color' : '🎨 퍼스널컬러 분석';
+  }
+}
 
 function startPersonalColorAnalysis() {
   if(!_photoData){
