@@ -96,31 +96,39 @@ def remove_clothing_bg(img_bytes: bytes) -> bytes:
 _LYKDAT_KEY = os.getenv("LYKDAT_API_KEY", "")
 
 def lykdat_tag_item(img_bytes: bytes) -> dict:
-    """의류 이미지 → 카테고리/컬러/패턴/실루엣 자동 태깅"""
+    """의류 이미지 → 카테고리/컬러/패턴/실루엣 자동 태깅 (cloudapi v1/detection/tags)"""
     if not _LYKDAT_KEY:
         return {}
     try:
         resp = http_requests.post(
-            "https://api.lykdat.com/v1/clothing/search",
-            headers={"X-Api-Key": _LYKDAT_KEY},
+            "https://cloudapi.lykdat.com/v1/detection/tags",
+            headers={"x-api-key": _LYKDAT_KEY},
             files={"image": ("item.png", img_bytes, "image/png")},
             timeout=10
         )
         if resp.status_code != 200:
-            print(f"[Lykdat] 실패: HTTP {resp.status_code}")
+            print(f"[Lykdat] 실패: HTTP {resp.status_code} {resp.text[:100]}")
             return {}
-        d = resp.json().get("data", {})
-        items    = d.get("items", [])
-        colors   = sorted(d.get("colors", []),
-                          key=lambda x: x.get("confidence", 0), reverse=True)
-        labels   = d.get("labels", [])
+        raw = resp.json()
+        # tags 엔드포인트 응답: {"data": {"colors":[], "items":[], "labels":[]}} 또는 직접 배열
+        d = raw.get("data", raw)
+        if isinstance(d, list):
+            # 일부 버전: 바로 리스트 반환
+            labels = d
+            items, colors = [], []
+        else:
+            items  = d.get("items", [])
+            colors = sorted(d.get("colors", []),
+                            key=lambda x: x.get("confidence", 0), reverse=True)
+            labels = d.get("labels", [])
+
         result = {
-            "lykdat_category":   items[0].get("name", "")  if items  else "",
-            "lykdat_color_hex":  "#" + colors[0]["hex_code"] if colors else "",
-            "lykdat_color_name": colors[0].get("name", "")  if colors else "",
-            "lykdat_pattern":    next((l["name"] for l in labels
+            "lykdat_category":   items[0].get("name", "")    if items  else "",
+            "lykdat_color_hex":  "#" + colors[0].get("hex_code","") if colors else "",
+            "lykdat_color_name": colors[0].get("name", "")   if colors else "",
+            "lykdat_pattern":    next((l.get("name","") for l in labels
                                   if l.get("classification") == "textile pattern"), ""),
-            "lykdat_silhouette": next((l["name"] for l in labels
+            "lykdat_silhouette": next((l.get("name","") for l in labels
                                   if l.get("classification") == "silhouette"), ""),
         }
         print(f"[Lykdat] ✅ 태깅 완료: {result['lykdat_category']} / {result['lykdat_color_name']}")
@@ -2009,14 +2017,23 @@ def ai_analyze_item():
             return jsonify(ok=False, error="이미지 데이터 없음"), 400
 
         # ── [STEP 1] rembg: 배경 제거 ──
-        img_bytes = remove_clothing_bg(img_bytes)
-        img_mime  = "image/png"   # rembg 출력은 항상 PNG
+        _orig_mime = img_mime  # 원본 mime 보존
+        _cleaned   = remove_clothing_bg(img_bytes)
+        if _cleaned is not img_bytes:
+            # rembg 성공 → PNG로 변환됨
+            img_bytes = _cleaned
+            img_mime  = "image/png"
+        # rembg 실패 시 → img_bytes/img_mime 원본 유지
 
         # ── [STEP 2] Lykdat: 속성 태깅 ──
         lykdat_data = lykdat_tag_item(img_bytes)
 
         # ── [STEP 3] Marqo: 임베딩 생성 ──
         fashion_embedding = get_fashion_embedding(img_bytes)
+
+        # ── img_bytes 최소 크기 검증 ──
+        if not img_bytes or len(img_bytes) < 100:
+            return jsonify(ok=False, error="이미지 데이터가 너무 작거나 없습니다"), 400
 
         # ── [STEP 4] Gemini 프롬프트에 Lykdat 컨텍스트 추가 ──
         _lykdat_ctx = ""
@@ -2035,8 +2052,8 @@ def ai_analyze_item():
 이 의류 이미지를 분석하고 아래 JSON 형식으로만 응답하세요. JSON 외 다른 텍스트는 절대 포함하지 마세요.
 
 {
-  "category": "top|bottom|outer|shoes|bag|acc|etc 중 하나",
-  "sub_category": "예: 티셔츠/블라우스/청바지/슬랙스/패딩/스니커즈 등 세부 품목",
+  "category": "coat(반코트/롱코트/패딩코트/트렌치코트/더플코트) | jacket(수트/수트자켓/콤비자켓/일반자켓/패딩/레더자켓/가디건/사파리자켓/집업/후드집업) | top(티셔츠/셔츠/블라우스/니트/후드) | pants(바지/청바지/슬랙스/스커트) | shoes(구두/운동화/부츠) | watch(시계) | scarf(스카프/목도리) | socks(양말) | etc 중 하나 — 분류 기준: coat는 무릎 이상 길이의 코트류, jacket은 자켓/패딩/가디건 등 짧은 아우터류",
+  "sub_category": "아래 세부 품목 중 하나로 정확히 분류:\n코트류: 반코트/롱코트/패딩코트/트렌치코트/더플코트/케이프코트\n자켓류: 수트자켓/콤비자켓/일반자켓/레더자켓/사파리자켓/데님자켓/집업자켓/후드집업자켓/패딩자켓/다운자켓/가디건/볼레로\n상의: 티셔츠/반팔티/긴팔티/셔츠/블라우스/니트/스웨터/후드티/맨투맨\n하의: 청바지/슬랙스/면바지/스키니/와이드팬츠/미니스커트/롱스커트/플리츠스커트",
   "main_color": "#RRGGBB 형식의 주요 색상 HEX",
   "main_color_name": "색상 이름 (한국어): 예: 네이비블루, 아이보리, 카멜브라운 등",
   "sub_color": "#RRGGBB 또는 null",
