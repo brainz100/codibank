@@ -1247,7 +1247,10 @@ def _ai_styling_via_gemini(
                     generation_config=_genai_old.GenerationConfig(temperature=0.7),
                 )
     except Exception as e:
-        return jsonify(ok=False, error=f"Gemini 호출 실패 ({_SDK}): {str(e)[:300]}"), 500
+        import traceback as _tb
+        _trace = _tb.format_exc()[-400:]
+        print(f"[codistyle] Gemini 호출 실패: {_trace}")
+        return jsonify(ok=False, error=f"Gemini 호출 실패 ({_SDK}): {str(e)[:300]}", trace=_trace), 500
 
     # ── 응답에서 이미지 추출 ──
     img_bytes = None
@@ -1266,6 +1269,7 @@ def _ai_styling_via_gemini(
             finish = response.candidates[0].finish_reason
         except Exception:
             finish = "UNKNOWN"
+        print(f"[codistyle] 이미지 미생성: finishReason={finish}, comment={comment[:100]}")
         return jsonify(ok=False, error=f"이미지 미생성 finishReason={finish} {comment[:100]}"), 500
 
     if isinstance(img_bytes, str):
@@ -1582,6 +1586,14 @@ def codistyle_generate():
     _request_7bu = bool(payload.get("request7bu", False))
     _is_female_cs = (gender == "F")
 
+    # _retry_pants 초기화 (모든 분기에서 사용 가능하도록)
+    _retry_pants = (
+        "RETRY — PANTS MUST BE LONGER THAN PREVIOUS ATTEMPT: "
+        "The previous generation had pants that were too short. "
+        "This time, pants MUST be visibly LONGER — the hem must fully cover the shoe top and drape slightly. "
+        "Current Korean trend (2025-2026): slightly long trousers with a gentle break at the shoe. "
+    ) if is_retry else ""
+
     if _request_7bu:
         # 사용자가 7부를 명시적으로 요청한 경우에만 허용
         _pants_rule = (
@@ -1591,14 +1603,7 @@ def codistyle_generate():
             "This is a deliberate user choice. Apply faithfully."
         )
     elif not _is_female_cs:
-        # 남성: 예외 없이 풀 레귤러
-        # is_retry 여부에 따라 바지 기장 강화
-        _retry_pants = (
-            "RETRY — PANTS MUST BE LONGER THAN PREVIOUS ATTEMPT: "
-            "The previous generation had pants that were too short. "
-            "This time, pants MUST be visibly LONGER — the hem must fully cover the shoe top and drape slightly. "
-            "Current Korean trend (2025-2026): slightly long trousers with a gentle break at the shoe. "
-        ) if is_retry else ""
+        # 남성: 예외 없이 풀 레귤러 (_retry_pants는 위에서 이미 설정됨)
         _pants_rule = (
             "[RULE #1 — PANTS LENGTH — OVERRIDES EVERYTHING]: "
             "In the final generated image, the trouser hem must end at the BOTTOM 15% of the full image height — "
