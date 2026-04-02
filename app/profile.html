@@ -144,7 +144,7 @@ header h1{font-size:17px;font-weight:800;}
 </div>
 
 <!-- 퍼스널 컬러 정보 -->
-<p class="section-title" style="margin:0 16px 4px;padding:0 4px;">퍼스널 컬러 <span style="color:#0B666A;font-size:10px;">(AI 피부톤 분석)</span></p>
+<p class="section-title" style="margin:0 16px 4px;padding:0 4px;" id="pcSectionTitle">퍼스널 컬러 <span style="color:#0B666A;font-size:10px;" id="pcSectionSub">(AI 피부톤 분석)</span></p>
 <div class="section" id="pcSection" style="margin:0 16px 12px;">
   <div id="pcLoading" style="display:none;padding:14px 20px;text-align:center;">
     <span style="font-size:12px;color:#888;">퍼스널컬러 분석 중…</span>
@@ -173,19 +173,22 @@ header h1{font-size:17px;font-weight:800;}
     </div>
     <!-- 스타일 팁 -->
     <div id="pcTip" style="font-size:11.5px;color:#555;line-height:1.6;background:#f8faff;border-radius:8px;padding:8px 12px;"></div>
-    <button onclick="reAnalyzePersonalColor()" style="margin-top:10px;width:100%;padding:9px;border:1.5px solid #0B666A;background:#fff;color:#0B666A;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">다시 분석</button>
+
   </div>
-  <div id="pcEmpty" style="padding:14px 20px;text-align:center;">
-    <div style="font-size:12px;color:#aaa;margin-bottom:10px;">프로필 사진을 선택한 후 분석을 시작하세요</div>
-    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:12px;">
-      <span style="width:14px;height:14px;border-radius:50%;background:#FFB347;"></span>
-      <span style="width:14px;height:14px;border-radius:50%;background:#87CEEB;"></span>
-      <span style="width:14px;height:14px;border-radius:50%;background:#CD853F;"></span>
-      <span style="width:14px;height:14px;border-radius:50%;background:#B0C4DE;"></span>
+  <div id="pcEmpty" style="padding:14px 20px 6px;text-align:center;">
+    <div id="pcEmptyMsg" style="font-size:12px;color:#aaa;margin-bottom:8px;">프로필 사진을 선택한 후 분석을 시작하세요</div>
+    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:0;">
+      <span style="width:12px;height:12px;border-radius:50%;background:#FFB347;"></span>
+      <span style="width:12px;height:12px;border-radius:50%;background:#87CEEB;"></span>
+      <span style="width:12px;height:12px;border-radius:50%;background:#CD853F;"></span>
+      <span style="width:12px;height:12px;border-radius:50%;background:#B0C4DE;"></span>
     </div>
+  </div>
+  <!-- 퍼스널컬러 분석 버튼 (항상 표시, 상태에 따라 텍스트 변경) -->
+  <div style="padding:10px 16px 14px;">
     <button id="pcAnalyzeBtn" onclick="startPersonalColorAnalysis()" disabled
-      style="width:100%;padding:11px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#e0e0e0;color:#aaa;transition:all .2s;">
-      🎨 퍼스널컬러 분석하기
+      style="width:100%;padding:10px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#e0e0e0;color:#aaa;transition:all .2s;">
+      <span id="pcBtnText">🎨 퍼스널컬러 분석</span>
     </button>
   </div>
 </div>
@@ -304,7 +307,10 @@ function previewPhoto(e){
         _photoData = c.toDataURL('image/jpeg', q);
         // 사진 선택 → 분석 버튼 활성화
         const _pcBtn = document.getElementById('pcAnalyzeBtn');
+        const _pcTxt = document.getElementById('pcBtnText');
+        const _en = window.CodiBankI18n && CodiBankI18n.isEn();
         if(_pcBtn){ _pcBtn.disabled=false; _pcBtn.style.background='linear-gradient(135deg,#0B666A,#35A29F)'; _pcBtn.style.color='#fff'; }
+        if(_pcTxt){ _pcTxt.textContent = _en ? '🎨 Analyze Personal Color' : '🎨 퍼스널컬러 분석'; }
       } catch(_) {
         _photoData = rawData; // 압축 실패 시 원본
       }
@@ -372,6 +378,8 @@ function loadUser(){
 }
   // 기존 퍼스널컬러 로드
   loadPersonalColorFromStorage();
+  // 언어 적용
+  setTimeout(applyPcI18n, 200);
 
 async function doSave(){
   if(!_user) return;
@@ -459,17 +467,30 @@ function renderPersonalColor(pc) {
   if(empty)   empty.style.display   = 'none';
   if(loading) loading.style.display = 'none';
   if(result)  result.style.display  = 'block';
-  // 분석 버튼 숨기기
-  try{ const b=document.getElementById('pcAnalyzeBtn'); if(b) b.style.display='none'; }catch(_){}
+  // 버튼 → "다시 분석"으로 변경 (숨기지 않음)
+  try{
+    const b=document.getElementById('pcAnalyzeBtn');
+    const t=document.getElementById('pcBtnText');
+    if(b){ b.disabled=false; b.style.background='linear-gradient(135deg,#0B666A,#35A29F)'; b.style.color='#fff'; }
+    if(t){ const _en = window.CodiBankI18n && CodiBankI18n.isEn();
+           t.textContent = _en ? '🔄 Re-analyze' : '🔄 다시 분석'; }
+  }catch(_){}
+  // pcEmpty 숨기기
+  try{ document.getElementById('pcEmpty').style.display='none'; }catch(_){}
 
   const dot = document.getElementById('pcSeasonDot');
   if(dot) dot.style.background = SEASON_COLORS[pc.season] || '#97FEED';
 
+  const _isEn = window.CodiBankI18n && CodiBankI18n.isEn();
   const season = document.getElementById('pcSeason');
-  if(season) season.textContent = pc.season || '';
+  if(season) season.textContent = (_isEn ? (pc.season_en || pc.season) : pc.season) || '';
 
   const undertone = document.getElementById('pcUndertone');
-  if(undertone) undertone.textContent = (pc.undertone||'') + (pc.skin_tone ? ' · ' + pc.skin_tone + ' 피부' : '');
+  if(undertone){
+    const _ut = _isEn ? (pc.undertone==='웜톤'?'Warm tone':pc.undertone==='쿨톤'?'Cool tone':pc.undertone) : pc.undertone;
+    const _st = pc.skin_tone ? (_isEn ? ' · '+pc.skin_tone+' skin':' · '+pc.skin_tone+' 피부') : '';
+    undertone.textContent = (_ut||'') + _st;
+  }
 
   // 어울리는 컬러
   const bestWrap = document.getElementById('pcBestColors');
@@ -497,14 +518,24 @@ function renderPersonalColor(pc) {
 
   // 스타일 팁
   const tip = document.getElementById('pcTip');
-  if(tip) tip.textContent = pc.style_tip || pc.summary || '';
+  if(tip) tip.textContent = _isEn
+    ? (pc.style_tip_en || pc.style_tip || pc.summary || '')
+    : (pc.style_tip || pc.summary || '');
 }
 
 function loadPersonalColorFromStorage() {
   try{
     const key = 'cb_personal_color_' + (_user?.email||'');
     const raw = localStorage.getItem(key);
-    if(raw) { renderPersonalColor(JSON.parse(raw)); }
+    if(raw){
+      renderPersonalColor(JSON.parse(raw));
+    } else {
+      // 저장된 데이터 없음 → pcEmpty 표시
+      const em = document.getElementById('pcEmpty');
+      const rs = document.getElementById('pcResult');
+      if(em) em.style.display = 'block';
+      if(rs) rs.style.display = 'none';
+    }
   }catch(_){}
 }
 
@@ -562,11 +593,51 @@ async function reAnalyzePersonalColor() {
 
 
 function startPersonalColorAnalysis() {
-  if(!_photoData){ showToast('먼저 프로필 사진을 선택해주세요.'); return; }
+  if(!_photoData){
+    showToast(window.CodiBankI18n && CodiBankI18n.isEn() ? 'Please select a profile photo first.' : '먼저 프로필 사진을 선택해주세요.');
+    return;
+  }
   const btn = document.getElementById('pcAnalyzeBtn');
-  if(btn){ btn.disabled=true; btn.textContent='분석 중…'; }
+  const txt = document.getElementById('pcBtnText');
+  if(btn){ btn.disabled=true; btn.style.background='#ccc'; btn.style.color='#888'; }
+  if(txt){ txt.textContent = window.CodiBankI18n && CodiBankI18n.isEn() ? '⏳ Analyzing…' : '⏳ 분석 중…'; }
   analyzePersonalColor(_photoData);
 }
+
+// ── 퍼스널컬러 섹션 영어 적용 ──
+function applyPcI18n() {
+  const en = window.CodiBankI18n && CodiBankI18n.isEn();
+  // 섹션 제목
+  const t = document.getElementById('pcSectionTitle');
+  if(t) t.childNodes[0].textContent = en ? 'Personal Color ' : '퍼스널 컬러 ';
+  const sub = document.getElementById('pcSectionSub');
+  if(sub) sub.textContent = en ? '(AI Skin Tone Analysis)' : '(AI 피부톤 분석)';
+  // empty 메시지
+  const em = document.getElementById('pcEmptyMsg');
+  if(em) em.textContent = en ? 'Select a photo to start analysis.' : '프로필 사진을 선택한 후 분석을 시작하세요';
+  // 버튼 텍스트 (미분석 상태)
+  const btn = document.getElementById('pcAnalyzeBtn');
+  const txt = document.getElementById('pcBtnText');
+  if(btn && txt && !btn.disabled){
+    // 이미 분석됐으면 '다시'
+    const hasResult = document.getElementById('pcResult')?.style.display !== 'none';
+    txt.textContent = hasResult
+      ? (en ? '🔄 Re-analyze' : '🔄 다시 분석')
+      : (en ? '🎨 Analyze Personal Color' : '🎨 퍼스널컬러 분석');
+  }
+  // 컬러 라벨들
+  const bestLabel = document.querySelector('#pcBestColors')?.previousElementSibling;
+  const avoidLabel = document.querySelector('#pcAvoidColors')?.previousElementSibling;
+  if(bestLabel && bestLabel.tagName==='DIV') bestLabel.textContent = en ? 'Best Colors' : '잘 어울리는 컬러';
+  if(avoidLabel && avoidLabel.tagName==='DIV') avoidLabel.textContent = en ? 'Colors to Avoid' : '피해야 할 컬러';
+}
+
+// 언어 변경 감지 (500ms 폴링)
+let _pcLang = localStorage.getItem('cb_lang')||'ko';
+setInterval(function(){
+  const cur = localStorage.getItem('cb_lang')||'ko';
+  if(cur !== _pcLang){ _pcLang = cur; applyPcI18n(); }
+}, 500);
 </script>
 </body>
 </html>
