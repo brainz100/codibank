@@ -1038,6 +1038,8 @@ def storage_upload():
         if _cleaned is not img_bytes:  # 배경 제거 성공 시만 PNG로 전환
             img_bytes = _cleaned
             ext = "png"
+
+    fname = f"{slot}_{_now_ms()}_{os.urandom(3).hex()}.{ext}"
     try:
         rel = _write_upload_bytes(slot, ext, img_bytes, fixed_name=fname)
     except Exception as e:
