@@ -975,9 +975,9 @@ def health():
 @app.get("/uploads/<path:filename>")
 def serve_upload(filename: str):
     """업로드된 이미지 서빙: R2 공개 URL 있으면 redirect, 없으면 로컬 파일"""
-    from flask import redirect as _redir
+    from flask import redirect as _redir, after_this_request
 
-    # ── R2 공개 URL이 설정돼 있으면 redirect (이미지가 R2에 있음)
+    # ── R2 공개 URL이 설정돼 있으면 redirect
     if _R2_PUB_URL:
         r2_url = f"{_R2_PUB_URL}/uploads/{filename}"
         resp = _redir(r2_url, 302)
@@ -986,21 +986,13 @@ def serve_upload(filename: str):
         return resp
 
     # ── 로컬 파일 서빙 (R2 없는 경우 폴백)
-    from flask import after_this_request
     @after_this_request
-    def add_headers(response):
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
-        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-        return response
-
-    from flask import after_this_request
-    @after_this_request
-    def add_headers(response):
+    def _add_headers(response):
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
         response.headers["Cache-Control"] = "public, max-age=86400, immutable"
         return response
+
     f1 = os.path.join(_UPLOAD_DIR, filename)
     if os.path.exists(f1):
         return send_from_directory(_UPLOAD_DIR, filename)
@@ -1512,18 +1504,48 @@ def codistyle_generate():
 
     # ── 이미지 로드 → bytes ──
     def _to_bytes(data_url_val, path_val=None):
-        """dataUrl 또는 로컬파일 → (mime, raw_bytes)"""
+        """dataUrl / 로컬파일 / HTTP URL → (mime, raw_bytes)"""
         src = str(data_url_val or "").strip()
+
+        # 1) base64 dataURL
         if src.startswith("data:"):
             header, b64 = src.split(",", 1)
             mime = header.split(":")[1].split(";")[0]
             return mime, base64.b64decode(b64)
+
+        # 2) HTTP URL (R2 공개 URL 또는 절대 URL)
+        if src.startswith("http://") or src.startswith("https://"):
+            try:
+                import requests as _rq
+                r = _rq.get(src, timeout=10)
+                if r.status_code == 200:
+                    ct = r.headers.get("Content-Type", "image/jpeg").split(";")[0]
+                    return ct, r.content
+            except Exception as e:
+                print(f"[_to_bytes] HTTP 로드 실패 ({src[:60]}): {e}")
+
         path = str(path_val or "").strip()
+
+        # 3) R2 공개 URL로 변환 후 HTTP 로드
+        if path.startswith("/uploads/") and _R2_PUB_URL:
+            r2_full = f"{_R2_PUB_URL}{path}"
+            try:
+                import requests as _rq
+                r = _rq.get(r2_full, timeout=10)
+                if r.status_code == 200:
+                    ct = r.headers.get("Content-Type", "image/jpeg").split(";")[0]
+                    return ct, r.content
+            except Exception as e:
+                print(f"[_to_bytes] R2 로드 실패 ({r2_full[:60]}): {e}")
+
+        # 4) 로컬 파일 폴백
         if path.startswith("/uploads/"):
-            fpath = os.path.join(_UPLOAD_DIR, os.path.basename(path))
-            if os.path.exists(fpath):
-                with open(fpath, "rb") as fh:
-                    return "image/jpeg", fh.read()
+            for d in [_UPLOAD_DIR, _LEGACY_UPLOAD_DIR]:
+                fpath = os.path.join(d, os.path.basename(path))
+                if os.path.exists(fpath):
+                    with open(fpath, "rb") as fh:
+                        return "image/jpeg", fh.read()
+
         return None, None
 
     top_mime,    top_bytes    = _to_bytes(payload.get("topDataUrl"),    payload.get("topPath"))
