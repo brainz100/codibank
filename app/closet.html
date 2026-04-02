@@ -1330,11 +1330,12 @@ function normalizeKColorName(name){
 
 // ── 카테고리 대체 그룹 정의
 const CAT_SUBSTITUTE_MAP = {
-  outer:   ['coat','jacket','padding','cardigan'], // 아우터 ↔ 코트/자켓/패딩/가디건
-  coat:    ['jacket','padding','outer','cardigan'],// 코트 ↔ 자켓/패딩/아우터/가디건
-  jacket:  ['coat','padding','outer','cardigan'],  // 자켓 ↔ 코트/패딩/아우터/가디건
-  padding: ['coat','jacket','outer'],
-  cardigan:['outer','jacket','coat'],              // 가디건 ↔ 아우터/자켓/코트
+  // 코트 ↔ 자켓 상호 대체 (길이 다르지만 아우터로 묶어서 매칭)
+  coat:    ['jacket'],   // 코트 없으면 자켓으로 대체
+  jacket:  ['coat'],     // 자켓 없으면 코트로 대체
+  outer:   ['coat','jacket'],
+  padding: ['jacket','coat'],
+  cardigan:['jacket','coat'],
   top:    ['shirt','knit','tshirt'],
   shirt:  ['top','knit'],
   knit:   ['top','shirt'],
@@ -5112,8 +5113,18 @@ function layerContent(el,item,catKey){
   CodiBank.getImageSrc(ref).then(src=>{
     if(el.dataset.renderToken!==rt)return;
     if(!src){ph.textContent='이미지 없음';return;}
-    const brandTxt=(item?.brand||item?.color||'').slice(0,20).toUpperCase();
-    el.innerHTML=`<img class="layer-img" alt="아이템" src="${src}"/>`+(brandTxt?`<div class="card-label">${brandTxt}</div>`:'');
+    // ── 카드 하단 정보: 컬러 + 패턴/소재 (Gemini 분석 데이터 활용)
+    const _g = item?.meta?.gemini;
+    const _colorTxt = (_g?.main_color_name || item?.color || '').slice(0,12);
+    const _patternTxt = (_g?.pattern && _g.pattern !== '단색') ? _g.pattern : '';
+    const _materialTxt = _g?.material ? _g.material.split(',')[0].trim().slice(0,8) : '';
+    const _infoLine = [_patternTxt, _materialTxt].filter(Boolean).join(' · ');
+    const brandTxt = (item?.brand || '').slice(0,10).toUpperCase();
+
+    el.innerHTML = `<img class="layer-img" alt="아이템" src="${src}"/>` +
+      (_colorTxt ? `<div class="card-label" style="font-size:10px;padding:2px 6px;">${_colorTxt}</div>` : '') +
+      (_infoLine ? `<div class="card-label" style="font-size:9px;padding:1px 6px;bottom:22px;opacity:.75;">${_infoLine}</div>` : '') +
+      (brandTxt ? `<div class="card-label" style="font-size:9px;padding:1px 6px;bottom:4px;background:rgba(0,0,0,.5);">${brandTxt}</div>` : '');
   });
 }
 function slc(el,n){el.classList.remove('layer-1','layer-2','layer-3','layer-4','layer-5');el.classList.add(`layer-${n}`);}
@@ -5247,7 +5258,19 @@ function buildSection(catMeta,items){
   } else if(S.hasGenerated){
     adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">스와이프해서 AI 추천 아이템을 확인하세요</span>`;
   } else {
-    adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">← 스와이프로 아이템을 탐색하세요</span>`;
+    // 추천코디 없을 때: 아이템 분석 정보 표시
+    if(items && items.length > 0) {
+      const _gi = items[0]?.meta?.gemini;
+      if(_gi && (_gi.pattern || _gi.material || _gi.main_color_name)) {
+        const _info = [_gi.main_color_name, _gi.pattern !== '단색' ? _gi.pattern : '', _gi.material?.split(',')[0]].filter(Boolean).join(' · ');
+        const _lbl = (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'AI Analysis:' : 'AI분석 :';
+        adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">${_lbl}</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">${_info}</span>`;
+      } else {
+        adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">← 스와이프로 아이템을 탐색하세요</span>`;
+      }
+    } else {
+      adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">← 스와이프로 아이템을 탐색하세요</span>`;
+    }
   }
   sec.appendChild(adv);
 

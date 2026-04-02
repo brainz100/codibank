@@ -20,6 +20,31 @@
   <script src="config.js"></script>
   <script src="codibank.js"></script>
 <script src="i18n.js"></script>
+<script>
+// camera.html 런타임 i18n 적용
+document.addEventListener('DOMContentLoaded', () => {
+  function applyCameraI18n() {
+    if (!window.CodiBankI18n || !CodiBankI18n.isEn()) return;
+    // data-i18n 속성 라벨 번역
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      const tr  = CodiBankI18n.t ? CodiBankI18n.t(key) : key;
+      if (tr && tr !== key) el.textContent = tr;
+    });
+    // 분석 부제목
+    const sub = document.getElementById('aiSub');
+    if (sub) sub.textContent = 'AI analyzes category, color, pattern & material.';
+    // 대기 초기값
+    ['aiCat','aiColor','aiBrand'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.textContent === '대기') el.textContent = '—';
+    });
+  }
+  // 언어 변경 이벤트 감지
+  window.addEventListener('cb_lang_changed', applyCameraI18n);
+  applyCameraI18n();
+});
+</script>
   <script>
     tailwind.config = {
       theme: {
@@ -241,23 +266,35 @@
         <div>
           <p class="text-[10px] font-bold uppercase tracking-[0.3em] text-accent">AI</p>
           <h3 class="text-xl font-serif">분석 중…</h3>
-          <p id="aiSub" class="mt-2 text-sm text-slate-600">카테고리/컬러/브랜드를 인식하고 있어요.</p>
+          <p id="aiSub" class="mt-2 text-sm text-slate-600">카테고리·컬러·패턴·소재를 AI가 분석합니다.</p>
         </div>
         <span class="material-symbols-outlined text-accent text-3xl">auto_awesome</span>
       </div>
 
-      <div class="mt-5 space-y-3">
+      <div class="mt-5 space-y-2">
         <div class="flex items-center justify-between text-sm">
-          <span class="text-slate-500">카테고리</span>
-          <span id="aiCat" class="font-bold">대기</span>
+          <span class="text-slate-500" data-i18n="카테고리">카테고리</span>
+          <span id="aiCat" class="font-bold" data-i18n-val="대기">대기</span>
         </div>
         <div class="flex items-center justify-between text-sm">
-          <span class="text-slate-500">컬러</span>
-          <span id="aiColor" class="font-bold">대기</span>
+          <span class="text-slate-500" data-i18n="컬러">컬러</span>
+          <span id="aiColor" class="font-bold" data-i18n-val="대기">대기</span>
         </div>
         <div class="flex items-center justify-between text-sm">
-          <span class="text-slate-500">브랜드</span>
-          <span id="aiBrand" class="font-bold">대기</span>
+          <span class="text-slate-500" data-i18n="패턴">패턴</span>
+          <span id="aiPattern" class="font-bold text-slate-400">—</span>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-slate-500" data-i18n="소재">소재</span>
+          <span id="aiMaterial" class="font-bold text-slate-400">—</span>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-slate-500" data-i18n="핏">핏</span>
+          <span id="aiFit" class="font-bold text-slate-400">—</span>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-slate-500" data-i18n="브랜드">브랜드</span>
+          <span id="aiBrand" class="font-bold" data-i18n-val="대기">대기</span>
         </div>
       </div>
 
@@ -1118,9 +1155,57 @@
           categoryKey = manual;
         } else if (geminiResult?.category) {
           // Gemini가 분류한 카테고리 사용
-          const catMap = { top:'top', bottom:'bottom', outer:'coat', shoes:'shoes', bag:'bag', acc:'acc', etc:'etc',
-                           jacket:'jacket', pants:'pants', skirt:'skirt', dress:'dress', knit:'knit' };
-          categoryKey = catMap[geminiResult.category] || geminiResult.category || 'etc';
+          // ── Gemini 카테고리 → CodiBank 카테고리 키 매핑 ──
+          // CodiBank 카테고리: coat(코트) | jacket(자켓) | top | pants | shoes | watch | scarf | socks | etc
+          const catMap = {
+            // ── 코트 (무릎 이상 길이의 긴 아우터) ──
+            'coat'       : 'coat',
+            '반코트'     : 'coat', '롱코트'   : 'coat', '패딩코트' : 'coat',
+            '트렌치코트' : 'coat', '더플코트' : 'coat', '케이프코트':'coat',
+            'trench coat': 'coat', 'long coat': 'coat', 'overcoat' : 'coat',
+            'trench'     : 'coat', 'duffel'   : 'coat',
+
+            // ── 자켓 (짧은 아우터, 수트자켓/패딩/가디건 포함) ──
+            'jacket'     : 'jacket',
+            'blazer'     : 'jacket', 'suit jacket': 'jacket', 'suit'    : 'jacket',
+            '수트자켓'   : 'jacket', '수트'        : 'jacket', '콤비자켓': 'jacket',
+            '일반자켓'   : 'jacket', '레더자켓'    : 'jacket', '가죽자켓': 'jacket',
+            '사파리자켓' : 'jacket', '데님자켓'    : 'jacket',
+            '집업자켓'   : 'jacket', '집업'        : 'jacket',
+            '후드집업'   : 'jacket', '후드집업자켓': 'jacket',
+            'cardigan'   : 'jacket', '가디건'      : 'jacket', '볼레로'  : 'jacket',
+            '패딩'       : 'jacket', '패딩자켓'    : 'jacket', '다운자켓': 'jacket',
+            'padding'    : 'jacket', 'puffer'      : 'jacket', 'down jacket':'jacket',
+            'vest'       : 'jacket', 'waistcoat'   : 'jacket', '조끼'   : 'jacket',
+            'windbreaker': 'jacket', 'parka'       : 'jacket',
+            'leather jacket':'jacket', 'safari jacket':'jacket',
+
+            // ── 상의 ──
+            'top'        : 'top', 'shirt'    : 'top', 'blouse'  : 'top',
+            't-shirt'    : 'top', 'tshirt'   : 'top', 'hoodie'  : 'top',
+            'sweatshirt' : 'top', 'sweater'  : 'top', 'knit'    : 'top',
+            'knitwear'   : 'top', '니트'     : 'top', '스웨터'  : 'top',
+            '후드티'     : 'top', '맨투맨'   : 'top',
+
+            // ── 하의 ──
+            'pants'      : 'pants', 'bottom'  : 'pants', 'trousers':'pants',
+            'jeans'      : 'pants', 'skirt'   : 'pants', 'shorts'  : 'pants',
+            'dress'      : 'pants', 'jumpsuit': 'pants',
+
+            // ── 신발/시계/스카프/양말/기타 ──
+            'shoes'      : 'shoes', 'sneakers': 'shoes', 'boots' : 'shoes',
+            'heels'      : 'shoes', 'loafers' : 'shoes', 'sandals':'shoes',
+            'watch'      : 'watch', '시계'    : 'watch',
+            'scarf'      : 'scarf', '스카프'  : 'scarf', '목도리': 'scarf',
+            'socks'      : 'socks', '양말'    : 'socks',
+            'bag'        : 'etc',   'acc'     : 'etc',   'etc'   : 'etc',
+          };
+
+          // 소문자 변환 후 정확 매핑 → 부분 매핑 → etc
+          const _gemCat = String(geminiResult.category || '').toLowerCase().trim();
+          categoryKey = catMap[_gemCat]
+            || Object.entries(catMap).find(([k]) => _gemCat.includes(k))?.[1]
+            || 'etc';
         } else {
           // Gemini 실패 시 MobileNet 폴백
           categoryKey = await guessCategoryKeyFromImage(getAnalysisSrc('front'));
@@ -1129,6 +1214,14 @@
         // 세부 정보 표시 (있으면)
         if (geminiResult?.sub_category) {
           aiCat.textContent += ' · ' + geminiResult.sub_category;
+        }
+        // 카테고리 라벨도 한국어로 표시
+        const _catLabelMap = {
+          coat:'코트', jacket:'자켓', top:'상의', pants:'하의',
+          shoes:'신발', watch:'시계', scarf:'스카프', socks:'양말', etc:'기타'
+        };
+        if (!geminiResult?.sub_category) {
+          aiCat.textContent = _catLabelMap[categoryKey] || categoryKey;
         }
       } catch (e) {
         console.warn('category failed', e);
@@ -1148,8 +1241,19 @@
           ]);
         }
         aiColor.textContent = colorName || '미정';
-        if (geminiResult?.pattern && geminiResult.pattern !== '단색') {
-          aiColor.textContent += ' · ' + geminiResult.pattern;
+        // 패턴/소재/핏 모달 업데이트
+        if (geminiResult) {
+          const patEl  = document.getElementById('aiPattern');
+          const matEl  = document.getElementById('aiMaterial');
+          const fitEl  = document.getElementById('aiFit');
+          if(patEl)  patEl.textContent  = geminiResult.pattern    || '—';
+          if(matEl)  matEl.textContent  = geminiResult.material   || '—';
+          if(fitEl)  fitEl.textContent  = geminiResult.fit        || '—';
+          // 색상도 HEX 포함해서 표시
+          if(geminiResult.main_color_name) {
+            aiColor.textContent = geminiResult.main_color_name +
+              (geminiResult.main_color ? ' ' + geminiResult.main_color : '');
+          }
         }
       } catch (e) {
         console.warn('color failed', e);
@@ -1235,16 +1339,24 @@
         if (shotBlob.back || shots.back) images.back = await CodiBank.saveImage(shots.back);
         if (shotBlob.brand || shots.brand) images.brand = await CodiBank.saveImage(shots.brand);
 
-        // ✅ 아이템 특징(설명) 자동 생성
-        // - 잘못된 분석은 상세페이지에서 수정 가능
+        // ✅ 아이템 특징(설명) — Gemini 분석 결과 우선 사용
         const catLabel = (CodiBank.getCategoryMetaByKey(categoryKey, user.email)?.label) || categoryKey;
-        const styleTag = inferStyleTagFromPreds(_lastMnPreds);
-        const noteParts = [];
-        if (colorName) noteParts.push(colorName);
-        if (styleTag) noteParts.push(styleTag);
-        noteParts.push(catLabel);
-        let noteText = noteParts.join(' ').replace(/\s+/g, ' ').trim();
-        if (!noteText) noteText = '아이템';
+        let noteText = '';
+        if (_geminiAnalysis) {
+          const g = _geminiAnalysis;
+          const parts = [];
+          if (g.main_color_name)  parts.push(g.main_color_name);
+          if (g.pattern && g.pattern !== '단색') parts.push(g.pattern);
+          if (g.material)         parts.push(g.material.split(',')[0].trim());
+          if (g.fit && g.fit !== '레귤러') parts.push(g.fit);
+          if (g.sub_category)     parts.push(g.sub_category);
+          else                    parts.push(catLabel);
+          noteText = parts.join(' ').trim();
+        }
+        if (!noteText) {
+          const styleTag = inferStyleTagFromPreds(_lastMnPreds);
+          noteText = [colorName, styleTag, catLabel].filter(Boolean).join(' ').trim() || '아이템';
+        }
 
         // Gemini 분석 결과를 note에 반영
         if (_geminiAnalysis) {
