@@ -974,31 +974,30 @@ def health():
 
 @app.get("/uploads/<path:filename>")
 def serve_upload(filename: str):
-    """업로드된 이미지 서빙: R2 공개 URL 있으면 redirect, 없으면 로컬 파일"""
+    """업로드된 이미지 서빙: 로컬 우선 → 없으면 R2 redirect"""
     from flask import redirect as _redir, after_this_request
 
-    # ── R2 공개 URL이 설정돼 있으면 redirect
-    if _R2_PUB_URL:
-        r2_url = f"{_R2_PUB_URL}/uploads/{filename}"
-        resp = _redir(r2_url, 302)
-        resp.headers["Access-Control-Allow-Origin"] = "*"
-        resp.headers["Cache-Control"] = "public, max-age=31536000"
-        return resp
-
-    # ── 로컬 파일 서빙 (R2 없는 경우 폴백)
     @after_this_request
     def _add_headers(response):
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
-        response.headers["Cache-Control"] = "public, max-age=86400, immutable"
+        response.headers["Cache-Control"] = "public, max-age=86400"
         return response
 
+    # ── 1순위: 로컬 파일 확인 (R2 미연동 시 로컬에 저장됨)
     f1 = os.path.join(_UPLOAD_DIR, filename)
     if os.path.exists(f1):
         return send_from_directory(_UPLOAD_DIR, filename)
+
     f2 = os.path.join(_LEGACY_UPLOAD_DIR, filename)
     if os.path.exists(f2):
         return send_from_directory(_LEGACY_UPLOAD_DIR, filename)
+
+    # ── 2순위: R2 공개 URL로 redirect (파일이 R2에 저장된 경우)
+    if _R2_PUB_URL:
+        r2_url = f"{_R2_PUB_URL}/uploads/{filename}"
+        return _redir(r2_url, 302)
+
     return jsonify(ok=False, error="upload not found", filename=filename), 404
 
 
