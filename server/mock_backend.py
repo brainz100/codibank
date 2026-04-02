@@ -59,6 +59,127 @@ load_dotenv(os.path.join(_HERE, ".env"))
 # 그리고 상위 폴더의 .env도 혹시 있을 수 있어 보조로 로딩
 load_dotenv(os.path.join(os.path.dirname(_HERE), ".env"))
 
+
+# ══════════════════════════════════════════════════════════════
+# [STEP 1~3] 패션 AI 기술 초기화
+# rembg(배경제거) + Lykdat(속성분석) + Marqo(유사도매칭)
+# ══════════════════════════════════════════════════════════════
+
+# ── [STEP 1] rembg: 의류 배경 제거 ──────────────────────────
+_rembg_session = None
+
+def _get_rembg():
+    global _rembg_session
+    if _rembg_session is None:
+        try:
+            from rembg import new_session
+            _rembg_session = new_session("u2net_cloth_seg")
+            print("[rembg] ✅ 배경 제거 모델 로드 완료")
+        except Exception as e:
+            print(f"[rembg] ⚠ 로드 실패 (계속 진행): {e}")
+    return _rembg_session
+
+def remove_clothing_bg(img_bytes: bytes) -> bytes:
+    """의류 배경 제거 — 실패해도 원본 반환 (폴백)"""
+    try:
+        from rembg import remove as rembg_remove
+        session = _get_rembg()
+        if session:
+            result = rembg_remove(img_bytes, session=session)
+            print("[rembg] ✅ 배경 제거 완료")
+            return result
+    except Exception as e:
+        print(f"[rembg] 배경 제거 실패, 원본 사용: {e}")
+    return img_bytes
+
+# ── [STEP 2] Lykdat: 패션 속성 태깅 ──────────────────────────
+_LYKDAT_KEY = os.getenv("LYKDAT_API_KEY", "")
+
+def lykdat_tag_item(img_bytes: bytes) -> dict:
+    """의류 이미지 → 카테고리/컬러/패턴/실루엣 자동 태깅"""
+    if not _LYKDAT_KEY:
+        return {}
+    try:
+        resp = http_requests.post(
+            "https://api.lykdat.com/v1/clothing/search",
+            headers={"X-Api-Key": _LYKDAT_KEY},
+            files={"image": ("item.png", img_bytes, "image/png")},
+            timeout=10
+        )
+        if resp.status_code != 200:
+            print(f"[Lykdat] 실패: HTTP {resp.status_code}")
+            return {}
+        d = resp.json().get("data", {})
+        items    = d.get("items", [])
+        colors   = sorted(d.get("colors", []),
+                          key=lambda x: x.get("confidence", 0), reverse=True)
+        labels   = d.get("labels", [])
+        result = {
+            "lykdat_category":   items[0].get("name", "")  if items  else "",
+            "lykdat_color_hex":  "#" + colors[0]["hex_code"] if colors else "",
+            "lykdat_color_name": colors[0].get("name", "")  if colors else "",
+            "lykdat_pattern":    next((l["name"] for l in labels
+                                  if l.get("classification") == "textile pattern"), ""),
+            "lykdat_silhouette": next((l["name"] for l in labels
+                                  if l.get("classification") == "silhouette"), ""),
+        }
+        print(f"[Lykdat] ✅ 태깅 완료: {result['lykdat_category']} / {result['lykdat_color_name']}")
+        return result
+    except Exception as e:
+        print(f"[Lykdat] 실패: {e}")
+        return {}
+
+# ── [STEP 3] Marqo-FashionSigLIP: 패션 임베딩 ────────────────
+_fashion_model     = None
+_fashion_processor = None
+_FASHION_MODEL_ID  = "Marqo/marqo-fashionSigLIP"
+
+def _get_fashion_model():
+    global _fashion_model, _fashion_processor
+    if _fashion_model is None:
+        try:
+            from transformers import AutoModel, AutoProcessor
+            print("[FashionSigLIP] 모델 로드 중... (최초 1회, 약 1~2분)")
+            _fashion_processor = AutoProcessor.from_pretrained(
+                _FASHION_MODEL_ID, trust_remote_code=True)
+            _fashion_model = AutoModel.from_pretrained(
+                _FASHION_MODEL_ID, trust_remote_code=True)
+            _fashion_model.eval()
+            print("[FashionSigLIP] ✅ 모델 로드 완료")
+        except Exception as e:
+            print(f"[FashionSigLIP] ⚠ 로드 실패 (계속 진행): {e}")
+    return _fashion_model, _fashion_processor
+
+def get_fashion_embedding(img_bytes: bytes) -> list | None:
+    """의류 이미지 → 512차원 패션 벡터 (유사도 계산용)"""
+    try:
+        import torch
+        import numpy as np
+        from PIL import Image
+        model, processor = _get_fashion_model()
+        if model is None:
+            return None
+        img    = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        inputs = processor(images=img, return_tensors="pt", padding=True)
+        with torch.no_grad():
+            feat = model.get_image_features(**inputs)
+            feat = feat / feat.norm(dim=-1, keepdim=True)
+        print("[FashionSigLIP] ✅ 임베딩 생성 완료 (512차원)")
+        return feat[0].tolist()
+    except Exception as e:
+        print(f"[FashionSigLIP] 임베딩 실패: {e}")
+        return None
+
+def cosine_similarity(v1: list, v2: list) -> float:
+    """두 임베딩 벡터 간 코사인 유사도 (0.0~1.0, 높을수록 유사)"""
+    try:
+        import numpy as np
+        a, b = np.array(v1, dtype=float), np.array(v2, dtype=float)
+        denom = np.linalg.norm(a) * np.linalg.norm(b)
+        return float(np.dot(a, b) / denom) if denom > 0 else 0.0
+    except Exception:
+        return 0.0
+
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 CORS(app, allow_headers=["Content-Type", "X-Admin-Key", "Authorization"])
@@ -765,6 +886,11 @@ def health():
         platform=platform.platform(),
         openai_sdk=_sdk_version(),
         has_openai_key=_safe_bool(os.getenv("OPENAI_API_KEY")),
+        # ── AI 기술 상태 ──
+        rembg_ready=(_rembg_session is not None),
+        lykdat_ready=bool(_LYKDAT_KEY),
+        fashion_model_ready=(_fashion_model is not None),
+        gemini_ready=bool(_GEMINI_KEY),
         models={
             "no_face": os.getenv("CODIBANK_OPENAI_IMAGE_MODEL", "gpt-image-1.5"),
             "with_face": os.getenv("CODIBANK_OPENAI_IMAGE_MODEL_FACE", "gpt-image-1.5"),
@@ -1882,8 +2008,29 @@ def ai_analyze_item():
         if not img_bytes:
             return jsonify(ok=False, error="이미지 데이터 없음"), 400
 
+        # ── [STEP 1] rembg: 배경 제거 ──
+        img_bytes = remove_clothing_bg(img_bytes)
+        img_mime  = "image/png"   # rembg 출력은 항상 PNG
+
+        # ── [STEP 2] Lykdat: 속성 태깅 ──
+        lykdat_data = lykdat_tag_item(img_bytes)
+
+        # ── [STEP 3] Marqo: 임베딩 생성 ──
+        fashion_embedding = get_fashion_embedding(img_bytes)
+
+        # ── [STEP 4] Gemini 프롬프트에 Lykdat 컨텍스트 추가 ──
+        _lykdat_ctx = ""
+        if lykdat_data:
+            _lykdat_ctx = f"""
+[사전 분석 데이터 - 참고하여 더 정확하게 보완하세요]
+카테고리: {lykdat_data.get('lykdat_category','미확인')}
+주요 컬러: {lykdat_data.get('lykdat_color_name','미확인')} {lykdat_data.get('lykdat_color_hex','')}
+패턴: {lykdat_data.get('lykdat_pattern','미확인')}
+실루엣: {lykdat_data.get('lykdat_silhouette','미확인')}
+"""
+
         # ── Gemini Vision 프롬프트 ──
-        PROMPT = """
+        PROMPT = _lykdat_ctx + """
 당신은 세계 최고의 패션 전문가 AI입니다.
 이 의류 이미지를 분석하고 아래 JSON 형식으로만 응답하세요. JSON 외 다른 텍스트는 절대 포함하지 마세요.
 
@@ -1963,12 +2110,90 @@ def ai_analyze_item():
             else:
                 return jsonify(ok=False, error="JSON 파싱 실패", raw=result_text[:300]), 500
 
+        # ── 결과 병합: Lykdat + 임베딩 추가 ──
+        if lykdat_data:
+            # Lykdat 데이터로 빈 필드 보완 (Gemini 결과 우선)
+            if not analysis.get("main_color") and lykdat_data.get("lykdat_color_hex"):
+                analysis["main_color"] = lykdat_data["lykdat_color_hex"]
+            if not analysis.get("pattern") and lykdat_data.get("lykdat_pattern"):
+                analysis["pattern"] = lykdat_data["lykdat_pattern"]
+            analysis["_lykdat"] = lykdat_data  # 원본 Lykdat 데이터 보존
+
+        if fashion_embedding:
+            analysis["embedding"] = fashion_embedding  # 512차원 벡터
+
         return jsonify(ok=True, analysis=analysis)
 
     except Exception as e:
         import traceback
         return jsonify(ok=False, error=str(e), trace=traceback.format_exc()[-500:]), 500
 
+
+
+
+@app.post("/api/ai/match-wardrobe")
+def ai_match_wardrobe():
+    """
+    내 옷장 아이템과 스타일링 이미지 유사도 매칭
+    - 입력: styling_image(추천코디 이미지 URL), items(아이템 목록+임베딩)
+    - 출력: 유사도 높은 순 아이템 최대 5개
+    """
+    try:
+        d     = request.get_json(force=True) or {}
+        style = d.get("styling_image", "")   # 추천코디 이미지 URL
+        items = d.get("items", [])            # 임베딩 포함된 아이템 목록
+
+        if not style:
+            return jsonify(ok=False, error="스타일링 이미지 없음"), 400
+        if not items:
+            return jsonify(ok=False, error="아이템 목록 없음"), 400
+
+        # 스타일링 이미지 → bytes
+        if style.startswith("data:"):
+            _, b64 = style.split(",", 1)
+            style_bytes = base64.b64decode(b64)
+        elif style.startswith("http"):
+            resp = http_requests.get(style, timeout=10)
+            style_bytes = resp.content
+        else:
+            # /uploads/ 상대 경로
+            full_url = _public_base() + style
+            resp = http_requests.get(full_url, timeout=10)
+            style_bytes = resp.content
+
+        # 스타일링 이미지 배경 제거 + 임베딩 생성
+        style_clean = remove_clothing_bg(style_bytes)
+        style_emb   = get_fashion_embedding(style_clean)
+
+        if not style_emb:
+            return jsonify(ok=False, error="스타일링 이미지 임베딩 실패"), 500
+
+        # 각 아이템과 유사도 계산
+        scored = []
+        for item in items:
+            emb = item.get("embedding")
+            if not emb or len(emb) < 100:
+                continue   # 임베딩 없는 아이템 스킵
+            sim = cosine_similarity(style_emb, emb)
+            scored.append({
+                "id":         item.get("id", ""),
+                "categoryKey":item.get("categoryKey", ""),
+                "color":      item.get("color", ""),
+                "note":       item.get("note", ""),
+                "similarity": round(sim, 4),
+                "match_pct":  round(sim * 100),
+            })
+
+        # 유사도 높은 순 정렬 → 상위 5개
+        scored.sort(key=lambda x: -x["similarity"])
+        top5 = scored[:5]
+
+        return jsonify(ok=True, matches=top5, total_compared=len(scored))
+
+    except Exception as e:
+        import traceback
+        return jsonify(ok=False, error=str(e),
+                       trace=traceback.format_exc()[-400:]), 500
 
 
 @app.post("/api/ai/personal-color")
