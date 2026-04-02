@@ -1415,6 +1415,101 @@ function scoreDesign(wantItem, gotItem){
   return 2; // 기타 조합=유사
 }
 
+
+// ══════════════════════════════════════════════════════
+// [유사도 매칭] 추천코디 이미지 ↔ 내 옷장 아이템
+// ══════════════════════════════════════════════════════
+
+async function findSimilarFromWardrobe(styleImageUrl) {
+  if(!styleImageUrl) return;
+  try {
+    const bb  = CodiBank.getBackendBaseResolved
+      ? CodiBank.getBackendBaseResolved()
+      : (window.CODIBANK_CONFIG?.backendBase || '');
+    if(!bb) return;
+
+    // 임베딩이 있는 아이템만 수집
+    const allItems = CodiBank.getItemsByUser(user?.email) || [];
+    const withEmb  = allItems
+      .filter(it => it?.meta?.gemini?.embedding?.length > 100)
+      .map(it => ({
+        id:          it.id,
+        categoryKey: it.categoryKey || '',
+        color:       it.color || '',
+        note:        it.note || '',
+        embedding:   it.meta.gemini.embedding,
+      }));
+
+    if(withEmb.length === 0){
+      console.log('[유사도매칭] 임베딩 있는 아이템 없음 → 스킵');
+      return;
+    }
+
+    console.log(`[유사도매칭] ${withEmb.length}개 아이템 비교 시작`);
+
+    const r = await fetch(bb + '/api/ai/match-wardrobe', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        styling_image: styleImageUrl,
+        items:         withEmb,
+      })
+    });
+    const d = await r.json();
+    if(d.ok && d.matches?.length > 0){
+      showSimilarItems(d.matches);
+    }
+  } catch(e){
+    console.warn('[유사도매칭] 오류:', e);
+  }
+}
+
+function showSimilarItems(matches) {
+  // 기존 박스 제거 후 새로 생성
+  const existing = document.getElementById('similarItemsBox');
+  if(existing) existing.remove();
+
+  const box = document.createElement('div');
+  box.id = 'similarItemsBox';
+  box.style.cssText = [
+    'margin:12px 16px',
+    'padding:14px 16px',
+    'background:rgba(11,102,106,0.1)',
+    'border:1px solid rgba(53,162,159,0.25)',
+    'border-radius:16px',
+  ].join(';');
+
+  const top3 = matches.slice(0,3).filter(m => m.match_pct >= 40);
+  if(top3.length === 0) return;
+
+  const isEn = window.CodiBankI18n && CodiBankI18n.isEn();
+  box.innerHTML = `
+    <div style="font-size:12px;font-weight:800;color:rgba(255,255,255,.75);margin-bottom:10px;">
+      🎯 ${isEn ? 'Similar items in your wardrobe' : '내 옷장 유사 아이템'}
+    </div>
+    <div style="display:flex;gap:8px;">
+      ${top3.map(m => {
+        const catLabel = CodiBank.getCategoryMetaByKey
+          ? (CodiBank.getCategoryMetaByKey(m.categoryKey, user?.email)?.label || m.categoryKey)
+          : m.categoryKey;
+        return `<div style="flex:1;text-align:center;background:rgba(255,255,255,.05);
+                            border-radius:10px;padding:8px 4px;">
+          <div style="font-size:18px;margin-bottom:4px;">👕</div>
+          <div style="font-size:11px;font-weight:700;color:#97FEED;">${m.match_pct}%</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.5);margin-top:2px;">${catLabel}</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.4);">${(m.color||'').slice(0,6)}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+
+  // VTO 결과 박스 아래에 삽입
+  const vtoBox = document.getElementById('vtoResultBox');
+  if(vtoBox?.parentNode){
+    vtoBox.parentNode.insertBefore(box, vtoBox.nextSibling);
+  }
+}
+
 // ── 카테고리 전체 아이템 대상 매칭 점수 계산 + 최고점 아이템 반환
 function pickBestItemByScore(wantPair, allCatItems){
   // wantPair = { key(카테고리), color, label }
@@ -3478,6 +3573,8 @@ async function updateVTO(opts={}){
     S.imagePrompt = r.imagePrompt || '';
     S.extSpec    = r.extSpec    || {};
     S.codiStory  = r.codiStory  || '';
+    // ✅ 추천코디 완료 → 유사도 매칭 자동 실행
+    if(S.img) setTimeout(() => findSimilarFromWardrobe(S.img), 1000);
   }catch(e){
     console.warn('AI 분석 폴백:',e.message||e);
     const pm=getPur(S.pk);

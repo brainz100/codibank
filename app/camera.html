@@ -937,6 +937,58 @@
       }
     }
 
+
+    // ══════════════════════════════════════════════════════════
+    // Gemini Vision 통합 분석 — 카테고리/컬러/패턴/소재/핏/스타일
+    // ══════════════════════════════════════════════════════════
+    let _geminiAnalysis = null; // 분석 결과 캐시
+
+    async function analyzeItemWithGemini(imgSrc) {
+      try {
+        const bb = CodiBank.getBackendBaseResolved
+          ? CodiBank.getBackendBaseResolved()
+          : (window.CODIBANK_CONFIG?.backendBase || 'https://codibank-api.onrender.com');
+
+        // blobURL → base64 변환
+        let imagePayload = null;
+        if (imgSrc && imgSrc.startsWith('blob:')) {
+          const resp = await fetch(imgSrc);
+          const blob = await resp.blob();
+          imagePayload = await new Promise((res) => {
+            const fr = new FileReader();
+            fr.onload = () => res(fr.result);
+            fr.readAsDataURL(blob);
+          });
+        } else if (imgSrc && imgSrc.startsWith('data:')) {
+          imagePayload = imgSrc;
+        }
+
+        const body = imagePayload
+          ? { image: imagePayload }
+          : { image_url: String(shots.front || '') };
+
+        const r = await Promise.race([
+          fetch(bb + '/api/ai/analyze-item', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000))
+        ]);
+
+        if (!r.ok) return null;
+        const d = await r.json();
+        if (d.ok && d.analysis) {
+          _geminiAnalysis = d.analysis;
+          return d.analysis;
+        }
+        return null;
+      } catch (e) {
+        console.warn('[Gemini 분석 실패]', e);
+        return null;
+      }
+    }
+
     async function guessCategoryKeyFromImage(dataUrl) {
       if (preferredCategoryKey) return preferredCategoryKey;
 
@@ -1045,44 +1097,74 @@
         return ''; // /uploads/ 경로는 canvas 분석 불가 → 빈 문자열 반환
       }
 
-      // 1) Category
+      // ── Gemini Vision 통합 분석 (카테고리+컬러+패턴+소재+핏+스타일) ──
+      let geminiResult = null;
       try {
-        setAiProgress(18, '카테고리 분석 중…');
-        aiCat.textContent = '분석 중…';
+        setAiProgress(15, 'AI 패션 전문가가 분석 중…');
+        aiCat.textContent   = '분석 중…';
+        aiColor.textContent = '분석 중…';
+        aiBrand.textContent = '분석 중…';
 
+        geminiResult = await analyzeItemWithGemini(getAnalysisSrc('front'));
+      } catch (e) {
+        console.warn('Gemini 분석 오류:', e);
+      }
+
+      // 1) Category — Gemini 결과 우선, 폴백: MobileNet
+      try {
+        setAiProgress(35, '카테고리 분류 중…');
         const manual = (categorySelectEl && String(categorySelectEl.value || '').trim());
         if (manual) {
           categoryKey = manual;
+        } else if (geminiResult?.category) {
+          // Gemini가 분류한 카테고리 사용
+          const catMap = { top:'top', bottom:'bottom', outer:'coat', shoes:'shoes', bag:'bag', acc:'acc', etc:'etc',
+                           jacket:'jacket', pants:'pants', skirt:'skirt', dress:'dress', knit:'knit' };
+          categoryKey = catMap[geminiResult.category] || geminiResult.category || 'etc';
         } else {
+          // Gemini 실패 시 MobileNet 폴백
           categoryKey = await guessCategoryKeyFromImage(getAnalysisSrc('front'));
         }
-
-        aiCat.textContent = CodiBank.getCategoryMetaByKey(categoryKey, user.email).label;
+        aiCat.textContent = CodiBank.getCategoryMetaByKey(categoryKey, user.email)?.label || categoryKey;
+        // 세부 정보 표시 (있으면)
+        if (geminiResult?.sub_category) {
+          aiCat.textContent += ' · ' + geminiResult.sub_category;
+        }
       } catch (e) {
-        console.warn('category ai failed', e);
-        aiCat.textContent = CodiBank.getCategoryMetaByKey(categoryKey, user.email).label;
+        console.warn('category failed', e);
+        aiCat.textContent = CodiBank.getCategoryMetaByKey(categoryKey, user.email)?.label || categoryKey;
       }
 
-      // 2) Color
+      // 2) Color — Gemini HEX + 한국어 이름 우선, 폴백: Canvas 평균
       try {
-        setAiProgress(45, '컬러 분석 중…');
-        aiColor.textContent = '분석 중…';
-        colorName = await Promise.race([guessColorNameFromDataUrl(getAnalysisSrc('front')), promiseTimeout(4000, '')]);
+        setAiProgress(55, '컬러 분석 중…');
+        if (geminiResult?.main_color_name) {
+          const hexStr = geminiResult.main_color ? ` (${geminiResult.main_color})` : '';
+          colorName = geminiResult.main_color_name + hexStr;
+        } else {
+          colorName = await Promise.race([
+            guessColorNameFromDataUrl(getAnalysisSrc('front')),
+            promiseTimeout(4000, '')
+          ]);
+        }
         aiColor.textContent = colorName || '미정';
+        if (geminiResult?.pattern && geminiResult.pattern !== '단색') {
+          aiColor.textContent += ' · ' + geminiResult.pattern;
+        }
       } catch (e) {
-        console.warn('color ai failed', e);
+        console.warn('color failed', e);
         aiColor.textContent = '미정';
       }
 
       // 3) Brand (브랜드/기타 이미지가 있을 때만 OCR)
       try {
         const hasBrand = !!(shotBlob.brand || shots.brand);
-        setAiProgress(62, hasBrand ? '브랜드 인식 준비…' : '브랜드 이미지 없음(스킵)…');
+        setAiProgress(72, hasBrand ? '브랜드 인식 준비…' : '브랜드 이미지 없음(스킵)…');
         aiBrand.textContent = hasBrand ? '분석 중…' : '미정';
         brandGuess = hasBrand ? await guessBrandFromOcr(getAnalysisSrc('brand')) : '';
         aiBrand.textContent = brandGuess || '미정';
       } catch (e) {
-        console.warn('brand ai failed', e);
+        console.warn('brand failed', e);
         aiBrand.textContent = '미정';
       }
 
@@ -1164,9 +1246,22 @@
         let noteText = noteParts.join(' ').replace(/\s+/g, ' ').trim();
         if (!noteText) noteText = '아이템';
 
+        // Gemini 분석 결과를 note에 반영
+        if (_geminiAnalysis) {
+          const g = _geminiAnalysis;
+          const parts = [];
+          if (g.main_color_name) parts.push(g.main_color_name);
+          if (g.pattern && g.pattern !== '단색') parts.push(g.pattern);
+          if (g.material) parts.push(g.material.split(',')[0]);
+          if (g.fit && g.fit !== '레귤러') parts.push(g.fit);
+          if (g.sub_category) parts.push(g.sub_category);
+          if (parts.length > 0) noteText = parts.join(' ') + ' ' + (g.sub_category || catLabel);
+          if (g.design_points) noteText = noteText.trim();
+        }
+
         const result = CodiBank.addItem(user.email, {
           categoryKey,
-          color: colorName || '',
+          color: (_geminiAnalysis?.main_color_name) || colorName || '',
           brand: brandGuess || '',
           note: noteText,
           images,
@@ -1175,6 +1270,24 @@
             ai: { category: !!categoryKey, color: !!colorName, brand: !!brandGuess },
             note: { auto: true, styleTag: styleTag || '' },
             optionalImages: { back: !!(shotBlob.back || shots.back), brand: !!(shotBlob.brand || shots.brand) },
+            // ── Gemini Vision 분석 결과 (스타일링 매칭에 사용) ──
+            gemini: _geminiAnalysis ? {
+              category:       _geminiAnalysis.category,
+              sub_category:   _geminiAnalysis.sub_category,
+              main_color:     _geminiAnalysis.main_color,
+              main_color_name:_geminiAnalysis.main_color_name,
+              sub_color:      _geminiAnalysis.sub_color,
+              sub_color_name: _geminiAnalysis.sub_color_name,
+              pattern:        _geminiAnalysis.pattern,
+              material:       _geminiAnalysis.material,
+              fit:            _geminiAnalysis.fit,
+              season:         _geminiAnalysis.season,
+              style_keywords: _geminiAnalysis.style_keywords,
+              design_points:  _geminiAnalysis.design_points,
+              coordinate_hint:_geminiAnalysis.coordinate_hint,
+              // ✅ 유사도 매칭용 임베딩 벡터 (512차원)
+              embedding:      _geminiAnalysis.embedding || null,
+            } : null,
           },
         });
 
