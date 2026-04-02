@@ -2123,24 +2123,8 @@ def ai_analyze_item():
         if not img_bytes:
             return jsonify(ok=False, error="이미지 데이터 없음"), 400
 
-        # ── [STEP 1] rembg: 배경 제거 (타임아웃 15초) ──
-        _orig_mime = img_mime  # 원본 mime 보존
-        try:
-            import concurrent.futures as _cf
-            with _cf.ThreadPoolExecutor(max_workers=1) as _ex:
-                _fut = _ex.submit(remove_clothing_bg, img_bytes)
-                try:
-                    _cleaned = _fut.result(timeout=15)
-                except _cf.TimeoutError:
-                    print("[rembg] 타임아웃 — 원본 이미지 사용")
-                    _cleaned = img_bytes
-        except Exception as _re:
-            print(f"[rembg] 오류: {_re}")
-            _cleaned = img_bytes
-        if _cleaned is not img_bytes:
-            img_bytes = _cleaned
-            img_mime  = "image/png"
-        # rembg 실패 시 → img_bytes/img_mime 원본 유지
+        # ── [STEP 1] rembg: 업로드 시 이미 처리됨 → 스킵 ──
+        # (rembg를 여기서 다시 호출하면 HF Space 대기 누적으로 타임아웃 발생)
 
         # ── [STEP 2] Lykdat: 속성 태깅 ──
         lykdat_data = lykdat_tag_item(img_bytes)
