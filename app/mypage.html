@@ -121,6 +121,7 @@
       <div>
         <div>구독 플랜</div>
         <div id="mypageQuota" style="font-size:11px;color:rgba(151,254,237,0.6);font-weight:600;margin-top:1px;"></div>
+        <div id="mypageItemQuota" style="font-size:10px;color:rgba(151,254,237,0.45);font-weight:500;margin-top:1px;"></div>
       </div>
     </div>
     <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
@@ -427,6 +428,28 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             const bonusText = bonusTotal > 0 ? ' (+보너스 '+bonusTotal+'회)' : '';
             el.textContent = rem + '회 가능' + bonusText;
             try{ localStorage.setItem('cb_plan_info_'+u.email, JSON.stringify({updatedAt:new Date().toISOString().slice(0,7),totalLimit,totalUsed,bonusTotal})); }catch(_){}
+          }
+          // ── 아이템 현황 표시 ──
+          const iel = document.getElementById('mypageItemQuota');
+          if(iel){
+            const ITEM_LIMITS = {free:5,silver:20,gold:100,diamond:99999};
+            const planId2 = (u.plan||'free').toLowerCase();
+            const itemBase = ITEM_LIMITS[planId2] || 5;
+            let itemBonus = 0;
+            try{
+              const ir = await fetch(bb+'/api/usage/item-bonus/'+encodeURIComponent(u.email));
+              if(ir.ok){ const id2=await ir.json(); itemBonus=parseInt(id2.total_bonus||0); }
+            }catch(_){}
+            let itemUsed = 0;
+            try{
+              if(typeof CodiBank.getItems==='function'){
+                itemUsed = (CodiBank.getItems(u.email)||[]).length;
+              }
+            }catch(_){}
+            const itemLimit = itemBase + itemBonus;
+            const isUnlim = itemLimit >= 99999;
+            const bonusTxt = itemBonus > 0 ? ' +보너스'+itemBonus : '';
+            iel.textContent = '아이템 ' + itemUsed + '/' + (isUnlim?'∞':itemLimit) + '개' + bonusTxt;
           }
         }catch(_){}
       })();

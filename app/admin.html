@@ -274,10 +274,12 @@
   <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
     <button class="btn-teal" onclick="runSupabaseDiag()"><span class="mi" style="font-size:14px;vertical-align:middle;">refresh</span> 상태 새로고침</button>
     <button class="rb" onclick="checkBonusTable()"><span class="mi">table_chart</span>보너스 테이블 확인</button>
+    <button class="rb" onclick="checkItemsTable()" style="margin-left:6px;"><span class="mi">inventory_2</span>아이템 테이블 확인</button>
     <button class="rb" onclick="confirmAllEmails()"><span class="mi">mark_email_read</span>이메일 인증 일괄처리</button>
   </div>
   <div id="diagResult" style="margin-top:8px;font-size:11px;"></div>
   <div id="bonusTableResult" style="margin-top:4px;font-size:11px;"></div>
+  <div id="itemsTableResult" style="margin-top:4px;font-size:11px;"></div>
   <div id="confirmResult" style="margin-top:4px;font-size:11px;"></div>
 </div>
 
@@ -853,6 +855,25 @@ async function checkBonusTable(){
       res.innerHTML=html;
     }
   }catch(e){res.innerHTML='<span style="color:#e53e3e">❌ '+e.message+'</span>';}
+}
+
+async function checkItemsTable(){
+  var el=document.getElementById('itemsTableResult');
+  if(!el)return;
+  el.textContent='⏳ 확인 중...';
+  try{
+    var r=await authFetch(B+'/admin/debug/create-items-table',{method:'POST'});
+    var d=await r.json();
+    if(d.all_exist){
+      el.innerHTML='<span class="st-ok">✅ user_items + user_item_bonus 테이블 정상</span>';
+    } else {
+      var missing=Object.entries(d.tables||{}).filter(function(e){return e[1]!=='exists';}).map(function(e){return e[0];}).join(', ');
+      el.innerHTML='<span class="st-err">❌ 누락 테이블: '+missing+'</span>'
+        +'<br><a href="'+d.sql_editor_url+'" target="_blank" style="color:#1a5fb4;font-size:10px;text-decoration:underline;">Supabase SQL Editor 열기 →</a>'
+        +'<br><details style="margin-top:4px;"><summary style="cursor:pointer;font-size:10px;color:#666;">SQL 복사</summary>'
+        +'<pre style="font-size:10px;background:#f5f5f5;padding:8px;border-radius:6px;overflow:auto;white-space:pre-wrap;">'+d.sql+'</pre></details>';
+    }
+  }catch(e){el.innerHTML='<span class="st-err">❌ '+e.message+'</span>';}
 }
 
 async function syncAdminsToSupabase(){

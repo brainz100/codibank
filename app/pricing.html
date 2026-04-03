@@ -493,6 +493,20 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
         <span style="font-size:12px;color:rgba(255,255,255,0.55);">회 가능</span>
         <span id="quotaBreakdown" style="font-size:11px;color:rgba(151,254,237,0.6);margin-left:4px;"></span>
       </div>
+      <!-- 아이템 등록 현황 -->
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(151,254,237,0.15);">
+        <div style="font-size:11px;color:rgba(151,254,237,0.75);font-weight:700;margin-bottom:4px;letter-spacing:.04em;">아이템 등록 현황</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+          <div style="display:flex;align-items:baseline;gap:6px;">
+            <span id="itemQuotaUsed" style="font-size:22px;font-weight:900;color:#fff;">—</span>
+            <span style="font-size:12px;color:rgba(255,255,255,0.55);">/ <span id="itemQuotaLimit">—</span>개 등록</span>
+          </div>
+          <span id="itemQuotaBonus" style="font-size:11px;color:rgba(151,254,237,0.6);"></span>
+        </div>
+        <div style="height:4px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;margin-top:6px;">
+          <div id="itemUsageFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .6s;"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -764,9 +778,51 @@ async function renderStatus(){
       bonusTotal: bonusTotal,
       totalLimit: totalLimit,
       totalUsed: totalUsed,
-      updatedAt: new Date().toISOString().slice(0,7), // YYYY-MM
+      updatedAt: new Date().toISOString().slice(0,7),
     };
     localStorage.setItem('cb_plan_info_'+(user.email||'guest'), JSON.stringify(info));
+  }catch(_){}
+
+  // ── 아이템 등록 현황 조회 및 표시 ──
+  try{
+    const bb = (typeof CodiBank.getBackendBaseResolved==='function') ? CodiBank.getBackendBaseResolved() : 'https://codibank-api.onrender.com';
+    const ITEM_LIMITS = {free:5, silver:20, gold:100, diamond:99999};
+    const itemBaseLimit = ITEM_LIMITS[planId] || 5;
+
+    // 아이템 보너스 조회
+    let itemBonus = 0;
+    try{
+      if(bb && user.email){
+        const ir = await fetch(bb+'/api/usage/item-bonus/'+encodeURIComponent(user.email));
+        if(ir.ok){ const id2=await ir.json(); itemBonus=parseInt(id2.total_bonus||0); }
+      }
+    }catch(_){}
+
+    // 등록된 아이템 수 (localStorage)
+    let itemUsed = 0;
+    try{
+      if(typeof CodiBank.getItems==='function'){
+        const items = CodiBank.getItems(user.email) || [];
+        itemUsed = items.length;
+      }
+    }catch(_){}
+
+    const itemTotalLimit = itemBaseLimit >= 99999 ? 99999 : itemBaseLimit + itemBonus;
+    const isItemUnlimited = itemTotalLimit >= 99999;
+
+    const usedEl = document.getElementById('itemQuotaUsed');
+    const limitEl = document.getElementById('itemQuotaLimit');
+    const bonusEl = document.getElementById('itemQuotaBonus');
+    const fillEl  = document.getElementById('itemUsageFill');
+
+    if(usedEl) usedEl.textContent = itemUsed;
+    if(limitEl) limitEl.textContent = isItemUnlimited ? '∞' : itemTotalLimit;
+    if(bonusEl) bonusEl.textContent = itemBonus > 0 ? '(기본 '+itemBaseLimit+'개 + 보너스 '+itemBonus+'개)' : '('+planNames[planId]+' 기본)';
+    if(fillEl){
+      const pct2 = isItemUnlimited ? Math.min(100,Math.round(itemUsed/100*100)) : Math.min(100,Math.round(itemUsed/Math.max(itemTotalLimit,1)*100));
+      fillEl.style.width = pct2+'%';
+      fillEl.style.background = pct2>80 ? 'linear-gradient(90deg,#ef4444,#fca5a5)' : 'linear-gradient(90deg,#35A29F,#97FEED)';
+    }
   }catch(_){}
 }
 
