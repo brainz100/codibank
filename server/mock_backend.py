@@ -577,46 +577,99 @@ def _temp_bucket(temp: Any) -> str:
 
 def _purpose_to_style(purpose_key: str, purpose_label: str) -> Tuple[str, str]:
     k = (purpose_key or "").strip()
-    # 프론트 키: commute/meet/exercise/weekendTrip/overseasTrip/presentation/date/other
-    if k == "commute":
-        return (
-            "smart casual commute",
-            "clean minimal smart-casual outfit suitable for commuting",
-        )
-    if k == "meet":
-        return (
-            "social meetup",
-            "polished casual outfit for meeting friends",
-        )
-    if k == "exercise":
-        return (
-            "athleisure workout",
-            "functional athleisure outfit for exercise",
-        )
-    if k == "weekendTrip":
-        return (
-            "weekend trip",
-            "comfortable layered travel outfit for a weekend trip",
-        )
-    if k == "overseasTrip":
-        return (
-            "overseas travel",
-            "versatile travel outfit with practical layering for overseas trip",
-        )
-    if k == "presentation":
-        return (
-            "presentation",
-            "sharp professional outfit suitable for giving a presentation",
-        )
-    if k == "date":
-        return (
-            "date",
-            "stylish casual outfit for a date",
-        )
+
+    _MAP = {
+        # 1. 비즈니스 포멀
+        "bizFormal": (
+            "business formal",
+            "sharp tailored suit, silk tie, polished leather shoes, high-end corporate setting, professional confidence",
+        ),
+        # 2. 데일리 오피스룩
+        "officeDaily": (
+            "daily office look",
+            "smart casual office wear, blazer with slacks, modern professional look, bright office lighting",
+        ),
+        # 3. 면접룩
+        "interview": (
+            "interview attire",
+            "neat and trustworthy interview attire, navy or charcoal suit, modest accessories, clean and polished aesthetic",
+        ),
+        # 4. 결혼식 하객룩
+        "weddingGuest": (
+            "wedding guest outfit",
+            "elegant wedding guest outfit, sophisticated semi-formal, pastel or neutral tones, chic guest look",
+        ),
+        # 5. 소개팅룩
+        "blindDate": (
+            "blind date outfit",
+            "charming blind date outfit, clean knitwear and chinos, soft and approachable vibe, cozy cafe background",
+        ),
+        # 6. 로맨틱 데이트룩
+        "romanticDate": (
+            "romantic date night",
+            "romantic date night style, stylish dress or dress shirt, soft warm lighting, intimate atmosphere",
+        ),
+        # 7. 상견례/가족모임
+        "familyMeet": (
+            "formal family gathering",
+            "formal family gathering look, conservative and elegant, modest coat or suit, graceful aesthetic",
+        ),
+        # 8. 사교 모임/파티
+        "socialParty": (
+            "social party",
+            "trendy social party outfit, statement accessories, vibrant party vibe, stylish evening look",
+        ),
+        # 9. 주말 나들이
+        "weekendOut": (
+            "casual weekend outing",
+            "casual weekend outing, bright colors, outdoor park background, relaxed and natural aesthetic",
+        ),
+        # 10. 여행지 인생샷
+        "travelShot": (
+            "vacation travel shot",
+            "vacation photography style, resort wear, straw hat, sunglasses, exotic background, travel mood",
+        ),
+        # 11. 꾸안꾸 데일리
+        "dailyCasual": (
+            "effortless chic daily",
+            "effortless chic, oversized fit, comfortable joggers or denim, natural street style, minimal look",
+        ),
+        # 12. 스포티/애슬레저
+        "sporty": (
+            "sporty athleisure",
+            "sporty athleisure style, high-tech activewear, stylish leggings and hoodie, athletic vibe",
+        ),
+        # 13. 공항 패션
+        "airport": (
+            "airport fashion",
+            "comfortable airport fashion, layered cozy outfit, sunglasses, travel luggage, chic traveler vibe",
+        ),
+        # 14. 미니멀/심플
+        "minimal": (
+            "minimalist simple",
+            "minimalist simple aesthetic, neutral color palette, clean lines, minimalist studio background",
+        ),
+        # 15. 트렌디/스트릿
+        "streetTrend": (
+            "trendy streetwear",
+            "trendy streetwear, graphic t-shirt, hypebeast sneakers, urban city street background",
+        ),
+        # 레거시 키 호환
+        "commute":      ("smart casual commute", "clean minimal smart-casual outfit suitable for commuting"),
+        "business":     ("business formal", "sharp tailored suit, polished leather shoes, corporate setting"),
+        "meet":         ("social meetup", "polished casual outfit for meeting friends"),
+        "weekendTrip":  ("weekend trip", "comfortable layered travel outfit for a weekend trip"),
+        "domesticTrip": ("domestic travel", "practical layered outfit for domestic travel"),
+        "overseasTrip": ("overseas travel", "versatile travel outfit with practical layering for overseas trip"),
+        "partyLook":    ("party look", "trendy party outfit with statement accessories"),
+    }
+
+    if k in _MAP:
+        return _MAP[k]
+
     # custom(직접입력): purposeLabel = 사용자가 직접 입력한 텍스트
     pl = (purpose_label or "").strip()
     if pl:
-        # 사용자 입력 텍스트를 purpose_desc로 직접 사용 — DALL-E 프롬프트 핵심 의도
         return (pl, pl)
     return ("everyday", "well-balanced everyday outfit")
 
