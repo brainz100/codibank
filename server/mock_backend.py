@@ -954,8 +954,10 @@ def health():
         platform=platform.platform(),
         openai_sdk=_sdk_version(),
         has_openai_key=_safe_bool(os.getenv("OPENAI_API_KEY")),
+        has_gemini_key=_safe_bool(os.getenv("GEMINI_API_KEY")),
+        codistyle_model=os.getenv("CODISTYLE_GEMINI_MODEL","gemini-2.5-flash-image"),
         # ── AI 기술 상태 ──
-        rembg_ready=(_rembg_session is not None),
+        rembg_ready=bool(os.getenv("REMBG_API_URL", "")),  # HF Space URL 설정 여부
         r2_ready=(_get_r2() is not None),
         r2_pub_url=bool(_R2_PUB_URL),
         lykdat_ready=bool(_LYKDAT_KEY),
@@ -1444,6 +1446,8 @@ def ai_styling():
                 error=str(e),
                 openai_sdk=_sdk_version(),
                 has_openai_key=_safe_bool(os.getenv("OPENAI_API_KEY")),
+        has_gemini_key=_safe_bool(os.getenv("GEMINI_API_KEY")),
+        codistyle_model=os.getenv("CODISTYLE_GEMINI_MODEL","gemini-2.5-flash-image"),
             ),
             500,
         )
