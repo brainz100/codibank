@@ -231,7 +231,7 @@
 <div class="chart-box"><h3>월별 등록 추이</h3><div class="chart-wrap"><canvas id="chIt2"></canvas></div></div>
 <div class="chart-box"><h3>카테고리별</h3><div class="chart-wrap"><canvas id="chIt3"></canvas></div></div>
 </div>
-<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">inventory_2</span>아이템 등록 현황</div><button class="rb" onclick="ldI()"><span class="mi">refresh</span>새로고침</button></div>
+<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">inventory_2</span>아이템 등록 현황</div><div style="display:flex;align-items:center;gap:8px;"><span id="iLastUpd" style="font-size:10px;color:#aaa;"></span><button class="rb" onclick="ldI()"><span class="mi">refresh</span>새로고침</button></div></div>
 <div class="tw"><div class="cb"><input id="qIt" placeholder="이메일 검색..." oninput="fIt()"><select id="sIt" onchange="fIt()"><option value="d_d">최신순</option><option value="d_a">오래된순</option></select><select id="fCat" onchange="fIt()"><option value="">전체</option><option value="top">상의</option><option value="bottom">하의</option><option value="outer">아우터</option><option value="shoes">신발</option><option value="bag">가방</option><option value="acc">악세서리</option></select></div>
 <table><thead><tr><th>이용자</th><th>카테고리</th><th>이미지</th><th>이름</th><th>등록일</th></tr></thead><tbody id="tIt"></tbody></table>
 <div class="pager"><span></span><span><button onclick="pgIt2(-1)">◀</button> <span id="pgItt">1/1</span> <button onclick="pgIt2(1)">▶</button> <select id="ppIt" onchange="fIt()"><option>20</option><option>50</option></select>건</span></div>
@@ -324,6 +324,48 @@
     </table>
   </div>
   <div id="bonusListNote" style="padding:5px 0;font-size:10px;color:#e65100;display:none;">⚠ 서버 메모리에만 저장 — 재시작 시 초기화됩니다. Supabase 테이블 생성 필요.</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     섹션 1-B: 아이템 등록 보너스 관리 (MASTER)
+══════════════════════════════════════════════════ -->
+<div class="card-sec" id="secItemBonusMgr" style="display:none;">
+  <div class="card-sec-title">
+    <span class="mi">checkroom</span>아이템 등록 보너스 관리
+    <span class="master-only-badge">MASTER 전용</span>
+  </div>
+  <div class="card-sec-sub">
+    특정 회원에게 아이템 등록 보너스 횟수를 지급·수정·취소합니다.<br>
+    내옷장 카테고리별 아이템 등록 한도에 보너스로 추가됩니다.
+  </div>
+
+  <div style="background:#f8faff;border:1px solid #e0e7ff;border-radius:9px;padding:14px;margin-bottom:12px;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:10px;">보너스 지급 / 수정</div>
+    <div style="display:grid;grid-template-columns:1fr 110px 100px;gap:8px;align-items:end;">
+      <div>
+        <label class="fl">회원 이메일 <span style="color:#e53e3e">*</span></label>
+        <input id="itemBonusEmail" type="email" class="fi" placeholder="user@codibank.kr">
+      </div>
+      <div>
+        <label class="fl" style="color:#35A29F;">지급 횟수</label>
+        <input id="itemBonusCount" type="number" min="0" max="9999" value="10" class="fi" style="text-align:center;font-size:16px;font-weight:800;color:#35A29F;border-color:#35A29F;">
+      </div>
+      <button class="btn-teal" onclick="applyItemBonus()" style="height:38px;">지급하기</button>
+    </div>
+    <div style="font-size:10px;color:#888;margin-top:5px;">※ 0으로 설정 = 보너스 취소 &nbsp;|&nbsp; 기존 지급 내역을 덮어씁니다</div>
+    <div id="itemBonusResult" style="margin-top:8px;font-size:12px;font-weight:600;min-height:16px;"></div>
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div style="font-size:12px;font-weight:800;color:#071952;">이달 아이템 보너스 현황 <span id="itemBonusMonth" style="font-size:10px;color:#888;font-weight:500;"></span></div>
+    <button class="rb" onclick="ldItemBonusMgr()"><span class="mi">refresh</span>새로고침</button>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr><th>이메일</th><th style="text-align:center;">보너스</th><th style="text-align:center;">저장</th><th style="text-align:center;">앱 반영</th><th style="text-align:center;">수정 / 취소</th></tr></thead>
+      <tbody id="tItemBonusList"><tr><td colspan="5" class="empty">새로고침 버튼을 눌러주세요</td></tr></tbody>
+    </table>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════════════
@@ -592,7 +634,7 @@ function applyPermissions(){
   });
   // 계정관리 섹션 마스터 전용
   if(_ME.role!=='MASTER'){
-    ['secAdminMgr','secBonusMgr','secTestAcct','secSyncSupabase','secSysStatus'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
+    ['secAdminMgr','secBonusMgr','secItemBonusMgr','secTestAcct','secSyncSupabase','secSysStatus'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
   }
 }
 function stab(el,n){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on')});document.querySelectorAll('.tp').forEach(function(p){p.classList.remove('on')});el.classList.add('on');document.getElementById('p-'+n).classList.add('on')}
@@ -990,6 +1032,77 @@ async function applyBonus(){
   }catch(e){res.style.color='#e53e3e';res.textContent='❌ '+e.message;}
 }
 
+// ══ 아이템 등록 보너스 ══
+async function applyItemBonus(){
+  if(!isMaster()){toast('MASTER 권한이 필요합니다',true);return;}
+  var em=document.getElementById('itemBonusEmail').value.trim().toLowerCase();
+  var tb=parseInt(document.getElementById('itemBonusCount').value)||0;
+  var res=document.getElementById('itemBonusResult');
+  if(!em){res.style.color='#e53e3e';res.textContent='⚠ 이메일을 입력해주세요';return;}
+  if(tb<0){res.style.color='#e53e3e';res.textContent='⚠ 0 이상의 횟수를 입력하세요';return;}
+  res.style.color='#666';res.textContent='⏳ 처리 중...';
+  try{
+    var r=await authFetch(B+'/admin/item-bonus/set',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:em,total_bonus:tb})
+    });
+    var d=await r.json();
+    if(d.ok){
+      var note=d.note==='memory_fallback'?' ⚠ 메모리 저장':'';
+      res.style.color=d.note==='memory_fallback'?'#e65100':'#0B666A';
+      res.textContent=(tb===0?'✅ '+em+' 아이템 보너스 취소 완료':'✅ '+em+' 아이템 +'+tb+'회 지급 완료')+note;
+      document.getElementById('itemBonusEmail').value='';
+      document.getElementById('itemBonusCount').value='10';
+      ldItemBonusMgr();
+    }else{res.style.color='#e53e3e';res.textContent='❌ '+(d.error||'실패');}
+  }catch(e){res.style.color='#e53e3e';res.textContent='❌ '+e.message;}
+}
+async function ldItemBonusMgr(){
+  var tbody=document.getElementById('tItemBonusList');
+  var monthEl=document.getElementById('itemBonusMonth');
+  if(!tbody)return;
+  tbody.innerHTML='<tr><td colspan="5" class="ld"><span class="sp"></span></td></tr>';
+  try{
+    var r=await authFetch(B+'/admin/item-bonus/list');
+    var d=await r.json();
+    if(!d.ok){tbody.innerHTML='<tr><td colspan="5" class="empty">'+(d.error||'불러오기 실패')+'</td></tr>';return;}
+    if(monthEl)monthEl.textContent=d.month||'';
+    var list=d.list||[];
+    if(!list.length){tbody.innerHTML='<tr><td colspan="5" class="empty">이달 지급된 아이템 보너스가 없습니다</td></tr>';return;}
+    var isMem=(d.note==='memory_fallback');
+    var h='';
+    list.forEach(function(x){
+      var tb=parseInt(x.total_bonus||0);
+      var stSrc=isMem?'<span class="st-warn">⚠ 메모리</span>':'<span class="st-ok">✅ Supabase</span>';
+      var stApp=isMem?'<span style="color:#e65100;font-size:10px;">재시작 초기화</span>':'<span style="color:#0B666A;font-size:10px;">정상</span>';
+      h+='<tr>'
+        +'<td style="font-weight:600;color:#071952;">'+x.email+'</td>'
+        +'<td style="text-align:center;"><b style="font-size:16px;color:#35A29F;">+'+tb+'</b><span style="font-size:10px;color:#888;">회</span></td>'
+        +'<td style="text-align:center;">'+stSrc+'</td>'
+        +'<td style="text-align:center;">'+stApp+'</td>'
+        +'<td style="text-align:center;">'
+        +'<button onclick="editItemBonus(this)" data-email="'+x.email+'" data-tb="'+tb+'" class="ab">수정</button> '
+        +'<button onclick="cancelItemBonus(this)" data-email="'+x.email+'" class="ab ab-r">취소</button>'
+        +'</td></tr>';
+    });
+    tbody.innerHTML=h;
+  }catch(e){tbody.innerHTML='<tr><td colspan="5" class="empty">오류: '+e.message+'</td></tr>';}
+}
+function editItemBonus(btn){
+  var email=btn&&btn.dataset?btn.dataset.email:btn;
+  var current=btn&&btn.dataset?parseInt(btn.dataset.tb||0):0;
+  document.getElementById('itemBonusEmail').value=email;
+  document.getElementById('itemBonusCount').value=current||0;
+  document.getElementById('secItemBonusMgr').scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function cancelItemBonus(btn){
+  var email=btn&&btn.dataset?btn.dataset.email:btn;
+  if(!confirm(email+' 의 아이템 보너스를 취소하시겠습니까?'))return;
+  document.getElementById('itemBonusEmail').value=email;
+  document.getElementById('itemBonusCount').value='0';
+  await applyItemBonus();
+}
+
 // ── 보너스 수정 (테이블에서 클릭) ──
 function editBonus(btn){
   var email=btn ? (btn.dataset ? btn.dataset.email : btn) : btn;
@@ -1012,6 +1125,17 @@ async function cancelBonus(btn){
 }
 
 // ── 보너스 현황 로드 ──
+// 아이템 탭 자동 30초 폴링
+var _itemPollTimer=null;
+function startItemPoll(){
+  if(_itemPollTimer)clearInterval(_itemPollTimer);
+  _itemPollTimer=setInterval(function(){
+    var el=document.getElementById('p-items');
+    if(el&&el.style.display!=='none'){ldI();}
+  },30000);
+}
+startItemPoll();
+
 async function ldBonusMgr(){
   var tbody=document.getElementById('tBonusList');
   var noteEl=document.getElementById('bonusListNote');
@@ -1136,8 +1260,9 @@ function ldAll(){
   if(isMaster()){
     ldAdmins();
     ldBonusMgr();
+    ldItemBonusMgr();
     setTimeout(showSysStatus, 600);
-    ['secBonusMgr','secTestAcct','secAdminMgr','secSyncSupabase','secSysStatus'].forEach(function(id){
+    ['secBonusMgr','secItemBonusMgr','secTestAcct','secAdminMgr','secSyncSupabase','secSysStatus'].forEach(function(id){
       var el=document.getElementById(id); if(el) el.style.display='block';
     });
   }
