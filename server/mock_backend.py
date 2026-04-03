@@ -2894,6 +2894,84 @@ def admin_usage_bonus_list():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+# ══════════════════════════════════════════════════════════════
+# 아이템 등록 보너스 API (이미지 생성 보너스와 동일 구조)
+# ══════════════════════════════════════════════════════════════
+
+@app.get("/api/usage/item-bonus/<email>")
+def get_item_bonus(email: str):
+    """유저 아이템 등록 보너스 조회 (앱에서 호출)."""
+    try:
+        email = email.strip().lower()
+        now_ym = __import__('datetime').datetime.now().strftime("%Y-%m")
+        params = {"email": f"eq.{email}", "month": f"eq.{now_ym}", "select": "total_bonus", "limit": "1"}
+        try:
+            r = sb_query("GET", "user_item_bonus", params=params)
+            if r.status_code == 200:
+                rows = r.json()
+                if rows:
+                    return jsonify({"ok": True, "total_bonus": int(rows[0].get("total_bonus", 0)), "month": now_ym})
+        except Exception:
+            pass
+        if hasattr(app, "_item_bonus_cache"):
+            key = f"{email}:{now_ym}"
+            if key in app._item_bonus_cache:
+                return jsonify({"ok": True, "total_bonus": int(app._item_bonus_cache[key].get("total_bonus", 0)), "month": now_ym, "source": "memory"})
+        return jsonify({"ok": True, "total_bonus": 0, "month": now_ym})
+    except Exception as e:
+        return jsonify({"ok": True, "total_bonus": 0, "error": str(e)})
+
+
+@app.post("/admin/item-bonus/set")
+def admin_set_item_bonus():
+    """아이템 등록 보너스 설정 (MASTER 전용)."""
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+    try:
+        data = request.get_json(silent=True) or {}
+        email   = str(data.get("email", "")).strip().lower()
+        total_b = max(0, int(data.get("total_bonus", 0) or 0))
+        month   = str(data.get("month") or __import__('datetime').datetime.now().strftime("%Y-%m"))
+        if not email:
+            return jsonify({"ok": False, "error": "email 필수"}), 400
+        body = {"email": email, "month": month, "total_bonus": total_b,
+                "updated_at": __import__('datetime').datetime.utcnow().isoformat() + "Z",
+                "updated_by": (request.headers.get("X-Admin-Key") or "")[:16]}
+        import requests as _rq
+        url = f"{supabase_url()}/rest/v1/user_item_bonus"
+        headers = supabase_admin_headers()
+        headers["Prefer"] = "resolution=merge-duplicates,return=representation"
+        r = _rq.post(url, headers=headers, json=body, timeout=10)
+        if r.status_code in (200, 201):
+            return jsonify({"ok": True, "email": email, "month": month, "total_bonus": total_b})
+        if not hasattr(app, "_item_bonus_cache"):
+            app._item_bonus_cache = {}
+        app._item_bonus_cache[f"{email}:{month}"] = {"total_bonus": total_b}
+        return jsonify({"ok": True, "email": email, "month": month, "total_bonus": total_b, "note": "memory_fallback"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.get("/admin/item-bonus/list")
+def admin_item_bonus_list():
+    """아이템 보너스 현황 전체 조회 (MASTER 전용)."""
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+    try:
+        now_ym = __import__('datetime').datetime.now().strftime("%Y-%m")
+        params = {"month": f"eq.{now_ym}", "order": "updated_at.desc", "limit": "500",
+                  "select": "email,month,total_bonus,updated_at"}
+        r = sb_query("GET", "user_item_bonus", params=params)
+        if r.status_code == 200:
+            return jsonify({"ok": True, "list": r.json(), "month": now_ym})
+        if hasattr(app, "_item_bonus_cache"):
+            rows = [{"email": k.split(":")[0], "month": k.split(":")[1], **v}
+                    for k, v in app._item_bonus_cache.items() if k.endswith(now_ym)]
+            return jsonify({"ok": True, "list": rows, "month": now_ym, "note": "memory_fallback"})
+        return jsonify({"ok": True, "list": [], "month": now_ym})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 
 # ══════════════════════════════════════════════════════════════
 # 테스트 계정 생성 + 회원 사용횟수 지급 API
