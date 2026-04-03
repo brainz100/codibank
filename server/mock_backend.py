@@ -3614,6 +3614,62 @@ CREATE POLICY "service_role_all" ON public.user_usage_bonus
         return jsonify({"ok": False, "error": str(e), "sql": ddl.strip()})
 
 
+@app.post("/admin/debug/create-items-table")
+def admin_create_items_table():
+    """user_items + user_item_bonus 테이블 DDL 반환 (MASTER 전용)."""
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+
+    ddl = """
+-- 아이템 등록 추적 테이블
+CREATE TABLE IF NOT EXISTS public.user_items (
+  id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  email       TEXT NOT NULL,
+  category    TEXT,
+  item_name   TEXT,
+  image_url   TEXT,
+  user_id     TEXT,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE public.user_items ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_all" ON public.user_items
+  FOR ALL USING (true) WITH CHECK (true);
+CREATE INDEX IF NOT EXISTS idx_user_items_email ON public.user_items(email);
+
+-- 아이템 등록 보너스 테이블
+CREATE TABLE IF NOT EXISTS public.user_item_bonus (
+  email       TEXT NOT NULL,
+  month       TEXT NOT NULL,
+  total_bonus INTEGER DEFAULT 0,
+  updated_at  TIMESTAMPTZ DEFAULT now(),
+  updated_by  TEXT,
+  PRIMARY KEY (email, month)
+);
+ALTER TABLE public.user_item_bonus ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_all" ON public.user_item_bonus
+  FOR ALL USING (true) WITH CHECK (true);
+"""
+    import requests as _rq
+    _sb  = supabase_url()
+    _hdr = supabase_admin_headers()
+    results = {}
+    for tbl in ["user_items", "user_item_bonus"]:
+        try:
+            test = _rq.get(f"{_sb}/rest/v1/{tbl}?limit=1", headers=_hdr, timeout=10)
+            results[tbl] = "exists" if test.status_code == 200 else "missing"
+        except Exception as e:
+            results[tbl] = f"error:{str(e)[:40]}"
+    all_exist = all(v == "exists" for v in results.values())
+    return jsonify({
+        "ok": True,
+        "tables": results,
+        "all_exist": all_exist,
+        "message": "모든 테이블 정상" if all_exist else "Supabase SQL Editor에서 아래 SQL을 실행하세요.",
+        "sql": ddl.strip(),
+        "sql_editor_url": "https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/sql/new",
+    })
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8787"))
     # ✅ 안정성 기본값: debug OFF
