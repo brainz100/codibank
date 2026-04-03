@@ -674,7 +674,7 @@ function getBackendBaseResolved() {
     } catch (_) {}
 
     // ── 전체 아이템 합산 체크 (카테고리별 아님)
-    const totalItems = getItems(e).length;
+    const totalItems = getItemsByUser(e).length;
     const isUnlimited = planLimit === Infinity;
     const effectiveLimit = isUnlimited ? Infinity : (planLimit + itemBonus);
 
