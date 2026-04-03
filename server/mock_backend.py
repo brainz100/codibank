@@ -1518,6 +1518,64 @@ _CODISTYLE_MODEL = (
 )
 _GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
 
+def _analyze_garment_category(category_key: str, sub_category: str = "") -> dict:
+    """카테고리 키 → 착장 생성용 상세 의류 정보"""
+    k = (category_key or "").lower().strip()
+    sub = (sub_category or "").lower().strip()
+
+    # 상의 계열
+    if k in ("coat", "코트") or any(x in sub for x in ["코트","트렌치","더플","롱코트"]):
+        return {"type": "top", "garment": "coat", "ko": "코트",
+                "length": "knee-length or longer", "rule": "full-length coat covering thighs"}
+    if k in ("jacket", "자켓") or any(x in sub for x in ["자켓","블레이저","수트","가디건","패딩","집업"]):
+        garment_ko = sub or "자켓"
+        return {"type": "top", "garment": "jacket/blazer", "ko": garment_ko,
+                "length": "hip-length", "rule": "jacket ending at hip level"}
+    if k in ("top", "상의") or any(x in sub for x in ["티셔츠","셔츠","블라우스","니트","맨투맨","후드"]):
+        garment_ko = sub or "상의"
+        return {"type": "top", "garment": "top", "ko": garment_ko,
+                "length": "waist to hip", "rule": "casual top"}
+
+    # 하의 계열
+    if any(x in (k + sub) for x in ["스커트","치마","skirt"]):
+        skirt_type = "mini skirt" if any(x in sub for x in ["미니","mini"]) else                      "midi skirt" if any(x in sub for x in ["미디","플리츠","midi"]) else                      "maxi skirt" if any(x in sub for x in ["롱","maxi"]) else "skirt"
+        return {"type": "bottom", "garment": skirt_type, "ko": sub or "스커트",
+                "is_skirt": True,
+                "rule": f"MUST generate {skirt_type} — NOT pants. This is a SKIRT. Absolutely forbidden to replace with trousers."}
+    if k in ("pants", "하의") or any(x in sub for x in ["바지","청바지","슬랙스","조거","추리닝","반바지","7부"]):
+        is_shorts = any(x in sub for x in ["반바지","shorts"])
+        return {"type": "bottom", "garment": "shorts" if is_shorts else "trousers", "ko": sub or "바지",
+                "is_skirt": False,
+                "rule": "Generate trousers/pants as specified"}
+
+    return {"type": "unknown", "garment": k or "garment", "ko": k or "의류", "is_skirt": False, "rule": ""}
+
+
+def _build_garment_instruction(top_info: dict, bottom_info: dict) -> str:
+    """상의/하의 정보 → 프롬프트 핵심 지시문"""
+    top_ko = top_info.get("ko", "상의")
+    bottom_ko = bottom_info.get("ko", "하의")
+    top_en = top_info.get("garment", "top garment")
+    bottom_en = bottom_info.get("garment", "bottom garment")
+    is_skirt = bottom_info.get("is_skirt", False)
+    bottom_rule = bottom_info.get("rule", "")
+
+    instr = (
+        f"⚠ GARMENT IDENTITY (HIGHEST PRIORITY — MUST NOT BE CHANGED): "
+        f"Upper body = [{top_ko} / {top_en}]. "
+        f"Lower body = [{bottom_ko} / {bottom_en}]. "
+        f"REPRODUCE BOTH GARMENTS EXACTLY AS SPECIFIED. "
+    )
+    if is_skirt:
+        instr += (
+            f"CRITICAL SKIRT RULE: The lower garment is a [{bottom_ko}] — a SKIRT, NOT pants. "
+            f"You MUST generate a {bottom_en}. "
+            f"It is ABSOLUTELY FORBIDDEN to replace the skirt with trousers or any leg-covering garment. "
+            f"The skirt must be clearly visible as a skirt in the final image. "
+        )
+    return instr
+
+
 @app.post("/api/codistyle/generate")
 def codistyle_generate():
     if not _GEMINI_KEY:
@@ -1552,6 +1610,15 @@ def codistyle_generate():
     # ── 다시요청 여부 (프론트에서 generate(true) 호출 시 전송) ──
     is_retry  = bool(payload.get("isRetry", False))
 
+    # ── 의류 카테고리 정보 (프론트에서 전달) ──
+    top_category_key    = str(payload.get("topCategoryKey", "top")).strip()
+    top_sub_category    = str(payload.get("topSubCategory", "")).strip()
+    bottom_category_key = str(payload.get("bottomCategoryKey", "pants")).strip()
+    bottom_sub_category = str(payload.get("bottomSubCategory", "")).strip()
+    top_info    = _analyze_garment_category(top_category_key, top_sub_category)
+    bottom_info = _analyze_garment_category(bottom_category_key, bottom_sub_category)
+    _garment_instruction = _build_garment_instruction(top_info, bottom_info)
+
     # ── 퍼스널컬러 프롬프트 블록 ──
     _pc_text = ""
     personal_color = payload.get("personalColor") or None
@@ -1562,10 +1629,13 @@ def codistyle_generate():
         _pc_avoid = ", ".join((personal_color.get("avoid_colors") or [])[:2])
         if _pc_s:
             _pc_text = (
-                f" [USER PERSONAL COLOR: {_pc_s} ({_pc_u})."
-                f" Best colors: {_pc_best}."
-                f" Avoid colors: {_pc_avoid}."
-                " When scoring style, factor in personal color harmony.]"
+                f" ⭐ PERSONAL COLOR PROFILE: {_pc_s} ({_pc_u})."
+                f" Best harmony colors: {_pc_best}."
+                f" Colors to avoid: {_pc_avoid}."
+                " The styling assistant MUST evaluate whether the provided garments harmonize with this personal color."
+                " Include a STYLING SCORE (0-100) in your text response with breakdown:"
+                " color_harmony/30, garment_match/30, personal_color_fit/20, overall_style/20."
+                " Example: STYLING SCORE: 82/100 (color_harmony:25, garment_match:27, personal_color_fit:16, overall_style:14)"
             )
 
     # ── 이미지 로드 → bytes ──
@@ -1694,16 +1764,22 @@ def codistyle_generate():
         )
 
     prompt = (
-        "[RULE #1 — HIGHEST PRIORITY — PANTS LENGTH]: "
-        "The trouser hem in the FINAL IMAGE must sit at the BOTTOM 12-15% of the image height "
-        "(just above the shoe top, ankle bone fully covered by fabric). "
-        "There must be NO visible bare ankle or sock above the shoe. "
-        "The lower-body reference image is for COLOR+FABRIC only — IGNORE its pant length completely. "
-        "Create a photorealistic full-body Korean fashion editorial photo. "
+        # ── 최우선: 의류 카테고리 정체성 ──
+        _garment_instruction
+
+        # ── 바지 기장 (스커트일 경우 바지 규칙 비적용) ──
+        + ("" if bottom_info.get("is_skirt") else
+           "[RULE #2 — PANTS LENGTH — HIGHEST PRIORITY]: "
+           "The trouser hem in the FINAL IMAGE must sit at the BOTTOM 12-15% of the image height "
+           "(just above the shoe top, ankle bone fully covered by fabric). "
+           "There must be NO visible bare ankle or sock above the shoe. "
+           "The lower-body reference image is for COLOR+FABRIC only — IGNORE its pant length completely. ")
+
+        + "Create a photorealistic full-body Korean fashion editorial photo. "
         + face_line
         + img_desc + " "
         + ko_instruction
-        + "Reproduce the EXACT color, fabric, texture, and logo of each garment from the reference images (COLOR+FABRIC only — NOT pant length). "
+        + "Reproduce the EXACT color, fabric, texture, and logo of each garment from the reference images (COLOR+FABRIC only — NOT garment silhouette/category). "
         "Full body head to toe visible. "
 
         # ── 배경 (CRITICAL) ──
@@ -1830,10 +1906,29 @@ def codistyle_generate():
 
     rel  = _write_upload_bytes("codistyle", "jpg", img_bytes)
     base = _public_base()
+
+    # ── 스타일링 스코어 파싱 ──
+    styling_score = None
+    try:
+        import re as _re
+        m = _re.search(r'STYLING SCORE[:\s]+(\d+)', comment)
+        if m:
+            styling_score = int(m.group(1))
+    except Exception:
+        pass
+
+    # ── 의류 정보 응답 포함 ──
+    garment_summary = {
+        "top": {"key": top_category_key, "ko": top_info.get("ko", ""), "garment": top_info.get("garment", "")},
+        "bottom": {"key": bottom_category_key, "ko": bottom_info.get("ko", ""), "garment": bottom_info.get("garment", ""), "is_skirt": bottom_info.get("is_skirt", False)},
+    }
+
     return jsonify(
         ok=True, path=rel,
         image=f"{base}{rel}", url=f"{base}{rel}",
         comment=comment or "AI 착장 이미지 생성 완료!",
+        styling_score=styling_score,
+        garment_summary=garment_summary,
         model=_CODISTYLE_MODEL,
         sdk=_SDK,
     )
