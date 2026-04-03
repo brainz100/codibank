@@ -786,7 +786,7 @@ async function renderStatus(){
   // ── 아이템 등록 현황 조회 및 표시 ──
   try{
     const bb = (typeof CodiBank.getBackendBaseResolved==='function') ? CodiBank.getBackendBaseResolved() : 'https://codibank-api.onrender.com';
-    const ITEM_LIMITS = {free:5, silver:20, gold:100, diamond:99999};
+    const ITEM_LIMITS = {free:10, silver:100, gold:500, diamond:99999};
     const itemBaseLimit = ITEM_LIMITS[planId] || 5;
 
     // 아이템 보너스 조회
@@ -809,6 +809,8 @@ async function renderStatus(){
 
     const itemTotalLimit = itemBaseLimit >= 99999 ? 99999 : itemBaseLimit + itemBonus;
     const isItemUnlimited = itemTotalLimit >= 99999;
+    // codibank.js addItem에서 참조할 보너스 캐시 저장
+    try{ localStorage.setItem('cb_item_plan_'+user.email, JSON.stringify({bonus:itemBonus,limit:itemTotalLimit,plan:planId,updatedAt:new Date().toISOString().slice(0,7)})); }catch(_){}
 
     const usedEl = document.getElementById('itemQuotaUsed');
     const limitEl = document.getElementById('itemQuotaLimit');

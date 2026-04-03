@@ -239,17 +239,20 @@ function getBackendBaseResolved() {
   // (레거시/확장용) 기본 외 카테고리는 사용자 커스텀으로 추가하도록 유도
   const OPTIONAL_CATEGORIES = [];
 
+  // 아이템 등록 한도 — 전체 합산 (카테고리별 아님)
+  // FREE:10 / SILVER:100 / GOLD:500 / DIAMOND:무제한(일일 100개)
   const PLAN_LIMITS = {
-    FREE: 5,
-    SILVER: 30,
-    GOLD: 100,
+    FREE: 10,
+    SILVER: 100,
+    GOLD: 500,
     DIAMOND: Infinity,
   };
 
-  // 저장공간/성능을 고려한 운영 한도(카테고리별 최대 등록수)
-  // - 플랜 한도와 별개로, 카테고리당 200개를 최상위 하드캡으로 둡니다.
-  // - 200개 초과가 필요하면 운영자 승인/조치로 상향(서버/DB 정책 포함)하도록 설계합니다.
-  const CATEGORY_MAX_ITEMS = 200;
+  // DIAMOND 일일 아이템 등록 한도
+  const DIAMOND_DAILY_ITEM_LIMIT = 100;
+
+  // 운영 하드캡 (전체 기준)
+  const CATEGORY_MAX_ITEMS = 200; // 레거시 호환용 유지
 
   // ==============================
   // AI 추천 스타일링 생성(이미지) 사용량 제한
@@ -662,17 +665,44 @@ function getBackendBaseResolved() {
     const e = normalizeEmail(email);
     const plan = getUserPlan(e);
     const planLimit = getPlanLimit(plan);
-    const effectiveLimit = (planLimit === Infinity)
-      ? CATEGORY_MAX_ITEMS
-      : Math.min(Math.max(0, Number(planLimit || 0)), CATEGORY_MAX_ITEMS);
-    const categoryKey = item.categoryKey;
-    const currentCount = getItemsByUserAndCategory(e, categoryKey).length;
-    if (currentCount >= effectiveLimit) {
+
+    // ── 아이템 보너스 읽기 (pricing/mypage에서 캐싱한 값)
+    let itemBonus = 0;
+    try {
+      const cached = JSON.parse(localStorage.getItem('cb_item_plan_' + e) || '{}');
+      itemBonus = parseInt(cached.bonus || 0);
+    } catch (_) {}
+
+    // ── 전체 아이템 합산 체크 (카테고리별 아님)
+    const totalItems = getItems(e).length;
+    const isUnlimited = planLimit === Infinity;
+    const effectiveLimit = isUnlimited ? Infinity : (planLimit + itemBonus);
+
+    if (!isUnlimited && totalItems >= effectiveLimit) {
       return {
         ok: false,
-        error: `현재 플랜(${plan})의 카테고리별 업로드 한도(${planLimit === Infinity ? '무제한' : planLimit + '개'}) 또는 운영 한도(카테고리당 ${CATEGORY_MAX_ITEMS}개)를 초과했습니다.`,
+        error: `현재 플랜(${plan})의 아이템 등록 한도(${effectiveLimit}개)를 초과했습니다. 구독 업그레이드 또는 보너스 신청이 필요합니다.`,
+        limit_exceeded: true,
       };
     }
+
+    // ── DIAMOND 일일 등록 한도 체크
+    if (isUnlimited) {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const dayKey = 'cb_item_daily_' + e + '_' + today;
+        const dayCount = parseInt(localStorage.getItem(dayKey) || '0');
+        if (dayCount >= DIAMOND_DAILY_ITEM_LIMIT) {
+          return {
+            ok: false,
+            error: `다이아몬드 플랜의 일일 아이템 등록 한도(${DIAMOND_DAILY_ITEM_LIMIT}개)를 초과했습니다. 내일 다시 시도해주세요.`,
+          };
+        }
+        localStorage.setItem(dayKey, String(dayCount + 1));
+      } catch (_) {}
+    }
+
+    const categoryKey = item.categoryKey;
 
     const items = getAllItems();
     const saved = {
@@ -725,21 +755,9 @@ function getBackendBaseResolved() {
     const before = items[idx];
     const next = Object.assign({}, before);
 
-    // 카테고리 변경 시: 플랜 한도 체크(카테고리별 제한)
+    // 카테고리 변경 시: 카테고리만 업데이트 (전체 한도는 addItem에서 이미 체크됨)
     const nextCategory = (patch && patch.categoryKey !== undefined) ? String(patch.categoryKey || '') : String(before.categoryKey || '');
     if (nextCategory && nextCategory !== String(before.categoryKey || '')) {
-      const plan = getUserPlan(e);
-      const planLimit = getPlanLimit(plan);
-      const effectiveLimit = (planLimit === Infinity)
-        ? CATEGORY_MAX_ITEMS
-        : Math.min(Math.max(0, Number(planLimit || 0)), CATEGORY_MAX_ITEMS);
-      const currentCount = getItemsByUserAndCategory(e, nextCategory).filter((it) => it.id !== id).length;
-      if (currentCount >= effectiveLimit) {
-        return {
-          ok: false,
-          error: `현재 플랜(${plan})의 카테고리별 업로드 한도(${planLimit === Infinity ? '무제한' : planLimit + '개'}) 또는 운영 한도(카테고리당 ${CATEGORY_MAX_ITEMS}개)를 초과했습니다.`,
-        };
-      }
       next.categoryKey = nextCategory;
       addCategoriesToUser(e, [nextCategory]);
     }

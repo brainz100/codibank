@@ -432,7 +432,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
           // ── 아이템 현황 표시 ──
           const iel = document.getElementById('mypageItemQuota');
           if(iel){
-            const ITEM_LIMITS = {free:5,silver:20,gold:100,diamond:99999};
+            const ITEM_LIMITS = {free:10,silver:100,gold:500,diamond:99999};
             const planId2 = (u.plan||'free').toLowerCase();
             const itemBase = ITEM_LIMITS[planId2] || 5;
             let itemBonus = 0;
@@ -450,6 +450,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             const isUnlim = itemLimit >= 99999;
             const bonusTxt = itemBonus > 0 ? ' +보너스'+itemBonus : '';
             iel.textContent = '아이템 ' + itemUsed + '/' + (isUnlim?'∞':itemLimit) + '개' + bonusTxt;
+            try{ localStorage.setItem('cb_item_plan_'+u.email, JSON.stringify({bonus:itemBonus,limit:itemLimit,updatedAt:new Date().toISOString().slice(0,7)})); }catch(_){}
           }
         }catch(_){}
       })();

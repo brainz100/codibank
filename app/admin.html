@@ -1109,40 +1109,87 @@ async function ldItemBonusMgr(){
     tbody.innerHTML=h;
   }catch(e){tbody.innerHTML='<tr><td colspan="5" class="empty">오류: '+e.message+'</td></tr>';}
 }
-function editItemBonus(btn){
+async function editItemBonus(btn){
+  if(!isMaster()){toast('MASTER 권한이 필요합니다',true);return;}
   var email=btn&&btn.dataset?btn.dataset.email:btn;
   var current=btn&&btn.dataset?parseInt(btn.dataset.tb||0):0;
-  document.getElementById('itemBonusEmail').value=email;
-  document.getElementById('itemBonusCount').value=current||0;
-  document.getElementById('secItemBonusMgr').scrollIntoView({behavior:'smooth',block:'start'});
+  var newVal=prompt(email+'\n현재 아이템 등록 보너스: +'+current+'개\n새 보너스 개수를 입력하세요 (0=취소):', current);
+  if(newVal===null)return;
+  var tb=parseInt(newVal)||0;
+  if(tb<0){alert('0 이상의 숫자를 입력하세요.');return;}
+  var res=document.getElementById('itemBonusResult');
+  if(res){res.style.color='#666';res.textContent='⏳ 저장 중...';}
+  try{
+    var r=await authFetch(B+'/admin/item-bonus/set',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:email,total_bonus:tb})
+    });
+    var d=await r.json();
+    if(d.ok){
+      if(res){res.style.color='#0B666A';res.textContent='✅ '+email+' 아이템 보너스 '+(tb===0?'취소':'+'+tb+'개')+'로 수정 완료';}
+      toast('✅ '+email+' 아이템 보너스 수정 완료');
+      ldItemBonusMgr();
+    }else{
+      if(res){res.style.color='#e53e3e';res.textContent='❌ '+(d.error||'실패');}
+      toast('❌ '+(d.error||'저장 실패'),true);
+    }
+  }catch(e){toast('❌ '+e.message,true);}
 }
 async function cancelItemBonus(btn){
   var email=btn&&btn.dataset?btn.dataset.email:btn;
-  if(!confirm(email+' 의 아이템 보너스를 취소하시겠습니까?'))return;
-  document.getElementById('itemBonusEmail').value=email;
-  document.getElementById('itemBonusCount').value='0';
-  await applyItemBonus();
+  if(!confirm(email+' 의 아이템 보너스를 취소(0으로 설정)하시겠습니까?'))return;
+  try{
+    var r=await authFetch(B+'/admin/item-bonus/set',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:email,total_bonus:0})
+    });
+    var d=await r.json();
+    if(d.ok){toast('✅ '+email+' 아이템 보너스 취소 완료');ldItemBonusMgr();}
+    else toast('❌ '+(d.error||'실패'),true);
+  }catch(e){toast('❌ '+e.message,true);}
 }
 
-// ── 보너스 수정 (테이블에서 클릭) ──
-function editBonus(btn){
-  var email=btn ? (btn.dataset ? btn.dataset.email : btn) : btn;
-  var current=btn && btn.dataset ? parseInt(btn.dataset.tb||0) : 0;
-  var inp=document.getElementById('bonusEmail');
-  var cnt=document.getElementById('bonusCount');
-  if(inp)inp.value=email;
-  if(cnt)cnt.value=current||0;
-  document.getElementById('secBonusMgr').scrollIntoView({behavior:'smooth',block:'start'});
-  if(inp)inp.focus();
+// ── 이미지 생성 보너스 수정 (즉시 저장) ──
+async function editBonus(btn){
+  if(!isMaster()){toast('MASTER 권한이 필요합니다',true);return;}
+  var email=btn&&btn.dataset?btn.dataset.email:btn;
+  var current=btn&&btn.dataset?parseInt(btn.dataset.tb||0):0;
+  var newVal=prompt(email+'\n현재 이미지 생성 보너스: +'+current+'회\n새 보너스 횟수를 입력하세요 (0=취소):', current);
+  if(newVal===null)return;
+  var tb=parseInt(newVal)||0;
+  if(tb<0){alert('0 이상의 숫자를 입력하세요.');return;}
+  var res=document.getElementById('bonusResult');
+  if(res){res.style.color='#666';res.textContent='⏳ 저장 중...';}
+  try{
+    var r=await authFetch(B+'/admin/member/set-bonus',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:email,total_bonus:tb})
+    });
+    var d=await r.json();
+    if(d.ok){
+      if(res){res.style.color='#0B666A';res.textContent='✅ '+email+' 이미지 보너스 '+(tb===0?'취소':'+'+tb+'회')+'로 수정 완료';}
+      toast('✅ '+email+' 이미지 보너스 수정 완료');
+      ldBonusMgr();
+    }else{
+      if(res){res.style.color='#e53e3e';res.textContent='❌ '+(d.error||'실패');}
+      toast('❌ '+(d.error||'저장 실패'),true);
+    }
+  }catch(e){toast('❌ '+e.message,true);}
 }
 
-// ── 보너스 취소 ──
+// ── 이미지 생성 보너스 취소 ──
 async function cancelBonus(btn){
-  var email=btn && btn.dataset ? btn.dataset.email : btn;
-  if(!confirm(email+' 의 보너스를 취소하시겠습니까?'))return;
-  document.getElementById('bonusEmail').value=email;
-  document.getElementById('bonusCount').value='0';
-  await applyBonus();
+  var email=btn&&btn.dataset?btn.dataset.email:btn;
+  if(!confirm(email+' 의 이미지 생성 보너스를 취소(0으로 설정)하시겠습니까?'))return;
+  try{
+    var r=await authFetch(B+'/admin/member/set-bonus',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:email,total_bonus:0})
+    });
+    var d=await r.json();
+    if(d.ok){toast('✅ '+email+' 이미지 보너스 취소 완료');ldBonusMgr();}
+    else toast('❌ '+(d.error||'실패'),true);
+  }catch(e){toast('❌ '+e.message,true);}
 }
 
 // ── 보너스 현황 로드 ──

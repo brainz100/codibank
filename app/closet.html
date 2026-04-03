@@ -1209,16 +1209,22 @@ console.info('[CodiBank] closet build: v18.6.3 (2026-02-26)');
 
 // ── 10개 코디 목적 ──────────────────────────────────────────────
 const PURPOSES = [
-  {key:'commute',    label:'출퇴근',   icon:'work',            kw:['출퇴근','편안','단정']},
-  {key:'business',   label:'비즈니스', icon:'business_center', kw:['비즈니스','포멀','프로페셔널']},
-  {key:'meet',       label:'지인모임', icon:'group',           kw:['모임','캐주얼','깔끔']},
-  {key:'weekendOut', label:'주말외출', icon:'weekend',         kw:['주말','외출','편안']},
-  {key:'weekendTrip',label:'주말여행', icon:'travel',          kw:['여행','활동적','레이어링']},
-  {key:'domesticTrip',label:'국내여행',icon:'map',             kw:['국내여행','실용','레이어링']},
-  {key:'overseasTrip',label:'해외여행',icon:'flight',          kw:['해외여행','활동적','레이어링']},
-  {key:'blindDate',  label:'소개팅',   icon:'favorite',        kw:['소개팅','호감','깔끔']},
-  {key:'partyLook',  label:'파티룩',   icon:'celebration',     kw:['파티','포인트','스타일']},
-  {key:'custom',     label:'직접입력', icon:'edit',            kw:['맞춤']},
+  {key:'bizFormal',    label:'비즈니스 포멀',   icon:'business_center', kw:['비즈니스','포멀','수트','프로페셔널']},
+  {key:'officeDaily',  label:'데일리 오피스룩', icon:'work',             kw:['오피스','세미정장','블레이저','슬랙스']},
+  {key:'interview',    label:'면접룩',          icon:'badge',           kw:['면접','단정','네이비','그레이']},
+  {key:'weddingGuest', label:'결혼식 하객룩',   icon:'celebration',     kw:['하객룩','원피스','세미포멀','우아함']},
+  {key:'blindDate',    label:'소개팅룩',         icon:'favorite',        kw:['소개팅','니트','슬랙스','호감']},
+  {key:'romanticDate', label:'로맨틱 데이트룩', icon:'favorite_border', kw:['데이트','로맨틱','드레스','감성']},
+  {key:'familyMeet',   label:'상견례/가족모임', icon:'family_restroom', kw:['상견례','보수적','우아','단아']},
+  {key:'socialParty',  label:'사교 모임/파티',  icon:'groups',          kw:['파티','트렌디','액세서리','모임']},
+  {key:'weekendOut',   label:'주말 나들이',      icon:'weekend',         kw:['주말','캐주얼','야외','공원']},
+  {key:'travelShot',   label:'여행지 인생샷',   icon:'flight',          kw:['여행','휴양지','이국적','인생샷']},
+  {key:'dailyCasual',  label:'꾸안꾸 데일리',   icon:'style',           kw:['꾸안꾸','오버사이즈','스트릿','자연스러움']},
+  {key:'sporty',       label:'스포티/애슬레저', icon:'fitness_center',  kw:['스포티','애슬레저','운동복','레깅스']},
+  {key:'airport',      label:'공항 패션',        icon:'luggage',         kw:['공항','레이어드','편안','여행자']},
+  {key:'minimal',      label:'미니멀/심플',      icon:'fiber_manual_record', kw:['미니멀','무채색','심플','클린']},
+  {key:'streetTrend',  label:'트렌디/스트릿',   icon:'local_fire_department', kw:['스트릿','트렌디','그래픽','스니커즈']},
+  {key:'custom',       label:'직접입력',          icon:'edit',            kw:['맞춤']},
 ];
 
 const normDay = (d)=> (String(d||'').toLowerCase()==='tomorrow' ? 'tomorrow' : 'today');
@@ -2840,7 +2846,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   }
 
   // ── [14] styleTitle
-  const titleMap = {commute:'출퇴근',business:'비즈니스',weekendOut:'주말외출',weekendTrip:'주말여행',domesticTrip:'국내여행',overseasTrip:'해외여행',meet:'지인모임',blindDate:'소개팅',partyLook:'파티룩',custom:'맞춤'};
+  const titleMap = {bizFormal:'비즈니스 포멀',officeDaily:'데일리 오피스룩',interview:'면접룩',weddingGuest:'결혼식 하객룩',blindDate:'소개팅룩',romanticDate:'로맨틱 데이트룩',familyMeet:'상견례/가족모임',socialParty:'사교 모임/파티',weekendOut:'주말 나들이',travelShot:'여행지 인생샷',dailyCasual:'꾸안꾸 데일리',sporty:'스포티/애슬레저',airport:'공항 패션',minimal:'미니멀/심플',streetTrend:'트렌디/스트릿',custom:'맞춤'};
   const titleMapEn = {commute:'Commute',business:'Business',weekendOut:'Weekend',weekendTrip:'Trip',domesticTrip:'Domestic Trip',overseasTrip:'Overseas Trip',meet:'Social',blindDate:'Blind Date',partyLook:'Party',custom:'Custom'};
   const _isEn = window.CodiBankI18n && CodiBankI18n.isEn();
   const baseTitle = _isEn ? (titleMapEn[pk]||purposeName||'Today') : (titleMap[pk]||purposeName||'오늘의');
