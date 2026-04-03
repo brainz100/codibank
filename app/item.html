@@ -117,11 +117,7 @@
 <button id="backBtn" class="w-10 h-10 rounded-full flex items-center justify-center bg-white dark:bg-zinc-900 shadow-sm active:scale-95 transition-transform">
 <span class="material-symbols-outlined text-slate-600 dark:text-slate-300">arrow_back_ios_new</span>
 </button>
-<div class="text-center">
-<p class="text-[11px] font-semibold text-accent mb-0.5">카테고리</p>
-<h1 id="categoryName" class="text-lg font-extrabold tracking-tight dark:text-white">아우터</h1>
-</div>
-<div class="w-10"></div> 
+<div class="w-10"></div>
 </div>
 </header>
 <main class="pb-32">
@@ -243,8 +239,17 @@
     document.getElementById('itemTitle').textContent = item.brand ? `${item.brand}` : '아이템';
     document.getElementById('itemBrandTag').textContent = item.brand ? item.brand : (item.color ? item.color : 'AI 등록');
     document.getElementById('itemColorTag').textContent = item.color ? item.color : '컬러 미정';
+    // 중복 단어 제거
+    function dedupeNote(t) {
+      if (!t) return t;
+      const seen = new Set();
+      return t.trim().split(/\s+/).filter(w => {
+        const k = w.toLowerCase();
+        return seen.has(k) ? false : (seen.add(k), true);
+      }).join(' ');
+    }
     document.getElementById('itemNote').textContent = (item.note && String(item.note).trim())
-      ? String(item.note).trim()
+      ? dedupeNote(String(item.note).trim())
       : '아이템 설명이 아직 없습니다. “수정”에서 특징을 추가해보세요.';
 
     // Images

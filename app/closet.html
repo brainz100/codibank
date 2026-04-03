@@ -363,7 +363,8 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     /* MATCH 배지: 우상단 이동, teal 배경 */
     .match-score-badge { top: 7px !important; right: 7px !important; bottom: auto !important; background: #a2fdf0 !important; color: #071952 !important; font-weight: 900 !important; box-shadow: 0 2px 8px rgba(162,253,240,0.4) !important; }
     /* 카드 하단 브랜드 레이블 */
-    .card-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 6px 10px 9px; background: linear-gradient(to top, rgba(7,25,82,0.93) 0%, rgba(7,25,82,0.4) 70%, transparent 100%); font-size: 9px; font-weight: 800; color: #a2fdf0; letter-spacing: .13em; text-transform: uppercase; pointer-events: none; }
+    .card-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 4px 8px 6px; background: none; font-size: 8px; font-weight: 800; color: #071952; letter-spacing: .08em; text-transform: uppercase; pointer-events: none; }
+    .card-label-sub { position: absolute; bottom: 14px; left: 0; right: 0; padding: 2px 8px; background: none; font-size: 7px; font-weight: 700; color: #071952; letter-spacing: .06em; text-transform: uppercase; pointer-events: none; opacity: .75; }
     /* 카테고리 어드바이스 박스 */
     .m-adv { margin: 12px 20px 10px; padding: 11px 14px; border-radius: 12px; background: rgba(0,95,99,0.15); border: 1px solid rgba(18,148,144,0.3); display: flex; align-items: center; gap: 8px; }
     .m-adv-lbl { font-size: 12px; font-weight: 800; color: #a2fdf0; white-space: nowrap; }
@@ -5113,18 +5114,16 @@ function layerContent(el,item,catKey){
   CodiBank.getImageSrc(ref).then(src=>{
     if(el.dataset.renderToken!==rt)return;
     if(!src){ph.textContent='이미지 없음';return;}
-    // ── 카드 하단 정보: 컬러 + 패턴/소재 (Gemini 분석 데이터 활용)
+    // ── 카드 하단: 컬러(1줄) + 패턴·소재(2줄), 배경 없이 텍스트만
     const _g = item?.meta?.gemini;
     const _colorTxt = (_g?.main_color_name || item?.color || '').slice(0,12);
     const _patternTxt = (_g?.pattern && _g.pattern !== '단색') ? _g.pattern : '';
     const _materialTxt = _g?.material ? _g.material.split(',')[0].trim().slice(0,8) : '';
-    const _infoLine = [_patternTxt, _materialTxt].filter(Boolean).join(' · ');
-    const brandTxt = (item?.brand || '').slice(0,10).toUpperCase();
+    const _subLine = [_patternTxt, _materialTxt].filter(Boolean).join(' · ').slice(0,16);
 
     el.innerHTML = `<img class="layer-img" alt="아이템" src="${src}"/>` +
-      (_colorTxt ? `<div class="card-label" style="font-size:10px;padding:2px 6px;">${_colorTxt}</div>` : '') +
-      (_infoLine ? `<div class="card-label" style="font-size:9px;padding:1px 6px;bottom:22px;opacity:.75;">${_infoLine}</div>` : '') +
-      (brandTxt ? `<div class="card-label" style="font-size:9px;padding:1px 6px;bottom:4px;background:rgba(0,0,0,.5);">${brandTxt}</div>` : '');
+      (_subLine ? `<div class="card-label-sub">${_subLine}</div>` : '') +
+      (_colorTxt ? `<div class="card-label">${_colorTxt}</div>` : '');
   });
 }
 function slc(el,n){el.classList.remove('layer-1','layer-2','layer-3','layer-4','layer-5');el.classList.add(`layer-${n}`);}
