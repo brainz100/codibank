@@ -450,50 +450,73 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 <!-- Styling Score — 생성버튼 바로 아래 -->
 <div id="csScoreBox" style="margin:0 16px 16px;padding:16px 20px;border-radius:16px;background:rgba(151,254,237,.04);border:1px solid rgba(151,254,237,.1);">
   <!-- 점수 헤더 -->
+  <!-- 총점 + 게이지 -->
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-    <span style="font-size:14px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:.02em;">Styling Score</span>
+    <span style="font-size:13px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:.02em;">Styling Score</span>
     <span style="font-size:38px;font-weight:900;color:#97FEED;letter-spacing:-1px;line-height:1;" id="csScoreNum">—</span>
-    <span style="font-size:13px;font-weight:700;color:rgba(151,254,237,.4);">점</span>
-    <!-- 점수 게이지 -->
+    <span style="font-size:13px;font-weight:700;color:rgba(151,254,237,.4);">/100</span>
+    <span id="csGradeBadge" style="font-size:11px;font-weight:800;padding:2px 10px;border-radius:20px;background:rgba(151,254,237,.12);border:1px solid rgba(151,254,237,.25);color:#97FEED;display:none;"></span>
     <div style="flex:1;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;margin-left:4px;">
       <div id="csScoreBar" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1);"></div>
     </div>
   </div>
-  <!-- 세부 점수 항목 (생성 후 표시) -->
-  <div id="csScoreDetail" style="display:none;margin-bottom:10px;">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-      <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;">
-        <div style="font-size:9px;color:rgba(151,254,237,.5);font-weight:700;letter-spacing:.05em;margin-bottom:3px;">컬러 매칭</div>
+  <!-- 5개 세부 항목 -->
+  <div id="csScoreDetail" style="display:none;margin-bottom:12px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+      <div style="background:rgba(255,255,255,.04);border-radius:9px;padding:8px 10px;">
+        <div style="font-size:9px;color:rgba(151,254,237,.55);font-weight:700;letter-spacing:.04em;margin-bottom:3px;">퍼스널컬러 조화</div>
         <div style="display:flex;align-items:baseline;gap:3px;">
-          <span id="csColorScore" style="font-size:20px;font-weight:900;color:#97FEED;">—</span>
-          <span style="font-size:10px;color:rgba(255,255,255,.3);">점</span>
+          <span id="csScPc" style="font-size:20px;font-weight:900;color:#97FEED;">—</span>
+          <span style="font-size:9px;color:rgba(255,255,255,.3);">/25</span>
+        </div>
+        <div id="csScPcBar" style="height:3px;background:rgba(255,255,255,.08);border-radius:2px;margin-top:4px;overflow:hidden;"><div id="csScPcFill" style="height:100%;width:0%;background:#97FEED;border-radius:2px;transition:width .7s;"></div></div>
+      </div>
+      <div style="background:rgba(255,255,255,.04);border-radius:9px;padding:8px 10px;">
+        <div style="font-size:9px;color:rgba(151,254,237,.55);font-weight:700;letter-spacing:.04em;margin-bottom:3px;">상하의 코디네이션</div>
+        <div style="display:flex;align-items:baseline;gap:3px;">
+          <span id="csScCoord" style="font-size:20px;font-weight:900;color:#97FEED;">—</span>
+          <span style="font-size:9px;color:rgba(255,255,255,.3);">/20</span>
+        </div>
+        <div style="height:3px;background:rgba(255,255,255,.08);border-radius:2px;margin-top:4px;overflow:hidden;"><div id="csScCoordFill" style="height:100%;width:0%;background:#97FEED;border-radius:2px;transition:width .7s;"></div></div>
+      </div>
+      <div style="background:rgba(255,255,255,.04);border-radius:9px;padding:8px 10px;">
+        <div style="font-size:9px;color:rgba(151,254,237,.55);font-weight:700;letter-spacing:.04em;margin-bottom:3px;">체형 밸런스</div>
+        <div style="display:flex;align-items:baseline;gap:3px;">
+          <span id="csScBody" style="font-size:20px;font-weight:900;color:#97FEED;">—</span>
+          <span style="font-size:9px;color:rgba(255,255,255,.3);">/20</span>
+        </div>
+        <div style="height:3px;background:rgba(255,255,255,.08);border-radius:2px;margin-top:4px;overflow:hidden;"><div id="csScBodyFill" style="height:100%;width:0%;background:#97FEED;border-radius:2px;transition:width .7s;"></div></div>
+      </div>
+      <div style="background:rgba(255,255,255,.04);border-radius:9px;padding:8px 10px;">
+        <div style="font-size:9px;color:rgba(151,254,237,.55);font-weight:700;letter-spacing:.04em;margin-bottom:3px;">착용 적합성</div>
+        <div style="display:flex;align-items:baseline;gap:3px;">
+          <span id="csScAppr" style="font-size:20px;font-weight:900;color:#97FEED;">—</span>
+          <span style="font-size:9px;color:rgba(255,255,255,.3);">/20</span>
+        </div>
+        <div style="height:3px;background:rgba(255,255,255,.08);border-radius:2px;margin-top:4px;overflow:hidden;"><div id="csScApprFill" style="height:100%;width:0%;background:#97FEED;border-radius:2px;transition:width .7s;"></div></div>
+      </div>
+    </div>
+    <!-- 트렌드 전체 너비 -->
+    <div style="background:rgba(255,255,255,.04);border-radius:9px;padding:8px 12px;display:flex;align-items:center;gap:12px;">
+      <div>
+        <div style="font-size:9px;color:rgba(151,254,237,.55);font-weight:700;letter-spacing:.04em;margin-bottom:2px;">트렌드 & 스타일</div>
+        <div style="display:flex;align-items:baseline;gap:3px;">
+          <span id="csScTrend" style="font-size:20px;font-weight:900;color:#97FEED;">—</span>
+          <span style="font-size:9px;color:rgba(255,255,255,.3);">/15</span>
         </div>
       </div>
-      <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;">
-        <div style="font-size:9px;color:rgba(151,254,237,.5);font-weight:700;letter-spacing:.05em;margin-bottom:3px;">체형 밸런스</div>
-        <div style="display:flex;align-items:baseline;gap:3px;">
-          <span id="csBodyScore" style="font-size:20px;font-weight:900;color:#97FEED;">—</span>
-          <span style="font-size:10px;color:rgba(255,255,255,.3);">점</span>
-        </div>
-      </div>
-      <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;">
-        <div style="font-size:9px;color:rgba(151,254,237,.5);font-weight:700;letter-spacing:.05em;margin-bottom:3px;">TPO 적합성</div>
-        <div style="display:flex;align-items:baseline;gap:3px;">
-          <span id="csTpoScore" style="font-size:20px;font-weight:900;color:#97FEED;">—</span>
-          <span style="font-size:10px;color:rgba(255,255,255,.3);">점</span>
-        </div>
-      </div>
-      <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;">
-        <div style="font-size:9px;color:rgba(151,254,237,.5);font-weight:700;letter-spacing:.05em;margin-bottom:3px;">퍼스널컬러</div>
-        <div style="display:flex;align-items:baseline;gap:3px;">
-          <span id="csPcScore" style="font-size:20px;font-weight:900;color:#97FEED;">—</span>
-          <span style="font-size:10px;color:rgba(255,255,255,.3);">점</span>
-        </div>
+      <div style="flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;">
+        <div id="csScTrendFill" style="height:100%;width:0%;background:#97FEED;border-radius:2px;transition:width .7s;"></div>
       </div>
     </div>
   </div>
-  <!-- AI 스타일리스트 분석 텍스트 -->
-  <p style="font-size:11.5px;color:rgba(255,255,255,.45);line-height:1.75;" id="csScoreText">착장 이미지가 생성되면 AI 스타일리스트의 분석이 표시됩니다</p>
+  <!-- AI 스타일리스트 조언 -->
+  <div id="csAdviceBox" style="display:none;margin-bottom:8px;background:rgba(7,25,82,.35);border:1px solid rgba(151,254,237,.15);border-radius:10px;padding:10px 14px;">
+    <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.7);letter-spacing:.06em;margin-bottom:5px;">✦ AI 스타일리스트 조언</div>
+    <p id="csAdviceText" style="font-size:11.5px;color:rgba(255,255,255,.6);line-height:1.75;margin:0;"></p>
+  </div>
+  <!-- 로컬 분석 텍스트 -->
+  <p style="font-size:11px;color:rgba(255,255,255,.35);line-height:1.7;" id="csScoreText">착장 이미지가 생성되면 AI 스타일리스트의 분석이 표시됩니다</p>
 </div>
 
 <!-- ★ 스타일링 가능횟수 뱃지 — 스코어박스↔이미지박스 사이 -->
@@ -1019,7 +1042,52 @@ async function generate(isRetry=false){
       sessionStorage.setItem('cb_cs_ts', String(Date.now()));
     }catch(_){}
 
-    /* ── [2] Styling Score — AI 스타일리스트 상의·하의 세밀 분석 ── */
+    /* ── [2] Styling Score — 서버 반환값 우선, 폴백: 로컬 분석 ── */
+    // 서버에서 받은 점수 먼저 반영
+    try{
+      const _srvScore  = j.styling_score;
+      const _srvBreak  = j.score_breakdown || {};
+      const _srvAdvice = j.styling_advice || '';
+      if(_srvScore != null){
+        // 총점
+        document.getElementById('csScoreNum').textContent = _srvScore;
+        const _bar2 = document.getElementById('csScoreBar');
+        if(_bar2) setTimeout(()=>{ _bar2.style.width = _srvScore+'%'; }, 100);
+        // 등급 배지
+        const _grade2 = _srvScore>=92?'S급 매칭':_srvScore>=86?'A급 매칭':_srvScore>=80?'B급 매칭':'C급 매칭';
+        const _gbEl = document.getElementById('csGradeBadge');
+        if(_gbEl){ _gbEl.textContent=_grade2; _gbEl.style.display='inline-block'; }
+        // 5개 세부 점수
+        const _scoreMap = {
+          csScPc:    {val:_srvBreak.personal_color,   max:25},
+          csScCoord: {val:_srvBreak.garment_coord,    max:20},
+          csScBody:  {val:_srvBreak.body_balance,     max:20},
+          csScAppr:  {val:_srvBreak.appropriateness,  max:20},
+          csScTrend: {val:_srvBreak.trend,            max:15},
+        };
+        Object.entries(_scoreMap).forEach(([id, {val, max}])=>{
+          const el = document.getElementById(id);
+          const fill = document.getElementById(id+'Fill');
+          if(el && val!=null){
+            el.textContent = val;
+            if(fill) setTimeout(()=>{ fill.style.width = Math.round(val/max*100)+'%'; }, 150);
+          }
+        });
+        document.getElementById('csScoreDetail').style.display = 'grid';
+        // AI 조언
+        if(_srvAdvice){
+          const advBox = document.getElementById('csAdviceBox');
+          const advTxt = document.getElementById('csAdviceText');
+          if(advBox && advTxt){
+            advTxt.textContent = _srvAdvice;
+            advBox.style.display = 'block';
+          }
+        }
+        try{ sessionStorage.setItem('cb_cs_score', _srvScore); }catch(_){}
+      }
+    }catch(_srvErr){ console.warn('[score] 서버 점수 파싱 실패:', _srvErr); }
+
+    /* ── [3] 로컬 분석 (서버 점수 없을 때 폴백 + 체형/컬러 텍스트) ── */
     try{
       const _sg   = codiProfile.gender==='F';
       const _sh   = parseFloat(codiProfile.height||0);
@@ -1124,12 +1192,17 @@ async function generate(isRetry=false){
 컬러 조화: ${_colorAnalysis}
 총평: ${_ageAnalysis}`;
 
-      document.getElementById('csScoreNum').textContent = score;
+      // 서버 점수가 없을 때만 총점 업데이트
+      if(j.styling_score == null){
+        document.getElementById('csScoreNum').textContent = score;
+        const _bar3 = document.getElementById('csScoreBar');
+        if(_bar3) setTimeout(()=>{ _bar3.style.width = score+'%'; }, 100);
+      }
       document.getElementById('csScoreText').innerHTML =
         reviewText.replace(/\[([^\]]+)\]/g, '<strong style="color:#97FEED;font-size:12px;">$1</strong>')
                   .replace(/\n(상의 분석|하의 분석|컬러 조화|총평):/g, '<br><span style="color:rgba(151,254,237,.6);font-weight:700;font-size:10.5px;">$1:</span>')
                   .replace(/\n/g,'<br>');
-      document.getElementById('csScoreText').style.color='rgba(255,255,255,.65)';
+      document.getElementById('csScoreText').style.color='rgba(255,255,255,.45)';
       // ── 세부 점수 표시 (퍼스널컬러·컬러매칭·체형·TPO) ──
       try{
         const _detail = document.getElementById('csScoreDetail');
@@ -1231,10 +1304,10 @@ async function generate(isRetry=false){
           const _headerEl = document.getElementById('csScoreText');
           if(_headerEl) _headerEl.innerHTML = _headerEl.innerHTML.replace(/(S급|A급|B급|C급) 매칭/, _newGrade);
 
-          document.getElementById('csColorScore').textContent = _colorSc;
-          document.getElementById('csBodyScore').textContent  = _bodySc;
-          document.getElementById('csTpoScore').textContent   = _tpoSc;
-          const pcScEl = document.getElementById('csPcScore');
+          document.getElementById('csScCoord').textContent = _colorSc;
+          document.getElementById('csScBody').textContent  = _bodySc;
+          document.getElementById('csScAppr').textContent   = _tpoSc;
+          const pcScEl = document.getElementById('csScPc');
           if(pcScEl) pcScEl.textContent = _pcSc !== null ? _pcSc : '—';
           _detail.style.display = 'grid';
         }
