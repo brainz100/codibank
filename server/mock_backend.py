@@ -2068,8 +2068,7 @@ def codistyle_generate():
             if _km:
                 score_breakdown[_k] = int(_km.group(1))
         # 한국어 조언 추출 (점수 라인 이후 텍스트)
-        _score_line_end = _re2.search(r'STYLING_SCORE:[^
-]+', comment)
+        _score_line_end = _re2.search(r'STYLING_SCORE:[^\n]+', comment)
         if _score_line_end:
             _advice_raw = comment[_score_line_end.end():].strip()
             styling_advice = _advice_raw[:300] if _advice_raw else ""
