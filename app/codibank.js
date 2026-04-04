@@ -1476,6 +1476,47 @@ async function uploadImageToServer(dataUrl, opts) {
 
 
   /* ============================================================
+     지역 판별 & main/sub 스타일리스트 도시 매핑
+     - 사용자 위치 → 지역(아시아/유럽/중동 등) → main/sub 패션 도시
+     ============================================================ */
+  const _REGION_KEYWORDS = {
+    '아시아': ['korea','seoul','busan','incheon','daegu','daejeon','gwangju','ulsan','jeju','japan','tokyo','osaka','china','beijing','shanghai','hong kong','singapore','bangkok','thailand','vietnam','hanoi','ho chi minh','indonesia','jakarta','philippines','manila','malaysia','kuala lumpur','taiwan','taipei','india','mumbai','new delhi','한국','서울','부산','인천','대구','대전','광주','울산','제주','일본','도쿄','중국','베이징','상하이','홍콩','싱가포르','방콕','하노이','호치민','자카르타','마닐라','대만','타이베이','뭄바이','뉴델리'],
+    '유럽': ['paris','france','london','uk','england','berlin','germany','rome','italy','milan','madrid','spain','amsterdam','netherlands','barcelona','vienna','austria','prague','zurich','switzerland','moscow','russia','stockholm','sweden','copenhagen','denmark','lisbon','portugal','athens','greece','warsaw','poland','budapest','hungary','dublin','ireland','brussels','belgium','helsinki','finland','oslo','norway','파리','런던','베를린','로마','밀라노','마드리드','암스테르담','바르셀로나','비엔나','프라하','취리히','모스크바','스톡홀름','코펜하겐','리스본','아테네','바르샤바','부다페스트','더블린','브뤼셀','헬싱키','오슬로'],
+    '중동': ['dubai','abu dhabi','uae','riyadh','saudi','doha','qatar','bahrain','kuwait','oman','istanbul','turkey','cairo','egypt','iran','tehran','israel','tel aviv','jordan','lebanon','두바이','아부다비','리야드','도하','카이로','이스탄불','테헤란'],
+    '아프리카': ['cape town','south africa','johannesburg','nairobi','kenya','lagos','nigeria','casablanca','morocco','케이프타운','요하네스버그','나이로비','라고스','카사블랑카'],
+    '북미': ['new york','los angeles','chicago','usa','san francisco','miami','seattle','boston','washington','houston','toronto','canada','vancouver','las vegas','뉴욕','로스앤젤레스','시카고','샌프란시스코','마이애미','시애틀','보스턴','워싱턴','토론토','밴쿠버'],
+    '남미': ['são paulo','sao paulo','rio','brazil','buenos aires','argentina','lima','peru','bogota','colombia','santiago','chile','mexico city','mexico','상파울루','리우','부에노스아이레스','리마','보고타','산티아고','멕시코시티'],
+    '오세아니아': ['sydney','melbourne','australia','auckland','new zealand','시드니','멜버른','오클랜드'],
+  };
+  const _CITY_MAP = {
+    '아시아':    { main: '서울',     sub: '뉴욕' },
+    '유럽':      { main: '파리',     sub: '밀라노' },
+    '중동':      { main: '두바이',   sub: '뉴욕' },
+    '아프리카':  { main: '파리',     sub: '밀라노' },
+    '북미':      { main: '뉴욕',     sub: '밀라노' },
+    '남미':      { main: '상파울루', sub: '뉴욕' },
+    '오세아니아':{ main: '뉴욕',     sub: '런던' },
+  };
+
+  function detectRegion(locationStr) {
+    if (!locationStr) return '아시아';
+    const loc = String(locationStr).toLowerCase().trim();
+    for (const [region, keywords] of Object.entries(_REGION_KEYWORDS)) {
+      for (const kw of keywords) {
+        if (loc.includes(kw)) return region;
+      }
+    }
+    return '아시아';
+  }
+
+  function getMainSubCities(locationStr) {
+    const region = detectRegion(locationStr);
+    const mapping = _CITY_MAP[region] || _CITY_MAP['아시아'];
+    return { region, main: mapping.main, sub: mapping.sub };
+  }
+
+
+  /* ============================================================
      AI 코디앨범 (로컬 저장)
      - 생성된 AI 추천 코디 이미지를 날짜/날씨/목적과 함께 저장
      - 저장소: localStorage(메타데이터) + IndexedDB(images) 참조
@@ -1776,5 +1817,9 @@ window.CodiBank = {
     getSmartLocation,
     getWeatherByCoords,
     weatherCodeToKorean,
+
+    // region & city mapping
+    detectRegion,
+    getMainSubCities,
   };
 })();

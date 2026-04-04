@@ -1198,8 +1198,13 @@ async function generate(isRetry=false){
     ].join(' ');
 
     // ── Payload (styleHint 제거 — 서버 중복 방지) ──
+    const _csRegionInfo = (window.CodiBank && CodiBank.getMainSubCities) ? CodiBank.getMainSubCities(user?.location||'') : {region:'아시아',main:'서울',sub:'뉴욕'};
     const payload={
       user:{ gender:codiProfile.gender||'', ageGroup:codiProfile.ageGroup||'', height:codiProfile.height||'', weight:codiProfile.weight||'' },
+      region: _csRegionInfo.region,
+      stylistCity: _csRegionInfo.main,
+      stylistSubCity: _csRegionInfo.sub,
+      weather:{ location: user?.location||'' },
       imagePrompt: imagePrompt,
       isRetry: isRetry,        // 서버 전달
       request7bu: _request7bu, // ★ 사용자 명시 7부 요청 여부 (기본 false)
