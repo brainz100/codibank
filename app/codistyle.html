@@ -894,20 +894,37 @@ async function analyzeGarments(){
     const r = await fetch(bb+'/api/codistyle/analyze-garments',{
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(25000)
+      signal: AbortSignal.timeout(30000)
     });
-    if(!r.ok) return null;
+    if(!r.ok) throw new Error('HTTP '+r.status);
     const d = await r.json();
-    if(!d.ok) return null;
-    _topAnalysisCache    = d.top    || null;
+    if(!d.ok) throw new Error(d.error||'분석 실패');
+
+    _topAnalysisCache = d.top || null;
     _bottomAnalysisCache = d.bottom || null;
-    console.log('[Phase1]',
-      '상의='+(_topAnalysisCache?.sub_category||'?'),
-      '하의='+(_bottomAnalysisCache?.sub_category||'?'),
-      'is_skirt='+(_bottomAnalysisCache?.is_skirt));
+
+    // is_skirt 최종 판별 (프론트에서 한 번 더 확인)
+    if(_bottomAnalysisCache){
+      const _cat = String(_bottomAnalysisCache.category||'').toLowerCase();
+      const _sub = String(_bottomAnalysisCache.sub_category||'').toLowerCase();
+      const _skirtKws = ['스커트','skirt','치마'];
+      const _srvIsSkirt = _bottomAnalysisCache.is_skirt;
+      // 서버값 우선, 없으면 category/sub_category로 판단
+      _bottomAnalysisCache.is_skirt =
+        _srvIsSkirt === true || _srvIsSkirt === 'true' ||
+        _cat === 'skirt' ||
+        _skirtKws.some(k => _sub.includes(k));
+
+      console.log('[Phase1 결과]',
+        '상의:', _topAnalysisCache?.sub_category||'?',
+        '/ 하의:', _bottomAnalysisCache.sub_category||'?',
+        '/ is_skirt:', _bottomAnalysisCache.is_skirt,
+        '/ skirt_length:', _bottomAnalysisCache.skirt_length||'—',
+        '/ pattern:', _bottomAnalysisCache.pattern||'—');
+    }
     return d;
   }catch(e){
-    console.warn('[Phase1] 분석 실패(폴백):', e.message);
+    console.warn('[Phase1] 분석 실패(폴백 진행):', e.message);
     return null;
   }
 }
