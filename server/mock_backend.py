@@ -1877,23 +1877,25 @@ def codistyle_generate():
     if not top_bytes or not bottom_bytes:
         return jsonify(ok=False, error="상의/하의 이미지가 필요합니다"), 400
 
-    # ── Phase 1에서 is_skirt 판단 완료된 경우 재감지 스킵 ──
+    # ── Phase 1 결과 있으면 재감지 스킵, 없으면 이미지 분석 ──
     if _bot_is_skirt_pre is not None:
-        print(f"[codistyle] Phase1 is_skirt={_bot_is_skirt_pre} → 이미지 재감지 스킵")
+        # Phase 1 결과 사용 → 재감지 불필요
+        _detected_type   = "skirt" if _bot_is_skirt_pre is True else "pants"
+        _detected_length = _bot_skirt_len or ("midi" if _bot_is_skirt_pre else "full")
+        _detected_silhouette = _bot_design or ""
+        print(f"[codistyle] Phase1 사용 → is_skirt={_bot_is_skirt_pre} length={_detected_length}")
     else:
-        # Phase 1 미수행 시에만 이미지로 감지
-        pass
-    if _bot_is_skirt_pre is None:
+        # Phase 1 없음 → 이미지로 직접 감지
         _bottom_analysis = _detect_bottom_type_from_image(
-        bottom_bytes, bottom_mime or "image/jpeg",
-        _SDK,
-        _GEMINI_KEY,
-        _genai if _SDK == "new" else _genai_old,
-        _gtypes if _SDK == "new" else None,
-    )
-    _detected_type   = _bottom_analysis.get("type", "pants")
-    _detected_length = _bottom_analysis.get("length", "full")
-    _detected_silhouette = _bottom_analysis.get("silhouette", "")
+            bottom_bytes, bottom_mime or "image/jpeg",
+            _SDK,
+            _GEMINI_KEY,
+            _genai if _SDK == "new" else _genai_old,
+            _gtypes if _SDK == "new" else None,
+        )
+        _detected_type       = _bottom_analysis.get("type", "pants")
+        _detected_length     = _bottom_analysis.get("length", "full")
+        _detected_silhouette = _bottom_analysis.get("silhouette", "")
 
     # 감지 결과로 bottom_info 구성
     if _detected_type == "skirt":
