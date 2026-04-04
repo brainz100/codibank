@@ -449,69 +449,83 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 
 <!-- Styling Score — 생성버튼 바로 아래 -->
 <div id="csScoreBox" style="margin:0 16px 16px;padding:16px 20px;border-radius:16px;background:rgba(151,254,237,.04);border:1px solid rgba(151,254,237,.1);">
-  <!-- 점수 헤더 -->
-  <!-- 총점 + 게이지 -->
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-    <span style="font-size:13px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:.02em;">Styling Score</span>
-    <span style="font-size:38px;font-weight:900;color:#97FEED;letter-spacing:-1px;line-height:1;" id="csScoreNum">—</span>
-    <span style="font-size:13px;font-weight:700;color:rgba(151,254,237,.4);">/100</span>
-    <span id="csGradeBadge" style="font-size:11px;font-weight:800;padding:2px 10px;border-radius:20px;background:rgba(151,254,237,.12);border:1px solid rgba(151,254,237,.25);color:#97FEED;display:none;"></span>
-    <div style="flex:1;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;margin-left:4px;">
-      <div id="csScoreBar" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1);"></div>
+
+  <!-- 총점 헤더 -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+    <span style="font-size:12px;font-weight:800;color:rgba(255,255,255,.45);letter-spacing:.06em;">STYLING SCORE</span>
+    <span style="font-size:40px;font-weight:900;color:#97FEED;letter-spacing:-1px;line-height:1;" id="csScoreNum">—</span>
+    <span style="font-size:12px;font-weight:700;color:rgba(151,254,237,.4);">/100</span>
+    <span id="csGradeBadge" style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;background:rgba(151,254,237,.15);border:1px solid rgba(151,254,237,.3);color:#97FEED;display:none;margin-left:2px;"></span>
+    <div style="flex:1;height:4px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;">
+      <div id="csScoreBar" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .9s cubic-bezier(.4,0,.2,1);"></div>
     </div>
   </div>
-  <!-- 3개 세부 항목 (퍼스널컬러/40 · 체형/30 · 스타일링/30) -->
-  <div id="csScoreDetail" style="display:none;margin-bottom:12px;">
-    <!-- 항목 1: 퍼스널컬러 조화 /40 -->
-    <div style="background:rgba(255,255,255,.04);border-radius:10px;padding:10px 12px;margin-bottom:6px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-        <span style="font-size:10px;color:rgba(151,254,237,.7);font-weight:800;letter-spacing:.04em;">① 퍼스널컬러 조화</span>
-        <div style="display:flex;align-items:baseline;gap:2px;">
-          <span id="csScPc" style="font-size:22px;font-weight:900;color:#97FEED;">—</span>
-          <span style="font-size:10px;color:rgba(255,255,255,.3);">/40</span>
+
+  <!-- 3개 점수 가로 배치 -->
+  <div id="csScoreDetail" style="display:none;margin-bottom:14px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px;">
+      <!-- ① 퍼스널컬러 -->
+      <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:9px 10px;text-align:center;">
+        <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;">퍼스널컬러</div>
+        <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
+          <span id="csScPc" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
+          <span style="font-size:9px;color:rgba(255,255,255,.25);">/40</span>
+        </div>
+        <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:5px;">
+          <div id="csScPcFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .8s;"></div>
         </div>
       </div>
-      <div style="height:4px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;">
-        <div id="csScPcFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .8s;"></div>
-      </div>
-      <p id="csScPcTip" style="font-size:10px;color:rgba(255,255,255,.35);margin:4px 0 0;line-height:1.5;display:none;"></p>
-    </div>
-    <!-- 항목 2: 체형 밸런스 /30 -->
-    <div style="background:rgba(255,255,255,.04);border-radius:10px;padding:10px 12px;margin-bottom:6px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-        <span style="font-size:10px;color:rgba(151,254,237,.7);font-weight:800;letter-spacing:.04em;">② 체형 밸런스</span>
-        <div style="display:flex;align-items:baseline;gap:2px;">
-          <span id="csScBody" style="font-size:22px;font-weight:900;color:#97FEED;">—</span>
-          <span style="font-size:10px;color:rgba(255,255,255,.3);">/30</span>
+      <!-- ② 체형 밸런스 -->
+      <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:9px 10px;text-align:center;">
+        <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;">체형 밸런스</div>
+        <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
+          <span id="csScBody" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
+          <span style="font-size:9px;color:rgba(255,255,255,.25);">/30</span>
+        </div>
+        <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:5px;">
+          <div id="csScBodyFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .8s;"></div>
         </div>
       </div>
-      <div style="height:4px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;">
-        <div id="csScBodyFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .8s;"></div>
-      </div>
-      <p id="csScBodyTip" style="font-size:10px;color:rgba(255,255,255,.35);margin:4px 0 0;line-height:1.5;display:none;"></p>
-    </div>
-    <!-- 항목 3: 전체 스타일링 /30 -->
-    <div style="background:rgba(255,255,255,.04);border-radius:10px;padding:10px 12px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-        <span style="font-size:10px;color:rgba(151,254,237,.7);font-weight:800;letter-spacing:.04em;">③ 전체 스타일링</span>
-        <div style="display:flex;align-items:baseline;gap:2px;">
-          <span id="csScStyle" style="font-size:22px;font-weight:900;color:#97FEED;">—</span>
-          <span style="font-size:10px;color:rgba(255,255,255,.3);">/30</span>
+      <!-- ③ 토탈 스타일링 -->
+      <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:9px 10px;text-align:center;">
+        <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;">토탈 스타일링</div>
+        <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
+          <span id="csScStyle" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
+          <span style="font-size:9px;color:rgba(255,255,255,.25);">/30</span>
+        </div>
+        <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:5px;">
+          <div id="csScStyleFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .8s;"></div>
         </div>
       </div>
-      <div style="height:4px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;">
-        <div id="csScStyleFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .8s;"></div>
-      </div>
-      <p id="csScStyleTip" style="font-size:10px;color:rgba(255,255,255,.35);margin:4px 0 0;line-height:1.5;display:none;"></p>
     </div>
   </div>
-  <!-- AI 스타일리스트 조언 -->
-  <div id="csAdviceBox" style="display:none;margin-bottom:8px;background:rgba(7,25,82,.35);border:1px solid rgba(151,254,237,.15);border-radius:10px;padding:10px 14px;">
-    <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.7);letter-spacing:.06em;margin-bottom:5px;">✦ AI 스타일리스트 조언</div>
-    <p id="csAdviceText" style="font-size:11.5px;color:rgba(255,255,255,.6);line-height:1.75;margin:0;"></p>
+
+  <!-- 전문 분석 4개 섹션 -->
+  <div id="csAnalysisBox" style="display:none;">
+    <!-- 퍼스널컬러 조합 -->
+    <div style="border-left:2px solid rgba(151,254,237,.5);padding:8px 0 8px 12px;margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;">🎨 퍼스널컬러 조합</div>
+      <p id="csAnalysisPc" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;"></p>
+    </div>
+    <!-- 상의 스타일 -->
+    <div style="border-left:2px solid rgba(151,254,237,.35);padding:8px 0 8px 12px;margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;">👚 상의 스타일</div>
+      <p id="csAnalysisTop" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;"></p>
+    </div>
+    <!-- 하의 스타일 -->
+    <div style="border-left:2px solid rgba(151,254,237,.35);padding:8px 0 8px 12px;margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;">👗 하의 스타일</div>
+      <p id="csAnalysisBot" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;"></p>
+    </div>
+    <!-- 토탈 스타일링 분석 -->
+    <div style="border-left:2px solid rgba(151,254,237,.5);padding:8px 0 8px 12px;">
+      <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;">✦ 토탈 스타일링 분석</div>
+      <p id="csAnalysisTotal" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;"></p>
+    </div>
   </div>
-  <!-- 로컬 분석 텍스트 -->
-  <p style="font-size:11px;color:rgba(255,255,255,.35);line-height:1.7;" id="csScoreText">착장 이미지가 생성되면 AI 스타일리스트의 분석이 표시됩니다</p>
+
+  <!-- 대기 메시지 -->
+  <p id="csScoreText" style="font-size:11px;color:rgba(255,255,255,.3);line-height:1.7;margin:0;">착장 이미지가 생성되면 AI 스타일링 분석이 표시됩니다</p>
 </div>
 
 <!-- ★ 스타일링 가능횟수 뱃지 — 스코어박스↔이미지박스 사이 -->
@@ -879,6 +893,125 @@ async function onFile(ev,k){
 // ── 다시요청 횟수 추적 (바지 기장 랜덤화에 사용) ──
 let _retryCount = 0;
 
+// ── 분석 4개 섹션 렌더링 함수 ──
+function _renderAnalysis(srvAdvice){
+  try{
+    const _sh = parseFloat(codiProfile.height||0);
+    const _sw = parseFloat(codiProfile.weight||0);
+    const _bmi= (_sh>0&&_sw>0)?(_sw/((_sh/100)**2)):22;
+    const _sg = codiProfile.gender==='F';
+    const _gLbl = _sg?'여성':'남성';
+    const _ageLbl = {'10s':'10대','20s':'20대','30s':'30대','40s':'40대','50s':'50대','60s':'60대'}[codiProfile.ageGroup||'30s']||'30대';
+    const _phys = (_sh&&_sw)?`${Math.round(_sh)}cm · ${Math.round(_sw)}kg`:'';
+    const _bodyType = !_sh||!_sw?'표준':_bmi<18.5?'슬림':_bmi<23?'표준':_bmi<26?'보통':'풍성';
+
+    // Phase1 분석 데이터
+    const _tA = _topAnalysisCache    || {};
+    const _bA = _bottomAnalysisCache || {};
+    const _topSub   = _tA.sub_category || _tA.category || '상의';
+    const _botSub   = _bA.sub_category || _bA.category || '하의';
+    const _topColor = _tA.main_color_name || '';
+    const _botColor = _bA.main_color_name || '';
+    const _topPat   = _tA.pattern || '';
+    const _botPat   = _bA.pattern || '';
+    const _topMat   = _tA.material || '';
+    const _botMat   = _bA.material || '';
+    const _topDesign= _tA.design_points || _tA.key_design || '';
+    const _botDesign= _bA.design_points || _bA.key_design || '';
+    const _isSkirt  = _bA.is_skirt === true;
+    const _skirtLen = _bA.skirt_length || '';
+
+    // 퍼스널컬러 정보
+    const _pc = _csPersonalColor || {};
+    const _pcSeason = _pc.season||'';
+    const _pcUndertone = _pc.undertone||'';
+    const _pcSummary = _pc.summary||'';
+    const _pcBest = (_pc.best_colors||[]).join(', ');
+    const _pcAvoid = (_pc.avoid_colors||[]).join(', ');
+
+    // ── 서버 조언에서 4개 섹션 파싱 시도 ──
+    // 서버가 "①[내용] ②[내용] ③[내용] ④[내용]" 형식으로 반환하면 파싱
+    let _pcText='', _topText='', _botText='', _totalText='';
+    if(srvAdvice && srvAdvice.length > 20){
+      // 섹션 구분자 패턴 시도
+      const _p1 = srvAdvice.match(/퍼스널컬러[^①②③④
+]*[:：]?\s*([^①②③④]{10,200})/);
+      const _p2 = srvAdvice.match(/상의[^①②③④
+]*[:：]?\s*([^①②③④]{10,200})/);
+      const _p3 = srvAdvice.match(/하의[^①②③④
+]*[:：]?\s*([^①②③④]{10,200})/);
+      const _p4 = srvAdvice.match(/토탈|전체[^①②③④
+]*[:：]?\s*([^①②③④]{10,200})/);
+      if(_p1) _pcText  = _p1[1].trim().slice(0,200);
+      if(_p2) _topText = _p2[1].trim().slice(0,200);
+      if(_p3) _botText = _p3[1].trim().slice(0,200);
+      if(_p4) _totalText = _p4[1].trim().slice(0,200);
+      // 파싱 실패하면 전체 조언을 토탈에 배치
+      if(!_pcText && !_topText && !_botText && srvAdvice.length>10) _totalText = srvAdvice.slice(0,300);
+    }
+
+    // ── 로컬 생성 (서버 조언 없거나 파싱 실패 시) ──
+    if(!_pcText){
+      if(_pcSeason){
+        const _isWarm = _pcSeason.includes('봄')||_pcSeason.includes('가을')||_pcUndertone.includes('웜');
+        const _topIsWarm = _topColor.includes('베이지')||_topColor.includes('브라운')||_topColor.includes('카멜')||_topColor.includes('머스타드')||_topColor.includes('아이보리');
+        const _topIsCool = _topColor.includes('네이비')||_topColor.includes('블루')||_topColor.includes('민트')||_topColor.includes('라벤더');
+        const _match = (_isWarm&&_topIsWarm)||(!_isWarm&&_topIsCool);
+        _pcText = `${_pcSeason}(${_pcUndertone}) 타입으로, `
+          + (_match?`상의의 ${_topColor||'컬러'}는 퍼스널컬러 팔레트와 잘 조화됩니다.`:`상의의 ${_topColor||'컬러'}는 퍼스널컬러 팔레트와 다소 차이가 있으나, 전체 코디에서 중화될 수 있습니다.`)
+          + ((_botColor&&_botColor!==_topColor)? ` 하의의 ${_botColor}와 상의의 ${_topColor||'컬러'} 조합은 `+(_topColor&&_botColor?'명암 대비로 깔끔한 인상을 줍니다.':'자연스러운 배색입니다.'):'')
+          + (_pcBest?` 이 타입에는 ${_pcBest} 계열이 특히 잘 어울립니다.`:'');
+      } else {
+        _pcText = `상의 ${_topColor||''}${_topPat&&_topPat!=='단색'?' '+_topPat+' 패턴':''}`
+          + `과 하의 ${_botColor||''}${_botPat&&_botPat!=='단색'?' '+_botPat+' 패턴':''} 조합입니다.`
+          + ` 퍼스널컬러 분석을 완료하면 이 착장이 나에게 어울리는지 더 정확히 알 수 있습니다.`;
+      }
+    }
+    if(!_topText){
+      const _fitMap = {'슬림':'좁은 핏이 어깨라인을 선명하게 잡아줍니다','표준':'균형감 있는 핏으로 자연스러운 라인이 연출됩니다','보통':'넉넉한 여유분이 상체를 편안하게 감싸줍니다','풍성':'볼륨감 있는 핏이 시선을 상단에 집중시켜 비율감을 높여줍니다'};
+      _topText = `${_topSub}${_topMat?' ('+_topMat+')':''}${_topPat&&_topPat!=='단색'?', '+_topPat+' 패턴':''}. `
+        + (_fitMap[_bodyType]||'체형에 잘 어울리는 핏입니다.')
+        + (_topDesign?' '+_topDesign:'');
+    }
+    if(!_botText){
+      if(_isSkirt){
+        const _lenMap = {'mini':'미니 기장으로 다리 라인을 강조해 활동적인 인상을 줍니다','midi':'미디 기장은 우아하고 여성스러운 실루엣을 완성합니다','maxi':'롱 기장이 세련된 드레시 무드를 연출합니다'};
+        _botText = `${_botSub}${_botMat?' ('+_botMat+')':''}${_botPat&&_botPat!=='단색'?', '+_botPat+' 패턴':''}. `
+          + (_lenMap[_skirtLen]||'스커트 실루엣이 여성스러운 스타일을 완성합니다.')
+          + (_botDesign?' '+_botDesign:'');
+      } else {
+        const _botFitMap = {'슬림':'슬림 실루엣으로 다리 라인을 길고 날씬하게 연출합니다','표준':'자연스러운 핏으로 전체 비율을 균형 있게 잡아줍니다','보통':'여유 있는 실루엣이 하체를 편안하게 커버합니다','풍성':'와이드 실루엣이 안정감 있는 하의 라인을 만들어줍니다'};
+        _botText = `${_botSub}${_botMat?' ('+_botMat+')':''}${_botPat&&_botPat!=='단색'?', '+_botPat+' 패턴':''}. `
+          + (_botFitMap[_bodyType]||'체형에 맞는 핏입니다.')
+          + (_botDesign?' '+_botDesign:'');
+      }
+    }
+    if(!_totalText){
+      const _ageStyleMap = {
+        '10s':'10대의 자유롭고 트렌디한 감성에 잘 맞는 조합으로, 다양한 TPO에 유연하게 활용 가능합니다.',
+        '20s':'20대의 세련된 감성에 어울리며, 캐주얼부터 세미포멀까지 폭넓게 소화할 수 있는 스타일입니다.',
+        '30s':'30대의 성숙하고 스타일리시한 이미지를 완성하며, 비즈니스 캐주얼부터 데이트룩까지 활용도가 높습니다.',
+        '40s':'40대의 품격과 세련미를 자연스럽게 드러내는 조합으로, 격조 있는 일상룩에 적합합니다.',
+        '50s':'50대의 차분하고 우아한 매력을 극대화하는 배색으로, 편안하면서도 단정한 인상을 줍니다.',
+        '60s':'클래식하고 품위 있는 스타일로, 시간이 지나도 변하지 않는 격조 있는 착장입니다.',
+      };
+      const _colCombo = (_topColor&&_botColor&&_topColor!==_botColor)?`${_topColor}+${_botColor} 배색`:'이 배색';
+      _totalText = `${_gLbl} ${_ageLbl}${_phys?' · '+_phys:''} · ${_bodyType} 체형 기준. `
+        + `${_colCombo}은 `+(_topColor===_botColor?'톤온톤으로 통일감 있고 세련된 인상을 줍니다.':'명암 대비가 자연스러워 일상 착용에 적합합니다.')
+        + ' '+(_ageStyleMap[codiProfile.ageGroup||'30s']||'완성도 높은 코디네이션입니다.');
+    }
+
+    // ── DOM 업데이트 ──
+    const _setText = (id, txt) => { const el=document.getElementById(id); if(el&&txt) el.textContent=txt; };
+    _setText('csAnalysisPc',    _pcText);
+    _setText('csAnalysisTop',   _topText);
+    _setText('csAnalysisBot',   _botText);
+    _setText('csAnalysisTotal', _totalText);
+
+    document.getElementById('csAnalysisBox').style.display='block';
+  }catch(_e){ console.warn('[analysis]', _e); }
+}
+
 // ── Phase 1: 상의/하의 이미지 상세 분석 ──
 let _topAnalysisCache = null;
 let _bottomAnalysisCache = null;
@@ -1106,61 +1239,86 @@ async function generate(isRetry=false){
       sessionStorage.setItem('cb_cs_ts', String(Date.now()));
     }catch(_){}
 
-    /* ── [2] Styling Score — 서버 반환값 우선, 폴백: 로컬 분석 ── */
-    // 서버에서 받은 점수 먼저 반영
+    /* ── [2] Styling Score + 분석 콘텐츠 렌더링 ── */
     try{
       const _srvScore  = j.styling_score;
       const _srvBreak  = j.score_breakdown || {};
       const _srvAdvice = j.styling_advice || '';
-      if(_srvScore != null){
-        // 총점
-        document.getElementById('csScoreNum').textContent = _srvScore;
+
+      // ── 점수 계산 (3개 합산 = 정확히 100) ──
+      let _pcRaw    = parseInt(_srvBreak.personal_color  || 0);
+      let _bodyRaw  = parseInt(_srvBreak.body_shape      || 0);
+      let _styleRaw = parseInt(_srvBreak.overall_styling || 0);
+
+      // 서버 점수가 유효하면 합산 100으로 정규화
+      const _rawSum = _pcRaw + _bodyRaw + _styleRaw;
+      if(_rawSum > 0 && _rawSum !== 100){
+        const _ratio = 100 / _rawSum;
+        _pcRaw    = Math.round(_pcRaw    * _ratio);
+        _bodyRaw  = Math.round(_bodyRaw  * _ratio);
+        _styleRaw = 100 - _pcRaw - _bodyRaw; // 나머지로 정확히 100 맞춤
+      }
+
+      // 40/30/30 만점 기준으로 변환
+      const _pcScore    = Math.min(40, Math.round(_pcRaw    * 40 / 100));
+      const _bodyScore  = Math.min(30, Math.round(_bodyRaw  * 30 / 100));
+      const _styleScore = Math.min(30, 100 - _pcScore - _bodyScore - ((_srvScore||100) - _pcScore - _bodyScore - Math.round(_styleRaw * 30 / 100)));
+
+      // 실제 표시할 3개 점수 확정 (합산 = 총점)
+      const _totalScore = _srvScore != null ? Math.min(100, Math.max(0, parseInt(_srvScore))) : (_pcRaw+_bodyRaw+_styleRaw>0 ? 100 : null);
+
+      let _pcDisp=0, _bodyDisp=0, _styleDisp=0;
+      if(_totalScore != null && _rawSum > 0){
+        // 비율 유지하면서 총점에 맞게 3분할
+        const _t = _totalScore;
+        _pcDisp    = Math.round(_t * (_pcRaw    / _rawSum));
+        _bodyDisp  = Math.round(_t * (_bodyRaw  / _rawSum));
+        _styleDisp = _t - _pcDisp - _bodyDisp; // 오차 보정
+        // 만점 초과 방지
+        if(_pcDisp > 40)   { _pcDisp    = 40;   _bodyDisp = Math.round((_t-40)*_bodyRaw/(_bodyRaw+_styleRaw)); _styleDisp = _t-40-_bodyDisp; }
+        if(_bodyDisp > 30) { _bodyDisp  = 30;   _styleDisp = Math.min(30, _t-_pcDisp-30); }
+        if(_styleDisp > 30){ _styleDisp = 30; }
+      } else if(_totalScore != null){
+        // 서버 점수는 있지만 breakdown 없음 → 40:30:30 비율로 분배
+        _pcDisp    = Math.round(_totalScore * 0.40);
+        _bodyDisp  = Math.round(_totalScore * 0.30);
+        _styleDisp = _totalScore - _pcDisp - _bodyDisp;
+      }
+
+      if(_totalScore != null){
+        // 총점 + 게이지
+        document.getElementById('csScoreNum').textContent = _totalScore;
         const _bar2 = document.getElementById('csScoreBar');
-        if(_bar2) setTimeout(()=>{ _bar2.style.width = _srvScore+'%'; }, 100);
+        if(_bar2) setTimeout(()=>{ _bar2.style.width = _totalScore+'%'; }, 100);
+
         // 등급 배지
-        const _grade2 = _srvScore>=92?'S급 매칭':_srvScore>=86?'A급 매칭':_srvScore>=80?'B급 매칭':'C급 매칭';
+        const _grade2 = _totalScore>=90?'S급 매칭':_totalScore>=80?'A급 매칭':_totalScore>=70?'B급 매칭':'C급 매칭';
         const _gbEl = document.getElementById('csGradeBadge');
         if(_gbEl){ _gbEl.textContent=_grade2; _gbEl.style.display='inline-block'; }
-        // 5개 세부 점수
-        // 3개 기준: 퍼스널컬러/40 · 체형/30 · 스타일링/30
-        const _scoreMap3 = [
-          {id:'csScPc',    fillId:'csScPcFill',    val:_srvBreak.personal_color,  max:40},
-          {id:'csScBody',  fillId:'csScBodyFill',  val:_srvBreak.body_shape,      max:30},
-          {id:'csScStyle', fillId:'csScStyleFill', val:_srvBreak.overall_styling, max:30},
-        ];
-        _scoreMap3.forEach(({id, fillId, val, max})=>{
-          const el = document.getElementById(id);
-          const fill = document.getElementById(fillId);
-          if(el && val!=null){
-            el.textContent = val;
-            if(fill) setTimeout(()=>{ fill.style.width = Math.round(val/max*100)+'%'; }, 150);
-          }
-        });
-        document.getElementById('csScoreDetail').style.display = 'block';
-        // Phase1 분석 정보 간단 표시
-        if(_bottomAnalysisCache){
-          const _det = document.getElementById('csScStyleTip');
-          if(_det){
-            const _bs = _bottomAnalysisCache.sub_category || _bottomAnalysisCache.category || '';
-            const _tc = (_topAnalysisCache?.main_color_name||'') + (_bottomAnalysisCache?.main_color_name ? ' + '+_bottomAnalysisCache.main_color_name : '');
-            _det.textContent = `상의: ${_topAnalysisCache?.sub_category||'—'} · 하의: ${_bs}${_bottomAnalysisCache?.is_skirt?' (치마 ✓)':''} · 컬러: ${_tc}`;
-            _det.style.display = 'block';
-          }
-        }
-        // AI 조언
-        if(_srvAdvice){
-          const advBox = document.getElementById('csAdviceBox');
-          const advTxt = document.getElementById('csAdviceText');
-          if(advBox && advTxt){
-            advTxt.textContent = _srvAdvice;
-            advBox.style.display = 'block';
-          }
-        }
-        try{ sessionStorage.setItem('cb_cs_score', _srvScore); }catch(_){}
-      }
-    }catch(_srvErr){ console.warn('[score] 서버 점수 파싱 실패:', _srvErr); }
 
-    /* ── [3] 로컬 분석 (서버 점수 없을 때 폴백 + 체형/컬러 텍스트) ── */
+        // 3개 점수 표시
+        const _s3 = [
+          {id:'csScPc',    fillId:'csScPcFill',    val:_pcDisp,    max:40},
+          {id:'csScBody',  fillId:'csScBodyFill',  val:_bodyDisp,  max:30},
+          {id:'csScStyle', fillId:'csScStyleFill', val:_styleDisp, max:30},
+        ];
+        _s3.forEach(({id,fillId,val,max})=>{
+          const el=document.getElementById(id), fill=document.getElementById(fillId);
+          if(el) el.textContent = val;
+          if(fill) setTimeout(()=>{ fill.style.width=Math.round(val/max*100)+'%'; },180);
+        });
+        document.getElementById('csScoreDetail').style.display='block';
+        document.getElementById('csScoreText').style.display='none';
+
+        try{ sessionStorage.setItem('cb_cs_score', _totalScore); }catch(_){}
+      }
+
+      // ── 분석 4개 섹션 생성 ──
+      _renderAnalysis(_srvAdvice);
+
+    }catch(_srvErr){ console.warn('[score]', _srvErr); }
+
+    /* ── [3] 로컬 분석 폴백 (서버 점수 없을 때) ── */
     try{
       const _sg   = codiProfile.gender==='F';
       const _sh   = parseFloat(codiProfile.height||0);
@@ -1265,140 +1423,30 @@ async function generate(isRetry=false){
 컬러 조화: ${_colorAnalysis}
 총평: ${_ageAnalysis}`;
 
-      // 서버 점수가 없을 때만 총점 업데이트
+      // 서버 점수 없을 때만 로컬 점수 표시
       if(j.styling_score == null){
-        document.getElementById('csScoreNum').textContent = score;
-        const _bar3 = document.getElementById('csScoreBar');
-        if(_bar3) setTimeout(()=>{ _bar3.style.width = score+'%'; }, 100);
+        // 로컬 점수 40:30:30 분배 (합계 = score)
+        const _pcL    = Math.round(score * 0.40);
+        const _bodyL  = Math.round(score * 0.30);
+        const _styleL = score - _pcL - _bodyL;
+        const el1=document.getElementById('csScoreNum'); if(el1) el1.textContent=score;
+        const el2=document.getElementById('csScPc');     if(el2) el2.textContent=_pcL;
+        const el3=document.getElementById('csScBody');   if(el3) el3.textContent=_bodyL;
+        const el4=document.getElementById('csScStyle');  if(el4) el4.textContent=_styleL;
+        const _grade3=score>=90?'S급 매칭':score>=80?'A급 매칭':score>=70?'B급 매칭':'C급 매칭';
+        const el5=document.getElementById('csGradeBadge'); if(el5){el5.textContent=_grade3;el5.style.display='inline-block';}
+        setTimeout(()=>{
+          const f1=document.getElementById('csScoreBar');   if(f1) f1.style.width=score+'%';
+          const f2=document.getElementById('csScPcFill');   if(f2) f2.style.width=Math.round(_pcL/40*100)+'%';
+          const f3=document.getElementById('csScBodyFill'); if(f3) f3.style.width=Math.round(_bodyL/30*100)+'%';
+          const f4=document.getElementById('csScStyleFill');if(f4) f4.style.width=Math.round(_styleL/30*100)+'%';
+        },180);
+        document.getElementById('csScoreDetail').style.display='block';
+        document.getElementById('csScoreText').style.display='none';
+        try{ sessionStorage.setItem('cb_cs_score', score); }catch(_){}
       }
-      document.getElementById('csScoreText').innerHTML =
-        reviewText.replace(/\[([^\]]+)\]/g, '<strong style="color:#97FEED;font-size:12px;">$1</strong>')
-                  .replace(/\n(상의 분석|하의 분석|컬러 조화|총평):/g, '<br><span style="color:rgba(151,254,237,.6);font-weight:700;font-size:10.5px;">$1:</span>')
-                  .replace(/\n/g,'<br>');
-      document.getElementById('csScoreText').style.color='rgba(255,255,255,.45)';
-      // ── 세부 점수 표시 (퍼스널컬러·컬러매칭·체형·TPO) ──
-      try{
-        const _detail = document.getElementById('csScoreDetail');
-        if(_detail){
-          // ══════════════════════════════════════════════════════
-          // CodiBank 스코어링 공식 (가중치 합산)
-          // Score = (Wc×C) + (Wp×P) + (Wb×B) + (Wm×M)
-          // C(Color Harmony 35%) + P(Personal Type 25%)
-          // B(Body Balance 20%) + M(Makeup/Context 20%)
-          // ══════════════════════════════════════════════════════
-
-          // ─ C: 컬러 조화도 (35%) ─
-          // 상의/하의 컬러 관계 기반 ΔE 유사 계산
-          let _C = 70; // 기본값
-          if(_topColor && _botColor){
-            if(_topColor === _botColor) _C = 90; // 톤온톤: 높은 조화
-            else if(
-              (_topColor.includes('화이트')||_topColor.includes('밝')) &&
-              (_botColor.includes('네이비')||_botColor.includes('블랙')||_botColor.includes('그레이'))
-            ) _C = 92; // 클래식 대비
-            else if(
-              (_topColor.includes('블랙')||_topColor.includes('화이트')||_topColor.includes('그레이')) ||
-              (_botColor.includes('블랙')||_botColor.includes('화이트')||_botColor.includes('그레이'))
-            ) _C = 85; // 뉴트럴 포함
-            else _C = 72; // 컬러×컬러 (충돌 가능성)
-          }
-          // 퍼스널컬러 팔레트와 의류 컬러 ΔE 반영
-          if(_csPersonalColor && _csPersonalColor.best_colors && _topColor){
-            const _pcBest = _csPersonalColor.best_colors;
-            const _isMatch = _pcBest.some(h => {
-              // HEX → RGB 대략 비교
-              const r=parseInt(h.slice(1,3),16), g=parseInt(h.slice(3,5),16), b=parseInt(h.slice(5,7),16);
-              const lum = 0.299*r + 0.587*g + 0.114*b;
-              // 어두운 팔레트 + 어두운 옷 OR 밝은+밝은: ΔE 낮음(조화)
-              return (lum < 128 && (_topColor.includes('블랙')||_topColor.includes('네이비')||_topColor.includes('다크'))) ||
-                     (lum > 128 && (_topColor.includes('화이트')||_topColor.includes('베이지')||_topColor.includes('밝')));
-            });
-            if(_isMatch) _C = Math.min(100, _C + 8);
-          }
-
-          // ─ P: 퍼스널타입 매칭 (25%) ─
-          // 계절 타입 가이드라인 준수 여부
-          let _P = 75; // 기본 (퍼스널컬러 미분석)
-          if(_csPersonalColor){
-            const _season = _csPersonalColor.season || '';
-            const _undertone = _csPersonalColor.undertone || '';
-            // 웜톤 + 웜계열 옷 or 쿨톤 + 쿨계열 옷
-            const _isWarm = _season.includes('봄')||_season.includes('가을')||_undertone.includes('웜');
-            const _clothWarm = (_topColor||'').includes('베이지')||(_topColor||'').includes('브라운')||
-                               (_topColor||'').includes('카멜')||(_topColor||'').includes('머스타드');
-            const _clothCool = (_topColor||'').includes('네이비')||(_topColor||'').includes('블루')||
-                               (_topColor||'').includes('라벤더')||(_topColor||'').includes('민트');
-            if((_isWarm && _clothWarm)||(!_isWarm && _clothCool)) _P = 92;
-            else if((_topColor||'').includes('블랙')||(_topColor||'').includes('화이트')) _P = 83; // 무채색은 범용
-            else _P = 68; // 톤 불일치
-            // 피해야 할 컬러 착용 시 감점
-            if(_csPersonalColor.avoid_colors){
-              const _avoiding = _csPersonalColor.avoid_colors.length > 0;
-              if(_avoiding) _P = Math.max(50, _P - 5);
-            }
-          }
-
-          // ─ B: 체형 밸런스 (20%) ─
-          // BMI + 상의/하의 카테고리 조합
-          let _B = 78;
-          if(_sh && _sw){
-            if(_bodyType==='표준'||_bodyType==='슬림') _B = 87;
-            else if(_bodyType==='보통') _B = 80;
-            else _B = 72;
-            // 상의 볼륨과 하의 핏 조화
-            const _topVol = (_topCat.includes('니트')||_topCat.includes('맨투맨'))?'볼륨':'일반';
-            const _botFit = (_botCat.includes('와이드'))?'루즈':(_botCat.includes('스키니'))?'타이트':'일반';
-            if(_topVol==='볼륨' && _botFit==='루즈') _B = Math.max(60, _B-10); // 상하 모두 볼륨: 실루엣 무너짐
-            if(_topVol==='볼륨' && _botFit==='타이트') _B = Math.min(95, _B+5); // 볼륨+슬림: 이상적
-          }
-
-          // ─ M: 메이크업/TPO 적합성 (20%) ─
-          // 목적(purpose) + 날씨 컨텍스트
-          let _M = 78;
-          const _purpose = codiProfile.purpose || '';
-          if(_purpose.includes('비즈니스')||_purpose.includes('격식')) _M = 84;
-          else if(_purpose.includes('캐주얼')||_purpose.includes('데일리')) _M = 82;
-          else if(_purpose.includes('데이트')) _M = 80;
-
-          // ─ 최종 Score = Wc×C + Wp×P + Wb×B + Wm×M ─
-          const _C_w = 0.35, _P_w = 0.25, _B_w = 0.20, _M_w = 0.20;
-          const _formulaScore = Math.round(_C*_C_w + _P*_P_w + _B*_B_w + _M*_M_w);
-          // 기존 Gemini 분석 score와 혼합 (50:50) → 안정적 점수
-          const _finalScore = Math.round((score * 0.5) + (_formulaScore * 0.5));
-          const _colorSc = Math.min(100, Math.round(_C));
-          const _bodySc  = Math.min(100, Math.round(_B));
-          const _tpoSc   = Math.min(100, Math.round(_M));
-          const _pcSc    = _csPersonalColor ? Math.min(100, Math.round(_P)) : null;
-
-          // 점수 표시 업데이트 (공식 점수로)
-          document.getElementById('csScoreNum').textContent = _finalScore;
-          const _newGrade = _finalScore>=92?'S급 매칭':_finalScore>=86?'A급 매칭':_finalScore>=80?'B급 매칭':'C급 매칭';
-          // grade 텍스트 업데이트
-          const _headerEl = document.getElementById('csScoreText');
-          if(_headerEl) _headerEl.innerHTML = _headerEl.innerHTML.replace(/(S급|A급|B급|C급) 매칭/, _newGrade);
-
-          // 로컬 폴백: 3개 기준으로 매핑
-          const _pcEl2 = document.getElementById('csScPc');
-          const _boEl2 = document.getElementById('csScBody');
-          const _stEl2 = document.getElementById('csScStyle');
-          if(_pcEl2) _pcEl2.textContent = _pcSc !== null ? Math.round(_pcSc*40/100) : Math.round(_colorSc*40/100);
-          if(_boEl2) _boEl2.textContent = Math.round(_bodySc*30/100);
-          if(_stEl2) _stEl2.textContent = Math.round(_tpoSc*30/100);
-          const _pcFill2 = document.getElementById('csScPcFill');
-          const _boFill2 = document.getElementById('csScBodyFill');
-          const _stFill2 = document.getElementById('csScStyleFill');
-          setTimeout(()=>{
-            if(_pcFill2) _pcFill2.style.width = (_pcSc||_colorSc)+'%';
-            if(_boFill2) _boFill2.style.width = _bodySc+'%';
-            if(_stFill2) _stFill2.style.width = _tpoSc+'%';
-          }, 150);
-          _detail.style.display = 'block';
-        }
-        // 게이지 바 업데이트
-        const _bar = document.getElementById('csScoreBar');
-        if(_bar) setTimeout(()=>{ _bar.style.width = score + '%'; }, 100);
-      }catch(_e){}
-      try{ sessionStorage.setItem('cb_cs_score', score); sessionStorage.setItem('cb_cs_scoreText', reviewText); }catch(_){}
+      // 분석 4개 섹션 (서버 조언 없으므로 로컬 생성)
+      if(j.styling_score == null) _renderAnalysis('');
     }catch(_){}
 
     /* ── 코디앨범 자동 저장 ── */
