@@ -2094,32 +2094,38 @@ def codistyle_generate():
 
         # ── 스타일링 스코어 (5개 기준) ─────────────────────────────────────
         + (
-            "\n[STYLING SCORE — REQUIRED IN TEXT RESPONSE]: "
-            "Evaluate this outfit on exactly 3 criteria and output scores: "
+            "\n[STYLING SCORE + ANALYSIS — REQUIRED IN TEXT RESPONSE]: "
+            "Evaluate this outfit on 3 criteria. CRITICAL: the 3 scores MUST sum to exactly 100. "
 
-            # 기준 1: 퍼스널컬러 (40점)
+            # 기준 1: 퍼스널컬러 조합 (40점 만점)
             + (
-                f"1. PERSONAL_COLOR /40: How well do the garment colors match {_pc_season} ({_pc_undertone}) personal color? "
-                f"Best colors: {_pc_best_colors}. Colors to avoid: {_pc_avoid_colors}. "
-                f"Top color '{top_info.get('color_ko','')}' + bottom color '{bottom_info.get('color_ko','')}' vs personal color palette. "
+                f"1. PERSONAL_COLOR /40: "
+                f"User personal color = {_pc_season}({_pc_undertone}). "
+                f"Best colors: {_pc_best_colors}. Avoid: {_pc_avoid_colors}. "
+                f"Top={top_info.get('color_ko','')} {top_info.get('pattern','')} / Bottom={bottom_info.get('color_ko','')} {bottom_info.get('pattern','')}. "
+                "Evaluate whether garment colors suit the personal color season type. "
                 if _pc_season else
-                f"1. PERSONAL_COLOR /40: Evaluate color harmony of top ({top_info.get('color_ko','')}) and bottom ({bottom_info.get('color_ko','')}). "
+                f"1. PERSONAL_COLOR /40: Evaluate color harmony. Top={top_info.get('color_ko','')} {top_info.get('pattern','')} / Bottom={bottom_info.get('color_ko','')} {bottom_info.get('pattern','')}. "
             )
-            # 기준 2: 체형 밸런스 (30점)
+            # 기준 2: 체형 밸런스 (30점 만점)
             + (
-                f"2. BODY_SHAPE /30: Does this outfit flatter a {gender_ko} {age} body "
-                + (f"({hw_ko})? " if hw_ko else "? ")
-                + f"Consider how {top_info.get('ko','')} + {bottom_info.get('ko','')} affects body proportion and visual balance. "
+                f"2. BODY_SHAPE /30: User is {gender_ko} {age}"
+                + (f" {hw_ko}." if hw_ko else ".")
+                + f" How well does {top_info.get('ko','')}+{bottom_info.get('ko','')} flatter this body type? Consider silhouette, proportion, visual balance. "
             )
-            # 기준 3: 전체 스타일링 (30점)
-            + f"3. OVERALL_STYLING /30: Overall coordination quality — color harmony, pattern match, style coherence, wearability for Korean everyday life, trend relevance. "
+            # 기준 3: 토탈 스타일링 (30점 만점)
+            + f"3. OVERALL_STYLING /30: Color coordination, pattern match, style coherence, trend relevance, wearability for Korean everyday life. "
 
-            # 출력 형식
-            + "Output EXACTLY this format on one line: "
-            "STYLING_SCORE:[total]/100|personal_color:[n]|body_shape:[n]|overall_styling:[n] "
-            "Then write 2-3 sentences of professional styling advice in Korean: "
-            "① what works well about this outfit ② specific improvement tip "
-            "③ if personal color data available, mention whether the colors suit the personal color type."
+            # 점수 출력 형식 (정확히 100점 합산)
+            + "OUTPUT LINE 1 (scores — must sum to 100): STYLING_SCORE:[total]/100|personal_color:[n1]|body_shape:[n2]|overall_styling:[n3] "
+            "where n1+n2+n3=[total] and [total]<=100. "
+
+            # 4개 섹션 분석 출력 형식
+            + "OUTPUT LINE 2+ (Korean analysis, each section on new line): "
+            "퍼스널컬러 조합: [퍼스널컬러 타입과 이 착장의 컬러 조합이 잘 맞는지, 구체적으로 어떤 컬러가 잘 어울리거나 안 어울리는지 2문장] "
+            "상의 스타일: [상의의 소재·패턴·핏이 체형과 전체 스타일에 미치는 효과, 어울리는 하의 스타일 제안 2문장] "
+            "하의 스타일: [하의의 실루엣·기장·소재가 체형에 미치는 효과, 이 상의와의 조화 분석 2문장] "
+            "토탈 스타일링 분석: [전체 착장의 완성도, 이 코디를 더 잘 활용하는 구체적인 팁(신발·액세서리 등) 2문장]"
         )
 
         # ── 다시요청 ───────────────────────────────────────────────────────
@@ -2227,11 +2233,19 @@ def codistyle_generate():
         for _k in ['personal_color', 'body_shape', 'overall_styling']:
             _km = _re2.search(rf'{_k}:(\d+)', comment)
             if _km: score_breakdown[_k] = int(_km.group(1))
-        # 한국어 조언
+        # 점수 합산이 100이 아닌 경우 정규화
+        _sb = score_breakdown
+        _sum = _sb.get('personal_color',0)+_sb.get('body_shape',0)+_sb.get('overall_styling',0)
+        if styling_score and _sum > 0 and _sum != styling_score:
+            _r = styling_score / _sum
+            _sb['personal_color'] = round(_sb.get('personal_color',0)*_r)
+            _sb['body_shape']     = round(_sb.get('body_shape',0)*_r)
+            _sb['overall_styling']= styling_score - _sb['personal_color'] - _sb['body_shape']
+        # 4개 섹션 분석 텍스트 추출
         _score_line_end = _re2.search(r'STYLING_SCORE:[^\n]+', comment)
         if _score_line_end:
             _advice_raw = comment[_score_line_end.end():].strip()
-            styling_advice = _advice_raw[:400] if _advice_raw else ""
+            styling_advice = _advice_raw[:600] if _advice_raw else ""
     except Exception:
         pass
 
