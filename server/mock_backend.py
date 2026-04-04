@@ -260,6 +260,40 @@ os.makedirs(_LEGACY_UPLOAD_DIR, exist_ok=True)
 # 브라우저에서 저장된 경로를 그대로 쓰기 위해 고정 prefix 사용
 _UPLOAD_PREFIX = "/uploads/"
 
+# ══════════════════════════════════════════════════════════════
+# [스타일리스트 매칭 엔진] DB 로딩
+# - fashion_keywords_db.json: 7도시 × 15목적 × 남녀 키워드
+# - stylist_db_server.json: 7도시 × 16목적 × 남녀 = 11,200명 프로필
+# ══════════════════════════════════════════════════════════════
+_FASHION_DB = {}
+_STYLIST_DB = {}
+try:
+    _fk_path = os.path.join(_HERE, "fashion_keywords_db.json")
+    if os.path.exists(_fk_path):
+        with open(_fk_path, "r", encoding="utf-8") as _f:
+            _FASHION_DB = json.load(_f)
+        print(f"[스타일리스트] fashion_keywords_db.json 로드 완료 ({len(_FASHION_DB.get('city_keywords',{}))}개 도시)")
+except Exception as _e:
+    print(f"[스타일리스트] fashion_keywords_db.json 로드 실패: {_e}")
+
+try:
+    _sd_path = os.path.join(_HERE, "stylist_db_server.json")
+    if os.path.exists(_sd_path):
+        with open(_sd_path, "r", encoding="utf-8") as _f:
+            _STYLIST_DB = json.load(_f)
+        print(f"[스타일리스트] stylist_db_server.json 로드 완료 ({len(_STYLIST_DB)}개 도시)")
+except Exception as _e:
+    print(f"[스타일리스트] stylist_db_server.json 로드 실패: {_e}")
+
+# 스타일리스트 매칭 엔진 (선택적 import — 파일 없어도 서버 정상 작동)
+_STYLIST_ENGINE = None
+try:
+    from stylist_matching_engine import process_styling_request as _process_styling
+    _STYLIST_ENGINE = _process_styling
+    print("[스타일리스트] stylist_matching_engine.py 로드 완료")
+except ImportError:
+    print("[스타일리스트] stylist_matching_engine.py 미설치 — 기존 로직 유지")
+
 
 def _sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -724,7 +758,7 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
                 "If a face reference is provided, preserve the same facial identity. "
                 "Show the whole body from head to toe. "
                 f"Weather: {bucket}. Condition: {cond or 'clear'}. Purpose: {purpose_desc}. "
-                f"Location culture hint: {str(weather.get('location') or '').strip() or 'Seoul'}. "
+                f"Location culture hint: {str(weather.get('location') or payload.get('stylistCity') or '').strip() or 'Unknown'}. "
                 "Natural proportions, realistic try-on. "
 
                 # ── 배경 (CRITICAL) ──
@@ -1367,6 +1401,26 @@ def ai_styling():
 
     prompt, short = build_prompt(payload)
 
+    # ── 스타일리스트 매칭 엔진 (설치되어 있을 때만 활성화) ──
+    _matched_stylist = None
+    _styling_story = ""
+    if _STYLIST_ENGINE and _FASHION_DB and _STYLIST_DB:
+        try:
+            _eng_prompt, _eng_story, _eng_model, _matched_stylist = _STYLIST_ENGINE(
+                payload, _FASHION_DB, _STYLIST_DB
+            )
+            _styling_story = _eng_story or ""
+            # 스타일리스트 컬러를 기존 프롬프트에 추가 (기존 프롬프트를 덮어쓰지 않음)
+            if _matched_stylist:
+                _color_add = (
+                    f" STYLIST COLOR: Primary={_matched_stylist.get('color1','')}, "
+                    f"Accent={_matched_stylist.get('color2','')}. "
+                    f"Incorporate naturally. "
+                )
+                prompt += _color_add
+        except Exception as _se:
+            print(f"[스타일리스트 매칭] 오류 (기존 로직으로 진행): {_se}")
+
     face_data_url = payload.get("faceImage")
     size = str(payload.get("size") or "1024x1536")
     quality = str(payload.get("quality") or "low")
@@ -1490,6 +1544,8 @@ def ai_styling():
             model=model_used,
             cached=False,
             prompt=prompt if os.getenv("CODIBANK_DEBUG_PROMPT") == "1" else None,
+            stylist=_matched_stylist,
+            stylingStory=_styling_story or None,
         )
 
     except Exception as e:
