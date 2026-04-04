@@ -1626,6 +1626,95 @@ def _build_garment_instruction(top_info: dict, bottom_info: dict) -> str:
     return instr
 
 
+@app.post("/api/codistyle/analyze-garments")
+def codistyle_analyze_garments():
+    """
+    코디하기 Phase 1: 상의+하의 이미지를 analyze-item과 동일한 방식으로 분석
+    - analyze-item의 검증된 프롬프트 재사용
+    - 치마(skirt) category 분리로 is_skirt 정확 판별
+    - 착용샷(사람이 입은 사진)도 처리 가능
+    """
+    payload = request.get_json(silent=True) or {}
+
+    def _call_analyze_item(data_url, path_val):
+        """analyze-item 엔드포인트 내부 로직 직접 호출"""
+        import requests as _rq
+        try:
+            # base64 dataUrl 우선 사용
+            src = str(data_url or "").strip()
+            if src.startswith("data:"):
+                body = {"image": src}
+            elif path_val:
+                path = str(path_val).strip()
+                # R2 또는 로컬에서 이미지 로드
+                img_bytes = None
+                if path.startswith("/uploads/") and _R2_PUB_URL:
+                    try:
+                        r = _rq.get(f"{_R2_PUB_URL}{path}", timeout=8)
+                        if r.status_code == 200:
+                            import base64
+                            img_bytes = r.content
+                    except: pass
+                if not img_bytes:
+                    for d in [_UPLOAD_DIR, _LEGACY_UPLOAD_DIR]:
+                        fp = os.path.join(d, os.path.basename(path))
+                        if os.path.exists(fp):
+                            with open(fp, "rb") as fh:
+                                img_bytes = fh.read()
+                            break
+                if img_bytes:
+                    import base64
+                    b64 = base64.b64encode(img_bytes).decode()
+                    body = {"image": f"data:image/jpeg;base64,{b64}"}
+                else:
+                    return {"error": "이미지 로드 실패", "_analyzed": False}
+            else:
+                return {"error": "이미지 없음", "_analyzed": False}
+
+            # Flask 내부에서 analyze-item 직접 호출
+            with app.test_request_context(
+                '/api/ai/analyze-item',
+                method='POST',
+                json=body,
+                headers=dict(request.headers)
+            ):
+                from flask import g as _g
+                result = ai_analyze_item()
+                if hasattr(result, 'get_json'):
+                    d = result.get_json()
+                else:
+                    d = result[0].get_json() if isinstance(result, tuple) else {}
+
+            if d and d.get("ok") and d.get("analysis"):
+                analysis = d["analysis"]
+                # is_skirt 보장: category=skirt 또는 sub_category에 스커트 키워드
+                _skirt_kws = ['스커트','skirt','치마']
+                _cat = str(analysis.get("category","")).lower()
+                _sub = str(analysis.get("sub_category","")).lower()
+                analysis["is_skirt"] = (
+                    _cat == "skirt" or
+                    analysis.get("is_skirt") == "true" or
+                    analysis.get("is_skirt") is True or
+                    any(k in _sub for k in _skirt_kws)
+                )
+                # skirt_length 추가
+                if analysis["is_skirt"] and not analysis.get("skirt_length"):
+                    if "미니" in _sub: analysis["skirt_length"] = "mini"
+                    elif "롱" in _sub or "맥시" in _sub: analysis["skirt_length"] = "maxi"
+                    else: analysis["skirt_length"] = "midi"
+                analysis["_analyzed"] = True
+                print(f"[analyze-garments] {_cat}/{_sub} is_skirt={analysis['is_skirt']}")
+                return analysis
+            return {"error": "분석 실패", "_analyzed": False}
+        except Exception as e:
+            print(f"[analyze-garments] 오류: {e}")
+            return {"error": str(e)[:80], "_analyzed": False}
+
+    top_result    = _call_analyze_item(payload.get("topDataUrl"),    payload.get("topPath"))
+    bottom_result = _call_analyze_item(payload.get("bottomDataUrl"), payload.get("bottomPath"))
+
+    return jsonify(ok=True, top=top_result, bottom=bottom_result)
+
 @app.post("/api/codistyle/generate")
 def codistyle_generate():
     if not _GEMINI_KEY:
@@ -1660,14 +1749,61 @@ def codistyle_generate():
     # ── 다시요청 여부 (프론트에서 generate(true) 호출 시 전송) ──
     is_retry  = bool(payload.get("isRetry", False))
 
-    # ── 의류 카테고리 정보 (프론트에서 전달) ──
-    top_category_key    = str(payload.get("topCategoryKey", "top")).strip()
-    top_sub_category    = str(payload.get("topSubCategory", "")).strip()
-    bottom_category_key = str(payload.get("bottomCategoryKey", "pants")).strip()
-    bottom_sub_category = str(payload.get("bottomSubCategory", "")).strip()
-    top_info    = _analyze_garment_category(top_category_key, top_sub_category)
-    bottom_info = _analyze_garment_category(bottom_category_key, bottom_sub_category)
-    _garment_instruction = _build_garment_instruction(top_info, bottom_info)
+    # ── Phase 1 분석 결과 수신 (프론트에서 analyze-garments 호출 후 전달) ──
+    _top_analysis    = payload.get("topAnalysis")    or {}
+    _bottom_analysis_pre = payload.get("bottomAnalysis") or {}
+
+    # top_info 구성
+    _top_sub = str(_top_analysis.get("sub_category", payload.get("topSubCategory", ""))).strip()
+    _top_cat = str(_top_analysis.get("category",     payload.get("topCategoryKey","top"))).strip()
+    _top_color_ko = str(_top_analysis.get("main_color_name","")).strip()
+    _top_pattern  = str(_top_analysis.get("pattern","")).strip()
+    _top_material = str(_top_analysis.get("material","")).strip()
+    _top_fit      = str(_top_analysis.get("fit","")).strip()
+    _top_design   = str(_top_analysis.get("key_design","")).strip()
+    top_info = _analyze_garment_category(_top_cat, _top_sub)
+    if _top_sub: top_info["ko"] = _top_sub
+    top_info["color_ko"]   = _top_color_ko
+    top_info["pattern"]    = _top_pattern
+    top_info["material"]   = _top_material
+    top_info["design"]     = _top_design
+
+    # bottom_info 구성 — Phase 1 결과 우선 (is_skirt 확실히 판단)
+    _bot_sub  = str(_bottom_analysis_pre.get("sub_category", payload.get("bottomSubCategory",""))).strip()
+    _bot_cat  = str(_bottom_analysis_pre.get("category",     payload.get("bottomCategoryKey","pants"))).strip()
+    _bot_is_skirt_pre = _bottom_analysis_pre.get("is_skirt", None)
+    _bot_skirt_len    = str(_bottom_analysis_pre.get("skirt_length","") or "").strip()
+    _bot_color_ko     = str(_bottom_analysis_pre.get("main_color_name","")).strip()
+    _bot_pattern      = str(_bottom_analysis_pre.get("pattern","")).strip()
+    _bot_material     = str(_bottom_analysis_pre.get("material","")).strip()
+    _bot_design       = str(_bottom_analysis_pre.get("key_design","")).strip()
+    bottom_info = _analyze_garment_category(_bot_cat, _bot_sub)
+    if _bot_sub: bottom_info["ko"] = _bot_sub
+
+    # Phase 1에서 is_skirt 확실하면 그대로 적용 (이미지 재분석 불필요)
+    if _bot_is_skirt_pre is True:
+        _skirt_len_map = {"mini":"mini skirt (hem above knee)","midi":"midi skirt (knee to mid-calf)","maxi":"maxi skirt (ankle or floor)"}
+        _skirt_en = _skirt_len_map.get(_bot_skirt_len, "skirt")
+        bottom_info = {
+            "type":"bottom","garment":_skirt_en,"ko": _bot_sub or f"스커트({_bot_skirt_len})",
+            "is_skirt":True,"is_shorts":False,"detected_length":_bot_skirt_len,
+            "silhouette":_bot_design or f"{_bot_sub} skirt",
+            "color_ko":_bot_color_ko,"pattern":_bot_pattern,"material":_bot_material,
+            "rule":f"MUST generate {_skirt_en}. NO pants. NO leg separation. SKIRT ONLY."
+        }
+        _garment_instruction = _build_garment_instruction(top_info, bottom_info)
+        print(f"[codistyle] Phase1 확인 → 하의={_bot_sub} is_skirt=True length={_bot_skirt_len}")
+    elif _bot_is_skirt_pre is False:
+        bottom_info["is_skirt"] = False
+        _garment_instruction = _build_garment_instruction(top_info, bottom_info)
+        print(f"[codistyle] Phase1 확인 → 하의={_bot_sub} is_skirt=False")
+    else:
+        # Phase 1 미수행 → 이미지 분석으로 판별 (폴백)
+        _garment_instruction = _build_garment_instruction(top_info, bottom_info)
+        print(f"[codistyle] Phase1 없음 → 이미지 분석 폴백")
+
+    top_category_key    = _top_cat
+    bottom_category_key = _bot_cat
 
     # ── 퍼스널컬러 프롬프트 블록 ──
     _pc_text = ""
@@ -1741,8 +1877,14 @@ def codistyle_generate():
     if not top_bytes or not bottom_bytes:
         return jsonify(ok=False, error="상의/하의 이미지가 필요합니다"), 400
 
-    # ── 이미지로 하의 타입 자동 감지 (카테고리 키 없어도 치마/바지/반바지/길이 판별) ──
-    _bottom_analysis = _detect_bottom_type_from_image(
+    # ── Phase 1에서 is_skirt 판단 완료된 경우 재감지 스킵 ──
+    if _bot_is_skirt_pre is not None:
+        print(f"[codistyle] Phase1 is_skirt={_bot_is_skirt_pre} → 이미지 재감지 스킵")
+    else:
+        # Phase 1 미수행 시에만 이미지로 감지
+        pass
+    if _bot_is_skirt_pre is None:
+        _bottom_analysis = _detect_bottom_type_from_image(
         bottom_bytes, bottom_mime or "image/jpeg",
         _SDK,
         _GEMINI_KEY,
@@ -1787,8 +1929,8 @@ def codistyle_generate():
         bottom_info["detected_length"] = _detected_length
         bottom_info["silhouette"] = _detected_silhouette
 
-    _garment_instruction = _build_garment_instruction(top_info, bottom_info)
-    print(f"[codistyle] 의류 감지 → 상의:{top_info.get('ko')} / 하의:{bottom_info.get('ko')} length={_detected_length} silhouette={_detected_silhouette[:50]}")
+        _garment_instruction = _build_garment_instruction(top_info, bottom_info)
+        print(f"[codistyle] 이미지감지 → 상의:{top_info.get('ko')} / 하의:{bottom_info.get('ko')} length={_detected_length}")
 
     # ── 프롬프트 구성 ──
     if face_bytes:
@@ -1895,10 +2037,21 @@ def codistyle_generate():
         # ── [PHASE 2: GARMENT IDENTITY] ────────────────────────────────────
         + "\n[PHASE 2 — GARMENT IDENTITY — ABSOLUTE PRIORITY]: "
         + _garment_instruction
-        + f"TOP: {top_info.get('garment','top garment')} — reproduce EXACT color, pattern, neckline, sleeve length, all details. "
-        + f"BOTTOM: {bottom_info.get('garment','bottom garment')} — silhouette: {bottom_info.get('silhouette','')}. "
-        "Reproduce EVERY design detail — ruffles, pleats, tiers, buttons, logos, hemline — faithfully. "
-        "DO NOT alter garment category, length, width, or silhouette. Reference images are ABSOLUTE GROUND TRUTH. "
+        + (
+            f"TOP [{top_info.get('ko',top_info.get('garment','top'))}]: "
+            f"Color={top_info.get('color_ko','')} · Pattern={top_info.get('pattern','')} · "
+            f"Material={top_info.get('material','')} · Fit={top_info.get('fit',top_info.get('garment',''))}. "
+            f"Design: {top_info.get('design','')}. "
+            "Reproduce EXACT color, neckline, sleeve, buttons, logos. "
+        )
+        + (
+            f"BOTTOM [{bottom_info.get('ko',bottom_info.get('garment','bottom'))}]: "
+            f"Color={bottom_info.get('color_ko','')} · Pattern={bottom_info.get('pattern','')} · "
+            f"Material={bottom_info.get('material','')}. "
+            f"Silhouette: {bottom_info.get('silhouette', bottom_info.get('design',''))}. "
+            "Reproduce EXACT color, length, hem, pleats, ruffles, waistband. "
+            "DO NOT alter garment category, length, or silhouette. Reference images = ABSOLUTE GROUND TRUTH. "
+        )
 
         # ── [PHASE 3: IMAGE GENERATION] ────────────────────────────────────
         + "\n[PHASE 3 — IMAGE]: "
@@ -1942,22 +2095,31 @@ def codistyle_generate():
         # ── 스타일링 스코어 (5개 기준) ─────────────────────────────────────
         + (
             "\n[STYLING SCORE — REQUIRED IN TEXT RESPONSE]: "
-            "After image, output a styling score evaluation. "
-            "Score on 5 criteria: "
-            f"1.personal_color_harmony/25 (garment colors vs {_pc_season} {_pc_undertone} — best:{_pc_best_colors} avoid:{_pc_avoid_colors}) "
-            "2.garment_coordination/20 (top+bottom color, pattern, style match) "
-            "3.body_proportion_balance/20 (outfit flatters body shape) "
-            "4.style_appropriateness/20 (realistic, wearable, everyday Korean life) "
-            "5.trend_modernity/15 (current, stylish combination). "
-            "Output format (one line, no deviation): "
-            "STYLING_SCORE:[total]/100|personal_color:[n]|garment_coord:[n]|body_balance:[n]|appropriateness:[n]|trend:[n] "
-            "Then output 2-3 sentences in Korean as professional styling advice — what harmonizes well and specific improvement tips."
-            if _pc_season else
-            "\n[STYLING SCORE — REQUIRED IN TEXT RESPONSE]: "
-            "Score on 4 criteria: "
-            "1.garment_coordination/30 2.body_proportion_balance/25 3.style_appropriateness/25 4.trend_modernity/20. "
-            "Output: STYLING_SCORE:[total]/100|garment_coord:[n]|body_balance:[n]|appropriateness:[n]|trend:[n] "
-            "Then 2-3 sentences Korean styling advice."
+            "Evaluate this outfit on exactly 3 criteria and output scores: "
+
+            # 기준 1: 퍼스널컬러 (40점)
+            + (
+                f"1. PERSONAL_COLOR /40: How well do the garment colors match {_pc_season} ({_pc_undertone}) personal color? "
+                f"Best colors: {_pc_best_colors}. Colors to avoid: {_pc_avoid_colors}. "
+                f"Top color '{top_info.get('color_ko','')}' + bottom color '{bottom_info.get('color_ko','')}' vs personal color palette. "
+                if _pc_season else
+                f"1. PERSONAL_COLOR /40: Evaluate color harmony of top ({top_info.get('color_ko','')}) and bottom ({bottom_info.get('color_ko','')}). "
+            )
+            # 기준 2: 체형 밸런스 (30점)
+            + (
+                f"2. BODY_SHAPE /30: Does this outfit flatter a {gender_ko} {age} body "
+                + (f"({hw_ko})? " if hw_ko else "? ")
+                + f"Consider how {top_info.get('ko','')} + {bottom_info.get('ko','')} affects body proportion and visual balance. "
+            )
+            # 기준 3: 전체 스타일링 (30점)
+            + f"3. OVERALL_STYLING /30: Overall coordination quality — color harmony, pattern match, style coherence, wearability for Korean everyday life, trend relevance. "
+
+            # 출력 형식
+            + "Output EXACTLY this format on one line: "
+            "STYLING_SCORE:[total]/100|personal_color:[n]|body_shape:[n]|overall_styling:[n] "
+            "Then write 2-3 sentences of professional styling advice in Korean: "
+            "① what works well about this outfit ② specific improvement tip "
+            "③ if personal color data available, mention whether the colors suit the personal color type."
         )
 
         # ── 다시요청 ───────────────────────────────────────────────────────
@@ -2060,18 +2222,16 @@ def codistyle_generate():
         import re as _re2
         # 총점
         _m = _re2.search(r'STYLING_SCORE:(\d+)/100', comment)
-        if _m:
-            styling_score = int(_m.group(1))
-        # 세부 점수
-        for _k in ['personal_color', 'garment_coord', 'body_balance', 'appropriateness', 'trend']:
+        if _m: styling_score = int(_m.group(1))
+        # 3개 세부 점수
+        for _k in ['personal_color', 'body_shape', 'overall_styling']:
             _km = _re2.search(rf'{_k}:(\d+)', comment)
-            if _km:
-                score_breakdown[_k] = int(_km.group(1))
-        # 한국어 조언 추출 (점수 라인 이후 텍스트)
+            if _km: score_breakdown[_k] = int(_km.group(1))
+        # 한국어 조언
         _score_line_end = _re2.search(r'STYLING_SCORE:[^\n]+', comment)
         if _score_line_end:
             _advice_raw = comment[_score_line_end.end():].strip()
-            styling_advice = _advice_raw[:300] if _advice_raw else ""
+            styling_advice = _advice_raw[:400] if _advice_raw else ""
     except Exception:
         pass
 
@@ -2463,11 +2623,19 @@ def ai_analyze_item():
 당신은 세계 최고의 패션 전문가 AI입니다.
 이 의류 이미지를 분석하고 아래 JSON 형식으로만 응답하세요. JSON 외 다른 텍스트는 절대 포함하지 마세요.
 
+⚠️ 치마/스커트 판별 CRITICAL RULE:
+- 다리가 각각 분리된 통로(leg tube)가 있으면 → pants (바지류)
+- 다리 분리 없이 한 장의 천이 아래로 퍼지면 → skirt (치마류) ← 착용샷이어도 동일하게 적용
+- 폭이 넓어 바지처럼 보여도 leg separation 없으면 반드시 skirt
+- 도트무늬/플리츠/티어드 등 디자인과 무관하게 구조로만 판별
+
 {
-  "category": "coat(반코트/롱코트/패딩코트/트렌치코트/더플코트) | jacket(수트/수트자켓/콤비자켓/일반자켓/패딩/레더자켓/가디건/사파리자켓/집업/후드집업) | top(티셔츠/셔츠/블라우스/니트/후드) | pants(바지/청바지/슬랙스/스커트) | shoes(구두/운동화/부츠) | watch(시계) | scarf(스카프/목도리) | socks(양말) | etc 중 하나 — 분류 기준: coat는 무릎 이상 길이의 코트류, jacket은 자켓/패딩/가디건 등 짧은 아우터류",
-  "sub_category": "아래 세부 품목 중 하나로 정확히 분류:\n코트류: 반코트/롱코트/패딩코트/트렌치코트/더플코트/케이프코트\n자켓류: 수트자켓/콤비자켓/일반자켓/레더자켓/사파리자켓/데님자켓/집업자켓/후드집업자켓/패딩자켓/다운자켓/가디건/볼레로\n상의: 티셔츠/반팔티/긴팔티/셔츠/블라우스/니트/스웨터/후드티/맨투맨\n하의: 청바지/슬랙스/면바지/스키니/와이드팬츠/미니스커트/롱스커트/플리츠스커트",
+  "category": "coat | jacket | top | pants | skirt | shoes | watch | scarf | socks | etc 중 하나 — ⚠️ 치마/스커트류는 반드시 skirt, 절대 pants에 포함하지 말 것",
+  "sub_category": "아래 세부 품목 중 하나로 정확히 분류:\n코트류: 반코트/롱코트/패딩코트/트렌치코트/더플코트/케이프코트\n자켓류: 수트자켓/콤비자켓/일반자켓/레더자켓/사파리자켓/데님자켓/집업자켓/후드집업자켓/패딩자켓/다운자켓/가디건/볼레로\n상의: 티셔츠/반팔티/긴팔티/셔츠/블라우스/니트/스웨터/후드티/맨투맨\n바지류: 청바지/슬랙스/면바지/스키니/와이드팬츠/조거팬츠/반바지/레깅스\n치마류: 미니스커트/미디스커트/롱스커트/플리츠스커트/A라인스커트/랩스커트/티어드스커트/도트스커트",
+  "is_skirt": "true if category=skirt, false otherwise — ⚠️ 이 필드가 착장이미지 생성에 직접 사용됩니다",
+  "skirt_length": "mini(무릎위) | midi(무릎~종아리중간) | maxi(종아리~발목) | null(치마아닌경우)",
   "main_color": "#RRGGBB 형식의 주요 색상 HEX",
-  "main_color_name": "색상 이름 (한국어): 예: 네이비블루, 아이보리, 카멜브라운 등",
+  "main_color_name": "색상 이름 (한국어)",
   "sub_color": "#RRGGBB 또는 null",
   "sub_color_name": "보조 색상 이름 (한국어) 또는 null",
   "pattern": "단색|스트라이프|체크|도트|플로럴|기하학|카무플라주|그래픽|레터링|애니멀|페이즐리|추상 중 하나",
@@ -2475,13 +2643,14 @@ def ai_analyze_item():
   "fit": "오버사이즈|루즈|레귤러|슬림|스키니 중 하나",
   "season": "봄여름|가을겨울|사계절|여름전용|겨울전용 중 하나",
   "style_keywords": ["캐주얼|포멀|스트릿|미니멀|빈티지|스포티|로맨틱|클래식 중 최대 3개"],
-  "design_points": "이 아이템의 디자인 특징 1~2문장 (한국어)",
+  "design_points": "이 아이템의 디자인 특징 1~2문장 (한국어) — 착용샷이면 의류 아이템만 묘사",
   "coordinate_hint": "이 아이템과 잘 어울리는 하의/상의/아우터 추천 (한국어 1문장)"
 }
 
 분석 기준:
-- 배경을 무시하고 의류 아이템에만 집중
-- 정확도를 최우선으로 (모르면 가장 유사한 값 선택)
+- 착용샷(사람이 입은 사진)이어도 의류 아이템 자체만 분석
+- 배경과 착용자 신체 무시, 의류 구조에만 집중
+- 치마류(skirt)는 category를 반드시 skirt로, is_skirt를 true로 설정
 - 반드시 유효한 JSON만 반환
 """
 
