@@ -929,25 +929,20 @@ function _renderAnalysis(srvAdvice){
     const _pcBest = (_pc.best_colors||[]).join(', ');
     const _pcAvoid = (_pc.avoid_colors||[]).join(', ');
 
-    // ── 서버 조언에서 4개 섹션 파싱 시도 ──
-    // 서버가 "①[내용] ②[내용] ③[내용] ④[내용]" 형식으로 반환하면 파싱
+    // ── 서버 조언에서 4개 섹션 파싱 ──
     let _pcText='', _topText='', _botText='', _totalText='';
     if(srvAdvice && srvAdvice.length > 20){
-      // 섹션 구분자 패턴 시도
-      const _p1 = srvAdvice.match(/퍼스널컬러[^①②③④
-]*[:：]?\s*([^①②③④]{10,200})/);
-      const _p2 = srvAdvice.match(/상의[^①②③④
-]*[:：]?\s*([^①②③④]{10,200})/);
-      const _p3 = srvAdvice.match(/하의[^①②③④
-]*[:：]?\s*([^①②③④]{10,200})/);
-      const _p4 = srvAdvice.match(/토탈|전체[^①②③④
-]*[:：]?\s*([^①②③④]{10,200})/);
-      if(_p1) _pcText  = _p1[1].trim().slice(0,200);
-      if(_p2) _topText = _p2[1].trim().slice(0,200);
-      if(_p3) _botText = _p3[1].trim().slice(0,200);
-      if(_p4) _totalText = _p4[1].trim().slice(0,200);
-      // 파싱 실패하면 전체 조언을 토탈에 배치
-      if(!_pcText && !_topText && !_botText && srvAdvice.length>10) _totalText = srvAdvice.slice(0,300);
+      // 줄바꿈 기준으로 분리 후 키워드 매칭
+      const _lines = srvAdvice.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>4;});
+      _lines.forEach(function(line){
+        const _low = line.toLowerCase();
+        if(!_pcText  && (_low.includes('퍼스널컬러') || _low.includes('personal color'))) _pcText  = line.replace(/^[퍼스널컬러 조합:：\s]+/,'').slice(0,250);
+        else if(!_topText  && (_low.includes('상의'))) _topText  = line.replace(/^[상의 스타일:：\s]+/,'').slice(0,250);
+        else if(!_botText  && (_low.includes('하의'))) _botText  = line.replace(/^[하의 스타일:：\s]+/,'').slice(0,250);
+        else if(!_totalText && (_low.includes('토탈') || _low.includes('전체') || _low.includes('스타일링 분석'))) _totalText = line.replace(/^[토탈 스타일링 분석:：\s]+/,'').slice(0,250);
+      });
+      // 파싱 실패 시 전체를 토탈에
+      if(!_pcText && !_topText && !_botText && !_totalText) _totalText = srvAdvice.slice(0,300);
     }
 
     // ── 로컬 생성 (서버 조언 없거나 파싱 실패 시) ──
