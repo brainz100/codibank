@@ -145,25 +145,21 @@ def calculate_bmi(height_cm, weight_kg):
 # 3. 여성 치마/바지 로테이션 (치마 2 : 바지 1)
 # ═══════════════════════════════════════════════════
 def get_bottom_type_for_women(seed=0):
-    """짝수 seed = 치마(첫 요청), 홀수 seed = 바지(다시코디)"""
+    """[v2026-04-06] 짝수=치마, 홀수=바지"""
     return "skirt" if (int(seed) % 2 == 0) else "pants"
 
 
 def get_skirt_length_by_body(height_cm, weight_kg, bmi_category):
-    """BMI + 키 기반 치마 길이 & 스타일 추천"""
+    """BMI+키 기반 치마 길이"""
     h = int(height_cm or 163)
     if bmi_category == "underweight":
-        return ("midi-length A-line or pleated skirt" if h >= 168
-                else "knee-length A-line or flared skirt for petite slim frame")
+        return "midi A-line or pleated skirt" if h >= 168 else "knee-length A-line or flared skirt"
     elif bmi_category == "normal":
-        return ("midi pencil skirt or knee-length A-line" if h >= 168
-                else "knee-length pencil or A-line skirt, elongates legs")
+        return "midi pencil or knee-length A-line" if h >= 168 else "knee-length pencil or A-line skirt"
     elif bmi_category == "overweight":
-        return ("midi wrap skirt or below-knee A-line" if h >= 168
-                else "knee-length A-line or wrap skirt, slimming effect")
+        return "midi wrap or below-knee A-line" if h >= 168 else "knee-length A-line or wrap skirt"
     elif bmi_category in ("obese1", "obese2"):
-        return ("midi to long A-line skirt with high waist" if h >= 168
-                else "knee-to-midi A-line skirt with high waist and stretch")
+        return "midi to long A-line with high waist" if h >= 168 else "knee-to-midi A-line with high waist"
     return "knee-length A-line skirt"
 
 
@@ -214,7 +210,7 @@ def build_styling_prompt(payload, fashion_db):
     Returns:
         prompt (str), metadata (dict)
     """
-    # ── 사용자 프로필 (closet: 'user' 키, gender: M/F) ──
+    # ── 사용자 프로필 추출 ──
     profile = payload.get('profile', {}) or payload.get('user', {}) or {}
     gender_raw = str(profile.get('gender', 'male')).strip().lower()
     gender_ko = "여성" if gender_raw in ('f', 'female', 'woman', '여성', '여자') else "남성"
@@ -240,7 +236,7 @@ def build_styling_prompt(payload, fashion_db):
     condition = weather.get('condition', weather.get('text', 'clear'))
     user_location = str(weather.get('location', '')).strip()
     
-    # ── 코디 목적 (closet: purposeKey/purposeLabel) ──
+    # ── 코디 목적 ──
     purpose = payload.get('purpose', '')
     if not purpose:
         pk = str(payload.get('purposeKey', '')).strip()
@@ -253,16 +249,14 @@ def build_styling_prompt(payload, fashion_db):
     # ── 지역 → main/sub 도시 ──
     main_city, sub_city, region = get_main_sub_cities(user_location)
     
-    # ── seed (다시코디 횟수) ──
+    # ── main/sub 교차: 날짜 기반으로 교차 사용 ──
     retry_seed = int(payload.get('seed', 0))
-    
-    # ── main/sub 교차: seed 기반 (짝수=main, 홀수=sub) ──
     if retry_seed % 2 == 0:
         active_city = main_city
     else:
         active_city = sub_city
     
-    # ── 키워드 선택 (도시×목적×성별) ──
+    # ── 성별에 따른 키워드 선택 ──
     city_kw = fashion_db.get('city_keywords', {}).get(active_city, {}).get(purpose, {})
     kw_key = "women" if gender_ko == "여성" else "men"
     keywords_str = city_kw.get(kw_key, '')
@@ -273,15 +267,15 @@ def build_styling_prompt(payload, fashion_db):
     # ── 온도 버킷 ──
     temp_bucket = _get_temp_bucket(temp)
     
-    # ── 여성 하의 (짝수=치마, 홀수=바지) ──
-    bottom_type = "pants"
+    # ── 여성 하의 타입 결정 ──
     if gender_ko == "여성":
         bottom_type = get_bottom_type_for_women(retry_seed)
         if bottom_type == "skirt":
             skirt_guide = get_skirt_length_by_body(height, weight, bmi_info['category'])
             bottom_instruction = (
-                f"BOTTOM (CRITICAL): The woman MUST wear a SKIRT (NOT pants). "
-                f"Skirt style: {skirt_guide}. "
+                f"BOTTOM: The woman MUST wear a SKIRT (not pants). "
+                f"Skirt recommendation based on body type: {skirt_guide}. "
+                f"Skirt length should be flattering for {height}cm height. "
             )
         else:
             bottom_instruction = (
@@ -669,7 +663,7 @@ def process_styling_request(payload, fashion_db, stylist_db):
     prompt, metadata = build_styling_prompt(payload, fashion_db)
     
     # 2. 개별 스타일리스트 매칭
-    profile = payload.get('profile', {}) or payload.get('user', {}) or {}
+    profile = payload.get('profile', {})
     user_id = str(profile.get('id', profile.get('email', 'default')))
     user_gender = metadata['gender_ko']
     user_body = metadata['bmi']['ko']
@@ -677,7 +671,6 @@ def process_styling_request(payload, fashion_db, stylist_db):
     purpose = metadata['purpose']
     
     retry_seed = int(payload.get('seed', 0))
-    
     stylist = select_stylist(
         stylist_db, active_city, purpose,
         user_gender, user_body, user_id, retry_seed=retry_seed
@@ -699,60 +692,21 @@ def process_styling_request(payload, fashion_db, stylist_db):
     # 5. AI 모델 분기
     model_type = "gemini" if metadata['has_face'] else "dalle"
     
-    injection = generate_prompt_injection(metadata, stylist, fashion_db) if 'generate_prompt_injection' in dir() else ""
-    
+    injection = generate_prompt_injection(metadata, stylist, fashion_db) if 'generate_prompt_injection' in dir() else ''
     return prompt, story, model_type, stylist, injection, metadata
 
 
-# ═══════════════════════════════════════════════════
-# 10. 프롬프트 주입 — 도시+목적 차별화
-# ═══════════════════════════════════════════════════
-_CITY_FASHION = {
-    "서울": "Korean K-fashion: clean modern silhouettes, layered styling, trendy color coordination",
-    "뉴욕": "New York urban: high-low mixing, versatile city-ready, street-smart confidence",
-    "파리": "Parisian effortless chic: understated elegance, neutral tones, quality fabrics",
-    "런던": "London heritage-meets-modern: tailored layers, eclectic texture mixing",
-    "상파울루": "São Paulo vibrant tropical: bold colors, lightweight breathable, casual-smart fusion",
-    "두바이": "Dubai smart luxury: premium fabrics, modest yet elegant, international polish",
-    "밀라노": "Milan Italian craft: unstructured soft-shoulder tailoring, rich textures, Sprezzatura",
-}
-_PURPOSE_DIR = {
-    "비즈니스 포멀": "Sharp professional power look — structured tailoring, premium fabrics, boardroom-ready",
-    "데일리 오피스룩": "Smart-casual office — polished but comfortable, desk-to-meeting transition",
-    "면접룩": "First-impression interview — trustworthy, clean, conservative but modern",
-    "결혼식 하객룩": "Wedding guest elegance — celebratory, sophisticated color, upscale accessories",
-    "소개팅룩": "Approachable first-date — naturally attractive, soft textures, warm colors, subtle charm",
-    "로맨틱 데이트룩": "Romantic evening — refined, rich fabrics, deeper tones, dinner-worthy sophistication",
-    "상견례/가족모임": "Formal family gathering — respectful, age-appropriate elegance",
-    "사교 모임/파티": "Social party glamour — eye-catching but tasteful, bold accessories",
-    "주말 나들이": "Weekend outing — comfortable photo-ready, relaxed fabrics, cheerful colors",
-    "여행지 인생샷": "Travel photogenic — backdrop-matching, flowing silhouettes, SNS-worthy",
-    "꾸안꾸 데일리": "Effortless chic — basic items cleverly combined, neutral palette, normcore",
-    "스포티/애슬레저": "Sporty athleisure — functional meets fashionable, performance fabrics, dynamic",
-    "공항 패션": "Airport travel — comfort-first with polish, layered, wrinkle-resistant fabrics",
-    "미니멀/심플": "Minimal simplicity — capsule wardrobe, clean lines, monochrome, quiet luxury",
-    "트렌디/스트릿": "Trendy street — subculture influences, bold graphics, sneaker culture, youth energy",
-    "직접입력": "Custom user-defined styling — adapt fully to specific request",
-}
+# [v2026-04-06] 프롬프트 주입 — 도시+목적 차별화
+_CITY_F = {"서울":"Korean K-fashion: clean modern, layered styling","뉴욕":"New York urban: high-low mixing, street-smart","파리":"Parisian chic: understated elegance, neutral tones","런던":"London heritage: tailored layers, eclectic texture","상파울루":"São Paulo tropical: bold colors, casual-smart","두바이":"Dubai luxury: premium fabrics, modest elegance","밀라노":"Milan craft: soft-shoulder tailoring, Sprezzatura"}
+_PURPOSE_D = {"비즈니스 포멀":"Sharp professional — structured tailoring, boardroom-ready","데일리 오피스룩":"Smart-casual office — polished but comfortable","면접룩":"Interview — trustworthy, clean, conservative modern","결혼식 하객룩":"Wedding guest — celebratory, sophisticated color","소개팅룩":"First-date — naturally attractive, soft textures, warm colors, subtle charm","로맨틱 데이트룩":"Romantic evening — refined, rich fabrics, dinner-worthy","상견례/가족모임":"Family gathering — respectful, age-appropriate elegance","사교 모임/파티":"Social party — eye-catching, bold accessories","주말 나들이":"Weekend outing — comfortable, photo-ready, cheerful","여행지 인생샷":"Travel photogenic — backdrop-matching, SNS-worthy","꾸안꾸 데일리":"Effortless chic — basic items cleverly combined","스포티/애슬레저":"Sporty athleisure — functional, performance fabrics, dynamic","공항 패션":"Airport travel — comfort with polish, layered, wrinkle-resistant","미니멀/심플":"Minimal — capsule wardrobe, clean lines, quiet luxury","트렌디/스트릿":"Trendy street — bold graphics, sneaker culture, youth energy","직접입력":"Custom styling"}
 
 def generate_prompt_injection(metadata, stylist, fashion_db):
-    """프론트 imagePrompt에 주입할 도시+목적 차별화 블록"""
     city = metadata.get('active_city', '서울')
     purpose = metadata.get('purpose', '데일리 오피스룩')
     keywords = metadata.get('keywords_selected', [])
-    city_ctx = _CITY_FASHION.get(city, '')
-    purpose_dir = _PURPOSE_DIR.get(purpose, '')
-    kw_str = ', '.join(keywords[:8]) if keywords else ''
-    s_info = ''
-    if stylist:
-        s_info = (f"COLOR: Primary={stylist.get('color1','')}, Accent={stylist.get('color2','')}. "
-                  f"Expert: {stylist.get('career','')}")
-    return (
-        f"\n=== AI STYLIST (HIGH PRIORITY) ===\n"
-        f"CITY: {city} — {city_ctx}.\n"
-        f"PURPOSE: {purpose} — {purpose_dir}\n"
-        f"KEYWORDS: {kw_str}.\n"
-        f"{s_info}\n"
-        f"This outfit MUST reflect {city} fashion for '{purpose}'.\n"
-        f"=== END ===\n"
-    )
+    s_info = f"COLOR: Primary={stylist.get('color1','')}, Accent={stylist.get('color2','')}. Expert: {stylist.get('career','')}" if stylist else ''
+    return (f"\n=== AI STYLIST [v2026-04-06] ===\n"
+            f"CITY: {city} — {_CITY_F.get(city,'')}.\n"
+            f"PURPOSE: {purpose} — {_PURPOSE_D.get(purpose,'')}.\n"
+            f"KEYWORDS: {', '.join(keywords[:8])}.\n"
+            f"{s_info}\nThis MUST reflect {city} fashion for '{purpose}'.\n=== END ===\n")

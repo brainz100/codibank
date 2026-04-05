@@ -1399,15 +1399,9 @@ def ai_styling():
 
     payload = request.get_json(silent=True) or {}
 
-    # ═══════════════════════════════════════════════════════════
-    # ★ 9,600명 AI 스타일리스트 엔진 — 프론트 프롬프트 완전 대체
-    #
-    # [구] closet.html PERSONA_DB → imagePrompt → 서버 통과 → OpenAI
-    # [신] 서버 엔진이 목적+도시 기반 전용 프롬프트 생성 → OpenAI
-    #
-    # 엔진 성공 시: build_prompt() 자체를 건너뜀 (프론트 imagePrompt 무시)
-    # 엔진 실패 시: 기존 build_prompt() fallback
-    # ═══════════════════════════════════════════════════════════
+    # [v2026-04-06] 9,600명 AI 스타일리스트 엔진 — 프론트 프롬프트 완전 대체
+    # 구: closet.html PERSONA_DB → imagePrompt → 서버 통과 → OpenAI (목적 차별화 불가)
+    # 신: 서버 엔진이 목적+도시 기반 전용 프롬프트 생성 → OpenAI (16개 목적 완전 차별화)
     _matched_stylist = None
     _styling_story = ""
     _engine_active = False
@@ -1424,22 +1418,18 @@ def ai_styling():
             _meta = _result[5] if len(_result) > 5 else {}
 
             if _eng_prompt and len(_eng_prompt) > 100:
-                # ★ 프론트 imagePrompt 완전 무시 — 엔진 프롬프트만 사용
                 prompt = _eng_prompt
                 _engine_active = True
-
                 if _injection:
                     prompt = _injection + "\n" + prompt
-
                 _front_colors = str(payload.get("colorDirective", "")).strip()
                 if _front_colors:
                     prompt += f"\nCOLOR HINT: {_front_colors}. "
-
                 _city = _meta.get('active_city', '?')
                 _purpose = _meta.get('purpose', '?')
                 _kws = _meta.get('keywords_selected', [])
                 short = f"{_purpose} 코디 — {_city} 스타일"
-                print(f"[엔진 ✅] 도시={_city}, 목적={_purpose}, "
+                print(f"[v2026-04-06 엔진 ✅] 도시={_city}, 목적={_purpose}, "
                       f"스타일리스트={_matched_stylist.get('name','?') if _matched_stylist else '?'}, "
                       f"키워드={','.join(_kws[:3])}")
         except Exception as _se:
@@ -1448,7 +1438,7 @@ def ai_styling():
 
     if not _engine_active:
         prompt, short = build_prompt(payload)
-        print(f"[fallback] build_prompt 사용")
+        print(f"[v2026-04-06 fallback] build_prompt 사용")
 
     face_data_url = payload.get("faceImage")
     size = str(payload.get("size") or "1024x1536")
