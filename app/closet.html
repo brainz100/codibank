@@ -2537,8 +2537,8 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     pants: {
       ko:     colorNameFromHex(palette.pants) || '',
       en:     _koColorEn(colorNameFromHex(palette.pants) || ''),
-      itemKo: '하의',
-      itemEn: 'trousers',
+      itemKo: (profile?.gender === 'F' && sd % 2 === 0) ? '스커트' : '하의',
+      itemEn: (profile?.gender === 'F' && sd % 2 === 0) ? 'skirt' : 'trousers',
       kw2:    dKw2,
     },
     shoes: {
@@ -2625,7 +2625,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const colorDirective = [
     SPEC.outer.ko  ? `${SPEC.outer.itemKo}(${SPEC.outer.ko})`         : '',
     SPEC.top.ko    ? `상의(${SPEC.top.ko})`                           : '',
-    SPEC.pants.ko  ? `하의(${SPEC.pants.ko})`                        : '',
+    SPEC.pants.ko  ? `${SPEC.pants.itemKo}(${SPEC.pants.ko})`        : '',
     SPEC.shoes.ko  ? `신발(${SPEC.shoes.ko} ${SPEC.shoes.itemKo})`   : '',
     SPEC.accent.ko ? `포인트(${SPEC.accent.ko})`                     : '',
   ].filter(Boolean).join(' · ');
@@ -2977,7 +2977,42 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
       : `STRICTLY follow exact item colors below — do NOT substitute any color:`,
     (Number.isFinite(nt) && nt >= 20) ? '' : `[1] OUTERWEAR: ${SPEC.outer.en} ${SPEC.outer.itemEn} — must be ${SPEC.outer.en} colored.`,
     `[2] TOP: ${SPEC.top.en} — must be ${SPEC.top.en} colored, not white unless specified.`,
-    `[3] PANTS: ${SPEC.pants.en} FULL-LENGTH trousers — MUST be ${SPEC.pants.en} colored. Pants hem MUST reach AT or BELOW the ankle bone — resting on top of shoes. STRICTLY FORBIDDEN: cropped, 7/8, or any hem above the ankle.`,
+    // [3] 하의: 여성은 치마↔바지 교차 (seed 짝수=치마, 홀수=바지), 남성은 항상 바지
+    (()=>{
+      const isFemale = profile?.gender === 'F';
+      const wantSkirt = isFemale && (sd % 2 === 0);
+      if (wantSkirt) {
+        // 치마 — 체형별 길이 추천
+        const _bmi = (wKg && hCm) ? wKg / ((hCm/100)**2) : 22;
+        let skirtStyle = 'knee-length A-line skirt';
+        if (_bmi < 18.5) {
+          skirtStyle = hCm >= 168
+            ? 'midi-length A-line or pleated skirt, adds volume for slim tall frame'
+            : 'knee-length A-line or flared skirt, balanced silhouette for petite slim frame';
+        } else if (_bmi < 23) {
+          skirtStyle = hCm >= 168
+            ? 'midi pencil skirt or knee-length A-line, shows balanced tall proportions'
+            : 'knee-length pencil or A-line skirt, elongates legs for standard build';
+        } else if (_bmi < 25) {
+          skirtStyle = hCm >= 168
+            ? 'midi wrap skirt or below-knee A-line, flattering drape for curvy figure'
+            : 'knee-length A-line or wrap skirt, slimming effect for curvy petite frame';
+        } else {
+          skirtStyle = hCm >= 168
+            ? 'midi to long A-line skirt with high waist, flowy comfortable fit'
+            : 'knee-to-midi A-line skirt with high waist, comfortable plus-size coverage';
+        }
+        return `[3] SKIRT (CRITICAL — NOT PANTS): ${SPEC.pants.en} colored SKIRT. `
+          + `The woman MUST wear a SKIRT, absolutely NOT trousers or pants. `
+          + `Skirt style: ${skirtStyle}. `
+          + `Skirt color MUST be ${SPEC.pants.en}. `
+          + `FORBIDDEN: any type of pants, trousers, slacks, jeans.`;
+      } else {
+        return `[3] PANTS: ${SPEC.pants.en} FULL-LENGTH trousers — MUST be ${SPEC.pants.en} colored. `
+          + `Pants hem MUST reach AT or BELOW the ankle bone — resting on top of shoes. `
+          + `STRICTLY FORBIDDEN: cropped, 7/8, or any hem above the ankle.`;
+      }
+    })(),
     `[4] SHOES: ${SPEC.shoes.en} ${SPEC.shoes.itemEn} — MUST be ${SPEC.shoes.en} colored.`,
     (!_skipScarf && SPEC.accent.ko && SPEC.accent.ko!=='포인트악세서리') ? `[5] ${SPEC.accent.itemEn.toUpperCase()}: ${SPEC.accent.en} colored ${SPEC.accent.itemEn}.` : '',
     !_skipBag ? `[6] BAG: ${_extSpec.bag.en}.` : '',
