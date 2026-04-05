@@ -142,31 +142,62 @@ def calculate_bmi(height_cm, weight_kg):
 
 
 # ═══════════════════════════════════════════════════
-# 3. 여성 치마/바지 로테이션 (치마 2 : 바지 1)
+# 3. 여성 치마/바지 로테이션 — seed 기반 (다시코디마다 교차)
 # ═══════════════════════════════════════════════════
-def get_bottom_type_for_women(user_id, purpose):
+def get_bottom_type_for_women(seed=0):
     """
-    여성 하의 타입 결정: 치마 2회, 바지 1회 로테이션
-    매일 날짜 + user_id + purpose를 seed로 결정 (1일 1회 원칙)
+    여성 하의 타입: 치마 우선, 다시코디마다 교차
+    seed 0(첫 요청) = 치마
+    seed 1(다시코디 1회) = 바지
+    seed 2(다시코디 2회) = 치마
+    ...짝수 = 치마, 홀수 = 바지
     """
-    today = date.today().isoformat()
-    seed_str = f"{user_id}_{purpose}_{today}"
-    seed_hash = int(hashlib.md5(seed_str.encode()).hexdigest(), 16)
-    cycle_position = seed_hash % 3  # 0, 1, 2
+    return "skirt" if (int(seed) % 2 == 0) else "pants"
+
+
+def get_skirt_length_by_body(height_cm, weight_kg, bmi_category):
+    """BMI + 키 기반 치마 길이 & 스타일 추천"""
+    h = int(height_cm or 163)
     
-    if cycle_position < 2:
-        return "skirt"   # 0, 1 → 치마 (2/3 확률)
-    else:
-        return "pants"   # 2 → 바지 (1/3 확률)
+    if bmi_category == "underweight":
+        # 마른 체형: 볼륨 추가 — A라인, 플리츠
+        if h >= 168:
+            return "midi-length A-line or pleated skirt (below knee), adds volume and femininity"
+        else:
+            return "knee-length A-line or flared skirt, creates balanced silhouette for petite slim frame"
+    
+    elif bmi_category == "normal":
+        # 표준 체형: 다양한 스타일 가능
+        if h >= 168:
+            return "midi pencil skirt or knee-length A-line, shows off balanced proportions elegantly"
+        else:
+            return "knee-length pencil or A-line skirt, elongates legs for standard petite build"
+    
+    elif bmi_category == "overweight":
+        # 약간 통통: A라인, 랩스커트로 곡선 커버
+        if h >= 168:
+            return "midi wrap skirt or below-knee A-line, flattering drape for curvy tall figure"
+        else:
+            return "knee-length A-line or wrap skirt, slimming effect for curvy petite frame"
+    
+    elif bmi_category in ("obese1", "obese2"):
+        # 과체중/비만: 편안한 A라인, 하이웨이스트
+        if h >= 168:
+            return "midi to long A-line skirt with high waist, flowy fabric for comfortable tall plus-size fit"
+        else:
+            return "knee-to-midi A-line skirt with high waist and stretch, comfortable coverage for petite plus-size"
+    
+    # fallback
+    return "knee-length A-line skirt, universally flattering"
 
 
 # ═══════════════════════════════════════════════════
-# 4. 키워드 랜덤 선택 (1일 1회 고정)
+# 4. 키워드 랜덤 선택 — seed 기반 (다시코디마다 다른 키워드)
 # ═══════════════════════════════════════════════════
-def select_daily_keywords(keywords_str, user_id, purpose, count=8):
+def select_daily_keywords(keywords_str, user_id, purpose, count=8, retry_seed=0):
     """
-    키워드 문자열에서 1일 1회 고정 랜덤 선택
-    같은 날 같은 사용자 같은 목적이면 같은 키워드 반환
+    키워드 문자열에서 랜덤 선택
+    retry_seed가 바뀌면(다시코디) 다른 키워드 조합이 선택됨
     """
     if not keywords_str:
         return []
@@ -175,7 +206,7 @@ def select_daily_keywords(keywords_str, user_id, purpose, count=8):
     keywords = [kw.strip() for kw in keywords_str.split(',') if kw.strip()]
     
     today = date.today().isoformat()
-    seed_str = f"{user_id}_{purpose}_{today}_keywords"
+    seed_str = f"{user_id}_{purpose}_{today}_{retry_seed}_keywords"
     seed = int(hashlib.md5(seed_str.encode()).hexdigest(), 16) % (2**32)
     rng = random.Random(seed)
     
@@ -207,14 +238,22 @@ def build_styling_prompt(payload, fashion_db):
     Returns:
         prompt (str), metadata (dict)
     """
-    # ── 사용자 프로필 추출 ──
-    profile = payload.get('profile', {})
-    gender = str(profile.get('gender', 'male')).lower()
-    gender_ko = "여성" if gender in ('female', 'woman', '여성', '여자') else "남성"
+    # ── 사용자 프로필 추출 (closet.html: 'user', codistyle: 'user') ──
+    profile = payload.get('profile', {}) or payload.get('user', {}) or {}
+    gender_raw = str(profile.get('gender', 'male')).strip().lower()
+    gender_ko = "여성" if gender_raw in ('f', 'female', 'woman', '여성', '여자') else "남성"
     gender_en = "woman" if gender_ko == "여성" else "man"
-    age = profile.get('age', 30)
+    age = profile.get('age', None)
+    if not age:
+        ag = str(profile.get('ageGroup', '30대'))
+        try: age = int(''.join(c for c in ag if c.isdigit()) or '30')
+        except: age = 30
     height = profile.get('height', 170)
     weight = profile.get('weight', 65)
+    try: height = int(height) if height else 170
+    except: height = 170
+    try: weight = int(weight) if weight else 65
+    except: weight = 65
     
     # ── BMI & 체형 ──
     bmi_info = calculate_bmi(height, weight)
@@ -222,11 +261,15 @@ def build_styling_prompt(payload, fashion_db):
     # ── 날씨 ──
     weather = payload.get('weather', {})
     temp = weather.get('temp', 20)
-    condition = weather.get('condition', 'clear')
+    condition = weather.get('condition', weather.get('text', 'clear'))
     user_location = str(weather.get('location', '')).strip()
     
-    # ── 코디 목적 ──
-    purpose = payload.get('purpose', '데일리 오피스룩')
+    # ── 코디 목적 (closet: purposeKey/purposeLabel, 기본: purpose) ──
+    purpose = payload.get('purpose', '')
+    if not purpose:
+        pk = str(payload.get('purposeKey', '')).strip()
+        pl = str(payload.get('purposeLabel', '')).strip()
+        purpose = pl or pk or '데일리 오피스룩'
     purpose_info = fashion_db.get('base_prompts', {}).get(purpose, {})
     purpose_en = purpose_info.get('en', purpose)
     purpose_prompt_en = purpose_info.get('prompt_en', '')
@@ -234,12 +277,15 @@ def build_styling_prompt(payload, fashion_db):
     # ── 지역 → main/sub 도시 ──
     main_city, sub_city, region = get_main_sub_cities(user_location)
     
-    # ── main/sub 교차: 날짜 기반으로 교차 사용 ──
-    today_num = date.today().toordinal()
-    if today_num % 3 == 0:
-        active_city = sub_city  # 1/3 확률로 sub
+    # ── seed (다시코디 횟수) — 프론트에서 전달 ──
+    retry_seed = int(payload.get('seed', 0))
+    
+    # ── main/sub 교차: seed 기반 (다시코디마다 교차) ──
+    # seed 0(첫요청) = main, seed 1(다시코디) = sub, seed 2 = main, ...
+    if retry_seed % 2 == 0:
+        active_city = main_city
     else:
-        active_city = main_city  # 2/3 확률로 main
+        active_city = sub_city
     
     # ── 성별에 따른 키워드 선택 ──
     city_kw = fashion_db.get('city_keywords', {}).get(active_city, {}).get(purpose, {})
@@ -247,21 +293,21 @@ def build_styling_prompt(payload, fashion_db):
     keywords_str = city_kw.get(kw_key, '')
     
     user_id = str(profile.get('id', 'default'))
-    selected_keywords = select_daily_keywords(keywords_str, user_id, purpose, count=8)
+    selected_keywords = select_daily_keywords(keywords_str, user_id, purpose, count=8, retry_seed=retry_seed)
     
     # ── 온도 버킷 ──
-    from mock_backend_global_patch_v2 import get_temp_bucket  # 또는 인라인
     temp_bucket = _get_temp_bucket(temp)
     
-    # ── 여성 하의 타입 결정 ──
+    # ── 여성 하의 타입 결정 (seed 기반: 짝수=치마, 홀수=바지) ──
+    bottom_type = "pants"  # 남성 기본값
     if gender_ko == "여성":
-        bottom_type = get_bottom_type_for_women(user_id, purpose)
+        bottom_type = get_bottom_type_for_women(retry_seed)
         if bottom_type == "skirt":
-            skirt_guide = bmi_info.get('skirt_hint', 'knee-length A-line skirt')
+            skirt_guide = get_skirt_length_by_body(height, weight, bmi_info['category'])
             bottom_instruction = (
-                f"BOTTOM: The woman MUST wear a SKIRT (not pants). "
-                f"Skirt recommendation based on body type: {skirt_guide}. "
-                f"Skirt length should be flattering for {height}cm height. "
+                f"BOTTOM (CRITICAL): The woman MUST wear a SKIRT (NOT pants, NOT trousers). "
+                f"Skirt style and length: {skirt_guide}. "
+                f"Height {height}cm considered for proportional skirt length. "
             )
         else:
             bottom_instruction = (
@@ -529,30 +575,18 @@ if __name__ == "__main__":
 # ═══════════════════════════════════════════════════
 # 8. 개별 스타일리스트 매칭 (stylist_db_server.json 사용)
 # ═══════════════════════════════════════════════════
-def select_stylist(stylist_db, city, purpose, user_gender, user_body_type=None, user_id="default"):
+def select_stylist(stylist_db, city, purpose, user_gender, user_body_type=None, user_id="default", retry_seed=0):
     """
-    도시 → 코디목적 → 성별 풀에서 1일 1회 고정 스타일리스트 선정
-    
-    Parameters:
-        stylist_db: stylist_db_server.json 로드한 dict
-        city: 활성 도시 (main 또는 sub)
-        purpose: 코디 목적
-        user_gender: "남성" or "여성"
-        user_body_type: 사용자 체형 (매칭 우선순위용, 선택)
-        user_id: 사용자 고유 ID (1일 1회 고정용)
-    
-    Returns:
-        stylist dict or None
+    도시 → 코디목적 → 성별 풀에서 스타일리스트 선정
+    retry_seed가 바뀌면(다시코디) 다른 스타일리스트가 선정됨
     """
     gender_key = "women" if user_gender == "여성" else "men"
     
-    # 도시 → 목적 → 성별 풀 조회
     city_data = stylist_db.get(city, {})
     purpose_data = city_data.get(purpose, {})
     pool = purpose_data.get(gender_key, [])
     
     if not pool:
-        # fallback: 직접입력 풀 또는 첫번째 목적
         for fallback_purpose in [purpose, "직접입력", "데일리 오피스룩"]:
             pool = city_data.get(fallback_purpose, {}).get(gender_key, [])
             if pool:
@@ -561,15 +595,15 @@ def select_stylist(stylist_db, city, purpose, user_gender, user_body_type=None, 
     if not pool:
         return None
     
-    # 체형 매칭 우선: 사용자 체형과 동일한 전문가 우선 선별
+    # 체형 매칭 우선
     if user_body_type:
         matched_pool = [s for s in pool if user_body_type in s.get("bodyType", "")]
         if matched_pool and len(matched_pool) >= 3:
             pool = matched_pool
     
-    # 1일 1회 고정 선정 (날짜 + user_id + 목적 기반 seed)
+    # seed 기반 선정 (다시코디마다 다른 스타일리스트)
     today = date.today().isoformat()
-    seed_str = f"{user_id}_{city}_{purpose}_{today}_stylist"
+    seed_str = f"{user_id}_{city}_{purpose}_{today}_{retry_seed}_stylist"
     seed = int(hashlib.md5(seed_str.encode()).hexdigest(), 16) % (2**32)
     rng = random.Random(seed)
     
@@ -650,15 +684,18 @@ def process_styling_request(payload, fashion_db, stylist_db):
     
     # 2. 개별 스타일리스트 매칭
     profile = payload.get('profile', {})
-    user_id = str(profile.get('id', 'default'))
+    if not profile:
+        profile = payload.get('user', {})
+    user_id = str(profile.get('id', profile.get('email', 'default')))
     user_gender = metadata['gender_ko']
     user_body = metadata['bmi']['ko']
     active_city = metadata['active_city']
     purpose = metadata['purpose']
+    retry_seed = int(payload.get('seed', 0))
     
     stylist = select_stylist(
         stylist_db, active_city, purpose,
-        user_gender, user_body, user_id
+        user_gender, user_body, user_id, retry_seed=retry_seed
     )
     
     # 3. 스타일리스트 컬러를 프롬프트에 반영
