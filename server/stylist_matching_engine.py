@@ -145,60 +145,33 @@ def calculate_bmi(height_cm, weight_kg):
 # 3. 여성 치마/바지 로테이션 — seed 기반 (다시코디마다 교차)
 # ═══════════════════════════════════════════════════
 def get_bottom_type_for_women(seed=0):
-    """
-    여성 하의 타입: 치마 우선, 다시코디마다 교차
-    seed 0(첫 요청) = 치마
-    seed 1(다시코디 1회) = 바지
-    seed 2(다시코디 2회) = 치마
-    ...짝수 = 치마, 홀수 = 바지
-    """
+    """짝수 seed = 치마, 홀수 seed = 바지"""
     return "skirt" if (int(seed) % 2 == 0) else "pants"
 
 
 def get_skirt_length_by_body(height_cm, weight_kg, bmi_category):
     """BMI + 키 기반 치마 길이 & 스타일 추천"""
     h = int(height_cm or 163)
-    
     if bmi_category == "underweight":
-        # 마른 체형: 볼륨 추가 — A라인, 플리츠
-        if h >= 168:
-            return "midi-length A-line or pleated skirt (below knee), adds volume and femininity"
-        else:
-            return "knee-length A-line or flared skirt, creates balanced silhouette for petite slim frame"
-    
+        return ("midi-length A-line or pleated skirt, adds volume" if h >= 168
+                else "knee-length A-line or flared skirt, balanced silhouette for petite slim frame")
     elif bmi_category == "normal":
-        # 표준 체형: 다양한 스타일 가능
-        if h >= 168:
-            return "midi pencil skirt or knee-length A-line, shows off balanced proportions elegantly"
-        else:
-            return "knee-length pencil or A-line skirt, elongates legs for standard petite build"
-    
+        return ("midi pencil skirt or knee-length A-line, balanced tall proportions" if h >= 168
+                else "knee-length pencil or A-line skirt, elongates legs for standard build")
     elif bmi_category == "overweight":
-        # 약간 통통: A라인, 랩스커트로 곡선 커버
-        if h >= 168:
-            return "midi wrap skirt or below-knee A-line, flattering drape for curvy tall figure"
-        else:
-            return "knee-length A-line or wrap skirt, slimming effect for curvy petite frame"
-    
+        return ("midi wrap skirt or below-knee A-line, flattering drape" if h >= 168
+                else "knee-length A-line or wrap skirt, slimming effect for curvy petite frame")
     elif bmi_category in ("obese1", "obese2"):
-        # 과체중/비만: 편안한 A라인, 하이웨이스트
-        if h >= 168:
-            return "midi to long A-line skirt with high waist, flowy fabric for comfortable tall plus-size fit"
-        else:
-            return "knee-to-midi A-line skirt with high waist and stretch, comfortable coverage for petite plus-size"
-    
-    # fallback
+        return ("midi to long A-line skirt with high waist, flowy comfortable fit" if h >= 168
+                else "knee-to-midi A-line skirt with high waist and stretch, comfortable coverage")
     return "knee-length A-line skirt, universally flattering"
 
 
 # ═══════════════════════════════════════════════════
-# 4. 키워드 랜덤 선택 — seed 기반 (다시코디마다 다른 키워드)
+# 4. 키워드 랜덤 선택 — seed 기반
 # ═══════════════════════════════════════════════════
 def select_daily_keywords(keywords_str, user_id, purpose, count=8, retry_seed=0):
-    """
-    키워드 문자열에서 랜덤 선택
-    retry_seed가 바뀌면(다시코디) 다른 키워드 조합이 선택됨
-    """
+    """retry_seed가 바뀌면 다른 키워드 조합 선택"""
     if not keywords_str:
         return []
     
@@ -238,7 +211,7 @@ def build_styling_prompt(payload, fashion_db):
     Returns:
         prompt (str), metadata (dict)
     """
-    # ── 사용자 프로필 추출 (closet.html: 'user', codistyle: 'user') ──
+    # ── 사용자 프로필 추출 (closet.html: 'user' 키, gender: M/F) ──
     profile = payload.get('profile', {}) or payload.get('user', {}) or {}
     gender_raw = str(profile.get('gender', 'male')).strip().lower()
     gender_ko = "여성" if gender_raw in ('f', 'female', 'woman', '여성', '여자') else "남성"
@@ -264,7 +237,7 @@ def build_styling_prompt(payload, fashion_db):
     condition = weather.get('condition', weather.get('text', 'clear'))
     user_location = str(weather.get('location', '')).strip()
     
-    # ── 코디 목적 (closet: purposeKey/purposeLabel, 기본: purpose) ──
+    # ── 코디 목적 (closet.html: purposeKey/purposeLabel, 기본: purpose) ──
     purpose = payload.get('purpose', '')
     if not purpose:
         pk = str(payload.get('purposeKey', '')).strip()
@@ -281,7 +254,6 @@ def build_styling_prompt(payload, fashion_db):
     retry_seed = int(payload.get('seed', 0))
     
     # ── main/sub 교차: seed 기반 (다시코디마다 교차) ──
-    # seed 0(첫요청) = main, seed 1(다시코디) = sub, seed 2 = main, ...
     if retry_seed % 2 == 0:
         active_city = main_city
     else:
@@ -292,22 +264,22 @@ def build_styling_prompt(payload, fashion_db):
     kw_key = "women" if gender_ko == "여성" else "men"
     keywords_str = city_kw.get(kw_key, '')
     
-    user_id = str(profile.get('id', 'default'))
+    user_id = str(profile.get('id', profile.get('email', 'default')))
     selected_keywords = select_daily_keywords(keywords_str, user_id, purpose, count=8, retry_seed=retry_seed)
     
     # ── 온도 버킷 ──
     temp_bucket = _get_temp_bucket(temp)
     
     # ── 여성 하의 타입 결정 (seed 기반: 짝수=치마, 홀수=바지) ──
-    bottom_type = "pants"  # 남성 기본값
+    bottom_type = "pants"
     if gender_ko == "여성":
         bottom_type = get_bottom_type_for_women(retry_seed)
         if bottom_type == "skirt":
             skirt_guide = get_skirt_length_by_body(height, weight, bmi_info['category'])
             bottom_instruction = (
-                f"BOTTOM (CRITICAL): The woman MUST wear a SKIRT (NOT pants, NOT trousers). "
-                f"Skirt style and length: {skirt_guide}. "
-                f"Height {height}cm considered for proportional skirt length. "
+                f"BOTTOM (CRITICAL): The woman MUST wear a SKIRT (NOT pants). "
+                f"Skirt style: {skirt_guide}. "
+                f"Height {height}cm considered. "
             )
         else:
             bottom_instruction = (
@@ -576,10 +548,7 @@ if __name__ == "__main__":
 # 8. 개별 스타일리스트 매칭 (stylist_db_server.json 사용)
 # ═══════════════════════════════════════════════════
 def select_stylist(stylist_db, city, purpose, user_gender, user_body_type=None, user_id="default", retry_seed=0):
-    """
-    도시 → 코디목적 → 성별 풀에서 스타일리스트 선정
-    retry_seed가 바뀌면(다시코디) 다른 스타일리스트가 선정됨
-    """
+    """도시 → 코디목적 → 성별 풀에서 스타일리스트 선정 (retry마다 다른 사람)"""
     gender_key = "women" if user_gender == "여성" else "men"
     
     city_data = stylist_db.get(city, {})
@@ -595,13 +564,11 @@ def select_stylist(stylist_db, city, purpose, user_gender, user_body_type=None, 
     if not pool:
         return None
     
-    # 체형 매칭 우선
     if user_body_type:
         matched_pool = [s for s in pool if user_body_type in s.get("bodyType", "")]
         if matched_pool and len(matched_pool) >= 3:
             pool = matched_pool
     
-    # seed 기반 선정 (다시코디마다 다른 스타일리스트)
     today = date.today().isoformat()
     seed_str = f"{user_id}_{city}_{purpose}_{today}_{retry_seed}_stylist"
     seed = int(hashlib.md5(seed_str.encode()).hexdigest(), 16) % (2**32)
@@ -683,9 +650,7 @@ def process_styling_request(payload, fashion_db, stylist_db):
     prompt, metadata = build_styling_prompt(payload, fashion_db)
     
     # 2. 개별 스타일리스트 매칭
-    profile = payload.get('profile', {})
-    if not profile:
-        profile = payload.get('user', {})
+    profile = payload.get('profile', {}) or payload.get('user', {}) or {}
     user_id = str(profile.get('id', profile.get('email', 'default')))
     user_gender = metadata['gender_ko']
     user_body = metadata['bmi']['ko']
@@ -708,10 +673,91 @@ def process_styling_request(payload, fashion_db, stylist_db):
         )
         prompt += color_addition
     
-    # 4. 통합 스토리 생성
+    # 4. 프롬프트 주입 블록 생성 (프론트 imagePrompt에 삽입용)
+    injection = generate_prompt_injection(metadata, stylist, fashion_db)
+    
+    # 5. 통합 스토리 생성
     story = generate_full_story(metadata, stylist, active_city)
     
-    # 5. AI 모델 분기
+    # 6. AI 모델 분기
     model_type = "gemini" if metadata['has_face'] else "dalle"
     
-    return prompt, story, model_type, stylist
+    return prompt, story, model_type, stylist, injection, metadata
+
+
+# ═══════════════════════════════════════════════════
+# 10. 프롬프트 주입 블록 생성 (imagePrompt에 삽입)
+#     ★ 핵심: 프론트엔드가 만든 imagePrompt에 도시+목적+스타일리스트 차별화를 강제 주입
+# ═══════════════════════════════════════════════════
+_CITY_FASHION_CONTEXT = {
+    "서울": "Korean K-fashion: clean modern silhouettes, layered styling, trendy color coordination, minimalist aesthetic with street-smart edge",
+    "뉴욕": "New York urban style: high-low brand mixing, versatile city-ready outfits, practical yet fashion-forward, street-smart confidence",
+    "파리": "Parisian effortless chic: understated elegance, neutral tones with one subtle accent, quality fabrics, less-is-more sophistication",
+    "런던": "London heritage-meets-modern: tailored layers, eclectic texture mixing, weather-adaptive dressing, Savile Row influence",
+    "상파울루": "São Paulo vibrant tropical: bold colors, lightweight breathable fabrics, casual-smart fusion, cultural diversity in pattern and texture",
+    "두바이": "Dubai smart luxury: premium fabrics, modest yet elegant silhouettes, international cosmopolitan polish, desert-climate appropriate",
+    "밀라노": "Milan Italian craftsmanship: unstructured soft-shoulder tailoring, rich textures, artisan details, effortless luxury and Sprezzatura",
+}
+
+_PURPOSE_STYLING_DIRECTION = {
+    "비즈니스 포멀": "Sharp professional power look — structured tailoring, premium fabrics, authoritative silhouette. Think boardroom-ready confidence.",
+    "데일리 오피스룩": "Smart-casual office wear — polished but comfortable, versatile desk-to-meeting transition. Not too formal, not too relaxed.",
+    "면접룩": "First-impression interview outfit — trustworthy, clean, conservative but modern. Neat lines, neutral tones, zero distractions.",
+    "결혼식 하객룩": "Wedding guest elegance — celebratory but respectful, sophisticated color choice, upscale accessories. Never upstage the couple.",
+    "소개팅룩": "Approachable first-date style — naturally attractive without trying too hard, soft textures, warm colors, subtle charm. Casual yet put-together.",
+    "로맨틱 데이트룩": "Romantic evening look — refined and memorable, rich fabrics, deeper tones, statement accessories. Dinner-worthy sophistication.",
+    "상견례/가족모임": "Formal family gathering — respectful and proper, age-appropriate elegance, traditional undertones with modern cut. Earn approval.",
+    "사교 모임/파티": "Social party glamour — eye-catching but tasteful, bold accessories, confident silhouette. Stand out in the crowd.",
+    "주말 나들이": "Weekend outing casual — comfortable and photo-ready, relaxed fabrics, cheerful colors, easy layering for walking and cafes.",
+    "여행지 인생샷": "Travel photogenic outfit — backdrop-matching colors, flowing silhouettes, SNS-worthy styling. Every photo becomes a keepsake.",
+    "꾸안꾸 데일리": "Effortless chic daily — looks styled without effort, basic items combined cleverly, neutral palette, normcore meets sophistication.",
+    "스포티/애슬레저": "Sporty athleisure — functional meets fashionable, performance fabrics, dynamic silhouettes, gym-to-street seamless transition.",
+    "공항 패션": "Airport travel style — comfort-first with polish, layered for temperature changes, slip-on shoes, wrinkle-resistant fabrics. Arrive looking fresh.",
+    "미니멀/심플": "Minimal simplicity — capsule wardrobe philosophy, clean lines, monochrome or tonal dressing, zero unnecessary elements. Quiet luxury.",
+    "트렌디/스트릿": "Trendy street fashion — latest subculture influences, bold graphics, sneaker culture, vintage mixing, youth energy and attitude.",
+    "직접입력": "Custom user-defined styling — adapt fully to the user's specific request while maintaining professional quality.",
+}
+
+def generate_prompt_injection(metadata, stylist, fashion_db):
+    """
+    프론트엔드 imagePrompt에 주입할 강력한 차별화 블록 생성
+    
+    이 블록이 있어야:
+    - 소개팅룩과 공항패션이 다르게 생성됨
+    - 서울 스타일과 뉴욕 스타일이 다르게 생성됨
+    - 매칭된 스타일리스트의 색감이 반영됨
+    """
+    city = metadata.get('active_city', '서울')
+    purpose = metadata.get('purpose', '데일리 오피스룩')
+    keywords = metadata.get('keywords_selected', [])
+    
+    # 도시 패션 컨텍스트
+    city_context = _CITY_FASHION_CONTEXT.get(city, _CITY_FASHION_CONTEXT.get('서울', ''))
+    
+    # 목적별 스타일링 방향
+    purpose_direction = _PURPOSE_STYLING_DIRECTION.get(purpose, '')
+    
+    # 키워드 (도시×목적×성별에서 선정된 것)
+    kw_str = ', '.join(keywords[:8]) if keywords else ''
+    
+    # 스타일리스트 컬러
+    s_color = ''
+    s_career = ''
+    if stylist:
+        s_color = f"Primary color tone: {stylist.get('color1','')}. Accent: {stylist.get('color2','')}."
+        s_career = f"Stylist expertise: {stylist.get('career','')}"
+    
+    injection = (
+        f"\n\n=== AI STYLIST DIRECTION (HIGH PRIORITY — MUST OVERRIDE GENERIC STYLING) ===\n"
+        f"FASHION CITY BASE: {city} — {city_context}.\n"
+        f"PURPOSE-SPECIFIC DIRECTION: {purpose} — {purpose_direction}\n"
+        f"STYLING KEYWORDS (MUST incorporate at least 3 of these into the outfit): {kw_str}.\n"
+        f"COLOR DIRECTION: {s_color}\n"
+        f"{s_career}\n"
+        f"IMPORTANT: This outfit must clearly reflect {city} fashion sensibility for '{purpose}' purpose. "
+        f"A {purpose} outfit styled in {city} fashion MUST look distinctly different from a generic outfit. "
+        f"The keywords above define the specific items, textures, and mood — follow them closely.\n"
+        f"=== END STYLIST DIRECTION ===\n"
+    )
+    
+    return injection

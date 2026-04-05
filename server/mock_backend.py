@@ -1401,25 +1401,33 @@ def ai_styling():
 
     prompt, short = build_prompt(payload)
 
-    # ── 스타일리스트 매칭 엔진 (설치되어 있을 때만 활성화) ──
+    # ── 스타일리스트 매칭 엔진 (9,600명 DB 기반 — 도시+목적 차별화) ──
     _matched_stylist = None
     _styling_story = ""
     if _STYLIST_ENGINE and _FASHION_DB and _STYLIST_DB:
         try:
-            _eng_prompt, _eng_story, _eng_model, _matched_stylist = _STYLIST_ENGINE(
-                payload, _FASHION_DB, _STYLIST_DB
-            )
-            _styling_story = _eng_story or ""
-            # 스타일리스트 컬러를 기존 프롬프트에 추가 (기존 프롬프트를 덮어쓰지 않음)
-            if _matched_stylist:
-                _color_add = (
-                    f" STYLIST COLOR: Primary={_matched_stylist.get('color1','')}, "
-                    f"Accent={_matched_stylist.get('color2','')}. "
-                    f"Incorporate naturally. "
-                )
-                prompt += _color_add
+            _result = _STYLIST_ENGINE(payload, _FASHION_DB, _STYLIST_DB)
+            # 반환값: (prompt, story, model_type, stylist, injection, metadata)
+            _eng_prompt = _result[0]
+            _styling_story = _result[1] or ""
+            _matched_stylist = _result[3]
+            _injection = _result[4] if len(_result) > 4 else ""
+            _meta = _result[5] if len(_result) > 5 else {}
+
+            # ★ 핵심: 도시+목적+스타일리스트 차별화를 프롬프트 앞에 강하게 주입
+            # 이것이 없으면 소개팅/공항패션/스포츠 등이 모두 비슷하게 생성됨
+            if _injection:
+                prompt = _injection + "\n" + prompt
+                _city = _meta.get('active_city', '?')
+                _purpose = _meta.get('purpose', '?')
+                _kws = _meta.get('keywords_selected', [])
+                print(f"[스타일리스트] 도시={_city}, 목적={_purpose}, "
+                      f"스타일리스트={_matched_stylist.get('name','?') if _matched_stylist else '?'}, "
+                      f"키워드={','.join(_kws[:3])}...")
+
         except Exception as _se:
             print(f"[스타일리스트 매칭] 오류 (기존 로직으로 진행): {_se}")
+            import traceback; traceback.print_exc()
 
     face_data_url = payload.get("faceImage")
     size = str(payload.get("size") or "1024x1536")
