@@ -265,7 +265,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       - "추천 스타일링" 박스가 이미지 생성 전/후에도 동일한 공간을 차지하도록 고정(레이아웃 점프 제거)
       - overlay/canvas는 absolute로 올리고, wrap 자체에 aspect-ratio를 부여
     */
-    .vto-wrap{position:relative;border-radius:16px;overflow:hidden;background:#050f2a;border:1px solid rgba(151,254,237,0.18);aspect-ratio:1/1.6;min-height:380px;}
+    .vto-wrap{position:relative;border-radius:16px;overflow:hidden;background:#050f2a;border:1px solid rgba(151,254,237,0.18);aspect-ratio:1/1.62;min-height:380px;}
     .vto-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
     .vto-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#050f2a;}
     /* === 다시 코디(리프레시) 오버레이 === */
@@ -576,7 +576,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .vto-wrap-dark{
   border-radius:1.75rem;overflow:hidden;
   border:1px solid rgba(151,254,237,.18);
-  aspect-ratio:2/3;min-height:380px;position:relative;
+  aspect-ratio:1/1.62;min-height:380px;position:relative;
   background:#050f2a;
 }
 .vto-wrap-dark 
@@ -615,7 +615,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   border-radius:14px;
   overflow:hidden;
 }
-.vto-result-box{width:100%;aspect-ratio:1/1.6;border-radius:16px;overflow:hidden;background:#050f2a;position:relative;display:flex;align-items:center;justify-content:center;}
+.vto-result-box{width:100%;aspect-ratio:1/1.62;border-radius:16px;overflow:hidden;background:#050f2a;position:relative;display:flex;align-items:center;justify-content:center;}
 .vto-img-spin{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;position:absolute;inset:0;}
 .vto-spin-txt{font-size:12px;color:rgba(162,253,240,0.45);text-align:center;line-height:1.7;padding:0 20px;}
 /* codibank 레인보우 텍스트 — 코디하기 동일 */
@@ -1856,11 +1856,10 @@ function buildMatchPairsFromPalette(palette, temp){
     { key: 'pants', color: colorNameFromHex(palette?.pants) },
     { key: 'shoes', color: colorNameFromHex(palette?.shoes) },
   ];
-  // 목도리/스카프: 온도 기반 추천 (여자 13도 미만, 남자 8도 미만)
-  const _isFPal = (user?.gender === 'F');
-  const _tPal = Number.isFinite(t) ? t : 20;
-  const _showScarfPal = _isFPal ? (_tPal < 13) : (_tPal < 8);
-  if (_showScarfPal) {
+  // 목도리: 0도 이하 + 겨울(12~2월)에만 팔레트에 추가
+  const _cmPal = new Date().getMonth() + 1;
+  const _isWinterPal = (_cmPal === 12 || _cmPal === 1 || _cmPal === 2);
+  if (Number.isFinite(t) && t <= 0 && _isWinterPal) {
     pairs.push({ key: 'scarf', color: colorNameFromHex(palette?.accent) || '' });
   }
   return pairs.map(p=>({
@@ -2538,8 +2537,8 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     pants: {
       ko:     colorNameFromHex(palette.pants) || '',
       en:     _koColorEn(colorNameFromHex(palette.pants) || ''),
-      itemKo: (profile?.gender === 'F' && sd % 2 === 0) ? '스커트' : '하의',
-      itemEn: (profile?.gender === 'F' && sd % 2 === 0) ? 'skirt' : 'trousers',
+      itemKo: '하의',
+      itemEn: 'trousers',
       kw2:    dKw2,
     },
     shoes: {
@@ -2549,26 +2548,16 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
       itemEn: _koShoeEn(persona.shoe),
     },
     accent: (() => {
-      // ── 목도리/스카프 추천 기준 (2026-04 신규) ──
-      // 여자: 13도↑ 금지, 8~12도 실크스카프, 1~7도 코튼스카프, 0~-9도 캐시미어목도리, -10도↓ 울목도리
-      // 남자: 8도↑ 금지, 1~7도 코튼/캐시미어 얇은 목도리, 0도↓ 두꺼운 울목도리
+      // 목도리: 0도 이하 + 12~2월에만
+      // 스카프: 여성에게만 랜덤으로
+      const _cm = new Date().getMonth() + 1;
+      const _isW = (_cm === 12 || _cm === 1 || _cm === 2);
       const _isFemale = profile?.gender === 'F';
-      const _t = Number.isFinite(nt) ? nt : 20;
-      let _itemKo = '', _itemEn = '', _should = false;
-
-      if (_isFemale) {
-        if (_t >= 13) { _should = false; }
-        else if (_t >= 8)  { _should = true; _itemKo = '실크 스카프'; _itemEn = 'silk lightweight scarf'; }
-        else if (_t >= 1)  { _should = true; _itemKo = '코튼 스카프'; _itemEn = 'cotton linen scarf'; }
-        else if (_t >= -9) { _should = true; _itemKo = '캐시미어 목도리'; _itemEn = 'cashmere muffler'; }
-        else               { _should = true; _itemKo = '두꺼운 울 목도리'; _itemEn = 'thick wool muffler'; }
-      } else {
-        if (_t >= 8) { _should = false; }
-        else if (_t >= 1)  { _should = true; _itemKo = '코튼 캐시미어 목도리'; _itemEn = 'cotton cashmere light muffler'; }
-        else               { _should = true; _itemKo = '두꺼운 울 목도리'; _itemEn = 'thick wool muffler'; }
-      }
-
-      if (!_should) return { ko:'', en:'', itemKo:'', itemEn:'', kw3:dKw3 };
+      const _shouldMuffler = Number.isFinite(nt) && nt <= 0 && _isW;
+      const _shouldScarf = _isFemale && Math.random() > 0.5;
+      if (!_shouldMuffler && !_shouldScarf) return { ko:'', en:'', itemKo:'', itemEn:'', kw3:dKw3 };
+      const _itemKo = _shouldMuffler ? '머플러' : '스카프';
+      const _itemEn = _shouldMuffler ? 'muffler' : 'lightweight scarf';
       return {
         ko:     palette.accent ? (colorNameFromHex(palette.accent) || '') : '',
         en:     palette.accent ? _koColorEn(colorNameFromHex(palette.accent) || '') : '',
@@ -2636,7 +2625,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const colorDirective = [
     SPEC.outer.ko  ? `${SPEC.outer.itemKo}(${SPEC.outer.ko})`         : '',
     SPEC.top.ko    ? `상의(${SPEC.top.ko})`                           : '',
-    SPEC.pants.ko  ? `${SPEC.pants.itemKo}(${SPEC.pants.ko})`        : '',
+    SPEC.pants.ko  ? `하의(${SPEC.pants.ko})`                        : '',
     SPEC.shoes.ko  ? `신발(${SPEC.shoes.ko} ${SPEC.shoes.itemKo})`   : '',
     SPEC.accent.ko ? `포인트(${SPEC.accent.ko})`                     : '',
   ].filter(Boolean).join(' · ');
@@ -2877,11 +2866,13 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   // ══════════════════════════════════════════════════════════════
   // 페르소나별 악세서리 변동
   const _skipBag = (personaIdx % 3 === 2) || Math.random() > 0.6;
-  // 목도리/스카프: 온도 기반 추천 (여자 13도↑ 금지, 남자 8도↑ 금지)
+  // 목도리: 0도 이하 + 12~2월 / 스카프: 여성만 랜덤
+  const _currentMonth = new Date().getMonth() + 1;
+  const _isWinterMonth = (_currentMonth === 12 || _currentMonth === 1 || _currentMonth === 2);
   const _isFemaleAcc = profile?.gender === 'F';
-  const _scarfTemp = Number.isFinite(nt) ? nt : 20;
-  const _hasScarfOrMuffler = _isFemaleAcc ? (_scarfTemp < 13) : (_scarfTemp < 8);
-  const _skipScarf = !_hasScarfOrMuffler;
+  const _hasMuffler = Number.isFinite(nt) && nt <= 0 && _isWinterMonth;
+  const _hasScarf = _isFemaleAcc && Math.random() > 0.5;
+  const _skipScarf = !(_hasMuffler || _hasScarf);
   const _skipWatch = (personaIdx % 4 !== 0);
 
   const _cCat = (koColor, itemKo) => {
@@ -2986,42 +2977,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
       : `STRICTLY follow exact item colors below — do NOT substitute any color:`,
     (Number.isFinite(nt) && nt >= 20) ? '' : `[1] OUTERWEAR: ${SPEC.outer.en} ${SPEC.outer.itemEn} — must be ${SPEC.outer.en} colored.`,
     `[2] TOP: ${SPEC.top.en} — must be ${SPEC.top.en} colored, not white unless specified.`,
-    // [3] 하의: 여성은 치마↔바지 교차 (seed 짝수=치마, 홀수=바지), 남성은 항상 바지
-    (()=>{
-      const isFemale = profile?.gender === 'F';
-      const wantSkirt = isFemale && (sd % 2 === 0);
-      if (wantSkirt) {
-        // 치마 — 체형별 길이 추천
-        const _bmi = (wKg && hCm) ? wKg / ((hCm/100)**2) : 22;
-        let skirtStyle = 'knee-length A-line skirt';
-        if (_bmi < 18.5) {
-          skirtStyle = hCm >= 168
-            ? 'midi-length A-line or pleated skirt, adds volume for slim tall frame'
-            : 'knee-length A-line or flared skirt, balanced silhouette for petite slim frame';
-        } else if (_bmi < 23) {
-          skirtStyle = hCm >= 168
-            ? 'midi pencil skirt or knee-length A-line, shows balanced tall proportions'
-            : 'knee-length pencil or A-line skirt, elongates legs for standard build';
-        } else if (_bmi < 25) {
-          skirtStyle = hCm >= 168
-            ? 'midi wrap skirt or below-knee A-line, flattering drape for curvy figure'
-            : 'knee-length A-line or wrap skirt, slimming effect for curvy petite frame';
-        } else {
-          skirtStyle = hCm >= 168
-            ? 'midi to long A-line skirt with high waist, flowy comfortable fit'
-            : 'knee-to-midi A-line skirt with high waist, comfortable plus-size coverage';
-        }
-        return `[3] SKIRT (CRITICAL — NOT PANTS): ${SPEC.pants.en} colored SKIRT. `
-          + `The woman MUST wear a SKIRT, absolutely NOT trousers or pants. `
-          + `Skirt style: ${skirtStyle}. `
-          + `Skirt color MUST be ${SPEC.pants.en}. `
-          + `FORBIDDEN: any type of pants, trousers, slacks, jeans.`;
-      } else {
-        return `[3] PANTS: ${SPEC.pants.en} FULL-LENGTH trousers — MUST be ${SPEC.pants.en} colored. `
-          + `Pants hem MUST reach AT or BELOW the ankle bone — resting on top of shoes. `
-          + `STRICTLY FORBIDDEN: cropped, 7/8, or any hem above the ankle.`;
-      }
-    })(),
+    `[3] PANTS: ${SPEC.pants.en} FULL-LENGTH trousers — MUST be ${SPEC.pants.en} colored. Pants hem MUST reach AT or BELOW the ankle bone — resting on top of shoes. STRICTLY FORBIDDEN: cropped, 7/8, or any hem above the ankle.`,
     `[4] SHOES: ${SPEC.shoes.en} ${SPEC.shoes.itemEn} — MUST be ${SPEC.shoes.en} colored.`,
     (!_skipScarf && SPEC.accent.ko && SPEC.accent.ko!=='포인트악세서리') ? `[5] ${SPEC.accent.itemEn.toUpperCase()}: ${SPEC.accent.en} colored ${SPEC.accent.itemEn}.` : '',
     !_skipBag ? `[6] BAG: ${_extSpec.bag.en}.` : '',
@@ -3656,7 +3612,7 @@ async function updateVTO(opts={}){
     const _fbWatchMap = {commute:'슬림 메탈시계',business:'클래식 시계',social:'트렌디 시계',weekendOut:'캐주얼 시계',weekendTrip:'스마트워치',overseasTrip:'여행용 시계',meet:'심플 시계'};
     const _fbSocksMap = {commute:'앵클삭스',business:'드레스삭스',social:'포인트삭스',weekendOut:'스니커삭스',weekendTrip:'쿠션삭스',overseasTrip:'여행삭스',meet:'앵클삭스'};
     S.outerLabel = _fbOuterLabel;
-    // 폴백: 악세서리는 조건부 (여자 13도 미만 / 남자 8도 미만 시 추천)
+    // 폴백: 악세서리는 조건부 (목도리: 0도이하+겨울 / 스카프: 여성만)
     const _fbMonth = new Date().getMonth() + 1;
     const _fbIsWinter = (_fbMonth === 12 || _fbMonth === 1 || _fbMonth === 2);
     const _fbIsFemale = (String(user?.gender||'').toLowerCase()==='female' || user?.gender==='F');
