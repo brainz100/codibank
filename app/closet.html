@@ -1856,10 +1856,11 @@ function buildMatchPairsFromPalette(palette, temp){
     { key: 'pants', color: colorNameFromHex(palette?.pants) },
     { key: 'shoes', color: colorNameFromHex(palette?.shoes) },
   ];
-  // 목도리: 0도 이하 + 겨울(12~2월)에만 팔레트에 추가
-  const _cmPal = new Date().getMonth() + 1;
-  const _isWinterPal = (_cmPal === 12 || _cmPal === 1 || _cmPal === 2);
-  if (Number.isFinite(t) && t <= 0 && _isWinterPal) {
+  // 목도리/스카프: 온도 기반 추천 (여자 13도 미만, 남자 8도 미만)
+  const _isFPal = (user?.gender === 'F');
+  const _tPal = Number.isFinite(t) ? t : 20;
+  const _showScarfPal = _isFPal ? (_tPal < 13) : (_tPal < 8);
+  if (_showScarfPal) {
     pairs.push({ key: 'scarf', color: colorNameFromHex(palette?.accent) || '' });
   }
   return pairs.map(p=>({
@@ -2548,16 +2549,26 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
       itemEn: _koShoeEn(persona.shoe),
     },
     accent: (() => {
-      // 목도리: 0도 이하 + 12~2월에만
-      // 스카프: 여성에게만 랜덤으로
-      const _cm = new Date().getMonth() + 1;
-      const _isW = (_cm === 12 || _cm === 1 || _cm === 2);
+      // ── 목도리/스카프 추천 기준 (2026-04 신규) ──
+      // 여자: 13도↑ 금지, 8~12도 실크스카프, 1~7도 코튼스카프, 0~-9도 캐시미어목도리, -10도↓ 울목도리
+      // 남자: 8도↑ 금지, 1~7도 코튼/캐시미어 얇은 목도리, 0도↓ 두꺼운 울목도리
       const _isFemale = profile?.gender === 'F';
-      const _shouldMuffler = Number.isFinite(nt) && nt <= 0 && _isW;
-      const _shouldScarf = _isFemale && Math.random() > 0.5;
-      if (!_shouldMuffler && !_shouldScarf) return { ko:'', en:'', itemKo:'', itemEn:'', kw3:dKw3 };
-      const _itemKo = _shouldMuffler ? '머플러' : '스카프';
-      const _itemEn = _shouldMuffler ? 'muffler' : 'lightweight scarf';
+      const _t = Number.isFinite(nt) ? nt : 20;
+      let _itemKo = '', _itemEn = '', _should = false;
+
+      if (_isFemale) {
+        if (_t >= 13) { _should = false; }
+        else if (_t >= 8)  { _should = true; _itemKo = '실크 스카프'; _itemEn = 'silk lightweight scarf'; }
+        else if (_t >= 1)  { _should = true; _itemKo = '코튼 스카프'; _itemEn = 'cotton linen scarf'; }
+        else if (_t >= -9) { _should = true; _itemKo = '캐시미어 목도리'; _itemEn = 'cashmere muffler'; }
+        else               { _should = true; _itemKo = '두꺼운 울 목도리'; _itemEn = 'thick wool muffler'; }
+      } else {
+        if (_t >= 8) { _should = false; }
+        else if (_t >= 1)  { _should = true; _itemKo = '코튼 캐시미어 목도리'; _itemEn = 'cotton cashmere light muffler'; }
+        else               { _should = true; _itemKo = '두꺼운 울 목도리'; _itemEn = 'thick wool muffler'; }
+      }
+
+      if (!_should) return { ko:'', en:'', itemKo:'', itemEn:'', kw3:dKw3 };
       return {
         ko:     palette.accent ? (colorNameFromHex(palette.accent) || '') : '',
         en:     palette.accent ? _koColorEn(colorNameFromHex(palette.accent) || '') : '',
@@ -2866,13 +2877,11 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   // ══════════════════════════════════════════════════════════════
   // 페르소나별 악세서리 변동
   const _skipBag = (personaIdx % 3 === 2) || Math.random() > 0.6;
-  // 목도리: 0도 이하 + 12~2월 / 스카프: 여성만 랜덤
-  const _currentMonth = new Date().getMonth() + 1;
-  const _isWinterMonth = (_currentMonth === 12 || _currentMonth === 1 || _currentMonth === 2);
+  // 목도리/스카프: 온도 기반 추천 (여자 13도↑ 금지, 남자 8도↑ 금지)
   const _isFemaleAcc = profile?.gender === 'F';
-  const _hasMuffler = Number.isFinite(nt) && nt <= 0 && _isWinterMonth;
-  const _hasScarf = _isFemaleAcc && Math.random() > 0.5;
-  const _skipScarf = !(_hasMuffler || _hasScarf);
+  const _scarfTemp = Number.isFinite(nt) ? nt : 20;
+  const _hasScarfOrMuffler = _isFemaleAcc ? (_scarfTemp < 13) : (_scarfTemp < 8);
+  const _skipScarf = !_hasScarfOrMuffler;
   const _skipWatch = (personaIdx % 4 !== 0);
 
   const _cCat = (koColor, itemKo) => {
@@ -3647,7 +3656,7 @@ async function updateVTO(opts={}){
     const _fbWatchMap = {commute:'슬림 메탈시계',business:'클래식 시계',social:'트렌디 시계',weekendOut:'캐주얼 시계',weekendTrip:'스마트워치',overseasTrip:'여행용 시계',meet:'심플 시계'};
     const _fbSocksMap = {commute:'앵클삭스',business:'드레스삭스',social:'포인트삭스',weekendOut:'스니커삭스',weekendTrip:'쿠션삭스',overseasTrip:'여행삭스',meet:'앵클삭스'};
     S.outerLabel = _fbOuterLabel;
-    // 폴백: 악세서리는 조건부 (목도리: 0도이하+겨울 / 스카프: 여성만)
+    // 폴백: 악세서리는 조건부 (여자 13도 미만 / 남자 8도 미만 시 추천)
     const _fbMonth = new Date().getMonth() + 1;
     const _fbIsWinter = (_fbMonth === 12 || _fbMonth === 1 || _fbMonth === 2);
     const _fbIsFemale = (String(user?.gender||'').toLowerCase()==='female' || user?.gender==='F');
