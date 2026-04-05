@@ -1399,59 +1399,56 @@ def ai_styling():
 
     payload = request.get_json(silent=True) or {}
 
-    # ═══════════════════════════════════════════════════════════════
-    # ★★★ 핵심 변경: 스타일리스트 엔진이 활성화되면 프론트 프롬프트를 완전 대체
-    # 기존: 프론트 imagePrompt 그대로 사용 → 구 PERSONA_DB가 지배
-    # 변경: 엔진이 목적+도시+스타일리스트 기반으로 새 프롬프트 생성
-    # ═══════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════
+    # ★ 9,600명 AI 스타일리스트 엔진 — 프론트 프롬프트 완전 대체
+    #
+    # [구] closet.html PERSONA_DB → imagePrompt → 서버 통과 → OpenAI
+    # [신] 서버 엔진이 목적+도시 기반 전용 프롬프트 생성 → OpenAI
+    #
+    # 엔진 성공 시: build_prompt() 자체를 건너뜀 (프론트 imagePrompt 무시)
+    # 엔진 실패 시: 기존 build_prompt() fallback
+    # ═══════════════════════════════════════════════════════════
     _matched_stylist = None
     _styling_story = ""
     _engine_active = False
+    prompt = ""
+    short = ""
 
     if _STYLIST_ENGINE and _FASHION_DB and _STYLIST_DB:
         try:
             _result = _STYLIST_ENGINE(payload, _FASHION_DB, _STYLIST_DB)
-            _eng_prompt = _result[0]     # 엔진이 생성한 목적별 프롬프트
+            _eng_prompt = _result[0]
             _styling_story = _result[1] or ""
             _matched_stylist = _result[3]
             _injection = _result[4] if len(_result) > 4 else ""
             _meta = _result[5] if len(_result) > 5 else {}
 
             if _eng_prompt and len(_eng_prompt) > 100:
-                # ★ 프론트 imagePrompt 완전 대체 — 엔진 프롬프트가 메인
+                # ★ 프론트 imagePrompt 완전 무시 — 엔진 프롬프트만 사용
                 prompt = _eng_prompt
                 _engine_active = True
 
-                # 프론트엔드의 SPEC 색상이 있으면 보조로 추가 (UI 표시와 일치시키기 위해)
-                _front_colors = str(payload.get("colorDirective", "")).strip()
-                if _front_colors:
-                    prompt += f"\nADDITIONAL COLOR REFERENCE (from user's closet): {_front_colors}. "
-
-                # 주입 블록도 앞에 추가 (도시+목적 강조)
                 if _injection:
                     prompt = _injection + "\n" + prompt
+
+                _front_colors = str(payload.get("colorDirective", "")).strip()
+                if _front_colors:
+                    prompt += f"\nCOLOR HINT: {_front_colors}. "
 
                 _city = _meta.get('active_city', '?')
                 _purpose = _meta.get('purpose', '?')
                 _kws = _meta.get('keywords_selected', [])
-                print(f"[스타일리스트 엔진 ✅] 프롬프트 완전 대체 | "
-                      f"도시={_city}, 목적={_purpose}, "
+                short = f"{_purpose} 코디 — {_city} 스타일"
+                print(f"[엔진 ✅] 도시={_city}, 목적={_purpose}, "
                       f"스타일리스트={_matched_stylist.get('name','?') if _matched_stylist else '?'}, "
                       f"키워드={','.join(_kws[:3])}")
-
-                # short 설명도 엔진 기반으로
-                short = f"{_purpose} 코디 — {_city} 스타일"
-            else:
-                print(f"[스타일리스트 엔진] 프롬프트 생성 실패, 기존 로직 사용")
-
         except Exception as _se:
-            print(f"[스타일리스트 매칭] 오류 (기존 로직으로 진행): {_se}")
+            print(f"[엔진 오류]: {_se}")
             import traceback; traceback.print_exc()
 
-    # 엔진이 비활성이면 기존 build_prompt 사용 (fallback)
     if not _engine_active:
         prompt, short = build_prompt(payload)
-        print(f"[기존 로직] build_prompt 사용 (엔진 미활성)")
+        print(f"[fallback] build_prompt 사용")
 
     face_data_url = payload.get("faceImage")
     size = str(payload.get("size") or "1024x1536")
