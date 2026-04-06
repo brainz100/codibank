@@ -712,11 +712,17 @@ def process_styling_request(payload, fashion_db, stylist_db):
     except Exception:
         injection = ''
     
-    # [2026-04-06 추가] 카테고리별 코디 포인트 생성 (UI 표시 + 유사도 매칭)
+    # [2026-04-06 보강] 카테고리별 착장 스펙 생성 → 프롬프트 + UI 공용
+    # 이 스펙이 이미지 프롬프트와 UI 스타일링 포인트의 단일 소스
     try:
-        metadata['categoryKeywords'] = generate_category_keywords(metadata, stylist)
-    except Exception:
+        outfit_spec = generate_outfit_spec(metadata, stylist)
+        # 프롬프트에 카테고리별 지시 삽입 (이미지가 스펙대로 생성됨)
+        prompt += outfit_spec_to_prompt(outfit_spec)
+        # UI용 categoryKeywords (스타일링 포인트 표시 + 유사도 매칭)
+        metadata['categoryKeywords'] = outfit_spec_to_category_keywords(outfit_spec)
+    except Exception as _e:
         metadata['categoryKeywords'] = {}
+        print(f"[outfit_spec 에러]: {_e}")
     
     return prompt, story, model_type, stylist, injection, metadata
 
@@ -727,117 +733,192 @@ _PURPOSE_D = {"비즈니스 포멀":"Sharp professional — structured tailoring
 
 
 # ═══════════════════════════════════════════════════
-# [2026-04-06 추가] 카테고리별 코디 포인트 생성
-# 원인: 구 PERSONA의 categoryKeywords를 서버 엔진으로 대체해야 함
-# 용도: closet.html의 "AI 스타일링 포인트" UI 표시 + 유사도 매칭
+# [2026-04-06 추가/보강] 카테고리별 착장 스펙 생성
+# 원인: 프롬프트에 카테고리별 지시가 없어 이미지와 UI 포인트 불일치
+# 해결: 착장 스펙을 먼저 생성 → 프롬프트에 삽입 + UI에 표시
+# 용도: 1) 이미지 생성 프롬프트의 카테고리별 지시
+#       2) closet.html "AI 스타일링 포인트" UI 표시
+#       3) 모바일옷장 유사도 매칭 기준
 # ═══════════════════════════════════════════════════
-_OUTER_BY_TEMP = {
-    "extreme_cold": "두꺼운 패딩 코트", "very_cold": "울 코트",
-    "cold": "트렌치코트", "chilly": "자켓",
-    "cool": "가디건/얇은 자켓", "mild": "라이트 자켓",
-}
-_SHOES_BY_PURPOSE = {
-    "비즈니스 포멀": {"M": "옥스포드 슈즈", "F": "스틸레토 힐"},
-    "데일리 오피스룩": {"M": "더비 슈즈", "F": "로퍼"},
-    "면접룩": {"M": "스트레이트팁 슈즈", "F": "클로즈드토 힐"},
-    "결혼식 하객룩": {"M": "몽크스트랩", "F": "슬링백"},
-    "소개팅룩": {"M": "로퍼", "F": "메리제인"},
-    "로맨틱 데이트룩": {"M": "첼시부츠", "F": "스트랩 힐"},
-    "상견례/가족모임": {"M": "플레인토 슈즈", "F": "클래식 펌프스"},
-    "사교 모임/파티": {"M": "페니로퍼", "F": "포인티드토 힐"},
-    "주말 나들이": {"M": "캔버스 스니커즈", "F": "플랫 슈즈"},
-    "여행지 인생샷": {"M": "화이트 스니커즈", "F": "에스파드리유"},
-    "꾸안꾸 데일리": {"M": "미니멀 스니커즈", "F": "발레 플랫"},
-    "스포티/애슬레저": {"M": "러닝화", "F": "러닝화"},
-    "공항 패션": {"M": "슬립온", "F": "컴포트 스니커즈"},
-    "미니멀/심플": {"M": "화이트 스니커즈", "F": "뮬"},
-    "트렌디/스트릿": {"M": "하이탑 스니커즈", "F": "청키 스니커즈"},
-}
-_BAG_BY_GENDER = {
-    "M": {"비즈니스 포멀":"블랙 브리프케이스","데일리 오피스룩":"네이비 토트백","결혼식 하객룩":"없음","소개팅룩":"없음","주말 나들이":"캐주얼 백팩","공항 패션":"캐리온 러기지","스포티/애슬레저":"스포츠 백팩"},
-    "F": {"비즈니스 포멀":"레더 토트백","데일리 오피스룩":"숄더백","결혼식 하객룩":"클러치","소개팅룩":"미니 크로스백","주말 나들이":"캔버스 토트","공항 패션":"여행 숄더백","스포티/애슬레저":"벨트백"},
-}
 
-def generate_category_keywords(metadata, stylist):
+_OUTER_ITEMS = {
+    "extreme_cold": {"M": "헤비 패딩 코트", "F": "롱 패딩 코트"},
+    "very_cold": {"M": "울 오버코트", "F": "울 롱코트"},
+    "cold": {"M": "트렌치코트", "F": "트렌치코트"},
+    "chilly": {"M": "블레이저", "F": "자켓"},
+    "cool": {"M": "라이트 자켓", "F": "가디건"},
+    "mild": {"M": "얇은 자켓", "F": "라이트 가디건"},
+}
+_TOP_ITEMS = {
+    "비즈니스 포멀": {"M": "드레스 셔츠", "F": "실크 블라우스"},
+    "데일리 오피스룩": {"M": "옥스포드 셔츠", "F": "니트 탑"},
+    "면접룩": {"M": "화이트 셔츠", "F": "클린 블라우스"},
+    "결혼식 하객룩": {"M": "드레스 셔츠", "F": "시폰 블라우스"},
+    "소개팅룩": {"M": "니트 셔츠", "F": "파스텔 니트"},
+    "로맨틱 데이트룩": {"M": "캐시미어 니트", "F": "오프숄더 탑"},
+    "상견례/가족모임": {"M": "폴로 셔츠", "F": "단정한 블라우스"},
+    "사교 모임/파티": {"M": "새틴 셔츠", "F": "새틴 캐미솔"},
+    "주말 나들이": {"M": "스트라이프 티셔츠", "F": "프린트 티셔츠"},
+    "여행지 인생샷": {"M": "린넨 셔츠", "F": "오버사이즈 셔츠"},
+    "꾸안꾸 데일리": {"M": "플레인 티셔츠", "F": "베이직 니트"},
+    "스포티/애슬레저": {"M": "테크 티셔츠", "F": "크롭 탑"},
+    "공항 패션": {"M": "캐시미어 니트", "F": "가디건 레이어드"},
+    "미니멀/심플": {"M": "모크넥 니트", "F": "터틀넥 니트"},
+    "트렌디/스트릿": {"M": "그래픽 티셔츠", "F": "크롭 후디"},
+}
+_BOTTOM_ITEMS_M = {
+    "비즈니스 포멀": "울 슬랙스", "데일리 오피스룩": "치노 팬츠",
+    "면접룩": "네이비 슬랙스", "결혼식 하객룩": "울 드레스 팬츠",
+    "소개팅룩": "슬림 치노", "로맨틱 데이트룩": "와이드 슬랙스",
+    "주말 나들이": "코튼 팬츠", "공항 패션": "조거 팬츠",
+    "스포티/애슬레저": "트레이닝 팬츠", "트렌디/스트릿": "카고 팬츠",
+}
+_BOTTOM_ITEMS_F_SKIRT = {
+    "비즈니스 포멀": "미디 펜슬 스커트", "소개팅룩": "플리츠 스커트",
+    "결혼식 하객룩": "A라인 미디 스커트", "로맨틱 데이트룩": "플레어 스커트",
+    "사교 모임/파티": "새틴 미디 스커트", "주말 나들이": "플리츠 미니스커트",
+}
+_BOTTOM_ITEMS_F_PANTS = {
+    "비즈니스 포멀": "와이드 슬랙스", "데일리 오피스룩": "스트레이트 팬츠",
+    "공항 패션": "와이드 팬츠", "스포티/애슬레저": "레깅스",
+}
+_SHOES_M = {
+    "비즈니스 포멀": "옥스포드 슈즈", "데일리 오피스룩": "더비 슈즈",
+    "면접룩": "스트레이트팁 슈즈", "결혼식 하객룩": "몽크스트랩",
+    "소개팅룩": "로퍼", "로맨틱 데이트룩": "첼시부츠",
+    "주말 나들이": "캔버스 스니커즈", "공항 패션": "슬립온",
+    "스포티/애슬레저": "러닝화", "트렌디/스트릿": "하이탑 스니커즈",
+    "미니멀/심플": "화이트 스니커즈", "꾸안꾸 데일리": "미니멀 스니커즈",
+}
+_SHOES_F = {
+    "비즈니스 포멀": "스틸레토 힐", "데일리 오피스룩": "로퍼",
+    "면접룩": "클로즈드토 힐", "결혼식 하객룩": "슬링백",
+    "소개팅룩": "메리제인", "로맨틱 데이트룩": "스트랩 힐",
+    "주말 나들이": "플랫 슈즈", "공항 패션": "컴포트 스니커즈",
+    "스포티/애슬레저": "러닝화", "트렌디/스트릿": "청키 스니커즈",
+    "미니멀/심플": "뮬", "꾸안꾸 데일리": "발레 플랫",
+}
+_BAG_M = {"비즈니스 포멀":"블랙 브리프케이스","공항 패션":"캐리온 러기지","주말 나들이":"캐주얼 백팩","스포티/애슬레저":"스포츠 백팩","여행지 인생샷":"데이팩"}
+_BAG_F = {"비즈니스 포멀":"레더 토트백","데일리 오피스룩":"숄더백","결혼식 하객룩":"클러치","소개팅룩":"미니 크로스백","주말 나들이":"캔버스 토트","공항 패션":"여행 숄더백","스포티/애슬레저":"벨트백","로맨틱 데이트룩":"이브닝 클러치"}
+
+
+def generate_outfit_spec(metadata, stylist):
     """
-    카테고리별 코디 포인트 생성 — UI 스타일링 포인트 표시용
+    카테고리별 착장 스펙 생성 — 프롬프트 + UI 공용
     
     반환: {
-      outer: ["네이비 자켓", "깔끔한 라인"],
-      top: ["베이지 셔츠", "소프트 텍스처"],
-      bottom: ["그레이 슬랙스", "테이퍼드 핏"],
-      shoes: ["브라운 로퍼"],
-      bag: ["미니 크로스백"],
-      watch: ["클래식 시계"],
-      socks: ["톤온톤 삭스"],
+      outer: {item_ko, item_en, color_ko, keywords: [...]},
+      top: {...},
+      bottom: {...},
+      shoes: {...},
+      bag: {...},  # 없으면 키 없음
+      watch: {...},  # 포멀만
+      socks: {...},  # 남성만
     }
     """
     purpose = metadata.get('purpose', '데일리 오피스룩')
     gender = "M" if metadata.get('gender_ko') == "남성" else "F"
     temp = metadata.get('temp', 20)
-    keywords = metadata.get('keywords_selected', [])
+    kws = metadata.get('keywords_selected', [])
     color1 = stylist.get('color1', '') if stylist else ''
     color2 = stylist.get('color2', '') if stylist else ''
-    
-    # 온도 기반 아우터
-    if temp <= -10: outer_type = _OUTER_BY_TEMP["extreme_cold"]
-    elif temp <= 0: outer_type = _OUTER_BY_TEMP["very_cold"]
-    elif temp <= 5: outer_type = _OUTER_BY_TEMP["cold"]
-    elif temp <= 10: outer_type = _OUTER_BY_TEMP["chilly"]
-    elif temp <= 15: outer_type = _OUTER_BY_TEMP["cool"]
-    elif temp <= 20: outer_type = _OUTER_BY_TEMP["mild"]
-    else: outer_type = None
-    
-    # 신발
-    shoe_map = _SHOES_BY_PURPOSE.get(purpose, {"M": "로퍼", "F": "플랫 슈즈"})
-    shoe = shoe_map.get(gender, shoe_map.get("M", "로퍼"))
-    
-    # 가방
-    bag_map = _BAG_BY_GENDER.get(gender, {})
-    bag = bag_map.get(purpose, bag_map.get("데일리 오피스룩", ""))
-    
-    # 키워드에서 스타일 힌트 추출
-    style_hint = keywords[0] if keywords else ""
-    style_hint2 = keywords[1] if len(keywords) > 1 else ""
-    
-    result = {}
-    
-    # 아우터 (20도 이상이면 제외)
-    if outer_type:
-        result["outer"] = [f"{color1} {outer_type}" if color1 else outer_type, style_hint]
-    
-    # 상의
-    top_item = "블라우스" if gender == "F" else "셔츠"
-    result["top"] = [f"{color2} {top_item}" if color2 else top_item, style_hint2 or "클린 핏"]
-    
-    # 하의
     bottom_type = metadata.get('bottom_type', 'pants')
-    if bottom_type == 'skirt':
-        result["bottom"] = [f"스커트", style_hint or "페미닌"]
+    
+    spec = {}
+    
+    # ── 아우터 (20도 이상 제외) ──
+    if temp <= -10: t_key = "extreme_cold"
+    elif temp <= 0: t_key = "very_cold"
+    elif temp <= 5: t_key = "cold"
+    elif temp <= 10: t_key = "chilly"
+    elif temp <= 15: t_key = "cool"
+    elif temp <= 20: t_key = "mild"
+    else: t_key = None
+    
+    if t_key:
+        outer_items = _OUTER_ITEMS.get(t_key, {})
+        outer_item = outer_items.get(gender, "자켓")
+        spec['outer'] = {
+            'item_ko': outer_item,
+            'item_en': outer_item,
+            'color_ko': color1 or '다크 네이비',
+        }
+    
+    # ── 상의 ──
+    top_map = _TOP_ITEMS.get(purpose, {"M": "셔츠", "F": "블라우스"})
+    top_item = top_map.get(gender, "셔츠")
+    spec['top'] = {
+        'item_ko': top_item,
+        'item_en': top_item,
+        'color_ko': color2 or '베이지',
+    }
+    
+    # ── 하의 ──
+    if gender == "F" and bottom_type == "skirt":
+        bt_item = _BOTTOM_ITEMS_F_SKIRT.get(purpose, "A라인 스커트")
+        spec['bottom'] = {'item_ko': bt_item, 'item_en': bt_item, 'color_ko': color1 or '네이비'}
+    elif gender == "F":
+        bt_item = _BOTTOM_ITEMS_F_PANTS.get(purpose, "슬랙스")
+        spec['bottom'] = {'item_ko': bt_item, 'item_en': bt_item, 'color_ko': color1 or '네이비'}
     else:
-        result["bottom"] = [f"슬랙스" if purpose in ["비즈니스 포멀","면접룩","결혼식 하객룩"] else "팬츠", style_hint or "클린 핏"]
+        bt_item = _BOTTOM_ITEMS_M.get(purpose, "슬랙스")
+        spec['bottom'] = {'item_ko': bt_item, 'item_en': bt_item, 'color_ko': '다크 그레이'}
     
-    # 신발
-    result["shoes"] = [shoe]
+    # ── 신발 ──
+    shoes_map = _SHOES_M if gender == "M" else _SHOES_F
+    shoe = shoes_map.get(purpose, "로퍼" if gender == "M" else "플랫 슈즈")
+    spec['shoes'] = {'item_ko': shoe, 'item_en': shoe, 'color_ko': '브라운' if gender == "M" else '베이지'}
     
-    # 가방 (없음이면 제외)
-    if bag and bag != "없음":
-        result["bag"] = [bag]
+    # ── 가방 ──
+    bag_map = _BAG_M if gender == "M" else _BAG_F
+    bag = bag_map.get(purpose, '')
+    if bag:
+        spec['bag'] = {'item_ko': bag, 'item_en': bag, 'color_ko': ''}
     
-    # 시계 (포멀/비즈니스만)
-    if purpose in ["비즈니스 포멀", "데일리 오피스룩", "면접룩", "결혼식 하객룩", "상견례/가족모임"]:
-        result["watch"] = ["클래식 시계"]
+    # ── 시계 (포멀 계열) ──
+    formal_purposes = ["비즈니스 포멀","데일리 오피스룩","면접룩","결혼식 하객룩","상견례/가족모임"]
+    if purpose in formal_purposes:
+        spec['watch'] = {'item_ko': '클래식 시계', 'item_en': 'classic watch', 'color_ko': '실버'}
     
-    # 양말
+    # ── 양말 (남성) ──
     if gender == "M":
-        result["socks"] = ["톤온톤 삭스"]
+        spec['socks'] = {'item_ko': '톤온톤 삭스', 'item_en': 'tone-on-tone socks', 'color_ko': ''}
     
-    # 빈 값 정리
-    for k in list(result.keys()):
-        result[k] = [v for v in result[k] if v]
-        if not result[k]:
-            del result[k]
-    
+    return spec
+
+
+def outfit_spec_to_prompt(spec):
+    """착장 스펙 → 이미지 생성 프롬프트 블록 변환"""
+    lines = ["\n=== OUTFIT SPECIFICATION (MUST FOLLOW EXACTLY) ==="]
+    cat_labels = {
+        'outer': 'OUTER', 'top': 'TOP', 'bottom': 'BOTTOM',
+        'shoes': 'SHOES', 'bag': 'BAG/ACCESSORY', 'watch': 'WATCH', 'socks': 'SOCKS',
+    }
+    for cat, label in cat_labels.items():
+        if cat in spec:
+            s = spec[cat]
+            color = s.get('color_ko', '')
+            item = s.get('item_ko', '')
+            desc = f"{color} {item}".strip() if color else item
+            lines.append(f"[{label}]: {desc}")
+    lines.append("Follow this outfit specification EXACTLY. Each category must match.")
+    lines.append("=== END OUTFIT SPEC ===\n")
+    return "\n".join(lines)
+
+
+def outfit_spec_to_category_keywords(spec):
+    """착장 스펙 → closet.html categoryKeywords 형식 변환"""
+    result = {}
+    for cat, s in spec.items():
+        color = s.get('color_ko', '')
+        item = s.get('item_ko', '')
+        kws = []
+        if color and item:
+            kws.append(f"{color} {item}")
+        elif item:
+            kws.append(item)
+        if kws:
+            result[cat] = kws
     return result
 
 def generate_prompt_injection(metadata, stylist, fashion_db):
