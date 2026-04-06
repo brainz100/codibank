@@ -3934,6 +3934,11 @@ async function updateVTO(opts={}){
         if(data.engineKeywords && Array.isArray(data.engineKeywords)) {
           S.keywords = data.engineKeywords;
         }
+        // [2026-04-06 추가] 카테고리별 코디 포인트 (컬러+디자인) 갱신
+        // 용도: AI 스타일링 포인트 UI + 모바일옷장 유사도 매칭
+        if(data.engineCategoryKeywords && typeof data.engineCategoryKeywords === 'object') {
+          S.categoryKeywords = data.engineCategoryKeywords;
+        }
         // [2026-04-06] 스타일리스트 배지 즉시 교체
         // (구: 'Mia · 트렌드세터' → 신: '주유나 · 데이트 장소별 코디 전문')
         try {
