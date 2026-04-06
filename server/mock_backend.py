@@ -288,11 +288,18 @@ except Exception as _e:
 # 스타일리스트 매칭 엔진 (선택적 import — 파일 없어도 서버 정상 작동)
 _STYLIST_ENGINE = None
 try:
+    # [2026-04-06 수정] gunicorn server.mock_backend:app 실행 시
+    # Python이 server/ 폴더를 못 찾는 문제 해결
+    import sys as _sys
+    if _HERE not in _sys.path:
+        _sys.path.insert(0, _HERE)
     from stylist_matching_engine import process_styling_request as _process_styling
     _STYLIST_ENGINE = _process_styling
     print("[스타일리스트] stylist_matching_engine.py 로드 완료")
-except ImportError:
-    print("[스타일리스트] stylist_matching_engine.py 미설치 — 기존 로직 유지")
+except Exception as _import_err:
+    # [2026-04-06 수정] ImportError뿐 아니라 모든 에러를 잡아서 원인 출력
+    print(f"[스타일리스트 ❌] stylist_matching_engine.py 로드 실패: {type(_import_err).__name__}: {_import_err}")
+    import traceback; traceback.print_exc()
 
 
 def _sha256_hex(data: bytes) -> str:
@@ -806,6 +813,14 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
         _m2 = _re2.search(r'["](.*?)["]', _cd)
         if _m2: _custom_text = _m2.group(1).strip()
 
+    # [2026-04-06 수정] _custom_override 변수 정의 (NameError 방지)
+    _custom_override = ""
+    if _custom_text:
+        _custom_override = (
+            f"[HIGHEST PRIORITY — USER REQUEST]: The user specifically requested: \"{_custom_text}\". "
+            "ALL styling decisions MUST reflect this request. "
+        )
+
     # 프롬프트는 "텍스트 없음" 강제
     # - 브랜드 로고/워터마크/문구 방지
     # - 'full-body'와 'lookbook' 톤으로 안정적인 결과 유도
@@ -1038,6 +1053,14 @@ def engine_status():
     """배포 후 브라우저에서 확인: 엔진이 정상 로드됐는지"""
     import os as _os
     _here = _os.path.dirname(_os.path.abspath(__file__))
+    # 서버의 실제 파일 내용 일부를 확인 (구버전인지 신버전인지 판별용)
+    _engine_first_lines = ""
+    try:
+        with open(_os.path.join(_here, "stylist_matching_engine.py"), "r") as _ef:
+            _engine_first_lines = _ef.read(500)
+    except: pass
+    _has_old_import = "mock_backend_global_patch" in _engine_first_lines
+    _has_new_marker = "v2026-04-06" in _engine_first_lines
     return jsonify(
         version="v2026-04-06",
         engine_loaded=(_STYLIST_ENGINE is not None),
@@ -1051,6 +1074,10 @@ def engine_status():
             "stylist_matching_engine.py": _os.path.exists(_os.path.join(_here,"stylist_matching_engine.py")),
         },
         will_engine_run=bool(_STYLIST_ENGINE and _FASHION_DB and _STYLIST_DB),
+        engine_file_is_old=_has_old_import,
+        engine_file_is_new=_has_new_marker,
+        engine_file_preview=_engine_first_lines[:200],
+        engine_import_test=(lambda: (True, "OK") if _STYLIST_ENGINE else (False, "import failed — check Render Logs for error details"))(),
     )
 
 
