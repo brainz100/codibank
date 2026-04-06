@@ -2163,7 +2163,10 @@ def codistyle_generate():
         "\n[PHASE 1 — PERSONA]: "
         + face_line
         + (f"Body: {hw_ko}. " if hw_ko else "")
-        + "Fit garments naturally to this body with realistic draping. "
+        + "Fit ALL garments naturally to this body with realistic draping, fabric weight, and 3D volume. "
+        "CRITICAL: Both top AND bottom must look equally realistic — "
+        "the bottom garment must show the SAME level of natural fit, draping, and body-conforming "
+        "as the top. Never paste a flat garment image onto the body. "
         "Upper body = 43-47%% of total height, lower body = 53-57%%. "
         "Realistic everyday Korean person — NOT an idealized fashion model. "
         "Full body head to shoes must be fully visible. "
@@ -2189,6 +2192,10 @@ def codistyle_generate():
             f"Silhouette: {bottom_info.get('silhouette', bottom_info.get('design',''))}. "
             "Reproduce EXACT color, length, hem, pleats, ruffles, waistband. "
             "DO NOT alter garment category, length, or silhouette. Reference images = ABSOLUTE GROUND TRUTH. "
+            # [2026-04-06 보강] 하의 착용 리얼리즘 — 상의와 동일 수준
+            "The bottom garment must be WORN on the body with the SAME realism as the top. "
+            "It must show natural draping, body-conforming curves, fabric weight, "
+            "realistic shadows, and 3D volume — NOT a flat image overlay. "
         )
 
         # ── [PHASE 3: IMAGE GENERATION] ────────────────────────────────────
@@ -2213,6 +2220,7 @@ def codistyle_generate():
 
         # ── 하의 특별 규칙 ──────────────────────────────────────────────────
         + (
+            # [2026-04-06 보강] 스커트 자연스러운 착용감 + 체형 맞춤 지시
             "\n[SKIRT NON-NEGOTIABLE RULE]: "
             f"Lower garment = {bottom_info.get('garment','skirt')} — SKIRT ONLY. "
             "FORBIDDEN: pants/trousers instead of skirt, pants layered UNDER skirt, "
@@ -2220,6 +2228,23 @@ def codistyle_generate():
             "Skirt is the ONLY lower-body garment — zero underlayers. "
             f"Silhouette must match reference exactly: {bottom_info.get('silhouette','')} "
             "Final check: visible separate leg tubes → WRONG, regenerate as skirt only. "
+            
+            # ★ 스커트 착용 리얼리즘 강화
+            "\n[SKIRT REALISM — CRITICAL]: "
+            "The skirt must look NATURALLY WORN on the person's body — NOT a flat image pasted on. "
+            "REQUIRED realism details: "
+            "1) The skirt fabric must show natural DRAPING and GRAVITY — fabric hangs from the waist "
+            "   and curves around the hips and thighs realistically. "
+            "2) WRINKLES and FOLDS must appear at natural stress points (waistband, hip area, where fabric gathers). "
+            "3) The skirt must follow the BODY CONTOUR — it curves with the hips, not floating flat. "
+            "4) SHADOW must fall naturally between the body and the fabric — inner shadow where skirt meets waist, "
+            "   outer shadow cast by the skirt's volume. "
+            "5) The waistband must sit naturally at the waist/hip level, showing slight tension or gathering. "
+            "6) If the skirt has pleats/tiers/ruffles, they must show 3D VOLUME and DEPTH, not flat lines. "
+            "7) The hem must fall at a consistent height with natural slight variation from movement. "
+            "8) Where the top meets the skirt (tucked in or layered over), the transition must look seamless. "
+            "ANTI-PATTERN: A skirt that looks like a flat 2D cutout placed on the body = GENERATION FAILURE. "
+            "The skirt must have the SAME level of 3D realism as the top garment. "
             if bottom_info.get("is_skirt") else
             "\n[PANTS RULE]: "
             f"Lower garment = {bottom_info.get('garment','trousers')}. "
