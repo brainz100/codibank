@@ -686,13 +686,27 @@ def process_styling_request(payload, fashion_db, stylist_db):
         )
         prompt += color_addition
     
+    # [2026-04-06 추가] 성별별 악세서리/소품 제한 — 남자 핸드백 방지
+    if metadata['gender_ko'] == "남성":
+        prompt += (
+            "\nACCESSORIES (CRITICAL GENDER RULE): "
+            "This is a MAN. He must NEVER carry a handbag, clutch, or purse. "
+            "Men's acceptable items: briefcase, backpack, document bag, or NO bag. "
+            "Accessories: watch, belt, tie, pocket square, glasses ONLY. "
+            "FORBIDDEN for men: any handbag, clutch, tote, crossbody, or feminine accessory. "
+        )
+    else:
+        prompt += (
+            "\nACCESSORIES: Woman may carry a clutch, tote, crossbody, or mini bag. "
+            "Jewelry: earrings, necklace, bracelet, watch, scarf as appropriate. "
+        )
+    
     # 4. 통합 스토리 생성
     story = generate_full_story(metadata, stylist, active_city)
     
     # 5. AI 모델 분기
     model_type = "gemini" if metadata['has_face'] else "dalle"
     
-    # [2026-04-06 수정] dir() 버그 — 모듈 함수 직접 호출
     try:
         injection = generate_prompt_injection(metadata, stylist, fashion_db)
     except Exception:

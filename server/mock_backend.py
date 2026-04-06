@@ -1454,6 +1454,7 @@ def ai_styling():
     _matched_stylist = None
     _styling_story = ""
     _engine_active = False
+    _meta = {}
     prompt = ""
     short = ""
 
@@ -1619,6 +1620,11 @@ def ai_styling():
             prompt=prompt if os.getenv("CODIBANK_DEBUG_PROMPT") == "1" else None,
             stylist=_matched_stylist,
             stylingStory=_styling_story or None,
+            # [2026-04-06 추가] UI 스타일링 포인트용 데이터
+            engineKeywords=_meta.get('keywords_selected', []),
+            engineCity=_meta.get('active_city', ''),
+            enginePurpose=_meta.get('purpose', ''),
+            engineBottomType=_meta.get('bottom_type', ''),
         )
 
     except Exception as e:
