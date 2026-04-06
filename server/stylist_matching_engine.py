@@ -856,24 +856,28 @@ def generate_outfit_spec(metadata, stylist):
     # ── 하의 ──
     if gender == "F" and bottom_type == "skirt":
         bt_item = _BOTTOM_ITEMS_F_SKIRT.get(purpose, "A라인 스커트")
-        spec['bottom'] = {'item_ko': bt_item, 'item_en': bt_item, 'color_ko': color1 or '네이비'}
+        skirt_color = '네이비' if purpose in ['비즈니스 포멀','면접룩'] else '다크 네이비' if purpose in ['결혼식 하객룩','상견례/가족모임'] else '차콜'
+        spec['bottom'] = {'item_ko': bt_item, 'item_en': bt_item, 'color_ko': skirt_color}
     elif gender == "F":
         bt_item = _BOTTOM_ITEMS_F_PANTS.get(purpose, "슬랙스")
-        spec['bottom'] = {'item_ko': bt_item, 'item_en': bt_item, 'color_ko': color1 or '네이비'}
+        pants_color = '네이비' if purpose in ['비즈니스 포멀'] else '차콜'
+        spec['bottom'] = {'item_ko': bt_item, 'item_en': bt_item, 'color_ko': pants_color}
     else:
         bt_item = _BOTTOM_ITEMS_M.get(purpose, "슬랙스")
-        spec['bottom'] = {'item_ko': bt_item, 'item_en': bt_item, 'color_ko': '다크 그레이'}
+        bottom_color = '네이비' if purpose in ['비즈니스 포멀','면접룩','결혼식 하객룩'] else '차콜'
+        spec['bottom'] = {'item_ko': bt_item, 'item_en': bt_item, 'color_ko': bottom_color}
     
     # ── 신발 ──
     shoes_map = _SHOES_M if gender == "M" else _SHOES_F
     shoe = shoes_map.get(purpose, "로퍼" if gender == "M" else "플랫 슈즈")
     spec['shoes'] = {'item_ko': shoe, 'item_en': shoe, 'color_ko': '브라운' if gender == "M" else '베이지'}
     
-    # ── 가방 ──
+    # ── 가방 (컬러 포함) ──
     bag_map = _BAG_M if gender == "M" else _BAG_F
     bag = bag_map.get(purpose, '')
     if bag:
-        spec['bag'] = {'item_ko': bag, 'item_en': bag, 'color_ko': ''}
+        bag_color = '블랙' if gender == 'M' else (color2 if color2 else '브라운')
+        spec['bag'] = {'item_ko': bag, 'item_en': bag, 'color_ko': bag_color}
     
     # ── 시계 (포멀 계열) ──
     formal_purposes = ["비즈니스 포멀","데일리 오피스룩","면접룩","결혼식 하객룩","상견례/가족모임"]
@@ -907,16 +911,20 @@ def outfit_spec_to_prompt(spec):
 
 
 def outfit_spec_to_category_keywords(spec):
-    """착장 스펙 → closet.html categoryKeywords 형식 변환"""
+    """
+    [2026-04-06 보강] 착장 스펙 → categoryKeywords (컬러, 디자인 분리)
+    원인: 컬러와 디자인이 합쳐져 있어 유사도 매칭 및 UI 구분 어려움
+    해결: 각 카테고리를 [컬러칩, 디자인칩] 2개로 분리하여 표시
+    """
     result = {}
     for cat, s in spec.items():
         color = s.get('color_ko', '')
         item = s.get('item_ko', '')
         kws = []
-        if color and item:
-            kws.append(f"{color} {item}")
-        elif item:
-            kws.append(item)
+        if color:
+            kws.append(color)       # 첫 번째 칩 = 컬러
+        if item:
+            kws.append(item)        # 두 번째 칩 = 디자인/아이템
         if kws:
             result[cat] = kws
     return result
