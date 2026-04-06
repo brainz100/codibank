@@ -3572,7 +3572,8 @@ async function updateVTO(opts={}){
     keywords=r.keywords||keywords;
     layerTip=r.layerTip||'';
     skinTip=r.skinTip||'';
-    S.stylist = r.stylist || null;
+    // [2026-04-06 수정] 구 PERSONA 스타일리스트 차단 (서버 응답 후 갱신)
+    S.stylist = null;  // r.stylist 사용하지 않음
     S.matchPairs = (r.matchPairs && Array.isArray(r.matchPairs)) ? r.matchPairs : buildMatchPairsFromPalette(palette, S.wx.temp);
     S.categoryKeywords = r.categoryKeywords || {};
     S.outerLabel = r.outerLabel || null;
@@ -3590,7 +3591,13 @@ async function updateVTO(opts={}){
     // ──────────────────────────────────────────────────────────
     S.imagePrompt = '';  // r.imagePrompt 사용하지 않음
     S.extSpec    = r.extSpec    || {};
-    S.codiStory  = r.codiStory  || '';
+    // ──────────────────────────────────────────────────────────
+    // [2026-04-06 수정] 구 PERSONA 스토리도 차단
+    // 원인: callClaude()의 구 PERSONA 스토리("Ethan·컬러밸런서" 등)가
+    //       이미지 생성 전에 먼저 표시되고, 생성 후 신버전으로 바뀜 → 혼란
+    // 해결: 비워서 생성 전에는 빈 화면, 생성 후 서버 엔진 스토리만 표시
+    // ──────────────────────────────────────────────────────────
+    S.codiStory  = '';  // r.codiStory 사용하지 않음 (서버 응답 후 갱신)
     // ✅ 추천코디 완료 → 유사도 매칭 자동 실행
     if(S.img) setTimeout(() => findSimilarFromWardrobe(S.img), 1000);
   }catch(e){
