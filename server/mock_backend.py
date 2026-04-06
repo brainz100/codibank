@@ -1622,6 +1622,7 @@ def ai_styling():
             stylingStory=_styling_story or None,
             # [2026-04-06 추가] UI 스타일링 포인트용 데이터
             engineKeywords=_meta.get('keywords_selected', []),
+            engineCategoryKeywords=_meta.get('categoryKeywords', {}),
             engineCity=_meta.get('active_city', ''),
             enginePurpose=_meta.get('purpose', ''),
             engineBottomType=_meta.get('bottom_type', ''),

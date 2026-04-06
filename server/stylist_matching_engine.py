@@ -711,12 +711,134 @@ def process_styling_request(payload, fashion_db, stylist_db):
         injection = generate_prompt_injection(metadata, stylist, fashion_db)
     except Exception:
         injection = ''
+    
+    # [2026-04-06 추가] 카테고리별 코디 포인트 생성 (UI 표시 + 유사도 매칭)
+    try:
+        metadata['categoryKeywords'] = generate_category_keywords(metadata, stylist)
+    except Exception:
+        metadata['categoryKeywords'] = {}
+    
     return prompt, story, model_type, stylist, injection, metadata
 
 
 # [v2026-04-06] 프롬프트 주입 — 도시+목적 차별화
 _CITY_F = {"서울":"Korean K-fashion: clean modern, layered styling","뉴욕":"New York urban: high-low mixing, street-smart","파리":"Parisian chic: understated elegance, neutral tones","런던":"London heritage: tailored layers, eclectic texture","상파울루":"São Paulo tropical: bold colors, casual-smart","두바이":"Dubai luxury: premium fabrics, modest elegance","밀라노":"Milan craft: soft-shoulder tailoring, Sprezzatura"}
 _PURPOSE_D = {"비즈니스 포멀":"Sharp professional — structured tailoring, boardroom-ready","데일리 오피스룩":"Smart-casual office — polished but comfortable","면접룩":"Interview — trustworthy, clean, conservative modern","결혼식 하객룩":"Wedding guest — celebratory, sophisticated color","소개팅룩":"First-date — naturally attractive, soft textures, warm colors, subtle charm","로맨틱 데이트룩":"Romantic evening — refined, rich fabrics, dinner-worthy","상견례/가족모임":"Family gathering — respectful, age-appropriate elegance","사교 모임/파티":"Social party — eye-catching, bold accessories","주말 나들이":"Weekend outing — comfortable, photo-ready, cheerful","여행지 인생샷":"Travel photogenic — backdrop-matching, SNS-worthy","꾸안꾸 데일리":"Effortless chic — basic items cleverly combined","스포티/애슬레저":"Sporty athleisure — functional, performance fabrics, dynamic","공항 패션":"Airport travel — comfort with polish, layered, wrinkle-resistant","미니멀/심플":"Minimal — capsule wardrobe, clean lines, quiet luxury","트렌디/스트릿":"Trendy street — bold graphics, sneaker culture, youth energy","직접입력":"Custom styling"}
+
+
+# ═══════════════════════════════════════════════════
+# [2026-04-06 추가] 카테고리별 코디 포인트 생성
+# 원인: 구 PERSONA의 categoryKeywords를 서버 엔진으로 대체해야 함
+# 용도: closet.html의 "AI 스타일링 포인트" UI 표시 + 유사도 매칭
+# ═══════════════════════════════════════════════════
+_OUTER_BY_TEMP = {
+    "extreme_cold": "두꺼운 패딩 코트", "very_cold": "울 코트",
+    "cold": "트렌치코트", "chilly": "자켓",
+    "cool": "가디건/얇은 자켓", "mild": "라이트 자켓",
+}
+_SHOES_BY_PURPOSE = {
+    "비즈니스 포멀": {"M": "옥스포드 슈즈", "F": "스틸레토 힐"},
+    "데일리 오피스룩": {"M": "더비 슈즈", "F": "로퍼"},
+    "면접룩": {"M": "스트레이트팁 슈즈", "F": "클로즈드토 힐"},
+    "결혼식 하객룩": {"M": "몽크스트랩", "F": "슬링백"},
+    "소개팅룩": {"M": "로퍼", "F": "메리제인"},
+    "로맨틱 데이트룩": {"M": "첼시부츠", "F": "스트랩 힐"},
+    "상견례/가족모임": {"M": "플레인토 슈즈", "F": "클래식 펌프스"},
+    "사교 모임/파티": {"M": "페니로퍼", "F": "포인티드토 힐"},
+    "주말 나들이": {"M": "캔버스 스니커즈", "F": "플랫 슈즈"},
+    "여행지 인생샷": {"M": "화이트 스니커즈", "F": "에스파드리유"},
+    "꾸안꾸 데일리": {"M": "미니멀 스니커즈", "F": "발레 플랫"},
+    "스포티/애슬레저": {"M": "러닝화", "F": "러닝화"},
+    "공항 패션": {"M": "슬립온", "F": "컴포트 스니커즈"},
+    "미니멀/심플": {"M": "화이트 스니커즈", "F": "뮬"},
+    "트렌디/스트릿": {"M": "하이탑 스니커즈", "F": "청키 스니커즈"},
+}
+_BAG_BY_GENDER = {
+    "M": {"비즈니스 포멀":"블랙 브리프케이스","데일리 오피스룩":"네이비 토트백","결혼식 하객룩":"없음","소개팅룩":"없음","주말 나들이":"캐주얼 백팩","공항 패션":"캐리온 러기지","스포티/애슬레저":"스포츠 백팩"},
+    "F": {"비즈니스 포멀":"레더 토트백","데일리 오피스룩":"숄더백","결혼식 하객룩":"클러치","소개팅룩":"미니 크로스백","주말 나들이":"캔버스 토트","공항 패션":"여행 숄더백","스포티/애슬레저":"벨트백"},
+}
+
+def generate_category_keywords(metadata, stylist):
+    """
+    카테고리별 코디 포인트 생성 — UI 스타일링 포인트 표시용
+    
+    반환: {
+      outer: ["네이비 자켓", "깔끔한 라인"],
+      top: ["베이지 셔츠", "소프트 텍스처"],
+      bottom: ["그레이 슬랙스", "테이퍼드 핏"],
+      shoes: ["브라운 로퍼"],
+      bag: ["미니 크로스백"],
+      watch: ["클래식 시계"],
+      socks: ["톤온톤 삭스"],
+    }
+    """
+    purpose = metadata.get('purpose', '데일리 오피스룩')
+    gender = "M" if metadata.get('gender_ko') == "남성" else "F"
+    temp = metadata.get('temp', 20)
+    keywords = metadata.get('keywords_selected', [])
+    color1 = stylist.get('color1', '') if stylist else ''
+    color2 = stylist.get('color2', '') if stylist else ''
+    
+    # 온도 기반 아우터
+    if temp <= -10: outer_type = _OUTER_BY_TEMP["extreme_cold"]
+    elif temp <= 0: outer_type = _OUTER_BY_TEMP["very_cold"]
+    elif temp <= 5: outer_type = _OUTER_BY_TEMP["cold"]
+    elif temp <= 10: outer_type = _OUTER_BY_TEMP["chilly"]
+    elif temp <= 15: outer_type = _OUTER_BY_TEMP["cool"]
+    elif temp <= 20: outer_type = _OUTER_BY_TEMP["mild"]
+    else: outer_type = None
+    
+    # 신발
+    shoe_map = _SHOES_BY_PURPOSE.get(purpose, {"M": "로퍼", "F": "플랫 슈즈"})
+    shoe = shoe_map.get(gender, shoe_map.get("M", "로퍼"))
+    
+    # 가방
+    bag_map = _BAG_BY_GENDER.get(gender, {})
+    bag = bag_map.get(purpose, bag_map.get("데일리 오피스룩", ""))
+    
+    # 키워드에서 스타일 힌트 추출
+    style_hint = keywords[0] if keywords else ""
+    style_hint2 = keywords[1] if len(keywords) > 1 else ""
+    
+    result = {}
+    
+    # 아우터 (20도 이상이면 제외)
+    if outer_type:
+        result["outer"] = [f"{color1} {outer_type}" if color1 else outer_type, style_hint]
+    
+    # 상의
+    top_item = "블라우스" if gender == "F" else "셔츠"
+    result["top"] = [f"{color2} {top_item}" if color2 else top_item, style_hint2 or "클린 핏"]
+    
+    # 하의
+    bottom_type = metadata.get('bottom_type', 'pants')
+    if bottom_type == 'skirt':
+        result["bottom"] = [f"스커트", style_hint or "페미닌"]
+    else:
+        result["bottom"] = [f"슬랙스" if purpose in ["비즈니스 포멀","면접룩","결혼식 하객룩"] else "팬츠", style_hint or "클린 핏"]
+    
+    # 신발
+    result["shoes"] = [shoe]
+    
+    # 가방 (없음이면 제외)
+    if bag and bag != "없음":
+        result["bag"] = [bag]
+    
+    # 시계 (포멀/비즈니스만)
+    if purpose in ["비즈니스 포멀", "데일리 오피스룩", "면접룩", "결혼식 하객룩", "상견례/가족모임"]:
+        result["watch"] = ["클래식 시계"]
+    
+    # 양말
+    if gender == "M":
+        result["socks"] = ["톤온톤 삭스"]
+    
+    # 빈 값 정리
+    for k in list(result.keys()):
+        result[k] = [v for v in result[k] if v]
+        if not result[k]:
+            del result[k]
+    
+    return result
 
 def generate_prompt_injection(metadata, stylist, fashion_db):
     city = metadata.get('active_city', '서울')
