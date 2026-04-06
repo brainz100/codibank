@@ -802,6 +802,36 @@ _BAG_M = {"비즈니스 포멀":"블랙 브리프케이스","공항 패션":"캐
 _BAG_F = {"비즈니스 포멀":"레더 토트백","데일리 오피스룩":"숄더백","결혼식 하객룩":"클러치","소개팅룩":"미니 크로스백","주말 나들이":"캔버스 토트","공항 패션":"여행 숄더백","스포티/애슬레저":"벨트백","로맨틱 데이트룩":"이브닝 클러치"}
 
 
+
+def _extract_color(raw_color):
+    """
+    [2026-04-06 추가] 스타일리스트 DB의 color1/color2에서 실제 컬러명만 추출
+    원인: color1="프리미엄 카멜" → "카멜" 추출
+          color2="린넨 스카프" → 이것은 컬러가 아니므로 사용 금지
+    """
+    if not raw_color:
+        return ''
+    # 컬러가 아닌 단어 필터
+    _not_colors = ['스카프','백','워치','시계','가방','슈즈','벨트','목도리',
+                   '브로치','커프스','링','체인','귀걸이','반지','네클리스','팔찌',
+                   '안경','선글라스','모자','햇','헤드밴드','이어링','클러치',
+                   '셔츠','블라우스','니트','자켓','팬츠','드레스','스커트',
+                   '스니커즈','힐','로퍼','부츠','샌들','슬리퍼','에스파드리유',
+                   '가디건','코트','패딩','베스트','후디','매트백','이어폰',
+                   '필로우','케이스','어댑터','타올','물병','글러브','파우치',
+                   '아이템','포인트','디테일','레이어링','매듭','코사지','리본',
+                   '네일','립','헤어핀','피어싱','토링','이어커프','넥타이',
+                   '양말','숄']
+    for word in _not_colors:
+        if word in raw_color:
+            # "프리미엄 카멜" → 앞 단어 추출 시도
+            parts = raw_color.split()
+            color_parts = [p for p in parts if not any(nw in p for nw in _not_colors)]
+            if color_parts:
+                return ' '.join(color_parts)
+            return ''
+    return raw_color
+
 def generate_outfit_spec(metadata, stylist):
     """
     카테고리별 착장 스펙 생성 — 프롬프트 + UI 공용
@@ -838,19 +868,33 @@ def generate_outfit_spec(metadata, stylist):
     if t_key:
         outer_items = _OUTER_ITEMS.get(t_key, {})
         outer_item = outer_items.get(gender, "자켓")
+        # [2026-04-06 수정] color1에서 실제 컬러명만 추출 (아이템명 제거)
+        _outer_color = _extract_color(color1) if color1 else '다크 네이비'
         spec['outer'] = {
             'item_ko': outer_item,
             'item_en': outer_item,
-            'color_ko': color1 or '다크 네이비',
+            'color_ko': _outer_color,
         }
     
-    # ── 상의 ──
+    # ── 상의 (스카프는 별도 카테고리 — 상의에 포함하지 않음) ──
     top_map = _TOP_ITEMS.get(purpose, {"M": "셔츠", "F": "블라우스"})
     top_item = top_map.get(gender, "셔츠")
+    # [2026-04-06 수정] 상의 컬러는 스타일리스트 color2가 아닌 목적별 적절한 컬러 사용
+    _top_colors = {
+        "비즈니스 포멀": "화이트", "데일리 오피스룩": "아이보리",
+        "면접룩": "화이트", "결혼식 하객룩": "크림",
+        "소개팅룩": "파스텔 핑크", "로맨틱 데이트룩": "크림",
+        "상견례/가족모임": "라이트 베이지", "사교 모임/파티": "샴페인",
+        "주말 나들이": "라이트 그레이", "여행지 인생샷": "화이트",
+        "꾸안꾸 데일리": "오프화이트", "스포티/애슬레저": "화이트",
+        "공항 패션": "크림", "미니멀/심플": "오프화이트",
+        "트렌디/스트릿": "블랙",
+    }
+    top_color = _top_colors.get(purpose, '베이지')
     spec['top'] = {
         'item_ko': top_item,
         'item_en': top_item,
-        'color_ko': color2 or '베이지',
+        'color_ko': top_color,
     }
     
     # ── 하의 ──
@@ -876,13 +920,42 @@ def generate_outfit_spec(metadata, stylist):
     bag_map = _BAG_M if gender == "M" else _BAG_F
     bag = bag_map.get(purpose, '')
     if bag:
-        bag_color = '블랙' if gender == 'M' else (color2 if color2 else '브라운')
+        # [2026-04-06 수정] color2는 악세서리 이름이므로 사용하지 않음
+        _bag_colors_f = {'비즈니스 포멀':'블랙','결혼식 하객룩':'골드','소개팅룩':'베이지','로맨틱 데이트룩':'블랙','주말 나들이':'내추럴'}
+        bag_color = '블랙' if gender == 'M' else _bag_colors_f.get(purpose, '브라운')
         spec['bag'] = {'item_ko': bag, 'item_en': bag, 'color_ko': bag_color}
     
     # ── 시계 (포멀 계열) ──
     formal_purposes = ["비즈니스 포멀","데일리 오피스룩","면접룩","결혼식 하객룩","상견례/가족모임"]
     if purpose in formal_purposes:
         spec['watch'] = {'item_ko': '클래식 시계', 'item_en': 'classic watch', 'color_ko': '실버'}
+    
+    # ── 스카프/목도리 (여자 30대 이상 + 온도 조건) ──
+    # [2026-04-06 추가] 스카프 추천 조건:
+    # 1) 여자만 (남자는 목도리만 — 1도 이하)
+    # 2) 30대 이상만 (20대 이하에게 스카프 추천 안 함)
+    # 3) 온도 기준: 여자 13도 미만, 남자 8도 미만
+    # 4) 가방에 이미 스카프가 있으면 목 스카프 제외
+    _age_num = metadata.get('age', 30)
+    try: _age_num = int(_age_num)
+    except: _age_num = 30
+    
+    _has_bag_scarf = False  # 가방에 스카프 달린 경우 추적
+    
+    if gender == "F" and _age_num >= 30:
+        if temp < 13 and temp >= 8:
+            spec['scarf'] = {'item_ko': '실크 스카프', 'item_en': 'silk scarf', 'color_ko': '베이지'}
+        elif temp >= 1 and temp < 8:
+            spec['scarf'] = {'item_ko': '코튼 스카프', 'item_en': 'cotton scarf', 'color_ko': '라이트 베이지'}
+        elif temp >= -9 and temp < 1:
+            spec['scarf'] = {'item_ko': '캐시미어 목도리', 'item_en': 'cashmere muffler', 'color_ko': '그레이'}
+        elif temp < -9:
+            spec['scarf'] = {'item_ko': '울 목도리', 'item_en': 'wool muffler', 'color_ko': '차콜'}
+    elif gender == "M":
+        if temp >= 1 and temp < 8:
+            spec['scarf'] = {'item_ko': '캐시미어 목도리', 'item_en': 'cashmere muffler', 'color_ko': '차콜'}
+        elif temp < 1:
+            spec['scarf'] = {'item_ko': '울 목도리', 'item_en': 'wool muffler', 'color_ko': '차콜'}
     
     # ── 양말 (남성) ──
     if gender == "M":
@@ -892,12 +965,19 @@ def generate_outfit_spec(metadata, stylist):
 
 
 def outfit_spec_to_prompt(spec):
-    """착장 스펙 → 이미지 생성 프롬프트 블록 변환"""
+    """
+    [2026-04-06 보강] 착장 스펙 → 이미지 생성 프롬프트 블록 변환
+    - 스카프는 TOP과 별도로 지시 (중복 방지)
+    - 가방 스카프 vs 목 스카프 충돌 방지
+    """
     lines = ["\n=== OUTFIT SPECIFICATION (MUST FOLLOW EXACTLY) ==="]
     cat_labels = {
-        'outer': 'OUTER', 'top': 'TOP', 'bottom': 'BOTTOM',
-        'shoes': 'SHOES', 'bag': 'BAG/ACCESSORY', 'watch': 'WATCH', 'socks': 'SOCKS',
+        'outer': 'OUTER/JACKET', 'top': 'TOP/INNER',
+        'bottom': 'BOTTOM', 'shoes': 'SHOES',
+        'scarf': 'SCARF/NECKWEAR', 'bag': 'BAG',
+        'watch': 'WATCH', 'socks': 'SOCKS',
     }
+    has_scarf = 'scarf' in spec
     for cat, label in cat_labels.items():
         if cat in spec:
             s = spec[cat]
@@ -905,7 +985,18 @@ def outfit_spec_to_prompt(spec):
             item = s.get('item_ko', '')
             desc = f"{color} {item}".strip() if color else item
             lines.append(f"[{label}]: {desc}")
-    lines.append("Follow this outfit specification EXACTLY. Each category must match.")
+    
+    # 스카프 중복 방지 지시
+    if has_scarf:
+        lines.append("SCARF RULE: The scarf must be worn around the NECK only.")
+        lines.append("Do NOT attach scarf to the bag. Scarf and bag are separate items.")
+    
+    # TOP과 스카프 분리 강조
+    lines.append("IMPORTANT: TOP/INNER is the main clothing item (shirt/blouse/knit).")
+    if has_scarf:
+        lines.append("SCARF is a SEPARATE accessory worn around the neck, NOT part of the top.")
+    
+    lines.append("Follow this outfit specification EXACTLY. Each category color and design must match.")
     lines.append("=== END OUTFIT SPEC ===\n")
     return "\n".join(lines)
 
