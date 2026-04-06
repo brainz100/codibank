@@ -1178,7 +1178,21 @@ async function generate(isRetry=false){
       + (_physique ? ` Physique=Must reflect exact ${_physique}, ensuring realistic body proportions.` : ''),
 
       // II-2. Garment Integrity (100% Fidelity)
-      'GARMENT INTEGRITY (100% FIDELITY): TOP=The first clothing reference image. Reproduce exact design, color, texture, pattern, fit — must appear naturally worn, not superimposed. BOTTOM=The second clothing reference image. Reproduce exact design, color, texture, pattern, fit — must appear naturally worn. EXECUTION RULE: Do NOT interpret or alter the core design of these two items. They must be recognizable as the identical items in the reference images.',
+            // [2026-04-06 보강] 하의(특히 치마) 착용 리얼리즘 강화
+      // 원인: 상의는 자연스럽게 착용되지만 치마가 2D 이미지처럼 붙여진 듯 부자연스러움
+      // 해결: 3D 드레이핑, 중력, 주름, 그림자 등 구체적 리얼리즘 지시 추가
+      'GARMENT INTEGRITY (100% FIDELITY): '
+      + 'TOP=The first clothing reference image. Reproduce exact design, color, texture, pattern, fit — must appear naturally worn on the body with realistic 3D draping. '
+      + 'BOTTOM=The second clothing reference image. Reproduce exact design, color, texture, pattern, fit. '
+      + 'BOTTOM REALISM (CRITICAL): The bottom garment must look NATURALLY WORN — NOT a flat 2D image pasted onto the body. '
+      + 'Required: (1) Natural DRAPING with gravity — fabric hangs from waist and curves around hips/thighs. '
+      + '(2) WRINKLES and FOLDS at natural stress points (waistband, hips). '
+      + '(3) Body-conforming CONTOUR — follows the hip and thigh shape. '
+      + '(4) Natural SHADOW between body and fabric. '
+      + '(5) 3D VOLUME for pleats/tiers/ruffles — not flat lines. '
+      + '(6) Seamless transition where top meets bottom (tucked or layered). '
+      + 'The bottom must have the SAME 3D realism level as the top. A flat cutout look = FAILURE. '
+      + 'EXECUTION RULE: Do NOT interpret or alter the core design of these two items. They must be recognizable as the identical items in the reference images.',
 
       // II-3. Styling & Presentation
       `POSE & COMPOSITION: A ${_ri(_poses)}, full-body standing pose that clearly showcases both top and bottom. Full body from head to toe must be visible in frame.`,
