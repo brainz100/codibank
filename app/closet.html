@@ -3575,10 +3575,12 @@ async function updateVTO(opts={}){
     // [2026-04-06 수정] 구 PERSONA 스타일리스트 차단 (서버 응답 후 갱신)
     S.stylist = null;  // r.stylist 사용하지 않음
     S.matchPairs = (r.matchPairs && Array.isArray(r.matchPairs)) ? r.matchPairs : buildMatchPairsFromPalette(palette, S.wx.temp);
-    S.categoryKeywords = r.categoryKeywords || {};
+    // [2026-04-06 수정] 구 PERSONA 카테고리 키워드 차단 (서버 엔진 데이터로 대체)
+    S.categoryKeywords = {};
     S.outerLabel = r.outerLabel || null;
     S.bodyType = r.bodyType || null;
-    S.keywords = Array.isArray(r.keywords) ? r.keywords : keywords;
+    // [2026-04-06 수정] 구 PERSONA 키워드 차단 (서버 엔진 키워드로 대체)
+    S.keywords = [];
     // ──────────────────────────────────────────────────────────
     // [2026-04-06 수정] 구 PERSONA_DB imagePrompt 차단
     // 원인: callClaude()가 구 PERSONA_DB(70개, Mia·트렌드세터 등)로
@@ -3927,6 +3929,10 @@ async function updateVTO(opts={}){
               .replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#a2fdf0;">$1</strong>')
               .replace(/\n/g, '<br>');
           }
+        }
+        // [2026-04-06] 서버 엔진 키워드로 스타일링 포인트 갱신
+        if(data.engineKeywords && Array.isArray(data.engineKeywords)) {
+          S.keywords = data.engineKeywords;
         }
         // [2026-04-06] 스타일리스트 배지 즉시 교체
         // (구: 'Mia · 트렌드세터' → 신: '주유나 · 데이트 장소별 코디 전문')
