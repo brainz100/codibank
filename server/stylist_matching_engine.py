@@ -692,7 +692,11 @@ def process_styling_request(payload, fashion_db, stylist_db):
     # 5. AI 모델 분기
     model_type = "gemini" if metadata['has_face'] else "dalle"
     
-    injection = generate_prompt_injection(metadata, stylist, fashion_db) if 'generate_prompt_injection' in dir() else ''
+    # [2026-04-06 수정] dir() 버그 — 모듈 함수 직접 호출
+    try:
+        injection = generate_prompt_injection(metadata, stylist, fashion_db)
+    except Exception:
+        injection = ''
     return prompt, story, model_type, stylist, injection, metadata
 
 

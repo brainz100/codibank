@@ -1032,6 +1032,28 @@ def _images_edit_compat(
     )
 
 
+# ── [2026-04-06] 엔진 진단 — 브라우저에서 /api/engine-status 접속 ──
+@app.get("/api/engine-status")
+def engine_status():
+    """배포 후 브라우저에서 확인: 엔진이 정상 로드됐는지"""
+    import os as _os
+    _here = _os.path.dirname(_os.path.abspath(__file__))
+    return jsonify(
+        version="v2026-04-06",
+        engine_loaded=(_STYLIST_ENGINE is not None),
+        fashion_db_loaded=bool(_FASHION_DB),
+        fashion_db_cities=len(_FASHION_DB.get('city_keywords',{})) if _FASHION_DB else 0,
+        stylist_db_loaded=bool(_STYLIST_DB),
+        stylist_db_cities=len(_STYLIST_DB) if _STYLIST_DB else 0,
+        files={
+            "fashion_keywords_db.json": _os.path.exists(_os.path.join(_here,"fashion_keywords_db.json")),
+            "stylist_db_server.json": _os.path.exists(_os.path.join(_here,"stylist_db_server.json")),
+            "stylist_matching_engine.py": _os.path.exists(_os.path.join(_here,"stylist_matching_engine.py")),
+        },
+        will_engine_run=bool(_STYLIST_ENGINE and _FASHION_DB and _STYLIST_DB),
+    )
+
+
 @app.get("/health")
 def health():
     return jsonify(
@@ -1438,7 +1460,12 @@ def ai_styling():
 
     if not _engine_active:
         prompt, short = build_prompt(payload)
-        print(f"[v2026-04-06 fallback] build_prompt 사용")
+        # [2026-04-06] fallback 원인 진단
+        _why = []
+        if not _STYLIST_ENGINE: _why.append("엔진 미로드(stylist_matching_engine.py 없음)")
+        if not _FASHION_DB: _why.append("fashion_keywords_db.json 없음/비어있음")
+        if not _STYLIST_DB: _why.append("stylist_db_server.json 없음/비어있음")
+        print(f"[v2026-04-06 ⚠️ fallback] 원인: {', '.join(_why) if _why else '엔진 런타임 에러'}")
 
     face_data_url = payload.get("faceImage")
     size = str(payload.get("size") or "1024x1536")
