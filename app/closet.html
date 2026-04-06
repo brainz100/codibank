@@ -3578,9 +3578,16 @@ async function updateVTO(opts={}){
     S.outerLabel = r.outerLabel || null;
     S.bodyType = r.bodyType || null;
     S.keywords = Array.isArray(r.keywords) ? r.keywords : keywords;
-    // [2026-04-06 수정] 구 PERSONA_DB 기반 imagePrompt 사용 금지
-    // 서버의 9,600명 스타일리스트 엔진이 목적별 전용 프롬프트를 생성함
-    // 프론트의 imagePrompt를 비워서 서버가 구 프롬프트를 받지 않도록 차단
+    // ──────────────────────────────────────────────────────────
+    // [2026-04-06 수정] 구 PERSONA_DB imagePrompt 차단
+    // 원인: callClaude()가 구 PERSONA_DB(70개, Mia·트렌드세터 등)로
+    //       imagePrompt를 생성하면, 서버가 이를 그대로 사용하여
+    //       소개팅/공항패션/스포티 등 모든 목적이 동일한 스타일로 생성됨
+    // 해결: imagePrompt를 비워서 서버의 9,600명 스타일리스트 엔진이
+    //       코디목적(16종)×도시(7개)별 전용 프롬프트를 생성하도록 함
+    // 관련파일: mock_backend.py 1424행 (엔진 프롬프트 대체 로직)
+    //          stylist_matching_engine.py (목적별 키워드 DB)
+    // ──────────────────────────────────────────────────────────
     S.imagePrompt = '';  // r.imagePrompt 사용하지 않음
     S.extSpec    = r.extSpec    || {};
     S.codiStory  = r.codiStory  || '';
@@ -3891,13 +3898,40 @@ async function updateVTO(opts={}){
         if(_spinDone){ _spinDone.classList.remove('animating'); _spinDone.style.display='none'; }
         const _stDone=document.getElementById('vtoStateText');
         if(_stDone) _stDone.textContent='추천 스타일링 완료 ✨';
-        // [2026-04-06 추가] 서버가 반환한 9,600명 DB 스타일리스트 정보를 UI에 반영
+        // ──────────────────────────────────────────────────────────
+        // [2026-04-06 추가] 서버 응답 → 구 PERSONA 스타일리스트를 신규 DB로 교체
+        // 원인: callClaude()가 먼저 실행되어 S.stylist에 구 PERSONA(Mia 등)를
+        //       설정하고 화면에 표시함. 이후 서버가 9,600명 DB에서 매칭한
+        //       스타일리스트(주유나, Sophia 등)를 반환하지만 화면이 안 바뀜
+        // 해결: 서버 응답 즉시 S.stylist와 codiExplain/배지를 새 데이터로 갱신
+        // 관련파일: stylist_matching_engine.py select_stylist() 함수
+        //          stylist_db_server.json (11,200명 스타일리스트 프로필)
+        // ──────────────────────────────────────────────────────────
         if(data.stylist) {
           S.stylist = data.stylist;
         }
         if(data.stylingStory) {
           S.codiStory = data.stylingStory;
+          // [2026-04-06] 서버 엔진 스토리로 'AI 추천코디 이야기' 즉시 교체
+          // (callClaude의 구 PERSONA 스토리 → 서버 엔진의 목적별 스토리)
+          const _expEl2 = document.getElementById('codiExplain');
+          if(_expEl2) {
+            _expEl2.innerHTML = data.stylingStory
+              .replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#a2fdf0;">$1</strong>')
+              .replace(/\n/g, '<br>');
+          }
         }
+        // [2026-04-06] 스타일리스트 배지 즉시 교체
+        // (구: 'Mia · 트렌드세터' → 신: '주유나 · 데이트 장소별 코디 전문')
+        try {
+          const _sb2 = document.getElementById('stylistBadge');
+          if(_sb2 && S.stylist) {
+            const _sn = S.stylist.name || '';
+            const _sv = S.stylist.career || S.stylist.voice || '';
+            _sb2.textContent = _sn ? _sn + ' · ' + _sv : _sv;
+            _sb2.classList.remove('hidden');
+          }
+        } catch(_){}
         return { data, imgRef, displaySrc };
       };
 
