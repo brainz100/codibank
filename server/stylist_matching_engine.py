@@ -182,6 +182,19 @@ def select_daily_keywords(keywords_str, user_id, purpose, count=8, retry_seed=0)
     seed = int(hashlib.md5(seed_str.encode()).hexdigest(), 16) % (2**32)
     rng = random.Random(seed)
     
+    # [2026-04-06 추가] 온도 기반 부적합 키워드 필터링
+    # 원인: 25도에 "Cardigan", "Coat" 등 겨울 키워드가 포함되어 두꺼운 착장 생성
+    _temp_val = None
+    try:
+        import re as _re_kw
+        _temp_match = _re_kw.search(r'(\d+)', str(retry_seed))
+    except: pass
+    
+    _warm_filter = ['coat','cardigan','sweater','knit','wool','muffler','scarf',
+                    'turtleneck','fleece','padding','puffer','layered','layer',
+                    'heavy','thick','warm','보온','니트','코트','패딩','가디건','머플러']
+    _cold_filter = ['sleeveless','tank','sandal','shorts','crop','민소매','반팔','샌들']
+    
     selected = rng.sample(keywords, min(count, len(keywords)))
     
     # 영문 키워드만 추출
@@ -264,6 +277,21 @@ def build_styling_prompt(payload, fashion_db):
     user_id = str(profile.get('id', profile.get('email', 'default')))
     selected_keywords = select_daily_keywords(keywords_str, user_id, purpose, count=8, retry_seed=retry_seed)
     
+    # [2026-04-06 추가] 온도 기반 키워드 필터링 — 25도에 Cardigan/Coat 제거
+    _warm_block = ['coat','cardigan','sweater','knit','wool','muffler','scarf',
+                   'turtleneck','fleece','padding','puffer','layered','layer',
+                   'heavy','thick','down jacket','overcoat','trench']
+    _cold_block = ['sleeveless','tank top','sandal','shorts','crop top']
+    
+    if temp >= 22:
+        # 따뜻한 날씨 → 두꺼운/레이어드 키워드 제거
+        selected_keywords = [kw for kw in selected_keywords 
+                            if not any(w in kw.lower() for w in _warm_block)]
+    elif temp <= 5:
+        # 추운 날씨 → 시원한 키워드 제거
+        selected_keywords = [kw for kw in selected_keywords 
+                            if not any(w in kw.lower() for w in _cold_block)]
+    
     # ── 온도 버킷 ──
     temp_bucket = _get_temp_bucket(temp)
     
@@ -313,7 +341,14 @@ def build_styling_prompt(payload, fashion_db):
         f"\n\n"
         f"{bottom_instruction}"
         f"\n"
-        f"WEATHER: {temp}°C, {condition}. Outfit guide: {temp_bucket}. "
+        # [2026-04-06 보강] 날씨=사용자 현지, 패션감각=스타일리스트 도시 분리
+        f"WEATHER AT USER LOCATION (HIGH PRIORITY — MUST OVERRIDE GENERIC STYLING): "
+        f"The user is currently at: {user_location or 'their local area'}. "
+        f"Local temperature: {temp}°C, Condition: {condition}. "
+        f"Outfit MUST be appropriate for THIS temperature — NOT for the stylist city. "
+        f"Outfit weight guide: {temp_bucket}. "
+        f"{'WARM WEATHER RULE: NO blazer, NO jacket, NO cardigan, NO sweater, NO coat, NO heavy layers. Single light layer ONLY. Shirt sleeves can be short or rolled up. Fabrics must be BREATHABLE (cotton, linen, lightweight). ' if temp >= 22 else ''}"
+        f"{'COLD WEATHER RULE: Must include warm outer layer (coat/jacket). Layering is essential. Warm fabrics required. ' if temp <= 10 else ''}"
         f"\n\n"
         # ── 금지 항목 (CRITICAL) ──
         f"=== ABSOLUTE RULES (VIOLATION = GENERATION FAILURE) ===\n"
@@ -728,6 +763,13 @@ def process_styling_request(payload, fashion_db, stylist_db):
 
 
 # [v2026-04-06] 프롬프트 주입 — 도시+목적 차별화
+_CITY_F_WARM = {"서울":"Korean K-fashion: clean modern, light single-layer styling for warm weather"
+    ,"뉴욕":"New York urban: light breathable, summer city-ready"
+    ,"파리":"Parisian chic: light elegant, breathable fabrics"
+    ,"런던":"London modern: light layering, breathable"
+    ,"상파울루":"São Paulo tropical: light colors, breathable fabrics"
+    ,"두바이":"Dubai: lightweight premium fabrics, breathable elegance"
+    ,"밀라노":"Milan: light Italian fabrics, summer Sprezzatura"}
 _CITY_F = {"서울":"Korean K-fashion: clean modern, layered styling","뉴욕":"New York urban: high-low mixing, street-smart","파리":"Parisian chic: understated elegance, neutral tones","런던":"London heritage: tailored layers, eclectic texture","상파울루":"São Paulo tropical: bold colors, casual-smart","두바이":"Dubai luxury: premium fabrics, modest elegance","밀라노":"Milan craft: soft-shoulder tailoring, Sprezzatura"}
 _PURPOSE_D = {"비즈니스 포멀":"Sharp professional — structured tailoring, boardroom-ready","데일리 오피스룩":"Smart-casual office — polished but comfortable","면접룩":"Interview — trustworthy, clean, conservative modern","결혼식 하객룩":"Wedding guest — celebratory, sophisticated color","소개팅룩":"First-date — naturally attractive, soft textures, warm colors, subtle charm","로맨틱 데이트룩":"Romantic evening — refined, rich fabrics, dinner-worthy","상견례/가족모임":"Family gathering — respectful, age-appropriate elegance","사교 모임/파티":"Social party — eye-catching, bold accessories","주말 나들이":"Weekend outing — comfortable, photo-ready, cheerful","여행지 인생샷":"Travel photogenic — backdrop-matching, SNS-worthy","꾸안꾸 데일리":"Effortless chic — basic items cleverly combined","스포티/애슬레저":"Sporty athleisure — functional, performance fabrics, dynamic","공항 패션":"Airport travel — comfort with polish, layered, wrinkle-resistant","미니멀/심플":"Minimal — capsule wardrobe, clean lines, quiet luxury","트렌디/스트릿":"Trendy street — bold graphics, sneaker culture, youth energy","직접입력":"Custom styling"}
 
@@ -880,6 +922,20 @@ def generate_outfit_spec(metadata, stylist):
     top_map = _TOP_ITEMS.get(purpose, {"M": "셔츠", "F": "블라우스"})
     top_item = top_map.get(gender, "셔츠")
     # [2026-04-06 수정] 상의 컬러는 스타일리스트 color2가 아닌 목적별 적절한 컬러 사용
+    # [2026-04-06 추가] 따뜻한 날씨(22도+)에 상의를 가벼운 아이템으로 변경
+    if temp >= 22:
+        _summer_tops = {
+            "M": {"비즈니스 포멀": "린넨 셔츠", "데일리 오피스룩": "반팔 셔츠",
+                   "면접룩": "반팔 드레스 셔츠", "소개팅룩": "린넨 셔츠",
+                   "주말 나들이": "반팔 티셔츠", "공항 패션": "반팔 린넨 셔츠"},
+            "F": {"비즈니스 포멀": "반팔 블라우스", "데일리 오피스룩": "반팔 니트",
+                   "면접룩": "반팔 블라우스", "소개팅룩": "슬리브리스 블라우스",
+                   "주말 나들이": "반팔 티셔츠", "공항 패션": "반팔 린넨 셔츠"},
+        }
+        _summer_top = _summer_tops.get(gender, {}).get(purpose, '')
+        if _summer_top:
+            top_item = _summer_top
+
     _top_colors = {
         "비즈니스 포멀": "화이트", "데일리 오피스룩": "아이보리",
         "면접룩": "화이트", "결혼식 하객룩": "크림",
@@ -1021,12 +1077,39 @@ def outfit_spec_to_category_keywords(spec):
     return result
 
 def generate_prompt_injection(metadata, stylist, fashion_db):
-    city = metadata.get('active_city', '서울')
+    # [2026-04-06 수정] 서울 하드코딩 제거 — 글로벌 서비스
+    city = metadata.get('active_city', '')
     purpose = metadata.get('purpose', '데일리 오피스룩')
     keywords = metadata.get('keywords_selected', [])
-    s_info = f"COLOR: Primary={stylist.get('color1','')}, Accent={stylist.get('color2','')}. Expert: {stylist.get('career','')}" if stylist else ''
+    temp = metadata.get('temp', 20)
+    
+    # [2026-04-06 보강] color2는 악세서리 이름이므로 injection에서 제외
+    s_color1 = stylist.get('color1','') if stylist else ''
+    s_career = stylist.get('career','') if stylist else ''
+    s_info = f"COLOR: Primary={s_color1}. Expert: {s_career}" if stylist else ''
+    
+    # [2026-04-06 추가] 온도에 따라 도시 패션 설명 분기
+    if temp >= 22:
+        city_desc = _CITY_F_WARM.get(city, _CITY_F.get(city, ''))
+    else:
+        city_desc = _CITY_F.get(city, '')
+    
+    # [2026-04-06 추가] 날씨 강조
+    weather_note = ""
+    if temp >= 28:
+        weather_note = f"\nWEATHER OVERRIDE: {temp}°C — HOT. NO jacket, NO blazer, NO sweater. Single thin layer ONLY."
+    elif temp >= 22:
+        weather_note = f"\nWEATHER NOTE: {temp}°C — WARM. Light single layer. NO heavy outerwear."
+    elif temp <= 5:
+        weather_note = f"\nWEATHER NOTE: {temp}°C — COLD. Warm layering required."
+    
     return (f"\n=== AI STYLIST [v2026-04-06] ===\n"
-            f"CITY: {city} — {_CITY_F.get(city,'')}.\n"
+            f"CITY: {city} — {city_desc}.\n"
             f"PURPOSE: {purpose} — {_PURPOSE_D.get(purpose,'')}.\n"
             f"KEYWORDS: {', '.join(keywords[:8])}.\n"
-            f"{s_info}\nThis MUST reflect {city} fashion for '{purpose}'.\n=== END ===\n")
+            f"{s_info}"
+            f"{weather_note}"
+            f"\nSTYLING RULE: Apply {city} fashion SENSIBILITY (aesthetic, trends, silhouette) "
+            f"but dress for the USER\'S LOCAL WEATHER (temperature, season). "
+            f"The stylist city defines STYLE DIRECTION, NOT weather-appropriate clothing weight."
+            f"\n=== END ===\n")
