@@ -2013,6 +2013,49 @@ def codistyle_generate():
     if not top_bytes or not bottom_bytes:
         return jsonify(ok=False, error="상의/하의 이미지가 필요합니다"), 400
 
+    # ── [2026-04-06 추가] 치마 이미지 가로:세로 비율 분석 ──
+    # 원인: 치마 이미지의 기장을 무시하고 AI가 임의 길이로 생성
+    # 해결: 이미지 비율에서 치마 기장을 추정하여 프롬프트에 반영
+    _skirt_ratio_hint = ""
+    try:
+        from PIL import Image as _PIL_ratio
+        import io as _io_ratio
+        _bottom_pil = _PIL_ratio.open(_io_ratio.BytesIO(bottom_bytes))
+        _bw, _bh = _bottom_pil.size  # 가로(허리폭), 세로(기장)
+        _wh_ratio = _bh / _bw if _bw > 0 else 1.0
+        # 비율 해석:
+        # ratio < 0.7  → 매우 짧은 치마 (미니)
+        # 0.7 ~ 1.0   → 짧은 치마 (미니~무릎 위)
+        # 1.0 ~ 1.4   → 무릎 길이 (미디)
+        # 1.4 ~ 1.8   → 종아리 길이 (미디~롱)
+        # 1.8+         → 발목 길이 (맥시)
+        if _wh_ratio < 0.7:
+            _skirt_ratio_desc = "very short mini skirt (hem well above knee)"
+            _skirt_ratio_pct = "15-20%"
+        elif _wh_ratio < 1.0:
+            _skirt_ratio_desc = "short skirt (hem at mid-thigh to just above knee)"
+            _skirt_ratio_pct = "20-25%"
+        elif _wh_ratio < 1.4:
+            _skirt_ratio_desc = "knee-length skirt (hem at or just below knee)"
+            _skirt_ratio_pct = "25-33%"
+        elif _wh_ratio < 1.8:
+            _skirt_ratio_desc = "midi skirt (hem at mid-calf)"
+            _skirt_ratio_pct = "33-40%"
+        else:
+            _skirt_ratio_desc = "maxi/long skirt (hem near ankle)"
+            _skirt_ratio_pct = "40-50%"
+        
+        _skirt_ratio_hint = (
+            f"SKIRT LENGTH FROM IMAGE ANALYSIS (width={_bw}px, height={_bh}px, ratio={_wh_ratio:.2f}): "
+            f"This skirt is a {_skirt_ratio_desc}. "
+            f"In the generated image, the skirt must occupy approximately {_skirt_ratio_pct} "
+            f"of the total body height (waist to toe). "
+            f"DO NOT make the skirt shorter or longer than this proportion. "
+        )
+        print(f"[codistyle] 치마 비율 분석: {_bw}x{_bh} ratio={_wh_ratio:.2f} → {_skirt_ratio_desc}")
+    except Exception as _ratio_err:
+        print(f"[codistyle] 치마 비율 분석 실패: {_ratio_err}")
+
     # ── Phase 1 결과 있으면 재감지 스킵, 없으면 이미지 분석 ──
     if _bot_is_skirt_pre is not None:
         # Phase 1 결과 사용 → 재감지 불필요
@@ -2048,7 +2091,8 @@ def codistyle_generate():
                 f"MUST generate a {_skirt_length_en}. "
                 "ABSOLUTELY FORBIDDEN: trousers, pants, leggings, or any leg-separation garment under or instead of the skirt. "
                 "NO LAYERING of pants under the skirt. The skirt must be the ONLY lower-body garment. "
-                f"Silhouette reference: {_detected_silhouette}"
+                f"Silhouette reference: {_detected_silhouette}. "
+                + (_skirt_ratio_hint if _skirt_ratio_hint else "")
             )
         }
     elif _detected_type == "shorts":
@@ -2245,6 +2289,8 @@ def codistyle_generate():
             "8) Where the top meets the skirt (tucked in or layered over), the transition must look seamless. "
             "ANTI-PATTERN: A skirt that looks like a flat 2D cutout placed on the body = GENERATION FAILURE. "
             "The skirt must have the SAME level of 3D realism as the top garment. "
+            # [2026-04-06 추가] 이미지 비율 기반 치마 기장 강제
+            + (_skirt_ratio_hint if _skirt_ratio_hint else "")
             if bottom_info.get("is_skirt") else
             "\n[PANTS RULE]: "
             f"Lower garment = {bottom_info.get('garment','trousers')}. "
