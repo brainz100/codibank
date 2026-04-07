@@ -1684,8 +1684,9 @@ async function uploadImageToServer(dataUrl, opts) {
     // 서브 페이지들은 가장 가까운 탭으로 묶어줍니다.
     const map = {
       'index.html': 'closet.html',
-      'item.html': 'closet.html',
-      'camera.html': 'camera.html',
+      'item.html': 'aicloset.html',
+      'camera.html': 'aicloset.html',
+      'aicloset.html': 'aicloset.html',
       'closet.html': 'closet.html',
       'album.html': 'album.html',
       'share-sale.html': 'share-sale.html',
