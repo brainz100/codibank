@@ -1435,7 +1435,7 @@ def _ai_styling_via_gemini(
 @app.post("/api/ai/styling")
 def ai_styling():
     # ══════════════════════════════════════════════════════
-    # 내옷장 AI 코디 추천: 항상 OpenAI API 전용
+    # 코디쌤 AI 코디 추천: 항상 OpenAI API 전용
     # 코디하기 착장 이미지: /api/codistyle/generate (Gemini 전용)
     # 두 API를 혼용하거나 임의 전환하지 않음
     # ══════════════════════════════════════════════════════
@@ -1443,13 +1443,13 @@ def ai_styling():
     if not has_openai:
         return jsonify(
             ok=False,
-            error="OPENAI_API_KEY가 설정되지 않았습니다. 내옷장 AI 코디는 OpenAI API가 필요합니다.",
+            error="OPENAI_API_KEY가 설정되지 않았습니다. 코디쌤 AI 코디는 OpenAI API가 필요합니다.",
         ), 400
 
     payload = request.get_json(silent=True) or {}
 
     # [v2026-04-06] 9,600명 AI 스타일리스트 엔진 — 프론트 프롬프트 완전 대체
-    # 구: closet.html PERSONA_DB → imagePrompt → 서버 통과 → OpenAI (목적 차별화 불가)
+    # 구: closet.html(코디쌤) PERSONA_DB → imagePrompt → 서버 통과 → OpenAI (목적 차별화 불가)
     # 신: 서버 엔진이 목적+도시 기반 전용 프롬프트 생성 → OpenAI (16개 목적 완전 차별화)
     _matched_stylist = None
     _styling_story = ""
@@ -1523,13 +1523,13 @@ def ai_styling():
             cached=True,
         )
 
-    # ── 내옷장(/api/ai/styling)은 항상 OpenAI만 사용 ──
+    # ── 코디쌤(/api/ai/styling)은 항상 OpenAI만 사용 ──
     # 코디하기(/api/codistyle/generate)는 항상 Gemini 사용 (별도 엔드포인트)
     # 두 API를 절대 혼용하지 않음
     if not has_openai:
         return jsonify(
             ok=False,
-            error="OPENAI_API_KEY가 설정되지 않았습니다. 내옷장 AI 코디는 OpenAI API가 필요합니다.",
+            error="OPENAI_API_KEY가 설정되지 않았습니다. 코디쌤 AI 코디는 OpenAI API가 필요합니다.",
         ), 400
 
     model_no_face = os.getenv("CODIBANK_OPENAI_IMAGE_MODEL", "gpt-image-1.5")
@@ -3500,7 +3500,7 @@ def admin_change_password():
 # 설계:
 #   - 사용횟수는 각 유저 브라우저 localStorage에 저장됨
 #   - 어드민이 Supabase 'user_usage_bonus' 테이블에 보너스 값 저장
-#   - 앱(closet.html/codistyle.html)이 로딩 시 /api/usage/bonus/<email>로 조회
+#   - 앱(코디쌤 closet.html / 코디하기 codistyle.html)이 로딩 시 /api/usage/bonus/<email>로 조회
 #   - 조회된 bonus가 있으면 해당 월 한도에 더해 적용
 # ══════════════════════════════════════════════════════════════
 

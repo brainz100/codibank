@@ -683,7 +683,7 @@ def generate_full_story(metadata, stylist, city):
 # ═══════════════════════════════════════════════════
 def process_styling_request(payload, fashion_db, stylist_db):
     """
-    내옷장 추천코디 요청 처리 — 원스톱
+    코디쌤 추천코디 요청 처리 — 원스톱
     
     mock_backend.py에서 이렇게 사용:
         prompt, story, model_type, stylist = process_styling_request(payload, FASHION_DB, STYLIST_DB)
@@ -780,7 +780,7 @@ _PURPOSE_D = {"비즈니스 포멀":"Sharp professional — structured tailoring
 # 해결: 착장 스펙을 먼저 생성 → 프롬프트에 삽입 + UI에 표시
 # 용도: 1) 이미지 생성 프롬프트의 카테고리별 지시
 #       2) closet.html "AI 스타일링 포인트" UI 표시
-#       3) 모바일옷장 유사도 매칭 기준
+#       3) Ai 옷장 유사도 매칭 기준
 # ═══════════════════════════════════════════════════
 
 _OUTER_ITEMS = {
