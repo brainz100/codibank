@@ -80,20 +80,47 @@ document.addEventListener('DOMContentLoaded', () => {
 .cb-spacer{height:82px;}
 
 
-    /* ── [2026-04-07] Ai 옷장 카드 디자인 (closet.html에서 이동) ── */
+    /* ═══ [2026-04-07] Ai 옷장 — closet.html에서 이동한 카드 덱 전체 CSS ═══ */
+    /* 카드 덱 3D */
+    .closet-container{position:relative;height:400px;display:flex;align-items:center;justify-content:center;perspective:1300px;touch-action:pan-y;}
+    .clothing-layer{position:absolute;width:160px;height:264px;border-radius:1.55rem;overflow:hidden;background:#fff;border:1px solid rgba(17,17,17,0.06);box-shadow:0 14px 34px rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center;text-decoration:none;user-select:none;-webkit-user-select:none;will-change:transform,opacity,filter;transform-origin:50% 62%;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform-style:preserve-3d;transition:transform 520ms cubic-bezier(0.16,1,0.3,1),opacity 320ms cubic-bezier(0.2,0.8,0.2,1),filter 320ms cubic-bezier(0.2,0.8,0.2,1),box-shadow 520ms cubic-bezier(0.16,1,0.3,1),border-color 420ms ease;}
+    .clothing-layer::before{content:'';position:absolute;inset:-40% -60%;pointer-events:none;opacity:0;transform:translateX(-120%) rotate(12deg);background:linear-gradient(120deg,transparent 0%,rgba(255,255,255,0.75) 45%,transparent 60%);}
+    @keyframes cardShine{0%{transform:translateX(-120%) rotate(12deg);opacity:0}15%{opacity:0.5}100%{transform:translateX(140%) rotate(12deg);opacity:0}}
+    .clothing-layer.sparkle{border-color:rgba(197,163,88,0.8);box-shadow:0 26px 62px -22px rgba(197,163,88,0.35),0 18px 36px rgba(0,0,0,0.12);}
+    .clothing-layer.sparkle::before{opacity:1;animation:cardShine 980ms cubic-bezier(0.16,1,0.3,1) 2;}
+    .layer-1{transform:translateX(-148px) scale(0.88) translateZ(-90px) rotateY(10deg);z-index:10;opacity:0.54;filter:blur(0.85px);}
+    .layer-5{transform:translateX(148px) scale(0.88) translateZ(-90px) rotateY(-10deg);z-index:10;opacity:0.54;filter:blur(0.85px);}
+    .layer-2{transform:translateX(-86px) scale(1.08) translateZ(-45px) rotateY(6deg);z-index:20;opacity:0.94;}
+    .layer-4{transform:translateX(86px) scale(1.08) translateZ(-45px) rotateY(-6deg);z-index:20;opacity:0.94;}
+    .layer-3{transform:translateX(0) scale(1.35) translateZ(70px) rotateY(0deg);z-index:30;box-shadow:0 32px 70px -22px rgba(0,0,0,0.40);border-color:rgba(197,163,88,0.55);}
+    .deck-highlight .layer-3{border:2px solid rgba(197,163,88,0.9);}
+    .closet-container.is-shifting .clothing-layer:not(.layer-3){filter:blur(1.15px);}
+    .clothing-layer.exit-left{pointer-events:none;transition:transform 200ms cubic-bezier(0.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2.6px);transform:translateX(-210px) scale(0.52) translateZ(-140px) rotateY(16deg) rotate(-6deg);}
+    .clothing-layer.exit-right{pointer-events:none;transition:transform 200ms cubic-bezier(0.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2.6px);transform:translateX(210px) scale(0.52) translateZ(-140px) rotateY(-16deg) rotate(6deg);}
+    .clothing-layer.enter-from-right{transform:translateX(210px) scale(0.52) translateZ(-140px) rotateY(-16deg) rotate(6deg);opacity:0;filter:blur(2.6px);}
+    .clothing-layer.enter-from-left{transform:translateX(-210px) scale(0.52) translateZ(-140px) rotateY(16deg) rotate(-6deg);opacity:0;filter:blur(2.6px);}
+    @keyframes centerPop{0%{transform:translateX(0) scale(1.35) translateZ(70px) rotateY(0deg)}55%{transform:translateX(0) scale(1.40) translateZ(110px) rotateY(0deg)}100%{transform:translateX(0) scale(1.35) translateZ(70px) rotateY(0deg)}}
+    .center-pop{animation:centerPop 520ms cubic-bezier(0.16,1,0.3,1) 1;}
+    .no-transition{transition:none !important;}
+    .layer-img{width:100%;height:100%;object-fit:contain;object-position:center;display:block;background:#fff;}
+    .layer-ph{font-size:12px;color:rgba(15,23,42,0.55);font-weight:700;text-align:center;padding:0 10px;}
+    .layer-icon{font-size:44px;color:rgba(15,23,42,0.22);}
+    @keyframes pulseRing{0%{box-shadow:0 0 0 0 rgba(197,163,88,0.35)}70%{box-shadow:0 0 0 18px rgba(197,163,88,0)}100%{box-shadow:0 0 0 0 rgba(197,163,88,0)}}
+    .pulse-ring{animation:pulseRing 1.4s ease-out 1;border-radius:2rem;}
+    /* 다크 테마 오버라이드 */
     .clothing-layer { background: #0d1f3c !important; border-color: rgba(112,219,212,0.15) !important; }
     .layer-ph { color: rgba(255,255,255,0.35) !important; }
     .layer-icon { color: rgba(151,254,237,0.22) !important; }
     .layer-3 { border: 2px solid #70dbd4 !important; box-shadow: 0 0 20px rgba(112,219,212,0.35), 0 32px 70px -22px rgba(0,0,0,0.55) !important; }
     .clothing-layer.sparkle { border-color: #a2fdf0 !important; box-shadow: 0 0 28px rgba(162,253,240,0.55), 0 18px 36px rgba(0,0,0,0.40) !important; }
-    .match-score-badge { top: 7px !important; right: 7px !important; bottom: auto !important; background: #a2fdf0 !important; color: #071952 !important; font-weight: 900 !important; }
-    .card-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 4px 8px 6px; font-size: 8px; font-weight: 800; color: #071952; letter-spacing: .08em; text-transform: uppercase; pointer-events: none; }
-    .card-label-sub { position: absolute; bottom: 14px; left: 0; right: 0; padding: 2px 8px; font-size: 7px; font-weight: 700; color: #071952; letter-spacing: .06em; pointer-events: none; opacity: .75; }
-    .m-adv { margin: 12px 20px 10px; padding: 11px 14px; border-radius: 12px; background: rgba(0,95,99,0.15); border: 1px solid rgba(18,148,144,0.3); display: flex; align-items: center; gap: 8px; }
-    .m-adv-lbl { font-size: 12px; font-weight: 800; color: #a2fdf0; white-space: nowrap; }
-    .m-adv-txt { font-size: 12px; color: rgba(255,255,255,0.82); line-height: 1.4; }
-    .m-swipe { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 4px; }
-    .m-swipe-arr { font-family: 'Material Symbols Outlined'; font-size: 13px; color: rgba(18,148,144,0.55); }
+    .match-score-badge { top:7px!important;right:7px!important;bottom:auto!important;background:#a2fdf0!important;color:#071952!important;font-weight:900!important;box-shadow:0 2px 8px rgba(162,253,240,0.4)!important; }
+    .card-label { position:absolute;bottom:0;left:0;right:0;padding:4px 8px 6px;font-size:8px;font-weight:800;color:#071952;letter-spacing:.08em;text-transform:uppercase;pointer-events:none; }
+    .card-label-sub { position:absolute;bottom:14px;left:0;right:0;padding:2px 8px;font-size:7px;font-weight:700;color:#071952;letter-spacing:.06em;pointer-events:none;opacity:.75; }
+    .m-adv { margin:12px 20px 10px;padding:11px 14px;border-radius:12px;background:rgba(0,95,99,0.15);border:1px solid rgba(18,148,144,0.3);display:flex;align-items:center;gap:8px; }
+    .m-adv-lbl { font-size:12px;font-weight:800;color:#a2fdf0;white-space:nowrap; }
+    .m-adv-txt { font-size:12px;color:rgba(255,255,255,0.82);line-height:1.4; }
+    .m-swipe { display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:4px; }
+    .m-swipe-arr { font-family:'Material Symbols Outlined';font-size:13px;color:rgba(18,148,144,0.55);font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
 
 </style>
 <link rel="manifest" href="/manifest.json"/>
@@ -149,6 +176,22 @@ document.addEventListener('DOMContentLoaded', () => {
           style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(151,254,237,0.2);font-family:'Outfit','Noto Sans KR',sans-serif;">
           <span class="material-symbols-outlined filled" style="color:#97FEED;">add</span>카테고리 추가
         </button>
+      </div>
+    </div>
+
+    <!-- 카테고리 추가 모달 (closet.html에서 이동) -->
+    <div id="addCatModal" class="hidden fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm">
+      <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-md bg-white rounded-3xl p-6 shadow-2xl">
+        <div class="flex items-start justify-between gap-4 mb-5">
+          <div><p class="text-[10px] font-bold tracking-[0.3em] text-accent">카테고리</p><h3 class="text-xl font-serif text-slate-900">카테고리 추가</h3></div>
+          <button id="closeAddCat" class="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center active:scale-95"><span class="material-symbols-outlined text-slate-600">close</span></button>
+        </div>
+        <input id="newCatName" type="text" class="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900" placeholder="예: 가방, 모자, 안경…"/>
+        <p id="addCatErr" class="mt-2 text-xs text-red-600 hidden"></p>
+        <div class="mt-6 grid grid-cols-2 gap-3">
+          <button id="cancelAddCat" class="py-3.5 rounded-2xl bg-white border border-slate-200 font-bold text-slate-700">취소</button>
+          <button id="applyAddCat" class="py-3.5 rounded-2xl bg-primary text-white font-extrabold" style="background:#071952;">추가하기</button>
+        </div>
       </div>
     </div>
 
@@ -1873,6 +1916,33 @@ renderCategories();
       if(!registerView.classList.contains('hidden')){ showWardrobe(); }
       else { if(history.length>1) history.back(); else window.location.href='closet.html'; }
     };
+
+
+    // ═══ 카테고리 추가 모달 JS (closet.html에서 이동) ═══
+    const addModal=document.getElementById('addCatModal');
+    document.getElementById('openAddCategory')?.addEventListener('click',()=>{
+      addModal.classList.remove('hidden');
+      document.getElementById('newCatName').value='';
+      document.getElementById('addCatErr').classList.add('hidden');
+      setTimeout(()=>document.getElementById('newCatName').focus(),50);
+    });
+    document.getElementById('closeAddCat')?.addEventListener('click',()=>addModal.classList.add('hidden'));
+    document.getElementById('cancelAddCat')?.addEventListener('click',()=>addModal.classList.add('hidden'));
+    addModal?.addEventListener('click',e=>{if(e.target===addModal)addModal.classList.add('hidden');});
+    document.getElementById('applyAddCat')?.addEventListener('click',()=>{
+      const name=String(document.getElementById('newCatName').value||'').trim();
+      const res=CodiBank.addCustomCategoryToUser(user.email,name);
+      if(!res||res.ok!==true){
+        const err=document.getElementById('addCatErr');
+        err.textContent=res?.error||'추가 실패';err.classList.remove('hidden');return;
+      }
+      addModal.classList.add('hidden');
+      renderCategories();
+      populateCategorySelect();
+      const key=res.category?.key;
+      if(key)setTimeout(()=>{const t=document.querySelector('[data-cat-key="'+CSS.escape(key)+'"]');if(t)t.scrollIntoView({behavior:'smooth',block:'start'});},150);
+    });
+    document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('applyAddCat')?.click();});
 
   </script>
 
