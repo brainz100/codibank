@@ -11,23 +11,13 @@
 <script src="codibank.js"></script>
 <script src="i18n.js"></script>
 <script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        fontFamily: { sans: ['Outfit','Noto Sans KR','ui-sans-serif','system-ui'] },
-        colors: { primary:'#071952', accent:'#97FEED', bg:'#071952' },
-      },
-    },
-  }
+tailwind.config={theme:{extend:{fontFamily:{sans:['Outfit','Noto Sans KR','ui-sans-serif','system-ui']},colors:{primary:'#071952',accent:'#97FEED'}}}}
 </script>
 <style>
-  body { font-family:'Outfit','Noto Sans KR',sans-serif; -webkit-tap-highlight-color:transparent; background:#071952; color:#fff; min-height:100dvh; }
-  .ios-blur { backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px); }
-  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 24; }
-  .material-symbols-outlined.filled { font-variation-settings:'FILL' 1,'wght' 650,'GRAD' 0,'opsz' 24; }
-  .no-scrollbar::-webkit-scrollbar { display:none; } .no-scrollbar { -ms-overflow-style:none;scrollbar-width:none; }
-
-  /* ═══ 카드 덱 CSS (closet.html에서 그대로 이동) ═══ */
+body{font-family:'Outfit','Noto Sans KR',sans-serif;-webkit-tap-highlight-color:transparent;background:#071952;color:#fff;min-height:100dvh;}
+.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 24;}
+.material-symbols-outlined.filled{font-variation-settings:'FILL' 1,'wght' 650,'GRAD' 0,'opsz' 24;}
+.no-scrollbar::-webkit-scrollbar{display:none;}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
     .closet-container{position:relative;height:400px;display:flex;align-items:center;justify-content:center;perspective:1300px;touch-action:pan-y;}
     .clothing-layer{position:absolute;width:160px;height:264px;border-radius:1.55rem;overflow:hidden;background:#fff;border:1px solid rgba(17,17,17,0.06);box-shadow:0 14px 34px rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center;text-decoration:none;user-select:none;-webkit-user-select:none;will-change:transform,opacity,filter;transform-origin:50% 62%;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform-style:preserve-3d;transition:transform 520ms cubic-bezier(0.16,1,0.3,1),opacity 320ms cubic-bezier(0.2,0.8,0.2,1),filter 320ms cubic-bezier(0.2,0.8,0.2,1),box-shadow 520ms cubic-bezier(0.16,1,0.3,1),border-color 420ms ease;}
     .clothing-layer::before{content:'';position:absolute;inset:-40% -60%;pointer-events:none;opacity:0;transform:translateX(-120%) rotate(12deg);background:linear-gradient(120deg,transparent 0%,rgba(255,255,255,0.75) 45%,transparent 60%);}
@@ -61,7 +51,6 @@
     .purpose-card:active{transform:scale(0.96);}
     .purpose-card.active{background:rgba(18,148,144,0.3);border-color:#70dbd4;color:#a2fdf0;box-shadow:0 8px 24px rgba(18,148,144,0.35);}
     .purpose-card.active .material-symbols-outlined{font-variation-settings:'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 24;color:#a2fdf0 !important;}
-
     /* ── 모바일옷장 다크 디자인 (m_closet_0308) ── */
     /* 카드 배경: 다크 네이비 */
     .clothing-layer { background: #0d1f3c !important; border-color: rgba(112,219,212,0.15) !important; }
@@ -110,7 +99,6 @@
     /* SWIPE 힌트 */
     .m-swipe { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 4px; }
     .m-swipe-arr { font-family: 'Material Symbols Outlined'; font-size: 13px; color: rgba(18,148,144,0.55); font-variation-settings: 'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
-
 /* ── 모바일 옷장 토글 버튼 ── */
 #closetToggleBtn {
   width:100%; cursor:pointer;
@@ -143,7 +131,6 @@
 #closetMatchPanel.cmp-open { display:block; }
 .cmp-header {
   display:flex; align-items:center; gap:6px;
-
 #closetMatchPanel { display:none; margin:0 5px 12px; }
 #closetMatchPanel.cmp-open { display:block; }
 .cmp-header {
@@ -189,16 +176,14 @@
   background:rgba(18,148,144,0.08);
   font-size:10px; font-weight:700; color:rgba(151,254,237,0.7);
 
-
-  /* ═══ 네비게이션 바 ═══ */
-  .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px 10px;pointer-events:none;padding-bottom:max(10px,env(safe-area-inset-bottom));}
-  .cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px;}
-  .cb-nav-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:rgba(216,226,255,.4);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s;font-family:'Inter','Noto Sans KR',sans-serif;}
-  .cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 22;}
-  .cb-nav-tab .nl{font-size:9px;font-weight:600;letter-spacing:.02em;}
-  .cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px;}
-  .cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
-  .cb-spacer{height:82px;}
+.cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px 10px;pointer-events:none;padding-bottom:max(10px,env(safe-area-inset-bottom));}
+.cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px;}
+.cb-nav-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:rgba(216,226,255,.4);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s;font-family:'Inter','Noto Sans KR',sans-serif;}
+.cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 22;}
+.cb-nav-tab .nl{font-size:9px;font-weight:600;letter-spacing:.02em;}
+.cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px;}
+.cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
+.cb-spacer{height:82px;}
 </style>
 <link rel="manifest" href="/manifest.json"/>
 <meta name="theme-color" content="#07132a"/>
@@ -209,19 +194,15 @@
 <script src="pwa-register.js" defer></script>
 </head>
 <body>
-
-<!-- 상단 헤더 -->
 <header class="pt-4 px-5 pb-3">
   <div class="flex items-center justify-between">
-    <h1 class="text-xl font-bold tracking-tight" style="color:#a2fdf0;">✨ Ai 옷장</h1>
+    <h1 class="text-xl font-bold tracking-tight" style="color:#a2fdf0;">Ai 옷장</h1>
     <a href="mypage.html" class="w-9 h-9 rounded-full flex items-center justify-center" style="background:rgba(255,255,255,0.08);border:1px solid rgba(151,254,237,0.15);">
       <span class="material-symbols-outlined" style="font-size:18px;color:rgba(151,254,237,0.5);">person</span>
     </a>
   </div>
 </header>
-
 <main class="pb-32">
-  <!-- ═══ 모바일 옷장 섹션 (closet.html에서 그대로 이동) ═══ -->
   <!-- 내 Ai 옷장 (다크 m_closet_0308) -->
   <section class="px-0 mt-8">
     <div class="pt-2">
@@ -260,21 +241,6 @@
     </div>
   </section>
 </main>
-
-<!-- CodiBank 공통 풋바 -->
-<div class="cb-spacer"></div>
-<!-- 개인정보처리방침 링크 -->
-<div style="text-align:center;padding:8px 16px 0;font-size:11px;color:rgba(255,255,255,0.25);">
-  <a href="privacy.html" style="color:rgba(151,254,237,0.45);text-decoration:none;">개인정보처리방침</a>
-  <span style="margin:0 6px;opacity:0.3">|</span>
-  <a href="terms.html" style="color:rgba(151,254,237,0.45);text-decoration:none;">이용약관</a>
-</div>
-<nav class="cb-nav">
-  <div class="cb-nav-inner">
-
-</main>
-
-<!-- ═══ 모달들 (closet.html에서 그대로 이동) ═══ -->
 <div id="pickCatModal" class="hidden fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm">
   <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-md bg-white rounded-3xl p-6 shadow-2xl">
     <div class="flex items-start justify-between gap-4 mb-5">
@@ -284,7 +250,6 @@
     <div id="pickCatList" class="grid grid-cols-2 gap-3"></div>
   </div>
 </div>
-<!-- 카테고리 추가 모달 -->
 <div id="addCatModal" class="hidden fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm">
   <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-md bg-white rounded-3xl p-6 shadow-2xl">
     <div class="flex items-start justify-between gap-4 mb-5">
@@ -299,63 +264,24 @@
     </div>
   </div>
 </div>
-<!-- 검색 모달 -->
-<div id="searchModal" class="hidden fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm" onclick="if(event.target===this)closeSearch()">
-  <div class="absolute left-1/2 top-[12%] -translate-x-1/2 w-[92%] max-w-md bg-white rounded-3xl p-5 shadow-2xl">
-    <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
-      <span class="material-symbols-outlined text-slate-400">search</span>
-      <input id="searchInput" type="text" class="flex-1 text-sm font-medium outline-none placeholder-slate-400" placeholder="브랜드, 색상, 카테고리 검색…"/>
-      <button onclick="closeSearch()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center"><span class="material-symbols-outlined text-sm">close</span></button>
-    </div>
-    <div id="searchResults" class="mt-3 max-h-64 overflow-y-auto"></div>
-  </div>
-</div>
 
-<script>
-/* ============================================================
-   코디뱅크 M.옷장 v13
-   - 9개 코디목적 3열 그리드
-   - 단일 Canvas VTO (얼굴+몸+옷 완전 합성)
-
-
-<!-- 네비게이션 -->
 <div class="cb-spacer"></div>
 <nav class="cb-nav">
   <div class="cb-nav-inner">
     <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디쌤</span></a>
     <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
-    <a href="camera.html" class="cb-nav-tab on"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
+    <a href="aicloset.html" class="cb-nav-tab on"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
     <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">코디하기</span></a>
     <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
   </div>
 </nav>
-
 <script>
-  // Auth
-  if(!CodiBank.requireAuth('login.html')){}
-  const user = CodiBank.getCurrentUser();
-  function escH(s){return String(s||'').replace(/[&<>"']/g,m=>({'{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}')[m]));}
-
-  // S 객체 (코디쌤 AI 추천 상태 — Ai 옷장에서는 비활성)
-  const S = { hasGenerated:false, matchByCat:{}, matchScoreMap:{}, matchDetailMap:{}, matchPairs:[], categoryKeywords:{} };
-  function _getCatSimData(k){ return null; }
-  function _simTokenize(s){ return String(s||'').toLowerCase().replace(/[^가-힣a-z0-9\s]/g,'').split(/\s+/).filter(Boolean); }
-  function _simScore(a,b){ return 0; }
-
-  // + 버튼 클릭 시 아이템등록 페이지로 이동 (camera.html?category=xxx 인터셉트)
-  document.addEventListener('click', function(e){
-    const link = e.target.closest('a[href*="camera.html?category="]');
-    if(link){
-      // 같은 페이지이므로 아이템등록 전용 페이지로 이동
-      const url = new URL(link.href, location.href);
-      const cat = url.searchParams.get('category') || '';
-      // camera_register.html 또는 기존 camera.html의 등록 기능으로 이동
-      window.location.href = 'camera_register.html?category=' + encodeURIComponent(cat);
-      e.preventDefault();
-    }
-  });
-
-  // ═══ 옷장 렌더링 JS (closet.html에서 그대로 이동) ═══
+if(!CodiBank.requireAuth('login.html')){}
+const user=CodiBank.getCurrentUser();
+const S={hasGenerated:false,matchByCat:{},matchScoreMap:{},matchDetailMap:{},matchPairs:[],categoryKeywords:{}};
+function _getCatSimData(k){return null;}
+function _simTokenize(s){return String(s||'').toLowerCase().split(/\s+/).filter(Boolean);}
+function _simScore(a,b){return 0;}
 const catListEl=document.getElementById('catList');
 const usp=new URLSearchParams(window.location.search);
 const focusCat=usp.get('category'),highlightId=usp.get('highlight');
@@ -619,7 +545,6 @@ function buildSection(catMeta,items){
 }
 function renderCategories(){catListEl.innerHTML='';CodiBank.getCategoriesForUser(user.email).forEach(c=>{catListEl.appendChild(buildSection(c,CodiBank.getItemsByUserAndCategory(user.email,c.key)));});if(focusCat){const t=document.querySelector(`[data-cat-key="${CSS.escape(focusCat)}"]`);if(t)setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),120);}}
 renderCategories();
-
 // ── Ai 옷장 토글 버튼 ────────────────────────────────────
 (function(){
   const btn   = document.getElementById('closetToggleBtn');
