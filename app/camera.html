@@ -79,6 +79,22 @@ document.addEventListener('DOMContentLoaded', () => {
 .cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
 .cb-spacer{height:82px;}
 
+
+    /* ── [2026-04-07] Ai 옷장 카드 디자인 (closet.html에서 이동) ── */
+    .clothing-layer { background: #0d1f3c !important; border-color: rgba(112,219,212,0.15) !important; }
+    .layer-ph { color: rgba(255,255,255,0.35) !important; }
+    .layer-icon { color: rgba(151,254,237,0.22) !important; }
+    .layer-3 { border: 2px solid #70dbd4 !important; box-shadow: 0 0 20px rgba(112,219,212,0.35), 0 32px 70px -22px rgba(0,0,0,0.55) !important; }
+    .clothing-layer.sparkle { border-color: #a2fdf0 !important; box-shadow: 0 0 28px rgba(162,253,240,0.55), 0 18px 36px rgba(0,0,0,0.40) !important; }
+    .match-score-badge { top: 7px !important; right: 7px !important; bottom: auto !important; background: #a2fdf0 !important; color: #071952 !important; font-weight: 900 !important; }
+    .card-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 4px 8px 6px; font-size: 8px; font-weight: 800; color: #071952; letter-spacing: .08em; text-transform: uppercase; pointer-events: none; }
+    .card-label-sub { position: absolute; bottom: 14px; left: 0; right: 0; padding: 2px 8px; font-size: 7px; font-weight: 700; color: #071952; letter-spacing: .06em; pointer-events: none; opacity: .75; }
+    .m-adv { margin: 12px 20px 10px; padding: 11px 14px; border-radius: 12px; background: rgba(0,95,99,0.15); border: 1px solid rgba(18,148,144,0.3); display: flex; align-items: center; gap: 8px; }
+    .m-adv-lbl { font-size: 12px; font-weight: 800; color: #a2fdf0; white-space: nowrap; }
+    .m-adv-txt { font-size: 12px; color: rgba(255,255,255,0.82); line-height: 1.4; }
+    .m-swipe { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 4px; }
+    .m-swipe-arr { font-family: 'Material Symbols Outlined'; font-size: 13px; color: rgba(18,148,144,0.55); }
+
 </style>
 <link rel="manifest" href="/manifest.json"/>
 <meta name="theme-color" content="#07132a"/>
@@ -88,10 +104,10 @@ document.addEventListener('DOMContentLoaded', () => {
 <link rel="apple-touch-icon" href="/app/icons/icon-192.png"/>
 <script src="pwa-register.js" defer></script>
 </head>
-<body class="bg-bg text-slate-900 min-h-screen font-sans">
+<body class="text-white min-h-screen font-sans" style="background:#071952;">
 
   <!-- Top status bar (prototype) -->
-  <div class="fixed top-0 w-full z-50 px-6 py-3 flex justify-between items-center bg-white/80 ios-blur border-b border-slate-100">
+  <div class="fixed top-0 w-full z-50 px-6 py-3 flex justify-between items-center ios-blur border-b border-white/10" style="background:rgba(7,25,82,0.85)">
     <span class="text-sm font-semibold">9:41</span>
     <div class="flex gap-1.5 items-center text-slate-700">
       <span class="material-symbols-outlined text-[16px]">signal_cellular_alt</span>
@@ -107,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </button>
       <div class="text-center">
         <p class="text-[11px] font-bold tracking-[0.28em] text-accent">Ai 옷장</p>
-        <h1 class="text-lg font-extrabold tracking-tight">아이템 등록</h1>
+        <h1 class="text-lg font-extrabold tracking-tight" id="pageTitle">Ai 옷장</h1>
       </div>
       <a href="mypage.html" class="w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-sm border border-slate-200" title="내정보">
         <span class="material-symbols-outlined text-slate-700">person</span>
@@ -116,6 +132,37 @@ document.addEventListener('DOMContentLoaded', () => {
   </header>
 
   <main class="pb-32">
+
+    <!-- ═══ [2026-04-07] Ai 옷장 메인 뷰 ═══ -->
+    <div id="wardrobeView">
+      <section class="px-6 mb-4">
+        <div class="p-4 rounded-2xl" style="background:rgba(7,25,82,0.6);border:1px solid rgba(151,254,237,0.15);">
+          <h2 class="text-base font-extrabold tracking-tight" style="color:#a2fdf0;">👗 Ai 옷장</h2>
+          <p class="mt-1 text-[12px]" style="color:rgba(255,255,255,0.5);">내 옷을 등록하고 AI 코디에 활용하세요</p>
+        </div>
+      </section>
+      <!-- catList: closet.html의 buildSection이 렌더링하는 대상 -->
+      <div id="wdCatList" class="space-y-0 py-2"></div>
+      
+      <div class="px-5 pb-6">
+        <button id="openAddCategory" class="w-full py-4 rounded-3xl font-extrabold text-[13px] flex items-center justify-center gap-2 active:scale-[0.99] transition-all text-white"
+          style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(151,254,237,0.2);font-family:'Outfit','Noto Sans KR',sans-serif;">
+          <span class="material-symbols-outlined filled" style="color:#97FEED;">add</span>카테고리 추가
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══ 아이템 등록 서브화면 (기본 숨김) ═══ -->
+    <div id="registerView" class="hidden">
+      <div class="px-6 mb-3 flex items-center gap-3">
+        <button id="backToWardrobe" class="w-9 h-9 rounded-full flex items-center justify-center bg-white shadow-sm active:scale-95 border border-slate-200">
+          <span class="material-symbols-outlined text-slate-600" style="font-size:18px;">arrow_back_ios_new</span>
+        </button>
+        <div>
+          <p class="text-[11px] font-bold tracking-[0.2em] text-accent" id="regCatLabel">아이템 등록</p>
+          <p class="text-[10px] text-slate-500">사진을 촬영하거나 선택해서 등록하세요</p>
+        </div>
+      </div>
     <!-- Intro -->
     <section class="px-6">
       <div class="p-5 rounded-3xl bg-card border border-line shadow-sm">
@@ -255,6 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <input id="inputBrandCamera" type="file" accept="image/*" capture="environment" class="hidden" />
     <input id="inputBrandGallery" type="file" accept="image/*" class="hidden" />
 
+    </div><!-- /registerView -->
   </main>
 
   <!-- Bottom Nav -->
@@ -1484,7 +1532,348 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     updateRegisterState();
-    // MobileNet 기반 분류 사용
+
+
+    // ═══ [2026-04-07] closet.html에서 이동한 옷장 렌더링 코드 ═══
+    // 더미 S 객체 (코디쌤의 AI 추천 상태 — Ai 옷장에서는 비활성)
+    const S = { hasGenerated: false, matchByCat: {}, matchScoreMap: {}, matchDetailMap: {}, matchPairs: [], categoryKeywords: {} };
+    function _getCatSimData(k){ return null; }
+    function _simTokenize(s){ return String(s||'').toLowerCase().split(/\s+/).filter(Boolean); }
+    function _simScore(a,b){ return 0; }
+
+const catListEl=document.getElementById('wdCatList');
+const usp=new URLSearchParams(window.location.search);
+const focusCat=usp.get('category'),highlightId=usp.get('highlight');
+function escH(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+const TINT={coat:'59,130,246',jacket:'245,158,11',top:'16,185,129',pants:'99,102,241',socks:'236,72,153',shoes:'120,113,108',watch:'234,179,8',scarf:'168,85,247',etc:'148,163,184'};
+function deckBg(k){const rgb=TINT[k]||TINT.etc;return`background:radial-gradient(120% 140% at 18% 0%,rgba(${rgb},0.22) 0%,rgba(${rgb},0.10) 42%,rgba(255,255,255,1) 78%),linear-gradient(180deg,rgba(255,255,255,1) 0%,rgba(249,250,251,1) 100%);`;}
+let _dc=null;
+function playTick(){try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;if(!_dc)_dc=new AC();if(_dc.state==='suspended')_dc.resume().catch(()=>{});const t0=_dc.currentTime;[[820,0,0.035,0.10],[540,0.03,0.04,0.07]].forEach(([f,s,d,p])=>{const o=_dc.createOscillator(),g=_dc.createGain();o.type='square';o.frequency.setValueAtTime(f,t0+s);g.gain.setValueAtTime(0.0001,t0+s);g.gain.exponentialRampToValueAtTime(p,t0+s+0.004);g.gain.exponentialRampToValueAtTime(0.0001,t0+s+d);o.connect(g);g.connect(_dc.destination);o.start(t0+s);o.stop(t0+s+d+0.01);});}catch(_){}}
+function layerContent(el,item,catKey){
+  el.innerHTML='';
+  el.classList.remove('sparkle');
+  const nid=item?.id?String(item.id):'';
+  el.dataset.itemId=nid;
+  el.dataset.catKey=String(catKey||'');
+  el.href=item?.id?`item.html?id=${encodeURIComponent(item.id)}`:`camera.html?category=${encodeURIComponent(catKey)}`;
+
+  // ✅ 추천 코디 매칭 아이템이면 강조(스파클) + 매칭 점수 배지
+  // coat↔jacket 등 대체 카테고리 포함 매칭 아이템 ID 조회
+  const _subKL = CAT_SUBSTITUTE_MAP[String(catKey||'').toLowerCase()]||[];
+  const recId = (S.hasGenerated&&S.matchByCat) ? ([catKey,..._subKL].map(k=>S.matchByCat[k]).find(v=>v)||'') : '';
+  const isMatched = !!(recId && nid && nid===recId);
+  if(isMatched){ el.classList.add('sparkle'); }
+  // 매칭 배지 (이미지 하단 오른쪽)
+  const prevBadge = el.querySelector('.match-score-badge');
+  if(prevBadge) prevBadge.remove();
+  const iid = item && item.id ? String(item.id) : '';
+  const scoreVal   = isMatched && iid && S.matchScoreMap   ? (S.matchScoreMap[iid]   || 0) : 0;
+  const detailVal  = isMatched && iid && S.matchDetailMap  ? (S.matchDetailMap[iid]  || null) : null;
+  if(isMatched && scoreVal){
+    const badge = document.createElement('div');
+    badge.className = 'match-score-badge';
+    // 10P 척도 표시 + 세부 내역 툴팁
+    badge.textContent = `MATCH ${scoreVal}P`;
+    if(detailVal){
+      badge.title = `카테고리 ${detailVal.catScore}P + 컬러 ${detailVal.colorScore}P + 디자인 ${detailVal.designScore}P = ${detailVal.total}P`;
+    }
+    el.appendChild(badge);
+  }
+
+  const ref=item?.images?.front||item?.images?.brand||item?.images?.back||'';
+  const rt=`${nid}::${ref}`;
+  el.dataset.renderToken=rt;
+  if(!ref){
+    const ic=document.createElement('span');
+    ic.className='material-symbols-outlined layer-icon';
+    ic.textContent=item?.id?'image':'add_a_photo';
+    el.appendChild(ic);
+    const tx=document.createElement('div');
+    tx.className='layer-ph mt-2';
+    tx.textContent=item?.id?'이미지 없음':'추가';
+    el.appendChild(tx);
+    return;
+  }
+  const ph=document.createElement('div');
+  ph.className='layer-ph';
+  ph.textContent='…';
+  el.appendChild(ph);
+  CodiBank.getImageSrc(ref).then(src=>{
+    if(el.dataset.renderToken!==rt)return;
+    if(!src){ph.textContent='이미지 없음';return;}
+    // ── 카드 하단: 컬러(1줄) + 패턴·소재(2줄), 배경 없이 텍스트만
+    const _g = item?.meta?.gemini;
+    const _colorTxt = (_g?.main_color_name || item?.color || '').slice(0,12);
+    const _patternTxt = (_g?.pattern && _g.pattern !== '단색') ? _g.pattern : '';
+    const _materialTxt = _g?.material ? _g.material.split(',')[0].trim().slice(0,8) : '';
+    const _subLine = [_patternTxt, _materialTxt].filter(Boolean).join(' · ').slice(0,16);
+
+    el.innerHTML = `<img class="layer-img" alt="아이템" src="${src}"/>` +
+      (_subLine ? `<div class="card-label-sub">${_subLine}</div>` : '') +
+      (_colorTxt ? `<div class="card-label">${_colorTxt}</div>` : '');
+  });
+}
+function slc(el,n){el.classList.remove('layer-1','layer-2','layer-3','layer-4','layer-5');el.classList.add(`layer-${n}`);}
+function rotL(a){if(!a.length)return a;return a.slice(1).concat(a[0]);}
+function rotR(a){if(!a.length)return a;return[a[a.length-1]].concat(a.slice(0,-1));}
+function mod(n,m){return((n%m)+m)%m;}
+function initWin(items,si){const l=items.length;if(l<=0)return[-1,-1,-1,-1,-1];if(l>=5)return[0,1,2,3,4].map(i=>mod(si+i,l));return[0,1,2,3,4].map(i=>i<l?i:-1);}
+function attachSwipe(deck,ctrl){let dn=false,sx=0,sy=0;const TH=48;deck.addEventListener('pointerdown',e=>{dn=true;sx=e.clientX;sy=e.clientY;try{deck.setPointerCapture(e.pointerId);}catch(_){}});deck.addEventListener('pointermove',e=>{if(!dn)return;const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy))e.preventDefault();},{passive:false});function end(e){if(!dn)return;dn=false;const dx=(e.clientX||0)-sx,dy=(e.clientY||0)-sy;if(Math.abs(dx)>TH&&Math.abs(dx)>Math.abs(dy)){dx<0?ctrl.shift(+1):ctrl.shift(-1);}}deck.addEventListener('pointerup',end);deck.addEventListener('pointercancel',()=>{dn=false;});deck.addEventListener('lostpointercapture',()=>{dn=false;});}
+// ── 전역 유사도 헬퍼 (buildSection + closetMatchPanel 공유) ──────────
+function _simTokenize(str){ return String(str||'').toLowerCase().replace(/[^가-힣a-z0-9\s]/g,'').split(/\s+/).filter(Boolean); }
+function _simScore(aiKws, itemFields){
+  const aiSet = new Set(aiKws.flatMap(k=>_simTokenize(k)));
+  if(!aiSet.size) return 0;
+  const itToks = itemFields.flatMap(f=>_simTokenize(f));
+  let hit = 0;
+  aiSet.forEach(tok=>{ if(itToks.some(t=>t.includes(tok)||tok.includes(t))) hit++; });
+  const itSet = new Set(itToks);
+  itSet.forEach(tok=>{ if([...aiSet].some(a=>a.includes(tok)||tok.includes(a))) hit += 0.3; });
+  return Math.min(100, Math.round((hit / aiSet.size) * 100));
+}
+// 카테고리 키 → {aiKws, best(item), score} 반환
+function _getCatSimData(catKey){
+  // pickBestItemByScore 기반 10점 만점 매칭 점수
+  if(!S.hasGenerated) return null;
+  const ckw = S.categoryKeywords || {};
+  const _outerSet = new Set(['outer','coat','jacket','padding','cardigan']);
+  const _bottomSet = new Set(['bottom','pants','slacks','jeans','skirt']);
+  const _topSet    = new Set(['top','shirt','knit','tshirt','blouse']);
+  const _shoesSet  = new Set(['shoes','sneakers','loafers','boots']);
+  const _scarfSet  = new Set(['scarf','muffler','neckwear','accent']);
+  let ckwKey = catKey;
+  if(_outerSet.has(catKey))  ckwKey = 'outer';
+  else if(_bottomSet.has(catKey)) ckwKey = 'bottom';
+  else if(_topSet.has(catKey))    ckwKey = 'top';
+  else if(_shoesSet.has(catKey))  ckwKey = 'shoes';
+  else if(_scarfSet.has(catKey))  ckwKey = 'scarf';
+  const aiKws = (ckw[ckwKey]||[]).filter(Boolean);
+
+  // matchPairs에서 해당 카테고리 wantPair 찾기
+  const matchPairs = S.matchPairs || [];
+  let wantPair = matchPairs.find(p=>{
+    const pk = String(p.key||'').toLowerCase();
+    if(_outerSet.has(catKey) && _outerSet.has(pk)) return true;
+    if(_bottomSet.has(catKey) && _bottomSet.has(pk)) return true;
+    return pk === catKey;
+  });
+  if(!wantPair){
+    // fallback: categoryKeywords 첫 칩에서 컬러 추출
+    const colorHint = (aiKws[0]||'').replace(/(코트|자켓|가디건|상의|하의|신발|레이어드|포인트|악세서리)/g,'').trim();
+    wantPair = { key: catKey, color: colorHint };
+  }
+
+  // 아이템 수집 (대체 카테고리 포함)
+  const _subKs = CAT_SUBSTITUTE_MAP[catKey] || [];
+  const allItems = [catKey, ..._subKs]
+    .flatMap(k=>(CodiBank.getItemsByUserAndCategory?CodiBank.getItemsByUserAndCategory(user.email,k):[]) || [])
+    .filter(Boolean);
+
+  if(!allItems.length) return { aiKws, best:null, score:0 };
+
+  const best = pickBestItemByScore(wantPair, allItems);
+  const score = best?._matchScore ?? 0;
+  return { aiKws, best, score };
+}
+
+function buildSection(catMeta,items){
+  // ── 섹션 루트 ──
+  const sec=document.createElement('section');sec.className='mt-0';sec.dataset.catKey=catMeta.key;
+  sec.style.cssText='border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:20px;';
+
+  // ── 카테고리 헤더: 제목(중앙)+추가버튼(우측) ──
+  const hdr=document.createElement('div');hdr.className='relative flex justify-center items-center pt-7 pb-2 px-5';
+  const titleEl=document.createElement('h3');
+  titleEl.className='text-[17px] font-bold text-white';
+  titleEl.style.cssText='border-bottom:2px solid #129490;padding-bottom:5px;display:inline-block;';
+  titleEl.innerHTML=`${escH(catMeta.label)}&nbsp;<span style="color:#70dbd4;">${items.length}개</span>`;
+  const addBtn=document.createElement('button');
+  addBtn.className='absolute right-5 top-7 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform';
+  addBtn.style.cssText='background:rgba(151,254,237,0.08);border:1px solid rgba(151,254,237,0.2);';
+  addBtn.innerHTML='<span class="material-symbols-outlined filled" style="font-size:16px;color:#97FEED;">add</span>';
+  addBtn.addEventListener('click',()=>{window.location.href=`camera.html?category=${encodeURIComponent(catMeta.key)}`;});
+  hdr.appendChild(titleEl);hdr.appendChild(addBtn);
+  sec.appendChild(hdr);
+
+  // ── codibank 어드바이스 박스 ──
+  const _subKA = CAT_SUBSTITUTE_MAP[String(catMeta.key||'').toLowerCase()]||[];
+  const recId0 = (S.hasGenerated&&S.matchByCat) ? ([catMeta.key,..._subKA].map(k=>S.matchByCat[k]).find(v=>v)||'') : '';
+  const score0=recId0&&S.matchScoreMap?(S.matchScoreMap[recId0]||0):0;
+  const detail0=recId0&&S.matchDetailMap?(S.matchDetailMap[recId0]||null):null;
+  const adv=document.createElement('div');adv.className='m-adv';
+
+  // 토글(모바일 옷장 Styling) ON 여부 확인
+  const _simOn = false; // Ai 옷장에서는 유사도 모드 비활성
+
+  if(_simOn && S.hasGenerated){
+    // ── 유사도 분석 모드 (10점 만점 점수 기반) ──
+    const simData = _getCatSimData(catMeta.key);
+    if(simData){
+      adv.classList.add('m-adv-sim');
+      const sc = simData.score; // 0~10
+      const isLow = sc < 5;
+      if(isLow) adv.classList.add('m-adv-low');
+      // 점수 구간: 7↑ 높음(sh), 4~6 중간(sm), 0~3 낮음(sl)
+      const scClass = sc>=7?'sh':sc>=4?'sm':'sl';
+      const barPct  = sc * 10; // 0~100%
+      const barColor= sc>=7?'#a2fdf0':sc>=4?'#fbbf24':'rgba(255,255,255,0.25)';
+      const kwsText = simData.aiKws.join(' · ');
+      const itemLabel = simData.best
+        ? (simData.best.brand||simData.best.color||'아이템')
+        : null;
+      const itemSub = (simData.best?.color && simData.best?.brand) ? ` · ${escH(simData.best.color)}` : '';
+      const scoreDetail = simData.best
+        ? `카테고리 ${simData.best._catScore||0}P + 컬러 ${simData.best._colorScore||0}P + 디자인 ${simData.best._designScore||0}P`
+        : '';
+      adv.innerHTML =
+        `<div class="m-adv-sim-top">` +
+          `<span class="m-adv-lbl">codibank :</span>` +
+          `<span class="m-adv-sim-kws">${escH(kwsText)}</span>` +
+          `<span class="m-adv-sim-score ${scClass}" title="${escH(scoreDetail)}">${sc}P</span>` +
+        `</div>` +
+        `<div class="m-adv-sim-bar-wrap"><div class="m-adv-sim-bar" style="width:${barPct}%;background:${barColor};"></div></div>` +
+        (itemLabel
+          ? `<div class="m-adv-sim-item">› ${escH(itemLabel)}${itemSub}${scoreDetail ? ` <span style="font-size:9px;opacity:0.45;">(${escH(scoreDetail)})</span>` : ''}</div>`
+          : `<div class="m-adv-sim-noitem">등록된 아이템 없음 — 추가해보세요</div>`);
+    } else {
+      adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">AI 코디 키워드 없음</span>`;
+    }
+  } else if(score0){
+    const tip=detail0?`카테고리 ${detail0.catScore}P + 컬러 ${detail0.colorScore}P + 디자인 ${detail0.designScore}P`:'';
+    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt">이 아이템은 추천코디와 매칭점수 <strong style="color:#a2fdf0;">${score0}P</strong>`+(tip?` <span style="font-size:10px;color:rgba(255,255,255,0.4);">(${tip})</span>`:'')+'</span>';
+  } else if(S.hasGenerated){
+    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">스와이프해서 AI 추천 아이템을 확인하세요</span>`;
+  } else {
+    // 추천코디 없을 때: 아이템 분석 정보 표시
+    if(items && items.length > 0) {
+      const _gi = items[0]?.meta?.gemini;
+      if(_gi && (_gi.pattern || _gi.material || _gi.main_color_name)) {
+        const _info = [_gi.main_color_name, _gi.pattern !== '단색' ? _gi.pattern : '', _gi.material?.split(',')[0]].filter(Boolean).join(' · ');
+        const _lbl = (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'AI Analysis:' : 'AI분석 :';
+        adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">${_lbl}</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">${_info}</span>`;
+      } else {
+        adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">← 스와이프로 아이템을 탐색하세요</span>`;
+      }
+    } else {
+      adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">← 스와이프로 아이템을 탐색하세요</span>`;
+    }
+  }
+  sec.appendChild(adv);
+
+  // ── SWIPE 힌트 ──
+  const sw=document.createElement('div');sw.className='m-swipe';
+  sw.innerHTML='<span class="m-swipe-arr">west</span><span class="m-swipe-txt">Swipe</span><span class="m-swipe-arr">east</span>';
+  sec.appendChild(sw);
+
+  // ── 카드 덱 래퍼 ──
+  const dw=document.createElement('div');dw.className='overflow-visible';dw.style.cssText='padding:4px 0;';
+  const deck=document.createElement('div');deck.className='closet-container';
+  const ctrl={catKey:catMeta.key,items:Array.isArray(items)?items:[],startIndex:0,windowIndices:[-1,-1,-1,-1,-1],els:[],animating:false,
+    shift(dir){if(this.animating)return;const l=this.items.length;if(l<=0)return;this.animating=true;playTick();deck.classList.add('is-shifting');const MOVE=520,EXIT=200,POP=380,UNL=EXIT+MOVE+120;if(l>=5){this.startIndex=mod(this.startIndex+(dir>0?1:-1),l);this.windowIndices=[0,1,2,3,4].map(i=>mod(this.startIndex+i,l));}else{this.windowIndices=(dir>0)?rotL(this.windowIndices):rotR(this.windowIndices);}const oe=this.els.slice(),lv=dir>0?oe[0]:oe[oe.length-1];if(!lv){this.animating=false;deck.classList.remove('is-shifting');return;}const ne=dir>0?oe.slice(1).concat(lv):[lv].concat(oe.slice(0,-1));this.els=ne;this.els.forEach(e=>e.classList.remove('exit-left','exit-right','enter-from-left','enter-from-right','center-pop'));lv.classList.add(dir>0?'exit-left':'exit-right');for(let i=0;i<ne.length;i++){if((dir>0&&i===4)||(dir<0&&i===0))continue;slc(ne[i],i+1);}const ce=ne[2];if(ce)setTimeout(()=>{if(!this.animating)return;ce.classList.remove('center-pop');try{void ce.offsetHeight;}catch(_){}ce.classList.add('center-pop');setTimeout(()=>ce.classList.remove('center-pop'),560);},POP);setTimeout(()=>{if(!this.animating)return;lv.classList.remove('exit-left','exit-right');const ep=dir>0?5:1,ei=dir>0?this.windowIndices[4]:this.windowIndices[0];layerContent(lv,ei>=0?this.items[ei]:null,this.catKey);lv.classList.add('no-transition');slc(lv,ep);lv.classList.add(dir>0?'enter-from-right':'enter-from-left');try{void lv.offsetHeight;}catch(_){}lv.classList.remove('no-transition');requestAnimationFrame(()=>lv.classList.remove(dir>0?'enter-from-right':'enter-from-left'));},EXIT);setTimeout(()=>{this.animating=false;deck.classList.remove('is-shifting');if(lv)lv.classList.remove('exit-left','exit-right','enter-from-left','enter-from-right','no-transition');},UNL);}};
+  const l=ctrl.items.length;
+  // ✅ 기본: 최신 등록 아이템이 3번째(가운데) 카드에 오도록 startIndex 보정
+  if(l>=5) ctrl.startIndex = mod(-2, l);
+
+  // ✅ 추천 코디 매칭 아이템(카테고리별) 우선으로 가운데에 배치
+  // coat↔jacket 대체 포함 매칭 아이템 ID (카드 가운데 배치용)
+  const _subKD = CAT_SUBSTITUTE_MAP[String(catMeta.key||'').toLowerCase()]||[];
+  const recId = (S.hasGenerated&&S.matchByCat) ? ([catMeta.key,..._subKD].map(k=>S.matchByCat[k]).find(v=>v)||'') : '';
+  const preferredId = recId || (highlightId ? String(highlightId) : '');
+  let preferredIndex = -1;
+  if(preferredId && l>0){
+    preferredIndex = ctrl.items.findIndex(x=>x&&String(x.id)===preferredId);
+    if(preferredIndex>=0 && l>=5) ctrl.startIndex = mod(preferredIndex-2, l);
+  }
+  ctrl.windowIndices=initWin(ctrl.items,ctrl.startIndex);
+  // l<5에서도 가운데(3번째) 카드에 (추천/하이라이트/최신) 아이템이 오도록 회전
+  if(l>0&&l<5){
+    const hi = (preferredIndex>=0) ? preferredIndex : 0;
+    let w=ctrl.windowIndices.slice();
+    const sh=2-hi;
+    if(sh>0)for(let i=0;i<sh;i++)w=rotR(w);
+    else if(sh<0)for(let i=0;i<Math.abs(sh);i++)w=rotL(w);
+    ctrl.windowIndices=w;
+  }
+  for(let pos=1;pos<=5;pos++){const a=document.createElement('a');a.className=`clothing-layer layer-${pos}`;const idx=ctrl.windowIndices[pos-1];layerContent(a,idx>=0?ctrl.items[idx]:null,catMeta.key);ctrl.els.push(a);deck.appendChild(a);}
+  attachSwipe(deck,ctrl);
+  const hl=(focusCat&&focusCat===catMeta.key)
+    || (highlightId&&ctrl.items.some(x=>x&&String(x.id)===String(highlightId)))
+    || (!!recId);
+  if(hl){deck.classList.add('deck-highlight','pulse-ring');setTimeout(()=>deck.classList.remove('pulse-ring'),1600);}
+  dw.appendChild(deck);sec.appendChild(dw);return sec;
+}
+function renderCategories(){catListEl.innerHTML='';CodiBank.getCategoriesForUser(user.email).forEach(c=>{catListEl.appendChild(buildSection(c,CodiBank.getItemsByUserAndCategory(user.email,c.key)));});if(focusCat){const t=document.querySelector(`[data-cat-key="${CSS.escape(focusCat)}"]`);if(t)setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),120);}}
+renderCategories();
+
+
+    // ═══ [2026-04-07] 뷰 전환 로직 ═══
+    function showWardrobe(){ 
+      wardrobeView.classList.remove('hidden'); 
+      registerView.classList.add('hidden'); 
+      document.getElementById('pageTitle').textContent='Ai 옷장'; 
+      renderCategories(); 
+      window.scrollTo(0,0); 
+    }
+    function showRegister(catKey){
+      wardrobeView.classList.add('hidden'); 
+      registerView.classList.remove('hidden');
+      if(catKey && categorySelectEl) categorySelectEl.value=catKey;
+      const lbl=document.getElementById('regCatLabel');
+      if(lbl){ const m=CodiBank.getCategoryMetaByKey(catKey,user.email); lbl.textContent=(m?m.label:'아이템')+' 등록'; }
+      document.getElementById('pageTitle').textContent='아이템 등록';
+      window.scrollTo(0,0);
+    }
+
+    document.getElementById('backToWardrobe')?.addEventListener('click', showWardrobe);
+
+    // 등록 완료 후 옷장으로 복귀 (closeAiModal 오버라이드)
+    const _origCloseAi = closeAiModal;
+    closeAiModal = function(destUrl){
+      if(_aiAutoTimer){clearInterval(_aiAutoTimer);_aiAutoTimer=null;}
+      document.getElementById('aiBar').style.width='100%';
+      document.getElementById('aiPct').textContent='100%';
+      document.getElementById('aiLog').textContent='등록 완료!';
+      window._aiDoneCallback = ()=>{ _forceCloseAiModal(); showWardrobe(); };
+      setTimeout(()=>{ document.getElementById('aiDoneBtn').textContent='Ai 옷장으로 돌아가기 →'; document.getElementById('aiDoneBtn').classList.remove('hidden'); },400);
+    };
+
+    // + 버튼 → 아이템 등록 (카테고리별 이동)
+    // buildSection 내의 + 버튼이 camera.html?category=xxx 로 이동하는 것을 인터셉트
+    document.addEventListener('click', function(e){
+      const link = e.target.closest('a[href*="camera.html?category="]');
+      if(link){
+        e.preventDefault();
+        const url = new URL(link.href, location.href);
+        const cat = url.searchParams.get('category') || '';
+        showRegister(cat);
+      }
+    });
+
+    // 카테고리 추가 버튼 (openAddCategory)
+    document.getElementById('openAddCategory')?.addEventListener('click', () => {
+      const name = prompt('추가할 카테고리 이름을 입력하세요:');
+      if(name && name.trim()){
+        const key = name.trim().toLowerCase().replace(/\s+/g,'_');
+        CodiBank.addCategory(user.email, {key, label: name.trim()});
+        populateCategorySelect();
+        renderCategories();
+      }
+    });
+
+    // 초기 뷰 결정
+    if(getQueryParam('mode')==='register' || preferredCategoryKey){ 
+      showRegister(preferredCategoryKey||''); 
+    } else { 
+      showWardrobe(); 
+    }
+
+    // 뒤로가기 버튼 오버라이드
+    document.getElementById('backBtn').onclick = function(e){
+      e.preventDefault();
+      if(!registerView.classList.contains('hidden')){ showWardrobe(); }
+      else { if(history.length>1) history.back(); else window.location.href='closet.html'; }
+    };
+
   </script>
 
 <!-- CodiBank 공통 풋바 -->
