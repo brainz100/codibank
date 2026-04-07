@@ -872,7 +872,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   <div class="flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold tracking-tight text-white">Ai 옷장</h1>
-      <p class="text-[11px] font-semibold mt-0.5" style="color:rgba(151,254,237,0.6);letter-spacing:.12em;">MY CLOSET · AI STYLIST</p>
+      <p class="text-[11px] font-medium mt-1 leading-relaxed" style="color:rgba(151,254,237,0.6);">오프라인 옷장의 옷들을 디지털 옷장에 저장하면 코디를 추천해드립니다!</p>
     </div>
   </div>
 </header>
@@ -1097,6 +1097,20 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   </section>
   </div><!-- /aiRecommendSection -->
 
+
+  <!-- [2026-04-07] My Closet Summary 박스 -->
+  <section class="px-5 mt-4 mb-2">
+    <div id="closetSummaryBox" class="p-4 rounded-2xl" style="background:rgba(18,148,144,0.08);border:1px solid rgba(151,254,237,0.15);">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="material-symbols-outlined" style="font-size:18px;color:#97FEED;">inventory_2</span>
+        <span class="text-[13px] font-extrabold" style="color:#a2fdf0;">My Closet Summary</span>
+      </div>
+      <div id="summaryContent" class="text-[12px] leading-relaxed" style="color:rgba(255,255,255,0.7);">
+        로딩 중...
+      </div>
+    </div>
+  </section>
+
   <!-- 내 모바일 옷장 (다크 m_closet_0308) -->
   <section class="px-0 mt-8">
     <div class="pt-2">
@@ -1104,8 +1118,8 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <!-- ★ 모바일 옷장 토글 버튼 -->
       <div class="px-5 pb-3">
         <button id="closetToggleBtn" type="button">
-          <span class="ctb-title">모바일 옷장</span>
-          <span class="ctb-sub">클릭하면 AI가 추천한 코디를 내 옷에서 찾아드립니다</span>
+          <span class="ctb-title">추천코디와 유사한 아이템 찾기</span>
+          <span class="ctb-sub">코디쌤에서 생성한 추천코디와 가장 유사한 내 옷을 찾아줍니다</span>
         </button>
       </div>
 
@@ -1134,6 +1148,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       </div>
     </div>
   </section>
+
+<!-- [2026-04-07] 플로팅 아이템 등록 버튼 -->
+<div id="floatingAddBtn" style="position:fixed;bottom:90px;right:20px;z-index:9998;">
+  <a href="camera.html" style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#13bbaf,#4cdbce);box-shadow:0 6px 20px rgba(19,187,175,0.45);text-decoration:none;color:#071952;transition:transform 0.2s;" 
+     onmousedown="this.style.transform='scale(0.92)'" onmouseup="this.style.transform='scale(1)'" ontouchstart="this.style.transform='scale(0.92)'" ontouchend="this.style.transform='scale(1)'">
+    <span class="material-symbols-outlined" style="font-size:32px;font-variation-settings:'FILL' 1,'wght' 700,'GRAD' 0,'opsz' 32;">add</span>
+  </a>
+</div>
+
 </main>
 
 <!-- CodiBank 공통 풋바 -->
@@ -5150,7 +5173,7 @@ function layerContent(el,item,catKey){
   const nid=item?.id?String(item.id):'';
   el.dataset.itemId=nid;
   el.dataset.catKey=String(catKey||'');
-  el.href=item?.id?`item.html?id=${encodeURIComponent(item.id)}`:`camera.html?category=${encodeURIComponent(catKey)}`;
+  el.href=item?.id?`item.html?id=${encodeURIComponent(item.id)}`:'camera.html';  // [2026-04-07] AI 자동분류
 
   // ✅ 추천 코디 매칭 아이템이면 강조(스파클) + 매칭 점수 배지
   // coat↔jacket 등 대체 카테고리 포함 매칭 아이템 ID 조회
@@ -5286,7 +5309,7 @@ function buildSection(catMeta,items){
   addBtn.className='absolute right-5 top-7 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform';
   addBtn.style.cssText='background:rgba(151,254,237,0.08);border:1px solid rgba(151,254,237,0.2);';
   addBtn.innerHTML='<span class="material-symbols-outlined filled" style="font-size:16px;color:#97FEED;">add</span>';
-  addBtn.addEventListener('click',()=>{window.location.href=`camera.html?category=${encodeURIComponent(catMeta.key)}`;});
+  addBtn.addEventListener('click',()=>{window.location.href='camera.html';});  // [2026-04-07] AI 자동 카테고리 분류로 변경
   hdr.appendChild(titleEl);hdr.appendChild(addBtn);
   sec.appendChild(hdr);
 
@@ -5399,6 +5422,80 @@ function buildSection(catMeta,items){
 }
 function renderCategories(){catListEl.innerHTML='';CodiBank.getCategoriesForUser(user.email).forEach(c=>{catListEl.appendChild(buildSection(c,CodiBank.getItemsByUserAndCategory(user.email,c.key)));});if(focusCat){const t=document.querySelector(`[data-cat-key="${CSS.escape(focusCat)}"]`);if(t)setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),120);}}
 renderCategories();
+
+// ═══ [2026-04-07] My Closet Summary 렌더링 ═══
+function renderClosetSummary() {
+  const el = document.getElementById('summaryContent');
+  if (!el) return;
+  try {
+    const cats = CodiBank.getCategoriesForUser(user.email) || [];
+    let totalItems = 0;
+    const catCounts = {};
+    const colorMap = {};
+    const seasonMap = { '봄':0, '여름':0, '가을':0, '겨울':0 };
+    let topCount = 0, bottomCount = 0;
+    const topKeys = new Set(['top','shirt','knit','tshirt','blouse']);
+    const bottomKeys = new Set(['pants','skirt','slacks','jeans']);
+
+    cats.forEach(c => {
+      const items = CodiBank.getItemsByUserAndCategory(user.email, c.key) || [];
+      const cnt = items.length;
+      totalItems += cnt;
+      if (cnt > 0) catCounts[c.label] = cnt;
+      if (topKeys.has(c.key)) topCount += cnt;
+      if (bottomKeys.has(c.key)) bottomCount += cnt;
+
+      items.forEach(item => {
+        // 컬러 집계
+        const color = item.color || item.meta?.gemini?.main_color_name || '';
+        if (color) colorMap[color] = (colorMap[color] || 0) + 1;
+        // 시즌 집계
+        const season = item.meta?.gemini?.season || '';
+        if (season) {
+          ['봄','여름','가을','겨울'].forEach(s => {
+            if (season.includes(s)) seasonMap[s]++;
+          });
+        }
+      });
+    });
+
+    if (totalItems === 0) {
+      el.innerHTML = '<span style="color:rgba(255,255,255,0.4);">아직 등록된 아이템이 없습니다. + 버튼으로 옷을 등록해보세요!</span>';
+      return;
+    }
+
+    // 코디 조합 수 (상의 × 하의)
+    const comboCount = topCount * bottomCount;
+
+    // 카테고리별 표시
+    const catText = Object.entries(catCounts).map(([k,v]) => k + ' ' + v).join(' · ');
+
+    // 컬러 TOP 3
+    const topColors = Object.entries(colorMap).sort((a,b) => b[1]-a[1]).slice(0,3).map(([c,n]) => c).join(', ');
+
+    // 시즌 커버리지
+    const seasonText = ['봄','여름','가을','겨울'].map(s => {
+      const cnt = seasonMap[s];
+      return cnt > 0 ? s + ' ✅' : s + ' ⚠️';
+    }).join(' · ');
+
+    el.innerHTML = ''
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;">'
+      + '<div>📦 <b style="color:#a2fdf0;">전체 ' + totalItems + '개</b></div>'
+      + '<div>👗 <b style="color:#a2fdf0;">코디 조합 ' + comboCount + '가지</b></div>'
+      + '</div>'
+      + '<div style="margin-top:8px;">' + catText + '</div>'
+      + (topColors ? '<div style="margin-top:6px;">🎨 주요 컬러: <b>' + topColors + '</b></div>' : '')
+      + '<div style="margin-top:6px;">📅 시즌: ' + seasonText + '</div>';
+  } catch(e) {
+    console.warn('[Summary]', e);
+    el.textContent = '요약 정보를 불러올 수 없습니다.';
+  }
+}
+// renderCategories 후 Summary도 갱신
+const _origRenderCat = renderCategories;
+renderCategories = function() { _origRenderCat(); renderClosetSummary(); };
+renderClosetSummary();
 
 // ── 모바일 옷장 토글 버튼 ────────────────────────────────────
 (function(){
