@@ -1098,14 +1098,24 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   </div><!-- /aiRecommendSection -->
 
 
-  <!-- [2026-04-07] My Closet Summary 박스 -->
+  <!-- [2026-04-07] My Closet Summary 박스 (강화 버전) -->
   <section class="px-5 mt-4 mb-2">
-    <div id="closetSummaryBox" class="p-4 rounded-2xl" style="background:rgba(18,148,144,0.08);border:1px solid rgba(151,254,237,0.15);">
-      <div class="flex items-center gap-2 mb-3">
-        <span class="material-symbols-outlined" style="font-size:18px;color:#97FEED;">inventory_2</span>
-        <span class="text-[13px] font-extrabold" style="color:#a2fdf0;">My Closet Summary</span>
+    <div id="closetSummaryBox" class="p-4 rounded-2xl" style="background:linear-gradient(135deg,rgba(18,148,144,0.12) 0%,rgba(7,25,82,0.6) 100%);border:1px solid rgba(151,254,237,0.2);box-shadow:0 4px 20px rgba(0,0,0,0.2);">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined" style="font-size:18px;color:#97FEED;">inventory_2</span>
+          <span class="text-[13px] font-extrabold" style="color:#a2fdf0;">My Closet Summary</span>
+        </div>
+        <span id="summaryTotal" class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="background:rgba(151,254,237,0.15);color:#97FEED;">0개</span>
       </div>
-      <div id="summaryContent" class="text-[12px] leading-relaxed" style="color:rgba(255,255,255,0.7);">
+      <!-- 코디조합 강조 박스 -->
+      <div id="comboHighlight" class="text-center py-3 mb-3 rounded-xl" style="background:linear-gradient(135deg,rgba(19,187,175,0.2),rgba(76,219,206,0.1));border:1px solid rgba(151,254,237,0.25);">
+        <div class="text-[11px] font-bold" style="color:rgba(151,254,237,0.6);">가능한 코디 조합</div>
+        <div id="comboCount" class="text-[28px] font-black mt-1" style="color:#a2fdf0;text-shadow:0 0 20px rgba(162,253,240,0.3);">0<span class="text-[14px] font-bold">가지</span></div>
+        <div class="text-[10px] mt-1" style="color:rgba(255,255,255,0.35);">상의 × 하의 기준</div>
+      </div>
+      <!-- 상세 정보 -->
+      <div id="summaryDetail" class="text-[11px] leading-[1.8]" style="color:rgba(255,255,255,0.65);">
         로딩 중...
       </div>
     </div>
@@ -5423,15 +5433,21 @@ function buildSection(catMeta,items){
 function renderCategories(){catListEl.innerHTML='';CodiBank.getCategoriesForUser(user.email).forEach(c=>{catListEl.appendChild(buildSection(c,CodiBank.getItemsByUserAndCategory(user.email,c.key)));});if(focusCat){const t=document.querySelector(`[data-cat-key="${CSS.escape(focusCat)}"]`);if(t)setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),120);}}
 renderCategories();
 
-// ═══ [2026-04-07] My Closet Summary 렌더링 ═══
+// ═══ [2026-04-07] My Closet Summary 렌더링 (강화 버전) ═══
 function renderClosetSummary() {
-  const el = document.getElementById('summaryContent');
-  if (!el) return;
+  const totalEl = document.getElementById('summaryTotal');
+  const comboEl = document.getElementById('comboCount');
+  const detailEl = document.getElementById('summaryDetail');
+  const comboBox = document.getElementById('comboHighlight');
+  if (!detailEl) return;
   try {
     const cats = CodiBank.getCategoriesForUser(user.email) || [];
     let totalItems = 0;
     const catCounts = {};
+    const colorByCat = {};  // 카테고리별 컬러
     const colorMap = {};
+    const materialMap = {};
+    const patternMap = {};
     const seasonMap = { '봄':0, '여름':0, '가을':0, '겨울':0 };
     let topCount = 0, bottomCount = 0;
     const topKeys = new Set(['top','shirt','knit','tshirt','blouse']);
@@ -5445,51 +5461,83 @@ function renderClosetSummary() {
       if (topKeys.has(c.key)) topCount += cnt;
       if (bottomKeys.has(c.key)) bottomCount += cnt;
 
+      const catColors = [];
       items.forEach(item => {
-        // 컬러 집계
-        const color = item.color || item.meta?.gemini?.main_color_name || '';
-        if (color) colorMap[color] = (colorMap[color] || 0) + 1;
-        // 시즌 집계
-        const season = item.meta?.gemini?.season || '';
+        const g = item.meta?.gemini;
+        // 컬러 (Gemini 분석 우선 → item.color 폴백)
+        const color = g?.main_color_name || item.color || '';
+        if (color) { colorMap[color] = (colorMap[color]||0) + 1; catColors.push(color); }
+        // 소재
+        const mat = g?.material || '';
+        if (mat) { const m0 = mat.split(',')[0].trim(); if(m0) materialMap[m0] = (materialMap[m0]||0) + 1; }
+        // 패턴
+        const pat = g?.pattern || '';
+        if (pat && pat !== '단색' && pat !== '솔리드') patternMap[pat] = (patternMap[pat]||0) + 1;
+        // 시즌 (Gemini 분석 결과)
+        const season = g?.season || '';
         if (season) {
-          ['봄','여름','가을','겨울'].forEach(s => {
-            if (season.includes(s)) seasonMap[s]++;
-          });
+          ['봄','여름','가을','겨울'].forEach(s => { if (season.includes(s)) seasonMap[s]++; });
+        } else {
+          // 시즌 정보 없으면 소재로 추정
+          const matLow = mat.toLowerCase();
+          if (/울|캐시미어|플리스|기모/.test(matLow)) { seasonMap['겨울']++; seasonMap['가을']++; }
+          else if (/린넨|면|코튼|시어서커/.test(matLow)) { seasonMap['봄']++; seasonMap['여름']++; }
+          else if (/폴리|나일론|스판/.test(matLow)) { ['봄','여름','가을','겨울'].forEach(s=>seasonMap[s]++); }
         }
       });
+      if (catColors.length) colorByCat[c.label] = catColors;
     });
 
+    // 전체 아이템 수
+    if (totalEl) totalEl.textContent = totalItems + '개';
+
+    // 코디 조합 수 (즉시 업데이트)
+    const combo = topCount * bottomCount;
+    if (comboEl) comboEl.innerHTML = combo + '<span class="text-[14px] font-bold">가지</span>';
+    if (comboBox && totalItems === 0) comboBox.style.opacity = '0.4';
+    else if (comboBox) comboBox.style.opacity = '1';
+
     if (totalItems === 0) {
-      el.innerHTML = '<span style="color:rgba(255,255,255,0.4);">아직 등록된 아이템이 없습니다. + 버튼으로 옷을 등록해보세요!</span>';
+      detailEl.innerHTML = '<span style="color:rgba(255,255,255,0.35);">아직 등록된 아이템이 없어요. + 버튼으로 옷을 등록해보세요!</span>';
       return;
     }
 
-    // 코디 조합 수 (상의 × 하의)
-    const comboCount = topCount * bottomCount;
+    // 카테고리별 (아이콘 + 라벨)
+    const catText = Object.entries(catCounts).map(([k,v]) => '<b style="color:#a2fdf0;">' + k + '</b> ' + v + '개').join(' · ');
 
-    // 카테고리별 표시
-    const catText = Object.entries(catCounts).map(([k,v]) => k + ' ' + v).join(' · ');
+    // 컬러 TOP 5 (비율 포함)
+    const topColors = Object.entries(colorMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const colorText = topColors.map(([c,n]) => {
+      const pct = Math.round(n / totalItems * 100);
+      return '<span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:50%;background:rgba(151,254,237,0.4);display:inline-block;"></span>' + c + ' ' + pct + '%</span>';
+    }).join(' &nbsp;');
 
-    // 컬러 TOP 3
-    const topColors = Object.entries(colorMap).sort((a,b) => b[1]-a[1]).slice(0,3).map(([c,n]) => c).join(', ');
+    // 소재 TOP 3
+    const topMat = Object.entries(materialMap).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([m])=>m).join(', ');
+
+    // 패턴
+    const topPat = Object.entries(patternMap).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([p])=>p).join(', ');
 
     // 시즌 커버리지
+    const maxSeason = Math.max(...Object.values(seasonMap), 1);
     const seasonText = ['봄','여름','가을','겨울'].map(s => {
       const cnt = seasonMap[s];
-      return cnt > 0 ? s + ' ✅' : s + ' ⚠️';
-    }).join(' · ');
+      const pct = Math.round(cnt / maxSeason * 100);
+      const icon = cnt > 0 ? '✅' : '⚠️';
+      return s + ' ' + icon + (cnt > 0 ? ' ' + cnt + '개' : ' 부족');
+    }).join(' &nbsp;·&nbsp; ');
 
-    el.innerHTML = ''
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;">'
-      + '<div>📦 <b style="color:#a2fdf0;">전체 ' + totalItems + '개</b></div>'
-      + '<div>👗 <b style="color:#a2fdf0;">코디 조합 ' + comboCount + '가지</b></div>'
-      + '</div>'
-      + '<div style="margin-top:8px;">' + catText + '</div>'
-      + (topColors ? '<div style="margin-top:6px;">🎨 주요 컬러: <b>' + topColors + '</b></div>' : '')
-      + '<div style="margin-top:6px;">📅 시즌: ' + seasonText + '</div>';
+    let html = '';
+    html += '<div style="margin-bottom:6px;">👔 ' + catText + '</div>';
+    html += '<div style="margin-bottom:6px;">🎨 컬러: ' + colorText + '</div>';
+    if (topMat) html += '<div style="margin-bottom:6px;">🧵 소재: <b>' + topMat + '</b></div>';
+    if (topPat) html += '<div style="margin-bottom:6px;">🔷 패턴: <b>' + topPat + '</b></div>';
+    html += '<div>📅 시즌: ' + seasonText + '</div>';
+
+    detailEl.innerHTML = html;
   } catch(e) {
     console.warn('[Summary]', e);
-    el.textContent = '요약 정보를 불러올 수 없습니다.';
+    detailEl.textContent = '요약 정보를 불러올 수 없습니다.';
   }
 }
 // renderCategories 후 Summary도 갱신

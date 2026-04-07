@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <span class="material-symbols-outlined text-slate-700">arrow_back_ios_new</span>
       </button>
       <div class="text-center">
-        <p class="text-[11px] font-bold tracking-[0.28em] text-accent">내옷장</p>
+        <p class="text-[11px] font-bold tracking-[0.28em] text-accent">Ai 옷장</p>
         <h1 class="text-lg font-extrabold tracking-tight">아이템 등록</h1>
       </div>
       <a href="mypage.html" class="w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-sm border border-slate-200" title="내정보">
@@ -278,10 +278,20 @@ document.addEventListener('DOMContentLoaded', () => {
       <p id="aiPct" style="font-size:13px;font-weight:700;color:#071952;margin-bottom:4px;">0%</p>
       <p id="aiLog" style="font-size:12px;color:#888;margin-bottom:24px;">패션 아이템 분석 중…</p>
 
-      <!-- 완료 버튼 (숨김→완료 후 활성화) -->
-      <button id="aiDoneBtn" class="hidden" style="width:100%;padding:14px;background:#071952;color:#97FEED;border:none;border-radius:14px;font-size:15px;font-weight:800;letter-spacing:.03em;cursor:pointer;transition:opacity .2s;" onclick="window._aiDoneCallback && window._aiDoneCallback()">
-        모바일옷장으로 이동하기 →
-      </button>
+      <!-- [2026-04-07] 완료 후 3버튼: 확인하기/계속등록/확인 -->
+      <div id="aiDoneButtons" class="hidden" style="display:none;flex-direction:column;gap:8px;width:100%;">
+        <button id="aiDoneGoCloset" style="width:100%;padding:13px;background:linear-gradient(135deg,#13bbaf,#4cdbce);color:#071952;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;">
+          ✨ Ai 옷장에서 확인하기
+        </button>
+        <button id="aiDoneContinue" style="width:100%;padding:13px;background:#071952;color:#97FEED;border:1.5px solid rgba(151,254,237,0.3);border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;">
+          + 계속 등록하기
+        </button>
+        <button id="aiDoneClose" style="width:100%;padding:11px;background:transparent;color:rgba(0,0,0,0.4);border:none;font-size:13px;font-weight:600;cursor:pointer;">
+          확인
+        </button>
+      </div>
+      <!-- 레거시 호환 (숨김) -->
+      <button id="aiDoneBtn" class="hidden" style="display:none;"></button>
 
       <!-- 숨겨진 구버전 호환용 span -->
       <span id="aiCat" class="hidden"></span>
@@ -754,18 +764,39 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('aiPct').textContent = Math.round(_aiCurrentPct) + '%';
       if (log) document.getElementById('aiLog').textContent = log;
     }
+    // [2026-04-07] 완료 후 3버튼 로직
+    let _lastRegisteredCategory = '';
+    let _lastRegisteredItemId = '';
     function closeAiModal(destUrl) {
-      // 완료 시 100%로 채우고 버튼 활성화
       if (_aiAutoTimer) { clearInterval(_aiAutoTimer); _aiAutoTimer = null; }
       document.getElementById('aiBar').style.width = '100%';
       document.getElementById('aiPct').textContent = '100%';
-      document.getElementById('aiLog').textContent = '분석 완료!';
-      _aiDoneUrl = destUrl || 'closet.html';
-      window._aiDoneCallback = () => { window.location.href = _aiDoneUrl; };
+      document.getElementById('aiLog').textContent = '등록 완료!';
+      // destUrl에서 category 추출
+      try {
+        const u = new URL(destUrl, location.href);
+        _lastRegisteredCategory = u.searchParams.get('category') || '';
+        _lastRegisteredItemId = u.searchParams.get('highlight') || '';
+      } catch(_){}
       setTimeout(() => {
-        document.getElementById('aiDoneBtn').classList.remove('hidden');
+        const btns = document.getElementById('aiDoneButtons');
+        if (btns) { btns.classList.remove('hidden'); btns.style.display = 'flex'; }
       }, 400);
     }
+    // 확인하기 → Ai 옷장의 해당 카테고리로 이동
+    document.getElementById('aiDoneGoCloset')?.addEventListener('click', () => {
+      const cat = _lastRegisteredCategory || categoryKey || '';
+      const id = _lastRegisteredItemId || '';
+      window.location.href = 'aicloset.html?category=' + encodeURIComponent(cat) + (id ? '&highlight=' + encodeURIComponent(id) : '');
+    });
+    // 계속등록 → 아이템등록 페이지 새로고침
+    document.getElementById('aiDoneContinue')?.addEventListener('click', () => {
+      window.location.href = 'camera.html';
+    });
+    // 확인 → 팝업 닫기
+    document.getElementById('aiDoneClose')?.addEventListener('click', () => {
+      _forceCloseAiModal();
+    });
     function _forceCloseAiModal() {
       if (_aiAutoTimer) { clearInterval(_aiAutoTimer); _aiAutoTimer = null; }
       aiModal.classList.add('hidden');
@@ -1449,7 +1480,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // ── 관리자 대시보드 추적 ──
         try{ if(window.CodiBankTrack) CodiBankTrack.item(categoryKey, {item_name: noteText, image_url: (images && images[0]) || ''}); }catch(_){}
         // 완료 버튼 활성화 (URL 전달)
-        closeAiModal(`closet.html?category=${encodeURIComponent(categoryKey)}&highlight=${encodeURIComponent(result.item.id)}`);
+        closeAiModal(`aicloset.html?category=${encodeURIComponent(categoryKey)}&highlight=${encodeURIComponent(result.item.id)}`);
       } catch (e) {
         console.error('[아이템 저장 오류]', e);
         _forceCloseAiModal();
