@@ -1,204 +1,84 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Ai 옷장 - 코디뱅크</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;900&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-<script src="config.js"></script>
-<script src="codibank.js"></script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-2ZWQ7K7H0V"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-2ZWQ7K7H0V');
+</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>아이템 등록 - 코디뱅크</title>
+
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+  <script src="config.js"></script>
+  <script src="codibank.js"></script>
 <script src="i18n.js"></script>
 <script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        fontFamily: { sans: ['Outfit','Noto Sans KR','ui-sans-serif','system-ui'] },
-        colors: { primary:'#071952', accent:'#97FEED', bg:'#071952' },
-      },
-    },
+// camera.html 런타임 i18n 적용
+document.addEventListener('DOMContentLoaded', () => {
+  function applyCameraI18n() {
+    if (!window.CodiBankI18n || !CodiBankI18n.isEn()) return;
+    // data-i18n 속성 라벨 번역
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      const tr  = CodiBankI18n.t ? CodiBankI18n.t(key) : key;
+      if (tr && tr !== key) el.textContent = tr;
+    });
+    // 분석 부제목
+    const sub = document.getElementById('aiSub');
+    if (sub) sub.textContent = 'AI analyzes category, color, pattern & material.';
+    // 대기 초기값
+    ['aiCat','aiColor','aiBrand'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.textContent === '대기') el.textContent = '—';
+    });
   }
+  // 언어 변경 이벤트 감지
+  window.addEventListener('cb_lang_changed', applyCameraI18n);
+  applyCameraI18n();
+});
 </script>
-<style>
-  body { font-family:'Outfit','Noto Sans KR',sans-serif; -webkit-tap-highlight-color:transparent; background:#071952; color:#fff; min-height:100dvh; }
-  .ios-blur { backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px); }
-  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 24; }
-  .material-symbols-outlined.filled { font-variation-settings:'FILL' 1,'wght' 650,'GRAD' 0,'opsz' 24; }
-  .no-scrollbar::-webkit-scrollbar { display:none; } .no-scrollbar { -ms-overflow-style:none;scrollbar-width:none; }
-
-  /* ═══ 카드 덱 CSS (closet.html에서 그대로 이동) ═══ */
-    .closet-container{position:relative;height:400px;display:flex;align-items:center;justify-content:center;perspective:1300px;touch-action:pan-y;}
-    .clothing-layer{position:absolute;width:160px;height:264px;border-radius:1.55rem;overflow:hidden;background:#fff;border:1px solid rgba(17,17,17,0.06);box-shadow:0 14px 34px rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center;text-decoration:none;user-select:none;-webkit-user-select:none;will-change:transform,opacity,filter;transform-origin:50% 62%;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform-style:preserve-3d;transition:transform 520ms cubic-bezier(0.16,1,0.3,1),opacity 320ms cubic-bezier(0.2,0.8,0.2,1),filter 320ms cubic-bezier(0.2,0.8,0.2,1),box-shadow 520ms cubic-bezier(0.16,1,0.3,1),border-color 420ms ease;}
-    .clothing-layer::before{content:'';position:absolute;inset:-40% -60%;pointer-events:none;opacity:0;transform:translateX(-120%) rotate(12deg);background:linear-gradient(120deg,transparent 0%,rgba(255,255,255,0.75) 45%,transparent 60%);}
-    @keyframes cardShine{0%{transform:translateX(-120%) rotate(12deg);opacity:0}15%{opacity:0.5}100%{transform:translateX(140%) rotate(12deg);opacity:0}}
-    .clothing-layer.sparkle{border-color:rgba(197,163,88,0.8);box-shadow:0 26px 62px -22px rgba(197,163,88,0.35),0 18px 36px rgba(0,0,0,0.12);}
-    .clothing-layer.sparkle::before{opacity:1;animation:cardShine 980ms cubic-bezier(0.16,1,0.3,1) 2;}
-    .layer-1{transform:translateX(-148px) scale(0.88) translateZ(-90px) rotateY(10deg);z-index:10;opacity:0.54;filter:blur(0.85px);}
-    .layer-5{transform:translateX(148px) scale(0.88) translateZ(-90px) rotateY(-10deg);z-index:10;opacity:0.54;filter:blur(0.85px);}
-    .layer-2{transform:translateX(-86px) scale(1.08) translateZ(-45px) rotateY(6deg);z-index:20;opacity:0.94;}
-    .layer-4{transform:translateX(86px) scale(1.08) translateZ(-45px) rotateY(-6deg);z-index:20;opacity:0.94;}
-    .layer-3{transform:translateX(0) scale(1.35) translateZ(70px) rotateY(0deg);z-index:30;box-shadow:0 32px 70px -22px rgba(0,0,0,0.40);border-color:rgba(197,163,88,0.55);}
-    .deck-highlight .layer-3{border:2px solid rgba(197,163,88,0.9);}
-    .closet-container.is-shifting .clothing-layer:not(.layer-3){filter:blur(1.15px);}
-    .clothing-layer.exit-left{pointer-events:none;transition:transform 200ms cubic-bezier(0.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2.6px);transform:translateX(-210px) scale(0.52) translateZ(-140px) rotateY(16deg) rotate(-6deg);}
-    .clothing-layer.exit-right{pointer-events:none;transition:transform 200ms cubic-bezier(0.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2.6px);transform:translateX(210px) scale(0.52) translateZ(-140px) rotateY(-16deg) rotate(6deg);}
-    .clothing-layer.enter-from-right{transform:translateX(210px) scale(0.52) translateZ(-140px) rotateY(-16deg) rotate(6deg);opacity:0;filter:blur(2.6px);}
-    .clothing-layer.enter-from-left{transform:translateX(-210px) scale(0.52) translateZ(-140px) rotateY(16deg) rotate(-6deg);opacity:0;filter:blur(2.6px);}
-    @keyframes centerPop{0%{transform:translateX(0) scale(1.35) translateZ(70px) rotateY(0deg)}55%{transform:translateX(0) scale(1.40) translateZ(110px) rotateY(0deg)}100%{transform:translateX(0) scale(1.35) translateZ(70px) rotateY(0deg)}}
-    .center-pop{animation:centerPop 520ms cubic-bezier(0.16,1,0.3,1) 1;}
-    .no-transition{transition:none !important;}
-    .layer-img{width:100%;height:100%;object-fit:contain;object-position:center;display:block;background:#fff;}
-    .layer-ph{font-size:12px;color:rgba(15,23,42,0.55);font-weight:700;text-align:center;padding:0 10px;}
-    .layer-icon{font-size:44px;color:rgba(15,23,42,0.22);}
-    @keyframes pulseRing{0%{box-shadow:0 0 0 0 rgba(197,163,88,0.35)}70%{box-shadow:0 0 0 18px rgba(197,163,88,0)}100%{box-shadow:0 0 0 0 rgba(197,163,88,0)}}
-    .pulse-ring{animation:pulseRing 1.4s ease-out 1;border-radius:2rem;}
-
-    /* === 코디 목적 그리드 === */
-    .purpose-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
-    .purpose-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 6px;border-radius:14px;border:1.5px solid rgba(15,23,42,0.08);background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.04);font-size:11px;font-weight:800;color:rgba(15,23,42,0.68);cursor:pointer;transition:all 180ms ease;-webkit-tap-highlight-color:transparent;user-select:none;}
-    .purpose-card .material-symbols-outlined{font-size:22px;transition:color 180ms ease;}
-    .purpose-card:active{transform:scale(0.96);}
-    .purpose-card.active{background:rgba(18,148,144,0.3);border-color:#70dbd4;color:#a2fdf0;box-shadow:0 8px 24px rgba(18,148,144,0.35);}
-    .purpose-card.active .material-symbols-outlined{font-variation-settings:'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 24;color:#a2fdf0 !important;}
-
-    /* ── 모바일옷장 다크 디자인 (m_closet_0308) ── */
-    /* 카드 배경: 다크 네이비 */
-    .clothing-layer { background: #0d1f3c !important; border-color: rgba(112,219,212,0.15) !important; }
-    /* 카드 placeholder 텍스트 */
-    .layer-ph { color: rgba(255,255,255,0.35) !important; }
-    .layer-icon { color: rgba(151,254,237,0.22) !important; }
-    /* 센터카드(layer-3): teal 테두리 */
-    .layer-3 { border: 2px solid #70dbd4 !important; box-shadow: 0 0 20px rgba(112,219,212,0.35), 0 32px 70px -22px rgba(0,0,0,0.55) !important; }
-    /* sparkle: teal 강조 */
-    .clothing-layer.sparkle { border-color: #a2fdf0 !important; box-shadow: 0 0 28px rgba(162,253,240,0.55), 0 18px 36px rgba(0,0,0,0.40) !important; }
-    /* MATCH 배지: 우상단 이동, teal 배경 */
-    .match-score-badge { top: 7px !important; right: 7px !important; bottom: auto !important; background: #a2fdf0 !important; color: #071952 !important; font-weight: 900 !important; box-shadow: 0 2px 8px rgba(162,253,240,0.4) !important; }
-    /* 카드 하단 브랜드 레이블 */
-    .card-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 4px 8px 6px; background: none; font-size: 8px; font-weight: 800; color: #071952; letter-spacing: .08em; text-transform: uppercase; pointer-events: none; }
-    .card-label-sub { position: absolute; bottom: 14px; left: 0; right: 0; padding: 2px 8px; background: none; font-size: 7px; font-weight: 700; color: #071952; letter-spacing: .06em; text-transform: uppercase; pointer-events: none; opacity: .75; }
-    /* 카테고리 어드바이스 박스 */
-    .m-adv { margin: 12px 20px 10px; padding: 11px 14px; border-radius: 12px; background: rgba(0,95,99,0.15); border: 1px solid rgba(18,148,144,0.3); display: flex; align-items: center; gap: 8px; }
-    .m-adv-lbl { font-size: 12px; font-weight: 800; color: #a2fdf0; white-space: nowrap; }
-    .m-adv-txt { font-size: 12px; color: rgba(255,255,255,0.82); line-height: 1.4; }
-    /* adv 박스 — 유사도 분석 모드 */
-    .m-adv.m-adv-sim {
-      flex-direction: column; align-items: stretch; gap: 6px;
-      background: rgba(18,148,144,0.12);
-      border-color: rgba(151,254,237,0.25);
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Noto Sans KR', 'ui-sans-serif', 'system-ui'] },
+          colors: {
+            primary: '#111111',
+            accent: '#C5A358',
+            bg: '#FFFFFF',
+            card: '#FFFFFF',
+            card2: '#F9FAFB',
+            line: 'rgba(17,17,17,0.08)',
+          },
+        },
+      },
     }
-    /* 5점 미만: 어두운 배경 + 텍스트 화이트 */
-    .m-adv.m-adv-sim.m-adv-low {
-      background: rgba(10,10,20,0.6);
-      border-color: rgba(255,255,255,0.1);
-    }
-    .m-adv.m-adv-sim.m-adv-low .m-adv-lbl { color: rgba(255,255,255,0.5); }
-    .m-adv.m-adv-sim.m-adv-low .m-adv-sim-kws { color: rgba(255,255,255,0.45); }
-    .m-adv.m-adv-sim.m-adv-low .m-adv-sim-item { color: rgba(255,255,255,0.5); }
-    .m-adv-sim-top { display:flex; align-items:center; gap:6px; }
-    .m-adv-sim-kws { font-size:10px; color:rgba(151,254,237,0.6); flex:1; line-height:1.4; }
-    .m-adv-sim-score {
-      font-size:11px; font-weight:900; padding:2px 7px; border-radius:8px; white-space:nowrap;
-    }
-    .m-adv-sim-score.sh { color:#a2fdf0; background:rgba(18,148,144,0.35); }
-    .m-adv-sim-score.sm { color:#fbbf24; background:rgba(251,191,36,0.18); }
-    .m-adv-sim-score.sl { color:rgba(255,255,255,0.5); background:rgba(255,255,255,0.08); }
-    .m-adv-sim-bar-wrap { height:2px; background:rgba(255,255,255,0.07); border-radius:2px; }
-    .m-adv-sim-bar { height:2px; border-radius:2px; transition:width .5s ease; }
-    .m-adv-sim-item { font-size:10px; font-weight:700; color:rgba(255,255,255,0.75); }
-    .m-adv-sim-noitem { font-size:10px; color:rgba(255,255,255,0.25); font-style:italic; }
-    /* SWIPE 힌트 */
-    .m-swipe { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 4px; }
-    .m-swipe-arr { font-family: 'Material Symbols Outlined'; font-size: 13px; color: rgba(18,148,144,0.55); font-variation-settings: 'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
+  </script>
+  <style>
+    body { min-height: max(884px, 100dvh); -webkit-tap-highlight-color: transparent; }
+    .ios-blur { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24; }
+    .material-symbols-outlined.filled { font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24; }
+  
+/* ── CodiBank 공통 풋바 ── */
+/* ── 풋바: Floating Glassmorphic Bar ── */
+.cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px 10px;pointer-events:none;padding-bottom:max(10px,env(safe-area-inset-bottom));}
+.cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px;}
+.cb-nav-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:rgba(216,226,255,.4);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s;font-family:'Inter','Noto Sans KR',sans-serif;}
+.cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 22;}
+.cb-nav-tab .nl{font-size:9px;font-weight:600;letter-spacing:.02em;}
+.cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px;}
+.cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
+.cb-spacer{height:82px;}
 
-/* ── 모바일 옷장 토글 버튼 ── */
-#closetToggleBtn {
-  width:100%; cursor:pointer;
-  padding:16px 20px 12px;
-  display:flex; flex-direction:column; align-items:center; gap:5px;
-  background:rgba(255,255,255,0.04);
-  border:1.5px solid rgba(151,254,237,0.2);
-  border-radius:20px;
-  transition:background .25s, border-color .25s, box-shadow .25s;
-  font-family:'Outfit','Noto Sans KR',sans-serif;
-}
-#closetToggleBtn.ctb-on {
-  background:rgba(18,148,144,0.22);
-  border-color:rgba(151,254,237,0.65);
-  box-shadow:0 0 20px rgba(151,254,237,0.08);
-}
-#closetToggleBtn .ctb-title {
-  font-size:20px; font-weight:900; color:#70dbd4; letter-spacing:-.02em;
-  transition:color .2s;
-}
-#closetToggleBtn.ctb-on .ctb-title { color:#a2fdf0; }
-#closetToggleBtn .ctb-sub {
-  font-size:10px; font-weight:700; color:rgba(151,254,237,0.45); letter-spacing:.03em;
-  transition:color .2s;
-}
-#closetToggleBtn.ctb-on .ctb-sub { color:rgba(151,254,237,0.7); }
-
-/* ── 유사도 패널 ── */
-#closetMatchPanel { display:none; margin:0 5px 12px; }
-#closetMatchPanel.cmp-open { display:block; }
-.cmp-header {
-  display:flex; align-items:center; gap:6px;
-
-#closetMatchPanel { display:none; margin:0 5px 12px; }
-#closetMatchPanel.cmp-open { display:block; }
-.cmp-header {
-  display:flex; align-items:center; gap:6px;
-  padding:9px 14px;
-  background:rgba(18,148,144,0.18);
-  border:1px solid rgba(151,254,237,0.18);
-  border-bottom:none;
-  border-radius:14px 14px 0 0;
-}
-.cmp-header-txt { font-size:10px; font-weight:900; color:#97FEED; letter-spacing:.1em; }
-.cmp-body {
-  border:1px solid rgba(151,254,237,0.12);
-  border-radius:0 0 14px 14px; overflow:hidden;
-}
-.cmp-row {
-  display:grid; grid-template-columns:20px 62px 1fr 10px 1fr 38px;
-  align-items:center; gap:4px;
-  padding:8px 12px;
-  border-bottom:1px solid rgba(255,255,255,0.04);
-  background:rgba(7,25,82,0.55);
-}
-.cmp-row:last-child { border-bottom:none; }
-.cmp-row:nth-child(even) { background:rgba(13,31,60,0.6); }
-.cmp-icon { font-size:14px; text-align:center; }
-.cmp-cat { font-size:9px; font-weight:900; color:rgba(151,254,237,0.7); }
-.cmp-ai-kws { font-size:9px; color:rgba(255,255,255,0.45); line-height:1.4; }
-.cmp-arrow { font-size:10px; color:rgba(151,254,237,0.3); text-align:center; }
-.cmp-item-name { font-size:9px; font-weight:700; color:rgba(255,255,255,0.8); line-height:1.4; }
-.cmp-score-badge {
-  font-size:10px; font-weight:900; text-align:right; padding:2px 5px;
-  border-radius:6px; white-space:nowrap;
-}
-.cmp-score-high { color:#a2fdf0; background:rgba(18,148,144,0.25); }
-.cmp-score-mid  { color:#fbbf24; background:rgba(251,191,36,0.15); }
-.cmp-score-low  { color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.05); }
-.cmp-no-item    { padding:8px 12px; font-size:9px; color:rgba(255,255,255,0.25); font-style:italic; }
-.cmp-bar-wrap   { grid-column:1/-1; height:2px; background:rgba(255,255,255,0.06); border-radius:2px; margin:0 0 2px; }
-.cmp-bar        { height:2px; border-radius:2px; transition:width .6s ease; }
-.cmp-summary {
-  padding:9px 14px;
-  border-top:1px solid rgba(151,254,237,0.08);
-  background:rgba(18,148,144,0.08);
-  font-size:10px; font-weight:700; color:rgba(151,254,237,0.7);
-
-
-  /* ═══ 네비게이션 바 ═══ */
-  .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px 10px;pointer-events:none;padding-bottom:max(10px,env(safe-area-inset-bottom));}
-  .cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px;}
-  .cb-nav-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:rgba(216,226,255,.4);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s;font-family:'Inter','Noto Sans KR',sans-serif;}
-  .cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 22;}
-  .cb-nav-tab .nl{font-size:9px;font-weight:600;letter-spacing:.02em;}
-  .cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px;}
-  .cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
-  .cb-spacer{height:82px;}
 </style>
 <link rel="manifest" href="/manifest.json"/>
 <meta name="theme-color" content="#07132a"/>
@@ -208,575 +88,1415 @@
 <link rel="apple-touch-icon" href="/app/icons/icon-192.png"/>
 <script src="pwa-register.js" defer></script>
 </head>
-<body>
+<body class="bg-bg text-slate-900 min-h-screen font-sans">
 
-<!-- 상단 헤더 -->
-<header class="pt-4 px-5 pb-3">
-  <div class="flex items-center justify-between">
-    <h1 class="text-xl font-bold tracking-tight" style="color:#a2fdf0;">✨ Ai 옷장</h1>
-    <a href="mypage.html" class="w-9 h-9 rounded-full flex items-center justify-center" style="background:rgba(255,255,255,0.08);border:1px solid rgba(151,254,237,0.15);">
-      <span class="material-symbols-outlined" style="font-size:18px;color:rgba(151,254,237,0.5);">person</span>
-    </a>
-  </div>
-</header>
-
-<main class="pb-32">
-  <!-- ═══ 모바일 옷장 섹션 (closet.html에서 그대로 이동) ═══ -->
-  <!-- 내 Ai 옷장 (다크 m_closet_0308) -->
-  <section class="px-0 mt-8">
-    <div class="pt-2">
-
-      <!-- ★ Ai 옷장 토글 버튼 -->
-      <div class="px-5 pb-3">
-        <button id="closetToggleBtn" type="button">
-          <span class="ctb-title">Ai 옷장</span>
-          <span class="ctb-sub">클릭하면 AI가 추천한 코디를 내 옷에서 찾아드립니다</span>
-        </button>
-      </div>
-
-      <!-- ★ 유사도 분석 패널 (토글 시 표시) -->
-      <div id="closetMatchPanel">
-        <div class="cmp-header">
-          <span class="material-symbols-outlined text-[14px]" style="color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 14;">compare_arrows</span>
-          <span class="cmp-header-txt">AI 추천코디 × 내 옷장 유사도 분석</span>
-        </div>
-        <div class="cmp-body" id="cmpBody">
-          <div class="cmp-no-item">AI 코디를 먼저 생성하면 유사도를 분석해드려요.</div>
-        </div>
-        <div class="cmp-summary" id="cmpSummary" style="display:none;">
-          <span class="material-symbols-outlined text-[13px]" style="font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 13;">auto_awesome</span>
-          <span id="cmpSummaryText"></span>
-        </div>
-      </div>
-
-      <div id="catList" class="space-y-0 py-2"></div>
-
-      <div class="pb-6">
-        <button id="openAddCategory" class="w-full py-4 rounded-3xl font-extrabold text-[13px] flex items-center justify-center gap-2 active:scale-[0.99] transition-all text-white"
-          style="background:rgba(255,255,255,0.06);border:1.5px solid rgba(151,254,237,0.2);font-family:'Outfit','Noto Sans KR',sans-serif;">
-          <span class="material-symbols-outlined filled" style="color:#97FEED;">add</span>카테고리 추가
-        </button>
-      </div>
+  <!-- Top status bar (prototype) -->
+  <div class="fixed top-0 w-full z-50 px-6 py-3 flex justify-between items-center bg-white/80 ios-blur border-b border-slate-100">
+    <span class="text-sm font-semibold">9:41</span>
+    <div class="flex gap-1.5 items-center text-slate-700">
+      <span class="material-symbols-outlined text-[16px]">signal_cellular_alt</span>
+      <span class="material-symbols-outlined text-[16px]">wifi</span>
+      <span class="material-symbols-outlined text-[16px]">battery_full</span>
     </div>
-  </section>
-</main>
+  </div>
+
+  <header class="pt-16 px-6 pb-4">
+    <div class="flex items-center justify-between">
+      <button id="backBtn" class="w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-sm active:scale-95 transition-transform border border-slate-200" title="뒤로">
+        <span class="material-symbols-outlined text-slate-700">arrow_back_ios_new</span>
+      </button>
+      <div class="text-center">
+        <p class="text-[11px] font-bold tracking-[0.28em] text-accent">내옷장</p>
+        <h1 class="text-lg font-extrabold tracking-tight">아이템 등록</h1>
+      </div>
+      <a href="mypage.html" class="w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-sm border border-slate-200" title="내정보">
+        <span class="material-symbols-outlined text-slate-700">person</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="pb-32">
+    <!-- Intro -->
+    <section class="px-6">
+      <div class="p-5 rounded-3xl bg-card border border-line shadow-sm">
+        <h2 class="text-base font-extrabold tracking-tight">당신의 오프라인 패션아이템을 촬영하세요</h2>
+        <p class="mt-1 text-[13px] text-slate-600 leading-snug">
+          전면 아이템 <b class="text-slate-900">1장(필수)</b>만 있어도 등록할 수 있어요.
+          후면/브랜드·기타 정보는 선택입니다.
+        </p>
+        <div class="mt-3 flex items-center gap-2 text-[12px] text-slate-500">
+          <span class="material-symbols-outlined text-[18px]">photo_library</span>
+          <span>촬영 또는 <b class="text-slate-700">이미 촬영한 사진 선택</b>도 가능합니다.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slot: Front (Required) -->
+    <section class="px-6 mt-5">
+      <div class="p-5 rounded-3xl bg-card border border-line shadow-sm">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-sm font-extrabold">전면 아이템</h3>
+              <span class="px-2 py-0.5 rounded-full bg-accent/15 text-accent text-[11px] font-extrabold">필수</span>
+            </div>
+            <p class="mt-1 text-[12px] text-slate-600">아이템의 전면(최소 1장)을 촬영하는 것은 필수입니다.</p>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-3xl overflow-hidden border border-slate-200 bg-slate-50">
+          <div class="aspect-[3/4] relative">
+            <img id="previewFront" class="absolute inset-0 w-full h-full object-cover hidden" alt="전면 아이템" />
+            <div id="placeholderFront" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+              <span class="material-symbols-outlined text-5xl">photo_camera</span>
+              <p class="mt-2 text-sm font-bold">전면 사진을 추가해주세요</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-3 gap-2">
+          <button id="btnFrontCamera" class="py-3 rounded-2xl bg-primary text-white font-extrabold text-[13px] active:scale-[0.99]">촬영</button>
+          <button id="btnFrontGallery" class="py-3 rounded-2xl bg-white border border-slate-200 font-extrabold text-[13px] active:scale-[0.99]">사진 선택</button>
+          <button id="btnFrontDelete" class="py-3 rounded-2xl bg-white border border-slate-200 font-extrabold text-[13px] text-slate-500 active:scale-[0.99]">삭제</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slot: Back (Optional) -->
+    <section class="px-6 mt-4">
+      <div class="p-5 rounded-3xl bg-card border border-line shadow-sm">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-sm font-extrabold">후면 아이템</h3>
+              <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-extrabold border border-slate-200">선택</span>
+            </div>
+            <p class="mt-1 text-[12px] text-slate-600">후면은 선택 촬영입니다. 가능하면 촬영해두면 확인이 쉬워져요.</p>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-3xl overflow-hidden border border-slate-200 bg-slate-50">
+          <div class="aspect-[3/4] relative">
+            <img id="previewBack" class="absolute inset-0 w-full h-full object-cover hidden" alt="후면 아이템" />
+            <div id="placeholderBack" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+              <span class="material-symbols-outlined text-5xl">photo</span>
+              <p class="mt-2 text-sm font-bold">후면 사진(선택)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-3 gap-2">
+          <button id="btnBackCamera" class="py-3 rounded-2xl bg-primary text-white font-extrabold text-[13px] active:scale-[0.99]">촬영</button>
+          <button id="btnBackGallery" class="py-3 rounded-2xl bg-white border border-slate-200 font-extrabold text-[13px] active:scale-[0.99]">사진 선택</button>
+          <button id="btnBackDelete" class="py-3 rounded-2xl bg-white border border-slate-200 font-extrabold text-[13px] text-slate-500 active:scale-[0.99]">삭제</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slot: Brand/Extra (Optional) -->
+    <section class="px-6 mt-4">
+      <div class="p-5 rounded-3xl bg-card border border-line shadow-sm">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-sm font-extrabold">브랜드/기타</h3>
+              <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-extrabold border border-slate-200">선택</span>
+            </div>
+            <p class="mt-1 text-[12px] text-slate-600">로고/택/브랜드 정보는 선택입니다. 자동 인식 정확도가 올라가요.</p>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-3xl overflow-hidden border border-slate-200 bg-slate-50">
+          <div class="aspect-[3/4] relative">
+            <img id="previewBrand" class="absolute inset-0 w-full h-full object-cover hidden" alt="브랜드/기타" />
+            <div id="placeholderBrand" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+              <span class="material-symbols-outlined text-5xl">sell</span>
+              <p class="mt-2 text-sm font-bold">브랜드/택/기타 정보(선택)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-3 gap-2">
+          <button id="btnBrandCamera" class="py-3 rounded-2xl bg-primary text-white font-extrabold text-[13px] active:scale-[0.99]">촬영</button>
+          <button id="btnBrandGallery" class="py-3 rounded-2xl bg-white border border-slate-200 font-extrabold text-[13px] active:scale-[0.99]">사진 선택</button>
+          <button id="btnBrandDelete" class="py-3 rounded-2xl bg-white border border-slate-200 font-extrabold text-[13px] text-slate-500 active:scale-[0.99]">삭제</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Register -->
+    <section class="px-6 mt-5">
+      <button id="registerBtn" class="w-full py-4 rounded-3xl bg-primary text-white font-extrabold text-[15px] shadow-sm active:scale-[0.99]">
+        전면 촬영 후 등록
+      </button>
+
+      <div class="mt-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+        <div>
+          <p class="text-[11px] font-extrabold text-slate-700">카테고리</p>
+          <p class="text-[10px] text-slate-500">기본은 <b class="text-slate-900">AI 자동</b> 분류 · 필요하면 직접 선택</p>
+        </div>
+        <select id="categorySelect" class="min-w-[140px] text-[12px] font-extrabold rounded-xl border-slate-200 bg-white">
+          <option value="">AI 자동</option>
+        </select>
+      </div>
+
+      <p class="mt-3 text-xs text-slate-500 leading-relaxed">
+        * 등록하기를 누르면 AI가 <b class="text-slate-900">카테고리/컬러/브랜드</b>를 자동 인식해 아이템으로 저장합니다.
+      </p>
+    </section>
+
+    <!-- Hidden inputs: Camera (capture) + Gallery -->
+    <input id="inputFrontCamera" type="file" accept="image/*" capture="environment" class="hidden" />
+    <input id="inputFrontGallery" type="file" accept="image/*" class="hidden" />
+
+    <input id="inputBackCamera" type="file" accept="image/*" capture="environment" class="hidden" />
+    <input id="inputBackGallery" type="file" accept="image/*" class="hidden" />
+
+    <input id="inputBrandCamera" type="file" accept="image/*" capture="environment" class="hidden" />
+    <input id="inputBrandGallery" type="file" accept="image/*" class="hidden" />
+
+  </main>
+
+  <!-- Bottom Nav -->
+
+  <!-- AI Progress Modal -->
+  <!-- AI 분석 팝업 (심플 리뉴얼) -->
+  <div id="aiModal" class="hidden fixed inset-0 z-[80] flex items-center justify-center" style="background:rgba(0,0,0,0.55);backdrop-filter:blur(6px);">
+    <div style="width:86%;max-width:320px;background:#fff;border-radius:24px;padding:36px 28px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.18);text-align:center;">
+
+      <!-- CodiBank 텍스트 동적 컬러 -->
+      <div style="margin-bottom:20px;">
+        <span id="aiLogoText" style="font-size:26px;font-weight:900;letter-spacing:-0.5px;background:linear-gradient(90deg,#071952,#35A29F,#97FEED,#35A29F,#071952);background-size:300% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:cbColorFlow 2s linear infinite;">CodiBank</span>
+      </div>
+
+      <!-- 막대 프로그레스바 -->
+      <div style="height:6px;background:#e8eaf0;border-radius:99px;overflow:hidden;margin-bottom:14px;">
+        <div id="aiBar" style="height:100%;width:0%;background:linear-gradient(90deg,#071952,#35A29F);border-radius:99px;transition:width 0.8s ease;"></div>
+      </div>
+
+      <!-- 퍼센트 + 텍스트 -->
+      <p id="aiPct" style="font-size:13px;font-weight:700;color:#071952;margin-bottom:4px;">0%</p>
+      <p id="aiLog" style="font-size:12px;color:#888;margin-bottom:24px;">패션 아이템 분석 중…</p>
+
+      <!-- 완료 버튼 (숨김→완료 후 활성화) -->
+      <button id="aiDoneBtn" class="hidden" style="width:100%;padding:14px;background:#071952;color:#97FEED;border:none;border-radius:14px;font-size:15px;font-weight:800;letter-spacing:.03em;cursor:pointer;transition:opacity .2s;" onclick="window._aiDoneCallback && window._aiDoneCallback()">
+        모바일옷장으로 이동하기 →
+      </button>
+
+      <!-- 숨겨진 구버전 호환용 span -->
+      <span id="aiCat" class="hidden"></span>
+      <span id="aiColor" class="hidden"></span>
+      <span id="aiBrand" class="hidden"></span>
+      <span id="aiPattern" class="hidden"></span>
+      <span id="aiMaterial" class="hidden"></span>
+      <span id="aiFit" class="hidden"></span>
+    </div>
+  </div>
+  <style>
+    @keyframes cbColorFlow {
+      0%   { background-position: 0% 50%; }
+      100% { background-position: 100% 50%; }
+    }
+  </style>
+
+  <script>
+    // Auth
+    if (!CodiBank.requireAuth('login.html')) {}
+    const user = CodiBank.getCurrentUser();
+
+    // 뒤로가기
+    document.getElementById('backBtn').addEventListener('click', () => {
+      if (history.length > 1) history.back();
+      else window.location.href = 'closet.html';
+    });
+
+    // 특정 카테고리에서 +로 진입했을 때(등록 속도/안정성 ↑)
+    function getQueryParam(name) {
+      const p = new URLSearchParams(window.location.search);
+      return p.get(name);
+    }
+    const preferredCategoryKey = (function () {
+      const q = getQueryParam('category');
+      return q ? String(q) : '';
+    })();
+
+    // 카테고리 선택(옵션): 기본은 AI 자동, 필요하면 사용자가 직접 선택 가능
+    const categorySelectEl = document.getElementById('categorySelect');
+    function populateCategorySelect() {
+      if (!categorySelectEl) return;
+      const cats = CodiBank.getCategoriesForUser(user.email) || [];
+      const opts = ['<option value="">AI 자동</option>']
+        .concat(cats.map(c => `<option value="${String(c.key)}">${String(c.label)}</option>`));
+      categorySelectEl.innerHTML = opts.join('');
+      if (preferredCategoryKey) categorySelectEl.value = preferredCategoryKey;
+    }
+    populateCategorySelect();
+
+    // ============================================================
+    // State
+    // - shots[key]    : 저장용 참조 (dataURL → 서버업로드 후 /uploads/...)
+    // - shotBlobUrl[key] : 화면 미리보기 전용 blobURL (IndexedDB에서 생성)
+    //                      ※ signup.html과 동일한 방식 → 모바일에서 안정적
+    //   【핵심 원인】
+    //   이전 코드는 img.src = 거대한 dataURL 을 직접 사용했는데,
+    //   iOS Safari / Android WebView 에서 대용량 dataURL 을 img.src 에 넣으면
+    //   메모리 한도로 "잠깐 보였다가 사라짐" 현상이 발생합니다.
+    //   signup.html 이 정상 동작하는 이유는 saveImage → IndexedDB → blobURL
+    //   을 사용하기 때문입니다. camera.html 도 같은 방식으로 변경합니다.
+    // ============================================================
+    const shots       = { front: null, back: null, brand: null }; // 저장용 참조
+    const shotBlob  = { front: null, back: null, brand: null }; // ✅ Blob(미리보기/서버업로드용)
+
+    const shotBlobUrl = { front: '',   back: '',   brand: ''   }; // 미리보기 blobURL
+    const shotUploadToken = { front: '', back: '', brand: '' };
+
+    // UI refs
+    const ui = {
+      previewFront: document.getElementById('previewFront'),
+      previewBack: document.getElementById('previewBack'),
+      previewBrand: document.getElementById('previewBrand'),
+      placeholderFront: document.getElementById('placeholderFront'),
+      placeholderBack: document.getElementById('placeholderBack'),
+      placeholderBrand: document.getElementById('placeholderBrand'),
+      registerBtn: document.getElementById('registerBtn'),
+    };
+
+    // Inputs
+    const inputs = {
+      frontCamera: document.getElementById('inputFrontCamera'),
+      frontGallery: document.getElementById('inputFrontGallery'),
+      backCamera: document.getElementById('inputBackCamera'),
+      backGallery: document.getElementById('inputBackGallery'),
+      brandCamera: document.getElementById('inputBrandCamera'),
+      brandGallery: document.getElementById('inputBrandGallery'),
+    };
+
+    // Buttons
+    document.getElementById('btnFrontCamera').addEventListener('click', () => inputs.frontCamera.click());
+    document.getElementById('btnFrontGallery').addEventListener('click', () => inputs.frontGallery.click());
+    document.getElementById('btnFrontDelete').addEventListener('click', () => clearShot('front'));
+
+    document.getElementById('btnBackCamera').addEventListener('click', () => inputs.backCamera.click());
+    document.getElementById('btnBackGallery').addEventListener('click', () => inputs.backGallery.click());
+    document.getElementById('btnBackDelete').addEventListener('click', () => clearShot('back'));
+
+    document.getElementById('btnBrandCamera').addEventListener('click', () => inputs.brandCamera.click());
+    document.getElementById('btnBrandGallery').addEventListener('click', () => inputs.brandGallery.click());
+    document.getElementById('btnBrandDelete').addEventListener('click', () => clearShot('brand'));
+
+    function updateRegisterState() {
+      const canRegister = !!shotBlob.front || !!shots.front;
+      ui.registerBtn.disabled = !canRegister;
+      ui.registerBtn.style.opacity = canRegister ? '1' : '0.45';
+      ui.registerBtn.style.cursor = canRegister ? 'pointer' : 'not-allowed';
+      ui.registerBtn.textContent = canRegister ? '등록하기' : '전면 촬영 후 등록';
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // showPreview : blobUrl(또는 빈 문자열)로 img 태그를 직접 제어
+    //   - 이전의 setShot/bindPreview 로직을 완전 대체
+    //   - imgEl.src 에는 항상 blobURL(짧고 안정적)만 넣습니다
+    // ──────────────────────────────────────────────────────────
+    function showPreview(key) {
+      const cap = key.charAt(0).toUpperCase() + key.slice(1);
+      const imgEl = ui['preview' + cap];
+      const phEl  = ui['placeholder' + cap];
+      if (!imgEl || !phEl) return;
+
+      const src = shotBlobUrl[key] || '';
+      if (src) {
+        imgEl.onerror = () => {
+          // blobURL 이 만료됐거나 실패 → placeholder 복원
+          imgEl.classList.add('hidden');
+          phEl.classList.remove('hidden');
+        };
+        imgEl.src = src;
+        imgEl.classList.remove('hidden');
+        phEl.classList.add('hidden');
+      } else {
+        imgEl.onerror = null;
+        try { imgEl.src = ''; } catch (_) {}
+        imgEl.classList.add('hidden');
+        phEl.classList.remove('hidden');
+      }
+    }
+
+    // 삭제
+    function clearShot(key) {
+      // 진행 중 처리(리사이즈/업로드) 무시
+      shotUploadToken[key] = CodiBank.uid('cancel');
+
+      // 저장 참조/Blob 제거
+      shots[key] = null;
+      shotBlob[key] = null;
+
+      // 기존 미리보기 blobURL 해제(메모리 누수 방지)
+      const prev = shotBlobUrl[key] || '';
+      if (prev && prev.startsWith('blob:')) {
+        try { URL.revokeObjectURL(prev); } catch (_) {}
+      }
+      shotBlobUrl[key] = '';
+
+      showPreview(key);
+      updateRegisterState();
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // ✅ 핵심 수정: File → blobURL (URL.createObjectURL)
+    //
+    // 【확정된 근본 원인】
+    //   이전 코드는 FileReader.readAsDataURL(file) 로 파일을 먼저 읽어
+    //   4~6 MB 짜리 base64 문자열을 만든 다음, 그 문자열을 img.src 에 넣어
+    //   canvas 리사이즈를 시도했습니다.
+    //
+    //   iOS Safari / Android WebView 는 img.src 에 들어갈 수 있는
+    //   dataURL 크기에 ~2 MB 내외의 한도가 있어, 일반 스마트폰 카메라 사진
+    //   (3~15 MB) 은 img.onload 가 발생하지 않거나 즉시 실패합니다.
+    //   → "일부(작은 사진/스크린샷)는 되고, 대부분(카메라 원본)은 안 되는" 현상.
+    //
+    // 【해결책】
+    //   File 객체를 절대 base64/dataURL 로 변환하지 않고,
+    //   URL.createObjectURL(file) 로 native blobURL 을 즉시 생성합니다.
+    //   blobURL(blob://...) 은 크기 제한이 없고, 브라우저가 원본 파일을 직접
+    //   참조하므로 메모리 부담이 없어 어떤 크기의 사진도 처리 가능합니다.
+    //
+    // 【흐름】
+    //   File
+    //   → URL.createObjectURL(file)  ← blobURL (크기 무관, 메모리 안전)
+    //   → canvas 리사이즈 (img.src = blobURL)
+    //   → canvas.toDataURL('image/jpeg', 0.82)  ← 리사이즈된 작은 dataURL
+    //   → CodiBank.saveImage(resized)  → IndexedDB Blob → imageId
+    //   → CodiBank.getImageSrc(imageId) → previewBlobUrl
+    //   → img.src = previewBlobUrl  ← 화면 표시 (절대 사라지지 않음)
+    //   → URL.revokeObjectURL(fileBlobUrl)  ← 원본 blobURL 메모리 해제
+    // ──────────────────────────────────────────────────────────
+
+    /**
+     * src(blobURL 또는 dataURL)를 canvas 로 읽어 JPEG 리사이즈
+     * - 큰 사진도 문제없이 처리 (img.src 에 blobURL 을 넣으면 크기 제한 없음)
+     */
+    function canvasToJpegBlob(canvas, quality) {
+      return new Promise((resolve, reject) => {
+        try {
+          const q = Math.max(0.5, Math.min(0.92, Number(quality || 0.82)));
+
+          // Safari 구버전 등에서 toBlob이 없을 수 있어 fallback을 둡니다.
+          if (!canvas.toBlob) {
+            // fallback: dataURL → blob (마지막 수단)
+            const dataUrl = canvas.toDataURL('image/jpeg', q);
+            fetch(dataUrl).then(r => r.blob()).then(resolve).catch(reject);
+            return;
+          }
+
+          canvas.toBlob((blob) => {
+            if (!blob) return reject(new Error('toBlob 실패'));
+            resolve(blob);
+          }, 'image/jpeg', q);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    }
+
+    /**
+     * src(blobURL/dataURL)를 JPEG Blob으로 리사이즈합니다.
+     * - "dataURL(base64) → 저장"은 모바일에서 간헐적으로 미리보기가
+     *   0.1초 보였다가 사라지는 현상의 주요 원인이어서,
+     *   여기서는 Blob 기반으로 끝까지 처리합니다.
+     */
+    function resizeFromSrcToBlob(src, maxDim, quality) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const w0 = img.naturalWidth || img.width;
+            const h0 = img.naturalHeight || img.height;
+
+            if (!w0 || !h0) return reject(new Error('이미지 크기 읽기 실패'));
+
+            const max = Math.max(w0, h0);
+            const scale = max > maxDim ? (maxDim / max) : 1;
+
+            const w = Math.max(1, Math.round(w0 * scale));
+            const h = Math.max(1, Math.round(h0 * scale));
+
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return reject(new Error('canvas context 실패'));
+
+            ctx.drawImage(img, 0, 0, w, h);
+
+            canvasToJpegBlob(canvas, quality)
+              .then(resolve)
+              .catch(reject);
+          } catch (e) {
+            reject(e);
+          }
+        };
+        img.onerror = () => reject(new Error('이미지 로드 실패'));
+        img.src = src;
+      });
+    }
+
+    /**
+     * 목표 용량(targetBytes) 이하가 되도록 품질/해상도를 단계적으로 낮춥니다.
+     * - 어떤 JPG는 리사이즈 후에도 용량이 커서 모바일에서 불안정해질 수 있습니다.
+     */
+    async function compressFromSrcToBlob(src, maxDim, quality, targetBytes) {
+      let dim = Math.max(640, Number(maxDim || 1200));
+      let q = Number(quality || 0.82);
+      const target = Math.max(250_000, Number(targetBytes || 900_000));
+
+      let last = null;
+
+      for (let i = 0; i < 7; i++) {
+        const blob = await resizeFromSrcToBlob(src, dim, q);
+        last = blob;
+
+        if (blob && blob.size && blob.size <= target) return blob;
+
+        // 1) 품질을 먼저 낮추고(0.82→0.72→0.64…)
+        if (q > 0.62) {
+          q = Math.max(0.58, q - 0.08);
+          continue;
+        }
+
+        // 2) 그래도 크면 해상도 낮추기(1200→1020→870…)
+        dim = Math.round(dim * 0.85);
+        if (dim < 640) break;
+      }
+
+      return last;
+    }
+
+    async function uploadBlobToServer(blob, meta) {
+      const b = blob;
+      if (!b) throw new Error('업로드할 이미지(blob)가 없습니다.');
+
+      const base = (CodiBank.getBackendBaseResolved ? CodiBank.getBackendBaseResolved() : '');
+      if (!base) throw new Error('백엔드 서버 주소를 찾을 수 없습니다.');
+
+      const url = base.replace(/\/$/, '') + '/api/storage/upload';
+
+      const m = (meta && typeof meta === 'object') ? meta : {};
+      const slot = String(m.slot || 'img');
+      const email = String(m.email || '');
+
+      const form = new FormData();
+      form.append('file', b, `${slot}.jpg`);
+      form.append('slot', slot);
+      if (email) form.append('email', email);
+
+      const r = await fetch(url, { method: 'POST', body: form });
+      const j = await r.json().catch(() => null);
+
+      if (!r.ok || !j || j.ok !== true) {
+        const msg = (j && j.error) ? String(j.error) : `upload failed: HTTP ${r.status}`;
+        throw new Error(msg);
+      }
+      return j; // {ok, path, url}
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // handleFilePick
+    // URL.createObjectURL 방식으로 완전 교체
+    // ──────────────────────────────────────────────────────────
+    async function handleFilePick(file, key) {
+      if (!file) return;
+
+      // 이미지가 아닌 파일 방지
+      const mime = String(file.type || '');
+      if (mime && !mime.startsWith('image/')) {
+        alert('이미지 파일만 선택할 수 있습니다.');
+        return;
+      }
+
+      // ✅ 이 토큰이 "현재 슬롯의 최신 선택"을 의미합니다.
+      // 사용자가 사진을 다시 선택하면 토큰이 바뀌고, 이전 처리(리사이즈/업로드)는 무시됩니다.
+      const token = CodiBank.uid('slot');
+      shotUploadToken[key] = token;
+
+      // 이전 서버 참조/Blob 제거(새 이미지로 교체)
+      shots[key] = null;
+      shotBlob[key] = null;
+
+      // 1) 원본 파일 blobURL (즉시 미리보기로 사용)
+      const fileBlobUrl = URL.createObjectURL(file);
+
+      // 기존 미리보기 blobURL 해제(메모리 누수 방지)
+      const prev = shotBlobUrl[key] || '';
+      if (prev && prev.startsWith('blob:')) {
+        try { URL.revokeObjectURL(prev); } catch (_) {}
+      }
+
+      // 즉시 미리보기 표시(리사이즈가 끝나기 전에도 안정적으로 보임)
+      shotBlobUrl[key] = fileBlobUrl;
+      showPreview(key);
+      updateRegisterState();
+
+      try {
+        const maxDim = key === 'brand' ? 1400 : 1200;
+        const q = key === 'brand' ? 0.84 : 0.82;
+        const targetBytes = key === 'brand' ? 1_200_000 : 900_000;
+
+        let blobToUpload = null;
+
+        try {
+          blobToUpload = await compressFromSrcToBlob(fileBlobUrl, maxDim, q, targetBytes);
+        } catch (e) {
+          console.warn('compress failed, fallback to original file', e);
+          blobToUpload = file; // 마지막 fallback
+        }
+
+        if (shotUploadToken[key] !== token) return; // 사용자가 다른 사진으로 바꾼 경우
+
+        if (!blobToUpload) throw new Error('이미지 처리 실패');
+
+        // 2) 처리 완료 Blob 저장
+        shotBlob[key] = blobToUpload;
+
+        // 3) 리사이즈 Blob로 미리보기 교체(더 가볍고 안정적)
+        try {
+          const resizedPreviewUrl = URL.createObjectURL(blobToUpload);
+          // 현재 미리보기가 아직 fileBlobUrl이라면 교체
+          if (shotBlobUrl[key] === fileBlobUrl) {
+            shotBlobUrl[key] = resizedPreviewUrl;
+            showPreview(key);
+            // fileBlobUrl은 더 이상 사용하지 않으므로 해제
+            try { URL.revokeObjectURL(fileBlobUrl); } catch (_) {}
+          } else {
+            // 다른 상태면 새 미리보기는 사용하지 않으니 해제
+            try { URL.revokeObjectURL(resizedPreviewUrl); } catch (_) {}
+          }
+        } catch (_) {
+          // 미리보기 교체 실패 시에는 fileBlobUrl 미리보기 유지
+        }
+
+        updateRegisterState();
+
+        // 4) 서버에 백그라운드 업로드(영구 저장)
+        Promise.resolve()
+          .then(() => uploadBlobToServer(blobToUpload, { slot: key, email: user.email }))
+          .then((up) => {
+            if (shotUploadToken[key] !== token) return; // 사용자가 다른 사진으로 바꾼 경우
+            if (up && up.ok && up.path) {
+              shots[key] = String(up.path); // 저장 참조만 서버 경로로 업데이트
+            }
+          })
+          .catch((e) => {
+            console.warn('uploadImageToServer(blob) failed', e);
+            // 업로드 실패해도 사용자는 미리보기 확인 가능. 등록 버튼에서 재시도합니다.
+          });
+      } catch (e) {
+        console.warn('handleFilePick failed', e);
+        // 실패 시 placeholder로 복귀
+        clearShot(key);
+        alert('이미지 처리에 실패했습니다. 다른 사진으로 다시 시도해보세요. (형식/용량/권한 확인)');
+      } finally {
+        // fileBlobUrl이 아직 미리보기로 사용 중이면 해제하지 않습니다.
+        // (교체 성공 시 위에서 revoke 처리)
+      }
+    }
+
+    // inputs change
+    function bindInput(inputEl, key) {
+      inputEl.addEventListener('change', async (e) => {
+        const f = e.target.files && e.target.files[0];
+        await handleFilePick(f, key);
+        // 같은 파일을 다시 선택해도 change가 발생하도록 value 초기화
+        try { inputEl.value = ''; } catch (_) {}
+      });
+    }
+
+    bindInput(inputs.frontCamera, 'front');
+    bindInput(inputs.frontGallery, 'front');
+    bindInput(inputs.backCamera, 'back');
+    bindInput(inputs.backGallery, 'back');
+    bindInput(inputs.brandCamera, 'brand');
+    bindInput(inputs.brandGallery, 'brand');
+
+    // ===== AI Progress Modal =====
+    const aiModal = document.getElementById('aiModal');
+    const aiBar = document.getElementById('aiBar');
+    const aiLog = document.getElementById('aiLog');
+    const aiCat = document.getElementById('aiCat');
+    const aiColor = document.getElementById('aiColor');
+    const aiBrand = document.getElementById('aiBrand');
+
+    // _aiAutoTimer: 1초마다 10%씩 자동 증가 (최대 90%, 실제 완료 전 정지)
+    let _aiAutoTimer = null;
+    let _aiCurrentPct = 0;
+    let _aiDoneUrl = 'closet.html';
+
+    function openAiModal() {
+      aiModal.classList.remove('hidden');
+      _aiCurrentPct = 0;
+      document.getElementById('aiBar').style.width = '0%';
+      document.getElementById('aiPct').textContent = '0%';
+      document.getElementById('aiLog').textContent = '패션 아이템 분석 중…';
+      document.getElementById('aiDoneBtn').classList.add('hidden');
+      // 1초마다 10%씩 자동 증가 (최대 90%)
+      if (_aiAutoTimer) clearInterval(_aiAutoTimer);
+      _aiAutoTimer = setInterval(() => {
+        if (_aiCurrentPct < 90) {
+          _aiCurrentPct = Math.min(_aiCurrentPct + 10, 90);
+          document.getElementById('aiBar').style.width = _aiCurrentPct + '%';
+          document.getElementById('aiPct').textContent = _aiCurrentPct + '%';
+        }
+      }, 1000);
+    }
+    function setAiProgress(pct, log) {
+      _aiCurrentPct = Math.max(_aiCurrentPct, pct);
+      document.getElementById('aiBar').style.width = _aiCurrentPct + '%';
+      document.getElementById('aiPct').textContent = Math.round(_aiCurrentPct) + '%';
+      if (log) document.getElementById('aiLog').textContent = log;
+    }
+    function closeAiModal(destUrl) {
+      // 완료 시 100%로 채우고 버튼 활성화
+      if (_aiAutoTimer) { clearInterval(_aiAutoTimer); _aiAutoTimer = null; }
+      document.getElementById('aiBar').style.width = '100%';
+      document.getElementById('aiPct').textContent = '100%';
+      document.getElementById('aiLog').textContent = '분석 완료!';
+      _aiDoneUrl = destUrl || 'closet.html';
+      window._aiDoneCallback = () => { window.location.href = _aiDoneUrl; };
+      setTimeout(() => {
+        document.getElementById('aiDoneBtn').classList.remove('hidden');
+      }, 400);
+    }
+    function _forceCloseAiModal() {
+      if (_aiAutoTimer) { clearInterval(_aiAutoTimer); _aiAutoTimer = null; }
+      aiModal.classList.add('hidden');
+    }
+
+    function promiseTimeout(ms, fallback) {
+      return new Promise((resolve) => setTimeout(() => resolve(fallback), ms));
+    }
+
+    // ===== AI helpers: Color =====
+    function rgbToHsl(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s, l = (max + min) / 2;
+
+      if (max === min) {
+        h = s = 0;
+      } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+      }
+      return { h: h * 360, s, l };
+    }
+
+    function guessColorNameFromDataUrl(dataUrl) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            if (!ctx) return resolve('');
+
+            const size = 48;
+            canvas.width = size;
+            canvas.height = size;
+            ctx.drawImage(img, 0, 0, size, size);
+
+            const { data } = ctx.getImageData(0, 0, size, size);
+            let r = 0, g = 0, b = 0, count = 0;
+            for (let i = 0; i < data.length; i += 4) {
+              const a = data[i + 3];
+              if (a < 10) continue;
+              r += data[i];
+              g += data[i + 1];
+              b += data[i + 2];
+              count++;
+            }
+            if (count === 0) return resolve('');
+
+            r = Math.round(r / count);
+            g = Math.round(g / count);
+            b = Math.round(b / count);
+            const hsl = rgbToHsl(r, g, b);
+
+            if (hsl.l < 0.15) return resolve('블랙');
+            if (hsl.l > 0.92 && hsl.s < 0.2) return resolve('화이트');
+            if (hsl.s < 0.15) return resolve('그레이');
+
+            if (hsl.h >= 15 && hsl.h <= 55 && hsl.s <= 0.45 && hsl.l >= 0.45) return resolve('베이지');
+            if (hsl.h >= 10 && hsl.h <= 45 && hsl.s <= 0.65 && hsl.l < 0.45) return resolve('브라운');
+
+            if (hsl.h < 15 || hsl.h >= 345) return resolve('레드');
+            if (hsl.h >= 15 && hsl.h < 40) return resolve('오렌지');
+            if (hsl.h >= 40 && hsl.h < 65) return resolve('옐로우');
+            if (hsl.h >= 65 && hsl.h < 160) return resolve('그린');
+            if (hsl.h >= 160 && hsl.h < 200) return resolve('민트');
+            if (hsl.h >= 200 && hsl.h < 250) return resolve('블루');
+            if (hsl.h >= 250 && hsl.h < 290) return resolve('네이비');
+            if (hsl.h >= 290 && hsl.h < 330) return resolve('퍼플');
+            return resolve('핑크');
+          } catch (e) {
+            console.warn('Color guess failed.', e);
+            resolve('');
+          }
+        };
+        img.onerror = () => resolve('');
+        img.src = dataUrl;
+      });
+    }
+
+    // ===== AI helpers: Category (MobileNet) =====
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        s.onload = () => resolve(true);
+        s.onerror = (e) => reject(e);
+        document.head.appendChild(s);
+      });
+    }
+
+    
+    // ===== 카테고리 분류: MobileNet 기반(무료/상업적 사용 가능) =====
+    // - 외부 유료/키 필요 API(Claude 등)에 의존하지 않음
+    // - 브라우저에서 바로 동작 (CDN 로드 실패 시 분류는 스킵되고 '기타'로 저장)
+    // - AI가 헷갈릴 때를 대비해, 상세페이지에서 카테고리를 언제든 수정 가능
+
+    let _mnModel = null;
+    // 마지막 MobileNet 예측(설명/스타일 태그 생성에 사용)
+    let _lastMnPreds = null;
+
+    async function getMobileNetModel() {
+      if (_mnModel) return _mnModel;
+
+      // tfjs + mobilenet 로드
+      if (!window.tf) {
+        setAiProgress(56, 'AI 모델 로딩…');
+        await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0/dist/tf.min.js');
+      }
+      if (!window.mobilenet) {
+        await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js');
+      }
+
+      _mnModel = await window.mobilenet.load({ version: 2, alpha: 0.5 });
+      return _mnModel;
+    }
+
+    function _normLabel(s) {
+      return String(s || '').toLowerCase();
+    }
+
+    const CAT_RULES = [
+      // ✅ MobileNet 라벨(영문) 기반 분류 규칙
+      // - 실제 촬영 이미지에서 코트/자켓이 '탑'으로 잘못 분류되는 케이스가 많아
+      //   아우터 관련 키워드를 넓게 잡고, 필요 시 '탑→아우터' 보정을 수행합니다.
+      { key: 'coat',   kws: ['trench', 'overcoat', 'coat', 'fur coat', 'raincoat', 'cloak', 'puffer', 'down jacket', 'parka', 'anorak', 'duffel', 'pea coat', 'poncho', 'cape', 'macintosh', 'greatcoat'] },
+      { key: 'jacket', kws: ['jacket', 'blazer', 'sports jacket', 'windbreaker', 'bomber', 'leather jacket', 'jean jacket', 'denim jacket', 'suit', 'suit jacket', 'track jacket', 'motorcycle jacket'] },
+      { key: 'top',    kws: ['shirt', 'dress shirt', 't-shirt', 'tee', 'jersey', 'sweater', 'hoodie', 'sweatshirt', 'cardigan', 'blouse', 'tank', 'vest', 'pullover', 'polo'] },
+      { key: 'pants',  kws: ['jean', 'jeans', 'trousers', 'pants', 'shorts', 'skirt', 'miniskirt', 'leggings', 'chinos'] },
+      { key: 'shoes',  kws: ['shoe', 'sneaker', 'running shoe', 'boot', 'loafer', 'sandal', 'slipper', 'heel', 'high heel'] },
+      { key: 'socks',  kws: ['sock', 'stocking'] },
+      { key: 'scarf',  kws: ['scarf', 'stole', 'boa', 'muffler', 'neckwear', 'tie', 'bow tie'] },
+      { key: 'watch',  kws: ['watch', 'wristwatch', 'digital watch'] },
+    ];
+
+    function mapPredictionsToCategory(preds) {
+      const scores = {};
+      CAT_RULES.forEach(r => (scores[r.key] = 0));
+
+      const arr = Array.isArray(preds) ? preds : [];
+      arr.forEach((p) => {
+        const t = _normLabel(p.className);
+        const prob = Number(p.probability || 0);
+        CAT_RULES.forEach((r) => {
+          r.kws.forEach((kw) => {
+            if (t.includes(kw)) scores[r.key] += prob;
+          });
+        });
+      });
+
+      let bestKey = null;
+      let bestScore = 0;
+      Object.keys(scores).forEach((k) => {
+        if (scores[k] > bestScore) {
+          bestScore = scores[k];
+          bestKey = k;
+        }
+      });
+
+      // 너무 애매하면 null (상세에서 수정 가능)
+      if (bestKey && bestScore >= 0.08) {
+        // ✅ 코트/자켓이 탑으로 쏠리는 문제를 줄이는 보정
+        // - best가 top이어도 coat/jacket 점수가 충분히 높으면 아우터로 승격
+        if (bestKey === 'top') {
+          const coatS = Number(scores.coat || 0);
+          const jacketS = Number(scores.jacket || 0);
+          const outerS = Math.max(coatS, jacketS);
+          if (outerS >= Math.max(0.05, bestScore * 0.60)) {
+            return (coatS >= jacketS) ? 'coat' : 'jacket';
+          }
+        }
+        return bestKey;
+      }
+
+      // top-1 direct match
+      const top = _normLabel(arr?.[0]?.className);
+      if (top) {
+        for (const r of CAT_RULES) {
+          if (r.kws.some((kw) => top.includes(kw))) return r.key;
+        }
+      }
+      return null;
+    }
+
+    async function classifyWithMobileNet(imgSrc) {
+      // dataURL 또는 blobURL 모두 허용 (shots[key]가 /uploads/ 경로로 바뀐 경우도 대비)
+      if (!imgSrc || (!imgSrc.startsWith('data:image') && !imgSrc.startsWith('blob:'))) return null;
+
+      try {
+        const model = await Promise.race([
+          getMobileNetModel(),
+          new Promise((r) => setTimeout(() => r(null), 10000)),
+        ]);
+        if (!model) return null;
+
+        const img = await new Promise((resolve, reject) => {
+          const i = new Image();
+          i.onload = () => resolve(i);
+          i.onerror = reject;
+          i.src = imgSrc;
+        });
+
+        const preds = await Promise.race([
+          model.classify(img, 5),
+          new Promise((r) => setTimeout(() => r(null), 8000)),
+        ]);
+
+        if (!preds || !preds.length) return null;
+        _lastMnPreds = preds;
+        const cat = mapPredictionsToCategory(preds);
+        if (cat) {
+          console.log('MobileNet 분류:', cat, preds);
+          return cat;
+        }
+        return null;
+      } catch (e) {
+        console.warn('classifyWithMobileNet 실패:', e);
+        return null;
+      }
+    }
+
+
+    // ══════════════════════════════════════════════════════════
+    // Gemini Vision 통합 분석 — 카테고리/컬러/패턴/소재/핏/스타일
+    // ══════════════════════════════════════════════════════════
+    let _geminiAnalysis = null; // 분석 결과 캐시
+
+    async function analyzeItemWithGemini(imgSrc) {
+      try {
+        const bb = CodiBank.getBackendBaseResolved
+          ? CodiBank.getBackendBaseResolved()
+          : (window.CODIBANK_CONFIG?.backendBase || 'https://codibank-api.onrender.com');
+
+        // blobURL → base64 변환
+        let imagePayload = null;
+        if (imgSrc && imgSrc.startsWith('blob:')) {
+          const resp = await fetch(imgSrc);
+          const blob = await resp.blob();
+          imagePayload = await new Promise((res) => {
+            const fr = new FileReader();
+            fr.onload = () => res(fr.result);
+            fr.readAsDataURL(blob);
+          });
+        } else if (imgSrc && imgSrc.startsWith('data:')) {
+          imagePayload = imgSrc;
+        }
+
+        const body = imagePayload
+          ? { image: imagePayload }
+          : { image_url: String(shots.front || '') };
+
+        const r = await Promise.race([
+          fetch(bb + '/api/ai/analyze-item', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 40000))
+        ]);
+
+        if (!r.ok) return null;
+        const d = await r.json();
+        if (d.ok && d.analysis) {
+          _geminiAnalysis = d.analysis;
+          return d.analysis;
+        }
+        return null;
+      } catch (e) {
+        console.warn('[Gemini 분석 실패]', e);
+        return null;
+      }
+    }
+
+    async function guessCategoryKeyFromImage(dataUrl) {
+      if (preferredCategoryKey) return preferredCategoryKey;
+
+      setAiProgress(52, 'AI 카테고리 분류 중…');
+      try {
+        const result = await classifyWithMobileNet(dataUrl);
+        if (result) return result;
+      } catch (e) {
+        console.warn('MobileNet 분류 실패:', e);
+      }
+      return 'etc';
+    }
+
+    // ===== 간단한 스타일 태그 추론(모델 예측 라벨 기반) =====
+    function inferStyleTagFromPreds(preds){
+      const t = _normLabel(preds?.[0]?.className || '');
+      if(!t) return '';
+      const rules = [
+        { kw: ['leather'], tag: '가죽' },
+        { kw: ['denim','jean'], tag: '데님' },
+        { kw: ['trench'], tag: '트렌치' },
+        { kw: ['bomber'], tag: '봄버' },
+        { kw: ['parka','anorak'], tag: '아웃도어' },
+        { kw: ['windbreaker','track'], tag: '윈드브레이커' },
+        { kw: ['hoodie'], tag: '후디' },
+        { kw: ['cardigan'], tag: '가디건' },
+        { kw: ['sweater','pullover'], tag: '니트' },
+        { kw: ['blazer','suit'], tag: '포멀' },
+        { kw: ['sneaker','running shoe'], tag: '스니커즈' },
+        { kw: ['boot'], tag: '부츠' },
+        { kw: ['loafer'], tag: '로퍼' },
+        { kw: ['sandal'], tag: '샌들' },
+        { kw: ['skirt','miniskirt'], tag: '스커트' },
+        { kw: ['leggings'], tag: '레깅스' },
+      ];
+      for(const r of rules){
+        if(r.kw.some(k=>t.includes(k))) return r.tag;
+      }
+      return '';
+    }
+
+    // ===== AI helpers: Brand (OCR) =====
+    async function guessBrandFromOcr(dataUrl) {
+      if (!dataUrl) return '';
+
+      try {
+        if (!window.Tesseract) {
+          setAiProgress(70, '브랜드 OCR 로딩…');
+          await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
+        }
+
+        setAiProgress(78, '브랜드 OCR 인식 중…');
+        const res = await Promise.race([
+          window.Tesseract.recognize(dataUrl, 'eng', {
+            logger: (m) => {
+              if (m.status === 'recognizing text') {
+                const pct = 78 + Math.round((m.progress || 0) * 18);
+                setAiProgress(Math.min(pct, 96), `브랜드 OCR… ${(m.progress * 100).toFixed(0)}%`);
+              }
+            },
+          }),
+          promiseTimeout(8000, null),
+        ]);
+
+        if (!res || !res.data) return '';
+        const text = res.data.text || '';
+        const cleaned = text
+          .replace(/[^A-Za-z0-9\s]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if (!cleaned) return '';
+        const tokens = cleaned.split(' ').filter((t) => t.length >= 2);
+        return tokens.slice(0, 2).join(' ');
+      } catch (e) {
+        console.warn('Brand OCR failed.', e);
+        return '';
+      }
+    }
+
+    // Register
+    ui.registerBtn.addEventListener('click', async () => {
+      if (!shotBlob.front && !shots.front) {
+        alert('전면 1장을 촬영(또는 사진 선택)해주세요.');
+        return;
+      }
+
+      openAiModal();
+
+      // AI 실패하더라도 "등록"은 되도록(가장 중요한 UX)
+      let categoryKey = (categorySelectEl && String(categorySelectEl.value||'').trim()) || preferredCategoryKey || 'etc';
+      let colorName = '';
+      let brandGuess = '';
+
+      // ─────────────────────────────────────────────────────────
+      // AI 분석 시 이미지 소스 결정 헬퍼
+      // shots[key] 는 백그라운드 업로드 완료 후 '/uploads/...' 경로로
+      // 바뀔 수 있어 canvas 기반 분석에 사용할 수 없습니다.
+      // shotBlobUrl[key] (IndexedDB blobURL) 을 우선 사용합니다.
+      // ─────────────────────────────────────────────────────────
+      function getAnalysisSrc(key) {
+        const blob = shotBlobUrl[key] || '';
+        if (blob && (blob.startsWith('blob:') || blob.startsWith('data:'))) return blob;
+        const ref  = String(shots[key] || '');
+        if (ref.startsWith('data:')) return ref;
+        return ''; // /uploads/ 경로는 canvas 분석 불가 → 빈 문자열 반환
+      }
+
+      // ── Gemini Vision 통합 분석 (카테고리+컬러+패턴+소재+핏+스타일) ──
+      let geminiResult = null;
+      try {
+        setAiProgress(15, 'AI 패션 전문가가 분석 중…');
+        aiCat.textContent   = '분석 중…';
+        aiColor.textContent = '분석 중…';
+        aiBrand.textContent = '분석 중…';
+
+        geminiResult = await analyzeItemWithGemini(getAnalysisSrc('front'));
+      } catch (e) {
+        console.warn('Gemini 분석 오류:', e);
+      }
+
+      // 1) Category — Gemini 결과 우선, 폴백: MobileNet
+      try {
+        setAiProgress(35, '카테고리 분류 중…');
+        const manual = (categorySelectEl && String(categorySelectEl.value || '').trim());
+        if (manual) {
+          categoryKey = manual;
+        } else if (geminiResult?.category) {
+          // Gemini가 분류한 카테고리 사용
+          // ── Gemini 카테고리 → CodiBank 카테고리 키 매핑 ──
+          // CodiBank 카테고리: coat(코트) | jacket(자켓) | top | pants | shoes | watch | scarf | socks | etc
+          const catMap = {
+            // ── 코트 (무릎 이상 길이의 긴 아우터) ──
+            'coat'       : 'coat',
+            '반코트'     : 'coat', '롱코트'   : 'coat', '패딩코트' : 'coat',
+            '트렌치코트' : 'coat', '더플코트' : 'coat', '케이프코트':'coat',
+            'trench coat': 'coat', 'long coat': 'coat', 'overcoat' : 'coat',
+            'trench'     : 'coat', 'duffel'   : 'coat',
+
+            // ── 자켓 (짧은 아우터, 수트자켓/패딩/가디건 포함) ──
+            'jacket'     : 'jacket',
+            'blazer'     : 'jacket', 'suit jacket': 'jacket', 'suit'    : 'jacket',
+            '수트자켓'   : 'jacket', '수트'        : 'jacket', '콤비자켓': 'jacket',
+            '일반자켓'   : 'jacket', '레더자켓'    : 'jacket', '가죽자켓': 'jacket',
+            '사파리자켓' : 'jacket', '데님자켓'    : 'jacket',
+            '집업자켓'   : 'jacket', '집업'        : 'jacket',
+            '후드집업'   : 'jacket', '후드집업자켓': 'jacket',
+            'cardigan'   : 'jacket', '가디건'      : 'jacket', '볼레로'  : 'jacket',
+            '패딩'       : 'jacket', '패딩자켓'    : 'jacket', '다운자켓': 'jacket',
+            'padding'    : 'jacket', 'puffer'      : 'jacket', 'down jacket':'jacket',
+            'vest'       : 'jacket', 'waistcoat'   : 'jacket', '조끼'   : 'jacket',
+            'windbreaker': 'jacket', 'parka'       : 'jacket',
+            'leather jacket':'jacket', 'safari jacket':'jacket',
+
+            // ── 상의 ──
+            'top'        : 'top', 'shirt'    : 'top', 'blouse'  : 'top',
+            't-shirt'    : 'top', 'tshirt'   : 'top', 'hoodie'  : 'top',
+            'sweatshirt' : 'top', 'sweater'  : 'top', 'knit'    : 'top',
+            'knitwear'   : 'top', '니트'     : 'top', '스웨터'  : 'top',
+            '후드티'     : 'top', '맨투맨'   : 'top',
+
+            // ── 하의 ──
+            'pants'      : 'pants', 'bottom'  : 'pants', 'trousers':'pants',
+            'jeans'      : 'pants', 'skirt'   : 'pants', 'shorts'  : 'pants',
+            'dress'      : 'pants', 'jumpsuit': 'pants',
+
+            // ── 신발/시계/스카프/양말/기타 ──
+            'shoes'      : 'shoes', 'sneakers': 'shoes', 'boots' : 'shoes',
+            'heels'      : 'shoes', 'loafers' : 'shoes', 'sandals':'shoes',
+            'watch'      : 'watch', '시계'    : 'watch',
+            'scarf'      : 'scarf', '스카프'  : 'scarf', '목도리': 'scarf',
+            'socks'      : 'socks', '양말'    : 'socks',
+            'bag'        : 'etc',   'acc'     : 'etc',   'etc'   : 'etc',
+          };
+
+          // 소문자 변환 후 정확 매핑 → 부분 매핑 → etc
+          const _gemCat = String(geminiResult.category || '').toLowerCase().trim();
+          categoryKey = catMap[_gemCat]
+            || Object.entries(catMap).find(([k]) => _gemCat.includes(k))?.[1]
+            || 'etc';
+        } else {
+          // Gemini 실패 시 MobileNet 폴백
+          categoryKey = await guessCategoryKeyFromImage(getAnalysisSrc('front'));
+        }
+        aiCat.textContent = CodiBank.getCategoryMetaByKey(categoryKey, user.email)?.label || categoryKey;
+        // 세부 정보 표시 (있으면)
+        if (geminiResult?.sub_category) {
+          aiCat.textContent += ' · ' + geminiResult.sub_category;
+        }
+        // 카테고리 라벨도 한국어로 표시
+        const _catLabelMap = {
+          coat:'코트', jacket:'자켓', top:'상의', pants:'하의',
+          shoes:'신발', watch:'시계', scarf:'스카프', socks:'양말', etc:'기타'
+        };
+        if (!geminiResult?.sub_category) {
+          aiCat.textContent = _catLabelMap[categoryKey] || categoryKey;
+        }
+      } catch (e) {
+        console.warn('category failed', e);
+        aiCat.textContent = CodiBank.getCategoryMetaByKey(categoryKey, user.email)?.label || categoryKey;
+      }
+
+      // 2) Color — Gemini HEX + 한국어 이름 우선, 폴백: Canvas 평균
+      try {
+        setAiProgress(55, '컬러 분석 중…');
+        if (geminiResult?.main_color_name) {
+          const hexStr = geminiResult.main_color ? ` (${geminiResult.main_color})` : '';
+          colorName = geminiResult.main_color_name + hexStr;
+        } else {
+          colorName = await Promise.race([
+            guessColorNameFromDataUrl(getAnalysisSrc('front')),
+            promiseTimeout(4000, '')
+          ]);
+        }
+        aiColor.textContent = colorName || '미정';
+        // 패턴/소재/핏 모달 업데이트
+        if (geminiResult) {
+          const patEl  = document.getElementById('aiPattern');
+          const matEl  = document.getElementById('aiMaterial');
+          const fitEl  = document.getElementById('aiFit');
+          if(patEl)  patEl.textContent  = geminiResult.pattern    || '—';
+          if(matEl)  matEl.textContent  = geminiResult.material   || '—';
+          if(fitEl)  fitEl.textContent  = geminiResult.fit        || '—';
+          // 색상도 HEX 포함해서 표시
+          if(geminiResult.main_color_name) {
+            aiColor.textContent = geminiResult.main_color_name +
+              (geminiResult.main_color ? ' ' + geminiResult.main_color : '');
+          }
+        }
+      } catch (e) {
+        console.warn('color failed', e);
+        aiColor.textContent = '미정';
+      }
+
+      // 3) Brand (브랜드/기타 이미지가 있을 때만 OCR)
+      try {
+        const hasBrand = !!(shotBlob.brand || shots.brand);
+        setAiProgress(72, hasBrand ? '브랜드 인식 준비…' : '브랜드 이미지 없음(스킵)…');
+        aiBrand.textContent = hasBrand ? '분석 중…' : '미정';
+        brandGuess = hasBrand ? await guessBrandFromOcr(getAnalysisSrc('brand')) : '';
+        aiBrand.textContent = brandGuess || '미정';
+      } catch (e) {
+        console.warn('brand failed', e);
+        aiBrand.textContent = '미정';
+      }
+
+      // Save (IndexedDB에 이미지 저장 후, item에는 참조만 저장)
+      try {
+        setAiProgress(90, '저장 중…');
+
+        // ✅ 저장 직전에 한 번 더 서버 업로드를 보장
+        // (백그라운드 업로드가 아직 안 끝난 경우 대비)
+        async function ensureServerRef(slotKey) {
+          const ref0 = String(shots[slotKey] || '').trim();
+          if (ref0 && ref0.startsWith('/uploads/')) return ref0;
+
+          // 절대 URL로 저장된 경우(host 포함) → pathname으로 정규화(다른 기기/네트워크에서도 안정)
+          if (ref0 && (ref0.startsWith('http://') || ref0.startsWith('https://'))) {
+            try {
+              const u = new URL(ref0);
+              if (u && u.pathname && String(u.pathname).startsWith('/uploads/')) {
+                shots[slotKey] = String(u.pathname);
+                return String(u.pathname);
+              }
+            } catch (_) {}
+          }
+
+          // ✅ 가장 안정적인 경로: Blob → multipart 업로드
+          const b = shotBlob[slotKey];
+          if (b) {
+            const up = await uploadBlobToServer(b, { slot: slotKey, email: user.email });
+            if (up && up.ok && up.path && String(up.path).startsWith('/uploads/')) {
+              shots[slotKey] = String(up.path);
+              return String(up.path);
+            }
+            throw new Error(`이미지 서버 저장 실패(${slotKey})`);
+          }
+
+          // 레거시 호환: dataURL → 업로드(JSON/멀티파트는 CodiBank에서 선택)
+          if (ref0 && ref0.startsWith('data:')) {
+            const up = await CodiBank.uploadImageToServer(ref0, { slot: slotKey, email: user.email });
+            if (up && up.ok && up.path && String(up.path).startsWith('/uploads/')) {
+              shots[slotKey] = String(up.path);
+              return String(up.path);
+            }
+            throw new Error(`이미지 서버 저장 실패(${slotKey})`);
+          }
+
+          // 미리보기 blobURL만 있는 경우 → fetch→blob→업로드
+          const src = String(shotBlobUrl[slotKey] || '');
+          if (src && src.startsWith('blob:')) {
+            try {
+              const fb = await fetch(src).then((r) => r.blob());
+              const up = await uploadBlobToServer(fb, { slot: slotKey, email: user.email });
+              if (up && up.ok && up.path && String(up.path).startsWith('/uploads/')) {
+                shots[slotKey] = String(up.path);
+                return String(up.path);
+              }
+            } catch (_) {}
+          }
+
+          throw new Error(`이미지 형식 오류(${slotKey})`);
+        }
+
+        await ensureServerRef('front');
+        if (shotBlob.back || shots.back) await ensureServerRef('back');
+        if (shotBlob.brand || shots.brand) await ensureServerRef('brand');
+
+        const images = {};
+        try {
+          images.front = await CodiBank.saveImage(shots.front);
+        } catch(imgErr) {
+          console.warn('[이미지 저장 실패]', imgErr);
+          // 서버 경로가 있으면 그대로 사용
+          if (shots.front && typeof shots.front === 'string') images.front = shots.front;
+        }
+        try {
+          if (shotBlob.back || shots.back) images.back = await CodiBank.saveImage(shots.back);
+        } catch(_) { if(shots.back) images.back = shots.back; }
+        try {
+          if (shotBlob.brand || shots.brand) images.brand = await CodiBank.saveImage(shots.brand);
+        } catch(_) { if(shots.brand) images.brand = shots.brand; }
+
+        // front 이미지 없으면 서버 업로드 경로 사용
+        if (!images.front && shots.front) images.front = shots.front;
+
+        // ✅ 아이템 특징(설명) — Gemini 분석 결과 우선 사용
+        const catLabel = (CodiBank.getCategoryMetaByKey(categoryKey, user.email)?.label) || categoryKey;
+        let noteText = '';
+        if (_geminiAnalysis) {
+          const g = _geminiAnalysis;
+          const parts = [];
+          if (g.main_color_name)  parts.push(g.main_color_name);
+          if (g.pattern && g.pattern !== '단색') parts.push(g.pattern);
+          if (g.material)         parts.push(g.material.split(',')[0].trim());
+          if (g.fit && g.fit !== '레귤러') parts.push(g.fit);
+          if (g.sub_category)     parts.push(g.sub_category);
+          else                    parts.push(catLabel);
+          noteText = parts.join(' ').trim();
+        }
+        if (!noteText) {
+          const styleTag = inferStyleTagFromPreds(_lastMnPreds);
+          noteText = [colorName, styleTag, catLabel].filter(Boolean).join(' ').trim() || '아이템';
+        }
+        const styleTag = inferStyleTagFromPreds(_lastMnPreds);
+
+        // Gemini 분석 결과를 note에 반영
+        if (_geminiAnalysis) {
+          const g = _geminiAnalysis;
+          const parts = [];
+          if (g.main_color_name) parts.push(g.main_color_name);
+          if (g.pattern && g.pattern !== '단색') parts.push(g.pattern);
+          if (g.material) parts.push(g.material.split(',')[0]);
+          if (g.fit && g.fit !== '레귤러') parts.push(g.fit);
+          if (g.sub_category) parts.push(g.sub_category);
+          if (parts.length > 0) noteText = parts.join(' ') + ' ' + (g.sub_category || catLabel);
+          if (g.design_points) noteText = noteText.trim();
+        }
+
+        const result = CodiBank.addItem(user.email, {
+          categoryKey,
+          color: (_geminiAnalysis?.main_color_name) || colorName || '',
+          brand: brandGuess || '',
+          note: noteText,
+          images,
+          meta: {
+            source: 'camera',
+            ai: { category: !!categoryKey, color: !!colorName, brand: !!brandGuess },
+            note: { auto: true, styleTag: styleTag || '' },
+            optionalImages: { back: !!(shotBlob.back || shots.back), brand: !!(shotBlob.brand || shots.brand) },
+            // ── Gemini Vision 분석 결과 (스타일링 매칭에 사용) ──
+            gemini: _geminiAnalysis ? {
+              category:       _geminiAnalysis.category,
+              sub_category:   _geminiAnalysis.sub_category,
+              main_color:     _geminiAnalysis.main_color,
+              main_color_name:_geminiAnalysis.main_color_name,
+              sub_color:      _geminiAnalysis.sub_color,
+              sub_color_name: _geminiAnalysis.sub_color_name,
+              pattern:        _geminiAnalysis.pattern,
+              material:       _geminiAnalysis.material,
+              fit:            _geminiAnalysis.fit,
+              season:         _geminiAnalysis.season,
+              style_keywords: _geminiAnalysis.style_keywords,
+              design_points:  _geminiAnalysis.design_points,
+              coordinate_hint:_geminiAnalysis.coordinate_hint,
+              // ✅ 유사도 매칭용 임베딩 벡터 (512차원)
+              embedding:      _geminiAnalysis.embedding || null,
+            } : null,
+          },
+        });
+
+        if (!result.ok) {
+          _forceCloseAiModal();
+          alert(result.error || '저장에 실패했습니다.');
+          if (String(result.error || '').includes('한도')) window.location.href = 'pricing.html';
+          return;
+        }
+
+        setAiProgress(100, '완료! 옷장으로 이동합니다.');
+        // ── 관리자 대시보드 추적 ──
+        try{ if(window.CodiBankTrack) CodiBankTrack.item(categoryKey, {item_name: noteText, image_url: (images && images[0]) || ''}); }catch(_){}
+        // 완료 버튼 활성화 (URL 전달)
+        closeAiModal(`closet.html?category=${encodeURIComponent(categoryKey)}&highlight=${encodeURIComponent(result.item.id)}`);
+      } catch (e) {
+        console.error('[아이템 저장 오류]', e);
+        _forceCloseAiModal();
+        const msg = (e && e.message) ? String(e.message) : String(e);
+        if (msg.includes('QuotaExceededError') || msg.includes('quota')) {
+          alert('브라우저 저장 공간이 가득 찼습니다. 불필요한 데이터를 삭제 후 다시 시도해주세요.');
+        } else if (msg.includes('timeout') || msg.includes('network') || msg.includes('fetch')) {
+          alert('네트워크 연결 오류입니다. 인터넷 연결을 확인 후 다시 시도해주세요.');
+        } else {
+          // 분석 실패해도 기본 저장 시도
+          try {
+            const fallbackImages = {};
+            if (shots.front) fallbackImages.front = shots.front;
+            const fallbackResult = CodiBank.addItem(user.email, {
+              categoryKey: categoryKey || 'etc',
+              color: colorName || '',
+              brand: brandGuess || '',
+              note: noteText || '아이템',
+              images: fallbackImages,
+              meta: { source: 'camera', ai: { category: false, color: false, brand: false } }
+            });
+            if (fallbackResult?.ok) {
+              _forceCloseAiModal();
+              alert('AI 분석 없이 기본 정보로 저장했습니다.');
+              window.location.href = `closet.html?category=${encodeURIComponent(categoryKey || 'etc')}`;
+              return;
+            }
+          } catch(_) {}
+          alert('저장에 실패했습니다. 다시 시도해주세요.');
+        }
+      }
+    });
+
+    updateRegisterState();
+    // MobileNet 기반 분류 사용
+  </script>
 
 <!-- CodiBank 공통 풋바 -->
-<div class="cb-spacer"></div>
-<!-- 개인정보처리방침 링크 -->
-<div style="text-align:center;padding:8px 16px 0;font-size:11px;color:rgba(255,255,255,0.25);">
-  <a href="privacy.html" style="color:rgba(151,254,237,0.45);text-decoration:none;">개인정보처리방침</a>
-  <span style="margin:0 6px;opacity:0.3">|</span>
-  <a href="terms.html" style="color:rgba(151,254,237,0.45);text-decoration:none;">이용약관</a>
-</div>
-<nav class="cb-nav">
-  <div class="cb-nav-inner">
-
-</main>
-
-<!-- ═══ 모달들 (closet.html에서 그대로 이동) ═══ -->
-<div id="pickCatModal" class="hidden fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm">
-  <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-md bg-white rounded-3xl p-6 shadow-2xl">
-    <div class="flex items-start justify-between gap-4 mb-5">
-      <div><p class="text-[10px] font-bold tracking-[0.3em] text-accent">아이템 등록</p><h3 class="text-xl font-serif">어느 카테고리에 추가할까요?</h3></div>
-      <button id="closePickCat" class="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center active:scale-95"><span class="material-symbols-outlined">close</span></button>
-    </div>
-    <div id="pickCatList" class="grid grid-cols-2 gap-3"></div>
-  </div>
-</div>
-<!-- 카테고리 추가 모달 -->
-<div id="addCatModal" class="hidden fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm">
-  <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-md bg-white rounded-3xl p-6 shadow-2xl">
-    <div class="flex items-start justify-between gap-4 mb-5">
-      <div><p class="text-[10px] font-bold tracking-[0.3em] text-accent">카테고리</p><h3 class="text-xl font-serif">카테고리 추가</h3></div>
-      <button id="closeAddCat" class="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center active:scale-95"><span class="material-symbols-outlined">close</span></button>
-    </div>
-    <input id="newCatName" type="text" class="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="예: 가방, 모자, 안경…"/>
-    <p id="addCatErr" class="mt-2 text-xs text-red-600 hidden"></p>
-    <div class="mt-6 grid grid-cols-2 gap-3">
-      <button id="cancelAddCat" class="py-3.5 rounded-2xl bg-white border border-slate-200 font-bold">취소</button>
-      <button id="applyAddCat" class="py-3.5 rounded-2xl bg-primary text-white font-extrabold">추가하기</button>
-    </div>
-  </div>
-</div>
-<!-- 검색 모달 -->
-<div id="searchModal" class="hidden fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm" onclick="if(event.target===this)closeSearch()">
-  <div class="absolute left-1/2 top-[12%] -translate-x-1/2 w-[92%] max-w-md bg-white rounded-3xl p-5 shadow-2xl">
-    <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
-      <span class="material-symbols-outlined text-slate-400">search</span>
-      <input id="searchInput" type="text" class="flex-1 text-sm font-medium outline-none placeholder-slate-400" placeholder="브랜드, 색상, 카테고리 검색…"/>
-      <button onclick="closeSearch()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center"><span class="material-symbols-outlined text-sm">close</span></button>
-    </div>
-    <div id="searchResults" class="mt-3 max-h-64 overflow-y-auto"></div>
-  </div>
-</div>
-
-<script>
-/* ============================================================
-   코디뱅크 M.옷장 v13
-   - 9개 코디목적 3열 그리드
-   - 단일 Canvas VTO (얼굴+몸+옷 완전 합성)
-
-
-<!-- 네비게이션 -->
-<div class="cb-spacer"></div>
 <nav class="cb-nav">
   <div class="cb-nav-inner">
     <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디쌤</span></a>
     <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
-    <a href="camera.html" class="cb-nav-tab on"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
+    <a href="aicloset.html" class="cb-nav-tab on"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
     <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">코디하기</span></a>
     <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
   </div>
 </nav>
-
-<script>
-  // Auth
-  if(!CodiBank.requireAuth('login.html')){}
-  const user = CodiBank.getCurrentUser();
-  function escH(s){return String(s||'').replace(/[&<>"']/g,m=>({'{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}')[m]));}
-
-  // S 객체 (코디쌤 AI 추천 상태 — Ai 옷장에서는 비활성)
-  const S = { hasGenerated:false, matchByCat:{}, matchScoreMap:{}, matchDetailMap:{}, matchPairs:[], categoryKeywords:{} };
-  function _getCatSimData(k){ return null; }
-  function _simTokenize(s){ return String(s||'').toLowerCase().replace(/[^가-힣a-z0-9\s]/g,'').split(/\s+/).filter(Boolean); }
-  function _simScore(a,b){ return 0; }
-
-  // + 버튼 클릭 시 아이템등록 페이지로 이동 (camera.html?category=xxx 인터셉트)
-  document.addEventListener('click', function(e){
-    const link = e.target.closest('a[href*="camera.html?category="]');
-    if(link){
-      // 같은 페이지이므로 아이템등록 전용 페이지로 이동
-      const url = new URL(link.href, location.href);
-      const cat = url.searchParams.get('category') || '';
-      // camera_register.html 또는 기존 camera.html의 등록 기능으로 이동
-      window.location.href = 'camera_register.html?category=' + encodeURIComponent(cat);
-      e.preventDefault();
-    }
-  });
-
-  // ═══ 옷장 렌더링 JS (closet.html에서 그대로 이동) ═══
-const catListEl=document.getElementById('catList');
-const usp=new URLSearchParams(window.location.search);
-const focusCat=usp.get('category'),highlightId=usp.get('highlight');
-function escH(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
-const TINT={coat:'59,130,246',jacket:'245,158,11',top:'16,185,129',pants:'99,102,241',socks:'236,72,153',shoes:'120,113,108',watch:'234,179,8',scarf:'168,85,247',etc:'148,163,184'};
-function deckBg(k){const rgb=TINT[k]||TINT.etc;return`background:radial-gradient(120% 140% at 18% 0%,rgba(${rgb},0.22) 0%,rgba(${rgb},0.10) 42%,rgba(255,255,255,1) 78%),linear-gradient(180deg,rgba(255,255,255,1) 0%,rgba(249,250,251,1) 100%);`;}
-let _dc=null;
-function playTick(){try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;if(!_dc)_dc=new AC();if(_dc.state==='suspended')_dc.resume().catch(()=>{});const t0=_dc.currentTime;[[820,0,0.035,0.10],[540,0.03,0.04,0.07]].forEach(([f,s,d,p])=>{const o=_dc.createOscillator(),g=_dc.createGain();o.type='square';o.frequency.setValueAtTime(f,t0+s);g.gain.setValueAtTime(0.0001,t0+s);g.gain.exponentialRampToValueAtTime(p,t0+s+0.004);g.gain.exponentialRampToValueAtTime(0.0001,t0+s+d);o.connect(g);g.connect(_dc.destination);o.start(t0+s);o.stop(t0+s+d+0.01);});}catch(_){}}
-function layerContent(el,item,catKey){
-  el.innerHTML='';
-  el.classList.remove('sparkle');
-  const nid=item?.id?String(item.id):'';
-  el.dataset.itemId=nid;
-  el.dataset.catKey=String(catKey||'');
-  el.href=item?.id?`item.html?id=${encodeURIComponent(item.id)}`:`camera.html?category=${encodeURIComponent(catKey)}`;
-
-  // ✅ 추천 코디 매칭 아이템이면 강조(스파클) + 매칭 점수 배지
-  // coat↔jacket 등 대체 카테고리 포함 매칭 아이템 ID 조회
-  const _subKL = CAT_SUBSTITUTE_MAP[String(catKey||'').toLowerCase()]||[];
-  const recId = (S.hasGenerated&&S.matchByCat) ? ([catKey,..._subKL].map(k=>S.matchByCat[k]).find(v=>v)||'') : '';
-  const isMatched = !!(recId && nid && nid===recId);
-  if(isMatched){ el.classList.add('sparkle'); }
-  // 매칭 배지 (이미지 하단 오른쪽)
-  const prevBadge = el.querySelector('.match-score-badge');
-  if(prevBadge) prevBadge.remove();
-  const iid = item && item.id ? String(item.id) : '';
-  const scoreVal   = isMatched && iid && S.matchScoreMap   ? (S.matchScoreMap[iid]   || 0) : 0;
-  const detailVal  = isMatched && iid && S.matchDetailMap  ? (S.matchDetailMap[iid]  || null) : null;
-  if(isMatched && scoreVal){
-    const badge = document.createElement('div');
-    badge.className = 'match-score-badge';
-    // 10P 척도 표시 + 세부 내역 툴팁
-    badge.textContent = `MATCH ${scoreVal}P`;
-    if(detailVal){
-      badge.title = `카테고리 ${detailVal.catScore}P + 컬러 ${detailVal.colorScore}P + 디자인 ${detailVal.designScore}P = ${detailVal.total}P`;
-    }
-    el.appendChild(badge);
-  }
-
-  const ref=item?.images?.front||item?.images?.brand||item?.images?.back||'';
-  const rt=`${nid}::${ref}`;
-  el.dataset.renderToken=rt;
-  if(!ref){
-    const ic=document.createElement('span');
-    ic.className='material-symbols-outlined layer-icon';
-    ic.textContent=item?.id?'image':'add_a_photo';
-    el.appendChild(ic);
-    const tx=document.createElement('div');
-    tx.className='layer-ph mt-2';
-    tx.textContent=item?.id?'이미지 없음':'추가';
-    el.appendChild(tx);
-    return;
-  }
-  const ph=document.createElement('div');
-  ph.className='layer-ph';
-  ph.textContent='…';
-  el.appendChild(ph);
-  CodiBank.getImageSrc(ref).then(src=>{
-    if(el.dataset.renderToken!==rt)return;
-    if(!src){ph.textContent='이미지 없음';return;}
-    // ── 카드 하단: 컬러(1줄) + 패턴·소재(2줄), 배경 없이 텍스트만
-    const _g = item?.meta?.gemini;
-    const _colorTxt = (_g?.main_color_name || item?.color || '').slice(0,12);
-    const _patternTxt = (_g?.pattern && _g.pattern !== '단색') ? _g.pattern : '';
-    const _materialTxt = _g?.material ? _g.material.split(',')[0].trim().slice(0,8) : '';
-    const _subLine = [_patternTxt, _materialTxt].filter(Boolean).join(' · ').slice(0,16);
-
-    el.innerHTML = `<img class="layer-img" alt="아이템" src="${src}"/>` +
-      (_subLine ? `<div class="card-label-sub">${_subLine}</div>` : '') +
-      (_colorTxt ? `<div class="card-label">${_colorTxt}</div>` : '');
-  });
-}
-function slc(el,n){el.classList.remove('layer-1','layer-2','layer-3','layer-4','layer-5');el.classList.add(`layer-${n}`);}
-function rotL(a){if(!a.length)return a;return a.slice(1).concat(a[0]);}
-function rotR(a){if(!a.length)return a;return[a[a.length-1]].concat(a.slice(0,-1));}
-function mod(n,m){return((n%m)+m)%m;}
-function initWin(items,si){const l=items.length;if(l<=0)return[-1,-1,-1,-1,-1];if(l>=5)return[0,1,2,3,4].map(i=>mod(si+i,l));return[0,1,2,3,4].map(i=>i<l?i:-1);}
-function attachSwipe(deck,ctrl){let dn=false,sx=0,sy=0;const TH=48;deck.addEventListener('pointerdown',e=>{dn=true;sx=e.clientX;sy=e.clientY;try{deck.setPointerCapture(e.pointerId);}catch(_){}});deck.addEventListener('pointermove',e=>{if(!dn)return;const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy))e.preventDefault();},{passive:false});function end(e){if(!dn)return;dn=false;const dx=(e.clientX||0)-sx,dy=(e.clientY||0)-sy;if(Math.abs(dx)>TH&&Math.abs(dx)>Math.abs(dy)){dx<0?ctrl.shift(+1):ctrl.shift(-1);}}deck.addEventListener('pointerup',end);deck.addEventListener('pointercancel',()=>{dn=false;});deck.addEventListener('lostpointercapture',()=>{dn=false;});}
-// ── 전역 유사도 헬퍼 (buildSection + closetMatchPanel 공유) ──────────
-function _simTokenize(str){ return String(str||'').toLowerCase().replace(/[^가-힣a-z0-9\s]/g,'').split(/\s+/).filter(Boolean); }
-function _simScore(aiKws, itemFields){
-  const aiSet = new Set(aiKws.flatMap(k=>_simTokenize(k)));
-  if(!aiSet.size) return 0;
-  const itToks = itemFields.flatMap(f=>_simTokenize(f));
-  let hit = 0;
-  aiSet.forEach(tok=>{ if(itToks.some(t=>t.includes(tok)||tok.includes(t))) hit++; });
-  const itSet = new Set(itToks);
-  itSet.forEach(tok=>{ if([...aiSet].some(a=>a.includes(tok)||tok.includes(a))) hit += 0.3; });
-  return Math.min(100, Math.round((hit / aiSet.size) * 100));
-}
-// 카테고리 키 → {aiKws, best(item), score} 반환
-function _getCatSimData(catKey){
-  // pickBestItemByScore 기반 10점 만점 매칭 점수
-  if(!S.hasGenerated) return null;
-  const ckw = S.categoryKeywords || {};
-  const _outerSet = new Set(['outer','coat','jacket','padding','cardigan']);
-  const _bottomSet = new Set(['bottom','pants','slacks','jeans','skirt']);
-  const _topSet    = new Set(['top','shirt','knit','tshirt','blouse']);
-  const _shoesSet  = new Set(['shoes','sneakers','loafers','boots']);
-  const _scarfSet  = new Set(['scarf','muffler','neckwear','accent']);
-  let ckwKey = catKey;
-  if(_outerSet.has(catKey))  ckwKey = 'outer';
-  else if(_bottomSet.has(catKey)) ckwKey = 'bottom';
-  else if(_topSet.has(catKey))    ckwKey = 'top';
-  else if(_shoesSet.has(catKey))  ckwKey = 'shoes';
-  else if(_scarfSet.has(catKey))  ckwKey = 'scarf';
-  const aiKws = (ckw[ckwKey]||[]).filter(Boolean);
-
-  // matchPairs에서 해당 카테고리 wantPair 찾기
-  const matchPairs = S.matchPairs || [];
-  let wantPair = matchPairs.find(p=>{
-    const pk = String(p.key||'').toLowerCase();
-    if(_outerSet.has(catKey) && _outerSet.has(pk)) return true;
-    if(_bottomSet.has(catKey) && _bottomSet.has(pk)) return true;
-    return pk === catKey;
-  });
-  if(!wantPair){
-    // fallback: categoryKeywords 첫 칩에서 컬러 추출
-    const colorHint = (aiKws[0]||'').replace(/(코트|자켓|가디건|상의|하의|신발|레이어드|포인트|악세서리)/g,'').trim();
-    wantPair = { key: catKey, color: colorHint };
-  }
-
-  // 아이템 수집 (대체 카테고리 포함)
-  const _subKs = CAT_SUBSTITUTE_MAP[catKey] || [];
-  const allItems = [catKey, ..._subKs]
-    .flatMap(k=>(CodiBank.getItemsByUserAndCategory?CodiBank.getItemsByUserAndCategory(user.email,k):[]) || [])
-    .filter(Boolean);
-
-  if(!allItems.length) return { aiKws, best:null, score:0 };
-
-  const best = pickBestItemByScore(wantPair, allItems);
-  const score = best?._matchScore ?? 0;
-  return { aiKws, best, score };
-}
-
-function buildSection(catMeta,items){
-  // ── 섹션 루트 ──
-  const sec=document.createElement('section');sec.className='mt-0';sec.dataset.catKey=catMeta.key;
-  sec.style.cssText='border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:20px;';
-
-  // ── 카테고리 헤더: 제목(중앙)+추가버튼(우측) ──
-  const hdr=document.createElement('div');hdr.className='relative flex justify-center items-center pt-7 pb-2 px-5';
-  const titleEl=document.createElement('h3');
-  titleEl.className='text-[17px] font-bold text-white';
-  titleEl.style.cssText='border-bottom:2px solid #129490;padding-bottom:5px;display:inline-block;';
-  titleEl.innerHTML=`${escH(catMeta.label)}&nbsp;<span style="color:#70dbd4;">${items.length}개</span>`;
-  const addBtn=document.createElement('button');
-  addBtn.className='absolute right-5 top-7 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform';
-  addBtn.style.cssText='background:rgba(151,254,237,0.08);border:1px solid rgba(151,254,237,0.2);';
-  addBtn.innerHTML='<span class="material-symbols-outlined filled" style="font-size:16px;color:#97FEED;">add</span>';
-  addBtn.addEventListener('click',()=>{window.location.href=`camera.html?category=${encodeURIComponent(catMeta.key)}`;});
-  hdr.appendChild(titleEl);hdr.appendChild(addBtn);
-  sec.appendChild(hdr);
-
-  // ── codibank 어드바이스 박스 ──
-  const _subKA = CAT_SUBSTITUTE_MAP[String(catMeta.key||'').toLowerCase()]||[];
-  const recId0 = (S.hasGenerated&&S.matchByCat) ? ([catMeta.key,..._subKA].map(k=>S.matchByCat[k]).find(v=>v)||'') : '';
-  const score0=recId0&&S.matchScoreMap?(S.matchScoreMap[recId0]||0):0;
-  const detail0=recId0&&S.matchDetailMap?(S.matchDetailMap[recId0]||null):null;
-  const adv=document.createElement('div');adv.className='m-adv';
-
-  // 토글(모바일 옷장 Styling) ON 여부 확인
-  const _simOn = document.getElementById('closetToggleBtn')?.classList.contains('ctb-on');
-
-  if(_simOn && S.hasGenerated){
-    // ── 유사도 분석 모드 (10점 만점 점수 기반) ──
-    const simData = _getCatSimData(catMeta.key);
-    if(simData){
-      adv.classList.add('m-adv-sim');
-      const sc = simData.score; // 0~10
-      const isLow = sc < 5;
-      if(isLow) adv.classList.add('m-adv-low');
-      // 점수 구간: 7↑ 높음(sh), 4~6 중간(sm), 0~3 낮음(sl)
-      const scClass = sc>=7?'sh':sc>=4?'sm':'sl';
-      const barPct  = sc * 10; // 0~100%
-      const barColor= sc>=7?'#a2fdf0':sc>=4?'#fbbf24':'rgba(255,255,255,0.25)';
-      const kwsText = simData.aiKws.join(' · ');
-      const itemLabel = simData.best
-        ? (simData.best.brand||simData.best.color||'아이템')
-        : null;
-      const itemSub = (simData.best?.color && simData.best?.brand) ? ` · ${escH(simData.best.color)}` : '';
-      const scoreDetail = simData.best
-        ? `카테고리 ${simData.best._catScore||0}P + 컬러 ${simData.best._colorScore||0}P + 디자인 ${simData.best._designScore||0}P`
-        : '';
-      adv.innerHTML =
-        `<div class="m-adv-sim-top">` +
-          `<span class="m-adv-lbl">codibank :</span>` +
-          `<span class="m-adv-sim-kws">${escH(kwsText)}</span>` +
-          `<span class="m-adv-sim-score ${scClass}" title="${escH(scoreDetail)}">${sc}P</span>` +
-        `</div>` +
-        `<div class="m-adv-sim-bar-wrap"><div class="m-adv-sim-bar" style="width:${barPct}%;background:${barColor};"></div></div>` +
-        (itemLabel
-          ? `<div class="m-adv-sim-item">› ${escH(itemLabel)}${itemSub}${scoreDetail ? ` <span style="font-size:9px;opacity:0.45;">(${escH(scoreDetail)})</span>` : ''}</div>`
-          : `<div class="m-adv-sim-noitem">등록된 아이템 없음 — 추가해보세요</div>`);
-    } else {
-      adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">AI 코디 키워드 없음</span>`;
-    }
-  } else if(score0){
-    const tip=detail0?`카테고리 ${detail0.catScore}P + 컬러 ${detail0.colorScore}P + 디자인 ${detail0.designScore}P`:'';
-    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt">이 아이템은 추천코디와 매칭점수 <strong style="color:#a2fdf0;">${score0}P</strong>`+(tip?` <span style="font-size:10px;color:rgba(255,255,255,0.4);">(${tip})</span>`:'')+'</span>';
-  } else if(S.hasGenerated){
-    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">스와이프해서 AI 추천 아이템을 확인하세요</span>`;
-  } else {
-    // 추천코디 없을 때: 아이템 분석 정보 표시
-    if(items && items.length > 0) {
-      const _gi = items[0]?.meta?.gemini;
-      if(_gi && (_gi.pattern || _gi.material || _gi.main_color_name)) {
-        const _info = [_gi.main_color_name, _gi.pattern !== '단색' ? _gi.pattern : '', _gi.material?.split(',')[0]].filter(Boolean).join(' · ');
-        const _lbl = (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'AI Analysis:' : 'AI분석 :';
-        adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">${_lbl}</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">${_info}</span>`;
-      } else {
-        adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">← 스와이프로 아이템을 탐색하세요</span>`;
-      }
-    } else {
-      adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">← 스와이프로 아이템을 탐색하세요</span>`;
-    }
-  }
-  sec.appendChild(adv);
-
-  // ── SWIPE 힌트 ──
-  const sw=document.createElement('div');sw.className='m-swipe';
-  sw.innerHTML='<span class="m-swipe-arr">west</span><span class="m-swipe-txt">Swipe</span><span class="m-swipe-arr">east</span>';
-  sec.appendChild(sw);
-
-  // ── 카드 덱 래퍼 ──
-  const dw=document.createElement('div');dw.className='overflow-visible';dw.style.cssText='padding:4px 0;';
-  const deck=document.createElement('div');deck.className='closet-container';
-  const ctrl={catKey:catMeta.key,items:Array.isArray(items)?items:[],startIndex:0,windowIndices:[-1,-1,-1,-1,-1],els:[],animating:false,
-    shift(dir){if(this.animating)return;const l=this.items.length;if(l<=0)return;this.animating=true;playTick();deck.classList.add('is-shifting');const MOVE=520,EXIT=200,POP=380,UNL=EXIT+MOVE+120;if(l>=5){this.startIndex=mod(this.startIndex+(dir>0?1:-1),l);this.windowIndices=[0,1,2,3,4].map(i=>mod(this.startIndex+i,l));}else{this.windowIndices=(dir>0)?rotL(this.windowIndices):rotR(this.windowIndices);}const oe=this.els.slice(),lv=dir>0?oe[0]:oe[oe.length-1];if(!lv){this.animating=false;deck.classList.remove('is-shifting');return;}const ne=dir>0?oe.slice(1).concat(lv):[lv].concat(oe.slice(0,-1));this.els=ne;this.els.forEach(e=>e.classList.remove('exit-left','exit-right','enter-from-left','enter-from-right','center-pop'));lv.classList.add(dir>0?'exit-left':'exit-right');for(let i=0;i<ne.length;i++){if((dir>0&&i===4)||(dir<0&&i===0))continue;slc(ne[i],i+1);}const ce=ne[2];if(ce)setTimeout(()=>{if(!this.animating)return;ce.classList.remove('center-pop');try{void ce.offsetHeight;}catch(_){}ce.classList.add('center-pop');setTimeout(()=>ce.classList.remove('center-pop'),560);},POP);setTimeout(()=>{if(!this.animating)return;lv.classList.remove('exit-left','exit-right');const ep=dir>0?5:1,ei=dir>0?this.windowIndices[4]:this.windowIndices[0];layerContent(lv,ei>=0?this.items[ei]:null,this.catKey);lv.classList.add('no-transition');slc(lv,ep);lv.classList.add(dir>0?'enter-from-right':'enter-from-left');try{void lv.offsetHeight;}catch(_){}lv.classList.remove('no-transition');requestAnimationFrame(()=>lv.classList.remove(dir>0?'enter-from-right':'enter-from-left'));},EXIT);setTimeout(()=>{this.animating=false;deck.classList.remove('is-shifting');if(lv)lv.classList.remove('exit-left','exit-right','enter-from-left','enter-from-right','no-transition');},UNL);}};
-  const l=ctrl.items.length;
-  // ✅ 기본: 최신 등록 아이템이 3번째(가운데) 카드에 오도록 startIndex 보정
-  if(l>=5) ctrl.startIndex = mod(-2, l);
-
-  // ✅ 추천 코디 매칭 아이템(카테고리별) 우선으로 가운데에 배치
-  // coat↔jacket 대체 포함 매칭 아이템 ID (카드 가운데 배치용)
-  const _subKD = CAT_SUBSTITUTE_MAP[String(catMeta.key||'').toLowerCase()]||[];
-  const recId = (S.hasGenerated&&S.matchByCat) ? ([catMeta.key,..._subKD].map(k=>S.matchByCat[k]).find(v=>v)||'') : '';
-  const preferredId = recId || (highlightId ? String(highlightId) : '');
-  let preferredIndex = -1;
-  if(preferredId && l>0){
-    preferredIndex = ctrl.items.findIndex(x=>x&&String(x.id)===preferredId);
-    if(preferredIndex>=0 && l>=5) ctrl.startIndex = mod(preferredIndex-2, l);
-  }
-  ctrl.windowIndices=initWin(ctrl.items,ctrl.startIndex);
-  // l<5에서도 가운데(3번째) 카드에 (추천/하이라이트/최신) 아이템이 오도록 회전
-  if(l>0&&l<5){
-    const hi = (preferredIndex>=0) ? preferredIndex : 0;
-    let w=ctrl.windowIndices.slice();
-    const sh=2-hi;
-    if(sh>0)for(let i=0;i<sh;i++)w=rotR(w);
-    else if(sh<0)for(let i=0;i<Math.abs(sh);i++)w=rotL(w);
-    ctrl.windowIndices=w;
-  }
-  for(let pos=1;pos<=5;pos++){const a=document.createElement('a');a.className=`clothing-layer layer-${pos}`;const idx=ctrl.windowIndices[pos-1];layerContent(a,idx>=0?ctrl.items[idx]:null,catMeta.key);ctrl.els.push(a);deck.appendChild(a);}
-  attachSwipe(deck,ctrl);
-  const hl=(focusCat&&focusCat===catMeta.key)
-    || (highlightId&&ctrl.items.some(x=>x&&String(x.id)===String(highlightId)))
-    || (!!recId);
-  if(hl){deck.classList.add('deck-highlight','pulse-ring');setTimeout(()=>deck.classList.remove('pulse-ring'),1600);}
-  dw.appendChild(deck);sec.appendChild(dw);return sec;
-}
-function renderCategories(){catListEl.innerHTML='';CodiBank.getCategoriesForUser(user.email).forEach(c=>{catListEl.appendChild(buildSection(c,CodiBank.getItemsByUserAndCategory(user.email,c.key)));});if(focusCat){const t=document.querySelector(`[data-cat-key="${CSS.escape(focusCat)}"]`);if(t)setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),120);}}
-renderCategories();
-
-// ── Ai 옷장 토글 버튼 ────────────────────────────────────
-(function(){
-  const btn   = document.getElementById('closetToggleBtn');
-  const panel = document.getElementById('closetMatchPanel');
-  if(!btn || !panel) return;
-
-  // ── 유사도 계산 (전역 _simScore/_simTokenize 위임) ──
-  const tokenize = _simTokenize;
-  const similarity = _simScore;
-
-  // ── 패널 렌더 ──
-  const CAT_DEF = [
-    {key:'outer',  label:'아우터',       icon:'🧥'},
-    {key:'top',    label:'탑/셔츠',      icon:'👔'},
-    {key:'bottom', label:'하의',         icon:'👖'},
-    {key:'shoes',  label:'신발',         icon:'👟'},
-    {key:'scarf',  label:'스카프·포인트',icon:'🧣'},
-    {key:'bag',    label:'가방',         icon:'👜'},
-    {key:'watch',  label:'시계',         icon:'⌚'},
-    {key:'socks',  label:'양말',         icon:'🧦'},
-  ];
-  // CAT_SUBSTITUTE_MAP과 동일하게 유지 (자켓/코트/패딩/가디건 모두 포함)
-  const SUB = {
-    outer:   ['coat','jacket','padding','cardigan'],
-    coat:    ['jacket','padding','outer','cardigan'],
-    jacket:  ['coat','padding','outer','cardigan'],
-    padding: ['coat','jacket','outer'],
-    cardigan:['outer','jacket','coat'],
-    bottom:['pants','skirt'],pants:['bottom'],shoes:['sneakers','loafers'],
-    top:['shirt','blouse'],scarf:['accent'],
-  };
-
-  function buildMatchPanel(){
-    const body    = document.getElementById('cmpBody');
-    const summary = document.getElementById('cmpSummary');
-    const sumTxt  = document.getElementById('cmpSummaryText');
-    if(!body) return;
-
-    const ckw = S.categoryKeywords || {};
-    const hasAI = S.hasGenerated && Object.keys(ckw).length > 0;
-
-    if(!hasAI){
-      body.innerHTML = '<div class="cmp-no-item">AI 코디를 먼저 생성하면 유사도를 분석해드려요.</div>';
-      if(summary) summary.style.display = 'none';
-      return;
-    }
-
-    let html = '';
-    let totalScore = 0, scoredCount = 0;
-
-    CAT_DEF.forEach(({key, label, icon})=>{
-      const aiKws = (ckw[key]||[]).filter(Boolean);
-      if(!aiKws.length) return;
-
-      // 카테고리 + 대체 카테고리 아이템 모두 수집
-      const subKeys = SUB[key] || [];
-      const items   = [key, ...subKeys]
-        .flatMap(k => (CodiBank.getItemsByUserAndCategory ? CodiBank.getItemsByUserAndCategory(user.email, k) : []) || [])
-        .filter(Boolean);
-
-      const aiText = aiKws.join(' · ');
-
-      if(!items.length){
-        html += `<div class="cmp-row">
-          <span class="cmp-icon">${icon}</span>
-          <span class="cmp-cat">${escH(label)}</span>
-          <span class="cmp-ai-kws" style="grid-column:3/7;color:rgba(151,254,237,0.35);">${escH(aiText)} — <em style="color:rgba(255,255,255,0.2);">아이템 없음</em></span>
-        </div>`;
-        return;
-      }
-
-      // 아이템별 유사도 계산 → 가장 높은 것 선택
-      let best = null, bestScore = -1;
-      items.forEach(it=>{
-        const fields = [it.brand, it.color, it.subColor, it.note, it.size, it.category, it.categoryKey]
-          .filter(Boolean).map(String);
-        const sc = similarity(aiKws, fields);
-        if(sc > bestScore){ bestScore = sc; best = it; }
-      });
-
-      totalScore += bestScore;
-      scoredCount++;
-
-      const scoreClass = bestScore >= 60 ? 'cmp-score-high' : bestScore >= 30 ? 'cmp-score-mid' : 'cmp-score-low';
-      const barColor   = bestScore >= 60 ? '#a2fdf0' : bestScore >= 30 ? '#fbbf24' : 'rgba(255,255,255,0.2)';
-      const itemLabel  = escH(best?.brand || best?.color || '아이템');
-      const itemSub    = best?.color ? ` · ${escH(best.color)}` : '';
-
-      html += `<div class="cmp-row">
-        <span class="cmp-icon">${icon}</span>
-        <span class="cmp-cat">${escH(label)}</span>
-        <span class="cmp-ai-kws">${escH(aiText)}</span>
-        <span class="cmp-arrow">›</span>
-        <span class="cmp-item-name">${itemLabel}${itemSub}</span>
-        <span class="cmp-score-badge ${scoreClass}">${bestScore}%</span>
-      </div>
-      <div class="cmp-row" style="padding-top:0;padding-bottom:6px;grid-template-columns:1fr;">
-        <div class="cmp-bar-wrap"><div class="cmp-bar" style="width:${bestScore}%;background:${barColor};"></div></div>
-      </div>`;
-    });
-
-    if(!html){
-      body.innerHTML = '<div class="cmp-no-item">카테고리별 AI 추천 키워드가 아직 없어요.</div>';
-      if(summary) summary.style.display = 'none';
-      return;
-    }
-
-    body.innerHTML = html;
-
-    // 요약
-    if(summary && sumTxt && scoredCount > 0){
-      const avg = Math.round(totalScore / scoredCount);
-      const msg = avg >= 65 ? `내 옷장이 오늘 AI 추천코디와 ${avg}% 매칭돼요! 지금 바로 입어보세요 ✦`
-                : avg >= 35 ? `평균 ${avg}% 매칭. 부족한 카테고리 아이템을 추가해보세요.`
-                : `평균 ${avg}% 매칭. 아이템을 더 등록하면 정확도가 높아져요.`;
-      sumTxt.textContent = msg;
-      summary.style.display = 'flex';
-    }
-  }
-
-  // ── 토글 클릭 ──
-  let isOn = false;
-  btn.addEventListener('click', ()=>{
-    isOn = !isOn;
-    btn.classList.toggle('ctb-on', isOn);
-    panel.classList.toggle('cmp-open', isOn);
-
-    const titleEl = btn.querySelector('.ctb-title');
-    const subEl   = btn.querySelector('.ctb-sub');
-    if(isOn){
-      if(titleEl) titleEl.textContent = 'Ai 옷장 Styling';
-      if(subEl)   subEl.textContent   = 'AI 추천코디와 내 옷장 유사도 분석 중…';
-      buildMatchPanel();
-      // ★ 각 카테고리 adv 박스에 유사도 반영
-      try{ renderCategories(); }catch(_){}
-      if(subEl) setTimeout(()=>{ subEl.textContent = 'AI 추천코디와 내 옷장을 비교한 결과예요'; }, 400);
-    } else {
-      if(titleEl) titleEl.textContent = 'Ai 옷장';
-      if(subEl)   subEl.textContent   = '클릭하면 AI가 추천한 코디를 내 옷에서 찾아드립니다';
-      // ★ 유사도 모드 해제 → adv 박스 원래대로
-      try{ renderCategories(); }catch(_){}
-    }
-  });
-
-  // 외부에서 호출 가능하도록 등록 (AI 생성 완료 후 패널 갱신)
-  window._refreshClosetMatchPanel = ()=>{
-    if(isOn){
-      buildMatchPanel();
-      try{ renderCategories(); }catch(_){}
-    }
-  };
-})();
-
-
-// 검색
-function openSearch(){document.getElementById('searchModal')?.classList.remove('hidden');setTimeout(()=>document.getElementById('searchInput')?.focus(),50);}
-
-</script>
+<div class="cb-spacer"></div>
 </body>
 </html>
