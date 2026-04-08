@@ -853,6 +853,8 @@ function resetAll(){
   if(_st){_st.textContent='착장 이미지가 생성되면 AI 스타일링 분석이 표시됩니다';_st.style.color='rgba(255,255,255,.3)';_st.style.display='block';}
 
   setDot(''); setProgress(0,'');
+  // [2026-04-08] rainbow 애니메이션 즉시 시작
+  try{ document.querySelector('.cb-rainbow-cs')?.classList.add('animating'); }catch(_){}
   try{
     sessionStorage.removeItem('cb_cs_lastImg');
     sessionStorage.removeItem('cb_cs_score');
@@ -1094,11 +1096,11 @@ async function generate(isRetry=false){
   document.getElementById('csScoreNum').textContent='—';
   document.getElementById('csScoreText').textContent='착장 이미지 생성 중...';
   document.getElementById('csScoreText').style.color='rgba(255,255,255,.35)';
-  setDot(''); setProgress(12,'업로드된 의상을 확인하는 중…');
+  setDot(''); setProgress(12,'의상 확인 중…');
 
   // ── Phase 1: 상의/하의 상세 분석 (치마/바지 정확 판별) ──
   if(!isRetry || !_topAnalysisCache){
-    setProgress(20,'[1단계] 상의·하의 의류를 분석하는 중…');
+    setProgress(20,'의류 분석 중…');
     await analyzeGarments();
     // 분석 결과 간단 표시
     if(_bottomAnalysisCache){
@@ -1107,7 +1109,7 @@ async function generate(isRetry=false){
       console.log('[Phase1] 하의 확정:', _botLabel, _isSkirtDetected ? '✅ 치마' : '👖 바지/반바지');
     }
   }
-  setProgress(30,'[2단계] 코디 프로필 분석 중…');
+  setProgress(30,'코디 프로필 분석 중…');
 
   document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br><small style="opacity:.55">(10~25초 소요)</small></p></div></div>';
   try{
@@ -1255,7 +1257,7 @@ async function generate(isRetry=false){
       quality:'low',
       _ts: Date.now()
     };
-    setProgress(45,'[3단계] AI 착장 이미지 생성 중…');
+    setProgress(45,'AI 착장 이미지 생성 중…');
     const r=await fetch(base + '/api/codistyle/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const j=await r.json().catch(()=>null);
     if(!r.ok || !j || j.ok!==true) throw new Error((j&&j.error)||('HTTP '+r.status));
@@ -1515,9 +1517,16 @@ async function generate(isRetry=false){
     // ★ 사용횟수 기록
     try{ recordCSUsage(); updateCSUsageBadge(); }catch(_){}
   }catch(e){
-    setDot('err'); setProgress(100,'생성 중 오류가 발생했어요');
-    showErr('⚠️ AI 착장 이미지 생성 실패: '+(e.message||e));
-    document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-ph"><span class="mi">error</span><p>착장 이미지 생성에 실패했어요</p></div></div>';
+    setDot('err'); setProgress(100,'');
+    // [2026-04-08] 에러 상세를 하단에 표시, 이미지 영역은 리셋
+    var _em=String(e.message||e);
+    var _um='⚠️ AI 착장 이미지 생성 실패';
+    if(_em.indexOf('FinishReason')>=0||_em.indexOf('STOP')>=0) _um+=': AI 안전 필터에 의해 생성이 중단되었습니다. 다시 시도해주세요.';
+    else if(_em.indexOf('timeout')>=0||_em.indexOf('Timeout')>=0) _um+=': 서버 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.';
+    else if(_em.indexOf('한도')>=0) _um+=': '+_em;
+    else _um+=': '+_em.substring(0,120);
+    showErr(_um);
+    document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.3">다시 시도해주세요</p></div></div>';
   }finally{
     busy=false; updateGenerateBtn();
     document.getElementById('genBtnText').textContent='AI 착장 이미지 생성';
