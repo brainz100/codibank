@@ -154,45 +154,50 @@ header h1{font-size:17px;font-weight:800;}
     </div>
   </div>
 
-  <!-- 분석 결과 -->
+  <!-- [2026-04-08] 분석 결과 (에디토리얼 v2) -->
   <div id="pcResult" style="display:none;">
 
-    <!-- 시즌 + 언더톤 타이틀 카드 -->
-    <div style="position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(176,228,254,0.3),transparent);padding:24px;border-radius:20px;border:1px solid rgba(176,228,254,0.2);margin-bottom:16px;">
+    <!-- 1) 섹션 타이틀 (박스 밖) -->
+    <p id="pcSectionLabel" style="font-size:13px;font-weight:800;color:#30657b;letter-spacing:0.05em;margin-bottom:8px;">퍼스널 컬러 분석</p>
+
+    <!-- 2) 메인 카드: 시즌 + 언더톤 (높이 축소) -->
+    <div style="position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(176,228,254,0.25),rgba(240,244,248,0.6));padding:18px 20px;border-radius:16px;border:1px solid rgba(176,228,254,0.2);margin-bottom:12px;">
       <div style="position:relative;z-index:1;">
-        <p style="font-size:10px;font-weight:700;color:#665881;text-transform:uppercase;letter-spacing:0.2em;margin-bottom:12px;">AI Skin Tone Analysis</p>
-        <div style="display:flex;align-items:flex-end;gap:8px;">
-          <div id="pcSeasonDot" style="display:none;"></div>
-          <span id="pcSeason" style="font-size:32px;font-weight:800;color:#2c3338;line-height:1;"></span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div id="pcSeasonDot" style="width:12px;height:12px;border-radius:50%;background:#97FEED;flex-shrink:0;"></div>
+          <span id="pcSeason" style="font-size:26px;font-weight:800;color:#2c3338;line-height:1;"></span>
         </div>
         <div id="pcUndertone" style="margin-top:8px;display:flex;gap:6px;font-size:11px;color:#30657b;"></div>
       </div>
-      <div style="position:absolute;top:-12px;right:-12px;width:96px;height:96px;background:rgba(176,228,254,0.15);border-radius:50%;filter:blur(24px);"></div>
-      <span class="material-symbols-outlined" style="position:absolute;top:20px;right:20px;font-size:48px;color:rgba(48,101,123,0.06);">auto_awesome</span>
+      <span class="material-symbols-outlined" style="position:absolute;top:14px;right:14px;font-size:36px;color:rgba(48,101,123,0.06);">auto_awesome</span>
     </div>
 
-    <!-- 어울리는 컬러 팔레트 -->
-    <div style="background:#fff;border-radius:20px;padding:24px;box-shadow:0 4px 16px rgba(44,51,56,0.04);border:1px solid #e3e9ee;margin-bottom:16px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <p style="font-size:11px;font-weight:800;color:#596065;text-transform:uppercase;letter-spacing:0.2em;">추천 컬러 팔레트</p>
-        <span style="font-size:10px;color:#acb3b9;">AI 큐레이션</span>
+    <!-- 3) 퍼스널컬러 설명 + 화장팁 + 코디팁 -->
+    <div style="background:#fff;border-radius:16px;padding:18px;border-left:5px solid #30657b;box-shadow:0 1px 4px rgba(0,0,0,0.04);margin-bottom:16px;position:relative;overflow:hidden;">
+      <div style="position:relative;z-index:1;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span class="material-symbols-outlined" style="color:#30657b;font-size:18px;">tips_and_updates</span>
+          <span style="font-size:12px;font-weight:700;color:#30657b;">스타일 가이드</span>
+        </div>
+        <div id="pcTip" style="font-size:12.5px;line-height:1.7;color:#2c3338;font-weight:500;margin-bottom:12px;"></div>
+        <div id="pcMakeupTip" style="font-size:12px;line-height:1.7;color:#51616e;padding:10px 12px;background:rgba(176,228,254,0.12);border-radius:10px;margin-bottom:8px;"></div>
+        <div id="pcCodiTip" style="font-size:12px;line-height:1.7;color:#51616e;padding:10px 12px;background:rgba(102,88,129,0.06);border-radius:10px;"></div>
       </div>
-      <div id="pcBestColors" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;"></div>
+      <span class="material-symbols-outlined" style="position:absolute;bottom:-6px;right:-6px;font-size:52px;color:rgba(48,101,123,0.04);">format_quote</span>
     </div>
 
-    <!-- 피해야 할 컬러 -->
-    <div style="background:rgba(240,244,248,0.5);border-radius:20px;padding:24px;border:1px dashed rgba(172,179,185,0.3);margin-bottom:16px;">
-      <p style="font-size:11px;font-weight:800;color:#596065;text-transform:uppercase;letter-spacing:0.2em;margin-bottom:16px;">피해야 할 컬러</p>
-      <div id="pcAvoidColors" style="display:flex;gap:16px;"></div>
+    <!-- 4) 추천하는 컬러 -->
+    <div style="background:#fff;border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(44,51,56,0.04);border:1px solid #e3e9ee;margin-bottom:12px;">
+      <p style="font-size:13px;font-weight:700;color:#2c3338;margin-bottom:4px;">추천하는 컬러</p>
+      <div id="pcBestDesc" style="font-size:11px;line-height:1.6;color:#596065;margin-bottom:14px;"></div>
+      <div id="pcBestColors" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;"></div>
     </div>
 
-    <!-- 스타일 팁 -->
-    <div style="position:relative;background:#fff;border-radius:20px;padding:20px;border-left:6px solid #30657b;box-shadow:0 1px 4px rgba(0,0,0,0.04);overflow:hidden;margin-bottom:16px;">
-      <div style="display:flex;gap:12px;align-items:flex-start;position:relative;z-index:1;">
-        <span class="material-symbols-outlined" style="color:#30657b;font-size:20px;margin-top:2px;">tips_and_updates</span>
-        <div id="pcTip" style="font-size:13px;line-height:1.8;color:#2c3338;font-weight:500;"></div>
-      </div>
-      <span class="material-symbols-outlined" style="position:absolute;bottom:-8px;right:-8px;font-size:64px;color:rgba(48,101,123,0.04);">format_quote</span>
+    <!-- 5) 피해야 할 컬러 -->
+    <div style="background:rgba(240,244,248,0.5);border-radius:16px;padding:18px;border:1px dashed rgba(172,179,185,0.3);margin-bottom:16px;">
+      <p style="font-size:13px;font-weight:700;color:#2c3338;margin-bottom:4px;">피해야 할 컬러</p>
+      <div id="pcAvoidDesc" style="font-size:11px;line-height:1.6;color:#596065;margin-bottom:14px;"></div>
+      <div id="pcAvoidColors" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;"></div>
     </div>
   </div>
 
@@ -524,32 +529,73 @@ function renderPersonalColor(pc) {
   // 어울리는 컬러
   const bestWrap = document.getElementById('pcBestColors');
   if(bestWrap && pc.best_colors) {
-    bestWrap.innerHTML = pc.best_colors.map((hex, i) => {
-      const name = (pc.best_color_names && pc.best_color_names[i]) || hex;
+    bestWrap.innerHTML = pc.best_colors.slice(0,3).map(function(hex, i) {
+      var name = (pc.best_color_names && pc.best_color_names[i]) || hex;
       return '<div style="text-align:center;">' +
-        '<div style="aspect-ratio:1;border-radius:14px;background:'+hex+';box-shadow:inset 0 0 0 1px rgba(0,0,0,0.05);margin-bottom:6px;"></div>' +
-        '<p style="font-size:10px;font-weight:700;color:#2c3338;letter-spacing:.03em;">'+name.toUpperCase()+'</p>' +
-        '<p style="font-size:9px;color:#acb3b9;">'+hex+'</p></div>';
+        '<div style="aspect-ratio:1;border-radius:12px;background:'+hex+';box-shadow:inset 0 0 0 1px rgba(0,0,0,0.05);margin-bottom:5px;"></div>' +
+        '<p style="font-size:10px;font-weight:700;color:#2c3338;">'+name+'</p>' +
+        '<p style="font-size:8px;color:#acb3b9;">'+hex+'</p></div>';
     }).join('');
+    // 추천 이유 설명
+    var bestDesc = document.getElementById('pcBestDesc');
+    if(bestDesc) {
+      var seasonName = pc.season || '';
+      bestDesc.textContent = seasonName + ' 타입은 이 컬러들이 피부톤을 밝고 생기있게 만들어줍니다. 자연스러운 조화를 이루어 얼굴빛이 화사해 보이는 효과가 있습니다.';
+    }
   }
 
   // 피해야 할 컬러
   const avoidWrap = document.getElementById('pcAvoidColors');
   if(avoidWrap && pc.avoid_colors) {
-    avoidWrap.innerHTML = pc.avoid_colors.map((hex, i) => {
-      const name = (pc.avoid_color_names && pc.avoid_color_names[i]) || hex;
-      return '<div style="flex:1;text-align:center;">' +
-        '<div style="width:100%;aspect-ratio:16/9;border-radius:12px;background:'+hex+';position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.05);">' +
-        '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.08);"><span class=\'material-symbols-outlined\' style=\'color:rgba(255,255,255,0.7);font-size:20px;\'>close</span></div></div>' +
-        '<span style="font-size:10px;font-weight:700;color:#acb3b9;text-transform:uppercase;letter-spacing:.05em;margin-top:8px;display:block;">'+name+'</span></div>';
+    avoidWrap.innerHTML = pc.avoid_colors.slice(0,3).map(function(hex, i) {
+      var name = (pc.avoid_color_names && pc.avoid_color_names[i]) || hex;
+      return '<div style="text-align:center;">' +
+        '<div style="aspect-ratio:1;border-radius:12px;background:'+hex+';position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.05);">' +
+        '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.06);"><span class="material-symbols-outlined" style="color:rgba(255,255,255,0.5);font-size:18px;">close</span></div></div>' +
+        '<p style="font-size:10px;font-weight:700;color:#acb3b9;margin-top:5px;">'+name+'</p></div>';
     }).join('');
+    // 피해야 할 이유 설명
+    var avoidDesc = document.getElementById('pcAvoidDesc');
+    if(avoidDesc) {
+      var seasonName = pc.season || '';
+      avoidDesc.textContent = '이 컬러들은 ' + seasonName + ' 타입의 피부톤과 대비가 강해 얼굴이 칙칙하거나 피곤해 보일 수 있습니다.';
+    }
   }
 
-  // 스타일 팁
-  const tip = document.getElementById('pcTip');
+  // 스타일 팁 + 화장팁 + 코디팁
+  var tip = document.getElementById('pcTip');
   if(tip) tip.textContent = _isEn
     ? (pc.style_tip_en || pc.style_tip || pc.summary || '')
     : (pc.style_tip || pc.summary || '');
+
+  // 화장 팁 (시즌별)
+  var makeupEl = document.getElementById('pcMakeupTip');
+  if(makeupEl) {
+    var mkTips = {
+      '봄웜': '💄 화장 팁: 코랄, 피치 계열 립과 웜톤 아이섀도우가 잘 어울립니다. 골드 하이라이터로 자연스러운 광택을 더해보세요.',
+      '여름쿨': '💄 화장 팁: 로즈핑크, 베리 계열 립이 잘 어울립니다. 실버 펄과 라벤더 아이섀도우로 투명한 느낌을 연출하세요.',
+      '가을웜': '💄 화장 팁: 브릭레드, 테라코타 립이 잘 어울립니다. 브론즈 아이섀도우와 웜톤 치크로 깊이감을 더하세요.',
+      '겨울쿨': '💄 화장 팁: 레드, 와인, 푸시아 립이 잘 어울립니다. 블루 베이스 아이섀도우와 선명한 컨투어링이 효과적입니다.'
+    };
+    var season = pc.season || '';
+    makeupEl.innerHTML = mkTips[season] || ('💄 화장 팁: ' + season + ' 타입에 맞는 컬러 메이크업으로 피부톤의 장점을 살려보세요. 언더톤에 맞는 파운데이션 선택이 가장 중요합니다.');
+  }
+  // 코디 팁
+  var codiEl = document.getElementById('pcCodiTip');
+  if(codiEl) {
+    var cdTips = {
+      '봄웜': '👗 코디 팁: 밝고 생기있는 컬러의 니트, 베이지·카멜 아우터가 잘 어울립니다. 골드 액세서리로 포인트를 주세요.',
+      '여름쿨': '👗 코디 팁: 파스텔톤 블라우스, 그레이·라벤더 아우터가 조화롭습니다. 실버 액세서리와 매트한 소재를 선택하세요.',
+      '가을웜': '👗 코디 팁: 머스타드, 카키, 브라운 계열이 잘 어울립니다. 가죽·스웨이드 소재와 빈티지 스타일이 매력적입니다.',
+      '겨울쿨': '👗 코디 팁: 블랙, 네이비, 화이트 등 명확한 컬러가 잘 어울립니다. 모노톤 코디에 원포인트 비비드 컬러를 활용하세요.'
+    };
+    var season = pc.season || '';
+    codiEl.innerHTML = cdTips[season] || ('👗 코디 팁: ' + season + ' 타입에 맞는 컬러 코디로 자연스럽고 세련된 스타일링을 완성하세요.');
+  }
+
+  // 섹션 타이틀 (영어/한글)
+  var sLabel = document.getElementById('pcSectionLabel');
+  if(sLabel) sLabel.textContent = _isEn ? 'Personal Color Analysis' : '퍼스널 컬러 분석';
 }
 
 function loadPersonalColorFromStorage() {
