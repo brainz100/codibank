@@ -331,7 +331,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 .cdeck-card.side{transform:scale(.72);margin:0 -28px;opacity:1;}
 .cdeck-card.center{transform:scale(1);z-index:10;border:2px solid #97FEED;box-shadow:0 8px 20px rgba(151,254,237,.12);background:#ffffff;}
 .cdeck-empty{width:100%;height:90px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px dashed rgba(151,254,237,.1);color:rgba(255,255,255,.2);font-size:10px;text-align:center;line-height:1.5;}
-.cpreview{position:relative;border-radius:14px;overflow:hidden;background:rgba(26,46,68,.5);border:1px solid rgba(151,254,237,.12);margin:8px 0;aspect-ratio:1/1.5;padding:12px;}
+.cpreview{position:relative;border-radius:14px;overflow:hidden;background:#ffffff;border:1px solid rgba(151,254,237,.15);margin:8px 0;aspect-ratio:1/1.5;padding:12px;}
 .cpreview img{width:100%;height:100%;object-fit:contain;border-radius:8px;}
 .cpreview-badge{position:absolute;bottom:10px;left:10px;background:rgba(151,254,237,.15);backdrop-filter:blur(6px);color:#97FEED;border:1px solid rgba(151,254,237,.2);padding:3px 10px;border-radius:16px;font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;}
 .cpreview-x{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;background:rgba(7,25,82,.5);border:none;color:rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;}
@@ -383,7 +383,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
     </div>
     <div class="cpreview" id="slot-top" onclick="pickFile('top')">
       <div id="topPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
-        <div style="text-align:center;color:rgba(255,255,255,.12);"><span class="mi" style="font-size:32px;">add_photo_alternate</span><p style="font-size:10px;margin-top:4px;">상의 이미지</p></div>
+        <div style="text-align:center;color:rgba(180,180,180,.5);"><span class="mi" style="font-size:32px;">add_photo_alternate</span><p style="font-size:10px;margin-top:4px;">상의 이미지</p></div>
       </div>
     </div>
     <div class="cact">
@@ -419,7 +419,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
     </div>
     <div class="cpreview" id="slot-bottom" onclick="pickFile('bottom')">
       <div id="botPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
-        <div style="text-align:center;color:rgba(255,255,255,.12);"><span class="mi" style="font-size:32px;">add_photo_alternate</span><p style="font-size:10px;margin-top:4px;">하의 이미지</p></div>
+        <div style="text-align:center;color:rgba(180,180,180,.5);"><span class="mi" style="font-size:32px;">add_photo_alternate</span><p style="font-size:10px;margin-top:4px;">하의 이미지</p></div>
       </div>
     </div>
     <div class="cact">
@@ -853,7 +853,7 @@ function setProgress(pct, txt){ document.getElementById('progFill').style.width=
 function setDot(s){ const d=document.getElementById('sDot'); d.className='status-dot'+(s==='done'?' done':s==='err'?' err':''); }
 function showErr(msg){ const b=document.getElementById('errBox'); b.style.display='block'; b.innerHTML=msg; }
 function hideErr(){ const b=document.getElementById('errBox'); b.style.display='none'; }
-function updateGenerateBtn(){ const ready=!!ST.top.serverPath && !!ST.bottom.serverPath && !busy; document.getElementById('genBtn').disabled=!ready; }
+function updateGenerateBtn(){ var topOk=!!(ST.top.serverPath||ST.top.dataUrl); var botOk=!!(ST.bottom.serverPath||ST.bottom.dataUrl); var ready=topOk&&botOk&&!busy; document.getElementById('genBtn').disabled=!ready; }
 function renderSlot(k){
   var el=document.getElementById('slot-'+k);
   var del=document.getElementById('del-'+k);
@@ -872,7 +872,7 @@ function renderSlot(k){
   } else {
     el.classList.remove('filled');
     if(pvEl){
-      pvEl.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.12);"><span class="mi" style="font-size:32px;">add_photo_alternate</span><p style="font-size:10px;margin-top:4px;">'+(k==='top'?'상의':'하의')+' 이미지</p></div>';
+      pvEl.innerHTML='<div style="text-align:center;color:rgba(180,180,180,.5);"><span class="mi" style="font-size:32px;">add_photo_alternate</span><p style="font-size:10px;margin-top:4px;">'+(k==='top'?'상의':'하의')+' 이미지</p></div>';
     }
     if(del) del.style.display='none';
   }
@@ -1957,6 +1957,8 @@ async function pickDeckItem(type,entry){
   ST[type].dataUrl=dataUrl;
   try{var img=new Image();img.src=src;ST[type].naturalWidth=img.naturalWidth||400;ST[type].naturalHeight=img.naturalHeight||600;}catch(_){}
   ST[type].label=entry.label+' '+(entry.item.color||'');
+  // 서버 업로드 시작 (업로드 완료 전에도 dataUrl로 생성 가능하도록)
+  if(dataUrl && !ST[type].serverPath) ST[type].serverPath = '_pending_';
   _uploadDeckItem(type,dataUrl);
   var del=document.getElementById('del-'+type);if(del)del.style.display='flex';
   updateGenerateBtn();
