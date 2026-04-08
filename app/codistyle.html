@@ -1231,12 +1231,22 @@ async function generate(isRetry=false){
       bottomImageHeight: ST.bottom.naturalHeight || ST.bottom.height || 0,
       faceImage: faceDataUrl || null,
       // 퍼스널컬러 + 체형 정보 추가
+      // [2026-04-08] Phase 2: 퍼스널컬러 전체 필드 전달 (12서브타입 대응)
       personalColor: _csPersonalColor ? {
-        season:    _csPersonalColor.season,
-        undertone: _csPersonalColor.undertone,
-        best_colors: _csPersonalColor.best_colors,
-        avoid_colors: _csPersonalColor.avoid_colors,
-        summary:   _csPersonalColor.summary
+        season:           _csPersonalColor.season,
+        season_en:        _csPersonalColor.season_en || '',
+        season_group:     _csPersonalColor.season_group || '',
+        undertone:        _csPersonalColor.undertone,
+        skin_tone:        _csPersonalColor.skin_tone || '',
+        best_colors:      _csPersonalColor.best_colors,
+        best_color_names: _csPersonalColor.best_color_names || [],
+        avoid_colors:     _csPersonalColor.avoid_colors,
+        avoid_color_names:_csPersonalColor.avoid_color_names || [],
+        chroma:           _csPersonalColor.chroma || '',
+        clarity:          _csPersonalColor.clarity || '',
+        summary:          _csPersonalColor.summary || '',
+        style_tip:        _csPersonalColor.style_tip || '',
+        makeup_tip:       _csPersonalColor.makeup_tip || ''
       } : null,
       // ── Phase 1 분석 결과 포함 (치마/바지 확실 판별) ──
       topAnalysis:    _topAnalysisCache    || null,
@@ -1693,19 +1703,53 @@ let _csPersonalColor = null; // 현재 퍼스널컬러 데이터
 function showPersonalColorCS(pc) {
   if(!pc) return;
   _csPersonalColor = pc;
-  const summaryLine = document.getElementById('pcSummaryLine');
-  const tipEl       = document.getElementById('pcTipCS');
-  const emptyEl     = document.getElementById('pcEmptyCS');
-  const dotEl       = document.getElementById('pcSeasonDotCS');
-  const seasonEl    = document.getElementById('pcSeasonLabelCS');
-  const undertoneEl = document.getElementById('pcUndertoneLabelCS');
+  var summaryLine = document.getElementById('pcSummaryLine');
+  var tipEl       = document.getElementById('pcTipCS');
+  var emptyEl     = document.getElementById('pcEmptyCS');
+  var dotEl       = document.getElementById('pcSeasonDotCS');
+  var seasonEl    = document.getElementById('pcSeasonLabelCS');
+  var undertoneEl = document.getElementById('pcUndertoneLabelCS');
 
   if(dotEl)       dotEl.style.background = _pcSeasonColors[pc.season] || '#97FEED';
   if(seasonEl)    seasonEl.textContent   = pc.season || '';
-  if(undertoneEl) undertoneEl.textContent= pc.undertone || '';
+  if(undertoneEl) undertoneEl.textContent= (pc.undertone||'') + (pc.skin_tone ? ' · '+pc.skin_tone+' 피부' : '');
   if(summaryLine) summaryLine.style.display = 'block';
-  if(tipEl){      tipEl.textContent = pc.summary || ''; tipEl.style.display = 'block'; }
   if(emptyEl)     emptyEl.style.display = 'none';
+
+  // [2026-04-08] Phase 2: 추천/피해야할 컬러 + 요약 표시
+  if(tipEl) {
+    var tipHtml = '';
+    // 추천 컬러 도트
+    if(pc.best_colors && pc.best_colors.length) {
+      tipHtml += '<div style="display:flex;align-items:center;gap:3px;margin-bottom:3px;">';
+      tipHtml += '<span style="font-size:9px;color:rgba(151,254,237,.5);font-weight:700;">추천</span>';
+      pc.best_colors.slice(0,4).forEach(function(hex) {
+        tipHtml += '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+hex+';border:1px solid rgba(255,255,255,.2);"></span>';
+      });
+      if(pc.best_color_names && pc.best_color_names.length) {
+        tipHtml += '<span style="font-size:8px;color:rgba(255,255,255,.3);margin-left:2px;">'+pc.best_color_names.slice(0,3).join(' · ')+'</span>';
+      }
+      tipHtml += '</div>';
+    }
+    // 피해야할 컬러 도트
+    if(pc.avoid_colors && pc.avoid_colors.length) {
+      tipHtml += '<div style="display:flex;align-items:center;gap:3px;margin-bottom:3px;">';
+      tipHtml += '<span style="font-size:9px;color:rgba(255,150,150,.5);font-weight:700;">피해</span>';
+      pc.avoid_colors.slice(0,3).forEach(function(hex) {
+        tipHtml += '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+hex+';border:1px solid rgba(255,255,255,.15);opacity:.6;"></span>';
+      });
+      if(pc.avoid_color_names && pc.avoid_color_names.length) {
+        tipHtml += '<span style="font-size:8px;color:rgba(255,255,255,.25);margin-left:2px;">'+pc.avoid_color_names.slice(0,3).join(' · ')+'</span>';
+      }
+      tipHtml += '</div>';
+    }
+    // 요약
+    if(pc.summary) {
+      tipHtml += '<div style="font-size:9.5px;color:rgba(255,255,255,.35);line-height:1.4;">'+pc.summary+'</div>';
+    }
+    tipEl.innerHTML = tipHtml;
+    tipEl.style.display = 'block';
+  }
 }
 
 function loadPersonalColorCS() {

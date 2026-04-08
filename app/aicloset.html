@@ -3896,6 +3896,8 @@ async function updateVTO(opts={}){
         categoryKeywords: S.categoryKeywords || {},
         seed:S.seed,
         isRetry: S.isRetry || false,
+        // [2026-04-08] Phase 2: 퍼스널컬러 전달 (12서브타입 대응)
+        personalColor: (function(){try{var k='cb_personal_color_'+(user?.email||'');var r=localStorage.getItem(k);return r?JSON.parse(r):null;}catch(_){return null;}}()),
         faceImage: faceDataUrl || null,
         size:'1024x1536',
         quality:'low'
