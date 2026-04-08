@@ -143,51 +143,74 @@ header h1{font-size:17px;font-weight:800;}
   </div>
 </div>
 
-<!-- 퍼스널 컬러 정보 -->
-<p class="section-title" style="margin:0 16px 4px;padding:0 4px;" id="pcSectionTitle">퍼스널 컬러 <span style="color:#0B666A;font-size:10px;" id="pcSectionSub">(AI 피부톤 분석)</span></p>
-<div class="section" id="pcSection" style="margin:0 16px 12px;">
-  <div id="pcLoading" style="display:none;padding:14px 20px;text-align:center;">
+<!-- [2026-04-08] 퍼스널 컬러 — 에디토리얼 디자인 -->
+<div style="margin:0 16px 16px;">
+
+  <!-- 로딩 -->
+  <div id="pcLoading" style="display:none;padding:20px;text-align:center;background:#fff;border-radius:20px;box-shadow:0 1px 8px rgba(0,0,0,0.05);">
     <span style="font-size:12px;color:#888;">퍼스널컬러 분석 중…</span>
     <div style="height:3px;background:#f0f0f0;border-radius:2px;margin:8px 0;overflow:hidden;">
-      <div id="pcProgress" style="height:100%;background:linear-gradient(90deg,#0B666A,#35A29F);width:0%;transition:width .4s;border-radius:2px;"></div>
+      <div id="pcProgress" style="height:100%;background:linear-gradient(90deg,#30657b,#35A29F);width:0%;transition:width .4s;border-radius:2px;"></div>
     </div>
   </div>
-  <div id="pcResult" style="display:none;padding:14px 20px;">
-    <!-- 시즌 + 언더톤 -->
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-      <div id="pcSeasonDot" style="width:14px;height:14px;border-radius:50%;background:#97FEED;flex-shrink:0;"></div>
-      <div>
-        <div id="pcSeason" style="font-size:14px;font-weight:800;color:#111;"></div>
-        <div id="pcUndertone" style="font-size:11px;color:#888;margin-top:1px;"></div>
-      </div>
-    </div>
-    <!-- 어울리는 컬러 팔레트 -->
-    <div style="margin-bottom:8px;">
-      <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.05em;margin-bottom:6px;">잘 어울리는 컬러</div>
-      <div id="pcBestColors" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
-    </div>
-    <!-- 피해야 할 컬러 -->
-    <div style="margin-bottom:10px;">
-      <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:.05em;margin-bottom:6px;">피해야 할 컬러</div>
-      <div id="pcAvoidColors" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
-    </div>
-    <!-- 스타일 팁 -->
-    <div id="pcTip" style="font-size:11.5px;color:#555;line-height:1.6;background:#f8faff;border-radius:8px;padding:8px 12px;"></div>
 
-  </div>
-  <div id="pcEmpty" style="padding:14px 20px 6px;text-align:center;">
-    <div id="pcEmptyMsg" style="font-size:12px;color:#aaa;margin-bottom:8px;">프로필 사진을 선택한 후 분석을 시작하세요</div>
-    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:0;">
-      <span style="width:12px;height:12px;border-radius:50%;background:#FFB347;"></span>
-      <span style="width:12px;height:12px;border-radius:50%;background:#87CEEB;"></span>
-      <span style="width:12px;height:12px;border-radius:50%;background:#CD853F;"></span>
-      <span style="width:12px;height:12px;border-radius:50%;background:#B0C4DE;"></span>
+  <!-- 분석 결과 -->
+  <div id="pcResult" style="display:none;">
+
+    <!-- 시즌 + 언더톤 타이틀 카드 -->
+    <div style="position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(176,228,254,0.3),transparent);padding:24px;border-radius:20px;border:1px solid rgba(176,228,254,0.2);margin-bottom:16px;">
+      <div style="position:relative;z-index:1;">
+        <p style="font-size:10px;font-weight:700;color:#665881;text-transform:uppercase;letter-spacing:0.2em;margin-bottom:12px;">AI Skin Tone Analysis</p>
+        <div style="display:flex;align-items:flex-end;gap:8px;">
+          <div id="pcSeasonDot" style="display:none;"></div>
+          <span id="pcSeason" style="font-size:32px;font-weight:800;color:#2c3338;line-height:1;"></span>
+        </div>
+        <div id="pcUndertone" style="margin-top:8px;display:flex;gap:6px;font-size:11px;color:#30657b;"></div>
+      </div>
+      <div style="position:absolute;top:-12px;right:-12px;width:96px;height:96px;background:rgba(176,228,254,0.15);border-radius:50%;filter:blur(24px);"></div>
+      <span class="material-symbols-outlined" style="position:absolute;top:20px;right:20px;font-size:48px;color:rgba(48,101,123,0.06);">auto_awesome</span>
+    </div>
+
+    <!-- 어울리는 컬러 팔레트 -->
+    <div style="background:#fff;border-radius:20px;padding:24px;box-shadow:0 4px 16px rgba(44,51,56,0.04);border:1px solid #e3e9ee;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <p style="font-size:11px;font-weight:800;color:#596065;text-transform:uppercase;letter-spacing:0.2em;">추천 컬러 팔레트</p>
+        <span style="font-size:10px;color:#acb3b9;">AI 큐레이션</span>
+      </div>
+      <div id="pcBestColors" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;"></div>
+    </div>
+
+    <!-- 피해야 할 컬러 -->
+    <div style="background:rgba(240,244,248,0.5);border-radius:20px;padding:24px;border:1px dashed rgba(172,179,185,0.3);margin-bottom:16px;">
+      <p style="font-size:11px;font-weight:800;color:#596065;text-transform:uppercase;letter-spacing:0.2em;margin-bottom:16px;">피해야 할 컬러</p>
+      <div id="pcAvoidColors" style="display:flex;gap:16px;"></div>
+    </div>
+
+    <!-- 스타일 팁 -->
+    <div style="position:relative;background:#fff;border-radius:20px;padding:20px;border-left:6px solid #30657b;box-shadow:0 1px 4px rgba(0,0,0,0.04);overflow:hidden;margin-bottom:16px;">
+      <div style="display:flex;gap:12px;align-items:flex-start;position:relative;z-index:1;">
+        <span class="material-symbols-outlined" style="color:#30657b;font-size:20px;margin-top:2px;">tips_and_updates</span>
+        <div id="pcTip" style="font-size:13px;line-height:1.8;color:#2c3338;font-weight:500;"></div>
+      </div>
+      <span class="material-symbols-outlined" style="position:absolute;bottom:-8px;right:-8px;font-size:64px;color:rgba(48,101,123,0.04);">format_quote</span>
     </div>
   </div>
-  <!-- 퍼스널컬러 분석 버튼 (항상 표시, 상태에 따라 텍스트 변경) -->
-  <div style="padding:10px 16px 14px;">
+
+  <!-- 미분석 상태 -->
+  <div id="pcEmpty" style="padding:20px;text-align:center;background:#fff;border-radius:20px;box-shadow:0 1px 8px rgba(0,0,0,0.05);">
+    <div id="pcEmptyMsg" style="font-size:12px;color:#aaa;margin-bottom:10px;">프로필 사진을 선택한 후 분석을 시작하세요</div>
+    <div style="display:flex;gap:6px;justify-content:center;">
+      <span style="width:14px;height:14px;border-radius:50%;background:#FFB347;"></span>
+      <span style="width:14px;height:14px;border-radius:50%;background:#87CEEB;"></span>
+      <span style="width:14px;height:14px;border-radius:50%;background:#CD853F;"></span>
+      <span style="width:14px;height:14px;border-radius:50%;background:#B0C4DE;"></span>
+    </div>
+  </div>
+
+  <!-- 분석 버튼 -->
+  <div style="padding:12px 0;">
     <button id="pcAnalyzeBtn" onclick="startPersonalColorAnalysis()" disabled
-      style="width:100%;padding:10px;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:#e0e0e0;color:#aaa;transition:all .2s;">
+      style="width:100%;padding:14px;border:none;border-radius:14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#30657b,#35A29F);color:#fff;opacity:0.4;transition:all .2s;box-shadow:0 4px 16px rgba(48,101,123,0.2);">
       <span id="pcBtnText">🎨 퍼스널컬러 분석</span>
     </button>
   </div>
@@ -253,9 +276,9 @@ header h1{font-size:17px;font-weight:800;}
 <!-- 풋바 -->
 <nav class="cb-nav">
   <div class="cb-nav-inner">
-    <a href="closet.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">내옷장</span></a>
+    <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디쌤</span></a>
     <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
-    <a href="camera.html" class="cb-nav-tab"><span class="ni">add_circle</span><span class="nl">ITEM등록</span></a>
+    <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
     <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">코디하기</span></a>
     <a href="mypage.html" class="cb-nav-tab on"><span class="ni">person</span><span class="nl">MY</span></a>
   </div>
@@ -492,9 +515,10 @@ function renderPersonalColor(pc) {
 
   const undertone = document.getElementById('pcUndertone');
   if(undertone){
-    const _ut = _isEn ? (pc.undertone==='웜톤'?'Warm tone':pc.undertone==='쿨톤'?'Cool tone':pc.undertone) : pc.undertone;
-    const _st = pc.skin_tone ? (_isEn ? ' · '+pc.skin_tone+' skin':' · '+pc.skin_tone+' 피부') : '';
-    undertone.textContent = (_ut||'') + _st;
+    const _ut = _isEn ? (pc.undertone==='웜톤'?'Warm Tone':pc.undertone==='쿨톤'?'Cool Tone':pc.undertone) : pc.undertone;
+    const _st = pc.skin_tone ? (_isEn ? pc.skin_tone+' Skin':pc.skin_tone+' 피부') : '';
+    undertone.innerHTML = '<span style="padding:4px 10px;background:rgba(255,255,255,0.6);border-radius:20px;font-weight:700;">'+(_ut||'')+'</span>' +
+      (_st ? '<span style="padding:4px 10px;background:rgba(255,255,255,0.6);border-radius:20px;font-weight:700;">'+_st+'</span>' : '');
   }
 
   // 어울리는 컬러
@@ -502,10 +526,10 @@ function renderPersonalColor(pc) {
   if(bestWrap && pc.best_colors) {
     bestWrap.innerHTML = pc.best_colors.map((hex, i) => {
       const name = (pc.best_color_names && pc.best_color_names[i]) || hex;
-      return `<div title="${name}" style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-        <div style="width:28px;height:28px;border-radius:50%;background:${hex};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.12);"></div>
-        <span style="font-size:9px;color:#888;">${name.length>4?name.slice(0,4)+'…':name}</span>
-      </div>`;
+      return '<div style="text-align:center;">' +
+        '<div style="aspect-ratio:1;border-radius:14px;background:'+hex+';box-shadow:inset 0 0 0 1px rgba(0,0,0,0.05);margin-bottom:6px;"></div>' +
+        '<p style="font-size:10px;font-weight:700;color:#2c3338;letter-spacing:.03em;">'+name.toUpperCase()+'</p>' +
+        '<p style="font-size:9px;color:#acb3b9;">'+hex+'</p></div>';
     }).join('');
   }
 
@@ -514,10 +538,10 @@ function renderPersonalColor(pc) {
   if(avoidWrap && pc.avoid_colors) {
     avoidWrap.innerHTML = pc.avoid_colors.map((hex, i) => {
       const name = (pc.avoid_color_names && pc.avoid_color_names[i]) || hex;
-      return `<div title="${name}" style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-        <div style="width:28px;height:28px;border-radius:50%;background:${hex};border:2px solid #fee;box-shadow:0 1px 4px rgba(0,0,0,.12);opacity:.7;"></div>
-        <span style="font-size:9px;color:#bbb;">${name.length>4?name.slice(0,4)+'…':name}</span>
-      </div>`;
+      return '<div style="flex:1;text-align:center;">' +
+        '<div style="width:100%;aspect-ratio:16/9;border-radius:12px;background:'+hex+';position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.05);">' +
+        '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.08);"><span class=\'material-symbols-outlined\' style=\'color:rgba(255,255,255,0.7);font-size:20px;\'>close</span></div></div>' +
+        '<span style="font-size:10px;font-weight:700;color:#acb3b9;text-transform:uppercase;letter-spacing:.05em;margin-top:8px;display:block;">'+name+'</span></div>';
     }).join('');
   }
 
