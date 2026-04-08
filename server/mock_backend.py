@@ -220,6 +220,12 @@ def _get_r2():
     if _R2_CLIENT is not None:
         return _R2_CLIENT
     ep  = os.getenv("R2_ENDPOINT", "")
+    # [2026-04-08] R2_ENDPOINT가 없으면 R2_ACCOUNT_ID로 자동 구성
+    if not ep:
+        acct = os.getenv("R2_ACCOUNT_ID", "")
+        if acct:
+            ep = f"https://{acct}.r2.cloudflarestorage.com"
+            print(f"[R2] R2_ENDPOINT 미설정 → R2_ACCOUNT_ID로 자동 구성: {ep}")
     ak  = os.getenv("R2_ACCESS_KEY_ID", "")
     sk  = os.getenv("R2_SECRET_ACCESS_KEY", "")
     if not (ep and ak and sk):
@@ -1116,6 +1122,7 @@ def health():
         rembg_ready=bool(os.getenv("REMBG_API_URL", "")),  # HF Space URL 설정 여부
         r2_ready=(_get_r2() is not None),
         r2_pub_url=bool(_R2_PUB_URL),
+        r2_endpoint=bool(os.getenv("R2_ENDPOINT","") or os.getenv("R2_ACCOUNT_ID","")),
         lykdat_ready=bool(_LYKDAT_KEY),
         fashion_model_ready=(_fashion_model is not None),
         gemini_ready=bool(_GEMINI_KEY),
@@ -2709,7 +2716,7 @@ def admin_stats():
     try:
         import boto3
         s3 = boto3.client('s3',
-            endpoint_url=os.environ.get('R2_ENDPOINT',''),
+            endpoint_url=os.environ.get('R2_ENDPOINT','') or (('https://'+os.environ.get('R2_ACCOUNT_ID','')+'.r2.cloudflarestorage.com') if os.environ.get('R2_ACCOUNT_ID','') else ''),
             aws_access_key_id=os.environ.get('R2_ACCESS_KEY_ID',''),
             aws_secret_access_key=os.environ.get('R2_SECRET_ACCESS_KEY',''))
         bucket = os.environ.get('R2_BUCKET_NAME','codibank')
