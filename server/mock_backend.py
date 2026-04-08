@@ -40,6 +40,26 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+# [2026-04-08] Phase 2 모듈
+try:
+    from face_skin_analyzer import analyze_skin_tone, build_enhanced_prompt
+    _HAS_SKIN_ANALYZER = True
+    print("[Phase2] face_skin_analyzer loaded")
+except ImportError:
+    _HAS_SKIN_ANALYZER = False
+
+try:
+    from pc_prompt_helper import _build_pc_prompt_block
+    print("[Phase2] pc_prompt_helper loaded")
+except ImportError:
+    def _build_pc_prompt_block(pc, mode="styling"):
+        if not pc or not pc.get("season"): return ""
+        s = pc.get("season",""); u = pc.get("undertone","")
+        bc = ", ".join((pc.get("best_colors") or [])[:3])
+        ac = ", ".join((pc.get("avoid_colors") or [])[:2])
+        return " Personal color: " + s + " (" + u + "). Best: " + bc + ". Avoid: " + ac + "."
+
+
 # OpenAI 공식 SDK
 from openai import OpenAI
 
@@ -1299,9 +1319,9 @@ def _ai_styling_via_gemini(
     gender_en = "woman" if gender == "F" else "man"
     gender_ko = "여성" if gender == "F" else "남성"
 
-    # 퍼스널컬러 프롬프트 블록
-    _pc_text = ""
-    if personal_color:
+    # [2026-04-08] Phase 2 퍼스널컬러 (12서브타입 대응)
+    _pc_text = _build_pc_prompt_block(personal_color, mode="styling")
+    if not _pc_text and personal_color:
         _pc_s = personal_color.get("season","")
         _pc_u = personal_color.get("undertone","")
         _pc_best  = ", ".join((personal_color.get("best_colors") or [])[:3])
@@ -1941,24 +1961,9 @@ def codistyle_generate():
     top_category_key    = _top_cat
     bottom_category_key = _bot_cat
 
-    # ── 퍼스널컬러 프롬프트 블록 ──
-    _pc_text = ""
+    # [2026-04-08] Phase 2 퍼스널컬러 (12서브타입 대응)
     personal_color = payload.get("personalColor") or None
-    if personal_color:
-        _pc_s = personal_color.get("season", "")
-        _pc_u = personal_color.get("undertone", "")
-        _pc_best  = ", ".join((personal_color.get("best_colors") or [])[:3])
-        _pc_avoid = ", ".join((personal_color.get("avoid_colors") or [])[:2])
-        if _pc_s:
-            _pc_text = (
-                f" ⭐ PERSONAL COLOR PROFILE: {_pc_s} ({_pc_u})."
-                f" Best harmony colors: {_pc_best}."
-                f" Colors to avoid: {_pc_avoid}."
-                " The styling assistant MUST evaluate whether the provided garments harmonize with this personal color."
-                " Include a STYLING SCORE (0-100) in your text response with breakdown:"
-                " color_harmony/30, garment_match/30, personal_color_fit/20, overall_style/20."
-                " Example: STYLING SCORE: 82/100 (color_harmony:25, garment_match:27, personal_color_fit:16, overall_style:14)"
-            )
+    _pc_text = _build_pc_prompt_block(personal_color, mode="codistyle")
 
     # ── 이미지 로드 → bytes ──
     def _to_bytes(data_url_val, path_val=None):
@@ -3019,88 +3024,69 @@ def ai_match_wardrobe():
 
 @app.post("/api/ai/personal-color")
 def ai_personal_color():
-    """
-    얼굴 사진에서 퍼스널컬러 분석:
-    GPT-4o Vision → 계절 타입 + 어울리는 컬러 팔레트
-    """
+    """[2026-04-08] Phase 2: 피부톤 수치 분석 + GPT-4o 12서브타입"""
     try:
         d = request.get_json(force=True) or {}
-        image_data = d.get("image")  # base64 dataURL
-
+        image_data = d.get("image")
         if not image_data:
             return jsonify(ok=False, error="이미지 없음"), 400
 
-        # base64 디코딩
-        import base64
+        import base64 as _b64m
         if "," in image_data:
             header, b64 = image_data.split(",", 1)
             img_mime = "image/png" if "png" in header else "image/jpeg"
         else:
-            b64 = image_data
-            img_mime = "image/jpeg"
-        img_bytes = base64.b64decode(b64)
+            b64 = image_data; img_mime = "image/jpeg"
+        img_bytes = _b64m.b64decode(b64)
 
-        PROMPT = """당신은 전문 퍼스널컬러 컨설턴트입니다.
-이 사람의 사진을 보고 퍼스널컬러를 분석하세요.
-아래 JSON 형식으로만 응답하세요. JSON 외 다른 텍스트는 절대 포함하지 마세요.
+        # Phase 2: 피부톤 수치 분석
+        skin_metrics = None
+        enhanced_prompt = None
+        if _HAS_SKIN_ANALYZER:
+            try:
+                skin_metrics = analyze_skin_tone(img_bytes)
+                if skin_metrics.get("ok"):
+                    enhanced_prompt = build_enhanced_prompt(skin_metrics)
+                    print("[Phase2] skin: L*=" + str(skin_metrics["lab"]["L"]) + " ITA=" + str(skin_metrics["ita"]))
+            except Exception as _e:
+                print("[Phase2] error: " + str(_e))
 
-{
-  "season": "봄웜 | 여름쿨 | 가을웜 | 겨울쿨 중 하나",
-  "season_en": "Spring Warm | Summer Cool | Autumn Warm | Winter Cool 중 하나",
-  "undertone": "웜톤 | 쿨톤 중 하나",
-  "skin_tone": "밝은 | 중간 | 어두운 중 하나",
-  "best_colors": ["#HEX1", "#HEX2", "#HEX3", "#HEX4", "#HEX5"],
-  "best_color_names": ["색상명1(한국어)", "색상명2", "색상명3", "색상명4", "색상명5"],
-  "avoid_colors": ["#HEX1", "#HEX2"],
-  "avoid_color_names": ["피할색1(한국어)", "피할색2"],
-  "summary": "퍼스널컬러 한줄 요약 (예: 겨울쿨톤 - 선명하고 차가운 컬러가 잘 어울려요)",
-  "style_tip": "이 계절 타입에게 어울리는 패션 스타일 팁 1~2문장 (한국어)"
-}
+        PROMPT = enhanced_prompt or _PC_FALLBACK_PROMPT
 
-분석 기준:
-- 피부 언더톤(웜/쿨), 피부 밝기, 머리카락·눈동자 색상 종합 판단
-- 사진 조명 보정 후 자연스러운 피부톤 추정
-- 반드시 유효한 JSON만 반환"""
-
-        # GPT-4o Vision 호출
         _openai_key = os.environ.get("OPENAI_API_KEY", "")
         if not _openai_key:
-            # Gemini 폴백
             return _personal_color_gemini(img_bytes, img_mime, PROMPT)
 
         from openai import OpenAI as _OAI
         client = _OAI(api_key=_openai_key)
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "image_url", "image_url": {
-                        "url": f"data:{img_mime};base64,{b64}",
-                        "detail": "high"
-                    }},
-                    {"type": "text", "text": PROMPT}
-                ]
-            }],
-            max_tokens=800,
-            temperature=0.1
+            messages=[{"role":"user","content":[
+                {"type":"image_url","image_url":{"url":"data:"+img_mime+";base64,"+b64,"detail":"high"}},
+                {"type":"text","text":PROMPT}
+            ]}],
+            max_tokens=1200, temperature=0.1
         )
         result_text = resp.choices[0].message.content.strip()
+        import json as _jm, re as _rem
+        result_text = _rem.sub(r"```json\s*","",result_text)
+        result_text = _rem.sub(r"```\s*","",result_text).strip()
+        try: pc = _jm.loads(result_text)
+        except _jm.JSONDecodeError:
+            m = _rem.search(r"\{.*\}", result_text, _rem.DOTALL)
+            pc = _jm.loads(m.group()) if m else {}
 
-        import json, re as _re
-        result_text = _re.sub(r"```json\s*", "", result_text)
-        result_text = _re.sub(r"```\s*", "", result_text).strip()
-        try:
-            pc = json.loads(result_text)
-        except json.JSONDecodeError:
-            m = _re.search(r"\{.*\}", result_text, _re.DOTALL)
-            pc = json.loads(m.group()) if m else {}
-
-        return jsonify(ok=True, personal_color=pc)
-
+        resp_data = {"ok":True, "personal_color":pc, "phase": 2 if (skin_metrics and skin_metrics.get("ok")) else 1}
+        if skin_metrics and skin_metrics.get("ok"):
+            resp_data["skin_metrics"] = {"lab":skin_metrics["lab"],"ita":skin_metrics["ita"],"confidence":skin_metrics["confidence"]}
+        return jsonify(resp_data)
     except Exception as e:
         import traceback
         return jsonify(ok=False, error=str(e), trace=traceback.format_exc()[-300:]), 500
+
+_PC_FALLBACK_PROMPT = """당신은 전문 퍼스널컬러 컨설턴트입니다. 사진을 보고 퍼스널컬러를 분석하세요. JSON만 응답.
+{"season":"봄웜|여름쿨|가을웜|겨울쿨","season_en":"영어","undertone":"웜톤|쿨톤","skin_tone":"밝은|중간|어두운","best_colors":["#HEX"x5],"best_color_names":["이름"x5],"avoid_colors":["#HEX"x3],"avoid_color_names":["이름"x3],"summary":"한줄요약","style_tip":"스타일팁 한국어"}
+피부 언더톤, 밝기, 머리카락·눈동자 색상 종합 판단. 유효한 JSON만 반환."""
 
 
 def _personal_color_gemini(img_bytes, img_mime, prompt):
