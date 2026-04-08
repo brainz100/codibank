@@ -1094,8 +1094,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     </div>
   </section>
 
-  <!-- [2026-04-07] 모바일옷장 → aicloset.html로 이동, 코디쌤에서는 숨김 -->
-  <div id="mobileClosetSection" style="display:none;">
+  <!-- 내 모바일 옷장 (다크 m_closet_0308) -->
   <section class="px-0 mt-8">
     <div class="pt-2">
 
@@ -1132,7 +1131,6 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       </div>
     </div>
   </section>
-  </div><!-- /mobileClosetSection -->
 </main>
 
 <!-- CodiBank 공통 풋바 -->
@@ -4077,9 +4075,12 @@ async function updateVTO(opts={}){
             try{ ref = await CodiBank.saveImage(canvas.toDataURL('image/png')); }catch(_e){}
           }
         }
-        // /uploads/ 상대경로 → 절대URL로 변환 (album.html이 origin에 관계없이 로드 가능)
+        // [2026-04-08 수정] /uploads/ 상대경로 → 백엔드 절대URL로 변환
+        // 이전: window.location.origin(프론트=codibank.kr) → 이미지 404
+        // 수정: backendBase(Render=codibank-api.onrender.com) → R2에서 정상 서빙
         if(ref && ref.startsWith('/uploads/')){
-          ref = window.location.origin + ref;
+          var _bb = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || 'https://codibank-api.onrender.com';
+          ref = _bb + ref;
         }
         if(ref){
           const dateKey = getSelectedDateKey();

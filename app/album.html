@@ -310,7 +310,22 @@ async function resolveImg(ref) {
   if (!ref) return '';
   const r = String(ref);
   // 완전한 URL이면 그대로 사용
-  if (r.startsWith('data:') || r.startsWith('blob:') || r.startsWith('http')) return r;
+  if (r.startsWith('data:') || r.startsWith('blob:')) return r;
+  // [2026-04-08 수정] 프론트엔드 URL(codibank.kr/uploads/)로 잘못 저장된 기존 데이터 자동 복구
+  if (r.startsWith('http')) {
+    try {
+      const u = new URL(r);
+      if (u.pathname.startsWith('/uploads/')) {
+        const bb = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || 'https://codibank-api.onrender.com';
+        const bbHost = new URL(bb).host;
+        if (u.host !== bbHost) {
+          // 프론트엔드 호스트의 /uploads/ → 백엔드로 리다이렉트
+          return bb + u.pathname;
+        }
+      }
+    } catch(_) {}
+    return r;
+  }
   // /uploads/ 상대경로 → 백엔드(Render) 절대 URL로 변환
   if (r.startsWith('/uploads/')) {
     const backendBase = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase)
