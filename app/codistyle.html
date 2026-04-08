@@ -247,6 +247,31 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 .sb.cam:active{background:var(--mint)}
 .sb.gal{background:rgba(53,162,159,0.15);color:var(--teal-light);border:1px solid rgba(53,162,159,0.3)}
 .sb.lnk{background:rgba(255,255,255,.04);color:rgba(255,255,255,.28);border:1px dashed rgba(255,255,255,.1);cursor:not-allowed}
+
+/* [2026-04-08] Ai옷장 카드덱 스타일 */
+.cs-deck-wrap{position:relative;display:flex;justify-content:center;align-items:center;height:140px;overflow:visible;padding:0 10px;}
+.cs-deck-item{flex-shrink:0;width:72px;aspect-ratio:1/1.5;border-radius:10px;overflow:hidden;background:rgba(26,46,68,.8);border:1px solid rgba(151,254,237,.1);transition:all .25s;cursor:pointer;position:relative;}
+.cs-deck-item img{width:100%;height:100%;object-fit:cover;}
+.cs-deck-side{transform:scale(0.7);margin:0 -22px;z-index:1;opacity:0.7;}
+.cs-deck-center{transform:scale(1);z-index:10;border:2px solid #97FEED;box-shadow:0 8px 24px rgba(151,254,237,.15);}
+.cs-deck-center .cs-deck-check{display:block;}
+.cs-deck-check{display:none;position:absolute;top:3px;right:3px;}
+.cs-preview-box{position:relative;aspect-ratio:1/1.2;border-radius:16px;overflow:hidden;background:rgba(26,46,68,.6);border:1px solid rgba(151,254,237,.15);margin-bottom:10px;}
+.cs-preview-box img{width:100%;height:100%;object-fit:cover;}
+.cs-preview-badge{position:absolute;bottom:12px;left:12px;background:rgba(151,254,237,.15);backdrop-filter:blur(8px);color:#97FEED;border:1px solid rgba(151,254,237,.25);padding:4px 12px;border-radius:20px;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;}
+.cs-preview-close{position:absolute;top:10px;right:10px;width:32px;height:32px;border-radius:50%;background:rgba(7,25,82,.5);backdrop-filter:blur(8px);border:none;color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.cs-section-hdr{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:8px;}
+.cs-section-title{font-size:18px;font-weight:800;color:#97FEED;display:flex;align-items:center;gap:6px;}
+.cs-section-sub{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.25);}
+.cs-actions{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+.cs-act-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:inherit;transition:all .15s;width:100%;}
+.cs-act-cam{background:linear-gradient(135deg,#13bbaf,#4cdbce);color:#071952;}
+.cs-act-gal{background:rgba(26,46,68,.8);color:rgba(255,255,255,.8);border:1px solid rgba(151,254,237,.15);}
+.cs-act-closet{background:rgba(53,162,159,.12);color:#97FEED;border:1px solid rgba(151,254,237,.25);}
+.cs-act-del{background:transparent;color:rgba(255,150,150,.4);font-size:11px;padding:8px;}
+.cs-swipe-hint{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:rgba(151,254,237,.3);text-align:center;margin-bottom:6px;}
+.cs-empty-deck{height:100px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(255,255,255,.03);border:1px dashed rgba(151,254,237,.12);color:rgba(255,255,255,.2);font-size:11px;text-align:center;line-height:1.6;}
+
 .face-section{margin:0 16px 0;padding:14px 16px;background:rgba(11,102,106,0.13);border:1px solid rgba(151,254,237,0.15);border-radius:16px;display:flex;align-items:center;gap:14px}
 .face-circle{width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;background:rgba(53,162,159,0.15);border:2px solid rgba(53,162,159,0.35);display:flex;align-items:center;justify-content:center;cursor:pointer}
 .face-circle img{width:100%;height:100%;object-fit:cover;display:block}
@@ -345,37 +370,53 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 
 <div class="guide-banner" style="display:none;"></div>
 
-<div class="slots-wrap">
-  <section class="slot-section">
-    <div class="slot-label"><span class="mi">checkroom</span>상의 <span class="badge badge-req">필수</span></div>
-    <div class="slot-row">
-      <div class="img-slot" id="slot-top" onclick="pickFile('top')">
-        <div class="ph"><span class="mi">add_photo_alternate</span><p>상의 이미지</p></div>
+<div class="slots-wrap" style="padding:0 16px;">
+
+  <!-- ═══ 상의 섹션 ═══ -->
+  <section style="margin-bottom:20px;">
+    <div class="cs-section-hdr">
+      <div class="cs-section-title"><span class="material-symbols-outlined" style="color:#97FEED;">checkroom</span>상의</div>
+      <span class="cs-section-sub">Tops Category</span>
+    </div>
+    <div class="cs-swipe-hint">← SWIPE →</div>
+    <div id="topDeck" class="cs-deck-wrap"></div>
+    <div class="cs-preview-box" id="slot-top" onclick="pickFile('top')">
+      <div id="topPreviewContent" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+        <div style="text-align:center;color:rgba(255,255,255,.15);"><span class="material-symbols-outlined" style="font-size:36px;">add_photo_alternate</span><p style="font-size:11px;margin-top:4px;">상의를 선택하세요</p></div>
       </div>
-      <div class="side-actions">
-        <button class="sb cam" onclick="pickCamera('top')"><span class="mi">photo_camera</span>사진촬영</button>
-        <button class="sb gal" onclick="pickFile('top')"><span class="mi">photo_library</span>사진선택</button>
-        <button class="sb" onclick="openClosetPicker('top')" style="background:rgba(53,162,159,.12);color:#97FEED;border:1px solid rgba(151,254,237,.25);"><span class="mi">checkroom</span>내 옷장</button>
-        <button class="sb" id="del-top" style="display:none;background:rgba(239,68,68,.08);color:rgba(252,165,165,.65);border:1px solid rgba(239,68,68,.15);" onclick="clearSlot('top')"><span class="mi">delete_outline</span>상의삭제</button>
-      </div>
+    </div>
+    <div class="cs-actions">
+      <button class="cs-act-btn cs-act-cam" onclick="pickCamera('top')"><span class="material-symbols-outlined" style="font-size:18px;">photo_camera</span>사진촬영</button>
+      <button class="cs-act-btn cs-act-gal" onclick="pickFile('top')"><span class="material-symbols-outlined" style="font-size:18px;">image</span>사진선택</button>
+      <button class="cs-act-btn cs-act-closet" onclick="openClosetPicker('top')"><span class="material-symbols-outlined" style="font-size:18px;">checkroom</span>내 옷장에서 선택</button>
+      <button class="cs-act-btn cs-act-del" id="del-top" style="display:none;" onclick="clearSlot('top')"><span class="material-symbols-outlined" style="font-size:16px;">delete</span>삭제하기</button>
     </div>
     <div class="slot-status" id="st-top"></div>
     <input type="file" id="file-top" accept="image/*" style="display:none" onchange="onFile(event,'top')">
     <input type="file" id="cam-top" accept="image/*" capture="environment" style="display:none" onchange="onFile(event,'top')">
   </section>
 
-  <section class="slot-section">
-    <div class="slot-label"><span class="mi">straighten</span>하의 <span class="badge badge-req">필수</span></div>
-    <div class="slot-row">
-      <div class="img-slot" id="slot-bottom" onclick="pickFile('bottom')">
-        <div class="ph"><span class="mi">add_photo_alternate</span><p>하의 이미지</p></div>
+  <!-- 구분선 -->
+  <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(151,254,237,.1),transparent);margin:16px 0;"></div>
+
+  <!-- ═══ 하의 섹션 ═══ -->
+  <section style="margin-bottom:16px;">
+    <div class="cs-section-hdr">
+      <div class="cs-section-title"><span class="material-symbols-outlined" style="color:#97FEED;">apparel</span>하의</div>
+      <span class="cs-section-sub">Bottoms Category</span>
+    </div>
+    <div class="cs-swipe-hint">← SWIPE →</div>
+    <div id="botDeck" class="cs-deck-wrap"></div>
+    <div class="cs-preview-box" id="slot-bottom" onclick="pickFile('bottom')">
+      <div id="botPreviewContent" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+        <div style="text-align:center;color:rgba(255,255,255,.15);"><span class="material-symbols-outlined" style="font-size:36px;">add_photo_alternate</span><p style="font-size:11px;margin-top:4px;">하의를 선택하세요</p></div>
       </div>
-      <div class="side-actions">
-        <button class="sb cam" onclick="pickCamera('bottom')"><span class="mi">photo_camera</span>사진촬영</button>
-        <button class="sb gal" onclick="pickFile('bottom')"><span class="mi">photo_library</span>사진선택</button>
-        <button class="sb" onclick="openClosetPicker('bottom')" style="background:rgba(53,162,159,.12);color:#97FEED;border:1px solid rgba(151,254,237,.25);"><span class="mi">checkroom</span>내 옷장</button>
-        <button class="sb" id="del-bottom" style="display:none;background:rgba(239,68,68,.08);color:rgba(252,165,165,.65);border:1px solid rgba(239,68,68,.15);" onclick="clearSlot('bottom')"><span class="mi">delete_outline</span>하의삭제</button>
-      </div>
+    </div>
+    <div class="cs-actions">
+      <button class="cs-act-btn cs-act-cam" onclick="pickCamera('bottom')"><span class="material-symbols-outlined" style="font-size:18px;">photo_camera</span>사진촬영</button>
+      <button class="cs-act-btn cs-act-gal" onclick="pickFile('bottom')"><span class="material-symbols-outlined" style="font-size:18px;">image</span>사진선택</button>
+      <button class="cs-act-btn cs-act-closet" onclick="openClosetPicker('bottom')"><span class="material-symbols-outlined" style="font-size:18px;">checkroom</span>내 옷장에서 선택</button>
+      <button class="cs-act-btn cs-act-del" id="del-bottom" style="display:none;" onclick="clearSlot('bottom')"><span class="material-symbols-outlined" style="font-size:16px;">delete</span>삭제하기</button>
     </div>
     <div class="slot-status" id="st-bottom"></div>
     <input type="file" id="file-bottom" accept="image/*" style="display:none" onchange="onFile(event,'bottom')">
@@ -1971,6 +2012,159 @@ async function uploadSlotImage(slotType, dataUrl) {
     console.warn('[옷장선택] 업로드 실패:', e);
   }
 }
+
+
+// ═══ [2026-04-08] Ai 옷장 카드덱 (상의/하의) ═══
+var _topDeckItems = [];
+var _botDeckItems = [];
+var _topDeckIdx = 0;
+var _botDeckIdx = 0;
+
+function loadClosetDeck() {
+  if(!window.CodiBank || !user) return;
+  var topKeys = ['coat','jacket','outer','padding','cardigan','top','shirt','knit','tshirt','blouse'];
+  var botKeys = ['pants','skirt','slacks','jeans'];
+  _topDeckItems = [];
+  _botDeckItems = [];
+  
+  var cats = CodiBank.getCategoriesForUser(user.email) || [];
+  cats.forEach(function(c) {
+    var items = CodiBank.getItemsByUserAndCategory(user.email, c.key) || [];
+    items.forEach(function(item) {
+      if(item.images && (item.images.front || item.images.brand)) {
+        var entry = {id:item.id, catKey:c.key, catLabel:c.label, item:item, imgRef:item.images.front||item.images.brand||item.images.back||''};
+        if(topKeys.indexOf(c.key) >= 0) _topDeckItems.push(entry);
+        if(botKeys.indexOf(c.key) >= 0) _botDeckItems.push(entry);
+      }
+    });
+  });
+  
+  renderDeck('top', _topDeckItems, _topDeckIdx);
+  renderDeck('bottom', _botDeckItems, _botDeckIdx);
+}
+
+function renderDeck(type, items, centerIdx) {
+  var deckEl = document.getElementById(type === 'top' ? 'topDeck' : 'botDeck');
+  if(!deckEl) return;
+  
+  if(items.length === 0) {
+    deckEl.innerHTML = '<div class="cs-empty-deck" style="width:100%;">Ai 옷장에 등록된 아이템이 없습니다<br><a href="aicloset.html" style="color:#97FEED;font-size:10px;">등록하러 가기 →</a></div>';
+    return;
+  }
+  
+  deckEl.innerHTML = '';
+  var start = Math.max(0, centerIdx - 3);
+  var end = Math.min(items.length, centerIdx + 4);
+  
+  for(var i = start; i < end; i++) {
+    var entry = items[i];
+    var isCenter = (i === centerIdx);
+    var card = document.createElement('div');
+    card.className = 'cs-deck-item ' + (isCenter ? 'cs-deck-center' : 'cs-deck-side');
+    card.innerHTML = '<img id="dkImg_'+type+'_'+i+'" style="opacity:0;transition:opacity .3s;" alt="">' +
+      (isCenter ? '<span class="cs-deck-check"><span class="material-symbols-outlined" style="font-size:14px;color:#97FEED;background:#071952;border-radius:50%;padding:1px;">check_circle</span></span>' : '');
+    
+    (function(idx, ref) {
+      card.addEventListener('click', function() {
+        if(type === 'top') { _topDeckIdx = idx; renderDeck('top', _topDeckItems, idx); }
+        else { _botDeckIdx = idx; renderDeck('bottom', _botDeckItems, idx); }
+        selectDeckItem(type, items[idx]);
+      });
+      if(CodiBank.getImageSrc) {
+        CodiBank.getImageSrc(ref).then(function(src) {
+          var img = document.getElementById('dkImg_'+type+'_'+idx);
+          if(img && src) { img.onload = function(){ img.style.opacity='1'; }; img.src = src; }
+        });
+      }
+    })(i, entry.imgRef);
+    
+    deckEl.appendChild(card);
+  }
+  
+  // 스와이프(터치) 지원
+  deckEl.ontouchstart = function(e) { deckEl._sx = e.touches[0].clientX; };
+  deckEl.ontouchend = function(e) {
+    var dx = e.changedTouches[0].clientX - (deckEl._sx||0);
+    if(Math.abs(dx) < 30) return;
+    if(type === 'top') {
+      _topDeckIdx = Math.max(0, Math.min(items.length-1, _topDeckIdx + (dx < 0 ? 1 : -1)));
+      renderDeck('top', _topDeckItems, _topDeckIdx);
+    } else {
+      _botDeckIdx = Math.max(0, Math.min(items.length-1, _botDeckIdx + (dx < 0 ? 1 : -1)));
+      renderDeck('bottom', _botDeckItems, _botDeckIdx);
+    }
+  };
+}
+
+async function selectDeckItem(type, entry) {
+  if(!entry) return;
+  var previewEl = document.getElementById(type === 'top' ? 'topPreviewContent' : 'botPreviewContent');
+  var slotEl = document.getElementById('slot-' + type);
+  if(!previewEl) return;
+  
+  var src = '';
+  try { if(CodiBank.getImageSrc) src = await CodiBank.getImageSrc(entry.imgRef); } catch(_){}
+  if(!src) return;
+  
+  previewEl.innerHTML = '<img src="'+src+'" style="width:100%;height:100%;object-fit:cover;">' +
+    '<button class="cs-preview-close" data-clear-type="'+type+'"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>' +
+    '<div class="cs-preview-badge">Selected Item</div>';
+  
+  // dataURL 변환 + 업로드
+  var dataUrl = src;
+  if(!src.startsWith('data:')) {
+    try {
+      var resp = await fetch(src);
+      var blob = await resp.blob();
+      dataUrl = await new Promise(function(resolve) { var r = new FileReader(); r.onload = function(){resolve(r.result);}; r.readAsDataURL(blob); });
+    } catch(_) { dataUrl = src; }
+  }
+  
+  var img = new Image();
+  img.onload = function() {
+    ST[type].dataUrl = dataUrl;
+    ST[type].naturalWidth = img.naturalWidth;
+    ST[type].naturalHeight = img.naturalHeight;
+    ST[type].label = entry.catLabel + ' ' + (entry.item.color || '');
+    uploadSlotImage(type, dataUrl);
+    var delBtn = document.getElementById('del-'+type);
+    if(delBtn) delBtn.style.display = 'flex';
+    updateGenerateBtn();
+  };
+  img.src = src;
+}
+
+function clearSlotPreview(type) {
+  var previewEl = document.getElementById(type === 'top' ? 'topPreviewContent' : 'botPreviewContent');
+  if(previewEl) {
+    var placeholder = type === 'top' ? '상의를 선택하세요' : '하의를 선택하세요';
+    previewEl.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,.15);"><span class="material-symbols-outlined" style="font-size:36px;">add_photo_alternate</span><p style="font-size:11px;margin-top:4px;">'+placeholder+'</p></div>';
+  }
+  clearSlot(type);
+}
+
+// 기존 onFile 후에도 프리뷰 업데이트
+var _origDisplayImg = displayImg;
+if(typeof displayImg === 'function') {
+  displayImg = function(slot, src) {
+    _origDisplayImg(slot, src);
+    var previewEl = document.getElementById(slot === 'top' ? 'topPreviewContent' : 'botPreviewContent');
+    if(previewEl && src) {
+      previewEl.innerHTML = '<img src="'+src+'" style="width:100%;height:100%;object-fit:cover;">' +
+        '<button class="cs-preview-close" data-clear-type="'+slot+'"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>' +
+        '<div class="cs-preview-badge">Selected Item</div>';
+    }
+  };
+}
+
+// 프리뷰 닫기 버튼 이벤트 위임
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.cs-preview-close');
+  if(btn) { e.stopPropagation(); var t = btn.getAttribute('data-clear-type'); if(t) clearSlotPreview(t); }
+});
+
+// 페이지 로드 시 덱 초기화
+setTimeout(loadClosetDeck, 500);
 
 </script>
 </body></html>
