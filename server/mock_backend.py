@@ -2415,17 +2415,37 @@ def codistyle_generate():
     except (IndexError, AttributeError) as e:
         return jsonify(ok=False, error=f"응답 파싱 실패: {str(e)[:200]}"), 500
 
+    # [2026-04-08] FinishReason.STOP 시 1회 자동 재시도
     if not img_bytes:
         try:
             finish = response.candidates[0].finish_reason
         except Exception:
             finish = "UNKNOWN"
-        # 스타일링 스코어는 에러 메시지에서 제외
         _safe_comment = comment[:100] if comment else ""
-        import re as _re2
-        _safe_comment = _re2.sub(r'STYLING SCORE.*', '', _safe_comment).strip()
-        print(f"[codistyle] 이미지 미생성: finishReason={finish}, comment={comment[:120]}")
-        return jsonify(ok=False, error=f"착장 이미지 생성에 실패했습니다. 다시 시도해주세요. (reason={finish})"), 500
+        print(f"[codistyle] 이미지 미생성(1차): finishReason={finish}, comment={_safe_comment[:80]}")
+        
+        # 재시도 (temperature를 약간 변경하여 다른 결과 유도)
+        if str(finish) in ("STOP", "FinishReason.STOP", "1", "2") and not request.args.get("_retried"):
+            print("[codistyle] 자동 재시도 중...")
+            try:
+                if _SDK == "new":
+                    response = client.models.generate_content(
+                        model=_model_name,
+                        contents=contents_new,
+                        config=config_new,
+                    )
+                # 재시도 응답에서 이미지 추출
+                for part in response.candidates[0].content.parts:
+                    if part.inline_data and part.inline_data.data:
+                        img_bytes = part.inline_data.data
+                        break
+                if img_bytes:
+                    print("[codistyle] 재시도 성공!")
+            except Exception as _retry_e:
+                print(f"[codistyle] 재시도 실패: {_retry_e}")
+        
+        if not img_bytes:
+            return jsonify(ok=False, error=f"착장 이미지 생성에 실패했습니다. 다시 시도해주세요. (reason={finish})"), 500
 
     # img_bytes가 bytes인지 확인 (혹시 base64 문자열이면 디코딩)
     if isinstance(img_bytes, str):
