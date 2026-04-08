@@ -325,7 +325,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 #csSaveToast.show{opacity:1;}
 
 /* [2026-04-08] Ai옷장 카드덱 */
-.cdeck{display:flex;justify-content:center;align-items:center;height:190px;padding:0 4px;overflow:hidden;position:relative;}
+.cdeck{display:flex;justify-content:center;align-items:center;height:190px;padding:0 14px;overflow:visible;position:relative;}
 .cdeck-card{flex-shrink:0;width:98px;height:148px;border-radius:12px;overflow:hidden;background:#2a2e36;border:1.5px solid #888;cursor:pointer;position:relative;transition:all .25s;}
 .cdeck-card img{width:100%;height:100%;object-fit:cover;}
 .cdeck-card.side{transform:scale(.72);margin:0 -28px;opacity:1;}
@@ -361,7 +361,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 
 <div class="guide-banner" style="display:none;"></div>
 
-<div class="slots-wrap" style="padding:0 16px;">
+<div class="slots-wrap" style="padding:0 16px;overflow:visible;">
 
   <!-- ═══ 상의 ═══ -->
   <section style="margin-bottom:16px;">
@@ -680,6 +680,9 @@ if(window.CodiBank && CodiBank.onSessionReady){
     if(!codiProfile.ageGroup && user.ageGroup) codiProfile.ageGroup = _aMap(user.ageGroup);
     displayBodyInfo && displayBodyInfo();
     updateCSUsageBadge && updateCSUsageBadge();
+    // [2026-04-08] 세션 복원 후 Ai옷장 카드덱 로드
+    if(typeof loadDeck === 'function') try{ loadDeck(); }catch(_){}
+    if(typeof loadPersonalColorCS === 'function') try{ loadPersonalColorCS(); }catch(_){}
   });
 }
 
@@ -1990,8 +1993,19 @@ function openClosetPicker(type){_cpSlotType=type;
 function closeClosetPicker(){var m=document.getElementById('closetPickerModal');if(m)m.style.display='none';}
 
 // 초기화 (CodiBank 준비 후)
-function _initDeck(){if(window.CodiBank&&user&&user.email){loadDeck();}else{setTimeout(_initDeck,800);}}
-setTimeout(_initDeck,1000);
+var _initDeckTry=0;
+function _initDeck(){
+  _initDeckTry++;
+  if(window.CodiBank&&user&&user.email){
+    console.log('[codistyle] loadDeck: user='+user.email+', try='+_initDeckTry);
+    loadDeck();
+  } else if(_initDeckTry<15){
+    setTimeout(_initDeck,800);
+  } else {
+    console.warn('[codistyle] loadDeck: 세션 미복원 (user.email 없음)');
+  }
+}
+setTimeout(_initDeck,500);
 window.addEventListener('load',function(){setTimeout(_initDeck,1500);});
 
 </script>
