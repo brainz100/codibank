@@ -355,7 +355,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
       <div class="side-actions">
         <button class="sb cam" onclick="pickCamera('top')"><span class="mi">photo_camera</span>사진촬영</button>
         <button class="sb gal" onclick="pickFile('top')"><span class="mi">photo_library</span>사진선택</button>
-        <button class="sb lnk" type="button" disabled><span class="mi">link</span>링크<br>준비중</button>
+        <button class="sb" onclick="openClosetPicker('top')" style="background:rgba(53,162,159,.12);color:#97FEED;border:1px solid rgba(151,254,237,.25);"><span class="mi">checkroom</span>내 옷장</button>
         <button class="sb" id="del-top" style="display:none;background:rgba(239,68,68,.08);color:rgba(252,165,165,.65);border:1px solid rgba(239,68,68,.15);" onclick="clearSlot('top')"><span class="mi">delete_outline</span>상의삭제</button>
       </div>
     </div>
@@ -373,7 +373,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
       <div class="side-actions">
         <button class="sb cam" onclick="pickCamera('bottom')"><span class="mi">photo_camera</span>사진촬영</button>
         <button class="sb gal" onclick="pickFile('bottom')"><span class="mi">photo_library</span>사진선택</button>
-        <button class="sb lnk" type="button" disabled><span class="mi">link</span>링크<br>준비중</button>
+        <button class="sb" onclick="openClosetPicker('bottom')" style="background:rgba(53,162,159,.12);color:#97FEED;border:1px solid rgba(151,254,237,.25);"><span class="mi">checkroom</span>내 옷장</button>
         <button class="sb" id="del-bottom" style="display:none;background:rgba(239,68,68,.08);color:rgba(252,165,165,.65);border:1px solid rgba(239,68,68,.15);" onclick="clearSlot('bottom')"><span class="mi">delete_outline</span>하의삭제</button>
       </div>
     </div>
@@ -1818,5 +1818,159 @@ function saveBodyInfo() {
 }
 displayBodyInfo();
 try{ if(window.CodiBankI18n && CodiBankI18n.isEn()){ document.getElementById('codiProfileTitle').textContent='Codi Profile'; document.getElementById('faceDescText').textContent='Profile info applied'; }}catch(_){}
+
+// ═══ [2026-04-08] Ai 옷장 아이템 선택 기능 ═══
+var _cpSlotType = ''; // 'top' or 'bottom'
+var _cpTopKeys = ['coat','jacket','outer','padding','cardigan','top','shirt','knit','tshirt','blouse'];
+var _cpBotKeys = ['pants','skirt','slacks','jeans'];
+
+function openClosetPicker(slotType) {
+  _cpSlotType = slotType;
+  var modal = document.getElementById('closetPickerModal');
+  var grid = document.getElementById('cpItemGrid');
+  var empty = document.getElementById('cpEmpty');
+  var subtitle = document.getElementById('cpSubtitle');
+  
+  if(!modal || !grid) return;
+  
+  var isTop = (slotType === 'top');
+  subtitle.textContent = isTop ? '상의 · 아우터' : '하의';
+  
+  var catKeys = isTop ? _cpTopKeys : _cpBotKeys;
+  var items = [];
+  
+  // CodiBank에서 아이템 가져오기
+  if(window.CodiBank && CodiBank.getCategoriesForUser && user) {
+    var cats = CodiBank.getCategoriesForUser(user.email) || [];
+    cats.forEach(function(c) {
+      if(catKeys.indexOf(c.key) >= 0) {
+        var catItems = CodiBank.getItemsByUserAndCategory(user.email, c.key) || [];
+        catItems.forEach(function(item) {
+          if(item.images && (item.images.front || item.images.brand || item.images.back)) {
+            items.push({id: item.id, catKey: c.key, catLabel: c.label, item: item});
+          }
+        });
+      }
+    });
+  }
+  
+  if(items.length === 0) {
+    grid.style.display = 'none';
+    empty.style.display = 'block';
+  } else {
+    grid.style.display = 'grid';
+    empty.style.display = 'none';
+    grid.innerHTML = '';
+    
+    items.forEach(function(entry) {
+      var imgRef = entry.item.images.front || entry.item.images.brand || entry.item.images.back || '';
+      var note = entry.item.note || '';
+      var color = entry.item.color || '';
+      var label = (color ? color + ' ' : '') + entry.catLabel;
+      
+      var card = document.createElement('div');
+      card.style.cssText = 'cursor:pointer;border-radius:12px;overflow:hidden;background:rgba(255,255,255,.05);border:1px solid rgba(151,254,237,.1);transition:all .2s;';
+      card.innerHTML = '<div style="aspect-ratio:1;background:#0a1a3a;display:flex;align-items:center;justify-content:center;overflow:hidden;">' +
+        '<img id="cpImg_'+entry.id+'" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s;" alt="">' +
+        '</div>' +
+        '<div style="padding:6px 8px;">' +
+        '<div style="font-size:9px;font-weight:700;color:#97FEED;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+label+'</div>' +
+        (note ? '<div style="font-size:8px;color:rgba(255,255,255,.3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+note+'</div>' : '') +
+        '</div>';
+      
+      card.addEventListener('click', function() { selectClosetItem(entry, slotType); });
+      card.addEventListener('touchstart', function(){ this.style.transform='scale(0.95)'; }, {passive:true});
+      card.addEventListener('touchend', function(){ this.style.transform='scale(1)'; }, {passive:true});
+      grid.appendChild(card);
+      
+      // 이미지 비동기 로드
+      if(CodiBank.getImageSrc) {
+        CodiBank.getImageSrc(imgRef).then(function(src) {
+          var img = document.getElementById('cpImg_'+entry.id);
+          if(img && src) { img.onload = function(){ img.style.opacity='1'; }; img.src = src; }
+        });
+      }
+    });
+  }
+  
+  modal.style.display = 'block';
+}
+
+function closeClosetPicker() {
+  var modal = document.getElementById('closetPickerModal');
+  if(modal) modal.style.display = 'none';
+}
+
+async function selectClosetItem(entry, slotType) {
+  closeClosetPicker();
+  
+  var imgRef = entry.item.images.front || entry.item.images.brand || entry.item.images.back || '';
+  if(!imgRef) return;
+  
+  // 이미지 src 가져오기
+  var src = '';
+  try {
+    if(CodiBank.getImageSrc) src = await CodiBank.getImageSrc(imgRef);
+  } catch(_) {}
+  if(!src) return;
+  
+  // 이미지를 dataURL로 변환 (서버 업로드용)
+  var dataUrl = src;
+  if(!src.startsWith('data:')) {
+    try {
+      var resp = await fetch(src);
+      var blob = await resp.blob();
+      dataUrl = await new Promise(function(resolve) {
+        var reader = new FileReader();
+        reader.onload = function() { resolve(reader.result); };
+        reader.readAsDataURL(blob);
+      });
+    } catch(_) { dataUrl = src; }
+  }
+  
+  // 기존 onFile과 동일한 방식으로 슬롯에 설정
+  var slotEl = document.getElementById('slot-' + slotType);
+  if(slotEl) {
+    var img = new Image();
+    img.onload = function() {
+      slotEl.innerHTML = '<img src="'+src+'" class="uploaded-img" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">';
+      ST[slotType].dataUrl = dataUrl;
+      ST[slotType].naturalWidth = img.naturalWidth;
+      ST[slotType].naturalHeight = img.naturalHeight;
+      ST[slotType].label = entry.catLabel + ' ' + (entry.item.color || '');
+      
+      // 서버에 업로드
+      uploadSlotImage(slotType, dataUrl);
+      
+      // 삭제 버튼 표시
+      var delBtn = document.getElementById('del-'+slotType);
+      if(delBtn) delBtn.style.display = 'flex';
+      
+      updateGenerateBtn();
+    };
+    img.src = src;
+  }
+}
+
+async function uploadSlotImage(slotType, dataUrl) {
+  try {
+    var bb = (typeof codistyleBase === 'function' ? codistyleBase() : null) || (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || 'https://codibank-api.onrender.com';
+    var r = await fetch(bb + '/api/storage/upload', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({image: dataUrl, slot: slotType})
+    });
+    var d = await r.json();
+    if(d.ok && d.path) {
+      ST[slotType].serverPath = d.path;
+      var stEl = document.getElementById('st-'+slotType);
+      if(stEl) stEl.innerHTML = '<span style="color:#97FEED;font-size:10px;">✅ Ai 옷장에서 선택됨</span>';
+      updateGenerateBtn();
+    }
+  } catch(e) {
+    console.warn('[옷장선택] 업로드 실패:', e);
+  }
+}
+
 </script>
 </body></html>
