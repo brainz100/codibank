@@ -153,6 +153,33 @@
   <div id="mbBonusResult" style="font-size:11px;color:#0B666A;min-height:16px;"></div>
 </div>
 
+<!-- [2026-04-09 추가] 이달 사용량 현황 (서버 동기화 데이터) -->
+<div class="sec" id="secUsageSummary" style="display:none;">
+  <div class="sec-h">
+    <div class="sec-t"><span class="mi">bar_chart</span>이달 사용량 현황 (서버)</div>
+    <button class="rb" onclick="ldUsageSummary()"><span class="mi">refresh</span>새로고침</button>
+  </div>
+  <p style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.6;">
+    서버(Supabase)에 기록된 이달 회원별 이미지 생성 사용량입니다. 모든 기기·브라우저의 실제 사용 내역이 반영됩니다.
+  </p>
+  <div class="row r4" style="margin-bottom:10px;">
+    <div class="kpi g" id="kuUsageTotal"><div class="kpi-l">이달 이미지생성</div><div class="kpi-v">0</div><div class="kpi-s">회</div></div>
+    <div class="kpi" id="kuUsageCloset"><div class="kpi-l">추천코디</div><div class="kpi-v">0</div><div class="kpi-s">회</div></div>
+    <div class="kpi" id="kuUsageCodi"><div class="kpi-l">코디하기</div><div class="kpi-v">0</div><div class="kpi-s">회</div></div>
+    <div class="kpi" id="kuUsageItems"><div class="kpi-l">아이템등록</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+  </div>
+  <div class="row r4" style="margin-bottom:10px;">
+    <div class="kpi" id="kuUsageUsers"><div class="kpi-l">활성 사용자</div><div class="kpi-v">0</div><div class="kpi-s">명</div></div>
+    <div class="kpi" style="opacity:0;pointer-events:none"></div>
+    <div class="kpi" style="opacity:0;pointer-events:none"></div>
+    <div class="kpi" style="opacity:0;pointer-events:none"></div>
+  </div>
+  <div class="tw">
+    <table><thead><tr><th>이메일</th><th>추천코디</th><th>코디하기</th><th>합계</th><th>아이템등록</th><th>오늘 추천</th><th>오늘 코디</th><th>오늘 합계</th><th>오늘 아이템</th><th>최종갱신</th></tr></thead>
+    <tbody id="tUsageSummary"><tr><td colspan="10" class="ld"><span class="sp"></span>불러오는 중...</td></tr></tbody></table>
+  </div>
+</div>
+
 <!-- 회원 목록 -->
 <div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">group</span>회원 목록</div><button class="rb" onclick="ldU()"><span class="mi">refresh</span>새로고침</button></div>
 <div class="tw"><div class="cb"><input id="qU" placeholder="이메일 검색..." oninput="fU()"><select id="sU" onchange="fU()"><option value="c_d">가입일 최신순</option><option value="c_a">가입일 오래된순</option><option value="l_d">최근로그인순</option><option value="e_a">이메일순</option></select></div>
@@ -1286,6 +1313,57 @@ async function loadMemberBonuses(){
   }catch(_){}
 }
 
+// ══ [2026-04-09 추가] 이달 사용량 현황 (서버 Supabase) ══
+async function ldUsageSummary(){
+  var tbody=document.getElementById('tUsageSummary');
+  if(!tbody) return;
+  tbody.innerHTML='<tr><td colspan="10" class="ld"><span class="sp"></span>불러오는 중...</td></tr>';
+  try{
+    var r=await authFetch(B+'/admin/usage/summary');
+    if(!r.ok) throw new Error('status '+r.status);
+    var d=await r.json();
+    if(!d.ok) throw new Error(d.error||'unknown');
+    var list=d.list||[];
+    // KPI 집계
+    var sumCloset=0, sumCodi=0, sumTotal=0, sumItems=0;
+    list.forEach(function(x){
+      sumCloset += parseInt(x.closet_count||0);
+      sumCodi   += parseInt(x.codistyle_count||0);
+      sumTotal  += parseInt(x.total_count||0);
+      sumItems  += parseInt(x.item_count||0);
+    });
+    kpi('kuUsageTotal', sumTotal);
+    kpi('kuUsageCloset', sumCloset);
+    kpi('kuUsageCodi', sumCodi);
+    kpi('kuUsageItems', sumItems);
+    kpi('kuUsageUsers', list.length);
+
+    if(!list.length){
+      tbody.innerHTML='<tr><td colspan="10" class="empty">이달 사용 기록이 없습니다</td></tr>';
+      return;
+    }
+    var h='';
+    list.forEach(function(x){
+      var upd = x.updated_at ? new Date(x.updated_at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '-';
+      h+='<tr>'
+        +'<td style="font-weight:600;color:#071952">'+(x.email||'')+'</td>'
+        +'<td style="text-align:center">'+(x.closet_count||0)+'</td>'
+        +'<td style="text-align:center">'+(x.codistyle_count||0)+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:#0B666A">'+(x.total_count||0)+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:#1a5fb4">'+(x.item_count||0)+'</td>'
+        +'<td style="text-align:center">'+(x.day_closet_count||0)+'</td>'
+        +'<td style="text-align:center">'+(x.day_codi_count||0)+'</td>'
+        +'<td style="text-align:center;font-weight:600">'+(x.day_total||0)+'</td>'
+        +'<td style="text-align:center;font-weight:600;color:#1a5fb4">'+(x.day_item_count||0)+'</td>'
+        +'<td style="font-size:10px;color:#888">'+upd+'</td>'
+        +'</tr>';
+    });
+    tbody.innerHTML=h;
+  }catch(e){
+    tbody.innerHTML='<tr><td colspan="10" class="empty">사용량 조회 실패: '+String(e.message||e)+'</td></tr>';
+  }
+}
+
 // ═══ 회원 보너스 지급 ═══
 async function applyMemberBonus(){
   var em=document.getElementById('mbEmail').value.trim().toLowerCase();
@@ -1329,8 +1407,9 @@ function ldAll(){
     ldAdmins();
     ldBonusMgr();
     ldItemBonusMgr();
+    ldUsageSummary();
     setTimeout(showSysStatus, 600);
-    ['secBonusMgr','secItemBonusMgr','secTestAcct','secAdminMgr','secSyncSupabase','secSysStatus'].forEach(function(id){
+    ['secBonusMgr','secItemBonusMgr','secTestAcct','secAdminMgr','secSyncSupabase','secSysStatus','secMemberBonus','secUsageSummary'].forEach(function(id){
       var el=document.getElementById(id); if(el) el.style.display='block';
     });
   }

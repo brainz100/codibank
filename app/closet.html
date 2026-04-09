@@ -1652,7 +1652,57 @@ function recordUnifiedUsage(feature){
   u.totalCount = (u.closetCount||0) + (u.codistyleCount||0);
   u.dayTotal   = (u.dayClosetCount||0) + (u.dayCodiCount||0);
   try{ localStorage.setItem(_usageKey(), JSON.stringify(u)); }catch(_){}
+  // ──── [2026-04-09 추가] 서버 동기화 (fire-and-forget) ────
+  _syncUsageToServer(feature === 'codistyle' ? 'codistyle' : 'closet');
 }
+// ──── [2026-04-09 추가] 사용량 서버 동기화 함수 ────
+function _getUsageBackend(){
+  try{
+    if(window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) return window.CODIBANK_CONFIG.backendBase.replace(/\/$/,'');
+    if(window.CodiBank && CodiBank.getBackendBaseResolved) return String(CodiBank.getBackendBaseResolved()||'').replace(/\/$/,'');
+  }catch(_){}
+  return 'https://codibank-api.onrender.com';
+}
+function _syncUsageToServer(feature){
+  try{
+    const bb = _getUsageBackend();
+    if(!bb || !user.email) return;
+    fetch(bb+'/api/usage/record',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email: user.email, feature: feature })
+    }).catch(function(){});
+  }catch(_){}
+}
+// ──── [2026-04-09 추가] 페이지 로딩 시 서버→localStorage 동기화 ────
+function _syncUsageFromServer(){
+  try{
+    const bb = _getUsageBackend();
+    if(!bb || !user.email) return;
+    fetch(bb+'/api/usage/get/'+encodeURIComponent(user.email))
+      .then(function(r){ return r.json(); })
+      .then(function(srv){
+        if(!srv || !srv.ok) return;
+        var local = getUnifiedUsage();
+        // 서버 값이 더 크면 서버 우선 (다른 기기에서 사용한 경우)
+        var merged = Object.assign({}, local);
+        if((srv.totalCount||0) > (local.totalCount||0)){
+          merged.month          = srv.month || local.month;
+          merged.day            = srv.day   || local.day;
+          merged.closetCount    = srv.closetCount    || 0;
+          merged.codistyleCount = srv.codistyleCount || 0;
+          merged.totalCount     = srv.totalCount     || 0;
+          merged.dayClosetCount = srv.dayClosetCount || 0;
+          merged.dayCodiCount   = srv.dayCodiCount   || 0;
+          merged.dayTotal       = srv.dayTotal       || 0;
+          try{ localStorage.setItem(_usageKey(), JSON.stringify(merged)); }catch(_){}
+          // UI 갱신
+          if(typeof updateQuotaBadge === 'function') updateQuotaBadge();
+        }
+      }).catch(function(){});
+  }catch(_){}
+}
+// 페이지 로딩 후 서버 동기화 실행
+setTimeout(_syncUsageFromServer, 800);
 function checkUnifiedUsage(feature){
   // ★ 내옷장+코디하기 합산(totalMonthly - totalCount) 기준
   // pricing.html이 저장한 cb_plan_info에서 totalLimit 읽기

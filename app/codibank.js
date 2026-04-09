@@ -733,6 +733,19 @@ function getBackendBaseResolved() {
     // 새 카테고리면 유저 카테고리에도 추가
     addCategoriesToUser(e, [categoryKey]);
 
+    // ──── [2026-04-09 추가] 아이템 등록 서버 동기화 (fire-and-forget) ────
+    try {
+      const _bb = (typeof getBackendBaseResolved === 'function' ? getBackendBaseResolved() : '')
+                  || (typeof window !== 'undefined' && window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase)
+                  || 'https://codibank-api.onrender.com';
+      if (_bb && e) {
+        fetch(_bb.replace(/\/$/, '') + '/api/usage/record', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ email: e, feature: 'item' })
+        }).catch(function(){});
+      }
+    } catch (_) {}
+
     return { ok: true, item: saved };
   }
 

@@ -690,6 +690,8 @@ if(window.CodiBank && CodiBank.onSessionReady){
     if(!codiProfile.bodyType && (cbUser.bodyType||user.bodyType)) codiProfile.bodyType = cbUser.bodyType||user.bodyType||'';
     displayBodyInfo && displayBodyInfo();
     updateCSUsageBadge && updateCSUsageBadge();
+    // [2026-04-09] 세션 복원 후 서버 사용량 동기화
+    if(typeof _syncCSUsageFromServer === 'function') try{ _syncCSUsageFromServer(); }catch(_){}
     // [2026-04-08] 세션 복원 후 Ai옷장 카드덱 로드
     if(typeof loadDeck === 'function') try{ loadDeck(); }catch(_){}
     if(typeof loadPersonalColorCS === 'function') try{ loadPersonalColorCS(); }catch(_){}
@@ -732,7 +734,54 @@ function recordCSUsage(){
   u.totalCount = (u.closetCount||0) + (u.codistyleCount||0);
   u.dayTotal   = (u.dayClosetCount||0) + (u.dayCodiCount||0);
   try{ localStorage.setItem(_csUsageKey(), JSON.stringify(u)); }catch(_){}
+  // ──── [2026-04-09 추가] 서버 동기화 (fire-and-forget) ────
+  _syncCSUsageToServer();
 }
+// ──── [2026-04-09 추가] 사용량 서버 동기화 함수 ────
+function _getCSUsageBackend(){
+  try{
+    if(typeof codistyleBase === 'function'){ var b = codistyleBase(); if(b) return b; }
+    if(window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) return window.CODIBANK_CONFIG.backendBase.replace(/\/$/,'');
+  }catch(_){}
+  return 'https://codibank-api.onrender.com';
+}
+function _syncCSUsageToServer(){
+  try{
+    var bb = _getCSUsageBackend();
+    if(!bb || !user.email) return;
+    fetch(bb+'/api/usage/record',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email: user.email, feature: 'codistyle' })
+    }).catch(function(){});
+  }catch(_){}
+}
+function _syncCSUsageFromServer(){
+  try{
+    var bb = _getCSUsageBackend();
+    if(!bb || !user.email) return;
+    fetch(bb+'/api/usage/get/'+encodeURIComponent(user.email))
+      .then(function(r){ return r.json(); })
+      .then(function(srv){
+        if(!srv || !srv.ok) return;
+        var local = getCSUsage();
+        if((srv.totalCount||0) > (local.totalCount||0)){
+          var merged = Object.assign({}, local);
+          merged.month          = srv.month || local.month;
+          merged.day            = srv.day   || local.day;
+          merged.closetCount    = srv.closetCount    || 0;
+          merged.codistyleCount = srv.codistyleCount || 0;
+          merged.totalCount     = srv.totalCount     || 0;
+          merged.dayClosetCount = srv.dayClosetCount || 0;
+          merged.dayCodiCount   = srv.dayCodiCount   || 0;
+          merged.dayTotal       = srv.dayTotal       || 0;
+          try{ localStorage.setItem(_csUsageKey(), JSON.stringify(merged)); }catch(_){}
+          if(typeof updateCSUsageBadge === 'function') updateCSUsageBadge();
+        }
+      }).catch(function(){});
+  }catch(_){}
+}
+// 페이지 로딩 후 서버 동기화 실행
+setTimeout(_syncCSUsageFromServer, 800);
 function checkCSUsage(){
   const planId = (user.plan || 'free').toLowerCase();
   const plan = CS_PLANS[planId] || CS_PLANS.free;
