@@ -324,18 +324,20 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 }
 #csSaveToast.show{opacity:1;}
 
-/* [2026-04-08] Ai옷장 카드덱 */
-.cdeck{display:flex;justify-content:center;align-items:center;height:200px;padding:0 14px;overflow:visible;position:relative;perspective:800px;}
-.cdeck-card{flex-shrink:0;width:98px;height:148px;border-radius:12px;overflow:hidden;background:#ffffff;border:1.5px solid rgba(200,200,200,.6);cursor:pointer;position:relative;transition:all .35s cubic-bezier(.25,.8,.25,1);transform-style:preserve-3d;}
+/* [2026-04-09 수정] Ai옷장 카드덱 — 입체 겹침 + 그림자 / 원인: 간격만 벌려놓아 입체감 없음 / 해결: aicloset.html 방식 참조, translateX 겹침+perspective+box-shadow */
+.cdeck{display:flex;justify-content:center;align-items:center;height:210px;padding:0 10px;overflow:visible;position:relative;perspective:1200px;}
+.cdeck-card{flex-shrink:0;width:100px;height:150px;border-radius:12px;overflow:hidden;background:#ffffff;border:1.5px solid rgba(200,200,200,.25);cursor:pointer;position:absolute;transition:all .42s cubic-bezier(.16,1,.3,1);transform-style:preserve-3d;backface-visibility:hidden;-webkit-backface-visibility:hidden;box-shadow:0 6px 18px rgba(0,0,0,.12);}
 .cdeck-card img{width:100%;height:100%;object-fit:cover;}
-.cdeck-card.side{margin:0 -22px;opacity:1;}
-.cdeck-card.center{transform:scale(1.08) translateZ(30px);z-index:10;border:2px solid #97FEED;box-shadow:0 12px 32px rgba(151,254,237,.18),0 4px 12px rgba(0,0,0,.15);background:#ffffff;}
-.cdeck-card.side-1L{transform:scale(.82) rotateY(8deg) translateX(-6px);z-index:6;opacity:.92;}
-.cdeck-card.side-1R{transform:scale(.82) rotateY(-8deg) translateX(6px);z-index:6;opacity:.92;}
-.cdeck-card.side-2L{transform:scale(.68) rotateY(14deg) translateX(-10px);z-index:4;opacity:.7;}
-.cdeck-card.side-2R{transform:scale(.68) rotateY(-14deg) translateX(10px);z-index:4;opacity:.7;}
-.cdeck-card.side-3L{transform:scale(.56) rotateY(18deg) translateX(-12px);z-index:2;opacity:.45;}
-.cdeck-card.side-3R{transform:scale(.56) rotateY(-18deg) translateX(12px);z-index:2;opacity:.45;}
+.cdeck-card.center{width:112px;height:168px;transform:translateX(0) scale(1) translateZ(60px);z-index:30;border:2px solid #97FEED;box-shadow:0 20px 50px -10px rgba(0,0,0,.35),0 8px 20px rgba(151,254,237,.15);background:#ffffff;}
+.cdeck-card.side-1L{transform:translateX(-72px) scale(.92) translateZ(-30px) rotateY(8deg);z-index:20;opacity:.94;box-shadow:0 10px 28px rgba(0,0,0,.18);}
+.cdeck-card.side-1R{transform:translateX(72px) scale(.92) translateZ(-30px) rotateY(-8deg);z-index:20;opacity:.94;box-shadow:0 10px 28px rgba(0,0,0,.18);}
+.cdeck-card.side-2L{transform:translateX(-124px) scale(.78) translateZ(-70px) rotateY(14deg);z-index:10;opacity:.72;box-shadow:0 6px 18px rgba(0,0,0,.14);filter:blur(.3px);}
+.cdeck-card.side-2R{transform:translateX(124px) scale(.78) translateZ(-70px) rotateY(-14deg);z-index:10;opacity:.72;box-shadow:0 6px 18px rgba(0,0,0,.14);filter:blur(.3px);}
+.cdeck-card.side-3L{transform:translateX(-160px) scale(.62) translateZ(-110px) rotateY(18deg);z-index:5;opacity:.45;box-shadow:0 4px 12px rgba(0,0,0,.10);filter:blur(.7px);}
+.cdeck-card.side-3R{transform:translateX(160px) scale(.62) translateZ(-110px) rotateY(-18deg);z-index:5;opacity:.45;box-shadow:0 4px 12px rgba(0,0,0,.10);filter:blur(.7px);}
+/* 체크 아이콘: 선택 시에만 표시 */
+.cdeck-check{position:absolute;top:3px;right:3px;opacity:0;transition:opacity .25s ease;pointer-events:none;}
+.cdeck-check.visible{opacity:1;}
 .cdeck-count{font-size:10px;color:rgba(151,254,237,.45);font-weight:700;letter-spacing:.03em;}
 .cdeck-empty{width:100%;height:90px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px dashed rgba(151,254,237,.1);color:rgba(255,255,255,.2);font-size:10px;text-align:center;line-height:1.5;}
 .cpreview{position:relative;border-radius:14px;overflow:hidden;background:#ffffff;border:1px solid rgba(151,254,237,.15);margin:8px 0;aspect-ratio:1/1.5;padding:12px;}
@@ -374,19 +376,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
   <section style="margin-bottom:16px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px;">
       <div style="display:flex;align-items:center;gap:5px;font-size:17px;font-weight:800;color:#97FEED;">
-        <span class="mi">checkroom</span>상의
+        <span class="mi">checkroom</span>상의 <span id="topCount" class="cdeck-count"></span>
       </div>
       <span style="font-size:9px;letter-spacing:.12em;color:rgba(255,255,255,.2);text-transform:uppercase;">Tops Category</span>
     </div>
     <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.25em;color:rgba(151,254,237,.3);text-transform:uppercase;margin-bottom:0;margin-top:4px;">← SWIPE →</div>
     <div id="topDeck" class="cdeck">
-      <div class="cdeck-card side" style="z-index:1"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
-      <div class="cdeck-card side" style="z-index:2"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
-      <div class="cdeck-card side" style="z-index:3"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
-      <div class="cdeck-card center" style="z-index:10"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;"><span style="font-size:8.5px;color:rgba(100,100,100,.6);line-height:1.3;font-weight:600;">아이템을<br>저장하면<br>코디할 수<br>있어요</span></div></div>
-      <div class="cdeck-card side" style="z-index:3"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
-      <div class="cdeck-card side" style="z-index:2"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
-      <div class="cdeck-card side" style="z-index:1"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
+      <div class="cdeck-card side-3L"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
+      <div class="cdeck-card side-2L"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
+      <div class="cdeck-card side-1L"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
+      <div class="cdeck-card center"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;"><span style="font-size:8.5px;color:rgba(100,100,100,.6);line-height:1.3;font-weight:600;">아이템을<br>저장하면<br>코디할 수<br>있어요</span></div></div>
+      <div class="cdeck-card side-1R"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
+      <div class="cdeck-card side-2R"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
+      <div class="cdeck-card side-3R"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
     </div>
     <div class="cpreview" id="slot-top" onclick="pickFile('top')">
       <div id="topPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
@@ -410,19 +412,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
   <section style="margin-bottom:12px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px;">
       <div style="display:flex;align-items:center;gap:5px;font-size:17px;font-weight:800;color:#97FEED;">
-        <span class="mi">apparel</span>하의
+        <span class="mi">apparel</span>하의 <span id="botCount" class="cdeck-count"></span>
       </div>
       <span style="font-size:9px;letter-spacing:.12em;color:rgba(255,255,255,.2);text-transform:uppercase;">Bottoms Category</span>
     </div>
     <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.25em;color:rgba(151,254,237,.3);text-transform:uppercase;margin-bottom:0;margin-top:4px;">← SWIPE →</div>
     <div id="botDeck" class="cdeck">
-      <div class="cdeck-card side" style="z-index:1"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
-      <div class="cdeck-card side" style="z-index:2"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
-      <div class="cdeck-card side" style="z-index:3"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
-      <div class="cdeck-card center" style="z-index:10"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;"><span style="font-size:8.5px;color:rgba(100,100,100,.6);line-height:1.3;font-weight:600;">아이템을<br>저장하면<br>코디할 수<br>있어요</span></div></div>
-      <div class="cdeck-card side" style="z-index:3"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
-      <div class="cdeck-card side" style="z-index:2"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
-      <div class="cdeck-card side" style="z-index:1"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
+      <div class="cdeck-card side-3L"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
+      <div class="cdeck-card side-2L"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
+      <div class="cdeck-card side-1L"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
+      <div class="cdeck-card center"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;"><span style="font-size:8.5px;color:rgba(100,100,100,.6);line-height:1.3;font-weight:600;">아이템을<br>저장하면<br>코디할 수<br>있어요</span></div></div>
+      <div class="cdeck-card side-1R"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
+      <div class="cdeck-card side-2R"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
+      <div class="cdeck-card side-3R"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div></div>
     </div>
     <div class="cpreview" id="slot-bottom" onclick="pickFile('bottom')">
       <div id="botPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
@@ -888,7 +890,7 @@ function renderSlot(k){
 function setStatus(k, text, err){ const e=document.getElementById('st-'+k); e.textContent=text||''; e.className='slot-status'+(err?' err':''); }
 function pickFile(k){ document.getElementById('file-'+k).click(); }
 function pickCamera(k){ document.getElementById('cam-'+k).click(); }
-function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false }; renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); _resetResultArea(); }
+function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false }; if(k==='top'){_dkTopSel=-1;}else{_dkBotSel=-1;} renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); _resetResultArea(); }
 function _resetResultArea(){
   // 착장이미지 + 분석 + 스코어 리셋
   lastImgUrl='';
@@ -1860,6 +1862,7 @@ try{ if(window.CodiBankI18n && CodiBankI18n.isEn()){ document.getElementById('co
 
 // ═══ [2026-04-08] Ai옷장 카드덱 + 선택 기능 ═══
 var _dkTopItems=[], _dkBotItems=[], _dkTopIdx=0, _dkBotIdx=0;
+var _dkTopSel=-1, _dkBotSel=-1; // [2026-04-09] 선택된 아이템 인덱스 (-1=미선택)
 var _cpTopK=['coat','jacket','outer','padding','cardigan','top','shirt','knit','tshirt','blouse'];
 var _cpBotK=['pants','skirt','slacks','jeans'];
 
@@ -1887,9 +1890,9 @@ function drawDeck(type,items,ci){
   var el=document.getElementById(type==='top'?'topDeck':'botDeck');
   if(!el) return;
   el.innerHTML='';
-  // 개수 표시
+  // [2026-04-09 수정] 개수 표시 / 원인: topCount,botCount 엘리먼트 누락 / 해결: HTML에 span 추가+텍스트
   var cntEl=document.getElementById(type==='top'?'topCount':'botCount');
-  if(cntEl) cntEl.textContent='Ai옷장 items '+items.length+'개';
+  if(cntEl) cntEl.textContent=items.length+'개';
   
   if(!items.length){
     for(var p=0;p<7;p++){
@@ -1905,19 +1908,21 @@ function drawDeck(type,items,ci){
     return;
   }
   
-  // [2026-04-09] 순환 카드덱 + 3D 입체 효과
+  // [2026-04-09 수정] 순환 카드덱 + 3D 입체 효과 + 체크아이콘 선택 시만 표시
+  var selIdx=(type==='top')?_dkTopSel:_dkBotSel;
   var sideClasses=['side-3L','side-2L','side-1L','center','side-1R','side-2R','side-3R'];
   for(var slot=0;slot<7;slot++){
     var offset=slot-3;
     var dataIdx=_circIdx(ci+offset, items.length); // 순환 인덱스
     var isCenter=(slot===3);
+    var isSelected=(dataIdx===selIdx);
     var card=document.createElement('div');
     card.className='cdeck-card '+sideClasses[slot];
     card.setAttribute('data-idx',dataIdx);
     card.setAttribute('data-type',type);
     var imgId='dk_'+type+'_'+dataIdx+'_'+Date.now();
     card.innerHTML='<img id="'+imgId+'" style="opacity:0;transition:opacity .3s;" alt="">'
-      +(isCenter?'<span style="position:absolute;top:2px;right:2px;"><span class="mi" style="font-size:13px;color:#97FEED;background:#071952;border-radius:50%;padding:1px;">check_circle</span></span>':'');
+      +'<span class="cdeck-check'+(isSelected?' visible':'')+'"><span class="mi" style="font-size:14px;color:#97FEED;background:#071952;border-radius:50%;padding:1px;">check_circle</span></span>';
     (function(idx,ref,id){
       if(CodiBank.getImageSrc) CodiBank.getImageSrc(ref).then(function(src){
         var img=document.getElementById(id);
@@ -1934,8 +1939,11 @@ function drawDeck(type,items,ci){
     if(isNaN(idx)) return;
     var curCenter=(type==='top')?_dkTopIdx:_dkBotIdx;
     if(idx===curCenter){
-      // 중앙 카드 클릭 → 선택 + 프리뷰 표시
+      // [2026-04-09 수정] 중앙 카드 클릭 → 선택 + 체크 아이콘 표시
+      if(type==='top') _dkTopSel=idx;
+      else _dkBotSel=idx;
       pickDeckItem(type==='top'?'top':'bottom', (type==='top'?_dkTopItems:_dkBotItems)[idx]);
+      drawDeck(type, type==='top'?_dkTopItems:_dkBotItems, curCenter);
     } else {
       // 사이드 카드 클릭 → 중앙으로 이동 (순환)
       if(type==='top'){_dkTopIdx=idx; drawDeck('top',_dkTopItems,_dkTopIdx);}
