@@ -123,7 +123,7 @@ load_dotenv(os.path.join(os.path.dirname(_HERE), ".env"))
 _REMBG_API_URL = os.getenv("REMBG_API_URL", "").rstrip("/")
 
 def remove_clothing_bg(img_bytes: bytes) -> bytes:
-    """HF Space rembg API로 의류 배경 제거 — 실패 시 원본 반환"""
+    """HF Space rembg API로 의류 배경 제거 — 실패 또는 품질 불량 시 원본 반환"""
     if not _REMBG_API_URL:
         print("[rembg] ⚠ REMBG_API_URL 미설정, 원본 사용")
         return img_bytes
@@ -138,7 +138,31 @@ def remove_clothing_bg(img_bytes: bytes) -> bytes:
             if data.get("ok") and data.get("image"):
                 b64 = data["image"].split(",", 1)[1]
                 result = base64.b64decode(b64)
-                print("[rembg] ✅ HF Space 배경 제거 완료")
+                # ── [2026-04-09 수정] rembg 품질 검증 ──
+                # 원인: 체크패턴/밝은색 의류에서 rembg가 옷 본체까지 제거
+                # 해결: 비투명 픽셀 비율 < 15% 이면 원본으로 폴백
+                try:
+                    from PIL import Image as _PILImg
+                    _rimg = _PILImg.open(io.BytesIO(result))
+                    if _rimg.mode == 'RGBA':
+                        _alpha = _rimg.getchannel('A')
+                        _total = _rimg.width * _rimg.height
+                        _visible = sum(1 for p in _alpha.getdata() if p > 128)
+                        _ratio = _visible / max(_total, 1)
+                        if _ratio < 0.15:
+                            print(f"[rembg] ⚠ 품질 불량 (비투명 {_ratio:.1%}) — 원본 사용")
+                            return img_bytes
+                        # 비투명 비율이 적절하면 흰색 배경 합성 (투명 PNG 깨짐 방지)
+                        _white = _PILImg.new('RGBA', _rimg.size, (255, 255, 255, 255))
+                        _white.paste(_rimg, mask=_rimg.split()[3])
+                        _buf = io.BytesIO()
+                        _white.convert('RGB').save(_buf, format='PNG', optimize=True)
+                        result = _buf.getvalue()
+                        print(f"[rembg] ✅ 배경 제거 완료 (비투명 {_ratio:.1%}, 흰배경 합성)")
+                    else:
+                        print("[rembg] ✅ HF Space 배경 제거 완료 (알파 없음)")
+                except Exception as _qe:
+                    print(f"[rembg] ⚠ 품질 검증 스킵: {_qe}")
                 return result
         print(f"[rembg] ⚠ HF Space 응답 오류: {resp.status_code}")
     except Exception as e:
