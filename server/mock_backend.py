@@ -2275,6 +2275,30 @@ def codistyle_generate():
         # ── [PHASE 2: GARMENT IDENTITY] ────────────────────────────────────
         + "\n[PHASE 2 — GARMENT IDENTITY — ABSOLUTE PRIORITY]: "
         + _garment_instruction
+
+        # ── 상의 넣기/빼기 규칙 (카테고리 기반) ──
+        + "\n[TOP TUCKING RULE — CRITICAL]: "
+        + (
+            "This top is a SWEATSHIRT/HOODIE/KNIT type — it must hang NATURALLY OUTSIDE the bottom garment. "
+            "NEVER tuck it in. The hem should fall naturally over the waistband. "
+            if top_info.get("garment","") in ("top","sweatshirt","hoodie","knit","sweater","맨투맨","후드티","니트","스웨터")
+            or "맨투맨" in top_info.get("ko","") or "후드" in top_info.get("ko","")
+            or "니트" in top_info.get("ko","") or "스웨터" in top_info.get("ko","")
+            else (
+                "This top is a DRESS SHIRT/BLOUSE — tuck it in ONLY if the bottom has a visible waistband "
+                "(slacks, dress pants, pencil skirt). For casual bottoms (jeans, wide pants, casual skirt), "
+                "leave it untucked or half-tucked for a natural look. "
+                if top_info.get("garment","") in ("shirt","blouse","셔츠","블라우스","남방")
+                or "셔츠" in top_info.get("ko","") or "블라우스" in top_info.get("ko","")
+                or "남방" in top_info.get("ko","")
+                else (
+                    "This is a JACKET/COAT/OUTERWEAR — it must be worn OPEN over the body, never tucked. "
+                    if top_info.get("type","") == "top" and top_info.get("garment","") in ("coat","jacket","blazer","자켓","코트")
+                    else "Let the top hang naturally based on its category and fit. Do NOT automatically tuck it in. "
+                )
+            )
+        )
+
         + (
             f"TOP [{top_info.get('ko',top_info.get('garment','top'))}]: "
             f"Color={top_info.get('color_ko','')} · Pattern={top_info.get('pattern','')} · "
@@ -2357,7 +2381,7 @@ def codistyle_generate():
         # ── 스타일링 스코어 (5개 기준) ─────────────────────────────────────
         + (
             "\n[STYLING SCORE + ANALYSIS — REQUIRED IN TEXT RESPONSE]: "
-            "Evaluate this outfit on 3 criteria. CRITICAL: the 3 scores MUST sum to exactly 100. "
+            "Evaluate this outfit on 3 criteria. CRITICAL: the 3 scores MUST sum to exactly 100. The scoring weights are: personal_color=40, body_shape=40, coordination=20. "
 
             # 기준 1: 퍼스널컬러 조합 (40점 만점)
             + (
@@ -2371,7 +2395,7 @@ def codistyle_generate():
             )
             # 기준 2: 체형 밸런스 (30점 만점)
             + (
-                f"2. BODY_SHAPE /30: User is {gender_ko} {age}"
+                f"2. BODY_SHAPE /40: User is {gender_ko} {age}"
                 + (f" {hw_ko}." if hw_ko else ".")
                 + (_build_body_type_prompt(
                     payload.get("user",{}).get("gender","") or gender,
@@ -2381,18 +2405,18 @@ def codistyle_generate():
                 + "Evaluate: Does the silhouette follow recommended styles? Does it avoid the 'dont_style' pitfalls? "
             )
             # 기준 3: 토탈 스타일링 (30점 만점)
-            + f"3. OVERALL_STYLING /30: Color coordination, pattern match, style coherence, trend relevance, wearability for Korean everyday life. "
+            + f"3. COORDINATION /20: Top+bottom color coordination, pattern harmony, style coherence, wearability. "
 
             # 점수 출력 형식 (정확히 100점 합산)
-            + "OUTPUT LINE 1 (scores — must sum to 100): STYLING_SCORE:[total]/100|personal_color:[n1]|body_shape:[n2]|overall_styling:[n3] "
-            "where n1+n2+n3=[total] and [total]<=100. "
+            + "OUTPUT LINE 1 (scores — must sum to 100): STYLING_SCORE:[total]/100|personal_color:[n1]/40|body_shape:[n2]/40|coordination:[n3]/20 "
+            "where n1<=40, n2<=40, n3<=20, n1+n2+n3=[total] and [total]<=100. "
 
             # 4개 섹션 분석 출력 형식
             + "OUTPUT LINE 2+ (Korean analysis, each section on new line): "
             "퍼스널컬러 조합: [퍼스널컬러 타입과 이 착장의 컬러 조합이 잘 맞는지, 구체적으로 어떤 컬러가 잘 어울리거나 안 어울리는지 2문장] "
             "상의 스타일: [상의의 소재·패턴·핏이 체형과 전체 스타일에 미치는 효과, 어울리는 하의 스타일 제안 2문장] "
             "하의 스타일: [하의의 실루엣·기장·소재가 체형에 미치는 효과, 이 상의와의 조화 분석 2문장] "
-            "토탈 스타일링 분석: [전체 착장의 완성도, 이 코디를 더 잘 활용하는 구체적인 팁(신발·액세서리 등) 2문장]"
+            "상하의 코디 분석: [상의와 하의의 컬러 배색·패턴 조화·스타일 일관성을 분석하고, 이 조합을 더 잘 활용하는 구체적 팁 2문장]"
         )
 
         # ── 다시요청 ───────────────────────────────────────────────────────
@@ -2517,11 +2541,14 @@ def codistyle_generate():
         _m = _re2.search(r'STYLING_SCORE:(\d+)/100', comment)
         if _m: styling_score = int(_m.group(1))
         # 3개 세부 점수
-        for _k in ['personal_color', 'body_shape', 'overall_styling']:
+        for _k in ['personal_color', 'body_shape', 'overall_styling', 'coordination']:
             _km = _re2.search(rf'{_k}:(\d+)', comment)
             if _km: score_breakdown[_k] = int(_km.group(1))
         # 점수 합산이 100이 아닌 경우 정규화
         _sb = score_breakdown
+        # coordination → overall_styling 매핑
+        if 'coordination' in _sb and 'overall_styling' not in _sb:
+            _sb['overall_styling'] = _sb.pop('coordination')
         _sum = _sb.get('personal_color',0)+_sb.get('body_shape',0)+_sb.get('overall_styling',0)
         if styling_score and _sum > 0 and _sum != styling_score:
             _r = styling_score / _sum
