@@ -3870,6 +3870,196 @@ def admin_usage_bonus_list():
 
 
 # ══════════════════════════════════════════════════════════════
+# ──── [2026-04-09 추가] 사용량 서버 동기화 API ────
+# 원인: localStorage만으로는 기기 변경 시 초기화, 관리자 페이지에서 조회 불가
+# 해결: Supabase user_usage 테이블에 실시간 기록 + 조회
+# 관련파일: closet.html, codistyle.html, admin.html
+# ══════════════════════════════════════════════════════════════
+
+@app.post("/api/usage/record")
+def api_usage_record():
+    """사용량 기록 (closet.html / codistyle.html에서 호출).
+    body: { email, feature: 'closet'|'codistyle' }
+    Supabase user_usage 테이블에 upsert.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        email   = str(data.get("email", "")).strip().lower()
+        feature = str(data.get("feature", "")).strip().lower()
+        if not email:
+            return jsonify({"ok": False, "error": "email 필수"}), 400
+        if feature not in ("closet", "codistyle", "item"):
+            return jsonify({"ok": False, "error": "feature must be closet, codistyle, or item"}), 400
+
+        import datetime as _dt
+        now      = _dt.datetime.now()
+        month_k  = f"{now.year}-{now.month}"
+        day_k    = now.strftime("%Y-%m-%d")
+
+        # 1) 기존 행 조회
+        params = {"email": f"eq.{email}", "select": "*", "limit": "1"}
+        row = None
+        try:
+            r = sb_query("GET", "user_usage", params=params)
+            if r.status_code == 200:
+                rows = r.json()
+                if rows:
+                    row = rows[0]
+        except Exception:
+            pass
+
+        # 2) 월/일 리셋 로직
+        if row:
+            if row.get("month") != month_k:
+                row["month"] = month_k
+                row["closet_count"] = 0
+                row["codistyle_count"] = 0
+                row["total_count"] = 0
+                row["item_count"] = 0
+            if row.get("day") != day_k:
+                row["day"] = day_k
+                row["day_closet_count"] = 0
+                row["day_codi_count"] = 0
+                row["day_total"] = 0
+                row["day_item_count"] = 0
+        else:
+            row = {
+                "email": email, "month": month_k, "day": day_k,
+                "closet_count": 0, "codistyle_count": 0, "total_count": 0,
+                "item_count": 0,
+                "day_closet_count": 0, "day_codi_count": 0, "day_total": 0,
+                "day_item_count": 0,
+            }
+
+        # 3) 카운터 증가
+        if feature == "closet":
+            row["closet_count"]     = int(row.get("closet_count") or 0) + 1
+            row["day_closet_count"] = int(row.get("day_closet_count") or 0) + 1
+        elif feature == "codistyle":
+            row["codistyle_count"]  = int(row.get("codistyle_count") or 0) + 1
+            row["day_codi_count"]   = int(row.get("day_codi_count") or 0) + 1
+        elif feature == "item":
+            row["item_count"]       = int(row.get("item_count") or 0) + 1
+            row["day_item_count"]   = int(row.get("day_item_count") or 0) + 1
+
+        row["total_count"] = int(row.get("closet_count") or 0) + int(row.get("codistyle_count") or 0)
+        row["day_total"]   = int(row.get("day_closet_count") or 0) + int(row.get("day_codi_count") or 0)
+        row["updated_at"]  = _dt.datetime.utcnow().isoformat() + "Z"
+
+        # 4) Upsert
+        body = {
+            "email": email, "month": row["month"], "day": row["day"],
+            "closet_count": row["closet_count"], "codistyle_count": row["codistyle_count"],
+            "total_count": row["total_count"], "item_count": int(row.get("item_count") or 0),
+            "day_closet_count": row["day_closet_count"], "day_codi_count": row["day_codi_count"],
+            "day_total": row["day_total"], "day_item_count": int(row.get("day_item_count") or 0),
+            "updated_at": row["updated_at"],
+        }
+        import requests as _rq
+        url = f"{supabase_url()}/rest/v1/user_usage"
+        headers = supabase_admin_headers()
+        headers["Prefer"] = "resolution=merge-duplicates,return=representation"
+        resp = _rq.post(url, headers=headers, json=body, timeout=10)
+
+        # 메모리 폴백
+        if not hasattr(app, "_usage_cache"):
+            app._usage_cache = {}
+        app._usage_cache[email] = body
+
+        if resp.status_code in (200, 201):
+            return jsonify({"ok": True, **body})
+        return jsonify({"ok": True, **body, "note": "memory_fallback"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.get("/api/usage/get/<email>")
+def api_usage_get(email):
+    """특정 유저의 현재 사용량 조회 (앱 로딩 시 호출)."""
+    try:
+        email = email.strip().lower()
+        import datetime as _dt
+        now     = _dt.datetime.now()
+        month_k = f"{now.year}-{now.month}"
+        day_k   = now.strftime("%Y-%m-%d")
+
+        row = None
+        try:
+            params = {"email": f"eq.{email}", "select": "*", "limit": "1"}
+            r = sb_query("GET", "user_usage", params=params)
+            if r.status_code == 200:
+                rows = r.json()
+                if rows:
+                    row = rows[0]
+        except Exception:
+            pass
+
+        # 메모리 폴백
+        if not row and hasattr(app, "_usage_cache") and email in app._usage_cache:
+            row = app._usage_cache[email]
+
+        if not row:
+            return jsonify({"ok": True, "month": month_k, "day": day_k,
+                            "closetCount": 0, "codistyleCount": 0, "totalCount": 0,
+                            "itemCount": 0,
+                            "dayClosetCount": 0, "dayCodiCount": 0, "dayTotal": 0,
+                            "dayItemCount": 0})
+
+        # 월/일 리셋
+        r_month = row.get("month", "")
+        r_day   = row.get("day", "")
+        cc = int(row.get("closet_count") or 0)
+        cs = int(row.get("codistyle_count") or 0)
+        tc = int(row.get("total_count") or 0)
+        ic = int(row.get("item_count") or 0)
+        dc = int(row.get("day_closet_count") or 0)
+        dd = int(row.get("day_codi_count") or 0)
+        dt_ = int(row.get("day_total") or 0)
+        di = int(row.get("day_item_count") or 0)
+
+        if r_month != month_k:
+            cc = cs = tc = ic = 0
+        if r_day != day_k:
+            dc = dd = dt_ = di = 0
+
+        return jsonify({
+            "ok": True, "month": month_k, "day": day_k,
+            "closetCount": cc, "codistyleCount": cs, "totalCount": tc,
+            "itemCount": ic,
+            "dayClosetCount": dc, "dayCodiCount": dd, "dayTotal": dt_,
+            "dayItemCount": di,
+        })
+    except Exception as e:
+        return jsonify({"ok": True, "month": "", "closetCount": 0, "codistyleCount": 0,
+                        "totalCount": 0, "itemCount": 0,
+                        "dayClosetCount": 0, "dayCodiCount": 0, "dayTotal": 0,
+                        "dayItemCount": 0, "error": str(e)})
+
+
+@app.get("/admin/usage/summary")
+def admin_usage_summary():
+    """전체 회원 사용량 집계 (MASTER 어드민 전용)."""
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+    try:
+        import datetime as _dt
+        now_ym  = _dt.datetime.now().strftime("%Y-") + str(_dt.datetime.now().month)
+        params  = {"month": f"eq.{now_ym}", "order": "total_count.desc", "limit": "500",
+                    "select": "email,month,day,closet_count,codistyle_count,total_count,item_count,day_closet_count,day_codi_count,day_total,day_item_count,updated_at"}
+        r = sb_query("GET", "user_usage", params=params)
+        if r.status_code == 200:
+            return jsonify({"ok": True, "list": r.json(), "month": now_ym})
+
+        # 메모리 폴백
+        if hasattr(app, "_usage_cache"):
+            rows = [v for v in app._usage_cache.values() if v.get("month") == now_ym]
+            return jsonify({"ok": True, "list": rows, "month": now_ym, "note": "memory_fallback"})
+        return jsonify({"ok": True, "list": [], "month": now_ym})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ══════════════════════════════════════════════════════════════
 # 아이템 등록 보너스 API (이미지 생성 보너스와 동일 구조)
 # ══════════════════════════════════════════════════════════════
 
@@ -4623,12 +4813,31 @@ CREATE TABLE IF NOT EXISTS public.user_item_bonus (
 ALTER TABLE public.user_item_bonus ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "service_role_all" ON public.user_item_bonus
   FOR ALL USING (true) WITH CHECK (true);
+
+-- [2026-04-09] 사용량 서버 동기화 테이블
+CREATE TABLE IF NOT EXISTS public.user_usage (
+  email              TEXT PRIMARY KEY,
+  month              TEXT,
+  day                TEXT,
+  closet_count       INTEGER DEFAULT 0,
+  codistyle_count    INTEGER DEFAULT 0,
+  total_count        INTEGER DEFAULT 0,
+  item_count         INTEGER DEFAULT 0,
+  day_closet_count   INTEGER DEFAULT 0,
+  day_codi_count     INTEGER DEFAULT 0,
+  day_total          INTEGER DEFAULT 0,
+  day_item_count     INTEGER DEFAULT 0,
+  updated_at         TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE public.user_usage ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_all" ON public.user_usage
+  FOR ALL USING (true) WITH CHECK (true);
 """
     import requests as _rq
     _sb  = supabase_url()
     _hdr = supabase_admin_headers()
     results = {}
-    for tbl in ["user_items", "user_item_bonus"]:
+    for tbl in ["user_items", "user_item_bonus", "user_usage"]:
         try:
             test = _rq.get(f"{_sb}/rest/v1/{tbl}?limit=1", headers=_hdr, timeout=10)
             results[tbl] = "exists" if test.status_code == 200 else "missing"
