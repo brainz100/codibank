@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>코디뱅크 | CODIBANK</title>
+<meta name="theme-color" content="#041329"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="apple-touch-icon" href="/app/icons/icon-192.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;700;800&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#041329;
+  --primary:#44dfab;
+  --primary-dim:rgba(68,223,171,.4);
+  --primary-glow:rgba(68,223,171,.12);
+  --secondary:rgba(182,198,237,.7);
+  --surface-hi:#27354c;
+  --text:#d6e3ff;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Outfit','Noto Sans KR',sans-serif;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+
+/* ── Background ── */
+.grid-bg{position:fixed;inset:0;background-image:
+  linear-gradient(to right,rgba(68,223,171,.03) 1px,transparent 1px),
+  linear-gradient(to bottom,rgba(68,223,171,.03) 1px,transparent 1px);
+  background-size:40px 40px;pointer-events:none;z-index:0;}
+.glow-bg{position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 50% 45%,var(--primary-glow),transparent 70%);pointer-events:none;z-index:0;opacity:0;animation:glowIn 1s ease-out .1s forwards;}
+@keyframes glowIn{to{opacity:1;}}
+
+/* ── Scanline effect ── */
+.scanline{position:fixed;inset:0;pointer-events:none;z-index:1;overflow:hidden;}
+.scanline::after{content:'';position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--primary-dim),transparent);opacity:.25;animation:scanMove 3.5s linear infinite;}
+@keyframes scanMove{0%{top:-2px}100%{top:100%}}
+
+/* ── Main container ── */
+.splash{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 2rem;transition:opacity .6s ease,transform .6s ease;}
+.splash.fade-out{opacity:0;transform:scale(1.04);}
+
+/* ── Logo ── */
+.logo-wrap{text-align:center;opacity:0;transform:translateY(24px) scale(.94);animation:logoIn .7s cubic-bezier(.16,1,.3,1) .15s forwards;}
+@keyframes logoIn{to{opacity:1;transform:translateY(0) scale(1);}}
+
+.logo-title{font-family:'Manrope',sans-serif;font-weight:800;font-size:clamp(3.2rem,12vw,4.5rem);color:var(--primary);letter-spacing:-.04em;line-height:1;text-shadow:0 0 30px rgba(68,223,171,.35),0 0 80px rgba(68,223,171,.08);}
+.logo-sub{font-family:'Manrope',sans-serif;font-weight:200;font-size:clamp(1.1rem,4vw,1.5rem);color:var(--primary);letter-spacing:.4em;opacity:.7;margin-top:.6rem;padding-left:.4em;}
+
+/* ── Tagline ── */
+.tagline{margin-top:2.5rem;opacity:0;animation:fadeUp .5s ease .45s forwards;font-size:clamp(.8rem,3vw,.95rem);font-weight:500;letter-spacing:.12em;color:var(--secondary);}
+.tagline .accent{color:var(--primary);font-weight:700;}
+@keyframes fadeUp{to{opacity:1;transform:translateY(0);}}
+.tagline{transform:translateY(12px);}
+
+/* ── Bottom area ── */
+.bottom{position:fixed;bottom:0;left:0;right:0;z-index:20;display:flex;flex-direction:column;align-items:center;gap:1.8rem;padding:0 2rem 3.5rem;opacity:0;animation:fadeUp .5s ease .6s forwards;transform:translateY(12px);}
+.bottom-inner{width:100%;max-width:360px;}
+
+/* ── Progress ── */
+.prog-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:.45rem;}
+.prog-label{font-size:9px;font-weight:700;color:var(--primary);letter-spacing:.2em;text-transform:uppercase;}
+.prog-pct{font-family:'Manrope',sans-serif;font-size:1.1rem;font-weight:800;color:var(--primary);font-style:italic;min-width:3ch;text-align:right;}
+.prog-track{height:3px;width:100%;background:var(--surface-hi);border-radius:99px;overflow:hidden;position:relative;}
+.prog-fill{height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--primary-dim),var(--primary));position:relative;transition:width .15s linear;}
+.prog-fill::after{content:'';position:absolute;right:0;top:-1px;bottom:-1px;width:24px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35));border-radius:99px;filter:blur(2px);}
+
+/* ── Badge ── */
+.badge{display:flex;align-items:center;gap:.5rem;padding:.55rem 1.2rem;background:rgba(68,223,171,.04);border:1px solid rgba(68,223,171,.08);border-radius:99px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);margin:0 auto;}
+.badge .mi{font-size:16px;color:var(--primary);font-variation-settings:'FILL' 1;}
+.badge span:last-child{font-size:8px;font-weight:700;color:rgba(197,198,205,.7);letter-spacing:.15em;text-transform:uppercase;}
+
+/* ── Top decorative line ── */
+.top-line{position:fixed;top:0;left:50%;transform:translateX(-50%);width:8rem;height:2px;background:linear-gradient(90deg,transparent,rgba(68,223,171,.15),transparent);z-index:30;}
+
+/* ── Pulse ring on logo ── */
+.pulse-ring{position:absolute;width:180px;height:180px;border-radius:50%;border:1px solid rgba(68,223,171,.06);top:50%;left:50%;transform:translate(-50%,-50%);animation:pulseR 2.5s ease-out infinite;pointer-events:none;}
+.pulse-ring:nth-child(2){animation-delay:.8s;width:240px;height:240px;}
+@keyframes pulseR{0%{opacity:.5;transform:translate(-50%,-50%) scale(.85);}100%{opacity:0;transform:translate(-50%,-50%) scale(1.3);}}
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div class="glow-bg"></div>
+<div class="scanline"></div>
+<div class="top-line"></div>
+
+<div class="splash" id="splash">
+  <!-- Pulse rings behind logo -->
+  <div style="position:relative;">
+    <div class="pulse-ring"></div>
+    <div class="pulse-ring"></div>
+    <div class="logo-wrap">
+      <div class="logo-title">코디뱅크</div>
+      <div class="logo-sub">codibank</div>
+    </div>
+  </div>
+
+  <div class="tagline">
+    내 코디는 3초 <span class="accent">Ai코디쌤</span>
+  </div>
+</div>
+
+<div class="bottom" id="bottom">
+  <div class="bottom-inner">
+    <div class="prog-header">
+      <span class="prog-label">Securely Connecting</span>
+      <span class="prog-pct" id="pctText">0%</span>
+    </div>
+    <div class="prog-track">
+      <div class="prog-fill" id="progFill"></div>
+    </div>
+  </div>
+  <div class="badge">
+    <span class="material-symbols-outlined mi">lock</span>
+    <span>End-to-End Encrypted Vault</span>
+  </div>
+</div>
+
+<script>
+(function(){
+  var fill = document.getElementById('progFill');
+  var pct  = document.getElementById('pctText');
+  var current = 0;
+  var target = 100;
+  var startTime = null;
+  var duration = 1800; // 1.8초 (짧게)
+
+  // ── [2026-04-09] 로그인 상태 확인 ──
+  // Supabase 세션 토큰 존재 여부로 판단
+  function isLoggedIn(){
+    try {
+      // Supabase v2 auth token key
+      var key = 'sb-drgsayvlpzcacurcczjq-auth-token';
+      var raw = localStorage.getItem(key);
+      if(raw){
+        var parsed = JSON.parse(raw);
+        // access_token 존재 + 만료되지 않았는지 확인
+        if(parsed && parsed.access_token){
+          var exp = parsed.expires_at; // unix timestamp (초)
+          if(exp && exp > Date.now()/1000) return true;
+          // expires_at 없으면 토큰 존재만으로 판단
+          if(!exp) return true;
+        }
+      }
+    } catch(_){}
+    return false;
+  }
+
+  function easeInOutCubic(t){
+    return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+  }
+
+  function goToPage(){
+    var dest = isLoggedIn() ? 'closet.html' : 'index.html';
+    document.body.style.transition = 'opacity .45s ease';
+    document.body.style.opacity = '0';
+    setTimeout(function(){
+      window.location.href = dest;
+    }, 460);
+  }
+
+  function animate(ts){
+    if(!startTime) startTime = ts;
+    var elapsed = ts - startTime;
+    var progress = Math.min(elapsed / duration, 1);
+    var eased = easeInOutCubic(progress);
+    current = Math.round(eased * target);
+
+    fill.style.width = current + '%';
+    pct.textContent = current + '%';
+
+    if(progress < 1){
+      requestAnimationFrame(animate);
+    } else {
+      // 100% 도달 → 짧은 딜레이 후 이동
+      setTimeout(goToPage, 300);
+    }
+  }
+
+  // 0.8초 후 프로그레스 시작 (로고 등장 직후)
+  setTimeout(function(){
+    requestAnimationFrame(animate);
+  }, 800);
+})();
+</script>
+</body>
+</html>
