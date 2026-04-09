@@ -2393,6 +2393,16 @@ def codistyle_generate():
         "FORBIDDEN: rooms, streets, walls, gradients, patterns, scenery. "
         "Professional natural-light editorial lighting. Photorealistic. No text. No watermarks. "
 
+        # ── [FOOTWEAR — MANDATORY] ──────────────────────────────────────────
+        + "\n[FOOTWEAR — ABSOLUTELY MANDATORY]: "
+        + "The generated image MUST include shoes/footwear. "
+        + "NEVER generate an image without shoes. The feet MUST be visible and wearing appropriate footwear. "
+        + "Choose shoes that complement the outfit style: "
+        + ("sneakers or loafers for casual, heels or flats for formal/feminine, "
+           if (payload.get("user",{}).get("gender","") or "").upper() in ("F","FEMALE")
+           else "sneakers for casual, loafers or derbies for smart-casual, dress shoes for formal. ")
+        + "Shoes must be fully visible at the bottom of the image — do NOT crop at the ankles. "
+
         # ── [PHASE 4: SAFETY POLICY] ───────────────────────────────────────
         + "\n[PHASE 4 — SAFETY]: "
         "Person must be FULLY CLOTHED. "
