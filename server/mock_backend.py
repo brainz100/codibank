@@ -1773,36 +1773,76 @@ def _detect_bottom_type_from_image(bottom_bytes: bytes, bottom_mime: str, sdk: s
 
 
 def _analyze_garment_category(category_key: str, sub_category: str = "") -> dict:
-    """카테고리 키 → 착장 생성용 상세 의류 정보"""
+    """[2026-04-09] 카테고리+서브카테고리 → 착장 생성용 상세 의류 정보 (세분화)"""
     k = (category_key or "").lower().strip()
     sub = (sub_category or "").lower().strip()
+    combined = k + " " + sub
 
-    # 상의 계열
-    if k in ("coat", "코트") or any(x in sub for x in ["코트","트렌치","더플","롱코트"]):
-        return {"type": "top", "garment": "coat", "ko": "코트",
-                "length": "knee-length or longer", "rule": "full-length coat covering thighs"}
-    if k in ("jacket", "자켓") or any(x in sub for x in ["자켓","블레이저","수트","가디건","패딩","집업"]):
+    # ── 아우터 (코트류) ──
+    if k in ("coat", "코트") or any(x in combined for x in ["코트","트렌치","더플","롱코트","케이프"]):
+        return {"type": "top", "garment": "coat", "garment_class": "outerwear", "ko": sub or "코트",
+                "length": "knee-length or longer", "tuck": "never",
+                "inner_layer": "simple white or black crew-neck T-shirt underneath",
+                "rule": "OUTERWEAR: Worn OPEN. Add a plain white/black tee underneath."}
+
+    # ── 아우터 (자켓/패딩류) ──
+    if k in ("jacket", "자켓") or any(x in combined for x in ["자켓","블레이저","수트자켓","콤비자켓",
+            "사파리","데님자켓","레더","패딩","다운","가디건","볼레로","집업","후드집업"]):
         garment_ko = sub or "자켓"
-        return {"type": "top", "garment": "jacket/blazer", "ko": garment_ko,
-                "length": "hip-length", "rule": "jacket ending at hip level"}
-    if k in ("top", "상의") or any(x in sub for x in ["티셔츠","셔츠","블라우스","니트","맨투맨","후드"]):
-        garment_ko = sub or "상의"
-        return {"type": "top", "garment": "top", "ko": garment_ko,
-                "length": "waist to hip", "rule": "casual top"}
+        is_cardigan = "가디건" in combined
+        return {"type": "top", "garment": "jacket", "garment_class": "outerwear", "ko": garment_ko,
+                "length": "hip-length", "tuck": "never",
+                "inner_layer": "simple white or black crew-neck T-shirt underneath" if not is_cardigan else "light inner top",
+                "rule": "OUTERWEAR: Worn OPEN over inner layer. Never tucked."}
 
-    # 하의 계열
-    if any(x in (k + sub) for x in ["스커트","치마","skirt"]):
+    # ── 상의: 맨투맨/후드/스웨터/니트 (절대 넣지 않음) ──
+    if any(x in combined for x in ["맨투맨","후드티","스웨터","니트","sweater","hoodie","sweatshirt"]):
+        garment_ko = sub or ("맨투맨" if "맨투맨" in combined else "니트" if "니트" in combined else "후드티")
+        return {"type": "top", "garment": "sweatshirt", "garment_class": "pullover", "ko": garment_ko,
+                "length": "waist to hip", "tuck": "never",
+                "inner_layer": None,
+                "rule": "PULLOVER: Hem hangs NATURALLY outside the bottom garment. NEVER tuck in."}
+
+    # ── 상의: 클래식 와이셔츠/드레스셔츠 (넣기 가능) ──
+    if any(x in combined for x in ["와이셔츠","드레스셔츠","dress shirt","oxford","formal shirt"]):
+        return {"type": "top", "garment": "dress_shirt", "garment_class": "shirt", "ko": sub or "와이셔츠",
+                "length": "waist", "tuck": "tucked_in",
+                "inner_layer": None,
+                "rule": "DRESS SHIRT: Tuck into the waistband for a clean formal look."}
+
+    # ── 상의: 캐주얼셔츠/블라우스 (체형 고려 후 프론트턱 또는 언턱) ──
+    if any(x in combined for x in ["셔츠","블라우스","남방","shirt","blouse"]):
+        garment_ko = sub or ("블라우스" if "블라우스" in combined else "셔츠")
+        return {"type": "top", "garment": "casual_shirt", "garment_class": "shirt", "ko": garment_ko,
+                "length": "waist to hip", "tuck": "front_tuck_optional",
+                "inner_layer": None,
+                "rule": "CASUAL SHIRT: Default is UNTUCKED. A trendy front-tuck is acceptable for slim/standard body types only. Consider user body type."}
+
+    # ── 상의: 티셔츠/반팔/나시 (기본 언턱) ──
+    if k in ("top", "상의") or any(x in combined for x in ["티셔츠","반팔","긴팔","나시","탱크","t-shirt","tank"]):
+        garment_ko = sub or "티셔츠"
+        return {"type": "top", "garment": "tshirt", "garment_class": "tshirt", "ko": garment_ko,
+                "length": "waist to hip", "tuck": "front_tuck_optional",
+                "inner_layer": None,
+                "rule": "T-SHIRT: Default is UNTUCKED. A front-tuck is optional for slim body types with high-waist bottoms."}
+
+    # ── 하의: 치마 ──
+    if any(x in combined for x in ["스커트","치마","skirt"]):
         skirt_type = "mini skirt" if any(x in sub for x in ["미니","mini"]) else                      "midi skirt" if any(x in sub for x in ["미디","플리츠","midi"]) else                      "maxi skirt" if any(x in sub for x in ["롱","maxi"]) else "skirt"
-        return {"type": "bottom", "garment": skirt_type, "ko": sub or "스커트",
+        return {"type": "bottom", "garment": skirt_type, "garment_class": "skirt", "ko": sub or "스커트",
                 "is_skirt": True,
-                "rule": f"MUST generate {skirt_type} — NOT pants. This is a SKIRT. Absolutely forbidden to replace with trousers."}
-    if k in ("pants", "하의") or any(x in sub for x in ["바지","청바지","슬랙스","조거","추리닝","반바지","7부"]):
-        is_shorts = any(x in sub for x in ["반바지","shorts"])
-        return {"type": "bottom", "garment": "shorts" if is_shorts else "trousers", "ko": sub or "바지",
-                "is_skirt": False,
+                "rule": f"MUST generate {skirt_type} — NOT pants. This is a SKIRT."}
+
+    # ── 하의: 바지 ──
+    if k in ("pants", "하의") or any(x in combined for x in ["바지","청바지","슬랙스","조거","추리닝","반바지","7부","jeans","pants"]):
+        is_shorts = any(x in combined for x in ["반바지","shorts","7부"])
+        return {"type": "bottom", "garment": "shorts" if is_shorts else "trousers", "garment_class": "pants",
+                "ko": sub or "바지", "is_skirt": False,
                 "rule": "Generate trousers/pants as specified"}
 
-    return {"type": "unknown", "garment": k or "garment", "ko": k or "의류", "is_skirt": False, "rule": ""}
+    # ── 기본 ──
+    return {"type": "unknown", "garment": k or "garment", "garment_class": "unknown",
+            "ko": k or "의류", "is_skirt": False, "tuck": "natural", "rule": ""}
 
 
 def _build_garment_instruction(top_info: dict, bottom_info: dict) -> str:
@@ -2105,7 +2145,10 @@ def codistyle_generate():
             f"of the total body height (waist to toe). "
             f"DO NOT make the skirt shorter or longer than this proportion. "
         )
-        print(f"[codistyle] 치마 비율 분석: {_bw}x{_bh} ratio={_wh_ratio:.2f} → {_skirt_ratio_desc}")
+        # [2026-04-09] 치마 기장: 측정 비율 + 10% 길게 보정
+        _wh_ratio_adjusted = _wh_ratio * 1.10  # 10% 길게 보정
+        _skirt_ratio_desc = _skirt_ratio_desc + f" (보정 후 ratio={_wh_ratio_adjusted:.2f})"
+        print(f"[codistyle] 치마 비율 분석: {_bw}x{_bh} ratio={_wh_ratio:.2f} → 보정={_wh_ratio_adjusted:.2f} → {_skirt_ratio_desc}")
     except Exception as _ratio_err:
         print(f"[codistyle] 치마 비율 분석 실패: {_ratio_err}")
 
@@ -2213,29 +2256,35 @@ def codistyle_generate():
     elif not _is_female_cs:
         # 남성: 예외 없이 풀 레귤러 (_retry_pants는 위에서 이미 설정됨)
         _pants_rule = (
-            "[RULE #1 — PANTS LENGTH — OVERRIDES EVERYTHING]: "
-            "In the final generated image, the trouser hem must end at the BOTTOM 15% of the full image height — "
-            "meaning just above the shoe top, covering the ankle completely. "
-            "The ankle bone must be HIDDEN by the trouser fabric. Shoes must be partially visible below the hem. "
-            "ABSOLUTELY FORBIDDEN: any gap between trouser hem and shoe top showing bare skin or sock above ankle. "
-            "DO NOT use the lower garment reference image to determine pant length — "
-            "that reference is ONLY for fabric color and texture reproduction. "
-            "If the reference shows short/cropped pants, IGNORE that length and generate FULL-LENGTH instead. "
-            + _retry_pants +
+            "[RULE #1 — PANTS LENGTH — ABSOLUTE PRIORITY]: "
+            "DEFAULT PANTS LENGTH: The trouser hem MUST cover the ankle bone (복숭아뼈) completely. "
+            "The hem should rest on top of the shoe with a slight break. Shoes visible below hem. "
+            "FORBIDDEN: any bare skin/sock visible between hem and shoe. "
+            "DO NOT use the reference image to determine pant length — reference is for color/texture ONLY. "
+            + (
+                "RETRY — LONGER PANTS (+20%%): Make pants VISIBLY LONGER than previous attempt. "
+                "The hem should COVER the top of the shoes, pooling slightly on the shoe surface. "
+                "This is 20%% longer than ankle-bone length. "
+                if bool(payload.get("retryLongerPants"))
+                else ""
+            ) +
             "This instruction OVERRIDES the reference image visual. No exceptions."
         )
     else:
         # 여성 (최초·다시요청 무관): 풀 레귤러 강제 — 7부는 사용자 명시 요청 시에만
         _pants_rule = (
-            "[RULE #1 — PANTS LENGTH — OVERRIDES EVERYTHING]: "
-            "In the final generated image, the trouser hem must end at the BOTTOM 15% of the full image height — "
-            "meaning just above the shoe top, covering the ankle completely. "
-            "The ankle bone must be HIDDEN by the trouser fabric. Shoes must be visible below the hem. "
-            "ABSOLUTELY FORBIDDEN: any gap between trouser hem and shoe top showing bare skin or sock above the ankle. "
-            "DO NOT use the lower garment reference image to determine pant length — "
-            "that reference is ONLY for fabric color and texture reproduction. "
-            "If the reference shows short/cropped pants, IGNORE that length and generate FULL-LENGTH instead. "
-            + _retry_pants +
+            "[RULE #1 — PANTS LENGTH — ABSOLUTE PRIORITY]: "
+            "DEFAULT PANTS LENGTH: The trouser hem MUST cover the ankle bone (복숭아뼈) completely. "
+            "The hem should rest on top of the shoe with a slight break. Shoes visible below hem. "
+            "FORBIDDEN: any bare skin/sock visible between hem and shoe. "
+            "DO NOT use the reference image to determine pant length — reference is for color/texture ONLY. "
+            + (
+                "RETRY — LONGER PANTS (+20%%): Make pants VISIBLY LONGER than previous attempt. "
+                "The hem should COVER the top of the shoes, pooling slightly on the shoe surface. "
+                "This is 20%% longer than ankle-bone length. "
+                if bool(payload.get("retryLongerPants"))
+                else ""
+            ) +
             "This instruction OVERRIDES the reference image visual. No exceptions."
         )
 
@@ -2276,27 +2325,39 @@ def codistyle_generate():
         + "\n[PHASE 2 — GARMENT IDENTITY — ABSOLUTE PRIORITY]: "
         + _garment_instruction
 
-        # ── 상의 넣기/빼기 규칙 (카테고리 기반) ──
-        + "\n[TOP TUCKING RULE — CRITICAL]: "
+        # ── [2026-04-09] 상의 착용 규칙 (garment_class 기반 세분화) ──
+        + "\n[TOP WEARING RULE — ABSOLUTE PRIORITY]: "
         + (
-            "This top is a SWEATSHIRT/HOODIE/KNIT type — it must hang NATURALLY OUTSIDE the bottom garment. "
-            "NEVER tuck it in. The hem should fall naturally over the waistband. "
-            if top_info.get("garment","") in ("top","sweatshirt","hoodie","knit","sweater","맨투맨","후드티","니트","스웨터")
-            or "맨투맨" in top_info.get("ko","") or "후드" in top_info.get("ko","")
-            or "니트" in top_info.get("ko","") or "스웨터" in top_info.get("ko","")
-            else (
-                "This top is a DRESS SHIRT/BLOUSE — tuck it in ONLY if the bottom has a visible waistband "
-                "(slacks, dress pants, pencil skirt). For casual bottoms (jeans, wide pants, casual skirt), "
-                "leave it untucked or half-tucked for a natural look. "
-                if top_info.get("garment","") in ("shirt","blouse","셔츠","블라우스","남방")
-                or "셔츠" in top_info.get("ko","") or "블라우스" in top_info.get("ko","")
-                or "남방" in top_info.get("ko","")
-                else (
-                    "This is a JACKET/COAT/OUTERWEAR — it must be worn OPEN over the body, never tucked. "
-                    if top_info.get("type","") == "top" and top_info.get("garment","") in ("coat","jacket","blazer","자켓","코트")
-                    else "Let the top hang naturally based on its category and fit. Do NOT automatically tuck it in. "
-                )
-            )
+            # 아우터 (코트/자켓/패딩/가디건)
+            f"This is OUTERWEAR ({top_info.get('ko','자켓')}). "
+            f"Wear it OPEN, never buttoned up fully. "
+            f"INNER LAYER: {top_info.get('inner_layer','a plain white T-shirt')} — keep it simple so the outerwear stands out. "
+            "The outerwear is the HERO of this outfit. Never tuck outerwear. "
+            if top_info.get("garment_class") == "outerwear"
+            # 풀오버 (맨투맨/후드/니트/스웨터)
+            else f"This is a PULLOVER ({top_info.get('ko','맨투맨')}). "
+            "The hem MUST hang NATURALLY outside the bottom garment. "
+            "ABSOLUTELY NEVER tuck a pullover/sweatshirt/knit into pants or skirt. "
+            "The fabric should drape naturally over the waistband. "
+            if top_info.get("garment_class") == "pullover"
+            # 드레스셔츠 (와이셔츠) → 넣기
+            else f"This is a DRESS SHIRT ({top_info.get('ko','와이셔츠')}). "
+            "Tuck it neatly into the waistband for a clean, formal look. "
+            if top_info.get("garment_class") == "shirt" and top_info.get("garment") == "dress_shirt"
+            # 캐주얼셔츠/블라우스 → 기본 언턱, 프론트턱 옵션
+            else f"This is a CASUAL SHIRT ({top_info.get('ko','셔츠')}). "
+            "DEFAULT: Leave it UNTUCKED with the hem hanging naturally. "
+            "OPTIONAL: A modern front-tuck (front hem lightly tucked, back hem loose) "
+            "is acceptable ONLY if the user has a slim body type AND the bottom has a high waistband. "
+            "When in doubt, leave it UNTUCKED. Never fully tuck a casual shirt. "
+            if top_info.get("garment_class") == "shirt"
+            # 티셔츠/반팔/나시 → 기본 언턱
+            else f"This is a T-SHIRT ({top_info.get('ko','티셔츠')}). "
+            "DEFAULT: Leave UNTUCKED. The hem should hang naturally at waist/hip level. "
+            "A trendy front-tuck is acceptable only with high-waist bottoms on slim body types. "
+            "Never fully tuck a T-shirt. "
+            if top_info.get("garment_class") == "tshirt"
+            else "Let the top hang naturally. Default is UNTUCKED. "
         )
 
         + (
@@ -2412,11 +2473,13 @@ def codistyle_generate():
             "where n1<=40, n2<=40, n3<=20, n1+n2+n3=[total] and [total]<=100. "
 
             # 4개 섹션 분석 출력 형식
-            + "OUTPUT LINE 2+ (Korean analysis, each section on new line): "
-            "퍼스널컬러 조합: [퍼스널컬러 타입과 이 착장의 컬러 조합이 잘 맞는지, 구체적으로 어떤 컬러가 잘 어울리거나 안 어울리는지 2문장] "
-            "상의 스타일: [상의의 소재·패턴·핏이 체형과 전체 스타일에 미치는 효과, 어울리는 하의 스타일 제안 2문장] "
-            "하의 스타일: [하의의 실루엣·기장·소재가 체형에 미치는 효과, 이 상의와의 조화 분석 2문장] "
-            "상하의 코디 분석: [상의와 하의의 컬러 배색·패턴 조화·스타일 일관성을 분석하고, 이 조합을 더 잘 활용하는 구체적 팁 2문장]"
+            + "OUTPUT LINE 2+ (Korean analysis — report format, each section MUST start with its label): "
+            "퍼스널컬러 분석: [사용자의 퍼스널컬러 시즌 타입(봄웜/여쿨/가을웜/겨울쿨)과 이 착장의 상의·하의 컬러가 어떻게 조화되는지 구체적으로 분석. "
+            "추천 컬러와의 일치도, 피해야 할 컬러 해당 여부를 명확히 언급. 500자 이내] "
+            "체형 분석: [사용자의 체형 타입과 키·몸무게를 고려할 때 이 착장의 실루엣·핏·기장이 체형의 장점을 살리는지 또는 단점을 보완하는지 분석. "
+            "추천 스타일 부합 여부, 피해야 할 스타일 해당 여부를 구체적으로 언급. 500자 이내] "
+            "상의 스타일: [상의의 소재·패턴·핏·넥라인이 전체 착장에서 어떤 역할을 하는지, 체형과의 조화, 개선 제안 포함. 300자 이내] "
+            "하의 스타일: [하의의 실루엣·기장·소재가 전체 비율에 미치는 효과, 상의와의 배색 조화, 개선 제안 포함. 300자 이내]"
         )
 
         # ── 다시요청 ───────────────────────────────────────────────────────
