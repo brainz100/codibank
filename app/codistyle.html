@@ -531,7 +531,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
         <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;">체형 밸런스</div>
         <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
           <span id="csScBody" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
-          <span style="font-size:9px;color:rgba(255,255,255,.25);">/30</span>
+          <span style="font-size:9px;color:rgba(255,255,255,.25);">/40</span>
         </div>
         <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:5px;">
           <div id="csScBodyFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .8s;"></div>
@@ -542,7 +542,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
         <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;">토탈 스타일링</div>
         <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
           <span id="csScStyle" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
-          <span style="font-size:9px;color:rgba(255,255,255,.25);">/30</span>
+          <span style="font-size:9px;color:rgba(255,255,255,.25);">/20</span>
         </div>
         <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:5px;">
           <div id="csScStyleFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .8s;"></div>
@@ -881,7 +881,23 @@ function renderSlot(k){
 function setStatus(k, text, err){ const e=document.getElementById('st-'+k); e.textContent=text||''; e.className='slot-status'+(err?' err':''); }
 function pickFile(k){ document.getElementById('file-'+k).click(); }
 function pickCamera(k){ document.getElementById('cam-'+k).click(); }
-function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false }; renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); }
+function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false }; renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); _resetResultArea(); }
+function _resetResultArea(){
+  // 착장이미지 + 분석 + 스코어 리셋
+  lastImgUrl='';
+  document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.3">상의와 하의를 업로드하고 생성 버튼을 눌러주세요</p></div></div>';
+  setDot(''); setProgress(0,'');
+  var _sn=document.getElementById('csScoreNum'); if(_sn) _sn.textContent='—';
+  var _sb=document.getElementById('csScoreBar'); if(_sb) _sb.style.width='0%';
+  var _sd=document.getElementById('csScoreDetail'); if(_sd) _sd.style.display='none';
+  var _ab=document.getElementById('csAnalysisBox'); if(_ab) _ab.style.display='none';
+  var _gb=document.getElementById('csGradeBadge'); if(_gb) _gb.style.display='none';
+  ['csScPc','csScBody','csScStyle'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent='—';});
+  ['csScPcFill','csScBodyFill','csScStyleFill'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.width='0%';});
+  ['csAnalysisPc','csAnalysisTop','csAnalysisBot','csAnalysisTotal'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent='';});
+  hideErr();
+  _topAnalysisCache=null; _bottomAnalysisCache=null;
+}
 function resetAll(){
   _topAnalysisCache = null;
   _bottomAnalysisCache = null;
@@ -954,6 +970,7 @@ async function uploadBlob(k, blob){
   return String(j.path || '');
 }
 async function onFile(ev,k){
+  _resetResultArea(); // 아이템 변경 → 착장이미지+분석 리셋
   const file=ev.target.files && ev.target.files[0];
   ev.target.value='';
   if(!file) return;
@@ -1168,6 +1185,9 @@ async function generate(isRetry=false){
   // ── Phase 1: 상의/하의 상세 분석 (치마/바지 정확 판별) ──
   if(!isRetry || !_topAnalysisCache){
     setProgress(20,'의류 분석 중…');
+  // 이미 캐시된 분석이 있으면 Phase 1 분석 스킵
+  var _skipAnalysis = !!(_topAnalysisCache && _bottomAnalysisCache);
+  if(_skipAnalysis) { setProgress(25,'이전 분석 데이터 사용…'); }
     await analyzeGarments();
     // 분석 결과 간단 표시
     if(_bottomAnalysisCache){
@@ -1176,6 +1196,7 @@ async function generate(isRetry=false){
       console.log('[Phase1] 하의 확정:', _botLabel, _isSkirtDetected ? '✅ 치마' : '👖 바지/반바지');
     }
   }
+  if(!_skipAnalysis) { try{ await analyzeGarments(); }catch(_ae){ console.warn('[garment analysis skip]',_ae); } }
   setProgress(30,'코디 프로필 분석 중…');
 
   document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br><small style="opacity:.55">(10~25초 소요)</small></p></div></div>';
@@ -1557,8 +1578,8 @@ async function generate(isRetry=false){
         setTimeout(()=>{
           const f1=document.getElementById('csScoreBar');   if(f1) f1.style.width=score+'%';
           const f2=document.getElementById('csScPcFill');   if(f2) f2.style.width=Math.round(_pcL/40*100)+'%';
-          const f3=document.getElementById('csScBodyFill'); if(f3) f3.style.width=Math.round(_bodyL/30*100)+'%';
-          const f4=document.getElementById('csScStyleFill');if(f4) f4.style.width=Math.round(_styleL/30*100)+'%';
+          const f3=document.getElementById('csScBodyFill'); if(f3) f3.style.width=Math.round(_bodyL/40*100)+'%';
+          const f4=document.getElementById('csScStyleFill');if(f4) f4.style.width=Math.round(_styleL/20*100)+'%';
         },180);
         document.getElementById('csScoreDetail').style.display='block';
         document.getElementById('csScoreText').style.display='none';
@@ -1958,6 +1979,7 @@ function drawDeck(type,items,ci){
 }
 
 async function pickDeckItem(type,entry){
+  _resetResultArea(); // 아이템 변경 → 착장이미지+분석 리셋
   if(!entry) return;
   var pvEl=document.getElementById(type==='top'?'topPreview':'botPreview');
   if(!pvEl) return;
@@ -1973,6 +1995,22 @@ async function pickDeckItem(type,entry){
   ST[type].dataUrl=dataUrl;
   try{var img=new Image();img.src=src;ST[type].naturalWidth=img.naturalWidth||400;ST[type].naturalHeight=img.naturalHeight||600;}catch(_){}
   ST[type].label=entry.label+' '+(entry.item.color||'');
+  // [2026-04-08] 이미 분석된 아이템이면 캐시에 직접 저장 (재분석 불필요)
+  if(entry.item && entry.item.meta && entry.item.meta.gemini) {
+    var gm = entry.item.meta.gemini;
+    var cached = {
+      color_ko: gm.main_color_name || entry.item.color || '',
+      color_hex: gm.main_color || '',
+      pattern: gm.pattern || '',
+      material: gm.material || '',
+      fit: gm.fit || '',
+      design: gm.design_points || '',
+      sub_category: gm.sub_category || '',
+      category: gm.category || entry.cat || '',
+    };
+    if(type==='top') _topAnalysisCache = cached;
+    else _bottomAnalysisCache = cached;
+  }
   // 서버 업로드 시작 (업로드 완료 전에도 dataUrl로 생성 가능하도록)
   if(dataUrl && !ST[type].serverPath) ST[type].serverPath = '_pending_';
   _uploadDeckItem(type,dataUrl);
