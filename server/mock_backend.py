@@ -48,6 +48,40 @@ try:
 except ImportError:
     _HAS_SKIN_ANALYZER = False
 
+# [2026-04-08] 체형 DB 로딩
+_BODY_TYPE_DB = {}
+try:
+    import json as _json_bt
+    _bt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "body_type_db.json")
+    with open(_bt_path, "r", encoding="utf-8") as _f:
+        _BODY_TYPE_DB = _json_bt.load(_f)
+    print(f"[BodyType] DB 로드: 여성 {len(_BODY_TYPE_DB.get('female',{}))}종, 남성 {len(_BODY_TYPE_DB.get('male',{}))}종")
+except Exception as _e:
+    print(f"[BodyType] DB 로드 실패: {_e}")
+
+def _get_body_type_info(gender, body_type_key):
+    if not body_type_key or not _BODY_TYPE_DB:
+        return None
+    g = "female" if str(gender).lower() in ("f","female","여성") else "male"
+    return _BODY_TYPE_DB.get(g, {}).get(body_type_key)
+
+def _build_body_type_prompt(gender, body_type_key):
+    info = _get_body_type_info(gender, body_type_key)
+    if not info:
+        return ""
+    lines = [
+        "",
+        "BODY TYPE PROFILE: " + info["label"] + " (" + info["en"] + ")",
+        "  Feature: " + info["feature"],
+        "  Best color strategy: " + info["best_color"],
+        "  Avoid color strategy: " + info["worst_color"],
+        "  Recommended style: " + info["do_style"],
+        "  Avoid style: " + info["dont_style"],
+        "  IMPORTANT: Apply these body type rules when generating the outfit image.",
+        "  The outfit MUST follow 'do_style' and AVOID 'dont_style' silhouettes.",
+    ]
+    return "\n".join(lines)
+
 try:
     from pc_prompt_helper import _build_pc_prompt_block
     print("[Phase2] pc_prompt_helper loaded")
@@ -1326,8 +1360,15 @@ def _ai_styling_via_gemini(
     gender_en = "woman" if gender == "F" else "man"
     gender_ko = "여성" if gender == "F" else "남성"
 
+    # [2026-04-08] 체형 DB 기반 스타일 가이드
+    _bt_key = str(payload.get("user", {}).get("bodyType", "")).strip()
+    _bt_prompt = _build_body_type_prompt(gender, _bt_key) if _bt_key else ""
+    if _bt_prompt:
+        _bt_prompt = "\n⭐ " + _bt_prompt
+
     # [2026-04-08] Phase 2 퍼스널컬러 (12서브타입 대응)
     _pc_text = _build_pc_prompt_block(personal_color, mode="styling")
+    if _bt_prompt: _pc_text = (_pc_text or "") + _bt_prompt
     if not _pc_text and personal_color:
         _pc_s = personal_color.get("season","")
         _pc_u = personal_color.get("undertone","")
@@ -2332,7 +2373,12 @@ def codistyle_generate():
             + (
                 f"2. BODY_SHAPE /30: User is {gender_ko} {age}"
                 + (f" {hw_ko}." if hw_ko else ".")
-                + f" How well does {top_info.get('ko','')}+{bottom_info.get('ko','')} flatter this body type? Consider silhouette, proportion, visual balance. "
+                + (_build_body_type_prompt(
+                    payload.get("user",{}).get("gender","") or gender,
+                    payload.get("bodyType","")
+                  ) if payload.get("bodyType") else "")
+                + f" How well does {top_info.get('ko','')}+{bottom_info.get('ko','')} flatter this body type? "
+                + "Evaluate: Does the silhouette follow recommended styles? Does it avoid the 'dont_style' pitfalls? "
             )
             # 기준 3: 토탈 스타일링 (30점 만점)
             + f"3. OVERALL_STYLING /30: Color coordination, pattern match, style coherence, trend relevance, wearability for Korean everyday life. "
@@ -2974,6 +3020,95 @@ def ai_analyze_item():
 
         if fashion_embedding:
             analysis["embedding"] = fashion_embedding  # 512차원 벡터
+
+        # [2026-04-08] 퍼스널컬러 + 체형 호환성 평가
+        pc_data = d.get("personalColor") or {}
+        bt_key  = d.get("bodyType", "")
+        bt_gender = d.get("gender", "")
+        
+        compatibility = {}
+        
+        item_color = analysis.get("main_color_name", "") or analysis.get("main_color", "")
+        item_pattern = analysis.get("pattern", "")
+        item_fit = analysis.get("fit", "")
+        item_cat = analysis.get("category", "")
+        item_sub = analysis.get("sub_category", "")
+        
+        # 퍼스널컬러 호환성
+        if pc_data and pc_data.get("season"):
+            pc_season = pc_data.get("season", "")
+            pc_best = ", ".join((pc_data.get("best_color_names") or pc_data.get("best_colors") or [])[:4])
+            pc_avoid = ", ".join((pc_data.get("avoid_color_names") or pc_data.get("avoid_colors") or [])[:3])
+            compatibility["personal_color"] = {
+                "season": pc_season,
+                "best_colors": pc_best,
+                "avoid_colors": pc_avoid,
+                "item_color": item_color,
+            }
+        
+        # 체형 호환성
+        bt_info = _get_body_type_info(bt_gender, bt_key) if bt_key else None
+        if bt_info:
+            compatibility["body_type"] = {
+                "type": bt_info["label"],
+                "do_style": bt_info["do_style"],
+                "dont_style": bt_info["dont_style"],
+                "best_color": bt_info["best_color"],
+                "worst_color": bt_info["worst_color"],
+                "item_fit": item_fit,
+                "item_category": item_sub or item_cat,
+            }
+        
+        # GPT/Gemini로 종합 판단 (간단 텍스트)
+        if compatibility:
+            try:
+                _compat_parts = []
+                if compatibility.get("personal_color"):
+                    pc = compatibility["personal_color"]
+                    _compat_parts.append(
+                        "퍼스널컬러(" + pc["season"] + "): "
+                        "추천 컬러=" + pc["best_colors"] + ", "
+                        "피해야 할 컬러=" + pc["avoid_colors"] + ". "
+                        "이 아이템 컬러=" + pc["item_color"]
+                    )
+                if compatibility.get("body_type"):
+                    bt = compatibility["body_type"]
+                    _compat_parts.append(
+                        "체형(" + bt["type"] + "): "
+                        "추천=" + bt["do_style"] + ", "
+                        "피해=" + bt["dont_style"] + ". "
+                        "이 아이템=" + bt["item_fit"] + " " + bt["item_category"]
+                    )
+                
+                _compat_prompt = (
+                    "아래 사용자 정보와 아이템 정보를 보고, 이 아이템이 사용자에게 어울리는지 판단하세요.\n"
+                    + "\n".join(_compat_parts)
+                    + "\n\n아래 JSON으로만 응답:\n"
+                    + '{"pc_score":0~100,"pc_comment":"퍼스널컬러 측면 한줄평(한국어)",'
+                    + '"bt_score":0~100,"bt_comment":"체형 측면 한줄평(한국어)",'
+                    + '"total_score":0~100,"total_comment":"종합 한줄평(한국어)"}'
+                )
+                
+                if _SDK == "new":
+                    _compat_resp = _cli.models.generate_content(
+                        model="gemini-2.0-flash",
+                        contents=[_compat_prompt],
+                    )
+                    _compat_text = _compat_resp.text.strip()
+                else:
+                    _compat_model = _gmod.GenerativeModel("gemini-2.0-flash")
+                    _compat_resp = _compat_model.generate_content(_compat_prompt)
+                    _compat_text = _compat_resp.text.strip()
+                
+                _compat_text = _re.sub(r"```json\s*", "", _compat_text)
+                _compat_text = _re.sub(r"```\s*", "", _compat_text).strip()
+                _compat_json = json.loads(_compat_text)
+                compatibility["evaluation"] = _compat_json
+            except Exception as _ce:
+                print(f"[analyze-item] 호환성 평가 실패: {_ce}")
+        
+        if compatibility:
+            analysis["compatibility"] = compatibility
 
         return jsonify(ok=True, analysis=analysis)
 
