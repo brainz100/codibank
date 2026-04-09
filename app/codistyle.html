@@ -931,13 +931,7 @@ function resetAll(){
   if(_st){_st.textContent='착장 이미지가 생성되면 AI 스타일링 분석이 표시됩니다';_st.style.color='rgba(255,255,255,.3)';_st.style.display='block';}
 
   setDot(''); setProgress(0,'');
-  // rainbow 즉시 시작
-  try{
-    var _rbEl=document.querySelector('.cb-rainbow-cs');
-    if(!_rbEl){
-      document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br><small style="opacity:.55">(10~25초 소요)</small></p></div></div>';
-    } else { _rbEl.classList.add('animating'); }
-  }catch(_){}
+  // [2026-04-09] rainbow 즉시 실행 — generate 시작하자마자
   try{
     sessionStorage.removeItem('cb_cs_lastImg');
     sessionStorage.removeItem('cb_cs_score');
@@ -1177,27 +1171,28 @@ async function generate(isRetry=false){
   busy=true; hideErr(); updateGenerateBtn();
   document.getElementById('genBtnText').textContent='착장 이미지 생성중입니다';
   document.getElementById('genBtnIcon').textContent='hourglass_top';
+  // [2026-04-09] rainbow 즉시 실행 — 생성 시작하자마자
+  document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br><small style="opacity:.55">(10~25초 소요)</small></p></div></div>';
   document.getElementById('csScoreNum').textContent='—';
   document.getElementById('csScoreText').textContent='착장 이미지 생성 중...';
   document.getElementById('csScoreText').style.color='rgba(255,255,255,.35)';
   setDot(''); setProgress(12,'의상 확인 중…');
 
   // ── Phase 1: 상의/하의 상세 분석 (치마/바지 정확 판별) ──
-  if(!isRetry || !_topAnalysisCache){
+  // [2026-04-09] Phase 1: 이미 캐시된 분석이 있으면 완전 스킵
+  var _hasCache = !!(_topAnalysisCache && _bottomAnalysisCache);
+  if(_hasCache) {
+    setProgress(25,'이전 분석 데이터 사용…');
+    console.log('[Phase1] 캐시 사용 → 분석 스킵');
+  } else if(!isRetry) {
     setProgress(20,'의류 분석 중…');
-  // 이미 캐시된 분석이 있으면 Phase 1 분석 스킵
-  var _skipAnalysis = !!(_topAnalysisCache && _bottomAnalysisCache);
-  if(_skipAnalysis) { setProgress(25,'이전 분석 데이터 사용…'); }
-    await analyzeGarments();
-    // 분석 결과 간단 표시
+    try { await analyzeGarments(); } catch(_ae) { console.warn('[Phase1 분석 실패]',_ae); }
     if(_bottomAnalysisCache){
-      const _botLabel = _bottomAnalysisCache.sub_category || _bottomAnalysisCache.category || '';
-      const _isSkirtDetected = _bottomAnalysisCache.is_skirt === true;
-      console.log('[Phase1] 하의 확정:', _botLabel, _isSkirtDetected ? '✅ 치마' : '👖 바지/반바지');
+      var _botLabel = _bottomAnalysisCache.sub_category || _bottomAnalysisCache.category || '';
+      console.log('[Phase1] 하의:', _botLabel, _bottomAnalysisCache.is_skirt ? '✅ 치마' : '👖 바지');
     }
   }
-  if(!_skipAnalysis) { try{ await analyzeGarments(); }catch(_ae){ console.warn('[garment analysis skip]',_ae); } }
-  setProgress(30,'코디 프로필 분석 중…');
+  setProgress(30,'코디 프로필 준비 중…');
 
   document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br><small style="opacity:.55">(10~25초 소요)</small></p></div></div>';
   try{
@@ -1259,46 +1254,18 @@ async function generate(isRetry=false){
     const _ri = (arr) => arr[Math.floor(Math.random()*arr.length)];
 
     // ── Build Prompt ──
+    // [2026-04-09] 프론트 프롬프트 간소화 — 상세 지시는 서버 4-Phase 프롬프트에 위임
     const imagePrompt = [
-      // I. CORE OBJECTIVE
-      'Generate a realistic, full-body photograph of a specific individual, faithfully wearing the exact provided top and bottom garments, presented against a clean solid pastel background.',
-
-      // II-1. Subject Profile
-      `SUBJECT PROFILE: Gender=${_gender}. Age Appearance=${_ageEn}. Face=Must perfectly match the facial features and identity of the provided User Face Reference Image.`
-      + (_physique ? ` Physique=Must reflect exact ${_physique}, ensuring realistic body proportions.` : ''),
-
-      // II-2. Garment Integrity (100% Fidelity)
-            // [2026-04-06 보강] 하의(특히 치마) 착용 리얼리즘 강화
-      // 원인: 상의는 자연스럽게 착용되지만 치마가 2D 이미지처럼 붙여진 듯 부자연스러움
-      // 해결: 3D 드레이핑, 중력, 주름, 그림자 등 구체적 리얼리즘 지시 추가
-      'GARMENT INTEGRITY (100% FIDELITY): '
-      + 'TOP=The first clothing reference image. Reproduce exact design, color, texture, pattern, fit — must appear naturally worn on the body with realistic 3D draping. '
-      + 'BOTTOM=The second clothing reference image. Reproduce exact design, color, texture, pattern, fit. '
-      + 'BOTTOM REALISM (CRITICAL): The bottom garment must look NATURALLY WORN — NOT a flat 2D image pasted onto the body. '
-      + 'Required: (1) Natural DRAPING with gravity — fabric hangs from waist and curves around hips/thighs. '
-      + '(2) WRINKLES and FOLDS at natural stress points (waistband, hips). '
-      + '(3) Body-conforming CONTOUR — follows the hip and thigh shape. '
-      + '(4) Natural SHADOW between body and fabric. '
-      + '(5) 3D VOLUME for pleats/tiers/ruffles — not flat lines. '
-      + '(6) Seamless transition where top meets bottom (tucked or layered). '
-      + 'The bottom must have the SAME 3D realism level as the top. A flat cutout look = FAILURE. '
-      + 'EXECUTION RULE: Do NOT interpret or alter the core design of these two items. They must be recognizable as the identical items in the reference images.',
-
-      // II-3. Styling & Presentation
-      `POSE & COMPOSITION: A ${_ri(_poses)}, full-body standing pose that clearly showcases both top and bottom. Full body from head to toe must be visible in frame.`,
-      `ACCESSORIES & LAYERS: Add ${_ri(_innerLayers)} as an inner layer if the top allows layering. Add a complementary belt or watch if it suits the style concept.`,
-      `FOOTWEAR: ${_ri(_footwear)}.`,
-      'LIGHTING: Crisp, even, studio-quality lighting to highlight fabric texture and garment details.',
-
-      // II-4. Pants Length (성별/체형별 적용)
+      'Generate a photorealistic full-body outfit image.',
+      'Subject: ' + _gender + ', ' + _ageEn + (_physique ? ', ' + _physique : '') + '.',
+      'Face: Match the provided face reference photo exactly.',
+      'Top garment: Use the first clothing reference image. Reproduce exact design, color, pattern.',
+      'Bottom garment: Use the second clothing reference image. Reproduce exact design, color, pattern.',
       _pantsLengthRule,
-
-      // II-5. Background (ABSOLUTE RULE)
-      'BACKGROUND (ABSOLUTE MANDATORY RULE): A solid, uniform, matte PASTEL-TONE color background — choose one that provides HIGH CONTRAST to the coordinate colors (e.g., solid pastel mint, solid pastel beige, solid pastel lavender, solid pastel pink, solid pastel sky blue, solid cream). The background must be completely uniform edge to edge like studio paper. ZERO exceptions: NO room, NO street, NO wall texture, NO floor, NO gradient, NO pattern, NO objects, NO scenery, NO environment of any kind. JUST ONE FLAT SOLID PASTEL COLOR.',
-
-      // II-6. Technical
-      'ANATOMY: Natural human proportions. Both hands must have exactly 5 fingers each. No body distortion.',
-      'OUTPUT: Photorealistic quality. No text, no watermark, no logo, no AI mark of any kind in the image.',
+      'Background: Solid uniform pastel color. ZERO environment, NO room, NO street.',
+      'Full body head to shoes visible. Natural Korean everyday proportions.',
+      'Pose: ' + _ri(_poses) + '.',
+      'Footwear: ' + _ri(_footwear) + '.',
     ].join(' ');
 
     // ── Payload (styleHint 제거 — 서버 중복 방지) ──
@@ -1310,7 +1277,8 @@ async function generate(isRetry=false){
       stylistSubCity: _csRegionInfo.sub,
       weather:{ location: user?.location||'' },
       imagePrompt: imagePrompt,
-      isRetry: isRetry,        // 서버 전달
+      isRetry: isRetry,
+      retryLongerPants: isRetry,  // 다시요청 시 바지 20% 길게 + 포즈 변경
       request7bu: _request7bu, // ★ 사용자 명시 7부 요청 여부 (기본 false)
       topPath: ST.top.serverPath,
       bottomPath: ST.bottom.serverPath,
@@ -1995,7 +1963,7 @@ async function pickDeckItem(type,entry){
   ST[type].dataUrl=dataUrl;
   try{var img=new Image();img.src=src;ST[type].naturalWidth=img.naturalWidth||400;ST[type].naturalHeight=img.naturalHeight||600;}catch(_){}
   ST[type].label=entry.label+' '+(entry.item.color||'');
-  // [2026-04-08] 이미 분석된 아이템이면 캐시에 직접 저장 (재분석 불필요)
+  // [2026-04-09] Ai옷장 아이템: 이미 분석된 데이터를 캐시에 저장 (Phase1 스킵)
   if(entry.item && entry.item.meta && entry.item.meta.gemini) {
     var gm = entry.item.meta.gemini;
     var cached = {
@@ -2007,9 +1975,15 @@ async function pickDeckItem(type,entry){
       design: gm.design_points || '',
       sub_category: gm.sub_category || '',
       category: gm.category || entry.cat || '',
+      is_skirt: gm.is_skirt || false,
+      skirt_length: gm.skirt_length || null,
+      season: gm.season || '',
+      style_keywords: gm.style_keywords || [],
+      coordinate_hint: gm.coordinate_hint || '',
+      _fromCloset: true  // Ai옷장 캐시 마커
     };
-    if(type==='top') _topAnalysisCache = cached;
-    else _bottomAnalysisCache = cached;
+    if(type==='top') { _topAnalysisCache = cached; console.log('[pickDeck] 상의 캐시 설정:', cached.sub_category, cached.color_ko); }
+    else { _bottomAnalysisCache = cached; console.log('[pickDeck] 하의 캐시 설정:', cached.sub_category, cached.is_skirt?'치마':'바지'); }
   }
   // 서버 업로드 시작 (업로드 완료 전에도 dataUrl로 생성 가능하도록)
   if(dataUrl && !ST[type].serverPath) ST[type].serverPath = '_pending_';
