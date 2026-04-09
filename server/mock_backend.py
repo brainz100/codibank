@@ -1255,12 +1255,17 @@ def storage_upload():
         ext = _mime_to_ext(mime)
         slot = re.sub(r"[^a-z0-9_-]+", "", str(payload.get("slot") or "img").lower())[:16] or "img"
 
-    # 의류 아이템 업로드 시 배경 제거 (얼굴/프로필 제외)
-    if slot not in ("face", "profile", "avatar"):
-        _cleaned = remove_clothing_bg(img_bytes)
-        if _cleaned is not img_bytes:  # 배경 제거 성공 시만 PNG로 전환
-            img_bytes = _cleaned
-            ext = "png"
+    # ── [2026-04-10 수정] 의류 아이템 배경 제거 비활성화 ──
+    # 원인: 화이트/밝은 체크패턴 의류에서 rembg가 옷 본체까지 삭제
+    # 해결: 원본 이미지를 그대로 저장. Gemini 분석/착장 생성은 원본으로 충분
+    # - Gemini analyze-item: 이미 원본(shotBlobUrl) 사용 중 ✅
+    # - codistyle generate: 프롬프트에 배경 무시 지시 추가
+    # - 코디쌤 styling: 텍스트 프롬프트 기반이라 영향 없음
+    # if slot not in ("face", "profile", "avatar"):
+    #     _cleaned = remove_clothing_bg(img_bytes)
+    #     if _cleaned is not img_bytes:
+    #         img_bytes = _cleaned
+    #         ext = "png"
 
     fname = f"{slot}_{_now_ms()}_{os.urandom(3).hex()}.{ext}"
     try:
@@ -1760,7 +1765,8 @@ def _detect_bottom_type_from_image(bottom_bytes: bytes, bottom_mime: str, sdk: s
             "length for skirts: 'mini'=above knee, 'midi'=knee to mid-calf, 'maxi'=mid-calf to ankle/floor. "
             "length for pants: 'short'=above knee, 'cropped'=mid-calf, 'full'=ankle/floor. "
             "silhouette: brief description of the garment shape, hem style, and key design features. "
-            "IMPORTANT: A wide pleated/tiered/ruffled garment with no leg separation = SKIRT, not wide-leg pants."
+            "IMPORTANT: A wide pleated/tiered/ruffled garment with no leg separation = SKIRT, not wide-leg pants. "
+            "NOTE: The image may contain a background (floor, wall, hanger, hand, etc). Ignore the background and analyze ONLY the clothing item."
         )
         _result_json = None
         if sdk == "new" and gtypes_mod:
@@ -2249,6 +2255,14 @@ def codistyle_generate():
             + (f", {hw_en}" if hw_en else "") + ". "
         )
         img_desc = "FIRST image=upper garment, SECOND image=lower garment."
+
+    # [2026-04-10] 배경 포함 이미지 대응 — Gemini에 의류만 집중하도록 지시
+    img_desc += (
+        " IMPORTANT: Each garment image may contain a background (floor, wall, table, hand, hanger, etc). "
+        "IGNORE the background entirely and focus ONLY on the clothing item in the image. "
+        "Extract the garment's exact color, pattern, texture, silhouette, and design details from the clothing area only. "
+        "Do NOT incorporate any background elements into the generated outfit image."
+    )
 
     # 한국어 보조 지시 (얼굴 유무에 따라 다르게)
     if face_bytes:
@@ -3047,6 +3061,8 @@ def ai_analyze_item():
         PROMPT = _lykdat_ctx + """
 당신은 세계 최고의 패션 전문가 AI입니다.
 이 의류 이미지를 분석하고 아래 JSON 형식으로만 응답하세요. JSON 외 다른 텍스트는 절대 포함하지 마세요.
+
+⚠️ 배경 무시 규칙: 이미지에 바닥, 벽, 옷걸이, 손, 테이블 등 배경이 포함되어 있을 수 있습니다. 배경은 완전히 무시하고 의류 아이템 영역만 집중하여 분석하세요. 배경 색상을 의류 색상으로 착각하지 마세요.
 
 ⚠️ 치마/스커트 판별 CRITICAL RULE:
 - 다리가 각각 분리된 통로(leg tube)가 있으면 → pants (바지류)
