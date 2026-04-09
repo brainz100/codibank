@@ -66,6 +66,15 @@ header h1{font-size:17px;font-weight:800;}
 .sel-btn.on{border-color:#0B666A;background:rgba(11,102,106,0.08);color:#0B666A;}
 
 /* 저장 버튼 */
+
+.bt-card{padding:10px 12px;border-radius:12px;border:1.5px solid #e8e8e8;background:#fff;cursor:pointer;transition:all .15s;text-align:left;}
+.bt-card.selected{border-color:#0B666A;background:rgba(11,102,106,.06);box-shadow:0 0 0 1px #0B666A;}
+.bt-card .bt-label{font-size:13px;font-weight:700;color:#333;}
+.bt-card .bt-en{font-size:9px;color:#aaa;font-weight:600;margin-left:4px;}
+.bt-card .bt-desc{font-size:10px;color:#888;margin-top:3px;line-height:1.3;}
+.bt-card .bt-celebs{font-size:9px;color:#0B666A;margin-top:2px;font-weight:600;}
+.bt-card.selected .bt-label{color:#0B666A;}
+
 .save-btn{display:block;width:calc(100% - 32px);margin:8px 16px 24px;padding:16px;border:none;border-radius:18px;background:linear-gradient(135deg,#0B666A,#35A29F);color:#fff;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer;text-align:center;transition:transform .13s;}
 .save-btn:active{transform:scale(.97);}
 
@@ -253,6 +262,13 @@ header h1{font-size:17px;font-weight:800;}
     </div>
     <span style="font-size:14px;color:#aaa;font-weight:600;">kg</span>
   </div>
+
+  <!-- [2026-04-08] 체형 선택 -->
+  <p class="field-label" style="padding:10px 20px 4px;border-top:1px solid #f5f5f5;">체형 <span style="font-size:9px;color:#0B666A;">(성별 선택 후 표시)</span></p>
+  <div id="bodyTypeGroup" style="padding:0 16px 12px;">
+    <div id="bodyTypeCards" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
+    <div id="bodyTypeEmpty" style="padding:16px;text-align:center;color:#bbb;font-size:12px;">성별을 먼저 선택해주세요</div>
+  </div>
 </div>
 
 <!-- 비밀번호 변경 -->
@@ -364,6 +380,10 @@ function loadUser(){
   document.getElementById('fPhone').value    = _user.phone    || '';
   document.getElementById('fHeight').value   = _user.height   || '';
   document.getElementById('fWeight').value   = _user.weight   || '';
+  // 체형 복원
+  _selectedBodyType = _user.bodyType || '';
+  var _g = _user.gender || '';
+  if(_g) { setTimeout(function(){ renderBodyTypes(_g); }, 100); }
 
   // 성별 선택 복원
   _genderVal = _user.gender || '';
@@ -427,6 +447,7 @@ async function doSave(){
     ageGroup : _ageVal    || _user.ageGroup,
     height   : Number(document.getElementById('fHeight').value)  || _user.height,
     weight   : Number(document.getElementById('fWeight').value)  || _user.weight,
+    bodyType : _selectedBodyType || _user.bodyType || '',
   };
 
   if(pw) patch.password = pw;
@@ -746,6 +767,68 @@ setInterval(function(){
   const cur = localStorage.getItem('cb_lang')||'ko';
   if(cur !== _pcLang){ _pcLang = cur; applyPcI18n(); }
 }, 500);
+
+// ═══ [2026-04-08] 체형 선택 ═══
+var _bodyTypes = {
+  "female": [
+    {key:"neat_hourglass",label:"깔끔한 모래시계",en:"Neat Hourglass",desc:"가슴·골반 비율 완벽, 허리 가늘음",celebs:"스칼렛 요한슨, 소피아 로렌"},
+    {key:"full_hourglass",label:"풍만한 모래시계",en:"Full Hourglass",desc:"모래시계형 + 가슴이 더 발달",celebs:"케이트 업튼, 셀마 헤이엑"},
+    {key:"pear",label:"배형 (삼각형)",en:"Pear",desc:"어깨 좁고 골반·허벅지 발달",celebs:"제니퍼 로페즈, 비욘세"},
+    {key:"apple",label:"사과형 (원형)",en:"Apple",desc:"가슴·복부 발달, 다리는 가는 편",celebs:"케이트 윈슬렛, 아델"},
+    {key:"inverted_triangle_f",label:"역삼각형",en:"Inverted Triangle",desc:"어깨 넓고 골반 좁음",celebs:"안젤리나 졸리, 샤를리즈 테론"},
+    {key:"rectangle_f",label:"직사각형",en:"Rectangle",desc:"어깨·허리·골반 굴곡 적은 일자",celebs:"나탈리 포트만, 카메론 디아즈"},
+    {key:"lean_column",label:"마른 직사각형",en:"Lean Column",desc:"전체적으로 가늘고 길며 굴곡 없음",celebs:"키이라 나이틀리, 젠다야"}
+  ],
+  "male": [
+    {key:"trapezoid",label:"사다리꼴",en:"Trapezoid",desc:"어깨 넓고 허리 약간 좁은 이상적 비율",celebs:"다니엘 크레이그, 라이언 레이놀즈"},
+    {key:"inverted_triangle_m",label:"역삼각형",en:"Inverted Triangle",desc:"어깨·가슴 매우 넓고 허리 가는 운동선수형",celebs:"크리스 햄스워스, 크리스 에반스"},
+    {key:"rectangle_m",label:"직사각형",en:"Rectangle",desc:"어깨·허리·골반 너비 거의 일정한 일자",celebs:"라이언 고슬링, 티모시 샬라메"},
+    {key:"triangle_m",label:"삼각형",en:"Triangle",desc:"어깨 좁고 허리·엉덩이 발달",celebs:"레오나르도 디카프리오, 잭 블랙"},
+    {key:"oval",label:"타원형",en:"Oval",desc:"복부·몸통 중앙이 둥글게 발달",celebs:"제임스 코든, 세스 로건"},
+    {key:"diamond",label:"다이아몬드",en:"Diamond",desc:"허리가 가장 넓고 어깨·종아리 가는 편",celebs:"대니 드비토, 알프레드 몰리나"},
+    {key:"hourglass_m",label:"모래시계",en:"Hourglass",desc:"가슴·골반 넓고 허리 잘록",celebs:"에즈라 밀러, 아담 램버트"}
+  ]
+};
+var _selectedBodyType = '';
+
+function renderBodyTypes(gender) {
+  var cards = document.getElementById('bodyTypeCards');
+  var empty = document.getElementById('bodyTypeEmpty');
+  if(!cards) return;
+  
+  var g = (gender === 'female' || gender === 'F') ? 'female' : (gender === 'male' || gender === 'M') ? 'male' : '';
+  if(!g) { cards.style.display='none'; if(empty)empty.style.display='block'; return; }
+  
+  var types = _bodyTypes[g] || [];
+  cards.style.display='grid';
+  if(empty) empty.style.display='none';
+  cards.innerHTML='';
+  
+  types.forEach(function(bt){
+    var card = document.createElement('div');
+    card.className = 'bt-card' + (_selectedBodyType === bt.key ? ' selected' : '');
+    card.innerHTML = '<div class="bt-label">' + bt.label + '<span class="bt-en">' + bt.en + '</span></div>' +
+      '<div class="bt-desc">' + bt.desc + '</div>' +
+      '<div class="bt-celebs">' + bt.celebs + '</div>';
+    card.onclick = function(){ selectBodyType(bt.key, g); };
+    cards.appendChild(card);
+  });
+}
+
+function selectBodyType(key, gender) {
+  _selectedBodyType = key;
+  renderBodyTypes(gender);
+}
+
+// 성별 선택 시 체형 카드 갱신
+var _origSelGender = window.selGender;
+window.selGender = function(el) {
+  if(_origSelGender) _origSelGender(el);
+  var g = el.getAttribute('data-v');
+  _selectedBodyType = ''; // 성별 변경 시 체형 초기화
+  renderBodyTypes(g);
+};
+
 </script>
 </body>
 </html>

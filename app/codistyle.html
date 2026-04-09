@@ -678,6 +678,7 @@ if(window.CodiBank && CodiBank.onSessionReady){
     if(!codiProfile.weight && user.weight)  codiProfile.weight = user.weight;
     if(!codiProfile.gender && user.gender)  codiProfile.gender = _gMap(user.gender);
     if(!codiProfile.ageGroup && user.ageGroup) codiProfile.ageGroup = _aMap(user.ageGroup);
+    if(!codiProfile.bodyType && (cbUser.bodyType||user.bodyType)) codiProfile.bodyType = cbUser.bodyType||user.bodyType||'';
     displayBodyInfo && displayBodyInfo();
     updateCSUsageBadge && updateCSUsageBadge();
     // [2026-04-08] 세션 복원 후 Ai옷장 카드덱 로드
@@ -1318,6 +1319,7 @@ async function generate(isRetry=false){
       // ── Phase 1 분석 결과 포함 (치마/바지 확실 판별) ──
       topAnalysis:    _topAnalysisCache    || null,
       bottomAnalysis: _bottomAnalysisCache || null,
+      bodyType: codiProfile.bodyType || user.bodyType || '',
       size:'1024x1536',
       quality:'low',
       _ts: Date.now()

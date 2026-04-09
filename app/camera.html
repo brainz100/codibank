@@ -1052,9 +1052,25 @@ document.addEventListener('DOMContentLoaded', () => {
           imagePayload = imgSrc;
         }
 
-        const body = imagePayload
-          ? { image: imagePayload }
-          : { image_url: String(shots.front || '') };
+        // [2026-04-08] 퍼스널컬러 + 체형 정보 함께 전달
+        var _pcForAnalysis = null;
+        var _btForAnalysis = '';
+        var _genderForAnalysis = '';
+        try {
+          var _pcKey = 'cb_personal_color_' + (user?.email || '');
+          var _pcRaw = localStorage.getItem(_pcKey);
+          if(_pcRaw) _pcForAnalysis = JSON.parse(_pcRaw);
+        } catch(_){}
+        try {
+          _btForAnalysis = user?.bodyType || '';
+          _genderForAnalysis = user?.gender || '';
+        } catch(_){}
+        
+        const body = Object.assign(
+          imagePayload ? { image: imagePayload } : { image_url: String(shots.front || '') },
+          _pcForAnalysis ? { personalColor: _pcForAnalysis } : {},
+          _btForAnalysis ? { bodyType: _btForAnalysis, gender: _genderForAnalysis } : {}
+        );
 
         const r = await Promise.race([
           fetch(bb + '/api/ai/analyze-item', {
@@ -1294,6 +1310,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         aiColor.textContent = colorName || '미정';
         // 패턴/소재/핏 모달 업데이트
+        // [2026-04-08] 퍼스널컬러 + 체형 호환성 표시
+        if (geminiResult?.compatibility?.evaluation) {
+          var ev = geminiResult.compatibility.evaluation;
+          var compatEl = document.getElementById('compatResult');
+          if (!compatEl) {
+            compatEl = document.createElement('div');
+            compatEl.id = 'compatResult';
+            compatEl.style.cssText = 'margin:12px 16px;padding:14px 16px;border-radius:14px;background:rgba(11,102,106,0.06);border:1px solid rgba(11,102,106,0.15);';
+            // aiCategory 뒤에 삽입
+            var aiCatEl = document.getElementById('aiCategory');
+            if (aiCatEl && aiCatEl.parentNode) {
+              aiCatEl.parentNode.insertBefore(compatEl, aiCatEl.nextSibling);
+            }
+          }
+          var scoreColor = function(s) { return s >= 70 ? '#0B666A' : s >= 40 ? '#c08030' : '#c03030'; };
+          var totalScore = ev.total_score || 0;
+          var html = '<div style="font-size:11px;font-weight:800;color:#0B666A;letter-spacing:.04em;margin-bottom:8px;">✨ 나에게 어울리는 아이템인가?</div>';
+          html += '<div style="display:flex;gap:8px;margin-bottom:8px;">';
+          if (ev.pc_score != null) {
+            html += '<div style="flex:1;text-align:center;padding:8px;border-radius:10px;background:#fff;">';
+            html += '<div style="font-size:9px;color:#888;font-weight:600;">퍼스널컬러</div>';
+            html += '<div style="font-size:22px;font-weight:900;color:'+scoreColor(ev.pc_score)+';">'+ev.pc_score+'</div>';
+            html += '<div style="font-size:8px;color:#aaa;">/100</div></div>';
+          }
+          if (ev.bt_score != null) {
+            html += '<div style="flex:1;text-align:center;padding:8px;border-radius:10px;background:#fff;">';
+            html += '<div style="font-size:9px;color:#888;font-weight:600;">체형</div>';
+            html += '<div style="font-size:22px;font-weight:900;color:'+scoreColor(ev.bt_score)+';">'+ev.bt_score+'</div>';
+            html += '<div style="font-size:8px;color:#aaa;">/100</div></div>';
+          }
+          html += '<div style="flex:1;text-align:center;padding:8px;border-radius:10px;background:#fff;">';
+          html += '<div style="font-size:9px;color:#888;font-weight:600;">종합</div>';
+          html += '<div style="font-size:22px;font-weight:900;color:'+scoreColor(totalScore)+';">'+totalScore+'</div>';
+          html += '<div style="font-size:8px;color:#aaa;">/100</div></div>';
+          html += '</div>';
+          if (ev.pc_comment) html += '<div style="font-size:10.5px;color:#555;line-height:1.5;margin-bottom:3px;">🎨 '+ev.pc_comment+'</div>';
+          if (ev.bt_comment) html += '<div style="font-size:10.5px;color:#555;line-height:1.5;margin-bottom:3px;">👤 '+ev.bt_comment+'</div>';
+          if (ev.total_comment) html += '<div style="font-size:10.5px;color:#333;line-height:1.5;font-weight:600;">✨ '+ev.total_comment+'</div>';
+          compatEl.innerHTML = html;
+        }
+
         if (geminiResult) {
           const patEl  = document.getElementById('aiPattern');
           const matEl  = document.getElementById('aiMaterial');
