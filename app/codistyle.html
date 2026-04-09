@@ -325,11 +325,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 #csSaveToast.show{opacity:1;}
 
 /* [2026-04-08] Ai옷장 카드덱 */
-.cdeck{display:flex;justify-content:center;align-items:center;height:190px;padding:0 14px;overflow:visible;position:relative;}
-.cdeck-card{flex-shrink:0;width:98px;height:148px;border-radius:12px;overflow:hidden;background:#ffffff;border:1.5px solid #ccc;cursor:pointer;position:relative;transition:all .25s;}
+.cdeck{display:flex;justify-content:center;align-items:center;height:200px;padding:0 14px;overflow:visible;position:relative;perspective:800px;}
+.cdeck-card{flex-shrink:0;width:98px;height:148px;border-radius:12px;overflow:hidden;background:#ffffff;border:1.5px solid rgba(200,200,200,.6);cursor:pointer;position:relative;transition:all .35s cubic-bezier(.25,.8,.25,1);transform-style:preserve-3d;}
 .cdeck-card img{width:100%;height:100%;object-fit:cover;}
-.cdeck-card.side{transform:scale(.72);margin:0 -28px;opacity:1;}
-.cdeck-card.center{transform:scale(1);z-index:10;border:2px solid #97FEED;box-shadow:0 8px 20px rgba(151,254,237,.12);background:#ffffff;}
+.cdeck-card.side{margin:0 -22px;opacity:1;}
+.cdeck-card.center{transform:scale(1.08) translateZ(30px);z-index:10;border:2px solid #97FEED;box-shadow:0 12px 32px rgba(151,254,237,.18),0 4px 12px rgba(0,0,0,.15);background:#ffffff;}
+.cdeck-card.side-1L{transform:scale(.82) rotateY(8deg) translateX(-6px);z-index:6;opacity:.92;}
+.cdeck-card.side-1R{transform:scale(.82) rotateY(-8deg) translateX(6px);z-index:6;opacity:.92;}
+.cdeck-card.side-2L{transform:scale(.68) rotateY(14deg) translateX(-10px);z-index:4;opacity:.7;}
+.cdeck-card.side-2R{transform:scale(.68) rotateY(-14deg) translateX(10px);z-index:4;opacity:.7;}
+.cdeck-card.side-3L{transform:scale(.56) rotateY(18deg) translateX(-12px);z-index:2;opacity:.45;}
+.cdeck-card.side-3R{transform:scale(.56) rotateY(-18deg) translateX(12px);z-index:2;opacity:.45;}
+.cdeck-count{font-size:10px;color:rgba(151,254,237,.45);font-weight:700;letter-spacing:.03em;}
 .cdeck-empty{width:100%;height:90px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px dashed rgba(151,254,237,.1);color:rgba(255,255,255,.2);font-size:10px;text-align:center;line-height:1.5;}
 .cpreview{position:relative;border-radius:14px;overflow:hidden;background:#ffffff;border:1px solid rgba(151,254,237,.15);margin:8px 0;aspect-ratio:1/1.5;padding:12px;}
 .cpreview img{width:100%;height:100%;object-fit:contain;border-radius:8px;}
@@ -1874,50 +1881,49 @@ function loadDeck(){
   drawDeck('bot',_dkBotItems,_dkBotIdx);
 }
 
+function _circIdx(i,len){ return ((i%len)+len)%len; }
+
 function drawDeck(type,items,ci){
   var el=document.getElementById(type==='top'?'topDeck':'botDeck');
   if(!el) return;
   el.innerHTML='';
-  var totalSlots=7; // 항상 7개 카드 표시
-  var centerSlot=3; // 인덱스 3이 중앙
+  // 개수 표시
+  var cntEl=document.getElementById(type==='top'?'topCount':'botCount');
+  if(cntEl) cntEl.textContent='Ai옷장 items '+items.length+'개';
   
   if(!items.length){
-    // 아이템 없을 때도 빈 카드 형태 유지
-    for(var p=0;p<totalSlots;p++){
+    for(var p=0;p<7;p++){
       var ph=document.createElement('div');
-      ph.className='cdeck-card '+(p===centerSlot?'center':'side');
-      if(p===centerSlot){
+      ph.className='cdeck-card '+(p===3?'center':'side-'+(p<3?(3-p)+'L':(p-3)+'R'));
+      if(p===3){
         ph.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;"><span style="font-size:8.5px;color:rgba(100,100,100,.6);line-height:1.3;font-weight:600;">아이템을<br>저장하면<br>코디할 수<br>있어요</span></div>';
       } else {
-        ph.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.25);">checkroom</span></div>';
+        ph.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">checkroom</span></div>';
       }
       el.appendChild(ph);
     }
     return;
   }
   
-  // 항상 7슬롯 대칭 (좌3 + 중앙1 + 우3)
+  // [2026-04-09] 순환 카드덱 + 3D 입체 효과
+  var sideClasses=['side-3L','side-2L','side-1L','center','side-1R','side-2R','side-3R'];
   for(var slot=0;slot<7;slot++){
-    var dataIdx=ci-3+slot; // 실제 아이템 인덱스
+    var offset=slot-3;
+    var dataIdx=_circIdx(ci+offset, items.length); // 순환 인덱스
     var isCenter=(slot===3);
-    var hasItem=(dataIdx>=0 && dataIdx<items.length);
     var card=document.createElement('div');
-    card.className='cdeck-card '+(isCenter?'center':'side');
-    if(!isCenter){var dist=Math.abs(slot-3);card.style.zIndex=4-dist;}
-    if(hasItem){
-      card.setAttribute('data-idx',dataIdx);
-      card.setAttribute('data-type',type);
-      var imgId='dk_'+type+'_'+dataIdx;
-      card.innerHTML='<img id="'+imgId+'" style="opacity:0;transition:opacity .3s;" alt="">'+(isCenter?'<span style="position:absolute;top:2px;right:2px;"><span class="mi" style="font-size:13px;color:#97FEED;background:#071952;border-radius:50%;padding:1px;">check_circle</span></span>':'');
-      (function(idx,ref,id){
-        if(CodiBank.getImageSrc) CodiBank.getImageSrc(ref).then(function(src){
-          var img=document.getElementById(id);
-          if(img&&src){img.onload=function(){img.style.opacity='1';};img.src=src;}
-        });
-      })(dataIdx,items[dataIdx].ref,imgId);
-    } else {
-      card.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(151,254,237,.06);">checkroom</span></div>';
-    }
+    card.className='cdeck-card '+sideClasses[slot];
+    card.setAttribute('data-idx',dataIdx);
+    card.setAttribute('data-type',type);
+    var imgId='dk_'+type+'_'+dataIdx+'_'+Date.now();
+    card.innerHTML='<img id="'+imgId+'" style="opacity:0;transition:opacity .3s;" alt="">'
+      +(isCenter?'<span style="position:absolute;top:2px;right:2px;"><span class="mi" style="font-size:13px;color:#97FEED;background:#071952;border-radius:50%;padding:1px;">check_circle</span></span>':'');
+    (function(idx,ref,id){
+      if(CodiBank.getImageSrc) CodiBank.getImageSrc(ref).then(function(src){
+        var img=document.getElementById(id);
+        if(img&&src){img.onload=function(){img.style.opacity='1';};img.src=src;}
+      });
+    })(dataIdx,items[dataIdx].ref,imgId);
     el.appendChild(card);
   }
   // 클릭 이벤트
@@ -1931,9 +1937,9 @@ function drawDeck(type,items,ci){
       // 중앙 카드 클릭 → 선택 + 프리뷰 표시
       pickDeckItem(type==='top'?'top':'bottom', (type==='top'?_dkTopItems:_dkBotItems)[idx]);
     } else {
-      // 사이드 카드 클릭 → 중앙으로 이동만 (선택 안 함)
-      if(type==='top'){_dkTopIdx=idx; drawDeck('top',_dkTopItems,idx);}
-      else{_dkBotIdx=idx; drawDeck('bot',_dkBotItems,idx);}
+      // 사이드 카드 클릭 → 중앙으로 이동 (순환)
+      if(type==='top'){_dkTopIdx=idx; drawDeck('top',_dkTopItems,_dkTopIdx);}
+      else{_dkBotIdx=idx; drawDeck('bot',_dkBotItems,_dkBotIdx);}
     }
   };
   // 스와이프
@@ -1941,8 +1947,9 @@ function drawDeck(type,items,ci){
   el.ontouchend=function(ev){
     var dx=ev.changedTouches[0].clientX-(el._sx||0);
     if(Math.abs(dx)<30)return;
-    if(type==='top'){_dkTopIdx=Math.max(0,Math.min(items.length-1,_dkTopIdx+(dx<0?1:-1)));drawDeck('top',_dkTopItems,_dkTopIdx);}
-    else{_dkBotIdx=Math.max(0,Math.min(items.length-1,_dkBotIdx+(dx<0?1:-1)));drawDeck('bot',_dkBotItems,_dkBotIdx);}
+    // 순환: 끝→처음, 처음→끝
+    if(type==='top'){_dkTopIdx=_circIdx(_dkTopIdx+(dx<0?1:-1),items.length);drawDeck('top',_dkTopItems,_dkTopIdx);}
+    else{_dkBotIdx=_circIdx(_dkBotIdx+(dx<0?1:-1),items.length);drawDeck('bot',_dkBotItems,_dkBotIdx);}
   };
 }
 
