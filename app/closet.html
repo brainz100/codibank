@@ -265,9 +265,9 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       - "추천 스타일링" 박스가 이미지 생성 전/후에도 동일한 공간을 차지하도록 고정(레이아웃 점프 제거)
       - overlay/canvas는 absolute로 올리고, wrap 자체에 aspect-ratio를 부여
     */
-    .vto-wrap{position:relative;border-radius:16px;overflow:hidden;background:#050f2a;border:1px solid rgba(151,254,237,0.18);aspect-ratio:1/1.62;min-height:380px;}
+    .vto-wrap{position:relative;border-radius:20px;overflow:hidden;background:radial-gradient(ellipse at top,#0a1a3d 0%,#050f2a 60%,#020817 100%);border:1px solid rgba(151,254,237,0.22);aspect-ratio:1/1.62;min-height:380px;box-shadow:0 20px 50px -12px rgba(0,0,0,0.55),0 0 0 1px rgba(151,254,237,0.06) inset,0 -40px 80px -20px rgba(53,162,159,0.12) inset;}
     .vto-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
-    .vto-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#050f2a;}
+    .vto-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:transparent;}
     /* === 다시 코디(리프레시) 오버레이 === */
     .vto-wrap.is-refreshing 
     .vto-wrap.is-refreshing 
@@ -574,10 +574,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
 /* VTO 다크 */
 .vto-wrap-dark{
-  border-radius:1.75rem;overflow:hidden;
-  border:1px solid rgba(151,254,237,.18);
+  border-radius:20px;overflow:hidden;
+  border:1px solid rgba(151,254,237,.22);
   aspect-ratio:1/1.62;min-height:380px;position:relative;
-  background:#050f2a;
+  background:radial-gradient(ellipse at top,#0a1a3d 0%,#050f2a 60%,#020817 100%);
+  box-shadow:0 20px 50px -12px rgba(0,0,0,.55),0 0 0 1px rgba(151,254,237,0.06) inset,0 -40px 80px -20px rgba(53,162,159,.12) inset;
 }
 .vto-wrap-dark 
 .vto-wrap-dark .vto-ld{color:rgba(255,255,255,.5);}
@@ -615,7 +616,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   border-radius:14px;
   overflow:hidden;
 }
-.vto-result-box{width:100%;aspect-ratio:1/1.62;border-radius:16px;overflow:hidden;background:#050f2a;position:relative;display:flex;align-items:center;justify-content:center;}
+.vto-result-box{width:100%;aspect-ratio:1/1.62;border-radius:20px;overflow:hidden;background:radial-gradient(ellipse at top,#0a1a3d 0%,#050f2a 60%,#020817 100%);position:relative;display:flex;align-items:center;justify-content:center;box-shadow:0 20px 50px -12px rgba(0,0,0,.55),0 0 0 1px rgba(151,254,237,0.06) inset,0 -40px 80px -20px rgba(53,162,159,.12) inset;}
 .vto-img-spin{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;position:absolute;inset:0;}
 .vto-spin-txt{font-size:12px;color:rgba(162,253,240,0.45);text-align:center;line-height:1.7;padding:0 20px;}
 /* codibank 레인보우 텍스트 — 코디하기 동일 */
@@ -639,7 +640,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .vto-btn-active{background:rgba(53,162,159,0.18);color:#97FEED;border:1px solid rgba(151,254,237,0.35);cursor:pointer;}
 .vto-btn-active:active{transform:scale(.97);background:rgba(53,162,159,0.28);}
 /* canvas는 result-box 내부에 절대 위치 */
-#vtoCanvas.vto-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;border-radius:16px;}
+#vtoCanvas.vto-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;border-radius:20px;}
 .vto-btn-dark:active{transform:scale(.97);background:rgba(255,255,255,.14);}
 .vto-btn-dark.primary{
   background:linear-gradient(135deg,#35A29F,#0B666A);
@@ -1017,6 +1018,41 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <!-- 상세 설명 (400자) -->
       <div class="px-4 pb-3 pt-2">
         <p id="codiExplain" class="text-[13px] leading-[1.75] font-normal" style="color:rgba(255,255,255,0.78);">목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.</p>
+      </div>
+    </div>
+
+    <!-- [2026-04-10] AI 패션 스타일리스트 종합 분석 박스 (퍼스널컬러/체형/목적+날씨) -->
+    <div id="codiAnalysisBox" class="mb-4 hidden" style="background:linear-gradient(135deg,rgba(5,15,42,0.92),rgba(7,25,82,0.85));border:1px solid rgba(151,254,237,0.18);border-radius:18px;overflow:hidden;box-shadow:0 12px 30px -10px rgba(0,0,0,0.45);">
+      <div class="px-4 py-2.5 flex items-center gap-2" style="border-bottom:1px solid rgba(151,254,237,0.1);">
+        <span class="material-symbols-outlined" style="font-size:16px;color:#97FEED;">psychology</span>
+        <p class="text-[10px] font-extrabold tracking-[0.22em]" style="color:rgba(151,254,237,0.85);">✦ AI 패션 스타일리스트 종합 분석</p>
+      </div>
+      <!-- ① 퍼스널컬러 분석 -->
+      <div class="px-4 pt-3 pb-3" style="border-bottom:1px solid rgba(151,254,237,0.06);">
+        <div class="flex items-center gap-1.5 mb-1.5">
+          <span style="font-size:13px;">🎨</span>
+          <p class="text-[10px] font-extrabold tracking-[0.16em]" style="color:rgba(151,254,237,0.7);">퍼스널컬러</p>
+        </div>
+        <p id="anPcText" class="text-[11.5px] leading-[1.7]" style="color:rgba(255,255,255,0.78);">—</p>
+        <div id="anPcKws" class="flex flex-wrap gap-1 mt-2"></div>
+      </div>
+      <!-- ② 체형/사이즈 분석 -->
+      <div class="px-4 pt-3 pb-3" style="border-bottom:1px solid rgba(151,254,237,0.06);">
+        <div class="flex items-center gap-1.5 mb-1.5">
+          <span style="font-size:13px;">📐</span>
+          <p class="text-[10px] font-extrabold tracking-[0.16em]" style="color:rgba(151,254,237,0.7);">체형 · 사이즈</p>
+        </div>
+        <p id="anBodyText" class="text-[11.5px] leading-[1.7]" style="color:rgba(255,255,255,0.78);">—</p>
+        <div id="anBodyKws" class="flex flex-wrap gap-1 mt-2"></div>
+      </div>
+      <!-- ③ 코디목적 + 날씨 분석 -->
+      <div class="px-4 pt-3 pb-3.5">
+        <div class="flex items-center gap-1.5 mb-1.5">
+          <span style="font-size:13px;">🌤️</span>
+          <p class="text-[10px] font-extrabold tracking-[0.16em]" style="color:rgba(151,254,237,0.7);">코디 목적 · 날씨</p>
+        </div>
+        <p id="anPurposeText" class="text-[11.5px] leading-[1.7]" style="color:rgba(255,255,255,0.78);">—</p>
+        <div id="anPurposeKws" class="flex flex-wrap gap-1 mt-2"></div>
       </div>
     </div>
 
@@ -3991,6 +4027,12 @@ async function updateVTO(opts={}){
         if(data.engineCategoryKeywords && typeof data.engineCategoryKeywords === 'object') {
           S.categoryKeywords = data.engineCategoryKeywords;
         }
+        // [2026-04-10] AI 스타일리스트 종합 분석 (퍼스널컬러/체형/목적+날씨)
+        if(data.stylingAnalysis && typeof data.stylingAnalysis === 'object') {
+          S.stylingAnalysis = data.stylingAnalysis;
+        } else {
+          S.stylingAnalysis = null;
+        }
         // [2026-04-06] 스타일리스트 배지 즉시 교체
         // (구: 'Mia · 트렌드세터' → 신: '주유나 · 데이트 장소별 코디 전문')
         try {
@@ -4587,6 +4629,53 @@ function sparkle(){clearSpk();document.querySelectorAll('#fitChips .fit-chip[dat
 // 호출: 최초 생성 완료 후 / 다시코디 완료 후 (generateStyling finally)
 // ════════════════════════════════════════════════════════════════
 function renderStylingPoint(){
+
+  // ── [2026-04-10] 0. AI 패션 스타일리스트 종합 분석 박스 (퍼스널컬러/체형/목적+날씨)
+  try{
+    const _anBox = document.getElementById('codiAnalysisBox');
+    const _an = S.stylingAnalysis;
+    if(_anBox && _an && (_an.personalColor || _an.body || _an.purpose)){
+      // 텍스트
+      const _setText = function(id, val){
+        const el = document.getElementById(id);
+        if(el) el.textContent = String(val || '—');
+      };
+      _setText('anPcText',      (_an.personalColor||{}).text);
+      _setText('anBodyText',    (_an.body||{}).text);
+      _setText('anPurposeText', (_an.purpose||{}).text);
+      // 키워드 칩 (각 3개씩)
+      const _renderKws = function(id, kws, accent){
+        const wrap = document.getElementById(id);
+        if(!wrap) return;
+        wrap.innerHTML = '';
+        (kws || []).slice(0,3).forEach(function(kw, i){
+          if(!kw) return;
+          const chip = document.createElement('span');
+          chip.className = 'px-2 py-0.5 rounded-full text-[9.5px] font-bold';
+          chip.style.cssText = i===0
+            ? 'background:'+accent+';border:1px solid rgba(151,254,237,0.35);color:#a2fdf0;'
+            : 'background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.72);';
+          chip.textContent = String(kw);
+          wrap.appendChild(chip);
+        });
+      };
+      _renderKws('anPcKws',      (_an.personalColor||{}).keywords, 'rgba(255,180,200,0.20)');
+      _renderKws('anBodyKws',    (_an.body||{}).keywords,          'rgba(151,254,237,0.20)');
+      _renderKws('anPurposeKws', (_an.purpose||{}).keywords,       'rgba(255,220,150,0.20)');
+      _anBox.classList.remove('hidden');
+      // [2026-04-10] 분석 키워드를 모바일옷장 매칭 후보에 합류
+      // 컬러 키워드는 색상 매칭, 체형 키워드는 핏 매칭, 목적 키워드는 스타일 매칭에 활용
+      try{
+        S.analysisKeywords = []
+          .concat((_an.personalColor||{}).keywords || [])
+          .concat((_an.body||{}).keywords || [])
+          .concat((_an.purpose||{}).keywords || [])
+          .filter(Boolean);
+      }catch(_){ S.analysisKeywords = []; }
+    } else if(_anBox) {
+      _anBox.classList.add('hidden');
+    }
+  }catch(_){}
 
   // ── 1. 스타일리스트 뱃지: "Mia · 모던 미니멀리스트" 형태
   try{
