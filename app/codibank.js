@@ -1079,7 +1079,22 @@ if (ref.startsWith('/uploads/')) {
       if (ok) return url;
     } catch (_) {}
   }
-  return candidates[0] || ref;
+  // ──── [2026-04-10 수정] 모든 URL 프로브 실패 시 깨진 URL 반환 금지 ────
+  // 원인: Render 재시작으로 /uploads/ 파일 삭제 → 404 URL을 그대로 반환
+  //       → 모든 페이지(ai옷장, 코디하기, 코디앨범)에서 이미지 깨짐
+  // 해결: IDB 폴백 시도 후 실패하면 빈 문자열 반환 → 각 페이지의 onerror 폴백 활성화
+  console.warn('[getImageSrc] /uploads/ 프로브 실패 — IDB 폴백 시도:', ref);
+  try {
+    if (idbSupported()) {
+      const rec = await idbGet(IDB_CONF.STORE_IMAGES, ref);
+      if (rec && rec.blob) {
+        const url = URL.createObjectURL(rec.blob);
+        _imageUrlCache.set(ref, url);
+        return url;
+      }
+    }
+  } catch (_) {}
+  return '';  // 깨진 URL 대신 빈 문자열 → 호출자가 폴백 처리
 }
 
     // 캐시된 objectURL
