@@ -1075,15 +1075,18 @@ if (ref.startsWith('/uploads/')) {
   const candidates = getStorageBasesResolved().map(b => resolveBaseUrl(b, ref));
   for (const url of candidates) {
     try {
-      const ok = await _probeImageUrl(url, 4500);
+      const ok = await _probeImageUrl(url, 6000);
       if (ok) return url;
     } catch (_) {}
   }
-  // ──── [2026-04-10 수정] 모든 URL 프로브 실패 시 깨진 URL 반환 금지 ────
-  // 원인: Render 재시작으로 /uploads/ 파일 삭제 → 404 URL을 그대로 반환
-  //       → 모든 페이지(ai옷장, 코디하기, 코디앨범)에서 이미지 깨짐
-  // 해결: IDB 폴백 시도 후 실패하면 빈 문자열 반환 → 각 페이지의 onerror 폴백 활성화
-  console.warn('[getImageSrc] /uploads/ 프로브 실패 — IDB 폴백 시도:', ref);
+  // ──── [2026-04-10 재수정] 프로브 실패 시에도 Render 백엔드 URL 반환 ────
+  // 원인: 이전 수정(return '')이 R2 redirect 체인을 차단함
+  //       R2에 이미지가 있어도 Render cold start로 프로브가 타임아웃(4.5초) 되면
+  //       빈 문자열 반환 → 브라우저가 redirect를 시도할 기회조차 잃음
+  // 해결: 1) 프로브 타임아웃 6초로 증가 (Render Starter cold start 대응)
+  //       2) IDB 폴백 실패 시 Render 백엔드 URL 반환 → 브라우저 img.src가
+  //          직접 serve_upload 호출 → 로컬 없으면 R2로 302 redirect → 정상 로드
+  //       3) Vercel(codibank.kr) URL은 /uploads/ 경로가 없으므로 제외
   try {
     if (idbSupported()) {
       const rec = await idbGet(IDB_CONF.STORE_IMAGES, ref);
@@ -1094,7 +1097,13 @@ if (ref.startsWith('/uploads/')) {
       }
     }
   } catch (_) {}
-  return '';  // 깨진 URL 대신 빈 문자열 → 호출자가 폴백 처리
+  // Render 백엔드 URL을 우선 반환 (onrender.com 도메인 탐색)
+  const _backendUrl = candidates.find(u => /onrender\.com/i.test(u)) || candidates[0] || '';
+  if (_backendUrl) {
+    console.warn('[getImageSrc] 프로브 타임아웃 — 백엔드 URL 직접 반환 (R2 redirect 기대):', _backendUrl);
+    return _backendUrl;
+  }
+  return '';
 }
 
     // 캐시된 objectURL
