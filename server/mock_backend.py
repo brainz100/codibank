@@ -600,6 +600,7 @@ def _make_ai_cache_key(payload: Dict[str, Any], face_bytes: bytes | None, ref_im
     body = {
         "purposeKey": payload.get("purposeKey") or "",
         "purposeLabel": payload.get("purposeLabel") or "",
+        "customText": str(payload.get("customText") or "").strip(),  # [2026-04-10] 직접입력 캐시 분리
         "seed": payload.get("seed") or 0,
         "forDateKey": payload.get("forDateKey") or payload.get("dateKey") or "",
         "user": {
@@ -1352,14 +1353,21 @@ def _ai_styling_via_gemini(
     ref_images: list[tuple[str, str, bytes]],
     cache_fname: str,
     ext: str,
+    matched_stylist=None,
+    meta=None,
 ):
-    """얼굴 사진이 포함된 /api/ai/styling 요청을 Gemini로 처리합니다.
+    """[2026-04-10] 코디쌤 추천코디 — Gemini 단일 호출로 이미지+분석 동시 생성.
 
-    DALL-E는 텍스트→이미지 전용이라 참조 얼굴을 반영할 수 없지만,
-    Gemini는 이미지+텍스트 멀티모달이므로 얼굴 특징을 보존할 수 있습니다.
-    /api/codistyle/generate와 동일한 Gemini SDK 호출 로직을 재사용합니다.
+    OpenAI 대비 장점:
+    - 1회 호출로 이미지 + 분석 JSON + 키워드 동시 생성 (병렬 호출 불필요)
+    - 얼굴 이미지 reference 지원 (멀티모달 입력)
+    - 한국어 분석 텍스트 품질 우수
+    - 응답 시간 단축 + 비용 절감
+
+    응답 구조:
+    - image_bytes (inline_data)
+    - text 파트에서 <<<ANALYSIS_JSON>>>...<<<END>>> 마커로 감싼 JSON 추출
     """
-
     # ── SDK 감지: google-genai(신) 우선 → google-generativeai(구) 폴백 ──
     _SDK = None
     _genai = None
@@ -1388,60 +1396,148 @@ def _ai_styling_via_gemini(
     gender = str(user_info.get("gender", "M")).strip().upper()
     gender_en = "woman" if gender == "F" else "man"
     gender_ko = "여성" if gender == "F" else "남성"
-
-    # [2026-04-08] 체형 DB 기반 스타일 가이드
-    _bt_key = str(payload.get("user", {}).get("bodyType", "")).strip()
-    _bt_prompt = _build_body_type_prompt(gender, _bt_key) if _bt_key else ""
-    if _bt_prompt:
-        _bt_prompt = "\n⭐ " + _bt_prompt
-
-    # [2026-04-08] Phase 2 퍼스널컬러 (12서브타입 대응)
-    _pc_text = _build_pc_prompt_block(personal_color, mode="styling")
-    if _bt_prompt: _pc_text = (_pc_text or "") + _bt_prompt
-    if not _pc_text and personal_color:
-        _pc_s = personal_color.get("season","")
-        _pc_u = personal_color.get("undertone","")
-        _pc_best  = ", ".join((personal_color.get("best_colors") or [])[:3])
-        _pc_avoid = ", ".join((personal_color.get("avoid_colors") or [])[:2])
-        if _pc_s:
-            _pc_text = f"""\n⭐ 사용자 퍼스널컬러: {_pc_s} ({_pc_u})\n  - 잘 어울리는 컬러: {_pc_best}\n  - 피해야 할 컬러: {_pc_avoid}\n  → 이 착장이 퍼스널컬러와의 조화를 스타일링 점수에 반드시 반영할 것"""
     age = str(user_info.get("ageGroup", "30대")).strip()
     height = str(user_info.get("height", "")).strip()
     weight = str(user_info.get("weight", "")).strip()
     hw_ko = f"키 {height}cm, 몸무게 {weight}kg" if height and weight else ""
 
-    # ── 얼굴 강조 프롬프트 보강 ──
+    # 퍼스널컬러
+    personal_color = payload.get("personalColor") or {}
+    pc_season    = str(personal_color.get("season", "") or "").strip()
+    pc_undertone = str(personal_color.get("undertone", "") or "").strip()
+    pc_subtype   = str(personal_color.get("subtype") or personal_color.get("type") or "").strip()
+    pc_best      = personal_color.get("best_colors") or []
+    pc_avoid     = personal_color.get("avoid_colors") or []
+    if not isinstance(pc_best, list): pc_best = []
+    if not isinstance(pc_avoid, list): pc_avoid = []
+    pc_label = (pc_season + " " + pc_subtype).strip() or pc_season or "미등록"
+    pc_best_str  = ", ".join(pc_best[:5]) if pc_best else "범용 뉴트럴"
+    pc_avoid_str = ", ".join(pc_avoid[:3]) if pc_avoid else "탁한 톤"
+
+    # 체형
+    body_type_key = str(user_info.get("bodyType", "")).strip()
+    try:
+        h_int = int(height) if height else 170
+        w_int = int(weight) if weight else 65
+    except Exception:
+        h_int, w_int = 170, 65
+    bmi = round(w_int / ((h_int/100) ** 2), 1) if h_int >= 100 else 0
+    if bmi < 18.5:
+        bmi_cat_ko = "마른 체형"
+    elif bmi < 23:
+        bmi_cat_ko = "표준 체형"
+    elif bmi < 25:
+        bmi_cat_ko = "약간 통통"
+    else:
+        bmi_cat_ko = "통통한 체형"
+
+    # 목적/날씨/도시
+    weather = payload.get("weather") or {}
+    try:
+        temp = float(weather.get("temp") or 20)
+    except Exception:
+        temp = 20.0
+    cond = str(weather.get("text") or weather.get("condition") or "").strip()
+    location = str(weather.get("location") or weather.get("city") or "").strip()
+    purpose_label = str(payload.get("purposeLabel") or "").strip()
+    custom_text = str(payload.get("customText") or "").strip()
+    purpose_key = str(payload.get("purposeKey") or "").strip().lower()
+    is_custom = (purpose_key == "custom" and bool(custom_text))
+    purpose_for_analysis = custom_text if is_custom else (purpose_label or "데일리 코디")
+
+    stylist_city = (meta or {}).get("active_city", "") if meta else ""
+    stylist_name = (matched_stylist or {}).get("name", "") if matched_stylist else ""
+
+    # ── Gemini 통합 프롬프트 (이미지 생성 + 분석 JSON 동시) ──
+    # 핵심: response_modalities=["IMAGE","TEXT"] 활용해 한 번의 호출로 두 출력 동시 획득
+    custom_directive = ""
+    if is_custom:
+        custom_directive = (
+            f"\n\n========================================\n"
+            f"⚠️ ABSOLUTE HIGHEST PRIORITY — USER DIRECT REQUEST ⚠️\n"
+            f"The user explicitly typed: \"{custom_text}\"\n"
+            f"You MUST generate the outfit to EXACTLY match this request.\n"
+            f"This OVERRIDES all city/purpose templates below.\n"
+            f"========================================\n\n"
+        )
+
     gemini_prompt = (
-        prompt + " "
-        "CRITICALLY IMPORTANT: The FIRST image is the face reference photo. "
-        "You MUST preserve the EXACT facial features, skin tone, hair style and color of this person. "
-        "Generate the image as if THIS EXACT PERSON is wearing the recommended outfit. "
+        custom_directive + prompt + " "
+        # ── 얼굴 보존 ──
+        "CRITICALLY IMPORTANT: If a face reference image is provided, the FIRST image is that face. "
+        "You MUST preserve the EXACT facial features, skin tone, hair style and color. "
+        "Generate as if THIS EXACT PERSON is wearing the outfit. "
         f"Subject: Korean {gender_en}, {age}"
         + (f", {hw_ko}" if hw_ko else "") + ". "
         "Full body head to toe visible. Photorealistic fashion editorial. "
 
-        # ── 배경 (CRITICAL) ──
-        "BACKGROUND (ABSOLUTE MANDATORY): "
-        "The background MUST be a SINGLE SOLID FLAT PASTEL COLOR only. "
-        "Choose a pastel that CONTRASTS clearly with the outfit: "
-        "dark outfit → light pastel (cream, pale mint, soft ivory, light sky blue); "
-        "light/white outfit → slightly deeper pastel (soft lavender, muted peach, pale sage). "
-        "Completely uniform and flat from edge to edge — studio backdrop paper style. "
-        "ABSOLUTELY FORBIDDEN: rooms, streets, walls, floors, gradients, patterns, objects, or any environment. "
-        "ONLY ONE FLAT SOLID PASTEL COLOR. No exceptions. "
+        # ── 배경 ──
+        "BACKGROUND (ABSOLUTE MANDATORY): SINGLE SOLID FLAT PASTEL COLOR ONLY. "
+        "Choose a pastel that CONTRASTS with the outfit. "
+        "Completely uniform from edge to edge — studio backdrop paper style. "
+        "ABSOLUTELY FORBIDDEN: rooms, streets, walls, gradients, patterns, objects, environments. "
 
-        # ── 신체비율 (CRITICAL) ──
-        "BODY PROPORTION (REALISTIC): Upper body approx 43-47%, lower body approx 53-57% of total height. "
-        "Realistic everyday Korean person — NOT a model. Full body visible head to shoes. "
+        # ── 신체비율 ──
+        "BODY PROPORTION: Upper body 43-47%, lower body 53-57%. Realistic everyday Korean person. "
+        "Full body visible head to shoes. "
 
-        # ── 바지 길이 ──
-        "PANTS (ABSOLUTE): Full ankle-length trousers only. Hem must reach just above the shoe. Cropped or 7/8 pants are FORBIDDEN. "
+        # ── 바지/양말 ──
+        "PANTS: Full ankle-length only. Hem just above the shoe. Cropped/7-8 length FORBIDDEN. "
+        "SOCKS: Both feet IDENTICAL — same color and pattern. Mismatched FORBIDDEN. "
 
-        # ── 양말 ──
-        "SOCKS: Both feet must wear IDENTICAL socks — same color and same pattern. Mismatched socks are ABSOLUTELY FORBIDDEN. "
+        # ── 스타일리스트 룰 ──
+        "STYLIST RULE: Everyday practical styling only. No experimental, runway, or avant-garde. "
+        "All looks must be wearable in real Korean daily life. "
 
-        # ── 스타일리스트 철학 ──
-        "STYLIST RULE: Everyday practical styling only. No experimental, runway, or avant-garde outfits. All looks must be wearable in real Korean daily life. "
+        # ══════════════════════════════════════════
+        # 분석 JSON 출력 지시 — 핵심
+        # ══════════════════════════════════════════
+        "\n\n=== CRITICAL OUTPUT INSTRUCTIONS ===\n"
+        "Along with the generated outfit image, you MUST also output a structured Korean analysis as TEXT. "
+        "Wrap the JSON between exact markers <<<ANALYSIS_JSON>>> and <<<END_ANALYSIS>>> with no additional text outside markers. "
+        "The JSON MUST follow this EXACT schema:\n"
+        "{\n"
+        '  "personalColor": {\n'
+        '    "text": "퍼스널컬러 측면 분석 (정확히 한국어, 250-300자, 사용자 톤에 맞는 컬러 추천 이유와 오늘 코디의 컬러 선택 근거 포함)",\n'
+        '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
+        '  },\n'
+        '  "body": {\n'
+        '    "text": "체형/사이즈 측면 분석 (한국어, 250-300자, 키/체중/BMI/체형분류를 반영한 핏과 실루엣 추천 근거)",\n'
+        '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
+        '  },\n'
+        '  "purpose": {\n'
+        '    "text": "코디 목적과 날씨 측면 분석 (한국어, 250-300자, 목적/날씨/도시 스타일을 어떻게 반영했는지 설명)",\n'
+        '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
+        '  },\n'
+        '  "categoryKeywords": {\n'
+        '    "outer": "아우터 컬러+디자인 (예: 베이지 트렌치코트, 클래식 라펠)",\n'
+        '    "top": "상의 컬러+디자인",\n'
+        '    "bottom": "하의 컬러+디자인",\n'
+        '    "shoes": "신발 컬러+디자인",\n'
+        '    "bag": "가방 컬러+디자인",\n'
+        '    "scarf": "스카프/포인트 (없으면 빈 문자열)",\n'
+        '    "watch": "시계 (없으면 빈 문자열)",\n'
+        '    "socks": "양말 컬러"\n'
+        '  }\n'
+        "}\n"
+        "RULES:\n"
+        "1. Each text field MUST be 250-300 Korean characters (not more, not less significantly).\n"
+        "2. Each keywords array MUST contain EXACTLY 3 short Korean keywords (2-6 chars each).\n"
+        "3. categoryKeywords values must reflect the EXACT colors and styles in the generated image.\n"
+        "4. If a category is not in the outfit, use empty string \"\".\n"
+        "5. Output ONLY the image AND the marked JSON. Nothing else.\n"
+        "\n[USER CONTEXT FOR ANALYSIS]\n"
+        f"- 성별: {gender_ko}, 나이: {age}\n"
+        f"- 신체: 키 {h_int}cm, 몸무게 {w_int}kg (BMI {bmi}, {bmi_cat_ko})\n"
+        f"- 체형 분류: {body_type_key or '미등록'}\n"
+        f"- 퍼스널컬러: {pc_label} ({pc_undertone or '복합'})\n"
+        f"  베스트: {pc_best_str}\n"
+        f"  주의: {pc_avoid_str}\n"
+        f"- 코디 목적: {purpose_for_analysis}\n"
+        f"- 날씨: {int(temp)}°C {cond}\n"
+        f"- 위치: {location or '미지정'}\n"
+        f"- 매칭 스타일리스트: {stylist_name or '범용'} ({stylist_city or '범용 도시'})\n"
+        + (f"- 사용자 직접 요청: \"{custom_text}\"\n" if is_custom else "")
     )
 
     # ── 이미지 파트 구성: 얼굴 → 상의 → 하의 순서 ──
@@ -1489,18 +1585,18 @@ def _ai_styling_via_gemini(
     except Exception as e:
         import traceback as _tb
         _trace = _tb.format_exc()[-400:]
-        print(f"[codistyle] Gemini 호출 실패: {_trace}")
+        print(f"[ai_styling_gemini] Gemini 호출 실패: {_trace}")
         return jsonify(ok=False, error=f"Gemini 호출 실패 ({_SDK}): {str(e)[:300]}", trace=_trace), 500
 
-    # ── 응답에서 이미지 추출 ──
+    # ── 응답에서 이미지 + 텍스트 추출 ──
     img_bytes = None
-    comment = ""
+    full_text = ""
     try:
         for part in response.candidates[0].content.parts:
             if part.inline_data and part.inline_data.data:
                 img_bytes = part.inline_data.data
             elif part.text:
-                comment = part.text.strip()[:200]
+                full_text += part.text
     except (IndexError, AttributeError) as e:
         return jsonify(ok=False, error=f"응답 파싱 실패: {str(e)[:200]}"), 500
 
@@ -1509,24 +1605,209 @@ def _ai_styling_via_gemini(
             finish = response.candidates[0].finish_reason
         except Exception:
             finish = "UNKNOWN"
-        print(f"[codistyle] 이미지 미생성: finishReason={finish}, comment={comment[:100]}")
-        return jsonify(ok=False, error=f"이미지 미생성 finishReason={finish} {comment[:100]}"), 500
+        print(f"[ai_styling_gemini] 이미지 미생성: finishReason={finish}, text={full_text[:150]}")
+        return jsonify(ok=False, error=f"이미지 미생성 finishReason={finish}"), 500
 
     if isinstance(img_bytes, str):
         img_bytes = base64.b64decode(img_bytes)
 
+    # ── 분석 JSON 파싱 (마커 기반 + 폴백) ──
+    styling_analysis = None
+    category_keywords_from_ai = {}
+    try:
+        import re as _re_a, json as _json_a
+        _m = _re_a.search(r'<<<ANALYSIS_JSON>>>(.*?)<<<END_ANALYSIS>>>', full_text, _re_a.DOTALL)
+        if _m:
+            _json_str = _m.group(1).strip()
+            # JSON 안의 코드펜스 제거
+            _json_str = _re_a.sub(r'^```(?:json)?\s*|\s*```$', '', _json_str, flags=_re_a.MULTILINE).strip()
+            _parsed = _json_a.loads(_json_str)
+            # 스키마 검증 + 정규화
+            styling_analysis = {}
+            for sec in ("personalColor", "body", "purpose"):
+                _s = _parsed.get(sec) or {}
+                _txt = str(_s.get("text") or "").strip()[:300]
+                _kws = _s.get("keywords") or []
+                if not isinstance(_kws, list):
+                    _kws = []
+                _kws = [str(k).strip() for k in _kws if str(k).strip()][:3]
+                while len(_kws) < 3:
+                    _kws.append("—")
+                styling_analysis[sec] = {"text": _txt, "keywords": _kws}
+            # 카테고리별 키워드 (옷장 매칭용)
+            _ck = _parsed.get("categoryKeywords") or {}
+            if isinstance(_ck, dict):
+                category_keywords_from_ai = {str(k): str(v).strip() for k, v in _ck.items() if v}
+        else:
+            # 마커 없으면 폴백 — 템플릿 함수로 생성
+            styling_analysis = _generate_styling_analysis(payload, matched_stylist, meta)
+            print(f"[ai_styling_gemini] ⚠ 분석 JSON 마커 없음, 템플릿 폴백 사용. text 일부: {full_text[:200]}")
+    except Exception as _pe:
+        print(f"[ai_styling_gemini] 분석 JSON 파싱 실패: {_pe}, 템플릿 폴백 사용")
+        try:
+            styling_analysis = _generate_styling_analysis(payload, matched_stylist, meta)
+        except Exception:
+            styling_analysis = None
+
     rel = _write_upload_bytes("ai", ext, img_bytes, fixed_name=cache_fname)
     base = _public_base()
+
+    # 카테고리 키워드 병합: AI가 준 것 우선, 엔진 기본값 보조
+    merged_cat_kws = {}
+    try:
+        merged_cat_kws.update((meta or {}).get('categoryKeywords', {}) or {})
+    except Exception:
+        pass
+    merged_cat_kws.update(category_keywords_from_ai or {})
+
     return jsonify(
         ok=True,
         image=f"{base}{rel}",
         path=rel,
         url=f"{base}{rel}",
-        explanation=short or comment or "AI 코디 이미지 생성 완료!",
+        explanation=short or "AI 코디 이미지 생성 완료!",
         model=f"gemini:{model_name}",
         cached=False,
         prompt=gemini_prompt if os.getenv("CODIBANK_DEBUG_PROMPT") == "1" else None,
+        stylist=matched_stylist,
+        stylingStory=(meta or {}).get("styling_story") if meta else None,
+        engineKeywords=(meta or {}).get('keywords_selected', []) if meta else [],
+        engineCategoryKeywords=merged_cat_kws,
+        engineCity=(meta or {}).get('active_city', '') if meta else '',
+        enginePurpose=(meta or {}).get('purpose', '') if meta else '',
+        engineBottomType=(meta or {}).get('bottom_type', '') if meta else '',
+        # [2026-04-10] AI 종합 분석 (Gemini 단일 호출 결과)
+        stylingAnalysis=styling_analysis,
     )
+
+
+# ══════════════════════════════════════════════════════
+# [2026-04-10] AI 패션 스타일리스트 종합 분석 생성기
+# - 퍼스널컬러 / 체형·사이즈 / 코디목적·날씨 3개 측면
+# - 각 측면 분석 텍스트 300자 이내 + 핵심 키워드 3개
+# - closet.html의 새 분석 박스에서 렌더링
+# ══════════════════════════════════════════════════════
+def _generate_styling_analysis(payload, matched_stylist, meta):
+    """3개 측면 종합 분석 + 각 3개 키워드 생성 (템플릿 기반, API 호출 없음)"""
+    user      = payload.get("user") or {}
+    weather   = payload.get("weather") or {}
+    pc        = payload.get("personalColor") or {}
+    purpose   = (meta or {}).get("purpose") or payload.get("purposeLabel") or "데일리 코디"
+    city      = (meta or {}).get("active_city") or "서울"
+    custom_text = str(payload.get("customText") or "").strip()
+    if custom_text and (payload.get("purposeKey") or "").lower() == "custom":
+        purpose = custom_text
+
+    # ── 사용자 정보 정규화 ──
+    gender   = str(user.get("gender") or "").upper()
+    gender_ko = "여성" if gender == "F" else "남성"
+    age      = str(user.get("ageGroup") or "30대")
+    try:
+        height = int(user.get("height") or 170)
+    except Exception:
+        height = 170
+    try:
+        weight = int(user.get("weight") or 65)
+    except Exception:
+        weight = 65
+    body_type = str(user.get("bodyType") or "").strip()
+    bmi_val = round(weight / ((height/100) ** 2), 1) if height >= 100 else 0
+    if bmi_val < 18.5:
+        bmi_cat_ko, bmi_cat_en = "마른 체형", "slim"
+    elif bmi_val < 23:
+        bmi_cat_ko, bmi_cat_en = "표준 체형", "average"
+    elif bmi_val < 25:
+        bmi_cat_ko, bmi_cat_en = "약간 통통", "slightly heavy"
+    else:
+        bmi_cat_ko, bmi_cat_en = "통통한 체형", "heavier"
+
+    # ── 1) 퍼스널컬러 분석 ──
+    pc_season    = str(pc.get("season") or "").strip()
+    pc_subtype   = str(pc.get("subtype") or pc.get("type") or "").strip()
+    pc_undertone = str(pc.get("undertone") or "").strip()
+    pc_best      = pc.get("best_colors") or []
+    pc_avoid     = pc.get("avoid_colors") or []
+    if not isinstance(pc_best, list): pc_best = []
+    if not isinstance(pc_avoid, list): pc_avoid = []
+
+    if pc_season or pc_subtype:
+        pc_label = f"{pc_season} {pc_subtype}".strip()
+        best_str = ", ".join(pc_best[:5]) if pc_best else "고객님 톤에 맞는 컬러"
+        avoid_str = ", ".join(pc_avoid[:3]) if pc_avoid else "탁한 톤"
+        pc_text = (
+            f"{gender_ko}님의 퍼스널컬러는 {pc_label}({pc_undertone or '복합 톤'})입니다. "
+            f"이 톤에는 {best_str} 같은 컬러가 피부톤을 환하게 살려줍니다. "
+            f"반대로 {avoid_str}는 인상을 가라앉힐 수 있어 포인트로만 활용하는 것이 좋아요. "
+            f"오늘 코디는 베스트 컬러 중심으로 메인을 잡고, 액세서리는 톤온톤으로 정돈했습니다."
+        )[:300]
+        pc_keywords = [pc_label or pc_season] + (pc_best[:2] if pc_best else ["컬러 매칭", "톤온톤"])
+        pc_keywords = [k for k in pc_keywords if k][:3]
+        while len(pc_keywords) < 3:
+            pc_keywords.append("컬러 매칭")
+    else:
+        pc_text = (
+            f"{gender_ko}님의 퍼스널컬러 정보가 등록되지 않아 범용 컬러 가이드를 적용합니다. "
+            f"오늘 코디는 피부톤과 잘 어우러지는 뉴트럴 베이스에 절제된 포인트 컬러로 구성했어요. "
+            f"마이페이지에서 퍼스널컬러를 등록하면 훨씬 정확한 컬러 매칭을 받으실 수 있습니다."
+        )[:300]
+        pc_keywords = ["뉴트럴", "톤온톤", "절제된 포인트"]
+
+    # ── 2) 체형/사이즈 분석 ──
+    body_text_parts = [f"{gender_ko}, {age}, 키 {height}cm, 몸무게 {weight}kg ({bmi_cat_ko}, BMI {bmi_val})입니다. "]
+    if bmi_cat_en == "slim":
+        body_text_parts.append("슬림한 체형은 레이어드와 볼륨감 있는 소재로 풍성함을 더할 수 있습니다. ")
+        body_kws = ["레이어드", "볼륨 실루엣", "세미오버핏"]
+    elif bmi_cat_en == "average":
+        body_text_parts.append("표준 체형은 대부분의 핏을 소화할 수 있어 트렌디한 슬림핏과 정석 테일러드 모두 잘 어울립니다. ")
+        body_kws = ["슬림핏", "테일러드", "정석 핏"]
+    elif bmi_cat_en == "slightly heavy":
+        body_text_parts.append("약간 통통한 체형은 어깨 라인을 살리는 구조적 자켓과 세로 라인을 강조하는 실루엣이 효과적입니다. ")
+        body_kws = ["구조적 자켓", "세로 라인", "어깨 강조"]
+    else:
+        body_text_parts.append("볼륨감 있는 체형은 몸을 감싸는 곡선 실루엣 대신 직선적이고 깔끔한 라인이 인상을 정돈해줍니다. ")
+        body_kws = ["직선 실루엣", "다크 톤", "구조적 핏"]
+    if body_type:
+        body_text_parts.append(f"체형 분류({body_type})에 맞춰 비율을 보정하는 디테일을 우선 적용했습니다. ")
+    body_text_parts.append(f"오늘 코디는 {height}cm 기준으로 비율이 가장 좋아 보이는 길이감과 핏을 선택했습니다.")
+    body_text = "".join(body_text_parts)[:300]
+
+    # ── 3) 코디목적 + 날씨 분석 ──
+    try:
+        temp = float(weather.get("temp") or 20)
+    except Exception:
+        temp = 20.0
+    cond = str(weather.get("text") or weather.get("condition") or "").strip()
+    location = str(weather.get("location") or weather.get("city") or "").strip()
+    if temp <= 5:
+        weather_kw = "방한"
+        weather_desc = f"기온 {int(temp)}°C로 춥습니다. 두꺼운 코트와 보온 레이어가 필수입니다. "
+    elif temp <= 12:
+        weather_kw = "가을 레이어"
+        weather_desc = f"기온 {int(temp)}°C로 쌀쌀합니다. 자켓과 니트 레이어로 따뜻함을 챙겼어요. "
+    elif temp <= 20:
+        weather_kw = "환절기"
+        weather_desc = f"기온 {int(temp)}°C로 활동하기 좋은 환절기 날씨입니다. 가벼운 아우터로 체온 조절이 가능합니다. "
+    elif temp <= 26:
+        weather_kw = "봄가을"
+        weather_desc = f"기온 {int(temp)}°C로 쾌적합니다. 단일 레이어로 깔끔하게 마무리했습니다. "
+    else:
+        weather_kw = "여름 통풍"
+        weather_desc = f"기온 {int(temp)}°C로 덥습니다. 통기성 좋은 가벼운 소재로 시원함을 우선했습니다. "
+    purpose_desc = f"오늘의 목적은 '{purpose}'입니다. "
+    city_desc = f"{city} 스타일을 기반으로 "
+    stylist_name = (matched_stylist or {}).get("name") if matched_stylist else None
+    stylist_part = f"AI 스타일리스트 {stylist_name}님의 감각으로 " if stylist_name else ""
+    purpose_text = (
+        purpose_desc + weather_desc + city_desc + stylist_part +
+        f"{purpose}에 어울리는 핵심 아이템을 조합했습니다."
+    )[:300]
+    purpose_kws = [purpose, weather_kw, city + " 스타일"]
+
+    return {
+        "personalColor": {"text": pc_text, "keywords": pc_keywords},
+        "body":          {"text": body_text, "keywords": body_kws},
+        "purpose":       {"text": purpose_text, "keywords": purpose_kws},
+    }
 
 
 @app.post("/api/ai/styling")
@@ -1592,6 +1873,38 @@ def ai_styling():
         if not _STYLIST_DB: _why.append("stylist_db_server.json 없음/비어있음")
         print(f"[v2026-04-06 ⚠️ fallback] 원인: {', '.join(_why) if _why else '엔진 런타임 에러'}")
 
+    # ──── [2026-04-10] 직접입력 강제 처리 ────
+    # 원인: 엔진이 customText를 무시하고 도시/목적 기반 프롬프트만 생성
+    # 해결: customText가 있으면 엔진 결과의 맨 앞과 맨 뒤 모두에 강력한 오버라이드 prepend/append
+    _purpose_key = str(payload.get("purposeKey", "")).strip().lower()
+    _custom_text_force = str(payload.get("customText") or "").strip()
+    if _purpose_key == "custom" and _custom_text_force:
+        _force_header = (
+            f"\n\n========================================\n"
+            f"[ABSOLUTE HIGHEST PRIORITY — USER DIRECT REQUEST]\n"
+            f"The user explicitly typed this exact request: \"{_custom_text_force}\"\n"
+            f"You MUST generate an outfit that EXACTLY matches this request.\n"
+            f"This direct user input OVERRIDES all other styling rules, city styles, "
+            f"purpose templates, and stylist recommendations below.\n"
+            f"If any rule below conflicts with the user's request, the user's request WINS.\n"
+            f"========================================\n\n"
+        )
+        _force_footer = (
+            f"\n\n========================================\n"
+            f"[FINAL REMINDER — DO NOT IGNORE]\n"
+            f"User's exact request was: \"{_custom_text_force}\"\n"
+            f"Generate the outfit to fulfill this request precisely. "
+            f"Every garment, color, and detail MUST reflect: \"{_custom_text_force}\"\n"
+            f"========================================\n"
+        )
+        prompt = _force_header + prompt + _force_footer
+        # 프론트가 만든 imagePrompt도 있으면 추가 강화
+        _front_image_prompt = str(payload.get("imagePrompt") or "").strip()
+        if _front_image_prompt and len(_front_image_prompt) > 30:
+            prompt += f"\n\n[FRONTEND USER-CRAFTED PROMPT — ALSO MUST FOLLOW]\n{_front_image_prompt}\n"
+        short = f"직접입력 — {_custom_text_force[:30]}"
+        print(f"[직접입력 강제] customText='{_custom_text_force}' → 프롬프트 강제 오버라이드 적용")
+
     face_data_url = payload.get("faceImage")
     size = str(payload.get("size") or "1024x1536")
     quality = str(payload.get("quality") or "low")
@@ -1610,6 +1923,11 @@ def ai_styling():
     if os.path.exists(cache_fpath):
         rel = f"{_UPLOAD_PREFIX}{cache_fname}"
         base = _public_base()
+        # [2026-04-10] 캐시 응답에도 분석 포함 (엔진 메타가 없으면 빈 분석)
+        try:
+            _cached_analysis = _generate_styling_analysis(payload, _matched_stylist, _meta)
+        except Exception:
+            _cached_analysis = None
         return jsonify(
             ok=True,
             image=f"{base}{rel}",  # 프론트 호환: img src로 바로 사용
@@ -1618,15 +1936,56 @@ def ai_styling():
             explanation=short,
             model="cache",
             cached=True,
+            stylingAnalysis=_cached_analysis,
         )
 
-    # ── 코디쌤(/api/ai/styling)은 항상 OpenAI만 사용 ──
-    # 코디하기(/api/codistyle/generate)는 항상 Gemini 사용 (별도 엔드포인트)
-    # 두 API를 절대 혼용하지 않음
+    # ══════════════════════════════════════════════════════
+    # [2026-04-10] 코디쌤 AI 코디 — Gemini 우선 라우팅
+    # 환경변수 CODIBANK_AI_STYLING_PROVIDER:
+    #   "gemini" (기본) → Gemini 단일 호출 (이미지+분석 동시)
+    #   "openai"        → OpenAI 이미지 + 템플릿 분석 (기존 방식)
+    # Gemini는 응답에 분석 JSON 마커를 함께 출력하여 추가 호출 없이 종합 분석 제공.
+    # ══════════════════════════════════════════════════════
+    _styling_provider = (os.getenv("CODIBANK_AI_STYLING_PROVIDER") or "gemini").strip().lower()
+    if _styling_provider == "gemini" and _GEMINI_KEY:
+        try:
+            print(f"[ai_styling] Gemini 단일 호출 모드 (이미지+분석 동시)")
+            _gemini_result = _ai_styling_via_gemini(
+                payload=payload,
+                prompt=prompt,
+                short=short,
+                ref_images=ref_images,
+                cache_fname=cache_fname,
+                ext=ext,
+                matched_stylist=_matched_stylist,
+                meta=_meta,
+            )
+            # _ai_styling_via_gemini는 이미 jsonify 결과를 반환
+            # 성공이면 그대로 반환, 실패면 폴백
+            if isinstance(_gemini_result, tuple):
+                # (jsonify(error), status_code) 형태 → 에러 발생
+                _resp_obj, _status = _gemini_result
+                if _status == 500 and has_openai:
+                    print(f"[ai_styling] Gemini 실패, OpenAI 폴백으로 전환")
+                    # 폴백 로직으로 진행 (아래 OpenAI 코드 실행)
+                else:
+                    return _gemini_result
+            else:
+                # jsonify(...) 단독 반환 → 성공
+                return _gemini_result
+        except Exception as _ge:
+            print(f"[ai_styling] Gemini 라우팅 예외: {_ge}, OpenAI 폴백 시도")
+            import traceback as _tbg
+            _tbg.print_exc()
+            if not has_openai:
+                return jsonify(ok=False, error=f"Gemini 실패: {str(_ge)[:300]}"), 500
+
+    # ── 코디쌤(/api/ai/styling) OpenAI 폴백 경로 ──
+    # 위 Gemini 라우팅이 실패했거나 명시적으로 OpenAI를 선택한 경우 사용
     if not has_openai:
         return jsonify(
             ok=False,
-            error="OPENAI_API_KEY가 설정되지 않았습니다. 코디쌤 AI 코디는 OpenAI API가 필요합니다.",
+            error="OPENAI_API_KEY가 설정되지 않았습니다. 코디쌤 AI 코디는 OpenAI API 또는 Gemini API가 필요합니다.",
         ), 400
 
     model_no_face = os.getenv("CODIBANK_OPENAI_IMAGE_MODEL", "gpt-image-1.5")
@@ -1706,6 +2065,13 @@ def ai_styling():
         rel = _write_upload_bytes("ai", ext, img_bytes, fixed_name=cache_fname)
         base = _public_base()
 
+        # [2026-04-10] AI 패션 스타일리스트 종합 분석 생성
+        try:
+            _styling_analysis = _generate_styling_analysis(payload, _matched_stylist, _meta)
+        except Exception as _ae:
+            print(f"[styling_analysis] 생성 실패: {_ae}")
+            _styling_analysis = None
+
         return jsonify(
             ok=True,
             image=f"{base}{rel}",
@@ -1723,6 +2089,8 @@ def ai_styling():
             engineCity=_meta.get('active_city', ''),
             enginePurpose=_meta.get('purpose', ''),
             engineBottomType=_meta.get('bottom_type', ''),
+            # [2026-04-10 추가] AI 스타일리스트 종합 분석 (퍼스널컬러/체형/목적+날씨)
+            stylingAnalysis=_styling_analysis,
         )
 
     except Exception as e:
