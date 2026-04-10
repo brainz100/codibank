@@ -277,7 +277,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 .prog-bar{height:3px;background:rgba(151,254,237,0.08)}
 .prog-fill{height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);transition:width .4s ease;border-radius:3px}
 .status-row{display:flex;align-items:center;gap:10px;padding:16px 18px 10px}.status-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;animation:pdot 1.2s ease-in-out infinite}@keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}.status-dot.done{background:var(--mint);animation:none}.status-dot.err{background:#f87171;animation:none}.status-txt{font-size:12px;color:rgba(162,253,240,0.7);font-weight:500}
-.result-img-wrap{padding:10px 14px;}.result-img-box{width:100%;aspect-ratio:1/1.62;border-radius:16px;overflow:hidden;background:#050f2a;position:relative;display:flex;align-items:center;justify-content:center;}.result-img{width:100%;height:100%;border-radius:16px;display:block;object-fit:cover;}
+/* ──── [2026-04-10 수정] 모바일/PC 착장이미지 크기 통일 ──── */
+.result-img-wrap{padding:10px 14px;max-width:480px;margin:0 auto;}.result-img-box{width:100%;aspect-ratio:1/1.62;border-radius:16px;overflow:hidden;background:#050f2a;position:relative;display:flex;align-items:center;justify-content:center;}.result-img{width:100%;height:100%;border-radius:16px;display:block;object-fit:cover;}
 .img-ph{width:100%;aspect-ratio:1/1.62;border-radius:16px;background:rgba(0,0,0,0.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:rgba(255,255,255,0.18)}
 .img-ph .mi{font-family:'Material Symbols Outlined';font-size:50px}.img-ph p{font-size:12px}
 .img-spin{width:100%;aspect-ratio:1/1.62;border-radius:16px;background:#050f2a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
@@ -1970,7 +1971,17 @@ function loadDeck(){
   cats.forEach(function(c){
     var items=CodiBank.getItemsByUserAndCategory(user.email,c.key)||[];
     items.forEach(function(it){
-      var ref=it.images&&(it.images.front||it.images.brand||it.images.back)||'';
+      // ──── [2026-04-10 수정] 이미지 참조 폴백 확장 ────
+      // 원인: front/brand/back만 체크 → 다른 필드에만 이미지가 있는 아이템 누락
+      // 해결: 가능한 모든 이미지 필드를 순서대로 확인
+      var ref = '';
+      if(it.images){
+        ref = it.images.front || it.images.brand || it.images.back
+           || it.images.original || it.images.photo || it.images.thumbnail
+           || it.images.nobg || it.images.src || '';
+      }
+      // images 객체가 없어도 item 자체에 imageUrl/src가 있을 수 있음
+      if(!ref) ref = it.imageUrl || it.src || it.image || it.photo || '';
       if(!ref) return;
       var e={id:it.id,cat:c.key,label:c.label,item:it,ref:ref};
       if(_cpTopK.indexOf(c.key)>=0) _dkTopItems.push(e);
@@ -1979,6 +1990,9 @@ function loadDeck(){
   });
   drawDeck('top',_dkTopItems,_dkTopIdx);
   drawDeck('bot',_dkBotItems,_dkBotIdx);
+  // ──── [2026-04-10] 진단: 로드된 아이템 수 출력 ────
+  console.log('[loadDeck] 상의:', _dkTopItems.length + '개 로드 (' + _dkTopItems.map(function(e){return e.cat;}).join(',') + ')');
+  console.log('[loadDeck] 하의:', _dkBotItems.length + '개 로드 (' + _dkBotItems.map(function(e){return e.cat;}).join(',') + ')');
 }
 
 function _circIdx(i,len){ return ((i%len)+len)%len; }
@@ -2007,15 +2021,28 @@ function drawDeck(type,items,ci){
   }
   
   // [2026-04-09 수정] 순환 카드덱 + 3D 입체 효과 + 체크아이콘 선택 시만 표시
+  // [2026-04-10 수정] 아이템 수 < 7일 때 중복 표시 방지 — 실제 수만큼만 렌더링
   var selIdx=(type==='top')?_dkTopSel:_dkBotSel;
   var sideClasses=['side-3L','side-2L','side-1L','center','side-1R','side-2R','side-3R'];
-  for(var slot=0;slot<7;slot++){
-    var offset=slot-3;
-    var dataIdx=_circIdx(ci+offset, items.length); // 순환 인덱스
-    var isCenter=(slot===3);
-    var isSelected=(dataIdx===selIdx);
+  
+  // 7장 미만일 때: 중앙 정렬된 슬롯만 사용 (중복 없이)
+  var totalSlots = Math.min(7, items.length);
+  var startSlot = Math.floor((7 - totalSlots) / 2); // 중앙 정렬
+  
+  for(var slot=0;slot<totalSlots;slot++){
+    var actualSlot = startSlot + slot;
+    var offset = actualSlot - 3;
+    var dataIdx;
+    if(items.length >= 7){
+      dataIdx = _circIdx(ci + offset, items.length); // 7개 이상: 순환
+    } else {
+      dataIdx = slot; // 7개 미만: 순서대로 (중복 없이)
+    }
+    if(dataIdx < 0 || dataIdx >= items.length) continue;
+    var isCenter = (actualSlot === 3);
+    var isSelected = (dataIdx === selIdx);
     var card=document.createElement('div');
-    card.className='cdeck-card '+sideClasses[slot];
+    card.className='cdeck-card '+sideClasses[actualSlot];
     card.setAttribute('data-idx',dataIdx);
     card.setAttribute('data-type',type);
     var imgId='dk_'+type+'_'+dataIdx+'_'+Date.now();
@@ -2035,13 +2062,21 @@ function drawDeck(type,items,ci){
     if(!c) return;
     var idx=parseInt(c.getAttribute('data-idx'));
     if(isNaN(idx)) return;
+    var _items = (type==='top') ? _dkTopItems : _dkBotItems;
     var curCenter=(type==='top')?_dkTopIdx:_dkBotIdx;
-    if(idx===curCenter){
+    // 아이템 < 7: 클릭한 카드가 곧 중앙. >= 7: 기존 순환 로직
+    if(items.length < 7){
+      // 모든 카드가 보이므로, 클릭 = 선택
+      if(type==='top') _dkTopSel=idx;
+      else _dkBotSel=idx;
+      pickDeckItem(type==='top'?'top':'bottom', _items[idx]);
+      drawDeck(type, _items, curCenter);
+    } else if(idx===_circIdx(curCenter, items.length)){
       // [2026-04-09 수정] 중앙 카드 클릭 → 선택 + 체크 아이콘 표시
       if(type==='top') _dkTopSel=idx;
       else _dkBotSel=idx;
-      pickDeckItem(type==='top'?'top':'bottom', (type==='top'?_dkTopItems:_dkBotItems)[idx]);
-      drawDeck(type, type==='top'?_dkTopItems:_dkBotItems, curCenter);
+      pickDeckItem(type==='top'?'top':'bottom', _items[idx]);
+      drawDeck(type, _items, curCenter);
     } else {
       // 사이드 카드 클릭 → 중앙으로 이동 (순환)
       if(type==='top'){_dkTopIdx=idx; drawDeck('top',_dkTopItems,_dkTopIdx);}
@@ -2053,6 +2088,7 @@ function drawDeck(type,items,ci){
   el.ontouchend=function(ev){
     var dx=ev.changedTouches[0].clientX-(el._sx||0);
     if(Math.abs(dx)<30)return;
+    if(items.length < 7) return; // 7개 미만: 모든 카드 이미 보임 → 스와이프 불필요
     // 순환: 끝→처음, 처음→끝
     if(type==='top'){_dkTopIdx=_circIdx(_dkTopIdx+(dx<0?1:-1),items.length);drawDeck('top',_dkTopItems,_dkTopIdx);}
     else{_dkBotIdx=_circIdx(_dkBotIdx+(dx<0?1:-1),items.length);drawDeck('bot',_dkBotItems,_dkBotIdx);}
