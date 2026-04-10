@@ -277,10 +277,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 .prog-bar{height:3px;background:rgba(151,254,237,0.08)}
 .prog-fill{height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);transition:width .4s ease;border-radius:3px}
 .status-row{display:flex;align-items:center;gap:10px;padding:16px 18px 10px}.status-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;animation:pdot 1.2s ease-in-out infinite}@keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}.status-dot.done{background:var(--mint);animation:none}.status-dot.err{background:#f87171;animation:none}.status-txt{font-size:12px;color:rgba(162,253,240,0.7);font-weight:500}
-.result-img-wrap{padding:10px 14px;}.result-img-box{width:100%;aspect-ratio:1024/1536;border-radius:16px;overflow:hidden;background:#050f2a;position:relative;display:flex;align-items:center;justify-content:center;}.result-img{width:100%;height:100%;border-radius:16px;display:block;object-fit:contain;}
-.img-ph{width:100%;aspect-ratio:1/1.6;border-radius:16px;background:rgba(0,0,0,0.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:rgba(255,255,255,0.18)}
+.result-img-wrap{padding:10px 14px;}.result-img-box{width:100%;aspect-ratio:1/1.62;border-radius:16px;overflow:hidden;background:#050f2a;position:relative;display:flex;align-items:center;justify-content:center;}.result-img{width:100%;height:100%;border-radius:16px;display:block;object-fit:cover;}
+.img-ph{width:100%;aspect-ratio:1/1.62;border-radius:16px;background:rgba(0,0,0,0.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:rgba(255,255,255,0.18)}
 .img-ph .mi{font-family:'Material Symbols Outlined';font-size:50px}.img-ph p{font-size:12px}
-.img-spin{width:100%;aspect-ratio:1/1.6;border-radius:16px;background:#050f2a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.img-spin{width:100%;aspect-ratio:1/1.62;border-radius:16px;background:#050f2a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
 .cb-rainbow-cs{font-size:36px;font-weight:900;letter-spacing:4px;font-family:'Manrope','Inter',sans-serif;display:flex;justify-content:center;align-items:center;gap:1px;}
 .cb-rainbow-cs span{color:rgba(255,255,255,0.15);}
 .cb-rainbow-cs.animating span{animation:rbFillCs 2.4s infinite;}
@@ -1181,12 +1181,12 @@ async function analyzeGarments(){
     return { ok:true, top:_topAnalysisCache, bottom:_bottomAnalysisCache, _allCached:true };
   }
   if(_needTop){
-    if(ST.top.serverPath)        payload.topPath    = ST.top.serverPath;
-    else if(ST.top.dataUrl)      payload.topDataUrl = ST.top.dataUrl;
+    if(ST.top.serverPath && ST.top.serverPath !== '_pending_') payload.topPath = ST.top.serverPath;
+    if(ST.top.dataUrl) payload.topDataUrl = ST.top.dataUrl;
   }
   if(_needBottom){
-    if(ST.bottom.serverPath)     payload.bottomPath    = ST.bottom.serverPath;
-    else if(ST.bottom.dataUrl)   payload.bottomDataUrl = ST.bottom.dataUrl;
+    if(ST.bottom.serverPath && ST.bottom.serverPath !== '_pending_') payload.bottomPath = ST.bottom.serverPath;
+    if(ST.bottom.dataUrl) payload.bottomDataUrl = ST.bottom.dataUrl;
   }
   try{
     const r = await fetch(bb+'/api/codistyle/analyze-garments',{
@@ -1352,15 +1352,14 @@ async function generate(isRetry=false){
       retryLongerPants: isRetry,  // 다시요청 시 바지 20% 길게 + 포즈 변경
       request7bu: _request7bu, // ★ 사용자 명시 7부 요청 여부 (기본 false)
       // [2026-04-10] _pending_ 상태는 서버 경로가 아직 확정 안 된 임시 마커
-      // 이 경우 dataUrl을 폴백으로 전송 (백엔드가 dataUrl을 우선 사용)
       topPath:    (ST.top.serverPath === '_pending_'    ? '' : ST.top.serverPath),
       bottomPath: (ST.bottom.serverPath === '_pending_' ? '' : ST.bottom.serverPath),
-      // [2026-04-10] 페이로드 최적화: 정상 serverPath가 있으면 dataUrl 전송 생략
-      // 원인: ai옷장 아이템(이미 서버에 있음)도 dataUrl을 base64로 보내 페이로드가 메가바이트
-      // 해결: serverPath만 보내면 백엔드 _to_bytes()가 R2/로컬에서 바로 로드 → "Failed to fetch" 해결
-      // _pending_ 상태에서는 dataUrl 폴백 (업로드 미완료 시 안전망)
-      topDataUrl:    ((ST.top.serverPath && ST.top.serverPath !== '_pending_') ? null : (ST.top.dataUrl || null)),
-      bottomDataUrl: ((ST.bottom.serverPath && ST.bottom.serverPath !== '_pending_') ? null : (ST.bottom.dataUrl || null)),
+      // [2026-04-10 v3] dataUrl 항상 전송 전략
+      // - ai옷장 아이템: 압축 base64 (~100-200KB) — Render 파일 삭제 후에도 안전
+      // - 사진선택/촬영: 원본 base64 (업로드 실패 시 폴백, 성공 시 path 우선 사용)
+      // - 백엔드 _to_bytes()가 base64 우선 처리 → path는 보조
+      topDataUrl:    ST.top.dataUrl    || null,
+      bottomDataUrl: ST.bottom.dataUrl || null,
       // [2026-04-06 추가] 치마 이미지 가로:세로 비율 → 서버에서 기장 판단용
       bottomImageWidth: ST.bottom.naturalWidth || ST.bottom.width || 0,
       bottomImageHeight: ST.bottom.naturalHeight || ST.bottom.height || 0,
@@ -2067,32 +2066,33 @@ async function pickDeckItem(type,entry){
     '<button class="cpreview-x" onclick="event.stopPropagation();event.preventDefault();_clearSlotFromX(\''+type+'\');return false;" data-clear="'+type+'"><span class="mi" style="font-size:18px;font-weight:900;pointer-events:none;">close</span></button>'+
     '<div class="cpreview-badge">Selected Item</div>';
 
-  // [2026-04-10] ai옷장 아이템: 기존 서버 경로 직접 사용 (재업로드 금지)
-  // 원인: 이미 R2/서버에 있는 이미지를 base64로 다시 인코딩→업로드하여 페이로드 폭증 + 시간 낭비
-  // 해결: entry.ref가 /uploads/ 경로면 ST.serverPath에 즉시 할당, dataUrl 변환과 업로드 모두 스킵
+  // [2026-04-10 v3] ai옷장 아이템: 이미지를 압축 base64로 항상 확보
+  // Render ephemeral filesystem에서 파일이 삭제되어도 base64가 있으면 백엔드가 처리 가능
+  // HTTP URL 폴백만으로는 파일이 물리적으로 없을 때 여전히 실패
+  // 해결: preview에 표시된 src를 canvas로 압축(800px, JPEG 70%) → ~100-200KB
   var _ref = String(entry.ref || '').trim();
   var _isServerPath = _ref.indexOf('/uploads/') === 0;
   var _isHttpUrl = (/^https?:\/\//.test(_ref));
 
-  if(_isServerPath){
-    // R2/로컬 서버 경로 — 그대로 사용. 백엔드의 _to_bytes()가 처리함
-    ST[type].serverPath = _ref;
-    ST[type].dataUrl = ''; // dataUrl은 굳이 만들지 않음 (페이로드 최소화)
-    console.log('[pickDeck] '+type+' 서버 경로 직접 사용:', _ref);
-  } else if(_isHttpUrl){
-    // 절대 URL — pathname 추출 시도
-    try{
-      var _u = new URL(_ref);
-      if(_u.pathname && _u.pathname.indexOf('/uploads/') === 0){
-        ST[type].serverPath = _u.pathname;
-        ST[type].dataUrl = '';
-        console.log('[pickDeck] '+type+' URL→pathname 사용:', _u.pathname);
-      } else {
-        // 알 수 없는 URL — fetch로 dataUrl 변환 후 업로드 폴백
-        ST[type].dataUrl = await _refToDataUrl(src);
-      }
-    }catch(_){
+  if(_isServerPath || _isHttpUrl){
+    // ai옷장 아이템: 서버 경로 저장 + 압축 base64도 확보
+    if(_isServerPath){
+      ST[type].serverPath = _ref;
+    } else {
+      try{
+        var _u = new URL(_ref);
+        if(_u.pathname && _u.pathname.indexOf('/uploads/') === 0) ST[type].serverPath = _u.pathname;
+      }catch(_){}
+    }
+    // 압축 base64 — src는 이미 <img>에 표시된 접근 가능한 URL
+    var _compressedDu = await _compressImageSrc(src, 800, 0.75);
+    if(_compressedDu){
+      ST[type].dataUrl = _compressedDu;
+      console.log('[pickDeck] '+type+' ai옷장 아이템: 압축 base64 확보 (' + Math.round(_compressedDu.length/1024) + 'KB)');
+    } else {
+      // 압축 실패 → 원본 fetch fallback
       ST[type].dataUrl = await _refToDataUrl(src);
+      console.log('[pickDeck] '+type+' ai옷장 아이템: 원본 base64 폴백');
     }
   } else {
     // IDB 키 또는 blob URL — 기존 방식으로 dataUrl 변환 + 업로드
@@ -2151,6 +2151,42 @@ async function _refToDataUrl(src){
       fr.readAsDataURL(b);
     });
   }catch(_){ return ''; }
+}
+
+// [2026-04-10] 헬퍼: 이미지를 canvas로 리사이즈+압축하여 가벼운 base64 반환
+// 원인: ai옷장 이미지를 원본 그대로 보내면 수MB → "Failed to fetch"
+//       서버 경로만 보내면 Render ephemeral filesystem에서 파일 404
+// 해결: 800px 리사이즈 + JPEG 70% 압축 → ~100-200KB base64 → 항상 성공
+async function _compressImageSrc(src, maxPx, quality){
+  if(!src) return '';
+  maxPx = maxPx || 800;
+  quality = quality || 0.7;
+  return new Promise(function(resolve){
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function(){
+      try{
+        var w = img.naturalWidth || img.width;
+        var h = img.naturalHeight || img.height;
+        var scale = Math.min(maxPx / Math.max(w, h), 1);
+        var nw = Math.round(w * scale);
+        var nh = Math.round(h * scale);
+        var cv = document.createElement('canvas');
+        cv.width = nw; cv.height = nh;
+        var ctx = cv.getContext('2d');
+        ctx.drawImage(img, 0, 0, nw, nh);
+        var du = cv.toDataURL('image/jpeg', quality);
+        console.log('[compress] ' + w + 'x' + h + ' → ' + nw + 'x' + nh + ' (' + Math.round(du.length/1024) + 'KB)');
+        resolve(du);
+      }catch(_e){
+        console.warn('[compress] canvas 실패:', _e);
+        resolve('');
+      }
+    };
+    img.onerror = function(){ resolve(''); };
+    img.src = src;
+    setTimeout(function(){ resolve(''); }, 5000); // 5초 timeout
+  });
 }
 
 async function _uploadDeckItem(type,dataUrl){
