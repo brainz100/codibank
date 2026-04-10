@@ -676,13 +676,25 @@ def _korean_to_en_age(age_group: str) -> str:
     return mapping.get(age_group, age_group or "adult")
 
 
+# ──── [2026-04-10 수정] _normalize_gender_code / _gender_en 통합 정규화
+# 원인: profile.html이 'female'/'male' 저장 → 서버가 'F'/'M' 단일문자만 처리
+#       → 모든 여성 사용자가 남성('person')으로 처리되는 심각한 버그
+# 해결: 모든 가능한 성별 값('female','male','여성','남성','F','M' 등)을 통합 처리
+# 관련파일: closet.html(payload), codistyle.html(payload), profile.html(저장)
+# ────
+def _normalize_gender_code(g: str) -> str:
+    """어떤 형태의 gender 값이든 'F' 또는 'M'으로 정규화"""
+    v = (g or "").strip().lower()
+    if v in ("f", "female", "woman", "여", "여자", "여성"):
+        return "F"
+    if v in ("m", "male", "man", "남", "남자", "남성"):
+        return "M"
+    return "M"  # 미등록 시 기본값
+
+
 def _gender_en(g: str) -> str:
-    g = (g or "").upper().strip()
-    if g == "M":
-        return "male"
-    if g == "F":
-        return "female"
-    return "person"
+    code = _normalize_gender_code(g)
+    return "female" if code == "F" else "male"
 
 
 def _temp_bucket(temp: Any) -> str:
@@ -874,6 +886,12 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
                 + ("RETRY: make pants VISIBLY LONGER — 2025-2026 KR trend is full-length with slight break. " if _is_retry_bp else "") +
                 ""
 
+                # ──── [2026-04-10 추가] 바지 핏 = 레귤러핏 기본 ────
+                "[PANTS FIT — DEFAULT RULE]: Use REGULAR FIT (straight or slightly tapered) as the default pants silhouette. "
+                "FORBIDDEN as default: slim fit, skinny fit, ultra-slim fit, spray-on tight fit. "
+                "Slim/skinny fit is ONLY allowed when the user has EXPLICITLY requested it via custom input. "
+                "This rule applies to ALL 15 outfit purposes and both genders. No exceptions. "
+
                 # ── 양말 ──
                 "SOCKS: Both feet must wear IDENTICAL socks — same color and pattern on both sides. Mismatched socks are FORBIDDEN. "
 
@@ -965,6 +983,12 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
         + ("RETRY: make pants VISIBLY LONGER — 2025-2026 KR trend is full-length with gentle drape. " if _is_retry_bp else "") +
         ""
         "The trouser hem must be visible just above or touching the top of the shoes. "
+
+        # ──── [2026-04-10 추가] 바지 핏 = 레귤러핏 기본 ────
+        "[PANTS FIT — DEFAULT RULE]: Use REGULAR FIT (straight or slightly tapered) as the default pants silhouette. "
+        "FORBIDDEN as default: slim fit, skinny fit, ultra-slim fit, spray-on tight fit. "
+        "Slim/skinny fit is ONLY allowed when the user has EXPLICITLY requested it via custom input. "
+        "This rule applies to ALL outfit purposes and both genders. No exceptions. "
 
         # ── 양말 (STRICT) ──
         "SOCKS (STRICT): Both left and right socks MUST be IDENTICAL in color and pattern. "
@@ -1393,7 +1417,8 @@ def _ai_styling_via_gemini(
 
     # ── 사용자 정보 추출 ──
     user_info = payload.get("user") or {}
-    gender = str(user_info.get("gender", "M")).strip().upper()
+    # ──── [2026-04-10 수정] 성별 정규화 통합 적용 ────
+    gender = _normalize_gender_code(str(user_info.get("gender", "")))
     gender_en = "woman" if gender == "F" else "man"
     gender_ko = "여성" if gender == "F" else "남성"
     age = str(user_info.get("ageGroup", "30대")).strip()
@@ -1699,7 +1724,8 @@ def _generate_styling_analysis(payload, matched_stylist, meta):
         purpose = custom_text
 
     # ── 사용자 정보 정규화 ──
-    gender   = str(user.get("gender") or "").upper()
+    # ──── [2026-04-10 수정] 성별 정규화 통합 적용 ────
+    gender   = _normalize_gender_code(str(user.get("gender") or ""))
     gender_ko = "여성" if gender == "F" else "남성"
     age      = str(user.get("ageGroup") or "30대")
     try:
@@ -1758,8 +1784,8 @@ def _generate_styling_analysis(payload, matched_stylist, meta):
         body_text_parts.append("슬림한 체형은 레이어드와 볼륨감 있는 소재로 풍성함을 더할 수 있습니다. ")
         body_kws = ["레이어드", "볼륨 실루엣", "세미오버핏"]
     elif bmi_cat_en == "average":
-        body_text_parts.append("표준 체형은 대부분의 핏을 소화할 수 있어 트렌디한 슬림핏과 정석 테일러드 모두 잘 어울립니다. ")
-        body_kws = ["슬림핏", "테일러드", "정석 핏"]
+        body_text_parts.append("표준 체형은 대부분의 핏을 소화할 수 있어 레귤러핏과 테일러드핏이 가장 잘 어울립니다. ")
+        body_kws = ["레귤러핏", "테일러드", "정석 핏"]
     elif bmi_cat_en == "slightly heavy":
         body_text_parts.append("약간 통통한 체형은 어깨 라인을 살리는 구조적 자켓과 세로 라인을 강조하는 실루엣이 효과적입니다. ")
         body_kws = ["구조적 자켓", "세로 라인", "어깨 강조"]
@@ -2380,7 +2406,8 @@ def codistyle_generate():
 
     payload   = request.get_json(silent=True) or {}
     user_info      = payload.get("user") or {}
-    gender    = str(user_info.get("gender", "M")).strip().upper()
+    # ──── [2026-04-10 수정] 성별 정규화 통합 적용 ────
+    gender    = _normalize_gender_code(str(user_info.get("gender", "")))
     gender_en = "woman" if gender == "F" else "man"
     gender_ko = "여성" if gender == "F" else "남성"
     age       = str(user_info.get("ageGroup", "30대")).strip()
@@ -2850,6 +2877,11 @@ def codistyle_generate():
             f"Lower garment = {bottom_info.get('garment','trousers')}. "
             + ("Shorts hem ABOVE knee. " if bottom_info.get("is_shorts") else
                "Trouser hem at bottom 12-15%% of image (just above shoe). Ankle bone hidden. No bare ankle. ")
+            # ──── [2026-04-10 추가] 바지 핏 = 레귤러핏 기본 ────
+            + "[PANTS FIT — DEFAULT RULE]: Use REGULAR FIT (straight or slightly tapered) as the default pants silhouette. "
+            "FORBIDDEN as default: slim fit, skinny fit, ultra-slim fit, spray-on tight fit. "
+            "Slim/skinny fit is ONLY allowed when the user has EXPLICITLY requested it via custom input. "
+            + _pants_rule + " " + _retry_pants
         )
 
         # ── 양말 ───────────────────────────────────────────────────────────
