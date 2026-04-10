@@ -3630,12 +3630,18 @@ async function updateVTO(opts={}){
   // 1) 얼굴 로드 (로컬 폴백/프롬프트용)
   let faceSrc='',faceImg=null;
   try{
+    // [2026-04-10] 얼굴 사진 로드 시점에도 fresh user 사용
+    const _faceU = (function(){
+      try{ return CodiBank.getCurrentUser() || user || {}; }
+      catch(_){ return user || {}; }
+    })();
     if(typeof CodiBank.getUserFaceImageSrc === 'function'){
-      faceSrc = await CodiBank.getUserFaceImageSrc(user);
+      faceSrc = await CodiBank.getUserFaceImageSrc(_faceU);
     }else{
-      const faceRef = String(user?.avatarFace || user?.photo || '').trim();
+      const faceRef = String(_faceU?.avatarFace || _faceU?.photo || '').trim();
       if(faceRef) faceSrc = await CodiBank.getImageSrc(faceRef);
     }
+    console.log('[코디쌤 얼굴 로드]', faceSrc ? '✅ 얼굴 사진 발견' : '⚠️ 얼굴 사진 없음 (마이페이지에서 등록 권장)');
   }catch(_){ faceSrc=''; }
   if(faceSrc){
     if(stepEl) stepEl.textContent='얼굴 사진 불러오는 중…';
@@ -3649,8 +3655,20 @@ async function updateVTO(opts={}){
 
   if(stepEl) stepEl.textContent='AI 코디 분석 중…';
   try{
-    const _nGender = (g)=>{ const v=String(g||'').toLowerCase(); if(v==='male'||v==='m') return 'M'; if(v==='female'||v==='f') return 'F'; return 'M'; };
-    const r=await callClaude({faceSrc,wx:S.wx,pk:S.pk,profile:{gender:_nGender(user?.gender),ageGroup:user?.ageGroup,height:user?.height,weight:user?.weight,codiPurposeCustom:S.customPurpose||''},seed:S.seed,day:(S.day==='today'?'today':(S.selDateKey||'tomorrow'))});
+    // [2026-04-10 CRITICAL] callClaude 시점에도 user 재로드 (stale 방지)
+    const _freshU = (function(){
+      try{ return CodiBank.getCurrentUser() || user || {}; }
+      catch(_){ return user || {}; }
+    })();
+    // [2026-04-10] _nGender 수정: 빈 값일 때 무조건 'M' 폴백하던 버그 → 빈 문자열 반환
+    // 이전 동작: 여성 사용자가 gender 미등록이면 무조건 남성으로 처리되어 남성용 코디 생성됨
+    const _nGender = (g)=>{
+      const v=String(g||'').trim().toLowerCase();
+      if(v==='male'||v==='m'||v==='남'||v==='남자'||v==='남성') return 'M';
+      if(v==='female'||v==='f'||v==='여'||v==='여자'||v==='여성') return 'F';
+      return ''; // 빈 값 그대로 반환 → 백엔드가 등록 안내 가능
+    };
+    const r=await callClaude({faceSrc,wx:S.wx,pk:S.pk,profile:{gender:_nGender(_freshU?.gender),ageGroup:_freshU?.ageGroup,height:_freshU?.height,weight:_freshU?.weight,codiPurposeCustom:S.customPurpose||''},seed:S.seed,day:(S.day==='today'?'today':(S.selDateKey||'tomorrow'))});
     if(S.tok!==tok)return;
     if(r.palette)palette=r.palette;
     explain=trunc(r.explanation||'',400);
@@ -3926,9 +3944,46 @@ async function updateVTO(opts={}){
         : '';
 
       const _regionInfo = (window.CodiBank && CodiBank.getMainSubCities) ? CodiBank.getMainSubCities(S.wx.location||user?.location||'') : {region:'아시아',main:'서울',sub:'뉴욕'};
+
+      // [2026-04-10 CRITICAL FIX] 사용자 프로필을 매번 fresh하게 재로드
+      // 원인: page-load 시점의 const user는 stale 가능성 — 마이페이지에서 프로필 갱신 후
+      //       돌아온 경우, 또는 페이지 로드 직후 일부 필드가 비어있던 경우 영원히 빈 값 전송
+      // 해결: payload 구성 직전에 CodiBank.getCurrentUser()로 최신 데이터 강제 재조회
+      const _freshUser = (function(){
+        try{ return CodiBank.getCurrentUser() || user || {}; }
+        catch(_){ return user || {}; }
+      })();
+      // 진단 로그: 어떤 프로필 필드가 백엔드로 가는지 즉시 확인 가능
+      console.log('[코디쌤 페이로드 진단] user fields →',
+        'gender=', _freshUser?.gender || '∅',
+        '/ ageGroup=', _freshUser?.ageGroup || '∅',
+        '/ height=', _freshUser?.height || '∅',
+        '/ weight=', _freshUser?.weight || '∅',
+        '/ bodyType=', _freshUser?.bodyType || '∅',
+        '/ faceImage=', faceDataUrl ? `${Math.round(faceDataUrl.length/1024)}KB` : '∅'
+      );
+      // 비어있는 필드가 있으면 사용자에게 명시적 경고
+      const _missingFields = [];
+      if(!_freshUser?.gender)   _missingFields.push('성별');
+      if(!_freshUser?.ageGroup) _missingFields.push('나이대');
+      if(!_freshUser?.height)   _missingFields.push('키');
+      if(!_freshUser?.weight)   _missingFields.push('몸무게');
+      if(!_freshUser?.bodyType) _missingFields.push('체형');
+      if(_missingFields.length > 0){
+        console.warn('[코디쌤 ⚠️] 누락된 프로필 필드:', _missingFields.join(', '),
+                     '→ 마이페이지에서 등록 후 다시 시도하세요');
+      }
+
       const payload={
-        user:{email:user?.email||'',gender:user?.gender||'',ageGroup:user?.ageGroup||'',height:user?.height||'',weight:user?.weight||'',bodyType:user?.bodyType||''},
-        weather:{temp:S.wx.temp,text:S.wx.text||'',location:(S.wx.location||user?.location||'')},
+        user:{
+          email:    _freshUser?.email    || '',
+          gender:   _freshUser?.gender   || '',
+          ageGroup: _freshUser?.ageGroup || '',
+          height:   _freshUser?.height   || '',
+          weight:   _freshUser?.weight   || '',
+          bodyType: _freshUser?.bodyType || ''
+        },
+        weather:{temp:S.wx.temp,text:S.wx.text||'',location:(S.wx.location||_freshUser?.location||user?.location||'')},
         region: _regionInfo.region,
         stylistCity: _regionInfo.main,
         stylistSubCity: _regionInfo.sub,
@@ -3948,7 +4003,16 @@ async function updateVTO(opts={}){
         seed:S.seed,
         isRetry: S.isRetry || false,
         // [2026-04-08] Phase 2: 퍼스널컬러 전달 (12서브타입 대응)
-        personalColor: (function(){try{var k='cb_personal_color_'+(user?.email||'');var r=localStorage.getItem(k);return r?JSON.parse(r):null;}catch(_){return null;}}()),
+        // [2026-04-10] _freshUser.email 기반으로 재조회 (stale 방지)
+        personalColor: (function(){
+          try{
+            var _email = _freshUser?.email || user?.email || '';
+            if(!_email) return null;
+            var k='cb_personal_color_'+_email;
+            var r=localStorage.getItem(k);
+            return r?JSON.parse(r):null;
+          }catch(_){return null;}
+        }()),
         faceImage: faceDataUrl || null,
         size:'1024x1536',
         quality:'low'
