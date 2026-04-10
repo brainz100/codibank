@@ -1297,6 +1297,9 @@ async function generate(isRetry=false){
       // 여성 (최초·다시요청 무관): 풀 레귤러 강제
       _pantsLengthRule = 'PANTS LENGTH (FULL REGULAR — MANDATORY): Pants MUST reach full ankle length. Cropped, 7/8, and above-ankle are STRICTLY FORBIDDEN regardless of body type, retry, or style trend. No exceptions.';
     }
+    // ──── [2026-04-10 추가] 바지 핏 = 레귤러핏 기본 ────
+    // 15개 코디목적 모두 기본 레귤러핏. 슬림핏은 직접입력에서 사용자가 요청할 때만 예외.
+    const _pantsFitRule = 'PANTS FIT (DEFAULT RULE — ALL PURPOSES): Use REGULAR FIT (straight or slightly tapered) as default silhouette. FORBIDDEN as default: slim fit, skinny fit, ultra-slim, spray-on tight. Slim/skinny ONLY when user EXPLICITLY requested via custom input.';
 
     // ── Re-generation: 매번 다른 포즈/레이어/신발 ──
     const _poses = [
@@ -1333,6 +1336,7 @@ async function generate(isRetry=false){
       'Top garment: Use the first clothing reference image. Reproduce exact design, color, pattern.',
       'Bottom garment: Use the second clothing reference image. Reproduce exact design, color, pattern.',
       _pantsLengthRule,
+      _pantsFitRule,
       'Background: Solid uniform pastel color. ZERO environment, NO room, NO street.',
       'Full body head to shoes visible. Natural Korean everyday proportions.',
       'Pose: ' + _ri(_poses) + '.',
@@ -1817,7 +1821,8 @@ document.addEventListener('visibilitychange', function(){
 // ── 코디 프로필 (프로필에서 불러오되, 수정은 sessionStorage에만) ──
 const _ageMap = {'10s':'10대','20s':'20대','30s':'30대','40s':'40대','50s':'50대','50s+':'50대+','60s':'60대'};
 // 성별: profile.html은 'male'/'female'/'other'로 저장, 여기서는 M/F로 통일
-function _gMap(g){ const v=String(g||'').toLowerCase(); if(v==='male'||v==='m') return 'M'; if(v==='female'||v==='f') return 'F'; return ''; }
+// ──── [2026-04-10 수정] 성별 정규화 확장: 한글 성별값 지원 ────
+function _gMap(g){ const v=String(g||'').trim().toLowerCase(); if(v==='male'||v==='m'||v==='남'||v==='남자'||v==='남성') return 'M'; if(v==='female'||v==='f'||v==='여'||v==='여자'||v==='여성') return 'F'; return ''; }
 function _aMap(a){ const v=String(a||''); if(v==='50s+') return '50s'; return v; }
 const codiProfile = {
   gender: _gMap(user.gender) || '',

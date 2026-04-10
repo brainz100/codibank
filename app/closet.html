@@ -3054,7 +3054,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
       : `STRICTLY follow exact item colors below — do NOT substitute any color:`,
     (Number.isFinite(nt) && nt >= 20) ? '' : `[1] OUTERWEAR: ${SPEC.outer.en} ${SPEC.outer.itemEn} — must be ${SPEC.outer.en} colored.`,
     `[2] TOP: ${SPEC.top.en} — must be ${SPEC.top.en} colored, not white unless specified.`,
-    `[3] PANTS: ${SPEC.pants.en} FULL-LENGTH trousers — MUST be ${SPEC.pants.en} colored. Pants hem MUST reach AT or BELOW the ankle bone — resting on top of shoes. STRICTLY FORBIDDEN: cropped, 7/8, or any hem above the ankle.`,
+    `[3] PANTS: ${SPEC.pants.en} FULL-LENGTH REGULAR-FIT trousers — MUST be ${SPEC.pants.en} colored. PANTS FIT: REGULAR FIT (straight or slightly tapered) is the DEFAULT silhouette. FORBIDDEN as default: slim fit, skinny fit, ultra-slim, spray-on tight. Slim/skinny ONLY if user explicitly requested via custom input. Pants hem MUST reach AT or BELOW the ankle bone — resting on top of shoes. STRICTLY FORBIDDEN: cropped, 7/8, or any hem above the ankle.`,
     `[4] SHOES: ${SPEC.shoes.en} ${SPEC.shoes.itemEn} — MUST be ${SPEC.shoes.en} colored.`,
     (!_skipScarf && SPEC.accent.ko && SPEC.accent.ko!=='포인트악세서리') ? `[5] ${SPEC.accent.itemEn.toUpperCase()}: ${SPEC.accent.en} colored ${SPEC.accent.itemEn}.` : '',
     !_skipBag ? `[6] BAG: ${_extSpec.bag.en}.` : '',
@@ -3968,7 +3968,10 @@ async function updateVTO(opts={}){
       const payload={
         user:{
           email:    _freshUser?.email    || '',
-          gender:   _freshUser?.gender   || '',
+          // ──── [2026-04-10 수정] 서버 전송 전 성별 정규화 ────
+          // 원인: profile.html이 'female'/'male' 저장 → 서버가 'F'/'M'만 처리
+          // 해결: 프론트에서도 정규화 (서버도 동시 수정)
+          gender:   (()=>{const v=String(_freshUser?.gender||'').trim().toLowerCase(); if(v==='female'||v==='f'||v==='여'||v==='여자'||v==='여성') return 'F'; if(v==='male'||v==='m'||v==='남'||v==='남자'||v==='남성') return 'M'; return _freshUser?.gender||'';})(),
           ageGroup: _freshUser?.ageGroup || '',
           height:   _freshUser?.height   || '',
           weight:   _freshUser?.weight   || '',
