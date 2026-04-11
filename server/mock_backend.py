@@ -3037,8 +3037,13 @@ def codistyle_generate():
             print("[codistyle] 자동 재시도 중...")
             try:
                 if _SDK == "new":
+                    # ──── [2026-04-11 수정] _model_name → _CODISTYLE_MODEL ────
+                    # 원인: _model_name은 다른 함수 스코프에만 존재 → NameError
+                    # 해결: 전역 상수 _CODISTYLE_MODEL 직접 참조
+                    # 관련파일: mock_backend.py (codistyle_generate 재시도 로직)
+                    # ────
                     response = client.models.generate_content(
-                        model=_model_name,
+                        model=_CODISTYLE_MODEL,
                         contents=contents_new,
                         config=config_new,
                     )
