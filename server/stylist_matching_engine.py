@@ -174,8 +174,14 @@ def select_daily_keywords(keywords_str, user_id, purpose, count=8, retry_seed=0)
     if not keywords_str:
         return []
     
-    # 키워드 파싱: "테일러드(Tailored), 네이비(Navy), ..." 형태
-    keywords = [kw.strip() for kw in keywords_str.split(',') if kw.strip()]
+    # [2026-04-11 수정] keywords_str이 list 또는 string일 수 있음
+    # 원인: fashion_keywords_db.json이 list 형태로 저장
+    if isinstance(keywords_str, list):
+        keywords = [str(kw).strip() for kw in keywords_str if str(kw).strip()]
+    elif isinstance(keywords_str, str):
+        keywords = [kw.strip() for kw in keywords_str.split(',') if kw.strip()]
+    else:
+        keywords = []
     
     today = date.today().isoformat()
     seed_str = f"{user_id}_{purpose}_{today}_{retry_seed}_keywords"
