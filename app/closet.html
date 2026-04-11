@@ -959,21 +959,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       </div>
     </button>
 
-    <!-- 불릿 리스트 -->
-    <ul class="mt-6 space-y-1.5 px-1">
-      <li class="flex items-start gap-2 text-[13px]" style="color:rgba(71,176,172,0.9);">
-        <span class="mt-2 w-1.5 h-1.5 rounded-full shrink-0" style="background:rgba(71,176,172,0.6);"></span>
-        <span>코디 목적별 AI 스타일리스트가 수 백명씩 준비돼있다.</span>
-      </li>
-      <li class="flex items-start gap-2 text-[13px]" style="color:rgba(71,176,172,0.9);">
-        <span class="mt-2 w-1.5 h-1.5 rounded-full shrink-0" style="background:rgba(71,176,172,0.6);"></span>
-        <span>키워드로 코디 스타일을 분석해준다.</span>
-      </li>
-      <li class="flex items-start gap-2 text-[13px]" style="color:rgba(71,176,172,0.9);">
-        <span class="mt-2 w-1.5 h-1.5 rounded-full shrink-0" style="background:rgba(71,176,172,0.6);"></span>
-        <span>모바일 옷장에서 쉽게 코디할 수 있는 해법을 제공한다.</span>
-      </li>
-    </ul>
+
 
   </section>
 
@@ -3717,7 +3703,7 @@ async function updateVTO(opts={}){
       // 폴백: 스타일리스트 목적 기반 안내 (프롬프트/내부 텍스트 절대 사용 금지)
       const _pk = S.pk || 'commute';
       const _pm = getPur(_pk);
-      expEl.textContent = (_pm?.label || '오늘의') + ' 코디를 준비 중이에요. AI 스타일리스트가 최적의 룩을 선정하고 있어요.';
+      expEl.textContent = '';
     }
   }
   // ✦ kwRow는 renderStylingPoint()에서만 렌더링 (이 위치에서 절대 렌더링 금지)
@@ -4636,9 +4622,17 @@ function renderStylingPoint(){
     catKwRow.innerHTML = "";
     if(catKwSection) catKwSection.classList.add("hidden");
 
+    // [2026-04-11] string/array 모두 처리
+    const _toKwArray = function(v){
+      if(!v) return [];
+      if(Array.isArray(v)) return v.filter(Boolean).map(String);
+      if(typeof v === 'string') return v.split(/[,/;]+/).map(function(s){return s.trim();}).filter(Boolean);
+      return [];
+    };
+
     let hasAny = false;
     CAT_LABELS.forEach(({key,label,icon})=>{
-      const kws = (ckw[key]||[]).filter(Boolean);
+      const kws = _toKwArray(ckw[key]);
       if(!kws.length) return;
       hasAny = true;
       const row = document.createElement("div");
