@@ -4315,7 +4315,6 @@ async function updateVTO(opts={}){
         dataUrl: _cv.toDataURL('image/jpeg', 0.85),
         story: S.codiStory || '',
         stateText: document.getElementById('vtoStateText')?.textContent || '',
-        // ──── [2026-04-11 추가] 페이지 상태 보존 확장 ────
         pk: S.pk || '',
         day: S.day || '',
         selDateKey: S.selDateKey || '',
@@ -4502,7 +4501,6 @@ function setPurpose(k){
   S.seed = 0;
   S.hasGenerated = false;
   resetVtoState('empty', '추천 이미지 없음');
-  // ──── [2026-04-11 추가] 목적 선택 상태 저장 (앱 전환 복귀 대응) ────
   _saveNavState();
 }
 
@@ -5625,7 +5623,7 @@ function layerContent(el,item,catKey){
     const _materialTxt = _g?.material ? _g.material.split(',')[0].trim().slice(0,8) : '';
     const _subLine = [_patternTxt, _materialTxt].filter(Boolean).join(' · ').slice(0,16);
 
-    el.innerHTML = `<img class="layer-img" alt="아이템" src="${src}" onerror="this.style.display='none';this.nextSibling||this.parentElement.insertAdjacentHTML('afterbegin','<span class=\\'material-symbols-outlined layer-icon\\'>broken_image</span>')"/>` +
+    el.innerHTML = `<img class="layer-img" alt="아이템" src="${src}" onerror="this.style.display='none'"/>` +
       (_subLine ? `<div class="card-label-sub">${_subLine}</div>` : '') +
       (_colorTxt ? `<div class="card-label">${_colorTxt}</div>` : '');
   }).catch(function(){ if(el.dataset.renderToken===rt) ph.textContent='이미지 로드 실패'; });
@@ -6145,11 +6143,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
 // closet: 페이지 복귀 시 이미지 상태 복원 + 30분 타임아웃
 // ══════════════════════════════════════════════════
 (function(){
-  // ──── [2026-04-11 추가] 경량 네비게이션 상태 저장/복원 ────
-  // 원인: 코디 목적 선택 후 앱 전환 → 복귀 시 목적 리셋
-  // 해결: S.pk/day/selDateKey를 sessionStorage에 별도 저장 (이미지 없이 경량)
-  // 관련파일: closet.html (setPurpose, setDay에서 호출)
-  // ────
+  // nav state
   var NAV_KEY = 'cb_closet_nav';
   window._saveNavState = function(){
     try{
@@ -6214,15 +6208,10 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         if(stEl && snap.stateText) stEl.textContent = snap.stateText;
         // S 상태 복원
         S.hasGenerated = true;
-        // ──── [2026-04-11 추가] 목적/날짜 상태 복원 ────
         if(snap.pk){ S.pk = snap.pk; try{ renderPurposeGrid(); }catch(_){} }
         if(snap.day) S.day = snap.day;
         if(snap.selDateKey) S.selDateKey = snap.selDateKey;
         if(snap.customPurpose) S.customPurpose = snap.customPurpose;
-        if(snap.codiExplainHtml){
-          var expEl2 = document.getElementById('codiExplain');
-          if(expEl2) expEl2.innerHTML = snap.codiExplainHtml;
-        }
         try{ updateAiCallBtn(); }catch(_){}
         try{ setGenUiEnabled(true); }catch(_){}
         // 저장/다시요청/공유 버튼 활성화
@@ -6242,16 +6231,15 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
 
   // 페이지 최초 로드 시 복원 시도
   window.addEventListener('load', function(){
-    _restoreNavState(); // [2026-04-11] 목적/날짜 선택 상태 먼저 복원
+    _restoreNavState();
     setTimeout(_restoreSnap, 400);
   });
 
   // visibilitychange: 탭/앱 전환 후 돌아올 때
   document.addEventListener('visibilitychange', function(){
     if(document.visibilityState === 'visible'){
-      _restoreNavState(); // [2026-04-11] 목적/날짜 복원
+      _restoreNavState();
       if(!S.hasGenerated){ _restoreSnap(); }
-    }
     }
   });
 
