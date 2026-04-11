@@ -999,47 +999,48 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
           <span id="bodyTypeLabel"></span>
         </span>
       </div>
-      <!-- 상세 설명 (400자) -->
-      <div class="px-4 pb-3 pt-2">
-        <p id="codiExplain" class="text-[13px] leading-[1.75] font-normal" style="color:rgba(255,255,255,0.78);">목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.</p>
+      <!-- [2026-04-11] AI 스타일리스트 요약 (생성 후 표시) -->
+      <div id="stylistSummaryBox" class="hidden px-4 pt-3 pb-2" style="border-bottom:1px solid rgba(151,254,237,0.08);">
+        <div class="flex items-center gap-1.5 mb-1.5">
+          <span class="material-symbols-outlined" style="font-size:14px;color:#97FEED;font-variation-settings:'FILL' 1;">psychology</span>
+          <p class="text-[10px] font-extrabold tracking-[0.16em]" style="color:rgba(151,254,237,0.75);">AI 스타일리스트</p>
+        </div>
+        <p id="stylistSummaryText" class="text-[12px] leading-[1.7]" style="color:rgba(162,253,240,0.9);">—</p>
       </div>
-    </div>
-
-    <!-- [2026-04-11] AI 패션 스타일리스트 종합 분석 박스 — 다시 활성화
-         생성 완료 시 hidden 클래스 제거로 표시됨 -->
-    <div id="codiAnalysisBox" class="mb-4 hidden" style="background:linear-gradient(135deg,rgba(5,15,42,0.92),rgba(7,25,82,0.85));border:1px solid rgba(151,254,237,0.18);border-radius:18px;overflow:hidden;box-shadow:0 12px 30px -10px rgba(0,0,0,0.45);">
-      <div class="px-4 py-2.5 flex items-center gap-2" style="border-bottom:1px solid rgba(151,254,237,0.1);">
-        <span class="material-symbols-outlined" style="font-size:16px;color:#97FEED;">psychology</span>
-        <p class="text-[10px] font-extrabold tracking-[0.22em]" style="color:rgba(151,254,237,0.85);">✦ AI 패션 스타일리스트 종합 분석</p>
+      <!-- 추천코디 이야기 -->
+      <div class="px-4 pb-2 pt-2">
+        <p id="codiExplain" class="text-[12.5px] leading-[1.75] font-normal" style="color:rgba(255,255,255,0.78);">목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.</p>
       </div>
       <!-- ① 퍼스널컬러 분석 -->
-      <div class="px-4 pt-3 pb-3" style="border-bottom:1px solid rgba(151,254,237,0.06);">
-        <div class="flex items-center gap-1.5 mb-1.5">
-          <span style="font-size:13px;">🎨</span>
-          <p class="text-[10px] font-extrabold tracking-[0.16em]" style="color:rgba(151,254,237,0.7);">퍼스널컬러</p>
+      <div id="anPcSection" class="hidden px-4 pt-2 pb-2" style="border-top:1px solid rgba(151,254,237,0.06);">
+        <div class="flex items-center gap-1.5 mb-1">
+          <span style="font-size:12px;">🎨</span>
+          <p class="text-[10px] font-extrabold tracking-[0.14em]" style="color:rgba(151,254,237,0.65);">퍼스널컬러 분석</p>
         </div>
-        <p id="anPcText" class="text-[11.5px] leading-[1.7]" style="color:rgba(255,255,255,0.78);">—</p>
-        <div id="anPcKws" class="flex flex-wrap gap-1 mt-2"></div>
+        <p id="anPcText" class="text-[11px] leading-[1.65]" style="color:rgba(255,255,255,0.72);">—</p>
+        <div id="anPcKws" class="flex flex-wrap gap-1 mt-1.5"></div>
       </div>
-      <!-- ② 체형/사이즈 분석 -->
-      <div class="px-4 pt-3 pb-3" style="border-bottom:1px solid rgba(151,254,237,0.06);">
-        <div class="flex items-center gap-1.5 mb-1.5">
-          <span style="font-size:13px;">📐</span>
-          <p class="text-[10px] font-extrabold tracking-[0.16em]" style="color:rgba(151,254,237,0.7);">체형 · 사이즈</p>
+      <!-- ② 체형 분석 -->
+      <div id="anBodySection" class="hidden px-4 pt-2 pb-2" style="border-top:1px solid rgba(151,254,237,0.06);">
+        <div class="flex items-center gap-1.5 mb-1">
+          <span style="font-size:12px;">📐</span>
+          <p class="text-[10px] font-extrabold tracking-[0.14em]" style="color:rgba(151,254,237,0.65);">체형 · 사이즈 분석</p>
         </div>
-        <p id="anBodyText" class="text-[11.5px] leading-[1.7]" style="color:rgba(255,255,255,0.78);">—</p>
-        <div id="anBodyKws" class="flex flex-wrap gap-1 mt-2"></div>
+        <p id="anBodyText" class="text-[11px] leading-[1.65]" style="color:rgba(255,255,255,0.72);">—</p>
+        <div id="anBodyKws" class="flex flex-wrap gap-1 mt-1.5"></div>
       </div>
       <!-- ③ 코디목적 + 날씨 분석 -->
-      <div class="px-4 pt-3 pb-3.5">
-        <div class="flex items-center gap-1.5 mb-1.5">
-          <span style="font-size:13px;">🌤️</span>
-          <p class="text-[10px] font-extrabold tracking-[0.16em]" style="color:rgba(151,254,237,0.7);">코디 목적 · 날씨</p>
+      <div id="anPurposeSection" class="hidden px-4 pt-2 pb-3" style="border-top:1px solid rgba(151,254,237,0.06);">
+        <div class="flex items-center gap-1.5 mb-1">
+          <span style="font-size:12px;">🌤️</span>
+          <p class="text-[10px] font-extrabold tracking-[0.14em]" style="color:rgba(151,254,237,0.65);">코디 목적 · 날씨 분석</p>
         </div>
-        <p id="anPurposeText" class="text-[11.5px] leading-[1.7]" style="color:rgba(255,255,255,0.78);">—</p>
-        <div id="anPurposeKws" class="flex flex-wrap gap-1 mt-2"></div>
+        <p id="anPurposeText" class="text-[11px] leading-[1.65]" style="color:rgba(255,255,255,0.72);">—</p>
+        <div id="anPurposeKws" class="flex flex-wrap gap-1 mt-1.5"></div>
       </div>
     </div>
+    <!-- codiAnalysisBox: glass-explain 안으로 이동 완료, 영구 숨김 -->
+    <div id="codiAnalysisBox" style="display:none !important;"></div>
 
     <!-- ② AI 스타일리스트 포인트 박스 -->
     <div id="codiPointBox" class="mb-4" style="background:rgba(5,15,42,0.8);border:1px solid rgba(151,254,237,0.15);border-radius:16px;">
@@ -2834,56 +2835,42 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     };
     const _philosophy = _philosophyDB[persona.voice] || '당신에게 가장 잘 어울리는 코디를 선택했어요.';
 
-    // ── 문장 조합 (500자 이내, 전문적 + 개성있게) ──
+    // ──── [2026-04-11 수정] 보고형식 단문 조합 ────
     const parts2 = [];
 
-    // 1. 스타일리스트 소개 + 철학
-    parts2.push('**' + stylistName + '** (' + _region + ' 기반 · ' + persona.voice + ')');
-
-    // 2. 코디 컨셉 + 날씨 맥락
-    parts2.push('');
-    // custom(직접입력)이면 사용자 요청 텍스트를 그대로 강조
+    // 1. 코디 컨셉
     if(pk==='custom' && customText){
-      parts2.push('"**' + customText + '**" 코디를 추천합니다.');
-      parts2.push(_philosophy);
-      if(_wx) parts2.push(_wx + ' 날씨 조건에 맞춰, 요청하신 코디를 최우선으로 반영했어요.' + (_bodyAdvice ? ' ' + _bodyAdvice + '.' : ''));
+      parts2.push('▸ 코디 컨셉: ' + customText);
     } else {
-      parts2.push('"**' + _pLabel + '**" — ' + _philosophy);
-      if(_wx) parts2.push(_wx + ' 날씨에 ' + _technique + ' 스타일링으로 답했어요.' + (_bodyAdvice ? ' ' + _bodyAdvice + '.' : ''));
+      parts2.push('▸ 코디 컨셉: ' + _pLabel);
     }
+    if(_wx) parts2.push('▸ 날씨: ' + _wx + (_bodyAdvice ? ' / ' + _bodyAdvice : ''));
 
-    // 3. 색상 조합 해설 (컬러이론 포함)
-    parts2.push(_colorTip);
+    // 2. 컬러 조합
+    const _colorShort = _colorTip.replace(/\*\*/g,'').split('.')[0].trim();
+    if(_colorShort) parts2.push('▸ 컬러: ' + _colorShort);
 
-    // 4. 아우터 (있을 경우)
+    // 3. 아이템 구성
     if(_outer && Number.isFinite(nt) && nt < 20){
-      parts2.push('**아우터** — ' + _outer + '. ' + _fd.fabric.split('와')[0] + '처럼 소재감이 살아있는 선택이에요.');
+      parts2.push('▸ 아우터: ' + _outer);
     }
+    if(_top) parts2.push('▸ 상의: ' + _top + (_topColorTip ? ' (' + _topColorTip + ')' : ''));
+    if(_pants) parts2.push('▸ 하의: ' + _pants + (_pantsColorTip ? ' (' + _pantsColorTip + ')' : ''));
 
-    // 5. 상의 + 하의 (핏 디테일 포함)
-    if(_top && _pants){
-      const _topC = _topColorTip ? _topColorTip + '의 인상을 주는 ' : '';
-      const _pnC  = _pantsColorTip ? ' ' + _pantsColorTip + '이 하체를 안정감 있게 잡아줘요.' : '';
-      parts2.push('**상의** ' + _topC + _top + ' — **하의** ' + _pants + '.' + _pnC);
-      parts2.push(_fd.fit + '으로 자연스러운 착용감을 완성했습니다.');
-    } else {
-      if(_top) parts2.push('**상의** — ' + _top + '. ' + (_topColorTip||'이 코디의 핵심 포인트') + '.');
-      if(_pants) parts2.push('**하의** — ' + _pants + '. ' + (_pantsColorTip ? _pantsColorTip+'이 돋보입니다.' : ''));
-    }
+    // 4. 핏 / 소재
+    parts2.push('▸ 핏: ' + _fd.fit);
+    if(_fitTip) parts2.push('▸ 체형 팁: ' + _fitTip.split('.')[0].trim());
 
-    // 6. 체형 핏 팁 (있을 경우)
-    if(_fitTip) parts2.push(_fitTip);
-
-    // 7. 슈즈 + 액세서리 (전문가 이유 포함)
-    const _accLine = [];
+    // 5. 슈즈 + 액세서리
+    const _accParts = [];
     const _accentItem = (SPEC.accent.ko && SPEC.accent.ko !== '포인트악세서리') ? SPEC.accent.ko : '';
     const _bagItem    = _extSpec.bag.ko || '';
     const _watchItem  = _extSpec.watch.ko || '';
-    if(_shoes) _accLine.push('슈즈는 **' + _shoes + '**');
-    if(_accentItem) _accLine.push('**' + _accentItem + '**으로 포인트');
-    if(_bagItem && personaIdx%3!==2) _accLine.push('**' + _bagItem + '**으로 실용성과 완성도');
-    if(_watchItem && personaIdx%4===0) _accLine.push('**' + _watchItem + '**으로 마무리');
-    if(_accLine.length > 0) parts2.push(_accLine.join(' · ') + '.');
+    if(_shoes) _accParts.push(_shoes);
+    if(_accentItem) _accParts.push(_accentItem);
+    if(_bagItem && personaIdx%3!==2) _accParts.push(_bagItem);
+    if(_watchItem && personaIdx%4===0) _accParts.push(_watchItem);
+    if(_accParts.length > 0) parts2.push('▸ 악세서리: ' + _accParts.join(' / '));
 
     codiStory = parts2.filter(s => s !== undefined && s !== '').join('\n').replace(/\n{3,}/g,'\n\n').trim();
     if(codiStory.length > 580) codiStory = codiStory.substring(0, 577) + '...';
@@ -3667,7 +3654,7 @@ async function updateVTO(opts={}){
     layerTip=r.layerTip||'';
     skinTip=r.skinTip||'';
     // [2026-04-06 수정] 구 PERSONA 스타일리스트 차단 (서버 응답 후 갱신)
-    S.stylist = null;  // r.stylist 사용하지 않음
+    S.stylist = { name: stylistName, city: stylistCity, voice: persona.voice, en: persona.en };
     S.matchPairs = (r.matchPairs && Array.isArray(r.matchPairs)) ? r.matchPairs : buildMatchPairsFromPalette(palette, S.wx.temp);
     // [2026-04-06 수정] 구 PERSONA 카테고리 키워드 차단 (서버 엔진 데이터로 대체)
     S.categoryKeywords = {};
@@ -3711,7 +3698,7 @@ async function updateVTO(opts={}){
     const _fTip = _fTips[S.pk] || '목적과 날씨에 맞게 레이어링하고, 뉴트럴 컬러를 베이스로 포인트 아이템 한 가지를 더해보세요.';
     explain=trunc(`${_fTxt}${_fWx} 날씨에 어울리는 ${pm.label} 스타일이에요. ${_fTip}`.trim(), 400);
     styleTitle=`${pm.label} 코디`;
-    S.stylist = null;
+    S.stylist = { name: stylistName, city: stylistCity, voice: persona.voice, en: persona.en };
     // 폴백에서도 categoryKeywords를 palette 기반으로 생성
     const _fbSeason = (()=>{ const n=Number(S.wx?.temp); if(!Number.isFinite(n)) return '클린'; if(n<=5) return '보온'; if(n<=12) return '레이어링'; if(n<=19) return '클린'; return '경량'; })();
     // 폴백 categoryKeywords: 8개 카테고리 완전 통일 (SPEC 불가 시 palette 기반)
@@ -3786,6 +3773,21 @@ async function updateVTO(opts={}){
   // ── AI 추천코디 이야기 표시 ──
   // ✦ S.codiStory만 표시 — explanation/imagePrompt는 절대 노출하지 않음
   // ✦ codiStory는 callClaude IIFE에서 반드시 비어있지 않게 생성됨
+  // [2026-04-11] 스타일리스트 요약 표시
+  try{
+    var _ssBox = document.getElementById('stylistSummaryBox');
+    var _ssTxt = document.getElementById('stylistSummaryText');
+    if(_ssBox && _ssTxt && S.stylist){
+      var _sn = S.stylist.name || '';
+      var _sc = S.stylist.city || '';
+      var _sv = S.stylist.voice || '';
+      var _se = S.stylist.en || '';
+      _ssTxt.innerHTML = '<strong>' + _sn + '</strong> · ' + _sc + ' 기반<br>' +
+        '<span style="font-size:10px;color:rgba(255,255,255,0.5);">' + _sv + (_se ? ' (' + _se + ')' : '') + '</span>';
+      _ssBox.classList.remove('hidden');
+    }
+  }catch(_){}
+
   const expEl = document.getElementById('codiExplain');
   if(expEl){
     const _story = S.codiStory || '';
@@ -4883,7 +4885,10 @@ function renderStylingPoint(){
       _renderKws('anPcKws',      (_an.personalColor||{}).keywords, 'rgba(255,180,200,0.20)');
       _renderKws('anBodyKws',    (_an.body||{}).keywords,          'rgba(151,254,237,0.20)');
       _renderKws('anPurposeKws', (_an.purpose||{}).keywords,       'rgba(255,220,150,0.20)');
-      _anBox.classList.remove('hidden');
+      // [2026-04-11] 개별 분석 섹션 표시 (glass-explain 안으로 이동됨)
+      ['anPcSection','anBodySection','anPurposeSection'].forEach(function(sid){
+        var sec = document.getElementById(sid); if(sec) sec.classList.remove('hidden');
+      });
       // [2026-04-10] 분석 키워드를 모바일옷장 매칭 후보에 합류
       // 컬러 키워드는 색상 매칭, 체형 키워드는 핏 매칭, 목적 키워드는 스타일 매칭에 활용
       try{
