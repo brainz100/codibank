@@ -1290,7 +1290,12 @@ def storage_upload():
         slot = re.sub(r"[^a-z0-9_-]+", "", str(request.form.get("slot") or "img").lower())[:16] or "img"
     else:
         payload = request.get_json(silent=True) or {}
-        data_url = str(payload.get("dataUrl") or "").strip()
+        # ──── [2026-04-11 수정] image 필드도 fallback 수용 ────
+        # 원인: codistyle.html _uploadDeckItem이 {image:dataUrl}로 전송
+        # 해결: dataUrl 우선, 없으면 image 필드도 확인
+        # 관련파일: codistyle.html (_uploadDeckItem)
+        # ────
+        data_url = str(payload.get("dataUrl") or payload.get("image") or "").strip()
         if not data_url:
             return jsonify(ok=False, error="dataUrl 또는 file이 필요합니다."), 400
         try:
@@ -2511,12 +2516,11 @@ def codistyle_generate():
 
         # ──── [2026-04-11 수정] 자기 서버 URL → R2 직접 로드 ────
         # 원인: gunicorn worker=1에서 자기 서버 /uploads/ URL로 HTTP 요청
-        #       → 같은 worker가 generate + serve_upload 동시 처리 불가 → 데드락 → 10초 타임아웃
-        # 해결: 자기 서버 URL에서 /uploads/ 경로 추출 → R2 직접 로드 (HTTP 자기참조 제거)
+        #       → 같은 worker가 generate + serve_upload 동시 처리 불가 → 데드락
+        # 해결: 자기 서버 URL에서 /uploads/ 경로 추출 → R2 직접 로드
         # 관련파일: codistyle.html (모바일에서 dataUrl 없이 서버경로만 전송하는 경우)
         # ────
         if src.startswith("http://") or src.startswith("https://"):
-            # 자기 서버 URL인지 확인 → /uploads/ 경로 추출
             _self_upload_path = ""
             try:
                 from urllib.parse import urlparse
@@ -2529,7 +2533,6 @@ def codistyle_generate():
                 pass
 
             if _self_upload_path:
-                # 자기 서버 URL → R2 직접 로드 (데드락 방지)
                 if _R2_PUB_URL:
                     r2_direct = f"{_R2_PUB_URL}{_self_upload_path}"
                     try:
@@ -2540,7 +2543,6 @@ def codistyle_generate():
                             return ct, r.content
                     except Exception as e:
                         print(f"[_to_bytes] R2 직접 로드 실패 ({_self_upload_path}): {e}")
-                # R2 실패 시 로컬 파일 폴백
                 for d in [_UPLOAD_DIR, _LEGACY_UPLOAD_DIR]:
                     fpath = os.path.join(d, os.path.basename(_self_upload_path))
                     if os.path.exists(fpath):
@@ -2548,7 +2550,6 @@ def codistyle_generate():
                             return "image/jpeg", fh.read()
                 return None, None
             else:
-                # 외부 URL (자기 서버 아님) → 일반 HTTP 로드
                 try:
                     import requests as _rq
                     r = _rq.get(src, timeout=10)
@@ -3394,6 +3395,93 @@ def sb_query(method, table, params=None, body=None):
     else:
         r = http_requests.request(method, url, headers=headers, json=body, timeout=10)
     return r
+
+
+# ══════════════════════════════════════
+# 사용자 데이터 동기화 API (Phase 1: 아이템 서버 동기화)
+# ──── [2026-04-11 추가] ────
+# 원인: 아이템/앨범 등이 localStorage에만 저장되어 기기 변경 시 소실
+# 해결: R2에 사용자별 JSON 파일로 저장 → 로그인 시 복원
+# 관련파일: codibank.js (syncItemsToServer, syncItemsFromServer)
+# ════════════════════════════════════
+
+@app.post("/api/user-data/save")
+def user_data_save():
+    """사용자 데이터를 R2에 JSON으로 저장"""
+    try:
+        payload = request.get_json(silent=True) or {}
+        email = str(payload.get("email") or "").strip().lower()
+        data_key = str(payload.get("key") or "").strip()
+        data_value = payload.get("value")
+
+        if not email or not data_key:
+            return jsonify(ok=False, error="email과 key가 필요합니다."), 400
+        if data_key not in ("items", "album", "profile_extra"):
+            return jsonify(ok=False, error="허용되지 않는 키입니다."), 400
+
+        import hashlib, json
+        email_hash = hashlib.sha256(email.encode()).hexdigest()[:16]
+        fname = f"userdata_{email_hash}_{data_key}.json"
+        json_bytes = json.dumps(data_value, ensure_ascii=False).encode("utf-8")
+
+        # R2 저장
+        r2_ok = False
+        r2_result = _upload_to_r2(fname, json_bytes, "application/json")
+        if r2_result:
+            r2_ok = True
+
+        # 로컬 폴백
+        fpath = os.path.join(_UPLOAD_DIR, fname)
+        with open(fpath, "wb") as f:
+            f.write(json_bytes)
+
+        print(f"[user-data] 저장 완료: {email} / {data_key} ({len(json_bytes)}B, R2={'✅' if r2_ok else '❌ 로컬만'})")
+        return jsonify(ok=True, r2=r2_ok, size=len(json_bytes))
+    except Exception as e:
+        print(f"[user-data] 저장 실패: {e}")
+        return jsonify(ok=False, error=str(e)), 500
+
+
+@app.get("/api/user-data/load")
+def user_data_load():
+    """사용자 데이터를 R2/로컬에서 로드"""
+    try:
+        email = str(request.args.get("email") or "").strip().lower()
+        data_key = str(request.args.get("key") or "").strip()
+
+        if not email or not data_key:
+            return jsonify(ok=False, error="email과 key가 필요합니다."), 400
+
+        import hashlib, json
+        email_hash = hashlib.sha256(email.encode()).hexdigest()[:16]
+        fname = f"userdata_{email_hash}_{data_key}.json"
+
+        json_bytes = None
+
+        # 1순위: 로컬 파일
+        fpath = os.path.join(_UPLOAD_DIR, fname)
+        if os.path.exists(fpath):
+            with open(fpath, "rb") as f:
+                json_bytes = f.read()
+
+        # 2순위: R2
+        if not json_bytes and _R2_PUB_URL:
+            try:
+                import requests as _rq
+                r = _rq.get(f"{_R2_PUB_URL}/uploads/{fname}", timeout=10)
+                if r.status_code == 200:
+                    json_bytes = r.content
+            except Exception:
+                pass
+
+        if not json_bytes:
+            return jsonify(ok=True, value=None, found=False)
+
+        data = json.loads(json_bytes.decode("utf-8"))
+        return jsonify(ok=True, value=data, found=True)
+    except Exception as e:
+        print(f"[user-data] 로드 실패: {e}")
+        return jsonify(ok=False, error=str(e)), 500
 
 
 # ══════════════════════════════════════
