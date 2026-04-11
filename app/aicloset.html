@@ -5292,10 +5292,10 @@ function layerContent(el,item,catKey){
     const _materialTxt = _g?.material ? _g.material.split(',')[0].trim().slice(0,8) : '';
     const _subLine = [_patternTxt, _materialTxt].filter(Boolean).join(' · ').slice(0,16);
 
-    el.innerHTML = `<img class="layer-img" alt="아이템" src="${src}"/>` +
+    el.innerHTML = `<img class="layer-img" alt="아이템" src="${src}" onerror="this.style.display='none';this.nextSibling||this.parentElement.insertAdjacentHTML('afterbegin','<span class=\\'material-symbols-outlined layer-icon\\'>broken_image</span>')"/>` +
       (_subLine ? `<div class="card-label-sub">${_subLine}</div>` : '') +
       (_colorTxt ? `<div class="card-label">${_colorTxt}</div>` : '');
-  });
+  }).catch(function(){ if(el.dataset.renderToken===rt) ph.textContent='이미지 로드 실패'; });
 }
 function slc(el,n){el.classList.remove('layer-1','layer-2','layer-3','layer-4','layer-5');el.classList.add(`layer-${n}`);}
 function rotL(a){if(!a.length)return a;return a.slice(1).concat(a[0]);}
@@ -5925,7 +5925,14 @@ function renderClosetSummary(){try{
 var cats=CodiBank.getCategoriesForUser(user.email)||[];
 var plan=CodiBank.getUserPlan(user.email);
 var planLimit=CodiBank.getPlanLimit(plan);
-var maxItems=planLimit===Infinity?999:planLimit;
+// ──── [2026-04-11 수정] 아이템 한도에 보너스 포함 (codibank.js addItem과 동일 계산) ────
+// 원인: addItem은 planLimit+bonus로 체크하는데, 여기서는 planLimit만 표시 → 숫자 불일치
+// 해결: cb_item_plan_ 캐시에서 bonus 읽어서 합산
+// 관련파일: codibank.js (addItem), mypage.html (보너스 설정), pricing.html
+// ────
+var _itemBonus = 0;
+try{ var _ipc = JSON.parse(localStorage.getItem('cb_item_plan_' + (user.email||'')) || '{}'); _itemBonus = parseInt(_ipc.bonus || 0) || 0; }catch(_){}
+var maxItems=planLimit===Infinity?999:(planLimit + _itemBonus);
 var totalItems=0,outerCount=0,topCount=0,bottomCount=0,shoesCount=0,etcCount=0;
 var outerK=['coat','jacket','outer','padding','cardigan'];
 var topK=['top','shirt','knit','tshirt','blouse'];
