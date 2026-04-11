@@ -4170,25 +4170,35 @@ function _startPurposeIdleAnim(){
   _purposeIdleTimer = setInterval(function(){
     var cards = document.querySelectorAll('#purposeGrid [data-purpose]');
     if(!cards.length || S.pk) { _stopPurposeIdleAnim(); return; }
-    // 이전 카드 원래 색 복원
+    // 이전 카드 복원
     var prevIdx = (_purposeIdleIdx - 1 + cards.length) % cards.length;
     var prevIcon = cards[prevIdx]?.querySelector('.material-symbols-outlined');
-    if(prevIcon) prevIcon.style.removeProperty('color');
-    // 현재 카드 아이콘 옐로→레드
+    if(prevIcon){
+      prevIcon.style.removeProperty('color');
+      prevIcon.style.removeProperty('transform');
+      prevIcon.style.removeProperty('text-shadow');
+      prevIcon.style.removeProperty('filter');
+    }
+    // 현재 카드: 컬러 + 크기 펄스 + 글로우
     var curIcon = cards[_purposeIdleIdx]?.querySelector('.material-symbols-outlined');
     if(curIcon){
-      var progress = _purposeIdleIdx / (cards.length - 1);
-      var r = Math.round(255);
-      var g = Math.round(220 * (1 - progress));
-      var b = Math.round(50 * (1 - progress));
-      curIcon.style.setProperty('color', 'rgb(' + r + ',' + g + ',' + b + ')', 'important');
+      var p = _purposeIdleIdx / (cards.length - 1);
+      var r = 255, g = Math.round(220*(1-p)), b = Math.round(50*(1-p));
+      var clr = 'rgb('+r+','+g+','+b+')';
+      curIcon.style.setProperty('color', clr, 'important');
+      curIcon.style.setProperty('transform', 'scale(1.45)', 'important');
+      curIcon.style.setProperty('text-shadow', '0 0 12px '+clr+', 0 0 24px '+clr, 'important');
+      curIcon.style.setProperty('filter', 'brightness(1.3)', 'important');
     }
     _purposeIdleIdx = (_purposeIdleIdx + 1) % cards.length;
   }, 120);
 }
 function _stopPurposeIdleAnim(){
   if(_purposeIdleTimer){ clearInterval(_purposeIdleTimer); _purposeIdleTimer = null; }
-  document.querySelectorAll('#purposeGrid [data-purpose] .material-symbols-outlined').forEach(function(ic){ ic.style.removeProperty('color'); });
+  document.querySelectorAll('#purposeGrid [data-purpose] .material-symbols-outlined').forEach(function(ic){
+    ic.style.removeProperty('color'); ic.style.removeProperty('transform');
+    ic.style.removeProperty('text-shadow'); ic.style.removeProperty('filter');
+  });
 }
 
 function renderPurposeGrid(){
