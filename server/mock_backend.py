@@ -1790,7 +1790,11 @@ def _generate_styling_analysis(payload, matched_stylist, meta):
             f"이 톤에는 {best_str} 같은 컬러가 피부톤을 환하게 살려줍니다. "
             f"반대로 {avoid_str}는 인상을 가라앉힐 수 있어 포인트로만 활용하는 것이 좋아요. "
             f"오늘 코디는 베스트 컬러 중심으로 메인을 잡고, 액세서리는 톤온톤으로 정돈했습니다."
-        )[:300]
+        )
+        # [2026-04-11] 350자 이내 + 마지막 문장 완결
+        if len(pc_text) > 350:
+            _cut = pc_text[:350].rfind(".")
+            pc_text = pc_text[:_cut+1] if _cut > 100 else pc_text[:347] + "..."
         pc_keywords = [pc_label or pc_season] + (pc_best[:2] if pc_best else ["컬러 매칭", "톤온톤"])
         pc_keywords = [k for k in pc_keywords if k][:3]
         while len(pc_keywords) < 3:
@@ -1800,7 +1804,10 @@ def _generate_styling_analysis(payload, matched_stylist, meta):
             f"{gender_ko}님의 퍼스널컬러 정보가 등록되지 않아 범용 컬러 가이드를 적용합니다. "
             f"오늘 코디는 피부톤과 잘 어우러지는 뉴트럴 베이스에 절제된 포인트 컬러로 구성했어요. "
             f"마이페이지에서 퍼스널컬러를 등록하면 훨씬 정확한 컬러 매칭을 받으실 수 있습니다."
-        )[:300]
+        )
+        if len(pc_text) > 350:
+            _cut = pc_text[:350].rfind(".")
+            pc_text = pc_text[:_cut+1] if _cut > 100 else pc_text[:347] + "..."
         pc_keywords = ["뉴트럴", "톤온톤", "절제된 포인트"]
 
     # ── 2) 체형/사이즈 분석 ──
@@ -1820,7 +1827,10 @@ def _generate_styling_analysis(payload, matched_stylist, meta):
     if body_type:
         body_text_parts.append(f"체형 분류({body_type})에 맞춰 비율을 보정하는 디테일을 우선 적용했습니다. ")
     body_text_parts.append(f"오늘 코디는 {height}cm 기준으로 비율이 가장 좋아 보이는 길이감과 핏을 선택했습니다.")
-    body_text = "".join(body_text_parts)[:300]
+    body_text = "".join(body_text_parts)
+    if len(body_text) > 350:
+        _cut = body_text[:350].rfind(".")
+        body_text = body_text[:_cut+1] if _cut > 100 else body_text[:347] + "..."
 
     # ── 3) 코디목적 + 날씨 분석 ──
     try:
@@ -1851,7 +1861,10 @@ def _generate_styling_analysis(payload, matched_stylist, meta):
     purpose_text = (
         purpose_desc + weather_desc + city_desc + stylist_part +
         f"{purpose}에 어울리는 핵심 아이템을 조합했습니다."
-    )[:300]
+    )
+    if len(purpose_text) > 350:
+        _cut = purpose_text[:350].rfind(".")
+        purpose_text = purpose_text[:_cut+1] if _cut > 100 else purpose_text[:347] + "..."
     purpose_kws = [purpose, weather_kw, city + " 스타일"]
 
     return {
