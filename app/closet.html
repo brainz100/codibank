@@ -4173,7 +4173,7 @@ function _startPurposeIdleAnim(){
     // 이전 카드 원래 색 복원
     var prevIdx = (_purposeIdleIdx - 1 + cards.length) % cards.length;
     var prevIcon = cards[prevIdx]?.querySelector('.material-symbols-outlined');
-    if(prevIcon) prevIcon.style.color = '';
+    if(prevIcon) prevIcon.style.removeProperty('color');
     // 현재 카드 아이콘 옐로→레드
     var curIcon = cards[_purposeIdleIdx]?.querySelector('.material-symbols-outlined');
     if(curIcon){
@@ -4181,14 +4181,14 @@ function _startPurposeIdleAnim(){
       var r = Math.round(255);
       var g = Math.round(220 * (1 - progress));
       var b = Math.round(50 * (1 - progress));
-      curIcon.style.color = 'rgb(' + r + ',' + g + ',' + b + ')';
+      curIcon.style.setProperty('color', 'rgb(' + r + ',' + g + ',' + b + ')', 'important');
     }
     _purposeIdleIdx = (_purposeIdleIdx + 1) % cards.length;
   }, 120);
 }
 function _stopPurposeIdleAnim(){
   if(_purposeIdleTimer){ clearInterval(_purposeIdleTimer); _purposeIdleTimer = null; }
-  document.querySelectorAll('#purposeGrid [data-purpose] .material-symbols-outlined').forEach(function(ic){ ic.style.color = ''; });
+  document.querySelectorAll('#purposeGrid [data-purpose] .material-symbols-outlined').forEach(function(ic){ ic.style.removeProperty('color'); });
 }
 
 function renderPurposeGrid(){
