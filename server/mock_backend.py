@@ -2509,16 +2509,54 @@ def codistyle_generate():
             mime = header.split(":")[1].split(";")[0]
             return mime, base64.b64decode(b64)
 
-        # 2) HTTP URL (R2 공개 URL 또는 절대 URL)
+        # ──── [2026-04-11 수정] 자기 서버 URL → R2 직접 로드 ────
+        # 원인: gunicorn worker=1에서 자기 서버 /uploads/ URL로 HTTP 요청
+        #       → 같은 worker가 generate + serve_upload 동시 처리 불가 → 데드락 → 10초 타임아웃
+        # 해결: 자기 서버 URL에서 /uploads/ 경로 추출 → R2 직접 로드 (HTTP 자기참조 제거)
+        # 관련파일: codistyle.html (모바일에서 dataUrl 없이 서버경로만 전송하는 경우)
+        # ────
         if src.startswith("http://") or src.startswith("https://"):
+            # 자기 서버 URL인지 확인 → /uploads/ 경로 추출
+            _self_upload_path = ""
             try:
-                import requests as _rq
-                r = _rq.get(src, timeout=10)
-                if r.status_code == 200:
-                    ct = r.headers.get("Content-Type", "image/jpeg").split(";")[0]
-                    return ct, r.content
-            except Exception as e:
-                print(f"[_to_bytes] HTTP 로드 실패 ({src[:60]}): {e}")
+                from urllib.parse import urlparse
+                _parsed = urlparse(src)
+                if _parsed.path and _parsed.path.startswith("/uploads/"):
+                    _host = (_parsed.hostname or "").lower()
+                    if "onrender.com" in _host or "codibank" in _host or "localhost" in _host or "127.0.0.1" in _host:
+                        _self_upload_path = _parsed.path
+            except Exception:
+                pass
+
+            if _self_upload_path:
+                # 자기 서버 URL → R2 직접 로드 (데드락 방지)
+                if _R2_PUB_URL:
+                    r2_direct = f"{_R2_PUB_URL}{_self_upload_path}"
+                    try:
+                        import requests as _rq
+                        r = _rq.get(r2_direct, timeout=15)
+                        if r.status_code == 200:
+                            ct = r.headers.get("Content-Type", "image/jpeg").split(";")[0]
+                            return ct, r.content
+                    except Exception as e:
+                        print(f"[_to_bytes] R2 직접 로드 실패 ({_self_upload_path}): {e}")
+                # R2 실패 시 로컬 파일 폴백
+                for d in [_UPLOAD_DIR, _LEGACY_UPLOAD_DIR]:
+                    fpath = os.path.join(d, os.path.basename(_self_upload_path))
+                    if os.path.exists(fpath):
+                        with open(fpath, "rb") as fh:
+                            return "image/jpeg", fh.read()
+                return None, None
+            else:
+                # 외부 URL (자기 서버 아님) → 일반 HTTP 로드
+                try:
+                    import requests as _rq
+                    r = _rq.get(src, timeout=10)
+                    if r.status_code == 200:
+                        ct = r.headers.get("Content-Type", "image/jpeg").split(";")[0]
+                        return ct, r.content
+                except Exception as e:
+                    print(f"[_to_bytes] HTTP 로드 실패 ({src[:60]}): {e}")
 
         path = str(path_val or "").strip()
 
