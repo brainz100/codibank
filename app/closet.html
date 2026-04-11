@@ -4314,7 +4314,13 @@ async function updateVTO(opts={}){
         ts: Date.now(),
         dataUrl: _cv.toDataURL('image/jpeg', 0.85),
         story: S.codiStory || '',
-        stateText: document.getElementById('vtoStateText')?.textContent || ''
+        stateText: document.getElementById('vtoStateText')?.textContent || '',
+        // ──── [2026-04-11 추가] 페이지 상태 보존 확장 ────
+        pk: S.pk || '',
+        day: S.day || '',
+        selDateKey: S.selDateKey || '',
+        customPurpose: S.customPurpose || '',
+        codiExplainHtml: document.getElementById('codiExplain')?.innerHTML || ''
       };
       sessionStorage.setItem('cb_closet_snap', JSON.stringify(_snap));
     }
@@ -4496,6 +4502,8 @@ function setPurpose(k){
   S.seed = 0;
   S.hasGenerated = false;
   resetVtoState('empty', '추천 이미지 없음');
+  // ──── [2026-04-11 추가] 목적 선택 상태 저장 (앱 전환 복귀 대응) ────
+  _saveNavState();
 }
 
 // ─ 오늘/내일(예보) 2-스텝 선택 ─
@@ -6137,6 +6145,37 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
 // closet: 페이지 복귀 시 이미지 상태 복원 + 30분 타임아웃
 // ══════════════════════════════════════════════════
 (function(){
+  // ──── [2026-04-11 추가] 경량 네비게이션 상태 저장/복원 ────
+  // 원인: 코디 목적 선택 후 앱 전환 → 복귀 시 목적 리셋
+  // 해결: S.pk/day/selDateKey를 sessionStorage에 별도 저장 (이미지 없이 경량)
+  // 관련파일: closet.html (setPurpose, setDay에서 호출)
+  // ────
+  var NAV_KEY = 'cb_closet_nav';
+  window._saveNavState = function(){
+    try{
+      sessionStorage.setItem(NAV_KEY, JSON.stringify({
+        pk: S.pk||'', day: S.day||'', selDateKey: S.selDateKey||'',
+        customPurpose: S.customPurpose||'', ts: Date.now()
+      }));
+    }catch(_){}
+  };
+  function _restoreNavState(){
+    try{
+      var raw = sessionStorage.getItem(NAV_KEY);
+      if(!raw) return false;
+      var ns = JSON.parse(raw);
+      if(Date.now()-(ns.ts||0) > 30*60*1000){ sessionStorage.removeItem(NAV_KEY); return false; }
+      if(ns.pk && ns.pk !== S.pk){
+        S.pk = ns.pk;
+        S.customPurpose = ns.customPurpose||'';
+        try{ renderPurposeGrid(); setMetaLine(); updateAiCallBtn(); }catch(_){}
+      }
+      if(ns.day) S.day = ns.day;
+      if(ns.selDateKey) S.selDateKey = ns.selDateKey;
+      return true;
+    }catch(_){ return false; }
+  }
+
   var SNAP_KEY = 'cb_closet_snap';
   var TIMEOUT_MS = 30 * 60 * 1000; // 30분
 
@@ -6175,6 +6214,15 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         if(stEl && snap.stateText) stEl.textContent = snap.stateText;
         // S 상태 복원
         S.hasGenerated = true;
+        // ──── [2026-04-11 추가] 목적/날짜 상태 복원 ────
+        if(snap.pk){ S.pk = snap.pk; try{ renderPurposeGrid(); }catch(_){} }
+        if(snap.day) S.day = snap.day;
+        if(snap.selDateKey) S.selDateKey = snap.selDateKey;
+        if(snap.customPurpose) S.customPurpose = snap.customPurpose;
+        if(snap.codiExplainHtml){
+          var expEl2 = document.getElementById('codiExplain');
+          if(expEl2) expEl2.innerHTML = snap.codiExplainHtml;
+        }
         try{ updateAiCallBtn(); }catch(_){}
         try{ setGenUiEnabled(true); }catch(_){}
         // 저장/다시요청/공유 버튼 활성화
@@ -6193,12 +6241,17 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   }
 
   // 페이지 최초 로드 시 복원 시도
-  window.addEventListener('load', function(){ setTimeout(_restoreSnap, 400); });
+  window.addEventListener('load', function(){
+    _restoreNavState(); // [2026-04-11] 목적/날짜 선택 상태 먼저 복원
+    setTimeout(_restoreSnap, 400);
+  });
 
   // visibilitychange: 탭/앱 전환 후 돌아올 때
   document.addEventListener('visibilitychange', function(){
-    if(document.visibilityState === 'visible' && !S.hasGenerated){
-      _restoreSnap();
+    if(document.visibilityState === 'visible'){
+      _restoreNavState(); // [2026-04-11] 목적/날짜 복원
+      if(!S.hasGenerated){ _restoreSnap(); }
+    }
     }
   });
 

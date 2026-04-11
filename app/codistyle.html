@@ -890,7 +890,7 @@ function renderSlot(k){
 function setStatus(k, text, err){ const e=document.getElementById('st-'+k); e.textContent=text||''; e.className='slot-status'+(err?' err':''); }
 function pickFile(k){ document.getElementById('file-'+k).click(); }
 function pickCamera(k){ document.getElementById('cam-'+k).click(); }
-function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false }; if(k==='top'){_dkTopSel=-1;}else{_dkBotSel=-1;} renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); _resetResultArea(); }
+function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false }; if(k==='top'){_dkTopSel=-1;}else{_dkBotSel=-1;} renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); _resetResultArea(); _savePageState(); }
 function _resetResultArea(){
   // 착장이미지 + 분석 + 스코어 리셋
   lastImgUrl='';
@@ -997,6 +997,7 @@ async function onFile(ev,k){
     ST[k].serverPath = path;
     ST[k].uploading = false;
     renderSlot(k); setStatus(k,'', false); updateGenerateBtn();
+    _savePageState(); // [2026-04-11] 사진 업로드 후 상태 보존
   }catch(e){
     ST[k].uploading = false;
     renderSlot(k); setStatus(k,'업로드 실패: '+(e.message||e), true); updateGenerateBtn();
@@ -1596,6 +1597,7 @@ async function generate(isRetry=false){
     busy=false; updateGenerateBtn();
     document.getElementById('genBtnText').textContent='AI 착장 이미지 생성';
     document.getElementById('genBtnIcon').textContent='auto_awesome';
+    _savePageState(); // [2026-04-11] 생성 완료 후 전체 상태 보존
   }
 }
 /* ── 저장: 이미지를 blob으로 받아서 기기에 직접 저장 ── */
@@ -1666,9 +1668,79 @@ async function shareResult(){
 }
 ['top','bottom'].forEach(renderSlot); updateGenerateBtn();
 
+// ── 페이지 상태 보존/복원 시스템 ──
+// ──── [2026-04-11 추가] ────
+// 원인: 앱 전환, 전화, 문자 등 후 복귀 시 ST(슬롯), 분석캐시, 분석텍스트가 리셋
+// 해결: sessionStorage에 전체 상태 저장 → 복귀 시 복원
+// 관련파일: codistyle.html (pickDeckItem, onFile, generate에서 호출)
+// ────
+var _stateTimer = null;
+function _savePageState(){
+  if(_stateTimer) clearTimeout(_stateTimer);
+  _stateTimer = setTimeout(function(){
+    try{
+      var state = {
+        top:{ serverPath:ST.top.serverPath||'', label:ST.top.label||'',
+              naturalWidth:ST.top.naturalWidth||0, naturalHeight:ST.top.naturalHeight||0 },
+        bottom:{ serverPath:ST.bottom.serverPath||'', label:ST.bottom.label||'',
+                 naturalWidth:ST.bottom.naturalWidth||0, naturalHeight:ST.bottom.naturalHeight||0 },
+        topAnalysis: _topAnalysisCache || null,
+        bottomAnalysis: _bottomAnalysisCache || null,
+        scoreNum: document.getElementById('csScoreNum')?.textContent || '',
+        scoreText: document.getElementById('csScoreText')?.textContent || '',
+        analysisPc: document.getElementById('csAnalysisPc')?.textContent || '',
+        analysisTop: document.getElementById('csAnalysisTop')?.textContent || '',
+        analysisBot: document.getElementById('csAnalysisBot')?.textContent || '',
+        analysisTotal: document.getElementById('csAnalysisTotal')?.textContent || '',
+        analysisBoxVisible: document.getElementById('csAnalysisBox')?.style.display !== 'none',
+        scoreDetailHtml: document.getElementById('csScoreDetail')?.innerHTML || '',
+        ts: Date.now()
+      };
+      sessionStorage.setItem('cb_cs_pageState', JSON.stringify(state));
+    }catch(_){}
+  }, 300);
+}
+
+function _restorePageState(){
+  try{
+    var raw = sessionStorage.getItem('cb_cs_pageState');
+    if(!raw) return false;
+    var s = JSON.parse(raw);
+    if(Date.now() - (s.ts||0) > 30*60*1000){ sessionStorage.removeItem('cb_cs_pageState'); return false; }
+
+    // ST 슬롯 복원 (serverPath, label, naturalWidth/Height)
+    if(s.top && s.top.serverPath){ Object.assign(ST.top, s.top); }
+    if(s.bottom && s.bottom.serverPath){ Object.assign(ST.bottom, s.bottom); }
+
+    // 분석 캐시 복원
+    if(s.topAnalysis) _topAnalysisCache = s.topAnalysis;
+    if(s.bottomAnalysis) _bottomAnalysisCache = s.bottomAnalysis;
+
+    // 스코어 복원
+    if(s.scoreNum && s.scoreNum !== '—'){
+      var el1=document.getElementById('csScoreNum'); if(el1) el1.textContent=s.scoreNum;
+      var el2=document.getElementById('csScoreText'); if(el2){ el2.textContent=s.scoreText||''; el2.style.color='rgba(255,255,255,.55)'; }
+    }
+
+    // 분석 텍스트 복원
+    if(s.analysisPc){ var el=document.getElementById('csAnalysisPc'); if(el) el.textContent=s.analysisPc; }
+    if(s.analysisTop){ var el=document.getElementById('csAnalysisTop'); if(el) el.textContent=s.analysisTop; }
+    if(s.analysisBot){ var el=document.getElementById('csAnalysisBot'); if(el) el.textContent=s.analysisBot; }
+    if(s.analysisTotal){ var el=document.getElementById('csAnalysisTotal'); if(el) el.textContent=s.analysisTotal; }
+    if(s.analysisBoxVisible){ var el=document.getElementById('csAnalysisBox'); if(el) el.style.display='block'; }
+    if(s.scoreDetailHtml){ var el=document.getElementById('csScoreDetail'); if(el){ el.innerHTML=s.scoreDetailHtml; el.style.display='block'; } }
+
+    // 생성 버튼 활성화
+    updateGenerateBtn();
+    return true;
+  }catch(_){ return false; }
+}
+
 // ── 페이지 복귀 시 이전 생성 이미지+스코어+상의하의 복원 ──
 (function(){
   var TIMEOUT_MS = 30 * 60 * 1000; // 30분
+  // [2026-04-11] 전체 페이지 상태 복원 (ST, 분석캐시, 분석텍스트)
+  _restorePageState();
   // 생성 이미지 복원
   try{
     const saved = sessionStorage.getItem('cb_cs_lastImg');
@@ -1713,6 +1785,8 @@ window.addEventListener('pageshow', function(e){
 // visibilitychange: 탭/앱 전환 후 복귀 시
 document.addEventListener('visibilitychange', function(){
   if(document.visibilityState === 'visible'){
+    // [2026-04-11] 앱 전환 후 복귀 시 전체 상태 복원
+    _restorePageState();
     try{
       const saved = sessionStorage.getItem('cb_cs_lastImg');
       const ts    = parseInt(sessionStorage.getItem('cb_cs_ts')||'0');
@@ -2017,6 +2091,7 @@ async function pickDeckItem(type,entry){
   _uploadDeckItem(type,dataUrl);
   var del=document.getElementById('del-'+type);if(del)del.style.display='flex';
   updateGenerateBtn();
+  _savePageState(); // [2026-04-11] 아이템 선택 후 상태 보존
 }
 
 async function _uploadDeckItem(type,dataUrl){
@@ -2024,7 +2099,7 @@ async function _uploadDeckItem(type,dataUrl){
     var bb=(typeof codistyleBase==='function'?codistyleBase():null)||(window.CODIBANK_CONFIG&&window.CODIBANK_CONFIG.backendBase)||'https://codibank-api.onrender.com';
     var r=await fetch(bb+'/api/storage/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dataUrl:dataUrl,slot:'codistyle_'+type})});
     var d=await r.json();
-    if(d.ok&&d.path){ST[type].serverPath=d.path;var st=document.getElementById('st-'+type);if(st)st.innerHTML='<span style="color:#97FEED;font-size:10px;">✅ 선택됨</span>';updateGenerateBtn();}
+    if(d.ok&&d.path){ST[type].serverPath=d.path;var st=document.getElementById('st-'+type);if(st)st.innerHTML='<span style="color:#97FEED;font-size:10px;">✅ 선택됨</span>';updateGenerateBtn();_savePageState();}
   }catch(e){console.warn('[deck upload]',e);}
 }
 
