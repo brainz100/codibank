@@ -3653,8 +3653,8 @@ async function updateVTO(opts={}){
     keywords=r.keywords||keywords;
     layerTip=r.layerTip||'';
     skinTip=r.skinTip||'';
-    // [2026-04-06 수정] 구 PERSONA 스타일리스트 차단 (서버 응답 후 갱신)
-    S.stylist = { name: stylistName, city: stylistCity, voice: persona.voice, en: persona.en };
+    // [2026-04-11 수정] callClaude()가 반환한 stylist 사용 (스코프 에러 수정)
+    S.stylist = r.stylist || { name:'', city:'', voice:'', en:'' };
     S.matchPairs = (r.matchPairs && Array.isArray(r.matchPairs)) ? r.matchPairs : buildMatchPairsFromPalette(palette, S.wx.temp);
     // [2026-04-06 수정] 구 PERSONA 카테고리 키워드 차단 (서버 엔진 데이터로 대체)
     S.categoryKeywords = {};
@@ -3698,7 +3698,7 @@ async function updateVTO(opts={}){
     const _fTip = _fTips[S.pk] || '목적과 날씨에 맞게 레이어링하고, 뉴트럴 컬러를 베이스로 포인트 아이템 한 가지를 더해보세요.';
     explain=trunc(`${_fTxt}${_fWx} 날씨에 어울리는 ${pm.label} 스타일이에요. ${_fTip}`.trim(), 400);
     styleTitle=`${pm.label} 코디`;
-    S.stylist = { name: stylistName, city: stylistCity, voice: persona.voice, en: persona.en };
+    S.stylist = S.stylist || { name:'코디뱅크', city:'서울', voice:'스타일리스트', en:'Stylist' };
     // 폴백에서도 categoryKeywords를 palette 기반으로 생성
     const _fbSeason = (()=>{ const n=Number(S.wx?.temp); if(!Number.isFinite(n)) return '클린'; if(n<=5) return '보온'; if(n<=12) return '레이어링'; if(n<=19) return '클린'; return '경량'; })();
     // 폴백 categoryKeywords: 8개 카테고리 완전 통일 (SPEC 불가 시 palette 기반)
