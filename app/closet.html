@@ -4161,6 +4161,36 @@ document.getElementById('shareBtn')?.addEventListener('click',()=>{
 });
 
 // ─ 코디 목적 그리드 ─
+// [2026-04-11] 코디목적 미선택 시 아이콘 순차 옐로→레드 애니메이션
+var _purposeIdleTimer = null;
+var _purposeIdleIdx = 0;
+function _startPurposeIdleAnim(){
+  _stopPurposeIdleAnim();
+  _purposeIdleIdx = 0;
+  _purposeIdleTimer = setInterval(function(){
+    var cards = document.querySelectorAll('#purposeGrid [data-purpose]');
+    if(!cards.length || S.pk) { _stopPurposeIdleAnim(); return; }
+    // 이전 카드 원래 색 복원
+    var prevIdx = (_purposeIdleIdx - 1 + cards.length) % cards.length;
+    var prevIcon = cards[prevIdx]?.querySelector('.material-symbols-outlined');
+    if(prevIcon) prevIcon.style.color = '';
+    // 현재 카드 아이콘 옐로→레드
+    var curIcon = cards[_purposeIdleIdx]?.querySelector('.material-symbols-outlined');
+    if(curIcon){
+      var progress = _purposeIdleIdx / (cards.length - 1);
+      var r = Math.round(255);
+      var g = Math.round(220 * (1 - progress));
+      var b = Math.round(50 * (1 - progress));
+      curIcon.style.color = 'rgb(' + r + ',' + g + ',' + b + ')';
+    }
+    _purposeIdleIdx = (_purposeIdleIdx + 1) % cards.length;
+  }, 120);
+}
+function _stopPurposeIdleAnim(){
+  if(_purposeIdleTimer){ clearInterval(_purposeIdleTimer); _purposeIdleTimer = null; }
+  document.querySelectorAll('#purposeGrid [data-purpose] .material-symbols-outlined').forEach(function(ic){ ic.style.color = ''; });
+}
+
 function renderPurposeGrid(){
   const el=document.getElementById('purposeGrid');if(!el)return;el.innerHTML='';
   PURPOSES.forEach(p=>{
@@ -4185,6 +4215,8 @@ function renderPurposeGrid(){
 }
 function setActivePurpose(k){
   document.querySelectorAll('[data-purpose]').forEach(b=>{const on=b.dataset.purpose===k;b.classList.toggle('active',on);b.setAttribute('aria-pressed',on?'true':'false');});
+  // [2026-04-11] 코디목적 미선택 시 아이콘 순차 컬러 애니메이션
+  if(k && k !== '') { _stopPurposeIdleAnim(); } else { _startPurposeIdleAnim(); }
 }
 function updateAiCallBtn(){
   const btn = document.getElementById('aiCallBtn');
@@ -5120,6 +5152,7 @@ async function initWeather(){
 // init
 // ─ 초기 렌더/이벤트 ─
 renderPurposeGrid();
+if(!S.pk) _startPurposeIdleAnim();
 
 // 직접입력 입력값 저장(최대 30자)
 const purposeCustomInputEl = document.getElementById('purposeCustomInput');
