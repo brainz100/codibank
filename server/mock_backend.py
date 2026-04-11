@@ -1221,8 +1221,8 @@ def health():
 
 @app.get("/uploads/<path:filename>")
 def serve_upload(filename: str):
-    """업로드된 이미지 서빙: 로컬 우선 → 없으면 R2 redirect"""
-    from flask import redirect as _redir, after_this_request
+    """업로드된 이미지 서빙: 로컬 우선 → 없으면 R2 proxy"""
+    from flask import after_this_request, make_response
 
     @after_this_request
     def _add_headers(response):
@@ -1240,10 +1240,25 @@ def serve_upload(filename: str):
     if os.path.exists(f2):
         return send_from_directory(_LEGACY_UPLOAD_DIR, filename)
 
-    # ── 2순위: R2 공개 URL로 redirect (파일이 R2에 저장된 경우)
+    # ──── [2026-04-11 수정] R2 proxy 방식으로 변경 ────
+    # 원인: r2.dev 공개 URL은 CORS 헤더를 보내지 않음 (Cloudflare 제한)
+    #       → codistyle.html에서 fetch()로 이미지 가져올 때 CORS 차단
+    # 해결: 302 redirect 대신 서버가 R2에서 직접 가져와서 전달 (proxy)
+    #       → serve_upload에 이미 CORS 헤더가 있으므로 브라우저 차단 없음
+    # 관련파일: codistyle.html(pickDeckItem→fetch), codibank.js(getImageSrc)
+    # ────
     if _R2_PUB_URL:
         r2_url = f"{_R2_PUB_URL}/uploads/{filename}"
-        return _redir(r2_url, 302)
+        try:
+            import requests as _rq
+            r = _rq.get(r2_url, timeout=10)
+            if r.status_code == 200:
+                resp = make_response(r.content)
+                ct = r.headers.get("Content-Type", "image/jpeg")
+                resp.headers["Content-Type"] = ct
+                return resp
+        except Exception as e:
+            print(f"[serve_upload] R2 proxy 실패 ({filename}): {e}")
 
     return jsonify(ok=False, error="upload not found", filename=filename), 404
 
