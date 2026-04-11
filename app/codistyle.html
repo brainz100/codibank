@@ -2022,7 +2022,7 @@ async function pickDeckItem(type,entry){
 async function _uploadDeckItem(type,dataUrl){
   try{
     var bb=(typeof codistyleBase==='function'?codistyleBase():null)||(window.CODIBANK_CONFIG&&window.CODIBANK_CONFIG.backendBase)||'https://codibank-api.onrender.com';
-    var r=await fetch(bb+'/api/storage/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:dataUrl,slot:type})});
+    var r=await fetch(bb+'/api/storage/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dataUrl:dataUrl,slot:'codistyle_'+type})});
     var d=await r.json();
     if(d.ok&&d.path){ST[type].serverPath=d.path;var st=document.getElementById('st-'+type);if(st)st.innerHTML='<span style="color:#97FEED;font-size:10px;">✅ 선택됨</span>';updateGenerateBtn();}
   }catch(e){console.warn('[deck upload]',e);}

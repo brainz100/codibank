@@ -204,8 +204,14 @@ function getBackendBaseResolved() {
   function _sbUserToCb(sbUser) {
     if (!sbUser) return null;
     const m = sbUser.user_metadata || {};
-    return {
-      email:            sbUser.email || '',
+    // ──── [2026-04-11 수정] 모든 metadata 필드를 spread로 복원 ────
+    // 원인: bodyType, phone, photo 등이 명시적 목록에 없어서
+    //       로그인 시 누락 → upsertUser로 덮어씀 → 프로필 리셋
+    // 해결: metadata 전체를 먼저 spread하고, 핵심 필드만 기본값 보장
+    // 관련파일: profile.html (저장), closet.html/codistyle.html (읽기)
+    // ────
+    return Object.assign({}, m, {
+      email:            sbUser.email || m.email || '',
       gender:           m.gender     || '',
       ageGroup:         m.ageGroup   || '',
       height:           m.height     || '',
@@ -213,13 +219,16 @@ function getBackendBaseResolved() {
       location:         m.location   || '',
       nickname:         m.nickname   || m.name || '',
       avatarFace:       m.avatarFace || '',
+      bodyType:         m.bodyType   || '',
+      phone:            m.phone      || '',
+      photo:            m.photo      || '',
       plan:             m.plan       || 'FREE',
       categories:       m.categories || DEFAULT_CATEGORIES.map((c) => c.key),
       customCategories: m.customCategories || [],
       createdAt:        sbUser.created_at  || nowIso(),
       updatedAt:        m.updatedAt  || nowIso(),
       sbId:             sbUser.id,
-    };
+    });
   }
 
   // ✅ 기본 카테고리(옷장 페이지 기준 고정 순서)
@@ -344,15 +353,36 @@ function getBackendBaseResolved() {
   // ── Supabase 기반 프로필 업데이트
   async function updateUserProfile(email, patch) {
     const e = normalizeEmail(email);
+    // ──── [2026-04-11 수정] password가 프로필 메타데이터에 섞이지 않도록 제거 ────
+    // 원인: patch.password가 supabase auth.updateUser({data:...})로 전송되면
+    //       user_metadata에 평문 비밀번호가 저장됨 (보안 위험)
+    // 해결: password 필드를 patch에서 제거, 비밀번호 변경은 changePassword() 사용
+    // 관련파일: profile.html (비밀번호 변경 분리)
+    // ────
+    const safePatch = Object.assign({}, patch || {});
+    delete safePatch.password;
     const u = getUser(e);
-    const next = Object.assign({}, u || { email: e }, patch || {}, { updatedAt: nowIso() });
+    const next = Object.assign({}, u || { email: e }, safePatch, { updatedAt: nowIso() });
     upsertUser(next);
     if (_cachedUser && normalizeEmail(_cachedUser.email) === e) _cachedUser = next;
     try {
       const sb = _getSupabase();
-      if (sb) await sb.auth.updateUser({ data: Object.assign({}, patch, { updatedAt: nowIso() }) });
+      if (sb) await sb.auth.updateUser({ data: Object.assign({}, safePatch, { updatedAt: nowIso() }) });
     } catch (_) {}
     return { ok: true, user: next };
+  }
+
+  // ──── [2026-04-11 추가] 비밀번호 변경 (Supabase Auth 전용) ────
+  async function changePassword(newPassword) {
+    try {
+      const sb = _getSupabase();
+      if (!sb) return { ok: false, error: 'Supabase 연결 실패' };
+      const { error } = await sb.auth.updateUser({ password: newPassword });
+      if (error) return { ok: false, error: error.message || '비밀번호 변경 실패' };
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: String(e.message || e) };
+    }
   }
 
   // ── 세션 캐시
@@ -746,6 +776,9 @@ function getBackendBaseResolved() {
       }
     } catch (_) {}
 
+    // ──── [2026-04-11 추가] 아이템 서버 동기화 (디바운스) ────
+    _scheduleItemSync(e);
+
     return { ok: true, item: saved };
   }
 
@@ -820,11 +853,87 @@ function getBackendBaseResolved() {
       return { ok: false, error: (saveRes && saveRes.error) ? saveRes.error : '삭제에 실패했습니다.' };
     }
 
+    // ──── [2026-04-11 추가] 삭제 후 서버 동기화 ────
+    _scheduleItemSync(e);
+
     return { ok: true, item: removed };
   }
 
+  // ──── [2026-04-11 추가] Phase 1: 아이템 서버 동기화 ────
+  // 원인: 아이템 메타데이터가 localStorage에만 저장 → 기기 변경/캐시 삭제 시 소실
+  // 해결: addItem/deleteItem 후 서버에 자동 동기화 + 로그인 시 서버에서 복원
+  // 관련파일: mock_backend.py (/api/user-data/save, /api/user-data/load)
+  // ────
 
-// ── Supabase 회원가입
+  var _syncTimer = null;
+  function _scheduleItemSync(email) {
+    // 연속 변경 시 마지막 변경 후 2초 뒤 동기화 (디바운스)
+    if (_syncTimer) clearTimeout(_syncTimer);
+    _syncTimer = setTimeout(function() { syncItemsToServer(email); }, 2000);
+  }
+
+  async function syncItemsToServer(email) {
+    var e = normalizeEmail(email);
+    if (!e) return;
+    try {
+      var bb = getBackendBaseResolved() || 'https://codibank-api.onrender.com';
+      var items = getItemsByUser(e);
+      var r = await fetch(bb.replace(/\/$/, '') + '/api/user-data/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: e, key: 'items', value: items })
+      });
+      var d = await r.json().catch(function() { return {}; });
+      if (d.ok) console.log('[sync] 아이템 서버 동기화 완료:', items.length + '개');
+      else console.warn('[sync] 아이템 서버 동기화 실패:', d.error);
+    } catch (err) {
+      console.warn('[sync] 아이템 서버 동기화 에러:', err.message);
+    }
+  }
+
+  async function syncItemsFromServer(email) {
+    var e = normalizeEmail(email);
+    if (!e) return { ok: false };
+    try {
+      var bb = getBackendBaseResolved() || 'https://codibank-api.onrender.com';
+      var r = await fetch(bb.replace(/\/$/, '') + '/api/user-data/load?email=' + encodeURIComponent(e) + '&key=items');
+      var d = await r.json().catch(function() { return {}; });
+      if (!d.ok || !d.found || !d.value) return { ok: true, merged: false };
+
+      var serverItems = d.value;
+      if (!Array.isArray(serverItems) || serverItems.length === 0) return { ok: true, merged: false };
+
+      // 로컬과 서버 병합: 서버 기준으로 로컬에 없는 아이템 추가
+      var localItems = getItemsByUser(e);
+      var localIds = {};
+      localItems.forEach(function(it) { localIds[it.id] = true; });
+
+      var newCount = 0;
+      serverItems.forEach(function(srvItem) {
+        if (srvItem.id && !localIds[srvItem.id] && normalizeEmail(srvItem.userEmail) === e) {
+          localItems.push(srvItem);
+          newCount++;
+        }
+      });
+
+      if (newCount > 0) {
+        // 날짜순 정렬 (최신 먼저)
+        localItems.sort(function(a, b) {
+          return (b.createdAt || '').localeCompare(a.createdAt || '');
+        });
+        var allItems = getAllItems();
+        // 다른 유저 아이템은 유지하면서 현재 유저 아이템만 교체
+        var otherItems = allItems.filter(function(it) { return normalizeEmail(it.userEmail) !== e; });
+        setAllItems(otherItems.concat(localItems));
+        console.log('[sync] 서버에서 아이템 복원:', newCount + '개 추가 (총 ' + localItems.length + '개)');
+      }
+
+      return { ok: true, merged: true, added: newCount, total: localItems.length };
+    } catch (err) {
+      console.warn('[sync] 서버 아이템 로드 에러:', err.message);
+      return { ok: false, error: err.message };
+    }
+  }
   async function signup(payload) {
     const email = normalizeEmail(payload.email);
     if (!email) return { ok: false, error: '이메일을 입력해주세요.' };
@@ -917,6 +1026,8 @@ function getBackendBaseResolved() {
       upsertUser(cbUser);
       localStorage.setItem(KEYS.PLAN, cbUser.plan || 'FREE');
       setSession(_cachedSession);
+      // ──── [2026-04-11 추가] 로그인 시 서버에서 아이템 복원 (fire-and-forget) ────
+      syncItemsFromServer(e).catch(function(){});
       return { ok: true, user: cbUser };
     } catch (e) {
       return { ok: false, error: String(e && (e.message || e)) };
@@ -946,6 +1057,8 @@ function getBackendBaseResolved() {
         // 등록된 콜백 실행
         _sessionCallbacks.forEach(function(fn){ try { fn(cbUser); } catch(_) {} });
         _sessionCallbacks.length = 0;
+        // ──── [2026-04-11 추가] 세션 복원 시 서버 아이템 동기화 ────
+        syncItemsFromServer(cbUser.email).catch(function(){});
       }
       _sessionFetched = true;
     } catch (_) {}
@@ -1809,6 +1922,7 @@ window.CodiBank = {
 
     // profile
     updateUserProfile,
+    changePassword,
     deleteUserAccount,
 
     // plan
@@ -1835,6 +1949,8 @@ window.CodiBank = {
     addItem,
     updateItem,
     deleteItem,
+    syncItemsToServer,
+    syncItemsFromServer,
 
     // images
     addAiAlbumEntry,

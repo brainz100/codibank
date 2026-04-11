@@ -450,7 +450,16 @@ async function doSave(){
     bodyType : _selectedBodyType || _user.bodyType || '',
   };
 
-  if(pw) patch.password = pw;
+  if(pw) {
+    // ──── [2026-04-11 수정] 비밀번호는 프로필과 별도로 Supabase Auth에서 변경 ────
+    if(typeof CodiBank.changePassword === 'function') {
+      const pwResult = await CodiBank.changePassword(pw);
+      if(!pwResult.ok) { showToast('비밀번호 변경 실패: ' + (pwResult.error||'')); return; }
+      showToast('비밀번호가 변경되었습니다.');
+    }
+    document.getElementById('fPw').value = '';
+    document.getElementById('fPw2').value = '';
+  }
 
   // 사진 저장 전략:
   // 1) avatarFace → IndexedDB에 저장한 id (closet/codistyle에서 getUserFaceImageSrc로 로드)
