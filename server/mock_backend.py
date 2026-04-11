@@ -404,8 +404,13 @@ def _write_upload_bytes(slot: str, ext: str, data: bytes, *, fixed_name: str | N
     r2_url = _upload_to_r2(fname, data, mime)
     if r2_url:
         print(f"[R2] ✅ 업로드 완료: {fname}")
-        # R2 공개 URL이 절대경로면 그대로, /uploads/ 상대경로면 그대로 반환
-        return r2_url if r2_url.startswith("http") else f"{_UPLOAD_PREFIX}{fname}"
+        # ──── [2026-04-11 수정] 항상 상대경로(/uploads/xxx) 반환 ────
+        # 원인: R2 절대 URL(https://pub-xxx.r2.dev/...) 반환 시
+        #       프론트에서 백엔드URL + R2URL로 이중 연결 → ERR_NAME_NOT_RESOLVED
+        # 해결: serve_upload proxy가 R2 접근을 처리하므로 상대경로만 반환
+        # 관련파일: codistyle.html, closet.html (이미지 URL 조립)
+        # ────
+        return f"{_UPLOAD_PREFIX}{fname}"
 
     # 2순위: 로컬 파일시스템 폴백
     fpath = os.path.join(_UPLOAD_DIR, fname)
