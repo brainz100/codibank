@@ -104,34 +104,22 @@
 <script src="pwa-register.js" defer></script>
 </head>
 <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
-<div class="fixed top-0 w-full z-50 px-6 py-3 flex justify-between items-center bg-background-light/80 dark:bg-background-dark/80 ios-blur">
-<span class="text-sm font-semibold">9:41</span>
-<div class="flex gap-1.5 items-center">
-<span class="material-symbols-outlined text-[16px]">signal_cellular_alt</span>
-<span class="material-symbols-outlined text-[16px]">wifi</span>
-<span class="material-symbols-outlined text-[16px]">battery_full</span>
-</div>
-</div>
-<div class="pt-12 px-4 pb-2">
+
+<div class="pt-4 px-4 pb-2">
 <button id="backBtn" class="w-9 h-9 rounded-full flex items-center justify-center bg-white dark:bg-zinc-900 shadow-sm active:scale-95 transition-transform">
 <span class="material-symbols-outlined text-slate-600 dark:text-slate-300" style="font-size:20px;">arrow_back_ios_new</span>
 </button>
 </div>
 <main class="pb-32">
-<section class="mt-2 mb-8">
-<div id="thumbStrip" class="flex overflow-x-auto gap-4 px-6 py-4 no-scrollbar items-center"></div>
-</section>
+
 <section class="px-6">
 <div class="relative group">
 <div class="aspect-[3/4] rounded-[2.5rem] overflow-hidden bg-white dark:bg-white shadow-2xl border border-slate-100 dark:border-zinc-200">
 <img id="mainImage" alt="Item" class="w-full h-full object-contain" src=""/>
 </div>
-<div class="absolute top-6 right-6 flex flex-col gap-3">
+<div class="absolute top-6 right-6">
 <button id="shareTopBtn" class="w-12 h-12 rounded-full bg-white/90 dark:bg-zinc-900/90 ios-blur flex items-center justify-center text-slate-900 dark:text-white shadow-xl active:scale-95 transition-transform">
 <span class="material-symbols-outlined text-[24px]">share</span>
-</button>
-<button id="sellTopBtn" class="w-12 h-12 rounded-full bg-white/90 dark:bg-zinc-900/90 ios-blur flex items-center justify-center text-accent shadow-xl active:scale-95 transition-transform">
-<span class="material-symbols-outlined text-[24px]">sell</span>
 </button>
 </div>
 </div>
@@ -230,8 +218,9 @@
 
     const catMeta = CodiBank.getCategoryMetaByKey(item.categoryKey, item.userEmail);
     const _catNameEl = document.getElementById('categoryName'); if(_catNameEl) _catNameEl.textContent = catMeta?.label || '카테고리';
-    document.getElementById('itemTitle').textContent = item.brand ? `${item.brand}` : '아이템';
-    document.getElementById('itemBrandTag').textContent = item.brand ? item.brand : (item.color ? item.color : 'AI 등록');
+    var _catMeta = window.CodiBank ? CodiBank.getCategoryMetaByKey(item.categoryKey||item.category, user?.email) : null;
+    document.getElementById('itemTitle').textContent = (_catMeta?.label||'아이템') + (item.brand ? ' · '+item.brand : '');
+    document.getElementById('itemBrandTag').style.display = 'none'; // 타이틀과 중복 제거
     document.getElementById('itemColorTag').textContent = item.color ? item.color : '컬러 미정';
     // 중복 단어 제거
     function dedupeNote(t) {
@@ -250,7 +239,7 @@
     const main = document.getElementById('mainImage');
     const strip = document.getElementById('thumbStrip');
 
-    strip.innerHTML = '';
+    if(!strip) { console.log('thumbStrip removed'); } else { strip.innerHTML = '';
     const imgs = [
       { ref: item.images?.front, label: '전면' },
       { ref: item.images?.back, label: '후면' },
@@ -299,6 +288,7 @@
         if (i === 0) {
           main.src = src;
           setSelected(0);
+    }
         }
       });
     });
