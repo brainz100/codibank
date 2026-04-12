@@ -335,6 +335,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 .cdeck-card.side-2R{transform:translateX(124px) scale(.78) translateZ(-70px) rotateY(-14deg);z-index:10;opacity:.72;box-shadow:0 6px 18px rgba(0,0,0,.14);filter:blur(.3px);}
 .cdeck-card.side-3L{transform:translateX(-160px) scale(.62) translateZ(-110px) rotateY(18deg);z-index:5;opacity:.45;box-shadow:0 4px 12px rgba(0,0,0,.10);filter:blur(.7px);}
 .cdeck-card.side-3R{transform:translateX(160px) scale(.62) translateZ(-110px) rotateY(-18deg);z-index:5;opacity:.45;box-shadow:0 4px 12px rgba(0,0,0,.10);filter:blur(.7px);}
+/* 카드 이동 애니메이션 */
+.cdeck-card.exit-left{pointer-events:none;transition:transform 220ms cubic-bezier(.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2px);transform:translateX(-180px) scale(.5) translateZ(-120px) rotateY(16deg);}
+.cdeck-card.exit-right{pointer-events:none;transition:transform 220ms cubic-bezier(.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2px);transform:translateX(180px) scale(.5) translateZ(-120px) rotateY(-16deg);}
+.cdeck-card.enter-left{transform:translateX(-180px) scale(.5) translateZ(-120px) rotateY(16deg);opacity:0;filter:blur(2px);}
+.cdeck-card.enter-right{transform:translateX(180px) scale(.5) translateZ(-120px) rotateY(-16deg);opacity:0;filter:blur(2px);}
+/* 모든 카드 라인 통일 */
+.cdeck-card{border-color:#97FEED !important;}
 /* 체크 아이콘: 선택 시에만 표시 */
 .cdeck-check{position:absolute;top:3px;right:3px;opacity:0;transition:opacity .25s ease;pointer-events:none;}
 .cdeck-check.visible{opacity:1;}
@@ -398,7 +405,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
     <div class="cact">
       <button class="cact-btn" onclick="pickCamera('top')" style="background:#35A29F;color:#ffffff;"><span class="mi" style="font-size:16px;">photo_camera</span>사진촬영</button>
       <button class="cact-btn" onclick="pickFile('top')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">image</span>사진선택</button>
-      <button class="cact-btn" disabled style="background:#0B666A;color:#ffffff;border:1px solid rgba(255,255,255,.15);cursor:default;"><span class="mi" style="font-size:16px;">link</span>온라인 링크 (준비중)</button>
+      <button class="cact-btn" disabled style="background:#0B666A;color:#071952;border:1px solid rgba(255,255,255,.15);cursor:default;"><span class="mi" style="font-size:16px;">link</span>온라인 링크 (준비중)</button>
     </div>
     <div class="slot-status" id="st-top"></div>
     <input type="file" id="file-top" accept="image/*" style="display:none" onchange="onFile(event,'top')">
@@ -433,7 +440,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
     <div class="cact">
       <button class="cact-btn" onclick="pickCamera('bottom')" style="background:#35A29F;color:#ffffff;"><span class="mi" style="font-size:16px;">photo_camera</span>사진촬영</button>
       <button class="cact-btn" onclick="pickFile('bottom')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">image</span>사진선택</button>
-      <button class="cact-btn" disabled style="background:#0B666A;color:#ffffff;border:1px solid rgba(255,255,255,.15);cursor:default;"><span class="mi" style="font-size:16px;">link</span>온라인 링크 (준비중)</button>
+      <button class="cact-btn" disabled style="background:#0B666A;color:#071952;border:1px solid rgba(255,255,255,.15);cursor:default;"><span class="mi" style="font-size:16px;">link</span>온라인 링크 (준비중)</button>
     </div>
     <div class="slot-status" id="st-bottom"></div>
     <input type="file" id="file-bottom" accept="image/*" style="display:none" onchange="onFile(event,'bottom')">
@@ -2077,19 +2084,34 @@ function drawDeck(type,items,ci){
       pickDeckItem(type==='top'?'top':'bottom', (type==='top'?_dkTopItems:_dkBotItems)[idx]);
       drawDeck(type, type==='top'?_dkTopItems:_dkBotItems, curCenter);
     } else {
-      // 사이드 카드 클릭 → 중앙으로 이동 (순환)
-      if(type==='top'){_dkTopIdx=idx; drawDeck('top',_dkTopItems,_dkTopIdx);}
-      else{_dkBotIdx=idx; drawDeck('bot',_dkBotItems,_dkBotIdx);}
+      // 사이드 카드 클릭 → 중앙으로 이동 (애니메이션)
+      var _dir = (idx > curCenter) ? 1 : -1;
+      if(items.length > 1){
+        var _allCards = el.querySelectorAll('.cdeck-card');
+        _allCards.forEach(function(_c){ _c.classList.add(_dir>0?'exit-left':'exit-right'); });
+        setTimeout(function(){
+          if(type==='top'){_dkTopIdx=idx; drawDeck('top',_dkTopItems,_dkTopIdx);}
+          else{_dkBotIdx=idx; drawDeck('bot',_dkBotItems,_dkBotIdx);}
+        }, 200);
+      } else {
+        if(type==='top'){_dkTopIdx=idx; drawDeck('top',_dkTopItems,_dkTopIdx);}
+        else{_dkBotIdx=idx; drawDeck('bot',_dkBotItems,_dkBotIdx);}
+      }
     }
   };
-  // 스와이프
+  // 스와이프 (카드+이미지 함께 이동 애니메이션)
   el.ontouchstart=function(ev){el._sx=ev.touches[0].clientX;};
   el.ontouchend=function(ev){
     var dx=ev.changedTouches[0].clientX-(el._sx||0);
     if(Math.abs(dx)<30)return;
-    // 순환: 끝→처음, 처음→끝
-    if(type==='top'){_dkTopIdx=_circIdx(_dkTopIdx+(dx<0?1:-1),items.length);drawDeck('top',_dkTopItems,_dkTopIdx);}
-    else{_dkBotIdx=_circIdx(_dkBotIdx+(dx<0?1:-1),items.length);drawDeck('bot',_dkBotItems,_dkBotIdx);}
+    var dir = dx<0 ? 1 : -1;
+    // exit 애니메이션
+    var cards = el.querySelectorAll('.cdeck-card');
+    cards.forEach(function(c){ c.classList.add(dir>0?'exit-left':'exit-right'); });
+    setTimeout(function(){
+      if(type==='top'){_dkTopIdx=_circIdx(_dkTopIdx+dir,items.length);drawDeck('top',_dkTopItems,_dkTopIdx);}
+      else{_dkBotIdx=_circIdx(_dkBotIdx+dir,items.length);drawDeck('bot',_dkBotItems,_dkBotIdx);}
+    }, 200);
   };
 }
 
