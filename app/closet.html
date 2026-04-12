@@ -4167,35 +4167,41 @@ document.getElementById('shareBtn')?.addEventListener('click',()=>{
 // ─ 코디 목적 그리드 ─
 // [2026-04-11] 코디목적 미선택 시 아이콘 순차 옐로→레드 애니메이션
 var _purposeIdleTimer = null;
-var _purposeIdleIdx = 0;
+var _purposeIdleRow = 0;
 function _startPurposeIdleAnim(){
   _stopPurposeIdleAnim();
-  _purposeIdleIdx = 0;
+  _purposeIdleRow = 0;
+  // 3열 그리드 기준 행 그룹: [0,1,2],[3,4,5],...,[12,13,14],[15]
   _purposeIdleTimer = setInterval(function(){
     var cards = document.querySelectorAll('#purposeGrid [data-purpose]');
     if(!cards.length || S.pk) { _stopPurposeIdleAnim(); return; }
-    // 이전 카드 복원
-    var prevIdx = (_purposeIdleIdx - 1 + cards.length) % cards.length;
-    var prevIcon = cards[prevIdx]?.querySelector('.material-symbols-outlined');
-    if(prevIcon){
-      prevIcon.style.removeProperty('color');
-      prevIcon.style.removeProperty('transform');
-      prevIcon.style.removeProperty('text-shadow');
-      prevIcon.style.removeProperty('filter');
-    }
-    // 현재 카드: 컬러 + 크기 펄스 + 글로우
-    var curIcon = cards[_purposeIdleIdx]?.querySelector('.material-symbols-outlined');
-    if(curIcon){
-      var p = _purposeIdleIdx / (cards.length - 1);
-      var r = 255, g = Math.round(220*(1-p)), b = Math.round(50*(1-p));
-      var clr = 'rgb('+r+','+g+','+b+')';
-      curIcon.style.setProperty('color', clr, 'important');
-      curIcon.style.setProperty('transform', 'scale(1.45)', 'important');
-      curIcon.style.setProperty('text-shadow', '0 0 12px '+clr+', 0 0 24px '+clr, 'important');
-      curIcon.style.setProperty('filter', 'brightness(1.3)', 'important');
-    }
-    _purposeIdleIdx = (_purposeIdleIdx + 1) % cards.length;
-  }, 120);
+    var total = cards.length;
+    var rows = [];
+    for(var i=0; i<total; i+=3){ rows.push([i, Math.min(i+1,total-1), Math.min(i+2,total-1)]); }
+    if(total%3===1) rows[rows.length-1] = [total-1]; // 마지막 1개만
+    var rowCount = rows.length;
+    // 이전 행 복원
+    var prevRow = (_purposeIdleRow - 1 + rowCount) % rowCount;
+    rows[prevRow].forEach(function(ci){
+      var ic = cards[ci]?.querySelector('.material-symbols-outlined');
+      if(ic){ ic.style.removeProperty('color'); ic.style.removeProperty('transform'); ic.style.removeProperty('text-shadow'); ic.style.removeProperty('filter'); }
+    });
+    // 현재 행: 컬러 + 크기 펄스 + 글로우
+    var curRow = rows[_purposeIdleRow];
+    var p = _purposeIdleRow / (rowCount - 1);
+    var r = 255, g = Math.round(220*(1-p)), b = Math.round(50*(1-p));
+    var clr = 'rgb('+r+','+g+','+b+')';
+    curRow.forEach(function(ci){
+      var ic = cards[ci]?.querySelector('.material-symbols-outlined');
+      if(ic){
+        ic.style.setProperty('color', clr, 'important');
+        ic.style.setProperty('transform', 'scale(1.45)', 'important');
+        ic.style.setProperty('text-shadow', '0 0 12px '+clr+', 0 0 24px '+clr, 'important');
+        ic.style.setProperty('filter', 'brightness(1.3)', 'important');
+      }
+    });
+    _purposeIdleRow = (_purposeIdleRow + 1) % rowCount;
+  }, 400);
 }
 function _stopPurposeIdleAnim(){
   if(_purposeIdleTimer){ clearInterval(_purposeIdleTimer); _purposeIdleTimer = null; }
