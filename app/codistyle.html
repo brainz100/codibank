@@ -325,23 +325,23 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 #csSaveToast.show{opacity:1;}
 
 /* [2026-04-09 수정] Ai옷장 카드덱 — 입체 겹침 + 그림자 / 원인: 간격만 벌려놓아 입체감 없음 / 해결: aicloset.html 방식 참조, translateX 겹침+perspective+box-shadow */
-.cdeck{display:flex;justify-content:center;align-items:center;height:210px;padding:0 10px;overflow:visible;position:relative;perspective:1200px;}
-.cdeck-card{flex-shrink:0;width:85px;height:128px;border-radius:12px;overflow:hidden;background:#ffffff;border:1.5px solid rgba(200,200,200,.25);cursor:pointer;position:absolute;transition:all .42s cubic-bezier(.16,1,.3,1);transform-style:preserve-3d;backface-visibility:hidden;-webkit-backface-visibility:hidden;box-shadow:0 6px 18px rgba(0,0,0,.12);}
-.cdeck-card img{width:100%;height:100%;object-fit:cover;}
-.cdeck-card.center{width:95px;height:143px;transform:translateX(0) scale(1) translateZ(60px);z-index:30;border:2px solid #97FEED;box-shadow:0 20px 50px -10px rgba(0,0,0,.35),0 8px 20px rgba(151,254,237,.15);background:#ffffff;}
-.cdeck-card.side-1L{transform:translateX(-72px) scale(.92) translateZ(-30px) rotateY(8deg);z-index:20;opacity:.94;box-shadow:0 10px 28px rgba(0,0,0,.18);}
-.cdeck-card.side-1R{transform:translateX(72px) scale(.92) translateZ(-30px) rotateY(-8deg);z-index:20;opacity:.94;box-shadow:0 10px 28px rgba(0,0,0,.18);}
-.cdeck-card.side-2L{transform:translateX(-124px) scale(.78) translateZ(-70px) rotateY(14deg);z-index:10;opacity:.72;box-shadow:0 6px 18px rgba(0,0,0,.14);filter:blur(.3px);}
-.cdeck-card.side-2R{transform:translateX(124px) scale(.78) translateZ(-70px) rotateY(-14deg);z-index:10;opacity:.72;box-shadow:0 6px 18px rgba(0,0,0,.14);filter:blur(.3px);}
-.cdeck-card.side-3L{transform:translateX(-160px) scale(.62) translateZ(-110px) rotateY(18deg);z-index:5;opacity:.45;box-shadow:0 4px 12px rgba(0,0,0,.10);filter:blur(.7px);}
-.cdeck-card.side-3R{transform:translateX(160px) scale(.62) translateZ(-110px) rotateY(-18deg);z-index:5;opacity:.45;box-shadow:0 4px 12px rgba(0,0,0,.10);filter:blur(.7px);}
-/* 카드 이동 애니메이션 */
-.cdeck-card.exit-left{pointer-events:none;transition:transform 220ms cubic-bezier(.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2px);transform:translateX(-180px) scale(.5) translateZ(-120px) rotateY(16deg);}
-.cdeck-card.exit-right{pointer-events:none;transition:transform 220ms cubic-bezier(.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2px);transform:translateX(180px) scale(.5) translateZ(-120px) rotateY(-16deg);}
-.cdeck-card.enter-left{transform:translateX(-180px) scale(.5) translateZ(-120px) rotateY(16deg);opacity:0;filter:blur(2px);}
-.cdeck-card.enter-right{transform:translateX(180px) scale(.5) translateZ(-120px) rotateY(-16deg);opacity:0;filter:blur(2px);}
-/* 모든 카드 라인 통일 */
-.cdeck-card{border-color:#97FEED !important;}
+/* ── 코디하기 카드덱 (aicloset 방식) ── */
+.cdeck{position:relative;height:200px;perspective:900px;overflow:visible;}
+.cs-layer{position:absolute;width:90px;height:135px;border-radius:14px;overflow:hidden;background:#fff;border:1.5px solid #97FEED;box-shadow:0 8px 24px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;left:50%;margin-left:-45px;top:50%;margin-top:-68px;transform-style:preserve-3d;backface-visibility:hidden;-webkit-backface-visibility:hidden;transition:transform 480ms cubic-bezier(.16,1,.3,1),opacity 300ms ease,filter 300ms ease,box-shadow 480ms ease;user-select:none;-webkit-user-select:none;}
+.cs-layer img{width:100%;height:100%;object-fit:contain;background:#fff;}
+.cs-l1{transform:translateX(-80px) scale(.82) translateZ(-60px) rotateY(10deg);z-index:10;opacity:.55;filter:blur(.6px);}
+.cs-l5{transform:translateX(80px) scale(.82) translateZ(-60px) rotateY(-10deg);z-index:10;opacity:.55;filter:blur(.6px);}
+.cs-l2{transform:translateX(-46px) scale(1.0) translateZ(-25px) rotateY(6deg);z-index:20;opacity:.92;}
+.cs-l4{transform:translateX(46px) scale(1.0) translateZ(-25px) rotateY(-6deg);z-index:20;opacity:.92;}
+.cs-l3{transform:translateX(0) scale(1.22) translateZ(50px) rotateY(0);z-index:30;border:2px solid #97FEED;box-shadow:0 20px 50px -10px rgba(0,0,0,.35);}
+.cs-layer.exit-left{pointer-events:none;transition:transform 200ms cubic-bezier(.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2px);transform:translateX(-140px) scale(.45) translateZ(-100px) rotateY(16deg) rotate(-5deg);}
+.cs-layer.exit-right{pointer-events:none;transition:transform 200ms cubic-bezier(.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2px);transform:translateX(140px) scale(.45) translateZ(-100px) rotateY(-16deg) rotate(5deg);}
+.cs-layer.enter-left{transform:translateX(-140px) scale(.45) translateZ(-100px) rotateY(16deg) rotate(-5deg);opacity:0;filter:blur(2px);}
+.cs-layer.enter-right{transform:translateX(140px) scale(.45) translateZ(-100px) rotateY(-16deg) rotate(5deg);opacity:0;filter:blur(2px);}
+.cs-layer.no-transition{transition:none !important;}
+@keyframes csPop{0%{transform:translateX(0) scale(1.22) translateZ(50px)}55%{transform:translateX(0) scale(1.28) translateZ(70px)}100%{transform:translateX(0) scale(1.22) translateZ(50px)}}
+.cs-pop{animation:csPop 480ms cubic-bezier(.16,1,.3,1) 1;}
+.cdeck.is-shifting .cs-layer:not(.cs-l3){filter:blur(.8px);}
 /* 체크 아이콘: 선택 시에만 표시 */
 .cdeck-check{position:absolute;top:3px;right:3px;opacity:0;transition:opacity .25s ease;pointer-events:none;}
 .cdeck-check.visible{opacity:1;}
@@ -388,15 +388,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
       <div style="font-size:10px;color:rgba(151,254,237,.5);font-weight:600;margin-top:2px;margin-left:22px;">ai옷장 상의 <span id="topCount" style="color:#97FEED;">0</span></div>
     </div>
     <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.25em;color:rgba(151,254,237,.3);text-transform:uppercase;margin-bottom:0;margin-top:4px;">← SWIPE →</div>
-    <div id="topDeck" class="cdeck">
-      <div class="cdeck-card side-3L"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">styler</span></div></div>
-      <div class="cdeck-card side-2L"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">styler</span></div></div>
-      <div class="cdeck-card side-1L"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">styler</span></div></div>
-      <div class="cdeck-card center"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;"><span style="font-size:8.5px;color:rgba(100,100,100,.6);line-height:1.3;font-weight:600;">아이템을<br>저장하면<br>코디할 수<br>있어요</span></div></div>
-      <div class="cdeck-card side-1R"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">styler</span></div></div>
-      <div class="cdeck-card side-2R"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">styler</span></div></div>
-      <div class="cdeck-card side-3R"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">styler</span></div></div>
-    </div>
+    <div id="topDeck" class="cdeck"></div>
     <div class="cpreview" id="slot-top" onclick="pickFile('top')">
       <div id="topPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
         <div style="text-align:center;color:#071952;"><span class="mi" style="font-size:28px;color:#071952;">add_photo_alternate</span><p style="font-size:11px;margin-top:4px;font-weight:700;">아이템을 선택해주세요</p></div>
@@ -423,15 +415,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
       <div style="font-size:10px;color:rgba(151,254,237,.5);font-weight:600;margin-top:2px;margin-left:22px;">ai옷장 하의 <span id="botCount" style="color:#97FEED;">0</span></div>
     </div>
     <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.25em;color:rgba(151,254,237,.3);text-transform:uppercase;margin-bottom:0;margin-top:4px;">← SWIPE →</div>
-    <div id="botDeck" class="cdeck">
-      <div class="cdeck-card side-3L"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">apparel</span></div></div>
-      <div class="cdeck-card side-2L"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">apparel</span></div></div>
-      <div class="cdeck-card side-1L"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">apparel</span></div></div>
-      <div class="cdeck-card center"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;"><span style="font-size:8.5px;color:rgba(100,100,100,.6);line-height:1.3;font-weight:600;">아이템을<br>저장하면<br>코디할 수<br>있어요</span></div></div>
-      <div class="cdeck-card side-1R"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">apparel</span></div></div>
-      <div class="cdeck-card side-2R"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">apparel</span></div></div>
-      <div class="cdeck-card side-3R"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(150,150,150,.2);">apparel</span></div></div>
-    </div>
+    <div id="botDeck" class="cdeck"></div>
     <div class="cpreview" id="slot-bottom" onclick="pickFile('bottom')">
       <div id="botPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
         <div style="text-align:center;color:#071952;"><span class="mi" style="font-size:28px;color:#071952;">add_photo_alternate</span><p style="font-size:11px;margin-top:4px;font-weight:700;">아이템을 선택해주세요</p></div>
@@ -2021,98 +2005,91 @@ function loadDeck(){
 }
 
 function _circIdx(i,len){ return ((i%len)+len)%len; }
+function _csSlc(el,n){el.classList.remove('cs-l1','cs-l2','cs-l3','cs-l4','cs-l5');el.classList.add('cs-l'+n);}
+function _csRotL(a){return a.slice(1).concat(a[0]);}
+function _csRotR(a){return [a[a.length-1]].concat(a.slice(0,-1));}
+function _csInitWin(items,si){var l=items.length;if(l===0)return[-1,-1,-1,-1,-1];if(l>=5)return[0,1,2,3,4].map(function(i){return _circIdx(si+i,l);});var w=[-1,-1,-1,-1,-1];for(var i=0;i<l;i++)w[i]=i;return w;}
+
+function _csLayerContent(el,item,type){
+  el.innerHTML='';
+  if(!item){el.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:20px;color:rgba(150,150,150,.2);">'+(type==='top'?'styler':'apparel')+'</span></div>';return;}
+  var imgEl=document.createElement('img');imgEl.alt='';imgEl.style.opacity='0';imgEl.style.transition='opacity .3s';
+  var ref=item.ref||'';
+  if(!ref&&item.item){var im=item.item.images||{};ref=im.front||im.brand||im.back||im.original||im.photo||im.thumbnail||im.nobg||im.src||'';if(!ref)ref=item.item.imageUrl||item.item.src||'';}
+  if(!ref){el.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:20px;color:rgba(150,150,150,.2);">'+(type==='top'?'styler':'apparel')+'</span></div>';return;}
+  el.appendChild(imgEl);
+  if(CodiBank.getImageSrc)CodiBank.getImageSrc(ref).then(function(src){if(src){imgEl.onload=function(){imgEl.style.opacity='1';};imgEl.src=src;}}).catch(function(){});
+}
+
+var _csDeckCtrl={top:null,bot:null};
 
 function drawDeck(type,items,ci){
   var el=document.getElementById(type==='top'?'topDeck':'botDeck');
   if(!el) return;
   el.innerHTML='';
-  // [2026-04-09 수정] 개수 표시 / 원인: topCount,botCount 엘리먼트 누락 / 해결: HTML에 span 추가+텍스트
   var cntEl=document.getElementById(type==='top'?'topCount':'botCount');
   if(cntEl) cntEl.textContent=items.length+'개';
-  
   if(!items.length){
-    for(var p=0;p<7;p++){
-      var ph=document.createElement('div');
-      ph.className='cdeck-card '+(p===3?'center':'side-'+(p<3?(3-p)+'L':(p-3)+'R'));
-      if(p===3){
-        ph.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px;"><span style="font-size:8.5px;color:rgba(100,100,100,.6);line-height:1.3;font-weight:600;">아이템을<br>저장하면<br>코디할 수<br>있어요</span></div>';
-      } else {
-        ph.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:22px;color:rgba(255,255,255,.25);">'+(type==='top'?'styler':'apparel')+'</span></div>';
-      }
-      el.appendChild(ph);
-    }
+    el.style.height='90px';
+    el.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;"><span style="font-size:9px;color:rgba(100,100,100,.5);line-height:1.3;font-weight:600;">아이템을 저장하면<br>코디할 수 있어요</span></div>';
     return;
   }
-  
-  // [2026-04-09 수정] 순환 카드덱 + 3D 입체 효과 + 체크아이콘 선택 시만 표시
-  var selIdx=(type==='top')?_dkTopSel:_dkBotSel;
-  var sideClasses=['side-3L','side-2L','side-1L','center','side-1R','side-2R','side-3R'];
-  for(var slot=0;slot<7;slot++){
-    var offset=slot-3;
-    var dataIdx=_circIdx(ci+offset, items.length); // 순환 인덱스
-    var isCenter=(slot===3);
-    var isSelected=(dataIdx===selIdx);
-    var card=document.createElement('div');
-    card.className='cdeck-card '+sideClasses[slot];
-    card.setAttribute('data-idx',dataIdx);
-    card.setAttribute('data-type',type);
-    var imgId='dk_'+type+'_'+dataIdx+'_'+Date.now();
-    card.innerHTML='<img id="'+imgId+'" style="opacity:0;transition:opacity .3s;" alt="">'
-      +'<span class="cdeck-check'+(isSelected?' visible':'')+'"><span class="mi" style="font-size:14px;color:#97FEED;background:#071952;border-radius:50%;padding:1px;">check_circle</span></span>';
-    // ──── [2026-04-10 수정] 이미지 로드 실패 시 폴백 아이콘 표시 ────
-    (function(idx,entry,id){
-      var ref=entry.ref||'';
-      if(!ref&&entry.item){var im=entry.item.images||{};ref=im.front||im.brand||im.back||im.original||im.photo||im.thumbnail||im.nobg||im.src||'';if(!ref)ref=entry.item.imageUrl||entry.item.src||'';}
-      function _fb(){var el=document.getElementById(id);if(!el)return;el.parentElement.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:24px;color:rgba(150,150,150,.2);">styler</span></div>';}
-      if(!ref){_fb();return;}
-      if(CodiBank.getImageSrc)CodiBank.getImageSrc(ref).then(function(src){var img=document.getElementById(id);if(!img)return;if(!src){_fb();return;}img.onerror=function(){_fb();};img.onload=function(){img.style.opacity='1';};img.src=src;}).catch(function(){_fb();});
-      else _fb();
-    })(dataIdx,items[dataIdx],imgId);
-    el.appendChild(card);
-  }
-  // 클릭 이벤트
-  el.onclick=function(ev){
-    var c=ev.target.closest('.cdeck-card');
-    if(!c) return;
-    var idx=parseInt(c.getAttribute('data-idx'));
-    if(isNaN(idx)) return;
-    var curCenter=(type==='top')?_dkTopIdx:_dkBotIdx;
-    if(idx===curCenter){
-      // [2026-04-09 수정] 중앙 카드 클릭 → 선택 + 체크 아이콘 표시
-      if(type==='top') _dkTopSel=idx;
-      else _dkBotSel=idx;
-      pickDeckItem(type==='top'?'top':'bottom', (type==='top'?_dkTopItems:_dkBotItems)[idx]);
-      drawDeck(type, type==='top'?_dkTopItems:_dkBotItems, curCenter);
-    } else {
-      // 사이드 카드 클릭 → 중앙으로 이동 (애니메이션)
-      var _dir = (idx > curCenter) ? 1 : -1;
-      if(items.length > 1){
-        var _allCards = el.querySelectorAll('.cdeck-card');
-        _allCards.forEach(function(_c){ _c.classList.add(_dir>0?'exit-left':'exit-right'); });
-        setTimeout(function(){
-          if(type==='top'){_dkTopIdx=idx; drawDeck('top',_dkTopItems,_dkTopIdx);}
-          else{_dkBotIdx=idx; drawDeck('bot',_dkBotItems,_dkBotIdx);}
-        }, 200);
-      } else {
-        if(type==='top'){_dkTopIdx=idx; drawDeck('top',_dkTopItems,_dkTopIdx);}
-        else{_dkBotIdx=idx; drawDeck('bot',_dkBotItems,_dkBotIdx);}
-      }
+  el.style.height='200px';
+  var ctrl={type:type,items:items,startIndex:0,windowIndices:[-1,-1,-1,-1,-1],els:[],animating:false,
+    shift:function(dir){
+      if(this.animating)return;var l=this.items.length;if(l<=0)return;
+      this.animating=true;el.classList.add('is-shifting');
+      if(l>=5){this.startIndex=_circIdx(this.startIndex+(dir>0?1:-1),l);this.windowIndices=[0,1,2,3,4].map(function(i){return _circIdx(ctrl.startIndex+i,l);});}
+      else{this.windowIndices=(dir>0)?_csRotL(this.windowIndices):_csRotR(this.windowIndices);}
+      var oe=this.els.slice(),lv=dir>0?oe[0]:oe[oe.length-1];
+      if(!lv){this.animating=false;el.classList.remove('is-shifting');return;}
+      var ne=dir>0?oe.slice(1).concat(lv):[lv].concat(oe.slice(0,-1));
+      this.els=ne;
+      ne.forEach(function(e){e.classList.remove('exit-left','exit-right','enter-left','enter-right','cs-pop');});
+      lv.classList.add(dir>0?'exit-left':'exit-right');
+      for(var i=0;i<ne.length;i++){if((dir>0&&i===4)||(dir<0&&i===0))continue;_csSlc(ne[i],i+1);}
+      var ce=ne[2];
+      if(ce)setTimeout(function(){if(!ctrl.animating)return;ce.classList.remove('cs-pop');try{void ce.offsetHeight;}catch(_){}ce.classList.add('cs-pop');setTimeout(function(){ce.classList.remove('cs-pop');},500);},350);
+      var _self=this;
+      setTimeout(function(){
+        if(!_self.animating)return;
+        lv.classList.remove('exit-left','exit-right');
+        var ep=dir>0?5:1,ei=dir>0?_self.windowIndices[4]:_self.windowIndices[0];
+        _csLayerContent(lv,ei>=0?_self.items[ei]:null,_self.type);
+        lv.classList.add('no-transition');_csSlc(lv,ep);lv.classList.add(dir>0?'enter-right':'enter-left');
+        try{void lv.offsetHeight;}catch(_){}
+        lv.classList.remove('no-transition');
+        requestAnimationFrame(function(){lv.classList.remove(dir>0?'enter-right':'enter-left');});
+      },200);
+      setTimeout(function(){_self.animating=false;el.classList.remove('is-shifting');lv.classList.remove('exit-left','exit-right','enter-left','enter-right','no-transition');},840);
     }
   };
-  // 스와이프 (카드+이미지 함께 이동 애니메이션)
-  el.ontouchstart=function(ev){el._sx=ev.touches[0].clientX;};
-  el.ontouchend=function(ev){
-    var dx=ev.changedTouches[0].clientX-(el._sx||0);
-    if(Math.abs(dx)<30)return;
-    var dir = dx<0 ? 1 : -1;
-    // exit 애니메이션
-    var cards = el.querySelectorAll('.cdeck-card');
-    cards.forEach(function(c){ c.classList.add(dir>0?'exit-left':'exit-right'); });
-    setTimeout(function(){
-      if(type==='top'){_dkTopIdx=_circIdx(_dkTopIdx+dir,items.length);drawDeck('top',_dkTopItems,_dkTopIdx);}
-      else{_dkBotIdx=_circIdx(_dkBotIdx+dir,items.length);drawDeck('bot',_dkBotItems,_dkBotIdx);}
-    }, 200);
-  };
+  var l=ctrl.items.length;
+  if(l>=5)ctrl.startIndex=_circIdx(ci-2,l); else ctrl.startIndex=0;
+  ctrl.windowIndices=_csInitWin(ctrl.items,ctrl.startIndex);
+  if(l>0&&l<5){var sh=2-ci;var w=ctrl.windowIndices.slice();if(sh>0)for(var i=0;i<sh;i++)w=_csRotR(w);else if(sh<0)for(var j=0;j<Math.abs(sh);j++)w=_csRotL(w);ctrl.windowIndices=w;}
+  for(var pos=1;pos<=5;pos++){
+    var a=document.createElement('div');a.className='cs-layer cs-l'+pos;
+    var idx=ctrl.windowIndices[pos-1];
+    a.setAttribute('data-idx',idx>=0?idx:-1);
+    _csLayerContent(a,idx>=0?ctrl.items[idx]:null,type);
+    ctrl.els.push(a);el.appendChild(a);
+  }
+  _csDeckCtrl[type]=ctrl;
+  // 중앙 카드 클릭 → 선택
+  el.addEventListener('click',function(ev){
+    var c=ev.target.closest('.cs-l3');
+    if(!c||ctrl.animating)return;
+    var idx=parseInt(c.getAttribute('data-idx'));
+    if(isNaN(idx)||idx<0)return;
+    if(type==='top')_dkTopSel=idx; else _dkBotSel=idx;
+    pickDeckItem(type==='top'?'top':'bottom',items[idx]);
+  });
+  // 스와이프
+  var _dn=false,_sx=0;
+  el.addEventListener('pointerdown',function(e){_dn=true;_sx=e.clientX;try{el.setPointerCapture(e.pointerId);}catch(_){}});
+  el.addEventListener('pointerup',function(e){if(!_dn)return;_dn=false;var dx=e.clientX-_sx;if(Math.abs(dx)>40){dx<0?ctrl.shift(1):ctrl.shift(-1);}});
+  el.addEventListener('pointercancel',function(){_dn=false;});
 }
 
 async function pickDeckItem(type,entry){
