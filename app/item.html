@@ -322,7 +322,7 @@
 
     const res = CodiBank.updateItem(user.email, currentItem.id, patch);
     if (!res || res.ok !== true) {
-      alert((res && res.error) ? res.error : '저장에 실패했습니다.');
+      alert((res && res.error) ? res.error : CodiBankI18n.t('저장에 실패했습니다.','Save failed.'));
       if (String(res?.error || '').includes('한도')) window.location.href = 'pricing.html';
       return;
     }
@@ -334,14 +334,14 @@
 
   deleteBtn?.addEventListener('click', () => {
     if (!currentItem) return;
-    if (!confirm('이 아이템을 삭제할까요?')) return;
+    if (!confirm(CodiBankI18n.t('이 아이템을 삭제할까요?','Delete this item?'))) return;
 
     const res = CodiBank.deleteItem(user.email, currentItem.id);
     if (!res || res.ok !== true) {
-      alert((res && res.error) ? res.error : '삭제에 실패했습니다.');
+      alert((res && res.error) ? res.error : CodiBankI18n.t('삭제에 실패했습니다.','Delete failed.'));
       return;
     }
-    alert('삭제되었습니다.');
+    alert(CodiBankI18n.t('삭제되었습니다.','Deleted.'));
     window.location.href = 'aicloset.html';
   });
 
@@ -351,7 +351,7 @@
   async function shareCurrentImage() {
     const main = document.getElementById('mainImage');
     const src = main?.getAttribute('src') || '';
-    if (!src) return alert('공유할 이미지가 없습니다.');
+    if (!src) return alert(CodiBankI18n.t('공유할 이미지가 없습니다.','No image to share.'));
 
     try {
       const blob = await fetch(src).then((r) => r.blob());
@@ -370,7 +370,7 @@
       setTimeout(() => URL.revokeObjectURL(a.href), 3000);
     } catch (e) {
       console.warn('share failed', e);
-      alert('공유/저장에 실패했습니다.');
+      alert(CodiBankI18n.t('공유/저장에 실패했습니다.','Share/save failed.'));
     }
   }
 
@@ -379,14 +379,14 @@
   // Init
   (function init() {
     if (!id) {
-      alert('아이템 ID가 없습니다.');
+      alert(CodiBankI18n.t('아이템 ID가 없습니다.','Item ID not found.'));
       window.location.href = 'aicloset.html';
       return;
     }
 
     currentItem = CodiBank.getItemById(id);
     if (!currentItem) {
-      alert('아이템을 찾을 수 없습니다.');
+      alert(CodiBankI18n.t('아이템을 찾을 수 없습니다.','Item not found.'));
       window.location.href = 'aicloset.html';
       return;
     }

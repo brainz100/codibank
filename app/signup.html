@@ -165,20 +165,20 @@ async function sendVerification(){
   const em=document.getElementById('s1_email').value.trim();
   const pw=document.getElementById('s1_pw').value;
   const pw2=document.getElementById('s1_pw2').value;
-  if(!em||!em.includes('@')) return showErr('s1Err','올바른 이메일을 입력해주세요.');
-  if(!pw||pw.length<6) return showErr('s1Err','비밀번호는 6자 이상이어야 합니다.');
-  if(pw!==pw2) return showErr('s1Err','비밀번호가 일치하지 않습니다.');
+  if(!em||!em.includes('@')) return showErr('s1Err',CodiBankI18n.t('올바른 이메일을 입력해주세요.','Please enter a valid email.'));
+  if(!pw||pw.length<6) return showErr('s1Err',CodiBankI18n.t('비밀번호는 6자 이상이어야 합니다.','Password must be 6+ characters.'));
+  if(pw!==pw2) return showErr('s1Err',CodiBankI18n.t('비밀번호가 일치하지 않습니다.','Passwords do not match.'));
   sEmail=em; sPw=pw;
   const btn=document.getElementById('btnStep1'); btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> 발송 중…';
   try{
-    if(!sb) throw new Error('인증 서버 연결 실패');
+    if(!sb) throw new Error(CodiBankI18n.t('인증 서버 연결 실패','Auth server connection failed'));
     const{data,error}=await sb.auth.signUp({
       email:em, password:pw,
       options:{ emailRedirectTo:'https://codibank.kr/app/signup.html?verified=true' }
     });
     if(error){
-      if(error.message.includes('already')) throw new Error('이미 가입된 이메일입니다. 로그인해주세요.');
-      if(error.status===429) throw new Error('잠시 후 다시 시도해주세요.');
+      if(error.message.includes('already')) throw new Error(CodiBankI18n.t('이미 가입된 이메일입니다. 로그인해주세요.','Email already registered. Please log in.'));
+      if(error.status===429) throw new Error(CodiBankI18n.t('잠시 후 다시 시도해주세요.','Please try again later.'));
       throw new Error(error.message);
     }
     if(data&&data.session){
@@ -199,7 +199,7 @@ async function checkVerified(){
     const{data,error}=await sb.auth.signInWithPassword({email:sEmail,password:sPw});
     if(error){
       if(error.message.includes('not confirmed')||error.message.includes('Email not confirmed'))
-        return showErr('s2Err','아직 인증이 완료되지 않았습니다. 이메일을 확인해주세요.');
+        return showErr('s2Err',CodiBankI18n.t('아직 인증이 완료되지 않았습니다. 이메일을 확인해주세요.','Not verified yet. Check your email.'));
       throw new Error(error.message);
     }
     showStep('step3',3);
@@ -213,7 +213,7 @@ async function resendEmail(){
   try{
     const{error}=await sb.auth.resend({type:'signup',email:sEmail});
     if(error) throw error;
-    alert('인증 이메일을 재발송했습니다. 메일함을 확인해주세요.');
+    alert(CodiBankI18n.t('인증 이메일을 재발송했습니다. 메일함을 확인해주세요.','Verification email resent. Check your inbox.'));
   }catch(e){ showErr('s2Err','재발송 실패: '+(e.message||'잠시 후 다시 시도해주세요.')); }
 }
 

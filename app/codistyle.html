@@ -1637,11 +1637,11 @@ function downloadAnalysisPdf(){
     a.download = 'codibank_styling_' + new Date().toISOString().slice(0,10) + '.txt';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }catch(e){ console.warn('[PDF]', e); alert('다운로드 실패'); }
+  }catch(e){ console.warn('[PDF]', e); alert(CodiBankI18n.t('다운로드 실패','Download failed')); }
 }
 
 async function saveImg(){
-  if(!lastImgUrl){ alert('저장할 이미지가 없어요'); return; }
+  if(!lastImgUrl){ alert(CodiBankI18n.t('저장할 이미지가 없어요','No image to save')); return; }
   const _showSaveToast = () => {
     const toast = document.getElementById('csSaveToast');
     if(!toast) return;
@@ -1672,7 +1672,7 @@ async function saveImg(){
 
 /* ── 공유: 이미지 파일로 SNS/문자 공유 ── */
 async function shareResult(){
-  if(!lastImgUrl){ alert('공유할 이미지가 없어요'); return; }
+  if(!lastImgUrl){ alert(CodiBankI18n.t('공유할 이미지가 없어요','No image to share')); return; }
   try{
     /* 이미지 blob 생성 */
     const r = await fetch(lastImgUrl);
@@ -1696,12 +1696,12 @@ async function shareResult(){
     } else {
       /* 클립보드 복사 폴백 */
       await navigator.clipboard.writeText(lastImgUrl);
-      alert('이미지 링크가 클립보드에 복사됐어요!');
+      alert(CodiBankI18n.t('이미지 링크가 클립보드에 복사됐어요!','Image link copied!'));
     }
   }catch(e){
     if(e.name !== 'AbortError'){
       /* 공유 취소가 아닌 오류면 링크 복사로 폴백 */
-      try{ await navigator.clipboard.writeText(lastImgUrl); alert('이미지 링크가 클립보드에 복사됐어요!'); }catch(_){}
+      try{ await navigator.clipboard.writeText(lastImgUrl); alert(CodiBankI18n.t('이미지 링크가 클립보드에 복사됐어요!','Image link copied!')); }catch(_){}
     }
   }
 }

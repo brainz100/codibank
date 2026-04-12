@@ -4220,7 +4220,7 @@ async function updateVTO(opts={}){
 // 저장/공유
 document.getElementById('saveBtn')?.addEventListener('click',()=>{
   const c=document.getElementById('vtoCanvas');
-  if(!c||c.style.display==='none'){alert('먼저 스타일링을 생성해주세요.');return;}
+  if(!c||c.style.display==='none'){alert(CodiBankI18n.t('먼저 스타일링을 생성해주세요.','Please generate styling first.'));return;}
   try{
     const a=document.createElement('a');
     a.download=`codibank_${Date.now()}.png`;
@@ -4232,10 +4232,10 @@ document.getElementById('saveBtn')?.addEventListener('click',()=>{
       toast.classList.add('show');
       setTimeout(()=>toast.classList.remove('show'),500);
     }
-  }catch(e){alert('저장 실패:'+e.message);}
+  }catch(e){alert(CodiBankI18n.t('저장 실패:','Save failed:')+e.message);}
 });
 document.getElementById('shareBtn')?.addEventListener('click',()=>{
-  const c=document.getElementById('vtoCanvas');if(!c||c.style.display==='none'){alert('먼저 스타일링을 생성해주세요.');return;}
+  const c=document.getElementById('vtoCanvas');if(!c||c.style.display==='none'){alert(CodiBankI18n.t('먼저 스타일링을 생성해주세요.','Please generate styling first.'));return;}
   if(navigator.share&&navigator.canShare){c.toBlob(blob=>{const f=new File([blob],'codibank.png',{type:'image/png'});if(navigator.canShare({files:[f]}))navigator.share({files:[f],title:'코디뱅크 Ai 추천 스타일링'}).catch(()=>{});else{const a=document.createElement('a');a.download='codibank.png';a.href=URL.createObjectURL(blob);a.click();}},'image/png');}
   else{const a=document.createElement('a');a.download='codibank.png';a.href=c.toDataURL();a.click();}
 });
