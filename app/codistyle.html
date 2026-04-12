@@ -325,23 +325,25 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 #csSaveToast.show{opacity:1;}
 
 /* [2026-04-09 수정] Ai옷장 카드덱 — 입체 겹침 + 그림자 / 원인: 간격만 벌려놓아 입체감 없음 / 해결: aicloset.html 방식 참조, translateX 겹침+perspective+box-shadow */
-/* ── 코디하기 카드덱 (aicloset 방식) ── */
-.cdeck{position:relative;height:200px;perspective:900px;overflow:visible;}
+/* ── 코디하기 카드덱 (aicloset 방식, 7카드) ── */
+.cdeck{position:relative;height:200px;perspective:900px;overflow:visible;touch-action:pan-y;}
 .cs-layer{position:absolute;width:90px;height:135px;border-radius:14px;overflow:hidden;background:#fff;border:1.5px solid #97FEED;box-shadow:0 8px 24px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;left:50%;margin-left:-45px;top:50%;margin-top:-68px;transform-style:preserve-3d;backface-visibility:hidden;-webkit-backface-visibility:hidden;transition:transform 480ms cubic-bezier(.16,1,.3,1),opacity 300ms ease,filter 300ms ease,box-shadow 480ms ease;user-select:none;-webkit-user-select:none;}
 .cs-layer img{width:100%;height:100%;object-fit:contain;background:#fff;}
-.cs-l1{transform:translateX(-80px) scale(.82) translateZ(-60px) rotateY(10deg);z-index:10;opacity:.55;filter:blur(.6px);}
-.cs-l5{transform:translateX(80px) scale(.82) translateZ(-60px) rotateY(-10deg);z-index:10;opacity:.55;filter:blur(.6px);}
-.cs-l2{transform:translateX(-46px) scale(1.0) translateZ(-25px) rotateY(6deg);z-index:20;opacity:.92;}
-.cs-l4{transform:translateX(46px) scale(1.0) translateZ(-25px) rotateY(-6deg);z-index:20;opacity:.92;}
-.cs-l3{transform:translateX(0) scale(1.22) translateZ(50px) rotateY(0);z-index:30;border:2px solid #97FEED;box-shadow:0 20px 50px -10px rgba(0,0,0,.35);}
-.cs-layer.exit-left{pointer-events:none;transition:transform 200ms cubic-bezier(.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2px);transform:translateX(-140px) scale(.45) translateZ(-100px) rotateY(16deg) rotate(-5deg);}
-.cs-layer.exit-right{pointer-events:none;transition:transform 200ms cubic-bezier(.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2px);transform:translateX(140px) scale(.45) translateZ(-100px) rotateY(-16deg) rotate(5deg);}
-.cs-layer.enter-left{transform:translateX(-140px) scale(.45) translateZ(-100px) rotateY(16deg) rotate(-5deg);opacity:0;filter:blur(2px);}
-.cs-layer.enter-right{transform:translateX(140px) scale(.45) translateZ(-100px) rotateY(-16deg) rotate(5deg);opacity:0;filter:blur(2px);}
+.cs-l1{transform:translateX(-130px) scale(.68) translateZ(-90px) rotateY(14deg);z-index:5;opacity:.4;filter:blur(.7px);}
+.cs-l7{transform:translateX(130px) scale(.68) translateZ(-90px) rotateY(-14deg);z-index:5;opacity:.4;filter:blur(.7px);}
+.cs-l2{transform:translateX(-82px) scale(.82) translateZ(-55px) rotateY(10deg);z-index:10;opacity:.65;filter:blur(.4px);}
+.cs-l6{transform:translateX(82px) scale(.82) translateZ(-55px) rotateY(-10deg);z-index:10;opacity:.65;filter:blur(.4px);}
+.cs-l3{transform:translateX(-44px) scale(1.0) translateZ(-20px) rotateY(5deg);z-index:20;opacity:.92;}
+.cs-l5{transform:translateX(44px) scale(1.0) translateZ(-20px) rotateY(-5deg);z-index:20;opacity:.92;}
+.cs-l4{transform:translateX(0) scale(1.22) translateZ(50px) rotateY(0);z-index:30;border:2px solid #97FEED;box-shadow:0 20px 50px -10px rgba(0,0,0,.35);}
+.cs-layer.exit-left{pointer-events:none;transition:transform 200ms cubic-bezier(.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2px);transform:translateX(-160px) scale(.4) translateZ(-100px) rotateY(16deg) rotate(-5deg);}
+.cs-layer.exit-right{pointer-events:none;transition:transform 200ms cubic-bezier(.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2px);transform:translateX(160px) scale(.4) translateZ(-100px) rotateY(-16deg) rotate(5deg);}
+.cs-layer.enter-left{transform:translateX(-160px) scale(.4) translateZ(-100px) rotateY(16deg) rotate(-5deg);opacity:0;filter:blur(2px);}
+.cs-layer.enter-right{transform:translateX(160px) scale(.4) translateZ(-100px) rotateY(-16deg) rotate(5deg);opacity:0;filter:blur(2px);}
 .cs-layer.no-transition{transition:none !important;}
 @keyframes csPop{0%{transform:translateX(0) scale(1.22) translateZ(50px)}55%{transform:translateX(0) scale(1.28) translateZ(70px)}100%{transform:translateX(0) scale(1.22) translateZ(50px)}}
 .cs-pop{animation:csPop 480ms cubic-bezier(.16,1,.3,1) 1;}
-.cdeck.is-shifting .cs-layer:not(.cs-l3){filter:blur(.8px);}
+.cdeck.is-shifting .cs-layer:not(.cs-l4){filter:blur(.8px);}
 /* 체크 아이콘: 선택 시에만 표시 */
 .cdeck-check{position:absolute;top:3px;right:3px;opacity:0;transition:opacity .25s ease;pointer-events:none;}
 .cdeck-check.visible{opacity:1;}
@@ -2005,18 +2007,24 @@ function loadDeck(){
 }
 
 function _circIdx(i,len){ return ((i%len)+len)%len; }
-function _csSlc(el,n){el.classList.remove('cs-l1','cs-l2','cs-l3','cs-l4','cs-l5');el.classList.add('cs-l'+n);}
+function _csSlc(el,n){el.classList.remove('cs-l1','cs-l2','cs-l3','cs-l4','cs-l5','cs-l6','cs-l7');el.classList.add('cs-l'+n);}
 function _csRotL(a){return a.slice(1).concat(a[0]);}
 function _csRotR(a){return [a[a.length-1]].concat(a.slice(0,-1));}
-function _csInitWin(items,si){var l=items.length;if(l===0)return[-1,-1,-1,-1,-1];if(l>=5)return[0,1,2,3,4].map(function(i){return _circIdx(si+i,l);});var w=[-1,-1,-1,-1,-1];for(var i=0;i<l;i++)w[i]=i;return w;}
+function _csInitWin(items,si){
+  var l=items.length,w=[-1,-1,-1,-1,-1,-1,-1];
+  if(l===0)return w;
+  if(l>=7) return [0,1,2,3,4,5,6].map(function(i){return _circIdx(si+i,l);});
+  for(var i=0;i<l;i++)w[i]=i;
+  return w;
+}
 
 function _csLayerContent(el,item,type){
   el.innerHTML='';
-  if(!item){el.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:20px;color:rgba(150,150,150,.2);">'+(type==='top'?'styler':'apparel')+'</span></div>';return;}
+  if(!item){el.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:18px;color:rgba(150,150,150,.2);">'+(type==='top'?'styler':'apparel')+'</span></div>';return;}
   var imgEl=document.createElement('img');imgEl.alt='';imgEl.style.opacity='0';imgEl.style.transition='opacity .3s';
   var ref=item.ref||'';
   if(!ref&&item.item){var im=item.item.images||{};ref=im.front||im.brand||im.back||im.original||im.photo||im.thumbnail||im.nobg||im.src||'';if(!ref)ref=item.item.imageUrl||item.item.src||'';}
-  if(!ref){el.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:20px;color:rgba(150,150,150,.2);">'+(type==='top'?'styler':'apparel')+'</span></div>';return;}
+  if(!ref){el.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:18px;color:rgba(150,150,150,.2);">'+(type==='top'?'styler':'apparel')+'</span></div>';return;}
   el.appendChild(imgEl);
   if(CodiBank.getImageSrc)CodiBank.getImageSrc(ref).then(function(src){if(src){imgEl.onload=function(){imgEl.style.opacity='1';};imgEl.src=src;}}).catch(function(){});
 }
@@ -2027,6 +2035,11 @@ function drawDeck(type,items,ci){
   var el=document.getElementById(type==='top'?'topDeck':'botDeck');
   if(!el) return;
   el.innerHTML='';
+  // 이전 이벤트 리스너 제거를 위해 복제
+  var newEl=el.cloneNode(false);
+  el.parentNode.replaceChild(newEl,el);
+  el=newEl;
+
   var cntEl=document.getElementById(type==='top'?'topCount':'botCount');
   if(cntEl) cntEl.textContent=items.length+'개';
   if(!items.length){
@@ -2035,11 +2048,13 @@ function drawDeck(type,items,ci){
     return;
   }
   el.style.height='200px';
-  var ctrl={type:type,items:items,startIndex:0,windowIndices:[-1,-1,-1,-1,-1],els:[],animating:false,
+
+  var ctrl={type:type,items:items,startIndex:0,windowIndices:[-1,-1,-1,-1,-1,-1,-1],els:[],animating:false,
     shift:function(dir){
       if(this.animating)return;var l=this.items.length;if(l<=0)return;
       this.animating=true;el.classList.add('is-shifting');
-      if(l>=5){this.startIndex=_circIdx(this.startIndex+(dir>0?1:-1),l);this.windowIndices=[0,1,2,3,4].map(function(i){return _circIdx(ctrl.startIndex+i,l);});}
+      var TOTAL=7,CENTER=3;
+      if(l>=TOTAL){this.startIndex=_circIdx(this.startIndex+(dir>0?1:-1),l);this.windowIndices=[0,1,2,3,4,5,6].map(function(i){return _circIdx(ctrl.startIndex+i,l);});}
       else{this.windowIndices=(dir>0)?_csRotL(this.windowIndices):_csRotR(this.windowIndices);}
       var oe=this.els.slice(),lv=dir>0?oe[0]:oe[oe.length-1];
       if(!lv){this.animating=false;el.classList.remove('is-shifting');return;}
@@ -2047,14 +2062,14 @@ function drawDeck(type,items,ci){
       this.els=ne;
       ne.forEach(function(e){e.classList.remove('exit-left','exit-right','enter-left','enter-right','cs-pop');});
       lv.classList.add(dir>0?'exit-left':'exit-right');
-      for(var i=0;i<ne.length;i++){if((dir>0&&i===4)||(dir<0&&i===0))continue;_csSlc(ne[i],i+1);}
-      var ce=ne[2];
+      for(var i=0;i<ne.length;i++){if((dir>0&&i===6)||(dir<0&&i===0))continue;_csSlc(ne[i],i+1);}
+      var ce=ne[CENTER];
       if(ce)setTimeout(function(){if(!ctrl.animating)return;ce.classList.remove('cs-pop');try{void ce.offsetHeight;}catch(_){}ce.classList.add('cs-pop');setTimeout(function(){ce.classList.remove('cs-pop');},500);},350);
       var _self=this;
       setTimeout(function(){
         if(!_self.animating)return;
         lv.classList.remove('exit-left','exit-right');
-        var ep=dir>0?5:1,ei=dir>0?_self.windowIndices[4]:_self.windowIndices[0];
+        var ep=dir>0?7:1,ei=dir>0?_self.windowIndices[6]:_self.windowIndices[0];
         _csLayerContent(lv,ei>=0?_self.items[ei]:null,_self.type);
         lv.classList.add('no-transition');_csSlc(lv,ep);lv.classList.add(dir>0?'enter-right':'enter-left');
         try{void lv.offsetHeight;}catch(_){}
@@ -2065,10 +2080,10 @@ function drawDeck(type,items,ci){
     }
   };
   var l=ctrl.items.length;
-  if(l>=5)ctrl.startIndex=_circIdx(ci-2,l); else ctrl.startIndex=0;
+  if(l>=7)ctrl.startIndex=_circIdx(ci-3,l); else ctrl.startIndex=0;
   ctrl.windowIndices=_csInitWin(ctrl.items,ctrl.startIndex);
-  if(l>0&&l<5){var sh=2-ci;var w=ctrl.windowIndices.slice();if(sh>0)for(var i=0;i<sh;i++)w=_csRotR(w);else if(sh<0)for(var j=0;j<Math.abs(sh);j++)w=_csRotL(w);ctrl.windowIndices=w;}
-  for(var pos=1;pos<=5;pos++){
+  if(l>0&&l<7){var sh=3-ci;var w=ctrl.windowIndices.slice();if(sh>0)for(var i=0;i<sh;i++)w=_csRotR(w);else if(sh<0)for(var j=0;j<Math.abs(sh);j++)w=_csRotL(w);ctrl.windowIndices=w;}
+  for(var pos=1;pos<=7;pos++){
     var a=document.createElement('div');a.className='cs-layer cs-l'+pos;
     var idx=ctrl.windowIndices[pos-1];
     a.setAttribute('data-idx',idx>=0?idx:-1);
@@ -2076,20 +2091,29 @@ function drawDeck(type,items,ci){
     ctrl.els.push(a);el.appendChild(a);
   }
   _csDeckCtrl[type]=ctrl;
-  // 중앙 카드 클릭 → 선택
+
+  // 중앙 카드(l4) 클릭 → 선택
   el.addEventListener('click',function(ev){
-    var c=ev.target.closest('.cs-l3');
+    var c=ev.target.closest('.cs-l4');
     if(!c||ctrl.animating)return;
     var idx=parseInt(c.getAttribute('data-idx'));
     if(isNaN(idx)||idx<0)return;
     if(type==='top')_dkTopSel=idx; else _dkBotSel=idx;
     pickDeckItem(type==='top'?'top':'bottom',items[idx]);
   });
-  // 스와이프
-  var _dn=false,_sx=0;
-  el.addEventListener('pointerdown',function(e){_dn=true;_sx=e.clientX;try{el.setPointerCapture(e.pointerId);}catch(_){}});
-  el.addEventListener('pointerup',function(e){if(!_dn)return;_dn=false;var dx=e.clientX-_sx;if(Math.abs(dx)>40){dx<0?ctrl.shift(1):ctrl.shift(-1);}});
-  el.addEventListener('pointercancel',function(){_dn=false;});
+
+  // 터치 스와이프
+  var _sx=0,_moving=false;
+  el.addEventListener('touchstart',function(ev){_sx=ev.touches[0].clientX;_moving=false;},{passive:true});
+  el.addEventListener('touchmove',function(ev){
+    var dx=Math.abs(ev.touches[0].clientX-_sx);
+    if(dx>15)_moving=true;
+  },{passive:true});
+  el.addEventListener('touchend',function(ev){
+    if(!_moving)return;
+    var dx=ev.changedTouches[0].clientX-_sx;
+    if(Math.abs(dx)>30){dx<0?ctrl.shift(1):ctrl.shift(-1);}
+  });
 }
 
 async function pickDeckItem(type,entry){
