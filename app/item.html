@@ -93,7 +93,7 @@
 .cb-nav-tab .nl{font-size:9px;font-weight:600;letter-spacing:.02em;}
 .cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px;}
 .cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
-.cb-spacer{height:82px;}
+.cb-spacer{height:0;}
 </style>
   <link rel="manifest" href="/manifest.json"/>
 <meta name="theme-color" content="#07132a"/>
@@ -110,18 +110,14 @@
 <span class="material-symbols-outlined text-slate-600 dark:text-slate-300" style="font-size:20px;">arrow_back_ios_new</span>
 </button>
 </div>
-<main class="pb-32">
+<main class="pb-12">
 
 <section class="px-6">
 <div class="relative group">
 <div class="aspect-[3/4] rounded-[2.5rem] overflow-hidden bg-white dark:bg-white shadow-2xl border border-slate-100 dark:border-zinc-200">
 <img id="mainImage" alt="Item" class="w-full h-full object-contain" src=""/>
 </div>
-<div class="absolute top-6 right-6">
-<button id="shareTopBtn" class="w-12 h-12 rounded-full bg-white/90 dark:bg-zinc-900/90 ios-blur flex items-center justify-center text-slate-900 dark:text-white shadow-xl active:scale-95 transition-transform">
-<span class="material-symbols-outlined text-[24px]">share</span>
-</button>
-</div>
+
 </div>
 <div class="mt-8 px-2">
 <h2 id="itemTitle" class="text-2xl font-serif dark:text-white mb-2 italic"></h2>
@@ -131,12 +127,16 @@
 </div>
 <p id="itemNote" class="text-slate-600 dark:text-zinc-400 leading-relaxed text-sm"></p>
 </div>
-<div class="mt-10 grid grid-cols-2 gap-4">
-<button id="editBtn" class="py-4 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-2 text-slate-700 dark:text-zinc-300 font-semibold shadow-sm active:scale-95 transition-transform">
+<div id="analysisSection" class="mt-6 px-1" style="display:none;">
+<p style="font-size:11px;font-weight:700;color:#35A29F;margin-bottom:4px;">AI 분석</p>
+<p id="analysisText" style="font-size:12px;line-height:1.7;color:#64748b;margin:0;"></p>
+</div>
+<div class="mt-6 grid grid-cols-2 gap-4">
+<button id="editBtn" class="py-4 rounded-2xl flex items-center justify-center gap-2 font-semibold shadow-sm active:scale-95 transition-transform" style="background:#35A29F;color:#071952;border:none;">
 <span class="material-symbols-outlined text-xl">edit</span>
 <span>수정</span>
 </button>
-<button id="deleteBtn" class="py-4 rounded-2xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 flex items-center justify-center gap-2 text-red-600 dark:text-red-400 font-semibold shadow-sm active:scale-95 transition-transform">
+<button id="deleteBtn" class="py-4 rounded-2xl flex items-center justify-center gap-2 font-semibold shadow-sm active:scale-95 transition-transform" style="background:#35A29F;color:#071952;border:none;">
 <span class="material-symbols-outlined text-xl">delete</span>
 <span>삭제</span>
 </button>
@@ -208,7 +208,7 @@
   const backBtn = document.getElementById('backBtn');
   backBtn.addEventListener('click', () => {
     if (history.length > 1) history.back();
-    else window.location.href = 'closet.html';
+    else window.location.href = 'aicloset.html';
   });
 
   let currentItem = null;
@@ -235,63 +235,35 @@
       ? dedupeNote(String(item.note).trim())
       : '아이템 설명이 아직 없습니다. “수정”에서 특징을 추가해보세요.';
 
-    // Images
+    // Images — 메인 이미지 직접 로드
     const main = document.getElementById('mainImage');
-    const strip = document.getElementById('thumbStrip');
-
-    if(!strip) { console.log('thumbStrip removed'); } else { strip.innerHTML = '';
     const imgs = [
       { ref: item.images?.front, label: '전면' },
       { ref: item.images?.back, label: '후면' },
       { ref: item.images?.brand, label: '브랜드·기타' },
     ].filter((x) => !!x.ref);
 
-    function setSelected(idxSelected) {
-      Array.from(strip.children).forEach((c, idx) => {
-        c.className =
-          idx === idxSelected
-            ? 'w-20 h-20 flex-shrink-0 rounded-2xl overflow-hidden border-2 border-accent shadow-lg shadow-accent/20'
-            : 'w-16 h-16 flex-shrink-0 rounded-xl overflow-hidden opacity-60';
-      });
-    }
-
     if (!imgs.length) {
-      strip.innerHTML = '<div class="text-xs text-slate-400 px-2">이미지가 없습니다.</div>';
-      main.removeAttribute('src');
+      main.alt = '이미지 없음';
       return;
     }
 
-    imgs.forEach((x, i) => {
-      const w = document.createElement('button');
-      w.className =
-        i === 0
-          ? 'w-20 h-20 flex-shrink-0 rounded-2xl overflow-hidden border-2 border-accent shadow-lg shadow-accent/20'
-          : 'w-16 h-16 flex-shrink-0 rounded-xl overflow-hidden opacity-60';
-      w.innerHTML = `<div class="w-full h-full flex items-center justify-center text-slate-400 text-xs">로딩…</div>`;
-      w.dataset.src = '';
-      w.addEventListener('click', () => {
-        const src = w.dataset.src;
-        if (src) {
-          main.src = src;
-          setSelected(i);
-        }
-      });
-      strip.appendChild(w);
+    // 첫 번째 이미지를 메인으로 로드
+    try {
+      const src = await CodiBank.getImageSrc(imgs[0].ref);
+      if (src) { main.src = src; main.style.opacity = '1'; }
+    } catch(e) { console.warn('img load err', e); }
 
-      CodiBank.getImageSrc(x.ref).then((src) => {
-        if (!src) {
-          w.innerHTML = `<div class="w-full h-full flex items-center justify-center text-slate-400 text-xs">이미지 없음</div>`;
-          return;
-        }
-        w.dataset.src = src;
-        w.innerHTML = `<img alt="${x.label}" class="w-full h-full object-contain bg-white" src="${src}"/>`;
-        if (i === 0) {
-          main.src = src;
-          setSelected(0);
+    // 분석 내용 표시
+    var _anSec = document.getElementById('analysisSection');
+    var _anTxt = document.getElementById('analysisText');
+    if(_anSec && _anTxt){
+      var _note = item.note || '';
+      if(_note && _note.length > 10){
+        _anTxt.textContent = _note;
+        _anSec.style.display = 'block';
+      }
     }
-        }
-      });
-    });
   }
 
   // ─────────────────────────────────────────
@@ -370,7 +342,7 @@
       return;
     }
     alert('삭제되었습니다.');
-    window.location.href = 'closet.html';
+    window.location.href = 'aicloset.html';
   });
 
   // ─────────────────────────────────────────
@@ -402,24 +374,20 @@
     }
   }
 
-  document.getElementById('shareTopBtn')?.addEventListener('click', shareCurrentImage);
-  document.getElementById('sellTopBtn')?.addEventListener('click', () => {
-    if (!currentItem) return;
-    window.location.href = `sale-item.html?id=${encodeURIComponent(currentItem.id)}`;
-  });
+  // 공유/영상 버튼 제거됨
 
   // Init
   (function init() {
     if (!id) {
       alert('아이템 ID가 없습니다.');
-      window.location.href = 'closet.html';
+      window.location.href = 'aicloset.html';
       return;
     }
 
     currentItem = CodiBank.getItemById(id);
     if (!currentItem) {
       alert('아이템을 찾을 수 없습니다.');
-      window.location.href = 'closet.html';
+      window.location.href = 'aicloset.html';
       return;
     }
 
@@ -433,14 +401,6 @@
 </script>
 
 <!-- CodiBank 공통 풋바 -->
-<nav class="cb-nav">
-  <div class="cb-nav-inner">
-    <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디쌤</span></a>
-    <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
-    <a href="aicloset.html" class="cb-nav-tab on"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
-    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">코디하기</span></a>
-    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
-  </div>
-</nav>
+<!-- 풋바 숨김 -->
 <div class="cb-spacer"></div>
 </body></html>
