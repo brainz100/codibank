@@ -1970,7 +1970,7 @@ def ai_styling():
         print(f"[직접입력 강제] customText='{_custom_text_force}' → 프롬프트 강제 오버라이드 적용")
 
     face_data_url = payload.get("faceImage")
-    size = str(payload.get("size") or "1024x1536")
+    size = str(payload.get("size") or "1024x1659")  # 1:1.62 비율
     quality = str(payload.get("quality") or "low")
 
     # 출력 포맷(모바일 로딩 최적화)
