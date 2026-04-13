@@ -91,6 +91,17 @@ except ImportError:
         s = pc.get("season",""); u = pc.get("undertone","")
         bc = ", ".join((pc.get("best_colors") or [])[:3])
         ac = ", ".join((pc.get("avoid_colors") or [])[:2])
+        # 확장 속성 (레이더/속성가이드)
+        radar = pc.get("radar") or {}
+        attrs = pc.get("attributes") or {}
+        textures = pc.get("bestTextures") or []
+        _extra = ""
+        if radar:
+            _extra += f" Skin analytics: brightness={radar.get('brightness','-')}, redness(Hb)={radar.get('redness','-')}, yellowness(Melanin)={radar.get('yellowness','-')}, clarity={radar.get('clarity','-')}, contrast={radar.get('contrast','-')}, texture={radar.get('texture','-')}."
+        if attrs:
+            _extra += f" Color attributes: value(lightness)={attrs.get('value','-')}%, chroma={attrs.get('chroma','-')}%, contrast_level={attrs.get('contrast','-')}%."
+        if textures:
+            _extra += f" Best textures: {', '.join(textures)}."
         return " Personal color: " + s + " (" + u + "). Best: " + bc + ". Avoid: " + ac + "."
 
 
@@ -2459,6 +2470,52 @@ def codistyle_analyze_garments():
     bottom_result = _call_analyze_item(payload.get("bottomDataUrl"), payload.get("bottomPath"))
 
     return jsonify(ok=True, top=top_result, bottom=bottom_result)
+
+
+# ════════════════════════════════════════
+# /api/personal-color/save & load
+# ════════════════════════════════════════
+_PC_STORE = {}  # 메모리 캐시 (R2 영구저장 연동 가능)
+
+@app.post("/api/personal-color/save")
+def pc_save():
+    data = request.json or {}
+    email = str(data.get("email") or "").strip()
+    pc = data.get("personalColor")
+    if not email or not pc:
+        return jsonify(ok=False, error="email and personalColor required"), 400
+    _PC_STORE[email] = pc
+    # R2 영구저장 (선택)
+    try:
+        _path = f"personal_color/{email}.json"
+        import json
+        _write_upload_bytes(_path, json.dumps(pc, ensure_ascii=False).encode("utf-8"))
+        print(f"[PC] saved to R2: {_path}")
+    except Exception as e:
+        print(f"[PC] R2 save failed: {e}")
+    return jsonify(ok=True)
+
+@app.get("/api/personal-color/load/<email>")
+def pc_load(email):
+    email = str(email or "").strip()
+    if not email:
+        return jsonify(ok=False, error="email required"), 400
+    # 메모리 캐시 우선
+    if email in _PC_STORE:
+        return jsonify(ok=True, personalColor=_PC_STORE[email])
+    # R2에서 로드
+    try:
+        import json
+        _path = f"personal_color/{email}.json"
+        data = _read_upload_bytes(_path)
+        if data:
+            pc = json.loads(data.decode("utf-8"))
+            _PC_STORE[email] = pc
+            return jsonify(ok=True, personalColor=pc)
+    except Exception as e:
+        print(f"[PC] R2 load failed: {e}")
+    return jsonify(ok=True, personalColor=None)
+
 
 @app.post("/api/codistyle/generate")
 def codistyle_generate():
