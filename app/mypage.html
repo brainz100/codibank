@@ -43,7 +43,7 @@
     border:1px solid rgba(255,255,255,.12);
     display:flex;align-items:center;gap:16px;
   }
-  .avatar{width:64px;height:64px;border-radius:50%;
+  .avatar{width:83px;height:83px;border-radius:50%;
     background:linear-gradient(135deg,#0B666A,#35A29F);
     display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .menu-item{
@@ -91,15 +91,17 @@
   <!-- 프로필 -->
   <div class="profile-card">
     <div class="avatar" id="avatarWrap">
-      <span class="material-symbols-outlined" id="avatarIcon" style="font-size:32px;color:#97FEED;font-variation-settings:'FILL' 1,'wght' 300,'GRAD' 0,'opsz' 24;">person</span>
-      <img id="avatarImg" src="" alt="" style="display:none;width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #97FEED;"/>
+      <span class="material-symbols-outlined" id="avatarIcon" style="font-size:42px;color:#97FEED;font-variation-settings:'FILL' 1,'wght' 300,'GRAD' 0,'opsz' 24;">person</span>
+      <img id="avatarImg" src="" alt="" style="display:none;width:83px;height:83px;border-radius:50%;object-fit:cover;border:2px solid #97FEED;"/>
     </div>
     <div>
-      <div id="userName" style="font-size:18px;font-weight:800;margin-bottom:4px;">사용자</div>
-      <div id="userEmail" style="font-size:13px;color:rgba(255,255,255,.45);margin-bottom:6px;"></div>
-      <span class="badge-plan" id="userPlan">FREE</span>
+      <div id="userName" style="font-size:18px;font-weight:800;margin-bottom:6px;">사용자</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+        <span id="userGender" style="font-size:12px;font-weight:700;color:#97FEED;padding:2px 10px;border-radius:8px;border:1px solid rgba(151,254,237,.3);background:rgba(151,254,237,.1);"></span>
+        <span id="userAge" style="font-size:12px;font-weight:700;color:#97FEED;padding:2px 10px;border-radius:8px;border:1px solid rgba(151,254,237,.3);background:rgba(151,254,237,.1);"></span>
+      </div>
       <!-- 퍼스널컬러 배지 -->
-      <div id="pcBadge" style="display:none;margin-top:6px;align-items:center;gap:5px;background:rgba(151,254,237,.1);border:1px solid rgba(151,254,237,.25);border-radius:20px;padding:3px 10px;">
+      <div id="pcBadge" style="display:none;align-items:center;gap:5px;background:rgba(151,254,237,.1);border:1px solid rgba(151,254,237,.25);border-radius:20px;padding:3px 10px;">
         <span id="pcColorDot" style="width:10px;height:10px;border-radius:50%;background:#97FEED;flex-shrink:0;"></span>
         <span id="pcBadgeText" style="font-size:11px;color:rgba(151,254,237,.85);font-weight:600;"></span>
       </div>
@@ -115,16 +117,37 @@
     </div>
     <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
   </div>
-  <div class="menu-item" onclick="location.href='pricing.html'">
-    <div class="menu-item-left">
-      <span class="material-symbols-outlined" style="color:#35A29F">workspace_premium</span>
-      <div>
-        <div>구독 플랜</div>
-        <div id="mypageQuota" style="font-size:11px;color:rgba(151,254,237,0.6);font-weight:600;margin-top:1px;"></div>
-        <div id="mypageItemQuota" style="font-size:10px;color:rgba(151,254,237,0.45);font-weight:500;margin-top:1px;"></div>
+  <!-- 구독 플랜 정보 박스 -->
+  <div onclick="location.href='pricing.html'" style="margin:4px 16px 12px;padding:16px;border-radius:16px;background:linear-gradient(135deg,rgba(11,102,106,.15),rgba(151,254,237,.08));border:1px solid rgba(151,254,237,.2);cursor:pointer;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="material-symbols-outlined" style="color:#97FEED;font-size:20px;">workspace_premium</span>
+        <span id="userPlanBox" style="font-size:16px;font-weight:800;color:#97FEED;">FREE Plan</span>
+      </div>
+      <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25);font-size:18px;">chevron_right</span>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <div style="flex:1;background:rgba(7,25,82,.3);border-radius:10px;padding:10px 12px;">
+        <div style="font-size:9px;color:rgba(151,254,237,.5);font-weight:600;margin-bottom:4px;">이미지 생성</div>
+        <div style="display:flex;align-items:baseline;gap:4px;">
+          <span id="mpUsedCount" style="font-size:20px;font-weight:900;color:#fff;">0</span>
+          <span id="mpLimitCount" style="font-size:11px;color:rgba(255,255,255,.4);">/ 6</span>
+        </div>
+        <div style="height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:6px;overflow:hidden;">
+          <div id="mpUsageFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .6s;"></div>
+        </div>
+      </div>
+      <div style="flex:1;background:rgba(7,25,82,.3);border-radius:10px;padding:10px 12px;">
+        <div style="font-size:9px;color:rgba(151,254,237,.5);font-weight:600;margin-bottom:4px;">아이템 등록</div>
+        <div style="display:flex;align-items:baseline;gap:4px;">
+          <span id="mpItemUsed" style="font-size:20px;font-weight:900;color:#fff;">0</span>
+          <span id="mpItemLimit" style="font-size:11px;color:rgba(255,255,255,.4);">/ 10</span>
+        </div>
+        <div style="height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:6px;overflow:hidden;">
+          <div id="mpItemFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .6s;"></div>
+        </div>
       </div>
     </div>
-    <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
   </div>
 
   <p class="menu-section">서비스</p>
@@ -392,13 +415,24 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       if (!u) { location.replace('login.html'); return; }
 
       document.getElementById('userName').textContent  = u.nickname || u.email.split('@')[0] || '사용자';
-      document.getElementById('userEmail').textContent = u.email || '';
-      document.getElementById('userPlan').textContent  = (u.plan || 'FREE') + (_T['플랜']||' Plan');
+      // 성별/나이대 표시
+      var _isEn = window.CodiBankI18n && CodiBankI18n.isEn();
+      var _gMap = {male:_isEn?'Male':'남성',female:_isEn?'Female':'여성',M:_isEn?'Male':'남성',F:_isEn?'Female':'여성'};
+      var _gEl = document.getElementById('userGender');
+      var _aEl = document.getElementById('userAge');
+      if(_gEl) _gEl.textContent = _gMap[u.gender] || '';
+      if(_aEl) _aEl.textContent = u.ageGroup || '';
+      if(_gEl && !_gEl.textContent) _gEl.style.display='none';
+      if(_aEl && !_aEl.textContent) _aEl.style.display='none';
+      // 구독 플랜
+      var _planNames = {free:'FREE',silver:'SILVER',gold:'GOLD',diamond:'DIAMOND'};
+      var _planId = (u.plan||'free').toLowerCase();
+      document.getElementById('userPlan').textContent = (_planNames[_planId]||'FREE') + ' Plan';
+      try{ document.getElementById('userPlanBox').textContent = (_planNames[_planId]||'FREE') + ' Plan'; }catch(_){}
 
       // ── 구독/보너스 정보 실시간 표시 ──
       (async function(){
-        const el = document.getElementById('mypageQuota');
-        if(!el || !u.email) return;
+        if(!u.email) return;
         // 먼저 localStorage 캐시로 즉시 표시
         try{
           const infoKey = 'cb_plan_info_'+(u.email);
@@ -408,7 +442,12 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             const used = info.totalUsed || 0;
             const bonus = info.bonusTotal > 0 ? ' (+보너스 '+info.bonusTotal+'회)' : '';
             const rem = info.totalLimit >= 9999 ? '∞' : Math.max(0, info.totalLimit - used);
-            el.textContent = rem + (_T['회 가능']||' remaining') + bonus;
+            try{
+              document.getElementById('mpUsedCount').textContent = info.totalUsed || 0;
+              document.getElementById('mpLimitCount').textContent = '/ ' + (info.totalLimit>=9999?'∞':info.totalLimit);
+              var _pct = info.totalLimit>=9999 ? Math.min(100,Math.round((info.totalUsed||0)/300*100)) : Math.min(100,Math.round((info.totalUsed||0)/Math.max(info.totalLimit,1)*100));
+              document.getElementById('mpUsageFill').style.width = _pct+'%';
+            }catch(_){}
           }
         }catch(_){}
         // 백그라운드로 API 최신값 조회
@@ -426,7 +465,13 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             try{ const raw=JSON.parse(localStorage.getItem('cb_usage_'+u.email)||'{}'); totalUsed=raw.totalCount||0; }catch(_){}
             const rem = totalLimit >= 9999 ? '∞' : Math.max(0, totalLimit - totalUsed);
             const bonusText = bonusTotal > 0 ? ' (+보너스 '+bonusTotal+'회)' : '';
-            el.textContent = rem + (_T['회 가능']||' remaining') + bonusText;
+            try{
+              document.getElementById('mpUsedCount').textContent = totalUsed;
+              document.getElementById('mpLimitCount').textContent = '/ ' + (totalLimit>=9999?'∞':totalLimit);
+              var _pct2 = totalLimit>=9999 ? Math.min(100,Math.round(totalUsed/300*100)) : Math.min(100,Math.round(totalUsed/Math.max(totalLimit,1)*100));
+              document.getElementById('mpUsageFill').style.width = _pct2+'%';
+              if(_pct2>80) document.getElementById('mpUsageFill').style.background='linear-gradient(90deg,#ef4444,#fca5a5)';
+            }catch(_){}
             try{ localStorage.setItem('cb_plan_info_'+u.email, JSON.stringify({updatedAt:new Date().toISOString().slice(0,7),totalLimit,totalUsed,bonusTotal})); }catch(_){}
           }
           // ── 아이템 현황 표시 ──
@@ -449,7 +494,13 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             const itemLimit = itemBase + itemBonus;
             const isUnlim = itemLimit >= 99999;
             const bonusTxt = itemBonus > 0 ? ' +보너스'+itemBonus : '';
-            iel.textContent = (_T['아이템']||'Items') + ' ' + itemUsed + '/' + (isUnlim?'∞':itemLimit) + bonusTxt;
+            try{
+              document.getElementById('mpItemUsed').textContent = itemUsed;
+              document.getElementById('mpItemLimit').textContent = '/ ' + (isUnlim?'∞':itemLimit);
+              var _ipct = isUnlim ? Math.min(100,Math.round(itemUsed/100*100)) : Math.min(100,Math.round(itemUsed/Math.max(itemLimit,1)*100));
+              document.getElementById('mpItemFill').style.width = _ipct+'%';
+              if(_ipct>80) document.getElementById('mpItemFill').style.background='linear-gradient(90deg,#ef4444,#fca5a5)';
+            }catch(_){}
             try{ localStorage.setItem('cb_item_plan_'+u.email, JSON.stringify({bonus:itemBonus,limit:itemLimit,updatedAt:new Date().toISOString().slice(0,7)})); }catch(_){}
           }
         }catch(_){}
@@ -509,6 +560,24 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     if(fko) fko.style.display = en ? 'none' : 'block';
     if(fen) fen.style.display = en ? 'block' : 'none';
   }, 300);
+
+// ── 프로필 수정 후 즉시 반영 ──
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState !== 'visible') return;
+  try{
+    var u2 = window.CodiBank && CodiBank.getCurrentUser ? CodiBank.getCurrentUser() : null;
+    try{ var stored = JSON.parse(localStorage.getItem('cb_user')||'{}'); if(stored && stored.nickname) Object.assign(u2, stored); }catch(_){}
+    if(!u2) return;
+    var ne = document.getElementById('userName');
+    if(ne) ne.textContent = u2.nickname || (u2.email?u2.email.split('@')[0]:'') || '';
+    var _isEn2 = window.CodiBankI18n && CodiBankI18n.isEn();
+    var _gm2 = {male:_isEn2?'Male':'남성',female:_isEn2?'Female':'여성',M:_isEn2?'Male':'남성',F:_isEn2?'Female':'여성'};
+    var ge = document.getElementById('userGender');
+    var ae = document.getElementById('userAge');
+    if(ge){ ge.textContent = _gm2[u2.gender]||''; ge.style.display=ge.textContent?'':'none'; }
+    if(ae){ ae.textContent = u2.ageGroup||''; ae.style.display=ae.textContent?'':'none'; }
+  }catch(_){}
+});
 
 </script>
 <!-- CodiBank 공통 풋바 -->
