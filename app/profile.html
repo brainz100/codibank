@@ -29,11 +29,12 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="codibank.js"></script>
 <script src="i18n.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html,body{min-height:100dvh;width:100%;background:#F9FAFB;color:#111;font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-tap-highlight-color:transparent;}
+html,body{min-height:100dvh;padding-bottom:0;width:100%;background:#F9FAFB;color:#111;font-family:'Pretendard','Noto Sans KR',sans-serif;-webkit-tap-highlight-color:transparent;}
 .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 24;}
 .filled{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24 !important;}
 .ios-blur{backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
@@ -43,7 +44,7 @@ header{position:sticky;top:0;z-index:100;background:rgba(249,250,251,0.95);backd
 header h1{font-size:17px;font-weight:800;}
 
 /* 프로필 사진 */
-.photo-area{display:flex;flex-direction:column;align-items:center;padding:28px 20px 20px;}
+.photo-area{display:flex;align-items:center;gap:16px;padding:20px;}
 .photo-ring{position:relative;width:100px;height:100px;}
 .photo-img{width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid #071952;}
 .photo-placeholder{width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,#0B666A,#35A29F);display:flex;align-items:center;justify-content:center;border:3px solid #071952;}
@@ -127,18 +128,26 @@ header h1{font-size:17px;font-weight:800;}
 </header>
 
 <!-- 프로필 사진 -->
-<div class="photo-area">
-  <div class="photo-ring">
+<div style="display:flex;align-items:center;gap:16px;padding:20px 20px 16px;">
+  <div class="photo-ring" style="flex-shrink:0;">
     <img id="photoPreview" class="photo-img" src="" alt="" style="display:none;"/>
     <div id="photoDefault" class="photo-placeholder">
       <span class="material-symbols-outlined filled" style="font-size:44px;color:#fff;font-variation-settings:'FILL' 1,'wght' 300,'GRAD' 0,'opsz' 44;">person</span>
     </div>
-    <label for="photoInput" class="photo-edit-btn">
-      <span class="material-symbols-outlined" style="color:#fff;font-size:16px;">photo_camera</span>
-    </label>
-    <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto(event)"/>
+    <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto(event)" style="display:none;"/>
   </div>
-  <p style="margin-top:10px;font-size:12px;color:#aaa;font-weight:600;">프로필 사진 변경</p>
+  <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+    <button onclick="deletePhoto()" style="width:100%;padding:10px;border-radius:10px;border:1.5px solid #0B666A;background:#fff;color:#071952;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px;">
+      <span class="material-symbols-outlined" style="font-size:16px;color:#ef4444;">delete</span>사진 삭제
+    </button>
+    <button onclick="document.getElementById('photoInput').click()" style="width:100%;padding:10px;border-radius:10px;border:1.5px solid #0B666A;background:#fff;color:#071952;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px;">
+      <span class="material-symbols-outlined" style="font-size:16px;color:#0B666A;">photo_library</span>사진 변경
+    </button>
+    <button id="pcAnalyzeBtnTop" onclick="startPersonalColorAnalysis()" disabled
+      style="width:100%;padding:10px;border-radius:10px;border:none;background:#35A29F;color:#111;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;opacity:0.4;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:4px;">
+      <span class="material-symbols-outlined" style="font-size:16px;">auto_awesome</span>퍼스널컬러 분석
+    </button>
+  </div>
 </div>
 
 <!-- 기본 정보 -->
@@ -179,6 +188,59 @@ header h1{font-size:17px;font-weight:800;}
       <button class="sel-btn" data-v="40s" onclick="selAge(this)">40대</button>
       <button class="sel-btn" data-v="50s" onclick="selAge(this)">50대</button>
       <button class="sel-btn" data-v="60s+" onclick="selAge(this)">60대+</button>
+    </div>
+  </div>
+</div>
+
+<!-- 체형 정보 -->
+<p class="section-title" style="margin:0 16px 4px;padding:0 4px;" id="bodyInfoTitle" style="color:#071952;font-size:13px;font-weight:800;">나의 신체정보 <span style="color:#0B666A;font-size:10px;" id="bodyInfoSub">(AI 코디 정확도 향상)</span></p>
+<div class="section">
+  <div class="field">
+    <span class="material-symbols-outlined field-icon">straighten</span>
+    <div class="field-body">
+      <p class="field-label">키</p>
+      <input id="fHeight" type="number" class="field-input" placeholder="cm"/>
+    </div>
+    <span style="font-size:14px;color:#aaa;font-weight:600;">cm</span>
+  </div>
+  <div class="field">
+    <span class="material-symbols-outlined field-icon">monitor_weight</span>
+    <div class="field-body">
+      <p class="field-label">몸무게</p>
+      <input id="fWeight" type="number" class="field-input" placeholder="kg"/>
+    </div>
+    <span style="font-size:14px;color:#aaa;font-weight:600;">kg</span>
+  </div>
+  <div id="bmiDisplay" style="padding:10px 20px 14px;display:flex;align-items:center;gap:10px;margin:0 20px 8px;background:rgba(151,254,237,0.15);border-radius:12px;border:1px solid rgba(11,102,106,.15);">
+    <span class="material-symbols-outlined" style="font-size:20px;color:#0B666A;">speed</span>
+    <span style="font-size:11px;color:#0B666A;font-weight:700;">BMI</span>
+    <span id="bmiValue" style="font-size:22px;font-weight:900;color:#071952;">—</span>
+    <span id="bmiCategory" style="font-size:11px;font-weight:700;color:#fff;padding:3px 10px;border-radius:10px;background:#0B666A;"></span>
+  </div>
+
+  <!-- [2026-04-08] 체형 선택 -->
+  <p class="field-label" style="padding:10px 20px 4px;border-top:1px solid #f5f5f5;" id="bodyTypeLabel">체형 <span style="font-size:9px;color:#0B666A;" id="bodyTypeHint">(성별 선택 후 표시)</span></p>
+  <div id="bodyTypeGroup" style="padding:0 16px 12px;">
+    <div id="bodyTypeCards" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
+    <div id="bodyTypeEmpty" style="padding:16px;text-align:center;color:#bbb;font-size:12px;" id="bodyTypeEmptyMsg">성별을 먼저 선택해주세요</div>
+  </div>
+</div>
+
+<!-- 비밀번호 변경 -->
+<p class="section-title" style="margin:0 16px 4px;padding:0 4px;">비밀번호 변경 <span style="color:#aaa;font-size:10px;">(변경 시에만 입력)</span></p>
+<div class="section">
+  <div class="field">
+    <span class="material-symbols-outlined field-icon">lock</span>
+    <div class="field-body">
+      <p class="field-label">새 비밀번호</p>
+      <input id="fPw" type="password" class="field-input" placeholder="영문+숫자 4자 이상"/>
+    </div>
+  </div>
+  <div class="field">
+    <span class="material-symbols-outlined field-icon">lock_reset</span>
+    <div class="field-body">
+      <p class="field-label">비밀번호 확인</p>
+      <input id="fPw2" type="password" class="field-input" placeholder="비밀번호 재입력"/>
     </div>
   </div>
 </div>
@@ -308,11 +370,7 @@ header h1{font-size:17px;font-weight:800;}
       </div>
     </div>
 
-    <!-- 5) 리포트/다시분석 버튼 -->
-    <div style="display:flex;gap:10px;margin-bottom:16px;padding:0 4px;">
-      <button id="pcReportBtn" style="flex:1;padding:12px;border-radius:14px;border:none;background:#35A29F;color:#111;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;" onclick="alert('리포트 다운로드 준비 중')">리포트 다운로드</button>
-      <button id="pcReanalyzeBtn" style="flex:1;padding:12px;border-radius:14px;border:none;background:#35A29F;color:#111;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;" onclick="document.getElementById('photoInput').click()">다시 분석</button>
-    </div>
+
   </div>
 
   <!-- 미분석 상태 -->
@@ -326,73 +384,101 @@ header h1{font-size:17px;font-weight:800;}
     </div>
   </div>
 
-  <!-- 분석 버튼 -->
-  <div style="padding:12px 0;">
-    <button id="pcAnalyzeBtn" onclick="startPersonalColorAnalysis()" disabled
-      style="width:100%;padding:14px;border:none;border-radius:14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#30657b,#35A29F);color:#fff;opacity:0.4;transition:all .2s;box-shadow:0 4px 16px rgba(48,101,123,0.2);">
-      <span id="pcBtnText">🎨 퍼스널컬러 분석</span>
-    </button>
-  </div>
+
 </div>
-<!-- 체형 정보 -->
-<p class="section-title" style="margin:0 16px 4px;padding:0 4px;" id="bodyInfoTitle" style="color:#071952;font-size:13px;font-weight:800;">나의 신체정보 <span style="color:#0B666A;font-size:10px;" id="bodyInfoSub">(AI 코디 정확도 향상)</span></p>
-<div class="section">
-  <div class="field">
-    <span class="material-symbols-outlined field-icon">straighten</span>
-    <div class="field-body">
-      <p class="field-label">키</p>
-      <input id="fHeight" type="number" class="field-input" placeholder="cm"/>
+<!-- 리포트 템플릿 (숨김) -->
+<div id="reportTemplate" style="position:absolute;left:-9999px;top:0;width:390px;background:#fff;font-family:'Pretendard','Noto Sans KR',sans-serif;">
+  <!-- 헤더 -->
+  <div style="background:linear-gradient(135deg,#071952,#0B666A);padding:28px 24px 20px;text-align:center;">
+    <div style="width:70px;height:70px;border-radius:50%;border:3px solid #97FEED;margin:0 auto 10px;overflow:hidden;background:#4988C4;">
+      <img id="rptPhoto" src="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'"/>
     </div>
-    <span style="font-size:14px;color:#aaa;font-weight:600;">cm</span>
-  </div>
-  <div class="field">
-    <span class="material-symbols-outlined field-icon">monitor_weight</span>
-    <div class="field-body">
-      <p class="field-label">몸무게</p>
-      <input id="fWeight" type="number" class="field-input" placeholder="kg"/>
+    <div id="rptNickname" style="font-size:18px;font-weight:800;color:#fff;margin-bottom:4px;"></div>
+    <div id="rptEmail" style="font-size:10px;color:rgba(151,254,237,.7);"></div>
+    <div style="margin-top:12px;display:flex;justify-content:center;gap:8px;">
+      <span id="rptSeason" style="font-size:14px;font-weight:800;color:#97FEED;"></span>
+      <span id="rptUndertone" style="font-size:11px;color:rgba(255,255,255,.6);padding:2px 8px;border-radius:10px;border:1px solid rgba(151,254,237,.3);"></span>
     </div>
-    <span style="font-size:14px;color:#aaa;font-weight:600;">kg</span>
-  </div>
-  <div id="bmiDisplay" style="padding:10px 20px 14px;display:flex;align-items:center;gap:10px;margin:0 20px 8px;background:rgba(151,254,237,0.15);border-radius:12px;border:1px solid rgba(11,102,106,.15);">
-    <span class="material-symbols-outlined" style="font-size:20px;color:#0B666A;">speed</span>
-    <span style="font-size:11px;color:#0B666A;font-weight:700;">BMI</span>
-    <span id="bmiValue" style="font-size:22px;font-weight:900;color:#071952;">—</span>
-    <span id="bmiCategory" style="font-size:11px;font-weight:700;color:#fff;padding:3px 10px;border-radius:10px;background:#0B666A;"></span>
+    <div style="font-size:7px;color:rgba(255,255,255,.3);margin-top:10px;">PERSONAL COLOR & STYLING REPORT</div>
   </div>
 
-  <!-- [2026-04-08] 체형 선택 -->
-  <p class="field-label" style="padding:10px 20px 4px;border-top:1px solid #f5f5f5;" id="bodyTypeLabel">체형 <span style="font-size:9px;color:#0B666A;" id="bodyTypeHint">(성별 선택 후 표시)</span></p>
-  <div id="bodyTypeGroup" style="padding:0 16px 12px;">
-    <div id="bodyTypeCards" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
-    <div id="bodyTypeEmpty" style="padding:16px;text-align:center;color:#bbb;font-size:12px;" id="bodyTypeEmptyMsg">성별을 먼저 선택해주세요</div>
+  <!-- 신체 정보 -->
+  <div style="display:flex;justify-content:space-around;padding:14px 16px;background:#F0FFFE;border-bottom:1px solid rgba(11,102,106,.1);">
+    <div style="text-align:center;"><div style="font-size:8px;color:#888;">성별</div><div id="rptGender" style="font-size:13px;font-weight:800;color:#071952;">—</div></div>
+    <div style="text-align:center;"><div style="font-size:8px;color:#888;">나이대</div><div id="rptAge" style="font-size:13px;font-weight:800;color:#071952;">—</div></div>
+    <div style="text-align:center;"><div style="font-size:8px;color:#888;">키</div><div id="rptHeight" style="font-size:13px;font-weight:800;color:#071952;">—</div></div>
+    <div style="text-align:center;"><div style="font-size:8px;color:#888;">몸무게</div><div id="rptWeight" style="font-size:13px;font-weight:800;color:#071952;">—</div></div>
+    <div style="text-align:center;"><div style="font-size:8px;color:#888;">BMI</div><div id="rptBmi" style="font-size:13px;font-weight:800;color:#071952;">—</div></div>
+    <div style="text-align:center;"><div style="font-size:8px;color:#888;">체형</div><div id="rptBody" style="font-size:13px;font-weight:800;color:#071952;">—</div></div>
+  </div>
+
+  <!-- Skin Analytics -->
+  <div style="padding:16px 20px;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:10px;display:flex;align-items:center;gap:4px;">
+      <span style="color:#0B666A;">■</span> My Skin Analytics
+    </div>
+    <div style="display:flex;justify-content:center;">
+      <canvas id="rptRadarCanvas" width="240" height="220"></canvas>
+    </div>
+  </div>
+
+  <!-- Best Palette -->
+  <div style="padding:0 20px 16px;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:8px;">✨ BEST PALETTE</div>
+    <div id="rptPalette" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"></div>
+  </div>
+
+  <!-- Attribute Guide -->
+  <div style="padding:0 20px 16px;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:8px;">🎯 Attribute Guide</div>
+    <div id="rptAttrs" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <div id="rptTextures" style="margin-top:8px;display:flex;gap:6px;align-items:center;">
+      <span style="font-size:9px;font-weight:700;color:#071952;">Best Texture:</span>
+    </div>
+  </div>
+
+  <!-- Color Curation -->
+  <div style="padding:0 20px 16px;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:8px;">🎨 Color Curation</div>
+    <div style="display:flex;gap:8px;margin-bottom:4px;">
+      <span style="font-size:9px;font-weight:700;color:#0B666A;">Best</span>
+    </div>
+    <div id="rptBest" style="display:flex;gap:12px;margin-bottom:12px;"></div>
+    <div style="display:flex;gap:8px;margin-bottom:4px;">
+      <span style="font-size:9px;font-weight:700;color:#ef4444;">Worst</span>
+    </div>
+    <div id="rptWorst" style="display:flex;gap:12px;"></div>
+  </div>
+
+  <!-- 5섹션 요약 -->
+  <div style="padding:0 20px 16px;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:8px;">📋 Analysis Summary</div>
+    <div id="rptSummary" style="font-size:9px;line-height:1.7;color:#444;"></div>
+  </div>
+
+  <!-- 푸터 -->
+  <div style="background:#071952;padding:14px 20px;text-align:center;">
+    <div style="font-size:10px;font-weight:700;color:#97FEED;">CodiBank</div>
+    <div style="font-size:7px;color:rgba(255,255,255,.3);margin-top:2px;">codibank.kr · AI Personal Styling Platform</div>
+    <div id="rptDate" style="font-size:7px;color:rgba(255,255,255,.2);margin-top:4px;"></div>
   </div>
 </div>
 
-<!-- 비밀번호 변경 -->
-<p class="section-title" style="margin:0 16px 4px;padding:0 4px;">비밀번호 변경 <span style="color:#aaa;font-size:10px;">(변경 시에만 입력)</span></p>
-<div class="section">
-  <div class="field">
-    <span class="material-symbols-outlined field-icon">lock</span>
-    <div class="field-body">
-      <p class="field-label">새 비밀번호</p>
-      <input id="fPw" type="password" class="field-input" placeholder="영문+숫자 4자 이상"/>
-    </div>
+<div style="padding:0 16px 24px;display:flex;flex-direction:column;gap:8px;">
+  <div style="display:flex;gap:8px;">
+    <button id="btnReport" onclick="generateReport()" disabled
+      style="flex:1;padding:14px;border-radius:14px;border:none;background:#35A29F;color:#111;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;opacity:0.5;transition:all .2s;">리포트 다운로드</button>
+    <button id="btnReset" onclick="doReset()"
+      style="flex:1;padding:14px;border-radius:14px;border:1.5px solid #0B666A;background:#fff;color:#071952;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">리셋</button>
   </div>
-  <div class="field">
-    <span class="material-symbols-outlined field-icon">lock_reset</span>
-    <div class="field-body">
-      <p class="field-label">비밀번호 확인</p>
-      <input id="fPw2" type="password" class="field-input" placeholder="비밀번호 재입력"/>
-    </div>
-  </div>
+  <button id="btnSave" onclick="doSave()" disabled
+    style="width:100%;padding:16px;border-radius:14px;border:none;background:#35A29F;color:#111;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;opacity:0.5;transition:all .2s;">저장하기</button>
 </div>
-
-<button class="save-btn" onclick="doSave()">저장하기</button>
 
 <div class="cb-spacer"></div>
 
 <!-- 풋바 -->
-<nav class="cb-nav">
+<nav class="cb-nav" style="display:none;">
   <div class="cb-nav-inner">
     <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디쌤</span></a>
     <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
@@ -428,6 +514,57 @@ function selAge(el){
   document.querySelectorAll('#ageGroup .sel-btn').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
 }
+
+// ═══ 사진 삭제 ═══
+function deletePhoto(){
+  var _en=window.CodiBankI18n&&CodiBankI18n.isEn();
+  document.getElementById('photoPreview').style.display='none';
+  document.getElementById('photoPreview').src='';
+  document.getElementById('photoDefault').style.display='flex';
+  // 퍼스널컬러 리셋
+  try{ localStorage.removeItem('cb_personal_color_'+(_user?.email||'')); }catch(_){}
+  var pcResult=document.getElementById('pcResult');
+  var pcEmpty=document.getElementById('pcEmpty');
+  if(pcResult) pcResult.style.display='none';
+  if(pcEmpty) pcEmpty.style.display='block';
+  // 분석 버튼 비활성화
+  var btn=document.getElementById('pcAnalyzeBtnTop');
+  if(btn){btn.disabled=true;btn.style.opacity='0.4';btn.style.background='#35A29F';btn.style.color='#111';}
+  // 리포트 버튼 비활성화
+  var rBtn=document.getElementById('btnReport');
+  if(rBtn){rBtn.disabled=true;rBtn.style.opacity='0.5';rBtn.style.background='#35A29F';rBtn.style.color='#111';}
+  showToast(_en?'Photo deleted & color reset':'사진 삭제 및 퍼스널컬러 초기화');
+  _markChanged();
+}
+
+// ═══ 리셋 (기본정보 제외) ═══
+function doReset(){
+  var _en=window.CodiBankI18n&&CodiBankI18n.isEn();
+  if(!confirm(_en?'Reset all except basic info?':'기본정보를 제외한 모든 정보를 초기화하시겠습니까?')) return;
+  // 신체정보
+  document.getElementById('fHeight').value='';
+  document.getElementById('fWeight').value='';
+  updateBMI();
+  _selectedBodyType='';
+  var g=document.querySelector('#genderGroup2 .sel-btn.on');
+  if(g) renderBodyTypes(g.getAttribute('data-v'));
+  // 퍼스널컬러
+  deletePhoto();
+  showToast(_en?'Reset complete':'초기화 완료');
+}
+
+// ═══ 변경 감지 → 저장 버튼 활성화 ═══
+function _markChanged(){
+  var btn=document.getElementById('btnSave');
+  if(btn){btn.disabled=false;btn.style.opacity='1';btn.style.background='#071952';btn.style.color='#fff';}
+}
+document.addEventListener('input',function(e){
+  if(e.target.closest&&(e.target.closest('.section')||e.target.closest('.section-blue'))) _markChanged();
+});
+document.addEventListener('click',function(e){
+  if(e.target.classList&&e.target.classList.contains('sel-btn')) _markChanged();
+  if(e.target.classList&&e.target.classList.contains('bt-card')) _markChanged();
+});
 
 function previewPhoto(e){
   const file = e.target.files[0];
@@ -528,6 +665,127 @@ function loadUser(){
   setTimeout(applyPcI18n, 200);
 }
 
+
+// ═══ 리포트 생성 (PNG 이미지) ═══
+async function generateReport(){
+  var btn=document.getElementById('pcReportBtn');
+  if(btn){btn.textContent='생성 중…';btn.disabled=true;}
+  try{
+    var _en=window.CodiBankI18n&&CodiBankI18n.isEn();
+    var pc=null;
+    try{pc=JSON.parse(localStorage.getItem('cb_personal_color_'+(_user?.email||'')));}catch(_){}
+    if(!pc||!pc.season){showToast(_en?'Analyze personal color first':'퍼스널컬러 분석을 먼저 해주세요');if(btn){btn.textContent=_en?'Download Report':'리포트 다운로드';btn.disabled=false;}return;}
+
+    // 데이터 채우기
+    var tpl=document.getElementById('reportTemplate');
+    tpl.style.position='absolute';tpl.style.left='0';tpl.style.top='0';tpl.style.zIndex='-1';
+
+    var photoEl=document.getElementById('photoPreview');
+    if(photoEl&&photoEl.src) document.getElementById('rptPhoto').src=photoEl.src;
+    document.getElementById('rptNickname').textContent=_user?.nickname||_user?.email?.split('@')[0]||'User';
+    document.getElementById('rptEmail').textContent=_user?.email||'';
+    document.getElementById('rptSeason').textContent=_en?(pc.season_en||pc.season):pc.season;
+    document.getElementById('rptUndertone').textContent=pc.undertone||'';
+    document.getElementById('rptGender').textContent=_genderVal==='male'?(_en?'Male':'남'):_genderVal==='female'?(_en?'Female':'여'):'—';
+    document.getElementById('rptAge').textContent=_ageVal||'—';
+    document.getElementById('rptHeight').textContent=(document.getElementById('fHeight')?.value||'—')+'cm';
+    document.getElementById('rptWeight').textContent=(document.getElementById('fWeight')?.value||'—')+'kg';
+    var h=parseFloat(document.getElementById('fHeight')?.value||0),w=parseFloat(document.getElementById('fWeight')?.value||0);
+    document.getElementById('rptBmi').textContent=(h>=100&&w>0)?(w/((h/100)*(h/100))).toFixed(1):'—';
+    document.getElementById('rptBody').textContent=_selectedBodyType||'—';
+    document.getElementById('rptDate').textContent=new Date().toLocaleDateString();
+
+    // 레이더 차트 (Canvas)
+    _drawRadarCanvas(pc.season);
+
+    // 팔레트
+    var palEl=document.getElementById('rptPalette');
+    var cols=pc.best_colors||[];var names=pc.best_color_names||[];
+    palEl.innerHTML=cols.slice(0,9).map(function(hex,i){
+      var isDark=_hexLum(hex)<0.5;
+      return '<div style="background:'+hex+';border-radius:8px;padding:8px 4px;text-align:center;"><div style="font-size:8px;font-weight:700;color:'+(isDark?'#fff':'#333')+';">'+(names[i]||hex)+'</div><div style="font-size:6px;color:'+(isDark?'rgba(255,255,255,.6)':'#999')+';">'+hex+'</div></div>';
+    }).join('');
+
+    // 속성 가이드
+    var attrDB={'봄웜':{value:72,chroma:70,contrast:40},'여름쿨':{value:65,chroma:40,contrast:30},'가을웜':{value:40,chroma:55,contrast:60},'겨울쿨':{value:55,chroma:85,contrast:85}};
+    var texDB={'봄웜':['Silk','Satin'],'여름쿨':['Matte','Silk'],'가을웜':['Leather','Suede'],'겨울쿨':['Enamel','Glossy']};
+    var attrs=attrDB[pc.season]||{value:50,chroma:50,contrast:50};
+    var attrEl=document.getElementById('rptAttrs');
+    attrEl.innerHTML=[
+      {l:'Value',v:attrs.value,c:'#35A29F'},
+      {l:'Chroma',v:attrs.chroma,c:'#0B666A'},
+      {l:'Contrast',v:attrs.contrast,c:'#071952'}
+    ].map(function(a){return '<div style="display:flex;align-items:center;gap:6px;"><span style="font-size:9px;font-weight:700;color:#333;min-width:50px;">'+a.l+'</span><div style="flex:1;height:5px;background:#eee;border-radius:3px;overflow:hidden;"><div style="height:100%;width:'+a.v+'%;background:'+a.c+';border-radius:3px;"></div></div><span style="font-size:8px;color:#999;">'+a.v+'%</span></div>';}).join('');
+    var texEl=document.getElementById('rptTextures');
+    texEl.innerHTML='<span style="font-size:9px;font-weight:700;color:#071952;">Best Texture:</span> '+(texDB[pc.season]||[]).map(function(tx){return '<span style="font-size:8px;padding:2px 8px;border-radius:8px;background:#0B666A;color:#fff;font-weight:700;">'+tx+'</span>';}).join(' ');
+
+    // 컬러 큐레이션
+    document.getElementById('rptBest').innerHTML=(pc.best_colors||[]).slice(0,3).map(function(hex,i){
+      return '<div style="text-align:center;"><div style="width:40px;height:40px;border-radius:50%;background:'+hex+';box-shadow:0 2px 6px rgba(0,0,0,.15);margin:0 auto 3px;"></div><div style="font-size:7px;font-weight:700;color:#333;">'+(pc.best_color_names?.[i]||hex)+'</div></div>';
+    }).join('');
+    document.getElementById('rptWorst').innerHTML=(pc.avoid_colors||[]).slice(0,3).map(function(hex,i){
+      return '<div style="text-align:center;"><div style="width:40px;height:40px;border-radius:50%;background:'+hex+';position:relative;box-shadow:0 2px 6px rgba(0,0,0,.15);margin:0 auto 3px;"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(255,255,255,.6);">✕</div></div><div style="font-size:7px;font-weight:700;color:#ef4444;">'+(pc.avoid_color_names?.[i]||hex)+'</div></div>';
+    }).join('');
+
+    // 5섹션 요약 (1줄씩)
+    var titles=['신체색 분석','색 속성/청탁','대비감/광택감','워스트/보정','라이프스타일'];
+    var titlesEn=['Base Analysis','Color Properties','Contrast/Texture','Worst/Correction','Lifestyle'];
+    var sumEl=document.getElementById('rptSummary');
+    var secs=document.querySelectorAll('.pca-body');
+    var sumHtml='';
+    secs.forEach(function(sec,i){
+      var txt=sec.textContent.trim().slice(0,120);
+      if(txt) sumHtml+='<div style="margin-bottom:6px;padding:6px 8px;background:rgba(151,254,237,.08);border-radius:6px;border-left:3px solid #0B666A;"><b style="color:#071952;font-size:9px;">'+(_en?titlesEn[i]:titles[i])+'</b><br/>'+txt+'…</div>';
+    });
+    sumEl.innerHTML=sumHtml;
+
+    // html2canvas 캡처
+    await new Promise(r=>setTimeout(r,300));
+    var canvas=await html2canvas(tpl,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false});
+    tpl.style.position='absolute';tpl.style.left='-9999px';
+
+    // 다운로드
+    var link=document.createElement('a');
+    link.download='CodiBank_PersonalColor_Report_'+new Date().toISOString().slice(0,10)+'.png';
+    link.href=canvas.toDataURL('image/png',0.95);
+    link.click();
+    showToast(_en?'Report downloaded!':'리포트가 다운로드 되었습니다!');
+  }catch(e){
+    console.error('[Report]',e);
+    showToast(_en?'Report generation failed':'리포트 생성 실패');
+  }finally{
+    if(btn){btn.textContent=window.CodiBankI18n&&CodiBankI18n.isEn()?'Download Report':'리포트 다운로드';btn.disabled=false;}
+    var tpl2=document.getElementById('reportTemplate');if(tpl2)tpl2.style.left='-9999px';
+  }
+}
+
+function _drawRadarCanvas(season){
+  var DB={'봄웜':{brightness:80,redness:55,yellowness:75,texture:65,contrast:45,clarity:80},'여름쿨':{brightness:70,redness:45,yellowness:35,texture:75,contrast:35,clarity:60},'가을웜':{brightness:45,redness:50,yellowness:80,texture:55,contrast:60,clarity:40},'겨울쿨':{brightness:60,redness:40,yellowness:30,texture:70,contrast:85,clarity:85}};
+  var d=DB[season];if(!d)return;
+  var cv=document.getElementById('rptRadarCanvas');if(!cv)return;
+  var ctx=cv.getContext('2d');
+  var cx=120,cy=110,r=80,axes=6;
+  var labels=['Brightness','Redness','Yellowness','Texture','Contrast','Clarity'];
+  var vals=[d.brightness,d.redness,d.yellowness,d.texture,d.contrast,d.clarity];
+  ctx.clearRect(0,0,240,220);
+  // 격자
+  [1,.66,.33].forEach(function(s){
+    ctx.beginPath();
+    for(var i=0;i<=axes;i++){var a=Math.PI*2/axes*(i%axes)-Math.PI/2;var x=cx+r*s*Math.cos(a),y=cy+r*s*Math.sin(a);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+    ctx.strokeStyle='#e0e0e0';ctx.lineWidth=0.5;ctx.stroke();
+  });
+  // 축선
+  for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+r*Math.cos(a),cy+r*Math.sin(a));ctx.strokeStyle='#e0e0e0';ctx.lineWidth=0.5;ctx.stroke();}
+  // 데이터
+  ctx.beginPath();
+  for(var i=0;i<=axes;i++){var a=Math.PI*2/axes*(i%axes)-Math.PI/2;var v=vals[i%axes]/100;var x=cx+r*v*Math.cos(a),y=cy+r*v*Math.sin(a);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+  ctx.fillStyle='rgba(53,162,159,0.2)';ctx.fill();ctx.strokeStyle='#35A29F';ctx.lineWidth=1.5;ctx.stroke();
+  // 꼭짓점
+  for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;var v=vals[i]/100;ctx.beginPath();ctx.arc(cx+r*v*Math.cos(a),cy+r*v*Math.sin(a),3,0,Math.PI*2);ctx.fillStyle='#0B666A';ctx.fill();}
+  // 라벨
+  ctx.font='600 8px Pretendard,sans-serif';ctx.fillStyle='#666';
+  for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;var lx=cx+(r+14)*Math.cos(a),ly=cy+(r+14)*Math.sin(a);ctx.textAlign=Math.cos(a)>0.3?'left':Math.cos(a)<-0.3?'right':'center';ctx.textBaseline=Math.sin(a)>0.3?'top':'bottom';if(Math.abs(Math.sin(a))<0.3)ctx.textBaseline='middle';ctx.fillText(labels[i],lx,ly);}
+}
 
 // BMI 자동 계산
 function updateBMI(){
@@ -724,10 +982,9 @@ function renderPersonalColor(pc) {
   _renderPcAnalysis5(_sn, pc, _isEn, _age);
 
   // 리포트/다시분석 버튼 활성화
-  var _rpBtn = document.getElementById('pcReportBtn');
-  var _raBtn = document.getElementById('pcReanalyzeBtn');
-  if(_rpBtn){ _rpBtn.style.background='#071952'; _rpBtn.style.color='#fff'; }
-  if(_raBtn){ _raBtn.style.background='#071952'; _raBtn.style.color='#fff'; }
+  var _rpBtn = document.getElementById('btnReport');
+  
+  if(_rpBtn){ _rpBtn.style.background='#071952'; _rpBtn.style.color='#fff'; _rpBtn.disabled=false; _rpBtn.style.opacity='1'; }
 
   // 섹션 타이틀 (영어/한글)
   var sLabel = document.getElementById('pcSectionLabel');
@@ -840,7 +1097,7 @@ async function reAnalyzePersonalColor() {
 // 사진 없음 → 비활성화 | 사진 있음 → "퍼스널컬러 분석" 활성화
 // 분석 결과 있음 → "다시 분석" 활성화
 function updatePcBtnState() {
-  const btn = document.getElementById('pcAnalyzeBtn');
+  const btn = document.getElementById('pcAnalyzeBtnTop');
   const txt = document.getElementById('pcBtnText');
   if (!btn || !txt) return;
   const _en = window.CodiBankI18n && CodiBankI18n.isEn();
@@ -873,7 +1130,7 @@ function startPersonalColorAnalysis() {
     showToast(window.CodiBankI18n && CodiBankI18n.isEn() ? 'Please select a profile photo first.' : '먼저 프로필 사진을 선택해주세요.');
     return;
   }
-  const btn = document.getElementById('pcAnalyzeBtn');
+  const btn = document.getElementById('pcAnalyzeBtnTop');
   const txt = document.getElementById('pcBtnText');
   if(btn){ btn.disabled=true; btn.style.background='#ccc'; btn.style.color='#888'; }
   if(txt){ txt.textContent = window.CodiBankI18n && CodiBankI18n.isEn() ? '⏳ Analyzing…' : '⏳ 분석 중…'; }
@@ -892,7 +1149,7 @@ function applyPcI18n() {
   const em = document.getElementById('pcEmptyMsg');
   if(em) em.textContent = en ? 'Select a photo to start analysis.' : '프로필 사진을 선택한 후 분석을 시작하세요';
   // 버튼 텍스트 (미분석 상태)
-  const btn = document.getElementById('pcAnalyzeBtn');
+  const btn = document.getElementById('pcAnalyzeBtnTop');
   const txt = document.getElementById('pcBtnText');
   if(btn && txt && !btn.disabled){
     // 이미 분석됐으면 '다시'
