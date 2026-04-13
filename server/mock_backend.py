@@ -1739,7 +1739,7 @@ def _ai_styling_via_gemini(
 # - 각 측면 분석 텍스트 300자 이내 + 핵심 키워드 3개
 # - closet.html의 새 분석 박스에서 렌더링
 # ══════════════════════════════════════════════════════
-def _generate_styling_analysis(payload, matched_stylist, meta, lang=str(payload.get("lang") or "ko")):
+def _generate_styling_analysis(payload, matched_stylist, meta, lang=None):
     """3개 측면 종합 분석 + 각 3개 키워드 생성 (템플릿 기반, API 호출 없음)"""
     user      = payload.get("user") or {}
     weather   = payload.get("weather") or {}
