@@ -1404,6 +1404,7 @@ def _ai_styling_via_gemini(
     ext: str,
     matched_stylist=None,
     meta=None,
+    lang=None,
 ):
     """[2026-04-10] 코디쌤 추천코디 — Gemini 단일 호출로 이미지+분석 동시 생성.
 
@@ -1417,6 +1418,7 @@ def _ai_styling_via_gemini(
     - image_bytes (inline_data)
     - text 파트에서 <<<ANALYSIS_JSON>>>...<<<END>>> 마커로 감싼 JSON 추출
     """
+    _cs_en = (str(lang or payload.get("lang") or "ko").strip().lower() == "en")
     # ── SDK 감지: google-genai(신) 우선 → google-generativeai(구) 폴백 ──
     _SDK = None
     _genai = None
@@ -1543,20 +1545,20 @@ def _ai_styling_via_gemini(
         # 분석 JSON 출력 지시 — 핵심
         # ══════════════════════════════════════════
         "\n\n=== CRITICAL OUTPUT INSTRUCTIONS ===\n"
-        "Along with the generated outfit image, you MUST also output a structured Korean analysis as TEXT. "
+        "Along with the generated outfit image, you MUST also output a structured " + ("English" if _cs_en else "Korean") + " analysis as TEXT. "
         "Wrap the JSON between exact markers <<<ANALYSIS_JSON>>> and <<<END_ANALYSIS>>> with no additional text outside markers. "
         "The JSON MUST follow this EXACT schema:\n"
         "{\n"
         '  "personalColor": {\n'
-        '    "text": "퍼스널컬러 측면 분석 (정확히 한국어, 250-300자, 사용자 톤에 맞는 컬러 추천 이유와 오늘 코디의 컬러 선택 근거 포함)",\n'
+        '    "text": "퍼스널컬러 측면 분석 (정확히 ' + ('English' if _cs_en else '한국어') + ', 250-300자, 사용자 톤에 맞는 컬러 추천 이유와 오늘 코디의 컬러 선택 근거 포함)",\n'
         '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
         '  },\n'
         '  "body": {\n'
-        '    "text": "체형/사이즈 측면 분석 (한국어, 250-300자, 키/체중/BMI/체형분류를 반영한 핏과 실루엣 추천 근거)",\n'
+        '    "text": "체형/사이즈 측면 분석 (' + ('English' if _cs_en else '한국어') + ', 250-300자, 키/체중/BMI/체형분류를 반영한 핏과 실루엣 추천 근거)",\n'
         '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
         '  },\n'
         '  "purpose": {\n'
-        '    "text": "코디 목적과 날씨 측면 분석 (한국어, 250-300자, 목적/날씨/도시 스타일을 어떻게 반영했는지 설명)",\n'
+        '    "text": "코디 목적과 날씨 측면 분석 (' + ("English" if _cs_en else "한국어") + ', 250-300자, 목적/날씨/도시 스타일을 어떻게 반영했는지 설명)",\n'
         '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
         '  },\n'
         '  "categoryKeywords": {\n'
@@ -1690,12 +1692,12 @@ def _ai_styling_via_gemini(
                 category_keywords_from_ai = {str(k): str(v).strip() for k, v in _ck.items() if v}
         else:
             # 마커 없으면 폴백 — 템플릿 함수로 생성
-            styling_analysis = _generate_styling_analysis(payload, matched_stylist, meta)
+            styling_analysis = _generate_styling_analysis(payload, matched_stylist, meta, lang=str(payload.get("lang") or "ko"))
             print(f"[ai_styling_gemini] ⚠ 분석 JSON 마커 없음, 템플릿 폴백 사용. text 일부: {full_text[:200]}")
     except Exception as _pe:
         print(f"[ai_styling_gemini] 분석 JSON 파싱 실패: {_pe}, 템플릿 폴백 사용")
         try:
-            styling_analysis = _generate_styling_analysis(payload, matched_stylist, meta)
+            styling_analysis = _generate_styling_analysis(payload, matched_stylist, meta, lang=str(payload.get("lang") or "ko"))
         except Exception:
             styling_analysis = None
 
@@ -1737,7 +1739,7 @@ def _ai_styling_via_gemini(
 # - 각 측면 분석 텍스트 300자 이내 + 핵심 키워드 3개
 # - closet.html의 새 분석 박스에서 렌더링
 # ══════════════════════════════════════════════════════
-def _generate_styling_analysis(payload, matched_stylist, meta):
+def _generate_styling_analysis(payload, matched_stylist, meta, lang=str(payload.get("lang") or "ko")):
     """3개 측면 종합 분석 + 각 3개 키워드 생성 (템플릿 기반, API 호출 없음)"""
     user      = payload.get("user") or {}
     weather   = payload.get("weather") or {}
@@ -1800,33 +1802,60 @@ def _generate_styling_analysis(payload, matched_stylist, meta):
         while len(pc_keywords) < 3:
             pc_keywords.append("컬러 매칭")
     else:
-        pc_text = (
-            f"{gender_ko}님의 퍼스널컬러 정보가 등록되지 않아 범용 컬러 가이드를 적용합니다. "
-            f"오늘 코디는 피부톤과 잘 어우러지는 뉴트럴 베이스에 절제된 포인트 컬러로 구성했어요. "
-            f"마이페이지에서 퍼스널컬러를 등록하면 훨씬 정확한 컬러 매칭을 받으실 수 있습니다."
-        )
+        if _en:
+            pc_text = (
+                "Your personal color hasn't been registered, so a universal color guide is applied. "
+                "Today's outfit uses a neutral base with restrained accent colors that complement most skin tones. "
+                "Register your personal color in My Page for more precise color matching."
+            )
+            pc_keywords = ["Neutral", "Tone-on-tone", "Subtle accent"]
+        else:
+            pc_text = (
+                f"{gender_ko}님의 퍼스널컬러 정보가 등록되지 않아 범용 컬러 가이드를 적용합니다. "
+                f"오늘 코디는 피부톤과 잘 어우러지는 뉴트럴 베이스에 절제된 포인트 컬러로 구성했어요. "
+                f"마이페이지에서 퍼스널컬러를 등록하면 훨씬 정확한 컬러 매칭을 받으실 수 있습니다."
+            )
+            pc_keywords = ["뉴트럴", "톤온톤", "절제된 포인트"]
         if len(pc_text) > 350:
             _cut = pc_text[:350].rfind(".")
             pc_text = pc_text[:_cut+1] if _cut > 100 else pc_text[:347] + "..."
-        pc_keywords = ["뉴트럴", "톤온톤", "절제된 포인트"]
 
     # ── 2) 체형/사이즈 분석 ──
-    body_text_parts = [f"{gender_ko}, {age}, 키 {height}cm, 몸무게 {weight}kg ({bmi_cat_ko}, BMI {bmi_val})입니다. "]
-    if bmi_cat_en == "slim":
-        body_text_parts.append("슬림한 체형은 레이어드와 볼륨감 있는 소재로 풍성함을 더할 수 있습니다. ")
-        body_kws = ["레이어드", "볼륨 실루엣", "세미오버핏"]
-    elif bmi_cat_en == "average":
-        body_text_parts.append("표준 체형은 대부분의 핏을 소화할 수 있어 레귤러핏과 테일러드핏이 가장 잘 어울립니다. ")
-        body_kws = ["레귤러핏", "테일러드", "정석 핏"]
-    elif bmi_cat_en == "slightly heavy":
-        body_text_parts.append("약간 통통한 체형은 어깨 라인을 살리는 구조적 자켓과 세로 라인을 강조하는 실루엣이 효과적입니다. ")
-        body_kws = ["구조적 자켓", "세로 라인", "어깨 강조"]
+    if _en:
+        body_text_parts = [f"{gender_ko}, {age}, {height}cm, {weight}kg ({bmi_cat_en}, BMI {bmi_val}). "]
     else:
-        body_text_parts.append("볼륨감 있는 체형은 몸을 감싸는 곡선 실루엣 대신 직선적이고 깔끔한 라인이 인상을 정돈해줍니다. ")
-        body_kws = ["직선 실루엣", "다크 톤", "구조적 핏"]
+        body_text_parts = [f"{gender_ko}, {age}, 키 {height}cm, 몸무게 {weight}kg ({bmi_cat_ko}, BMI {bmi_val})입니다. "]
+    if bmi_cat_en == "slim":
+        if _en:
+            body_text_parts.append("A slim build benefits from layering and voluminous fabrics for added fullness. ")
+            body_kws = ["Layered", "Volume silhouette", "Semi-overfit"]
+        else:
+            body_text_parts.append("슬림한 체형은 레이어드와 볼륨감 있는 소재로 풍성함을 더할 수 있습니다. ")
+            body_kws = ["레이어드", "볼륨 실루엣", "세미오버핏"]
+    elif bmi_cat_en == "average":
+        if _en:
+            body_text_parts.append("A standard build suits most fits — regular and tailored fits work best. ")
+            body_kws = ["Regular fit", "Tailored", "Classic fit"]
+        else:
+            body_text_parts.append("표준 체형은 대부분의 핏을 소화할 수 있어 레귤러핏과 테일러드핏이 가장 잘 어울립니다. ")
+            body_kws = ["레귤러핏", "테일러드", "정석 핏"]
+    elif bmi_cat_en == "slightly heavy":
+        if _en:
+            body_text_parts.append("A slightly heavy build benefits from structured jackets and vertical-line silhouettes. ")
+            body_kws = ["Structured jacket", "Vertical line", "Shoulder emphasis"]
+        else:
+            body_text_parts.append("약간 통통한 체형은 어깨 라인을 살리는 구조적 자켓과 세로 라인을 강조하는 실루엣이 효과적입니다. ")
+            body_kws = ["구조적 자켓", "세로 라인", "어깨 강조"]
+    else:
+        if _en:
+            body_text_parts.append("For a heavier build, clean straight lines work better than curved silhouettes. ")
+            body_kws = ["Straight silhouette", "Dark tone", "Structured fit"]
+        else:
+            body_text_parts.append("볼륨감 있는 체형은 몸을 감싸는 곡선 실루엣 대신 직선적이고 깔끔한 라인이 인상을 정돈해줍니다. ")
+            body_kws = ["직선 실루엣", "다크 톤", "구조적 핏"]
     if body_type:
-        body_text_parts.append(f"체형 분류({body_type})에 맞춰 비율을 보정하는 디테일을 우선 적용했습니다. ")
-    body_text_parts.append(f"오늘 코디는 {height}cm 기준으로 비율이 가장 좋아 보이는 길이감과 핏을 선택했습니다.")
+        body_text_parts.append(f"{'Proportion-correcting details applied for body type: ' if _en else '체형 분류('}{body_type}{').' if _en else ')에 맞춰 비율을 보정하는 디테일을 우선 적용했습니다. '}")
+    body_text_parts.append(f"{'Today outfit uses the best length and fit for ' if _en else '오늘 코디는 '}{height}cm{' build.' if _en else ' 기준으로 비율이 가장 좋아 보이는 길이감과 핏을 선택했습니다.'}")
     body_text = "".join(body_text_parts)
     if len(body_text) > 350:
         _cut = body_text[:350].rfind(".")
@@ -1840,32 +1869,41 @@ def _generate_styling_analysis(payload, matched_stylist, meta):
     cond = str(weather.get("text") or weather.get("condition") or "").strip()
     location = str(weather.get("location") or weather.get("city") or "").strip()
     if temp <= 5:
-        weather_kw = "방한"
-        weather_desc = f"기온 {int(temp)}°C로 춥습니다. 두꺼운 코트와 보온 레이어가 필수입니다. "
+        weather_kw = "Winter warm" if _en else "방한"
+        weather_desc = f"At {int(temp)}°C, it's cold. A thick coat and warm layers are essential. " if _en else f"기온 {int(temp)}°C로 춥습니다. 두꺼운 코트와 보온 레이어가 필수입니다. "
     elif temp <= 12:
-        weather_kw = "가을 레이어"
-        weather_desc = f"기온 {int(temp)}°C로 쌀쌀합니다. 자켓과 니트 레이어로 따뜻함을 챙겼어요. "
+        weather_kw = "Fall layer" if _en else "가을 레이어"
+        weather_desc = f"At {int(temp)}°C, it's chilly. Jacket and knit layers keep you warm. " if _en else f"기온 {int(temp)}°C로 쌀쌀합니다. 자켓과 니트 레이어로 따뜻함을 챙겼어요. "
     elif temp <= 20:
-        weather_kw = "환절기"
-        weather_desc = f"기온 {int(temp)}°C로 활동하기 좋은 환절기 날씨입니다. 가벼운 아우터로 체온 조절이 가능합니다. "
+        weather_kw = "Transitional" if _en else "환절기"
+        weather_desc = f"At {int(temp)}°C, great for activities. A light outer layer handles temperature changes. " if _en else f"기온 {int(temp)}°C로 활동하기 좋은 환절기 날씨입니다. 가벼운 아우터로 체온 조절이 가능합니다. "
     elif temp <= 26:
-        weather_kw = "봄가을"
-        weather_desc = f"기온 {int(temp)}°C로 쾌적합니다. 단일 레이어로 깔끔하게 마무리했습니다. "
+        weather_kw = "Spring/Fall" if _en else "봄가을"
+        weather_desc = f"At {int(temp)}°C, pleasant weather. A single layer finishes the look cleanly. " if _en else f"기온 {int(temp)}°C로 쾌적합니다. 단일 레이어로 깔끔하게 마무리했습니다. "
     else:
-        weather_kw = "여름 통풍"
-        weather_desc = f"기온 {int(temp)}°C로 덥습니다. 통기성 좋은 가벼운 소재로 시원함을 우선했습니다. "
-    purpose_desc = f"오늘의 목적은 '{purpose}'입니다. "
-    city_desc = f"{city} 스타일을 기반으로 "
+        weather_kw = "Summer breathable" if _en else "여름 통풍"
+        weather_desc = f"At {int(temp)}°C, it's hot. Lightweight breathable fabrics prioritize coolness. " if _en else f"기온 {int(temp)}°C로 덥습니다. 통기성 좋은 가벼운 소재로 시원함을 우선했습니다. "
     stylist_name = (matched_stylist or {}).get("name") if matched_stylist else None
-    stylist_part = f"AI 스타일리스트 {stylist_name}님의 감각으로 " if stylist_name else ""
-    purpose_text = (
-        purpose_desc + weather_desc + city_desc + stylist_part +
-        f"{purpose}에 어울리는 핵심 아이템을 조합했습니다."
-    )
+    if _en:
+        purpose_desc = f"Today's goal is '{purpose}'. "
+        city_desc = f"Based on {city} style, "
+        stylist_part = f"with AI stylist {stylist_name}'s touch, " if stylist_name else ""
+        purpose_text = (
+            purpose_desc + weather_desc + city_desc + stylist_part +
+            f"key items for '{purpose}' are curated."
+        )
+    else:
+        purpose_desc = f"오늘의 목적은 '{purpose}'입니다. "
+        city_desc = f"{city} 스타일을 기반으로 "
+        stylist_part = f"AI 스타일리스트 {stylist_name}님의 감각으로 " if stylist_name else ""
+        purpose_text = (
+            purpose_desc + weather_desc + city_desc + stylist_part +
+            f"{purpose}에 어울리는 핵심 아이템을 조합했습니다."
+        )
     if len(purpose_text) > 350:
         _cut = purpose_text[:350].rfind(".")
         purpose_text = purpose_text[:_cut+1] if _cut > 100 else purpose_text[:347] + "..."
-    purpose_kws = [purpose, weather_kw, city + " 스타일"]
+    purpose_kws = [purpose, weather_kw, city + (" style" if _en else " 스타일")]
 
     return {
         "personalColor": {"text": pc_text, "keywords": pc_keywords},
@@ -2022,6 +2060,7 @@ def ai_styling():
                 cache_fname=cache_fname,
                 ext=ext,
                 matched_stylist=_matched_stylist,
+                lang=str(payload.get("lang") or "ko"),
                 meta=_meta,
             )
             # _ai_styling_via_gemini는 이미 jsonify 결과를 반환
@@ -2423,6 +2462,8 @@ def codistyle_analyze_garments():
 
 @app.post("/api/codistyle/generate")
 def codistyle_generate():
+    _cs_lang = str(request.json.get("lang") or "ko").strip().lower()
+    _cs_en = (_cs_lang == "en")
     if not _GEMINI_KEY:
         return jsonify(ok=False, error="GEMINI_API_KEY 미설정"), 400
 
