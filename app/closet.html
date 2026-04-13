@@ -172,6 +172,14 @@
     "미니멀/심플":        "Minimal/Simple",
     "트렌디/스트릿":      "Trendy/Street",
     "직접입력":           "Custom",
+    "맞춤":                  "Custom",
+    "카테고리별":         "Per category",
+    "무제한":               "Unlimited",
+    "개":                     " items",
+    "한도 초과":           "Limit exceeded",
+    "코트":                  "Coat",
+    "자켓":                  "Jacket",
+    "가디건":               "Cardigan",
 
     // ── 카테고리명 ──
     "아우터":             "Outerwear",
@@ -330,7 +338,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     var cur = localStorage.getItem('cb_lang') || 'ko';
     if(cur !== _lastLang){
       _lastLang = cur;
-      setTimeout(applyI18n, 100);
+      setTimeout(function(){applyI18n();try{renderPurposeGrid();}catch(_){}}, 100);
     }
   }, 500);
   // 2) CodiBankI18n.setLang 패치 (존재할 경우)
@@ -339,7 +347,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       var _orig = CodiBankI18n.setLang.bind(CodiBankI18n);
       CodiBankI18n.setLang = function(lang){
         _orig(lang);
-        setTimeout(applyI18n, 150);
+        setTimeout(function(){applyI18n();try{renderPurposeGrid();}catch(_){}}, 150);
       };
       clearInterval(_patchTry);
     }
@@ -1354,22 +1362,22 @@ console.info('[CodiBank] closet build: v18.6.3 (2026-02-26)');
 
 // ── 10개 코디 목적 ──────────────────────────────────────────────
 const PURPOSES = [
-  {key:'bizFormal',    label:'비즈니스 포멀',   icon:'business_center', kw:['비즈니스','포멀','수트','프로페셔널']},
-  {key:'officeDaily',  label:'데일리 오피스룩', icon:'work',             kw:['오피스','세미정장','블레이저','슬랙스']},
-  {key:'interview',    label:'면접룩',          icon:'badge',           kw:['면접','단정','네이비','그레이']},
-  {key:'weddingGuest', label:'결혼식 하객룩',   icon:'celebration',     kw:['하객룩','원피스','세미포멀','우아함']},
-  {key:'blindDate',    label:'소개팅룩',         icon:'favorite',        kw:['소개팅','니트','슬랙스','호감']},
-  {key:'romanticDate', label:'로맨틱 데이트룩', icon:'favorite_border', kw:['데이트','로맨틱','드레스','감성']},
-  {key:'familyMeet',   label:'상견례/가족모임', icon:'family_restroom', kw:['상견례','보수적','우아','단아']},
-  {key:'socialParty',  label:'사교 모임/파티',  icon:'groups',          kw:['파티','트렌디','액세서리','모임']},
-  {key:'weekendOut',   label:'주말 나들이',      icon:'weekend',         kw:['주말','캐주얼','야외','공원']},
-  {key:'travelShot',   label:'여행지 인생샷',   icon:'flight',          kw:['여행','휴양지','이국적','인생샷']},
-  {key:'dailyCasual',  label:'꾸안꾸 데일리',   icon:'style',           kw:['꾸안꾸','오버사이즈','스트릿','자연스러움']},
-  {key:'sporty',       label:'스포티/애슬레저', icon:'fitness_center',  kw:['스포티','애슬레저','운동복','레깅스']},
-  {key:'airport',      label:'공항 패션',        icon:'luggage',         kw:['공항','레이어드','편안','여행자']},
-  {key:'minimal',      label:'미니멀/심플',      icon:'fiber_manual_record', kw:['미니멀','무채색','심플','클린']},
-  {key:'streetTrend',  label:'트렌디/스트릿',   icon:'local_fire_department', kw:['스트릿','트렌디','그래픽','스니커즈']},
-  {key:'custom',       label:'직접입력',          icon:'edit',            kw:['맞춤']},
+  {key:'bizFormal',    label:'비즈니스 포멀',   labelEn:'Business Formal',   icon:'business_center', kw:['비즈니스','포멀','수트','프로페셔널']},
+  {key:'officeDaily',  label:'데일리 오피스룩', labelEn:'Daily Office', icon:'work',             kw:['오피스','세미정장','블레이저','슬랙스']},
+  {key:'interview',    label:'면접룩',          labelEn:'Interview',          icon:'badge',           kw:['면접','단정','네이비','그레이']},
+  {key:'weddingGuest', label:'결혼식 하객룩',   labelEn:'Wedding Guest',   icon:'celebration',     kw:['하객룩','원피스','세미포멀','우아함']},
+  {key:'blindDate',    label:'소개팅룩',         labelEn:'Blind Date',         icon:'favorite',        kw:['소개팅','니트','슬랙스','호감']},
+  {key:'romanticDate', label:'로맨틱 데이트룩', labelEn:'Romantic Date', icon:'favorite_border', kw:['데이트','로맨틱','드레스','감성']},
+  {key:'familyMeet',   label:'상견례/가족모임', labelEn:'Family Gathering', icon:'family_restroom', kw:['상견례','보수적','우아','단아']},
+  {key:'socialParty',  label:'사교 모임/파티',  labelEn:'Social / Party',  icon:'groups',          kw:['파티','트렌디','액세서리','모임']},
+  {key:'weekendOut',   label:'주말 나들이',      labelEn:'Weekend Outing',      icon:'weekend',         kw:['주말','캐주얼','야외','공원']},
+  {key:'travelShot',   label:'여행지 인생샷',   labelEn:'Travel Photo',   icon:'flight',          kw:['여행','휴양지','이국적','인생샷']},
+  {key:'dailyCasual',  label:'꾸안꾸 데일리',   labelEn:'Effortless Daily',   icon:'style',           kw:['꾸안꾸','오버사이즈','스트릿','자연스러움']},
+  {key:'sporty',       label:'스포티/애슬레저', labelEn:'Sporty / Athleisure', icon:'fitness_center',  kw:['스포티','애슬레저','운동복','레깅스']},
+  {key:'airport',      label:'공항 패션',        labelEn:'Airport Fashion',        icon:'luggage',         kw:['공항','레이어드','편안','여행자']},
+  {key:'minimal',      label:'미니멀/심플',      labelEn:'Minimal / Simple',      icon:'fiber_manual_record', kw:['미니멀','무채색','심플','클린']},
+  {key:'streetTrend',  label:'트렌디/스트릿',   labelEn:'Trendy / Street',   icon:'local_fire_department', kw:['스트릿','트렌디','그래픽','스니커즈']},
+  {key:'custom',       label:'직접입력',          labelEn:'Custom Input',          icon:'edit',            kw:['맞춤']},
 ];
 
 const normDay = (d)=> (String(d||'').toLowerCase()==='tomorrow' ? 'tomorrow' : 'today');
@@ -2044,7 +2052,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const sd = Number(seed || 0);
 
   const customText  = (pk==='custom') ? String(profile?.codiPurposeCustom||'').trim() : '';
-  const purposeName = (pk==='custom') ? (customText || '맞춤') : (pm?.label || '');
+  const purposeName = (pk==='custom') ? (customText || _L('맞춤')) : (_L(pm?.label) || '');
 
   const g   = profile?.gender === 'M' ? '남성' : (profile?.gender === 'F' ? '여성' : '남성');
   const age = profile?.ageGroup ? String(profile.ageGroup) : '30대';
@@ -2980,7 +2988,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   }
 
   // ── [14] styleTitle
-  const titleMap = {bizFormal:'비즈니스 포멀',officeDaily:'데일리 오피스룩',interview:'면접룩',weddingGuest:'결혼식 하객룩',blindDate:'소개팅룩',romanticDate:'로맨틱 데이트룩',familyMeet:'상견례/가족모임',socialParty:'사교 모임/파티',weekendOut:'주말 나들이',travelShot:'여행지 인생샷',dailyCasual:'꾸안꾸 데일리',sporty:'스포티/애슬레저',airport:'공항 패션',minimal:'미니멀/심플',streetTrend:'트렌디/스트릿',custom:'맞춤'};
+  const titleMap = {bizFormal:_L('비즈니스 포멀'),officeDaily:_L('데일리 오피스룩'),interview:_L('면접룩'),weddingGuest:_L('결혼식 하객룩'),blindDate:_L('소개팅룩'),romanticDate:_L('로맨틱 데이트룩'),familyMeet:_L('상견례/가족모임'),socialParty:_L('사교 모임/파티'),weekendOut:_L('주말 나들이'),travelShot:_L('여행지 인생샷'),dailyCasual:_L('꾸안꾸 데일리'),sporty:_L('스포티/애슬레저'),airport:_L('공항 패션'),minimal:_L('미니멀/심플'),streetTrend:_L('트렌디/스트릿'),custom:_L('맞춤')};
   const titleMapEn = {commute:'Commute',business:'Business',weekendOut:'Weekend',weekendTrip:'Trip',domesticTrip:'Domestic Trip',overseasTrip:'Overseas Trip',meet:'Social',blindDate:'Blind Date',partyLook:'Party',custom:'Custom'};
   const _isEn = window.CodiBankI18n && CodiBankI18n.isEn();
   const baseTitle = _isEn ? (titleMapEn[pk]||purposeName||'Today') : (titleMap[pk]||purposeName||'오늘의');
@@ -3800,7 +3808,7 @@ async function updateVTO(opts={}){
       ctxRow.innerHTML = '';
       const tags = [];
       // 목적
-      const pLabel = (S.pk==='custom') ? (String(S.customPurpose||'').trim()||'맞춤') : (getPur(S.pk)?.label||'');
+      const pLabel = (S.pk==='custom') ? (String(S.customPurpose||'').trim()||_L('직접입력')) : (_L(getPur(S.pk)?.label)||'');
       if(pLabel) tags.push({ icon:'checkroom', txt: pLabel });
       // 날짜
       const _ds = S.selDateKey || '';
@@ -3982,7 +3990,7 @@ async function updateVTO(opts={}){
         stylistSubCity: _regionInfo.sub,
         forDateKey: getSelectedDateKey(),
         purposeKey:S.pk,
-        purposeLabel:(S.pk==='custom' ? (_customTxt||'맞춤') : (getPur(S.pk).label||'')),
+        purposeLabel:(S.pk==='custom' ? (_customTxt||_L('맞춤')) : (_L(getPur(S.pk).label)||'')),
         customText: _customTxt,
         styleTitle,explanation:explain,keywords,
         imagePrompt: S.imagePrompt || '',
@@ -4245,7 +4253,7 @@ async function updateVTO(opts={}){
         }
         if(ref){
           const dateKey = getSelectedDateKey();
-          const purposeLabel = (S.pk==='custom' ? (String(S.customPurpose||'').trim()||'직접입력') : (getPur(S.pk)?.label||'')) || '';
+          const purposeLabel = (S.pk==='custom' ? (String(S.customPurpose||'').trim()||_L('직접입력')) : (_L(getPur(S.pk)?.label)||'')) || '';
           CodiBank.addAiAlbumEntry(user.email, {
             dateKey,
             weatherText: S.wx.text || '',
@@ -4267,7 +4275,7 @@ async function updateVTO(opts={}){
     }catch(e){ console.warn('album save failed', e); }
   }
   // ── 관리자 대시보드 추적 ──
-  try{ if(window.CodiBankTrack) CodiBankTrack.styling('closet', {purpose: (S.pk==='custom' ? (String(S.customPurpose||'').trim()||'직접입력') : (getPur(S.pk)?.label||'')) || ''}); }catch(_){}
+  try{ if(window.CodiBankTrack) CodiBankTrack.styling('closet', {purpose: (S.pk==='custom' ? (String(S.customPurpose||'').trim()||_L('직접입력')) : (_L(getPur(S.pk)?.label)||'')) || ''}); }catch(_){}
   // 화면의 잔여 카운트 최신화
   try{ updateQuotaBadge(); setGenUiEnabled(canGenerateNow()); }catch(_){ }
   if(!faceImg && hint) hint.style.display='flex';
@@ -4356,7 +4364,8 @@ function renderPurposeGrid(){
   const el=document.getElementById('purposeGrid');if(!el)return;el.innerHTML='';
   PURPOSES.forEach(p=>{
     const b=document.createElement('button');b.type='button';b.className='purpose-card';b.dataset.purpose=p.key;
-    b.innerHTML=`<span class="material-symbols-outlined">${p.icon}</span><span>${p.label}</span>`;
+    var _isEn2=window.CodiBankI18n&&CodiBankI18n.isEn();
+    b.innerHTML=`<span class="material-symbols-outlined">${p.icon}</span><span>${_isEn2&&p.labelEn?p.labelEn:p.label}</span>`;
     b.addEventListener('click',()=>setPurpose(p.key));el.appendChild(b);
   });
   setActivePurpose(S.pk);
@@ -4717,7 +4726,7 @@ function setMetaLine(){
   const dKey=getSelectedDateKey();
   const wTxt=S.wx.text||'-';
   const temp=(S.wx.temp!=null? `${S.wx.temp}°`: '-');
-  const pLabel=(S.pk==='custom' ? (String(S.customPurpose||'').trim()||'직접입력') : (getPur(S.pk)?.label||'')) || '';
+  const pLabel=(S.pk==='custom' ? (String(S.customPurpose||'').trim()||_L('직접입력')) : (_L(getPur(S.pk)?.label)||'')) || '';
   el.textContent = `실시간 AI · ${formatKoDateKey(dKey)} · ${temp} ${wTxt} · ${pLabel}`;
 }
 
@@ -4817,13 +4826,13 @@ function renderStylingPoint(){
     const _outerDisplayLabel = S.outerLabel || '아우터';
     const CAT_LABELS = [
       { key:"outer",  label:_outerDisplayLabel, icon:"🧥" },
-      { key:"top",    label:"탑/셔츠",      icon:"👔" },
-      { key:"bottom", label:"하의",         icon:"👖" },
-      { key:"shoes",  label:"신발",         icon:"👟" },
-      { key:"scarf",  label:"스카프·포인트", icon:"🧣" },
-      { key:"bag",    label:"가방",         icon:"👜" },
-      { key:"watch",  label:"시계",         icon:"⌚" },
-      { key:"socks",  label:"양말",         icon:"🧦" },
+      { key:"top",    label:_L("탑/셔츠"),      icon:"👔" },
+      { key:"bottom", label:_L("하의"),         icon:"👖" },
+      { key:"shoes",  label:_L("신발"),         icon:"👟" },
+      { key:"scarf",  label:_L("스카프·포인트"), icon:"🧣" },
+      { key:"bag",    label:_L("가방"),         icon:"👜" },
+      { key:"watch",  label:_L("시계"),         icon:"⌚" },
+      { key:"socks",  label:_L("양말"),         icon:"🧦" },
     ];
 
     const ckw = S.categoryKeywords || {};
