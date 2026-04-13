@@ -57,19 +57,25 @@ header h1{font-size:17px;font-weight:800;}
 /* 입력 필드 */
 .field{display:flex;align-items:center;padding:11px 20px;border-bottom:1px solid #f5f5f5;gap:12px;}
 .field:last-child{border-bottom:none;}
-.field{border-color:rgba(255,255,255,.15) !important;}
-.field-icon{color:#fff;flex-shrink:0;}
+.section-blue .field{border-color:rgba(255,255,255,.15) !important;}
+.field-icon{color:#0B666A;flex-shrink:0;}
+.section-blue .field-icon{color:#fff;}
 .field-body{flex:1;}
-.field-label{font-size:11px;font-weight:600;color:rgba(255,255,255,.7);margin-bottom:3px;}
-.field-input{width:100%;border:none;outline:none;font-size:15px;font-weight:600;color:#fff;font-family:inherit;background:transparent;}
-.field-input::placeholder{color:rgba(255,255,255,.4);font-weight:400;}
+.field-label{font-size:11px;font-weight:600;color:#aaa;margin-bottom:3px;}
+.section-blue .field-label{color:rgba(255,255,255,.7);}
+.field-input{width:100%;border:none;outline:none;font-size:15px;font-weight:600;color:#111;font-family:inherit;background:transparent;}
+.section-blue .field-input{color:#fff;}
+.field-input::placeholder{color:#ccc;font-weight:400;}
+.section-blue .field-input::placeholder{color:rgba(255,255,255,.4);}
 .field-input[type=number]{-moz-appearance:textfield;}
 .field-input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
 
 /* 선택 버튼 그룹 */
 .sel-group{display:flex;gap:8px;padding:12px 20px 16px;flex-wrap:wrap;}
-.sel-btn{padding:9px 16px;border-radius:12px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.15);font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:inherit;transition:all .15s;}
-.sel-btn.on{border-color:#fff;background:rgba(255,255,255,.95);color:#071952;font-weight:800;}
+.sel-btn{padding:9px 16px;border-radius:12px;border:1.5px solid #e8e8e8;background:#fff;font-size:13px;font-weight:600;color:#888;cursor:pointer;font-family:inherit;transition:all .15s;}
+.sel-btn.on{border-color:#0B666A;background:rgba(11,102,106,0.08);color:#0B666A;font-weight:800;}
+.section-blue .sel-btn{border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.15);color:#fff;}
+.section-blue .sel-btn.on{border-color:#fff;background:rgba(255,255,255,.95);color:#071952;}
 
 /* 저장 버튼 */
 
@@ -137,7 +143,7 @@ header h1{font-size:17px;font-weight:800;}
 
 <!-- 기본 정보 -->
 <p class="section-title" style="margin:0 16px 4px;padding:0 4px;color:#071952;font-size:13px;font-weight:800;">기본 정보</p>
-<div class="section" style="background:#4988C4;border:1.5px solid #0B666A;">
+<div class="section section-blue" style="background:#4988C4;border:1.5px solid #0B666A;">
   <div class="field">
     <span class="material-symbols-outlined field-icon">badge</span>
     <div class="field-body">
@@ -157,6 +163,22 @@ header h1{font-size:17px;font-weight:800;}
     <div class="field-body">
       <p class="field-label">휴대폰 번호</p>
       <input id="fPhone" type="tel" class="field-input" placeholder="010-0000-0000"/>
+    </div>
+  </div>
+  <div style="border-top:1px solid rgba(255,255,255,.15);padding-top:4px;">
+    <p class="field-label" style="padding:10px 20px 4px;">성별</p>
+    <div class="sel-group" id="genderGroup2">
+      <button class="sel-btn" data-v="male" onclick="selGender(this)">남성</button>
+      <button class="sel-btn" data-v="female" onclick="selGender(this)">여성</button>
+    </div>
+    <p class="field-label" style="padding:4px 20px 4px;">연령대</p>
+    <div class="sel-group" id="ageGroup2">
+      <button class="sel-btn" data-v="10s" onclick="selAge(this)">10대</button>
+      <button class="sel-btn" data-v="20s" onclick="selAge(this)">20대</button>
+      <button class="sel-btn" data-v="30s" onclick="selAge(this)">30대</button>
+      <button class="sel-btn" data-v="40s" onclick="selAge(this)">40대</button>
+      <button class="sel-btn" data-v="50s" onclick="selAge(this)">50대</button>
+      <button class="sel-btn" data-v="60s+" onclick="selAge(this)">60대+</button>
     </div>
   </div>
 </div>
@@ -315,28 +337,13 @@ header h1{font-size:17px;font-weight:800;}
 <!-- 체형 정보 -->
 <p class="section-title" style="margin:0 16px 4px;padding:0 4px;" id="bodyInfoTitle" style="color:#071952;font-size:13px;font-weight:800;">나의 신체정보 <span style="color:#0B666A;font-size:10px;" id="bodyInfoSub">(AI 코디 정확도 향상)</span></p>
 <div class="section">
-  <p class="field-label" style="padding:14px 20px 4px;">성별</p>
-  <div class="sel-group" id="genderGroup">
-    <button class="sel-btn" data-v="male" onclick="selGender(this)">남성</button>
-    <button class="sel-btn" data-v="female" onclick="selGender(this)">여성</button>
-    <button class="sel-btn" data-v="other" onclick="selGender(this)">기타</button>
-  </div>
-  <p class="field-label" style="padding:4px 20px 4px;">연령대</p>
-  <div class="sel-group" id="ageGroup">
-    <button class="sel-btn" data-v="10s" onclick="selAge(this)">10대</button>
-    <button class="sel-btn" data-v="20s" onclick="selAge(this)">20대</button>
-    <button class="sel-btn" data-v="30s" onclick="selAge(this)">30대</button>
-    <button class="sel-btn" data-v="40s" onclick="selAge(this)">40대</button>
-    <button class="sel-btn" data-v="50s" onclick="selAge(this)">50대</button>
-    <button class="sel-btn" data-v="60s+" onclick="selAge(this)">60대+</button>
-  </div>
-  <div class="field" style="border-top:1px solid #f5f5f5;">
+  <div class="field">
     <span class="material-symbols-outlined field-icon">straighten</span>
     <div class="field-body">
       <p class="field-label">키</p>
       <input id="fHeight" type="number" class="field-input" placeholder="cm"/>
     </div>
-    <span style="font-size:14px;color:rgba(255,255,255,.6);font-weight:600;">cm</span>
+    <span style="font-size:14px;color:#aaa;font-weight:600;">cm</span>
   </div>
   <div class="field">
     <span class="material-symbols-outlined field-icon">monitor_weight</span>
@@ -344,13 +351,13 @@ header h1{font-size:17px;font-weight:800;}
       <p class="field-label">몸무게</p>
       <input id="fWeight" type="number" class="field-input" placeholder="kg"/>
     </div>
-    <span style="font-size:14px;color:rgba(255,255,255,.6);font-weight:600;">kg</span>
+    <span style="font-size:14px;color:#aaa;font-weight:600;">kg</span>
   </div>
-  <div id="bmiDisplay" style="padding:8px 20px 12px;display:flex;align-items:center;gap:8px;">
-    <span class="material-symbols-outlined field-icon" style="font-size:18px;">speed</span>
-    <span style="font-size:11px;color:rgba(255,255,255,.6);font-weight:600;">BMI</span>
-    <span id="bmiValue" style="font-size:16px;font-weight:800;color:#fff;">—</span>
-    <span id="bmiCategory" style="font-size:10px;font-weight:700;color:rgba(255,255,255,.8);padding:2px 8px;border-radius:8px;background:rgba(255,255,255,.15);"></span>
+  <div id="bmiDisplay" style="padding:10px 20px 14px;display:flex;align-items:center;gap:10px;margin:0 20px 8px;background:rgba(151,254,237,0.15);border-radius:12px;border:1px solid rgba(11,102,106,.15);">
+    <span class="material-symbols-outlined" style="font-size:20px;color:#0B666A;">speed</span>
+    <span style="font-size:11px;color:#0B666A;font-weight:700;">BMI</span>
+    <span id="bmiValue" style="font-size:22px;font-weight:900;color:#071952;">—</span>
+    <span id="bmiCategory" style="font-size:11px;font-weight:700;color:#fff;padding:3px 10px;border-radius:10px;background:#0B666A;"></span>
   </div>
 
   <!-- [2026-04-08] 체형 선택 -->
@@ -415,6 +422,8 @@ function selGender(el){
   el.classList.add('on');
 }
 function selAge(el){
+  var v = el.getAttribute('data-v');
+  document.querySelectorAll('#ageGroup .sel-btn, #ageGroup2 .sel-btn').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-v')===v); });
   _ageVal = el.dataset.v;
   document.querySelectorAll('#ageGroup .sel-btn').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
@@ -478,13 +487,13 @@ function loadUser(){
 
   // 성별 선택 복원
   _genderVal = _user.gender || '';
-  document.querySelectorAll('#genderGroup .sel-btn').forEach(b=>{
+  document.querySelectorAll('#genderGroup2 .sel-btn').forEach(b=>{
     if(b.dataset.v === _genderVal) b.classList.add('on');
   });
 
   // 연령대 선택 복원
   _ageVal = _user.ageGroup || '';
-  document.querySelectorAll('#ageGroup .sel-btn').forEach(b=>{
+  document.querySelectorAll('#ageGroup2 .sel-btn').forEach(b=>{
     if(b.dataset.v === _ageVal) b.classList.add('on');
   });
 
@@ -531,10 +540,10 @@ function updateBMI(){
     var bmi=(w/((h/100)*(h/100))).toFixed(1);
     el.textContent=bmi;
     var _isEn=window.CodiBankI18n&&CodiBankI18n.isEn();
-    if(bmi<18.5){cat.textContent=_isEn?'Underweight':'저체중';cat.style.background='rgba(59,130,246,.2)';}
-    else if(bmi<23){cat.textContent=_isEn?'Normal':'정상';cat.style.background='rgba(34,197,94,.2)';}
-    else if(bmi<25){cat.textContent=_isEn?'Overweight':'과체중';cat.style.background='rgba(251,191,36,.2)';}
-    else{cat.textContent=_isEn?'Obese':'비만';cat.style.background='rgba(239,68,68,.2)';}
+    if(bmi<18.5){cat.textContent=_isEn?'Underweight':'저체중';cat.style.background='#3B82F6';}
+    else if(bmi<23){cat.textContent=_isEn?'Normal':'정상';cat.style.background='#22C55E';}
+    else if(bmi<25){cat.textContent=_isEn?'Overweight':'과체중';cat.style.background='#F59E0B';}
+    else{cat.textContent=_isEn?'Obese':'비만';cat.style.background='#EF4444';}
   } else { el.textContent='—'; cat.textContent=''; }
 }
 document.getElementById('fHeight')?.addEventListener('input',updateBMI);
@@ -708,7 +717,7 @@ function renderPersonalColor(pc) {
   // ═══ 5섹션 정밀 분석 렌더링 ═══
   var _sn = pc.season || '';
   var _age = '';
-  try{ _age = document.getElementById('ageGroup')?.value || '30대'; }catch(_){}
+  try{ var _ab=document.querySelector('#ageGroup2 .sel-btn.on'); _age=_ab?_ab.getAttribute('data-v'):'30대'; }catch(_){ _age='30대'; }
   _renderPcRadar(_sn);
   _renderPcPalette(pc, _isEn);
   _renderPcAttr(_sn, _isEn);
@@ -1246,6 +1255,8 @@ function selectBodyType(key, gender) {
 // 성별 선택 시 체형 카드 갱신
 var _origSelGender = window.selGender;
 window.selGender = function(el) {
+  var v = el.getAttribute('data-v');
+  document.querySelectorAll('#genderGroup2 .sel-btn').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-v')===v); });
   if(_origSelGender) _origSelGender(el);
   var g = el.getAttribute('data-v');
   _selectedBodyType = ''; // 성별 변경 시 체형 초기화
