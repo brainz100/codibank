@@ -1137,6 +1137,7 @@ let _bottomAnalysisCache = null;
 async function analyzeGarments(){
   const bb = codistyleBase();
   const payload = {};
+  payload.lang = (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'en' : 'ko';
   if(ST.top.dataUrl)       payload.topDataUrl    = ST.top.dataUrl;
   if(ST.top.serverPath)    payload.topPath       = ST.top.serverPath;
   if(ST.bottom.dataUrl)    payload.bottomDataUrl = ST.bottom.dataUrl;
@@ -1334,6 +1335,7 @@ async function generate(isRetry=false){
       bodyType: codiProfile.bodyType || user.bodyType || '',
       size:'1024x1536',
       quality:'low',
+      lang: (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'en' : 'ko',
       _ts: Date.now()
     };
     setProgress(45,'AI 착장 이미지 생성 중…');
