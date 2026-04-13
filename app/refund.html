@@ -143,5 +143,33 @@ h1{font-size:22px;font-weight:800;margin-bottom:6px;}
   <a href="mypage.html" class="cb-nav-tab on"><span class="ni">person</span><span class="nl">MY</span></a>
 </div></nav>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="codibank.js"></script>
-<script src="i
+<script src="codibank.js"></script>
+<script src="i18n.js"></script>
+<script>
+(function(){
+  function toggle(){
+    var en = window.CodiBankI18n && CodiBankI18n.isEn();
+    var ko = document.getElementById('doc-ko');
+    var enD = document.getElementById('doc-en');
+    var back = document.getElementById('t-back');
+    if(ko) ko.style.display = en ? 'none' : 'block';
+    if(enD) enD.style.display = en ? 'block' : 'none';
+    if(back) back.textContent = en ? 'My Page' : '마이페이지';
+    // 풋바 번역
+    document.querySelectorAll('.cb-nav .nl').forEach(function(el){
+      var map = {'코디쌤':'Codi Style','코디앨범':'Album','Ai 옷장':'AI Closet','코디하기':'Style It','MY':'MY'};
+      var rmap = {'Codi Style':'코디쌤','Album':'코디앨범','AI Closet':'Ai 옷장','Style It':'코디하기'};
+      if(en && map[el.textContent]) el.textContent = map[el.textContent];
+      if(!en && rmap[el.textContent]) el.textContent = rmap[el.textContent];
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(toggle,100);});
+  else setTimeout(toggle,100);
+  setInterval(function(){
+    var en = window.CodiBankI18n && CodiBankI18n.isEn();
+    var ko = document.getElementById('doc-ko');
+    if(ko && ((en && ko.style.display!=='none')||(!en && ko.style.display==='none'))) toggle();
+  },500);
+})();
+</script>
+</body></html>

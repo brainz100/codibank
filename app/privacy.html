@@ -35,12 +35,13 @@ td{padding:8px 10px;border:1px solid rgba(151,254,237,0.1);color:rgba(255,255,25
 <header class="pg-header">
   <a class="back-btn" onclick="history.back()">arrow_back_ios_new</a>
   <div>
-    <div class="pg-title">개인정보처리방침</div>
-    <div class="pg-sub">최종 개정일: 2026년 3월 28일</div>
+    <div class="pg-title" id="privacy-title">개인정보처리방침</div>
+    <div class="pg-sub" id="privacy-date">최종 개정일: 2026년 3월 28일</div>
   </div>
 </header>
 
 <div class="content">
+<div id="doc-ko">
 
   <div class="highlight-box">
     <p>코디뱅크(이하 '서비스')는 이용자의 개인정보를 중요하게 생각합니다. 본 방침은 서비스 이용 과정에서 수집·이용·보관·파기되는 개인정보의 처리 방법을 안내합니다.</p>
@@ -206,5 +207,101 @@ td{padding:8px 10px;border:1px solid rgba(151,254,237,0.1);color:rgba(255,255,25
     <p>코디뱅크 운영팀</p>
   </div>
 </div>
+
+<div id="doc-en" style="display:none;">
+  <div class="section">
+    <div class="section-title">Article 1. Personal Information Collected</div>
+    <p>CodiBank collects the following information for service provision:</p>
+    <p><strong>Required:</strong> Email, password, gender, age group, height, weight</p>
+    <p><strong>Optional:</strong> Nickname, phone number, profile photo, face photo*, clothing photos, body type, personal color</p>
+    <p><strong>Auto-collected:</strong> Device info, IP address, location (GPS/IP), app usage logs</p>
+    <p style="margin-top:8px;font-size:12px;color:rgba(255,255,255,0.45)">* Face photos are classified as sensitive biometric data under Korea's Personal Information Protection Act (Article 23) and are collected only with separate consent.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Article 2. Purpose of Collection and Use</div>
+    <p>Collected information is used for: AI-based outfit recommendations and styling image generation, personal color analysis, digital wardrobe management, service improvement and statistics, subscription and payment management, and customer support.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Article 3. Sharing with Third Parties</div>
+    <p>CodiBank does not share personal information with third parties without user consent, except as required by law.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Article 4. Processing Delegation</div>
+    <p><strong>AI Processing:</strong> Image and text data are sent to Google Gemini API and OpenAI API for AI image generation. Please refer to each service's privacy policy.</p>
+    <p><strong>Infrastructure:</strong> Supabase (authentication/DB), Cloudflare R2 (image storage), Vercel (web hosting), Render (API server)</p>
+    <p><strong>Payments:</strong> Port One (KG Inicis) for domestic payments</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Article 5. Retention Period and Disposal</div>
+    <p>Personal information is retained during membership and destroyed within 30 days of account deletion. Face photos used for AI generation are deleted immediately after API processing. Payment records are retained for 5 years per commercial law.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Article 6. User Rights</div>
+    <p>Users may request access, correction, deletion, or suspension of processing of their personal information by emailing privacy@codibank.kr. Requests are processed within 10 days. Account deletion is available directly in My Page.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Article 7. Cookies and Local Storage</div>
+    <p>CodiBank uses browser localStorage (not cookies) to store login sessions, language preferences, and temporary outfit data. Users may clear this data through browser settings.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Article 8. Children Under 14</div>
+    <p>CodiBank does not knowingly collect personal information from children under 14. If such collection is discovered, the data will be immediately deleted.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Article 9. Privacy Officer</div>
+    <div class="contact-box">
+      <p><strong>Officer:</strong> Baek Tae-seop (CPO)</p>
+      <p><strong>Email:</strong> privacy@codibank.kr</p>
+      <p style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.45)">For privacy-related complaints, contact:</p>
+      <p style="font-size:12px;color:rgba(255,255,255,0.45)">Personal Information Protection Commission: www.pipc.go.kr / 182</p>
+      <p style="font-size:12px;color:rgba(255,255,255,0.45)">Korea Internet & Security Agency: privacy.kisa.or.kr / 118</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Article 10. Policy Changes</div>
+    <p>This policy may be revised in accordance with legal or service changes. Users will be notified at least 7 days in advance via in-app notice and email.</p>
+  </div>
+
+  <div class="date-info">
+    <p>Effective: March 28, 2026</p>
+    <p>CodiBank Operations Team</p>
+  </div>
+</div>
+
+</div>
+
+<script src="codibank.js"></script>
+<script src="i18n.js"></script>
+<script>
+(function(){
+  function toggle(){
+    var en = window.CodiBankI18n && CodiBankI18n.isEn();
+    var ko = document.getElementById('doc-ko');
+    var enD = document.getElementById('doc-en');
+    var title = document.getElementById('privacy-title');
+    var dt = document.getElementById('privacy-date');
+    if(ko) ko.style.display = en ? 'none' : 'block';
+    if(enD) enD.style.display = en ? 'block' : 'none';
+    if(title) title.textContent = en ? 'Privacy Policy' : '개인정보처리방침';
+    if(dt) dt.textContent = en ? 'Last updated: March 28, 2026' : '최종 개정일: 2026년 3월 28일';
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(toggle,100);});
+  else setTimeout(toggle,100);
+  setInterval(function(){
+    var en = window.CodiBankI18n && CodiBankI18n.isEn();
+    var ko = document.getElementById('doc-ko');
+    if(ko && ((en && ko.style.display!=='none')||(!en && ko.style.display==='none'))) toggle();
+  },500);
+})();
+</script>
 </body>
 </html>

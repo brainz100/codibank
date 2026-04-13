@@ -393,7 +393,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
       document.getElementById('userName').textContent  = u.nickname || u.email.split('@')[0] || '사용자';
       document.getElementById('userEmail').textContent = u.email || '';
-      document.getElementById('userPlan').textContent  = (u.plan || 'FREE') + ' 플랜';
+      document.getElementById('userPlan').textContent  = (u.plan || 'FREE') + (_T['플랜']||' Plan');
 
       // ── 구독/보너스 정보 실시간 표시 ──
       (async function(){
@@ -408,7 +408,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             const used = info.totalUsed || 0;
             const bonus = info.bonusTotal > 0 ? ' (+보너스 '+info.bonusTotal+'회)' : '';
             const rem = info.totalLimit >= 9999 ? '∞' : Math.max(0, info.totalLimit - used);
-            el.textContent = rem + '회 가능' + bonus;
+            el.textContent = rem + (_T['회 가능']||' remaining') + bonus;
           }
         }catch(_){}
         // 백그라운드로 API 최신값 조회
@@ -426,7 +426,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             try{ const raw=JSON.parse(localStorage.getItem('cb_usage_'+u.email)||'{}'); totalUsed=raw.totalCount||0; }catch(_){}
             const rem = totalLimit >= 9999 ? '∞' : Math.max(0, totalLimit - totalUsed);
             const bonusText = bonusTotal > 0 ? ' (+보너스 '+bonusTotal+'회)' : '';
-            el.textContent = rem + '회 가능' + bonusText;
+            el.textContent = rem + (_T['회 가능']||' remaining') + bonusText;
             try{ localStorage.setItem('cb_plan_info_'+u.email, JSON.stringify({updatedAt:new Date().toISOString().slice(0,7),totalLimit,totalUsed,bonusTotal})); }catch(_){}
           }
           // ── 아이템 현황 표시 ──
@@ -449,7 +449,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             const itemLimit = itemBase + itemBonus;
             const isUnlim = itemLimit >= 99999;
             const bonusTxt = itemBonus > 0 ? ' +보너스'+itemBonus : '';
-            iel.textContent = '아이템 ' + itemUsed + '/' + (isUnlim?'∞':itemLimit) + '개' + bonusTxt;
+            iel.textContent = (_T['아이템']||'Items') + ' ' + itemUsed + '/' + (isUnlim?'∞':itemLimit) + bonusTxt;
             try{ localStorage.setItem('cb_item_plan_'+u.email, JSON.stringify({bonus:itemBonus,limit:itemLimit,updatedAt:new Date().toISOString().slice(0,7)})); }catch(_){}
           }
         }catch(_){}

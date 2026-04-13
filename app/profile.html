@@ -333,7 +333,7 @@ function selAge(el){
 function previewPhoto(e){
   const file = e.target.files[0];
   if(!file) return;
-  if(file.size > 5*1024*1024){ showToast('5MB 이하 이미지를 선택해주세요.'); return; }
+  if(file.size > 5*1024*1024){ showToast(CodiBankI18n.t('5MB 이하 이미지를 선택해주세요.','Please select an image under 5MB.')); return; }
 
   // 이미지를 압축(최대 600px, JPEG 0.78)하여 localStorage/IDB 안정성 확보
   const reader = new FileReader();
@@ -436,8 +436,8 @@ async function doSave(){
 
   // 비밀번호 변경 시 검증
   if(pw || pw2){
-    if(pw !== pw2){ showToast('비밀번호가 일치하지 않습니다.'); return; }
-    if(pw.length < 4){ showToast('비밀번호는 4자 이상 입력해주세요.'); return; }
+    if(pw !== pw2){ showToast(CodiBankI18n.t('비밀번호가 일치하지 않습니다.','Passwords do not match.')); return; }
+    if(pw.length < 4){ showToast(CodiBankI18n.t('비밀번호는 4자 이상 입력해주세요.','Password must be 4+ characters.')); return; }
   }
 
   const patch = {
@@ -454,8 +454,8 @@ async function doSave(){
     // ──── [2026-04-11 수정] 비밀번호는 프로필과 별도로 Supabase Auth에서 변경 ────
     if(typeof CodiBank.changePassword === 'function') {
       const pwResult = await CodiBank.changePassword(pw);
-      if(!pwResult.ok) { showToast('비밀번호 변경 실패: ' + (pwResult.error||'')); return; }
-      showToast('비밀번호가 변경되었습니다.');
+      if(!pwResult.ok) { showToast(CodiBankI18n.t('비밀번호 변경 실패: ','Password change failed: ') + (pwResult.error||'')); return; }
+      showToast(CodiBankI18n.t('비밀번호가 변경되었습니다.','Password changed.'));
     }
     document.getElementById('fPw').value = '';
     document.getElementById('fPw2').value = '';
@@ -497,10 +497,10 @@ async function doSave(){
   const res = CodiBank.updateUserProfile ? await CodiBank.updateUserProfile(_user.email, patch) : { ok: false };
 
   if(res && res.ok){
-    showToast('✅ 프로필이 저장되었습니다.');
+    showToast(CodiBankI18n.t('✅ 프로필이 저장되었습니다.','✅ Profile saved.'));
     setTimeout(()=>history.back(), 1800);
   } else {
-    showToast('저장에 실패했습니다. 다시 시도해주세요.');
+    showToast(CodiBankI18n.t('저장에 실패했습니다. 다시 시도해주세요.','Save failed. Please try again.'));
   }
 }
 
@@ -570,7 +570,7 @@ function renderPersonalColor(pc) {
     var bestDesc = document.getElementById('pcBestDesc');
     if(bestDesc) {
       var seasonName = pc.season || '';
-      bestDesc.textContent = seasonName + ' 타입은 이 컬러들이 피부톤을 밝고 생기있게 만들어줍니다. 자연스러운 조화를 이루어 얼굴빛이 화사해 보이는 효과가 있습니다.';
+      bestDesc.textContent = _isEn ? 'These colors brighten your complexion and create natural harmony for a radiant look.' : seasonName + ' 타입은 이 컬러들이 피부톤을 밝고 생기있게 만들어줍니다. 자연스러운 조화를 이루어 얼굴빛이 화사해 보이는 효과가 있습니다.';
     }
   }
 
@@ -588,7 +588,7 @@ function renderPersonalColor(pc) {
     var avoidDesc = document.getElementById('pcAvoidDesc');
     if(avoidDesc) {
       var seasonName = pc.season || '';
-      avoidDesc.textContent = '이 컬러들은 ' + seasonName + ' 타입의 피부톤과 대비가 강해 얼굴이 칙칙하거나 피곤해 보일 수 있습니다.';
+      avoidDesc.textContent = _isEn ? 'These colors create strong contrast with your skin tone and may make you look dull or tired.' : '이 컬러들은 ' + seasonName + ' 타입의 피부톤과 대비가 강해 얼굴이 칙칙하거나 피곤해 보일 수 있습니다.';
     }
   }
 
