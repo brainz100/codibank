@@ -24,6 +24,8 @@
   const _T = {
     // ── 공통 내비게이션 ──
     "내옷장":           "My Closet",
+    "코디쌤":            "Outfit쌤",
+    "Ai 옷장":           "AI Closet",
     "코디앨범":         "Codi Album",
     "코디 앨범":        "Codi Album",
     "ITEM등록":         "Add Item",
@@ -129,6 +131,7 @@
     "마이페이지 - 코디뱅크": "My Page - CodiBank",
     "계정 관리":           "Account",
     "프로필 수정":         "Edit Profile",
+    "코디뱅크 구독 플랜": "CodiBank Subscription Plans",
     "구독 플랜":           "Subscription",
     "서비스":              "Services",
     "환불정책":            "Refund Policy",
@@ -473,8 +476,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
   <div class="pg-header">
     <a href="mypage.html" class="back-btn"><span class="mi">arrow_back_ios_new</span></a>
     <div>
-      <div class="pg-title">구독 플랜</div>
-      <div class="pg-sub">코디 생성 = 내옷장 + 코디하기 합산 기준</div>
+      <div class="pg-title" id="pgTitle">구독 플랜</div>
+      <div class="pg-sub" id="pgSub">코디 생성 = 내옷장 + 코디하기 합산 기준</div>
     </div>
   </div>
 
@@ -487,19 +490,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
     <div class="usage-bar"><div class="usage-fill" id="usageFill" style="width:0%"></div></div>
     <!-- 이미지 생성 가능 횟수 (구독 + 보너스) -->
     <div id="quotaInfoBox" style="margin-top:10px;padding:10px 14px;background:rgba(151,254,237,0.1);border-radius:10px;border:1px solid rgba(151,254,237,0.25);display:none;">
-      <div style="font-size:11px;color:rgba(151,254,237,0.75);font-weight:700;margin-bottom:4px;letter-spacing:.04em;">이달 이미지 생성 가능 횟수</div>
+      <div style="font-size:11px;color:rgba(151,254,237,0.75);font-weight:700;margin-bottom:4px;letter-spacing:.04em;" id="quotaLabel">이달 이미지 생성 가능 횟수</div>
       <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">
         <span id="quotaTotal" style="font-size:24px;font-weight:900;color:#fff;">—</span>
-        <span style="font-size:12px;color:rgba(255,255,255,0.55);">회 가능</span>
+        <span style="font-size:12px;color:rgba(255,255,255,0.55);" id="quotaUnit">회 가능</span>
         <span id="quotaBreakdown" style="font-size:11px;color:rgba(151,254,237,0.6);margin-left:4px;"></span>
       </div>
       <!-- 아이템 등록 현황 -->
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(151,254,237,0.15);">
-        <div style="font-size:11px;color:rgba(151,254,237,0.75);font-weight:700;margin-bottom:4px;letter-spacing:.04em;">아이템 등록 현황</div>
+        <div style="font-size:11px;color:rgba(151,254,237,0.75);font-weight:700;margin-bottom:4px;letter-spacing:.04em;" id="itemQuotaLabel">아이템 등록 현황</div>
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
           <div style="display:flex;align-items:baseline;gap:6px;">
             <span id="itemQuotaUsed" style="font-size:22px;font-weight:900;color:#fff;">—</span>
-            <span style="font-size:12px;color:rgba(255,255,255,0.55);">/ <span id="itemQuotaLimit">—</span>개 등록</span>
+            <span style="font-size:12px;color:rgba(255,255,255,0.55);" id="itemUnitSpan">/ <span id="itemQuotaLimit">—</span>개 등록</span>
           </div>
           <span id="itemQuotaBonus" style="font-size:11px;color:rgba(151,254,237,0.6);"></span>
         </div>
@@ -514,7 +517,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
   <div class="plan-grid" id="planGrid"></div>
 
   <!-- 안내 박스 -->
-  <div class="info-box" style="margin-bottom:16px">
+  <div class="info-box" style="margin-bottom:16px" id="infoBoxKo">
     <b>코디 생성 횟수 기준</b>
     내옷장 AI 추천 + 코디하기 착장 이미지를 합산하여 횟수를 계산합니다.
     <b>데이터 보관 정책</b>
@@ -524,6 +527,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
     · 다이아: 이미지 <strong style="color:#C4B5FD">영구 보관</strong>
     <b>FUP(공정 이용 정책)</b>
     다이아 플랜의 무제한은 일일 30회 한도 내에서 운영됩니다.
+  </div>
+  <div class="info-box" style="margin-bottom:16px;display:none;" id="infoBoxEn">
+    <b>Outfit Generation Limits</b>
+    Closet AI Best + Style It outfit images are counted together.
+    <b>Data Retention Policy</b>
+    · Free: 6 generations on signup, images kept 7 days after use, then auto-deleted<br/>
+    · Silver: Images kept <strong style="color:#97FEED">30 days</strong> after subscription ends, then auto-deleted<br/>
+    · Gold: Images kept <strong style="color:#FFD700">90 days</strong> after subscription ends, then auto-deleted<br/>
+    · Diamond: <strong style="color:#C4B5FD">Permanent</strong> image storage
+    <b>FUP (Fair Use Policy)</b>
+    Diamond plan's unlimited is subject to a daily limit of 30.
   </div>
 </div>
 
@@ -580,7 +594,7 @@ const PLANS_DEF = [
     tier: 'SILVER',
     nameKo: '실버', nameEn: 'Silver',
     price: 5900, normalPrice: 6900, priceUsd: 3.99, normalPriceUsd: 4.99,
-    discountLabel: '지금 할인가',
+    discountLabel: '지금 할인가', discountLabelEn: 'Sale Price',
     totalMonthly: 40, dailyTotal: null,
     cardClass: 'card-silver',
     nameClass: 'silver',
@@ -596,7 +610,7 @@ const PLANS_DEF = [
     tier: 'GOLD ⭐',
     nameKo: '골드', nameEn: 'Gold',
     price: 39900, normalPrice: 59900, priceUsd: 26.99, normalPriceUsd: 39.99,
-    discountLabel: '오늘 할인가',
+    discountLabel: '오늘 할인가', discountLabelEn: 'Today\'s Deal',
     totalMonthly: 150, dailyTotal: null,
     cardClass: 'card-gold',
     nameClass: 'gold',
@@ -613,7 +627,7 @@ const PLANS_DEF = [
     tier: 'DIAMOND',
     nameKo: '다이아', nameEn: 'Diamond',
     price: 59900, normalPrice: 79900, priceUsd: 39.99, normalPriceUsd: 53.99,
-    discountLabel: '이번달 신청자 특가',
+    discountLabel: '이번달 신청자 특가', discountLabelEn: 'This Month Special',
     totalMonthly: 9999, dailyTotal: 30,
     cardClass: 'card-diamond',
     nameClass: 'diamond',
@@ -644,7 +658,7 @@ function renderPlans(){
       const normalStr = en ? `$${p.normalPriceUsd}` : `₩${p.normalPrice.toLocaleString()}`;
       const discStr   = en ? `$${p.priceUsd}` : `₩${p.price.toLocaleString()}`;
       const period    = en ? '/mo' : '/월';
-      const badge     = p.discountLabel ? `<div class="plan-price-discount ${p.nameClass}">${p.discountLabel}</div>` : '';
+      const badge     = p.discountLabel ? `<div class="plan-price-discount ${p.nameClass}">${en?(p.discountLabelEn||p.discountLabel):p.discountLabel}</div>` : '';
       const normal    = p.normalPrice ? `<div class="plan-price-normal ${p.nameClass}">${normalStr}${period}</div>` : '';
       priceBlock = `${badge}${normal}<div class="plan-price ${p.nameClass}">${discStr}<span class="plan-period ${p.nameClass}">${period}</span></div>`;
     }
@@ -706,7 +720,7 @@ function selectPlan(id){
 
   const priceLabel = en ? `$${plan.priceUsd}/mo` : `₩${plan.price.toLocaleString()}/월`;
   // 할인 중이면 버튼에도 할인가 표시
-  const discountSuffix = plan.discountLabel ? ` (${plan.discountLabel})` : '';
+  const discountSuffix = plan.discountLabel ? ` (${en?(plan.discountLabelEn||plan.discountLabel):plan.discountLabel})` : '';
   btn.className = 'pay-btn ' + (plan.btnClass || 'default');
   btn.disabled = false;
   txt.textContent = `${priceLabel} ${en?'Subscribe':'구독하기'}`;
@@ -763,12 +777,30 @@ async function renderStatus(){
     const remaining = isUnlimited ? '∞' : Math.max(0, totalLimit - totalUsed);
     quotaTotal.textContent = remaining;
     if(bonusTotal > 0){
-      quotaBreakdown.textContent = '(구독 '+(isUnlimited?'무제한':baseLimit)+'회 + 보너스 '+bonusTotal+'회)';
+      quotaBreakdown.textContent = en ? '(Plan '+(isUnlimited?'Unlimited':baseLimit)+' + Bonus '+bonusTotal+')' : '(구독 '+(isUnlimited?'무제한':baseLimit)+'회 + 보너스 '+bonusTotal+'회)';
     } else {
-      quotaBreakdown.textContent = '('+planNames[planId]+' 기본)';
+      quotaBreakdown.textContent = en ? '('+planNames[planId]+' base)' : '('+planNames[planId]+' 기본)';
     }
     quotaBox.style.display = 'block';
   }
+
+  // ── 언어별 라벨 업데이트 ──
+  var _pgT = document.getElementById('pgTitle');
+  var _pgS = document.getElementById('pgSub');
+  var _qL = document.getElementById('quotaLabel');
+  var _qU = document.getElementById('quotaUnit');
+  var _iL = document.getElementById('itemQuotaLabel');
+  var _iU = document.getElementById('itemUnitSpan');
+  var _ibKo = document.getElementById('infoBoxKo');
+  var _ibEn = document.getElementById('infoBoxEn');
+  if(_pgT) _pgT.textContent = en ? 'Subscription Plan' : '구독 플랜';
+  if(_pgS) _pgS.textContent = en ? 'Outfit Generation = Closet + Style It combined' : '코디 생성 = 내옷장 + 코디하기 합산 기준';
+  if(_qL) _qL.textContent = en ? 'Monthly outfit generations available' : '이달 이미지 생성 가능 횟수';
+  if(_qU) _qU.textContent = en ? ' remaining' : '회 가능';
+  if(_iL) _iL.textContent = en ? 'Item registration status' : '아이템 등록 현황';
+  // itemUnitSpan은 아이템 섹션에서 업데이트
+  if(_ibKo) _ibKo.style.display = en ? 'none' : 'block';
+  if(_ibEn) _ibEn.style.display = en ? 'block' : 'none';
 
   // ── cb_plan_info 저장 → closet/codistyle에서 참조
   try{
@@ -819,12 +851,14 @@ async function renderStatus(){
 
     if(usedEl) usedEl.textContent = itemUsed;
     if(limitEl) limitEl.textContent = isItemUnlimited ? '∞' : itemTotalLimit;
-    if(bonusEl) bonusEl.textContent = itemBonus > 0 ? '(기본 '+itemBaseLimit+'개 + 보너스 '+itemBonus+'개)' : '('+planNames[planId]+' 기본)';
+    if(bonusEl) bonusEl.textContent = itemBonus > 0 ? (en?'(Base '+itemBaseLimit+' + Bonus '+itemBonus+')':'(기본 '+itemBaseLimit+'개 + 보너스 '+itemBonus+'개)') : (en?'('+planNames[planId]+' base)':'('+planNames[planId]+' 기본)');
     if(fillEl){
       const pct2 = isItemUnlimited ? Math.min(100,Math.round(itemUsed/100*100)) : Math.min(100,Math.round(itemUsed/Math.max(itemTotalLimit,1)*100));
       fillEl.style.width = pct2+'%';
       fillEl.style.background = pct2>80 ? 'linear-gradient(90deg,#ef4444,#fca5a5)' : 'linear-gradient(90deg,#35A29F,#97FEED)';
     }
+    var _iU2 = document.getElementById('itemUnitSpan');
+    if(_iU2) _iU2.innerHTML = en ? '/ <span id="itemQuotaLimit">'+(isItemUnlimited?'\u221E':itemTotalLimit)+'</span> registered' : '/ <span id="itemQuotaLimit">'+(isItemUnlimited?'\u221E':itemTotalLimit)+'</span>개 등록';
   }catch(_){}
 }
 
