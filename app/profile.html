@@ -12,7 +12,12 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <title>프로필 수정 - 코디뱅크</title>
-<style>html{visibility:hidden}</style>
+<style>html{visibility:hidden}.pca-body{max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s ease;padding:0;}
+.pca-sec.open .pca-body{max-height:600px;padding-top:4px;}
+.pca-sec.open>div:first-child span:last-child{transform:rotate(180deg);}
+.pca-b{margin-bottom:6px;padding-left:8px;border-left:2px solid rgba(11,102,106,0.15);}
+.pca-b b{color:#0B666A;font-size:11px;}
+</style>
 <script>
 (function(){
   try{
@@ -181,18 +186,84 @@ header h1{font-size:17px;font-weight:800;}
       <span class="material-symbols-outlined" style="position:absolute;top:14px;right:14px;font-size:36px;color:rgba(48,101,123,0.06);">auto_awesome</span>
     </div>
 
-    <!-- 3) 퍼스널컬러 설명 + 화장팁 + 코디팁 -->
-    <div style="background:#fff;border-radius:16px;padding:18px;border-left:5px solid #30657b;box-shadow:0 1px 4px rgba(0,0,0,0.04);margin-bottom:16px;position:relative;overflow:hidden;">
-      <div style="position:relative;z-index:1;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <span class="material-symbols-outlined" style="color:#30657b;font-size:18px;">tips_and_updates</span>
-          <span style="font-size:12px;font-weight:700;color:#30657b;">스타일 가이드</span>
-        </div>
-        <div id="pcTip" style="font-size:12.5px;line-height:1.7;color:#2c3338;font-weight:500;margin-bottom:12px;"></div>
-        <div id="pcMakeupTip" style="font-size:12px;line-height:1.7;color:#51616e;padding:10px 12px;background:rgba(176,228,254,0.12);border-radius:10px;margin-bottom:8px;"></div>
-        <div id="pcCodiTip" style="font-size:12px;line-height:1.7;color:#51616e;padding:10px 12px;background:rgba(102,88,129,0.06);border-radius:10px;"></div>
+    <!-- 3) Skin Analytics 레이더 차트 -->
+    <div id="pcRadarCard" style="background:#fff;border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(44,51,56,0.04);border:1px solid #e3e9ee;margin-bottom:12px;">
+      <p id="pcRadarTitle" style="font-size:13px;font-weight:800;color:#2c3338;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+        <span class="material-symbols-outlined" style="font-size:16px;color:#0B666A;">analytics</span>
+        My Skin Analytics
+      </p>
+      <div style="display:flex;justify-content:center;">
+        <svg id="pcRadarSvg" width="240" height="220" viewBox="0 0 240 220"></svg>
       </div>
-      <span class="material-symbols-outlined" style="position:absolute;bottom:-6px;right:-6px;font-size:52px;color:rgba(48,101,123,0.04);">format_quote</span>
+    </div>
+
+    <!-- 3b) Best Palette 3×3 -->
+    <div id="pcPaletteCard" style="background:#fff;border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(44,51,56,0.04);border:1px solid #e3e9ee;margin-bottom:12px;">
+      <p id="pcPaletteTitle" style="font-size:13px;font-weight:800;color:#2c3338;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+        <span style="font-size:14px;">✨</span>
+        BEST PALETTE
+      </p>
+      <div id="pcPaletteGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>
+    </div>
+
+    <!-- 3c) Attribute Guide -->
+    <div id="pcAttrCard" style="background:#fff;border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(44,51,56,0.04);border:1px solid #e3e9ee;margin-bottom:12px;">
+      <p id="pcAttrTitle" style="font-size:13px;font-weight:800;color:#2c3338;margin-bottom:14px;display:flex;align-items:center;gap:6px;">
+        <span class="material-symbols-outlined" style="font-size:16px;color:#0B666A;">tune</span>
+        Attribute Guide
+      </p>
+      <div id="pcAttrSliders" style="display:flex;flex-direction:column;gap:12px;"></div>
+      <div id="pcTextureWrap" style="margin-top:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:12px;font-weight:700;color:#2c3338;display:flex;align-items:center;gap:4px;">
+          <span class="material-symbols-outlined" style="font-size:14px;color:#0B666A;">diamond</span>
+          <span id="pcTexLabel">Best Texture:</span>
+        </span>
+        <div id="pcTexTags" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+      </div>
+    </div>
+
+    <!-- 3d) 퍼스널컬러 정밀 분석 5섹션 -->
+    <div id="pcAnalysis5" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+      <div class="pca-sec" id="pcaSec1" style="background:#fff;border-radius:14px;padding:14px 16px;border-left:4px solid #0B666A;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;" onclick="this.parentElement.classList.toggle('open')">
+          <span class="material-symbols-outlined" style="color:#0B666A;font-size:16px;">palette</span>
+          <span id="pcaT1" style="font-size:12px;font-weight:700;color:#0B666A;">1. 신체색 정밀 분석</span>
+          <span class="material-symbols-outlined" style="margin-left:auto;font-size:16px;color:#aaa;transition:transform .2s;">expand_more</span>
+        </div>
+        <div id="pcaB1" class="pca-body" style="font-size:11.5px;line-height:1.8;color:#444;"></div>
+      </div>
+      <div class="pca-sec" id="pcaSec2" style="background:#fff;border-radius:14px;padding:14px 16px;border-left:4px solid #35A29F;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;" onclick="this.parentElement.classList.toggle('open')">
+          <span class="material-symbols-outlined" style="color:#35A29F;font-size:16px;">tune</span>
+          <span id="pcaT2" style="font-size:12px;font-weight:700;color:#35A29F;">2. 색의 3속성 및 청탁 분석</span>
+          <span class="material-symbols-outlined" style="margin-left:auto;font-size:16px;color:#aaa;transition:transform .2s;">expand_more</span>
+        </div>
+        <div id="pcaB2" class="pca-body" style="font-size:11.5px;line-height:1.8;color:#444;"></div>
+      </div>
+      <div class="pca-sec" id="pcaSec3" style="background:#fff;border-radius:14px;padding:14px 16px;border-left:4px solid #97FEED;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;" onclick="this.parentElement.classList.toggle('open')">
+          <span class="material-symbols-outlined" style="color:#0B666A;font-size:16px;">contrast</span>
+          <span id="pcaT3" style="font-size:12px;font-weight:700;color:#0B666A;">3. 대비감 및 광택감</span>
+          <span class="material-symbols-outlined" style="margin-left:auto;font-size:16px;color:#aaa;transition:transform .2s;">expand_more</span>
+        </div>
+        <div id="pcaB3" class="pca-body" style="font-size:11.5px;line-height:1.8;color:#444;"></div>
+      </div>
+      <div class="pca-sec" id="pcaSec4" style="background:#fff;border-radius:14px;padding:14px 16px;border-left:4px solid #ef4444;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;" onclick="this.parentElement.classList.toggle('open')">
+          <span class="material-symbols-outlined" style="color:#ef4444;font-size:16px;">warning</span>
+          <span id="pcaT4" style="font-size:12px;font-weight:700;color:#ef4444;">4. 워스트 및 보정 전략</span>
+          <span class="material-symbols-outlined" style="margin-left:auto;font-size:16px;color:#aaa;transition:transform .2s;">expand_more</span>
+        </div>
+        <div id="pcaB4" class="pca-body" style="font-size:11.5px;line-height:1.8;color:#444;"></div>
+      </div>
+      <div class="pca-sec" id="pcaSec5" style="background:#fff;border-radius:14px;padding:14px 16px;border-left:4px solid #071952;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;" onclick="this.parentElement.classList.toggle('open')">
+          <span class="material-symbols-outlined" style="color:#071952;font-size:16px;">auto_awesome</span>
+          <span id="pcaT5" style="font-size:12px;font-weight:700;color:#071952;">5. 라이프스타일 큐레이션</span>
+          <span class="material-symbols-outlined" style="margin-left:auto;font-size:16px;color:#aaa;transition:transform .2s;">expand_more</span>
+        </div>
+        <div id="pcaB5" class="pca-body" style="font-size:11.5px;line-height:1.8;color:#444;"></div>
+      </div>
     </div>
 
     <!-- 4) 추천하는 컬러 -->
@@ -230,7 +301,7 @@ header h1{font-size:17px;font-weight:800;}
   </div>
 </div>
 <!-- 체형 정보 -->
-<p class="section-title" style="margin:0 16px 4px;padding:0 4px;">체형 정보 <span style="color:#0B666A;font-size:10px;">(AI 코디 정확도 향상)</span></p>
+<p class="section-title" style="margin:0 16px 4px;padding:0 4px;" id="bodyInfoTitle">체형 정보 <span style="color:#0B666A;font-size:10px;" id="bodyInfoSub">(AI 코디 정확도 향상)</span></p>
 <div class="section">
   <p class="field-label" style="padding:14px 20px 4px;">성별</p>
   <div class="sel-group" id="genderGroup">
@@ -264,10 +335,10 @@ header h1{font-size:17px;font-weight:800;}
   </div>
 
   <!-- [2026-04-08] 체형 선택 -->
-  <p class="field-label" style="padding:10px 20px 4px;border-top:1px solid #f5f5f5;">체형 <span style="font-size:9px;color:#0B666A;">(성별 선택 후 표시)</span></p>
+  <p class="field-label" style="padding:10px 20px 4px;border-top:1px solid #f5f5f5;" id="bodyTypeLabel">체형 <span style="font-size:9px;color:#0B666A;" id="bodyTypeHint">(성별 선택 후 표시)</span></p>
   <div id="bodyTypeGroup" style="padding:0 16px 12px;">
     <div id="bodyTypeCards" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
-    <div id="bodyTypeEmpty" style="padding:16px;text-align:center;color:#bbb;font-size:12px;">성별을 먼저 선택해주세요</div>
+    <div id="bodyTypeEmpty" style="padding:16px;text-align:center;color:#bbb;font-size:12px;" id="bodyTypeEmptyMsg">성별을 먼저 선택해주세요</div>
   </div>
 </div>
 
@@ -551,7 +622,8 @@ function renderPersonalColor(pc) {
   const undertone = document.getElementById('pcUndertone');
   if(undertone){
     const _ut = _isEn ? (pc.undertone==='웜톤'?'Warm Tone':pc.undertone==='쿨톤'?'Cool Tone':pc.undertone) : pc.undertone;
-    const _st = pc.skin_tone ? (_isEn ? pc.skin_tone+' Skin':pc.skin_tone+' 피부') : '';
+    const _skinMap = {'밝은':'Light','보통':'Medium','어두운':'Dark','진한':'Deep'};
+    const _st = pc.skin_tone ? (_isEn ? (_skinMap[pc.skin_tone]||pc.skin_tone)+' Skin':pc.skin_tone+' 피부') : '';
     undertone.innerHTML = '<span style="padding:4px 10px;background:rgba(255,255,255,0.6);border-radius:20px;font-weight:700;">'+(_ut||'')+'</span>' +
       (_st ? '<span style="padding:4px 10px;background:rgba(255,255,255,0.6);border-radius:20px;font-weight:700;">'+_st+'</span>' : '');
   }
@@ -592,35 +664,14 @@ function renderPersonalColor(pc) {
     }
   }
 
-  // 스타일 팁 + 화장팁 + 코디팁
-  var tip = document.getElementById('pcTip');
-  if(tip) tip.textContent = _isEn
-    ? (pc.style_tip_en || pc.style_tip || pc.summary || '')
-    : (pc.style_tip || pc.summary || '');
-
-  // 화장 팁 (시즌별)
-  var makeupEl = document.getElementById('pcMakeupTip');
-  if(makeupEl) {
-    var mkTips = {
-      '봄웜': '💄 화장 팁: 코랄, 피치 계열 립과 웜톤 아이섀도우가 잘 어울립니다. 골드 하이라이터로 자연스러운 광택을 더해보세요.',
-      '여름쿨': '💄 화장 팁: 로즈핑크, 베리 계열 립이 잘 어울립니다. 실버 펄과 라벤더 아이섀도우로 투명한 느낌을 연출하세요.',
-      '가을웜': '💄 화장 팁: 브릭레드, 테라코타 립이 잘 어울립니다. 브론즈 아이섀도우와 웜톤 치크로 깊이감을 더하세요.',
-      '겨울쿨': '💄 화장 팁: 레드, 와인, 푸시아 립이 잘 어울립니다. 블루 베이스 아이섀도우와 선명한 컨투어링이 효과적입니다.'
-    };
-    var _pcSn = pc.season || '';
-    makeupEl.innerHTML = mkTips[_pcSn] || ('💄 화장 팁: ' + _pcSn + ' 타입에 맞는 컬러 메이크업으로 피부톤의 장점을 살려보세요. 언더톤에 맞는 파운데이션 선택이 가장 중요합니다.');
-  }
-  // 코디 팁
-  var codiEl = document.getElementById('pcCodiTip');
-  if(codiEl) {
-    var cdTips = {
-      '봄웜': '👗 코디 팁: 밝고 생기있는 컬러의 니트, 베이지·카멜 아우터가 잘 어울립니다. 골드 액세서리로 포인트를 주세요.',
-      '여름쿨': '👗 코디 팁: 파스텔톤 블라우스, 그레이·라벤더 아우터가 조화롭습니다. 실버 액세서리와 매트한 소재를 선택하세요.',
-      '가을웜': '👗 코디 팁: 머스타드, 카키, 브라운 계열이 잘 어울립니다. 가죽·스웨이드 소재와 빈티지 스타일이 매력적입니다.',
-      '겨울쿨': '👗 코디 팁: 블랙, 네이비, 화이트 등 명확한 컬러가 잘 어울립니다. 모노톤 코디에 원포인트 비비드 컬러를 활용하세요.'
-    };
-    var _pcSn2 = pc.season || '';
-    codiEl.innerHTML = cdTips[_pcSn2] || ('👗 코디 팁: ' + _pcSn2 + ' 타입에 맞는 컬러 코디로 자연스럽고 세련된 스타일링을 완성하세요.');
+  // ═══ 5섹션 정밀 분석 렌더링 ═══
+  var _sn = pc.season || '';
+  var _age = '';
+  try{ _age = document.getElementById('ageGroup')?.value || '30대'; }catch(_){}
+  _renderPcRadar(_sn);
+  _renderPcPalette(pc, _isEn);
+  _renderPcAttr(_sn, _isEn);
+  _renderPcAnalysis5(_sn, pc, _isEn, _age);
   }
 
   // 섹션 타이틀 (영어/한글)
@@ -672,12 +723,44 @@ async function analyzePersonalColor(imageDataUrl) {
 
     const d = await r.json();
     if(d.ok && d.personal_color) {
+      // 확장 속성(레이더/속성가이드) 추가
+      var _enriched = d.personal_color;
+      var _radarDB = {
+        '봄웜':  {brightness:80,redness:55,yellowness:75,texture:65,contrast:45,clarity:80},
+        '여름쿨':{brightness:70,redness:45,yellowness:35,texture:75,contrast:35,clarity:60},
+        '가을웜':{brightness:45,redness:50,yellowness:80,texture:55,contrast:60,clarity:40},
+        '겨울쿨':{brightness:60,redness:40,yellowness:30,texture:70,contrast:85,clarity:85}
+      };
+      var _attrDB = {
+        '봄웜':  {value:72,chroma:70,contrast:40,textures:['Silk','Satin']},
+        '여름쿨':{value:65,chroma:40,contrast:30,textures:['Matte','Silk']},
+        '가을웜':{value:40,chroma:55,contrast:60,textures:['Leather','Suede']},
+        '겨울쿨':{value:55,chroma:85,contrast:85,textures:['Enamel','Glossy']}
+      };
+      var _sn2 = _enriched.season || '';
+      if(_radarDB[_sn2]) _enriched.radar = _radarDB[_sn2];
+      if(_attrDB[_sn2]) { _enriched.attributes = {value:_attrDB[_sn2].value,chroma:_attrDB[_sn2].chroma,contrast:_attrDB[_sn2].contrast}; _enriched.bestTextures = _attrDB[_sn2].textures; }
+
       // localStorage 저장
       try{
         const key = 'cb_personal_color_' + (_user?.email||'');
-        localStorage.setItem(key, JSON.stringify(d.personal_color));
+        localStorage.setItem(key, JSON.stringify(_enriched));
       }catch(_){}
-      renderPersonalColor(d.personal_color);
+
+      // 서버에 영구 저장
+      try{
+        var _bb = (typeof CodiBank.getBackendBaseResolved==='function') ? CodiBank.getBackendBaseResolved() : '';
+        if(_bb && _user?.email){
+          fetch(_bb+'/api/personal-color/save', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({email:_user.email, personalColor:_enriched})
+          }).then(function(r){return r.json();}).then(function(j){
+            if(j.ok) console.log('[PC] Saved to server');
+          }).catch(function(e){ console.warn('[PC] Server save failed:', e); });
+        }
+      }catch(_){}
+
+      renderPersonalColor(_enriched);
       showToast('퍼스널컬러 분석 완료!');
     } else {
       if(loading) loading.style.display = 'none';
@@ -777,30 +860,314 @@ setInterval(function(){
   if(cur !== _pcLang){ _pcLang = cur; applyPcI18n(); }
 }, 500);
 
+
+// ═══ 퍼스널컬러 5섹션 정밀 분석 ═══
+
+// ═══ Skin Analytics 레이더 차트 ═══
+function _renderPcRadar(season){
+  var DB={
+    '봄웜':  {brightness:80,redness:55,yellowness:75,texture:65,contrast:45,clarity:80},
+    '여름쿨':{brightness:70,redness:45,yellowness:35,texture:75,contrast:35,clarity:60},
+    '가을웜':{brightness:45,redness:50,yellowness:80,texture:55,contrast:60,clarity:40},
+    '겨울쿨':{brightness:60,redness:40,yellowness:30,texture:70,contrast:85,clarity:85},
+  };
+  var d=DB[season]; if(!d) return;
+  var svg=document.getElementById('pcRadarSvg'); if(!svg) return;
+  var cx=120,cy=115,r=80,axes=6;
+  var labels=['Brightness','Redness (Hb)','Yellowness\n(Melanin)','Texture','Contrast','Clarity'];
+  var vals=[d.brightness,d.redness,d.yellowness,d.texture,d.contrast,d.clarity];
+  var html='';
+  // 배경 격자 (3단계)
+  [1,.66,.33].forEach(function(s){
+    var pts=[];
+    for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;pts.push((cx+r*s*Math.cos(a)).toFixed(1)+','+(cy+r*s*Math.sin(a)).toFixed(1));}
+    html+='<polygon points="'+pts.join(' ')+'" fill="none" stroke="#e5e7eb" stroke-width="0.5"/>';
+  });
+  // 축선
+  for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;html+='<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx+r*Math.cos(a)).toFixed(1)+'" y2="'+(cy+r*Math.sin(a)).toFixed(1)+'" stroke="#e5e7eb" stroke-width="0.5"/>';}
+  // 데이터 영역
+  var dpts=[];
+  for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;var v=vals[i]/100;dpts.push((cx+r*v*Math.cos(a)).toFixed(1)+','+(cy+r*v*Math.sin(a)).toFixed(1));}
+  html+='<polygon points="'+dpts.join(' ')+'" fill="rgba(53,162,159,0.18)" stroke="#35A29F" stroke-width="1.5"/>';
+  // 꼭짓점
+  for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;var v=vals[i]/100;html+='<circle cx="'+(cx+r*v*Math.cos(a)).toFixed(1)+'" cy="'+(cy+r*v*Math.sin(a)).toFixed(1)+'" r="3" fill="#0B666A"/>';}
+  // 라벨
+  for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;var lx=cx+(r+18)*Math.cos(a);var ly=cy+(r+18)*Math.sin(a);var anchor='middle';if(Math.cos(a)>0.3)anchor='start';if(Math.cos(a)<-0.3)anchor='end';
+    var ls=labels[i].split('\n');
+    html+='<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" text-anchor="'+anchor+'" font-size="9" font-weight="600" fill="#666" font-family="Outfit,Noto Sans KR,sans-serif">';
+    if(ls.length>1){html+=ls[0]+'<tspan x="'+lx.toFixed(1)+'" dy="11">'+ls[1]+'</tspan>';}else{html+=ls[0];}
+    html+='</text>';
+  }
+  svg.innerHTML=html;
+}
+
+// ═══ Best Palette 3×3 ═══
+function _renderPcPalette(pc, isEn){
+  var grid=document.getElementById('pcPaletteGrid'); if(!grid) return;
+  var colors=pc.best_colors||[]; var names=pc.best_color_names||[];
+  // 최대 9개, 부족하면 avoid에서 보충 (또는 패딩)
+  var all=[];
+  for(var i=0;i<Math.min(9,colors.length);i++){
+    all.push({hex:colors[i],name:names[i]||colors[i]});
+  }
+  if(all.length<9 && pc.avoid_colors){
+    for(var j=0;j<pc.avoid_colors.length && all.length<9;j++){
+      all.push({hex:pc.avoid_colors[j],name:(pc.avoid_color_names&&pc.avoid_color_names[j])||pc.avoid_colors[j]});
+    }
+  }
+  grid.innerHTML=all.map(function(c){
+    var isDark=_hexLum(c.hex)<0.5;
+    return '<div style="background:'+c.hex+';border-radius:12px;padding:12px 8px;text-align:center;min-height:52px;display:flex;flex-direction:column;justify-content:center;border:1px solid rgba(0,0,0,0.06);">'
+      +'<div style="font-size:10px;font-weight:700;color:'+(isDark?'#fff':'#333')+';line-height:1.3;">'+c.name+'</div>'
+      +'<div style="font-size:8px;color:'+(isDark?'rgba(255,255,255,.7)':'#999')+';margin-top:2px;">'+c.hex+'</div>'
+      +'</div>';
+  }).join('');
+}
+function _hexLum(hex){try{var h=hex.replace('#','');var r=parseInt(h.substr(0,2),16)/255;var g=parseInt(h.substr(2,2),16)/255;var b=parseInt(h.substr(4,2),16)/255;return 0.299*r+0.587*g+0.114*b;}catch(_){return 0.5;}}
+
+// ═══ Attribute Guide ═══
+function _renderPcAttr(season, isEn){
+  var DB={
+    '봄웜':  {value:72,chroma:70,contrast:40,textures:[{ko:'실크',en:'Silk'},{ko:'새틴',en:'Satin'}]},
+    '여름쿨':{value:65,chroma:40,contrast:30,textures:[{ko:'무광(매트)',en:'Matte'},{ko:'실크',en:'Silk'}]},
+    '가을웜':{value:40,chroma:55,contrast:60,textures:[{ko:'가죽',en:'Leather'},{ko:'스웨이드',en:'Suede'}]},
+    '겨울쿨':{value:55,chroma:85,contrast:85,textures:[{ko:'에나멜',en:'Enamel'},{ko:'유광',en:'Glossy'}]},
+  };
+  var d=DB[season]; if(!d) return;
+  var wrap=document.getElementById('pcAttrSliders'); if(!wrap) return;
+  var attrs=[
+    {label:isEn?'Value':'Value (명도)',val:d.value,lo:isEn?'Low':'Low',hi:isEn?'High':'High',color:'#35A29F'},
+    {label:isEn?'Chroma':'Chroma (채도)',val:d.chroma,lo:isEn?'Low':'Low',hi:isEn?'High':'High',color:'#0B666A'},
+    {label:'Contrast',val:d.contrast,lo:isEn?'Weak':'Weak',hi:isEn?'Strong':'Strong',color:'#071952'},
+  ];
+  wrap.innerHTML=attrs.map(function(a){
+    return '<div>'
+      +'<div style="font-size:11px;font-weight:700;color:#2c3338;margin-bottom:4px;">'+a.label+'</div>'
+      +'<div style="display:flex;align-items:center;gap:8px;">'
+      +'<span style="font-size:9px;color:#999;min-width:28px;">'+a.lo+'</span>'
+      +'<div style="flex:1;height:6px;background:#f0f0f0;border-radius:3px;position:relative;">'
+      +'<div style="position:absolute;left:0;top:0;height:100%;width:'+a.val+'%;background:'+a.color+';border-radius:3px;transition:width .6s;"></div>'
+      +'<div style="position:absolute;top:50%;left:'+a.val+'%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:'+a.color+';border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);"></div>'
+      +'</div>'
+      +'<span style="font-size:9px;color:#999;min-width:36px;text-align:right;">'+a.hi+'</span>'
+      +'</div></div>';
+  }).join('');
+  // 텍스처 태그
+  var tags=document.getElementById('pcTexTags'); if(!tags) return;
+  tags.innerHTML=d.textures.map(function(tx){
+    return '<span style="padding:5px 14px;border-radius:20px;background:#0B666A;color:#fff;font-size:11px;font-weight:700;">'+(isEn?tx.en:tx.ko)+'</span>';
+  }).join('');
+  var texL=document.getElementById('pcTexLabel');
+  if(texL) texL.textContent=isEn?'Best Texture:':'추천 질감:';
+}
+
+function _renderPcAnalysis5(season, pc, isEn, ageGroup) {
+  var DB = {
+    '봄웜': {
+      ko: {
+        s1: '<div class="pca-b"><b>▸ 피부톤:</b> 따뜻한 노란 기(Melanin)가 우세하며, 혈색이 좋고 밝은 피부입니다. 붉은 기(Hemoglobin)는 적당히 분포하여 생기 있는 인상을 줍니다.</div>'
+          + '<div class="pca-b"><b>▸ 헤어 컬러:</b> 자연광에서 갈색·밤색 빛이 돌며, 모발에 부드러운 광택이 있습니다. 명도가 높은 편입니다.</div>'
+          + '<div class="pca-b"><b>▸ 눈동자:</b> 밝은 갈색~황갈색으로, 홍채 패턴이 섬세하며 테두리(Limbal ring)가 부드럽게 구분됩니다.</div>',
+        s2: '<div class="pca-b"><b>▸ 명도 민감도:</b> 고명도(파스텔) 컬러에서 얼굴의 입체감이 살아나며, 저명도(딥) 컬러는 얼굴을 무겁게 만들 수 있습니다.</div>'
+          + '<div class="pca-b"><b>▸ 채도 민감도:</b> 선명하되 따뜻한 비비드톤이 이목구비를 또렷하게 살려줍니다. 과도한 회색기는 피부를 칙칙하게 합니다.</div>'
+          + '<div class="pca-b"><b>▸ 청탁(Clarity):</b> 맑은 색(Clear)에서 피부가 투명하게 빛나며, 탁한 색(Muted)은 피부 요철을 부각시킬 수 있습니다.</div>',
+        s3: '<div class="pca-b"><b>▸ 대비감:</b> 중~저 대비가 이상적입니다. 베이지 & 코랄 같은 톤온톤 조합에서 부드러운 화사함이 극대화됩니다. 흑백의 강한 대비는 얼굴을 날카롭게 만들 수 있습니다.</div>'
+          + '<div class="pca-b"><b>▸ 광택/질감:</b> 유광(Glossy) 소재가 피부의 윤기를 살려줍니다. 골드 주얼리, 실크, 새틴 소재가 잘 어울립니다.</div>',
+        s4: '<div class="pca-b"><b>▸ 분리감 현상:</b> 채도가 너무 높은 쿨톤(푸시아, 로얄블루)은 옷과 얼굴이 분리되어 보이며, 피부의 따뜻한 톤을 상쇄합니다.</div>'
+          + '<div class="pca-b"><b>▸ 안색 변화:</b> 블랙, 차가운 그레이는 다크서클을 깊어 보이게 하고, 노란 기를 과도하게 부각시켜 피부가 칙칙해 보입니다. 팔자주름이 강조될 수 있습니다.</div>'
+          + '<div class="pca-b"><b>▸ 보정 전략:</b> 워스트 컬러를 하의나 액세서리에 제한적으로 사용하고, 얼굴 근처는 반드시 베스트 컬러로 배치하세요.</div>',
+        s5: ''
+      },
+      en: {
+        s1: '<div class="pca-b"><b>▸ Skin Tone:</b> Warm yellow pigment (Melanin) is dominant with good blood circulation, creating a bright, lively complexion. Hemoglobin is moderately distributed for a vibrant impression.</div>'
+          + '<div class="pca-b"><b>▸ Hair Color:</b> Shows brown/chestnut tones in natural light with soft sheen. Generally higher value (lighter).</div>'
+          + '<div class="pca-b"><b>▸ Iris:</b> Light brown to amber, with delicate iris patterns and a softly defined limbal ring.</div>',
+        s2: '<div class="pca-b"><b>▸ Value Sensitivity:</b> High-value (pastel) colors enhance facial dimension. Low-value (deep) colors can weigh the face down.</div>'
+          + '<div class="pca-b"><b>▸ Chroma Sensitivity:</b> Vivid warm tones sharpen features. Excessive gray undertones dull the skin.</div>'
+          + '<div class="pca-b"><b>▸ Clarity:</b> Clear colors make skin glow transparently. Muted colors may emphasize skin texture imperfections.</div>',
+        s3: '<div class="pca-b"><b>▸ Contrast:</b> Medium-low contrast is ideal. Tone-on-tone combos like beige & coral maximize soft radiance. Strong B&W contrast can make the face look harsh.</div>'
+          + '<div class="pca-b"><b>▸ Texture:</b> Glossy materials enhance skin luminosity. Gold jewelry, silk, and satin are excellent matches.</div>',
+        s4: '<div class="pca-b"><b>▸ Separation Effect:</b> High-chroma cool tones (fuchsia, royal blue) create a disconnect between clothing and face, canceling warm skin undertones.</div>'
+          + '<div class="pca-b"><b>▸ Complexion Changes:</b> Black and cool grays deepen dark circles and over-emphasize yellow tones, making skin look sallow. Nasolabial lines may appear more pronounced.</div>'
+          + '<div class="pca-b"><b>▸ Correction Strategy:</b> Limit worst colors to bottoms/accessories. Always place best colors near the face.</div>',
+        s5: ''
+      }
+    },
+    '여름쿨': {
+      ko: {
+        s1: '<div class="pca-b"><b>▸ 피부톤:</b> 푸른 기(Blue undertone)가 은은하게 감돌며, 핑크빛 혈색이 특징입니다. 붉은 기가 쉽게 올라오는 민감한 피부일 수 있습니다.</div>'
+          + '<div class="pca-b"><b>▸ 헤어 컬러:</b> 재(Ash) 계열이 자연스럽게 섞인 부드러운 갈색·흑갈색으로, 광택보다는 부드러운 질감이 특징입니다.</div>'
+          + '<div class="pca-b"><b>▸ 눈동자:</b> 회갈색~부드러운 흑색으로, 홍채와 동공의 경계가 흐릿한 편입니다.</div>',
+        s2: '<div class="pca-b"><b>▸ 명도 민감도:</b> 중~고명도의 소프트한 파스텔 컬러에서 피부가 맑고 투명하게 빛납니다.</div>'
+          + '<div class="pca-b"><b>▸ 채도 민감도:</b> 회색기가 적절히 섞인 뮤트톤(Muted)이 피부를 깨끗하고 우아하게 만듭니다. 과도한 비비드톤은 피부를 압도합니다.</div>'
+          + '<div class="pca-b"><b>▸ 청탁(Clarity):</b> 탁한 색(Muted)이 오히려 피부와 조화롭습니다. 맑은 원색은 이질감을 줄 수 있습니다.</div>',
+        s3: '<div class="pca-b"><b>▸ 대비감:</b> 저대비의 톤온톤 조합이 가장 우아합니다. 라벤더 & 그레이, 로즈 & 베이비핑크 같은 부드러운 그라데이션이 효과적입니다.</div>'
+          + '<div class="pca-b"><b>▸ 광택/질감:</b> 무광(Matte) 소재가 피부 결을 고르게 보이게 합니다. 실버 주얼리, 코튼, 린넨이 잘 어울립니다.</div>',
+        s4: '<div class="pca-b"><b>▸ 분리감 현상:</b> 웜톤(오렌지, 카키, 황금색)은 피부의 붉은 기를 과도하게 부각시켜 홍조처럼 보이게 합니다.</div>'
+          + '<div class="pca-b"><b>▸ 안색 변화:</b> 강한 노란색·카키색은 피부를 누렇게 만들고, 순수 블랙은 얼굴에 그림자를 드리웁니다.</div>'
+          + '<div class="pca-b"><b>▸ 보정 전략:</b> 상의에는 소프트한 쿨톤을, 웜 계열은 가방이나 벨트 등 소품으로 제한하세요.</div>',
+        s5: ''
+      },
+      en: {
+        s1: '<div class="pca-b"><b>▸ Skin Tone:</b> Subtle blue undertone with pink flush. Skin may be sensitive and prone to redness.</div>'
+          + '<div class="pca-b"><b>▸ Hair Color:</b> Soft brown to dark brown with natural ash tones. Soft texture rather than high gloss.</div>'
+          + '<div class="pca-b"><b>▸ Iris:</b> Gray-brown to soft black. The boundary between iris and pupil is relatively blurred.</div>',
+        s2: '<div class="pca-b"><b>▸ Value Sensitivity:</b> Medium-to-high value soft pastels make skin appear clear and luminous.</div>'
+          + '<div class="pca-b"><b>▸ Chroma Sensitivity:</b> Properly muted tones create a clean, elegant look. Overly vivid colors overwhelm the skin.</div>'
+          + '<div class="pca-b"><b>▸ Clarity:</b> Muted colors actually harmonize better with this type. Pure primary colors can feel jarring.</div>',
+        s3: '<div class="pca-b"><b>▸ Contrast:</b> Low-contrast tone-on-tone is most elegant. Soft gradients like lavender & gray or rose & baby pink work beautifully.</div>'
+          + '<div class="pca-b"><b>▸ Texture:</b> Matte fabrics even out skin texture. Silver jewelry, cotton, and linen are ideal.</div>',
+        s4: '<div class="pca-b"><b>▸ Separation Effect:</b> Warm tones (orange, khaki, gold) over-emphasize skin redness, creating a flushed appearance.</div>'
+          + '<div class="pca-b"><b>▸ Complexion Changes:</b> Strong yellows/khaki make skin look sallow. Pure black casts shadows on the face.</div>'
+          + '<div class="pca-b"><b>▸ Correction Strategy:</b> Keep soft cool tones near the face. Limit warm colors to bags, belts, and accessories.</div>',
+        s5: ''
+      }
+    },
+    '가을웜': {
+      ko: {
+        s1: '<div class="pca-b"><b>▸ 피부톤:</b> 깊고 따뜻한 황금빛 멜라닌이 풍부하며, 피부에 깊이감과 따뜻함이 공존합니다. 일광에 잘 타며 올리브톤이 섞일 수 있습니다.</div>'
+          + '<div class="pca-b"><b>▸ 헤어 컬러:</b> 짙은 갈색~적갈색 톤으로, 굵고 풍성한 모발에 따뜻한 광택이 있습니다.</div>'
+          + '<div class="pca-b"><b>▸ 눈동자:</b> 짙은 갈색~황갈색으로, 홍채가 따뜻한 느낌이며 테두리가 비교적 선명합니다.</div>',
+        s2: '<div class="pca-b"><b>▸ 명도 민감도:</b> 중~저명도의 깊은 컬러(딥, 어스톤)에서 피부에 깊이감과 고급스러움이 살아납니다.</div>'
+          + '<div class="pca-b"><b>▸ 채도 민감도:</b> 중채도의 따뜻한 컬러가 가장 조화롭습니다. 과도한 네온은 피부를 뜨게 하고, 과도한 파스텔은 밋밋해 보입니다.</div>'
+          + '<div class="pca-b"><b>▸ 청탁(Clarity):</b> 탁한 색(Muted)이 환상적으로 어울리는 타입입니다. 카키, 올리브, 버건디 등 가을 자연의 컬러가 피부와 하나 됩니다.</div>',
+        s3: '<div class="pca-b"><b>▸ 대비감:</b> 중대비가 적절합니다. 브라운 & 카멜, 카키 & 버건디처럼 같은 온도감의 풍성한 조합이 멋스럽습니다.</div>'
+          + '<div class="pca-b"><b>▸ 광택/질감:</b> 약간의 광택이 있는 소재(가죽, 스웨이드)가 피부의 깊이감을 살립니다. 골드 주얼리가 자연스럽게 녹아듭니다.</div>',
+        s4: '<div class="pca-b"><b>▸ 분리감 현상:</b> 파스텔 핑크, 아이시 블루 등 차가운 고명도 컬러는 피부의 따뜻함과 충돌하여 분리감이 생깁니다.</div>'
+          + '<div class="pca-b"><b>▸ 안색 변화:</b> 차가운 흰색은 노란 기를 과도 부각, 네온 핑크는 홍조를 유발하며, 라벤더는 피부를 탁하게 만듭니다.</div>'
+          + '<div class="pca-b"><b>▸ 보정 전략:</b> 쿨톤이 필요한 상황에서는 네이비나 차콜처럼 깊이가 있는 중립 컬러를 활용하세요.</div>',
+        s5: ''
+      },
+      en: {
+        s1: '<div class="pca-b"><b>▸ Skin Tone:</b> Rich golden melanin creates depth and warmth. Skin tans easily and may have olive undertones.</div>'
+          + '<div class="pca-b"><b>▸ Hair Color:</b> Deep brown to auburn with warm luster and thick, voluminous texture.</div>'
+          + '<div class="pca-b"><b>▸ Iris:</b> Deep brown to amber, with warm-toned iris and relatively defined limbal ring.</div>',
+        s2: '<div class="pca-b"><b>▸ Value Sensitivity:</b> Medium-to-low value deep colors (earth tones) bring out depth and sophistication.</div>'
+          + '<div class="pca-b"><b>▸ Chroma Sensitivity:</b> Medium-chroma warm colors harmonize best. Neons overwhelm; pastels look flat.</div>'
+          + '<div class="pca-b"><b>▸ Clarity:</b> This type looks fantastic in muted colors. Khaki, olive, and burgundy — autumn\'s natural palette — become one with the skin.</div>',
+        s3: '<div class="pca-b"><b>▸ Contrast:</b> Medium contrast works well. Rich same-temperature combos like brown & camel or khaki & burgundy look stunning.</div>'
+          + '<div class="pca-b"><b>▸ Texture:</b> Semi-glossy materials (leather, suede) enhance skin depth. Gold jewelry blends naturally.</div>',
+        s4: '<div class="pca-b"><b>▸ Separation Effect:</b> Cool high-value colors (pastel pink, icy blue) clash with warm skin, creating visual disconnect.</div>'
+          + '<div class="pca-b"><b>▸ Complexion Changes:</b> Cool white over-emphasizes yellow tones; neon pink causes flushing; lavender dulls the skin.</div>'
+          + '<div class="pca-b"><b>▸ Correction Strategy:</b> When cool tones are needed, choose deep neutrals like navy or charcoal.</div>',
+        s5: ''
+      }
+    },
+    '겨울쿨': {
+      ko: {
+        s1: '<div class="pca-b"><b>▸ 피부톤:</b> 푸른 기(Blue undertone)가 강하며, 피부가 맑고 차가운 인상입니다. 혈색이 선명하거나 창백한 양극단이 특징입니다.</div>'
+          + '<div class="pca-b"><b>▸ 헤어 컬러:</b> 짙은 흑색~블루블랙으로 강한 광택이 있습니다. 모발이 굵고 질감이 또렷합니다.</div>'
+          + '<div class="pca-b"><b>▸ 눈동자:</b> 선명한 흑색~짙은 갈색으로, 동공과 홍채의 대비가 뚜렷하며 눈빛이 강렬합니다.</div>',
+        s2: '<div class="pca-b"><b>▸ 명도 민감도:</b> 극고명도(아이시 화이트)와 극저명도(딥 블랙) 양쪽 모두에서 강렬한 존재감이 살아납니다.</div>'
+          + '<div class="pca-b"><b>▸ 채도 민감도:</b> 높은 채도의 선명한 비비드톤이 이목구비를 더욱 또렷하게 만듭니다. 탁한 색은 매력을 감소시킵니다.</div>'
+          + '<div class="pca-b"><b>▸ 청탁(Clarity):</b> 맑은 색(Clear)이 압도적으로 잘 어울리며, 탁한 색은 선명한 이미지를 흐리게 만듭니다.</div>',
+        s3: '<div class="pca-b"><b>▸ 대비감:</b> 고대비가 강점입니다. 블랙 & 화이트, 네이비 & 레드처럼 선명한 대비에서 드라마틱한 존재감이 폭발합니다.</div>'
+          + '<div class="pca-b"><b>▸ 광택/질감:</b> 유광(Glossy) 소재가 피부의 맑은 느낌을 극대화합니다. 실버 주얼리, 에나멜, 페이턴트 가죽이 찰떡입니다.</div>',
+        s4: '<div class="pca-b"><b>▸ 분리감 현상:</b> 웜톤 어스컬러(카키, 올리브, 카멜)는 차가운 피부톤과 완전히 분리되어 옷만 둥둥 떠 보입니다.</div>'
+          + '<div class="pca-b"><b>▸ 안색 변화:</b> 베이지, 머스타드는 피부를 노랗게 만들고, 연어색은 붉은 기를 과도하게 부각합니다. 파스텔은 존재감을 약화시킵니다.</div>'
+          + '<div class="pca-b"><b>▸ 보정 전략:</b> 따뜻한 톤이 필요한 상황에서는 버건디나 다크 초콜릿처럼 깊이감 있는 웜톤을 선택하세요.</div>',
+        s5: ''
+      },
+      en: {
+        s1: '<div class="pca-b"><b>▸ Skin Tone:</b> Strong blue undertone with clear, cool impression. Complexion is either vividly flushed or porcelain pale.</div>'
+          + '<div class="pca-b"><b>▸ Hair Color:</b> Deep black to blue-black with strong luster. Thick hair with distinct texture.</div>'
+          + '<div class="pca-b"><b>▸ Iris:</b> Vivid black to deep brown. Strong contrast between pupil and iris creates intense, striking eyes.</div>',
+        s2: '<div class="pca-b"><b>▸ Value Sensitivity:</b> Both extremes — icy white and deep black — bring out powerful presence.</div>'
+          + '<div class="pca-b"><b>▸ Chroma Sensitivity:</b> High-chroma vivid tones sharpen features dramatically. Muted colors diminish charisma.</div>'
+          + '<div class="pca-b"><b>▸ Clarity:</b> Clear colors are overwhelmingly flattering. Muted tones blur this type\'s inherently sharp image.</div>',
+        s3: '<div class="pca-b"><b>▸ Contrast:</b> High contrast is this type\'s strength. B&W, navy & red — dramatic pairings unleash powerful presence.</div>'
+          + '<div class="pca-b"><b>▸ Texture:</b> Glossy materials maximize skin clarity. Silver jewelry, enamel, and patent leather are perfect matches.</div>',
+        s4: '<div class="pca-b"><b>▸ Separation Effect:</b> Warm earth tones (khaki, olive, camel) completely disconnect from cool skin, making clothes look detached.</div>'
+          + '<div class="pca-b"><b>▸ Complexion Changes:</b> Beige/mustard yellow the skin; salmon over-emphasizes redness; pastels weaken presence.</div>'
+          + '<div class="pca-b"><b>▸ Correction Strategy:</b> When warm tones are needed, choose deep warm shades like burgundy or dark chocolate.</div>',
+        s5: ''
+      }
+    }
+  };
+
+  // 섹션 5: 라이프스타일 (연령대별)
+  var ageMap = {'10대':'teens','20대':'20s','30대':'30s','40대':'40s','50대':'50s','50대+':'50s','60대':'60s'};
+  var ageKey = ageMap[ageGroup] || '30s';
+  var s5Ko = {
+    'teens': '젊고 트렌디한 감각을 살리되 베스트 컬러 중 비비드한 톤을 메인으로 활용하세요. 실험적인 컬러 조합도 좋습니다.',
+    '20s': '화사하고 생기 있는 이미지를 위해 베스트 컬러의 고채도 톤을 자유롭게 사용하세요. 컬러풀한 액세서리로 개성을 표현하세요.',
+    '30s': '프로페셔널한 이미지와 세련됨을 동시에. 비즈니스 상황에서는 베스트 컬러의 중명도 톤을, 캐주얼에서는 밝은 톤을 활용하세요.',
+    '40s': '품격과 여유로움을 강조하는 시기입니다. 베스트 컬러의 중채도 톤을 베이스로, 포인트 액세서리에 하이라이트 컬러를 사용하세요.',
+    '50s': '우아함과 안색 보정을 동시에 고려합니다. 얼굴 근처에는 반드시 밝은 베스트 컬러를, 전체적으로 차분한 톤을 유지하세요.',
+    '60s': '안색을 환하게 보정하는 것이 최우선입니다. 베스트 컬러 중 가장 밝고 맑은 톤을 상의에 배치하여 얼굴빛을 살려주세요.'
+  };
+  var s5En = {
+    'teens': 'Embrace trendy sensibility with vivid tones from your best colors as the main palette. Experimental color combos work great.',
+    '20s': 'For a bright, vibrant image, freely use high-chroma tones of your best colors. Express personality through colorful accessories.',
+    '30s': 'Balance professional image with sophistication. Use medium-value best colors for business, brighter tones for casual settings.',
+    '40s': 'A time to emphasize dignity and poise. Use medium-chroma best colors as your base, with highlight accents in accessories.',
+    '50s': 'Consider elegance and complexion correction together. Always place bright best colors near the face; maintain calm overall tones.',
+    '60s': 'Brightening the complexion is top priority. Place the lightest, clearest best colors on tops to illuminate the face.'
+  };
+
+  var titles_ko = ['1. 신체색 정밀 분석','2. 색의 3속성 및 청탁 분석','3. 대비감 및 광택감','4. 워스트 및 보정 전략','5. 라이프스타일 큐레이션'];
+  var titles_en = ['1. Base Color Analysis','2. Color Properties & Clarity','3. Contrast & Texture','4. Worst Colors & Correction','5. Lifestyle Curation'];
+
+  var data = DB[season];
+  if(!data) { document.getElementById('pcAnalysis5').style.display='none'; return; }
+  document.getElementById('pcAnalysis5').style.display='flex';
+
+  var lang = isEn ? data.en : data.ko;
+  var tArr = isEn ? titles_en : titles_ko;
+
+  // 섹션 5 동적 생성
+  var bizKo = '비즈니스 상황에서는 베스트 컬러가 아니더라도 네이비·차콜·다크그레이 같은 신뢰감을 주는 세컨드 컬러를 활용하세요.';
+  var bizEn = 'In business settings, use trust-building second colors like navy, charcoal, or dark gray even if they\'re not your best colors.';
+  var cosKo = '현재 사용 중인 화장품의 컬러가 당신의 언더톤과 맞는지 확인하세요. 파운데이션·립·치크를 베스트 컬러 계열로 통일하면 조화로운 인상을 줍니다.';
+  var cosEn = 'Check if your current cosmetic colors match your undertone. Unifying foundation, lip, and cheek in your best color family creates a harmonious impression.';
+  var ageText = isEn ? (s5En[ageKey]||s5En['30s']) : (s5Ko[ageKey]||s5Ko['30s']);
+
+  var s5Content = '<div class="pca-b"><b>▸ ' + (isEn?'Business/Casual':'비즈니스/캐주얼') + ':</b> ' + (isEn?bizEn:bizKo) + '</div>'
+    + '<div class="pca-b"><b>▸ ' + (isEn?'Cosmetic Guide':'화장품 가이드') + ':</b> ' + (isEn?cosEn:cosKo) + '</div>'
+    + '<div class="pca-b"><b>▸ ' + (isEn?'Age-specific ('+ageKey+')':'연령대별 ('+ageGroup+')') + ':</b> ' + ageText + '</div>';
+
+  for(var i=1; i<=5; i++){
+    var tEl = document.getElementById('pcaT'+i);
+    var bEl = document.getElementById('pcaB'+i);
+    if(tEl) tEl.textContent = tArr[i-1];
+    if(bEl) bEl.innerHTML = (i<5) ? lang['s'+i] : s5Content;
+    var sec = document.getElementById('pcaSec'+i);
+    if(sec && i===1) sec.classList.add('open');
+  }
+}
+
+
 // ═══ [2026-04-08] 체형 선택 ═══
 var _bodyTypes = {
   "female": [
-    {key:"neat_hourglass",label:"깔끔한 모래시계",en:"Neat Hourglass",desc:"가슴·골반 비율 완벽, 허리 가늘음",celebs:"스칼렛 요한슨, 소피아 로렌"},
-    {key:"full_hourglass",label:"풍만한 모래시계",en:"Full Hourglass",desc:"모래시계형 + 가슴이 더 발달",celebs:"케이트 업튼, 셀마 헤이엑"},
-    {key:"pear",label:"배형 (삼각형)",en:"Pear",desc:"어깨 좁고 골반·허벅지 발달",celebs:"제니퍼 로페즈, 비욘세"},
-    {key:"apple",label:"사과형 (원형)",en:"Apple",desc:"가슴·복부 발달, 다리는 가는 편",celebs:"케이트 윈슬렛, 아델"},
-    {key:"inverted_triangle_f",label:"역삼각형",en:"Inverted Triangle",desc:"어깨 넓고 골반 좁음",celebs:"안젤리나 졸리, 샤를리즈 테론"},
-    {key:"rectangle_f",label:"직사각형",en:"Rectangle",desc:"어깨·허리·골반 굴곡 적은 일자",celebs:"나탈리 포트만, 카메론 디아즈"},
-    {key:"lean_column",label:"마른 직사각형",en:"Lean Column",desc:"전체적으로 가늘고 길며 굴곡 없음",celebs:"키이라 나이틀리, 젠다야"}
+    {key:"neat_hourglass",label:"깔끔한 모래시계",en:"Neat Hourglass",desc:"가슴·골반 비율 완벽, 허리 가늘음",desc_en:"Perfect bust-hip ratio, narrow waist",celebs:"스칼렛 요한슨, 소피아 로렌"},
+    {key:"full_hourglass",label:"풍만한 모래시계",en:"Full Hourglass",desc:"모래시계형 + 가슴이 더 발달",desc_en:"Hourglass with fuller bust",celebs:"케이트 업튼, 셀마 헤이엑"},
+    {key:"pear",label:"배형 (삼각형)",en:"Pear",desc:"어깨 좁고 골반·허벅지 발달",desc_en:"Narrow shoulders, wider hips/thighs",celebs:"제니퍼 로페즈, 비욘세"},
+    {key:"apple",label:"사과형 (원형)",en:"Apple",desc:"가슴·복부 발달, 다리는 가는 편",desc_en:"Fuller torso, slimmer legs",celebs:"케이트 윈슬렛, 아델"},
+    {key:"inverted_triangle_f",label:"역삼각형",en:"Inverted Triangle",desc:"어깨 넓고 골반 좁음",desc_en:"Broad shoulders, narrow hips",celebs:"안젤리나 졸리, 샤를리즈 테론"},
+    {key:"rectangle_f",label:"직사각형",en:"Rectangle",desc:"어깨·허리·골반 굴곡 적은 일자",desc_en:"Minimal curves, straight frame",celebs:"나탈리 포트만, 카메론 디아즈"},
+    {key:"lean_column",label:"마른 직사각형",en:"Lean Column",desc:"전체적으로 가늘고 길며 굴곡 없음",desc_en:"Slim and elongated, minimal curves",celebs:"키이라 나이틀리, 젠다야"}
   ],
   "male": [
-    {key:"trapezoid",label:"사다리꼴",en:"Trapezoid",desc:"어깨 넓고 허리 약간 좁은 이상적 비율",celebs:"다니엘 크레이그, 라이언 레이놀즈"},
-    {key:"inverted_triangle_m",label:"역삼각형",en:"Inverted Triangle",desc:"어깨·가슴 매우 넓고 허리 가는 운동선수형",celebs:"크리스 햄스워스, 크리스 에반스"},
-    {key:"rectangle_m",label:"직사각형",en:"Rectangle",desc:"어깨·허리·골반 너비 거의 일정한 일자",celebs:"라이언 고슬링, 티모시 샬라메"},
-    {key:"triangle_m",label:"삼각형",en:"Triangle",desc:"어깨 좁고 허리·엉덩이 발달",celebs:"레오나르도 디카프리오, 잭 블랙"},
-    {key:"oval",label:"타원형",en:"Oval",desc:"복부·몸통 중앙이 둥글게 발달",celebs:"제임스 코든, 세스 로건"},
-    {key:"diamond",label:"다이아몬드",en:"Diamond",desc:"허리가 가장 넓고 어깨·종아리 가는 편",celebs:"대니 드비토, 알프레드 몰리나"},
-    {key:"hourglass_m",label:"모래시계",en:"Hourglass",desc:"가슴·골반 넓고 허리 잘록",celebs:"에즈라 밀러, 아담 램버트"}
+    {key:"trapezoid",label:"사다리꼴",en:"Trapezoid",desc:"어깨 넓고 허리 약간 좁은 이상적 비율",desc_en:"Broad shoulders, slightly narrow waist",celebs:"다니엘 크레이그, 라이언 레이놀즈"},
+    {key:"inverted_triangle_m",label:"역삼각형",en:"Inverted Triangle",desc:"어깨·가슴 매우 넓고 허리 가는 운동선수형",desc_en:"Very broad shoulders, narrow waist, athletic",celebs:"크리스 햄스워스, 크리스 에반스"},
+    {key:"rectangle_m",label:"직사각형",en:"Rectangle",desc:"어깨·허리·골반 너비 거의 일정한 일자",desc_en:"Even width across shoulders, waist, hips",celebs:"라이언 고슬링, 티모시 샬라메"},
+    {key:"triangle_m",label:"삼각형",en:"Triangle",desc:"어깨 좁고 허리·엉덩이 발달",desc_en:"Narrow shoulders, wider waist/hips",celebs:"레오나르도 디카프리오, 잭 블랙"},
+    {key:"oval",label:"타원형",en:"Oval",desc:"복부·몸통 중앙이 둥글게 발달",desc_en:"Rounded midsection",celebs:"제임스 코든, 세스 로건"},
+    {key:"diamond",label:"다이아몬드",en:"Diamond",desc:"허리가 가장 넓고 어깨·종아리 가는 편",desc_en:"Widest at waist, narrow shoulders/calves",celebs:"대니 드비토, 알프레드 몰리나"},
+    {key:"hourglass_m",label:"모래시계",en:"Hourglass",desc:"가슴·골반 넓고 허리 잘록",desc_en:"Wide chest/hips, defined waist",celebs:"에즈라 밀러, 아담 램버트"}
   ]
 };
 var _selectedBodyType = '';
 
 function renderBodyTypes(gender) {
+  var _btEn = window.CodiBankI18n && CodiBankI18n.isEn();
+  var _btLabel = document.getElementById('bodyTypeLabel');
+  var _btHint = document.getElementById('bodyTypeHint');
+  var _btEmpty = document.getElementById('bodyTypeEmptyMsg');
+  if(_btLabel) _btLabel.firstChild.textContent = _btEn ? 'Body Type ' : '체형 ';
+  if(_btHint) _btHint.textContent = _btEn ? '(Select gender first)' : '(성별 선택 후 표시)';
+  if(_btEmpty) _btEmpty.textContent = _btEn ? 'Please select gender first' : '성별을 먼저 선택해주세요';
   var cards = document.getElementById('bodyTypeCards');
   var empty = document.getElementById('bodyTypeEmpty');
   if(!cards) return;
@@ -816,8 +1183,9 @@ function renderBodyTypes(gender) {
   types.forEach(function(bt){
     var card = document.createElement('div');
     card.className = 'bt-card' + (_selectedBodyType === bt.key ? ' selected' : '');
-    card.innerHTML = '<div class="bt-label">' + bt.label + '<span class="bt-en">' + bt.en + '</span></div>' +
-      '<div class="bt-desc">' + bt.desc + '</div>' +
+    var _bEn = window.CodiBankI18n && CodiBankI18n.isEn();
+    card.innerHTML = '<div class="bt-label">' + (_bEn ? bt.en : bt.label) + (_bEn ? '' : '<span class="bt-en">' + bt.en + '</span>') + '</div>' +
+      '<div class="bt-desc">' + (_bEn && bt.desc_en ? bt.desc_en : bt.desc) + '</div>' +
       '<div class="bt-celebs">' + bt.celebs + '</div>';
     card.onclick = function(){ selectBodyType(bt.key, g); };
     cards.appendChild(card);

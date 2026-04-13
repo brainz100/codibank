@@ -4428,6 +4428,21 @@ function setPurpose(k){
 
   CodiBank.updateUserProfile(user.email, patch);
   renderPurposeGrid();
+
+// 서버에서 PC 데이터 로드 → localStorage 동기화
+(function(){
+  try{
+    var _bb = (typeof CodiBank.getBackendBaseResolved==='function') ? CodiBank.getBackendBaseResolved() : '';
+    var _em = user?.email;
+    if(!_bb || !_em) return;
+    var _lk = 'cb_personal_color_'+_em;
+    if(localStorage.getItem(_lk)) return; // 이미 있으면 스킵
+    fetch(_bb+'/api/personal-color/load/'+encodeURIComponent(_em))
+      .then(function(r){return r.json();})
+      .then(function(j){ if(j.ok && j.personalColor){ localStorage.setItem(_lk, JSON.stringify(j.personalColor)); console.log('[PC] Loaded from server'); }})
+      .catch(function(){});
+  }catch(_){}
+})();
   setMetaLine();
   updateAiCallBtn();   // ← 목적 선택 시 버튼 활성화
 

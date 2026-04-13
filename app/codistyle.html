@@ -455,7 +455,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
           <span id="pcUndertoneLabelCS" style="font-size:10px;color:rgba(151,254,237,.55);margin-left:4px;vertical-align:middle;"></span>
         </div>
         <div id="pcTipCS" style="font-size:10px;color:rgba(255,255,255,.4);line-height:1.4;display:none;"></div>
-        <div id="pcEmptyCS" style="font-size:10.5px;color:rgba(255,255,255,.35);line-height:1.4;">사진을 등록하면<br>퍼스널컬러를 분석합니다</div>
+        <div id="pcMiniPalette" style="display:none;margin-top:4px;display:flex;gap:3px;"></div>
+        <div id="pcEmptyCS" style="font-size:10.5px;color:rgba(255,255,255,.35);line-height:1.4;" id="pcEmptyCS2">사진을 등록하면<br>퍼스널컬러를 분석합니다</div>
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">
@@ -1322,6 +1323,9 @@ async function generate(isRetry=false){
         best_colors:      _csPersonalColor.best_colors,
         best_color_names: _csPersonalColor.best_color_names || [],
         avoid_colors:     _csPersonalColor.avoid_colors,
+        radar:            _csPersonalColor.radar || null,
+        attributes:       _csPersonalColor.attributes || null,
+        bestTextures:     _csPersonalColor.bestTextures || [],
         avoid_color_names:_csPersonalColor.avoid_color_names || [],
         chroma:           _csPersonalColor.chroma || '',
         clarity:          _csPersonalColor.clarity || '',
@@ -1889,6 +1893,21 @@ const _pcSeasonColors = {
   '겨울쿨':'#6A7FDB','Winter Cool':'#6A7FDB'
 };
 let _csPersonalColor = null; // 현재 퍼스널컬러 데이터
+
+// 서버에서 PC 로드 → localStorage 동기화
+(function(){
+  try{
+    var _bb = (typeof CodiBank.getBackendBaseResolved==='function') ? CodiBank.getBackendBaseResolved() : '';
+    var _em = (typeof user!=='undefined' && user) ? user.email : '';
+    if(!_bb || !_em) return;
+    var _lk = 'cb_personal_color_'+_em;
+    if(localStorage.getItem(_lk)) return;
+    fetch(_bb+'/api/personal-color/load/'+encodeURIComponent(_em))
+      .then(function(r){return r.json();})
+      .then(function(j){ if(j.ok && j.personalColor){ localStorage.setItem(_lk, JSON.stringify(j.personalColor)); _csPersonalColor = j.personalColor; _applyPcToProfile(j.personalColor); }})
+      .catch(function(){});
+  }catch(_){}
+})();
 
 function showPersonalColorCS(pc) {
   if(!pc) return;
