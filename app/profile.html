@@ -45,9 +45,9 @@ header h1{font-size:17px;font-weight:800;}
 
 /* 프로필 사진 */
 .photo-area{display:flex;align-items:center;gap:16px;padding:20px;}
-.photo-ring{position:relative;width:100px;height:100px;}
-.photo-img{width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid #071952;}
-.photo-placeholder{width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,#0B666A,#35A29F);display:flex;align-items:center;justify-content:center;border:3px solid #071952;}
+.photo-ring{position:relative;width:150px;height:150px;}
+.photo-img{width:150px;height:150px;border-radius:50%;object-fit:cover;border:3px solid #071952;}
+.photo-placeholder{width:150px;height:150px;border-radius:50%;background:linear-gradient(135deg,#0B666A,#35A29F);display:flex;align-items:center;justify-content:center;border:3px solid #071952;}
 .photo-edit-btn{position:absolute;bottom:0;right:0;width:30px;height:30px;border-radius:50%;background:#111;border:2px solid #fff;display:flex;align-items:center;justify-content:center;cursor:pointer;}
 #photoInput{display:none;}
 
@@ -58,16 +58,16 @@ header h1{font-size:17px;font-weight:800;}
 /* 입력 필드 */
 .field{display:flex;align-items:center;padding:11px 20px;border-bottom:1px solid #f5f5f5;gap:12px;}
 .field:last-child{border-bottom:none;}
-.section-blue .field{border-color:rgba(255,255,255,.15) !important;}
+.section-blue .field{border-color:rgba(7,25,82,.1) !important;}
 .field-icon{color:#0B666A;flex-shrink:0;}
-.section-blue .field-icon{color:#fff;}
+.section-blue .field-icon{color:#071952;}
 .field-body{flex:1;}
 .field-label{font-size:11px;font-weight:600;color:#aaa;margin-bottom:3px;}
-.section-blue .field-label{color:rgba(255,255,255,.7);}
+.section-blue .field-label{color:rgba(7,25,82,.6);}
 .field-input{width:100%;border:none;outline:none;font-size:15px;font-weight:600;color:#111;font-family:inherit;background:transparent;}
-.section-blue .field-input{color:#fff;}
+.section-blue .field-input{color:#071952;}
 .field-input::placeholder{color:#ccc;font-weight:400;}
-.section-blue .field-input::placeholder{color:rgba(255,255,255,.4);}
+.section-blue .field-input::placeholder{color:rgba(7,25,82,.3);}
 .field-input[type=number]{-moz-appearance:textfield;}
 .field-input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
 
@@ -75,8 +75,8 @@ header h1{font-size:17px;font-weight:800;}
 .sel-group{display:flex;gap:8px;padding:12px 20px 16px;flex-wrap:wrap;}
 .sel-btn{padding:9px 16px;border-radius:12px;border:1.5px solid #e8e8e8;background:#fff;font-size:13px;font-weight:600;color:#888;cursor:pointer;font-family:inherit;transition:all .15s;}
 .sel-btn.on{border-color:#0B666A;background:rgba(11,102,106,0.08);color:#0B666A;font-weight:800;}
-.section-blue .sel-btn{border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.15);color:#fff;}
-.section-blue .sel-btn.on{border-color:#fff;background:rgba(255,255,255,.95);color:#071952;}
+.section-blue .sel-btn{border-color:rgba(7,25,82,.2);background:rgba(255,255,255,.4);color:#071952;}
+.section-blue .sel-btn.on{border-color:#071952;background:#fff;color:#071952;font-weight:800;}
 
 /* 저장 버튼 */
 
@@ -132,7 +132,7 @@ header h1{font-size:17px;font-weight:800;}
   <div class="photo-ring" style="flex-shrink:0;">
     <img id="photoPreview" class="photo-img" src="" alt="" style="display:none;"/>
     <div id="photoDefault" class="photo-placeholder">
-      <span class="material-symbols-outlined filled" style="font-size:44px;color:#fff;font-variation-settings:'FILL' 1,'wght' 300,'GRAD' 0,'opsz' 44;">person</span>
+      <span class="material-symbols-outlined filled" style="font-size:60px;color:#fff;font-variation-settings:'FILL' 1,'wght' 300,'GRAD' 0,'opsz' 60;">person</span>
     </div>
     <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto(event)" style="display:none;"/>
   </div>
@@ -152,7 +152,7 @@ header h1{font-size:17px;font-weight:800;}
 
 <!-- 기본 정보 -->
 <p class="section-title" style="margin:0 16px 4px;padding:0 4px;color:#071952;font-size:13px;font-weight:800;">기본 정보</p>
-<div class="section section-blue" style="background:#4988C4;border:1.5px solid #0B666A;">
+<div class="section section-blue" style="background:#35A29F;border:1.5px solid #0B666A;">
   <div class="field">
     <span class="material-symbols-outlined field-icon">badge</span>
     <div class="field-body">
@@ -164,7 +164,7 @@ header h1{font-size:17px;font-weight:800;}
     <span class="material-symbols-outlined field-icon">mail</span>
     <div class="field-body">
       <p class="field-label">이메일 (아이디)</p>
-      <input id="fEmail" type="email" class="field-input" readonly style="color:#aaa;cursor:not-allowed;"/>
+      <input id="fEmail" type="email" class="field-input" readonly style="color:rgba(7,25,82,.5);cursor:not-allowed;"/>
     </div>
   </div>
   <div class="field">
@@ -594,6 +594,9 @@ function previewPhoto(e){
       document.getElementById('photoPreview').src = _photoData;
       document.getElementById('photoPreview').style.display = 'block';
       document.getElementById('photoDefault').style.display = 'none';
+        // 분석 버튼 활성화
+        var _topBtn=document.getElementById('pcAnalyzeBtnTop');
+        if(_topBtn){_topBtn.disabled=false;_topBtn.style.opacity='1';_topBtn.style.background='#0B666A';_topBtn.style.color='#fff';}
     };
     img.onerror = () => {
       _photoData = rawData;
@@ -877,6 +880,14 @@ async function doSave(){
 
   if(res && res.ok){
     showToast(CodiBankI18n.t('✅ 프로필이 저장되었습니다.','✅ Profile saved.'));
+  // 마이페이지 동기화: localStorage에도 최신 프로필 반영
+  try{
+    var _stored = JSON.parse(localStorage.getItem('cb_user')||'{}');
+    Object.assign(_stored, patch);
+    localStorage.setItem('cb_user', JSON.stringify(_stored));
+    // Supabase 세션 캐시도 갱신
+    if(window.CodiBank && CodiBank._cachedUser) Object.assign(CodiBank._cachedUser, patch);
+  }catch(_){}
     setTimeout(()=>history.back(), 1800);
   } else {
     showToast(CodiBankI18n.t('저장에 실패했습니다. 다시 시도해주세요.','Save failed. Please try again.'));
@@ -1074,6 +1085,9 @@ async function analyzePersonalColor(imageDataUrl) {
 
       renderPersonalColor(_enriched);
       showToast('퍼스널컬러 분석 완료!');
+      // 분석 완료 → 버튼 비활성화
+      var _topBtn2=document.getElementById('pcAnalyzeBtnTop');
+      if(_topBtn2){_topBtn2.disabled=true;_topBtn2.style.opacity='0.4';_topBtn2.style.background='#35A29F';_topBtn2.style.color='#111';}
     } else {
       if(loading) loading.style.display = 'none';
       if(empty)   empty.style.display   = 'block';
