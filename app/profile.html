@@ -554,6 +554,7 @@ function deletePhoto(){
   document.getElementById('photoDefault').style.display='flex';
   // 퍼스널컬러 리셋
   try{ localStorage.removeItem('cb_personal_color_'+(_user?.email||'')); }catch(_){}
+  try{ localStorage.removeItem('cb_photo_'+(_user?.email||'')); }catch(_){}
   var pcResult=document.getElementById('pcResult');
   var pcEmpty=document.getElementById('pcEmpty');
   if(pcResult) pcResult.style.display='none';
@@ -944,6 +945,8 @@ async function doSave(){
       var _mc=document.createElement('canvas');_mc.width=Math.round(_mw*_ms);_mc.height=Math.round(_mh*_ms);
       _mc.getContext('2d').drawImage(_mImg,0,0,_mc.width,_mc.height);
       patch.photo=_mc.toDataURL('image/jpeg',0.7);
+      // 전용 키에 별도 저장 (Supabase 세션 콜백이 덮어쓰지 않는 안전한 키)
+      try{ localStorage.setItem('cb_photo_'+(_user?.email||''), patch.photo); }catch(_){}
       console.log('[profile] photo for mypage: '+Math.round(patch.photo.length/1024)+'KB');
     }catch(e){console.warn('[profile] photo resize failed:',e);patch.photo='';}
 
