@@ -137,10 +137,10 @@ header h1{font-size:17px;font-weight:800;}
     <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto(event)" style="display:none;"/>
   </div>
   <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
-    <button onclick="deletePhoto()" style="width:100%;padding:10px;border-radius:10px;border:1.5px solid #0B666A;background:#fff;color:#071952;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px;">
+    <button onclick="deletePhoto()" style="width:100%;padding:10px;border-radius:10px;border:1.5px solid #35A29F;background:#97FEED;color:#071952;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px;">
       <span class="material-symbols-outlined" style="font-size:16px;color:#ef4444;">delete</span>사진 삭제
     </button>
-    <button onclick="document.getElementById('photoInput').click()" style="width:100%;padding:10px;border-radius:10px;border:1.5px solid #0B666A;background:#fff;color:#071952;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px;">
+    <button onclick="document.getElementById('photoInput').click()" style="width:100%;padding:10px;border-radius:10px;border:1.5px solid #35A29F;background:#97FEED;color:#071952;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px;">
       <span class="material-symbols-outlined" style="font-size:16px;color:#0B666A;">photo_library</span>사진 변경
     </button>
     <button id="pcAnalyzeBtnTop" onclick="startPersonalColorAnalysis()" disabled
@@ -152,7 +152,7 @@ header h1{font-size:17px;font-weight:800;}
 
 <!-- 기본 정보 -->
 <p class="section-title" style="margin:0 16px 4px;padding:0 4px;color:#071952;font-size:13px;font-weight:800;">기본 정보</p>
-<div class="section section-blue" style="background:#35A29F;border:1.5px solid #0B666A;">
+<div class="section section-blue" style="background:#97FEED;border:1.5px solid #35A29F;">
   <div class="field">
     <span class="material-symbols-outlined field-icon">badge</span>
     <div class="field-body">
@@ -190,11 +190,29 @@ header h1{font-size:17px;font-weight:800;}
       <button class="sel-btn" data-v="60s+" onclick="selAge(this)">60대+</button>
     </div>
   </div>
+  <div style="border-top:1px solid rgba(7,25,82,.1);margin-top:4px;padding-top:4px;">
+    <p class="field-label" style="padding:10px 20px 4px;font-weight:700;">비밀번호 변경 <span style="color:rgba(7,25,82,.4);font-size:9px;">(변경 시에만 입력)</span></p>
+  <div class="field">
+    <span class="material-symbols-outlined field-icon">lock</span>
+    <div class="field-body">
+      <p class="field-label">새 비밀번호</p>
+      <input id="fPw" type="password" class="field-input" placeholder="영문+숫자 4자 이상"/>
+    </div>
+  </div>
+  <div class="field">
+    <span class="material-symbols-outlined field-icon">lock_reset</span>
+    <div class="field-body">
+      <p class="field-label">비밀번호 확인</p>
+      <input id="fPw2" type="password" class="field-input" placeholder="비밀번호 재입력"/>
+    </div>
+  </div>
+
+  </div>
 </div>
 
 <!-- 체형 정보 -->
 <p class="section-title" style="margin:0 16px 4px;padding:0 4px;" id="bodyInfoTitle" style="color:#071952;font-size:13px;font-weight:800;">나의 신체정보 <span style="color:#0B666A;font-size:10px;" id="bodyInfoSub">(AI 코디 정확도 향상)</span></p>
-<div class="section">
+<div class="section" style="background:#97FEED;border:1.5px solid #35A29F;">
   <div class="field">
     <span class="material-symbols-outlined field-icon">straighten</span>
     <div class="field-body">
@@ -223,25 +241,6 @@ header h1{font-size:17px;font-weight:800;}
   <div id="bodyTypeGroup" style="padding:0 16px 12px;">
     <div id="bodyTypeCards" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
     <div id="bodyTypeEmpty" style="padding:16px;text-align:center;color:#bbb;font-size:12px;" id="bodyTypeEmptyMsg">성별을 먼저 선택해주세요</div>
-  </div>
-</div>
-
-<!-- 비밀번호 변경 -->
-<p class="section-title" style="margin:0 16px 4px;padding:0 4px;">비밀번호 변경 <span style="color:#aaa;font-size:10px;">(변경 시에만 입력)</span></p>
-<div class="section">
-  <div class="field">
-    <span class="material-symbols-outlined field-icon">lock</span>
-    <div class="field-body">
-      <p class="field-label">새 비밀번호</p>
-      <input id="fPw" type="password" class="field-input" placeholder="영문+숫자 4자 이상"/>
-    </div>
-  </div>
-  <div class="field">
-    <span class="material-symbols-outlined field-icon">lock_reset</span>
-    <div class="field-body">
-      <p class="field-label">비밀번호 확인</p>
-      <input id="fPw2" type="password" class="field-input" placeholder="비밀번호 재입력"/>
-    </div>
   </div>
 </div>
 
@@ -274,8 +273,17 @@ header h1{font-size:17px;font-weight:800;}
       <span class="material-symbols-outlined" style="position:absolute;top:14px;right:14px;font-size:36px;color:rgba(48,101,123,0.06);">auto_awesome</span>
     </div>
 
+    <!-- 2.5) Personal Color Summary -->
+    <div id="pcSummaryCard" style="background:#fff;border-radius:16px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border:1px solid rgba(151,254,237,0.2);margin-bottom:12px;">
+      <p style="font-size:14px;font-weight:800;color:#071952;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+        <span class="material-symbols-outlined" style="font-size:18px;color:#0B666A;">summarize</span>
+        Personal Color Summary
+      </p>
+      <div id="pcSummaryBody" style="font-size:12px;line-height:1.8;color:#333;"></div>
+    </div>
+
     <!-- 3) Skin Analytics 레이더 차트 -->
-    <div id="pcRadarCard" style="background:#97FEED;border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(44,51,56,0.06);border:1.5px solid #0B666A;margin-bottom:12px;">
+    <div id="pcRadarCard" style="background:#97FEED;border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(44,51,56,0.06);border:1.5px solid #35A29F;margin-bottom:12px;">
       <p id="pcRadarTitle" style="font-size:13px;font-weight:800;color:#071952;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
         <span class="material-symbols-outlined" style="font-size:16px;color:#0B666A;">analytics</span>
         My Skin Analytics
@@ -286,7 +294,7 @@ header h1{font-size:17px;font-weight:800;}
     </div>
 
     <!-- 3b) Best Palette 3×3 -->
-    <div id="pcPaletteCard" style="background:#97FEED;border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(44,51,56,0.06);border:1.5px solid #0B666A;margin-bottom:12px;">
+    <div id="pcPaletteCard" style="background:#97FEED;border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(44,51,56,0.06);border:1.5px solid #35A29F;margin-bottom:12px;">
       <p id="pcPaletteTitle" style="font-size:13px;font-weight:800;color:#071952;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
         <span style="font-size:14px;">✨</span>
         BEST PALETTE
@@ -295,7 +303,7 @@ header h1{font-size:17px;font-weight:800;}
     </div>
 
     <!-- 3c) Attribute Guide -->
-    <div id="pcAttrCard" style="background:#97FEED;border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(44,51,56,0.06);border:1.5px solid #0B666A;margin-bottom:12px;">
+    <div id="pcAttrCard" style="background:#97FEED;border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(44,51,56,0.06);border:1.5px solid #35A29F;margin-bottom:12px;">
       <p id="pcAttrTitle" style="font-size:13px;font-weight:800;color:#071952;margin-bottom:14px;display:flex;align-items:center;gap:6px;">
         <span class="material-symbols-outlined" style="font-size:16px;color:#0B666A;">tune</span>
         Attribute Guide
@@ -355,7 +363,7 @@ header h1{font-size:17px;font-weight:800;}
     </div>
 
     <!-- 4) Color Curation -->
-    <div style="background:#97FEED;border-radius:16px;padding:18px;border:1.5px solid #0B666A;margin-bottom:12px;">
+    <div style="background:#97FEED;border-radius:16px;padding:18px;border:none;margin-bottom:12px;">
       <p style="font-size:14px;font-weight:800;color:#071952;margin-bottom:14px;display:flex;align-items:center;gap:6px;">
         <span class="material-symbols-outlined" style="font-size:18px;color:#0B666A;">palette</span>
         Color Curation
@@ -467,12 +475,12 @@ header h1{font-size:17px;font-weight:800;}
 <div style="padding:0 16px 24px;display:flex;flex-direction:column;gap:8px;">
   <div style="display:flex;gap:8px;">
     <button id="btnReport" onclick="generateReport()" disabled
-      style="flex:1;padding:14px;border-radius:14px;border:none;background:#35A29F;color:#111;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;opacity:0.5;transition:all .2s;">리포트 다운로드</button>
+      style="flex:1;padding:14px;border-radius:14px;border:1.5px solid #35A29F;background:#97FEED;color:#071952;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;">리포트 다운로드</button>
     <button id="btnReset" onclick="doReset()"
-      style="flex:1;padding:14px;border-radius:14px;border:1.5px solid #0B666A;background:#fff;color:#071952;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">리셋</button>
+      style="flex:1;padding:14px;border-radius:14px;border:none;background:#071952;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">리셋</button>
   </div>
   <button id="btnSave" onclick="doSave()" disabled
-    style="width:100%;padding:16px;border-radius:14px;border:none;background:#35A29F;color:#111;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;opacity:0.5;transition:all .2s;">저장하기</button>
+    style="width:100%;padding:16px;border-radius:14px;border:1.5px solid #35A29F;background:#97FEED;color:#071952;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .2s;">저장하기</button>
 </div>
 
 <div class="cb-spacer"></div>
@@ -556,7 +564,7 @@ function doReset(){
 // ═══ 변경 감지 → 저장 버튼 활성화 ═══
 function _markChanged(){
   var btn=document.getElementById('btnSave');
-  if(btn){btn.disabled=false;btn.style.opacity='1';btn.style.background='#071952';btn.style.color='#fff';}
+  if(btn){btn.disabled=false;btn.style.background='#071952';btn.style.color='#fff';btn.style.border='none';}
 }
 document.addEventListener('input',function(e){
   if(e.target.closest&&(e.target.closest('.section')||e.target.closest('.section-blue'))) _markChanged();
@@ -578,7 +586,7 @@ function previewPhoto(e){
     const img = new Image();
     img.onload = () => {
       try {
-        const MAX = 600, q = 0.78;
+        const MAX = 1200, q = 0.92;
         const w = img.naturalWidth, h = img.naturalHeight;
         const scale = Math.min(1, MAX / Math.max(w, h));
         const nw = Math.round(w * scale), nh = Math.round(h * scale);
@@ -704,7 +712,7 @@ async function generateReport(){
     // 팔레트
     var palEl=document.getElementById('rptPalette');
     var cols=pc.best_colors||[];var names=pc.best_color_names||[];
-    palEl.innerHTML=cols.slice(0,9).map(function(hex,i){
+    palEl.innerHTML=cols.slice(0,6).map(function(hex,i){
       var isDark=_hexLum(hex)<0.5;
       return '<div style="background:'+hex+';border-radius:8px;padding:8px 4px;text-align:center;"><div style="font-size:8px;font-weight:700;color:'+(isDark?'#fff':'#333')+';">'+(names[i]||hex)+'</div><div style="font-size:6px;color:'+(isDark?'rgba(255,255,255,.6)':'#999')+';">'+hex+'</div></div>';
     }).join('');
@@ -775,10 +783,10 @@ function _drawRadarCanvas(season){
   [1,.66,.33].forEach(function(s){
     ctx.beginPath();
     for(var i=0;i<=axes;i++){var a=Math.PI*2/axes*(i%axes)-Math.PI/2;var x=cx+r*s*Math.cos(a),y=cy+r*s*Math.sin(a);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
-    ctx.strokeStyle='#e0e0e0';ctx.lineWidth=0.5;ctx.stroke();
+    ctx.strokeStyle='rgba(7,25,82,.15)';ctx.lineWidth=0.5;ctx.stroke();
   });
   // 축선
-  for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+r*Math.cos(a),cy+r*Math.sin(a));ctx.strokeStyle='#e0e0e0';ctx.lineWidth=0.5;ctx.stroke();}
+  for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+r*Math.cos(a),cy+r*Math.sin(a));ctx.strokeStyle='rgba(7,25,82,.15)';ctx.lineWidth=0.5;ctx.stroke();}
   // 데이터
   ctx.beginPath();
   for(var i=0;i<=axes;i++){var a=Math.PI*2/axes*(i%axes)-Math.PI/2;var v=vals[i%axes]/100;var x=cx+r*v*Math.cos(a),y=cy+r*v*Math.sin(a);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
@@ -786,7 +794,7 @@ function _drawRadarCanvas(season){
   // 꼭짓점
   for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;var v=vals[i]/100;ctx.beginPath();ctx.arc(cx+r*v*Math.cos(a),cy+r*v*Math.sin(a),3,0,Math.PI*2);ctx.fillStyle='#0B666A';ctx.fill();}
   // 라벨
-  ctx.font='600 8px Pretendard,sans-serif';ctx.fillStyle='#666';
+  ctx.font='600 8px Pretendard,sans-serif';ctx.fillStyle='#071952';
   for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;var lx=cx+(r+14)*Math.cos(a),ly=cy+(r+14)*Math.sin(a);ctx.textAlign=Math.cos(a)>0.3?'left':Math.cos(a)<-0.3?'right':'center';ctx.textBaseline=Math.sin(a)>0.3?'top':'bottom';if(Math.abs(Math.sin(a))<0.3)ctx.textBaseline='middle';ctx.fillText(labels[i],lx,ly);}
 }
 
@@ -857,7 +865,7 @@ async function doSave(){
       const tnw = Math.round(tw * ts), tnh = Math.round(th * ts);
       const tc = document.createElement('canvas'); tc.width = tnw; tc.height = tnh;
       tc.getContext('2d').drawImage(tImg, 0, 0, tnw, tnh);
-      thumbData = tc.toDataURL('image/jpeg', 0.6);
+      thumbData = tc.toDataURL('image/jpeg', 0.85);
     } catch(_) { thumbData = ''; }
 
     // photo: 썸네일(작으므로 localStorage 안전) 또는 압축된 원본
@@ -987,6 +995,8 @@ function renderPersonalColor(pc) {
   var _sn = pc.season || '';
   var _age = '';
   try{ var _ab=document.querySelector('#ageGroup2 .sel-btn.on'); _age=_ab?_ab.getAttribute('data-v'):'30대'; }catch(_){ _age='30대'; }
+  // Personal Color Summary
+  _renderPcSummary(pc, _isEn);
   _renderPcRadar(_sn);
   _renderPcPalette(pc, _isEn);
   _renderPcAttr(_sn, _isEn);
@@ -995,7 +1005,7 @@ function renderPersonalColor(pc) {
   // 리포트/다시분석 버튼 활성화
   var _rpBtn = document.getElementById('btnReport');
   
-  if(_rpBtn){ _rpBtn.style.background='#071952'; _rpBtn.style.color='#fff'; _rpBtn.disabled=false; _rpBtn.style.opacity='1'; }
+  if(_rpBtn){ _rpBtn.style.background='#071952'; _rpBtn.style.color='#fff'; _rpBtn.style.border='none'; _rpBtn.disabled=false; }
 
   // 섹션 타이틀 (영어/한글)
   var sLabel = document.getElementById('pcSectionLabel');
@@ -1189,6 +1199,37 @@ setInterval(function(){
 
 // ═══ 퍼스널컬러 5섹션 정밀 분석 ═══
 
+// ═══ Personal Color Summary ═══
+function _renderPcSummary(pc, isEn){
+  var el = document.getElementById('pcSummaryBody'); if(!el) return;
+  var sn = pc.season || '';
+  var ut = pc.undertone || '';
+  var best = (pc.best_color_names||[]).slice(0,3).join(', ') || (pc.best_colors||[]).slice(0,3).join(', ');
+  var avoid = (pc.avoid_color_names||[]).slice(0,3).join(', ') || (pc.avoid_colors||[]).slice(0,3).join(', ');
+
+  var DB = {
+    '봄웜': {topMatch:'코랄, 피치, 아이보리, 라이트 베이지',bottomMatch:'카멜, 웜베이지, 라이트브라운',topMatchEn:'Coral, Peach, Ivory, Light Beige',bottomMatchEn:'Camel, Warm Beige, Light Brown'},
+    '여름쿨': {topMatch:'라벤더, 로즈핑크, 스카이블루, 소프트 화이트',bottomMatch:'그레이, 슬레이트블루, 소프트 네이비',topMatchEn:'Lavender, Rose Pink, Sky Blue, Soft White',bottomMatchEn:'Gray, Slate Blue, Soft Navy'},
+    '가을웜': {topMatch:'머스타드, 테라코타, 올리브, 다크베이지',bottomMatch:'카키, 버건디, 초콜릿 브라운',topMatchEn:'Mustard, Terracotta, Olive, Dark Beige',bottomMatchEn:'Khaki, Burgundy, Chocolate Brown'},
+    '겨울쿨': {topMatch:'퓨어화이트, 로얄블루, 블랙, 체리레드',bottomMatch:'차콜, 네이비, 딥 퍼플',topMatchEn:'Pure White, Royal Blue, Black, Cherry Red',bottomMatchEn:'Charcoal, Navy, Deep Purple'}
+  };
+  var d = DB[sn] || DB['봄웜'];
+
+  if(isEn){
+    el.innerHTML = '<div style="margin-bottom:8px;"><b style="color:#0B666A;">Type:</b> '+(pc.season_en||sn)+' ('+(ut==='웜톤'?'Warm':ut==='쿨톤'?'Cool':ut)+')</div>'
+      +'<div style="margin-bottom:8px;"><b style="color:#0B666A;">Best Colors:</b> '+best+'</div>'
+      +'<div style="margin-bottom:8px;"><b style="color:#ef4444;">Avoid Colors:</b> '+avoid+'</div>'
+      +'<div style="margin-bottom:6px;padding:8px 10px;background:rgba(11,102,106,.06);border-radius:8px;"><b style="color:#0B666A;">👔 Top Match:</b> '+d.topMatchEn+'</div>'
+      +'<div style="padding:8px 10px;background:rgba(7,25,82,.04);border-radius:8px;"><b style="color:#071952;">👖 Bottom Match:</b> '+d.bottomMatchEn+'</div>';
+  } else {
+    el.innerHTML = '<div style="margin-bottom:8px;"><b style="color:#0B666A;">타입:</b> '+sn+' ('+ut+')</div>'
+      +'<div style="margin-bottom:8px;"><b style="color:#0B666A;">추천 컬러:</b> '+best+'</div>'
+      +'<div style="margin-bottom:8px;"><b style="color:#ef4444;">피해야 할 컬러:</b> '+avoid+'</div>'
+      +'<div style="margin-bottom:6px;padding:8px 10px;background:rgba(11,102,106,.06);border-radius:8px;"><b style="color:#0B666A;">👔 상의 매칭 컬러:</b> '+d.topMatch+'</div>'
+      +'<div style="padding:8px 10px;background:rgba(7,25,82,.04);border-radius:8px;"><b style="color:#071952;">👖 하의 매칭 컬러:</b> '+d.bottomMatch+'</div>';
+  }
+}
+
 // ═══ Skin Analytics 레이더 차트 ═══
 function _renderPcRadar(season){
   var DB={
@@ -1207,10 +1248,10 @@ function _renderPcRadar(season){
   [1,.66,.33].forEach(function(s){
     var pts=[];
     for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;pts.push((cx+r*s*Math.cos(a)).toFixed(1)+','+(cy+r*s*Math.sin(a)).toFixed(1));}
-    html+='<polygon points="'+pts.join(' ')+'" fill="none" stroke="#e5e7eb" stroke-width="0.5"/>';
+    html+='<polygon points="'+pts.join(' ')+'" fill="none" stroke="rgba(7,25,82,.12)" stroke-width="0.5"/>';
   });
   // 축선
-  for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;html+='<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx+r*Math.cos(a)).toFixed(1)+'" y2="'+(cy+r*Math.sin(a)).toFixed(1)+'" stroke="#e5e7eb" stroke-width="0.5"/>';}
+  for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;html+='<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx+r*Math.cos(a)).toFixed(1)+'" y2="'+(cy+r*Math.sin(a)).toFixed(1)+'" stroke="rgba(7,25,82,.12)" stroke-width="0.5"/>';}
   // 데이터 영역
   var dpts=[];
   for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;var v=vals[i]/100;dpts.push((cx+r*v*Math.cos(a)).toFixed(1)+','+(cy+r*v*Math.sin(a)).toFixed(1));}
@@ -1220,7 +1261,7 @@ function _renderPcRadar(season){
   // 라벨
   for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;var lx=cx+(r+18)*Math.cos(a);var ly=cy+(r+18)*Math.sin(a);var anchor='middle';if(Math.cos(a)>0.3)anchor='start';if(Math.cos(a)<-0.3)anchor='end';
     var ls=labels[i].split('\n');
-    html+='<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" text-anchor="'+anchor+'" font-size="9" font-weight="600" fill="#666" font-family="Outfit,Noto Sans KR,sans-serif">';
+    html+='<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" text-anchor="'+anchor+'" font-size="9" font-weight="600" fill="#071952" font-family="Outfit,Noto Sans KR,sans-serif">';
     if(ls.length>1){html+=ls[0]+'<tspan x="'+lx.toFixed(1)+'" dy="11">'+ls[1]+'</tspan>';}else{html+=ls[0];}
     html+='</text>';
   }
