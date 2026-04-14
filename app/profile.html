@@ -736,6 +736,7 @@ async function generateReport(){
     // 팔레트
     var palEl=document.getElementById('rptPalette');
     var cols=pc.best_colors||[];var names=pc.best_color_names||[];
+    var _pEn=window.CodiBankI18n&&CodiBankI18n.isEn();
     palEl.innerHTML=cols.slice(0,6).map(function(hex,i){
       var isDark=_hexLum(hex)<0.5;
       return '<div style="background:'+hex+';border-radius:8px;padding:8px 4px;text-align:center;"><div style="font-size:8px;font-weight:700;color:'+(isDark?'#fff':'#333')+';">'+(names[i]||hex)+'</div><div style="font-size:6px;color:'+(isDark?'rgba(255,255,255,.6)':'#999')+';">'+hex+'</div></div>';
@@ -756,10 +757,10 @@ async function generateReport(){
 
     // 컬러 큐레이션
     document.getElementById('rptBest').innerHTML=(pc.best_colors||[]).slice(0,3).map(function(hex,i){
-      return '<div style="text-align:center;"><div style="width:40px;height:40px;border-radius:50%;background:'+hex+';box-shadow:0 2px 6px rgba(0,0,0,.15);margin:0 auto 3px;"></div><div style="font-size:7px;font-weight:700;color:#333;">'+(pc.best_color_names?.[i]||hex)+'</div></div>';
+      return '<div style="text-align:center;"><div style="width:40px;height:40px;border-radius:50%;background:'+hex+';box-shadow:0 2px 6px rgba(0,0,0,.15);margin:0 auto 3px;"></div><div style="font-size:7px;font-weight:700;color:#333;">'+((window.CodiBankI18n&&CodiBankI18n.isEn())?_clrEn(pc.best_color_names?.[i]||hex):(pc.best_color_names?.[i]||hex))+'</div></div>';
     }).join('');
     document.getElementById('rptWorst').innerHTML=(pc.avoid_colors||[]).slice(0,3).map(function(hex,i){
-      return '<div style="text-align:center;"><div style="width:40px;height:40px;border-radius:50%;background:'+hex+';position:relative;box-shadow:0 2px 6px rgba(0,0,0,.15);margin:0 auto 3px;"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(255,255,255,.6);">✕</div></div><div style="font-size:7px;font-weight:700;color:#ef4444;">'+(pc.avoid_color_names?.[i]||hex)+'</div></div>';
+      return '<div style="text-align:center;"><div style="width:40px;height:40px;border-radius:50%;background:'+hex+';position:relative;box-shadow:0 2px 6px rgba(0,0,0,.15);margin:0 auto 3px;"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(255,255,255,.6);">✕</div></div><div style="font-size:7px;font-weight:700;color:#ef4444;">'+((window.CodiBankI18n&&CodiBankI18n.isEn())?_clrEn(pc.avoid_color_names?.[i]||hex):(pc.avoid_color_names?.[i]||hex))+'</div></div>';
     }).join('');
 
     // 5섹션 요약 (1줄씩)
@@ -1038,7 +1039,8 @@ function renderPersonalColor(pc) {
   const bestWrap = document.getElementById('pcBestColors');
   if(bestWrap && pc.best_colors) {
     bestWrap.innerHTML = pc.best_colors.slice(0,3).map(function(hex, i) {
-      var name = (pc.best_color_names && pc.best_color_names[i]) || hex;
+      var _cEn=window.CodiBankI18n&&CodiBankI18n.isEn();
+      var name = _cEn ? _clrEn((pc.best_color_names && pc.best_color_names[i]) || hex) : ((pc.best_color_names && pc.best_color_names[i]) || hex);
       return '<div style="text-align:center;">' +
         '<div style="width:56px;height:56px;border-radius:50%;background:'+hex+';box-shadow:0 2px 8px rgba(0,0,0,0.12),inset 0 0 0 2px rgba(255,255,255,0.3);margin:0 auto 6px;"></div>' +
         '<p style="font-size:9px;font-weight:700;color:#071952;line-height:1.2;">'+name+'</p>' +
@@ -1056,7 +1058,8 @@ function renderPersonalColor(pc) {
   const avoidWrap = document.getElementById('pcAvoidColors');
   if(avoidWrap && pc.avoid_colors) {
     avoidWrap.innerHTML = pc.avoid_colors.slice(0,3).map(function(hex, i) {
-      var name = (pc.avoid_color_names && pc.avoid_color_names[i]) || hex;
+      var _cEn2=window.CodiBankI18n&&CodiBankI18n.isEn();
+      var name = _cEn2 ? _clrEn((pc.avoid_color_names && pc.avoid_color_names[i]) || hex) : ((pc.avoid_color_names && pc.avoid_color_names[i]) || hex);
       return '<div style="text-align:center;">' +
         '<div style="width:56px;height:56px;border-radius:50%;background:'+hex+';position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.12);margin:0 auto 6px;">' +
         '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="color:rgba(255,255,255,0.6);font-size:20px;">close</span></div></div>' +
@@ -1269,7 +1272,7 @@ function applyPcI18n() {
   // 컬러 라벨들
   const bestLabel = document.querySelector('#pcBestColors')?.previousElementSibling;
   const avoidLabel = document.querySelector('#pcAvoidColors')?.previousElementSibling;
-  if(bestLabel && bestLabel.tagName==='DIV') bestLabel.textContent = en ? 'Best Colors' : '잘 어울리는 컬러';
+  if(bestLabel) bestLabel.textContent = en ? 'Best Colors' : '어울리는 컬러';
   if(avoidLabel && avoidLabel.tagName==='DIV') avoidLabel.textContent = en ? 'Colors to Avoid' : '피해야 할 컬러';
 }
 
@@ -1288,8 +1291,10 @@ function _renderPcSummary(pc, isEn){
   var el = document.getElementById('pcSummaryBody'); if(!el) return;
   var sn = pc.season || '';
   var ut = pc.undertone || '';
-  var best = (pc.best_color_names||[]).slice(0,3).join(', ') || (pc.best_colors||[]).slice(0,3).join(', ');
-  var avoid = (pc.avoid_color_names||[]).slice(0,3).join(', ') || (pc.avoid_colors||[]).slice(0,3).join(', ');
+  var best = isEn ? (pc.best_color_names||[]).slice(0,3).map(function(n){return _clrEn(n);}).join(', ') : (pc.best_color_names||[]).slice(0,3).join(', ');
+  if(!best) best = (pc.best_colors||[]).slice(0,3).join(', ');
+  var avoid = isEn ? (pc.avoid_color_names||[]).slice(0,3).map(function(n){return _clrEn(n);}).join(', ') : (pc.avoid_color_names||[]).slice(0,3).join(', ');
+  if(!avoid) avoid = (pc.avoid_colors||[]).slice(0,3).join(', ');
 
   var DB = {
     '봄웜': {topMatch:'코랄, 피치, 아이보리, 라이트 베이지',bottomMatch:'카멜, 웜베이지, 라이트브라운',topMatchEn:'Coral, Peach, Ivory, Light Beige',bottomMatchEn:'Camel, Warm Beige, Light Brown'},
@@ -1374,6 +1379,21 @@ function _renderPcPalette(pc, isEn){
       +'</div>';
   }).join('');
 }
+// ═══ 컬러 이름 한→영 변환 ═══
+var _colorNameMap = {
+  '피치':'Peach','노란색':'Yellow','연두색':'Light Green','청록색':'Teal','파란색':'Blue',
+  '보라색':'Purple','라벤더':'Lavender','진한 빨강':'Deep Red','코랄':'Coral','아이보리':'Ivory',
+  '살구색':'Apricot','연노랑':'Light Yellow','골드':'Gold','올리브':'Olive','카키':'Khaki',
+  '버건디':'Burgundy','와인':'Wine','테라코타':'Terracotta','머스타드':'Mustard','베이지':'Beige',
+  '갈색':'Brown','초콜릿':'Chocolate','카멜':'Camel','네이비':'Navy','차콜':'Charcoal',
+  '블랙':'Black','화이트':'White','그레이':'Gray','실버':'Silver','로즈핑크':'Rose Pink',
+  '스카이블루':'Sky Blue','로얄블루':'Royal Blue','핑크':'Pink','레드':'Red','오렌지':'Orange',
+  '그린':'Green','민트':'Mint','에메랄드':'Emerald','터콰이즈':'Turquoise','인디고':'Indigo',
+  '마젠타':'Magenta','크림':'Cream','아쿠아':'Aqua','다크브라운':'Dark Brown','연보라':'Light Purple',
+  '소프트 핑크':'Soft Pink','밝은 주황':'Bright Orange','진한 녹색':'Deep Green'
+};
+function _clrEn(name){ return (_colorNameMap[name]||name); }
+
 function _hexLum(hex){try{var h=hex.replace('#','');var r=parseInt(h.substr(0,2),16)/255;var g=parseInt(h.substr(2,2),16)/255;var b=parseInt(h.substr(4,2),16)/255;return 0.299*r+0.587*g+0.114*b;}catch(_){return 0.5;}}
 
 // ═══ Attribute Guide ═══
@@ -1591,22 +1611,22 @@ function _renderPcAnalysis5(season, pc, isEn, ageGroup) {
 // ═══ [2026-04-08] 체형 선택 ═══
 var _bodyTypes = {
   "female": [
-    {key:"neat_hourglass",label:"깔끔한 모래시계",en:"Neat Hourglass",desc:"가슴·골반 비율 완벽, 허리 가늘음",desc_en:"Perfect bust-hip ratio, narrow waist",celebs:"스칼렛 요한슨, 소피아 로렌"},
-    {key:"full_hourglass",label:"풍만한 모래시계",en:"Full Hourglass",desc:"모래시계형 + 가슴이 더 발달",desc_en:"Hourglass with fuller bust",celebs:"케이트 업튼, 셀마 헤이엑"},
-    {key:"pear",label:"배형 (삼각형)",en:"Pear",desc:"어깨 좁고 골반·허벅지 발달",desc_en:"Narrow shoulders, wider hips/thighs",celebs:"제니퍼 로페즈, 비욘세"},
-    {key:"apple",label:"사과형 (원형)",en:"Apple",desc:"가슴·복부 발달, 다리는 가는 편",desc_en:"Fuller torso, slimmer legs",celebs:"케이트 윈슬렛, 아델"},
-    {key:"inverted_triangle_f",label:"역삼각형",en:"Inverted Triangle",desc:"어깨 넓고 골반 좁음",desc_en:"Broad shoulders, narrow hips",celebs:"안젤리나 졸리, 샤를리즈 테론"},
-    {key:"rectangle_f",label:"직사각형",en:"Rectangle",desc:"어깨·허리·골반 굴곡 적은 일자",desc_en:"Minimal curves, straight frame",celebs:"나탈리 포트만, 카메론 디아즈"},
-    {key:"lean_column",label:"마른 직사각형",en:"Lean Column",desc:"전체적으로 가늘고 길며 굴곡 없음",desc_en:"Slim and elongated, minimal curves",celebs:"키이라 나이틀리, 젠다야"}
+    {key:"neat_hourglass",label:"깔끔한 모래시계",en:"Neat Hourglass",desc:"가슴·골반 비율 완벽, 허리 가늘음",desc_en:"Perfect bust-hip ratio, narrow waist",celebs:"스칼렛 요한슨, 소피아 로렌",celebs_en:"Scarlett Johansson, Sophia Loren"},
+    {key:"full_hourglass",label:"풍만한 모래시계",en:"Full Hourglass",desc:"모래시계형 + 가슴이 더 발달",desc_en:"Hourglass with fuller bust",celebs:"케이트 업튼, 셀마 헤이엑",celebs_en:"Kate Upton, Salma Hayek"},
+    {key:"pear",label:"배형 (삼각형)",en:"Pear",desc:"어깨 좁고 골반·허벅지 발달",desc_en:"Narrow shoulders, wider hips/thighs",celebs:"제니퍼 로페즈, 비욘세",celebs_en:"Jennifer Lopez, Beyoncé"},
+    {key:"apple",label:"사과형 (원형)",en:"Apple",desc:"가슴·복부 발달, 다리는 가는 편",desc_en:"Fuller torso, slimmer legs",celebs:"케이트 윈슬렛, 아델",celebs_en:"Kate Winslet, Adele"},
+    {key:"inverted_triangle_f",label:"역삼각형",en:"Inverted Triangle",desc:"어깨 넓고 골반 좁음",desc_en:"Broad shoulders, narrow hips",celebs:"안젤리나 졸리, 샤를리즈 테론",celebs_en:"Angelina Jolie, Charlize Theron"},
+    {key:"rectangle_f",label:"직사각형",en:"Rectangle",desc:"어깨·허리·골반 굴곡 적은 일자",desc_en:"Minimal curves, straight frame",celebs:"나탈리 포트만, 카메론 디아즈",celebs_en:"Natalie Portman, Cameron Diaz"},
+    {key:"lean_column",label:"마른 직사각형",en:"Lean Column",desc:"전체적으로 가늘고 길며 굴곡 없음",desc_en:"Slim and elongated, minimal curves",celebs:"키이라 나이틀리, 젠다야",celebs_en:"Keira Knightley, Zendaya"}
   ],
   "male": [
-    {key:"trapezoid",label:"사다리꼴",en:"Trapezoid",desc:"어깨 넓고 허리 약간 좁은 이상적 비율",desc_en:"Broad shoulders, slightly narrow waist",celebs:"다니엘 크레이그, 라이언 레이놀즈"},
-    {key:"inverted_triangle_m",label:"역삼각형",en:"Inverted Triangle",desc:"어깨·가슴 매우 넓고 허리 가는 운동선수형",desc_en:"Very broad shoulders, narrow waist, athletic",celebs:"크리스 햄스워스, 크리스 에반스"},
+    {key:"trapezoid",label:"사다리꼴",en:"Trapezoid",desc:"어깨 넓고 허리 약간 좁은 이상적 비율",desc_en:"Broad shoulders, slightly narrow waist",celebs:"다니엘 크레이그, 라이언 레이놀즈",celebs_en:"Daniel Craig, Ryan Reynolds"},
+    {key:"inverted_triangle_m",label:"역삼각형",en:"Inverted Triangle",desc:"어깨·가슴 매우 넓고 허리 가는 운동선수형",desc_en:"Very broad shoulders, narrow waist, athletic",celebs:"크리스 햄스워스, 크리스 에반스",celebs_en:"Chris Hemsworth, Chris Evans"},
     {key:"rectangle_m",label:"직사각형",en:"Rectangle",desc:"어깨·허리·골반 너비 거의 일정한 일자",desc_en:"Even width across shoulders, waist, hips",celebs:"라이언 고슬링, 티모시 샬라메"},
-    {key:"triangle_m",label:"삼각형",en:"Triangle",desc:"어깨 좁고 허리·엉덩이 발달",desc_en:"Narrow shoulders, wider waist/hips",celebs:"레오나르도 디카프리오, 잭 블랙"},
-    {key:"oval",label:"타원형",en:"Oval",desc:"복부·몸통 중앙이 둥글게 발달",desc_en:"Rounded midsection",celebs:"제임스 코든, 세스 로건"},
-    {key:"diamond",label:"다이아몬드",en:"Diamond",desc:"허리가 가장 넓고 어깨·종아리 가는 편",desc_en:"Widest at waist, narrow shoulders/calves",celebs:"대니 드비토, 알프레드 몰리나"},
-    {key:"hourglass_m",label:"모래시계",en:"Hourglass",desc:"가슴·골반 넓고 허리 잘록",desc_en:"Wide chest/hips, defined waist",celebs:"에즈라 밀러, 아담 램버트"}
+    {key:"triangle_m",label:"삼각형",en:"Triangle",desc:"어깨 좁고 허리·엉덩이 발달",desc_en:"Narrow shoulders, wider waist/hips",celebs:"레오나르도 디카프리오, 잭 블랙",celebs_en:"Leonardo DiCaprio, Jack Black"},
+    {key:"oval",label:"타원형",en:"Oval",desc:"복부·몸통 중앙이 둥글게 발달",desc_en:"Rounded midsection",celebs:"제임스 코든, 세스 로건",celebs_en:"James Corden, Seth Rogen"},
+    {key:"diamond",label:"다이아몬드",en:"Diamond",desc:"허리가 가장 넓고 어깨·종아리 가는 편",desc_en:"Widest at waist, narrow shoulders/calves",celebs:"대니 드비토, 알프레드 몰리나",celebs_en:"Danny DeVito, Alfred Molina"},
+    {key:"hourglass_m",label:"모래시계",en:"Hourglass",desc:"가슴·골반 넓고 허리 잘록",desc_en:"Wide chest/hips, defined waist",celebs:"에즈라 밀러, 아담 램버트",celebs_en:"Ezra Miller, Adam Lambert"}
   ]
 };
 var _selectedBodyType = '';
@@ -1637,7 +1657,7 @@ function renderBodyTypes(gender) {
     var _bEn = window.CodiBankI18n && CodiBankI18n.isEn();
     card.innerHTML = '<div class="bt-label">' + (_bEn ? bt.en : bt.label) + (_bEn ? '' : '<span class="bt-en">' + bt.en + '</span>') + '</div>' +
       '<div class="bt-desc">' + (_bEn && bt.desc_en ? bt.desc_en : bt.desc) + '</div>' +
-      '<div class="bt-celebs">( Ex. ' + bt.celebs + ' )</div>';
+      '<div class="bt-celebs">( Ex. ' + (_bEn && bt.celebs_en ? bt.celebs_en : bt.celebs) + ' )</div>';
     card.onclick = function(){ selectBodyType(bt.key, g); };
     cards.appendChild(card);
   });

@@ -443,6 +443,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   // 사용자 정보 표시
   (async function(){
     try {
+      // 컬러 이름 한→영
+      var _colorNameMap={'피치':'Peach','노란색':'Yellow','연두색':'Light Green','청록색':'Teal','파란색':'Blue','보라색':'Purple','라벤더':'Lavender','진한 빨강':'Deep Red','코랄':'Coral','아이보리':'Ivory','올리브':'Olive','카키':'Khaki','버건디':'Burgundy','네이비':'Navy','차콜':'Charcoal','블랙':'Black','화이트':'White','그레이':'Gray','핑크':'Pink','레드':'Red','베이지':'Beige','머스타드':'Mustard','테라코타':'Terracotta','골드':'Gold','민트':'Mint','다크브라운':'Dark Brown','연보라':'Light Purple','스카이블루':'Sky Blue','로즈핑크':'Rose Pink'};
+      function _clrEn(n){return _colorNameMap[n]||n;}
+      var _mpIsEn = window.CodiBankI18n && CodiBankI18n.isEn();
+
       const u = window.CodiBank && window.CodiBank.getCurrentUser ? window.CodiBank.getCurrentUser() : null;
       if (!u) { location.replace('login.html'); return; }
 
@@ -568,13 +573,13 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
               // 어울리는 컬러
               var _mpBest=document.getElementById('mpPcBest');
               if(_mpBest) _mpBest.innerHTML=(pc.best_colors||[]).slice(0,3).map(function(h,i){
-                var nm=(pc.best_color_names&&pc.best_color_names[i])||h;
+                var nm=_mpIsEn?_clrEn((pc.best_color_names&&pc.best_color_names[i])||h):((pc.best_color_names&&pc.best_color_names[i])||h);
                 return '<div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;background:'+h+';border:2px solid rgba(255,255,255,.3);box-shadow:0 2px 8px rgba(0,0,0,.25);margin:0 auto 5px;"></div><div style="font-size:10px;color:rgba(255,255,255,.8);font-weight:600;line-height:1.2;max-width:60px;">'+nm+'</div></div>';
               }).join('');
               // 피해야 할 컬러
               var _mpAvoid=document.getElementById('mpPcAvoid');
               if(_mpAvoid) _mpAvoid.innerHTML=(pc.avoid_colors||[]).slice(0,3).map(function(h,i){
-                var nm=(pc.avoid_color_names&&pc.avoid_color_names[i])||h;
+                var nm=_mpIsEn?_clrEn((pc.avoid_color_names&&pc.avoid_color_names[i])||h):((pc.avoid_color_names&&pc.avoid_color_names[i])||h);
                 return '<div style="text-align:center;"><div style="width:44px;height:44px;border-radius:50%;background:'+h+';border:2px solid rgba(255,255,255,.15);box-shadow:0 2px 8px rgba(0,0,0,.2);margin:0 auto 5px;position:relative;"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(255,255,255,.5);">✕</div></div><div style="font-size:10px;color:rgba(239,68,68,.6);font-weight:600;line-height:1.2;max-width:60px;">'+nm+'</div></div>';
               }).join('');
               // 상하의 매칭
