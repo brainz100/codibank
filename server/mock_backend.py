@@ -3219,7 +3219,6 @@ def codistyle_generate():
                         img_bytes = part.inline_data.data
                     elif part.text:
                         comment = part.text.strip()[:2000]
-                        break
                 if img_bytes:
                     print("[codistyle] 재시도 성공!")
             except Exception as _retry_e:
