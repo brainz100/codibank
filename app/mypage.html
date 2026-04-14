@@ -45,7 +45,7 @@
   }
   .avatar{width:83px;height:83px;border-radius:50%;
     background:linear-gradient(135deg,#0B666A,#35A29F);
-    display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;position:relative;}
   .menu-item{
     display:flex;align-items:center;justify-content:space-between;
     padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);
@@ -92,7 +92,7 @@
   <div class="profile-card">
     <div class="avatar" id="avatarWrap">
       <span class="material-symbols-outlined" id="avatarIcon" style="font-size:42px;color:#97FEED;font-variation-settings:'FILL' 1,'wght' 300,'GRAD' 0,'opsz' 24;">person</span>
-      <img id="avatarImg" src="" alt="" style="display:none;width:83px;height:83px;border-radius:50%;object-fit:cover;border:2px solid #97FEED;"/>
+      <img id="avatarImg" src="" alt="" style="display:none;width:100%;height:100%;position:absolute;top:0;left:0;border-radius:50%;object-fit:cover;border:2px solid #97FEED;"/>
     </div>
     <div>
       <div id="userName" style="font-size:18px;font-weight:800;margin-bottom:6px;">사용자</div>
@@ -105,6 +105,8 @@
         <span id="pcColorDot" style="width:10px;height:10px;border-radius:50%;background:#97FEED;flex-shrink:0;"></span>
         <span id="pcBadgeText" style="font-size:11px;color:rgba(151,254,237,.85);font-weight:600;"></span>
       </div>
+      <!-- 추천 컬러 미니팔레트 -->
+      <div id="pcMiniColors" style="display:none;margin-top:6px;display:flex;gap:4px;"></div>
     </div>
   </div>
 
@@ -117,12 +119,14 @@
     </div>
     <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
   </div>
-  <!-- 구독 플랜 정보 박스 -->
-  <div onclick="location.href='pricing.html'" style="margin:4px 16px 12px;padding:16px;border-radius:16px;background:linear-gradient(135deg,rgba(11,102,106,.15),rgba(151,254,237,.08));border:1px solid rgba(151,254,237,.2);cursor:pointer;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span class="material-symbols-outlined" style="color:#97FEED;font-size:20px;">workspace_premium</span>
-        <span id="userPlanBox" style="font-size:16px;font-weight:800;color:#97FEED;">FREE Plan</span>
+  <!-- 구독 플랜 -->
+  <p class="menu-section">구독 플랜</p>
+  <div onclick="location.href='pricing.html'" style="margin:0 16px 12px;padding:16px;border-radius:16px;background:linear-gradient(135deg,rgba(11,102,106,.12),rgba(7,25,82,.25));border:1px solid rgba(151,254,237,.2);cursor:pointer;">
+    <!-- 플랜명 박스 -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div id="userPlanBox" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:12px;background:linear-gradient(135deg,#0B666A,#35A29F);box-shadow:0 2px 8px rgba(11,102,106,.3);">
+        <span class="material-symbols-outlined" style="color:#fff;font-size:18px;">workspace_premium</span>
+        <span id="userPlanLabel" style="font-size:15px;font-weight:800;color:#fff;">FREE Plan</span>
       </div>
       <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25);font-size:18px;">chevron_right</span>
     </div>
@@ -428,7 +432,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       var _planNames = {free:'FREE',silver:'SILVER',gold:'GOLD',diamond:'DIAMOND'};
       var _planId = (u.plan||'free').toLowerCase();
       document.getElementById('userPlan').textContent = (_planNames[_planId]||'FREE') + ' Plan';
-      try{ document.getElementById('userPlanBox').textContent = (_planNames[_planId]||'FREE') + ' Plan'; }catch(_){}
+      try{ document.getElementById('userPlanLabel').textContent = (_planNames[_planId]||'FREE') + ' Plan'; }catch(_){}
 
       // ── 구독/보너스 정보 실시간 표시 ──
       (async function(){
@@ -522,6 +526,14 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
               const dotColors = {'봄웜':'#FFB347','여름쿨':'#87CEEB','가을웜':'#CD853F','겨울쿨':'#B0C4DE','Spring Warm':'#FFB347','Summer Cool':'#87CEEB','Autumn Warm':'#CD853F','Winter Cool':'#B0C4DE'};
               if(dot) dot.style.background = dotColors[pc.season] || '#97FEED';
               badge.style.display = 'inline-flex';
+              // 추천 컬러 미니팔레트
+              var mcEl = document.getElementById('pcMiniColors');
+              if(mcEl && pc.best_colors && pc.best_colors.length > 0){
+                mcEl.style.display = 'flex';
+                mcEl.innerHTML = pc.best_colors.slice(0,5).map(function(hex){
+                  return '<div style="width:16px;height:16px;border-radius:50%;background:'+hex+';border:1.5px solid rgba(255,255,255,.25);box-shadow:0 1px 3px rgba(0,0,0,.2);"></div>';
+                }).join('');
+              }
             }
           }
         }
@@ -531,8 +543,16 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       // 1순위: user.photo (dataURL 직접 저장)
       // 2순위: user.avatarFace → getImageSrc (IndexedDB)
       let photoSrc = u.photo || '';
+      // localStorage cb_user에서 photo 로드 시도
+      if(!photoSrc){
+        try{ var _su=JSON.parse(localStorage.getItem('cb_user')||'{}'); photoSrc=_su.photo||''; }catch(_){}
+      }
       if (!photoSrc && u.avatarFace && window.CodiBank && CodiBank.getImageSrc) {
         try { photoSrc = await CodiBank.getImageSrc(u.avatarFace); } catch(_) {}
+      }
+      // IDB 직접 시도
+      if(!photoSrc && window.CodiBank && CodiBank.getUserFaceImageSrc){
+        try { photoSrc = await CodiBank.getUserFaceImageSrc(); } catch(_) {}
       }
       if (photoSrc) {
         const img = document.getElementById('avatarImg');
