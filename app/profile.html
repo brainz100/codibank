@@ -127,6 +127,16 @@ header h1{font-size:17px;font-weight:800;}
   <span style="flex:1"></span>
 </header>
 
+<!-- 분석 중 오버레이 -->
+<div id="pcOverlay" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(7,25,82,0.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+  <div style="width:48px;height:48px;border:3px solid rgba(151,254,237,.3);border-top-color:#97FEED;border-radius:50%;animation:pcSpin 1s linear infinite;"></div>
+  <div id="pcOverlayText" style="font-size:16px;font-weight:700;color:#fff;">퍼스널컬러 분석 중입니다</div>
+  <div style="width:200px;height:4px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;">
+    <div id="pcOverlayBar" style="height:100%;width:0%;background:#97FEED;border-radius:2px;transition:width .4s;"></div>
+  </div>
+</div>
+<style>@keyframes pcSpin{to{transform:rotate(360deg);}}</style>
+
 <!-- 프로필 사진 -->
 <div style="display:flex;align-items:center;gap:16px;padding:20px 20px 16px;">
   <div class="photo-ring" style="flex-shrink:0;">
@@ -144,7 +154,7 @@ header h1{font-size:17px;font-weight:800;}
       <span class="material-symbols-outlined" style="font-size:16px;color:#0B666A;">photo_library</span>사진 변경
     </button>
     <button id="pcAnalyzeBtnTop" onclick="startPersonalColorAnalysis()" disabled
-      style="width:100%;padding:10px;border-radius:10px;border:none;background:#35A29F;color:#111;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;opacity:0.4;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:4px;">
+      style="width:100%;padding:10px;border-radius:10px;border:none;background:#071952;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;opacity:0.4;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:4px;">
       <span class="material-symbols-outlined" style="font-size:16px;">auto_awesome</span>퍼스널컬러 분석
     </button>
   </div>
@@ -236,10 +246,10 @@ header h1{font-size:17px;font-weight:800;}
       <span id="bmiValue" style="font-size:22px;font-weight:900;color:#071952;">—</span>
       <span id="bmiCategory" style="font-size:11px;font-weight:700;color:#fff;padding:3px 10px;border-radius:10px;background:#0B666A;"></span>
     </div>
-    <div style="position:relative;height:75px;margin-top:4px;">
-      <svg id="bmiCurveSvg" width="100%" height="75" viewBox="0 0 300 75" preserveAspectRatio="none"></svg>
-      <div id="bmiMarker" style="position:absolute;top:0;width:2px;height:60px;background:#071952;border-radius:1px;transition:left .4s;left:50%;display:none;">
-        <div style="position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:8px;height:8px;border-radius:50%;background:#071952;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);"></div>
+    <div style="position:relative;height:98px;margin-top:4px;">
+      <svg id="bmiCurveSvg" width="100%" height="98" viewBox="0 0 300 85" preserveAspectRatio="none"></svg>
+      <div id="bmiMarker" style="position:absolute;width:22px;height:22px;border-radius:50%;background:#071952;border:3px solid #fff;box-shadow:0 2px 8px rgba(7,25,82,.35);transition:left .5s,top .5s;left:50%;top:50%;transform:translate(-50%,-50%);display:none;z-index:2;">
+        <div id="bmiMarkerLabel" style="position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:4px;font-size:10px;font-weight:800;color:#071952;white-space:nowrap;background:#fff;padding:1px 6px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.1);"></div>
       </div>
     </div>
     <div style="display:flex;justify-content:space-between;font-size:8px;color:#999;margin-top:2px;padding:0 4px;">
@@ -429,24 +439,24 @@ header h1{font-size:17px;font-weight:800;}
   </div>
 
   <!-- Skin Analytics -->
-  <div style="padding:16px 20px;">
-    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:10px;display:flex;align-items:center;gap:4px;">
+  <div style="padding:20px 20px;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:12px;display:flex;align-items:center;gap:4px;">
       <span style="color:#0B666A;">■</span> My Skin Analytics
     </div>
     <div style="display:flex;justify-content:center;">
-      <canvas id="rptRadarCanvas" width="240" height="220"></canvas>
+      <canvas id="rptRadarCanvas" width="312" height="286"></canvas>
     </div>
   </div>
 
   <!-- Best Palette -->
-  <div style="padding:0 20px 16px;">
-    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:8px;">✨ BEST PALETTE</div>
+  <div style="padding:0 20px 20px;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:10px;">✨ BEST PALETTE</div>
     <div id="rptPalette" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"></div>
   </div>
 
   <!-- Attribute Guide -->
-  <div style="padding:0 20px 16px;">
-    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:8px;">🎯 Attribute Guide</div>
+  <div style="padding:0 20px 20px;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:10px;">🎯 Attribute Guide</div>
     <div id="rptAttrs" style="display:flex;flex-direction:column;gap:8px;"></div>
     <div id="rptTextures" style="margin-top:8px;display:flex;gap:6px;align-items:center;">
       <span style="font-size:9px;font-weight:700;color:#071952;">Best Texture:</span>
@@ -454,8 +464,8 @@ header h1{font-size:17px;font-weight:800;}
   </div>
 
   <!-- Color Curation -->
-  <div style="padding:0 20px 16px;">
-    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:8px;">🎨 Color Curation</div>
+  <div style="padding:0 20px 20px;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:10px;">🎨 Color Curation</div>
     <div style="display:flex;gap:8px;margin-bottom:4px;">
       <span style="font-size:9px;font-weight:700;color:#0B666A;">Best</span>
     </div>
@@ -467,8 +477,8 @@ header h1{font-size:17px;font-weight:800;}
   </div>
 
   <!-- 5섹션 요약 -->
-  <div style="padding:0 20px 16px;">
-    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:8px;">📋 Analysis Summary</div>
+  <div style="padding:0 20px 20px;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:10px;">📋 Analysis Summary</div>
     <div id="rptSummary" style="font-size:9px;line-height:1.7;color:#444;"></div>
   </div>
 
@@ -528,6 +538,7 @@ function selGender(el){
   el.classList.add('on');
 }
 function selAge(el){
+  try{updateBMI();}catch(_){}
   var v = el.getAttribute('data-v');
   document.querySelectorAll('#ageGroup .sel-btn, #ageGroup2 .sel-btn').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-v')===v); });
   _ageVal = el.dataset.v;
@@ -695,7 +706,16 @@ async function generateReport(){
     tpl.style.position='absolute';tpl.style.left='0';tpl.style.top='0';tpl.style.zIndex='-1';
 
     var photoEl=document.getElementById('photoPreview');
-    if(photoEl&&photoEl.src) document.getElementById('rptPhoto').src=photoEl.src;
+    // 사진: photoPreview의 src (base64) 또는 IDB에서 로드
+    var _rptP=document.getElementById('rptPhoto');
+    var _prevImg=document.getElementById('photoPreview');
+    if(_rptP && _prevImg && _prevImg.src && _prevImg.src.startsWith('data:')){
+      _rptP.src=_prevImg.src;
+      _rptP.style.display='block';
+    } else if(_rptP && _photoData){
+      _rptP.src=_photoData;
+      _rptP.style.display='block';
+    }
     document.getElementById('rptNickname').textContent=_user?.nickname||_user?.email?.split('@')[0]||'User';
     document.getElementById('rptEmail').textContent=_user?.email||'';
     document.getElementById('rptSeason').textContent=_en?(pc.season_en||pc.season):pc.season;
@@ -778,10 +798,10 @@ function _drawRadarCanvas(season){
   var d=DB[season];if(!d)return;
   var cv=document.getElementById('rptRadarCanvas');if(!cv)return;
   var ctx=cv.getContext('2d');
-  var cx=120,cy=110,r=80,axes=6;
+  var cx=156,cy=143,r=104,axes=6;
   var labels=['Brightness','Redness','Yellowness','Texture','Contrast','Clarity'];
   var vals=[d.brightness,d.redness,d.yellowness,d.texture,d.contrast,d.clarity];
-  ctx.clearRect(0,0,240,220);
+  ctx.clearRect(0,0,312,286);
   // 격자
   [1,.66,.33].forEach(function(s){
     ctx.beginPath();
@@ -797,7 +817,7 @@ function _drawRadarCanvas(season){
   // 꼭짓점
   for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;var v=vals[i]/100;ctx.beginPath();ctx.arc(cx+r*v*Math.cos(a),cy+r*v*Math.sin(a),3,0,Math.PI*2);ctx.fillStyle='#0B666A';ctx.fill();}
   // 라벨
-  ctx.font='600 8px Pretendard,sans-serif';ctx.fillStyle='#071952';
+  ctx.font='700 10px Pretendard,sans-serif';ctx.fillStyle='#071952';
   for(var i=0;i<axes;i++){var a=Math.PI*2/axes*i-Math.PI/2;var lx=cx+(r+14)*Math.cos(a),ly=cy+(r+14)*Math.sin(a);ctx.textAlign=Math.cos(a)>0.3?'left':Math.cos(a)<-0.3?'right':'center';ctx.textBaseline=Math.sin(a)>0.3?'top':'bottom';if(Math.abs(Math.sin(a))<0.3)ctx.textBaseline='middle';ctx.fillText(labels[i],lx,ly);}
 }
 
@@ -835,12 +855,12 @@ function _drawBmiCurve(bmi){
   var gk=gender==='female'?'female':'male';
   var mean=(meanDB[gk]&&meanDB[gk][age])||22.5;
   var sd=3.5;
-  var pts=[];var w=300,h=65;
+  var pts=[];var w=300,h=75;
   for(var x=0;x<=w;x++){
     var bv=15+(x/w)*25; // 15~40 범위
     
     var z2=(bv-mean)/sd;
-    var y=h-h*0.9*Math.exp(-z2*z2/2);
+    var y=h-h*0.85*Math.exp(-z2*z2/2);
     pts.push(x+','+y.toFixed(1));
   }
   // 영역 색상 구분
@@ -862,9 +882,18 @@ function _drawBmiCurve(bmi){
   html+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="#071952" stroke-width="1.5"/>';
   svg.innerHTML=html;
   // 마커 위치
+  // 마커를 곡선 위에 정확히 배치
   var pct=Math.max(0,Math.min(100,(bmi-15)/25*100));
+  var bmiZ=(bmi-mean)/sd;
+  var curveY=h-h*0.9*Math.exp(-bmiZ*bmiZ/2);
+  var svgEl=document.getElementById('bmiCurveSvg');
+  var svgH=svgEl?svgEl.getBoundingClientRect().height:85;
+  var topPx=(curveY/85)*svgH;
   marker.style.left=pct+'%';
+  marker.style.top=topPx+'px';
   marker.style.display='block';
+  var lbl=document.getElementById('bmiMarkerLabel');
+  if(lbl) lbl.textContent=bmi.toFixed(1);
 }
 
 async function doSave(){
@@ -1085,7 +1114,7 @@ async function analyzePersonalColor(imageDataUrl) {
   if(loading) loading.style.display = 'block';
 
   let pct = 10;
-  const tick = setInterval(() => { pct = Math.min(pct+8, 85); if(prog) prog.style.width=pct+'%'; }, 600);
+  const tick = setInterval(() => { pct = Math.min(pct+8, 85); if(prog) prog.style.width=pct+'%'; try{var _ob=document.getElementById('pcOverlayBar');if(_ob)_ob.style.width=pct+'%';}catch(_){} }, 600);
 
   try{
     const bb = (window.CODIBANK_CONFIG?.backendBase) || 'https://codibank-api.onrender.com';
@@ -1141,9 +1170,13 @@ async function analyzePersonalColor(imageDataUrl) {
 
       renderPersonalColor(_enriched);
       showToast('퍼스널컬러 분석 완료!');
+      // 오버레이 숨김
+      var _ov2=document.getElementById('pcOverlay'); if(_ov2) _ov2.style.display='none';
       // 분석 완료 → 버튼 비활성화
       var _topBtn2=document.getElementById('pcAnalyzeBtnTop');
       if(_topBtn2){_topBtn2.disabled=true;_topBtn2.style.opacity='0.4';_topBtn2.style.background='#35A29F';_topBtn2.style.color='#111';}
+      // 퍼스널컬러 섹션으로 스크롤
+      setTimeout(function(){ var el=document.getElementById('pcSummaryCard'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); },300);
     } else {
       if(loading) loading.style.display = 'none';
       if(empty)   empty.style.display   = 'block';
@@ -1152,6 +1185,7 @@ async function analyzePersonalColor(imageDataUrl) {
     clearInterval(tick);
     if(loading) loading.style.display = 'none';
     if(empty)   empty.style.display   = 'block';
+    var _ov3=document.getElementById('pcOverlay'); if(_ov3) _ov3.style.display='none';
     console.warn('[퍼스널컬러 분석 실패]', e);
   }
 }
@@ -1613,6 +1647,7 @@ function selectBodyType(key, gender) {
 // 성별 선택 시 체형 카드 갱신
 var _origSelGender = window.selGender;
 window.selGender = function(el) {
+  try{updateBMI();}catch(_){}
   var v = el.getAttribute('data-v');
   document.querySelectorAll('#genderGroup2 .sel-btn').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-v')===v); });
   if(_origSelGender) _origSelGender(el);
