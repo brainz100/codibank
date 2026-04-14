@@ -444,7 +444,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   (async function(){
     try {
       // 컬러 이름 한→영
-      var _colorNameMap={'피치':'Peach','노란색':'Yellow','연두색':'Light Green','청록색':'Teal','파란색':'Blue','보라색':'Purple','라벤더':'Lavender','진한 빨강':'Deep Red','코랄':'Coral','아이보리':'Ivory','올리브':'Olive','카키':'Khaki','버건디':'Burgundy','네이비':'Navy','차콜':'Charcoal','블랙':'Black','화이트':'White','그레이':'Gray','핑크':'Pink','레드':'Red','베이지':'Beige','머스타드':'Mustard','테라코타':'Terracotta','골드':'Gold','민트':'Mint','다크브라운':'Dark Brown','연보라':'Light Purple','스카이블루':'Sky Blue','로즈핑크':'Rose Pink'};
+      var _colorNameMap={'피치':'Peach','노란색':'Yellow','연두색':'Light Green','청록색':'Teal','파란색':'Blue','보라색':'Purple','라벤더':'Lavender','진한 빨강':'Deep Red','코랄':'Coral','아이보리':'Ivory','올리브':'Olive','카키':'Khaki','버건디':'Burgundy','네이비':'Navy','차콜':'Charcoal','블랙':'Black','화이트':'White','그레이':'Gray','핑크':'Pink','레드':'Red','베이지':'Beige','머스타드':'Mustard','테라코타':'Terracotta','골드':'Gold','민트':'Mint','다크브라운':'Dark Brown','연보라':'Light Purple','스카이블루':'Sky Blue','로즈핑크':'Rose Pink','진홍색':'Crimson','분홍색':'Pink','주황색':'Orange','갈색':'Brown','흰색':'White','검정색':'Black','상아색':'Ivory'};
       function _clrEn(n){return _colorNameMap[n]||n;}
       var _mpIsEn = window.CodiBankI18n && CodiBankI18n.isEn();
 
@@ -569,7 +569,12 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
               _mpSum.style.display='block';
               // 타입
               var _mpType=document.getElementById('mpPcType');
-              if(_mpType) _mpType.textContent=(_en99?(pc.season_en||pc.season):pc.season)+' · '+(pc.undertone||'');
+              if(_mpType){
+                var _snTxt = _en99 ? (pc.season_en||pc.season) : pc.season;
+                var _utTxt = pc.undertone||'';
+                if(_en99) _utTxt = _utTxt==='웜톤'?'Warm Tone':_utTxt==='쿨톤'?'Cool Tone':_utTxt;
+                _mpType.textContent = _snTxt + (_utTxt ? ' · ' + _utTxt : '');
+              }
               // 어울리는 컬러
               var _mpBest=document.getElementById('mpPcBest');
               if(_mpBest) _mpBest.innerHTML=(pc.best_colors||[]).slice(0,3).map(function(h,i){
@@ -653,7 +658,11 @@ document.addEventListener('visibilitychange', function(){
           sum3.style.display='block';
           var t3=document.getElementById('mpPcType');
           var en3=window.CodiBankI18n&&CodiBankI18n.isEn();
-          if(t3) t3.textContent=(en3?(pc3.season_en||pc3.season):pc3.season)+' · '+(pc3.undertone||'');
+          if(t3){
+            var _vut=pc3.undertone||'';
+            if(en3) _vut=_vut==='웜톤'?'Warm Tone':_vut==='쿨톤'?'Cool Tone':_vut;
+            t3.textContent=(en3?(pc3.season_en||pc3.season):pc3.season)+(_vut?' · '+_vut:'');
+          }
         }
       }
       // 사진도 갱신

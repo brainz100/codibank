@@ -1364,11 +1364,11 @@ function _renderPcPalette(pc, isEn){
   // 최대 9개, 부족하면 avoid에서 보충 (또는 패딩)
   var all=[];
   for(var i=0;i<Math.min(9,colors.length);i++){
-    all.push({hex:colors[i],name:names[i]||colors[i]});
+    all.push({hex:colors[i],name:isEn?_clrEn(names[i]||colors[i]):(names[i]||colors[i])});
   }
   if(all.length<9 && pc.avoid_colors){
     for(var j=0;j<pc.avoid_colors.length && all.length<9;j++){
-      all.push({hex:pc.avoid_colors[j],name:(pc.avoid_color_names&&pc.avoid_color_names[j])||pc.avoid_colors[j]});
+      all.push({hex:pc.avoid_colors[j],name:isEn?_clrEn((pc.avoid_color_names&&pc.avoid_color_names[j])||pc.avoid_colors[j]):((pc.avoid_color_names&&pc.avoid_color_names[j])||pc.avoid_colors[j])});
     }
   }
   grid.innerHTML=all.map(function(c){
@@ -1390,7 +1390,10 @@ var _colorNameMap = {
   '스카이블루':'Sky Blue','로얄블루':'Royal Blue','핑크':'Pink','레드':'Red','오렌지':'Orange',
   '그린':'Green','민트':'Mint','에메랄드':'Emerald','터콰이즈':'Turquoise','인디고':'Indigo',
   '마젠타':'Magenta','크림':'Cream','아쿠아':'Aqua','다크브라운':'Dark Brown','연보라':'Light Purple',
-  '소프트 핑크':'Soft Pink','밝은 주황':'Bright Orange','진한 녹색':'Deep Green'
+  '소프트 핑크':'Soft Pink','밝은 주황':'Bright Orange','진한 녹색':'Deep Green',
+  '진홍색':'Crimson','분홍색':'Pink','주황색':'Orange','갈색':'Brown',
+  '하늘색':'Sky Blue','남색':'Indigo','회색':'Gray','흰색':'White','검정색':'Black',
+  '살구':'Apricot','자주색':'Magenta','밤색':'Maroon','상아색':'Ivory','연분홍':'Light Pink'
 };
 function _clrEn(name){ return (_colorNameMap[name]||name); }
 
