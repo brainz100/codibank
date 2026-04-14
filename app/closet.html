@@ -757,10 +757,10 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 /* 버튼 공통 */
 .vto-bab{flex:1;padding:14px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:64px;}
 /* 대기 상태: 3개 동일 */
-.vto-btn-inactive{background:transparent;color:rgba(255,255,255,0.20);border:1.5px solid rgba(255,255,255,0.12);cursor:not-allowed;opacity:0.5;}
+.vto-btn-inactive{background:transparent;color:rgba(255,255,255,0.25);border:1.5px solid #97FEED;cursor:not-allowed;opacity:0.6;}
 /* 활성 상태: 서브컬러 동일 적용 */
-.vto-btn-active{background:transparent !important;border:1.5px solid rgba(255,255,255,0.40) !important;color:rgba(255,255,255,0.85) !important;opacity:1 !important;font-weight:800 !important;}
-.vto-btn-active:active{transform:scale(.97);background:#ffffff !important;border-color:#ffffff !important;color:#071952 !important;}
+.vto-btn-active{background:#35A29F !important;border:1.5px solid #35A29F !important;color:#fff !important;opacity:1 !important;font-weight:800 !important;}
+.vto-btn-active:active{transform:scale(.97);background:#fff !important;border-color:#fff !important;color:#071952 !important;}
 .vto-btn-active:active .material-symbols-outlined{color:#071952 !important;}
 /* canvas는 result-box 내부에 절대 위치 */
 #vtoCanvas.vto-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;border-radius:16px;}
@@ -994,7 +994,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 </head>
 <body style="background:#071952;" class="text-white selection:bg-teal-400/20">
 <!-- ── 저장 완료 토스트 ── -->
-<div id="vtoSaveToast">✓ 저장되었습니다</div>
+<div id="vtoSaveToast" data-i18n="✓ 저장되었습니다">✓ 저장되었습니다</div>
 
 <header class="px-6 pt-4 pb-4" style="background:linear-gradient(180deg,#071952 0%,#0D2E5E 100%);">
   <div class="flex items-center justify-between">
@@ -1088,7 +1088,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     <!-- ★ STEP 3 + AI 스타일리스트 요청하기 버튼 ★ -->
     <div class="mb-3">
       <p class="text-[11px] font-black tracking-[0.22em]" style="color:#97FEED;">STEP 3</p>
-      <h3 class="text-[18px] font-bold text-white tracking-tight mt-0.5">스타일링 추천받기</h3>
+      <h3 class="text-[18px] font-bold text-white tracking-tight mt-0.5" data-i18n="스타일링 추천받기">스타일링 추천받기</h3>
     </div>
     <button id="aiCallBtn" type="button" class="w-full flex items-center px-8 active:scale-[0.98] transition-all"
       style="min-height:80px;border-radius:18px;background:transparent;border:1.5px solid rgba(255,255,255,0.12);box-shadow:none;position:relative;overflow:hidden;cursor:pointer;transition:background 0.3s,border 0.3s,box-shadow 0.3s;">
@@ -1211,7 +1211,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             <div id="vtoSpinner" class="cb-rainbow-vto" style="display:flex;">
               <span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span>
             </div>
-            <p class="vto-spin-txt" id="vtoSpinTxt" style="color:rgba(162,253,240,0.55);">코디 목적을 선택하고 생성 버튼을 누르세요</p>
+            <p class="vto-spin-txt" id="vtoSpinTxt" style="color:rgba(162,253,240,0.55);display:none;"></p>
             <div id="vtoStep" class="vto-step" style="display:none;">초기화 중…</div>
           </div>
           <!-- 결과 캔버스 (생성 완료 후 표시) -->
@@ -1232,16 +1232,16 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <!-- 버튼 3개 — 대기:동일 스타일 / 활성:서브컬러 -->
       <div class="vto-b-actions">
         <button id="saveBtn" type="button" class="vto-bab vto-btn-inactive" disabled>
-          <span class="material-symbols-outlined" style="font-size:18px;">save_alt</span>저장
+          <span class="material-symbols-outlined" style="font-size:18px;">save_alt</span><span data-i18n="저장">저장</span>
         </button>
         <button id="againBtn" type="button" class="vto-bab vto-btn-inactive" disabled>
-          <span class="material-symbols-outlined" style="font-size:18px;">refresh</span>다시요청
+          <span class="material-symbols-outlined" style="font-size:18px;">refresh</span><span data-i18n="다시요청">다시요청</span>
         </button>
         <button id="shareBtn" type="button" class="vto-bab vto-btn-inactive" disabled>
-          <span class="material-symbols-outlined" style="font-size:18px;">share</span>공유
+          <span class="material-symbols-outlined" style="font-size:18px;">share</span><span data-i18n="공유">공유</span>
         </button>
-        <button id="resetBtn" type="button" class="vto-bab vto-btn-active" onclick="resetAll()">
-          <span class="material-symbols-outlined" style="font-size:18px;">restart_alt</span>리셋
+        <button id="resetBtn" type="button" class="vto-bab vto-btn-inactive" disabled>
+          <span class="material-symbols-outlined" style="font-size:18px;">restart_alt</span><span data-i18n="리셋">리셋</span>
         </button>
       </div>
     </div>
@@ -1847,7 +1847,7 @@ function updateQuotaBadge(){
     // 합산 잔여 횟수 표시 (내옷장+코디하기 통합)
     const daily = ck.dailyRemaining !== null ? ` · 오늘 ${ck.dailyRemaining}회` : '';
     badge.className = `ai-badge ${ck.remaining<=2?'danger':'gray'}`;
-    badge.textContent = `스타일링 ${ck.remaining}회 가능${daily}`;
+    var _bEn3=window.CodiBankI18n&&CodiBankI18n.isEn(); badge.textContent = _bEn3 ? `Styling: ${ck.remaining} left${daily}` : `스타일링 ${ck.remaining}회 가능${daily}`;
   }catch(_){
     badge.className='ai-badge gray';
     badge.textContent=_L('남은 0회');
@@ -1878,8 +1878,10 @@ function setGenUiEnabled(enabled){
       btn.disabled = !canGen;
       if(canGen){
         btn.className = 'vto-bab vto-btn-active';
+        btn.disabled = false;
       } else {
         btn.className = 'vto-bab vto-btn-inactive';
+        btn.disabled = true;
       }
       // cssText 초기화 (이전 인라인 스타일 제거)
       btn.style.cssText = '';
@@ -1921,6 +1923,11 @@ function resetStylingBox(msg){
 //   초기화가 중단되는 문제가 있었습니다.
 // - 기존 resetStylingBox와 동일하게 동작하도록 래핑합니다.
 function resetAll(){
+  // 4버튼 비활성화
+  ['saveBtn','againBtn','shareBtn','resetBtn'].forEach(function(id){
+    var b=document.getElementById(id);
+    if(b){b.className='vto-bab vto-btn-inactive';b.disabled=true;}
+  });
   S.seed = 0; S.hasGenerated = false;
   resetVtoState('empty','추천 이미지 없음');
   try{
