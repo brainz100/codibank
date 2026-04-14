@@ -1062,16 +1062,20 @@ function _renderAnalysis(srvAdvice){
     const _sw = parseFloat(codiProfile.weight||0);
     const _bmi= (_sh>0&&_sw>0)?(_sw/((_sh/100)**2)):22;
     const _sg = codiProfile.gender==='F';
-    const _gLbl = _sg?'여성':'남성';
-    const _ageLbl = {'10s':'10대','20s':'20대','30s':'30대','40s':'40대','50s':'50대','60s':'60대'}[codiProfile.ageGroup||'30s']||'30대';
+    var _csIsEn0 = window.CodiBankI18n && CodiBankI18n.isEn();
+    const _gLbl = _csIsEn0 ? (_sg?'Female':'Male') : (_sg?'여성':'남성');
+    const _ageLbl = _csIsEn0 ? (codiProfile.ageGroup||'30s') : ({'10s':'10대','20s':'20대','30s':'30대','40s':'40대','50s':'50대','60s':'60대'}[codiProfile.ageGroup||'30s']||'30대');
     const _phys = (_sh&&_sw)?`${Math.round(_sh)}cm · ${Math.round(_sw)}kg`:'';
-    const _bodyType = !_sh||!_sw?'표준':_bmi<18.5?'슬림':_bmi<23?'표준':_bmi<26?'보통':'풍성';
+    const _bodyType = _csIsEn0 ? (!_sh||!_sw?'Standard':_bmi<18.5?'Slim':_bmi<23?'Standard':_bmi<26?'Regular':'Full') : (!_sh||!_sw?'표준':_bmi<18.5?'슬림':_bmi<23?'표준':_bmi<26?'보통':'풍성');
 
     // Phase1 분석 데이터
     const _tA = _topAnalysisCache    || {};
     const _bA = _bottomAnalysisCache || {};
-    const _topSub   = _tA.sub_category || _tA.category || '상의';
-    const _botSub   = _bA.sub_category || _bA.category || '하의';
+    var _rawTopSub = _tA.sub_category || _tA.category || '';
+    var _rawBotSub = _bA.sub_category || _bA.category || '';
+    var _catMap={'셔츠':'Shirt','티셔츠':'T-Shirt','블라우스':'Blouse','니트':'Knit','스웨터':'Sweater','후드':'Hoodie','맨투맨':'Sweatshirt','자켓':'Jacket','코트':'Coat','가디건':'Cardigan','조끼':'Vest','점퍼':'Jumper','패딩':'Puffer','청바지':'Jeans','슬랙스':'Slacks','면바지':'Chinos','조거':'Jogger','반바지':'Shorts','치마':'Skirt','원피스':'Dress','바지':'Pants','와이셔츠':'Dress Shirt','폴로':'Polo','탱크탑':'Tank Top','레깅스':'Leggings','카고':'Cargo Pants','트레이닝':'Sweatpants'};
+    const _topSub = _csIsEn0 ? (_catMap[_rawTopSub]||_rawTopSub||'Top') : (_rawTopSub||'상의');
+    const _botSub = _csIsEn0 ? (_catMap[_rawBotSub]||_rawBotSub||'Bottom') : (_rawBotSub||'하의');
     const _topColor = _tA.main_color_name || '';
     const _botColor = _bA.main_color_name || '';
     const _topPat   = _tA.pattern || '';
@@ -1109,6 +1113,12 @@ function _renderAnalysis(srvAdvice){
 
     // ── 로컬 생성 (서버 조언 없거나 파싱 실패 시) — 한/영 이중 ──
     var _csIsEn = window.CodiBankI18n && CodiBankI18n.isEn();
+    // 한글 패턴/소재 → 영어 변환
+    var _patEn = function(p){ var m={'단색':'Solid','체크':'Check','스트라이프':'Stripe','도트':'Dot','플로럴':'Floral','카무':'Camo','페이즐리':'Paisley','무지':'Solid'}; return (_csIsEn&&m[p])?m[p]:p; };
+    var _matEn = function(p){ var m={'면':'Cotton','폴리':'Polyester','린넨':'Linen','울':'Wool','실크':'Silk','데님':'Denim','니트':'Knit','가죽':'Leather','스웨이드':'Suede','캐시미어':'Cashmere','나일론':'Nylon','레이온':'Rayon','쉬폰':'Chiffon','트위드':'Tweed','벨벳':'Velvet','저지':'Jersey','스판':'Spandex','합성':'Synthetic'}; return (_csIsEn&&m[p])?m[p]:p; };
+    var _colEn = function(c){ var m={'베이지':'Beige','브라운':'Brown','카멜':'Camel','네이비':'Navy','블루':'Blue','민트':'Mint','화이트':'White','블랙':'Black','그레이':'Gray','레드':'Red','핑크':'Pink','그린':'Green','올리브':'Olive','차콜':'Charcoal','아이보리':'Ivory','코랄':'Coral','버건디':'Burgundy','와인':'Wine'}; return (_csIsEn&&m[c])?m[c]:c; };
+    var _catEn = function(c){ var m={'셔츠':'Shirt','티셔츠':'T-Shirt','블라우스':'Blouse','니트':'Knit','스웨터':'Sweater','후드':'Hoodie','맨투맨':'Sweatshirt','자켓':'Jacket','코트':'Coat','가디건':'Cardigan','조끼':'Vest','점퍼':'Jumper','패딩':'Puffer','청바지':'Jeans','슬랙스':'Slacks','면바지':'Chinos','조거':'Jogger','반바지':'Shorts','치마':'Skirt','원피스':'Dress','상의':'Top','하의':'Bottom','바지':'Pants','와이셔츠':'Dress Shirt','폴로':'Polo','탱크탑':'Tank Top','레깅스':'Leggings','카고':'Cargo Pants','트레이닝':'Sweatpants'}; return (_csIsEn&&m[c])?m[c]:c; };
+    if(_csIsEn){ _topColor=_colEn(_topColor); _botColor=_colEn(_botColor); _topPat=_patEn(_topPat); _botPat=_patEn(_botPat); _topMat=_matEn(_topMat); _botMat=_matEn(_botMat); }
     if(!_pcText){
       if(_pcSeason){
         var _isWarm = _pcSeason.includes('봄')||_pcSeason.includes('가을');
@@ -1133,7 +1143,7 @@ function _renderAnalysis(srvAdvice){
     }
     if(!_topText){
       if(_csIsEn){
-        const _fitMapEn={'슬림':'Slim fit accentuates shoulder line.','표준':'Balanced fit creates a natural silhouette.','보통':'Relaxed fit comfortably wraps the upper body.','풍성':'Voluminous fit draws attention upward for better proportions.'};
+        const _fitMapEn={'Slim':'Slim fit accentuates shoulder line.','Standard':'Balanced fit creates a natural silhouette.','Regular':'Relaxed fit comfortably wraps the upper body.','Full':'Voluminous fit draws attention upward for better proportions.'};
         _topText = `${_topSub}${_topMat?' ('+_topMat+')':''}. `+(_fitMapEn[_bodyType]||'Great fit for your body type.')+(_topDesign?' '+_topDesign:'');
       } else {
         const _fitMap={'슬림':'좁은 핏이 어깨라인을 선명하게 잡아줍니다','표준':'균형감 있는 핏으로 자연스러운 라인이 연출됩니다','보통':'넉넉한 여유분이 상체를 편안하게 감싸줍니다','풍성':'볼륨감 있는 핏이 시선을 상단에 집중시켜 비율감을 높여줍니다'};
@@ -1146,7 +1156,7 @@ function _renderAnalysis(srvAdvice){
           const _lenMapEn={'mini':'Mini length highlights leg line for an active look.','midi':'Midi length creates an elegant feminine silhouette.','maxi':'Long length achieves a sophisticated dressy mood.'};
           _botText = `${_botSub}${_botMat?' ('+_botMat+')':''}. `+(_lenMapEn[_skirtLen]||'Skirt silhouette completes a feminine style.');
         } else {
-          const _botFitMapEn={'슬림':'Slim silhouette elongates leg line.','표준':'Natural fit balances overall proportions.','보통':'Relaxed silhouette comfortably covers lower body.','풍성':'Wide silhouette creates a stable lower body line.'};
+          const _botFitMapEn={'Slim':'Slim silhouette elongates leg line.','Standard':'Natural fit balances overall proportions.','Regular':'Relaxed silhouette comfortably covers lower body.','Full':'Wide silhouette creates a stable lower body line.'};
           _botText = `${_botSub}${_botMat?' ('+_botMat+')':''}. `+(_botFitMapEn[_bodyType]||'Great fit for your body type.');
         }
       } else {
@@ -1170,12 +1180,12 @@ function _renderAnalysis(srvAdvice){
       };
       if(_csIsEn){
         const _ageStyleMapEn={'10s':'Trendy and flexible for various occasions.','20s':'Sophisticated style from casual to semi-formal.','30s':'Mature and stylish, versatile for business casual to date looks.','40s':'Elegant and refined combination for elevated daily wear.','50s':'Calm and graceful color harmony for a polished impression.','60s':'Classic and timeless style with lasting elegance.'};
-        _totalText = `${_gLbl} ${_ageLbl}${_phys?' · '+_phys:''} · ${_bodyType} body type. `
+        _totalText = `${_gLbl} ${_ageLbl}${_phys?' · '+_phys:''} · ${_bodyType}. `
           + (_topColor===_botColor?'Tone-on-tone creates unified sophisticated look.':'Natural contrast suitable for daily wear.')
           + ' '+(_ageStyleMapEn[codiProfile.ageGroup||'30s']||'Well-coordinated outfit.');
       } else {
         const _colCombo = (_topColor&&_botColor&&_topColor!==_botColor)?`${_topColor}+${_botColor} 배색`:'이 배색';
-        _totalText = `${_gLbl} ${_ageLbl}${_phys?' · '+_phys:''} · ${_bodyType} 체형 기준. `
+        _totalText = `${_gLbl} ${_ageLbl}${_phys?' · '+_phys:''} · ${_bodyType} 체형. `
           + `${_colCombo}은 `+(_topColor===_botColor?'톤온톤으로 통일감 있고 세련된 인상을 줍니다.':'명암 대비가 자연스러워 일상 착용에 적합합니다.')
           + ' '+(_ageStyleMap[codiProfile.ageGroup||'30s']||'완성도 높은 코디네이션입니다.');
       }
