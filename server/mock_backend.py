@@ -3096,14 +3096,24 @@ def codistyle_generate():
             + "OUTPUT LINE 1 (scores — must sum to 100): STYLING_SCORE:[total]/100|personal_color:[n1]/40|body_shape:[n2]/40|coordination:[n3]/20 "
             "where n1<=40, n2<=40, n3<=20, n1+n2+n3=[total] and [total]<=100. "
 
-            # 4개 섹션 분석 출력 형식
-            + "OUTPUT LINE 2+ (Korean analysis — report format, each section MUST start with its label): "
-            "퍼스널컬러 분석: [사용자의 퍼스널컬러 시즌 타입(봄웜/여쿨/가을웜/겨울쿨)과 이 착장의 상의·하의 컬러가 어떻게 조화되는지 구체적으로 분석. "
-            "추천 컬러와의 일치도, 피해야 할 컬러 해당 여부를 명확히 언급. 500자 이내] "
-            "체형 분석: [사용자의 체형 타입과 키·몸무게를 고려할 때 이 착장의 실루엣·핏·기장이 체형의 장점을 살리는지 또는 단점을 보완하는지 분석. "
-            "추천 스타일 부합 여부, 피해야 할 스타일 해당 여부를 구체적으로 언급. 500자 이내] "
-            "상의 스타일: [상의의 소재·패턴·핏·넥라인이 전체 착장에서 어떤 역할을 하는지, 체형과의 조화, 개선 제안 포함. 300자 이내] "
-            "하의 스타일: [하의의 실루엣·기장·소재가 전체 비율에 미치는 효과, 상의와의 배색 조화, 개선 제안 포함. 300자 이내]"
+            # 4개 섹션 분석 출력 형식 (한/영 분기)
+            + (
+                "OUTPUT LINE 2+ (English analysis — each section MUST start with its label): "
+                "Personal Color Analysis: [Analyze how the top/bottom colors harmonize with user's personal color season type. "
+                "Mention best color match, colors to avoid. Max 500 chars] "
+                "Body Shape Analysis: [Analyze how the silhouette/fit/length flatters the user's body type considering height/weight. "
+                "Mention recommended styles, styles to avoid. Max 500 chars] "
+                "Top Style: [Material, pattern, fit, neckline role in overall outfit. Max 300 chars] "
+                "Bottom Style: [Silhouette, length, material effect on proportions. Max 300 chars]"
+                if _cs_en else
+                "OUTPUT LINE 2+ (Korean analysis — report format, each section MUST start with its label): "
+                "퍼스널컬러 분석: [사용자의 퍼스널컬러 시즌 타입과 이 착장의 상의·하의 컬러가 어떻게 조화되는지 구체적으로 분석. "
+                "추천 컬러와의 일치도, 피해야 할 컬러 해당 여부를 명확히 언급. 500자 이내] "
+                "체형 분석: [사용자의 체형 타입과 키·몸무게를 고려할 때 이 착장의 실루엣·핏·기장이 체형의 장점을 살리는지 또는 단점을 보완하는지 분석. "
+                "추천 스타일 부합 여부, 피해야 할 스타일 해당 여부를 구체적으로 언급. 500자 이내] "
+                "상의 스타일: [상의의 소재·패턴·핏·넥라인이 전체 착장에서 어떤 역할을 하는지, 체형과의 조화, 개선 제안 포함. 300자 이내] "
+                "하의 스타일: [하의의 실루엣·기장·소재가 전체 비율에 미치는 효과, 상의와의 배색 조화, 개선 제안 포함. 300자 이내]"
+            )
         )
 
         # ── 다시요청 ───────────────────────────────────────────────────────
@@ -3175,7 +3185,7 @@ def codistyle_generate():
                 img_bytes = part.inline_data.data
                 # SDK는 이미 bytes로 반환 (base64 디코딩 불필요)
             elif part.text:
-                comment = part.text.strip()[:200]
+                comment = part.text.strip()[:2000]
     except (IndexError, AttributeError) as e:
         return jsonify(ok=False, error=f"응답 파싱 실패: {str(e)[:200]}"), 500
 
@@ -3207,6 +3217,8 @@ def codistyle_generate():
                 for part in response.candidates[0].content.parts:
                     if part.inline_data and part.inline_data.data:
                         img_bytes = part.inline_data.data
+                    elif part.text:
+                        comment = part.text.strip()[:2000]
                         break
                 if img_bytes:
                     print("[codistyle] 재시도 성공!")
