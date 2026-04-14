@@ -101,6 +101,14 @@
     "링크":               "Link",
     "다시요청":           "Retry",
     "리셋":               "Reset",
+    "탑/셔츠":            "Top/Shirt",
+    "하의":               "Bottom",
+    "신발":               "Shoes",
+    "스카프·포인트":       "Scarf/Accent",
+    "가방":               "Bag",
+    "시계":               "Watch",
+    "양말":               "Socks",
+    "아우터":             "Outer",
     "코디 프로필":         "Outfit Profile",
     "프로필 정보 적용":    "Apply Profile Info",
     "성별":               "Gender",
@@ -279,7 +287,7 @@
     "이미지 불러오는 중…": "Loading image…",
     "추가 실패":           "Add failed",
     "AI분석 :":           "AI Analysis:",
-    "코디쌤":             "Codi Style",
+    "코디쌤":             "Codissam",
     "코디앨범":            "Codi Album",
     "카테고리별":          "per category",
     "무제한":              "Unlimited",
@@ -4121,7 +4129,10 @@ async function updateVTO(opts={}){
           const _sb2 = document.getElementById('stylistBadge');
           if(_sb2 && S.stylist) {
             const _sn = S.stylist.name || '';
-            const _sv = S.stylist.career || S.stylist.voice || '';
+            var _sv = S.stylist.career || S.stylist.voice || '';
+            if(window.CodiBankI18n && CodiBankI18n.isEn()){
+              _sv = _sv.replace('서울지역 활동','Seoul-based').replace('지역 활동',' area');
+            }
             _sb2.textContent = _sn ? _sn + ' · ' + _sv : _sv;
             _sb2.classList.remove('hidden');
           }
@@ -4830,7 +4841,7 @@ function renderStylingPoint(){
     const catKwRow     = document.getElementById("catKwRow");
     if(!catKwRow) return;
 
-    const _outerDisplayLabel = S.outerLabel || '아우터';
+    const _outerDisplayLabel = S.outerLabel || (_isEn2?'Outer':'아우터');
     const CAT_LABELS = [
       { key:"outer",  label:_outerDisplayLabel, icon:"🧥" },
       { key:"top",    label:_L("탑/셔츠"),      icon:"👔" },
@@ -4856,7 +4867,24 @@ function renderStylingPoint(){
 
     let hasAny = false;
     CAT_LABELS.forEach(({key,label,icon})=>{
-      const kws = _toKwArray(ckw[key]);
+      const _kwValEn = function(v){
+        if(!_isEn2) return v;
+        var m={'가디건':'Cardigan','자켓':'Jacket','코트':'Coat','패딩':'Puffer','점퍼':'Jumper','조끼':'Vest',
+          '셔츠':'Shirt','티셔츠':'T-Shirt','블라우스':'Blouse','니트':'Knit','맨투맨':'Sweatshirt','후드':'Hoodie',
+          '청바지':'Jeans','슬랙스':'Slacks','면바지':'Chinos','반바지':'Shorts','치마':'Skirt','스커트':'Skirt',
+          '플랫 슈즈':'Flat Shoes','로퍼':'Loafer','스니커즈':'Sneakers','부츠':'Boots','힐':'Heels','구두':'Dress Shoes','더비':'Derby',
+          '베이지':'Beige','네이비':'Navy','차콜':'Charcoal','블랙':'Black','화이트':'White','그레이':'Gray',
+          '브라운':'Brown','카멜':'Camel','올리브':'Olive','버건디':'Burgundy','아이보리':'Ivory','코랄':'Coral',
+          '라벤더':'Lavender','민트':'Mint','핑크':'Pink','레드':'Red','블루':'Blue','그린':'Green',
+          '커스텀 라벤더':'Custom Lavender','라이트 가디건':'Light Cardigan','A라인 스커트':'A-Line Skirt',
+          '단색':'Solid','체크':'Check','스트라이프':'Stripe','도트':'Polka Dot','플로럴':'Floral',
+          '면':'Cotton','린넨':'Linen','실크':'Silk','울':'Wool','데님':'Denim','캐시미어':'Cashmere','폴리':'Polyester','니트':'Knit',
+          '머플러':'Muffler','스카프':'Scarf','가방':'Bag','백팩':'Backpack','토트백':'Tote Bag','크로스백':'Crossbody',
+          '시계':'Watch','양말':'Socks'};
+        return m[v] || v;
+      };
+      var _isEn2 = window.CodiBankI18n && CodiBankI18n.isEn();
+      const kws = _toKwArray(ckw[key]).map(function(k){ return _kwValEn(k); });
       if(!kws.length) return;
       hasAny = true;
       const row = document.createElement("div");

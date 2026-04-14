@@ -20,12 +20,6 @@
     if(!s){ window.location.replace('login.html'); }
     else { document.documentElement.style.visibility='visible'; }
   }catch(e){ document.documentElement.style.visibility='visible'; }
-  // 언어 변경 감지
-  var _lastLang2 = localStorage.getItem('cb_lang') || 'ko';
-  setInterval(function(){
-    var cur = localStorage.getItem('cb_lang') || 'ko';
-    if(cur !== _lastLang2){ _lastLang2=cur; try{applyI18n();}catch(_){} }
-  }, 500);
 })();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
@@ -49,30 +43,27 @@
     "전체삭제":"Delete All","저장일자":"By Date","좋아요":"Liked","코디목적":"By Purpose",
     "저장":"Save","공유":"Share","삭제":"Delete",
     "✓ 저장되었습니다":"✓ Saved",
-    "길게 누르면":"Long press",
-    "마음에 드는 스타일링을 찜할 수 있어요":"to bookmark your favorite styling",
-    "뒤로":"Back",
-    "저장일자":"By Date",
-    "좋아요":"Liked",
-    "코디목적":"By Purpose",
-    "정렬":"Sort",
-    "전체삭제":"Delete All",
     "코디 앨범":"Codi Album",
-    "Save":"Save","Share":"Share","Delete":"Delete",
+    "뒤로":"Back",
+    "전체삭제":"Delete All",
   };
   window._cbI18n = _T;
-  function _isEn(){ return window.CodiBankI18n && CodiBankI18n.isEn(); }
-  function _L(ko){ return (_isEn() && _T[ko]) ? _T[ko] : ko; }
   window.applyI18n = function(){
-    // 힌트 텍스트
+    var _isEn = window.CodiBankI18n && CodiBankI18n.isEn();
+    // 힌트
     var hintEl = document.getElementById('albumHint');
-    if(hintEl && _isEn()) hintEl.innerHTML = '<b style="color:#071952;">Long press</b> to bookmark your favorite styling';
-    // 셀렉트 옵션
+    if(hintEl) hintEl.innerHTML = _isEn ? '<b style="color:#071952;">Long press</b> to bookmark your favorite styling' : '<b style="color:#071952;">길게 누르면</b> 마음에 드는 스타일링을 찜할 수 있어요';
+    // 셀렉트
+    var selOpts = {'저장일자':'By Date','좋아요':'Liked','코디목적':'By Purpose'};
     document.querySelectorAll('#sortSel option').forEach(function(opt){
-      var k=opt.getAttribute('data-i18n');
-      if(k && _T[k] && _isEn()) opt.textContent=_T[k];
+      var orig = opt.dataset.orig || opt.textContent.trim();
+      if(!opt.dataset.orig) opt.dataset.orig = orig;
+      opt.textContent = (_isEn && selOpts[orig]) ? selOpts[orig] : orig;
     });
-    if(!(window.CodiBankI18n && CodiBankI18n.isEn())) return;
+    // 타이틀
+    var titleEl = document.getElementById('albumTitle');
+    if(titleEl) titleEl.textContent = _isEn ? 'Codi Album' : '코디 앨범';
+    if(!_isEn) return;
     // 1) data-i18n 속성 직접 교체
     document.querySelectorAll('[data-i18n]').forEach(function(el){
       var k = el.getAttribute('data-i18n');
@@ -217,20 +208,20 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Inter'
 
 <!-- 헤더 -->
 <header class="hdr">
-  <h1 class="hdr-title" id="albumTitle" data-i18n="코디 앨범">코디 앨범</h1>
+  <h1 class="hdr-title" id="albumTitle">코디 앨범</h1>
   <div style="display:flex;align-items:center;gap:6px;margin-top:6px;padding:8px 12px;background:linear-gradient(135deg,rgba(11,102,106,.08),rgba(53,162,159,.05));border:1px solid rgba(11,102,106,.2);border-radius:10px;">
     <span style="font-size:16px;flex-shrink:0;">❤️</span>
     <p id="albumHint" style="font-size:11.5px;color:#0B666A;font-weight:600;line-height:1.5;"><b style="color:#071952;">길게 누르면</b> 마음에 드는 스타일링을 찜할 수 있어요</p>
   </div>
   <div class="sort-wrap">
     <select id="sortSel" class="sort-sel" onchange="applySort(this.value)" aria-label="정렬">
-      <option value="date" data-i18n="저장일자">저장일자</option>
-      <option value="liked" data-i18n="좋아요">좋아요</option>
-      <option value="purpose" data-i18n="코디목적">코디목적</option>
+      <option value="date">저장일자</option>
+      <option value="liked">좋아요</option>
+      <option value="purpose">코디목적</option>
     </select>
   </div>
   <span id="cntBadge" class="hdr-badge"></span>
-  <button id="clearBtn" class="clear-btn" style="display:none;" onclick="clearAll()" data-i18n="전체삭제">전체삭제</button>
+  <button id="clearBtn" class="clear-btn" style="display:none;" onclick="clearAll()">전체삭제</button>
 </header>
 
 <!-- 로딩 -->
@@ -264,7 +255,7 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Inter'
   <div class="modal-scroll">
     <div style="padding:10px 20px 0;flex-shrink:0;">
       <button onclick="closeModal()" style="display:flex;align-items:center;gap:4px;background:none;border:none;color:rgba(255,255,255,.7);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;">
-        <span class="material-symbols-outlined" style="font-size:20px;">arrow_back_ios</span><span data-i18n="뒤로">뒤로</span>
+        <span class="material-symbols-outlined" style="font-size:20px;">arrow_back_ios</span>뒤로
       </button>
     </div>
     <div class="modal-img-section">
@@ -288,13 +279,13 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Inter'
     </div>
     <div class="modal-btns">
       <button class="btn-save" onclick="doDownload()">
-        <span class="material-symbols-outlined" style="font-size:16px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 16;">bookmark</span><span data-i18n="저장">저장</span>
+        <span class="material-symbols-outlined" style="font-size:16px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 16;">bookmark</span>저장
       </button>
       <button class="btn-share" onclick="doShare()">
-        <span class="material-symbols-outlined" style="font-size:16px;">share</span><span data-i18n="공유">공유</span>
+        <span class="material-symbols-outlined" style="font-size:16px;">share</span>공유
       </button>
       <button class="btn-del" onclick="doDelete()">
-        <span class="material-symbols-outlined" style="font-size:16px;">delete</span><span data-i18n="삭제">삭제</span>
+        <span class="material-symbols-outlined" style="font-size:16px;">delete</span>삭제
       </button>
     </div>
   </div>
@@ -332,10 +323,10 @@ function fmt(iso) {
 
 var PURPOSE_EN = {'출퇴근':'Commute','비즈니스':'Business','주말외출':'Weekend','주말여행':'Weekend Trip','국내여행':'Domestic Trip','해외여행':'Overseas Trip','지인모임':'Social','소개팅':'Blind Date','파티룩':'Party','맞춤':'Custom','코디':'Outfit'};
 function tPurpose(label) {
-  if(!label) return '';
-  if(_isEn()){
-    var _pm={'비즈니스 포멀':'Business Formal','데일리 오피스룩':'Daily Office','면접룩':'Interview','결혼식 하객룩':'Wedding Guest','소개팅룩':'Blind Date','로맨틱 데이트룩':'Romantic Date','상견례/가족모임':'Family Gathering','사교 모임/파티':'Social/Party','주말 나들이':'Weekend Outing','여행지 인생샷':'Travel Photo','꾸안꾸 데일리':'Effortless Daily','스포티/애슬레저':'Sporty/Athleisure','공항 패션':'Airport Fashion','미니멀/심플':'Minimal/Simple','트렌디/스트릿':'Trendy/Street','직접입력':'Custom','Outfit':'Outfit'};
-    return _pm[label] || label;
+  if (!label) return (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'Outfit' : '코디';
+  if (window.CodiBankI18n && CodiBankI18n.isEn()) {
+    var _pm16={'비즈니스 포멀':'Business Formal','데일리 오피스룩':'Daily Office','면접룩':'Interview','결혼식 하객룩':'Wedding Guest','소개팅룩':'Blind Date','로맨틱 데이트룩':'Romantic Date','상견례/가족모임':'Family Gathering','사교 모임/파티':'Social/Party','주말 나들이':'Weekend Outing','여행지 인생샷':'Travel Photo','꾸안꾸 데일리':'Effortless Daily','스포티/애슬레저':'Sporty/Athleisure','공항 패션':'Airport Fashion','미니멀/심플':'Minimal/Simple','트렌디/스트릿':'Trendy/Street','직접입력':'Custom'};
+    return _pm16[label] || PURPOSE_EN[label] || label;
   }
   return label;
 }
@@ -527,6 +518,18 @@ function clearAll() {
 }
 
 async function openModal(entry) {
+  // 모달 버튼 영어
+  var _mEn = window.CodiBankI18n && CodiBankI18n.isEn();
+  document.querySelectorAll('.modal-btns button').forEach(function(btn){
+    var txt = btn.textContent.trim();
+    if(_mEn){
+      if(txt.includes('저장')) btn.lastChild.textContent = 'Save';
+      else if(txt.includes('공유')) btn.lastChild.textContent = 'Share';
+      else if(txt.includes('삭제')) btn.lastChild.textContent = 'Delete';
+    }
+  });
+  var backBtn = document.querySelector('.modal-scroll button');
+  if(backBtn && _mEn) { var sp = backBtn.childNodes; if(sp.length>1) sp[sp.length-1].textContent='Back'; }
   _cur = entry;
   const modal = document.getElementById('modal');
   const img = document.getElementById('mImg');
@@ -575,7 +578,7 @@ function closeModal() {
 async function doDownload() {
   if (!_cur) return;
   const src = await resolveImg(_cur.imageRef);
-  if (!src) { alert(CodiBankI18n.t('이미지를 불러올 수 없습니다.','Unable to load image.')); return; }
+  if (!src) { alert('이미지를 불러올 수 없습니다.'); return; }
   try {
     const res = await fetch(src);
     const blob = await res.blob();

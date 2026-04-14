@@ -230,7 +230,7 @@ var DICT = {
     '플랜':                                   ' Plan',
     '로그아웃':                                'Log Out',
     '회원탈퇴':                                'Delete Account',
-    '코디쌤':                                 'Codi Style',
+    '코디쌤':                                 'Codissam',
     'Ai 옷장':                                'AI Closet',
     '회 가능':                                ' remaining',
     '아이템':                                  'Items',
@@ -311,7 +311,7 @@ var DICT = {
     '비밀번호 변경 실패: ':                     'Password change failed: ',
     '비밀번호가 변경되었습니다.':               'Password changed.',
     'Ai 옷장':                                'AI Closet',
-    '코디쌤':                                 'Codi Style',
+    '코디쌤':                                 'Codissam',
     '(AI 피부톤 분석)':                        '(AI Skin Tone Analysis)',
   },
 
