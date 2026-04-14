@@ -110,6 +110,35 @@
     </div>
   </div>
 
+  <!-- Personal Color Summary -->
+  <div id="mpPcSummary" style="display:none;margin:0 16px 12px;padding:14px 16px;border-radius:14px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.15);">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+      <span class="material-symbols-outlined" style="font-size:16px;color:#97FEED;">auto_awesome</span>
+      <span style="font-size:12px;font-weight:800;color:#97FEED;">Personal Color Summary</span>
+    </div>
+    <div id="mpPcType" style="font-size:13px;font-weight:800;color:#fff;margin-bottom:8px;"></div>
+    <div style="display:flex;gap:12px;margin-bottom:8px;">
+      <div style="flex:1;">
+        <div style="font-size:9px;color:rgba(151,254,237,.5);font-weight:600;margin-bottom:4px;">어울리는 컬러</div>
+        <div id="mpPcBest" style="display:flex;gap:4px;"></div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:9px;color:rgba(239,68,68,.5);font-weight:600;margin-bottom:4px;">피해야 할 컬러</div>
+        <div id="mpPcAvoid" style="display:flex;gap:4px;"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;padding:6px 8px;background:rgba(11,102,106,.1);border-radius:8px;">
+        <div style="font-size:8px;color:rgba(151,254,237,.5);">👔 상의 매칭</div>
+        <div id="mpPcTop" style="font-size:10px;font-weight:600;color:rgba(255,255,255,.8);margin-top:2px;"></div>
+      </div>
+      <div style="flex:1;padding:6px 8px;background:rgba(7,25,82,.15);border-radius:8px;">
+        <div style="font-size:8px;color:rgba(151,254,237,.5);">👖 하의 매칭</div>
+        <div id="mpPcBottom" style="font-size:10px;font-weight:600;color:rgba(255,255,255,.8);margin-top:2px;"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- 메뉴 -->
   <p class="menu-section">계정 관리</p>
   <div class="menu-item" onclick="location.href='profile.html'">
@@ -536,30 +565,65 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
               }
             }
           }
+          // ── Personal Color Summary 렌더링 ──
+          try{
+            var _mpSum=document.getElementById('mpPcSummary');
+            if(_mpSum){
+              var _en99=window.CodiBankI18n&&CodiBankI18n.isEn();
+              _mpSum.style.display='block';
+              // 타입
+              var _mpType=document.getElementById('mpPcType');
+              if(_mpType) _mpType.textContent=(_en99?(pc.season_en||pc.season):pc.season)+' · '+(pc.undertone||'');
+              // 어울리는 컬러
+              var _mpBest=document.getElementById('mpPcBest');
+              if(_mpBest) _mpBest.innerHTML=(pc.best_colors||[]).slice(0,4).map(function(h){return '<div style="width:18px;height:18px;border-radius:50%;background:'+h+';border:1.5px solid rgba(255,255,255,.25);"></div>';}).join('');
+              // 피해야 할 컬러
+              var _mpAvoid=document.getElementById('mpPcAvoid');
+              if(_mpAvoid) _mpAvoid.innerHTML=(pc.avoid_colors||[]).slice(0,4).map(function(h){return '<div style="width:18px;height:18px;border-radius:50%;background:'+h+';border:1.5px solid rgba(255,255,255,.15);position:relative;"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(255,255,255,.5);">✕</div></div>';}).join('');
+              // 상하의 매칭
+              var _topDB={'봄웜':'코랄, 피치, 아이보리','여름쿨':'라벤더, 로즈핑크, 스카이블루','가을웜':'머스타드, 테라코타, 올리브','겨울쿨':'퓨어화이트, 로얄블루, 블랙'};
+              var _btmDB={'봄웜':'카멜, 웜베이지, 라이트브라운','여름쿨':'그레이, 슬레이트블루, 소프트네이비','가을웜':'카키, 버건디, 초콜릿브라운','겨울쿨':'차콜, 네이비, 딥퍼플'};
+              var _topDBen={'봄웜':'Coral, Peach, Ivory','여름쿨':'Lavender, Rose Pink, Sky Blue','가을웜':'Mustard, Terracotta, Olive','겨울쿨':'Pure White, Royal Blue, Black'};
+              var _btmDBen={'봄웜':'Camel, Warm Beige, Light Brown','여름쿨':'Gray, Slate Blue, Soft Navy','가을웜':'Khaki, Burgundy, Chocolate Brown','겨울쿨':'Charcoal, Navy, Deep Purple'};
+              var _sn2=pc.season||'';
+              var _mpTop=document.getElementById('mpPcTop');
+              var _mpBtm=document.getElementById('mpPcBottom');
+              if(_mpTop) _mpTop.textContent=_en99?(_topDBen[_sn2]||''):(_topDB[_sn2]||'');
+              if(_mpBtm) _mpBtm.textContent=_en99?(_btmDBen[_sn2]||''):(_btmDB[_sn2]||'');
+            }
+          }catch(_){}
         }
       }catch(_){}
 
       // ── 프로필 사진 로드 ──
       // 1순위: user.photo (dataURL 직접 저장)
       // 2순위: user.avatarFace → getImageSrc (IndexedDB)
-      let photoSrc = u.photo || '';
-      // localStorage cb_user에서 photo 로드 시도
+      // ── 프로필 사진 로드 (5단계 폴백) ──
+      let photoSrc = '';
+      // 1단계: codibank.js getCurrentUser의 photo
+      photoSrc = u.photo || '';
+      // 2단계: localStorage cb_user
       if(!photoSrc){
         try{ var _su=JSON.parse(localStorage.getItem('cb_user')||'{}'); photoSrc=_su.photo||''; }catch(_){}
       }
-      if (!photoSrc && u.avatarFace && window.CodiBank && CodiBank.getImageSrc) {
-        try { photoSrc = await CodiBank.getImageSrc(u.avatarFace); } catch(_) {}
+      // 3단계: localStorage codibank_users에서 직접
+      if(!photoSrc){
+        try{ var _us=JSON.parse(localStorage.getItem('codibank_users')||'{}'); var _ue=_us[u.email]||_us[u.email?.toLowerCase()]; if(_ue) photoSrc=_ue.photo||''; }catch(_){}
       }
-      // IDB 직접 시도
+      // 4단계: avatarFace → IDB getImageSrc
+      if(!photoSrc && u.avatarFace && window.CodiBank && CodiBank.getImageSrc){
+        try{ photoSrc = await CodiBank.getImageSrc(u.avatarFace); }catch(_){}
+      }
+      // 5단계: getUserFaceImageSrc (IDB에서 id로 직접)
       if(!photoSrc && window.CodiBank && CodiBank.getUserFaceImageSrc){
-        try { photoSrc = await CodiBank.getUserFaceImageSrc(); } catch(_) {}
+        try{ photoSrc = await CodiBank.getUserFaceImageSrc(); }catch(_){}
       }
-      if (photoSrc) {
-        const img = document.getElementById('avatarImg');
-        const icon = document.getElementById('avatarIcon');
-        img.src = photoSrc;
-        img.style.display = 'block';
-        icon.style.display = 'none';
+      console.log('[mypage] photo loaded:', photoSrc ? 'YES ('+photoSrc.substring(0,30)+'...)' : 'NO');
+      if(photoSrc){
+        var img=document.getElementById('avatarImg');
+        var icon=document.getElementById('avatarIcon');
+        if(img){img.src=photoSrc;img.style.display='block';}
+        if(icon) icon.style.display='none';
       }
     } catch(e) { console.warn('mypage init error', e); }
   })();
@@ -583,6 +647,38 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
 // ── 프로필 수정 후 즉시 반영 ──
 document.addEventListener('visibilitychange', function(){
+  // PC Summary 갱신
+  if(document.visibilityState==='visible'){
+    try{
+      var u3=window.CodiBank&&CodiBank.getCurrentUser?CodiBank.getCurrentUser():null;
+      if(!u3) return;
+      var pcKey3='cb_personal_color_'+(u3.email||'');
+      var pcRaw3=localStorage.getItem(pcKey3);
+      if(pcRaw3){
+        var pc3=JSON.parse(pcRaw3);
+        var sum3=document.getElementById('mpPcSummary');
+        if(sum3 && pc3 && pc3.season){
+          sum3.style.display='block';
+          var t3=document.getElementById('mpPcType');
+          var en3=window.CodiBankI18n&&CodiBankI18n.isEn();
+          if(t3) t3.textContent=(en3?(pc3.season_en||pc3.season):pc3.season)+' · '+(pc3.undertone||'');
+        }
+      }
+      // 사진도 갱신
+      try{
+        var _su3=JSON.parse(localStorage.getItem('cb_user')||'{}');
+        var ph3=_su3.photo||'';
+        if(!ph3 && window.CodiBank && CodiBank.getUserFaceImageSrc){
+          CodiBank.getUserFaceImageSrc().then(function(src){
+            if(src){var i3=document.getElementById('avatarImg');var ic3=document.getElementById('avatarIcon');if(i3){i3.src=src;i3.style.display='block';}if(ic3)ic3.style.display='none';}
+          }).catch(function(){});
+        } else if(ph3){
+          var i4=document.getElementById('avatarImg');var ic4=document.getElementById('avatarIcon');
+          if(i4){i4.src=ph3;i4.style.display='block';}if(ic4)ic4.style.display='none';
+        }
+      }catch(_){}
+    }catch(_){}
+  }
   if(document.visibilityState !== 'visible') return;
   try{
     var u2 = window.CodiBank && CodiBank.getCurrentUser ? CodiBank.getCurrentUser() : null;

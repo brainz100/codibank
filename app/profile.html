@@ -935,16 +935,17 @@ async function doSave(){
   if(_photoData){
     // photo: 원본 해상도 그대로 저장 (IDB에 저장하고 참조만 유지)
     // localStorage에는 IDB 참조 ID만 저장하여 용량 문제 방지
-    // mypage 표시용 중간 해상도 (400px) — localStorage 안전
+    // mypage 표시용 중간 해상도 (300px JPEG) — localStorage 안전 (50KB 이내)
     try{
       var _mImg=new Image();
       await new Promise(function(r,j){_mImg.onload=r;_mImg.onerror=j;_mImg.src=_photoData;});
       var _mw=_mImg.naturalWidth,_mh=_mImg.naturalHeight;
-      var _ms=Math.min(1,400/Math.max(_mw,_mh));
+      var _ms=Math.min(1,300/Math.max(_mw,_mh));
       var _mc=document.createElement('canvas');_mc.width=Math.round(_mw*_ms);_mc.height=Math.round(_mh*_ms);
       _mc.getContext('2d').drawImage(_mImg,0,0,_mc.width,_mc.height);
-      patch.photo=_mc.toDataURL('image/jpeg',0.85);
-    }catch(_){patch.photo='';}
+      patch.photo=_mc.toDataURL('image/jpeg',0.7);
+      console.log('[profile] photo for mypage: '+Math.round(patch.photo.length/1024)+'KB');
+    }catch(e){console.warn('[profile] photo resize failed:',e);patch.photo='';}
 
     // avatarFace: IndexedDB에 원본 저장 → id 반환
     if(typeof CodiBank.saveImage === 'function'){
