@@ -1091,10 +1091,10 @@ function _renderAnalysis(srvAdvice){
       const _lines = srvAdvice.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>4;});
       _lines.forEach(function(line){
         const _low = line.toLowerCase();
-        if(!_pcText  && (_low.includes('퍼스널컬러') || _low.includes('personal color'))) _pcText  = line.replace(/^[퍼스널컬러 조합:：\s]+/,'').slice(0,250);
-        else if(!_topText  && (_low.includes('상의'))) _topText  = line.replace(/^[상의 스타일:：\s]+/,'').slice(0,250);
-        else if(!_botText  && (_low.includes('하의'))) _botText  = line.replace(/^[하의 스타일:：\s]+/,'').slice(0,250);
-        else if(!_totalText && (_low.includes('토탈') || _low.includes('전체') || _low.includes('스타일링 분석'))) _totalText = line.replace(/^[토탈 스타일링 분석:：\s]+/,'').slice(0,250);
+        if(!_pcText  && (_low.includes('퍼스널컬러') || _low.includes('personal color'))) _pcText  = line.replace(/^(퍼스널컬러 분석|Personal Color Analysis)[:\s:：]*/i,'').slice(0,500);
+        else if(!_topText  && (_low.includes('상의') || _low.includes('top style'))) _topText  = line.replace(/^(상의 스타일|Top Style)[:\s:：]*/i,'').slice(0,300);
+        else if(!_botText  && (_low.includes('하의') || _low.includes('bottom style'))) _botText  = line.replace(/^(하의 스타일|Bottom Style)[:\s:：]*/i,'').slice(0,300);
+        else if(!_totalText && (_low.includes('토탈') || _low.includes('전체') || _low.includes('body shape') || _low.includes('체형'))) _totalText = line.replace(/^(토탈 스타일링 분석|체형 분석|Body Shape Analysis)[:\s:：]*/i,'').slice(0,500);
       });
       // 파싱 실패 시 전체를 토탈에
       if(!_pcText && !_topText && !_botText && !_totalText) _totalText = srvAdvice.slice(0,300);
