@@ -21,7 +21,7 @@
   catch(e){window.location.replace('login.html');}
 })();
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -230,19 +230,19 @@
     주식회사 종로신사 | 대표이사 신용남<br/>
     운영책임자 백태섭 | 02-743-1850<br/>
     서울시 종로구 종로 223, 우교빌딩 4층<br/>
-    <a href="/cdn-cgi/l/email-protection#62010d060b00030c094c091022050f030b0e4c010d0f" style="color:rgba(76,219,206,.5);text-decoration:none;"><span class="__cf_email__" data-cfemail="a1c2cec5c8c3c0cfca8fcad3e1c6ccc0c8cd8fc2cecc">[email&#160;protected]</span></a><br/>
+    support@codibank.kr<br/>
     <span style="font-size:10px;color:rgba(216,226,255,.15);">&copy; 2026 CodiBank. All rights reserved.</span>
   </div>
   <div id="company-footer-en" style="display:none;margin-top:28px;padding:20px 0;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(216,226,255,.25);line-height:1.8;text-align:center;">
     Jongro Shinsa Co., Ltd. | CEO: Yongnam Shin<br/>
     Operations Manager: Taesub Baek | +82-2-743-1850<br/>
     4F Ugyo Bldg, 223 Jongro, Jongro-gu, Seoul, Korea<br/>
-    <a href="/cdn-cgi/l/email-protection#6e0d010a070c0f000540051c2e09030f0702400d0103" style="color:rgba(76,219,206,.5);text-decoration:none;"><span class="__cf_email__" data-cfemail="6e0d010a070c0f000540051c2e09030f0702400d0103">[email&#160;protected]</span></a><br/>
+    support@codibank.kr<br/>
     <span style="font-size:10px;color:rgba(216,226,255,.15);">&copy; 2026 CodiBank. All rights reserved.</span>
   </div>
 </main>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="codibank.js"></script>
+<script src="codibank.js"></script>
 <script src="i18n.js"></script>
 <script>
 // ─────────────────────────────────────────────────────
@@ -447,7 +447,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       const u = window.CodiBank && window.CodiBank.getCurrentUser ? window.CodiBank.getCurrentUser() : null;
       if (!u) { location.replace('login.html'); return; }
 
-      document.getElementById('userName').textContent  = u.nickname || u.email.split('@')[0] || '사용자';
+      try{document.getElementById('userName').textContent  = u.nickname || (u.email?u.email.split('@')[0]:'') || '사용자';}catch(_){}
       // 성별/나이대 표시
       var _isEn = window.CodiBankI18n && CodiBankI18n.isEn();
       var _gMap = {male:_isEn?'Male':'남성',female:_isEn?'Female':'여성',M:_isEn?'Male':'남성',F:_isEn?'Female':'여성'};
@@ -460,7 +460,6 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       // 구독 플랜
       var _planNames = {free:'FREE',silver:'SILVER',gold:'GOLD',diamond:'DIAMOND'};
       var _planId = (u.plan||'free').toLowerCase();
-      document.getElementById('userPlan').textContent = (_planNames[_planId]||'FREE') + ' Plan';
       try{ document.getElementById('userPlanLabel').textContent = (_planNames[_planId]||'FREE') + ' Plan'; }catch(_){}
 
       // ── 구독/보너스 정보 실시간 표시 ──
@@ -472,9 +471,6 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
           const infoRaw = localStorage.getItem(infoKey);
           if(infoRaw){
             const info = JSON.parse(infoRaw);
-            const used = info.totalUsed || 0;
-            const bonus = info.bonusTotal > 0 ? ' (+보너스 '+info.bonusTotal+'회)' : '';
-            const rem = info.totalLimit >= 9999 ? '∞' : Math.max(0, info.totalLimit - used);
             try{
               document.getElementById('mpUsedCount').textContent = info.totalUsed || 0;
               document.getElementById('mpLimitCount').textContent = '/ ' + (info.totalLimit>=9999?'∞':info.totalLimit);
@@ -508,11 +504,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             try{ localStorage.setItem('cb_plan_info_'+u.email, JSON.stringify({updatedAt:new Date().toISOString().slice(0,7),totalLimit,totalUsed,bonusTotal})); }catch(_){}
           }
           // ── 아이템 현황 표시 ──
-          const iel = document.getElementById('mypageItemQuota');
-          if(iel){
+          // ── 아이템 현황 표시 (mpItemUsed/mpItemLimit 직접 사용) ──
+          try{
             const ITEM_LIMITS = {free:10,silver:100,gold:500,diamond:99999};
             const planId2 = (u.plan||'free').toLowerCase();
-            const itemBase = ITEM_LIMITS[planId2] || 5;
+            const itemBase = ITEM_LIMITS[planId2] || 10;
             let itemBonus = 0;
             try{
               const ir = await fetch(bb+'/api/usage/item-bonus/'+encodeURIComponent(u.email));
@@ -520,22 +516,18 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             }catch(_){}
             let itemUsed = 0;
             try{
-              if(typeof CodiBank.getItemsByUser==='function'){
+              if(typeof CodiBank!=='undefined'&&typeof CodiBank.getItemsByUser==='function'){
                 itemUsed = (CodiBank.getItemsByUser(u.email)||[]).length;
               }
             }catch(_){}
             const itemLimit = itemBase + itemBonus;
             const isUnlim = itemLimit >= 99999;
-            const bonusTxt = itemBonus > 0 ? ' +보너스'+itemBonus : '';
-            try{
-              document.getElementById('mpItemUsed').textContent = itemUsed;
-              document.getElementById('mpItemLimit').textContent = '/ ' + (isUnlim?'∞':itemLimit);
-              var _ipct = isUnlim ? Math.min(100,Math.round(itemUsed/100*100)) : Math.min(100,Math.round(itemUsed/Math.max(itemLimit,1)*100));
-              document.getElementById('mpItemFill').style.width = _ipct+'%';
-              if(_ipct>80) document.getElementById('mpItemFill').style.background='linear-gradient(90deg,#ef4444,#fca5a5)';
-            }catch(_){}
-            try{ localStorage.setItem('cb_item_plan_'+u.email, JSON.stringify({bonus:itemBonus,limit:itemLimit,updatedAt:new Date().toISOString().slice(0,7)})); }catch(_){}
-          }
+            document.getElementById('mpItemUsed').textContent = itemUsed;
+            document.getElementById('mpItemLimit').textContent = '/ ' + (isUnlim?'∞':itemLimit);
+            var _ipct = isUnlim ? Math.min(100,Math.round(itemUsed/100*100)) : Math.min(100,Math.round(itemUsed/Math.max(itemLimit,1)*100));
+            document.getElementById('mpItemFill').style.width = _ipct+'%';
+            if(_ipct>80) document.getElementById('mpItemFill').style.background='linear-gradient(90deg,#ef4444,#fca5a5)';
+          }catch(_){}
         }catch(_){}
       })();
 
@@ -550,7 +542,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             const text  = document.getElementById('pcBadgeText');
             const dot   = document.getElementById('pcColorDot');
             if(badge && text){
-              text.textContent = pc.season || pc.summary.split(' ')[0];
+              text.textContent = pc.season || (pc.summary?pc.summary.split(' ')[0]:'');
               // 시즌별 컬러
               const dotColors = {'봄웜':'#FFB347','여름쿨':'#87CEEB','가을웜':'#CD853F','겨울쿨':'#B0C4DE','Spring Warm':'#FFB347','Summer Cool':'#87CEEB','Autumn Warm':'#CD853F','Winter Cool':'#B0C4DE'};
               if(dot) dot.style.background = dotColors[pc.season] || '#97FEED';
@@ -601,9 +593,6 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         }
       }catch(_){}
 
-      // ── 프로필 사진 로드 ──
-      // 1순위: user.photo (dataURL 직접 저장)
-      // 2순위: user.avatarFace → getImageSrc (IndexedDB)
       // ── 프로필 사진 로드 (전용 키 최우선) ──
       let photoSrc = '';
       // 1단계: 전용 키 (Supabase 덮어쓰기 방지)
