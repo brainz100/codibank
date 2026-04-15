@@ -4228,7 +4228,6 @@ async function updateVTO(opts={}){
   // [2026-04-15] ai옷장 '유사 아이템 찾기' 버튼 활성화 브릿지
   try {
     var _ckw = S.categoryKeywords || {};
-    // 캔버스에서 썸네일 추출 (300px 리사이즈, JPEG 60%)
     var _bridgeImg = '';
     try {
       var _bcv = document.getElementById('vtoCanvas');
@@ -4239,6 +4238,21 @@ async function updateVTO(opts={}){
         _bridgeImg = _tc.toDataURL('image/jpeg', 0.6);
       }
     } catch(_) {}
+    // 히스토리 배열로 저장 (최대 5개)
+    var _newEntry = {
+      ts: Date.now(),
+      img: _bridgeImg,
+      categoryKeywords: _ckw,
+      purpose: (function(){ try{ var p=getPur(S.pk); return p?.label||S.pk||''; }catch(_){ return S.pk||''; } })(),
+      stylistName: S.stylist?.name || ''
+    };
+    var _hist = [];
+    try { _hist = JSON.parse(localStorage.getItem('cb_codi_history')||'[]'); } catch(_){}
+    if(!Array.isArray(_hist)) _hist = [];
+    _hist.unshift(_newEntry);
+    if(_hist.length > 5) _hist = _hist.slice(0,5);
+    try { localStorage.setItem('cb_codi_history', JSON.stringify(_hist)); } catch(_){}
+    // 현재 상태도 저장 (하위 호환)
     localStorage.setItem('cb_codi_generated', JSON.stringify({
       ts: Date.now(),
       hasGenerated: true,

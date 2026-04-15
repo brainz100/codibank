@@ -1253,38 +1253,47 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   <section class="px-0 mt-16">
     <div class="pt-2">
 
-      <!-- ★ 코디쌤 추천코디 + 유사 아이템 찾기 박스 (1:1) -->
+      <!-- ★ 코디쌤 추천코디 + 유사 아이템 찾기 박스 -->
       <div class="px-5 pb-3">
         <div id="codiRecommendBox" style="
-          width:100%; aspect-ratio:1/1; border-radius:20px;
-          background:rgba(255,255,255,0.04); border:1.5px solid #97FEED;
+          width:100%; border-radius:20px;
+          background:rgba(255,255,255,0.04); border:1.5px solid rgba(151,254,237,0.3);
           display:flex; flex-direction:column; overflow:hidden;
           opacity:0.55; transition:all .3s;
         ">
-          <!-- 상단: 이미지(왼) + 분석(오) -->
-          <div style="flex:1; display:flex; min-height:0;">
-            <!-- 왼쪽: 추천코디 이미지 -->
-            <div id="codiRecImgWrap" style="width:50%; display:flex; align-items:center; justify-content:center; padding:12px; overflow:hidden;">
-              <div id="codiRecImgInner" style="width:100%; height:100%; border-radius:14px; overflow:hidden; background:rgba(7,25,82,0.5); display:flex; align-items:center; justify-content:center;">
+          <!-- 상단: 이미지(왼60%) + 정보(오40%) -->
+          <div style="display:flex; min-height:0;">
+            <!-- 왼쪽: 추천코디 이미지 (넓게) -->
+            <div id="codiRecImgWrap" style="width:55%; padding:12px; display:flex; align-items:center; justify-content:center;">
+              <div id="codiRecImgInner" style="width:100%; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:rgba(7,25,82,0.5); display:flex; align-items:center; justify-content:center;">
                 <span class="material-symbols-outlined" style="font-size:40px; color:rgba(151,254,237,0.2);">checkroom</span>
               </div>
             </div>
-            <!-- 오른쪽: 분석 요약 -->
-            <div id="codiRecSummary" style="width:50%; padding:14px 14px 14px 0; display:flex; flex-direction:column; justify-content:center; gap:8px; overflow-y:auto;">
-              <p style="font-size:9px; font-weight:800; letter-spacing:0.15em; color:rgba(151,254,237,0.5); text-transform:uppercase;">AI Styling Summary</p>
-              <p id="codiRecSummaryText" style="font-size:11px; line-height:1.6; color:rgba(255,255,255,0.5); font-weight:600;">먼저 코디쌤에서 추천코디를 생성하세요</p>
+            <!-- 오른쪽: 다른코디 + 타이틀 + 키워드 -->
+            <div style="width:45%; padding:14px 14px 14px 0; display:flex; flex-direction:column; gap:6px; overflow-y:auto;">
+              <!-- 다른 코디 버튼 -->
+              <button id="codiRecCycleBtn" type="button" onclick="window._cycleCodiRec&&window._cycleCodiRec()" style="
+                display:none; align-self:flex-start; padding:4px 10px; border-radius:8px;
+                background:rgba(151,254,237,0.1); border:1px solid rgba(151,254,237,0.25);
+                color:#97FEED; font-size:10px; font-weight:700; cursor:pointer;
+                font-family:'Outfit','Noto Sans KR',sans-serif;
+              "><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:2px;">swap_horiz</span>다른 코디</button>
+              <!-- 스타일링 타이틀 -->
+              <p id="codiRecTitle" style="font-size:11px; font-weight:900; color:#97FEED; margin-top:2px;">AI STYLING</p>
+              <!-- 카테고리별 키워드 -->
+              <div id="codiRecKeywords" style="display:flex; flex-direction:column; gap:4px;">
+                <p id="codiRecSummaryText" style="font-size:10px; line-height:1.5; color:rgba(255,255,255,0.5); font-weight:600;">먼저 코디쌤에서 추천코디를 생성하세요</p>
+              </div>
             </div>
           </div>
-          <!-- 하단: 유사 아이템 찾기 버튼 -->
+          <!-- 하단: 유사 아이템 찾기 버튼 (슬림) -->
           <div style="padding:0 12px 12px;">
             <button id="closetToggleBtn" type="button" style="
-              width:100%; padding:14px 0; border-radius:14px; border:1.5px solid #97FEED;
+              width:100%; padding:10px 0; border-radius:12px; border:1.5px solid #97FEED;
               background:transparent; color:#97FEED; font-size:13px; font-weight:900;
               font-family:'Outfit','Noto Sans KR',sans-serif; cursor:default;
               pointer-events:none; opacity:0.5; transition:all .3s;
-              display:flex; align-items:center; justify-content:center; gap:6px;
             ">
-              <span class="material-symbols-outlined" style="font-size:18px;">search</span>
               <span class="ctb-title">유사한 아이템 찾기</span>
             </button>
           </div>
@@ -5787,80 +5796,128 @@ renderCategories();
   let isOn = false;
   let _analyzed = false;
 
-  // 추천코디 생성 시 박스+버튼 활성화
-  function _updateClosetBtnState(){
-    var _isEn = !!(window.CodiBankI18n && CodiBankI18n.isEn());
-    var ckw = S.categoryKeywords || {};
-    var hasAI = S.hasGenerated && Object.keys(ckw).length > 0;
-    var _codiImg = S.img || '';
-
-    // [2026-04-15] 코디쌤 → ai옷장 브릿지
-    if(!hasAI){
+  // 추천코디 히스토리 + 박스 업데이트
+  var _codiHist = [];
+  var _codiHistIdx = 0;
+  function _loadCodiHistory(){
+    try{ _codiHist = JSON.parse(localStorage.getItem('cb_codi_history')||'[]'); }catch(_){ _codiHist=[]; }
+    if(!Array.isArray(_codiHist)) _codiHist = [];
+    // 24시간 이내만
+    var now = Date.now();
+    _codiHist = _codiHist.filter(function(e){ return now - (e.ts||0) < 86400000; });
+    // 단일 엔트리 폴백
+    if(!_codiHist.length){
       try{
         var _bd = JSON.parse(localStorage.getItem('cb_codi_generated')||'{}');
-        if(_bd.hasGenerated && _bd.categoryKeywords && Object.keys(_bd.categoryKeywords).length > 0){
-          if(Date.now() - (_bd.ts||0) < 86400000){
-            S.hasGenerated = true;
-            S.categoryKeywords = _bd.categoryKeywords;
-            if(_bd.img) S.img = _bd.img;
-            ckw = _bd.categoryKeywords;
-            _codiImg = _bd.img || '';
-            hasAI = true;
-          }
-        }
+        if(_bd.hasGenerated && _bd.img) _codiHist = [_bd];
       }catch(_){}
+    }
+    _codiHistIdx = 0;
+  }
+  _loadCodiHistory();
+
+  // 다른 코디 순환
+  window._cycleCodiRec = function(){
+    if(_codiHist.length < 2) return;
+    _codiHistIdx = (_codiHistIdx + 1) % _codiHist.length;
+    _renderCodiRecBox();
+    // 키워드 변경 시 분석 리셋
+    if(_analyzed){
+      _analyzed = false; isOn = false;
+      var _p2 = document.getElementById('closetMatchPanel');
+      if(_p2) _p2.classList.remove('cmp-open');
+    }
+  };
+
+  var _catLabelMap = {outer:'Outer',top:'Top',bottom:'Bottom',shoes:'Shoes',scarf:'Scarf',bag:'Bag',watch:'Watch',socks:'Socks'};
+  var _catLabelKo = {outer:'아우터',top:'상의',bottom:'하의',shoes:'신발',scarf:'스카프',bag:'가방',watch:'시계',socks:'양말'};
+
+  function _renderCodiRecBox(){
+    var _isEn = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+    var entry = _codiHist[_codiHistIdx] || null;
+    var hasAI = !!entry && !!(entry.img || (entry.categoryKeywords && Object.keys(entry.categoryKeywords).length));
+
+    // 현재 엔트리 데이터를 S에 반영
+    if(hasAI && entry.categoryKeywords){
+      S.hasGenerated = true;
+      S.categoryKeywords = entry.categoryKeywords;
+      if(entry.img) S.img = entry.img;
     }
 
     var box = document.getElementById('codiRecommendBox');
     var imgInner = document.getElementById('codiRecImgInner');
-    var sumText = document.getElementById('codiRecSummaryText');
-    if(_analyzed) return;
+    var titleEl = document.getElementById('codiRecTitle');
+    var kwBox = document.getElementById('codiRecKeywords');
+    var cycleBtn = document.getElementById('codiRecCycleBtn');
+    var findBtn = btn;
 
     if(hasAI){
+      // 박스 활성
       if(box){ box.style.opacity='1'; box.style.borderColor='#97FEED'; box.style.boxShadow='0 0 20px rgba(151,254,237,0.15)'; }
-      if(imgInner && _codiImg){
-        imgInner.innerHTML = '<img src="'+_codiImg+'" style="width:100%;height:100%;object-fit:cover;border-radius:14px;" onerror="this.style.display=\'none\'" />';
+
+      // 이미지
+      if(imgInner && entry.img){
+        imgInner.innerHTML = '<img src="'+entry.img+'" style="width:100%;height:100%;object-fit:cover;border-radius:14px;" onerror="this.style.display=\'none\'" />';
       }
-      if(sumText){
-        var _kwList = [];
+
+      // 다른코디 버튼
+      if(cycleBtn){
+        if(_codiHist.length > 1){ cycleBtn.style.display='inline-flex'; cycleBtn.textContent=''; cycleBtn.innerHTML='<span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:2px;">swap_horiz</span>'+(_isEn?'Other Outfits':'다른 코디')+' ('+(_codiHistIdx+1)+'/'+_codiHist.length+')'; }
+        else cycleBtn.style.display='none';
+      }
+
+      // 타이틀
+      if(titleEl){
+        var _purp = entry.purpose || '';
+        titleEl.textContent = _purp ? (_isEn ? 'AI Styling: '+_purp : 'AI 추천: '+_purp) : 'AI STYLING';
+      }
+
+      // 카테고리별 키워드
+      if(kwBox){
+        var ckw = entry.categoryKeywords || {};
+        var _html = '';
         Object.keys(ckw).forEach(function(k){
           var vals = ckw[k];
-          if(Array.isArray(vals) && vals.length) _kwList.push(vals.slice(0,2).join(', '));
-          else if(typeof vals === 'string' && vals) _kwList.push(vals.split(',')[0].trim());
-        });
-        if(_kwList.length){
-          sumText.style.color = 'rgba(255,255,255,0.85)';
-          sumText.innerHTML = _kwList.slice(0,4).map(function(t){
-            return '<span style="display:inline-block;padding:3px 8px;margin:2px;border-radius:8px;background:rgba(151,254,237,0.1);border:1px solid rgba(151,254,237,0.2);font-size:10px;color:#97FEED;">'+t+'</span>';
+          if(typeof vals === 'string') vals = vals.split(/[,/;]+/).map(function(s){return s.trim();}).filter(Boolean);
+          if(!Array.isArray(vals) || !vals.length) return;
+          var _label = _isEn ? (_catLabelMap[k]||k) : (_catLabelKo[k]||k);
+          _html += '<div style="margin-bottom:3px;">';
+          _html += '<span style="font-size:9px;font-weight:800;color:rgba(151,254,237,0.6);text-transform:uppercase;">'+_label+'</span><br>';
+          _html += vals.slice(0,3).map(function(v){
+            return '<span style="display:inline-block;padding:2px 7px;margin:1px;border-radius:6px;background:rgba(151,254,237,0.08);border:1px solid rgba(151,254,237,0.15);font-size:9px;color:#97FEED;font-weight:600;">'+v+'</span>';
           }).join('');
-        } else {
-          sumText.style.color = 'rgba(255,255,255,0.85)';
-          sumText.textContent = _isEn ? 'AI outfit ready! Tap below to find similar items.' : 'AI 추천코디 생성 완료! 아래에서 유사 아이템을 찾아보세요.';
-        }
+          _html += '</div>';
+        });
+        kwBox.innerHTML = _html || '<p style="font-size:10px;color:rgba(255,255,255,0.5);">'+(_isEn?'Keywords loading...':'키워드 로딩 중...')+'</p>';
       }
-      btn.style.opacity = '1';
-      btn.style.pointerEvents = 'auto';
-      btn.style.cursor = 'pointer';
-      btn.style.background = '#0B666A';
-      btn.style.color = '#97FEED';
-      btn.style.boxShadow = '0 0 15px rgba(151,254,237,0.3)';
-      btn.style.animation = 'neonPulse 2s ease-in-out infinite';
-      var _tEl = btn.querySelector('.ctb-title');
-      if(_tEl) _tEl.textContent = _isEn ? 'Find Similar Items' : '유사한 아이템 찾기';
+
+      // 찾기 버튼 활성화: bg #35A29F, text #97FEED
+      if(!_analyzed){
+        findBtn.style.opacity = '1';
+        findBtn.style.pointerEvents = 'auto';
+        findBtn.style.cursor = 'pointer';
+        findBtn.style.background = '#35A29F';
+        findBtn.style.color = '#97FEED';
+        findBtn.style.borderColor = '#35A29F';
+        var _tEl = findBtn.querySelector('.ctb-title');
+        if(_tEl) _tEl.textContent = _isEn ? 'Find Similar Items' : '유사한 아이템 찾기';
+      }
     } else {
+      // 비활성
       if(box){ box.style.opacity='0.55'; box.style.borderColor='rgba(151,254,237,0.3)'; box.style.boxShadow='none'; }
-      if(sumText){
-        sumText.style.color = 'rgba(255,255,255,0.5)';
-        sumText.textContent = _isEn ? 'Generate an outfit from Outfit AI first' : '먼저 코디쌤에서 추천코디를 생성하세요';
-      }
-      btn.style.opacity = '0.5';
-      btn.style.pointerEvents = 'none';
-      btn.style.background = 'transparent';
-      btn.style.animation = 'none';
-      var _tEl2 = btn.querySelector('.ctb-title');
+      if(titleEl) titleEl.textContent = 'AI STYLING';
+      if(kwBox) kwBox.innerHTML = '<p id="codiRecSummaryText" style="font-size:10px;line-height:1.5;color:rgba(255,255,255,0.5);font-weight:600;">'+(_isEn?'Generate an outfit from Outfit AI first':'먼저 코디쌤에서 추천코디를 생성하세요')+'</p>';
+      if(cycleBtn) cycleBtn.style.display='none';
+      findBtn.style.opacity = '0.5';
+      findBtn.style.pointerEvents = 'none';
+      findBtn.style.background = 'transparent';
+      findBtn.style.borderColor = '#97FEED';
+      var _tEl2 = findBtn.querySelector('.ctb-title');
       if(_tEl2) _tEl2.textContent = _isEn ? 'Find Similar Items' : '유사한 아이템 찾기';
     }
   }
+
+  function _updateClosetBtnState(){ _loadCodiHistory(); _renderCodiRecBox(); }
   _updateClosetBtnState();
 
   btn.addEventListener('click', ()=>{
@@ -5873,16 +5930,16 @@ renderCategories();
     isOn = true;
     panel.classList.add('cmp-open');
 
-    // 버튼 → 분석 완료 상태
-    btn.style.background = '#ffffff';
-    btn.style.color = '#071952';
-    btn.style.borderColor = '#ffffff';
-    btn.style.boxShadow = '0 4px 16px rgba(255,255,255,0.15)';
-    btn.style.animation = 'none';
-    btn.style.pointerEvents = 'none';
+    // 버튼 → 분석 완료 → 비활성화 스타일로 복귀
     var _isEn2 = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+    btn.style.background = 'transparent';
+    btn.style.color = 'rgba(151,254,237,0.4)';
+    btn.style.borderColor = 'rgba(151,254,237,0.2)';
+    btn.style.boxShadow = 'none';
+    btn.style.pointerEvents = 'none';
+    btn.style.opacity = '0.6';
     var _tEl3 = btn.querySelector('.ctb-title');
-    if(_tEl3) _tEl3.textContent = _isEn2 ? 'Similar items analyzed' : '유사 아이템 분석 완료';
+    if(_tEl3) _tEl3.textContent = _isEn2 ? 'Analysis complete' : '분석 완료';
     buildMatchPanel();
     try{ renderCategories(); }catch(_){}
   });
