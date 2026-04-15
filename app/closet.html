@@ -4228,11 +4228,22 @@ async function updateVTO(opts={}){
   // [2026-04-15] ai옷장 '유사 아이템 찾기' 버튼 활성화 브릿지
   try {
     var _ckw = S.categoryKeywords || {};
+    // 캔버스에서 썸네일 추출 (300px 리사이즈, JPEG 60%)
+    var _bridgeImg = '';
+    try {
+      var _bcv = document.getElementById('vtoCanvas');
+      if(_bcv && _bcv.style.display !== 'none') {
+        var _tw = 300, _th = Math.round(300 * (_bcv.height / _bcv.width));
+        var _tc = document.createElement('canvas'); _tc.width = _tw; _tc.height = _th;
+        _tc.getContext('2d').drawImage(_bcv, 0, 0, _tw, _th);
+        _bridgeImg = _tc.toDataURL('image/jpeg', 0.6);
+      }
+    } catch(_) {}
     localStorage.setItem('cb_codi_generated', JSON.stringify({
       ts: Date.now(),
       hasGenerated: true,
       categoryKeywords: _ckw,
-      img: S.img || ''
+      img: _bridgeImg
     }));
   } catch(_e) { console.warn('[bridge] save fail', _e); }
   try{ updateAiCallBtn(); }catch(_){} // ← 완료: done(teal) 상태로
