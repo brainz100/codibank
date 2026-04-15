@@ -1265,6 +1265,11 @@ async function generate(isRetry=false){
   const usageCheck = checkCSUsage();
   if(usageCheck.blocked){ showErr('⚠️ ' + usageCheck.reason + '<br><a href="pricing.html" style="color:#97FEED;font-weight:700;">플랜 업그레이드 →</a>'); return; }
   busy=true; hideErr(); updateGenerateBtn();
+  // [2026-04-15] 생성 중에는 배지를 '생성 중' 상태로 변경 (0회 표시 방지)
+  try{
+    var _bb = document.getElementById('csUsageBadge');
+    if(_bb){ _bb.textContent = (window.CodiBankI18n&&CodiBankI18n.isEn()) ? 'Generating...' : '생성 중…'; _bb.style.background='rgba(151,254,237,.1)'; _bb.style.borderColor='rgba(151,254,237,.2)'; _bb.style.color='#97FEED'; }
+  }catch(_){}
   document.getElementById('genBtnText').textContent='착장 이미지 생성중입니다';
   document.getElementById('genBtnIcon').textContent='hourglass_top';
   // [2026-04-09] rainbow 즉시 실행 — 생성 시작하자마자
@@ -1677,13 +1682,21 @@ async function generate(isRetry=false){
     // ★ 사용횟수 기록
     try{ recordCSUsage(); updateCSUsageBadge(); }catch(_){}
   }catch(e){
+    var _em=String(e.message||e);
+    // [2026-04-15] 안전 필터 에러 시 자동 1회 재시도
+    if((_em.indexOf('FinishReason')>=0||_em.indexOf('STOP')>=0||_em.indexOf('safety')>=0||_em.indexOf('안전')>=0) && _retryCount < 1){
+      console.warn('[codistyle] 안전 필터 차단 → 자동 재시도');
+      busy=false;
+      _retryCount++;
+      return generate(true);
+    }
     setDot('err'); setProgress(100,'');
-    var _em=String(e.message||e);var _um='⚠️ AI 착장 이미지 생성 실패';
-    if(_em.indexOf('FinishReason')>=0||_em.indexOf('STOP')>=0) _um+=': AI 안전 필터에 의해 중단. 다시 시도해주세요.';
+    var _um='⚠️ AI Generate Outfit 실패';
+    if(_em.indexOf('FinishReason')>=0||_em.indexOf('STOP')>=0) _um+=': AI 안전 필터에 의해 중단. Retry 시도해주세요.';
     else if(_em.indexOf('timeout')>=0) _um+=': 서버 응답 시간 초과.';
     else _um+=': '+_em.substring(0,100);
     showErr(_um);
-    document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.3">다시 시도해주세요</p></div></div>';
+    document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.3">Retry 시도해주세요</p></div></div>';
   }finally{
     busy=false; updateGenerateBtn();
     document.getElementById('genBtnText').textContent='AI 착장 이미지 생성';
@@ -1757,7 +1770,12 @@ async function saveImg(){
     const toast = document.getElementById('csSaveToast');
     if(!toast) return;
     toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 500);
+    toast.style.opacity='1';
+    // [2026-04-15] 즉시 사라짐: 1.2초 후 강제 숨김
+    setTimeout(() => {
+      toast.classList.remove('show');
+      toast.style.opacity='0';
+    }, 1200);
   };
   try{
     const r = await fetch(lastImgUrl);
