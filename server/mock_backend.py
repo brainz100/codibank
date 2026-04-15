@@ -1276,7 +1276,10 @@ def serve_upload(filename: str):
         except Exception as e:
             print(f"[serve_upload] R2 proxy 실패 ({filename}): {e}")
 
-    return jsonify(ok=False, error="upload not found", filename=filename), 404
+    return jsonify(ok=False, error="upload not found", filename=filename,
+                   r2_configured=bool(_R2_PUB_URL),
+                   r2_connected=_get_r2() is not None,
+                   local_checked=[_UPLOAD_DIR, _LEGACY_UPLOAD_DIR]), 404
 
 
 @app.post("/api/storage/upload")
@@ -5546,6 +5549,65 @@ CREATE POLICY "service_role_all" ON public.user_usage
         "message": "모든 테이블 정상" if all_exist else "Supabase SQL Editor에서 아래 SQL을 실행하세요.",
         "sql": ddl.strip(),
         "sql_editor_url": "https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/sql/new",
+    })
+
+
+# [2026-04-15] 서버 시작 시 R2 상태 즉시 확인 (gunicorn에서도 작동)
+_r2_startup = _get_r2()
+if _r2_startup:
+    print(f"[STARTUP] ✅ R2 연결 OK — bucket={_R2_BUCKET}, pub={_R2_PUB_URL or '(없음)'}")
+else:
+    print("[STARTUP] ⚠️  R2 미연결 — 이미지가 로컬에만 저장됩니다 (Render 재시작 시 삭제됨)")
+    print("[STARTUP]    Render Environment에 R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL 설정 필요")
+
+
+# ══════════════════════════════════════════════════════════════
+# [2026-04-15] R2 Storage 진단 + 앨범 이미지 복구 지원
+# ══════════════════════════════════════════════════════════════
+@app.get("/admin/debug/r2-status")
+def debug_r2_status():
+    """R2 스토리지 연결 상태 + 환경변수 진단"""
+    env_check = {
+        "R2_ENDPOINT": bool(os.getenv("R2_ENDPOINT", "")),
+        "R2_ACCOUNT_ID": bool(os.getenv("R2_ACCOUNT_ID", "")),
+        "R2_ACCESS_KEY_ID": bool(os.getenv("R2_ACCESS_KEY_ID", "")),
+        "R2_SECRET_ACCESS_KEY": bool(os.getenv("R2_SECRET_ACCESS_KEY", "")),
+        "R2_BUCKET_NAME": os.getenv("R2_BUCKET_NAME", "codibank"),
+        "R2_PUBLIC_URL": os.getenv("R2_PUBLIC_URL", "(미설정)"),
+    }
+
+    r2 = _get_r2()
+    r2_connected = r2 is not None
+    r2_file_count = 0
+    r2_sample_files = []
+
+    if r2_connected:
+        try:
+            resp = r2.list_objects_v2(Bucket=_R2_BUCKET, Prefix="uploads/", MaxKeys=20)
+            contents = resp.get("Contents", [])
+            r2_file_count = resp.get("KeyCount", len(contents))
+            r2_sample_files = [c["Key"] for c in contents[:10]]
+        except Exception as e:
+            r2_file_count = -1
+            r2_sample_files = [f"list error: {str(e)[:60]}"]
+
+    # 로컬 파일 현황
+    local_files = []
+    try:
+        local_files = os.listdir(_UPLOAD_DIR)[:10]
+    except:
+        pass
+
+    return jsonify({
+        "ok": True,
+        "r2_connected": r2_connected,
+        "r2_file_count": r2_file_count,
+        "r2_sample_files": r2_sample_files,
+        "local_upload_dir": _UPLOAD_DIR,
+        "local_file_count": len(os.listdir(_UPLOAD_DIR)) if os.path.isdir(_UPLOAD_DIR) else 0,
+        "local_sample_files": local_files,
+        "env_vars": env_check,
+        "guide": "R2 미연결 시 Render Environment에 R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_URL 설정 필요" if not r2_connected else "R2 정상 연결됨",
     })
 
 
