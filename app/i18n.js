@@ -169,6 +169,36 @@ var DICT = {
     '착장 이미지가 여기에 생성됩니다':          'Your outfit image will appear here',
     '착장 이미지 생성에 실패했어요':            'Failed to generate outfit image',
     '다시':                                  'Retry',
+    // AI 스타일링 진행 상태
+    '한도 초과':                             'Limit exceeded',
+    '남은 0회':                              '0 remaining',
+    '회 가능':                               ' remaining',
+    '잠시만 기다려주세요…':                   'Please wait…',
+    'AI 스타일링 작업중':                    'AI styling in progress',
+    'AI 스타일링 호출 완료':                 'AI styling complete',
+    '다시코디 버튼으로 새 스타일리스트 호출': 'Tap Retry for a new stylist',
+    'AI 코디 분석 중…':                      'Analyzing AI outfit…',
+    '추천 스타일링 완료 ✨':                  'Recommended styling done ✨',
+    '스타일링 이미지 생성 중…':               'Generating styling image…',
+    '새로운 코디를 준비 중…':                 'Preparing new outfit…',
+    '얼굴 없이 다시 생성 중…':               'Regenerating without face…',
+    'OpenAI 이미지 생성 중…':                'OpenAI generating image…',
+    'OpenAI 업데이트 중…':                   'OpenAI updating…',
+    '캐시 표시중':                           'Showing cache',
+    'OpenAI 생성중…':                        'OpenAI generating…',
+    '날씨 정보 없음':                        'No weather info',
+    '코디를 준비 중이에요. AI 스타일리스트가 최적의 룩을 선정하고 있어요.': 'Preparing outfit. AI stylist is selecting the best look.',
+    '체형 커버 코디':                        'Body-flattering outfit',
+    '추천코디 요약':                         'Outfit Summary',
+    '코디 목적을 먼저 선택하세요':           'Select outfit purpose first',
+    '오늘 날짜':                             "Today's date",
+    '가 자동으로 선택됩니다.':               ' is auto-selected.',
+    '선택 가능:':                            'Available:',
+    '이후':                                  'onward',
+    '실시간 AI':                             'Real-time AI',
+    '스타일링':                              'Styling',
+    '개인정보처리방침':                       'Privacy Policy',
+    '이용약관':                              'Terms of Use',
   },
 
   // camera.html
@@ -617,7 +647,12 @@ function getMergedDict() {
   // 공통
   var c = DICT._common || {};
   for (var k in c) merged[k] = c[k];
-  // 페이지별
+  // aicloset 페이지는 closet 사전도 필요 (코디쌤 생성 코드 공유)
+  if (page === 'aicloset') {
+    var cl = DICT.closet || {};
+    for (var k3 in cl) merged[k3] = cl[k3];
+  }
+  // 페이지별 (페이지 전용이 closet보다 우선)
   var p = DICT[page] || {};
   for (var k2 in p) merged[k2] = p[k2];
   return merged;
