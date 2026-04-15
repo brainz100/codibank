@@ -82,6 +82,49 @@
     "위치 확인 중…":      "Checking location…",
     "개인정보처리방침":    "Privacy Policy",
 
+    // ── Ai 옷장 (aicloset.html) ──
+    "Ai 옷장 - 코디뱅크":  "AI Closet - CodiBank",
+    "Ai 옷장":              "AI Closet",
+    "오프라인 옷장의 옷들을 디지털 옷장에 저장하면 코디를 추천해드립니다!":
+      "Save your offline wardrobe items to your digital closet and get outfit recommendations!",
+    "AI 스타일리스트 분석": "AI Stylist Analysis",
+    "가지":                 "",
+    "코디 조합":            "Outfit\nCombinations",
+    "아우터":               "Outer",
+    "상의":                 "Top",
+    "하의":                 "Bottom",
+    "신발":                 "Shoes",
+    "기타":                 "Other",
+    "컬러 분석":            "Color Analysis",
+    "소재 분석":            "Material Analysis",
+    "시즌 분석":            "Season Analysis",
+    "컬러 정보 없음":       "No color info",
+    "소재 정보 없음":       "No material info",
+    "부족":                 "Lacking",
+    "추천코디와 유사한 아이템 찾기": "Find Items Similar to Recommended Outfit",
+    "코디쌤에서 생성한 추천코디와 가장 유사한 내 옷을 찾아줍니다":
+      "Finds the most similar items in your closet to AI-recommended outfits",
+    "터치하면 AI가 내 옷장에서 유사 아이템을 찾아드려요":
+      "Tap to find similar items from your closet",
+    "AI 코디를 먼저 생성해주세요": "Please generate an AI outfit first",
+    "추천코디와 유사한 아이템을 분석했습니다": "Similar items from your closet analyzed",
+    "AI 추천코디 × 내 옷장 유사도 분석": "AI Outfit × Closet Similarity Analysis",
+    "AI 코디를 먼저 생성하면 유사도를 분석해드려요.":
+      "Generate an AI outfit first to see similarity analysis.",
+    "아이템 없음":          "No items",
+    "카테고리별 AI 추천 키워드가 아직 없어요.": "No AI recommendation keywords per category yet.",
+    "아이템 등록":          "Add Item",
+    "어느 카테고리에 추가할까요?": "Which category would you like to add to?",
+    "개인정보처리방침":     "Privacy Policy",
+    "이용약관":             "Terms of Use",
+    "코디쌤":               "Outfit AI",
+    "코디앨범":             "Codi Album",
+    "코디하기":             "Codi Style",
+    "봄":                   "Spring",
+    "여름":                 "Summer",
+    "가을":                 "Fall",
+    "겨울":                 "Winter",
+
     // ── 코디하기 (codistyle.html) ──
     "코디하기 - 코디뱅크": "Codi Style - CodiBank",
     "상의":               "Top",
@@ -768,19 +811,24 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
 /* ── 모바일 옷장 토글 버튼 ── */
 #closetToggleBtn {
-  width:100%; cursor:pointer;
+  width:100%; cursor:default;
   padding:16px 20px 12px;
   display:flex; flex-direction:column; align-items:center; gap:5px;
   background:rgba(255,255,255,0.04);
-  border:1.5px solid rgba(151,254,237,0.2);
+  border:1.5px solid #97FEED;
   border-radius:20px;
   transition:background .25s, border-color .25s, box-shadow .25s;
   font-family:'Outfit','Noto Sans KR',sans-serif;
+  opacity:0.55;
+  pointer-events:none;
 }
 /* 활성화(추천코디 생성됨): 메인컬러 배경+흰텍스트 */
 #closetToggleBtn.ctb-ready {
   background:#0B666A;
   border-color:#97FEED;
+  opacity:1;
+  pointer-events:auto;
+  cursor:pointer;
 }
 #closetToggleBtn.ctb-ready .ctb-title {
   color:#ffffff;
@@ -801,14 +849,16 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   border-color:#ffffff;
   box-shadow:0 4px 16px rgba(255,255,255,0.15);
   cursor:default;
+  opacity:1;
+  pointer-events:none;
 }
 #closetToggleBtn .ctb-title {
-  font-size:20px; font-weight:900; color:#071952; letter-spacing:-.02em;
+  font-size:20px; font-weight:900; color:#0B666A; letter-spacing:-.02em;
   transition:color .2s;
 }
 #closetToggleBtn.ctb-on .ctb-title { color:#071952; }
 #closetToggleBtn .ctb-sub {
-  font-size:10px; font-weight:700; color:rgba(7,25,82,0.5); letter-spacing:.03em;
+  font-size:10px; font-weight:700; color:#0B666A; letter-spacing:.03em; opacity:0.7;
   transition:color .2s;
 }
 #closetToggleBtn.ctb-on .ctb-sub { color:rgba(7,25,82,0.5); }
@@ -891,8 +941,8 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 <header class="px-6 pt-4 pb-4" style="background:linear-gradient(180deg,#071952 0%,#0D2E5E 100%);">
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-bold tracking-tight text-white">Ai 옷장</h1>
-      <p class="text-[11px] font-medium mt-1 leading-relaxed" style="color:rgba(151,254,237,0.6);">오프라인 옷장의 옷들을 디지털 옷장에 저장하면 코디를 추천해드립니다!</p>
+      <h1 class="text-2xl font-bold tracking-tight text-white" data-i18n="Ai 옷장">Ai 옷장</h1>
+      <p class="text-[11px] font-medium mt-1 leading-relaxed" style="color:rgba(151,254,237,0.6);" data-i18n="오프라인 옷장의 옷들을 디지털 옷장에 저장하면 코디를 추천해드립니다!">오프라인 옷장의 옷들을 디지털 옷장에 저장하면 코디를 추천해드립니다!</p>
     </div>
   </div>
 </header>
@@ -1130,22 +1180,22 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     <header class="mb-5"><h2 class="font-bold text-lg flex items-center gap-2" style="color:#97feed;">My Closet Summary <div class="h-[1px] flex-grow rounded-full" style="background:rgba(53,162,159,0.2);"></div></h2></header>
     <section class="relative overflow-hidden rounded-3xl p-6 mb-5 shadow-2xl" style="background:linear-gradient(135deg,#97feed 0%,#35a29f 100%);">
       <div class="relative z-10">
-        <p class="font-bold uppercase tracking-[0.2em] text-[10px] mb-2" style="color:rgba(7,25,82,0.5);">AI 스타일리스트 분석</p>
-        <div class="flex items-center justify-center gap-3 mb-6"><span id="csComboNum" class="font-extrabold text-[60px] tracking-tighter leading-none" style="color:#071952;">0</span><div class="pb-1"><p class="font-bold text-base leading-tight uppercase" style="color:#071952;">가지<br/>코디 조합</p></div></div>
+        <p class="font-bold uppercase tracking-[0.2em] text-[10px] mb-2" style="color:rgba(7,25,82,0.5);" data-i18n="AI 스타일리스트 분석">AI 스타일리스트 분석</p>
+        <div class="flex items-center justify-center gap-3 mb-6"><span id="csComboNum" class="font-extrabold text-[60px] tracking-tighter leading-none" style="color:#071952;">0</span><div class="pb-1"><p id="csComboLabel" class="font-bold text-base leading-tight uppercase" style="color:#071952;">가지<br/>코디 조합</p></div></div>
         <div class="grid grid-cols-5 gap-2 pt-4" style="border-top:1px solid rgba(7,25,82,0.15);">
-          <div class="flex flex-col items-center" style="color:#071952;"><span style="font-size:20px;margin-bottom:4px;">🧥</span><span id="csCatOuter" class="text-lg font-bold leading-none">0</span><span class="text-[8px] uppercase font-bold tracking-tighter mt-1 opacity-70">아우터</span></div>
-          <div class="flex flex-col items-center" style="color:#071952;"><span class="material-symbols-outlined text-lg mb-1">apparel</span><span id="csCatTop" class="text-lg font-bold leading-none">0</span><span class="text-[8px] uppercase font-bold tracking-tighter mt-1 opacity-70">상의</span></div>
-          <div class="flex flex-col items-center" style="color:#071952;"><span style="font-size:20px;margin-bottom:4px;">👖</span><span id="csCatBottom" class="text-lg font-bold leading-none">0</span><span class="text-[8px] uppercase font-bold tracking-tighter mt-1 opacity-70">하의</span></div>
-          <div class="flex flex-col items-center" style="color:#071952;"><span class="material-symbols-outlined text-lg mb-1">steps</span><span id="csCatShoes" class="text-lg font-bold leading-none">0</span><span class="text-[8px] uppercase font-bold tracking-tighter mt-1 opacity-70">신발</span></div>
-          <div class="flex flex-col items-center" style="color:#071952;"><span class="material-symbols-outlined text-lg mb-1">more_horiz</span><span id="csCatEtc" class="text-lg font-bold leading-none">0</span><span class="text-[8px] uppercase font-bold tracking-tighter mt-1 opacity-70">기타</span></div>
+          <div class="flex flex-col items-center" style="color:#071952;"><span style="font-size:20px;margin-bottom:4px;">🧥</span><span id="csCatOuter" class="text-lg font-bold leading-none">0</span><span class="text-[8px] uppercase font-bold tracking-tighter mt-1 opacity-70" data-i18n="아우터">아우터</span></div>
+          <div class="flex flex-col items-center" style="color:#071952;"><span class="material-symbols-outlined text-lg mb-1">apparel</span><span id="csCatTop" class="text-lg font-bold leading-none">0</span><span class="text-[8px] uppercase font-bold tracking-tighter mt-1 opacity-70" data-i18n="상의">상의</span></div>
+          <div class="flex flex-col items-center" style="color:#071952;"><span style="font-size:20px;margin-bottom:4px;">👖</span><span id="csCatBottom" class="text-lg font-bold leading-none">0</span><span class="text-[8px] uppercase font-bold tracking-tighter mt-1 opacity-70" data-i18n="하의">하의</span></div>
+          <div class="flex flex-col items-center" style="color:#071952;"><span class="material-symbols-outlined text-lg mb-1">steps</span><span id="csCatShoes" class="text-lg font-bold leading-none">0</span><span class="text-[8px] uppercase font-bold tracking-tighter mt-1 opacity-70" data-i18n="신발">신발</span></div>
+          <div class="flex flex-col items-center" style="color:#071952;"><span class="material-symbols-outlined text-lg mb-1">more_horiz</span><span id="csCatEtc" class="text-lg font-bold leading-none">0</span><span class="text-[8px] uppercase font-bold tracking-tighter mt-1 opacity-70" data-i18n="기타">기타</span></div>
         </div>
         <button onclick="document.getElementById('catList')?.scrollIntoView({behavior:'smooth'})" class="mt-5 w-full py-3 rounded-xl flex justify-center items-center gap-2 text-[11px] uppercase font-bold tracking-widest active:scale-95 transition-all shadow-lg" style="background:#071952;color:#97feed;">Total Saved Items <span id="csTotalBtn">0</span> EA</button>
       </div>
       <div class="absolute -right-10 -top-10 w-48 h-48 rounded-full blur-3xl" style="background:rgba(255,255,255,0.1);"></div>
     </section>
-    <section class="mb-5"><h3 class="font-bold text-lg mb-3 flex items-center gap-2" style="color:#97feed;">컬러 분석 <div class="h-[1px] flex-grow rounded-full" style="background:rgba(53,162,159,0.2);"></div></h3><div class="p-5 rounded-3xl space-y-4" style="background:rgba(53,162,159,0.1);border:1px solid rgba(53,162,159,0.2);"><div id="csColorBar" class="flex h-6 w-full rounded-full overflow-hidden" style="border:1.5px solid rgba(151,254,237,.25);"></div><div id="csColorList" class="grid grid-cols-2 gap-y-3 gap-x-5 text-[11px]"></div></div></section>
-    <section class="mb-5"><h3 class="font-bold text-lg mb-3 flex items-center gap-2" style="color:#97feed;">소재 분석 <div class="h-[1px] flex-grow rounded-full" style="background:rgba(53,162,159,0.2);"></div></h3><div class="p-5 rounded-3xl" style="background:rgba(53,162,159,0.1);border:1px solid rgba(53,162,159,0.2);"><div id="csMaterialList" class="space-y-3 text-[11px]"></div></div></section>
-    <section class="mb-5"><h3 class="font-bold text-lg mb-3 flex items-center gap-2" style="color:#97feed;">시즌 분석 <div class="h-[1px] flex-grow rounded-full" style="background:rgba(53,162,159,0.2);"></div></h3><div class="p-5 rounded-3xl" style="background:rgba(53,162,159,0.1);border:1px solid rgba(53,162,159,0.2);"><div id="csSeasonList" class="grid grid-cols-2 gap-y-3 gap-x-5 text-[11px]"></div></div></section>
+    <section class="mb-5"><h3 class="font-bold text-lg mb-3 flex items-center gap-2" style="color:#97feed;"><span data-i18n="컬러 분석">컬러 분석</span> <div class="h-[1px] flex-grow rounded-full" style="background:rgba(53,162,159,0.2);"></div></h3><div class="p-5 rounded-3xl space-y-4" style="background:rgba(53,162,159,0.1);border:1px solid rgba(53,162,159,0.2);"><div id="csColorBar" class="flex h-6 w-full rounded-full overflow-hidden" style="border:1.5px solid rgba(151,254,237,.25);"></div><div id="csColorList" class="grid grid-cols-2 gap-y-3 gap-x-5 text-[11px]"></div></div></section>
+    <section class="mb-5"><h3 class="font-bold text-lg mb-3 flex items-center gap-2" style="color:#97feed;"><span data-i18n="소재 분석">소재 분석</span> <div class="h-[1px] flex-grow rounded-full" style="background:rgba(53,162,159,0.2);"></div></h3><div class="p-5 rounded-3xl" style="background:rgba(53,162,159,0.1);border:1px solid rgba(53,162,159,0.2);"><div id="csMaterialList" class="space-y-3 text-[11px]"></div></div></section>
+    <section class="mb-5"><h3 class="font-bold text-lg mb-3 flex items-center gap-2" style="color:#97feed;"><span data-i18n="시즌 분석">시즌 분석</span> <div class="h-[1px] flex-grow rounded-full" style="background:rgba(53,162,159,0.2);"></div></h3><div class="p-5 rounded-3xl" style="background:rgba(53,162,159,0.1);border:1px solid rgba(53,162,159,0.2);"><div id="csSeasonList" class="grid grid-cols-2 gap-y-3 gap-x-5 text-[11px]"></div></div></section>
   </div>
 
   <!-- 내 모바일 옷장 (다크 m_closet_0308) -->
@@ -1155,8 +1205,8 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <!-- ★ 모바일 옷장 토글 버튼 -->
       <div class="px-5 pb-3">
         <button id="closetToggleBtn" type="button">
-          <span class="ctb-title">추천코디와 유사한 아이템 찾기</span>
-          <span class="ctb-sub">코디쌤에서 생성한 추천코디와 가장 유사한 내 옷을 찾아줍니다</span>
+          <span class="ctb-title" data-i18n="추천코디와 유사한 아이템 찾기">추천코디와 유사한 아이템 찾기</span>
+          <span class="ctb-sub" data-i18n="코디쌤에서 생성한 추천코디와 가장 유사한 내 옷을 찾아줍니다">코디쌤에서 생성한 추천코디와 가장 유사한 내 옷을 찾아줍니다</span>
         </button>
       </div>
 
@@ -1164,10 +1214,10 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <div id="closetMatchPanel">
         <div class="cmp-header">
           <span class="material-symbols-outlined text-[14px]" style="color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 14;">compare_arrows</span>
-          <span class="cmp-header-txt">AI 추천코디 × 내 옷장 유사도 분석</span>
+          <span class="cmp-header-txt" data-i18n="AI 추천코디 × 내 옷장 유사도 분석">AI 추천코디 × 내 옷장 유사도 분석</span>
         </div>
         <div class="cmp-body" id="cmpBody">
-          <div class="cmp-no-item">AI 코디를 먼저 생성하면 유사도를 분석해드려요.</div>
+          <div class="cmp-no-item" data-i18n="AI 코디를 먼저 생성하면 유사도를 분석해드려요.">AI 코디를 먼저 생성하면 유사도를 분석해드려요.</div>
         </div>
         <div class="cmp-summary" id="cmpSummary" style="display:none;">
           <span class="material-symbols-outlined text-[13px]" style="font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 13;">auto_awesome</span>
@@ -1192,16 +1242,16 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 <div class="cb-spacer"></div>
 <!-- 개인정보처리방침 링크 -->
 <div style="text-align:center;padding:8px 16px 0;font-size:11px;color:rgba(255,255,255,0.25);">
-  <a href="privacy.html" style="color:rgba(151,254,237,0.45);text-decoration:none;">개인정보처리방침</a>
+  <a href="privacy.html" style="color:rgba(151,254,237,0.45);text-decoration:none;" data-i18n="개인정보처리방침">개인정보처리방침</a>
   <span style="margin:0 6px;opacity:0.3">|</span>
-  <a href="terms.html" style="color:rgba(151,254,237,0.45);text-decoration:none;">이용약관</a>
+  <a href="terms.html" style="color:rgba(151,254,237,0.45);text-decoration:none;" data-i18n="이용약관">이용약관</a>
 </div>
 <nav class="cb-nav">
   <div class="cb-nav-inner">
-    <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디쌤</span></a>
-    <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
-    <a href="aicloset.html" class="cb-nav-tab on"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
-    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">코디하기</span></a>
+    <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl" data-i18n="코디쌤">코디쌤</span></a>
+    <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl" data-i18n="코디앨범">코디앨범</span></a>
+    <a href="aicloset.html" class="cb-nav-tab on"><span class="ni">checkroom</span><span class="nl" data-i18n="Ai 옷장">Ai 옷장</span></a>
+    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl" data-i18n="코디하기">코디하기</span></a>
     <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
   </div>
 </nav>
@@ -1210,7 +1260,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 <div id="pickCatModal" class="hidden fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm">
   <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] max-w-md bg-white rounded-3xl p-6 shadow-2xl">
     <div class="flex items-start justify-between gap-4 mb-5">
-      <div><p class="text-[10px] font-bold tracking-[0.3em] text-accent">아이템 등록</p><h3 class="text-xl font-serif">어느 카테고리에 추가할까요?</h3></div>
+      <div><p class="text-[10px] font-bold tracking-[0.3em] text-accent" data-i18n="아이템 등록">아이템 등록</p><h3 class="text-xl font-serif" data-i18n="어느 카테고리에 추가할까요?">어느 카테고리에 추가할까요?</h3></div>
       <button id="closePickCat" class="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center active:scale-95"><span class="material-symbols-outlined">close</span></button>
     </div>
     <div id="pickCatList" class="grid grid-cols-2 gap-3"></div>
@@ -5517,15 +5567,16 @@ renderCategories();
   const similarity = _simScore;
 
   // ── 패널 렌더 ──
+  const _isEnCat = !!(window.CodiBankI18n && CodiBankI18n.isEn());
   const CAT_DEF = [
-    {key:'outer',  label:'아우터',       icon:'🧥'},
-    {key:'top',    label:'탑/셔츠',      icon:'👔'},
-    {key:'bottom', label:'하의',         icon:'👖'},
-    {key:'shoes',  label:'신발',         icon:'👟'},
-    {key:'scarf',  label:'스카프·포인트',icon:'🧣'},
-    {key:'bag',    label:'가방',         icon:'👜'},
-    {key:'watch',  label:'시계',         icon:'⌚'},
-    {key:'socks',  label:'양말',         icon:'🧦'},
+    {key:'outer',  label:_isEnCat?'Outer':'아우터',            icon:'🧥'},
+    {key:'top',    label:_isEnCat?'Top/Shirt':'탑/셔츠',       icon:'👔'},
+    {key:'bottom', label:_isEnCat?'Bottom':'하의',             icon:'👖'},
+    {key:'shoes',  label:_isEnCat?'Shoes':'신발',              icon:'👟'},
+    {key:'scarf',  label:_isEnCat?'Scarf/Accent':'스카프·포인트',icon:'🧣'},
+    {key:'bag',    label:_isEnCat?'Bag':'가방',                icon:'👜'},
+    {key:'watch',  label:_isEnCat?'Watch':'시계',              icon:'⌚'},
+    {key:'socks',  label:_isEnCat?'Socks':'양말',              icon:'🧦'},
   ];
   // CAT_SUBSTITUTE_MAP과 동일하게 유지 (자켓/코트/패딩/가디건 모두 포함)
   const SUB = {
@@ -5544,11 +5595,14 @@ renderCategories();
     const sumTxt  = document.getElementById('cmpSummaryText');
     if(!body) return;
 
+    const _isEn = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+    const _t = function(ko){ return (_isEn && window._cbI18n && window._cbI18n[ko]) ? window._cbI18n[ko] : ko; };
+
     const ckw = S.categoryKeywords || {};
     const hasAI = S.hasGenerated && Object.keys(ckw).length > 0;
 
     if(!hasAI){
-      body.innerHTML = '<div class="cmp-no-item">AI 코디를 먼저 생성하면 유사도를 분석해드려요.</div>';
+      body.innerHTML = '<div class="cmp-no-item">'+_t('AI 코디를 먼저 생성하면 유사도를 분석해드려요.')+'</div>';
       if(summary) summary.style.display = 'none';
       return;
     }
@@ -5572,7 +5626,7 @@ renderCategories();
         html += `<div class="cmp-row">
           <span class="cmp-icon">${icon}</span>
           <span class="cmp-cat">${escH(label)}</span>
-          <span class="cmp-ai-kws" style="grid-column:3/7;color:rgba(151,254,237,0.35);">${escH(aiText)} — <em style="color:rgba(255,255,255,0.2);">아이템 없음</em></span>
+          <span class="cmp-ai-kws" style="grid-column:3/7;color:rgba(151,254,237,0.35);">${escH(aiText)} — <em style="color:rgba(255,255,255,0.2);">${_t('아이템 없음')}</em></span>
         </div>`;
         return;
       }
@@ -5608,7 +5662,7 @@ renderCategories();
     });
 
     if(!html){
-      body.innerHTML = '<div class="cmp-no-item">카테고리별 AI 추천 키워드가 아직 없어요.</div>';
+      body.innerHTML = '<div class="cmp-no-item">'+_t('카테고리별 AI 추천 키워드가 아직 없어요.')+'</div>';
       if(summary) summary.style.display = 'none';
       return;
     }
@@ -5618,9 +5672,13 @@ renderCategories();
     // 요약
     if(summary && sumTxt && scoredCount > 0){
       const avg = Math.round(totalScore / scoredCount);
-      const msg = avg >= 65 ? `내 옷장이 오늘 AI 추천코디와 ${avg}% 매칭돼요! 지금 바로 입어보세요 ✦`
-                : avg >= 35 ? `평균 ${avg}% 매칭. 부족한 카테고리 아이템을 추가해보세요.`
-                : `평균 ${avg}% 매칭. 아이템을 더 등록하면 정확도가 높아져요.`;
+      const msg = _isEn
+        ? (avg >= 65 ? `Your closet matches ${avg}% with today's AI outfit! Try it on now ✦`
+          : avg >= 35 ? `Average ${avg}% match. Try adding items for missing categories.`
+          : `Average ${avg}% match. Register more items to improve accuracy.`)
+        : (avg >= 65 ? `내 옷장이 오늘 AI 추천코디와 ${avg}% 매칭돼요! 지금 바로 입어보세요 ✦`
+          : avg >= 35 ? `평균 ${avg}% 매칭. 부족한 카테고리 아이템을 추가해보세요.`
+          : `평균 ${avg}% 매칭. 아이템을 더 등록하면 정확도가 높아져요.`);
       sumTxt.textContent = msg;
       summary.style.display = 'flex';
     }
@@ -5632,6 +5690,8 @@ renderCategories();
 
   // 추천코디 생성 시 버튼 활성화
   function _updateClosetBtnState(){
+    var _isEn = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+    var _t = function(ko){ return (_isEn && window._cbI18n && window._cbI18n[ko]) ? window._cbI18n[ko] : ko; };
     var ckw = S.categoryKeywords || {};
     var hasAI = S.hasGenerated && Object.keys(ckw).length > 0;
     var titleEl = btn.querySelector('.ctb-title');
@@ -5639,12 +5699,12 @@ renderCategories();
     if(_analyzed) return; // 이미 분석 완료됨
     if(hasAI){
       btn.classList.add('ctb-ready');
-      if(titleEl) titleEl.textContent = '추천코디와 유사한 아이템 찾기';
-      if(subEl) subEl.textContent = '터치하면 AI가 내 옷장에서 유사 아이템을 찾아드려요';
+      if(titleEl) titleEl.textContent = _t('추천코디와 유사한 아이템 찾기');
+      if(subEl) subEl.textContent = _t('터치하면 AI가 내 옷장에서 유사 아이템을 찾아드려요');
     } else {
       btn.classList.remove('ctb-ready');
-      if(titleEl) titleEl.textContent = '추천코디와 유사한 아이템 찾기';
-      if(subEl) subEl.textContent = 'AI 코디를 먼저 생성해주세요';
+      if(titleEl) titleEl.textContent = _t('추천코디와 유사한 아이템 찾기');
+      if(subEl) subEl.textContent = _t('AI 코디를 먼저 생성해주세요');
     }
   }
   _updateClosetBtnState();
@@ -5663,7 +5723,8 @@ renderCategories();
 
     const titleEl = btn.querySelector('.ctb-title');
     const subEl   = btn.querySelector('.ctb-sub');
-    if(titleEl) titleEl.textContent = '추천코디와 유사한 아이템을 분석했습니다';
+    var _isEn2 = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+    if(titleEl) titleEl.textContent = _isEn2 ? 'Similar items from your closet analyzed' : '추천코디와 유사한 아이템을 분석했습니다';
     if(subEl) subEl.textContent = '';
     buildMatchPanel();
     try{ renderCategories(); }catch(_){}
@@ -5953,6 +6014,14 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
 
 // [2026-04-08] Closet Summary 에디토리얼 렌더링
 function renderClosetSummary(){try{
+var _isEn = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+var _t = function(ko){ return (_isEn && window._cbI18n && window._cbI18n[ko]) ? window._cbI18n[ko] : ko; };
+// 컬러명 영어 매핑
+var _colorEN = {'블랙':'Black','다크 블랙':'Dark Black','그레이':'Gray','다크 그레이':'Dark Gray','라이트 그레이':'Light Gray','차콜':'Charcoal','차콜 그레이':'Charcoal Gray','화이트':'White','오프 화이트':'Off White','아이보리':'Ivory','네이비':'Navy','다크 네이비':'Dark Navy','라이트 블루':'Light Blue','블루':'Blue','스카이 블루':'Sky Blue','베이지':'Beige','라이트 베이지':'Light Beige','브라운':'Brown','다크 브라운':'Dark Brown','라이트 브라운':'Light Brown','브라운 그레이':'Brown Gray','카키':'Khaki','올리브':'Olive','올리브 그린':'Olive Green','카멜':'Camel','레드':'Red','버건디':'Burgundy','핑크':'Pink','오렌지':'Orange','옐로우':'Yellow','그린':'Green','다크 그린':'Dark Green','민트':'Mint','퍼플':'Purple','라벤더':'Lavender','크림':'Cream','와인':'Wine','인디고':'Indigo','데님':'Denim','데님 블루':'Denim Blue','탄':'Tan','머스타드':'Mustard','코랄':'Coral','살몬':'Salmon','터콰이즈':'Turquoise','실버':'Silver','골드':'Gold','검정':'Black','흰색':'White','샌달 브라운':'Sandal Brown','레이진 블랙':'Raisin Black','Tue이트':'Taupe'};
+// 소재명 영어 매핑
+var _matEN = {'면':'Cotton','혼방':'Blend','데님':'Denim','폴리에스터':'Polyester','울':'Wool','캐시미어':'Cashmere','린넨':'Linen','나일론':'Nylon','실크':'Silk','플리스':'Fleece','기모':'Brushed','코튼':'Cotton','레이온':'Rayon','스웨이드':'Suede','가죽':'Leather','합성피혁':'Synthetic Leather','트위드':'Tweed','저지':'Jersey','시폰':'Chiffon','벨벳':'Velvet','코듀로이':'Corduroy','모달':'Modal','텐셀':'Tencel','스판덱스':'Spandex','아크릴':'Acrylic'};
+function _cName(n){ return _isEn ? (_colorEN[n] || n) : n; }
+function _mName(n){ return _isEn ? (_matEN[n] || n) : n; }
 var cats=CodiBank.getCategoriesForUser(user.email)||[];
 var plan=CodiBank.getUserPlan(user.email);
 var planLimit=CodiBank.getPlanLimit(plan);
@@ -5982,35 +6051,37 @@ cats.forEach(function(c){
     if(mat)mat.split(',').forEach(function(m){var t=m.trim();if(t)materialMap[t]=(materialMap[t]||0)+1;});
     var season=(g&&g.season)?g.season:'';
     if(season){if(season.indexOf('봄')>=0)seasonMap.Spring++;if(season.indexOf('여름')>=0)seasonMap.Summer++;if(season.indexOf('가을')>=0)seasonMap.Fall++;if(season.indexOf('겨울')>=0)seasonMap.Winter++;}
-    else if(mat){var ml=mat.toLowerCase();if(/울|캐시미어|플리스|기모|wool/.test(ml)){seasonMap.Winter++;seasonMap.Fall++;}else if(/린넨|면|코튼|linen|cotton/.test(ml)){seasonMap.Spring++;seasonMap.Summer++;}}
+    else if(mat){var ml2=mat.toLowerCase();if(/울|캐시미어|플리스|기모|wool/.test(ml2)){seasonMap.Winter++;seasonMap.Fall++;}else if(/린넨|면|코튼|linen|cotton/.test(ml2)){seasonMap.Spring++;seasonMap.Summer++;}}
   });
 });
 var e;
-e=document.getElementById('csCapacity');if(e)e.textContent=totalItems+' / '+(maxItems>=999?'무제한':maxItems)+' items';
+e=document.getElementById('csCapacity');if(e)e.textContent=totalItems+' / '+(maxItems>=999?(_isEn?'Unlimited':'무제한'):maxItems)+' items';
 e=document.getElementById('csCapBar');if(e)e.style.width=Math.min(100,Math.round(totalItems/Math.max(maxItems,1)*100))+'%';
 e=document.getElementById('csComboNum');if(e)e.textContent=topCount*bottomCount;
+e=document.getElementById('csComboLabel');if(e)e.innerHTML=_isEn?'Outfit<br/>Combinations':'가지<br/>코디 조합';
 e=document.getElementById('csCatOuter');if(e)e.textContent=outerCount;
 e=document.getElementById('csCatTop');if(e)e.textContent=topCount;
 e=document.getElementById('csCatBottom');if(e)e.textContent=bottomCount;
 e=document.getElementById('csCatShoes');if(e)e.textContent=shoesCount;
 e=document.getElementById('csCatEtc');if(e)e.textContent=etcCount;
 e=document.getElementById('csTotalBtn');if(e)e.textContent=totalItems;
-var CH={'블랙':'#111111','다크 블랙':'#000000','그레이':'#808080','다크 그레이':'#4A4A4A','라이트 그레이':'#B0B0B0','차콜':'#36454F','차콜 그레이':'#36454F','화이트':'#F5F5F5','오프 화이트':'#F0EDE5','아이보리':'#FFFFF0','네이비':'#1B2A4A','다크 네이비':'#0D1B2A','라이트 블루':'#7FB3D8','블루':'#2563EB','스카이 블루':'#87CEEB','베이지':'#C8B78E','라이트 베이지':'#D9CEBD','브라운':'#6B4226','다크 브라운':'#3E2723','라이트 브라운':'#A67C52','브라운 그레이':'#7B6B5E','카키':'#6B7B3E','올리브':'#556B2F','올리브 그린':'#556B2F','카멜':'#C19A6B','레드':'#CC2936','버건디':'#800020','핑크':'#EC4899','오렌지':'#EA580C','옐로우':'#EAB308','그린':'#16A34A','다크 그린':'#1B5E20','민트':'#97FEED','퍼플':'#9333EA','라벤더':'#B388FF','크림':'#FFFDD0','와인':'#722F37','인디고':'#3F51B5','데님':'#4A6FA5','데님 블루':'#4A6FA5','탄':'#D2B48C','머스타드':'#FFDB58','코랄':'#FF7F50','살몬':'#FA8072','터콰이즈':'#40E0D0','실버':'#C0C0C0','골드':'#FFD700'};
+var CH={'블랙':'#111111','다크 블랙':'#000000','그레이':'#808080','다크 그레이':'#4A4A4A','라이트 그레이':'#B0B0B0','차콜':'#36454F','차콜 그레이':'#36454F','화이트':'#F5F5F5','오프 화이트':'#F0EDE5','아이보리':'#FFFFF0','네이비':'#1B2A4A','다크 네이비':'#0D1B2A','라이트 블루':'#7FB3D8','블루':'#2563EB','스카이 블루':'#87CEEB','베이지':'#C8B78E','라이트 베이지':'#D9CEBD','브라운':'#6B4226','다크 브라운':'#3E2723','라이트 브라운':'#A67C52','브라운 그레이':'#7B6B5E','카키':'#6B7B3E','올리브':'#556B2F','올리브 그린':'#556B2F','카멜':'#C19A6B','레드':'#CC2936','버건디':'#800020','핑크':'#EC4899','오렌지':'#EA580C','옐로우':'#EAB308','그린':'#16A34A','다크 그린':'#1B5E20','민트':'#97FEED','퍼플':'#9333EA','라벤더':'#B388FF','크림':'#FFFDD0','와인':'#722F37','인디고':'#3F51B5','데님':'#4A6FA5','데님 블루':'#4A6FA5','탄':'#D2B48C','머스타드':'#FFDB58','코랄':'#FF7F50','살몬':'#FA8072','터콰이즈':'#40E0D0','실버':'#C0C0C0','골드':'#FFD700','검정':'#111111','흰색':'#F5F5F5','샌달 브라운':'#8B6914','레이진 블랙':'#242124','Tue이트':'#483C32'};
 function _resolveHex(name){if(CH[name])return CH[name];if(colorMap['_hex_'+name])return colorMap['_hex_'+name];var keys=Object.keys(CH);for(var i=0;i<keys.length;i++){if(name.indexOf(keys[i])>=0)return CH[keys[i]];}return '#777';}
 var cb=document.getElementById('csColorBar'),cl=document.getElementById('csColorList');
 if(cb&&cl){var sc=Object.entries(colorMap).filter(function(x){return x[0].indexOf('_hex_')!==0;}).sort(function(a,b){return b[1]-a[1]});var tt=0;sc.forEach(function(x){tt+=x[1]});if(!tt)tt=1;
 cb.style.height='24px';
-var bh='',lh='';sc.slice(0,6).forEach(function(x){var c=x[0],n=x[1],p=Math.round(n/tt*100),hx=_resolveHex(c);bh+='<div style="width:'+p+'%;height:100%;background:'+hx+';border-right:1px solid rgba(255,255,255,.15);"></div>';lh+='<div class="flex items-center justify-between" style="border-left:3px solid '+hx+';padding-left:10px"><span style="color:#a5c0ff">'+c+'</span><span class="font-bold" style="color:#97feed">'+p+'%</span></div>';});
-cb.innerHTML=bh;cl.innerHTML=lh||'<span style="color:rgba(255,255,255,0.3)">컬러 정보 없음</span>';}
+var bh='',lh='';sc.slice(0,6).forEach(function(x){var c=x[0],n=x[1],p=Math.round(n/tt*100),hx=_resolveHex(c);bh+='<div style="width:'+p+'%;height:100%;background:'+hx+';border-right:1px solid rgba(255,255,255,.15);"></div>';lh+='<div class="flex items-center justify-between" style="border-left:3px solid '+hx+';padding-left:10px"><span style="color:#a5c0ff">'+_cName(c)+'</span><span class="font-bold" style="color:#97feed">'+p+'%</span></div>';});
+cb.innerHTML=bh;cl.innerHTML=lh||'<span style="color:rgba(255,255,255,0.3)">'+_t('컬러 정보 없음')+'</span>';}
 var ml=document.getElementById('csMaterialList');
 if(ml){var sm=Object.entries(materialMap).sort(function(a,b){return b[1]-a[1]}).slice(0,5);var mt=0;sm.forEach(function(x){mt+=x[1]});if(!mt)mt=1;
 var mi=['texture','science','grid_view','auto_awesome','category'],mc=['#97feed','#35a29f','#0b666a','#a5c0ff','#6b7b8d'];var mh='';
-sm.forEach(function(x,i){var m=x[0],n=x[1],p=Math.round(n/mt*100);mh+='<div class="flex items-center justify-between" style="border-left:2px solid '+mc[i%5]+';padding-left:10px"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-sm" style="color:'+mc[i%5]+'">'+mi[i%5]+'</span><span style="color:#a5c0ff">'+m+'</span></div><span class="font-bold" style="color:#97feed">'+p+'% ('+n+')</span></div>';});
-ml.innerHTML=mh||'<span style="color:rgba(255,255,255,0.3)">소재 정보 없음</span>';}
+sm.forEach(function(x,i){var m=x[0],n=x[1],p=Math.round(n/mt*100);mh+='<div class="flex items-center justify-between" style="border-left:2px solid '+mc[i%5]+';padding-left:10px"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-sm" style="color:'+mc[i%5]+'">'+mi[i%5]+'</span><span style="color:#a5c0ff">'+_mName(m)+'</span></div><span class="font-bold" style="color:#97feed">'+p+'% ('+n+')</span></div>';});
+ml.innerHTML=mh||'<span style="color:rgba(255,255,255,0.3)">'+_t('소재 정보 없음')+'</span>';}
 var sl=document.getElementById('csSeasonList');
 if(sl){var mx=Math.max(seasonMap.Spring,seasonMap.Summer,seasonMap.Fall,seasonMap.Winter,1);
-var si={Spring:'filter_drama',Summer:'light_mode',Fall:'eco',Winter:'ac_unit'};var sk={Spring:'봄',Summer:'여름',Fall:'가을',Winter:'겨울'};var sh='';
-['Spring','Summer','Fall','Winter'].forEach(function(s){var n=seasonMap[s],p=Math.round(n/mx*100),a=n>0;var bc=a?'#97feed':'rgba(151,254,237,0.25)',tc=a?'#97feed':'rgba(255,255,255,0.3)',v=a?p+'% ('+n+')':'부족';
+var si={Spring:'filter_drama',Summer:'light_mode',Fall:'eco',Winter:'ac_unit'};var sk=_isEn?{Spring:'Spring',Summer:'Summer',Fall:'Fall',Winter:'Winter'}:{Spring:'봄',Summer:'여름',Fall:'가을',Winter:'겨울'};var sh='';
+var _lack = _isEn ? 'Lacking' : '부족';
+['Spring','Summer','Fall','Winter'].forEach(function(s){var n=seasonMap[s],p=Math.round(n/mx*100),a=n>0;var bc=a?'#97feed':'rgba(151,254,237,0.25)',tc=a?'#97feed':'rgba(255,255,255,0.3)',v=a?p+'% ('+n+')':_lack;
 sh+='<div class="flex items-center justify-between" style="border-left:2px solid '+bc+';padding-left:10px"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-sm" style="color:'+tc+'">'+si[s]+'</span><span style="color:#a5c0ff">'+sk[s]+'</span></div><span class="font-bold" style="color:#97feed">'+v+'</span></div>';});
 sl.innerHTML=sh;}
 }catch(ex){console.warn('[ClosetSummary]',ex);}}
