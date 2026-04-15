@@ -592,13 +592,14 @@ var DICT = {
 // ── 현재 페이지 감지 ──
 function detectPage() {
   var path = location.pathname.toLowerCase();
+  if (path.includes('aicloset'))  return 'aicloset';
   if (path.includes('closet'))    return 'closet';
   if (path.includes('codistyle')) return 'codistyle';
   if (path.includes('camera'))    return 'camera';
   if (path.includes('mypage'))    return 'mypage';
   if (path.includes('profile'))   return 'profile';
   if (path.includes('album'))     return 'album';
-  if (path.includes('item'))      return 'closet';
+  if (path.includes('item'))      return 'item';
   if (path.includes('login'))     return 'login';
   if (path.includes('signup'))    return 'signup';
   if (path.includes('pricing'))   return 'pricing';

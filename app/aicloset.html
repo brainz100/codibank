@@ -101,7 +101,7 @@
     "컬러 정보 없음":       "No color info",
     "소재 정보 없음":       "No material info",
     "부족":                 "Lacking",
-    "추천코디와 유사한 아이템 찾기": "Find Items Similar to Recommended Outfit",
+    "추천코디와 유사한 아이템 찾기": "Find Similar Items",
     "코디쌤에서 생성한 추천코디와 가장 유사한 내 옷을 찾아줍니다":
       "Finds the most similar items in your closet to AI-recommended outfits",
     "터치하면 AI가 내 옷장에서 유사 아이템을 찾아드려요":
@@ -853,12 +853,12 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   pointer-events:none;
 }
 #closetToggleBtn .ctb-title {
-  font-size:20px; font-weight:900; color:#0B666A; letter-spacing:-.02em;
+  font-size:20px; font-weight:900; color:#97FEED; letter-spacing:-.02em;
   transition:color .2s;
 }
 #closetToggleBtn.ctb-on .ctb-title { color:#071952; }
 #closetToggleBtn .ctb-sub {
-  font-size:10px; font-weight:700; color:#0B666A; letter-spacing:.03em; opacity:0.7;
+  font-size:10px; font-weight:700; color:#97FEED; letter-spacing:.03em; opacity:0.55;
   transition:color .2s;
 }
 #closetToggleBtn.ctb-on .ctb-sub { color:rgba(7,25,82,0.5); }
@@ -5341,7 +5341,7 @@ function layerContent(el,item,catKey){
     el.appendChild(ic);
     const tx=document.createElement('div');
     tx.className='layer-ph mt-2';
-    tx.textContent=item?.id?'이미지 없음':'추가';
+    tx.textContent=item?.id?((window.CodiBankI18n&&CodiBankI18n.isEn())?'No image':'이미지 없음'):((window.CodiBankI18n&&CodiBankI18n.isEn())?'Add':'추가');
     el.appendChild(tx);
     return;
   }
@@ -5351,18 +5351,25 @@ function layerContent(el,item,catKey){
   el.appendChild(ph);
   CodiBank.getImageSrc(ref).then(src=>{
     if(el.dataset.renderToken!==rt)return;
-    if(!src){ph.textContent='이미지 없음';return;}
+    if(!src){ph.textContent=(window.CodiBankI18n&&CodiBankI18n.isEn())?'No image':'이미지 없음';return;}
     // ── 카드 하단: 컬러(1줄) + 패턴·소재(2줄), 배경 없이 텍스트만
     const _g = item?.meta?.gemini;
-    const _colorTxt = (_g?.main_color_name || item?.color || '').slice(0,12);
-    const _patternTxt = (_g?.pattern && _g.pattern !== '단색') ? _g.pattern : '';
-    const _materialTxt = _g?.material ? _g.material.split(',')[0].trim().slice(0,8) : '';
+    const _isEnCard = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+    const _rawColor = (_g?.main_color_name || item?.color || '').slice(0,12);
+    const _rawPattern = (_g?.pattern && _g.pattern !== '단색') ? _g.pattern : '';
+    const _rawMaterial = _g?.material ? _g.material.split(',')[0].trim().slice(0,8) : '';
+    // 영어 모드: 컬러명·소재명 번역
+    const _cEN = window._colorEN_card || (window._colorEN_card = {'블랙':'Black','검정':'Black','다크 그레이':'Dark Gray','라이트 그레이':'Light Gray','차콜':'Charcoal','화이트':'White','흰색':'White','오프 화이트':'Off White','아이보리':'Ivory','네이비':'Navy','라이트 블루':'Light Blue','블루':'Blue','베이지':'Beige','브라운':'Brown','다크 브라운':'Dark Brown','라이트 브라운':'Light Brown','카키':'Khaki','올리브':'Olive','카멜':'Camel','레드':'Red','버건디':'Burgundy','핑크':'Pink','오렌지':'Orange','옐로우':'Yellow','그린':'Green','민트':'Mint','퍼플':'Purple','라벤더':'Lavender','크림':'Cream','와인':'Wine','인디고':'Indigo','데님':'Denim','탄':'Tan','머스타드':'Mustard','코랄':'Coral','실버':'Silver','골드':'Gold','샌달 브라운':'Sandal Brown','레이진 블랙':'Raisin Black','Tue이트':'Taupe','다Rain 그레이':'Dark Gray','그레이':'Gray'});
+    const _mEN = window._matEN_card || (window._matEN_card = {'면':'Cotton','혼방':'Blend','데님':'Denim','폴리에스터':'Polyester','울':'Wool','캐시미어':'Cashmere','린넨':'Linen','나일론':'Nylon','실크':'Silk','플리스':'Fleece','기모':'Brushed','코튼':'Cotton','레이온':'Rayon','스웨이드':'Suede','가죽':'Leather','트위드':'Tweed','저지':'Jersey','벨벳':'Velvet','코듀로이':'Corduroy'});
+    const _colorTxt = _isEnCard ? (_cEN[_rawColor] || _rawColor) : _rawColor;
+    const _patternTxt = _rawPattern;
+    const _materialTxt = _isEnCard ? (_mEN[_rawMaterial] || _rawMaterial) : _rawMaterial;
     const _subLine = [_patternTxt, _materialTxt].filter(Boolean).join(' · ').slice(0,16);
 
     el.innerHTML = `<img class="layer-img" alt="아이템" src="${src}" onerror="this.style.display='none'"/>` +
       (_subLine ? `<div class="card-label-sub">${_subLine}</div>` : '') +
       (_colorTxt ? `<div class="card-label">${_colorTxt}</div>` : '');
-  }).catch(function(){ if(el.dataset.renderToken===rt) ph.textContent='이미지 로드 실패'; });
+  }).catch(function(){ if(el.dataset.renderToken===rt) ph.textContent=(window.CodiBankI18n&&CodiBankI18n.isEn())?'Image load failed':'이미지 로드 실패'; });
 }
 function slc(el,n){el.classList.remove('layer-1','layer-2','layer-3','layer-4','layer-5');el.classList.add(`layer-${n}`);}
 function rotL(a){if(!a.length)return a;return a.slice(1).concat(a[0]);}
@@ -5485,28 +5492,39 @@ function buildSection(catMeta,items){
         `<div class="m-adv-sim-bar-wrap"><div class="m-adv-sim-bar" style="width:${barPct}%;background:${barColor};"></div></div>` +
         (itemLabel
           ? `<div class="m-adv-sim-item">› ${escH(itemLabel)}${itemSub}${scoreDetail ? ` <span style="font-size:9px;opacity:0.45;">(${escH(scoreDetail)})</span>` : ''}</div>`
-          : `<div class="m-adv-sim-noitem">등록된 아이템 없음 — 추가해보세요</div>`);
+          : `<div class="m-adv-sim-noitem">${(window.CodiBankI18n&&CodiBankI18n.isEn()) ? 'No items registered — add some!' : '등록된 아이템 없음 — 추가해보세요'}</div>`);
     } else {
-      adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">AI 코디 키워드 없음</span>`;
+    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">${_isEnAdv ? 'No AI outfit keywords' : 'AI 코디 키워드 없음'}</span>`;
     }
   } else if(score0){
     const tip=detail0?`카테고리 ${detail0.catScore}P + 컬러 ${detail0.colorScore}P + 디자인 ${detail0.designScore}P`:'';
-    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt">이 아이템은 추천코디와 매칭점수 <strong style="color:#a2fdf0;">${score0}P</strong>`+(tip?` <span style="font-size:10px;color:rgba(255,255,255,0.4);">(${tip})</span>`:'')+'</span>';
+    const _isEnMatch = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt">${_isEnMatch ? 'This item matches the recommended outfit with a score of' : '이 아이템은 추천코디와 매칭점수'} <strong style="color:#a2fdf0;">${score0}P</strong>`+(tip?` <span style="font-size:10px;color:rgba(255,255,255,0.4);">(${tip})</span>`:'')+'</span>';
   } else if(S.hasGenerated){
-    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">스와이프해서 AI 추천 아이템을 확인하세요</span>`;
+    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">${(window.CodiBankI18n&&CodiBankI18n.isEn()) ? 'Swipe to see AI-recommended items' : '스와이프해서 AI 추천 아이템을 확인하세요'}</span>`;
   } else {
     // 추천코디 없을 때: 아이템 분석 정보 표시
     if(items && items.length > 0) {
       const _gi = items[0]?.meta?.gemini;
       if(_gi && (_gi.pattern || _gi.material || _gi.main_color_name)) {
-        const _info = [_gi.main_color_name, _gi.pattern !== '단색' ? _gi.pattern : '', _gi.material?.split(',')[0]].filter(Boolean).join(' · ');
+        const _isEnAdv = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+        const _cE = window._colorEN_card || {};
+        const _mE = window._matEN_card || {};
+        const _rC = _gi.main_color_name || '';
+        const _rM = _gi.material?.split(',')[0]?.trim() || '';
+        const _rP = (_gi.pattern && _gi.pattern !== '단색') ? _gi.pattern : '';
+        const _info = [
+          _isEnAdv ? (_cE[_rC] || _rC) : _rC,
+          _rP,
+          _isEnAdv ? (_mE[_rM] || _rM) : _rM
+        ].filter(Boolean).join(' · ');
         const _lbl = (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'AI Analysis:' : 'AI분석 :';
         adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">${_lbl}</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">${_info}</span>`;
       } else {
-        adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">← 스와이프로 아이템을 탐색하세요</span>`;
+        adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">${(window.CodiBankI18n&&CodiBankI18n.isEn()) ? '← Swipe to browse items' : '← 스와이프로 아이템을 탐색하세요'}</span>`;
       }
     } else {
-      adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">← 스와이프로 아이템을 탐색하세요</span>`;
+      adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">${(window.CodiBankI18n&&CodiBankI18n.isEn()) ? '← Swipe to browse items' : '← 스와이프로 아이템을 탐색하세요'}</span>`;
     }
   }
   sec.appendChild(adv);
@@ -5744,7 +5762,7 @@ renderCategories();
 // 검색
 function openSearch(){document.getElementById('searchModal')?.classList.remove('hidden');setTimeout(()=>document.getElementById('searchInput')?.focus(),50);}
 function closeSearch(){document.getElementById('searchModal')?.classList.add('hidden');}
-document.getElementById('searchInput')?.addEventListener('input',e=>{const q=String(e.target.value||'').trim().toLowerCase();const resEl=document.getElementById('searchResults');if(!resEl)return;if(!q){resEl.innerHTML='';return;}const hits=(CodiBank.getItemsByUser(user.email)||[]).filter(it=>[it.brand,it.color,it.subColor,it.size,it.note].filter(Boolean).some(v=>String(v).toLowerCase().includes(q))).slice(0,20);if(!hits.length){resEl.innerHTML='<p class="text-sm text-slate-500 text-center py-4">검색 결과가 없어요</p>';return;}resEl.innerHTML=hits.map(it=>{const meta=CodiBank.getCategoryMetaByKey(it.categoryKey||it.category,user.email);return`<a href="item.html?id=${encodeURIComponent(it.id)}" onclick="closeSearch()" class="flex items-center gap-3 py-2.5 border-b border-slate-100 last:border-0"><div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><span class="material-symbols-outlined text-slate-400">checkroom</span></div><div class="flex-1 min-w-0"><p class="text-sm font-bold truncate">${escH(it.brand||'아이템')}</p><p class="text-xs text-slate-500 truncate">${escH(meta?.label||'')} · ${escH(it.color||'')}</p></div></a>`;}).join('');});
+document.getElementById('searchInput')?.addEventListener('input',e=>{const q=String(e.target.value||'').trim().toLowerCase();const resEl=document.getElementById('searchResults');if(!resEl)return;if(!q){resEl.innerHTML='';return;}const hits=(CodiBank.getItemsByUser(user.email)||[]).filter(it=>[it.brand,it.color,it.subColor,it.size,it.note].filter(Boolean).some(v=>String(v).toLowerCase().includes(q))).slice(0,20);if(!hits.length){resEl.innerHTML='<p class="text-sm text-slate-500 text-center py-4">'+((window.CodiBankI18n&&CodiBankI18n.isEn())?'No results found':'검색 결과가 없어요')+'</p>';return;}resEl.innerHTML=hits.map(it=>{const meta=CodiBank.getCategoryMetaByKey(it.categoryKey||it.category,user.email);return`<a href="item.html?id=${encodeURIComponent(it.id)}" onclick="closeSearch()" class="flex items-center gap-3 py-2.5 border-b border-slate-100 last:border-0"><div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><span class="material-symbols-outlined text-slate-400">checkroom</span></div><div class="flex-1 min-w-0"><p class="text-sm font-bold truncate">${escH(it.brand||'아이템')}</p><p class="text-xs text-slate-500 truncate">${escH(meta?.label||'')} · ${escH(it.color||'')}</p></div></a>`;}).join('');});
 
 // 카테고리 선택 모달
 const pickModal=document.getElementById('pickCatModal');

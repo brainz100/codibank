@@ -213,16 +213,34 @@
 
   let currentItem = null;
 
+  // Color/Material translation maps for English mode
+  const _colorEN = {'블랙':'Black','검정':'Black','다크 그레이':'Dark Gray','라이트 그레이':'Light Gray','차콜':'Charcoal','화이트':'White','흰색':'White','오프 화이트':'Off White','아이보리':'Ivory','네이비':'Navy','라이트 블루':'Light Blue','블루':'Blue','베이지':'Beige','브라운':'Brown','다크 브라운':'Dark Brown','라이트 브라운':'Light Brown','카키':'Khaki','올리브':'Olive','카멜':'Camel','레드':'Red','버건디':'Burgundy','핑크':'Pink','오렌지':'Orange','옐로우':'Yellow','그린':'Green','민트':'Mint','퍼플':'Purple','라벤더':'Lavender','크림':'Cream','와인':'Wine','인디고':'Indigo','데님':'Denim','그레이':'Gray','샌달 브라운':'Sandal Brown','레이진 블랙':'Raisin Black','Tue이트':'Taupe','다Rain 그레이':'Dark Gray'};
+  const _matEN = {'면':'Cotton','혼방':'Blend','데님':'Denim','폴리에스터':'Polyester','울':'Wool','캐시미어':'Cashmere','린넨':'Linen','나일론':'Nylon','실크':'Silk','플리스':'Fleece','기모':'Brushed','코튼':'Cotton','레이온':'Rayon','스웨이드':'Suede','가죽':'Leather','트위드':'Tweed','저지':'Jersey','벨벳':'Velvet','코듀로이':'Corduroy','루즈':'Loose','슬림':'Slim','오버핏':'Overfit','레귤러':'Regular','스트레이트':'Straight','와이드':'Wide','크롭':'Crop','수트':'Suit','자켓':'Jacket','코트':'Coat','셔츠':'Shirt','니트':'Knit','가디건':'Cardigan','팬츠':'Pants','스커트':'Skirt','청바지':'Jeans'};
+  function _translateNote(text) {
+    if (!text || !(window.CodiBankI18n && CodiBankI18n.isEn())) return text;
+    let result = text;
+    // Sort by length desc to match longer phrases first
+    const allMap = Object.assign({}, _colorEN, _matEN);
+    const keys = Object.keys(allMap).sort((a,b) => b.length - a.length);
+    keys.forEach(k => {
+      if (result.includes(k)) result = result.split(k).join(allMap[k]);
+    });
+    return result;
+  }
+
   async function renderItem(item) {
     if (!item) return;
+    const _isEn = !!(window.CodiBankI18n && CodiBankI18n.isEn());
 
     const catMeta = CodiBank.getCategoryMetaByKey(item.categoryKey, item.userEmail);
-    const _catNameEl = document.getElementById('categoryName'); if(_catNameEl) _catNameEl.textContent = catMeta?.label || '카테고리';
+    const _catNameEl = document.getElementById('categoryName'); if(_catNameEl) _catNameEl.textContent = catMeta?.label || (_isEn?'Category':'카테고리');
     var _catMeta = window.CodiBank ? CodiBank.getCategoryMetaByKey(item.categoryKey||item.category, user?.email) : null;
-    document.getElementById('itemTitle').textContent = (_catMeta?.label||'아이템') + (item.brand ? ' · '+item.brand : '');
-    document.getElementById('itemBrandTag').style.display = 'none'; // 타이틀과 중복 제거
-    document.getElementById('itemColorTag').textContent = item.color ? item.color : '컬러 미정';
-    // 중복 단어 제거
+    document.getElementById('itemTitle').textContent = (_catMeta?.label||(_isEn?'Item':'아이템')) + (item.brand ? ' \u00b7 '+item.brand : '');
+    document.getElementById('itemBrandTag').style.display = 'none';
+    const _rawColor = item.color || '';
+    document.getElementById('itemColorTag').textContent = _rawColor
+      ? (_isEn ? (_colorEN[_rawColor] || _translateNote(_rawColor)) : _rawColor)
+      : (_isEn ? 'Color TBD' : '컬러 미정');
     function dedupeNote(t) {
       if (!t) return t;
       const seen = new Set();
@@ -231,9 +249,10 @@
         return seen.has(k) ? false : (seen.add(k), true);
       }).join(' ');
     }
-    document.getElementById('itemNote').textContent = (item.note && String(item.note).trim())
+    const _rawNote = (item.note && String(item.note).trim())
       ? dedupeNote(String(item.note).trim())
-      : '아이템 설명이 아직 없습니다. “수정”에서 특징을 추가해보세요.';
+      : (_isEn ? 'No description yet. Add features in "Edit".' : '아이템 설명이 아직 없습니다. “수정”에서 특징을 추가해보세요.');
+    document.getElementById('itemNote').textContent = _isEn ? _translateNote(_rawNote) : _rawNote;
 
     // Images — 메인 이미지 직접 로드
     const main = document.getElementById('mainImage');
@@ -260,7 +279,7 @@
     if(_anSec && _anTxt){
       var _note = item.note || '';
       if(_note && _note.length > 10){
-        _anTxt.textContent = _note;
+        _anTxt.textContent = _isEn ? _translateNote(_note) : _note;
         _anSec.style.display = 'block';
       }
     }
