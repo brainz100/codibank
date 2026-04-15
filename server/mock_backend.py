@@ -5552,6 +5552,7 @@ CREATE POLICY "service_role_all" ON public.user_usage
     })
 
 
+
 # [2026-04-15] 서버 시작 시 R2 상태 즉시 확인 (gunicorn에서도 작동)
 _r2_startup = _get_r2()
 if _r2_startup:
@@ -5562,7 +5563,7 @@ else:
 
 
 # ══════════════════════════════════════════════════════════════
-# [2026-04-15] R2 Storage 진단 + 앨범 이미지 복구 지원
+# [2026-04-15] R2 Storage 진단
 # ══════════════════════════════════════════════════════════════
 @app.get("/admin/debug/r2-status")
 def debug_r2_status():
@@ -5575,12 +5576,10 @@ def debug_r2_status():
         "R2_BUCKET_NAME": os.getenv("R2_BUCKET_NAME", "codibank"),
         "R2_PUBLIC_URL": os.getenv("R2_PUBLIC_URL", "(미설정)"),
     }
-
     r2 = _get_r2()
     r2_connected = r2 is not None
     r2_file_count = 0
     r2_sample_files = []
-
     if r2_connected:
         try:
             resp = r2.list_objects_v2(Bucket=_R2_BUCKET, Prefix="uploads/", MaxKeys=20)
@@ -5590,14 +5589,11 @@ def debug_r2_status():
         except Exception as e:
             r2_file_count = -1
             r2_sample_files = [f"list error: {str(e)[:60]}"]
-
-    # 로컬 파일 현황
     local_files = []
     try:
         local_files = os.listdir(_UPLOAD_DIR)[:10]
     except:
         pass
-
     return jsonify({
         "ok": True,
         "r2_connected": r2_connected,
