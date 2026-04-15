@@ -1879,9 +1879,10 @@ function setGenUiEnabled(enabled){
   if(againBtn){
     const saveBtn  = document.getElementById('saveBtn');
     const shareBtn = document.getElementById('shareBtn');
+    const resetBtn2 = document.getElementById('resetBtn');
     const canGen   = !busy && en && !!S.hasGenerated;
-    // 3개 버튼 동시 활성/비활성
-    [saveBtn, againBtn, shareBtn].forEach(function(btn){
+    // 4개 버튼 동시 활성/비활성
+    [saveBtn, againBtn, shareBtn, resetBtn2].forEach(function(btn){
       if(!btn) return;
       btn.disabled = !canGen;
       if(canGen){
@@ -4224,6 +4225,16 @@ async function updateVTO(opts={}){
 
   setVtoState('ready');
   S.hasGenerated = true;
+  // [2026-04-15] ai옷장 '유사 아이템 찾기' 버튼 활성화 브릿지
+  try {
+    var _ckw = S.categoryKeywords || {};
+    localStorage.setItem('cb_codi_generated', JSON.stringify({
+      ts: Date.now(),
+      hasGenerated: true,
+      categoryKeywords: _ckw,
+      img: S.img || ''
+    }));
+  } catch(_e) { console.warn('[bridge] save fail', _e); }
   try{ updateAiCallBtn(); }catch(_){} // ← 완료: done(teal) 상태로
   try{ setGenUiEnabled(canGenerateNow()); }catch(_){} // 다시코디 버튼 활성화
   // ✅ 생성 완료 상태 sessionStorage에 저장 (페이지 이탈 후 복귀 시 복원용)

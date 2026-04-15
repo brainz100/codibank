@@ -867,23 +867,29 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   opacity:0.55;
   pointer-events:none;
 }
-/* 활성화(추천코디 생성됨): 메인컬러 배경+흰텍스트 */
+/* 활성화(추천코디 생성됨): #0B666A 배경 + #97FEED 텍스트 + 네온 효과 */
 #closetToggleBtn.ctb-ready {
   background:#0B666A;
   border-color:#97FEED;
   opacity:1;
   pointer-events:auto;
   cursor:pointer;
+  box-shadow:0 0 15px rgba(151,254,237,0.3), 0 0 40px rgba(151,254,237,0.1);
+  animation:neonPulse 2s ease-in-out infinite;
+}
+@keyframes neonPulse {
+  0%,100% { box-shadow:0 0 15px rgba(151,254,237,0.3), 0 0 40px rgba(151,254,237,0.1); }
+  50% { box-shadow:0 0 25px rgba(151,254,237,0.5), 0 0 60px rgba(151,254,237,0.2); }
 }
 #closetToggleBtn.ctb-ready .ctb-title {
-  color:#ffffff;
-  background:linear-gradient(90deg,#FF6B6B,#FFA94D,#FFD43B,#69DB7C,#4DABF7,#9775FA,#DA77F2,#FF6B6B);
-  background-size:200% auto;
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-  animation:rainbowShift 2.5s linear infinite;
+  color:#97FEED;
+  text-shadow:0 0 10px rgba(151,254,237,0.5), 0 0 20px rgba(151,254,237,0.3);
+  -webkit-background-clip:initial;
+  -webkit-text-fill-color:#97FEED;
+  background:none;
+  animation:none;
 }
-#closetToggleBtn.ctb-ready .ctb-sub { color:rgba(255,255,255,0.7); }
+#closetToggleBtn.ctb-ready .ctb-sub { color:rgba(151,254,237,0.7); }
 @keyframes rainbowShift {
   0% { background-position:0% center; }
   100% { background-position:200% center; }
@@ -903,7 +909,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 }
 #closetToggleBtn.ctb-on .ctb-title { color:#071952; }
 #closetToggleBtn .ctb-sub {
-  font-size:10px; font-weight:700; color:#97FEED; letter-spacing:.03em; opacity:0.55;
+  font-size:10px; font-weight:700; color:rgba(255,255,255,0.7); letter-spacing:.03em; opacity:1;
   transition:color .2s;
 }
 #closetToggleBtn.ctb-on .ctb-sub { color:rgba(7,25,82,0.5); }
@@ -5757,17 +5763,39 @@ renderCategories();
     var _t = function(ko){ return (_isEn && window._cbI18n && window._cbI18n[ko]) ? window._cbI18n[ko] : ko; };
     var ckw = S.categoryKeywords || {};
     var hasAI = S.hasGenerated && Object.keys(ckw).length > 0;
+
+    // [2026-04-15] 코디쌤 → ai옷장 브릿지: localStorage에서 생성 상태 읽기
+    if(!hasAI){
+      try{
+        var _bd = JSON.parse(localStorage.getItem('cb_codi_generated')||'{}');
+        if(_bd.hasGenerated && _bd.categoryKeywords && Object.keys(_bd.categoryKeywords).length > 0){
+          // 24시간 이내 생성된 것만 유효
+          if(Date.now() - (_bd.ts||0) < 86400000){
+            S.hasGenerated = true;
+            S.categoryKeywords = _bd.categoryKeywords;
+            if(_bd.img) S.img = _bd.img;
+            ckw = _bd.categoryKeywords;
+            hasAI = true;
+          }
+        }
+      }catch(_){}
+    }
+
     var titleEl = btn.querySelector('.ctb-title');
     var subEl = btn.querySelector('.ctb-sub');
-    if(_analyzed) return; // 이미 분석 완료됨
+    if(_analyzed) return;
     if(hasAI){
       btn.classList.add('ctb-ready');
-      if(titleEl) titleEl.textContent = _t('추천코디와 유사한 아이템 찾기');
-      if(subEl) subEl.textContent = _t('터치하면 AI가 내 옷장에서 유사 아이템을 찾아드려요');
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+      if(titleEl) titleEl.textContent = _isEn ? 'Find Similar Items' : '유사한 아이템 찾기';
+      if(subEl) subEl.textContent = _isEn ? 'Tap to find similar items in your closet' : '터치하면 AI가 내 옷장에서 유사 아이템을 찾아드려요';
     } else {
       btn.classList.remove('ctb-ready');
-      if(titleEl) titleEl.textContent = _t('추천코디와 유사한 아이템 찾기');
-      if(subEl) subEl.textContent = _t('AI 코디를 먼저 생성해주세요');
+      btn.style.opacity = '0.55';
+      btn.style.pointerEvents = 'none';
+      if(titleEl) titleEl.textContent = _isEn ? 'Find Similar Items' : '유사한 아이템 찾기';
+      if(subEl) subEl.textContent = _isEn ? 'Please generate a recommended outfit from Outfit AI first' : '먼저 코디쌤에서 추천코디를 생성하세요';
     }
   }
   _updateClosetBtnState();
