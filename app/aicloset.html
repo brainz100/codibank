@@ -106,6 +106,7 @@
     "추천코디 대기 중":     "No outfit yet",
     "이전 추천코디":        "Previous Outfit",
     "AI 비전 분석":          "AI Vision Analysis",
+    "AI 추천 스타일링 분석": "AI Recommended Style Analysis",
     "AI 추천 스타일링":     "AI Recommended Style",
     "코디쌤에서 생성된 추천코디의 AI 분석 결과가 여기에 표시됩니다.":
       "AI analysis from Outfit AI will appear here.",
@@ -1239,8 +1240,8 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
               box-shadow:0 8px 24px rgba(0,0,0,0.4);
             " onmouseover="this.style.background='rgba(0,2,46,0.9)';this.style.borderColor='rgba(255,255,255,0.25)';" onmouseout="this.style.background='rgba(0,2,46,0.75)';this.style.borderColor='rgba(255,255,255,0.15)';">
               <div style="display:flex; align-items:center; gap:10px;">
-                <span class="material-symbols-outlined" style="font-size:14px; color:rgba(255,255,255,0.7); font-weight:300;">arrow_back_ios_new</span>
-                <span id="codiRecCycleLabel" style="font-size:10px; font-weight:700; letter-spacing:0.2em; color:rgba(255,255,255,0.9); text-transform:uppercase;" data-i18n="이전 추천코디">이전 추천코디</span>
+                <span class="material-symbols-outlined" style="font-size:18px; color:#ffffff; font-weight:600;">arrow_back_ios_new</span>
+                <span id="codiRecCycleLabel" style="font-size:13px; font-weight:900; letter-spacing:0.1em; color:#ffffff;" data-i18n="이전 추천코디">이전 추천코디</span>
               </div>
               <div id="codiRecCycleDot" style="width:6px; height:6px; border-radius:50%; background:rgba(64,224,208,0.6);"></div>
             </button>
@@ -1250,7 +1251,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         <!-- [2] AI Vision Analysis 섹션 -->
         <section class="cri-dim" style="width:100%; padding:30px 22px 18px; display:flex; flex-direction:column; gap:14px; transition:opacity .3s;">
           <header>
-            <span style="display:block; color:#40e0d0; font-weight:800; font-size:11px; letter-spacing:0.3em; text-transform:uppercase; margin-bottom:10px;" data-i18n="AI 비전 분석">AI 비전 분석</span>
+            <span style="display:block; color:#40e0d0; font-weight:800; font-size:11px; letter-spacing:0.3em; text-transform:uppercase; margin-bottom:10px;" data-i18n="AI 추천 스타일링 분석">AI 추천 스타일링 분석</span>
             <h2 id="codiRecTitle" style="color:#e0f2f1; font-weight:800; font-size:26px; letter-spacing:-0.02em; line-height:1.15; margin:0;" data-i18n="AI 추천 스타일링">AI 추천 스타일링</h2>
             <p id="codiRecDesc" style="margin-top:12px; color:#80cbc4; font-size:12px; line-height:1.6; font-weight:400;" data-i18n="코디쌤에서 생성된 추천코디의 AI 분석 결과가 여기에 표시됩니다.">코디쌤에서 생성된 추천코디의 AI 분석 결과가 여기에 표시됩니다.</p>
           </header>
@@ -1288,16 +1289,16 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             <button id="closetToggleBtn" type="button" style="
               width:100%; position:relative; overflow:hidden;
               background:linear-gradient(90deg, #114b5f 0%, #32a097 100%);
-              color:#e0f2f1; padding:16px 20px; border-radius:12px; border:none;
+              color:#e0f2f1; padding:21px 20px; border-radius:12px; border:none;
               font-family:'Manrope','Outfit','Noto Sans KR',sans-serif;
-              font-weight:700; font-size:13px; letter-spacing:0.08em;
+              font-weight:700; font-size:14px; letter-spacing:0.08em;
               cursor:default; pointer-events:none; opacity:0.5;
               box-shadow:0 20px 40px rgba(0,0,0,0.4);
               transition:background .25s ease, color .25s ease, opacity .3s, filter .3s, transform .1s;
               display:flex; flex-direction:row; flex-wrap:nowrap; align-items:center; justify-content:center; gap:8px;
               text-transform:none; line-height:1; white-space:nowrap;
             ">
-              <span class="material-symbols-outlined" style="font-size:18px; line-height:1; flex-shrink:0; vertical-align:middle;">search</span>
+              <span class="material-symbols-outlined" style="font-size:20px; line-height:1; flex-shrink:0; vertical-align:middle;">search</span>
               <span class="ctb-title" style="line-height:1; white-space:nowrap; vertical-align:middle;" data-i18n="유사한 아이템 찾기">유사한 아이템 찾기</span>
             </button>
           </div>
@@ -1311,6 +1312,8 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
       </div>
       <style>
+        /* [2026-04-16] 카테고리 카드 30% 투명도 적용 */
+        #codiRecommendBox .cri-card{ opacity:0.3; }
         /* 비활성: 설명/카드 영역만 살짝 흐리게. 이미지는 항상 선명. */
         #codiRecommendBox:not(.cri-active) .cri-dim{ opacity:0.55; }
         #codiRecommendBox.cri-active .cri-dim{ opacity:1; }
@@ -5907,16 +5910,19 @@ renderCategories();
 
   // 다른 코디 순환
   window._cycleCodiRec = function(){
-    if(_codiHist.length < 2) return;
-    _codiHistIdx = (_codiHistIdx + 1) % _codiHist.length;
-    // 키워드 변경 시 분석 리셋
-    if(_analyzed){
-      _analyzed = false; isOn = false;
-      var _p2 = document.getElementById('closetMatchPanel');
-      if(_p2) _p2.classList.remove('cmp-open');
-      var _bx2 = document.getElementById('codiRecommendBox');
-      if(_bx2) _bx2.classList.remove('cri-analyzed');
+    console.log('[cycle] called — hist length:', _codiHist.length, 'idx:', _codiHistIdx);
+    if(_codiHist.length < 2){
+      console.warn('[cycle] need 2+ history entries');
+      return;
     }
+    _codiHistIdx = (_codiHistIdx + 1) % _codiHist.length;
+    console.log('[cycle] new idx:', _codiHistIdx);
+    // 코디 변경 시 분석 상태 전면 리셋
+    _analyzed = false; isOn = false;
+    var _p2 = document.getElementById('closetMatchPanel');
+    if(_p2) _p2.classList.remove('cmp-open');
+    var _bx2 = document.getElementById('codiRecommendBox');
+    if(_bx2) _bx2.classList.remove('cri-analyzed');
     _renderCodiRecBox();
   };
 
@@ -5978,7 +5984,7 @@ renderCategories();
         chipsHtml = '<div style="padding-top:6px;"><span style="color:rgba(128,203,196,0.35); font-size:10.5px;">—</span></div>';
       }
       return (
-        '<div class="cri-card" style="background:rgba(18,32,58,0.4); border:1px solid rgba(26,42,68,0.5); padding:12px; border-radius:12px; display:flex; flex-direction:column; gap:4px;">'
+        '<div class="cri-card" style="background:rgba(18,32,58,0.4); border:1px solid rgba(26,42,68,0.5); padding:12px; border-radius:12px; display:flex; flex-direction:column; gap:4px; opacity:0.3;">'
         + '<span style="color:#e0f2f1; font-weight:700; font-size:13px; letter-spacing:0.05em;">'+label+'</span>'
         + '<div style="border-top:1px solid rgba(26,42,68,0.6); margin-top:2px;">'
         + chipsHtml
@@ -6000,47 +6006,29 @@ renderCategories();
         imgInner.innerHTML = '<img src="'+entry.img+'" decoding="async" style="width:100%;height:100%;object-fit:contain;image-rendering:auto;" onerror="this.parentElement.innerHTML=\'\'" />';
       }
 
-      // 이전 추천코디 버튼 (1개라도 있으면 표시)
+      // 이전 추천코디 버튼 — 2개 이상일 때만 표시/활성화
       if(cycleBtn){
-        cycleBtn.style.display = 'flex';
         if(_codiHist.length > 1){
+          cycleBtn.style.display = 'flex';
           if(cycleLbl) cycleLbl.textContent = (_isEn ? 'Previous Outfit' : '이전 추천코디') + ' ('+(_codiHistIdx+1)+'/'+_codiHist.length+')';
           cycleBtn.style.pointerEvents = 'auto';
           cycleBtn.style.opacity = '1';
+          cycleBtn.style.cursor = 'pointer';
         } else {
-          if(cycleLbl) cycleLbl.textContent = (_isEn ? 'Previous Outfit' : '이전 추천코디');
-          cycleBtn.style.pointerEvents = 'none';
-          cycleBtn.style.opacity = '0.5';
+          // 히스토리 1개 이하면 버튼 자체를 숨김
+          cycleBtn.style.display = 'none';
         }
       }
 
-      // 타이틀
+      // 타이틀 — 스타일리스트 이름 노출 안 함
       if(titleEl){
         var _purp = entry.purpose || '';
-        var _sty = entry.stylistName || '';
-        if(_purp) titleEl.textContent = _purp + (_sty ? ' — '+_sty : '');
+        if(_purp) titleEl.textContent = _purp;
         else titleEl.textContent = _isEn ? 'AI Recommended Style' : 'AI 추천 스타일링';
       }
 
-      // 설명
-      if(descEl){
-        var ckw = entry.categoryKeywords || {};
-        var _totalKw = 0;
-        Object.keys(ckw).forEach(function(k){
-          var v = ckw[k];
-          if(Array.isArray(v)) _totalKw += v.length;
-          else if(typeof v === 'string' && v) _totalKw++;
-        });
-        if(_totalKw > 0){
-          descEl.textContent = _isEn
-            ? ('AI analyzed this outfit across '+_totalKw+' key style attributes. Tap below to find matching items from your closet.')
-            : ('AI가 이 코디를 '+_totalKw+'개의 핵심 스타일 속성으로 분석했습니다. 아래 버튼을 눌러 내 옷장에서 유사 아이템을 찾아보세요.');
-        } else {
-          descEl.textContent = _isEn
-            ? 'AI analysis detects textures, colors, and silhouettes from the recommended outfit. Tap below to find matching items in your closet.'
-            : '추천코디의 질감, 컬러, 실루엣을 AI가 분석합니다. 아래 버튼을 눌러 내 옷장에서 유사 아이템을 찾아보세요.';
-        }
-      }
+      // 설명 — 요청에 따라 숨김
+      if(descEl){ descEl.style.display = 'none'; }
 
       // 2x2 카테고리 그리드
       if(kwBox){
@@ -6072,9 +6060,8 @@ renderCategories();
       }
       if(cycleBtn) cycleBtn.style.display = 'none';
       if(titleEl) titleEl.textContent = _isEn ? 'AI Recommended Style' : 'AI 추천 스타일링';
-      if(descEl) descEl.textContent = _isEn
-        ? 'Generate an outfit from Outfit AI first. The AI analysis will appear here.'
-        : '먼저 코디쌤에서 추천코디를 생성하세요. AI 분석 결과가 여기에 표시됩니다.';
+      // 설명 — 요청에 따라 숨김
+      if(descEl) descEl.style.display = 'none';
       if(kwBox){
         kwBox.innerHTML =
           _renderCard('outer', {}) +
@@ -6094,9 +6081,18 @@ renderCategories();
 
   btn.addEventListener('click', ()=>{
     if(_analyzed) return;
-    var ckw = S.categoryKeywords || {};
-    var hasAI = S.hasGenerated && Object.keys(ckw).length > 0;
-    if(!hasAI) return;
+    // [2026-04-16] 현재 히스토리 엔트리에서 직접 읽음 — S.categoryKeywords가 동기화 안 됐을 수 있음
+    var entry = _codiHist[_codiHistIdx] || null;
+    var ckw = (entry && entry.categoryKeywords) || S.categoryKeywords || {};
+    var hasAI = !!entry && Object.keys(ckw).length > 0;
+    if(!hasAI){
+      console.warn('[find-similar] no AI data — entry:', entry, 'ckw keys:', Object.keys(ckw));
+      return;
+    }
+
+    // S 상태 동기화 (buildMatchPanel 등 다른 곳이 참조)
+    S.hasGenerated = true;
+    S.categoryKeywords = ckw;
 
     _analyzed = true;
     isOn = true;
@@ -6108,8 +6104,14 @@ renderCategories();
     if(_box2) _box2.classList.add('cri-analyzed');
     var _tEl3 = btn.querySelector('.ctb-title');
     if(_tEl3) _tEl3.textContent = _isEn2 ? 'Analysis Complete' : '분석 완료';
-    buildMatchPanel();
+    try{ buildMatchPanel(); }catch(e){ console.error('[buildMatchPanel]', e); }
     try{ renderCategories(); }catch(_){}
+
+    // 패널까지 스크롤
+    setTimeout(function(){
+      var _panelEl = document.getElementById('closetMatchPanel');
+      if(_panelEl && _panelEl.scrollIntoView) _panelEl.scrollIntoView({behavior:'smooth', block:'start'});
+    }, 120);
   });
 
   // 외부에서 호출 가능하도록 등록 (AI 생성 완료 후 패널 갱신) — IDB 비동기
