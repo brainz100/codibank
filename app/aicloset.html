@@ -1258,21 +1258,21 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
           <!-- [3] 2x2 카테고리 카드 그리드 -->
           <div id="codiRecKeywords" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:6px;">
-            <div class="cri-card" style="background:#35A29F; border:1px solid rgba(151,254,237,0.25); padding:12px 14px; border-radius:12px; display:flex; flex-direction:column; gap:4px;">
+            <div class="cri-card" style="background:transparent; border:1px solid rgba(151,254,237,0.25); padding:12px 14px; border-radius:12px; display:flex; flex-direction:column;">
               <span style="color:#97FEED; font-weight:800; font-size:13px;" data-i18n="아우터">아우터</span>
-              <div style="padding-top:6px; border-top:1px solid rgba(151,254,237,0.15);"><span style="color:rgba(151,254,237,0.3); font-size:10.5px;">—</span></div>
+              <div style="margin-top:6px;"><span style="color:rgba(151,254,237,0.3); font-size:10.5px;">—</span></div>
             </div>
-            <div class="cri-card" style="background:#35A29F; border:1px solid rgba(151,254,237,0.25); padding:12px 14px; border-radius:12px; display:flex; flex-direction:column; gap:4px;">
+            <div class="cri-card" style="background:transparent; border:1px solid rgba(151,254,237,0.25); padding:12px 14px; border-radius:12px; display:flex; flex-direction:column;">
               <span style="color:#97FEED; font-weight:800; font-size:13px;" data-i18n="상의">상의</span>
-              <div style="padding-top:6px; border-top:1px solid rgba(151,254,237,0.15);"><span style="color:rgba(151,254,237,0.3); font-size:10.5px;">—</span></div>
+              <div style="margin-top:6px;"><span style="color:rgba(151,254,237,0.3); font-size:10.5px;">—</span></div>
             </div>
-            <div class="cri-card" style="background:#35A29F; border:1px solid rgba(151,254,237,0.25); padding:12px 14px; border-radius:12px; display:flex; flex-direction:column; gap:4px;">
+            <div class="cri-card" style="background:transparent; border:1px solid rgba(151,254,237,0.25); padding:12px 14px; border-radius:12px; display:flex; flex-direction:column;">
               <span style="color:#97FEED; font-weight:800; font-size:13px;" data-i18n="하의">하의</span>
-              <div style="padding-top:6px; border-top:1px solid rgba(151,254,237,0.15);"><span style="color:rgba(151,254,237,0.3); font-size:10.5px;">—</span></div>
+              <div style="margin-top:6px;"><span style="color:rgba(151,254,237,0.3); font-size:10.5px;">—</span></div>
             </div>
-            <div class="cri-card" style="background:#35A29F; border:1px solid rgba(151,254,237,0.25); padding:12px 14px; border-radius:12px; display:flex; flex-direction:column; gap:4px;">
+            <div class="cri-card" style="background:transparent; border:1px solid rgba(151,254,237,0.25); padding:12px 14px; border-radius:12px; display:flex; flex-direction:column;">
               <span style="color:#97FEED; font-weight:800; font-size:13px;" data-i18n="액세서리">액세서리</span>
-              <div style="padding-top:6px; border-top:1px solid rgba(151,254,237,0.15);"><span style="color:rgba(151,254,237,0.3); font-size:10.5px;">—</span></div>
+              <div style="margin-top:6px;"><span style="color:rgba(151,254,237,0.3); font-size:10.5px;">—</span></div>
             </div>
           </div>
 
@@ -3152,8 +3152,8 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const _cCat = (koColor, itemKo) => {
     const color = String(koColor || '').trim();
     const item  = String(itemKo  || '').trim();
-    // [2026-04-16] "아이템 - 컬러" 형식으로 표시 (예: 가디건 - 세이지 그린)
-    if(color && item) return item + ' - ' + color;
+    // [2026-04-17] "아이템 : 컬러" 형식으로 표시 (예: 가디건 : 세이지 그린)
+    if(color && item) return item + ' : ' + color;
     if(item)          return item;
     if(color)         return color;
     return null;
@@ -5960,26 +5960,23 @@ renderCategories();
         if(typeof v === 'string') v = v.split(/[,/;]+/).map(function(s){return s.trim();}).filter(Boolean);
         if(Array.isArray(v)) vals = vals.concat(v);
       });
-      // 중복 제거 + 최대 5개
       var seen = {};
       vals = vals.filter(function(s){ if(!s) return false; var k=String(s).trim(); if(!k||seen[k]) return false; seen[k]=1; return true; }).slice(0,5);
       var label = _isEn ? CAT_LABEL_EN[groupKey] : CAT_LABEL_KO[groupKey];
       var chipsHtml;
       if(vals.length){
-        chipsHtml = '<div style="display:flex; flex-wrap:wrap; gap:5px; padding-top:6px;">'
+        chipsHtml = '<div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:6px;">'
           + vals.map(function(kw){
               return '<span style="display:inline-block; padding:4px 10px; background:rgba(0,2,46,0.35); border:1px solid rgba(151,254,237,0.2); border-radius:9999px; color:#97FEED; font-size:10.5px; font-weight:600; line-height:1.3; white-space:nowrap;">'+kw+'</span>';
             }).join('')
           + '</div>';
       } else {
-        chipsHtml = '<div style="padding-top:6px;"><span style="color:rgba(151,254,237,0.3); font-size:10.5px;">—</span></div>';
+        chipsHtml = '<div style="margin-top:6px;"><span style="color:rgba(151,254,237,0.3); font-size:10.5px;">—</span></div>';
       }
       return (
-        '<div class="cri-card" style="background:#35A29F; border:1px solid rgba(151,254,237,0.25); padding:12px 14px; border-radius:12px; display:flex; flex-direction:column; gap:4px;">'
+        '<div class="cri-card" style="background:transparent; border:1px solid rgba(151,254,237,0.25); padding:12px 14px; border-radius:12px; display:flex; flex-direction:column;">'
         + '<span style="color:#97FEED; font-weight:800; font-size:13px; letter-spacing:0.04em;">'+label+'</span>'
-        + '<div style="border-top:1px solid rgba(151,254,237,0.15); margin-top:2px;">'
         + chipsHtml
-        + '</div>'
         + '</div>'
       );
     }
@@ -5997,17 +5994,19 @@ renderCategories();
         imgInner.innerHTML = '<img src="'+entry.img+'" decoding="async" style="width:100%;height:100%;object-fit:contain;image-rendering:auto;" onerror="this.parentElement.innerHTML=\'\'" />';
       }
 
-      // 이전 추천코디 버튼 — 2개 이상일 때만 표시/활성화
+      // 이전 추천코디 버튼 — hasAI이면 항상 표시, 2개 이상이면 활성화
       if(cycleBtn){
+        cycleBtn.style.display = 'flex';
         if(_codiHist.length > 1){
-          cycleBtn.style.display = 'flex';
           if(cycleLbl) cycleLbl.textContent = (_isEn ? 'Previous Outfit' : '이전 추천코디') + ' ('+(_codiHistIdx+1)+'/'+_codiHist.length+')';
           cycleBtn.style.pointerEvents = 'auto';
           cycleBtn.style.opacity = '1';
           cycleBtn.style.cursor = 'pointer';
         } else {
-          // 히스토리 1개 이하면 버튼 자체를 숨김
-          cycleBtn.style.display = 'none';
+          if(cycleLbl) cycleLbl.textContent = (_isEn ? 'Previous Outfit' : '이전 추천코디');
+          cycleBtn.style.pointerEvents = 'none';
+          cycleBtn.style.opacity = '0.4';
+          cycleBtn.style.cursor = 'default';
         }
       }
 
@@ -6020,8 +6019,7 @@ renderCategories();
         var _hh = _d.getHours();
         var _mi = String(_d.getMinutes()).padStart(2,'0');
         var _ampm = _hh >= 12 ? 'PM' : 'AM';
-        var _hh12 = _hh > 12 ? _hh : (_hh === 0 ? 12 : _hh);
-        var _hhStr = String(_hh12).padStart(2,'0');
+        var _hhStr = String(_hh).padStart(2,'0');
         dateLblEl.textContent = (_isEn ? 'Outfit AI : ' : '코디쌤 추천코디 : ') + _yyyy+'.'+_mm+'.'+_dd+'  '+_ampm+' '+_hhStr+':'+_mi;
       } else if(dateLblEl){
         dateLblEl.textContent = _isEn ? 'Outfit AI' : '코디쌤 추천코디';
