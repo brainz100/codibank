@@ -1350,12 +1350,12 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
               font-weight:700; font-size:13px; letter-spacing:0.15em;
               cursor:default; pointer-events:none; opacity:0.5;
               box-shadow:0 20px 40px rgba(0,0,0,0.4);
-              transition:opacity .3s, filter .3s, transform .1s;
-              display:flex; align-items:center; justify-content:center; gap:10px;
-              text-transform:uppercase;
+              transition:background .25s ease, color .25s ease, opacity .3s, filter .3s, transform .1s;
+              display:inline-flex; align-items:center; justify-content:center; gap:8px;
+              text-transform:uppercase; line-height:1;
             ">
-              <span class="ctb-title" data-i18n="유사한 아이템 찾기">유사한 아이템 찾기</span>
-              <span class="material-symbols-outlined" style="font-size:18px;">search</span>
+              <span class="material-symbols-outlined" style="font-size:18px; line-height:1; display:inline-flex; align-items:center; flex-shrink:0;">search</span>
+              <span class="ctb-title" style="line-height:1;" data-i18n="유사한 아이템 찾기">유사한 아이템 찾기</span>
             </button>
           </div>
 
@@ -1371,11 +1371,28 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         /* 비활성: 설명/카드 영역만 살짝 흐리게. 이미지는 항상 선명. */
         #codiRecommendBox:not(.cri-active) .cri-dim{ opacity:0.55; }
         #codiRecommendBox.cri-active .cri-dim{ opacity:1; }
-        #codiRecommendBox.cri-active #closetToggleBtn{ opacity:1; pointer-events:auto; cursor:pointer; }
+        #codiRecommendBox.cri-active #closetToggleBtn{
+          opacity:1; pointer-events:auto; cursor:pointer;
+          background:#0B666A !important;
+          color:#97FEED !important;
+          box-shadow:0 12px 28px rgba(11,102,106,0.35), 0 0 0 1px rgba(151,254,237,0.15) inset !important;
+        }
+        #codiRecommendBox.cri-active #closetToggleBtn .material-symbols-outlined,
+        #codiRecommendBox.cri-active #closetToggleBtn .ctb-title{
+          color:#97FEED !important;
+        }
+        #codiRecommendBox.cri-active #closetToggleBtn:hover{
+          background:#0d7a7e !important;
+        }
         #codiRecommendBox.cri-active #closetToggleBtn:active{ transform:scale(0.97); }
         #codiRecommendBox.cri-analyzed #closetToggleBtn{
           background:rgba(18,32,58,0.4) !important; opacity:0.55 !important;
           pointer-events:none !important; cursor:default !important;
+          color:#e0f2f1 !important;
+        }
+        #codiRecommendBox.cri-analyzed #closetToggleBtn .material-symbols-outlined,
+        #codiRecommendBox.cri-analyzed #closetToggleBtn .ctb-title{
+          color:#e0f2f1 !important;
         }
       </style>
       </div>
@@ -5876,25 +5893,74 @@ renderCategories();
   let isOn = false;
   let _analyzed = false;
 
-  // 추천코디 히스토리 + 박스 업데이트
+  // 추천코디 히스토리 + 박스 업데이트 — [2026-04-16] IndexedDB 기반
   var _codiHist = [];
   var _codiHistIdx = 0;
-  function _loadCodiHistory(){
-    try{ _codiHist = JSON.parse(localStorage.getItem('cb_codi_history')||'[]'); }catch(_){ _codiHist=[]; }
-    if(!Array.isArray(_codiHist)) _codiHist = [];
-    // 24시간 이내만
-    var now = Date.now();
-    _codiHist = _codiHist.filter(function(e){ return now - (e.ts||0) < 86400000; });
-    // 단일 엔트리 폴백
-    if(!_codiHist.length){
-      try{
-        var _bd = JSON.parse(localStorage.getItem('cb_codi_generated')||'{}');
-        if(_bd.hasGenerated && _bd.img) _codiHist = [_bd];
-      }catch(_){}
+
+  // IndexedDB 헬퍼 (closet.html 브릿지와 동일 스펙)
+  var _cbIDB = (function(){
+    var DB_NAME='codibank', STORE='codi_history', DB_VER=1;
+    function openDB(){
+      return new Promise(function(resolve,reject){
+        var req = indexedDB.open(DB_NAME, DB_VER);
+        req.onupgradeneeded = function(e){
+          var db = e.target.result;
+          if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, {keyPath:'ts'});
+        };
+        req.onsuccess = function(){ resolve(req.result); };
+        req.onerror = function(){ reject(req.error); };
+      });
     }
-    _codiHistIdx = 0;
+    return {
+      getAll: function(){
+        return openDB().then(function(db){
+          return new Promise(function(resolve,reject){
+            var tx = db.transaction(STORE,'readonly');
+            var req = tx.objectStore(STORE).getAll();
+            req.onsuccess = function(){ resolve(req.result||[]); };
+            req.onerror = function(){ reject(req.error); };
+          });
+        });
+      }
+    };
+  })();
+
+  function _loadCodiHistory(cb){
+    _cbIDB.getAll().then(function(all){
+      if(!Array.isArray(all)) all = [];
+      all.sort(function(a,b){ return (b.ts||0) - (a.ts||0); });
+      var now = Date.now();
+      _codiHist = all.filter(function(e){ return now - (e.ts||0) < 86400000; }).slice(0,5);
+
+      // 폴백: IDB가 비어있으면 기존 localStorage 확인 (이전 버전 사용자용)
+      if(!_codiHist.length){
+        try{
+          var legacy = JSON.parse(localStorage.getItem('cb_codi_history')||'[]');
+          if(Array.isArray(legacy)){
+            _codiHist = legacy.filter(function(e){ return now - (e.ts||0) < 86400000; });
+          }
+        }catch(_){}
+        // 단일 엔트리 폴백
+        if(!_codiHist.length){
+          try{
+            var _bd = JSON.parse(localStorage.getItem('cb_codi_generated')||'{}');
+            if(_bd.hasGenerated && _bd.img) _codiHist = [_bd];
+          }catch(_){}
+        }
+      }
+      _codiHistIdx = 0;
+      if(typeof cb === 'function') cb();
+    }).catch(function(err){
+      console.warn('[IDB] getAll fail', err);
+      // IDB 실패 시에도 localStorage 폴백
+      try{
+        var legacy = JSON.parse(localStorage.getItem('cb_codi_history')||'[]');
+        if(Array.isArray(legacy)) _codiHist = legacy;
+      }catch(_){ _codiHist = []; }
+      _codiHistIdx = 0;
+      if(typeof cb === 'function') cb();
+    });
   }
-  _loadCodiHistory();
 
   // 다른 코디 순환
   window._cycleCodiRec = function(){
@@ -5953,15 +6019,26 @@ renderCategories();
         if(typeof v === 'string') v = v.split(/[,/;]+/).map(function(s){return s.trim();}).filter(Boolean);
         if(Array.isArray(v)) vals = vals.concat(v);
       });
-      vals = vals.filter(Boolean).slice(0,3);
+      // 중복 제거 + 최대 5개
+      var seen = {};
+      vals = vals.filter(function(s){ if(!s) return false; var k=String(s).trim(); if(!k||seen[k]) return false; seen[k]=1; return true; }).slice(0,5);
       var label = _isEn ? CAT_LABEL_EN[groupKey] : CAT_LABEL_KO[groupKey];
-      var contentTxt = vals.length ? vals.join(' · ') : '—';
-      var contentColor = vals.length ? '#80cbc4' : 'rgba(128,203,196,0.35)';
+      var chipsHtml;
+      if(vals.length){
+        // 개별 키워드를 칩(chip)으로 렌더 → 컬러/디자인/스타일이 시각적으로 구분됨
+        chipsHtml = '<div style="display:flex; flex-wrap:wrap; gap:4px; padding-top:6px;">'
+          + vals.map(function(kw){
+              return '<span style="display:inline-block; padding:3px 8px; background:rgba(64,224,208,0.08); border:1px solid rgba(64,224,208,0.25); border-radius:9999px; color:#97FEED; font-size:10px; font-weight:600; letter-spacing:0.02em; line-height:1.4; white-space:nowrap;">'+kw+'</span>';
+            }).join('')
+          + '</div>';
+      } else {
+        chipsHtml = '<div style="padding-top:6px;"><span style="color:rgba(128,203,196,0.35); font-size:10.5px;">—</span></div>';
+      }
       return (
         '<div class="cri-card" style="background:rgba(18,32,58,0.4); border:1px solid rgba(26,42,68,0.5); padding:12px; border-radius:12px; display:flex; flex-direction:column; gap:4px;">'
-        + '<span style="color:#e0f2f1; font-weight:600; font-size:13px;">'+label+'</span>'
-        + '<div style="padding-top:4px; border-top:1px solid rgba(26,42,68,0.6);">'
-        + '<span style="color:'+contentColor+'; font-size:10.5px; line-height:1.35;">'+contentTxt+'</span>'
+        + '<span style="color:#e0f2f1; font-weight:700; font-size:13px; letter-spacing:0.05em;">'+label+'</span>'
+        + '<div style="border-top:1px solid rgba(26,42,68,0.6); margin-top:2px;">'
+        + chipsHtml
         + '</div>'
         + '</div>'
       );
@@ -5971,9 +6048,9 @@ renderCategories();
       // 박스 활성화
       if(box){ box.classList.add('cri-active'); box.classList.remove('cri-analyzed'); }
 
-      // 이미지
+      // 이미지 — 원본 해상도 (IndexedDB)
       if(imgInner && entry.img){
-        imgInner.innerHTML = '<img src="'+entry.img+'" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML=\'\'" />';
+        imgInner.innerHTML = '<img src="'+entry.img+'" decoding="async" style="width:100%;height:100%;object-fit:cover;image-rendering:auto;" onerror="this.parentElement.innerHTML=\'\'" />';
       }
 
       // 이전 추천코디 버튼 (1개라도 있으면 표시)
@@ -6063,8 +6140,9 @@ renderCategories();
     }
   }
 
-  function _updateClosetBtnState(){ _loadCodiHistory(); _renderCodiRecBox(); }
-  _updateClosetBtnState();
+  function _updateClosetBtnState(){ _loadCodiHistory(_renderCodiRecBox); }
+  // 초기 로드 - IDB 비동기
+  _loadCodiHistory(_renderCodiRecBox);
 
   btn.addEventListener('click', ()=>{
     if(_analyzed) return;
@@ -6086,13 +6164,15 @@ renderCategories();
     try{ renderCategories(); }catch(_){}
   });
 
-  // 외부에서 호출 가능하도록 등록 (AI 생성 완료 후 패널 갱신)
+  // 외부에서 호출 가능하도록 등록 (AI 생성 완료 후 패널 갱신) — IDB 비동기
   window._refreshClosetMatchPanel = ()=>{
-    _updateClosetBtnState();
-    if(isOn){
-      buildMatchPanel();
-      try{ renderCategories(); }catch(_){}
-    }
+    _loadCodiHistory(function(){
+      _renderCodiRecBox();
+      if(isOn){
+        buildMatchPanel();
+        try{ renderCategories(); }catch(_){}
+      }
+    });
   };
 })();
 

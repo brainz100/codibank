@@ -4225,20 +4225,19 @@ async function updateVTO(opts={}){
 
   setVtoState('ready');
   S.hasGenerated = true;
-  // [2026-04-15] ai옷장 '유사 아이템 찾기' 버튼 활성화 브릿지
+  // [2026-04-16] ai옷장 '유사 아이템 찾기' 버튼 활성화 브릿지 — IndexedDB 원본 해상도 저장
   try {
     var _ckw = S.categoryKeywords || {};
+    // 원본 해상도 canvas → PNG dataURL (무손실)
     var _bridgeImg = '';
     try {
       var _bcv = document.getElementById('vtoCanvas');
       if(_bcv && _bcv.style.display !== 'none') {
-        var _tw = 300, _th = Math.round(300 * (_bcv.height / _bcv.width));
-        var _tc = document.createElement('canvas'); _tc.width = _tw; _tc.height = _th;
-        _tc.getContext('2d').drawImage(_bcv, 0, 0, _tw, _th);
-        _bridgeImg = _tc.toDataURL('image/jpeg', 0.6);
+        // 원본 그대로, 리사이즈/압축 없음
+        _bridgeImg = _bcv.toDataURL('image/png');
       }
     } catch(_) {}
-    // 히스토리 배열로 저장 (최대 5개)
+
     var _newEntry = {
       ts: Date.now(),
       img: _bridgeImg,
@@ -4246,19 +4245,60 @@ async function updateVTO(opts={}){
       purpose: (function(){ try{ var p=getPur(S.pk); return p?.label||S.pk||''; }catch(_){ return S.pk||''; } })(),
       stylistName: S.stylist?.name || ''
     };
-    var _hist = [];
-    try { _hist = JSON.parse(localStorage.getItem('cb_codi_history')||'[]'); } catch(_){}
-    if(!Array.isArray(_hist)) _hist = [];
-    _hist.unshift(_newEntry);
-    if(_hist.length > 5) _hist = _hist.slice(0,5);
-    try { localStorage.setItem('cb_codi_history', JSON.stringify(_hist)); } catch(_){}
-    // 현재 상태도 저장 (하위 호환)
-    localStorage.setItem('cb_codi_generated', JSON.stringify({
-      ts: Date.now(),
-      hasGenerated: true,
-      categoryKeywords: _ckw,
-      img: _bridgeImg
-    }));
+
+    // ── IndexedDB 저장 (원본 해상도 수용) ──
+    (function(){
+      var DB_NAME='codibank', STORE='codi_history', DB_VER=1;
+      function openDB(){
+        return new Promise(function(resolve,reject){
+          var req = indexedDB.open(DB_NAME, DB_VER);
+          req.onupgradeneeded = function(e){
+            var db = e.target.result;
+            if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, {keyPath:'ts'});
+          };
+          req.onsuccess = function(){ resolve(req.result); };
+          req.onerror = function(){ reject(req.error); };
+        });
+      }
+      openDB().then(function(db){
+        // 1) 새 엔트리 저장
+        var tx1 = db.transaction(STORE,'readwrite');
+        tx1.objectStore(STORE).put(_newEntry);
+        tx1.oncomplete = function(){
+          // 2) 오래된 엔트리 정리 (최대 5개 유지 + 24시간 이상 된 것 삭제)
+          var tx2 = db.transaction(STORE,'readonly');
+          var req2 = tx2.objectStore(STORE).getAll();
+          req2.onsuccess = function(){
+            var all = req2.result || [];
+            all.sort(function(a,b){ return (b.ts||0) - (a.ts||0); });
+            var now = Date.now();
+            var toDel = [];
+            all.forEach(function(e, i){
+              if(i >= 5 || (now - (e.ts||0) > 86400000)) toDel.push(e.ts);
+            });
+            if(toDel.length){
+              var tx3 = db.transaction(STORE,'readwrite');
+              var st3 = tx3.objectStore(STORE);
+              toDel.forEach(function(ts){ st3.delete(ts); });
+            }
+          };
+        };
+        tx1.onerror = function(){ console.warn('[IDB] put fail', tx1.error); };
+      }).catch(function(e){ console.warn('[IDB] open fail', e); });
+    })();
+
+    // ── localStorage에는 이미지 없는 메타데이터만 (하위 호환 + 플래그) ──
+    try {
+      localStorage.setItem('cb_codi_generated', JSON.stringify({
+        ts: Date.now(),
+        hasGenerated: true,
+        categoryKeywords: _ckw
+        // img는 저장 안 함 (IndexedDB에서 읽음)
+      }));
+    } catch(_) {}
+
+    // 기존 cb_codi_history localStorage는 더 이상 사용하지 않지만,
+    // 이미 저장돼있던 이전 데이터는 폴백용으로 유지(삭제하지 않음)
   } catch(_e) { console.warn('[bridge] save fail', _e); }
   try{ updateAiCallBtn(); }catch(_){} // ← 완료: done(teal) 상태로
   try{ setGenUiEnabled(canGenerateNow()); }catch(_){} // 다시코디 버튼 활성화
