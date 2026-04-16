@@ -346,17 +346,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
 .cb-spacer{height:82px;}
 @media (max-width:390px){.slot-row{grid-template-columns:minmax(0,1fr) 112px}.sb{min-height:68px;padding:12px 8px}.pg-title{font-size:21px}}
 
-/* ── 저장 완료 토스트 ── */
-#csSaveToast{
-  position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
-  background:rgba(7,19,42,0.96);color:rgba(76,219,206,1);
-  font-size:13px;font-weight:700;padding:10px 22px;border-radius:20px;
-  border:1px solid rgba(76,219,206,0.4);
-  pointer-events:none;z-index:9999;
-  opacity:0;transition:opacity 0.3s ease-out;
-  white-space:nowrap;
-}
-#csSaveToast.show{opacity:1;}
+/* ── 저장 완료 토스트 (2026-04-16 비활성화됨 — 사용자 요청으로 항상 숨김) ── */
+#csSaveToast{display:none !important;}
 
 /* [2026-04-09 수정] Ai옷장 카드덱 — 입체 겹침 + 그림자 / 원인: 간격만 벌려놓아 입체감 없음 / 해결: aicloset.html 방식 참조, translateX 겹침+perspective+box-shadow */
 /* ── 코디하기 카드덱 (aicloset 방식, 7카드) ── */
@@ -1767,17 +1758,8 @@ function downloadOutfitReport(){
 
 async function saveImg(){
   if(!lastImgUrl){ alert(CodiBankI18n.t('저장할 이미지가 없어요','No image to save')); return; }
-  const _showSaveToast = () => {
-    const toast = document.getElementById('csSaveToast');
-    if(!toast) return;
-    toast.classList.add('show');
-    toast.style.opacity='1';
-    // [2026-04-15] 즉시 사라짐: 1.2초 후 강제 숨김
-    setTimeout(() => {
-      toast.classList.remove('show');
-      toast.style.opacity='0';
-    }, 1200);
-  };
+  // [2026-04-16] 저장 완료 토스트 제거 — 사용자 요청에 따라 팝업 표시 중단
+  const _showSaveToast = () => { /* no-op */ };
   try{
     const r = await fetch(lastImgUrl);
     const blob = await r.blob();

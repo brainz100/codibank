@@ -805,17 +805,8 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 /* info 불릿 박스 */
 .info-bullets li{font-size:12px;color:rgba(151,254,237,.8);line-height:1.65;}
 
-/* ── 저장 완료 토스트 ── */
-#vtoSaveToast{
-  position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
-  background:rgba(20,40,80,0.96);color:rgba(151,254,237,1);
-  font-size:13px;font-weight:700;padding:10px 22px;border-radius:20px;
-  border:1px solid rgba(151,254,237,0.4);
-  pointer-events:none;z-index:9999;
-  opacity:0;transition:opacity 0.3s ease-out;
-  white-space:nowrap;
-}
-#vtoSaveToast.show{opacity:1;}
+/* ── 저장 완료 토스트 (2026-04-16 비활성화됨 — .show 규칙 제거로 항상 숨김) ── */
+#vtoSaveToast{display:none !important;}
 </style>
 
 <style>
@@ -4384,13 +4375,7 @@ document.getElementById('saveBtn')?.addEventListener('click',()=>{
     a.download=`codibank_${Date.now()}.png`;
     a.href=c.toDataURL('image/png',1.0);
     a.click();
-    // 저장 완료 토스트 — 800ms 후 자동 소멸
-    const toast=document.getElementById('vtoSaveToast');
-    if(toast){
-      toast.classList.add('show');
-      toast.style.opacity='1';
-      setTimeout(()=>{ toast.classList.remove('show'); toast.style.opacity='0'; },1200);
-    }
+    // [2026-04-16] 저장 완료 토스트 제거 — 사용자 요청에 따라 팝업 표시 중단
   }catch(e){alert(CodiBankI18n.t('저장 실패:','Save failed:')+e.message);}
 });
 document.getElementById('shareBtn')?.addEventListener('click',()=>{
