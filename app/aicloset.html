@@ -876,46 +876,100 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 #closetMatchPanel.cmp-open { display:block; }
 .cmp-header {
   display:flex; align-items:center; gap:6px;
-  padding:9px 14px;
+  padding:10px 14px;
   background:rgba(18,148,144,0.18);
   border:1px solid rgba(151,254,237,0.18);
   border-bottom:none;
   border-radius:14px 14px 0 0;
 }
-.cmp-header-txt { font-size:10px; font-weight:900; color:#97FEED; letter-spacing:.1em; }
+.cmp-header-txt { font-size:10.5px; font-weight:900; color:#97FEED; letter-spacing:.1em; }
 .cmp-body {
   border:1px solid rgba(151,254,237,0.12);
   border-radius:0 0 14px 14px; overflow:hidden;
+  background:rgba(7,19,42,0.35);
+  padding:10px;
+  display:flex; flex-direction:column; gap:8px;
 }
-.cmp-row {
-  display:grid; grid-template-columns:20px 62px 1fr 10px 1fr 38px;
-  align-items:center; gap:4px;
-  padding:8px 12px;
-  border-bottom:1px solid rgba(255,255,255,0.04);
+
+/* [2026-04-17] 카드 스타일 — AI키워드 컬럼 제거, 점수 크게 강조 */
+/* [2026-04-17] 프로그레스 바 제거, padding 재조정 */
+.cmp-card {
+  display:flex; flex-direction:column; gap:6px;
+  padding:10px 12px;
   background:rgba(7,25,82,0.55);
+  border:1px solid rgba(151,254,237,0.08);
+  border-radius:12px;
+  transition:border-color .2s, background .2s;
 }
-.cmp-row:last-child { border-bottom:none; }
-.cmp-row:nth-child(even) { background:rgba(13,31,60,0.6); }
-.cmp-icon { font-size:14px; text-align:center; }
-.cmp-cat { font-size:9px; font-weight:900; color:rgba(151,254,237,0.7); }
-.cmp-ai-kws { font-size:9px; color:rgba(255,255,255,0.45); line-height:1.4; }
-.cmp-arrow { font-size:10px; color:rgba(151,254,237,0.3); text-align:center; }
-.cmp-item-name { font-size:9px; font-weight:700; color:rgba(255,255,255,0.8); line-height:1.4; }
-.cmp-score-badge {
-  font-size:10px; font-weight:900; text-align:right; padding:2px 5px;
-  border-radius:6px; white-space:nowrap;
+.cmp-card.cmp-high { border-color:rgba(162,253,240,0.32); background:rgba(18,148,144,0.14); }
+.cmp-card.cmp-mid  { border-color:rgba(251,191,36,0.28); background:rgba(251,191,36,0.06); }
+.cmp-card.cmp-empty{ opacity:0.55; }
+
+.cmp-card-top {
+  display:grid; grid-template-columns:22px 1fr auto;
+  align-items:center; gap:10px;
 }
-.cmp-score-high { color:#a2fdf0; background:rgba(18,148,144,0.25); }
-.cmp-score-mid  { color:#fbbf24; background:rgba(251,191,36,0.15); }
-.cmp-score-low  { color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.05); }
-.cmp-no-item    { padding:8px 12px; font-size:9px; color:rgba(255,255,255,0.25); font-style:italic; }
-.cmp-bar-wrap   { grid-column:1/-1; height:2px; background:rgba(255,255,255,0.06); border-radius:2px; margin:0 0 2px; }
-.cmp-bar        { height:2px; border-radius:2px; transition:width .6s ease; }
+.cmp-icon-wrap {
+  font-size:18px; line-height:1; text-align:center;
+  color:#97FEED;
+}
+.cmp-info {
+  display:flex; flex-direction:column; gap:2px; min-width:0;
+}
+.cmp-cat-label {
+  font-size:10.5px; font-weight:900; color:#97FEED;
+  letter-spacing:.06em; text-transform:uppercase;
+}
+.cmp-item-name {
+  font-size:12px; font-weight:700; color:rgba(255,255,255,0.88);
+  line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.cmp-item-name.cmp-item-empty {
+  color:rgba(255,255,255,0.3); font-weight:500; font-style:italic;
+}
+
+/* 원형 점수 뱃지 — 50px, 2줄 중앙 정렬 (원래 레이아웃 복원) */
+.cmp-score-ring {
+  flex-shrink:0; width:50px; height:50px; border-radius:50%;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  font-family:'Manrope','Outfit','Noto Sans KR',sans-serif;
+  font-size:16px; font-weight:900; line-height:1;
+  letter-spacing:-0.02em;
+  background:rgba(0,2,46,0.6);
+  border:2px solid rgba(255,255,255,0.08);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.03);
+  transition:all .3s ease;
+}
+.cmp-score-ring .cmp-score-pct {
+  font-size:9px; font-weight:700; opacity:0.7; margin-top:1px;
+}
+.cmp-score-ring.cmp-score-high {
+  color:#a2fdf0; border-color:rgba(162,253,240,0.5);
+  background:radial-gradient(circle at center, rgba(18,148,144,0.35), rgba(0,2,46,0.7));
+  box-shadow:0 0 16px rgba(64,224,208,0.25), inset 0 0 8px rgba(64,224,208,0.15);
+}
+.cmp-score-ring.cmp-score-mid {
+  color:#fbbf24; border-color:rgba(251,191,36,0.45);
+  background:radial-gradient(circle at center, rgba(251,191,36,0.18), rgba(0,2,46,0.7));
+  box-shadow:0 0 12px rgba(251,191,36,0.18);
+}
+.cmp-score-ring.cmp-score-low {
+  color:rgba(255,255,255,0.55); border-color:rgba(255,255,255,0.12);
+}
+.cmp-score-ring.cmp-score-none {
+  color:rgba(255,255,255,0.28); font-size:18px; font-weight:700;
+  border-color:rgba(255,255,255,0.08); border-style:dashed;
+}
+
+.cmp-no-item {
+  padding:14px 12px; font-size:10.5px; color:rgba(255,255,255,0.35);
+  font-style:italic; text-align:center;
+}
 .cmp-summary {
-  padding:9px 14px;
+  padding:10px 14px;
   border-top:1px solid rgba(151,254,237,0.08);
   background:rgba(18,148,144,0.08);
-  font-size:10px; font-weight:700; color:rgba(151,254,237,0.7);
+  font-size:10.5px; font-weight:700; color:rgba(151,254,237,0.78);
   display:flex; align-items:center; gap:6px;
 }
 
@@ -941,7 +995,27 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 <link rel="apple-touch-icon" href="/app/icons/icon-192.png"/>
 <script src="pwa-register.js" defer></script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6991588244591343" crossorigin="anonymous"></script>
+<style>
+/* [2026-04-17] PC 최대 폭 제한 — iPad Pro 11" landscape 기준 1194px */
+/* 모바일/태블릿은 기존 UX 유지, 1195px 이상 화면에서만 중앙 정렬 + 배경 확장 */
+@media (min-width: 1195px) {
+  html {
+    background: #00022E;
+    min-height: 100%;
+  }
+  body {
+    max-width: 1194px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  /* 플로팅 + 버튼: body 우측 끝 기준으로 재배치 */
+  #floatingAddBtn {
+    right: max(20px, calc(50% - 577px)) !important;
+  }
+}
+</style>
 </head>
+
 <body style="background:#00022E;" class="text-white selection:bg-teal-400/20">
 <!-- ── 저장 완료 토스트 ── -->
 <div id="vtoSaveToast">✓ 저장되었습니다</div>
@@ -1229,22 +1303,42 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             </div>
           </div>
 
-          <!-- 하단 floating 버튼: '이전 추천코디' -->
+          <!-- [2026-04-17] 하단 floating 네비게이션 — 좌(이전) / 중(카운터) / 우(다음) 3분할, 투명도 20% -->
           <nav style="position:absolute; bottom:14px; left:14px; right:14px; z-index:30; pointer-events:auto;">
-            <button id="codiRecCycleBtn" type="button" onclick="window._cycleCodiRec&&window._cycleCodiRec()" style="
-              width:100%; display:flex; align-items:center; justify-content:space-between;
-              padding:14px 22px; background:rgba(0,2,46,0.75); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+            <div id="codiRecCycleBar" style="
+              display:flex; align-items:stretch; justify-content:space-between;
+              background:rgba(0,2,46,0.20); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
               border:1px solid rgba(255,255,255,0.15); border-radius:9999px;
-              cursor:pointer; transition:all .2s;
-              font-family:inherit; color:inherit;
               box-shadow:0 8px 24px rgba(0,0,0,0.4);
-            " onmouseover="this.style.background='rgba(0,2,46,0.9)';this.style.borderColor='rgba(255,255,255,0.25)';" onmouseout="this.style.background='rgba(0,2,46,0.75)';this.style.borderColor='rgba(255,255,255,0.15)';">
-              <div style="display:flex; align-items:center; gap:10px;">
-                <span class="material-symbols-outlined" style="font-size:18px; color:#ffffff; font-weight:600;">arrow_back_ios_new</span>
-                <span id="codiRecCycleLabel" style="font-size:13px; font-weight:900; letter-spacing:0.1em; color:#ffffff;" data-i18n="이전 추천코디">이전 추천코디</span>
+              overflow:hidden;
+            ">
+              <!-- 이전 -->
+              <button id="codiRecPrevBtn" type="button" onclick="window._cycleCodiRec&&window._cycleCodiRec(-1)" aria-label="이전 추천코디" style="
+                flex:0 0 52px; display:flex; align-items:center; justify-content:center;
+                padding:12px 0; background:transparent; border:none; cursor:pointer;
+                font-family:inherit; color:inherit; transition:background .2s;
+              " onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='transparent'">
+                <span class="material-symbols-outlined" style="font-size:20px; color:#ffffff; font-weight:600;">arrow_back_ios_new</span>
+              </button>
+
+              <!-- 중앙 카운터 -->
+              <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 0; border-left:1px solid rgba(255,255,255,0.10); border-right:1px solid rgba(255,255,255,0.10);">
+                <span id="codiRecCycleLabel" style="font-size:12px; font-weight:800; letter-spacing:0.08em; color:#ffffff;" data-i18n="추천코디">추천코디</span>
+                <span id="codiRecCycleCount" style="font-size:12px; font-weight:900; color:#40e0d0; letter-spacing:0.04em;">—</span>
+                <span id="codiRecCycleDot" style="width:6px; height:6px; border-radius:50%; background:rgba(64,224,208,0.6);"></span>
               </div>
-              <div id="codiRecCycleDot" style="width:6px; height:6px; border-radius:50%; background:rgba(64,224,208,0.6);"></div>
-            </button>
+
+              <!-- 다음 -->
+              <button id="codiRecNextBtn" type="button" onclick="window._cycleCodiRec&&window._cycleCodiRec(1)" aria-label="다음 추천코디" style="
+                flex:0 0 52px; display:flex; align-items:center; justify-content:center;
+                padding:12px 0; background:transparent; border:none; cursor:pointer;
+                font-family:inherit; color:inherit; transition:background .2s;
+              " onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='transparent'">
+                <span class="material-symbols-outlined" style="font-size:20px; color:#ffffff; font-weight:600;">arrow_forward_ios</span>
+              </button>
+            </div>
+            <!-- 하위 호환: 기존 코드가 #codiRecCycleBtn을 참조할 수 있어 숨김 alias 유지 -->
+            <button id="codiRecCycleBtn" type="button" style="display:none;" aria-hidden="true"></button>
           </nav>
         </section>
 
@@ -5725,17 +5819,17 @@ renderCategories();
 
   // ── 패널 렌더 ──
   const _isEnCat = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+  // [2026-04-17] 카테고리 순서: 아우터 → 탑/셔츠 → 바지 → 구두 → 가방 → 액세서리 (통합)
   const CAT_DEF = [
-    {key:'outer',  label:_isEnCat?'Outer':'아우터',            icon:'🧥'},
-    {key:'top',    label:_isEnCat?'Top/Shirt':'탑/셔츠',       icon:'👔'},
-    {key:'bottom', label:_isEnCat?'Bottom':'하의',             icon:'👖'},
-    {key:'shoes',  label:_isEnCat?'Shoes':'신발',              icon:'👟'},
-    {key:'scarf',  label:_isEnCat?'Scarf/Accent':'스카프·포인트',icon:'🧣'},
-    {key:'bag',    label:_isEnCat?'Bag':'가방',                icon:'👜'},
-    {key:'watch',  label:_isEnCat?'Watch':'시계',              icon:'⌚'},
-    {key:'socks',  label:_isEnCat?'Socks':'양말',              icon:'🧦'},
+    {key:'outer',       label:_isEnCat?'Outer':'아우터',            icon:'🧥'},
+    {key:'top',         label:_isEnCat?'Top/Shirt':'탑/셔츠',        icon:'👔'},
+    {key:'bottom',      label:_isEnCat?'Pants':'바지',              icon:'👖'},
+    {key:'shoes',       label:_isEnCat?'Shoes':'구두',              icon:'👟'},
+    {key:'bag',         label:_isEnCat?'Bag':'가방',                icon:'👜'},
+    {key:'accessories', label:_isEnCat?'Accessories':'액세서리',     icon:'✨'},
   ];
   // CAT_SUBSTITUTE_MAP과 동일하게 유지 (자켓/코트/패딩/가디건 모두 포함)
+  // [2026-04-17] accessories: scarf/watch/socks/accent 통합 매핑
   const SUB = {
     outer:   ['coat','jacket','padding','cardigan'],
     coat:    ['jacket','padding','outer','cardigan'],
@@ -5744,6 +5838,7 @@ renderCategories();
     cardigan:['outer','jacket','coat'],
     bottom:['pants','skirt'],pants:['bottom'],shoes:['sneakers','loafers'],
     top:['shirt','blouse'],scarf:['accent'],
+    accessories: ['scarf','watch','socks','accent'],
   };
 
   function buildMatchPanel(){
@@ -5768,22 +5863,33 @@ renderCategories();
     let totalScore = 0, scoredCount = 0;
 
     CAT_DEF.forEach(({key, label, icon})=>{
-      const aiKws = (ckw[key]||[]).filter(Boolean);
+      // [2026-04-17] accessories 통합 카드: sub 키들(scarf/watch/socks/accent)의 ckw도 병합
+      const subKeys = SUB[key] || [];
+      const aiKws = (key === 'accessories'
+        ? [key, ...subKeys].flatMap(k => ckw[k] || [])
+        : (ckw[key] || [])
+      ).filter(Boolean);
       if(!aiKws.length) return;
 
       // 카테고리 + 대체 카테고리 아이템 모두 수집
-      const subKeys = SUB[key] || [];
       const items   = [key, ...subKeys]
         .flatMap(k => (CodiBank.getItemsByUserAndCategory ? CodiBank.getItemsByUserAndCategory(user.email, k) : []) || [])
         .filter(Boolean);
 
-      const aiText = aiKws.join(' · ');
+      // [2026-04-17] AI 키워드는 상단 2x2 그리드와 중복이므로 유사도 카드에서 제거
+      // 카테고리 + 내 옷장 아이템 + 점수만 표시
 
       if(!items.length){
-        html += `<div class="cmp-row">
-          <span class="cmp-icon">${icon}</span>
-          <span class="cmp-cat">${escH(label)}</span>
-          <span class="cmp-ai-kws" style="grid-column:3/7;color:rgba(151,254,237,0.35);">${escH(aiText)} — <em style="color:rgba(255,255,255,0.2);">${_t('아이템 없음')}</em></span>
+        // 아이템 없음 — 점선 원형 뱃지 + 비활성 카드
+        html += `<div class="cmp-card cmp-empty">
+          <div class="cmp-card-top">
+            <span class="cmp-icon-wrap">${icon}</span>
+            <div class="cmp-info">
+              <div class="cmp-cat-label">${escH(label)}</div>
+              <div class="cmp-item-name cmp-item-empty">${_t('아이템 없음')}</div>
+            </div>
+            <div class="cmp-score-ring cmp-score-none">—</div>
+          </div>
         </div>`;
         return;
       }
@@ -5800,21 +5906,20 @@ renderCategories();
       totalScore += bestScore;
       scoredCount++;
 
-      const scoreClass = bestScore >= 60 ? 'cmp-score-high' : bestScore >= 30 ? 'cmp-score-mid' : 'cmp-score-low';
-      const barColor   = bestScore >= 60 ? '#a2fdf0' : bestScore >= 30 ? '#fbbf24' : 'rgba(255,255,255,0.2)';
-      const itemLabel  = escH(best?.brand || best?.color || '아이템');
-      const itemSub    = best?.color ? ` · ${escH(best.color)}` : '';
+      const tier = bestScore >= 60 ? 'high' : bestScore >= 30 ? 'mid' : 'low';
+      // 내 옷장 아이템 이름: "브랜드·색상" 또는 "색상"만
+      const itemParts = [best?.brand, best?.color].filter(Boolean).map(String).map(escH);
+      const itemName = itemParts.length ? itemParts.join(' · ') : escH(best?.note || '아이템');
 
-      html += `<div class="cmp-row">
-        <span class="cmp-icon">${icon}</span>
-        <span class="cmp-cat">${escH(label)}</span>
-        <span class="cmp-ai-kws">${escH(aiText)}</span>
-        <span class="cmp-arrow">›</span>
-        <span class="cmp-item-name">${itemLabel}${itemSub}</span>
-        <span class="cmp-score-badge ${scoreClass}">${bestScore}%</span>
-      </div>
-      <div class="cmp-row" style="padding-top:0;padding-bottom:6px;grid-template-columns:1fr;">
-        <div class="cmp-bar-wrap"><div class="cmp-bar" style="width:${bestScore}%;background:${barColor};"></div></div>
+      html += `<div class="cmp-card cmp-${tier}">
+        <div class="cmp-card-top">
+          <span class="cmp-icon-wrap">${icon}</span>
+          <div class="cmp-info">
+            <div class="cmp-cat-label">${escH(label)}</div>
+            <div class="cmp-item-name">${itemName}</div>
+          </div>
+          <div class="cmp-score-ring cmp-score-${tier}">${bestScore}<span class="cmp-score-pct">%</span></div>
+        </div>
       </div>`;
     });
 
@@ -5914,14 +6019,15 @@ renderCategories();
     });
   }
 
-  // 다른 코디 순환
-  window._cycleCodiRec = function(){
-    console.log('[cycle] called — hist length:', _codiHist.length, 'idx:', _codiHistIdx);
+  // 다른 코디 순환 — [2026-04-17] dir: -1 (이전) / +1 (다음), 미지정 시 기존 동작 (+1)
+  window._cycleCodiRec = function(dir){
+    console.log('[cycle] called — hist length:', _codiHist.length, 'idx:', _codiHistIdx, 'dir:', dir);
     if(_codiHist.length < 2){
       console.warn('[cycle] need 2+ history entries');
       return;
     }
-    _codiHistIdx = (_codiHistIdx + 1) % _codiHist.length;
+    var _dir = (dir === -1) ? -1 : 1;
+    _codiHistIdx = (_codiHistIdx + _dir + _codiHist.length) % _codiHist.length;
     console.log('[cycle] new idx:', _codiHistIdx);
     // 코디 변경 시 분석 상태 전면 리셋
     _analyzed = false; isOn = false;
@@ -6009,21 +6115,27 @@ renderCategories();
         imgInner.innerHTML = '<img src="'+entry.img+'" decoding="async" style="width:100%;height:100%;object-fit:contain;image-rendering:auto;" onerror="this.parentElement.innerHTML=\'\'" />';
       }
 
-      // 이전 추천코디 버튼 — hasAI이면 항상 표시, 2개 이상이면 활성화
-      if(cycleBtn){
-        cycleBtn.style.display = 'flex';
+      // [2026-04-17] 네비게이션 바 업데이트 — 좌/우 버튼 + 중앙 카운터
+      var cycleBarEl = document.getElementById('codiRecCycleBar');
+      var prevBtnEl  = document.getElementById('codiRecPrevBtn');
+      var nextBtnEl  = document.getElementById('codiRecNextBtn');
+      var cntEl      = document.getElementById('codiRecCycleCount');
+      if(cycleBarEl){
+        cycleBarEl.style.display = 'flex';
         if(_codiHist.length > 1){
-          if(cycleLbl) cycleLbl.textContent = (_isEn ? 'Previous Outfit' : '이전 추천코디') + ' ('+(_codiHistIdx+1)+'/'+_codiHist.length+')';
-          cycleBtn.style.pointerEvents = 'auto';
-          cycleBtn.style.opacity = '1';
-          cycleBtn.style.cursor = 'pointer';
+          if(cycleLbl) cycleLbl.textContent = (_isEn ? 'Outfit' : '추천코디');
+          if(cntEl) cntEl.textContent = (_codiHistIdx+1)+'/'+_codiHist.length;
+          if(prevBtnEl){ prevBtnEl.style.pointerEvents='auto'; prevBtnEl.style.opacity='1'; prevBtnEl.style.cursor='pointer'; }
+          if(nextBtnEl){ nextBtnEl.style.pointerEvents='auto'; nextBtnEl.style.opacity='1'; nextBtnEl.style.cursor='pointer'; }
         } else {
-          if(cycleLbl) cycleLbl.textContent = (_isEn ? 'Previous Outfit' : '이전 추천코디');
-          cycleBtn.style.pointerEvents = 'none';
-          cycleBtn.style.opacity = '0.4';
-          cycleBtn.style.cursor = 'default';
+          if(cycleLbl) cycleLbl.textContent = (_isEn ? 'Outfit' : '추천코디');
+          if(cntEl) cntEl.textContent = '1/1';
+          if(prevBtnEl){ prevBtnEl.style.pointerEvents='none'; prevBtnEl.style.opacity='0.35'; prevBtnEl.style.cursor='default'; }
+          if(nextBtnEl){ nextBtnEl.style.pointerEvents='none'; nextBtnEl.style.opacity='0.35'; nextBtnEl.style.cursor='default'; }
         }
       }
+      // 하위 호환: 숨김 alias
+      if(cycleBtn){ cycleBtn.style.display = 'none'; }
 
       // 날짜 라벨 — "코디쌤 추천코디 : 2026.04.16  PM 18:21" 형식
       if(dateLblEl && entry.ts){
@@ -6079,7 +6191,9 @@ renderCategories();
         imgInner.innerHTML = '<div style="text-align:center; color:rgba(151,254,237,0.2);"><span class="material-symbols-outlined" style="font-size:80px; display:block;">checkroom</span><p style="margin-top:12px; font-size:11px; letter-spacing:0.2em; font-weight:700;">'+(_isEn?'No outfit yet':'추천코디 대기 중')+'</p></div>';
       }
       if(cycleBtn) cycleBtn.style.display = 'none';
-      if(dateLblEl) dateLblEl.textContent = _isEn ? 'Outfit AI' : '코디쌤 추천코디';
+      // [2026-04-17] 새 네비게이션 바도 숨김
+      var _cb2 = document.getElementById('codiRecCycleBar');
+      if(_cb2) _cb2.style.display = 'none';
       if(titleEl) titleEl.textContent = _isEn ? 'AI Recommended Style' : 'AI 추천 스타일링';
       // 설명 — 요청에 따라 숨김
       if(descEl) descEl.style.display = 'none';
