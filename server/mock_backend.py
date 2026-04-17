@@ -5832,6 +5832,337 @@ def api_proxy_image():
     }), 200
 
 
+# ═══════════════════════════════════════════════════════════════════════
+#  /api/extract-product-images  — 쇼핑몰 상품 페이지 URL에서 이미지 자동 추출
+#  [2026-04-17] 사용자가 상품 페이지 URL을 붙여넣으면 이미지 후보를 뽑아줌
+# ═══════════════════════════════════════════════════════════════════════
+
+_EXTRACT_MAX_HTML_BYTES = 3 * 1024 * 1024   # HTML 3MB 제한
+_EXTRACT_TIMEOUT = 10
+_EXTRACT_MAX_IMAGES = 12
+
+# 이미지 확장자 패턴
+_IMG_EXT_RE = re.compile(r"\.(jpe?g|png|webp|avif|gif)(\?|$|#)", re.IGNORECASE)
+# URL에서 크기 힌트 패턴 (_500, 500x600, size=500 등)
+_SIZE_HINT_RE = re.compile(r"[_/=-]((\d{3,4})(?:x(\d{3,4}))?)[_./-]", re.IGNORECASE)
+
+# 제외할 이미지 패턴 (아이콘, 로고, 버튼 등)
+_IMG_SKIP_PATTERNS = (
+    "icon", "logo", "favicon", "button", "btn_", "arrow", "badge",
+    "sprite", "bg_", "banner_", "/nav/", "/header/", "/footer/",
+    "placeholder", "loading", "empty", "blank", "default",
+    "pixel.gif", "blank.gif", "spacer", "transparent",
+    "facebook", "twitter", "instagram", "kakao", "naver_",
+    "qr_", "barcode", "share_",
+)
+
+
+def _resolve_url(base_url: str, img_url: str) -> str:
+    """상대 경로 → 절대 경로."""
+    if not img_url:
+        return ""
+    img_url = img_url.strip().strip('"\'')
+    if img_url.startswith(("http://", "https://")):
+        return img_url
+    if img_url.startswith("//"):
+        base_scheme = urllib.parse.urlparse(base_url).scheme or "https"
+        return f"{base_scheme}:{img_url}"
+    if img_url.startswith("/"):
+        p = urllib.parse.urlparse(base_url)
+        return f"{p.scheme}://{p.netloc}{img_url}"
+    # 상대 경로
+    return urllib.parse.urljoin(base_url, img_url)
+
+
+def _extract_meta_image(html: str, prop_names) -> list:
+    """OG 태그 / Twitter 카드 등 메타 이미지 추출."""
+    results = []
+    for prop in prop_names:
+        # <meta property="og:image" content="..."> 또는 name="..."
+        for m in re.finditer(
+            r'<meta\s+[^>]*(?:property|name)\s*=\s*["\']' + re.escape(prop) + r'["\'][^>]*>',
+            html, re.IGNORECASE
+        ):
+            tag = m.group(0)
+            cm = re.search(r'content\s*=\s*["\']([^"\']+)["\']', tag, re.IGNORECASE)
+            if cm:
+                results.append(cm.group(1))
+    return results
+
+
+def _extract_img_src(html: str) -> list:
+    """<img> 태그의 src/data-src/data-original/srcset에서 URL 추출."""
+    results = []
+    # <img ... src="..." data-src="..." data-original="...">
+    for m in re.finditer(r'<img\s+[^>]+>', html, re.IGNORECASE):
+        tag = m.group(0)
+        # 우선순위: data-src > data-original > src
+        for attr in ("data-src", "data-original", "data-lazy", "data-lazy-src", "data-zoom-image", "src"):
+            am = re.search(r'\b' + re.escape(attr) + r'\s*=\s*["\']([^"\']+)["\']', tag, re.IGNORECASE)
+            if am:
+                url = am.group(1).strip()
+                if url and not url.startswith("data:"):
+                    results.append(url)
+                break
+        # srcset: 여러 URL 중 가장 큰 것
+        sm = re.search(r'\bsrcset\s*=\s*["\']([^"\']+)["\']', tag, re.IGNORECASE)
+        if sm:
+            # "url1 1x, url2 2x" 또는 "url1 500w, url2 1000w"
+            best_url, best_w = None, 0
+            for part in sm.group(1).split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                bits = part.split()
+                url = bits[0]
+                w = 0
+                if len(bits) > 1:
+                    try:
+                        w_str = bits[1].rstrip("wx")
+                        w = int(float(w_str) * (1000 if bits[1].endswith("x") else 1))
+                    except (ValueError, TypeError):
+                        pass
+                if w > best_w:
+                    best_w, best_url = w, url
+            if best_url:
+                results.append(best_url)
+    return results
+
+
+def _score_image(url: str) -> int:
+    """이미지 URL에 품질 점수 부여 (높을수록 상품 이미지 가능성 높음)."""
+    score = 0
+    url_lower = url.lower()
+
+    # 제외 패턴 포함 시 대폭 감점
+    for bad in _IMG_SKIP_PATTERNS:
+        if bad in url_lower:
+            score -= 50
+
+    # 확장자 확인
+    if _IMG_EXT_RE.search(url):
+        score += 10
+
+    # 상품 이미지 힌트
+    if any(k in url_lower for k in ("product", "goods", "item", "상품", "detail", "main")):
+        score += 20
+
+    # 크기 힌트 (크면 높은 점수)
+    sm = _SIZE_HINT_RE.search(url)
+    if sm:
+        try:
+            size = int(sm.group(2))
+            if size >= 500:
+                score += 15
+            elif size >= 300:
+                score += 8
+            elif size >= 100:
+                score += 2
+            else:
+                score -= 10  # 너무 작음 (썸네일/아이콘)
+        except (ValueError, TypeError):
+            pass
+
+    # 쇼핑몰 CDN 도메인 보너스 (기존 _PROXY_REFERER_MAP)
+    for shop_domain in _PROXY_REFERER_MAP.keys():
+        if shop_domain in url_lower:
+            score += 25
+            break
+
+    return score
+
+
+@app.route("/api/extract-product-images", methods=["POST"])
+def api_extract_product_images():
+    """쇼핑몰 상품 페이지 URL → 이미지 후보 URL 리스트 반환.
+
+    Body:  { "url": "<product page url>" }
+    200:   { ok: True, images: [url1, url2, ...], pageTitle: "...", sourceUrl: "..." }
+    4xx:   { ok: False, error: "..." }
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
+    page_url = str(data.get("url", "")).strip()
+
+    # ── URL 검증 (proxy-image와 동일 로직) ──
+    if not page_url:
+        return jsonify({"ok": False, "error": "URL is required"}), 400
+    if len(page_url) > 2048:
+        return jsonify({"ok": False, "error": "URL too long"}), 400
+
+    parsed = urllib.parse.urlparse(page_url)
+    if parsed.scheme not in ("http", "https"):
+        return jsonify({"ok": False, "error": "Only http/https URLs allowed"}), 400
+    if not parsed.hostname:
+        return jsonify({"ok": False, "error": "Invalid hostname"}), 400
+
+    # SSRF 방지
+    if _proxy_is_private_ip(parsed.hostname):
+        return jsonify({"ok": False, "error": "Blocked: internal/private network"}), 400
+    if parsed.hostname.lower() in ("localhost", "localhost.localdomain", "ip6-localhost"):
+        return jsonify({"ok": False, "error": "Blocked: localhost"}), 400
+    if parsed.port is not None and parsed.port not in (80, 443, 8080, 8443):
+        return jsonify({"ok": False, "error": "Blocked: non-standard port"}), 400
+
+    # ── HTML 페이지 fetch ──
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+            "Version/16.6 Mobile/15E148 Safari/604.1"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+    }
+    try:
+        resp = http_requests.get(
+            page_url,
+            headers=headers,
+            timeout=_EXTRACT_TIMEOUT,
+            stream=True,
+            allow_redirects=True,
+        )
+    except http_requests.exceptions.Timeout:
+        return jsonify({"ok": False, "error": "Page loading timed out"}), 504
+    except http_requests.exceptions.ConnectionError:
+        return jsonify({"ok": False, "error": "Could not connect to page"}), 502
+    except http_requests.exceptions.RequestException as e:
+        return jsonify({"ok": False, "error": f"Fetch failed: {str(e)[:100]}"}), 502
+
+    # 리다이렉트 후 재검증
+    final_url = resp.url
+    if resp.history:
+        fp = urllib.parse.urlparse(final_url)
+        if fp.hostname and _proxy_is_private_ip(fp.hostname):
+            resp.close()
+            return jsonify({"ok": False, "error": "Blocked: redirect to internal network"}), 400
+
+    if resp.status_code != 200:
+        resp.close()
+        return jsonify({"ok": False, "error": f"Page returned HTTP {resp.status_code}"}), 502
+
+    ct = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+    if ct and "html" not in ct and "xml" not in ct:
+        resp.close()
+        return jsonify({"ok": False, "error": f"Not an HTML page (Content-Type: {ct})"}), 400
+
+    # HTML 스트리밍 with 사이즈 제한
+    html_bytes = []
+    total = 0
+    try:
+        for chunk in resp.iter_content(chunk_size=65536):
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > _EXTRACT_MAX_HTML_BYTES:
+                break   # 초과해도 지금까지 받은 부분으로 파싱 시도
+            html_bytes.append(chunk)
+    except Exception as e:
+        resp.close()
+        return jsonify({"ok": False, "error": f"Download interrupted: {str(e)[:100]}"}), 502
+    finally:
+        resp.close()
+
+    raw = b"".join(html_bytes)
+    # 인코딩 감지
+    try:
+        # HTML meta charset 우선
+        cm = re.search(rb'<meta\s+[^>]*charset\s*=\s*["\']?([^"\'\s>]+)', raw[:2048], re.IGNORECASE)
+        encoding = cm.group(1).decode("ascii", errors="ignore") if cm else (resp.encoding or "utf-8")
+        html = raw.decode(encoding, errors="replace")
+    except Exception:
+        html = raw.decode("utf-8", errors="replace")
+
+    # ── 페이지 타이틀 추출 ──
+    page_title = ""
+    tm = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+    if tm:
+        page_title = re.sub(r"\s+", " ", tm.group(1)).strip()[:200]
+
+    # ── 이미지 후보 수집 ──
+    candidates = []
+
+    # 1) OG/Twitter 메타 이미지 (최상위 신뢰)
+    for url in _extract_meta_image(html, [
+        "og:image", "og:image:secure_url", "og:image:url",
+        "twitter:image", "twitter:image:src",
+        "product:image", "image",
+    ]):
+        candidates.append((url, 100))  # 메타는 고정 100점
+
+    # 2) JSON-LD Product.image 파싱 (일부 쇼핑몰 지원)
+    for m in re.finditer(
+        r'<script\s+[^>]*type\s*=\s*["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+        html, re.IGNORECASE | re.DOTALL
+    ):
+        block = m.group(1)
+        for im in re.finditer(r'"image"\s*:\s*("([^"]+)"|\[([^\]]+)\])', block):
+            if im.group(2):
+                candidates.append((im.group(2), 90))
+            elif im.group(3):
+                for url_m in re.finditer(r'"([^"]+)"', im.group(3)):
+                    candidates.append((url_m.group(1), 85))
+
+    # 3) <img> 태그 전체
+    for url in _extract_img_src(html):
+        candidates.append((url, _score_image(url)))
+
+    # ── 정규화 + 중복 제거 + 필터 + 정렬 ──
+    seen = set()
+    dedup = []
+    for url, base_score in candidates:
+        if not url:
+            continue
+        abs_url = _resolve_url(final_url, url)
+        if not abs_url or not abs_url.startswith(("http://", "https://")):
+            continue
+        # 크기 매우 작은 이미지 제거 (?w=50, /50x50/ 등)
+        small_m = _SIZE_HINT_RE.search(abs_url.lower())
+        if small_m:
+            try:
+                if int(small_m.group(2)) < 150:
+                    continue
+            except (ValueError, TypeError):
+                pass
+        # data:, javascript: 등 제외
+        if abs_url.lower().startswith(("data:", "javascript:", "about:")):
+            continue
+        # 확장자 없고 알려진 CDN도 아니면 제외
+        if not _IMG_EXT_RE.search(abs_url):
+            is_cdn = any(shop in abs_url.lower() for shop in _PROXY_REFERER_MAP.keys())
+            if not is_cdn and "image" not in abs_url.lower() and "img" not in abs_url.lower():
+                continue
+        if abs_url in seen:
+            continue
+        seen.add(abs_url)
+        # 최종 점수 (기본 점수 + 스코어링)
+        final_score = base_score + (_score_image(abs_url) if base_score < 90 else 0)
+        if final_score < -20:
+            continue
+        dedup.append((abs_url, final_score))
+
+    # 점수 내림차순 정렬 후 상위 N개
+    dedup.sort(key=lambda x: x[1], reverse=True)
+    images = [url for url, _ in dedup[:_EXTRACT_MAX_IMAGES]]
+
+    if not images:
+        return jsonify({
+            "ok": False,
+            "error": "No product images found on this page",
+            "pageTitle": page_title,
+        }), 404
+
+    return jsonify({
+        "ok": True,
+        "images": images,
+        "pageTitle": page_title,
+        "sourceUrl": final_url,
+        "count": len(images),
+    }), 200
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8787"))
     # ✅ 안정성 기본값: debug OFF
