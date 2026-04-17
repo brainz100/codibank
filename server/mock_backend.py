@@ -5625,35 +5625,64 @@ _PROXY_REFERER_MAP = {
     "image.msscdn.net":              "https://www.musinsa.com/",
     "msscdn.net":                    "https://www.musinsa.com/",
     "static.msscdn.net":             "https://www.musinsa.com/",
+    "www.musinsa.com":               "https://www.musinsa.com/",
+    "musinsa.com":                   "https://www.musinsa.com/",
     # 29CM
     "img.29cm.co.kr":                "https://www.29cm.co.kr/",
     "product.29cm.co.kr":            "https://www.29cm.co.kr/",
     "static.29cm.co.kr":             "https://www.29cm.co.kr/",
+    "www.29cm.co.kr":                "https://www.29cm.co.kr/",
     # W컨셉
     "img.wconcept.co.kr":            "https://www.wconcept.co.kr/",
     "product.wconcept.co.kr":        "https://www.wconcept.co.kr/",
+    "www.wconcept.co.kr":            "https://www.wconcept.co.kr/",
     # SSF Shop
     "image.ssfshop.com":             "https://www.ssfshop.com/",
     "img.ssfshop.com":               "https://www.ssfshop.com/",
+    "www.ssfshop.com":               "https://www.ssfshop.com/",
     # 지그재그
     "cf.product-image.s.zigzag.kr":  "https://zigzag.kr/",
     "image.zigzag.kr":               "https://zigzag.kr/",
+    "zigzag.kr":                     "https://zigzag.kr/",
     # 에이블리
     "img.a-bly.com":                 "https://m.a-bly.com/",
+    "a-bly.com":                     "https://m.a-bly.com/",
+    "m.a-bly.com":                   "https://m.a-bly.com/",
     # 쿠팡
     "image10.coupangcdn.com":        "https://www.coupang.com/",
     "image6.coupangcdn.com":         "https://www.coupang.com/",
+    "image7.coupangcdn.com":         "https://www.coupang.com/",
+    "image8.coupangcdn.com":         "https://www.coupang.com/",
+    "image9.coupangcdn.com":         "https://www.coupang.com/",
     "thumbnail6.coupangcdn.com":     "https://www.coupang.com/",
     "thumbnail7.coupangcdn.com":     "https://www.coupang.com/",
+    "thumbnail8.coupangcdn.com":     "https://www.coupang.com/",
     "thumbnail9.coupangcdn.com":     "https://www.coupang.com/",
     "thumbnail10.coupangcdn.com":    "https://www.coupang.com/",
+    "static.coupangcdn.com":         "https://www.coupang.com/",
+    "coupangcdn.com":                "https://www.coupang.com/",
+    "www.coupang.com":               "https://www.coupang.com/",
+    "coupang.com":                   "https://www.coupang.com/",
     # 네이버 스마트스토어
     "shop-phinf.pstatic.net":        "https://smartstore.naver.com/",
     "shopping-phinf.pstatic.net":    "https://smartstore.naver.com/",
+    "smartstore.naver.com":          "https://smartstore.naver.com/",
+    "brand.naver.com":               "https://brand.naver.com/",
     # 룩핀
     "img.lookpin.co.kr":             "https://lookpin.co.kr/",
+    "lookpin.co.kr":                 "https://lookpin.co.kr/",
     # 브랜디
     "d2emtenuzntcob.cloudfront.net": "https://www.brandi.co.kr/",
+    "www.brandi.co.kr":              "https://www.brandi.co.kr/",
+    "brandi.co.kr":                  "https://www.brandi.co.kr/",
+}
+
+# 차단이 강한 사이트 목록 (사용자에게 친절하게 안내)
+_PROXY_HARD_BLOCK_HINTS = {
+    "coupang.com":        "쿠팡",
+    "coupangcdn.com":     "쿠팡",
+    "smartstore.naver.com": "네이버 스마트스토어",
+    "brand.naver.com":    "네이버 브랜드스토어",
 }
 
 _PROXY_ALLOWED_IMAGE_TYPES = {
@@ -6007,15 +6036,40 @@ def api_extract_product_images():
         return jsonify({"ok": False, "error": "Blocked: non-standard port"}), 400
 
     # ── HTML 페이지 fetch ──
+    # [2026-04-17] 헤더 강화: 실제 Chrome 브라우저처럼 위장 + 사이트별 Referer
+    # 데스크톱 Chrome UA가 모바일 Safari보다 차단 덜 당함 (봇 탐지 우회)
     headers = {
         "User-Agent": (
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) "
-            "AppleWebKit/605.1.15 (KHTML, like Gecko) "
-            "Version/16.6 Mobile/15E148 Safari/604.1"
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/128.0.0.0 Safari/537.36"
         ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept": (
+            "text/html,application/xhtml+xml,application/xml;q=0.9,"
+            "image/avif,image/webp,image/apng,*/*;q=0.8,"
+            "application/signed-exchange;v=b3;q=0.7"
+        ),
         "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Cache-Control": "max-age=0",
+        # Chrome Client Hints (실제 Chrome이 항상 보냄 — 없으면 봇 판정)
+        "sec-ch-ua": '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        # Fetch 메타 (네비게이션 요청처럼 보이게)
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
     }
+    # 쇼핑몰 도메인이면 해당 사이트를 Referer로 (구글에서 검색해 온 것처럼)
+    _page_referer = _proxy_pick_referer(parsed.hostname)
+    if _page_referer:
+        headers["Referer"] = _page_referer
+    else:
+        # 일반 사이트는 구글 검색에서 왔다고 위장
+        headers["Referer"] = "https://www.google.com/"
     try:
         resp = http_requests.get(
             page_url,
@@ -6041,6 +6095,23 @@ def api_extract_product_images():
 
     if resp.status_code != 200:
         resp.close()
+        # 강한 차단 사이트 친절 안내
+        _hint = None
+        _host_lower = parsed.hostname.lower()
+        for _bad_host, _shop_name in _PROXY_HARD_BLOCK_HINTS.items():
+            if _bad_host in _host_lower:
+                _hint = _shop_name
+                break
+        if _hint:
+            err_msg = f"{_hint} is actively blocking automated access. Please save the image and upload directly."
+            print(f"[extract-product-images] ⚠️ {_hint} blocked: HTTP {resp.status_code} for {page_url[:100]}")
+            return jsonify({
+                "ok": False,
+                "error": err_msg,
+                "hardBlocked": True,
+                "shopName": _hint,
+            }), 502
+        print(f"[extract-product-images] HTTP {resp.status_code} for {page_url[:100]}")
         return jsonify({"ok": False, "error": f"Page returned HTTP {resp.status_code}"}), 502
 
     ct = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
