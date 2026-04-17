@@ -105,10 +105,19 @@
     "온라인 링크 (준비중)": "Online Link (Coming Soon)",
     "온라인 링크":        "Online Link",
     "쇼핑몰 이미지 URL을 붙여넣으세요": "Paste an image URL from a shopping site",
+    "쇼핑몰 상품 페이지 URL을 붙여넣으세요": "Paste a product page URL from a shopping site",
+    "상품 페이지 주소를 그대로 복사해서 붙여넣으면 이미지를 자동으로 찾아드려요": "Paste the product page address — we'll find the images automatically",
     "이미지 불러오는 중…": "Loading image…",
     "이미지 불러오기 실패": "Failed to load image",
+    "이미지 찾는 중…":    "Finding images…",
+    "이미지를 찾을 수 없어요": "No images found on this page",
+    "이미지 찾기":        "Find Images",
+    "이미지 선택":        "Select Image",
+    "원하는 이미지를 터치하세요": "Tap the image you want",
     "유효한 이미지 URL을 입력하세요": "Please enter a valid image URL",
+    "유효한 상품 페이지 URL을 입력하세요": "Please enter a valid product page URL",
     "취소":               "Cancel",
+    "뒤로":               "Back",
     "불러오기":           "Load",
     "사진을 등록하면\n퍼스널컬러를 분석합니다": "Register a photo to\nanalyze your personal color",
     "성별": "Gender",
@@ -260,7 +269,8 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 <style>
 :root{--navy:#071952;--navy2:#0d1f3c;--teal:#35A29F;--teal-dark:#0B666A;--teal-light:#97FEED;--mint:#a2fdf0;--border:rgba(151,254,237,0.15);} 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
-body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max-width:480px;margin:0 auto;min-height:100dvh;overflow-x:hidden;padding-bottom:100px}
+html{background:#00022E}
+body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-width:480px;margin:0 auto;min-height:100dvh;overflow-x:hidden;padding-bottom:100px}
 .pg-header{display:flex;align-items:center;gap:12px;padding:20px 18px 12px}
 .back-btn{width:38px;height:38px;border-radius:50%;background:rgba(151,254,237,0.08);border:1px solid var(--border);cursor:pointer;color:var(--teal-light);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:22px}
 .pg-title{font-family:'Outfit',sans-serif;font-size:23px;font-weight:900;color:var(--teal-light)}
@@ -413,20 +423,39 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max
 <!-- ── 저장 완료 토스트 ── -->
 <div id="csSaveToast" data-i18n="✓ 저장되었습니다">✓ 저장되었습니다</div>
 
-<!-- ── [2026-04-17] 온라인 링크 입력 모달 ── -->
+<!-- ── [2026-04-17] 온라인 링크: URL 입력 모달 ── -->
 <div id="csLinkModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,2,46,0.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px;">
-  <div style="background:#071952;border:1px solid rgba(151,254,237,0.25);border-radius:20px;padding:22px 20px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+  <div style="background:#0a1443;border:1px solid rgba(151,254,237,0.25);border-radius:20px;padding:22px 20px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
       <span class="mi" style="font-size:20px;color:#97FEED;">link</span>
       <h3 style="font-size:17px;font-weight:900;color:#97FEED;margin:0;" data-i18n="온라인 링크">온라인 링크</h3>
     </div>
-    <p id="csLinkSubtitle" style="font-size:11.5px;color:rgba(151,254,237,0.6);margin:0 0 16px;line-height:1.5;" data-i18n="쇼핑몰 이미지 URL을 붙여넣으세요">쇼핑몰 이미지 URL을 붙여넣으세요</p>
-    <input id="csLinkInput" type="url" placeholder="https://..." autocomplete="off" spellcheck="false"
-      style="width:100%;padding:12px 14px;border-radius:12px;background:rgba(0,2,46,0.5);border:1px solid rgba(151,254,237,0.3);color:#fff;font-size:13px;font-family:inherit;outline:none;margin-bottom:12px;">
+    <p id="csLinkSubtitle" style="font-size:11.5px;color:rgba(151,254,237,0.6);margin:0 0 16px;line-height:1.5;" data-i18n="쇼핑몰 상품 페이지 URL을 붙여넣으세요">쇼핑몰 상품 페이지 URL을 붙여넣으세요</p>
+    <input id="csLinkInput" type="url" placeholder="https://www.musinsa.com/..." autocomplete="off" spellcheck="false"
+      style="width:100%;padding:12px 14px;border-radius:12px;background:rgba(0,2,46,0.5);border:1px solid rgba(151,254,237,0.3);color:#fff;font-size:13px;font-family:inherit;outline:none;margin-bottom:8px;">
+    <p style="font-size:10.5px;color:rgba(151,254,237,0.4);margin:0 0 12px;line-height:1.5;" data-i18n="상품 페이지 주소를 그대로 복사해서 붙여넣으면 이미지를 자동으로 찾아드려요">상품 페이지 주소를 그대로 복사해서 붙여넣으면 이미지를 자동으로 찾아드려요</p>
     <div id="csLinkStatus" style="min-height:16px;font-size:11px;color:#ff9a9a;margin-bottom:10px;display:none;"></div>
     <div style="display:flex;gap:8px;">
       <button id="csLinkCancel" type="button" style="flex:1;padding:12px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;" data-i18n="취소">취소</button>
-      <button id="csLinkConfirm" type="button" style="flex:1.3;padding:12px;border-radius:12px;background:#0B666A;border:1px solid rgba(151,254,237,0.25);color:#97FEED;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;" data-i18n="불러오기">불러오기</button>
+      <button id="csLinkConfirm" type="button" style="flex:1.3;padding:12px;border-radius:12px;background:#0B666A;border:1px solid rgba(151,254,237,0.25);color:#97FEED;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;" data-i18n="이미지 찾기">이미지 찾기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── [2026-04-17] 온라인 링크: 이미지 선택 모달 ── -->
+<div id="csImagePickerModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,2,46,0.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#0a1443;border:1px solid rgba(151,254,237,0.25);border-radius:20px;padding:20px 18px;width:100%;max-width:460px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+      <span class="mi" style="font-size:20px;color:#97FEED;">photo_library</span>
+      <h3 style="font-size:17px;font-weight:900;color:#97FEED;margin:0;" data-i18n="이미지 선택">이미지 선택</h3>
+    </div>
+    <p id="csPickerSubtitle" style="font-size:11.5px;color:rgba(151,254,237,0.6);margin:0 0 14px;line-height:1.5;" data-i18n="원하는 이미지를 터치하세요">원하는 이미지를 터치하세요</p>
+    <p id="csPickerPageTitle" style="font-size:11px;color:rgba(151,254,237,0.4);margin:-8px 0 14px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></p>
+    <div id="csPickerGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;overflow-y:auto;flex:1;padding:2px;margin-bottom:14px;min-height:120px;"></div>
+    <div id="csPickerStatus" style="min-height:16px;font-size:11px;color:rgba(151,254,237,0.5);text-align:center;margin-bottom:8px;display:none;"></div>
+    <div style="display:flex;gap:8px;">
+      <button id="csPickerBack" type="button" style="flex:1;padding:12px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;" data-i18n="뒤로">뒤로</button>
+      <button id="csPickerCancel" type="button" style="flex:1;padding:12px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;" data-i18n="취소">취소</button>
     </div>
   </div>
 </div>
@@ -968,7 +997,7 @@ function setStatus(k, text, err){ const e=document.getElementById('st-'+k); e.te
 function pickFile(k){ document.getElementById('file-'+k).click(); }
 function pickCamera(k){ document.getElementById('cam-'+k).click(); }
 
-// ── [2026-04-17] 온라인 링크로 이미지 불러오기 ──
+// ── [2026-04-17 업데이트] 온라인 링크: 상품 페이지 URL → 이미지 추출 → 선택 → 불러오기 ──
 let _csLinkSlot = null;   // 'top' | 'bottom'
 let _csLinkBusy = false;
 
@@ -980,23 +1009,24 @@ function pickLink(k){
   const st = document.getElementById('csLinkStatus');
   const btnC = document.getElementById('csLinkConfirm');
   if(!m || !inp) return;
-  // 라벨 업데이트
+  const _isEn = !!(window.CodiBankI18n && CodiBankI18n.isEn());
   if(sub){
-    const _isEn = window.CodiBankI18n && CodiBankI18n.isEn();
     const slotLabel = _isEn ? (k==='top'?'top':'bottom') : (k==='top'?'상의':'하의');
     sub.textContent = _isEn
-      ? ('Paste the '+slotLabel+' image URL from a shopping site')
-      : (slotLabel+' 쇼핑몰 이미지 URL을 붙여넣으세요');
+      ? ('Paste the '+slotLabel+' product page URL from a shopping site')
+      : (slotLabel+' 쇼핑몰 상품 페이지 URL을 붙여넣으세요');
   }
   inp.value = '';
   if(st){ st.style.display='none'; st.textContent=''; }
   if(btnC){
-    const _isEn = window.CodiBankI18n && CodiBankI18n.isEn();
-    btnC.innerHTML = '<span class="mi" style="font-size:16px;">download</span><span>'+(_isEn?'Load':'불러오기')+'</span>';
+    btnC.innerHTML = '<span class="mi" style="font-size:16px;">search</span><span>'+(_isEn?'Find Images':'이미지 찾기')+'</span>';
     btnC.disabled = false;
     btnC.style.opacity = '1';
   }
   _csLinkBusy = false;
+  // 다른 모달 닫기
+  const pm = document.getElementById('csImagePickerModal');
+  if(pm) pm.style.display='none';
   m.style.display = 'flex';
   setTimeout(()=>{ try{ inp.focus(); }catch(_){ } }, 50);
 }
@@ -1008,53 +1038,68 @@ function _closeLinkModal(){
   _csLinkSlot = null;
 }
 
+// ── Step 1: URL 입력 → 이미지 후보 추출 ──
 async function _confirmLinkLoad(){
   if(_csLinkBusy) return;
   const inp = document.getElementById('csLinkInput');
   const st = document.getElementById('csLinkStatus');
   const btnC = document.getElementById('csLinkConfirm');
-  const m = document.getElementById('csLinkModal');
   const _isEn = !!(window.CodiBankI18n && CodiBankI18n.isEn());
   const _t = (ko, en) => _isEn ? en : ko;
 
   const rawUrl = (inp && inp.value || '').trim();
   const showErr = (msg) => {
-    if(st){ st.style.display='block'; st.textContent=msg; }
+    if(st){ st.style.display='block'; st.style.color='#ff9a9a'; st.textContent=msg; }
   };
-  // URL 검증
   if(!rawUrl){
-    showErr(_t('유효한 이미지 URL을 입력하세요','Please enter a valid image URL'));
+    showErr(_t('유효한 상품 페이지 URL을 입력하세요','Please enter a valid product page URL'));
     return;
   }
   let parsed;
   try{ parsed = new URL(rawUrl); }catch(_){
-    showErr(_t('유효한 이미지 URL을 입력하세요','Please enter a valid image URL'));
+    showErr(_t('유효한 상품 페이지 URL을 입력하세요','Please enter a valid product page URL'));
     return;
   }
   if(parsed.protocol !== 'http:' && parsed.protocol !== 'https:'){
-    showErr(_t('유효한 이미지 URL을 입력하세요','Please enter a valid image URL'));
+    showErr(_t('유효한 상품 페이지 URL을 입력하세요','Please enter a valid product page URL'));
     return;
   }
 
-  // UI 로딩
   _csLinkBusy = true;
-  if(st){ st.style.display='block'; st.style.color='#97FEED'; st.textContent=_t('이미지 불러오는 중…','Loading image…'); }
+  if(st){ st.style.display='block'; st.style.color='#97FEED'; st.textContent=_t('이미지 찾는 중…','Finding images…'); }
   if(btnC){
     btnC.disabled = true;
     btnC.style.opacity = '0.6';
-    btnC.innerHTML = '<span class="mi" style="font-size:16px;animation:csSpin 1s linear infinite;">progress_activity</span><span>'+_t('불러오는 중…','Loading…')+'</span>';
+    btnC.innerHTML = '<span class="mi" style="font-size:16px;animation:csSpin 1s linear infinite;">progress_activity</span><span>'+_t('찾는 중…','Finding…')+'</span>';
   }
 
-  const slot = _csLinkSlot;
   try{
-    await loadImageFromUrl(rawUrl, slot);
-    // 성공 → 모달 닫고 종료
+    const base = codistyleBase();
+    if(!base) throw new Error(_t('백엔드 주소가 없습니다','Backend address not configured'));
+    const resp = await fetch(base + '/api/extract-product-images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: rawUrl })
+    });
+    let json = null;
+    try{ json = await resp.json(); }catch(_){}
+    if(!resp.ok || !json || json.ok !== true){
+      const errMsg = json && json.error ? String(json.error) : ('HTTP '+resp.status);
+      let friendly = errMsg;
+      if(/No product images/i.test(errMsg))   friendly = _t('이 페이지에서 이미지를 찾을 수 없어요. 이미지가 많은 페이지에서 다시 시도해 보세요.','No images found. Try another page.');
+      else if(/HTTP 403/.test(errMsg))        friendly = _t('쇼핑몰이 페이지 접근을 차단했어요','Shopping site blocked page access');
+      else if(/HTTP 404/.test(errMsg))        friendly = _t('페이지를 찾을 수 없어요 (URL을 다시 확인해주세요)','Page not found (check URL)');
+      else if(/timed out/.test(errMsg))       friendly = _t('페이지 응답이 지연됩니다. 잠시 후 다시 시도하세요','Page timed out. Please try again');
+      else if(/Not an HTML/.test(errMsg))     friendly = _t('페이지 URL이 아닙니다. 상품 페이지 주소를 복사해주세요','Not a page URL. Copy the product page address');
+      throw new Error(friendly);
+    }
+
+    // 추출 성공 → 이미지 선택 모달로
     _csLinkBusy = false;
-    if(m) m.style.display='none';
-    _csLinkSlot = null;
+    _showImagePicker(json.images || [], json.pageTitle || '', _csLinkSlot);
   }catch(err){
     _csLinkBusy = false;
-    if(st){ st.style.color='#ff9a9a'; st.textContent = (err && err.message) ? err.message : _t('이미지 불러오기 실패','Failed to load image'); }
+    showErr((err && err.message) ? err.message : _t('이미지를 찾을 수 없어요','No images found'));
     if(btnC){
       btnC.disabled = false;
       btnC.style.opacity = '1';
@@ -1063,11 +1108,149 @@ async function _confirmLinkLoad(){
   }
 }
 
+// ── Step 2: 이미지 선택 그리드 ──
+function _showImagePicker(images, pageTitle, slot){
+  const _isEn = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+  const _t = (ko, en) => _isEn ? en : ko;
+
+  const linkModal = document.getElementById('csLinkModal');
+  const pickerModal = document.getElementById('csImagePickerModal');
+  const grid = document.getElementById('csPickerGrid');
+  const sub = document.getElementById('csPickerSubtitle');
+  const pt = document.getElementById('csPickerPageTitle');
+  const stSel = document.getElementById('csPickerStatus');
+  if(!pickerModal || !grid) return;
+
+  _csLinkSlot = slot;
+  if(linkModal) linkModal.style.display = 'none';
+  if(sub){
+    const slotLabel = _isEn ? (slot==='top'?'top':'bottom') : (slot==='top'?'상의':'하의');
+    sub.textContent = _t(slotLabel+' 이미지를 선택하세요', 'Select '+slotLabel+' image');
+  }
+  if(pt){
+    pt.textContent = pageTitle ? (_t('페이지:','Page:')+' '+pageTitle) : '';
+    pt.style.display = pageTitle ? 'block' : 'none';
+  }
+  if(stSel){ stSel.style.display='none'; stSel.textContent=''; }
+
+  grid.innerHTML = '';
+  if(!images || !images.length){
+    const ph = document.createElement('div');
+    ph.style.cssText = 'grid-column:1/-1;text-align:center;padding:30px 10px;color:rgba(151,254,237,.4);font-size:12px;';
+    ph.textContent = _t('이미지를 찾을 수 없어요','No images found');
+    grid.appendChild(ph);
+  } else {
+    images.forEach(function(imgUrl, idx){
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'cs-pick-card';
+      card.style.cssText = 'position:relative;aspect-ratio:1;background:rgba(0,2,46,.5);border:1px solid rgba(151,254,237,.2);border-radius:10px;overflow:hidden;cursor:pointer;padding:0;transition:border-color .15s, transform .1s;';
+      card.onmouseenter = function(){ this.style.borderColor='rgba(151,254,237,.6)'; };
+      card.onmouseleave = function(){ this.style.borderColor='rgba(151,254,237,.2)'; };
+      card.onclick = function(){ _selectPickerImage(imgUrl); };
+
+      // 썸네일 (프록시 통해 로드 - img 태그 직접 src는 CORS/hotlink 차단될 수 있음)
+      const imgEl = document.createElement('img');
+      imgEl.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#fff;';
+      imgEl.alt = '';
+      imgEl.loading = 'lazy';
+      imgEl.onerror = function(){
+        // 실패 시 프록시로 재시도
+        _loadThumbnailViaProxy(imgUrl, imgEl);
+      };
+      imgEl.src = imgUrl;
+      card.appendChild(imgEl);
+
+      // 로딩 스피너
+      const loader = document.createElement('div');
+      loader.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,2,46,.3);color:#97FEED;font-size:20px;pointer-events:none;';
+      loader.innerHTML = '<span class="mi" style="animation:csSpin 1s linear infinite;">progress_activity</span>';
+      imgEl.addEventListener('load', function(){ loader.remove(); });
+      card.appendChild(loader);
+
+      grid.appendChild(card);
+    });
+  }
+
+  pickerModal.style.display = 'flex';
+}
+
+// 직접 img src 실패 → 프록시로 썸네일 로드
+async function _loadThumbnailViaProxy(imgUrl, imgEl){
+  try{
+    const base = codistyleBase();
+    const r = await fetch(base + '/api/proxy-image', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ url: imgUrl })
+    });
+    const j = await r.json();
+    if(j && j.ok && j.dataUrl){
+      imgEl.src = j.dataUrl;
+    } else {
+      imgEl.style.display = 'none';
+      const parent = imgEl.parentElement;
+      if(parent){
+        const err = document.createElement('div');
+        err.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(151,254,237,.3);font-size:11px;text-align:center;padding:6px;';
+        err.textContent = '표시 불가';
+        parent.appendChild(err);
+      }
+    }
+  }catch(_){ }
+}
+
+function _closeImagePickerModal(){
+  const m = document.getElementById('csImagePickerModal');
+  if(m) m.style.display = 'none';
+  _csLinkSlot = null;
+}
+
+function _backToLinkModal(){
+  const pm = document.getElementById('csImagePickerModal');
+  const lm = document.getElementById('csLinkModal');
+  if(pm) pm.style.display = 'none';
+  if(lm) lm.style.display = 'flex';
+}
+
+// ── Step 3: 이미지 선택 → 기존 loadImageFromUrl로 주입 ──
+async function _selectPickerImage(imgUrl){
+  const slot = _csLinkSlot;
+  if(!slot) return;
+  const pickerModal = document.getElementById('csImagePickerModal');
+  const stSel = document.getElementById('csPickerStatus');
+  const _isEn = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+  const _t = (ko, en) => _isEn ? en : ko;
+
+  // 모든 카드 비활성화
+  const cards = pickerModal ? pickerModal.querySelectorAll('.cs-pick-card') : [];
+  cards.forEach(function(c){ c.style.pointerEvents='none'; c.style.opacity='0.5'; });
+  if(stSel){
+    stSel.style.display='block';
+    stSel.style.color='#97FEED';
+    stSel.innerHTML = '<span class="mi" style="font-size:14px;vertical-align:middle;animation:csSpin 1s linear infinite;">progress_activity</span> '+_t('이미지 불러오는 중…','Loading image…');
+  }
+
+  try{
+    await loadImageFromUrl(imgUrl, slot);
+    // 성공 → 모달 닫기
+    if(pickerModal) pickerModal.style.display = 'none';
+    _csLinkSlot = null;
+  }catch(err){
+    // 실패 → 카드 재활성화 + 에러 표시
+    cards.forEach(function(c){ c.style.pointerEvents='auto'; c.style.opacity='1'; });
+    if(stSel){
+      stSel.style.color='#ff9a9a';
+      stSel.textContent = (err && err.message) ? err.message : _t('이미지 불러오기 실패','Failed to load image');
+    }
+  }
+}
+
+// ── loadImageFromUrl: 기존 그대로 — 프록시 호출 후 slot 세팅 ──
 async function loadImageFromUrl(url, k){
   const _isEn = !!(window.CodiBankI18n && CodiBankI18n.isEn());
   const _t = (ko, en) => _isEn ? en : ko;
 
-  // [1] 서버 프록시 호출
   const base = codistyleBase();
   if(!base) throw new Error(_t('백엔드 주소가 없습니다','Backend address not configured'));
   let resp;
@@ -1084,14 +1267,12 @@ async function loadImageFromUrl(url, k){
   try{ json = await resp.json(); }catch(_){ json = null; }
   if(!resp.ok || !json || json.ok !== true){
     const errMsg = json && json.error ? String(json.error) : ('HTTP '+resp.status);
-    // 친숙한 한국어 메시지 매핑
     let friendly = errMsg;
     if(/HTTP 403/.test(errMsg))      friendly = _t('쇼핑몰이 이미지 접근을 차단했어요','Shopping site blocked image access');
-    else if(/HTTP 404/.test(errMsg)) friendly = _t('이미지를 찾을 수 없어요 (URL이 만료되었거나 잘못되었습니다)','Image not found (URL expired or invalid)');
-    else if(/timed out/.test(errMsg)) friendly = _t('서버 응답이 지연됩니다. 잠시 후 다시 시도하세요','Server timed out. Please try again');
+    else if(/HTTP 404/.test(errMsg)) friendly = _t('이미지를 찾을 수 없어요 (URL 만료)','Image not found (URL expired)');
+    else if(/timed out/.test(errMsg)) friendly = _t('서버 응답이 지연됩니다','Server timed out');
     else if(/too large/.test(errMsg)) friendly = _t('이미지가 너무 큽니다 (15MB 이하)','Image too large (max 15MB)');
     else if(/Not an image/.test(errMsg)) friendly = _t('URL이 이미지를 가리키지 않아요','URL does not point to an image');
-    else if(/internal\/private/.test(errMsg)) friendly = _t('내부 네트워크 URL은 허용되지 않습니다','Internal network URLs are not allowed');
     throw new Error(friendly);
   }
 
@@ -1100,11 +1281,10 @@ async function loadImageFromUrl(url, k){
     throw new Error(_t('이미지 데이터가 올바르지 않습니다','Invalid image data'));
   }
 
-  // [2] dataUrl → Blob → File (기존 compressImage + uploadBlob 경로 재사용)
+  // dataUrl → Blob → 기존 compressImage + uploadBlob 경로
   const blob = await (await fetch(dataUrl)).blob();
   const file = new File([blob], (k==='top'?'top':'bottom')+'_link.jpg', { type: blob.type || 'image/jpeg' });
 
-  // [3] 기존 onFile 로직과 동일한 흐름
   _resetResultArea();
   clearSlot(k);
   const objectUrl = URL.createObjectURL(file);
@@ -1138,22 +1318,34 @@ async function loadImageFromUrl(url, k){
 
 // 모달 이벤트 바인딩
 document.addEventListener('DOMContentLoaded', function(){
-  const m = document.getElementById('csLinkModal');
-  const btnC = document.getElementById('csLinkConfirm');
-  const btnX = document.getElementById('csLinkCancel');
-  const inp = document.getElementById('csLinkInput');
-  if(btnC) btnC.addEventListener('click', _confirmLinkLoad);
-  if(btnX) btnX.addEventListener('click', _closeLinkModal);
-  if(inp){
-    inp.addEventListener('keydown', function(ev){
+  // URL 입력 모달
+  const linkModal = document.getElementById('csLinkModal');
+  const btnConfirm = document.getElementById('csLinkConfirm');
+  const btnCancel = document.getElementById('csLinkCancel');
+  const inpUrl = document.getElementById('csLinkInput');
+  if(btnConfirm) btnConfirm.addEventListener('click', _confirmLinkLoad);
+  if(btnCancel) btnCancel.addEventListener('click', _closeLinkModal);
+  if(inpUrl){
+    inpUrl.addEventListener('keydown', function(ev){
       if(ev.key === 'Enter'){ ev.preventDefault(); _confirmLinkLoad(); }
       else if(ev.key === 'Escape'){ ev.preventDefault(); _closeLinkModal(); }
     });
   }
-  // 배경 클릭으로 닫기
-  if(m){
-    m.addEventListener('click', function(ev){
-      if(ev.target === m) _closeLinkModal();
+  if(linkModal){
+    linkModal.addEventListener('click', function(ev){
+      if(ev.target === linkModal) _closeLinkModal();
+    });
+  }
+
+  // 이미지 선택 모달
+  const pickerModal = document.getElementById('csImagePickerModal');
+  const btnBack = document.getElementById('csPickerBack');
+  const btnPickerCancel = document.getElementById('csPickerCancel');
+  if(btnBack) btnBack.addEventListener('click', _backToLinkModal);
+  if(btnPickerCancel) btnPickerCancel.addEventListener('click', _closeImagePickerModal);
+  if(pickerModal){
+    pickerModal.addEventListener('click', function(ev){
+      if(ev.target === pickerModal) _closeImagePickerModal();
     });
   }
 });
