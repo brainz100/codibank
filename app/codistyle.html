@@ -103,6 +103,13 @@
     "ai옷장 상의": "AI Closet Top",
     "ai옷장 하의": "AI Closet Bottom",
     "온라인 링크 (준비중)": "Online Link (Coming Soon)",
+    "온라인 링크":        "Online Link",
+    "쇼핑몰 이미지 URL을 붙여넣으세요": "Paste an image URL from a shopping site",
+    "이미지 불러오는 중…": "Loading image…",
+    "이미지 불러오기 실패": "Failed to load image",
+    "유효한 이미지 URL을 입력하세요": "Please enter a valid image URL",
+    "취소":               "Cancel",
+    "불러오기":           "Load",
     "사진을 등록하면\n퍼스널컬러를 분석합니다": "Register a photo to\nanalyze your personal color",
     "성별": "Gender",
     "나이대": "Age Group",
@@ -253,8 +260,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 <style>
 :root{--navy:#071952;--navy2:#0d1f3c;--teal:#35A29F;--teal-dark:#0B666A;--teal-light:#97FEED;--mint:#a2fdf0;--border:rgba(151,254,237,0.15);} 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
-html{background:#00022E}
-body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-width:480px;margin:0 auto;min-height:100dvh;overflow-x:hidden;padding-bottom:100px}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--navy);color:#fff;max-width:480px;margin:0 auto;min-height:100dvh;overflow-x:hidden;padding-bottom:100px}
 .pg-header{display:flex;align-items:center;gap:12px;padding:20px 18px 12px}
 .back-btn{width:38px;height:38px;border-radius:50%;background:rgba(151,254,237,0.08);border:1px solid var(--border);cursor:pointer;color:var(--teal-light);display:flex;align-items:center;justify-content:center;font-family:'Material Symbols Outlined';font-size:22px}
 .pg-title{font-family:'Outfit',sans-serif;font-size:23px;font-weight:900;color:var(--teal-light)}
@@ -346,8 +352,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
 .cb-spacer{height:82px;}
 @media (max-width:390px){.slot-row{grid-template-columns:minmax(0,1fr) 112px}.sb{min-height:68px;padding:12px 8px}.pg-title{font-size:21px}}
 
-/* ── 저장 완료 토스트 (2026-04-16 비활성화됨 — 사용자 요청으로 항상 숨김) ── */
-#csSaveToast{display:none !important;}
+/* ── 저장 완료 토스트 ── */
+#csSaveToast{
+  position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+  background:rgba(7,19,42,0.96);color:rgba(76,219,206,1);
+  font-size:13px;font-weight:700;padding:10px 22px;border-radius:20px;
+  border:1px solid rgba(76,219,206,0.4);
+  pointer-events:none;z-index:9999;
+  opacity:0;transition:opacity 0.3s ease-out;
+  white-space:nowrap;
+}
+#csSaveToast.show{opacity:1;}
 
 /* [2026-04-09 수정] Ai옷장 카드덱 — 입체 겹침 + 그림자 / 원인: 간격만 벌려놓아 입체감 없음 / 해결: aicloset.html 방식 참조, translateX 겹침+perspective+box-shadow */
 /* ── 코디하기 카드덱 (aicloset 방식, 7카드) ── */
@@ -390,10 +405,32 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
 <link rel="apple-touch-icon" href="/app/icons/icon-192.png"/>
 <script src="pwa-register.js" defer></script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6991588244591343" crossorigin="anonymous"></script>
+<style>
+@keyframes csSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+</style>
 </head>
 <body>
 <!-- ── 저장 완료 토스트 ── -->
 <div id="csSaveToast" data-i18n="✓ 저장되었습니다">✓ 저장되었습니다</div>
+
+<!-- ── [2026-04-17] 온라인 링크 입력 모달 ── -->
+<div id="csLinkModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,2,46,0.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#071952;border:1px solid rgba(151,254,237,0.25);border-radius:20px;padding:22px 20px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <span class="mi" style="font-size:20px;color:#97FEED;">link</span>
+      <h3 style="font-size:17px;font-weight:900;color:#97FEED;margin:0;" data-i18n="온라인 링크">온라인 링크</h3>
+    </div>
+    <p id="csLinkSubtitle" style="font-size:11.5px;color:rgba(151,254,237,0.6);margin:0 0 16px;line-height:1.5;" data-i18n="쇼핑몰 이미지 URL을 붙여넣으세요">쇼핑몰 이미지 URL을 붙여넣으세요</p>
+    <input id="csLinkInput" type="url" placeholder="https://..." autocomplete="off" spellcheck="false"
+      style="width:100%;padding:12px 14px;border-radius:12px;background:rgba(0,2,46,0.5);border:1px solid rgba(151,254,237,0.3);color:#fff;font-size:13px;font-family:inherit;outline:none;margin-bottom:12px;">
+    <div id="csLinkStatus" style="min-height:16px;font-size:11px;color:#ff9a9a;margin-bottom:10px;display:none;"></div>
+    <div style="display:flex;gap:8px;">
+      <button id="csLinkCancel" type="button" style="flex:1;padding:12px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;" data-i18n="취소">취소</button>
+      <button id="csLinkConfirm" type="button" style="flex:1.3;padding:12px;border-radius:12px;background:#0B666A;border:1px solid rgba(151,254,237,0.25);color:#97FEED;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;" data-i18n="불러오기">불러오기</button>
+    </div>
+  </div>
+</div>
+
 <header class="pg-header" style="flex-direction:column;align-items:flex-start;gap:4px;">
   <div class="pg-title" data-i18n="코디하기">코디하기</div>
   <div class="pg-sub" data-i18n="이 옷이 어울릴까 고민하지 마세요. 쉽게 사진 촬영하고 그냥 코디해보세요">이 옷이 어울릴까 고민하지 마세요. 쉽게 사진 촬영하고 그냥 코디해보세요</div>
@@ -421,7 +458,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     <div class="cact">
       <button class="cact-btn" onclick="pickCamera('top')" style="background:#35A29F;color:#ffffff;"><span class="mi" style="font-size:16px;">photo_camera</span>사진촬영</button>
       <button class="cact-btn" onclick="pickFile('top')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">image</span>사진선택</button>
-      <button class="cact-btn" disabled style="background:#0B666A;color:#071952;border:1px solid rgba(255,255,255,.15);cursor:default;"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크 (준비중)">온라인 링크 (준비중)</span></button>
+      <button class="cact-btn" onclick="pickLink('top')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크">온라인 링크</span></button>
     </div>
     <div class="slot-status" id="st-top"></div>
     <input type="file" id="file-top" accept="image/*" style="display:none" onchange="onFile(event,'top')">
@@ -448,7 +485,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     <div class="cact">
       <button class="cact-btn" onclick="pickCamera('bottom')" style="background:#35A29F;color:#ffffff;"><span class="mi" style="font-size:16px;">photo_camera</span>사진촬영</button>
       <button class="cact-btn" onclick="pickFile('bottom')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">image</span>사진선택</button>
-      <button class="cact-btn" disabled style="background:#0B666A;color:#071952;border:1px solid rgba(255,255,255,.15);cursor:default;"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크 (준비중)">온라인 링크 (준비중)</span></button>
+      <button class="cact-btn" onclick="pickLink('bottom')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크">온라인 링크</span></button>
     </div>
     <div class="slot-status" id="st-bottom"></div>
     <input type="file" id="file-bottom" accept="image/*" style="display:none" onchange="onFile(event,'bottom')">
@@ -930,6 +967,196 @@ function renderSlot(k){
 function setStatus(k, text, err){ const e=document.getElementById('st-'+k); e.textContent=text||''; e.className='slot-status'+(err?' err':''); }
 function pickFile(k){ document.getElementById('file-'+k).click(); }
 function pickCamera(k){ document.getElementById('cam-'+k).click(); }
+
+// ── [2026-04-17] 온라인 링크로 이미지 불러오기 ──
+let _csLinkSlot = null;   // 'top' | 'bottom'
+let _csLinkBusy = false;
+
+function pickLink(k){
+  _csLinkSlot = k;
+  const m = document.getElementById('csLinkModal');
+  const inp = document.getElementById('csLinkInput');
+  const sub = document.getElementById('csLinkSubtitle');
+  const st = document.getElementById('csLinkStatus');
+  const btnC = document.getElementById('csLinkConfirm');
+  if(!m || !inp) return;
+  // 라벨 업데이트
+  if(sub){
+    const _isEn = window.CodiBankI18n && CodiBankI18n.isEn();
+    const slotLabel = _isEn ? (k==='top'?'top':'bottom') : (k==='top'?'상의':'하의');
+    sub.textContent = _isEn
+      ? ('Paste the '+slotLabel+' image URL from a shopping site')
+      : (slotLabel+' 쇼핑몰 이미지 URL을 붙여넣으세요');
+  }
+  inp.value = '';
+  if(st){ st.style.display='none'; st.textContent=''; }
+  if(btnC){
+    const _isEn = window.CodiBankI18n && CodiBankI18n.isEn();
+    btnC.innerHTML = '<span class="mi" style="font-size:16px;">download</span><span>'+(_isEn?'Load':'불러오기')+'</span>';
+    btnC.disabled = false;
+    btnC.style.opacity = '1';
+  }
+  _csLinkBusy = false;
+  m.style.display = 'flex';
+  setTimeout(()=>{ try{ inp.focus(); }catch(_){ } }, 50);
+}
+
+function _closeLinkModal(){
+  if(_csLinkBusy) return;
+  const m = document.getElementById('csLinkModal');
+  if(m) m.style.display = 'none';
+  _csLinkSlot = null;
+}
+
+async function _confirmLinkLoad(){
+  if(_csLinkBusy) return;
+  const inp = document.getElementById('csLinkInput');
+  const st = document.getElementById('csLinkStatus');
+  const btnC = document.getElementById('csLinkConfirm');
+  const m = document.getElementById('csLinkModal');
+  const _isEn = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+  const _t = (ko, en) => _isEn ? en : ko;
+
+  const rawUrl = (inp && inp.value || '').trim();
+  const showErr = (msg) => {
+    if(st){ st.style.display='block'; st.textContent=msg; }
+  };
+  // URL 검증
+  if(!rawUrl){
+    showErr(_t('유효한 이미지 URL을 입력하세요','Please enter a valid image URL'));
+    return;
+  }
+  let parsed;
+  try{ parsed = new URL(rawUrl); }catch(_){
+    showErr(_t('유효한 이미지 URL을 입력하세요','Please enter a valid image URL'));
+    return;
+  }
+  if(parsed.protocol !== 'http:' && parsed.protocol !== 'https:'){
+    showErr(_t('유효한 이미지 URL을 입력하세요','Please enter a valid image URL'));
+    return;
+  }
+
+  // UI 로딩
+  _csLinkBusy = true;
+  if(st){ st.style.display='block'; st.style.color='#97FEED'; st.textContent=_t('이미지 불러오는 중…','Loading image…'); }
+  if(btnC){
+    btnC.disabled = true;
+    btnC.style.opacity = '0.6';
+    btnC.innerHTML = '<span class="mi" style="font-size:16px;animation:csSpin 1s linear infinite;">progress_activity</span><span>'+_t('불러오는 중…','Loading…')+'</span>';
+  }
+
+  const slot = _csLinkSlot;
+  try{
+    await loadImageFromUrl(rawUrl, slot);
+    // 성공 → 모달 닫고 종료
+    _csLinkBusy = false;
+    if(m) m.style.display='none';
+    _csLinkSlot = null;
+  }catch(err){
+    _csLinkBusy = false;
+    if(st){ st.style.color='#ff9a9a'; st.textContent = (err && err.message) ? err.message : _t('이미지 불러오기 실패','Failed to load image'); }
+    if(btnC){
+      btnC.disabled = false;
+      btnC.style.opacity = '1';
+      btnC.innerHTML = '<span class="mi" style="font-size:16px;">refresh</span><span>'+_t('다시 시도','Retry')+'</span>';
+    }
+  }
+}
+
+async function loadImageFromUrl(url, k){
+  const _isEn = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+  const _t = (ko, en) => _isEn ? en : ko;
+
+  // [1] 서버 프록시 호출
+  const base = codistyleBase();
+  if(!base) throw new Error(_t('백엔드 주소가 없습니다','Backend address not configured'));
+  let resp;
+  try{
+    resp = await fetch(base + '/api/proxy-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url })
+    });
+  }catch(e){
+    throw new Error(_t('서버 연결 실패','Server connection failed'));
+  }
+  let json;
+  try{ json = await resp.json(); }catch(_){ json = null; }
+  if(!resp.ok || !json || json.ok !== true){
+    const errMsg = json && json.error ? String(json.error) : ('HTTP '+resp.status);
+    // 친숙한 한국어 메시지 매핑
+    let friendly = errMsg;
+    if(/HTTP 403/.test(errMsg))      friendly = _t('쇼핑몰이 이미지 접근을 차단했어요','Shopping site blocked image access');
+    else if(/HTTP 404/.test(errMsg)) friendly = _t('이미지를 찾을 수 없어요 (URL이 만료되었거나 잘못되었습니다)','Image not found (URL expired or invalid)');
+    else if(/timed out/.test(errMsg)) friendly = _t('서버 응답이 지연됩니다. 잠시 후 다시 시도하세요','Server timed out. Please try again');
+    else if(/too large/.test(errMsg)) friendly = _t('이미지가 너무 큽니다 (15MB 이하)','Image too large (max 15MB)');
+    else if(/Not an image/.test(errMsg)) friendly = _t('URL이 이미지를 가리키지 않아요','URL does not point to an image');
+    else if(/internal\/private/.test(errMsg)) friendly = _t('내부 네트워크 URL은 허용되지 않습니다','Internal network URLs are not allowed');
+    throw new Error(friendly);
+  }
+
+  const dataUrl = json.dataUrl;
+  if(!dataUrl || !dataUrl.startsWith('data:image/')){
+    throw new Error(_t('이미지 데이터가 올바르지 않습니다','Invalid image data'));
+  }
+
+  // [2] dataUrl → Blob → File (기존 compressImage + uploadBlob 경로 재사용)
+  const blob = await (await fetch(dataUrl)).blob();
+  const file = new File([blob], (k==='top'?'top':'bottom')+'_link.jpg', { type: blob.type || 'image/jpeg' });
+
+  // [3] 기존 onFile 로직과 동일한 흐름
+  _resetResultArea();
+  clearSlot(k);
+  const objectUrl = URL.createObjectURL(file);
+  ST[k].preview = objectUrl;
+  ST[k].uploading = true;
+  renderSlot(k);
+  setStatus(k, _L('이미지 준비중…'), false);
+  updateGenerateBtn();
+  try{
+    const compressed = await compressImage(file, 1400, 0.82);
+    try{
+      const fr = new FileReader();
+      const du = await new Promise((res,rej)=>{fr.onload=()=>res(fr.result);fr.onerror=()=>res('');fr.readAsDataURL(compressed);});
+      ST[k].dataUrl = du || '';
+      try{ sessionStorage.setItem('cb_cs_st_'+k, ST[k].dataUrl); }catch(_){}
+    }catch(_){ ST[k].dataUrl = ''; }
+    setStatus(k, '', false);
+    const path = await uploadBlob(k, compressed);
+    ST[k].serverPath = path;
+    ST[k].uploading = false;
+    renderSlot(k); setStatus(k,'', false); updateGenerateBtn();
+    _savePageState();
+  }catch(e){
+    ST[k].uploading = false;
+    renderSlot(k);
+    setStatus(k, _L('업로드 실패: ')+(e.message||e), true);
+    updateGenerateBtn();
+    throw e;
+  }
+}
+
+// 모달 이벤트 바인딩
+document.addEventListener('DOMContentLoaded', function(){
+  const m = document.getElementById('csLinkModal');
+  const btnC = document.getElementById('csLinkConfirm');
+  const btnX = document.getElementById('csLinkCancel');
+  const inp = document.getElementById('csLinkInput');
+  if(btnC) btnC.addEventListener('click', _confirmLinkLoad);
+  if(btnX) btnX.addEventListener('click', _closeLinkModal);
+  if(inp){
+    inp.addEventListener('keydown', function(ev){
+      if(ev.key === 'Enter'){ ev.preventDefault(); _confirmLinkLoad(); }
+      else if(ev.key === 'Escape'){ ev.preventDefault(); _closeLinkModal(); }
+    });
+  }
+  // 배경 클릭으로 닫기
+  if(m){
+    m.addEventListener('click', function(ev){
+      if(ev.target === m) _closeLinkModal();
+    });
+  }
+});
 function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false }; if(k==='top'){_dkTopSel=-1;}else{_dkBotSel=-1;} renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); _resetResultArea(); _savePageState(); }
 function _resetResultArea(){
   // 착장이미지 + 분석 + 스코어 리셋
@@ -1758,8 +1985,17 @@ function downloadOutfitReport(){
 
 async function saveImg(){
   if(!lastImgUrl){ alert(CodiBankI18n.t('저장할 이미지가 없어요','No image to save')); return; }
-  // [2026-04-16] 저장 완료 토스트 제거 — 사용자 요청에 따라 팝업 표시 중단
-  const _showSaveToast = () => { /* no-op */ };
+  const _showSaveToast = () => {
+    const toast = document.getElementById('csSaveToast');
+    if(!toast) return;
+    toast.classList.add('show');
+    toast.style.opacity='1';
+    // [2026-04-15] 즉시 사라짐: 1.2초 후 강제 숨김
+    setTimeout(() => {
+      toast.classList.remove('show');
+      toast.style.opacity='0';
+    }, 1200);
+  };
   try{
     const r = await fetch(lastImgUrl);
     const blob = await r.blob();
