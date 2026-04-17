@@ -780,11 +780,28 @@ async function generateReport(){
     var canvas=await html2canvas(tpl,{scale:2,useCORS:true,backgroundColor:'#ffffff',logging:false});
     tpl.style.position='absolute';tpl.style.left='-9999px';
 
-    // 다운로드
-    var link=document.createElement('a');
-    link.download='CodiBank_PersonalColor_Report_'+new Date().toISOString().slice(0,10)+'.png';
-    link.href=canvas.toDataURL('image/png',0.95);
-    link.click();
+    // [2026-04-17] 브라우저 네이티브 다운로드 알림(흰색 팝업) 제거:
+    //   Web Share API(파일 지원) 사용 → 공유 시트에서 "이미지 저장" 선택 시 갤러리 저장
+    //   폴백은 데스크탑/Web Share 미지원 환경에서만 기존 다운로드 방식
+    var fname='CodiBank_PersonalColor_Report_'+new Date().toISOString().slice(0,10)+'.png';
+    var blob=await new Promise(function(res){canvas.toBlob(res,'image/png',0.95);});
+    if(!blob){ throw new Error('toBlob returned null'); }
+    var file=new File([blob],fname,{type:'image/png'});
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      try{
+        await navigator.share({files:[file]});
+      }catch(err){
+        // 사용자가 공유 시트 취소(AbortError) → 조용히 종료 (에러 표시 X)
+        if(!(err && err.name==='AbortError')) throw err;
+      }
+    }else{
+      // 폴백 (데스크탑 등)
+      var link=document.createElement('a');
+      link.download=fname;
+      link.href=URL.createObjectURL(blob);
+      link.click();
+      setTimeout(function(){ URL.revokeObjectURL(link.href); },3000);
+    }
     // [2026-04-16] 다운로드 완료 토스트 제거 — 사용자 요청에 따라 팝업 표시 중단
   }catch(e){
     console.error('[Report]',e);

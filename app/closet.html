@@ -4367,16 +4367,28 @@ async function updateVTO(opts={}){
 }
 
 // 저장/공유
-document.getElementById('saveBtn')?.addEventListener('click',()=>{
+document.getElementById('saveBtn')?.addEventListener('click',async()=>{
   const c=document.getElementById('vtoCanvas');
   if(!c||c.style.display==='none'){alert(CodiBankI18n.t('먼저 스타일링을 생성해주세요.','Please generate styling first.'));return;}
+  // [2026-04-17] 브라우저 네이티브 다운로드 알림(흰색 팝업) 제거:
+  //   Web Share API(파일 지원) 사용 → 공유 시트에서 "이미지 저장" 선택 시 갤러리 저장
   try{
+    const blob = await new Promise(res => c.toBlob(res, 'image/png', 1.0));
+    if(!blob){ alert(CodiBankI18n.t('저장 실패','Save failed')); return; }
+    const fname = `codibank_${Date.now()}.png`;
+    const file = new File([blob], fname, { type:'image/png' });
+    if(navigator.share && navigator.canShare && navigator.canShare({ files:[file] })){
+      try{ await navigator.share({ files:[file] }); }
+      catch(err){ if(err && err.name==='AbortError') return; throw err; }
+      return;
+    }
+    // 폴백 (데스크탑 등)
     const a=document.createElement('a');
-    a.download=`codibank_${Date.now()}.png`;
-    a.href=c.toDataURL('image/png',1.0);
+    a.download=fname;
+    a.href=URL.createObjectURL(blob);
     a.click();
-    // [2026-04-16] 저장 완료 토스트 제거 — 사용자 요청에 따라 팝업 표시 중단
-  }catch(e){alert(CodiBankI18n.t('저장 실패:','Save failed:')+e.message);}
+    setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  }catch(e){alert(CodiBankI18n.t('저장 실패:','Save failed:')+(e && e.message || ''));}
 });
 document.getElementById('shareBtn')?.addEventListener('click',()=>{
   const c=document.getElementById('vtoCanvas');if(!c||c.style.display==='none'){alert(CodiBankI18n.t('먼저 스타일링을 생성해주세요.','Please generate styling first.'));return;}

@@ -2289,31 +2289,43 @@ async function saveImg(){
     if(!toast) return;
     toast.classList.add('show');
     toast.style.opacity='1';
-    // [2026-04-15] 즉시 사라짐: 1.2초 후 강제 숨김
     setTimeout(() => {
       toast.classList.remove('show');
       toast.style.opacity='0';
     }, 1200);
   };
+  // [2026-04-17] 브라우저 네이티브 다운로드 알림(흰색 팝업) 제거:
+  //   Web Share API(파일 지원) 사용 → 공유 시트에서 "이미지 저장" 선택 시 갤러리 저장
+  //   폴백은 데스크탑/Web Share 미지원 환경에서만 기존 다운로드 방식
   try{
     const r = await fetch(lastImgUrl);
     const blob = await r.blob();
+    const fname = 'codibank_' + Date.now() + '.jpg';
+    const file = new File([blob], fname, { type: blob.type || 'image/jpeg' });
+    if(navigator.share && navigator.canShare && navigator.canShare({ files:[file] })){
+      try{
+        await navigator.share({ files:[file] });
+        _showSaveToast();
+      }catch(err){
+        // 사용자가 공유 시트를 취소(AbortError) → 조용히 종료 (토스트 X, 에러 X)
+        if(err && err.name === 'AbortError') return;
+        throw err;
+      }
+      return;
+    }
+    // 폴백 (데스크탑 등)
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'codibank_' + Date.now() + '.jpg';
+    a.download = fname;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 3000);
     _showSaveToast();
   }catch(e){
-    /* fetch 실패 시 직접 링크 다운로드 폴백 */
-    const a = document.createElement('a');
-    a.href = lastImgUrl;
-    a.download = 'codibank_' + Date.now() + '.jpg';
-    a.click();
-    _showSaveToast();
+    console.error('saveImg failed', e);
+    alert(CodiBankI18n.t('저장 실패','Save failed'));
   }
 }
 
