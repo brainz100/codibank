@@ -1019,7 +1019,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   </div>
 </header>
 
-<main class="pb-32" style="background:linear-gradient(180deg,#00022E 0%,#00022E 120px,#071952 100%);">
+<main class="pb-32" style="background:#00022E;">
 
   <!-- ── 날씨 카드 ── -->
   <section class="px-5 pt-4">
@@ -1423,7 +1423,9 @@ const S = {
   bodyType: null,
   matchScoreMap: {},
   matchDetailMap: {},
-  matchByCat: {}
+  matchByCat: {},
+  // [2026-04-17] aiCallBtn 상태 추적: 마지막 요청 이후 목적/날짜 변경 감지
+  _configDirty: false
 };
 const getPur = k => PURPOSES.find(p=>p.key===k)||PURPOSES[0];
 const pNum = v => {const n=Number(v);return Number.isFinite(n)?n:null;};
@@ -4231,6 +4233,7 @@ async function updateVTO(opts={}){
 
   setVtoState('ready');
   S.hasGenerated = true;
+  S._configDirty = false;  // [2026-04-17] 요청 완료 → aiCallBtn done 상태로 전환
   // [2026-04-16] ai옷장 '유사 아이템 찾기' 버튼 활성화 브릿지 — IndexedDB 원본 해상도 저장
   try {
     var _ckw = S.categoryKeywords || {};
@@ -4502,41 +4505,63 @@ function updateAiCallBtn(){
   const icon    = document.getElementById('aiCallIcon');
   const glow    = document.getElementById('aiCallGlow');
   if(!btn) return;
-  const hasP = !!(S.pk && S.pk !== '');
-  const busy = !!S.busy;
-  const done = !!S.hasGenerated && !busy;
+  const hasP   = !!(S.pk && S.pk !== '');
+  const hasDay = !!(S.day && S.day !== '');  // [2026-04-17] 날짜 선택 여부
+  const busy   = !!S.busy;
+  const ready  = hasP && hasDay && !busy;
+  // [2026-04-17] done: 생성 완료 + 설정 변경 없음. 변경 시 자동으로 ready로 전환
+  const done   = !!S.hasGenerated && !busy && !S._configDirty;
+
   btn.classList.remove('ready','busy','done');
+  btn.disabled = false;
+  btn.style.pointerEvents = '';
 
   if(busy){
     // 작업중
     btn.classList.add('busy');
+    btn.style.background = ''; btn.style.borderColor = '';
     if(mainTxt){ mainTxt.textContent=_L('현재 Ai 스타일리스트가 추천코디를 준비하고 있습니다'); mainTxt.style.color='#071952'; mainTxt.style.fontSize='13px'; }
     if(subTxt){ subTxt.textContent=_L('잠시만 기다려주세요…'); subTxt.style.color='rgba(7,25,82,0.6)'; }
     if(icon){ icon.style.color='#071952'; icon.style.fontVariationSettings="'FILL' 1,'wght' 700,'GRAD' 0,'opsz' 32"; }
     if(glow){ glow.style.background='none'; }
   } else if(done){
-    // 완료 → 비활성 상태로 복귀
-    if(mainTxt){ mainTxt.textContent=_L('Ai 스타일리스트 요청'); mainTxt.style.color='rgba(255,255,255,0.35)'; mainTxt.style.fontSize=''; }
-    if(subTxt){ subTxt.textContent=_L('다시요청 버튼으로 새 스타일리스트 호출'); subTxt.style.color='rgba(151,254,237,0.25)'; }
-    if(icon){ icon.style.color='rgba(151,254,237,0.25)'; icon.style.fontVariationSettings="'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 32"; }
+    // [2026-04-17] 완료: 화이트 배경, 메인컬러 텍스트, 클릭 불가
+    btn.classList.add('done');
+    btn.style.background = '#ffffff';
+    btn.style.borderColor = '#ffffff';
+    btn.disabled = true;
+    btn.style.pointerEvents = 'none';
+    if(mainTxt){ mainTxt.textContent=_L('Ai 스타일리스트 요청'); mainTxt.style.color='#071952'; mainTxt.style.fontSize=''; }
+    if(subTxt){ subTxt.textContent=_L('추천코디가 생성되었습니다'); subTxt.style.color='rgba(7,25,82,0.6)'; }
+    if(icon){ icon.style.color='#071952'; icon.style.fontVariationSettings="'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 32"; }
     if(glow){ glow.style.background='none'; }
-  } else if(hasP){
-    // 목적 선택됨 → 활성화: 서브컬러 배경+테두리
+  } else if(ready){
+    // [2026-04-17] 활성: 서브컬러(#35A29F) 배경, 메인컬러(#071952) 텍스트
     btn.classList.add('ready');
-    if(mainTxt){ mainTxt.textContent=_L('Ai 스타일리스트 요청'); mainTxt.style.color='#ffffff'; mainTxt.style.fontSize=''; }
-    if(subTxt){ subTxt.textContent='Start Intelligent Styling'; subTxt.style.color='rgba(255,255,255,0.7)'; }
-    if(icon){ icon.style.color='#ffffff'; icon.style.fontVariationSettings="'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 32"; }
+    btn.style.background = '#35A29F';
+    btn.style.borderColor = '#35A29F';
+    if(mainTxt){ mainTxt.textContent=_L('Ai 스타일리스트 요청'); mainTxt.style.color='#071952'; mainTxt.style.fontSize=''; }
+    if(subTxt){ subTxt.textContent='Start Intelligent Styling'; subTxt.style.color='rgba(7,25,82,0.7)'; }
+    if(icon){ icon.style.color='#071952'; icon.style.fontVariationSettings="'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 32"; }
     if(glow){ glow.style.background='none'; }
   } else {
-    // 미선택: 비활성
+    // 미선택: 비활성 (기본 상태)
+    btn.style.background = ''; btn.style.borderColor = '';
     if(mainTxt){ mainTxt.textContent=_L('Ai 스타일리스트 요청'); mainTxt.style.color='rgba(255,255,255,0.35)'; mainTxt.style.fontSize=''; }
-    if(subTxt){ subTxt.textContent=_L('코디 목적을 먼저 선택하세요'); subTxt.style.color='rgba(151,254,237,0.25)'; }
+    if(subTxt){
+      // 상황별 가이드 메시지
+      if(!hasP && !hasDay) subTxt.textContent=_L('목적과 날짜를 먼저 선택하세요');
+      else if(!hasP) subTxt.textContent=_L('코디 목적을 먼저 선택하세요');
+      else subTxt.textContent=_L('날짜를 먼저 선택하세요');
+      subTxt.style.color='rgba(151,254,237,0.25)';
+    }
     if(icon){ icon.style.color='rgba(151,254,237,0.25)'; icon.style.fontVariationSettings="'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 32"; }
     if(glow){ glow.style.background='none'; }
   }
 }
 function setPurpose(k){
   S.pk = k;
+  S._configDirty = true;  // [2026-04-17] 목적 변경 → aiCallBtn 재활성화
   user.codiPurposeKey = k;
 
   const patch = { codiPurposeKey: S.pk };
@@ -4707,6 +4732,7 @@ function resetRecommendation(){
 function selectTodayStage1(){
   S.day='today';
   S.selDateKey='';
+  S._configDirty = true;  // [2026-04-17] 날짜 변경 → aiCallBtn 재활성화
   D.todayStage=1;
   D.tomorrowStage=0;
   D.picking=false;
@@ -4751,6 +4777,7 @@ function setTomorrowDate(dateKey){
 
   S.day='tomorrow';
   S.selDateKey=key;
+  S._configDirty = true;  // [2026-04-17] 날짜 변경 → aiCallBtn 재활성화
   D.tomorrowStage=1;
   D.todayStage=0;
   D.picking=true;
@@ -6164,6 +6191,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         if(stEl && snap.stateText) stEl.textContent = snap.stateText;
         // S 상태 복원
         S.hasGenerated = true;
+        S._configDirty = false;  // [2026-04-17] 복원 시 done 상태 유지
         try{ updateAiCallBtn(); }catch(_){}
         try{ setGenUiEnabled(true); }catch(_){}
         // 저장/다시요청/공유 버튼 활성화
