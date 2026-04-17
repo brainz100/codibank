@@ -23,10 +23,12 @@ from __future__ import annotations
 import base64
 import hashlib
 import io
+import ipaddress
 import json
 import os
 import platform
 import re
+import socket
 import sys
 import time
 import urllib.request
@@ -5605,6 +5607,229 @@ def debug_r2_status():
         "env_vars": env_check,
         "guide": "R2 미연결 시 Render Environment에 R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_URL 설정 필요" if not r2_connected else "R2 정상 연결됨",
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  /api/proxy-image  — 쇼핑몰 이미지 URL CORS/Hotlink 우회 프록시
+#  [2026-04-17] 쇼핑몰 이미지 URL로 코디하기 불가 문제 해결
+# ═══════════════════════════════════════════════════════════════════════
+
+# ── 설정 ──
+_PROXY_MAX_IMAGE_BYTES = 15 * 1024 * 1024   # 15MB
+_PROXY_REQUEST_TIMEOUT = 12                  # 초
+_PROXY_MAX_REDIRECTS = 5
+
+# 쇼핑몰 도메인 → Referer 위조 맵 (Hotlink 방지 우회)
+_PROXY_REFERER_MAP = {
+    # 무신사
+    "image.msscdn.net":              "https://www.musinsa.com/",
+    "msscdn.net":                    "https://www.musinsa.com/",
+    "static.msscdn.net":             "https://www.musinsa.com/",
+    # 29CM
+    "img.29cm.co.kr":                "https://www.29cm.co.kr/",
+    "product.29cm.co.kr":            "https://www.29cm.co.kr/",
+    "static.29cm.co.kr":             "https://www.29cm.co.kr/",
+    # W컨셉
+    "img.wconcept.co.kr":            "https://www.wconcept.co.kr/",
+    "product.wconcept.co.kr":        "https://www.wconcept.co.kr/",
+    # SSF Shop
+    "image.ssfshop.com":             "https://www.ssfshop.com/",
+    "img.ssfshop.com":               "https://www.ssfshop.com/",
+    # 지그재그
+    "cf.product-image.s.zigzag.kr":  "https://zigzag.kr/",
+    "image.zigzag.kr":               "https://zigzag.kr/",
+    # 에이블리
+    "img.a-bly.com":                 "https://m.a-bly.com/",
+    # 쿠팡
+    "image10.coupangcdn.com":        "https://www.coupang.com/",
+    "image6.coupangcdn.com":         "https://www.coupang.com/",
+    "thumbnail6.coupangcdn.com":     "https://www.coupang.com/",
+    "thumbnail7.coupangcdn.com":     "https://www.coupang.com/",
+    "thumbnail9.coupangcdn.com":     "https://www.coupang.com/",
+    "thumbnail10.coupangcdn.com":    "https://www.coupang.com/",
+    # 네이버 스마트스토어
+    "shop-phinf.pstatic.net":        "https://smartstore.naver.com/",
+    "shopping-phinf.pstatic.net":    "https://smartstore.naver.com/",
+    # 룩핀
+    "img.lookpin.co.kr":             "https://lookpin.co.kr/",
+    # 브랜디
+    "d2emtenuzntcob.cloudfront.net": "https://www.brandi.co.kr/",
+}
+
+_PROXY_ALLOWED_IMAGE_TYPES = {
+    "image/jpeg", "image/jpg", "image/png", "image/webp",
+    "image/gif", "image/avif", "image/bmp",
+}
+
+
+def _proxy_is_private_ip(hostname: str) -> bool:
+    """SSRF 방지: DNS resolve 후 private/loopback/link-local IP 검사."""
+    if not hostname:
+        return True
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+    except Exception:
+        return True  # DNS 실패 시 안전 차단
+    for info in infos:
+        ip_str = info[4][0]
+        try:
+            ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            continue
+        if (ip.is_private or ip.is_loopback or ip.is_link_local or
+                ip.is_multicast or ip.is_reserved or ip.is_unspecified):
+            return True
+    return False
+
+
+def _proxy_pick_referer(host: str):
+    """쇼핑몰 Referer 자동 감지 (서브도메인 포함)."""
+    if not host:
+        return None
+    host = host.lower()
+    if host in _PROXY_REFERER_MAP:
+        return _PROXY_REFERER_MAP[host]
+    parts = host.split(".")
+    for i in range(len(parts)):
+        candidate = ".".join(parts[i:])
+        if candidate in _PROXY_REFERER_MAP:
+            return _PROXY_REFERER_MAP[candidate]
+    return None
+
+
+@app.route("/api/proxy-image", methods=["POST"])
+def api_proxy_image():
+    """쇼핑몰 이미지 URL → 서버가 대신 받아 base64 dataURL로 전달.
+
+    Body:  { "url": "<image url>" }
+    200:   { ok: True, dataUrl: "data:image/...;base64,...", contentType, bytes }
+    4xx:   { ok: False, error: "..." }
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
+    img_url = str(data.get("url", "")).strip()
+
+    # ── [1] URL 기본 검증 ──
+    if not img_url:
+        return jsonify({"ok": False, "error": "URL is required"}), 400
+    if len(img_url) > 2048:
+        return jsonify({"ok": False, "error": "URL too long"}), 400
+
+    parsed = urllib.parse.urlparse(img_url)
+    if parsed.scheme not in ("http", "https"):
+        return jsonify({"ok": False, "error": "Only http/https URLs allowed"}), 400
+    if not parsed.hostname:
+        return jsonify({"ok": False, "error": "Invalid hostname"}), 400
+
+    # ── [2] SSRF 방지 ──
+    if _proxy_is_private_ip(parsed.hostname):
+        return jsonify({"ok": False, "error": "Blocked: internal/private network"}), 400
+
+    _lower_host = parsed.hostname.lower()
+    if _lower_host in ("localhost", "localhost.localdomain", "ip6-localhost"):
+        return jsonify({"ok": False, "error": "Blocked: localhost"}), 400
+    if parsed.port is not None and parsed.port not in (80, 443, 8080, 8443):
+        return jsonify({"ok": False, "error": "Blocked: non-standard port"}), 400
+
+    # ── [3] 요청 헤더 (Hotlink 우회 + 모바일 UA) ──
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+            "Version/16.6 Mobile/15E148 Safari/604.1"
+        ),
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+    }
+    referer = _proxy_pick_referer(parsed.hostname)
+    if referer:
+        headers["Referer"] = referer
+    else:
+        headers["Referer"] = f"{parsed.scheme}://{parsed.hostname}/"
+
+    # ── [4] 이미지 다운로드 ──
+    try:
+        resp = http_requests.get(
+            img_url,
+            headers=headers,
+            timeout=_PROXY_REQUEST_TIMEOUT,
+            stream=True,
+            allow_redirects=True,
+        )
+    except http_requests.exceptions.Timeout:
+        return jsonify({"ok": False, "error": "Remote server timed out"}), 504
+    except http_requests.exceptions.ConnectionError:
+        return jsonify({"ok": False, "error": "Could not connect to remote server"}), 502
+    except http_requests.exceptions.RequestException as e:
+        return jsonify({"ok": False, "error": f"Fetch failed: {str(e)[:100]}"}), 502
+
+    # 리다이렉트 재검증 (공개 URL → 사설 IP 우회 공격 방어)
+    if len(resp.history) > _PROXY_MAX_REDIRECTS:
+        resp.close()
+        return jsonify({"ok": False, "error": "Too many redirects"}), 502
+    if resp.history:
+        final_parsed = urllib.parse.urlparse(resp.url)
+        if final_parsed.hostname and _proxy_is_private_ip(final_parsed.hostname):
+            resp.close()
+            return jsonify({"ok": False, "error": "Blocked: redirect to internal network"}), 400
+
+    # ── [5] 응답 상태 ──
+    if resp.status_code != 200:
+        resp.close()
+        return jsonify({"ok": False, "error": f"Remote returned HTTP {resp.status_code}"}), 502
+
+    # ── [6] Content-Type 검증 ──
+    ct = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+    if not ct.startswith("image/"):
+        resp.close()
+        return jsonify({"ok": False, "error": f'Not an image (Content-Type: {ct or "unknown"})'}), 400
+
+    # ── [7] 스트리밍 다운로드 + 사이즈 제한 ──
+    chunks = []
+    total = 0
+    try:
+        for chunk in resp.iter_content(chunk_size=65536):
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > _PROXY_MAX_IMAGE_BYTES:
+                resp.close()
+                return jsonify({
+                    "ok": False,
+                    "error": f"Image too large (>{_PROXY_MAX_IMAGE_BYTES // (1024 * 1024)}MB)"
+                }), 413
+            chunks.append(chunk)
+    except Exception as e:
+        resp.close()
+        return jsonify({"ok": False, "error": f"Download interrupted: {str(e)[:100]}"}), 502
+    finally:
+        resp.close()
+
+    content = b"".join(chunks)
+    if not content:
+        return jsonify({"ok": False, "error": "Empty image response"}), 502
+
+    # ── [8] 매직바이트 검증 (Content-Type 위장 방지) ──
+    if not (
+        content.startswith(b"\xff\xd8\xff") or           # JPEG
+        content.startswith(b"\x89PNG\r\n\x1a\n") or      # PNG
+        content.startswith(b"GIF8") or                    # GIF
+        content.startswith(b"RIFF") or                    # WebP (RIFF....WEBP)
+        content.startswith(b"BM") or                      # BMP
+        (len(content) >= 12 and content[4:12] == b"ftypavif")  # AVIF
+    ):
+        return jsonify({"ok": False, "error": "File signature does not match an image"}), 400
+
+    # ── [9] base64 dataURL 반환 ──
+    b64 = base64.b64encode(content).decode("ascii")
+    return jsonify({
+        "ok": True,
+        "dataUrl": f"data:{ct};base64,{b64}",
+        "contentType": ct,
+        "bytes": len(content),
+    }), 200
 
 
 if __name__ == "__main__":
