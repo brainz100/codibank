@@ -107,6 +107,12 @@
     "쇼핑몰 이미지 URL을 붙여넣으세요": "Paste an image URL from a shopping site",
     "쇼핑몰 상품 페이지 URL을 붙여넣으세요": "Paste a product page URL from a shopping site",
     "상품 페이지 주소를 그대로 복사해서 붙여넣으면 이미지를 자동으로 찾아드려요": "Paste the product page address — we'll find the images automatically",
+    "원활하게 작동하는 쇼핑몰": "Supported shopping sites",
+    "무신사, 29CM, W컨셉, SSF, 지그재그, 에이블리, 룩핀, 브랜디": "Musinsa, 29CM, W Concept, SSF, Zigzag, Ably, Lookpin, Brandi",
+    "차단되는 쇼핑몰":   "Blocked shopping sites",
+    "쿠팡, 네이버 스마트스토어는 이미지 저장 후 '사진선택'을 이용해주세요": "For Coupang and Naver SmartStore, save the image and use 'Choose Photo'",
+    "닫기":               "Close",
+    "사진선택 열기":      "Open Photo Picker",
     "이미지 불러오는 중…": "Loading image…",
     "이미지 불러오기 실패": "Failed to load image",
     "이미지 찾는 중…":    "Finding images…",
@@ -433,7 +439,20 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     <p id="csLinkSubtitle" style="font-size:11.5px;color:rgba(151,254,237,0.6);margin:0 0 16px;line-height:1.5;" data-i18n="쇼핑몰 상품 페이지 URL을 붙여넣으세요">쇼핑몰 상품 페이지 URL을 붙여넣으세요</p>
     <input id="csLinkInput" type="url" placeholder="https://www.musinsa.com/..." autocomplete="off" spellcheck="false"
       style="width:100%;padding:12px 14px;border-radius:12px;background:rgba(0,2,46,0.5);border:1px solid rgba(151,254,237,0.3);color:#fff;font-size:13px;font-family:inherit;outline:none;margin-bottom:8px;">
-    <p style="font-size:10.5px;color:rgba(151,254,237,0.4);margin:0 0 12px;line-height:1.5;" data-i18n="상품 페이지 주소를 그대로 복사해서 붙여넣으면 이미지를 자동으로 찾아드려요">상품 페이지 주소를 그대로 복사해서 붙여넣으면 이미지를 자동으로 찾아드려요</p>
+    <p style="font-size:10.5px;color:rgba(151,254,237,0.4);margin:0 0 10px;line-height:1.5;" data-i18n="상품 페이지 주소를 그대로 복사해서 붙여넣으면 이미지를 자동으로 찾아드려요">상품 페이지 주소를 그대로 복사해서 붙여넣으면 이미지를 자동으로 찾아드려요</p>
+    <!-- [2026-04-17] 지원 쇼핑몰 안내 -->
+    <div style="background:rgba(151,254,237,0.06);border:1px solid rgba(151,254,237,0.15);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
+        <span class="mi" style="font-size:14px;color:#97FEED;">check_circle</span>
+        <span style="font-size:11px;font-weight:700;color:#97FEED;" data-i18n="원활하게 작동하는 쇼핑몰">원활하게 작동하는 쇼핑몰</span>
+      </div>
+      <p style="font-size:10.5px;color:rgba(151,254,237,0.55);margin:0 0 6px 18px;line-height:1.5;" data-i18n="무신사, 29CM, W컨셉, SSF, 지그재그, 에이블리, 룩핀, 브랜디">무신사, 29CM, W컨셉, SSF, 지그재그, 에이블리, 룩핀, 브랜디</p>
+      <div style="display:flex;align-items:center;gap:4px;margin:8px 0 4px;">
+        <span class="mi" style="font-size:14px;color:#ffb36b;">error</span>
+        <span style="font-size:11px;font-weight:700;color:#ffb36b;" data-i18n="차단되는 쇼핑몰">차단되는 쇼핑몰</span>
+      </div>
+      <p style="font-size:10.5px;color:rgba(255,179,107,0.6);margin:0 0 0 18px;line-height:1.5;" data-i18n="쿠팡, 네이버 스마트스토어는 이미지 저장 후 '사진선택'을 이용해주세요">쿠팡, 네이버 스마트스토어는 이미지 저장 후 '사진선택'을 이용해주세요</p>
+    </div>
     <div id="csLinkStatus" style="min-height:16px;font-size:11px;color:#ff9a9a;margin-bottom:10px;display:none;"></div>
     <div style="display:flex;gap:8px;">
       <button id="csLinkCancel" type="button" style="flex:1;padding:12px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;" data-i18n="취소">취소</button>
@@ -1027,6 +1046,9 @@ function pickLink(k){
   // 다른 모달 닫기
   const pm = document.getElementById('csImagePickerModal');
   if(pm) pm.style.display='none';
+  // 차단 안내 오버레이도 숨기기
+  const overlay = document.getElementById('csBlockedOverlay');
+  if(overlay) overlay.style.display='none';
   m.style.display = 'flex';
   setTimeout(()=>{ try{ inp.focus(); }catch(_){ } }, 50);
 }
@@ -1085,12 +1107,19 @@ async function _confirmLinkLoad(){
     try{ json = await resp.json(); }catch(_){}
     if(!resp.ok || !json || json.ok !== true){
       const errMsg = json && json.error ? String(json.error) : ('HTTP '+resp.status);
+      // [2026-04-17] 강한 차단 사이트(쿠팡/네이버 등)는 별도 안내 UI 노출
+      if(json && json.hardBlocked && json.shopName){
+        _csLinkBusy = false;
+        _showHardBlockedNotice(json.shopName, _csLinkSlot);
+        return;
+      }
       let friendly = errMsg;
       if(/No product images/i.test(errMsg))   friendly = _t('이 페이지에서 이미지를 찾을 수 없어요. 이미지가 많은 페이지에서 다시 시도해 보세요.','No images found. Try another page.');
       else if(/HTTP 403/.test(errMsg))        friendly = _t('쇼핑몰이 페이지 접근을 차단했어요','Shopping site blocked page access');
       else if(/HTTP 404/.test(errMsg))        friendly = _t('페이지를 찾을 수 없어요 (URL을 다시 확인해주세요)','Page not found (check URL)');
       else if(/timed out/.test(errMsg))       friendly = _t('페이지 응답이 지연됩니다. 잠시 후 다시 시도하세요','Page timed out. Please try again');
       else if(/Not an HTML/.test(errMsg))     friendly = _t('페이지 URL이 아닙니다. 상품 페이지 주소를 복사해주세요','Not a page URL. Copy the product page address');
+      else if(/actively blocking/i.test(errMsg)) friendly = _t('쇼핑몰이 접근을 차단합니다. 이미지를 저장 후 직접 업로드해주세요','Site blocks access. Save image and upload directly');
       throw new Error(friendly);
     }
 
@@ -1206,9 +1235,87 @@ function _closeImagePickerModal(){
   _csLinkSlot = null;
 }
 
+// [2026-04-17] 강한 차단 사이트(쿠팡·네이버) 전용 안내 — 사진선택으로 유도
+function _showHardBlockedNotice(shopName, slot){
+  const _isEn = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+  const _t = (ko, en) => _isEn ? en : ko;
+  const linkModal = document.getElementById('csLinkModal');
+  const st = document.getElementById('csLinkStatus');
+  const btnC = document.getElementById('csLinkConfirm');
+  const btnX = document.getElementById('csLinkCancel');
+  const inp = document.getElementById('csLinkInput');
+  const sub = document.getElementById('csLinkSubtitle');
+
+  // 오버레이 방식 — 기존 모달 위에 안내 박스 덮어 씌우기
+  let overlay = document.getElementById('csBlockedOverlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'csBlockedOverlay';
+    overlay.style.cssText = 'position:absolute;inset:0;background:#0a1443;border-radius:20px;display:flex;flex-direction:column;padding:22px 20px;box-sizing:border-box;';
+    const modalInner = linkModal && linkModal.querySelector('div');
+    if(modalInner){
+      modalInner.style.position = 'relative';
+      modalInner.appendChild(overlay);
+    }
+  }
+
+  overlay.innerHTML =
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">'
+      + '<span class="mi" style="font-size:22px;color:#ffb36b;">shield</span>'
+      + '<h3 style="font-size:16px;font-weight:900;color:#ffb36b;margin:0;">'+_t(shopName+'에서 차단되고 있어요', shopName+' blocks automated access')+'</h3>'
+    + '</div>'
+    + '<p style="font-size:12px;color:rgba(255,255,255,0.75);margin:0 0 16px;line-height:1.6;">'
+      + _t('이 쇼핑몰은 자동으로 이미지를 가져오는 것을 차단하고 있습니다. 아래 방법으로 간단하게 해결할 수 있어요:','This shopping site blocks automated image access. You can easily work around this:')
+    + '</p>'
+    + '<div style="background:rgba(151,254,237,0.07);border:1px solid rgba(151,254,237,0.2);border-radius:12px;padding:12px 14px;margin-bottom:14px;">'
+      + '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;">'
+        + '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#97FEED;color:#0a1443;font-size:11px;font-weight:900;border-radius:50%;flex-shrink:0;">1</span>'
+        + '<p style="font-size:12px;color:#fff;margin:0;line-height:1.6;">'+_t('쇼핑몰 앱/사이트에서 이미지를 길게 눌러 저장', 'Long-press the image to save from the shopping app/site')+'</p>'
+      + '</div>'
+      + '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;">'
+        + '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#97FEED;color:#0a1443;font-size:11px;font-weight:900;border-radius:50%;flex-shrink:0;">2</span>'
+        + '<p style="font-size:12px;color:#fff;margin:0;line-height:1.6;">'+_t('아래 "사진선택" 버튼으로 저장한 이미지 업로드', 'Use "Choose Photo" below to upload the saved image')+'</p>'
+      + '</div>'
+      + '<div style="display:flex;align-items:flex-start;gap:8px;">'
+        + '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#97FEED;color:#0a1443;font-size:11px;font-weight:900;border-radius:50%;flex-shrink:0;">3</span>'
+        + '<p style="font-size:12px;color:#fff;margin:0;line-height:1.6;">'+_t('AI 착장 생성 버튼으로 바로 코디 완료!', 'Tap AI outfit generate — done!')+'</p>'
+      + '</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;">'
+      + '<button type="button" id="csBlockedClose" style="flex:1;padding:12px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">'+_t('닫기','Close')+'</button>'
+      + '<button type="button" id="csBlockedToPick" style="flex:1.5;padding:12px;border-radius:12px;background:#35A29F;border:1px solid rgba(151,254,237,0.3);color:#ffffff;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;">'
+        + '<span class="mi" style="font-size:16px;">photo_library</span>'
+        + '<span>'+_t('사진선택 열기','Open Photo Picker')+'</span>'
+      + '</button>'
+    + '</div>';
+  overlay.style.display = 'flex';
+
+  // 이벤트 바인딩
+  const btnClose = document.getElementById('csBlockedClose');
+  const btnToPick = document.getElementById('csBlockedToPick');
+  if(btnClose){
+    btnClose.onclick = function(){
+      overlay.style.display = 'none';
+      if(linkModal) linkModal.style.display = 'none';
+      _csLinkSlot = null;
+    };
+  }
+  if(btnToPick){
+    btnToPick.onclick = function(){
+      const k = slot || _csLinkSlot;
+      overlay.style.display = 'none';
+      if(linkModal) linkModal.style.display = 'none';
+      _csLinkSlot = null;
+      if(k) pickFile(k);   // 사진선택 파일 다이얼로그 열기
+    };
+  }
+}
+
 function _backToLinkModal(){
   const pm = document.getElementById('csImagePickerModal');
   const lm = document.getElementById('csLinkModal');
+  const overlay = document.getElementById('csBlockedOverlay');
+  if(overlay) overlay.style.display = 'none';
   if(pm) pm.style.display = 'none';
   if(lm) lm.style.display = 'flex';
 }
