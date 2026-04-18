@@ -52,9 +52,11 @@
     "모바일 옷장에서 쉽게 코디할 수 있는 해법을 제공한다.":
       "Provides easy outfit solutions from your mobile closet.",
     "AI 추천코디 이야기":  "AI Outfit Story",
+    "AI 추천코디 스토리":  "AI Outfit Story",
     "목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.":
       "Select a goal and AI will recommend outfits based on the weather.",
     "✦ AI 스타일링 포인트": "✦ AI Styling Points",
+    "AI 추천코디 포인트": "AI Outfit Points",
     "스타일 키워드":       "Style Keywords",
     "카테고리별 코디 포인트": "Outfit Points by Category",
     "↓ 아래 모바일 옷장과 AI 매칭 분석 중": "↓ Analyzing match with your mobile closet below",
@@ -746,12 +748,51 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   border-radius:14px;
   overflow:hidden;
 }
-.vto-result-box{width:100%;aspect-ratio:1/1.62;border-radius:16px;overflow:hidden;background:#050f2a;position:relative;display:flex;align-items:center;justify-content:center;}
-.vto-img-spin{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;position:absolute;inset:0;}
-.vto-spin-txt{font-size:12px;color:rgba(162,253,240,0.45);text-align:center;line-height:1.7;padding:0 20px;}
-/* codibank 레인보우 텍스트 — 코디하기 동일 */
-.cb-rainbow-vto{font-size:36px;font-weight:900;letter-spacing:4px;font-family:'Manrope','Inter',sans-serif;display:flex;justify-content:center;align-items:center;gap:1px;}
-.cb-rainbow-vto span{color:rgba(255,255,255,0.25);}  /* 기본: 정적 흰색 */
+/* [2026-04-18] 세련된 이미지 뷰박스 재설계 — codistyle과 동일 */
+.vto-result-box{
+  width:100%;aspect-ratio:1/1.62;border-radius:20px;overflow:hidden;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 45%, rgba(53,162,159,0.12) 0%, transparent 65%),
+    linear-gradient(160deg, #0B1238 0%, #050A24 100%);
+  border:1px solid rgba(151,254,237,0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(151,254,237,0.06),
+    inset 0 -1px 0 rgba(0,0,0,0.35),
+    0 8px 24px rgba(0,0,0,0.3);
+}
+/* 로딩 상태에서만 shimmer와 pulse ring 표시 */
+.vto-result-box.vto-loading::before{
+  content:'';position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:linear-gradient(180deg, transparent 0%, rgba(151,254,237,0.04) 50%, transparent 100%);
+  background-size:100% 300%;
+  animation:csShimmerVto 3.5s ease-in-out infinite;
+}
+@keyframes csShimmerVto{
+  0%,100%{background-position:50% 0%;}
+  50%{background-position:50% 100%;}
+}
+.vto-result-box.vto-loading::after{
+  content:'';position:absolute;
+  width:140px;height:140px;border-radius:50%;
+  border:1.5px solid rgba(151,254,237,0.15);
+  animation:csPulseRingVto 2.2s ease-out infinite;
+  pointer-events:none;z-index:1;
+}
+@keyframes csPulseRingVto{
+  0%{transform:scale(0.7);opacity:0.8;}
+  100%{transform:scale(1.4);opacity:0;}
+}
+.vto-img-spin{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;position:absolute;inset:0;z-index:2;}
+.vto-spin-txt{font-size:11.5px;color:rgba(162,253,240,0.65);text-align:center;line-height:1.8;padding:0 20px;letter-spacing:.04em;font-weight:500;}
+/* codibank 레인보우 텍스트 — codistyle과 동일한 미니멀 사이즈 */
+.cb-rainbow-vto{
+  font-size:26px;font-weight:800;letter-spacing:3px;
+  font-family:'Manrope','Inter',sans-serif;
+  display:flex;justify-content:center;align-items:center;gap:1px;
+  filter:drop-shadow(0 2px 10px rgba(53,162,159,0.25));
+}
+.cb-rainbow-vto span{color:rgba(255,255,255,0.2);transition:color .3s;}
 .cb-rainbow-vto.animating span{animation:rbFillCs 2.4s infinite;}
 .cb-rainbow-vto span:nth-child(1){animation-delay:0s}
 .cb-rainbow-vto span:nth-child(2){animation-delay:0.2s}
@@ -761,6 +802,18 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .cb-rainbow-vto span:nth-child(6){animation-delay:1.0s}
 .cb-rainbow-vto span:nth-child(7){animation-delay:1.2s}
 .cb-rainbow-vto span:nth-child(8){animation-delay:1.4s}
+/* [2026-04-18] 진행률 표시 — codibank 로고 아래 */
+.vto-spin-pct{
+  font-family:'Manrope','Inter',sans-serif;
+  font-size:22px;font-weight:800;letter-spacing:.02em;
+  color:#97FEED;text-align:center;line-height:1;
+  font-variant-numeric:tabular-nums;
+  text-shadow:0 0 16px rgba(53,162,159,0.35);
+  transition:color .3s;
+}
+.vto-spin-pct .vto-spin-pct-sym{
+  font-size:14px;font-weight:600;opacity:0.7;margin-left:1px;
+}
 .vto-b-actions{display:flex;gap:8px;padding:12px 0 6px;}
 /* 버튼 공통 */
 .vto-bab{flex:1;padding:14px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:64px;}
@@ -1129,7 +1182,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <div class="flex items-center justify-between px-4 py-2.5" style="background:rgba(18,148,144,0.18);border-bottom:1px solid rgba(151,254,237,0.1);">
         <div class="flex items-center gap-2">
           <span class="material-symbols-outlined text-[14px]" style="color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 14;">style</span>
-          <p class="text-[10px] font-extrabold tracking-[0.2em]" style="color:#97FEED;">AI 추천코디 이야기</p>
+          <p class="text-[10px] font-extrabold tracking-[0.2em]" style="color:#97FEED;" data-i18n="AI 추천코디 스토리">AI 추천코디 스토리</p>
         </div>
         <p id="vtoMeta" class="text-[10px]" style="color:rgba(255,255,255,0.35);"></p>
       </div>
@@ -1185,10 +1238,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     </div>
 
     <!-- ② AI 스타일리스트 포인트 박스 -->
-    <div id="codiPointBox" class="mb-4" style="background:rgba(5,15,42,0.8);border:1px solid rgba(151,254,237,0.15);border-radius:16px;">
-      <div class="flex items-center justify-between px-4 py-2.5" style="border-bottom:1px solid rgba(151,254,237,0.08);">
+    <div id="codiPointBox" class="mb-4 overflow-hidden" style="background:rgba(7,25,82,0.7);border:1px solid rgba(151,254,237,0.18);border-radius:16px;">
+      <div class="flex items-center justify-between px-4 py-2.5" style="background:rgba(18,148,144,0.18);border-bottom:1px solid rgba(151,254,237,0.1);">
         <div class="flex items-center gap-2">
-        <p class="text-[10px] font-extrabold tracking-[0.22em]" style="color:rgba(151,254,237,0.75);">✦ AI 스타일링 포인트</p>
+        <span class="material-symbols-outlined text-[14px]" style="color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 14;">auto_awesome</span>
+        <p class="text-[10px] font-extrabold tracking-[0.2em]" style="color:#97FEED;" data-i18n="AI 추천코디 포인트">AI 추천코디 포인트</p>
         <span id="stylistBadge" class="hidden text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(18,148,144,0.25);border:1px solid rgba(151,254,237,0.3);color:#97FEED;"></span>
       </div>
       </div>
@@ -1225,6 +1279,8 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             <div id="vtoSpinner" class="cb-rainbow-vto" style="display:flex;">
               <span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span>
             </div>
+            <!-- [2026-04-18] 진행률 표시 — 로딩 중에만 표시 -->
+            <div class="vto-spin-pct" id="vtoSpinPct" style="display:none;">0<span class="vto-spin-pct-sym">%</span></div>
             <p class="vto-spin-txt" id="vtoSpinTxt" style="color:rgba(162,253,240,0.55);display:none;"></p>
             <div id="vtoStep" class="vto-step" style="display:none;">초기화 중…</div>
           </div>
@@ -3539,10 +3595,45 @@ async function updateVTO(opts={}){
   const refresh = !!(opts && opts.refresh);
 
   // v17: 추천 스타일링 박스 상태(없음/생성중/완료)
+  // [2026-04-18] step 텍스트에 따른 진행률 매핑
+  const _vtoStepToPct = (stepText) => {
+    const s = String(stepText||'').trim();
+    if(!s) return 5;
+    if(/초기화/.test(s)) return 5;
+    if(/얼굴.*불러오/.test(s)) return 15;
+    if(/AI 코디 분석/.test(s)) return 30;
+    if(/OpenAI.*업데이트/.test(s)) return 50;
+    if(/OpenAI.*이미지 생성/.test(s)) return 55;
+    if(/얼굴 없이/.test(s)) return 60;
+    if(/스타일링 이미지 생성/.test(s)) return 75;
+    if(/새로운 코디를 준비/.test(s)) return 20;
+    return 40; // 기본값
+  };
+  // [2026-04-18] 뷰박스 진행률 업데이트 (step 변경 시 자동 호출)
+  const _updateVtoPct = (pct) => {
+    const el = document.getElementById('vtoSpinPct');
+    if(!el) return;
+    const n = Math.round(Number(pct)||0);
+    el.innerHTML = n + '<span class="vto-spin-pct-sym">%</span>';
+  };
+  // [2026-04-18] stepEl의 textContent 변경을 감지해 진행률 자동 업데이트
+  //   → 기존의 모든 stepEl.textContent = '...' 호출에서 자동 반영됨 (코드 수정 불필요)
+  if(stepEl && !stepEl._vtoPctObserver){
+    try {
+      const _obs = new MutationObserver(() => {
+        _updateVtoPct(_vtoStepToPct(stepEl.textContent));
+      });
+      _obs.observe(stepEl, { childList: true, characterData: true, subtree: true });
+      stepEl._vtoPctObserver = _obs;
+    } catch(_){}
+  }
+
   const setVtoState = (state, opts={})=>{
     const msg = String(opts.msg||'').trim();
     const step = String(opts.step||'').trim();
     const wrapEl = document.getElementById('vtoWrap') || canvas.parentElement;
+    const boxEl = document.getElementById('vtoResultBox');
+    const pctEl = document.getElementById('vtoSpinPct');
     if(wrapEl){
       wrapEl.classList.toggle('is-refreshing', state==='refreshing');
     }
@@ -3552,6 +3643,8 @@ async function updateVTO(opts={}){
       canvas.style.display='block';
       if(spinnerEl){ spinnerEl.style.display='none'; spinnerEl.classList.remove('animating'); }
       if(stepEl) stepEl.style.display='none';
+      if(pctEl) pctEl.style.display='none';
+      if(boxEl) boxEl.classList.remove('vto-loading');
       return;
     }
 
@@ -3566,6 +3659,8 @@ async function updateVTO(opts={}){
         stepEl.style.display='';
         stepEl.textContent = step || '새로운 코디를 준비 중…';
       }
+      if(pctEl){ pctEl.style.display=''; _updateVtoPct(_vtoStepToPct(step || '새로운 코디를 준비 중…')); }
+      if(boxEl) boxEl.classList.add('vto-loading');
       return;
     }
 
@@ -3578,6 +3673,8 @@ async function updateVTO(opts={}){
         stepEl.style.display='';
         stepEl.textContent = step || '초기화 중…';
       }
+      if(pctEl){ pctEl.style.display=''; _updateVtoPct(_vtoStepToPct(step || '초기화 중…')); }
+      if(boxEl) boxEl.classList.add('vto-loading');
       return;
     }
 
@@ -3585,6 +3682,8 @@ async function updateVTO(opts={}){
     if(spinnerEl){ spinnerEl.style.display='none'; spinnerEl.classList.remove('animating'); }
     if(stateTextEl) stateTextEl.textContent = msg || '추천 이미지 없음';
     if(stepEl) stepEl.style.display='none';
+    if(pctEl) pctEl.style.display='none';
+    if(boxEl) boxEl.classList.remove('vto-loading');
   };
 
   // 디버그 모드(투자자 데모 시 화면에 "OpenAI 실패" 같은 문구가 노출되지 않도록 기본 OFF)

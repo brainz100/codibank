@@ -336,12 +336,77 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
 .prog-bar{height:3px;background:rgba(151,254,237,0.08)}
 .prog-fill{height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);transition:width .4s ease;border-radius:3px}
 .status-row{display:flex;align-items:center;gap:10px;padding:16px 18px 10px}.status-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;animation:pdot 1.2s ease-in-out infinite}@keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}.status-dot.done{background:var(--mint);animation:none}.status-dot.err{background:#f87171;animation:none}.status-txt{font-size:12px;color:rgba(162,253,240,0.7);font-weight:500}
-.result-img-wrap{padding:10px 14px;}.result-img-box{width:100%;aspect-ratio:1/1.6;border-radius:16px;overflow:hidden;background:#050f2a;position:relative;display:flex;align-items:center;justify-content:center;}.result-img{width:100%;height:100%;border-radius:16px;display:block;object-fit:cover;}
-.img-ph{width:100%;aspect-ratio:1/1.6;border-radius:16px;background:rgba(0,0,0,0.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:rgba(255,255,255,0.18)}
-.img-ph .mi{font-family:'Material Symbols Outlined';font-size:50px}.img-ph p{font-size:12px}
-.img-spin{width:100%;aspect-ratio:1/1.6;border-radius:16px;background:#050f2a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
-.cb-rainbow-cs{font-size:36px;font-weight:900;letter-spacing:4px;font-family:'Manrope','Inter',sans-serif;display:flex;justify-content:center;align-items:center;gap:1px;}
-.cb-rainbow-cs span{color:rgba(255,255,255,0.15);}
+.result-img-wrap{padding:10px 14px;}
+/* [2026-04-18] 세련된 이미지 뷰박스 재설계 */
+.result-img-box{
+  width:100%;aspect-ratio:1/1.6;border-radius:20px;overflow:hidden;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(53,162,159,0.08) 0%, transparent 60%),
+    linear-gradient(160deg, #0B1238 0%, #050A24 100%);
+  border:1px solid rgba(151,254,237,0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(151,254,237,0.05),
+    inset 0 -1px 0 rgba(0,0,0,0.3),
+    0 8px 24px rgba(0,0,0,0.25);
+}
+.result-img{width:100%;height:100%;border-radius:20px;display:block;object-fit:cover;}
+.img-ph{
+  width:100%;aspect-ratio:1/1.6;border-radius:20px;
+  background:linear-gradient(160deg, #0B1238 0%, #050A24 100%);
+  border:1px solid rgba(151,254,237,0.08);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  color:rgba(151,254,237,0.25);
+}
+.img-ph .mi{font-family:'Material Symbols Outlined';font-size:50px;filter:drop-shadow(0 0 12px rgba(151,254,237,0.15));}
+.img-ph p{font-size:12px;letter-spacing:.06em;}
+
+/* ── 로딩 상태 ── */
+.img-spin{
+  width:100%;aspect-ratio:1/1.6;border-radius:20px;overflow:hidden;position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 45%, rgba(53,162,159,0.12) 0%, transparent 65%),
+    linear-gradient(160deg, #0B1238 0%, #050A24 100%);
+  border:1px solid rgba(151,254,237,0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(151,254,237,0.06),
+    inset 0 -1px 0 rgba(0,0,0,0.35),
+    0 8px 24px rgba(0,0,0,0.3);
+}
+/* 은은한 shimmer 오버레이 — 부드러운 빛이 위에서 아래로 흐르는 효과 */
+.img-spin::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg, transparent 0%, rgba(151,254,237,0.04) 50%, transparent 100%);
+  background-size:100% 300%;
+  animation:csShimmer 3.5s ease-in-out infinite;
+}
+@keyframes csShimmer{
+  0%,100%{background-position:50% 0%;}
+  50%{background-position:50% 100%;}
+}
+/* 외곽 펄스 링 — 생성 중 시각적 피드백 */
+.img-spin::after{
+  content:'';position:absolute;
+  width:140px;height:140px;border-radius:50%;
+  border:1.5px solid rgba(151,254,237,0.15);
+  animation:csPulseRing 2.2s ease-out infinite;
+  pointer-events:none;
+}
+@keyframes csPulseRing{
+  0%{transform:scale(0.7);opacity:0.8;}
+  100%{transform:scale(1.4);opacity:0;}
+}
+
+/* 로고 — 더 작고 세련되게 */
+.cb-rainbow-cs{
+  font-size:26px;font-weight:800;letter-spacing:3px;
+  font-family:'Manrope','Inter',sans-serif;
+  display:flex;justify-content:center;align-items:center;gap:1px;
+  position:relative;z-index:2;
+  filter:drop-shadow(0 2px 10px rgba(53,162,159,0.25));
+}
+.cb-rainbow-cs span{color:rgba(255,255,255,0.2);transition:color .3s;}
 .cb-rainbow-cs.animating span{animation:rbFillCs 2.4s infinite;}
 .cb-rainbow-cs span:nth-child(1){animation-delay:0s}
 .cb-rainbow-cs span:nth-child(2){animation-delay:0.2s}
@@ -351,8 +416,25 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
 .cb-rainbow-cs span:nth-child(6){animation-delay:1.0s}
 .cb-rainbow-cs span:nth-child(7){animation-delay:1.2s}
 .cb-rainbow-cs span:nth-child(8){animation-delay:1.4s}
-@keyframes rbFillCs{0%{color:rgba(255,255,255,0.12)}12%{color:#FF6B6B}24%{color:#FFA94D}36%{color:#FFD43B}48%{color:#69DB7C}60%{color:#4DABF7}72%{color:#9775FA}84%{color:#DA77F2}100%{color:rgba(255,255,255,0.12)}}
-.spin-txt{font-size:12px;color:rgba(162,253,240,0.55);text-align:center;line-height:1.7}
+@keyframes rbFillCs{0%{color:rgba(255,255,255,0.15)}12%{color:#FF6B6B}24%{color:#FFA94D}36%{color:#FFD43B}48%{color:#69DB7C}60%{color:#4DABF7}72%{color:#9775FA}84%{color:#DA77F2}100%{color:rgba(255,255,255,0.15)}}
+.spin-txt{
+  font-size:11.5px;color:rgba(162,253,240,0.65);text-align:center;line-height:1.8;
+  letter-spacing:.04em;font-weight:500;position:relative;z-index:2;
+}
+.spin-txt small{font-size:9.5px;letter-spacing:.12em;}
+/* [2026-04-18] 진행률 표시 — codibank 로고 아래 */
+.spin-pct{
+  font-family:'Manrope','Inter',sans-serif;
+  font-size:22px;font-weight:800;letter-spacing:.02em;
+  color:#97FEED;text-align:center;line-height:1;
+  position:relative;z-index:2;
+  font-variant-numeric:tabular-nums;
+  text-shadow:0 0 16px rgba(53,162,159,0.35);
+  transition:color .3s;
+}
+.spin-pct .spin-pct-sym{
+  font-size:14px;font-weight:600;opacity:0.7;margin-left:1px;
+}
 .err-box{margin:0 14px 14px;padding:12px 14px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:12px;font-size:11px;color:#fca5a5;line-height:1.6}
 .b-actions{display:flex;gap:8px;padding:14px 16px 18px}
 .bab{flex:1;padding:12px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.12s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
@@ -983,7 +1065,16 @@ function codistyleBase(){
 
   return '';
 }
-function setProgress(pct, txt){ document.getElementById('progFill').style.width=pct+'%'; if(txt) document.getElementById('sTxt').textContent=txt; }
+function setProgress(pct, txt){
+  document.getElementById('progFill').style.width=pct+'%';
+  if(txt) document.getElementById('sTxt').textContent=txt;
+  // [2026-04-18] 뷰박스 내부 진행률 표시 (로딩 중 codibank 로고 아래)
+  var _sp = document.getElementById('imgSpinPct');
+  if(_sp){
+    var _n = Math.round(Number(pct)||0);
+    _sp.innerHTML = _n + '<span class="spin-pct-sym">%</span>';
+  }
+}
 function setDot(s){ const d=document.getElementById('sDot'); d.className='status-dot'+(s==='done'?' done':s==='err'?' err':''); }
 function showErr(msg){ const b=document.getElementById('errBox'); b.style.display='block'; b.innerHTML=msg; }
 function hideErr(){ const b=document.getElementById('errBox'); b.style.display='none'; }
@@ -1805,7 +1896,7 @@ async function generate(isRetry=false){
   document.getElementById('genBtnText').textContent='착장 이미지 생성중입니다';
   document.getElementById('genBtnIcon').textContent='hourglass_top';
   // [2026-04-09] rainbow 즉시 실행 — 생성 시작하자마자
-  document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br><small style="opacity:.55">(10~25초 소요)</small></p></div></div>';
+  document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><div class="spin-pct" id="imgSpinPct">0<span class="spin-pct-sym">%</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…</p></div></div>';
   document.getElementById('csScoreNum').textContent='—';
   document.getElementById('csScoreText').textContent='착장 이미지 생성 중...';
   document.getElementById('csScoreText').style.color='rgba(255,255,255,.35)';
@@ -1827,7 +1918,7 @@ async function generate(isRetry=false){
   }
   setProgress(30,'코디 프로필 준비 중…');
 
-  document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br><small style="opacity:.55">(10~25초 소요)</small></p></div></div>';
+  document.getElementById('imgWrap').innerHTML='<div class="result-img-box"><div class="img-spin"><div class="cb-rainbow-cs animating"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><div class="spin-pct" id="imgSpinPct">0<span class="spin-pct-sym">%</span></div><p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…</p></div></div>';
   try{
     const base=codistyleBase(); if(!base) throw new Error('Gemini 백엔드 주소가 없습니다');
 
