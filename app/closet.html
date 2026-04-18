@@ -479,24 +479,18 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     @media(prefers-reduced-motion:reduce){.clothing-layer{transition:none!important;}.cb-rainbow.active span{animation:none!important;}}
     .match-score-badge{position:absolute;bottom:6px;right:6px;background:linear-gradient(135deg,#35A29F,#0B666A);color:#fff;font-size:9px;font-weight:800;padding:3px 7px;border-radius:20px;letter-spacing:.04em;pointer-events:none;box-shadow:0 2px 8px rgba(53,162,159,.45);z-index:10;}
 
-    /* ── AI 호출 버튼 상태 ── */
-    /* ready: 메인컬러(네이비 그라데이션) - 목적 선택 후 호출 전 */
+    /* ── AI 호출 버튼 상태 ── [2026-04-18] 재설계 */
+    /* ready: 활성 상태 — #0B666A 배경 + #35A29F 라인 */
     #aiCallBtn.ready {
-      background: transparent !important;
-      border: 1.5px solid rgba(255,255,255,0.40) !important;
-      box-shadow: none !important;
+      background: #0B666A !important;
+      border: 1.5px solid #35A29F !important;
+      box-shadow: 0 4px 16px rgba(11,102,106,0.3) !important;
     }
-    /* done: 비활성 상태로 복귀 */
-    #aiCallBtn.done {
-      background: transparent !important;
-      border: 1.5px solid rgba(255,255,255,0.12) !important;
-      box-shadow: none !important;
-    }
-    /* busy: 어두운 teal - 작업중 */
+    /* busy: 클릭/생성중 — 화이트 배경 */
     #aiCallBtn.busy {
       background: #ffffff !important;
       border: 1.5px solid #ffffff !important;
-      box-shadow: 0 4px 16px rgba(255,255,255,0.12) !important;
+      box-shadow: 0 4px 16px rgba(255,255,255,0.15) !important;
       cursor: wait !important;
     }
     /* ── 모바일옷장 다크 디자인 (m_closet_0308) ── */
@@ -1158,7 +1152,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <h3 class="text-[18px] font-bold text-white tracking-tight mt-0.5" data-i18n="스타일링 추천받기">스타일링 추천받기</h3>
     </div>
     <button id="aiCallBtn" type="button" class="w-full flex items-center px-8 active:scale-[0.98] transition-all"
-      style="min-height:80px;border-radius:18px;background:transparent;border:1.5px solid rgba(255,255,255,0.12);box-shadow:none;position:relative;overflow:hidden;cursor:pointer;transition:background 0.3s,border 0.3s,box-shadow 0.3s;">
+      style="min-height:80px;border-radius:18px;background:transparent;border:1.5px solid #35A29F;box-shadow:none;position:relative;overflow:hidden;cursor:pointer;transition:background 0.3s,border 0.3s,box-shadow 0.3s;">
       <span id="aiCallGlow" style="position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(151,254,237,0.0) 0%,transparent 60%);pointer-events:none;transition:background 0.3s;"></span>
       <div class="flex items-center justify-center mr-4">
         <span id="aiCallIcon" class="material-symbols-outlined text-3xl" style="color:rgba(151,254,237,0.35);font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 32;transition:color 0.3s;">auto_awesome</span>
@@ -4607,51 +4601,54 @@ function updateAiCallBtn(){
   const hasP   = !!(S.pk && S.pk !== '');
   const hasDay = !!(S.day && S.day !== '');  // [2026-04-17] 날짜 선택 여부
   const busy   = !!S.busy;
-  const ready  = hasP && hasDay && !busy;
-  // [2026-04-17] done: 생성 완료 + 설정 변경 없음. 변경 시 자동으로 ready로 전환
-  const done   = !!S.hasGenerated && !busy && !S._configDirty;
+  // [2026-04-18] 활성: 목적+날짜 모두 선택 + 생성완료 상태 아님 + 설정 변경 있음
+  //  - 생성 완료 후(S.hasGenerated=true, _configDirty=false)에는 비활성으로 복귀
+  //  - 목적/날짜 재변경 시 _configDirty=true로 다시 활성화
+  const completed = !!S.hasGenerated && !S._configDirty;
+  const ready  = hasP && hasDay && !busy && !completed;
 
   btn.classList.remove('ready','busy','done');
   btn.disabled = false;
   btn.style.pointerEvents = '';
 
   if(busy){
-    // 작업중
+    // [2026-04-18] 클릭/생성중: 화이트 배경 + 메인컬러(#071952) 텍스트, 클릭 불가
     btn.classList.add('busy');
-    btn.style.background = ''; btn.style.borderColor = '';
-    if(mainTxt){ mainTxt.textContent=_L('현재 Ai 스타일리스트가 추천코디를 준비하고 있습니다'); mainTxt.style.color='#071952'; mainTxt.style.fontSize='13px'; }
-    if(subTxt){ subTxt.textContent=_L('잠시만 기다려주세요…'); subTxt.style.color='rgba(7,25,82,0.6)'; }
-    if(icon){ icon.style.color='#071952'; icon.style.fontVariationSettings="'FILL' 1,'wght' 700,'GRAD' 0,'opsz' 32"; }
-    if(glow){ glow.style.background='none'; }
-  } else if(done){
-    // [2026-04-17] 완료: 화이트 배경, 메인컬러 텍스트, 클릭 불가
-    btn.classList.add('done');
     btn.style.background = '#ffffff';
     btn.style.borderColor = '#ffffff';
     btn.disabled = true;
     btn.style.pointerEvents = 'none';
-    if(mainTxt){ mainTxt.textContent=_L('Ai 스타일리스트 요청'); mainTxt.style.color='#071952'; mainTxt.style.fontSize=''; }
-    if(subTxt){ subTxt.textContent=_L('추천코디가 생성되었습니다'); subTxt.style.color='rgba(7,25,82,0.6)'; }
-    if(icon){ icon.style.color='#071952'; icon.style.fontVariationSettings="'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 32"; }
+    if(mainTxt){ mainTxt.textContent=_L('현재 Ai 스타일리스트가 추천코디를 준비하고 있습니다'); mainTxt.style.color='#071952'; mainTxt.style.fontSize='13px'; }
+    if(subTxt){ subTxt.textContent=_L('잠시만 기다려주세요…'); subTxt.style.color='rgba(7,25,82,0.6)'; }
+    if(icon){ icon.style.color='#071952'; icon.style.fontVariationSettings="'FILL' 1,'wght' 700,'GRAD' 0,'opsz' 32"; }
     if(glow){ glow.style.background='none'; }
   } else if(ready){
-    // [2026-04-17] 활성: 서브컬러(#35A29F) 배경, 메인컬러(#071952) 텍스트
+    // [2026-04-18] 활성: 배경 #0B666A, 라인 #35A29F, 텍스트 화이트
     btn.classList.add('ready');
-    btn.style.background = '#35A29F';
+    btn.style.background = '#0B666A';
     btn.style.borderColor = '#35A29F';
-    if(mainTxt){ mainTxt.textContent=_L('Ai 스타일리스트 요청'); mainTxt.style.color='#071952'; mainTxt.style.fontSize=''; }
-    if(subTxt){ subTxt.textContent='Start Intelligent Styling'; subTxt.style.color='rgba(7,25,82,0.7)'; }
-    if(icon){ icon.style.color='#071952'; icon.style.fontVariationSettings="'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 32"; }
+    if(mainTxt){ mainTxt.textContent=_L('Ai 스타일리스트 요청'); mainTxt.style.color='#ffffff'; mainTxt.style.fontSize=''; }
+    if(subTxt){ subTxt.textContent='Start Intelligent Styling'; subTxt.style.color='rgba(255,255,255,0.75)'; }
+    if(icon){ icon.style.color='#ffffff'; icon.style.fontVariationSettings="'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 32"; }
     if(glow){ glow.style.background='none'; }
   } else {
-    // 미선택: 비활성 (기본 상태)
-    btn.style.background = ''; btn.style.borderColor = '';
+    // [2026-04-18] 비활성: 투명 배경 + 라인 #35A29F 상시 표시
+    //   - 목적/날짜 미선택
+    //   - 생성 완료 후 설정 변경 없음 (completed)
+    btn.style.background = 'transparent';
+    btn.style.borderColor = '#35A29F';
     if(mainTxt){ mainTxt.textContent=_L('Ai 스타일리스트 요청'); mainTxt.style.color='rgba(255,255,255,0.35)'; mainTxt.style.fontSize=''; }
     if(subTxt){
       // 상황별 가이드 메시지
-      if(!hasP && !hasDay) subTxt.textContent=_L('목적과 날짜를 먼저 선택하세요');
-      else if(!hasP) subTxt.textContent=_L('코디 목적을 먼저 선택하세요');
-      else subTxt.textContent=_L('날짜를 먼저 선택하세요');
+      if(completed){
+        subTxt.textContent=_L('추천코디가 생성되었습니다');
+      } else if(!hasP && !hasDay){
+        subTxt.textContent=_L('목적과 날짜를 먼저 선택하세요');
+      } else if(!hasP){
+        subTxt.textContent=_L('코디 목적을 먼저 선택하세요');
+      } else {
+        subTxt.textContent=_L('날짜를 먼저 선택하세요');
+      }
       subTxt.style.color='rgba(151,254,237,0.25)';
     }
     if(icon){ icon.style.color='rgba(151,254,237,0.25)'; icon.style.fontVariationSettings="'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 32"; }
