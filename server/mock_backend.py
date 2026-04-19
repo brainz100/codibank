@@ -2712,22 +2712,39 @@ def codistyle_generate():
     _bot_pattern      = str(_bottom_analysis_pre.get("pattern","")).strip()
     _bot_material     = str(_bottom_analysis_pre.get("material","")).strip()
     _bot_design       = str(_bottom_analysis_pre.get("key_design","")).strip()
+    # [2026-04-19 FIX#2] 바지 핏 판정: Phase1 분석 결과에서 fit + sub_category로 판단
+    _bot_fit          = str(_bottom_analysis_pre.get("fit","")).strip().lower()
+    # 스키니 판정: (1) Phase1 fit이 "스키니"/"slim"이거나 (2) sub_category에 스키니 키워드가 있을 때만
+    _is_skinny = (
+        _bot_fit in ("스키니", "skinny", "슬림", "slim") or
+        any(kw in _bot_sub.lower() for kw in ["스키니", "skinny"])
+    )
     bottom_info = _analyze_garment_category(_bot_cat, _bot_sub)
     if _bot_sub: bottom_info["ko"] = _bot_sub
 
     # Phase 1에서 is_skirt 확실하면 그대로 적용 (이미지 재분석 불필요)
     if _bot_is_skirt_pre is True:
-        _skirt_len_map = {"mini":"mini skirt (hem above knee)","midi":"midi skirt (knee to mid-calf)","maxi":"maxi skirt (ankle or floor)"}
-        _skirt_en = _skirt_len_map.get(_bot_skirt_len, "skirt")
+        # [2026-04-19 FIX#1] 4단계 기장 매핑 (기존 3단계에서 세분화)
+        _skirt_len_map = {
+            "mini":       "MINI skirt (hem 15-20cm above knee, mid-to-upper thigh)",
+            "midi_above": "MIDI skirt ABOVE-KNEE (hem EXACTLY 3cm above kneecap, knee visible)",
+            "midi":       "MIDI skirt ABOVE-KNEE (hem EXACTLY 3cm above kneecap, knee visible)",
+            "midi_below": "MIDI skirt BELOW-KNEE (hem EXACTLY 10cm below kneecap, mid-calf, knee covered)",
+            "long":       "LONG skirt (hem at ankle bone, covers full leg)",
+            "maxi":       "LONG skirt (hem at ankle bone, covers full leg)",
+        }
+        # 이미지 비율 기반 분류가 있으면 우선 사용 (프론트 skirt_length보다 정확)
+        _skirt_len_key = _skirt_length_cat or _bot_skirt_len
+        _skirt_en = _skirt_len_map.get(_skirt_len_key, "skirt")
         bottom_info = {
-            "type":"bottom","garment":_skirt_en,"ko": _bot_sub or f"스커트({_bot_skirt_len})",
-            "is_skirt":True,"is_shorts":False,"detected_length":_bot_skirt_len,
+            "type":"bottom","garment":_skirt_en,"ko": _bot_sub or f"스커트({_skirt_len_key})",
+            "is_skirt":True,"is_shorts":False,"detected_length":_skirt_len_key,
             "silhouette":_bot_design or f"{_bot_sub} skirt",
             "color_ko":_bot_color_ko,"pattern":_bot_pattern,"material":_bot_material,
             "rule":f"MUST generate {_skirt_en}. NO pants. NO leg separation. SKIRT ONLY."
         }
         _garment_instruction = _build_garment_instruction(top_info, bottom_info)
-        print(f"[codistyle] Phase1 확인 → 하의={_bot_sub} is_skirt=True length={_bot_skirt_len}")
+        print(f"[codistyle] Phase1 확인 → 하의={_bot_sub} is_skirt=True length={_skirt_len_key} (image_ratio={_skirt_length_cat or 'N/A'})")
     elif _bot_is_skirt_pre is False:
         bottom_info["is_skirt"] = False
         _garment_instruction = _build_garment_instruction(top_info, bottom_info)
@@ -2831,49 +2848,59 @@ def codistyle_generate():
     if not top_bytes or not bottom_bytes:
         return jsonify(ok=False, error="상의/하의 이미지가 필요합니다"), 400
 
-    # ── [2026-04-06 추가] 치마 이미지 가로:세로 비율 분석 ──
-    # 원인: 치마 이미지의 기장을 무시하고 AI가 임의 길이로 생성
-    # 해결: 이미지 비율에서 치마 기장을 추정하여 프롬프트에 반영
+    # ── [2026-04-19 FIX#1] 치마 이미지 비율 → 4단계 기장 분류 ────
+    # 원인: 기존 3단계(mini/midi/maxi)는 사용자 입력 치마의 정확한 기장 반영 못함
+    # 수정: 4단계 세분화
+    #   - 미니 (mini):            무릎 위 15~20cm
+    #   - 미디 above (midi_above): 무릎 위 3cm (무릎 바로 위)
+    #   - 미디 below (midi_below): 무릎 아래 +10cm (종아리 중간)
+    #   - 롱 (long):              발목까지 (맥시)
+    # 매핑: 가로:세로 비율 기반
+    #   ratio < 0.8  → 미니
+    #   0.8~1.2      → 미디 above (무릎 위 3cm)
+    #   1.2~1.7      → 미디 below (무릎 아래 +10cm)
+    #   1.7+         → 롱 (발목까지)
+    # ────
     _skirt_ratio_hint = ""
+    _skirt_length_cat = ""  # "mini" | "midi_above" | "midi_below" | "long"
     try:
         from PIL import Image as _PIL_ratio
         import io as _io_ratio
         _bottom_pil = _PIL_ratio.open(_io_ratio.BytesIO(bottom_bytes))
         _bw, _bh = _bottom_pil.size  # 가로(허리폭), 세로(기장)
         _wh_ratio = _bh / _bw if _bw > 0 else 1.0
-        # 비율 해석:
-        # ratio < 0.7  → 매우 짧은 치마 (미니)
-        # 0.7 ~ 1.0   → 짧은 치마 (미니~무릎 위)
-        # 1.0 ~ 1.4   → 무릎 길이 (미디)
-        # 1.4 ~ 1.8   → 종아리 길이 (미디~롱)
-        # 1.8+         → 발목 길이 (맥시)
-        if _wh_ratio < 0.7:
-            _skirt_ratio_desc = "very short mini skirt (hem well above knee)"
-            _skirt_ratio_pct = "15-20%"
-        elif _wh_ratio < 1.0:
-            _skirt_ratio_desc = "short skirt (hem at mid-thigh to just above knee)"
-            _skirt_ratio_pct = "20-25%"
-        elif _wh_ratio < 1.4:
-            _skirt_ratio_desc = "knee-length skirt (hem at or just below knee)"
-            _skirt_ratio_pct = "25-33%"
-        elif _wh_ratio < 1.8:
-            _skirt_ratio_desc = "midi skirt (hem at mid-calf)"
-            _skirt_ratio_pct = "33-40%"
+
+        if _wh_ratio < 0.8:
+            _skirt_length_cat = "mini"
+            _skirt_length_desc = "MINI SKIRT — hem 15-20cm above knee (high thigh)"
+            _skirt_ratio_pct = "15-22%"
+            _skirt_hem_position = "mid-thigh to upper thigh, well above the knee"
+        elif _wh_ratio < 1.2:
+            _skirt_length_cat = "midi_above"
+            _skirt_length_desc = "MIDI SKIRT (above-knee) — hem EXACTLY 3cm ABOVE the knee cap"
+            _skirt_ratio_pct = "28-33%"
+            _skirt_hem_position = "precisely 3cm above the top of the kneecap (knee is visible)"
+        elif _wh_ratio < 1.7:
+            _skirt_length_cat = "midi_below"
+            _skirt_length_desc = "MIDI SKIRT (below-knee +10cm) — hem EXACTLY 10cm BELOW the knee cap"
+            _skirt_ratio_pct = "38-45%"
+            _skirt_hem_position = "precisely 10cm below the bottom of the kneecap (mid-calf area, knee covered)"
         else:
-            _skirt_ratio_desc = "maxi/long skirt (hem near ankle)"
-            _skirt_ratio_pct = "40-50%"
-        
+            _skirt_length_cat = "long"
+            _skirt_length_desc = "LONG SKIRT — hem at ankle (covers full leg to ankle bone)"
+            _skirt_ratio_pct = "48-55%"
+            _skirt_hem_position = "at the ankle bone level, covering the full leg"
+
         _skirt_ratio_hint = (
-            f"SKIRT LENGTH FROM IMAGE ANALYSIS (width={_bw}px, height={_bh}px, ratio={_wh_ratio:.2f}): "
-            f"This skirt is a {_skirt_ratio_desc}. "
+            f"\n[SKIRT LENGTH — MEASURED FROM IMAGE RATIO (w={_bw}px, h={_bh}px, ratio={_wh_ratio:.2f})]: "
+            f"CATEGORY: {_skirt_length_desc}. "
+            f"HEM POSITION (absolute): {_skirt_hem_position}. "
             f"In the generated image, the skirt must occupy approximately {_skirt_ratio_pct} "
             f"of the total body height (waist to toe). "
-            f"DO NOT make the skirt shorter or longer than this proportion. "
+            f"CRITICAL: Do NOT arbitrarily shorten or lengthen — the hem MUST match the measured category exactly. "
+            f"The hem position is NON-NEGOTIABLE based on the uploaded skirt's width-to-height ratio. "
         )
-        # [2026-04-09] 치마 기장: 측정 비율 + 10% 길게 보정
-        _wh_ratio_adjusted = _wh_ratio * 1.10  # 10% 길게 보정
-        _skirt_ratio_desc = _skirt_ratio_desc + f" (보정 후 ratio={_wh_ratio_adjusted:.2f})"
-        print(f"[codistyle] 치마 비율 분석: {_bw}x{_bh} ratio={_wh_ratio:.2f} → 보정={_wh_ratio_adjusted:.2f} → {_skirt_ratio_desc}")
+        print(f"[codistyle] 치마 4단계 분류: {_bw}x{_bh} ratio={_wh_ratio:.2f} → {_skirt_length_cat} ({_skirt_length_desc})")
     except Exception as _ratio_err:
         print(f"[codistyle] 치마 비율 분석 실패: {_ratio_err}")
 
@@ -3184,22 +3211,60 @@ def codistyle_generate():
             f"Silhouette must match reference exactly: {bottom_info.get('silhouette','')} "
             "Final check: visible separate leg tubes → WRONG, regenerate as skirt only. "
             
-            # ★ 스커트 착용 리얼리즘 강화
-            "\n[SKIRT REALISM — CRITICAL]: "
-            "The skirt must look NATURALLY WORN on the person's body — NOT a flat image pasted on. "
-            "REQUIRED realism details: "
-            "1) The skirt fabric must show natural DRAPING and GRAVITY — fabric hangs from the waist "
-            "   and curves around the hips and thighs realistically. "
-            "2) WRINKLES and FOLDS must appear at natural stress points (waistband, hip area, where fabric gathers). "
-            "3) The skirt must follow the BODY CONTOUR — it curves with the hips, not floating flat. "
-            "4) SHADOW must fall naturally between the body and the fabric — inner shadow where skirt meets waist, "
-            "   outer shadow cast by the skirt's volume. "
-            "5) The waistband must sit naturally at the waist/hip level, showing slight tension or gathering. "
-            "6) If the skirt has pleats/tiers/ruffles, they must show 3D VOLUME and DEPTH, not flat lines. "
-            "7) The hem must fall at a consistent height with natural slight variation from movement. "
-            "8) Where the top meets the skirt (tucked in or layered over), the transition must look seamless. "
+            # ★ 스커트 착용 리얼리즘 강화 — [2026-04-19 FIX#3] 소재·중력·드레이프 정밀 시뮬레이션
+            "\n[SKIRT REALISM — CRITICAL PHYSICS SIMULATION]: "
+            "The skirt must look PHYSICALLY WORN on the person's body with realistic fabric dynamics. "
+
+            # A) 소재별 물성 시뮬레이션
+            "\n[A. MATERIAL TEXTURE SIMULATION]: "
+            "Analyze the skirt fabric from the reference image and apply its realistic material properties: "
+            "- Chiffon/Silk: lightweight, flowing, soft ripples, subtle translucency at edges, slight backlight glow. "
+            "- Cotton/Linen: medium weight, natural soft wrinkles, matte surface, slightly stiff at waistband. "
+            "- Denim: heavy, stiff structure, rigid folds, distinct seam lines, darker shadows in folds. "
+            "- Wool/Tweed: heavy drape, deep vertical folds, textured matte surface, shadow depth in creases. "
+            "- Leather/Pleather: rigid structure, sharp edges, glossy highlights, minimal fold count. "
+            "- Knit: soft clingy drape, subtle body-contour, slight stretch lines at hip. "
+            "- Satin: smooth high-gloss, liquid-like drape, highlighted ridges, reflective sheen. "
+            "- Tulle/Organza: voluminous puff, semi-transparent layers, crisp edges. "
+            "The fabric's VISUAL WEIGHT must match its material — light fabrics float, heavy fabrics pool. "
+
+            # B) 중력과 드레이프
+            "\n[B. GRAVITY & DRAPE PHYSICS]: "
+            "1) Gravity pulls the fabric DOWNWARD from the waistband — the hem must hang at a realistic height "
+            "   determined by fabric weight (heavier fabric = straighter vertical drape, lighter fabric = more flare). "
+            "2) The fabric CURVES around the hip contour with natural body-conforming volume (not flat pasted). "
+            "3) At the waistband, the fabric GATHERS naturally — visible slight bunching where belt/waistband sits. "
+            "4) Below the hip, the fabric falls in natural A-line, straight, or pleated flow based on cut. "
+            "5) At the hem, gravity creates the lowest point — hem line has a slight natural curve from movement, "
+            "   NOT a perfectly straight horizontal line. "
+            "6) If the person is standing, the fabric shows subtle sway/displacement indicating recent movement. "
+
+            # C) 주름/접힘 패턴
+            "\n[C. WRINKLE & FOLD PATTERNS]: "
+            "1) Waist-hip transition: visible tension lines where fabric stretches over the hip bone. "
+            "2) Side seams: slight bulge outward due to hip curvature. "
+            "3) Front/back center: vertical fold lines from fabric weight. "
+            "4) If pleated: each pleat must have 3D depth with shadow between folds, NOT flat lines. "
+            "5) If tiered/ruffled: each tier has its own drape and shadow, layered realistically. "
+            "6) Micro-wrinkles: small creases at hip, thigh contact points — gives 'lived-in' realism. "
+
+            # D) 조명과 그림자
+            "\n[D. LIGHTING & SHADOW]: "
+            "1) Inner shadow: where fabric meets the body (waist, hip concavity) — darker, soft-edged. "
+            "2) Outer shadow: cast by the skirt volume onto the legs below (if applicable). "
+            "3) Highlights: on fabric ridges where light catches — material-dependent (matte vs glossy). "
+            "4) Ambient occlusion: deep shadow in fold creases gives 3D depth. "
+
+            # E) 체크리스트
+            "\n[E. FINAL CHECKLIST — must pass all]: "
+            "☐ Hem line has natural slight curve (not pixel-perfect horizontal) "
+            "☐ Waistband shows gather/tension — not smooth cylinder "
+            "☐ Fabric follows hip curve — not floating away or stuck flat "
+            "☐ Shadow depth visible in folds (not flat lighting) "
+            "☐ Material texture matches reference (matte vs gloss vs texture) "
+            "☐ Front hem and back hem may differ slightly by angle "
             "ANTI-PATTERN: A skirt that looks like a flat 2D cutout placed on the body = GENERATION FAILURE. "
-            "The skirt must have the SAME level of 3D realism as the top garment. "
+            "The skirt must have the SAME level of 3D physics realism as the top garment. "
             # [2026-04-06 추가] 이미지 비율 기반 치마 기장 강제
             + (_skirt_ratio_hint if _skirt_ratio_hint else "")
             if bottom_info.get("is_skirt") else
@@ -3207,10 +3272,28 @@ def codistyle_generate():
             f"Lower garment = {bottom_info.get('garment','trousers')}. "
             + ("Shorts hem ABOVE knee. " if bottom_info.get("is_shorts") else
                "Trouser hem at bottom 12-15%% of image (just above shoe). Ankle bone hidden. No bare ankle. ")
-            # ──── [2026-04-10 추가] 바지 핏 = 레귤러핏 기본 ────
-            + "[PANTS FIT — DEFAULT RULE]: Use REGULAR FIT (straight or slightly tapered) as the default pants silhouette. "
-            "FORBIDDEN as default: slim fit, skinny fit, ultra-slim fit, spray-on tight fit. "
-            "Slim/skinny fit is ONLY allowed when the user has EXPLICITLY requested it via custom input. "
+            # ──── [2026-04-19 FIX#2] 바지 핏: 이미지 분석 기반 판정 ────
+            # 원칙:
+            #   - 기본값 = REGULAR FIT (레귤러)
+            #   - SKINNY FIT은 이미지 분석 결과(Phase 1)에서
+            #     fit="스키니/skinny/슬림/slim" OR sub_category에 스키니 키워드가
+            #     명시적으로 감지된 경우에만 적용
+            #   - 사용자 custom input으로는 더 이상 활성화 안 됨 (오타/오해 방지)
+            + (
+                "[PANTS FIT — SKINNY CONFIRMED FROM IMAGE]: "
+                f"The uploaded pants image was analyzed as SKINNY/SLIM fit (fit='{_bot_fit}', sub='{_bot_sub}'). "
+                "Render the pants as SKINNY FIT — leg opening narrow (6~8cm width), fabric clings to thigh and calf, "
+                "visible leg contour, tapered cut from hip to ankle. "
+                "This applies ONLY because the image analysis confirmed narrow leg width. "
+                if _is_skinny else
+                "[PANTS FIT — REGULAR FIT MANDATORY]: "
+                "Use REGULAR FIT as the DEFAULT pants silhouette — straight cut from hip to ankle with "
+                "moderate leg opening (18~22cm width). Fabric has natural drape away from the body — NOT clinging. "
+                "ABSOLUTELY FORBIDDEN: skinny fit, ultra-slim fit, spray-on tight fit, leggings-style. "
+                "The pants must look relaxed and naturally straight, suitable for everyday wear. "
+                "Even if the reference image appears slim, default to REGULAR FIT unless image analysis "
+                f"explicitly confirmed SKINNY (current fit='{_bot_fit or 'unspecified'}' = NOT skinny). "
+            )
             + _pants_rule + " " + _retry_pants
         )
 
