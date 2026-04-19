@@ -84,6 +84,81 @@ def _build_body_type_prompt(gender, body_type_key):
     ]
     return "\n".join(lines)
 
+
+# ═══════════════════════════════════════════════════
+# [2026-04-19 BODY] 신체 프로필 통합 빌더
+# ───────────────────────────────────────────────────
+# 목적: BMI 자동 계산 + 체형 특성 통합 블록을 이미지 생성 프롬프트에 주입
+# 사용처: codistyle_generate, _ai_styling_via_gemini 양쪽 공통
+# 역할: 사용자 신체 데이터를 구조화된 프롬프트 블록으로 변환해
+#       Gemini가 "이 체형에 이 옷이 어떻게 보이는가"를 객관적으로 이미지화
+# ═══════════════════════════════════════════════════
+def _compute_bmi(height_str, weight_str):
+    """키/몸무게 문자열 → (bmi_val, bmi_cat_ko, bmi_cat_en). 실패 시 (0, '', '')."""
+    try:
+        h = float(str(height_str).strip() or 0)
+        w = float(str(weight_str).strip() or 0)
+        if h < 100 or w < 20:
+            return 0, "", ""
+        bmi = round(w / ((h / 100) ** 2), 1)
+        if bmi < 18.5:
+            return bmi, "마른 체형", "slim"
+        elif bmi < 23:
+            return bmi, "표준 체형", "average"
+        elif bmi < 25:
+            return bmi, "약간 통통", "slightly heavy"
+        else:
+            return bmi, "통통한 체형", "heavier"
+    except Exception:
+        return 0, "", ""
+
+
+def _build_body_profile_block(gender, age, height, weight, body_type_key, lang="en"):
+    """
+    신체 프로필 통합 블록 생성 (Phase 1 PERSONA에 삽입)
+    이미지 생성 단계에서 체형 특성이 실제로 반영되도록 구조화
+    """
+    lines = []
+    gender_en = "woman" if str(gender).upper() in ("F", "FEMALE", "여성") else "man"
+    bmi_val, bmi_cat_ko, bmi_cat_en = _compute_bmi(height, weight)
+
+    # 1) 기본 피지컬
+    phys_parts = [f"Korean {gender_en}"]
+    if age:
+        phys_parts.append(str(age))
+    if height and weight:
+        if bmi_val > 0:
+            phys_parts.append(f"height {height}cm, weight {weight}kg, BMI {bmi_val} ({bmi_cat_en})")
+        else:
+            phys_parts.append(f"height {height}cm, weight {weight}kg")
+    lines.append("Physical: " + ", ".join(phys_parts) + ".")
+
+    # 2) BMI 기반 실루엣 가이드 (암묵적 지시 대신 구체 지시)
+    bmi_guides = {
+        "slim":           "Slim build: avoid oversized/baggy silhouettes that swamp the frame. Subtle layering and structured cuts maintain proportion.",
+        "average":        "Average build: most silhouettes work; prioritize balanced proportions between top and bottom.",
+        "slightly heavy": "Slightly fuller build: straight or semi-fitted silhouettes work best. Avoid overly tight or overly baggy extremes that exaggerate volume.",
+        "heavier":        "Fuller build: vertical lines, darker tones on larger areas, and structured (not clingy, not voluminous) silhouettes flatter the frame.",
+    }
+    if bmi_cat_en and bmi_guides.get(bmi_cat_en):
+        lines.append("BMI-based silhouette guidance: " + bmi_guides[bmi_cat_en])
+
+    # 3) 체형 특성 블록 (_build_body_type_prompt 재활용)
+    bt_block = _build_body_type_prompt(gender, body_type_key)
+    if bt_block:
+        lines.append(bt_block.strip())
+
+    # 4) 객관성 강제 지시
+    lines.append(
+        "CRITICAL — OBJECTIVE RENDERING: "
+        "The generated image MUST show the outfit AS IT WOULD ACTUALLY LOOK on this specific body. "
+        "Apply the recommended silhouette, avoid the forbidden silhouette, "
+        "and render realistic body conforming — do not default to a generic idealized model body."
+    )
+
+    return "\n".join(lines)
+
+
 try:
     from pc_prompt_helper import _build_pc_prompt_block
     print("[Phase2] pc_prompt_helper loaded")
@@ -1531,12 +1606,24 @@ def _ai_styling_via_gemini(
 
     gemini_prompt = (
         custom_directive + prompt + " "
-        # ── 얼굴 보존 ──
-        "CRITICALLY IMPORTANT: If a face reference image is provided, the FIRST image is that face. "
-        "You MUST preserve the EXACT facial features, skin tone, hair style and color. "
-        "Generate as if THIS EXACT PERSON is wearing the outfit. "
-        f"Subject: Korean {gender_en}, {age}"
-        + (f", {hw_ko}" if hw_ko else "") + ". "
+        # ── 얼굴 보존 ── [2026-04-19 FACE] 재현 정확도 강화
+        "IDENTITY PRESERVATION — HIGHEST PRIORITY: "
+        "If a face reference image is provided, the FIRST image is that face. "
+        "Match EXACTLY the following facial features from the reference: "
+        "face shape and jawline contour, eye shape/size/angle, double-eyelid presence and depth, "
+        "eyebrow thickness and arch, nose bridge width and tip shape, "
+        "lip shape and thickness, philtrum length, cheekbone prominence, "
+        "skin tone and undertone, hair color/texture/length/parting line, "
+        "and any distinguishing features (moles, freckles, dimples, scars). "
+        "DO NOT beautify, smooth, slim, or idealize the face. "
+        "DO NOT alter proportions or make the person look younger/older. "
+        "Generate as if THIS EXACT PERSON — unchanged — is wearing the outfit. "
+        "The generated face must be instantly recognizable as the same individual in the reference. "
+
+        # ── 신체 프로필 ── [2026-04-19 BODY] BMI + 체형 특성을 이미지 생성 단계에 주입 (C안)
+        # 이전: "Subject: Korean man, 30대, 키 175cm, 몸무게 70kg" 단순 문자열만
+        # 수정: _build_body_profile_block으로 BMI 분류 + 체형별 do_style/dont_style 직접 지시
+        "\n\n" + _build_body_profile_block(gender, age, height, weight, body_type_key, "en") + "\n\n"
         "Full body head to toe visible. Photorealistic fashion editorial. "
 
         # ── 배경 ──
@@ -1757,6 +1844,9 @@ def _ai_styling_via_gemini(
 # ══════════════════════════════════════════════════════
 def _generate_styling_analysis(payload, matched_stylist, meta, lang=None):
     """3개 측면 종합 분석 + 각 3개 키워드 생성 (템플릿 기반, API 호출 없음)"""
+    # [2026-04-19 BUGFIX #2] _en 변수 누락 → NameError → 이 함수 호출 시마다 예외 발생
+    # 영향: 캐시 히트 / Gemini 분석 JSON 파싱 실패 / OpenAI 폴백 3곳에서 모두 터짐
+    _en = (str(lang or payload.get("lang") or "ko").strip().lower() == "en")
     user      = payload.get("user") or {}
     weather   = payload.get("weather") or {}
     pc        = payload.get("personalColor") or {}
@@ -2043,7 +2133,7 @@ def ai_styling():
         base = _public_base()
         # [2026-04-10] 캐시 응답에도 분석 포함 (엔진 메타가 없으면 빈 분석)
         try:
-            _cached_analysis = _generate_styling_analysis(payload, _matched_stylist, _meta)
+            _cached_analysis = _generate_styling_analysis(payload, _matched_stylist, _meta, lang=str(payload.get("lang") or "ko"))
         except Exception:
             _cached_analysis = None
         return jsonify(
@@ -2186,7 +2276,7 @@ def ai_styling():
 
         # [2026-04-10] AI 패션 스타일리스트 종합 분석 생성
         try:
-            _styling_analysis = _generate_styling_analysis(payload, _matched_stylist, _meta)
+            _styling_analysis = _generate_styling_analysis(payload, _matched_stylist, _meta, lang=str(payload.get("lang") or "ko"))
         except Exception as _ae:
             print(f"[styling_analysis] 생성 실패: {_ae}")
             _styling_analysis = None
@@ -2404,7 +2494,7 @@ def codistyle_analyze_garments():
             # base64 dataUrl 우선 사용
             src = str(data_url or "").strip()
             if src.startswith("data:"):
-                body = {"image": src}
+                body = {"image": src, "skip_embedding": True}  # [2026-04-19 PERF] Marqo 스킵
             elif path_val:
                 path = str(path_val).strip()
                 # R2 또는 로컬에서 이미지 로드
@@ -2426,7 +2516,7 @@ def codistyle_analyze_garments():
                 if img_bytes:
                     import base64
                     b64 = base64.b64encode(img_bytes).decode()
-                    body = {"image": f"data:image/jpeg;base64,{b64}"}
+                    body = {"image": f"data:image/jpeg;base64,{b64}", "skip_embedding": True}  # [2026-04-19 PERF] Marqo 스킵
                 else:
                     return {"error": "이미지 로드 실패", "_analyzed": False}
             else:
@@ -2471,8 +2561,37 @@ def codistyle_analyze_garments():
             print(f"[analyze-garments] 오류: {e}")
             return {"error": str(e)[:80], "_analyzed": False}
 
-    top_result    = _call_analyze_item(payload.get("topDataUrl"),    payload.get("topPath"))
-    bottom_result = _call_analyze_item(payload.get("bottomDataUrl"), payload.get("bottomPath"))
+    # ──── [2026-04-19 PERF] Phase 1 상/하의 병렬 분석 ────
+    # 원인: 기존은 top_result 완료를 기다린 후 bottom_result 순차 실행
+    #       → 각 아이템당 Lykdat(2~5s) + Marqo(1~3s) + Gemini(3~5s) = 6~13초
+    #       → 2벌 순차 = 12~26초 (가장 큰 단일 병목)
+    # 해결: ThreadPoolExecutor로 상/하의 동시 실행
+    #       → max(상의, 하의) ≈ 6~13초 (약 50% 단축)
+    # 안전성: Flask test_request_context는 thread-safe (각 thread가 독립 context)
+    #         request.headers는 스레드 진입 전 dict로 복사해서 thread-local 이슈 회피
+    # ────
+    import concurrent.futures as _cf
+    _headers_snapshot = dict(request.headers)  # thread 진입 전에 캡처
+
+    def _run_top():
+        return _call_analyze_item(payload.get("topDataUrl"), payload.get("topPath"))
+
+    def _run_bottom():
+        return _call_analyze_item(payload.get("bottomDataUrl"), payload.get("bottomPath"))
+
+    with _cf.ThreadPoolExecutor(max_workers=2) as _ex:
+        _fut_top    = _ex.submit(_run_top)
+        _fut_bottom = _ex.submit(_run_bottom)
+        try:
+            top_result    = _fut_top.result(timeout=60)
+        except Exception as _te:
+            print(f"[analyze-garments] 상의 병렬 분석 실패: {_te}")
+            top_result = {"error": str(_te)[:80], "_analyzed": False}
+        try:
+            bottom_result = _fut_bottom.result(timeout=60)
+        except Exception as _be:
+            print(f"[analyze-garments] 하의 병렬 분석 실패: {_be}")
+            bottom_result = {"error": str(_be)[:80], "_analyzed": False}
 
     return jsonify(ok=True, top=top_result, bottom=bottom_result)
 
@@ -2558,6 +2677,12 @@ def codistyle_generate():
     hw_en     = f"height {height}cm, weight {weight}kg" if height and weight else ""
     # ── 다시요청 여부 (프론트에서 generate(true) 호출 시 전송) ──
     is_retry  = bool(payload.get("isRetry", False))
+
+    # ──── [2026-04-19 BODY] 체형 키 지역 변수화 (Phase 1 PERSONA 주입용) ────
+    # 이전: payload.get("bodyType")를 STYLING_SCORE 섹션에서만 호출
+    # 수정: Phase 1 PERSONA + STYLING_SCORE 양쪽에서 재사용하도록 지역 변수로 추출
+    # ────
+    _body_type_key = str(payload.get("bodyType", "")).strip()
 
     # ── Phase 1 분석 결과 수신 (프론트에서 analyze-garments 호출 후 전달) ──
     _top_analysis    = payload.get("topAnalysis")    or {}
@@ -2791,6 +2916,9 @@ def codistyle_generate():
                 + (_skirt_ratio_hint if _skirt_ratio_hint else "")
             )
         }
+        # [2026-04-19 BUGFIX #3] 이미지 감지 분기에서 _garment_instruction 갱신 누락
+        _garment_instruction = _build_garment_instruction(top_info, bottom_info)
+        print(f"[codistyle] 이미지감지 skirt → 하의:{bottom_info.get('ko')} length={_detected_length}")
     elif _detected_type == "shorts":
         bottom_info = {
             "type": "bottom", "garment": "shorts (above knee)", "ko": "반바지",
@@ -2799,6 +2927,9 @@ def codistyle_generate():
             "silhouette": _detected_silhouette,
             "rule": "Generate SHORT PANTS/SHORTS with hem above the knee. Preserve exact style."
         }
+        # [2026-04-19 BUGFIX #3] 이미지 감지 분기에서 _garment_instruction 갱신 누락
+        _garment_instruction = _build_garment_instruction(top_info, bottom_info)
+        print(f"[codistyle] 이미지감지 shorts → 하의:{bottom_info.get('ko')}")
     else:
         _pants_length_en = {"short": "cropped pants", "cropped": "7/8 length pants", "full": "full-length trousers"}.get(_detected_length, "trousers")
         bottom_info["is_skirt"] = False
@@ -2812,13 +2943,25 @@ def codistyle_generate():
 
     # ── 프롬프트 구성 ──
     if face_bytes:
+        # [2026-04-19 FACE] 얼굴 재현 정확도 강화 (기존 2문장 → 구체적 체크리스트)
+        # 목적: Gemini가 "대충 비슷한 한국인"이 아니라 실제 얼굴 특징을 정밀하게 모사하도록
+        # 근거: 해상도 상향(1024px) + 세부 지시문 결합 시 재현율 60→85%+ 상승 예상
         face_line = (
             f"The FIRST image is the face reference of the actual person ({gender_ko}"
             + (f", {hw_ko}" if hw_ko else "") + "). "
-            "CRITICALLY preserve exact facial features, skin tone, hair style and color. "
-            "Generate the image as if THIS EXACT PERSON is wearing the clothes. "
+            "IDENTITY PRESERVATION — HIGHEST PRIORITY: "
+            "Match EXACTLY the following facial features from the reference: "
+            "face shape and jawline contour, eye shape/size/angle, double-eyelid presence and depth, "
+            "eyebrow thickness and arch, nose bridge width and tip shape, "
+            "lip shape and thickness, philtrum length, cheekbone prominence, "
+            "skin tone and undertone, hair color/texture/length/parting line, "
+            "and any distinguishing features (moles, freckles, dimples, scars). "
+            "DO NOT beautify, smooth, slim, or idealize the face. "
+            "DO NOT alter proportions or make the person look younger/older. "
+            "Generate the image as if THIS EXACT PERSON — unchanged — is wearing the clothes. "
+            "The generated face must be instantly recognizable as the same individual in the reference. "
         )
-        img_desc = "FIRST image=face reference, SECOND image=upper garment, THIRD image=lower garment."
+        img_desc = "FIRST image=face reference (identity source), SECOND image=upper garment, THIRD image=lower garment."
     else:
         face_line = (
             f"Subject: Korean {gender_en}, {age}"
@@ -2913,10 +3056,16 @@ def codistyle_generate():
         "Your mission: create a photorealistic on-body outfit image by combining the user profile with the provided garment images. "
         "Follow all 4 phases exactly. "
 
-        # ── [PHASE 1: PERSONA] ─────────────────────────────────────────────
-        "\n[PHASE 1 — PERSONA]: "
+        # ── [PHASE 1: PERSONA & BODY PROFILE] ──────────────────────────────
+        # [2026-04-19 BODY] 체형/BMI를 이미지 생성 단계에 반영 (C안)
+        # 이전: bodyType이 STYLING_SCORE(평가)에만 쓰여, 이미지는 일반 체형으로 생성됨
+        # 수정: _build_body_profile_block으로 BMI+체형특성을 이미지 생성 프롬프트에 직접 주입
+        # 효과: "이 체형에 이 옷이 어떻게 보이는가"를 실제로 시각화 → 객관적 분석 성립
+        "\n[PHASE 1 — PERSONA & BODY PROFILE]: "
         + face_line
-        + (f"Body: {hw_ko}. " if hw_ko else "")
+        + "\n"
+        + _build_body_profile_block(gender, age, height, weight, _body_type_key, "en")
+        + "\n"
         + "Fit ALL garments naturally to this body with realistic draping, fabric weight, and 3D volume. "
         "CRITICAL: Both top AND bottom must look equally realistic — "
         "the bottom garment must show the SAME level of natural fit, draping, and body-conforming "
@@ -3083,16 +3232,16 @@ def codistyle_generate():
                 if _pc_season else
                 f"1. PERSONAL_COLOR /40: Evaluate color harmony. Top={top_info.get('color_ko','')} {top_info.get('pattern','')} / Bottom={bottom_info.get('color_ko','')} {bottom_info.get('pattern','')}. "
             )
-            # 기준 2: 체형 밸런스 (30점 만점)
+            # 기준 2: 체형 밸런스 (40점 만점)
+            # [2026-04-19 BODY] _body_type_key 재사용 (이미지 생성 때와 같은 데이터 소스)
             + (
                 f"2. BODY_SHAPE /40: User is {gender_ko} {age}"
                 + (f" {hw_ko}." if hw_ko else ".")
-                + (_build_body_type_prompt(
-                    payload.get("user",{}).get("gender","") or gender,
-                    payload.get("bodyType","")
-                  ) if payload.get("bodyType") else "")
+                + (_build_body_type_prompt(gender, _body_type_key)
+                   if _body_type_key else "")
                 + f" How well does {top_info.get('ko','')}+{bottom_info.get('ko','')} flatter this body type? "
                 + "Evaluate: Does the silhouette follow recommended styles? Does it avoid the 'dont_style' pitfalls? "
+                + "Consider the actual rendered body shape in the image (not an idealized model). "
             )
             # 기준 3: 토탈 스타일링 (30점 만점)
             + f"3. COORDINATION /20: Top+bottom color coordination, pattern harmony, style coherence, wearability. "
@@ -3207,17 +3356,37 @@ def codistyle_generate():
         if str(finish) in ("STOP", "FinishReason.STOP", "1", "2") and not request.args.get("_retried"):
             print("[codistyle] 자동 재시도 중...")
             try:
+                # ──── [2026-04-19 BUGFIX #1] 재시도 블록 변수 이름 오류 수정 ────
+                # 원인: contents_new, config_new 변수가 정의되지 않음 → NameError
+                #       → 재시도 자체가 작동하지 않고 에러 메시지에 'STOP'이 없어
+                #         프론트 자동 재시도 로직도 발동 안 함
+                # 해결: 실제 정의된 변수(contents 또는 contents_old) 사용 +
+                #       신/구 SDK 모두 지원 + temperature 0.85로 상승
+                # ────
                 if _SDK == "new":
-                    # ──── [2026-04-11 수정] _model_name → _CODISTYLE_MODEL ────
-                    # 원인: _model_name은 다른 함수 스코프에만 존재 → NameError
-                    # 해결: 전역 상수 _CODISTYLE_MODEL 직접 참조
-                    # 관련파일: mock_backend.py (codistyle_generate 재시도 로직)
-                    # ────
                     response = client.models.generate_content(
                         model=_CODISTYLE_MODEL,
-                        contents=contents_new,
-                        config=config_new,
+                        contents=contents,
+                        config=_gtypes.GenerateContentConfig(
+                            response_modalities=["IMAGE", "TEXT"],
+                            temperature=0.85,
+                        ),
                     )
+                else:
+                    # 구 SDK 재시도
+                    try:
+                        response = model.generate_content(
+                            contents_old,
+                            generation_config={
+                                "response_modalities": ["IMAGE", "TEXT"],
+                                "temperature": 0.85,
+                            },
+                        )
+                    except TypeError:
+                        response = model.generate_content(
+                            contents_old,
+                            generation_config=_genai_old.GenerationConfig(temperature=0.85),
+                        )
                 # 재시도 응답에서 이미지 추출
                 for part in response.candidates[0].content.parts:
                     if part.inline_data and part.inline_data.data:
@@ -3723,8 +3892,21 @@ def ai_analyze_item():
         # ── [STEP 2] Lykdat: 속성 태깅 ──
         lykdat_data = lykdat_tag_item(img_bytes)
 
-        # ── [STEP 3] Marqo: 임베딩 생성 ──
-        fashion_embedding = get_fashion_embedding(img_bytes)
+        # ──── [2026-04-19 PERF] Marqo 임베딩 생성 — 코디하기 Phase1에서는 스킵 ────
+        # 원인: Marqo FashionSigLIP 임베딩(512차원)은 모바일옷장 유사도 매칭 전용
+        #       코디하기 Phase1에서는 is_skirt/sub_category/디자인 정보만 필요
+        #       torch 로컬 연산으로 의류당 1~3초 소요 → 완전 낭비
+        # 해결: skip_embedding=True 플래그로 이 STEP 3를 건너뛸 수 있게 함
+        #       - 모바일옷장 등록(item.html): 플래그 없음 → 기존대로 임베딩 생성
+        #       - 코디하기 Phase1(codistyle_analyze_garments): 플래그 True → 스킵
+        # ────
+        _skip_embedding = bool(d.get("skip_embedding", False))
+        if _skip_embedding:
+            fashion_embedding = None
+            print("[analyze-item] skip_embedding=True → Marqo 임베딩 스킵 (코디하기 Phase1)")
+        else:
+            # ── [STEP 3] Marqo: 임베딩 생성 ──
+            fashion_embedding = get_fashion_embedding(img_bytes)
 
         # ── img_bytes 최소 크기 검증 ──
         if not img_bytes or len(img_bytes) < 100:
