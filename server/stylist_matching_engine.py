@@ -42,6 +42,14 @@ LOCATION_TO_REGION = {
     "indonesia": "아시아", "jakarta": "아시아", "philippines": "아시아", "manila": "아시아",
     "malaysia": "아시아", "kuala lumpur": "아시아", "taiwan": "아시아", "taipei": "아시아",
     "india": "아시아", "mumbai": "아시아", "new delhi": "아시아",
+    # 아시아 - 한글 [2026-04-19 단일 소스화: 프론트 _REGION_KEYWORDS의 한글 키 이관]
+    "한국": "아시아", "서울": "아시아", "부산": "아시아", "인천": "아시아", "대구": "아시아",
+    "대전": "아시아", "광주": "아시아", "울산": "아시아", "제주": "아시아", "일본": "아시아",
+    "도쿄": "아시아", "오사카": "아시아", "중국": "아시아", "베이징": "아시아", "상하이": "아시아",
+    "홍콩": "아시아", "싱가포르": "아시아", "방콕": "아시아", "태국": "아시아", "베트남": "아시아",
+    "하노이": "아시아", "호치민": "아시아", "인도네시아": "아시아", "자카르타": "아시아",
+    "필리핀": "아시아", "마닐라": "아시아", "말레이시아": "아시아", "쿠알라룸푸르": "아시아",
+    "대만": "아시아", "타이베이": "아시아", "인도": "아시아", "뭄바이": "아시아", "뉴델리": "아시아",
     # 유럽
     "europe": "유럽",
     "paris": "유럽", "france": "유럽", "london": "유럽", "uk": "유럽", "england": "유럽",
@@ -54,6 +62,17 @@ LOCATION_TO_REGION = {
     "warsaw": "유럽", "poland": "유럽", "budapest": "유럽", "hungary": "유럽",
     "dublin": "유럽", "ireland": "유럽", "brussels": "유럽", "belgium": "유럽",
     "helsinki": "유럽", "finland": "유럽", "oslo": "유럽", "norway": "유럽",
+    # 유럽 - 한글
+    "유럽": "유럽", "프랑스": "유럽", "파리": "유럽", "영국": "유럽", "런던": "유럽",
+    "독일": "유럽", "베를린": "유럽", "이탈리아": "유럽", "로마": "유럽", "밀라노": "유럽",
+    "스페인": "유럽", "마드리드": "유럽", "바르셀로나": "유럽", "네덜란드": "유럽", "암스테르담": "유럽",
+    "오스트리아": "유럽", "비엔나": "유럽", "빈": "유럽", "체코": "유럽", "프라하": "유럽",
+    "스위스": "유럽", "취리히": "유럽", "러시아": "유럽", "모스크바": "유럽",
+    "스웨덴": "유럽", "스톡홀름": "유럽", "덴마크": "유럽", "코펜하겐": "유럽",
+    "포르투갈": "유럽", "리스본": "유럽", "그리스": "유럽", "아테네": "유럽",
+    "폴란드": "유럽", "바르샤바": "유럽", "헝가리": "유럽", "부다페스트": "유럽",
+    "아일랜드": "유럽", "더블린": "유럽", "벨기에": "유럽", "브뤼셀": "유럽",
+    "핀란드": "유럽", "헬싱키": "유럽", "노르웨이": "유럽", "오슬로": "유럽",
     # 중동
     "middle east": "중동",
     "dubai": "중동", "abu dhabi": "중동", "uae": "중동", "riyadh": "중동",
@@ -61,27 +80,82 @@ LOCATION_TO_REGION = {
     "kuwait": "중동", "oman": "중동", "istanbul": "중동", "turkey": "중동",
     "cairo": "중동", "egypt": "중동", "iran": "중동", "tehran": "중동",
     "israel": "중동", "tel aviv": "중동", "jordan": "중동", "lebanon": "중동",
+    # 중동 - 한글
+    "중동": "중동", "두바이": "중동", "아부다비": "중동", "아랍에미리트": "중동",
+    "사우디아라비아": "중동", "리야드": "중동", "카타르": "중동", "도하": "중동",
+    "바레인": "중동", "쿠웨이트": "중동", "오만": "중동",
+    "터키": "중동", "이스탄불": "중동", "이집트": "중동", "카이로": "중동",
+    "이란": "중동", "테헤란": "중동", "이스라엘": "중동", "텔아비브": "중동",
+    "요르단": "중동", "레바논": "중동",
     # 아프리카
     "africa": "아프리카",
     "cape town": "아프리카", "south africa": "아프리카", "johannesburg": "아프리카",
     "nairobi": "아프리카", "kenya": "아프리카", "lagos": "아프리카", "nigeria": "아프리카",
     "casablanca": "아프리카", "morocco": "아프리카",
+    # 아프리카 - 한글
+    "아프리카": "아프리카", "남아프리카": "아프리카", "케이프타운": "아프리카", "요하네스버그": "아프리카",
+    "케냐": "아프리카", "나이로비": "아프리카", "나이지리아": "아프리카", "라고스": "아프리카",
+    "모로코": "아프리카", "카사블랑카": "아프리카",
     # 북미
     "north america": "북미",
     "new york": "북미", "los angeles": "북미", "chicago": "북미", "usa": "북미",
     "san francisco": "북미", "miami": "북미", "seattle": "북미", "boston": "북미",
     "washington": "북미", "houston": "북미", "toronto": "북미", "canada": "북미",
     "vancouver": "북미", "las vegas": "북미",
+    # 북미 - 한글
+    "북미": "북미", "미국": "북미", "뉴욕": "북미", "로스앤젤레스": "북미",
+    "시카고": "북미", "샌프란시스코": "북미", "마이애미": "북미", "시애틀": "북미",
+    "보스턴": "북미", "워싱턴": "북미", "휴스턴": "북미", "라스베이거스": "북미",
+    "캐나다": "북미", "토론토": "북미", "밴쿠버": "북미",
     # 남미
     "south america": "남미",
     "são paulo": "남미", "sao paulo": "남미", "rio": "남미", "brazil": "남미",
     "buenos aires": "남미", "argentina": "남미", "lima": "남미", "peru": "남미",
     "bogota": "남미", "colombia": "남미", "santiago": "남미", "chile": "남미",
     "mexico city": "남미", "mexico": "남미",
+    # 남미 - 한글
+    "남미": "남미", "브라질": "남미", "상파울루": "남미", "리우": "남미", "리우데자네이루": "남미",
+    "아르헨티나": "남미", "부에노스아이레스": "남미", "페루": "남미", "리마": "남미",
+    "콜롬비아": "남미", "보고타": "남미", "칠레": "남미", "산티아고": "남미",
+    "멕시코": "남미", "멕시코시티": "남미",
     # 오세아니아
     "oceania": "오세아니아",
     "sydney": "오세아니아", "melbourne": "오세아니아", "australia": "오세아니아",
     "auckland": "오세아니아", "new zealand": "오세아니아",
+    # 오세아니아 - 한글
+    "오세아니아": "오세아니아", "호주": "오세아니아", "오스트레일리아": "오세아니아",
+    "시드니": "오세아니아", "멜버른": "오세아니아", "뉴질랜드": "오세아니아", "오클랜드": "오세아니아",
+}
+
+# ═══════════════════════════════════════════════════
+# [2026-04-19 BUGFIX #3] 코디목적 영문 키 → DB 한글 라벨 매핑
+# ───────────────────────────────────────────────────
+# 원인: 프론트(closet.html)는 purposeKey(영문 내부 키, 예: "bizFormal") +
+#       purposeLabel(i18n 변환된 UI 언어, 한국어="비즈니스 포멀" / 영어="Business Formal")
+#       을 함께 전송. DB(fashion_keywords_db.json, stylist_db_server.json)의 키는
+#       한글 라벨만 저장되어 있음.
+#       → 영어 UI 사용자는 purposeLabel="Business Formal" → DB miss → fallback 목적
+#       → 전체 목적 기반 매칭/프롬프트가 제대로 작동 안함
+# 해결: purposeKey를 한글 라벨로 변환해 DB 조회 (언어 무관 단일 소스)
+# 프론트 closet.html의 PURPOSES 배열과 1:1 매칭 (16개 목적)
+# ═══════════════════════════════════════════════════
+PURPOSE_KEY_TO_KO = {
+    "bizFormal":    "비즈니스 포멀",
+    "officeDaily":  "데일리 오피스룩",
+    "interview":    "면접룩",
+    "weddingGuest": "결혼식 하객룩",
+    "blindDate":    "소개팅룩",
+    "romanticDate": "로맨틱 데이트룩",
+    "familyMeet":   "상견례/가족모임",
+    "socialParty":  "사교 모임/파티",
+    "weekendOut":   "주말 나들이",
+    "travelShot":   "여행지 인생샷",
+    "dailyCasual":  "꾸안꾸 데일리",
+    "sporty":       "스포티/애슬레저",
+    "airport":      "공항 패션",
+    "minimal":      "미니멀/심플",
+    "streetTrend":  "트렌디/스트릿",
+    "custom":       "직접입력",
 }
 
 
@@ -260,7 +334,12 @@ def build_styling_prompt(payload, fashion_db):
     if not purpose:
         pk = str(payload.get('purposeKey', '')).strip()
         pl = str(payload.get('purposeLabel', '')).strip()
-        purpose = pl or pk or '데일리 오피스룩'
+        # [2026-04-19 BUGFIX #3] purposeKey → 한글 변환 우선 (영어 UI 대응)
+        # 원인: purposeLabel은 i18n 변환된 UI 언어라 영어 UI 시 "Business Formal" 등
+        #       → DB 한글 키("비즈니스 포멀")와 mismatch → DB miss → 매칭/프롬프트 오류
+        # 해결: 언어 무관한 내부 키 purposeKey를 DB 한글 라벨로 변환 (최우선)
+        #       한글 UI 호환: pl이 이미 한글이면 그대로 사용 (기존 동작 보장)
+        purpose = PURPOSE_KEY_TO_KO.get(pk) or pl or pk or '데일리 오피스룩'
     purpose_info = fashion_db.get('base_prompts', {}).get(purpose, {})
     purpose_en = purpose_info.get('en', purpose)
     purpose_prompt_en = purpose_info.get('prompt_en', '')
@@ -317,6 +396,9 @@ def build_styling_prompt(payload, fashion_db):
                 "Full ankle-length — FORBIDDEN: cropped, 7/8, calf-length. "
             )
     else:
+        # [2026-04-19 BUGFIX #4] bottom_type 변수가 여성 분기에서만 정의되어
+        # line 388 metadata 구성 시 NameError 위험 (현재 and 연산자 short-circuit으로 막혀있지만 취약)
+        bottom_type = "pants"
         bottom_instruction = (
             "BOTTOM: The man wears well-fitted trousers or slacks. "
             "Full ankle-length — FORBIDDEN: cropped, 7/8, calf-length. "
@@ -704,7 +786,12 @@ def process_styling_request(payload, fashion_db, stylist_db):
     prompt, metadata = build_styling_prompt(payload, fashion_db)
     
     # 2. 개별 스타일리스트 매칭
-    profile = payload.get('profile', {})
+    # [2026-04-19 BUGFIX #6] CRITICAL: profile 키가 빈 dict여서 user_id가 항상 'default'로 고정됐던 버그
+    # 원인: 프론트는 payload.user (user.email, user.gender 등)로 전송하는데 여기선 profile만 봄
+    #       → profile.get(...) = 빈 dict → 'default' fallback → 1일 1회 시드가 모든 사용자 동일
+    #       → 11,200명 스타일리스트 풀이 사실상 1명으로 수렴 (모두 같은 스타일리스트 받음)
+    # 해결: line 276의 build_styling_prompt처럼 user fallback 추가
+    profile = payload.get('profile', {}) or payload.get('user', {}) or {}
     user_id = str(profile.get('id', profile.get('email', 'default')))
     user_gender = metadata['gender_ko']
     user_body = metadata['bmi']['ko']
