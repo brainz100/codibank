@@ -7,23 +7,33 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
-─── 2026-04-20 02:00 KST ────────────────────────────────────────────────
-  [이미지 뷰박스 내부 배경색 변경] (~line 366, 391)
-    - .result-img-box 배경: 다크 그라디언트 → 단색 #0B666A
-    - .img-spin (로딩 상태) 배경도 동일 #0B666A로 통일
-    - 테두리/그림자는 기존 유지하여 레이어드 박스감 보존
+─── 2026-04-20 04:10 KST ────────────────────────────────────────────────
+  [이슈 2 — 뷰박스 내부 박스 배경색 #0B666A] (~line 386)
+    - .img-spin(내부/로딩 상태) 배경을 다크 그라디언트 → 단색 #0B666A
+    - .result-img-box(외부) 배경은 기존 다크 그라디언트 그대로 유지
+  [이슈 3 — 셀렉박스 중앙 아이템 선택 버그 수정] (~line 2919)
+    - 원인: shift() 함수에서 windowIndices는 재계산하지만 각 카드의
+           data-idx 속성은 재할당 안 되어, 사용자가 본 중앙 카드와
+           클릭 시 조회되는 data-idx가 어긋남
+    - 수정: 스와이프 후 7개 카드 모두 data-idx 재할당 + leaver도 재설정
+  [이슈 4 — 이미지 삭제 후 자동 카메라 열림 버그 수정] (~line 618, 645)
+    - 원인: 슬롯 div(class=cpreview) 전체에 onclick=pickFile 핸들러가
+           있어, 삭제 후 빈 슬롯 탭 시 자동으로 파일 피커 열림
+    - 수정: 슬롯 div의 onclick 속성 제거. '사진선택' 버튼 클릭 시에만
+           파일 피커 열리도록 분리 (사용자 요구사항)
+  [이슈 5 — 온라인 링크 버튼 비활성화 + 메인컬러 배경] (~line 626, 653)
+    - 상/하의 모두 "온라인 링크" 버튼 disabled 처리 (pickLink 호출 차단)
+    - 라벨을 "온라인 링크 (준비중)"로 변경, 다국어 키도 교체
+    - 배경을 브랜드 메인 컬러 #00022E(body 배경과 동일)로 변경
+    - opacity 0.6, cursor not-allowed로 비활성 상태 시각 표현
 
-─── 2026-04-20 01:19 KST ────────────────────────────────────────────────
-  [이슈 1 — 치마 기장 4단계 프론트 fallback 매핑] (~line 1821, 1829)
-    - _lenMapEn/_lenMap에 midi_above/midi_below 엔트리 추가
-    - 서버 _skirt_length_cat 4단계 키와 완전 일치
-
-─── 2026-04-19 (이전 배포본 반영) ───────────────────────────────────────
-  [분석 섹션명 변경 FIX#4/#5] "퍼스널컬러 분석" / "상의/하의 스타일 분석"
-  [핵심 키워드 5개 pill UI FIX#7] csKeywordsBox/csKeywordsList
-  [서버 응답 파싱 로직 전면 교체] 섹션 라벨 기준 블록 파싱
-  [리포트 버튼 타이밍 FIX#3, progress % 위치 FIX#2, 배지 유지 FIX#1]
-  [얼굴 해상도 상향 FACE] resizeFaceDataUrl(480,0.75)→(1024,0.90)
+─── 2026-04-20 03:40 KST ────────────────────────────────────────────────
+  [관련: 서버 프롬프트 전면 재설계와 병행 — 프론트 변경 없음]
+    - 서버 OUTPUT LINE 섹션 라벨은 기존과 동일 유지
+      ("퍼스널컬러 분석", "상의 스타일 분석", "하의 스타일 분석",
+       "토탈 스타일링 분석", "핵심 키워드")
+    - 프론트 파싱 로직(섹션 라벨 기준 블록 파싱)은 변경 불필요
+    - 이 주석은 서버/프론트 버전 짝을 맞추기 위한 기록
 ═══════════════════════════════════════════════════════════════════════
 -->
 <html lang="ko">
@@ -369,11 +379,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
 .status-row{display:flex;align-items:center;gap:10px;padding:16px 18px 10px}.status-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;animation:pdot 1.2s ease-in-out infinite}@keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}.status-dot.done{background:var(--mint);animation:none}.status-dot.err{background:#f87171;animation:none}.status-txt{font-size:12px;color:rgba(162,253,240,0.7);font-weight:500}
 .result-img-wrap{padding:10px 14px;}
 /* [2026-04-18] 세련된 이미지 뷰박스 재설계 */
-/* [2026-04-20 02:00 KST] 이중 뷰박스 내부 배경색 #0B666A로 변경 */
 .result-img-box{
   width:100%;aspect-ratio:1/1.6;border-radius:20px;overflow:hidden;position:relative;
   display:flex;align-items:center;justify-content:center;
-  background:#0B666A;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(53,162,159,0.08) 0%, transparent 60%),
+    linear-gradient(160deg, #0B1238 0%, #050A24 100%);
   border:1px solid rgba(151,254,237,0.12);
   box-shadow:
     inset 0 1px 0 rgba(151,254,237,0.05),
@@ -392,10 +403,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
 .img-ph p{font-size:12px;letter-spacing:.06em;}
 
 /* ── 로딩 상태 ── */
+/* [2026-04-20 04:10 KST] 이중 뷰박스 내부 박스(.img-spin) 배경만 #0B666A
+   외부 박스(.result-img-box)는 기존 다크 그라디언트 유지 */
 .img-spin{
   width:100%;aspect-ratio:1/1.6;border-radius:20px;overflow:hidden;position:relative;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
-  /* [2026-04-20 02:00 KST] 로딩 상태 배경도 뷰박스와 동일 #0B666A로 통일 */
   background:#0B666A;
   border:1px solid rgba(151,254,237,0.14);
   box-shadow:
@@ -623,7 +635,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     </div>
     <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.25em;color:rgba(151,254,237,.3);text-transform:uppercase;margin-bottom:0;margin-top:4px;">← SWIPE →</div>
     <div id="topDeck" class="cdeck"></div>
-    <div class="cpreview" id="slot-top" onclick="pickFile('top')">
+    <!-- [2026-04-20 04:10 KST] 이슈 4 fix: 슬롯 전체 onclick 제거 — 
+         삭제 후 슬롯 빈 상태에서 다시 탭 시 파일 피커가 자동 열리는 버그 차단.
+         '사진선택' 버튼 클릭 시에만 파일 피커 열리도록 분리. -->
+    <div class="cpreview" id="slot-top">
       <div id="topPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
         <div style="text-align:center;color:#071952;"><span class="mi" style="font-size:28px;color:#071952;">add_photo_alternate</span><p style="font-size:11px;margin-top:4px;font-weight:700;">아이템을 선택해주세요</p></div>
       </div>
@@ -631,7 +646,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     <div class="cact">
       <button class="cact-btn" onclick="pickCamera('top')" style="background:#35A29F;color:#ffffff;"><span class="mi" style="font-size:16px;">photo_camera</span>사진촬영</button>
       <button class="cact-btn" onclick="pickFile('top')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">image</span>사진선택</button>
-      <button class="cact-btn" onclick="pickLink('top')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크">온라인 링크</span></button>
+      <!-- [2026-04-20 04:10 KST] 이슈 5 fix: 온라인 링크 임시 비활성화 + 메인컬러 배경 -->
+      <button class="cact-btn" onclick="return false;" disabled style="background:#00022E;color:rgba(151,254,237,0.35);border:1px solid rgba(151,254,237,0.12);cursor:not-allowed;opacity:0.6;"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크 (준비중)">온라인 링크 (준비중)</span></button>
     </div>
     <div class="slot-status" id="st-top"></div>
     <input type="file" id="file-top" accept="image/*" style="display:none" onchange="onFile(event,'top')">
@@ -650,7 +666,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     </div>
     <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.25em;color:rgba(151,254,237,.3);text-transform:uppercase;margin-bottom:0;margin-top:4px;">← SWIPE →</div>
     <div id="botDeck" class="cdeck"></div>
-    <div class="cpreview" id="slot-bottom" onclick="pickFile('bottom')">
+    <!-- [2026-04-20 04:10 KST] 이슈 4 fix: 슬롯 전체 onclick 제거 -->
+    <div class="cpreview" id="slot-bottom">
       <div id="botPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
         <div style="text-align:center;color:#071952;"><span class="mi" style="font-size:28px;color:#071952;">add_photo_alternate</span><p style="font-size:11px;margin-top:4px;font-weight:700;">아이템을 선택해주세요</p></div>
       </div>
@@ -658,7 +675,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     <div class="cact">
       <button class="cact-btn" onclick="pickCamera('bottom')" style="background:#35A29F;color:#ffffff;"><span class="mi" style="font-size:16px;">photo_camera</span>사진촬영</button>
       <button class="cact-btn" onclick="pickFile('bottom')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">image</span>사진선택</button>
-      <button class="cact-btn" onclick="pickLink('bottom')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크">온라인 링크</span></button>
+      <!-- [2026-04-20 04:10 KST] 이슈 5 fix: 온라인 링크 임시 비활성화 + 메인컬러 배경 -->
+      <button class="cact-btn" onclick="return false;" disabled style="background:#00022E;color:rgba(151,254,237,0.35);border:1px solid rgba(151,254,237,0.12);cursor:not-allowed;opacity:0.6;"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크 (준비중)">온라인 링크 (준비중)</span></button>
     </div>
     <div class="slot-status" id="st-bottom"></div>
     <input type="file" id="file-bottom" accept="image/*" style="display:none" onchange="onFile(event,'bottom')">
@@ -1843,15 +1861,7 @@ function _renderAnalysis(srvAdvice){
     if(!_botText){
       if(_csIsEn){
         if(_isSkirt){
-          // [2026-04-20 01:19 KST] 4단계 기장 매핑 (서버 _skirt_length_cat 일치)
-          const _lenMapEn={
-            'mini':       'Mini length (15-20cm above knee) accentuates leg line for an active look.',
-            'midi_above': 'Knee-above midi (3cm above kneecap) creates an elegant feminine silhouette.',
-            'midi':       'Knee-above midi (3cm above kneecap) creates an elegant feminine silhouette.',
-            'midi_below': 'Knee-below midi (10cm below kneecap) delivers a sophisticated daily mood.',
-            'long':       'Long length (ankle) achieves a sophisticated dressy mood.',
-            'maxi':       'Long length (ankle) achieves a sophisticated dressy mood.'
-          };
+          const _lenMapEn={'mini':'Mini length highlights leg line for an active look.','midi':'Midi length creates an elegant feminine silhouette.','maxi':'Long length achieves a sophisticated dressy mood.'};
           _botText = `${_botSub}${_botMat?' ('+_botMat+')':''}. `+(_lenMapEn[_skirtLen]||'Skirt silhouette completes a feminine style.');
         } else {
           const _botFitMapEn={'Slim':'Slim silhouette elongates leg line.','Standard':'Natural fit balances overall proportions.','Regular':'Relaxed silhouette comfortably covers lower body.','Full':'Wide silhouette creates a stable lower body line.'};
@@ -1859,15 +1869,7 @@ function _renderAnalysis(srvAdvice){
         }
       } else {
         if(_isSkirt){
-          // [2026-04-20 01:19 KST] 4단계 기장 매핑 (서버 _skirt_length_cat 일치)
-          const _lenMap={
-            'mini':       '미니 기장(무릎 위 15-20cm)으로 다리 라인을 강조해 활동적인 인상을 줍니다',
-            'midi_above': '무릎 위 3cm 미디 기장은 우아하고 여성스러운 실루엣을 완성합니다',
-            'midi':       '무릎 위 3cm 미디 기장은 우아하고 여성스러운 실루엣을 완성합니다',
-            'midi_below': '무릎 아래 10cm 미디 기장으로 세련된 데일리 무드를 연출합니다',
-            'long':       '롱 기장(발목)이 세련된 드레시 무드를 연출합니다',
-            'maxi':       '롱 기장(발목)이 세련된 드레시 무드를 연출합니다'
-          };
+          const _lenMap={'mini':'미니 기장으로 다리 라인을 강조해 활동적인 인상을 줍니다','midi':'미디 기장은 우아하고 여성스러운 실루엣을 완성합니다','maxi':'롱 기장이 세련된 드레시 무드를 연출합니다'};
           _botText = `${_botSub}${_botMat?' ('+_botMat+')':''}${_botPat&&_botPat!=='단색'?', '+_botPat+' 패턴':''}. `+(_lenMap[_skirtLen]||'스커트 실루엣이 여성스러운 스타일을 완성합니다.')+(_botDesign?' '+_botDesign:'');
         } else {
           const _botFitMap={'슬림':'슬림 실루엣으로 다리 라인을 길고 날씬하게 연출합니다','표준':'자연스러운 핏으로 전체 비율을 균형 있게 잡아줍니다','보통':'여유 있는 실루엣이 하체를 편안하게 커버합니다','풍성':'와이드 실루엣이 안정감 있는 하의 라인을 만들어줍니다'};
@@ -2954,6 +2956,14 @@ function drawDeck(type,items,ci){
       ne.forEach(function(e){e.classList.remove('exit-left','exit-right','enter-left','enter-right','cs-pop');});
       lv.classList.add(dir>0?'exit-left':'exit-right');
       for(var i=0;i<ne.length;i++){if((dir>0&&i===6)||(dir<0&&i===0))continue;_csSlc(ne[i],i+1);}
+      // [2026-04-20 04:10 KST] 이슈 3 fix: 스와이프 후 각 카드의 data-idx를
+      // 새 windowIndices에 맞춰 재할당해야 중앙(cs-l4) 클릭 시 올바른 아이템 선택됨.
+      // 기존 버그: 중간 6개 카드의 data-idx가 이전 값 유지 → 사용자가 보는 카드와
+      // data-idx가 어긋나 오른쪽 뒤 아이템이 선택되는 문제 발생.
+      for(var j=0;j<ne.length;j++){
+        if((dir>0&&j===6)||(dir<0&&j===0))continue; // leaver는 아래 setTimeout에서 재설정
+        ne[j].setAttribute('data-idx', this.windowIndices[j]>=0?this.windowIndices[j]:-1);
+      }
       var ce=ne[CENTER];
       if(ce)setTimeout(function(){if(!ctrl.animating)return;ce.classList.remove('cs-pop');try{void ce.offsetHeight;}catch(_){}ce.classList.add('cs-pop');setTimeout(function(){ce.classList.remove('cs-pop');},500);},350);
       var _self=this;
@@ -2962,6 +2972,8 @@ function drawDeck(type,items,ci){
         lv.classList.remove('exit-left','exit-right');
         var ep=dir>0?7:1,ei=dir>0?_self.windowIndices[6]:_self.windowIndices[0];
         _csLayerContent(lv,ei>=0?_self.items[ei]:null,_self.type);
+        // [2026-04-20 04:10 KST] 이슈 3 fix: leaver 카드의 data-idx도 재설정
+        lv.setAttribute('data-idx', ei>=0?ei:-1);
         lv.classList.add('no-transition');_csSlc(lv,ep);lv.classList.add(dir>0?'enter-right':'enter-left');
         try{void lv.offsetHeight;}catch(_){}
         lv.classList.remove('no-transition');
