@@ -1,3 +1,63 @@
+# ═══════════════════════════════════════════════════════════════════════
+# 📋 수정 이력 (MODIFICATION HISTORY) — 최신순
+# ═══════════════════════════════════════════════════════════════════════
+# 이 블록은 파일 수정 때마다 최상단에 누적됩니다.
+# 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
+# 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
+#
+# ─── 2026-04-19 22:50 KST ────────────────────────────────────────────────
+#   [치마→바지 오생성 버그 완전 차단] (~line 2908)
+#     - _phase1_locked 가드 도입 — Phase1 확정 시 두 번째 bottom_info 재구성 블록 스킵
+#     - 두 번째 블록의 is_skirt 뒤집힘 버그 원천 차단
+#     - 4단계 기장(midi_above/midi_below) 매핑 두 번째 블록에도 통일 적용
+#   [analyze-item 프롬프트 강화 — 2겹 스커트 처리] (~line 4078)
+#     - 도트 플리츠 외피 + 블랙 슬립 내피 = 스커트 명시
+#     - 플리츠를 leg-tube로 오인하지 않도록 지시
+#     - 의심 시 skirt 우선 판단 원칙 추가
+#   [_detect_bottom_type_from_image 프롬프트 강화] (~line 2334)
+#     - 2겹 스커트 처리 지침 + 4단계 기장 매핑 일원화
+#     - waistband 우선 판단 원칙
+#   [analyze-garments skirt_length 4단계화] (~line 2573)
+#     - sub_category 키워드 분석을 midi_above/midi_below/long까지 확장
+#
+# ─── 2026-04-19 13:05 KST (이전 배포본 반영) ─────────────────────────────
+#   [치마 기장 4단계 세분화 FIX#1] (~line 2870)
+#     - mini / midi_above(무릎 위 3cm) / midi_below(무릎 아래 10cm) / long
+#     - 이미지 가로:세로 비율 기반 자동 분류 (0.8/1.2/1.7 구간)
+#   [바지 핏 이미지분석 기반 FIX#2] (~line 3240)
+#     - 기본=REGULAR, SKINNY는 Phase1 fit="스키니/slim" 확정 시에만
+#   [치마 리얼리즘 5섹션 물리 시뮬레이션 FIX#3] (~line 3185)
+#     - A.소재 B.중력 C.주름 D.조명 E.체크리스트
+#
+# ─── 2026-04-19 12:30 KST (이전 배포본 반영) ─────────────────────────────
+#   [분석 보고서 형식 FIX#4/#5/#6/#7] (~line 3267)
+#     - OUTPUT LINE 2+ 4개 섹션을 ▸ 불릿 500자 제한 보고서로 재작성
+#     - 컬러명+#HEX 병기 필수
+#     - "핵심 키워드" 5개 쉼표 구분 출력 규칙
+#
+# ─── 2026-04-19 10:25 KST (이전 배포본 반영) ─────────────────────────────
+#   [C안 신체 프로필 통합 BODY] (~line 96-158, 2685, 3073)
+#     - _compute_bmi / _build_body_profile_block 공통 헬퍼
+#     - 코디하기 + 코디쌤 Phase 1에 BMI+체형 특성 주입
+#
+# ─── 2026-04-19 09:50 KST (이전 배포본 반영) ─────────────────────────────
+#   [얼굴 재현 강화 FACE/IDENTITY PRESERVATION] (~line 1607, 2985)
+#     - 12개 얼굴 특징 체크리스트 프롬프트
+#     - "DO NOT beautify/smooth/slim/idealize" 금지 지시
+#
+# ─── 2026-04-19 09:40 KST (이전 배포본 반영) ─────────────────────────────
+#   [Phase 1 병렬화 PERF] (~line 2490)
+#     - ThreadPoolExecutor(max_workers=2)로 상/하의 동시 분석
+#     - 12~26초 순차 → 6~13초 (약 50% 단축)
+#   [코디하기 Marqo 임베딩 스킵] (~line 2410, 3790)
+#     - skip_embedding=True 플래그 주입
+#
+# ─── 2026-04-19 09:00 KST (이전 배포본 반영) ─────────────────────────────
+#   [BUGFIX #1 — contents_new NameError] (~line 3220)
+#   [BUGFIX #2 — _en 변수 미정의] (~line 1762)
+#   [BUGFIX #3 — _garment_instruction 갱신 누락] (~line 2786, 2820)
+# ═══════════════════════════════════════════════════════════════════════
+
 """CodiBank OpenAI Styling Proxy (Prototype)
 
 - POST /api/ai/styling
@@ -2331,18 +2391,38 @@ _GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
 def _detect_bottom_type_from_image(bottom_bytes: bytes, bottom_mime: str, sdk: str, gemini_key: str, genai_mod, gtypes_mod=None) -> dict:
     """Gemini로 하의 이미지를 상세 분석 → 타입/길이/실루엣 반환"""
     try:
+        # [2026-04-19 22:50 KST] 2겹 스커트/플리츠 오판 방지 + 4단계 기장 매핑
         detect_prompt = (
             "Analyze this clothing item carefully and respond in JSON format only. "
             "No explanation, just JSON. "
-            "Example: {\"type\":\"skirt\",\"length\":\"maxi\",\"silhouette\":\"tiered flared skirt reaching ankle\"} "
+            "Example: {\"type\":\"skirt\",\"length\":\"midi_below\",\"silhouette\":\"pleated midi skirt with slip lining\"} "
+            "\n\n"
+            "⚠️ CRITICAL SKIRT DETECTION RULES (apply with HIGHEST priority): "
+            "1) If there is a WAISTBAND (elastic/drawstring/belt) and fabric spreads downward as ONE piece → 'skirt'. "
+            "2) ONLY classify as 'pants' if you can clearly see TWO SEPARATE LEG TUBES with a clear crotch seam between them. "
+            "3) Wide/pleated/tiered garments with NO leg separation = ALWAYS skirt (never wide-leg pants). "
+            "4) **TWO-LAYER skirts are still skirts**: an outer layer (pleated/dotted/printed) + an inner slip/lining = pleated skirt. "
+            "   Example: polka-dot pleated outer + black slip lining = pleated skirt (NOT pants). "
+            "   If both layers start from the SAME waistband, it is a single skirt garment. "
+            "5) DO NOT mistake vertical pleat lines for leg tube separation — pleats are fabric folds, not leg divisions. "
+            "6) DO NOT mistake the inner slip/lining as pants — check if it shares the waistband with the outer layer. "
+            "7) Wrap skirts with front slit = still skirt (no crotch seam). "
+            "8) When uncertain, prefer 'skirt' — pleated/wide/tiered items are skirt ~80%+ of the time. "
+            "\n"
+            "Decision priority: (1) waistband present → (2) leg tube presence → (3) design details. "
+            "\n\n"
             "Rules: "
-            "type: 'skirt' if NO leg separation (skirt/치마/スカート regardless of width or layers), "
-            "'shorts' if SHORT pants above knee, "
-            "'pants' if leg separation AND reaches below knee. "
-            "length for skirts: 'mini'=above knee, 'midi'=knee to mid-calf, 'maxi'=mid-calf to ankle/floor. "
+            "type: 'skirt' if NO leg separation (skirt/치마/スカート regardless of width, layers, or lining), "
+            "'shorts' if SHORT pants above knee with clear leg tubes, "
+            "'pants' ONLY if TWO SEPARATE LEG TUBES AND reaches below knee. "
+            "length for skirts: "
+            "  'mini'=hem 15-20cm above knee, "
+            "  'midi_above'=hem 3cm above kneecap (knee visible), "
+            "  'midi_below'=hem 10cm below kneecap (mid-calf, knee covered), "
+            "  'long'=hem at ankle bone (full leg covered). "
+            "  (When outer/inner layers differ in length, report the OUTER layer's length) "
             "length for pants: 'short'=above knee, 'cropped'=mid-calf, 'full'=ankle/floor. "
-            "silhouette: brief description of the garment shape, hem style, and key design features. "
-            "IMPORTANT: A wide pleated/tiered/ruffled garment with no leg separation = SKIRT, not wide-leg pants. "
+            "silhouette: brief description of the garment shape, hem style, layer structure, and key design features. "
             "NOTE: The image may contain a background (floor, wall, hanger, hand, etc). Ignore the background and analyze ONLY the clothing item."
         )
         _result_json = None
@@ -2548,11 +2628,22 @@ def codistyle_analyze_garments():
                     analysis.get("is_skirt") is True or
                     any(k in _sub for k in _skirt_kws)
                 )
-                # skirt_length 추가
+                # skirt_length 추가 — [2026-04-19 22:50 KST] 4단계 매핑
+                # 이전: mini/midi/maxi 3단계만 sub_category 키워드로 매핑
+                # 수정: midi_above/midi_below 세분화 + long 명시
+                # 최종 값은 codistyle_generate의 이미지비율 분석(_skirt_length_cat)이 덮어씀
                 if analysis["is_skirt"] and not analysis.get("skirt_length"):
-                    if "미니" in _sub: analysis["skirt_length"] = "mini"
-                    elif "롱" in _sub or "맥시" in _sub: analysis["skirt_length"] = "maxi"
-                    else: analysis["skirt_length"] = "midi"
+                    if "미니" in _sub:
+                        analysis["skirt_length"] = "mini"
+                    elif "롱" in _sub or "맥시" in _sub or "long" in _sub or "maxi" in _sub:
+                        analysis["skirt_length"] = "long"
+                    elif "무릎 아래" in _sub or "종아리" in _sub or "below" in _sub:
+                        analysis["skirt_length"] = "midi_below"
+                    elif "무릎 위" in _sub or "above knee" in _sub:
+                        analysis["skirt_length"] = "midi_above"
+                    else:
+                        # 기본값: midi_above (실제 값은 이미지 비율이 최종 결정)
+                        analysis["skirt_length"] = "midi_above"
                 analysis["_analyzed"] = True
                 print(f"[analyze-garments] {_cat}/{_sub} is_skirt={analysis['is_skirt']}")
                 return analysis
@@ -2905,12 +2996,45 @@ def codistyle_generate():
         print(f"[codistyle] 치마 비율 분석 실패: {_ratio_err}")
 
     # ── Phase 1 결과 있으면 재감지 스킵, 없으면 이미지 분석 ──
-    if _bot_is_skirt_pre is not None:
-        # Phase 1 결과 사용 → 재감지 불필요
+    # ──── [2026-04-19 22:50 KST] 치마→바지 오생성 버그 완전 차단 ────
+    # 원인: Phase 1에서 is_skirt=True로 bottom_info 구성(line 2726-2747) 후,
+    #       두 번째 블록이 조건부로 bottom_info를 "pants"로 덮어쓰는 이중 구성 버그
+    #       2겹 스커트(도트 외피 + 블랙 슬립 내피) 케이스에서 특히 빈번히 발생
+    # 해결: Phase 1이 확정(True/False) 결과를 주면 두 번째 블록 완전 스킵
+    # ────
+    _phase1_locked = (_bot_is_skirt_pre is True or _bot_is_skirt_pre is False)
+
+    if _phase1_locked:
+        print(f"[codistyle] Phase1 LOCKED → is_skirt={_bot_is_skirt_pre} (재감지 스킵)")
+        # 치마(True): bottom_info는 line 2726-2747에서 이미 세팅됨 → 건드리지 않음
+        # 바지(False): 길이/실루엣만 보강 (is_skirt는 변경 안 함)
+        if _bot_is_skirt_pre is False:
+            try:
+                _bottom_analysis = _detect_bottom_type_from_image(
+                    bottom_bytes, bottom_mime or "image/jpeg",
+                    _SDK,
+                    _GEMINI_KEY,
+                    _genai if _SDK == "new" else _genai_old,
+                    _gtypes if _SDK == "new" else None,
+                )
+                _detected_length     = _bottom_analysis.get("length", "full")
+                _detected_silhouette = _bottom_analysis.get("silhouette", "")
+                bottom_info["is_skirt"] = False
+                bottom_info["is_shorts"] = (_detected_length == "short")
+                _pants_length_en = {"short": "cropped pants", "cropped": "7/8 length pants", "full": "full-length trousers"}.get(_detected_length, "trousers")
+                bottom_info["garment"]         = _pants_length_en
+                bottom_info["detected_length"] = _detected_length
+                bottom_info["silhouette"]      = _detected_silhouette
+                _garment_instruction = _build_garment_instruction(top_info, bottom_info)
+                print(f"[codistyle] Phase1=pants 확정 + 길이/실루엣 보강: length={_detected_length}")
+            except Exception as _pe:
+                print(f"[codistyle] Phase1=pants 길이 보강 실패(무시): {_pe}")
+    elif _bot_is_skirt_pre is not None:
+        # 방어 코드 (True/False 외 예외값)
         _detected_type   = "skirt" if _bot_is_skirt_pre is True else "pants"
-        _detected_length = _bot_skirt_len or ("midi" if _bot_is_skirt_pre else "full")
+        _detected_length = _bot_skirt_len or (_skirt_length_cat or "midi" if _bot_is_skirt_pre else "full")
         _detected_silhouette = _bot_design or ""
-        print(f"[codistyle] Phase1 사용 → is_skirt={_bot_is_skirt_pre} length={_detected_length}")
+        print(f"[codistyle] Phase1 사용(방어) → is_skirt={_bot_is_skirt_pre} length={_detected_length}")
     else:
         # Phase 1 없음 → 이미지로 직접 감지
         _bottom_analysis = _detect_bottom_type_from_image(
@@ -2924,49 +3048,60 @@ def codistyle_generate():
         _detected_length     = _bottom_analysis.get("length", "full")
         _detected_silhouette = _bottom_analysis.get("silhouette", "")
 
-    # 감지 결과로 bottom_info 구성
-    if _detected_type == "skirt":
-        _skirt_length_en = {"mini": "mini skirt (hem above knee)", "midi": "midi skirt (hem at knee to mid-calf)", "maxi": "maxi/long skirt (hem at ankle or floor)"}.get(_detected_length, "skirt")
-        bottom_info = {
-            "type": "bottom",
-            "garment": _skirt_length_en,
-            "ko": f"치마 ({_detected_length})",
-            "is_skirt": True,
-            "is_shorts": False,
-            "detected_length": _detected_length,
-            "silhouette": _detected_silhouette,
-            "rule": (
-                f"MUST generate a {_skirt_length_en}. "
-                "ABSOLUTELY FORBIDDEN: trousers, pants, leggings, or any leg-separation garment under or instead of the skirt. "
-                "NO LAYERING of pants under the skirt. The skirt must be the ONLY lower-body garment. "
-                f"Silhouette reference: {_detected_silhouette}. "
-                + (_skirt_ratio_hint if _skirt_ratio_hint else "")
-            )
-        }
-        # [2026-04-19 BUGFIX #3] 이미지 감지 분기에서 _garment_instruction 갱신 누락
-        _garment_instruction = _build_garment_instruction(top_info, bottom_info)
-        print(f"[codistyle] 이미지감지 skirt → 하의:{bottom_info.get('ko')} length={_detected_length}")
-    elif _detected_type == "shorts":
-        bottom_info = {
-            "type": "bottom", "garment": "shorts (above knee)", "ko": "반바지",
-            "is_skirt": False, "is_shorts": True,
-            "detected_length": "short",
-            "silhouette": _detected_silhouette,
-            "rule": "Generate SHORT PANTS/SHORTS with hem above the knee. Preserve exact style."
-        }
-        # [2026-04-19 BUGFIX #3] 이미지 감지 분기에서 _garment_instruction 갱신 누락
-        _garment_instruction = _build_garment_instruction(top_info, bottom_info)
-        print(f"[codistyle] 이미지감지 shorts → 하의:{bottom_info.get('ko')}")
-    else:
-        _pants_length_en = {"short": "cropped pants", "cropped": "7/8 length pants", "full": "full-length trousers"}.get(_detected_length, "trousers")
-        bottom_info["is_skirt"] = False
-        bottom_info["is_shorts"] = False
-        bottom_info["garment"] = _pants_length_en
-        bottom_info["detected_length"] = _detected_length
-        bottom_info["silhouette"] = _detected_silhouette
+    # [2026-04-19 22:50 KST] 감지 결과로 bottom_info 구성 — Phase1 잠금 시 스킵
+    if not _phase1_locked:
+        if _detected_type == "skirt":
+            # [2026-04-19 22:50 KST] 4단계 기장 매핑 통일 (첫 번째 블록과 동일)
+            _skirt_len_key = _skirt_length_cat or _detected_length
+            _skirt_length_map = {
+                "mini":       "MINI skirt (hem 15-20cm above knee)",
+                "midi_above": "MIDI skirt ABOVE-KNEE (hem EXACTLY 3cm above kneecap, knee visible)",
+                "midi":       "MIDI skirt ABOVE-KNEE (hem EXACTLY 3cm above kneecap, knee visible)",
+                "midi_below": "MIDI skirt BELOW-KNEE (hem EXACTLY 10cm below kneecap, mid-calf)",
+                "long":       "LONG skirt (hem at ankle bone)",
+                "maxi":       "LONG skirt (hem at ankle bone)",
+            }
+            _skirt_length_en = _skirt_length_map.get(_skirt_len_key, "skirt")
+            bottom_info = {
+                "type": "bottom",
+                "garment": _skirt_length_en,
+                "ko": f"치마 ({_skirt_len_key})",
+                "is_skirt": True,
+                "is_shorts": False,
+                "detected_length": _skirt_len_key,
+                "silhouette": _detected_silhouette,
+                "rule": (
+                    f"MUST generate a {_skirt_length_en}. "
+                    "ABSOLUTELY FORBIDDEN: trousers, pants, leggings, or any leg-separation garment under or instead of the skirt. "
+                    "NO LAYERING of pants under the skirt. The skirt must be the ONLY lower-body garment. "
+                    f"Silhouette reference: {_detected_silhouette}. "
+                    + (_skirt_ratio_hint if _skirt_ratio_hint else "")
+                )
+            }
+            # [2026-04-19 BUGFIX #3] 이미지 감지 분기에서 _garment_instruction 갱신 누락
+            _garment_instruction = _build_garment_instruction(top_info, bottom_info)
+            print(f"[codistyle] 이미지감지 skirt → 하의:{bottom_info.get('ko')} length={_skirt_len_key}")
+        elif _detected_type == "shorts":
+            bottom_info = {
+                "type": "bottom", "garment": "shorts (above knee)", "ko": "반바지",
+                "is_skirt": False, "is_shorts": True,
+                "detected_length": "short",
+                "silhouette": _detected_silhouette,
+                "rule": "Generate SHORT PANTS/SHORTS with hem above the knee. Preserve exact style."
+            }
+            # [2026-04-19 BUGFIX #3] 이미지 감지 분기에서 _garment_instruction 갱신 누락
+            _garment_instruction = _build_garment_instruction(top_info, bottom_info)
+            print(f"[codistyle] 이미지감지 shorts → 하의:{bottom_info.get('ko')}")
+        else:
+            _pants_length_en = {"short": "cropped pants", "cropped": "7/8 length pants", "full": "full-length trousers"}.get(_detected_length, "trousers")
+            bottom_info["is_skirt"] = False
+            bottom_info["is_shorts"] = False
+            bottom_info["garment"] = _pants_length_en
+            bottom_info["detected_length"] = _detected_length
+            bottom_info["silhouette"] = _detected_silhouette
 
-        _garment_instruction = _build_garment_instruction(top_info, bottom_info)
-        print(f"[codistyle] 이미지감지 → 상의:{top_info.get('ko')} / 하의:{bottom_info.get('ko')} length={_detected_length}")
+            _garment_instruction = _build_garment_instruction(top_info, bottom_info)
+            print(f"[codistyle] 이미지감지 → 상의:{top_info.get('ko')} / 하의:{bottom_info.get('ko')} length={_detected_length}")
 
     # ── 프롬프트 구성 ──
     if face_bytes:
@@ -4031,11 +4166,28 @@ def ai_analyze_item():
 
 ⚠️ 배경 무시 규칙: 이미지에 바닥, 벽, 옷걸이, 손, 테이블 등 배경이 포함되어 있을 수 있습니다. 배경은 완전히 무시하고 의류 아이템 영역만 집중하여 분석하세요. 배경 색상을 의류 색상으로 착각하지 마세요.
 
-⚠️ 치마/스커트 판별 CRITICAL RULE:
+⚠️ 치마/스커트 판별 CRITICAL RULE (최우선, 다른 규칙보다 우선 적용):
+[2026-04-19 22:50 KST] 2겹 스커트 오판 방지 강화
+- 허리밴드(elastic/끈/벨트)가 있고 아래로 한 폭의 천이 퍼지면 → **반드시 skirt**
 - 다리가 각각 분리된 통로(leg tube)가 있으면 → pants (바지류)
 - 다리 분리 없이 한 장의 천이 아래로 퍼지면 → skirt (치마류) ← 착용샷이어도 동일하게 적용
 - 폭이 넓어 바지처럼 보여도 leg separation 없으면 반드시 skirt
-- 도트무늬/플리츠/티어드 등 디자인과 무관하게 구조로만 판별
+- **2겹/레이어 구조 스커트 주의** (매우 중요):
+  * 외피(겉감) + 내피(안감/슬립)가 결합된 구조 = 여전히 **skirt**
+  * 예: 도트 플리츠 외피 + 블랙 슬립 내피 = 플리츠스커트 (절대 바지 아님)
+  * 예: 레이스 외피 + 무지 내피 = 레이스스커트
+  * 예: 시스루 + 이너 = 여전히 skirt
+  * 판별 기준: 겉감과 안감이 **같은 허리밴드**에서 시작되면 2겹 스커트 (=skirt)
+  * 내피가 미니 길이에 외피가 미디여도 → 외피 길이 기준으로 midi skirt
+- **플리츠/티어드/러플 주의**:
+  * 세로 주름선(플리츠)을 leg-tube 분리선으로 오인하지 말 것
+  * 플리츠 라인은 연속된 천의 접힘이지 다리 분리가 아님
+  * 도트무늬/플리츠/티어드 등 디자인과 무관하게 구조로만 판별
+- **랩스커트/트렌치스커트 주의**:
+  * 앞이 교차되어 트임이 있어도 = skirt
+  * 허리 끈/리본이 보이면 스커트 신호
+- 판단 우선순위: (1) 허리밴드 존재 → (2) leg tube 여부 → (3) 다른 디자인 요소
+- **의심스러우면 skirt로 판단** (플리츠/와이드 구조는 skirt 가능성 80%+)
 
 {
   "category": "coat | jacket | top | pants | skirt | shoes | watch | scarf | socks | etc 중 하나 — ⚠️ 치마/스커트류는 반드시 skirt, 절대 pants에 포함하지 말 것",
