@@ -204,14 +204,8 @@ function getBackendBaseResolved() {
   function _sbUserToCb(sbUser) {
     if (!sbUser) return null;
     const m = sbUser.user_metadata || {};
-    // ──── [2026-04-11 수정] 모든 metadata 필드를 spread로 복원 ────
-    // 원인: bodyType, phone, photo 등이 명시적 목록에 없어서
-    //       로그인 시 누락 → upsertUser로 덮어씀 → 프로필 리셋
-    // 해결: metadata 전체를 먼저 spread하고, 핵심 필드만 기본값 보장
-    // 관련파일: profile.html (저장), closet.html/codistyle.html (읽기)
-    // ────
-    return Object.assign({}, m, {
-      email:            sbUser.email || m.email || '',
+    return {
+      email:            sbUser.email || '',
       gender:           m.gender     || '',
       ageGroup:         m.ageGroup   || '',
       height:           m.height     || '',
@@ -219,16 +213,13 @@ function getBackendBaseResolved() {
       location:         m.location   || '',
       nickname:         m.nickname   || m.name || '',
       avatarFace:       m.avatarFace || '',
-      bodyType:         m.bodyType   || '',
-      phone:            m.phone      || '',
-      photo:            m.photo      || '',
       plan:             m.plan       || 'FREE',
       categories:       m.categories || DEFAULT_CATEGORIES.map((c) => c.key),
       customCategories: m.customCategories || [],
       createdAt:        sbUser.created_at  || nowIso(),
       updatedAt:        m.updatedAt  || nowIso(),
       sbId:             sbUser.id,
-    });
+    };
   }
 
   // ✅ 기본 카테고리(옷장 페이지 기준 고정 순서)
@@ -353,36 +344,15 @@ function getBackendBaseResolved() {
   // ── Supabase 기반 프로필 업데이트
   async function updateUserProfile(email, patch) {
     const e = normalizeEmail(email);
-    // ──── [2026-04-11 수정] password가 프로필 메타데이터에 섞이지 않도록 제거 ────
-    // 원인: patch.password가 supabase auth.updateUser({data:...})로 전송되면
-    //       user_metadata에 평문 비밀번호가 저장됨 (보안 위험)
-    // 해결: password 필드를 patch에서 제거, 비밀번호 변경은 changePassword() 사용
-    // 관련파일: profile.html (비밀번호 변경 분리)
-    // ────
-    const safePatch = Object.assign({}, patch || {});
-    delete safePatch.password;
     const u = getUser(e);
-    const next = Object.assign({}, u || { email: e }, safePatch, { updatedAt: nowIso() });
+    const next = Object.assign({}, u || { email: e }, patch || {}, { updatedAt: nowIso() });
     upsertUser(next);
     if (_cachedUser && normalizeEmail(_cachedUser.email) === e) _cachedUser = next;
     try {
       const sb = _getSupabase();
-      if (sb) await sb.auth.updateUser({ data: Object.assign({}, safePatch, { updatedAt: nowIso() }) });
+      if (sb) await sb.auth.updateUser({ data: Object.assign({}, patch, { updatedAt: nowIso() }) });
     } catch (_) {}
     return { ok: true, user: next };
-  }
-
-  // ──── [2026-04-11 추가] 비밀번호 변경 (Supabase Auth 전용) ────
-  async function changePassword(newPassword) {
-    try {
-      const sb = _getSupabase();
-      if (!sb) return { ok: false, error: 'Supabase 연결 실패' };
-      const { error } = await sb.auth.updateUser({ password: newPassword });
-      if (error) return { ok: false, error: error.message || '비밀번호 변경 실패' };
-      return { ok: true };
-    } catch (e) {
-      return { ok: false, error: String(e.message || e) };
-    }
   }
 
   // ── 세션 캐시
@@ -763,22 +733,6 @@ function getBackendBaseResolved() {
     // 새 카테고리면 유저 카테고리에도 추가
     addCategoriesToUser(e, [categoryKey]);
 
-    // ──── [2026-04-09 추가] 아이템 등록 서버 동기화 (fire-and-forget) ────
-    try {
-      const _bb = (typeof getBackendBaseResolved === 'function' ? getBackendBaseResolved() : '')
-                  || (typeof window !== 'undefined' && window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase)
-                  || 'https://codibank-api.onrender.com';
-      if (_bb && e) {
-        fetch(_bb.replace(/\/$/, '') + '/api/usage/record', {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ email: e, feature: 'item' })
-        }).catch(function(){});
-      }
-    } catch (_) {}
-
-    // ──── [2026-04-11 추가] 아이템 서버 동기화 (디바운스) ────
-    _scheduleItemSync(e);
-
     return { ok: true, item: saved };
   }
 
@@ -853,87 +807,11 @@ function getBackendBaseResolved() {
       return { ok: false, error: (saveRes && saveRes.error) ? saveRes.error : '삭제에 실패했습니다.' };
     }
 
-    // ──── [2026-04-11 추가] 삭제 후 서버 동기화 ────
-    _scheduleItemSync(e);
-
     return { ok: true, item: removed };
   }
 
-  // ──── [2026-04-11 추가] Phase 1: 아이템 서버 동기화 ────
-  // 원인: 아이템 메타데이터가 localStorage에만 저장 → 기기 변경/캐시 삭제 시 소실
-  // 해결: addItem/deleteItem 후 서버에 자동 동기화 + 로그인 시 서버에서 복원
-  // 관련파일: mock_backend.py (/api/user-data/save, /api/user-data/load)
-  // ────
 
-  var _syncTimer = null;
-  function _scheduleItemSync(email) {
-    // 연속 변경 시 마지막 변경 후 2초 뒤 동기화 (디바운스)
-    if (_syncTimer) clearTimeout(_syncTimer);
-    _syncTimer = setTimeout(function() { syncItemsToServer(email); }, 2000);
-  }
-
-  async function syncItemsToServer(email) {
-    var e = normalizeEmail(email);
-    if (!e) return;
-    try {
-      var bb = getBackendBaseResolved() || 'https://codibank-api.onrender.com';
-      var items = getItemsByUser(e);
-      var r = await fetch(bb.replace(/\/$/, '') + '/api/user-data/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: e, key: 'items', value: items })
-      });
-      var d = await r.json().catch(function() { return {}; });
-      if (d.ok) console.log('[sync] 아이템 서버 동기화 완료:', items.length + '개');
-      else console.warn('[sync] 아이템 서버 동기화 실패:', d.error);
-    } catch (err) {
-      console.warn('[sync] 아이템 서버 동기화 에러:', err.message);
-    }
-  }
-
-  async function syncItemsFromServer(email) {
-    var e = normalizeEmail(email);
-    if (!e) return { ok: false };
-    try {
-      var bb = getBackendBaseResolved() || 'https://codibank-api.onrender.com';
-      var r = await fetch(bb.replace(/\/$/, '') + '/api/user-data/load?email=' + encodeURIComponent(e) + '&key=items');
-      var d = await r.json().catch(function() { return {}; });
-      if (!d.ok || !d.found || !d.value) return { ok: true, merged: false };
-
-      var serverItems = d.value;
-      if (!Array.isArray(serverItems) || serverItems.length === 0) return { ok: true, merged: false };
-
-      // 로컬과 서버 병합: 서버 기준으로 로컬에 없는 아이템 추가
-      var localItems = getItemsByUser(e);
-      var localIds = {};
-      localItems.forEach(function(it) { localIds[it.id] = true; });
-
-      var newCount = 0;
-      serverItems.forEach(function(srvItem) {
-        if (srvItem.id && !localIds[srvItem.id] && normalizeEmail(srvItem.userEmail) === e) {
-          localItems.push(srvItem);
-          newCount++;
-        }
-      });
-
-      if (newCount > 0) {
-        // 날짜순 정렬 (최신 먼저)
-        localItems.sort(function(a, b) {
-          return (b.createdAt || '').localeCompare(a.createdAt || '');
-        });
-        var allItems = getAllItems();
-        // 다른 유저 아이템은 유지하면서 현재 유저 아이템만 교체
-        var otherItems = allItems.filter(function(it) { return normalizeEmail(it.userEmail) !== e; });
-        setAllItems(otherItems.concat(localItems));
-        console.log('[sync] 서버에서 아이템 복원:', newCount + '개 추가 (총 ' + localItems.length + '개)');
-      }
-
-      return { ok: true, merged: true, added: newCount, total: localItems.length };
-    } catch (err) {
-      console.warn('[sync] 서버 아이템 로드 에러:', err.message);
-      return { ok: false, error: err.message };
-    }
-  }
+// ── Supabase 회원가입
   async function signup(payload) {
     const email = normalizeEmail(payload.email);
     if (!email) return { ok: false, error: '이메일을 입력해주세요.' };
@@ -1026,8 +904,6 @@ function getBackendBaseResolved() {
       upsertUser(cbUser);
       localStorage.setItem(KEYS.PLAN, cbUser.plan || 'FREE');
       setSession(_cachedSession);
-      // ──── [2026-04-11 추가] 로그인 시 서버에서 아이템 복원 (fire-and-forget) ────
-      syncItemsFromServer(e).catch(function(){});
       return { ok: true, user: cbUser };
     } catch (e) {
       return { ok: false, error: String(e && (e.message || e)) };
@@ -1057,8 +933,6 @@ function getBackendBaseResolved() {
         // 등록된 콜백 실행
         _sessionCallbacks.forEach(function(fn){ try { fn(cbUser); } catch(_) {} });
         _sessionCallbacks.length = 0;
-        // ──── [2026-04-11 추가] 세션 복원 시 서버 아이템 동기화 ────
-        syncItemsFromServer(cbUser.email).catch(function(){});
       }
       _sessionFetched = true;
     } catch (_) {}
@@ -1188,35 +1062,11 @@ if (ref.startsWith('/uploads/')) {
   const candidates = getStorageBasesResolved().map(b => resolveBaseUrl(b, ref));
   for (const url of candidates) {
     try {
-      const ok = await _probeImageUrl(url, 6000);
+      const ok = await _probeImageUrl(url, 4500);
       if (ok) return url;
     } catch (_) {}
   }
-  // ──── [2026-04-10 재수정] 프로브 실패 시에도 Render 백엔드 URL 반환 ────
-  // 원인: 이전 수정(return '')이 R2 redirect 체인을 차단함
-  //       R2에 이미지가 있어도 Render cold start로 프로브가 타임아웃(4.5초) 되면
-  //       빈 문자열 반환 → 브라우저가 redirect를 시도할 기회조차 잃음
-  // 해결: 1) 프로브 타임아웃 6초로 증가 (Render Starter cold start 대응)
-  //       2) IDB 폴백 실패 시 Render 백엔드 URL 반환 → 브라우저 img.src가
-  //          직접 serve_upload 호출 → 로컬 없으면 R2로 302 redirect → 정상 로드
-  //       3) Vercel(codibank.kr) URL은 /uploads/ 경로가 없으므로 제외
-  try {
-    if (idbSupported()) {
-      const rec = await idbGet(IDB_CONF.STORE_IMAGES, ref);
-      if (rec && rec.blob) {
-        const url = URL.createObjectURL(rec.blob);
-        _imageUrlCache.set(ref, url);
-        return url;
-      }
-    }
-  } catch (_) {}
-  // Render 백엔드 URL을 우선 반환 (onrender.com 도메인 탐색)
-  const _backendUrl = candidates.find(u => /onrender\.com/i.test(u)) || candidates[0] || '';
-  if (_backendUrl) {
-    console.warn('[getImageSrc] 프로브 타임아웃 — 백엔드 URL 직접 반환 (R2 redirect 기대):', _backendUrl);
-    return _backendUrl;
-  }
-  return '';
+  return candidates[0] || ref;
 }
 
     // 캐시된 objectURL
@@ -1232,6 +1082,38 @@ if (ref.startsWith('/uploads/')) {
       return url;
     } catch (e) {
       console.warn('getImageSrc failed', e);
+      return '';
+    }
+  }
+
+  // ==============================
+  // [2026-04-19 FACE] 사용자 얼굴 이미지 전용 로더
+  // - codistyle.html / closet.html에서 사용자의 avatarFace(원본 해상도)를 우선 로드
+  // - avatarFace가 없으면 photo(300px 썸네일)로 폴백
+  // - 얼굴 재현 정확도를 위해 IDB 원본 경로를 최우선 사용
+  //
+  // 호출처:
+  // - codistyle.html: generate() 얼굴 자동 로드
+  // - closet.html: generateStyling() 얼굴 자동 로드
+  // ==============================
+  async function getUserFaceImageSrc(user) {
+    try {
+      const u = user || getCurrentUser() || {};
+      // 1순위: avatarFace (IDB 원본 해상도)
+      const faceRef = String(u.avatarFace || '').trim();
+      if (faceRef) {
+        const src = await getImageSrc(faceRef);
+        if (src) return src;
+      }
+      // 2순위: photo (300px 썸네일, mypage용이지만 fallback)
+      const photoRef = String(u.photo || '').trim();
+      if (photoRef) {
+        const src = await getImageSrc(photoRef);
+        if (src) return src;
+      }
+      return '';
+    } catch (e) {
+      console.warn('getUserFaceImageSrc failed', e);
       return '';
     }
   }
@@ -1834,9 +1716,8 @@ async function uploadImageToServer(dataUrl, opts) {
     // 서브 페이지들은 가장 가까운 탭으로 묶어줍니다.
     const map = {
       'index.html': 'closet.html',
-      'item.html': 'aicloset.html',
-      'camera.html': 'aicloset.html',
-      'aicloset.html': 'aicloset.html',
+      'item.html': 'camera.html',  // [2026-04-07] 아이템은 Ai 옷장 소속
+      'camera.html': 'camera.html',
       'closet.html': 'closet.html',
       'album.html': 'album.html',
       'share-sale.html': 'share-sale.html',
@@ -1844,6 +1725,7 @@ async function uploadImageToServer(dataUrl, opts) {
       'sale.html': 'share-sale.html',     // 레거시 페이지도 공유판매 탭으로
       'share-item.html': 'share-sale.html',
       'sale-item.html': 'share-sale.html',
+      'codistyle.html': 'codistyle.html',
       'mypage.html': 'mypage.html',
       'pricing.html': 'mypage.html',
       'login.html': 'mypage.html',
@@ -1922,7 +1804,6 @@ window.CodiBank = {
 
     // profile
     updateUserProfile,
-    changePassword,
     deleteUserAccount,
 
     // plan
@@ -1949,8 +1830,6 @@ window.CodiBank = {
     addItem,
     updateItem,
     deleteItem,
-    syncItemsToServer,
-    syncItemsFromServer,
 
     // images
     addAiAlbumEntry,
@@ -1965,6 +1844,7 @@ window.CodiBank = {
     saveImage,
     uploadImageToServer,
     getImageSrc,
+    getUserFaceImageSrc,
     clearImageSrcCache,
 
     // location & weather

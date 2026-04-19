@@ -991,7 +991,9 @@ function onFaceFile(ev){
   if(!file) return;
   const fr = new FileReader();
   fr.onload = () => {
-    resizeFaceDataUrl(fr.result, 480, 0.75).then(resized => {
+    // [2026-04-19 FACE] 얼굴 디테일 보존: 480/0.75 → 1024/0.90
+    // 눈꼬리/입꼬리/쌍꺼풀 등 미세특징 유지를 위해 픽셀수 4.6배 확대
+    resizeFaceDataUrl(fr.result, 1024, 0.90).then(resized => {
       applyFacePreview(resized || fr.result);
     });
   };
@@ -1019,7 +1021,8 @@ function applyFacePreview(src){
       if(faceRef && typeof CodiBank.getImageSrc === 'function') src = await CodiBank.getImageSrc(faceRef);
     }
     if(!src || token !== _faceAutoLoadToken || faceDataUrl) return;
-    const resized = await resizeFaceDataUrl(src, 480, 0.75);
+    // [2026-04-19 FACE] 얼굴 디테일 보존: 480/0.75 → 1024/0.90
+    const resized = await resizeFaceDataUrl(src, 1024, 0.90);
     if(token !== _faceAutoLoadToken || faceDataUrl) return;
     applyFacePreview(resized || src);
   }catch(_){ }
@@ -1561,7 +1564,7 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   }
 });
-function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false }; if(k==='top'){_dkTopSel=-1;}else{_dkBotSel=-1;} renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); _resetResultArea(); _savePageState(); }
+function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false }; if(k==='top'){_dkTopSel=-1;}else{_dkBotSel=-1;} renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); _resetResultArea(); _savePageState(); /* [2026-04-19 취약점5 fix] Phase1 캐시 무효화 — 이미지 교체/제거 시 이전 분석이 새 이미지에 적용되는 문제 방지 */ try{ if(k==='top'){ _topAnalysisCache = null; } else if(k==='bottom'){ _bottomAnalysisCache = null; } }catch(_){} }
 function _resetResultArea(){
   // 착장이미지 + 분석 + 스코어 리셋
   lastImgUrl='';

@@ -4357,14 +4357,15 @@ async function updateVTO(opts={}){
       if(metaEl) metaEl.textContent = AI_DEBUG ? 'OpenAI 생성중…' : '';
 
       let faceDataUrl = faceSrc ? await toDataUrl(faceSrc) : '';
-      // ✅ [버그1 수정] 얼굴 이미지 강화 압축: 480px + quality 0.75 (이전: 640px/0.85)
-      // 얼굴 사진은 OpenAI에게 참고용으로 전달되는 것이므로 고해상도 불필요.
-      // base64 기준 ~60KB 이내로 유지해 413 에러 및 타임아웃을 예방합니다.
+      // [2026-04-19 FACE] 얼굴 디테일 보존을 위해 해상도 상향
+      //   이전: 480px/0.75 (눈 폭 18px → 쌍꺼풀/눈꼬리 식별 불가)
+      //   수정: 1024px/0.90 (눈 폭 40px → 미세 특징 보존)
+      //   파일크기 ~200KB로 증가하지만 백엔드 body 한도 대비 안전
       try{
-        faceDataUrl = await shrinkDataUrl(faceDataUrl, 480, 0.75);
-        // 그래도 80KB 초과면 한 번 더 축소 (안전망)
-        if(faceDataUrl && faceDataUrl.length > 110000){
-          faceDataUrl = await shrinkDataUrl(faceDataUrl, 320, 0.70);
+        faceDataUrl = await shrinkDataUrl(faceDataUrl, 1024, 0.90);
+        // safety net: 혹시 300KB 초과하는 고해상도라면 한 번 더 축소
+        if(faceDataUrl && faceDataUrl.length > 400000){
+          faceDataUrl = await shrinkDataUrl(faceDataUrl, 720, 0.85);
         }
       }catch(_){}
       // ── 컬러 팔레트를 한국어 이름으로 변환해서 프롬프트에 명시
