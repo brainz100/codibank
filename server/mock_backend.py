@@ -5,57 +5,36 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
-# ─── 2026-04-19 22:50 KST ────────────────────────────────────────────────
-#   [치마→바지 오생성 버그 완전 차단] (~line 2908)
-#     - _phase1_locked 가드 도입 — Phase1 확정 시 두 번째 bottom_info 재구성 블록 스킵
-#     - 두 번째 블록의 is_skirt 뒤집힘 버그 원천 차단
-#     - 4단계 기장(midi_above/midi_below) 매핑 두 번째 블록에도 통일 적용
-#   [analyze-item 프롬프트 강화 — 2겹 스커트 처리] (~line 4078)
-#     - 도트 플리츠 외피 + 블랙 슬립 내피 = 스커트 명시
-#     - 플리츠를 leg-tube로 오인하지 않도록 지시
-#     - 의심 시 skirt 우선 판단 원칙 추가
-#   [_detect_bottom_type_from_image 프롬프트 강화] (~line 2334)
-#     - 2겹 스커트 처리 지침 + 4단계 기장 매핑 일원화
-#     - waistband 우선 판단 원칙
-#   [analyze-garments skirt_length 4단계화] (~line 2573)
-#     - sub_category 키워드 분석을 midi_above/midi_below/long까지 확장
+# ─── 2026-04-20 01:19 KST ────────────────────────────────────────────────
+#   [이슈 1 — 치마→바지 오생성 버그 완전 차단] (~line 2908)
+#     - _phase1_locked 가드 도입 (Phase1 확정 시 두 번째 블록 완전 스킵)
+#     - 두 번째 bottom_info 재구성에도 4단계 기장(midi_above/midi_below) 통일
+#   [이슈 1 — analyze-item 프롬프트 강화] (~line 4075)
+#     - 2겹 스커트(외피+슬립) 처리 지침 명시
+#     - 레이어드/2겹 상의(헨리넥+스트라이프 안감) 상세 판별 규칙 추가
+#     - 헨리넥 버튼 개수 정확 카운트 지시
+#   [이슈 1 — _detect_bottom_type_from_image 프롬프트 강화] (~line 2334)
+#     - 2겹 스커트 처리 + 4단계 기장 매핑 일원화
+#   [이슈 1 — analyze-garments skirt_length 4단계화] (~line 2573)
+#     - sub_category 분석을 midi_above/midi_below/long까지 확장
+#   [이슈 2 — POSE 자연스러운 스탠스 섹션 신규] (~line 3181)
+#     - 발뒤꿈치 5-8cm 간격, 허벅지 안쪽 닿거나 2cm 이내
+#     - 다리 벌리는 wide-stance 금지, 콘트라포스토 허용
+#     - 팔/어깨 자연스러운 편집 지시
+#   [이슈 3 — TOP/BOTTOM 99.9% 디자인 충실도 체크리스트] (~line 3170)
+#     - 업로드 이미지 = ABSOLUTE GROUND TRUTH 명시
+#     - 9~10개 필수 체크리스트 (넥라인, 버튼, 소매, 트림, 2겹, 패턴 등)
+#     - 2겹 레이어드 상의 안감 정확 재현 지시
+#     - 바지 워싱/디스트레싱 임의 추가 금지
 #
-# ─── 2026-04-19 13:05 KST (이전 배포본 반영) ─────────────────────────────
-#   [치마 기장 4단계 세분화 FIX#1] (~line 2870)
-#     - mini / midi_above(무릎 위 3cm) / midi_below(무릎 아래 10cm) / long
-#     - 이미지 가로:세로 비율 기반 자동 분류 (0.8/1.2/1.7 구간)
-#   [바지 핏 이미지분석 기반 FIX#2] (~line 3240)
-#     - 기본=REGULAR, SKINNY는 Phase1 fit="스키니/slim" 확정 시에만
-#   [치마 리얼리즘 5섹션 물리 시뮬레이션 FIX#3] (~line 3185)
-#     - A.소재 B.중력 C.주름 D.조명 E.체크리스트
-#
-# ─── 2026-04-19 12:30 KST (이전 배포본 반영) ─────────────────────────────
-#   [분석 보고서 형식 FIX#4/#5/#6/#7] (~line 3267)
-#     - OUTPUT LINE 2+ 4개 섹션을 ▸ 불릿 500자 제한 보고서로 재작성
-#     - 컬러명+#HEX 병기 필수
-#     - "핵심 키워드" 5개 쉼표 구분 출력 규칙
-#
-# ─── 2026-04-19 10:25 KST (이전 배포본 반영) ─────────────────────────────
-#   [C안 신체 프로필 통합 BODY] (~line 96-158, 2685, 3073)
-#     - _compute_bmi / _build_body_profile_block 공통 헬퍼
-#     - 코디하기 + 코디쌤 Phase 1에 BMI+체형 특성 주입
-#
-# ─── 2026-04-19 09:50 KST (이전 배포본 반영) ─────────────────────────────
-#   [얼굴 재현 강화 FACE/IDENTITY PRESERVATION] (~line 1607, 2985)
-#     - 12개 얼굴 특징 체크리스트 프롬프트
-#     - "DO NOT beautify/smooth/slim/idealize" 금지 지시
-#
-# ─── 2026-04-19 09:40 KST (이전 배포본 반영) ─────────────────────────────
-#   [Phase 1 병렬화 PERF] (~line 2490)
-#     - ThreadPoolExecutor(max_workers=2)로 상/하의 동시 분석
-#     - 12~26초 순차 → 6~13초 (약 50% 단축)
-#   [코디하기 Marqo 임베딩 스킵] (~line 2410, 3790)
-#     - skip_embedding=True 플래그 주입
-#
-# ─── 2026-04-19 09:00 KST (이전 배포본 반영) ─────────────────────────────
-#   [BUGFIX #1 — contents_new NameError] (~line 3220)
-#   [BUGFIX #2 — _en 변수 미정의] (~line 1762)
-#   [BUGFIX #3 — _garment_instruction 갱신 누락] (~line 2786, 2820)
+# ─── 2026-04-19 (이전 배포본 반영) ───────────────────────────────────────
+#   [치마 기장 4단계 FIX#1, 바지 핏 FIX#2, 치마 리얼리즘 FIX#3]
+#   [분석 보고서 형식 FIX#4/#5/#6/#7, 핵심 키워드 출력]
+#   [C안 체형 프로필 BODY — _compute_bmi/_build_body_profile_block]
+#   [얼굴 재현 강화 FACE/IDENTITY PRESERVATION (12 특징 체크리스트)]
+#   [Phase 1 병렬화 PERF — ThreadPoolExecutor]
+#   [Marqo 임베딩 코디하기에서 스킵]
+#   [BUGFIX #1/#2/#3 — NameError, _en 미정의, instruction 갱신]
 # ═══════════════════════════════════════════════════════════════════════
 
 """CodiBank OpenAI Styling Proxy (Prototype)
@@ -2391,7 +2370,7 @@ _GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
 def _detect_bottom_type_from_image(bottom_bytes: bytes, bottom_mime: str, sdk: str, gemini_key: str, genai_mod, gtypes_mod=None) -> dict:
     """Gemini로 하의 이미지를 상세 분석 → 타입/길이/실루엣 반환"""
     try:
-        # [2026-04-19 22:50 KST] 2겹 스커트/플리츠 오판 방지 + 4단계 기장 매핑
+        # [2026-04-20 01:19 KST] 2겹 스커트/플리츠 오판 방지 + 4단계 기장 매핑
         detect_prompt = (
             "Analyze this clothing item carefully and respond in JSON format only. "
             "No explanation, just JSON. "
@@ -2401,7 +2380,7 @@ def _detect_bottom_type_from_image(bottom_bytes: bytes, bottom_mime: str, sdk: s
             "1) If there is a WAISTBAND (elastic/drawstring/belt) and fabric spreads downward as ONE piece → 'skirt'. "
             "2) ONLY classify as 'pants' if you can clearly see TWO SEPARATE LEG TUBES with a clear crotch seam between them. "
             "3) Wide/pleated/tiered garments with NO leg separation = ALWAYS skirt (never wide-leg pants). "
-            "4) **TWO-LAYER skirts are still skirts**: an outer layer (pleated/dotted/printed) + an inner slip/lining = pleated skirt. "
+            "4) **TWO-LAYER skirts are still skirts**: outer (pleated/dotted/printed) + inner slip/lining = pleated skirt. "
             "   Example: polka-dot pleated outer + black slip lining = pleated skirt (NOT pants). "
             "   If both layers start from the SAME waistband, it is a single skirt garment. "
             "5) DO NOT mistake vertical pleat lines for leg tube separation — pleats are fabric folds, not leg divisions. "
@@ -2628,10 +2607,7 @@ def codistyle_analyze_garments():
                     analysis.get("is_skirt") is True or
                     any(k in _sub for k in _skirt_kws)
                 )
-                # skirt_length 추가 — [2026-04-19 22:50 KST] 4단계 매핑
-                # 이전: mini/midi/maxi 3단계만 sub_category 키워드로 매핑
-                # 수정: midi_above/midi_below 세분화 + long 명시
-                # 최종 값은 codistyle_generate의 이미지비율 분석(_skirt_length_cat)이 덮어씀
+                # skirt_length 추가 — [2026-04-20 01:19 KST] 4단계 매핑
                 if analysis["is_skirt"] and not analysis.get("skirt_length"):
                     if "미니" in _sub:
                         analysis["skirt_length"] = "mini"
@@ -2642,7 +2618,6 @@ def codistyle_analyze_garments():
                     elif "무릎 위" in _sub or "above knee" in _sub:
                         analysis["skirt_length"] = "midi_above"
                     else:
-                        # 기본값: midi_above (실제 값은 이미지 비율이 최종 결정)
                         analysis["skirt_length"] = "midi_above"
                 analysis["_analyzed"] = True
                 print(f"[analyze-garments] {_cat}/{_sub} is_skirt={analysis['is_skirt']}")
@@ -2996,10 +2971,9 @@ def codistyle_generate():
         print(f"[codistyle] 치마 비율 분석 실패: {_ratio_err}")
 
     # ── Phase 1 결과 있으면 재감지 스킵, 없으면 이미지 분석 ──
-    # ──── [2026-04-19 22:50 KST] 치마→바지 오생성 버그 완전 차단 ────
+    # ──── [2026-04-20 01:19 KST] 치마→바지 오생성 버그 완전 차단 ────
     # 원인: Phase 1에서 is_skirt=True로 bottom_info 구성(line 2726-2747) 후,
     #       두 번째 블록이 조건부로 bottom_info를 "pants"로 덮어쓰는 이중 구성 버그
-    #       2겹 스커트(도트 외피 + 블랙 슬립 내피) 케이스에서 특히 빈번히 발생
     # 해결: Phase 1이 확정(True/False) 결과를 주면 두 번째 블록 완전 스킵
     # ────
     _phase1_locked = (_bot_is_skirt_pre is True or _bot_is_skirt_pre is False)
@@ -3048,10 +3022,10 @@ def codistyle_generate():
         _detected_length     = _bottom_analysis.get("length", "full")
         _detected_silhouette = _bottom_analysis.get("silhouette", "")
 
-    # [2026-04-19 22:50 KST] 감지 결과로 bottom_info 구성 — Phase1 잠금 시 스킵
+    # [2026-04-20 01:19 KST] 감지 결과로 bottom_info 구성 — Phase1 잠금 시 스킵
     if not _phase1_locked:
         if _detected_type == "skirt":
-            # [2026-04-19 22:50 KST] 4단계 기장 매핑 통일 (첫 번째 블록과 동일)
+            # 4단계 기장 매핑 통일 (첫 번째 블록과 동일)
             _skirt_len_key = _skirt_length_cat or _detected_length
             _skirt_length_map = {
                 "mini":       "MINI skirt (hem 15-20cm above knee)",
@@ -3078,7 +3052,6 @@ def codistyle_generate():
                     + (_skirt_ratio_hint if _skirt_ratio_hint else "")
                 )
             }
-            # [2026-04-19 BUGFIX #3] 이미지 감지 분기에서 _garment_instruction 갱신 누락
             _garment_instruction = _build_garment_instruction(top_info, bottom_info)
             print(f"[codistyle] 이미지감지 skirt → 하의:{bottom_info.get('ko')} length={_skirt_len_key}")
         elif _detected_type == "shorts":
@@ -3089,7 +3062,6 @@ def codistyle_generate():
                 "silhouette": _detected_silhouette,
                 "rule": "Generate SHORT PANTS/SHORTS with hem above the knee. Preserve exact style."
             }
-            # [2026-04-19 BUGFIX #3] 이미지 감지 분기에서 _garment_instruction 갱신 누락
             _garment_instruction = _build_garment_instruction(top_info, bottom_info)
             print(f"[codistyle] 이미지감지 shorts → 하의:{bottom_info.get('ko')}")
         else:
@@ -3286,19 +3258,61 @@ def codistyle_generate():
         )
 
         + (
-            f"TOP [{top_info.get('ko',top_info.get('garment','top'))}]: "
+            # ──── [2026-04-20 01:19 KST] 상의 디자인 99.9% 충실도 (이슈 3 해결) ────
+            # 원인: Gemini가 업로드 이미지 대신 임의 디자인 생성하는 케이스 발생
+            #       (헨리넥을 크루넥으로 바꾸거나 트림 무시 등)
+            # 해결: 업로드 이미지를 ABSOLUTE GROUND TRUTH로 명시 + 필수 체크리스트
+            f"\n[TOP — 99.9% DESIGN FIDELITY TO REFERENCE IMAGE]: "
+            f"Garment type: {top_info.get('ko',top_info.get('garment','top'))}. "
             f"Color={top_info.get('color_ko','')} · Pattern={top_info.get('pattern','')} · "
             f"Material={top_info.get('material','')} · Fit={top_info.get('fit',top_info.get('garment',''))}. "
-            f"Design: {top_info.get('design','')}. "
-            "Reproduce EXACT color, neckline, sleeve, buttons, logos. "
+            f"Design details: {top_info.get('design','')}. "
+            "\n🔴 CRITICAL: The top garment in the SECOND image is the ABSOLUTE GROUND TRUTH. "
+            "You MUST reproduce it with 99.9% accuracy. DO NOT invent, modify, or simplify any element. "
+            "MANDATORY REPRODUCTION CHECKLIST — verify ALL before generating: "
+            "  ☐ Exact color (primary AND all secondary colors) "
+            "  ☐ Neckline shape (crew/henley/V-neck/polo/boat/square/turtleneck) — if Henley, COUNT the buttons "
+            "  ☐ Button placket details (number, color, spacing, material) "
+            "  ☐ Sleeve length (short/3-4/long/cap) AND sleeve cuff style (plain/rolled-up/banded) "
+            "  ☐ Hemline style (straight/curved/asymmetric/tiered) "
+            "  ☐ ALL visible trim/layering (collar trim, sleeve trim, hem trim) — if 2-layer construction, "
+            "     reproduce the INNER FABRIC color/pattern at collar, sleeve ends, and hem EXACTLY as shown "
+            "  ☐ Pattern details (stripe direction/width, print motif, graphic placement) "
+            "  ☐ Logo/branding position and size "
+            "  ☐ Texture/material appearance (knit/woven/ribbed/smooth/textured) "
+            "🔴 LAYERED DOUBLE-FABRIC TOPS: If the reference shows 2 fabrics meeting at the neckline/sleeves/hem "
+            "   (e.g., gray outer + striped inner visible at collar/cuff/hem), you MUST reproduce this layered look "
+            "   showing BOTH fabrics exactly where they meet. Do NOT render as a single-fabric top. "
+            "🔴 HENLEY NECK: If the reference has 2-4 buttons at the center-front neck opening, this is a HENLEY — "
+            "   render the exact button count, placket length, and opening position. NEVER substitute with crew neck. "
+            "ANTI-PATTERN: Creating a 'similar-looking' generic top = GENERATION FAILURE. "
+            "The generated top must look like the EXACT SAME garment from the reference image, just worn on the body. "
         )
         + (
-            f"BOTTOM [{bottom_info.get('ko',bottom_info.get('garment','bottom'))}]: "
+            # ──── [2026-04-20 01:19 KST] 하의 디자인 99.9% 충실도 (이슈 3 해결) ────
+            f"\n[BOTTOM — 99.9% DESIGN FIDELITY TO REFERENCE IMAGE]: "
+            f"Garment type: {bottom_info.get('ko',bottom_info.get('garment','bottom'))}. "
             f"Color={bottom_info.get('color_ko','')} · Pattern={bottom_info.get('pattern','')} · "
             f"Material={bottom_info.get('material','')}. "
             f"Silhouette: {bottom_info.get('silhouette', bottom_info.get('design',''))}. "
-            "Reproduce EXACT color, length, hem, pleats, ruffles, waistband. "
-            "DO NOT alter garment category, length, or silhouette. Reference images = ABSOLUTE GROUND TRUTH. "
+            "\n🔴 CRITICAL: The bottom garment in the THIRD image (or SECOND if no face) is the ABSOLUTE GROUND TRUTH. "
+            "Reproduce it with 99.9% accuracy. "
+            "MANDATORY REPRODUCTION CHECKLIST — verify ALL before generating: "
+            "  ☐ Exact color AND color variations (wash, fade, gradient, distressing) "
+            "  ☐ Hemline position (ankle/cropped/mid-calf/knee) — MUST match the uploaded image ratio analysis "
+            "  ☐ Waistband style (elastic/flat/paper-bag/buttoned/belted/drawstring) "
+            "  ☐ Pocket placement and style (front/back, welt/patch/jet) "
+            "  ☐ Fly details (zip, buttons, placket) "
+            "  ☐ Seam/stitching details (contrast stitch, side stripe, piping) "
+            "  ☐ Leg silhouette (straight/skinny/wide/bootcut/tapered/flared) "
+            "  ☐ Design accents (pleats, ruffles, ties, bows, slits, cuffs, rolled-up hem) "
+            "  ☐ Pattern/print (plaid, stripe, floral, polka dot — exact scale and color combination) "
+            "  ☐ Any logos, patches, embroidery, or graphics — position and style "
+            "🔴 FOR SKIRTS: reproduce pleats/tiers/ruffles with EXACT count and depth visible in reference. "
+            "🔴 FOR PANTS: do NOT change jeans wash color, do NOT add distressing not in reference, "
+            "   do NOT change leg opening width. "
+            "ANTI-PATTERN: Generating 'similar' generic pants/skirt = GENERATION FAILURE. "
+            "DO NOT alter garment category, length, or silhouette. Reference image = ABSOLUTE GROUND TRUTH. "
             # [2026-04-06 보강] 하의 착용 리얼리즘 — 상의와 동일 수준
             "The bottom garment must be WORN on the body with the SAME realism as the top. "
             "It must show natural draping, body-conforming curves, fabric weight, "
@@ -3310,6 +3324,23 @@ def codistyle_generate():
         + img_desc + " "
         + ko_instruction
         + "Photorealistic Korean fashion editorial photo. Natural garment layering (tuck or leave out as style dictates). "
+
+        # ──── [2026-04-20 01:19 KST] 자연스러운 포즈 명시 (이슈 2 해결) ────
+        # 원인: 포즈 지시 없어서 Gemini가 다리 벌리고 빈 공간 생기는 어색한 자세 기본 생성
+        # 해결: 전신 편안한 자세 + 다리 닿는 정도의 자연스러운 스탠스 지정
+        + "\n[POSE — NATURAL STANDING STANCE]: "
+        + "Person stands FACING the camera directly (front view), head slightly tilted or perfectly straight. "
+        + "FEET placement: heels approximately 5-8cm apart, toes pointing slightly outward (10-15° natural splay). "
+        + "LEGS: inner thighs gently touching or within 2cm — NO wide gap between legs. "
+        + "This creates a natural, elegant silhouette without awkward empty space between the legs. "
+        + "FORBIDDEN: wide-stance legs (shoulder-width apart), legs spread with visible gap at thigh/calf level, "
+        + "aggressive power-pose stance. "
+        + "ARMS: hang naturally at sides, slight relaxed curve at elbows, hands lightly cupped or fingers softly curled. "
+        + "One arm may be slightly forward or hand may lightly touch the thigh — NOT stiff military posture. "
+        + "SHOULDERS: relaxed and level, NOT hunched or pushed back. "
+        + "WEIGHT DISTRIBUTION: subtle contrapposto allowed — one hip slightly higher for natural feminine/masculine flow. "
+        + "OVERALL: confident editorial fashion pose, relaxed yet poised — like a professional lookbook shot. "
+
         + ("Background: single flat solid pastel complementing personal color "
            f"({_pc_season} {_pc_undertone}) and contrasting clearly with the outfit. "
            if _pc_season else
@@ -4167,7 +4198,7 @@ def ai_analyze_item():
 ⚠️ 배경 무시 규칙: 이미지에 바닥, 벽, 옷걸이, 손, 테이블 등 배경이 포함되어 있을 수 있습니다. 배경은 완전히 무시하고 의류 아이템 영역만 집중하여 분석하세요. 배경 색상을 의류 색상으로 착각하지 마세요.
 
 ⚠️ 치마/스커트 판별 CRITICAL RULE (최우선, 다른 규칙보다 우선 적용):
-[2026-04-19 22:50 KST] 2겹 스커트 오판 방지 강화
+[2026-04-20 01:19 KST] 2겹 스커트 + 레이어드 상의 혼동 방지 강화
 - 허리밴드(elastic/끈/벨트)가 있고 아래로 한 폭의 천이 퍼지면 → **반드시 skirt**
 - 다리가 각각 분리된 통로(leg tube)가 있으면 → pants (바지류)
 - 다리 분리 없이 한 장의 천이 아래로 퍼지면 → skirt (치마류) ← 착용샷이어도 동일하게 적용
@@ -4176,18 +4207,28 @@ def ai_analyze_item():
   * 외피(겉감) + 내피(안감/슬립)가 결합된 구조 = 여전히 **skirt**
   * 예: 도트 플리츠 외피 + 블랙 슬립 내피 = 플리츠스커트 (절대 바지 아님)
   * 예: 레이스 외피 + 무지 내피 = 레이스스커트
-  * 예: 시스루 + 이너 = 여전히 skirt
   * 판별 기준: 겉감과 안감이 **같은 허리밴드**에서 시작되면 2겹 스커트 (=skirt)
-  * 내피가 미니 길이에 외피가 미디여도 → 외피 길이 기준으로 midi skirt
 - **플리츠/티어드/러플 주의**:
   * 세로 주름선(플리츠)을 leg-tube 분리선으로 오인하지 말 것
   * 플리츠 라인은 연속된 천의 접힘이지 다리 분리가 아님
-  * 도트무늬/플리츠/티어드 등 디자인과 무관하게 구조로만 판별
 - **랩스커트/트렌치스커트 주의**:
   * 앞이 교차되어 트임이 있어도 = skirt
   * 허리 끈/리본이 보이면 스커트 신호
 - 판단 우선순위: (1) 허리밴드 존재 → (2) leg tube 여부 → (3) 다른 디자인 요소
 - **의심스러우면 skirt로 판단** (플리츠/와이드 구조는 skirt 가능성 80%+)
+
+⚠️ 레이어드/2겹 상의 디자인 상세 판별 규칙 (매우 중요):
+[2026-04-20 01:19 KST] 헨리넥/레이어드 티셔츠 등 복합 디자인 상의 정밀 캡처
+- 상의의 **넥라인, 소매 끝, 밑단**에 서로 다른 색/패턴의 트림(단)이 보이면 → key_design에 반드시 명시
+  * 예: 회색 본체 + 넥라인/밑단에 스트라이프 안감 드러남 = "2-layer henley neck with striped inner trim at collar/sleeve/hem"
+- **헨리넥(Henley neck)** 식별:
+  * 반원형 트임 + 2~4개 버튼이 가슴 중앙 위쪽에 있으면 → 헨리넥 명시
+  * design_points에 "Henley placket with X buttons" 기록
+- **롤업/접힘 소매**:
+  * 소매 끝이 안쪽으로 접혀 안감이 보이면 → "rolled-up cuff revealing inner fabric"
+- **2-layer tee (레이어드 티셔츠)**:
+  * 겉감과 안감이 넥/소매/밑단에서 서로 다른 색/패턴으로 드러나면 → "layered double-fabric tee, contrast trim at [위치]"
+- design_points 필드에 이 모든 요소를 **매우 상세히** 기록해야 이미지 생성 시 충실히 재현됨
 
 {
   "category": "coat | jacket | top | pants | skirt | shoes | watch | scarf | socks | etc 중 하나 — ⚠️ 치마/스커트류는 반드시 skirt, 절대 pants에 포함하지 말 것",
