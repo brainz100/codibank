@@ -3251,22 +3251,40 @@ def codistyle_generate():
             "where n1<=40, n2<=40, n3<=20, n1+n2+n3=[total] and [total]<=100. "
 
             # 4개 섹션 분석 출력 형식 (한/영 분기)
+            # [2026-04-19 FIX#4/#5/#6/#7] 보고서 형식 + 500자 제한 + 컬러명+HEX 표기 + 핵심 키워드 5개
+            # 이전: 서술형 단락, 300~500자 혼재, 컬러 이름만 사용
+            # 수정:
+            #   - 모든 섹션 보고서 형식 (▸ 불릿 4~5개)
+            #   - 전체 섹션 500자 이내 통일
+            #   - 컬러 표기는 반드시 "컬러명 #HEX" (예: "네이비 #1B3A5F")
+            #   - 상/하의 별도 분석 섹션명 변경: "상의 스타일 분석" / "하의 스타일 분석"
+            #   - 핵심 키워드 5개 OUTPUT LINE 마지막 추가 (프론트에서 파싱)
             + (
-                "OUTPUT LINE 2+ (English analysis — each section MUST start with its label): "
-                "Personal Color Analysis: [Analyze how the top/bottom colors harmonize with user's personal color season type. "
-                "Mention best color match, colors to avoid. Max 500 chars] "
-                "Body Shape Analysis: [Analyze how the silhouette/fit/length flatters the user's body type considering height/weight. "
-                "Mention recommended styles, styles to avoid. Max 500 chars] "
-                "Top Style: [Material, pattern, fit, neckline role in overall outfit. Max 300 chars] "
-                "Bottom Style: [Silhouette, length, material effect on proportions. Max 300 chars]"
+                "OUTPUT LINE 2+ (English analysis — REPORT FORMAT with bullet points ▸): "
+                "Personal Color Analysis: [▸ 4~5 bullets. Max 500 chars. "
+                "Include: user's season type match, top/bottom color harmony (use 'color-name #HEX' format e.g. 'Navy #1B3A5F'), "
+                "best-match verdict, avoidance flag, and concise styling tip] "
+                "Top Style Analysis: [▸ 4~5 bullets. Max 500 chars. "
+                "Include: material, pattern, fit, neckline, color (with #HEX), body-type synergy, improvement note] "
+                "Bottom Style Analysis: [▸ 4~5 bullets. Max 500 chars. "
+                "Include: silhouette, length, material, color (with #HEX), leg-line effect, top-bottom balance] "
+                "Total Styling Analysis: [▸ 4~5 bullets. Max 500 chars. "
+                "Include: overall color combo (names + #HEX), proportion verdict, occasion fit, improvement suggestion] "
+                "Key Keywords: [EXACTLY 5 keywords separated by commas, each 1~3 words, capturing the outfit's essence. "
+                "Examples: Minimal Chic, Soft Spring, Structured Fit, Layered Tone, Daily Formal]"
                 if _cs_en else
-                "OUTPUT LINE 2+ (Korean analysis — report format, each section MUST start with its label): "
-                "퍼스널컬러 분석: [사용자의 퍼스널컬러 시즌 타입과 이 착장의 상의·하의 컬러가 어떻게 조화되는지 구체적으로 분석. "
-                "추천 컬러와의 일치도, 피해야 할 컬러 해당 여부를 명확히 언급. 500자 이내] "
-                "체형 분석: [사용자의 체형 타입과 키·몸무게를 고려할 때 이 착장의 실루엣·핏·기장이 체형의 장점을 살리는지 또는 단점을 보완하는지 분석. "
-                "추천 스타일 부합 여부, 피해야 할 스타일 해당 여부를 구체적으로 언급. 500자 이내] "
-                "상의 스타일: [상의의 소재·패턴·핏·넥라인이 전체 착장에서 어떤 역할을 하는지, 체형과의 조화, 개선 제안 포함. 300자 이내] "
-                "하의 스타일: [하의의 실루엣·기장·소재가 전체 비율에 미치는 효과, 상의와의 배색 조화, 개선 제안 포함. 300자 이내]"
+                "OUTPUT LINE 2+ (Korean analysis — 반드시 보고서 형식 ▸ 불릿 사용): "
+                "퍼스널컬러 분석: [▸ 4~5개 불릿. 500자 이내. "
+                "포함 항목: 사용자 시즌 타입 일치도, 상의/하의 컬러 조화 (반드시 '컬러명 #HEX' 형식, 예: '네이비 #1B3A5F'), "
+                "추천 컬러 부합 여부, 회피 컬러 해당 여부, 간결한 스타일링 팁] "
+                "상의 스타일 분석: [▸ 4~5개 불릿. 500자 이내. "
+                "포함 항목: 소재, 패턴, 핏, 넥라인, 컬러('컬러명 #HEX'), 체형과의 시너지, 개선 포인트] "
+                "하의 스타일 분석: [▸ 4~5개 불릿. 500자 이내. "
+                "포함 항목: 실루엣, 기장, 소재, 컬러('컬러명 #HEX'), 다리라인 효과, 상하의 비율 균형] "
+                "토탈 스타일링 분석: [▸ 4~5개 불릿. 500자 이내. "
+                "포함 항목: 전체 배색('컬러명 #HEX' 병기), 비율 평가, TPO 적합성, 개선 제안] "
+                "핵심 키워드: [정확히 5개 키워드, 쉼표로 구분, 각 2~6자. "
+                "예시: 미니멀시크, 봄웜톤, 스트럭처드핏, 레이어드톤, 데일리포멀]"
             )
         )
 
