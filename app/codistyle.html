@@ -7,27 +7,23 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
-─── 2026-04-19 22:50 KST ────────────────────────────────────────────────
-  [치마 기장 4단계 프론트 fallback 매핑] (~line 1821, 1829)
-    - _lenMapEn / _lenMap에 midi_above / midi_below 엔트리 추가
-    - 서버의 _skirt_length_cat 4단계 키와 완전 일치
-    - 한국어: "무릎 위 3cm" / "무릎 아래 10cm" 명시 설명
+─── 2026-04-20 02:00 KST ────────────────────────────────────────────────
+  [이미지 뷰박스 내부 배경색 변경] (~line 366, 391)
+    - .result-img-box 배경: 다크 그라디언트 → 단색 #0B666A
+    - .img-spin (로딩 상태) 배경도 동일 #0B666A로 통일
+    - 테두리/그림자는 기존 유지하여 레이어드 박스감 보존
 
-─── 2026-04-19 12:30 KST (이전 배포본 반영) ─────────────────────────────
-  [분석 섹션명 변경 FIX#4/#5] (~line 760-785)
-    - "퍼스널컬러 조합" → "퍼스널컬러 분석"
-    - "상의/하의 스타일" → "상의/하의 스타일 분석"
-  [핵심 키워드 5개 pill UI FIX#7] (~line 782, 1867)
-    - csKeywordsBox/csKeywordsList DOM + 서버 응답 파싱
-  [서버 응답 파싱 로직 전면 교체] (~line 1748)
-    - 섹션 라벨 기준 블록 파싱 (4~5개 불릿 보존)
-  [리포트 버튼 타이밍 FIX#3] (~line 1585, 1624)
-  [progress % 위치 FIX#2] (~line 1957, 1979)
-  [배지 텍스트 유지 FIX#1] (~line 1950)
+─── 2026-04-20 01:19 KST ────────────────────────────────────────────────
+  [이슈 1 — 치마 기장 4단계 프론트 fallback 매핑] (~line 1821, 1829)
+    - _lenMapEn/_lenMap에 midi_above/midi_below 엔트리 추가
+    - 서버 _skirt_length_cat 4단계 키와 완전 일치
 
-─── 2026-04-19 09:50 KST (이전 배포본 반영) ─────────────────────────────
-  [얼굴 해상도 상향 FACE] (~line 994, 1022)
-    - resizeFaceDataUrl(480, 0.75) → (1024, 0.90)
+─── 2026-04-19 (이전 배포본 반영) ───────────────────────────────────────
+  [분석 섹션명 변경 FIX#4/#5] "퍼스널컬러 분석" / "상의/하의 스타일 분석"
+  [핵심 키워드 5개 pill UI FIX#7] csKeywordsBox/csKeywordsList
+  [서버 응답 파싱 로직 전면 교체] 섹션 라벨 기준 블록 파싱
+  [리포트 버튼 타이밍 FIX#3, progress % 위치 FIX#2, 배지 유지 FIX#1]
+  [얼굴 해상도 상향 FACE] resizeFaceDataUrl(480,0.75)→(1024,0.90)
 ═══════════════════════════════════════════════════════════════════════
 -->
 <html lang="ko">
@@ -373,12 +369,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
 .status-row{display:flex;align-items:center;gap:10px;padding:16px 18px 10px}.status-dot{width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;animation:pdot 1.2s ease-in-out infinite}@keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}.status-dot.done{background:var(--mint);animation:none}.status-dot.err{background:#f87171;animation:none}.status-txt{font-size:12px;color:rgba(162,253,240,0.7);font-weight:500}
 .result-img-wrap{padding:10px 14px;}
 /* [2026-04-18] 세련된 이미지 뷰박스 재설계 */
+/* [2026-04-20 02:00 KST] 이중 뷰박스 내부 배경색 #0B666A로 변경 */
 .result-img-box{
   width:100%;aspect-ratio:1/1.6;border-radius:20px;overflow:hidden;position:relative;
   display:flex;align-items:center;justify-content:center;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(53,162,159,0.08) 0%, transparent 60%),
-    linear-gradient(160deg, #0B1238 0%, #050A24 100%);
+  background:#0B666A;
   border:1px solid rgba(151,254,237,0.12);
   box-shadow:
     inset 0 1px 0 rgba(151,254,237,0.05),
@@ -400,9 +395,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
 .img-spin{
   width:100%;aspect-ratio:1/1.6;border-radius:20px;overflow:hidden;position:relative;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
-  background:
-    radial-gradient(ellipse 90% 60% at 50% 45%, rgba(53,162,159,0.12) 0%, transparent 65%),
-    linear-gradient(160deg, #0B1238 0%, #050A24 100%);
+  /* [2026-04-20 02:00 KST] 로딩 상태 배경도 뷰박스와 동일 #0B666A로 통일 */
+  background:#0B666A;
   border:1px solid rgba(151,254,237,0.14);
   box-shadow:
     inset 0 1px 0 rgba(151,254,237,0.06),
@@ -1849,7 +1843,7 @@ function _renderAnalysis(srvAdvice){
     if(!_botText){
       if(_csIsEn){
         if(_isSkirt){
-          // [2026-04-19 22:50 KST] 4단계 기장 매핑 (서버의 _skirt_length_cat과 일치)
+          // [2026-04-20 01:19 KST] 4단계 기장 매핑 (서버 _skirt_length_cat 일치)
           const _lenMapEn={
             'mini':       'Mini length (15-20cm above knee) accentuates leg line for an active look.',
             'midi_above': 'Knee-above midi (3cm above kneecap) creates an elegant feminine silhouette.',
@@ -1865,7 +1859,7 @@ function _renderAnalysis(srvAdvice){
         }
       } else {
         if(_isSkirt){
-          // [2026-04-19 22:50 KST] 4단계 기장 매핑 (서버의 _skirt_length_cat과 일치)
+          // [2026-04-20 01:19 KST] 4단계 기장 매핑 (서버 _skirt_length_cat 일치)
           const _lenMap={
             'mini':       '미니 기장(무릎 위 15-20cm)으로 다리 라인을 강조해 활동적인 인상을 줍니다',
             'midi_above': '무릎 위 3cm 미디 기장은 우아하고 여성스러운 실루엣을 완성합니다',
