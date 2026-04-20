@@ -1,4 +1,33 @@
 <!DOCTYPE html>
+<!--
+═══════════════════════════════════════════════════════════════════════
+📋 수정 이력 (MODIFICATION HISTORY) — 최신순
+═══════════════════════════════════════════════════════════════════════
+이 블록은 파일 수정 때마다 최상단에 누적됩니다.
+각 항목은 실제 수정 지점에도 동일한 날짜/요약 주석이 존재합니다.
+점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
+
+─── 2026-04-20 07:15 KST (관리자 페이지 PC 모니터 최적화) ────────────────
+  [원인] 관리자 페이지는 원래 PC 대시보드용으로 설계됨:
+    - .page max-width: 1200px (line 21)
+    - 테이블 20개, 4열 그리드(.r4), 차트 박스 등 PC 레이아웃
+    하지만 나중에 추가된 @media(min-width:501px) body{max-width:500px}가
+    모바일 폭으로 강제 제한하면서 PC 레이아웃이 망가짐.
+
+  [수정 1] 뷰포트 메타 태그 — 줌 잠금 해제
+    - 이전: maximum-scale=1.0, user-scalable=no (모바일 줌 방지)
+    - 변경: 기본 뷰포트 (PC에서는 줌/스크롤 자유롭게)
+  [수정 2] body max-width:500px 제한 완전 제거
+    - .page의 max-width:1200px이 다시 정상 작동
+    - PC 모니터 1200px 너비로 대시보드 레이아웃 복원
+  [수정 3] PC 모니터(1024px+) 타이포그래피 상향 추가
+    - 기본 13px → 14px (가독성 개선)
+    - 테이블/카드/KPI/탭 등 주요 요소 모두 1~2px 상향
+    - 차트 높이 220px → 280px (PC 화면에 적합)
+    - 여백/패딩 여유 있게 확대
+  [수정 4] 초대형 모니터(1920px+) 양옆 패딩 추가 확대
+═══════════════════════════════════════════════════════════════════════
+-->
 <html lang="ko">
 <head>
 <!-- Google tag (gtag.js) -->
@@ -10,7 +39,7 @@
   gtag('config', 'G-2ZWQ7K7H0V');
 </script>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>CodiBank Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -61,16 +90,48 @@
   .master-only-badge{background:#071952;color:#97FEED;font-size:9px;font-weight:800;padding:2px 7px;border-radius:999px;letter-spacing:.05em;vertical-align:middle;margin-left:6px;}
 </style>
 <style>
-/* [2026-04-17] 페이지 최대 폭 제한 — 모바일 UX 기반 500px */
-/* 501px 이상 뷰포트(큰 모바일, 태블릿, PC)에서만 활성 */
-@media (min-width: 501px) {
-  html {
-    background: #00022E;
-  }
-  body {
-    max-width: 500px !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
+/* [2026-04-20 07:15 KST] 관리자 페이지 PC 모니터 최적화
+   이전: @media(min-width:501px) body{max-width:500px} — 모바일 폭으로 강제 제한
+   이유: 관리자 페이지는 PC 모니터 사용이 주 환경. 테이블 20개, 4열 그리드,
+         대시보드 레이아웃이 모두 .page max-width:1200px 기준으로 설계됐으나
+         나중에 추가된 500px 제한이 이를 덮어써서 모든 콘텐츠가 세로로 쏟아짐.
+   수정: .page 클래스의 원래 max-width:1200px을 그대로 사용. body에 별도 폭 제한 없음.
+         PC 모니터(1440px+)에서 양옆 여백은 body 바깥 배경으로 자연스럽게 처리. */
+html {
+  background: #f5f6fa;
+}
+body {
+  min-height: 100dvh;
+}
+
+/* PC 모니터(1024px+)에서 가독성 개선 — 폰트 1~2px 상향, 여백 확대 */
+@media (min-width: 1024px) {
+  body { font-size: 14px !important; }
+  .page { padding: 24px 24px 80px !important; }
+  .top h1 { font-size: 20px !important; }
+  .top-r a, .top-r button { font-size: 12px !important; padding: 7px 14px !important; }
+  .tab { font-size: 13px !important; padding: 10px 18px !important; }
+  .kpi { padding: 18px 20px !important; }
+  .kpi-l { font-size: 10px !important; }
+  .kpi-v { font-size: 26px !important; }
+  .kpi-s { font-size: 11px !important; }
+  .sec-t { font-size: 14px !important; }
+  .sec-t .mi { font-size: 18px !important; }
+  table { font-size: 12px !important; }
+  th { padding: 10px 14px !important; }
+  td { padding: 9px 14px !important; }
+  .cb input, .cb select { font-size: 12px !important; padding: 8px 12px !important; }
+  .ab, .rb { font-size: 11px !important; padding: 5px 12px !important; }
+  .pager { font-size: 12px !important; padding: 10px 14px !important; }
+  .lk { font-size: 11px !important; padding: 11px 13px !important; }
+  .chart-wrap { height: 280px !important; }
+}
+
+/* 매우 큰 모니터(1920px+)에서는 양옆 여백 추가 확대 */
+@media (min-width: 1920px) {
+  .page {
+    padding-left: 32px !important;
+    padding-right: 32px !important;
   }
 }
 </style>
