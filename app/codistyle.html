@@ -7,33 +7,49 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
-─── 2026-04-20 04:10 KST ────────────────────────────────────────────────
-  [이슈 2 — 뷰박스 내부 박스 배경색 #0B666A] (~line 386)
-    - .img-spin(내부/로딩 상태) 배경을 다크 그라디언트 → 단색 #0B666A
-    - .result-img-box(외부) 배경은 기존 다크 그라디언트 그대로 유지
-  [이슈 3 — 셀렉박스 중앙 아이템 선택 버그 수정] (~line 2919)
-    - 원인: shift() 함수에서 windowIndices는 재계산하지만 각 카드의
-           data-idx 속성은 재할당 안 되어, 사용자가 본 중앙 카드와
-           클릭 시 조회되는 data-idx가 어긋남
-    - 수정: 스와이프 후 7개 카드 모두 data-idx 재할당 + leaver도 재설정
-  [이슈 4 — 이미지 삭제 후 자동 카메라 열림 버그 수정] (~line 618, 645)
-    - 원인: 슬롯 div(class=cpreview) 전체에 onclick=pickFile 핸들러가
-           있어, 삭제 후 빈 슬롯 탭 시 자동으로 파일 피커 열림
-    - 수정: 슬롯 div의 onclick 속성 제거. '사진선택' 버튼 클릭 시에만
-           파일 피커 열리도록 분리 (사용자 요구사항)
-  [이슈 5 — 온라인 링크 버튼 비활성화 + 메인컬러 배경] (~line 626, 653)
-    - 상/하의 모두 "온라인 링크" 버튼 disabled 처리 (pickLink 호출 차단)
-    - 라벨을 "온라인 링크 (준비중)"로 변경, 다국어 키도 교체
-    - 배경을 브랜드 메인 컬러 #00022E(body 배경과 동일)로 변경
-    - opacity 0.6, cursor not-allowed로 비활성 상태 시각 표현
+─── 2026-04-20 09:50 KST (프리미엄 스타일링 리포트 V1 전체 구현) ──────────
+  [명세서] CodiBank Premium Personal Styling Report V1
+    - C.S.I (CodiBank Styling Index) 4지표 시스템 도입
+    - 요약 뷰 고도화 (방사형 차트 + 한 줄 평 + 해시태그)
+    - 상세 리포트 모달 3섹션 구조 신규 구현
+    - jsPDF 기반 고해상도 PDF 다운로드
 
-─── 2026-04-20 03:40 KST ────────────────────────────────────────────────
-  [관련: 서버 프롬프트 전면 재설계와 병행 — 프론트 변경 없음]
-    - 서버 OUTPUT LINE 섹션 라벨은 기존과 동일 유지
-      ("퍼스널컬러 분석", "상의 스타일 분석", "하의 스타일 분석",
-       "토탈 스타일링 분석", "핵심 키워드")
-    - 프론트 파싱 로직(섹션 라벨 기준 블록 파싱)은 변경 불필요
-    - 이 주석은 서버/프론트 버전 짝을 맞추기 위한 기록
+  [STEP 1-B] 서버 응답 스키마 확장 (mock_backend.py)
+    - 점수: 3지표 → 4지표 (body/pc/prop/harm = 30/30/20/20 = 100)
+    - 신규 필드: executive_summary, tpo_recommendations,
+                  improvement_tips, style_hashtags
+    - 구형 3지표 응답 fallback 유지
+
+  [STEP 2] 스코어 카드 3→4개 (2x2 그리드)
+    - csScBody /30 · csScPc /30 · csScProp /20 · csScStyle /20
+
+  [STEP 3] 방사형 차트 SVG 신규 구현 (~line 765)
+    - csRadarBox + csiRadarData polygon (4축: 체형/컬러/비율/밸런스)
+    - radialGradient #csiRadarGrad — teal 그라디언트
+    - 차트 옆 Executive Summary + 해시태그 영역
+
+  [STEP 4] 분석 섹션 재구성
+    - 기존 4섹션(PC/상의/하의/토탈) + 키워드
+      → 신규 5섹션(PC/상의/하의/실루엣과 비율/상하의 밸런스)
+    - 토탈·키워드는 프리미엄 모달로 이동
+    - CTA 버튼 2개 (프리미엄 리포트 / PDF)
+
+  [STEP 5] 프리미엄 리포트 모달 신규 (~line 585)
+    - 3섹션: Executive Summary / Deep-dive (4카드) / Guide (TPO+팁+큐레이션)
+    - 브랜드 슬로건 "Desire to be designed. Meet CodiBank."
+    - 큐레이션 영역은 COMING SOON (제휴 연동 예정)
+
+  [STEP 6] jsPDF 라이브러리 추가 (~line 17)
+    - cdnjs.cloudflare.com/jspdf/2.5.1
+
+  [STEP 7] JS 로직 전면 업데이트
+    - 서버 응답 파싱: 4지표 + 신규 필드 (~line 2329)
+    - 방사형 차트 동적 업데이트 (polygon points 계산)
+    - _renderAnalysis: 5섹션 파싱 (~line 1933)
+    - 리셋 함수 2곳: 4지표 + Radar + 프리미엄 데이터 초기화
+    - 세션 저장/복원: 신규 필드 포함
+    - openPremiumReport / closePremiumReport 신규 구현
+    - downloadOutfitReport: html2canvas PNG → jsPDF 다중 페이지 PDF
 ═══════════════════════════════════════════════════════════════════════
 -->
 <html lang="ko">
@@ -50,6 +66,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>코디하기 - 코디뱅크</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- [2026-04-20 09:50 KST] jsPDF — 고해상도 PDF 생성용 (프리미엄 리포트) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="config.js"></script>
 <script src="codibank.js"></script>
 <script src="i18n.js"></script>
@@ -403,12 +421,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
 .img-ph p{font-size:12px;letter-spacing:.06em;}
 
 /* ── 로딩 상태 ── */
-/* [2026-04-20 04:10 KST] 이중 뷰박스 내부 박스(.img-spin) 배경만 #0B666A
-   외부 박스(.result-img-box)는 기존 다크 그라디언트 유지 */
 .img-spin{
   width:100%;aspect-ratio:1/1.6;border-radius:20px;overflow:hidden;position:relative;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
-  background:#0B666A;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 45%, rgba(53,162,159,0.12) 0%, transparent 65%),
+    linear-gradient(160deg, #0B1238 0%, #050A24 100%);
   border:1px solid rgba(151,254,237,0.14);
   box-shadow:
     inset 0 1px 0 rgba(151,254,237,0.06),
@@ -616,6 +634,126 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
   </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- [2026-04-20 09:50 KST] 프리미엄 스타일링 리포트 모달 (3섹션 구조)      -->
+<!-- 명세서 V1의 "상세 리포트 뷰" — Executive Summary / Deep-dive / Guide -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div id="premiumReportModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,2,46,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);overflow-y:auto;padding:20px 16px;">
+  <div style="max-width:540px;margin:0 auto;background:linear-gradient(180deg,#0a1443 0%,#071952 100%);border:1px solid rgba(151,254,237,0.3);border-radius:20px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
+
+    <!-- 헤더: 고급스러운 그라디언트 + 브랜드 슬로건 -->
+    <div style="background:linear-gradient(135deg,#071952 0%,#0B666A 100%);padding:24px 20px;text-align:center;position:relative;">
+      <button onclick="closePremiumReport()" style="position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;">
+        <span class="mi" style="font-size:18px;">close</span>
+      </button>
+      <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,0.55);letter-spacing:0.2em;margin-bottom:6px;">PREMIUM STYLING REPORT</div>
+      <div style="font-size:20px;font-weight:900;color:#97FEED;letter-spacing:-0.01em;margin-bottom:4px;">CodiBank Professional Analysis</div>
+      <div style="font-size:10px;color:rgba(151,254,237,0.5);font-style:italic;letter-spacing:0.03em;">Desire to be designed. Meet CodiBank.</div>
+    </div>
+
+    <!-- 종합 스코어 + 해시태그 -->
+    <div style="padding:18px 20px 16px;border-bottom:1px solid rgba(151,254,237,0.08);background:rgba(151,254,237,0.025);">
+      <div style="display:flex;align-items:baseline;justify-content:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:11px;font-weight:800;color:rgba(151,254,237,0.5);letter-spacing:0.1em;">C.S.I</span>
+        <span id="prmScoreNum" style="font-size:48px;font-weight:900;color:#97FEED;letter-spacing:-0.02em;line-height:1;">—</span>
+        <span style="font-size:13px;font-weight:700;color:rgba(151,254,237,0.4);">/100</span>
+        <span id="prmGradeBadge" style="font-size:10px;font-weight:800;padding:4px 11px;border-radius:20px;background:rgba(151,254,237,0.15);border:1px solid rgba(151,254,237,0.3);color:#97FEED;margin-left:4px;"></span>
+      </div>
+      <div id="prmHashtags" style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;"></div>
+    </div>
+
+    <!-- SECTION 1: Executive Summary (종합 분석 결과) -->
+    <div style="padding:20px 22px 18px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#97FEED,#35A29F);display:flex;align-items:center;justify-content:center;color:#00022E;font-size:12px;font-weight:900;">1</div>
+        <div style="font-size:13px;font-weight:900;color:#97FEED;letter-spacing:-0.01em;">종합 분석 결과</div>
+        <div style="font-size:9px;font-weight:700;color:rgba(151,254,237,0.4);letter-spacing:0.1em;margin-left:auto;">EXECUTIVE SUMMARY</div>
+      </div>
+      <div style="background:rgba(151,254,237,0.04);border-left:3px solid #97FEED;padding:14px 16px;border-radius:0 10px 10px 0;">
+        <p id="prmExecSummary" style="font-size:13px;color:rgba(255,255,255,0.9);line-height:1.75;font-weight:500;margin:0;letter-spacing:-0.01em;">—</p>
+      </div>
+    </div>
+
+    <!-- SECTION 2: Deep-dive Analysis (항목별 심층 분석) -->
+    <div style="padding:0 22px 18px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#97FEED,#35A29F);display:flex;align-items:center;justify-content:center;color:#00022E;font-size:12px;font-weight:900;">2</div>
+        <div style="font-size:13px;font-weight:900;color:#97FEED;letter-spacing:-0.01em;">항목별 심층 분석</div>
+        <div style="font-size:9px;font-weight:700;color:rgba(151,254,237,0.4);letter-spacing:0.1em;margin-left:auto;">DEEP-DIVE</div>
+      </div>
+
+      <!-- 2-1. 실루엣 & 비율 분석 -->
+      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(151,254,237,0.08);border-radius:10px;padding:13px 15px;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">📏 실루엣 &amp; 비율</div>
+        <p id="prmDeepProp" style="font-size:11.5px;color:rgba(255,255,255,0.72);line-height:1.7;margin:0;white-space:pre-line;"></p>
+      </div>
+
+      <!-- 2-2. 컬러 케미스트리 -->
+      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(151,254,237,0.08);border-radius:10px;padding:13px 15px;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">🎨 컬러 케미스트리</div>
+        <p id="prmDeepColor" style="font-size:11.5px;color:rgba(255,255,255,0.72);line-height:1.7;margin:0;white-space:pre-line;"></p>
+      </div>
+
+      <!-- 2-3. 체형 매칭 결과 -->
+      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(151,254,237,0.08);border-radius:10px;padding:13px 15px;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">💫 체형 매칭 결과</div>
+        <p id="prmDeepBody" style="font-size:11.5px;color:rgba(255,255,255,0.72);line-height:1.7;margin:0;white-space:pre-line;"></p>
+      </div>
+
+      <!-- 2-4. 디테일 평가 -->
+      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(151,254,237,0.08);border-radius:10px;padding:13px 15px;">
+        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">⚖️ 상하의 밸런스</div>
+        <p id="prmDeepHarmony" style="font-size:11.5px;color:rgba(255,255,255,0.72);line-height:1.7;margin:0;white-space:pre-line;"></p>
+      </div>
+    </div>
+
+    <!-- SECTION 3: Styling & TPO Guide (활용 가이드 및 큐레이션) -->
+    <div style="padding:0 22px 20px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#97FEED,#35A29F);display:flex;align-items:center;justify-content:center;color:#00022E;font-size:12px;font-weight:900;">3</div>
+        <div style="font-size:13px;font-weight:900;color:#97FEED;letter-spacing:-0.01em;">활용 가이드</div>
+        <div style="font-size:9px;font-weight:700;color:rgba(151,254,237,0.4);letter-spacing:0.1em;margin-left:auto;">STYLING GUIDE</div>
+      </div>
+
+      <!-- 3-1. Best TPO 추천 -->
+      <div style="background:rgba(151,254,237,0.04);border:1px solid rgba(151,254,237,0.15);border-radius:10px;padding:14px 15px;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:8px;letter-spacing:-0.01em;">🎯 Best TPO 추천</div>
+        <div id="prmTpoList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
+
+      <!-- 3-2. 단점 보완 팁 -->
+      <div style="background:rgba(151,254,237,0.04);border:1px solid rgba(151,254,237,0.15);border-radius:10px;padding:14px 15px;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:8px;letter-spacing:-0.01em;">✨ 단점 보완 팁</div>
+        <div id="prmTipsList" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+
+      <!-- 3-3. 퍼스널 아이템 큐레이션 (제휴 연동 자리 — 준비중) -->
+      <div style="background:linear-gradient(135deg,rgba(7,25,82,0.5),rgba(11,102,106,0.3));border:1px dashed rgba(151,254,237,0.22);border-radius:10px;padding:14px 15px;text-align:center;">
+        <div style="font-size:11px;font-weight:800;color:rgba(151,254,237,0.75);margin-bottom:6px;letter-spacing:-0.01em;">🛍️ 퍼스널 아이템 큐레이션</div>
+        <p style="font-size:10.5px;color:rgba(255,255,255,0.45);line-height:1.6;margin:0 0 6px;">룩의 완성도를 높일 신발·가방·액세서리 추천</p>
+        <div style="display:inline-block;font-size:9px;font-weight:800;padding:3px 10px;border-radius:20px;background:rgba(151,254,237,0.12);color:#97FEED;letter-spacing:0.05em;">COMING SOON</div>
+      </div>
+    </div>
+
+    <!-- 하단 액션 버튼 -->
+    <div style="padding:14px 20px 20px;border-top:1px solid rgba(151,254,237,0.08);background:rgba(0,0,0,0.15);display:flex;gap:8px;">
+      <button onclick="downloadOutfitReport()" style="flex:1;padding:13px;border-radius:12px;background:linear-gradient(135deg,#97FEED,#35A29F);border:none;color:#00022E;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;letter-spacing:-0.01em;">
+        <span class="mi" style="font-size:14px;vertical-align:middle;">picture_as_pdf</span>
+        <span>PDF 다운로드</span>
+      </button>
+      <button onclick="closePremiumReport()" style="flex:0.6;padding:13px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.85);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
+        닫기
+      </button>
+    </div>
+
+    <!-- 브랜드 푸터 -->
+    <div style="padding:10px;text-align:center;background:#050A24;">
+      <div style="font-size:9px;color:rgba(151,254,237,0.35);font-weight:700;letter-spacing:0.1em;">CodiBank · codibank.kr</div>
+    </div>
+
+  </div>
+</div>
+
 <header class="pg-header" style="flex-direction:column;align-items:flex-start;gap:4px;">
   <div class="pg-title" data-i18n="코디하기">코디하기</div>
   <div class="pg-sub" data-i18n="이 옷이 어울릴까 고민하지 마세요. 쉽게 사진 촬영하고 그냥 코디해보세요">이 옷이 어울릴까 고민하지 마세요. 쉽게 사진 촬영하고 그냥 코디해보세요</div>
@@ -635,10 +773,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     </div>
     <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.25em;color:rgba(151,254,237,.3);text-transform:uppercase;margin-bottom:0;margin-top:4px;">← SWIPE →</div>
     <div id="topDeck" class="cdeck"></div>
-    <!-- [2026-04-20 04:10 KST] 이슈 4 fix: 슬롯 전체 onclick 제거 — 
-         삭제 후 슬롯 빈 상태에서 다시 탭 시 파일 피커가 자동 열리는 버그 차단.
-         '사진선택' 버튼 클릭 시에만 파일 피커 열리도록 분리. -->
-    <div class="cpreview" id="slot-top">
+    <div class="cpreview" id="slot-top" onclick="pickFile('top')">
       <div id="topPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
         <div style="text-align:center;color:#071952;"><span class="mi" style="font-size:28px;color:#071952;">add_photo_alternate</span><p style="font-size:11px;margin-top:4px;font-weight:700;">아이템을 선택해주세요</p></div>
       </div>
@@ -646,8 +781,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     <div class="cact">
       <button class="cact-btn" onclick="pickCamera('top')" style="background:#35A29F;color:#ffffff;"><span class="mi" style="font-size:16px;">photo_camera</span>사진촬영</button>
       <button class="cact-btn" onclick="pickFile('top')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">image</span>사진선택</button>
-      <!-- [2026-04-20 04:10 KST] 이슈 5 fix: 온라인 링크 임시 비활성화 + 메인컬러 배경 -->
-      <button class="cact-btn" onclick="return false;" disabled style="background:#00022E;color:rgba(151,254,237,0.35);border:1px solid rgba(151,254,237,0.12);cursor:not-allowed;opacity:0.6;"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크 (준비중)">온라인 링크 (준비중)</span></button>
+      <button class="cact-btn" onclick="pickLink('top')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크">온라인 링크</span></button>
     </div>
     <div class="slot-status" id="st-top"></div>
     <input type="file" id="file-top" accept="image/*" style="display:none" onchange="onFile(event,'top')">
@@ -666,8 +800,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     </div>
     <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.25em;color:rgba(151,254,237,.3);text-transform:uppercase;margin-bottom:0;margin-top:4px;">← SWIPE →</div>
     <div id="botDeck" class="cdeck"></div>
-    <!-- [2026-04-20 04:10 KST] 이슈 4 fix: 슬롯 전체 onclick 제거 -->
-    <div class="cpreview" id="slot-bottom">
+    <div class="cpreview" id="slot-bottom" onclick="pickFile('bottom')">
       <div id="botPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
         <div style="text-align:center;color:#071952;"><span class="mi" style="font-size:28px;color:#071952;">add_photo_alternate</span><p style="font-size:11px;margin-top:4px;font-weight:700;">아이템을 선택해주세요</p></div>
       </div>
@@ -675,8 +808,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     <div class="cact">
       <button class="cact-btn" onclick="pickCamera('bottom')" style="background:#35A29F;color:#ffffff;"><span class="mi" style="font-size:16px;">photo_camera</span>사진촬영</button>
       <button class="cact-btn" onclick="pickFile('bottom')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">image</span>사진선택</button>
-      <!-- [2026-04-20 04:10 KST] 이슈 5 fix: 온라인 링크 임시 비활성화 + 메인컬러 배경 -->
-      <button class="cact-btn" onclick="return false;" disabled style="background:#00022E;color:rgba(151,254,237,0.35);border:1px solid rgba(151,254,237,0.12);cursor:not-allowed;opacity:0.6;"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크 (준비중)">온라인 링크 (준비중)</span></button>
+      <button class="cact-btn" onclick="pickLink('bottom')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크">온라인 링크</span></button>
     </div>
     <div class="slot-status" id="st-bottom"></div>
     <input type="file" id="file-bottom" accept="image/*" style="display:none" onchange="onFile(event,'bottom')">
@@ -763,34 +895,47 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     </div>
   </div>
 
-  <!-- 3개 점수 가로 배치 -->
+  <!-- [2026-04-20 07:50 KST] C.S.I 4지표 스코어 카드 (2행 2열 그리드) -->
+  <!-- 변경: 기존 3카드(퍼스널컬러/체형/토탈) → 4카드 C.S.I 체계
+       - 체형 보완도 /30 · 퍼스널 컬러 /30 · 비율 개선도 /20 · 상하의 밸런스 /20 -->
   <div id="csScoreDetail" style="display:none;margin-bottom:14px;">
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px;">
-      <!-- ① 퍼스널컬러 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+      <!-- ① 체형 보완도 /30 -->
       <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:9px 10px;text-align:center;">
-        <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;" data-i18n="퍼스널컬러2">퍼스널컬러</div>
-        <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
-          <span id="csScPc" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
-          <span style="font-size:9px;color:rgba(255,255,255,.25);">/40</span>
-        </div>
-        <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:5px;">
-          <div id="csScPcFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .8s;"></div>
-        </div>
-      </div>
-      <!-- ② 체형 밸런스 -->
-      <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:9px 10px;text-align:center;">
-        <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;" data-i18n="체형 밸런스">체형 밸런스</div>
+        <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;" data-i18n="체형 보완도">체형 보완도</div>
         <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
           <span id="csScBody" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
-          <span style="font-size:9px;color:rgba(255,255,255,.25);">/40</span>
+          <span style="font-size:9px;color:rgba(255,255,255,.25);">/30</span>
         </div>
         <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:5px;">
           <div id="csScBodyFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .8s;"></div>
         </div>
       </div>
-      <!-- ③ 토탈 스타일링 -->
+      <!-- ② 퍼스널 컬러 /30 -->
       <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:9px 10px;text-align:center;">
-        <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;" data-i18n="토탈 스타일링">토탈 스타일링</div>
+        <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;" data-i18n="퍼스널 컬러">퍼스널 컬러</div>
+        <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
+          <span id="csScPc" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
+          <span style="font-size:9px;color:rgba(255,255,255,.25);">/30</span>
+        </div>
+        <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:5px;">
+          <div id="csScPcFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .8s;"></div>
+        </div>
+      </div>
+      <!-- ③ 비율 개선도 /20 -->
+      <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:9px 10px;text-align:center;">
+        <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;" data-i18n="비율 개선도">비율 개선도</div>
+        <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
+          <span id="csScProp" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
+          <span style="font-size:9px;color:rgba(255,255,255,.25);">/20</span>
+        </div>
+        <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:5px;">
+          <div id="csScPropFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .8s;"></div>
+        </div>
+      </div>
+      <!-- ④ 상하의 밸런스 /20 -->
+      <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:9px 10px;text-align:center;">
+        <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;" data-i18n="상하의 밸런스">상하의 밸런스</div>
         <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
           <span id="csScStyle" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
           <span style="font-size:9px;color:rgba(255,255,255,.25);">/20</span>
@@ -802,41 +947,93 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     </div>
   </div>
 
-  <!-- 전문 분석 4개 섹션 -->
+  <!-- ═════════════════════════════════════════════════════════════════ -->
+  <!-- [2026-04-20 07:50 KST] C.S.I 방사형 차트 + Executive Summary         -->
+  <!-- 방사형 차트: 4지표(체형/컬러/비율/밸런스)를 축으로 시각화              -->
+  <!-- Executive Summary: 전문 컨설턴트 어조 3줄 이내 한 줄 평                -->
+  <!-- ═════════════════════════════════════════════════════════════════ -->
+  <div id="csRadarBox" style="display:none;margin:14px 0;padding:14px;background:linear-gradient(135deg,rgba(11,102,106,.15),rgba(53,162,159,.08));border:1px solid rgba(151,254,237,.15);border-radius:14px;">
+    <div style="display:flex;gap:14px;align-items:center;">
+      <!-- 방사형 SVG 차트 -->
+      <div style="flex:0 0 140px;position:relative;">
+        <svg viewBox="0 0 200 200" style="width:100%;height:auto;display:block;">
+          <defs>
+            <radialGradient id="csiRadarGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#97FEED" stop-opacity="0.55"/>
+              <stop offset="100%" stop-color="#35A29F" stop-opacity="0.18"/>
+            </radialGradient>
+          </defs>
+          <!-- 배경 4각형 그리드 (4레벨) -->
+          <polygon points="100,20 180,100 100,180 20,100" fill="none" stroke="rgba(151,254,237,.18)" stroke-width="1"/>
+          <polygon points="100,40 160,100 100,160 40,100" fill="none" stroke="rgba(151,254,237,.14)" stroke-width="1"/>
+          <polygon points="100,60 140,100 100,140 60,100" fill="none" stroke="rgba(151,254,237,.10)" stroke-width="1"/>
+          <polygon points="100,80 120,100 100,120 80,100" fill="none" stroke="rgba(151,254,237,.06)" stroke-width="1"/>
+          <!-- 축 선 (4축) -->
+          <line x1="100" y1="20"  x2="100" y2="180" stroke="rgba(151,254,237,.12)" stroke-width="1"/>
+          <line x1="20"  y1="100" x2="180" y2="100" stroke="rgba(151,254,237,.12)" stroke-width="1"/>
+          <!-- 점수 데이터 영역 (JS로 동적 업데이트) -->
+          <polygon id="csiRadarData" points="100,100 100,100 100,100 100,100"
+                   fill="url(#csiRadarGrad)" stroke="#97FEED" stroke-width="1.8"
+                   style="transition:all .9s cubic-bezier(.4,0,.2,1);"/>
+          <!-- 축 라벨 -->
+          <text x="100" y="12" text-anchor="middle"  font-size="9" font-weight="700" fill="rgba(151,254,237,.75)">체형</text>
+          <text x="192" y="104" text-anchor="end"    font-size="9" font-weight="700" fill="rgba(151,254,237,.75)">컬러</text>
+          <text x="100" y="196" text-anchor="middle" font-size="9" font-weight="700" fill="rgba(151,254,237,.75)">비율</text>
+          <text x="8"   y="104" text-anchor="start"  font-size="9" font-weight="700" fill="rgba(151,254,237,.75)">밸런스</text>
+        </svg>
+      </div>
+      <!-- Executive Summary + 해시태그 -->
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:9px;font-weight:800;color:rgba(151,254,237,.5);letter-spacing:.08em;margin-bottom:5px;" data-i18n="종합 평가">종합 평가</div>
+        <p id="csExecSummary" style="font-size:12px;color:rgba(255,255,255,.88);line-height:1.6;font-weight:500;margin:0 0 10px;letter-spacing:-0.01em;">—</p>
+        <div id="csHashtagsBox" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 전문 분석 섹션 컨테이너 -->
   <div id="csAnalysisBox" style="display:none;">
-    <!-- [2026-04-19 FIX#4] 퍼스널컬러 조합 → 퍼스널컬러 분석 -->
+    <!-- [2026-04-20 07:50 KST] C.S.I 심층 분석 5섹션 — 프리미엄 리포트 구조 -->
+    <!-- 섹션: ① 퍼스널컬러 ② 상의 ③ 하의 ④ 실루엣과 비율 ⑤ 상하의 밸런스 -->
+    <!-- 기존 "토탈 스타일링 분석"과 "핵심 키워드"는 상세 리포트 모달로 이동 -->
+    <!-- 해시태그는 Radar 박스 Executive Summary 아래로 이동 -->
     <div style="border-left:2px solid rgba(151,254,237,.5);padding:8px 0 8px 12px;margin-bottom:10px;">
       <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;" data-i18n="🎨 퍼스널컬러 분석">🎨 퍼스널컬러 분석</div>
       <p id="csAnalysisPc" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;white-space:pre-line;"></p>
     </div>
-    <!-- [2026-04-19 FIX#5] 상의 스타일 → 상의 스타일 분석 -->
     <div style="border-left:2px solid rgba(151,254,237,.35);padding:8px 0 8px 12px;margin-bottom:10px;">
       <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;" data-i18n="👚 상의 스타일 분석">👚 상의 스타일 분석</div>
       <p id="csAnalysisTop" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;white-space:pre-line;"></p>
     </div>
-    <!-- [2026-04-19 FIX#5] 하의 스타일 → 하의 스타일 분석 -->
     <div style="border-left:2px solid rgba(151,254,237,.35);padding:8px 0 8px 12px;margin-bottom:10px;">
       <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;" data-i18n="👗 하의 스타일 분석">👗 하의 스타일 분석</div>
       <p id="csAnalysisBot" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;white-space:pre-line;"></p>
     </div>
-    <!-- 토탈 스타일링 분석 -->
+    <!-- NEW: 실루엣과 비율 -->
     <div style="border-left:2px solid rgba(151,254,237,.5);padding:8px 0 8px 12px;margin-bottom:10px;">
-      <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;" data-i18n="✦ 토탈 스타일링 분석">✦ 토탈 스타일링 분석</div>
-      <p id="csAnalysisTotal" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;white-space:pre-line;"></p>
+      <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;" data-i18n="📏 실루엣과 비율">📏 실루엣과 비율</div>
+      <p id="csAnalysisProp" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;white-space:pre-line;"></p>
     </div>
-    <!-- [2026-04-19 FIX#7] 핵심 키워드 5개 -->
-    <div id="csKeywordsBox" style="border-left:2px solid rgba(151,254,237,.35);padding:8px 0 8px 12px;margin-bottom:10px;display:none;">
-      <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:6px;" data-i18n="⚡ 핵심 키워드">⚡ 핵심 키워드</div>
-      <div id="csKeywordsList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    <!-- NEW: 상하의 밸런스 -->
+    <div style="border-left:2px solid rgba(151,254,237,.5);padding:8px 0 8px 12px;margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;" data-i18n="⚖️ 상하의 밸런스">⚖️ 상하의 밸런스</div>
+      <p id="csAnalysisHarmony" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;white-space:pre-line;"></p>
     </div>
   </div>
 
   <!-- 대기 메시지 -->
   <p id="csScoreText" style="font-size:11px;color:rgba(255,255,255,.3);line-height:1.7;margin:0;" data-i18n="착장 이미지가 생성되면 AI 스타일링 분석이 표시됩니다">착장 이미지가 생성되면 AI 스타일링 분석이 표시됩니다</p>
-  <!-- [2026-04-19 FIX#3] 리포트 다운로드 — 분석 표시 시에만 display:block -->
-  <button id="pdfDownBtn" onclick="downloadOutfitReport()" style="display:none;margin-top:12px;width:100%;padding:12px 0;border-radius:12px;background:linear-gradient(135deg,#0B666A,#35A29F);border:none;color:#ffffff;font-size:12px;font-weight:700;cursor:pointer;">
-    <span class="mi" style="font-size:14px;vertical-align:middle;">download</span> <span data-i18n="리포트 다운로드">리포트 다운로드</span>
-  </button>
+  <!-- [2026-04-20 07:50 KST] 프리미엄 리포트 CTA: 전문 보기 + PDF 다운로드 2개 버튼 -->
+  <div id="csReportBtnGroup" style="display:none;margin-top:12px;gap:8px;">
+    <button id="premiumReportBtn" onclick="openPremiumReport()" style="flex:1.2;padding:12px 0;border-radius:12px;background:linear-gradient(135deg,#97FEED,#35A29F);border:none;color:#00022E;font-size:12px;font-weight:900;cursor:pointer;letter-spacing:-0.01em;">
+      <span class="mi" style="font-size:14px;vertical-align:middle;">auto_awesome</span>
+      <span data-i18n="프리미엄 리포트 전문 보기">프리미엄 리포트 전문 보기</span>
+    </button>
+    <button id="pdfDownBtn" onclick="downloadOutfitReport()" style="flex:1;padding:12px 0;border-radius:12px;background:linear-gradient(135deg,#0B666A,#35A29F);border:none;color:#ffffff;font-size:12px;font-weight:700;cursor:pointer;">
+      <span class="mi" style="font-size:14px;vertical-align:middle;">picture_as_pdf</span>
+      <span data-i18n="PDF 다운로드">PDF 다운로드</span>
+    </button>
+  </div>
 </div>
 
 <!-- ★ 스타일링 가능횟수 뱃지 — 스코어박스↔이미지박스 사이 -->
@@ -1628,13 +1825,16 @@ function _resetResultArea(){
   var _sd=document.getElementById('csScoreDetail'); if(_sd) _sd.style.display='none';
   var _ab=document.getElementById('csAnalysisBox'); if(_ab) _ab.style.display='none';
   var _gb=document.getElementById('csGradeBadge'); if(_gb) _gb.style.display='none';
-  // [2026-04-19 FIX#3/#7] 리포트 버튼 + 키워드 박스 리셋
-  var _pdfB=document.getElementById('pdfDownBtn'); if(_pdfB) _pdfB.style.display='none';
-  var _kwB=document.getElementById('csKeywordsBox'); if(_kwB) _kwB.style.display='none';
-  var _kwL=document.getElementById('csKeywordsList'); if(_kwL) _kwL.innerHTML='';
-  ['csScPc','csScBody','csScStyle'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent='—';});
-  ['csScPcFill','csScBodyFill','csScStyleFill'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.width='0%';});
-  ['csAnalysisPc','csAnalysisTop','csAnalysisBot','csAnalysisTotal'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent='';});
+  // [2026-04-20 09:50 KST] C.S.I 4지표 + 프리미엄 리포트 리셋
+  var _btnGrp=document.getElementById('csReportBtnGroup'); if(_btnGrp) _btnGrp.style.display='none';
+  var _radarBox=document.getElementById('csRadarBox'); if(_radarBox) _radarBox.style.display='none';
+  var _radarData=document.getElementById('csiRadarData'); if(_radarData) _radarData.setAttribute('points','100,100 100,100 100,100 100,100');
+  var _execEl=document.getElementById('csExecSummary'); if(_execEl) _execEl.textContent='—';
+  var _htBox=document.getElementById('csHashtagsBox'); if(_htBox) _htBox.innerHTML='';
+  ['csScBody','csScPc','csScProp','csScStyle'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent='—';});
+  ['csScBodyFill','csScPcFill','csScPropFill','csScStyleFill'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.width='0%';});
+  ['csAnalysisPc','csAnalysisTop','csAnalysisBot','csAnalysisProp','csAnalysisHarmony'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent='';});
+  try{ window._csPremiumData = null; }catch(_){}
   hideErr();
   _topAnalysisCache=null; _bottomAnalysisCache=null;
 }
@@ -1652,25 +1852,28 @@ function resetAll(){
   var _sn=document.getElementById('csScoreNum'); if(_sn) _sn.textContent='—';
   var _sb=document.getElementById('csScoreBar'); if(_sb) _sb.style.width='0%';
   var _gb=document.getElementById('csGradeBadge'); if(_gb){_gb.textContent='';_gb.style.display='none';}
-  // 3개 세부 점수 숫자 초기화
-  ['csScPc','csScBody','csScStyle'].forEach(function(id){
+  // [2026-04-20 09:50 KST] C.S.I 4지표 세부 점수 숫자 초기화
+  ['csScBody','csScPc','csScProp','csScStyle'].forEach(function(id){
     var e=document.getElementById(id); if(e) e.textContent='—';
   });
-  // 3개 게이지바 초기화
-  ['csScPcFill','csScBodyFill','csScStyleFill'].forEach(function(id){
+  // 4개 게이지바 초기화
+  ['csScBodyFill','csScPcFill','csScPropFill','csScStyleFill'].forEach(function(id){
     var e=document.getElementById(id); if(e) e.style.width='0%';
   });
   // 세부점수 영역 숨김
   var _det=document.getElementById('csScoreDetail'); if(_det) _det.style.display='none';
-  // 분석 4개 섹션 초기화 + 숨김
+  // C.S.I 5섹션 분석 초기화 + 박스 숨김
   var _ab=document.getElementById('csAnalysisBox'); if(_ab) _ab.style.display='none';
-  ['csAnalysisPc','csAnalysisTop','csAnalysisBot','csAnalysisTotal'].forEach(function(id){
+  ['csAnalysisPc','csAnalysisTop','csAnalysisBot','csAnalysisProp','csAnalysisHarmony'].forEach(function(id){
     var e=document.getElementById(id); if(e) e.textContent='';
   });
-  // [2026-04-19 FIX#3/#7] 리포트 버튼 + 키워드 박스 리셋
-  var _pdfB=document.getElementById('pdfDownBtn'); if(_pdfB) _pdfB.style.display='none';
-  var _kwB=document.getElementById('csKeywordsBox'); if(_kwB) _kwB.style.display='none';
-  var _kwL=document.getElementById('csKeywordsList'); if(_kwL) _kwL.innerHTML='';
+  // Radar + Executive Summary + 해시태그 + CTA 리셋
+  var _radarBox=document.getElementById('csRadarBox'); if(_radarBox) _radarBox.style.display='none';
+  var _radarData=document.getElementById('csiRadarData'); if(_radarData) _radarData.setAttribute('points','100,100 100,100 100,100 100,100');
+  var _execEl=document.getElementById('csExecSummary'); if(_execEl) _execEl.textContent='—';
+  var _htBox=document.getElementById('csHashtagsBox'); if(_htBox) _htBox.innerHTML='';
+  var _btnGrp=document.getElementById('csReportBtnGroup'); if(_btnGrp) _btnGrp.style.display='none';
+  try{ window._csPremiumData = null; }catch(_){}
   // 대기 메시지 복원
   var _st=document.getElementById('csScoreText');
   if(_st){_st.textContent='착장 이미지가 생성되면 AI 스타일링 분석이 표시됩니다';_st.style.color='rgba(255,255,255,.3)';_st.style.display='block';}
@@ -1783,40 +1986,38 @@ function _renderAnalysis(srvAdvice){
     const _pcAvoid = (_pc.avoid_colors||[]).join(', ');
 
     // ── 서버 조언에서 4개 섹션 + 핵심 키워드 파싱 ──
-    // [2026-04-19 FIX#4/#5/#6/#7] 보고서 형식(▸ 다중 줄) 대응 구간 파싱
-    // 이전: 한 줄 단위 match → 다중 줄 보고서 형식에서 첫 줄만 잘림
-    // 수정: 섹션 라벨로 분할 후 각 섹션 블록을 그대로 유지 (\n 보존), 키워드 5개 추출
-    let _pcText='', _topText='', _botText='', _totalText='', _keywordsList=[];
+    // [2026-04-20 09:50 KST] C.S.I 5섹션 파싱
+    // 기존 4섹션(PC/상의/하의/토탈) + 키워드 → 신규 5섹션(PC/상의/하의/실루엣과 비율/상하의 밸런스)
+    // 토탈·핵심 키워드는 프리미엄 모달로 이동됨
+    let _pcText='', _topText='', _botText='', _propText='', _harmonyText='', _totalText='', _keywordsList=[];
     if(srvAdvice && srvAdvice.length > 20){
-      // 섹션 라벨 정규식 — 한/영 모두 대응
-      var _sectionRe = /(퍼스널컬러 분석|Personal Color Analysis|상의 스타일 분석|Top Style Analysis|하의 스타일 분석|Bottom Style Analysis|토탈 스타일링 분석|Total Styling Analysis|핵심 키워드|Key Keywords)\s*[:：]\s*/g;
-      // 모든 섹션 라벨의 위치를 먼저 찾음
+      // 섹션 라벨 정규식 — 한/영, 신규 2섹션 포함
+      var _sectionRe = /(퍼스널컬러 분석|Personal Color Analysis|상의 스타일 분석|Top Style Analysis|하의 스타일 분석|Bottom Style Analysis|실루엣과 비율|Silhouette and Proportion|상하의 밸런스|Top-Bottom Harmony|토탈 스타일링 분석|Total Styling Analysis|핵심 키워드|Key Keywords)\s*[:：]\s*/g;
       var _matches = [];
       var _m;
       while((_m = _sectionRe.exec(srvAdvice)) !== null){
         _matches.push({label: _m[1], start: _m.index, contentStart: _m.index + _m[0].length});
       }
-      // 각 섹션의 내용을 다음 섹션 시작 전까지로 잘라냄
       _matches.forEach(function(cur, i){
         var nextStart = (i + 1 < _matches.length) ? _matches[i+1].start : srvAdvice.length;
         var body = srvAdvice.slice(cur.contentStart, nextStart)
-          .replace(/^[\[\s]+|[\]\s]+$/g,'')   // 양끝 대괄호/공백 제거
+          .replace(/^[\[\s]+|[\]\s]+$/g,'')
           .trim();
         var label = cur.label;
         if(label === '퍼스널컬러 분석' || label === 'Personal Color Analysis') _pcText = body.slice(0, 500);
         else if(label === '상의 스타일 분석' || label === 'Top Style Analysis') _topText = body.slice(0, 500);
         else if(label === '하의 스타일 분석' || label === 'Bottom Style Analysis') _botText = body.slice(0, 500);
+        else if(label === '실루엣과 비율' || label === 'Silhouette and Proportion') _propText = body.slice(0, 500);
+        else if(label === '상하의 밸런스' || label === 'Top-Bottom Harmony') _harmonyText = body.slice(0, 500);
         else if(label === '토탈 스타일링 분석' || label === 'Total Styling Analysis') _totalText = body.slice(0, 500);
         else if(label === '핵심 키워드' || label === 'Key Keywords'){
-          _keywordsList = body
-            .split(/[,，、]/)                   // 쉼표(한/영) 기준 분리
+          _keywordsList = body.split(/[,，、]/)
             .map(function(k){ return k.replace(/[\[\]]/g,'').trim(); })
             .filter(function(k){ return k.length > 0 && k.length <= 20; })
             .slice(0, 5);
         }
       });
-      // 파싱 실패 시 전체를 토탈에
-      if(!_pcText && !_topText && !_botText && !_totalText) _totalText = srvAdvice.slice(0,500);
+      if(!_pcText && !_topText && !_botText && !_propText && !_harmonyText) _totalText = srvAdvice.slice(0,500);
     }
 
     // ── 로컬 생성 (서버 조언 없거나 파싱 실패 시) — 한/영 이중 ──
@@ -1899,32 +2100,32 @@ function _renderAnalysis(srvAdvice){
       }
     }
 
-    // ── DOM 업데이트 ──
+    // ── DOM 업데이트 (C.S.I 5섹션 + 프리미엄 리포트 데이터 연동) ──
     const _setText = (id, txt) => { const el=document.getElementById(id); if(el&&txt) el.textContent=txt; };
-    _setText('csAnalysisPc',    _pcText);
-    _setText('csAnalysisTop',   _topText);
-    _setText('csAnalysisBot',   _botText);
-    _setText('csAnalysisTotal', _totalText);
+    _setText('csAnalysisPc',      _pcText);
+    _setText('csAnalysisTop',     _topText);
+    _setText('csAnalysisBot',     _botText);
+    _setText('csAnalysisProp',    _propText);
+    _setText('csAnalysisHarmony', _harmonyText);
 
-    // [2026-04-19 FIX#7] 핵심 키워드 5개 pill 형태로 렌더링
+    // [2026-04-20 09:50 KST] 프리미엄 리포트 모달용 심층 분석 텍스트 저장
+    //   - 스코어 카드 아래 5섹션은 요약 뷰
+    //   - 모달은 동일 텍스트를 프리미엄 레이아웃으로 재표현
     try{
-      var _kwListEl = document.getElementById('csKeywordsList');
-      var _kwBoxEl  = document.getElementById('csKeywordsBox');
-      if(_kwListEl && _kwBoxEl){
-        _kwListEl.innerHTML = '';
-        if(_keywordsList && _keywordsList.length > 0){
-          _keywordsList.forEach(function(kw){
-            var pill = document.createElement('span');
-            pill.textContent = '#' + kw;
-            pill.style.cssText = 'display:inline-block;padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(151,254,237,.12);border:1px solid rgba(151,254,237,.25);color:#97FEED;letter-spacing:.02em;';
-            _kwListEl.appendChild(pill);
-          });
-          _kwBoxEl.style.display = 'block';
-        }else{
-          _kwBoxEl.style.display = 'none';
-        }
+      window._csPremiumData = window._csPremiumData || {};
+      window._csPremiumData.sections = {
+        pc:      _pcText,
+        top:     _topText,
+        bot:     _botText,
+        prop:    _propText,
+        harmony: _harmonyText,
+        total:   _totalText  // 토탈 텍스트도 fallback용 저장
+      };
+      if(_keywordsList && _keywordsList.length){
+        // 서버가 해시태그 대신 keywords로 준 경우의 fallback
+        window._csPremiumData.keywords = _keywordsList;
       }
-    }catch(_kwe){ console.warn('[keywords]', _kwe); }
+    }catch(_){}
 
     document.getElementById('csAnalysisBox').style.display='block';
     // [2026-04-19 FIX#3] 리포트 다운로드 버튼 — 분석 박스와 함께 노출
@@ -2182,50 +2383,59 @@ async function generate(isRetry=false){
       sessionStorage.setItem('cb_cs_ts', String(Date.now()));
     }catch(_){}
 
-    /* ── [2] Styling Score + 분석 콘텐츠 렌더링 ── */
+    /* ── [2] C.S.I 4지표 Styling Score + 분석 콘텐츠 렌더링 ── */
+    /* [2026-04-20 09:50 KST] 3지표 → C.S.I 4지표 체계 전환
+       - body_shape /30 · personal_color /30 · proportion /20 · harmony /20 = 100
+       - 신규: executive_summary, tpo_recommendations, improvement_tips, style_hashtags */
     try{
       const _srvScore  = j.styling_score;
       const _srvBreak  = j.score_breakdown || {};
       const _srvAdvice = j.styling_advice || '';
+      // 신규 필드
+      const _srvExec   = j.executive_summary || '';
+      const _srvTpo    = j.tpo_recommendations || [];
+      const _srvTips   = j.improvement_tips || [];
+      const _srvHashtags = j.style_hashtags || [];
 
-      // ── 점수 계산 (3개 합산 = 정확히 100) ──
-      let _pcRaw    = parseInt(_srvBreak.personal_color  || 0);
-      let _bodyRaw  = parseInt(_srvBreak.body_shape      || 0);
-      let _styleRaw = parseInt(_srvBreak.overall_styling || 0);
+      // ── 점수 계산 (C.S.I 4지표) ──
+      // 신규 필드 우선, 구형 fallback 지원
+      let _bodyRaw = parseInt(_srvBreak.body_shape || 0);
+      let _pcRaw   = parseInt(_srvBreak.personal_color || 0);
+      let _propRaw = parseInt(_srvBreak.proportion || 0);
+      let _harmRaw = parseInt(_srvBreak.harmony || _srvBreak.overall_styling || _srvBreak.coordination || 0);
 
-      // 서버 점수가 유효하면 합산 100으로 정규화
-      const _rawSum = _pcRaw + _bodyRaw + _styleRaw;
-      if(_rawSum > 0 && _rawSum !== 100){
-        const _ratio = 100 / _rawSum;
-        _pcRaw    = Math.round(_pcRaw    * _ratio);
-        _bodyRaw  = Math.round(_bodyRaw  * _ratio);
-        _styleRaw = 100 - _pcRaw - _bodyRaw; // 나머지로 정확히 100 맞춤
+      // 구형 3지표 응답 fallback (proportion 없음 → harmony에서 분할)
+      const _hasNewMetrics = (_propRaw > 0);
+      if(!_hasNewMetrics && _harmRaw > 0){
+        // 구형 overall_styling(30점) → proportion(15) + harmony(15)으로 분할
+        _propRaw = Math.round(_harmRaw * 0.5);
+        _harmRaw = _harmRaw - _propRaw;
       }
 
-      // 40/30/30 만점 기준으로 변환
-      const _pcScore    = Math.min(40, Math.round(_pcRaw    * 40 / 100));
-      const _bodyScore  = Math.min(30, Math.round(_bodyRaw  * 30 / 100));
-      const _styleScore = Math.min(30, 100 - _pcScore - _bodyScore - ((_srvScore||100) - _pcScore - _bodyScore - Math.round(_styleRaw * 30 / 100)));
+      const _rawSum = _bodyRaw + _pcRaw + _propRaw + _harmRaw;
+      const _totalScore = _srvScore != null
+        ? Math.min(100, Math.max(0, parseInt(_srvScore)))
+        : (_rawSum > 0 ? _rawSum : null);
 
-      // 실제 표시할 3개 점수 확정 (합산 = 총점)
-      const _totalScore = _srvScore != null ? Math.min(100, Math.max(0, parseInt(_srvScore))) : (_pcRaw+_bodyRaw+_styleRaw>0 ? 100 : null);
-
-      let _pcDisp=0, _bodyDisp=0, _styleDisp=0;
-      if(_totalScore != null && _rawSum > 0){
-        // 비율 유지하면서 총점에 맞게 3분할
-        const _t = _totalScore;
-        _pcDisp    = Math.round(_t * (_pcRaw    / _rawSum));
-        _bodyDisp  = Math.round(_t * (_bodyRaw  / _rawSum));
-        _styleDisp = _t - _pcDisp - _bodyDisp; // 오차 보정
-        // 만점 초과 방지
-        if(_pcDisp > 40)   { _pcDisp    = 40;   _bodyDisp = Math.round((_t-40)*_bodyRaw/(_bodyRaw+_styleRaw)); _styleDisp = _t-40-_bodyDisp; }
-        if(_bodyDisp > 30) { _bodyDisp  = 30;   _styleDisp = Math.min(30, _t-_pcDisp-30); }
-        if(_styleDisp > 30){ _styleDisp = 30; }
+      // 표시용 점수 (만점 기준: body=30, pc=30, prop=20, harm=20)
+      let _bodyDisp=0, _pcDisp=0, _propDisp=0, _harmDisp=0;
+      if(_rawSum > 0 && _totalScore != null){
+        // 합이 총점과 같도록 정규화 (만점 제한 유지)
+        const _norm = _totalScore / _rawSum;
+        _bodyDisp = Math.min(30, Math.round(_bodyRaw * _norm));
+        _pcDisp   = Math.min(30, Math.round(_pcRaw   * _norm));
+        _propDisp = Math.min(20, Math.round(_propRaw * _norm));
+        _harmDisp = Math.max(0, _totalScore - _bodyDisp - _pcDisp - _propDisp);
+        _harmDisp = Math.min(20, _harmDisp);
+        // 총합 보정
+        const _diff = _totalScore - (_bodyDisp + _pcDisp + _propDisp + _harmDisp);
+        if(_diff !== 0){ _harmDisp = Math.max(0, Math.min(20, _harmDisp + _diff)); }
       } else if(_totalScore != null){
-        // 서버 점수는 있지만 breakdown 없음 → 40:30:30 비율로 분배
-        _pcDisp    = Math.round(_totalScore * 0.40);
-        _bodyDisp  = Math.round(_totalScore * 0.30);
-        _styleDisp = _totalScore - _pcDisp - _bodyDisp;
+        // breakdown 없음 → 30:30:20:20 기본 비율
+        _bodyDisp = Math.round(_totalScore * 0.30);
+        _pcDisp   = Math.round(_totalScore * 0.30);
+        _propDisp = Math.round(_totalScore * 0.20);
+        _harmDisp = _totalScore - _bodyDisp - _pcDisp - _propDisp;
       }
 
       if(_totalScore != null){
@@ -2239,13 +2449,14 @@ async function generate(isRetry=false){
         const _gbEl = document.getElementById('csGradeBadge');
         if(_gbEl){ _gbEl.textContent=_grade2; _gbEl.style.display='inline-block'; }
 
-        // 3개 점수 표시
-        const _s3 = [
-          {id:'csScPc',    fillId:'csScPcFill',    val:_pcDisp,    max:40},
-          {id:'csScBody',  fillId:'csScBodyFill',  val:_bodyDisp,  max:30},
-          {id:'csScStyle', fillId:'csScStyleFill', val:_styleDisp, max:30},
+        // C.S.I 4개 점수 표시 (2x2 그리드)
+        const _s4 = [
+          {id:'csScBody',  fillId:'csScBodyFill',  val:_bodyDisp, max:30},
+          {id:'csScPc',    fillId:'csScPcFill',    val:_pcDisp,   max:30},
+          {id:'csScProp',  fillId:'csScPropFill',  val:_propDisp, max:20},
+          {id:'csScStyle', fillId:'csScStyleFill', val:_harmDisp, max:20},
         ];
-        _s3.forEach(({id,fillId,val,max})=>{
+        _s4.forEach(({id,fillId,val,max})=>{
           const el=document.getElementById(id), fill=document.getElementById(fillId);
           if(el) el.textContent = val;
           if(fill) setTimeout(()=>{ fill.style.width=Math.round(val/max*100)+'%'; },180);
@@ -2253,11 +2464,64 @@ async function generate(isRetry=false){
         document.getElementById('csScoreDetail').style.display='block';
         document.getElementById('csScoreText').style.display='none';
 
+        // ── 방사형 차트 업데이트 ──
+        // 4축: 체형(上) · 컬러(右) · 비율(下) · 밸런스(左)
+        // 각 축의 만점 값으로 정규화한 후 SVG polygon points 계산
+        // 중심(100,100) 기준, 최대 반지름 80px
+        const _radarData = document.getElementById('csiRadarData');
+        if(_radarData){
+          const _r0 = 80;
+          const _pBody = (_bodyDisp / 30) * _r0;  // 上
+          const _pCol  = (_pcDisp   / 30) * _r0;  // 右
+          const _pProp = (_propDisp / 20) * _r0;  // 下
+          const _pHarm = (_harmDisp / 20) * _r0;  // 左
+          const _points = [
+            (100) + ',' + (100 - _pBody),      // 위 (체형)
+            (100 + _pCol) + ',' + (100),       // 오른쪽 (컬러)
+            (100) + ',' + (100 + _pProp),      // 아래 (비율)
+            (100 - _pHarm) + ',' + (100)       // 왼쪽 (밸런스)
+          ].join(' ');
+          setTimeout(()=>{ _radarData.setAttribute('points', _points); }, 280);
+        }
+
+        // ── Executive Summary + 해시태그 표시 ──
+        if(_srvExec){
+          const _execEl = document.getElementById('csExecSummary');
+          if(_execEl) _execEl.textContent = _srvExec;
+        }
+        if(_srvHashtags && _srvHashtags.length){
+          const _htBox = document.getElementById('csHashtagsBox');
+          if(_htBox){
+            _htBox.innerHTML = _srvHashtags.map(function(h){
+              var _tag = h.charAt(0) === '#' ? h : '#' + h;
+              return '<span style="font-size:10px;font-weight:700;color:#97FEED;background:rgba(151,254,237,0.1);padding:3px 9px;border-radius:10px;letter-spacing:-0.01em;">' + _tag + '</span>';
+            }).join('');
+          }
+        }
+        // Radar 박스 표시
+        const _radarBox = document.getElementById('csRadarBox');
+        if(_radarBox) _radarBox.style.display = 'block';
+
         try{ sessionStorage.setItem('cb_cs_score', _totalScore); }catch(_){}
       }
 
-      // ── 분석 4개 섹션 생성 ──
+      // ── 분석 섹션 렌더링 (5섹션 + 프리미엄 데이터 저장) ──
       _renderAnalysis(_srvAdvice);
+
+      // ── 프리미엄 리포트용 데이터 전역 저장 ──
+      window._csPremiumData = {
+        score: _totalScore,
+        grade: _totalScore>=90?'S급':_totalScore>=80?'A급':_totalScore>=70?'B급':'C급',
+        execSummary: _srvExec,
+        tpo: _srvTpo,
+        tips: _srvTips,
+        hashtags: _srvHashtags,
+        breakdown: {body:_bodyDisp, pc:_pcDisp, prop:_propDisp, harm:_harmDisp}
+      };
+
+      // 버튼 그룹 표시
+      const _btnGrp = document.getElementById('csReportBtnGroup');
+      if(_btnGrp && _totalScore != null) _btnGrp.style.display = 'flex';
 
     }catch(_srvErr){ console.warn('[score]', _srvErr); }
 
@@ -2430,64 +2694,282 @@ async function generate(isRetry=false){
     _savePageState(); // [2026-04-11] 생성 완료 후 전체 상태 보존
   }
 }
-/* ── 저장: 이미지를 blob으로 받아서 기기에 직접 저장 ── */
-// [2026-04-11] <span data-i18n="스타일링 분석 PDF 다운로드">스타일링 분석 PDF 다운로드</span>
+/* ══════════════════════════════════════════════════════════════════ */
+/* [2026-04-20 09:50 KST] 프리미엄 스타일링 리포트 — 모달 열기/닫기 + PDF */
+/* 명세서 V1: 3섹션 구조 (Executive Summary / Deep-dive / Guide)        */
+/* ══════════════════════════════════════════════════════════════════ */
+
+// 프리미엄 리포트 모달 열기
+function openPremiumReport(){
+  var data = window._csPremiumData || {};
+  var modal = document.getElementById('premiumReportModal');
+  if(!modal){ console.warn('[premium] modal not found'); return; }
+
+  // 종합 점수 + 등급 배지
+  var scoreEl = document.getElementById('prmScoreNum');
+  if(scoreEl) scoreEl.textContent = data.score != null ? data.score : '—';
+  var gradeEl = document.getElementById('prmGradeBadge');
+  if(gradeEl) gradeEl.textContent = data.grade || '';
+
+  // 해시태그
+  var htEl = document.getElementById('prmHashtags');
+  if(htEl){
+    if(data.hashtags && data.hashtags.length){
+      htEl.innerHTML = data.hashtags.map(function(h){
+        var tag = h.charAt(0) === '#' ? h : '#' + h;
+        return '<span style="font-size:10.5px;font-weight:700;color:#97FEED;background:rgba(151,254,237,0.12);padding:4px 11px;border-radius:12px;letter-spacing:-0.01em;">' + tag + '</span>';
+      }).join('');
+    } else if(data.keywords && data.keywords.length){
+      // fallback: 구형 keywords 사용
+      htEl.innerHTML = data.keywords.map(function(k){
+        return '<span style="font-size:10.5px;font-weight:700;color:#97FEED;background:rgba(151,254,237,0.12);padding:4px 11px;border-radius:12px;">#' + k + '</span>';
+      }).join('');
+    } else {
+      htEl.innerHTML = '';
+    }
+  }
+
+  // SECTION 1: Executive Summary
+  var execEl = document.getElementById('prmExecSummary');
+  if(execEl){
+    if(data.execSummary && data.execSummary.trim()){
+      execEl.textContent = data.execSummary;
+    } else if(data.sections && data.sections.total){
+      // fallback: 구형 totalText 사용
+      execEl.textContent = data.sections.total.replace(/▸/g,'').replace(/\s+/g,' ').trim().slice(0, 250);
+    } else {
+      execEl.textContent = '분석 데이터를 불러올 수 없습니다.';
+    }
+  }
+
+  // SECTION 2: Deep-dive 4개 카드
+  //  - 실루엣 & 비율 → csAnalysisProp 매핑
+  //  - 컬러 케미스트리 → csAnalysisPc 매핑
+  //  - 체형 매칭 → csAnalysisTop + csAnalysisBot 합본
+  //  - 상하의 밸런스 → csAnalysisHarmony 매핑
+  var sec = (data.sections || {});
+  var setPrm = function(id, txt){
+    var el = document.getElementById(id);
+    if(el) el.textContent = txt || '—';
+  };
+  setPrm('prmDeepProp',    sec.prop    || '실루엣과 비율 분석 데이터가 준비 중입니다.');
+  setPrm('prmDeepColor',   sec.pc      || '컬러 케미스트리 분석 데이터가 준비 중입니다.');
+  // 체형 매칭: 상의 + 하의 결합
+  var bodyCombined = '';
+  if(sec.top)    bodyCombined += '[상의]\n' + sec.top + '\n\n';
+  if(sec.bot)    bodyCombined += '[하의]\n' + sec.bot;
+  setPrm('prmDeepBody',    bodyCombined.trim() || '체형 매칭 분석 데이터가 준비 중입니다.');
+  setPrm('prmDeepHarmony', sec.harmony || '상하의 밸런스 분석 데이터가 준비 중입니다.');
+
+  // SECTION 3: TPO 추천
+  var tpoBox = document.getElementById('prmTpoList');
+  if(tpoBox){
+    if(data.tpo && data.tpo.length){
+      tpoBox.innerHTML = data.tpo.map(function(t){
+        return '<span style="display:inline-block;font-size:11px;font-weight:700;color:#00022E;background:#97FEED;padding:6px 14px;border-radius:999px;letter-spacing:-0.01em;">' + t + '</span>';
+      }).join('');
+    } else {
+      tpoBox.innerHTML = '<span style="font-size:10.5px;color:rgba(255,255,255,0.45);">TPO 추천이 준비 중입니다.</span>';
+    }
+  }
+
+  // SECTION 3: 개선 팁
+  var tipsBox = document.getElementById('prmTipsList');
+  if(tipsBox){
+    if(data.tips && data.tips.length){
+      tipsBox.innerHTML = data.tips.map(function(t, i){
+        return '<div style="display:flex;align-items:flex-start;gap:7px;font-size:11.5px;color:rgba(255,255,255,0.82);line-height:1.6;">'
+          + '<span style="flex:0 0 16px;width:16px;height:16px;border-radius:4px;background:rgba(151,254,237,0.18);color:#97FEED;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:2px;">' + (i+1) + '</span>'
+          + '<span>' + t + '</span></div>';
+      }).join('');
+    } else {
+      tipsBox.innerHTML = '<span style="font-size:10.5px;color:rgba(255,255,255,0.45);">개선 팁이 준비 중입니다.</span>';
+    }
+  }
+
+  // 모달 오픈 (스크롤 최상단으로)
+  modal.style.display = 'block';
+  modal.scrollTop = 0;
+  document.body.style.overflow = 'hidden';
+}
+
+// 프리미엄 리포트 모달 닫기
+function closePremiumReport(){
+  var modal = document.getElementById('premiumReportModal');
+  if(modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+/* ── PDF 다운로드 — jsPDF 기반 고해상도 프리미엄 리포트 ── */
+/* [2026-04-20 09:50 KST] 기존 html2canvas → PNG 다운로드를
+   jsPDF를 이용한 실제 PDF로 업그레이드. 다중 페이지, 고해상도 유지.  */
 function downloadOutfitReport(){
-  var _isEn=window.CodiBankI18n&&CodiBankI18n.isEn();
-  var tpl=document.createElement('div');
-  tpl.style.cssText='position:absolute;left:0;top:0;z-index:-1;width:390px;background:#fff;font-family:Pretendard,Noto Sans KR,sans-serif;';
+  var data = window._csPremiumData || {};
+  if(data.score == null){
+    alert('리포트 생성을 위해 먼저 착장 이미지를 생성해주세요.');
+    return;
+  }
+
+  var tpl = document.createElement('div');
+  tpl.style.cssText = 'position:absolute;left:-9999px;top:0;width:595px;background:#fff;font-family:Pretendard,Noto Sans KR,sans-serif;color:#1a1a2e;';
   document.body.appendChild(tpl);
-  var now=new Date();
-  var dateStr=now.getFullYear()+'.'+String(now.getMonth()+1).padStart(2,'0')+'.'+String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
-  // 헤더
-  var h='<div style="background:linear-gradient(135deg,#071952,#0B666A);padding:20px 24px;text-align:center;">';
-  h+='<div style="font-size:16px;font-weight:800;color:#97FEED;">CodiBank '+(_isEn?'Outfit Report':'착장 리포트')+'</div>';
-  h+='<div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:4px;">'+dateStr+'</div></div>';
-  // 상의/하의 이미지
-  var topImg=ST.top.preview||ST.top.dataUrl||'';
-  var botImg=ST.bottom.preview||ST.bottom.dataUrl||'';
-  h+='<div style="display:flex;gap:8px;padding:16px 20px;background:#f8f9fa;">';
-  if(topImg) h+='<div style="flex:1;text-align:center;"><div style="font-size:9px;font-weight:700;color:#071952;margin-bottom:4px;">'+(_isEn?'TOP':'상의')+'</div><img src="'+topImg+'" style="width:100%;max-height:180px;object-fit:contain;border-radius:8px;border:1px solid #e5e7eb;"/></div>';
-  if(botImg) h+='<div style="flex:1;text-align:center;"><div style="font-size:9px;font-weight:700;color:#071952;margin-bottom:4px;">'+(_isEn?'BOTTOM':'하의')+'</div><img src="'+botImg+'" style="width:100%;max-height:180px;object-fit:contain;border-radius:8px;border:1px solid #e5e7eb;"/></div>';
-  h+='</div>';
-  // 스코어
-  var sc=document.getElementById('csScoreNum');
-  var gr=document.getElementById('csGradeBadge');
-  h+='<div style="padding:14px 20px;border-bottom:1px solid #e5e7eb;">';
-  h+='<div style="font-size:12px;font-weight:800;color:#071952;">STYLING SCORE: '+(sc?sc.textContent:'—')+'/100 '+(gr?gr.textContent:'')+'</div></div>';
-  // 분석 텍스트
-  var sections=[
-    {id:'csAnalysisPc',title:_isEn?'Personal Color':'퍼스널컬러',icon:'🎨'},
-    {id:'csAnalysisTop',title:_isEn?'Top Style':'Top 스타일',icon:'👕'},
-    {id:'csAnalysisBot',title:_isEn?'Bottom Style':'Bottom 스타일',icon:'👖'},
-    {id:'csAnalysisTotal',title:_isEn?'Total Analysis':'토탈 분석',icon:'✦'}
+
+  var now = new Date();
+  var dateStr = now.getFullYear() + '.' + String(now.getMonth()+1).padStart(2,'0') + '.' + String(now.getDate()).padStart(2,'0');
+
+  var topImg = ST.top.preview || ST.top.dataUrl || '';
+  var botImg = ST.bottom.preview || ST.bottom.dataUrl || '';
+  var sec = data.sections || {};
+
+  var html = '';
+
+  // ─── 헤더 (A4 상단) ───────────────────────────────────
+  html += '<div style="background:linear-gradient(135deg,#071952 0%,#0B666A 100%);padding:32px 36px 28px;color:#fff;">'
+        + '<div style="font-size:10px;font-weight:800;color:rgba(151,254,237,0.6);letter-spacing:0.25em;margin-bottom:8px;">PREMIUM STYLING REPORT</div>'
+        + '<div style="font-size:26px;font-weight:900;color:#97FEED;letter-spacing:-0.02em;margin-bottom:4px;">CodiBank Professional Analysis</div>'
+        + '<div style="font-size:11px;color:rgba(151,254,237,0.55);font-style:italic;margin-bottom:18px;">Desire to be designed. Meet CodiBank.</div>'
+        + '<div style="display:flex;align-items:baseline;gap:10px;padding-top:14px;border-top:1px solid rgba(151,254,237,0.2);">'
+        + '<span style="font-size:12px;font-weight:800;color:rgba(151,254,237,0.6);letter-spacing:0.1em;">C.S.I</span>'
+        + '<span style="font-size:52px;font-weight:900;color:#97FEED;letter-spacing:-0.02em;line-height:1;">' + data.score + '</span>'
+        + '<span style="font-size:14px;font-weight:700;color:rgba(151,254,237,0.4);">/100</span>'
+        + '<span style="font-size:11px;font-weight:800;padding:4px 12px;border-radius:20px;background:rgba(151,254,237,0.15);border:1px solid rgba(151,254,237,0.3);color:#97FEED;margin-left:8px;">' + (data.grade||'') + '</span>'
+        + '<span style="font-size:10px;color:rgba(255,255,255,0.35);margin-left:auto;">' + dateStr + '</span>'
+        + '</div></div>';
+
+  // ─── 착장 이미지 미리보기 ─────────────────────────────
+  if(topImg || botImg || lastImgUrl){
+    html += '<div style="padding:20px 28px;background:#f8f9fc;display:flex;gap:12px;align-items:center;">';
+    if(topImg) html += '<div style="flex:1;text-align:center;"><div style="font-size:9px;font-weight:800;color:#071952;margin-bottom:6px;letter-spacing:0.1em;">TOP</div><img src="' + topImg + '" style="width:100%;max-height:140px;object-fit:contain;border-radius:8px;border:1px solid #e5e7eb;"/></div>';
+    if(botImg) html += '<div style="flex:1;text-align:center;"><div style="font-size:9px;font-weight:800;color:#071952;margin-bottom:6px;letter-spacing:0.1em;">BOTTOM</div><img src="' + botImg + '" style="width:100%;max-height:140px;object-fit:contain;border-radius:8px;border:1px solid #e5e7eb;"/></div>';
+    if(lastImgUrl) html += '<div style="flex:1.2;text-align:center;"><div style="font-size:9px;font-weight:800;color:#071952;margin-bottom:6px;letter-spacing:0.1em;">LOOK</div><img src="' + lastImgUrl + '" style="width:100%;max-height:160px;object-fit:contain;border-radius:8px;border:1px solid #e5e7eb;" crossorigin="anonymous"/></div>';
+    html += '</div>';
+  }
+
+  // ─── 4지표 점수 카드 ──────────────────────────────────
+  var bk = data.breakdown || {body:0,pc:0,prop:0,harm:0};
+  html += '<div style="padding:22px 28px 18px;">'
+        + '<div style="font-size:11px;font-weight:800;color:#0B666A;letter-spacing:0.08em;margin-bottom:10px;">C.S.I BREAKDOWN</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">';
+  var metrics = [
+    {label:'체형 보완도', val:bk.body, max:30},
+    {label:'퍼스널 컬러', val:bk.pc,   max:30},
+    {label:'비율 개선도', val:bk.prop, max:20},
+    {label:'상하의 밸런스', val:bk.harm, max:20}
   ];
-  sections.forEach(function(s){
-    var el=document.getElementById(s.id);
-    if(el&&el.textContent){
-      h+='<div style="padding:12px 20px;border-bottom:1px solid #f0f0f0;">';
-      h+='<div style="font-size:10px;font-weight:800;color:#0B666A;margin-bottom:4px;">'+s.icon+' '+s.title+'</div>';
-      h+='<div style="font-size:10px;line-height:1.6;color:#444;">'+el.textContent+'</div></div>';
+  metrics.forEach(function(m){
+    html += '<div style="background:#f8f9fc;border:1px solid #e2e4ea;border-radius:10px;padding:12px 10px;text-align:center;">'
+          + '<div style="font-size:9px;font-weight:800;color:#888;letter-spacing:0.02em;margin-bottom:4px;">' + m.label + '</div>'
+          + '<div style="font-size:22px;font-weight:900;color:#0B666A;">' + m.val + '<span style="font-size:10px;color:#aaa;"> /' + m.max + '</span></div>'
+          + '</div>';
+  });
+  html += '</div></div>';
+
+  // ─── SECTION 1: Executive Summary ─────────────────────
+  if(data.execSummary){
+    html += '<div style="padding:18px 28px;">'
+          + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">'
+          + '<div style="width:22px;height:22px;border-radius:5px;background:#0B666A;color:#fff;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;">1</div>'
+          + '<div style="font-size:13px;font-weight:900;color:#0B666A;">종합 분석 결과</div>'
+          + '</div>'
+          + '<div style="background:#f0fbfa;border-left:3px solid #0B666A;padding:14px 16px;border-radius:0 8px 8px 0;">'
+          + '<div style="font-size:11px;line-height:1.8;color:#333;">' + data.execSummary + '</div>'
+          + '</div></div>';
+  }
+
+  // ─── SECTION 2: Deep-dive (5섹션) ────────────────────
+  html += '<div style="padding:0 28px 14px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">'
+        + '<div style="width:22px;height:22px;border-radius:5px;background:#0B666A;color:#fff;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;">2</div>'
+        + '<div style="font-size:13px;font-weight:900;color:#0B666A;">항목별 심층 분석</div></div>';
+  var deepSections = [
+    {title:'🎨 퍼스널컬러 분석', txt: sec.pc},
+    {title:'👚 상의 스타일 분석', txt: sec.top},
+    {title:'👗 하의 스타일 분석', txt: sec.bot},
+    {title:'📏 실루엣과 비율', txt: sec.prop},
+    {title:'⚖️ 상하의 밸런스', txt: sec.harmony}
+  ];
+  deepSections.forEach(function(s){
+    if(s.txt && s.txt.trim()){
+      html += '<div style="background:#fafbfd;border:1px solid #eef0f4;border-radius:8px;padding:12px 14px;margin-bottom:7px;">'
+            + '<div style="font-size:10.5px;font-weight:800;color:#0B666A;margin-bottom:5px;">' + s.title + '</div>'
+            + '<div style="font-size:10px;line-height:1.7;color:#444;white-space:pre-line;">' + s.txt + '</div></div>';
     }
   });
-  // 착장 이미지
-  if(lastImgUrl){
-    h+='<div style="padding:16px 20px;text-align:center;">';
-    h+='<img src="'+lastImgUrl+'" style="width:100%;max-height:500px;object-fit:contain;border-radius:12px;" crossorigin="anonymous"/></div>';
+  html += '</div>';
+
+  // ─── SECTION 3: Styling & TPO Guide ───────────────────
+  if((data.tpo && data.tpo.length) || (data.tips && data.tips.length)){
+    html += '<div style="padding:14px 28px 24px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">'
+          + '<div style="width:22px;height:22px;border-radius:5px;background:#0B666A;color:#fff;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;">3</div>'
+          + '<div style="font-size:13px;font-weight:900;color:#0B666A;">활용 가이드</div></div>';
+    if(data.tpo && data.tpo.length){
+      html += '<div style="background:#f0fbfa;border:1px solid #cfeee9;border-radius:8px;padding:12px 14px;margin-bottom:8px;">'
+            + '<div style="font-size:10.5px;font-weight:800;color:#0B666A;margin-bottom:7px;">🎯 Best TPO 추천</div>'
+            + '<div>' + data.tpo.map(function(t){
+                return '<span style="display:inline-block;font-size:10.5px;font-weight:700;color:#fff;background:#0B666A;padding:4px 11px;border-radius:999px;margin:2px 4px 2px 0;">' + t + '</span>';
+              }).join('') + '</div></div>';
+    }
+    if(data.tips && data.tips.length){
+      html += '<div style="background:#f0fbfa;border:1px solid #cfeee9;border-radius:8px;padding:12px 14px;">'
+            + '<div style="font-size:10.5px;font-weight:800;color:#0B666A;margin-bottom:7px;">✨ 단점 보완 팁</div>';
+      data.tips.forEach(function(t, i){
+        html += '<div style="font-size:10.5px;color:#333;line-height:1.7;margin-bottom:3px;">'
+             + '<span style="color:#0B666A;font-weight:800;">' + (i+1) + '.</span> ' + t + '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
   }
-  // 푸터
-  h+='<div style="background:#071952;padding:12px 20px;text-align:center;">';
-  h+='<div style="font-size:9px;color:#97FEED;font-weight:700;">CodiBank · codibank.kr</div></div>';
-  tpl.innerHTML=h;
+
+  // ─── 푸터 ─────────────────────────────────────────────
+  html += '<div style="background:#071952;padding:14px 28px;text-align:center;">'
+        + '<div style="font-size:10px;color:#97FEED;font-weight:800;letter-spacing:0.15em;">CodiBank · codibank.kr</div>'
+        + '<div style="font-size:9px;color:rgba(151,254,237,0.4);margin-top:3px;">Professional Personal Styling Analysis</div>'
+        + '</div>';
+
+  tpl.innerHTML = html;
+
+  // ─── jsPDF 로 변환 ────────────────────────────────────
   setTimeout(function(){
-    html2canvas(tpl,{scale:2,useCORS:true,backgroundColor:'#fff',logging:false}).then(function(canvas){
-      var link=document.createElement('a');
-      link.download='CodiBank_Outfit_Report_'+now.toISOString().slice(0,10)+'.png';
-      link.href=canvas.toDataURL('image/png',0.95);
-      link.click();
+    html2canvas(tpl, {scale:2, useCORS:true, backgroundColor:'#fff', logging:false}).then(function(canvas){
+      try {
+        if(window.jspdf && window.jspdf.jsPDF){
+          var jsPDF = window.jspdf.jsPDF;
+          var pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+          var pageW = 210; // A4 width mm
+          var pageH = 297; // A4 height mm
+          var imgW = pageW;
+          var imgH = canvas.height * imgW / canvas.width;
+          var imgData = canvas.toDataURL('image/jpeg', 0.92);
+          // 다중 페이지 지원: 이미지가 A4 1페이지보다 길면 분할
+          if(imgH <= pageH){
+            pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+          } else {
+            var y = 0;
+            while(y < imgH){
+              if(y > 0) pdf.addPage();
+              pdf.addImage(imgData, 'JPEG', 0, -y, imgW, imgH);
+              y += pageH;
+            }
+          }
+          pdf.save('CodiBank_Premium_Report_' + now.toISOString().slice(0,10) + '.pdf');
+        } else {
+          // jsPDF 로드 실패 시 PNG fallback
+          var link = document.createElement('a');
+          link.download = 'CodiBank_Premium_Report_' + now.toISOString().slice(0,10) + '.png';
+          link.href = canvas.toDataURL('image/png', 0.95);
+          link.click();
+        }
+      } catch(err){
+        console.error('[PDF]', err);
+        // 에러 시 PNG fallback
+        var link = document.createElement('a');
+        link.download = 'CodiBank_Premium_Report_' + now.toISOString().slice(0,10) + '.png';
+        link.href = canvas.toDataURL('image/png', 0.95);
+        link.click();
+      }
       tpl.remove();
-    }).catch(function(e){console.error(e);tpl.remove();});
-  },500);
+    }).catch(function(e){ console.error('[html2canvas]', e); tpl.remove(); });
+  }, 500);
 }
 
 async function saveImg(){
@@ -2594,12 +3076,20 @@ function _savePageState(){
         bottomAnalysis: _bottomAnalysisCache || null,
         scoreNum: document.getElementById('csScoreNum')?.textContent || '',
         scoreText: document.getElementById('csScoreText')?.textContent || '',
+        // [2026-04-20 09:50 KST] C.S.I 5섹션 + 프리미엄 데이터 저장
         analysisPc: document.getElementById('csAnalysisPc')?.textContent || '',
         analysisTop: document.getElementById('csAnalysisTop')?.textContent || '',
         analysisBot: document.getElementById('csAnalysisBot')?.textContent || '',
-        analysisTotal: document.getElementById('csAnalysisTotal')?.textContent || '',
+        analysisProp: document.getElementById('csAnalysisProp')?.textContent || '',
+        analysisHarmony: document.getElementById('csAnalysisHarmony')?.textContent || '',
         analysisBoxVisible: document.getElementById('csAnalysisBox')?.style.display !== 'none',
         scoreDetailHtml: document.getElementById('csScoreDetail')?.innerHTML || '',
+        radarBoxVisible: document.getElementById('csRadarBox')?.style.display !== 'none',
+        radarPoints: document.getElementById('csiRadarData')?.getAttribute('points') || '',
+        execSummary: document.getElementById('csExecSummary')?.textContent || '',
+        hashtagsHtml: document.getElementById('csHashtagsBox')?.innerHTML || '',
+        btnGrpVisible: document.getElementById('csReportBtnGroup')?.style.display === 'flex',
+        premiumData: window._csPremiumData || null,
         ts: Date.now()
       };
       sessionStorage.setItem('cb_cs_pageState', JSON.stringify(state));
@@ -2628,13 +3118,21 @@ function _restorePageState(){
       var el2=document.getElementById('csScoreText'); if(el2){ el2.textContent=s.scoreText||''; el2.style.color='rgba(255,255,255,.55)'; }
     }
 
-    // 분석 텍스트 복원
+    // 분석 텍스트 복원 (C.S.I 5섹션)
     if(s.analysisPc){ var el=document.getElementById('csAnalysisPc'); if(el) el.textContent=s.analysisPc; }
     if(s.analysisTop){ var el=document.getElementById('csAnalysisTop'); if(el) el.textContent=s.analysisTop; }
     if(s.analysisBot){ var el=document.getElementById('csAnalysisBot'); if(el) el.textContent=s.analysisBot; }
-    if(s.analysisTotal){ var el=document.getElementById('csAnalysisTotal'); if(el) el.textContent=s.analysisTotal; }
+    if(s.analysisProp){ var el=document.getElementById('csAnalysisProp'); if(el) el.textContent=s.analysisProp; }
+    if(s.analysisHarmony){ var el=document.getElementById('csAnalysisHarmony'); if(el) el.textContent=s.analysisHarmony; }
     if(s.analysisBoxVisible){ var el=document.getElementById('csAnalysisBox'); if(el) el.style.display='block'; }
     if(s.scoreDetailHtml){ var el=document.getElementById('csScoreDetail'); if(el){ el.innerHTML=s.scoreDetailHtml; el.style.display='block'; } }
+    // Radar 차트 + Executive Summary + 해시태그 + CTA 버튼 복원
+    if(s.radarBoxVisible){ var el=document.getElementById('csRadarBox'); if(el) el.style.display='block'; }
+    if(s.radarPoints){ var el=document.getElementById('csiRadarData'); if(el) el.setAttribute('points', s.radarPoints); }
+    if(s.execSummary){ var el=document.getElementById('csExecSummary'); if(el) el.textContent=s.execSummary; }
+    if(s.hashtagsHtml){ var el=document.getElementById('csHashtagsBox'); if(el) el.innerHTML=s.hashtagsHtml; }
+    if(s.btnGrpVisible){ var el=document.getElementById('csReportBtnGroup'); if(el) el.style.display='flex'; }
+    if(s.premiumData){ try{ window._csPremiumData = s.premiumData; }catch(_){} }
 
     // 생성 버튼 활성화
     updateGenerateBtn();
@@ -2956,14 +3454,6 @@ function drawDeck(type,items,ci){
       ne.forEach(function(e){e.classList.remove('exit-left','exit-right','enter-left','enter-right','cs-pop');});
       lv.classList.add(dir>0?'exit-left':'exit-right');
       for(var i=0;i<ne.length;i++){if((dir>0&&i===6)||(dir<0&&i===0))continue;_csSlc(ne[i],i+1);}
-      // [2026-04-20 04:10 KST] 이슈 3 fix: 스와이프 후 각 카드의 data-idx를
-      // 새 windowIndices에 맞춰 재할당해야 중앙(cs-l4) 클릭 시 올바른 아이템 선택됨.
-      // 기존 버그: 중간 6개 카드의 data-idx가 이전 값 유지 → 사용자가 보는 카드와
-      // data-idx가 어긋나 오른쪽 뒤 아이템이 선택되는 문제 발생.
-      for(var j=0;j<ne.length;j++){
-        if((dir>0&&j===6)||(dir<0&&j===0))continue; // leaver는 아래 setTimeout에서 재설정
-        ne[j].setAttribute('data-idx', this.windowIndices[j]>=0?this.windowIndices[j]:-1);
-      }
       var ce=ne[CENTER];
       if(ce)setTimeout(function(){if(!ctrl.animating)return;ce.classList.remove('cs-pop');try{void ce.offsetHeight;}catch(_){}ce.classList.add('cs-pop');setTimeout(function(){ce.classList.remove('cs-pop');},500);},350);
       var _self=this;
@@ -2972,8 +3462,6 @@ function drawDeck(type,items,ci){
         lv.classList.remove('exit-left','exit-right');
         var ep=dir>0?7:1,ei=dir>0?_self.windowIndices[6]:_self.windowIndices[0];
         _csLayerContent(lv,ei>=0?_self.items[ei]:null,_self.type);
-        // [2026-04-20 04:10 KST] 이슈 3 fix: leaver 카드의 data-idx도 재설정
-        lv.setAttribute('data-idx', ei>=0?ei:-1);
         lv.classList.add('no-transition');_csSlc(lv,ep);lv.classList.add(dir>0?'enter-right':'enter-left');
         try{void lv.offsetHeight;}catch(_){}
         lv.classList.remove('no-transition');
