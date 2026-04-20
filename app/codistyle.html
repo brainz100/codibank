@@ -7,6 +7,32 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-04-20 19:30 KST (명세서 V2 반영 — 체형 기반 분석 고도화) ──────────
+  [명세서 V2 개정] "상하의 밸런스"를 단순 옷 조합이 아닌 사용자 체형
+                   데이터 기반 "체형 밸런스"로 개념 확장
+  [TJ님 3가지 수정 요청]
+    1) 헤더 텍스트: 'STYLING SCORE' → 'Personal Styling Analysis' (~line 890)
+    2) 한 줄 스타일링 총평: 서버 executive_summary 직접 세팅 유지
+       + 라벨 '종합 평가' → '한 줄 스타일링 총평' (~line 989)
+    3) 첨부 내용 (명세서 V2) 반영:
+       • 4번째 지표: 상하의 밸런스 → 체형 밸런스 (전 영역)
+         - 스코어 카드 라벨 (~line 939)
+         - 분석 섹션 라벨 (~line 1021)
+         - 프리미엄 모달 카드 (~line 705)
+         - 레이더 차트 좌측축 (~line 983) — 상단과 구분 위해
+           상단='체형보완' / 좌측='체형밸런스'로 세분화
+       • 점수 구간 타이틀 (명세서 V2 지시):
+         - 90+  : Perfect Styling
+         - 80-89: Good Balance
+         - 70-79: Room to Refine
+         - <70  : Needs Styling
+       • 서버 프롬프트 고도화 (mock_backend.py 동시 수정):
+         - Section IV-1 비율 개선도: Y축/수직 관점 분석 강화
+           (상의 기장 × 하의 허리선 × 사용자 신장 크로스체크)
+         - Section IV-2 체형 밸런스: X축/수평 관점 + 체형 매트릭스
+           (사용자 체형 A/V/H/X/O × 의상 부피 × 소재 두께감)
+           이것은 단순 옷 조합이 아닌 체형-기반 분석임을 명시
+
 ─── 2026-04-20 09:50 KST (프리미엄 스타일링 리포트 V1 전체 구현) ──────────
   [명세서] CodiBank Premium Personal Styling Report V1
     - C.S.I (CodiBank Styling Index) 4지표 시스템 도입
@@ -702,7 +728,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
 
       <!-- 2-4. 디테일 평가 -->
       <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(151,254,237,0.08);border-radius:10px;padding:13px 15px;">
-        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">⚖️ 상하의 밸런스</div>
+        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">⚖️ 체형 밸런스</div>
         <p id="prmDeepHarmony" style="font-size:11.5px;color:rgba(255,255,255,0.72);line-height:1.7;margin:0;white-space:pre-line;"></p>
       </div>
     </div>
@@ -881,16 +907,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
   <button class="gen-btn" id="genBtn" onclick="generate()" disabled><span class="mi" id="genBtnIcon">auto_awesome</span><span id="genBtnText">AI 착장 이미지 생성</span></button>
 </div>
 
-<!-- Styling Score — 생성버튼 바로 아래 -->
+<!-- Personal Styling Analysis — 생성버튼 바로 아래 -->
+<!-- [2026-04-20 명세서 V2] 헤더 라벨: 'STYLING SCORE' → 'Personal Styling Analysis' -->
 <div id="csScoreBox" style="margin:0 16px 16px;padding:16px 20px;border-radius:16px;background:rgba(151,254,237,.04);border:1px solid rgba(151,254,237,.1);">
 
   <!-- 총점 헤더 -->
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-    <span style="font-size:12px;font-weight:800;color:rgba(255,255,255,.45);letter-spacing:.06em;">STYLING SCORE</span>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+    <span style="font-size:11px;font-weight:800;color:rgba(255,255,255,.45);letter-spacing:.04em;">Personal Styling Analysis</span>
     <span style="font-size:40px;font-weight:900;color:#97FEED;letter-spacing:-1px;line-height:1;" id="csScoreNum">—</span>
     <span style="font-size:12px;font-weight:700;color:rgba(151,254,237,.4);">/100</span>
     <span id="csGradeBadge" style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;background:rgba(151,254,237,.15);border:1px solid rgba(151,254,237,.3);color:#97FEED;display:none;margin-left:2px;"></span>
-    <div style="flex:1;height:4px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;">
+    <div style="flex:1;min-width:60px;height:4px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;">
       <div id="csScoreBar" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .9s cubic-bezier(.4,0,.2,1);"></div>
     </div>
   </div>
@@ -933,9 +960,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
           <div id="csScPropFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .8s;"></div>
         </div>
       </div>
-      <!-- ④ 상하의 밸런스 /20 -->
+      <!-- ④ 체형 밸런스 /20 (명세서 V2: harmony → body_balance) -->
       <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:9px 10px;text-align:center;">
-        <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;" data-i18n="상하의 밸런스">상하의 밸런스</div>
+        <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;" data-i18n="체형 밸런스">체형 밸런스</div>
         <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
           <span id="csScStyle" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
           <span style="font-size:9px;color:rgba(255,255,255,.25);">/20</span>
@@ -975,16 +1002,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
           <polygon id="csiRadarData" points="100,100 100,100 100,100 100,100"
                    fill="url(#csiRadarGrad)" stroke="#97FEED" stroke-width="1.8"
                    style="transition:all .9s cubic-bezier(.4,0,.2,1);"/>
-          <!-- 축 라벨 -->
-          <text x="100" y="12" text-anchor="middle"  font-size="9" font-weight="700" fill="rgba(151,254,237,.75)">체형</text>
+          <!-- 축 라벨 — [명세서 V2] 상단(체형 보완도)과 좌측(체형 밸런스) 구분 -->
+          <text x="100" y="12" text-anchor="middle"  font-size="8.5" font-weight="700" fill="rgba(151,254,237,.75)">체형보완</text>
           <text x="192" y="104" text-anchor="end"    font-size="9" font-weight="700" fill="rgba(151,254,237,.75)">컬러</text>
           <text x="100" y="196" text-anchor="middle" font-size="9" font-weight="700" fill="rgba(151,254,237,.75)">비율</text>
-          <text x="8"   y="104" text-anchor="start"  font-size="9" font-weight="700" fill="rgba(151,254,237,.75)">밸런스</text>
+          <text x="8"   y="104" text-anchor="start"  font-size="8.5" font-weight="700" fill="rgba(151,254,237,.75)">체형밸런스</text>
         </svg>
       </div>
       <!-- Executive Summary + 해시태그 -->
+      <!-- [명세서 V2] 라벨: '종합 평가' → '한 줄 스타일링 총평' -->
       <div style="flex:1;min-width:0;">
-        <div style="font-size:9px;font-weight:800;color:rgba(151,254,237,.5);letter-spacing:.08em;margin-bottom:5px;" data-i18n="종합 평가">종합 평가</div>
+        <div style="font-size:9px;font-weight:800;color:rgba(151,254,237,.5);letter-spacing:.08em;margin-bottom:5px;" data-i18n="한 줄 스타일링 총평">한 줄 스타일링 총평</div>
         <p id="csExecSummary" style="font-size:12px;color:rgba(255,255,255,.88);line-height:1.6;font-weight:500;margin:0 0 10px;letter-spacing:-0.01em;">—</p>
         <div id="csHashtagsBox" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
       </div>
@@ -1016,7 +1044,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     </div>
     <!-- NEW: 상하의 밸런스 -->
     <div style="border-left:2px solid rgba(151,254,237,.5);padding:8px 0 8px 12px;margin-bottom:10px;">
-      <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;" data-i18n="⚖️ 상하의 밸런스">⚖️ 상하의 밸런스</div>
+      <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;" data-i18n="⚖️ 체형 밸런스">⚖️ 체형 밸런스</div>
       <p id="csAnalysisHarmony" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;white-space:pre-line;"></p>
     </div>
   </div>
@@ -2445,7 +2473,7 @@ async function generate(isRetry=false){
         if(_bar2) setTimeout(()=>{ _bar2.style.width = _totalScore+'%'; }, 100);
 
         // 등급 배지
-        const _grade2 = _totalScore>=90?'S급 매칭':_totalScore>=80?'A급 매칭':_totalScore>=70?'B급 매칭':'C급 매칭';
+        const _grade2 = _totalScore>=90?'Perfect Styling':_totalScore>=80?'Good Balance':_totalScore>=70?'Room to Refine':'Needs Styling';
         const _gbEl = document.getElementById('csGradeBadge');
         if(_gbEl){ _gbEl.textContent=_grade2; _gbEl.style.display='inline-block'; }
 
@@ -2511,7 +2539,7 @@ async function generate(isRetry=false){
       // ── 프리미엄 리포트용 데이터 전역 저장 ──
       window._csPremiumData = {
         score: _totalScore,
-        grade: _totalScore>=90?'S급':_totalScore>=80?'A급':_totalScore>=70?'B급':'C급',
+        grade: _totalScore>=90?'Perfect Styling':_totalScore>=80?'Good Balance':_totalScore>=70?'Room to Refine':'Needs Styling',
         execSummary: _srvExec,
         tpo: _srvTpo,
         tips: _srvTips,
@@ -2579,7 +2607,7 @@ async function generate(isRetry=false){
       if(_bodyType==='슬림'||_bodyType==='표준') _base = Math.min(95, _base+4);
       if(_retryCount>0) _base = Math.max(75, _base + (Math.random()>0.5?2:-2));
       const score = Math.min(98, Math.round(_base));
-      const _grade = score>=92?'S급 매칭':score>=86?'A급 매칭':score>=80?'B급 매칭':'C급 매칭';
+      const _grade = score>=92?'Perfect Styling':score>=86?'Good Balance':score>=80?'Room to Refine':'Needs Styling';
 
       // ── 상의 분석 ──
       const _topAnalysis = {
@@ -2640,7 +2668,7 @@ async function generate(isRetry=false){
         const el2=document.getElementById('csScPc');     if(el2) el2.textContent=_pcL;
         const el3=document.getElementById('csScBody');   if(el3) el3.textContent=_bodyL;
         const el4=document.getElementById('csScStyle');  if(el4) el4.textContent=_styleL;
-        const _grade3=score>=90?'S급 매칭':score>=80?'A급 매칭':score>=70?'B급 매칭':'C급 매칭';
+        const _grade3=score>=90?'Perfect Styling':score>=80?'Good Balance':score>=70?'Room to Refine':'Needs Styling';
         const el5=document.getElementById('csGradeBadge'); if(el5){el5.textContent=_grade3;el5.style.display='inline-block';}
         setTimeout(()=>{
           const f1=document.getElementById('csScoreBar');   if(f1) f1.style.width=score+'%';
