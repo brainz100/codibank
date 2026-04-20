@@ -1,4 +1,42 @@
 <!DOCTYPE html>
+<!--
+═══════════════════════════════════════════════════════════════════════
+📋 수정 이력 (MODIFICATION HISTORY) — 최신순
+═══════════════════════════════════════════════════════════════════════
+이 블록은 파일 수정 때마다 최상단에 누적됩니다.
+각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
+점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
+
+─── 2026-04-20 05:20 KST (PC 버전 3종 버그 일괄 수정) ──────────────────
+  [이슈 1 — 퍼스널컬러분석 버튼 클릭 안 됨] (~line 173)
+    - 원인: </span data-i18n="..."> 형태로 span 닫힘 태그 내부에 속성이
+           들어간 깨진 HTML → PC 브라우저 파서가 버튼 전체를 오해석
+    - 수정: 아이콘 span과 텍스트 span을 분리된 정상 구조로 복구
+  [이슈 2 — 연령대 버튼 전체 먹통] (~line 235)
+    - 원인: onclick="selAge(this)data-i18n="10대"  따옴표 누락으로
+           HTML 속성 경계가 무너져 selAge 호출 실패
+    - 수정: onclick 속성과 data-i18n 속성을 공백으로 분리
+           (이전 세션 수정 흔적 존재, 이번 재확인 후 배포)
+  [이슈 3 — 저장 버튼 PC에서 화면 밖까지 늘어남] (~line 551, 640)
+    - 원인: 플로팅 바가 position:fixed; left:0; right:0; 으로
+           body max-width:500px 컨테이너 무시하고 뷰포트 전체 너비 사용
+    - 수정: left:50%; transform:translate(-50%, 100%)으로 body와 동일한
+           500px 중앙 정렬. JS의 표시 전환 코드도 translate(-50%, 0)로 동기화
+
+─── 2026-04-20 05:20 KST ────────────────────────────────────────────────
+  [연령대 버튼 6개 SyntaxError 수정] (~line 210~215)
+    - 원인: onclick 속성값이 닫히지 않은 HTML 문법 오류
+      변경 전: onclick=selAge(this)data-i18n=10대  (따옴표 누락 → data-i18n까지 onclick 값으로 파싱)
+      변경 후: onclick=selAge(this) 와 data-i18n=10대 사이에 따옴표+공백 복구
+    - 영향: PC 브라우저 콘솔에서
+      Uncaught SyntaxError: Unexpected identifier data 6건 발생
+      → 페이지 JS 실행 중단
+      → 연령대 버튼 클릭 먹통
+      → 퍼스널컬러분석 버튼 먹통 (연쇄)
+      → 레이아웃 파싱 실패로 저장하기 버튼이 화면 밖에 표시
+    - 해결: 이 1곳 수정으로 3가지 증상 모두 해결
+═══════════════════════════════════════════════════════════════════════
+-->
 <html lang="ko">
 <head>
 <!-- Google tag (gtag.js) -->
@@ -170,7 +208,10 @@ header h1{font-size:17px;font-weight:800;}
     </button>
     <button id="pcAnalyzeBtnTop" onclick="startPersonalColorAnalysis()" disabled
       style="width:100%;padding:10px;border-radius:10px;border:none;background:#071952;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;opacity:0.4;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:4px;">
-      <span class="material-symbols-outlined" style="font-size:16px;">auto_awesome</span data-i18n="퍼스널컬러 분석">퍼스널컬러 분석
+      <!-- [2026-04-20 05:20 KST] 이슈 1 fix: 기존 </span data-i18n="..."> 는 HTML 깨진 구조로
+           PC 브라우저에서 버튼 자체가 파싱 실패 → 클릭 이벤트 불가. 올바른 구조로 복구. -->
+      <span class="material-symbols-outlined" style="font-size:16px;">auto_awesome</span>
+      <span data-i18n="퍼스널컬러 분석">퍼스널컬러 분석</span>
     </button>
   </div>
 </div>
@@ -207,12 +248,15 @@ header h1{font-size:17px;font-weight:800;}
     </div>
     <p class="field-label" style="padding:4px 20px 4px;">연령대</p>
     <div class="sel-group" id="ageGroup2">
-      <button class="sel-btn" data-v="10s" onclick="selAge(this)data-i18n="10대">10대</button>
-      <button class="sel-btn" data-v="20s" onclick="selAge(this)data-i18n="20대">20대</button>
-      <button class="sel-btn" data-v="30s" onclick="selAge(this)data-i18n="30대">30대</button>
-      <button class="sel-btn" data-v="40s" onclick="selAge(this)data-i18n="40대">40대</button>
-      <button class="sel-btn" data-v="50s" onclick="selAge(this)data-i18n="50대">50대</button>
-      <button class="sel-btn" data-v="60s+" onclick="selAge(this)data-i18n="60대+">60대+</button>
+      <!-- [2026-04-20 05:20 KST] 연령대 버튼 6개 onclick 따옴표 누락 수정.
+           이 버그가 PC 콘솔에서 Unexpected identifier data SyntaxError 6건 유발,
+           연쇄로 퍼스널컬러분석 버튼 먹통 + 저장하기 버튼 레이아웃 깨짐까지 발생 -->
+      <button class="sel-btn" data-v="10s" onclick="selAge(this)" data-i18n="10대">10대</button>
+      <button class="sel-btn" data-v="20s" onclick="selAge(this)" data-i18n="20대">20대</button>
+      <button class="sel-btn" data-v="30s" onclick="selAge(this)" data-i18n="30대">30대</button>
+      <button class="sel-btn" data-v="40s" onclick="selAge(this)" data-i18n="40대">40대</button>
+      <button class="sel-btn" data-v="50s" onclick="selAge(this)" data-i18n="50대">50대</button>
+      <button class="sel-btn" data-v="60s+" onclick="selAge(this)" data-i18n="60대+">60대+</button>
     </div>
   </div>
   <div style="border-top:1px solid rgba(7,25,82,.1);margin-top:4px;padding-top:4px;">
@@ -516,7 +560,11 @@ header h1{font-size:17px;font-weight:800;}
 </div>
 
 <!-- 플로팅 저장 버튼 -->
-<div id="floatingSave" style="position:fixed;bottom:0;left:0;right:0;z-index:999;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));background:rgba(249,250,251,.95);backdrop-filter:blur(12px);border-top:1px solid rgba(151,254,237,.2);transform:translateY(100%);transition:transform .3s ease;display:flex;gap:8px;">
+<!-- [2026-04-20 05:20 KST] 이슈 3 fix: 기존에는 position:fixed에 left:0; right:0;으로
+     뷰포트 전체 너비를 차지하여 PC(501px+)에서는 body max-width:500px 컨테이너를
+     벗어나 화면 양 끝까지 늘어남. max-width:500px + left:50% + translateX(-50%)로
+     body와 동일한 중앙 정렬 500px 너비로 제한. -->
+<div id="floatingSave" style="position:fixed;bottom:0;left:50%;transform:translate(-50%,100%);width:100%;max-width:500px;z-index:999;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));background:rgba(249,250,251,.95);backdrop-filter:blur(12px);border-top:1px solid rgba(151,254,237,.2);transition:transform .3s ease;display:flex;gap:8px;box-sizing:border-box;">
   <button onclick="doSave()" style="flex:1;padding:14px;border-radius:14px;border:none;background:#071952;color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;" data-i18n="저장하기">저장하기</button>
 </div>
 
@@ -603,8 +651,10 @@ function doReset(){
 // ═══ 변경 감지 → 저장 버튼 활성화 ═══
 function _markChanged(){
   // 플로팅 저장 버튼 표시
+  // [2026-04-20 05:20 KST] 이슈 3 fix: PC(501px+)에서 중앙 정렬 유지를 위해
+  // translate(-50%, 0)으로 표시 (숨김 상태는 translate(-50%, 100%))
   var fs=document.getElementById('floatingSave');
-  if(fs) fs.style.transform='translateY(0)';
+  if(fs) fs.style.transform='translate(-50%, 0)';
   var btn=document.getElementById('btnSave');
   if(btn){btn.disabled=false;btn.style.background='#071952';btn.style.color='#fff';btn.style.border='none';}
 }
