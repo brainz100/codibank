@@ -7,6 +7,94 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-04-20 22:00 KST (⚠️프리미엄 리포트 내용 빈약 → 10만원 컨설팅급 수술) ────
+  [TJ님 강력 제보] 프리미엄 리포트 섹션 내용이 너무 빈약. 유료서비스(5900/
+                    15000/39000원) 가치를 증명 못함. 자동 바이럴 불가.
+                    디테일한 분석이 각 꼭지별로 보고서 형식으로 나와야 함.
+
+  [진단 3대 문제 (스크린샷 분석)]
+    [문제 1] Executive Summary가 "심층 분석:" 에서 잘림
+    [문제 2] '실루엣 & 비율' + '체형 밸런스' 빈 상태 (fallback 메시지)
+    [문제 3] '컬러 케미스트리', '체형 매칭' 1~3줄 단답으로 빈약
+
+  [근본 원인 추적]
+    ① 서버 응답 제한: comment[:2000] — 프리미엄 리포트 장문 응답이 잘림
+    ② Gemini config: max_output_tokens 미지정 → 기본값으로 뒷 섹션 생략
+    ③ Executive Summary regex가 "심층 분석:" 경계를 인식 못함
+    ④ Phase 5 프롬프트: "▸ a · ▸ b · ▸ c" 힌트만 있어 Gemini가 단답 제출
+    ⑤ 프론트 섹션 slice(500): 긴 응답도 500자로 잘림
+
+  [수술 8종 — 프론트]
+    - 섹션 파싱 글자수 500 → 2000자로 상향 (~line 2078)
+    - 모달 fallback 250 → 500자로 상향 (~line 2811)
+    - Executive Summary 2차 방어선: "심층 분석:" 접미 문자열 제거 (~line 2560)
+    - 체형 매칭 섹션 레이아웃 리치화:
+      · 이전: [상의] 텍스트 + [하의] 텍스트 단순 합본
+      · 신규: 👕상의×체형 / 👖하의×체형 시각적으로 분리된 서브-블록
+              teal 보더 + 배경 + 아이콘 + 제목 + 본문
+    - openPremiumReport() 함수의 setPrm() 호출로 prmDeepBody 렌더 개선
+
+  [수술 연동 — 서버 mock_backend.py]
+    - comment[:2000] → [:15000] (2곳) 장문 응답 수용
+    - Gemini config: max_output_tokens=8192 + temperature 0.4 (일관성)
+    - Executive Summary 정규식: "심층 분석|Deep-dive|OUTPUT LINE" 등 모든
+      섹션 경계 패턴을 제외하도록 완전 재작성
+    - Phase 5 프롬프트 전면 재설계 — 10만원 컨설팅 수준 강제:
+      · 각 섹션 "EXACTLY 5 bullets, each 40-80 chars" 명시
+      · 각 불릿에 구체적 지시 예시 ([PHASE 1 시즌 타입...과 그 특성...])
+      · PHASE 1 근거 명시 강제 (모든 불릿에 체형/PC 참조)
+      · ★ FINAL SELF-CHECK 5개 항목 자기 검증 강제
+      · 분량 기대치 명시: 2000~4000자 (이전 ~800자)
+
+  [기대 효과]
+    - 각 섹션당 5불릿 × 60자 평균 = 섹션당 300자+ 풍부한 내용
+    - 전체 리포트 약 2500~3500자 (이전 800자 → 3배 이상)
+    - "준비 중입니다" 빈 섹션 발생률 0% 목표
+    - "심층 분석:" 같은 파싱 오류 완전 차단
+
+─── 2026-04-20 20:00 KST (⚠️치마→바지 다시요청 버그 근본 수술 — 신뢰성 최우선) ──
+  [TJ님 제보] 첫 생성에선 치마 정상 → '다시요청' 시 바지로 변경되는 심각 버그
+  [진단] generate() 함수 내에서 프론트가 독립적으로 imagePrompt를 조립하고
+         있었고, 이 프롬프트는 상하의 이미지 분석 데이터와 무관하게
+         "PANTS LENGTH ABSOLUTE / PANTS FIT REGULAR" 등 바지 전용 규칙을
+         치마/바지 구분 없이 강제로 포함. 서버 /api/codistyle/generate는
+         다행히 payload.imagePrompt를 사용하지 않지만, 네트워크 페이로드에
+         잠복하여 향후 다른 경로로 혼입될 위험이 매우 큼.
+         또한 다시요청 시 분석 캐시가 없으면 analyzeGarments()를 건너뛰어
+         서버에 null이 전송되고, 서버가 이미지로 재판별하면서 오판 가능.
+
+  [원칙] "프론트는 절대 프롬프트를 만들지 않는다.
+          상의/하의 이미지 분석 데이터(topAnalysis/bottomAnalysis)만
+          서버에 전달한다. 서버가 그 데이터로 올바른 프롬프트를 조립한다."
+
+  [수술 1] 프론트 imagePrompt 조립 완전 제거 (~line 2284~2338)
+    - _pantsLengthRule (7부/남성/여성 3분기) 삭제
+    - _pantsFitRule (바지 핏 강제) 삭제
+    - _poses / _innerLayers / _footwear / _ri 랜덤 배열 삭제
+    - imagePrompt 배열 join 삭제
+    - Subject Profile 로컬 변수 전체(_h/_w/_bmi/_gender/_genderEn/
+      _isFemale/_ageMap2/_ageEn/_physique) 삭제 — 프롬프트용이었기 때문
+
+  [수술 2] payload에서 오염 플래그 3종 제거
+    - imagePrompt        (프론트 작성 전체 프롬프트)
+    - retryLongerPants   (바지 20% 길게 - 치마에도 잘못 작용)
+    - request7bu         (7부 - 치마에도 잘못 작용)
+
+  [수술 3] 분석 캐시 필수 보장 로직 추가 (~line 2239)
+    - 이전: isRetry=true + 캐시 없음 → 분석 스킵 → null 전송 ❌
+    - 신규: 최초든 다시요청이든 캐시 없으면 analyzeGarments() 강제 실행
+    - 추가 안전 가드: payload 조립 후 다시요청인데 분석이 null이면
+                     한 번 더 재분석 시도 + 진단 로그 출력
+
+  [수술 4] 다시요청 진단 로그 추가 (네트워크 전송 직전)
+    - console.log에 is_skirt 상태를 명시적으로 기록
+    - 문제 재발 시 브라우저 콘솔로 즉시 원인 추적 가능
+
+  [유지] 서버 /api/codistyle/generate의 isRetry 분기
+    - 서버는 isRetry=true일 때 "pose slightly vary" 정도만 적용
+    - Phase1 LOCKED 가드로 치마/바지 판정은 이미 보호됨 (line 3036)
+    - topAnalysis/bottomAnalysis 데이터를 유일한 진실로 삼음
+
 ─── 2026-04-20 19:30 KST (명세서 V2 반영 — 체형 기반 분석 고도화) ──────────
   [명세서 V2 개정] "상하의 밸런스"를 단순 옷 조합이 아닌 사용자 체형
                    데이터 기반 "체형 밸런스"로 개념 확장
@@ -2032,12 +2120,15 @@ function _renderAnalysis(srvAdvice){
           .replace(/^[\[\s]+|[\]\s]+$/g,'')
           .trim();
         var label = cur.label;
-        if(label === '퍼스널컬러 분석' || label === 'Personal Color Analysis') _pcText = body.slice(0, 500);
-        else if(label === '상의 스타일 분석' || label === 'Top Style Analysis') _topText = body.slice(0, 500);
-        else if(label === '하의 스타일 분석' || label === 'Bottom Style Analysis') _botText = body.slice(0, 500);
-        else if(label === '실루엣과 비율' || label === 'Silhouette and Proportion') _propText = body.slice(0, 500);
-        else if(label === '상하의 밸런스' || label === 'Top-Bottom Harmony') _harmonyText = body.slice(0, 500);
-        else if(label === '토탈 스타일링 분석' || label === 'Total Styling Analysis') _totalText = body.slice(0, 500);
+        // [2026-04-20 22:00] 섹션 글자수 제한 500→2000으로 상향
+        // 이전 문제: 서버가 풍부하게 답해도 프론트가 500자로 잘라서 4~5문장만 남김
+        // 프리미엄 리포트 섹션당 5개 불릿 × 80자 = 400자 + 여유분 필요 → 2000자
+        if(label === '퍼스널컬러 분석' || label === 'Personal Color Analysis') _pcText = body.slice(0, 2000);
+        else if(label === '상의 스타일 분석' || label === 'Top Style Analysis') _topText = body.slice(0, 2000);
+        else if(label === '하의 스타일 분석' || label === 'Bottom Style Analysis') _botText = body.slice(0, 2000);
+        else if(label === '실루엣과 비율' || label === 'Silhouette and Proportion') _propText = body.slice(0, 2000);
+        else if(label === '상하의 밸런스' || label === 'Top-Bottom Harmony') _harmonyText = body.slice(0, 2000);
+        else if(label === '토탈 스타일링 분석' || label === 'Total Styling Analysis') _totalText = body.slice(0, 2000);
         else if(label === '핵심 키워드' || label === 'Key Keywords'){
           _keywordsList = body.split(/[,，、]/)
             .map(function(k){ return k.replace(/[\[\]]/g,'').trim(); })
@@ -2235,17 +2326,30 @@ async function generate(isRetry=false){
   setDot(''); setProgress(12,'의상 확인 중…');
 
   // ── Phase 1: 상의/하의 상세 분석 (치마/바지 정확 판별) ──
-  // [2026-04-09] Phase 1: 이미 캐시된 분석이 있으면 완전 스킵
+  // [2026-04-20 20:00 KST] 분석 캐시 필수 보장 (다시요청 버그 수정의 핵심)
+  // 이전 문제: 다시요청 시 캐시 없으면 분석 없이 전송 → 서버가 이미지로 재판별
+  //            → 치마가 바지로 오판될 수 있음 (신뢰성 치명적 결함)
+  // 수정 원칙: 첫 요청이든 다시요청이든 분석 데이터는 반드시 있어야 한다.
+  //           없으면 무조건 analyzeGarments() 수행 후 진행.
   var _hasCache = !!(_topAnalysisCache && _bottomAnalysisCache);
   if(_hasCache) {
-    setProgress(25,'이전 분석 데이터 사용…');
-    console.log('[Phase1] 캐시 사용 → 분석 스킵');
-  } else if(!isRetry) {
-    setProgress(20,'의류 분석 중…');
-    try { await analyzeGarments(); } catch(_ae) { console.warn('[Phase1 분석 실패]',_ae); }
+    setProgress(25, isRetry ? '이전 분석 재사용(다시요청)…' : '이전 분석 데이터 사용…');
+    console.log('[Phase1]', isRetry?'다시요청':'최초', '→ 캐시 재사용',
+      '| 하의:', _bottomAnalysisCache.sub_category || _bottomAnalysisCache.category || '?',
+      _bottomAnalysisCache.is_skirt === true ? '✅치마' : '👖바지');
+  } else {
+    // 캐시 없음 → 최초든 다시요청이든 무조건 분석 수행
+    setProgress(20, '의류 분석 중…');
+    try {
+      await analyzeGarments();
+    } catch(_ae) {
+      console.warn('[Phase1 분석 실패]', _ae);
+    }
     if(_bottomAnalysisCache){
       var _botLabel = _bottomAnalysisCache.sub_category || _bottomAnalysisCache.category || '';
-      console.log('[Phase1] 하의:', _botLabel, _bottomAnalysisCache.is_skirt ? '✅ 치마' : '👖 바지');
+      console.log('[Phase1]', isRetry?'다시요청':'최초', '→ 신규 분석 완료',
+        '| 하의:', _botLabel,
+        _bottomAnalysisCache.is_skirt === true ? '✅ 치마' : '👖 바지');
     }
   }
   setProgress(30,'코디 프로필 준비 중…');
@@ -2258,76 +2362,41 @@ async function generate(isRetry=false){
     // 코디하기 New 프롬프트 — Codibank Styling Protocol
     // ═══════════════════════════════════════════════════
 
-    // ── Subject Profile ──
-    const _h = parseFloat(codiProfile.height||0), _w = parseFloat(codiProfile.weight||0);
-    const _bmi = (_h > 0 && _w > 0) ? _w / ((_h/100)**2) : 22;
-    const _gender = codiProfile.gender === 'F' ? 'Female' : 'Male';
-    const _genderEn = codiProfile.gender === 'F' ? 'woman' : 'man';
-    const _isFemale = codiProfile.gender === 'F';
-    const _ageMap2 = {'10s':'teens','20s':'mid-20s','30s':'early 30s','40s':'early 40s','50s':'early 50s','60s':'early 60s'};
-    const _ageEn = _ageMap2[codiProfile.ageGroup] || 'early 30s';
-    const _physique = (_h && _w) ? `${Math.round(_h)}cm, ${Math.round(_w)}kg` : '';
+    // [2026-04-20 20:00 KST] Subject Profile 지역변수 블록 제거됨.
+    // 이전에는 _gender, _ageEn, _physique, _isFemale 등이 프론트 프롬프트
+    // 문자열 조립에 쓰였으나, 프롬프트를 서버로 완전 위임하면서 모두 불필요해짐.
+    // 사용자 정보는 payload.user 객체(gender/ageGroup/height/weight)로 서버에 전달되며,
+    // 서버가 이를 바탕으로 Phase 1 PERSONA 프롬프트를 조립한다.
 
-    // ── [3] 바지 기장 로직 — 사용자 명시 요청 시에만 7부 허용 ──
-    // request7bu: 사용자가 직접 "7부" 요청한 경우만 true (기본 false)
-    const _request7bu = false; // 향후 사용자 입력 UI 연동 시 변경
-    let _pantsLengthRule = '';
-    if(_request7bu){
-      // 사용자 명시 요청 시에만 7부 허용
-      _pantsLengthRule = 'PANTS LENGTH (USER-REQUESTED 7/8): The user has explicitly requested 7/8 length. Generate cropped hem ending mid-calf. Apply faithfully.';
-    } else if(!_isFemale){
-      // 남성: 예외 없이 풀 레귤러
-      _pantsLengthRule = 'PANTS LENGTH (MALE — ABSOLUTE, NO EXCEPTIONS): Full regular length ONLY. Hem at ankle bone, resting on top of the shoe. NO cropped, NO 7/8, NO above-ankle. Overrides all reference images.';
-    } else {
-      // 여성 (최초·다시요청 무관): 풀 레귤러 강제
-      _pantsLengthRule = 'PANTS LENGTH (FULL REGULAR — MANDATORY): Pants MUST reach full ankle length. Cropped, 7/8, and above-ankle are STRICTLY FORBIDDEN regardless of body type, retry, or style trend. No exceptions.';
-    }
-    // ──── [2026-04-10 추가] 바지 핏 = 레귤러핏 기본 ────
-    const _pantsFitRule = 'PANTS FIT (DEFAULT — ALL PURPOSES): Use REGULAR FIT (straight or slightly tapered) as default. FORBIDDEN: slim fit, skinny fit, ultra-slim. Slim/skinny ONLY when user EXPLICITLY requested via custom input.';
+    // ══════════════════════════════════════════════════════════════════
+    // [2026-04-20 20:00 KST] 프론트 프롬프트 규칙 완전 제거 (수술)
+    // ──────────────────────────────────────────────────────────────────
+    // [문제] 치마 업로드 + 다시요청 시 바지로 바뀌는 심각한 버그
+    // [원인] 프론트가 독립적으로 만든 imagePrompt에 "PANTS LENGTH / PANTS FIT"
+    //        규칙이 무조건 포함되어 있었음. 치마/바지 구분 전무.
+    //        서버 /api/codistyle/generate는 payload.imagePrompt를 쓰지 않지만,
+    //        프론트가 만든 문자열이 네트워크로 전송되면서 오염 원인이 되거나,
+    //        향후 다른 경로로 혼입될 위험이 매우 큼.
+    // [원칙] 프론트는 절대 프롬프트를 만들지 않는다.
+    //        상의/하의 이미지 분석 데이터(topAnalysis/bottomAnalysis)와
+    //        사용자 프로필(성별/체형/퍼스널컬러)만 서버로 전달.
+    //        서버가 분석 데이터를 기반으로 올바른 프롬프트를 조립.
+    //
+    // [제거 대상]
+    //   - imagePrompt         (프론트 작성 프롬프트 전체)
+    //   - _pantsLengthRule    (치마 구분 없이 생성되던 바지 규칙)
+    //   - _pantsFitRule       (치마 구분 없이 생성되던 바지 핏 규칙)
+    //   - _poses/_footwear    (프론트 랜덤 포즈/신발 - 서버가 분석으로 결정)
+    //   - _innerLayers        (프론트 랜덤 이너 - 서버가 판단)
+    //   - retryLongerPants    (바지 20% 길게 플래그 - 치마에도 작용)
+    //   - request7bu          (7부 플래그 - 치마에도 작용)
+    //
+    // [유지]
+    //   - isRetry: true/false (서버가 포즈만 약간 변경)
+    //   - topAnalysis/bottomAnalysis: 서버가 이것만 보고 판단
+    // ══════════════════════════════════════════════════════════════════
 
-    // ── Re-generation: 매번 다른 포즈/레이어/신발 ──
-    const _poses = [
-      'natural standing, one hand slightly in pocket, slight confident smile',
-      'dynamic step forward with relaxed arms at sides',
-      'slight body turn (3/4 angle) with hands clasped in front',
-      'casual lean with weight on one leg, arms naturally hanging',
-    ];
-    const _innerLayers = [
-      'a plain white crew-neck t-shirt',
-      'a soft grey V-neck inner tee',
-      'a navy round-neck undershirt',
-      'a thin black mock-neck base layer',
-    ];
-    const _footwear = _isFemale ? [
-      'white canvas sneakers for a clean casual look',
-      'beige loafers for a polished feminine style',
-      'nude-tone block heels for an elevated look',
-      'white minimal sneakers with a feminine silhouette',
-    ] : [
-      'white minimal sneakers for a clean casual look',
-      'black leather loafers for smart-casual elegance',
-      'tan suede slip-ons for relaxed sophistication',
-      'classic dark brown derby shoes for a polished finish',
-    ];
-    const _ri = (arr) => arr[Math.floor(Math.random()*arr.length)];
-
-    // ── Build Prompt ──
-    // [2026-04-09] 프론트 프롬프트 간소화 — 상세 지시는 서버 4-Phase 프롬프트에 위임
-    const imagePrompt = [
-      'Generate a photorealistic full-body outfit image.',
-      'Subject: ' + _gender + ', ' + _ageEn + (_physique ? ', ' + _physique : '') + '.',
-      'Face: Match the provided face reference photo exactly.',
-      'Top garment: Use the first clothing reference image. Reproduce exact design, color, pattern.',
-      'Bottom garment: Use the second clothing reference image. Reproduce exact design, color, pattern.',
-      _pantsLengthRule,
-      _pantsFitRule,
-      'Background: Solid uniform pastel color. ZERO environment, NO room, NO street.',
-      'Full body head to shoes visible. Natural Korean everyday proportions.',
-      'Pose: ' + _ri(_poses) + '.',
-      'Footwear: ' + _ri(_footwear) + '.',
-    ].join(' ');
-
-    // ── Payload (styleHint 제거 — 서버 중복 방지) ──
+    // ── Payload (프론트는 분석 데이터만 전달, 프롬프트는 서버가 전담) ──
     const _csRegionInfo = (window.CodiBank && CodiBank.getMainSubCities) ? CodiBank.getMainSubCities(user?.location||'') : {region:'아시아',main:'서울',sub:'뉴욕'};
     const payload={
       user:{ gender:codiProfile.gender||'', ageGroup:codiProfile.ageGroup||'', height:codiProfile.height||'', weight:codiProfile.weight||'' },
@@ -2335,19 +2404,17 @@ async function generate(isRetry=false){
       stylistCity: _csRegionInfo.main,
       stylistSubCity: _csRegionInfo.sub,
       weather:{ location: user?.location||'' },
-      imagePrompt: imagePrompt,
-      isRetry: isRetry,
-      retryLongerPants: isRetry,  // 다시요청 시 바지 20% 길게 + 포즈 변경
-      request7bu: _request7bu, // ★ 사용자 명시 7부 요청 여부 (기본 false)
+      // imagePrompt / retryLongerPants / request7bu — 모두 제거 (위 주석 참조)
+      isRetry: isRetry,  // 서버가 포즈만 약간 변경하는 용도
       topPath: ST.top.serverPath,
       bottomPath: ST.bottom.serverPath,
       topDataUrl: ST.top.dataUrl || null,
       bottomDataUrl: ST.bottom.dataUrl || null,
-      // [2026-04-06 추가] 치마 이미지 가로:세로 비율 → 서버에서 기장 판단용
+      // 치마 이미지 가로:세로 비율 → 서버에서 치마 기장 계산용 (필수 유지)
       bottomImageWidth: ST.bottom.naturalWidth || ST.bottom.width || 0,
       bottomImageHeight: ST.bottom.naturalHeight || ST.bottom.height || 0,
       faceImage: faceDataUrl || null,
-      // 퍼스널컬러 + 체형 정보 추가
+      // 퍼스널컬러 + 체형 정보 (서버 Phase 1 PERSONA 입력)
       personalColor: _csPersonalColor ? {
         season:           _csPersonalColor.season,
         season_en:        _csPersonalColor.season_en || '',
@@ -2367,7 +2434,8 @@ async function generate(isRetry=false){
         style_tip:        _csPersonalColor.style_tip || '',
         makeup_tip:       _csPersonalColor.makeup_tip || ''
       } : null,
-      // ── Phase 1 분석 결과 포함 (치마/바지 확실 판별) ──
+      // ── ★ Phase 1 분석 결과 (치마/바지 판별의 유일한 진실 원천) ──
+      // 서버는 이 데이터만으로 프롬프트를 조립한다. 프론트는 관여하지 않는다.
       topAnalysis:    _topAnalysisCache    || null,
       bottomAnalysis: _bottomAnalysisCache || null,
       bodyType: codiProfile.bodyType || user.bodyType || '',
@@ -2376,6 +2444,27 @@ async function generate(isRetry=false){
       lang: (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'en' : 'ko',
       _ts: Date.now()
     };
+    // [다시요청 안전 가드] 분석 데이터가 반드시 존재해야 함
+    // 존재하지 않으면 치마/바지 판별 불가 → 서버가 이미지만으로 재판별 (폴백)
+    if(isRetry && (!_topAnalysisCache || !_bottomAnalysisCache)){
+      console.warn('[generate] 다시요청인데 분석 캐시 없음. 재분석 수행.');
+      try {
+        await analyzeGarments();
+        payload.topAnalysis    = _topAnalysisCache    || null;
+        payload.bottomAnalysis = _bottomAnalysisCache || null;
+      } catch(_ae) {
+        console.error('[generate] 재분석 실패 — 서버 폴백 사용:', _ae);
+      }
+    }
+    // [다시요청 진단 로그] 전송 직전 치마/바지 상태 확인
+    if(isRetry){
+      const _bA = payload.bottomAnalysis || {};
+      console.log('[다시요청] 하의 분석 전송값:',
+        'category=' + (_bA.category||'?'),
+        'sub=' + (_bA.sub_category||'?'),
+        'is_skirt=' + (_bA.is_skirt === true ? '✅치마' : '👖바지'),
+        'length=' + (_bA.skirt_length || _bA.length || '—'));
+    }
     setProgress(45,'AI 착장 이미지 생성 중…');
     const r=await fetch(base + '/api/codistyle/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const j=await r.json().catch(()=>null);
@@ -2513,9 +2602,25 @@ async function generate(isRetry=false){
         }
 
         // ── Executive Summary + 해시태그 표시 ──
+        // [2026-04-20 22:00] 2차 방어선: 서버 파싱이 혹시 놓친 "심층 분석:" 접미 제거
         if(_srvExec){
+          var _cleanExec = String(_srvExec).trim();
+          // 뒷쪽 섹션 마커 단어가 끝에 붙어오면 제거
+          var _endMarkers = ['심층 분석:', '심층 분석', 'Deep-dive:', 'Deep-Dive:', 'DEEP-DIVE:',
+                             '퍼스널컬러 분석:', 'Personal Color Analysis:',
+                             '상의 스타일 분석:', '하의 스타일 분석:',
+                             '실루엣과 비율:', '상하의 밸런스:',
+                             'Best TPO:', 'Improvement Tips:', 'Style Hashtags:',
+                             '개선 팁:', '스타일 해시태그:', 'OUTPUT LINE'];
+          _endMarkers.forEach(function(m){
+            var idx = _cleanExec.indexOf(m);
+            if(idx > 0) _cleanExec = _cleanExec.slice(0, idx).trim();
+          });
+          // 끝의 미완 단어(심층, Analysis 등) 제거
+          _cleanExec = _cleanExec.replace(/\s*(심층|분석|Deep|Analysis)\s*$/, '').trim();
           const _execEl = document.getElementById('csExecSummary');
-          if(_execEl) _execEl.textContent = _srvExec;
+          if(_execEl) _execEl.textContent = _cleanExec;
+          _srvExec = _cleanExec;  // window._csPremiumData에도 깨끗한 값 전달
         }
         if(_srvHashtags && _srvHashtags.length){
           const _htBox = document.getElementById('csHashtagsBox');
@@ -2764,7 +2869,7 @@ function openPremiumReport(){
       execEl.textContent = data.execSummary;
     } else if(data.sections && data.sections.total){
       // fallback: 구형 totalText 사용
-      execEl.textContent = data.sections.total.replace(/▸/g,'').replace(/\s+/g,' ').trim().slice(0, 250);
+      execEl.textContent = data.sections.total.replace(/▸/g,'').replace(/\s+/g,' ').trim().slice(0, 500);
     } else {
       execEl.textContent = '분석 데이터를 불러올 수 없습니다.';
     }
@@ -2782,11 +2887,31 @@ function openPremiumReport(){
   };
   setPrm('prmDeepProp',    sec.prop    || '실루엣과 비율 분석 데이터가 준비 중입니다.');
   setPrm('prmDeepColor',   sec.pc      || '컬러 케미스트리 분석 데이터가 준비 중입니다.');
-  // 체형 매칭: 상의 + 하의 결합
-  var bodyCombined = '';
-  if(sec.top)    bodyCombined += '[상의]\n' + sec.top + '\n\n';
-  if(sec.bot)    bodyCombined += '[하의]\n' + sec.bot;
-  setPrm('prmDeepBody',    bodyCombined.trim() || '체형 매칭 분석 데이터가 준비 중입니다.');
+  // [2026-04-20 22:00] 체형 매칭 섹션 레이아웃 리치하게 개선
+  // 이전: [상의] + [하의] 단순 합본 → 빈약해 보임
+  // 신규: 상의/하의를 시각적으로 분리된 서브-블록으로 표시, 아이콘+제목+본문
+  var bodyEl = document.getElementById('prmDeepBody');
+  if(bodyEl){
+    var _bodyHtml = '';
+    if(sec.top || sec.bot){
+      if(sec.top){
+        _bodyHtml += '<div style="margin-bottom:10px;padding:10px 12px;background:rgba(151,254,237,0.035);border-left:2px solid rgba(151,254,237,0.3);border-radius:0 6px 6px 0;">'
+                  + '<div style="font-size:10px;font-weight:800;color:rgba(151,254,237,0.8);letter-spacing:0.05em;margin-bottom:5px;">👕 상의 × 체형</div>'
+                  + '<div style="font-size:11px;color:rgba(255,255,255,0.72);line-height:1.7;white-space:pre-line;">' + sec.top + '</div>'
+                  + '</div>';
+      }
+      if(sec.bot){
+        _bodyHtml += '<div style="padding:10px 12px;background:rgba(151,254,237,0.035);border-left:2px solid rgba(151,254,237,0.3);border-radius:0 6px 6px 0;">'
+                  + '<div style="font-size:10px;font-weight:800;color:rgba(151,254,237,0.8);letter-spacing:0.05em;margin-bottom:5px;">👖 하의 × 체형</div>'
+                  + '<div style="font-size:11px;color:rgba(255,255,255,0.72);line-height:1.7;white-space:pre-line;">' + sec.bot + '</div>'
+                  + '</div>';
+      }
+    } else {
+      _bodyHtml = '<span style="font-size:10.5px;color:rgba(255,255,255,0.45);">체형 매칭 분석 데이터가 준비 중입니다.</span>';
+    }
+    bodyEl.innerHTML = _bodyHtml;
+    bodyEl.style.whiteSpace = 'normal';  // HTML 모드로 전환
+  }
   setPrm('prmDeepHarmony', sec.harmony || '상하의 밸런스 분석 데이터가 준비 중입니다.');
 
   // SECTION 3: TPO 추천
