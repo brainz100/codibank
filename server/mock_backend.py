@@ -5,6 +5,34 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-04-20 09:50 KST (C.S.I 4지표 + 프리미엄 리포트 백엔드) ──────────
+#   [명세서] CodiBank Premium Personal Styling Report V1 대응
+#   [수정 위치] codistyle_generate 함수의 PHASE 5 EVALUATION 블록 + 응답 파싱
+#
+#   [STEP 1] Phase 5 프롬프트 전면 재설계 (~line 3316)
+#     - 점수: 3지표(PC 40/Body 40/Coord 20) → C.S.I 4지표
+#       · body_shape        /30  (체형 보완도)
+#       · personal_color    /30  (퍼스널 컬러 조화)
+#       · proportion        /20  (비율 개선도 — 신규)
+#       · harmony           /20  (상하의 밸런스 — 신규)
+#     - 톤앤매너: "전문 컨설턴트" 어조 강제 (캐주얼 표현 금지)
+#     - 신규 출력:
+#       · OUTPUT LINE 2 — Executive Summary (2~3문장 한 줄 평)
+#       · OUTPUT LINE 4 — Best TPO 추천 (2~3개, '|' 구분)
+#       · OUTPUT LINE 5 — 개선 팁 (헤어/액세서리/신발, '|' 구분)
+#       · OUTPUT LINE 6 — 스타일 해시태그 (5개, # 접두)
+#     - 심층 분석 섹션: 4개 → 5개 (실루엣과 비율 / 상하의 밸런스 추가)
+#
+#   [STEP 1-B] 응답 파싱 로직 확장 (~line 3545)
+#     - 4지표 점수 추출 + 정규화 (총점 합 일치 보정)
+#     - executive_summary / tpo_recommendations / improvement_tips /
+#       style_hashtags 신규 파싱
+#     - 구형 응답 fallback (coordination→harmony 매핑, keywords→hashtags)
+#
+#   [응답 JSON 필드] 신규 4개 필드 추가:
+#     executive_summary, tpo_recommendations,
+#     improvement_tips, style_hashtags
+#
 # ─── 2026-04-20 06:50 KST (치마→바지 재발 근본 원인 4종 수정) ─────────────
 #   [원인] 치마 레퍼런스 이미지를 업로드해도 바지로 생성되는 문제의 진짜 원인:
 #     ① _pants_rule 데드 코드 (line 3078~3134): 치마/바지 체크 없이 항상
@@ -3307,64 +3335,119 @@ def codistyle_generate():
         + "Professional natural-light editorial lighting. No text, no watermarks, no scenery. "
         + "Safety: person fully clothed, no nudity, no sexualized poses. "
 
-        # [PHASE 5] EVALUATION — [2026-04-20 03:52 KST] Phase 1 근거 Phase 2/3 종합 분석
+        # [PHASE 5] EVALUATION — [2026-04-20 07:50 KST] C.S.I (CodiBank Styling Index) 4지표 시스템
         # 원칙:
-        #   - Phase 1 (PERSONA: 체형/BMI/퍼스널컬러/summary)을 평가의 "기준"으로 삼음
+        #   - Phase 1 (PERSONA: 체형/BMI/퍼스널컬러)을 평가의 "기준"으로 삼음
         #   - Phase 2 (GARMENTS)와 Phase 3 (WEARING)을 그 기준으로 종합 평가
-        #   - 점수 3항목(personal_color 40 / body_shape 40 / coordination 20) 각각이
-        #     Phase 1의 어느 속성을 근거로 하는지 명시
-        + "\n\n[PHASE 5 — EVALUATION OUTPUT — REQUIRED TEXT RESPONSE]: "
-        + "After generating the image, EVALUATE the outfit. "
-        + "The evaluation framework: use PHASE 1 (persona, body profile, personal color) as the REFERENCE CRITERIA, "
-        + "and judge PHASE 2 (garments) combined with PHASE 3 (wearing style) against that reference. "
-        + "Each score must be directly justified by Phase 1 attributes. "
-        + "Output MUST contain the following lines exactly. "
+        #   - C.S.I 4지표 (100점 만점):
+        #       1. 체형 보완도 (body_shape)     /30 — 단점 커버 + 장점 부각
+        #       2. 퍼스널컬러 조화 (personal_color) /30 — 안색에 미치는 긍정적 효과
+        #       3. 비율 개선도 (proportion)      /20 — 다리길이/신체 비율 최적화
+        #       4. 상하의 밸런스 (harmony)       /20 — 소재/볼륨/디자인 충돌 없음
+        #   - 추가 출력: Executive Summary (3줄 이내), TPO 추천, 개선 팁
+        + "\n\n[PHASE 5 — C.S.I EVALUATION OUTPUT — REQUIRED TEXT RESPONSE]: "
+        + "After generating the image, EVALUATE the outfit as a PROFESSIONAL STYLING CONSULTANT. "
+        + "Use a refined, sophisticated tone (NOT casual). Examples of good tone: "
+        + "'balanced silhouette', 'complements the complexion', 'optimizes visual proportions'. "
+        + "AVOID casual phrases like 'looks great', 'nice', 'cool'. "
+        + "Evaluation framework: use PHASE 1 (persona, body profile, personal color) as REFERENCE CRITERIA, "
+        + "judge PHASE 2 (garments) combined with PHASE 3 (wearing style) against that reference. "
+        + "Output MUST contain ALL of the following lines exactly. "
 
-        # 점수 (100점 만점, 3개 합산) — 각 항목이 Phase 1의 어느 요소를 근거로 하는지 명시
-        + "\nOUTPUT LINE 1 — SCORE (must sum to 100): "
-        + "STYLING_SCORE:[total]/100|personal_color:[n1]/40|body_shape:[n2]/40|coordination:[n3]/20 "
-        + "where n1<=40, n2<=40, n3<=20, n1+n2+n3=total. "
-        + "\nScoring basis (anchor each score to Phase 1): "
+        # OUTPUT LINE 1: C.S.I 점수 (4지표 = 30+30+20+20 = 100)
+        + "\nOUTPUT LINE 1 — C.S.I SCORE (must sum to 100): "
+        + "STYLING_SCORE:[total]/100|body_shape:[n1]/30|personal_color:[n2]/30|proportion:[n3]/20|harmony:[n4]/20 "
+        + "where n1<=30, n2<=30, n3<=20, n4<=20, n1+n2+n3+n4=total<=100. "
+        + "\nScoring basis (anchor each score to PHASE 1): "
         + (
-            f"• personal_color/40 — compare PHASE 2 garment colors against PHASE 1 palette "
+            f"• body_shape/30 — evaluate how PHASE 2 silhouette + PHASE 3 wearing covers weaknesses and "
+            f"enhances strengths of PHASE 1 body type ({_body_type_key}). "
+            + _build_body_type_prompt(gender, _body_type_key) + " "
+            if _body_type_key else
+            "• body_shape/30 — general silhouette compatibility with the user's build. "
+        )
+        + (
+            f"• personal_color/30 — evaluate PHASE 2 garment colors against PHASE 1 personal color "
             f"(season={_pc_season}, undertone={_pc_undertone}, best={_pc_best_colors}, avoid={_pc_avoid_colors}"
             + (f", summary='{_pc_summary}'" if _pc_summary else "")
-            + "). "
+            + "). Focus on positive effect on complexion. "
             if _pc_season else
-            "• personal_color/40 — general color harmony (personal color data not available). "
+            "• personal_color/30 — general color harmony (personal color data unavailable). "
         )
-        + (
-            f"• body_shape/40 — compare PHASE 2 silhouette + PHASE 3 wearing style against PHASE 1 body profile "
-            f"(type={_body_type_key}). " + _build_body_type_prompt(gender, _body_type_key) + " "
-            if _body_type_key else
-            "• body_shape/40 — general proportion evaluation. "
-        )
-        + "• coordination/20 — evaluate top+bottom color/pattern/style coherence and PHASE 3 wearing execution (tuck, drape, layering). "
+        + "• proportion/20 — evaluate visual body ratio: does top hem position + bottom rise create "
+        + "lengthening effect? Is the waistline placement flattering? Does the overall 3:7 or 4:6 "
+        + "head-to-toe ratio work for the user? "
+        + "• harmony/20 — evaluate top+bottom texture/volume/design coherence. Any material clash? "
+        + "Color coordination? Detail balance? "
         + f"\nUser: {gender_en}, {age}" + (f", {hw_en}" if hw_en else "") + ". "
 
-        # 5개 분석 섹션 (한/영 분기) — 각 섹션 500자 이내, 보고서 형식 ▸ 불릿 4~5개
-        # 각 섹션은 Phase 1 근거를 명시하여 작성
+        # OUTPUT LINE 2: Executive Summary (3줄 이내 한 줄 평)
         + (
-            "\nOUTPUT LINE 2+ — ANALYSIS (English, report format with bullet points ▸): "
-            "Each of the 5 sections below is REQUIRED and must ANCHOR its judgment to PHASE 1 (persona/body/personal color). "
-            "Each section MUST start with its label exactly as written, contain 4-5 bullet points starting with '▸', and be under 500 characters. "
-            "Use 'color-name #HEX' format for all color mentions (e.g., 'Navy #1B3A5F'). "
-            "\n퍼스널컬러 분석: [▸ PHASE 1 season type vs PHASE 2 colors · ▸ top/bottom harmony with #HEX · ▸ best/avoid palette match · ▸ summary-based styling tip] "
-            "\n상의 스타일 분석: [▸ material/pattern/fit · ▸ neckline/sleeve/trim details from PHASE 2 · ▸ color with #HEX · ▸ PHASE 1 body-type synergy · ▸ improvement note] "
-            "\n하의 스타일 분석: [▸ silhouette/length/material from PHASE 2 · ▸ color with #HEX · ▸ leg-line effect vs PHASE 1 body · ▸ top-bottom proportion (PHASE 3 wearing) · ▸ improvement note] "
-            "  (CRITICAL: this 하의 section is MANDATORY — do NOT skip, do NOT merge with other sections) "
-            "\n토탈 스타일링 분석: [▸ overall color combo with #HEX judged by PHASE 1 · ▸ proportion verdict vs body type · ▸ TPO fit · ▸ improvement suggestion] "
-            "\n핵심 키워드: [EXACTLY 5 keywords separated by commas, each 1-3 words, capturing outfit essence, e.g., 'Minimal Chic, Soft Spring, Structured Fit, Layered Tone, Daily Formal']"
+            "\nOUTPUT LINE 2 — EXECUTIVE SUMMARY (English, professional consultant tone, 2-3 sentences MAX, "
+            "total under 200 chars): "
+            "\nExecutive Summary: [2-3 sentences capturing the outfit's core visual impact, key strength, "
+            "and overall mood. Use refined consultant language.]"
             if _cs_en else
-            "\nOUTPUT LINE 2+ — 분석 (한국어, 반드시 보고서 형식 ▸ 불릿 사용): "
-            "아래 5개 섹션 모두 필수이며, 각 섹션의 판단은 PHASE 1 (퍼소나/체형/퍼스널컬러)을 근거로 해야 함. "
-            "각 섹션은 라벨로 정확히 시작, ▸ 불릿 4~5개, 500자 이내. 모든 컬러는 '컬러명 #HEX' 형식. "
-            "\n퍼스널컬러 분석: [▸ PHASE 1 시즌 타입 vs PHASE 2 컬러 · ▸ 상의/하의 조화(#HEX) · ▸ 추천/회피 팔레트 부합 · ▸ summary 기반 팁] "
-            "\n상의 스타일 분석: [▸ 소재/패턴/핏 · ▸ PHASE 2의 넥라인/소매/트림 · ▸ 컬러(#HEX) · ▸ PHASE 1 체형 시너지 · ▸ 개선 포인트] "
-            "\n하의 스타일 분석: [▸ PHASE 2의 실루엣/기장/소재 · ▸ 컬러(#HEX) · ▸ PHASE 1 체형 기준 다리라인 효과 · ▸ PHASE 3 착용방식 기반 상하 비율 · ▸ 개선 포인트] "
-            "  (반드시 작성: 이 '하의' 섹션은 필수이며 생략 또는 다른 섹션과 병합 금지) "
-            "\n토탈 스타일링 분석: [▸ PHASE 1 기준 전체 배색(#HEX) · ▸ 체형 대비 비율 평가 · ▸ TPO 적합성 · ▸ 개선 제안] "
-            "\n핵심 키워드: [정확히 5개, 쉼표 구분, 각 2~6자. 예: '미니멀시크, 봄웜톤, 스트럭처드핏, 레이어드톤, 데일리포멀']"
+            "\nOUTPUT LINE 2 — 종합 평가 (한국어, 전문 컨설턴트 어조, 2~3문장 최대, 총 200자 이내): "
+            "\n종합 평가: [2~3문장으로 착장의 핵심 시각적 효과, 주요 강점, 전반적 무드를 기술. "
+            "'세련된', '균형잡힌', '안색을 밝혀주는', '시각적 비율을 최적화하는' 등 전문 용어 사용. "
+            "'좋아요', '멋져요' 등 캐주얼 표현 금지.]"
+        )
+
+        # OUTPUT LINE 3+: 심층 분석 5섹션 (기존 유지, 라벨만 소폭 개선)
+        + (
+            "\nOUTPUT LINE 3+ — DEEP-DIVE ANALYSIS (English, professional report with ▸ bullets): "
+            "Each section REQUIRED, anchored to PHASE 1, 4-5 bullets with '▸', under 500 chars each. "
+            "Use 'color-name #HEX' format for all colors. "
+            "\n퍼스널컬러 분석: [▸ PHASE 1 season type vs PHASE 2 colors · ▸ top/bottom harmony with #HEX · ▸ best/avoid palette match · ▸ complexion effect analysis · ▸ refined styling insight] "
+            "\n상의 스타일 분석: [▸ material/pattern/fit · ▸ neckline/sleeve/trim details · ▸ color with #HEX · ▸ PHASE 1 body-type synergy · ▸ refinement note] "
+            "\n하의 스타일 분석: [▸ silhouette/length/material · ▸ color with #HEX · ▸ leg-line effect vs PHASE 1 body · ▸ top-bottom proportion · ▸ refinement note] "
+            "  (CRITICAL: 하의 section is MANDATORY — never skip, never merge) "
+            "\n실루엣과 비율: [▸ overall silhouette judgment · ▸ waistline position effect · ▸ head-to-toe ratio · ▸ visual lengthening · ▸ proportion verdict] "
+            "\n상하의 밸런스: [▸ texture harmony · ▸ volume balance · ▸ design detail coherence · ▸ color-story unity · ▸ overall chemistry] "
+            if _cs_en else
+            "\nOUTPUT LINE 3+ — 심층 분석 (한국어, 전문 컨설턴트 보고서 형식 ▸ 불릿): "
+            "각 섹션 필수, PHASE 1 근거, ▸ 불릿 4~5개, 500자 이내. 모든 컬러는 '컬러명 #HEX' 형식. "
+            "전문 컨설턴트 어조 (캐주얼 금지). "
+            "\n퍼스널컬러 분석: [▸ PHASE 1 시즌 타입 vs PHASE 2 컬러 · ▸ 상의/하의 조화(#HEX) · ▸ 추천/회피 팔레트 부합 · ▸ 안색 효과 분석 · ▸ 세련된 스타일링 인사이트] "
+            "\n상의 스타일 분석: [▸ 소재/패턴/핏 · ▸ 넥라인/소매/트림 · ▸ 컬러(#HEX) · ▸ PHASE 1 체형 시너지 · ▸ 정제된 개선 포인트] "
+            "\n하의 스타일 분석: [▸ 실루엣/기장/소재 · ▸ 컬러(#HEX) · ▸ PHASE 1 체형 기준 다리라인 효과 · ▸ 상하의 비율 · ▸ 정제된 개선 포인트] "
+            "  (반드시 작성: 하의 섹션 생략/병합 금지) "
+            "\n실루엣과 비율: [▸ 전체 실루엣 판정 · ▸ 허리선 위치 효과 · ▸ 머리끝-발끝 비율 · ▸ 시각적 롱다리 효과 · ▸ 비율 총평] "
+            "\n상하의 밸런스: [▸ 소재 조화 · ▸ 볼륨 균형 · ▸ 디자인 디테일 일관성 · ▸ 컬러 스토리 · ▸ 전체 케미스트리] "
+        )
+
+        # OUTPUT LINE 4: TPO 추천 (Best 환경 2~3개)
+        + (
+            "\nOUTPUT LINE 4 — TPO RECOMMENDATIONS (English): "
+            "\nBest TPO: [2-3 specific occasions separated by '|', each 8-15 chars, professional settings. "
+            "Examples: 'Business Meeting | Gallery Visit | Brunch Date']"
+            if _cs_en else
+            "\nOUTPUT LINE 4 — TPO 추천 (한국어): "
+            "\nBest TPO: [2~3개의 구체적 상황, '|'로 구분, 각 4~10자, 전문적 환경. "
+            "예시: '비즈니스 미팅 | 갤러리 방문 | 브런치 데이트']"
+        )
+
+        # OUTPUT LINE 5: 단점 보완 팁 (헤어/액세서리)
+        + (
+            "\nOUTPUT LINE 5 — IMPROVEMENT TIPS (English): "
+            "\nImprovement Tips: [2-3 specific tips separated by '|', each under 30 chars. "
+            "Focus on hair, accessories, shoes. Examples: 'Gold earrings for warmth | Low ponytail | Nude heels']"
+            if _cs_en else
+            "\nOUTPUT LINE 5 — 개선 팁 (한국어): "
+            "\n개선 팁: [2~3개의 구체적 팁, '|'로 구분, 각 15자 이내. "
+            "헤어/액세서리/신발 중심. 예시: '골드 이어커프 | 로우 포니테일 | 누드 펌프스']"
+        )
+
+        # OUTPUT LINE 6: 해시태그 (기존 keywords 업그레이드)
+        + (
+            "\nOUTPUT LINE 6 — STYLE HASHTAGS (English): "
+            "\nStyle Hashtags: [EXACTLY 5 tags with '#' prefix, separated by spaces, each 2-12 chars. "
+            "Capture the outfit's essence. Examples: '#MinimalChic #SoftSpring #TailoredFit #TonalLayered #DailyFormal']"
+            if _cs_en else
+            "\nOUTPUT LINE 6 — 스타일 해시태그 (한국어): "
+            "\n스타일 해시태그: [정확히 5개, '#' 접두어, 공백 구분, 각 2~10자. "
+            "착장의 본질을 포착. 예시: '#비율보정완벽 #쿨톤착붙 #스트럭처드핏 #톤온톤 #데일리포멀']"
         )
 
         # 다시요청
@@ -3505,37 +3588,96 @@ def codistyle_generate():
     rel  = _write_upload_bytes("codistyle", "jpg", img_bytes)
     base = _public_base()
 
-    # ── 스타일링 스코어 파싱 (새 형식: STYLING_SCORE:82/100|...) ──
+    # ──── [2026-04-20 07:50 KST] C.S.I 4지표 점수 파싱 + 프리미엄 리포트 신규 필드 추출 ────
+    # 변경 내용:
+    #   - 점수: 3개(personal_color 40/body_shape 40/coordination 20) → 4개(body_shape 30/personal_color 30/proportion 20/harmony 20)
+    #   - 신규 필드: executive_summary, tpo_recommendations, improvement_tips, style_hashtags
+    # 하위호환: 구형 (3지표) 응답이 올 경우 기본 정규화 로직 유지 (fallback)
+    # ───────────────────────────────────────────────────────────────────
     styling_score = None
     score_breakdown = {}
     styling_advice = ""
+    executive_summary = ""
+    tpo_recommendations = []
+    improvement_tips = []
+    style_hashtags = []
     try:
         import re as _re2
         # 총점
         _m = _re2.search(r'STYLING_SCORE:(\d+)/100', comment)
         if _m: styling_score = int(_m.group(1))
-        # 3개 세부 점수
-        for _k in ['personal_color', 'body_shape', 'overall_styling', 'coordination']:
+
+        # C.S.I 4지표 (신규 우선) + 구형 3지표 fallback
+        for _k in ['body_shape', 'personal_color', 'proportion', 'harmony',
+                   'overall_styling', 'coordination']:
             _km = _re2.search(rf'{_k}:(\d+)', comment)
             if _km: score_breakdown[_k] = int(_km.group(1))
-        # 점수 합산이 100이 아닌 경우 정규화
+
+        # 구형 → 신형 매핑 (후방호환)
+        if 'coordination' in score_breakdown and 'harmony' not in score_breakdown:
+            score_breakdown['harmony'] = score_breakdown.pop('coordination')
+        if 'overall_styling' in score_breakdown and 'harmony' not in score_breakdown:
+            score_breakdown['harmony'] = score_breakdown.pop('overall_styling')
+
+        # 점수 정규화: 4지표 합이 100이 아닐 때 비례 조정 (총점 기준)
         _sb = score_breakdown
-        # coordination → overall_styling 매핑
-        if 'coordination' in _sb and 'overall_styling' not in _sb:
-            _sb['overall_styling'] = _sb.pop('coordination')
-        _sum = _sb.get('personal_color',0)+_sb.get('body_shape',0)+_sb.get('overall_styling',0)
-        if styling_score and _sum > 0 and _sum != styling_score:
-            _r = styling_score / _sum
-            _sb['personal_color'] = round(_sb.get('personal_color',0)*_r)
-            _sb['body_shape']     = round(_sb.get('body_shape',0)*_r)
-            _sb['overall_styling']= styling_score - _sb['personal_color'] - _sb['body_shape']
-        # 4개 섹션 분석 텍스트 추출
+        _has_new = all(k in _sb for k in ['body_shape', 'personal_color', 'proportion', 'harmony'])
+        if _has_new and styling_score:
+            _sum = _sb['body_shape'] + _sb['personal_color'] + _sb['proportion'] + _sb['harmony']
+            if _sum > 0 and _sum != styling_score:
+                _r = styling_score / _sum
+                _sb['body_shape']     = round(_sb['body_shape'] * _r)
+                _sb['personal_color'] = round(_sb['personal_color'] * _r)
+                _sb['proportion']     = round(_sb['proportion'] * _r)
+                _sb['harmony']        = styling_score - _sb['body_shape'] - _sb['personal_color'] - _sb['proportion']
+        elif 'personal_color' in _sb and 'body_shape' in _sb:
+            # 구형 3지표 fallback (기존 로직 유지)
+            _sum = _sb.get('personal_color',0)+_sb.get('body_shape',0)+_sb.get('harmony',0)
+            if styling_score and _sum > 0 and _sum != styling_score:
+                _r = styling_score / _sum
+                _sb['personal_color'] = round(_sb.get('personal_color',0)*_r)
+                _sb['body_shape']     = round(_sb.get('body_shape',0)*_r)
+                _sb['harmony']        = styling_score - _sb['personal_color'] - _sb['body_shape']
+
+        # Executive Summary 추출 (한/영)
+        _esm = _re2.search(r'(?:Executive Summary|종합 평가)\s*[:：]\s*([^\n]+(?:\n(?!(?:Best TPO|개선 팁|Improvement Tips|Style Hashtags|스타일 해시태그|퍼스널컬러 분석|Personal Color Analysis|OUTPUT LINE))[^\n]*)*)', comment)
+        if _esm:
+            executive_summary = _esm.group(1).strip().strip('[]').strip()[:300]
+
+        # TPO 추천 추출
+        _tpo_m = _re2.search(r'(?:Best TPO)\s*[:：]\s*([^\n]+)', comment)
+        if _tpo_m:
+            _raw = _tpo_m.group(1).strip().strip('[]').strip()
+            tpo_recommendations = [t.strip() for t in _raw.split('|') if t.strip()][:3]
+
+        # 개선 팁 추출
+        _tip_m = _re2.search(r'(?:Improvement Tips|개선 팁)\s*[:：]\s*([^\n]+)', comment)
+        if _tip_m:
+            _raw = _tip_m.group(1).strip().strip('[]').strip()
+            improvement_tips = [t.strip() for t in _raw.split('|') if t.strip()][:3]
+
+        # 스타일 해시태그 추출 (#으로 시작하는 것들)
+        _hash_m = _re2.search(r'(?:Style Hashtags|스타일 해시태그)\s*[:：]\s*([^\n]+)', comment)
+        if _hash_m:
+            _raw = _hash_m.group(1).strip().strip('[]').strip()
+            # # 접두어 있든 없든 추출
+            style_hashtags = _re2.findall(r'#?([^\s,#]+)', _raw)
+            style_hashtags = [h.strip() for h in style_hashtags if h.strip() and len(h.strip()) <= 12][:5]
+
+        # 구 형식 fallback: 핵심 키워드 (STYLE_HASHTAGS가 없으면)
+        if not style_hashtags:
+            _kw_m = _re2.search(r'(?:핵심 키워드|Key Keywords)\s*[:：]\s*([^\n]+)', comment)
+            if _kw_m:
+                _raw = _kw_m.group(1).strip().strip('[]').strip()
+                style_hashtags = [k.strip() for k in _re2.split(r'[,，、]', _raw) if k.strip()][:5]
+
+        # 심층 분석 텍스트 (STYLING_SCORE 줄 이후 전체)
         _score_line_end = _re2.search(r'STYLING_SCORE:[^\n]+', comment)
         if _score_line_end:
             _advice_raw = comment[_score_line_end.end():].strip()
-            styling_advice = _advice_raw[:600] if _advice_raw else ""
-    except Exception:
-        pass
+            styling_advice = _advice_raw[:2000] if _advice_raw else ""
+    except Exception as _parse_e:
+        print(f"[codistyle] 점수/리포트 파싱 실패(무시): {_parse_e}")
 
     garment_summary = {
         "top": {"key": top_category_key, "ko": top_info.get("ko",""), "garment": top_info.get("garment","")},
@@ -3549,6 +3691,11 @@ def codistyle_generate():
         styling_score=styling_score,
         score_breakdown=score_breakdown,
         styling_advice=styling_advice,
+        # [2026-04-20 07:50 KST] 프리미엄 리포트 신규 필드
+        executive_summary=executive_summary,
+        tpo_recommendations=tpo_recommendations,
+        improvement_tips=improvement_tips,
+        style_hashtags=style_hashtags,
         garment_summary=garment_summary,
         model=_CODISTYLE_MODEL,
         sdk=_SDK,
