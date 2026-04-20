@@ -5,6 +5,33 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-04-20 19:30 KST (명세서 V2 반영 — Phase 5 프롬프트 고도화) ──────
+#   [명세서 V2 개정] Section IV 핵심 구간 배점 40점 재구성:
+#     - Section IV-1 비율 개선도 (Proportion /20)
+#         Y축(수직) 관점: 상의 기장 + 하의 허리선(Rise) × 사용자 신장
+#     - Section IV-2 체형 밸런스 (harmony /20)
+#         X축(수평) 관점: 사용자 체형(A/V/H/X/O) × 의상 부피/소재 두께감
+#
+#   [수정 위치] codistyle_generate 함수의 PHASE 5 scoring basis (~line 3378)
+#
+#   [proportion/20 프롬프트 고도화]
+#     - "SPEC V2: VERTICAL/Y-axis analysis" 명시
+#     - 턱인/턱아웃 연출에 의한 허리선 재설정 효과
+#     - 신장 보완율 (실제 키 대비 시각적 상대 다리길이)
+#     - 3:7 / 4:6 이상 비율 판정
+#
+#   [harmony/20 프롬프트 고도화]
+#     - "SPEC V2: HORIZONTAL/X-axis analysis" 명시
+#     - "This is NOT merely about garment color coordination —
+#        it is body-type-anchored volume balance." 명시
+#     - 체형 타입별 매트릭스를 _build_body_type_prompt로 주입
+#     - 상체:하체 부피 1:1 판정
+#
+#   [심층 분석 섹션] 상하의 밸런스 섹션 불릿 재작성 (~line 3424, 3434)
+#     - 기존: 소재 조화 · 볼륨 균형 · 디자인 · 컬러 · 케미스트리
+#     - 신규: 체형 타입(A/V/H/X/O) × 상의/하의 부피 매칭 + X축 부피 균형
+#             + 상체:하체 1:1 판정 + 명세서 V2 체형 기준 총평
+#
 # ─── 2026-04-20 09:50 KST (C.S.I 4지표 + 프리미엄 리포트 백엔드) ──────────
 #   [명세서] CodiBank Premium Personal Styling Report V1 대응
 #   [수정 위치] codistyle_generate 함수의 PHASE 5 EVALUATION 블록 + 응답 파싱
@@ -3374,11 +3401,28 @@ def codistyle_generate():
             if _pc_season else
             "• personal_color/30 — general color harmony (personal color data unavailable). "
         )
-        + "• proportion/20 — evaluate visual body ratio: does top hem position + bottom rise create "
-        + "lengthening effect? Is the waistline placement flattering? Does the overall 3:7 or 4:6 "
-        + "head-to-toe ratio work for the user? "
-        + "• harmony/20 — evaluate top+bottom texture/volume/design coherence. Any material clash? "
-        + "Color coordination? Detail balance? "
+        # [2026-04-20 명세서 V2 Section IV-1] 비율 개선도 — Y축(수직) 관점
+        + "• proportion/20 (SPEC V2: VERTICAL/Y-axis analysis) — "
+        + "evaluate the visual leg-length illusion created by the intersection of "
+        + "top hem (Y-axis length) and bottom rise (Y-axis waistline position). "
+        + "Factors: tuck-in vs tuck-out effect on perceived waistline reset, "
+        + "how the waist intersection point elongates the lower body, and "
+        + "height compensation ratio relative to the user's actual height. "
+        + "Score higher when the styling creates a 3:7 or 4:6 head-to-toe ratio. "
+        # [2026-04-20 명세서 V2 Section IV-2] 체형 밸런스 — X축(수평) 관점, 체형 타입 매칭
+        + (
+            f"• harmony/20 (SPEC V2: HORIZONTAL/X-axis analysis) — "
+            f"evaluate visual stability of VOLUME MATCHING between the user's body type "
+            f"({_body_type_key}) and the combined silhouette-width/thickness of top+bottom. "
+            f"Reference body-type matrix: " + _build_body_type_prompt(gender, _body_type_key) + " "
+            "Score: does the top volume compensate or amplify the dominant body segment? "
+            "Does the bottom silhouette (wide/tapered/flare) balance against the top? "
+            "Does fabric weight (heavy drape vs light flow) create a visually stable 1:1 torso-to-hip volume ratio? "
+            "This is NOT merely about garment color coordination — it is body-type-anchored volume balance. "
+            if _body_type_key else
+            "• harmony/20 (SPEC V2: body-balance) — evaluate silhouette volume balance "
+            "between top and bottom (X-axis widths and fabric weight) against the user's body frame. "
+        )
         + f"\nUser: {gender_en}, {age}" + (f", {hw_en}" if hw_en else "") + ". "
 
         # OUTPUT LINE 2: Executive Summary (3줄 이내 한 줄 평)
@@ -3404,7 +3448,7 @@ def codistyle_generate():
             "\n하의 스타일 분석: [▸ silhouette/length/material · ▸ color with #HEX · ▸ leg-line effect vs PHASE 1 body · ▸ top-bottom proportion · ▸ refinement note] "
             "  (CRITICAL: 하의 section is MANDATORY — never skip, never merge) "
             "\n실루엣과 비율: [▸ overall silhouette judgment · ▸ waistline position effect · ▸ head-to-toe ratio · ▸ visual lengthening · ▸ proportion verdict] "
-            "\n상하의 밸런스: [▸ texture harmony · ▸ volume balance · ▸ design detail coherence · ▸ color-story unity · ▸ overall chemistry] "
+            "\n상하의 밸런스: [▸ user body-type (A/V/H/X/O) × top volume match · ▸ user body-type × bottom silhouette match · ▸ fabric weight X-axis balance · ▸ torso-to-hip volume ratio · ▸ spec V2 body-anchored verdict] "
             if _cs_en else
             "\nOUTPUT LINE 3+ — 심층 분석 (한국어, 전문 컨설턴트 보고서 형식 ▸ 불릿): "
             "각 섹션 필수, PHASE 1 근거, ▸ 불릿 4~5개, 500자 이내. 모든 컬러는 '컬러명 #HEX' 형식. "
@@ -3414,7 +3458,7 @@ def codistyle_generate():
             "\n하의 스타일 분석: [▸ 실루엣/기장/소재 · ▸ 컬러(#HEX) · ▸ PHASE 1 체형 기준 다리라인 효과 · ▸ 상하의 비율 · ▸ 정제된 개선 포인트] "
             "  (반드시 작성: 하의 섹션 생략/병합 금지) "
             "\n실루엣과 비율: [▸ 전체 실루엣 판정 · ▸ 허리선 위치 효과 · ▸ 머리끝-발끝 비율 · ▸ 시각적 롱다리 효과 · ▸ 비율 총평] "
-            "\n상하의 밸런스: [▸ 소재 조화 · ▸ 볼륨 균형 · ▸ 디자인 디테일 일관성 · ▸ 컬러 스토리 · ▸ 전체 케미스트리] "
+            "\n상하의 밸런스: [▸ 사용자 체형 타입(A/V/H/X/O)과 상의 부피 매칭 · ▸ 사용자 체형 타입과 하의 실루엣 매칭 · ▸ X축(소재 두께감) 시각적 부피 균형 · ▸ 상체:하체 부피 비율 판정(이상적 1:1) · ▸ 명세서 V2 체형 기준 총평] "
         )
 
         # OUTPUT LINE 4: TPO 추천 (Best 환경 2~3개)
