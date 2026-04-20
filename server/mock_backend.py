@@ -5,6 +5,35 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-04-20 06:50 KST (치마→바지 재발 근본 원인 4종 수정) ─────────────
+#   [원인] 치마 레퍼런스 이미지를 업로드해도 바지로 생성되는 문제의 진짜 원인:
+#     ① _pants_rule 데드 코드 (line 3078~3134): 치마/바지 체크 없이 항상
+#        "PANTS LENGTH ABSOLUTE PRIORITY / DO NOT use reference image /
+#         OVERRIDES the reference image visual" 문구 생성. 현재 최종 프롬프트에
+#        삽입은 안 됐지만 데드 코드로 남아있어 재활용 시 치명적 재발 위험.
+#     ② _top_wear 기본값에 "waistband" 단어 포함 → Gemini가 바지 힌트로 오해
+#     ③ _bot_wear 치마 분기에도 "waistband" 2회 등장 → 혼란 가중
+#     ④ Phase 4 Pose "thighs touching (no gap between legs)" → 맨다리 보임
+#        암시. 치마 레퍼런스에 상반되어 Gemini가 "바지 = 다리 뚜렷"으로 오판
+#
+#   [수정 1] _pants_rule + _retry_pants 데드 코드 완전 제거 (~line 3078)
+#     - 57줄 삭제. 바지 길이 규칙은 _bot_rule의 바지 분기에 이미 충분
+#     - 미사용 페이로드 플래그 request7bu, retryLongerPants 참조 제거
+#   [수정 2] _top_wear 치마 인지 분기 추가 (~line 3123)
+#     - 치마일 때: "waistband" → "skirt top" / "waist line" / "hip level"
+#     - 바지일 때: 기존 "waistband" 유지 (바지에 적절한 용어)
+#   [수정 3] _bot_wear 치마 분기에서 "waistband" 단어 제거 (~line 3155)
+#     - "Skirt sits at the natural waist line"
+#     - "layers OVER the skirt top naturally"
+#     - "Skirt upper edge partially visible"
+#   [수정 4] Phase 4 Pose 성별 + 치마 여부 분기 (~line 3193)
+#     - 여성 + 치마: knees together, feet together or one forward
+#       (thighs touching 언급 금지 — 치맛자락 자연스럽게)
+#     - 여성 + 바지: 기존 feet 5-8cm + thighs touching 유지
+#     - 남성:       feet shoulder-width (15-25cm), 균등 체중, 편안한 스탠스
+#     - 효과: 여성 포즈가 보다 자연스러워지고, 치마 레퍼런스에 모순되는
+#            "맨다리" 힌트 제거 → Gemini가 레퍼런스(치마) 충실히 반영
+#
 # ─── 2026-04-20 03:52 KST ────────────────────────────────────────────────
 #   [Phase 1 — 퍼스널컬러 summary 추가] (~line 3121)
 #     - _pc_summary 추출 추가 (personal_color.summary)
@@ -3075,61 +3104,16 @@ def codistyle_generate():
     else:
         ko_instruction = "첨부한 상의와 하의를 입고 있는 전신 모습을 생성해주세요. "
 
-    # ── 바지 기장 규칙 — 사용자 명시 요청 시에만 7부 허용 ──
-    # request7bu: 사용자가 직접 7부를 요청한 경우만 True (프론트에서 전달)
-    _request_7bu = bool(payload.get("request7bu", False))
-    _is_female_cs = (gender == "F")
-
-    # _retry_pants 초기화 (모든 분기에서 사용 가능하도록)
-    _retry_pants = (
-        "RETRY — PANTS MUST BE LONGER THAN PREVIOUS ATTEMPT: "
-        "The previous generation had pants that were too short. "
-        "This time, pants MUST be visibly LONGER — the hem must fully cover the shoe top and drape slightly. "
-        "Current Korean trend (2025-2026): slightly long trousers with a gentle break at the shoe. "
-    ) if is_retry else ""
-
-    if _request_7bu:
-        # 사용자가 7부를 명시적으로 요청한 경우에만 허용
-        _pants_rule = (
-            "PANTS LENGTH (USER-REQUESTED 7/8 STYLE): "
-            "The user has explicitly requested 7/8 length (cropped) pants. "
-            "Generate 7/8 length — hem ending approximately mid-calf to just below knee. "
-            "This is a deliberate user choice. Apply faithfully."
-        )
-    elif not _is_female_cs:
-        # 남성: 예외 없이 풀 레귤러 (_retry_pants는 위에서 이미 설정됨)
-        _pants_rule = (
-            "[RULE #1 — PANTS LENGTH — ABSOLUTE PRIORITY]: "
-            "DEFAULT PANTS LENGTH: The trouser hem MUST cover the ankle bone (복숭아뼈) completely. "
-            "The hem should rest on top of the shoe with a slight break. Shoes visible below hem. "
-            "FORBIDDEN: any bare skin/sock visible between hem and shoe. "
-            "DO NOT use the reference image to determine pant length — reference is for color/texture ONLY. "
-            + (
-                "RETRY — LONGER PANTS (+20%%): Make pants VISIBLY LONGER than previous attempt. "
-                "The hem should COVER the top of the shoes, pooling slightly on the shoe surface. "
-                "This is 20%% longer than ankle-bone length. "
-                if bool(payload.get("retryLongerPants"))
-                else ""
-            ) +
-            "This instruction OVERRIDES the reference image visual. No exceptions."
-        )
-    else:
-        # 여성 (최초·다시요청 무관): 풀 레귤러 강제 — 7부는 사용자 명시 요청 시에만
-        _pants_rule = (
-            "[RULE #1 — PANTS LENGTH — ABSOLUTE PRIORITY]: "
-            "DEFAULT PANTS LENGTH: The trouser hem MUST cover the ankle bone (복숭아뼈) completely. "
-            "The hem should rest on top of the shoe with a slight break. Shoes visible below hem. "
-            "FORBIDDEN: any bare skin/sock visible between hem and shoe. "
-            "DO NOT use the reference image to determine pant length — reference is for color/texture ONLY. "
-            + (
-                "RETRY — LONGER PANTS (+20%%): Make pants VISIBLY LONGER than previous attempt. "
-                "The hem should COVER the top of the shoes, pooling slightly on the shoe surface. "
-                "This is 20%% longer than ankle-bone length. "
-                if bool(payload.get("retryLongerPants"))
-                else ""
-            ) +
-            "This instruction OVERRIDES the reference image visual. No exceptions."
-        )
+    # ── [2026-04-20 06:50 KST] _pants_rule + _retry_pants 데드 코드 완전 제거 ──
+    # 원인: 치마/바지 여부를 체크하지 않고 항상 "[RULE #1 — PANTS LENGTH — ABSOLUTE PRIORITY]"
+    #       "DO NOT use the reference image" "OVERRIDES the reference image visual. No exceptions"
+    #       같은 문구를 만들어두었음.
+    #       옵션 A 재설계 이후 최종 프롬프트에 삽입되지 않는 데드 코드이지만, 이름이
+    #       "_pants_rule"이라 향후 재활용 시 치마→바지 사고 재발 위험 매우 큼.
+    # 수정: 블록 전체 삭제. 바지 길이/핏 규칙은 _bot_rule의 바지 분기에 이미 충분히 있음.
+    # 삭제된 변수: _request_7bu, _is_female_cs, _retry_pants, _pants_rule
+    # 삭제된 페이로드 플래그: request7bu, retryLongerPants (사용처 없어 무관)
+    # ──────────────────────────────────────────────────────────────────────
 
 
     # ══════════════════════════════════════════════════════════════
@@ -3163,23 +3147,42 @@ def codistyle_generate():
     _bot_ko  = bottom_info.get("ko", "하의")
     _bot_en  = bottom_info.get("garment", "bottom")
 
-    # 상의 착용 방식 (간결화: 1~2문장)
-    if _top_cls == "outerwear":
-        _top_wear = "Wear it open, with a simple plain tee underneath."
-    elif _top_cls == "shirt" and top_info.get("garment") == "dress_shirt":
-        _top_wear = "Tuck neatly into the bottom for a clean formal look."
-    elif _top_cls == "shirt":
-        _top_wear = "Leave untucked with natural casual drape."
+    # 상의 착용 방식 — [2026-04-20 06:50 KST] 치마 인지 분기 추가
+    # 원인: 기본값 "hem falls below the waistband"가 치마+티셔츠 조합에도 적용되어
+    #       "waistband(바지 허리밴드)" 단어가 Gemini에게 바지 힌트로 오해됨
+    # 수정: 하의가 치마일 때와 바지일 때의 용어를 분리
+    #       - 치마: "waist line" / "skirt top" (허리 라인, 치마 윗단)
+    #       - 바지: "waistband" 유지 (기존)
+    if _is_skirt_out:
+        # 치마와 함께 착용되는 상의
+        if _top_cls == "outerwear":
+            _top_wear = "Wear it open, with a simple plain tee underneath."
+        elif _top_cls == "shirt" and top_info.get("garment") == "dress_shirt":
+            _top_wear = "Tuck into the skirt waist line for a clean formal look."
+        elif _top_cls == "shirt":
+            _top_wear = "Leave untucked with natural casual drape over the skirt."
+        else:
+            _top_wear = "Worn over the skirt with natural drape, hem falling around hip level."
     else:
-        _top_wear = "Wear naturally — hem falls below the waistband."
+        # 바지/반바지와 함께 착용되는 상의 (기존 로직 유지)
+        if _top_cls == "outerwear":
+            _top_wear = "Wear it open, with a simple plain tee underneath."
+        elif _top_cls == "shirt" and top_info.get("garment") == "dress_shirt":
+            _top_wear = "Tuck neatly into the bottom for a clean formal look."
+        elif _top_cls == "shirt":
+            _top_wear = "Leave untucked with natural casual drape."
+        else:
+            _top_wear = "Wear naturally — hem falls to hip level."
 
     # 하의 착용 방식 — [2026-04-20 03:52 KST] _top_wear와 병렬 구조
-    # 역할: 치마/반바지/바지별로 상의와의 관계(tuck 여부, 허리밴드 노출, 커프 등)를 지정
+    # [2026-04-20 06:50 KST] 치마 분기에서 "waistband" 단어 제거
+    #   → 치마에 이 용어는 바지 허리밴드를 암시. "waist line" / "skirt top"으로 교체
+    # 역할: 치마/반바지/바지별로 상의와의 관계(tuck 여부, 허리 노출, 커프 등)를 지정
     if _is_skirt_out:
         _bot_wear = (
-            "Skirt sits at the natural waist; top hem layers OVER the waistband naturally "
+            "Skirt sits at the natural waist line; top hem layers OVER the skirt top naturally "
             "(never tucked INTO the skirt unless it's a dress shirt). "
-            "Waistband partially visible if top is short, hidden if top is long."
+            "Skirt upper edge partially visible if top is short, hidden if top is long."
         )
     elif _is_shorts_out:
         _bot_wear = (
@@ -3187,7 +3190,7 @@ def codistyle_generate():
             "No cuff roll unless reference image shows it."
         )
     else:
-        # 바지
+        # 바지 — 기존 로직 유지 ("waistband" 용어는 바지에 적절)
         if _top_cls == "shirt" and top_info.get("garment") == "dress_shirt":
             _bot_wear = "Dress shirt tucked INTO the pants; belt line visible at the waist."
         elif _top_cls == "outerwear":
@@ -3215,6 +3218,39 @@ def codistyle_generate():
             "Regular fit — straight cut, leg opening 18-22cm, relaxed drape. Trouser hem covers the ankle bone (no bare ankle). "
         )
         _bot_rule = _skinny_rule + "Preserve the reference pants design exactly."
+
+    # ── [2026-04-20 06:50 KST] 포즈 지시 — 성별 + 치마 여부 분기 ──────────────
+    # 원인: 이전에는 "thighs naturally touching (no gap between legs)" 단일 지시였음
+    #       이 문구는 허벅지가 드러나 보임을 암시 → 치마 레퍼런스일 때 Gemini가
+    #       "맨다리 = 바지"로 오해하는 힌트가 됨. 남녀 모두 동일 포즈라 여성 편향 문제.
+    # 수정: 여성 + 치마, 여성 + 바지, 남성 3가지 분기로 자연스러운 포즈 지시
+    #   - 여성 + 치마: knees together (치맛자락 자연스럽게 흐름, thighs touching 언급 금지)
+    #   - 여성 + 바지: feet 5-8cm apart + thighs touching (기존 여성스러운 스탠스)
+    #   - 남성:         feet shoulder-width (15-25cm), weight evenly, 자연스러운 스탠스
+    if gender == "F" and _is_skirt_out:
+        _pose_rule = (
+            "Pose: feminine editorial stance — stands facing camera, "
+            "feet together or one foot slightly forward (heels 2-5cm apart), "
+            "knees together for elegant skirt silhouette, "
+            "subtle contrapposto with weight on one leg, "
+            "arms relaxed at sides with natural elbow curve, "
+            "shoulders relaxed and level, soft confident expression. "
+        )
+    elif gender == "F":
+        _pose_rule = (
+            "Pose: feminine editorial stance — stands facing camera, "
+            "feet 5-8cm apart with toes slightly outward, thighs naturally touching, "
+            "arms relaxed at sides with slight elbow curve, "
+            "subtle contrapposto, soft confident expression. "
+        )
+    else:
+        _pose_rule = (
+            "Pose: masculine editorial stance — stands facing camera squarely, "
+            "feet shoulder-width apart (15-25cm), toes straight or slightly outward, "
+            "weight evenly distributed on both legs, "
+            "arms hanging naturally at sides, shoulders slightly back and relaxed, "
+            "confident direct gaze. "
+        )
 
     # ── 최종 프롬프트 조립 ──
     prompt = (
@@ -3261,8 +3297,7 @@ def codistyle_generate():
         # [PHASE 4] IMAGE COMPOSITION
         + "\n\n[PHASE 4 — IMAGE]: "
         + "Photorealistic Korean fashion lookbook photo. Full body visible, head to feet. "
-        + "Pose: person stands facing camera, feet 5-8cm apart with toes slightly outward, thighs naturally touching (no gap between legs), "
-        + "arms hanging relaxed at sides with slight elbow curve. Subtle contrapposto allowed. Relaxed confident editorial stance. "
+        + _pose_rule
         + "Footwear: shoes fully visible and must match the outfit style "
         + ("(heels, flats, or loafers for feminine; " if gender == "F" else "(sneakers, loafers, or dress shoes; ")
         + "never crop at ankles). "
