@@ -5692,13 +5692,23 @@ def get_usage_bonus(email):
     try:
         email = email.strip().lower()
         now_ym = __import__('datetime').datetime.now().strftime("%Y-%m")
+        
+        # ─── 2026-04-21: 메모리 캐시 우선 조회 (가장 최신 분리값 보장) ───
+        mem_co, mem_tr = None, None
+        if hasattr(app, "_usage_bonus_cache"):
+            _mkey = f"{email}:{now_ym}"
+            if _mkey in app._usage_bonus_cache:
+                _c = app._usage_bonus_cache[_mkey]
+                mem_co = int(_c.get("codifit_bonus") or _c.get("total_bonus") or 0)
+                mem_tr = int(_c.get("tryon_bonus") or 0)
+        
         params = {
             "email": f"eq.{email}",
             "month": f"eq.{now_ym}",
             "select": "codifit_bonus,tryon_bonus,total_bonus",
             "limit": "1",
         }
-        # 1) Supabase 테이블 조회 (신규 스키마)
+        # 1) Supabase 테이블 조회 (신규 스키마) — 메모리 캐시와 병합
         try:
             r = sb_query("GET", "user_usage_bonus", params=params)
             if r.status_code == 200:
@@ -5708,24 +5718,26 @@ def get_usage_bonus(email):
                     co = row.get("codifit_bonus")
                     tr = row.get("tryon_bonus")
                     tb = int(row.get("total_bonus", 0))
-                    # 신규 컬럼 있음 → 분리 값 반환
                     if co is not None or tr is not None:
                         co_v = int(co or 0)
                         tr_v = int(tr or 0)
-                        return jsonify({
-                            "ok": True, "month": now_ym,
-                            "codifit_bonus": co_v, "tryon_bonus": tr_v,
-                            "total_bonus": co_v + tr_v,
-                        })
-                    # 레거시 (total_bonus만 있음) → 코디핏으로 간주
+                    else:
+                        # 레거시: total_bonus만 있음 → 코디핏으로 간주
+                        co_v = tb
+                        tr_v = 0
+                    # ─── 메모리 캐시가 있으면 오버라이드 (레거시 스키마에서 트라이온 복원) ───
+                    if mem_co is not None or mem_tr is not None:
+                        co_v = mem_co if mem_co is not None else co_v
+                        tr_v = mem_tr if mem_tr is not None else tr_v
                     return jsonify({
                         "ok": True, "month": now_ym,
-                        "codifit_bonus": tb, "tryon_bonus": 0,
-                        "total_bonus": tb,
+                        "codifit_bonus": co_v, "tryon_bonus": tr_v,
+                        "total_bonus": co_v + tr_v,
                     })
         except Exception:
             pass
-        # 2) 레거시 스키마로 재시도 (codifit_bonus/tryon_bonus 컬럼 미존재)
+        
+        # 2) 레거시 스키마로 재시도 + 메모리 캐시 병합
         try:
             _legacy = dict(params); _legacy["select"] = "total_bonus"
             r2 = sb_query("GET", "user_usage_bonus", params=_legacy)
@@ -5733,26 +5745,27 @@ def get_usage_bonus(email):
                 _rows = r2.json() or []
                 if _rows:
                     tb = int(_rows[0].get("total_bonus", 0))
+                    co_v = tb
+                    tr_v = 0
+                    if mem_co is not None or mem_tr is not None:
+                        co_v = mem_co if mem_co is not None else co_v
+                        tr_v = mem_tr if mem_tr is not None else tr_v
                     return jsonify({
                         "ok": True, "month": now_ym,
-                        "codifit_bonus": tb, "tryon_bonus": 0,
-                        "total_bonus": tb,
+                        "codifit_bonus": co_v, "tryon_bonus": tr_v,
+                        "total_bonus": co_v + tr_v,
                     })
         except Exception:
             pass
-        # 3) 메모리 폴백
-        if hasattr(app, "_usage_bonus_cache"):
-            key = f"{email}:{now_ym}"
-            if key in app._usage_bonus_cache:
-                _c = app._usage_bonus_cache[key]
-                co_v = int(_c.get("codifit_bonus") or _c.get("total_bonus") or 0)
-                tr_v = int(_c.get("tryon_bonus") or 0)
-                return jsonify({
-                    "ok": True, "month": now_ym,
-                    "codifit_bonus": co_v, "tryon_bonus": tr_v,
-                    "total_bonus": co_v + tr_v,
-                    "source": "memory",
-                })
+        
+        # 3) Supabase 데이터 없음 → 메모리 캐시만으로 응답
+        if mem_co is not None or mem_tr is not None:
+            return jsonify({
+                "ok": True, "month": now_ym,
+                "codifit_bonus": mem_co or 0, "tryon_bonus": mem_tr or 0,
+                "total_bonus": (mem_co or 0) + (mem_tr or 0),
+                "source": "memory",
+            })
         return jsonify({
             "ok": True, "month": now_ym,
             "codifit_bonus": 0, "tryon_bonus": 0, "total_bonus": 0,
@@ -5807,27 +5820,64 @@ def admin_usage_bonus_list():
     ─── 2026-04-21 KST 개편 ───
     이달 보너스 지급 현황 전체 조회 (MASTER 전용).
     응답에 codifit_bonus와 tryon_bonus를 분리 필드로 반환.
+    
+    조회 우선순위:
+      1. Supabase 신규 스키마 (codifit_bonus/tryon_bonus 컬럼 존재)
+      2. Supabase 레거시 스키마 (total_bonus만) + 메모리 캐시 병합
+      3. 메모리 캐시만
     """
     if not verify_master(request):
         return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
     try:
         now_ym = __import__('datetime').datetime.now().strftime("%Y-%m")
-        # ─── 2026-04-21: select에 codifit_bonus / tryon_bonus 추가 ───
+        
+        # ─── 메모리 캐시 수집 (우선 병합용) ───
+        mem_cache = {}
+        if hasattr(app, "_usage_bonus_cache"):
+            for k, v in app._usage_bonus_cache.items():
+                if not k.endswith(now_ym): continue
+                em = k.split(":")[0]
+                mem_cache[em] = {
+                    "codifit_bonus": int(v.get("codifit_bonus") or v.get("total_bonus") or 0),
+                    "tryon_bonus":   int(v.get("tryon_bonus") or 0),
+                    "total_bonus":   int(v.get("total_bonus") or 0),
+                }
+        
+        # ─── 1. Supabase 신규 스키마 쿼리 ───
         params = {"month": f"eq.{now_ym}", "order": "updated_at.desc", "limit": "500",
                   "select": "email,month,codifit_bonus,tryon_bonus,total_bonus,updated_at"}
         r = sb_query("GET", "user_usage_bonus", params=params)
         if r.status_code == 200:
             _rows = r.json() or []
-            # 스키마에 새 컬럼이 없어 응답에 필드가 누락된 경우 total_bonus를 코디핏으로 처리
             for row in _rows:
-                if row.get("codifit_bonus") is None and row.get("tryon_bonus") is None:
-                    row["codifit_bonus"] = int(row.get("total_bonus") or 0)
-                    row["tryon_bonus"] = 0
-                else:
+                em = (row.get("email") or "").lower()
+                # 신규 컬럼 값 사용
+                if row.get("codifit_bonus") is not None or row.get("tryon_bonus") is not None:
                     row["codifit_bonus"] = int(row.get("codifit_bonus") or 0)
                     row["tryon_bonus"]   = int(row.get("tryon_bonus") or 0)
+                else:
+                    # 컬럼은 있지만 값이 모두 null → 레거시 데이터
+                    row["codifit_bonus"] = int(row.get("total_bonus") or 0)
+                    row["tryon_bonus"]   = 0
+                # ─── 메모리 캐시가 더 최신 값이면 오버라이드 (레거시 스키마에서 트라이온 복원) ───
+                if em in mem_cache:
+                    row["codifit_bonus"] = mem_cache[em]["codifit_bonus"]
+                    row["tryon_bonus"]   = mem_cache[em]["tryon_bonus"]
+                    row["total_bonus"]   = row["codifit_bonus"] + row["tryon_bonus"]
+            # 메모리에만 있고 Supabase에 없는 항목도 추가
+            supa_emails = {(row.get("email") or "").lower() for row in _rows}
+            for em, v in mem_cache.items():
+                if em not in supa_emails:
+                    _rows.append({
+                        "email": em, "month": now_ym,
+                        "codifit_bonus": v["codifit_bonus"],
+                        "tryon_bonus":   v["tryon_bonus"],
+                        "total_bonus":   v["codifit_bonus"] + v["tryon_bonus"],
+                        "updated_at":    "—",
+                    })
             return jsonify({"ok": True, "list": _rows, "month": now_ym})
-        # 컬럼이 없어 쿼리가 실패한 경우 — total_bonus만 재조회 (레거시 스키마)
+        
+        # ─── 2. 신규 스키마 실패 → 레거시 스키마로 재조회 + 메모리 캐시 병합 ───
         try:
             _legacy_params = dict(params)
             _legacy_params["select"] = "email,month,total_bonus,updated_at"
@@ -5835,22 +5885,37 @@ def admin_usage_bonus_list():
             if r2.status_code == 200:
                 _rows = r2.json() or []
                 for row in _rows:
+                    em = (row.get("email") or "").lower()
+                    # 레거시 기본값
                     row["codifit_bonus"] = int(row.get("total_bonus") or 0)
-                    row["tryon_bonus"] = 0
+                    row["tryon_bonus"]   = 0
+                    # 메모리 캐시 우선 병합
+                    if em in mem_cache:
+                        row["codifit_bonus"] = mem_cache[em]["codifit_bonus"]
+                        row["tryon_bonus"]   = mem_cache[em]["tryon_bonus"]
+                        row["total_bonus"]   = row["codifit_bonus"] + row["tryon_bonus"]
+                # 메모리에만 있는 항목 추가
+                supa_emails = {(row.get("email") or "").lower() for row in _rows}
+                for em, v in mem_cache.items():
+                    if em not in supa_emails:
+                        _rows.append({
+                            "email": em, "month": now_ym,
+                            "codifit_bonus": v["codifit_bonus"],
+                            "tryon_bonus":   v["tryon_bonus"],
+                            "total_bonus":   v["codifit_bonus"] + v["tryon_bonus"],
+                            "updated_at":    "—",
+                        })
                 return jsonify({"ok": True, "list": _rows, "month": now_ym, "schema": "legacy"})
         except Exception:
             pass
-        # 메모리 폴백
-        if hasattr(app, "_usage_bonus_cache"):
-            rows = []
-            for k, v in app._usage_bonus_cache.items():
-                if not k.endswith(now_ym): continue
-                email = k.split(":")[0]
-                co = int(v.get("codifit_bonus") or v.get("total_bonus") or 0)
-                tr = int(v.get("tryon_bonus") or 0)
-                rows.append({"email": email, "month": now_ym,
-                             "codifit_bonus": co, "tryon_bonus": tr,
-                             "total_bonus": co + tr})
+        
+        # ─── 3. Supabase 완전 실패 → 메모리 캐시만 반환 ───
+        if mem_cache:
+            rows = [{"email": em, "month": now_ym,
+                     "codifit_bonus": v["codifit_bonus"],
+                     "tryon_bonus":   v["tryon_bonus"],
+                     "total_bonus":   v["codifit_bonus"] + v["tryon_bonus"]}
+                    for em, v in mem_cache.items()]
             return jsonify({"ok": True, "list": rows, "month": now_ym, "note": "memory_fallback"})
         return jsonify({"ok": True, "list": [], "month": now_ym})
     except Exception as e:
@@ -6320,10 +6385,21 @@ def admin_member_set_bonus():
         headers["Prefer"] = "resolution=merge-duplicates,return=representation"
         r = _rq.post(url, headers=headers, json=bonus_body, timeout=10)
 
-        # Supabase 실패 시 메모리 폴백 (스키마에 새 컬럼이 없어서 실패할 수 있음)
+        # ─── 2026-04-21: 저장 결과 로그 + 메모리 미러링 강화 ───
+        # Supabase 성공 여부와 무관하게 메모리 캐시에도 분리값 저장
+        # (레거시 스키마로 Supabase에 total_bonus만 저장된 경우에도 조회 시 tryon_bonus 복원 가능)
+        if not hasattr(app, "_usage_bonus_cache"):
+            app._usage_bonus_cache = {}
+        app._usage_bonus_cache[f"{email}:{month}"] = {
+            "codifit_bonus": codifit_b,
+            "tryon_bonus":   tryon_b,
+            "total_bonus":   total_b,
+        }
+
         note = "saved_to_supabase"
         if r.status_code not in (200, 201):
             # 새 컬럼이 없는 경우 → total_bonus만으로 재시도
+            print(f"[set-bonus] Supabase 신규 스키마 쓰기 실패 (status={r.status_code}), 레거시 폴백 시도", flush=True)
             try:
                 _fallback_body = {
                     "email": email, "month": month,
@@ -6334,17 +6410,15 @@ def admin_member_set_bonus():
                 r2 = _rq.post(url, headers=headers, json=_fallback_body, timeout=10)
                 if r2.status_code in (200, 201):
                     note = "saved_legacy_schema"
+                    print(f"[set-bonus] 레거시 스키마로 저장 성공 — tryon_bonus={tryon_b}은 메모리에만 보존됨. SQL 마이그레이션 필요.", flush=True)
                 else:
+                    print(f"[set-bonus] 레거시 폴백도 실패 (status={r2.status_code}, body={r2.text[:200]})", flush=True)
                     raise Exception("supabase_write_failed")
-            except Exception:
-                if not hasattr(app, "_usage_bonus_cache"):
-                    app._usage_bonus_cache = {}
-                app._usage_bonus_cache[f"{email}:{month}"] = {
-                    "codifit_bonus": codifit_b,
-                    "tryon_bonus":   tryon_b,
-                    "total_bonus":   total_b,
-                }
+            except Exception as fe:
                 note = "memory_fallback"
+                print(f"[set-bonus] 메모리 폴백 사용: {fe}", flush=True)
+        else:
+            print(f"[set-bonus] ✅ Supabase 저장 성공 — email={email}, codifit=+{codifit_b}, tryon=+{tryon_b}", flush=True)
 
         return jsonify({
             "ok": True, "email": email, "month": month,
