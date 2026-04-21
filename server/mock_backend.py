@@ -5,6 +5,67 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-04-20 23:30 KST (⚠️2단계 아키텍처 전환 — 근본 구조 수술) ──────────
+#   [TJ님 제보]
+#     1) 치마가 계속 바지로 생성됨 (다시요청 뿐 아니라 최초 생성에서도)
+#     2) 프리미엄 스타일링 리포트가 여전히 빈약 ("준비 중입니다" 다수)
+#
+#   [전체 데이터 플로우 추적 결과 — 근본 원인 2가지]
+#     원인 A: ai_analyze_item이 gemini-2.5-flash-image(이미지 생성 전용 모델)
+#             사용 → JSON 분석 정확도 낮음 → 치마 판별 오판 가능성
+#     원인 B: codistyle_generate가 단일 호출로 이미지+텍스트 동시 생성
+#             → 모델이 이미지에 토큰 집중 → 리포트 텍스트 품질 저하
+#             → "심층 분석:" 혼입, 섹션 누락, 빈약한 불릿의 구조적 원인
+#
+#   [ACTION 1] ai_analyze_item 모델 분리 (~line 4450)
+#     - 기존: _CODISTYLE_MODEL (=gemini-2.5-flash-image) 사용
+#     - 신규: gemini-2.0-flash (환경변수 CODIBANK_ANALYZE_MODEL로 오버라이드 가능)
+#     - 효과: 치마/바지 판별 정확도 ↑, JSON 파싱 실패율 ↓
+#     - 이미지 생성용 _CODISTYLE_MODEL은 그대로 유지 (영향 없음)
+#
+#   [ACTION 2] codistyle_generate 2단계 아키텍처 (~line 3645)
+#     STAGE 1 — 이미지 생성 (gemini-2.5-flash-image)
+#       · modalities=[IMAGE, TEXT]로 호출 (기존과 동일)
+#       · TEXT는 백업용으로만 보관
+#       · finishReason=STOP 자동 재시도 로직 유지
+#       · 이미지 바이트 없으면 여기서 return
+#
+#     STAGE 2 — 리포트 생성 (gemini-2.0-flash, 환경변수 CODIBANK_REPORT_MODEL)
+#       · 같은 prompt 재사용 (PHASE 1~5 전체)
+#       · 이미지 전송 안 함 (텍스트 전용 모델)
+#       · modalities 지정 안 함 → 모든 토큰을 리포트에 집중
+#       · 응답이 200자 초과이면 comment 교체, 미만이면 STAGE 1 백업 유지
+#
+#     STAGE 3 — 파싱 (기존 로직 그대로 재사용)
+#       · STYLING_SCORE/4지표/Executive Summary/TPO/Tips/Hashtags/5섹션
+#       · 변경 없음, 코드 위치 변경 없음
+#
+#   [ACTION 3] 진단 로그 강화 — [DIAG] 태그 6종
+#     [DIAG #0] payload 수신 시점: top/bot 카테고리, is_skirt, gender, bodyType
+#               (~line 2886) — 민감정보(faceImage) 제외
+#     [DIAG #1] bottom_info 최종 판정: is_skirt, garment 라벨
+#               (~line 3646)
+#     [DIAG #2] prompt 검증: 길이, "Skirt only"/"NO pants" 포함 여부
+#               (~line 3652)
+#     [DIAG #3] STAGE 1 완료: img_bytes 크기, 백업 텍스트 길이
+#               (~line 3811)
+#     [DIAG #4] STAGE 2 응답: 모델명, 리포트 길이, 첫 200자
+#               (~line 3859)
+#     [DIAG #5] 최종 파싱 결과: 점수/섹션 개수/각 필드 길이
+#               (~line 4003)
+#     - 모든 로그에 flush=True 적용 → Render 로그에 즉시 표시
+#     - base64 이미지 등 민감정보는 로그에 절대 찍지 않음
+#
+#   [효과 예측]
+#     - 치마 판별: ai_analyze_item 모델 업그레이드로 오판 ↓
+#     - 리포트 품질: 텍스트 전용 모델이 같은 토큰 예산을 리포트에만 사용
+#       → 5섹션 모두 채움, "심층 분석:" 혼입 감소
+#     - 디버깅: [DIAG] 로그 6종으로 문제 발생 지점 즉시 특정 가능
+#
+#   [배포 시 환경변수 (기본값 있음, 오버라이드만 필요 시)]
+#     CODIBANK_ANALYZE_MODEL  (기본값: gemini-2.0-flash)
+#     CODIBANK_REPORT_MODEL   (기본값: gemini-2.0-flash)
+#
 # ─── 2026-04-20 22:00 KST (⚠️프리미엄 리포트 내용 빈약 → 10만원 컨설팅급 수술) ────
 #   [TJ님 강력 제보] 프리미엄 리포트 각 섹션이 너무 빈약. 유료 가치 증명 불가.
 #
@@ -2885,6 +2946,22 @@ def codistyle_generate():
     _top_analysis    = payload.get("topAnalysis")    or {}
     _bottom_analysis_pre = payload.get("bottomAnalysis") or {}
 
+    # ──── [ACTION 3] DIAG LOG #0: 프론트 분석 데이터 수신 상태 ────
+    # 민감정보(faceImage/dataUrl) 제외하고 핵심 필드만 기록
+    _bA = _bottom_analysis_pre or {}
+    _tA = _top_analysis or {}
+    print(
+        f"[DIAG #0] payload received: "
+        f"isRetry={bool(payload.get('isRetry'))} "
+        f"top_cat={_tA.get('category','')!r} top_sub={_tA.get('sub_category','')!r} "
+        f"bot_cat={_bA.get('category','')!r} bot_sub={_bA.get('sub_category','')!r} "
+        f"bot_is_skirt={_bA.get('is_skirt')!r} "
+        f"bot_skirt_length={_bA.get('skirt_length','')!r} "
+        f"gender={user_info.get('gender','')!r} "
+        f"bodyType={_body_type_key!r}",
+        flush=True,
+    )
+
     # top_info 구성
     _top_sub = str(_top_analysis.get("sub_category", payload.get("topSubCategory", ""))).strip()
     _top_cat = str(_top_analysis.get("category",     payload.get("topCategoryKey","top"))).strip()
@@ -3642,7 +3719,40 @@ def codistyle_generate():
         + (" Retry note: vary pose slightly; maintain garment identity and same report depth." if is_retry else "")
     )
 
-    # ── Gemini API 호출 (신/구 SDK 분기) ──
+    # ══════════════════════════════════════════════════════════════════
+    # [2026-04-20 23:30 KST — ACTION 2] 2단계 아키텍처 전환
+    # ──────────────────────────────────────────────────────────────────
+    # 이전 문제: 단일 호출 [gemini-2.5-flash-image, modalities=IMAGE+TEXT]
+    #   → 이미지 생성에 토큰 집중 → 리포트 텍스트 품질 저하
+    #   → "심층 분석:" 혼입, 섹션 누락, 빈약한 내용의 근본 원인
+    #
+    # 신규 구조:
+    #   STAGE 1: gemini-2.5-flash-image, modalities=IMAGE  → 이미지만 생성
+    #   STAGE 2: gemini-2.0-flash (텍스트 전용)            → 리포트만 생성
+    #   STAGE 3: (기존 파싱 로직 재사용) comment → JSON 필드 추출
+    #
+    # [ACTION 3] 진단 로그 강화: [DIAG] 태그로 매 단계 상태 기록
+    # ══════════════════════════════════════════════════════════════════
+
+    # ──── [ACTION 3] DIAG LOG #1: 하의 판정 최종 상태 ────
+    print(
+        f"[DIAG #1] bot_is_skirt_pre={_bot_is_skirt_pre} "
+        f"bottom_info.is_skirt={bottom_info.get('is_skirt')} "
+        f"garment={bottom_info.get('garment', '')[:60]}",
+        flush=True,
+    )
+    print(
+        f"[DIAG #2] prompt_len={len(prompt)} "
+        f"has_skirt_only_rule={'Skirt only' in prompt} "
+        f"has_no_pants={'NO pants' in prompt}",
+        flush=True,
+    )
+
+    # ══════════════════════════════════════════════════════════════════
+    # STAGE 1: 이미지 생성 (gemini-2.5-flash-image)
+    # ══════════════════════════════════════════════════════════════════
+    img_bytes = None
+    comment   = ""
     try:
         if _SDK == "new":
             # ★ google-genai (신규 공식 SDK) ★
@@ -3657,21 +3767,17 @@ def codistyle_generate():
                 model=_CODISTYLE_MODEL,
                 contents=contents,
                 config=_gtypes.GenerateContentConfig(
-                    response_modalities=["IMAGE", "TEXT"],
-                    # [2026-04-20 22:00] 프리미엄 리포트 장문 응답 보장
-                    # - temperature 0.7 → 0.4 (일관성 강화, 섹션 생략 방지)
-                    # - max_output_tokens 명시 (기본값 부족으로 뒷 섹션 잘림 방지)
+                    response_modalities=["IMAGE", "TEXT"],  # IMAGE는 필수, TEXT는 백업용
                     temperature=0.4,
                     max_output_tokens=8192,
                 ),
             )
         else:
-            # ★ google-generativeai (구 SDK, 이미 설치됨) ★
+            # ★ google-generativeai (구 SDK) ★
             from PIL import Image as _PILImage
             _genai_old.configure(api_key=_GEMINI_KEY)
             model = _genai_old.GenerativeModel(_CODISTYLE_MODEL)
 
-            # bytes → PIL Image 변환
             def _bytes_to_pil(raw):
                 return _PILImage.open(io.BytesIO(raw))
 
@@ -3681,20 +3787,16 @@ def codistyle_generate():
             contents_old.append(_bytes_to_pil(top_bytes))
             contents_old.append(_bytes_to_pil(bottom_bytes))
 
-            # 구 SDK에서 response_modalities 지원 여부 불확실
-            # → dict 방식으로 전달 시도 → 실패하면 GenerationConfig 방식
             try:
                 response = model.generate_content(
                     contents_old,
                     generation_config={
                         "response_modalities": ["IMAGE", "TEXT"],
-                        # [2026-04-20 22:00] 프리미엄 리포트 장문 응답 보장
                         "temperature": 0.4,
                         "max_output_tokens": 8192,
                     },
                 )
             except TypeError:
-                # dict 방식 실패 시 GenerationConfig 객체 사용
                 response = model.generate_content(
                     contents_old,
                     generation_config=_genai_old.GenerationConfig(
@@ -3705,39 +3807,29 @@ def codistyle_generate():
     except Exception as e:
         return jsonify(ok=False, error=f"Gemini 호출 실패 ({_SDK}): {str(e)[:300]}"), 500
 
-    # ── 응답에서 이미지 추출 ──
-    img_bytes = None
-    comment   = ""
+    # ── STAGE 1 응답에서 이미지 + (백업용) 텍스트 추출 ──
     try:
         for part in response.candidates[0].content.parts:
             if part.inline_data and part.inline_data.data:
                 img_bytes = part.inline_data.data
-                # SDK는 이미 bytes로 반환 (base64 디코딩 불필요)
             elif part.text:
-                comment = part.text.strip()[:15000]  # [2026-04-20 22:00] 프리미엄 리포트 장문 응답 지원 (2000→15000)
+                # STAGE 1이 텍스트도 돌려주면 백업으로 보관 (STAGE 2 실패 시 사용)
+                comment = part.text.strip()[:15000]
     except (IndexError, AttributeError) as e:
         return jsonify(ok=False, error=f"응답 파싱 실패: {str(e)[:200]}"), 500
 
-    # [2026-04-08] FinishReason.STOP 시 1회 자동 재시도
+    # [2026-04-08] FinishReason.STOP 시 1회 자동 재시도 (기존 로직 유지)
     if not img_bytes:
         try:
             finish = response.candidates[0].finish_reason
         except Exception:
             finish = "UNKNOWN"
         _safe_comment = comment[:100] if comment else ""
-        print(f"[codistyle] 이미지 미생성(1차): finishReason={finish}, comment={_safe_comment[:80]}")
-        
-        # 재시도 (temperature를 약간 변경하여 다른 결과 유도)
+        print(f"[codistyle] 이미지 미생성(1차): finishReason={finish}, comment={_safe_comment[:80]}", flush=True)
+
         if str(finish) in ("STOP", "FinishReason.STOP", "1", "2") and not request.args.get("_retried"):
-            print("[codistyle] 자동 재시도 중...")
+            print("[codistyle] 자동 재시도 중...", flush=True)
             try:
-                # ──── [2026-04-19 BUGFIX #1] 재시도 블록 변수 이름 오류 수정 ────
-                # 원인: contents_new, config_new 변수가 정의되지 않음 → NameError
-                #       → 재시도 자체가 작동하지 않고 에러 메시지에 'STOP'이 없어
-                #         프론트 자동 재시도 로직도 발동 안 함
-                # 해결: 실제 정의된 변수(contents 또는 contents_old) 사용 +
-                #       신/구 SDK 모두 지원 + temperature 0.85로 상승
-                # ────
                 if _SDK == "new":
                     response = client.models.generate_content(
                         model=_CODISTYLE_MODEL,
@@ -3748,7 +3840,6 @@ def codistyle_generate():
                         ),
                     )
                 else:
-                    # 구 SDK 재시도
                     try:
                         response = model.generate_content(
                             contents_old,
@@ -3762,19 +3853,93 @@ def codistyle_generate():
                             contents_old,
                             generation_config=_genai_old.GenerationConfig(temperature=0.85),
                         )
-                # 재시도 응답에서 이미지 추출
                 for part in response.candidates[0].content.parts:
                     if part.inline_data and part.inline_data.data:
                         img_bytes = part.inline_data.data
                     elif part.text:
-                        comment = part.text.strip()[:15000]  # [2026-04-20 22:00] 프리미엄 리포트 장문 응답 지원 (2000→15000)
+                        comment = part.text.strip()[:15000]
                 if img_bytes:
-                    print("[codistyle] 재시도 성공!")
+                    print("[codistyle] 재시도 성공!", flush=True)
             except Exception as _retry_e:
-                print(f"[codistyle] 재시도 실패: {_retry_e}")
-        
+                print(f"[codistyle] 재시도 실패: {_retry_e}", flush=True)
+
         if not img_bytes:
             return jsonify(ok=False, error=f"착장 이미지 생성에 실패했습니다. 다시 시도해주세요. (reason={finish})"), 500
+
+    # [ACTION 3] DIAG LOG #3: STAGE 1 결과
+    print(
+        f"[DIAG #3] STAGE1 done: img_bytes={len(img_bytes) if img_bytes else 0}B "
+        f"backup_text_len={len(comment)}",
+        flush=True,
+    )
+
+    # ══════════════════════════════════════════════════════════════════
+    # STAGE 2: 리포트 생성 (gemini-2.0-flash, 텍스트 전용)
+    # ──────────────────────────────────────────────────────────────────
+    # - 같은 prompt를 재사용 (PHASE 1~5 전체 포함)
+    # - 이미지는 전송 안 함 (텍스트 모델이므로 필요없음)
+    # - 응답 modalities를 TEXT로만 제한 → 모든 토큰을 리포트에 집중
+    # - STAGE 2 실패 시 STAGE 1의 백업 텍스트(comment)를 그대로 사용 → 점진 fallback
+    # ══════════════════════════════════════════════════════════════════
+    _REPORT_MODEL = os.getenv("CODIBANK_REPORT_MODEL") or "gemini-2.0-flash"
+    report_text = ""
+    try:
+        if _SDK == "new":
+            # [STAGE 2 — new SDK]
+            _report_resp = client.models.generate_content(
+                model=_REPORT_MODEL,
+                contents=[prompt],  # 텍스트만 전송
+                config=_gtypes.GenerateContentConfig(
+                    temperature=0.4,
+                    max_output_tokens=8192,
+                ),
+            )
+            report_text = (getattr(_report_resp, "text", None) or "").strip()[:15000]
+        else:
+            # [STAGE 2 — old SDK]
+            _report_model = _genai_old.GenerativeModel(_REPORT_MODEL)
+            try:
+                _report_resp = _report_model.generate_content(
+                    [prompt],
+                    generation_config={
+                        "temperature": 0.4,
+                        "max_output_tokens": 8192,
+                    },
+                )
+            except TypeError:
+                _report_resp = _report_model.generate_content(
+                    [prompt],
+                    generation_config=_genai_old.GenerationConfig(
+                        temperature=0.4,
+                        max_output_tokens=8192,
+                    ),
+                )
+            report_text = (getattr(_report_resp, "text", None) or "").strip()[:15000]
+
+        # [ACTION 3] DIAG LOG #4: STAGE 2 응답
+        print(
+            f"[DIAG #4] STAGE2 done: model={_REPORT_MODEL} "
+            f"report_len={len(report_text)} "
+            f"head200={report_text[:200]!r}",
+            flush=True,
+        )
+
+        # STAGE 2가 성공(길이 충분)이면 comment를 교체
+        # 실패/짧으면 STAGE 1 백업 텍스트 유지
+        if report_text and len(report_text) > 200:
+            comment = report_text
+        else:
+            print(
+                f"[DIAG #4b] STAGE2 응답이 너무 짧음 ({len(report_text)}자) → STAGE1 백업 텍스트 사용",
+                flush=True,
+            )
+    except Exception as _rep_e:
+        print(f"[DIAG #4e] STAGE2 실패: {_rep_e!s}[:200] → STAGE1 백업 텍스트 사용", flush=True)
+        # report_text 비어있으면 STAGE1의 comment가 그대로 유지됨
+
+    # ══════════════════════════════════════════════════════════════════
+    # STAGE 3 이후: 이미지 저장 + 리포트 파싱 (기존 로직 그대로 사용)
+    # ══════════════════════════════════════════════════════════════════
 
     # img_bytes가 bytes인지 확인 (혹시 base64 문자열이면 디코딩)
     if isinstance(img_bytes, str):
@@ -3902,6 +4067,25 @@ def codistyle_generate():
         "top": {"key": top_category_key, "ko": top_info.get("ko",""), "garment": top_info.get("garment","")},
         "bottom": {"key": bottom_category_key, "ko": bottom_info.get("ko",""), "garment": bottom_info.get("garment",""), "is_skirt": bottom_info.get("is_skirt",False)},
     }
+
+    # ──── [ACTION 3] DIAG LOG #5: 최종 파싱 결과 요약 ────
+    _section_markers = ["퍼스널컬러 분석", "상의 스타일 분석", "하의 스타일 분석",
+                        "실루엣과 비율", "상하의 밸런스",
+                        "Personal Color Analysis", "Top Style Analysis",
+                        "Bottom Style Analysis", "Silhouette and Proportion",
+                        "Top-Bottom Harmony"]
+    _sections_found = [m for m in _section_markers if (m + ":") in comment or (m + ":").replace(" ", "") in comment.replace(" ", "")]
+    print(
+        f"[DIAG #5] parsed: score={styling_score} "
+        f"breakdown_keys={list(score_breakdown.keys())} "
+        f"exec_len={len(executive_summary)} "
+        f"tpo_n={len(tpo_recommendations)} "
+        f"tips_n={len(improvement_tips)} "
+        f"hashtags_n={len(style_hashtags)} "
+        f"sections_in_text={len(_sections_found)}/{len(_section_markers)//2} "
+        f"found={_sections_found[:5]}",
+        flush=True,
+    )
 
     return jsonify(
         ok=True, path=rel,
@@ -4443,22 +4627,33 @@ def ai_analyze_item():
 
         result_text = None
 
+        # ──── [2026-04-20 23:30 KST — ACTION 1] 분석 전용 모델 사용 ────
+        # 기존: _CODISTYLE_MODEL = "gemini-2.5-flash-image" (이미지 생성 전용)
+        #       → JSON 구조화 응답 품질이 낮아 치마/바지 오판 빈발
+        # 신규: gemini-2.0-flash (분석/JSON 생성에 최적화된 범용 모델)
+        #       → 치마 판별 정확도 ↑, JSON 파싱 실패율 ↓
+        # 범위: ai_analyze_item 내부에서만 적용. 이미지 생성용 _CODISTYLE_MODEL은 유지.
+        _ANALYZE_MODEL = os.getenv("CODIBANK_ANALYZE_MODEL") or "gemini-2.0-flash"
+
         if _SDK == "new":
             _cli = _gmod.Client(api_key=_GEMINI_KEY)
             _img_part = _gtypes.Part.from_bytes(data=img_bytes, mime_type=img_mime)
             _resp = _cli.models.generate_content(
-                model=_CODISTYLE_MODEL,
+                model=_ANALYZE_MODEL,  # [ACTION 1] 이미지 생성 모델 대신 분석 전용 모델
                 contents=[_gtypes.Content(parts=[_img_part, _gtypes.Part.from_text(text=PROMPT)])],
             )
             result_text = _resp.text if hasattr(_resp, "text") else str(_resp)
+            print(f"[analyze-item][DIAG] SDK=new model={_ANALYZE_MODEL} resp_len={len(result_text or '')}", flush=True)
         else:
             _gmod.configure(api_key=_GEMINI_KEY)
             import PIL.Image as _PILImage
             import io
             _pil = _PILImage.open(io.BytesIO(img_bytes))
-            _model = _gmod.GenerativeModel("gemini-1.5-flash")
+            # [ACTION 1] 구 SDK도 분석 전용 모델로 명시적 지정
+            _model = _gmod.GenerativeModel(_ANALYZE_MODEL)
             _resp = _model.generate_content([PROMPT, _pil])
             result_text = _resp.text
+            print(f"[analyze-item][DIAG] SDK=old model={_ANALYZE_MODEL} resp_len={len(result_text or '')}", flush=True)
 
         # ── JSON 파싱 ──
         import json, re as _re
