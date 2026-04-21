@@ -1794,6 +1794,7 @@ def _ai_styling_via_gemini(
     matched_stylist=None,
     meta=None,
     lang=None,
+    tier=None,  # ─── 2026-04-21 티어별 엔진 라우팅용 ───
 ):
     """[2026-04-10] 코디쌤 추천코디 — Gemini 단일 호출로 이미지+분석 동시 생성.
 
@@ -1999,7 +2000,15 @@ def _ai_styling_via_gemini(
     bottom_parts = [(mime, raw) for label, mime, raw in ref_images if label == "bottom"]
     ordered_parts = face_parts + top_parts + bottom_parts
 
-    model_name = _CODISTYLE_MODEL
+    # ─── 2026-04-21 KST ─── 티어별 엔진 라우팅 적용 ───
+    # payload.tier > 직접 전달된 tier > 기본값 FREE
+    _resolved_tier = str(
+        tier or payload.get("tier") or (payload.get("user") or {}).get("tier") or "FREE"
+    ).upper().strip()
+    if _resolved_tier not in ("FREE", "SILVER", "GOLD", "DIAMOND"):
+        _resolved_tier = "FREE"
+    model_name = _resolve_engine(_resolved_tier, "codifit")
+    print(f"[CODIFIT] tier={_resolved_tier} → model={model_name}", flush=True)
 
     try:
         if _SDK == "new":
@@ -2319,15 +2328,15 @@ def _generate_styling_analysis(payload, matched_stylist, meta, lang=None):
 @app.post("/api/ai/styling")
 def ai_styling():
     # ══════════════════════════════════════════════════════
-    # 코디쌤 AI 코디 추천: 항상 OpenAI API 전용
-    # 코디하기 착장 이미지: /api/codistyle/generate (Gemini 전용)
+    # 코디핏 AI 추천:  [2026-04-21: 코디쌤→코디핏] 항상 OpenAI API 전용
+    # 트라이 온 착장 이미지:  [2026-04-21: 코디하기→트라이 온] /api/codistyle/generate (Gemini 전용)
     # 두 API를 혼용하거나 임의 전환하지 않음
     # ══════════════════════════════════════════════════════
     has_openai = bool(os.getenv("OPENAI_API_KEY"))
     if not has_openai:
         return jsonify(
             ok=False,
-            error="OPENAI_API_KEY가 설정되지 않았습니다. 코디쌤 AI 코디는 OpenAI API가 필요합니다.",
+            error="OPENAI_API_KEY가 설정되지 않았습니다. 코디핏 AI 코디는 OpenAI API가 필요합니다.",
         ), 400
 
     payload = request.get_json(silent=True) or {}
@@ -2455,7 +2464,11 @@ def ai_styling():
     _styling_provider = (os.getenv("CODIBANK_AI_STYLING_PROVIDER") or "gemini").strip().lower()
     if _styling_provider == "gemini" and _GEMINI_KEY:
         try:
-            print(f"[ai_styling] Gemini 단일 호출 모드 (이미지+분석 동시)")
+            # ─── 2026-04-21 KST ─── 티어 추출 (payload.user.tier 우선) ───
+            _styling_tier = str(
+                (payload.get("user") or {}).get("tier") or payload.get("tier") or "FREE"
+            ).upper().strip()
+            print(f"[ai_styling] Gemini 단일 호출 모드 (이미지+분석 동시) tier={_styling_tier}")
             _gemini_result = _ai_styling_via_gemini(
                 payload=payload,
                 prompt=prompt,
@@ -2466,6 +2479,7 @@ def ai_styling():
                 matched_stylist=_matched_stylist,
                 lang=str(payload.get("lang") or "ko"),
                 meta=_meta,
+                tier=_styling_tier,  # ─── 2026-04-21 티어별 엔진 라우팅 ───
             )
             # _ai_styling_via_gemini는 이미 jsonify 결과를 반환
             # 성공이면 그대로 반환, 실패면 폴백
@@ -2492,7 +2506,7 @@ def ai_styling():
     if not has_openai:
         return jsonify(
             ok=False,
-            error="OPENAI_API_KEY가 설정되지 않았습니다. 코디쌤 AI 코디는 OpenAI API 또는 Gemini API가 필요합니다.",
+            error="OPENAI_API_KEY가 설정되지 않았습니다. 코디핏 AI 코디는 OpenAI API 또는 Gemini API가 필요합니다.",
         ), 400
 
     model_no_face = os.getenv("CODIBANK_OPENAI_IMAGE_MODEL", "gpt-image-1.5")
@@ -2619,6 +2633,86 @@ def ai_styling():
 # ★ google-genai 공식 SDK 사용 (REST API는 이미지 생성 모델에서 미작동)
 # ★ google-generativeai(구버전)이 아닌 google-genai(신버전) 필수
 # ─────────────────────────────────────────────────────────
+# ─── 2026-04-21 KST ────────────────────────────────────────────
+# 티어별 × 기능별 엔진 라우팅 시스템 도입
+# ───────────────────────────────────────────────────────────────
+# 설계 원칙:
+# 1. 엔진 별칭(flash_v1, flash_v2, pro) → 실제 모델 ID 매핑
+# 2. {티어, 기능} 2차원 매트릭스로 엔진 선택
+# 3. 환경변수로 런타임에 조정 가능 (재배포 없이)
+# 4. 결정 순서: 환경변수 CODIBANK_ENGINE_{TIER}_{FEATURE}
+#              → 기본 매트릭스 → 최종 폴백 (_CODISTYLE_MODEL)
+# ───────────────────────────────────────────────────────────────
+
+# 엔진 별칭 → 실제 Gemini 모델 ID 매핑
+_ENGINE_MODEL_MAP = {
+    "flash_v1": os.getenv("CODIBANK_MODEL_FLASH_V1", "gemini-2.5-flash-image"),        # Nano Banana 1 ($0.039)
+    "flash_v2": os.getenv("CODIBANK_MODEL_FLASH_V2", "gemini-3.1-flash-image-preview"),# Nano Banana 2 ($0.067)
+    "pro":      os.getenv("CODIBANK_MODEL_PRO",      "gemini-3-pro-image-preview"),    # Nano Banana Pro ($0.134)
+}
+
+# 티어별 × 기능별 기본 엔진 매트릭스 (2026-04-21 확정 플랜)
+# 구조: { 티어: { 기능: 엔진별칭 } }
+_ENGINE_MATRIX_DEFAULT = {
+    "FREE":    {"codifit": "flash_v2", "tryon": "flash_v2"},
+    "SILVER":  {"codifit": "flash_v2", "tryon": "flash_v2"},
+    "GOLD":    {"codifit": "pro",      "tryon": "pro"},
+    "DIAMOND": {"codifit": "pro",      "tryon": "pro"},
+}
+
+def _resolve_engine(tier: str, feature: str) -> str:
+    """
+    티어+기능 조합에서 실제 Gemini 모델 ID를 반환
+    
+    우선순위:
+      1. 환경변수 CODIBANK_ENGINE_{TIER}_{FEATURE} (직접 모델 ID)
+      2. 환경변수 CODIBANK_ALIAS_{TIER}_{FEATURE} (별칭)
+      3. _ENGINE_MATRIX_DEFAULT 기본값
+      4. 최종 폴백 (_CODISTYLE_MODEL)
+    
+    매개변수:
+      tier:    'FREE' | 'SILVER' | 'GOLD' | 'DIAMOND' (대소문자 무관)
+      feature: 'codifit' | 'tryon' (대소문자 무관)
+    
+    반환:
+      실제 Gemini 모델 ID (예: 'gemini-3-pro-image-preview')
+    """
+    tier_up = (tier or "FREE").upper()
+    feature_low = (feature or "codifit").lower()
+    
+    # 1. 환경변수 직접 모델 ID (최우선)
+    env_model = os.getenv(f"CODIBANK_ENGINE_{tier_up}_{feature_low.upper()}")
+    if env_model:
+        return env_model
+    
+    # 2. 환경변수 별칭
+    env_alias = os.getenv(f"CODIBANK_ALIAS_{tier_up}_{feature_low.upper()}")
+    if env_alias and env_alias in _ENGINE_MODEL_MAP:
+        return _ENGINE_MODEL_MAP[env_alias]
+    
+    # 3. 기본 매트릭스
+    tier_map = _ENGINE_MATRIX_DEFAULT.get(tier_up, _ENGINE_MATRIX_DEFAULT["FREE"])
+    alias = tier_map.get(feature_low, "flash_v2")
+    if alias in _ENGINE_MODEL_MAP:
+        return _ENGINE_MODEL_MAP[alias]
+    
+    # 4. 최종 폴백
+    return _CODISTYLE_MODEL
+
+def _get_engine_config_summary() -> dict:
+    """현재 엔진 설정을 반환 (관리자 페이지에서 조회용)"""
+    summary = {
+        "engine_aliases": dict(_ENGINE_MODEL_MAP),
+        "matrix": {},
+    }
+    for tier in ["FREE", "SILVER", "GOLD", "DIAMOND"]:
+        summary["matrix"][tier] = {
+            "codifit": _resolve_engine(tier, "codifit"),
+            "tryon":   _resolve_engine(tier, "tryon"),
+        }
+    return summary
+
+# ─── 기존 _CODISTYLE_MODEL (하위 호환용 폴백) ───────────────────
 _CODISTYLE_MODEL = (
     os.getenv("CODISTYLE_GEMINI_MODEL") or
     os.getenv("CODIBANK_CODISTYLE_MODEL") or
@@ -2975,6 +3069,16 @@ def codistyle_generate():
     hw_en     = f"height {height}cm, weight {weight}kg" if height and weight else ""
     # ── 다시요청 여부 (프론트에서 generate(true) 호출 시 전송) ──
     is_retry  = bool(payload.get("isRetry", False))
+
+    # ─── 2026-04-21 KST ─── 티어별 엔진 선택 ───
+    # 프론트에서 user.tier = 'FREE'|'SILVER'|'GOLD'|'DIAMOND' 전달
+    # (전달 안 되면 FREE로 간주 — 보수적 정책)
+    _user_tier = str(user_info.get("tier") or payload.get("tier") or "FREE").upper().strip()
+    if _user_tier not in ("FREE", "SILVER", "GOLD", "DIAMOND"):
+        _user_tier = "FREE"
+    # 트라이온 전용 엔진 결정 (코디핏은 /api/ai/styling에서 별도 처리)
+    _TRYON_MODEL = _resolve_engine(_user_tier, "tryon")
+    print(f"[TRYON] tier={_user_tier} → model={_TRYON_MODEL}", flush=True)
 
     # ──── [2026-04-19 BODY] 체형 키 지역 변수화 (Phase 1 PERSONA 주입용) ────
     # 이전: payload.get("bodyType")를 STYLING_SCORE 섹션에서만 호출
@@ -3804,7 +3908,7 @@ def codistyle_generate():
 
             client = _genai.Client(api_key=_GEMINI_KEY)
             response = client.models.generate_content(
-                model=_CODISTYLE_MODEL,
+                model=_TRYON_MODEL,  # ─── 2026-04-21 티어별 라우팅 적용 ───
                 contents=contents,
                 config=_gtypes.GenerateContentConfig(
                     response_modalities=["IMAGE", "TEXT"],  # IMAGE는 필수, TEXT는 백업용
@@ -3816,7 +3920,7 @@ def codistyle_generate():
             # ★ google-generativeai (구 SDK) ★
             from PIL import Image as _PILImage
             _genai_old.configure(api_key=_GEMINI_KEY)
-            model = _genai_old.GenerativeModel(_CODISTYLE_MODEL)
+            model = _genai_old.GenerativeModel(_TRYON_MODEL)  # ─── 2026-04-21 티어별 라우팅 적용 ───
 
             def _bytes_to_pil(raw):
                 return _PILImage.open(io.BytesIO(raw))
@@ -4518,6 +4622,40 @@ def admin_stats():
     stats["gemini_key_present"] = bool(os.environ.get('GEMINI_API_KEY',''))
     stats["gemini_model"] = os.environ.get('CODISTYLE_GEMINI_MODEL','not set')
     return jsonify(stats)
+
+# ─── 2026-04-21 KST ─── 엔진 라우팅 조회 API ───
+@app.get("/admin/engine-config")
+def admin_engine_config():
+    """
+    티어별 × 기능별 엔진 설정 현황 조회.
+    관리자 페이지에서 현재 어떤 엔진이 어느 티어/기능에 적용되는지 확인용.
+    
+    응답 예시:
+    {
+      "ok": true,
+      "engine_aliases": {
+        "flash_v1": "gemini-2.5-flash-image",
+        "flash_v2": "gemini-3.1-flash-image-preview",
+        "pro":      "gemini-3-pro-image-preview"
+      },
+      "matrix": {
+        "FREE":    {"codifit": "gemini-3.1-flash-image-preview", "tryon": "gemini-3.1-flash-image-preview"},
+        "SILVER":  {...},
+        "GOLD":    {"codifit": "gemini-3-pro-image-preview", "tryon": "gemini-3-pro-image-preview"},
+        "DIAMOND": {...}
+      }
+    }
+    """
+    if not verify_admin(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        config = _get_engine_config_summary()
+        config["ok"] = True
+        return jsonify(config)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 
 # ── Supabase DB 헬퍼 ──
 def sb_query(method, table, params=None, body=None):
@@ -5543,35 +5681,87 @@ def admin_change_password():
 # ── Bonus 읽기 (앱에서 호출, 인증 불필요)
 @app.get("/api/usage/bonus/<email>")
 def get_usage_bonus(email):
-    """특정 이메일의 사용횟수 보너스 조회."""
+    """
+    ─── 2026-04-21 KST 개편 ───
+    특정 이메일의 이번달 이미지 생성 보너스 조회.
+    응답에 코디핏/트라이온 분리 필드 포함.
+    
+    응답 예:
+      { ok, month, codifit_bonus, tryon_bonus, total_bonus }
+    """
     try:
         email = email.strip().lower()
         now_ym = __import__('datetime').datetime.now().strftime("%Y-%m")
         params = {
             "email": f"eq.{email}",
             "month": f"eq.{now_ym}",
-            "select": "total_bonus",
+            "select": "codifit_bonus,tryon_bonus,total_bonus",
             "limit": "1",
         }
-        # 1) Supabase 테이블 조회
+        # 1) Supabase 테이블 조회 (신규 스키마)
         try:
             r = sb_query("GET", "user_usage_bonus", params=params)
             if r.status_code == 200:
                 rows = r.json()
                 if rows:
-                    tb = int(rows[0].get("total_bonus", 0))
-                    return jsonify({"ok": True, "total_bonus": tb, "month": now_ym})
+                    row = rows[0]
+                    co = row.get("codifit_bonus")
+                    tr = row.get("tryon_bonus")
+                    tb = int(row.get("total_bonus", 0))
+                    # 신규 컬럼 있음 → 분리 값 반환
+                    if co is not None or tr is not None:
+                        co_v = int(co or 0)
+                        tr_v = int(tr or 0)
+                        return jsonify({
+                            "ok": True, "month": now_ym,
+                            "codifit_bonus": co_v, "tryon_bonus": tr_v,
+                            "total_bonus": co_v + tr_v,
+                        })
+                    # 레거시 (total_bonus만 있음) → 코디핏으로 간주
+                    return jsonify({
+                        "ok": True, "month": now_ym,
+                        "codifit_bonus": tb, "tryon_bonus": 0,
+                        "total_bonus": tb,
+                    })
         except Exception:
             pass
-        # 2) Supabase 실패 시 서버 메모리 폴백 확인
+        # 2) 레거시 스키마로 재시도 (codifit_bonus/tryon_bonus 컬럼 미존재)
+        try:
+            _legacy = dict(params); _legacy["select"] = "total_bonus"
+            r2 = sb_query("GET", "user_usage_bonus", params=_legacy)
+            if r2.status_code == 200:
+                _rows = r2.json() or []
+                if _rows:
+                    tb = int(_rows[0].get("total_bonus", 0))
+                    return jsonify({
+                        "ok": True, "month": now_ym,
+                        "codifit_bonus": tb, "tryon_bonus": 0,
+                        "total_bonus": tb,
+                    })
+        except Exception:
+            pass
+        # 3) 메모리 폴백
         if hasattr(app, "_usage_bonus_cache"):
             key = f"{email}:{now_ym}"
             if key in app._usage_bonus_cache:
-                tb = int(app._usage_bonus_cache[key].get("total_bonus", 0))
-                return jsonify({"ok": True, "total_bonus": tb, "month": now_ym, "source": "memory"})
-        return jsonify({"ok": True, "total_bonus": 0, "month": now_ym})
+                _c = app._usage_bonus_cache[key]
+                co_v = int(_c.get("codifit_bonus") or _c.get("total_bonus") or 0)
+                tr_v = int(_c.get("tryon_bonus") or 0)
+                return jsonify({
+                    "ok": True, "month": now_ym,
+                    "codifit_bonus": co_v, "tryon_bonus": tr_v,
+                    "total_bonus": co_v + tr_v,
+                    "source": "memory",
+                })
+        return jsonify({
+            "ok": True, "month": now_ym,
+            "codifit_bonus": 0, "tryon_bonus": 0, "total_bonus": 0,
+        })
     except Exception as e:
-        return jsonify({"ok": True, "total_bonus": 0, "error": str(e)})
+        return jsonify({
+            "ok": True, "month": __import__('datetime').datetime.now().strftime("%Y-%m"),
+            "codifit_bonus": 0, "tryon_bonus": 0, "total_bonus": 0, "error": str(e),
+        })
 
 
 # ── Bonus 설정 (MASTER 전용)
@@ -5613,20 +5803,54 @@ def admin_set_usage_bonus():
 # ── 보너스 현황 조회 (MASTER 전용)
 @app.get("/admin/usage/bonus-list")
 def admin_usage_bonus_list():
-    """이달 보너스 지급 현황 전체 조회 (MASTER 전용)."""
+    """
+    ─── 2026-04-21 KST 개편 ───
+    이달 보너스 지급 현황 전체 조회 (MASTER 전용).
+    응답에 codifit_bonus와 tryon_bonus를 분리 필드로 반환.
+    """
     if not verify_master(request):
         return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
     try:
         now_ym = __import__('datetime').datetime.now().strftime("%Y-%m")
+        # ─── 2026-04-21: select에 codifit_bonus / tryon_bonus 추가 ───
         params = {"month": f"eq.{now_ym}", "order": "updated_at.desc", "limit": "500",
-                  "select": "email,month,total_bonus,updated_at"}
+                  "select": "email,month,codifit_bonus,tryon_bonus,total_bonus,updated_at"}
         r = sb_query("GET", "user_usage_bonus", params=params)
         if r.status_code == 200:
-            return jsonify({"ok": True, "list": r.json(), "month": now_ym})
+            _rows = r.json() or []
+            # 스키마에 새 컬럼이 없어 응답에 필드가 누락된 경우 total_bonus를 코디핏으로 처리
+            for row in _rows:
+                if row.get("codifit_bonus") is None and row.get("tryon_bonus") is None:
+                    row["codifit_bonus"] = int(row.get("total_bonus") or 0)
+                    row["tryon_bonus"] = 0
+                else:
+                    row["codifit_bonus"] = int(row.get("codifit_bonus") or 0)
+                    row["tryon_bonus"]   = int(row.get("tryon_bonus") or 0)
+            return jsonify({"ok": True, "list": _rows, "month": now_ym})
+        # 컬럼이 없어 쿼리가 실패한 경우 — total_bonus만 재조회 (레거시 스키마)
+        try:
+            _legacy_params = dict(params)
+            _legacy_params["select"] = "email,month,total_bonus,updated_at"
+            r2 = sb_query("GET", "user_usage_bonus", params=_legacy_params)
+            if r2.status_code == 200:
+                _rows = r2.json() or []
+                for row in _rows:
+                    row["codifit_bonus"] = int(row.get("total_bonus") or 0)
+                    row["tryon_bonus"] = 0
+                return jsonify({"ok": True, "list": _rows, "month": now_ym, "schema": "legacy"})
+        except Exception:
+            pass
         # 메모리 폴백
         if hasattr(app, "_usage_bonus_cache"):
-            rows = [{"email": k.split(":")[0], "month": k.split(":")[1], **v}
-                    for k, v in app._usage_bonus_cache.items() if k.endswith(now_ym)]
+            rows = []
+            for k, v in app._usage_bonus_cache.items():
+                if not k.endswith(now_ym): continue
+                email = k.split(":")[0]
+                co = int(v.get("codifit_bonus") or v.get("total_bonus") or 0)
+                tr = int(v.get("tryon_bonus") or 0)
+                rows.append({"email": email, "month": now_ym,
+                             "codifit_bonus": co, "tryon_bonus": tr,
+                             "total_bonus": co + tr})
             return jsonify({"ok": True, "list": rows, "month": now_ym, "note": "memory_fallback"})
         return jsonify({"ok": True, "list": [], "month": now_ym})
     except Exception as e:
@@ -6016,21 +6240,78 @@ def admin_create_test_accounts():
 # ── 회원 사용횟수 지급 (MASTER 전용) — 특정 회원 email 기준
 @app.post("/admin/member/set-bonus")
 def admin_member_set_bonus():
-    """회원(일반 유저)에게 이번달 이미지 생성 보너스 지급 (MASTER 전용)."""
+    """
+    ─── 2026-04-21 KST 개편 ───
+    회원(일반 유저)에게 이번달 이미지 생성 보너스 지급 (MASTER 전용).
+    
+    코디핏(codifit_bonus)과 트라이 온(tryon_bonus)을 완전히 분리 관리.
+    
+    요청 바디:
+      email         : (필수) 회원 이메일
+      codifit_bonus : (선택) 코디핏 보너스 횟수. 생략 시 기존 값 유지
+      tryon_bonus   : (선택) 트라이 온 보너스 횟수. 생략 시 기존 값 유지
+      total_bonus   : (하위 호환) codifit_bonus/tryon_bonus가 없을 때만 코디핏에 할당
+      month         : (선택) YYYY-MM. 기본값: 이번 달
+    
+    응답:
+      { ok, email, month, codifit_bonus, tryon_bonus, total_bonus, note }
+    """
     if not verify_master(request):
         return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
     try:
         import requests as _rq
         data        = request.get_json(silent=True) or {}
         email       = str(data.get("email", "")).strip().lower()
-        total_b     = max(0, int(data.get("total_bonus", data.get("closet_bonus", 0)) or 0))
         month       = str(data.get("month") or __import__('datetime').datetime.now().strftime("%Y-%m"))
 
         if not email:
             return jsonify({"ok": False, "error": "email 필수"}), 400
 
+        # ─── 분리된 보너스 값 읽기 (None이면 "미지정" = 기존값 유지) ───
+        co_raw = data.get("codifit_bonus", None)
+        tr_raw = data.get("tryon_bonus", None)
+        # 하위 호환: 두 개 모두 미지정이면 total_bonus를 코디핏에 할당
+        if co_raw is None and tr_raw is None:
+            co_raw = data.get("total_bonus", data.get("closet_bonus", 0)) or 0
+            tr_raw = 0
+
+        # 기존 값 조회 (codifit_bonus 또는 tryon_bonus 중 한쪽만 전달되었을 때 다른 쪽 보존)
+        existing_co, existing_tr = 0, 0
+        try:
+            _get_url = f"{supabase_url()}/rest/v1/user_usage_bonus"
+            _get_params = {"email": f"eq.{email}", "month": f"eq.{month}",
+                           "select": "codifit_bonus,tryon_bonus,total_bonus", "limit": "1"}
+            _get_r = _rq.get(_get_url, headers=supabase_admin_headers(), params=_get_params, timeout=5)
+            if _get_r.status_code == 200:
+                _rows = _get_r.json() or []
+                if _rows:
+                    row = _rows[0]
+                    existing_co = int(row.get("codifit_bonus") or 0)
+                    # codifit_bonus 컬럼이 없는 레거시 데이터 → total_bonus를 코디핏으로 간주
+                    if not existing_co and row.get("total_bonus"):
+                        existing_co = int(row.get("total_bonus") or 0)
+                    existing_tr = int(row.get("tryon_bonus") or 0)
+        except Exception:
+            pass
+
+        # 메모리 폴백에서도 기존값 조회
+        if not existing_co and not existing_tr and hasattr(app, "_usage_bonus_cache"):
+            _mem_key = f"{email}:{month}"
+            if _mem_key in app._usage_bonus_cache:
+                _cached = app._usage_bonus_cache[_mem_key]
+                existing_co = int(_cached.get("codifit_bonus") or _cached.get("total_bonus") or 0)
+                existing_tr = int(_cached.get("tryon_bonus") or 0)
+
+        # 최종 적용값 결정
+        codifit_b = max(0, int(co_raw)) if co_raw is not None else existing_co
+        tryon_b   = max(0, int(tr_raw)) if tr_raw is not None else existing_tr
+        total_b   = codifit_b + tryon_b  # 하위 호환 합산값
+
         bonus_body = {
-            "email": email, "month": month, "total_bonus": total_b,
+            "email": email, "month": month,
+            "codifit_bonus": codifit_b,
+            "tryon_bonus":   tryon_b,
+            "total_bonus":   total_b,  # 레거시 필드 유지
             "updated_at": __import__('datetime').datetime.utcnow().isoformat() + "Z",
             "updated_by": (request.headers.get("X-Admin-Key") or "")[:16],
         }
@@ -6039,14 +6320,38 @@ def admin_member_set_bonus():
         headers["Prefer"] = "resolution=merge-duplicates,return=representation"
         r = _rq.post(url, headers=headers, json=bonus_body, timeout=10)
 
+        # Supabase 실패 시 메모리 폴백 (스키마에 새 컬럼이 없어서 실패할 수 있음)
+        note = "saved_to_supabase"
         if r.status_code not in (200, 201):
-            if not hasattr(app, "_usage_bonus_cache"):
-                app._usage_bonus_cache = {}
-            app._usage_bonus_cache[f"{email}:{month}"] = {"total_bonus": total_b}
+            # 새 컬럼이 없는 경우 → total_bonus만으로 재시도
+            try:
+                _fallback_body = {
+                    "email": email, "month": month,
+                    "total_bonus": total_b,
+                    "updated_at": bonus_body["updated_at"],
+                    "updated_by": bonus_body["updated_by"],
+                }
+                r2 = _rq.post(url, headers=headers, json=_fallback_body, timeout=10)
+                if r2.status_code in (200, 201):
+                    note = "saved_legacy_schema"
+                else:
+                    raise Exception("supabase_write_failed")
+            except Exception:
+                if not hasattr(app, "_usage_bonus_cache"):
+                    app._usage_bonus_cache = {}
+                app._usage_bonus_cache[f"{email}:{month}"] = {
+                    "codifit_bonus": codifit_b,
+                    "tryon_bonus":   tryon_b,
+                    "total_bonus":   total_b,
+                }
+                note = "memory_fallback"
 
         return jsonify({
-            "ok": True, "email": email, "month": month, "total_bonus": total_b,
-            "note": "memory_fallback" if r.status_code not in (200, 201) else "saved_to_supabase",
+            "ok": True, "email": email, "month": month,
+            "codifit_bonus": codifit_b,
+            "tryon_bonus":   tryon_b,
+            "total_bonus":   total_b,
+            "note": note,
         })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
