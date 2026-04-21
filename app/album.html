@@ -32,14 +32,14 @@
   var _T = {
     // 내비게이션
     "내옷장":"My Closet","코디앨범":"Codi Album","코디 앨범":"Codi Album",
-    "ITEM등록":"Add Item","코디하기":"Codi Style",
+    "ITEM등록":"Add Item","트라이 온":"Try On",
     // 앨범 페이지
     "코디 앨범 - 코디뱅크":"Codi Album - CodiBank",
     "앨범 불러오는 중…":"Loading album…",
     "저장된 코디가 없어요":"No saved outfits yet",
     "내옷장에서 AI 코디를 추천받고":"Get AI outfit recommendations from My Closet",
     "저장하기를 눌러보세요!":"and tap Save!",
-    "AI 코디 추천 받기":"Get AI Outfit",
+    "AI 코디핏 받기":"Get CodiFit",
     "전체삭제":"Delete All","저장일자":"By Date","좋아요":"Liked","코디목적":"By Purpose",
     "저장":"Save","공유":"Share","삭제":"Delete",
     "✓ 저장되었습니다":"✓ Saved",
@@ -203,22 +203,7 @@ html,body{min-height:100dvh;background:#00022E;color:#ffffff;font-family:'Inter'
 <link rel="apple-touch-icon" href="/app/icons/icon-192.png"/>
 <script src="pwa-register.js" defer></script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6991588244591343" crossorigin="anonymous"></script>
-<style>
-/* [2026-04-17] 페이지 최대 폭 제한 — 모바일 UX 기반 500px */
-/* 501px 이상 뷰포트(큰 모바일, 태블릿, PC)에서만 활성 */
-@media (min-width: 501px) {
-  html {
-    background: #00022E;
-  }
-  body {
-    max-width: 500px !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-  }
-}
-</style>
 </head>
-
 <body>
 
 <!-- 헤더 -->
@@ -256,7 +241,7 @@ html,body{min-height:100dvh;background:#00022E;color:#ffffff;font-family:'Inter'
   </div>
   <a href="closet.html" class="empty-cta">
     <span class="material-symbols-outlined" style="font-size:16px;font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 16;">psychology</span>
-    <span data-i18n="AI 코디 추천 받기">AI 코디 추천 받기</span>
+    <span data-i18n="AI 코디핏 받기">AI 코디핏 받기</span>
   </a>
 </div>
 
@@ -309,10 +294,10 @@ html,body{min-height:100dvh;background:#00022E;color:#ffffff;font-family:'Inter'
 <!-- 풋바 -->
 <nav class="cb-nav">
   <div class="cb-nav-inner">
-    <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디쌤</span></a>
+    <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디핏</span></a>
     <a href="album.html" class="cb-nav-tab on"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
     <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
-    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">코디하기</span></a>
+    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">트라이 온</span></a>
     <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
   </div>
 </nav>
@@ -594,25 +579,14 @@ async function doDownload() {
   if (!_cur) return;
   const src = await resolveImg(_cur.imageRef);
   if (!src) { alert('이미지를 불러올 수 없습니다.'); return; }
-  // [2026-04-17] 브라우저 네이티브 다운로드 알림(흰색 팝업) 제거:
-  //   Web Share API(파일 지원) 사용 → 공유 시트에서 "이미지 저장" 선택 시 갤러리 저장
   try {
     const res = await fetch(src);
     const blob = await res.blob();
-    const fname = 'codibank_' + Date.now() + '.jpg';
-    const file = new File([blob], fname, { type: blob.type || 'image/jpeg' });
-    if (navigator.share && navigator.canShare && navigator.canShare({ files:[file] })) {
-      try { await navigator.share({ files:[file] }); }
-      catch(err) { if (err && err.name === 'AbortError') return; throw err; }
-      return;
-    }
-    // 폴백 (데스크탑 등)
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = fname; a.click();
+    a.href = url; a.download = 'codibank_' + Date.now() + '.jpg'; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 3000);
   } catch(e) {
-    console.error('doDownload failed', e);
     // fetch 실패 시 직접 링크 폴백
     const a = document.createElement('a'); a.href = src; a.download = 'codibank.jpg'; a.click();
   }

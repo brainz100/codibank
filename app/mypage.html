@@ -81,16 +81,21 @@
 <link rel="apple-touch-icon" href="/app/icons/icon-192.png"/>
 <script src="pwa-register.js" defer></script>
 <style>
-/* [2026-04-17] 페이지 최대 폭 제한 — 모바일 UX 기반 500px */
-/* 501px 이상 뷰포트(큰 모바일, 태블릿, PC)에서만 활성 */
-@media (min-width: 501px) {
+/* [2026-04-17] PC 최대 폭 제한 — iPad Pro 11" landscape 기준 1194px */
+/* 모바일/태블릿은 기존 UX 유지, 1195px 이상 화면에서만 중앙 정렬 + 배경 확장 */
+@media (min-width: 1195px) {
   html {
     background: #00022E;
+    min-height: 100%;
   }
   body {
-    max-width: 500px !important;
+    max-width: 1194px !important;
     margin-left: auto !important;
     margin-right: auto !important;
+  }
+  /* 플로팅 + 버튼: body 우측 끝 기준으로 재배치 */
+  #floatingAddBtn {
+    right: max(20px, calc(50% - 577px)) !important;
   }
 }
 </style>
@@ -167,27 +172,46 @@
       </div>
       <span class="material-symbols-outlined" style="color:rgba(255,255,255,.2);font-size:16px;">chevron_right</span>
     </div>
-    <div style="display:flex;gap:8px;">
-      <div style="flex:1;background:rgba(7,25,82,.25);border-radius:8px;padding:8px 10px;">
-        <div style="font-size:8px;color:rgba(151,254,237,.5);font-weight:600;margin-bottom:3px;" data-i18n="이미지 생성">이미지 생성</div>
+    <!-- ─── 2026-04-21: 코디핏 / 트라이온 / 아이템 3영역 분리 ─── -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+      <!-- 코디핏 -->
+      <div style="background:rgba(7,25,82,.25);border-radius:8px;padding:8px 10px;">
+        <div style="font-size:8px;color:rgba(151,254,237,.5);font-weight:600;margin-bottom:3px;" data-i18n="코디핏">코디핏</div>
         <div style="display:flex;align-items:baseline;gap:3px;">
-          <span id="mpUsedCount" style="font-size:17px;font-weight:900;color:#fff;">0</span>
-          <span id="mpLimitCount" style="font-size:10px;color:rgba(255,255,255,.35);">/ 6</span>
+          <span id="mpCodifitUsed" style="font-size:16px;font-weight:900;color:#fff;">0</span>
+          <span id="mpCodifitLimit" style="font-size:10px;color:rgba(255,255,255,.35);">/ 3</span>
         </div>
         <div style="height:2px;background:rgba(255,255,255,.08);border-radius:1px;margin-top:4px;overflow:hidden;">
-          <div id="mpUsageFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:1px;transition:width .6s;"></div>
+          <div id="mpCodifitFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:1px;transition:width .6s;"></div>
         </div>
       </div>
-      <div style="flex:1;background:rgba(7,25,82,.25);border-radius:8px;padding:8px 10px;">
-        <div style="font-size:8px;color:rgba(151,254,237,.5);font-weight:600;margin-bottom:3px;" data-i18n="아이템 등록">아이템 등록</div>
+      <!-- 트라이 온 -->
+      <div style="background:rgba(7,25,82,.25);border-radius:8px;padding:8px 10px;">
+        <div style="font-size:8px;color:rgba(240,163,197,.7);font-weight:600;margin-bottom:3px;" data-i18n="트라이 온">트라이 온</div>
         <div style="display:flex;align-items:baseline;gap:3px;">
-          <span id="mpItemUsed" style="font-size:17px;font-weight:900;color:#fff;">0</span>
-          <span id="mpItemLimit" style="font-size:10px;color:rgba(255,255,255,.35);">/ 10</span>
+          <span id="mpTryonUsed" style="font-size:16px;font-weight:900;color:#fff;">0</span>
+          <span id="mpTryonLimit" style="font-size:10px;color:rgba(255,255,255,.35);">/ 1</span>
         </div>
         <div style="height:2px;background:rgba(255,255,255,.08);border-radius:1px;margin-top:4px;overflow:hidden;">
-          <div id="mpItemFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:1px;transition:width .6s;"></div>
+          <div id="mpTryonFill" style="height:100%;width:0%;background:linear-gradient(90deg,#d54f82,#F0A3C5);border-radius:1px;transition:width .6s;"></div>
         </div>
       </div>
+      <!-- 아이템 등록 -->
+      <div style="background:rgba(7,25,82,.25);border-radius:8px;padding:8px 10px;">
+        <div style="font-size:8px;color:rgba(196,181,253,.7);font-weight:600;margin-bottom:3px;" data-i18n="아이템 등록">아이템 등록</div>
+        <div style="display:flex;align-items:baseline;gap:3px;">
+          <span id="mpItemUsed" style="font-size:16px;font-weight:900;color:#fff;">0</span>
+          <span id="mpItemLimit" style="font-size:10px;color:rgba(255,255,255,.35);">/ 20</span>
+        </div>
+        <div style="height:2px;background:rgba(255,255,255,.08);border-radius:1px;margin-top:4px;overflow:hidden;">
+          <div id="mpItemFill" style="height:100%;width:0%;background:linear-gradient(90deg,#7c5cdb,#C4B5FD);border-radius:1px;transition:width .6s;"></div>
+        </div>
+      </div>
+    </div>
+    <!-- 하위 호환 히든 필드 -->
+    <div style="display:none;">
+      <span id="mpUsedCount">0</span><span id="mpLimitCount">/ 6</span>
+      <div id="mpUsageFill"></div>
     </div>
   </div>
 
@@ -264,7 +288,7 @@
     "코디앨범":         "Codi Album",
     "코디 앨범":        "Codi Album",
     "ITEM등록":         "Add Item",
-    "코디하기":         "Codi Style",
+    "트라이 온":         "Try On",
     "MY":              "MY",
 
     // ── 내옷장 (closet.html) ──
@@ -285,7 +309,7 @@
       "Analyzes your style with keywords.",
     "모바일 옷장에서 쉽게 코디할 수 있는 해법을 제공한다.":
       "Provides easy outfit solutions from your mobile closet.",
-    "AI 추천코디 이야기":  "AI Outfit Story",
+    "AI 코디핏 이야기":  "AI CodiFit Story",
     "목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.":
       "Select a goal and AI will recommend outfits based on the weather.",
     "✦ AI 스타일링 포인트": "✦ AI Styling Points",
@@ -305,7 +329,7 @@
     "모바일 옷장":        "Mobile Closet",
     "클릭하면 AI가 추천한 코디를 내 옷에서 찾아드립니다":
       "Tap to find AI outfit matches in your closet",
-    "AI 추천코디 × 내 옷장 유사도 분석": "AI Outfit × Closet Similarity Analysis",
+    "AI 코디핏 × 내 옷장 유사도 분석": "AI CodiFit × Closet Similarity Analysis",
     "AI 코디를 먼저 생성하면 유사도를 분석해드려요.":
       "Generate an AI outfit first to see similarity analysis.",
     "검색 결과가 없어요": "No results found",
@@ -316,8 +340,8 @@
     "위치 확인 중…":      "Checking location…",
     "개인정보처리방침":    "Privacy Policy",
 
-    // ── 코디하기 (codistyle.html) ──
-    "코디하기 - 코디뱅크": "Codi Style - CodiBank",
+    // ── 트라이 온 (codistyle.html) ──
+    "트라이 온 - 코디뱅크": "Try On - CodiBank",
     "상의":               "Top",
     "하의":               "Bottom",
     "상의 이미지":         "Top Image",
@@ -326,7 +350,7 @@
     "하의삭제":           "Remove Bottom",
     "상의와 하의를 업로드하고 생성 버튼을 눌러주세요":
       "Upload top and bottom, then tap generate",
-    "AI 착장 이미지 생성": "Generate AI Outfit",
+    "AI 착장 이미지 생성": "Generate AI CodiFit",
     "AI가 착장 이미지를 생성하고 있어요…": "AI is generating your outfit image…",
     "(10~25초 소요)":      "(10–25 sec)",
     "사진촬영":           "Take Photo",
@@ -358,7 +382,7 @@
     "저장된 코디가 없어요": "No saved outfits yet",
     "내옷장에서 AI 코디를 추천받고": "Get AI outfit recommendations from My Closet",
     "저장하기를 눌러보세요!": "and tap Save!",
-    "AI 코디 추천 받기":   "Get AI Outfit",
+    "AI 코디핏 받기":   "Get CodiFit",
     "전체삭제":           "Delete All",
 
     // ── 마이페이지 (mypage.html) ──
@@ -388,8 +412,8 @@
     "로딩중…":             "Loading…",
     "FUP(공정 이용 정책)": "FUP (Fair Use Policy)",
     "코디 생성 횟수 기준":  "Outfit Generation Limits",
-    "내옷장 AI 추천 + 코디하기 착장 이미지를 합산하여 횟수를 계산합니다.":
-      "My Closet AI + Codi Style outfit images are counted together.",
+    "내옷장 AI 추천 + 트라이 온 착장 이미지를 합산하여 횟수를 계산합니다.":
+      "My Closet AI + Try On outfit images are counted together.",
     "데이터 보관 정책":     "Data Retention Policy",
     "다이아 플랜의 무제한은 일일 30회 한도 내에서 운영됩니다.":
       "Diamond plan unlimited is subject to a daily limit of 30.",
@@ -484,68 +508,105 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       // ── 구독/보너스 정보 실시간 표시 ──
       (async function(){
         if(!u.email) return;
-        // 먼저 localStorage 캐시로 즉시 표시
+        // ─── 2026-04-21 확정 플랜 한도 (pricing.html / closet.html과 동일) ───
+        const CODIFIT_LIMITS = {free:3, silver:60,  gold:200,  diamond:9999};
+        const TRYON_LIMITS   = {free:1, silver:10,  gold:30,   diamond:100};
+        const ITEM_LIMITS    = {free:20,silver:200, gold:1000, diamond:9999};
+        const planId = (u.plan||'free').toLowerCase();
+        const coBase = CODIFIT_LIMITS[planId] || 3;
+        const trBase = TRYON_LIMITS[planId]   || 1;
+        const itemBase = ITEM_LIMITS[planId]  || 20;
+
+        // ─── localStorage에서 즉시 표시 (코디핏/트라이온 분리) ───
+        let closetUsed = 0, codistyleUsed = 0;
         try{
-          const infoKey = 'cb_plan_info_'+(u.email);
-          const infoRaw = localStorage.getItem(infoKey);
-          if(infoRaw){
-            const info = JSON.parse(infoRaw);
-            try{
-              document.getElementById('mpUsedCount').textContent = info.totalUsed || 0;
-              document.getElementById('mpLimitCount').textContent = '/ ' + (info.totalLimit>=9999?'∞':info.totalLimit);
-              var _pct = info.totalLimit>=9999 ? Math.min(100,Math.round((info.totalUsed||0)/300*100)) : Math.min(100,Math.round((info.totalUsed||0)/Math.max(info.totalLimit,1)*100));
-              document.getElementById('mpUsageFill').style.width = _pct+'%';
-            }catch(_){}
+          const raw = JSON.parse(localStorage.getItem('cb_usage_'+u.email)||'{}');
+          closetUsed    = parseInt(raw.closetCount || 0);
+          codistyleUsed = parseInt(raw.codistyleCount || 0);
+        }catch(_){}
+        
+        // 즉시 표시 (보너스 없음 상태)
+        function updateCard(coBonus, trBonus, itemBonus, itemUsed){
+          const coLimit = coBase >= 9999 ? 9999 : (coBase + coBonus);
+          const trLimit = trBase + trBonus;
+          const itLimit = itemBase >= 9999 ? 9999 : (itemBase + itemBonus);
+          const coUnlim = coBase >= 9999;
+          const itUnlim = itemBase >= 9999;
+
+          // 코디핏
+          try{
+            document.getElementById('mpCodifitUsed').textContent = closetUsed;
+            document.getElementById('mpCodifitLimit').textContent = '/ ' + (coUnlim?'∞':coLimit);
+            const coPct = coUnlim ? Math.min(100,Math.round(closetUsed/300*100)) : Math.min(100,Math.round(closetUsed/Math.max(coLimit,1)*100));
+            document.getElementById('mpCodifitFill').style.width = coPct+'%';
+            if(coPct>80) document.getElementById('mpCodifitFill').style.background='linear-gradient(90deg,#ef4444,#fca5a5)';
+          }catch(_){}
+          // 트라이 온
+          try{
+            document.getElementById('mpTryonUsed').textContent = codistyleUsed;
+            document.getElementById('mpTryonLimit').textContent = '/ ' + trLimit;
+            const trPct = Math.min(100,Math.round(codistyleUsed/Math.max(trLimit,1)*100));
+            document.getElementById('mpTryonFill').style.width = trPct+'%';
+            if(trPct>80) document.getElementById('mpTryonFill').style.background='linear-gradient(90deg,#ef4444,#fca5a5)';
+          }catch(_){}
+          // 아이템
+          try{
+            document.getElementById('mpItemUsed').textContent = itemUsed;
+            document.getElementById('mpItemLimit').textContent = '/ ' + (itUnlim?'∞':itLimit);
+            const itPct = itUnlim ? Math.min(100,Math.round(itemUsed/100*100)) : Math.min(100,Math.round(itemUsed/Math.max(itLimit,1)*100));
+            document.getElementById('mpItemFill').style.width = itPct+'%';
+            if(itPct>80) document.getElementById('mpItemFill').style.background='linear-gradient(90deg,#ef4444,#fca5a5)';
+          }catch(_){}
+          // 하위 호환 히든 필드
+          try{
+            const totalUsed = closetUsed + codistyleUsed;
+            const totalLimit = (coUnlim?9999:coLimit) + trLimit;
+            document.getElementById('mpUsedCount').textContent = totalUsed;
+            document.getElementById('mpLimitCount').textContent = '/ ' + (totalLimit>=9999?'∞':totalLimit);
+          }catch(_){}
+        }
+
+        // 초기: 보너스 0 으로 즉시 표시
+        let curItemUsed = 0;
+        try{
+          if(typeof CodiBank!=='undefined'&&typeof CodiBank.getItemsByUser==='function'){
+            curItemUsed = (CodiBank.getItemsByUser(u.email)||[]).length;
           }
         }catch(_){}
-        // 백그라운드로 API 최신값 조회
+        updateCard(0, 0, 0, curItemUsed);
+
+        // ─── 백그라운드: API에서 코디핏/트라이온 보너스 조회 ───
         try{
           const bb = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || 'https://codibank-api.onrender.com';
           const rb = await fetch(bb+'/api/usage/bonus/'+encodeURIComponent(u.email));
+          let coBonus = 0, trBonus = 0;
           if(rb.ok){
             const db = await rb.json();
-            const bonusTotal = parseInt(db.total_bonus||0);
-            const LIMITS = {free:6,silver:40,gold:150,diamond:9999};
-            const planId = (u.plan||'free').toLowerCase();
-            const baseLimit = LIMITS[planId] || 6;
-            const totalLimit = baseLimit + bonusTotal;
-            let totalUsed = 0;
-            try{ const raw=JSON.parse(localStorage.getItem('cb_usage_'+u.email)||'{}'); totalUsed=raw.totalCount||0; }catch(_){}
-            const rem = totalLimit >= 9999 ? '∞' : Math.max(0, totalLimit - totalUsed);
-            const bonusText = bonusTotal > 0 ? ' (+보너스 '+bonusTotal+'회)' : '';
-            try{
-              document.getElementById('mpUsedCount').textContent = totalUsed;
-              document.getElementById('mpLimitCount').textContent = '/ ' + (totalLimit>=9999?'∞':totalLimit);
-              var _pct2 = totalLimit>=9999 ? Math.min(100,Math.round(totalUsed/300*100)) : Math.min(100,Math.round(totalUsed/Math.max(totalLimit,1)*100));
-              document.getElementById('mpUsageFill').style.width = _pct2+'%';
-              if(_pct2>80) document.getElementById('mpUsageFill').style.background='linear-gradient(90deg,#ef4444,#fca5a5)';
-            }catch(_){}
-            try{ localStorage.setItem('cb_plan_info_'+u.email, JSON.stringify({updatedAt:new Date().toISOString().slice(0,7),totalLimit,totalUsed,bonusTotal})); }catch(_){}
+            if(db.codifit_bonus !== undefined || db.tryon_bonus !== undefined){
+              coBonus = parseInt(db.codifit_bonus || 0);
+              trBonus = parseInt(db.tryon_bonus || 0);
+            } else {
+              // 레거시 폴백: total_bonus 전량을 코디핏으로
+              coBonus = parseInt(db.total_bonus || 0);
+            }
           }
-          // ── 아이템 현황 표시 ──
-          // ── 아이템 현황 표시 (mpItemUsed/mpItemLimit 직접 사용) ──
+          // 아이템 보너스
+          let itemBonus = 0;
           try{
-            const ITEM_LIMITS = {free:10,silver:100,gold:500,diamond:99999};
-            const planId2 = (u.plan||'free').toLowerCase();
-            const itemBase = ITEM_LIMITS[planId2] || 10;
-            let itemBonus = 0;
-            try{
-              const ir = await fetch(bb+'/api/usage/item-bonus/'+encodeURIComponent(u.email));
-              if(ir.ok){ const id2=await ir.json(); itemBonus=parseInt(id2.total_bonus||0); }
-            }catch(_){}
-            let itemUsed = 0;
-            try{
-              if(typeof CodiBank!=='undefined'&&typeof CodiBank.getItemsByUser==='function'){
-                itemUsed = (CodiBank.getItemsByUser(u.email)||[]).length;
-              }
-            }catch(_){}
-            const itemLimit = itemBase + itemBonus;
-            const isUnlim = itemLimit >= 99999;
-            document.getElementById('mpItemUsed').textContent = itemUsed;
-            document.getElementById('mpItemLimit').textContent = '/ ' + (isUnlim?'∞':itemLimit);
-            var _ipct = isUnlim ? Math.min(100,Math.round(itemUsed/100*100)) : Math.min(100,Math.round(itemUsed/Math.max(itemLimit,1)*100));
-            document.getElementById('mpItemFill').style.width = _ipct+'%';
-            if(_ipct>80) document.getElementById('mpItemFill').style.background='linear-gradient(90deg,#ef4444,#fca5a5)';
+            const ir = await fetch(bb+'/api/usage/item-bonus/'+encodeURIComponent(u.email));
+            if(ir.ok){ const id2=await ir.json(); itemBonus=parseInt(id2.total_bonus||0); }
+          }catch(_){}
+          // 최신 보너스 반영
+          updateCard(coBonus, trBonus, itemBonus, curItemUsed);
+          // 로컬 캐시 업데이트
+          try{
+            localStorage.setItem('cb_plan_info_'+u.email, JSON.stringify({
+              updatedAt: new Date().toISOString().slice(0,7),
+              planId: planId,
+              codifitBonus: coBonus, tryonBonus: trBonus, itemBonus: itemBonus,
+              codifitBase: coBase, tryonBase: trBase, itemBase: itemBase,
+              closetUsed: closetUsed, codistyleUsed: codistyleUsed, itemUsed: curItemUsed,
+            }));
           }catch(_){}
         }catch(_){}
       })();
@@ -716,10 +777,10 @@ document.addEventListener('visibilitychange', function(){
 <!-- CodiBank 공통 풋바 -->
 <nav class="cb-nav">
   <div class="cb-nav-inner">
-    <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디쌤</span></a>
+    <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디핏</span></a>
     <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
     <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
-    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">코디하기</span></a>
+    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">트라이 온</span></a>
     <a href="mypage.html" class="cb-nav-tab on"><span class="ni">person</span><span class="nl">MY</span></a>
   </div>
 </nav>

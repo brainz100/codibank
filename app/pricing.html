@@ -29,7 +29,7 @@
     "코디앨범":         "Codi Album",
     "코디 앨범":        "Codi Album",
     "ITEM등록":         "Add Item",
-    "코디하기":         "Codi Style",
+    "트라이 온":        "Try On",
     "MY":              "MY",
 
     // ── 내옷장 (closet.html) ──
@@ -81,8 +81,8 @@
     "위치 확인 중…":      "Checking location…",
     "개인정보처리방침":    "Privacy Policy",
 
-    // ── 코디하기 (codistyle.html) ──
-    "코디하기 - 코디뱅크": "Codi Style - CodiBank",
+    // ── 트라이 온 (codistyle.html) ──
+    "트라이 온 - 코디뱅크": "Try On - CodiBank",
     "상의":               "Top",
     "하의":               "Bottom",
     "상의 이미지":         "Top Image",
@@ -146,7 +146,7 @@
     "로딩중…":             "Loading…",
     "FUP(공정 이용 정책)": "FUP (Fair Use Policy)",
     "코디 생성 횟수 기준":  "Outfit Generation Limits",
-    "내옷장 AI 추천 + 코디하기 착장 이미지를 합산하여 횟수를 계산합니다.":
+    "코디핏(AI 추천)과 트라이 온(가상 시착)이 별도로 카운트됩니다.":
       "My Closet AI + Codi Style outfit images are counted together.",
     "데이터 보관 정책":     "Data Retention Policy",
     "다이아 플랜의 무제한은 일일 30회 한도 내에서 운영됩니다.":
@@ -477,7 +477,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
     <a href="mypage.html" class="back-btn"><span class="mi">arrow_back_ios_new</span></a>
     <div>
       <div class="pg-title" id="pgTitle">구독 플랜</div>
-      <div class="pg-sub" id="pgSub">코디 생성 = 내옷장 + 코디하기 합산 기준</div>
+      <div class="pg-sub" id="pgSub">코디핏 + 트라이 온 각각 별도 카운트</div>
     </div>
   </div>
 
@@ -554,10 +554,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 <div class="toast" id="toast"></div>
 
 <nav class="cb-nav"><div class="cb-nav-inner">
-  <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디쌤</span></a>
+  <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디핏</span></a>
   <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
   <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
-  <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">코디하기</span></a>
+  <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">트라이 온</span></a>
   <a href="mypage.html" class="cb-nav-tab on"><span class="ni">person</span><span class="nl">MY</span></a>
 </div></nav>
 
@@ -682,7 +682,7 @@ function renderPlans(){
 
     const feats = p.features.map(f => {
       const txt = en ? f.en : f.ko;
-      const subNote = f.sub ? `<span class="sub">${en?'Daily limit (closet + codi)':'내옷장+코디하기 합산 일일 한도'}</span>` : '';
+      const subNote = f.sub ? `<span class="sub">${en?'Daily limit (codi fit + try on)':'코디핏·트라이 온 합산 일일 한도'}</span>` : '';
       return `<div class="feat"><span class="mi ${f.icon === 'check' ? 'check' : 'x'}">${f.icon === 'check' ? 'check_circle' : 'cancel'}</span><span>${txt}${subNote}</span></div>`;
     }).join('');
 
@@ -812,23 +812,28 @@ async function renderStatus(){
     : 'linear-gradient(90deg,#35A29F,#97FEED)';
 
   // ─── 2026-04-21: 가능 횟수 박스 — 코디핏/트라이온/아이템 3줄 ───
+  // 표시 형식: "*코디핏 생성 횟수 {총한도}회 = 구독플랜 {base}회 + 보너스 지급 {bonus}회   (사용: X회)"
+  // 등호가 실제로 수학적으로 맞음 (total_limit = base + bonus)
   const quotaBox = document.getElementById('quotaInfoBox');
   if(quotaBox){
-    // 코디핏 라인
+    // ─── 코디핏 라인 ───
+    // 총 사용 가능 = 기본 + 보너스 (무제한인 경우 '무제한')
+    const coTotalDisplay = codifitUnlimited ? (en?'Unlimited':'무제한') : (codifitBase + codifitBonus);
+    const coBaseDisplay  = codifitUnlimited ? (en?'Unlimited':'무제한') : codifitBase;
     const coRemain = codifitUnlimited ? '∞' : Math.max(0, codifitLimit - closetUsed);
-    const coBase   = codifitUnlimited ? (en?'Unlimited':'무제한') : codifitBase;
-    const coLine   = en
-      ? `*Codi Fit available: <b style="color:#97FEED">${coRemain}</b> = Plan ${coBase}${codifitUnlimited?'':''} + Bonus ${codifitBonus}`
-      : `*코디핏 생성 횟수 <b style="color:#97FEED">${coRemain}</b>회 = 구독플랜 ${coBase}${codifitUnlimited?'':'회'} + 보너스 지급 ${codifitBonus}회`;
+    const coLine = en
+      ? `*Codi Fit total: <b style="color:#97FEED">${coTotalDisplay}</b> = Plan ${coBaseDisplay} + Bonus ${codifitBonus} <span style="opacity:0.65;font-size:11px;">(used ${closetUsed}, remaining ${coRemain})</span>`
+      : `*코디핏 생성 횟수 <b style="color:#97FEED">${coTotalDisplay}${codifitUnlimited?'':'회'}</b> = 구독플랜 ${coBaseDisplay}${codifitUnlimited?'':'회'} + 보너스 지급 ${codifitBonus}회 <span style="opacity:0.65;font-size:11px;">(${closetUsed}회 사용, ${coRemain}${codifitUnlimited?'':'회'} 남음)</span>`;
     const coEl = document.getElementById('codifitQuotaText');
     if(coEl) coEl.innerHTML = coLine;
 
-    // 트라이온 라인
+    // ─── 트라이온 라인 ───
+    const trTotalDisplay = tryonUnlimited ? (en?'Unlimited':'무제한') : (tryonBase + tryonBonus);
+    const trBaseDisplay  = tryonUnlimited ? (en?'Unlimited':'무제한') : tryonBase;
     const trRemain = tryonUnlimited ? '∞' : Math.max(0, tryonLimit - codistyleUsed);
-    const trBase   = tryonUnlimited ? (en?'Unlimited':'무제한') : tryonBase;
-    const trLine   = en
-      ? `*Try On available: <b style="color:#F0A3C5">${trRemain}</b> = Plan ${trBase}${tryonUnlimited?'':''} + Bonus ${tryonBonus}`
-      : `*트라이온 생성 횟수 <b style="color:#F0A3C5">${trRemain}</b>회 = 구독플랜 ${trBase}${tryonUnlimited?'':'회'} + 보너스 지급 ${tryonBonus}회`;
+    const trLine = en
+      ? `*Try On total: <b style="color:#F0A3C5">${trTotalDisplay}</b> = Plan ${trBaseDisplay} + Bonus ${tryonBonus} <span style="opacity:0.65;font-size:11px;">(used ${codistyleUsed}, remaining ${trRemain})</span>`
+      : `*트라이온 생성 횟수 <b style="color:#F0A3C5">${trTotalDisplay}${tryonUnlimited?'':'회'}</b> = 구독플랜 ${trBaseDisplay}${tryonUnlimited?'':'회'} + 보너스 지급 ${tryonBonus}회 <span style="opacity:0.65;font-size:11px;">(${codistyleUsed}회 사용, ${trRemain}${tryonUnlimited?'':'회'} 남음)</span>`;
     const trEl = document.getElementById('tryonQuotaText');
     if(trEl) trEl.innerHTML = trLine;
 
@@ -855,7 +860,7 @@ async function renderStatus(){
   var _ibKo = document.getElementById('infoBoxKo');
   var _ibEn = document.getElementById('infoBoxEn');
   if(_pgT) _pgT.textContent = en ? 'Subscription Plan' : '구독 플랜';
-  if(_pgS) _pgS.textContent = en ? 'Outfit Generation = Closet + Style It combined' : '코디 생성 = 내옷장 + 코디하기 합산 기준';
+  if(_pgS) _pgS.textContent = en ? 'Codi Fit + Try On are counted separately' : '코디핏 + 트라이 온 각각 별도 카운트';
   if(_qL) _qL.textContent = en ? 'Monthly outfit generations available' : '이달 이미지 생성 가능 횟수';
   if(_qU) _qU.textContent = en ? ' remaining' : '회 가능';
   if(_iL) _iL.textContent = en ? 'Item registration status' : '아이템 등록 현황';
