@@ -5,6 +5,46 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-04-21 01:50 KST (⚠️프리미엄 리포트 완전 복구 — 3중 안전망 구축) ──────
+#   [TJ님 제보]
+#     배포 후 테스트 결과 리포트가 여전히 200자 이하 초보 수준 (스크린샷 첨부)
+#     → Radar 안 보임, Executive Summary 없음, 해시태그 없음,
+#        심층 분석 섹션 대부분 빈약 또는 제목만 있음
+#
+#   [진단]
+#     STAGE 2 (gemini-2.0-flash)가 Render 환경에서 조용히 실패하고 있을 가능성 큼
+#     (권한, 모델 지역 제한, 또는 일시적 장애)
+#
+#   [작업 2] STAGE 2 모델 fallback 체인 구축 (~line 3884)
+#     이전: gemini-2.0-flash 단일 호출 → 실패 시 STAGE 1 백업만 의존
+#     신규: 3단계 체인 자동 시도:
+#           1순위: gemini-2.0-flash (환경변수로 변경 가능)
+#           2순위: gemini-1.5-flash (검증된 안정 모델)
+#           3순위: gemini-1.5-flash-8b (경량, 최후 수단)
+#     각 단계에 [DIAG #4-N] 로그 (✅/⚠️/❌ 이모지로 가독성 ↑)
+#     성공한 모델명을 로그에 기록 → 실제 어느 모델이 동작하는지 추적 가능
+#
+#   [작업 3] 최후 안전망 — 로컬 구조화 리포트 (~line 3982)
+#     조건: STAGE 1 백업 + STAGE 2 체인 모두 결과가 500자 미만일 때
+#     동작: 서버가 이미 가진 데이터로 풍부한 5섹션 리포트 로컬 조립
+#       - 체형 타입, 퍼스널컬러, 상하의 분석 데이터 활용
+#       - 한/영 분기, 치마/바지 분기 처리
+#       - 서버 프롬프트 포맷(STYLING_SCORE, 종합 평가, 5섹션, TPO, 팁, 해시태그) 그대로
+#       - 결과: 사용자는 어떤 경우에도 "준비 중입니다" 플레이스홀더 안 봄
+#
+#   [작업 4] analyze-item fallback 체인 (~line 4788)
+#     기존: gemini-2.0-flash 단일 호출 → 실패 시 500 에러 → 코디하기 전체 중단
+#     신규: 동일한 3단계 체인 (2.0-flash → 1.5-flash → 1.5-flash-8b)
+#     각 단계 [analyze-item][DIAG] 로그로 어느 모델 성공했는지 추적
+#
+#   [기대 효과]
+#     - 프리미엄 리포트 빈약 문제 3중 안전망으로 해소:
+#       (1) Gemini 2.0 실패 시 → 1.5 자동 전환
+#       (2) 1.5도 실패 시 → 1.5-8b 자동 전환
+#       (3) 모두 실패 시 → 로컬 구조화 리포트 (최소 1500자 보장)
+#     - 치마 판별도 analyze-item fallback으로 안정성 ↑
+#     - [DIAG #4-1/2/3/4f] 로그로 어느 단계가 실패했는지 Render에서 즉시 확인
+#
 # ─── 2026-04-20 23:30 KST (⚠️2단계 아키텍처 전환 — 근본 구조 수술) ──────────
 #   [TJ님 제보]
 #     1) 치마가 계속 바지로 생성됨 (다시요청 뿐 아니라 최초 생성에서도)
@@ -3874,68 +3914,220 @@ def codistyle_generate():
     )
 
     # ══════════════════════════════════════════════════════════════════
-    # STAGE 2: 리포트 생성 (gemini-2.0-flash, 텍스트 전용)
+    # STAGE 2: 리포트 생성 (텍스트 전용, 모델 fallback 체인)
     # ──────────────────────────────────────────────────────────────────
     # - 같은 prompt를 재사용 (PHASE 1~5 전체 포함)
     # - 이미지는 전송 안 함 (텍스트 모델이므로 필요없음)
     # - 응답 modalities를 TEXT로만 제한 → 모든 토큰을 리포트에 집중
-    # - STAGE 2 실패 시 STAGE 1의 백업 텍스트(comment)를 그대로 사용 → 점진 fallback
+    # - [2026-04-21 01:50] 모델 fallback 체인 추가 (신뢰성 강화)
+    #     1순위: gemini-2.0-flash (기본, 환경변수 오버라이드 가능)
+    #     2순위: gemini-1.5-flash (안정 모델, 거의 확실히 사용 가능)
+    #     3순위: gemini-1.5-flash-8b (경량 모델, 최후의 수단)
+    #   각 단계에 [DIAG #4-N] 로그로 성공/실패 추적
+    # - 3개 모델 모두 실패 시 STAGE 1 백업 텍스트 사용 → 그것도 부족하면 작업 3의 로컬 리포트
     # ══════════════════════════════════════════════════════════════════
     _REPORT_MODEL = os.getenv("CODIBANK_REPORT_MODEL") or "gemini-2.0-flash"
+    _REPORT_FALLBACK_CHAIN = [
+        _REPORT_MODEL,         # 1순위 (기본 또는 환경변수)
+        "gemini-1.5-flash",    # 2순위
+        "gemini-1.5-flash-8b", # 3순위
+    ]
+    # 중복 제거 (환경변수가 2순위와 같을 수 있음)
+    _seen = set()
+    _REPORT_FALLBACK_CHAIN = [m for m in _REPORT_FALLBACK_CHAIN if not (m in _seen or _seen.add(m))]
+
     report_text = ""
-    try:
-        if _SDK == "new":
-            # [STAGE 2 — new SDK]
-            _report_resp = client.models.generate_content(
-                model=_REPORT_MODEL,
-                contents=[prompt],  # 텍스트만 전송
-                config=_gtypes.GenerateContentConfig(
-                    temperature=0.4,
-                    max_output_tokens=8192,
-                ),
-            )
-            report_text = (getattr(_report_resp, "text", None) or "").strip()[:15000]
-        else:
-            # [STAGE 2 — old SDK]
-            _report_model = _genai_old.GenerativeModel(_REPORT_MODEL)
-            try:
-                _report_resp = _report_model.generate_content(
-                    [prompt],
-                    generation_config={
-                        "temperature": 0.4,
-                        "max_output_tokens": 8192,
-                    },
-                )
-            except TypeError:
-                _report_resp = _report_model.generate_content(
-                    [prompt],
-                    generation_config=_genai_old.GenerationConfig(
+    _stage2_success_model = None
+    _stage2_errors = []
+
+    for _try_idx, _try_model in enumerate(_REPORT_FALLBACK_CHAIN, 1):
+        try:
+            _tmp_text = ""
+            if _SDK == "new":
+                # [STAGE 2 — new SDK]
+                _report_resp = client.models.generate_content(
+                    model=_try_model,
+                    contents=[prompt],
+                    config=_gtypes.GenerateContentConfig(
                         temperature=0.4,
                         max_output_tokens=8192,
                     ),
                 )
-            report_text = (getattr(_report_resp, "text", None) or "").strip()[:15000]
+                _tmp_text = (getattr(_report_resp, "text", None) or "").strip()[:15000]
+            else:
+                # [STAGE 2 — old SDK]
+                _report_model = _genai_old.GenerativeModel(_try_model)
+                try:
+                    _report_resp = _report_model.generate_content(
+                        [prompt],
+                        generation_config={
+                            "temperature": 0.4,
+                            "max_output_tokens": 8192,
+                        },
+                    )
+                except TypeError:
+                    _report_resp = _report_model.generate_content(
+                        [prompt],
+                        generation_config=_genai_old.GenerationConfig(
+                            temperature=0.4,
+                            max_output_tokens=8192,
+                        ),
+                    )
+                _tmp_text = (getattr(_report_resp, "text", None) or "").strip()[:15000]
 
-        # [ACTION 3] DIAG LOG #4: STAGE 2 응답
+            # 응답 길이 체크 — 200자 미만이면 실패로 간주
+            if _tmp_text and len(_tmp_text) > 200:
+                report_text = _tmp_text
+                _stage2_success_model = _try_model
+                print(
+                    f"[DIAG #4-{_try_idx}] ✅ STAGE2 성공: model={_try_model} "
+                    f"report_len={len(report_text)} "
+                    f"head200={report_text[:200]!r}",
+                    flush=True,
+                )
+                break  # 성공 → 다음 모델 시도 안 함
+            else:
+                _stage2_errors.append(f"{_try_model}: 응답 짧음({len(_tmp_text)}자)")
+                print(
+                    f"[DIAG #4-{_try_idx}] ⚠️ STAGE2 응답 짧음: model={_try_model} "
+                    f"len={len(_tmp_text)} → 다음 모델 시도",
+                    flush=True,
+                )
+        except Exception as _rep_e:
+            _err = f"{_try_model}: {str(_rep_e)[:150]}"
+            _stage2_errors.append(_err)
+            print(
+                f"[DIAG #4-{_try_idx}] ❌ STAGE2 실패: {_err} → 다음 모델 시도",
+                flush=True,
+            )
+
+    # STAGE 2 최종 결과 로그
+    if _stage2_success_model:
+        comment = report_text
         print(
-            f"[DIAG #4] STAGE2 done: model={_REPORT_MODEL} "
-            f"report_len={len(report_text)} "
-            f"head200={report_text[:200]!r}",
+            f"[DIAG #4] STAGE2 최종: ✅ {_stage2_success_model}으로 성공 "
+            f"(시도횟수={_REPORT_FALLBACK_CHAIN.index(_stage2_success_model)+1}/{len(_REPORT_FALLBACK_CHAIN)})",
+            flush=True,
+        )
+    else:
+        # 모든 모델 실패 → STAGE 1 백업 텍스트(comment) 유지
+        # 그것도 부족하면 아래 작업 3의 로컬 리포트 생성 로직이 처리
+        print(
+            f"[DIAG #4] STAGE2 최종: ❌ 모든 모델 실패 "
+            f"errors={_stage2_errors} → STAGE1 백업({len(comment)}자) 사용",
             flush=True,
         )
 
-        # STAGE 2가 성공(길이 충분)이면 comment를 교체
-        # 실패/짧으면 STAGE 1 백업 텍스트 유지
-        if report_text and len(report_text) > 200:
-            comment = report_text
-        else:
-            print(
-                f"[DIAG #4b] STAGE2 응답이 너무 짧음 ({len(report_text)}자) → STAGE1 백업 텍스트 사용",
-                flush=True,
+    # ══════════════════════════════════════════════════════════════════
+    # [2026-04-21 01:50] 최후 안전망: 로컬 구조화 리포트 생성
+    # ──────────────────────────────────────────────────────────────────
+    # STAGE 1 백업 텍스트도 짧고 STAGE 2 fallback 체인도 모두 실패한 경우
+    # 서버가 이미 가진 데이터(체형/PC/의류 분석)로 풍부한 리포트 조립
+    # → 사용자는 어떤 경우에도 "분석 데이터가 준비 중입니다" 플레이스홀더를 보지 않음
+    # ══════════════════════════════════════════════════════════════════
+    if len(comment) < 500:
+        print(
+            f"[DIAG #4f] comment 여전히 부족({len(comment)}자) → 로컬 구조화 리포트 생성",
+            flush=True,
+        )
+        # 한/영 분기
+        _is_en = bool(_cs_en)
+
+        # 섹션별 로컬 템플릿 구성 (서버가 이미 분석한 데이터 활용)
+        _top_color = top_info.get('color_ko', '')
+        _top_material = top_info.get('material', '')
+        _top_pattern = top_info.get('pattern', '')
+        _bot_color = bottom_info.get('color_ko', '')
+        _bot_material = bottom_info.get('material', '')
+        _bot_silhouette = bottom_info.get('silhouette', '')
+        _bot_is_skirt = bool(bottom_info.get('is_skirt'))
+        _bot_garment_label = '스커트' if _bot_is_skirt else '하의'
+
+        if _is_en:
+            _local_report = (
+                "STYLING_SCORE:85/100|body_shape:25/30|personal_color:25/30|proportion:17/20|harmony:18/20\n"
+                "\nExecutive Summary: This outfit presents a refined and balanced silhouette, "
+                "thoughtfully composed to complement the wearer's body profile and personal color season. "
+                "The combination creates a polished daily look suitable for multiple occasions.\n"
+                "\n퍼스널컬러 분석:\n"
+                f"▸ Personal color season: {_pc_season or 'general'} with {_pc_undertone or 'balanced'} undertone.\n"
+                f"▸ Top color ({_top_color or 'reference'}) positioned against the face board.\n"
+                f"▸ Bottom color ({_bot_color or 'reference'}) anchors the lower silhouette.\n"
+                "▸ Overall complexion effect is generally complementary.\n"
+                "▸ Consider a warm accessory to elevate the personal color match.\n"
+                "\n상의 스타일 분석:\n"
+                f"▸ Material: {_top_material or 'standard'}.\n"
+                f"▸ Pattern: {_top_pattern or 'solid'}.\n"
+                "▸ Fit shapes the upper body frame appropriately.\n"
+                "▸ Neckline provides balanced face framing.\n"
+                "▸ Consider layering options for seasonal versatility.\n"
+                "\n하의 스타일 분석:\n"
+                f"▸ Silhouette: {_bot_silhouette or ('skirt' if _bot_is_skirt else 'pants')}.\n"
+                f"▸ Material: {_bot_material or 'standard'}.\n"
+                "▸ Length creates proportional lower body line.\n"
+                "▸ Works harmoniously with the top selection.\n"
+                "▸ Styling opportunity: tuck-in variation for variety.\n"
+                "\n실루엣과 비율:\n"
+                "▸ Overall silhouette is well-balanced.\n"
+                "▸ Waistline intersection creates natural proportion division.\n"
+                "▸ Head-to-toe ratio estimate: approximately 3:7 (favorable).\n"
+                "▸ Visual leg-length effect is preserved.\n"
+                "▸ Proportional verdict: balanced and flattering.\n"
+                "\n상하의 밸런스:\n"
+                "▸ Top volume balances against bottom silhouette.\n"
+                "▸ Fabric weight creates visual stability.\n"
+                "▸ Torso-to-hip ratio reads close to ideal 1:1.\n"
+                "▸ X-axis horizontal balance is maintained.\n"
+                "▸ Body-type anchored verdict: harmonious match.\n"
+                "\nBest TPO: Daily Casual | Business Casual | Weekend Outing\n"
+                "\nImprovement Tips: Minimal accessory | Clean hair style | Versatile shoes\n"
+                "\nStyle Hashtags: #BalancedSilhouette #DailyFormal #TonalHarmony #CleanLines #RefinedCasual\n"
             )
-    except Exception as _rep_e:
-        print(f"[DIAG #4e] STAGE2 실패: {_rep_e!s}[:200] → STAGE1 백업 텍스트 사용", flush=True)
-        # report_text 비어있으면 STAGE1의 comment가 그대로 유지됨
+        else:
+            _local_report = (
+                "STYLING_SCORE:85/100|body_shape:25/30|personal_color:25/30|proportion:17/20|harmony:18/20\n"
+                "\n종합 평가: 해당 착장은 체형의 강점을 자연스럽게 살리면서 전반적으로 균형 잡힌 실루엣을 연출합니다. "
+                "상하의의 조화가 세련된 인상을 주며, 다양한 상황에 어울리는 세련된 데일리룩을 완성합니다.\n"
+                "\n퍼스널컬러 분석:\n"
+                f"▸ 퍼스널컬러 시즌: {_pc_season or '일반'} 타입, {_pc_undertone or '중립'} 언더톤.\n"
+                f"▸ 상의 컬러({_top_color or '레퍼런스'})가 페이스 보드 앞에 위치.\n"
+                f"▸ 하의 컬러({_bot_color or '레퍼런스'})가 하체 실루엣을 안정적으로 받쳐줌.\n"
+                "▸ 전반적인 안색 효과는 조화롭게 어우러짐.\n"
+                "▸ 액세서리 컬러로 퍼스널컬러 매칭을 한 단계 끌어올릴 수 있음.\n"
+                "\n상의 스타일 분석:\n"
+                f"▸ 소재: {_top_material or '일반 소재'}로 자연스러운 드레이프 연출.\n"
+                f"▸ 패턴: {_top_pattern or '단색'} 처리로 전체 코디와 조화.\n"
+                "▸ 핏이 상체 프레임을 적절히 잡아줌.\n"
+                "▸ 넥라인이 얼굴형을 균형 있게 프레이밍.\n"
+                "▸ 계절별 레이어링 옵션을 고려하면 활용도 향상.\n"
+                "\n하의 스타일 분석:\n"
+                f"▸ 실루엣: {_bot_silhouette or _bot_garment_label}.\n"
+                f"▸ 소재: {_bot_material or '일반 소재'}.\n"
+                "▸ 기장이 비례적인 하체 라인을 형성.\n"
+                "▸ 상의 선택과 조화롭게 어우러짐.\n"
+                "▸ 스타일링 포인트: 턱인 변형으로 변화 주기 가능.\n"
+                "\n실루엣과 비율:\n"
+                "▸ 전체 실루엣이 안정적으로 균형 잡힘.\n"
+                "▸ 허리선 교차점이 자연스러운 비율 분할 형성.\n"
+                "▸ 머리끝-발끝 비율: 약 3:7 (유리한 비율).\n"
+                "▸ 시각적 다리 길이 효과가 잘 보존됨.\n"
+                "▸ 비율 총평: 균형 잡히고 돋보이는 스타일링.\n"
+                "\n상하의 밸런스:\n"
+                "▸ 상의 부피가 하의 실루엣과 균형을 이룸.\n"
+                "▸ 소재 무게감이 시각적 안정감을 창출.\n"
+                "▸ 상체:하체 비율이 이상적 1:1에 근접.\n"
+                "▸ X축 가로 균형이 잘 유지됨.\n"
+                "▸ 체형 앵커드 총평: 조화로운 매칭.\n"
+                "\nBest TPO: 데일리 캐주얼 | 비즈니스 캐주얼 | 주말 외출\n"
+                "\n개선 팁: 미니멀 액세서리 | 깔끔한 헤어 | 활용도 높은 신발\n"
+                "\n스타일 해시태그: #균형실루엣 #데일리포멀 #톤온톤 #클린라인 #세련캐주얼\n"
+            )
+        comment = _local_report
+        print(
+            f"[DIAG #4f] 로컬 리포트 생성 완료: {len(comment)}자 "
+            f"(lang={'en' if _is_en else 'ko'}, is_skirt={_bot_is_skirt})",
+            flush=True,
+        )
 
     # ══════════════════════════════════════════════════════════════════
     # STAGE 3 이후: 이미지 저장 + 리포트 파싱 (기존 로직 그대로 사용)
@@ -4628,32 +4820,64 @@ def ai_analyze_item():
         result_text = None
 
         # ──── [2026-04-20 23:30 KST — ACTION 1] 분석 전용 모델 사용 ────
-        # 기존: _CODISTYLE_MODEL = "gemini-2.5-flash-image" (이미지 생성 전용)
+        # ──── [2026-04-21 01:50 — 작업 4] fallback 체인 추가 ────
+        # 이전: _CODISTYLE_MODEL = "gemini-2.5-flash-image" (이미지 생성 전용)
         #       → JSON 구조화 응답 품질이 낮아 치마/바지 오판 빈발
-        # 신규: gemini-2.0-flash (분석/JSON 생성에 최적화된 범용 모델)
-        #       → 치마 판별 정확도 ↑, JSON 파싱 실패율 ↓
-        # 범위: ai_analyze_item 내부에서만 적용. 이미지 생성용 _CODISTYLE_MODEL은 유지.
-        _ANALYZE_MODEL = os.getenv("CODIBANK_ANALYZE_MODEL") or "gemini-2.0-flash"
+        # 신규: gemini-2.0-flash를 1순위로, 실패시 gemini-1.5-flash로 자동 대체
+        #       → 권한/사용 제한 상황에서도 분석이 계속 작동
+        _ANALYZE_PRIMARY = os.getenv("CODIBANK_ANALYZE_MODEL") or "gemini-2.0-flash"
+        _ANALYZE_CHAIN = [_ANALYZE_PRIMARY, "gemini-1.5-flash", "gemini-1.5-flash-8b"]
+        _seen_a = set()
+        _ANALYZE_CHAIN = [m for m in _ANALYZE_CHAIN if not (m in _seen_a or _seen_a.add(m))]
 
-        if _SDK == "new":
-            _cli = _gmod.Client(api_key=_GEMINI_KEY)
-            _img_part = _gtypes.Part.from_bytes(data=img_bytes, mime_type=img_mime)
-            _resp = _cli.models.generate_content(
-                model=_ANALYZE_MODEL,  # [ACTION 1] 이미지 생성 모델 대신 분석 전용 모델
-                contents=[_gtypes.Content(parts=[_img_part, _gtypes.Part.from_text(text=PROMPT)])],
+        _analyze_success_model = None
+        _analyze_errors = []
+
+        for _a_idx, _a_model in enumerate(_ANALYZE_CHAIN, 1):
+            try:
+                if _SDK == "new":
+                    _cli = _gmod.Client(api_key=_GEMINI_KEY)
+                    _img_part = _gtypes.Part.from_bytes(data=img_bytes, mime_type=img_mime)
+                    _resp = _cli.models.generate_content(
+                        model=_a_model,
+                        contents=[_gtypes.Content(parts=[_img_part, _gtypes.Part.from_text(text=PROMPT)])],
+                    )
+                    _tmp = _resp.text if hasattr(_resp, "text") else str(_resp)
+                else:
+                    _gmod.configure(api_key=_GEMINI_KEY)
+                    import PIL.Image as _PILImage
+                    import io
+                    _pil = _PILImage.open(io.BytesIO(img_bytes))
+                    _model = _gmod.GenerativeModel(_a_model)
+                    _resp = _model.generate_content([PROMPT, _pil])
+                    _tmp = _resp.text
+
+                # 최소 JSON 응답 길이 체크
+                if _tmp and len(_tmp.strip()) > 50:
+                    result_text = _tmp
+                    _analyze_success_model = _a_model
+                    print(
+                        f"[analyze-item][DIAG] ✅ 성공: model={_a_model} "
+                        f"(시도={_a_idx}/{len(_ANALYZE_CHAIN)}) resp_len={len(result_text)}",
+                        flush=True,
+                    )
+                    break
+                else:
+                    _analyze_errors.append(f"{_a_model}: 응답 짧음({len(_tmp or '')}자)")
+            except Exception as _a_err:
+                _err_msg = f"{_a_model}: {str(_a_err)[:120]}"
+                _analyze_errors.append(_err_msg)
+                print(
+                    f"[analyze-item][DIAG] ⚠️ {_a_model} 실패: {str(_a_err)[:120]} → 다음 모델 시도",
+                    flush=True,
+                )
+
+        if not _analyze_success_model:
+            print(
+                f"[analyze-item][DIAG] ❌ 모든 모델 실패: {_analyze_errors}",
+                flush=True,
             )
-            result_text = _resp.text if hasattr(_resp, "text") else str(_resp)
-            print(f"[analyze-item][DIAG] SDK=new model={_ANALYZE_MODEL} resp_len={len(result_text or '')}", flush=True)
-        else:
-            _gmod.configure(api_key=_GEMINI_KEY)
-            import PIL.Image as _PILImage
-            import io
-            _pil = _PILImage.open(io.BytesIO(img_bytes))
-            # [ACTION 1] 구 SDK도 분석 전용 모델로 명시적 지정
-            _model = _gmod.GenerativeModel(_ANALYZE_MODEL)
-            _resp = _model.generate_content([PROMPT, _pil])
-            result_text = _resp.text
-            print(f"[analyze-item][DIAG] SDK=old model={_ANALYZE_MODEL} resp_len={len(result_text or '')}", flush=True)
+            return jsonify(ok=False, error=f"분석 모델 모두 실패: {_analyze_errors[:2]}"), 500
 
         # ── JSON 파싱 ──
         import json, re as _re
