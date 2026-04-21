@@ -7,6 +7,66 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-04-21 03:30 KST (⚠️치명적 JS 에러 + 치마 보정 + 덱 개선 + 버튼 폭) ────
+  [TJ님 제보 + 스크린샷 6장 정밀 분석 결과]
+
+  [치명적 발견 — 리포트 빈약 문제의 진짜 원인]
+    Console에 반복적으로 나타난 에러:
+      [score] TypeError: Assignment to constant variable.
+      at generate (codistyle.html:2691:20)
+
+    원인: line 2580에서 _srvExec를 const로 선언했는데
+          line 2691의 "심층 분석:" 접미 제거 2차 방어선 코드가
+          _srvExec = _cleanExec로 재할당을 시도 → TypeError
+          → generate() 함수가 여기서 중단 → 서버가 보낸
+            executive_summary, 5섹션, TPO, 팁, 해시태그 파싱 모두 실패
+          → 프론트는 로컬 폴백 텍스트만 표시 (1~2줄 빈약)
+
+    즉 서버 2단계 아키텍처는 정상 동작 중일 가능성이 높고,
+    프론트 JS 에러로 화면에 아무것도 적용 안 된 것.
+
+  [수정 1] const _srvExec → let _srvExec (~line 2580)
+    _srvExec를 재할당 가능한 변수로 변경 → 에러 근절
+    → 이 한 줄이 리포트 빈약 문제의 핵심 해결책
+
+  [수정 2] pickDeckItem에서 치마 자동 보정 (~line 3760)
+    스크린샷 분석:
+      [pickDeck] 하의 캐시 설정: 와이드팬츠 바지 ← 치마인데 바지로 캐시
+      [Phase1 결과] is_skirt: false
+    원인: 내옷장 등록 시점 Gemini 판정이 치마를 바지로 오판한 경우
+          기존 코드는 gm.is_skirt 값만 사용 → 오판이 그대로 전달
+    해결: sub_category + category 양쪽에서 치마 키워드 검증
+          - category === 'skirt' 또는
+          - sub_category에 '스커트|skirt|치마' 포함
+          → 무조건 is_skirt=true 보정
+          + skirt_length 추론 (미니/미디/맥시)
+    로그: 보정 발생 시 "(자동 보정됨 ⚠️)" 접미로 추적 가능
+
+  [수정 3] 카드 덱 10% 확대 + 겹침 감소 + PC 화살표 (~line 702~730)
+    - .cdeck 높이: 200px → 220px
+    - .cs-layer 크기: 90×135 → 99×149 (가로/세로 10% 확대)
+    - 중앙 카드 margin-left/top: -45/-68 → -50/-75
+    - 카드 간 가로 거리 증가 (겹침 축소):
+        l1/l7: 130 → 165  l2/l6: 82 → 108  l3/l5: 44 → 64
+    - l3/l5 scale 1.0 → 0.94 (중앙과 명확한 위계)
+    - l2/l6 scale 0.82 → 0.76, l1/l7 scale 0.68 → 0.62
+    - PC 전용 화살표 버튼 추가:
+        · .cdeck-nav.prev (<<) / .cdeck-nav.next (>>)
+        · @media(hover:hover) and (pointer:fine) → PC만 표시
+        · 모바일 터치 스와이프와 충돌 방지
+        · 원형 36×36, teal 보더, 좌우 4px 위치
+        · drawDeck() 마지막에 2개 이상 아이템일 때 동적 생성
+
+  [수정 4] 저장/공유/리셋 버튼 가로폭 확장 (~line 674)
+    .b-actions padding 좌우 20px → 14px
+    이유: .result-img-wrap의 좌우 padding이 14px이므로
+          버튼 컨테이너도 동일하게 맞춰야 이미지 뷰박스와 좌우 정렬됨
+
+  [기대 효과]
+    - 프리미엄 리포트: const 에러 제거로 서버 응답 전부 정상 적용
+    - 치마 판별: 내옷장 메타 오판을 프론트에서 2차 복구
+    - UX: 카드 덱 식별 ↑, PC 사용성 ↑, 버튼 정렬감 ↑
+
 ─── 2026-04-21 01:50 KST (버튼 가로 1줄 레이아웃 + 높이 축소 + 아이콘 축소) ────
   [TJ님 지시]
     3버튼이 가로 여유가 생겼으므로 아이콘+텍스트를 세로 2열 → 가로 1줄로,
@@ -664,14 +724,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
   font-size:14px;font-weight:600;opacity:0.7;margin-left:1px;
 }
 .err-box{margin:0 14px 14px;padding:12px 14px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:12px;font-size:11px;color:#fca5a5;line-height:1.6}
-/* [2026-04-21 01:30 TJ님 지시] 버튼 레이아웃 — 가로 1줄 + 높이 축소 + 아이콘 축소
-   - flex-direction: column → row (아이콘+텍스트 가로 배열)
-   - padding: 14px → 10px (버튼 높이 축소)
-   - font-size: 12px → 13px (한 줄이므로 가독성 ↑)
-   - icon size: 24px → 18px (텍스트와 비례 맞춤)
-   - gap(icon↔text): 5px → 6px (가로 배치시 더 넓은 간격 필요)
-   - b-actions padding: 12px 20px 18px → 10px 20px 16px (전체 높이 축소) */
-.b-actions{display:flex;gap:10px;padding:10px 20px 16px}
+/* [2026-04-21 03:30 TJ님 지시] 버튼 레이아웃 — 가로 1줄 + 높이 축소 + 아이콘 축소
+                               + 가로폭을 이미지 뷰박스와 동일하게 확장
+   - b-actions padding: 10px 20px 16px → 10px 14px 16px
+     이유: .result-img-wrap의 좌우 padding이 14px이므로, 버튼도 14px로 맞춰야
+          이미지 뷰박스와 좌우 끝이 정확히 정렬됨 (TJ님 요구사항 4번)
+   - flex-direction: row (아이콘+텍스트 가로 배열)
+   - padding: 10px, font-size: 13px, icon size: 18px, gap: 6px */
+.b-actions{display:flex;gap:10px;padding:10px 14px 16px}
 .bab{flex:1;padding:10px 0;border-radius:12px;font-size:13px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.12s;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:6px}
 .bab .mi{font-family:'Material Symbols Outlined';font-size:18px;line-height:1}
 /* ── 풋바: Floating Glassmorphic Bar ── */
@@ -699,21 +759,41 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
 
 /* [2026-04-09 수정] Ai옷장 카드덱 — 입체 겹침 + 그림자 / 원인: 간격만 벌려놓아 입체감 없음 / 해결: aicloset.html 방식 참조, translateX 겹침+perspective+box-shadow */
 /* ── 코디하기 카드덱 (aicloset 방식, 7카드) ── */
-.cdeck{position:relative;height:200px;perspective:900px;overflow:visible;touch-action:pan-y;}
-.cs-layer{position:absolute;width:90px;height:135px;border-radius:14px;overflow:hidden;background:#fff;border:1.5px solid #97FEED;box-shadow:0 8px 24px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;left:50%;margin-left:-45px;top:50%;margin-top:-68px;transform-style:preserve-3d;backface-visibility:hidden;-webkit-backface-visibility:hidden;transition:transform 480ms cubic-bezier(.16,1,.3,1),opacity 300ms ease,filter 300ms ease,box-shadow 480ms ease;user-select:none;-webkit-user-select:none;}
+/* [2026-04-21 03:30 TJ님 지시] 카드 덱 개선 — 10% 확대 + 겹침 감소 + PC 화살표
+   변경점:
+     - .cdeck 높이 200px → 220px (10% 확대)
+     - .cs-layer 90×135 → 99×149 (가로/세로 10% 확대)
+     - 중앙 카드 margin-left: -45 → -50, margin-top: -68 → -75
+     - 카드 간 가로 거리 증가 (겹침 축소):
+         l1/l7: 130 → 165 (±27%)  l2/l6: 82 → 108 (±32%)  l3/l5: 44 → 64 (±45%)
+     - l3/l5 scale 1.0 → 0.94 (중앙과 명확한 위계)
+     - l2/l6 scale 0.82 → 0.76, l1/l7 scale 0.68 → 0.62
+   화살표 버튼 (PC용):
+     - .cdeck-nav: 좌우 끝 원형 버튼
+     - 모바일에서는 숨김 (@media max-width:767px)
+*/
+.cdeck{position:relative;height:220px;perspective:1000px;overflow:visible;touch-action:pan-y;}
+.cs-layer{position:absolute;width:99px;height:149px;border-radius:14px;overflow:hidden;background:#fff;border:1.5px solid #97FEED;box-shadow:0 8px 24px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;left:50%;margin-left:-50px;top:50%;margin-top:-75px;transform-style:preserve-3d;backface-visibility:hidden;-webkit-backface-visibility:hidden;transition:transform 480ms cubic-bezier(.16,1,.3,1),opacity 300ms ease,filter 300ms ease,box-shadow 480ms ease;user-select:none;-webkit-user-select:none;}
 .cs-layer img{width:100%;height:100%;object-fit:contain;background:#fff;}
-.cs-l1{transform:translateX(-130px) scale(.68) translateZ(-90px) rotateY(14deg);z-index:5;opacity:.4;filter:blur(.7px);}
-.cs-l7{transform:translateX(130px) scale(.68) translateZ(-90px) rotateY(-14deg);z-index:5;opacity:.4;filter:blur(.7px);}
-.cs-l2{transform:translateX(-82px) scale(.82) translateZ(-55px) rotateY(10deg);z-index:10;opacity:.65;filter:blur(.4px);}
-.cs-l6{transform:translateX(82px) scale(.82) translateZ(-55px) rotateY(-10deg);z-index:10;opacity:.65;filter:blur(.4px);}
-.cs-l3{transform:translateX(-44px) scale(1.0) translateZ(-20px) rotateY(5deg);z-index:20;opacity:.92;}
-.cs-l5{transform:translateX(44px) scale(1.0) translateZ(-20px) rotateY(-5deg);z-index:20;opacity:.92;}
+.cs-l1{transform:translateX(-165px) scale(.62) translateZ(-110px) rotateY(14deg);z-index:5;opacity:.35;filter:blur(.8px);}
+.cs-l7{transform:translateX(165px) scale(.62) translateZ(-110px) rotateY(-14deg);z-index:5;opacity:.35;filter:blur(.8px);}
+.cs-l2{transform:translateX(-108px) scale(.76) translateZ(-65px) rotateY(10deg);z-index:10;opacity:.6;filter:blur(.5px);}
+.cs-l6{transform:translateX(108px) scale(.76) translateZ(-65px) rotateY(-10deg);z-index:10;opacity:.6;filter:blur(.5px);}
+.cs-l3{transform:translateX(-64px) scale(.94) translateZ(-25px) rotateY(5deg);z-index:20;opacity:.9;}
+.cs-l5{transform:translateX(64px) scale(.94) translateZ(-25px) rotateY(-5deg);z-index:20;opacity:.9;}
 .cs-l4{transform:translateX(0) scale(1.22) translateZ(50px) rotateY(0);z-index:30;border:2px solid #97FEED;box-shadow:0 20px 50px -10px rgba(0,0,0,.35);}
-.cs-layer.exit-left{pointer-events:none;transition:transform 200ms cubic-bezier(.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2px);transform:translateX(-160px) scale(.4) translateZ(-100px) rotateY(16deg) rotate(-5deg);}
-.cs-layer.exit-right{pointer-events:none;transition:transform 200ms cubic-bezier(.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2px);transform:translateX(160px) scale(.4) translateZ(-100px) rotateY(-16deg) rotate(5deg);}
-.cs-layer.enter-left{transform:translateX(-160px) scale(.4) translateZ(-100px) rotateY(16deg) rotate(-5deg);opacity:0;filter:blur(2px);}
-.cs-layer.enter-right{transform:translateX(160px) scale(.4) translateZ(-100px) rotateY(-16deg) rotate(5deg);opacity:0;filter:blur(2px);}
+.cs-layer.exit-left{pointer-events:none;transition:transform 200ms cubic-bezier(.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2px);transform:translateX(-190px) scale(.4) translateZ(-120px) rotateY(16deg) rotate(-5deg);}
+.cs-layer.exit-right{pointer-events:none;transition:transform 200ms cubic-bezier(.4,0,1,1),opacity 180ms ease;opacity:0;filter:blur(2px);transform:translateX(190px) scale(.4) translateZ(-120px) rotateY(-16deg) rotate(5deg);}
+.cs-layer.enter-left{transform:translateX(-190px) scale(.4) translateZ(-120px) rotateY(16deg) rotate(-5deg);opacity:0;filter:blur(2px);}
+.cs-layer.enter-right{transform:translateX(190px) scale(.4) translateZ(-120px) rotateY(-16deg) rotate(5deg);opacity:0;filter:blur(2px);}
 .cs-layer.no-transition{transition:none !important;}
+/* [2026-04-21] PC 전용 화살표 버튼 (모바일은 터치 스와이프 유지) */
+.cdeck-nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:rgba(151,254,237,.1);border:1px solid rgba(151,254,237,.35);color:#97FEED;font-size:14px;font-weight:900;display:none;align-items:center;justify-content:center;cursor:pointer;z-index:50;transition:all .15s ease;user-select:none;}
+.cdeck-nav:hover{background:rgba(151,254,237,.2);border-color:rgba(151,254,237,.6);transform:translateY(-50%) scale(1.08);}
+.cdeck-nav:active{transform:translateY(-50%) scale(.95);}
+.cdeck-nav.prev{left:4px;}
+.cdeck-nav.next{right:4px;}
+@media(hover:hover) and (pointer:fine){.cdeck-nav{display:flex;}}
 @keyframes csPop{0%{transform:translateX(0) scale(1.22) translateZ(50px)}55%{transform:translateX(0) scale(1.28) translateZ(70px)}100%{transform:translateX(0) scale(1.22) translateZ(50px)}}
 .cs-pop{animation:csPop 480ms cubic-bezier(.16,1,.3,1) 1;}
 .cdeck.is-shifting .cs-layer:not(.cs-l4){filter:blur(.8px);}
@@ -2577,7 +2657,13 @@ async function generate(isRetry=false){
       const _srvBreak  = j.score_breakdown || {};
       const _srvAdvice = j.styling_advice || '';
       // 신규 필드
-      const _srvExec   = j.executive_summary || '';
+      // [2026-04-21 03:30 긴급수정] _srvExec는 line 2691에서 재할당되므로 let으로 선언
+      //   이전: const _srvExec = ... → line 2691에서 "_srvExec = _cleanExec" 재할당 시
+      //         TypeError: Assignment to constant variable 에러 발생
+      //         → generate() 함수가 2691줄에서 중단 → executive_summary,
+      //           5섹션, TPO, 팁, 해시태그 파싱 모두 중단 → 리포트 빈약 현상
+      //   이것이 콘솔에 반복적으로 뜨던 [score] TypeError의 원인
+      let _srvExec   = j.executive_summary || '';
       const _srvTpo    = j.tpo_recommendations || [];
       const _srvTips   = j.improvement_tips || [];
       const _srvHashtags = j.style_hashtags || [];
@@ -3662,7 +3748,7 @@ function drawDeck(type,items,ci){
     el.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;"><span style="font-size:9px;color:rgba(100,100,100,.5);line-height:1.3;font-weight:600;">아이템을 저장하면<br>코디할 수 있어요</span></div>';
     return;
   }
-  el.style.height='200px';
+  el.style.height='220px';  /* [2026-04-21] 카드 10% 확대에 따라 200→220 */
 
   var ctrl={type:type,items:items,startIndex:0,windowIndices:[-1,-1,-1,-1,-1,-1,-1],els:[],animating:false,
     shift:function(dir){
@@ -3729,6 +3815,28 @@ function drawDeck(type,items,ci){
     var dx=ev.changedTouches[0].clientX-_sx;
     if(Math.abs(dx)>30){dx<0?ctrl.shift(1):ctrl.shift(-1);}
   });
+
+  // [2026-04-21 03:30 TJ님 지시] PC 전용 좌우 화살표 버튼
+  //   - CSS @media(hover:hover)로 마우스 장치에서만 표시 (모바일 스와이프와 충돌 방지)
+  //   - prev(<<): shift(-1), next(>>): shift(+1)
+  //   - 중앙 카드 클릭 선택과는 별도 (nav 버튼은 순서 이동만)
+  if(l >= 2){  // 아이템이 2개 이상일 때만 네비게이션 표시
+    var _navPrev = document.createElement('button');
+    _navPrev.type = 'button';
+    _navPrev.className = 'cdeck-nav prev';
+    _navPrev.setAttribute('aria-label', '이전 카드');
+    _navPrev.innerHTML = '&lt;&lt;';
+    _navPrev.onclick = function(ev){ ev.stopPropagation(); ctrl.shift(-1); };
+    el.appendChild(_navPrev);
+
+    var _navNext = document.createElement('button');
+    _navNext.type = 'button';
+    _navNext.className = 'cdeck-nav next';
+    _navNext.setAttribute('aria-label', '다음 카드');
+    _navNext.innerHTML = '&gt;&gt;';
+    _navNext.onclick = function(ev){ ev.stopPropagation(); ctrl.shift(1); };
+    el.appendChild(_navNext);
+  }
 }
 
 async function pickDeckItem(type,entry){
@@ -3751,6 +3859,28 @@ async function pickDeckItem(type,entry){
   // [2026-04-09] Ai옷장 아이템: 이미 분석된 데이터를 캐시에 저장 (Phase1 스킵)
   if(entry.item && entry.item.meta && entry.item.meta.gemini) {
     var gm = entry.item.meta.gemini;
+    // [2026-04-21 03:30 긴급수정] 치마/바지 왔다갔다 버그 수정
+    //   원인: 같은 치마 아이템이 내옷장 등록 시점마다 Gemini의 is_skirt 판정이
+    //        불안정 (한번은 true, 한번은 false) → 코디하기 생성 결과도 왔다갔다
+    //   해결: sub_category + category 양쪽에서 키워드 검증하여 is_skirt 보정
+    //        - category가 "skirt"이거나
+    //        - sub_category에 "스커트|skirt|치마" 키워드 있으면
+    //        → 무조건 is_skirt=true로 보정
+    //   이 보정은 서버 analyze-garments에도 동일 로직이 있음 (이중 안전망)
+    var _gmCat = String(gm.category || entry.cat || '').toLowerCase();
+    var _gmSub = String(gm.sub_category || '').toLowerCase();
+    var _skirtKws = ['스커트', 'skirt', '치마'];
+    var _isSkirtCorrected =
+      (gm.is_skirt === true || gm.is_skirt === 'true') ||
+      _gmCat === 'skirt' ||
+      _skirtKws.some(function(k){ return _gmSub.indexOf(k) >= 0; });
+    // skirt_length 추론 (치마인데 길이 정보 없으면 sub_category로 추정)
+    var _skirtLen = gm.skirt_length || null;
+    if(_isSkirtCorrected && !_skirtLen){
+      if(_gmSub.indexOf('미니') >= 0) _skirtLen = 'mini';
+      else if(_gmSub.indexOf('롱') >= 0 || _gmSub.indexOf('맥시') >= 0) _skirtLen = 'maxi';
+      else _skirtLen = 'midi';
+    }
     var cached = {
       color_ko: gm.main_color_name || entry.item.color || '',
       color_hex: gm.main_color || '',
@@ -3759,16 +3889,21 @@ async function pickDeckItem(type,entry){
       fit: gm.fit || '',
       design: gm.design_points || '',
       sub_category: gm.sub_category || '',
-      category: gm.category || entry.cat || '',
-      is_skirt: gm.is_skirt || false,
-      skirt_length: gm.skirt_length || null,
+      category: _isSkirtCorrected ? 'skirt' : (gm.category || entry.cat || ''),  // 치마 보정 반영
+      is_skirt: _isSkirtCorrected,  // 보정된 값
+      skirt_length: _skirtLen,
       season: gm.season || '',
       style_keywords: gm.style_keywords || [],
       coordinate_hint: gm.coordinate_hint || '',
-      _fromCloset: true  // Ai옷장 캐시 마커
+      _fromCloset: true,  // Ai옷장 캐시 마커
+      _skirtCorrected: (_isSkirtCorrected !== (gm.is_skirt === true || gm.is_skirt === 'true'))  // 보정 발생 여부 추적
     };
     if(type==='top') { _topAnalysisCache = cached; console.log('[pickDeck] 상의 캐시 설정:', cached.sub_category, cached.color_ko); }
-    else { _bottomAnalysisCache = cached; console.log('[pickDeck] 하의 캐시 설정:', cached.sub_category, cached.is_skirt?'치마':'바지'); }
+    else { 
+      _bottomAnalysisCache = cached;
+      var _suf = cached._skirtCorrected ? ' (자동 보정됨 ⚠️)' : '';
+      console.log('[pickDeck] 하의 캐시 설정:', cached.sub_category, cached.is_skirt?'치마':'바지', _suf);
+    }
   }
   // 서버 업로드 시작 (업로드 완료 전에도 dataUrl로 생성 가능하도록)
   if(dataUrl && !ST[type].serverPath) ST[type].serverPath = '_pending_';
