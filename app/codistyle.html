@@ -7,6 +7,61 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-04-21 01:50 KST (버튼 가로 1줄 레이아웃 + 높이 축소 + 아이콘 축소) ────
+  [TJ님 지시]
+    3버튼이 가로 여유가 생겼으므로 아이콘+텍스트를 세로 2열 → 가로 1줄로,
+    아이콘 사이즈 축소, 버튼 높이도 보기 좋게 작게 수정
+
+  [수정 1] .b-actions / .bab CSS (~line 656)
+    - flex-direction: column → row (아이콘과 텍스트 가로 배열)
+    - padding: 14px 0 → 10px 0 (버튼 높이 축소)
+    - font-size: 12px → 13px (한 줄이므로 가독성 ↑)
+    - icon size: 24px → 18px (텍스트와 비례 맞춤)
+    - gap(icon↔text): 5px → 6px (가로 배치시 약간의 여유)
+    - border-radius: 14px → 12px (작아진 버튼에 비례)
+    - container padding: 12px 20px 18px → 10px 20px 16px
+
+  [수정 2] _csUpdateActionBtns() inline 스타일 동기화 (~line 1450)
+    - _btnBase 변수의 flex-direction/padding/font-size/gap 모두 CSS와 일치
+    - 이유: inline cssText가 CSS를 덮어쓰므로 한 쪽만 바꾸면 불일치 발생
+
+─── 2026-04-21 00:30 KST ('다시요청' 버튼 폐기 + 3버튼 레이아웃 재균형) ──────
+  [TJ님 지시]
+    1) '다시요청' 버튼 치마→바지 재발이 배포 후에도 확인됨
+    2) 이미지 뷰박스 아래 이 기능은 이 단계에선 불필요하니 숨겨라
+    3) 남은 3버튼(저장/공유/리셋)의 가로 사이즈를 보기 좋게
+
+  [수정 1] csBtn_retry 버튼 마크업 제거 (~line 1173)
+    - <button id="csBtn_retry" onclick="generate(true)">...</button> 완전 제거
+    - 남은 3버튼: 저장(csBtn_save) / 공유(csBtn_share) / 리셋(csBtn_reset)
+
+  [수정 2] .b-actions / .bab CSS 리밸런싱 (~line 612)
+    - gap: 8px → 10px (여백 확장)
+    - padding: 12px → 14px (버튼 높이 확장, 터치 타겟 확대)
+    - font-size: 11px → 12px (3등분 여유로 가독성 ↑)
+    - icon size: 22px → 24px (비례 확대)
+    - container padding: 14px 16px 18px → 12px 20px 18px (좌우 여유)
+    - gap(icon↔text): 4px → 5px
+
+  [수정 3] _csUpdateActionBtns() inline 스타일 일치 (~line 1450)
+    - cssText가 CSS를 덮어쓰므로 새 사이즈(padding 14px, font 12px,
+      gap 5px)와 일치시키지 않으면 렌더 불일치 발생
+    - var _btnBase로 공통 추출 → DRY 원칙, 향후 유지보수 ↑
+    - csBtn_retry 활성화 분기 완전 제거 (엘리먼트 없음)
+
+  [수정 4] 내부 자동 재시도도 isRetry=false로 변경 (~line 2826)
+    - 이전: 안전 필터 차단 시 generate(true) → 서버 retry 분기 활성화
+    - 신규: generate(false) → 완전히 새 요청처럼 생성
+    - 이유: 다시요청 개념 자체를 폐기하는 원칙과 일치,
+            치마→바지 전환 리스크를 100% 제거
+
+  [영향받지 않는 것]
+    - CSS의 .b-actions / .bab 기본 정의만 수정 (다른 페이지는 별도 CSS)
+    - generate() 함수 본체 로직 유지 (isRetry 파라미터는 보존,
+      혹시 다른 진입점이 생길 경우 대비)
+    - 서버 /api/codistyle/generate의 is_retry 처리 로직 유지
+      (프론트에서 true를 보내는 경로가 사라졌을 뿐)
+
 ─── 2026-04-20 22:00 KST (⚠️프리미엄 리포트 내용 빈약 → 10만원 컨설팅급 수술) ────
   [TJ님 강력 제보] 프리미엄 리포트 섹션 내용이 너무 빈약. 유료서비스(5900/
                     15000/39000원) 가치를 증명 못함. 자동 바이럴 불가.
@@ -609,9 +664,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
   font-size:14px;font-weight:600;opacity:0.7;margin-left:1px;
 }
 .err-box{margin:0 14px 14px;padding:12px 14px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:12px;font-size:11px;color:#fca5a5;line-height:1.6}
-.b-actions{display:flex;gap:8px;padding:14px 16px 18px}
-.bab{flex:1;padding:12px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.12s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
-.bab .mi{font-family:'Material Symbols Outlined';font-size:22px;line-height:1}
+/* [2026-04-21 01:30 TJ님 지시] 버튼 레이아웃 — 가로 1줄 + 높이 축소 + 아이콘 축소
+   - flex-direction: column → row (아이콘+텍스트 가로 배열)
+   - padding: 14px → 10px (버튼 높이 축소)
+   - font-size: 12px → 13px (한 줄이므로 가독성 ↑)
+   - icon size: 24px → 18px (텍스트와 비례 맞춤)
+   - gap(icon↔text): 5px → 6px (가로 배치시 더 넓은 간격 필요)
+   - b-actions padding: 12px 20px 18px → 10px 20px 16px (전체 높이 축소) */
+.b-actions{display:flex;gap:10px;padding:10px 20px 16px}
+.bab{flex:1;padding:10px 0;border-radius:12px;font-size:13px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.12s;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:6px}
+.bab .mi{font-family:'Material Symbols Outlined';font-size:18px;line-height:1}
 /* ── 풋바: Floating Glassmorphic Bar ── */
 .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px 10px;pointer-events:none;padding-bottom:max(10px,env(safe-area-inset-bottom));}
 .cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px;}
@@ -1169,8 +1231,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     <div class="err-box" id="errBox" style="display:none;"></div>
   </div>
   <div class="b-actions" id="bActions">
+    <!-- [2026-04-21 TJ님 지시] '다시요청' 버튼 제거
+         이유: (1) 상하의 이미지를 이미 선택해서 착장 보는 페이지라 이 단계에서 불필요
+               (2) 다시요청 클릭 시 치마→바지 재발 가능성 지속 — 신뢰도 리스크
+         수정: 3버튼 체계 (저장 / 공유 / 리셋)로 간소화, 레이아웃 재균형
+         참고: csBtn_retry 활성화 로직은 getElementById() 가드가 있어 에러 안 남 -->
     <button id="csBtn_save" class="bab" onclick="saveImg()" disabled style="background:rgba(151,254,237,.08);color:rgba(151,254,237,.3);border:1px solid rgba(151,254,237,.15);"><span class="mi">save_alt</span><span data-i18n="저장">저장</span></button>
-    <button id="csBtn_retry" class="bab" onclick="generate(true)" disabled style="background:rgba(151,254,237,.08);color:rgba(151,254,237,.3);border:1px solid rgba(151,254,237,.15);"><span class="mi">refresh</span><span data-i18n="다시요청">다시요청</span></button>
     <button id="csBtn_share" class="bab" onclick="shareResult()" disabled style="background:rgba(151,254,237,.08);color:rgba(151,254,237,.3);border:1px solid rgba(151,254,237,.15);"><span class="mi">share</span><span data-i18n="공유">공유</span></button>
     <button id="csBtn_reset" class="bab" onclick="resetAll()" disabled style="background:rgba(151,254,237,.08);color:rgba(151,254,237,.3);border:1px solid rgba(151,254,237,.15);"><span class="mi">restart_alt</span><span data-i18n="리셋">리셋</span></button>
   </div>
@@ -1452,14 +1518,16 @@ function _csUpdateActionBtns(){
   var hasResult = !!lastImgUrl;
   var _actStyle = 'background:#0B666A;color:#fff;border:1px solid #0B666A;';
   var _inactStyle = 'background:rgba(151,254,237,.08);color:rgba(151,254,237,.3);border:1px solid rgba(151,254,237,.15);';
+  // [2026-04-21 01:30 TJ님 지시] 가로 1줄 레이아웃에 맞춘 inline 스타일 업데이트
+  //   - flex-direction: column → row, padding: 14 → 10,
+  //     font-size: 12 → 13, icon gap: 5 → 6, radius: 14 → 12
+  var _btnBase = 'flex:1;padding:10px 0;border-radius:12px;font-size:13px;font-weight:800;text-align:center;cursor:pointer;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:6px;transition:.12s;';
   var s=document.getElementById('csBtn_save');
-  var r=document.getElementById('csBtn_retry');
   var sh=document.getElementById('csBtn_share');
   var rs=document.getElementById('csBtn_reset');
-  if(s){s.disabled=!hasResult;s.style.cssText=(hasResult?_actStyle:_inactStyle)+'flex:1;padding:12px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:.12s;';}
-  if(r){r.disabled=!hasResult;r.style.cssText=(hasResult?_actStyle:_inactStyle)+'flex:1;padding:12px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:.12s;';}
-  if(sh){sh.disabled=!hasResult;sh.style.cssText=(hasResult?_actStyle:_inactStyle)+'flex:1;padding:12px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:.12s;';}
-  if(rs){rs.disabled=!(hasItem||hasResult);rs.style.cssText=((hasItem||hasResult)?_actStyle:_inactStyle)+'flex:1;padding:12px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:.12s;';}
+  if(s){s.disabled=!hasResult;s.style.cssText=(hasResult?_actStyle:_inactStyle)+_btnBase;}
+  if(sh){sh.disabled=!hasResult;sh.style.cssText=(hasResult?_actStyle:_inactStyle)+_btnBase;}
+  if(rs){rs.disabled=!(hasItem||hasResult);rs.style.cssText=((hasItem||hasResult)?_actStyle:_inactStyle)+_btnBase;}
 }
 
 function updateGenerateBtn(){ var topOk=!!(ST.top.serverPath||ST.top.dataUrl); var botOk=!!(ST.bottom.serverPath||ST.bottom.dataUrl); var ready=topOk&&botOk&&!busy; document.getElementById('genBtn').disabled=!ready; _csUpdateActionBtns(); }
@@ -2807,11 +2875,14 @@ async function generate(isRetry=false){
   }catch(e){
     var _em=String(e.message||e);
     // [2026-04-15] 안전 필터 에러 시 자동 1회 재시도
+    // [2026-04-21 TJ님 지시] 다시요청 기능 폐기에 따라 내부 자동 재시도도
+    //                        isRetry=false로 변경 (완전히 처음처럼 재생성)
+    //                        → 서버 is_retry 분기 타지 않음 → 치마 안전성 보장
     if((_em.indexOf('FinishReason')>=0||_em.indexOf('STOP')>=0||_em.indexOf('safety')>=0||_em.indexOf('안전')>=0) && _retryCount < 1){
-      console.warn('[codistyle] 안전 필터 차단 → 자동 재시도');
+      console.warn('[codistyle] 안전 필터 차단 → 자동 재시도 (isRetry=false)');
       busy=false;
       _retryCount++;
-      return generate(true);
+      return generate(false);
     }
     setDot('err'); setProgress(100,'');
     var _um='⚠️ AI Generate Outfit 실패';
