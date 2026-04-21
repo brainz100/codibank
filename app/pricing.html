@@ -24,12 +24,12 @@
   const _T = {
     // ── 공통 내비게이션 ──
     "내옷장":           "My Closet",
-    "코디핏":            "Outfit쌤",
+    "코디쌤":            "Outfit쌤",
     "Ai 옷장":           "AI Closet",
     "코디앨범":         "Codi Album",
     "코디 앨범":        "Codi Album",
     "ITEM등록":         "Add Item",
-    "트라이 온":         "Try On",
+    "코디하기":         "Codi Style",
     "MY":              "MY",
 
     // ── 내옷장 (closet.html) ──
@@ -50,7 +50,7 @@
       "Analyzes your style with keywords.",
     "모바일 옷장에서 쉽게 코디할 수 있는 해법을 제공한다.":
       "Provides easy outfit solutions from your mobile closet.",
-    "AI 코디핏 이야기":  "AI CodiFit Story",
+    "AI 추천코디 이야기":  "AI Outfit Story",
     "목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.":
       "Select a goal and AI will recommend outfits based on the weather.",
     "✦ AI 스타일링 포인트": "✦ AI Styling Points",
@@ -70,7 +70,7 @@
     "모바일 옷장":        "Mobile Closet",
     "클릭하면 AI가 추천한 코디를 내 옷에서 찾아드립니다":
       "Tap to find AI outfit matches in your closet",
-    "AI 코디핏 × 내 옷장 유사도 분석": "AI CodiFit × Closet Similarity Analysis",
+    "AI 추천코디 × 내 옷장 유사도 분석": "AI Outfit × Closet Similarity Analysis",
     "AI 코디를 먼저 생성하면 유사도를 분석해드려요.":
       "Generate an AI outfit first to see similarity analysis.",
     "검색 결과가 없어요": "No results found",
@@ -81,8 +81,8 @@
     "위치 확인 중…":      "Checking location…",
     "개인정보처리방침":    "Privacy Policy",
 
-    // ── 트라이 온 (codistyle.html) ──
-    "트라이 온 - 코디뱅크": "Try On - CodiBank",
+    // ── 코디하기 (codistyle.html) ──
+    "코디하기 - 코디뱅크": "Codi Style - CodiBank",
     "상의":               "Top",
     "하의":               "Bottom",
     "상의 이미지":         "Top Image",
@@ -91,7 +91,7 @@
     "하의삭제":           "Remove Bottom",
     "상의와 하의를 업로드하고 생성 버튼을 눌러주세요":
       "Upload top and bottom, then tap generate",
-    "AI 착장 이미지 생성": "Generate AI CodiFit",
+    "AI 착장 이미지 생성": "Generate AI Outfit",
     "AI가 착장 이미지를 생성하고 있어요…": "AI is generating your outfit image…",
     "(10~25초 소요)":      "(10–25 sec)",
     "사진촬영":           "Take Photo",
@@ -123,7 +123,7 @@
     "저장된 코디가 없어요": "No saved outfits yet",
     "내옷장에서 AI 코디를 추천받고": "Get AI outfit recommendations from My Closet",
     "저장하기를 눌러보세요!": "and tap Save!",
-    "AI 코디핏 받기":   "Get CodiFit",
+    "AI 코디 추천 받기":   "Get AI Outfit",
     "전체삭제":           "Delete All",
 
     // ── 마이페이지 (mypage.html) ──
@@ -146,8 +146,8 @@
     "로딩중…":             "Loading…",
     "FUP(공정 이용 정책)": "FUP (Fair Use Policy)",
     "코디 생성 횟수 기준":  "Outfit Generation Limits",
-    "내옷장 AI 추천 + 트라이 온 착장 이미지를 합산하여 횟수를 계산합니다.":
-      "My Closet AI + Try On outfit images are counted together.",
+    "내옷장 AI 추천 + 코디하기 착장 이미지를 합산하여 횟수를 계산합니다.":
+      "My Closet AI + Codi Style outfit images are counted together.",
     "데이터 보관 정책":     "Data Retention Policy",
     "다이아 플랜의 무제한은 일일 30회 한도 내에서 운영됩니다.":
       "Diamond plan unlimited is subject to a daily limit of 30.",
@@ -477,7 +477,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
     <a href="mypage.html" class="back-btn"><span class="mi">arrow_back_ios_new</span></a>
     <div>
       <div class="pg-title" id="pgTitle">구독 플랜</div>
-      <div class="pg-sub" id="pgSub">코디 생성 = 내옷장 + 트라이 온 합산 기준</div>
+      <div class="pg-sub" id="pgSub">코디 생성 = 내옷장 + 코디하기 합산 기준</div>
     </div>
   </div>
 
@@ -488,121 +488,36 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
       <span class="status-usage" id="curUsageLabel"></span>
     </div>
     <div class="usage-bar"><div class="usage-fill" id="usageFill" style="width:0%"></div></div>
-    <!-- 이미지 생성 가능 횟수 (구독 + 보너스) -->
-    <div id="quotaInfoBox" style="margin-top:10px;padding:10px 14px;background:rgba(151,254,237,0.1);border-radius:10px;border:1px solid rgba(151,254,237,0.25);display:none;">
-      <div style="font-size:11px;color:rgba(151,254,237,0.75);font-weight:700;margin-bottom:4px;letter-spacing:.04em;" id="quotaLabel">이달 이미지 생성 가능 횟수</div>
-      <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;">
-        <span id="quotaTotal" style="font-size:24px;font-weight:900;color:#fff;">—</span>
-        <span style="font-size:12px;color:rgba(255,255,255,0.55);" id="quotaUnit">회 가능</span>
-        <span id="quotaBreakdown" style="font-size:11px;color:rgba(151,254,237,0.6);margin-left:4px;"></span>
+    <!-- ─── 2026-04-21: 이미지 생성 가능 횟수 (코디핏 / 트라이온 분리 + 아이템 3줄 구조) ─── -->
+    <div id="quotaInfoBox" style="margin-top:10px;padding:12px 14px;background:rgba(151,254,237,0.1);border-radius:10px;border:1px solid rgba(151,254,237,0.25);display:none;">
+      <div style="font-size:11px;color:rgba(151,254,237,0.75);font-weight:700;margin-bottom:8px;letter-spacing:.04em;" id="quotaLabel">이달 남은 이미지 생성 가능 횟수</div>
+      <!-- 코디핏 요약 라인 -->
+      <div id="codifitQuotaLine" style="font-size:13px;color:#fff;font-weight:500;line-height:1.55;margin-bottom:6px;">
+        <span style="color:#97FEED;">✦</span>
+        <span id="codifitQuotaText">—</span>
       </div>
-      <!-- 아이템 등록 현황 -->
-      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(151,254,237,0.15);">
-        <div style="font-size:11px;color:rgba(151,254,237,0.75);font-weight:700;margin-bottom:4px;letter-spacing:.04em;" id="itemQuotaLabel">아이템 등록 현황</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
-          <div style="display:flex;align-items:baseline;gap:6px;">
-            <span id="itemQuotaUsed" style="font-size:22px;font-weight:900;color:#fff;">—</span>
-            <span style="font-size:12px;color:rgba(255,255,255,0.55);" id="itemUnitSpan">/ <span id="itemQuotaLimit">—</span>개 등록</span>
-          </div>
-          <span id="itemQuotaBonus" style="font-size:11px;color:rgba(151,254,237,0.6);"></span>
-        </div>
-        <div style="height:4px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;margin-top:6px;">
-          <div id="itemUsageFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .6s;"></div>
-        </div>
+      <!-- 트라이온 요약 라인 -->
+      <div id="tryonQuotaLine" style="font-size:13px;color:#fff;font-weight:500;line-height:1.55;margin-bottom:6px;">
+        <span style="color:#F0A3C5;">✦</span>
+        <span id="tryonQuotaText">—</span>
+      </div>
+      <!-- 아이템 요약 라인 -->
+      <div id="itemQuotaLine" style="font-size:13px;color:#fff;font-weight:500;line-height:1.55;">
+        <span style="color:#C4B5FD;">✦</span>
+        <span id="itemQuotaText">—</span>
+      </div>
+      <!-- 히든 하위 호환 필드 -->
+      <div style="display:none;">
+        <span id="quotaTotal">—</span><span id="quotaUnit"></span><span id="quotaBreakdown"></span>
+        <span id="itemQuotaLabel"></span><span id="itemQuotaUsed">—</span><span id="itemUnitSpan"></span>
+        <span id="itemQuotaLimit">—</span><span id="itemQuotaBonus"></span>
+        <div id="itemUsageFill"></div>
       </div>
     </div>
   </div>
 
   <div class="section-label" style="color:var(--text3);">SUBSCRIPTION PLAN</div>
   <div class="plan-grid" id="planGrid"></div>
-
-  <!-- ─── 2026-04-21 경쟁사 비교 섹션 ─── -->
-  <div class="section-label" style="color:var(--text3); margin-top:24px;">WHY CODIBANK?</div>
-  <div class="compare-box" id="compareBoxKo" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:18px 16px;margin-bottom:16px;color:var(--text1);font-size:13px;line-height:1.65">
-    <div style="font-weight:700;margin-bottom:12px;color:#FFD700;font-size:15px">💡 왜 이 가격이 합리적일까요?</div>
-    <div style="margin-bottom:10px">
-      <strong style="color:#97FEED">코디뱅크 골드 ₩19,900</strong>은 세계적인 AI 구독 서비스와 비교해도 경쟁력 있는 가격입니다.
-    </div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px">
-      <thead>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.2)">
-          <th style="text-align:left;padding:6px 4px;font-weight:600;color:var(--text2)">서비스</th>
-          <th style="text-align:center;padding:6px 4px;font-weight:600;color:var(--text2)">월 요금</th>
-          <th style="text-align:center;padding:6px 4px;font-weight:600;color:var(--text2)">이미지 엔진</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr style="background:rgba(255,215,0,0.1);border-radius:6px">
-          <td style="padding:6px 4px;font-weight:700;color:#FFD700">코디뱅크 GOLD</td>
-          <td style="text-align:center;padding:6px 4px;font-weight:700;color:#FFD700">₩19,900</td>
-          <td style="text-align:center;padding:6px 4px;font-weight:700;color:#FFD700">Nano Banana Pro</td>
-        </tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
-          <td style="padding:6px 4px">Google AI Pro</td>
-          <td style="text-align:center;padding:6px 4px">₩27,600 ($19.99)</td>
-          <td style="text-align:center;padding:6px 4px">Nano Banana Pro</td>
-        </tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
-          <td style="padding:6px 4px">ChatGPT Plus</td>
-          <td style="text-align:center;padding:6px 4px">₩27,600 ($20)</td>
-          <td style="text-align:center;padding:6px 4px">GPT Image 1.5</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 4px">SuperGrok</td>
-          <td style="text-align:center;padding:6px 4px">₩41,400 ($30)</td>
-          <td style="text-align:center;padding:6px 4px">Aurora</td>
-        </tr>
-      </tbody>
-    </table>
-    <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);font-size:12px;color:var(--text2)">
-      ✅ Google AI Pro와 <strong style="color:#97FEED">동일한 엔진</strong>을 사용하며, ₩7,700 저렴합니다.<br/>
-      ✅ 범용 AI와 달리, <strong style="color:#97FEED">한국인 체형·퍼스널컬러에 특화</strong>된 튜닝을 거쳤습니다.<br/>
-      ✅ 옷장 관리 + 가상 시착 + AI 추천이 <strong style="color:#97FEED">한 앱에 통합</strong>되어 있습니다.
-    </div>
-  </div>
-
-  <div class="compare-box" id="compareBoxEn" style="display:none;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:18px 16px;margin-bottom:16px;color:var(--text1);font-size:13px;line-height:1.65">
-    <div style="font-weight:700;margin-bottom:12px;color:#FFD700;font-size:15px">💡 Why this price makes sense</div>
-    <div style="margin-bottom:10px">
-      <strong style="color:#97FEED">CodiBank GOLD ₩19,900</strong> is competitive even compared to global AI subscription services.
-    </div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px">
-      <thead>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.2)">
-          <th style="text-align:left;padding:6px 4px;font-weight:600;color:var(--text2)">Service</th>
-          <th style="text-align:center;padding:6px 4px;font-weight:600;color:var(--text2)">Monthly</th>
-          <th style="text-align:center;padding:6px 4px;font-weight:600;color:var(--text2)">Image Engine</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr style="background:rgba(255,215,0,0.1)">
-          <td style="padding:6px 4px;font-weight:700;color:#FFD700">CodiBank GOLD</td>
-          <td style="text-align:center;padding:6px 4px;font-weight:700;color:#FFD700">$13.99</td>
-          <td style="text-align:center;padding:6px 4px;font-weight:700;color:#FFD700">Nano Banana Pro</td>
-        </tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
-          <td style="padding:6px 4px">Google AI Pro</td>
-          <td style="text-align:center;padding:6px 4px">$19.99</td>
-          <td style="text-align:center;padding:6px 4px">Nano Banana Pro</td>
-        </tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
-          <td style="padding:6px 4px">ChatGPT Plus</td>
-          <td style="text-align:center;padding:6px 4px">$20</td>
-          <td style="text-align:center;padding:6px 4px">GPT Image 1.5</td>
-        </tr>
-        <tr>
-          <td style="padding:6px 4px">SuperGrok</td>
-          <td style="text-align:center;padding:6px 4px">$30</td>
-          <td style="text-align:center;padding:6px 4px">Aurora</td>
-        </tr>
-      </tbody>
-    </table>
-    <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);font-size:12px;color:var(--text2)">
-      ✅ Uses the <strong style="color:#97FEED">same engine</strong> as Google AI Pro, $6 cheaper.<br/>
-      ✅ Unlike general AI, <strong style="color:#97FEED">tuned for Korean body types & personal colors</strong>.<br/>
-      ✅ Wardrobe + virtual try-on + AI recommendation, <strong style="color:#97FEED">all in one app</strong>.
-    </div>
-  </div>
 
   <!-- 안내 박스 -->
   <div class="info-box" style="margin-bottom:16px" id="infoBoxKo">
@@ -639,10 +554,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 <div class="toast" id="toast"></div>
 
 <nav class="cb-nav"><div class="cb-nav-inner">
-  <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디핏</span></a>
+  <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디쌤</span></a>
   <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
   <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
-  <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">트라이 온</span></a>
+  <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">코디하기</span></a>
   <a href="mypage.html" class="cb-nav-tab on"><span class="ni">person</span><span class="nl">MY</span></a>
 </div></nav>
 
@@ -655,8 +570,9 @@ const _en = () => window.CodiBankI18n?.isEn?.() || false;
 // 플랜 정의 — closet.html / codistyle.html과 반드시 동일
 // ══════════════════════════════════════════════════
 // ─── 2026-04-21 KST 확정 플랜 ───
-// price: 실제 결제 금액, normalPrice: 정상가 (없으면 할인 없음)
-// 구조 변경: totalMonthly(합산) → codifitMonthly + tryonMonthly (기능별 분리)
+// codifitMonthly: 코디핏 월 한도  /  tryonMonthly: 트라이온 월 한도
+// itemsLimit: 아이템 등록 총 한도
+// 가격: FREE ₩0 / SILVER ₩5,900 / GOLD ₩19,900 / DIAMOND ₩39,900
 const PLANS_DEF = [
   {
     id: 'free',
@@ -664,7 +580,8 @@ const PLANS_DEF = [
     nameKo: '무료', nameEn: 'Free',
     price: 0, normalPrice: null, priceUsd: 0, normalPriceUsd: null,
     discountLabel: null,
-    codifitMonthly: 3, tryonMonthly: 1, itemsLimit: 20, dailyTotal: null,
+    codifitMonthly: 3, tryonMonthly: 1, itemsLimit: 20,
+    dailyCodifit: null, dailyItems: null,
     engineCo: 'Nano Banana 2', engineTry: 'Nano Banana 2',
     cardClass: 'card-free',
     nameClass: 'free',
@@ -682,7 +599,8 @@ const PLANS_DEF = [
     nameKo: '실버', nameEn: 'Silver',
     price: 5900, normalPrice: null, priceUsd: 4.99, normalPriceUsd: null,
     discountLabel: null,
-    codifitMonthly: 60, tryonMonthly: 10, itemsLimit: 200, dailyTotal: null,
+    codifitMonthly: 60, tryonMonthly: 10, itemsLimit: 200,
+    dailyCodifit: null, dailyItems: null,
     engineCo: 'Nano Banana 2', engineTry: 'Nano Banana 2',
     cardClass: 'card-silver',
     nameClass: 'silver',
@@ -700,7 +618,8 @@ const PLANS_DEF = [
     nameKo: '골드', nameEn: 'Gold',
     price: 19900, normalPrice: null, priceUsd: 13.99, normalPriceUsd: null,
     discountLabel: null,
-    codifitMonthly: 200, tryonMonthly: 30, itemsLimit: 1000, dailyTotal: null,
+    codifitMonthly: 200, tryonMonthly: 30, itemsLimit: 1000,
+    dailyCodifit: null, dailyItems: null,
     engineCo: 'Nano Banana Pro', engineTry: 'Nano Banana Pro',
     cardClass: 'card-gold',
     nameClass: 'gold',
@@ -750,18 +669,20 @@ function renderPlans(){
     if(p.price === 0){
       priceBlock = `<div class="plan-price free">${en?'Free':'무료'}</div>`;
     } else {
-      const normalStr = en ? `$${p.normalPriceUsd}` : `₩${p.normalPrice.toLocaleString()}`;
+      // ─── 2026-04-21: normalPrice가 null인 경우도 안전하게 처리 ───
+      const hasDiscount = !!p.normalPrice;
+      const normalStr = hasDiscount ? (en ? `$${p.normalPriceUsd}` : `₩${p.normalPrice.toLocaleString()}`) : '';
       const discStr   = en ? `$${p.priceUsd}` : `₩${p.price.toLocaleString()}`;
       const period    = en ? '/mo' : '/월';
       const badge     = p.discountLabel ? `<div class="plan-price-discount ${p.nameClass}">${en?(p.discountLabelEn||p.discountLabel):p.discountLabel}</div>` : '';
-      const normal    = p.normalPrice ? `<div class="plan-price-normal ${p.nameClass}">${normalStr}${period}</div>` : '';
+      const normal    = hasDiscount ? `<div class="plan-price-normal ${p.nameClass}">${normalStr}${period}</div>` : '';
       priceBlock = `${badge}${normal}<div class="plan-price ${p.nameClass}">${discStr}<span class="plan-period ${p.nameClass}">${period}</span></div>`;
     }
     const periodStr = '';  // priceBlock에 포함됨
 
     const feats = p.features.map(f => {
       const txt = en ? f.en : f.ko;
-      const subNote = f.sub ? `<span class="sub">${en?'Daily limit (closet + codi)':'내옷장+트라이 온 합산 일일 한도'}</span>` : '';
+      const subNote = f.sub ? `<span class="sub">${en?'Daily limit (closet + codi)':'내옷장+코디하기 합산 일일 한도'}</span>` : '';
       return `<div class="feat"><span class="mi ${f.icon === 'check' ? 'check' : 'x'}">${f.icon === 'check' ? 'check_circle' : 'cancel'}</span><span>${txt}${subNote}</span></div>`;
     }).join('');
 
@@ -831,32 +752,55 @@ async function renderStatus(){
   const planNames = {free:en?'Free Plan':'무료 플랜',silver:en?'Silver':'실버',gold:en?'Gold':'골드',diamond:en?'Diamond':'다이아'};
   document.getElementById('curPlanLabel').textContent = planNames[planId] || (en?'Free Plan':'무료 플랜');
 
-  // 사용량 표시
+  // ─── 2026-04-21: 코디핏/트라이온 사용량 분리 읽기 (localStorage) ───
+  let closetUsed = 0;    // 코디핏 사용 횟수
+  let codistyleUsed = 0; // 트라이온 사용 횟수
   let totalUsed = 0;
   try{
     const key = 'cb_usage_'+(user.email||'guest');
     const raw = JSON.parse(localStorage.getItem(key)||'{}');
-    totalUsed = raw.totalCount || 0;
+    closetUsed    = parseInt(raw.closetCount || 0);
+    codistyleUsed = parseInt(raw.codistyleCount || 0);
+    totalUsed     = parseInt(raw.totalCount || (closetUsed + codistyleUsed)) || 0;
   }catch(_){}
 
-  // 보너스 조회 (백엔드 API)
-  let bonusTotal = 0;
+  // ─── 2026-04-21: 보너스 조회 — 코디핏/트라이온 분리 수신 ───
+  let codifitBonus = 0;
+  let tryonBonus   = 0;
+  let bonusTotal   = 0; // 합산 (하위 호환)
   try{
     const bb = (typeof CodiBank.getBackendBaseResolved==='function') ? CodiBank.getBackendBaseResolved() : '';
     if(bb && user.email){
       const r = await fetch(bb+'/api/usage/bonus/'+encodeURIComponent(user.email));
-      if(r.ok){ const d=await r.json(); bonusTotal = parseInt(d.total_bonus||0); }
+      if(r.ok){
+        const d = await r.json();
+        // 신규 분리 필드 우선
+        if(d && (d.codifit_bonus !== undefined || d.tryon_bonus !== undefined)){
+          codifitBonus = parseInt(d.codifit_bonus || 0);
+          tryonBonus   = parseInt(d.tryon_bonus || 0);
+          bonusTotal   = codifitBonus + tryonBonus;
+        } else {
+          // 레거시: total_bonus만 있는 경우 → 전량 코디핏에 할당
+          bonusTotal   = parseInt(d.total_bonus || 0);
+          codifitBonus = bonusTotal;
+          tryonBonus   = 0;
+        }
+      }
     }
   }catch(_){}
 
-  // ─── 2026-04-21 새 구조: codifit + tryon 합산 ───
-  const _coLim = planDef.codifitMonthly >= 9999 ? 9999 : (planDef.codifitMonthly || 0);
-  const _tryLim = planDef.tryonMonthly || 0;
-  const baseLimit = (_coLim >= 9999) ? 9999 : (_coLim + _tryLim);
-  const totalLimit = baseLimit + bonusTotal;
-  const isUnlimited = baseLimit >= 9999;
+  // ─── 2026-04-21: 코디핏/트라이온 한도 계산 (합산 X) ───
+  const codifitBase = parseInt(planDef.codifitMonthly || 0);
+  const tryonBase   = parseInt(planDef.tryonMonthly || 0);
+  const codifitUnlimited = codifitBase >= 9999;
+  const tryonUnlimited   = tryonBase >= 9999;
+  const codifitLimit = codifitUnlimited ? 9999 : (codifitBase + codifitBonus);
+  const tryonLimit   = tryonUnlimited ? 9999 : (tryonBase + tryonBonus);
+  const baseLimit    = (codifitUnlimited || tryonUnlimited) ? 9999 : (codifitBase + tryonBase);
+  const totalLimit   = baseLimit + bonusTotal;
+  const isUnlimited  = (codifitUnlimited || tryonUnlimited);
 
-  // 사용량 바
+  // 사용량 바 (합산 기준)
   const pct = isUnlimited ? Math.min(100,Math.round(totalUsed/300*100)) : Math.min(100,Math.round(totalUsed/Math.max(totalLimit,1)*100));
   const usedTxt = isUnlimited
     ? (en?`Used: ${totalUsed}`:`사용: ${totalUsed}회`)
@@ -867,19 +811,38 @@ async function renderStatus(){
     ? 'linear-gradient(90deg,#ef4444,#fca5a5)'
     : 'linear-gradient(90deg,#35A29F,#97FEED)';
 
-  // ── 가능 횟수 박스 표시
+  // ─── 2026-04-21: 가능 횟수 박스 — 코디핏/트라이온/아이템 3줄 ───
   const quotaBox = document.getElementById('quotaInfoBox');
+  if(quotaBox){
+    // 코디핏 라인
+    const coRemain = codifitUnlimited ? '∞' : Math.max(0, codifitLimit - closetUsed);
+    const coBase   = codifitUnlimited ? (en?'Unlimited':'무제한') : codifitBase;
+    const coLine   = en
+      ? `*Codi Fit available: <b style="color:#97FEED">${coRemain}</b> = Plan ${coBase}${codifitUnlimited?'':''} + Bonus ${codifitBonus}`
+      : `*코디핏 생성 횟수 <b style="color:#97FEED">${coRemain}</b>회 = 구독플랜 ${coBase}${codifitUnlimited?'':'회'} + 보너스 지급 ${codifitBonus}회`;
+    const coEl = document.getElementById('codifitQuotaText');
+    if(coEl) coEl.innerHTML = coLine;
+
+    // 트라이온 라인
+    const trRemain = tryonUnlimited ? '∞' : Math.max(0, tryonLimit - codistyleUsed);
+    const trBase   = tryonUnlimited ? (en?'Unlimited':'무제한') : tryonBase;
+    const trLine   = en
+      ? `*Try On available: <b style="color:#F0A3C5">${trRemain}</b> = Plan ${trBase}${tryonUnlimited?'':''} + Bonus ${tryonBonus}`
+      : `*트라이온 생성 횟수 <b style="color:#F0A3C5">${trRemain}</b>회 = 구독플랜 ${trBase}${tryonUnlimited?'':'회'} + 보너스 지급 ${tryonBonus}회`;
+    const trEl = document.getElementById('tryonQuotaText');
+    if(trEl) trEl.innerHTML = trLine;
+
+    quotaBox.style.display = 'block';
+  }
+
+  // 하위 호환 히든 필드 업데이트
   const quotaTotal = document.getElementById('quotaTotal');
   const quotaBreakdown = document.getElementById('quotaBreakdown');
-  if(quotaBox && quotaTotal){
-    const remaining = isUnlimited ? '∞' : Math.max(0, totalLimit - totalUsed);
-    quotaTotal.textContent = remaining;
-    if(bonusTotal > 0){
-      quotaBreakdown.textContent = en ? '(Plan '+(isUnlimited?'Unlimited':baseLimit)+' + Bonus '+bonusTotal+')' : '(구독 '+(isUnlimited?'무제한':baseLimit)+'회 + 보너스 '+bonusTotal+'회)';
-    } else {
-      quotaBreakdown.textContent = en ? '('+planNames[planId]+' base)' : '('+planNames[planId]+' 기본)';
-    }
-    quotaBox.style.display = 'block';
+  if(quotaTotal) quotaTotal.textContent = isUnlimited ? '∞' : Math.max(0, totalLimit - totalUsed);
+  if(quotaBreakdown){
+    quotaBreakdown.textContent = bonusTotal>0
+      ? (en ? '(Plan '+(isUnlimited?'Unlimited':baseLimit)+' + Bonus '+bonusTotal+')' : '(구독 '+(isUnlimited?'무제한':baseLimit)+'회 + 보너스 '+bonusTotal+'회)')
+      : (en ? '('+planNames[planId]+' base)' : '('+planNames[planId]+' 기본)');
   }
 
   // ── 언어별 라벨 업데이트 ──
@@ -891,19 +854,14 @@ async function renderStatus(){
   var _iU = document.getElementById('itemUnitSpan');
   var _ibKo = document.getElementById('infoBoxKo');
   var _ibEn = document.getElementById('infoBoxEn');
-  // ─── 2026-04-21 경쟁사 비교 박스도 언어별 토글 ───
-  var _cbKo = document.getElementById('compareBoxKo');
-  var _cbEn = document.getElementById('compareBoxEn');
   if(_pgT) _pgT.textContent = en ? 'Subscription Plan' : '구독 플랜';
-  if(_pgS) _pgS.textContent = en ? 'Codi Fit + Try On are counted separately' : '코디핏 + 트라이 온 각각 별도 카운트';
+  if(_pgS) _pgS.textContent = en ? 'Outfit Generation = Closet + Style It combined' : '코디 생성 = 내옷장 + 코디하기 합산 기준';
   if(_qL) _qL.textContent = en ? 'Monthly outfit generations available' : '이달 이미지 생성 가능 횟수';
   if(_qU) _qU.textContent = en ? ' remaining' : '회 가능';
   if(_iL) _iL.textContent = en ? 'Item registration status' : '아이템 등록 현황';
   // itemUnitSpan은 아이템 섹션에서 업데이트
   if(_ibKo) _ibKo.style.display = en ? 'none' : 'block';
   if(_ibEn) _ibEn.style.display = en ? 'block' : 'none';
-  if(_cbKo) _cbKo.style.display = en ? 'none' : 'block';
-  if(_cbEn) _cbEn.style.display = en ? 'block' : 'none';
 
   // ── cb_plan_info 저장 → closet/codistyle에서 참조
   try{
@@ -921,8 +879,8 @@ async function renderStatus(){
   // ── 아이템 등록 현황 조회 및 표시 ──
   try{
     const bb = (typeof CodiBank.getBackendBaseResolved==='function') ? CodiBank.getBackendBaseResolved() : 'https://codibank-api.onrender.com';
-    const ITEM_LIMITS = {free:10, silver:100, gold:500, diamond:99999};
-    const itemBaseLimit = ITEM_LIMITS[planId] || 5;
+    // ─── 2026-04-21: 플랜별 아이템 한도는 PLANS_DEF의 itemsLimit 사용 (단일 진실공급원) ───
+    const itemBaseLimit = parseInt(planDef.itemsLimit || 20);
 
     // 아이템 보너스 조회
     let itemBonus = 0;
@@ -942,16 +900,27 @@ async function renderStatus(){
       }
     }catch(_){}
 
-    const itemTotalLimit = itemBaseLimit >= 99999 ? 99999 : itemBaseLimit + itemBonus;
-    const isItemUnlimited = itemTotalLimit >= 99999;
+    const isItemUnlimited = itemBaseLimit >= 9999;
+    const itemTotalLimit = isItemUnlimited ? 9999 : (itemBaseLimit + itemBonus);
     // codibank.js addItem에서 참조할 보너스 캐시 저장
     try{ localStorage.setItem('cb_item_plan_'+user.email, JSON.stringify({bonus:itemBonus,limit:itemTotalLimit,plan:planId,updatedAt:new Date().toISOString().slice(0,7)})); }catch(_){}
 
+    // ─── 2026-04-21: 요약 박스 3번째 라인 (아이템) ───
+    const itemEl = document.getElementById('itemQuotaText');
+    if(itemEl){
+      const availLimit = isItemUnlimited ? '∞' : Math.max(0, itemTotalLimit - itemUsed);
+      const baseStr = isItemUnlimited ? (en?'Unlimited':'무제한') : itemBaseLimit;
+      const itemLine = en
+        ? `*Items available: <b style="color:#C4B5FD">${availLimit}</b> = Plan ${baseStr} + Bonus ${itemBonus} (used ${itemUsed})`
+        : `*아이템 등록 가능 수량 <b style="color:#C4B5FD">${availLimit}</b>개 = 구독플랜 ${baseStr}${isItemUnlimited?'':'개'} + 보너스 ${itemBonus}개 <span style="opacity:0.6;font-size:11px;">(${itemUsed}개 등록됨)</span>`;
+      itemEl.innerHTML = itemLine;
+    }
+
+    // 히든 하위 호환 필드
     const usedEl = document.getElementById('itemQuotaUsed');
     const limitEl = document.getElementById('itemQuotaLimit');
     const bonusEl = document.getElementById('itemQuotaBonus');
     const fillEl  = document.getElementById('itemUsageFill');
-
     if(usedEl) usedEl.textContent = itemUsed;
     if(limitEl) limitEl.textContent = isItemUnlimited ? '∞' : itemTotalLimit;
     if(bonusEl) bonusEl.textContent = itemBonus > 0 ? (en?'(Base '+itemBaseLimit+' + Bonus '+itemBonus+')':'(기본 '+itemBaseLimit+'개 + 보너스 '+itemBonus+'개)') : (en?'('+planNames[planId]+' base)':'('+planNames[planId]+' 기본)');
