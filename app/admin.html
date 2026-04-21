@@ -150,8 +150,8 @@ body {
 <button class="tab on" onclick="stab(this,'dash')">일반현황</button>
 <button class="tab" onclick="stab(this,'users')">회원현황</button>
 <button class="tab" onclick="stab(this,'pay')">결제현황</button>
-<button class="tab" onclick="stab(this,'closet')">내옷장 추천코디</button>
-<button class="tab" onclick="stab(this,'codi')">코디하기</button>
+<button class="tab" onclick="stab(this,'closet')">내옷장 코디핏</button>
+<button class="tab" onclick="stab(this,'codi')">트라이 온</button>
 <button class="tab" onclick="stab(this,'items')">아이템등록</button>
 <button class="tab" onclick="stab(this,'acct')">계정관리</button>
 </div>
@@ -168,7 +168,7 @@ body {
 <div class="row r4">
 <div class="kpi" id="kPayCnt"><div class="kpi-l">총 결제</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
 <div class="kpi" id="kCloset"><div class="kpi-l">내옷장 코디</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
-<div class="kpi" id="kCodi"><div class="kpi-l">코디하기</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="kpi" id="kCodi"><div class="kpi-l">트라이 온</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
 <div class="kpi" id="kItem"><div class="kpi-l">아이템 등록</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
 </div>
 <div class="row r2">
@@ -211,20 +211,26 @@ body {
     <div class="sec-t"><span class="mi">add_card</span>회원 이미지 생성횟수 추가</div>
   </div>
   <p style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.6;">
-    특정 회원에게 이번달 추천코디·코디하기 이미지 생성횟수를 추가 지급합니다 (내옷장 + 코디하기 공유).<br>
+    특정 회원에게 이번달 <b style="color:#0B666A">코디핏</b>과 <b style="color:#b41a6a">트라이 온</b> 이미지 생성횟수를 <b>각각 별도로</b> 추가 지급합니다.<br>
     ✦ 아래 목록의 <b style="color:#0B666A">횟수지급</b> 버튼으로 빠르게 적용하거나 이메일을 직접 입력하세요.
   </p>
-  <div style="display:grid;grid-template-columns:1fr 150px 120px;gap:8px;align-items:end;margin-bottom:8px;">
+  <div style="display:grid;grid-template-columns:1fr 110px 110px 100px;gap:8px;align-items:end;margin-bottom:8px;">
     <div>
       <label style="font-size:10px;font-weight:700;color:#071952;display:block;margin-bottom:3px;">회원 이메일</label>
       <input id="mbEmail" type="email" placeholder="user@example.com" style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
     </div>
     <div>
-      <label style="font-size:10px;font-weight:700;color:#0B666A;display:block;margin-bottom:3px;">이미지 생성 추가 (공유)</label>
-      <input id="mbTotal" type="number" min="0" max="9999" value="10" style="width:100%;padding:7px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-weight:800;text-align:center;color:#0B666A;">
+      <label style="font-size:10px;font-weight:700;color:#0B666A;display:block;margin-bottom:3px;">코디핏 추가</label>
+      <input id="mbCodifit" type="number" min="0" max="9999" value="0" style="width:100%;padding:7px 8px;border:1px solid #0B666A;border-radius:6px;font-size:14px;font-weight:800;text-align:center;color:#0B666A;">
+    </div>
+    <div>
+      <label style="font-size:10px;font-weight:700;color:#b41a6a;display:block;margin-bottom:3px;">트라이온 추가</label>
+      <input id="mbTryon" type="number" min="0" max="9999" value="0" style="width:100%;padding:7px 8px;border:1px solid #b41a6a;border-radius:6px;font-size:14px;font-weight:800;text-align:center;color:#b41a6a;">
     </div>
     <button onclick="applyMemberBonus()" style="padding:8px 0;background:#071952;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;height:36px;">지급하기</button>
   </div>
+  <!-- 하위 호환 숨김 필드 -->
+  <input type="hidden" id="mbTotal" value="0">
   <div id="mbBonusResult" style="font-size:11px;color:#0B666A;min-height:16px;"></div>
 </div>
 
@@ -239,8 +245,8 @@ body {
   </p>
   <div class="row r4" style="margin-bottom:10px;">
     <div class="kpi g" id="kuUsageTotal"><div class="kpi-l">이달 이미지생성</div><div class="kpi-v">0</div><div class="kpi-s">회</div></div>
-    <div class="kpi" id="kuUsageCloset"><div class="kpi-l">추천코디</div><div class="kpi-v">0</div><div class="kpi-s">회</div></div>
-    <div class="kpi" id="kuUsageCodi"><div class="kpi-l">코디하기</div><div class="kpi-v">0</div><div class="kpi-s">회</div></div>
+    <div class="kpi" id="kuUsageCloset"><div class="kpi-l">코디핏</div><div class="kpi-v">0</div><div class="kpi-s">회</div></div>
+    <div class="kpi" id="kuUsageCodi"><div class="kpi-l">트라이 온</div><div class="kpi-v">0</div><div class="kpi-s">회</div></div>
     <div class="kpi" id="kuUsageItems"><div class="kpi-l">아이템등록</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
   </div>
   <div class="row r4" style="margin-bottom:10px;">
@@ -250,15 +256,15 @@ body {
     <div class="kpi" style="opacity:0;pointer-events:none"></div>
   </div>
   <div class="tw">
-    <table><thead><tr><th>이메일</th><th>추천코디</th><th>코디하기</th><th>합계</th><th>아이템등록</th><th>오늘 추천</th><th>오늘 코디</th><th>오늘 합계</th><th>오늘 아이템</th><th>최종갱신</th></tr></thead>
-    <tbody id="tUsageSummary"><tr><td colspan="10" class="ld"><span class="sp"></span>불러오는 중...</td></tr></tbody></table>
+    <table><thead><tr><th>이메일</th><th>닉네임</th><th>성별</th><th>코디핏</th><th>트라이 온</th><th>합계</th><th>아이템등록</th><th>오늘 코디핏</th><th>오늘 트라이온</th><th>오늘 합계</th><th>오늘 아이템</th><th>최종갱신</th></tr></thead>
+    <tbody id="tUsageSummary"><tr><td colspan="12" class="ld"><span class="sp"></span>불러오는 중...</td></tr></tbody></table>
   </div>
 </div>
 
 <!-- 회원 목록 -->
 <div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">group</span>회원 목록</div><button class="rb" onclick="ldU()"><span class="mi">refresh</span>새로고침</button></div>
 <div class="tw"><div class="cb"><input id="qU" placeholder="이메일 검색..." oninput="fU()"><select id="sU" onchange="fU()"><option value="c_d">가입일 최신순</option><option value="c_a">가입일 오래된순</option><option value="l_d">최근로그인순</option><option value="e_a">이메일순</option></select></div>
-<table><thead><tr><th>회원ID</th><th>가입일</th><th>최근로그인</th><th>회원구분</th><th>성별</th><th>상태</th><th>이달보너스</th><th>관리</th></tr></thead><tbody id="tU"></tbody></table>
+<table><thead><tr><th>이메일</th><th>닉네임</th><th>가입일</th><th>최근로그인</th><th>회원구분</th><th>성별</th><th>상태</th><th>코디핏 보너스</th><th>트라이온 보너스</th><th>관리</th></tr></thead><tbody id="tU"></tbody></table>
 <div class="pager" id="pgU"><span></span><span><button onclick="pgU(-1)">◀</button> <span id="pgUt">1/1</span> <button onclick="pgU(1)">▶</button> <select id="ppU" onchange="fU()"><option>20</option><option>50</option><option>100</option></select>건</span></div>
 </div></div>
 </div>
@@ -285,7 +291,7 @@ body {
 
 <!-- ═══ 내옷장 ═══ -->
 <div class="tp" id="p-closet">
-<div class="tab-desc"><div class="td-icon">👗</div><div><div class="td-title">내옷장 추천코디</div><div class="td-text">내옷장 AI 추천코디 생성 기록을 확인합니다. 누가 언제 어떤 스타일리스트로 생성했는지 조회할 수 있습니다.</div></div></div>
+<div class="tab-desc"><div class="td-icon">👗</div><div><div class="td-title">내옷장 코디핏</div><div class="td-text">내옷장 AI 코디핏 생성 기록을 확인합니다. 누가 언제 어떤 스타일리스트로 생성했는지 조회할 수 있습니다.</div></div></div>
 <div class="row r3">
 <div class="kpi" id="kcTotal"><div class="kpi-l">전체</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
 <div class="kpi" id="kcMonth"><div class="kpi-l">이번 달</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
@@ -295,16 +301,16 @@ body {
 <div class="chart-box"><h3>월별 이용 추이</h3><div class="chart-wrap"><canvas id="chCl2"></canvas></div></div>
 <div class="chart-box"><h3>코디목적별</h3><div class="chart-wrap"><canvas id="chCl3"></canvas></div></div>
 </div>
-<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">checkroom</span>내옷장 추천코디</div><button class="rb" onclick="ldS()"><span class="mi">refresh</span>새로고침</button></div>
+<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">checkroom</span>내옷장 코디핏</div><button class="rb" onclick="ldS()"><span class="mi">refresh</span>새로고침</button></div>
 <div class="tw"><div class="cb"><input id="qCl" placeholder="이메일 검색..." oninput="fCl()"><select id="sCl" onchange="fCl()"><option value="d_d">최신순</option><option value="d_a">오래된순</option></select><select id="fGCl" onchange="fCl()"><option value="">전체</option><option value="M">남</option><option value="F">여</option></select></div>
 <table><thead><tr><th>이용자</th><th>코디목적</th><th>코디일자</th><th>회원구분</th><th>성별</th><th>포인트</th></tr></thead><tbody id="tCl"></tbody></table>
 <div class="pager"><span></span><span><button onclick="pgCl2(-1)">◀</button> <span id="pgClt">1/1</span> <button onclick="pgCl2(1)">▶</button> <select id="ppCl" onchange="fCl()"><option>20</option><option>50</option></select>건</span></div>
 </div></div>
 </div>
 
-<!-- ═══ 코디하기 ═══ -->
+<!-- ═══ 트라이 온 ═══ -->
 <div class="tp" id="p-codi">
-<div class="tab-desc"><div class="td-icon">🧥</div><div><div class="td-title">코디하기</div><div class="td-text">코디하기 착장 이미지 생성 기록을 확인합니다. 생성 성공/실패 여부와 사용된 이미지 정보를 조회할 수 있습니다.</div></div></div>
+<div class="tab-desc"><div class="td-icon">🧥</div><div><div class="td-title">트라이 온</div><div class="td-text">트라이 온 착장 이미지 생성 기록을 확인합니다. 생성 성공/실패 여부와 사용된 이미지 정보를 조회할 수 있습니다.</div></div></div>
 <div class="row r3">
 <div class="kpi" id="kdTotal"><div class="kpi-l">전체</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
 <div class="kpi" id="kdMonth"><div class="kpi-l">이번 달</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
@@ -314,7 +320,7 @@ body {
 <div class="chart-box"><h3>월별 이용 추이</h3><div class="chart-wrap"><canvas id="chCd2"></canvas></div></div>
 <div class="chart-box"><h3>성별 비율</h3><div class="chart-wrap"><canvas id="chCd3"></canvas></div></div>
 </div>
-<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">auto_awesome</span>코디하기 현황</div><button class="rb" onclick="ldS()"><span class="mi">refresh</span>새로고침</button></div>
+<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">auto_awesome</span>트라이 온 현황</div><button class="rb" onclick="ldS()"><span class="mi">refresh</span>새로고침</button></div>
 <div class="tw"><div class="cb"><input id="qCd" placeholder="이메일 검색..." oninput="fCd()"><select id="sCd" onchange="fCd()"><option value="d_d">최신순</option><option value="d_a">오래된순</option></select><select id="fGCd" onchange="fCd()"><option value="">전체</option><option value="M">남</option><option value="F">여</option></select></div>
 <table><thead><tr><th>이용자</th><th>코디일자</th><th>회원구분</th><th>성별</th><th>포인트</th></tr></thead><tbody id="tCd"></tbody></table>
 <div class="pager"><span></span><span><button onclick="pgCd2(-1)">◀</button> <span id="pgCdt">1/1</span> <button onclick="pgCd2(1)">▶</button> <select id="ppCd" onchange="fCd()"><option>20</option><option>50</option></select>건</span></div>
@@ -386,7 +392,8 @@ body {
 </div>
 
 <!-- ══════════════════════════════════════════════════
-     섹션 1: 이미지 생성 보너스 관리 (MASTER)
+     섹션 1: 이미지 생성 보너스 관리 (MASTER) — 2026-04-21 개편
+     코디핏 보너스와 트라이 온 보너스를 완전히 분리하여 관리
 ══════════════════════════════════════════════════ -->
 <div class="card-sec" id="secBonusMgr" style="display:none;">
   <div class="card-sec-title">
@@ -394,25 +401,31 @@ body {
     <span class="master-only-badge">MASTER 전용</span>
   </div>
   <div class="card-sec-sub">
-    특정 회원에게 이미지 생성 보너스 횟수를 지급·수정·취소합니다.<br>
-    내옷장 추천코디 + 코디하기 착장이미지 생성 횟수를 함께 공유합니다.
+    코디핏과 트라이 온 보너스 횟수를 <b>각각 별도로</b> 지급·수정·취소합니다.<br>
+    <span style="color:#0B666A;font-weight:700;">※ 2026-04-21부터 두 기능이 완전 분리 관리됩니다.</span>
   </div>
 
   <!-- 지급 폼 -->
   <div style="background:#f8faff;border:1px solid #e0e7ff;border-radius:9px;padding:14px;margin-bottom:12px;">
     <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:10px;">보너스 지급 / 수정</div>
-    <div style="display:grid;grid-template-columns:1fr 110px 100px;gap:8px;align-items:end;">
+    <div style="display:grid;grid-template-columns:1fr 100px 100px 100px;gap:8px;align-items:end;">
       <div>
         <label class="fl">회원 이메일 <span style="color:#e53e3e">*</span></label>
         <input id="bonusEmail" type="email" class="fi" placeholder="user@codibank.kr">
       </div>
       <div>
-        <label class="fl" style="color:#0B666A;">지급 횟수</label>
-        <input id="bonusCount" type="number" min="0" max="9999" value="10" class="fi" style="text-align:center;font-size:16px;font-weight:800;color:#0B666A;border-color:#0B666A;">
+        <label class="fl" style="color:#0B666A;">코디핏 +</label>
+        <input id="bonusCodifit" type="number" min="0" max="9999" value="0" class="fi" style="text-align:center;font-size:15px;font-weight:800;color:#0B666A;border-color:#0B666A;">
+      </div>
+      <div>
+        <label class="fl" style="color:#b41a6a;">트라이온 +</label>
+        <input id="bonusTryon" type="number" min="0" max="9999" value="0" class="fi" style="text-align:center;font-size:15px;font-weight:800;color:#b41a6a;border-color:#b41a6a;">
       </div>
       <button class="btn-main" onclick="applyBonus()" style="height:38px;">지급하기</button>
     </div>
-    <div style="font-size:10px;color:#888;margin-top:5px;">※ 0으로 설정 = 보너스 취소 &nbsp;|&nbsp; 기존 지급 내역을 덮어씁니다</div>
+    <div style="font-size:10px;color:#888;margin-top:5px;">※ 각 항목 0 = 해당 기능 보너스 취소 &nbsp;|&nbsp; 기존 지급 내역을 덮어씁니다 &nbsp;|&nbsp; 입력하지 않은 항목은 유지됩니다(-1)</div>
+    <!-- 하위 호환 숨김 필드 (과거 API 호환용) -->
+    <input type="hidden" id="bonusCount" value="0">
     <div id="bonusResult" style="margin-top:8px;font-size:12px;font-weight:600;min-height:16px;"></div>
   </div>
 
@@ -423,8 +436,8 @@ body {
   </div>
   <div class="tw">
     <table>
-      <thead><tr><th>이메일</th><th style="text-align:center;">보너스</th><th style="text-align:center;">저장</th><th style="text-align:center;">앱 반영</th><th style="text-align:center;">수정 / 취소</th></tr></thead>
-      <tbody id="tBonusList"><tr><td colspan="5" class="empty">새로고침 버튼을 눌러주세요</td></tr></tbody>
+      <thead><tr><th>이메일</th><th style="text-align:center;color:#0B666A;">코디핏 보너스</th><th style="text-align:center;color:#b41a6a;">트라이온 보너스</th><th style="text-align:center;">저장</th><th style="text-align:center;">앱 반영</th><th style="text-align:center;">수정 / 취소</th></tr></thead>
+      <tbody id="tBonusList"><tr><td colspan="6" class="empty">새로고침 버튼을 눌러주세요</td></tr></tbody>
     </table>
   </div>
   <div id="bonusListNote" style="padding:5px 0;font-size:10px;color:#e65100;display:none;">⚠ 서버 메모리에만 저장 — 재시작 시 초기화됩니다. Supabase 테이블 생성 필요.</div>
@@ -566,7 +579,7 @@ body {
         <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" value="users"> 회원현황</label>
         <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" value="pay"> 결제현황</label>
         <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" value="closet"> 내옷장</label>
-        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" value="codi"> 코디하기</label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" value="codi"> 트라이 온</label>
         <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" value="items"> 아이템</label>
       </div>
     </div>
@@ -727,7 +740,7 @@ function doLogout(){sessionStorage.removeItem('cb_admin');sessionStorage.removeI
 function applyPermissions(){
   var perms=_ME.permissions||[];
   var hasAll=perms.includes('all')||_ME.role==='MASTER';
-  var tabs={dash:'일반현황',users:'회원현황',pay:'결제현황',closet:'내옷장 추천코디',codi:'코디하기',items:'아이템등록'};
+  var tabs={dash:'일반현황',users:'회원현황',pay:'결제현황',closet:'내옷장 코디핏',codi:'트라이 온',items:'아이템등록'};
   document.querySelectorAll('.tab').forEach(function(btn){
     var fn=btn.getAttribute('onclick')||'';
     var m=fn.match(/stab\(this,'([^']+)'\)/);
@@ -1127,27 +1140,47 @@ async function delTestAcct(email){
   }catch(e){toast('삭제 실패: '+e.message,true);}
 }
 
-// ── 보너스 지급 (통합) ──
+// ── 보너스 지급 (코디핏/트라이온 분리) ─── 2026-04-21 개편 ───
 async function applyBonus(){
   if(!isMaster()){toast('MASTER 권한이 필요합니다',true);return;}
   var em=document.getElementById('bonusEmail').value.trim().toLowerCase();
-  var tb=parseInt(document.getElementById('bonusCount').value)||0;
+  // 코디핏/트라이온 입력값 읽기
+  var coEl=document.getElementById('bonusCodifit');
+  var trEl=document.getElementById('bonusTryon');
+  var coRaw=coEl?coEl.value.trim():'';
+  var trRaw=trEl?trEl.value.trim():'';
+  // 빈 값 = 유지(-1), 0 = 취소, 양수 = 지급
+  var co=(coRaw===''||coRaw===null||coRaw===undefined)?-1:(parseInt(coRaw)||0);
+  var tr=(trRaw===''||trRaw===null||trRaw===undefined)?-1:(parseInt(trRaw)||0);
   var res=document.getElementById('bonusResult');
   if(!em){res.style.color='#e53e3e';res.textContent='⚠ 이메일을 입력해주세요';return;}
-  if(tb<0){res.style.color='#e53e3e';res.textContent='⚠ 0 이상의 횟수를 입력하세요';return;}
+  if(co===-1 && tr===-1){res.style.color='#e53e3e';res.textContent='⚠ 코디핏 또는 트라이온 횟수를 1개 이상 입력하세요';return;}
+  if(co<-1 || tr<-1 || co>9999 || tr>9999){res.style.color='#e53e3e';res.textContent='⚠ 0~9999 범위로 입력하세요';return;}
   res.style.color='#666';res.textContent='⏳ 처리 중...';
   try{
+    // 서버에 분리된 보너스 전송
+    // co/tr === -1 이면 해당 필드 건너뜀 (기존 값 유지)
+    var payload={email:em};
+    if(co>=0) payload.codifit_bonus=co;
+    if(tr>=0) payload.tryon_bonus=tr;
+    // 하위 호환: 레거시 total_bonus 필드 (codifit+tryon 합산)
+    payload.total_bonus=(co>=0?co:0)+(tr>=0?tr:0);
+
     var r=await authFetch(B+'/admin/member/set-bonus',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({email:em,total_bonus:tb})
+      body:JSON.stringify(payload)
     });
     var d=await r.json();
     if(d.ok){
       var note=d.note==='memory_fallback'?' ⚠ 메모리 저장':'';
       res.style.color=d.note==='memory_fallback'?'#e65100':'#0B666A';
-      res.textContent=(tb===0?'✅ '+em+' 보너스 취소 완료':'✅ '+em+' +'+tb+'회 지급 완료')+note;
+      var parts=[];
+      if(co>=0) parts.push(co===0?'코디핏 취소':'코디핏 +'+co+'회');
+      if(tr>=0) parts.push(tr===0?'트라이온 취소':'트라이온 +'+tr+'회');
+      res.textContent='✅ '+em+' '+parts.join(' / ')+' 완료'+note;
       document.getElementById('bonusEmail').value='';
-      document.getElementById('bonusCount').value='10';
+      document.getElementById('bonusCodifit').value='0';
+      document.getElementById('bonusTryon').value='0';
       ldBonusMgr();
     } else {
       res.style.color='#e53e3e';res.textContent='❌ '+(d.error||'실패');
@@ -1251,26 +1284,39 @@ async function cancelItemBonus(btn){
   }catch(e){toast('❌ '+e.message,true);}
 }
 
-// ── 이미지 생성 보너스 수정 (즉시 저장) ──
+// ── 이미지 생성 보너스 수정 (코디핏/트라이온 분리) ─── 2026-04-21 개편 ───
 async function editBonus(btn){
   if(!isMaster()){toast('MASTER 권한이 필요합니다',true);return;}
   var email=btn&&btn.dataset?btn.dataset.email:btn;
-  var current=btn&&btn.dataset?parseInt(btn.dataset.tb||0):0;
-  var newVal=prompt(email+'\n현재 이미지 생성 보너스: +'+current+'회\n새 보너스 횟수를 입력하세요 (0=취소):', current);
-  if(newVal===null)return;
-  var tb=parseInt(newVal)||0;
-  if(tb<0){alert('0 이상의 숫자를 입력하세요.');return;}
+  var currentCo=btn&&btn.dataset?parseInt(btn.dataset.co||0):0;
+  var currentTr=btn&&btn.dataset?parseInt(btn.dataset.tr||0):0;
+  var newCoStr=prompt(email+'\n현재 코디핏 보너스: +'+currentCo+'회\n새 코디핏 횟수를 입력하세요 (취소=0, 건너뛰기=빈값):', currentCo);
+  if(newCoStr===null)return;
+  var newTrStr=prompt(email+'\n현재 트라이온 보너스: +'+currentTr+'회\n새 트라이온 횟수를 입력하세요 (취소=0, 건너뛰기=빈값):', currentTr);
+  if(newTrStr===null)return;
+  var co=(newCoStr.trim()==='')?-1:(parseInt(newCoStr)||0);
+  var tr=(newTrStr.trim()==='')?-1:(parseInt(newTrStr)||0);
+  if((co!==-1 && co<0)||(tr!==-1 && tr<0)){alert('0 이상의 숫자를 입력하세요.');return;}
+  if(co===-1 && tr===-1){alert('둘 중 하나라도 값을 입력해야 합니다.');return;}
   var res=document.getElementById('bonusResult');
   if(res){res.style.color='#666';res.textContent='⏳ 저장 중...';}
   try{
+    var payload={email:email};
+    if(co>=0) payload.codifit_bonus=co;
+    if(tr>=0) payload.tryon_bonus=tr;
+    // 하위 호환
+    payload.total_bonus=(co>=0?co:currentCo)+(tr>=0?tr:currentTr);
     var r=await authFetch(B+'/admin/member/set-bonus',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({email:email,total_bonus:tb})
+      body:JSON.stringify(payload)
     });
     var d=await r.json();
     if(d.ok){
-      if(res){res.style.color='#0B666A';res.textContent='✅ '+email+' 이미지 보너스 '+(tb===0?'취소':'+'+tb+'회')+'로 수정 완료';}
-      toast('✅ '+email+' 이미지 보너스 수정 완료');
+      var parts=[];
+      if(co>=0) parts.push('코디핏 '+(co===0?'취소':'+'+co+'회'));
+      if(tr>=0) parts.push('트라이온 '+(tr===0?'취소':'+'+tr+'회'));
+      if(res){res.style.color='#0B666A';res.textContent='✅ '+email+' '+parts.join(' / ')+' 완료';}
+      toast('✅ '+email+' 보너스 수정 완료');
       ldBonusMgr();
     }else{
       if(res){res.style.color='#e53e3e';res.textContent='❌ '+(d.error||'실패');}
@@ -1279,18 +1325,30 @@ async function editBonus(btn){
   }catch(e){toast('❌ '+e.message,true);}
 }
 
-// ── 이미지 생성 보너스 취소 ──
+// ── 이미지 생성 보너스 취소 (코디핏/트라이온 선택) ─── 2026-04-21 개편 ───
 async function cancelBonus(btn){
   var email=btn&&btn.dataset?btn.dataset.email:btn;
-  if(!confirm(email+' 의 이미지 생성 보너스를 취소(0으로 설정)하시겠습니까?'))return;
+  // 어느 것을 취소할지 선택 (둘 다 가능)
+  var choice=prompt(email+'\n어떤 보너스를 취소하시겠습니까?\n 1 = 코디핏 보너스만 취소\n 2 = 트라이온 보너스만 취소\n 3 = 전체 취소 (둘 다 0)\n\n숫자 입력:','3');
+  if(choice===null)return;
+  choice=String(choice).trim();
+  if(!['1','2','3'].includes(choice)){alert('1, 2, 3 중 하나를 입력하세요');return;}
   try{
+    var payload={email:email};
+    if(choice==='1'){payload.codifit_bonus=0;}
+    else if(choice==='2'){payload.tryon_bonus=0;}
+    else{payload.codifit_bonus=0;payload.tryon_bonus=0;}
+    payload.total_bonus=0;
     var r=await authFetch(B+'/admin/member/set-bonus',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({email:email,total_bonus:0})
+      body:JSON.stringify(payload)
     });
     var d=await r.json();
-    if(d.ok){toast('✅ '+email+' 이미지 보너스 취소 완료');ldBonusMgr();}
-    else toast('❌ '+(d.error||'실패'),true);
+    if(d.ok){
+      var label=choice==='1'?'코디핏 보너스':(choice==='2'?'트라이온 보너스':'전체 보너스');
+      toast('✅ '+email+' '+label+' 취소 완료');
+      ldBonusMgr();
+    }else toast('❌ '+(d.error||'실패'),true);
   }catch(e){toast('❌ '+e.message,true);}
 }
 
@@ -1311,45 +1369,41 @@ async function ldBonusMgr(){
   var noteEl=document.getElementById('bonusListNote');
   var monthEl=document.getElementById('bonusMonth');
   if(!tbody)return;
-  tbody.innerHTML='<tr><td colspan="5" class="ld"><span class="sp"></span></td></tr>';
+  tbody.innerHTML='<tr><td colspan="6" class="ld"><span class="sp"></span></td></tr>';
   try{
     var r=await authFetch(B+'/admin/usage/bonus-list');
     var d=await r.json();
-    if(!d.ok){tbody.innerHTML='<tr><td colspan="5" class="empty">'+(d.error||'불러오기 실패')+'</td></tr>';return;}
+    if(!d.ok){tbody.innerHTML='<tr><td colspan="6" class="empty">'+(d.error||'불러오기 실패')+'</td></tr>';return;}
     if(monthEl) monthEl.textContent=d.month||'';
     var list=d.list||[];
-    if(!list.length){tbody.innerHTML='<tr><td colspan="5" class="empty">이달 지급된 보너스가 없습니다</td></tr>';if(noteEl)noteEl.style.display='none';return;}
+    if(!list.length){tbody.innerHTML='<tr><td colspan="6" class="empty">이달 지급된 보너스가 없습니다</td></tr>';if(noteEl)noteEl.style.display='none';return;}
     var isMem=(d.note==='memory_fallback');
     var h='';
     list.forEach(function(x){
-      var tb=parseInt(x.total_bonus||0);
+      // ─── 2026-04-21: codifit_bonus / tryon_bonus 분리 필드 우선, 폴백은 total_bonus ───
+      var co=parseInt(x.codifit_bonus!==undefined?x.codifit_bonus:(x.total_bonus||0));
+      var tr=parseInt(x.tryon_bonus||0);
       var stSrc=isMem?'<span class="st-warn">⚠ 메모리</span>':'<span class="st-ok">✅ Supabase</span>';
       var stApp=isMem?'<span style="color:#e65100;font-size:10px;">재시작 초기화</span>':'<span style="color:#0B666A;font-size:10px;">정상</span>';
       h+='<tr>'
         +'<td style="font-weight:600;color:#071952;">'+x.email+'</td>'
-        +'<td style="text-align:center;"><b style="font-size:16px;color:#0B666A;">+'+tb+'</b><span style="font-size:10px;color:#888;">회</span></td>'
+        +'<td style="text-align:center;">'+(co>0?'<b style="font-size:15px;color:#0B666A;">+'+co+'</b><span style="font-size:10px;color:#888;">회</span>':'<span style="color:#ccc;font-size:11px">—</span>')+'</td>'
+        +'<td style="text-align:center;">'+(tr>0?'<b style="font-size:15px;color:#b41a6a;">+'+tr+'</b><span style="font-size:10px;color:#888;">회</span>':'<span style="color:#ccc;font-size:11px">—</span>')+'</td>'
         +'<td style="text-align:center;">'+stSrc+'</td>'
         +'<td style="text-align:center;">'+stApp+'</td>'
         +'<td style="text-align:center;">'
-        +'<button onclick="editBonus(this)" data-email="'+x.email+'" data-tb="'+tb+'" class="ab">수정</button> '
+        +'<button onclick="editBonus(this)" data-email="'+x.email+'" data-co="'+co+'" data-tr="'+tr+'" class="ab">수정</button> '
         +'<button onclick="cancelBonus(this)" data-email="'+x.email+'" class="ab del">취소</button>'
         +'</td>'
         +'</tr>';
     });
     tbody.innerHTML=h;
     if(noteEl) noteEl.style.display=isMem?'block':'none';
-  }catch(e){tbody.innerHTML='<tr><td colspan="5" class="empty">로드 실패: '+e.message+'</td></tr>';}
+  }catch(e){tbody.innerHTML='<tr><td colspan="6" class="empty">로드 실패: '+e.message+'</td></tr>';}
 }
 
 // ── 빠른 보너스 지급 (테스트 계정 목록에서) ──
-function quickBonus(email){
-  stab(document.querySelector('.tab[onclick*="acct"]'),'acct');
-  setTimeout(function(){
-    var inp=document.getElementById('bonusEmail');
-    if(inp){inp.value=email;inp.focus();}
-    document.getElementById('secBonusMgr').scrollIntoView({behavior:'smooth',block:'start'});
-  },300);
-}
+// ─── 2026-04-21: quickBonus는 아래 line 1554 버전만 유지 (secMemberBonus로 이동) ───
 
 // ── sysStatus 표시 (runSupabaseDiag 결과를 새 UI에 표시) ──
 async function showSysStatus(){
@@ -1379,9 +1433,13 @@ async function loadMemberBonuses(){
     var r=await authFetch(B+'/admin/usage/bonus-list');
     var d=await r.json();
     if(d.ok){
+      // ─── 2026-04-21: 캐시 구조 {co: 코디핏보너스, tr: 트라이온보너스} ───
+      // 서버 응답에 codifit_bonus/tryon_bonus가 있으면 사용, 없으면 total_bonus(레거시)를 코디핏에 할당
       _memberBonusCache={};
       (d.list||[]).forEach(function(x){
-        _memberBonusCache[x.email]={cl:x.closet_bonus||0,co:x.codi_bonus||0};
+        var co=(x.codifit_bonus!==undefined&&x.codifit_bonus!==null)?parseInt(x.codifit_bonus)||0:parseInt(x.total_bonus||0);
+        var tr=parseInt(x.tryon_bonus||0);
+        _memberBonusCache[x.email]={co:co,tr:tr};
       });
       renderU(); // 보너스 정보 반영하여 재렌더링
     }
@@ -1392,13 +1450,23 @@ async function loadMemberBonuses(){
 async function ldUsageSummary(){
   var tbody=document.getElementById('tUsageSummary');
   if(!tbody) return;
-  tbody.innerHTML='<tr><td colspan="10" class="ld"><span class="sp"></span>불러오는 중...</td></tr>';
+  tbody.innerHTML='<tr><td colspan="12" class="ld"><span class="sp"></span>불러오는 중...</td></tr>';
   try{
     var r=await authFetch(B+'/admin/usage/summary');
     if(!r.ok) throw new Error('status '+r.status);
     var d=await r.json();
     if(!d.ok) throw new Error(d.error||'unknown');
     var list=d.list||[];
+    // ─── 2026-04-21: 회원 메타데이터(닉네임/성별) 조회를 위해 aU 활용 ───
+    // aU가 비어있으면 ldU 선실행
+    if((!aU || !aU.length) && isMaster()){
+      try{ await ldU(); }catch(_){}
+    }
+    var userMap={};
+    (aU||[]).forEach(function(u){
+      var em=(u.email||'').toLowerCase();
+      if(em) userMap[em]=u;
+    });
     // KPI 집계
     var sumCloset=0, sumCodi=0, sumTotal=0, sumItems=0;
     list.forEach(function(x){
@@ -1414,20 +1482,29 @@ async function ldUsageSummary(){
     kpi('kuUsageUsers', list.length);
 
     if(!list.length){
-      tbody.innerHTML='<tr><td colspan="10" class="empty">이달 사용 기록이 없습니다</td></tr>';
+      tbody.innerHTML='<tr><td colspan="12" class="empty">이달 사용 기록이 없습니다</td></tr>';
       return;
     }
     var h='';
     list.forEach(function(x){
       var upd = x.updated_at ? new Date(x.updated_at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '-';
+      // ─── 2026-04-21: 닉네임/성별 조회 ───
+      var em=(x.email||'').toLowerCase();
+      var u=userMap[em]||{};
+      var md=u.user_metadata||{};
+      var nickname=md.nickname||md.display_name||md.name||'';
+      var nnTxt=nickname?'<span style="color:#071952;font-weight:600">'+nickname+'</span>':'<span style="color:#ccc;font-size:10px">—</span>';
+      var genTxt=md.gender?gb(md.gender):'<span style="color:#ccc;font-size:10px">—</span>';
       h+='<tr>'
         +'<td style="font-weight:600;color:#071952">'+(x.email||'')+'</td>'
-        +'<td style="text-align:center">'+(x.closet_count||0)+'</td>'
-        +'<td style="text-align:center">'+(x.codistyle_count||0)+'</td>'
-        +'<td style="text-align:center;font-weight:700;color:#0B666A">'+(x.total_count||0)+'</td>'
+        +'<td>'+nnTxt+'</td>'
+        +'<td style="text-align:center">'+genTxt+'</td>'
+        +'<td style="text-align:center;color:#0B666A;font-weight:600">'+(x.closet_count||0)+'</td>'
+        +'<td style="text-align:center;color:#b41a6a;font-weight:600">'+(x.codistyle_count||0)+'</td>'
+        +'<td style="text-align:center;font-weight:700;color:#071952">'+(x.total_count||0)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#1a5fb4">'+(x.item_count||0)+'</td>'
-        +'<td style="text-align:center">'+(x.day_closet_count||0)+'</td>'
-        +'<td style="text-align:center">'+(x.day_codi_count||0)+'</td>'
+        +'<td style="text-align:center;color:#0B666A">'+(x.day_closet_count||0)+'</td>'
+        +'<td style="text-align:center;color:#b41a6a">'+(x.day_codi_count||0)+'</td>'
         +'<td style="text-align:center;font-weight:600">'+(x.day_total||0)+'</td>'
         +'<td style="text-align:center;font-weight:600;color:#1a5fb4">'+(x.day_item_count||0)+'</td>'
         +'<td style="font-size:10px;color:#888">'+upd+'</td>'
@@ -1435,29 +1512,49 @@ async function ldUsageSummary(){
     });
     tbody.innerHTML=h;
   }catch(e){
-    tbody.innerHTML='<tr><td colspan="10" class="empty">사용량 조회 실패: '+String(e.message||e)+'</td></tr>';
+    tbody.innerHTML='<tr><td colspan="12" class="empty">사용량 조회 실패: '+String(e.message||e)+'</td></tr>';
   }
 }
 
 // ═══ 회원 보너스 지급 ═══
 async function applyMemberBonus(){
   var em=document.getElementById('mbEmail').value.trim().toLowerCase();
-  var tb=parseInt(document.getElementById('mbTotal').value)||0;
+  // ─── 2026-04-21: 코디핏/트라이온 분리 지급 ───
+  var coEl=document.getElementById('mbCodifit');
+  var trEl=document.getElementById('mbTryon');
+  var co=parseInt(coEl?coEl.value:0)||0;
+  var tr=parseInt(trEl?trEl.value:0)||0;
   var res=document.getElementById('mbBonusResult');
   if(!em){res.style.color='#e53e3e';res.textContent='이메일을 입력해주세요';return;}
-  if(tb<=0){res.style.color='#e53e3e';res.textContent='1 이상의 횟수를 입력하세요';return;}
+  if(co<=0 && tr<=0){res.style.color='#e53e3e';res.textContent='코디핏 또는 트라이온 횟수를 1 이상 입력하세요';return;}
+  if(co<0||tr<0||co>9999||tr>9999){res.style.color='#e53e3e';res.textContent='0~9999 범위로 입력하세요';return;}
   res.style.color='#666';res.textContent='처리 중...';
   try{
+    var payload={email:em};
+    if(co>0) payload.codifit_bonus=co;
+    if(tr>0) payload.tryon_bonus=tr;
+    // 하위 호환 필드
+    payload.total_bonus=co+tr;
     var r=await authFetch(B+'/admin/member/set-bonus',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({email:em,total_bonus:tb})
+      body:JSON.stringify(payload)
     });
     var d=await r.json();
     if(d.ok){
       res.style.color='#0B666A';
-      res.textContent='✅ '+em+' — 이미지 생성 +'+tb+'회 지급완료 (추천코디·코디하기 공유)';
-      _memberBonusCache[em]={tb:tb};
+      var parts=[];
+      if(co>0) parts.push('코디핏 +'+co+'회');
+      if(tr>0) parts.push('트라이온 +'+tr+'회');
+      res.textContent='✅ '+em+' — '+parts.join(' / ')+' 지급완료';
+      // 캐시 업데이트 (기존값과 병합 — 양 기능 독립 처리)
+      var prev=_memberBonusCache[em]||{co:0,tr:0};
+      _memberBonusCache[em]={
+        co: co>0?co:(prev.co||0),
+        tr: tr>0?tr:(prev.tr||0)
+      };
       document.getElementById('mbEmail').value='';
+      if(coEl) coEl.value='0';
+      if(trEl) trEl.value='0';
       renderU();
     } else {
       res.style.color='#e53e3e';res.textContent='❌ '+(d.error||'실패');
@@ -1467,12 +1564,20 @@ async function applyMemberBonus(){
 
 // ═══ 회원 목록에서 빠른 보너스 지급 모달 ═══
 function quickBonus(email){
-  // 섹션으로 스크롤 후 이메일 채우기
+  // ─── 2026-04-21: 섹션으로 스크롤 + 이메일 채우기 + 코디핏/트라이온 필드 초기화 ───
   var s=document.getElementById('secMemberBonus');
   if(s){s.scrollIntoView({behavior:'smooth',block:'start'});}
   setTimeout(function(){
     var inp=document.getElementById('mbEmail');
     if(inp){inp.value=email;inp.focus();}
+    // 기존 입력값 초기화 (이전 회원 흔적 제거)
+    var coEl=document.getElementById('mbCodifit');
+    var trEl=document.getElementById('mbTryon');
+    if(coEl) coEl.value='0';
+    if(trEl) trEl.value='0';
+    // 안내 메시지
+    var res=document.getElementById('mbBonusResult');
+    if(res){res.style.color='#666';res.textContent='코디핏 또는 트라이온 횟수를 입력하고 지급하기를 누르세요';}
   },300);
 }
 
@@ -1524,46 +1629,29 @@ function renderU(){
   document.getElementById('tU').innerHTML=h;
 }
 function pgU(d){pgState.U+=d;renderU()}
-async function delU(id,em){if(!confirm('"'+em+'" 삭제?'))return;try{await authFetch(B+'/admin/users/'+id,{method:'DELETE'});toast(em+' 삭제');ldU()}catch(e){toast('실패',true)}}
-// Payments
-async function ldH(){try{var r=await authFetch(B+'/health');var j=await r.json();kpi('kServer',j.ok?'ONLINE':'ERROR',new Date().toLocaleTimeString())}catch(e){kpi('kServer','OFFLINE','연결실패')}}
-// Users
-async function ldU(){document.getElementById('tU').innerHTML='<tr><td colspan="7" class="ld"><span class="sp"></span></td></tr>';try{var r=await authFetch(B+'/admin/users');if(!r.ok)throw 0;aU=(await r.json()).users||[];kpi('kUsers',aU.length);kpi('kuTotal',aU.length);kpi('kuMonth',aU.filter(function(u){return isThisMonth(u.created_at)}).length);kpi('kuWeek',aU.filter(function(u){return isThisWeek(u.created_at)}).length);var td=aU.filter(function(u){return isToday(u.created_at)}).length;kpi('kuToday',td);kpi('kToday',td);fU();drawUserCharts()}catch(e){document.getElementById('tU').innerHTML='<tr><td colspan="7" class="empty"><a href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/auth/users" target="_blank">Supabase</a></td></tr>'}}
-function drawUserCharts(){var mo={};aU.forEach(function(u){var k=monthKey(u.created_at);mo[k]=(mo[k]||0)+1});var ks=Object.keys(mo).sort().slice(-6);mkChart('chUserMonth','bar',ks,[{label:'가입',data:ks.map(function(k){return mo[k]}),backgroundColor:'#35A29F'}]);mkChart('chU2','bar',ks,[{label:'가입',data:ks.map(function(k){return mo[k]}),backgroundColor:'#35A29F'}]);
-var gm=0,gf=0,pFree=0,pPt=0,pSub=0;aU.forEach(function(u){var md=u.user_metadata||{};if(md.gender==='M')gm++;else if(md.gender==='F')gf++;var p=md.plan||'free';if(String(p).indexOf('sub')>=0)pSub++;else if(String(p).indexOf('point')>=0)pPt++;else pFree++});
-mkChart('chGender','doughnut',['남성','여성','미설정'],[{data:[gm,gf,aU.length-gm-gf],backgroundColor:['#1a5fb4','#b41a6a','#ccc']}]);
-mkChart('chPlan','doughnut',['무료','포인트','구독'],[{data:[pFree,pPt,pSub],backgroundColor:['#999','#0B666A','#1a5fb4']}]);
-mkChart('chU3','doughnut',['남성','여성','미설정'],[{data:[gm,gf,aU.length-gm-gf],backgroundColor:['#1a5fb4','#b41a6a','#ccc']}])}
-function fU(){pgState.U=1;renderU()}
-function renderU(){
-  var q=document.getElementById('qU').value.toLowerCase(),s=document.getElementById('sU').value,pp=parseInt(document.getElementById('ppU').value),l=aU;
-  if(q)l=l.filter(function(u){return(u.email||'').toLowerCase().indexOf(q)>=0});
-  var sk=s.split('_')[0]==='c'?'created_at':s.split('_')[0]==='l'?'last_sign_in_at':'email';
-  l=sortA(l,sk,s.split('_')[1]);
-  var pg=paginate(l,pgState.U,pp);document.getElementById('pgUt').textContent=pg.page+'/'+pg.total;
-  if(!pg.data.length){document.getElementById('tU').innerHTML='<tr><td colspan="8" class="empty">데이터 없음</td></tr>';return}
-  var h='';
-  pg.data.forEach(function(u){
-    var md=u.user_metadata||{};
-    var ee=encodeURIComponent(u.email||'');
-    var bonusInfo=_memberBonusCache[u.email]||{cl:0,co:0};
-    var bonusTxt=bonusInfo.tb?'<span style="font-size:11px;font-weight:800;color:#0B666A">+'+bonusInfo.tb+'회</span>':'<span style="color:#ccc;font-size:10px">없음</span>';
-    var bonusBtn=isMaster()?'<button class="ab" onclick="quickBonus(\''+( u.email||'')+'\')">횟수지급</button>':'';
-    h+='<tr>'
-      +'<td style="font-weight:600;color:#071952">'+(u.email||'')+'</td>'
-      +'<td>'+fd(u.created_at)+'</td>'
-      +'<td>'+fd(u.last_sign_in_at)+'</td>'
-      +'<td>'+pb(md.plan)+'</td>'
-      +'<td>'+gb(md.gender)+'</td>'
-      +'<td>'+(u.email_confirmed_at?'<span class="badge b-ok">인증</span>':'<span class="badge b-w">미인증</span>')+'</td>'
-      +'<td>'+bonusTxt+'</td>'
-      +'<td>'+bonusBtn+'<button class="ab del" onclick="delU(\''+u.id+'\',\''+(u.email||'')+'\')">삭제</button></td>'
-      +'</tr>';
-  });
-  document.getElementById('tU').innerHTML=h;
+// ─── ldU: 회원 목록 로드 (2026-04-21: 10컬럼 대응) ───
+async function ldU(){
+  document.getElementById('tU').innerHTML='<tr><td colspan="10" class="ld"><span class="sp"></span></td></tr>';
+  try{
+    var r=await authFetch(B+'/admin/users');
+    if(!r.ok)throw 0;
+    aU=(await r.json()).users||[];
+    kpi('kUsers',aU.length);
+    kpi('kuTotal',aU.length);
+    kpi('kuMonth',aU.filter(function(u){return isThisMonth(u.created_at)}).length);
+    kpi('kuWeek',aU.filter(function(u){return isThisWeek(u.created_at)}).length);
+    var td=aU.filter(function(u){return isToday(u.created_at)}).length;
+    kpi('kuToday',td);
+    kpi('kToday',td);
+    fU();
+    drawUserCharts();
+  }catch(e){
+    document.getElementById('tU').innerHTML='<tr><td colspan="10" class="empty"><a href="https://supabase.com/dashboard/project/drgsayvlpzcacurcczjq/auth/users" target="_blank">Supabase</a></td></tr>';
+  }
 }
-function pgU(d){pgState.U+=d;renderU()}
 async function delU(id,em){if(!confirm('"'+em+'" 삭제?'))return;try{await authFetch(B+'/admin/users/'+id,{method:'DELETE'});toast(em+' 삭제');ldU()}catch(e){toast('실패',true)}}
+// Health
+async function ldH(){try{var r=await authFetch(B+'/health');var j=await r.json();kpi('kServer',j.ok?'ONLINE':'ERROR',new Date().toLocaleTimeString())}catch(e){kpi('kServer','OFFLINE','연결실패')}}
 // Payments
 async function ldP(){document.getElementById('tP').innerHTML='<tr><td colspan="6" class="ld"><span class="sp"></span></td></tr>';try{var r=await authFetch(B+'/admin/payments');if(!r.ok)throw 0;aP=(await r.json()).payments||[];var tot=0,tm=0,tw=0,tt=0;aP.forEach(function(p){if(p.status!=='completed')return;tot+=p.amount||0;if(isThisMonth(p.created_at))tm+=p.amount||0;if(isThisWeek(p.created_at))tw+=p.amount||0;if(isToday(p.created_at))tt+=p.amount||0});kpi('kRevenue',fm(tot));kpi('kPayCnt',aP.length);kpi('kpTotal',fm(tot));kpi('kpMonth',fm(tm));kpi('kpWeek',fm(tw));kpi('kpToday',fm(tt));fP();drawPayCharts()}catch(e){document.getElementById('tP').innerHTML='<tr><td colspan="6" class="empty">데이터 없음</td></tr>'}}
 function drawPayCharts(){var mo={},plans={};aP.forEach(function(p){if(p.status!=='completed')return;var k=monthKey(p.created_at);mo[k]=(mo[k]||0)+(p.amount||0);plans[p.plan_id]=(plans[p.plan_id]||0)+1});var ks=Object.keys(mo).sort().slice(-6);mkChart('chRevMonth','bar',ks,[{label:'매출',data:ks.map(function(k){return mo[k]}),backgroundColor:'#071952'}]);mkChart('chP2','bar',ks,[{label:'매출',data:ks.map(function(k){return mo[k]}),backgroundColor:'#071952'}]);
@@ -1579,10 +1667,10 @@ kpi('kCloset',cl.length);kpi('kcTotal',cl.length);kpi('kcMonth',cl.filter(functi
 kpi('kCodi',co.length);kpi('kdTotal',co.length);kpi('kdMonth',co.filter(function(s){return isThisMonth(s.created_at)}).length);kpi('kdToday',co.filter(function(s){return isToday(s.created_at)}).length);
 fCl();fCd();drawStyleCharts(cl,co)}catch(e){document.getElementById('tCl').innerHTML='<tr><td colspan="6" class="empty">데이터 없음</td></tr>';document.getElementById('tCd').innerHTML='<tr><td colspan="5" class="empty">데이터 없음</td></tr>'}}
 function drawStyleCharts(cl,co){var moCl={},moCo={},purp={},gCo={M:0,F:0,O:0};cl.forEach(function(s){var k=monthKey(s.created_at);moCl[k]=(moCl[k]||0)+1;var p=s.purpose||'일상';purp[p]=(purp[p]||0)+1});co.forEach(function(s){var k=monthKey(s.created_at);moCo[k]=(moCo[k]||0)+1;if(s.gender==='M')gCo.M++;else if(s.gender==='F')gCo.F++;else gCo.O++});
-var allK=Object.keys(Object.assign({},moCl,moCo)).sort().slice(-6);mkChart('chStyleMonth','bar',allK,[{label:'내옷장',data:allK.map(function(k){return moCl[k]||0}),backgroundColor:'#35A29F'},{label:'코디하기',data:allK.map(function(k){return moCo[k]||0}),backgroundColor:'#071952'}]);
+var allK=Object.keys(Object.assign({},moCl,moCo)).sort().slice(-6);mkChart('chStyleMonth','bar',allK,[{label:'내옷장',data:allK.map(function(k){return moCl[k]||0}),backgroundColor:'#35A29F'},{label:'트라이 온',data:allK.map(function(k){return moCo[k]||0}),backgroundColor:'#071952'}]);
 mkChart('chCl2','bar',allK,[{label:'내옷장',data:allK.map(function(k){return moCl[k]||0}),backgroundColor:'#35A29F'}]);
 var pk=Object.keys(purp);mkChart('chCl3','doughnut',pk,[{data:pk.map(function(k){return purp[k]}),backgroundColor:['#35A29F','#0B666A','#1a5fb4','#6a1fb4','#b41a6a','#e53e3e','#c17b00']}]);
-mkChart('chCd2','bar',allK,[{label:'코디하기',data:allK.map(function(k){return moCo[k]||0}),backgroundColor:'#071952'}]);
+mkChart('chCd2','bar',allK,[{label:'트라이 온',data:allK.map(function(k){return moCo[k]||0}),backgroundColor:'#071952'}]);
 mkChart('chCd3','doughnut',['남','여','미설정'],[{data:[gCo.M,gCo.F,gCo.O],backgroundColor:['#1a5fb4','#b41a6a','#ccc']}])}
 function fCl(){pgState.Cl=1;renderCl()}
 function renderCl(){var q=document.getElementById('qCl').value.toLowerCase(),s=document.getElementById('sCl').value,g=document.getElementById('fGCl').value,pp=parseInt(document.getElementById('ppCl').value),l=aS.filter(function(x){return x.type==='closet'});if(q)l=l.filter(function(x){return(x.email||'').toLowerCase().indexOf(q)>=0});if(g)l=l.filter(function(x){return(x.gender||'')===g});l=sortA(l,'created_at',s.split('_')[1]);var pg=paginate(l,pgState.Cl,pp);document.getElementById('pgClt').textContent=pg.page+'/'+pg.total;
@@ -1671,7 +1759,7 @@ async function ldAdmins(){
     // 비밀번호 변경 드롭다운 갱신
     buildPwSelect(admins);
     if(!admins.length){tbody.innerHTML='<tr><td colspan="6" class="empty">어드민 없음</td></tr>';return;}
-    var TAB_NAMES={dash:'일반현황',users:'회원현황',pay:'결제현황',closet:'내옷장',codi:'코디하기',items:'아이템등록'};
+    var TAB_NAMES={dash:'일반현황',users:'회원현황',pay:'결제현황',closet:'내옷장',codi:'트라이 온',items:'아이템등록'};
     var h='';
     admins.forEach(function(a){
       var perms=a.permissions||[];
@@ -1736,7 +1824,7 @@ async function delAdmin(em){
 function openPermEdit(email,name,curPerms){
   var ee2=email.replace(/'/g,"\\'");
   var ALL=['dash','users','pay','closet','codi','items'];
-  var NAMES={dash:'일반현황',users:'회원현황',pay:'결제현황',closet:'내옷장',codi:'코디하기',items:'아이템등록'};
+  var NAMES={dash:'일반현황',users:'회원현황',pay:'결제현황',closet:'내옷장',codi:'트라이 온',items:'아이템등록'};
   var hasAll=curPerms.includes('all');
   var boxes=ALL.map(function(t){
     var chk=(hasAll||curPerms.includes(t))?'checked':'';
