@@ -1178,6 +1178,66 @@
     opacity:1;
     transform:translate(-50%, 0);
   }
+
+  /* ═══════════════════════════════════════════════════════════
+     풋바 네비 (cb-nav) · 원본 codistyle.html 스타일 100% 카피
+     ─── 2026-04-22 KST · 4탭 축소 구조로 적용 ───
+     ═══════════════════════════════════════════════════════════ */
+  .cb-nav{
+    position:fixed;
+    bottom:0; left:0; right:0;
+    z-index:99999;
+    padding:0 16px 10px;
+    pointer-events:none;
+    padding-bottom:max(10px, env(safe-area-inset-bottom));
+  }
+  .cb-nav-inner{
+    pointer-events:all;
+    max-width:400px;
+    margin:0 auto;
+    height:62px;
+    border-radius:9999px;
+    background:rgba(7,19,42,.55);
+    backdrop-filter:blur(32px);
+    -webkit-backdrop-filter:blur(32px);
+    box-shadow:0 24px 48px -8px rgba(2,13,36,.45);
+    display:flex;
+    justify-content:space-around;
+    align-items:center;
+    padding:0 6px;
+  }
+  .cb-nav-tab{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:2px;
+    color:rgba(216,226,255,.4);
+    text-decoration:none;
+    padding:6px 12px;
+    border-radius:9999px;
+    transition:all .2s;
+    font-family:'Inter','Noto Sans KR',sans-serif;
+  }
+  .cb-nav-tab .ni{
+    font-family:'Material Symbols Outlined';
+    font-size:22px;
+    line-height:1;
+    font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 22;
+  }
+  .cb-nav-tab .nl{
+    font-size:9px;
+    font-weight:600;
+    letter-spacing:.02em;
+  }
+  .cb-nav-tab.on{
+    color:#07132a;
+    background:linear-gradient(135deg,#4cdbce,#13bbaf);
+    padding:6px 16px;
+  }
+  .cb-nav-tab.on .ni{
+    font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;
+  }
 </style>
 </head>
 <body>
@@ -1552,6 +1612,22 @@
 
 <!-- 토스트 -->
 <div class="toast" id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     풋바 네비 (4탭 축소 · "코디하기"가 현재 active)
+     ─── 2026-04-22 KST ─────────────────────────────────────────
+     본 페이지(tryon.html)는 풋바에서 "코디하기"로 진입 시 로드되도록
+     설계. 다른 페이지의 풋바 네비 href도 전환 완료되면 on 상태가
+     자연스럽게 반영된다.
+     ═══════════════════════════════════════════════════════════ -->
+<nav class="cb-nav">
+  <div class="cb-nav-inner">
+    <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디핏</span></a>
+    <a href="tryon.html" class="cb-nav-tab on"><span class="ni">accessibility_new</span><span class="nl">코디하기</span></a>
+    <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
+    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
+  </div>
+</nav>
 
 <script>
 // ════════════════════════════════════════════════════════════════
