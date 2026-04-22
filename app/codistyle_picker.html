@@ -846,11 +846,20 @@ body.picker-page .divider,
 body.picker-page .gen-wrap,
 body.picker-page #csScoreBox,
 body.picker-page #csResultBox,
+body.picker-page #resultArea,
+body.picker-page #csUsageBadge,
 body.picker-page .face-section,
 body.picker-page #codiProfileTitle,
 body.picker-page #bodyEditForm,
 body.picker-page .final-summary,
-body.picker-page .engine-tag {
+body.picker-page .engine-tag,
+body.picker-page .cb-spacer,
+body.picker-page .b-actions {
+  display: none !important;
+}
+/* csUsageBadge의 부모 div (display:flex 래퍼)도 숨김 */
+body.picker-page #csUsageBadge:not(:defined) ~ *,
+body.picker-page > div:has(> #csUsageBadge) {
   display: none !important;
 }
 
@@ -1601,6 +1610,21 @@ const _pickerReturnTo = _pickerParams.get('returnTo') || '';
 // body에 picker-page 클래스 부여 (codistyle.html과 완전 분리)
 document.addEventListener('DOMContentLoaded', function(){
   document.body.classList.add('picker-page');
+
+  // [버그1 fix 2026-04-22] csUsageBadge 부모 div, resultArea, cb-spacer 완전 숨김
+  // (CSS :has() 브라우저 지원이 완벽하지 않아 JS로 확실히 처리)
+  try {
+    var _usageBadge = document.getElementById('csUsageBadge');
+    if(_usageBadge && _usageBadge.parentElement){
+      _usageBadge.parentElement.style.display = 'none';
+    }
+    ['resultArea','csScoreBox','bActions','errBox'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.style.display = 'none';
+    });
+    // 개인정보처리방침 링크(result-area 뒤의 div)는 남겨두되 cb-spacer 숨김
+    document.querySelectorAll('.cb-spacer').forEach(function(el){ el.style.display = 'none'; });
+  } catch(_){}
 
   // 단일 슬롯 모드
   if(_pickerActiveSlot && SLOT_KEYS.indexOf(_pickerActiveSlot) >= 0){

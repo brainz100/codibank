@@ -299,6 +299,69 @@
   .mode-btn.active{ color:var(--teal-light); }
   .mode-btn .mi{ font-size:15px; }
 
+  /* ─── 2026-04-22 · fit-pill 2줄 레이블 (투피스 » 마이 핏 등) ─── */
+  .fit-pill-row .mode-btn{
+    flex-direction:column;
+    gap:1px;
+    padding:8px 0 9px;
+    line-height:1.1;
+  }
+  .fit-pill-sub{
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-weight:600;
+    font-size:9px;
+    letter-spacing:.06em;
+    color:rgba(255,255,255,0.3);
+    text-transform:none;
+  }
+  .fit-pill-row .mode-btn.active .fit-pill-sub{ color:rgba(151,254,237,0.6); }
+  .fit-pill-main{
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-weight:900;
+    font-size:13px;
+    letter-spacing:-.01em;
+  }
+
+  /* ─── 2026-04-22 · 모델 핏 인라인 gender picker (퍼컬 영역 대체) ─── */
+  .model-gender-inline{
+    width:100%;
+  }
+  .mg-title{
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.1em;
+    color:rgba(151,254,237,0.55);
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .gender-picker-compact{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:6px;
+  }
+  .gender-card-compact{
+    padding:8px 6px 7px;
+    border-radius:10px;
+    min-height:auto;
+  }
+  .gender-card-compact .gender-icon{
+    width:32px; height:32px;
+    margin-bottom:4px;
+  }
+  .gender-card-compact .gender-icon .mi{ font-size:20px; }
+  .gender-card-compact .gender-label{
+    font-size:10.5px;
+    margin-bottom:0;
+  }
+  .gender-card-compact .gender-radio{
+    width:14px; height:14px;
+    top:5px; right:5px;
+  }
+  .gender-card-compact .gender-radio::after{
+    width:7px; height:7px;
+  }
+
   .slot-section-label{
     display:flex;
     align-items:center;
@@ -1388,7 +1451,7 @@
   <div class="step-head">
     <div class="step-head-body">
       <div class="step-title"><span class="step-prefix">Step 2.</span> 누구의 <span class="ac">핏</span>을 보고 싶어요?</div>
-      <div class="step-summary" id="step2Summary">마이 핏 · 모델 핏 · 누군가</div>
+      <div class="step-summary" id="step2Summary">투피스 » 마이 핏</div>
     </div>
     <div class="step-badge lock"><span class="mi">lock</span>잠김</div>
   </div>
@@ -1397,11 +1460,99 @@
       아래 <b style="color:var(--teal-light);">코디 프로필</b> 박스의 정보로 생성됩니다.
     </div>
 
-    <!-- 핏 선택 pill (Step 1 모드 스위치와 동일 구조 · 3분할) -->
-    <div class="mode-switch cols-3" data-fit="my" id="fitSwitch">
-      <button class="mode-btn active" data-fit="my">마이 핏</button>
-      <button class="mode-btn" data-fit="somebody">썸바디</button>
-      <button class="mode-btn" data-fit="model">모델 핏</button>
+    <!-- 핏 선택 pill (Step 1 모드 스위치와 동일 구조 · 3분할)
+         레이블: [투피스 » 마이 핏] [원피스 » 썸바디] [아우터 » 모델 핏] -->
+    <div class="mode-switch cols-3 fit-pill-row" data-fit="my" id="fitSwitch">
+      <button class="mode-btn active" data-fit="my"><span class="fit-pill-sub">투피스 »</span><span class="fit-pill-main">마이 핏</span></button>
+      <button class="mode-btn" data-fit="somebody"><span class="fit-pill-sub">원피스 »</span><span class="fit-pill-main">썸바디</span></button>
+      <button class="mode-btn" data-fit="model"><span class="fit-pill-sub">아우터 »</span><span class="fit-pill-main">모델 핏</span></button>
+    </div>
+
+    <!-- ─── 2026-04-22 KST · Step 2 내부로 이동: 코디 프로필 박스 ─── -->
+    <div class="profile-wrap" style="margin-top:14px;">
+      <div class="profile-title-row">
+        <b id="profileTitleText">코디 프로필</b>
+        <span class="hint" id="profileHintText">AI가 개인화된 착장을 만드는 데 쓰여요</span>
+      </div>
+    </div>
+
+    <!-- 마이/썸바디/모델 공용 — face-section (모드별로 내부 표시 전환) -->
+    <div id="profileFaceWrap" style="padding:0;">
+      <div class="face-section">
+        <div class="face-top">
+          <div class="face-circle" id="faceCircle">
+            <span class="face-ph" id="facePh">face</span>
+          </div>
+          <div class="face-mid">
+
+            <!-- 퍼스널컬러 요약 (마이/썸바디에서만 표시, 모델에서는 숨김) -->
+            <div class="pc-summary-wrap" id="pcSummaryWrap">
+              <div class="pc-season-line" id="pcSeasonLine">
+                <span class="pc-season-dot"></span>
+                <span class="pc-season-label" id="pcSeasonLabel">가을 딥</span>
+                <span class="pc-undertone" id="pcUndertone">웜톤</span>
+              </div>
+              <div class="pc-tip" id="pcTip">따뜻한 브라운 · 머스타드 · 올리브 계열이 잘 어울려요</div>
+              <div class="pc-palette" id="pcPalette">
+                <span style="background:#8B4513"></span>
+                <span style="background:#D2691E"></span>
+                <span style="background:#556B2F"></span>
+                <span style="background:#704214"></span>
+              </div>
+              <div class="pc-empty" id="pcEmpty" style="display:none;">사진을 등록하면<br>퍼스널컬러를 분석합니다</div>
+            </div>
+
+            <!-- 모델 핏 전용 — 남/여 모델 원형 라디오 (퍼컬 자리 대체) -->
+            <div class="model-gender-inline" id="modelGenderInline" style="display:none;">
+              <div class="mg-title">모델 선택</div>
+              <div class="gender-picker gender-picker-compact" id="genderSwitch" data-gender="">
+                <label class="gender-card gender-card-compact" data-gender="male">
+                  <input type="radio" name="modelGender" value="male">
+                  <span class="gender-radio"></span>
+                  <span class="gender-icon"><span class="mi">man</span></span>
+                  <span class="gender-label">남자 모델</span>
+                </label>
+                <label class="gender-card gender-card-compact" data-gender="female">
+                  <input type="radio" name="modelGender" value="female">
+                  <span class="gender-radio"></span>
+                  <span class="gender-icon"><span class="mi">woman</span></span>
+                  <span class="gender-label">여자 모델</span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+          <div class="face-btns">
+            <button class="face-btn cam"><span class="mi">photo_camera</span>촬영</button>
+            <button class="face-btn gal"><span class="mi">photo_library</span>선택</button>
+          </div>
+        </div>
+
+        <div class="body-info">
+          <div class="body-info-cells">
+            <div class="body-cell">
+              <div class="body-cell-label">성별</div>
+              <div class="body-cell-value" id="bodyGender">남성</div>
+            </div>
+            <div class="body-sep"></div>
+            <div class="body-cell">
+              <div class="body-cell-label">나이대</div>
+              <div class="body-cell-value" id="bodyAge">30대</div>
+            </div>
+            <div class="body-sep"></div>
+            <div class="body-cell">
+              <div class="body-cell-label">키</div>
+              <div class="body-cell-value" id="bodyHeight">175</div>
+            </div>
+            <div class="body-sep"></div>
+            <div class="body-cell">
+              <div class="body-cell-label">몸무게</div>
+              <div class="body-cell-value" id="bodyWeight">70</div>
+            </div>
+          </div>
+          <button class="body-edit-btn" id="bodyEditBtn">수정</button>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -1488,105 +1639,6 @@
     </div>
   </div>
 </section>
-
-<!-- Divider -->
-<div class="divider"></div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     코디 프로필 (Step 2의 핏 선택에 따라 내용 전환)
-       - my       → face-section 그대로 (현재 프로필 데이터)
-       - somebody → 동일 구조, 빈 데이터 (사용자 직접 입력)
-       - model    → 모델 선택 박스 (남/여)
-     ═══════════════════════════════════════════════════════════ -->
-<div class="profile-wrap">
-  <div class="profile-title-row">
-    <b id="profileTitleText">코디 프로필</b>
-    <span class="hint" id="profileHintText">AI가 개인화된 착장을 만드는 데 쓰여요</span>
-  </div>
-</div>
-
-<!-- 마이/썸바디 공용 — face-section -->
-<div id="profileFaceWrap" style="padding:0 16px;">
-  <div class="face-section">
-    <div class="face-top">
-      <div class="face-circle" id="faceCircle">
-        <span class="face-ph" id="facePh">face</span>
-      </div>
-      <div class="face-mid">
-        <div class="pc-summary-wrap">
-          <div class="pc-season-line" id="pcSeasonLine">
-            <span class="pc-season-dot"></span>
-            <span class="pc-season-label" id="pcSeasonLabel">가을 딥</span>
-            <span class="pc-undertone" id="pcUndertone">웜톤</span>
-          </div>
-          <div class="pc-tip" id="pcTip">따뜻한 브라운 · 머스타드 · 올리브 계열이 잘 어울려요</div>
-          <div class="pc-palette" id="pcPalette">
-            <span style="background:#8B4513"></span>
-            <span style="background:#D2691E"></span>
-            <span style="background:#556B2F"></span>
-            <span style="background:#704214"></span>
-          </div>
-          <div class="pc-empty" id="pcEmpty" style="display:none;">사진을 등록하면<br>퍼스널컬러를 분석합니다</div>
-        </div>
-      </div>
-      <div class="face-btns">
-        <button class="face-btn cam"><span class="mi">photo_camera</span>촬영</button>
-        <button class="face-btn gal"><span class="mi">photo_library</span>선택</button>
-      </div>
-    </div>
-
-    <div class="body-info">
-      <div class="body-info-cells">
-        <div class="body-cell">
-          <div class="body-cell-label">성별</div>
-          <div class="body-cell-value" id="bodyGender">남성</div>
-        </div>
-        <div class="body-sep"></div>
-        <div class="body-cell">
-          <div class="body-cell-label">나이대</div>
-          <div class="body-cell-value" id="bodyAge">30대</div>
-        </div>
-        <div class="body-sep"></div>
-        <div class="body-cell">
-          <div class="body-cell-label">키</div>
-          <div class="body-cell-value" id="bodyHeight">175</div>
-        </div>
-        <div class="body-sep"></div>
-        <div class="body-cell">
-          <div class="body-cell-label">몸무게</div>
-          <div class="body-cell-value" id="bodyWeight">70</div>
-        </div>
-      </div>
-      <button class="body-edit-btn" id="bodyEditBtn">수정</button>
-    </div>
-  </div>
-</div>
-
-<!-- 모델 핏 전용 — 남/여 모델 선택 박스 -->
-<div id="profileModelWrap" style="padding:0 16px;display:none;">
-  <div class="model-pick-box">
-    <div class="model-pick-head">
-      <div class="model-pick-title">모델을 <span class="ac-mint">선택</span>해 주세요</div>
-      <div class="model-pick-sub">표준 모델 바디로 착장을 생성합니다</div>
-    </div>
-    <div class="gender-picker" id="genderSwitch" data-gender="">
-      <label class="gender-card" data-gender="male">
-        <input type="radio" name="modelGender" value="male">
-        <span class="gender-radio"></span>
-        <span class="gender-icon"><span class="mi">man</span></span>
-        <span class="gender-label">남자 모델</span>
-        <span class="gender-spec">175 cm · Standard</span>
-      </label>
-      <label class="gender-card" data-gender="female">
-        <input type="radio" name="modelGender" value="female">
-        <span class="gender-radio"></span>
-        <span class="gender-icon"><span class="mi">woman</span></span>
-        <span class="gender-label">여자 모델</span>
-        <span class="gender-spec">165 cm · Standard</span>
-      </label>
-    </div>
-  </div>
-</div>
 
 <!-- ═══════════════════════════════════════════════════════════
      하단 시트 (피커 데모용)
@@ -1716,6 +1768,96 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 
 // ════════════════════════════════════════════════════════════════
+//  [버그2 fix 2026-04-22] state 영속화 (sessionStorage)
+//  ───────────────────────────────────────────────────────────
+//  문제: 트라이온 → 피커 → 트라이온 이동 시 페이지가 리로드되어
+//        state 객체가 초기화됨 → 이전 슬롯 선택이 사라져 보임.
+//  해결: 슬롯 채워질 때마다 state의 "영속 가능한 부분"을 세션에 저장.
+//        페이지 로드 시점에 바로 복원.
+// ════════════════════════════════════════════════════════════════
+const TRYON_STATE_KEY = 'tryon_main_state_v1';
+
+function saveTryonState(){
+  try {
+    const snap = {
+      mode: state.mode,
+      slots: {},
+      fitTarget: state.fitTarget,
+      modelGender: state.modelGender,
+      stepDone: state.stepDone,
+      currentStep: state.currentStep,
+      ts: Date.now(),
+    };
+    // 슬롯별 "영속 가능한" 부분만 복사 (item의 DOM 참조 제거)
+    Object.keys(state.slots).forEach(k => {
+      const s = state.slots[k];
+      snap.slots[k] = {
+        active: s.active,
+        filled: s.filled,
+        role: s.role,
+        item: s.item ? {
+          id: s.item.id,
+          name: s.item.name,
+          meta: s.item.meta,
+          cls: s.item.cls,
+          dataUrl: s.item.dataUrl || '',
+          path: s.item.path || '',
+        } : null,
+      };
+    });
+    sessionStorage.setItem(TRYON_STATE_KEY, JSON.stringify(snap));
+  } catch(e){ console.warn('[tryon] saveState fail:', e); }
+}
+
+function loadTryonState(){
+  try {
+    const raw = sessionStorage.getItem(TRYON_STATE_KEY);
+    if(!raw) return false;
+    const snap = JSON.parse(raw);
+    if(!snap || !snap.slots) return false;
+    // state 복원
+    if(snap.mode) state.mode = snap.mode;
+    if(snap.fitTarget) state.fitTarget = snap.fitTarget;
+    if(snap.modelGender !== undefined) state.modelGender = snap.modelGender;
+    if(snap.stepDone) Object.assign(state.stepDone, snap.stepDone);
+    if(snap.currentStep) state.currentStep = snap.currentStep;
+    Object.keys(snap.slots).forEach(k => {
+      if(state.slots[k]) Object.assign(state.slots[k], snap.slots[k]);
+    });
+    return true;
+  } catch(e){ console.warn('[tryon] loadState fail:', e); return false; }
+}
+
+// 페이지 내 슬롯 DOM 일괄 재렌더링 (state 기반)
+function rerenderAllSlots(){
+  Object.keys(state.slots).forEach(key => {
+    const s = state.slots[key];
+    if(!s.filled || !s.item) return;
+    // DOM 타입 결정
+    let domType = key;
+    if(key === 'outer' && state.mode === 'outer') domType = 'outer-main';
+    const slotEl = document.querySelector(`.slot[data-type="${domType}"]`);
+    if(!slotEl) return;
+    slotEl.classList.add('filled');
+    slotEl.classList.remove('add-slot');
+    const img = slotEl.querySelector('.slot-image');
+    if(img){
+      if(s.item.dataUrl){
+        img.className = 'slot-image';
+        img.style.backgroundImage = `url("${s.item.dataUrl}")`;
+      } else {
+        img.className = 'slot-image ' + (s.item.cls || 'm1');
+        img.style.backgroundImage = '';
+      }
+    }
+    const nameEl = slotEl.querySelector('.slot-info .name');
+    const metaEl = slotEl.querySelector('.slot-info .meta');
+    if(nameEl) nameEl.textContent = s.item.name || '';
+    if(metaEl) metaEl.textContent = s.item.meta || '';
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
 //  Step 전환
 // ════════════════════════════════════════════════════════════════
 function setStep(newStep){
@@ -1794,16 +1936,18 @@ $$('.step-head').forEach(head => {
 // ════════════════════════════════════════════════════════════════
 //  Step 1 — 모드 & 슬롯
 // ════════════════════════════════════════════════════════════════
-function setMode(mode){
+function setMode(mode, skipReset){
   state.mode = mode;
   $('#modeSwitch').dataset.mode = mode;
   $$('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
 
-  // state 초기화 (모드 전환 시 모든 슬롯 리셋)
-  ['top','bottom','onepiece','outer'].forEach(t => {
-    state.slots[t].filled = false;
-    state.slots[t].item = null;
-  });
+  // state 초기화 (모드 전환 시 모든 슬롯 리셋) — 복원 경로에서는 스킵
+  if(!skipReset){
+    ['top','bottom','onepiece','outer'].forEach(t => {
+      state.slots[t].filled = false;
+      state.slots[t].item = null;
+    });
+  }
 
   if(mode === 'twopiece'){
     state.slots.top.active = true;
@@ -1837,9 +1981,13 @@ function setMode(mode){
     // 옵션 섹션의 아우터 슬롯은 숨김 (필수로 올라갔으므로)
     $$('.twopiece-onepiece-only').forEach(el => el.style.display = 'none');
   }
-  // 모든 슬롯 UI 리셋
-  ['top','bottom','onepiece','outer','outer-main'].forEach(t => resetSlotUI(t));
+  // 모든 슬롯 UI 리셋 — 복원 경로에서는 스킵 (rerenderAllSlots가 대체)
+  if(!skipReset){
+    ['top','bottom','onepiece','outer','outer-main'].forEach(t => resetSlotUI(t));
+  }
   renderStep1();
+  // [버그2 fix] 사용자가 실제 모드 변경한 경우만 state 저장
+  if(!skipReset) saveTryonState();
 }
 $$('.mode-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
@@ -1912,6 +2060,8 @@ function consumePick(){
       slotEl.querySelector('.slot-info .meta').textContent = item.meta;
     }
     renderStep1();
+    // [버그2 fix] state 영속화 — 다음 피커 이동 후 복귀 시에도 이 슬롯 유지
+    saveTryonState();
   } catch(e){
     console.error('[tryon] consumePick error:', e);
   }
@@ -1933,7 +2083,18 @@ $$('.remove-btn').forEach(btn => {
     } else {
       slot.classList.remove('filled');
     }
+    // [버그2 fix] 슬롯 DOM 이미지도 기본 상태로 복구
+    const img = slot.querySelector('.slot-image');
+    if(img){
+      img.style.backgroundImage = '';
+    }
+    const nameEl = slot.querySelector('.slot-info .name');
+    const metaEl = slot.querySelector('.slot-info .meta');
+    if(nameEl) nameEl.textContent = '+';
+    if(metaEl) metaEl.textContent = SLOT_LABELS[key] || '';
     renderStep1();
+    // [버그2 fix] state 영속화
+    saveTryonState();
     showToast('제거되었습니다');
   });
 });
@@ -2041,6 +2202,8 @@ fitSwitch.querySelectorAll('.mode-btn').forEach(btn => {
     applyFitUI(fit);
     state.stepDone[2] = (fit !== 'model');  // model은 성별까지 골라야 완료
     updateFinalSummary();
+    // [버그2 fix] fit 변경도 state에 저장
+    saveTryonState();
     // model이 아니면 바로 Step 3 자동 오픈
     if(fit !== 'model' && state.currentStep === 2){
       setTimeout(() => setStep(3), 400);
@@ -2049,39 +2212,55 @@ fitSwitch.querySelectorAll('.mode-btn').forEach(btn => {
 });
 
 function applyFitUI(fit){
-  const faceWrap = $('#profileFaceWrap');
-  const modelWrap = $('#profileModelWrap');
+  // [2026-04-22] 새 구조:
+  //   profileFaceWrap 하나만 존재하며, 그 안의 pcSummaryWrap / modelGenderInline를 교체
+  //   body-info (성별·나이대·키·몸무게)는 모든 모드에서 공통 표시 (모델은 모델 기본 스펙으로 채움)
+  const pcWrap = $('#pcSummaryWrap');
+  const modelInline = $('#modelGenderInline');
   const titleText = $('#profileTitleText');
   const hintText = $('#profileHintText');
   const fitQuestion = $('#fitQuestion');
   const step2Sum = $('#step2Summary');
+  const bodyEditBtn = $('#bodyEditBtn');
 
-  step2Sum.textContent = FIT_LABELS[fit] || '—';
+  const SUB_MAP = { my:'투피스', somebody:'원피스', model:'아우터' };
+  step2Sum.textContent = (SUB_MAP[fit] || '—') + ' » ' + (FIT_LABELS[fit] || '—');
 
   if(fit === 'my'){
-    faceWrap.style.display = '';
-    modelWrap.style.display = 'none';
+    // 퍼컬 표시, 모델 라디오 숨김
+    if(pcWrap) pcWrap.style.display = '';
+    if(modelInline) modelInline.style.display = 'none';
     titleText.textContent = '코디 프로필';
-    hintText.textContent = 'AI가 개인화된 착장을 만드는 데 쓰여요';
-    fitQuestion.innerHTML = '아래 <b style="color:var(--teal-light);">코디 프로필</b> 박스의 정보로 생성됩니다.';
+    hintText.textContent = '마이페이지의 내 정보로 착장을 생성합니다';
+    fitQuestion.innerHTML = '내 프로필로 <b style="color:var(--teal-light);">마이 핏</b> 착장을 생성합니다.';
+    if(bodyEditBtn) bodyEditBtn.style.display = '';
     loadMyProfile();
   } else if(fit === 'somebody'){
-    faceWrap.style.display = '';
-    modelWrap.style.display = 'none';
+    if(pcWrap) pcWrap.style.display = '';
+    if(modelInline) modelInline.style.display = 'none';
     titleText.textContent = '썸바디 프로필';
-    hintText.textContent = '정보를 직접 입력해 주세요';
-    fitQuestion.innerHTML = '누군가의 <b style="color:var(--teal-light);">프로필</b>을 아래에 입력해 주세요.';
+    hintText.textContent = '제3자의 정보를 직접 입력해 주세요';
+    fitQuestion.innerHTML = '제3자의 정보를 <b style="color:var(--teal-light);">직접 입력</b>해 주세요.';
+    if(bodyEditBtn) bodyEditBtn.style.display = '';
     resetProfileForSomebody();
   } else if(fit === 'model'){
-    faceWrap.style.display = 'none';
-    modelWrap.style.display = '';
-    titleText.textContent = '모델 선택';
-    hintText.textContent = '남자 / 여자 모델 중 선택';
-    fitQuestion.innerHTML = '아래에서 <b style="color:var(--teal-light);">남자 / 여자 모델</b>을 선택해 주세요.';
-    // 모델 모드 진입 시엔 성별 초기화
+    // 퍼컬 위치에 남/여 모델 원형 라디오 표시
+    if(pcWrap) pcWrap.style.display = 'none';
+    if(modelInline) modelInline.style.display = '';
+    titleText.textContent = '모델 핏';
+    hintText.textContent = '모델이 이 옷을 입으면 어떤 느낌일까요?';
+    fitQuestion.innerHTML = '<b style="color:var(--teal-light);">남자 / 여자 모델</b>을 선택해 주세요.';
+    // 모델 모드 진입 시엔 모든 텍스트 정보 리셋
+    resetProfileForModel();
+    // 성별 초기화
     state.modelGender = null;
-    $('#genderSwitch').dataset.gender = '';
-    $('#genderSwitch').querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+    const gs = $('#genderSwitch');
+    if(gs){
+      gs.dataset.gender = '';
+      gs.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+    }
+    // 모델 모드에서는 신체정보 수정 버튼 숨김 (선택한 성별에 따라 자동으로 표준 스펙 사용)
+    if(bodyEditBtn) bodyEditBtn.style.display = 'none';
   }
 }
 
@@ -2103,6 +2282,18 @@ function loadMyProfile(){
   $('#bodyHeight').textContent = snap.bodyHeight;
   $('#bodyWeight').textContent = snap.bodyWeight;
   $('#facePh').textContent = 'face';
+  // 얼굴 사진 복원 (만약 snap.faceSrc에 저장된 게 있으면)
+  // (Phase 2-B에서 Supabase/codibank.js 연동으로 확장 예정)
+}
+
+function resetProfileForModel(){
+  // 얼굴, 텍스트 정보 모두 리셋 (모델은 가상이므로 얼굴 아이콘만 표시)
+  $('#facePh').textContent = 'smart_toy';
+  // 모든 신체정보 일단 '—' (성별 선택 시 표준 스펙으로 채워짐)
+  $('#bodyGender').textContent = '—';
+  $('#bodyAge').textContent = '—';
+  $('#bodyHeight').textContent = '—';
+  $('#bodyWeight').textContent = '—';
 }
 
 function resetProfileForSomebody(){
@@ -2129,7 +2320,25 @@ $('#genderSwitch').querySelectorAll('.gender-card').forEach(card => {
     $('#genderSwitch').dataset.gender = g;
     card.querySelector('input[type="radio"]').checked = true;
     state.stepDone[2] = true;
+
+    // [2026-04-22] 모델 모드에서 성별 선택 시 body-info에 표준 모델 스펙 자동 반영
+    if(g === 'male'){
+      $('#bodyGender').textContent = '남성';
+      $('#bodyAge').textContent = '30대';
+      $('#bodyHeight').textContent = '178';
+      $('#bodyWeight').textContent = '70';
+      $('#facePh').textContent = 'man';
+    } else if(g === 'female'){
+      $('#bodyGender').textContent = '여성';
+      $('#bodyAge').textContent = '20대';
+      $('#bodyHeight').textContent = '168';
+      $('#bodyWeight').textContent = '52';
+      $('#facePh').textContent = 'woman';
+    }
+
     updateFinalSummary();
+    // [버그2 fix] gender 변경도 state에 저장
+    saveTryonState();
     // 성별까지 선택했으면 자동 Step 3 전환
     if(state.currentStep === 2){
       setTimeout(() => setStep(3), 400);
@@ -2241,8 +2450,22 @@ function showToast(msg){
 // ════════════════════════════════════════════════════════════════
 //  초기 렌더
 // ════════════════════════════════════════════════════════════════
+// [버그2 fix] state 복원 (sessionStorage) — consumePick보다 먼저 실행하여
+//             이전 선택 정보를 바탕으로 DOM 재구성
+const _restored = loadTryonState();
+if(_restored){
+  // 모드에 맞게 슬롯 활성/비활성 재설정 (setMode 로직 재사용, 리셋은 건너뛰기)
+  if(state.mode && typeof setMode === 'function'){
+    try { setMode(state.mode, true); } catch(_){}
+  }
+}
 renderStep1();
-applyFitUI('my');        // Step 2 기본값 적용
+// 복원된 state의 각 슬롯 DOM 재렌더링
+if(_restored) rerenderAllSlots();
+// consumePick이 pageshow에서 실행되므로, 그쪽이 새로 선택된 항목을 추가 채움
+// state 적용 순서: load → rerenderAll → (pageshow 시) consumePick → rerender 해당 슬롯
+
+applyFitUI(state.fitTarget || 'my');        // Step 2 — 복원된 fit 또는 기본값 적용
 updateFinalSummary();
 </script>
 
