@@ -1262,7 +1262,6 @@
       <div class="step-title"><span class="step-prefix">Step 1.</span> 무엇을 <span class="ac">입어볼까요</span>?</div>
       <div class="step-summary" id="step1Summary">상의 · 하의 · 아우터 · 신발을 선택하세요</div>
     </div>
-    <div class="step-badge now">NOW</div>
   </div>
   <div class="step-body">
 
@@ -1748,11 +1747,21 @@ function setStepBadge(step, type){
   const stepEl = document.querySelector(`.step[data-step="${step}"]`);
   if(!stepEl) return;
   const badge = stepEl.querySelector('.step-badge');
-  if(!badge) return;
-  badge.className = 'step-badge ' + type;
-  if(type === 'now')        badge.textContent = 'NOW';
-  else if(type === 'done')  badge.innerHTML = '<span class="mi" style="font-size:12px;margin-right:2px;">check</span>완료';
-  else                      badge.innerHTML = '<span class="mi">lock</span>잠김';
+  // Step 1은 뱃지 요소가 없음(정상) — badge가 null이면 조용히 스킵
+  if(badge){
+    if(type === 'now'){
+      // 'NOW' 뱃지 제거됨 — 현재 step은 민트 글로우로만 표시
+      badge.style.display = 'none';
+    } else if(type === 'done'){
+      badge.style.display = '';
+      badge.className = 'step-badge done';
+      badge.innerHTML = '<span class="mi" style="font-size:12px;margin-right:2px;">check</span>완료';
+    } else {
+      badge.style.display = '';
+      badge.className = 'step-badge lock';
+      badge.innerHTML = '<span class="mi">lock</span>잠김';
+    }
+  }
 
   // 완료 상태엔 변경 버튼
   let editBtn = stepEl.querySelector('.step-edit-btn');
@@ -1841,34 +1850,71 @@ $$('.slot').forEach(slot => {
   });
 });
 
-// 실제 배포 시: location.href = `codistyle_picker.html?slot=${toStateKey(type)}&mode=${state.mode}&returnTo=tryon`
-function openPicker(type){
-  state.currentSlot = type;  // DOM data-type 그대로 저장
-  const category = toStateKey(type);  // mockItems 키는 state 기준
-  const labelText = SLOT_LABELS[category] || category;
-  $('#sheetSub').textContent = `${labelText} 카테고리만 표시됩니다`;
-  renderItems(category);
-  $('#backdrop').classList.add('show');
-  $('#sheet').classList.add('show');
+// 슬롯 탭 시 codistyle_picker.html (트라이온 전용 독립 피커 페이지)을 엽니다
+// URL: codistyle_picker.html?slot=top|bottom|onepiece|outer|shoes&returnTo=tryon.html
+function openPicker(domType){
+  const slotKey = toStateKey(domType);
+  // 현재 선택 상태 보존용으로 sessionStorage에 "돌아올 때 유지할 맥락" 저장
+  sessionStorage.setItem('tryon_pick_context', JSON.stringify({
+    slot: slotKey,
+    mode: state.mode,
+    ts: Date.now()
+  }));
+  // 트라이온 전용 피커 페이지로 이동 (독립 파일 · 기존 codistyle.html과는 무관)
+  const url = `codistyle_picker.html?slot=${encodeURIComponent(slotKey)}&returnTo=tryon.html`;
+  location.href = url;
 }
 
-// 피커 복귀 처리
+// 피커(codistyle_picker.html) 복귀 처리
 function consumePick(){
   try {
     const raw = sessionStorage.getItem('tryon_pick_result');
     if(!raw) return;
     const data = JSON.parse(raw);
     sessionStorage.removeItem('tryon_pick_result');
-    if(data && data.slot){
-      fillSlot(data.slot, {
-        id: data.path || `pick_${Date.now()}`,
-        name: data.name || '선택 아이템',
-        meta: (data.meta && data.meta.summary) || '옷장',
-        cls: 'm1',
-        _raw: data
-      });
+    sessionStorage.removeItem('tryon_pick_context');  // 컨텍스트도 정리
+    if(!data || !data.slot) return;
+
+    // state 저장
+    const key = data.slot;
+    const item = {
+      id: data.path || `pick_${Date.now()}`,
+      name: data.name || SLOT_LABELS[key] || '선택 아이템',
+      meta: (data.meta && data.meta.summary) || '내옷장',
+      cls: null,                  // 실제 이미지 사용
+      dataUrl: data.dataUrl,      // 실제 이미지 URL (R2 또는 data:)
+      path: data.path,
+      _raw: data
+    };
+    // 현재 모드에 맞는 DOM 결정
+    let domType = key;
+    if(key === 'outer'){
+      domType = (state.mode === 'outer') ? 'outer-main' : 'outer';
     }
-  } catch(e){ console.error(e); }
+    state.slots[key].filled = true;
+    state.slots[key].active = true;
+    state.slots[key].item = item;
+
+    const slotEl = document.querySelector(`.slot[data-type="${domType}"]`);
+    if(slotEl){
+      slotEl.classList.add('filled');
+      slotEl.classList.remove('add-slot');
+      const img = slotEl.querySelector('.slot-image');
+      // 실제 이미지 반영
+      if(item.dataUrl){
+        img.className = 'slot-image';
+        img.style.backgroundImage = `url("${item.dataUrl}")`;
+      } else {
+        img.className = 'slot-image m1';
+        img.style.backgroundImage = '';
+      }
+      slotEl.querySelector('.slot-info .name').textContent = item.name;
+      slotEl.querySelector('.slot-info .meta').textContent = item.meta;
+    }
+    renderStep1();
+  } catch(e){
+    console.error('[tryon] consumePick error:', e);
+  }
 }
 window.addEventListener('pageshow', consumePick);
 

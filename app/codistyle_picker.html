@@ -293,7 +293,7 @@
 </script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-<title>트라이 온 - 코디뱅크</title>
+<title>아이템 피커 - 코디뱅크</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <!-- [2026-04-20 09:50 KST] jsPDF — 고해상도 PDF 생성용 (프리미엄 리포트) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -834,6 +834,110 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     margin-right: auto !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   2026-04-22 KST · codistyle_picker.html 전용 CSS
+   codistyle.html 복제본에서 '순수 아이템 피커' 용도로만 사용하기 위해
+   불필요한 기능 영역을 숨기고, 피커 전용 요소(완료 버튼 등)를 추가.
+   ─ v53 SDK fix 구역(ST, config.js, codistyleBase, payload 5필드)은 건드리지 않음.
+   ─ picker UI 제어는 body.picker-page 클래스로 일괄 관리.
+   ═══════════════════════════════════════════════════════════ */
+body.picker-page .divider,
+body.picker-page .gen-wrap,
+body.picker-page #csScoreBox,
+body.picker-page #csResultBox,
+body.picker-page .face-section,
+body.picker-page #codiProfileTitle,
+body.picker-page #bodyEditForm,
+body.picker-page .final-summary,
+body.picker-page .engine-tag {
+  display: none !important;
+}
+
+/* 코디 프로필 섹션 전체 래퍼(#codiProfileTitle의 형제 div) 숨김 */
+body.picker-page #codiProfileTitle,
+body.picker-page #codiProfileTitle + *,
+body.picker-page .face-section + *,
+body.picker-page #bodyEditForm + * {
+  display: none !important;
+}
+
+/* 단일 슬롯 모드 시 — 해당 슬롯만 보이고 나머지는 숨김 */
+body.picker-page[data-active-slot] .picker-section {
+  display: none !important;
+}
+body.picker-page[data-active-slot="top"]      .picker-section[data-slot="top"],
+body.picker-page[data-active-slot="bottom"]   .picker-section[data-slot="bottom"],
+body.picker-page[data-active-slot="onepiece"] .picker-section[data-slot="onepiece"],
+body.picker-page[data-active-slot="outer"]    .picker-section[data-slot="outer"],
+body.picker-page[data-active-slot="shoes"]    .picker-section[data-slot="shoes"] {
+  display: block !important;
+}
+/* 단일 슬롯 모드 시 divider도 숨김 */
+body.picker-page[data-active-slot] .picker-sec-divider {
+  display: none !important;
+}
+
+/* 피커 전용 "완료" 버튼 (sticky 하단) */
+.picker-done-wrap {
+  display: none;
+  padding: 12px 16px 24px;
+}
+body.picker-page .picker-done-wrap {
+  display: block;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, #00022E 70%, rgba(0,2,46,0));
+  margin-top: 20px;
+}
+.picker-done-btn {
+  width: 100%;
+  padding: 15px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0B666A, #35A29F);
+  border: 1px solid rgba(151,254,237,0.35);
+  color: #97FEED;
+  font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: .02em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(53,162,159,0.25);
+  transition: .2s;
+}
+.picker-done-btn:disabled {
+  background: rgba(151,254,237,0.1);
+  color: rgba(151,254,237,0.35);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.picker-done-btn:not(:disabled):hover {
+  box-shadow: 0 6px 20px rgba(53,162,159,0.4);
+}
+.picker-done-btn .mi { font-size: 18px; }
+
+/* 피커에서 AI옷장 placeholder 카드 스타일 */
+.cdeck-placeholder {
+  padding: 20px 16px;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(151,254,237,.4);
+  font-weight: 600;
+  border-radius: 10px;
+  border: 1px dashed rgba(151,254,237,.12);
+  background: rgba(7,25,82,.2);
+  margin: 4px 0;
+}
+.cdeck-placeholder .mi { font-size: 28px; opacity: .5; display: block; margin-bottom: 6px; color: #97FEED; }
+.cdeck-placeholder .cdp-hint { font-size: 10px; margin-top: 4px; color: rgba(151,254,237,.3); }
+
+body.picker-page { padding-bottom: 24px !important; }
 </style>
 </head>
 <body>
@@ -1010,9 +1114,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
   </div>
 </div>
 
-<header class="pg-header" style="flex-direction:column;align-items:flex-start;gap:4px;">
-  <div class="pg-title" data-i18n="트라이 온">트라이 온</div>
-  <div class="pg-sub" data-i18n="이 옷이 어울릴까 고민하지 마세요. 쉽게 사진 촬영하고 그냥 코디해보세요">이 옷이 어울릴까 고민하지 마세요. 쉽게 사진 촬영하고 그냥 코디해보세요</div>
+<header class="pg-header" style="flex-direction:column;align-items:flex-start;gap:4px;" id="pgHeader">
+  <!-- 피커 모드 진입 시 breadcrumb 스타일로 표시 -->
+  <div id="pickerBreadcrumb" style="display:none;font-size:12px;color:rgba(151,254,237,.5);font-weight:600;letter-spacing:-.01em;margin-bottom:2px;">
+    <span style="color:rgba(151,254,237,.5);">트라이 온</span>
+    <span style="margin:0 8px;color:rgba(151,254,237,.3);">›</span>
+    <span id="pickerCrumbSlot" style="color:#97FEED;font-weight:900;">—</span>
+  </div>
+  <div class="pg-title" id="pgTitle" data-i18n="아이템 피커">아이템 피커</div>
+  <div class="pg-sub" id="pgSub" data-i18n="원하는 카테고리를 선택해서 아이템을 등록하거나 골라보세요">원하는 카테고리를 선택해서 아이템을 등록하거나 골라보세요</div>
 </header>
 
 <div class="guide-banner" style="display:none;"></div>
@@ -1020,7 +1130,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
 <div class="slots-wrap" style="padding:0 16px;overflow:visible;">
 
   <!-- ═══ 상의 ═══ -->
-  <section style="margin-bottom:16px;">
+  <section class="picker-section" data-slot="top" style="margin-bottom:16px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px;">
       <div style="display:flex;align-items:center;gap:5px;font-size:17px;font-weight:800;color:#97FEED;">
         <svg width="20" height="20" viewBox="-30 -8 60 68" fill="none" stroke="#97FEED" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><path d="M-6,-6 Q-8,-3 -12,0 Q-18,4 -22,5 L-22,8 L-14,7 L-14,58 L14,58 L14,7 L22,8 L22,5 Q18,4 12,0 Q8,-3 6,-6"/><path d="M-6,-6 L-3,4 L0,7 L3,4 L6,-6"/><line x1="-3" y1="4" x2="-10" y2="0"/><line x1="3" y1="4" x2="10" y2="0"/><path d="M-22,5 Q-26,4 -28,5 L-28,46 L-22,46 L-22,8"/><path d="M22,5 Q26,4 28,5 L28,46 L22,46 L22,8"/><rect x="-29" y="44" width="8" height="4" rx="1"/><rect x="21" y="44" width="8" height="4" rx="1"/></svg><span data-i18n="상의2">상의</span>
@@ -1044,10 +1154,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     <input type="file" id="cam-top" accept="image/*" capture="environment" style="display:none" onchange="onFile(event,'top')">
   </section>
 
-  <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(151,254,237,.08),transparent);margin:10px 0;"></div>
+  <div class="picker-sec-divider" style="height:1px;background:linear-gradient(90deg,transparent,rgba(151,254,237,.08),transparent);margin:10px 0;"></div>
 
   <!-- ═══ 하의 ═══ -->
-  <section style="margin-bottom:12px;">
+  <section class="picker-section" data-slot="bottom" style="margin-bottom:12px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px;">
       <div style="display:flex;align-items:center;gap:5px;font-size:17px;font-weight:800;color:#97FEED;">
         <svg width="20" height="20" viewBox="-18 -2 36 60" fill="none" stroke="#97FEED" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><path d="M-16,0 L-16,4 L-14,6 L-14,54 L-2,54 L0,24 L2,54 L14,54 L14,6 L16,4 L16,0 Z"/><line x1="-10" y1="0" x2="-10" y2="6"/></svg>하의
@@ -1070,6 +1180,95 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
     <input type="file" id="file-bottom" accept="image/*" style="display:none" onchange="onFile(event,'bottom')">
     <input type="file" id="cam-bottom" accept="image/*" capture="environment" style="display:none" onchange="onFile(event,'bottom')">
   </section>
+
+  <div class="picker-sec-divider" style="height:1px;background:linear-gradient(90deg,transparent,rgba(151,254,237,.08),transparent);margin:10px 0;"></div>
+
+  <!-- ═══ 원피스 (트라이온 모드 전용) ═══ -->
+  <section class="picker-section" data-slot="onepiece" style="margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px;">
+      <div style="display:flex;align-items:center;gap:5px;font-size:17px;font-weight:800;color:#97FEED;">
+        <span class="mi" style="font-size:22px;color:#97FEED;margin-right:4px;">checkroom</span><span>원피스</span>
+      </div>
+      <div style="font-size:10px;color:rgba(151,254,237,.5);font-weight:600;margin-top:2px;margin-left:22px;" id="onepieceCountWrap">ai옷장 원피스 <span id="onepieceCount" style="color:#97FEED;">0</span></div>
+    </div>
+    <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.25em;color:rgba(151,254,237,.3);text-transform:uppercase;margin-bottom:0;margin-top:4px;">← SWIPE →</div>
+    <div id="onepieceDeck" class="cdeck"></div>
+    <div class="cpreview" id="slot-onepiece" onclick="pickFile('onepiece')">
+      <div id="onepiecePreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+        <div style="text-align:center;color:#071952;"><span class="mi" style="font-size:28px;color:#071952;">add_photo_alternate</span><p style="font-size:11px;margin-top:4px;font-weight:700;">아이템을 선택해주세요</p></div>
+      </div>
+    </div>
+    <div class="cact">
+      <button class="cact-btn" onclick="pickCamera('onepiece')" style="background:#35A29F;color:#ffffff;"><span class="mi" style="font-size:16px;">photo_camera</span>사진촬영</button>
+      <button class="cact-btn" onclick="pickFile('onepiece')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">image</span>사진선택</button>
+      <button class="cact-btn" onclick="pickLink('onepiece')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크">온라인 링크</span></button>
+    </div>
+    <div class="slot-status" id="st-onepiece"></div>
+    <input type="file" id="file-onepiece" accept="image/*" style="display:none" onchange="onFile(event,'onepiece')">
+    <input type="file" id="cam-onepiece" accept="image/*" capture="environment" style="display:none" onchange="onFile(event,'onepiece')">
+  </section>
+
+  <div class="picker-sec-divider" style="height:1px;background:linear-gradient(90deg,transparent,rgba(151,254,237,.08),transparent);margin:10px 0;"></div>
+
+  <!-- ═══ 아우터 ═══ -->
+  <section class="picker-section" data-slot="outer" style="margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px;">
+      <div style="display:flex;align-items:center;gap:5px;font-size:17px;font-weight:800;color:#97FEED;">
+        <span class="mi" style="font-size:22px;color:#97FEED;margin-right:4px;">dry_cleaning</span><span>아우터</span>
+      </div>
+      <div style="font-size:10px;color:rgba(151,254,237,.5);font-weight:600;margin-top:2px;margin-left:22px;" id="outerCountWrap">ai옷장 아우터 <span id="outerCount" style="color:#97FEED;">0</span></div>
+    </div>
+    <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.25em;color:rgba(151,254,237,.3);text-transform:uppercase;margin-bottom:0;margin-top:4px;">← SWIPE →</div>
+    <div id="outerDeck" class="cdeck"></div>
+    <div class="cpreview" id="slot-outer" onclick="pickFile('outer')">
+      <div id="outerPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+        <div style="text-align:center;color:#071952;"><span class="mi" style="font-size:28px;color:#071952;">add_photo_alternate</span><p style="font-size:11px;margin-top:4px;font-weight:700;">아이템을 선택해주세요</p></div>
+      </div>
+    </div>
+    <div class="cact">
+      <button class="cact-btn" onclick="pickCamera('outer')" style="background:#35A29F;color:#ffffff;"><span class="mi" style="font-size:16px;">photo_camera</span>사진촬영</button>
+      <button class="cact-btn" onclick="pickFile('outer')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">image</span>사진선택</button>
+      <button class="cact-btn" onclick="pickLink('outer')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크">온라인 링크</span></button>
+    </div>
+    <div class="slot-status" id="st-outer"></div>
+    <input type="file" id="file-outer" accept="image/*" style="display:none" onchange="onFile(event,'outer')">
+    <input type="file" id="cam-outer" accept="image/*" capture="environment" style="display:none" onchange="onFile(event,'outer')">
+  </section>
+
+  <div class="picker-sec-divider" style="height:1px;background:linear-gradient(90deg,transparent,rgba(151,254,237,.08),transparent);margin:10px 0;"></div>
+
+  <!-- ═══ 신발 ═══ -->
+  <section class="picker-section" data-slot="shoes" style="margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px;">
+      <div style="display:flex;align-items:center;gap:5px;font-size:17px;font-weight:800;color:#97FEED;">
+        <span class="mi" style="font-size:22px;color:#97FEED;margin-right:4px;">footprint</span><span>신발</span>
+      </div>
+      <div style="font-size:10px;color:rgba(151,254,237,.5);font-weight:600;margin-top:2px;margin-left:22px;" id="shoesCountWrap">ai옷장 신발 <span id="shoesCount" style="color:#97FEED;">0</span></div>
+    </div>
+    <div style="text-align:center;font-size:11px;font-weight:700;letter-spacing:.25em;color:rgba(151,254,237,.3);text-transform:uppercase;margin-bottom:0;margin-top:4px;">← SWIPE →</div>
+    <div id="shoesDeck" class="cdeck"></div>
+    <div class="cpreview" id="slot-shoes" onclick="pickFile('shoes')">
+      <div id="shoesPreview" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+        <div style="text-align:center;color:#071952;"><span class="mi" style="font-size:28px;color:#071952;">add_photo_alternate</span><p style="font-size:11px;margin-top:4px;font-weight:700;">아이템을 선택해주세요</p></div>
+      </div>
+    </div>
+    <div class="cact">
+      <button class="cact-btn" onclick="pickCamera('shoes')" style="background:#35A29F;color:#ffffff;"><span class="mi" style="font-size:16px;">photo_camera</span>사진촬영</button>
+      <button class="cact-btn" onclick="pickFile('shoes')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">image</span>사진선택</button>
+      <button class="cact-btn" onclick="pickLink('shoes')" style="background:#35A29F;color:#ffffff;border:1px solid rgba(255,255,255,.2);"><span class="mi" style="font-size:16px;">link</span><span data-i18n="온라인 링크">온라인 링크</span></button>
+    </div>
+    <div class="slot-status" id="st-shoes"></div>
+    <input type="file" id="file-shoes" accept="image/*" style="display:none" onchange="onFile(event,'shoes')">
+    <input type="file" id="cam-shoes" accept="image/*" capture="environment" style="display:none" onchange="onFile(event,'shoes')">
+  </section>
+</div>
+
+<!-- ─── 2026-04-22 KST · 피커 전용 "완료" 버튼 (body.picker-page에서만 표시) ─── -->
+<div class="picker-done-wrap" id="pickerDoneWrap">
+  <button class="picker-done-btn" id="pickerDoneBtn" disabled>
+    <span class="mi">check</span>
+    <span id="pickerDoneLabel">완료</span>
+  </button>
 </div>
 
 <div class="divider"></div>
@@ -1329,13 +1528,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
   <span style="margin:0 6px;opacity:0.3">|</span>
   <a href="terms.html" style="color:rgba(151,254,237,0.45);text-decoration:none;">이용약관</a>
 </div>
-<nav class="cb-nav">
-  <!-- ─── 2026-04-22 KST · 5탭 구성 (트라이온과 코디하기 병렬 운영 중) ─── -->
+<nav class="cb-nav" id="cbNavRoot">
+  <!-- ─── 2026-04-22 KST · 5탭 구성 (피커 단독 접근시 Ai옷장 on, 트라이온 진입시 JS가 트라이온 on으로 전환) ─── -->
   <div class="cb-nav-inner">
     <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디핏</span></a>
-    <a href="tryon.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">트라이온</span></a>
-    <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
-    <a href="codistyle.html" class="cb-nav-tab on"><span class="ni">palette</span><span class="nl">코디하기</span></a>
+    <a href="tryon.html" class="cb-nav-tab" data-nav="tryon"><span class="ni">accessibility_new</span><span class="nl">트라이온</span></a>
+    <a href="aicloset.html" class="cb-nav-tab on" data-nav="aicloset"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
+    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">palette</span><span class="nl">코디하기</span></a>
     <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
   </div>
 </nav>
@@ -1343,10 +1542,246 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
 <script>
 if(!CodiBank.requireAuth('login.html')){}
 const user = CodiBank.getCurrentUser() || {};
+// ─── 2026-04-22 KST · codistyle_picker.html 전용 5슬롯 확장 ───
+// 원본 codistyle.html의 ST는 top/bottom 2개 슬롯. 피커는 5개 슬롯(상의/하의/원피스/아우터/신발)
+// 동일 구조: preview(ObjectURL), serverPath(R2), dataUrl(base64), uploading(flag)
 const ST = {
-  top:    { preview:'', serverPath:'', dataUrl:'', uploading:false },
-  bottom: { preview:'', serverPath:'', dataUrl:'', uploading:false },
+  top:      { preview:'', serverPath:'', dataUrl:'', uploading:false },
+  bottom:   { preview:'', serverPath:'', dataUrl:'', uploading:false },
+  onepiece: { preview:'', serverPath:'', dataUrl:'', uploading:false },
+  outer:    { preview:'', serverPath:'', dataUrl:'', uploading:false },
+  shoes:    { preview:'', serverPath:'', dataUrl:'', uploading:false },
 };
+
+// 슬롯 키 리스트 (5개 슬롯 순회용)
+const SLOT_KEYS = ['top','bottom','onepiece','outer','shoes'];
+// 슬롯별 라벨 (breadcrumb 및 토스트용)
+const SLOT_LABEL_KO = {
+  top:'상의', bottom:'하의', onepiece:'원피스', outer:'아우터', shoes:'신발'
+};
+// aicloset 카테고리 키 매핑 (aicloset.html의 CAT_LABELS와 일치)
+// onepiece는 aicloset에 아직 없음 → 'onepiece' 자체 키로 조회 시 빈 배열 반환됨 (정상)
+const SLOT_TO_AICLOSET_CAT = {
+  top:'top', bottom:'bottom', onepiece:'onepiece', outer:'outer', shoes:'shoes'
+};
+// 각 슬롯별 DOM 요소 prefix (preview/Deck/Count용)
+// 기존 top은 'top...', bottom은 'bot...' (botPreview/botDeck/botCount) 약어를 사용
+// 신규 3개는 풀네임 그대로
+const SLOT_DOM_PREFIX = {
+  top: 'top', bottom: 'bot', onepiece: 'onepiece', outer: 'outer', shoes: 'shoes'
+};
+
+/* ═══════════════════════════════════════════════════════════
+   2026-04-22 KST · codistyle_picker.html 피커 모드 로직
+   ───────────────────────────────────────────────────────────
+   통신 규약:
+     진입: codistyle_picker.html?slot=top|bottom|onepiece|outer|shoes&returnTo=tryon.html
+     복귀: sessionStorage['tryon_pick_result'] = JSON({slot,path,dataUrl,name,meta,ts})
+           → location.href = returnTo
+
+   동작:
+     - body에 'picker-page' 클래스 항상 부여 (codistyle.html과 구분)
+     - ?slot 있음 → body[data-active-slot=xxx] → CSS가 해당 섹션만 표시
+     - ?slot 없음 → 5슬롯 모두 표시 (단독 내옷장 페이지 역할)
+     - 완료 버튼: 활성 슬롯의 ST[k]에 이미지가 있으면 활성화
+
+   보존:
+     - v53 SDK fix 구역(config.js, codistyleBase(), payload 5필드, ST[k].dataUrl)은 그대로
+     - 코디 프로필 / 생성 버튼 / 결과 영역은 CSS로만 숨김 (DOM은 남아있음)
+   ═══════════════════════════════════════════════════════════ */
+
+// 신규 슬롯(onepiece/outer/shoes)의 카드덱 선택 인덱스
+const _dkSelIdx = { onepiece:-1, outer:-1, shoes:-1 };
+
+// 피커 URL 파라미터 파싱
+const _pickerParams = new URLSearchParams(location.search);
+const _pickerActiveSlot = _pickerParams.get('slot') || '';  // '' 또는 5개 키
+const _pickerReturnTo = _pickerParams.get('returnTo') || '';
+
+// body에 picker-page 클래스 부여 (codistyle.html과 완전 분리)
+document.addEventListener('DOMContentLoaded', function(){
+  document.body.classList.add('picker-page');
+
+  // 단일 슬롯 모드
+  if(_pickerActiveSlot && SLOT_KEYS.indexOf(_pickerActiveSlot) >= 0){
+    document.body.dataset.activeSlot = _pickerActiveSlot;
+    // breadcrumb 표시
+    var _brd = document.getElementById('pickerBreadcrumb');
+    var _crumbEl = document.getElementById('pickerCrumbSlot');
+    if(_brd) _brd.style.display = 'block';
+    if(_crumbEl) _crumbEl.textContent = SLOT_LABEL_KO[_pickerActiveSlot] || _pickerActiveSlot;
+    // 메인 타이틀도 해당 슬롯 맞춤 문구로
+    var _titleEl = document.getElementById('pgTitle');
+    var _subEl = document.getElementById('pgSub');
+    if(_titleEl) _titleEl.textContent = (SLOT_LABEL_KO[_pickerActiveSlot]||'아이템')+' 선택';
+    if(_subEl) _subEl.textContent = '사진을 촬영하거나 AI 옷장에서 고르세요';
+    // 트라이온에서 진입한 것 → 풋바 네비 트라이온 탭 on으로 전환
+    try {
+      var navRoot = document.getElementById('cbNavRoot');
+      if(navRoot){
+        navRoot.querySelectorAll('.cb-nav-tab.on').forEach(function(el){ el.classList.remove('on'); });
+        var tryonTab = navRoot.querySelector('[data-nav="tryon"]');
+        if(tryonTab) tryonTab.classList.add('on');
+      }
+    } catch(_){}
+    // 완료 버튼 레이블에 슬롯명 표기
+    var _doneLabel = document.getElementById('pickerDoneLabel');
+    if(_doneLabel) _doneLabel.textContent = (SLOT_LABEL_KO[_pickerActiveSlot]||'아이템')+' 선택 완료';
+  }
+  // 단독 접근 모드(?slot 없음) — 네비는 Ai 옷장 on 유지, 헤더는 기본 "아이템 피커"
+});
+
+// 완료 버튼 활성화/비활성화 감시
+function _pickerRefreshDoneBtn(){
+  var btn = document.getElementById('pickerDoneBtn');
+  if(!btn) return;
+  if(_pickerActiveSlot){
+    // 단일 슬롯 모드: 해당 슬롯에 이미지 있어야 활성화
+    var st = ST[_pickerActiveSlot];
+    btn.disabled = !(st && (st.serverPath || st.dataUrl));
+  } else {
+    // 단독 모드: 최소 1개 슬롯에 이미지 있으면 활성화 (저장 의미)
+    var anyFilled = SLOT_KEYS.some(function(k){
+      var s = ST[k];
+      return s && (s.serverPath || s.dataUrl);
+    });
+    btn.disabled = !anyFilled;
+  }
+}
+
+// 완료 버튼 클릭 → sessionStorage 저장 후 returnTo로 복귀
+document.addEventListener('DOMContentLoaded', function(){
+  var btn = document.getElementById('pickerDoneBtn');
+  if(!btn) return;
+  btn.addEventListener('click', function(){
+    if(btn.disabled) return;
+    try {
+      if(_pickerActiveSlot){
+        // 단일 슬롯 모드 — 트라이온으로 결과 전달
+        var st = ST[_pickerActiveSlot] || {};
+        var payload = {
+          slot: _pickerActiveSlot,
+          path: st.serverPath || '',
+          dataUrl: st.dataUrl || '',
+          name: SLOT_LABEL_KO[_pickerActiveSlot] || '아이템',
+          meta: { summary: '내옷장' },
+          ts: Date.now()
+        };
+        sessionStorage.setItem('tryon_pick_result', JSON.stringify(payload));
+        // returnTo가 있으면 그쪽, 없으면 tryon.html
+        location.href = _pickerReturnTo || 'tryon.html';
+      } else {
+        // 단독 모드 — 여기서는 단순히 AI 옷장으로 저장 완료 토스트 후 이동
+        // (실제 aicloset 등록은 별도 로직이 필요하지만 Phase 1에서는 토스트로 피드백)
+        alert('선택한 아이템이 임시 저장되었습니다. (aicloset 등록 로직은 Phase 1-C에서 구현)');
+        // 무엇을 할지 명확해질 때까지 단순 복귀
+      }
+    } catch(e){
+      console.error('[picker] 완료 처리 실패:', e);
+      alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
+  });
+  // 초기 1회
+  _pickerRefreshDoneBtn();
+});
+
+/* ─── aicloset 연동: 각 슬롯 카드덱에 내옷장 아이템 표시 ─── */
+// CodiBank.getItemsByUserAndCategory(user.email, key) 로 카테고리별 아이템 조회
+// 각 슬롯 카드덱 영역(topDeck / botDeck / onepieceDeck / outerDeck / shoesDeck)에
+// 플레이스홀더 또는 간단한 썸네일 리스트 렌더링
+function _pickerRenderAiclosetDeck(slotKey){
+  var domPrefix = SLOT_DOM_PREFIX[slotKey] || slotKey;
+  var deckEl = document.getElementById(domPrefix+'Deck');
+  var countEl = document.getElementById(domPrefix+'Count');
+  if(!deckEl) return;
+
+  var items = [];
+  try {
+    if(window.CodiBank && typeof CodiBank.getItemsByUserAndCategory === 'function'){
+      var aiclosetCat = SLOT_TO_AICLOSET_CAT[slotKey] || slotKey;
+      items = CodiBank.getItemsByUserAndCategory(user.email, aiclosetCat) || [];
+    }
+  } catch(e) { console.warn('[picker] aicloset 조회 실패:', slotKey, e); }
+
+  if(countEl) countEl.textContent = String(items.length);
+
+  if(items.length === 0){
+    // 원피스는 aicloset에 아직 없으므로 안내 메시지 차별화
+    var _hint = (slotKey === 'onepiece')
+      ? '원피스 카테고리는 추후 Ai 옷장에 추가될 예정입니다.<br>지금은 직접 사진을 촬영하거나 선택해주세요.'
+      : 'Ai 옷장에 '+(SLOT_LABEL_KO[slotKey]||'아이템')+'이 아직 없어요.<br>먼저 Ai 옷장에서 등록하거나 직접 선택해주세요.';
+    deckEl.innerHTML =
+      '<div class="cdeck-placeholder">'+
+        '<span class="mi">inventory_2</span>'+
+        '<div>'+_hint+'</div>'+
+      '</div>';
+    return;
+  }
+
+  // Phase 1에서는 간단 그리드 표시 (기존 카드덱 애니메이션은 미적용, Phase 1-C에서 고도화)
+  // 아이템 스키마: {id, categoryKey, brand, color, subColor, size, note, imgRef, meta}
+  var html = '<div style="display:flex;gap:6px;overflow-x:auto;padding:4px 2px 6px;">';
+  items.slice(0, 12).forEach(function(it, idx){
+    var label = (it.brand||'') || (it.color||'') || ('#'+(idx+1));
+    html += '<button type="button" class="cdeck-ai-item" data-item-id="'+(it.id||'')+'" data-slot="'+slotKey+'" '+
+      'style="flex:0 0 auto;width:72px;padding:8px 6px;border-radius:10px;background:rgba(7,25,82,.4);'+
+      'border:1px solid rgba(151,254,237,.2);color:#97FEED;font-size:10px;font-weight:700;cursor:pointer;'+
+      'display:flex;flex-direction:column;align-items:center;gap:4px;">'+
+      '<span class="mi" style="font-size:26px;color:#97FEED;">checkroom</span>'+
+      '<span style="max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+label+'</span>'+
+      '</button>';
+  });
+  html += '</div>';
+  deckEl.innerHTML = html;
+
+  // 아이템 클릭 시 해당 슬롯에 이미지 로드
+  deckEl.querySelectorAll('.cdeck-ai-item').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      var itemId = btn.dataset.itemId;
+      var slot = btn.dataset.slot;
+      var item = items.find(function(x){ return String(x.id) === String(itemId); });
+      if(!item) return;
+      try {
+        // 아이템의 이미지 ref → src 변환
+        var src = '';
+        if(window.CodiBank && typeof CodiBank.getImageSrc === 'function' && item.imgRef){
+          src = await CodiBank.getImageSrc(item.imgRef);
+        }
+        if(!src){
+          alert('이미지를 불러올 수 없어요. 다른 방법으로 선택해주세요.');
+          return;
+        }
+        // ST에 저장
+        ST[slot].preview = src;
+        ST[slot].dataUrl = src.startsWith('data:') ? src : '';
+        ST[slot].serverPath = src.startsWith('data:') ? '' : src;
+        ST[slot].uploading = false;
+        renderSlot(slot);
+        setStatus(slot, '', false);
+        updateGenerateBtn();
+      } catch(e){
+        console.error('[picker] 아이템 선택 실패:', e);
+      }
+    });
+  });
+}
+
+// 모든 슬롯에 대해 aicloset 연동 (DOMContentLoaded 이후 user 객체 준비된 뒤)
+document.addEventListener('DOMContentLoaded', function(){
+  // user 객체가 이 스크립트 위쪽에서 정의되어 있음
+  if(!user || !user.email){
+    console.warn('[picker] user 없음 - aicloset 연동 스킵');
+    return;
+  }
+  // 각 슬롯 카드덱에 aicloset 아이템 표시
+  SLOT_KEYS.forEach(function(k){
+    try { _pickerRenderAiclosetDeck(k); } catch(e){ console.warn('[picker] deck render fail:', k, e); }
+  });
+});
+/* ═══════════════════════════════════════════════════════════
+   피커 모드 블록 끝
+   ═══════════════════════════════════════════════════════════ */
+
 // ── _L: 간단한 번역 헬퍼 ──
 function _L(ko){
   var _t = window._cbI18n || {};
@@ -1611,14 +2046,27 @@ function _csUpdateActionBtns(){
   if(rs){rs.disabled=!(hasItem||hasResult);rs.style.cssText=((hasItem||hasResult)?_actStyle:_inactStyle)+_btnBase;}
 }
 
-function updateGenerateBtn(){ var topOk=!!(ST.top.serverPath||ST.top.dataUrl); var botOk=!!(ST.bottom.serverPath||ST.bottom.dataUrl); var ready=topOk&&botOk&&!busy; document.getElementById('genBtn').disabled=!ready; _csUpdateActionBtns(); }
+function updateGenerateBtn(){
+  var topOk=!!(ST.top.serverPath||ST.top.dataUrl);
+  var botOk=!!(ST.bottom.serverPath||ST.bottom.dataUrl);
+  var ready=topOk&&botOk&&!busy;
+  // [2026-04-22] 피커에서는 genBtn이 숨김처리되지만 요소는 존재. null 가드는 안전성 차원
+  var _genBtn = document.getElementById('genBtn');
+  if(_genBtn) _genBtn.disabled=!ready;
+  if(typeof _csUpdateActionBtns === 'function') _csUpdateActionBtns();
+  // [2026-04-22] 피커 모드: 현재 활성 슬롯에 이미지가 있으면 "완료" 버튼 활성화
+  if(typeof _pickerRefreshDoneBtn === 'function') _pickerRefreshDoneBtn();
+}
 function renderSlot(k){
   var el=document.getElementById('slot-'+k);
   var del=document.getElementById('del-'+k);
-  var pvEl=document.getElementById(k==='top'?'topPreview':'botPreview');
+  // [2026-04-22] 5슬롯 대응: DOM prefix 사전으로 preview 요소 id 해석
+  // top→topPreview, bottom→botPreview, onepiece→onepiecePreview, outer→outerPreview, shoes→shoesPreview
+  var _prefix = (typeof SLOT_DOM_PREFIX !== 'undefined' && SLOT_DOM_PREFIX[k]) ? SLOT_DOM_PREFIX[k] : (k==='top'?'top':'bot');
+  var pvEl=document.getElementById(_prefix+'Preview');
   var st=ST[k];
   if(st.preview){
-    el.classList.add('filled');
+    if(el) el.classList.add('filled');
     // 프리뷰 영역에 이미지 표시 (패딩은 CSS .cpreview가 담당)
     if(pvEl){
       pvEl.innerHTML='<img src="'+st.preview+'" style="width:100%;height:100%;object-fit:contain;border-radius:8px;" alt="">'+
@@ -1628,9 +2076,11 @@ function renderSlot(k){
     }
     if(del) del.style.display='flex';
   } else {
-    el.classList.remove('filled');
+    if(el) el.classList.remove('filled');
     if(pvEl){
-      pvEl.innerHTML='<div style="text-align:center;color:rgba(180,180,180,.5);"><span class="mi" style="font-size:32px;">add_photo_alternate</span><p style="font-size:10px;margin-top:4px;">'+(k==='top'?'상의':'하의')+' 이미지</p></div>';
+      // [2026-04-22] 5슬롯 라벨 사전
+      var _label = (typeof SLOT_LABEL_KO !== 'undefined' && SLOT_LABEL_KO[k]) ? SLOT_LABEL_KO[k] : (k==='top'?'상의':'하의');
+      pvEl.innerHTML='<div style="text-align:center;color:rgba(180,180,180,.5);"><span class="mi" style="font-size:32px;">add_photo_alternate</span><p style="font-size:10px;margin-top:4px;">'+_label+' 이미지</p></div>';
     }
     if(del) del.style.display='none';
   }
@@ -2079,7 +2529,28 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   }
 });
-function clearSlot(k){ try{ if(ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ } ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false }; if(k==='top'){_dkTopSel=-1;}else{_dkBotSel=-1;} renderSlot(k); setStatus(k,'',false); updateGenerateBtn(); _resetResultArea(); _savePageState(); /* [2026-04-19 취약점5 fix] Phase1 캐시 무효화 — 이미지 교체/제거 시 이전 분석이 새 이미지에 적용되는 문제 방지 */ try{ if(k==='top'){ _topAnalysisCache = null; } else if(k==='bottom'){ _bottomAnalysisCache = null; } }catch(_){} }
+function clearSlot(k){
+  try{ if(ST[k] && ST[k].preview && ST[k].preview.startsWith('blob:')) URL.revokeObjectURL(ST[k].preview); }catch(_){ }
+  // [2026-04-22] 5슬롯 초기값 복원
+  ST[k]={ preview:'', serverPath:'', dataUrl:'', uploading:false };
+  // 카드덱 선택 인덱스 리셋 (top/bottom만 기존 존재, 신규 슬롯은 무시)
+  if(k==='top'){_dkTopSel=-1;}
+  else if(k==='bottom'){_dkBotSel=-1;}
+  // 신규 슬롯(onepiece/outer/shoes) 선택 인덱스 - 존재하면 리셋
+  try{ if(typeof _dkSelIdx === 'object' && _dkSelIdx) _dkSelIdx[k]=-1; }catch(_){}
+  renderSlot(k);
+  setStatus(k,'',false);
+  updateGenerateBtn();
+  _resetResultArea();
+  _savePageState();
+  /* [2026-04-19 취약점5 fix] Phase1 캐시 무효화 — 이미지 교체/제거 시 이전 분석이 새 이미지에 적용되는 문제 방지 */
+  try{
+    if(k==='top'){ _topAnalysisCache = null; }
+    else if(k==='bottom'){ _bottomAnalysisCache = null; }
+  }catch(_){}
+  // sessionStorage 미리보기도 정리
+  try{ sessionStorage.removeItem('cb_cs_st_'+k); }catch(_){}
+}
 function _resetResultArea(){
   // 착장이미지 + 분석 + 스코어 리셋
   lastImgUrl='';
