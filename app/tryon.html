@@ -11,6 +11,55 @@
   ─── 2026-04-22 KST · 원본 codistyle.html 디자인 토큰 100% 카피 ───
 ═══════════════════════════════════════════════════════════════════════
 
+  ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-04-22 13:55 KST ───  [TJ 지시 — 지시0~3]             │
+  │ ▸ 지시 0: 슬롯 클릭 openPicker가 데모 시트 대신                │
+  │   codistyle_picker.html?slot=X&returnTo=tryon.html 로          │
+  │   실제 이동하도록 수정 (location.href).                         │
+  │ ▸ 지시 1 (헤더/Step1):                                          │
+  │   - 헤더의 back-btn(화살표) 삭제                               │
+  │   - "Step 1." → "첫째,", 타이틀 글자 +10% 크게                 │
+  │   - step-badge.now "NOW" 뱃지 제거                             │
+  │   - 필수 상의/하의 슬롯 border를 solid 실선으로 변경            │
+  │   - 상의 아이콘 checkroom → (material symbol에 'top' 없어) apparel │
+  │     하의 아이콘 straighten → 바지 느낌의 'dry_cleaning'는 아우터에 이미 사용 │
+  │     → 상의: 'apparel', 하의: 'atr' (athletic pants) 사용        │
+  │   ※ Material Symbols에 정확한 'top'/'pants' 이름 없음. 가장      │
+  │     근접한 아이콘으로 선택. (필요시 별도 지시로 교체 가능)       │
+  │ ▸ 지시 2 (Step2):                                               │
+  │   - "Step 2." → "둘째,", 타이틀 글자 +10% 크게                 │
+  │   - step-badge.lock "잠김" 제거                                │
+  │   - Step 2 body의 fit-question 텍스트("마이핏" 계열) 제거       │
+  │   - bodyEditBtn 클릭시 prompt() 4연속 제거 →                    │
+  │     codistyle.html의 #bodyEditForm 인라인 편집 폼 이식           │
+  │     (select 성별/나이대 + number input 키/몸무게, 취소/저장 버튼) │
+  │ ▸ 지시 3 (Step3):                                               │
+  │   - "Step 3." → "셋째,", 타이틀 글자 +10% 크게                 │
+  │   - step-badge.lock "잠김" 제거                                │
+  │   - step-summary "선택한 조합으로 착장 이미지 생성"            │
+  │     → "선택한 데이터를 종합해서 착장이미지를 만들어드립니다!"   │
+  │                                                                │
+  │ ─── 2026-04-22 13:14 KST ───  [TJ 지시 — 코디프로필 위치]      │
+  │ ▸ profile-wrap 블록을 Step 2와 Step 3 사이로 이동               │
+  │ ▸ Step 3도 box border 투명 처리 추가                            │
+  │                                                                │
+  │ ─── 2026-04-22 12:45 KST ───  [TJ 지시5 — Step3 분석/이미지박스] │
+  │ ▸ Step 3에 codistyle.html의 #csScoreBox + #resultArea 구조       │
+  │   그대로 복사 (id/class 동일 유지 → 추후 _renderAnalysis 호환)  │
+  │ ▸ 기존 #analysisBox, #resultWrap, #resultActions 완전 제거       │
+  │ ▸ .result-img-box class 충돌 회피 → .csty-result-img-box로 리네이밍 │
+  │                                                                │
+  │ ─── 2026-04-22 11:40 KST ───  [버그 fix + 지시1·2·3 일부]       │
+  │ ▸ face-btn 클릭 안 되던 에러 → onclick + tryonFaceCam/Gal input │
+  │ ▸ Step 1/2/3 pending 잠금 해제, step-body 항상 표시              │
+  │ ▸ Step 1/2 box border 투명 처리                                 │
+  │                                                                │
+  │ ─── 2026-04-22 10:58 KST ───  [상태 영속화 + FOUC fix]          │
+  │ ▸ saveTryonState/loadTryonState — sessionStorage 영속화         │
+  │ ▸ setMode skipReset 플래그 추가 (복원 경로에서 슬롯 유지)        │
+  │ ▸ .step-body 우선순위 !important — 페이지 전환 FOUC 방지        │
+  └━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
   [디자인 토큰 — 원본 codistyle.html에서 그대로 상속]
     --navy:#071952  --navy2:#0d1f3c
     --teal:#35A29F  --teal-dark:#0B666A
@@ -25,13 +74,13 @@
     Step 2. 누구의 핏을 보고 싶어요? — 마이 / 모델 / 누군가
     Step 3. 트라이온 생성하기 — Gemini 3 Pro Image
 
-  [하단 코디 프로필]  — 원본 .face-section 구조 그대로
+  [코디 프로필 — Step 2와 Step 3 사이 위치]
     얼굴 사진 + 퍼스널컬러 서머리 + 신체정보(성별/나이대/키/몸무게)
 
-  [피커 통신 규약]
-    Navigate: codistyle_picker.html?slot=top|bottom|onepiece|outer|shoes&mode=X&returnTo=tryon
+  [피커 통신 규약 — 실제 이동]
+    Navigate: codistyle_picker.html?slot=top|bottom|onepiece|outer|shoes&returnTo=tryon.html
     Return:   sessionStorage['tryon_pick_result'] = JSON({slot,path,dataUrl,name,meta,ts})
-              → history.back() → pageshow에서 소비, key 삭제
+              → location.href = returnTo → pageshow에서 소비, key 삭제
 
   [v53 SDK fix 절대 수정 금지 구역 존중]
     payload 5개 필수(topPath/bottomPath/topDataUrl/bottomDataUrl/faceImage) 유지.
@@ -175,6 +224,13 @@
     color:#fff;
     letter-spacing:-.01em;
     line-height:1.25;
+  }
+  /* [2026-04-22 13:55 TJ 지시1·2·3] Step 1·2·3 타이틀 +10% */
+  .step-title.step-title-lg{
+    font-size:17px;       /* 15.5px × 1.10 ≈ 17 */
+  }
+  .step-title.step-title-lg .step-prefix{
+    font-size:14.3px;     /* 13px × 1.10 */
   }
   .step[data-state="current"] .step-title{ color:var(--teal-light); }
   .step-title .ac{ color:var(--teal-light); }
@@ -353,6 +409,15 @@
     border-style:solid;
     border-color:rgba(151,254,237,0.3);
     background:rgba(13,31,60,0.6);
+  }
+  /* [2026-04-22 13:55 TJ 지시1] 필수 상의/하의 슬롯: 실선(solid) 라인 디자인 */
+  .slot.slot-required-solid{
+    border-style:solid;
+    border-width:1.5px;
+    border-color:rgba(151,254,237,0.5);
+  }
+  .slot.slot-required-solid.filled{
+    border-color:rgba(151,254,237,0.7);
   }
 
   .slot-empty{
@@ -1286,7 +1351,7 @@
      헤더
      ═══════════════════════════════════════════════════════════ -->
 <div class="topbar">
-  <button class="back-btn" aria-label="뒤로"><span class="mi">arrow_back_ios_new</span></button>
+  <!-- [2026-04-22 13:55 TJ 지시1] back-btn(arrow_back) 삭제 -->
   <header class="pg-header">
     <div class="pg-title">트라이 온</div>
     <div class="pg-sub">이 옷이 어울릴까 고민하지 마세요. 3단계로 착장을 완성해요</div>
@@ -1299,10 +1364,11 @@
 <section class="step" data-step="1" data-state="current">
   <div class="step-head">
     <div class="step-head-body">
-      <div class="step-title"><span class="step-prefix">Step 1.</span> 무엇을 <span class="ac">입어볼까요</span>?</div>
+      <!-- [2026-04-22 13:55 TJ 지시1] Step 1 → 첫째 · 타이틀 +10% 크게 -->
+      <div class="step-title step-title-lg"><span class="step-prefix">첫째,</span> 무엇을 <span class="ac">입어볼까요</span>?</div>
       <div class="step-summary" id="step1Summary">상의 · 하의 · 아우터 · 신발을 선택하세요</div>
     </div>
-    <div class="step-badge now">NOW</div>
+    <!-- [2026-04-22 13:55 TJ 지시1] NOW 뱃지 삭제 -->
   </div>
   <div class="step-body">
 
@@ -1317,11 +1383,12 @@
     <div class="slot-section-label">필수 <span class="count" id="reqCount">0/2</span></div>
     <div class="slots" id="requiredSlots">
       <!-- 상의 -->
-      <div class="slot twopiece-only" data-type="top" data-role="required">
+      <div class="slot twopiece-only slot-required-solid" data-type="top" data-role="required">
         <div class="slot-empty">
           <span class="req-badge">상의</span>
           <span class="plus">+</span>
-          <div class="icon"><span class="mi">checkroom</span></div>
+          <!-- [2026-04-22 13:55 TJ 지시1] 상의 아이콘: checkroom → apparel -->
+          <div class="icon"><span class="mi">apparel</span></div>
           <div class="label">상의</div>
           <div class="hint">옷장에서 선택</div>
         </div>
@@ -1334,11 +1401,12 @@
       </div>
 
       <!-- 하의 -->
-      <div class="slot twopiece-only" data-type="bottom" data-role="required">
+      <div class="slot twopiece-only slot-required-solid" data-type="bottom" data-role="required">
         <div class="slot-empty">
           <span class="req-badge">하의</span>
           <span class="plus">+</span>
-          <div class="icon"><span class="mi">straighten</span></div>
+          <!-- [2026-04-22 13:55 TJ 지시1] 하의 아이콘: straighten → atr (바지) -->
+          <div class="icon"><span class="mi">atr</span></div>
           <div class="label">하의</div>
           <div class="hint">옷장에서 선택</div>
         </div>
@@ -1428,15 +1496,14 @@
 <section class="step" data-step="2" data-state="pending">
   <div class="step-head">
     <div class="step-head-body">
-      <div class="step-title"><span class="step-prefix">Step 2.</span> 누구의 <span class="ac">핏</span>을 보고 싶어요?</div>
-      <div class="step-summary" id="step2Summary">마이 핏 · 모델 핏 · 누군가</div>
+      <!-- [2026-04-22 13:55 TJ 지시2] Step 2 → 둘째 · 타이틀 +10% 크게 -->
+      <div class="step-title step-title-lg"><span class="step-prefix">둘째,</span> 누구의 <span class="ac">핏</span>을 보고 싶어요?</div>
+      <div class="step-summary" id="step2Summary">마이 핏 · 썸바디 · 모델 핏</div>
     </div>
-    <div class="step-badge lock"><span class="mi">lock</span>잠김</div>
+    <!-- [2026-04-22 13:55 TJ 지시2] 잠김 뱃지 삭제 -->
   </div>
   <div class="step-body">
-    <div class="fit-question" id="fitQuestion">
-      아래 <b style="color:var(--teal-light);">코디 프로필</b> 박스의 정보로 생성됩니다.
-    </div>
+    <!-- [2026-04-22 13:55 TJ 지시2] fit-question 텍스트("마이핏…") 제거 -->
 
     <!-- 핏 선택 pill (Step 1 모드 스위치와 동일 구조 · 3분할) -->
     <div class="mode-switch cols-3" data-fit="my" id="fitSwitch">
@@ -1517,6 +1584,43 @@
       </div>
       <button class="body-edit-btn" id="bodyEditBtn">수정</button>
     </div>
+
+    <!-- [2026-04-22 13:55 TJ 지시2] codistyle.html의 bodyEditForm 인라인 편집 폼 이식
+         — 기존 prompt() 4연속 방식 제거, select/number input 조합으로 UX 개선 -->
+    <div id="bodyEditForm" style="display:none;padding:12px 14px;border-radius:12px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.15);margin-top:8px;">
+      <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="flex:1 1 46%;min-width:0;">
+          <label style="font-size:9px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.02em;">성별</label>
+          <select id="editGender" style="display:block;width:100%;padding:8px 6px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:3px;">
+            <option value="남성">남성</option>
+            <option value="여성">여성</option>
+          </select>
+        </div>
+        <div style="flex:1 1 46%;min-width:0;">
+          <label style="font-size:9px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.02em;">나이대</label>
+          <select id="editAge" style="display:block;width:100%;padding:8px 6px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:3px;">
+            <option value="10대">10대</option>
+            <option value="20대">20대</option>
+            <option value="30대">30대</option>
+            <option value="40대">40대</option>
+            <option value="50대">50대</option>
+            <option value="60대">60대</option>
+          </select>
+        </div>
+        <div style="flex:1 1 46%;min-width:0;">
+          <label style="font-size:9px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.02em;">키(cm)</label>
+          <input type="number" id="editHeight" placeholder="175" min="120" max="220" style="display:block;width:100%;padding:8px 8px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:3px;box-sizing:border-box;">
+        </div>
+        <div style="flex:1 1 46%;min-width:0;">
+          <label style="font-size:9px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.02em;">몸무게(kg)</label>
+          <input type="number" id="editWeight" placeholder="70" min="30" max="200" style="display:block;width:100%;padding:8px 8px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:3px;box-sizing:border-box;">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button onclick="cancelBodyEdit()" style="font-size:11px;padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.5);cursor:pointer;font-family:inherit;font-weight:600;">취소</button>
+        <button onclick="saveBodyInfo()" style="font-size:11px;padding:8px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#35A29F,#2D8B87);color:#fff;cursor:pointer;font-weight:800;font-family:inherit;">저장</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1552,10 +1656,12 @@
 <section class="step" data-step="3" data-state="pending">
   <div class="step-head">
     <div class="step-head-body">
-      <div class="step-title"><span class="step-prefix">Step 3.</span> <span class="ac">트라이온</span> 생성하기</div>
-      <div class="step-summary">선택한 조합으로 착장 이미지 생성</div>
+      <!-- [2026-04-22 13:55 TJ 지시3] Step 3 → 셋째 · 타이틀 +10% 크게 -->
+      <div class="step-title step-title-lg"><span class="step-prefix">셋째,</span> <span class="ac">트라이온</span> 생성하기</div>
+      <!-- [2026-04-22 13:55 TJ 지시3] summary 교체 -->
+      <div class="step-summary">선택한 데이터를 종합해서 착장이미지를 만들어드립니다!</div>
     </div>
-    <div class="step-badge lock"><span class="mi">lock</span>잠김</div>
+    <!-- [2026-04-22 13:55 TJ 지시3] 잠김 뱃지 삭제 -->
   </div>
   <div class="step-body">
 
@@ -1972,18 +2078,19 @@ $$('.slot').forEach(slot => {
   });
 });
 
-// 실제 배포 시: location.href = `codistyle_picker.html?slot=${toStateKey(type)}&mode=${state.mode}&returnTo=tryon`
+// ─── 2026-04-22 13:55 KST [지시0] 슬롯 클릭 → codistyle_picker.html 실제 이동 ───
+// 이전: 데모용 하단 시트(#sheet) 열림 (실서비스에선 의미 없음)
+// 이후: ?slot=xxx&returnTo=tryon.html 로 실제 페이지 이동
+//       피커에서 아이템 선택 후 sessionStorage['tryon_pick_result']로 결과 전달
 function openPicker(type){
-  state.currentSlot = type;  // DOM data-type 그대로 저장
-  const category = toStateKey(type);  // mockItems 키는 state 기준
-  const labelText = SLOT_LABELS[category] || category;
-  $('#sheetSub').textContent = `${labelText} 카테고리만 표시됩니다`;
-  renderItems(category);
-  $('#backdrop').classList.add('show');
-  $('#sheet').classList.add('show');
+  const slotKey = toStateKey(type);  // outer-main → outer
+  // 현재 페이지 상태 보존을 위해 saveTryonState 호출 (있으면)
+  try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
+  const url = 'codistyle_picker.html?slot=' + encodeURIComponent(slotKey) + '&returnTo=tryon.html';
+  location.href = url;
 }
 
-// 피커 복귀 처리
+// 피커 복귀 처리 [2026-04-22 13:55 수정]
 function consumePick(){
   try {
     const raw = sessionStorage.getItem('tryon_pick_result');
@@ -1994,8 +2101,10 @@ function consumePick(){
       fillSlot(data.slot, {
         id: data.path || `pick_${Date.now()}`,
         name: data.name || '선택 아이템',
-        meta: (data.meta && data.meta.summary) || '옷장',
-        cls: 'm1',
+        meta: (data.meta && data.meta.summary) || '내옷장',
+        dataUrl: data.dataUrl || '',    // 실제 이미지 URL
+        path: data.path || '',          // 서버 경로
+        cls: 'm1',                       // fallback
         _raw: data
       });
     }
@@ -2068,10 +2177,21 @@ function fillSlot(keyOrDomType, item){
   slotEl.classList.add('filled');
   slotEl.classList.remove('add-slot');
   const img = slotEl.querySelector('.slot-image');
-  img.className = 'slot-image ' + (item.cls || 'm1');
+  // [2026-04-22 13:55] 실제 picker에서 가져온 dataUrl/path가 있으면 이미지 표시
+  if(item.dataUrl){
+    img.className = 'slot-image';
+    img.style.backgroundImage = 'url("'+item.dataUrl+'")';
+    img.style.backgroundSize = 'cover';
+    img.style.backgroundPosition = 'center';
+  } else {
+    img.className = 'slot-image ' + (item.cls || 'm1');
+    img.style.backgroundImage = '';
+  }
   slotEl.querySelector('.slot-info .name').textContent = item.name;
   slotEl.querySelector('.slot-info .meta').textContent = item.meta;
   renderStep1();
+  // 영속화 (있으면)
+  try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
 }
 
 function resetSlotUI(domType){
@@ -2401,41 +2521,65 @@ function onTryonFaceFile(ev){
   reader.readAsDataURL(file);
 }
 
-// 신체정보 편집 - 간단한 prompt 기반 (마이/썸바디 공용)
+// 신체정보 편집 [2026-04-22 13:55 TJ 지시2] prompt() 4연속 제거 → 인라인 폼 토글
+// codistyle.html의 bodyEditForm 이식: select 성별/나이대 + number input 키/몸무게
 $('#bodyEditBtn').addEventListener('click', () => {
   if(state.fitTarget === 'model'){
     showToast('모델 핏은 남/여 선택 후 자동 설정됩니다');
     return;
   }
-  // 현재 값 표시하면서 순차 입력
-  const curG = $('#bodyGender').textContent.trim();
-  const curA = $('#bodyAge').textContent.trim();
-  const curH = $('#bodyHeight').textContent.trim();
-  const curW = $('#bodyWeight').textContent.trim();
-
-  const g = prompt('성별 입력 (예: 남성 / 여성)', curG === '—' ? '' : curG);
-  if(g === null) return;
-  const a = prompt('나이대 입력 (예: 30대)', curA === '—' ? '' : curA);
-  if(a === null) return;
-  const h = prompt('키 입력 (cm, 숫자만)', curH === '—' ? '' : curH);
-  if(h === null) return;
-  const w = prompt('몸무게 입력 (kg, 숫자만)', curW === '—' ? '' : curW);
-  if(w === null) return;
-
-  // 반영
-  if(g) $('#bodyGender').textContent = g.trim();
-  if(a) $('#bodyAge').textContent = a.trim();
-  if(h) $('#bodyHeight').textContent = h.trim();
-  if(w) $('#bodyWeight').textContent = w.trim();
-
-  // 썸바디 모드면 state.somebodyProfile 저장
-  if(state.fitTarget === 'somebody'){
-    state.somebodyProfile = {
-      gender: g||'', age: a||'', height: h||'', weight: w||''
-    };
-  }
-  showToast('신체정보가 업데이트되었습니다');
+  const form = document.getElementById('bodyEditForm');
+  if(!form) return;
+  // 현재 값으로 폼 초기화
+  const curG = ($('#bodyGender').textContent || '').trim();
+  const curA = ($('#bodyAge').textContent || '').trim();
+  const curH = ($('#bodyHeight').textContent || '').trim();
+  const curW = ($('#bodyWeight').textContent || '').trim();
+  const selG = document.getElementById('editGender');
+  const selA = document.getElementById('editAge');
+  const inpH = document.getElementById('editHeight');
+  const inpW = document.getElementById('editWeight');
+  if(selG && (curG === '남성' || curG === '여성')) selG.value = curG;
+  if(selA && /^(10|20|30|40|50|60)대$/.test(curA)) selA.value = curA;
+  if(inpH && curH !== '—' && curH !== '') inpH.value = curH;
+  if(inpW && curW !== '—' && curW !== '') inpW.value = curW;
+  form.style.display = 'block';
+  // 수정 버튼 숨김 (저장/취소 버튼이 대체)
+  $('#bodyEditBtn').style.display = 'none';
 });
+
+// 저장: 인라인 폼 → 표시 필드 반영
+function saveBodyInfo(){
+  const selG = document.getElementById('editGender');
+  const selA = document.getElementById('editAge');
+  const inpH = document.getElementById('editHeight');
+  const inpW = document.getElementById('editWeight');
+  const g = selG ? selG.value : '';
+  const a = selA ? selA.value : '';
+  const h = inpH ? inpH.value.trim() : '';
+  const w = inpW ? inpW.value.trim() : '';
+  if(g) $('#bodyGender').textContent = g;
+  if(a) $('#bodyAge').textContent = a;
+  if(h) $('#bodyHeight').textContent = h;
+  if(w) $('#bodyWeight').textContent = w;
+  // 썸바디 모드면 state에도 저장
+  if(state.fitTarget === 'somebody'){
+    state.somebodyProfile = { gender:g, age:a, height:h, weight:w };
+  }
+  // 폼 닫기
+  const form = document.getElementById('bodyEditForm');
+  if(form) form.style.display = 'none';
+  $('#bodyEditBtn').style.display = '';
+  showToast('신체정보가 저장되었습니다');
+}
+
+// 취소: 폼 닫기
+function cancelBodyEdit(){
+  const form = document.getElementById('bodyEditForm');
+  if(form) form.style.display = 'none';
+  const editBtn = $('#bodyEditBtn');
+  if(editBtn) editBtn.style.display = '';
+}
 
 // faceCircle 클릭 시에도 사진 선택 열기 (촬영 버튼과 동일 동작)
 $('#faceCircle').addEventListener('click', () => {
