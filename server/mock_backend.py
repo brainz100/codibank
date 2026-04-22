@@ -5,6 +5,73 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-04-22 17:05 KST (🎯 엔진 정책 단순화 — 서비스별 단일 모델) ────────
+#   [TJ님 지시 — 2026-04-22]
+#     1. 회원 티어별로 모델이 달라지지 않는다.
+#        서비스(코디핏/트라이온)가 어떤 모델을 쓰는지만 본다.
+#     2. 회원별 구독 제한은 이미 "코디핏 이미지 사용횟수"와 "트라이온 사용횟수"를
+#        구분해서 관리 중 (프론트 cb_usage_ localStorage + 서버 DB).
+#        → 모델 자체는 티어에 따라 바뀌지 않는다.
+#
+#   [새 정책 — 서비스별 고정 모델]
+#     • 코디핏 (closet.html, /api/ai/styling, /api/codistyle/generate):
+#       → Nano Banana 2 = gemini-3.1-flash-image-preview (원가 ~₩40/회)
+#       전략: 빠른 생성 + 낮은 원가 → 신규/무료 회원의 체험 유도
+#     • 트라이온 (tryon.html, /api/tryon/generate):
+#       → Nano Banana Pro = gemini-3-pro-image-preview (원가 ~₩120/회)
+#       전략: 고퀄 이미지 → 구독 회원의 프리미엄 유지 소구
+#
+#   [변경 내용]
+#     ① _ENGINE_MATRIX_DEFAULT 단순화 (~line 2689):
+#        { 티어: { 기능: alias } } 4행 → { 기능: alias } 1차원 2키만
+#        FREE=SILVER=GOLD=DIAMOND 전부 동일 결과 (티어 완전 무시)
+#     ② _resolve_engine 시그니처 유지(기존 호출부 0줄 수정):
+#        tier 파라미터는 받되 무시. feature만 보고 결정.
+#     ③ _get_engine_config_summary 관리자 표시용 업데이트:
+#        "matrix" → "service_engines"로 단순화, 티어 표 삭제
+#
+#   [영향 범위 — 호출부 무수정 (시그니처 하위호환)]
+#     • line 2043: _resolve_engine(_resolved_tier, "codifit") → 여전히 동작
+#     • line 2743, 2744: summary 생성 로직 → 자동으로 같은 값 반환
+#     • line 3113 (codistyle_generate): 티어 인자 그대로 받지만 무시됨
+#     • line 4802 (tryon_generate): 동일
+#
+#   [중요 — codistyle_generate / tryon_generate는 한 줄도 수정 안 함]
+#     시그니처 하위호환 덕분에 엔진 라우팅 단순화가 호출부로 전파됨.
+#
+# ─── 2026-04-22 16:30 KST (🆕 트라이온 전용 엔드포인트 Phase 4) ───────────
+#   [TJ님 지시]
+#     트라이온 페이지에서 '생성' 클릭 → 현재는 mock 플레이스홀더만 뜸.
+#     실제 착장 이미지 생성이 되도록 백엔드 연동 요구.
+#
+#   [원칙 (TJ님 메모리에 새겨진 것)]
+#     • 코디핏(closet.html)·트라이온(tryon.html)·코디하기(codistyle.html)
+#       세 서비스 모두 별도 엔드포인트·별도 프롬프트 함수로 완전 분리.
+#     • codistyle.html / codistyle_generate()는 절대 수정 금지.
+#     • 프롬프트 혼용 금지 원칙 유지.
+#
+#   [결정 — 옵션 A1 확정]
+#     codistyle_generate는 이미 _TRYON_MODEL 라우팅을 포함하고 있지만,
+#     이를 재사용하면 "완전 분리" 원칙을 위배함. → 신규 독립 함수로 작성.
+#     프롬프트 구조는 codistyle의 Phase 1~5 + 5섹션 분석을 따름 (TJ 선택 A1).
+#
+#   [신규 구성요소 — 모두 codistyle_generate 뒤에 추가]
+#     ① 헬퍼 함수 _tryon_build_prompt()         (~line 4413)
+#        - fitTarget 분기: my / somebody / model
+#        - 상/하의 (twopiece) | 원피스 (onepiece) | 아우터 (outer) 모드 대응
+#        - 5섹션 분석 + C.S.I 4지표 점수 지시문 (codistyle과 동일 포맷 요구)
+#     ② 헬퍼 함수 _tryon_parse_response()       (~line 4600)
+#        - codistyle의 파싱 로직을 '트라이온 전용'으로 재작성
+#        - 응답 구조는 프론트 csScoreBox가 기대하는 codistyle 호환 스키마
+#     ③ 메인 엔드포인트 @app.post('/api/tryon/generate')
+#        def tryon_generate():                  (~line 4750)
+#        - _resolve_engine(tier, 'tryon')로 모델 선택 (Nano Banana Pro 등)
+#        - v53 SDK fix 구역 패턴(new→old fallback) 준수
+#        - 이미지 R2 업로드 후 URL 포함 응답
+#
+#   [codistyle_generate 영향]
+#     0줄. 한 줄도 수정하지 않음. 완전 독립 추가.
+#
 # ─── 2026-04-21 01:50 KST (⚠️프리미엄 리포트 완전 복구 — 3중 안전망 구축) ──────
 #   [TJ님 제보]
 #     배포 후 테스트 결과 리포트가 여전히 200자 이하 초보 수준 (스크린샷 첨부)
@@ -2651,48 +2718,67 @@ _ENGINE_MODEL_MAP = {
     "pro":      os.getenv("CODIBANK_MODEL_PRO",      "gemini-3-pro-image-preview"),    # Nano Banana Pro ($0.134)
 }
 
-# 티어별 × 기능별 기본 엔진 매트릭스 (2026-04-21 확정 플랜)
-# 구조: { 티어: { 기능: 엔진별칭 } }
+# ─── 2026-04-22 17:05 KST (엔진 정책 단순화) ───────────────────────────
+# 기존: {티어 × 기능} 2차원 매트릭스 (FREE/SILVER=flash_v2, GOLD/DIAMOND=pro)
+# 신규: {기능} 1차원만 (티어 무시) — TJ님 지시
+#   • 코디핏 → flash_v2 (Nano Banana 2, 원가 ~₩40/회, 체험 유도)
+#   • 트라이온 → pro (Nano Banana Pro, 원가 ~₩120/회, 프리미엄)
+# 사용 제한은 회원 티어별 "코디핏 N회 / 트라이온 M회"로 이미 관리됨.
+# ────────────────────────────────────────────────────────────────────
+# 서비스별 고정 모델 (티어와 무관)
+# 구조: { 기능: 엔진별칭 }
+_ENGINE_SERVICE_DEFAULT = {
+    "codifit": "flash_v2",   # Nano Banana 2 = gemini-3.1-flash-image-preview
+    "tryon":   "pro",         # Nano Banana Pro = gemini-3-pro-image-preview
+}
+
+# ─── 하위호환 유지: 기존 _ENGINE_MATRIX_DEFAULT 이름을 참조하는 코드가 있을 경우 대비 ───
+# (현재 파일 내에서는 _resolve_engine과 _get_engine_config_summary만 사용)
 _ENGINE_MATRIX_DEFAULT = {
-    "FREE":    {"codifit": "flash_v2", "tryon": "flash_v2"},
-    "SILVER":  {"codifit": "flash_v2", "tryon": "flash_v2"},
-    "GOLD":    {"codifit": "pro",      "tryon": "pro"},
-    "DIAMOND": {"codifit": "pro",      "tryon": "pro"},
+    "FREE":    dict(_ENGINE_SERVICE_DEFAULT),
+    "SILVER":  dict(_ENGINE_SERVICE_DEFAULT),
+    "GOLD":    dict(_ENGINE_SERVICE_DEFAULT),
+    "DIAMOND": dict(_ENGINE_SERVICE_DEFAULT),
 }
 
 def _resolve_engine(tier: str, feature: str) -> str:
     """
-    티어+기능 조합에서 실제 Gemini 모델 ID를 반환
+    서비스(feature) 기반 모델 라우팅.
+    
+    [2026-04-22 17:05 KST] 티어 파라미터는 하위호환 위해 받지만 무시함.
+    TJ님 새 정책: 모델은 서비스 종류만 보고 결정. 회원 티어와 무관.
     
     우선순위:
-      1. 환경변수 CODIBANK_ENGINE_{TIER}_{FEATURE} (직접 모델 ID)
-      2. 환경변수 CODIBANK_ALIAS_{TIER}_{FEATURE} (별칭)
-      3. _ENGINE_MATRIX_DEFAULT 기본값
+      1. 환경변수 CODIBANK_MODEL_{FEATURE} (직접 모델 ID, 최우선)
+         예: CODIBANK_MODEL_CODIFIT=gemini-3.1-flash-image-preview
+         예: CODIBANK_MODEL_TRYON=gemini-3-pro-image-preview
+      2. 환경변수 CODIBANK_ALIAS_{FEATURE} (별칭)
+         예: CODIBANK_ALIAS_CODIFIT=flash_v2
+      3. _ENGINE_SERVICE_DEFAULT 기본값
       4. 최종 폴백 (_CODISTYLE_MODEL)
     
     매개변수:
-      tier:    'FREE' | 'SILVER' | 'GOLD' | 'DIAMOND' (대소문자 무관)
+      tier:    (무시됨, 하위호환 위해 받음) 'FREE'|'SILVER'|'GOLD'|'DIAMOND'
       feature: 'codifit' | 'tryon' (대소문자 무관)
     
     반환:
       실제 Gemini 모델 ID (예: 'gemini-3-pro-image-preview')
     """
-    tier_up = (tier or "FREE").upper()
     feature_low = (feature or "codifit").lower()
+    feature_up  = feature_low.upper()
     
-    # 1. 환경변수 직접 모델 ID (최우선)
-    env_model = os.getenv(f"CODIBANK_ENGINE_{tier_up}_{feature_low.upper()}")
+    # 1. 환경변수 직접 모델 ID (최우선) — Render에서 재배포 없이 교체용
+    env_model = os.getenv(f"CODIBANK_MODEL_{feature_up}")
     if env_model:
         return env_model
     
     # 2. 환경변수 별칭
-    env_alias = os.getenv(f"CODIBANK_ALIAS_{tier_up}_{feature_low.upper()}")
+    env_alias = os.getenv(f"CODIBANK_ALIAS_{feature_up}")
     if env_alias and env_alias in _ENGINE_MODEL_MAP:
         return _ENGINE_MODEL_MAP[env_alias]
     
-    # 3. 기본 매트릭스
-    tier_map = _ENGINE_MATRIX_DEFAULT.get(tier_up, _ENGINE_MATRIX_DEFAULT["FREE"])
-    alias = tier_map.get(feature_low, "flash_v2")
+    # 3. 기본 서비스별 매트릭스
+    alias = _ENGINE_SERVICE_DEFAULT.get(feature_low, "flash_v2")
     if alias in _ENGINE_MODEL_MAP:
         return _ENGINE_MODEL_MAP[alias]
     
@@ -2700,17 +2786,28 @@ def _resolve_engine(tier: str, feature: str) -> str:
     return _CODISTYLE_MODEL
 
 def _get_engine_config_summary() -> dict:
-    """현재 엔진 설정을 반환 (관리자 페이지에서 조회용)"""
-    summary = {
-        "engine_aliases": dict(_ENGINE_MODEL_MAP),
-        "matrix": {},
+    """
+    현재 엔진 설정을 반환 (관리자 페이지에서 조회용).
+    
+    [2026-04-22 17:05 KST] 서비스별 단일 모델 구조로 단순화.
+    기존 "matrix"(티어×기능) 대신 "service_engines"(기능만) 제공.
+    하위호환 위해 "matrix" 키도 유지하되 모든 티어에 같은 값 반환.
+    """
+    service_engines = {
+        "codifit": _resolve_engine("", "codifit"),
+        "tryon":   _resolve_engine("", "tryon"),
     }
-    for tier in ["FREE", "SILVER", "GOLD", "DIAMOND"]:
-        summary["matrix"][tier] = {
-            "codifit": _resolve_engine(tier, "codifit"),
-            "tryon":   _resolve_engine(tier, "tryon"),
-        }
-    return summary
+    # 하위호환: matrix 포맷도 같이 반환 (티어 4행 모두 동일 값)
+    matrix = {
+        tier: dict(service_engines)
+        for tier in ("FREE", "SILVER", "GOLD", "DIAMOND")
+    }
+    return {
+        "engine_aliases": dict(_ENGINE_MODEL_MAP),
+        "service_engines": service_engines,   # 신규 (권장)
+        "matrix": matrix,                      # 하위호환
+        "policy_note": "티어 무시 · 서비스별 단일 모델 (2026-04-22 17:05 KST)",
+    }
 
 # ─── 기존 _CODISTYLE_MODEL (하위 호환용 폴백) ───────────────────
 _CODISTYLE_MODEL = (
@@ -4400,6 +4497,671 @@ def codistyle_generate():
         sdk=_SDK,
     )
 
+
+# ═══════════════════════════════════════════════════════════════════════
+# 🆕 [2026-04-22 16:30 KST] 트라이온 전용 엔드포인트 (Phase 4)
+# ─────────────────────────────────────────────────────────────────────
+#   codistyle_generate와 완전히 독립된 함수.
+#   codistyle.html/codistyle_generate는 절대 수정 금지 원칙 준수.
+#   프론트(tryon.html)가 fetch('/api/tryon/generate', ...)로 호출.
+# ═══════════════════════════════════════════════════════════════════════
+
+# 트라이온용 fit 모드 상수 (프론트 fitTarget과 1:1 매핑)
+_TRYON_FIT_MY       = "my"        # 회원 본인 프로필 그대로
+_TRYON_FIT_SOMEBODY = "somebody"  # 사용자가 업로드한 얼굴 + 입력한 체형
+_TRYON_FIT_MODEL    = "model"     # 표준 남/여 모델 (얼굴 없음)
+
+# 트라이온용 모드 상수 (프론트 mode와 1:1 매핑)
+_TRYON_MODE_TWOPIECE = "twopiece"  # 상의 + 하의
+_TRYON_MODE_ONEPIECE = "onepiece"  # 원피스 (+ 선택 아우터)
+_TRYON_MODE_OUTER    = "outer"     # 아우터 필수
+
+
+def _tryon_build_prompt(
+    *,
+    mode: str,
+    fit_target: str,
+    model_gender: str,
+    gender_ko: str,
+    gender_en: str,
+    age: str,
+    height: str,
+    weight: str,
+    body_type_key: str,
+    pc_summary: str,
+    top_info: dict,
+    bottom_info: dict,
+    onepiece_info: dict,
+    outer_info: dict,
+    shoes_info: dict,
+    lang_en: bool = False,
+):
+    """
+    [2026-04-22 16:30] 트라이온 전용 프롬프트 빌더.
+    
+    codistyle의 Phase 1~5 구조를 따르되, 트라이온 특성(원피스/아우터/신발 슬롯 +
+    fitTarget 분기)을 반영한 완전 독립 프롬프트.
+    
+    반환: (prompt_text, required_image_keys)
+      - prompt_text: Gemini에 보낼 최종 프롬프트 문자열
+      - required_image_keys: 이미지 첨부 순서 (face 여부 + mode별 아이템 순서)
+    """
+    # ──────── Phase 1: PERSONA (fit_target 분기) ────────
+    if fit_target == _TRYON_FIT_MODEL:
+        # 모델 모드: 얼굴 없이 표준 체형
+        persona = (
+            "A standard Korean fashion model (no face identity required). "
+            f"Gender: {'woman' if model_gender == 'female' else 'man'}. "
+            "Standard model proportions: tall, slim, well-balanced. "
+            "Natural studio lighting, neutral soft-grey background."
+        )
+    elif fit_target == _TRYON_FIT_SOMEBODY:
+        # 썸바디 모드: 업로드한 얼굴 + 입력한 체형 (제3자 대신 입혀봄)
+        persona = (
+            f"A {gender_en} in their {age} with the uploaded face photo. "
+            f"Body profile: {'height '+height+'cm, weight '+weight+'kg' if height and weight else 'average build'}. "
+            f"Body type: {body_type_key or 'balanced'}. "
+            f"Personal color summary: {pc_summary or 'neutral'}. "
+            "Preserve the uploaded face identity exactly. "
+            "Natural studio lighting, neutral soft-grey background."
+        )
+    else:
+        # 마이핏 모드(기본): 회원 본인
+        persona = (
+            f"The uploaded member's face with their actual body profile. "
+            f"Gender: {gender_en}, {age}. "
+            f"{'Height '+height+'cm, weight '+weight+'kg. ' if height and weight else ''}"
+            f"Body type: {body_type_key or 'balanced'}. "
+            f"Personal color summary: {pc_summary or 'neutral'}. "
+            "CRITICAL: Preserve facial identity from the reference photo with absolute fidelity — "
+            "do not alter facial features, skin tone, or ethnicity. "
+            "Natural studio lighting, neutral soft-grey background."
+        )
+
+    # ──────── Phase 2: GARMENTS (mode 분기) ────────
+    garments_parts = [
+        "Reference images are the ABSOLUTE GROUND TRUTH for color, pattern, texture, "
+        "material, silhouette, and overall design. Reproduce each garment with photographic fidelity."
+    ]
+    
+    if mode == _TRYON_MODE_ONEPIECE:
+        if onepiece_info:
+            garments_parts.append(
+                f"ONEPIECE (dress): {onepiece_info.get('sub_category','dress')} "
+                f"in {onepiece_info.get('main_color_name','')} color, "
+                f"{onepiece_info.get('pattern','')} pattern, "
+                f"{onepiece_info.get('material','')} material."
+            )
+        if outer_info:
+            garments_parts.append(
+                f"OUTER LAYER (optional): {outer_info.get('sub_category','jacket')} "
+                f"in {outer_info.get('main_color_name','')} color, worn open over the dress."
+            )
+    elif mode == _TRYON_MODE_OUTER:
+        # 아우터 필수 모드 (기본은 아우터만, 상/하의는 optional)
+        if outer_info:
+            garments_parts.append(
+                f"OUTER (main focus): {outer_info.get('sub_category','coat')} "
+                f"in {outer_info.get('main_color_name','')} color, "
+                f"{outer_info.get('pattern','')} pattern, "
+                f"{outer_info.get('material','')} material. "
+                f"This is the primary garment — feature it prominently."
+            )
+        if top_info:
+            garments_parts.append(
+                f"INNER TOP: {top_info.get('sub_category','shirt')} "
+                f"in {top_info.get('main_color_name','')}."
+            )
+        if bottom_info:
+            garments_parts.append(
+                f"BOTTOM: {bottom_info.get('sub_category','pants')} "
+                f"in {bottom_info.get('main_color_name','')}."
+            )
+    else:
+        # twopiece (기본)
+        if top_info:
+            garments_parts.append(
+                f"TOP: {top_info.get('sub_category','shirt')} "
+                f"in {top_info.get('main_color_name','')} color, "
+                f"{top_info.get('pattern','')} pattern, "
+                f"{top_info.get('material','')} material, "
+                f"{top_info.get('fit','')} fit."
+            )
+        if bottom_info:
+            garments_parts.append(
+                f"BOTTOM: {bottom_info.get('sub_category','pants')} "
+                f"in {bottom_info.get('main_color_name','')} color, "
+                f"{bottom_info.get('pattern','')} pattern, "
+                f"{bottom_info.get('material','')} material."
+            )
+        if outer_info:
+            garments_parts.append(
+                f"OUTER LAYER (optional): {outer_info.get('sub_category','jacket')} "
+                f"in {outer_info.get('main_color_name','')} color, worn open."
+            )
+    
+    if shoes_info:
+        garments_parts.append(
+            f"SHOES: {shoes_info.get('sub_category','shoes')} "
+            f"in {shoes_info.get('main_color_name','')}."
+        )
+    garments = " ".join(garments_parts)
+
+    # ──────── Phase 3: WEARING ────────
+    # 하의가 치마일 때 tuck 규칙, 바지일 때 tuck 규칙 (codistyle의 _bot_wear 로직 참조)
+    wearing_bits = []
+    if mode == _TRYON_MODE_TWOPIECE and bottom_info:
+        is_skirt = bool(bottom_info.get("is_skirt"))
+        if is_skirt:
+            wearing_bits.append(
+                "Top wearing: tuck the top neatly into the skirt waistband (standard styling). "
+                "Skirt should sit naturally at the waist."
+            )
+        else:
+            wearing_bits.append(
+                "Top wearing: if the top is short/cropped, leave untucked; "
+                "if long shirt, semi-tuck (French tuck) is preferred."
+            )
+        wearing_bits.append(
+            "Bottom wearing: natural drape, realistic fit according to the body type."
+        )
+    if mode == _TRYON_MODE_ONEPIECE:
+        wearing_bits.append(
+            "Dress wearing: natural drape, full-length visible, hem at appropriate level."
+        )
+    wearing = " ".join(wearing_bits) if wearing_bits else "Natural, well-fitted wearing style."
+
+    # ──────── Phase 4: IMAGE COMPOSITION ────────
+    # 모델핏이면 성별에 따라 표준 포즈, 아니면 업로드 얼굴 보존
+    image_compo = (
+        "Full-body front-facing shot, head to toe visible. "
+        "Model stands with natural relaxed posture, slight weight-shift to one leg. "
+        "Arms relaxed at sides or one hand slightly on hip. "
+        "Soft, even studio lighting (no harsh shadows). "
+        "Background: clean seamless neutral grey (#E8E8E8). "
+        "Image aspect ratio: 2:3 (portrait). "
+        "Photographic realism — NO illustration, NO cartoon style."
+    )
+
+    # ──────── Phase 5: EVALUATION (codistyle과 동일 포맷 — 5섹션 + C.S.I 4지표) ────────
+    # 프론트 csScoreBox가 기대하는 정확한 포맷을 강제
+    evaluation = (
+        "\n\n[PHASE 5 — PREMIUM CONSULTING REPORT — REQUIRED DETAILED TEXT RESPONSE]: "
+        "After generating the image, provide a comprehensive styling analysis in Korean. "
+        "Structure the text response EXACTLY as follows (field names in English, values in Korean):\n\n"
+        "STYLING_SCORE:{total}/100\n"
+        "body_shape:{0-30}\n"
+        "personal_color:{0-30}\n"
+        "proportion:{0-20}\n"
+        "harmony:{0-20}\n\n"
+        "종합 평가: [한 줄 평가 — 이 착장의 핵심 시각적 효과를 한 문장으로]\n\n"
+        "스타일 해시태그: #키워드1 #키워드2 #키워드3 #키워드4\n\n"
+        "심층 분석:\n"
+        "퍼스널컬러 분석: [PHASE 1 시즌 타입 근거 + 착장 컬러와의 매치/미스매치 상세 설명, 3~5문장]\n\n"
+        "상의 스타일 분석: [상의(또는 원피스 상반부)의 디자인·컬러·실루엣이 체형에 미치는 효과, 3~5문장]\n\n"
+        "하의 스타일 분석: [하의(또는 원피스 하반부)의 디자인·컬러·실루엣 분석, 3~5문장]\n\n"
+        "실루엣과 비율: [전체 실루엣이 PHASE 1 체형의 강점을 살리고 약점을 보완하는지, 3~5문장]\n\n"
+        "상하의 밸런스: [상·하의 시각적 밸런스, 컬러 하모니, 전체적인 스타일링 완성도, 3~5문장]\n\n"
+        "IMPORTANT: Every bullet MUST reference PHASE 1 data (body type, personal color season) "
+        "as judgment criteria. DO NOT generate empty sections."
+    )
+
+    # ──────── 최종 결합 ────────
+    prompt = (
+        f"\n\n[PHASE 1 — PERSONA]: {persona}"
+        f"\n\n[PHASE 2 — GARMENTS]: {garments}"
+        f"\n\n[PHASE 3 — WEARING]: {wearing}"
+        f"\n\n[PHASE 4 — IMAGE]: {image_compo}"
+        f"{evaluation}"
+    )
+
+    # 이미지 첨부 순서 결정
+    face_required = (fit_target != _TRYON_FIT_MODEL)
+    if mode == _TRYON_MODE_ONEPIECE:
+        item_order = ["onepiece"] + (["outer"] if outer_info else [])
+    elif mode == _TRYON_MODE_OUTER:
+        item_order = ["outer"] + (["top"] if top_info else []) + (["bottom"] if bottom_info else [])
+    else:
+        item_order = ["top", "bottom"] + (["outer"] if outer_info else [])
+    if shoes_info:
+        item_order.append("shoes")
+
+    return prompt, {"face_required": face_required, "item_order": item_order}
+
+
+def _tryon_parse_response(comment: str):
+    """
+    [2026-04-22 16:30] 트라이온 응답 파서.
+    
+    Gemini가 생성한 텍스트에서 C.S.I 4지표 + 5섹션 분석 + 해시태그 등을 추출.
+    응답 JSON 스키마는 codistyle_generate와 동일 (프론트 csScoreBox 호환).
+    """
+    import re as _re
+    
+    result = {
+        "styling_score": None,
+        "score_breakdown": {},
+        "styling_advice": "",
+        "executive_summary": "",
+        "tpo_recommendations": [],
+        "improvement_tips": [],
+        "style_hashtags": [],
+    }
+    
+    try:
+        # 1) 총점
+        _m = _re.search(r'STYLING_SCORE:(\d+)/100', comment)
+        if _m:
+            result["styling_score"] = int(_m.group(1))
+        
+        # 2) C.S.I 4지표
+        _sb = {}
+        for _k in ["body_shape", "personal_color", "proportion", "harmony"]:
+            _km = _re.search(rf'{_k}:(\d+)', comment)
+            if _km:
+                _sb[_k] = int(_km.group(1))
+        
+        # 점수 정규화 (합이 total과 다르면 비례 조정)
+        if result["styling_score"] and all(k in _sb for k in ["body_shape", "personal_color", "proportion", "harmony"]):
+            _sum = sum(_sb.values())
+            if _sum > 0 and _sum != result["styling_score"]:
+                _r = result["styling_score"] / _sum
+                _sb["body_shape"]     = round(_sb["body_shape"] * _r)
+                _sb["personal_color"] = round(_sb["personal_color"] * _r)
+                _sb["proportion"]     = round(_sb["proportion"] * _r)
+                _sb["harmony"]        = result["styling_score"] - _sb["body_shape"] - _sb["personal_color"] - _sb["proportion"]
+        result["score_breakdown"] = _sb
+        
+        # 3) Executive Summary (종합 평가)
+        _esm = _re.search(
+            r'(?:종합 평가|Executive Summary)\s*[:：]\s*([^\n]+(?:\n(?!(?:스타일 해시태그|심층 분석|Style Hashtags|Deep-dive))[^\n]*)*)',
+            comment
+        )
+        if _esm:
+            result["executive_summary"] = _esm.group(1).strip().strip("[]").strip()
+        
+        # 4) 해시태그
+        _hsm = _re.search(r'(?:스타일 해시태그|Style Hashtags)\s*[:：]\s*([^\n]+)', comment)
+        if _hsm:
+            _raw_tags = _hsm.group(1).strip()
+            result["style_hashtags"] = [t.strip() for t in _re.findall(r'#\S+', _raw_tags)]
+        
+        # 5) 5섹션 심층 분석 — 프론트 _renderAnalysis가 기대하는 dict 형식으로
+        _advice = {}
+        _section_patterns = [
+            ("pc",        r'퍼스널컬러 분석\s*[:：]\s*([^\n]+(?:\n(?!(?:상의 스타일 분석|하의 스타일 분석|실루엣과 비율|상하의 밸런스))[^\n]*)*)'),
+            ("top",       r'상의 스타일 분석\s*[:：]\s*([^\n]+(?:\n(?!(?:하의 스타일 분석|실루엣과 비율|상하의 밸런스))[^\n]*)*)'),
+            ("bottom",    r'하의 스타일 분석\s*[:：]\s*([^\n]+(?:\n(?!(?:실루엣과 비율|상하의 밸런스))[^\n]*)*)'),
+            ("proportion", r'실루엣과 비율\s*[:：]\s*([^\n]+(?:\n(?!(?:상하의 밸런스))[^\n]*)*)'),
+            ("harmony",    r'상하의 밸런스\s*[:：]\s*([^\n]+(?:\n(?!(?:IMPORTANT|\Z))[^\n]*)*)'),
+        ]
+        for _key, _pat in _section_patterns:
+            _sm = _re.search(_pat, comment)
+            if _sm:
+                _advice[_key] = _sm.group(1).strip().strip("[]").strip()
+        result["styling_advice"] = _advice if _advice else ""
+        
+    except Exception as _parse_e:
+        print(f"[TRYON-PARSE] 파싱 중 경고: {_parse_e}", flush=True)
+    
+    return result
+
+
+@app.post("/api/tryon/generate")
+def tryon_generate():
+    """
+    [2026-04-22 16:30 KST] 트라이온 전용 이미지 생성 엔드포인트 (Phase 4).
+    
+    프론트(tryon.html)에서 Step 3 생성 버튼 클릭 시 호출.
+    codistyle_generate와 완전히 독립된 함수. 절대 통합 금지 (원칙).
+    
+    Request JSON:
+      - user: { gender, ageGroup, height, weight, tier }
+      - mode: "twopiece" | "onepiece" | "outer"
+      - fitTarget: "my" | "somebody" | "model"
+      - modelGender: "male" | "female"  (fitTarget == "model" 일 때만)
+      - faceImage: dataURL            (fitTarget != "model" 일 때)
+      - topDataUrl / topPath          (mode == twopiece/outer)
+      - bottomDataUrl / bottomPath    (mode == twopiece/outer)
+      - onepieceDataUrl / onepiecePath (mode == onepiece)
+      - outerDataUrl / outerPath       (선택)
+      - shoesDataUrl / shoesPath       (선택)
+      - topAnalysis / bottomAnalysis / onepieceAnalysis / outerAnalysis  (Phase 1 분석)
+      - bodyType, personalColor
+      - lang: "ko" | "en"  (기본 ko)
+    
+    Response JSON (codistyle_generate와 동일 스키마 — 프론트 csScoreBox 호환):
+      - ok, path, image, url, comment
+      - styling_score, score_breakdown, styling_advice
+      - executive_summary, tpo_recommendations, improvement_tips, style_hashtags
+      - model, sdk
+    """
+    _t_lang = str((request.json or {}).get("lang") or "ko").strip().lower()
+    _t_en = (_t_lang == "en")
+    if not _GEMINI_KEY:
+        return jsonify(ok=False, error="GEMINI_API_KEY 미설정"), 400
+
+    # SDK 감지 (v53 SDK fix 패턴 준수: new → old fallback)
+    _SDK = None
+    try:
+        from google import genai as _genai
+        from google.genai import types as _gtypes
+        _SDK = "new"
+    except ImportError:
+        pass
+    if not _SDK:
+        try:
+            import google.generativeai as _genai_old
+            _SDK = "old"
+        except ImportError:
+            return jsonify(ok=False, error="Gemini SDK 미설치. google-genai 또는 google-generativeai 필요"), 500
+
+    payload = request.get_json(silent=True) or {}
+    user_info = payload.get("user") or {}
+    
+    # 티어 → 엔진 라우팅 (재사용)
+    _user_tier = str(user_info.get("tier") or payload.get("tier") or "FREE").upper().strip()
+    if _user_tier not in ("FREE", "SILVER", "GOLD", "DIAMOND"):
+        _user_tier = "FREE"
+    _TRYON_MODEL = _resolve_engine(_user_tier, "tryon")
+    print(f"[TRYON] tier={_user_tier} → model={_TRYON_MODEL}", flush=True)
+
+    # 모드 & fit 검증
+    mode = str(payload.get("mode") or "twopiece").strip().lower()
+    if mode not in (_TRYON_MODE_TWOPIECE, _TRYON_MODE_ONEPIECE, _TRYON_MODE_OUTER):
+        mode = _TRYON_MODE_TWOPIECE
+    fit_target = str(payload.get("fitTarget") or "my").strip().lower()
+    if fit_target not in (_TRYON_FIT_MY, _TRYON_FIT_SOMEBODY, _TRYON_FIT_MODEL):
+        fit_target = _TRYON_FIT_MY
+    model_gender = str(payload.get("modelGender") or "").strip().lower()
+
+    # 프로필 정보
+    gender = _normalize_gender_code(str(user_info.get("gender", "")))
+    gender_en = "woman" if gender == "F" else "man"
+    gender_ko = "여성" if gender == "F" else "남성"
+    age = str(user_info.get("ageGroup", "30대")).strip()
+    height = str(user_info.get("height", "")).strip()
+    weight = str(user_info.get("weight", "")).strip()
+    body_type_key = str(payload.get("bodyType", "")).strip()
+    
+    # 퍼스널컬러 summary
+    _pc = payload.get("personalColor") or {}
+    pc_summary = str(_pc.get("summary", "")).strip() if isinstance(_pc, dict) else ""
+
+    # Phase 1 분석 결과
+    top_info      = payload.get("topAnalysis")      or {}
+    bottom_info   = payload.get("bottomAnalysis")   or {}
+    onepiece_info = payload.get("onepieceAnalysis") or {}
+    outer_info    = payload.get("outerAnalysis")    or {}
+    shoes_info    = payload.get("shoesAnalysis")    or {}
+
+    print(
+        f"[TRYON-DIAG] mode={mode} fit={fit_target} model_g={model_gender} "
+        f"tier={_user_tier} gender={gender} age={age}",
+        flush=True
+    )
+
+    # ─── 이미지 bytes 준비 (codistyle과 동일 _to_bytes 로컬 정의) ───
+    def _to_bytes(data_url_val, path_val=None):
+        """dataUrl / 로컬파일 / HTTP URL → (mime, raw_bytes). codistyle과 동일 로직."""
+        src = str(data_url_val or "").strip()
+        if src.startswith("data:"):
+            header, b64 = src.split(",", 1)
+            mime = header.split(":")[1].split(";")[0]
+            return mime, base64.b64decode(b64)
+        if src.startswith("http://") or src.startswith("https://"):
+            # 자기 서버 URL → R2 직접 로드
+            _self_upload_path = ""
+            try:
+                from urllib.parse import urlparse
+                _parsed = urlparse(src)
+                if _parsed.path and _parsed.path.startswith("/uploads/"):
+                    _host = (_parsed.hostname or "").lower()
+                    if "onrender.com" in _host or "codibank" in _host or "localhost" in _host or "127.0.0.1" in _host:
+                        _self_upload_path = _parsed.path
+            except Exception:
+                pass
+            if _self_upload_path:
+                if _R2_PUB_URL:
+                    r2_direct = f"{_R2_PUB_URL}{_self_upload_path}"
+                    try:
+                        import requests as _rq
+                        r = _rq.get(r2_direct, timeout=15)
+                        if r.status_code == 200:
+                            ct = r.headers.get("Content-Type", "image/jpeg").split(";")[0]
+                            return ct, r.content
+                    except Exception as e:
+                        print(f"[TRYON _to_bytes] R2 직접 로드 실패: {e}")
+                for d in [_UPLOAD_DIR, _LEGACY_UPLOAD_DIR]:
+                    fpath = os.path.join(d, os.path.basename(_self_upload_path))
+                    if os.path.exists(fpath):
+                        with open(fpath, "rb") as fh:
+                            return "image/jpeg", fh.read()
+            # 외부 URL 일반 다운로드
+            try:
+                import requests as _rq
+                r = _rq.get(src, timeout=15)
+                if r.status_code == 200:
+                    ct = r.headers.get("Content-Type", "image/jpeg").split(";")[0]
+                    return ct, r.content
+            except Exception as e:
+                print(f"[TRYON _to_bytes] 외부 URL 로드 실패: {e}")
+        # 로컬 파일 경로
+        if path_val:
+            for d in [_UPLOAD_DIR, _LEGACY_UPLOAD_DIR, "."]:
+                fpath = os.path.join(d, os.path.basename(path_val))
+                if os.path.exists(fpath):
+                    with open(fpath, "rb") as fh:
+                        return "image/jpeg", fh.read()
+        return None, None
+
+    # 이미지 수집
+    images_map = {}
+    if mode in (_TRYON_MODE_TWOPIECE, _TRYON_MODE_OUTER):
+        if payload.get("topDataUrl") or payload.get("topPath"):
+            m, b = _to_bytes(payload.get("topDataUrl"), payload.get("topPath"))
+            if b: images_map["top"] = (m, b)
+        if payload.get("bottomDataUrl") or payload.get("bottomPath"):
+            m, b = _to_bytes(payload.get("bottomDataUrl"), payload.get("bottomPath"))
+            if b: images_map["bottom"] = (m, b)
+    if mode == _TRYON_MODE_ONEPIECE:
+        if payload.get("onepieceDataUrl") or payload.get("onepiecePath"):
+            m, b = _to_bytes(payload.get("onepieceDataUrl"), payload.get("onepiecePath"))
+            if b: images_map["onepiece"] = (m, b)
+    if payload.get("outerDataUrl") or payload.get("outerPath"):
+        m, b = _to_bytes(payload.get("outerDataUrl"), payload.get("outerPath"))
+        if b: images_map["outer"] = (m, b)
+    if payload.get("shoesDataUrl") or payload.get("shoesPath"):
+        m, b = _to_bytes(payload.get("shoesDataUrl"), payload.get("shoesPath"))
+        if b: images_map["shoes"] = (m, b)
+
+    # 필수 검증
+    if mode == _TRYON_MODE_TWOPIECE and ("top" not in images_map or "bottom" not in images_map):
+        return jsonify(ok=False, error="투피스 모드는 상의와 하의 이미지가 필요합니다"), 400
+    if mode == _TRYON_MODE_ONEPIECE and "onepiece" not in images_map:
+        return jsonify(ok=False, error="원피스 모드는 원피스 이미지가 필요합니다"), 400
+    if mode == _TRYON_MODE_OUTER and "outer" not in images_map:
+        return jsonify(ok=False, error="아우터 모드는 아우터 이미지가 필요합니다"), 400
+
+    # 얼굴 이미지 (fit_target에 따라)
+    face_mime, face_bytes = None, None
+    if fit_target != _TRYON_FIT_MODEL:
+        face_mime, face_bytes = _to_bytes(payload.get("faceImage"), None)
+        if not face_bytes and fit_target == _TRYON_FIT_MY:
+            # 마이핏인데 얼굴 없으면 경고만 (계속 진행, 모델 얼굴로 대체됨)
+            print("[TRYON-WARN] fit=my but faceImage is missing → will use generic face", flush=True)
+
+    # ─── 프롬프트 구성 ───
+    prompt, img_meta = _tryon_build_prompt(
+        mode=mode,
+        fit_target=fit_target,
+        model_gender=model_gender,
+        gender_ko=gender_ko,
+        gender_en=gender_en,
+        age=age,
+        height=height,
+        weight=weight,
+        body_type_key=body_type_key,
+        pc_summary=pc_summary,
+        top_info=top_info,
+        bottom_info=bottom_info,
+        onepiece_info=onepiece_info,
+        outer_info=outer_info,
+        shoes_info=shoes_info,
+        lang_en=_t_en,
+    )
+
+    # ─── Gemini 호출 ───
+    try:
+        if _SDK == "new":
+            contents = [prompt]
+            if face_bytes:
+                contents.append(_gtypes.Part.from_bytes(data=face_bytes, mime_type=face_mime or "image/jpeg"))
+            # 아이템 순서대로 첨부
+            for _k in img_meta["item_order"]:
+                if _k in images_map:
+                    _m, _b = images_map[_k]
+                    contents.append(_gtypes.Part.from_bytes(data=_b, mime_type=_m or "image/jpeg"))
+            
+            client = _genai.Client(api_key=_GEMINI_KEY)
+            response = client.models.generate_content(
+                model=_TRYON_MODEL,
+                contents=contents,
+                config=_gtypes.GenerateContentConfig(
+                    response_modalities=["IMAGE", "TEXT"],
+                    temperature=0.4,
+                    max_output_tokens=8192,
+                ),
+            )
+        else:
+            # old SDK
+            from PIL import Image as _PILImage
+            _genai_old.configure(api_key=_GEMINI_KEY)
+            model = _genai_old.GenerativeModel(_TRYON_MODEL)
+
+            def _bytes_to_pil(raw):
+                return _PILImage.open(io.BytesIO(raw))
+
+            contents_old = [prompt]
+            if face_bytes:
+                contents_old.append(_bytes_to_pil(face_bytes))
+            for _k in img_meta["item_order"]:
+                if _k in images_map:
+                    _m, _b = images_map[_k]
+                    contents_old.append(_bytes_to_pil(_b))
+            
+            try:
+                response = model.generate_content(
+                    contents_old,
+                    generation_config={
+                        "response_modalities": ["IMAGE", "TEXT"],
+                        "temperature": 0.4,
+                        "max_output_tokens": 8192,
+                    },
+                )
+            except TypeError:
+                response = model.generate_content(contents_old)
+    except Exception as e:
+        print(f"[TRYON-ERR] Gemini 호출 실패 ({_SDK}): {e}", flush=True)
+        return jsonify(ok=False, error=f"Gemini 호출 실패 ({_SDK}): {str(e)[:300]}"), 500
+
+    # ─── 응답 파싱: 이미지 + 텍스트 분리 ───
+    img_bytes = None
+    comment = ""
+    finish = "unknown"
+    try:
+        if _SDK == "new":
+            candidates = getattr(response, "candidates", []) or []
+            if candidates:
+                cand = candidates[0]
+                finish = str(getattr(cand, "finish_reason", "")).upper()
+                parts = getattr(getattr(cand, "content", None), "parts", []) or []
+                for p in parts:
+                    inline = getattr(p, "inline_data", None)
+                    if inline and getattr(inline, "data", None):
+                        raw = inline.data
+                        if isinstance(raw, str):
+                            raw = base64.b64decode(raw)
+                        img_bytes = raw
+                    elif getattr(p, "text", None):
+                        comment += str(p.text)
+        else:
+            # old SDK
+            try:
+                comment = response.text or ""
+            except Exception:
+                comment = ""
+            try:
+                for cand in (response.candidates or []):
+                    parts = (cand.content.parts if cand.content else [])
+                    for p in parts:
+                        if hasattr(p, "inline_data") and getattr(p.inline_data, "data", None):
+                            raw = p.inline_data.data
+                            if isinstance(raw, str):
+                                raw = base64.b64decode(raw)
+                            img_bytes = raw
+                    if cand.finish_reason:
+                        finish = str(cand.finish_reason).upper()
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"[TRYON-ERR] 응답 파싱 실패: {e}", flush=True)
+        return jsonify(ok=False, error=f"응답 파싱 실패: {str(e)[:200]}"), 500
+
+    if not img_bytes:
+        return jsonify(
+            ok=False,
+            error=f"착장 이미지 생성에 실패했습니다. 다시 시도해주세요. (reason={finish})"
+        ), 500
+
+    # ─── R2 업로드 + 응답 구성 ───
+    if isinstance(img_bytes, str):
+        img_bytes = base64.b64decode(img_bytes)
+    rel = _write_upload_bytes("tryon", "jpg", img_bytes)
+    base = _public_base()
+
+    # 텍스트 응답에서 점수·분석 추출
+    parsed = _tryon_parse_response(comment)
+
+    # garment_summary 구성 (프론트 호환)
+    garment_summary = {
+        "mode": mode,
+        "fit": fit_target,
+        "top":      top_info.get("sub_category", "") if top_info else "",
+        "bottom":   bottom_info.get("sub_category", "") if bottom_info else "",
+        "onepiece": onepiece_info.get("sub_category", "") if onepiece_info else "",
+        "outer":    outer_info.get("sub_category", "") if outer_info else "",
+        "shoes":    shoes_info.get("sub_category", "") if shoes_info else "",
+    }
+
+    print(
+        f"[TRYON] ✅ 생성 완료: {rel} · score={parsed['styling_score']} · "
+        f"comment_len={len(comment)}",
+        flush=True
+    )
+
+    return jsonify(
+        ok=True,
+        path=rel,
+        image=f"{base}{rel}",
+        url=f"{base}{rel}",
+        comment=comment or "AI 트라이온 착장 이미지 생성 완료!",
+        styling_score=parsed["styling_score"],
+        score_breakdown=parsed["score_breakdown"],
+        styling_advice=parsed["styling_advice"],
+        executive_summary=parsed["executive_summary"],
+        tpo_recommendations=parsed["tpo_recommendations"],
+        improvement_tips=parsed["improvement_tips"],
+        style_hashtags=parsed["style_hashtags"],
+        garment_summary=garment_summary,
+        model=_TRYON_MODEL,
+        sdk=_SDK,
+        # 트라이온 전용 메타
+        tryon_mode=mode,
+        tryon_fit=fit_target,
+    )
+
+
 # ── 관리자 인증 헬퍼 ──
 # ════════════════════════════════════════════════════
 # 멀티 어드민 시스템
@@ -4624,26 +5386,31 @@ def admin_stats():
     return jsonify(stats)
 
 # ─── 2026-04-21 KST ─── 엔진 라우팅 조회 API ───
+# ─── 2026-04-22 17:05 KST ─── 서비스별 단일 모델 정책 반영 ───
 @app.get("/admin/engine-config")
 def admin_engine_config():
     """
-    티어별 × 기능별 엔진 설정 현황 조회.
-    관리자 페이지에서 현재 어떤 엔진이 어느 티어/기능에 적용되는지 확인용.
+    엔진 설정 현황 조회 (관리자 전용).
+    
+    [2026-04-22 17:05] 정책 변경: 티어 무시, 서비스(코디핏/트라이온)만 보고 모델 결정.
     
     응답 예시:
     {
       "ok": true,
       "engine_aliases": {
         "flash_v1": "gemini-2.5-flash-image",
-        "flash_v2": "gemini-3.1-flash-image-preview",
-        "pro":      "gemini-3-pro-image-preview"
+        "flash_v2": "gemini-3.1-flash-image-preview",   // Nano Banana 2
+        "pro":      "gemini-3-pro-image-preview"         // Nano Banana Pro
       },
-      "matrix": {
-        "FREE":    {"codifit": "gemini-3.1-flash-image-preview", "tryon": "gemini-3.1-flash-image-preview"},
-        "SILVER":  {...},
-        "GOLD":    {"codifit": "gemini-3-pro-image-preview", "tryon": "gemini-3-pro-image-preview"},
-        "DIAMOND": {...}
-      }
+      "service_engines": {
+        "codifit": "gemini-3.1-flash-image-preview",    // 코디핏 → Nano Banana 2
+        "tryon":   "gemini-3-pro-image-preview"          // 트라이온 → Nano Banana Pro
+      },
+      "matrix": {                                        // 하위호환 (모든 티어 동일)
+        "FREE":    {"codifit": "...", "tryon": "..."},
+        "SILVER":  {...}, "GOLD": {...}, "DIAMOND": {...}
+      },
+      "policy_note": "티어 무시 · 서비스별 단일 모델 (2026-04-22 17:05 KST)"
     }
     """
     if not verify_admin(request):
