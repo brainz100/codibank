@@ -12,6 +12,42 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-04-22 16:05 KST ───  [TJ 지시 — 지시1~2]             │
+  │ ▸ 지시 1: Step 2 타이틀 위쪽 여백 +50% 이상 증가                │
+  │   .step[data-step="2"] { margin-top:30px } 신규 지정            │
+  │   (기존 .step의 margin-bottom:10px만 있어 타이틀이 바로 붙어     │
+  │    있던 현상 해결)                                              │
+  │ ▸ 지시 2: Step 3 타이틀 텍스트 변경 + 여백 통일                 │
+  │   - "셋째, 트라이온 생성하기" → "셋째, 지금 입어볼까요?"        │
+  │     ('입어볼까요' 부분에 .ac teal-light 강조 클래스)             │
+  │   - Step 3 위 여백도 Step 2와 동일한 30px로 맞춤                │
+  │                                                                │
+  │ ─── 2026-04-22 14:15 KST ───  [TJ 지시 — 지시1~4]             │
+  │ ▸ 지시 1: 첫째/둘째/셋째 텍스트의 크기·컬러를 옆 한글과         │
+  │   완전 동일하게 통일. step-prefix CSS를 inherit으로 변경        │
+  │   (이전 14.3px·55% 알파 → 상속으로 단일화).                     │
+  │ ▸ 지시 2: 슬롯·신체정보·얼굴 상태 영속화 버그 수정               │
+  │   - TRYON_STATE_KEY('tryon_state_v1') + saveTryonState() +      │
+  │     loadTryonState() 함수 추가                                  │
+  │   - setMode(mode, skipReset) 파라미터 추가 — 복원 경로에서       │
+  │     슬롯 리셋 방지                                              │
+  │   - fillSlot / saveBodyInfo / onTryonFaceFile / applyFitUI /    │
+  │     모델성별카드 클릭 / openPicker 에 saveTryonState() 삽입      │
+  │   - 초기 렌더에서 loadTryonState() 우선 호출, 실패 시 applyFitUI │
+  │   - applyFitUI에서 state.fitTarget 저장 누락 버그도 같이 수정    │
+  │     (fitQuestion 삭제되어 null 참조 가드 추가)                   │
+  │ ▸ 지시 3: 마이 핏에서 회원 얼굴 사진 자동 로드                   │
+  │   - config.js + codibank.js 스크립트 로드 추가 (closet.html과   │
+  │     동일 패턴)                                                  │
+  │   - loadMyProfileFace() async 함수 — CodiBank.getUserFaceImageSrc│
+  │     로 얼굴 URL 조회하여 #faceCircle에 렌더                     │
+  │   - loadMyProfile()에서 snap.faceSrc / uploadedFaceDataUrl      │
+  │     우선순위로 얼굴 표시                                        │
+  │ ▸ 지시 4: 풋바 cb-nav 추가                                       │
+  │   - CSS: codistyle.html의 .cb-nav/.cb-nav-inner/.cb-nav-tab/    │
+  │     .cb-spacer 그대로 복사                                      │
+  │   - HTML: 5탭 (코디핏/트라이온[on]/Ai옷장/코디하기/MY)           │
+  │                                                                │
   │ ─── 2026-04-22 13:55 KST ───  [TJ 지시 — 지시0~3]             │
   │ ▸ 지시 0: 슬롯 클릭 openPicker가 데모 시트 대신                │
   │   codistyle_picker.html?slot=X&returnTo=tryon.html 로          │
@@ -207,6 +243,17 @@
     background:transparent;
     box-shadow:none;
   }
+  /* [2026-04-22 16:05 TJ 지시1·2] Step 2, Step 3 타이틀 위쪽 여백 확보
+     — Step 2: 기존 10px → 30px (약 +50% 이상 증가, TJ 지시1)
+     — Step 3: Step 2와 동일하게 30px (TJ 지시2)
+     .step 기본 margin은 0 16px 10px인데 아래 여백만 있고 위 여백이 없어
+     Step 1의 아이템 슬롯 바로 밑에 Step 2 타이틀이 붙는 현상 해결 */
+  .step[data-step="2"]{
+    margin-top:30px;
+  }
+  .step[data-step="3"]{
+    margin-top:30px;
+  }
 
   .step-head{
     padding:14px 18px;
@@ -229,22 +276,24 @@
   .step-title.step-title-lg{
     font-size:17px;       /* 15.5px × 1.10 ≈ 17 */
   }
-  .step-title.step-title-lg .step-prefix{
-    font-size:14.3px;     /* 13px × 1.10 */
-  }
+  /* prefix는 inherit으로 상속받음 (14.15에서 통합) */
   .step[data-state="current"] .step-title{ color:var(--teal-light); }
   .step-title .ac{ color:var(--teal-light); }
   .step-title .step-prefix{
-    font-family:'Outfit',sans-serif;
-    font-weight:900;
-    color:rgba(151,254,237,0.55);
-    letter-spacing:.01em;
-    margin-right:3px;
-    font-size:13px;
+    /* [2026-04-22 14:15 TJ 지시1] prefix(첫째/둘째/셋째)를 옆 한글 텍스트와
+       완전히 동일한 크기·컬러로 통일. 기존에는 더 작고(13px) 흐린 색이었음.
+       font-family/weight/color/size 모두 상속(inherit) 받도록 override 제거. */
+    font-family:inherit;
+    font-weight:inherit;
+    color:inherit;
+    font-size:inherit;
+    letter-spacing:inherit;
+    margin-right:4px;
   }
   .step[data-state="current"] .step-title .step-prefix{
-    color:var(--teal-light);
+    color:inherit;
   }
+  /* step-title-lg에서도 prefix 크기 override 제거 - 상속만 사용 */
   .step-summary{
     font-size:11px;
     color:rgba(255,255,255,0.5);
@@ -1343,6 +1392,19 @@
   .bab{flex:1;padding:10px 0;border-radius:12px;font-size:13px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.12s;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:6px}
   .bab .mi{font-family:'Material Symbols Outlined';font-size:18px;line-height:1}
   .err-box{margin:0 14px 14px;padding:12px 14px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:12px;font-size:11px;color:#fca5a5;line-height:1.6}
+
+  /* ═══════════════════════════════════════════════════════════
+     [2026-04-22 14:15 TJ 지시4] 풋바: Floating Glassmorphic Bar
+     — codistyle.html의 cb-nav 구조 그대로 복사 (5탭)
+     ═══════════════════════════════════════════════════════════ */
+  .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px 10px;pointer-events:none;padding-bottom:max(10px,env(safe-area-inset-bottom));}
+  .cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px;}
+  .cb-nav-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:rgba(216,226,255,.4);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s;font-family:'Inter','Noto Sans KR',sans-serif;}
+  .cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 22;}
+  .cb-nav-tab .nl{font-size:9px;font-weight:600;letter-spacing:.02em;}
+  .cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px;}
+  .cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
+  .cb-spacer{height:82px;}
 </style>
 </head>
 <body>
@@ -1657,7 +1719,8 @@
   <div class="step-head">
     <div class="step-head-body">
       <!-- [2026-04-22 13:55 TJ 지시3] Step 3 → 셋째 · 타이틀 +10% 크게 -->
-      <div class="step-title step-title-lg"><span class="step-prefix">셋째,</span> <span class="ac">트라이온</span> 생성하기</div>
+      <!-- [2026-04-22 16:05 TJ 지시2] 타이틀 텍스트 변경: 트라이온 생성하기 → 지금 입어볼까요? -->
+      <div class="step-title step-title-lg"><span class="step-prefix">셋째,</span> 지금 <span class="ac">입어볼까요</span>?</div>
       <!-- [2026-04-22 13:55 TJ 지시3] summary 교체 -->
       <div class="step-summary">선택한 데이터를 종합해서 착장이미지를 만들어드립니다!</div>
     </div>
@@ -1868,6 +1931,24 @@
 <!-- 토스트 -->
 <div class="toast" id="toast"></div>
 
+<!-- [2026-04-22 14:15 TJ 지시4] 풋바 네비 — codistyle.html과 동일 5탭
+     현재 페이지가 트라이온이므로 '트라이온' 탭에 .on 클래스 -->
+<div class="cb-spacer"></div>
+<nav class="cb-nav">
+  <div class="cb-nav-inner">
+    <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디핏</span></a>
+    <a href="tryon.html" class="cb-nav-tab on"><span class="ni">accessibility_new</span><span class="nl">트라이온</span></a>
+    <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
+    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">palette</span><span class="nl">코디하기</span></a>
+    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
+  </div>
+</nav>
+
+<!-- [2026-04-22 14:15 TJ 지시3] CodiBank SDK 로드 — 회원 얼굴 사진 / 인증 사용
+     순서: config.js → codibank.js (closet.html·codistyle.html과 동일 패턴) -->
+<script src="config.js"></script>
+<script src="codibank.js"></script>
+
 <script>
 // ════════════════════════════════════════════════════════════════
 //  상태 관리
@@ -2022,16 +2103,19 @@ $$('.step-head').forEach(head => {
 // ════════════════════════════════════════════════════════════════
 //  Step 1 — 모드 & 슬롯
 // ════════════════════════════════════════════════════════════════
-function setMode(mode){
+function setMode(mode, skipReset){
+  // [2026-04-22 14:15] skipReset=true일 때는 슬롯 리셋하지 않음 (복원 경로용)
   state.mode = mode;
   $('#modeSwitch').dataset.mode = mode;
   $$('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
 
-  // state 초기화 (모드 전환 시 모든 슬롯 리셋)
-  ['top','bottom','onepiece','outer'].forEach(t => {
-    state.slots[t].filled = false;
-    state.slots[t].item = null;
-  });
+  // state 초기화 (모드 전환 시 모든 슬롯 리셋) - 복원 경로에서는 건너뜀
+  if(!skipReset){
+    ['top','bottom','onepiece','outer'].forEach(t => {
+      state.slots[t].filled = false;
+      state.slots[t].item = null;
+    });
+  }
 
   if(mode === 'twopiece'){
     state.slots.top.active = true;
@@ -2065,9 +2149,13 @@ function setMode(mode){
     // 옵션 섹션의 아우터 슬롯은 숨김 (필수로 올라갔으므로)
     $$('.twopiece-onepiece-only').forEach(el => el.style.display = 'none');
   }
-  // 모든 슬롯 UI 리셋
-  ['top','bottom','onepiece','outer','outer-main'].forEach(t => resetSlotUI(t));
+  // 슬롯 UI 리셋도 skipReset 적용
+  if(!skipReset){
+    ['top','bottom','onepiece','outer','outer-main'].forEach(t => resetSlotUI(t));
+  }
   renderStep1();
+  // 모드 변경 시 영속화
+  try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
 }
 $$('.mode-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
@@ -2201,6 +2289,97 @@ function resetSlotUI(domType){
   if(slotEl.dataset.role === 'optional') slotEl.classList.add('add-slot');
 }
 
+// ════════════════════════════════════════════════════════════════
+//  [2026-04-22 14:15 TJ 지시2] 상태 영속화 (sessionStorage)
+//  슬롯 선택 후 picker로 이동·복귀해도 이전 슬롯·신체정보·얼굴이 유지되도록.
+//  저장 시점: fillSlot / openPicker / saveBodyInfo / applyFitUI / 얼굴업로드
+//  복원 시점: DOMContentLoaded에서 loadTryonState() 호출 후 렌더
+// ════════════════════════════════════════════════════════════════
+const TRYON_STATE_KEY = 'tryon_state_v1';
+
+function saveTryonState(){
+  try {
+    const snap = {
+      mode: state.mode,
+      fitTarget: state.fitTarget,
+      modelGender: state.modelGender,
+      slots: {},
+      bodyGender: (document.getElementById('bodyGender')||{}).textContent || '',
+      bodyAge:    (document.getElementById('bodyAge')||{}).textContent || '',
+      bodyHeight: (document.getElementById('bodyHeight')||{}).textContent || '',
+      bodyWeight: (document.getElementById('bodyWeight')||{}).textContent || '',
+      uploadedFaceDataUrl: state.uploadedFaceDataUrl || '',
+    };
+    Object.entries(state.slots).forEach(([k, s]) => {
+      if(s.filled && s.item){
+        snap.slots[k] = {
+          id: s.item.id,
+          name: s.item.name,
+          meta: s.item.meta,
+          dataUrl: s.item.dataUrl || '',
+          path: s.item.path || '',
+          cls: s.item.cls || 'm1'
+        };
+      }
+    });
+    sessionStorage.setItem(TRYON_STATE_KEY, JSON.stringify(snap));
+  } catch(e){ console.warn('saveTryonState failed:', e); }
+}
+
+function loadTryonState(){
+  try {
+    const raw = sessionStorage.getItem(TRYON_STATE_KEY);
+    if(!raw) return false;
+    const snap = JSON.parse(raw);
+    // 모드 복원 (setMode 호출하되 슬롯 리셋 방지를 위해 skipReset=true)
+    if(snap.mode && snap.mode !== state.mode){
+      if(typeof setMode === 'function') setMode(snap.mode, true);
+      else state.mode = snap.mode;
+    }
+    // 핏 복원
+    if(snap.fitTarget){
+      state.fitTarget = snap.fitTarget;
+      // fitSwitch pill UI 동기화
+      document.querySelectorAll('#fitSwitch .mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.fit === snap.fitTarget);
+      });
+      const fs = document.getElementById('fitSwitch');
+      if(fs) fs.dataset.fit = snap.fitTarget;
+      if(typeof applyFitUI === 'function') applyFitUI(snap.fitTarget);
+    }
+    // 모델 성별
+    if(snap.modelGender){
+      state.modelGender = snap.modelGender;
+      const card = document.querySelector(`.gender-card[data-gender="${snap.modelGender}"]`);
+      if(card){
+        const radio = card.querySelector('input[type="radio"]');
+        if(radio) radio.checked = true;
+        const gs = document.getElementById('genderSwitch');
+        if(gs) gs.dataset.gender = snap.modelGender;
+      }
+    }
+    // 슬롯 복원
+    Object.entries(snap.slots || {}).forEach(([k, item]) => {
+      if(typeof fillSlot === 'function') fillSlot(k, item);
+    });
+    // 신체정보 복원
+    const setT = (id, v) => { const e = document.getElementById(id); if(e && v) e.textContent = v; };
+    setT('bodyGender', snap.bodyGender);
+    setT('bodyAge',    snap.bodyAge);
+    setT('bodyHeight', snap.bodyHeight);
+    setT('bodyWeight', snap.bodyWeight);
+    // 얼굴 사진 복원
+    if(snap.uploadedFaceDataUrl){
+      state.uploadedFaceDataUrl = snap.uploadedFaceDataUrl;
+      const circle = document.getElementById('faceCircle');
+      if(circle){
+        circle.innerHTML = '<img src="'+snap.uploadedFaceDataUrl+'" alt="얼굴 사진" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+      }
+    }
+    return true;
+  } catch(e){ console.warn('loadTryonState failed:', e); return false; }
+}
+
 function renderStep1(){
   let reqNeed = 0, reqHave = 0, optHave = 0;
   Object.values(state.slots).forEach(s => {
@@ -2254,40 +2433,47 @@ fitSwitch.querySelectorAll('.mode-btn').forEach(btn => {
 });
 
 function applyFitUI(fit){
+  // [2026-04-22 14:15] state.fitTarget 저장 누락 버그 수정 + null 가드 (fitQuestion 삭제됨)
+  state.fitTarget = fit;
   const faceWrap = $('#profileFaceWrap');
   const modelWrap = $('#profileModelWrap');
   const titleText = $('#profileTitleText');
   const hintText = $('#profileHintText');
-  const fitQuestion = $('#fitQuestion');
+  const fitQuestion = document.getElementById('fitQuestion');  // 삭제된 경우 null
   const step2Sum = $('#step2Summary');
 
-  step2Sum.textContent = FIT_LABELS[fit] || '—';
+  if(step2Sum) step2Sum.textContent = FIT_LABELS[fit] || '—';
 
   if(fit === 'my'){
-    faceWrap.style.display = '';
-    modelWrap.style.display = 'none';
-    titleText.textContent = '코디 프로필';
-    hintText.textContent = 'AI가 개인화된 착장을 만드는 데 쓰여요';
-    fitQuestion.innerHTML = '아래 <b style="color:var(--teal-light);">코디 프로필</b> 박스의 정보로 생성됩니다.';
+    if(faceWrap) faceWrap.style.display = '';
+    if(modelWrap) modelWrap.style.display = 'none';
+    if(titleText) titleText.textContent = '코디 프로필';
+    if(hintText) hintText.textContent = 'AI가 개인화된 착장을 만드는 데 쓰여요';
+    if(fitQuestion) fitQuestion.innerHTML = '아래 <b style="color:var(--teal-light);">코디 프로필</b> 박스의 정보로 생성됩니다.';
     loadMyProfile();
   } else if(fit === 'somebody'){
-    faceWrap.style.display = '';
-    modelWrap.style.display = 'none';
-    titleText.textContent = '썸바디 프로필';
-    hintText.textContent = '정보를 직접 입력해 주세요';
-    fitQuestion.innerHTML = '누군가의 <b style="color:var(--teal-light);">프로필</b>을 아래에 입력해 주세요.';
+    if(faceWrap) faceWrap.style.display = '';
+    if(modelWrap) modelWrap.style.display = 'none';
+    if(titleText) titleText.textContent = '썸바디 프로필';
+    if(hintText) hintText.textContent = '정보를 직접 입력해 주세요';
+    if(fitQuestion) fitQuestion.innerHTML = '누군가의 <b style="color:var(--teal-light);">프로필</b>을 아래에 입력해 주세요.';
     resetProfileForSomebody();
   } else if(fit === 'model'){
-    faceWrap.style.display = 'none';
-    modelWrap.style.display = '';
-    titleText.textContent = '모델 선택';
-    hintText.textContent = '남자 / 여자 모델 중 선택';
-    fitQuestion.innerHTML = '아래에서 <b style="color:var(--teal-light);">남자 / 여자 모델</b>을 선택해 주세요.';
+    if(faceWrap) faceWrap.style.display = 'none';
+    if(modelWrap) modelWrap.style.display = '';
+    if(titleText) titleText.textContent = '모델 선택';
+    if(hintText) hintText.textContent = '남자 / 여자 모델 중 선택';
+    if(fitQuestion) fitQuestion.innerHTML = '아래에서 <b style="color:var(--teal-light);">남자 / 여자 모델</b>을 선택해 주세요.';
     // 모델 모드 진입 시엔 성별 초기화
     state.modelGender = null;
-    $('#genderSwitch').dataset.gender = '';
-    $('#genderSwitch').querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+    const gs = document.getElementById('genderSwitch');
+    if(gs){
+      gs.dataset.gender = '';
+      gs.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+    }
   }
+  // [2026-04-22 14:15] 핏 변경 후 영속화
+  try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
 }
 
 function loadMyProfile(){
@@ -2307,7 +2493,21 @@ function loadMyProfile(){
   $('#bodyAge').textContent = snap.bodyAge;
   $('#bodyHeight').textContent = snap.bodyHeight;
   $('#bodyWeight').textContent = snap.bodyWeight;
-  $('#facePh').textContent = 'face';
+  // [2026-04-22 14:15 TJ 지시3] 얼굴 사진 반영
+  //  1) state.uploadedFaceDataUrl (직접 업로드) 우선
+  //  2) snap.faceSrc (CodiBank에서 로드된 회원 얼굴 사진)
+  //  3) 없으면 'face' 플레이스홀더
+  const circle = document.getElementById('faceCircle');
+  const faceUrl = state.uploadedFaceDataUrl || snap.faceSrc || '';
+  if(circle && faceUrl){
+    circle.innerHTML = '<img src="'+faceUrl+'" alt="프로필 사진" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+  } else {
+    $('#facePh').textContent = 'face';
+  }
+  // 비동기로 CodiBank 회원 얼굴 사진 로드 시도 (snap.faceSrc 없을 때)
+  if(!faceUrl && typeof loadMyProfileFace === 'function'){
+    loadMyProfileFace();
+  }
 }
 
 function resetProfileForSomebody(){
@@ -2335,6 +2535,8 @@ $('#genderSwitch').querySelectorAll('.gender-card').forEach(card => {
     card.querySelector('input[type="radio"]').checked = true;
     state.stepDone[2] = true;
     updateFinalSummary();
+    // [2026-04-22 14:15] 모델 성별 선택 후 영속화
+    try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
     // 성별까지 선택했으면 자동 Step 3 전환
     if(state.currentStep === 2){
       setTimeout(() => setStep(3), 400);
@@ -2516,6 +2718,8 @@ function onTryonFaceFile(ev){
       const pcEmpty = document.getElementById('pcEmpty');
       if(pcEmpty) pcEmpty.innerHTML = '얼굴 사진이 등록되었어요<br>생성 시 퍼스널컬러를 분석합니다';
     }
+    // [2026-04-22 14:15] 얼굴 업로드 후 영속화
+    try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
     showToast('얼굴 사진이 등록되었습니다');
   };
   reader.readAsDataURL(file);
@@ -2570,6 +2774,8 @@ function saveBodyInfo(){
   const form = document.getElementById('bodyEditForm');
   if(form) form.style.display = 'none';
   $('#bodyEditBtn').style.display = '';
+  // [2026-04-22 14:15] 저장 후 영속화
+  try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
   showToast('신체정보가 저장되었습니다');
 }
 
@@ -2600,10 +2806,49 @@ function showToast(msg){
 
 // ════════════════════════════════════════════════════════════════
 //  초기 렌더
+//  [2026-04-22 14:15] 복원 순서:
+//  1) renderStep1 (카운트 초기화)
+//  2) loadTryonState() — 저장된 상태 복원 (slots, fitTarget, 신체정보, 얼굴)
+//  3) 복원 실패 시 applyFitUI('my')로 기본값 적용
+//  4) updateFinalSummary
 // ════════════════════════════════════════════════════════════════
 renderStep1();
-applyFitUI('my');        // Step 2 기본값 적용
+const _restored = (typeof loadTryonState === 'function') ? loadTryonState() : false;
+if(!_restored){
+  applyFitUI('my');        // Step 2 기본값 적용 (첫 방문)
+}
 updateFinalSummary();
+
+// [2026-04-22 14:15 TJ 지시3] 마이 핏 진입 시 회원의 얼굴 사진을 faceCircle에 표시
+//  — codibank.js의 CodiBank.getUserFaceImageSrc(user)를 사용 (closet.html과 동일 패턴)
+//  — 이미 사용자가 업로드한 이미지가 있으면(uploadedFaceDataUrl) 그걸 우선 사용
+async function loadMyProfileFace(){
+  try {
+    // 썸바디/모델 모드면 건너뜀
+    if(state.fitTarget !== 'my') return;
+    // 이미 사용자가 직접 업로드한 이미지가 있으면 우선
+    if(state.uploadedFaceDataUrl) return;
+    if(typeof CodiBank === 'undefined' || !CodiBank) return;
+    const user = (typeof CodiBank.getCurrentUser === 'function') ? CodiBank.getCurrentUser() : null;
+    if(!user) return;
+    let faceSrc = '';
+    if(typeof CodiBank.getUserFaceImageSrc === 'function'){
+      faceSrc = await CodiBank.getUserFaceImageSrc(user);
+    }
+    if(!faceSrc){
+      // fallback: avatarFace 또는 photo 경로 직접 사용
+      faceSrc = String(user.avatarFace || user.photo || '').trim();
+    }
+    if(!faceSrc) return;
+    const circle = document.getElementById('faceCircle');
+    if(circle){
+      circle.innerHTML = '<img src="'+faceSrc+'" alt="프로필 사진" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+    }
+    state.myProfileSnapshot.faceSrc = faceSrc;
+  } catch(e){ console.warn('loadMyProfileFace failed:', e); }
+}
+// CodiBank SDK 로드 대기 — 스크립트가 body 아래 있으므로 약간 지연
+setTimeout(loadMyProfileFace, 80);
 </script>
 
 </body>
