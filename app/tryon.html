@@ -222,7 +222,13 @@
     display:none;
     animation:stepExpand .35s cubic-bezier(.4,0,.2,1);
   }
-  .step[data-state="current"] .step-body{ display:block; }
+  /* [2026-04-22 FOUC fix] data-state="pending"/"complete"일 때도 명시적 숨김 보강
+     이전: display:none은 .step-body 기본값이었지만 특정 렌더 타이밍에
+           data-state="current" 규칙이 먼저 적용되어 순간 표시되는 현상.
+     보강: 명시적 우선순위 추가로 페이지 전환 시 Step 2/3 body가 절대 새지 않음 */
+  .step[data-state="pending"] .step-body,
+  .step[data-state="complete"] .step-body{ display:none !important; }
+  .step[data-state="current"] .step-body{ display:block !important; }
   @keyframes stepExpand{
     from{ opacity:0; transform:translateY(-4px); }
     to{ opacity:1; transform:translateY(0); }
@@ -2467,6 +2473,20 @@ if(_restored) rerenderAllSlots();
 
 applyFitUI(state.fitTarget || 'my');        // Step 2 — 복원된 fit 또는 기본값 적용
 updateFinalSummary();
+
+// [2026-04-22 FOUC fix] state.currentStep과 DOM data-state 동기화
+// 이전: HTML의 data-state="current"는 Step 1 고정이지만
+//       sessionStorage에서 currentStep=2 또는 3으로 복원되는 경우가 있었음.
+//       → 불일치로 렌더링 순간 Step 2 body가 잠깐 보이는 현상 발생.
+// 해결: 초기 로드 시 setStep을 명시적으로 한 번 호출해서 DOM과 state를 확실히 일치시킴.
+//       복원값이 없거나 이상하면 항상 Step 1로 고정.
+(function syncStepDomOnLoad(){
+  let targetStep = 1;
+  if(_restored && state.currentStep && [1,2,3].indexOf(state.currentStep) >= 0){
+    targetStep = state.currentStep;
+  }
+  try { setStep(targetStep); } catch(_){ /* setStep 정의 전이면 무시 */ }
+})();
 </script>
 
 </body>
