@@ -2850,6 +2850,9 @@ def _get_engine_config_summary() -> dict:
     [2026-04-22 17:05 KST] 서비스별 단일 모델 구조로 단순화.
     기존 "matrix"(티어×기능) 대신 "service_engines"(기능만) 제공.
     하위호환 위해 "matrix" 키도 유지하되 모든 티어에 같은 값 반환.
+    
+    [2026-04-23 17:00 KST] 트라이온 분석 모델 & thinking_level 정보 추가.
+    마스터가 Render 환경변수를 바꾼 뒤 현재 설정을 쉽게 확인 가능.
     """
     service_engines = {
         "codifit": _resolve_engine("", "codifit"),
@@ -2860,11 +2863,34 @@ def _get_engine_config_summary() -> dict:
         tier: dict(service_engines)
         for tier in ("FREE", "SILVER", "GOLD", "DIAMOND")
     }
+    
+    # [2026-04-23 17:00] 트라이온 분석 전용 설정 (병렬 처리용)
+    _tryon_analysis_model = os.getenv("CODIBANK_MODEL_TRYON_ANALYSIS", "gemini-3-pro-preview")
+    _tryon_thinking_raw = (os.getenv("CODIBANK_TRYON_THINKING_LEVEL") or "").strip().lower()
+    _tryon_thinking_effective = _tryon_thinking_raw if _tryon_thinking_raw in ("low", "medium", "high") else "low"
+    
     return {
         "engine_aliases": dict(_ENGINE_MODEL_MAP),
         "service_engines": service_engines,   # 신규 (권장)
         "matrix": matrix,                      # 하위호환
         "policy_note": "티어 무시 · 서비스별 단일 모델 (2026-04-22 17:05 KST)",
+        # 트라이온 병렬 처리 설정 (2026-04-23 17:00)
+        "tryon_parallel": {
+            "image_model":      service_engines["tryon"],
+            "analysis_model":   _tryon_analysis_model,
+            "thinking_level": {
+                "raw_env":   _tryon_thinking_raw or "(미설정)",
+                "effective": _tryon_thinking_effective,
+                "allowed":   ["low", "medium", "high"],
+                "default":   "low",
+            },
+            "env_vars": {
+                "CODIBANK_MODEL_TRYON":          os.getenv("CODIBANK_MODEL_TRYON") or "(미설정 → 기본값 사용)",
+                "CODIBANK_MODEL_TRYON_ANALYSIS": os.getenv("CODIBANK_MODEL_TRYON_ANALYSIS") or "(미설정 → gemini-3-pro-preview)",
+                "CODIBANK_TRYON_THINKING_LEVEL": _tryon_thinking_raw or "(미설정 → low)",
+            },
+            "note": "Render 대시보드에서 환경변수 변경 시 자동 재시작으로 즉시 반영됨",
+        },
     }
 
 # ─── 기존 _CODISTYLE_MODEL (하위 호환용 폴백) ───────────────────
@@ -4729,39 +4755,35 @@ def _tryon_build_prompt(
         )
     wearing = " ".join(wearing_bits) if wearing_bits else "Natural, well-fitted wearing style."
 
-    # ──────── Phase 4: IMAGE COMPOSITION ────────
-    # 모델핏이면 성별에 따라 표준 포즈, 아니면 업로드 얼굴 보존
+    # ──────── Phase 4: IMAGE COMPOSITION (전신 엄수 — 2026-04-23 TJ 지시) ────────
+    # 기존: 발끝/신발이 프레임 밖으로 짤리는 문제 발생
+    # 해결: head-to-toe full-body 엄격 규정 + 9:16 세로 비율 + 상하 여백 안내
     image_compo = (
-        "Full-body front-facing shot, head to toe visible. "
-        "Model stands with natural relaxed posture, slight weight-shift to one leg. "
-        "Arms relaxed at sides or one hand slightly on hip. "
-        "Soft, even studio lighting (no harsh shadows). "
-        "Background: clean seamless neutral grey (#E8E8E8). "
-        "Image aspect ratio: 2:3 (portrait). "
-        "Photographic realism — NO illustration, NO cartoon style."
+        "IMAGE FRAMING RULES (MANDATORY — violations are critical errors): "
+        "• ASPECT RATIO: 9:16 vertical portrait (tall). "
+        "• FRAMING: complete FULL-BODY shot from TOP of head to BELOW the feet. "
+        "  The ENTIRE shoes must be fully visible including the soles on the ground. "
+        "  The top of the head must have ~8-12% breathing space above. "
+        "  The feet must have ~5-8% breathing space below (never cut at the ankle or shin). "
+        "• POSITION: model is vertically centered but slightly offset to show full outfit. "
+        "• CROP GUARD: NEVER crop at knees, ankles, shins, calves, or above the shoes. "
+        "  If the outfit is long (midi/maxi dress, long pants), ZOOM OUT so the hem and shoes are fully visible. "
+        "• POSE: natural relaxed standing posture, slight weight-shift to one leg, "
+        "  arms relaxed at sides or one hand slightly on hip. "
+        "• LIGHTING: soft even studio lighting, no harsh shadows. "
+        "• BACKGROUND: clean seamless neutral grey (#E8E8E8). "
+        "• STYLE: photographic realism — NO illustration, NO cartoon, NO anime style."
     )
 
-    # ──────── Phase 5: EVALUATION (codistyle과 동일 포맷 — 5섹션 + C.S.I 4지표) ────────
-    # 프론트 csScoreBox가 기대하는 정확한 포맷을 강제
+    # ──────── Phase 5: IMAGE-ONLY MODE (2026-04-23 17:30 — 병렬 처리 반영) ────────
+    # 이전: 이미지 모델이 이미지+분석 JSON 모두 생성 → 분석 부실
+    # 신규: 이미지 모델은 이미지에만 집중, 분석은 _tryon_analyze_via_text_model()이 병렬로 처리
+    # 따라서 이 프롬프트는 "이미지만 잘 만들어달라"는 명확한 단일 목표 지시.
     evaluation = (
-        "\n\n[PHASE 5 — PREMIUM CONSULTING REPORT — REQUIRED DETAILED TEXT RESPONSE]: "
-        "After generating the image, provide a comprehensive styling analysis in Korean. "
-        "Structure the text response EXACTLY as follows (field names in English, values in Korean):\n\n"
-        "STYLING_SCORE:{total}/100\n"
-        "body_shape:{0-30}\n"
-        "personal_color:{0-30}\n"
-        "proportion:{0-20}\n"
-        "harmony:{0-20}\n\n"
-        "종합 평가: [한 줄 평가 — 이 착장의 핵심 시각적 효과를 한 문장으로]\n\n"
-        "스타일 해시태그: #키워드1 #키워드2 #키워드3 #키워드4\n\n"
-        "심층 분석:\n"
-        "퍼스널컬러 분석: [PHASE 1 시즌 타입 근거 + 착장 컬러와의 매치/미스매치 상세 설명, 3~5문장]\n\n"
-        "상의 스타일 분석: [상의(또는 원피스 상반부)의 디자인·컬러·실루엣이 체형에 미치는 효과, 3~5문장]\n\n"
-        "하의 스타일 분석: [하의(또는 원피스 하반부)의 디자인·컬러·실루엣 분석, 3~5문장]\n\n"
-        "실루엣과 비율: [전체 실루엣이 PHASE 1 체형의 강점을 살리고 약점을 보완하는지, 3~5문장]\n\n"
-        "상하의 밸런스: [상·하의 시각적 밸런스, 컬러 하모니, 전체적인 스타일링 완성도, 3~5문장]\n\n"
-        "IMPORTANT: Every bullet MUST reference PHASE 1 data (body type, personal color season) "
-        "as judgment criteria. DO NOT generate empty sections."
+        "\n\n[IMAGE-ONLY TASK]: Your ONLY task is to generate the try-on image. "
+        "Focus 100% on image quality: facial identity preservation, garment fidelity, "
+        "full-body framing (head-to-toe with shoes visible). "
+        "Brief 1-sentence text description is acceptable but NOT required."
     )
 
     # ──────── 최종 결합 ────────
@@ -4845,13 +4867,19 @@ def _tryon_parse_response(comment: str):
             result["style_hashtags"] = [t.strip() for t in _re.findall(r'#\S+', _raw_tags)]
         
         # 5) 5섹션 심층 분석 — 프론트 _renderAnalysis가 기대하는 dict 형식으로
+        # [2026-04-23 18:00] 조건부 분석 대응 — "색상 조화 분석" / "전체 스타일 완성도" 키워드 추가
+        # 기존 "퍼스널컬러 분석" / "상하의 밸런스" 도 계속 지원 (하위호환)
         _advice = {}
+        # Next-section 조기 종료 패턴에 모든 가능한 다음 섹션 헤더 포함
+        _NEXT_HEADERS = r"퍼스널컬러 분석|색상 조화 분석|상의 스타일 분석|하의 스타일 분석|실루엣과 비율|상하의 밸런스|전체 스타일 완성도|IMPORTANT"
         _section_patterns = [
-            ("pc",        r'퍼스널컬러 분석\s*[:：]\s*([^\n]+(?:\n(?!(?:상의 스타일 분석|하의 스타일 분석|실루엣과 비율|상하의 밸런스))[^\n]*)*)'),
-            ("top",       r'상의 스타일 분석\s*[:：]\s*([^\n]+(?:\n(?!(?:하의 스타일 분석|실루엣과 비율|상하의 밸런스))[^\n]*)*)'),
-            ("bottom",    r'하의 스타일 분석\s*[:：]\s*([^\n]+(?:\n(?!(?:실루엣과 비율|상하의 밸런스))[^\n]*)*)'),
-            ("proportion", r'실루엣과 비율\s*[:：]\s*([^\n]+(?:\n(?!(?:상하의 밸런스))[^\n]*)*)'),
-            ("harmony",    r'상하의 밸런스\s*[:：]\s*([^\n]+(?:\n(?!(?:IMPORTANT|\Z))[^\n]*)*)'),
+            # pc 키: 퍼스널컬러 분석 OR 색상 조화 분석 (둘 중 하나)
+            ("pc",        rf'(?:퍼스널컬러 분석|색상 조화 분석)\s*[:：]\s*([^\n]+(?:\n(?!(?:{_NEXT_HEADERS}))[^\n]*)*)'),
+            ("top",       rf'상의 스타일 분석\s*[:：]\s*([^\n]+(?:\n(?!(?:{_NEXT_HEADERS}))[^\n]*)*)'),
+            ("bottom",    rf'하의 스타일 분석\s*[:：]\s*([^\n]+(?:\n(?!(?:{_NEXT_HEADERS}))[^\n]*)*)'),
+            ("proportion", rf'실루엣과 비율\s*[:：]\s*([^\n]+(?:\n(?!(?:{_NEXT_HEADERS}))[^\n]*)*)'),
+            # harmony 키: 상하의 밸런스 OR 전체 스타일 완성도 (둘 중 하나)
+            ("harmony",    rf'(?:상하의 밸런스|전체 스타일 완성도)\s*[:：]\s*([^\n]+(?:\n(?!(?:{_NEXT_HEADERS}|\Z))[^\n]*)*)'),
         ]
         for _key, _pat in _section_patterns:
             _sm = _re.search(_pat, comment)
@@ -4863,6 +4891,574 @@ def _tryon_parse_response(comment: str):
         print(f"[TRYON-PARSE] 파싱 중 경고: {_parse_e}", flush=True)
     
     return result
+
+
+# ─── 2026-04-23 14:30 KST [TJ 지시 — 임시 디버그 엔드포인트] ───
+# 트라이온 모델 라우팅 디버그용. 브라우저 접속으로 사용 가능.
+# 테스트 완료 후 제거 권장.
+@app.get("/api/debug/gemini-models")
+def debug_gemini_models():
+    """
+    현재 Gemini API 계정에서 사용 가능한 이미지 생성 모델 목록 조회.
+    
+    반환:
+      {
+        "ok": true,
+        "api_key_present": true/false,
+        "total_models": N,
+        "image_models": [...],
+        "tryon_target_available": {
+          "gemini-3-pro-image-preview": true/false,
+          "gemini-3.1-flash-image-preview": true/false,
+          "gemini-2.5-flash-image": true/false,
+        },
+        "current_config": {
+          "CODISTYLE_GEMINI_MODEL": "...",
+          "CODIBANK_MODEL_TRYON": "..." or null,
+          "resolved_tryon_model": "..."
+        }
+      }
+    
+    사용:
+      브라우저에서 접속:
+        https://codibank-api.onrender.com/api/debug/gemini-models
+    """
+    import os as _os
+    result = {
+        "ok": False,
+        "api_key_present": bool(_os.getenv("GEMINI_API_KEY")),
+        "total_models": 0,
+        "image_models": [],
+        "tryon_target_available": {},
+        "current_config": {
+            "CODISTYLE_GEMINI_MODEL": _os.getenv("CODISTYLE_GEMINI_MODEL"),
+            "CODIBANK_MODEL_TRYON": _os.getenv("CODIBANK_MODEL_TRYON"),
+            "CODIBANK_ALIAS_TRYON": _os.getenv("CODIBANK_ALIAS_TRYON"),
+            "resolved_tryon_model": None,
+        }
+    }
+    
+    # 현재 _resolve_engine이 어떤 모델을 반환하는지 기록
+    try:
+        result["current_config"]["resolved_tryon_model"] = _resolve_engine("FREE", "tryon")
+    except Exception as _e:
+        result["current_config"]["resolved_tryon_model_error"] = str(_e)
+    
+    # API 키 없으면 조기 리턴
+    if not result["api_key_present"]:
+        result["error"] = "GEMINI_API_KEY 환경변수가 없습니다"
+        return result, 200
+    
+    # 새 SDK 우선 시도, 실패시 legacy SDK
+    try:
+        try:
+            from google import genai as _new_genai
+            client = _new_genai.Client(api_key=_os.getenv("GEMINI_API_KEY"))
+            models_iter = client.models.list()
+            all_models = []
+            for m in models_iter:
+                mname = getattr(m, "name", str(m))
+                all_models.append(mname)
+            result["sdk_used"] = "google-genai (new)"
+        except Exception as _new_e:
+            # legacy SDK fallback
+            import google.generativeai as _genai_old
+            _genai_old.configure(api_key=_os.getenv("GEMINI_API_KEY"))
+            all_models = []
+            for m in _genai_old.list_models():
+                mname = getattr(m, "name", str(m))
+                all_models.append(mname)
+            result["sdk_used"] = f"google-generativeai (legacy) — new SDK failed: {_new_e}"
+        
+        result["total_models"] = len(all_models)
+        
+        # 이미지 생성 관련 모델만 필터링
+        image_keywords = ["image", "imagen"]
+        result["image_models"] = [
+            mname for mname in all_models
+            if any(kw in mname.lower() for kw in image_keywords)
+        ]
+        
+        # 트라이온 타겟 모델들 존재 여부
+        targets = [
+            "gemini-3-pro-image-preview",      # Nano Banana Pro
+            "gemini-3.1-flash-image-preview",  # Nano Banana 2
+            "gemini-2.5-flash-image",           # Nano Banana 1 (검증됨)
+            "gemini-3-pro-image",               # 혹시 이름 없이 존재할 수도
+        ]
+        for target in targets:
+            # name에 target이 포함된 항목이 있는지 (models/... 접두사 고려)
+            found = any(target in mname for mname in all_models)
+            result["tryon_target_available"][target] = found
+        
+        result["ok"] = True
+        
+    except Exception as e:
+        result["error"] = f"Gemini API 호출 실패: {type(e).__name__}: {str(e)}"
+        import traceback
+        result["traceback"] = traceback.format_exc()[:2000]
+    
+    return result, 200
+
+
+# ════════════════════════════════════════════════════════════════════
+# ─── 2026-04-23 16:00 KST [TJ 지시 — 트라이온 병렬 처리] ───────────
+# 
+# 기존 문제:
+#   Gemini 3 Pro Image Preview 단일 호출로 이미지+분석 동시 생성 시
+#   thinking 모드로 인해 분석 JSON이 부실하여 점수 0/0/0/0 표시됨
+#
+# 해결 방안:
+#   이미지 생성(Gemini 3 Pro Image)과 분석(Gemini 3 Pro)을 병렬 호출.
+#   ThreadPoolExecutor(max_workers=2)로 동시 실행 후 통합 응답.
+#   프론트 코드 변경 0.
+#
+# 병렬 구조:
+#   worker 1: _tryon_generate_image_via_gemini() → 이미지만 생성
+#   worker 2: _tryon_analyze_via_text_model()     → 분석 JSON만 생성
+#   둘 다 완료 후 통합하여 기존 응답 스키마로 반환.
+#
+# 분석 전용 모델:
+#   기본값: gemini-3-pro-preview (텍스트, thinking 지원)
+#   환경변수: CODIBANK_MODEL_TRYON_ANALYSIS 로 덮어쓰기 가능
+# ════════════════════════════════════════════════════════════════════
+
+def _tryon_build_analysis_prompt(
+    *,
+    mode: str,
+    fit_target: str,
+    model_gender: str,
+    gender_ko: str,
+    gender_en: str,
+    age: str,
+    height: str,
+    weight: str,
+    body_type_key: str,
+    pc_summary: str,
+    top_info: dict,
+    bottom_info: dict,
+    onepiece_info: dict,
+    outer_info: dict,
+    shoes_info: dict,
+    lang_en: bool = False,
+):
+    """
+    [2026-04-23 16:00] 트라이온 분석 전용 프롬프트.
+    
+    Gemini 3 Pro (텍스트) 로 호출. 이미지 생성 없이 분석 JSON 만 요청.
+    _tryon_parse_response가 파싱하는 마커 형식(STYLING_SCORE:, body_shape: 등) 준수.
+    
+    입력 이미지:
+      - 얼굴 (fit_target != model)
+      - 상의/하의 또는 원피스 (참고용)
+      - 아우터/신발 (선택)
+    
+    반환:
+      (prompt_text, required_image_keys)
+    """
+    # 체형 키 한글화
+    _body_kor_map = {
+        "straight": "스트레이트형",
+        "wave": "웨이브형",
+        "natural": "내추럴형",
+        "pear": "하체비만형",
+        "apple": "복부비만형",
+        "hourglass": "모래시계형",
+        "inverted": "역삼각형",
+    }
+    body_kor = _body_kor_map.get((body_type_key or "").lower(), body_type_key or "일반")
+    
+    # 퍼스널컬러 요약 (없으면 기본)
+    pc_text = pc_summary or "분석된 퍼스널컬러 정보 없음"
+    
+    # 아이템 정보 정리
+    _item_desc = []
+    _img_order = []
+    if fit_target != _TRYON_FIT_MODEL:
+        _img_order.append("face")
+    
+    if mode == _TRYON_MODE_TWOPIECE:
+        _top_cat = (top_info or {}).get("sub_category") or (top_info or {}).get("category") or "상의"
+        _top_col = (top_info or {}).get("color", "")
+        _item_desc.append(f"• 상의: {_top_cat}" + (f" ({_top_col})" if _top_col else ""))
+        _img_order.append("top")
+        _bot_cat = (bottom_info or {}).get("sub_category") or (bottom_info or {}).get("category") or "하의"
+        _bot_col = (bottom_info or {}).get("color", "")
+        _item_desc.append(f"• 하의: {_bot_cat}" + (f" ({_bot_col})" if _bot_col else ""))
+        _img_order.append("bottom")
+    elif mode == _TRYON_MODE_ONEPIECE:
+        _op_cat = (onepiece_info or {}).get("sub_category") or (onepiece_info or {}).get("category") or "원피스"
+        _op_col = (onepiece_info or {}).get("color", "")
+        _item_desc.append(f"• 원피스: {_op_cat}" + (f" ({_op_col})" if _op_col else ""))
+        _img_order.append("onepiece")
+    elif mode == _TRYON_MODE_OUTER:
+        _out_cat = (outer_info or {}).get("sub_category") or (outer_info or {}).get("category") or "아우터"
+        _out_col = (outer_info or {}).get("color", "")
+        _item_desc.append(f"• 아우터: {_out_cat}" + (f" ({_out_col})" if _out_col else ""))
+        _img_order.append("outer")
+        # 아우터 모드는 상의/하의도 선택 가능
+        if top_info and (top_info.get("sub_category") or top_info.get("category")):
+            _top_cat = top_info.get("sub_category") or top_info.get("category")
+            _item_desc.append(f"• 상의: {_top_cat}")
+            _img_order.append("top")
+        if bottom_info and (bottom_info.get("sub_category") or bottom_info.get("category")):
+            _bot_cat = bottom_info.get("sub_category") or bottom_info.get("category")
+            _item_desc.append(f"• 하의: {_bot_cat}")
+            _img_order.append("bottom")
+    
+    # 신발 (옵션, 모든 모드 공통)
+    if shoes_info and (shoes_info.get("sub_category") or shoes_info.get("category")):
+        _shoes_cat = shoes_info.get("sub_category") or shoes_info.get("category")
+        _item_desc.append(f"• 신발: {_shoes_cat}")
+        _img_order.append("shoes")
+    
+    items_block = "\n".join(_item_desc) if _item_desc else "• (아이템 정보 없음)"
+    
+    # 사용자 정보 블록
+    user_info_block = (
+        f"• 성별: {gender_ko}\n"
+        f"• 나이대: {age}\n"
+        f"• 키: {height}cm\n"
+        f"• 몸무게: {weight}kg\n"
+        f"• 체형: {body_kor}\n"
+        f"• 퍼스널컬러: {pc_text}"
+    )
+    
+    # ─── 2026-04-23 18:00 [TJ 지시 — 조건부 퍼스널컬러 분석 B안] ───
+    # 퍼스널컬러 분석 가능 여부 판정:
+    #   • fit_target == "model" → 불가 (사용자 얼굴 없음 → 일반 조화로 대체)
+    #   • fit_target == "somebody" & 얼굴 사진 없음 → 불가
+    #   • pc_summary 비어있음 → 불가
+    #   • 그 외 (myfit/somebody-with-photo 이면서 pc 있음) → 분석 가능
+    _has_pc = bool(pc_summary and pc_summary.strip()) and fit_target != _TRYON_FIT_MODEL
+    # 모델핏일 때는 pc_summary가 있어도 사용자 얼굴이 없으므로 퍼스널컬러 분석 부적절
+    
+    if _has_pc:
+        # 정상 퍼스널컬러 분석 블록
+        _pc_criterion = (
+            "[2] personal_color (퍼스널컬러 조화) — 30점 만점\n"
+            f"    • 의류 색상이 사용자 퍼스널컬러({pc_text})와 조화로운 정도\n"
+            "    • 톤·온도·채도의 매칭\n"
+            "    • 얼굴 혈색·피부톤에 미치는 시각적 효과"
+        )
+        _pc_section_title = "퍼스널컬러 분석"
+        _pc_section_guide = f"[사용자의 {pc_text}와 의상 색상의 조화를 구체적으로 서술. 착장이 얼굴 혈색과 피부톤에 어떤 영향을 주는지 포함]"
+    else:
+        # 퍼스널컬러 정보 없음 → 일반 색상 조화 분석으로 대체 (B안)
+        _pc_criterion = (
+            "[2] color_harmony (색상 조화) — 30점 만점\n"
+            "    • 의류 간 색상 조합의 전반적 조화\n"
+            "    • 배색의 균형감·대비감·무드 통일성\n"
+            "    • (참고: 사용자 퍼스널컬러 정보가 없어 일반적 색상 조화 기준으로 평가)"
+        )
+        _pc_section_title = "색상 조화 분석"
+        _pc_section_guide = "[의상 간 색상 조합의 일반적 조화를 서술. 배색의 균형·대비·무드 일관성 평가. 퍼스널컬러 개인 맞춤 판단은 불가능하므로 보편적 색채학 관점에서 서술]"
+    
+    # 최종 프롬프트 (한국어 기본) — 전문 패션 스타일리스트 톤
+    prompt = f"""당신은 보그(VOGUE)와 엘르(ELLE)에서 15년 이상 경력을 쌓은 
+수석 패션 에디터이자 프로페셔널 퍼스널 스타일리스트입니다.
+한국 톱클래스 모델 에이전시와 협업하며 수천 명의 고객 스타일을 컨설팅해왔고,
+색채학·체형학·퍼스널컬러 이론에 모두 능통합니다.
+
+첨부된 이미지(얼굴 + 의류 아이템)와 사용자 프로필을 종합 분석하여,
+이 사용자가 해당 의류를 착용했을 때의 스타일링 완성도를 
+정량 점수 + 전문가 시각의 심층 리포트로 제공합니다.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 사용자 프로필:
+{user_info_block}
+
+👗 착용 아이템:
+{items_block}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 평가 기준 (C.S.I. — Coordination Style Index):
+
+[1] body_shape (체형 보완도) — 30점 만점
+    • 체형의 단점을 커버하고 장점을 강조하는 정도
+    • {body_kor}에 최적화된 실루엣인지
+    • 시각적 체형 교정 효과
+
+{_pc_criterion}
+
+[3] proportion (비율 개선도) — 20점 만점
+    • 상·하체 비율 최적화 (키 {height}cm 기준)
+    • 다리·허리 라인 개선 효과
+    • 골든 비율(3:7, 4:6)에 얼마나 가까운지
+
+[4] harmony (전체 스타일 완성도) — 20점 만점
+    • 의상 간 무드·패턴·소재의 조화
+    • TPO 적합성 (언제 어디서 입을 수 있는지)
+    • 전체적 시즌감과 트렌드 반영도
+
+총점 = body_shape + personal_color/color_harmony + proportion + harmony = 100점
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📝 반드시 아래 정확한 형식으로 답변해 주세요 (파서 호환 필수):
+
+STYLING_SCORE:[총점]/100
+body_shape:[점수]
+personal_color:[점수]
+proportion:[점수]
+harmony:[점수]
+
+종합 평가: [2-3문장으로 이 착장의 전반적 평가. 전문 에디터의 시각으로 첫인상과 장점, 개선 포인트를 포함. 평범한 설명 금지 — 구체적이고 감각적인 표현 사용]
+
+스타일 해시태그: #키워드1 #키워드2 #키워드3 #키워드4 #키워드5
+(키워드는 트렌디하고 검색 가능한 스타일 용어로 — 예: #오피스시크, #프렌치미니멀, #가을웜톤, #허리강조룩)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔍 심층 분석 (각 섹션 3-5문장, 전문 패션 매거진 아티클 톤):
+
+{_pc_section_title}: {_pc_section_guide}
+
+상의 스타일 분석: [상의의 디자인·핏·소재감·디테일이 체형에 어떤 시각적 효과를 주는지. 
+전문가적 관점에서 컷·라인·볼륨감 분석. 단순 나열 금지 — 인과관계 중심으로 서술]
+
+하의 스타일 분석: [하의의 실루엣·길이·웨이스트라인이 비율에 주는 영향. 
+전문가 용어(페그 핏, 스트레이트, 와이드 등) 적절히 활용하며 일반 독자도 이해 가능한 설명]
+
+실루엣과 비율: [전체 실루엣의 구조 분석. X/A/H/Y 라인 중 어느 것에 해당하는지, 
+사용자 체형에 최적화된 라인인지. 개선 제안이 있다면 구체적으로]
+
+전체 스타일 완성도: [첫인상·무드·시즌감·TPO 추천·완성도 평가. 
+잡지 에디터가 착장을 리뷰하듯 감각적이고 구체적으로 작성]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPORTANT:
+- 위 형식 정확히 준수 (STYLING_SCORE:, body_shape: 등 마커 필수)
+- 점수는 0~최대점 사이 정수, 4개 지표 합계 = 총점 정확 일치
+- 응답은 한국어로만 작성
+- 뻔한 말 금지 — "세련되다" "잘 어울린다" 같은 모호한 표현 피하기
+- 전문가 톤 유지하되 일반 소비자도 공감 가능한 언어
+"""
+    
+    if lang_en:
+        # 영어 버전 (간략 — 동일 마커 유지, 조건부 PC 분석 반영)
+        _en_second = (
+            "[2] personal_color — 30 pts (color harmony with personal color)"
+            if _has_pc
+            else "[2] color_harmony — 30 pts (general color balance; no personal color data)"
+        )
+        _en_section = "퍼스널컬러 분석" if _has_pc else "색상 조화 분석"
+        prompt = f"""You are a senior VOGUE/ELLE fashion editor with 15+ years of experience
+and a professional personal stylist. Analyze the attached images (face + clothing items)
+and user profile to provide styling scores and a premium-magazine-style deep analysis.
+
+USER PROFILE:
+- Gender: {gender_en} / Age: {age} / Height: {height}cm / Weight: {weight}kg
+- Body type: {body_type_key}
+- Personal color: {pc_text if _has_pc else '(not provided — general harmony mode)'}
+
+ITEMS:
+{items_block}
+
+SCORING (C.S.I.):
+[1] body_shape — 30 pts (body shape enhancement)
+{_en_second}
+[3] proportion — 20 pts (height/body ratio improvement)
+[4] harmony — 20 pts (overall styling completeness)
+Total = 100
+
+Respond in the EXACT format below (Korean text content):
+
+STYLING_SCORE:[total]/100
+body_shape:[score]
+personal_color:[score]
+proportion:[score]
+harmony:[score]
+
+종합 평가: [2-3 sentences, editor-tone]
+스타일 해시태그: #tag1 #tag2 #tag3 #tag4 #tag5
+
+{_en_section}: [analysis]
+상의 스타일 분석: [analysis]
+하의 스타일 분석: [analysis]
+실루엣과 비율: [analysis]
+전체 스타일 완성도: [analysis]
+
+IMPORTANT: Exact markers required. Sum of 4 scores must equal total.
+"""
+    
+    return prompt, {"item_order": _img_order}
+
+
+# ─── 2026-04-23 17:00 KST [TJ 지시 — thinking_level 환경변수 제어] ───
+# 마스터 관리자가 재배포 없이 Render 대시보드에서 즉시 변경 가능하도록 
+# 환경변수 CODIBANK_TRYON_THINKING_LEVEL 로 제어.
+#
+# 허용값:
+#   "low"    — 기본값 (비용/속도 최적). 스타일 분석에 충분.
+#   "medium" — 중간. 균형.
+#   "high"   — 최고 품질. 비용 +40%, 속도 -3배. 특별 이벤트용.
+#
+# 잘못된 값/미설정 → "low" 자동 폴백 (방어적).
+# Gemini 3 시리즈 전용 — 2.5에선 무시됨.
+def _resolve_thinking_level() -> str:
+    """환경변수 기반 thinking_level 해석. 마스터가 Render 대시보드에서 실시간 변경 가능."""
+    _raw = (os.getenv("CODIBANK_TRYON_THINKING_LEVEL") or "low").strip().lower()
+    if _raw in ("low", "medium", "high"):
+        return _raw
+    # 잘못된 값 입력 시 안전한 기본값
+    print(f"[TRYON-CONFIG] 알 수 없는 thinking_level='{_raw}', 'low'로 폴백", flush=True)
+    return "low"
+
+
+def _tryon_analyze_via_text_model(
+    *,
+    api_key: str,
+    prompt: str,
+    face_bytes: bytes = None,
+    face_mime: str = None,
+    images_map: dict = None,
+    img_order: list = None,
+    sdk_mode: str = "new",
+) -> str:
+    """
+    [2026-04-23 16:00] 트라이온 분석 전용 Gemini 텍스트 모델 호출.
+    [2026-04-23 17:00] thinking_level 환경변수로 동적 제어 추가.
+    
+    Gemini 3 Pro (gemini-3-pro-preview) 로 호출.
+    이미지 참고 + 분석 JSON 생성 전담. 이미지 출력 없음.
+    
+    환경변수:
+      CODIBANK_MODEL_TRYON_ANALYSIS (기본: gemini-3-pro-preview)
+      CODIBANK_TRYON_THINKING_LEVEL (기본: low, 허용: low/medium/high)
+    
+    반환: 분석 텍스트 (파싱은 _tryon_parse_response가 처리)
+    
+    실패 시: 예외를 그대로 raise (상위에서 future.result() 시 잡음)
+    """
+    import os as _os
+    analysis_model = _os.getenv("CODIBANK_MODEL_TRYON_ANALYSIS", "gemini-3-pro-preview")
+    _thinking_level = _resolve_thinking_level()
+    
+    # Gemini 3 시리즈만 thinking_config 지원 (2.5 이하는 미지원)
+    _supports_thinking = "gemini-3" in analysis_model.lower()
+    
+    images_map = images_map or {}
+    img_order = img_order or []
+    
+    if sdk_mode == "new":
+        from google import genai as _genai
+        from google.genai import types as _gtypes
+        
+        contents = [prompt]
+        # 얼굴 이미지 (fit != model 인 경우)
+        if face_bytes:
+            contents.append(_gtypes.Part.from_bytes(
+                data=face_bytes,
+                mime_type=face_mime or "image/jpeg"
+            ))
+        # 아이템 이미지
+        for _k in img_order:
+            if _k == "face":
+                continue  # 이미 위에서 처리
+            if _k in images_map:
+                _m, _b = images_map[_k]
+                contents.append(_gtypes.Part.from_bytes(
+                    data=_b,
+                    mime_type=_m or "image/jpeg"
+                ))
+        
+        client = _genai.Client(api_key=api_key)
+        
+        # ─── 2026-04-23 17:00 [비용 최적화 + 동적 제어 — TJ 지시 A안 보완] ───
+        # 환경변수 CODIBANK_TRYON_THINKING_LEVEL 로 실시간 제어:
+        #   • 기본: "low" (비용 +1.4%, 속도 2-3초, 품질 충분)
+        #   • 이벤트/프리미엄: "high" (비용 +45%, 속도 5-10초, 최고 품질)
+        # Gemini 3 시리즈가 아니면 thinking_config 생략 (미지원 모델 대응).
+        # SDK 버전 호환성: thinking_config 미지원 시 기본 설정으로 폴백.
+        try:
+            if _supports_thinking:
+                _analysis_config = _gtypes.GenerateContentConfig(
+                    temperature=0.3,           # 낮은 temperature (일관된 점수)
+                    max_output_tokens=4096,
+                    thinking_config=_gtypes.ThinkingConfig(
+                        thinking_level=_thinking_level
+                    ),
+                )
+            else:
+                # Gemini 2.5 등 thinking 미지원 모델
+                _analysis_config = _gtypes.GenerateContentConfig(
+                    temperature=0.3,
+                    max_output_tokens=4096,
+                )
+        except (TypeError, AttributeError) as _cfg_e:
+            # 구버전 SDK 폴백 — thinking_config 미지원 시 기본 설정으로
+            print(f"[TRYON-ANALYSIS] thinking_config 미지원, 기본 설정 사용: {_cfg_e}", flush=True)
+            _analysis_config = _gtypes.GenerateContentConfig(
+                temperature=0.3,
+                max_output_tokens=4096,
+            )
+        
+        response = client.models.generate_content(
+            model=analysis_model,
+            contents=contents,
+            config=_analysis_config,
+        )
+        
+        # 텍스트 추출 (thought 필터링 포함)
+        result_text = ""
+        try:
+            candidates = getattr(response, "candidates", []) or []
+            if candidates:
+                parts = getattr(getattr(candidates[0], "content", None), "parts", []) or []
+                for p in parts:
+                    # thought 파트는 제외
+                    if getattr(p, "thought", False):
+                        continue
+                    text = getattr(p, "text", None)
+                    if text:
+                        result_text += str(text)
+        except Exception as _e:
+            print(f"[TRYON-ANALYSIS-PARSE] new SDK 파싱 경고: {_e}", flush=True)
+        
+        # 폴백: response.text 직접
+        if not result_text:
+            try:
+                result_text = response.text or ""
+            except Exception:
+                pass
+        
+        return result_text
+    
+    else:  # old SDK
+        import google.generativeai as _genai_old
+        from PIL import Image as _PILImage
+        import io as _io
+        
+        _genai_old.configure(api_key=api_key)
+        model = _genai_old.GenerativeModel(analysis_model)
+        
+        def _bytes_to_pil(raw):
+            return _PILImage.open(_io.BytesIO(raw))
+        
+        contents_old = [prompt]
+        if face_bytes:
+            contents_old.append(_bytes_to_pil(face_bytes))
+        for _k in img_order:
+            if _k == "face":
+                continue
+            if _k in images_map:
+                _m, _b = images_map[_k]
+                contents_old.append(_bytes_to_pil(_b))
+        
+        try:
+            response = model.generate_content(
+                contents_old,
+                generation_config={
+                    "temperature": 0.3,
+                    "max_output_tokens": 4096,
+                },
+            )
+        except TypeError:
+            response = model.generate_content(contents_old)
+        
+        try:
+            return response.text or ""
+        except Exception:
+            return ""
 
 
 @app.post("/api/tryon/generate")
@@ -5049,8 +5645,18 @@ def tryon_generate():
             # 마이핏인데 얼굴 없으면 경고만 (계속 진행, 모델 얼굴로 대체됨)
             print("[TRYON-WARN] fit=my but faceImage is missing → will use generic face", flush=True)
 
-    # ─── 프롬프트 구성 ───
-    prompt, img_meta = _tryon_build_prompt(
+    # ════════════════════════════════════════════════════════════════════
+    # ─── 2026-04-23 16:00 KST [TJ 지시 — 병렬 처리] ────────────────────
+    #
+    # 기존: Gemini 3 Pro Image 단일 호출 (이미지+분석 동시) → JSON 부실
+    # 신규: 이미지 생성 + 분석 JSON을 ThreadPoolExecutor 병렬 호출
+    #   worker 1: Gemini 3 Pro Image (이미지 전담)
+    #   worker 2: Gemini 3 Pro Text (분석 JSON 전담)
+    # 둘 다 완료 후 통합. 프론트 코드 변경 없음.
+    # ════════════════════════════════════════════════════════════════════
+    
+    # ─── 이미지 생성용 프롬프트 (기존) ───
+    prompt_img, img_meta = _tryon_build_prompt(
         mode=mode,
         fit_target=fit_target,
         model_gender=model_gender,
@@ -5068,104 +5674,212 @@ def tryon_generate():
         shoes_info=shoes_info,
         lang_en=_t_en,
     )
-
-    # ─── Gemini 호출 ───
-    try:
-        if _SDK == "new":
-            contents = [prompt]
-            if face_bytes:
-                contents.append(_gtypes.Part.from_bytes(data=face_bytes, mime_type=face_mime or "image/jpeg"))
-            # 아이템 순서대로 첨부
-            for _k in img_meta["item_order"]:
-                if _k in images_map:
-                    _m, _b = images_map[_k]
-                    contents.append(_gtypes.Part.from_bytes(data=_b, mime_type=_m or "image/jpeg"))
-            
-            client = _genai.Client(api_key=_GEMINI_KEY)
-            response = client.models.generate_content(
-                model=_TRYON_MODEL,
-                contents=contents,
-                config=_gtypes.GenerateContentConfig(
-                    response_modalities=["IMAGE", "TEXT"],
-                    temperature=0.4,
-                    max_output_tokens=8192,
-                ),
-            )
-        else:
-            # old SDK
-            from PIL import Image as _PILImage
-            _genai_old.configure(api_key=_GEMINI_KEY)
-            model = _genai_old.GenerativeModel(_TRYON_MODEL)
-
-            def _bytes_to_pil(raw):
-                return _PILImage.open(io.BytesIO(raw))
-
-            contents_old = [prompt]
-            if face_bytes:
-                contents_old.append(_bytes_to_pil(face_bytes))
-            for _k in img_meta["item_order"]:
-                if _k in images_map:
-                    _m, _b = images_map[_k]
-                    contents_old.append(_bytes_to_pil(_b))
-            
-            try:
-                response = model.generate_content(
-                    contents_old,
-                    generation_config={
-                        "response_modalities": ["IMAGE", "TEXT"],
-                        "temperature": 0.4,
-                        "max_output_tokens": 8192,
-                    },
+    
+    # ─── 분석용 프롬프트 (신규 — 텍스트 모델 전담) ───
+    prompt_analysis, _analysis_img_meta = _tryon_build_analysis_prompt(
+        mode=mode,
+        fit_target=fit_target,
+        model_gender=model_gender,
+        gender_ko=gender_ko,
+        gender_en=gender_en,
+        age=age,
+        height=height,
+        weight=weight,
+        body_type_key=body_type_key,
+        pc_summary=pc_summary,
+        top_info=top_info,
+        bottom_info=bottom_info,
+        onepiece_info=onepiece_info,
+        outer_info=outer_info,
+        shoes_info=shoes_info,
+        lang_en=_t_en,
+    )
+    
+    # ─── Worker 1: 이미지 생성 전담 함수 ───
+    def _worker_generate_image():
+        """Gemini 3 Pro Image 호출 → 이미지 bytes + finish_reason 반환"""
+        _img_bytes = None
+        _comment_fallback = ""  # 이미지 모델이 혹시 텍스트도 주면 백업용
+        _finish = "unknown"
+        try:
+            if _SDK == "new":
+                contents = [prompt_img]
+                if face_bytes:
+                    contents.append(_gtypes.Part.from_bytes(
+                        data=face_bytes, mime_type=face_mime or "image/jpeg"))
+                for _k in img_meta["item_order"]:
+                    if _k in images_map:
+                        _m, _b = images_map[_k]
+                        contents.append(_gtypes.Part.from_bytes(
+                            data=_b, mime_type=_m or "image/jpeg"))
+                
+                client = _genai.Client(api_key=_GEMINI_KEY)
+                
+                # ─── 2026-04-23 17:30 [TJ 지시 — 전신 뷰박스 1:1.62 비율 대응] ───
+                # 이미지 뷰박스 세로 비율 1:1.62 ≈ 9:14.6
+                # Nano Banana Pro는 9:16 / 2:3 / 4:5 등 세로 비율 지원
+                # 9:16 선택 이유: 전신+신발+상단 여유공간 확보에 가장 적합
+                # ImageConfig는 SDK 버전에 따라 없을 수 있어 예외 처리.
+                try:
+                    _img_gen_config = _gtypes.GenerateContentConfig(
+                        response_modalities=["IMAGE", "TEXT"],
+                        temperature=0.4,
+                        max_output_tokens=8192,
+                        image_config=_gtypes.ImageConfig(
+                            aspect_ratio="9:16",
+                            image_size="1K",
+                        ),
+                    )
+                except (TypeError, AttributeError) as _cfg_e:
+                    # 구버전 SDK 폴백 — ImageConfig 미지원 시 프롬프트의 비율 지시만으로 처리
+                    print(f"[TRYON-IMG] image_config 미지원, 프롬프트만으로: {_cfg_e}", flush=True)
+                    _img_gen_config = _gtypes.GenerateContentConfig(
+                        response_modalities=["IMAGE", "TEXT"],
+                        temperature=0.4,
+                        max_output_tokens=8192,
+                    )
+                
+                response = client.models.generate_content(
+                    model=_TRYON_MODEL,
+                    contents=contents,
+                    config=_img_gen_config,
                 )
-            except TypeError:
-                response = model.generate_content(contents_old)
-    except Exception as e:
-        print(f"[TRYON-ERR] Gemini 호출 실패 ({_SDK}): {e}", flush=True)
-        return jsonify(ok=False, error=f"Gemini 호출 실패 ({_SDK}): {str(e)[:300]}"), 500
-
-    # ─── 응답 파싱: 이미지 + 텍스트 분리 ───
+                
+                # 이미지 + 백업 텍스트 추출
+                candidates = getattr(response, "candidates", []) or []
+                if candidates:
+                    cand = candidates[0]
+                    _finish = str(getattr(cand, "finish_reason", "")).upper()
+                    parts = getattr(getattr(cand, "content", None), "parts", []) or []
+                    for p in parts:
+                        # thought 파트는 제외
+                        if getattr(p, "thought", False):
+                            continue
+                        inline = getattr(p, "inline_data", None)
+                        if inline and getattr(inline, "data", None):
+                            raw = inline.data
+                            if isinstance(raw, str):
+                                raw = base64.b64decode(raw)
+                            _img_bytes = raw
+                        elif getattr(p, "text", None):
+                            _comment_fallback += str(p.text)
+            else:
+                # old SDK
+                from PIL import Image as _PILImage
+                _genai_old.configure(api_key=_GEMINI_KEY)
+                model_obj = _genai_old.GenerativeModel(_TRYON_MODEL)
+                
+                def _b2pil(raw):
+                    return _PILImage.open(io.BytesIO(raw))
+                
+                contents_old = [prompt_img]
+                if face_bytes:
+                    contents_old.append(_b2pil(face_bytes))
+                for _k in img_meta["item_order"]:
+                    if _k in images_map:
+                        _m, _b = images_map[_k]
+                        contents_old.append(_b2pil(_b))
+                
+                try:
+                    response = model_obj.generate_content(
+                        contents_old,
+                        generation_config={
+                            "response_modalities": ["IMAGE", "TEXT"],
+                            "temperature": 0.4,
+                            "max_output_tokens": 8192,
+                        },
+                    )
+                except TypeError:
+                    response = model_obj.generate_content(contents_old)
+                
+                try:
+                    _comment_fallback = response.text or ""
+                except Exception:
+                    pass
+                try:
+                    for cand in (response.candidates or []):
+                        parts = (cand.content.parts if cand.content else [])
+                        for p in parts:
+                            if hasattr(p, "inline_data") and getattr(p.inline_data, "data", None):
+                                raw = p.inline_data.data
+                                if isinstance(raw, str):
+                                    raw = base64.b64decode(raw)
+                                _img_bytes = raw
+                        if cand.finish_reason:
+                            _finish = str(cand.finish_reason).upper()
+                except Exception:
+                    pass
+        except Exception as _img_e:
+            print(f"[TRYON-IMG-ERR] 이미지 생성 실패: {_img_e}", flush=True)
+            raise
+        return _img_bytes, _comment_fallback, _finish
+    
+    # ─── Worker 2: 분석 JSON 전담 함수 ───
+    def _worker_analyze():
+        """Gemini 3 Pro (텍스트) 호출 → 분석 JSON 텍스트 반환"""
+        try:
+            return _tryon_analyze_via_text_model(
+                api_key=_GEMINI_KEY,
+                prompt=prompt_analysis,
+                face_bytes=face_bytes,
+                face_mime=face_mime,
+                images_map=images_map,
+                img_order=_analysis_img_meta["item_order"],
+                sdk_mode=_SDK,
+            )
+        except Exception as _ana_e:
+            print(f"[TRYON-ANALYSIS-ERR] 분석 호출 실패: {_ana_e}", flush=True)
+            raise
+    
+    # ─── 병렬 실행 (최대 90초 대기) ───
+    import concurrent.futures as _cf
+    import time as _time
+    
+    _ANALYSIS_MODEL = os.getenv("CODIBANK_MODEL_TRYON_ANALYSIS", "gemini-3-pro-preview")
+    _ANALYSIS_THINKING = _resolve_thinking_level()  # 환경변수 기반, 마스터가 실시간 변경 가능
+    _t0 = _time.time()
+    print(
+        f"[TRYON-PARALLEL] 시작 — image={_TRYON_MODEL}, "
+        f"analysis={_ANALYSIS_MODEL}, thinking={_ANALYSIS_THINKING}",
+        flush=True
+    )
+    
     img_bytes = None
     comment = ""
     finish = "unknown"
-    try:
-        if _SDK == "new":
-            candidates = getattr(response, "candidates", []) or []
-            if candidates:
-                cand = candidates[0]
-                finish = str(getattr(cand, "finish_reason", "")).upper()
-                parts = getattr(getattr(cand, "content", None), "parts", []) or []
-                for p in parts:
-                    inline = getattr(p, "inline_data", None)
-                    if inline and getattr(inline, "data", None):
-                        raw = inline.data
-                        if isinstance(raw, str):
-                            raw = base64.b64decode(raw)
-                        img_bytes = raw
-                    elif getattr(p, "text", None):
-                        comment += str(p.text)
-        else:
-            # old SDK
-            try:
-                comment = response.text or ""
-            except Exception:
-                comment = ""
-            try:
-                for cand in (response.candidates or []):
-                    parts = (cand.content.parts if cand.content else [])
-                    for p in parts:
-                        if hasattr(p, "inline_data") and getattr(p.inline_data, "data", None):
-                            raw = p.inline_data.data
-                            if isinstance(raw, str):
-                                raw = base64.b64decode(raw)
-                            img_bytes = raw
-                    if cand.finish_reason:
-                        finish = str(cand.finish_reason).upper()
-            except Exception:
-                pass
-    except Exception as e:
-        print(f"[TRYON-ERR] 응답 파싱 실패: {e}", flush=True)
-        return jsonify(ok=False, error=f"응답 파싱 실패: {str(e)[:200]}"), 500
-
+    analysis_ok = False
+    
+    with _cf.ThreadPoolExecutor(max_workers=2, thread_name_prefix="tryon") as _executor:
+        _fut_img = _executor.submit(_worker_generate_image)
+        _fut_ana = _executor.submit(_worker_analyze)
+        
+        # 이미지 결과 (필수)
+        try:
+            img_bytes, _img_fallback_text, finish = _fut_img.result(timeout=120)
+            _dt_img = _time.time() - _t0
+            print(f"[TRYON-PARALLEL] ✓ image ready ({_dt_img:.1f}s)", flush=True)
+        except Exception as _e:
+            print(f"[TRYON-PARALLEL] ✗ image FAILED: {_e}", flush=True)
+            return jsonify(
+                ok=False,
+                error=f"이미지 생성 실패: {str(_e)[:200]}"
+            ), 500
+        
+        # 분석 결과 (선택 — 실패해도 이미지는 반환)
+        try:
+            comment = _fut_ana.result(timeout=120)
+            analysis_ok = True
+            _dt_ana = _time.time() - _t0
+            print(f"[TRYON-PARALLEL] ✓ analysis ready ({_dt_ana:.1f}s, len={len(comment)})", flush=True)
+        except Exception as _e:
+            print(f"[TRYON-PARALLEL] ⚠ analysis FAILED (이미지는 성공): {_e}", flush=True)
+            # 백업: 이미지 모델이 준 텍스트라도 사용
+            comment = _img_fallback_text or ""
+    
+    _total_dt = _time.time() - _t0
+    print(f"[TRYON-PARALLEL] 전체 완료 {_total_dt:.1f}s · analysis={'OK' if analysis_ok else 'FAIL'}", flush=True)
+    
+    # 이미지 필수 검증
     if not img_bytes:
         return jsonify(
             ok=False,
@@ -5217,6 +5931,11 @@ def tryon_generate():
         # 트라이온 전용 메타
         tryon_mode=mode,
         tryon_fit=fit_target,
+        # [2026-04-23 16:00] 병렬 처리 메타 (디버깅/모니터링용)
+        analysis_model=_ANALYSIS_MODEL,
+        analysis_thinking_level=_ANALYSIS_THINKING,  # [17:00] 마스터가 변경 시 확인용
+        analysis_ok=analysis_ok,
+        elapsed_sec=round(_total_dt, 1),
     )
 
 
