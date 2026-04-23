@@ -12,6 +12,27 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-04-23 13:00 KST ───  [TJ 지시 — 트라이온 3대 버그 수정] │
+  │                                                                  │
+  │ [수정 1 — 치명적] Step1 아이템 사라지는 버그                       │
+  │   ▸ pageshow 핸들러를 consumePick→ _tryonPageshowHandler로 교체   │
+  │   ▸ event.persisted(bfcache 복귀) 시 loadTryonState()를 먼저 호출  │
+  │     해 이전 슬롯 상태를 복원한 뒤 consumePick() 호출              │
+  │   (line ~2311~2340)                                              │
+  │                                                                  │
+  │ [수정 2] Step2 마이핏 신체정보 표시                                │
+  │   ▸ loadMyProfileBodyInfo() 함수 신규 추가                         │
+  │     CodiBank.getCurrentUser()의 gender/ageGroup/height/weight를   │
+  │     매핑하여 bodyGender/Age/Height/Weight DOM과                    │
+  │     myProfileSnapshot에 반영                                      │
+  │   ▸ cb_personal_color_{email}에서 퍼스널컬러도 함께 로드           │
+  │   ▸ setTimeout(loadMyProfileBodyInfo, 100)                        │
+  │   (line ~3310~)                                                   │
+  │                                                                  │
+  │ [수정 3] 모델핏 텍스트 삭제                                        │
+  │   ▸ '175 cm · Standard' / '165 cm · Standard' 제거                │
+  │   (line ~1812, ~1819)                                             │
+  │                                                                  │
   │ ─── 2026-04-23 08:30 KST ───  [TJ 지시 3·4 — 모드별 옵션 슬롯 재구성] │
   │                                                                  │
   │ 작업 3: outer 모드 옵션 = 상의 + 하의 + 신발                     │
@@ -1809,14 +1830,14 @@
         <span class="gender-radio"></span>
         <span class="gender-icon"><span class="mi">man</span></span>
         <span class="gender-label">남자 모델</span>
-        <span class="gender-spec">175 cm · Standard</span>
+        <!-- [2026-04-23 TJ 지시5] '175 cm · Standard' 텍스트 삭제 -->
       </label>
       <label class="gender-card" data-gender="female">
         <input type="radio" name="modelGender" value="female">
         <span class="gender-radio"></span>
         <span class="gender-icon"><span class="mi">woman</span></span>
         <span class="gender-label">여자 모델</span>
-        <span class="gender-spec">165 cm · Standard</span>
+        <!-- [2026-04-23 TJ 지시5] '165 cm · Standard' 텍스트 삭제 -->
       </label>
     </div>
   </div>
@@ -2327,7 +2348,25 @@ function consumePick(){
     }
   } catch(e){ console.error(e); }
 }
-window.addEventListener('pageshow', consumePick);
+
+// [2026-04-23 13:00 TJ 지시 - 치명적 버그 수정]
+//   문제: Step1에서 상의/하의 선택 후 picker 복귀 시 슬롯이 사라짐
+//   원인: bfcache(Back-Forward Cache)로 페이지 복귀 시 DOMContentLoaded가
+//         재발화되지 않아 loadTryonState가 호출되지 않음. consumePick만 호출되어
+//         방금 선택한 것만 남고 이전 선택은 사라짐
+//   해결: pageshow 이벤트에서 loadTryonState()를 먼저 호출해 이전 state를 복원한 뒤
+//         consumePick()으로 방금 고른 아이템 추가
+function _tryonPageshowHandler(event){
+  try{
+    // persisted === true 이면 bfcache 복귀, 이때도 안전하게 상태 복원
+    if(event && event.persisted){
+      if(typeof loadTryonState === 'function') loadTryonState();
+    }
+    // 방금 picker에서 고른 아이템 추가 (tryon_pick_result가 있을 때만 작동)
+    consumePick();
+  }catch(_){}
+}
+window.addEventListener('pageshow', _tryonPageshowHandler);
 
 $$('.remove-btn').forEach(btn => {
   btn.addEventListener('click', e => {
@@ -3288,8 +3327,101 @@ async function loadMyProfileFace(){
     state.myProfileSnapshot.faceSrc = faceSrc;
   } catch(e){ console.warn('loadMyProfileFace failed:', e); }
 }
+
+// [2026-04-23 13:00 TJ 지시4] 신체정보도 회원 데이터에서 로드
+//   기존에는 bodyGender/Age/Height/Weight가 myProfileSnapshot의 하드코딩 기본값('남성'/'30대'/'175'/'70')
+//   으로만 세팅되어 실제 회원 정보가 반영되지 않던 버그.
+//   이 함수는 applyFitUI('my') 이후 호출되어 CodiBank.getCurrentUser()의 실제 값으로 덮어씀
+async function loadMyProfileBodyInfo(){
+  try{
+    if(typeof CodiBank === 'undefined' || !CodiBank) return;
+    const user = (typeof CodiBank.getCurrentUser === 'function') ? CodiBank.getCurrentUser() : null;
+    if(!user) return;
+    // 성별 매핑 (M/F/male/female → '남성'/'여성')
+    const _gMap = (g) => {
+      const s = String(g || '').toLowerCase();
+      if(s === 'f' || s === 'female' || s === '여성') return '여성';
+      if(s === 'm' || s === 'male' || s === '남성') return '남성';
+      return '';
+    };
+    // 나이 매핑 (twenties/30s/30/등 → '30대')
+    const _aMap = (a) => {
+      const s = String(a || '');
+      if(!s) return '';
+      const m = s.match(/\d+/);
+      if(m){
+        const n = parseInt(m[0], 10);
+        if(n >= 100) return s; // 이미 '30대' 같은 형태일 수 있음
+        if(n < 20) return '10대';
+        return Math.floor(n/10)*10 + '대';
+      }
+      if(/twen/i.test(s)) return '20대';
+      if(/thirt/i.test(s)) return '30대';
+      if(/fort/i.test(s))  return '40대';
+      if(/fift/i.test(s))  return '50대';
+      return s;
+    };
+
+    const gender = _gMap(user.gender) || state.myProfileSnapshot.bodyGender;
+    const age    = _aMap(user.ageGroup || user.age) || state.myProfileSnapshot.bodyAge;
+    const height = String(user.height || '').trim() || state.myProfileSnapshot.bodyHeight;
+    const weight = String(user.weight || '').trim() || state.myProfileSnapshot.bodyWeight;
+
+    // myProfileSnapshot 업데이트 (복원용)
+    state.myProfileSnapshot.bodyGender = gender;
+    state.myProfileSnapshot.bodyAge    = age;
+    state.myProfileSnapshot.bodyHeight = height;
+    state.myProfileSnapshot.bodyWeight = weight;
+
+    // 현재 마이핏 상태면 DOM에도 즉시 반영
+    if(state.fitTarget === 'my'){
+      const setT = (id, v) => { const el = document.getElementById(id); if(el && v) el.textContent = v; };
+      setT('bodyGender', gender);
+      setT('bodyAge',    age);
+      setT('bodyHeight', height);
+      setT('bodyWeight', weight);
+    }
+
+    // 영속화
+    try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
+
+    // 퍼스널컬러도 localStorage에서 가져와 있으면 반영
+    try{
+      const pcKey = 'cb_personal_color_' + (user.email || 'guest');
+      const raw = localStorage.getItem(pcKey);
+      if(raw){
+        const pc = JSON.parse(raw);
+        if(pc && (pc.season || pc.undertone)){
+          const _seasonLbl = pc.season || state.myProfileSnapshot.pcSeasonLabel;
+          const _under     = pc.undertone || state.myProfileSnapshot.pcUndertone;
+          state.myProfileSnapshot.pcSeasonLabel = _seasonLbl;
+          state.myProfileSnapshot.pcUndertone   = _under;
+          if(pc.style_tip || pc.summary){
+            state.myProfileSnapshot.pcTip = pc.style_tip || pc.summary;
+          }
+          if(Array.isArray(pc.best_colors) && pc.best_colors.length){
+            state.myProfileSnapshot.pcPalette = pc.best_colors.slice(0, 4);
+          }
+          // 마이핏 상태면 DOM 즉시 반영
+          if(state.fitTarget === 'my'){
+            const el1 = document.getElementById('pcSeasonLabel'); if(el1) el1.textContent = _seasonLbl;
+            const el2 = document.getElementById('pcUndertone');   if(el2) el2.textContent = _under;
+            const el3 = document.getElementById('pcTip');         if(el3 && state.myProfileSnapshot.pcTip) el3.textContent = state.myProfileSnapshot.pcTip;
+            const pal = document.getElementById('pcPalette');
+            if(pal && Array.isArray(state.myProfileSnapshot.pcPalette)){
+              pal.querySelectorAll('span').forEach((sp, i) => {
+                if(state.myProfileSnapshot.pcPalette[i]) sp.style.background = state.myProfileSnapshot.pcPalette[i];
+              });
+            }
+          }
+        }
+      }
+    }catch(_){}
+  }catch(e){ console.warn('loadMyProfileBodyInfo failed:', e); }
+}
 // CodiBank SDK 로드 대기 — 스크립트가 body 아래 있으므로 약간 지연
 setTimeout(loadMyProfileFace, 80);
+setTimeout(loadMyProfileBodyInfo, 100);  // [2026-04-23] 신체정보 + 퍼스널컬러 로드
 </script>
 
 </body>

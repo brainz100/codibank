@@ -15,6 +15,15 @@
 
   <!--
     ┏━━ aicloset.html 수정 이력 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━┓
+    │ ─── 2026-04-23 13:00 KST ───  [TJ 지시 — 코디핏 박스 초기 숨김]  │
+    │ [HTML] #codiRecommendBox 인라인 style을 display:none으로 초기화    │
+    │        (line ~1307)                                              │
+    │ [JS]   _renderCodiRecBox() 내부에 hasAI 분기 추가 (line ~6145)    │
+    │        - hasAI===true  → box.style.display = 'flex'              │
+    │        - hasAI===false → box.style.display = 'none'              │
+    │ 효과: 코디핏에서 추천 생성되기 전에는 "AI 추천 스타일링" 섹션     │
+    │       전체가 화면에 노출되지 않음. 생성 직후 자동으로 표시.       │
+    │                                                                 │
     │ ─── 2026-04-22 17:40 KST ───  [TJ 지시 — 카테고리 개편]        │
     │                                                                 │
     │ [i18n 사전 — 원피스/치마 번역 추가] (line ~93·113)              │
@@ -1304,9 +1313,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     <div class="pt-2">
 
       <!-- ★ 코디핏 코디핏 + 유사 아이템 찾기 (Atelier 스타일) -->
+      <!-- [2026-04-23 TJ 지시] 추천이미지가 생성되기 전에는 이 박스 전체를 숨김 -->
+      <!-- hasAI === true(=_renderCodiRecBox에서 판단)일 때만 display:flex로 전환됨 -->
       <div id="codiRecommendBox" style="
         width:100%; max-width:100%; margin:0 auto 20px;
-        display:flex; flex-direction:column;
+        display:none; flex-direction:column;
         background:#00022E;
         transition:opacity .4s ease;
         font-family:'Manrope','Outfit','Noto Sans KR',sans-serif;
@@ -1394,7 +1405,8 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             <button id="closetToggleBtn" type="button" style="
               width:100%; position:relative; overflow:hidden;
               background:linear-gradient(90deg, #114b5f 0%, #32a097 100%);
-              color:#e0f2f1; padding:21px 20px; border-radius:12px; border:none;
+              color:#e0f2f1; padding:32px 20px; border-radius:12px; border:none;
+              /* [2026-04-23 TJ 지시] 버튼 높이 1.5배 증가 (padding 21px → 32px) */
               font-family:'Manrope','Outfit','Noto Sans KR',sans-serif;
               font-weight:700; font-size:14px; letter-spacing:0.08em;
               cursor:default; pointer-events:none; opacity:0.5;
@@ -1485,10 +1497,10 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 <nav class="cb-nav">
   <div class="cb-nav-inner">
     <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl" data-i18n="코디핏">코디핏</span></a>
-    <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl" data-i18n="코디앨범">코디앨범</span></a>
+    <a href="tryon.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl" data-i18n="트라이온">트라이온</span></a>
     <a href="aicloset.html" class="cb-nav-tab on"><span class="ni">checkroom</span><span class="nl" data-i18n="Ai 옷장">Ai 옷장</span></a>
-    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl" data-i18n="트라이 온">트라이 온</span></a>
-    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
+    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">auto_fix_high</span><span class="nl" data-i18n="코디하기">코디하기</span></a>
+    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl" data-i18n="MY">MY</span></a>
   </div>
 </nav>
 
@@ -6138,6 +6150,8 @@ renderCategories();
     }
 
     if(hasAI){
+      // [2026-04-23 TJ 지시] 추천 생성됨 → 박스 표시
+      if(box) box.style.display = 'flex';
       // 박스 활성화 — _analyzed 상태에 따라 cri-analyzed 유지/제거
       if(box){
         box.classList.add('cri-active');
@@ -6220,7 +6234,9 @@ renderCategories();
         else _tEl.textContent = _isEn ? 'Find Similar Items' : '유사한 아이템 찾기';
       }
     } else {
-      // 비활성
+      // [2026-04-23 TJ 지시] 추천이 아직 없으면 박스 전체 숨김
+      if(box) box.style.display = 'none';
+      // 비활성 (아래는 표시될 경우를 대비해 내부 상태만 초기화)
       if(box){ box.classList.remove('cri-active','cri-analyzed'); }
       if(imgInner){
         imgInner.innerHTML = '<div style="text-align:center; color:rgba(151,254,237,0.2);"><span class="material-symbols-outlined" style="font-size:80px; display:block;">checkroom</span><p style="margin-top:12px; font-size:11px; letter-spacing:0.2em; font-weight:700;">'+(_isEn?'No CodiFit yet':'코디핏 대기 중')+'</p></div>';

@@ -7,6 +7,16 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-04-23 13:00 KST (⬅️ picker 각 슬롯 '이전' 버튼 추가) ────
+  [TJ 지시] 상의/하의/원피스/아우터 picker 상단 타이틀 왼쪽에
+    '← 이전' 화살표 아이콘 추가. 클릭 시 returnTo 파라미터로
+    복귀하거나 history.back(). shoes 슬롯은 해당 지시에 포함되지
+    않아 제외.
+  [JS] DOMContentLoaded에서 slotKeysForBack(['top','bottom','onepiece','outer'])
+       순회하며 .picker-section[data-slot="x"] 의 타이틀 영역
+       firstElementChild의 leftGroup 맨 앞에 .picker-back-btn 삽입.
+  (~line 1862)
+
 ─── 2026-04-23 08:00 KST (🎯 트라이온 슬롯-카테고리 매핑 개편 + 풋바 숨김) ─
   [TJ 지시]
     1) 트라이온 picker는 5개 슬롯(상의/하의/원피스/아우터/신발)으로 단순화
@@ -1856,6 +1866,53 @@ document.addEventListener('DOMContentLoaded', function(){
   SLOT_KEYS.forEach(function(k){
     try { _pickerRenderAiclosetDeck(k); } catch(e){ console.warn('[picker] deck render fail:', k, e); }
   });
+});
+
+/* ─── 2026-04-23 13:00 KST [TJ 지시6] 각 슬롯 상단 타이틀 왼쪽에 '← 이전' 화살표 추가 ───
+   상의 / 하의 / 원피스 / 아우터 4개 슬롯의 타이틀 영역 맨 왼쪽에 이전 버튼을 동적으로 삽입.
+   클릭 시 returnTo 파라미터로 복귀, 없으면 history.back().
+*/
+document.addEventListener('DOMContentLoaded', function(){
+  try{
+    var _goBack = function(){
+      try{
+        var p = new URLSearchParams(location.search);
+        var ret = p.get('returnTo');
+        if(ret){ location.href = ret; return; }
+      }catch(_){}
+      if(history.length > 1) history.back();
+      else location.href = 'tryon.html';
+    };
+    var slotKeysForBack = ['top','bottom','onepiece','outer'];
+    slotKeysForBack.forEach(function(k){
+      var sec = document.querySelector('.picker-section[data-slot="'+k+'"]');
+      if(!sec) return;
+      // 이미 삽입됐으면 skip (재진입 방어)
+      if(sec.querySelector('.picker-back-btn')) return;
+      var titleBar = sec.firstElementChild;  // 타이틀 영역 flex 컨테이너
+      if(!titleBar) return;
+      var leftGroup = titleBar.firstElementChild;  // 왼쪽 타이틀(SVG+라벨)
+      if(!leftGroup) return;
+      // '← 이전' 버튼 생성
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'picker-back-btn';
+      btn.setAttribute('aria-label', '이전 화면으로');
+      btn.style.cssText = [
+        'display:inline-flex','align-items:center','justify-content:center',
+        'width:32px','height:32px','margin-right:6px','padding:0',
+        'background:transparent','border:1px solid rgba(151,254,237,.3)',
+        'border-radius:50%','cursor:pointer','color:#97FEED',
+        'transition:all .15s ease','flex-shrink:0'
+      ].join(';');
+      btn.innerHTML = '<span class="mi" style="font-size:18px;color:#97FEED;">arrow_back</span>';
+      btn.onmouseover = function(){ this.style.background = 'rgba(151,254,237,.08)'; };
+      btn.onmouseout  = function(){ this.style.background = 'transparent'; };
+      btn.onclick = function(e){ e.preventDefault(); _goBack(); };
+      // 왼쪽 타이틀 그룹 맨 앞에 삽입
+      leftGroup.insertBefore(btn, leftGroup.firstChild);
+    });
+  }catch(e){ console.warn('[picker] back-btn 삽입 실패:', e); }
 });
 /* ═══════════════════════════════════════════════════════════
    피커 모드 블록 끝
