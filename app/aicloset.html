@@ -12,6 +12,27 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Ai 옷장 - 코디뱅크</title>
+
+  <!--
+    ┏━━ aicloset.html 수정 이력 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━┓
+    │ ─── 2026-04-22 17:40 KST ───  [TJ 지시 — 카테고리 개편]        │
+    │                                                                 │
+    │ [i18n 사전 — 원피스/치마 번역 추가] (line ~93·113)              │
+    │   "원피스" → "Dress"   (신규)                                   │
+    │   "치마"   → "Skirt"   (신규)                                   │
+    │   두 개의 i18n 블록 모두에 추가 (아우터/상의/하의 바로 아래)     │
+    │                                                                 │
+    │ [CAT_SUBSTITUTE_MAP — onepiece 독립 엔트리] (line ~1655)        │
+    │   onepiece: ['top','skirt','pants']  — 원피스 없으면 top+       │
+    │     skirt 또는 top+pants 조합으로 대체 매칭                     │
+    │   skirt 엔트리 유지 (기존: ['pants'])                           │
+    │                                                                 │
+    │ [한계 — codibank.js 미제공]                                     │
+    │   CodiBank.getCategoryMetaByKey가 이 파일에 없어, Ai 옷장 UI의  │
+    │   카테고리 탭에 '원피스'/'치마' 가 실제 표시되는지는 codibank.js│
+    │   확인 필요. 이 파일의 변경은 UI 표시 기반은 준비 완료.         │
+    ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  -->
   <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Playfair+Display:ital,wght@0,700;1,700&family=Manrope:wght@200;400;700;800&family=Inter:wght@300;400;600&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -93,6 +114,8 @@
     "아우터":               "Outer",
     "상의":                 "Top",
     "하의":                 "Bottom",
+    "원피스":               "Dress",
+    "치마":                 "Skirt",
     "신발":                 "Shoes",
     "기타":                 "Other",
     "컬러 분석":            "Color Analysis",
@@ -113,6 +136,8 @@
     "아우터":               "Outer",
     "상의":                 "Top",
     "하의":                 "Bottom",
+    "원피스":               "Dress",
+    "치마":                 "Skirt",
     "액세서리":             "Accessories",
     "코디뱅크 AI 큐레이션": "Curated by CODIBANK AI",
     "분석 완료":            "Analysis Complete",
@@ -1653,6 +1678,7 @@ function normalizeKColorName(name){
 
 // ── 카테고리 대체 그룹 정의
 const CAT_SUBSTITUTE_MAP = {
+  // [2026-04-22 17:40 TJ 카테고리 개편] onepiece / skirt 독립 엔트리 추가
   // 코트 ↔ 자켓 상호 대체 (길이 다르지만 아우터로 묶어서 매칭)
   coat:    ['jacket'],   // 코트 없으면 자켓으로 대체
   jacket:  ['coat'],     // 자켓 없으면 코트로 대체
@@ -1666,7 +1692,11 @@ const CAT_SUBSTITUTE_MAP = {
   pants:  ['slacks','jeans','skirt'],
   slacks: ['pants','jeans'],
   jeans:  ['pants','slacks'],
+  // 치마: 바지와 상호 대체 가능 (하의 범주 공유)
   skirt:  ['pants'],
+  // 원피스: 상의+치마 또는 상의+바지 조합으로 대체 가능
+  // (코디 매칭 시 원피스가 없을 때 top+skirt 또는 top+pants로 대체 탐색)
+  onepiece: ['top','skirt','pants'],
   shoes:  ['sneakers','loafers','boots'],
   sneakers:['shoes','loafers'],
   loafers: ['shoes','sneakers'],

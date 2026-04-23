@@ -5,6 +5,37 @@
    각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
    점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+   ─── 2026-04-23 03:00 KST (📦 카테고리 개편 — 원피스/치마 독립 + 아이콘) ──
+     [TJ님 지시]
+       ① 원피스 카테고리 독립 추가 (기존엔 'bottom'의 pants에 섞임)
+       ② 치마 카테고리 독립 추가 (기존 pants label에 '스커트' 포함돼 있던 것 분리)
+       ③ 각 카테고리에 이모지 아이콘 추가
+       ④ 순서: 원피스 맨 위(트라이온 전용 강조) → 나머지 기존 순서
+
+     [변경 내역]
+       ▸ DEFAULT_CATEGORIES 재작성 (~line 283)
+         - 기존 9종 → 신규 11종 (onepiece, skirt 추가)
+         - 모든 항목에 icon 필드 신규 추가 (이모지)
+         - pants label: "바지/스커트" → "바지" (스커트는 skirt로 독립)
+         - top label: "탑/셔츠/블라우스" → "상의" (단순화, 영문 i18n 호환)
+         - coat label: "코트" 유지, jacket label: "자켓" 유지
+         - shoes label: "구두/운동화" → "신발" (단순화)
+         - scarf label: "스카프/목도리" → "스카프" (단순화)
+         - 최종 순서: onepiece, coat, jacket, top, pants, skirt, shoes,
+                      watch, scarf, socks, etc
+
+     [기존 사용자 하위호환 — 자동 마이그레이션]
+       ▸ ensureUserCategories() (line ~445)가 이미 구현되어 있음
+         - `next = [...defaultKeys, ...user.categories.filter(k => !defaultKeys.includes(k))]`
+         - DEFAULT_CATEGORIES에 onepiece/skirt 추가 → 모든 사용자 다음 접속 시
+           자동으로 두 카테고리가 상단에 추가됨
+         - 사용자가 추가한 커스텀 카테고리는 그대로 보존됨
+
+       ▸ migrateUserItemsCategories() (line ~427)가 허용 키셋 기반으로
+         동작하므로, 신규 키(onepiece, skirt)가 자동으로 허용됨
+         - 기존에 'pants'로 잘못 분류된 원피스/치마는 자동 이동되지 않음
+           (사용자가 수동으로 item.html에서 카테고리 변경 필요)
+
    ─── 2026-04-20 01:19 KST ────────────────────────────────────────────────
      [수정 이력 블록 도입 — 코드 변경 없음]
        - 파일 관리 정책: 모든 수정 시 상단 이력 누적 + 인라인 주석
@@ -240,18 +271,27 @@ function getBackendBaseResolved() {
     };
   }
 
-  // ✅ 기본 카테고리(옷장 페이지 기준 고정 순서)
-  // 코트, 자켓, 탑, 바지, 양말, 구두, 시계, 스카프, 기타
+  // ✅ 기본 카테고리 (옷장 페이지 기준 고정 순서)
+  // ─── 2026-04-23 03:00 KST [TJ 지시 — 카테고리 개편] ──────────────
+  //   ▸ 원피스(onepiece) 독립 추가 — 트라이온 전용 강조로 맨 위 배치
+  //   ▸ 치마(skirt) 독립 추가 — 기존 pants label에서 "스커트" 제거
+  //   ▸ 모든 항목에 이모지 아이콘(icon 필드) 신규 추가
+  //   ▸ label 단순화 (영문 i18n 호환): top "탑/셔츠/블라우스" → "상의"
+  //   ▸ 기존 사용자는 ensureUserCategories()가 자동으로 onepiece/skirt 추가
+  // ────────────────────────────────────────────────────────────────
+  // 순서: 원피스 → 아우터(코트/자켓) → 상의 → 하의 → 치마 → 신발 → 시계 → 스카프 → 양말 → 기타
   const DEFAULT_CATEGORIES = [
-    { key: 'coat', label: '코트' },
-    { key: 'jacket', label: '자켓' },
-    { key: 'top', label: '탑/셔츠/블라우스' },
-    { key: 'pants', label: '바지/스커트' },
-    { key: 'socks', label: '양말' },
-    { key: 'shoes', label: '구두/운동화' },
-    { key: 'watch', label: '시계' },
-    { key: 'scarf', label: '스카프/목도리' },
-    { key: 'etc', label: '기타' },
+    { key: 'onepiece', label: '원피스', icon: '👗' },  // 2026-04-23 신규
+    { key: 'coat',     label: '코트',   icon: '🧥' },
+    { key: 'jacket',   label: '자켓',   icon: '🧥' },
+    { key: 'top',      label: '상의',   icon: '👕' },
+    { key: 'pants',    label: '바지',   icon: '👖' },  // 2026-04-23 label 수정
+    { key: 'skirt',    label: '치마',   icon: '🎀' },  // 2026-04-23 신규
+    { key: 'shoes',    label: '신발',   icon: '👟' },  // 2026-04-23 label 단순화
+    { key: 'watch',    label: '시계',   icon: '⌚' },
+    { key: 'scarf',    label: '스카프', icon: '🧣' },  // 2026-04-23 label 단순화
+    { key: 'socks',    label: '양말',   icon: '🧦' },
+    { key: 'etc',      label: '기타',   icon: '👜' },
   ];
 
   // (레거시/확장용) 기본 외 카테고리는 사용자 커스텀으로 추가하도록 유도

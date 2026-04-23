@@ -13,6 +13,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>아이템 등록 - 코디뱅크</title>
 
+  <!--
+    ┏━━ camera.html 수정 이력 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+    │ ─── 2026-04-22 17:40 KST ───  [TJ 지시 — 카테고리 개편]        │
+    │                                                                 │
+    │ [치명적 버그 수정] catMap 재구성 (line ~1240)                  │
+    │   이전: 'dress':'pants', 'jumpsuit':'pants', 'skirt':'pants'    │
+    │     → 원피스/점프수트/치마가 모두 '하의'로 잘못 분류되던 버그    │
+    │   신규: 'dress':'onepiece', 'skirt':'skirt', 'jumpsuit':'onepiece'│
+    │                                                                 │
+    │ [신규 카테고리]                                                 │
+    │   ▸ onepiece (원피스) — 서브 5종 키워드 추가:                   │
+    │     미니원피스/미디원피스/롱원피스/니트원피스/셔츠원피스         │
+    │   ▸ skirt (치마) — 독립 카테고리로 분리                         │
+    │                                                                 │
+    │ [아우터 7종 키워드 보강]                                        │
+    │   TJ 정책 7종: 코트/패딩/자켓/점퍼/가디건/다운/블레이저          │
+    │   신규 추가 키워드: 점퍼(jumper), 블레이저(blazer), 다운(down), │
+    │     숏패딩, 다운조끼, 다운자켓, 윈드브레이커/파카 등             │
+    │                                                                 │
+    │ [_catLabelMap 업데이트] (line ~1301)                           │
+    │   onepiece:'원피스', skirt:'치마' 추가                          │
+    ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  -->
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
@@ -1238,49 +1261,92 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (geminiResult?.category) {
           // Gemini가 분류한 카테고리 사용
           // ── Gemini 카테고리 → CodiBank 카테고리 키 매핑 ──
-          // CodiBank 카테고리: coat(코트) | jacket(자켓) | top | pants | shoes | watch | scarf | socks | etc
+          // [2026-04-22 17:40 TJ 카테고리 개편]
+          // CodiBank 카테고리: coat | jacket | top | pants | skirt | onepiece | shoes | watch | scarf | socks | etc
+          //   ✨ 신규: onepiece(원피스), skirt(치마) 독립
+          //   ✨ 아우터 7종(코트/패딩/자켓/점퍼/가디건/다운/블레이저) 키워드 보강
+          //   ✨ 치명적 버그 수정: 이전에 dress/jumpsuit/skirt가 'pants'로 잘못 매핑됐음
           const catMap = {
             // ── 코트 (무릎 이상 길이의 긴 아우터) ──
             'coat'       : 'coat',
-            '반코트'     : 'coat', '롱코트'   : 'coat', '패딩코트' : 'coat',
-            '트렌치코트' : 'coat', '더플코트' : 'coat', '케이프코트':'coat',
-            'trench coat': 'coat', 'long coat': 'coat', 'overcoat' : 'coat',
-            'trench'     : 'coat', 'duffel'   : 'coat',
+            '코트'       : 'coat', '반코트'    : 'coat', '롱코트'    : 'coat',
+            '트렌치코트' : 'coat', '더플코트'  : 'coat', '케이프코트': 'coat',
+            '패딩코트'   : 'coat',
+            'trench coat': 'coat', 'long coat' : 'coat', 'overcoat'  : 'coat',
+            'trench'     : 'coat', 'duffel'    : 'coat',
 
-            // ── 자켓 (짧은 아우터, 수트자켓/패딩/가디건 포함) ──
+            // ── 자켓 (짧은 아우터) — TJ 7종: 자켓/패딩/점퍼/가디건/다운/블레이저 ──
             'jacket'     : 'jacket',
-            'blazer'     : 'jacket', 'suit jacket': 'jacket', 'suit'    : 'jacket',
-            '수트자켓'   : 'jacket', '수트'        : 'jacket', '콤비자켓': 'jacket',
-            '일반자켓'   : 'jacket', '레더자켓'    : 'jacket', '가죽자켓': 'jacket',
-            '사파리자켓' : 'jacket', '데님자켓'    : 'jacket',
-            '집업자켓'   : 'jacket', '집업'        : 'jacket',
-            '후드집업'   : 'jacket', '후드집업자켓': 'jacket',
-            'cardigan'   : 'jacket', '가디건'      : 'jacket', '볼레로'  : 'jacket',
-            '패딩'       : 'jacket', '패딩자켓'    : 'jacket', '다운자켓': 'jacket',
-            'padding'    : 'jacket', 'puffer'      : 'jacket', 'down jacket':'jacket',
-            'vest'       : 'jacket', 'waistcoat'   : 'jacket', '조끼'   : 'jacket',
-            'windbreaker': 'jacket', 'parka'       : 'jacket',
+            '자켓'       : 'jacket', '일반자켓' : 'jacket',
+            // 블레이저
+            'blazer'     : 'jacket', '블레이저' : 'jacket',
+            'suit jacket': 'jacket', 'suit'     : 'jacket',
+            '수트자켓'   : 'jacket', '수트'     : 'jacket', '콤비자켓': 'jacket',
+            // 점퍼 / 기타
+            'jumper'     : 'jacket', '점퍼'     : 'jacket',
+            'windbreaker': 'jacket', '윈드브레이커': 'jacket',
+            'anorak'     : 'jacket', 'parka'    : 'jacket', '파카': 'jacket',
+            // 레더/데님/사파리 등 변종
+            '레더자켓'   : 'jacket', '가죽자켓' : 'jacket',
             'leather jacket':'jacket', 'safari jacket':'jacket',
+            '사파리자켓' : 'jacket', '데님자켓' : 'jacket',
+            '집업자켓'   : 'jacket', '집업'     : 'jacket',
+            '후드집업'   : 'jacket', '후드집업자켓': 'jacket',
+            // 가디건
+            'cardigan'   : 'jacket', '가디건'   : 'jacket', '볼레로' : 'jacket',
+            // 패딩 / 다운
+            '패딩'       : 'jacket', '패딩자켓' : 'jacket', '숏패딩' : 'jacket',
+            'padding'    : 'jacket', 'puffer'   : 'jacket',
+            '다운'       : 'jacket', '다운자켓' : 'jacket', '다운조끼': 'jacket',
+            'down'       : 'jacket', 'down jacket':'jacket',
+            // 베스트/조끼
+            'vest'       : 'jacket', 'waistcoat': 'jacket', '조끼'  : 'jacket', '베스트': 'jacket',
 
             // ── 상의 ──
             'top'        : 'top', 'shirt'    : 'top', 'blouse'  : 'top',
+            '상의'       : 'top', '셔츠'     : 'top', '블라우스': 'top',
             't-shirt'    : 'top', 'tshirt'   : 'top', 'hoodie'  : 'top',
+            '티셔츠'     : 'top', '반팔티'   : 'top', '긴팔티'  : 'top',
             'sweatshirt' : 'top', 'sweater'  : 'top', 'knit'    : 'top',
             'knitwear'   : 'top', '니트'     : 'top', '스웨터'  : 'top',
             '후드티'     : 'top', '맨투맨'   : 'top',
 
-            // ── 하의 ──
+            // ── 하의 (바지만) — 치마/원피스는 분리 ──
             'pants'      : 'pants', 'bottom'  : 'pants', 'trousers':'pants',
-            'jeans'      : 'pants', 'skirt'   : 'pants', 'shorts'  : 'pants',
-            'dress'      : 'pants', 'jumpsuit': 'pants',
+            '바지'       : 'pants', '청바지'  : 'pants', '슬랙스' : 'pants',
+            'jeans'      : 'pants', 'shorts'  : 'pants',
+            '면바지'     : 'pants', '스키니'  : 'pants', '와이드팬츠':'pants',
+            '조거팬츠'   : 'pants', '반바지'  : 'pants', '레깅스' : 'pants',
+
+            // ── 치마 (skirt 독립 카테고리) ──
+            // [CRITICAL] 이전에 'pants'로 매핑됐던 버그를 여기서 수정
+            'skirt'        : 'skirt', '치마'     : 'skirt', '스커트': 'skirt',
+            '미니스커트'   : 'skirt', '미디스커트':'skirt', '롱스커트': 'skirt',
+            '플리츠스커트' : 'skirt', 'A라인스커트':'skirt', '랩스커트': 'skirt',
+            '티어드스커트' : 'skirt', '도트스커트':'skirt',
+            'mini skirt'   : 'skirt', 'midi skirt':'skirt', 'long skirt':'skirt',
+
+            // ── 원피스 (onepiece 독립 카테고리) — TJ 세부 5종 ──
+            // [CRITICAL] 이전에 'pants'로 매핑됐던 버그를 여기서 수정
+            'onepiece'     : 'onepiece', 'one-piece': 'onepiece', 'one piece': 'onepiece',
+            'dress'        : 'onepiece', '원피스'   : 'onepiece', '드레스'  : 'onepiece',
+            '미니원피스'   : 'onepiece', '미디원피스':'onepiece', '롱원피스': 'onepiece',
+            '니트원피스'   : 'onepiece', '셔츠원피스':'onepiece',
+            'mini dress'   : 'onepiece', 'midi dress':'onepiece', 'maxi dress':'onepiece',
+            'knit dress'   : 'onepiece', 'shirt dress':'onepiece', 'long dress':'onepiece',
+            // 점프수트는 원피스 5종에 속하지 않지만 '통원피스' 성격이라 onepiece로 묶음
+            'jumpsuit'     : 'onepiece', '점프수트' : 'onepiece', '올인원' : 'onepiece',
 
             // ── 신발/시계/스카프/양말/기타 ──
             'shoes'      : 'shoes', 'sneakers': 'shoes', 'boots' : 'shoes',
+            '신발'       : 'shoes', '스니커즈': 'shoes', '부츠'  : 'shoes',
             'heels'      : 'shoes', 'loafers' : 'shoes', 'sandals':'shoes',
+            '힐'         : 'shoes', '로퍼'    : 'shoes', '샌들'  : 'shoes',
             'watch'      : 'watch', '시계'    : 'watch',
             'scarf'      : 'scarf', '스카프'  : 'scarf', '목도리': 'scarf',
             'socks'      : 'socks', '양말'    : 'socks',
             'bag'        : 'etc',   'acc'     : 'etc',   'etc'   : 'etc',
+            '가방'       : 'etc',   '기타'    : 'etc',
           };
 
           // 소문자 변환 후 정확 매핑 → 부분 매핑 → etc
@@ -1298,8 +1364,10 @@ document.addEventListener('DOMContentLoaded', () => {
           aiCat.textContent += ' · ' + geminiResult.sub_category;
         }
         // 카테고리 라벨도 한국어로 표시
+        // [2026-04-22 17:40 TJ 카테고리 개편] onepiece/skirt 독립 카테고리 추가
         const _catLabelMap = {
           coat:'코트', jacket:'자켓', top:'상의', pants:'하의',
+          skirt:'치마', onepiece:'원피스',
           shoes:'신발', watch:'시계', scarf:'스카프', socks:'양말', etc:'기타'
         };
         if (!geminiResult?.sub_category) {
