@@ -5,6 +5,46 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-04-22 17:40 KST (📦 카테고리 체계 개편 — 원피스 독립 + 아우터 7종) ─
+#   [TJ님 지시]
+#     1. Ai옷장/아이템등록에서 원피스가 별도 카테고리로 분리 안 됨 → 추가
+#     2. 카메라에서 이미지 분석 시 아우터는 TJ 정책 7종
+#        (코트/패딩/자켓/점퍼/가디건/다운/블레이저)으로 세분화
+#
+#   [발견된 치명적 버그 — camera.html catMap에서]
+#     'dress'    : 'pants'   → 원피스가 '하의'로 잘못 분류됨
+#     'jumpsuit' : 'pants'   → 점프수트도 '하의'로
+#     'skirt'    : 'pants'   → 치마도 '하의' (코디하기 v53 버그 원인)
+#
+#   [결정 — TJ 선택]
+#     ▸ 원피스 서브 5종 (O3): 미니/미디/롱/니트/셔츠 원피스
+#     ▸ 아우터 7종 처리 방식 (A): 기존 2키(coat/jacket) 유지 + sub_category에
+#        7종 명시 → 기존 DB 데이터 호환성 보장 (outer_type 신규 필드로 7종 명시)
+#
+#   [이번 수정 내역 — 서버측 프롬프트만]
+#     /api/ai/analyze-item (line ~5671) Gemini Vision 프롬프트:
+#       ① category enum에 'onepiece' 신규 추가
+#           이전: coat|jacket|top|pants|skirt|shoes|watch|scarf|socks|etc
+#           신규: coat|jacket|top|pants|skirt|onepiece|shoes|watch|scarf|socks|etc
+#       ② sub_category 설명에 원피스 5종 + 아우터 7종 명시
+#           - 원피스: 미니원피스/미디원피스/롱원피스/니트원피스/셔츠원피스
+#           - 아우터: 자켓/패딩/점퍼/가디건/다운/블레이저 + 코트
+#       ③ 신규 필드 3개:
+#           - is_onepiece (bool) ← 원피스 여부
+#           - dress_length (mini|midi|maxi|null) ← 원피스 전용 길이
+#           - outer_type (코트|패딩|자켓|점퍼|가디건|다운|블레이저|null)
+#             ← TJ 7종 정책
+#       ④ CRITICAL RULES 3단계로 재작성:
+#           규칙 1: 원피스 vs 치마/바지/상의 구분 (상반신+하반신 연결된 1벌)
+#           규칙 2: 치마/스커트 판별 (leg separation 유무)
+#           규칙 3: 아우터 길이 판별 (무릎 기준 coat/jacket)
+#
+#   [이 파일에서 수정 안 된 것 — 다른 턴/파일 작업 필요]
+#     ▸ camera.html의 catMap ('dress': 'pants' 등 치명적 버그)
+#     ▸ aicloset.html의 i18n 번역 사전 (원피스 번역 키 없음)
+#     ▸ aicloset.html의 CAT_SUBSTITUTE_MAP (onepiece 엔트리 없음)
+#     ▸ item.html의 categorySelect 옵션 (codibank.js에서 공급 → 확인만)
+#
 # ─── 2026-04-22 17:05 KST (🎯 엔진 정책 단순화 — 서비스별 단일 모델) ────────
 #   [TJ님 지시 — 2026-04-22]
 #     1. 회원 티어별로 모델이 달라지지 않는다.
@@ -5674,17 +5714,34 @@ def ai_analyze_item():
 
 ⚠️ 배경 무시 규칙: 이미지에 바닥, 벽, 옷걸이, 손, 테이블 등 배경이 포함되어 있을 수 있습니다. 배경은 완전히 무시하고 의류 아이템 영역만 집중하여 분석하세요. 배경 색상을 의류 색상으로 착각하지 마세요.
 
-⚠️ 치마/스커트 판별 CRITICAL RULE:
+⚠️ [2026-04-22 17:40 KST] 카테고리 판별 CRITICAL RULES — 순서대로 적용:
+
+[규칙 1] 원피스(onepiece) 판별 — 치마/바지/상의와 구분
+- 상의와 하의가 한 벌로 연결된 드레스 구조 → onepiece (원피스)
+  · 상반신부터 허벅지 이상까지 한 장으로 이어지는 옷
+  · 셔츠 형태여도 길이가 허벅지 이상 내려오며 벨트/허리 분리 없이 한 장이면 onepiece
+  · 니트 원피스(knit dress), 셔츠 원피스(shirt dress) 등 모두 onepiece
+- 상반신만 덮는 옷(셔츠/니트/티셔츠/블라우스) → top (상의)
+
+[규칙 2] 치마/스커트 판별 — 원피스가 아닌 하의 전용
 - 다리가 각각 분리된 통로(leg tube)가 있으면 → pants (바지류)
 - 다리 분리 없이 한 장의 천이 아래로 퍼지면 → skirt (치마류) ← 착용샷이어도 동일하게 적용
 - 폭이 넓어 바지처럼 보여도 leg separation 없으면 반드시 skirt
 - 도트무늬/플리츠/티어드 등 디자인과 무관하게 구조로만 판별
 
+[규칙 3] 아우터(coat/jacket) 판별 — 무릎 기준 길이로 구분
+- 무릎 이상 긴 아우터 → coat (롱코트/트렌치코트/더플코트 등)
+- 엉덩이 길이 또는 짧은 아우터 → jacket (블레이저/가디건/숏패딩/점퍼 등)
+- 착용샷이어도 구조로만 판별 (디자인/패턴 무시)
+
 {
-  "category": "coat | jacket | top | pants | skirt | shoes | watch | scarf | socks | etc 중 하나 — ⚠️ 치마/스커트류는 반드시 skirt, 절대 pants에 포함하지 말 것",
-  "sub_category": "아래 세부 품목 중 하나로 정확히 분류:\n코트류: 반코트/롱코트/패딩코트/트렌치코트/더플코트/케이프코트\n자켓류: 수트자켓/콤비자켓/일반자켓/레더자켓/사파리자켓/데님자켓/집업자켓/후드집업자켓/패딩자켓/다운자켓/가디건/볼레로\n상의: 티셔츠/반팔티/긴팔티/셔츠/블라우스/니트/스웨터/후드티/맨투맨\n바지류: 청바지/슬랙스/면바지/스키니/와이드팬츠/조거팬츠/반바지/레깅스\n치마류: 미니스커트/미디스커트/롱스커트/플리츠스커트/A라인스커트/랩스커트/티어드스커트/도트스커트",
-  "is_skirt": "true if category=skirt, false otherwise — ⚠️ 이 필드가 착장이미지 생성에 직접 사용됩니다",
+  "category": "coat | jacket | top | pants | skirt | onepiece | shoes | watch | scarf | socks | etc 중 하나 — ⚠️ 치마/스커트는 반드시 skirt, 원피스는 반드시 onepiece. 혼동 금지.",
+  "sub_category": "아래 세부 품목 중 하나로 정확히 분류:\n[코트(coat)] 코트/롱코트/트렌치코트/더플코트/케이프코트\n[자켓(jacket)] TJ 정책 7종: 자켓/패딩/점퍼/가디건/다운/블레이저 (세부 예시: 수트자켓/콤비자켓/레더자켓/사파리자켓/데님자켓/집업자켓/후드집업자켓/숏패딩/롱패딩/다운자켓/다운조끼)\n[상의(top)] 티셔츠/반팔티/긴팔티/셔츠/블라우스/니트/스웨터/후드티/맨투맨\n[바지(pants)] 청바지/슬랙스/면바지/스키니/와이드팬츠/조거팬츠/반바지/레깅스\n[치마(skirt)] 미니스커트/미디스커트/롱스커트/플리츠스커트/A라인스커트/랩스커트/티어드스커트/도트스커트\n[원피스(onepiece)] 미니원피스/미디원피스/롱원피스/니트원피스/셔츠원피스 ← 5종 중 하나로 정확히 분류",
+  "is_skirt": "true if category=skirt, false otherwise — ⚠️ 원피스(onepiece)는 false로 설정",
+  "is_onepiece": "true if category=onepiece, false otherwise — ⚠️ 원피스 여부 신규 필드 (2026-04-22 추가)",
   "skirt_length": "mini(무릎위) | midi(무릎~종아리중간) | maxi(종아리~발목) | null(치마아닌경우)",
+  "dress_length": "mini(무릎위) | midi(무릎~종아리중간) | maxi(종아리~발목) | null(원피스아닌경우) — ⚠️ onepiece 전용 신규 필드",
+  "outer_type": "코트 | 패딩 | 자켓 | 점퍼 | 가디건 | 다운 | 블레이저 | null(아우터아닌경우) — ⚠️ TJ 정책 7종 중 하나, category=coat|jacket일 때만 사용",
   "main_color": "#RRGGBB 형식의 주요 색상 HEX",
   "main_color_name": "색상 이름 (한국어)",
   "sub_color": "#RRGGBB 또는 null",
@@ -5701,7 +5758,9 @@ def ai_analyze_item():
 분석 기준:
 - 착용샷(사람이 입은 사진)이어도 의류 아이템 자체만 분석
 - 배경과 착용자 신체 무시, 의류 구조에만 집중
-- 치마류(skirt)는 category를 반드시 skirt로, is_skirt를 true로 설정
+- 원피스류(onepiece)는 category를 반드시 onepiece로, is_onepiece를 true로, dress_length를 채울 것
+- 치마류(skirt)는 category를 반드시 skirt로, is_skirt를 true로, skirt_length를 채울 것
+- 아우터(coat/jacket)일 때는 outer_type에 TJ 정책 7종(코트/패딩/자켓/점퍼/가디건/다운/블레이저) 중 하나를 반드시 채울 것
 - 반드시 유효한 JSON만 반환
 """
 
