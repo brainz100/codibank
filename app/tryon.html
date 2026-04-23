@@ -8,7 +8,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<meta name="cb-version" content="tryon-phase4-2026-04-23-1500-urlfix" />
+<meta name="cb-version" content="tryon-phase4-2026-04-23-1830-v5" />
 
 <title>트라이 온 — CodiBank</title>
 
@@ -19,6 +19,28 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-04-23 18:30 KST ───  [TJ 지시 — v5 대규모 UX 개선]      │
+  │                                                                  │
+  │ [2-a] 버튼 텍스트 변경                                           │
+  │   "트라이온 착장이미지 생성하기" → "트라이온 피팅 Try-on Fitting" │
+  │   (초기 HTML + JS 리셋 복원 텍스트 2곳 동일 적용)                │
+  │                                                                  │
+  │ [3] 리셋 버튼 → 완전초기화 (A안)                                  │
+  │   기존: Step3 점수/이미지만 리셋                                 │
+  │   변경: Step1 아이템 모든 슬롯 + Step2 핏 선택('my'로) + Step3   │
+  │   sessionStorage(TRYON_STATE_KEY) 삭제 + applyModeUI('twopiece') │
+  │   + applyFitUI('my') + 모드 탭 UI 동기화 + Step1로 스크롤        │
+  │                                                                  │
+  │ [5] 가로폭 closet.html 동일 (A안) + 좌측정렬 명시                │
+  │   body max-width:480px 고정 → 모바일 풀폭 + @media 500px         │
+  │   .sheet max-width:480px → 500px                                 │
+  │   .pg-header/.step-head-body text-align:left !important 명시     │
+  │                                                                  │
+  │ [4] Step1 슬롯 카테고리 태그 중복 제거                            │
+  │   .slot.filled .req-badge { display:none } 추가                  │
+  │   빈 슬롯엔 카테고리 배지 유지, 아이템 선택되면 숨김              │
+  │   (하단 .slot-info name+meta 가 이미 정보 제공 중이라 중복)       │
+  │                                                                  │
   │ ─── 2026-04-23 15:00 KST ───  [🔴 치명적 버그 — 서버 URL 결정 실패] │
   │                                                                  │
   │ [증상] POST https://codibank.kr/api/tryon/generate → 404         │
@@ -275,11 +297,30 @@
     font-family:'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
     background:#00022E;
     color:#fff;
-    max-width:480px;
     margin:0 auto;
     min-height:100dvh;
     overflow-x:hidden;
     padding-bottom:140px;
+  }
+  /* [2026-04-23 18:30 TJ 지시] closet.html 과 동일한 가로 폭 체계 적용 */
+  /* 모바일(≤500px)은 풀폭 사용, 501px 이상에서만 500px 제한 */
+  @media (min-width: 501px) {
+    body {
+      max-width: 500px !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+    }
+  }
+  
+  /* [2026-04-23 18:30 TJ 지시] 타이틀·서브타이틀·아이콘 좌측정렬 명시 */
+  /* step-head 및 pg-header 내부 모든 타이틀 요소 명시적 좌측정렬 */
+  .pg-header, .pg-header *,
+  .step-head .step-head-body,
+  .step-head .step-head-body * {
+    text-align: left !important;
+  }
+  .step-head {
+    justify-content: flex-start !important;
   }
 
   .mi{
@@ -643,9 +684,11 @@
     text-transform:uppercase;
     z-index:2;
   }
+  /* [2026-04-23 18:30 TJ 지시4] 아이템 선택 완료(filled) 시 상단 카테고리 배지 숨김
+     - 이유: 하단 .slot-info 에 카테고리+출처가 이미 표시되므로 중복
+     - 빈 슬롯 상태에서는 계속 표시 (어떤 카테고리 슬롯인지 안내 기능 유지) */
   .slot.filled .req-badge{
-    background:rgba(0,0,0,0.65);
-    border-color:rgba(151,254,237,0.2);
+    display:none;
   }
 
   .slot-filled{ position:absolute; inset:0; display:none; }
@@ -1300,7 +1343,7 @@
     left:50%; bottom:0;
     transform:translate(-50%, 100%);
     width:100%;
-    max-width:480px;
+    max-width:500px;
     background:#0a1443;
     border-radius:24px 24px 0 0;
     border-top:1px solid rgba(151,254,237,0.25);
@@ -1889,10 +1932,10 @@
   </div>
   <div class="step-body">
 
-    <!-- 1. 트라이온 착장이미지 생성하기 (원본 .gen-btn 100% 카피) -->
+    <!-- 1. 트라이온 피팅 버튼 — [2026-04-23 18:30 TJ 지시] 텍스트 변경: "트라이온 착장이미지 생성하기" → "트라이온 피팅 (Try-on Fitting)" -->
     <button class="gen-btn" id="finalGenerate">
       <span class="mi">auto_awesome</span>
-      <span>트라이온 착장이미지 생성하기</span>
+      <span>트라이온 피팅<span style="opacity:.7;font-weight:400;margin-left:6px;font-size:.85em;">Try-on Fitting</span></span>
       <span class="count">3/5</span>
     </button>
 
@@ -3196,6 +3239,54 @@ if(csBtnShare) csBtnShare.addEventListener('click', async () => {
 });
 // [2026-04-23] 이전 줄에 있던 중복 csBtnShare(Mock) 리스너 제거됨
 if(csBtnReset) csBtnReset.addEventListener('click', () => {
+  // ════════════════════════════════════════════════════════════════
+  //  [2026-04-23 18:30 TJ 지시 — A안 완전초기화]
+  //  기존: Step3 점수/이미지만 리셋 → Step1 아이템 선택이 그대로 남아있었음
+  //  변경: Step1 아이템 + Step2 핏 선택 + Step3 결과 모두 초기화
+  // ════════════════════════════════════════════════════════════════
+  
+  // ─── Step1 아이템 슬롯 모두 초기화 ───
+  try {
+    ['top', 'bottom', 'onepiece', 'outer', 'shoes'].forEach(k => {
+      state.slots[k].filled = false;
+      state.slots[k].item = null;
+      resetSlotUI(k === 'outer' ? 'outer' : k);
+    });
+    // 모드는 기본값(twopiece)로 재설정 + UI 반영
+    if (typeof applyModeUI === 'function') {
+      state.mode = 'twopiece';
+      applyModeUI('twopiece');
+    }
+    // 모드 탭 UI도 기본으로
+    document.querySelectorAll('.mode-chip').forEach(chip => {
+      chip.classList.toggle('active', chip.dataset.mode === 'twopiece');
+    });
+  } catch(_e){
+    console.warn('[reset] Step1 초기화 경고:', _e);
+  }
+  
+  // ─── Step2 핏 선택 초기화 (기본값 'my'로 복귀) ───
+  try {
+    state.fitTarget = 'my';
+    state.modelGender = null;
+    if (typeof applyFitUI === 'function') applyFitUI('my');
+    // 핏 타일 UI 강제 동기화
+    document.querySelectorAll('.fit-tile').forEach(tile => {
+      tile.classList.toggle('active', tile.dataset.fit === 'my');
+    });
+  } catch(_e){
+    console.warn('[reset] Step2 초기화 경고:', _e);
+  }
+  
+  // ─── 영속화 상태 정리 ───
+  try {
+    sessionStorage.removeItem(TRYON_STATE_KEY);
+  } catch(_){}
+  
+  // ─── stepDone 모두 초기화 ───
+  state.stepDone = { 1: false, 2: true, 3: false };  // Step2는 기본 'my' 선택 상태
+  
+  // ─── Step3 결과 섹션 리셋 (기존 로직 유지) ───
   // 점수/지표 리셋
   const reset = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
   reset('csScoreNum','—');
@@ -3223,14 +3314,17 @@ if(csBtnReset) csBtnReset.addEventListener('click', () => {
   const sDot = document.getElementById('sDot');
   if(sTxt) sTxt.textContent = '이미지를 생성할 준비가 되었어요';
   if(sDot) sDot.classList.remove('done');
-  state.stepDone[3] = false;
   // [2026-04-23] 저장된 결과 데이터 정리
   try{ window._tryonLastResult = null; }catch(_){}
-  // 생성 버튼 텍스트 복원
+  // 생성 버튼 텍스트 복원 (초기 상태 "트라이온 피팅"으로)
   const btn = $('#finalGenerate');
-  btn.innerHTML = '<span class="mi">auto_awesome</span><span>트라이온 착장이미지 생성하기</span><span class="count">3/5</span>';
-  showToast('리셋되었습니다');
-  document.querySelector('.step[data-step="3"]').scrollIntoView({ behavior:'smooth', block:'start' });
+  btn.disabled = false;
+  btn.innerHTML = '<span class="mi">auto_awesome</span><span>트라이온 피팅<span style="opacity:.7;font-weight:400;margin-left:6px;font-size:.85em;">Try-on Fitting</span></span><span class="count">3/5</span>';
+  
+  showToast('전체 초기화되었습니다');
+  // Step1로 스크롤 (완전초기화되었으니 처음부터)
+  const step1 = document.querySelector('.step[data-step="1"]');
+  if(step1) step1.scrollIntoView({ behavior:'smooth', block:'start' });
 });
 
 // ════════════════════════════════════════════════════════════════
