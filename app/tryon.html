@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+<!-- [2026-04-23 14:00] 캐시 강제 무효화 — Phase 4 서버 연동 배포 반영용 -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<meta name="cb-version" content="tryon-phase4-2026-04-23-1500-urlfix" />
+
 <title>트라이 온 — CodiBank</title>
 
 <!--
@@ -12,6 +19,29 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-04-23 15:00 KST ───  [🔴 치명적 버그 — 서버 URL 결정 실패] │
+  │                                                                  │
+  │ [증상] POST https://codibank.kr/api/tryon/generate → 404         │
+  │        → Vercel(정적 호스팅)에 POST한 것                         │
+  │                                                                  │
+  │ [원인] _tryonBackendBase() 가 잘못된 전역변수/함수 참조:         │
+  │        - window.CB_CFG (X, 실제는 CodiBank.getConfig())         │
+  │        - getBackendBaseResolved() (X, CodiBank.getBacken...())   │
+  │        → 둘 다 undefined → '' 반환 → codibank.kr로 POST → 404   │
+  │                                                                  │
+  │ [수정] codistyle.html의 codistyleBase() 패턴 100% 준수로 교체:   │
+  │        1순위: CodiBank.getConfig().backendBase                   │
+  │        2순위: CodiBank.getBackendBaseResolved()                  │
+  │        3순위: window.CB_CFG (구버전 호환)                         │
+  │        4순위: window.CODIBANK_CONFIG (호환)                       │
+  │        5순위: hardcoded 'https://codibank-api.onrender.com'       │
+  │        → 안전망 다중 폴백으로 어떤 상황에서도 올바른 URL 생성    │
+  │                                                                  │
+  │ ─── 2026-04-23 14:00 KST ───  [캐시 무효화 메타 태그 추가]        │
+  │ Vercel CDN / 브라우저 캐시에 구버전이 남아있을 가능성 대응        │
+  │ Cache-Control: no-cache, no-store, must-revalidate                │
+  │ + cb-version 메타 태그로 신버전 식별 가능하게 함                   │
+  │                                                                  │
   │ ─── 2026-04-23 13:00 KST ───  [TJ 지시 — 트라이온 3대 버그 수정] │
   │                                                                  │
   │ [수정 1 — 치명적] Step1 아이템 사라지는 버그                       │
@@ -2755,17 +2785,47 @@ function updateFinalSummary(){
 //   - 사용량 카운팅: cb_usage_ 키에 tryonCount 필드 추가
 // ════════════════════════════════════════════════════════════════════
 
-// ─── 서버 base URL 결정 (codistyle.html 패턴 준수) ───
+// ─── 서버 base URL 결정 (codistyle.html의 codistyleBase 패턴 100% 준수) ───
+// [2026-04-23 15:00 치명적 버그 수정]
+//   기존 버그: window.CB_CFG / 전역 getBackendBaseResolved 참조
+//             → 둘 다 undefined라 빈 문자열 반환 → 상대경로로 fallback
+//             → codibank.kr (Vercel)에 POST → 404 에러
+//   수정: CodiBank.getConfig() / CodiBank.getBackendBaseResolved() 참조 (codistyle.html 동일)
+//         + window.location.origin 폴백 추가
 function _tryonBackendBase(){
   try{
-    const cfg = (typeof window !== 'undefined' && window.CB_CFG) ? window.CB_CFG : null;
-    if(cfg && cfg.backendBase) return String(cfg.backendBase).replace(/\/+$/, '');
-    if(typeof getBackendBaseResolved === 'function'){
-      const b = getBackendBaseResolved();
-      if(b) return String(b).replace(/\/+$/, '');
+    // 1순위: CodiBank.getConfig()의 backendBase (config.js가 만드는 정식 경로)
+    const cfg = (window.CodiBank && typeof CodiBank.getConfig === 'function')
+      ? CodiBank.getConfig() : {};
+    const direct = String((cfg && cfg.backendBase) || '').trim();
+    if(direct) return direct.replace(/\/+$/, '');
+    
+    // 2순위: CodiBank.getBackendBaseResolved() (Wi-Fi IP 자동 해석 등)
+    if(window.CodiBank && typeof CodiBank.getBackendBaseResolved === 'function'){
+      const resolved = String(CodiBank.getBackendBaseResolved() || '').trim();
+      if(resolved) return resolved.replace(/\/+$/, '');
     }
-  }catch(_){}
-  return ''; // 상대 경로로 fallback
+    
+    // 3순위: window.CB_CFG (구버전 호환)
+    if(window.CB_CFG && window.CB_CFG.backendBase){
+      return String(window.CB_CFG.backendBase).replace(/\/+$/, '');
+    }
+    
+    // 4순위: window.CODIBANK_CONFIG (또 다른 호환)
+    if(window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase){
+      return String(window.CODIBANK_CONFIG.backendBase).replace(/\/+$/, '');
+    }
+    
+    // 5순위: 최종 안전망 — Render 서버 직접 지정
+    // (codibank.kr 도메인에서 호출되는데 config 모두 실패 시 hardcoded fallback)
+    if(window.location && window.location.origin && 
+       !window.location.origin.includes('localhost')){
+      return 'https://codibank-api.onrender.com';
+    }
+  }catch(e){
+    console.warn('[tryon] _tryonBackendBase resolve error:', e);
+  }
+  return ''; // 마지막 폴백 (로컬 개발용)
 }
 
 // ─── localStorage에서 퍼스널컬러/프로필 로드 (profile.html / codistyle.html이 저장한 것) ───
