@@ -12,6 +12,80 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-04-23 08:30 KST ───  [TJ 지시 3·4 — 모드별 옵션 슬롯 재구성] │
+  │                                                                  │
+  │ 작업 3: outer 모드 옵션 = 상의 + 하의 + 신발                     │
+  │ 작업 4: onepiece 모드 옵션 = 아우터 + 신발 (기존 twopiece-       │
+  │         onepiece-only 클래스 그대로 활용)                        │
+  │                                                                  │
+  │ [HTML 신규]  (line ~1582)                                        │
+  │   ▸ outer-opt-only 클래스 상의 옵션 슬롯 추가                    │
+  │     (아우터 안에 받쳐 입을 상의)                                 │
+  │   ▸ outer-opt-only 클래스 하의 옵션 슬롯 추가                    │
+  │     (아우터 + 하의 연출용)                                       │
+  │                                                                  │
+  │ [JS 수정]  setMode() (line ~2199)                                │
+  │   ▸ twopiece: outer-opt-only 숨김                                │
+  │   ▸ onepiece: outer-opt-only 숨김                                │
+  │   ▸ outer:    outer-opt-only 표시, 상의/하의 slot.active=true    │
+  │                role='optional'로 설정                            │
+  │   ▸ top/bottom role을 모드 전환 시 원복하는 로직 추가             │
+  │     (outer 모드에서 optional이 된 후 복귀 시 버그 방지)          │
+  │                                                                  │
+  │ [JS 수정]  renderStep1() (line ~2488)                            │
+  │   ▸ optCount 분모 동적 계산: outer 모드는 /3, 나머지는 /2        │
+  │                                                                  │
+  │ [JS 수정]  슬롯 초기화에 shoes 포함 (line ~2192)                  │
+  │   ▸ 기존 버그: 모드 전환 시 shoes 슬롯은 리셋 안 됐음             │
+  │   ▸ 이제 state.slots.shoes + resetSlotUI('shoes') 모두 리셋      │
+  │                                                                  │
+  │ 참고: _tryonBuildPayload()는 이미 outer 모드에서 top/bottom을    │
+  │       optional로 payload에 포함하도록 구현되어 있어 추가 수정     │
+  │       불필요 (2026-04-23 07:00 작업에서 이미 대응함)             │
+  │                                                                  │
+  │ ─── 2026-04-23 07:00 KST ───  [TJ 지시 — Phase 4 서버 연동 완성] │
+  │                                                                  │
+  │ 기존: #finalGenerate 핸들러가 setTimeout(2200ms) mock 상태       │
+  │       → 화면에 "[생성된 착장 이미지] 실제 이미지는 백엔드 연동   │
+  │         시 표시됩니다" 플레이스홀더만 보이던 문제                │
+  │ 신규: 실제 POST /api/tryon/generate fetch 호출 구현              │
+  │                                                                  │
+  │ [신규 함수]  (line ~2555)                                        │
+  │   ▸ _tryonBackendBase()        — config.js backendBase 자동 해석 │
+  │   ▸ _tryonLoadPersonalColor()  — localStorage cb_personal_color_ │
+  │                                 (profile/codistyle이 저장한 것)  │
+  │   ▸ _tryonUsageKey()           — cb_usage_{email} 키 생성        │
+  │   ▸ recordTryonUsage()         — 사용량 카운팅                   │
+  │                                 (closet/codistyle와 통합 풀)     │
+  │   ▸ _tryonBuildPayload()       — state → 서버 요청 body 매핑     │
+  │                                   · user(gender/age/h/w/tier)    │
+  │                                   · mode/fitTarget/modelGender    │
+  │                                   · faceImage (업로드 or snap)    │
+  │                                   · {top|bottom|onepiece|outer}   │
+  │                                     DataUrl/Path/Analysis          │
+  │                                   · bodyType (BMI 자동계산)       │
+  │                                   · personalColor (localStorage)  │
+  │                                   · lang (ko/en)                   │
+  │   ▸ _tryonApplyResult(data)    — 응답 처리:                      │
+  │                                   · data.image/url/path 이미지    │
+  │                                   · styling_score(0~100) 등급     │
+  │                                   · score_breakdown 4지표 카드   │
+  │                                     (body_shape/personal_color/  │
+  │                                      proportion/style)            │
+  │                                   · 저장/공유/리셋 버튼 활성화    │
+  │                                                                  │
+  │ [교체된 핸들러]  (line ~2555)                                    │
+  │   ▸ $('#finalGenerate').addEventListener('click', async() => ...)│
+  │     · payload 조립 → fetch → apply → 에러 핸들링                 │
+  │     · 로딩 UI 유지 (img-spin + spin-txt 'AI가 생성 중…')         │
+  │     · 실패 시 토스트 + 원래 버튼 복원                            │
+  │                                                                  │
+  │ [원칙 준수]                                                      │
+  │   ▸ codistyle_generate 건드리지 않음 (엔진 분리 원칙)            │
+  │   ▸ v53 SDK fix 구역 준수 (서버 SDK fallback 그대로 활용)        │
+  │   ▸ 사용량 카운팅: cb_usage_ 키에 tryonCount 필드 추가            │
+  │     (closet/codistyle와 합산 공유)                               │
+  │                                                                  │
   │ ─── 2026-04-22 16:05 KST ───  [TJ 지시 — 지시1~2]             │
   │ ▸ 지시 1: Step 2 타이틀 위쪽 여백 +50% 이상 증가                │
   │   .step[data-step="2"] { margin-top:30px } 신규 지정            │
@@ -1518,6 +1592,7 @@
     <!-- 옵션 슬롯 -->
     <div class="slot-section-label">옵션 <span class="count" id="optCount">0/2</span></div>
     <div class="slots" id="optionalSlots">
+      <!-- 아우터 옵션 — twopiece, onepiece 모드에서만 표시 -->
       <div class="slot add-slot twopiece-onepiece-only" data-type="outer" data-role="optional">
         <div class="slot-empty">
           <span class="opt-badge">선택</span>
@@ -1533,6 +1608,41 @@
         </div>
       </div>
 
+      <!-- ─── 2026-04-23 08:30 [TJ 지시3] outer 모드용 '상의' 옵션 슬롯 신규 추가 ─── -->
+      <!-- 아우터를 메인으로 고르면 그 안에 받쳐 입을 상의를 선택할 수 있게 함 -->
+      <div class="slot add-slot outer-opt-only" data-type="top" data-role="optional" style="display:none;">
+        <div class="slot-empty">
+          <span class="opt-badge">선택</span>
+          <div class="icon"><span class="mi">apparel</span></div>
+          <div class="label">+ 상의</div>
+          <div class="hint">셔츠 · 티셔츠 · 니트</div>
+        </div>
+        <div class="slot-filled">
+          <div class="slot-image"></div>
+          <button class="remove-btn" aria-label="제거"><span class="mi">close</span></button>
+          <span class="req-badge">상의</span>
+          <div class="slot-info"><div class="name"></div><div class="meta"></div></div>
+        </div>
+      </div>
+
+      <!-- ─── 2026-04-23 08:30 [TJ 지시3] outer 모드용 '하의' 옵션 슬롯 신규 추가 ─── -->
+      <!-- 아우터 + 하의 조합 연출용 (바지/치마 모두 가능) -->
+      <div class="slot add-slot outer-opt-only" data-type="bottom" data-role="optional" style="display:none;">
+        <div class="slot-empty">
+          <span class="opt-badge">선택</span>
+          <div class="icon"><span class="mi">atr</span></div>
+          <div class="label">+ 하의</div>
+          <div class="hint">바지 · 치마</div>
+        </div>
+        <div class="slot-filled">
+          <div class="slot-image"></div>
+          <button class="remove-btn" aria-label="제거"><span class="mi">close</span></button>
+          <span class="req-badge">하의</span>
+          <div class="slot-info"><div class="name"></div><div class="meta"></div></div>
+        </div>
+      </div>
+
+      <!-- 신발 옵션 — 모든 모드에서 표시 -->
       <div class="slot add-slot" data-type="shoes" data-role="optional">
         <div class="slot-empty">
           <span class="opt-badge">선택</span>
@@ -1936,11 +2046,11 @@
 <div class="cb-spacer"></div>
 <nav class="cb-nav">
   <div class="cb-nav-inner">
-    <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디핏</span></a>
-    <a href="tryon.html" class="cb-nav-tab on"><span class="ni">accessibility_new</span><span class="nl">트라이온</span></a>
-    <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
-    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">palette</span><span class="nl">코디하기</span></a>
-    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
+    <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl" data-i18n="코디핏">코디핏</span></a>
+    <a href="tryon.html" class="cb-nav-tab on"><span class="ni">accessibility_new</span><span class="nl" data-i18n="트라이온">트라이온</span></a>
+    <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl" data-i18n="Ai 옷장">Ai 옷장</span></a>
+    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">auto_fix_high</span><span class="nl" data-i18n="코디하기">코디하기</span></a>
+    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl" data-i18n="MY">MY</span></a>
   </div>
 </nav>
 
@@ -2111,7 +2221,9 @@ function setMode(mode, skipReset){
 
   // state 초기화 (모드 전환 시 모든 슬롯 리셋) - 복원 경로에서는 건너뜀
   if(!skipReset){
-    ['top','bottom','onepiece','outer'].forEach(t => {
+    // [2026-04-23 08:30] shoes 슬롯도 리셋 대상에 포함
+    //   기존엔 shoes가 빠져 있어 모드 전환 시 이전 신발이 남아있던 버그 수정
+    ['top','bottom','onepiece','outer','shoes'].forEach(t => {
       state.slots[t].filled = false;
       state.slots[t].item = null;
     });
@@ -2119,7 +2231,9 @@ function setMode(mode, skipReset){
 
   if(mode === 'twopiece'){
     state.slots.top.active = true;
+    state.slots.top.role = 'required';        // [2026-04-23] outer 모드에서 optional로 바뀌는 것 복구
     state.slots.bottom.active = true;
+    state.slots.bottom.role = 'required';     // [2026-04-23] 동일
     state.slots.onepiece.active = false;
     state.slots.outer.active = false;
     state.slots.outer.role = 'optional';
@@ -2127,16 +2241,22 @@ function setMode(mode, skipReset){
     $$('.onepiece-only').forEach(el => el.style.display = 'none');
     $$('.outer-only').forEach(el => el.style.display = 'none');
     $$('.twopiece-onepiece-only').forEach(el => el.style.display = '');
+    // [2026-04-23 08:30 TJ 지시3] outer 모드 전용 옵션 슬롯 숨김
+    $$('.outer-opt-only').forEach(el => el.style.display = 'none');
   } else if(mode === 'onepiece'){
     state.slots.top.active = false;
+    state.slots.top.role = 'required';        // [2026-04-23] role 원복
     state.slots.bottom.active = false;
+    state.slots.bottom.role = 'required';     // [2026-04-23] role 원복
     state.slots.onepiece.active = true;
     state.slots.outer.active = false;
     state.slots.outer.role = 'optional';
     $$('.twopiece-only').forEach(el => el.style.display = 'none');
     $$('.onepiece-only').forEach(el => el.style.display = '');
     $$('.outer-only').forEach(el => el.style.display = 'none');
+    // [2026-04-23 08:30 TJ 지시4] 원피스 모드 옵션: 아우터 + 신발 (기존 twopiece-onepiece-only 그대로 활용)
     $$('.twopiece-onepiece-only').forEach(el => el.style.display = '');
+    $$('.outer-opt-only').forEach(el => el.style.display = 'none');
   } else if(mode === 'outer'){
     state.slots.top.active = false;
     state.slots.bottom.active = false;
@@ -2146,12 +2266,21 @@ function setMode(mode, skipReset){
     $$('.twopiece-only').forEach(el => el.style.display = 'none');
     $$('.onepiece-only').forEach(el => el.style.display = 'none');
     $$('.outer-only').forEach(el => el.style.display = '');
-    // 옵션 섹션의 아우터 슬롯은 숨김 (필수로 올라갔으므로)
+    // 옵션 섹션의 아우터 옵션은 숨김 (이미 필수로 올라갔으므로)
     $$('.twopiece-onepiece-only').forEach(el => el.style.display = 'none');
+    // [2026-04-23 08:30 TJ 지시3] outer 모드 옵션: 상의 + 하의 + 신발
+    //   → outer-opt-only 클래스(상의/하의) 표시, 신발 옵션은 별도 클래스 없어서 기본 표시됨
+    $$('.outer-opt-only').forEach(el => el.style.display = '');
+    // outer 모드에서는 옵션 상의/하의도 slot.active = true 로 셋 (옵션이지만 슬롯 시스템이 active 기반)
+    state.slots.top.active = true;   // 옵션 슬롯으로 활성
+    state.slots.top.role = 'optional';
+    state.slots.bottom.active = true;  // 옵션 슬롯으로 활성
+    state.slots.bottom.role = 'optional';
   }
   // 슬롯 UI 리셋도 skipReset 적용
   if(!skipReset){
-    ['top','bottom','onepiece','outer','outer-main'].forEach(t => resetSlotUI(t));
+    // [2026-04-23 08:30] shoes UI도 리셋 대상에 포함
+    ['top','bottom','onepiece','outer','outer-main','shoes'].forEach(t => resetSlotUI(t));
   }
   renderStep1();
   // 모드 변경 시 영속화
@@ -2389,8 +2518,13 @@ function renderStep1(){
     }
     if(s.role === 'optional' && s.filled) optHave++;
   });
+  // [2026-04-23 08:30] 옵션 슬롯 개수는 모드에 따라 다름
+  //   twopiece: 아우터 + 신발 = 2
+  //   onepiece: 아우터 + 신발 = 2
+  //   outer:    상의 + 하의 + 신발 = 3 (옵션 아우터 없음, 아우터는 필수로 승격)
+  const optTotal = (state.mode === 'outer') ? 3 : 2;
   $('#reqCount').textContent = `${reqHave}/${reqNeed}`;
-  $('#optCount').textContent = `${optHave}/2`;
+  $('#optCount').textContent = `${optHave}/${optTotal}`;
 
   const allReq = reqHave === reqNeed && reqNeed > 0;
   if(allReq){
@@ -2552,7 +2686,257 @@ function updateFinalSummary(){
   // 추후 필요 시 내부 요약 갱신 로직을 다시 넣을 수 있음
 }
 
-$('#finalGenerate').addEventListener('click', () => {
+// ════════════════════════════════════════════════════════════════════
+//  [2026-04-23 07:00 KST · Phase 4 서버 연동] TJ 지시
+//  기존: 2.2초 setTimeout mock → 화면에 "[생성된 착장 이미지] 플레이스홀더" 표시
+//  신규: 실제 POST /api/tryon/generate 호출 → Gemini 3 Pro Image 생성 이미지 표시
+//  ────────────────────────────────────────────────────────────────────
+//  서버 엔드포인트 스펙 (mock_backend.py line ~4868):
+//    Request JSON:
+//      - user: {gender, ageGroup, height, weight, tier}
+//      - mode: "twopiece" | "onepiece" | "outer"
+//      - fitTarget: "my" | "somebody" | "model"
+//      - modelGender: "male" | "female"  (fitTarget=="model"일 때만)
+//      - faceImage: dataURL  (fitTarget!="model"일 때)
+//      - topDataUrl / topPath, bottomDataUrl / bottomPath  (twopiece/outer)
+//      - onepieceDataUrl / onepiecePath  (onepiece)
+//      - outerDataUrl / outerPath, shoesDataUrl / shoesPath  (optional)
+//      - personalColor, bodyType  (optional - 있으면 품질 향상)
+//      - lang: "ko" | "en"
+//    Response JSON:
+//      - ok, path, image(dataUrl), url
+//      - comment, styling_score (0~100)
+//      - score_breakdown: {body_shape, personal_color, proportion, style} (점수)
+//      - executive_summary, tpo_recommendations, improvement_tips, style_hashtags
+//      - model, sdk
+//  ────────────────────────────────────────────────────────────────────
+//  원칙 준수:
+//   - v53 SDK fix 구역 준수 (서버 SDK fallback 그대로 활용)
+//   - codistyle_generate는 건드리지 않음 (엔진 분리 원칙)
+//   - 사용량 카운팅: cb_usage_ 키에 tryonCount 필드 추가
+// ════════════════════════════════════════════════════════════════════
+
+// ─── 서버 base URL 결정 (codistyle.html 패턴 준수) ───
+function _tryonBackendBase(){
+  try{
+    const cfg = (typeof window !== 'undefined' && window.CB_CFG) ? window.CB_CFG : null;
+    if(cfg && cfg.backendBase) return String(cfg.backendBase).replace(/\/+$/, '');
+    if(typeof getBackendBaseResolved === 'function'){
+      const b = getBackendBaseResolved();
+      if(b) return String(b).replace(/\/+$/, '');
+    }
+  }catch(_){}
+  return ''; // 상대 경로로 fallback
+}
+
+// ─── localStorage에서 퍼스널컬러/프로필 로드 (profile.html / codistyle.html이 저장한 것) ───
+function _tryonLoadPersonalColor(email){
+  try{
+    const key = 'cb_personal_color_' + (email || 'guest');
+    const raw = localStorage.getItem(key);
+    if(raw) return JSON.parse(raw);
+  }catch(_){}
+  return null;
+}
+
+// ─── 사용량 카운팅 — cb_usage_ 키에 tryonCount 추가 (codistyle.html과 키 공유) ───
+function _tryonUsageKey(){
+  try{
+    const user = (typeof CodiBank !== 'undefined' && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;
+    return 'cb_usage_' + ((user && user.email) || 'guest');
+  }catch(_){ return 'cb_usage_guest'; }
+}
+function recordTryonUsage(){
+  try{
+    const k = _tryonUsageKey();
+    const raw = JSON.parse(localStorage.getItem(k) || '{}');
+    const now = new Date();
+    const monthKey = now.getFullYear()+'-'+(now.getMonth()+1);
+    const dayKey = now.toISOString().slice(0,10);
+    if(raw.month !== monthKey){
+      raw.month = monthKey;
+      raw.closetCount=0; raw.codistyleCount=0; raw.tryonCount=0; raw.totalCount=0;
+    }
+    if(raw.day !== dayKey){
+      raw.day = dayKey;
+      raw.dayClosetCount=0; raw.dayCodiCount=0; raw.dayTryonCount=0; raw.dayTotal=0;
+    }
+    raw.tryonCount    = (raw.tryonCount||0) + 1;
+    raw.dayTryonCount = (raw.dayTryonCount||0) + 1;
+    // 합산 카운터
+    raw.totalCount = (raw.closetCount||0) + (raw.codistyleCount||0) + (raw.tryonCount||0);
+    raw.dayTotal   = (raw.dayClosetCount||0) + (raw.dayCodiCount||0) + (raw.dayTryonCount||0);
+    localStorage.setItem(k, JSON.stringify(raw));
+  }catch(_){}
+}
+
+// ─── state → payload 매핑 함수 ───
+function _tryonBuildPayload(){
+  const user = (typeof CodiBank !== 'undefined' && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;
+  const email = (user && user.email) || '';
+  const snap = state.myProfileSnapshot || {};
+
+  // 기본 사용자 정보
+  const userObj = {
+    gender:   (user && user.gender)   || (snap.bodyGender === '여성' ? 'F' : 'M'),
+    ageGroup: (user && user.ageGroup) || snap.bodyAge   || '30대',
+    height:   (user && user.height)   || snap.bodyHeight|| '',
+    weight:   (user && user.weight)   || snap.bodyWeight|| '',
+    tier:     (user && user.plan)     || 'FREE',
+  };
+
+  // 퍼스널컬러 (localStorage)
+  const pc = _tryonLoadPersonalColor(email);
+
+  // bodyType — BMI 기반 간이 계산
+  const _h = parseFloat(userObj.height) || 0;
+  const _w = parseFloat(userObj.weight) || 0;
+  let bodyType = '';
+  if(_h > 0 && _w > 0){
+    const bmi = _w / Math.pow(_h/100, 2);
+    bodyType = bmi < 18.5 ? '슬림' : bmi < 23 ? '표준' : bmi < 26 ? '보통' : '풍성';
+  }
+
+  // 모드별 슬롯 맵핑
+  const payload = {
+    user: userObj,
+    mode: state.mode,                       // 'twopiece' | 'onepiece' | 'outer'
+    fitTarget: state.fitTarget,             // 'my' | 'somebody' | 'model'
+    modelGender: state.modelGender || '',   // 'male' | 'female'
+    bodyType: bodyType,
+    personalColor: pc || null,
+    lang: (window.CodiBankI18n && CodiBankI18n.isEn && CodiBankI18n.isEn()) ? 'en' : 'ko',
+    _ts: Date.now(),
+  };
+
+  // 얼굴 이미지 (fit != 'model')
+  if(state.fitTarget !== 'model'){
+    if(state.uploadedFaceDataUrl){
+      payload.faceImage = state.uploadedFaceDataUrl;
+    } else {
+      // 업로드 없을 때는 CodiBank 회원 얼굴(있다면) 사용
+      // 이미 loadMyProfileFace()에서 snap.faceSrc에 dataUrl 들어있을 수 있음
+      if(snap.faceSrc && snap.faceSrc.startsWith('data:')){
+        payload.faceImage = snap.faceSrc;
+      }
+    }
+  }
+
+  // 아이템 이미지 매핑 (슬롯에서 가져옴)
+  const _add = (slotKey, prefix) => {
+    const s = state.slots[slotKey];
+    if(!s || !s.filled || !s.item) return;
+    if(s.item.dataUrl) payload[prefix + 'DataUrl'] = s.item.dataUrl;
+    if(s.item.path)    payload[prefix + 'Path']    = s.item.path;
+    // meta.gemini 분석 데이터가 있으면 전달 (Ai옷장 등록 시 분석됨)
+    if(s.item.meta && typeof s.item.meta === 'object' && s.item.meta.gemini){
+      payload[prefix + 'Analysis'] = s.item.meta.gemini;
+    }
+  };
+
+  if(state.mode === 'twopiece'){
+    _add('top', 'top');
+    _add('bottom', 'bottom');
+  } else if(state.mode === 'onepiece'){
+    _add('onepiece', 'onepiece');
+  } else if(state.mode === 'outer'){
+    _add('outer', 'outer');
+    _add('top', 'top');
+    _add('bottom', 'bottom');
+  }
+
+  // 선택 슬롯 (outer/shoes)
+  if(state.mode !== 'outer') _add('outer', 'outer');
+  _add('shoes', 'shoes');
+
+  return payload;
+}
+
+// ─── 응답 처리: 이미지/점수/4지표 UI에 반영 ───
+function _tryonApplyResult(data){
+  // ── 1) 이미지 뷰박스에 결과 이미지 표시 ──
+  const imgWrap = document.getElementById('imgWrap');
+  if(imgWrap){
+    // data.image(dataUrl) 우선, 없으면 data.url, 그것도 없으면 data.path
+    let imgSrc = data.image || data.url || '';
+    if(!imgSrc && data.path){
+      // 상대 경로라면 backend base 붙임
+      const base = _tryonBackendBase();
+      imgSrc = base ? (base + (data.path.startsWith('/') ? '' : '/') + data.path) : data.path;
+    }
+    if(imgSrc){
+      imgWrap.innerHTML = '<div class="csty-result-img-box" style="display:flex;align-items:center;justify-content:center;overflow:hidden;"><img src="'+imgSrc+'" alt="트라이온 결과" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:12px;"></div>';
+    } else {
+      imgWrap.innerHTML = '<div class="csty-result-img-box" style="background:linear-gradient(135deg,#0B1238,#1a2554);display:flex;align-items:center;justify-content:center;color:#97FEED;font-size:13px;font-weight:700;text-align:center;padding:20px;">이미지 생성은 완료되었지만<br>결과 URL을 받지 못했어요<br><span style="font-size:10px;color:rgba(151,254,237,.5);margin-top:8px;display:block;">잠시 후 다시 시도해 주세요</span></div>';
+    }
+  }
+
+  // ── 2) 스타일 점수 + 등급 ──
+  const total = typeof data.styling_score === 'number' ? Math.round(data.styling_score) : 85;
+  const scoreNumEl = document.getElementById('csScoreNum');
+  const scoreBarEl = document.getElementById('csScoreBar');
+  const gradeBadgeEl = document.getElementById('csGradeBadge');
+  if(scoreNumEl) scoreNumEl.textContent = total;
+  if(scoreBarEl) scoreBarEl.style.width = total + '%';
+  if(gradeBadgeEl){
+    gradeBadgeEl.textContent = total >= 90 ? 'S Grade' : total >= 80 ? 'A Grade' : total >= 70 ? 'B Grade' : 'C Grade';
+    gradeBadgeEl.style.display = 'inline-block';
+  }
+
+  // ── 3) 4지표 (body_shape, personal_color, proportion, style) ──
+  const bd = data.score_breakdown || {};
+  const scoreDetailEl = document.getElementById('csScoreDetail');
+  if(scoreDetailEl) scoreDetailEl.style.display = 'block';
+  const setMetric = (valId, fillId, val, max) => {
+    const v = document.getElementById(valId);
+    const f = document.getElementById(fillId);
+    const n = (typeof val === 'number') ? Math.round(val) : 0;
+    if(v) v.textContent = n;
+    if(f) f.style.width = Math.min(100, (n/max*100)) + '%';
+  };
+  // 서버 스키마 매핑 (mock_backend.py _tryon_parse_response 기준)
+  setMetric('csScBody',  'csScBodyFill',  bd.body_shape     || 0, 30);
+  setMetric('csScPc',    'csScPcFill',    bd.personal_color || 0, 30);
+  setMetric('csScProp',  'csScPropFill',  bd.proportion     || 0, 20);
+  setMetric('csScStyle', 'csScStyleFill', bd.style          || 0, 20);
+
+  // ── 4) 대기 메시지 숨김 ──
+  const scoreText = document.getElementById('csScoreText');
+  if(scoreText) scoreText.style.display = 'none';
+
+  // ── 5) 리포트 버튼 표시 ──
+  const reportBtnGroup = document.getElementById('csReportBtnGroup');
+  if(reportBtnGroup) reportBtnGroup.style.display = 'flex';
+
+  // ── 6) 저장/공유/리셋 버튼 활성화 ──
+  ['csBtn_save','csBtn_share','csBtn_reset'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el){
+      el.disabled = false;
+      el.style.background = 'rgba(151,254,237,.15)';
+      el.style.color = '#97FEED';
+      el.style.border = '1px solid rgba(151,254,237,.3)';
+    }
+  });
+
+  // ── 7) 상태 텍스트 ──
+  const sTxt = document.getElementById('sTxt');
+  const sDot = document.getElementById('sDot');
+  if(sTxt) sTxt.textContent = '생성 완료';
+  if(sDot) sDot.classList.add('done');
+  state.stepDone[3] = true;
+
+  // ── 8) 서버 응답의 executive_summary 등은 콘솔 로그에 남겨 디버깅용 ──
+  if(data.comment) console.log('[TryOn Result] comment:', data.comment);
+  if(data.executive_summary) console.log('[TryOn Result] exec_summary:', data.executive_summary);
+  if(data.improvement_tips) console.log('[TryOn Result] tips:', data.improvement_tips);
+
+  // ── 9) 결과 이미지 URL 저장 (저장/공유 버튼이 쓸 수 있음) ──
+  try{ window._tryonLastResult = data; }catch(_){}
+}
+
+// ─── finalGenerate 클릭 핸들러 ───
+$('#finalGenerate').addEventListener('click', async () => {
   const filled = Object.entries(state.slots).filter(([,s])=>s.filled);
   if(!filled.length){ showToast('Step 1에서 아이템을 먼저 선택해 주세요'); return; }
   if(!state.fitTarget){ showToast('Step 2에서 핏을 선택해 주세요'); return; }
@@ -2562,101 +2946,156 @@ $('#finalGenerate').addEventListener('click', () => {
 
   // 버튼 로딩 상태
   const btn = $('#finalGenerate');
+  const originalHTML = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<span class="mi" style="animation:spin 1s linear infinite;">progress_activity</span><span>생성 중…</span>';
 
-  // 2.2초 후 mock 결과 표시
-  setTimeout(() => {
-    // [2026-04-22 TJ 지시5] 새 분석박스(#csScoreBox) 내부 요소 채우기
-    const total = 82 + Math.floor(Math.random()*12);
-    const m1 = 22 + Math.floor(Math.random()*7);
-    const m2 = 22 + Math.floor(Math.random()*7);
-    const m3 = 15 + Math.floor(Math.random()*5);
-    const m4 = 15 + Math.floor(Math.random()*5);
+  // 이미지 뷰박스도 로딩 상태로
+  const imgWrap = document.getElementById('imgWrap');
+  if(imgWrap){
+    imgWrap.innerHTML = '<div class="csty-result-img-box"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성 중이에요…<br>(약 20~40초 소요)</p></div></div>';
+  }
+  const sTxt = document.getElementById('sTxt');
+  if(sTxt) sTxt.textContent = 'AI 생성 중…';
 
-    // 점수 헤더
-    const scoreNumEl = document.getElementById('csScoreNum');
-    const scoreBarEl = document.getElementById('csScoreBar');
-    const gradeBadgeEl = document.getElementById('csGradeBadge');
-    if(scoreNumEl) scoreNumEl.textContent = total;
-    if(scoreBarEl) scoreBarEl.style.width = total + '%';
-    if(gradeBadgeEl){
-      gradeBadgeEl.textContent = total >= 90 ? 'S Grade' : total >= 80 ? 'A Grade' : 'B Grade';
-      gradeBadgeEl.style.display = 'inline-block';
-    }
-    // 4지표 카드 표시 + 값 채우기
-    const scoreDetailEl = document.getElementById('csScoreDetail');
-    if(scoreDetailEl) scoreDetailEl.style.display = 'block';
-    const setMetric = (valId, fillId, val, max) => {
-      const v = document.getElementById(valId);
-      const f = document.getElementById(fillId);
-      if(v) v.textContent = val;
-      if(f) f.style.width = (val/max*100) + '%';
-    };
-    setMetric('csScBody','csScBodyFill', m1, 30);
-    setMetric('csScPc','csScPcFill', m2, 30);
-    setMetric('csScProp','csScPropFill', m3, 20);
-    setMetric('csScStyle','csScStyleFill', m4, 20);
+  // payload 조립
+  const payload = _tryonBuildPayload();
+  console.log('[TryOn Generate Payload]', {
+    mode: payload.mode,
+    fitTarget: payload.fitTarget,
+    modelGender: payload.modelGender,
+    hasTop: !!(payload.topDataUrl || payload.topPath),
+    hasBottom: !!(payload.bottomDataUrl || payload.bottomPath),
+    hasOnepiece: !!(payload.onepieceDataUrl || payload.onepiecePath),
+    hasOuter: !!(payload.outerDataUrl || payload.outerPath),
+    hasFace: !!payload.faceImage,
+    hasPC: !!payload.personalColor,
+    bodyType: payload.bodyType,
+    tier: payload.user.tier,
+  });
 
-    // 대기 메시지 숨김
-    const scoreText = document.getElementById('csScoreText');
-    if(scoreText) scoreText.style.display = 'none';
-    // 리포트 버튼 표시
-    const reportBtnGroup = document.getElementById('csReportBtnGroup');
-    if(reportBtnGroup) reportBtnGroup.style.display = 'flex';
-
-    // 이미지 뷰박스 mock 결과 (실제로는 Gemini 3 Pro Image 호출)
-    const imgWrap = document.getElementById('imgWrap');
-    if(imgWrap){
-      imgWrap.innerHTML = '<div class="csty-result-img-box" style="background:linear-gradient(135deg,#0B1238,#1a2554);display:flex;align-items:center;justify-content:center;color:#97FEED;font-size:13px;font-weight:700;text-align:center;padding:20px;">[생성된 착장 이미지]<br><span style="font-size:10px;color:rgba(151,254,237,.5);margin-top:8px;display:block;">Gemini 3 Pro Image<br>실제 이미지는 백엔드 연동 시 표시됩니다</span></div>';
-    }
-    // 저장/공유/리셋 버튼 활성화
-    ['csBtn_save','csBtn_share','csBtn_reset'].forEach(id => {
-      const el = document.getElementById(id);
-      if(el){
-        el.disabled = false;
-        el.style.background = 'rgba(151,254,237,.15)';
-        el.style.color = '#97FEED';
-        el.style.border = '1px solid rgba(151,254,237,.3)';
-      }
+  // ── 실제 서버 호출 ──
+  const base = _tryonBackendBase();
+  const url = (base ? base : '') + '/api/tryon/generate';
+  try{
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      credentials: 'omit',
     });
-    // 상태 텍스트 업데이트
-    const sTxt = document.getElementById('sTxt');
-    const sDot = document.getElementById('sDot');
-    if(sTxt) sTxt.textContent = '생성 완료';
-    if(sDot) sDot.classList.add('done');
 
-    state.stepDone[3] = true;
+    if(!res.ok){
+      let errMsg = '서버 오류 (' + res.status + ')';
+      try{
+        const errJson = await res.json();
+        if(errJson && errJson.error) errMsg = errJson.error;
+      }catch(_){}
+      throw new Error(errMsg);
+    }
 
-    // 버튼 복원
+    const data = await res.json();
+    if(!data || data.ok === false){
+      throw new Error((data && data.error) || '생성 실패');
+    }
+
+    // 결과 반영
+    _tryonApplyResult(data);
+    recordTryonUsage();
+
+    // 버튼 복원 (다시 생성하기 버튼)
     btn.disabled = false;
     btn.innerHTML = '<span class="mi">refresh</span><span>다시 생성하기</span><span class="count">2/5</span>';
 
-    showToast('생성 완료 — Gemini 3 Pro Image');
+    showToast('생성 완료 — ' + (data.model || 'Gemini 3 Pro Image'));
 
     // 스크롤
     setTimeout(() => {
       const el = document.getElementById('csScoreBox');
       if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
     }, 300);
-  }, 2200);
-
-  const payload = {
-    mode: state.mode,
-    items: Object.fromEntries(filled.map(([t,s]) => [t, { name:s.item.name, meta:s.item.meta }])),
-    fitTarget: state.fitTarget,
-    modelGender: state.modelGender,
-    engine: 'gemini-3-pro-image'
-  };
-  console.log('[TryOn Generate Payload]', payload);
+  } catch(err){
+    console.error('[TryOn Error]', err);
+    showToast('생성 실패: ' + (err.message || err));
+    // 버튼 복원
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+    // 이미지 뷰박스 복원
+    if(imgWrap){
+      imgWrap.innerHTML = '<div class="csty-result-img-box"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.5;color:#ff6b6b;">생성 실패 — 다시 시도해 주세요</p></div></div>';
+    }
+    const sTxt2 = document.getElementById('sTxt');
+    if(sTxt2) sTxt2.textContent = '생성 실패';
+  }
 });
 
 // [2026-04-22 TJ 지시5] 저장 / 공유 / 리셋 — 새 id에 맞춰 재작성
 const csBtnSave = document.getElementById('csBtn_save');
 const csBtnShare = document.getElementById('csBtn_share');
 const csBtnReset = document.getElementById('csBtn_reset');
-if(csBtnSave) csBtnSave.addEventListener('click', () => showToast('이미지 저장 (Mock)'));
-if(csBtnShare) csBtnShare.addEventListener('click', () => showToast('공유 (Mock)'));
+// ─── 2026-04-23 07:00 [TJ 지시] 저장/공유 실제 동작 연결 ───
+if(csBtnSave) csBtnSave.addEventListener('click', () => {
+  const r = window._tryonLastResult;
+  if(!r || (!r.image && !r.url && !r.path)){
+    showToast('저장할 이미지가 없어요');
+    return;
+  }
+  // 이미지 URL 결정
+  let imgSrc = r.image || r.url || '';
+  if(!imgSrc && r.path){
+    const base = _tryonBackendBase();
+    imgSrc = base ? (base + (r.path.startsWith('/') ? '' : '/') + r.path) : r.path;
+  }
+  // 다운로드
+  try{
+    const a = document.createElement('a');
+    a.href = imgSrc;
+    a.download = 'tryon_' + Date.now() + '.jpg';
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast('이미지를 저장했어요');
+  }catch(e){
+    console.error('[TryOn Save]', e);
+    showToast('저장 실패: ' + (e.message || e));
+  }
+});
+if(csBtnShare) csBtnShare.addEventListener('click', async () => {
+  const r = window._tryonLastResult;
+  if(!r || (!r.image && !r.url && !r.path)){
+    showToast('공유할 이미지가 없어요');
+    return;
+  }
+  let imgSrc = r.image || r.url || '';
+  if(!imgSrc && r.path){
+    const base = _tryonBackendBase();
+    imgSrc = base ? (base + (r.path.startsWith('/') ? '' : '/') + r.path) : r.path;
+  }
+  // Web Share API 우선, 실패시 URL 클립보드 복사
+  try{
+    if(navigator.share && imgSrc.startsWith('http')){
+      await navigator.share({
+        title: 'CodiBank 트라이온',
+        text: '내 AI 착장 이미지',
+        url: imgSrc,
+      });
+      showToast('공유 완료');
+    } else if(navigator.clipboard && imgSrc){
+      await navigator.clipboard.writeText(imgSrc);
+      showToast('이미지 URL이 클립보드에 복사됐어요');
+    } else {
+      showToast('공유 기능을 사용할 수 없어요');
+    }
+  }catch(e){
+    if(e.name !== 'AbortError'){
+      console.error('[TryOn Share]', e);
+      showToast('공유 실패');
+    }
+  }
+});
+// [2026-04-23] 이전 줄에 있던 중복 csBtnShare(Mock) 리스너 제거됨
 if(csBtnReset) csBtnReset.addEventListener('click', () => {
   // 점수/지표 리셋
   const reset = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
@@ -2686,6 +3125,8 @@ if(csBtnReset) csBtnReset.addEventListener('click', () => {
   if(sTxt) sTxt.textContent = '이미지를 생성할 준비가 되었어요';
   if(sDot) sDot.classList.remove('done');
   state.stepDone[3] = false;
+  // [2026-04-23] 저장된 결과 데이터 정리
+  try{ window._tryonLastResult = null; }catch(_){}
   // 생성 버튼 텍스트 복원
   const btn = $('#finalGenerate');
   btn.innerHTML = '<span class="mi">auto_awesome</span><span>트라이온 착장이미지 생성하기</span><span class="count">3/5</span>';

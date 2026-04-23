@@ -7,6 +7,33 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-04-23 08:00 KST (🎯 트라이온 슬롯-카테고리 매핑 개편 + 풋바 숨김) ─
+  [TJ 지시]
+    1) 트라이온 picker는 5개 슬롯(상의/하의/원피스/아우터/신발)으로 단순화
+       하지만 Ai옷장은 11종 카테고리로 세분화됨 → 슬롯별 매핑 재정의 필요
+    2) codistyle_picker.html 풋바 네비 숨김
+
+  [변경 1] SLOT_TO_AICLOSET_CAT 매핑 재정의 (~line 1580)
+    이전: 단일 키 매핑 (top:'top', bottom:'bottom' 등)
+          → 'bottom' 키가 Ai옷장에 없어 "하의" 슬롯이 빈 상태였던 버그
+          → 'outer' 키도 Ai옷장에 없어 "아우터" 슬롯도 빈 상태였던 버그
+    신규: 배열 매핑
+      상의(top)     → ['top']
+      하의(bottom)  → ['pants', 'skirt']     ← Ai옷장 바지+치마 합산
+      원피스        → ['onepiece']
+      아우터(outer) → ['coat', 'jacket']     ← Ai옷장 아우터+자켓 합산
+      신발(shoes)   → ['shoes']
+
+  [변경 2] _pickerRenderAiclosetDeck() 함수 (~line 1737)
+    여러 카테고리 키에 대해 CodiBank.getItemsByUserAndCategory를
+    반복 호출하여 결과를 concat하도록 수정
+    → 하의 슬롯에 바지+치마가 모두 표시됨
+    → 아우터 슬롯에 코트+자켓이 모두 표시됨
+
+  [변경 3] picker 전용 풋바 숨김 CSS 추가 (~line 886)
+    body.picker-page .cb-nav, #cbNavRoot, .cb-nav-spacer { display:none !important }
+    → picker는 트라이온/Ai옷장에서 모달처럼 진입하는 화면이라 풋바 불필요
+
 ─── 2026-04-21 03:30 KST (⚠️치명적 JS 에러 + 치마 보정 + 덱 개선 + 버튼 폭) ────
   [TJ님 제보 + 스크린샷 6장 정밀 분석 결과]
 
@@ -887,6 +914,17 @@ body.picker-page[data-active-slot] .picker-sec-divider {
   display: none !important;
 }
 
+/* ─── 2026-04-23 08:00 [TJ 지시 2] picker 페이지에서 풋바 네비 숨김 ───
+   picker는 트라이온/Ai옷장으로부터 모달 형태로 진입하는 화면이라
+   풋바 네비를 유지할 필요가 없음. 화면 하단 공간도 확보됨. */
+body.picker-page .cb-nav,
+body.picker-page #cbNavRoot {
+  display: none !important;
+}
+body.picker-page .cb-nav-spacer {
+  display: none !important;
+}
+
 /* 피커 전용 "완료" 버튼 (sticky 하단) */
 .picker-done-wrap {
   display: none;
@@ -1568,10 +1606,20 @@ const SLOT_KEYS = ['top','bottom','onepiece','outer','shoes'];
 const SLOT_LABEL_KO = {
   top:'상의', bottom:'하의', onepiece:'원피스', outer:'아우터', shoes:'신발'
 };
-// aicloset 카테고리 키 매핑 (aicloset.html의 CAT_LABELS와 일치)
-// onepiece는 aicloset에 아직 없음 → 'onepiece' 자체 키로 조회 시 빈 배열 반환됨 (정상)
+// ─── 2026-04-23 08:00 [TJ 지시 — 트라이온 슬롯별 카테고리 매핑 재정의] ───
+// aicloset에서는 세분화(11종) 이지만 트라이온 picker는 5개 슬롯으로 단순화:
+//   상의(top)     → Ai옷장 'top'만
+//   하의(bottom)  → Ai옷장 'pants' + 'skirt' 합쳐서 표시 (신규)
+//   원피스(onepiece) → Ai옷장 'onepiece'만
+//   아우터(outer) → Ai옷장 'coat' + 'jacket' 합쳐서 표시 (신규)
+//   신발(shoes)   → Ai옷장 'shoes'만
+// 배열로 변경 → _pickerRenderAiclosetDeck()에서 여러 카테고리 결과 합산
 const SLOT_TO_AICLOSET_CAT = {
-  top:'top', bottom:'bottom', onepiece:'onepiece', outer:'outer', shoes:'shoes'
+  top:      ['top'],
+  bottom:   ['pants', 'skirt'],
+  onepiece: ['onepiece'],
+  outer:    ['coat', 'jacket'],
+  shoes:    ['shoes'],
 };
 // 각 슬롯별 DOM 요소 prefix (preview/Deck/Count용)
 // 기존 top은 'top...', bottom은 'bot...' (botPreview/botDeck/botCount) 약어를 사용
@@ -1722,8 +1770,15 @@ function _pickerRenderAiclosetDeck(slotKey){
   var items = [];
   try {
     if(window.CodiBank && typeof CodiBank.getItemsByUserAndCategory === 'function'){
-      var aiclosetCat = SLOT_TO_AICLOSET_CAT[slotKey] || slotKey;
-      items = CodiBank.getItemsByUserAndCategory(user.email, aiclosetCat) || [];
+      // ─── 2026-04-23 08:00 [TJ 지시] 슬롯별 여러 카테고리 합산 ───
+      // SLOT_TO_AICLOSET_CAT 값이 배열 → 각 카테고리 결과를 누적
+      // 예: 하의(bottom) 슬롯은 'pants' + 'skirt' 아이템을 모두 표시
+      var aiclosetCats = SLOT_TO_AICLOSET_CAT[slotKey] || [slotKey];
+      if(!Array.isArray(aiclosetCats)) aiclosetCats = [aiclosetCats]; // 하위호환
+      aiclosetCats.forEach(function(catKey){
+        var partial = CodiBank.getItemsByUserAndCategory(user.email, catKey) || [];
+        items = items.concat(partial);
+      });
     }
   } catch(e) { console.warn('[picker] aicloset 조회 실패:', slotKey, e); }
 
