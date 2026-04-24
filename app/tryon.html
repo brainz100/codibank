@@ -8,7 +8,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<meta name="cb-version" content="tryon-phase4-2026-04-23-1830-v5" />
+<meta name="cb-version" content="tryon-phase5-2026-04-24-v6" />
 
 <title>트라이 온 — CodiBank</title>
 
@@ -19,6 +19,30 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-04-24 KST ─── [TJ 지시 — v6 4대 이슈 해결]              │
+  │                                                                  │
+  │ [1] 선택 아이템 강제 착용 (서버 mock_backend.py)                  │
+  │   프롬프트에 🔴 CRITICAL RULE 최상단 + 각 아이템 REQUIRED 명시   │
+  │   신발/아우터 등 옵션 아이템 명시적 착용 명령 (이전 optional)    │
+  │                                                                  │
+  │ [2] 프리미엄 리포트 버튼/모달 구현                                │
+  │   - 버튼에 onclick=openPremiumReport() 연결 (이전 핸들러 없음)    │
+  │   - codistyle.html 모달 HTML 100% 이식 (premiumReportModal)      │
+  │   - openPremiumReport/closePremiumReport 함수 구현                │
+  │   - _tryonApplyResult에서 window._tryonPremiumData 준비           │
+  │   - ESC키 / 배경클릭 닫기, PDF 다운로드 (html2canvas + jsPDF)     │
+  │                                                                  │
+  │ [3] 저장/공유 URL → Blob/File 방식 개선                           │
+  │   - fetch(imgSrc) → blob → new File                              │
+  │   - navigator.share({files:[file]}) 우선 — 갤러리 저장 가능       │
+  │   - 폴백: URL.createObjectURL → 다운로드                          │
+  │   - codistyle.html의 saveImg/shareResult 패턴과 동일              │
+  │                                                                  │
+  │ [4] 가로폭 실제 적용 — .step margin 제거                          │
+  │   기존: .step { margin:0 16px 10px } + .step-body padding 16px   │
+  │         = 실효 좌우 32px씩 잘림                                  │
+  │   수정: .step { margin:0 0 10px } — closet.html(px-5=20px) 수준  │
+  │                                                                  │
   │ ─── 2026-04-23 18:30 KST ───  [TJ 지시 — v5 대규모 UX 개선]      │
   │                                                                  │
   │ [2-a] 버튼 텍스트 변경                                           │
@@ -376,8 +400,12 @@
   /* ═══════════════════════════════════════════════════════════
      Step 아코디언 (공용)
      ═══════════════════════════════════════════════════════════ */
+  /* [2026-04-24 TJ 지시4] 여백 문제 — closet.html과 동일 수준으로 폭 확보 */
+  /* 기존: margin:0 16px 10px (좌우 32px 실효 폭 잘림) */
+  /* 수정: margin 좌우 0, 대신 .step-body의 padding만으로 내부 여백 확보 */
+  /* closet.html 기준: px-5 = 20px → step 내부 padding도 비슷하게 맞춤 */
   .step{
-    margin:0 16px 10px;
+    margin:0 0 10px;
     background:rgba(11,102,106,0.12);
     border:1px solid rgba(151,254,237,0.12);
     border-radius:16px;
@@ -2067,12 +2095,13 @@
       <p id="csScoreText" style="font-size:11px;color:rgba(255,255,255,.3);line-height:1.7;margin:0;">착장 이미지가 생성되면 AI 스타일링 분석이 표시됩니다</p>
 
       <!-- 리포트 보기 / PDF 다운로드 버튼 (생성 후 표시) -->
+      <!-- [2026-04-24 TJ 지시2] onclick 핸들러 연결 (기존 버튼이 반응하지 않던 버그 해결) -->
       <div id="csReportBtnGroup" style="display:none;margin-top:12px;gap:8px;">
-        <button id="premiumReportBtn" style="flex:1.2;padding:12px 0;border-radius:12px;background:linear-gradient(135deg,#97FEED,#35A29F);border:none;color:#00022E;font-size:12px;font-weight:900;cursor:pointer;letter-spacing:-0.01em;">
+        <button id="premiumReportBtn" onclick="openPremiumReport()" style="flex:1.2;padding:12px 0;border-radius:12px;background:linear-gradient(135deg,#97FEED,#35A29F);border:none;color:#00022E;font-size:12px;font-weight:900;cursor:pointer;letter-spacing:-0.01em;font-family:inherit;">
           <span class="mi" style="font-size:14px;vertical-align:middle;">auto_awesome</span>
           <span>프리미엄 리포트 전문 보기</span>
         </button>
-        <button id="pdfDownBtn" style="flex:1;padding:12px 0;border-radius:12px;background:linear-gradient(135deg,#0B666A,#35A29F);border:none;color:#ffffff;font-size:12px;font-weight:700;cursor:pointer;">
+        <button id="pdfDownBtn" onclick="downloadTryonPdf()" style="flex:1;padding:12px 0;border-radius:12px;background:linear-gradient(135deg,#0B666A,#35A29F);border:none;color:#ffffff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
           <span class="mi" style="font-size:14px;vertical-align:middle;">picture_as_pdf</span>
           <span>PDF 다운로드</span>
         </button>
@@ -2137,6 +2166,120 @@
 
 <!-- [2026-04-22 14:15 TJ 지시4] 풋바 네비 — codistyle.html과 동일 5탭
      현재 페이지가 트라이온이므로 '트라이온' 탭에 .on 클래스 -->
+<!-- ═══════════════════════════════════════════════════════════════════════
+     [2026-04-24 TJ 지시2] 프리미엄 리포트 모달 (codistyle.html 구조 100% 이식)
+     원본: codistyle.html line 897~1011
+     스크립트 openPremiumReport/closePremiumReport 아래에서 처리
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div id="premiumReportModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,2,46,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);overflow-y:auto;padding:20px 16px;">
+  <div style="max-width:540px;margin:0 auto;background:linear-gradient(180deg,#0a1443 0%,#071952 100%);border:1px solid rgba(151,254,237,0.3);border-radius:20px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
+
+    <!-- 헤더 -->
+    <div style="background:linear-gradient(135deg,#071952 0%,#0B666A 100%);padding:24px 20px;text-align:center;position:relative;">
+      <button onclick="closePremiumReport()" style="position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;">
+        <span class="mi" style="font-size:18px;">close</span>
+      </button>
+      <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,0.55);letter-spacing:0.2em;margin-bottom:6px;">PREMIUM TRY-ON REPORT</div>
+      <div style="font-size:20px;font-weight:900;color:#97FEED;letter-spacing:-0.01em;margin-bottom:4px;">CodiBank Professional Analysis</div>
+      <div style="font-size:10px;color:rgba(151,254,237,0.5);font-style:italic;letter-spacing:0.03em;">Desire to be designed. Meet CodiBank.</div>
+    </div>
+
+    <!-- 종합 스코어 + 해시태그 -->
+    <div style="padding:18px 20px 16px;border-bottom:1px solid rgba(151,254,237,0.08);background:rgba(151,254,237,0.025);">
+      <div style="display:flex;align-items:baseline;justify-content:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:11px;font-weight:800;color:rgba(151,254,237,0.5);letter-spacing:0.1em;">C.S.I</span>
+        <span id="prmScoreNum" style="font-size:48px;font-weight:900;color:#97FEED;letter-spacing:-0.02em;line-height:1;">—</span>
+        <span style="font-size:13px;font-weight:700;color:rgba(151,254,237,0.4);">/100</span>
+        <span id="prmGradeBadge" style="font-size:10px;font-weight:800;padding:4px 11px;border-radius:20px;background:rgba(151,254,237,0.15);border:1px solid rgba(151,254,237,0.3);color:#97FEED;margin-left:4px;"></span>
+      </div>
+      <div id="prmHashtags" style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;"></div>
+    </div>
+
+    <!-- SECTION 1: Executive Summary -->
+    <div style="padding:20px 22px 18px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#97FEED,#35A29F);display:flex;align-items:center;justify-content:center;color:#00022E;font-size:12px;font-weight:900;">1</div>
+        <div style="font-size:13px;font-weight:900;color:#97FEED;letter-spacing:-0.01em;">종합 분석 결과</div>
+        <div style="font-size:9px;font-weight:700;color:rgba(151,254,237,0.4);letter-spacing:0.1em;margin-left:auto;">EXECUTIVE SUMMARY</div>
+      </div>
+      <div style="background:rgba(151,254,237,0.04);border-left:3px solid #97FEED;padding:14px 16px;border-radius:0 10px 10px 0;">
+        <p id="prmExecSummary" style="font-size:13px;color:rgba(255,255,255,0.9);line-height:1.75;font-weight:500;margin:0;letter-spacing:-0.01em;">—</p>
+      </div>
+    </div>
+
+    <!-- SECTION 2: Deep-dive 4개 카드 -->
+    <div style="padding:0 22px 18px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#97FEED,#35A29F);display:flex;align-items:center;justify-content:center;color:#00022E;font-size:12px;font-weight:900;">2</div>
+        <div style="font-size:13px;font-weight:900;color:#97FEED;letter-spacing:-0.01em;">항목별 심층 분석</div>
+        <div style="font-size:9px;font-weight:700;color:rgba(151,254,237,0.4);letter-spacing:0.1em;margin-left:auto;">DEEP-DIVE</div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(151,254,237,0.08);border-radius:10px;padding:13px 15px;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">📏 실루엣 &amp; 비율</div>
+        <p id="prmDeepProp" style="font-size:11.5px;color:rgba(255,255,255,0.72);line-height:1.7;margin:0;white-space:pre-line;"></p>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(151,254,237,0.08);border-radius:10px;padding:13px 15px;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">🎨 컬러 케미스트리</div>
+        <p id="prmDeepColor" style="font-size:11.5px;color:rgba(255,255,255,0.72);line-height:1.7;margin:0;white-space:pre-line;"></p>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(151,254,237,0.08);border-radius:10px;padding:13px 15px;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">💫 체형 매칭</div>
+        <p id="prmDeepBody" style="font-size:11.5px;color:rgba(255,255,255,0.72);line-height:1.7;margin:0;white-space:pre-line;"></p>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(151,254,237,0.08);border-radius:10px;padding:13px 15px;">
+        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">⚖️ 전체 밸런스</div>
+        <p id="prmDeepHarmony" style="font-size:11.5px;color:rgba(255,255,255,0.72);line-height:1.7;margin:0;white-space:pre-line;"></p>
+      </div>
+    </div>
+
+    <!-- SECTION 3: TPO & Tips -->
+    <div style="padding:0 22px 20px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#97FEED,#35A29F);display:flex;align-items:center;justify-content:center;color:#00022E;font-size:12px;font-weight:900;">3</div>
+        <div style="font-size:13px;font-weight:900;color:#97FEED;letter-spacing:-0.01em;">활용 가이드</div>
+        <div style="font-size:9px;font-weight:700;color:rgba(151,254,237,0.4);letter-spacing:0.1em;margin-left:auto;">STYLING GUIDE</div>
+      </div>
+
+      <div style="background:rgba(151,254,237,0.04);border:1px solid rgba(151,254,237,0.15);border-radius:10px;padding:14px 15px;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:8px;letter-spacing:-0.01em;">🎯 Best TPO 추천</div>
+        <div id="prmTpoList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
+
+      <div style="background:rgba(151,254,237,0.04);border:1px solid rgba(151,254,237,0.15);border-radius:10px;padding:14px 15px;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:8px;letter-spacing:-0.01em;">✨ 개선 팁</div>
+        <div id="prmTipsList" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+
+      <div style="background:linear-gradient(135deg,rgba(7,25,82,0.5),rgba(11,102,106,0.3));border:1px dashed rgba(151,254,237,0.22);border-radius:10px;padding:14px 15px;text-align:center;">
+        <div style="font-size:11px;font-weight:800;color:rgba(151,254,237,0.75);margin-bottom:6px;letter-spacing:-0.01em;">🛍️ 퍼스널 아이템 큐레이션</div>
+        <p style="font-size:10.5px;color:rgba(255,255,255,0.45);line-height:1.6;margin:0 0 6px;">룩의 완성도를 높일 신발·가방·액세서리 추천</p>
+        <div style="display:inline-block;font-size:9px;font-weight:800;padding:3px 10px;border-radius:20px;background:rgba(151,254,237,0.12);color:#97FEED;letter-spacing:0.05em;">COMING SOON</div>
+      </div>
+    </div>
+
+    <!-- 하단 액션 -->
+    <div style="padding:14px 20px 20px;border-top:1px solid rgba(151,254,237,0.08);background:rgba(0,0,0,0.15);display:flex;gap:8px;">
+      <button onclick="downloadTryonPdf()" style="flex:1;padding:13px;border-radius:12px;background:linear-gradient(135deg,#97FEED,#35A29F);border:none;color:#00022E;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;letter-spacing:-0.01em;">
+        <span class="mi" style="font-size:14px;vertical-align:middle;">picture_as_pdf</span>
+        <span>PDF 다운로드</span>
+      </button>
+      <button onclick="closePremiumReport()" style="flex:0.6;padding:13px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.85);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
+        닫기
+      </button>
+    </div>
+
+    <div style="padding:10px;text-align:center;background:#050A24;">
+      <div style="font-size:9px;color:rgba(151,254,237,0.35);font-weight:700;letter-spacing:0.1em;">CodiBank · codibank.kr</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
 <div class="cb-spacer"></div>
 <nav class="cb-nav">
   <div class="cb-nav-inner">
@@ -3075,6 +3218,46 @@ function _tryonApplyResult(data){
 
   // ── 9) 결과 이미지 URL 저장 (저장/공유 버튼이 쓸 수 있음) ──
   try{ window._tryonLastResult = data; }catch(_){}
+  
+  // ── 10) [2026-04-24 TJ 지시2] 프리미엄 리포트 데이터 준비 ──
+  // codistyle.html의 _csPremiumData 구조와 동일하게 매핑
+  try {
+    const _adv = data.styling_advice || {};
+    // styling_advice가 dict인지 체크 (객체면 섹션별, 문자열이면 하나로 표시)
+    const _secObj = (typeof _adv === 'object' && _adv !== null && !Array.isArray(_adv)) ? _adv : {};
+    
+    // 4지표 점수로 등급 판정
+    const _total = typeof data.styling_score === 'number' ? Math.round(data.styling_score) : 0;
+    let _grade = '';
+    if(_total >= 90) _grade = 'S Grade';
+    else if(_total >= 80) _grade = 'A Grade';
+    else if(_total >= 70) _grade = 'B Grade';
+    else if(_total >= 60) _grade = 'C Grade';
+    else _grade = 'D Grade';
+    
+    window._tryonPremiumData = {
+      score:       _total,
+      grade:       _grade,
+      hashtags:    data.style_hashtags || [],
+      execSummary: data.executive_summary || data.comment || '',
+      sections: {
+        pc:      _secObj.pc      || '',
+        top:     _secObj.top     || '',
+        bot:     _secObj.bottom  || '',
+        prop:    _secObj.proportion || '',
+        harmony: _secObj.harmony || '',
+      },
+      tpo:  data.tpo_recommendations || [],
+      tips: data.improvement_tips || [],
+      // 트라이온 추가: 결과 이미지 URL (PDF에 삽입용)
+      imageUrl: data.image || data.url || '',
+      model:    data.model || '',
+      mode:     data.tryon_mode || state.mode,
+    };
+    console.log('[TryOn Premium] data prepared:', window._tryonPremiumData);
+  } catch(e) {
+    console.warn('[TryOn Premium] data prep failed:', e);
+  }
 }
 
 // ─── finalGenerate 클릭 핸들러 ───
@@ -3175,66 +3358,107 @@ $('#finalGenerate').addEventListener('click', async () => {
 const csBtnSave = document.getElementById('csBtn_save');
 const csBtnShare = document.getElementById('csBtn_share');
 const csBtnReset = document.getElementById('csBtn_reset');
-// ─── 2026-04-23 07:00 [TJ 지시] 저장/공유 실제 동작 연결 ───
-if(csBtnSave) csBtnSave.addEventListener('click', () => {
+
+// [2026-04-24 TJ 지시3] 저장/공유를 URL 방식 → 실제 jpg Blob/File 방식으로 개선
+// (codistyle.html의 saveImg/shareResult 패턴과 동일)
+// URL만 전달하던 기존 → navigator.share({files:[file]}) + File API
+
+// 결과 이미지 URL 가져오기 헬퍼
+function _getTryonResultImgUrl(){
   const r = window._tryonLastResult;
-  if(!r || (!r.image && !r.url && !r.path)){
-    showToast('저장할 이미지가 없어요');
-    return;
-  }
-  // 이미지 URL 결정
+  if(!r) return '';
   let imgSrc = r.image || r.url || '';
   if(!imgSrc && r.path){
     const base = _tryonBackendBase();
     imgSrc = base ? (base + (r.path.startsWith('/') ? '' : '/') + r.path) : r.path;
   }
-  // 다운로드
+  return imgSrc;
+}
+
+if(csBtnSave) csBtnSave.addEventListener('click', async () => {
+  const imgSrc = _getTryonResultImgUrl();
+  if(!imgSrc){ showToast('저장할 이미지가 없어요'); return; }
+  
   try{
+    // 1) URL에서 실제 이미지 바이트 가져오기
+    const res = await fetch(imgSrc);
+    if(!res.ok) throw new Error('fetch failed: ' + res.status);
+    const blob = await res.blob();
+    const fname = 'codibank_tryon_' + Date.now() + '.jpg';
+    const file = new File([blob], fname, { type: blob.type || 'image/jpeg' });
+    
+    // 2) Web Share API (파일 지원) 우선 — 모바일에서 갤러리 저장 가능
+    if(navigator.share && navigator.canShare && navigator.canShare({ files:[file] })){
+      try{
+        await navigator.share({ files:[file] });
+        showToast('저장 완료');
+      }catch(err){
+        if(err && err.name === 'AbortError') return;  // 사용자 취소
+        throw err;
+      }
+      return;
+    }
+    
+    // 3) 폴백 (데스크탑 등) — Blob URL로 다운로드
+    const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = imgSrc;
-    a.download = 'tryon_' + Date.now() + '.jpg';
-    a.target = '_blank';
-    a.rel = 'noopener';
+    a.href = blobUrl;
+    a.download = fname;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
     showToast('이미지를 저장했어요');
   }catch(e){
     console.error('[TryOn Save]', e);
     showToast('저장 실패: ' + (e.message || e));
   }
 });
+
 if(csBtnShare) csBtnShare.addEventListener('click', async () => {
-  const r = window._tryonLastResult;
-  if(!r || (!r.image && !r.url && !r.path)){
-    showToast('공유할 이미지가 없어요');
-    return;
-  }
-  let imgSrc = r.image || r.url || '';
-  if(!imgSrc && r.path){
-    const base = _tryonBackendBase();
-    imgSrc = base ? (base + (r.path.startsWith('/') ? '' : '/') + r.path) : r.path;
-  }
-  // Web Share API 우선, 실패시 URL 클립보드 복사
+  const imgSrc = _getTryonResultImgUrl();
+  if(!imgSrc){ showToast('공유할 이미지가 없어요'); return; }
+  
   try{
-    if(navigator.share && imgSrc.startsWith('http')){
+    // 1) URL에서 이미지 Blob → File 생성
+    const res = await fetch(imgSrc);
+    if(!res.ok) throw new Error('fetch failed: ' + res.status);
+    const blob = await res.blob();
+    const file = new File([blob], 'codibank_tryon.jpg', { type: 'image/jpeg' });
+    
+    // 2) Web Share API with files — 카카오톡/인스타 등 실제 이미지 공유
+    if(navigator.share && navigator.canShare && navigator.canShare({ files:[file] })){
+      await navigator.share({
+        title: 'CodiBank 트라이온',
+        text: '내 AI 착장 이미지를 확인해보세요!',
+        files: [file]
+      });
+      showToast('공유 완료');
+      return;
+    }
+    
+    // 3) 폴백 — URL 공유
+    if(navigator.share){
       await navigator.share({
         title: 'CodiBank 트라이온',
         text: '내 AI 착장 이미지',
         url: imgSrc,
       });
       showToast('공유 완료');
-    } else if(navigator.clipboard && imgSrc){
+      return;
+    }
+    
+    // 4) 최종 폴백 — 클립보드에 URL 복사
+    if(navigator.clipboard){
       await navigator.clipboard.writeText(imgSrc);
       showToast('이미지 URL이 클립보드에 복사됐어요');
     } else {
       showToast('공유 기능을 사용할 수 없어요');
     }
   }catch(e){
-    if(e.name !== 'AbortError'){
-      console.error('[TryOn Share]', e);
-      showToast('공유 실패');
-    }
+    if(e && e.name === 'AbortError') return;  // 사용자 취소
+    console.error('[TryOn Share]', e);
+    showToast('공유 실패: ' + (e.message || e));
   }
 });
 // [2026-04-23] 이전 줄에 있던 중복 csBtnShare(Mock) 리스너 제거됨
@@ -3576,6 +3800,226 @@ async function loadMyProfileBodyInfo(){
 // CodiBank SDK 로드 대기 — 스크립트가 body 아래 있으므로 약간 지연
 setTimeout(loadMyProfileFace, 80);
 setTimeout(loadMyProfileBodyInfo, 100);  // [2026-04-23] 신체정보 + 퍼스널컬러 로드
+
+// ══════════════════════════════════════════════════════════════════════
+// [2026-04-24 TJ 지시2] 프리미엄 리포트 모달 — codistyle.html 구조 100% 이식
+// 데이터 소스: window._tryonPremiumData (_tryonApplyResult()에서 준비됨)
+// ══════════════════════════════════════════════════════════════════════
+
+function openPremiumReport(){
+  var data = window._tryonPremiumData || {};
+  var modal = document.getElementById('premiumReportModal');
+  if(!modal){ console.warn('[premium] modal not found'); return; }
+  
+  // 점수 + 등급
+  var scoreEl = document.getElementById('prmScoreNum');
+  if(scoreEl) scoreEl.textContent = data.score != null ? data.score : '—';
+  var gradeEl = document.getElementById('prmGradeBadge');
+  if(gradeEl) gradeEl.textContent = data.grade || '';
+  
+  // 해시태그
+  var htEl = document.getElementById('prmHashtags');
+  if(htEl){
+    if(data.hashtags && data.hashtags.length){
+      htEl.innerHTML = data.hashtags.map(function(h){
+        var tag = h.charAt(0) === '#' ? h : '#' + h;
+        return '<span style="font-size:10.5px;font-weight:700;color:#97FEED;background:rgba(151,254,237,0.12);padding:4px 11px;border-radius:12px;letter-spacing:-0.01em;">' + tag + '</span>';
+      }).join('');
+    } else {
+      htEl.innerHTML = '<span style="font-size:10px;color:rgba(255,255,255,0.35);">해시태그 준비 중</span>';
+    }
+  }
+  
+  // SECTION 1: Executive Summary
+  var execEl = document.getElementById('prmExecSummary');
+  if(execEl){
+    if(data.execSummary && data.execSummary.trim()){
+      execEl.textContent = data.execSummary;
+    } else {
+      execEl.textContent = '종합 분석 데이터를 불러올 수 없습니다.';
+    }
+  }
+  
+  // SECTION 2: Deep-dive 4개 카드
+  var sec = (data.sections || {});
+  var setPrm = function(id, txt){
+    var el = document.getElementById(id);
+    if(el) el.textContent = txt || '—';
+  };
+  setPrm('prmDeepProp',    sec.prop    || '실루엣과 비율 분석 데이터가 준비 중입니다.');
+  setPrm('prmDeepColor',   sec.pc      || '컬러 케미스트리 분석 데이터가 준비 중입니다.');
+  
+  // 체형 매칭: 상의/하의를 시각적으로 분리 (codistyle 패턴)
+  var bodyEl = document.getElementById('prmDeepBody');
+  if(bodyEl){
+    var _bodyHtml = '';
+    if(sec.top || sec.bot){
+      if(sec.top){
+        _bodyHtml += '<div style="margin-bottom:10px;padding:10px 12px;background:rgba(151,254,237,0.035);border-left:2px solid rgba(151,254,237,0.3);border-radius:0 6px 6px 0;">'
+                  + '<div style="font-size:10px;font-weight:800;color:rgba(151,254,237,0.8);letter-spacing:0.05em;margin-bottom:5px;">👕 상의 × 체형</div>'
+                  + '<div style="font-size:11px;color:rgba(255,255,255,0.72);line-height:1.7;white-space:pre-line;">' + sec.top + '</div>'
+                  + '</div>';
+      }
+      if(sec.bot){
+        _bodyHtml += '<div style="padding:10px 12px;background:rgba(151,254,237,0.035);border-left:2px solid rgba(151,254,237,0.3);border-radius:0 6px 6px 0;">'
+                  + '<div style="font-size:10px;font-weight:800;color:rgba(151,254,237,0.8);letter-spacing:0.05em;margin-bottom:5px;">👖 하의 × 체형</div>'
+                  + '<div style="font-size:11px;color:rgba(255,255,255,0.72);line-height:1.7;white-space:pre-line;">' + sec.bot + '</div>'
+                  + '</div>';
+      }
+    } else {
+      _bodyHtml = '<span style="font-size:10.5px;color:rgba(255,255,255,0.45);">체형 매칭 분석 데이터가 준비 중입니다.</span>';
+    }
+    bodyEl.innerHTML = _bodyHtml;
+    bodyEl.style.whiteSpace = 'normal';
+  }
+  setPrm('prmDeepHarmony', sec.harmony || '전체 밸런스 분석 데이터가 준비 중입니다.');
+  
+  // SECTION 3: TPO 추천
+  var tpoBox = document.getElementById('prmTpoList');
+  if(tpoBox){
+    if(data.tpo && data.tpo.length){
+      tpoBox.innerHTML = data.tpo.map(function(t){
+        return '<span style="display:inline-block;font-size:11px;font-weight:700;color:#00022E;background:#97FEED;padding:6px 14px;border-radius:999px;letter-spacing:-0.01em;">' + t + '</span>';
+      }).join('');
+    } else {
+      tpoBox.innerHTML = '<span style="font-size:10.5px;color:rgba(255,255,255,0.45);">TPO 추천이 준비 중입니다.</span>';
+    }
+  }
+  
+  // SECTION 3: 팁
+  var tipsBox = document.getElementById('prmTipsList');
+  if(tipsBox){
+    if(data.tips && data.tips.length){
+      tipsBox.innerHTML = data.tips.map(function(t, i){
+        return '<div style="display:flex;align-items:flex-start;gap:7px;font-size:11.5px;color:rgba(255,255,255,0.82);line-height:1.6;">'
+          + '<span style="flex:0 0 16px;width:16px;height:16px;border-radius:4px;background:rgba(151,254,237,0.18);color:#97FEED;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:2px;">' + (i+1) + '</span>'
+          + '<span>' + t + '</span></div>';
+      }).join('');
+    } else {
+      tipsBox.innerHTML = '<span style="font-size:10.5px;color:rgba(255,255,255,0.45);">개선 팁이 준비 중입니다.</span>';
+    }
+  }
+  
+  // 모달 오픈
+  modal.style.display = 'block';
+  modal.scrollTop = 0;
+  document.body.style.overflow = 'hidden';
+}
+
+function closePremiumReport(){
+  var modal = document.getElementById('premiumReportModal');
+  if(modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+// ESC 키로 모달 닫기
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape'){
+    var modal = document.getElementById('premiumReportModal');
+    if(modal && modal.style.display === 'block') closePremiumReport();
+  }
+});
+
+// 모달 배경 클릭으로 닫기
+(function(){
+  var modal = document.getElementById('premiumReportModal');
+  if(modal){
+    modal.addEventListener('click', function(e){
+      if(e.target === modal) closePremiumReport();
+    });
+  }
+})();
+
+// ══════════════════════════════════════════════════════════════════════
+// [2026-04-24 TJ 지시2] PDF 다운로드 (트라이온 리포트)
+// codistyle.html의 downloadOutfitReport 로직 참고, 트라이온 특화
+// ══════════════════════════════════════════════════════════════════════
+
+function downloadTryonPdf(){
+  var data = window._tryonPremiumData;
+  if(!data){ showToast('리포트 데이터가 없어요'); return; }
+  
+  showToast('PDF 생성 중...');
+  
+  // 간단 구현: 현재 화면의 점수박스+이미지 전체를 html2canvas로 PNG 변환 → PDF
+  // (codistyle.html의 downloadOutfitReport와 동일 흐름, jsPDF/html2canvas 사용)
+  //  → 이 스크립트는 body 하단 인라인이고 jsPDF/html2canvas가 로드 안되어 있다면
+  //    codistyle.html과 동일하게 CDN에서 로드하고 진행
+  
+  var _ensureLib = function(name, url){
+    return new Promise(function(resolve, reject){
+      if(window[name]){ resolve(); return; }
+      var s = document.createElement('script');
+      s.src = url;
+      s.onload = function(){ resolve(); };
+      s.onerror = function(){ reject(new Error('load fail: ' + name)); };
+      document.head.appendChild(s);
+    });
+  };
+  
+  Promise.all([
+    _ensureLib('html2canvas', 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'),
+    _ensureLib('jspdf', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'),
+  ]).then(function(){
+    // 모달이 열려있으면 모달 캡처, 아니면 점수박스+이미지 캡처
+    var modal = document.getElementById('premiumReportModal');
+    var target;
+    if(modal && modal.style.display === 'block'){
+      target = modal.querySelector('div');  // 모달 내부 박스
+    } else {
+      // 모달 안 열린 상태 → 모달 먼저 오픈 후 캡처
+      openPremiumReport();
+      setTimeout(function(){ downloadTryonPdf(); }, 300);
+      return;
+    }
+    
+    html2canvas(target, {
+      scale: 2,
+      backgroundColor: '#071952',
+      useCORS: true,
+      logging: false,
+    }).then(function(canvas){
+      try{
+        var jsPDF = window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
+        var pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+        var imgW = 210;
+        var imgH = (canvas.height * imgW) / canvas.width;
+        var pageH = 297;
+        var imgData = canvas.toDataURL('image/jpeg', 0.92);
+        
+        if(imgH <= pageH){
+          pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+        } else {
+          // 긴 페이지는 분할
+          var heightLeft = imgH;
+          var y = 0;
+          while(heightLeft > 0){
+            pdf.addImage(imgData, 'JPEG', 0, y, imgW, imgH);
+            heightLeft -= pageH;
+            y -= pageH;
+            if(heightLeft > 0) pdf.addPage();
+          }
+        }
+        
+        pdf.save('CodiBank_TryOn_Report_' + new Date().toISOString().slice(0,10) + '.pdf');
+        showToast('PDF 저장 완료');
+      }catch(err){
+        console.error('[PDF]', err);
+        // fallback: PNG로 저장
+        var link = document.createElement('a');
+        link.download = 'CodiBank_TryOn_Report_' + new Date().toISOString().slice(0,10) + '.png';
+        link.href = canvas.toDataURL('image/png', 0.95);
+        link.click();
+      }
+    }).catch(function(err){
+      console.error('[html2canvas]', err);
+      showToast('PDF 생성 실패');
+    });
+  }).catch(function(err){
+    console.error('[PDF lib]', err);
+    showToast('PDF 라이브러리 로드 실패');
+  });
+}
 </script>
 
 </body>
