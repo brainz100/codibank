@@ -4691,174 +4691,166 @@ def _tryon_build_prompt(
             "Natural studio lighting, neutral soft-grey background."
         )
 
-    # ──────── Phase 2: GARMENTS (mode 분기) ────────
-    # [2026-04-24 TJ 지시 v7] 핵심 수정 — images_map 기반 판단
-    # 이전 버그: if shoes_info: → 빈 dict면 False → shoes 이미지 첨부 안 됨
-    # 수정: attached_keys (set of images_map keys) 기반으로 판단
-    #       → 이미지 첨부됨 = MANDATORY 정확 재현
-    #       → 이미지 없음 = GENERATE 맥락에 맞게 생성 허용
+    # ──────── Phase 2: GARMENTS (2026-04-24 v8 TJ 재지시) ────────
+    # 🔴 치명적 버그 수정: v7 프롬프트의 "NOT-ATTACHED = GENERATE" 원칙이 
+    #    원피스만 선택했을 때 가디건 같은 아우터를 자동 추가하는 문제 발생.
+    # v8 재정립: "사용자 선택 ≈ 추가 금지" (엄격 원칙)
+    #   ① ATTACHED = REPRODUCE EXACTLY (정확 재현 필수)
+    #   ② NON-ATTACHED = DO NOT ADD (미첨부 영역 추가 금지)
+    #   ③ 최소 예외 (자연스러움 확보):
+    #      a) 신발 미첨부 → 중립 신발 자동 생성 (맨발 방지)
+    #      b) 아우터 단독 (상/하의 모두 미첨부) → 최소 내피·하의 자연 노출
     
     _att = attached_keys or set()
+    # 첨부된 아이템 목록 (사람이 보기 좋게 영문으로)
+    _attached_list = sorted(list(_att))
     
-    # === 🔴 CORE RULE — 최상단 명령 (Gemini의 판단 기준 제시) ===
+    # ═══ CORE RULE — 최상단 절대 명령 ═══
     garments_parts = [
-        "🔴 CORE RULE — TWO PRINCIPLES (MANDATORY, NO EXCEPTIONS): "
-        "① ATTACHED ITEMS = REPRODUCE EXACTLY. Every garment reference image attached "
-        "to this request MUST be worn on the person and reproduced with photographic fidelity. "
-        "Do NOT replace attached items with similar-looking alternatives. "
-        "Do NOT re-imagine attached items. Color, pattern, texture, silhouette, details, "
-        "logos, laces, buckles — every visible element of each attached image MUST match exactly. "
-        "② NOT-ATTACHED AREAS = GENERATE CONTEXTUALLY. For any body area that does NOT have "
-        "an attached image, generate a naturally-harmonizing item that complements the overall look "
-        "(color tone, style, formality level, season). "
-        "If the outfit needs footwear but no shoes image is attached, create shoes that suit the overall style. "
-        "If the outfit needs a top/bottom that wasn't provided, generate tasteful matching pieces. "
-        "‖ SUMMARY ‖ Attached = exact reproduction. Missing = creative matching. Both rules are equally important."
+        "🔴🔴🔴 CORE RULE — USER SELECTION IS THE COMPLETE OUTFIT 🔴🔴🔴 "
+        "This is a TRY-ON system where the user selects exactly which garments to try on. "
+        "Your job is to show ONLY what the user selected. NOTHING MORE. "
+        ""
+        "\n\n━━━ RULE ① — ATTACHED IMAGES = REPRODUCE EXACTLY ━━━ "
+        f"The user attached exactly these items: [{', '.join(_attached_list)}]. "
+        "Each attached garment MUST be worn on the person and reproduced with photographic fidelity. "
+        "Match color, pattern, texture, silhouette, material, logos, details EXACTLY. "
+        "Do NOT replace attached items with similar alternatives. "
+        "Do NOT re-imagine or stylize them differently. "
+        ""
+        "\n\n━━━ RULE ② — NON-ATTACHED = DO NOT ADD (MOST CRITICAL) ━━━ "
+        "⛔ DO NOT add any garment that was not attached. "
+        "⛔ DO NOT add a cardigan, sweater, jacket, coat, blazer, vest, or any outer layer "
+        "unless outer was in the attached list. "
+        "⛔ DO NOT add an additional top (shirt, blouse, tee) unless top was attached. "
+        "⛔ DO NOT add an additional bottom (pants, skirt, shorts) unless bottom was attached. "
+        "⛔ DO NOT add scarves, belts, hats, jewelry, bags, or accessories that aren't attached. "
+        "The user chose these specific items — respect their choice absolutely. "
+        "If the user attached only a dress, the person wears ONLY the dress. No cardigan. No jacket. "
+        "If the user attached outer+shoes, show outer+shoes — do NOT generate a separate top/bottom as styled outfits. "
     ]
     
-    # === 어떤 이미지가 첨부되었는지 Gemini에게 명시적으로 알려주기 ===
-    _attached_list = []
-    _missing_list = []
-    # 외형상 보이는 영역 기준 (모드별로 필요한 영역 다름)
-    _possible_items = {
-        _TRYON_MODE_TWOPIECE: ["top", "bottom", "outer", "shoes"],
-        _TRYON_MODE_ONEPIECE: ["onepiece", "outer", "shoes"],
-        _TRYON_MODE_OUTER:    ["outer", "top", "bottom", "shoes"],
-    }.get(mode, ["top", "bottom", "outer", "shoes"])
+    # ═══ RULE ③ — EXCEPTIONS (only for naturalness) ═══
+    _exceptions = []
     
-    for _k in _possible_items:
-        if _k in _att:
-            _attached_list.append(_k)
-        else:
-            _missing_list.append(_k)
-    
-    # Gemini에게 이미지-아이템 매핑 명시 (혼동 방지)
-    if _attached_list:
-        garments_parts.append(
-            f"📎 ATTACHED IMAGES (MUST reproduce each exactly): {', '.join(_attached_list)}. "
-            f"The reference images are attached in this exact order after the face image."
-        )
-    if _missing_list:
-        garments_parts.append(
-            f"🎨 AREAS TO GENERATE (no image — create contextually matching): {', '.join(_missing_list)}. "
-            f"Harmonize with the attached items' style, color palette, and formality level."
+    # 예외 a) 신발 미첨부 → 중립 신발 자동 생성
+    if "shoes" not in _att:
+        _exceptions.append(
+            "• Shoes were NOT attached. Generate neutral, minimal shoes that match the outfit's tone. "
+            "Reason: barefoot is unnatural for a full-body fashion photograph. "
+            "Choose simple, low-key footwear that doesn't draw attention away from the attached garments. "
+            "Formal dress → simple pumps/flats; casual → plain sneakers; streetwear → neutral sneakers."
         )
     
-    # === 각 슬롯별 상세 지시 — images_map 기반 분기 ===
+    # 예외 b) 아우터 단독 (상/하의 둘 다 미첨부)
+    _outer_only = (
+        mode == _TRYON_MODE_OUTER and
+        "outer" in _att and
+        "top" not in _att and
+        "bottom" not in _att and
+        "onepiece" not in _att
+    )
+    if _outer_only:
+        _exceptions.append(
+            "• Outer is attached but no top/bottom. Minimally fill inner and lower body: "
+            "a simple white/cream/grey inner top barely visible at neckline/cuffs, "
+            "and plain dark or neutral bottom trousers. "
+            "Keep these absolutely minimal and tonally neutral — the OUTER is the hero. "
+            "These are NOT featured items; they exist only to avoid unnatural nudity under the outer."
+        )
+    
+    if _exceptions:
+        garments_parts.append(
+            "\n\n━━━ RULE ③ — MINIMAL NATURAL EXCEPTIONS (only these cases) ━━━\n" +
+            "\n".join(_exceptions)
+        )
+    else:
+        garments_parts.append(
+            "\n\n━━━ RULE ③ — NO EXCEPTIONS NEEDED ━━━ "
+            "All necessary items are attached. Show only the attached garments. "
+            "Do not add anything else."
+        )
+    
+    # ═══ 각 첨부 아이템 상세 지시 ═══
+    garments_parts.append("\n\n━━━ DETAILED ITEM INSTRUCTIONS ━━━")
     
     # --- ONEPIECE (원피스 모드) ---
-    if mode == _TRYON_MODE_ONEPIECE:
-        if "onepiece" in _att:
-            garments_parts.append(
-                f"ONEPIECE (attached — reproduce EXACTLY as in reference): "
-                f"{onepiece_info.get('sub_category','dress')} "
-                f"in {onepiece_info.get('main_color_name','as shown in image')} color, "
-                f"{onepiece_info.get('pattern','as shown')} pattern, "
-                f"{onepiece_info.get('material','as shown')} material. "
-                f"Match every detail of the attached dress image."
-            )
-        # 원피스 모드는 onepiece 이미지 필수 검증을 서버가 이미 했으므로 else 불필요
-        
-        if "outer" in _att:
-            garments_parts.append(
-                f"OUTER (attached — reproduce EXACTLY): "
-                f"{outer_info.get('sub_category','jacket')} "
-                f"in {outer_info.get('main_color_name','as shown')} color. "
-                f"MUST be worn OVER the dress (open or loosely draped)."
-            )
+    if "onepiece" in _att:
+        _desc = onepiece_info or {}
+        garments_parts.append(
+            f"ONEPIECE (attached — reproduce EXACTLY): "
+            f"{_desc.get('sub_category','dress')} "
+            f"in {_desc.get('main_color_name','as shown in image')} color, "
+            f"{_desc.get('pattern','as shown')} pattern, "
+            f"{_desc.get('material','as shown')} material. "
+            f"Match every detail of the attached dress reference image. "
+            f"🔴 DO NOT add any outer layer (cardigan/jacket/coat) — the dress is worn alone."
+        )
     
-    # --- OUTER (아우터 중심 모드) ---
-    elif mode == _TRYON_MODE_OUTER:
-        if "outer" in _att:
-            garments_parts.append(
-                f"OUTER (attached — MAIN garment, reproduce EXACTLY): "
-                f"{outer_info.get('sub_category','coat')} "
-                f"in {outer_info.get('main_color_name','as shown')} color, "
-                f"{outer_info.get('pattern','as shown')} pattern, "
-                f"{outer_info.get('material','as shown')} material. "
-                f"This is the HERO garment — feature prominently."
-            )
-        if "top" in _att:
-            garments_parts.append(
-                f"INNER TOP (attached — reproduce EXACTLY): "
-                f"{top_info.get('sub_category','shirt')} "
-                f"in {top_info.get('main_color_name','as shown')}. "
-                f"Worn UNDER the outer layer, visible at neckline and cuffs."
-            )
+    # --- OUTER (아우터) ---
+    if "outer" in _att:
+        _desc = outer_info or {}
+        if mode == _TRYON_MODE_OUTER:
+            _role_note = "This is the HERO garment — feature prominently."
         else:
-            garments_parts.append(
-                "INNER TOP (GENERATE): No top image provided. "
-                "Create a subtle inner top that complements the outer garment — "
-                "typically a neutral base layer (white/cream/grey) visible at neckline/cuffs."
-            )
-        if "bottom" in _att:
-            garments_parts.append(
-                f"BOTTOM (attached — reproduce EXACTLY): "
-                f"{bottom_info.get('sub_category','pants')} "
-                f"in {bottom_info.get('main_color_name','as shown')}. "
-                f"Reproduce the attached bottom image with photographic fidelity."
-            )
-        else:
-            garments_parts.append(
-                "BOTTOM (GENERATE): No bottom image provided. "
-                "Create bottom wear that harmonizes with the outer garment's formality and color — "
-                "e.g., for a trench coat: tailored trousers or slim jeans; "
-                "for a casual jacket: denim or casual pants."
-            )
+            _role_note = "Worn as the outer layer over the inner garment(s)."
+        garments_parts.append(
+            f"OUTER (attached — reproduce EXACTLY): "
+            f"{_desc.get('sub_category','jacket')} "
+            f"in {_desc.get('main_color_name','as shown')} color, "
+            f"{_desc.get('pattern','as shown')} pattern, "
+            f"{_desc.get('material','as shown')} material. "
+            f"{_role_note}"
+        )
     
-    # --- TWOPIECE (기본, 상+하 모드) ---
-    else:
-        if "top" in _att:
-            garments_parts.append(
-                f"TOP (attached — reproduce EXACTLY): "
-                f"{top_info.get('sub_category','shirt')} "
-                f"in {top_info.get('main_color_name','as shown')} color, "
-                f"{top_info.get('pattern','as shown')} pattern, "
-                f"{top_info.get('material','as shown')} material, "
-                f"{top_info.get('fit','as shown')} fit. "
-                f"Match every detail of the attached top image."
-            )
-        # twopiece에서 top은 서버 필수 검증 완료
-        
-        if "bottom" in _att:
-            garments_parts.append(
-                f"BOTTOM (attached — reproduce EXACTLY): "
-                f"{bottom_info.get('sub_category','pants')} "
-                f"in {bottom_info.get('main_color_name','as shown')} color, "
-                f"{bottom_info.get('pattern','as shown')} pattern, "
-                f"{bottom_info.get('material','as shown')} material. "
-                f"Match every detail of the attached bottom image."
-            )
-        # twopiece에서 bottom도 필수
-        
-        if "outer" in _att:
-            garments_parts.append(
-                f"OUTER (attached — reproduce EXACTLY): "
-                f"{outer_info.get('sub_category','jacket')} "
-                f"in {outer_info.get('main_color_name','as shown')} color. "
-                f"MUST be worn OVER the top (open style)."
-            )
+    # --- TOP (상의) ---
+    if "top" in _att:
+        _desc = top_info or {}
+        garments_parts.append(
+            f"TOP (attached — reproduce EXACTLY): "
+            f"{_desc.get('sub_category','shirt')} "
+            f"in {_desc.get('main_color_name','as shown')} color, "
+            f"{_desc.get('pattern','as shown')} pattern, "
+            f"{_desc.get('material','as shown')} material, "
+            f"{_desc.get('fit','as shown')} fit. "
+            f"Match every detail of the attached top image."
+        )
     
-    # --- SHOES (모든 모드 공통) ---
+    # --- BOTTOM (하의) ---
+    if "bottom" in _att:
+        _desc = bottom_info or {}
+        garments_parts.append(
+            f"BOTTOM (attached — reproduce EXACTLY): "
+            f"{_desc.get('sub_category','pants')} "
+            f"in {_desc.get('main_color_name','as shown')} color, "
+            f"{_desc.get('pattern','as shown')} pattern, "
+            f"{_desc.get('material','as shown')} material. "
+            f"Match every detail of the attached bottom image."
+        )
+    
+    # --- SHOES (신발) ---
     if "shoes" in _att:
+        _desc = shoes_info or {}
         garments_parts.append(
             f"SHOES (attached — reproduce EXACTLY): "
-            f"{shoes_info.get('sub_category','shoes')} "
-            f"in {shoes_info.get('main_color_name','as shown')}. "
+            f"{_desc.get('sub_category','shoes')} "
+            f"in {_desc.get('main_color_name','as shown')}. "
             f"Reproduce the EXACT shoes from the attached reference image on BOTH feet. "
-            f"Match shoe type (sneaker/loafer/heel/boot/etc), color, laces, sole, logo, and every detail. "
-            f"Do NOT substitute with generic footwear. Do NOT reinterpret as different shoe style. "
-            f"This is one of the CORE RULE ① mandatory items."
+            f"Match shoe type (sneaker/loafer/heel/boot/etc), color, laces, sole, logo — every detail. "
+            f"Do NOT substitute with different footwear."
         )
-    else:
-        garments_parts.append(
-            "SHOES (GENERATE): No shoes image attached. "
-            "Create footwear that naturally suits the overall outfit's style, formality, and color palette. "
-            "Examples: formal outfit → dress shoes / loafers; "
-            "casual → sneakers; streetwear → chunky sneakers; "
-            "feminine dress → heels or ballet flats. "
-            "Shoes MUST be fully visible in the frame (both feet, including soles on the ground)."
-        )
+    
+    # 종료 재확인
+    garments_parts.append(
+        "\n\n━━━ FINAL REMINDER ━━━ "
+        f"Attached items: [{', '.join(_attached_list)}]. "
+        "These are the ONLY items to wear. "
+        "Before finalizing the image, verify: "
+        "(1) Every attached item is visible and accurately reproduced. "
+        "(2) No extra garments (cardigan, jacket, scarf, accessories) are added beyond the attached list "
+        "and the allowed exceptions. "
+        "(3) The outfit matches the user's selection exactly."
+    )
     
     garments = " ".join(garments_parts)
 
@@ -5266,19 +5258,21 @@ def _tryon_build_analysis_prompt(
             _item_desc.append(f"• 상의: {_item_label('top', top_info, '상의')} [이미지 첨부됨]")
             _img_order.append("top")
         else:
-            _item_desc.append("• 상의: 미선택 (이미지에서 자동 생성된 베이스 톱)")
+            # [v8] 미첨부는 "미선택"만 명시 — 자동 생성을 전제하지 않음 (프롬프트가 생성 금지이므로)
+            _item_desc.append("• 상의: 미선택 — 아우터 안쪽의 최소 내피만 자연 노출")
         if "bottom" in _att:
             _item_desc.append(f"• 하의: {_item_label('bottom', bottom_info, '하의')} [이미지 첨부됨]")
             _img_order.append("bottom")
         else:
-            _item_desc.append("• 하의: 미선택 (이미지에서 자동 생성된 하의)")
+            _item_desc.append("• 하의: 미선택 — 아우터 하단의 최소 하의만 자연 노출")
     
-    # 신발 (옵션, 모든 모드 공통) — 핵심 수정 지점
+    # 신발 (옵션, 모든 모드 공통)
     if "shoes" in _att:
         _item_desc.append(f"• 신발: {_item_label('shoes', shoes_info, '신발')} [이미지 첨부됨]")
         _img_order.append("shoes")
     else:
-        _item_desc.append("• 신발: 미선택 (이미지에서 자동 생성된 매칭 신발)")
+        # [v8] 신발은 예외적으로 중립 자동 생성 허용 (맨발 방지)
+        _item_desc.append("• 신발: 미선택 — 전체 톤과 조화되는 중립 신발 자동 생성 (맨발 방지)")
     
     items_block = "\n".join(_item_desc) if _item_desc else "• (아이템 정보 없음)"
     
