@@ -4618,10 +4618,20 @@ def _tryon_build_prompt(
     onepiece_info: dict,
     outer_info: dict,
     shoes_info: dict,
+    attached_keys: set = None,  # [2026-04-24 TJ 지시] images_map의 key set — 실제 첨부된 이미지 판단
     lang_en: bool = False,
 ):
     """
     [2026-04-22 16:30] 트라이온 전용 프롬프트 빌더.
+    [2026-04-24 TJ 지시 v7] attached_keys 파라미터 추가 — 실제 첨부된 이미지 기반 판단.
+    
+    핵심 원칙 (TJ 확인):
+      1) ATTACHED (attached_keys 포함) = MANDATORY 정확 재현
+      2) NOT ATTACHED = GENERATE 맥락에 맞게 생성
+    
+    이전 버그: shoes_info가 빈 dict {}면 item_order에 shoes 미포함
+              → Gemini에 이미지 첨부 안 되어 임의 생성
+    수정: attached_keys(= set(images_map.keys())) 기반 판단으로 전환
     
     codistyle의 Phase 1~5 구조를 따르되, 트라이온 특성(원피스/아우터/신발 슬롯 +
     fitTarget 분기)을 반영한 완전 독립 프롬프트.
@@ -4663,109 +4673,174 @@ def _tryon_build_prompt(
         )
 
     # ──────── Phase 2: GARMENTS (mode 분기) ────────
-    # [2026-04-24 TJ 지시1] 옵션 아이템(신발/아우터) 누락 버그 해결
-    # 이전: "(optional)" 같은 약한 표현 → Gemini가 무시하는 경우 있음
-    # 수정: MANDATORY 명시 + 모든 첨부 이미지 아이템 반드시 착용 규칙 추가
+    # [2026-04-24 TJ 지시 v7] 핵심 수정 — images_map 기반 판단
+    # 이전 버그: if shoes_info: → 빈 dict면 False → shoes 이미지 첨부 안 됨
+    # 수정: attached_keys (set of images_map keys) 기반으로 판단
+    #       → 이미지 첨부됨 = MANDATORY 정확 재현
+    #       → 이미지 없음 = GENERATE 맥락에 맞게 생성 허용
+    
+    _att = attached_keys or set()
+    
+    # === 🔴 CORE RULE — 최상단 명령 (Gemini의 판단 기준 제시) ===
     garments_parts = [
-        "🔴 CRITICAL RULE — WEAR ALL REFERENCE ITEMS: "
-        "Every garment reference image attached to this request MUST be worn by the person. "
-        "Do NOT omit, skip, or replace any attached garment. "
-        "If N garment images are attached, all N items must appear on the person in the final image. "
-        "This includes shoes, outerwear, accessories — no exceptions. "
-        "Reference images are the ABSOLUTE GROUND TRUTH for color, pattern, texture, "
-        "material, silhouette, and overall design. Reproduce each garment with photographic fidelity."
+        "🔴 CORE RULE — TWO PRINCIPLES (MANDATORY, NO EXCEPTIONS): "
+        "① ATTACHED ITEMS = REPRODUCE EXACTLY. Every garment reference image attached "
+        "to this request MUST be worn on the person and reproduced with photographic fidelity. "
+        "Do NOT replace attached items with similar-looking alternatives. "
+        "Do NOT re-imagine attached items. Color, pattern, texture, silhouette, details, "
+        "logos, laces, buckles — every visible element of each attached image MUST match exactly. "
+        "② NOT-ATTACHED AREAS = GENERATE CONTEXTUALLY. For any body area that does NOT have "
+        "an attached image, generate a naturally-harmonizing item that complements the overall look "
+        "(color tone, style, formality level, season). "
+        "If the outfit needs footwear but no shoes image is attached, create shoes that suit the overall style. "
+        "If the outfit needs a top/bottom that wasn't provided, generate tasteful matching pieces. "
+        "‖ SUMMARY ‖ Attached = exact reproduction. Missing = creative matching. Both rules are equally important."
     ]
     
-    if mode == _TRYON_MODE_ONEPIECE:
-        # 원피스 모드: 원피스(필수) + 아우터(옵션)
+    # === 어떤 이미지가 첨부되었는지 Gemini에게 명시적으로 알려주기 ===
+    _attached_list = []
+    _missing_list = []
+    # 외형상 보이는 영역 기준 (모드별로 필요한 영역 다름)
+    _possible_items = {
+        _TRYON_MODE_TWOPIECE: ["top", "bottom", "outer", "shoes"],
+        _TRYON_MODE_ONEPIECE: ["onepiece", "outer", "shoes"],
+        _TRYON_MODE_OUTER:    ["outer", "top", "bottom", "shoes"],
+    }.get(mode, ["top", "bottom", "outer", "shoes"])
+    
+    for _k in _possible_items:
+        if _k in _att:
+            _attached_list.append(_k)
+        else:
+            _missing_list.append(_k)
+    
+    # Gemini에게 이미지-아이템 매핑 명시 (혼동 방지)
+    if _attached_list:
         garments_parts.append(
-            f"ONEPIECE (REQUIRED — the dress the person wears as main garment): "
-            f"{onepiece_info.get('sub_category','dress')} "
-            f"in {onepiece_info.get('main_color_name','as shown in image')} color, "
-            f"{onepiece_info.get('pattern','as shown')} pattern, "
-            f"{onepiece_info.get('material','as shown')} material. "
-            f"Reproduce the dress EXACTLY as shown in the reference image."
-            if onepiece_info else
-            "ONEPIECE (REQUIRED): Reproduce the attached dress image EXACTLY on the person."
+            f"📎 ATTACHED IMAGES (MUST reproduce each exactly): {', '.join(_attached_list)}. "
+            f"The reference images are attached in this exact order after the face image."
         )
-        if outer_info:
+    if _missing_list:
+        garments_parts.append(
+            f"🎨 AREAS TO GENERATE (no image — create contextually matching): {', '.join(_missing_list)}. "
+            f"Harmonize with the attached items' style, color palette, and formality level."
+        )
+    
+    # === 각 슬롯별 상세 지시 — images_map 기반 분기 ===
+    
+    # --- ONEPIECE (원피스 모드) ---
+    if mode == _TRYON_MODE_ONEPIECE:
+        if "onepiece" in _att:
             garments_parts.append(
-                f"OUTER LAYER (REQUIRED — attached as outer image): "
+                f"ONEPIECE (attached — reproduce EXACTLY as in reference): "
+                f"{onepiece_info.get('sub_category','dress')} "
+                f"in {onepiece_info.get('main_color_name','as shown in image')} color, "
+                f"{onepiece_info.get('pattern','as shown')} pattern, "
+                f"{onepiece_info.get('material','as shown')} material. "
+                f"Match every detail of the attached dress image."
+            )
+        # 원피스 모드는 onepiece 이미지 필수 검증을 서버가 이미 했으므로 else 불필요
+        
+        if "outer" in _att:
+            garments_parts.append(
+                f"OUTER (attached — reproduce EXACTLY): "
                 f"{outer_info.get('sub_category','jacket')} "
                 f"in {outer_info.get('main_color_name','as shown')} color. "
-                f"MUST be worn OVER the dress, open or loosely draped. "
-                f"Do not omit this outer garment."
+                f"MUST be worn OVER the dress (open or loosely draped)."
             )
+    
+    # --- OUTER (아우터 중심 모드) ---
     elif mode == _TRYON_MODE_OUTER:
-        # 아우터 필수 모드 (아우터 중심, 상/하의는 옵션으로 함께 착용 가능)
-        if outer_info:
+        if "outer" in _att:
             garments_parts.append(
-                f"OUTER (REQUIRED — MAIN garment, attached as outer image): "
+                f"OUTER (attached — MAIN garment, reproduce EXACTLY): "
                 f"{outer_info.get('sub_category','coat')} "
                 f"in {outer_info.get('main_color_name','as shown')} color, "
                 f"{outer_info.get('pattern','as shown')} pattern, "
                 f"{outer_info.get('material','as shown')} material. "
-                f"This is the hero garment — feature it prominently, worn on top."
+                f"This is the HERO garment — feature prominently."
+            )
+        if "top" in _att:
+            garments_parts.append(
+                f"INNER TOP (attached — reproduce EXACTLY): "
+                f"{top_info.get('sub_category','shirt')} "
+                f"in {top_info.get('main_color_name','as shown')}. "
+                f"Worn UNDER the outer layer, visible at neckline and cuffs."
             )
         else:
             garments_parts.append(
-                "OUTER (REQUIRED): Reproduce the attached outer image EXACTLY as worn on top."
+                "INNER TOP (GENERATE): No top image provided. "
+                "Create a subtle inner top that complements the outer garment — "
+                "typically a neutral base layer (white/cream/grey) visible at neckline/cuffs."
             )
-        if top_info:
+        if "bottom" in _att:
             garments_parts.append(
-                f"INNER TOP (REQUIRED — attached as top image): "
-                f"{top_info.get('sub_category','shirt')} "
-                f"in {top_info.get('main_color_name','as shown')}. "
-                f"Worn UNDER the outer layer and visible at neckline/cuffs."
-            )
-        if bottom_info:
-            garments_parts.append(
-                f"BOTTOM (REQUIRED — attached as bottom image): "
+                f"BOTTOM (attached — reproduce EXACTLY): "
                 f"{bottom_info.get('sub_category','pants')} "
                 f"in {bottom_info.get('main_color_name','as shown')}. "
-                f"Worn below with the outer/top."
+                f"Reproduce the attached bottom image with photographic fidelity."
             )
-    else:
-        # twopiece (기본) — 상의+하의 필수, 아우터 옵션
-        if top_info:
+        else:
             garments_parts.append(
-                f"TOP (REQUIRED — attached as top image): "
+                "BOTTOM (GENERATE): No bottom image provided. "
+                "Create bottom wear that harmonizes with the outer garment's formality and color — "
+                "e.g., for a trench coat: tailored trousers or slim jeans; "
+                "for a casual jacket: denim or casual pants."
+            )
+    
+    # --- TWOPIECE (기본, 상+하 모드) ---
+    else:
+        if "top" in _att:
+            garments_parts.append(
+                f"TOP (attached — reproduce EXACTLY): "
                 f"{top_info.get('sub_category','shirt')} "
                 f"in {top_info.get('main_color_name','as shown')} color, "
                 f"{top_info.get('pattern','as shown')} pattern, "
                 f"{top_info.get('material','as shown')} material, "
-                f"{top_info.get('fit','as shown')} fit."
+                f"{top_info.get('fit','as shown')} fit. "
+                f"Match every detail of the attached top image."
             )
-        else:
-            garments_parts.append("TOP (REQUIRED): Reproduce the attached top image EXACTLY.")
-        if bottom_info:
+        # twopiece에서 top은 서버 필수 검증 완료
+        
+        if "bottom" in _att:
             garments_parts.append(
-                f"BOTTOM (REQUIRED — attached as bottom image): "
+                f"BOTTOM (attached — reproduce EXACTLY): "
                 f"{bottom_info.get('sub_category','pants')} "
                 f"in {bottom_info.get('main_color_name','as shown')} color, "
                 f"{bottom_info.get('pattern','as shown')} pattern, "
-                f"{bottom_info.get('material','as shown')} material."
+                f"{bottom_info.get('material','as shown')} material. "
+                f"Match every detail of the attached bottom image."
             )
-        else:
-            garments_parts.append("BOTTOM (REQUIRED): Reproduce the attached bottom image EXACTLY.")
-        if outer_info:
+        # twopiece에서 bottom도 필수
+        
+        if "outer" in _att:
             garments_parts.append(
-                f"OUTER LAYER (REQUIRED — attached as outer image): "
+                f"OUTER (attached — reproduce EXACTLY): "
                 f"{outer_info.get('sub_category','jacket')} "
                 f"in {outer_info.get('main_color_name','as shown')} color. "
-                f"MUST be worn OVER the top, open style. Do not omit."
+                f"MUST be worn OVER the top (open style)."
             )
     
-    # 신발 — 별도 블록 + 강화된 지시
-    if shoes_info:
+    # --- SHOES (모든 모드 공통) ---
+    if "shoes" in _att:
         garments_parts.append(
-            f"SHOES (REQUIRED — attached as shoes image): "
+            f"SHOES (attached — reproduce EXACTLY): "
             f"{shoes_info.get('sub_category','shoes')} "
             f"in {shoes_info.get('main_color_name','as shown')}. "
-            f"MUST be worn on both feet. Fully visible in the frame. "
-            f"Match shoe style, color, and laces exactly to the reference image. "
-            f"Do NOT replace with generic footwear."
+            f"Reproduce the EXACT shoes from the attached reference image on BOTH feet. "
+            f"Match shoe type (sneaker/loafer/heel/boot/etc), color, laces, sole, logo, and every detail. "
+            f"Do NOT substitute with generic footwear. Do NOT reinterpret as different shoe style. "
+            f"This is one of the CORE RULE ① mandatory items."
         )
+    else:
+        garments_parts.append(
+            "SHOES (GENERATE): No shoes image attached. "
+            "Create footwear that naturally suits the overall outfit's style, formality, and color palette. "
+            "Examples: formal outfit → dress shoes / loafers; "
+            "casual → sneakers; streetwear → chunky sneakers; "
+            "feminine dress → heels or ballet flats. "
+            "Shoes MUST be fully visible in the frame (both feet, including soles on the ground)."
+        )
+    
     garments = " ".join(garments_parts)
 
     # ──────── Phase 3: WEARING ────────
@@ -4832,15 +4907,32 @@ def _tryon_build_prompt(
         f"{evaluation}"
     )
 
-    # 이미지 첨부 순서 결정
+    # ──────── 이미지 첨부 순서 결정 (2026-04-24 v7) ────────
+    # 핵심 수정: attached_keys 기반 → "이미지가 실제로 첨부된" 아이템만 순서에 포함
+    # 이전 버그: if shoes_info: → 빈 dict일 때 False → shoes 이미지 첨부 안 됨
+    # 수정: if "shoes" in _att: → 실제 이미지 첨부 여부로 판단
     face_required = (fit_target != _TRYON_FIT_MODEL)
+    
     if mode == _TRYON_MODE_ONEPIECE:
-        item_order = ["onepiece"] + (["outer"] if outer_info else [])
+        # 원피스 모드: onepiece는 필수, outer는 선택
+        item_order = []
+        if "onepiece" in _att: item_order.append("onepiece")
+        if "outer" in _att: item_order.append("outer")
     elif mode == _TRYON_MODE_OUTER:
-        item_order = ["outer"] + (["top"] if top_info else []) + (["bottom"] if bottom_info else [])
+        # 아우터 모드: outer는 필수, top/bottom은 선택
+        item_order = []
+        if "outer" in _att: item_order.append("outer")
+        if "top" in _att: item_order.append("top")
+        if "bottom" in _att: item_order.append("bottom")
     else:
-        item_order = ["top", "bottom"] + (["outer"] if outer_info else [])
-    if shoes_info:
+        # 투피스 모드: top/bottom 필수, outer 선택
+        item_order = []
+        if "top" in _att: item_order.append("top")
+        if "bottom" in _att: item_order.append("bottom")
+        if "outer" in _att: item_order.append("outer")
+    
+    # 신발 — 모드와 무관하게 image_map 기준으로 포함
+    if "shoes" in _att:
         item_order.append("shoes")
 
     return prompt, {"face_required": face_required, "item_order": item_order}
@@ -5077,10 +5169,12 @@ def _tryon_build_analysis_prompt(
     onepiece_info: dict,
     outer_info: dict,
     shoes_info: dict,
+    attached_keys: set = None,  # [2026-04-24 v7] 실제 첨부된 이미지 기반 판단
     lang_en: bool = False,
 ):
     """
     [2026-04-23 16:00] 트라이온 분석 전용 프롬프트.
+    [2026-04-24 v7] attached_keys 추가 — 실제 첨부된 이미지만 분석 대상으로
     
     Gemini 3 Pro (텍스트) 로 호출. 이미지 생성 없이 분석 JSON 만 요청.
     _tryon_parse_response가 파싱하는 마커 형식(STYLING_SCORE:, body_shape: 등) 준수.
@@ -5108,46 +5202,64 @@ def _tryon_build_analysis_prompt(
     # 퍼스널컬러 요약 (없으면 기본)
     pc_text = pc_summary or "분석된 퍼스널컬러 정보 없음"
     
+    # [2026-04-24 v7] attached_keys 기반 로직
+    # 이전: top_info 존재 여부로 _img_order 결정 → 이미지 있어도 info 없으면 누락
+    # 수정: attached_keys (실제 첨부된 이미지 키)로 직접 판단
+    _att = attached_keys or set()
+    
     # 아이템 정보 정리
     _item_desc = []
     _img_order = []
     if fit_target != _TRYON_FIT_MODEL:
         _img_order.append("face")
     
-    if mode == _TRYON_MODE_TWOPIECE:
-        _top_cat = (top_info or {}).get("sub_category") or (top_info or {}).get("category") or "상의"
-        _top_col = (top_info or {}).get("color", "")
-        _item_desc.append(f"• 상의: {_top_cat}" + (f" ({_top_col})" if _top_col else ""))
-        _img_order.append("top")
-        _bot_cat = (bottom_info or {}).get("sub_category") or (bottom_info or {}).get("category") or "하의"
-        _bot_col = (bottom_info or {}).get("color", "")
-        _item_desc.append(f"• 하의: {_bot_cat}" + (f" ({_bot_col})" if _bot_col else ""))
-        _img_order.append("bottom")
-    elif mode == _TRYON_MODE_ONEPIECE:
-        _op_cat = (onepiece_info or {}).get("sub_category") or (onepiece_info or {}).get("category") or "원피스"
-        _op_col = (onepiece_info or {}).get("color", "")
-        _item_desc.append(f"• 원피스: {_op_cat}" + (f" ({_op_col})" if _op_col else ""))
-        _img_order.append("onepiece")
-    elif mode == _TRYON_MODE_OUTER:
-        _out_cat = (outer_info or {}).get("sub_category") or (outer_info or {}).get("category") or "아우터"
-        _out_col = (outer_info or {}).get("color", "")
-        _item_desc.append(f"• 아우터: {_out_cat}" + (f" ({_out_col})" if _out_col else ""))
-        _img_order.append("outer")
-        # 아우터 모드는 상의/하의도 선택 가능
-        if top_info and (top_info.get("sub_category") or top_info.get("category")):
-            _top_cat = top_info.get("sub_category") or top_info.get("category")
-            _item_desc.append(f"• 상의: {_top_cat}")
-            _img_order.append("top")
-        if bottom_info and (bottom_info.get("sub_category") or bottom_info.get("category")):
-            _bot_cat = bottom_info.get("sub_category") or bottom_info.get("category")
-            _item_desc.append(f"• 하의: {_bot_cat}")
-            _img_order.append("bottom")
+    # 각 슬롯별 — attached_keys 기반 + xxx_info 의 메타데이터 보조
+    def _item_label(key, info, default_cat):
+        """첨부된 아이템의 한글 설명 생성"""
+        cat = (info or {}).get("sub_category") or (info or {}).get("category") or default_cat
+        col = (info or {}).get("color") or (info or {}).get("main_color_name") or ""
+        return f"{cat}" + (f" ({col})" if col else "")
     
-    # 신발 (옵션, 모든 모드 공통)
-    if shoes_info and (shoes_info.get("sub_category") or shoes_info.get("category")):
-        _shoes_cat = shoes_info.get("sub_category") or shoes_info.get("category")
-        _item_desc.append(f"• 신발: {_shoes_cat}")
+    if mode == _TRYON_MODE_TWOPIECE:
+        # 투피스: top/bottom은 서버 검증에서 필수 (항상 _att에 있음)
+        if "top" in _att:
+            _item_desc.append(f"• 상의: {_item_label('top', top_info, '상의')} [이미지 첨부됨]")
+            _img_order.append("top")
+        if "bottom" in _att:
+            _item_desc.append(f"• 하의: {_item_label('bottom', bottom_info, '하의')} [이미지 첨부됨]")
+            _img_order.append("bottom")
+        if "outer" in _att:
+            _item_desc.append(f"• 아우터: {_item_label('outer', outer_info, '아우터')} [이미지 첨부됨]")
+            _img_order.append("outer")
+    elif mode == _TRYON_MODE_ONEPIECE:
+        if "onepiece" in _att:
+            _item_desc.append(f"• 원피스: {_item_label('onepiece', onepiece_info, '원피스')} [이미지 첨부됨]")
+            _img_order.append("onepiece")
+        if "outer" in _att:
+            _item_desc.append(f"• 아우터: {_item_label('outer', outer_info, '아우터')} [이미지 첨부됨]")
+            _img_order.append("outer")
+    elif mode == _TRYON_MODE_OUTER:
+        if "outer" in _att:
+            _item_desc.append(f"• 아우터: {_item_label('outer', outer_info, '아우터')} [이미지 첨부됨, 메인 아이템]")
+            _img_order.append("outer")
+        # 아우터 모드: top/bottom 모두 선택 가능
+        if "top" in _att:
+            _item_desc.append(f"• 상의: {_item_label('top', top_info, '상의')} [이미지 첨부됨]")
+            _img_order.append("top")
+        else:
+            _item_desc.append("• 상의: 미선택 (이미지에서 자동 생성된 베이스 톱)")
+        if "bottom" in _att:
+            _item_desc.append(f"• 하의: {_item_label('bottom', bottom_info, '하의')} [이미지 첨부됨]")
+            _img_order.append("bottom")
+        else:
+            _item_desc.append("• 하의: 미선택 (이미지에서 자동 생성된 하의)")
+    
+    # 신발 (옵션, 모든 모드 공통) — 핵심 수정 지점
+    if "shoes" in _att:
+        _item_desc.append(f"• 신발: {_item_label('shoes', shoes_info, '신발')} [이미지 첨부됨]")
         _img_order.append("shoes")
+    else:
+        _item_desc.append("• 신발: 미선택 (이미지에서 자동 생성된 매칭 신발)")
     
     items_block = "\n".join(_item_desc) if _item_desc else "• (아이템 정보 없음)"
     
@@ -5692,7 +5804,24 @@ def tryon_generate():
     # 둘 다 완료 후 통합. 프론트 코드 변경 없음.
     # ════════════════════════════════════════════════════════════════════
     
-    # ─── 이미지 생성용 프롬프트 (기존) ───
+    # ─── [2026-04-24 v7] 실제 첨부된 이미지 key set 준비 ───
+    # 프롬프트 빌더가 "어떤 이미지가 실제로 Gemini에 전달되는지" 판단하는 기준
+    # 이전 버그: shoes_info({}) 기반 판단 → 이미지는 있는데 프롬프트엔 반영 안 됨
+    # 수정: 실제 images_map 기반 → 이미지 유무와 프롬프트 지시 완전 일치
+    _attached = set(images_map.keys())
+    
+    # 진단 로그 — 어떤 아이템이 첨부/미첨부 되었는지 명확히
+    _possible = {"twopiece":["top","bottom","outer","shoes"],
+                 "onepiece":["onepiece","outer","shoes"],
+                 "outer":["outer","top","bottom","shoes"]}.get(mode, [])
+    _missing = [k for k in _possible if k not in _attached]
+    print(
+        f"[TRYON-IMG] mode={mode} · attached=[{','.join(sorted(_attached))}] "
+        f"· missing=[{','.join(_missing)}] · face={bool(face_bytes)}",
+        flush=True
+    )
+    
+    # ─── 이미지 생성용 프롬프트 ───
     prompt_img, img_meta = _tryon_build_prompt(
         mode=mode,
         fit_target=fit_target,
@@ -5709,10 +5838,11 @@ def tryon_generate():
         onepiece_info=onepiece_info,
         outer_info=outer_info,
         shoes_info=shoes_info,
+        attached_keys=_attached,  # [v7] 신규 — 실제 첨부된 이미지 기반 판단
         lang_en=_t_en,
     )
     
-    # ─── 분석용 프롬프트 (신규 — 텍스트 모델 전담) ───
+    # ─── 분석용 프롬프트 (텍스트 모델 전담) ───
     prompt_analysis, _analysis_img_meta = _tryon_build_analysis_prompt(
         mode=mode,
         fit_target=fit_target,
@@ -5729,6 +5859,7 @@ def tryon_generate():
         onepiece_info=onepiece_info,
         outer_info=outer_info,
         shoes_info=shoes_info,
+        attached_keys=_attached,  # [v7] 신규 — 동일 원칙 적용
         lang_en=_t_en,
     )
     
