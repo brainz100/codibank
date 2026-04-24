@@ -4952,8 +4952,9 @@ def _tryon_build_prompt(
 def _tryon_parse_response(comment: str):
     """
     [2026-04-22 16:30] 트라이온 응답 파서.
+    [2026-04-24 v9 TJ 지시1] TPO/팁/큐레이션 추출 추가
     
-    Gemini가 생성한 텍스트에서 C.S.I 4지표 + 5섹션 분석 + 해시태그 등을 추출.
+    Gemini가 생성한 텍스트에서 C.S.I 4지표 + 5섹션 분석 + TPO + 팁 + 큐레이션 추출.
     응답 JSON 스키마는 codistyle_generate와 동일 (프론트 csScoreBox 호환).
     """
     import re as _re
@@ -4966,6 +4967,7 @@ def _tryon_parse_response(comment: str):
         "tpo_recommendations": [],
         "improvement_tips": [],
         "style_hashtags": [],
+        "item_curation": [],  # [v9] 신발/가방/액세서리 큐레이션
     }
     
     try:
@@ -4994,7 +4996,7 @@ def _tryon_parse_response(comment: str):
         
         # 3) Executive Summary (종합 평가)
         _esm = _re.search(
-            r'(?:종합 평가|Executive Summary)\s*[:：]\s*([^\n]+(?:\n(?!(?:스타일 해시태그|심층 분석|Style Hashtags|Deep-dive))[^\n]*)*)',
+            r'(?:종합 평가|Executive Summary)\s*[:：]\s*([^\n]+(?:\n(?!(?:스타일 해시태그|심층 분석|Style Hashtags|Deep-dive|Best TPO|개선 팁|Improvement|퍼스널 아이템|Item Curation))[^\n]*)*)',
             comment
         )
         if _esm:
@@ -5006,19 +5008,40 @@ def _tryon_parse_response(comment: str):
             _raw_tags = _hsm.group(1).strip()
             result["style_hashtags"] = [t.strip() for t in _re.findall(r'#\S+', _raw_tags)]
         
-        # 5) 5섹션 심층 분석 — 프론트 _renderAnalysis가 기대하는 dict 형식으로
-        # [2026-04-23 18:00] 조건부 분석 대응 — "색상 조화 분석" / "전체 스타일 완성도" 키워드 추가
-        # 기존 "퍼스널컬러 분석" / "상하의 밸런스" 도 계속 지원 (하위호환)
+        # 5) [v9 신규] Best TPO 추천 (| 구분자)
+        _tpo_m = _re.search(r'(?:Best TPO|베스트 TPO|추천 TPO)\s*[:：]\s*([^\n]+(?:\n(?!(?:개선 팁|Improvement|퍼스널 아이템|Item Curation|IMPORTANT))[^\n]*)*)', comment)
+        if _tpo_m:
+            _raw = _tpo_m.group(1).strip().strip("[]").strip()
+            # 여러 줄이면 한 줄로
+            _raw = _re.sub(r'\s*\n\s*', ' ', _raw)
+            # | 또는 • 또는 , 로 구분
+            _parts = _re.split(r'[|•▪·]|,(?![^(]*\))', _raw)
+            result["tpo_recommendations"] = [t.strip().strip("-·").strip() for t in _parts if t.strip() and len(t.strip()) > 1][:5]
+        
+        # 6) [v9 신규] 개선 팁 추출
+        _tip_m = _re.search(r'(?:개선 팁|Improvement Tips|스타일링 팁)\s*[:：]\s*([^\n]+(?:\n(?!(?:퍼스널 아이템|Item Curation|IMPORTANT|Best TPO))[^\n]*)*)', comment)
+        if _tip_m:
+            _raw = _tip_m.group(1).strip().strip("[]").strip()
+            _raw = _re.sub(r'\s*\n\s*', ' ', _raw)
+            _parts = _re.split(r'[|•▪·]|(?<=[\.。!?])\s+(?=[가-힣A-Z])', _raw)
+            result["improvement_tips"] = [t.strip().strip("-·").strip() for t in _parts if t.strip() and len(t.strip()) > 3][:5]
+        
+        # 7) [v9 신규] 퍼스널 아이템 큐레이션
+        _cur_m = _re.search(r'(?:퍼스널 아이템 큐레이션|Item Curation|아이템 추천)\s*[:：]\s*([^\n]+(?:\n(?!(?:IMPORTANT|Best TPO|개선 팁))[^\n]*)*)', comment)
+        if _cur_m:
+            _raw = _cur_m.group(1).strip().strip("[]").strip()
+            _raw = _re.sub(r'\s*\n\s*', ' ', _raw)
+            _parts = _re.split(r'[|•▪·]|(?<=[\.。!?])\s+(?=[가-힣A-Z])', _raw)
+            result["item_curation"] = [t.strip().strip("-·").strip() for t in _parts if t.strip() and len(t.strip()) > 3][:5]
+        
+        # 8) 5섹션 심층 분석
         _advice = {}
-        # Next-section 조기 종료 패턴에 모든 가능한 다음 섹션 헤더 포함
-        _NEXT_HEADERS = r"퍼스널컬러 분석|색상 조화 분석|상의 스타일 분석|하의 스타일 분석|실루엣과 비율|상하의 밸런스|전체 스타일 완성도|IMPORTANT"
+        _NEXT_HEADERS = r"퍼스널컬러 분석|색상 조화 분석|상의 스타일 분석|하의 스타일 분석|실루엣과 비율|상하의 밸런스|전체 스타일 완성도|Best TPO|베스트 TPO|개선 팁|Improvement|퍼스널 아이템|Item Curation|IMPORTANT"
         _section_patterns = [
-            # pc 키: 퍼스널컬러 분석 OR 색상 조화 분석 (둘 중 하나)
             ("pc",        rf'(?:퍼스널컬러 분석|색상 조화 분석)\s*[:：]\s*([^\n]+(?:\n(?!(?:{_NEXT_HEADERS}))[^\n]*)*)'),
             ("top",       rf'상의 스타일 분석\s*[:：]\s*([^\n]+(?:\n(?!(?:{_NEXT_HEADERS}))[^\n]*)*)'),
             ("bottom",    rf'하의 스타일 분석\s*[:：]\s*([^\n]+(?:\n(?!(?:{_NEXT_HEADERS}))[^\n]*)*)'),
             ("proportion", rf'실루엣과 비율\s*[:：]\s*([^\n]+(?:\n(?!(?:{_NEXT_HEADERS}))[^\n]*)*)'),
-            # harmony 키: 상하의 밸런스 OR 전체 스타일 완성도 (둘 중 하나)
             ("harmony",    rf'(?:상하의 밸런스|전체 스타일 완성도)\s*[:：]\s*([^\n]+(?:\n(?!(?:{_NEXT_HEADERS}|\Z))[^\n]*)*)'),
         ]
         for _key, _pat in _section_patterns:
@@ -5026,6 +5049,19 @@ def _tryon_parse_response(comment: str):
             if _sm:
                 _advice[_key] = _sm.group(1).strip().strip("[]").strip()
         result["styling_advice"] = _advice if _advice else ""
+        
+        # 진단 로그
+        print(
+            f"[TRYON-PARSE] score={result['styling_score']} "
+            f"breakdown={_sb} "
+            f"exec_len={len(result['executive_summary'])} "
+            f"tpo_n={len(result['tpo_recommendations'])} "
+            f"tips_n={len(result['improvement_tips'])} "
+            f"cur_n={len(result['item_curation'])} "
+            f"tags_n={len(result['style_hashtags'])} "
+            f"advice_keys={list(_advice.keys()) if _advice else []}",
+            flush=True
+        )
         
     except Exception as _parse_e:
         print(f"[TRYON-PARSE] 파싱 중 경고: {_parse_e}", flush=True)
@@ -5387,10 +5423,28 @@ harmony:[점수]
 잡지 에디터가 착장을 리뷰하듯 감각적이고 구체적으로 작성]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 [v9 신규] 활용 가이드 (아래 3개 섹션은 반드시 포함 — 파서가 마커로 인식합니다):
+
+Best TPO: [TPO1]|[TPO2]|[TPO3]|[TPO4]|[TPO5]
+(이 착장이 가장 빛나는 상황 3~5개. | 파이프로 구분. 각 항목 5~15자 간결하게. 
+ 예: 평일 오피스 출근|카페 브런치 미팅|주말 갤러리 데이트|봄 웨딩 게스트|비즈니스 캐주얼)
+
+개선 팁: [팁1]|[팁2]|[팁3]|[팁4]
+(이 착장을 10% 더 돋보이게 할 실용 조언 3~5개. | 파이프로 구분. 각 항목 20~50자 구체적으로.
+ 예: 벨트를 살짝 높여 매면 허리선이 더 강조되어 다리가 길어 보여요|밝은 쉐이드의 립 컬러로 얼굴 혈색을 살려보세요)
+
+퍼스널 아이템 큐레이션: [아이템1]|[아이템2]|[아이템3]|[아이템4]|[아이템5]
+(이 착장을 완성시킬 신발/가방/액세서리 5개 구체 추천. | 파이프로 구분. 
+ 각 항목은 '카테고리 - 구체적 설명' 포맷. 예:
+ 신발 - 아이보리 포인티드 토 펌프스 (키와 다리를 길어 보이게)|가방 - 살구빛 미디엄 토트백 (전체 톤 조화)|
+ 주얼리 - 골드 드롭 이어링 (웜톤 피부와 매치)|스카프 - 피치 컬러 실크 스카프|워치 - 로즈골드 다이얼)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 IMPORTANT:
-- 위 형식 정확히 준수 (STYLING_SCORE:, body_shape: 등 마커 필수)
+- 위 형식 정확히 준수 (STYLING_SCORE:, body_shape:, Best TPO:, 개선 팁:, 퍼스널 아이템 큐레이션: 등 마커 필수)
 - 점수는 0~최대점 사이 정수, 4개 지표 합계 = 총점 정확 일치
 - 응답은 한국어로만 작성
+- Best TPO / 개선 팁 / 퍼스널 아이템 큐레이션은 절대 생략하지 말 것 — 리포트 필수 섹션
 - 뻔한 말 금지 — "세련되다" "잘 어울린다" 같은 모호한 표현 피하기
 - 전문가 톤 유지하되 일반 소비자도 공감 가능한 언어
 """
@@ -6108,6 +6162,7 @@ def tryon_generate():
         tpo_recommendations=parsed["tpo_recommendations"],
         improvement_tips=parsed["improvement_tips"],
         style_hashtags=parsed["style_hashtags"],
+        item_curation=parsed.get("item_curation", []),  # [v9] 신발/가방/액세서리 큐레이션
         garment_summary=garment_summary,
         model=_TRYON_MODEL,
         sdk=_SDK,
