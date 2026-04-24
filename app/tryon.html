@@ -8,7 +8,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<meta name="cb-version" content="tryon-phase6-2026-04-24-v7" />
+<meta name="cb-version" content="tryon-phase7-2026-04-24-v9" />
 
 <title>트라이 온 — CodiBank</title>
 
@@ -19,7 +19,31 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-  │ ─── 2026-04-24 (v7) KST ─── [TJ 지시 — 6대 이슈 해결]            │
+  │ ─── 2026-04-24 (v9) KST ─── [TJ 지시 — 리포트/PDF 재설계]       │
+  │                                                                  │
+  │ [1] 퍼스널 스타일링 리포트 복원 (누락 섹션들)                    │
+  │   누락: 레이더 차트, Best TPO, 개선 팁, 퍼스널 아이템 큐레이션   │
+  │   원인: 서버 파서에 TPO/팁/큐레이션 추출 코드 없음 → 빈 []        │
+  │   수정: _tryon_parse_response에 3개 필드 파싱 추가                │
+  │   프론트 모달:                                                    │
+  │   - SECTION 2 상단에 C.S.I 레이더 차트 (SVG, 4지표 시각화)        │
+  │   - #prmCurationList (COMING SOON 제거) — 실제 데이터 렌더링      │
+  │   - drawTryonRadarChart() 함수 신규                               │
+  │   _tryonPremiumData에 curation, breakdown, userInfo 필드 추가     │
+  │                                                                  │
+  │ [2] PDF 전면 재설계 — 프리미엄 매거진 스타일                      │
+  │   기존: html2canvas(modal) 통채로 캡처 → 중간 굵은 선, 학생풍     │
+  │   수정: 전용 A4 템플릿 5페이지 DOM 생성 → 한 페이지씩 캡처        │
+  │   - Playfair Display + Inter 폰트 (Google Fonts)                 │
+  │   - 페이지 구성:                                                  │
+  │     ① COVER — 타이틀 + C.S.I 점수 + 생성일                       │
+  │     ② SCOREBOARD — 4지표 바차트 + 해시태그 + 써머리              │
+  │     ③ DEEP ANALYSIS — 5섹션 심층 (퍼스널컬러/상의/하의/실루엣/완성)│
+  │     ④ STYLING GUIDE — Best TPO (번호) + 개선 팁                   │
+  │     ⑤ CURATION — 퍼스널 아이템 5개 + 브랜드 아우트로               │
+  │   - _buildPremiumPdfTemplate() 신규 함수                          │
+  │                                                                  │
+  │ ─── 2026-04-24 (v8) KST ─── [오버제너레이션 해결]                │
   │                                                                  │
   │ [1] 이미지 뷰박스 여백 제거                                       │
   │   .result-img-wrap { padding: 10px 14px → 0 }                   │
@@ -2269,6 +2293,14 @@
         <div style="font-size:13px;font-weight:900;color:#97FEED;letter-spacing:-0.01em;">항목별 심층 분석</div>
         <div style="font-size:9px;font-weight:700;color:rgba(151,254,237,0.4);letter-spacing:0.1em;margin-left:auto;">DEEP-DIVE</div>
       </div>
+      
+      <!-- [v9 TJ 지시1] C.S.I 레이더 차트 — 4지표 시각화 -->
+      <div style="background:rgba(151,254,237,0.025);border:1px solid rgba(151,254,237,0.15);border-radius:10px;padding:18px 15px;margin-bottom:10px;text-align:center;">
+        <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,0.7);letter-spacing:0.15em;margin-bottom:8px;">C.S.I RADAR</div>
+        <svg id="prmRadarChart" viewBox="0 0 220 220" style="width:220px;max-width:100%;height:auto;margin:0 auto;display:block;" xmlns="http://www.w3.org/2000/svg">
+          <!-- 동적 생성: openPremiumReport()에서 채워짐 -->
+        </svg>
+      </div>
 
       <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(151,254,237,0.08);border-radius:10px;padding:13px 15px;margin-bottom:8px;">
         <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">📏 실루엣 &amp; 비율</div>
@@ -2309,10 +2341,10 @@
         <div id="prmTipsList" style="display:flex;flex-direction:column;gap:6px;"></div>
       </div>
 
-      <div style="background:linear-gradient(135deg,rgba(7,25,82,0.5),rgba(11,102,106,0.3));border:1px dashed rgba(151,254,237,0.22);border-radius:10px;padding:14px 15px;text-align:center;">
-        <div style="font-size:11px;font-weight:800;color:rgba(151,254,237,0.75);margin-bottom:6px;letter-spacing:-0.01em;">🛍️ 퍼스널 아이템 큐레이션</div>
-        <p style="font-size:10.5px;color:rgba(255,255,255,0.45);line-height:1.6;margin:0 0 6px;">룩의 완성도를 높일 신발·가방·액세서리 추천</p>
-        <div style="display:inline-block;font-size:9px;font-weight:800;padding:3px 10px;border-radius:20px;background:rgba(151,254,237,0.12);color:#97FEED;letter-spacing:0.05em;">COMING SOON</div>
+      <!-- [v9 TJ 지시1] 퍼스널 아이템 큐레이션 활성화 — COMING SOON 제거, 실제 데이터 바인딩 -->
+      <div style="background:linear-gradient(135deg,rgba(7,25,82,0.5),rgba(11,102,106,0.3));border:1px solid rgba(151,254,237,0.22);border-radius:10px;padding:14px 15px;">
+        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:8px;letter-spacing:-0.01em;">🛍️ 퍼스널 아이템 큐레이션</div>
+        <div id="prmCurationList" style="display:flex;flex-direction:column;gap:6px;"></div>
       </div>
     </div>
 
@@ -3343,6 +3375,7 @@ function _tryonApplyResult(data){
     window._tryonPremiumData = {
       score:       _total,
       grade:       _grade,
+      breakdown:   data.score_breakdown || {},  // [v9] 레이더 차트용 4지표
       hashtags:    data.style_hashtags || [],
       execSummary: data.executive_summary || data.comment || '',
       sections: {
@@ -3352,12 +3385,22 @@ function _tryonApplyResult(data){
         prop:    _secObj.proportion || '',
         harmony: _secObj.harmony || '',
       },
-      tpo:  data.tpo_recommendations || [],
-      tips: data.improvement_tips || [],
+      tpo:       data.tpo_recommendations || [],
+      tips:      data.improvement_tips || [],
+      curation:  data.item_curation || [],  // [v9] 퍼스널 아이템 큐레이션
       // 트라이온 추가: 결과 이미지 URL (PDF에 삽입용)
-      imageUrl: data.image || data.url || '',
-      model:    data.model || '',
-      mode:     data.tryon_mode || state.mode,
+      imageUrl:  data.image || data.url || '',
+      model:     data.model || '',
+      mode:      data.tryon_mode || state.mode,
+      // [v9] 사용자 정보 (PDF 헤더용)
+      userInfo: {
+        gender: (state.myProfileSnapshot && state.myProfileSnapshot.gender) || '',
+        age:    (state.myProfileSnapshot && state.myProfileSnapshot.ageGroup) || '',
+        height: (state.myProfileSnapshot && state.myProfileSnapshot.height) || '',
+        weight: (state.myProfileSnapshot && state.myProfileSnapshot.weight) || '',
+        bodyType: (state.myProfileSnapshot && state.myProfileSnapshot.bodyType) || '',
+        pc:     (state.myProfileSnapshot && state.myProfileSnapshot.pc && state.myProfileSnapshot.pc.summary) || '',
+      },
     };
     console.log('[TryOn Premium] data prepared:', window._tryonPremiumData);
   } catch(e) {
@@ -4101,10 +4144,112 @@ function openPremiumReport(){
     }
   }
   
+  // [v9 TJ 지시1] SECTION 3: 퍼스널 아이템 큐레이션 렌더링 (신규)
+  var curBox = document.getElementById('prmCurationList');
+  if(curBox){
+    if(data.curation && data.curation.length){
+      curBox.innerHTML = data.curation.map(function(c){
+        // "신발 - 아이보리 포인티드 토 펌프스" 형식 파싱
+        var _dashIdx = c.indexOf('-');
+        var _cat = '', _desc = c;
+        if(_dashIdx > 0 && _dashIdx < 10){
+          _cat = c.substring(0, _dashIdx).trim();
+          _desc = c.substring(_dashIdx+1).trim();
+        }
+        // 아이콘 매핑
+        var _icon = '🛍️';
+        if(/신발|shoes|슈즈/i.test(_cat)) _icon = '👟';
+        else if(/가방|bag|백/i.test(_cat)) _icon = '👜';
+        else if(/주얼리|jewelry|목걸이|귀걸이/i.test(_cat)) _icon = '💎';
+        else if(/스카프|scarf|머플러/i.test(_cat)) _icon = '🧣';
+        else if(/워치|watch|시계/i.test(_cat)) _icon = '⌚';
+        else if(/모자|hat|캡/i.test(_cat)) _icon = '🎩';
+        else if(/벨트|belt/i.test(_cat)) _icon = '👔';
+        else if(/안경|glasses|선글라스/i.test(_cat)) _icon = '🕶️';
+        return '<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;">'
+          + '<span style="flex:0 0 auto;font-size:15px;line-height:1.2;">' + _icon + '</span>'
+          + '<div style="flex:1;">'
+          + (_cat ? '<div style="font-size:10.5px;font-weight:800;color:#97FEED;margin-bottom:2px;">' + _cat + '</div>' : '')
+          + '<div style="font-size:11px;color:rgba(255,255,255,0.75);line-height:1.5;">' + _desc + '</div>'
+          + '</div></div>';
+      }).join('');
+    } else {
+      curBox.innerHTML = '<div style="font-size:10.5px;color:rgba(255,255,255,0.45);padding:8px 0;">아이템 큐레이션이 준비 중입니다.</div>';
+    }
+  }
+  
+  // [v9 TJ 지시1] C.S.I 레이더 차트 그리기
+  drawTryonRadarChart(data);
+  
   // 모달 오픈
   modal.style.display = 'block';
   modal.scrollTop = 0;
   document.body.style.overflow = 'hidden';
+}
+
+// [v9 TJ 지시1] C.S.I 4지표 레이더 차트
+// body_shape / personal_color / proportion / harmony
+function drawTryonRadarChart(data){
+  var svg = document.getElementById('prmRadarChart');
+  if(!svg) return;
+  var bd = data.breakdown || {};
+  // 각 지표 최대점
+  var metrics = [
+    { key: 'body_shape',     label: '체형 보완',     max: 30 },
+    { key: 'personal_color', label: '컬러 조화',     max: 30 },
+    { key: 'proportion',     label: '비율 개선',     max: 20 },
+    { key: 'harmony',        label: '스타일 완성',   max: 20 },
+  ];
+  var cx = 110, cy = 110, R = 72;
+  // 4각형 정점 각도 (12시/3시/6시/9시)
+  var angles = [-Math.PI/2, 0, Math.PI/2, Math.PI];
+  // SVG 요소들
+  var svgNs = 'http://www.w3.org/2000/svg';
+  var parts = [];
+  
+  // 배경 그리드 (25%, 50%, 75%, 100%)
+  [0.25, 0.5, 0.75, 1.0].forEach(function(r, i){
+    var pts = angles.map(function(a){
+      return (cx + Math.cos(a) * R * r) + ',' + (cy + Math.sin(a) * R * r);
+    }).join(' ');
+    parts.push('<polygon points="' + pts + '" fill="none" stroke="rgba(151,254,237,' + (0.08 + i*0.03) + ')" stroke-width="1"/>');
+  });
+  
+  // 축선 (4개)
+  angles.forEach(function(a){
+    var x2 = cx + Math.cos(a) * R;
+    var y2 = cy + Math.sin(a) * R;
+    parts.push('<line x1="'+cx+'" y1="'+cy+'" x2="'+x2+'" y2="'+y2+'" stroke="rgba(151,254,237,0.15)" stroke-width="1"/>');
+  });
+  
+  // 데이터 다각형
+  var dataPts = metrics.map(function(m, i){
+    var v = bd[m.key] || 0;
+    var ratio = Math.max(0.02, Math.min(1, v / m.max));
+    return (cx + Math.cos(angles[i]) * R * ratio) + ',' + (cy + Math.sin(angles[i]) * R * ratio);
+  }).join(' ');
+  parts.push('<polygon points="' + dataPts + '" fill="rgba(151,254,237,0.22)" stroke="#97FEED" stroke-width="2" stroke-linejoin="round"/>');
+  
+  // 데이터 포인트
+  metrics.forEach(function(m, i){
+    var v = bd[m.key] || 0;
+    var ratio = Math.max(0.02, Math.min(1, v / m.max));
+    var px = cx + Math.cos(angles[i]) * R * ratio;
+    var py = cy + Math.sin(angles[i]) * R * ratio;
+    parts.push('<circle cx="'+px+'" cy="'+py+'" r="3.5" fill="#97FEED" stroke="#071952" stroke-width="1.5"/>');
+  });
+  
+  // 라벨 (축 끝에)
+  metrics.forEach(function(m, i){
+    var v = bd[m.key] || 0;
+    var lx = cx + Math.cos(angles[i]) * (R + 22);
+    var ly = cy + Math.sin(angles[i]) * (R + 22);
+    var anchor = (i === 0 || i === 2) ? 'middle' : (i === 1 ? 'start' : 'end');
+    parts.push('<text x="'+lx+'" y="'+(ly-4)+'" text-anchor="'+anchor+'" fill="rgba(151,254,237,0.7)" font-size="9" font-weight="700" font-family="Inter,sans-serif">'+m.label+'</text>');
+    parts.push('<text x="'+lx+'" y="'+(ly+8)+'" text-anchor="'+anchor+'" fill="#97FEED" font-size="11" font-weight="900" font-family="Inter,sans-serif">'+v+'<tspan font-size="8" fill="rgba(151,254,237,0.5)">/'+m.max+'</tspan></text>');
+  });
+  
+  svg.innerHTML = parts.join('');
 }
 
 function closePremiumReport(){
@@ -4136,16 +4281,24 @@ document.addEventListener('keydown', function(e){
 // codistyle.html의 downloadOutfitReport 로직 참고, 트라이온 특화
 // ══════════════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════════════
+// [2026-04-24 v9 TJ 지시2] 프리미엄 A4 PDF 리포트 — 매거진 스타일 전면 재설계
+// 이전 문제: html2canvas(modal) 통채로 캡처 → 중간에 굵은 선 + 대학생 수준 디자인
+// 수정: 전용 A4 HTML 템플릿 5페이지 별도 DOM 렌더링 후 한 페이지씩 캡처 → PDF
+// 
+// 페이지 구성:
+//   1) COVER — 제목, 사용자 프로필, 스코어, 생성일
+//   2) SCORE — C.S.I 4지표 레이더 + 해시태그 + 종합 평가
+//   3) ANALYSIS — 5섹션 심층 분석 (퍼스널컬러, 상의, 하의, 실루엣, 완성도)
+//   4) GUIDE — Best TPO + 개선 팁
+//   5) CURATION — 퍼스널 아이템 큐레이션 + CodiBank 브랜딩
+// ══════════════════════════════════════════════════════════════════════
+
 function downloadTryonPdf(){
   var data = window._tryonPremiumData;
   if(!data){ showToast('리포트 데이터가 없어요'); return; }
   
-  showToast('PDF 생성 중...');
-  
-  // 간단 구현: 현재 화면의 점수박스+이미지 전체를 html2canvas로 PNG 변환 → PDF
-  // (codistyle.html의 downloadOutfitReport와 동일 흐름, jsPDF/html2canvas 사용)
-  //  → 이 스크립트는 body 하단 인라인이고 jsPDF/html2canvas가 로드 안되어 있다면
-  //    codistyle.html과 동일하게 CDN에서 로드하고 진행
+  showToast('프리미엄 리포트 생성 중...');
   
   var _ensureLib = function(name, url){
     return new Promise(function(resolve, reject){
@@ -4162,64 +4315,326 @@ function downloadTryonPdf(){
     _ensureLib('html2canvas', 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'),
     _ensureLib('jspdf', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'),
   ]).then(function(){
-    // 모달이 열려있으면 모달 캡처, 아니면 점수박스+이미지 캡처
-    var modal = document.getElementById('premiumReportModal');
-    var target;
-    if(modal && modal.style.display === 'block'){
-      target = modal.querySelector('div');  // 모달 내부 박스
-    } else {
-      // 모달 안 열린 상태 → 모달 먼저 오픈 후 캡처
-      openPremiumReport();
-      setTimeout(function(){ downloadTryonPdf(); }, 300);
-      return;
-    }
+    // 전용 A4 템플릿 컨테이너 생성 (화면 밖, html2canvas로 캡처만)
+    var _container = _buildPremiumPdfTemplate(data);
+    document.body.appendChild(_container);
     
-    html2canvas(target, {
-      scale: 2,
-      backgroundColor: '#071952',
-      useCORS: true,
-      logging: false,
-    }).then(function(canvas){
-      try{
-        var jsPDF = window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
-        var pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-        var imgW = 210;
-        var imgH = (canvas.height * imgW) / canvas.width;
-        var pageH = 297;
-        var imgData = canvas.toDataURL('image/jpeg', 0.92);
-        
-        if(imgH <= pageH){
-          pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
-        } else {
-          // 긴 페이지는 분할
-          var heightLeft = imgH;
-          var y = 0;
-          while(heightLeft > 0){
-            pdf.addImage(imgData, 'JPEG', 0, y, imgW, imgH);
-            heightLeft -= pageH;
-            y -= pageH;
-            if(heightLeft > 0) pdf.addPage();
-          }
-        }
-        
-        pdf.save('CodiBank_TryOn_Report_' + new Date().toISOString().slice(0,10) + '.pdf');
-        showToast('PDF 저장 완료');
-      }catch(err){
-        console.error('[PDF]', err);
-        // fallback: PNG로 저장
-        var link = document.createElement('a');
-        link.download = 'CodiBank_TryOn_Report_' + new Date().toISOString().slice(0,10) + '.png';
-        link.href = canvas.toDataURL('image/png', 0.95);
-        link.click();
+    // 페이지별 div 수집
+    var pages = _container.querySelectorAll('.cbpdf-page');
+    var pdf;
+    var jsPDF = window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
+    pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4', compress: true });
+    
+    // 각 페이지 순차 캡처 → PDF에 추가
+    var _capturePage = function(idx){
+      if(idx >= pages.length){
+        // 완료
+        pdf.save('CodiBank_Premium_Style_Report_' + new Date().toISOString().slice(0,10) + '.pdf');
+        document.body.removeChild(_container);
+        showToast('프리미엄 리포트 저장 완료');
+        return;
       }
-    }).catch(function(err){
-      console.error('[html2canvas]', err);
-      showToast('PDF 생성 실패');
-    });
+      html2canvas(pages[idx], {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        windowWidth: 794,
+        windowHeight: 1123,
+      }).then(function(canvas){
+        var imgData = canvas.toDataURL('image/jpeg', 0.95);
+        if(idx > 0) pdf.addPage();
+        // A4 210 x 297 mm 정확히 채움
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+        _capturePage(idx + 1);
+      }).catch(function(err){
+        console.error('[PDF capture page ' + idx + ']', err);
+        // 실패 페이지 건너뛰고 계속
+        _capturePage(idx + 1);
+      });
+    };
+    _capturePage(0);
   }).catch(function(err){
     console.error('[PDF lib]', err);
     showToast('PDF 라이브러리 로드 실패');
   });
+}
+
+// ═══ A4 프리미엄 리포트 템플릿 빌더 ═══
+function _buildPremiumPdfTemplate(data){
+  // A4: 210mm x 297mm → 96dpi 기준 794 x 1123px
+  // Retina 대응 위해 html2canvas scale:2로 처리
+  
+  var container = document.createElement('div');
+  container.id = 'cbpdfRoot';
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;font-family:"Inter","Noto Sans KR",sans-serif;background:#fff;';
+  
+  var today = new Date();
+  var dateStr = today.getFullYear() + '.' + String(today.getMonth()+1).padStart(2,'0') + '.' + String(today.getDate()).padStart(2,'0');
+  var grade = data.grade || 'A Grade';
+  var score = data.score || 0;
+  var hashtags = (data.hashtags || []).map(function(h){ return h.charAt(0)==='#' ? h : '#'+h; });
+  var sections = data.sections || {};
+  var tpo = data.tpo || [];
+  var tips = data.tips || [];
+  var curation = data.curation || [];
+  var userInfo = data.userInfo || {};
+  var bd = data.breakdown || {};
+  
+  // 공통 페이지 스타일
+  var pageStyle = 'width:794px;height:1123px;position:relative;background:#ffffff;color:#0B1238;box-sizing:border-box;page-break-after:always;overflow:hidden;';
+  var serifFont = '"Playfair Display","Noto Serif KR",serif';
+  var sansFont  = '"Inter","Noto Sans KR",sans-serif';
+  
+  // ─── Google Fonts 로드 ───
+  if(!document.getElementById('cbpdfFonts')){
+    var link = document.createElement('link');
+    link.id = 'cbpdfFonts';
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@300;400;600;700;900&display=swap';
+    document.head.appendChild(link);
+  }
+  
+  // ═══ PAGE 1: COVER ═══
+  var page1 = document.createElement('div');
+  page1.className = 'cbpdf-page';
+  page1.style.cssText = pageStyle + 'background:linear-gradient(180deg,#0a1443 0%,#071952 50%,#0B666A 100%);color:#fff;';
+  page1.innerHTML = 
+    '<div style="position:absolute;top:50px;left:50px;right:50px;">'
+    + '<div style="font-family:'+sansFont+';font-size:10px;font-weight:700;letter-spacing:0.3em;color:rgba(151,254,237,0.6);">CODIBANK</div>'
+    + '<div style="width:40px;height:2px;background:#97FEED;margin-top:8px;"></div>'
+    + '</div>'
+    // 중앙 — 큰 타이틀
+    + '<div style="position:absolute;top:280px;left:50px;right:50px;text-align:center;">'
+    + '<div style="font-family:'+sansFont+';font-size:11px;font-weight:700;letter-spacing:0.4em;color:rgba(151,254,237,0.7);margin-bottom:24px;">PREMIUM TRY-ON REPORT</div>'
+    + '<div style="font-family:'+serifFont+';font-size:58px;font-weight:900;line-height:1.1;color:#fff;letter-spacing:-0.02em;">Your Personal</div>'
+    + '<div style="font-family:'+serifFont+';font-size:58px;font-weight:900;line-height:1.1;color:#97FEED;letter-spacing:-0.02em;font-style:italic;">Style Report</div>'
+    + '<div style="margin-top:36px;font-family:'+sansFont+';font-size:13px;color:rgba(255,255,255,0.75);line-height:1.9;font-weight:300;max-width:500px;margin-left:auto;margin-right:auto;">A professional styling analysis crafted<br>by CodiBank AI Fashion Intelligence</div>'
+    + '</div>'
+    // C.S.I 박스
+    + '<div style="position:absolute;bottom:220px;left:50%;transform:translateX(-50%);background:rgba(151,254,237,0.08);border:1px solid rgba(151,254,237,0.3);border-radius:2px;padding:28px 60px;text-align:center;backdrop-filter:blur(10px);">'
+    + '<div style="font-family:'+sansFont+';font-size:10px;font-weight:700;letter-spacing:0.3em;color:rgba(151,254,237,0.7);margin-bottom:12px;">COORDINATION STYLE INDEX</div>'
+    + '<div style="font-family:'+serifFont+';font-size:78px;font-weight:900;color:#97FEED;line-height:1;letter-spacing:-0.03em;">'+score+'<span style="font-size:30px;font-weight:400;color:rgba(151,254,237,0.5);">/100</span></div>'
+    + '<div style="margin-top:10px;display:inline-block;padding:5px 18px;background:#97FEED;color:#071952;font-family:'+sansFont+';font-size:11px;font-weight:900;letter-spacing:0.1em;border-radius:2px;">'+grade.toUpperCase()+'</div>'
+    + '</div>'
+    // 하단 메타
+    + '<div style="position:absolute;bottom:60px;left:50px;right:50px;display:flex;justify-content:space-between;align-items:flex-end;font-family:'+sansFont+';font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:0.1em;">'
+    + '<div><div style="font-weight:700;color:#97FEED;letter-spacing:0.2em;margin-bottom:4px;">REPORT DATE</div><div>'+dateStr+'</div></div>'
+    + '<div style="text-align:center;"><div style="font-family:'+serifFont+';font-size:13px;font-style:italic;color:rgba(151,254,237,0.75);">Desire to be designed.</div><div style="margin-top:2px;">Meet CodiBank.</div></div>'
+    + '<div style="text-align:right;"><div style="font-weight:700;color:#97FEED;letter-spacing:0.2em;margin-bottom:4px;">EDITION</div><div>VOL. 01</div></div>'
+    + '</div>';
+  container.appendChild(page1);
+  
+  // ═══ PAGE 2: SCORE BREAKDOWN + SUMMARY ═══
+  var page2 = document.createElement('div');
+  page2.className = 'cbpdf-page';
+  page2.style.cssText = pageStyle;
+  // 해시태그 HTML
+  var tagsHtml = hashtags.length ? hashtags.map(function(h){
+    return '<span style="display:inline-block;margin:3px 4px;padding:6px 14px;background:#071952;color:#97FEED;font-family:'+sansFont+';font-size:11px;font-weight:700;letter-spacing:-0.01em;border-radius:20px;">'+h+'</span>';
+  }).join('') : '<span style="color:#999;font-size:11px;">해시태그 준비 중</span>';
+  
+  // 4지표 바 차트 HTML
+  var metrics = [
+    { key: 'body_shape',     label: '체형 보완도',     max: 30, en:'BODY SHAPE' },
+    { key: 'personal_color', label: '퍼스널컬러',      max: 30, en:'PERSONAL COLOR' },
+    { key: 'proportion',     label: '비율 개선도',     max: 20, en:'PROPORTION' },
+    { key: 'harmony',        label: '스타일 완성도',   max: 20, en:'HARMONY' },
+  ];
+  var metricsHtml = metrics.map(function(m){
+    var v = bd[m.key] || 0;
+    var pct = Math.round((v/m.max)*100);
+    return '<div style="margin-bottom:22px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">'
+      + '<div><div style="font-family:'+sansFont+';font-size:9px;font-weight:700;color:#0B666A;letter-spacing:0.2em;margin-bottom:2px;">'+m.en+'</div>'
+      + '<div style="font-family:'+sansFont+';font-size:14px;font-weight:700;color:#0B1238;">'+m.label+'</div></div>'
+      + '<div style="font-family:'+serifFont+';font-size:28px;font-weight:900;color:#0B666A;line-height:1;">'+v+'<span style="font-size:13px;font-weight:400;color:#999;">/'+m.max+'</span></div>'
+      + '</div>'
+      + '<div style="height:6px;background:#f0f4f7;border-radius:3px;overflow:hidden;">'
+      + '<div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#0B666A 0%,#35A29F 100%);border-radius:3px;"></div>'
+      + '</div></div>';
+  }).join('');
+  
+  page2.innerHTML = 
+    '<div style="padding:60px 60px 40px;border-bottom:1px solid #e5e7eb;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+    + '<div><div style="font-family:'+sansFont+';font-size:9px;font-weight:800;letter-spacing:0.3em;color:#0B666A;margin-bottom:6px;">CHAPTER I</div>'
+    + '<div style="font-family:'+serifFont+';font-size:38px;font-weight:900;color:#0B1238;letter-spacing:-0.02em;">The Scoreboard</div></div>'
+    + '<div style="font-family:'+serifFont+';font-size:11px;font-style:italic;color:#999;">page 02</div>'
+    + '</div></div>'
+    // 메트릭스 + 써머리 2컬럼
+    + '<div style="display:flex;padding:50px 60px;gap:50px;">'
+    + '<div style="flex:1;">'
+    + '<div style="font-family:'+sansFont+';font-size:9px;font-weight:800;color:#0B666A;letter-spacing:0.2em;margin-bottom:24px;">C.S.I BREAKDOWN</div>'
+    + metricsHtml
+    + '</div>'
+    + '<div style="flex:1;padding-left:50px;border-left:1px solid #e5e7eb;">'
+    + '<div style="font-family:'+sansFont+';font-size:9px;font-weight:800;color:#0B666A;letter-spacing:0.2em;margin-bottom:14px;">EXECUTIVE SUMMARY</div>'
+    + '<div style="font-family:'+serifFont+';font-size:22px;font-style:italic;color:#0B1238;line-height:1.5;font-weight:400;margin-bottom:20px;letter-spacing:-0.01em;">"'+(data.execSummary || '종합 분석 요약이 생성됩니다.')+'"</div>'
+    + '<div style="width:40px;height:2px;background:#0B666A;margin-bottom:24px;"></div>'
+    + '<div style="font-family:'+sansFont+';font-size:9px;font-weight:800;color:#0B666A;letter-spacing:0.2em;margin-bottom:10px;">STYLE TAGS</div>'
+    + '<div>'+tagsHtml+'</div>'
+    + '</div></div>'
+    // 하단 워터마크
+    + '<div style="position:absolute;bottom:30px;left:60px;right:60px;display:flex;justify-content:space-between;align-items:center;font-family:'+sansFont+';font-size:9px;color:#aaa;letter-spacing:0.15em;">'
+    + '<div>CODIBANK PREMIUM · TRY-ON REPORT</div>'
+    + '<div>'+dateStr+'</div></div>';
+  container.appendChild(page2);
+  
+  // ═══ PAGE 3: DEEP ANALYSIS (5 sections) ═══
+  var page3 = document.createElement('div');
+  page3.className = 'cbpdf-page';
+  page3.style.cssText = pageStyle;
+  
+  var renderSection = function(num, title, titleEn, content, icon){
+    if(!content || !content.trim()) content = '분석 데이터가 준비 중입니다.';
+    return '<div style="margin-bottom:22px;padding:20px 24px;background:#fafafa;border-left:4px solid #0B666A;border-radius:0 6px 6px 0;">'
+      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+      + '<div style="font-family:'+serifFont+';font-size:20px;font-weight:900;color:#0B666A;line-height:1;">0'+num+'</div>'
+      + '<div style="flex:1;">'
+      + '<div style="font-family:'+sansFont+';font-size:8px;font-weight:800;color:#0B666A;letter-spacing:0.2em;margin-bottom:1px;">'+titleEn+'</div>'
+      + '<div style="font-family:'+sansFont+';font-size:13px;font-weight:800;color:#0B1238;letter-spacing:-0.01em;">'+icon+' '+title+'</div>'
+      + '</div></div>'
+      + '<div style="font-family:'+sansFont+';font-size:10.5px;line-height:1.75;color:#4a5568;white-space:pre-line;">'+_htmlEscape(content)+'</div>'
+      + '</div>';
+  };
+  
+  page3.innerHTML = 
+    '<div style="padding:60px 60px 40px;border-bottom:1px solid #e5e7eb;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+    + '<div><div style="font-family:'+sansFont+';font-size:9px;font-weight:800;letter-spacing:0.3em;color:#0B666A;margin-bottom:6px;">CHAPTER II</div>'
+    + '<div style="font-family:'+serifFont+';font-size:38px;font-weight:900;color:#0B1238;letter-spacing:-0.02em;">Deep Analysis</div></div>'
+    + '<div style="font-family:'+serifFont+';font-size:11px;font-style:italic;color:#999;">page 03</div>'
+    + '</div></div>'
+    + '<div style="padding:35px 50px;">'
+    + renderSection(1, '퍼스널컬러 분석', 'COLOR CHEMISTRY', sections.pc, '🎨')
+    + renderSection(2, '상의 스타일 분석', 'TOP ANALYSIS', sections.top, '👕')
+    + renderSection(3, '하의 스타일 분석', 'BOTTOM ANALYSIS', sections.bot, '👖')
+    + renderSection(4, '실루엣과 비율', 'SILHOUETTE & PROPORTION', sections.prop, '📏')
+    + renderSection(5, '전체 스타일 완성도', 'OVERALL HARMONY', sections.harmony, '✨')
+    + '</div>'
+    + '<div style="position:absolute;bottom:30px;left:60px;right:60px;display:flex;justify-content:space-between;align-items:center;font-family:'+sansFont+';font-size:9px;color:#aaa;letter-spacing:0.15em;">'
+    + '<div>CODIBANK PREMIUM · TRY-ON REPORT</div><div>'+dateStr+'</div></div>';
+  container.appendChild(page3);
+  
+  // ═══ PAGE 4: STYLING GUIDE (TPO + TIPS) ═══
+  var page4 = document.createElement('div');
+  page4.className = 'cbpdf-page';
+  page4.style.cssText = pageStyle;
+  
+  // TPO 카드 HTML
+  var tpoHtml = tpo.length ? tpo.map(function(t, i){
+    return '<div style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:#fafafa;border-radius:4px;margin-bottom:8px;">'
+      + '<div style="flex:0 0 36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0B666A,#35A29F);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'+serifFont+';font-size:14px;font-weight:900;">'+(i+1)+'</div>'
+      + '<div style="flex:1;font-family:'+sansFont+';font-size:12px;font-weight:600;color:#0B1238;letter-spacing:-0.01em;">'+_htmlEscape(t)+'</div>'
+      + '</div>';
+  }).join('') : '<div style="padding:18px;color:#999;font-size:11px;">TPO 추천 준비 중</div>';
+  
+  var tipsHtml = tips.length ? tips.map(function(t, i){
+    return '<div style="display:flex;gap:14px;padding:14px 18px;background:#fff8f0;border-left:3px solid #e8a87c;border-radius:0 4px 4px 0;margin-bottom:8px;">'
+      + '<div style="flex:0 0 auto;font-family:'+serifFont+';font-size:20px;font-weight:900;color:#e8a87c;line-height:1;">'+(i+1)+'</div>'
+      + '<div style="flex:1;font-family:'+sansFont+';font-size:11px;line-height:1.7;color:#4a5568;">'+_htmlEscape(t)+'</div>'
+      + '</div>';
+  }).join('') : '<div style="padding:18px;color:#999;font-size:11px;">개선 팁 준비 중</div>';
+  
+  page4.innerHTML = 
+    '<div style="padding:60px 60px 40px;border-bottom:1px solid #e5e7eb;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+    + '<div><div style="font-family:'+sansFont+';font-size:9px;font-weight:800;letter-spacing:0.3em;color:#0B666A;margin-bottom:6px;">CHAPTER III</div>'
+    + '<div style="font-family:'+serifFont+';font-size:38px;font-weight:900;color:#0B1238;letter-spacing:-0.02em;">Styling Guide</div></div>'
+    + '<div style="font-family:'+serifFont+';font-size:11px;font-style:italic;color:#999;">page 04</div>'
+    + '</div></div>'
+    // TPO
+    + '<div style="padding:45px 60px 20px;">'
+    + '<div style="display:flex;align-items:baseline;gap:14px;margin-bottom:20px;">'
+    + '<div style="font-family:'+sansFont+';font-size:9px;font-weight:800;color:#0B666A;letter-spacing:0.2em;">BEST OCCASIONS</div>'
+    + '<div style="flex:1;height:1px;background:#e5e7eb;"></div>'
+    + '</div>'
+    + '<div style="font-family:'+serifFont+';font-size:26px;font-weight:900;color:#0B1238;margin-bottom:4px;letter-spacing:-0.02em;">이 룩이 <span style="color:#0B666A;font-style:italic;">빛나는</span> 순간</div>'
+    + '<div style="font-family:'+sansFont+';font-size:11px;color:#999;margin-bottom:22px;line-height:1.6;">전문 스타일리스트가 추천하는 TPO ('+tpo.length+' occasions)</div>'
+    + tpoHtml
+    + '</div>'
+    // 팁
+    + '<div style="padding:10px 60px 20px;">'
+    + '<div style="display:flex;align-items:baseline;gap:14px;margin:20px 0;">'
+    + '<div style="font-family:'+sansFont+';font-size:9px;font-weight:800;color:#e8a87c;letter-spacing:0.2em;">IMPROVEMENT TIPS</div>'
+    + '<div style="flex:1;height:1px;background:#e5e7eb;"></div>'
+    + '</div>'
+    + '<div style="font-family:'+serifFont+';font-size:26px;font-weight:900;color:#0B1238;margin-bottom:4px;letter-spacing:-0.02em;"><span style="color:#e8a87c;font-style:italic;">10%</span> 더 완벽하게</div>'
+    + '<div style="font-family:'+sansFont+';font-size:11px;color:#999;margin-bottom:22px;line-height:1.6;">실용적 스타일링 조언 ('+tips.length+' tips)</div>'
+    + tipsHtml
+    + '</div>'
+    + '<div style="position:absolute;bottom:30px;left:60px;right:60px;display:flex;justify-content:space-between;align-items:center;font-family:'+sansFont+';font-size:9px;color:#aaa;letter-spacing:0.15em;">'
+    + '<div>CODIBANK PREMIUM · TRY-ON REPORT</div><div>'+dateStr+'</div></div>';
+  container.appendChild(page4);
+  
+  // ═══ PAGE 5: CURATION + BRAND OUTRO ═══
+  var page5 = document.createElement('div');
+  page5.className = 'cbpdf-page';
+  page5.style.cssText = pageStyle;
+  
+  var iconFor = function(cat){
+    if(/신발|shoes|슈즈/i.test(cat)) return '👟';
+    if(/가방|bag|백/i.test(cat)) return '👜';
+    if(/주얼리|jewelry|목걸이|귀걸이/i.test(cat)) return '💎';
+    if(/스카프|scarf|머플러/i.test(cat)) return '🧣';
+    if(/워치|watch|시계/i.test(cat)) return '⌚';
+    if(/모자|hat|캡/i.test(cat)) return '🎩';
+    if(/벨트|belt/i.test(cat)) return '👔';
+    if(/안경|glasses|선글라스/i.test(cat)) return '🕶️';
+    return '✨';
+  };
+  
+  var curationHtml = curation.length ? curation.map(function(c, i){
+    var _dashIdx = c.indexOf('-');
+    var _cat = '', _desc = c;
+    if(_dashIdx > 0 && _dashIdx < 10){
+      _cat = c.substring(0, _dashIdx).trim();
+      _desc = c.substring(_dashIdx+1).trim();
+    }
+    return '<div style="display:flex;gap:16px;padding:16px 20px;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:10px;background:#fafbfc;">'
+      + '<div style="flex:0 0 48px;height:48px;background:linear-gradient(135deg,#0a1443,#0B666A);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;">'+iconFor(_cat)+'</div>'
+      + '<div style="flex:1;">'
+      + (_cat ? '<div style="font-family:'+sansFont+';font-size:9px;font-weight:800;color:#0B666A;letter-spacing:0.2em;margin-bottom:3px;">ITEM '+(i+1).toString().padStart(2,'0')+' · '+_cat.toUpperCase()+'</div>' : '')
+      + '<div style="font-family:'+sansFont+';font-size:13px;font-weight:700;color:#0B1238;line-height:1.5;letter-spacing:-0.01em;">'+_htmlEscape(_desc)+'</div>'
+      + '</div></div>';
+  }).join('') : '<div style="padding:18px;color:#999;font-size:11px;">아이템 큐레이션 준비 중</div>';
+  
+  page5.innerHTML = 
+    '<div style="padding:60px 60px 40px;border-bottom:1px solid #e5e7eb;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+    + '<div><div style="font-family:'+sansFont+';font-size:9px;font-weight:800;letter-spacing:0.3em;color:#0B666A;margin-bottom:6px;">CHAPTER IV</div>'
+    + '<div style="font-family:'+serifFont+';font-size:38px;font-weight:900;color:#0B1238;letter-spacing:-0.02em;">Personal Curation</div></div>'
+    + '<div style="font-family:'+serifFont+';font-size:11px;font-style:italic;color:#999;">page 05</div>'
+    + '</div></div>'
+    + '<div style="padding:35px 60px 20px;">'
+    + '<div style="font-family:'+serifFont+';font-size:22px;font-weight:700;font-style:italic;color:#0B1238;margin-bottom:4px;letter-spacing:-0.01em;">이 룩을 <span style="color:#0B666A;">완성</span>할 아이템</div>'
+    + '<div style="font-family:'+sansFont+';font-size:11px;color:#999;margin-bottom:22px;line-height:1.6;">전문 스타일리스트의 퍼스널 큐레이션 ('+curation.length+' items)</div>'
+    + curationHtml
+    + '</div>'
+    // 브랜드 아우트로
+    + '<div style="position:absolute;bottom:60px;left:60px;right:60px;padding:30px;background:linear-gradient(135deg,#0a1443,#0B666A);border-radius:6px;text-align:center;color:#fff;">'
+    + '<div style="font-family:'+serifFont+';font-size:22px;font-style:italic;color:#97FEED;letter-spacing:-0.01em;">"Desire to be designed."</div>'
+    + '<div style="font-family:'+serifFont+';font-size:28px;font-weight:900;color:#fff;margin:6px 0;letter-spacing:-0.02em;">Meet CodiBank.</div>'
+    + '<div style="width:40px;height:2px;background:#97FEED;margin:12px auto;"></div>'
+    + '<div style="font-family:'+sansFont+';font-size:10px;color:rgba(151,254,237,0.75);letter-spacing:0.2em;">CODIBANK.KR · PREMIUM STYLE REPORT</div>'
+    + '</div>'
+    + '<div style="position:absolute;bottom:20px;left:60px;right:60px;text-align:center;font-family:'+sansFont+';font-size:8px;color:#bbb;letter-spacing:0.15em;">© '+today.getFullYear()+' CODIBANK · ALL RIGHTS RESERVED</div>';
+  container.appendChild(page5);
+  
+  return container;
+}
+
+// HTML 특수문자 이스케이프 (XSS 방지)
+function _htmlEscape(str){
+  if(!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 </script>
 
