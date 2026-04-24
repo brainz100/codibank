@@ -4663,71 +4663,108 @@ def _tryon_build_prompt(
         )
 
     # ──────── Phase 2: GARMENTS (mode 분기) ────────
+    # [2026-04-24 TJ 지시1] 옵션 아이템(신발/아우터) 누락 버그 해결
+    # 이전: "(optional)" 같은 약한 표현 → Gemini가 무시하는 경우 있음
+    # 수정: MANDATORY 명시 + 모든 첨부 이미지 아이템 반드시 착용 규칙 추가
     garments_parts = [
+        "🔴 CRITICAL RULE — WEAR ALL REFERENCE ITEMS: "
+        "Every garment reference image attached to this request MUST be worn by the person. "
+        "Do NOT omit, skip, or replace any attached garment. "
+        "If N garment images are attached, all N items must appear on the person in the final image. "
+        "This includes shoes, outerwear, accessories — no exceptions. "
         "Reference images are the ABSOLUTE GROUND TRUTH for color, pattern, texture, "
         "material, silhouette, and overall design. Reproduce each garment with photographic fidelity."
     ]
     
     if mode == _TRYON_MODE_ONEPIECE:
-        if onepiece_info:
-            garments_parts.append(
-                f"ONEPIECE (dress): {onepiece_info.get('sub_category','dress')} "
-                f"in {onepiece_info.get('main_color_name','')} color, "
-                f"{onepiece_info.get('pattern','')} pattern, "
-                f"{onepiece_info.get('material','')} material."
-            )
+        # 원피스 모드: 원피스(필수) + 아우터(옵션)
+        garments_parts.append(
+            f"ONEPIECE (REQUIRED — the dress the person wears as main garment): "
+            f"{onepiece_info.get('sub_category','dress')} "
+            f"in {onepiece_info.get('main_color_name','as shown in image')} color, "
+            f"{onepiece_info.get('pattern','as shown')} pattern, "
+            f"{onepiece_info.get('material','as shown')} material. "
+            f"Reproduce the dress EXACTLY as shown in the reference image."
+            if onepiece_info else
+            "ONEPIECE (REQUIRED): Reproduce the attached dress image EXACTLY on the person."
+        )
         if outer_info:
             garments_parts.append(
-                f"OUTER LAYER (optional): {outer_info.get('sub_category','jacket')} "
-                f"in {outer_info.get('main_color_name','')} color, worn open over the dress."
+                f"OUTER LAYER (REQUIRED — attached as outer image): "
+                f"{outer_info.get('sub_category','jacket')} "
+                f"in {outer_info.get('main_color_name','as shown')} color. "
+                f"MUST be worn OVER the dress, open or loosely draped. "
+                f"Do not omit this outer garment."
             )
     elif mode == _TRYON_MODE_OUTER:
-        # 아우터 필수 모드 (기본은 아우터만, 상/하의는 optional)
+        # 아우터 필수 모드 (아우터 중심, 상/하의는 옵션으로 함께 착용 가능)
         if outer_info:
             garments_parts.append(
-                f"OUTER (main focus): {outer_info.get('sub_category','coat')} "
-                f"in {outer_info.get('main_color_name','')} color, "
-                f"{outer_info.get('pattern','')} pattern, "
-                f"{outer_info.get('material','')} material. "
-                f"This is the primary garment — feature it prominently."
+                f"OUTER (REQUIRED — MAIN garment, attached as outer image): "
+                f"{outer_info.get('sub_category','coat')} "
+                f"in {outer_info.get('main_color_name','as shown')} color, "
+                f"{outer_info.get('pattern','as shown')} pattern, "
+                f"{outer_info.get('material','as shown')} material. "
+                f"This is the hero garment — feature it prominently, worn on top."
+            )
+        else:
+            garments_parts.append(
+                "OUTER (REQUIRED): Reproduce the attached outer image EXACTLY as worn on top."
             )
         if top_info:
             garments_parts.append(
-                f"INNER TOP: {top_info.get('sub_category','shirt')} "
-                f"in {top_info.get('main_color_name','')}."
+                f"INNER TOP (REQUIRED — attached as top image): "
+                f"{top_info.get('sub_category','shirt')} "
+                f"in {top_info.get('main_color_name','as shown')}. "
+                f"Worn UNDER the outer layer and visible at neckline/cuffs."
             )
         if bottom_info:
             garments_parts.append(
-                f"BOTTOM: {bottom_info.get('sub_category','pants')} "
-                f"in {bottom_info.get('main_color_name','')}."
+                f"BOTTOM (REQUIRED — attached as bottom image): "
+                f"{bottom_info.get('sub_category','pants')} "
+                f"in {bottom_info.get('main_color_name','as shown')}. "
+                f"Worn below with the outer/top."
             )
     else:
-        # twopiece (기본)
+        # twopiece (기본) — 상의+하의 필수, 아우터 옵션
         if top_info:
             garments_parts.append(
-                f"TOP: {top_info.get('sub_category','shirt')} "
-                f"in {top_info.get('main_color_name','')} color, "
-                f"{top_info.get('pattern','')} pattern, "
-                f"{top_info.get('material','')} material, "
-                f"{top_info.get('fit','')} fit."
+                f"TOP (REQUIRED — attached as top image): "
+                f"{top_info.get('sub_category','shirt')} "
+                f"in {top_info.get('main_color_name','as shown')} color, "
+                f"{top_info.get('pattern','as shown')} pattern, "
+                f"{top_info.get('material','as shown')} material, "
+                f"{top_info.get('fit','as shown')} fit."
             )
+        else:
+            garments_parts.append("TOP (REQUIRED): Reproduce the attached top image EXACTLY.")
         if bottom_info:
             garments_parts.append(
-                f"BOTTOM: {bottom_info.get('sub_category','pants')} "
-                f"in {bottom_info.get('main_color_name','')} color, "
-                f"{bottom_info.get('pattern','')} pattern, "
-                f"{bottom_info.get('material','')} material."
+                f"BOTTOM (REQUIRED — attached as bottom image): "
+                f"{bottom_info.get('sub_category','pants')} "
+                f"in {bottom_info.get('main_color_name','as shown')} color, "
+                f"{bottom_info.get('pattern','as shown')} pattern, "
+                f"{bottom_info.get('material','as shown')} material."
             )
+        else:
+            garments_parts.append("BOTTOM (REQUIRED): Reproduce the attached bottom image EXACTLY.")
         if outer_info:
             garments_parts.append(
-                f"OUTER LAYER (optional): {outer_info.get('sub_category','jacket')} "
-                f"in {outer_info.get('main_color_name','')} color, worn open."
+                f"OUTER LAYER (REQUIRED — attached as outer image): "
+                f"{outer_info.get('sub_category','jacket')} "
+                f"in {outer_info.get('main_color_name','as shown')} color. "
+                f"MUST be worn OVER the top, open style. Do not omit."
             )
     
+    # 신발 — 별도 블록 + 강화된 지시
     if shoes_info:
         garments_parts.append(
-            f"SHOES: {shoes_info.get('sub_category','shoes')} "
-            f"in {shoes_info.get('main_color_name','')}."
+            f"SHOES (REQUIRED — attached as shoes image): "
+            f"{shoes_info.get('sub_category','shoes')} "
+            f"in {shoes_info.get('main_color_name','as shown')}. "
+            f"MUST be worn on both feet. Fully visible in the frame. "
+            f"Match shoe style, color, and laces exactly to the reference image. "
+            f"Do NOT replace with generic footwear."
         )
     garments = " ".join(garments_parts)
 
