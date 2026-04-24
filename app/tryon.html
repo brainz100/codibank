@@ -8,7 +8,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<meta name="cb-version" content="tryon-phase5-2026-04-24-v6" />
+<meta name="cb-version" content="tryon-phase6-2026-04-24-v7" />
 
 <title>트라이 온 — CodiBank</title>
 
@@ -19,6 +19,40 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-04-24 (v7) KST ─── [TJ 지시 — 6대 이슈 해결]            │
+  │                                                                  │
+  │ [1] 이미지 뷰박스 여백 제거                                       │
+  │   .result-img-wrap { padding: 10px 14px → 0 }                   │
+  │   .csty-result-img-box / .img-spin aspect-ratio 1/1.6 → 9/16    │
+  │   (이미지 생성 비율과 정확 매칭 — 빈공간 제거)                   │
+  │                                                                  │
+  │ [2] 핏 변경 시 Step1 리셋 버그 방어                               │
+  │   _resyncStep1FromState() 함수 신규 — state.slots → DOM 재동기화 │
+  │   applyFitUI 끝에서 호출 (핏 변경해도 Step1 아이템 유지 보장)    │
+  │                                                                  │
+  │ [3-A] 얼굴 이미지 data URL 변환                                   │
+  │   _tryonResizeFaceDataUrl() 추가 (codistyle.html 패턴)           │
+  │   loadMyProfileFace에서 blob:/http:// → data: 변환 후 저장       │
+  │   이전 버그: _tryonBuildPayload의 startsWith('data:') 조건 미통과 │
+  │            → payload.faceImage 누락 → 서버로 얼굴 미전송          │
+  │                                                                  │
+  │ [3-B] 퍼스널컬러 summary 필드 보완                                │
+  │   _tryonBuildPayload에서 pc.summary 없으면 season+undertone 생성 │
+  │   예: "가을 딥, 웜 언더톤"                                        │
+  │   이전 버그: localStorage pc 객체에 summary 없어 서버가 빈값으로  │
+  │            → Phase 1 PERSONA 퍼스널컬러 미반영                    │
+  │                                                                  │
+  │ [5] 선택된 슬롯 박스 배경 화이트                                  │
+  │   .slot.filled { background: rgba(13,31,60,.6) → #ffffff }      │
+  │   .slot-required-solid.filled 도 동일                            │
+  │                                                                  │
+  │ [6] 생성 중 진행률 효과 (codistyle.html 100% 이식)               │
+  │   .spin-pct / .spin-pct-sym 스타일 추가                          │
+  │   finalGenerate 클릭 시 imgSpinPct 카운터 시작                   │
+  │   cb-rainbow-cs.animating 클래스로 무지개 컬러 애니메이션         │
+  │   로지스틱 곡선 (20 → 95%) + 완료 시 100% 점프                   │
+  │   리셋/실패 시 인터벌 정리                                        │
+  │                                                                  │
   │ ─── 2026-04-24 KST ─── [TJ 지시 — v6 4대 이슈 해결]              │
   │                                                                  │
   │ [1] 선택 아이템 강제 착용 (서버 mock_backend.py)                  │
@@ -651,7 +685,8 @@
   .slot.filled{
     border-style:solid;
     border-color:rgba(151,254,237,0.3);
-    background:rgba(13,31,60,0.6);
+    /* [2026-04-24 TJ 지시5] 선택된 박스 배경 화이트 — 코디핏/코디하기와 통일 */
+    background:#ffffff;
   }
   /* [2026-04-22 13:55 TJ 지시1] 필수 상의/하의 슬롯: 실선(solid) 라인 디자인 */
   .slot.slot-required-solid{
@@ -661,6 +696,7 @@
   }
   .slot.slot-required-solid.filled{
     border-color:rgba(151,254,237,0.7);
+    background:#ffffff;  /* [2026-04-24 TJ 지시5] 필수 슬롯도 동일하게 화이트 */
   }
 
   .slot-empty{
@@ -1509,11 +1545,16 @@
   .status-dot.done{background:#97FEED;animation:none}
   .status-dot.err{background:#f87171;animation:none}
   .status-txt{font-size:12px;color:rgba(162,253,240,0.7);font-weight:500}
-  .result-img-wrap{padding:10px 14px;}
+  /* [2026-04-24 TJ 지시1] 이미지 뷰박스 좌우 여백 제거
+     - 기존: padding 10px 14px → 이미지 좌우에 여백 생김
+     - 수정: padding 0 → 이미지가 뷰박스를 꽉 채움
+     - aspect-ratio도 이미지 실제 생성 비율(9:16)과 매칭 */
+  .result-img-wrap{padding:0;}
 
-  /* [codistyle 원본] 세련된 이미지 뷰박스 */
+  /* [codistyle 원본] 세련된 이미지 뷰박스
+     [2026-04-24 TJ 지시1] aspect-ratio 1/1.6 → 9/16 (이미지 생성 비율과 정확 매칭) */
   .csty-result-img-box{
-    width:100%;aspect-ratio:1/1.6;border-radius:20px;overflow:hidden;position:relative;
+    width:100%;aspect-ratio:9/16;border-radius:20px;overflow:hidden;position:relative;
     display:flex;align-items:center;justify-content:center;
     background:
       radial-gradient(ellipse 80% 60% at 50% 40%, rgba(53,162,159,0.08) 0%, transparent 60%),
@@ -1526,9 +1567,9 @@
   }
   .csty-result-img{width:100%;height:100%;border-radius:20px;display:block;object-fit:cover;}
 
-  /* 로딩 상태 */
+  /* 로딩 상태 [2026-04-24 TJ 지시1] aspect-ratio 1/1.6 → 9/16 */
   .img-spin{
-    width:100%;aspect-ratio:1/1.6;border-radius:20px;overflow:hidden;position:relative;
+    width:100%;aspect-ratio:9/16;border-radius:20px;overflow:hidden;position:relative;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
     background:
       radial-gradient(ellipse 90% 60% at 50% 45%, rgba(53,162,159,0.12) 0%, transparent 65%),
@@ -1581,6 +1622,20 @@
   .spin-txt{
     font-size:11.5px;color:rgba(162,253,240,0.65);text-align:center;line-height:1.8;
     letter-spacing:.04em;font-weight:500;position:relative;z-index:2;
+  }
+  .spin-txt small{font-size:9.5px;letter-spacing:.12em;}
+  /* [2026-04-24 TJ 지시6] 진행률 표시 — codibank 로고 위에 (codistyle.html 원본 이식) */
+  .spin-pct{
+    font-family:'Manrope','Inter',sans-serif;
+    font-size:22px;font-weight:800;letter-spacing:.02em;
+    color:#97FEED;text-align:center;line-height:1;
+    position:relative;z-index:2;
+    font-variant-numeric:tabular-nums;
+    text-shadow:0 0 16px rgba(53,162,159,0.35);
+    transition:color .3s;
+  }
+  .spin-pct .spin-pct-sym{
+    font-size:14px;font-weight:600;opacity:0.7;margin-left:1px;
   }
 
   /* 저장/공유/리셋 버튼 영역 */
@@ -2861,8 +2916,36 @@ function applyFitUI(fit){
       gs.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
     }
   }
+  
+  // [2026-04-24 TJ 지시2] 핏 변경해도 Step1 슬롯 유지 보장
+  // 이유: TJ 보고 — 핏 변경 시 Step1 아이템이 리셋되는 현상
+  // 방어책: 핏 변경 직후 state.slots 기준으로 Step1 UI 재동기화
+  //       (만약 어디선가 실수로 DOM이 초기화되더라도 state가 진실이면 복원)
+  try {
+    if(typeof _resyncStep1FromState === 'function') _resyncStep1FromState();
+  } catch(e){ console.warn('[applyFitUI] resync failed:', e); }
+  
   // [2026-04-22 14:15] 핏 변경 후 영속화
   try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
+}
+
+// [2026-04-24 TJ 지시2] state.slots → Step1 DOM 재동기화 함수
+// applyFitUI 등 Step2 이벤트에서 호출되어 Step1 슬롯이 꺼지지 않도록 보장
+function _resyncStep1FromState(){
+  Object.entries(state.slots).forEach(([key, s]) => {
+    if(s.filled && s.item){
+      // state에선 채워져있는데 혹시 UI가 비어있으면 fillSlot 재호출
+      let domType = key;
+      if(key === 'outer') domType = (state.mode === 'outer') ? 'outer-main' : 'outer';
+      const slotEl = document.querySelector(`.slot[data-type="${domType}"]`);
+      if(slotEl && !slotEl.classList.contains('filled')){
+        // filled 클래스가 빠진 상황 — fillSlot으로 재적용
+        if(typeof fillSlot === 'function') fillSlot(key, s.item);
+      }
+    }
+  });
+  // 카운터/요약 UI 갱신
+  if(typeof renderStep1 === 'function') renderStep1();
 }
 
 function loadMyProfile(){
@@ -3072,6 +3155,28 @@ function _tryonBuildPayload(){
 
   // 퍼스널컬러 (localStorage)
   const pc = _tryonLoadPersonalColor(email);
+  
+  // [2026-04-24 TJ 지시3-B] 퍼스널컬러 summary 필드 보완
+  // 이전 버그: localStorage pc 객체에 summary 필드 없을 수 있음
+  //   → 서버가 pc_summary = "" 로 읽음
+  //   → Phase 1 PERSONA에 퍼스널컬러 정보 반영 안 됨
+  // 수정: summary 없으면 season + undertone으로 간단 문장 생성 (codistyle 패턴)
+  let pcPayload = pc;
+  if(pc && typeof pc === 'object'){
+    let _summary = String(pc.summary || '').trim();
+    if(!_summary){
+      const _parts = [];
+      if(pc.season) _parts.push(pc.season);  // 예: "가을 딥"
+      if(pc.undertone) _parts.push(pc.undertone + ' 언더톤');  // 예: "웜 언더톤"
+      if(pc.skin_tone) _parts.push(pc.skin_tone + ' 피부톤');
+      _summary = _parts.join(', ');
+    }
+    // 새 객체 만들어 summary 보완
+    pcPayload = {
+      ...pc,
+      summary: _summary || (pc.season || '') || (pc.undertone ? pc.undertone + ' 언더톤' : ''),
+    };
+  }
 
   // bodyType — BMI 기반 간이 계산
   const _h = parseFloat(userObj.height) || 0;
@@ -3089,7 +3194,7 @@ function _tryonBuildPayload(){
     fitTarget: state.fitTarget,             // 'my' | 'somebody' | 'model'
     modelGender: state.modelGender || '',   // 'male' | 'female'
     bodyType: bodyType,
-    personalColor: pc || null,
+    personalColor: pcPayload || null,
     lang: (window.CodiBankI18n && CodiBankI18n.isEn && CodiBankI18n.isEn()) ? 'en' : 'ko',
     _ts: Date.now(),
   };
@@ -3276,10 +3381,47 @@ $('#finalGenerate').addEventListener('click', async () => {
   btn.innerHTML = '<span class="mi" style="animation:spin 1s linear infinite;">progress_activity</span><span>생성 중…</span>';
 
   // 이미지 뷰박스도 로딩 상태로
+  // [2026-04-24 TJ 지시6] codistyle.html 패턴 완전 이식
+  //   - spin-pct 진행률 카운터 (00% 표시)
+  //   - cb-rainbow-cs.animating (레인보우 컬러 애니메이션)
+  //   - 가상 진행률 인터벌 (20% → 30% → ... → 99% max, 실제 응답 오면 100%)
   const imgWrap = document.getElementById('imgWrap');
   if(imgWrap){
-    imgWrap.innerHTML = '<div class="csty-result-img-box"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt">AI가 착장 이미지를 생성 중이에요…<br>(약 20~40초 소요)</p></div></div>';
+    imgWrap.innerHTML = '<div class="csty-result-img-box"><div class="img-spin">'
+      + '<div class="spin-pct" id="imgSpinPct">0<span class="spin-pct-sym">%</span></div>'
+      + '<div class="cb-rainbow-cs animating">'
+      + '<span>c</span><span>o</span><span>d</span><span>i</span>'
+      + '<span>b</span><span>a</span><span>n</span><span>k</span>'
+      + '</div>'
+      + '<p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br>'
+      + '<small>약 20~40초 소요</small></p>'
+      + '</div></div>';
   }
+  
+  // 진행률 인터벌 — 서버가 비동기 처리 중 시각 피드백 제공
+  // codistyle.html의 _csStartProgressPct 패턴 이식
+  // 20% → 95% 까지 서서히 증가, 완료 시 100%로 점프
+  if(window._tryonPctInterval){ clearInterval(window._tryonPctInterval); }
+  window._tryonPctValue = 0;
+  window._tryonPctStart = Date.now();
+  const _updatePct = (v) => {
+    const el = document.getElementById('imgSpinPct');
+    if(el){
+      el.innerHTML = Math.round(v) + '<span class="spin-pct-sym">%</span>';
+    }
+  };
+  _updatePct(0);
+  // 초기 200ms 후 시작 (0 → 20 빠르게)
+  setTimeout(() => { window._tryonPctValue = 20; _updatePct(20); }, 300);
+  // 지속 증가 (~95%까지, 30초 동안 서서히)
+  window._tryonPctInterval = setInterval(() => {
+    const elapsed = (Date.now() - window._tryonPctStart) / 1000;  // 초 단위
+    // 로지스틱 증가 — 초반 빠름 → 후반 느림
+    let target = 20 + (75 * (1 - Math.exp(-elapsed / 12)));  // 약 30초에 94% 접근
+    if(target > 95) target = 95;
+    window._tryonPctValue = target;
+    _updatePct(target);
+  }, 250);
   const sTxt = document.getElementById('sTxt');
   if(sTxt) sTxt.textContent = 'AI 생성 중…';
 
@@ -3324,6 +3466,13 @@ $('#finalGenerate').addEventListener('click', async () => {
       throw new Error((data && data.error) || '생성 실패');
     }
 
+    // [2026-04-24 TJ 지시6] 진행률 100% 도달 표시 후 결과 렌더
+    if(window._tryonPctInterval){ clearInterval(window._tryonPctInterval); window._tryonPctInterval = null; }
+    const _finalEl = document.getElementById('imgSpinPct');
+    if(_finalEl) _finalEl.innerHTML = '100<span class="spin-pct-sym">%</span>';
+    // 살짝 대기 후 결과 표시 (사용자가 100%를 볼 수 있도록)
+    await new Promise(r => setTimeout(r, 180));
+
     // 결과 반영
     _tryonApplyResult(data);
     recordTryonUsage();
@@ -3341,6 +3490,9 @@ $('#finalGenerate').addEventListener('click', async () => {
     }, 300);
   } catch(err){
     console.error('[TryOn Error]', err);
+    // [2026-04-24 TJ 지시6] 실패 시 진행률 인터벌 정리
+    if(window._tryonPctInterval){ clearInterval(window._tryonPctInterval); window._tryonPctInterval = null; }
+    
     showToast('생성 실패: ' + (err.message || err));
     // 버튼 복원
     btn.disabled = false;
@@ -3463,6 +3615,9 @@ if(csBtnShare) csBtnShare.addEventListener('click', async () => {
 });
 // [2026-04-23] 이전 줄에 있던 중복 csBtnShare(Mock) 리스너 제거됨
 if(csBtnReset) csBtnReset.addEventListener('click', () => {
+  // [2026-04-24 TJ 지시6] 생성 중이면 진행률 인터벌 중단
+  if(window._tryonPctInterval){ clearInterval(window._tryonPctInterval); window._tryonPctInterval = null; }
+  
   // ════════════════════════════════════════════════════════════════
   //  [2026-04-23 18:30 TJ 지시 — A안 완전초기화]
   //  기존: Step3 점수/이미지만 리셋 → Step1 아이템 선택이 그대로 남아있었음
@@ -3680,6 +3835,30 @@ updateFinalSummary();
 // [2026-04-22 14:15 TJ 지시3] 마이 핏 진입 시 회원의 얼굴 사진을 faceCircle에 표시
 //  — codibank.js의 CodiBank.getUserFaceImageSrc(user)를 사용 (closet.html과 동일 패턴)
 //  — 이미 사용자가 업로드한 이미지가 있으면(uploadedFaceDataUrl) 그걸 우선 사용
+// [2026-04-24 TJ 지시3-A] 얼굴 이미지 URL → data URL 변환 헬퍼
+// codistyle.html의 resizeFaceDataUrl과 동일한 구조
+// blob: / https:// / data: 모두 입력받아 data:image/jpeg base64 반환
+function _tryonResizeFaceDataUrl(src, maxSize, quality){
+  return new Promise(res => {
+    try{
+      const img = new Image();
+      img.crossOrigin = 'anonymous';  // CORS 방지
+      img.onload = () => {
+        try{
+          const w = img.naturalWidth, h = img.naturalHeight;
+          const scale = Math.min(1, maxSize / Math.max(w, h));
+          const nw = Math.round(w*scale), nh = Math.round(h*scale);
+          const c = document.createElement('canvas'); c.width=nw; c.height=nh;
+          c.getContext('2d').drawImage(img, 0, 0, nw, nh);
+          res(c.toDataURL('image/jpeg', quality));
+        } catch(e){ console.warn('[tryon] resize draw failed', e); res(src); }
+      };
+      img.onerror = () => { console.warn('[tryon] resize img load failed'); res(src); };
+      img.src = src;
+    } catch(e){ console.warn('[tryon] resize failed', e); res(src); }
+  });
+}
+
 async function loadMyProfileFace(){
   try {
     // 썸바디/모델 모드면 건너뜀
@@ -3698,11 +3877,33 @@ async function loadMyProfileFace(){
       faceSrc = String(user.avatarFace || user.photo || '').trim();
     }
     if(!faceSrc) return;
+    
+    // [2026-04-24 TJ 지시3-A] data URL 변환 필수
+    // 기존 버그: blob:/https:// URL 을 state.myProfileSnapshot.faceSrc에 저장
+    //   → _tryonBuildPayload의 startsWith('data:') 조건에 걸려 payload.faceImage 누락
+    //   → 서버로 얼굴 이미지 안 넘어감 → Gemini가 임의 얼굴 생성
+    // 수정: codistyle.html 패턴과 동일하게 resize해서 data URL로 변환
+    let faceDataUrl = faceSrc;
+    if(!faceSrc.startsWith('data:')){
+      try{
+        faceDataUrl = await _tryonResizeFaceDataUrl(faceSrc, 1024, 0.90);
+        if(!faceDataUrl || !faceDataUrl.startsWith('data:')){
+          console.warn('[tryon] face URL → dataURL conversion failed, using original');
+          faceDataUrl = faceSrc;
+        }
+      } catch(e){
+        console.warn('[tryon] face resize failed:', e);
+        faceDataUrl = faceSrc;
+      }
+    }
+    
     const circle = document.getElementById('faceCircle');
     if(circle){
-      circle.innerHTML = '<img src="'+faceSrc+'" alt="프로필 사진" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+      circle.innerHTML = '<img src="'+faceDataUrl+'" alt="프로필 사진" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
     }
-    state.myProfileSnapshot.faceSrc = faceSrc;
+    // state에는 변환된 data URL 저장 — 반드시 data URL 형태여야 payload에 실림
+    state.myProfileSnapshot.faceSrc = faceDataUrl;
+    console.log('[tryon] face loaded as', faceDataUrl.substring(0, 32) + '...');
   } catch(e){ console.warn('loadMyProfileFace failed:', e); }
 }
 
