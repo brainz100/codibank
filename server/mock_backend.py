@@ -4642,13 +4642,29 @@ def _tryon_build_prompt(
     """
     # ──────── Phase 1: PERSONA (fit_target 분기) ────────
     if fit_target == _TRYON_FIT_MODEL:
-        # 모델 모드: 얼굴 없이 표준 체형
-        persona = (
-            "A standard Korean fashion model (no face identity required). "
-            f"Gender: {'woman' if model_gender == 'female' else 'man'}. "
-            "Standard model proportions: tall, slim, well-balanced. "
-            "Natural studio lighting, neutral soft-grey background."
-        )
+        # 모델 모드: [2026-04-24 TJ 지시4] 한국 아이돌 스타일 20대 모델
+        #   남자: 180cm, 75kg, 20대 한국 아이돌 닮은 남자
+        #   여자: 170cm, 49kg, 20대 한국 아이돌 닮은 여자
+        if model_gender == "female":
+            persona = (
+                "A young Korean K-pop idol style female model in her 20s, "
+                "resembling a popular Korean girl group member. "
+                "Physical specs: height 170cm, weight 49kg — slim and elegant K-pop idol proportions. "
+                "Features: clear glowing skin, natural Korean features, long legs, "
+                "well-balanced slender silhouette. "
+                "Natural confident expression, neutral pose. "
+                "Soft studio lighting, clean neutral soft-grey background."
+            )
+        else:
+            persona = (
+                "A young Korean K-pop idol style male model in his 20s, "
+                "resembling a popular Korean boy group member. "
+                "Physical specs: height 180cm, weight 75kg — tall and lean K-pop idol physique. "
+                "Features: clear skin, sharp Korean features, broad shoulders tapering to slim waist, "
+                "well-proportioned athletic but slim build. "
+                "Natural confident expression, neutral pose. "
+                "Soft studio lighting, clean neutral soft-grey background."
+            )
     elif fit_target == _TRYON_FIT_SOMEBODY:
         # 썸바디 모드: 업로드한 얼굴 + 입력한 체형 (제3자 대신 입혀봄)
         persona = (
@@ -4660,15 +4676,18 @@ def _tryon_build_prompt(
             "Natural studio lighting, neutral soft-grey background."
         )
     else:
-        # 마이핏 모드(기본): 회원 본인
+        # 마이핏 모드(기본): 회원 본인 — 얼굴/체형/퍼스널컬러 반영
+        # [2026-04-24 TJ 지시3] 사용자 데이터 강조 + 명확한 지시
         persona = (
-            f"The uploaded member's face with their actual body profile. "
-            f"Gender: {gender_en}, {age}. "
-            f"{'Height '+height+'cm, weight '+weight+'kg. ' if height and weight else ''}"
-            f"Body type: {body_type_key or 'balanced'}. "
-            f"Personal color summary: {pc_summary or 'neutral'}. "
-            "CRITICAL: Preserve facial identity from the reference photo with absolute fidelity — "
-            "do not alter facial features, skin tone, or ethnicity. "
+            "This is a MY-FIT (personal try-on) image. Use the UPLOADED FACE PHOTO as the person's face. "
+            f"Gender: {gender_en}, age group: {age}. "
+            f"{'Actual body profile — height '+height+'cm, weight '+weight+'kg. ' if height and weight else ''}"
+            f"Body type (체형): {body_type_key or 'balanced'} — match body proportions accordingly. "
+            f"Personal color season/undertone: {pc_summary or 'not specified — use neutral'}. "
+            "🔴 CRITICAL FACE IDENTITY RULE: The person's face MUST be IDENTICAL to the uploaded reference photo — "
+            "same facial structure, same eyes, same nose shape, same lips, same skin tone, same ethnicity. "
+            "DO NOT generate a generic or different face. DO NOT alter ethnic features. "
+            "Reproduce the uploaded face with absolute photographic fidelity. "
             "Natural studio lighting, neutral soft-grey background."
         )
 
@@ -5700,7 +5719,9 @@ def tryon_generate():
 
     print(
         f"[TRYON-DIAG] mode={mode} fit={fit_target} model_g={model_gender} "
-        f"tier={_user_tier} gender={gender} age={age}",
+        f"tier={_user_tier} gender={gender} age={age} "
+        f"H={height} W={weight} body={body_type_key} pc='{pc_summary[:40]}' "
+        f"face={'Y' if payload.get('faceImage') else 'N'}",
         flush=True
     )
 
