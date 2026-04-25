@@ -31,7 +31,7 @@
 </script>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>내옷장 - 코디뱅크</title>
+  <title>코디 핏 - 코디뱅크</title>
   <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -63,6 +63,7 @@
     "오늘의 코디":        "Today's Outfit",
     "내일의 코디":        "Tomorrow's Outfit",
     "스타일링 추천받기":  "Get Style Recommendations",
+    "아래의 스타일링 추천받기를 클릭하세요": "Tap the Get Style Recommendations button below",
     "스타일몬스터 요청하기": "Request Style Monster",
     "목적과 날짜를 먼저 선택하세요": "Please select a goal and date first",
     "코디 목적별 스타일몬스터가 수 백명씩 준비돼있다.":
@@ -239,6 +240,8 @@
 
     // ── 스타일몬스터 버튼 ──
     "스타일몬스터 요청": "Request Style Monster",
+    "코디핏 요청": "Request CodiFit",
+    "새로운 코디를 준비 중입니다…": "Preparing a new outfit…",
     "코디 목적을 먼저 선택하세요": "Select an outfit goal first",
     "현재 스타일몬스터가 코디핏를 준비하고 있습니다": "Style Monster is preparing your outfit",
     "다시요청 버튼으로 새 스타일몬스터 호출": "Tap Retry for a new Style Monster",
@@ -322,6 +325,7 @@
     "무제한":              "Unlimited",
     "개":                  "",
     "스타일몬스터 요청": "Request Style Monster",
+    "코디핏 요청": "Request CodiFit",
     "잠시만 기다려주세요…": "Please wait…",
     "다시요청 버튼으로 새 스타일몬스터 호출": "Tap Retry for a new Style Monster",
     "코디 목적을 먼저 선택하세요": "Select outfit goal first",
@@ -841,11 +845,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 /* 버튼 공통 */
 .vto-bab{flex:1;padding:14px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:64px;}
 /* 대기 상태: 3개 동일 */
-.vto-btn-inactive{background:transparent;color:rgba(255,255,255,0.25);border:1.5px solid #97FEED;cursor:not-allowed;opacity:0.6;}
-/* 활성 상태: 서브컬러 동일 적용 */
-.vto-btn-active{background:#35A29F !important;border:1.5px solid #35A29F !important;color:#fff !important;opacity:1 !important;font-weight:800 !important;}
-.vto-btn-active:active{transform:scale(.97);background:#fff !important;border-color:#fff !important;color:#071952 !important;}
-.vto-btn-active:active .material-symbols-outlined{color:#071952 !important;}
+/* [2026-04-26 v12 TJ-7] 비활성 텍스트 컬러를 라인 컬러(#97FEED)와 동일하게 변경 */
+.vto-btn-inactive{background:transparent;color:#97FEED;border:1.5px solid #97FEED;cursor:not-allowed;opacity:0.55;}
+.vto-btn-inactive .material-symbols-outlined{color:#97FEED;}
+/* 활성 상태: 텍스트도 라인 컬러(#35A29F)와 동일하게 (배경 투명) */
+/* [v12 TJ-7] 이전: 배경 #35A29F + 흰 글씨 → 변경: 배경 투명 + 텍스트 #35A29F (라인과 동일) */
+.vto-btn-active{background:transparent !important;border:1.5px solid #35A29F !important;color:#35A29F !important;opacity:1 !important;font-weight:800 !important;}
+.vto-btn-active .material-symbols-outlined{color:#35A29F !important;}
+.vto-btn-active:active{transform:scale(.97);background:#35A29F !important;border-color:#35A29F !important;color:#fff !important;}
+.vto-btn-active:active .material-symbols-outlined{color:#fff !important;}
 /* canvas는 result-box 내부에 절대 위치 */
 #vtoCanvas.vto-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;border-radius:16px;}
 .vto-btn-dark:active{transform:scale(.97);background:rgba(255,255,255,.14);}
@@ -1315,13 +1323,13 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 <header class="px-6 pt-4 pb-4" style="background:#00022E;">
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-bold tracking-tight text-white">내옷장</h1>
-      <p class="text-[11px] font-semibold mt-0.5" style="color:rgba(151,254,237,0.6);letter-spacing:.12em;">MY CLOSET · AI STYLIST</p>
+      <h1 class="text-2xl font-bold tracking-tight text-white">코디 핏</h1>
+      <p class="text-[11px] font-semibold mt-0.5" style="color:rgba(151,254,237,0.6);letter-spacing:.12em;">AI STYLIST CODI FIT</p>
     </div>
   </div>
 </header>
 
-<main class="pb-32" style="background:#00022E;">
+<main class="pb-16" style="background:#00022E;">
 
   <!-- ── 날씨 카드 ── -->
   <section class="px-5 pt-4">
@@ -1408,6 +1416,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     <div class="mb-3">
       <p class="text-[11px] font-black tracking-[0.22em]" style="color:#97FEED;">STEP 3</p>
       <h3 class="text-[18px] font-bold text-white tracking-tight mt-0.5" data-i18n="스타일링 추천받기">스타일링 추천받기</h3>
+      <p class="text-[12px] mt-0.5" style="color:rgba(255,255,255,0.5);" data-i18n="아래의 스타일링 추천받기를 클릭하세요">아래의 스타일링 추천받기를 클릭하세요</p>
     </div>
     <button id="aiCallBtn" type="button" class="w-full flex items-center px-8 active:scale-[0.98] transition-all"
       style="min-height:80px;border-radius:18px;background:transparent;border:1.5px solid #35A29F;box-shadow:none;position:relative;overflow:hidden;cursor:pointer;transition:background 0.3s,border 0.3s,box-shadow 0.3s;">
@@ -1416,7 +1425,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         <span id="aiCallIcon" class="material-symbols-outlined text-3xl" style="color:rgba(151,254,237,0.35);font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 32;transition:color 0.3s;">auto_awesome</span>
       </div>
       <div class="flex-1 text-right">
-        <span id="aiCallMainText" class="text-[17px] font-bold block tracking-tight" style="color:rgba(255,255,255,0.4);transition:color 0.3s;">스타일몬스터 요청</span>
+        <span id="aiCallMainText" class="text-[17px] font-bold block tracking-tight" style="color:rgba(255,255,255,0.4);transition:color 0.3s;">코디핏 요청</span>
         <span id="aiCallSubText" class="block text-[9px] font-bold uppercase mt-0.5" style="color:rgba(151,254,237,0.3);letter-spacing:.15em;transition:color 0.3s;">목적과 날짜를 먼저 선택하세요</span>
       </div>
     </button>
@@ -1527,7 +1536,8 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     </div>
 
     <!-- VTO 영역 -->
-    <div>
+    <!-- [v12 TJ-6] 분석 박스와 이미지 뷰박스 사이 여백 확대 (mt-8 = 32px) -->
+    <div class="mt-8">
       <!-- 횟수 뱃지 + 상태텍스트 (상단) -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
         <span class="vto-status-txt" id="vtoStateText" style="font-size:12px;color:rgba(162,253,240,0.7);font-weight:500;"></span>
@@ -2270,7 +2280,7 @@ function resetStylingBox(msg){
   if(canvas) canvas.style.display='none';
   if(spinnerEl){ spinnerEl.style.display='flex'; spinnerEl.classList.remove('animating'); }
   if(stepEl) stepEl.style.display='none';
-  if(stateTextEl) stateTextEl.textContent = msg || '추천 이미지 없음';
+  if(stateTextEl) stateTextEl.textContent = msg || '';  // [v12 TJ-5] '추천 이미지 없음' 제거
   if(hint) hint.style.display='none';
   if(metaEl) metaEl.textContent='';
   // (removed: vtoStatusDot/vtoProgFill deleted)
@@ -2296,7 +2306,7 @@ function resetAll(){
     if(b){b.className='vto-bab vto-btn-inactive';b.disabled=true;}
   });
   S.seed = 0; S.hasGenerated = false;
-  resetVtoState('empty','추천 이미지 없음');
+  resetVtoState('empty','');
   try{
     var _ssb=document.getElementById('stylistSummaryBox');if(_ssb)_ssb.classList.add('hidden');
     ['anPcSection','anBodySection','anPurposeSection'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.add('hidden');});
@@ -4023,7 +4033,7 @@ async function updateVTO(opts={}){
 
     // empty
     if(spinnerEl){ spinnerEl.style.display='none'; spinnerEl.classList.remove('animating'); }
-    if(stateTextEl) stateTextEl.textContent = msg || '추천 이미지 없음';
+    if(stateTextEl) stateTextEl.textContent = msg || '';  // [v12 TJ-5] '추천 이미지 없음' 제거
     if(stepEl) stepEl.style.display='none';
     if(pctEl) pctEl.style.display='none';
     if(boxEl) boxEl.classList.remove('vto-loading');
@@ -5000,7 +5010,7 @@ function updateAiCallBtn(){
     btn.classList.add('ready');
     btn.style.background = '#0B666A';
     btn.style.borderColor = '#35A29F';
-    if(mainTxt){ mainTxt.textContent=_L('스타일몬스터 요청'); mainTxt.style.color='#ffffff'; mainTxt.style.fontSize=''; }
+    if(mainTxt){ mainTxt.textContent=_L('코디핏 요청'); mainTxt.style.color='#ffffff'; mainTxt.style.fontSize=''; }
     if(subTxt){ subTxt.textContent='Start Intelligent Styling'; subTxt.style.color='rgba(255,255,255,0.75)'; }
     if(icon){ icon.style.color='#ffffff'; icon.style.fontVariationSettings="'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 32"; }
     if(glow){ glow.style.background='none'; }
@@ -5010,7 +5020,7 @@ function updateAiCallBtn(){
     //   - 생성 완료 후 설정 변경 없음 (completed)
     btn.style.background = 'transparent';
     btn.style.borderColor = '#35A29F';
-    if(mainTxt){ mainTxt.textContent=_L('스타일몬스터 요청'); mainTxt.style.color='rgba(255,255,255,0.35)'; mainTxt.style.fontSize=''; }
+    if(mainTxt){ mainTxt.textContent=_L('코디핏 요청'); mainTxt.style.color='rgba(255,255,255,0.35)'; mainTxt.style.fontSize=''; }
     if(subTxt){
       // 상황별 가이드 메시지
       if(completed){
@@ -5059,7 +5069,7 @@ function setPurpose(k){
   // 조건 변경 -> 추천 결과 리셋(사용자가 '코디핏생성'을 눌러 생성)
   S.seed = 0;
   S.hasGenerated = false;
-  resetVtoState('empty', '추천 이미지 없음');
+  resetVtoState('empty', '');
   // [2026-04-11] 새 요청 시 이전 분석/스타일리스트 리셋
   try{
     var _ssb=document.getElementById('stylistSummaryBox');if(_ssb)_ssb.classList.add('hidden');
@@ -5195,7 +5205,7 @@ function syncDayUi(){
 function resetRecommendation(){
   S.seed=0;
   S.hasGenerated=false;
-  resetVtoState('empty','추천 이미지 없음');
+  resetVtoState('empty','');
 }
 
 function selectTodayStage1(){
@@ -6153,7 +6163,7 @@ purposeCustomInputEl?.addEventListener('input', (e)=>{
     // 입력이 바뀌면 추천 결과 리셋
     S.seed=0;
     S.hasGenerated=false;
-    resetVtoState('empty','추천 이미지 없음');
+    resetVtoState('empty','');
   }
 });
 
@@ -6169,9 +6179,25 @@ setMetaLine();
 
 updateQuotaBadge();
 setGenUiEnabled(canGenerateNow());
-resetVtoState('empty','추천 이미지 없음');
+resetVtoState('empty','');
 
 document.getElementById('againBtn')?.addEventListener('click', function(){
+  // [2026-04-26 v12 TJ-1] 다시요청 클릭 시 분석 박스(스토리/포인트) 리셋
+  // 이전 결과가 그대로 표시되어 사용자가 새 결과 기다리는 동안 혼란
+  // resetAll() 함수와 동일한 분석 박스 hidden 처리 적용 (단, 4버튼은 유지)
+  try{
+    var _ssb=document.getElementById('stylistSummaryBox');if(_ssb)_ssb.classList.add('hidden');
+    ['anPcSection','anBodySection','anPurposeSection'].forEach(function(id){
+      var e=document.getElementById(id); if(e) e.classList.add('hidden');
+    });
+    var _catKw=document.getElementById('catKwSection');if(_catKw)_catKw.classList.add('hidden');
+    var _kwRow=document.getElementById('kwRow');if(_kwRow){_kwRow.innerHTML='';_kwRow.classList.add('hidden');}
+    var _cpSum=document.getElementById('cpSummarySection');if(_cpSum)_cpSum.classList.add('hidden');
+    // codiExplain은 사용자 안내 텍스트라 빈 문자열로 대체 (생성 진행 중 안내)
+    var _exp=document.getElementById('codiExplain');
+    if(_exp) _exp.textContent = _L('새로운 코디를 준비 중입니다…');
+  }catch(_){}
+  
   // 기존 이미지 blur + rainbow 애니메이션 (사라지지 않고 흐려짐)
   const _canvas = document.getElementById('vtoCanvas');
   const _spinner = document.getElementById('vtoSpinner');
