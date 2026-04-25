@@ -2089,21 +2089,28 @@ def _ai_styling_via_gemini(
         '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
         '  },\n'
         '  "categoryKeywords": {\n'
-        '    "outer": "아우터 컬러+디자인 (예: 베이지 트렌치코트, 클래식 라펠)",\n'
-        '    "top": "상의 컬러+디자인",\n'
-        '    "bottom": "하의 컬러+디자인",\n'
-        '    "shoes": "신발 컬러+디자인",\n'
-        '    "bag": "가방 컬러+디자인",\n'
-        '    "scarf": "스카프/포인트 (없으면 빈 문자열)",\n'
-        '    "watch": "시계 (없으면 빈 문자열)",\n'
-        '    "socks": "양말 컬러"\n'
+        '    "outer": "컬러, 아이템 (예: \\"베이지, 트렌치코트\\" — 반드시 콤마로 컬러와 아이템 분리)",\n'
+        '    "top": "컬러, 아이템 (예: \\"화이트, 실크 블라우스\\")",\n'
+        '    "bottom": "컬러, 아이템 (예: \\"네이비, 와이드 슬랙스\\")",\n'
+        '    "shoes": "컬러, 아이템 (예: \\"브라운, 첼시 부츠\\")",\n'
+        '    "bag": "컬러, 아이템 (예: \\"블랙, 토트백\\" — 없으면 빈 문자열)",\n'
+        '    "scarf": "컬러, 아이템 (예: \\"카멜, 실크 스카프\\" — 없으면 빈 문자열)",\n'
+        '    "watch": "컬러, 아이템 (없으면 빈 문자열)",\n'
+        '    "socks": "컬러, 아이템 (예: \\"화이트, 면 양말\\")"\n'
         '  }\n'
         "}\n"
         "RULES:\n"
         "1. Each text field MUST be 250-300 Korean characters (not more, not less significantly).\n"
         "2. Each keywords array MUST contain EXACTLY 3 short Korean keywords (2-6 chars each).\n"
-        "3. categoryKeywords values must reflect the EXACT colors and styles in the generated image.\n"
-        "4. If a category is not in the outfit, use empty string \"\".\n"
+        # [2026-04-26 v13 TJ-2] categoryKeywords 명확화
+        "3. categoryKeywords MUST be in EXACT format: '{색상}, {아이템명}' separated by a comma. "
+        "The first part is COLOR ONLY (1-2 words like '베이지', '다크 네이비'), "
+        "the second part is ITEM ONLY (1-3 words like '트렌치코트', '와이드 슬랙스'). "
+        "WRONG: '베이지 트렌치코트' (no comma). "
+        "WRONG: '베이지, 클래식 라펠 트렌치코트' (color + descriptor mixed). "
+        "CORRECT: '베이지, 트렌치코트'. "
+        "Each value MUST reflect the EXACT colors and styles in the generated image.\n"
+        "4. If a category is NOT in the outfit, use empty string \"\".\n"
         "5. Output ONLY the image AND the marked JSON. Nothing else.\n"
         # ─────────────────────────────────────────────────────
         # [2026-04-25 v10 TJ 지시] 퍼스널컬러 avoid 컬러 사용 시 첨언
@@ -2238,7 +2245,29 @@ def _ai_styling_via_gemini(
             # 카테고리별 키워드 (옷장 매칭용)
             _ck = _parsed.get("categoryKeywords") or {}
             if isinstance(_ck, dict):
-                category_keywords_from_ai = {str(k): str(v).strip() for k, v in _ck.items() if v}
+                category_keywords_from_ai = {}
+                # ─── 2026-04-26 v13 TJ-2 ─── 콤마 없는 값 자동 보정
+                # AI가 "베이지 트렌치코트" 처럼 콤마 없이 줄 경우
+                # 첫 단어(컬러로 추정)와 나머지(아이템)를 분리해 콤마로 재조립
+                _COLOR_HINTS = {
+                    "베이지","아이보리","화이트","블랙","네이비","차콜","그레이","브라운","카멜",
+                    "올리브","버건디","크림","오프화이트","피치","코럴","핑크","레드","오렌지",
+                    "옐로우","머스타드","그린","민트","블루","라이트블루","라벤더","퍼플","와인",
+                    "샌드","쿨","웜","다크","라이트","파스텔","비비드","뉴트럴","라이트그레이",
+                    "다크네이비","아쿠아","터쿼이즈","로즈","살구","스카이","페일","딥",
+                }
+                for k, v in _ck.items():
+                    s = str(v).strip()
+                    if not s:
+                        continue
+                    if "," not in s:
+                        # 콤마가 없으면 첫 단어가 컬러일 가능성 검사
+                        words = s.split()
+                        if len(words) >= 2 and words[0] in _COLOR_HINTS:
+                            s = words[0] + ", " + " ".join(words[1:])
+                        elif len(words) >= 2 and any(c in words[0] for c in _COLOR_HINTS):
+                            s = words[0] + ", " + " ".join(words[1:])
+                    category_keywords_from_ai[str(k)] = s
         else:
             # 마커 없으면 폴백 — 템플릿 함수로 생성
             styling_analysis = _generate_styling_analysis(payload, matched_stylist, meta, lang=str(payload.get("lang") or "ko"))

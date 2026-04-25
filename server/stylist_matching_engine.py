@@ -205,6 +205,102 @@ def _get_temp_policy(temp):
 
 
 # ═══════════════════════════════════════════════════
+# [2026-04-26 v11 TJ 지시] 환경 정보 룰 (강수·풍속·UV·미세먼지)
+# 온도와 별개로 중요한 환경 요소를 프롬프트에 자연스럽게 반영
+# ═══════════════════════════════════════════════════
+def _get_environment_policy(precip_prob, wind_max, uv_max, pm25):
+    """
+    날씨 추가 정보 → 프롬프트 룰
+    
+    Returns: dict {summary_en (str, 비어있을 수 있음), 
+                   forbidden (list, 환경 부적합 아이템),
+                   recommended (list, 권장 아이템),
+                   labels (list, UI/메타용)}
+    """
+    rules = []
+    forbidden = []
+    recommended = []
+    labels = []
+    
+    # 강수 확률 (비/눈)
+    if precip_prob is not None and precip_prob >= 60:
+        rules.append(
+            "RAIN PROBABILITY HIGH (≥60%): Outfit must be rain-ready. "
+            "ALLOWED: water-resistant outer (trench coat, raincoat, padded), "
+            "closed-toe shoes (loafers, ankle boots), umbrella in hand. "
+            "FORBIDDEN: open sandals, suede shoes, light fabrics that show water marks. "
+        )
+        recommended += ["water-resistant outer", "closed-toe shoes", "umbrella"]
+        forbidden   += ["open sandals", "suede shoes"]
+        labels.append(f"강수확률 {int(precip_prob)}%")
+    elif precip_prob is not None and precip_prob >= 30:
+        rules.append(
+            f"MODERATE RAIN CHANCE ({int(precip_prob)}%): Consider water-resistant fabrics, closed-toe shoes preferred. "
+        )
+        labels.append(f"강수 가능성 {int(precip_prob)}%")
+    
+    # 풍속 (m/s)
+    if wind_max is not None and wind_max >= 10:
+        rules.append(
+            "STRONG WIND (≥10 m/s): Outfit must withstand strong wind. "
+            "ALLOWED: structured outer (windbreaker, padded), fitted silhouette, secured hair. "
+            "FORBIDDEN: loose flowy skirts, oversized scarves trailing, wide-brim hats. "
+        )
+        recommended += ["windbreaker", "fitted silhouette"]
+        forbidden   += ["loose flowy skirts", "wide-brim hats"]
+        labels.append(f"강풍 {wind_max:.0f}m/s")
+    elif wind_max is not None and wind_max >= 7:
+        rules.append(
+            f"WINDY ({wind_max:.0f} m/s): Prefer fitted layers, avoid very loose flowy items. "
+        )
+        labels.append(f"바람 {wind_max:.0f}m/s")
+    
+    # UV (자외선)
+    if uv_max is not None and uv_max >= 8:
+        rules.append(
+            "VERY HIGH UV (≥8): Strong sun protection needed. "
+            "RECOMMENDED: sunglasses, wide-brim hat, light long sleeves, UV-cut fabrics. "
+            "Avoid leaving skin overly exposed in direct sun. "
+        )
+        recommended += ["sunglasses", "hat"]
+        labels.append(f"UV 매우높음")
+    elif uv_max is not None and uv_max >= 6:
+        rules.append(
+            "HIGH UV (6-7): Sunglasses and a hat or cap are appropriate accessory choices. "
+        )
+        labels.append(f"UV 높음")
+    
+    # 미세먼지 PM2.5 (한국 기준: 0~15 좋음, 16~35 보통, 36~75 나쁨, 76+ 매우나쁨)
+    if pm25 is not None and pm25 >= 76:
+        rules.append(
+            "VERY POOR AIR QUALITY (PM2.5 ≥76): "
+            "RECOMMENDED: KF94 mask as a styled accessory (matching outfit color). "
+            "Prefer dark colors that don't show fine dust. "
+            "Consider hoodie or hat for hair protection. "
+        )
+        recommended += ["KF94 mask", "hoodie/hat"]
+        labels.append(f"미세먼지 매우나쁨")
+    elif pm25 is not None and pm25 >= 36:
+        rules.append(
+            f"POOR AIR QUALITY (PM2.5 {int(pm25)}): "
+            "A mask is appropriate for sensitive individuals. "
+            "Lighter colors may show dust — consider neutral/dark tones. "
+        )
+        recommended += ["mask (optional)"]
+        labels.append(f"미세먼지 나쁨")
+    
+    summary_en = "\n".join(rules) if rules else ""
+    
+    return {
+        "summary_en": summary_en,
+        "forbidden": forbidden,
+        "recommended": recommended,
+        "labels": labels,  # UI/메타데이터용 한국어 라벨
+        "has_rules": bool(rules),
+    }
+
+
+# ═══════════════════════════════════════════════════
 # 1. 지역 → main/sub 도시 매핑
 # ═══════════════════════════════════════════════════
 REGION_CITY_MAP = {
@@ -511,9 +607,40 @@ def build_styling_prompt(payload, fashion_db):
     
     # ── 날씨 ──
     weather = payload.get('weather', {})
-    temp = weather.get('temp', 20)
+    # [2026-04-26 v11 TJ 지시] 최고온도(tempMax)를 코디 기준으로 사용
+    # 사용자는 아침에 그날 종일 입을 옷을 결정 → 그날 최고기온이 가장 중요
+    # 평균이나 현재값이 아닌 최고기온이 의류 두께를 결정해야 함
+    _temp_max = weather.get('tempMax')
+    _temp_cur = weather.get('temp', 20)
+    if _temp_max is not None:
+        try:
+            temp = float(_temp_max)
+        except Exception:
+            temp = float(_temp_cur) if _temp_cur is not None else 20.0
+    else:
+        # tempMax 없으면 fallback (구버전 호환)
+        try:
+            temp = float(_temp_cur) if _temp_cur is not None else 20.0
+        except Exception:
+            temp = 20.0
+    
     condition = weather.get('condition', weather.get('text', 'clear'))
     user_location = str(weather.get('location', '')).strip()
+    
+    # [v11] 추가 환경 정보 (강수/풍속/UV/미세먼지)
+    _precip = weather.get('precipProb')
+    _wind   = weather.get('windMax')
+    _uv     = weather.get('uvMax')
+    _pm25   = weather.get('pm25')
+    
+    try: precip_prob = float(_precip) if _precip is not None else None
+    except: precip_prob = None
+    try: wind_max = float(_wind) if _wind is not None else None
+    except: wind_max = None
+    try: uv_max = float(_uv) if _uv is not None else None
+    except: uv_max = None
+    try: pm25_val = float(_pm25) if _pm25 is not None else None
+    except: pm25_val = None
     
     # ── 코디 목적 ──
     purpose = payload.get('purpose', '')
@@ -554,6 +681,8 @@ def build_styling_prompt(payload, fashion_db):
     selected_keywords = []  # [v10] 폐기 — 더 이상 키워드 추출하지 않음
     # ── 온도 정책 (v10 4단계) ──
     temp_policy = _get_temp_policy(temp)
+    # [v11 TJ] 환경 정책 (강수·풍속·UV·미세먼지)
+    env_policy = _get_environment_policy(precip_prob, wind_max, uv_max, pm25_val)
     
     # ── 여성 하의 타입 결정 ──
     if gender_ko == "여성":
@@ -659,10 +788,20 @@ def build_styling_prompt(payload, fashion_db):
                     pc_avoid_override = True
                     break
         
+        # ─────────────────────────────────────────────────────
+        # [2026-04-26 v13 TJ-3] PC 컬러 정책 변경
+        #   이전: best 컬러만 강하게 사용 (단조로움) — "USE these"
+        #   변경: best는 톤 가이드/참조, avoid만 절대 제외, 그 외 자유 조합
+        #   목적: 상의·하의 컬러 다양화로 매번 다른 룩 제공
+        # ─────────────────────────────────────────────────────
         pc_block = (
             f"PERSONAL COLOR: {pc_season} ({pc_undertone})\n"
-            f"  • Best colors (USE these): {pc_best_str}\n"
-            f"  • Avoid colors: {pc_avoid_str}\n"
+            f"  • Tone reference (the user's flattering palette): {pc_best_str}\n"
+            f"  • These best colors are a TONE GUIDE — use them especially near the face "
+            f"(top/blouse/scarf), but DO NOT limit the entire outfit to only these colors. "
+            f"Mix freely with other neutral, harmonious colors for top/bottom/accessories. "
+            f"AIM for varied, balanced color combinations — not monochrome from best palette only.\n"
+            f"  • Avoid colors (NEVER use as main garment): {pc_avoid_str}\n"
         )
         if pc_avoid_override:
             pc_block += (
@@ -672,8 +811,12 @@ def build_styling_prompt(payload, fashion_db):
             )
         else:
             pc_block += (
-                "  🚫 ABSOLUTE RULE: Avoid colors MUST NEVER appear as main garment colors. "
-                "If they appear at all, only as tiny accents (button, stitching). "
+                "  🚫 STRICT RULE on AVOID colors: Avoid colors MUST NEVER appear as main "
+                "garment color (top, bottom, outer). They may appear ONLY as tiny accents "
+                "(button, stitching, sole). "
+                "Outside of avoid colors, you have FULL FREEDOM to combine various colors "
+                "(neutrals, complementary tones, seasonal accents) for a fresh, varied look. "
+                "Avoid making the whole outfit a single color tone unless that's intentional minimalism. "
             )
     
     # ═══ [v10] 새 프롬프트 조립 — 사용자 4요소 본체화 ═══
@@ -701,54 +844,61 @@ def build_styling_prompt(payload, fashion_db):
         f"Create a photorealistic full-body fashion styling lookbook photo.\n\n"
         
         # ─── [2] 얼굴 (HIGHEST PRIORITY) ───
-        f"{face_instruction}\n"
+        + f"{face_instruction}\n"
         
         # ─── [3] 사용자 프로필 (본체) ───
-        f"═══ USER PROFILE (CORE STYLING TARGET) ═══\n"
-        f"Subject: {gender_en} ({gender_ko}), age {age} ({_age_range(age)}), Korean.\n"
-        f"Height: {height}cm, Weight: {weight}kg, BMI {bmi_info.get('bmi', '?')} — {bmi_info.get('en', 'average')}.\n"
-        f"{body_block}"
-        f"{pc_block}"
-        f"\n"
+        + f"═══ USER PROFILE (CORE STYLING TARGET) ═══\n"
+        + f"Subject: {gender_en} ({gender_ko}), age {age} ({_age_range(age)}), Korean.\n"
+        + f"Height: {height}cm, Weight: {weight}kg, BMI {bmi_info.get('bmi', '?')} — {bmi_info.get('en', 'average')}.\n"
+        + f"{body_block}"
+        + f"{pc_block}"
+        + f"\n"
         
-        # ─── [4] 환경 ───
-        f"═══ ENVIRONMENT ═══\n"
-        f"User location: {user_location or 'unspecified'}\n"
-        f"Date: {date.today().isoformat()}\n"
-        f"Weather: {temp}°C, {condition} — {temp_policy['tier_label']}\n"
-        f"Purpose: {purpose} ({purpose_en})\n"
-        f"{purpose_prompt_en}\n"
-        f"\n"
+        # ─── [4] 환경 (TJ v11: 최고온도 + 강수/풍속/UV/PM2.5) ───
+        + f"═══ ENVIRONMENT ═══\n"
+        + f"User location: {user_location or 'unspecified'}\n"
+        + f"Date: {date.today().isoformat()}\n"
+        + f"Weather: {int(temp)}°C (max forecast for the day), {condition} — {temp_policy['tier_label']}\n"
+        + (f"Precipitation probability: {int(precip_prob)}%\n" if precip_prob is not None else "")
+        + (f"Max wind speed: {wind_max:.1f} m/s\n" if wind_max is not None else "")
+        + (f"UV index: {uv_max:.0f}\n" if uv_max is not None else "")
+        + (f"PM2.5 air quality: {int(pm25_val)} µg/m³\n" if pm25_val is not None else "")
+        + f"Purpose: {purpose} ({purpose_en})\n"
+        + f"{purpose_prompt_en}\n"
+        + f"\n"
         
         # ─── [5] 스타일리스트 페르소나 (10~20%) ───
         # (process_styling_request에서 stylist 정보 추가 주입됨)
-        f"═══ STYLIST CONTEXT ═══\n"
-        f"This look is curated by an AI stylist based in {active_city}.\n"
-        f"City aesthetic: {_city_vibe}.\n"
-        f"Reflect {active_city} stylist's professional intuition for current trends — "
-        f"NOT generic city stereotypes, but contemporary 2026 sensibility appropriate for "
-        f"the user's age, body, and weather.\n"
-        f"\n"
+        + f"═══ STYLIST CONTEXT ═══\n"
+        + f"This look is curated by an AI stylist based in {active_city}.\n"
+        + f"City aesthetic: {_city_vibe}.\n"
+        + f"Reflect {active_city} stylist's professional intuition for current trends — "
+        + f"NOT generic city stereotypes, but contemporary 2026 sensibility appropriate for "
+        + f"the user's age, body, and weather.\n"
+        + f"\n"
         
         # ─── [6] 온도 정책 (TJ 지시 4단계) ───
-        f"═══ TEMPERATURE POLICY ({temp}°C) ═══\n"
-        f"{temp_policy['summary_en']}\n"
-        f"\n"
+        + f"═══ TEMPERATURE POLICY ({int(temp)}°C max) ═══\n"
+        + f"{temp_policy['summary_en']}\n"
+        + f"\n"
+        
+        # ─── [6.5] 환경 정책 (강수/풍속/UV/미세먼지) ───
+        + (f"═══ ENVIRONMENT POLICY ═══\n{env_policy['summary_en']}\n\n" if env_policy.get('has_rules') else "")
         
         # ─── [7] 하의 ───
-        f"{bottom_instruction}\n"
+        + f"{bottom_instruction}\n"
         
         # ─── [8] 절대 룰 ───
-        f"═══ ABSOLUTE RULES (VIOLATION = REGENERATE) ═══\n"
-        f"BODY PROPORTION: Upper body (head→waist) ≤ 40%, Lower body (waist→feet) ≥ 60%. "
-        f"3:7 leg ratio MANDATORY. 5:5 or 4:6 = generation failure.\n"
-        f"SOCKS: Both feet IDENTICAL — same color, same pattern. Mismatched FORBIDDEN.\n"
-        f"BACKGROUND: Single SOLID FLAT PASTEL color contrasting with outfit. "
-        f"Studio paper backdrop ONLY — no environment, no objects, no props.\n"
-        f"STYLE: Real-life wearable daily outfit only. "
-        f"FORBIDDEN: runway, avant-garde, asymmetric, experimental.\n"
-        f"NO text, NO watermark, NO logo, NO brand names visible.\n"
-        f"═══ END RULES ═══\n"
+        + f"═══ ABSOLUTE RULES (VIOLATION = REGENERATE) ═══\n"
+        + f"BODY PROPORTION: Upper body (head→waist) ≤ 40%, Lower body (waist→feet) ≥ 60%. "
+        + f"3:7 leg ratio MANDATORY. 5:5 or 4:6 = generation failure.\n"
+        + f"SOCKS: Both feet IDENTICAL — same color, same pattern. Mismatched FORBIDDEN.\n"
+        + f"BACKGROUND: Single SOLID FLAT PASTEL color contrasting with outfit. "
+        + f"Studio paper backdrop ONLY — no environment, no objects, no props.\n"
+        + f"STYLE: Real-life wearable daily outfit only. "
+        + f"FORBIDDEN: runway, avant-garde, asymmetric, experimental.\n"
+        + f"NO text, NO watermark, NO logo, NO brand names visible.\n"
+        + f"═══ END RULES ═══\n"
     )
     
     # ── 메타데이터 (스토리 박스용) ──
@@ -776,6 +926,14 @@ def build_styling_prompt(payload, fashion_db):
         "body_type_info": body_info,  # 체형별 do/dont 등
         "pc_avoid_override": pc_avoid_override,  # 분석 첨언용
         "pc": pc,
+        # [v11 TJ] 환경 정보 메타
+        "precip_prob": precip_prob,
+        "wind_max": wind_max,
+        "uv_max": uv_max,
+        "pm25": pm25_val,
+        "env_labels": env_policy.get('labels', []),
+        "env_recommended": env_policy.get('recommended', []),
+        "env_forbidden": env_policy.get('forbidden', []),
     }
     
     return prompt, metadata
