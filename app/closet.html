@@ -756,17 +756,19 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .vto-status-txt{font-size:12px;color:rgba(162,253,240,0.7);font-weight:500;}
 /* .vto-prog-bar removed */
 /* .vto-prog-fill removed */
+/* [2026-04-26 v11 TJ 지시] 외곽 어두운 박스 제거 — 이미지 뷰박스만 페이지 가로폭에 맞춤 */
 .vto-result-wrap{position:relative;}
 .vto-outer-layer{
+  /* 외곽 박스 제거: 배경/패딩/그림자/라운딩 모두 0 */
   position:relative;
-  border-radius:22px;
-  background:#020a1a;
-  padding:10px;
-  box-shadow:0 12px 40px rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.3);
+  background:transparent;
+  padding:0;
+  box-shadow:none;
+  border-radius:0;
   margin-bottom:0;
 }
 .vto-outer-layer .vto-result-wrap{
-  border-radius:14px;
+  border-radius:20px;  /* 이미지 박스의 둥근 모서리만 유지 */
   overflow:hidden;
 }
 /* [2026-04-18] 세련된 이미지 뷰박스 재설계 — codistyle과 동일 */
@@ -1335,8 +1337,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         <div>
           <div class="flex items-baseline gap-2">
             <span id="wxTemp" class="text-5xl font-light">--°</span>
+            <span id="wxTempMax" class="text-base font-semibold" style="color:#97FEED;display:none;">↑--°</span>
             <span id="wxDesc" class="text-lg" style="color:rgba(255,255,255,0.65);">로딩중</span>
           </div>
+          <!-- [v11 TJ] 강수/풍속/UV/미세먼지 표시 영역 -->
+          <div id="wxExtras" class="flex flex-wrap items-center gap-2 mt-2" style="font-size:10.5px;color:rgba(255,255,255,0.7);"></div>
         </div>
         <div class="flex flex-col items-center">
           <span id="wxIcon" class="material-symbols-outlined text-5xl" style="color:#97FEED;">cloud</span>
@@ -2145,14 +2150,33 @@ function recordUnifiedUsage(feature){
 function checkUnifiedUsage(feature){
   // ★ 내옷장+트라이 온 합산(totalMonthly - totalCount) 기준
   // pricing.html이 저장한 cb_plan_info에서 totalLimit 읽기
+  // ─── 2026-04-26 KST v11 TJ 지시 ─── NaN 버그 수정
+  // 이전: _planInfo가 truthy인데 totalLimit이 undefined인 경우
+  //       → Math.max(0, undefined - 0) = NaN → "스타일링 NaN회 가능" 표시
+  // 수정: ?? 연산자로 안전 fallback + Number 변환 + 최종 Number.isFinite 체크
+  // ─────────────────────────────────────────────────────────────────────
   const _planInfo    = _getPlanInfo();
   const planId       = (user.plan || 'free').toLowerCase();
   const plan         = PLANS[planId] || PLANS.free;
   const u            = getUnifiedUsage();
-  const totalUsed    = u.totalCount || 0;
-  // cb_plan_info가 있으면 그 totalLimit 사용, 없으면 플랜 기본값
-  const totalLimit   = _planInfo ? _planInfo.totalLimit : plan.totalMonthly;
-  const remaining    = Math.max(0, totalLimit - totalUsed);
+  const totalUsed    = Number(u.totalCount) || 0;
+  
+  // [v11] cb_plan_info의 totalLimit을 우선 사용하되 undefined/null/NaN 방어
+  // 코디핏 월 한도(closetMonthly) + 트라이온 월 한도(codistyleMonthly) = 합산 한도
+  const _piTotal = (_planInfo && _planInfo.totalLimit !== undefined && _planInfo.totalLimit !== null)
+    ? Number(_planInfo.totalLimit)
+    : NaN;
+  const _planTotal = Number(plan.totalMonthly);
+  const _planComputed = Number(plan.closetMonthly||0) + Number(plan.codistyleMonthly||0);
+  
+  // 우선순위: planInfo의 유효 값 > plan.totalMonthly > closet+codistyle 합산 > 4 (FREE 기본)
+  let totalLimit;
+  if (Number.isFinite(_piTotal) && _piTotal > 0) totalLimit = _piTotal;
+  else if (Number.isFinite(_planTotal) && _planTotal > 0) totalLimit = _planTotal;
+  else if (_planComputed > 0) totalLimit = _planComputed;
+  else totalLimit = 4;  // 최종 fallback (FREE 기본 한도)
+  
+  const remaining = Math.max(0, totalLimit - totalUsed);
 
   // 월간 합산 한도 초과
   if(totalUsed >= totalLimit)
@@ -2160,9 +2184,9 @@ function checkUnifiedUsage(feature){
       reason: plan.label+' 플랜 이미지 생성 한도('+totalLimit+'회)를 모두 사용했어요.' };
 
   // 다이아몬드 일일 합산 한도
-  const dailyLimit   = plan.dailyTotal;
-  const dayUsed      = u.dayTotal || 0;
-  const dayRemaining = dailyLimit ? Math.max(0, dailyLimit - dayUsed) : null;
+  const dailyLimit   = Number(plan.dailyTotal) || null;
+  const dayUsed      = Number(u.dayTotal) || 0;
+  const dayRemaining = (dailyLimit && Number.isFinite(dailyLimit)) ? Math.max(0, dailyLimit - dayUsed) : null;
   if(dailyLimit && dayUsed >= dailyLimit)
     return { blocked:true, remaining,
       reason: '오늘 일일 한도('+dailyLimit+'회)를 모두 사용했어요. 내일 다시 이용해주세요.' };
@@ -2180,10 +2204,16 @@ function updateQuotaBadge(){
       badge.textContent=_L('한도 초과');
       return;
     }
+    // [v11 TJ] NaN 방어 — Number.isFinite로 검증 후 표시
+    const _rem = Number.isFinite(Number(ck.remaining)) ? Number(ck.remaining) : 0;
+    const _dRem = (ck.dailyRemaining !== null && ck.dailyRemaining !== undefined && Number.isFinite(Number(ck.dailyRemaining))) 
+      ? Number(ck.dailyRemaining) : null;
+    
     // 합산 잔여 횟수 표시 (내옷장+트라이 온 통합)
-    const daily = ck.dailyRemaining !== null ? ` · 오늘 ${ck.dailyRemaining}회` : '';
-    badge.className = `ai-badge ${ck.remaining<=2?'danger':'gray'}`;
-    var _bEn3=window.CodiBankI18n&&CodiBankI18n.isEn(); badge.textContent = _bEn3 ? `Styling: ${ck.remaining} left${daily}` : `스타일링 ${ck.remaining}회 가능${daily}`;
+    const daily = (_dRem !== null) ? ` · 오늘 ${_dRem}회` : '';
+    badge.className = `ai-badge ${_rem<=2?'danger':'gray'}`;
+    var _bEn3=window.CodiBankI18n&&CodiBankI18n.isEn(); 
+    badge.textContent = _bEn3 ? `Styling: ${_rem} left${daily}` : `스타일링 ${_rem}회 가능${daily}`;
   }catch(_){
     badge.className='ai-badge gray';
     badge.textContent=_L('남은 0회');
@@ -4430,7 +4460,21 @@ async function updateVTO(opts={}){
       })();
       const payload={
         user:{email:user?.email||'',gender:user?.gender||'',ageGroup:user?.ageGroup||'',height:user?.height||'',weight:user?.weight||'',bodyType:user?.bodyType||'', tier:_userTier},
-        weather:{temp:S.wx.temp,text:S.wx.text||'',location:(S.wx.location||user?.location||'')},
+        // [2026-04-26 v11 TJ 지시] weather payload 강화
+        // - temp는 UI 표시값(오늘=현재, 미래=최고)
+        // - tempMax: 코디 생성용 핵심 값 (TJ: 사용자는 그날 최고온도 기준 코디)
+        // - tempMin, precipProb, windMax, uvMax, pm25: 추가 환경 정보
+        weather:{
+          temp: S.wx.temp,                // UI 표시값
+          tempMax: S.wx.tempMax,          // ★ 코디 생성 기준 (최고온도)
+          tempMin: S.wx.tempMin,
+          text: S.wx.text || '',
+          location: (S.wx.location || user?.location || ''),
+          precipProb: S.wx.precipProb,    // 강수 확률 %
+          windMax: S.wx.windMax,          // 최대 풍속
+          uvMax: S.wx.uvMax,              // UV 지수
+          pm25: S.wx.pm25,                // 미세먼지
+        },
         region: _regionInfo.region,
         stylistCity: _regionInfo.main,
         stylistSubCity: _regionInfo.sub,
@@ -5522,7 +5566,7 @@ async function generateStyling(opts={}) {
 }
 
 // 날씨
-const wE={loc:document.getElementById('wxLoc'),date:document.getElementById('wxDate'),temp:document.getElementById('wxTemp'),desc:document.getElementById('wxDesc'),icon:document.getElementById('wxIcon'),hourly:document.getElementById('wxHourly'),day:document.getElementById('wxDayLabel')};
+const wE={loc:document.getElementById('wxLoc'),date:document.getElementById('wxDate'),temp:document.getElementById('wxTemp'),tempMax:document.getElementById('wxTempMax'),extras:document.getElementById('wxExtras'),desc:document.getElementById('wxDesc'),icon:document.getElementById('wxIcon'),hourly:document.getElementById('wxHourly'),day:document.getElementById('wxDayLabel')};
 
 const pad2 = (n)=>String(n).padStart(2,'0');
 const localDateKey = (d)=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
@@ -5665,42 +5709,170 @@ function renderHourly(h, _dayOffset=0){
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// [2026-04-26 KST v11 TJ 지시] 날씨 처리 정책 변경
+// ═══════════════════════════════════════════════════════════════════
+//   이전: 오늘=현재값(11°), 내일+=평균((max+min)/2)
+//   변경: 오늘=현재값+최고값 함께, 내일+=최고값만
+//   핵심: 코디 생성 프롬프트는 항상 '최고온도(tempMax)' 사용
+//   추가: 강수확률·풍속·UV·PM2.5 통합
+// ═══════════════════════════════════════════════════════════════════
+
+// [v11] PM2.5 헬퍼 — air-quality API에서 해당 날짜의 평균 추출
+function _extractPm25(w, dateKey){
+  try{
+    const aq = w?.airQuality;
+    if(!aq) return null;
+    const hh = aq.hourly;
+    if(hh?.time && hh?.pm2_5){
+      // 해당 날짜의 hourly PM2.5 평균
+      let sum=0, cnt=0;
+      hh.time.forEach((t,i)=>{
+        if(String(t).startsWith(dateKey)){
+          const v=Number(hh.pm2_5[i]);
+          if(Number.isFinite(v)){ sum+=v; cnt++; }
+        }
+      });
+      if(cnt>0) return Math.round(sum/cnt);
+    }
+    // fallback: 현재값
+    const cur=aq.current?.pm2_5;
+    if(Number.isFinite(Number(cur))) return Math.round(Number(cur));
+  }catch(_){ }
+  return null;
+}
+
 function computeWxToday(w){
-  const cur=w?.current;
-  const ct=cur?Math.round(Number(cur.temperature_2m)):null;
-  const wx=CodiBank.weatherCodeToKorean(cur?.weather_code);
-  return {temp:(!isNaN(ct)&&ct!==null)?ct:null,text:wx.text,code:cur?.weather_code};
+  // [v11] 오늘은 현재값 + 일별 최고온도(tempMax) 둘 다 보존
+  const cur = w?.current;
+  const ct  = cur ? Math.round(Number(cur.temperature_2m)) : null;
+  const wx  = CodiBank.weatherCodeToKorean(cur?.weather_code);
+  
+  // 일별 데이터에서 오늘(idx=0)의 최고/최저 + 강수/풍속/UV
+  const d   = w?.daily;
+  let tmax=null, tmin=null, precipProb=null, windMax=null, uvMax=null;
+  if(d && Array.isArray(d.time) && d.time.length>0){
+    const _tmax = Number(d.temperature_2m_max?.[0]);
+    const _tmin = Number(d.temperature_2m_min?.[0]);
+    if(Number.isFinite(_tmax)) tmax = Math.round(_tmax);
+    if(Number.isFinite(_tmin)) tmin = Math.round(_tmin);
+    
+    const _pp = Number(d.precipitation_probability_max?.[0]);
+    if(Number.isFinite(_pp)) precipProb = Math.round(_pp);
+    
+    const _ws = Number(d.wind_speed_10m_max?.[0]);
+    if(Number.isFinite(_ws)) windMax = Math.round(_ws*10)/10;
+    
+    const _uv = Number(d.uv_index_max?.[0]);
+    if(Number.isFinite(_uv)) uvMax = Math.round(_uv*10)/10;
+  }
+  
+  // PM2.5 (오늘 평균)
+  const today = new Date();
+  const todayKey = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  const pm25 = _extractPm25(w, todayKey);
+  
+  return {
+    temp: (!isNaN(ct)&&ct!==null) ? ct : null,        // 현재값 (UI 표시용)
+    tempMax: tmax,                                     // 최고온도 (코디 생성용 핵심)
+    tempMin: tmin,                                     // 최저온도
+    text: wx.text,
+    code: cur?.weather_code,
+    precipProb: precipProb,                            // 강수 확률 (%)
+    windMax: windMax,                                  // 최대 풍속 (m/s 또는 km/h)
+    uvMax: uvMax,                                      // 자외선 지수
+    pm25: pm25,                                        // 미세먼지 PM2.5
+  };
 }
 
 function computeWxDaily(w, dayIdx){
-  const d=w?.daily;
-  const i=Number(dayIdx||0);
-  if(!d||!Array.isArray(d.time)||d.time.length<=i) return null;
-  const code=d.weather_code?.[i];
-  const wx=CodiBank.weatherCodeToKorean(code);
-  const tmax=Number(d.temperature_2m_max?.[i]);
-  const tmin=Number(d.temperature_2m_min?.[i]);
-  let temp=null;
-  if(Number.isFinite(tmax)&&Number.isFinite(tmin)) temp=Math.round((tmax+tmin)/2);
-  else if(Number.isFinite(tmax)) temp=Math.round(tmax);
-  else if(Number.isFinite(tmin)) temp=Math.round(tmin);
-  return {temp, text:wx.text, code};
+  // [v11] 내일+ 부터는 최고온도(tempMax) 사용
+  const d = w?.daily;
+  const i = Number(dayIdx||0);
+  if(!d || !Array.isArray(d.time) || d.time.length<=i) return null;
+  
+  const code = d.weather_code?.[i];
+  const wx   = CodiBank.weatherCodeToKorean(code);
+  const tmax = Number(d.temperature_2m_max?.[i]);
+  const tmin = Number(d.temperature_2m_min?.[i]);
+  
+  // 우선순위: 최고온도 > 최저온도 (TJ 지시: 평균 X, 최고 우선)
+  let temp = null, tempMax = null, tempMin = null;
+  if(Number.isFinite(tmax)){ temp = Math.round(tmax); tempMax = Math.round(tmax); }
+  if(Number.isFinite(tmin)){ tempMin = Math.round(tmin); }
+  if(temp===null && tempMin!==null) temp = tempMin;
+  
+  // 추가 정보
+  const _pp = Number(d.precipitation_probability_max?.[i]);
+  const precipProb = Number.isFinite(_pp) ? Math.round(_pp) : null;
+  
+  const _ws = Number(d.wind_speed_10m_max?.[i]);
+  const windMax = Number.isFinite(_ws) ? Math.round(_ws*10)/10 : null;
+  
+  const _uv = Number(d.uv_index_max?.[i]);
+  const uvMax = Number.isFinite(_uv) ? Math.round(_uv*10)/10 : null;
+  
+  // PM2.5 — 해당 날짜
+  const dateKey = String(d.time[i]||'').trim();
+  const pm25 = _extractPm25(w, dateKey);
+  
+  return {
+    temp,           // UI/프롬프트 메인 값 (최고온도)
+    tempMax,        // 명시적 최고온도
+    tempMin,        // 최저온도
+    text: wx.text,
+    code,
+    precipProb,
+    windMax,
+    uvMax,
+    pm25,
+  };
 }
 
 function computeWxFromHourly(w, dayOffset){
-  const h=w?.hourly;
-  if(!h?.time||!h?.temperature_2m) return null;
-  const base=new Date();
-  base.setDate(base.getDate()+Number(dayOffset||0));
-  // 내일(또는 선택 일자)의 12시 근처 값을 대표로 사용
-  const dk=localDateKey(base);
-  const idx0=h.time.findIndex(t=>String(t).startsWith(dk));
-  if(idx0<0) return null;
-  const idx=Math.min(idx0+12, h.time.length-1);
-  const temp=Math.round(Number(h.temperature_2m[idx]));
-  const code=h.weather_code?.[idx];
-  const wx=CodiBank.weatherCodeToKorean(code);
-  return {temp:Number.isFinite(temp)?temp:null, text:wx.text, code};
+  // [v11] hourly fallback — 그날 시간대 중 최고온도 사용
+  const h = w?.hourly;
+  if(!h?.time || !h?.temperature_2m) return null;
+  const base = new Date();
+  base.setDate(base.getDate() + Number(dayOffset||0));
+  const dk = localDateKey(base);
+  
+  // 해당 날짜의 모든 hourly 인덱스 수집
+  const idxs = [];
+  h.time.forEach((t,i)=>{ if(String(t).startsWith(dk)) idxs.push(i); });
+  if(!idxs.length) return null;
+  
+  // [v11] 최고온도 + 12시 weather_code
+  let tmax = -Infinity, tmin = Infinity;
+  let maxPp = 0, maxWs = 0;
+  idxs.forEach(i=>{
+    const t = Number(h.temperature_2m[i]);
+    if(Number.isFinite(t)){
+      if(t>tmax) tmax = t;
+      if(t<tmin) tmin = t;
+    }
+    const pp = Number(h.precipitation_probability?.[i]);
+    if(Number.isFinite(pp) && pp>maxPp) maxPp = pp;
+    const ws = Number(h.wind_speed_10m?.[i]);
+    if(Number.isFinite(ws) && ws>maxWs) maxWs = ws;
+  });
+  
+  // 12시 근처 weather_code
+  const idxNoon = idxs[Math.min(12, idxs.length-1)];
+  const code = h.weather_code?.[idxNoon];
+  const wx = CodiBank.weatherCodeToKorean(code);
+  
+  return {
+    temp: Number.isFinite(tmax)&&tmax>-Infinity ? Math.round(tmax) : null,
+    tempMax: Number.isFinite(tmax)&&tmax>-Infinity ? Math.round(tmax) : null,
+    tempMin: Number.isFinite(tmin)&&tmin<Infinity ? Math.round(tmin) : null,
+    text: wx.text,
+    code,
+    precipProb: maxPp>0 ? Math.round(maxPp) : null,
+    windMax: maxWs>0 ? Math.round(maxWs*10)/10 : null,
+    uvMax: null,
+    pm25: _extractPm25(w, dk),
+  };
 }
 
 function applySelectedWeatherUI(){
@@ -5708,14 +5880,14 @@ function applySelectedWeatherUI(){
   const selKey=getSelectedDateKey();
   const off=diffDays(selKey, todayKey);
 
-  // 선택한 날짜에 해당하는 날씨 계산(오늘=현재값, 이후=일별예보)
+  // 선택한 날짜에 해당하는 날씨 계산(오늘=현재값+최고값, 이후=최고값)
   let wxSel = null;
   if(selKey===todayKey){
     wxSel = (S.wxByDate && S.wxByDate[todayKey]) ? S.wxByDate[todayKey] : S.wxAll.today;
   }else{
     wxSel = (S.wxByDate && S.wxByDate[selKey]) ? S.wxByDate[selKey] : (off===1 ? S.wxAll.tomorrow : null) || S.wxAll.today;
   }
-  S.wx = wxSel || {temp:null,text:'',code:null};
+  S.wx = wxSel || {temp:null,tempMax:null,tempMin:null,text:'',code:null,precipProb:null,windMax:null,uvMax:null,pm25:null};
 
   // UI: 날짜/라벨
   if(wE.date) wE.date.textContent = formatKoDateKey(selKey);
@@ -5725,11 +5897,65 @@ function applySelectedWeatherUI(){
     else wE.day.textContent = formatKoDateKeyShort(selKey);
   }
 
-  const temp = Number.isFinite(Number(S.wx.temp)) ? Math.round(Number(S.wx.temp)) : null;
-  const wxMeta = CodiBank.weatherCodeToKorean(S.wx.code);
-  if(wE.temp) wE.temp.textContent = (temp!==null&&!isNaN(temp)) ? `${temp}°` : '--°';
+  // [v11 TJ] 온도 표시 정책
+  // - 오늘: "현재값 / 최고값↑" (예: "11° ↑24°")
+  // - 미래: "최고값" (예: "24°")
+  const isToday = (selKey===todayKey);
+  const cur     = Number.isFinite(Number(S.wx.temp))    ? Math.round(Number(S.wx.temp))    : null;
+  const tmax    = Number.isFinite(Number(S.wx.tempMax)) ? Math.round(Number(S.wx.tempMax)) : null;
+  const wxMeta  = CodiBank.weatherCodeToKorean(S.wx.code);
+  
+  if(wE.temp){
+    if(isToday){
+      // 오늘: 현재값을 큰 글씨로
+      wE.temp.textContent = (cur!==null) ? `${cur}°` : (tmax!==null ? `${tmax}°` : '--°');
+    }else{
+      // 미래: 최고값
+      wE.temp.textContent = (tmax!==null) ? `${tmax}°` : (cur!==null ? `${cur}°` : '--°');
+    }
+  }
+  if(wE.tempMax){
+    // 오늘만 최고값을 작게 옆에 표시 (현재값과 다를 때)
+    if(isToday && tmax!==null && cur!==null && tmax!==cur){
+      wE.tempMax.textContent = `↑${tmax}°`;
+      wE.tempMax.style.display = 'inline';
+    }else{
+      wE.tempMax.style.display = 'none';
+    }
+  }
   if(wE.desc) wE.desc.textContent = (S.wx.text||wxMeta.text||'날씨');
   if(wE.icon) wE.icon.textContent = (wxMeta.icon||'cloud');
+  
+  // [v11 TJ] 추가 정보: 강수확률 / 풍속 / UV / 미세먼지
+  if(wE.extras){
+    const parts = [];
+    const pp = Number(S.wx.precipProb);
+    const ws = Number(S.wx.windMax);
+    const uv = Number(S.wx.uvMax);
+    const pm = Number(S.wx.pm25);
+    
+    if(Number.isFinite(pp) && pp >= 10){
+      const rainIcon = pp >= 60 ? 'umbrella' : 'water_drop';
+      parts.push(`<span class="inline-flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:13px;">${rainIcon}</span>${pp}%</span>`);
+    }
+    if(Number.isFinite(ws) && ws >= 7){
+      // 7 m/s 이상부터 표시 (체감 바람 강함)
+      parts.push(`<span class="inline-flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:13px;">air</span>${ws}m/s</span>`);
+    }
+    if(Number.isFinite(uv) && uv >= 6){
+      // UV 6+ 부터 (높음~매우높음)
+      const uvLabel = uv>=8 ? '매우높음' : (uv>=6 ? '높음' : '');
+      parts.push(`<span class="inline-flex items-center gap-1" style="color:#FFD27A;"><span class="material-symbols-outlined" style="font-size:13px;">wb_sunny</span>UV ${uvLabel}</span>`);
+    }
+    if(Number.isFinite(pm) && pm >= 35){
+      // PM2.5 35 이상 — 나쁨 (한국 기준)
+      const pmColor = pm>=75 ? '#FF8080' : (pm>=35 ? '#FFD27A' : '#97FEED');
+      const pmLabel = pm>=75 ? '매우나쁨' : (pm>=35 ? '나쁨' : '');
+      parts.push(`<span class="inline-flex items-center gap-1" style="color:${pmColor};"><span class="material-symbols-outlined" style="font-size:13px;">masks</span>PM2.5 ${pmLabel}</span>`);
+    }
+    
+    wE.extras.innerHTML = parts.join('<span style="opacity:0.4;">·</span>');
+  }
 
   // 일별 예보: daily 데이터 있으면 daily 우선, 아니면 hourly fallback
   if(S.weatherRaw?.daily || S.weatherRaw?.hourly){

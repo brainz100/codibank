@@ -1551,11 +1551,35 @@ async function uploadImageToServer(dataUrl, opts) {
   async function getWeatherByCoordsOpenMeteo(lat, lon, opts) {
     const timeoutMs = Number((opts && opts.timeoutMs) || 9000);
     const tz = (opts && opts.timezone) ? String(opts.timezone) : 'auto';
-    // v17
-    // - "오늘/내일" 코디 추천을 위해 2일 예보까지 가져옵니다.
-    // - daily(최고/최저/날씨코드)는 내일의 대표값(평균 온도+요약 코드) 계산에 사용합니다.
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=temperature_2m,weather_code,is_day&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=14&timezone=${encodeURIComponent(tz)}`;
-    return fetchJsonWithTimeout(url, timeoutMs);
+    // ─── 2026-04-26 KST v11 TJ 지시 ──────────────────────────────────────
+    // 1) 일별 최고/최저 온도뿐 아니라 강수확률·풍속·UV 지수 추가
+    // 2) 시간별로도 강수확률·풍속을 받아 정확한 시간대 분석 가능
+    // 3) 별도로 Open-Meteo air-quality API에서 PM2.5 가져와 병합
+    // 추가 파라미터:
+    //   - daily: precipitation_probability_max, wind_speed_10m_max, uv_index_max
+    //   - hourly: precipitation_probability, wind_speed_10m
+    // ─────────────────────────────────────────────────────────────────────
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=temperature_2m,weather_code,is_day,precipitation,wind_speed_10m&hourly=temperature_2m,weather_code,precipitation_probability,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,wind_speed_10m_max,uv_index_max&forecast_days=14&timezone=${encodeURIComponent(tz)}`;
+    
+    const w = await fetchJsonWithTimeout(url, timeoutMs);
+    
+    // [v11] 미세먼지(PM2.5) 별도 호출 — air-quality API
+    // 실패해도 기본 날씨는 정상 반환되도록 안전 처리
+    try {
+      const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&current=pm2_5,pm10&hourly=pm2_5&forecast_days=7&timezone=${encodeURIComponent(tz)}`;
+      const aq = await fetchJsonWithTimeout(aqUrl, Math.min(timeoutMs, 6000));
+      if (aq) {
+        w.airQuality = {
+          current: aq.current || null,
+          hourly: aq.hourly || null,
+        };
+      }
+    } catch (_) {
+      // PM2.5 가져오기 실패 시 무시 (기본 날씨는 사용 가능)
+      w.airQuality = null;
+    }
+    
+    return w;
   }
 
   async function getWeatherByCoordsKmaViaBackend(lat, lon, opts) {
