@@ -2105,7 +2105,21 @@ def _ai_styling_via_gemini(
         "3. categoryKeywords values must reflect the EXACT colors and styles in the generated image.\n"
         "4. If a category is not in the outfit, use empty string \"\".\n"
         "5. Output ONLY the image AND the marked JSON. Nothing else.\n"
-        "\n[USER CONTEXT FOR ANALYSIS]\n"
+        # ─────────────────────────────────────────────────────
+        # [2026-04-25 v10 TJ 지시] 퍼스널컬러 avoid 컬러 사용 시 첨언
+        # 사용자가 customText에 avoid 컬러를 명시 요청한 경우만 허용
+        # → 분석에서 반드시 "사용자 요청에 따라 avoid 컬러 사용, 다만 본래 톤에는 부적합" 첨언
+        # ─────────────────────────────────────────────────────
+        + ("\n[CRITICAL — PC AVOID OVERRIDE NOTICE]\n"
+           "사용자가 직접입력으로 본인의 퍼스널컬러 avoid 컬러를 요청했습니다. "
+           "이번 코디는 사용자 요청에 따라 avoid 컬러를 사용했지만, "
+           "personalColor.text 분석에서 반드시 다음 내용을 첨언해야 합니다:\n"
+           "  - '본 코디는 사용자 요청에 따라 [컬러명] 컬러를 사용했습니다.'\n"
+           "  - '다만 [퍼스널컬러 시즌] 톤의 사용자에게는 본래 권장되지 않는 컬러로, "
+           "    얼굴 혈색이 다소 흐려 보일 수 있어 액세서리(립·블러셔·골드 주얼리)로 보완하시면 좋습니다.'\n"
+           "  - 이 첨언이 빠지면 분석 실패로 간주됩니다.\n"
+           if (isinstance(meta, dict) and meta.get('pc_avoid_override')) else "")
+        + "\n[USER CONTEXT FOR ANALYSIS]\n"
         f"- 성별: {gender_ko}, 나이: {age}\n"
         f"- 신체: 키 {h_int}cm, 몸무게 {w_int}kg (BMI {bmi}, {bmi_cat_ko})\n"
         f"- 체형 분류: {body_type_key or '미등록'}\n"

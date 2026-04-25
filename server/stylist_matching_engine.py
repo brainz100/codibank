@@ -35,8 +35,174 @@ mock_backend.py에 통합하여 사용
 8. 추천 이유 스토리 박스 생성
 """
 
-import json, random, hashlib, math
+import json, random, hashlib, math, os
 from datetime import date
+
+# ═══════════════════════════════════════════════════════════════════════
+# [2026-04-25 v10 KST] TJ 지시 — 코디핏 프롬프트 전면 재구조
+# ═══════════════════════════════════════════════════════════════════════
+# 변경 핵심:
+#   1) 도시별 키워드 추출(_warm_block 부분 필터) → 폐기
+#      이전: "STYLING KEYWORDS (from 서울 fashion): Scarf, Tweed jacket, ..."
+#      문제: 17°C에 'Scarf' 들어감 → 목도리 그림 (16~21도 사각지대)
+#   2) 사용자 4요소(성별·체형·나이·날씨)를 프롬프트의 본체로 격상
+#      이전: 첫 줄에 짧게 → 구조의 부수
+#      현재: USER PROFILE 블록이 가장 큰 비중 (전체 70%)
+#   3) AI 스타일리스트 페르소나(이름·도시·경력·전문) 활용 강화
+#   4) 온도 4단계 명확 룰 (≤0 / 1~10 / 11~19 / ≥20)
+#      목도리 ≤0°C, 코트/패딩 ≤10°C, 가디건/액세서리스카프 11~19°C, 그 외 X
+#   5) body_type_db.json 의 do_style/dont_style 직접 주입
+#   6) 얼굴 99.99% 닮음 강화 (성형/뷰티화 절대 금지)
+#   7) 퍼스널컬러 avoid 컬러 절대 금지 (단, custom 입력 시 예외 + 분석 첨언)
+# ═══════════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════
+# 1.5 [v10] body_type_db.json 직접 로드 (체형별 do/dont 룰 주입용)
+# ═══════════════════════════════════════════════════
+_BODY_TYPE_DB = {}
+try:
+    _btd_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "body_type_db.json")
+    if os.path.exists(_btd_path):
+        with open(_btd_path, "r", encoding="utf-8") as _btf:
+            _BODY_TYPE_DB = json.load(_btf)
+except Exception as _btd_e:
+    print(f"[stylist_matching_engine v10] body_type_db.json 로드 실패: {_btd_e}")
+
+
+def _resolve_body_type(gender_ko, body_type_raw):
+    """
+    [v10] 사용자 입력 체형을 body_type_db 키로 매핑.
+    payload.user.bodyType 이 한글 라벨("모래시계", "역삼각형" 등) 또는 영문 키일 수 있음.
+    
+    Returns: dict {label, en, do_style, dont_style, best_color, worst_color, feature, celebs} 또는 None
+    """
+    if not body_type_raw or not _BODY_TYPE_DB:
+        return None
+    
+    gender_key = "female" if gender_ko == "여성" else "male"
+    db = _BODY_TYPE_DB.get(gender_key, {})
+    if not db:
+        return None
+    
+    raw = str(body_type_raw).strip().lower()
+    
+    # 1) 영문 키 직접 매칭
+    if raw in db:
+        return db[raw]
+    
+    # 2) 한글 label 매칭
+    for key, info in db.items():
+        if info.get('label', '').lower() == raw or raw in info.get('label', '').lower():
+            return info
+        if info.get('en', '').lower() == raw or raw in info.get('en', '').lower():
+            return info
+    
+    # 3) 부분 일치 (예: "모래시계" → "neat_hourglass")
+    keyword_map = {
+        "모래시계": "neat_hourglass" if gender_key == "female" else "hourglass_m",
+        "삼각형": "pear" if gender_key == "female" else "triangle_m",
+        "역삼각형": "inverted_triangle_f" if gender_key == "female" else "inverted_triangle_m",
+        "직사각형": "rectangle_f" if gender_key == "female" else "rectangle_m",
+        "사과": "apple",
+        "배": "pear",
+        "사다리꼴": "trapezoid",
+        "타원": "oval",
+        "다이아몬드": "diamond",
+        "마른": "lean_column",
+    }
+    for kw, target_key in keyword_map.items():
+        if kw in raw and target_key in db:
+            return db[target_key]
+    
+    return None
+
+
+# ═══════════════════════════════════════════════════
+# 1.6 [v10] 온도별 4단계 아이템 허용 룰 (TJ 지시 정책)
+# ═══════════════════════════════════════════════════
+def _get_temp_policy(temp):
+    """
+    [v10] 온도 → 아이템 허용/금지 정책 텍스트 (Gemini 프롬프트 직접 삽입용)
+    
+    TJ 정책 (2026-04-25):
+      ≤ 0°C:    한겨울 — 목도리·코트·패딩 OK / 가디건은 보조용
+      1~10°C:  추위  — 코트·패딩 OK / 목도리 X / 가디건은 코트 안 레이어
+      11~19°C: 환절기 — 가디건·액세서리 스카프 OK / 코트·패딩·목도리 X
+      ≥ 20°C:  따뜻함 — 모든 보온 아이템 X / 단일 가벼운 레이어
+    """
+    try:
+        t = float(temp)
+    except Exception:
+        t = 20.0
+    
+    if t <= 0:
+        return {
+            "tier": "freezing",
+            "tier_label": "한겨울 (영하)",
+            "outer_allowed": ["winter coat", "padded coat", "puffer jacket", "wool overcoat"],
+            "outer_forbidden": [],
+            "neck_allowed": ["thick winter muffler/scarf (knit, wool, cashmere)"],
+            "neck_forbidden": ["light silk decorative scarf (too thin for sub-zero)"],
+            "summary_en": (
+                "FREEZING WEATHER (≤0°C): Heavy winter outerwear MANDATORY. "
+                "ALLOWED: thick winter coat, padded/puffer coat, wool muffler, gloves, beanie. "
+                "Layer cardigan/knitwear UNDER the coat for warmth. "
+            ),
+            "summary_ko": "한겨울 영하 — 두꺼운 코트/패딩 + 머플러 필수, 가디건은 코트 안 레이어",
+        }
+    elif t <= 10:
+        return {
+            "tier": "cold",
+            "tier_label": "추위 (1~10°C)",
+            "outer_allowed": ["coat", "wool jacket", "leather jacket", "padded jacket", "trench coat"],
+            "outer_forbidden": ["light cardigan as sole outer (too cold)"],
+            "neck_allowed": [],
+            "neck_forbidden": [
+                "ABSOLUTELY NO winter muffler/heavy scarf "
+                "(muffler is ONLY for ≤0°C — this temperature is above freezing, no muffler)"
+            ],
+            "summary_en": (
+                "COLD WEATHER (1~10°C): Coat or padded jacket REQUIRED. "
+                "ALLOWED: tailored coat, wool/padded/leather/trench jacket. "
+                "FORBIDDEN: winter muffler, heavy knit scarf (only for ≤0°C). "
+                "FORBIDDEN: standalone cardigan as outer (insufficient warmth). "
+                "Cardigan may be layered UNDER the coat. "
+            ),
+            "summary_ko": "추위 — 코트/패딩 자켓 필수, 목도리/머플러 절대 금지(영하 아님), 가디건 단독 X",
+        }
+    elif t <= 19:
+        return {
+            "tier": "transitional",
+            "tier_label": "환절기 (11~19°C)",
+            "outer_allowed": ["cardigan", "light jacket", "blazer", "denim jacket", "knit cardigan"],
+            "outer_forbidden": ["thick winter coat", "padded jacket", "puffer", "down coat", "wool overcoat"],
+            "neck_allowed": ["light silk scarf (decorative accessory)", "thin cotton scarf"],
+            "neck_forbidden": ["thick winter muffler", "heavy knit/wool scarf"],
+            "summary_en": (
+                "TRANSITIONAL WEATHER (11~19°C): Light layer outerwear ONLY. "
+                "ALLOWED: cardigan, light blazer, denim/light jacket, decorative silk scarf as accessory. "
+                "FORBIDDEN: thick coat, padded/puffer jacket, wool muffler, heavy winter scarf. "
+                "Layer breathably — single light outer over a top, no heavy bundling. "
+            ),
+            "summary_ko": "환절기 — 가디건/얇은 자켓 OK, 액세서리 실크스카프 OK, 코트·패딩·머플러 절대 금지",
+        }
+    else:  # >= 20
+        return {
+            "tier": "warm",
+            "tier_label": "따뜻함 (≥20°C)",
+            "outer_allowed": [],
+            "outer_forbidden": ["coat", "cardigan", "blazer", "jacket", "padded", "scarf of any kind"],
+            "neck_allowed": [],
+            "neck_forbidden": ["any scarf, muffler, or neckwear (too warm)"],
+            "summary_en": (
+                "WARM WEATHER (≥20°C): NO outer layer. Single breathable layer ONLY. "
+                "ABSOLUTELY FORBIDDEN: coat, cardigan, blazer, jacket, padded items, scarf, muffler. "
+                "ALLOWED: cotton/linen shirt, breathable top, short sleeves OK if appropriate. "
+                "Fabrics must be lightweight and breathable. "
+            ),
+            "summary_ko": "따뜻함 — 모든 보온 아이템 절대 금지, 통기성 단일 레이어만",
+        }
+
 
 # ═══════════════════════════════════════════════════
 # 1. 지역 → main/sub 도시 매핑
@@ -374,31 +540,20 @@ def build_styling_prompt(payload, fashion_db):
     else:
         active_city = sub_city
     
-    # ── 성별에 따른 키워드 선택 ──
-    city_kw = fashion_db.get('city_keywords', {}).get(active_city, {}).get(purpose, {})
-    kw_key = "women" if gender_ko == "여성" else "men"
-    keywords_str = city_kw.get(kw_key, '')
-    
+    # ─────────────────────────────────────────────────────
+    # [2026-04-25 v10 TJ 지시] 도시별 키워드 추출 폐기
+    # ─────────────────────────────────────────────────────
+    # 이전: city_kw → select_daily_keywords → 8개 추출 → 프롬프트에 강제 주입
+    # 문제: 17°C에 'Scarf' 들어감 (16~21도 사각지대 필터 부재)
+    #       모든 (도시 × 목적 × 시드) 조합에 미리 정의된 키워드 텍스트 푸시
+    #       → 본질적으로 '키워드 푸시' 패턴, 계절 부적합 위험 영구 잔존
+    # 변경: 키워드 추출 호출 자체 폐기 → 빈 리스트
+    #       도시 차별화는 스타일리스트 페르소나(이름·소속도시·경력)로 표현
+    #       트렌드 디테일은 LLM 자체 지식에 위임
     user_id = str(profile.get('id', profile.get('email', 'default')))
-    selected_keywords = select_daily_keywords(keywords_str, user_id, purpose, count=8, retry_seed=retry_seed)
-    
-    # [2026-04-06 추가] 온도 기반 키워드 필터링 — 25도에 Cardigan/Coat 제거
-    _warm_block = ['coat','cardigan','sweater','knit','wool','muffler','scarf',
-                   'turtleneck','fleece','padding','puffer','layered','layer',
-                   'heavy','thick','down jacket','overcoat','trench']
-    _cold_block = ['sleeveless','tank top','sandal','shorts','crop top']
-    
-    if temp >= 22:
-        # 따뜻한 날씨 → 두꺼운/레이어드 키워드 제거
-        selected_keywords = [kw for kw in selected_keywords 
-                            if not any(w in kw.lower() for w in _warm_block)]
-    elif temp <= 5:
-        # 추운 날씨 → 시원한 키워드 제거
-        selected_keywords = [kw for kw in selected_keywords 
-                            if not any(w in kw.lower() for w in _cold_block)]
-    
-    # ── 온도 버킷 ──
-    temp_bucket = _get_temp_bucket(temp)
+    selected_keywords = []  # [v10] 폐기 — 더 이상 키워드 추출하지 않음
+    # ── 온도 정책 (v10 4단계) ──
+    temp_policy = _get_temp_policy(temp)
     
     # ── 여성 하의 타입 결정 ──
     if gender_ko == "여성":
@@ -425,52 +580,175 @@ def build_styling_prompt(payload, fashion_db):
         )
     
     # ── 얼굴 사진 여부 ──
-    has_face = bool(payload.get('face_image'))
+    has_face = bool(payload.get('face_image') or payload.get('faceImage'))
+    
+    # ─────────────────────────────────────────────────────────
+    # [v10 TJ 지시] 얼굴 99.99% 닮음 — 강화 프롬프트
+    # 사용자 등록 사진을 거의 완벽 복제, 성형/뷰티화 절대 금지
+    # ─────────────────────────────────────────────────────────
     face_instruction = ""
     if has_face:
         face_instruction = (
-            "FACE (CRITICAL): A face reference photo is provided. "
-            "You MUST preserve the EXACT facial identity, features, skin tone, and expression. "
-            "The generated image must look like the same person in the reference photo. "
+            "═══ FACE IDENTITY — 99.99% LIKENESS REQUIRED ═══\n"
+            "A face reference photo is provided as the FIRST input image. "
+            "GENERATE THE PERSON'S FACE TO MATCH THE REFERENCE PHOTO AT 99.99% LIKENESS. "
+            "This is the HIGHEST priority rule — no other rule overrides this. "
+            "\n\n"
+            "EXACT match required for:\n"
+            "  • Face shape, jawline contour, chin angle\n"
+            "  • Eye shape, size, eyelid type (single/double), pupil color, gaze direction\n"
+            "  • Eyebrow shape, thickness, arch, color\n"
+            "  • Nose bridge width, tip shape, nostril proportion\n"
+            "  • Lip shape, fullness, philtrum length\n"
+            "  • Cheekbone position and prominence\n"
+            "  • Skin tone, undertone, texture, blemishes/moles/freckles\n"
+            "  • Hair color, texture, length, parting, hairline\n"
+            "  • Any distinguishing features (dimples, scars, beauty marks)\n"
+            "\n"
+            "ABSOLUTELY FORBIDDEN:\n"
+            "  ✗ Beautifying, smoothing, slimming, or idealizing the face\n"
+            "  ✗ Changing age (no younger/older)\n"
+            "  ✗ Changing ethnicity or race\n"
+            "  ✗ Generic Korean idol faces / model faces / stock-photo faces\n"
+            "  ✗ Face replacement with a different person\n"
+            "\n"
+            "If the generated face does NOT recognizably match the reference at 99.99% — REGENERATE. "
+            "The viewer must instantly recognize this is the SAME person from the reference photo. "
+            "═══ END FACE RULE ═══\n"
         )
     
-    # ═══ 최종 프롬프트 조립 ═══
+    # ─────────────────────────────────────────────────────────
+    # [v10] 체형 정보 추출 (body_type_db 활용)
+    # ─────────────────────────────────────────────────────────
+    body_type_raw = profile.get('bodyType') or payload.get('user', {}).get('bodyType', '')
+    body_info = _resolve_body_type(gender_ko, body_type_raw)
+    body_block = ""
+    if body_info:
+        body_block = (
+            f"BODY TYPE: {body_info.get('label', body_type_raw)} ({body_info.get('en', '')})\n"
+            f"  • Feature: {body_info.get('feature', '')}\n"
+            f"  • DO: {body_info.get('do_style', '')}\n"
+            f"  • DON'T: {body_info.get('dont_style', '')}\n"
+            f"  • Best color strategy: {body_info.get('best_color', '')}\n"
+            f"  • Worst color strategy: {body_info.get('worst_color', '')}\n"
+        )
+    else:
+        body_block = f"BODY TYPE: {bmi_info.get('ko', '표준 체형')} (BMI {bmi_info.get('bmi', '?')})\n"
+    
+    # ─────────────────────────────────────────────────────────
+    # [v10] 퍼스널컬러 정보 추출 + avoid 절대 금지 룰 (TJ 지시)
+    # 단, payload.customText 가 사용자 직접 입력이고 avoid 컬러를 명시 요청한 경우 예외
+    # ─────────────────────────────────────────────────────────
+    pc = payload.get('personalColor') or payload.get('personal_color') or {}
+    pc_block = ""
+    pc_avoid_override = False  # 분석 텍스트에서 첨언 여부 결정용
+    custom_text = str(payload.get('customText') or payload.get('custom_text') or '').strip()
+    pc_avoid_names = pc.get('avoid_color_names') or pc.get('avoid_colors') or []
+    pc_best_names = pc.get('best_color_names') or pc.get('best_colors') or []
+    
+    if pc:
+        pc_season = pc.get('season', '')
+        pc_undertone = pc.get('undertone', '')
+        pc_best_str = ", ".join((pc_best_names if isinstance(pc_best_names, list) else [])[:5])
+        pc_avoid_str = ", ".join((pc_avoid_names if isinstance(pc_avoid_names, list) else [])[:5])
+        
+        # 사용자 직접 입력 텍스트에 avoid 컬러 언급이 있는지 체크
+        if custom_text and pc_avoid_names:
+            for avoid_c in pc_avoid_names:
+                if avoid_c and str(avoid_c).strip() and str(avoid_c).strip().lower() in custom_text.lower():
+                    pc_avoid_override = True
+                    break
+        
+        pc_block = (
+            f"PERSONAL COLOR: {pc_season} ({pc_undertone})\n"
+            f"  • Best colors (USE these): {pc_best_str}\n"
+            f"  • Avoid colors: {pc_avoid_str}\n"
+        )
+        if pc_avoid_override:
+            pc_block += (
+                "  ⚠ NOTE: User explicitly requested an avoid-color in custom input — "
+                "this override is allowed for this generation only. "
+                "The styling analysis MUST mention that this color may not flatter user's personal color. "
+            )
+        else:
+            pc_block += (
+                "  🚫 ABSOLUTE RULE: Avoid colors MUST NEVER appear as main garment colors. "
+                "If they appear at all, only as tiny accents (button, stitching). "
+            )
+    
+    # ═══ [v10] 새 프롬프트 조립 — 사용자 4요소 본체화 ═══
+    # 구조:
+    #   1) 얼굴 (99.99% 닮음, 최상위)
+    #   2) USER PROFILE (성별·나이·체형·BMI·체형 do/dont·퍼스널컬러)  ← 본체 70%
+    #   3) ENVIRONMENT (날씨·날짜·도시·목적)
+    #   4) STYLIST PERSONA (스타일리스트 이름·도시·경력)  ← 20%
+    #   5) TEMPERATURE POLICY (4단계 명확 룰)
+    #   6) ABSOLUTE RULES (체형·신체비율·배경·양말 등)
+    
+    # 도시 시그니처 (1~2단어 본질만, TJ 권장)
+    _city_vibe = {
+        "서울":   "Korean refined minimalism, layered textures",
+        "뉴욕":   "urban versatile, confident layering",
+        "파리":   "effortless chic, accessory-focused",
+        "런던":   "heritage-meets-modern, eclectic",
+        "밀라노": "tailored craft, rich textures",
+        "상파울루": "vibrant expressive, comfort-first",
+        "두바이": "modest luxury, jewel tones",
+    }.get(active_city, "modern refined")
+    
     prompt = (
-        f"Create a photorealistic full-body fashion styling lookbook photo. "
-        f"Subject: {gender_en}, age {age}, height {height}cm, weight {weight}kg. "
-        f"Body type: {bmi_info['prompt']}. "
-        f"\n\n"
-        f"{face_instruction}"
+        # ─── [1] 헤더 ───
+        f"Create a photorealistic full-body fashion styling lookbook photo.\n\n"
+        
+        # ─── [2] 얼굴 (HIGHEST PRIORITY) ───
+        f"{face_instruction}\n"
+        
+        # ─── [3] 사용자 프로필 (본체) ───
+        f"═══ USER PROFILE (CORE STYLING TARGET) ═══\n"
+        f"Subject: {gender_en} ({gender_ko}), age {age} ({_age_range(age)}), Korean.\n"
+        f"Height: {height}cm, Weight: {weight}kg, BMI {bmi_info.get('bmi', '?')} — {bmi_info.get('en', 'average')}.\n"
+        f"{body_block}"
+        f"{pc_block}"
         f"\n"
-        f"PURPOSE: {purpose_en}. "
-        f"{purpose_prompt_en} "
-        f"\n\n"
-        f"STYLING KEYWORDS (from {active_city} fashion): {', '.join(selected_keywords)}. "
-        f"\n\n"
-        f"{bottom_instruction}"
+        
+        # ─── [4] 환경 ───
+        f"═══ ENVIRONMENT ═══\n"
+        f"User location: {user_location or 'unspecified'}\n"
+        f"Date: {date.today().isoformat()}\n"
+        f"Weather: {temp}°C, {condition} — {temp_policy['tier_label']}\n"
+        f"Purpose: {purpose} ({purpose_en})\n"
+        f"{purpose_prompt_en}\n"
         f"\n"
-        # [2026-04-06 보강] 날씨=사용자 현지, 패션감각=스타일리스트 도시 분리
-        f"WEATHER AT USER LOCATION (HIGH PRIORITY — MUST OVERRIDE GENERIC STYLING): "
-        f"The user is currently at: {user_location or 'their local area'}. "
-        f"Local temperature: {temp}°C, Condition: {condition}. "
-        f"Outfit MUST be appropriate for THIS temperature — NOT for the stylist city. "
-        f"Outfit weight guide: {temp_bucket}. "
-        f"{'WARM WEATHER RULE: NO blazer, NO jacket, NO cardigan, NO sweater, NO coat, NO heavy layers. Single light layer ONLY. Shirt sleeves can be short or rolled up. Fabrics must be BREATHABLE (cotton, linen, lightweight). ' if temp >= 22 else ''}"
-        f"{'COLD WEATHER RULE: Must include warm outer layer (coat/jacket). Layering is essential. Warm fabrics required. ' if temp <= 10 else ''}"
-        f"\n\n"
-        # ── 금지 항목 (CRITICAL) ──
-        f"=== ABSOLUTE RULES (VIOLATION = GENERATION FAILURE) ===\n"
-        f"BODY PROPORTION (CRITICAL): Upper body (head to waist) MUST be 40% or LESS. "
-        f"Lower body (waist to feet) MUST be 60% or MORE. 3:7 ratio is MANDATORY. "
-        f"5:5 or 4:6 ratio = GENERATION FAILURE.\n"
-        f"SOCKS: Both feet MUST wear IDENTICAL socks — same color, same pattern. "
-        f"Mismatched socks = STRICTLY FORBIDDEN.\n"
-        f"STYLIST RULE: ONLY real-life wearable daily outfits. "
-        f"FORBIDDEN: runway, fashion-show, avant-garde, asymmetric, experimental styling.\n"
-        f"BACKGROUND (ABSOLUTE): Single SOLID FLAT PASTEL COLOR that CONTRASTS with outfit. "
-        f"Studio paper backdrop ONLY — NO environment, NO objects, NO props.\n"
+        
+        # ─── [5] 스타일리스트 페르소나 (10~20%) ───
+        # (process_styling_request에서 stylist 정보 추가 주입됨)
+        f"═══ STYLIST CONTEXT ═══\n"
+        f"This look is curated by an AI stylist based in {active_city}.\n"
+        f"City aesthetic: {_city_vibe}.\n"
+        f"Reflect {active_city} stylist's professional intuition for current trends — "
+        f"NOT generic city stereotypes, but contemporary 2026 sensibility appropriate for "
+        f"the user's age, body, and weather.\n"
+        f"\n"
+        
+        # ─── [6] 온도 정책 (TJ 지시 4단계) ───
+        f"═══ TEMPERATURE POLICY ({temp}°C) ═══\n"
+        f"{temp_policy['summary_en']}\n"
+        f"\n"
+        
+        # ─── [7] 하의 ───
+        f"{bottom_instruction}\n"
+        
+        # ─── [8] 절대 룰 ───
+        f"═══ ABSOLUTE RULES (VIOLATION = REGENERATE) ═══\n"
+        f"BODY PROPORTION: Upper body (head→waist) ≤ 40%, Lower body (waist→feet) ≥ 60%. "
+        f"3:7 leg ratio MANDATORY. 5:5 or 4:6 = generation failure.\n"
+        f"SOCKS: Both feet IDENTICAL — same color, same pattern. Mismatched FORBIDDEN.\n"
+        f"BACKGROUND: Single SOLID FLAT PASTEL color contrasting with outfit. "
+        f"Studio paper backdrop ONLY — no environment, no objects, no props.\n"
+        f"STYLE: Real-life wearable daily outfit only. "
+        f"FORBIDDEN: runway, avant-garde, asymmetric, experimental.\n"
         f"NO text, NO watermark, NO logo, NO brand names visible.\n"
-        f"=== END RULES ===\n"
+        f"═══ END RULES ═══\n"
     )
     
     # ── 메타데이터 (스토리 박스용) ──
@@ -486,15 +764,42 @@ def build_styling_prompt(payload, fashion_db):
         "main_city": main_city,
         "sub_city": sub_city,
         "region": region,
-        "keywords_selected": selected_keywords,
+        "keywords_selected": selected_keywords,  # [v10] 항상 빈 리스트
         "bottom_type": "skirt" if (gender_ko == "여성" and bottom_type == "skirt") else "pants" if gender_ko == "여성" else "pants",
         "temp": temp,
         "condition": condition,
         "has_face": has_face,
         "user_location": user_location,
+        # [v10 추가] 신규 메타
+        "temp_tier": temp_policy["tier"],
+        "temp_tier_label": temp_policy["tier_label"],
+        "body_type_info": body_info,  # 체형별 do/dont 등
+        "pc_avoid_override": pc_avoid_override,  # 분석 첨언용
+        "pc": pc,
     }
     
     return prompt, metadata
+
+
+# ─── [v10] 나이대 라벨 헬퍼 ───
+def _age_range(age):
+    """나이 → 영문 라벨 (LLM이 인식하기 좋게)"""
+    try:
+        a = int(age)
+    except Exception:
+        a = 30
+    if a < 25:
+        return "early 20s, youthful"
+    elif a < 30:
+        return "late 20s, fresh-modern"
+    elif a < 35:
+        return "early 30s, professional"
+    elif a < 40:
+        return "late 30s, refined"
+    elif a < 50:
+        return "40s, mature elegant"
+    else:
+        return "50+, sophisticated mature"
 
 
 # ═══════════════════════════════════════════════════
@@ -824,15 +1129,32 @@ def process_styling_request(payload, fashion_db, stylist_db):
         user_gender, user_body, user_id, retry_seed=retry_seed
     )
     
-    # 3. 스타일리스트 컬러를 프롬프트에 반영
+    # 3. [v10 TJ 지시] 스타일리스트 정보를 페르소나 형태로 풍부 주입
+    # 단순 컬러 지시 → 11,200명 차별화의 핵심인 인격(이름·경력·전문분야) 표현
     if stylist:
-        color_addition = (
-            f"\nSTYLIST COLOR DIRECTION: "
-            f"Primary color tone: {stylist['color1']}. "
-            f"Accent color: {stylist['color2']}. "
-            f"Incorporate these colors naturally into the outfit coordination. "
+        s_name  = stylist.get('name', '')
+        s_color1 = stylist.get('color1', '')
+        s_color2 = stylist.get('color2', '')
+        s_level = stylist.get('level', '')
+        s_exp   = stylist.get('exp', '')
+        s_major = stylist.get('major', '')
+        s_career = stylist.get('career', '')
+        
+        persona_addition = (
+            f"\n═══ AI STYLIST PERSONA ═══\n"
+            f"Name: {s_name}\n"
+            f"Based in: {active_city}\n"
+            f"Level: {s_level} ({s_exp}년 경력)\n"
+            f"Specialty: {s_major}\n"
+            f"Career: {s_career}\n"
+            f"Signature palette: {s_color1} (primary) + {s_color2} (accent)\n"
+            f"\n"
+            f"This stylist's professional intuition and {s_exp}-year experience guides "
+            f"this look. Reflect the signature color palette naturally — not as a "
+            f"strict uniform, but as the stylist's tonal sensibility. "
+            f"Adjust to user's personal color (best > stylist preference).\n"
         )
-        prompt += color_addition
+        prompt += persona_addition
     
     # [2026-04-06 추가] 성별별 악세서리/소품 제한 — 남자 핸드백 방지
     if metadata['gender_ko'] == "남성":
@@ -896,13 +1218,20 @@ _PURPOSE_D = {"비즈니스 포멀":"Sharp professional — structured tailoring
 #       3) Ai 옷장 유사도 매칭 기준
 # ═══════════════════════════════════════════════════
 
+# ─────────────────────────────────────────────────────────
+# [2026-04-25 v10 TJ 지시] _OUTER_ITEMS 4단계 정책 동기화
+# 이전: 6단계로 잘게 쪼개져 있어 11~21도 사이가 정책과 어긋남
+# 변경: TJ 지시 4단계와 정확히 일치
+#   ≤ 0°C    : 머플러 + 코트/패딩  (한겨울)
+#   1~10°C  : 코트/패딩 (머플러 X)
+#   11~19°C : 가디건/얇은자켓 + 액세서리 스카프 (코트/패딩/머플러 X)
+#   ≥ 20°C  : 아우터 X
+# ─────────────────────────────────────────────────────────
 _OUTER_ITEMS = {
-    "extreme_cold": {"M": "헤비 패딩 코트", "F": "롱 패딩 코트"},
-    "very_cold": {"M": "울 오버코트", "F": "울 롱코트"},
-    "cold": {"M": "트렌치코트", "F": "트렌치코트"},
-    "chilly": {"M": "블레이저", "F": "자켓"},
-    "cool": {"M": "라이트 자켓", "F": "가디건"},
-    "mild": {"M": "얇은 자켓", "F": "라이트 가디건"},
+    "freezing":     {"M": "롱 패딩 코트", "F": "롱 패딩 코트"},      # ≤ 0°C
+    "cold":         {"M": "울 코트", "F": "울 트렌치코트"},          # 1~10°C
+    "transitional": {"M": "라이트 자켓", "F": "라이트 가디건"},      # 11~19°C
+    # ≥ 20°C는 키 없음 (아우터 X)
 }
 _TOP_ITEMS = {
     "비즈니스 포멀": {"M": "드레스 셔츠", "F": "실크 블라우스"},
@@ -1011,14 +1340,18 @@ def generate_outfit_spec(metadata, stylist):
     
     spec = {}
     
-    # ── 아우터 (20도 이상 제외) ──
-    if temp <= -10: t_key = "extreme_cold"
-    elif temp <= 0: t_key = "very_cold"
-    elif temp <= 5: t_key = "cold"
-    elif temp <= 10: t_key = "chilly"
-    elif temp <= 15: t_key = "cool"
-    elif temp <= 20: t_key = "mild"
-    else: t_key = None
+    # ─────────────────────────────────────────────────────
+    # [v10 TJ 지시] 아우터 4단계 정책 (≤0 / 1~10 / 11~19 / ≥20)
+    # ≥ 20°C는 t_key 없음 → 아우터 미생성
+    # ─────────────────────────────────────────────────────
+    if temp <= 0:
+        t_key = "freezing"
+    elif temp <= 10:
+        t_key = "cold"
+    elif temp <= 19:
+        t_key = "transitional"
+    else:
+        t_key = None  # 20°C 이상 → 아우터 X
     
     if t_key:
         outer_items = _OUTER_ITEMS.get(t_key, {})
