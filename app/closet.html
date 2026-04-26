@@ -2238,32 +2238,57 @@ function checkUnifiedUsage(feature){
   //       → Math.max(0, undefined - 0) = NaN → "스타일링 NaN회 가능" 표시
   // 수정: ?? 연산자로 안전 fallback + Number 변환 + 최종 Number.isFinite 체크
   // ─────────────────────────────────────────────────────────────────────
+  // ─── 2026-04-26 KST v16 TJ 지시 ─── 이미지 생성 횟수 미연동 수정
+  // 원인: closet.html이 cb_plan_info에서 totalLimit 키를 찾지만
+  //       mypage.html이 저장하는 키는 codifitBase/codifitBonus/tryonBase/tryonBonus
+  //       → totalLimit 항상 undefined → fallback으로 PLANS 정의값 사용
+  //       → 보너스(쿠폰 등) 무시되어 사용자 실제 한도와 어긋남
+  // 수정: cb_plan_info의 정확한 키 구조 사용
+  //       totalLimit = (codifitBase + codifitBonus) + (tryonBase + tryonBonus)
+  //       단 codifitBase >= 9999 (다이아몬드)는 9999 유지
+  // ─────────────────────────────────────────────────────────────────────
   const _planInfo    = _getPlanInfo();
   const planId       = (user.plan || 'free').toLowerCase();
   const plan         = PLANS[planId] || PLANS.free;
   const u            = getUnifiedUsage();
   const totalUsed    = Number(u.totalCount) || 0;
   
-  // [v11] cb_plan_info의 totalLimit을 우선 사용하되 undefined/null/NaN 방어
-  // 코디핏 월 한도(closetMonthly) + 트라이온 월 한도(codistyleMonthly) = 합산 한도
-  const _piTotal = (_planInfo && _planInfo.totalLimit !== undefined && _planInfo.totalLimit !== null)
-    ? Number(_planInfo.totalLimit)
-    : NaN;
-  const _planTotal = Number(plan.totalMonthly);
-  const _planComputed = Number(plan.closetMonthly||0) + Number(plan.codistyleMonthly||0);
+  // [v16] cb_plan_info에서 mypage 형식으로 한도 계산
+  // codifitBase: 코디핏 기본 한도 (플랜)
+  // codifitBonus: 보너스 (쿠폰/이벤트 등)
+  // tryonBase + tryonBonus: 트라이온도 동일
+  let totalLimit = NaN;
+  if (_planInfo) {
+    const _coBase = Number(_planInfo.codifitBase);
+    const _coBonus = Number(_planInfo.codifitBonus) || 0;
+    const _trBase = Number(_planInfo.tryonBase);
+    const _trBonus = Number(_planInfo.tryonBonus) || 0;
+    
+    if (Number.isFinite(_coBase) && Number.isFinite(_trBase)) {
+      // 코디핏 한도 (다이아몬드는 무제한 9999 유지)
+      const _coLimit = _coBase >= 9999 ? 9999 : (_coBase + _coBonus);
+      const _trLimit = _trBase + _trBonus;
+      totalLimit = _coLimit + _trLimit;
+    } else if (_planInfo.totalLimit !== undefined && _planInfo.totalLimit !== null) {
+      // 구버전 호환: totalLimit 직접 저장된 경우
+      totalLimit = Number(_planInfo.totalLimit);
+    }
+  }
   
-  // 우선순위: planInfo의 유효 값 > plan.totalMonthly > closet+codistyle 합산 > 4 (FREE 기본)
-  let totalLimit;
-  if (Number.isFinite(_piTotal) && _piTotal > 0) totalLimit = _piTotal;
-  else if (Number.isFinite(_planTotal) && _planTotal > 0) totalLimit = _planTotal;
-  else if (_planComputed > 0) totalLimit = _planComputed;
-  else totalLimit = 4;  // 최종 fallback (FREE 기본 한도)
+  // [v11 fallback 체인] cb_plan_info 못 읽으면 PLANS 정의값 사용
+  if (!Number.isFinite(totalLimit) || totalLimit <= 0) {
+    const _planTotal = Number(plan.totalMonthly);
+    const _planComputed = Number(plan.closetMonthly||0) + Number(plan.codistyleMonthly||0);
+    if (Number.isFinite(_planTotal) && _planTotal > 0) totalLimit = _planTotal;
+    else if (_planComputed > 0) totalLimit = _planComputed;
+    else totalLimit = 4;  // 최종 fallback (FREE 기본 한도)
+  }
   
   const remaining = Math.max(0, totalLimit - totalUsed);
 
   // 월간 합산 한도 초과
   if(totalUsed >= totalLimit)
-    return { blocked:true, remaining:0,
+    return { blocked:true, remaining:0, totalLimit:totalLimit, totalUsed:totalUsed,
       reason: plan.label+' 플랜 이미지 생성 한도('+totalLimit+'회)를 모두 사용했어요.' };
 
   // 다이아몬드 일일 합산 한도
@@ -2271,10 +2296,10 @@ function checkUnifiedUsage(feature){
   const dayUsed      = Number(u.dayTotal) || 0;
   const dayRemaining = (dailyLimit && Number.isFinite(dailyLimit)) ? Math.max(0, dailyLimit - dayUsed) : null;
   if(dailyLimit && dayUsed >= dailyLimit)
-    return { blocked:true, remaining,
+    return { blocked:true, remaining, totalLimit:totalLimit, totalUsed:totalUsed,
       reason: '오늘 일일 한도('+dailyLimit+'회)를 모두 사용했어요. 내일 다시 이용해주세요.' };
 
-  return { blocked:false, remaining, dailyRemaining: dayRemaining };
+  return { blocked:false, remaining, totalLimit:totalLimit, totalUsed:totalUsed, dailyRemaining: dayRemaining };
 }
 
 function updateQuotaBadge(){
@@ -2468,6 +2493,216 @@ function localPalette(pk,temp,seed){
 }
 
 // 추천 코디에서 "카테고리-컬러" 키워드를 뽑아 디지털 옷장과 매칭하기 위한 데이터
+// ════════════════════════════════════════════════════════════════════════
+// [2026-04-26 v15 TJ-2] 추천 코디 보존/복원 시스템 (CRITICAL BUG FIX)
+// ════════════════════════════════════════════════════════════════════════
+// 문제: 다른 페이지/앱 갔다 오면 추천코디 이미지가 사라짐
+// 원인: 페이지 로드 시 line 6343의 resetVtoState('empty')가 무조건 호출
+//       이미지는 localStorage에 캐싱되지만, generateStyling()이 호출돼야만 그려짐
+// 해결: 마지막 추천 결과를 sessionStorage에 보존
+//       페이지 로드 시 resetVtoState 후 자동 복원 시도
+// 리셋 케이스 (sessionStorage 삭제):
+//   - 사용자 명시적 리셋 버튼
+//   - 로그아웃
+//   - 코디 목적 변경
+//   - 날짜 변경
+// ════════════════════════════════════════════════════════════════════════
+const _CB_LAST_KEY = 'cb_closet_last_result_v15';
+
+function _saveLastResult(){
+  // 추천코디 생성 완료 후 호출 — 다음 방문 시 자동 복원용
+  try{
+    const data = {
+      ts: Date.now(),
+      userEmail: (window.user && user.email) || '',
+      pk: S.pk || '',
+      day: S.day || 'today',
+      selDateKey: S.selDateKey || '',
+      seed: Number(S.seed||0),
+      cacheKey: S._lastCacheKey || '',  // localStorage 이미지 키
+      hasGenerated: !!S.hasGenerated,
+      // 분석 데이터 — DOM에서 추출
+      story: (function(){var e=document.getElementById('codiExplain');return e?e.innerHTML:'';})(),
+      pcText:    (function(){var e=document.getElementById('anPcText');return e?e.textContent:'';})(),
+      pcKws:     (function(){var e=document.getElementById('anPcKws');return e?e.innerHTML:'';})(),
+      bodyText:  (function(){var e=document.getElementById('anBodyText');return e?e.textContent:'';})(),
+      bodyKws:   (function(){var e=document.getElementById('anBodyKws');return e?e.innerHTML:'';})(),
+      purposeText: (function(){var e=document.getElementById('anPurposeText');return e?e.textContent:'';})(),
+      purposeKws:  (function(){var e=document.getElementById('anPurposeKws');return e?e.innerHTML:'';})(),
+      catKwHtml:   (function(){var e=document.getElementById('catKwRow');return e?e.innerHTML:'';})(),
+      stylistBadge:(function(){var e=document.getElementById('stylistBadge');return e?e.innerHTML:'';})(),
+    };
+    sessionStorage.setItem(_CB_LAST_KEY, JSON.stringify(data));
+  }catch(_){}
+}
+
+function _clearLastResult(){
+  try{ sessionStorage.removeItem(_CB_LAST_KEY); }catch(_){}
+}
+
+async function _tryRestoreLastResult(){
+  // 페이지 로드 시 호출 — 마지막 추천 코디 자동 복원 시도
+  let raw = null;
+  try{ raw = sessionStorage.getItem(_CB_LAST_KEY); }catch(_){return false;}
+  if(!raw) return false;
+  
+  let data;
+  try{ data = JSON.parse(raw); }catch(_){ return false; }
+  if(!data || !data.cacheKey || !data.hasGenerated) return false;
+  
+  // 사용자가 다른 사용자로 로그인했으면 복원 X
+  const _curEmail = (window.user && user.email) || '';
+  if(_curEmail && data.userEmail && _curEmail !== data.userEmail) return false;
+  
+  // 캐시된 이미지 ref 가져오기
+  let cachedRef = null;
+  try{ cachedRef = localStorage.getItem(data.cacheKey); }catch(_){}
+  if(!cachedRef) return false;
+  
+  // 24시간 지난 결과는 복원하지 않음 (너무 오래된 것)
+  if(data.ts && Date.now() - data.ts > 24*60*60*1000) return false;
+  
+  try{
+    // 이미지 복원
+    const cachedSrc = await CodiBank.getImageSrc(cachedRef);
+    const canvas = document.getElementById('vtoCanvas');
+    if(!canvas) return false;
+    
+    // drawNatural 함수가 있는 generateStyling 컨텍스트 외부에서 호출되므로
+    // 여기서는 직접 이미지를 캔버스에 그림
+    const img = await new Promise((res, rej)=>{
+      const i = new Image();
+      i.crossOrigin = 'anonymous';
+      i.onload = ()=>res(i);
+      i.onerror = rej;
+      i.src = cachedSrc;
+    });
+    
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if(!iw || !ih) return false;
+    
+    const _box = document.getElementById('vtoResultBox');
+    if(!_box) return false;
+    
+    const DPR = window.devicePixelRatio || 1;
+    const boxRect = _box.getBoundingClientRect();
+    const dispH = Math.max(1, boxRect.height);
+    const ratio = iw / ih;
+    const dispW = dispH * ratio;
+    
+    canvas.width = Math.round(dispW * DPR);
+    canvas.height = Math.round(dispH * DPR);
+    canvas.style.width = dispW + 'px';
+    canvas.style.height = dispH + 'px';
+    canvas.style.position = 'relative';
+    canvas.style.inset = 'auto';
+    canvas.style.display = 'block';
+    canvas.classList.add('vto-result-image');
+    
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    ctx.clearRect(0,0,dispW,dispH);
+    ctx.drawImage(img, 0,0, iw,ih, 0,0, dispW,dispH);
+    
+    // 박스를 결과 상태로
+    _box.classList.remove('vto-empty');
+    _box.classList.remove('vto-loading');
+    
+    // 오버레이 숨김
+    const overlay = document.getElementById('vtoOverlay');
+    if(overlay) overlay.style.display = 'none';
+    const spinner = document.getElementById('vtoSpinner');
+    if(spinner){ spinner.style.display='none'; spinner.classList.remove('animating'); }
+    const stepEl = document.getElementById('vtoStep');
+    if(stepEl) stepEl.style.display='none';
+    const pctEl = document.getElementById('vtoSpinPct');
+    if(pctEl) pctEl.style.display='none';
+    
+    // [v15] swipe 도트 + 힌트 표시 (가로 긴 이미지일 때)
+    const isWide = ratio > 1.2;
+    const _dots = document.getElementById('vtoPoseDots');
+    const _hint = document.getElementById('vtoPoseHint');
+    if(isWide){
+      if(_dots) _dots.classList.remove('hidden');
+      if(_hint) _hint.classList.remove('hidden');
+      setTimeout(()=>{ if(_hint) _hint.classList.add('hidden'); }, 5000);
+    }
+    
+    // [v15 TJ-1] 정면이 박스 중앙에 보이도록 초기 스크롤 위치 조정
+    setTimeout(()=>{
+      try{
+        if(_box && isWide){
+          // 이미지 너비의 0% (좌측 시작) → 정면이 박스 좌측에 정렬
+          // scroll-snap-align: start이므로 0이 정확히 정면
+          _box.scrollLeft = 0;
+        }
+      }catch(_){}
+    }, 50);
+    
+    // 분석 데이터 복원
+    const _setHTML = (id, html)=>{
+      const e = document.getElementById(id);
+      if(e && html){ e.innerHTML = html; }
+    };
+    const _setText = (id, txt)=>{
+      const e = document.getElementById(id);
+      if(e && txt){ e.textContent = txt; }
+    };
+    
+    if(data.story){ _setHTML('codiExplain', data.story); }
+    if(data.pcText){
+      _setText('anPcText', data.pcText);
+      _setHTML('anPcKws', data.pcKws);
+      var s1=document.getElementById('anPcSection'); if(s1) s1.classList.remove('hidden');
+    }
+    if(data.bodyText){
+      _setText('anBodyText', data.bodyText);
+      _setHTML('anBodyKws', data.bodyKws);
+      var s2=document.getElementById('anBodySection'); if(s2) s2.classList.remove('hidden');
+    }
+    if(data.purposeText){
+      _setText('anPurposeText', data.purposeText);
+      _setHTML('anPurposeKws', data.purposeKws);
+      var s3=document.getElementById('anPurposeSection'); if(s3) s3.classList.remove('hidden');
+    }
+    if(data.catKwHtml){
+      _setHTML('catKwRow', data.catKwHtml);
+      var ss=document.getElementById('catKwSection'); if(ss) ss.classList.remove('hidden');
+      var kr=document.getElementById('kwRow'); if(kr) kr.classList.remove('hidden');
+    }
+    if(data.stylistBadge){
+      _setHTML('stylistBadge', data.stylistBadge);
+      var sb=document.getElementById('stylistSummaryBox'); if(sb) sb.classList.remove('hidden');
+    }
+    
+    // 상태 복원
+    S.pk = data.pk || S.pk;
+    S.day = data.day || S.day;
+    S.selDateKey = data.selDateKey || S.selDateKey;
+    S.seed = Number(data.seed||0);
+    S.hasGenerated = true;
+    S._lastCacheKey = data.cacheKey;
+    
+    // 4개 버튼 활성화
+    try{
+      ['saveBtn','againBtn','shareBtn','resetBtn2'].forEach(function(id){
+        var btn=document.getElementById(id); 
+        if(btn){
+          btn.disabled = false;
+          btn.classList.remove('vto-btn-inactive');
+          btn.classList.add('vto-btn-active');
+        }
+      });
+    }catch(_){}
+    
+    return true;
+  }catch(e){
+    console.warn('[v15] 마지막 추천코디 복원 실패:', e);
+    return false;
+  }
+}
+
 function buildMatchPairsFromPalette(palette, temp){
   const t = Number(temp);
   // 온도별 아우터 카테고리 키 (CAT_SUBSTITUTE_MAP으로 대체 카테고리 자동 검색)
@@ -4163,13 +4398,47 @@ async function updateVTO(opts={}){
     const ih = img.naturalHeight || img.height;
     if(!iw || !ih) return;
     
-    // 박스의 표시 높이를 기준으로 폭 계산 (자연 비율 유지)
+    // 박스의 표시 너비/높이
     const boxRect = canvas.parentElement.getBoundingClientRect();
-    const dispH = Math.max(1, boxRect.height);
-    const ratio = iw / ih;          // 이미지 가로:세로 비율
-    const dispW = dispH * ratio;    // 표시 너비 (자연 비율)
+    const boxW = Math.max(1, boxRect.width);
+    const boxH = Math.max(1, boxRect.height);
+    const ratio = iw / ih;
     
-    // 캔버스를 이미지 비율에 맞게 재조정
+    // ─────────────────────────────────────────────────────
+    // [2026-04-26 v15 TJ-1] 정/후면 표시 정책
+    //   가로 긴 이미지(ratio > 1.2): 좌=정면, 우=후면
+    //     → 캔버스 너비 = boxW × 2 (각 절반이 박스 정확히 1폭)
+    //     → scroll-snap으로 정/후면 각자 박스 중앙에 풀로 표시
+    //   세로 긴/정사각 이미지(ratio ≤ 1.2): 단일 인물
+    //     → 캔버스 너비 = boxW (박스에 꽉 차게)
+    // ─────────────────────────────────────────────────────
+    const isWide = ratio > 1.2;
+    let dispW, dispH;
+    if(isWide){
+      // 정/후면: 박스 너비 × 2 = 캔버스 너비
+      // 높이는 박스 높이 그대로 (이미지 자연 비율 유지: dispW/dispH = ratio)
+      // 즉 이미지 표시 높이 = boxW × 2 / ratio
+      dispW = boxW * 2;
+      dispH = dispW / ratio;
+      // 단, dispH가 boxH보다 작으면 위아래 빈 공간이 생기므로 dispH = boxH로 fit
+      // 하지만 그러면 가로가 잘릴 수 있으니 contain 방식: 작은 쪽에 맞춤
+      if(dispH < boxH){
+        // 이미지가 박스보다 가로로 더 긺 → boxH 기준 + 자연 비율
+        // 그러면 dispW = boxH * ratio이지만 보통 dispW < boxW*2일 수 있음
+        // 결국 짧은 변에 맞춤. 단, 정/후면 각자 박스 너비에 정확히 맞도록 dispW = boxW*2 유지
+        // dispH는 자연 비율
+      }
+    } else {
+      // 단일 인물: 박스 너비 = 캔버스 너비
+      dispW = boxW;
+      dispH = dispW / ratio;
+      if(dispH < boxH){
+        dispH = boxH;
+        dispW = dispH * ratio;
+      }
+    }
+    
+    // 캔버스 크기 적용
     canvas.width  = Math.round(dispW * DPR);
     canvas.height = Math.round(dispH * DPR);
     canvas.style.width  = dispW + 'px';
@@ -4189,11 +4458,11 @@ async function updateVTO(opts={}){
     const _hint = document.getElementById('vtoPoseHint');
     if(_box){
       _box.classList.remove('vto-empty');
-      _box.scrollLeft = 0;  // 처음엔 정면(좌)부터
+      // [v15 TJ-1] 정면이 박스 좌측에 정렬 (scrollLeft=0)
+      // 캔버스 좌측 절반 = 정면, 박스가 그 절반을 풀로 표시
+      _box.scrollLeft = 0;
     }
     
-    // 가로 스크롤 가능한 경우만 도트/힌트 표시 (이미지가 가로 길 때)
-    const isWide = ratio > 1.2;  // 1.2:1 이상이면 정+후면 가로 긴 이미지로 간주
     if(isWide){
       if(_dots) _dots.classList.remove('hidden');
       if(_hint) _hint.classList.remove('hidden');
@@ -4214,11 +4483,11 @@ async function updateVTO(opts={}){
         if(!_dotEls.length) return;
         const sx = _box.scrollLeft;
         const sw = _box.scrollWidth - _box.clientWidth;
-        const half = sw / 2;
-        const isBack = sx > half * 0.6;  // 60% 이상 스크롤 시 후면 도트 active
+        // [v15 TJ-1] 박스 너비×2 캔버스이므로 sw = boxW
+        // sx=0 → 정면, sx=boxW → 후면
+        const isBack = sx > sw / 2;
         _dotEls[0].classList.toggle('active', !isBack);
         _dotEls[1].classList.toggle('active', isBack);
-        // 사용자가 한 번이라도 스크롤하면 힌트 즉시 숨김
         if(_hint && sx > 5) _hint.classList.add('hidden');
       };
       _box.addEventListener('scroll', _scrollHandler, {passive:true});
@@ -4949,14 +5218,42 @@ async function updateVTO(opts={}){
   try{ updateAiCallBtn(); }catch(_){} // ← 완료: done(teal) 상태로
   try{ setGenUiEnabled(canGenerateNow()); }catch(_){} // 다시코디 버튼 활성화
   // ✅ 생성 완료 상태 sessionStorage에 저장 (페이지 이탈 후 복귀 시 복원용)
+  // [2026-04-26 v15 TJ-2] 분석 박스/카테고리/스타일리스트 데이터까지 모두 저장
+  // 이전에는 이미지 dataUrl + story만 저장 → 분석 텍스트가 사라지는 버그 원인
   try{
     const _cv = document.getElementById('vtoCanvas');
     if(_cv && _cv.style.display !== 'none'){
+      const _getHTML = (id)=>{ var e=document.getElementById(id); return e?e.innerHTML:''; };
+      const _getText = (id)=>{ var e=document.getElementById(id); return e?e.textContent:''; };
       const _snap = {
         ts: Date.now(),
         dataUrl: _cv.toDataURL('image/jpeg', 0.85),
+        // [v15] 캔버스 자연 비율 정보 (정+후면 가로 긴 이미지 대응)
+        canvasW: _cv.width,
+        canvasH: _cv.height,
+        canvasStyleW: _cv.style.width,
+        canvasStyleH: _cv.style.height,
+        // [v15] 컨텍스트 정보 (다른 사용자 로그인 시 차단용)
+        userEmail: (window.user && user.email) || '',
+        pk: S.pk || '',
+        day: S.day || 'today',
+        selDateKey: S.selDateKey || '',
+        seed: Number(S.seed||0),
+        // 기존 분석
         story: S.codiStory || '',
-        stateText: document.getElementById('vtoStateText')?.textContent || ''
+        stateText: _getText('vtoStateText'),
+        // [v15] 추가 분석 데이터
+        codiExplain: _getHTML('codiExplain'),
+        anPcText: _getText('anPcText'),
+        anPcKws: _getHTML('anPcKws'),
+        anBodyText: _getText('anBodyText'),
+        anBodyKws: _getHTML('anBodyKws'),
+        anPurposeText: _getText('anPurposeText'),
+        anPurposeKws: _getHTML('anPurposeKws'),
+        catKwHtml: _getHTML('catKwRow'),
+        kwRowHtml: _getHTML('kwRow'),
+        stylistBadge: _getHTML('stylistBadge'),
+        stylistSummaryHtml: _getHTML('stylistSummaryBox'),
       };
       sessionStorage.setItem('cb_closet_snap', JSON.stringify(_snap));
     }
@@ -4966,6 +5263,24 @@ async function updateVTO(opts={}){
   if(didGenerateNew){
     try{
       recordUnifiedUsage('closet');  // ★ 코디핏 사용량 기록
+      // ─── 2026-04-26 v16 TJ 지시 ─── plan_info의 closetUsed도 동기화
+      // mypage.html이 cb_plan_info에 closetUsed를 별도 저장하므로
+      // 즉시 갱신해야 다른 페이지에서도 정확한 사용량 표시
+      try{
+        const _piKey = 'cb_plan_info_'+(user?.email||'guest');
+        const _piRaw = localStorage.getItem(_piKey);
+        if(_piRaw){
+          const _pi = JSON.parse(_piRaw);
+          // 최신 사용량 cb_usage에서 가져와 동기화
+          const _u2 = getUnifiedUsage();
+          _pi.closetUsed    = Number(_u2.closetCount) || 0;
+          _pi.codistyleUsed = Number(_u2.codistyleCount) || 0;
+          _pi.updatedAt     = new Date().toISOString().slice(0,7);
+          localStorage.setItem(_piKey, JSON.stringify(_pi));
+        }
+      }catch(_){}
+      // [v16] 즉시 화면 잔여 횟수 갱신 (사용자 확인 가능)
+      try{ updateQuotaBadge(); }catch(_){}
     }catch(_){}
 
     // ✅ 코디앨범 저장: imageRef를 절대URL로 저장해 album.html에서 환경 무관하게 로드
@@ -5231,6 +5546,8 @@ function setPurpose(k){
   S.seed = 0;
   S.hasGenerated = false;
   resetVtoState('empty', '');
+  // [2026-04-26 v15 TJ-2] 목적 변경 시 sessionStorage 삭제 (명시적 리셋)
+  try{ sessionStorage.removeItem('cb_closet_snap'); }catch(_){}
   // [2026-04-11] 새 요청 시 이전 분석/스타일리스트 리셋
   try{
     var _ssb=document.getElementById('stylistSummaryBox');if(_ssb)_ssb.classList.add('hidden');
@@ -5367,6 +5684,10 @@ function resetRecommendation(){
   S.seed=0;
   S.hasGenerated=false;
   resetVtoState('empty','');
+  // [2026-04-26 v15 TJ-2] 명시적 리셋 시 sessionStorage 삭제
+  // 호출처: 사용자 명시적 리셋 / 날짜 변경 (selectTodayStage1, setTomorrowDate)
+  // 다음 페이지 로드 시 자동 복원되지 않음
+  try{ sessionStorage.removeItem('cb_closet_snap'); }catch(_){}
 }
 
 function selectTodayStage1(){
@@ -6325,6 +6646,8 @@ purposeCustomInputEl?.addEventListener('input', (e)=>{
     S.seed=0;
     S.hasGenerated=false;
     resetVtoState('empty','');
+    // [2026-04-26 v15 TJ-2] 직접입력 변경 시 sessionStorage 삭제 (명시적 리셋)
+    try{ sessionStorage.removeItem('cb_closet_snap'); }catch(_){}
   }
 });
 
@@ -6341,6 +6664,19 @@ setMetaLine();
 updateQuotaBadge();
 setGenUiEnabled(canGenerateNow());
 resetVtoState('empty','');
+
+// [2026-04-26 v15 TJ-2 CRITICAL] 페이지 로드 직후 마지막 추천코디 자동 복원
+// resetVtoState로 빈 상태가 된 직후, sessionStorage에 저장된 마지막 결과 복원
+// (window.load 이벤트의 setTimeout 400ms를 보강 — 더 빠른 복원으로 깜빡임 최소화)
+setTimeout(function(){
+  try{
+    if(typeof _restoreSnap === 'function'){
+      var raw = null;
+      try{ raw = sessionStorage.getItem('cb_closet_snap'); }catch(_){}
+      if(raw){ _restoreSnap(); }
+    }
+  }catch(_){}
+}, 250);
 
 document.getElementById('againBtn')?.addEventListener('click', function(){
   // [2026-04-26 v12 TJ-1] 다시요청 클릭 시 분석 박스(스토리/포인트) 리셋
@@ -7005,33 +7341,162 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       if(Date.now() - (snap.ts||0) > TIMEOUT_MS){
         sessionStorage.removeItem(SNAP_KEY); return;
       }
+      // [v15 TJ-2] 다른 사용자 로그인 시 복원 차단
+      var _curEmail = (window.user && user.email) || '';
+      if(_curEmail && snap.userEmail && _curEmail !== snap.userEmail){
+        sessionStorage.removeItem(SNAP_KEY); return;
+      }
+      
       var canvas  = document.getElementById('vtoCanvas');
       var overlay = document.getElementById('vtoOverlay');
+      var box     = document.getElementById('vtoResultBox');
       if(!canvas) return;
+      
       var img = new Image();
       img.onload = function(){
-        canvas.width  = img.naturalWidth  || 512;
-        canvas.height = img.naturalHeight || 820;
-        var ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
+        // [v15 TJ-1] 정/후면 표시 정책 — 박스 너비×2 캔버스 (drawNatural과 동일)
+        var iw = img.naturalWidth || 512;
+        var ih = img.naturalHeight || 820;
+        var ratio = iw / ih;
+        var isWide = ratio > 1.2;  // 정+후면 가로 긴 이미지
+        
+        var DPR = window.devicePixelRatio || 1;
+        var boxRect = box ? box.getBoundingClientRect() : {width:380, height:600};
+        var boxW = Math.max(1, boxRect.width || 380);
+        var boxH = Math.max(1, boxRect.height || 600);
+        
+        var dispW, dispH;
+        if(isWide){
+          dispW = boxW * 2;
+          dispH = dispW / ratio;
+          if(dispH < boxH){ dispH = boxH; }
+        } else {
+          dispW = boxW;
+          dispH = dispW / ratio;
+          if(dispH < boxH){ dispH = boxH; dispW = dispH * ratio; }
+        }
+        
+        canvas.width  = Math.round(dispW * DPR);
+        canvas.height = Math.round(dispH * DPR);
+        canvas.style.width  = dispW + 'px';
+        canvas.style.height = dispH + 'px';
+        canvas.style.position = 'relative';
+        canvas.style.inset = 'auto';
         canvas.style.display = 'block';
+        if(isWide) canvas.classList.add('vto-result-image');
+        
+        var ctx = canvas.getContext('2d');
+        ctx.setTransform(DPR,0,0,DPR,0,0);
+        ctx.clearRect(0,0,dispW,dispH);
+        ctx.drawImage(img, 0, 0, iw, ih, 0, 0, dispW, dispH);
+        
         if(overlay) overlay.style.display = 'none';
+        // [v15] 박스를 결과 상태로 (vto-empty 제거 → 가로 스크롤 활성)
+        if(box){
+          box.classList.remove('vto-empty');
+          box.classList.remove('vto-loading');
+          // [v15 TJ-1] 정면이 박스 좌측에 정렬 (scroll-snap-align: start)
+          box.scrollLeft = 0;
+        }
+        var spinner = document.getElementById('vtoSpinner');
+        if(spinner){ spinner.style.display='none'; spinner.classList.remove('animating'); }
+        var stepEl = document.getElementById('vtoStep');
+        if(stepEl) stepEl.style.display='none';
+        var pctEl = document.getElementById('vtoSpinPct');
+        if(pctEl) pctEl.style.display='none';
+        
+        // [v15 TJ-2] 정/후면 swipe 도트 + 힌트 (가로 긴 이미지 시)
+        if(isWide){
+          var _dots = document.getElementById('vtoPoseDots');
+          var _hint = document.getElementById('vtoPoseHint');
+          if(_dots) _dots.classList.remove('hidden');
+          if(_hint) _hint.classList.remove('hidden');
+          setTimeout(function(){ if(_hint) _hint.classList.add('hidden'); }, 5000);
+          
+          // 스크롤 연동 도트 active
+          if(box && _dots){
+            var _dotEls = _dots.querySelectorAll('.vto-pose-dot');
+            var _scrollHandler = box._poseScrollHandler;
+            if(_scrollHandler) box.removeEventListener('scroll', _scrollHandler);
+            _scrollHandler = function(){
+              if(!_dotEls.length) return;
+              var sx = box.scrollLeft;
+              var sw = box.scrollWidth - box.clientWidth;
+              var isBack = sx > sw / 2;
+              _dotEls[0].classList.toggle('active', !isBack);
+              _dotEls[1].classList.toggle('active', isBack);
+              if(_hint && sx > 5) _hint.classList.add('hidden');
+            };
+            box.addEventListener('scroll', _scrollHandler, {passive:true});
+            box._poseScrollHandler = _scrollHandler;
+          }
+        }
+        
+        // [v15 TJ-2] 분석 데이터 모두 복원 — 이전엔 codiStory만 복원해서 분석 박스 사라짐
+        var _setHTML = function(id, html){ var e=document.getElementById(id); if(e && html) e.innerHTML = html; };
+        var _setText = function(id, txt){ var e=document.getElementById(id); if(e && txt) e.textContent = txt; };
+        var _showBlock = function(id){ var e=document.getElementById(id); if(e) e.classList.remove('hidden'); };
+        
         // codiStory 복원
         if(snap.story){
           S.codiStory = snap.story;
-          var expEl = document.getElementById('codiExplain');
-          if(expEl){
-            expEl.innerHTML = snap.story
-              .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-              .replace(/\n/g, '<br>');
+          if(snap.codiExplain){
+            _setHTML('codiExplain', snap.codiExplain);
+          } else {
+            var expEl = document.getElementById('codiExplain');
+            if(expEl){
+              expEl.innerHTML = snap.story
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
+            }
           }
         }
+        // PC/Body/Purpose 분석 박스 복원
+        if(snap.anPcText){
+          _setText('anPcText', snap.anPcText);
+          _setHTML('anPcKws', snap.anPcKws);
+          _showBlock('anPcSection');
+        }
+        if(snap.anBodyText){
+          _setText('anBodyText', snap.anBodyText);
+          _setHTML('anBodyKws', snap.anBodyKws);
+          _showBlock('anBodySection');
+        }
+        if(snap.anPurposeText){
+          _setText('anPurposeText', snap.anPurposeText);
+          _setHTML('anPurposeKws', snap.anPurposeKws);
+          _showBlock('anPurposeSection');
+        }
+        // 카테고리 키워드 복원
+        if(snap.catKwHtml){
+          _setHTML('catKwRow', snap.catKwHtml);
+          _showBlock('catKwSection');
+        }
+        if(snap.kwRowHtml){
+          _setHTML('kwRow', snap.kwRowHtml);
+          _showBlock('kwRow');
+        }
+        // 스타일리스트 배지/요약
+        if(snap.stylistBadge){
+          _setHTML('stylistBadge', snap.stylistBadge);
+        }
+        if(snap.stylistSummaryHtml){
+          _setHTML('stylistSummaryBox', snap.stylistSummaryHtml);
+          _showBlock('stylistSummaryBox');
+        }
+        
         // 상태 텍스트 복원
         var stEl = document.getElementById('vtoStateText');
         if(stEl && snap.stateText) stEl.textContent = snap.stateText;
-        // S 상태 복원
+        
+        // [v15] S 상태 복원 (목적/날짜/시드)
+        if(snap.pk) S.pk = snap.pk;
+        if(snap.day) S.day = snap.day;
+        if(snap.selDateKey) S.selDateKey = snap.selDateKey;
+        if(snap.seed != null) S.seed = Number(snap.seed) || 0;
         S.hasGenerated = true;
-        S._configDirty = false;  // [2026-04-17] 복원 시 done 상태 유지
+        S._configDirty = false;
+        
         try{ updateAiCallBtn(); }catch(_){}
         try{ setGenUiEnabled(true); }catch(_){}
         // 저장/다시요청/공유 버튼 활성화
@@ -7049,20 +7514,38 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     }catch(_e){ console.warn('[closet restore]', _e); }
   }
 
+  // [2026-04-26 v15 TJ-2] 캔버스가 비어있는지 체크 (visibility 복귀 시 복원 판단)
+  function _isCanvasEmpty(){
+    var c = document.getElementById('vtoCanvas');
+    if(!c) return true;
+    if(c.style.display === 'none') return true;
+    // 캔버스가 표시 중이지만 작아져 있으면 빈 상태로 간주
+    if(!c.width || c.width < 10 || !c.height || c.height < 10) return true;
+    return false;
+  }
+  
   // 페이지 최초 로드 시 복원 시도
   window.addEventListener('load', function(){ _restoreNavState(); setTimeout(_restoreSnap, 400); });
 
   // visibilitychange: 탭/앱 전환 후 돌아올 때
+  // [v15 TJ-2 CRITICAL FIX] 이전: hasGenerated false 일 때만 복원 → 페이지 로드 후 
+  // resetVtoState('empty')로 hasGenerated가 false가 되었지만 캔버스는 그대로 있는 경우
+  // 복원이 안 됨. 변경: 캔버스가 비어있고 SNAP_KEY가 있으면 항상 복원 시도
   document.addEventListener('visibilitychange', function(){
     if(document.visibilityState === 'visible'){
       _restoreNavState();
-      if(!S.hasGenerated){ _restoreSnap(); }
+      if(_isCanvasEmpty()){ _restoreSnap(); }
     }
   });
 
   // pageshow: 뒤로가기 캐시(bfcache)에서 복귀 시
   window.addEventListener('pageshow', function(e){
-    if(e.persisted && !S.hasGenerated){ _restoreSnap(); }
+    if(e.persisted && _isCanvasEmpty()){ _restoreSnap(); }
+  });
+  
+  // [v15 TJ-2] focus 이벤트도 추가 (모바일 앱 전환 시 visibility 안 발생 케이스)
+  window.addEventListener('focus', function(){
+    if(_isCanvasEmpty()){ setTimeout(_restoreSnap, 100); }
   });
 })();
 
