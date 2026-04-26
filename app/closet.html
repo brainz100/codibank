@@ -775,10 +775,20 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   border-radius:20px;  /* 이미지 박스의 둥근 모서리만 유지 */
   overflow:hidden;
 }
-/* [2026-04-18] 세련된 이미지 뷰박스 재설계 — codistyle과 동일 */
+/* ─────────────────────────────────────────────
+ * [2026-04-26 v14 TJ] 정면+후면 가로 스크롤 박스
+ * 이전: aspect-ratio 1/1.62 (세로 긴) — 단일 인물용
+ * 변경: 박스 비율은 1/1.62 유지하되 내부 이미지가 가로 긴(2:1)
+ *      → overflow-x: auto 로 스크롤 가능하게
+ * ───────────────────────────────────────────── */
 .vto-result-box{
-  width:100%;aspect-ratio:1/1.62;border-radius:20px;overflow:hidden;position:relative;
-  display:flex;align-items:center;justify-content:center;
+  width:100%;
+  aspect-ratio:1/1.62;
+  border-radius:20px;
+  overflow-x:auto;        /* [v14] 가로 스크롤 활성화 */
+  overflow-y:hidden;
+  position:relative;
+  display:block;          /* flex → block (스크롤 보존) */
   background:
     radial-gradient(ellipse 90% 60% at 50% 45%, rgba(53,162,159,0.12) 0%, transparent 65%),
     linear-gradient(160deg, #0B1238 0%, #050A24 100%);
@@ -787,6 +797,60 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     inset 0 1px 0 rgba(151,254,237,0.06),
     inset 0 -1px 0 rgba(0,0,0,0.35),
     0 8px 24px rgba(0,0,0,0.3);
+  /* [v14] 부드러운 스크롤 + 스냅 */
+  scroll-behavior:smooth;
+  scroll-snap-type:x mandatory;
+  -webkit-overflow-scrolling:touch;
+}
+/* [v14] 스크롤바는 모바일에서 자동 숨김 */
+.vto-result-box::-webkit-scrollbar{height:0;width:0;display:none;}
+/* [v14] 빈 상태(로딩/대기) — flex 정렬 보존 */
+.vto-result-box.vto-empty{display:flex;align-items:center;justify-content:center;overflow:hidden;}
+/* [v14] 결과 표시 상태 — 이미지 자연 너비 */
+.vto-canvas.vto-result-image{
+  position:relative !important;
+  inset:auto !important;
+  display:block;
+  height:100%;
+  width:auto !important;       /* 이미지 자연 비율 보존 */
+  max-width:none !important;   /* 박스 너비 제한 무시 (가로 스크롤 발생) */
+  object-fit:contain !important;
+  object-position:center;
+  scroll-snap-align:start;
+}
+/* [v14] 정/후면 인디케이터 도트 */
+.vto-pose-dots{
+  position:absolute;left:50%;bottom:8px;
+  transform:translateX(-50%);
+  display:flex;gap:6px;z-index:5;
+  padding:4px 10px;border-radius:999px;
+  background:rgba(0,0,0,0.45);
+  backdrop-filter:blur(6px);
+  pointer-events:none;
+  transition:opacity .25s;
+}
+.vto-pose-dots.hidden{opacity:0;pointer-events:none;}
+.vto-pose-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(151,254,237,0.35);
+  transition:background .2s, transform .2s;
+}
+.vto-pose-dot.active{background:#97FEED;transform:scale(1.4);}
+.vto-pose-hint{
+  position:absolute;right:12px;top:12px;z-index:5;
+  font-size:9px;font-weight:800;
+  color:rgba(151,254,237,0.85);
+  background:rgba(0,0,0,0.45);
+  padding:4px 8px;border-radius:999px;
+  letter-spacing:.05em;
+  display:flex;align-items:center;gap:4px;
+  pointer-events:none;
+  animation:vtoPoseHintPulse 2s ease-in-out infinite;
+}
+.vto-pose-hint.hidden{display:none;}
+@keyframes vtoPoseHintPulse{
+  0%,100%{opacity:0.7;transform:translateX(0);}
+  50%{opacity:1;transform:translateX(-3px);}
 }
 /* 로딩 상태에서만 shimmer와 pulse ring 표시 */
 .vto-result-box.vto-loading::before{
@@ -1548,7 +1612,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <div class="vto-outer-layer">
       <div class="vto-result-wrap" id="vtoWrap">
         <!-- 외부 박스 (테두리) -->
-        <div class="vto-result-box" id="vtoResultBox">
+        <div class="vto-result-box vto-empty" id="vtoResultBox">
           <!-- 내부 대기/로딩 화면 — 트라이 온 img-spin 동일 구조 -->
           <div class="vto-img-spin" id="vtoOverlay">
             <!-- [2026-04-18] 진행률 표시 — 로딩 중에만 표시 (codibank 로고 위) -->
@@ -1562,6 +1626,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
           </div>
           <!-- 결과 캔버스 (생성 완료 후 표시) -->
           <canvas id="vtoCanvas" class="vto-canvas" style="display:none;"></canvas>
+        </div>
+        <!-- [2026-04-26 v14 TJ] 정/후면 swipe 인디케이터 + 힌트 -->
+        <div id="vtoPoseDots" class="vto-pose-dots hidden">
+          <span class="vto-pose-dot active" data-pose="0"></span>
+          <span class="vto-pose-dot" data-pose="1"></span>
+        </div>
+        <div id="vtoPoseHint" class="vto-pose-hint hidden">
+          <span>정·후면</span>
+          <span class="material-symbols-outlined" style="font-size:11px;">swipe</span>
         </div>
         <!-- 얼굴 등록 힌트 -->
         <div id="vtoHint" class="vto-hint" style="display:none;background:rgba(7,25,82,0.95);border:1px solid rgba(151,254,237,0.15);">
@@ -3996,6 +4069,8 @@ async function updateVTO(opts={}){
       if(stepEl) stepEl.style.display='none';
       if(pctEl) pctEl.style.display='none';
       if(boxEl) boxEl.classList.remove('vto-loading');
+      // [v14 TJ] vto-empty 제거 (drawNatural에서 다시 처리하지만 안전)
+      if(boxEl) boxEl.classList.remove('vto-empty');
       return;
     }
 
@@ -4018,6 +4093,18 @@ async function updateVTO(opts={}){
 
     // 초기 생성: 캔버스를 숨기고 로딩/빈 상태 표시
     canvas.style.display='none';
+    // [v14 TJ] 캔버스를 빈 상태로 되돌릴 때는 vto-result-image 클래스 제거 + 인라인 스타일 정리
+    canvas.classList.remove('vto-result-image');
+    canvas.style.position='';
+    canvas.style.inset='';
+    canvas.style.width='';
+    canvas.style.height='';
+    // [v14 TJ] 도트/힌트 숨김
+    var _pdots=document.getElementById('vtoPoseDots'); if(_pdots) _pdots.classList.add('hidden');
+    var _phint=document.getElementById('vtoPoseHint'); if(_phint) _phint.classList.add('hidden');
+    // [v14 TJ] 박스를 빈 상태(flex 정렬)로
+    if(boxEl) boxEl.classList.add('vto-empty');
+    
     if(state==='loading'){
       _vtoResetPct();  // [2026-04-19] 0%부터 시작
       if(spinnerEl){ spinnerEl.style.display=''; spinnerEl.classList.add('animating'); }
@@ -4065,7 +4152,81 @@ async function updateVTO(opts={}){
   const ctx = canvas.getContext('2d');
   ctx.setTransform(DPR,0,0,DPR,0,0);
 
-  // 유틸: cover 방식으로 캔버스에 이미지 그리기
+  // ─────────────────────────────────────────────────────────
+  // [2026-04-26 v14 TJ] drawNatural — 정+후면 이미지를 자연 비율로 그리기
+  // 가로 긴 이미지(2:1 또는 16:9)를 박스에 채워서 cover하면 짤림
+  // → canvas 크기를 이미지 자연 비율에 맞게 재조정 + 박스에서 가로 스크롤
+  // ─────────────────────────────────────────────────────────
+  const drawNatural = async (src)=>{
+    const img = await loadImg(src);
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if(!iw || !ih) return;
+    
+    // 박스의 표시 높이를 기준으로 폭 계산 (자연 비율 유지)
+    const boxRect = canvas.parentElement.getBoundingClientRect();
+    const dispH = Math.max(1, boxRect.height);
+    const ratio = iw / ih;          // 이미지 가로:세로 비율
+    const dispW = dispH * ratio;    // 표시 너비 (자연 비율)
+    
+    // 캔버스를 이미지 비율에 맞게 재조정
+    canvas.width  = Math.round(dispW * DPR);
+    canvas.height = Math.round(dispH * DPR);
+    canvas.style.width  = dispW + 'px';
+    canvas.style.height = dispH + 'px';
+    canvas.style.position = 'relative';
+    canvas.style.inset = 'auto';
+    canvas.classList.add('vto-result-image');
+    
+    const ctx2 = canvas.getContext('2d');
+    ctx2.setTransform(DPR,0,0,DPR,0,0);
+    ctx2.clearRect(0,0,dispW,dispH);
+    ctx2.drawImage(img, 0,0, iw,ih, 0,0, dispW,dispH);
+    
+    // ─── swipe 활성화 ───
+    const _box = document.getElementById('vtoResultBox');
+    const _dots = document.getElementById('vtoPoseDots');
+    const _hint = document.getElementById('vtoPoseHint');
+    if(_box){
+      _box.classList.remove('vto-empty');
+      _box.scrollLeft = 0;  // 처음엔 정면(좌)부터
+    }
+    
+    // 가로 스크롤 가능한 경우만 도트/힌트 표시 (이미지가 가로 길 때)
+    const isWide = ratio > 1.2;  // 1.2:1 이상이면 정+후면 가로 긴 이미지로 간주
+    if(isWide){
+      if(_dots) _dots.classList.remove('hidden');
+      if(_hint) _hint.classList.remove('hidden');
+      // 5초 후 힌트 자동 숨김
+      setTimeout(()=>{ if(_hint) _hint.classList.add('hidden'); }, 5000);
+    } else {
+      // 단일 인물 이미지면 도트/힌트 숨김
+      if(_dots) _dots.classList.add('hidden');
+      if(_hint) _hint.classList.add('hidden');
+    }
+    
+    // 스크롤에 따라 도트 active 변경
+    if(_box && _dots && isWide){
+      const _dotEls = _dots.querySelectorAll('.vto-pose-dot');
+      let _scrollHandler = _box._poseScrollHandler;
+      if(_scrollHandler) _box.removeEventListener('scroll', _scrollHandler);
+      _scrollHandler = ()=>{
+        if(!_dotEls.length) return;
+        const sx = _box.scrollLeft;
+        const sw = _box.scrollWidth - _box.clientWidth;
+        const half = sw / 2;
+        const isBack = sx > half * 0.6;  // 60% 이상 스크롤 시 후면 도트 active
+        _dotEls[0].classList.toggle('active', !isBack);
+        _dotEls[1].classList.toggle('active', isBack);
+        // 사용자가 한 번이라도 스크롤하면 힌트 즉시 숨김
+        if(_hint && sx > 5) _hint.classList.add('hidden');
+      };
+      _box.addEventListener('scroll', _scrollHandler, {passive:true});
+      _box._poseScrollHandler = _scrollHandler;
+    }
+  };
+  
+  // 유틸: cover 방식으로 캔버스에 이미지 그리기 (legacy — 단일 인물 이미지용)
   const drawCover = async (src)=>{
     const img = await loadImg(src);
     const iw = img.naturalWidth || img.width;
@@ -4147,7 +4308,7 @@ async function updateVTO(opts={}){
     const cachedRef = localStorage.getItem(cacheKey);
     if(cachedRef){
       const cachedSrc = await CodiBank.getImageSrc(cachedRef);
-      await drawCover(cachedSrc);
+      await drawNatural(cachedSrc);
       hasCache=true;
       if(!refresh) setVtoState('ready');
       if(metaEl) metaEl.textContent = AI_DEBUG ? '캐시 표시중' : '';
@@ -4540,7 +4701,7 @@ async function updateVTO(opts={}){
         }
         if(!displaySrc) throw new Error(data?.error||'이미지 URL 없음');
 
-        await drawCover(displaySrc);
+        await drawNatural(displaySrc);
         // 생성 완료: blur 해제 + rainbow 정지 + 상태 텍스트
         const _canvasDone = document.getElementById('vtoCanvas');
         if(_canvasDone){
