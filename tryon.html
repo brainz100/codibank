@@ -1,0 +1,2463 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>트라이 온 — CodiBank</title>
+
+<!--
+═══════════════════════════════════════════════════════════════════════
+  tryon.html · CodiBank 트라이 온 메인 (3-Step Flow)
+  ─── 2026-04-22 KST · 원본 codistyle.html 디자인 토큰 100% 카피 ───
+═══════════════════════════════════════════════════════════════════════
+
+  [디자인 토큰 — 원본 codistyle.html에서 그대로 상속]
+    --navy:#071952  --navy2:#0d1f3c
+    --teal:#35A29F  --teal-dark:#0B666A
+    --teal-light:#97FEED  --mint:#a2fdf0
+    --border:rgba(151,254,237,0.15)
+    html,body 배경: #00022E
+    폰트: Noto Sans KR (본문) + Outfit 900 (타이틀) + Manrope (숫자) + Material Symbols Outlined
+    버튼: .gen-btn linear-gradient(135deg,#0B666A,#35A29F) + teal-light 텍스트
+
+  [3-Step 플로우]
+    Step 1. 무엇을 입어볼까요?  — 모드(투피스/원피스) + 필수/옵션 슬롯
+    Step 2. 누구의 핏을 보고 싶어요? — 마이 / 모델 / 누군가
+    Step 3. 트라이온 생성하기 — Gemini 3 Pro Image
+
+  [하단 코디 프로필]  — 원본 .face-section 구조 그대로
+    얼굴 사진 + 퍼스널컬러 서머리 + 신체정보(성별/나이대/키/몸무게)
+
+  [피커 통신 규약]
+    Navigate: codistyle_picker.html?slot=top|bottom|onepiece|outer|shoes&mode=X&returnTo=tryon
+    Return:   sessionStorage['tryon_pick_result'] = JSON({slot,path,dataUrl,name,meta,ts})
+              → history.back() → pageshow에서 소비, key 삭제
+
+  [v53 SDK fix 절대 수정 금지 구역 존중]
+    payload 5개 필수(topPath/bottomPath/topDataUrl/bottomDataUrl/faceImage) 유지.
+    신규 필드(mode, onepiece*, outer*, shoes*, fitTarget)는 additive.
+
+═══════════════════════════════════════════════════════════════════════
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Outfit:wght@400;500;700;900&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+
+<style>
+  /* ═══════════════════════════════════════════════════════════
+     원본 codistyle.html 루트 토큰 — 그대로 상속
+     ═══════════════════════════════════════════════════════════ */
+  :root{
+    --navy:#071952;
+    --navy2:#0d1f3c;
+    --teal:#35A29F;
+    --teal-dark:#0B666A;
+    --teal-light:#97FEED;
+    --mint:#a2fdf0;
+    --border:rgba(151,254,237,0.15);
+  }
+
+  *,*::before,*::after{ box-sizing: border-box; }
+  html{ background:#00022E; }
+  body{
+    font-family:'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+    background:#00022E;
+    color:#fff;
+    max-width:480px;
+    margin:0 auto;
+    min-height:100dvh;
+    overflow-x:hidden;
+    padding-bottom:140px;
+  }
+
+  .mi{
+    font-family:'Material Symbols Outlined';
+    font-size:18px;
+    font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+    line-height:1;
+    vertical-align:middle;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     헤더 (원본 .pg-header / .pg-title / .back-btn)
+     ═══════════════════════════════════════════════════════════ */
+  .topbar{
+    padding:14px 16px 10px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .back-btn{
+    width:38px; height:38px;
+    border-radius:50%;
+    background:rgba(151,254,237,0.08);
+    border:1px solid var(--border);
+    cursor:pointer;
+    color:var(--teal-light);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .back-btn .mi{ font-size:22px; }
+  .pg-header{
+    flex:1;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .pg-title{
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-size:23px;
+    font-weight:900;
+    color:var(--teal-light);
+    letter-spacing:-.01em;
+    line-height:1.1;
+  }
+  .pg-sub{
+    font-size:11.5px;
+    color:rgba(255,255,255,.55);
+    font-weight:500;
+    line-height:1.4;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     Step 아코디언 (공용)
+     ═══════════════════════════════════════════════════════════ */
+  .step{
+    margin:0 16px 10px;
+    background:rgba(11,102,106,0.12);
+    border:1px solid rgba(151,254,237,0.12);
+    border-radius:16px;
+    overflow:hidden;
+    transition:border-color .25s ease, box-shadow .25s ease, opacity .2s ease;
+  }
+  .step[data-state="current"]{
+    border-color:rgba(151,254,237,0.35);
+    box-shadow:0 0 0 3px rgba(151,254,237,0.05);
+    background:rgba(11,102,106,0.18);
+  }
+  .step[data-state="pending"]{
+    opacity:.5;
+    pointer-events:none;
+  }
+  /* Step 1만 라인컬러 제거 */
+  .step[data-step="1"]{
+    border-color:transparent;
+  }
+  .step[data-step="1"][data-state="current"]{
+    border-color:transparent;
+    box-shadow:none;
+  }
+
+  .step-head{
+    padding:14px 18px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .step-head-body{ flex:1; min-width:0; }
+  .step-title{
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-size:15.5px;
+    font-weight:900;
+    color:#fff;
+    letter-spacing:-.01em;
+    line-height:1.25;
+  }
+  .step[data-state="current"] .step-title{ color:var(--teal-light); }
+  .step-title .ac{ color:var(--teal-light); }
+  .step-title .step-prefix{
+    font-family:'Outfit',sans-serif;
+    font-weight:900;
+    color:rgba(151,254,237,0.55);
+    letter-spacing:.01em;
+    margin-right:3px;
+    font-size:13px;
+  }
+  .step[data-state="current"] .step-title .step-prefix{
+    color:var(--teal-light);
+  }
+  .step-summary{
+    font-size:11px;
+    color:rgba(255,255,255,0.5);
+    margin-top:3px;
+    line-height:1.35;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    font-weight:500;
+  }
+
+  .step-badge{
+    font-family:'Outfit',sans-serif;
+    font-size:9.5px; font-weight:900;
+    padding:4px 10px;
+    border-radius:100px;
+    letter-spacing:.1em;
+    flex-shrink:0;
+  }
+  .step-badge.done{
+    background:rgba(151,254,237,0.15);
+    color:var(--teal-light);
+    border:1px solid rgba(151,254,237,0.3);
+  }
+  .step-badge.now{
+    background:var(--teal-light);
+    color:var(--navy);
+  }
+  .step-badge.lock{
+    background:transparent;
+    color:rgba(255,255,255,0.25);
+    border:1px solid rgba(255,255,255,0.1);
+    display:flex; align-items:center; gap:3px;
+  }
+  .step-badge.lock .mi{ font-size:11px; }
+
+  .step-body{
+    padding:0 16px 16px;
+    display:none;
+    animation:stepExpand .35s cubic-bezier(.4,0,.2,1);
+  }
+  .step[data-state="current"] .step-body{ display:block; }
+  @keyframes stepExpand{
+    from{ opacity:0; transform:translateY(-4px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  .step-edit-btn{
+    background:rgba(151,254,237,0.08);
+    border:1px solid rgba(151,254,237,0.25);
+    color:var(--teal-light);
+    font-size:10.5px;
+    font-weight:700;
+    padding:5px 11px;
+    border-radius:8px;
+    cursor:pointer;
+    font-family:inherit;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     Step 1 — 아이템 선택
+     ═══════════════════════════════════════════════════════════ */
+  .mode-switch{
+    margin:0 0 14px;
+    background:rgba(7,25,82,0.6);
+    border:1px solid rgba(151,254,237,0.15);
+    border-radius:100px;
+    padding:4px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    position:relative;
+  }
+  .mode-switch.cols-3{
+    grid-template-columns:1fr 1fr 1fr;
+  }
+  .mode-switch::before{
+    content:'';
+    position:absolute;
+    top:4px; left:4px;
+    width:calc(50% - 4px);
+    height:calc(100% - 8px);
+    background:linear-gradient(135deg, var(--teal-dark), var(--teal));
+    border-radius:100px;
+    transition:transform .35s cubic-bezier(.4,0,.2,1), opacity .25s ease;
+    box-shadow:0 2px 10px rgba(53,162,159,0.3);
+  }
+  .mode-switch.cols-3::before{
+    width:calc((100% - 8px) / 3);
+  }
+  /* 아이템 모드 */
+  .mode-switch[data-mode="onepiece"]::before{ transform:translateX(100%); }
+  .mode-switch.cols-3[data-mode="outer"]::before{ transform:translateX(200%); }
+  /* 핏 모드 */
+  .mode-switch[data-fit="somebody"]::before{ transform:translateX(100%); }
+  .mode-switch.cols-3[data-fit="model"]::before{ transform:translateX(200%); }
+  /* 모델 성별 */
+  .mode-switch[data-gender="female"]::before{ transform:translateX(100%); }
+  /* 초기 미선택 상태 인디케이터 숨김 (gender-switch 전용) */
+  .mode-switch[data-gender=""]::before{ opacity:0; }
+  .mode-btn{
+    position:relative; z-index:1;
+    background:transparent;
+    border:0;
+    padding:10px 0;
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-weight:800;
+    font-size:12.5px;
+    letter-spacing:.02em;
+    color:rgba(255,255,255,0.4);
+    cursor:pointer;
+    transition:color .3s ease;
+    white-space:nowrap;
+    display:flex; align-items:center; justify-content:center;
+    gap:5px;
+  }
+  .mode-btn.active{ color:var(--teal-light); }
+  .mode-btn .mi{ font-size:15px; }
+
+  .slot-section-label{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:10px 0 8px;
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.18em;
+    color:rgba(151,254,237,0.5);
+    text-transform:uppercase;
+  }
+  .slot-section-label::after{
+    content:''; flex:1; height:1px;
+    background:rgba(151,254,237,0.1);
+  }
+  .slot-section-label .count{
+    font-family:'Manrope','Inter',sans-serif;
+    font-size:11px;
+    color:var(--teal-light);
+    letter-spacing:0;
+    text-transform:none;
+    font-weight:800;
+  }
+
+  .slots{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+
+  /* 원본 .img-slot 스타일 그대로 상속 */
+  .slot{
+    position:relative;
+    aspect-ratio:1/1.4;
+    border-radius:14px;
+    overflow:hidden;
+    background:rgba(11,102,106,0.12);
+    border:2px dashed rgba(53,162,159,0.4);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    transition:.2s;
+  }
+  .slot:active{ transform:scale(.98); }
+  .slot.full-width{ grid-column:1/-1; aspect-ratio:1/1.2; }
+  .slot.filled{
+    border-style:solid;
+    border-color:rgba(151,254,237,0.3);
+    background:rgba(13,31,60,0.6);
+  }
+
+  .slot-empty{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:6px;
+    padding:8px;
+    text-align:center;
+  }
+  .slot-empty .icon .mi{
+    font-size:30px;
+    color:rgba(151,254,237,0.35);
+  }
+  .slot-empty .label{
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-weight:900;
+    font-size:13px;
+    color:var(--teal-light);
+    letter-spacing:-.01em;
+  }
+  .slot-empty .hint{
+    font-size:9.5px;
+    color:rgba(255,255,255,0.35);
+    font-weight:500;
+  }
+  .slot-empty .plus{
+    position:absolute;
+    top:6px; right:6px;
+    width:20px; height:20px;
+    border-radius:50%;
+    background:var(--teal-light);
+    color:var(--navy);
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px; font-weight:900; line-height:1;
+  }
+
+  .req-badge{
+    position:absolute;
+    top:8px; left:8px;
+    font-family:'Outfit',sans-serif;
+    font-size:9px; letter-spacing:.12em;
+    font-weight:800;
+    padding:3px 8px;
+    border-radius:8px;
+    background:rgba(151,254,237,0.15);
+    color:var(--teal-light);
+    border:1px solid rgba(151,254,237,0.25);
+    text-transform:uppercase;
+    z-index:2;
+  }
+  .slot.filled .req-badge{
+    background:rgba(0,0,0,0.65);
+    border-color:rgba(151,254,237,0.2);
+  }
+
+  .slot-filled{ position:absolute; inset:0; display:none; }
+  .slot.filled .slot-filled{ display:block; }
+  .slot.filled .slot-empty{ display:none; }
+  .slot-image{
+    position:absolute; inset:0;
+    background-size:cover; background-position:center;
+    background-color:rgba(13,31,60,0.5);
+  }
+  .slot-info{
+    position:absolute;
+    bottom:0; left:0; right:0;
+    padding:22px 10px 8px;
+    background:linear-gradient(to top, rgba(0,2,46,0.92), transparent);
+  }
+  .slot-info .name{
+    font-size:11px; font-weight:800;
+    color:#fff;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .slot-info .meta{
+    font-family:'Manrope',sans-serif;
+    font-size:9.5px;
+    color:rgba(151,254,237,0.65);
+    font-weight:600;
+    margin-top:1px;
+  }
+  .remove-btn{
+    position:absolute;
+    top:6px; right:6px;
+    width:26px; height:26px;
+    border-radius:50%; border:0;
+    background:rgba(0,0,0,0.7);
+    color:#fff; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Material Symbols Outlined';
+    font-size:15px;
+    z-index:3;
+  }
+  .remove-btn:active{ transform:scale(.9); }
+
+  /* 옵션 슬롯 (+ 추가 상태) */
+  .slot.add-slot{
+    background:transparent;
+    border:1.5px dashed rgba(151,254,237,0.25);
+  }
+  .slot.add-slot .slot-empty .icon .mi{ color:rgba(151,254,237,0.3); }
+  .slot.add-slot .slot-empty .plus{ display:none; }
+  .slot.add-slot .slot-empty .label{
+    color:rgba(151,254,237,0.75);
+    font-weight:700;
+    font-size:12px;
+  }
+  .slot.add-slot .opt-badge{
+    position:absolute;
+    top:8px; left:8px;
+    font-family:'Outfit',sans-serif;
+    font-size:9px; letter-spacing:.12em;
+    font-weight:700;
+    padding:3px 8px;
+    border-radius:8px;
+    background:transparent;
+    color:rgba(255,255,255,0.3);
+    border:1px solid rgba(255,255,255,0.12);
+    text-transform:uppercase;
+  }
+
+  @keyframes spin{
+    from{ transform:rotate(0deg); }
+    to{ transform:rotate(360deg); }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     Step 2 — 핏 선택 (pill 기반으로 변경됨 · 기존 fit-card 제거)
+     ═══════════════════════════════════════════════════════════ */
+  .fit-question{
+    font-size:11.5px;
+    color:rgba(255,255,255,0.55);
+    margin-bottom:13px;
+    line-height:1.5;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     Step 3 — 생성
+     ═══════════════════════════════════════════════════════════ */
+
+  /* 원본 .gen-btn 스타일 100% 카피 */
+  .gen-btn{
+    width:100%;
+    padding:18px 0;
+    border-radius:20px;
+    background:linear-gradient(135deg,#0B666A,#35A29F);
+    border:1px solid rgba(151,254,237,0.3);
+    color:var(--teal-light);
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-size:18px;
+    font-weight:900;
+    letter-spacing:.03em;
+    cursor:pointer;
+    transition:.2s;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    box-shadow:0 6px 20px rgba(53,162,159,0.25);
+  }
+  .gen-btn:hover{
+    box-shadow:0 8px 28px rgba(53,162,159,0.35);
+    transform:translateY(-1px);
+  }
+  .gen-btn:active{ transform:translateY(0) scale(.99); }
+  .gen-btn .mi{ font-size:24px; }
+  .gen-btn .count{
+    font-family:'Manrope',sans-serif;
+    font-size:12px;
+    font-weight:700;
+    opacity:.8;
+    letter-spacing:0;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     Divider (원본 .divider)
+     ═══════════════════════════════════════════════════════════ */
+  .divider{
+    height:1px;
+    background:rgba(151,254,237,0.07);
+    margin:20px 16px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     하단 코디 프로필 (원본 .face-section 구조 그대로)
+     ═══════════════════════════════════════════════════════════ */
+  .profile-wrap{
+    padding:0 16px;
+  }
+  .profile-title-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:8px;
+  }
+  .profile-title-row b{
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-size:14px;
+    font-weight:900;
+    color:#fff;
+  }
+  .profile-title-row .hint{
+    font-size:10px;
+    color:rgba(151,254,237,0.4);
+    font-weight:500;
+  }
+
+  .face-section{
+    padding:14px 16px;
+    background:rgba(11,102,106,0.13);
+    border:1px solid rgba(151,254,237,0.15);
+    border-radius:16px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .face-top{
+    display:flex; align-items:center; gap:12px;
+  }
+  .face-circle{
+    width:64px; height:64px;
+    border-radius:50%;
+    overflow:hidden;
+    flex-shrink:0;
+    background:rgba(53,162,159,0.15);
+    border:2px solid rgba(53,162,159,0.35);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .face-ph{
+    font-family:'Material Symbols Outlined';
+    font-size:30px;
+    color:rgba(53,162,159,0.55);
+  }
+  .face-mid{ flex:1; min-width:0; }
+  .pc-summary-wrap .pc-season-line{
+    margin-bottom:4px;
+  }
+  .pc-season-dot{
+    display:inline-block;
+    width:9px; height:9px;
+    border-radius:50%;
+    background:#97FEED;
+    margin-right:5px;
+    vertical-align:middle;
+  }
+  .pc-season-label{
+    font-size:11.5px;
+    font-weight:800;
+    color:var(--teal-light);
+    vertical-align:middle;
+  }
+  .pc-undertone{
+    font-size:10px;
+    color:rgba(151,254,237,0.55);
+    margin-left:4px;
+    vertical-align:middle;
+    font-weight:600;
+  }
+  .pc-tip{
+    font-size:10px;
+    color:rgba(255,255,255,0.45);
+    line-height:1.4;
+    font-weight:500;
+  }
+  .pc-empty{
+    font-size:10.5px;
+    color:rgba(255,255,255,0.35);
+    line-height:1.4;
+    font-weight:500;
+  }
+  .pc-palette{
+    display:flex; gap:3px;
+    margin-top:5px;
+  }
+  .pc-palette span{
+    width:14px; height:14px;
+    border-radius:3px;
+    border:1px solid rgba(255,255,255,0.1);
+  }
+
+  .face-btns{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    flex-shrink:0;
+  }
+  .face-btn{
+    padding:6px 10px;
+    border-radius:8px;
+    font-size:11px;
+    font-weight:700;
+    cursor:pointer;
+    border:none;
+    display:flex; align-items:center;
+    gap:3px;
+    font-family:inherit;
+    white-space:nowrap;
+  }
+  .face-btn .mi{ font-size:14px; }
+  .face-btn.cam{ background:#fff; color:var(--navy); }
+  .face-btn.gal{
+    background:rgba(53,162,159,0.15);
+    color:var(--teal-light);
+    border:1px solid rgba(53,162,159,0.3);
+  }
+
+  .body-info{
+    display:flex;
+    align-items:center;
+    gap:0;
+    padding:12px 14px;
+    border-radius:12px;
+    background:rgba(151,254,237,.06);
+    border:1px solid rgba(151,254,237,.12);
+  }
+  .body-info-cells{
+    display:flex;
+    gap:0; flex:1; align-items:center;
+  }
+  .body-cell{
+    text-align:center; flex:1;
+  }
+  .body-cell-label{
+    font-size:9px;
+    color:rgba(255,255,255,.3);
+    font-weight:600;
+    letter-spacing:.02em;
+  }
+  .body-cell-value{
+    font-family:'Manrope','Inter',sans-serif;
+    font-size:15px;
+    font-weight:900;
+    color:var(--teal-light);
+    line-height:1.3;
+    margin-top:2px;
+  }
+  .body-sep{
+    width:1px; height:22px;
+    background:rgba(151,254,237,.1);
+  }
+  .body-edit-btn{
+    font-size:10px;
+    padding:6px 12px;
+    border-radius:8px;
+    border:1px solid rgba(151,254,237,.25);
+    background:rgba(151,254,237,.08);
+    color:var(--teal-light);
+    cursor:pointer;
+    font-weight:700;
+    font-family:inherit;
+    white-space:nowrap;
+    margin-left:8px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     스타일링 분석 썸머리 (원본 #csScoreBox 축약 버전)
+     ═══════════════════════════════════════════════════════════ */
+  .analysis-box{
+    margin-top:14px;
+    padding:16px 18px;
+    background:rgba(151,254,237,.04);
+    border:1px solid rgba(151,254,237,.12);
+    border-radius:16px;
+    animation:stepExpand .4s cubic-bezier(.4,0,.2,1);
+  }
+  .analysis-head{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:10px;
+    flex-wrap:wrap;
+  }
+  .analysis-label{
+    font-family:'Outfit',sans-serif;
+    font-size:10px;
+    font-weight:900;
+    color:rgba(255,255,255,.45);
+    letter-spacing:.04em;
+    flex-shrink:0;
+  }
+  .analysis-score{
+    font-family:'Manrope','Inter',sans-serif;
+    font-size:36px;
+    font-weight:900;
+    color:var(--teal-light);
+    letter-spacing:-1px;
+    line-height:1;
+  }
+  .analysis-unit{
+    font-family:'Manrope',sans-serif;
+    font-size:11px;
+    font-weight:700;
+    color:rgba(151,254,237,.4);
+  }
+  .analysis-grade{
+    font-family:'Outfit',sans-serif;
+    font-size:9.5px;
+    font-weight:900;
+    padding:3px 10px;
+    border-radius:20px;
+    background:rgba(151,254,237,.15);
+    border:1px solid rgba(151,254,237,.3);
+    color:var(--teal-light);
+    letter-spacing:.04em;
+  }
+  .analysis-bar{
+    height:3px;
+    background:rgba(255,255,255,.07);
+    border-radius:2px;
+    overflow:hidden;
+    margin-bottom:12px;
+  }
+  .analysis-fill{
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg,#35A29F,#97FEED);
+    border-radius:2px;
+    transition:width .9s cubic-bezier(.4,0,.2,1);
+  }
+  .analysis-metrics{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:6px;
+  }
+  .metric{
+    background:rgba(255,255,255,.05);
+    border-radius:10px;
+    padding:9px 10px;
+    text-align:center;
+  }
+  .metric-label{
+    font-family:'Outfit',sans-serif;
+    font-size:8.5px;
+    font-weight:800;
+    color:rgba(151,254,237,.6);
+    letter-spacing:.03em;
+    margin-bottom:3px;
+  }
+  .metric-value{
+    display:flex;
+    align-items:baseline;
+    justify-content:center;
+    gap:1px;
+    font-family:'Manrope',sans-serif;
+  }
+  .metric-value span{
+    font-size:22px;
+    font-weight:900;
+    color:var(--teal-light);
+    line-height:1;
+  }
+  .metric-value em{
+    font-style:normal;
+    font-size:9px;
+    color:rgba(255,255,255,.25);
+    font-weight:700;
+  }
+  .metric-bar{
+    height:3px;
+    background:rgba(255,255,255,.07);
+    border-radius:2px;
+    overflow:hidden;
+    margin-top:5px;
+  }
+  .metric-fill{
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg,#35A29F,#97FEED);
+    border-radius:2px;
+    transition:width .8s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     생성 이미지 뷰박스 (원본 .result-box 스타일 상속)
+     ═══════════════════════════════════════════════════════════ */
+  .result-wrap{
+    margin-top:14px;
+    animation:stepExpand .4s cubic-bezier(.4,0,.2,1);
+  }
+  .result-box{
+    border-radius:20px;
+    overflow:hidden;
+    background:rgba(13,31,60,0.88);
+    border:1px solid var(--border);
+  }
+  /* ═══════════════════════════════════════════════════════════
+     [2026-04-26 v14/v15 TJ] 트라이온 정+후면 + Swipe UI 적용
+     - result-img-box: 가로 스크롤 컨테이너
+     - 이미지: 박스 너비 × 2 로 표시 (좌=정면, 우=후면)
+     - scroll-snap으로 정/후면 각각 박스 중앙에 풀로 표시
+     ═══════════════════════════════════════════════════════════ */
+  .result-img-box{
+    aspect-ratio:1/1.5;
+    position:relative;
+    background:linear-gradient(160deg, #0B1238 0%, #050A24 100%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow-x:auto;
+    overflow-y:hidden;
+    /* [v15] 부드러운 스크롤 + 스냅 */
+    scroll-behavior:smooth;
+    scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch;
+  }
+  .result-img-box::-webkit-scrollbar{height:0;width:0;display:none;}
+  .result-img-box::after{
+    content:'';
+    position:absolute;
+    inset:0;
+    background:linear-gradient(180deg, transparent 0%, rgba(151,254,237,0.04) 50%, transparent 100%);
+    pointer-events:none;
+  }
+  /* [v15] 결과 모드 — 이미지가 박스보다 넓을 때 (정/후면) */
+  .result-img-box.has-result{
+    display:block;
+    align-items:initial;
+    justify-content:initial;
+  }
+  .img-ph{
+    text-align:center;
+    color:rgba(151,254,237,0.5);
+  }
+  .img-ph .mi{
+    font-size:50px;
+    filter:drop-shadow(0 0 12px rgba(151,254,237,0.15));
+  }
+  .img-ph .ph-text{
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.02em;
+    margin-top:6px;
+    color:rgba(255,255,255,0.35);
+  }
+  #resultImage{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  /* [v15 TJ] 정/후면 모드 — 이미지가 박스 너비×2로 자연 비율 표시 */
+  #resultImage.tr-result-image{
+    width:auto !important;
+    max-width:none !important;
+    height:100% !important;
+    object-fit:contain;
+    scroll-snap-align:start;
+    position:relative;
+  }
+  /* [v15 TJ] 정/후면 인디케이터 도트 */
+  .tr-pose-dots{
+    position:absolute;left:50%;bottom:8px;
+    transform:translateX(-50%);
+    display:flex;gap:6px;z-index:5;
+    padding:4px 10px;border-radius:999px;
+    background:rgba(0,0,0,0.45);
+    backdrop-filter:blur(6px);
+    pointer-events:none;
+    transition:opacity .25s;
+  }
+  .tr-pose-dots.hidden{opacity:0;pointer-events:none;display:none;}
+  .tr-pose-dot{
+    width:6px;height:6px;border-radius:50%;
+    background:rgba(151,254,237,0.35);
+    transition:background .2s, transform .2s;
+  }
+  .tr-pose-dot.active{background:#97FEED;transform:scale(1.4);}
+  /* [v15 TJ] 정/후면 swipe 힌트 */
+  .tr-pose-hint{
+    position:absolute;right:12px;top:12px;z-index:5;
+    font-size:9px;font-weight:800;
+    color:rgba(151,254,237,0.85);
+    background:rgba(0,0,0,0.45);
+    padding:4px 8px;border-radius:999px;
+    letter-spacing:.05em;
+    display:flex;align-items:center;gap:4px;
+    pointer-events:none;
+    animation:trPoseHintPulse 2s ease-in-out infinite;
+  }
+  .tr-pose-hint.hidden{display:none;}
+  @keyframes trPoseHintPulse{
+    0%,100%{opacity:0.7;transform:translateX(0);}
+    50%{opacity:1;transform:translateX(-3px);}
+  }
+
+  /* 저장 / 공유 / 리셋 */
+  .result-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:8px;
+    margin-top:10px;
+  }
+  .act-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    padding:12px 0;
+    border-radius:12px;
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-size:12.5px;
+    font-weight:900;
+    letter-spacing:.02em;
+    cursor:pointer;
+    border:1px solid;
+    transition:all .2s ease;
+  }
+  .act-btn:active{ transform:scale(.97); }
+  .act-btn .mi{ font-size:16px; }
+  .act-btn.save{
+    background:linear-gradient(135deg, var(--teal-dark), var(--teal));
+    color:var(--teal-light);
+    border-color:rgba(151,254,237,0.35);
+    box-shadow:0 4px 14px rgba(53,162,159,0.25);
+  }
+  .act-btn.save:hover{ box-shadow:0 6px 20px rgba(53,162,159,0.35); }
+  .act-btn.share{
+    background:rgba(151,254,237,0.1);
+    color:var(--teal-light);
+    border-color:rgba(151,254,237,0.3);
+  }
+  .act-btn.share:hover{ background:rgba(151,254,237,0.18); }
+  .act-btn.reset{
+    background:rgba(239,68,68,0.08);
+    color:#fca5a5;
+    border-color:rgba(239,68,68,0.25);
+  }
+  .act-btn.reset:hover{ background:rgba(239,68,68,0.14); }
+  /* ═══════════════════════════════════════════════════════════
+     모델 선택 박스 (모델 핏 전용)
+     ═══════════════════════════════════════════════════════════ */
+  .model-pick-box{
+    padding:18px 16px 16px;
+    background:rgba(11,102,106,0.13);
+    border:1px solid rgba(151,254,237,0.15);
+    border-radius:16px;
+  }
+  .model-pick-head{ margin-bottom:14px; }
+  .model-pick-title{
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-size:15px; font-weight:900;
+    color:#fff;
+    letter-spacing:-.01em;
+  }
+  .ac-mint{ color:var(--teal-light); }
+  .model-pick-sub{
+    font-size:10.5px;
+    color:rgba(255,255,255,0.45);
+    margin-top:3px;
+    font-weight:500;
+  }
+  /* 남/여 모델 선택 — 원형 라디오 카드 */
+  .gender-picker{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .gender-card{
+    position:relative;
+    padding:14px 12px 13px;
+    background:rgba(7,25,82,0.5);
+    border:1.5px solid rgba(151,254,237,0.12);
+    border-radius:14px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    cursor:pointer;
+    transition:all .25s ease;
+    overflow:hidden;
+    user-select:none;
+  }
+  .gender-card:active{ transform:scale(.97); }
+  .gender-card input[type="radio"]{
+    position:absolute;
+    opacity:0;
+    pointer-events:none;
+  }
+  .gender-card:hover{
+    border-color:rgba(151,254,237,0.28);
+    background:rgba(11,102,106,0.22);
+  }
+  .gender-card:has(input:checked){
+    background:rgba(11,102,106,0.32);
+    border-color:var(--teal-light);
+    box-shadow:0 0 0 3px rgba(151,254,237,0.08), 0 0 18px rgba(151,254,237,0.15);
+  }
+
+  /* 원형 체크 표시 (우상단) */
+  .gender-radio{
+    position:absolute;
+    top:10px; right:10px;
+    width:20px; height:20px;
+    border-radius:50%;
+    border:1.5px solid rgba(151,254,237,0.35);
+    background:rgba(0,2,46,0.5);
+    transition:all .25s ease;
+  }
+  .gender-radio::after{
+    content:'';
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%,-50%) scale(0);
+    width:10px; height:10px;
+    border-radius:50%;
+    background:var(--teal-light);
+    box-shadow:0 0 8px rgba(151,254,237,0.6);
+    transition:transform .25s cubic-bezier(.4,0,.2,1);
+  }
+  .gender-card:has(input:checked) .gender-radio{
+    border-color:var(--teal-light);
+    background:rgba(151,254,237,0.08);
+  }
+  .gender-card:has(input:checked) .gender-radio::after{
+    transform:translate(-50%,-50%) scale(1);
+  }
+
+  .gender-icon{
+    width:54px; height:54px;
+    border-radius:50%;
+    background:linear-gradient(135deg, rgba(53,162,159,0.25), rgba(11,102,106,0.4));
+    border:1.5px solid rgba(151,254,237,0.18);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--teal-light);
+    margin-bottom:8px;
+    transition:all .25s ease;
+  }
+  .gender-icon .mi{ font-size:32px; }
+  .gender-card:has(input:checked) .gender-icon{
+    background:linear-gradient(135deg, var(--teal-dark), var(--teal));
+    border-color:rgba(151,254,237,0.4);
+  }
+  .gender-label{
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-size:13px;
+    font-weight:900;
+    color:#fff;
+    letter-spacing:-.01em;
+    margin-bottom:2px;
+  }
+  .gender-card:has(input:checked) .gender-label{ color:var(--teal-light); }
+  .gender-spec{
+    font-family:'Manrope',sans-serif;
+    font-size:10px;
+    color:rgba(255,255,255,0.4);
+    font-weight:600;
+  }
+  .gender-card:has(input:checked) .gender-spec{ color:rgba(151,254,237,0.7); }
+
+  /* 썸바디 모드에서 프로필이 빈 상태일 때 시각적 힌트 */
+  .profile-wrap.somebody-mode + #profileFaceWrap .face-section{
+    border-color:rgba(151,254,237,0.3);
+    box-shadow:0 0 0 3px rgba(151,254,237,0.05);
+  }
+  .backdrop{
+    position:fixed; inset:0;
+    background:rgba(0,2,46,0.75);
+    backdrop-filter:blur(8px);
+    opacity:0; pointer-events:none;
+    transition:opacity .3s ease;
+    z-index:200;
+  }
+  .backdrop.show{ opacity:1; pointer-events:auto; }
+  .sheet{
+    position:fixed;
+    left:50%; bottom:0;
+    transform:translate(-50%, 100%);
+    width:100%;
+    max-width:480px;
+    background:#0a1443;
+    border-radius:24px 24px 0 0;
+    border-top:1px solid rgba(151,254,237,0.25);
+    padding:12px 0 24px;
+    max-height:72vh;
+    transition:transform .35s cubic-bezier(.4,0,.2,1);
+    z-index:201;
+    overflow:hidden;
+    display:flex; flex-direction:column;
+    box-shadow:0 -20px 60px rgba(0,0,0,0.5);
+  }
+  .sheet.show{ transform:translate(-50%, 0); }
+  .sheet-handle{
+    width:38px; height:4px;
+    background:rgba(151,254,237,0.3);
+    border-radius:2px;
+    margin:0 auto 12px;
+  }
+  .sheet-head{
+    padding:0 20px 12px;
+    display:flex; align-items:flex-end; justify-content:space-between;
+    border-bottom:1px solid rgba(151,254,237,0.1);
+  }
+  .sheet-title{
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-size:17px;
+    font-weight:900;
+    color:var(--teal-light);
+  }
+  .sheet-sub{
+    font-size:10.5px;
+    color:rgba(255,255,255,0.5);
+    margin-top:3px;
+    font-weight:500;
+  }
+  .sheet-close{
+    background:transparent; border:0;
+    color:rgba(151,254,237,0.5);
+    font-size:13px;
+    cursor:pointer;
+    padding:4px 0;
+    font-weight:700;
+    font-family:inherit;
+  }
+  .sheet-notice{
+    margin:10px 20px;
+    padding:9px 12px;
+    background:rgba(151,254,237,0.06);
+    border:1px solid rgba(151,254,237,0.15);
+    border-radius:10px;
+    font-size:10px;
+    color:rgba(151,254,237,0.75);
+    line-height:1.5;
+    font-weight:500;
+  }
+  .sheet-body{
+    flex:1; overflow-y:auto;
+    padding:8px 20px 0;
+  }
+  .item-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:8px;
+  }
+  .item{
+    aspect-ratio:3/4;
+    border-radius:10px;
+    background:rgba(7,25,82,0.5);
+    border:1px solid rgba(151,254,237,0.1);
+    overflow:hidden;
+    cursor:pointer; position:relative;
+    transition:transform .15s ease;
+  }
+  .item:active{ transform:scale(.96); }
+  .item .img{ position:absolute; inset:0; background-size:cover; background-position:center; }
+  .item .tag{
+    position:absolute;
+    bottom:6px; left:6px;
+    font-family:'Manrope',sans-serif;
+    font-size:9px;
+    padding:2px 6px;
+    background:rgba(0,2,46,0.75);
+    color:var(--teal-light);
+    border-radius:3px;
+    font-weight:700;
+  }
+
+  /* Mock 그라디언트 */
+  .m1{ background:linear-gradient(160deg,#3A4458,#1E2538); }
+  .m2{ background:linear-gradient(160deg,#4A5464,#2C3440); }
+  .m3{ background:linear-gradient(160deg,#5A4A38,#2E2618); }
+  .m4{ background:linear-gradient(160deg,#3F4A3C,#1F2A1C); }
+  .m5{ background:linear-gradient(160deg,#6B563E,#3A2E1F); }
+  .m6{ background:linear-gradient(160deg,#4A4840,#25231E); }
+  .m7{ background:linear-gradient(160deg,#0C1014,#060A0E); }
+  .m8{ background:linear-gradient(160deg,#6E5A46,#3A2E22); }
+  .m9{ background:linear-gradient(160deg,#5A5240,#2E2820); }
+
+  /* 토스트 */
+  .toast{
+    position:fixed;
+    top:70px; left:50%;
+    transform:translate(-50%, -20px);
+    background:rgba(7,25,82,0.95);
+    color:var(--teal-light);
+    border:1px solid rgba(151,254,237,0.3);
+    padding:10px 18px;
+    border-radius:100px;
+    font-size:12px;
+    font-weight:700;
+    opacity:0; pointer-events:none;
+    transition:all .3s ease;
+    z-index:500;
+    backdrop-filter:blur(8px);
+    white-space:nowrap;
+    box-shadow:0 8px 24px rgba(0,2,46,0.5);
+  }
+  .toast.show{
+    opacity:1;
+    transform:translate(-50%, 0);
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     헤더
+     ═══════════════════════════════════════════════════════════ -->
+<div class="topbar">
+  <button class="back-btn" aria-label="뒤로"><span class="mi">arrow_back_ios_new</span></button>
+  <header class="pg-header">
+    <div class="pg-title">트라이 온</div>
+    <div class="pg-sub">이 옷이 어울릴까 고민하지 마세요. 3단계로 착장을 완성해요</div>
+  </header>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Step 1. 무엇을 입어볼까요?
+     ═══════════════════════════════════════════════════════════ -->
+<section class="step" data-step="1" data-state="current">
+  <div class="step-head">
+    <div class="step-head-body">
+      <div class="step-title"><span class="step-prefix">Step 1.</span> 무엇을 <span class="ac">입어볼까요</span>?</div>
+      <div class="step-summary" id="step1Summary">상의 · 하의 · 아우터 · 신발을 선택하세요</div>
+    </div>
+    <div class="step-badge now">NOW</div>
+  </div>
+  <div class="step-body">
+
+    <!-- 모드 스위치 -->
+    <div class="mode-switch cols-3" data-mode="twopiece" id="modeSwitch">
+      <button class="mode-btn active" data-mode="twopiece">투피스</button>
+      <button class="mode-btn" data-mode="onepiece">원피스</button>
+      <button class="mode-btn" data-mode="outer">아우터</button>
+    </div>
+
+    <!-- 필수 슬롯 -->
+    <div class="slot-section-label">필수 <span class="count" id="reqCount">0/2</span></div>
+    <div class="slots" id="requiredSlots">
+      <!-- 상의 -->
+      <div class="slot twopiece-only" data-type="top" data-role="required">
+        <div class="slot-empty">
+          <span class="req-badge">상의</span>
+          <span class="plus">+</span>
+          <div class="icon"><span class="mi">checkroom</span></div>
+          <div class="label">상의</div>
+          <div class="hint">옷장에서 선택</div>
+        </div>
+        <div class="slot-filled">
+          <div class="slot-image"></div>
+          <button class="remove-btn" aria-label="제거"><span class="mi">close</span></button>
+          <span class="req-badge">상의</span>
+          <div class="slot-info"><div class="name"></div><div class="meta"></div></div>
+        </div>
+      </div>
+
+      <!-- 하의 -->
+      <div class="slot twopiece-only" data-type="bottom" data-role="required">
+        <div class="slot-empty">
+          <span class="req-badge">하의</span>
+          <span class="plus">+</span>
+          <div class="icon"><span class="mi">straighten</span></div>
+          <div class="label">하의</div>
+          <div class="hint">옷장에서 선택</div>
+        </div>
+        <div class="slot-filled">
+          <div class="slot-image"></div>
+          <button class="remove-btn" aria-label="제거"><span class="mi">close</span></button>
+          <span class="req-badge">하의</span>
+          <div class="slot-info"><div class="name"></div><div class="meta"></div></div>
+        </div>
+      </div>
+
+      <!-- 원피스 -->
+      <div class="slot full-width onepiece-only" data-type="onepiece" data-role="required" style="display:none;">
+        <div class="slot-empty">
+          <span class="req-badge">원피스</span>
+          <span class="plus">+</span>
+          <div class="icon"><span class="mi">styler</span></div>
+          <div class="label">원피스</div>
+          <div class="hint">옷장에서 선택</div>
+        </div>
+        <div class="slot-filled">
+          <div class="slot-image"></div>
+          <button class="remove-btn" aria-label="제거"><span class="mi">close</span></button>
+          <span class="req-badge">원피스</span>
+          <div class="slot-info"><div class="name"></div><div class="meta"></div></div>
+        </div>
+      </div>
+
+      <!-- 아우터 (outer 모드 — 원피스와 동일 풀폭 구조) -->
+      <div class="slot full-width outer-only" data-type="outer-main" data-role="required" style="display:none;">
+        <div class="slot-empty">
+          <span class="req-badge">아우터</span>
+          <span class="plus">+</span>
+          <div class="icon"><span class="mi">dry_cleaning</span></div>
+          <div class="label">아우터</div>
+          <div class="hint">코트 · 자켓 · 카디건</div>
+        </div>
+        <div class="slot-filled">
+          <div class="slot-image"></div>
+          <button class="remove-btn" aria-label="제거"><span class="mi">close</span></button>
+          <span class="req-badge">아우터</span>
+          <div class="slot-info"><div class="name"></div><div class="meta"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 옵션 슬롯 -->
+    <div class="slot-section-label">옵션 <span class="count" id="optCount">0/2</span></div>
+    <div class="slots" id="optionalSlots">
+      <div class="slot add-slot twopiece-onepiece-only" data-type="outer" data-role="optional">
+        <div class="slot-empty">
+          <span class="opt-badge">선택</span>
+          <div class="icon"><span class="mi">dry_cleaning</span></div>
+          <div class="label">+ 아우터</div>
+          <div class="hint">코트 · 자켓</div>
+        </div>
+        <div class="slot-filled">
+          <div class="slot-image"></div>
+          <button class="remove-btn" aria-label="제거"><span class="mi">close</span></button>
+          <span class="req-badge">아우터</span>
+          <div class="slot-info"><div class="name"></div><div class="meta"></div></div>
+        </div>
+      </div>
+
+      <div class="slot add-slot" data-type="shoes" data-role="optional">
+        <div class="slot-empty">
+          <span class="opt-badge">선택</span>
+          <div class="icon"><span class="mi">ice_skating</span></div>
+          <div class="label">+ 신발</div>
+          <div class="hint">스니커즈 · 로퍼</div>
+        </div>
+        <div class="slot-filled">
+          <div class="slot-image"></div>
+          <button class="remove-btn" aria-label="제거"><span class="mi">close</span></button>
+          <span class="req-badge">신발</span>
+          <div class="slot-info"><div class="name"></div><div class="meta"></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Step 2. 누구의 핏을 보고 싶어요?
+     ═══════════════════════════════════════════════════════════ -->
+<section class="step" data-step="2" data-state="pending">
+  <div class="step-head">
+    <div class="step-head-body">
+      <div class="step-title"><span class="step-prefix">Step 2.</span> 누구의 <span class="ac">핏</span>을 보고 싶어요?</div>
+      <div class="step-summary" id="step2Summary">마이 핏 · 모델 핏 · 누군가</div>
+    </div>
+    <div class="step-badge lock"><span class="mi">lock</span>잠김</div>
+  </div>
+  <div class="step-body">
+    <div class="fit-question" id="fitQuestion">
+      아래 <b style="color:var(--teal-light);">코디 프로필</b> 박스의 정보로 생성됩니다.
+    </div>
+
+    <!-- 핏 선택 pill (Step 1 모드 스위치와 동일 구조 · 3분할) -->
+    <div class="mode-switch cols-3" data-fit="my" id="fitSwitch">
+      <button class="mode-btn active" data-fit="my">마이 핏</button>
+      <button class="mode-btn" data-fit="somebody">썸바디</button>
+      <button class="mode-btn" data-fit="model">모델 핏</button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Step 3. 트라이온 생성하기
+     ═══════════════════════════════════════════════════════════ -->
+<section class="step" data-step="3" data-state="pending">
+  <div class="step-head">
+    <div class="step-head-body">
+      <div class="step-title"><span class="step-prefix">Step 3.</span> <span class="ac">트라이온</span> 생성하기</div>
+      <div class="step-summary">선택한 조합으로 착장 이미지 생성</div>
+    </div>
+    <div class="step-badge lock"><span class="mi">lock</span>잠김</div>
+  </div>
+  <div class="step-body">
+
+    <!-- 1. 트라이온 착장이미지 생성하기 (원본 .gen-btn 100% 카피) -->
+    <button class="gen-btn" id="finalGenerate">
+      <span class="mi">auto_awesome</span>
+      <span>트라이온 착장이미지 생성하기</span>
+      <span class="count">3/5</span>
+    </button>
+
+    <!-- 2. 퍼스널 스타일링 분석 썸머리 (생성 전 숨김) -->
+    <div class="analysis-box" id="analysisBox" style="display:none;">
+      <div class="analysis-head">
+        <span class="analysis-label">Personal Styling Analysis</span>
+        <span class="analysis-score" id="anScore">—</span>
+        <span class="analysis-unit">/100</span>
+        <span class="analysis-grade" id="anGrade">—</span>
+      </div>
+      <div class="analysis-bar">
+        <div class="analysis-fill" id="anFill"></div>
+      </div>
+      <div class="analysis-metrics">
+        <div class="metric">
+          <div class="metric-label">체형 보완도</div>
+          <div class="metric-value"><span id="anM1">—</span><em>/30</em></div>
+          <div class="metric-bar"><div class="metric-fill" id="anM1Fill"></div></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">퍼스널 컬러</div>
+          <div class="metric-value"><span id="anM2">—</span><em>/30</em></div>
+          <div class="metric-bar"><div class="metric-fill" id="anM2Fill"></div></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">비율 개선도</div>
+          <div class="metric-value"><span id="anM3">—</span><em>/20</em></div>
+          <div class="metric-bar"><div class="metric-fill" id="anM3Fill"></div></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">상하의 밸런스</div>
+          <div class="metric-value"><span id="anM4">—</span><em>/20</em></div>
+          <div class="metric-bar"><div class="metric-fill" id="anM4Fill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 생성된 이미지 뷰박스 (생성 전 숨김) -->
+    <div class="result-wrap" id="resultWrap" style="display:none;">
+      <div class="result-box">
+        <div class="result-img-box" id="resultImgBox">
+          <div class="img-ph" id="imgPh">
+            <span class="mi">image</span>
+            <div class="ph-text">생성된 착장 이미지</div>
+          </div>
+          <img id="resultImage" style="display:none;" alt="생성 결과">
+          <!-- [2026-04-26 v15 TJ] 정/후면 swipe 인디케이터 + 힌트 -->
+          <div id="trPoseDots" class="tr-pose-dots hidden">
+            <span class="tr-pose-dot active" data-pose="0"></span>
+            <span class="tr-pose-dot" data-pose="1"></span>
+          </div>
+          <div id="trPoseHint" class="tr-pose-hint hidden">
+            <span>정·후면</span>
+            <span class="mi" style="font-size:11px;">swipe</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 저장 / 공유 / 리셋 (이미지 뷰박스 아래) -->
+    <div class="result-actions" id="resultActions" style="display:none;">
+      <button class="act-btn save" id="actSave">
+        <span class="mi">save_alt</span>저장
+      </button>
+      <button class="act-btn share" id="actShare">
+        <span class="mi">ios_share</span>공유
+      </button>
+      <button class="act-btn reset" id="actReset">
+        <span class="mi">refresh</span>리셋
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- Divider -->
+<div class="divider"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     코디 프로필 (Step 2의 핏 선택에 따라 내용 전환)
+       - my       → face-section 그대로 (현재 프로필 데이터)
+       - somebody → 동일 구조, 빈 데이터 (사용자 직접 입력)
+       - model    → 모델 선택 박스 (남/여)
+     ═══════════════════════════════════════════════════════════ -->
+<div class="profile-wrap">
+  <div class="profile-title-row">
+    <b id="profileTitleText">코디 프로필</b>
+    <span class="hint" id="profileHintText">AI가 개인화된 착장을 만드는 데 쓰여요</span>
+  </div>
+</div>
+
+<!-- 마이/썸바디 공용 — face-section -->
+<div id="profileFaceWrap" style="padding:0 16px;">
+  <div class="face-section">
+    <div class="face-top">
+      <div class="face-circle" id="faceCircle">
+        <span class="face-ph" id="facePh">face</span>
+      </div>
+      <div class="face-mid">
+        <div class="pc-summary-wrap">
+          <div class="pc-season-line" id="pcSeasonLine">
+            <span class="pc-season-dot"></span>
+            <span class="pc-season-label" id="pcSeasonLabel">가을 딥</span>
+            <span class="pc-undertone" id="pcUndertone">웜톤</span>
+          </div>
+          <div class="pc-tip" id="pcTip">따뜻한 브라운 · 머스타드 · 올리브 계열이 잘 어울려요</div>
+          <div class="pc-palette" id="pcPalette">
+            <span style="background:#8B4513"></span>
+            <span style="background:#D2691E"></span>
+            <span style="background:#556B2F"></span>
+            <span style="background:#704214"></span>
+          </div>
+          <div class="pc-empty" id="pcEmpty" style="display:none;">사진을 등록하면<br>퍼스널컬러를 분석합니다</div>
+        </div>
+      </div>
+      <div class="face-btns">
+        <button class="face-btn cam"><span class="mi">photo_camera</span>촬영</button>
+        <button class="face-btn gal"><span class="mi">photo_library</span>선택</button>
+      </div>
+    </div>
+
+    <div class="body-info">
+      <div class="body-info-cells">
+        <div class="body-cell">
+          <div class="body-cell-label">성별</div>
+          <div class="body-cell-value" id="bodyGender">남성</div>
+        </div>
+        <div class="body-sep"></div>
+        <div class="body-cell">
+          <div class="body-cell-label">나이대</div>
+          <div class="body-cell-value" id="bodyAge">30대</div>
+        </div>
+        <div class="body-sep"></div>
+        <div class="body-cell">
+          <div class="body-cell-label">키</div>
+          <div class="body-cell-value" id="bodyHeight">175</div>
+        </div>
+        <div class="body-sep"></div>
+        <div class="body-cell">
+          <div class="body-cell-label">몸무게</div>
+          <div class="body-cell-value" id="bodyWeight">70</div>
+        </div>
+      </div>
+      <button class="body-edit-btn" id="bodyEditBtn">수정</button>
+    </div>
+  </div>
+</div>
+
+<!-- 모델 핏 전용 — 남/여 모델 선택 박스 -->
+<div id="profileModelWrap" style="padding:0 16px;display:none;">
+  <div class="model-pick-box">
+    <div class="model-pick-head">
+      <div class="model-pick-title">모델을 <span class="ac-mint">선택</span>해 주세요</div>
+      <div class="model-pick-sub">표준 모델 바디로 착장을 생성합니다</div>
+    </div>
+    <div class="gender-picker" id="genderSwitch" data-gender="">
+      <label class="gender-card" data-gender="male">
+        <input type="radio" name="modelGender" value="male">
+        <span class="gender-radio"></span>
+        <span class="gender-icon"><span class="mi">man</span></span>
+        <span class="gender-label">남자 모델</span>
+        <span class="gender-spec">175 cm · Standard</span>
+      </label>
+      <label class="gender-card" data-gender="female">
+        <input type="radio" name="modelGender" value="female">
+        <span class="gender-radio"></span>
+        <span class="gender-icon"><span class="mi">woman</span></span>
+        <span class="gender-label">여자 모델</span>
+        <span class="gender-spec">165 cm · Standard</span>
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     하단 시트 (피커 데모용)
+     ═══════════════════════════════════════════════════════════ -->
+<div class="backdrop" id="backdrop"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <div>
+      <div class="sheet-title">내옷장</div>
+      <div class="sheet-sub" id="sheetSub">카테고리별 아이템</div>
+    </div>
+    <button class="sheet-close" id="sheetClose">닫기</button>
+  </div>
+  <div class="sheet-notice">
+    실제 배포 시: <b>codistyle_picker.html</b>으로 이동. 현재는 데모 편의로 시트 표시.
+  </div>
+  <div class="sheet-body">
+    <div class="item-grid" id="itemGrid"></div>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+//  상태 관리
+// ════════════════════════════════════════════════════════════════
+const state = {
+  currentStep: 1,
+  stepDone: { 1: false, 2: true, 3: false },  // Step 2는 기본 'my'로 미리 선택됨
+  mode: 'twopiece',
+  slots: {
+    top:      { active: true,  filled: false, item: null, role: 'required' },
+    bottom:   { active: true,  filled: false, item: null, role: 'required' },
+    onepiece: { active: false, filled: false, item: null, role: 'required' },
+    outer:    { active: false, filled: false, item: null, role: 'optional' },
+    shoes:    { active: false, filled: false, item: null, role: 'optional' },
+  },
+  fitTarget: 'my',          // 'my' | 'somebody' | 'model'
+  modelGender: null,        // 'male' | 'female' (fitTarget==='model'일 때)
+  currentSlot: null,
+
+  // 마이 핏 기본 데이터 (원복용 — 썸바디 모드에서 리셋 후 돌아올 때)
+  myProfileSnapshot: {
+    faceSrc: null,   // null이면 face 아이콘
+    pcSeasonLabel: '가을 딥',
+    pcUndertone: '웜톤',
+    pcTip: '따뜻한 브라운 · 머스타드 · 올리브 계열이 잘 어울려요',
+    pcPalette: ['#8B4513','#D2691E','#556B2F','#704214'],
+    bodyGender: '남성',
+    bodyAge: '30대',
+    bodyHeight: '175',
+    bodyWeight: '70',
+  },
+};
+
+const mockItems = {
+  top: [
+    { id:'t1', name:'린넨 셔츠', meta:'Oatmeal · M', cls:'m3' },
+    { id:'t2', name:'크루넥 니트', meta:'Charcoal · L', cls:'m2' },
+    { id:'t3', name:'캐시미어 카디건', meta:'Cream · M', cls:'m6' },
+    { id:'t4', name:'폴로 셔츠', meta:'Olive · M', cls:'m4' },
+    { id:'t5', name:'실크 블라우스', meta:'Ivory · S', cls:'m9' },
+    { id:'t6', name:'코튼 티셔츠', meta:'Black · L', cls:'m7' },
+  ],
+  bottom: [
+    { id:'b1', name:'울 슬랙스', meta:'Navy · 30', cls:'m2' },
+    { id:'b2', name:'와이드 데님', meta:'Indigo · 29', cls:'m7' },
+    { id:'b3', name:'플리츠 스커트', meta:'Camel · S', cls:'m5' },
+    { id:'b4', name:'치노 팬츠', meta:'Beige · 31', cls:'m8' },
+    { id:'b5', name:'린넨 쇼츠', meta:'Sand · M', cls:'m3' },
+    { id:'b6', name:'미디 스커트', meta:'Black · M', cls:'m7' },
+  ],
+  onepiece: [
+    { id:'o1', name:'린넨 랩 드레스', meta:'Cream · M', cls:'m9' },
+    { id:'o2', name:'플로럴 미디', meta:'Terracotta · S', cls:'m5' },
+    { id:'o3', name:'니트 원피스', meta:'Black · M', cls:'m7' },
+    { id:'o4', name:'쉬폰 맥시', meta:'Sage · M', cls:'m4' },
+    { id:'o5', name:'셔츠 원피스', meta:'Olive · M', cls:'m4' },
+    { id:'o6', name:'슬립 드레스', meta:'Camel · S', cls:'m6' },
+  ],
+  outer: [
+    { id:'out1', name:'롱 트렌치', meta:'Camel · M', cls:'m5' },
+    { id:'out2', name:'더블 코트', meta:'Charcoal · L', cls:'m2' },
+    { id:'out3', name:'레더 자켓', meta:'Black · M', cls:'m7' },
+    { id:'out4', name:'블레이저', meta:'Navy · 48', cls:'m2' },
+    { id:'out5', name:'퀼팅 자켓', meta:'Olive · M', cls:'m4' },
+    { id:'out6', name:'카디건 코트', meta:'Cream · M', cls:'m6' },
+  ],
+  shoes: [
+    { id:'s1', name:'레더 로퍼', meta:'Brown · 265', cls:'m8' },
+    { id:'s2', name:'스니커즈', meta:'White · 260', cls:'m9' },
+    { id:'s3', name:'첼시 부츠', meta:'Black · 270', cls:'m7' },
+    { id:'s4', name:'페니 로퍼', meta:'Burgundy · 265', cls:'m5' },
+    { id:'s5', name:'옥스퍼드', meta:'Tan · 270', cls:'m1' },
+    { id:'s6', name:'단화', meta:'Beige · 250', cls:'m3' },
+  ],
+};
+
+const SLOT_LABELS = { top:'상의', bottom:'하의', onepiece:'원피스', outer:'아우터', shoes:'신발' };
+const FIT_LABELS  = { my:'마이 핏', somebody:'썸바디', model:'모델 핏' };
+
+// DOM data-type → state.slots key 매핑 (outer-main은 state상 outer와 동일)
+const toStateKey = domType => domType === 'outer-main' ? 'outer' : domType;
+
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+// ════════════════════════════════════════════════════════════════
+//  Step 전환
+// ════════════════════════════════════════════════════════════════
+function setStep(newStep){
+  if(newStep > 1 && state.stepDone[1]) state.stepDone[1] = true;
+  if(newStep > 2 && state.stepDone[2]) state.stepDone[2] = true;
+  state.currentStep = newStep;
+
+  $$('.step').forEach(el => {
+    const s = parseInt(el.dataset.step);
+    if(s === newStep){
+      el.dataset.state = 'current';
+      setStepBadge(s, 'now');
+    } else if(state.stepDone[s]){
+      el.dataset.state = 'complete';
+      setStepBadge(s, 'done');
+    } else {
+      el.dataset.state = 'pending';
+      setStepBadge(s, 'lock');
+    }
+  });
+
+  const target = document.querySelector(`.step[data-step="${newStep}"]`);
+  if(target){
+    setTimeout(() => target.scrollIntoView({ behavior:'smooth', block:'start' }), 100);
+  }
+}
+
+function setStepBadge(step, type){
+  const stepEl = document.querySelector(`.step[data-step="${step}"]`);
+  if(!stepEl) return;
+  const badge = stepEl.querySelector('.step-badge');
+  if(!badge) return;
+  badge.className = 'step-badge ' + type;
+  if(type === 'now')        badge.textContent = 'NOW';
+  else if(type === 'done')  badge.innerHTML = '<span class="mi" style="font-size:12px;margin-right:2px;">check</span>완료';
+  else                      badge.innerHTML = '<span class="mi">lock</span>잠김';
+
+  // 완료 상태엔 변경 버튼
+  let editBtn = stepEl.querySelector('.step-edit-btn');
+  if(type === 'done'){
+    if(!editBtn){
+      editBtn = document.createElement('button');
+      editBtn.className = 'step-edit-btn';
+      editBtn.textContent = '변경';
+      editBtn.addEventListener('click', e => { e.stopPropagation(); setStep(step); });
+      stepEl.querySelector('.step-head').appendChild(editBtn);
+    }
+  } else if(editBtn){
+    editBtn.remove();
+  }
+}
+
+function isUnlockable(step){
+  for(let i=1;i<step;i++) if(!state.stepDone[i]) return false;
+  return true;
+}
+
+$$('.step-head').forEach(head => {
+  head.addEventListener('click', e => {
+    if(e.target.closest('.step-edit-btn')) return;
+    const s = parseInt(head.parentElement.dataset.step);
+    if(state.stepDone[s] || s === state.currentStep || isUnlockable(s)) setStep(s);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════
+//  Step 1 — 모드 & 슬롯
+// ════════════════════════════════════════════════════════════════
+function setMode(mode){
+  state.mode = mode;
+  $('#modeSwitch').dataset.mode = mode;
+  $$('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+
+  // state 초기화 (모드 전환 시 모든 슬롯 리셋)
+  ['top','bottom','onepiece','outer'].forEach(t => {
+    state.slots[t].filled = false;
+    state.slots[t].item = null;
+  });
+
+  if(mode === 'twopiece'){
+    state.slots.top.active = true;
+    state.slots.bottom.active = true;
+    state.slots.onepiece.active = false;
+    state.slots.outer.active = false;
+    state.slots.outer.role = 'optional';
+    $$('.twopiece-only').forEach(el => el.style.display = '');
+    $$('.onepiece-only').forEach(el => el.style.display = 'none');
+    $$('.outer-only').forEach(el => el.style.display = 'none');
+    $$('.twopiece-onepiece-only').forEach(el => el.style.display = '');
+  } else if(mode === 'onepiece'){
+    state.slots.top.active = false;
+    state.slots.bottom.active = false;
+    state.slots.onepiece.active = true;
+    state.slots.outer.active = false;
+    state.slots.outer.role = 'optional';
+    $$('.twopiece-only').forEach(el => el.style.display = 'none');
+    $$('.onepiece-only').forEach(el => el.style.display = '');
+    $$('.outer-only').forEach(el => el.style.display = 'none');
+    $$('.twopiece-onepiece-only').forEach(el => el.style.display = '');
+  } else if(mode === 'outer'){
+    state.slots.top.active = false;
+    state.slots.bottom.active = false;
+    state.slots.onepiece.active = false;
+    state.slots.outer.active = true;
+    state.slots.outer.role = 'required';   // outer가 필수로 승격
+    $$('.twopiece-only').forEach(el => el.style.display = 'none');
+    $$('.onepiece-only').forEach(el => el.style.display = 'none');
+    $$('.outer-only').forEach(el => el.style.display = '');
+    // 옵션 섹션의 아우터 슬롯은 숨김 (필수로 올라갔으므로)
+    $$('.twopiece-onepiece-only').forEach(el => el.style.display = 'none');
+  }
+  // 모든 슬롯 UI 리셋
+  ['top','bottom','onepiece','outer','outer-main'].forEach(t => resetSlotUI(t));
+  renderStep1();
+}
+$$('.mode-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+$$('.slot').forEach(slot => {
+  slot.addEventListener('click', e => {
+    if(e.target.closest('.remove-btn')) return;
+    openPicker(slot.dataset.type);
+  });
+});
+
+// 실제 배포 시: location.href = `codistyle_picker.html?slot=${toStateKey(type)}&mode=${state.mode}&returnTo=tryon`
+function openPicker(type){
+  state.currentSlot = type;  // DOM data-type 그대로 저장
+  const category = toStateKey(type);  // mockItems 키는 state 기준
+  const labelText = SLOT_LABELS[category] || category;
+  $('#sheetSub').textContent = `${labelText} 카테고리만 표시됩니다`;
+  renderItems(category);
+  $('#backdrop').classList.add('show');
+  $('#sheet').classList.add('show');
+}
+
+// 피커 복귀 처리
+function consumePick(){
+  try {
+    const raw = sessionStorage.getItem('tryon_pick_result');
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    sessionStorage.removeItem('tryon_pick_result');
+    if(data && data.slot){
+      fillSlot(data.slot, {
+        id: data.path || `pick_${Date.now()}`,
+        name: data.name || '선택 아이템',
+        meta: (data.meta && data.meta.summary) || '옷장',
+        cls: 'm1',
+        _raw: data
+      });
+    }
+  } catch(e){ console.error(e); }
+}
+window.addEventListener('pageshow', consumePick);
+
+$$('.remove-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const slot = btn.closest('.slot');
+    const domType = slot.dataset.type;
+    const key = toStateKey(domType);
+    const role = slot.dataset.role;
+    state.slots[key].filled = false;
+    state.slots[key].item = null;
+    if(role === 'optional'){
+      slot.classList.remove('filled');
+      slot.classList.add('add-slot');
+    } else {
+      slot.classList.remove('filled');
+    }
+    renderStep1();
+    showToast('제거되었습니다');
+  });
+});
+
+$('#backdrop').addEventListener('click', closeSheet);
+$('#sheetClose').addEventListener('click', closeSheet);
+function closeSheet(){
+  $('#backdrop').classList.remove('show');
+  $('#sheet').classList.remove('show');
+  state.currentSlot = null;
+}
+
+function renderItems(category){
+  const list = mockItems[category] || [];
+  $('#itemGrid').innerHTML = list.map(it => `
+    <div class="item" data-id="${it.id}">
+      <div class="img ${it.cls}"></div>
+      <span class="tag">${it.meta.split('·')[0].trim()}</span>
+    </div>
+  `).join('');
+  $('#itemGrid').querySelectorAll('.item').forEach(el => {
+    el.addEventListener('click', () => {
+      const item = list.find(i => i.id === el.dataset.id);
+      fillSlot(state.currentSlot, item);  // DOM type 그대로 전달
+      closeSheet();
+      showToast(`${item.name} 선택됨`);
+    });
+  });
+}
+
+function fillSlot(keyOrDomType, item){
+  const key = toStateKey(keyOrDomType);
+  state.slots[key].filled = true;
+  state.slots[key].active = true;
+  state.slots[key].item = item;
+
+  // 현재 모드에서 보이는 DOM 선택:
+  //   outer 모드 + key==='outer' → outer-main DOM
+  //   그 외 → state key와 동일한 data-type DOM
+  let domType = keyOrDomType;
+  if(key === 'outer'){
+    domType = (state.mode === 'outer') ? 'outer-main' : 'outer';
+  }
+
+  const slotEl = document.querySelector(`.slot[data-type="${domType}"]`);
+  if(!slotEl) return;
+  slotEl.classList.add('filled');
+  slotEl.classList.remove('add-slot');
+  const img = slotEl.querySelector('.slot-image');
+  img.className = 'slot-image ' + (item.cls || 'm1');
+  slotEl.querySelector('.slot-info .name').textContent = item.name;
+  slotEl.querySelector('.slot-info .meta').textContent = item.meta;
+  renderStep1();
+}
+
+function resetSlotUI(domType){
+  const slotEl = document.querySelector(`.slot[data-type="${domType}"]`);
+  if(!slotEl) return;
+  slotEl.classList.remove('filled');
+  if(slotEl.dataset.role === 'optional') slotEl.classList.add('add-slot');
+}
+
+function renderStep1(){
+  let reqNeed = 0, reqHave = 0, optHave = 0;
+  Object.values(state.slots).forEach(s => {
+    if(s.role === 'required' && s.active){
+      reqNeed++;
+      if(s.filled) reqHave++;
+    }
+    if(s.role === 'optional' && s.filled) optHave++;
+  });
+  $('#reqCount').textContent = `${reqHave}/${reqNeed}`;
+  $('#optCount').textContent = `${optHave}/2`;
+
+  const allReq = reqHave === reqNeed && reqNeed > 0;
+  if(allReq){
+    const wasNotDone = !state.stepDone[1];
+    state.stepDone[1] = true;
+    const names = Object.entries(state.slots).filter(([,s])=>s.filled).map(([t])=>SLOT_LABELS[t]);
+    $('#step1Summary').textContent = names.join(' · ');
+    // Step 1이 방금 완료되었고, 현재 Step 1이면 Step 2 자동 전환
+    if(wasNotDone && state.currentStep === 1){
+      setTimeout(() => setStep(2), 400);
+    }
+  } else {
+    state.stepDone[1] = false;
+    $('#step1Summary').textContent = '상의 · 하의 · 아우터 · 신발을 선택하세요';
+  }
+  updateFinalSummary();
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Step 2 — 핏 선택 (3분할 pill)
+// ════════════════════════════════════════════════════════════════
+const fitSwitch = $('#fitSwitch');
+
+fitSwitch.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const fit = btn.dataset.fit;
+    state.fitTarget = fit;
+    fitSwitch.dataset.fit = fit;
+    fitSwitch.querySelectorAll('.mode-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.fit === fit)
+    );
+    applyFitUI(fit);
+    state.stepDone[2] = (fit !== 'model');  // model은 성별까지 골라야 완료
+    updateFinalSummary();
+    // model이 아니면 바로 Step 3 자동 오픈
+    if(fit !== 'model' && state.currentStep === 2){
+      setTimeout(() => setStep(3), 400);
+    }
+  });
+});
+
+function applyFitUI(fit){
+  const faceWrap = $('#profileFaceWrap');
+  const modelWrap = $('#profileModelWrap');
+  const titleText = $('#profileTitleText');
+  const hintText = $('#profileHintText');
+  const fitQuestion = $('#fitQuestion');
+  const step2Sum = $('#step2Summary');
+
+  step2Sum.textContent = FIT_LABELS[fit] || '—';
+
+  if(fit === 'my'){
+    faceWrap.style.display = '';
+    modelWrap.style.display = 'none';
+    titleText.textContent = '코디 프로필';
+    hintText.textContent = 'AI가 개인화된 착장을 만드는 데 쓰여요';
+    fitQuestion.innerHTML = '아래 <b style="color:var(--teal-light);">코디 프로필</b> 박스의 정보로 생성됩니다.';
+    loadMyProfile();
+  } else if(fit === 'somebody'){
+    faceWrap.style.display = '';
+    modelWrap.style.display = 'none';
+    titleText.textContent = '썸바디 프로필';
+    hintText.textContent = '정보를 직접 입력해 주세요';
+    fitQuestion.innerHTML = '누군가의 <b style="color:var(--teal-light);">프로필</b>을 아래에 입력해 주세요.';
+    resetProfileForSomebody();
+  } else if(fit === 'model'){
+    faceWrap.style.display = 'none';
+    modelWrap.style.display = '';
+    titleText.textContent = '모델 선택';
+    hintText.textContent = '남자 / 여자 모델 중 선택';
+    fitQuestion.innerHTML = '아래에서 <b style="color:var(--teal-light);">남자 / 여자 모델</b>을 선택해 주세요.';
+    // 모델 모드 진입 시엔 성별 초기화
+    state.modelGender = null;
+    $('#genderSwitch').dataset.gender = '';
+    $('#genderSwitch').querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
+  }
+}
+
+function loadMyProfile(){
+  const snap = state.myProfileSnapshot;
+  $('#pcSeasonLabel').textContent = snap.pcSeasonLabel;
+  $('#pcUndertone').textContent = snap.pcUndertone;
+  $('#pcTip').textContent = snap.pcTip;
+  $('#pcSeasonLine').style.display = '';
+  $('#pcTip').style.display = '';
+  $('#pcPalette').style.display = 'flex';
+  $('#pcEmpty').style.display = 'none';
+  const palEls = $('#pcPalette').querySelectorAll('span');
+  palEls.forEach((el, i) => {
+    if(snap.pcPalette[i]) el.style.background = snap.pcPalette[i];
+  });
+  $('#bodyGender').textContent = snap.bodyGender;
+  $('#bodyAge').textContent = snap.bodyAge;
+  $('#bodyHeight').textContent = snap.bodyHeight;
+  $('#bodyWeight').textContent = snap.bodyWeight;
+  $('#facePh').textContent = 'face';
+}
+
+function resetProfileForSomebody(){
+  // 얼굴 리셋
+  $('#facePh').textContent = 'person_add';
+  // 퍼스널컬러 리셋
+  $('#pcSeasonLine').style.display = 'none';
+  $('#pcTip').style.display = 'none';
+  $('#pcPalette').style.display = 'none';
+  $('#pcEmpty').style.display = '';
+  $('#pcEmpty').innerHTML = '얼굴 사진을 등록하면<br>퍼스널컬러가 분석됩니다';
+  // 신체정보 리셋
+  $('#bodyGender').textContent = '—';
+  $('#bodyAge').textContent = '—';
+  $('#bodyHeight').textContent = '—';
+  $('#bodyWeight').textContent = '—';
+}
+
+// 모델 성별 선택 (원형 라디오 카드)
+$('#genderSwitch').querySelectorAll('.gender-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const g = card.dataset.gender;
+    state.modelGender = g;
+    $('#genderSwitch').dataset.gender = g;
+    card.querySelector('input[type="radio"]').checked = true;
+    state.stepDone[2] = true;
+    updateFinalSummary();
+    // 성별까지 선택했으면 자동 Step 3 전환
+    if(state.currentStep === 2){
+      setTimeout(() => setStep(3), 400);
+    }
+  });
+});
+
+// ════════════════════════════════════════════════════════════════
+//  Step 3 — 요약 & 생성 (mock)
+// ════════════════════════════════════════════════════════════════
+function updateFinalSummary(){
+  // 요약 박스 제거됨 — 호출처 호환성을 위해 빈 함수로 유지
+  // 추후 필요 시 내부 요약 갱신 로직을 다시 넣을 수 있음
+}
+
+$('#finalGenerate').addEventListener('click', () => {
+  const filled = Object.entries(state.slots).filter(([,s])=>s.filled);
+  if(!filled.length){ showToast('Step 1에서 아이템을 먼저 선택해 주세요'); return; }
+  if(!state.fitTarget){ showToast('Step 2에서 핏을 선택해 주세요'); return; }
+  if(state.fitTarget === 'model' && !state.modelGender){
+    showToast('남자/여자 모델을 선택해 주세요'); return;
+  }
+
+  // 버튼 로딩 상태
+  const btn = $('#finalGenerate');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="mi" style="animation:spin 1s linear infinite;">progress_activity</span><span>생성 중…</span>';
+
+  // 2.2초 후 mock 결과 표시
+  setTimeout(() => {
+    // 분석 썸머리 표시
+    const analysisBox = $('#analysisBox');
+    analysisBox.style.display = 'block';
+    const total = 82 + Math.floor(Math.random()*12);
+    const m1 = 22 + Math.floor(Math.random()*7);
+    const m2 = 22 + Math.floor(Math.random()*7);
+    const m3 = 15 + Math.floor(Math.random()*5);
+    const m4 = 15 + Math.floor(Math.random()*5);
+    $('#anScore').textContent = total;
+    $('#anGrade').textContent = total >= 90 ? 'S' : total >= 80 ? 'A' : 'B';
+    $('#anFill').style.width = total + '%';
+    $('#anM1').textContent = m1;  $('#anM1Fill').style.width = (m1/30*100) + '%';
+    $('#anM2').textContent = m2;  $('#anM2Fill').style.width = (m2/30*100) + '%';
+    $('#anM3').textContent = m3;  $('#anM3Fill').style.width = (m3/20*100) + '%';
+    $('#anM4').textContent = m4;  $('#anM4Fill').style.width = (m4/20*100) + '%';
+
+    // 이미지 뷰박스 + 액션 버튼 표시
+    $('#resultWrap').style.display = '';
+    $('#resultActions').style.display = 'grid';
+    state.stepDone[3] = true;
+    
+    // [2026-04-26 v14/v15 TJ] 결과 이미지 적용 (정/후면 박스 너비×2 swipe)
+    // 실제 API 연동 시 r.imageUrl 또는 r.dataUrl로 교체 필요
+    // 현재는 프로토타입이므로 placeholder. API 연동 시 drawTryonResult 호출.
+    try{
+      // (mock) 임시 placeholder — API 연동 시 실제 이미지 src로 교체
+      const _mockSrc = 'data:image/svg+xml;base64,' + btoa(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">' +
+        '<rect width="400" height="600" fill="#1a2a52"/>' +
+        '<rect x="400" width="400" height="600" fill="#152544"/>' +
+        '<text x="200" y="300" fill="#97FEED" font-size="20" text-anchor="middle">정면 (Front)</text>' +
+        '<text x="600" y="300" fill="#97FEED" font-size="20" text-anchor="middle">후면 (Back)</text>' +
+        '</svg>'
+      );
+      window.drawTryonResult(_mockSrc);
+      // 보존 저장
+      setTimeout(_saveTryonSnap, 200);
+    }catch(_e){ console.warn('[tryon draw]', _e); }
+
+    // 버튼 복원
+    btn.disabled = false;
+    btn.innerHTML = '<span class="mi">refresh</span><span>다시 생성하기</span><span class="count">2/5</span>';
+
+    showToast('생성 완료 — Gemini 3 Pro Image');
+
+    // 스크롤 이동
+    setTimeout(() => $('#resultWrap').scrollIntoView({ behavior:'smooth', block:'center' }), 300);
+  }, 2200);
+
+  const payload = {
+    mode: state.mode,
+    items: Object.fromEntries(filled.map(([t,s]) => [t, { name:s.item.name, meta:s.item.meta }])),
+    fitTarget: state.fitTarget,
+    modelGender: state.modelGender,
+    engine: 'gemini-3-pro-image'
+  };
+  console.log('[TryOn Generate Payload]', payload);
+});
+
+// 저장 / 공유 / 리셋
+$('#actSave').addEventListener('click', () => showToast('이미지 저장 (Mock)'));
+$('#actShare').addEventListener('click', () => showToast('공유 (Mock)'));
+$('#actReset').addEventListener('click', () => {
+  $('#analysisBox').style.display = 'none';
+  $('#resultWrap').style.display = 'none';
+  $('#resultActions').style.display = 'none';
+  state.stepDone[3] = false;
+  // [2026-04-26 v15 TJ] 명시적 리셋 시 sessionStorage 삭제
+  // 다음 페이지 로드 시 자동 복원되지 않음
+  try{ if(typeof _clearTryonSnap === 'function') _clearTryonSnap(); }catch(_){}
+  // 결과 이미지 src도 비움
+  try{
+    const _ri = document.getElementById('resultImage');
+    if(_ri){ _ri.src = ''; _ri.style.display = 'none'; _ri.classList.remove('tr-result-image'); }
+    const _rb = document.getElementById('resultImgBox');
+    if(_rb){ _rb.classList.remove('has-result'); }
+    const _ph = document.getElementById('imgPh');
+    if(_ph) _ph.style.display = '';
+    const _dots = document.getElementById('trPoseDots');
+    if(_dots) _dots.classList.add('hidden');
+    const _hint = document.getElementById('trPoseHint');
+    if(_hint) _hint.classList.add('hidden');
+  }catch(_){}
+  // 생성 버튼 텍스트도 초기값으로 복원
+  const btn = $('#finalGenerate');
+  btn.innerHTML = '<span class="mi">auto_awesome</span><span>트라이온 착장이미지 생성하기</span><span class="count">3/5</span>';
+  showToast('리셋되었습니다');
+  document.querySelector('.step[data-step="3"]').scrollIntoView({ behavior:'smooth', block:'start' });
+});
+
+// ════════════════════════════════════════════════════════════════
+//  코디 프로필 — 데모 스텁
+// ════════════════════════════════════════════════════════════════
+$('#bodyEditBtn').addEventListener('click', () => {
+  showToast(state.fitTarget === 'somebody' ? '썸바디 정보 입력 폼 열기' : '신체정보 수정');
+});
+$('#faceCircle').addEventListener('click', () => {
+  showToast(state.fitTarget === 'somebody' ? '썸바디 얼굴 사진 업로드' : '얼굴 사진 선택');
+});
+
+// ════════════════════════════════════════════════════════════════
+//  토스트
+// ════════════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg){
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  [2026-04-26 v14/v15 TJ] 트라이온 정+후면 + Swipe + 보존 시스템
+//  코디핏(closet.html)의 v15 정책을 트라이온에 동일 적용
+//  - drawTryonResult: 박스 너비×2 정책으로 결과 이미지 표시
+//  - 정/후면 도트 인디케이터 + swipe 힌트 5초
+//  - sessionStorage 보존 (다른 페이지 갔다 와도 유지)
+//  - 명시적 리셋 (actReset, 모드 변경 등) 시 즉시 삭제
+// ════════════════════════════════════════════════════════════════
+const TRYON_SNAP_KEY = 'cb_tryon_snap_v15';
+const TRYON_SNAP_TIMEOUT_MS = 30 * 60 * 1000;  // 30분
+
+// 결과 이미지를 박스에 표시 — 정/후면 박스 너비×2 정책
+window.drawTryonResult = function(src){
+  const img = document.getElementById('resultImage');
+  const box = document.getElementById('resultImgBox');
+  const ph  = document.getElementById('imgPh');
+  if(!img || !box) return;
+  
+  const tmp = new Image();
+  tmp.crossOrigin = 'anonymous';
+  tmp.onload = function(){
+    const iw = tmp.naturalWidth || 1;
+    const ih = tmp.naturalHeight || 1;
+    const ratio = iw / ih;
+    const isWide = ratio > 1.2;  // 정+후면 가로 긴 이미지
+    
+    // 플레이스홀더 숨김
+    if(ph) ph.style.display = 'none';
+    
+    // 이미지 표시
+    img.src = src;
+    img.style.display = 'block';
+    
+    if(isWide){
+      // [v15 TJ-1] 정/후면: 이미지 = 박스 너비 × 2 (각 절반이 박스 정확히 1폭)
+      const boxRect = box.getBoundingClientRect();
+      const boxW = Math.max(1, boxRect.width);
+      const boxH = Math.max(1, boxRect.height);
+      
+      // 이미지 표시 너비 = boxW × 2, 높이 = boxH (object-fit: contain로 자연 비율 유지)
+      img.classList.add('tr-result-image');
+      img.style.width = (boxW * 2) + 'px';
+      img.style.height = boxH + 'px';
+      img.style.objectFit = 'contain';
+      
+      box.classList.add('has-result');
+      box.scrollLeft = 0;  // 정면이 박스 좌측에 정렬
+      
+      // 도트/힌트 활성화
+      const dots = document.getElementById('trPoseDots');
+      const hint = document.getElementById('trPoseHint');
+      if(dots) dots.classList.remove('hidden');
+      if(hint){
+        hint.classList.remove('hidden');
+        setTimeout(()=>{ if(hint) hint.classList.add('hidden'); }, 5000);
+      }
+      
+      // 스크롤 → 도트 active 변경
+      if(dots){
+        const dotEls = dots.querySelectorAll('.tr-pose-dot');
+        let _scrollHandler = box._poseScrollHandler;
+        if(_scrollHandler) box.removeEventListener('scroll', _scrollHandler);
+        _scrollHandler = function(){
+          if(!dotEls.length) return;
+          const sx = box.scrollLeft;
+          const sw = box.scrollWidth - box.clientWidth;
+          const isBack = sx > sw / 2;
+          dotEls[0].classList.toggle('active', !isBack);
+          dotEls[1].classList.toggle('active', isBack);
+          if(hint && sx > 5) hint.classList.add('hidden');
+        };
+        box.addEventListener('scroll', _scrollHandler, {passive:true});
+        box._poseScrollHandler = _scrollHandler;
+      }
+    } else {
+      // 단일 인물 이미지: 박스에 꽉 채움 (object-fit: cover)
+      img.classList.remove('tr-result-image');
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'cover';
+      
+      box.classList.remove('has-result');
+      
+      // 도트/힌트 숨김
+      const dots = document.getElementById('trPoseDots');
+      const hint = document.getElementById('trPoseHint');
+      if(dots) dots.classList.add('hidden');
+      if(hint) hint.classList.add('hidden');
+    }
+  };
+  tmp.onerror = function(){
+    console.warn('[trDraw] 이미지 로드 실패:', src);
+  };
+  tmp.src = src;
+};
+
+// ─────────────────────────────────────────────────────────────────
+// 보존 시스템 — sessionStorage 저장/복원
+// ─────────────────────────────────────────────────────────────────
+function _saveTryonSnap(){
+  try{
+    const img = document.getElementById('resultImage');
+    if(!img || img.style.display === 'none' || !img.src) return;
+    
+    const _getText = (id)=>{ const e=document.getElementById(id); return e?e.textContent:''; };
+    const _getStyle = (id, prop)=>{ const e=document.getElementById(id); return e?e.style[prop]:''; };
+    
+    const _snap = {
+      ts: Date.now(),
+      imageSrc: img.src,
+      // 분석 박스 표시 상태
+      analysisVisible: _getStyle('analysisBox', 'display') !== 'none',
+      anScore: _getText('anScore'),
+      anGrade: _getText('anGrade'),
+      anFillW: _getStyle('anFill', 'width'),
+      // 4지표 점수
+      anM1: _getText('anM1'),
+      anM1FillW: _getStyle('anM1Fill', 'width'),
+      anM2: _getText('anM2'),
+      anM2FillW: _getStyle('anM2Fill', 'width'),
+      anM3: _getText('anM3'),
+      anM3FillW: _getStyle('anM3Fill', 'width'),
+      anM4: _getText('anM4'),
+      anM4FillW: _getStyle('anM4Fill', 'width'),
+      // 결과 표시 상태
+      resultVisible: _getStyle('resultWrap', 'display') !== 'none',
+      actionsVisible: _getStyle('resultActions', 'display') !== 'none',
+      // 트라이온 컨텍스트 (다른 사용자 차단)
+      mode: (typeof state !== 'undefined') ? (state.mode || '') : '',
+      fitTarget: (typeof state !== 'undefined') ? (state.fitTarget || '') : '',
+    };
+    sessionStorage.setItem(TRYON_SNAP_KEY, JSON.stringify(_snap));
+  }catch(e){ console.warn('[tryon save snap]', e); }
+}
+
+function _clearTryonSnap(){
+  try{ sessionStorage.removeItem(TRYON_SNAP_KEY); }catch(_){}
+}
+
+function _restoreTryonSnap(){
+  try{
+    const raw = sessionStorage.getItem(TRYON_SNAP_KEY);
+    if(!raw) return false;
+    const snap = JSON.parse(raw);
+    if(!snap || !snap.imageSrc) return false;
+    
+    // 30분 타임아웃
+    if(Date.now() - (snap.ts || 0) > TRYON_SNAP_TIMEOUT_MS){
+      sessionStorage.removeItem(TRYON_SNAP_KEY);
+      return false;
+    }
+    
+    // 결과 박스 표시
+    const resultWrap = document.getElementById('resultWrap');
+    const resultActions = document.getElementById('resultActions');
+    if(snap.resultVisible && resultWrap) resultWrap.style.display = '';
+    if(snap.actionsVisible && resultActions) resultActions.style.display = 'grid';
+    
+    // 분석 박스 복원
+    if(snap.analysisVisible){
+      const ab = document.getElementById('analysisBox');
+      if(ab) ab.style.display = 'block';
+      
+      const _setText = (id, v)=>{ const e=document.getElementById(id); if(e && v) e.textContent = v; };
+      const _setStyle = (id, prop, v)=>{ const e=document.getElementById(id); if(e && v) e.style[prop] = v; };
+      
+      _setText('anScore', snap.anScore);
+      _setText('anGrade', snap.anGrade);
+      _setStyle('anFill', 'width', snap.anFillW);
+      _setText('anM1', snap.anM1);
+      _setStyle('anM1Fill', 'width', snap.anM1FillW);
+      _setText('anM2', snap.anM2);
+      _setStyle('anM2Fill', 'width', snap.anM2FillW);
+      _setText('anM3', snap.anM3);
+      _setStyle('anM3Fill', 'width', snap.anM3FillW);
+      _setText('anM4', snap.anM4);
+      _setStyle('anM4Fill', 'width', snap.anM4FillW);
+    }
+    
+    // 결과 이미지 복원 (정/후면 swipe 활성화 포함)
+    if(typeof window.drawTryonResult === 'function'){
+      window.drawTryonResult(snap.imageSrc);
+    }
+    
+    // state 복원
+    if(typeof state !== 'undefined'){
+      state.stepDone[3] = true;
+    }
+    
+    return true;
+  }catch(e){
+    console.warn('[tryon restore snap]', e);
+    return false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// visibility/focus/pageshow 핸들러 — 페이지 복귀 시 자동 복원
+// ─────────────────────────────────────────────────────────────────
+function _isTryonResultEmpty(){
+  const img = document.getElementById('resultImage');
+  if(!img) return true;
+  if(img.style.display === 'none') return true;
+  if(!img.src || img.src === '' || img.src === window.location.href) return true;
+  return false;
+}
+
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible' && _isTryonResultEmpty()){
+    _restoreTryonSnap();
+  }
+});
+window.addEventListener('focus', function(){
+  if(_isTryonResultEmpty()){
+    setTimeout(_restoreTryonSnap, 100);
+  }
+});
+// pageshow는 picker 복귀 외 다른 케이스도 잡도록 추가 (기존 consumePick과 충돌하지 않음)
+window.addEventListener('pageshow', function(e){
+  if(e.persisted && _isTryonResultEmpty()){
+    setTimeout(_restoreTryonSnap, 50);
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+//  초기 렌더
+// ════════════════════════════════════════════════════════════════
+renderStep1();
+applyFitUI('my');        // Step 2 기본값 적용
+updateFinalSummary();
+
+// [v15 TJ] 페이지 로드 직후 마지막 트라이온 결과 자동 복원 시도
+setTimeout(function(){
+  try{
+    const raw = sessionStorage.getItem(TRYON_SNAP_KEY);
+    if(raw){ _restoreTryonSnap(); }
+  }catch(_){}
+}, 250);
+</script>
+
+</body>
+</html>
