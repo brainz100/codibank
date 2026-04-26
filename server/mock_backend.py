@@ -1456,14 +1456,13 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
 
     kw_str = ", ".join([str(k) for k in keywords if str(k).strip()][:6])
 
-    # [2026-04-26 v14 TJ] weather_rule — MVP 베이직 (스카프/머플러/가방/시계/모자 모두 X)
-    # 온도 버킷에 따른 레이어링 가이드 (no neckwear in MVP)
+    # 온도 버킷에 따른 레이어링 가이드
     if bucket in ("very cold", "cool"):
-        weather_rule = "Layer appropriately for cold weather (coat/jacket + warm inner). MVP: no scarf, no muffler, no bag."
+        weather_rule = "Layer appropriately for cold weather (coat/jacket, warm inner, scarf optional)."
     elif bucket == "hot":
-        weather_rule = "Choose breathable lightweight fabrics suitable for hot weather. MVP: top + bottom + shoes only."
+        weather_rule = "Choose breathable lightweight fabrics suitable for hot weather."
     else:
-        weather_rule = "Use balanced layering suitable for mild weather. MVP: no accessories (no bag, watch, scarf, hat)."
+        weather_rule = "Use balanced layering suitable for mild weather."
 
     # 결과 설명(100자 이내는 프론트에서 추가로 trim 가능)
     short = explanation
@@ -2073,25 +2072,6 @@ def _ai_styling_via_gemini(
         # 분석 JSON 출력 지시 — 핵심
         # ══════════════════════════════════════════
         "\n\n=== CRITICAL OUTPUT INSTRUCTIONS ===\n"
-        # ─────────────────────────────────────────────────────
-        # [2026-04-26 v14 TJ] 이미지 레이아웃 + MVP 베이직 알림
-        # 생성된 이미지는 정+후면 한 페이지 (좌=정면, 우=후면)
-        # 분석은 정면(LEFT) 기준으로 작성, 단 후면도 동일 의상임을 검증
-        # ─────────────────────────────────────────────────────
-        "[IMAGE LAYOUT CONTEXT]\n"
-        "The generated image contains TWO poses of the SAME person side by side: "
-        "LEFT half = FRONT view (face visible), RIGHT half = BACK view (back of head). "
-        "Both views show the SAME outfit on the SAME person. "
-        "Write the analysis based on the FRONT view (left half), but ensure your description "
-        "is consistent with both views. Do NOT analyze them as two different people.\n"
-        "\n"
-        "[MVP BASICS — outfit composition]\n"
-        "This is a CodiBank MVP basic look: outerwear + top + bottom + shoes only. "
-        "There are NO bags, NO watches, NO scarves/mufflers, NO hats, NO sunglasses, NO jewelry. "
-        "Both hands are empty. Both wrists are bare. "
-        "Your analysis text MUST NOT recommend or mention any forbidden accessories. "
-        "Focus on garment colors, silhouette, fabric, and how they suit the user.\n"
-        "\n"
         "Along with the generated outfit image, you MUST also output a structured " + ("English" if _cs_en else "Korean") + " analysis as TEXT. "
         "Wrap the JSON between exact markers <<<ANALYSIS_JSON>>> and <<<END_ANALYSIS>>> with no additional text outside markers. "
         "The JSON MUST follow this EXACT schema:\n"
@@ -2109,17 +2089,15 @@ def _ai_styling_via_gemini(
         '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
         '  },\n'
         '  "categoryKeywords": {\n'
-        '    "outer": "컬러, 아이템 (예: \\"베이지, 트렌치코트\\" — 반드시 콤마로 컬러와 아이템 분리, 아우터 없으면 빈 문자열)",\n'
+        '    "outer": "컬러, 아이템 (예: \\"베이지, 트렌치코트\\" — 반드시 콤마로 컬러와 아이템 분리)",\n'
         '    "top": "컬러, 아이템 (예: \\"화이트, 실크 블라우스\\")",\n'
         '    "bottom": "컬러, 아이템 (예: \\"네이비, 와이드 슬랙스\\")",\n'
         '    "shoes": "컬러, 아이템 (예: \\"브라운, 첼시 부츠\\")",\n'
-        '    "socks": "컬러, 아이템 (예: \\"화이트, 면 양말\\" — 보이지 않으면 빈 문자열)"\n'
+        '    "bag": "컬러, 아이템 (예: \\"블랙, 토트백\\" — 없으면 빈 문자열)",\n'
+        '    "scarf": "컬러, 아이템 (예: \\"카멜, 실크 스카프\\" — 없으면 빈 문자열)",\n'
+        '    "watch": "컬러, 아이템 (없으면 빈 문자열)",\n'
+        '    "socks": "컬러, 아이템 (예: \\"화이트, 면 양말\\")"\n'
         '  }\n'
-        # ─────────────────────────────────────────────────────
-        # [2026-04-26 v14 TJ MVP] bag/scarf/watch 카테고리 제거
-        # MVP는 (아우터)+상의+하의+신발+(양말)만 — 액세서리는 ABSOLUTE RULES에서 절대 금지
-        # 이미지에 없는 항목을 분석에 요청하면 AI 토큰 낭비 + 잘못된 출력 위험
-        # ─────────────────────────────────────────────────────
         "}\n"
         "RULES:\n"
         "1. Each text field MUST be 250-300 Korean characters (not more, not less significantly).\n"
@@ -4941,47 +4919,25 @@ def _tryon_build_prompt(
         wearing_bits.append(
             "Dress wearing: natural drape, full-length visible, hem at appropriate level."
         )
-    # [2026-04-26 v17 TJ] 정+후면 두 자세에서 동일 스타일링 보장
-    wearing_bits.append(
-        "CONSISTENCY: Both front and back views must show IDENTICAL wearing style — "
-        "same tuck/untuck, same hem position, same drape, same fit. "
-        "This is the SAME outfit on the SAME person, just photographed from front and back."
-    )
-    wearing = " ".join(wearing_bits) if wearing_bits else "Natural, well-fitted wearing style on both poses."
+    wearing = " ".join(wearing_bits) if wearing_bits else "Natural, well-fitted wearing style."
 
-    # ──────── Phase 4: IMAGE COMPOSITION (정+후면 한 페이지 — 2026-04-26 v17 TJ) ────────
-    # [2026-04-26 v17 TJ 지시] 코디핏 v14와 동일한 정+후면 두 자세 레이아웃 적용
-    # 이전(v9 단일): 9:16 세로 + 단일 인물 정면
-    # 변경(v17): WIDE 16:9 또는 2:1 가로 + 좌=정면 / 우=후면, 같은 사람 같은 옷
-    # 사용자 얼굴(또는 모델)은 좌측에서만 보이고, 우측은 뒷모습 (뒤통수만)
-    # 클라이언트(tryon.html)는 박스 너비×2 정책으로 swipe 표시
+    # ──────── Phase 4: IMAGE COMPOSITION (전신 엄수 — 2026-04-23 TJ 지시) ────────
+    # 기존: 발끝/신발이 프레임 밖으로 짤리는 문제 발생
+    # 해결: head-to-toe full-body 엄격 규정 + 9:16 세로 비율 + 상하 여백 안내
     image_compo = (
-        "═══ LAYOUT (CRITICAL — MUST FOLLOW EXACTLY) ═══ "
-        "Output a SINGLE WIDE image with TWO poses of the SAME person, "
-        "side by side, sharing the SAME flat solid neutral background: "
-        "  • LEFT half: FRONT view (full body, facing camera, arms relaxed). "
-        "  • RIGHT half: BACK view (full body, facing AWAY from camera, same pose). "
-        "Aspect ratio: WIDE landscape (approximately 16:9 or 2:1). "
-        "Both views show the EXACT SAME outfit, lighting, hair, and styling. "
-        "The two figures are evenly spaced, not touching, on the same ground line. "
-        "Reference: Uniqlo / Theory store catalog — clean, neutral, minimal. "
-        "═══ END LAYOUT ═══ "
-        "\n\n"
-        "FACE/HEAD RULES: "
-        "• LEFT (front view): Face fully visible — preserve identity 99.99% to the reference face image. "
-        "• RIGHT (back view): Face NOT visible (back of head only). Match only hair color, texture, length, parting, hairline. "
-        "FORBIDDEN: Showing face on the BACK view. "
-        "\n\n"
-        "FRAMING RULES (apply to BOTH poses): "
-        "• Complete FULL-BODY shot from TOP of head to BELOW the feet. "
+        "IMAGE FRAMING RULES (MANDATORY — violations are critical errors): "
+        "• ASPECT RATIO: 9:16 vertical portrait (tall). "
+        "• FRAMING: complete FULL-BODY shot from TOP of head to BELOW the feet. "
         "  The ENTIRE shoes must be fully visible including the soles on the ground. "
-        "  Top of head: ~8-12% breathing space above. "
-        "  Feet: ~5-8% breathing space below (never cut at ankle or shin). "
-        "• Both figures vertically centered in their respective half. "
+        "  The top of the head must have ~8-12% breathing space above. "
+        "  The feet must have ~5-8% breathing space below (never cut at the ankle or shin). "
+        "• POSITION: model is vertically centered but slightly offset to show full outfit. "
         "• CROP GUARD: NEVER crop at knees, ankles, shins, calves, or above the shoes. "
-        "• POSE: natural relaxed standing posture for both views. Front = facing camera. Back = facing away. "
-        "• LIGHTING: soft even studio lighting, no harsh shadows, IDENTICAL across both poses. "
-        "• BACKGROUND: clean seamless neutral grey (#E8E8E8) shared by both poses. "
+        "  If the outfit is long (midi/maxi dress, long pants), ZOOM OUT so the hem and shoes are fully visible. "
+        "• POSE: natural relaxed standing posture, slight weight-shift to one leg, "
+        "  arms relaxed at sides or one hand slightly on hip. "
+        "• LIGHTING: soft even studio lighting, no harsh shadows. "
+        "• BACKGROUND: clean seamless neutral grey (#E8E8E8). "
         "• STYLE: photographic realism — NO illustration, NO cartoon, NO anime style."
     )
 
@@ -5450,15 +5406,6 @@ def _tryon_build_analysis_prompt(
 정량 점수 + 전문가 시각의 심층 리포트로 제공합니다.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📷 [이미지 레이아웃 — 2026-04-26 v17 신규]
-생성된 트라이온 결과 이미지는 한 장에 두 자세가 좌우로 배치됩니다:
-  • 좌측(LEFT) = 정면 뷰 — 얼굴/상체/하체/신발 모두 전면에서 보임
-  • 우측(RIGHT) = 후면 뷰 — 같은 사람의 뒷모습 (얼굴 안 보임, 머리 뒤통수만)
-같은 사람, 같은 옷, 같은 배경, 같은 라이팅. 한 사람을 두 각도에서 촬영한 매장 룩북 스타일.
-
-분석은 정면(LEFT) 기준으로 작성하되, 양 시점의 일관성도 확인합니다.
-절대 두 사람으로 분석하지 마세요. 한 사람의 정/후면 두 자세입니다.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 사용자 프로필:
 {user_info_block}
 
@@ -5556,14 +5503,6 @@ IMPORTANT:
         prompt = f"""You are a senior VOGUE/ELLE fashion editor with 15+ years of experience
 and a professional personal stylist. Analyze the attached images (face + clothing items)
 and user profile to provide styling scores and a premium-magazine-style deep analysis.
-
-[IMAGE LAYOUT — 2026-04-26 v17]
-The try-on result image contains TWO poses of the SAME person side by side:
-  • LEFT half = FRONT view (face, full body visible from the front)
-  • RIGHT half = BACK view (back of the same person — head/back/legs from behind)
-Same person, same outfit, same background, same lighting. Lookbook style.
-Write the analysis based on the FRONT view (left half), but ensure consistency with both views.
-Do NOT analyze them as two different people.
 
 USER PROFILE:
 - Gender: {gender_en} / Age: {age} / Height: {height}cm / Weight: {weight}kg
