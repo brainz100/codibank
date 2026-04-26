@@ -835,12 +835,6 @@
     background:rgba(13,31,60,0.88);
     border:1px solid var(--border);
   }
-  /* ═══════════════════════════════════════════════════════════
-     [2026-04-26 v14/v15 TJ] 트라이온 정+후면 + Swipe UI 적용
-     - result-img-box: 가로 스크롤 컨테이너
-     - 이미지: 박스 너비 × 2 로 표시 (좌=정면, 우=후면)
-     - scroll-snap으로 정/후면 각각 박스 중앙에 풀로 표시
-     ═══════════════════════════════════════════════════════════ */
   .result-img-box{
     aspect-ratio:1/1.5;
     position:relative;
@@ -848,26 +842,14 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    overflow-x:auto;
-    overflow-y:hidden;
-    /* [v15] 부드러운 스크롤 + 스냅 */
-    scroll-behavior:smooth;
-    scroll-snap-type:x mandatory;
-    -webkit-overflow-scrolling:touch;
+    overflow:hidden;
   }
-  .result-img-box::-webkit-scrollbar{height:0;width:0;display:none;}
   .result-img-box::after{
     content:'';
     position:absolute;
     inset:0;
     background:linear-gradient(180deg, transparent 0%, rgba(151,254,237,0.04) 50%, transparent 100%);
     pointer-events:none;
-  }
-  /* [v15] 결과 모드 — 이미지가 박스보다 넓을 때 (정/후면) */
-  .result-img-box.has-result{
-    display:block;
-    align-items:initial;
-    justify-content:initial;
   }
   .img-ph{
     text-align:center;
@@ -889,50 +871,6 @@
     height:100%;
     object-fit:cover;
     display:block;
-  }
-  /* [v15 TJ] 정/후면 모드 — 이미지가 박스 너비×2로 자연 비율 표시 */
-  #resultImage.tr-result-image{
-    width:auto !important;
-    max-width:none !important;
-    height:100% !important;
-    object-fit:contain;
-    scroll-snap-align:start;
-    position:relative;
-  }
-  /* [v15 TJ] 정/후면 인디케이터 도트 */
-  .tr-pose-dots{
-    position:absolute;left:50%;bottom:8px;
-    transform:translateX(-50%);
-    display:flex;gap:6px;z-index:5;
-    padding:4px 10px;border-radius:999px;
-    background:rgba(0,0,0,0.45);
-    backdrop-filter:blur(6px);
-    pointer-events:none;
-    transition:opacity .25s;
-  }
-  .tr-pose-dots.hidden{opacity:0;pointer-events:none;display:none;}
-  .tr-pose-dot{
-    width:6px;height:6px;border-radius:50%;
-    background:rgba(151,254,237,0.35);
-    transition:background .2s, transform .2s;
-  }
-  .tr-pose-dot.active{background:#97FEED;transform:scale(1.4);}
-  /* [v15 TJ] 정/후면 swipe 힌트 */
-  .tr-pose-hint{
-    position:absolute;right:12px;top:12px;z-index:5;
-    font-size:9px;font-weight:800;
-    color:rgba(151,254,237,0.85);
-    background:rgba(0,0,0,0.45);
-    padding:4px 8px;border-radius:999px;
-    letter-spacing:.05em;
-    display:flex;align-items:center;gap:4px;
-    pointer-events:none;
-    animation:trPoseHintPulse 2s ease-in-out infinite;
-  }
-  .tr-pose-hint.hidden{display:none;}
-  @keyframes trPoseHintPulse{
-    0%,100%{opacity:0.7;transform:translateX(0);}
-    50%{opacity:1;transform:translateX(-3px);}
   }
 
   /* 저장 / 공유 / 리셋 */
@@ -1467,21 +1405,12 @@
     <!-- 3. 생성된 이미지 뷰박스 (생성 전 숨김) -->
     <div class="result-wrap" id="resultWrap" style="display:none;">
       <div class="result-box">
-        <div class="result-img-box" id="resultImgBox">
+        <div class="result-img-box">
           <div class="img-ph" id="imgPh">
             <span class="mi">image</span>
             <div class="ph-text">생성된 착장 이미지</div>
           </div>
           <img id="resultImage" style="display:none;" alt="생성 결과">
-          <!-- [2026-04-26 v15 TJ] 정/후면 swipe 인디케이터 + 힌트 -->
-          <div id="trPoseDots" class="tr-pose-dots hidden">
-            <span class="tr-pose-dot active" data-pose="0"></span>
-            <span class="tr-pose-dot" data-pose="1"></span>
-          </div>
-          <div id="trPoseHint" class="tr-pose-hint hidden">
-            <span>정·후면</span>
-            <span class="mi" style="font-size:11px;">swipe</span>
-          </div>
         </div>
       </div>
     </div>
@@ -2092,29 +2021,7 @@ function updateFinalSummary(){
   // 추후 필요 시 내부 요약 갱신 로직을 다시 넣을 수 있음
 }
 
-// ════════════════════════════════════════════════════════════════
-// [2026-04-26 v17 TJ] 트라이온 백엔드 호출 헬퍼 (codistyle 패턴 참고)
-// ════════════════════════════════════════════════════════════════
-function tryonBase(){
-  // 1순위: config (codibank.js가 로드됐을 때)
-  try{
-    const cfg = (window.CodiBank && CodiBank.getConfig) ? CodiBank.getConfig() : {};
-    const direct = String(cfg.backendBase || '').trim();
-    if(direct) return direct.replace(/\/$/,'');
-    if(window.CodiBank && CodiBank.getBackendBaseResolved){
-      const resolved = String(CodiBank.getBackendBaseResolved()||'').trim();
-      if(resolved) return resolved.replace(/\/$/,'');
-    }
-  }catch(_){}
-  // 2순위: 동일 origin (Vercel 등 프록시)
-  if(window.location && window.location.origin && !window.location.origin.includes('localhost')){
-    return window.location.origin;
-  }
-  // 3순위: 프로덕션 기본 (codibank-api.onrender.com)
-  return 'https://codibank-api.onrender.com';
-}
-
-$('#finalGenerate').addEventListener('click', async () => {
+$('#finalGenerate').addEventListener('click', () => {
   const filled = Object.entries(state.slots).filter(([,s])=>s.filled);
   if(!filled.length){ showToast('Step 1에서 아이템을 먼저 선택해 주세요'); return; }
   if(!state.fitTarget){ showToast('Step 2에서 핏을 선택해 주세요'); return; }
@@ -2127,30 +2034,16 @@ $('#finalGenerate').addEventListener('click', async () => {
   btn.disabled = true;
   btn.innerHTML = '<span class="mi" style="animation:spin 1s linear infinite;">progress_activity</span><span>생성 중…</span>';
 
-  // ────────────────────────────────────────────────────────────
-  // [v17 TJ] 결과 표시 함수 — 성공/실패 공통 후처리
-  // ────────────────────────────────────────────────────────────
-  function _showResult(imgSrc, analysis){
-    // 분석 박스 표시 (서버 분석이 있으면 사용, 없으면 기본값)
+  // 2.2초 후 mock 결과 표시
+  setTimeout(() => {
+    // 분석 썸머리 표시
     const analysisBox = $('#analysisBox');
     analysisBox.style.display = 'block';
-    
-    // 서버에서 STYLING_SCORE 등이 오면 사용
-    let total, m1, m2, m3, m4;
-    if(analysis && typeof analysis === 'object'){
-      total = Number(analysis.total) || 85;
-      m1 = Number(analysis.body_shape) || 25;
-      m2 = Number(analysis.personal_color) || 25;
-      m3 = Number(analysis.proportion) || 17;
-      m4 = Number(analysis.harmony) || 17;
-    } else {
-      // fallback (mock)
-      total = 82 + Math.floor(Math.random()*12);
-      m1 = 22 + Math.floor(Math.random()*7);
-      m2 = 22 + Math.floor(Math.random()*7);
-      m3 = 15 + Math.floor(Math.random()*5);
-      m4 = 15 + Math.floor(Math.random()*5);
-    }
+    const total = 82 + Math.floor(Math.random()*12);
+    const m1 = 22 + Math.floor(Math.random()*7);
+    const m2 = 22 + Math.floor(Math.random()*7);
+    const m3 = 15 + Math.floor(Math.random()*5);
+    const m4 = 15 + Math.floor(Math.random()*5);
     $('#anScore').textContent = total;
     $('#anGrade').textContent = total >= 90 ? 'S' : total >= 80 ? 'A' : 'B';
     $('#anFill').style.width = total + '%';
@@ -2163,99 +2056,25 @@ $('#finalGenerate').addEventListener('click', async () => {
     $('#resultWrap').style.display = '';
     $('#resultActions').style.display = 'grid';
     state.stepDone[3] = true;
-    
-    // ★ 정/후면 박스 너비×2 정책으로 결과 이미지 표시
-    try{
-      window.drawTryonResult(imgSrc);
-      // 보존 저장 (drawTryonResult가 박스에 그린 후 200ms 뒤)
-      setTimeout(_saveTryonSnap, 250);
-    }catch(_e){ console.warn('[tryon draw]', _e); }
 
     // 버튼 복원
     btn.disabled = false;
     btn.innerHTML = '<span class="mi">refresh</span><span>다시 생성하기</span><span class="count">2/5</span>';
-    
+
+    showToast('생성 완료 — Gemini 3 Pro Image');
+
     // 스크롤 이동
     setTimeout(() => $('#resultWrap').scrollIntoView({ behavior:'smooth', block:'center' }), 300);
-  }
-  
-  // ────────────────────────────────────────────────────────────
-  // [v17 TJ] payload 구성 — v53 SDK fix 5필드 보존
-  //   topPath, bottomPath, topDataUrl, bottomDataUrl, faceImage
-  //   (현재 mock UI에선 데이터 미연동 → 서버가 fallback 처리)
-  //   추가 필드: mode, fitTarget, modelGender (additive — TJ 메모리 v53 보존)
-  // ────────────────────────────────────────────────────────────
+  }, 2200);
+
   const payload = {
-    // v53 SDK fix 5필드 (mock UI에선 빈 값, 향후 picker 통합 시 채움)
-    topPath: state.slots.top?.item?.path || '',
-    bottomPath: state.slots.bottom?.item?.path || '',
-    topDataUrl: state.slots.top?.item?.dataUrl || '',
-    bottomDataUrl: state.slots.bottom?.item?.dataUrl || '',
-    faceImage: '',  // 사용자 얼굴 (코디핏과 동일 키)
-    // v17 추가 필드
     mode: state.mode,
-    items: Object.fromEntries(filled.map(([t,s]) => [t, { 
-      name: s.item.name, 
-      meta: s.item.meta,
-      path: s.item.path || '',
-      dataUrl: s.item.dataUrl || ''
-    }])),
+    items: Object.fromEntries(filled.map(([t,s]) => [t, { name:s.item.name, meta:s.item.meta }])),
     fitTarget: state.fitTarget,
     modelGender: state.modelGender,
     engine: 'gemini-3-pro-image'
   };
   console.log('[TryOn Generate Payload]', payload);
-
-  // ────────────────────────────────────────────────────────────
-  // [v17 TJ] 실제 API 호출 — 실패 시 mock placeholder fallback
-  // ────────────────────────────────────────────────────────────
-  let _gotResult = false;
-  try{
-    const base = tryonBase();
-    if(base){
-      const ctrl = new AbortController();
-      const _to = setTimeout(()=>ctrl.abort(), 90*1000);  // 90초 타임아웃
-      const r = await fetch(base + '/api/tryon/generate', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(payload),
-        signal: ctrl.signal
-      }).catch(e=>{ console.warn('[tryon fetch]',e); return null; });
-      clearTimeout(_to);
-      
-      if(r && r.ok){
-        const data = await r.json().catch(()=>null);
-        if(data){
-          // 서버 응답 형식: { imageUrl?, dataUrl?, displaySrc?, path?, analysis? }
-          // (코디핏 패턴 참고)
-          const imgSrc = data.displaySrc 
-            || data.imageUrl 
-            || data.dataUrl 
-            || (data.path ? base + data.path : null);
-          if(imgSrc){
-            _showResult(imgSrc, data.analysis);
-            showToast('생성 완료 — Gemini 3 Pro Image');
-            _gotResult = true;
-          }
-        }
-      }
-    }
-  }catch(e){ console.warn('[tryon api]', e); }
-  
-  // 서버 응답 실패 시 mock placeholder 사용 (개발/데모용)
-  if(!_gotResult){
-    const _mockSrc = 'data:image/svg+xml;base64,' + btoa(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">' +
-      '<rect width="400" height="600" fill="#1a2a52"/>' +
-      '<rect x="400" width="400" height="600" fill="#152544"/>' +
-      '<text x="200" y="300" fill="#97FEED" font-size="20" text-anchor="middle">정면 (Front)</text>' +
-      '<text x="600" y="300" fill="#97FEED" font-size="20" text-anchor="middle">후면 (Back)</text>' +
-      '<text x="400" y="560" fill="#a2fdf0" font-size="11" text-anchor="middle" opacity="0.6">Mock Placeholder · API not connected</text>' +
-      '</svg>'
-    );
-    _showResult(_mockSrc, null);
-    showToast('생성 완료 (개발 모드)');
-  }
 });
 
 // 저장 / 공유 / 리셋
@@ -2266,22 +2085,6 @@ $('#actReset').addEventListener('click', () => {
   $('#resultWrap').style.display = 'none';
   $('#resultActions').style.display = 'none';
   state.stepDone[3] = false;
-  // [2026-04-26 v15 TJ] 명시적 리셋 시 sessionStorage 삭제
-  // 다음 페이지 로드 시 자동 복원되지 않음
-  try{ if(typeof _clearTryonSnap === 'function') _clearTryonSnap(); }catch(_){}
-  // 결과 이미지 src도 비움
-  try{
-    const _ri = document.getElementById('resultImage');
-    if(_ri){ _ri.src = ''; _ri.style.display = 'none'; _ri.classList.remove('tr-result-image'); }
-    const _rb = document.getElementById('resultImgBox');
-    if(_rb){ _rb.classList.remove('has-result'); }
-    const _ph = document.getElementById('imgPh');
-    if(_ph) _ph.style.display = '';
-    const _dots = document.getElementById('trPoseDots');
-    if(_dots) _dots.classList.add('hidden');
-    const _hint = document.getElementById('trPoseHint');
-    if(_hint) _hint.classList.add('hidden');
-  }catch(_){}
   // 생성 버튼 텍스트도 초기값으로 복원
   const btn = $('#finalGenerate');
   btn.innerHTML = '<span class="mi">auto_awesome</span><span>트라이온 착장이미지 생성하기</span><span class="count">3/5</span>';
@@ -2312,297 +2115,11 @@ function showToast(msg){
 }
 
 // ════════════════════════════════════════════════════════════════
-//  [2026-04-26 v14/v15 TJ] 트라이온 정+후면 + Swipe + 보존 시스템
-//  코디핏(closet.html)의 v15 정책을 트라이온에 동일 적용
-//  - drawTryonResult: 박스 너비×2 정책으로 결과 이미지 표시
-//  - 정/후면 도트 인디케이터 + swipe 힌트 5초
-//  - sessionStorage 보존 (다른 페이지 갔다 와도 유지)
-//  - 명시적 리셋 (actReset, 모드 변경 등) 시 즉시 삭제
-// ════════════════════════════════════════════════════════════════
-const TRYON_SNAP_KEY = 'cb_tryon_snap_v15';
-const TRYON_SNAP_TIMEOUT_MS = 30 * 60 * 1000;  // 30분
-
-// 결과 이미지를 박스에 표시 — 정/후면 박스 너비×2 정책
-window.drawTryonResult = function(src){
-  const img = document.getElementById('resultImage');
-  const box = document.getElementById('resultImgBox');
-  const ph  = document.getElementById('imgPh');
-  if(!img || !box) return;
-  
-  const tmp = new Image();
-  tmp.crossOrigin = 'anonymous';
-  tmp.onload = function(){
-    const iw = tmp.naturalWidth || 1;
-    const ih = tmp.naturalHeight || 1;
-    const ratio = iw / ih;
-    const isWide = ratio > 1.2;  // 정+후면 가로 긴 이미지
-    
-    // 플레이스홀더 숨김
-    if(ph) ph.style.display = 'none';
-    
-    // 이미지 표시
-    img.src = src;
-    img.style.display = 'block';
-    
-    // [v17 TJ] 이미지 src를 데이터 속성에도 저장 (영속성 보장 — resize 시 재적용용)
-    img.dataset.tryonSrc = src;
-    img.dataset.tryonIsWide = isWide ? '1' : '0';
-    
-    if(isWide){
-      // [v15 TJ-1] 정/후면: 이미지 = 박스 너비 × 2 (각 절반이 박스 정확히 1폭)
-      const boxRect = box.getBoundingClientRect();
-      const boxW = Math.max(1, boxRect.width);
-      const boxH = Math.max(1, boxRect.height);
-      
-      // 이미지 표시 너비 = boxW × 2, 높이 = boxH (object-fit: contain로 자연 비율 유지)
-      img.classList.add('tr-result-image');
-      img.style.width = (boxW * 2) + 'px';
-      img.style.height = boxH + 'px';
-      img.style.objectFit = 'contain';
-      
-      box.classList.add('has-result');
-      box.scrollLeft = 0;  // 정면이 박스 좌측에 정렬
-      
-      // 도트/힌트 활성화
-      const dots = document.getElementById('trPoseDots');
-      const hint = document.getElementById('trPoseHint');
-      if(dots) dots.classList.remove('hidden');
-      if(hint){
-        hint.classList.remove('hidden');
-        setTimeout(()=>{ if(hint) hint.classList.add('hidden'); }, 5000);
-      }
-      
-      // 스크롤 → 도트 active 변경
-      if(dots){
-        const dotEls = dots.querySelectorAll('.tr-pose-dot');
-        let _scrollHandler = box._poseScrollHandler;
-        if(_scrollHandler) box.removeEventListener('scroll', _scrollHandler);
-        _scrollHandler = function(){
-          if(!dotEls.length) return;
-          const sx = box.scrollLeft;
-          const sw = box.scrollWidth - box.clientWidth;
-          const isBack = sx > sw / 2;
-          dotEls[0].classList.toggle('active', !isBack);
-          dotEls[1].classList.toggle('active', isBack);
-          if(hint && sx > 5) hint.classList.add('hidden');
-        };
-        box.addEventListener('scroll', _scrollHandler, {passive:true});
-        box._poseScrollHandler = _scrollHandler;
-      }
-    } else {
-      // 단일 인물 이미지: 박스에 꽉 채움 (object-fit: cover)
-      img.classList.remove('tr-result-image');
-      img.style.width = '100%';
-      img.style.height = '100%';
-      img.style.objectFit = 'cover';
-      
-      box.classList.remove('has-result');
-      
-      // 도트/힌트 숨김
-      const dots = document.getElementById('trPoseDots');
-      const hint = document.getElementById('trPoseHint');
-      if(dots) dots.classList.add('hidden');
-      if(hint) hint.classList.add('hidden');
-    }
-  };
-  tmp.onerror = function(){
-    console.warn('[trDraw] 이미지 로드 실패:', src);
-  };
-  tmp.src = src;
-};
-
-// [v17 TJ] resize 시 이미지 너비 재조정 (정/후면 박스 너비×2 유지)
-// 화면 회전, 데스크톱 윈도우 크기 변경 등에서 이미지가 박스에 정확히 맞도록
-let _trResizeTimer = null;
-window.addEventListener('resize', function(){
-  clearTimeout(_trResizeTimer);
-  _trResizeTimer = setTimeout(function(){
-    try{
-      const img = document.getElementById('resultImage');
-      const box = document.getElementById('resultImgBox');
-      if(!img || !box) return;
-      if(img.style.display === 'none') return;
-      if(img.dataset.tryonIsWide !== '1') return;
-      const boxRect = box.getBoundingClientRect();
-      const boxW = Math.max(1, boxRect.width);
-      const boxH = Math.max(1, boxRect.height);
-      img.style.width = (boxW * 2) + 'px';
-      img.style.height = boxH + 'px';
-      // 현재 보고 있던 위치(정면 vs 후면) 유지
-      const sx = box.scrollLeft;
-      const sw = box.scrollWidth - box.clientWidth;
-      const isBack = sx > sw / 2;
-      box.scrollLeft = isBack ? sw : 0;
-    }catch(_){}
-  }, 200);
-});
-
-// ─────────────────────────────────────────────────────────────────
-// 보존 시스템 — sessionStorage 저장/복원
-// ─────────────────────────────────────────────────────────────────
-function _saveTryonSnap(){
-  try{
-    const img = document.getElementById('resultImage');
-    if(!img || img.style.display === 'none' || !img.src) return;
-    
-    const _getText = (id)=>{ const e=document.getElementById(id); return e?e.textContent:''; };
-    const _getStyle = (id, prop)=>{ const e=document.getElementById(id); return e?e.style[prop]:''; };
-    
-    // [v17 TJ] 이미지를 dataUrl로 변환해 저장 — URL 만료/CORS 위험 제거
-    // 단, 너무 큰 이미지는 sessionStorage 한도 초과 위험 → 실패 시 src URL 그대로
-    let imgData = img.src;
-    try{
-      // 이미 dataUrl이면 그대로 사용
-      if(!imgData.startsWith('data:')){
-        // 캔버스로 변환 시도
-        const cvs = document.createElement('canvas');
-        cvs.width = img.naturalWidth || img.width;
-        cvs.height = img.naturalHeight || img.height;
-        const ctx = cvs.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        const _du = cvs.toDataURL('image/jpeg', 0.85);
-        // 4MB 미만일 때만 dataUrl 저장 (sessionStorage 안전 한도)
-        if(_du && _du.length < 4*1024*1024){
-          imgData = _du;
-        }
-      }
-    }catch(_){
-      // CORS 등으로 변환 실패하면 원본 URL 사용
-    }
-    
-    const _snap = {
-      ts: Date.now(),
-      imageSrc: imgData,
-      // [v17] 가로 긴 이미지 여부 — 복원 시 즉시 정/후면 모드 적용
-      isWide: img.dataset.tryonIsWide === '1',
-      // 분석 박스 표시 상태
-      analysisVisible: _getStyle('analysisBox', 'display') !== 'none',
-      anScore: _getText('anScore'),
-      anGrade: _getText('anGrade'),
-      anFillW: _getStyle('anFill', 'width'),
-      // 4지표 점수
-      anM1: _getText('anM1'),
-      anM1FillW: _getStyle('anM1Fill', 'width'),
-      anM2: _getText('anM2'),
-      anM2FillW: _getStyle('anM2Fill', 'width'),
-      anM3: _getText('anM3'),
-      anM3FillW: _getStyle('anM3Fill', 'width'),
-      anM4: _getText('anM4'),
-      anM4FillW: _getStyle('anM4Fill', 'width'),
-      // 결과 표시 상태
-      resultVisible: _getStyle('resultWrap', 'display') !== 'none',
-      actionsVisible: _getStyle('resultActions', 'display') !== 'none',
-      // 트라이온 컨텍스트 (다른 사용자 차단)
-      mode: (typeof state !== 'undefined') ? (state.mode || '') : '',
-      fitTarget: (typeof state !== 'undefined') ? (state.fitTarget || '') : '',
-    };
-    sessionStorage.setItem(TRYON_SNAP_KEY, JSON.stringify(_snap));
-  }catch(e){ console.warn('[tryon save snap]', e); }
-}
-
-function _clearTryonSnap(){
-  try{ sessionStorage.removeItem(TRYON_SNAP_KEY); }catch(_){}
-}
-
-function _restoreTryonSnap(){
-  try{
-    const raw = sessionStorage.getItem(TRYON_SNAP_KEY);
-    if(!raw) return false;
-    const snap = JSON.parse(raw);
-    if(!snap || !snap.imageSrc) return false;
-    
-    // 30분 타임아웃
-    if(Date.now() - (snap.ts || 0) > TRYON_SNAP_TIMEOUT_MS){
-      sessionStorage.removeItem(TRYON_SNAP_KEY);
-      return false;
-    }
-    
-    // 결과 박스 표시
-    const resultWrap = document.getElementById('resultWrap');
-    const resultActions = document.getElementById('resultActions');
-    if(snap.resultVisible && resultWrap) resultWrap.style.display = '';
-    if(snap.actionsVisible && resultActions) resultActions.style.display = 'grid';
-    
-    // 분석 박스 복원
-    if(snap.analysisVisible){
-      const ab = document.getElementById('analysisBox');
-      if(ab) ab.style.display = 'block';
-      
-      const _setText = (id, v)=>{ const e=document.getElementById(id); if(e && v) e.textContent = v; };
-      const _setStyle = (id, prop, v)=>{ const e=document.getElementById(id); if(e && v) e.style[prop] = v; };
-      
-      _setText('anScore', snap.anScore);
-      _setText('anGrade', snap.anGrade);
-      _setStyle('anFill', 'width', snap.anFillW);
-      _setText('anM1', snap.anM1);
-      _setStyle('anM1Fill', 'width', snap.anM1FillW);
-      _setText('anM2', snap.anM2);
-      _setStyle('anM2Fill', 'width', snap.anM2FillW);
-      _setText('anM3', snap.anM3);
-      _setStyle('anM3Fill', 'width', snap.anM3FillW);
-      _setText('anM4', snap.anM4);
-      _setStyle('anM4Fill', 'width', snap.anM4FillW);
-    }
-    
-    // 결과 이미지 복원 (정/후면 swipe 활성화 포함)
-    if(typeof window.drawTryonResult === 'function'){
-      window.drawTryonResult(snap.imageSrc);
-    }
-    
-    // state 복원
-    if(typeof state !== 'undefined'){
-      state.stepDone[3] = true;
-    }
-    
-    return true;
-  }catch(e){
-    console.warn('[tryon restore snap]', e);
-    return false;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────
-// visibility/focus/pageshow 핸들러 — 페이지 복귀 시 자동 복원
-// ─────────────────────────────────────────────────────────────────
-function _isTryonResultEmpty(){
-  const img = document.getElementById('resultImage');
-  if(!img) return true;
-  if(img.style.display === 'none') return true;
-  if(!img.src || img.src === '' || img.src === window.location.href) return true;
-  return false;
-}
-
-document.addEventListener('visibilitychange', function(){
-  if(document.visibilityState === 'visible' && _isTryonResultEmpty()){
-    _restoreTryonSnap();
-  }
-});
-window.addEventListener('focus', function(){
-  if(_isTryonResultEmpty()){
-    setTimeout(_restoreTryonSnap, 100);
-  }
-});
-// pageshow는 picker 복귀 외 다른 케이스도 잡도록 추가 (기존 consumePick과 충돌하지 않음)
-window.addEventListener('pageshow', function(e){
-  if(e.persisted && _isTryonResultEmpty()){
-    setTimeout(_restoreTryonSnap, 50);
-  }
-});
-
-// ════════════════════════════════════════════════════════════════
 //  초기 렌더
 // ════════════════════════════════════════════════════════════════
 renderStep1();
 applyFitUI('my');        // Step 2 기본값 적용
 updateFinalSummary();
-
-// [v15 TJ] 페이지 로드 직후 마지막 트라이온 결과 자동 복원 시도
-setTimeout(function(){
-  try{
-    const raw = sessionStorage.getItem(TRYON_SNAP_KEY);
-    if(raw){ _restoreTryonSnap(); }
-  }catch(_){}
-}, 250);
 </script>
 
 </body>

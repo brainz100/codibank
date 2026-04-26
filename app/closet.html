@@ -818,24 +818,41 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   object-position:center;
   scroll-snap-align:start;
 }
-/* [v14] 정/후면 인디케이터 도트 */
-.vto-pose-dots{
-  position:absolute;left:50%;bottom:8px;
+/* [v18 TJ 2026-04-26] 정/후면 토글 버튼 — 도트 대체 (segmented control)
+ * 기존: 작은 도트 2개 (시인성 낮음 + 클릭 안 됨)
+ * 변경: '정면 / 후면' 텍스트 캡슐 버튼 (한 번 터치로 즉시 이동) */
+.vto-pose-toggle{
+  position:absolute;left:50%;bottom:12px;
   transform:translateX(-50%);
-  display:flex;gap:6px;z-index:5;
-  padding:4px 10px;border-radius:999px;
-  background:rgba(0,0,0,0.45);
-  backdrop-filter:blur(6px);
-  pointer-events:none;
+  display:flex;gap:4px;z-index:5;
+  padding:4px;border-radius:999px;
+  background:rgba(0,0,0,0.55);
+  backdrop-filter:blur(8px);
+  border:1px solid rgba(151,254,237,0.18);
+  box-shadow:0 4px 12px rgba(0,0,0,0.3);
   transition:opacity .25s;
 }
-.vto-pose-dots.hidden{opacity:0;pointer-events:none;}
-.vto-pose-dot{
-  width:6px;height:6px;border-radius:50%;
-  background:rgba(151,254,237,0.35);
-  transition:background .2s, transform .2s;
+.vto-pose-toggle.hidden{opacity:0;pointer-events:none;display:none;}
+.vto-pose-btn{
+  padding:6px 18px;
+  border-radius:999px;
+  background:transparent;
+  color:rgba(151,254,237,0.55);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.02em;
+  border:none;
+  cursor:pointer;
+  transition:all .22s cubic-bezier(.4,0,.2,1);
+  font-family:'Noto Sans KR', sans-serif;
 }
-.vto-pose-dot.active{background:#97FEED;transform:scale(1.4);}
+.vto-pose-btn:active{transform:scale(0.96);}
+.vto-pose-btn.active{
+  background:linear-gradient(135deg, #97FEED, #35A29F);
+  color:#050a24;
+  box-shadow:0 2px 8px rgba(151,254,237,0.4);
+}
+/* swipe 힌트는 그대로 유지 (정/후면 표시 완료) */
 .vto-pose-hint{
   position:absolute;right:12px;top:12px;z-index:5;
   font-size:9px;font-weight:800;
@@ -1627,10 +1644,10 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
           <!-- 결과 캔버스 (생성 완료 후 표시) -->
           <canvas id="vtoCanvas" class="vto-canvas" style="display:none;"></canvas>
         </div>
-        <!-- [2026-04-26 v14 TJ] 정/후면 swipe 인디케이터 + 힌트 -->
-        <div id="vtoPoseDots" class="vto-pose-dots hidden">
-          <span class="vto-pose-dot active" data-pose="0"></span>
-          <span class="vto-pose-dot" data-pose="1"></span>
+        <!-- [2026-04-26 v18 TJ] 정/후면 토글 버튼 (도트 대체 — 한 번 터치로 즉시 이동) -->
+        <div id="vtoPoseToggle" class="vto-pose-toggle hidden">
+          <button type="button" class="vto-pose-btn active" data-pose="front">정면</button>
+          <button type="button" class="vto-pose-btn" data-pose="back">후면</button>
         </div>
         <div id="vtoPoseHint" class="vto-pose-hint hidden">
           <span>정·후면</span>
@@ -2621,7 +2638,7 @@ async function _tryRestoreLastResult(){
     
     // [v15] swipe 도트 + 힌트 표시 (가로 긴 이미지일 때)
     const isWide = ratio > 1.2;
-    const _dots = document.getElementById('vtoPoseDots');
+    const _dots = document.getElementById('vtoPoseToggle');
     const _hint = document.getElementById('vtoPoseHint');
     if(isWide){
       if(_dots) _dots.classList.remove('hidden');
@@ -4335,7 +4352,7 @@ async function updateVTO(opts={}){
     canvas.style.width='';
     canvas.style.height='';
     // [v14 TJ] 도트/힌트 숨김
-    var _pdots=document.getElementById('vtoPoseDots'); if(_pdots) _pdots.classList.add('hidden');
+    var _pdots=document.getElementById('vtoPoseToggle'); if(_pdots) _pdots.classList.add('hidden');
     var _phint=document.getElementById('vtoPoseHint'); if(_phint) _phint.classList.add('hidden');
     // [v14 TJ] 박스를 빈 상태(flex 정렬)로
     if(boxEl) boxEl.classList.add('vto-empty');
@@ -4388,9 +4405,11 @@ async function updateVTO(opts={}){
   ctx.setTransform(DPR,0,0,DPR,0,0);
 
   // ─────────────────────────────────────────────────────────
-  // [2026-04-26 v14 TJ] drawNatural — 정+후면 이미지를 자연 비율로 그리기
-  // 가로 긴 이미지(2:1 또는 16:9)를 박스에 채워서 cover하면 짤림
-  // → canvas 크기를 이미지 자연 비율에 맞게 재조정 + 박스에서 가로 스크롤
+  // [2026-04-26 v18 TJ] drawNatural — 박스 풀로 채움 (cover 방식)
+  // 이전 v15: 이미지 자연 비율 유지 → 박스 비율(1:1.62)과 다르면 빈 공간 발생
+  // 변경 v18: 캔버스 = 박스 너비×2 × 박스 높이 (정확히 고정)
+  //          이미지를 cover 방식(자연 비율 유지하며 캔버스 풀로 채움)으로 그림
+  //          → 좌측 절반 = 정면 풀, 우측 절반 = 후면 풀, 박스에 빈 공간 없음
   // ─────────────────────────────────────────────────────────
   const drawNatural = async (src)=>{
     const img = await loadImg(src);
@@ -4403,39 +4422,19 @@ async function updateVTO(opts={}){
     const boxW = Math.max(1, boxRect.width);
     const boxH = Math.max(1, boxRect.height);
     const ratio = iw / ih;
-    
-    // ─────────────────────────────────────────────────────
-    // [2026-04-26 v15 TJ-1] 정/후면 표시 정책
-    //   가로 긴 이미지(ratio > 1.2): 좌=정면, 우=후면
-    //     → 캔버스 너비 = boxW × 2 (각 절반이 박스 정확히 1폭)
-    //     → scroll-snap으로 정/후면 각자 박스 중앙에 풀로 표시
-    //   세로 긴/정사각 이미지(ratio ≤ 1.2): 단일 인물
-    //     → 캔버스 너비 = boxW (박스에 꽉 차게)
-    // ─────────────────────────────────────────────────────
     const isWide = ratio > 1.2;
+    
+    // ─── [v18] 캔버스 크기 = 박스에 정확히 fit (정/후면 ↔ 단일) ───
     let dispW, dispH;
     if(isWide){
-      // 정/후면: 박스 너비 × 2 = 캔버스 너비
-      // 높이는 박스 높이 그대로 (이미지 자연 비율 유지: dispW/dispH = ratio)
-      // 즉 이미지 표시 높이 = boxW × 2 / ratio
+      // 정/후면: 캔버스 = 박스 너비×2 × 박스 높이 (강제)
+      // 좌측 절반 = 박스 1폭, 우측 절반 = 박스 1폭 모두 박스 풀로 표시
       dispW = boxW * 2;
-      dispH = dispW / ratio;
-      // 단, dispH가 boxH보다 작으면 위아래 빈 공간이 생기므로 dispH = boxH로 fit
-      // 하지만 그러면 가로가 잘릴 수 있으니 contain 방식: 작은 쪽에 맞춤
-      if(dispH < boxH){
-        // 이미지가 박스보다 가로로 더 긺 → boxH 기준 + 자연 비율
-        // 그러면 dispW = boxH * ratio이지만 보통 dispW < boxW*2일 수 있음
-        // 결국 짧은 변에 맞춤. 단, 정/후면 각자 박스 너비에 정확히 맞도록 dispW = boxW*2 유지
-        // dispH는 자연 비율
-      }
+      dispH = boxH;
     } else {
-      // 단일 인물: 박스 너비 = 캔버스 너비
+      // 단일 인물: 캔버스 = 박스 너비 × 박스 높이 (강제)
       dispW = boxW;
-      dispH = dispW / ratio;
-      if(dispH < boxH){
-        dispH = boxH;
-        dispW = dispH * ratio;
-      }
+      dispH = boxH;
     }
     
     // 캔버스 크기 적용
@@ -4450,11 +4449,29 @@ async function updateVTO(opts={}){
     const ctx2 = canvas.getContext('2d');
     ctx2.setTransform(DPR,0,0,DPR,0,0);
     ctx2.clearRect(0,0,dispW,dispH);
-    ctx2.drawImage(img, 0,0, iw,ih, 0,0, dispW,dispH);
+    
+    // ─── [v18] cover 방식으로 이미지 그리기 (자연 비율 유지 + 캔버스 풀로 채움) ───
+    // 캔버스 비율과 이미지 비율을 비교해 가로/세로 어느 한쪽 잘라냄
+    const cvsRatio = dispW / dispH;
+    let sx, sy, sw, sh;
+    if(ratio > cvsRatio){
+      // 이미지가 캔버스보다 가로 김 → 좌우 자름
+      sh = ih;
+      sw = ih * cvsRatio;
+      sx = (iw - sw) / 2;
+      sy = 0;
+    } else {
+      // 이미지가 캔버스보다 세로 김 (또는 동일) → 위아래 자름
+      sw = iw;
+      sh = iw / cvsRatio;
+      sx = 0;
+      sy = (ih - sh) / 2;
+    }
+    ctx2.drawImage(img, sx, sy, sw, sh, 0, 0, dispW, dispH);
     
     // ─── swipe 활성화 ───
     const _box = document.getElementById('vtoResultBox');
-    const _dots = document.getElementById('vtoPoseDots');
+    const _dots = document.getElementById('vtoPoseToggle');
     const _hint = document.getElementById('vtoPoseHint');
     if(_box){
       _box.classList.remove('vto-empty');
@@ -4474,9 +4491,9 @@ async function updateVTO(opts={}){
       if(_hint) _hint.classList.add('hidden');
     }
     
-    // 스크롤에 따라 도트 active 변경
+    // 스크롤에 따라 토글 버튼 active 변경
     if(_box && _dots && isWide){
-      const _dotEls = _dots.querySelectorAll('.vto-pose-dot');
+      const _dotEls = _dots.querySelectorAll('.vto-pose-btn');
       let _scrollHandler = _box._poseScrollHandler;
       if(_scrollHandler) _box.removeEventListener('scroll', _scrollHandler);
       _scrollHandler = ()=>{
@@ -4492,6 +4509,25 @@ async function updateVTO(opts={}){
       };
       _box.addEventListener('scroll', _scrollHandler, {passive:true});
       _box._poseScrollHandler = _scrollHandler;
+      
+      // [v18 TJ-3] 토글 버튼 클릭 핸들러 — 한 번 터치로 즉시 이동
+      const _btnHandler = function(e){
+        const btn = e.currentTarget;
+        const pose = btn.dataset.pose;
+        const sw2 = _box.scrollWidth - _box.clientWidth;
+        if(pose === 'front'){
+          _box.scrollTo({ left: 0, behavior: 'smooth' });
+        } else {
+          _box.scrollTo({ left: sw2, behavior: 'smooth' });
+        }
+        if(_hint) _hint.classList.add('hidden');
+      };
+      _dotEls.forEach(b => {
+        // 기존 핸들러 제거 후 재등록 (중복 방지)
+        if(b._poseClickHandler) b.removeEventListener('click', b._poseClickHandler);
+        b.addEventListener('click', _btnHandler);
+        b._poseClickHandler = _btnHandler;
+      });
     }
   };
   
@@ -7354,26 +7390,25 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       
       var img = new Image();
       img.onload = function(){
-        // [v15 TJ-1] 정/후면 표시 정책 — 박스 너비×2 캔버스 (drawNatural과 동일)
+        // [v18 TJ] 박스 풀로 채움 (cover 방식 — drawNatural과 동일)
         var iw = img.naturalWidth || 512;
         var ih = img.naturalHeight || 820;
         var ratio = iw / ih;
-        var isWide = ratio > 1.2;  // 정+후면 가로 긴 이미지
+        var isWide = ratio > 1.2;
         
         var DPR = window.devicePixelRatio || 1;
         var boxRect = box ? box.getBoundingClientRect() : {width:380, height:600};
         var boxW = Math.max(1, boxRect.width || 380);
         var boxH = Math.max(1, boxRect.height || 600);
         
+        // [v18] 캔버스 = 박스에 정확히 fit (drawNatural과 동일 정책)
         var dispW, dispH;
         if(isWide){
-          dispW = boxW * 2;
-          dispH = dispW / ratio;
-          if(dispH < boxH){ dispH = boxH; }
+          dispW = boxW * 2;  // 정/후면: 박스 너비×2
+          dispH = boxH;       // 박스 높이 풀
         } else {
-          dispW = boxW;
-          dispH = dispW / ratio;
-          if(dispH < boxH){ dispH = boxH; dispW = dispH * ratio; }
+          dispW = boxW;       // 단일: 박스 너비
+          dispH = boxH;       // 박스 높이 풀
         }
         
         canvas.width  = Math.round(dispW * DPR);
@@ -7388,7 +7423,24 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         var ctx = canvas.getContext('2d');
         ctx.setTransform(DPR,0,0,DPR,0,0);
         ctx.clearRect(0,0,dispW,dispH);
-        ctx.drawImage(img, 0, 0, iw, ih, 0, 0, dispW, dispH);
+        
+        // [v18] cover 방식 — 자연 비율 유지하며 캔버스 풀로 채움
+        var cvsRatio = dispW / dispH;
+        var sx, sy, sw, sh;
+        if(ratio > cvsRatio){
+          // 이미지가 캔버스보다 가로 김 → 좌우 자름
+          sh = ih;
+          sw = ih * cvsRatio;
+          sx = (iw - sw) / 2;
+          sy = 0;
+        } else {
+          // 이미지가 캔버스보다 세로 김 → 위아래 자름
+          sw = iw;
+          sh = iw / cvsRatio;
+          sx = 0;
+          sy = (ih - sh) / 2;
+        }
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dispW, dispH);
         
         if(overlay) overlay.style.display = 'none';
         // [v15] 박스를 결과 상태로 (vto-empty 제거 → 가로 스크롤 활성)
@@ -7407,15 +7459,15 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         
         // [v15 TJ-2] 정/후면 swipe 도트 + 힌트 (가로 긴 이미지 시)
         if(isWide){
-          var _dots = document.getElementById('vtoPoseDots');
+          var _dots = document.getElementById('vtoPoseToggle');
           var _hint = document.getElementById('vtoPoseHint');
           if(_dots) _dots.classList.remove('hidden');
           if(_hint) _hint.classList.remove('hidden');
           setTimeout(function(){ if(_hint) _hint.classList.add('hidden'); }, 5000);
           
-          // 스크롤 연동 도트 active
+          // 스크롤 연동 토글 active
           if(box && _dots){
-            var _dotEls = _dots.querySelectorAll('.vto-pose-dot');
+            var _dotEls = _dots.querySelectorAll('.vto-pose-btn');
             var _scrollHandler = box._poseScrollHandler;
             if(_scrollHandler) box.removeEventListener('scroll', _scrollHandler);
             _scrollHandler = function(){
@@ -7429,6 +7481,24 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
             };
             box.addEventListener('scroll', _scrollHandler, {passive:true});
             box._poseScrollHandler = _scrollHandler;
+            
+            // [v18 TJ-3] 토글 버튼 클릭 핸들러 — 한 번 터치로 즉시 이동
+            var _btnHandler2 = function(e){
+              var btn = e.currentTarget;
+              var pose = btn.dataset.pose;
+              var sw3 = box.scrollWidth - box.clientWidth;
+              if(pose === 'front'){
+                box.scrollTo({ left: 0, behavior: 'smooth' });
+              } else {
+                box.scrollTo({ left: sw3, behavior: 'smooth' });
+              }
+              if(_hint) _hint.classList.add('hidden');
+            };
+            _dotEls.forEach(function(b){
+              if(b._poseClickHandler) b.removeEventListener('click', b._poseClickHandler);
+              b.addEventListener('click', _btnHandler2);
+              b._poseClickHandler = _btnHandler2;
+            });
           }
         }
         
