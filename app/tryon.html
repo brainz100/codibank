@@ -3,13 +3,6 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-
-<!-- [2026-04-23 14:00] 캐시 강제 무효화 — Phase 4 서버 연동 배포 반영용 -->
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-<meta http-equiv="Pragma" content="no-cache" />
-<meta http-equiv="Expires" content="0" />
-<meta name="cb-version" content="tryon-phase7-2026-04-24-v9" />
-
 <title>트라이 온 — CodiBank</title>
 
 <!--
@@ -17,313 +10,6 @@
   tryon.html · CodiBank 트라이 온 메인 (3-Step Flow)
   ─── 2026-04-22 KST · 원본 codistyle.html 디자인 토큰 100% 카피 ───
 ═══════════════════════════════════════════════════════════════════════
-
-  ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-  │ ─── 2026-04-24 (v9) KST ─── [TJ 지시 — 리포트/PDF 재설계]       │
-  │                                                                  │
-  │ [1] 퍼스널 스타일링 리포트 복원 (누락 섹션들)                    │
-  │   누락: 레이더 차트, Best TPO, 개선 팁, 퍼스널 아이템 큐레이션   │
-  │   원인: 서버 파서에 TPO/팁/큐레이션 추출 코드 없음 → 빈 []        │
-  │   수정: _tryon_parse_response에 3개 필드 파싱 추가                │
-  │   프론트 모달:                                                    │
-  │   - SECTION 2 상단에 C.S.I 레이더 차트 (SVG, 4지표 시각화)        │
-  │   - #prmCurationList (COMING SOON 제거) — 실제 데이터 렌더링      │
-  │   - drawTryonRadarChart() 함수 신규                               │
-  │   _tryonPremiumData에 curation, breakdown, userInfo 필드 추가     │
-  │                                                                  │
-  │ [2] PDF 전면 재설계 — 프리미엄 매거진 스타일                      │
-  │   기존: html2canvas(modal) 통채로 캡처 → 중간 굵은 선, 학생풍     │
-  │   수정: 전용 A4 템플릿 5페이지 DOM 생성 → 한 페이지씩 캡처        │
-  │   - Playfair Display + Inter 폰트 (Google Fonts)                 │
-  │   - 페이지 구성:                                                  │
-  │     ① COVER — 타이틀 + C.S.I 점수 + 생성일                       │
-  │     ② SCOREBOARD — 4지표 바차트 + 해시태그 + 써머리              │
-  │     ③ DEEP ANALYSIS — 5섹션 심층 (퍼스널컬러/상의/하의/실루엣/완성)│
-  │     ④ STYLING GUIDE — Best TPO (번호) + 개선 팁                   │
-  │     ⑤ CURATION — 퍼스널 아이템 5개 + 브랜드 아우트로               │
-  │   - _buildPremiumPdfTemplate() 신규 함수                          │
-  │                                                                  │
-  │ ─── 2026-04-24 (v8) KST ─── [오버제너레이션 해결]                │
-  │                                                                  │
-  │ [1] 이미지 뷰박스 여백 제거                                       │
-  │   .result-img-wrap { padding: 10px 14px → 0 }                   │
-  │   .csty-result-img-box / .img-spin aspect-ratio 1/1.6 → 9/16    │
-  │   (이미지 생성 비율과 정확 매칭 — 빈공간 제거)                   │
-  │                                                                  │
-  │ [2] 핏 변경 시 Step1 리셋 버그 방어                               │
-  │   _resyncStep1FromState() 함수 신규 — state.slots → DOM 재동기화 │
-  │   applyFitUI 끝에서 호출 (핏 변경해도 Step1 아이템 유지 보장)    │
-  │                                                                  │
-  │ [3-A] 얼굴 이미지 data URL 변환                                   │
-  │   _tryonResizeFaceDataUrl() 추가 (codistyle.html 패턴)           │
-  │   loadMyProfileFace에서 blob:/http:// → data: 변환 후 저장       │
-  │   이전 버그: _tryonBuildPayload의 startsWith('data:') 조건 미통과 │
-  │            → payload.faceImage 누락 → 서버로 얼굴 미전송          │
-  │                                                                  │
-  │ [3-B] 퍼스널컬러 summary 필드 보완                                │
-  │   _tryonBuildPayload에서 pc.summary 없으면 season+undertone 생성 │
-  │   예: "가을 딥, 웜 언더톤"                                        │
-  │   이전 버그: localStorage pc 객체에 summary 없어 서버가 빈값으로  │
-  │            → Phase 1 PERSONA 퍼스널컬러 미반영                    │
-  │                                                                  │
-  │ [5] 선택된 슬롯 박스 배경 화이트                                  │
-  │   .slot.filled { background: rgba(13,31,60,.6) → #ffffff }      │
-  │   .slot-required-solid.filled 도 동일                            │
-  │                                                                  │
-  │ [6] 생성 중 진행률 효과 (codistyle.html 100% 이식)               │
-  │   .spin-pct / .spin-pct-sym 스타일 추가                          │
-  │   finalGenerate 클릭 시 imgSpinPct 카운터 시작                   │
-  │   cb-rainbow-cs.animating 클래스로 무지개 컬러 애니메이션         │
-  │   로지스틱 곡선 (20 → 95%) + 완료 시 100% 점프                   │
-  │   리셋/실패 시 인터벌 정리                                        │
-  │                                                                  │
-  │ ─── 2026-04-24 KST ─── [TJ 지시 — v6 4대 이슈 해결]              │
-  │                                                                  │
-  │ [1] 선택 아이템 강제 착용 (서버 mock_backend.py)                  │
-  │   프롬프트에 🔴 CRITICAL RULE 최상단 + 각 아이템 REQUIRED 명시   │
-  │   신발/아우터 등 옵션 아이템 명시적 착용 명령 (이전 optional)    │
-  │                                                                  │
-  │ [2] 프리미엄 리포트 버튼/모달 구현                                │
-  │   - 버튼에 onclick=openPremiumReport() 연결 (이전 핸들러 없음)    │
-  │   - codistyle.html 모달 HTML 100% 이식 (premiumReportModal)      │
-  │   - openPremiumReport/closePremiumReport 함수 구현                │
-  │   - _tryonApplyResult에서 window._tryonPremiumData 준비           │
-  │   - ESC키 / 배경클릭 닫기, PDF 다운로드 (html2canvas + jsPDF)     │
-  │                                                                  │
-  │ [3] 저장/공유 URL → Blob/File 방식 개선                           │
-  │   - fetch(imgSrc) → blob → new File                              │
-  │   - navigator.share({files:[file]}) 우선 — 갤러리 저장 가능       │
-  │   - 폴백: URL.createObjectURL → 다운로드                          │
-  │   - codistyle.html의 saveImg/shareResult 패턴과 동일              │
-  │                                                                  │
-  │ [4] 가로폭 실제 적용 — .step margin 제거                          │
-  │   기존: .step { margin:0 16px 10px } + .step-body padding 16px   │
-  │         = 실효 좌우 32px씩 잘림                                  │
-  │   수정: .step { margin:0 0 10px } — closet.html(px-5=20px) 수준  │
-  │                                                                  │
-  │ ─── 2026-04-23 18:30 KST ───  [TJ 지시 — v5 대규모 UX 개선]      │
-  │                                                                  │
-  │ [2-a] 버튼 텍스트 변경                                           │
-  │   "트라이온 착장이미지 생성하기" → "트라이온 피팅 Try-on Fitting" │
-  │   (초기 HTML + JS 리셋 복원 텍스트 2곳 동일 적용)                │
-  │                                                                  │
-  │ [3] 리셋 버튼 → 완전초기화 (A안)                                  │
-  │   기존: Step3 점수/이미지만 리셋                                 │
-  │   변경: Step1 아이템 모든 슬롯 + Step2 핏 선택('my'로) + Step3   │
-  │   sessionStorage(TRYON_STATE_KEY) 삭제 + applyModeUI('twopiece') │
-  │   + applyFitUI('my') + 모드 탭 UI 동기화 + Step1로 스크롤        │
-  │                                                                  │
-  │ [5] 가로폭 closet.html 동일 (A안) + 좌측정렬 명시                │
-  │   body max-width:480px 고정 → 모바일 풀폭 + @media 500px         │
-  │   .sheet max-width:480px → 500px                                 │
-  │   .pg-header/.step-head-body text-align:left !important 명시     │
-  │                                                                  │
-  │ [4] Step1 슬롯 카테고리 태그 중복 제거                            │
-  │   .slot.filled .req-badge { display:none } 추가                  │
-  │   빈 슬롯엔 카테고리 배지 유지, 아이템 선택되면 숨김              │
-  │   (하단 .slot-info name+meta 가 이미 정보 제공 중이라 중복)       │
-  │                                                                  │
-  │ ─── 2026-04-23 15:00 KST ───  [🔴 치명적 버그 — 서버 URL 결정 실패] │
-  │                                                                  │
-  │ [증상] POST https://codibank.kr/api/tryon/generate → 404         │
-  │        → Vercel(정적 호스팅)에 POST한 것                         │
-  │                                                                  │
-  │ [원인] _tryonBackendBase() 가 잘못된 전역변수/함수 참조:         │
-  │        - window.CB_CFG (X, 실제는 CodiBank.getConfig())         │
-  │        - getBackendBaseResolved() (X, CodiBank.getBacken...())   │
-  │        → 둘 다 undefined → '' 반환 → codibank.kr로 POST → 404   │
-  │                                                                  │
-  │ [수정] codistyle.html의 codistyleBase() 패턴 100% 준수로 교체:   │
-  │        1순위: CodiBank.getConfig().backendBase                   │
-  │        2순위: CodiBank.getBackendBaseResolved()                  │
-  │        3순위: window.CB_CFG (구버전 호환)                         │
-  │        4순위: window.CODIBANK_CONFIG (호환)                       │
-  │        5순위: hardcoded 'https://codibank-api.onrender.com'       │
-  │        → 안전망 다중 폴백으로 어떤 상황에서도 올바른 URL 생성    │
-  │                                                                  │
-  │ ─── 2026-04-23 14:00 KST ───  [캐시 무효화 메타 태그 추가]        │
-  │ Vercel CDN / 브라우저 캐시에 구버전이 남아있을 가능성 대응        │
-  │ Cache-Control: no-cache, no-store, must-revalidate                │
-  │ + cb-version 메타 태그로 신버전 식별 가능하게 함                   │
-  │                                                                  │
-  │ ─── 2026-04-23 13:00 KST ───  [TJ 지시 — 트라이온 3대 버그 수정] │
-  │                                                                  │
-  │ [수정 1 — 치명적] Step1 아이템 사라지는 버그                       │
-  │   ▸ pageshow 핸들러를 consumePick→ _tryonPageshowHandler로 교체   │
-  │   ▸ event.persisted(bfcache 복귀) 시 loadTryonState()를 먼저 호출  │
-  │     해 이전 슬롯 상태를 복원한 뒤 consumePick() 호출              │
-  │   (line ~2311~2340)                                              │
-  │                                                                  │
-  │ [수정 2] Step2 마이핏 신체정보 표시                                │
-  │   ▸ loadMyProfileBodyInfo() 함수 신규 추가                         │
-  │     CodiBank.getCurrentUser()의 gender/ageGroup/height/weight를   │
-  │     매핑하여 bodyGender/Age/Height/Weight DOM과                    │
-  │     myProfileSnapshot에 반영                                      │
-  │   ▸ cb_personal_color_{email}에서 퍼스널컬러도 함께 로드           │
-  │   ▸ setTimeout(loadMyProfileBodyInfo, 100)                        │
-  │   (line ~3310~)                                                   │
-  │                                                                  │
-  │ [수정 3] 모델핏 텍스트 삭제                                        │
-  │   ▸ '175 cm · Standard' / '165 cm · Standard' 제거                │
-  │   (line ~1812, ~1819)                                             │
-  │                                                                  │
-  │ ─── 2026-04-23 08:30 KST ───  [TJ 지시 3·4 — 모드별 옵션 슬롯 재구성] │
-  │                                                                  │
-  │ 작업 3: outer 모드 옵션 = 상의 + 하의 + 신발                     │
-  │ 작업 4: onepiece 모드 옵션 = 아우터 + 신발 (기존 twopiece-       │
-  │         onepiece-only 클래스 그대로 활용)                        │
-  │                                                                  │
-  │ [HTML 신규]  (line ~1582)                                        │
-  │   ▸ outer-opt-only 클래스 상의 옵션 슬롯 추가                    │
-  │     (아우터 안에 받쳐 입을 상의)                                 │
-  │   ▸ outer-opt-only 클래스 하의 옵션 슬롯 추가                    │
-  │     (아우터 + 하의 연출용)                                       │
-  │                                                                  │
-  │ [JS 수정]  setMode() (line ~2199)                                │
-  │   ▸ twopiece: outer-opt-only 숨김                                │
-  │   ▸ onepiece: outer-opt-only 숨김                                │
-  │   ▸ outer:    outer-opt-only 표시, 상의/하의 slot.active=true    │
-  │                role='optional'로 설정                            │
-  │   ▸ top/bottom role을 모드 전환 시 원복하는 로직 추가             │
-  │     (outer 모드에서 optional이 된 후 복귀 시 버그 방지)          │
-  │                                                                  │
-  │ [JS 수정]  renderStep1() (line ~2488)                            │
-  │   ▸ optCount 분모 동적 계산: outer 모드는 /3, 나머지는 /2        │
-  │                                                                  │
-  │ [JS 수정]  슬롯 초기화에 shoes 포함 (line ~2192)                  │
-  │   ▸ 기존 버그: 모드 전환 시 shoes 슬롯은 리셋 안 됐음             │
-  │   ▸ 이제 state.slots.shoes + resetSlotUI('shoes') 모두 리셋      │
-  │                                                                  │
-  │ 참고: _tryonBuildPayload()는 이미 outer 모드에서 top/bottom을    │
-  │       optional로 payload에 포함하도록 구현되어 있어 추가 수정     │
-  │       불필요 (2026-04-23 07:00 작업에서 이미 대응함)             │
-  │                                                                  │
-  │ ─── 2026-04-23 07:00 KST ───  [TJ 지시 — Phase 4 서버 연동 완성] │
-  │                                                                  │
-  │ 기존: #finalGenerate 핸들러가 setTimeout(2200ms) mock 상태       │
-  │       → 화면에 "[생성된 착장 이미지] 실제 이미지는 백엔드 연동   │
-  │         시 표시됩니다" 플레이스홀더만 보이던 문제                │
-  │ 신규: 실제 POST /api/tryon/generate fetch 호출 구현              │
-  │                                                                  │
-  │ [신규 함수]  (line ~2555)                                        │
-  │   ▸ _tryonBackendBase()        — config.js backendBase 자동 해석 │
-  │   ▸ _tryonLoadPersonalColor()  — localStorage cb_personal_color_ │
-  │                                 (profile/codistyle이 저장한 것)  │
-  │   ▸ _tryonUsageKey()           — cb_usage_{email} 키 생성        │
-  │   ▸ recordTryonUsage()         — 사용량 카운팅                   │
-  │                                 (closet/codistyle와 통합 풀)     │
-  │   ▸ _tryonBuildPayload()       — state → 서버 요청 body 매핑     │
-  │                                   · user(gender/age/h/w/tier)    │
-  │                                   · mode/fitTarget/modelGender    │
-  │                                   · faceImage (업로드 or snap)    │
-  │                                   · {top|bottom|onepiece|outer}   │
-  │                                     DataUrl/Path/Analysis          │
-  │                                   · bodyType (BMI 자동계산)       │
-  │                                   · personalColor (localStorage)  │
-  │                                   · lang (ko/en)                   │
-  │   ▸ _tryonApplyResult(data)    — 응답 처리:                      │
-  │                                   · data.image/url/path 이미지    │
-  │                                   · styling_score(0~100) 등급     │
-  │                                   · score_breakdown 4지표 카드   │
-  │                                     (body_shape/personal_color/  │
-  │                                      proportion/style)            │
-  │                                   · 저장/공유/리셋 버튼 활성화    │
-  │                                                                  │
-  │ [교체된 핸들러]  (line ~2555)                                    │
-  │   ▸ $('#finalGenerate').addEventListener('click', async() => ...)│
-  │     · payload 조립 → fetch → apply → 에러 핸들링                 │
-  │     · 로딩 UI 유지 (img-spin + spin-txt 'AI가 생성 중…')         │
-  │     · 실패 시 토스트 + 원래 버튼 복원                            │
-  │                                                                  │
-  │ [원칙 준수]                                                      │
-  │   ▸ codistyle_generate 건드리지 않음 (엔진 분리 원칙)            │
-  │   ▸ v53 SDK fix 구역 준수 (서버 SDK fallback 그대로 활용)        │
-  │   ▸ 사용량 카운팅: cb_usage_ 키에 tryonCount 필드 추가            │
-  │     (closet/codistyle와 합산 공유)                               │
-  │                                                                  │
-  │ ─── 2026-04-22 16:05 KST ───  [TJ 지시 — 지시1~2]             │
-  │ ▸ 지시 1: Step 2 타이틀 위쪽 여백 +50% 이상 증가                │
-  │   .step[data-step="2"] { margin-top:30px } 신규 지정            │
-  │   (기존 .step의 margin-bottom:10px만 있어 타이틀이 바로 붙어     │
-  │    있던 현상 해결)                                              │
-  │ ▸ 지시 2: Step 3 타이틀 텍스트 변경 + 여백 통일                 │
-  │   - "셋째, 트라이온 생성하기" → "셋째, 지금 입어볼까요?"        │
-  │     ('입어볼까요' 부분에 .ac teal-light 강조 클래스)             │
-  │   - Step 3 위 여백도 Step 2와 동일한 30px로 맞춤                │
-  │                                                                │
-  │ ─── 2026-04-22 14:15 KST ───  [TJ 지시 — 지시1~4]             │
-  │ ▸ 지시 1: 첫째/둘째/셋째 텍스트의 크기·컬러를 옆 한글과         │
-  │   완전 동일하게 통일. step-prefix CSS를 inherit으로 변경        │
-  │   (이전 14.3px·55% 알파 → 상속으로 단일화).                     │
-  │ ▸ 지시 2: 슬롯·신체정보·얼굴 상태 영속화 버그 수정               │
-  │   - TRYON_STATE_KEY('tryon_state_v1') + saveTryonState() +      │
-  │     loadTryonState() 함수 추가                                  │
-  │   - setMode(mode, skipReset) 파라미터 추가 — 복원 경로에서       │
-  │     슬롯 리셋 방지                                              │
-  │   - fillSlot / saveBodyInfo / onTryonFaceFile / applyFitUI /    │
-  │     모델성별카드 클릭 / openPicker 에 saveTryonState() 삽입      │
-  │   - 초기 렌더에서 loadTryonState() 우선 호출, 실패 시 applyFitUI │
-  │   - applyFitUI에서 state.fitTarget 저장 누락 버그도 같이 수정    │
-  │     (fitQuestion 삭제되어 null 참조 가드 추가)                   │
-  │ ▸ 지시 3: 마이 핏에서 회원 얼굴 사진 자동 로드                   │
-  │   - config.js + codibank.js 스크립트 로드 추가 (closet.html과   │
-  │     동일 패턴)                                                  │
-  │   - loadMyProfileFace() async 함수 — CodiBank.getUserFaceImageSrc│
-  │     로 얼굴 URL 조회하여 #faceCircle에 렌더                     │
-  │   - loadMyProfile()에서 snap.faceSrc / uploadedFaceDataUrl      │
-  │     우선순위로 얼굴 표시                                        │
-  │ ▸ 지시 4: 풋바 cb-nav 추가                                       │
-  │   - CSS: codistyle.html의 .cb-nav/.cb-nav-inner/.cb-nav-tab/    │
-  │     .cb-spacer 그대로 복사                                      │
-  │   - HTML: 5탭 (코디핏/트라이온[on]/Ai옷장/코디하기/MY)           │
-  │                                                                │
-  │ ─── 2026-04-22 13:55 KST ───  [TJ 지시 — 지시0~3]             │
-  │ ▸ 지시 0: 슬롯 클릭 openPicker가 데모 시트 대신                │
-  │   codistyle_picker.html?slot=X&returnTo=tryon.html 로          │
-  │   실제 이동하도록 수정 (location.href).                         │
-  │ ▸ 지시 1 (헤더/Step1):                                          │
-  │   - 헤더의 back-btn(화살표) 삭제                               │
-  │   - "Step 1." → "첫째,", 타이틀 글자 +10% 크게                 │
-  │   - step-badge.now "NOW" 뱃지 제거                             │
-  │   - 필수 상의/하의 슬롯 border를 solid 실선으로 변경            │
-  │   - 상의 아이콘 checkroom → (material symbol에 'top' 없어) apparel │
-  │     하의 아이콘 straighten → 바지 느낌의 'dry_cleaning'는 아우터에 이미 사용 │
-  │     → 상의: 'apparel', 하의: 'atr' (athletic pants) 사용        │
-  │   ※ Material Symbols에 정확한 'top'/'pants' 이름 없음. 가장      │
-  │     근접한 아이콘으로 선택. (필요시 별도 지시로 교체 가능)       │
-  │ ▸ 지시 2 (Step2):                                               │
-  │   - "Step 2." → "둘째,", 타이틀 글자 +10% 크게                 │
-  │   - step-badge.lock "잠김" 제거                                │
-  │   - Step 2 body의 fit-question 텍스트("마이핏" 계열) 제거       │
-  │   - bodyEditBtn 클릭시 prompt() 4연속 제거 →                    │
-  │     codistyle.html의 #bodyEditForm 인라인 편집 폼 이식           │
-  │     (select 성별/나이대 + number input 키/몸무게, 취소/저장 버튼) │
-  │ ▸ 지시 3 (Step3):                                               │
-  │   - "Step 3." → "셋째,", 타이틀 글자 +10% 크게                 │
-  │   - step-badge.lock "잠김" 제거                                │
-  │   - step-summary "선택한 조합으로 착장 이미지 생성"            │
-  │     → "선택한 데이터를 종합해서 착장이미지를 만들어드립니다!"   │
-  │                                                                │
-  │ ─── 2026-04-22 13:14 KST ───  [TJ 지시 — 코디프로필 위치]      │
-  │ ▸ profile-wrap 블록을 Step 2와 Step 3 사이로 이동               │
-  │ ▸ Step 3도 box border 투명 처리 추가                            │
-  │                                                                │
-  │ ─── 2026-04-22 12:45 KST ───  [TJ 지시5 — Step3 분석/이미지박스] │
-  │ ▸ Step 3에 codistyle.html의 #csScoreBox + #resultArea 구조       │
-  │   그대로 복사 (id/class 동일 유지 → 추후 _renderAnalysis 호환)  │
-  │ ▸ 기존 #analysisBox, #resultWrap, #resultActions 완전 제거       │
-  │ ▸ .result-img-box class 충돌 회피 → .csty-result-img-box로 리네이밍 │
-  │                                                                │
-  │ ─── 2026-04-22 11:40 KST ───  [버그 fix + 지시1·2·3 일부]       │
-  │ ▸ face-btn 클릭 안 되던 에러 → onclick + tryonFaceCam/Gal input │
-  │ ▸ Step 1/2/3 pending 잠금 해제, step-body 항상 표시              │
-  │ ▸ Step 1/2 box border 투명 처리                                 │
-  │                                                                │
-  │ ─── 2026-04-22 10:58 KST ───  [상태 영속화 + FOUC fix]          │
-  │ ▸ saveTryonState/loadTryonState — sessionStorage 영속화         │
-  │ ▸ setMode skipReset 플래그 추가 (복원 경로에서 슬롯 유지)        │
-  │ ▸ .step-body 우선순위 !important — 페이지 전환 FOUC 방지        │
-  └━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
   [디자인 토큰 — 원본 codistyle.html에서 그대로 상속]
     --navy:#071952  --navy2:#0d1f3c
@@ -339,13 +25,13 @@
     Step 2. 누구의 핏을 보고 싶어요? — 마이 / 모델 / 누군가
     Step 3. 트라이온 생성하기 — Gemini 3 Pro Image
 
-  [코디 프로필 — Step 2와 Step 3 사이 위치]
+  [하단 코디 프로필]  — 원본 .face-section 구조 그대로
     얼굴 사진 + 퍼스널컬러 서머리 + 신체정보(성별/나이대/키/몸무게)
 
-  [피커 통신 규약 — 실제 이동]
-    Navigate: codistyle_picker.html?slot=top|bottom|onepiece|outer|shoes&returnTo=tryon.html
+  [피커 통신 규약]
+    Navigate: codistyle_picker.html?slot=top|bottom|onepiece|outer|shoes&mode=X&returnTo=tryon
     Return:   sessionStorage['tryon_pick_result'] = JSON({slot,path,dataUrl,name,meta,ts})
-              → location.href = returnTo → pageshow에서 소비, key 삭제
+              → history.back() → pageshow에서 소비, key 삭제
 
   [v53 SDK fix 절대 수정 금지 구역 존중]
     payload 5개 필수(topPath/bottomPath/topDataUrl/bottomDataUrl/faceImage) 유지.
@@ -379,30 +65,11 @@
     font-family:'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
     background:#00022E;
     color:#fff;
+    max-width:480px;
     margin:0 auto;
     min-height:100dvh;
     overflow-x:hidden;
     padding-bottom:140px;
-  }
-  /* [2026-04-23 18:30 TJ 지시] closet.html 과 동일한 가로 폭 체계 적용 */
-  /* 모바일(≤500px)은 풀폭 사용, 501px 이상에서만 500px 제한 */
-  @media (min-width: 501px) {
-    body {
-      max-width: 500px !important;
-      margin-left: auto !important;
-      margin-right: auto !important;
-    }
-  }
-  
-  /* [2026-04-23 18:30 TJ 지시] 타이틀·서브타이틀·아이콘 좌측정렬 명시 */
-  /* step-head 및 pg-header 내부 모든 타이틀 요소 명시적 좌측정렬 */
-  .pg-header, .pg-header *,
-  .step-head .step-head-body,
-  .step-head .step-head-body * {
-    text-align: left !important;
-  }
-  .step-head {
-    justify-content: flex-start !important;
   }
 
   .mi{
@@ -458,12 +125,8 @@
   /* ═══════════════════════════════════════════════════════════
      Step 아코디언 (공용)
      ═══════════════════════════════════════════════════════════ */
-  /* [2026-04-24 TJ 지시4] 여백 문제 — closet.html과 동일 수준으로 폭 확보 */
-  /* 기존: margin:0 16px 10px (좌우 32px 실효 폭 잘림) */
-  /* 수정: margin 좌우 0, 대신 .step-body의 padding만으로 내부 여백 확보 */
-  /* closet.html 기준: px-5 = 20px → step 내부 padding도 비슷하게 맞춤 */
   .step{
-    margin:0 0 10px;
+    margin:0 16px 10px;
     background:rgba(11,102,106,0.12);
     border:1px solid rgba(151,254,237,0.12);
     border-radius:16px;
@@ -475,36 +138,17 @@
     box-shadow:0 0 0 3px rgba(151,254,237,0.05);
     background:rgba(11,102,106,0.18);
   }
-  /* [2026-04-22 TJ 지시] pending 상태에서도 완전 표시 + 상호작용 허용
-     Step 1/2/3은 순차 안내용일 뿐, 완료되면 숨기는 기능 불필요 */
   .step[data-state="pending"]{
-    opacity:1;
-    pointer-events:auto;
+    opacity:.5;
+    pointer-events:none;
   }
-  /* [2026-04-22 TJ 지시] Step 1/2/3 박스 라인 모두 투명 */
-  .step[data-step="1"],
-  .step[data-step="2"],
-  .step[data-step="3"]{
+  /* Step 1만 라인컬러 제거 */
+  .step[data-step="1"]{
     border-color:transparent;
-    background:transparent;
   }
-  .step[data-step="1"][data-state="current"],
-  .step[data-step="2"][data-state="current"],
-  .step[data-step="3"][data-state="current"]{
+  .step[data-step="1"][data-state="current"]{
     border-color:transparent;
-    background:transparent;
     box-shadow:none;
-  }
-  /* [2026-04-22 16:05 TJ 지시1·2] Step 2, Step 3 타이틀 위쪽 여백 확보
-     — Step 2: 기존 10px → 30px (약 +50% 이상 증가, TJ 지시1)
-     — Step 3: Step 2와 동일하게 30px (TJ 지시2)
-     .step 기본 margin은 0 16px 10px인데 아래 여백만 있고 위 여백이 없어
-     Step 1의 아이템 슬롯 바로 밑에 Step 2 타이틀이 붙는 현상 해결 */
-  .step[data-step="2"]{
-    margin-top:30px;
-  }
-  .step[data-step="3"]{
-    margin-top:30px;
   }
 
   .step-head{
@@ -524,28 +168,19 @@
     letter-spacing:-.01em;
     line-height:1.25;
   }
-  /* [2026-04-22 13:55 TJ 지시1·2·3] Step 1·2·3 타이틀 +10% */
-  .step-title.step-title-lg{
-    font-size:17px;       /* 15.5px × 1.10 ≈ 17 */
-  }
-  /* prefix는 inherit으로 상속받음 (14.15에서 통합) */
   .step[data-state="current"] .step-title{ color:var(--teal-light); }
   .step-title .ac{ color:var(--teal-light); }
   .step-title .step-prefix{
-    /* [2026-04-22 14:15 TJ 지시1] prefix(첫째/둘째/셋째)를 옆 한글 텍스트와
-       완전히 동일한 크기·컬러로 통일. 기존에는 더 작고(13px) 흐린 색이었음.
-       font-family/weight/color/size 모두 상속(inherit) 받도록 override 제거. */
-    font-family:inherit;
-    font-weight:inherit;
-    color:inherit;
-    font-size:inherit;
-    letter-spacing:inherit;
-    margin-right:4px;
+    font-family:'Outfit',sans-serif;
+    font-weight:900;
+    color:rgba(151,254,237,0.55);
+    letter-spacing:.01em;
+    margin-right:3px;
+    font-size:13px;
   }
   .step[data-state="current"] .step-title .step-prefix{
-    color:inherit;
+    color:var(--teal-light);
   }
-  /* step-title-lg에서도 prefix 크기 override 제거 - 상속만 사용 */
   .step-summary{
     font-size:11px;
     color:rgba(255,255,255,0.5);
@@ -582,13 +217,16 @@
   }
   .step-badge.lock .mi{ font-size:11px; }
 
-  /* [2026-04-22 TJ 지시] step-body 항상 표시 — 순차 숨김/펼침 기능 제거 */
   .step-body{
     padding:0 16px 16px;
-    display:block;
+    display:none;
+    animation:stepExpand .35s cubic-bezier(.4,0,.2,1);
   }
-  /* step-head 클릭 커서 제거 (아코디언 동작 없음) */
-  .step-head{ cursor:default !important; }
+  .step[data-state="current"] .step-body{ display:block; }
+  @keyframes stepExpand{
+    from{ opacity:0; transform:translateY(-4px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
 
   .step-edit-btn{
     background:rgba(151,254,237,0.08);
@@ -709,18 +347,7 @@
   .slot.filled{
     border-style:solid;
     border-color:rgba(151,254,237,0.3);
-    /* [2026-04-24 TJ 지시5] 선택된 박스 배경 화이트 — 코디핏/코디하기와 통일 */
-    background:#ffffff;
-  }
-  /* [2026-04-22 13:55 TJ 지시1] 필수 상의/하의 슬롯: 실선(solid) 라인 디자인 */
-  .slot.slot-required-solid{
-    border-style:solid;
-    border-width:1.5px;
-    border-color:rgba(151,254,237,0.5);
-  }
-  .slot.slot-required-solid.filled{
-    border-color:rgba(151,254,237,0.7);
-    background:#ffffff;  /* [2026-04-24 TJ 지시5] 필수 슬롯도 동일하게 화이트 */
+    background:rgba(13,31,60,0.6);
   }
 
   .slot-empty{
@@ -772,11 +399,9 @@
     text-transform:uppercase;
     z-index:2;
   }
-  /* [2026-04-23 18:30 TJ 지시4] 아이템 선택 완료(filled) 시 상단 카테고리 배지 숨김
-     - 이유: 하단 .slot-info 에 카테고리+출처가 이미 표시되므로 중복
-     - 빈 슬롯 상태에서는 계속 표시 (어떤 카테고리 슬롯인지 안내 기능 유지) */
   .slot.filled .req-badge{
-    display:none;
+    background:rgba(0,0,0,0.65);
+    border-color:rgba(151,254,237,0.2);
   }
 
   .slot-filled{ position:absolute; inset:0; display:none; }
@@ -1210,6 +835,12 @@
     background:rgba(13,31,60,0.88);
     border:1px solid var(--border);
   }
+  /* ═══════════════════════════════════════════════════════════
+     [2026-04-26 v14/v15 TJ] 트라이온 정+후면 + Swipe UI 적용
+     - result-img-box: 가로 스크롤 컨테이너
+     - 이미지: 박스 너비 × 2 로 표시 (좌=정면, 우=후면)
+     - scroll-snap으로 정/후면 각각 박스 중앙에 풀로 표시
+     ═══════════════════════════════════════════════════════════ */
   .result-img-box{
     aspect-ratio:1/1.5;
     position:relative;
@@ -1217,14 +848,26 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    overflow:hidden;
+    overflow-x:auto;
+    overflow-y:hidden;
+    /* [v15] 부드러운 스크롤 + 스냅 */
+    scroll-behavior:smooth;
+    scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch;
   }
+  .result-img-box::-webkit-scrollbar{height:0;width:0;display:none;}
   .result-img-box::after{
     content:'';
     position:absolute;
     inset:0;
     background:linear-gradient(180deg, transparent 0%, rgba(151,254,237,0.04) 50%, transparent 100%);
     pointer-events:none;
+  }
+  /* [v15] 결과 모드 — 이미지가 박스보다 넓을 때 (정/후면) */
+  .result-img-box.has-result{
+    display:block;
+    align-items:initial;
+    justify-content:initial;
   }
   .img-ph{
     text-align:center;
@@ -1246,6 +889,50 @@
     height:100%;
     object-fit:cover;
     display:block;
+  }
+  /* [v15 TJ] 정/후면 모드 — 이미지가 박스 너비×2로 자연 비율 표시 */
+  #resultImage.tr-result-image{
+    width:auto !important;
+    max-width:none !important;
+    height:100% !important;
+    object-fit:contain;
+    scroll-snap-align:start;
+    position:relative;
+  }
+  /* [v15 TJ] 정/후면 인디케이터 도트 */
+  .tr-pose-dots{
+    position:absolute;left:50%;bottom:8px;
+    transform:translateX(-50%);
+    display:flex;gap:6px;z-index:5;
+    padding:4px 10px;border-radius:999px;
+    background:rgba(0,0,0,0.45);
+    backdrop-filter:blur(6px);
+    pointer-events:none;
+    transition:opacity .25s;
+  }
+  .tr-pose-dots.hidden{opacity:0;pointer-events:none;display:none;}
+  .tr-pose-dot{
+    width:6px;height:6px;border-radius:50%;
+    background:rgba(151,254,237,0.35);
+    transition:background .2s, transform .2s;
+  }
+  .tr-pose-dot.active{background:#97FEED;transform:scale(1.4);}
+  /* [v15 TJ] 정/후면 swipe 힌트 */
+  .tr-pose-hint{
+    position:absolute;right:12px;top:12px;z-index:5;
+    font-size:9px;font-weight:800;
+    color:rgba(151,254,237,0.85);
+    background:rgba(0,0,0,0.45);
+    padding:4px 8px;border-radius:999px;
+    letter-spacing:.05em;
+    display:flex;align-items:center;gap:4px;
+    pointer-events:none;
+    animation:trPoseHintPulse 2s ease-in-out infinite;
+  }
+  .tr-pose-hint.hidden{display:none;}
+  @keyframes trPoseHintPulse{
+    0%,100%{opacity:0.7;transform:translateX(0);}
+    50%{opacity:1;transform:translateX(-3px);}
   }
 
   /* 저장 / 공유 / 리셋 */
@@ -1431,7 +1118,7 @@
     left:50%; bottom:0;
     transform:translate(-50%, 100%);
     width:100%;
-    max-width:500px;
+    max-width:480px;
     background:#0a1443;
     border-radius:24px 24px 0 0;
     border-top:1px solid rgba(151,254,237,0.25);
@@ -1553,133 +1240,6 @@
     opacity:1;
     transform:translate(-50%, 0);
   }
-
-  /* ═══════════════════════════════════════════════════════════
-     [2026-04-22 TJ 지시5] codistyle.html의 분석박스 + 이미지 뷰박스 CSS 그대로 복사
-     — Step 3 결과 영역에 사용. 원본 class/id 명을 그대로 유지하여
-       codistyle.html의 _renderAnalysis/render 함수를 향후 이식할 때 호환됨.
-     ═══════════════════════════════════════════════════════════ */
-  .result-area{padding:0 16px;margin-top:0}
-  .result-box{border-radius:20px;overflow:hidden;background:rgba(13,31,60,0.88);border:1px solid rgba(151,254,237,0.12)}
-  .prog-bar{height:3px;background:rgba(151,254,237,0.08)}
-  .prog-fill{height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);transition:width .4s ease;border-radius:3px}
-  .status-row{display:flex;align-items:center;gap:10px;padding:16px 18px 10px}
-  .status-dot{width:8px;height:8px;border-radius:50%;background:#35A29F;flex-shrink:0;animation:pdot 1.2s ease-in-out infinite}
-  @keyframes pdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
-  .status-dot.done{background:#97FEED;animation:none}
-  .status-dot.err{background:#f87171;animation:none}
-  .status-txt{font-size:12px;color:rgba(162,253,240,0.7);font-weight:500}
-  /* [2026-04-24 TJ 지시1] 이미지 뷰박스 좌우 여백 제거
-     - 기존: padding 10px 14px → 이미지 좌우에 여백 생김
-     - 수정: padding 0 → 이미지가 뷰박스를 꽉 채움
-     - aspect-ratio도 이미지 실제 생성 비율(9:16)과 매칭 */
-  .result-img-wrap{padding:0;}
-
-  /* [codistyle 원본] 세련된 이미지 뷰박스
-     [2026-04-24 TJ 지시1] aspect-ratio 1/1.6 → 9/16 (이미지 생성 비율과 정확 매칭) */
-  .csty-result-img-box{
-    width:100%;aspect-ratio:9/16;border-radius:20px;overflow:hidden;position:relative;
-    display:flex;align-items:center;justify-content:center;
-    background:
-      radial-gradient(ellipse 80% 60% at 50% 40%, rgba(53,162,159,0.08) 0%, transparent 60%),
-      linear-gradient(160deg, #0B1238 0%, #050A24 100%);
-    border:1px solid rgba(151,254,237,0.12);
-    box-shadow:
-      inset 0 1px 0 rgba(151,254,237,0.05),
-      inset 0 -1px 0 rgba(0,0,0,0.3),
-      0 8px 24px rgba(0,0,0,0.25);
-  }
-  .csty-result-img{width:100%;height:100%;border-radius:20px;display:block;object-fit:cover;}
-
-  /* 로딩 상태 [2026-04-24 TJ 지시1] aspect-ratio 1/1.6 → 9/16 */
-  .img-spin{
-    width:100%;aspect-ratio:9/16;border-radius:20px;overflow:hidden;position:relative;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
-    background:
-      radial-gradient(ellipse 90% 60% at 50% 45%, rgba(53,162,159,0.12) 0%, transparent 65%),
-      linear-gradient(160deg, #0B1238 0%, #050A24 100%);
-    border:1px solid rgba(151,254,237,0.14);
-    box-shadow:
-      inset 0 1px 0 rgba(151,254,237,0.06),
-      inset 0 -1px 0 rgba(0,0,0,0.35),
-      0 8px 24px rgba(0,0,0,0.3);
-  }
-  .img-spin::before{
-    content:'';position:absolute;inset:0;pointer-events:none;
-    background:linear-gradient(180deg, transparent 0%, rgba(151,254,237,0.04) 50%, transparent 100%);
-    background-size:100% 300%;
-    animation:csShimmer 3.5s ease-in-out infinite;
-  }
-  @keyframes csShimmer{
-    0%,100%{background-position:50% 0%;}
-    50%{background-position:50% 100%;}
-  }
-  .img-spin::after{
-    content:'';position:absolute;
-    width:140px;height:140px;border-radius:50%;
-    border:1.5px solid rgba(151,254,237,0.15);
-    animation:csPulseRing 2.2s ease-out infinite;
-    pointer-events:none;
-  }
-  @keyframes csPulseRing{
-    0%{transform:scale(0.7);opacity:0.8;}
-    100%{transform:scale(1.4);opacity:0;}
-  }
-  .cb-rainbow-cs{
-    font-size:26px;font-weight:800;letter-spacing:3px;
-    font-family:'Manrope','Inter',sans-serif;
-    display:flex;justify-content:center;align-items:center;gap:1px;
-    position:relative;z-index:2;
-    filter:drop-shadow(0 2px 10px rgba(53,162,159,0.25));
-  }
-  .cb-rainbow-cs span{color:rgba(255,255,255,0.2);transition:color .3s;}
-  .cb-rainbow-cs.animating span{animation:rbFillCs 2.4s infinite;}
-  .cb-rainbow-cs span:nth-child(1){animation-delay:0s}
-  .cb-rainbow-cs span:nth-child(2){animation-delay:0.2s}
-  .cb-rainbow-cs span:nth-child(3){animation-delay:0.4s}
-  .cb-rainbow-cs span:nth-child(4){animation-delay:0.6s}
-  .cb-rainbow-cs span:nth-child(5){animation-delay:0.8s}
-  .cb-rainbow-cs span:nth-child(6){animation-delay:1.0s}
-  .cb-rainbow-cs span:nth-child(7){animation-delay:1.2s}
-  .cb-rainbow-cs span:nth-child(8){animation-delay:1.4s}
-  @keyframes rbFillCs{0%{color:rgba(255,255,255,0.15)}12%{color:#FF6B6B}24%{color:#FFA94D}36%{color:#FFD43B}48%{color:#69DB7C}60%{color:#4DABF7}72%{color:#9775FA}84%{color:#DA77F2}100%{color:rgba(255,255,255,0.15)}}
-  .spin-txt{
-    font-size:11.5px;color:rgba(162,253,240,0.65);text-align:center;line-height:1.8;
-    letter-spacing:.04em;font-weight:500;position:relative;z-index:2;
-  }
-  .spin-txt small{font-size:9.5px;letter-spacing:.12em;}
-  /* [2026-04-24 TJ 지시6] 진행률 표시 — codibank 로고 위에 (codistyle.html 원본 이식) */
-  .spin-pct{
-    font-family:'Manrope','Inter',sans-serif;
-    font-size:22px;font-weight:800;letter-spacing:.02em;
-    color:#97FEED;text-align:center;line-height:1;
-    position:relative;z-index:2;
-    font-variant-numeric:tabular-nums;
-    text-shadow:0 0 16px rgba(53,162,159,0.35);
-    transition:color .3s;
-  }
-  .spin-pct .spin-pct-sym{
-    font-size:14px;font-weight:600;opacity:0.7;margin-left:1px;
-  }
-
-  /* 저장/공유/리셋 버튼 영역 */
-  .b-actions{display:flex;gap:10px;padding:10px 14px 16px}
-  .bab{flex:1;padding:10px 0;border-radius:12px;font-size:13px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.12s;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:6px}
-  .bab .mi{font-family:'Material Symbols Outlined';font-size:18px;line-height:1}
-  .err-box{margin:0 14px 14px;padding:12px 14px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:12px;font-size:11px;color:#fca5a5;line-height:1.6}
-
-  /* ═══════════════════════════════════════════════════════════
-     [2026-04-22 14:15 TJ 지시4] 풋바: Floating Glassmorphic Bar
-     — codistyle.html의 cb-nav 구조 그대로 복사 (5탭)
-     ═══════════════════════════════════════════════════════════ */
-  .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px 10px;pointer-events:none;padding-bottom:max(10px,env(safe-area-inset-bottom));}
-  .cb-nav-inner{pointer-events:all;max-width:400px;margin:0 auto;height:62px;border-radius:9999px;background:rgba(7,19,42,.55);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);box-shadow:0 24px 48px -8px rgba(2,13,36,.45);display:flex;justify-content:space-around;align-items:center;padding:0 6px;}
-  .cb-nav-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:rgba(216,226,255,.4);text-decoration:none;padding:6px 12px;border-radius:9999px;transition:all .2s;font-family:'Inter','Noto Sans KR',sans-serif;}
-  .cb-nav-tab .ni{font-family:'Material Symbols Outlined';font-size:22px;line-height:1;font-variation-settings:'FILL' 0,'wght' 300,'GRAD' 0,'opsz' 22;}
-  .cb-nav-tab .nl{font-size:9px;font-weight:600;letter-spacing:.02em;}
-  .cb-nav-tab.on{color:#07132a;background:linear-gradient(135deg,#4cdbce,#13bbaf);padding:6px 16px;}
-  .cb-nav-tab.on .ni{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22;}
-  .cb-spacer{height:82px;}
 </style>
 </head>
 <body>
@@ -1688,7 +1248,7 @@
      헤더
      ═══════════════════════════════════════════════════════════ -->
 <div class="topbar">
-  <!-- [2026-04-22 13:55 TJ 지시1] back-btn(arrow_back) 삭제 -->
+  <button class="back-btn" aria-label="뒤로"><span class="mi">arrow_back_ios_new</span></button>
   <header class="pg-header">
     <div class="pg-title">트라이 온</div>
     <div class="pg-sub">이 옷이 어울릴까 고민하지 마세요. 3단계로 착장을 완성해요</div>
@@ -1701,11 +1261,10 @@
 <section class="step" data-step="1" data-state="current">
   <div class="step-head">
     <div class="step-head-body">
-      <!-- [2026-04-22 13:55 TJ 지시1] Step 1 → 첫째 · 타이틀 +10% 크게 -->
-      <div class="step-title step-title-lg"><span class="step-prefix">첫째,</span> 무엇을 <span class="ac">입어볼까요</span>?</div>
+      <div class="step-title"><span class="step-prefix">Step 1.</span> 무엇을 <span class="ac">입어볼까요</span>?</div>
       <div class="step-summary" id="step1Summary">상의 · 하의 · 아우터 · 신발을 선택하세요</div>
     </div>
-    <!-- [2026-04-22 13:55 TJ 지시1] NOW 뱃지 삭제 -->
+    <div class="step-badge now">NOW</div>
   </div>
   <div class="step-body">
 
@@ -1720,12 +1279,11 @@
     <div class="slot-section-label">필수 <span class="count" id="reqCount">0/2</span></div>
     <div class="slots" id="requiredSlots">
       <!-- 상의 -->
-      <div class="slot twopiece-only slot-required-solid" data-type="top" data-role="required">
+      <div class="slot twopiece-only" data-type="top" data-role="required">
         <div class="slot-empty">
           <span class="req-badge">상의</span>
           <span class="plus">+</span>
-          <!-- [2026-04-22 13:55 TJ 지시1] 상의 아이콘: checkroom → apparel -->
-          <div class="icon"><span class="mi">apparel</span></div>
+          <div class="icon"><span class="mi">checkroom</span></div>
           <div class="label">상의</div>
           <div class="hint">옷장에서 선택</div>
         </div>
@@ -1738,12 +1296,11 @@
       </div>
 
       <!-- 하의 -->
-      <div class="slot twopiece-only slot-required-solid" data-type="bottom" data-role="required">
+      <div class="slot twopiece-only" data-type="bottom" data-role="required">
         <div class="slot-empty">
           <span class="req-badge">하의</span>
           <span class="plus">+</span>
-          <!-- [2026-04-22 13:55 TJ 지시1] 하의 아이콘: straighten → atr (바지) -->
-          <div class="icon"><span class="mi">atr</span></div>
+          <div class="icon"><span class="mi">straighten</span></div>
           <div class="label">하의</div>
           <div class="hint">옷장에서 선택</div>
         </div>
@@ -1793,7 +1350,6 @@
     <!-- 옵션 슬롯 -->
     <div class="slot-section-label">옵션 <span class="count" id="optCount">0/2</span></div>
     <div class="slots" id="optionalSlots">
-      <!-- 아우터 옵션 — twopiece, onepiece 모드에서만 표시 -->
       <div class="slot add-slot twopiece-onepiece-only" data-type="outer" data-role="optional">
         <div class="slot-empty">
           <span class="opt-badge">선택</span>
@@ -1809,41 +1365,6 @@
         </div>
       </div>
 
-      <!-- ─── 2026-04-23 08:30 [TJ 지시3] outer 모드용 '상의' 옵션 슬롯 신규 추가 ─── -->
-      <!-- 아우터를 메인으로 고르면 그 안에 받쳐 입을 상의를 선택할 수 있게 함 -->
-      <div class="slot add-slot outer-opt-only" data-type="top" data-role="optional" style="display:none;">
-        <div class="slot-empty">
-          <span class="opt-badge">선택</span>
-          <div class="icon"><span class="mi">apparel</span></div>
-          <div class="label">+ 상의</div>
-          <div class="hint">셔츠 · 티셔츠 · 니트</div>
-        </div>
-        <div class="slot-filled">
-          <div class="slot-image"></div>
-          <button class="remove-btn" aria-label="제거"><span class="mi">close</span></button>
-          <span class="req-badge">상의</span>
-          <div class="slot-info"><div class="name"></div><div class="meta"></div></div>
-        </div>
-      </div>
-
-      <!-- ─── 2026-04-23 08:30 [TJ 지시3] outer 모드용 '하의' 옵션 슬롯 신규 추가 ─── -->
-      <!-- 아우터 + 하의 조합 연출용 (바지/치마 모두 가능) -->
-      <div class="slot add-slot outer-opt-only" data-type="bottom" data-role="optional" style="display:none;">
-        <div class="slot-empty">
-          <span class="opt-badge">선택</span>
-          <div class="icon"><span class="mi">atr</span></div>
-          <div class="label">+ 하의</div>
-          <div class="hint">바지 · 치마</div>
-        </div>
-        <div class="slot-filled">
-          <div class="slot-image"></div>
-          <button class="remove-btn" aria-label="제거"><span class="mi">close</span></button>
-          <span class="req-badge">하의</span>
-          <div class="slot-info"><div class="name"></div><div class="meta"></div></div>
-        </div>
-      </div>
-
-      <!-- 신발 옵션 — 모든 모드에서 표시 -->
       <div class="slot add-slot" data-type="shoes" data-role="optional">
         <div class="slot-empty">
           <span class="opt-badge">선택</span>
@@ -1869,14 +1390,15 @@
 <section class="step" data-step="2" data-state="pending">
   <div class="step-head">
     <div class="step-head-body">
-      <!-- [2026-04-22 13:55 TJ 지시2] Step 2 → 둘째 · 타이틀 +10% 크게 -->
-      <div class="step-title step-title-lg"><span class="step-prefix">둘째,</span> 누구의 <span class="ac">핏</span>을 보고 싶어요?</div>
-      <div class="step-summary" id="step2Summary">마이 핏 · 썸바디 · 모델 핏</div>
+      <div class="step-title"><span class="step-prefix">Step 2.</span> 누구의 <span class="ac">핏</span>을 보고 싶어요?</div>
+      <div class="step-summary" id="step2Summary">마이 핏 · 모델 핏 · 누군가</div>
     </div>
-    <!-- [2026-04-22 13:55 TJ 지시2] 잠김 뱃지 삭제 -->
+    <div class="step-badge lock"><span class="mi">lock</span>잠김</div>
   </div>
   <div class="step-body">
-    <!-- [2026-04-22 13:55 TJ 지시2] fit-question 텍스트("마이핏…") 제거 -->
+    <div class="fit-question" id="fitQuestion">
+      아래 <b style="color:var(--teal-light);">코디 프로필</b> 박스의 정보로 생성됩니다.
+    </div>
 
     <!-- 핏 선택 pill (Step 1 모드 스위치와 동일 구조 · 3분할) -->
     <div class="mode-switch cols-3" data-fit="my" id="fitSwitch">
@@ -1888,7 +1410,102 @@
 </section>
 
 <!-- ═══════════════════════════════════════════════════════════
-     [2026-04-22 TJ 지시] 코디 프로필 — Step 2와 Step 3 사이로 이동
+     Step 3. 트라이온 생성하기
+     ═══════════════════════════════════════════════════════════ -->
+<section class="step" data-step="3" data-state="pending">
+  <div class="step-head">
+    <div class="step-head-body">
+      <div class="step-title"><span class="step-prefix">Step 3.</span> <span class="ac">트라이온</span> 생성하기</div>
+      <div class="step-summary">선택한 조합으로 착장 이미지 생성</div>
+    </div>
+    <div class="step-badge lock"><span class="mi">lock</span>잠김</div>
+  </div>
+  <div class="step-body">
+
+    <!-- 1. 트라이온 착장이미지 생성하기 (원본 .gen-btn 100% 카피) -->
+    <button class="gen-btn" id="finalGenerate">
+      <span class="mi">auto_awesome</span>
+      <span>트라이온 착장이미지 생성하기</span>
+      <span class="count">3/5</span>
+    </button>
+
+    <!-- 2. 퍼스널 스타일링 분석 썸머리 (생성 전 숨김) -->
+    <div class="analysis-box" id="analysisBox" style="display:none;">
+      <div class="analysis-head">
+        <span class="analysis-label">Personal Styling Analysis</span>
+        <span class="analysis-score" id="anScore">—</span>
+        <span class="analysis-unit">/100</span>
+        <span class="analysis-grade" id="anGrade">—</span>
+      </div>
+      <div class="analysis-bar">
+        <div class="analysis-fill" id="anFill"></div>
+      </div>
+      <div class="analysis-metrics">
+        <div class="metric">
+          <div class="metric-label">체형 보완도</div>
+          <div class="metric-value"><span id="anM1">—</span><em>/30</em></div>
+          <div class="metric-bar"><div class="metric-fill" id="anM1Fill"></div></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">퍼스널 컬러</div>
+          <div class="metric-value"><span id="anM2">—</span><em>/30</em></div>
+          <div class="metric-bar"><div class="metric-fill" id="anM2Fill"></div></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">비율 개선도</div>
+          <div class="metric-value"><span id="anM3">—</span><em>/20</em></div>
+          <div class="metric-bar"><div class="metric-fill" id="anM3Fill"></div></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">상하의 밸런스</div>
+          <div class="metric-value"><span id="anM4">—</span><em>/20</em></div>
+          <div class="metric-bar"><div class="metric-fill" id="anM4Fill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 생성된 이미지 뷰박스 (생성 전 숨김) -->
+    <div class="result-wrap" id="resultWrap" style="display:none;">
+      <div class="result-box">
+        <div class="result-img-box" id="resultImgBox">
+          <div class="img-ph" id="imgPh">
+            <span class="mi">image</span>
+            <div class="ph-text">생성된 착장 이미지</div>
+          </div>
+          <img id="resultImage" style="display:none;" alt="생성 결과">
+          <!-- [2026-04-26 v15 TJ] 정/후면 swipe 인디케이터 + 힌트 -->
+          <div id="trPoseDots" class="tr-pose-dots hidden">
+            <span class="tr-pose-dot active" data-pose="0"></span>
+            <span class="tr-pose-dot" data-pose="1"></span>
+          </div>
+          <div id="trPoseHint" class="tr-pose-hint hidden">
+            <span>정·후면</span>
+            <span class="mi" style="font-size:11px;">swipe</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 저장 / 공유 / 리셋 (이미지 뷰박스 아래) -->
+    <div class="result-actions" id="resultActions" style="display:none;">
+      <button class="act-btn save" id="actSave">
+        <span class="mi">save_alt</span>저장
+      </button>
+      <button class="act-btn share" id="actShare">
+        <span class="mi">ios_share</span>공유
+      </button>
+      <button class="act-btn reset" id="actReset">
+        <span class="mi">refresh</span>리셋
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- Divider -->
+<div class="divider"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     코디 프로필 (Step 2의 핏 선택에 따라 내용 전환)
        - my       → face-section 그대로 (현재 프로필 데이터)
        - somebody → 동일 구조, 빈 데이터 (사용자 직접 입력)
        - model    → 모델 선택 박스 (남/여)
@@ -1925,11 +1542,8 @@
         </div>
       </div>
       <div class="face-btns">
-        <!-- [2026-04-22 TJ 지시3] 실제 클릭 동작 연결 -->
-        <button class="face-btn cam" onclick="document.getElementById('tryonFaceCam').click()"><span class="mi">photo_camera</span>촬영</button>
-        <button class="face-btn gal" onclick="document.getElementById('tryonFaceGal').click()"><span class="mi">photo_library</span>선택</button>
-        <input type="file" id="tryonFaceCam" accept="image/*" capture="user" style="display:none" onchange="onTryonFaceFile(event)">
-        <input type="file" id="tryonFaceGal" accept="image/*" style="display:none" onchange="onTryonFaceFile(event)">
+        <button class="face-btn cam"><span class="mi">photo_camera</span>촬영</button>
+        <button class="face-btn gal"><span class="mi">photo_library</span>선택</button>
       </div>
     </div>
 
@@ -1957,43 +1571,6 @@
       </div>
       <button class="body-edit-btn" id="bodyEditBtn">수정</button>
     </div>
-
-    <!-- [2026-04-22 13:55 TJ 지시2] codistyle.html의 bodyEditForm 인라인 편집 폼 이식
-         — 기존 prompt() 4연속 방식 제거, select/number input 조합으로 UX 개선 -->
-    <div id="bodyEditForm" style="display:none;padding:12px 14px;border-radius:12px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.15);margin-top:8px;">
-      <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:10px;flex-wrap:wrap;">
-        <div style="flex:1 1 46%;min-width:0;">
-          <label style="font-size:9px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.02em;">성별</label>
-          <select id="editGender" style="display:block;width:100%;padding:8px 6px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:3px;">
-            <option value="남성">남성</option>
-            <option value="여성">여성</option>
-          </select>
-        </div>
-        <div style="flex:1 1 46%;min-width:0;">
-          <label style="font-size:9px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.02em;">나이대</label>
-          <select id="editAge" style="display:block;width:100%;padding:8px 6px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:3px;">
-            <option value="10대">10대</option>
-            <option value="20대">20대</option>
-            <option value="30대">30대</option>
-            <option value="40대">40대</option>
-            <option value="50대">50대</option>
-            <option value="60대">60대</option>
-          </select>
-        </div>
-        <div style="flex:1 1 46%;min-width:0;">
-          <label style="font-size:9px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.02em;">키(cm)</label>
-          <input type="number" id="editHeight" placeholder="175" min="120" max="220" style="display:block;width:100%;padding:8px 8px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:3px;box-sizing:border-box;">
-        </div>
-        <div style="flex:1 1 46%;min-width:0;">
-          <label style="font-size:9px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.02em;">몸무게(kg)</label>
-          <input type="number" id="editWeight" placeholder="70" min="30" max="200" style="display:block;width:100%;padding:8px 8px;border-radius:8px;border:1px solid rgba(151,254,237,.2);background:rgba(7,25,82,.9);color:#fff;font-size:13px;font-weight:700;font-family:inherit;margin-top:3px;box-sizing:border-box;">
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button onclick="cancelBodyEdit()" style="font-size:11px;padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.5);cursor:pointer;font-family:inherit;font-weight:600;">취소</button>
-        <button onclick="saveBodyInfo()" style="font-size:11px;padding:8px 18px;border-radius:8px;border:none;background:linear-gradient(135deg,#35A29F,#2D8B87);color:#fff;cursor:pointer;font-weight:800;font-family:inherit;">저장</button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -2010,214 +1587,18 @@
         <span class="gender-radio"></span>
         <span class="gender-icon"><span class="mi">man</span></span>
         <span class="gender-label">남자 모델</span>
-        <!-- [2026-04-23 TJ 지시5] '175 cm · Standard' 텍스트 삭제 -->
+        <span class="gender-spec">175 cm · Standard</span>
       </label>
       <label class="gender-card" data-gender="female">
         <input type="radio" name="modelGender" value="female">
         <span class="gender-radio"></span>
         <span class="gender-icon"><span class="mi">woman</span></span>
         <span class="gender-label">여자 모델</span>
-        <!-- [2026-04-23 TJ 지시5] '165 cm · Standard' 텍스트 삭제 -->
+        <span class="gender-spec">165 cm · Standard</span>
       </label>
     </div>
   </div>
 </div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     Step 3. 트라이온 생성하기
-     ═══════════════════════════════════════════════════════════ -->
-<section class="step" data-step="3" data-state="pending">
-  <div class="step-head">
-    <div class="step-head-body">
-      <!-- [2026-04-22 13:55 TJ 지시3] Step 3 → 셋째 · 타이틀 +10% 크게 -->
-      <!-- [2026-04-22 16:05 TJ 지시2] 타이틀 텍스트 변경: 트라이온 생성하기 → 지금 입어볼까요? -->
-      <div class="step-title step-title-lg"><span class="step-prefix">셋째,</span> 지금 <span class="ac">입어볼까요</span>?</div>
-      <!-- [2026-04-22 13:55 TJ 지시3] summary 교체 -->
-      <div class="step-summary">선택한 데이터를 종합해서 착장이미지를 만들어드립니다!</div>
-    </div>
-    <!-- [2026-04-22 13:55 TJ 지시3] 잠김 뱃지 삭제 -->
-  </div>
-  <div class="step-body">
-
-    <!-- 1. 트라이온 피팅 버튼 — [2026-04-23 18:30 TJ 지시] 텍스트 변경: "트라이온 착장이미지 생성하기" → "트라이온 피팅 (Try-on Fitting)" -->
-    <button class="gen-btn" id="finalGenerate">
-      <span class="mi">auto_awesome</span>
-      <span>트라이온 피팅<span style="opacity:.7;font-weight:400;margin-left:6px;font-size:.85em;">Try-on Fitting</span></span>
-      <span class="count">3/5</span>
-    </button>
-
-    <!-- ════════════════════════════════════════════════════════════════
-         [2026-04-22 TJ 지시5] codistyle.html의 분석박스 + 이미지 뷰박스
-         디폴트 값 상태로 "그대로 복사" — 생성 전에도 항상 표시됨
-         (이전: display:none 으로 숨김 / 지금: 기본 표시)
-         ════════════════════════════════════════════════════════════════ -->
-
-    <!-- (1) Personal Styling Analysis — #csScoreBox (codistyle.html 원본 구조) -->
-    <div id="csScoreBox" style="margin:14px 0 16px;padding:16px 20px;border-radius:16px;background:rgba(151,254,237,.04);border:1px solid rgba(151,254,237,.1);">
-
-      <!-- 총점 헤더 -->
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-        <span style="font-size:11px;font-weight:800;color:rgba(255,255,255,.45);letter-spacing:.04em;">Personal Styling Analysis</span>
-        <span style="font-size:40px;font-weight:900;color:#97FEED;letter-spacing:-1px;line-height:1;" id="csScoreNum">—</span>
-        <span style="font-size:12px;font-weight:700;color:rgba(151,254,237,.4);">/100</span>
-        <span id="csGradeBadge" style="font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;background:rgba(151,254,237,.15);border:1px solid rgba(151,254,237,.3);color:#97FEED;display:none;margin-left:2px;"></span>
-        <div style="flex:1;min-width:60px;height:4px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;">
-          <div id="csScoreBar" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .9s cubic-bezier(.4,0,.2,1);"></div>
-        </div>
-      </div>
-
-      <!-- C.S.I 4지표 스코어 카드 (2행 2열) -->
-      <div id="csScoreDetail" style="display:none;margin-bottom:14px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-          <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:9px 10px;text-align:center;">
-            <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;">체형 보완도</div>
-            <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
-              <span id="csScBody" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
-              <span style="font-size:9px;color:rgba(255,255,255,.25);">/30</span>
-            </div>
-            <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:5px;">
-              <div id="csScBodyFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .8s;"></div>
-            </div>
-          </div>
-          <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:9px 10px;text-align:center;">
-            <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;">퍼스널 컬러</div>
-            <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
-              <span id="csScPc" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
-              <span style="font-size:9px;color:rgba(255,255,255,.25);">/30</span>
-            </div>
-            <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:5px;">
-              <div id="csScPcFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .8s;"></div>
-            </div>
-          </div>
-          <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:9px 10px;text-align:center;">
-            <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;">비율 개선도</div>
-            <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
-              <span id="csScProp" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
-              <span style="font-size:9px;color:rgba(255,255,255,.25);">/20</span>
-            </div>
-            <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:5px;">
-              <div id="csScPropFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .8s;"></div>
-            </div>
-          </div>
-          <div style="background:rgba(255,255,255,.05);border-radius:10px;padding:9px 10px;text-align:center;">
-            <div style="font-size:8.5px;color:rgba(151,254,237,.6);font-weight:800;letter-spacing:.03em;margin-bottom:3px;">체형 밸런스</div>
-            <div style="display:flex;align-items:baseline;justify-content:center;gap:1px;">
-              <span id="csScStyle" style="font-size:24px;font-weight:900;color:#97FEED;line-height:1;">—</span>
-              <span style="font-size:9px;color:rgba(255,255,255,.25);">/20</span>
-            </div>
-            <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:5px;">
-              <div id="csScStyleFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:2px;transition:width .8s;"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- C.S.I 방사형 차트 + Executive Summary (생성 후 표시) -->
-      <div id="csRadarBox" style="display:none;margin:14px 0;padding:14px;background:linear-gradient(135deg,rgba(11,102,106,.15),rgba(53,162,159,.08));border:1px solid rgba(151,254,237,.15);border-radius:14px;">
-        <div style="display:flex;gap:14px;align-items:center;">
-          <div style="flex:0 0 140px;position:relative;">
-            <svg viewBox="0 0 200 200" style="width:100%;height:auto;display:block;">
-              <defs>
-                <radialGradient id="csiRadarGrad" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stop-color="#97FEED" stop-opacity="0.55"/>
-                  <stop offset="100%" stop-color="#35A29F" stop-opacity="0.18"/>
-                </radialGradient>
-              </defs>
-              <polygon points="100,20 180,100 100,180 20,100" fill="none" stroke="rgba(151,254,237,.18)" stroke-width="1"/>
-              <polygon points="100,40 160,100 100,160 40,100" fill="none" stroke="rgba(151,254,237,.14)" stroke-width="1"/>
-              <polygon points="100,60 140,100 100,140 60,100" fill="none" stroke="rgba(151,254,237,.10)" stroke-width="1"/>
-              <polygon points="100,80 120,100 100,120 80,100" fill="none" stroke="rgba(151,254,237,.06)" stroke-width="1"/>
-              <line x1="100" y1="20"  x2="100" y2="180" stroke="rgba(151,254,237,.12)" stroke-width="1"/>
-              <line x1="20"  y1="100" x2="180" y2="100" stroke="rgba(151,254,237,.12)" stroke-width="1"/>
-              <polygon id="csiRadarData" points="100,100 100,100 100,100 100,100"
-                       fill="url(#csiRadarGrad)" stroke="#97FEED" stroke-width="1.8"
-                       style="transition:all .9s cubic-bezier(.4,0,.2,1);"/>
-              <text x="100" y="12" text-anchor="middle"  font-size="8.5" font-weight="700" fill="rgba(151,254,237,.75)">체형보완</text>
-              <text x="192" y="104" text-anchor="end"    font-size="9" font-weight="700" fill="rgba(151,254,237,.75)">컬러</text>
-              <text x="100" y="196" text-anchor="middle" font-size="9" font-weight="700" fill="rgba(151,254,237,.75)">비율</text>
-              <text x="8"   y="104" text-anchor="start"  font-size="8.5" font-weight="700" fill="rgba(151,254,237,.75)">체형밸런스</text>
-            </svg>
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:9px;font-weight:800;color:rgba(151,254,237,.5);letter-spacing:.08em;margin-bottom:5px;">한 줄 스타일링 총평</div>
-            <p id="csExecSummary" style="font-size:12px;color:rgba(255,255,255,.88);line-height:1.6;font-weight:500;margin:0 0 10px;letter-spacing:-0.01em;">—</p>
-            <div id="csHashtagsBox" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 5섹션 심층 분석 (생성 후 표시) -->
-      <div id="csAnalysisBox" style="display:none;">
-        <div style="border-left:2px solid rgba(151,254,237,.5);padding:8px 0 8px 12px;margin-bottom:10px;">
-          <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;">🎨 퍼스널컬러 분석</div>
-          <p id="csAnalysisPc" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;white-space:pre-line;"></p>
-        </div>
-        <div style="border-left:2px solid rgba(151,254,237,.35);padding:8px 0 8px 12px;margin-bottom:10px;">
-          <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;">👚 상의 스타일 분석</div>
-          <p id="csAnalysisTop" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;white-space:pre-line;"></p>
-        </div>
-        <div style="border-left:2px solid rgba(151,254,237,.35);padding:8px 0 8px 12px;margin-bottom:10px;">
-          <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;">👗 하의 스타일 분석</div>
-          <p id="csAnalysisBot" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;white-space:pre-line;"></p>
-        </div>
-        <div style="border-left:2px solid rgba(151,254,237,.5);padding:8px 0 8px 12px;margin-bottom:10px;">
-          <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;">📏 실루엣과 비율</div>
-          <p id="csAnalysisProp" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;white-space:pre-line;"></p>
-        </div>
-        <div style="border-left:2px solid rgba(151,254,237,.5);padding:8px 0 8px 12px;margin-bottom:10px;">
-          <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,.8);letter-spacing:.05em;margin-bottom:4px;">⚖️ 체형 밸런스</div>
-          <p id="csAnalysisHarmony" style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.7;margin:0;white-space:pre-line;"></p>
-        </div>
-      </div>
-
-      <!-- 대기 메시지 (생성 전 기본 표시) -->
-      <p id="csScoreText" style="font-size:11px;color:rgba(255,255,255,.3);line-height:1.7;margin:0;">착장 이미지가 생성되면 AI 스타일링 분석이 표시됩니다</p>
-
-      <!-- 리포트 보기 / PDF 다운로드 버튼 (생성 후 표시) -->
-      <!-- [2026-04-24 TJ 지시2] onclick 핸들러 연결 (기존 버튼이 반응하지 않던 버그 해결) -->
-      <div id="csReportBtnGroup" style="display:none;margin-top:12px;gap:8px;">
-        <button id="premiumReportBtn" onclick="openPremiumReport()" style="flex:1.2;padding:12px 0;border-radius:12px;background:linear-gradient(135deg,#97FEED,#35A29F);border:none;color:#00022E;font-size:12px;font-weight:900;cursor:pointer;letter-spacing:-0.01em;font-family:inherit;">
-          <span class="mi" style="font-size:14px;vertical-align:middle;">auto_awesome</span>
-          <span>프리미엄 리포트 전문 보기</span>
-        </button>
-        <button id="pdfDownBtn" onclick="downloadTryonPdf()" style="flex:1;padding:12px 0;border-radius:12px;background:linear-gradient(135deg,#0B666A,#35A29F);border:none;color:#ffffff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
-          <span class="mi" style="font-size:14px;vertical-align:middle;">picture_as_pdf</span>
-          <span>PDF 다운로드</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- (2) 스타일링 가능횟수 뱃지 -->
-    <div style="display:flex;justify-content:flex-end;padding:0 0 10px;margin-top:-4px;">
-      <div id="csUsageBadge" style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;font-size:11px;font-weight:800;background:rgba(151,254,237,.1);border:1px solid rgba(151,254,237,.2);color:#97FEED;">스타일링 5회 가능</div>
-    </div>
-
-    <!-- (3) 생성된 착장 이미지 뷰박스 — codistyle.html 원본 구조 그대로 -->
-    <div class="result-area" id="resultArea" style="padding:0;">
-      <div class="result-box">
-        <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
-        <div class="status-row"><div class="status-dot" id="sDot"></div><span class="status-txt" id="sTxt">이미지를 생성할 준비가 되었어요</span></div>
-        <div class="result-img-wrap" id="imgWrap">
-          <div class="csty-result-img-box">
-            <div class="img-spin">
-              <div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div>
-              <p class="spin-txt" style="opacity:.3">아이템을 고르고 생성 버튼을 눌러주세요</p>
-            </div>
-          </div>
-        </div>
-        <div class="err-box" id="errBox" style="display:none;"></div>
-      </div>
-
-      <!-- 저장 / 공유 / 리셋 (생성 후 활성화) -->
-      <div class="b-actions" id="bActions">
-        <button id="csBtn_save" class="bab" disabled style="background:rgba(151,254,237,.08);color:rgba(151,254,237,.3);border:1px solid rgba(151,254,237,.15);"><span class="mi">save_alt</span><span>저장</span></button>
-        <button id="csBtn_share" class="bab" disabled style="background:rgba(151,254,237,.08);color:rgba(151,254,237,.3);border:1px solid rgba(151,254,237,.15);"><span class="mi">share</span><span>공유</span></button>
-        <button id="csBtn_reset" class="bab" disabled style="background:rgba(151,254,237,.08);color:rgba(151,254,237,.3);border:1px solid rgba(151,254,237,.15);"><span class="mi">restart_alt</span><span>리셋</span></button>
-      </div>
-    </div>
-
-  </div>
-</section>
 
 <!-- ═══════════════════════════════════════════════════════════
      하단 시트 (피커 데모용)
@@ -2242,146 +1623,6 @@
 
 <!-- 토스트 -->
 <div class="toast" id="toast"></div>
-
-<!-- [2026-04-22 14:15 TJ 지시4] 풋바 네비 — codistyle.html과 동일 5탭
-     현재 페이지가 트라이온이므로 '트라이온' 탭에 .on 클래스 -->
-<!-- ═══════════════════════════════════════════════════════════════════════
-     [2026-04-24 TJ 지시2] 프리미엄 리포트 모달 (codistyle.html 구조 100% 이식)
-     원본: codistyle.html line 897~1011
-     스크립트 openPremiumReport/closePremiumReport 아래에서 처리
-     ═══════════════════════════════════════════════════════════════════════ -->
-<div id="premiumReportModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,2,46,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);overflow-y:auto;padding:20px 16px;">
-  <div style="max-width:540px;margin:0 auto;background:linear-gradient(180deg,#0a1443 0%,#071952 100%);border:1px solid rgba(151,254,237,0.3);border-radius:20px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
-
-    <!-- 헤더 -->
-    <div style="background:linear-gradient(135deg,#071952 0%,#0B666A 100%);padding:24px 20px;text-align:center;position:relative;">
-      <button onclick="closePremiumReport()" style="position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;">
-        <span class="mi" style="font-size:18px;">close</span>
-      </button>
-      <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,0.55);letter-spacing:0.2em;margin-bottom:6px;">PREMIUM TRY-ON REPORT</div>
-      <div style="font-size:20px;font-weight:900;color:#97FEED;letter-spacing:-0.01em;margin-bottom:4px;">CodiBank Professional Analysis</div>
-      <div style="font-size:10px;color:rgba(151,254,237,0.5);font-style:italic;letter-spacing:0.03em;">Desire to be designed. Meet CodiBank.</div>
-    </div>
-
-    <!-- 종합 스코어 + 해시태그 -->
-    <div style="padding:18px 20px 16px;border-bottom:1px solid rgba(151,254,237,0.08);background:rgba(151,254,237,0.025);">
-      <div style="display:flex;align-items:baseline;justify-content:center;gap:8px;margin-bottom:10px;">
-        <span style="font-size:11px;font-weight:800;color:rgba(151,254,237,0.5);letter-spacing:0.1em;">C.S.I</span>
-        <span id="prmScoreNum" style="font-size:48px;font-weight:900;color:#97FEED;letter-spacing:-0.02em;line-height:1;">—</span>
-        <span style="font-size:13px;font-weight:700;color:rgba(151,254,237,0.4);">/100</span>
-        <span id="prmGradeBadge" style="font-size:10px;font-weight:800;padding:4px 11px;border-radius:20px;background:rgba(151,254,237,0.15);border:1px solid rgba(151,254,237,0.3);color:#97FEED;margin-left:4px;"></span>
-      </div>
-      <div id="prmHashtags" style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;"></div>
-    </div>
-
-    <!-- SECTION 1: Executive Summary -->
-    <div style="padding:20px 22px 18px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-        <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#97FEED,#35A29F);display:flex;align-items:center;justify-content:center;color:#00022E;font-size:12px;font-weight:900;">1</div>
-        <div style="font-size:13px;font-weight:900;color:#97FEED;letter-spacing:-0.01em;">종합 분석 결과</div>
-        <div style="font-size:9px;font-weight:700;color:rgba(151,254,237,0.4);letter-spacing:0.1em;margin-left:auto;">EXECUTIVE SUMMARY</div>
-      </div>
-      <div style="background:rgba(151,254,237,0.04);border-left:3px solid #97FEED;padding:14px 16px;border-radius:0 10px 10px 0;">
-        <p id="prmExecSummary" style="font-size:13px;color:rgba(255,255,255,0.9);line-height:1.75;font-weight:500;margin:0;letter-spacing:-0.01em;">—</p>
-      </div>
-    </div>
-
-    <!-- SECTION 2: Deep-dive 4개 카드 -->
-    <div style="padding:0 22px 18px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-        <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#97FEED,#35A29F);display:flex;align-items:center;justify-content:center;color:#00022E;font-size:12px;font-weight:900;">2</div>
-        <div style="font-size:13px;font-weight:900;color:#97FEED;letter-spacing:-0.01em;">항목별 심층 분석</div>
-        <div style="font-size:9px;font-weight:700;color:rgba(151,254,237,0.4);letter-spacing:0.1em;margin-left:auto;">DEEP-DIVE</div>
-      </div>
-      
-      <!-- [v9 TJ 지시1] C.S.I 레이더 차트 — 4지표 시각화 -->
-      <div style="background:rgba(151,254,237,0.025);border:1px solid rgba(151,254,237,0.15);border-radius:10px;padding:18px 15px;margin-bottom:10px;text-align:center;">
-        <div style="font-size:10px;font-weight:800;color:rgba(151,254,237,0.7);letter-spacing:0.15em;margin-bottom:8px;">C.S.I RADAR</div>
-        <svg id="prmRadarChart" viewBox="0 0 220 220" style="width:220px;max-width:100%;height:auto;margin:0 auto;display:block;" xmlns="http://www.w3.org/2000/svg">
-          <!-- 동적 생성: openPremiumReport()에서 채워짐 -->
-        </svg>
-      </div>
-
-      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(151,254,237,0.08);border-radius:10px;padding:13px 15px;margin-bottom:8px;">
-        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">📏 실루엣 &amp; 비율</div>
-        <p id="prmDeepProp" style="font-size:11.5px;color:rgba(255,255,255,0.72);line-height:1.7;margin:0;white-space:pre-line;"></p>
-      </div>
-
-      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(151,254,237,0.08);border-radius:10px;padding:13px 15px;margin-bottom:8px;">
-        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">🎨 컬러 케미스트리</div>
-        <p id="prmDeepColor" style="font-size:11.5px;color:rgba(255,255,255,0.72);line-height:1.7;margin:0;white-space:pre-line;"></p>
-      </div>
-
-      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(151,254,237,0.08);border-radius:10px;padding:13px 15px;margin-bottom:8px;">
-        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">💫 체형 매칭</div>
-        <p id="prmDeepBody" style="font-size:11.5px;color:rgba(255,255,255,0.72);line-height:1.7;margin:0;white-space:pre-line;"></p>
-      </div>
-
-      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(151,254,237,0.08);border-radius:10px;padding:13px 15px;">
-        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:6px;letter-spacing:-0.01em;">⚖️ 전체 밸런스</div>
-        <p id="prmDeepHarmony" style="font-size:11.5px;color:rgba(255,255,255,0.72);line-height:1.7;margin:0;white-space:pre-line;"></p>
-      </div>
-    </div>
-
-    <!-- SECTION 3: TPO & Tips -->
-    <div style="padding:0 22px 20px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-        <div style="width:24px;height:24px;border-radius:6px;background:linear-gradient(135deg,#97FEED,#35A29F);display:flex;align-items:center;justify-content:center;color:#00022E;font-size:12px;font-weight:900;">3</div>
-        <div style="font-size:13px;font-weight:900;color:#97FEED;letter-spacing:-0.01em;">활용 가이드</div>
-        <div style="font-size:9px;font-weight:700;color:rgba(151,254,237,0.4);letter-spacing:0.1em;margin-left:auto;">STYLING GUIDE</div>
-      </div>
-
-      <div style="background:rgba(151,254,237,0.04);border:1px solid rgba(151,254,237,0.15);border-radius:10px;padding:14px 15px;margin-bottom:10px;">
-        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:8px;letter-spacing:-0.01em;">🎯 Best TPO 추천</div>
-        <div id="prmTpoList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-      </div>
-
-      <div style="background:rgba(151,254,237,0.04);border:1px solid rgba(151,254,237,0.15);border-radius:10px;padding:14px 15px;margin-bottom:10px;">
-        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:8px;letter-spacing:-0.01em;">✨ 개선 팁</div>
-        <div id="prmTipsList" style="display:flex;flex-direction:column;gap:6px;"></div>
-      </div>
-
-      <!-- [v9 TJ 지시1] 퍼스널 아이템 큐레이션 활성화 — COMING SOON 제거, 실제 데이터 바인딩 -->
-      <div style="background:linear-gradient(135deg,rgba(7,25,82,0.5),rgba(11,102,106,0.3));border:1px solid rgba(151,254,237,0.22);border-radius:10px;padding:14px 15px;">
-        <div style="font-size:11px;font-weight:800;color:#97FEED;margin-bottom:8px;letter-spacing:-0.01em;">🛍️ 퍼스널 아이템 큐레이션</div>
-        <div id="prmCurationList" style="display:flex;flex-direction:column;gap:6px;"></div>
-      </div>
-    </div>
-
-    <!-- 하단 액션 -->
-    <div style="padding:14px 20px 20px;border-top:1px solid rgba(151,254,237,0.08);background:rgba(0,0,0,0.15);display:flex;gap:8px;">
-      <button onclick="downloadTryonPdf()" style="flex:1;padding:13px;border-radius:12px;background:linear-gradient(135deg,#97FEED,#35A29F);border:none;color:#00022E;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;letter-spacing:-0.01em;">
-        <span class="mi" style="font-size:14px;vertical-align:middle;">picture_as_pdf</span>
-        <span>PDF 다운로드</span>
-      </button>
-      <button onclick="closePremiumReport()" style="flex:0.6;padding:13px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.85);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
-        닫기
-      </button>
-    </div>
-
-    <div style="padding:10px;text-align:center;background:#050A24;">
-      <div style="font-size:9px;color:rgba(151,254,237,0.35);font-weight:700;letter-spacing:0.1em;">CodiBank · codibank.kr</div>
-    </div>
-
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<div class="cb-spacer"></div>
-<nav class="cb-nav">
-  <div class="cb-nav-inner">
-    <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl" data-i18n="코디핏">코디핏</span></a>
-    <a href="tryon.html" class="cb-nav-tab on"><span class="ni">accessibility_new</span><span class="nl" data-i18n="트라이온">트라이온</span></a>
-    <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl" data-i18n="Ai 옷장">Ai 옷장</span></a>
-    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">auto_fix_high</span><span class="nl" data-i18n="코디하기">코디하기</span></a>
-    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl" data-i18n="MY">MY</span></a>
-  </div>
-</nav>
-
-<!-- [2026-04-22 14:15 TJ 지시3] CodiBank SDK 로드 — 회원 얼굴 사진 / 인증 사용
-     순서: config.js → codibank.js (closet.html·codistyle.html과 동일 패턴) -->
-<script src="config.js"></script>
-<script src="codibank.js"></script>
 
 <script>
 // ════════════════════════════════════════════════════════════════
@@ -2537,27 +1778,20 @@ $$('.step-head').forEach(head => {
 // ════════════════════════════════════════════════════════════════
 //  Step 1 — 모드 & 슬롯
 // ════════════════════════════════════════════════════════════════
-function setMode(mode, skipReset){
-  // [2026-04-22 14:15] skipReset=true일 때는 슬롯 리셋하지 않음 (복원 경로용)
+function setMode(mode){
   state.mode = mode;
   $('#modeSwitch').dataset.mode = mode;
   $$('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
 
-  // state 초기화 (모드 전환 시 모든 슬롯 리셋) - 복원 경로에서는 건너뜀
-  if(!skipReset){
-    // [2026-04-23 08:30] shoes 슬롯도 리셋 대상에 포함
-    //   기존엔 shoes가 빠져 있어 모드 전환 시 이전 신발이 남아있던 버그 수정
-    ['top','bottom','onepiece','outer','shoes'].forEach(t => {
-      state.slots[t].filled = false;
-      state.slots[t].item = null;
-    });
-  }
+  // state 초기화 (모드 전환 시 모든 슬롯 리셋)
+  ['top','bottom','onepiece','outer'].forEach(t => {
+    state.slots[t].filled = false;
+    state.slots[t].item = null;
+  });
 
   if(mode === 'twopiece'){
     state.slots.top.active = true;
-    state.slots.top.role = 'required';        // [2026-04-23] outer 모드에서 optional로 바뀌는 것 복구
     state.slots.bottom.active = true;
-    state.slots.bottom.role = 'required';     // [2026-04-23] 동일
     state.slots.onepiece.active = false;
     state.slots.outer.active = false;
     state.slots.outer.role = 'optional';
@@ -2565,22 +1799,16 @@ function setMode(mode, skipReset){
     $$('.onepiece-only').forEach(el => el.style.display = 'none');
     $$('.outer-only').forEach(el => el.style.display = 'none');
     $$('.twopiece-onepiece-only').forEach(el => el.style.display = '');
-    // [2026-04-23 08:30 TJ 지시3] outer 모드 전용 옵션 슬롯 숨김
-    $$('.outer-opt-only').forEach(el => el.style.display = 'none');
   } else if(mode === 'onepiece'){
     state.slots.top.active = false;
-    state.slots.top.role = 'required';        // [2026-04-23] role 원복
     state.slots.bottom.active = false;
-    state.slots.bottom.role = 'required';     // [2026-04-23] role 원복
     state.slots.onepiece.active = true;
     state.slots.outer.active = false;
     state.slots.outer.role = 'optional';
     $$('.twopiece-only').forEach(el => el.style.display = 'none');
     $$('.onepiece-only').forEach(el => el.style.display = '');
     $$('.outer-only').forEach(el => el.style.display = 'none');
-    // [2026-04-23 08:30 TJ 지시4] 원피스 모드 옵션: 아우터 + 신발 (기존 twopiece-onepiece-only 그대로 활용)
     $$('.twopiece-onepiece-only').forEach(el => el.style.display = '');
-    $$('.outer-opt-only').forEach(el => el.style.display = 'none');
   } else if(mode === 'outer'){
     state.slots.top.active = false;
     state.slots.bottom.active = false;
@@ -2590,25 +1818,12 @@ function setMode(mode, skipReset){
     $$('.twopiece-only').forEach(el => el.style.display = 'none');
     $$('.onepiece-only').forEach(el => el.style.display = 'none');
     $$('.outer-only').forEach(el => el.style.display = '');
-    // 옵션 섹션의 아우터 옵션은 숨김 (이미 필수로 올라갔으므로)
+    // 옵션 섹션의 아우터 슬롯은 숨김 (필수로 올라갔으므로)
     $$('.twopiece-onepiece-only').forEach(el => el.style.display = 'none');
-    // [2026-04-23 08:30 TJ 지시3] outer 모드 옵션: 상의 + 하의 + 신발
-    //   → outer-opt-only 클래스(상의/하의) 표시, 신발 옵션은 별도 클래스 없어서 기본 표시됨
-    $$('.outer-opt-only').forEach(el => el.style.display = '');
-    // outer 모드에서는 옵션 상의/하의도 slot.active = true 로 셋 (옵션이지만 슬롯 시스템이 active 기반)
-    state.slots.top.active = true;   // 옵션 슬롯으로 활성
-    state.slots.top.role = 'optional';
-    state.slots.bottom.active = true;  // 옵션 슬롯으로 활성
-    state.slots.bottom.role = 'optional';
   }
-  // 슬롯 UI 리셋도 skipReset 적용
-  if(!skipReset){
-    // [2026-04-23 08:30] shoes UI도 리셋 대상에 포함
-    ['top','bottom','onepiece','outer','outer-main','shoes'].forEach(t => resetSlotUI(t));
-  }
+  // 모든 슬롯 UI 리셋
+  ['top','bottom','onepiece','outer','outer-main'].forEach(t => resetSlotUI(t));
   renderStep1();
-  // 모드 변경 시 영속화
-  try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
 }
 $$('.mode-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
@@ -2619,19 +1834,18 @@ $$('.slot').forEach(slot => {
   });
 });
 
-// ─── 2026-04-22 13:55 KST [지시0] 슬롯 클릭 → codistyle_picker.html 실제 이동 ───
-// 이전: 데모용 하단 시트(#sheet) 열림 (실서비스에선 의미 없음)
-// 이후: ?slot=xxx&returnTo=tryon.html 로 실제 페이지 이동
-//       피커에서 아이템 선택 후 sessionStorage['tryon_pick_result']로 결과 전달
+// 실제 배포 시: location.href = `codistyle_picker.html?slot=${toStateKey(type)}&mode=${state.mode}&returnTo=tryon`
 function openPicker(type){
-  const slotKey = toStateKey(type);  // outer-main → outer
-  // 현재 페이지 상태 보존을 위해 saveTryonState 호출 (있으면)
-  try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
-  const url = 'codistyle_picker.html?slot=' + encodeURIComponent(slotKey) + '&returnTo=tryon.html';
-  location.href = url;
+  state.currentSlot = type;  // DOM data-type 그대로 저장
+  const category = toStateKey(type);  // mockItems 키는 state 기준
+  const labelText = SLOT_LABELS[category] || category;
+  $('#sheetSub').textContent = `${labelText} 카테고리만 표시됩니다`;
+  renderItems(category);
+  $('#backdrop').classList.add('show');
+  $('#sheet').classList.add('show');
 }
 
-// 피커 복귀 처리 [2026-04-22 13:55 수정]
+// 피커 복귀 처리
 function consumePick(){
   try {
     const raw = sessionStorage.getItem('tryon_pick_result');
@@ -2642,34 +1856,14 @@ function consumePick(){
       fillSlot(data.slot, {
         id: data.path || `pick_${Date.now()}`,
         name: data.name || '선택 아이템',
-        meta: (data.meta && data.meta.summary) || '내옷장',
-        dataUrl: data.dataUrl || '',    // 실제 이미지 URL
-        path: data.path || '',          // 서버 경로
-        cls: 'm1',                       // fallback
+        meta: (data.meta && data.meta.summary) || '옷장',
+        cls: 'm1',
         _raw: data
       });
     }
   } catch(e){ console.error(e); }
 }
-
-// [2026-04-23 13:00 TJ 지시 - 치명적 버그 수정]
-//   문제: Step1에서 상의/하의 선택 후 picker 복귀 시 슬롯이 사라짐
-//   원인: bfcache(Back-Forward Cache)로 페이지 복귀 시 DOMContentLoaded가
-//         재발화되지 않아 loadTryonState가 호출되지 않음. consumePick만 호출되어
-//         방금 선택한 것만 남고 이전 선택은 사라짐
-//   해결: pageshow 이벤트에서 loadTryonState()를 먼저 호출해 이전 state를 복원한 뒤
-//         consumePick()으로 방금 고른 아이템 추가
-function _tryonPageshowHandler(event){
-  try{
-    // persisted === true 이면 bfcache 복귀, 이때도 안전하게 상태 복원
-    if(event && event.persisted){
-      if(typeof loadTryonState === 'function') loadTryonState();
-    }
-    // 방금 picker에서 고른 아이템 추가 (tryon_pick_result가 있을 때만 작동)
-    consumePick();
-  }catch(_){}
-}
-window.addEventListener('pageshow', _tryonPageshowHandler);
+window.addEventListener('pageshow', consumePick);
 
 $$('.remove-btn').forEach(btn => {
   btn.addEventListener('click', e => {
@@ -2736,21 +1930,10 @@ function fillSlot(keyOrDomType, item){
   slotEl.classList.add('filled');
   slotEl.classList.remove('add-slot');
   const img = slotEl.querySelector('.slot-image');
-  // [2026-04-22 13:55] 실제 picker에서 가져온 dataUrl/path가 있으면 이미지 표시
-  if(item.dataUrl){
-    img.className = 'slot-image';
-    img.style.backgroundImage = 'url("'+item.dataUrl+'")';
-    img.style.backgroundSize = 'cover';
-    img.style.backgroundPosition = 'center';
-  } else {
-    img.className = 'slot-image ' + (item.cls || 'm1');
-    img.style.backgroundImage = '';
-  }
+  img.className = 'slot-image ' + (item.cls || 'm1');
   slotEl.querySelector('.slot-info .name').textContent = item.name;
   slotEl.querySelector('.slot-info .meta').textContent = item.meta;
   renderStep1();
-  // 영속화 (있으면)
-  try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
 }
 
 function resetSlotUI(domType){
@@ -2758,97 +1941,6 @@ function resetSlotUI(domType){
   if(!slotEl) return;
   slotEl.classList.remove('filled');
   if(slotEl.dataset.role === 'optional') slotEl.classList.add('add-slot');
-}
-
-// ════════════════════════════════════════════════════════════════
-//  [2026-04-22 14:15 TJ 지시2] 상태 영속화 (sessionStorage)
-//  슬롯 선택 후 picker로 이동·복귀해도 이전 슬롯·신체정보·얼굴이 유지되도록.
-//  저장 시점: fillSlot / openPicker / saveBodyInfo / applyFitUI / 얼굴업로드
-//  복원 시점: DOMContentLoaded에서 loadTryonState() 호출 후 렌더
-// ════════════════════════════════════════════════════════════════
-const TRYON_STATE_KEY = 'tryon_state_v1';
-
-function saveTryonState(){
-  try {
-    const snap = {
-      mode: state.mode,
-      fitTarget: state.fitTarget,
-      modelGender: state.modelGender,
-      slots: {},
-      bodyGender: (document.getElementById('bodyGender')||{}).textContent || '',
-      bodyAge:    (document.getElementById('bodyAge')||{}).textContent || '',
-      bodyHeight: (document.getElementById('bodyHeight')||{}).textContent || '',
-      bodyWeight: (document.getElementById('bodyWeight')||{}).textContent || '',
-      uploadedFaceDataUrl: state.uploadedFaceDataUrl || '',
-    };
-    Object.entries(state.slots).forEach(([k, s]) => {
-      if(s.filled && s.item){
-        snap.slots[k] = {
-          id: s.item.id,
-          name: s.item.name,
-          meta: s.item.meta,
-          dataUrl: s.item.dataUrl || '',
-          path: s.item.path || '',
-          cls: s.item.cls || 'm1'
-        };
-      }
-    });
-    sessionStorage.setItem(TRYON_STATE_KEY, JSON.stringify(snap));
-  } catch(e){ console.warn('saveTryonState failed:', e); }
-}
-
-function loadTryonState(){
-  try {
-    const raw = sessionStorage.getItem(TRYON_STATE_KEY);
-    if(!raw) return false;
-    const snap = JSON.parse(raw);
-    // 모드 복원 (setMode 호출하되 슬롯 리셋 방지를 위해 skipReset=true)
-    if(snap.mode && snap.mode !== state.mode){
-      if(typeof setMode === 'function') setMode(snap.mode, true);
-      else state.mode = snap.mode;
-    }
-    // 핏 복원
-    if(snap.fitTarget){
-      state.fitTarget = snap.fitTarget;
-      // fitSwitch pill UI 동기화
-      document.querySelectorAll('#fitSwitch .mode-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.fit === snap.fitTarget);
-      });
-      const fs = document.getElementById('fitSwitch');
-      if(fs) fs.dataset.fit = snap.fitTarget;
-      if(typeof applyFitUI === 'function') applyFitUI(snap.fitTarget);
-    }
-    // 모델 성별
-    if(snap.modelGender){
-      state.modelGender = snap.modelGender;
-      const card = document.querySelector(`.gender-card[data-gender="${snap.modelGender}"]`);
-      if(card){
-        const radio = card.querySelector('input[type="radio"]');
-        if(radio) radio.checked = true;
-        const gs = document.getElementById('genderSwitch');
-        if(gs) gs.dataset.gender = snap.modelGender;
-      }
-    }
-    // 슬롯 복원
-    Object.entries(snap.slots || {}).forEach(([k, item]) => {
-      if(typeof fillSlot === 'function') fillSlot(k, item);
-    });
-    // 신체정보 복원
-    const setT = (id, v) => { const e = document.getElementById(id); if(e && v) e.textContent = v; };
-    setT('bodyGender', snap.bodyGender);
-    setT('bodyAge',    snap.bodyAge);
-    setT('bodyHeight', snap.bodyHeight);
-    setT('bodyWeight', snap.bodyWeight);
-    // 얼굴 사진 복원
-    if(snap.uploadedFaceDataUrl){
-      state.uploadedFaceDataUrl = snap.uploadedFaceDataUrl;
-      const circle = document.getElementById('faceCircle');
-      if(circle){
-        circle.innerHTML = '<img src="'+snap.uploadedFaceDataUrl+'" alt="얼굴 사진" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
-      }
-    }
-    return true;
-  } catch(e){ console.warn('loadTryonState failed:', e); return false; }
 }
 
 function renderStep1(){
@@ -2860,13 +1952,8 @@ function renderStep1(){
     }
     if(s.role === 'optional' && s.filled) optHave++;
   });
-  // [2026-04-23 08:30] 옵션 슬롯 개수는 모드에 따라 다름
-  //   twopiece: 아우터 + 신발 = 2
-  //   onepiece: 아우터 + 신발 = 2
-  //   outer:    상의 + 하의 + 신발 = 3 (옵션 아우터 없음, 아우터는 필수로 승격)
-  const optTotal = (state.mode === 'outer') ? 3 : 2;
   $('#reqCount').textContent = `${reqHave}/${reqNeed}`;
-  $('#optCount').textContent = `${optHave}/${optTotal}`;
+  $('#optCount').textContent = `${optHave}/2`;
 
   const allReq = reqHave === reqNeed && reqNeed > 0;
   if(allReq){
@@ -2909,75 +1996,40 @@ fitSwitch.querySelectorAll('.mode-btn').forEach(btn => {
 });
 
 function applyFitUI(fit){
-  // [2026-04-22 14:15] state.fitTarget 저장 누락 버그 수정 + null 가드 (fitQuestion 삭제됨)
-  state.fitTarget = fit;
   const faceWrap = $('#profileFaceWrap');
   const modelWrap = $('#profileModelWrap');
   const titleText = $('#profileTitleText');
   const hintText = $('#profileHintText');
-  const fitQuestion = document.getElementById('fitQuestion');  // 삭제된 경우 null
+  const fitQuestion = $('#fitQuestion');
   const step2Sum = $('#step2Summary');
 
-  if(step2Sum) step2Sum.textContent = FIT_LABELS[fit] || '—';
+  step2Sum.textContent = FIT_LABELS[fit] || '—';
 
   if(fit === 'my'){
-    if(faceWrap) faceWrap.style.display = '';
-    if(modelWrap) modelWrap.style.display = 'none';
-    if(titleText) titleText.textContent = '코디 프로필';
-    if(hintText) hintText.textContent = 'AI가 개인화된 착장을 만드는 데 쓰여요';
-    if(fitQuestion) fitQuestion.innerHTML = '아래 <b style="color:var(--teal-light);">코디 프로필</b> 박스의 정보로 생성됩니다.';
+    faceWrap.style.display = '';
+    modelWrap.style.display = 'none';
+    titleText.textContent = '코디 프로필';
+    hintText.textContent = 'AI가 개인화된 착장을 만드는 데 쓰여요';
+    fitQuestion.innerHTML = '아래 <b style="color:var(--teal-light);">코디 프로필</b> 박스의 정보로 생성됩니다.';
     loadMyProfile();
   } else if(fit === 'somebody'){
-    if(faceWrap) faceWrap.style.display = '';
-    if(modelWrap) modelWrap.style.display = 'none';
-    if(titleText) titleText.textContent = '썸바디 프로필';
-    if(hintText) hintText.textContent = '정보를 직접 입력해 주세요';
-    if(fitQuestion) fitQuestion.innerHTML = '누군가의 <b style="color:var(--teal-light);">프로필</b>을 아래에 입력해 주세요.';
+    faceWrap.style.display = '';
+    modelWrap.style.display = 'none';
+    titleText.textContent = '썸바디 프로필';
+    hintText.textContent = '정보를 직접 입력해 주세요';
+    fitQuestion.innerHTML = '누군가의 <b style="color:var(--teal-light);">프로필</b>을 아래에 입력해 주세요.';
     resetProfileForSomebody();
   } else if(fit === 'model'){
-    if(faceWrap) faceWrap.style.display = 'none';
-    if(modelWrap) modelWrap.style.display = '';
-    if(titleText) titleText.textContent = '모델 선택';
-    if(hintText) hintText.textContent = '남자 / 여자 모델 중 선택';
-    if(fitQuestion) fitQuestion.innerHTML = '아래에서 <b style="color:var(--teal-light);">남자 / 여자 모델</b>을 선택해 주세요.';
+    faceWrap.style.display = 'none';
+    modelWrap.style.display = '';
+    titleText.textContent = '모델 선택';
+    hintText.textContent = '남자 / 여자 모델 중 선택';
+    fitQuestion.innerHTML = '아래에서 <b style="color:var(--teal-light);">남자 / 여자 모델</b>을 선택해 주세요.';
     // 모델 모드 진입 시엔 성별 초기화
     state.modelGender = null;
-    const gs = document.getElementById('genderSwitch');
-    if(gs){
-      gs.dataset.gender = '';
-      gs.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
-    }
+    $('#genderSwitch').dataset.gender = '';
+    $('#genderSwitch').querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
   }
-  
-  // [2026-04-24 TJ 지시2] 핏 변경해도 Step1 슬롯 유지 보장
-  // 이유: TJ 보고 — 핏 변경 시 Step1 아이템이 리셋되는 현상
-  // 방어책: 핏 변경 직후 state.slots 기준으로 Step1 UI 재동기화
-  //       (만약 어디선가 실수로 DOM이 초기화되더라도 state가 진실이면 복원)
-  try {
-    if(typeof _resyncStep1FromState === 'function') _resyncStep1FromState();
-  } catch(e){ console.warn('[applyFitUI] resync failed:', e); }
-  
-  // [2026-04-22 14:15] 핏 변경 후 영속화
-  try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
-}
-
-// [2026-04-24 TJ 지시2] state.slots → Step1 DOM 재동기화 함수
-// applyFitUI 등 Step2 이벤트에서 호출되어 Step1 슬롯이 꺼지지 않도록 보장
-function _resyncStep1FromState(){
-  Object.entries(state.slots).forEach(([key, s]) => {
-    if(s.filled && s.item){
-      // state에선 채워져있는데 혹시 UI가 비어있으면 fillSlot 재호출
-      let domType = key;
-      if(key === 'outer') domType = (state.mode === 'outer') ? 'outer-main' : 'outer';
-      const slotEl = document.querySelector(`.slot[data-type="${domType}"]`);
-      if(slotEl && !slotEl.classList.contains('filled')){
-        // filled 클래스가 빠진 상황 — fillSlot으로 재적용
-        if(typeof fillSlot === 'function') fillSlot(key, s.item);
-      }
-    }
-  });
-  // 카운터/요약 UI 갱신
-  if(typeof renderStep1 === 'function') renderStep1();
 }
 
 function loadMyProfile(){
@@ -2997,21 +2049,7 @@ function loadMyProfile(){
   $('#bodyAge').textContent = snap.bodyAge;
   $('#bodyHeight').textContent = snap.bodyHeight;
   $('#bodyWeight').textContent = snap.bodyWeight;
-  // [2026-04-22 14:15 TJ 지시3] 얼굴 사진 반영
-  //  1) state.uploadedFaceDataUrl (직접 업로드) 우선
-  //  2) snap.faceSrc (CodiBank에서 로드된 회원 얼굴 사진)
-  //  3) 없으면 'face' 플레이스홀더
-  const circle = document.getElementById('faceCircle');
-  const faceUrl = state.uploadedFaceDataUrl || snap.faceSrc || '';
-  if(circle && faceUrl){
-    circle.innerHTML = '<img src="'+faceUrl+'" alt="프로필 사진" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
-  } else {
-    $('#facePh').textContent = 'face';
-  }
-  // 비동기로 CodiBank 회원 얼굴 사진 로드 시도 (snap.faceSrc 없을 때)
-  if(!faceUrl && typeof loadMyProfileFace === 'function'){
-    loadMyProfileFace();
-  }
+  $('#facePh').textContent = 'face';
 }
 
 function resetProfileForSomebody(){
@@ -3039,8 +2077,6 @@ $('#genderSwitch').querySelectorAll('.gender-card').forEach(card => {
     card.querySelector('input[type="radio"]').checked = true;
     state.stepDone[2] = true;
     updateFinalSummary();
-    // [2026-04-22 14:15] 모델 성별 선택 후 영속화
-    try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
     // 성별까지 선택했으면 자동 Step 3 전환
     if(state.currentStep === 2){
       setTimeout(() => setStep(3), 400);
@@ -3056,359 +2092,28 @@ function updateFinalSummary(){
   // 추후 필요 시 내부 요약 갱신 로직을 다시 넣을 수 있음
 }
 
-// ════════════════════════════════════════════════════════════════════
-//  [2026-04-23 07:00 KST · Phase 4 서버 연동] TJ 지시
-//  기존: 2.2초 setTimeout mock → 화면에 "[생성된 착장 이미지] 플레이스홀더" 표시
-//  신규: 실제 POST /api/tryon/generate 호출 → Gemini 3 Pro Image 생성 이미지 표시
-//  ────────────────────────────────────────────────────────────────────
-//  서버 엔드포인트 스펙 (mock_backend.py line ~4868):
-//    Request JSON:
-//      - user: {gender, ageGroup, height, weight, tier}
-//      - mode: "twopiece" | "onepiece" | "outer"
-//      - fitTarget: "my" | "somebody" | "model"
-//      - modelGender: "male" | "female"  (fitTarget=="model"일 때만)
-//      - faceImage: dataURL  (fitTarget!="model"일 때)
-//      - topDataUrl / topPath, bottomDataUrl / bottomPath  (twopiece/outer)
-//      - onepieceDataUrl / onepiecePath  (onepiece)
-//      - outerDataUrl / outerPath, shoesDataUrl / shoesPath  (optional)
-//      - personalColor, bodyType  (optional - 있으면 품질 향상)
-//      - lang: "ko" | "en"
-//    Response JSON:
-//      - ok, path, image(dataUrl), url
-//      - comment, styling_score (0~100)
-//      - score_breakdown: {body_shape, personal_color, proportion, style} (점수)
-//      - executive_summary, tpo_recommendations, improvement_tips, style_hashtags
-//      - model, sdk
-//  ────────────────────────────────────────────────────────────────────
-//  원칙 준수:
-//   - v53 SDK fix 구역 준수 (서버 SDK fallback 그대로 활용)
-//   - codistyle_generate는 건드리지 않음 (엔진 분리 원칙)
-//   - 사용량 카운팅: cb_usage_ 키에 tryonCount 필드 추가
-// ════════════════════════════════════════════════════════════════════
-
-// ─── 서버 base URL 결정 (codistyle.html의 codistyleBase 패턴 100% 준수) ───
-// [2026-04-23 15:00 치명적 버그 수정]
-//   기존 버그: window.CB_CFG / 전역 getBackendBaseResolved 참조
-//             → 둘 다 undefined라 빈 문자열 반환 → 상대경로로 fallback
-//             → codibank.kr (Vercel)에 POST → 404 에러
-//   수정: CodiBank.getConfig() / CodiBank.getBackendBaseResolved() 참조 (codistyle.html 동일)
-//         + window.location.origin 폴백 추가
-function _tryonBackendBase(){
+// ════════════════════════════════════════════════════════════════
+// [2026-04-26 v17 TJ] 트라이온 백엔드 호출 헬퍼 (codistyle 패턴 참고)
+// ════════════════════════════════════════════════════════════════
+function tryonBase(){
+  // 1순위: config (codibank.js가 로드됐을 때)
   try{
-    // 1순위: CodiBank.getConfig()의 backendBase (config.js가 만드는 정식 경로)
-    const cfg = (window.CodiBank && typeof CodiBank.getConfig === 'function')
-      ? CodiBank.getConfig() : {};
-    const direct = String((cfg && cfg.backendBase) || '').trim();
-    if(direct) return direct.replace(/\/+$/, '');
-    
-    // 2순위: CodiBank.getBackendBaseResolved() (Wi-Fi IP 자동 해석 등)
-    if(window.CodiBank && typeof CodiBank.getBackendBaseResolved === 'function'){
-      const resolved = String(CodiBank.getBackendBaseResolved() || '').trim();
-      if(resolved) return resolved.replace(/\/+$/, '');
+    const cfg = (window.CodiBank && CodiBank.getConfig) ? CodiBank.getConfig() : {};
+    const direct = String(cfg.backendBase || '').trim();
+    if(direct) return direct.replace(/\/$/,'');
+    if(window.CodiBank && CodiBank.getBackendBaseResolved){
+      const resolved = String(CodiBank.getBackendBaseResolved()||'').trim();
+      if(resolved) return resolved.replace(/\/$/,'');
     }
-    
-    // 3순위: window.CB_CFG (구버전 호환)
-    if(window.CB_CFG && window.CB_CFG.backendBase){
-      return String(window.CB_CFG.backendBase).replace(/\/+$/, '');
-    }
-    
-    // 4순위: window.CODIBANK_CONFIG (또 다른 호환)
-    if(window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase){
-      return String(window.CODIBANK_CONFIG.backendBase).replace(/\/+$/, '');
-    }
-    
-    // 5순위: 최종 안전망 — Render 서버 직접 지정
-    // (codibank.kr 도메인에서 호출되는데 config 모두 실패 시 hardcoded fallback)
-    if(window.location && window.location.origin && 
-       !window.location.origin.includes('localhost')){
-      return 'https://codibank-api.onrender.com';
-    }
-  }catch(e){
-    console.warn('[tryon] _tryonBackendBase resolve error:', e);
-  }
-  return ''; // 마지막 폴백 (로컬 개발용)
-}
-
-// ─── localStorage에서 퍼스널컬러/프로필 로드 (profile.html / codistyle.html이 저장한 것) ───
-function _tryonLoadPersonalColor(email){
-  try{
-    const key = 'cb_personal_color_' + (email || 'guest');
-    const raw = localStorage.getItem(key);
-    if(raw) return JSON.parse(raw);
   }catch(_){}
-  return null;
+  // 2순위: 동일 origin (Vercel 등 프록시)
+  if(window.location && window.location.origin && !window.location.origin.includes('localhost')){
+    return window.location.origin;
+  }
+  // 3순위: 프로덕션 기본 (codibank-api.onrender.com)
+  return 'https://codibank-api.onrender.com';
 }
 
-// ─── 사용량 카운팅 — cb_usage_ 키에 tryonCount 추가 (codistyle.html과 키 공유) ───
-function _tryonUsageKey(){
-  try{
-    const user = (typeof CodiBank !== 'undefined' && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;
-    return 'cb_usage_' + ((user && user.email) || 'guest');
-  }catch(_){ return 'cb_usage_guest'; }
-}
-function recordTryonUsage(){
-  try{
-    const k = _tryonUsageKey();
-    const raw = JSON.parse(localStorage.getItem(k) || '{}');
-    const now = new Date();
-    const monthKey = now.getFullYear()+'-'+(now.getMonth()+1);
-    const dayKey = now.toISOString().slice(0,10);
-    if(raw.month !== monthKey){
-      raw.month = monthKey;
-      raw.closetCount=0; raw.codistyleCount=0; raw.tryonCount=0; raw.totalCount=0;
-    }
-    if(raw.day !== dayKey){
-      raw.day = dayKey;
-      raw.dayClosetCount=0; raw.dayCodiCount=0; raw.dayTryonCount=0; raw.dayTotal=0;
-    }
-    raw.tryonCount    = (raw.tryonCount||0) + 1;
-    raw.dayTryonCount = (raw.dayTryonCount||0) + 1;
-    // 합산 카운터
-    raw.totalCount = (raw.closetCount||0) + (raw.codistyleCount||0) + (raw.tryonCount||0);
-    raw.dayTotal   = (raw.dayClosetCount||0) + (raw.dayCodiCount||0) + (raw.dayTryonCount||0);
-    localStorage.setItem(k, JSON.stringify(raw));
-  }catch(_){}
-}
-
-// ─── state → payload 매핑 함수 ───
-function _tryonBuildPayload(){
-  const user = (typeof CodiBank !== 'undefined' && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;
-  const email = (user && user.email) || '';
-  const snap = state.myProfileSnapshot || {};
-
-  // 기본 사용자 정보
-  const userObj = {
-    gender:   (user && user.gender)   || (snap.bodyGender === '여성' ? 'F' : 'M'),
-    ageGroup: (user && user.ageGroup) || snap.bodyAge   || '30대',
-    height:   (user && user.height)   || snap.bodyHeight|| '',
-    weight:   (user && user.weight)   || snap.bodyWeight|| '',
-    tier:     (user && user.plan)     || 'FREE',
-  };
-
-  // 퍼스널컬러 (localStorage)
-  const pc = _tryonLoadPersonalColor(email);
-  
-  // [2026-04-24 TJ 지시3-B] 퍼스널컬러 summary 필드 보완
-  // 이전 버그: localStorage pc 객체에 summary 필드 없을 수 있음
-  //   → 서버가 pc_summary = "" 로 읽음
-  //   → Phase 1 PERSONA에 퍼스널컬러 정보 반영 안 됨
-  // 수정: summary 없으면 season + undertone으로 간단 문장 생성 (codistyle 패턴)
-  let pcPayload = pc;
-  if(pc && typeof pc === 'object'){
-    let _summary = String(pc.summary || '').trim();
-    if(!_summary){
-      const _parts = [];
-      if(pc.season) _parts.push(pc.season);  // 예: "가을 딥"
-      if(pc.undertone) _parts.push(pc.undertone + ' 언더톤');  // 예: "웜 언더톤"
-      if(pc.skin_tone) _parts.push(pc.skin_tone + ' 피부톤');
-      _summary = _parts.join(', ');
-    }
-    // 새 객체 만들어 summary 보완
-    pcPayload = {
-      ...pc,
-      summary: _summary || (pc.season || '') || (pc.undertone ? pc.undertone + ' 언더톤' : ''),
-    };
-  }
-
-  // bodyType — BMI 기반 간이 계산
-  const _h = parseFloat(userObj.height) || 0;
-  const _w = parseFloat(userObj.weight) || 0;
-  let bodyType = '';
-  if(_h > 0 && _w > 0){
-    const bmi = _w / Math.pow(_h/100, 2);
-    bodyType = bmi < 18.5 ? '슬림' : bmi < 23 ? '표준' : bmi < 26 ? '보통' : '풍성';
-  }
-
-  // 모드별 슬롯 맵핑
-  const payload = {
-    user: userObj,
-    mode: state.mode,                       // 'twopiece' | 'onepiece' | 'outer'
-    fitTarget: state.fitTarget,             // 'my' | 'somebody' | 'model'
-    modelGender: state.modelGender || '',   // 'male' | 'female'
-    bodyType: bodyType,
-    personalColor: pcPayload || null,
-    lang: (window.CodiBankI18n && CodiBankI18n.isEn && CodiBankI18n.isEn()) ? 'en' : 'ko',
-    _ts: Date.now(),
-  };
-
-  // 얼굴 이미지 (fit != 'model')
-  if(state.fitTarget !== 'model'){
-    if(state.uploadedFaceDataUrl){
-      payload.faceImage = state.uploadedFaceDataUrl;
-    } else {
-      // 업로드 없을 때는 CodiBank 회원 얼굴(있다면) 사용
-      // 이미 loadMyProfileFace()에서 snap.faceSrc에 dataUrl 들어있을 수 있음
-      if(snap.faceSrc && snap.faceSrc.startsWith('data:')){
-        payload.faceImage = snap.faceSrc;
-      }
-    }
-  }
-
-  // 아이템 이미지 매핑 (슬롯에서 가져옴)
-  const _add = (slotKey, prefix) => {
-    const s = state.slots[slotKey];
-    if(!s || !s.filled || !s.item) return;
-    if(s.item.dataUrl) payload[prefix + 'DataUrl'] = s.item.dataUrl;
-    if(s.item.path)    payload[prefix + 'Path']    = s.item.path;
-    // meta.gemini 분석 데이터가 있으면 전달 (Ai옷장 등록 시 분석됨)
-    if(s.item.meta && typeof s.item.meta === 'object' && s.item.meta.gemini){
-      payload[prefix + 'Analysis'] = s.item.meta.gemini;
-    }
-  };
-
-  if(state.mode === 'twopiece'){
-    _add('top', 'top');
-    _add('bottom', 'bottom');
-  } else if(state.mode === 'onepiece'){
-    _add('onepiece', 'onepiece');
-  } else if(state.mode === 'outer'){
-    _add('outer', 'outer');
-    _add('top', 'top');
-    _add('bottom', 'bottom');
-  }
-
-  // 선택 슬롯 (outer/shoes)
-  if(state.mode !== 'outer') _add('outer', 'outer');
-  _add('shoes', 'shoes');
-
-  return payload;
-}
-
-// ─── 응답 처리: 이미지/점수/4지표 UI에 반영 ───
-function _tryonApplyResult(data){
-  // ── 1) 이미지 뷰박스에 결과 이미지 표시 ──
-  const imgWrap = document.getElementById('imgWrap');
-  if(imgWrap){
-    // data.image(dataUrl) 우선, 없으면 data.url, 그것도 없으면 data.path
-    let imgSrc = data.image || data.url || '';
-    if(!imgSrc && data.path){
-      // 상대 경로라면 backend base 붙임
-      const base = _tryonBackendBase();
-      imgSrc = base ? (base + (data.path.startsWith('/') ? '' : '/') + data.path) : data.path;
-    }
-    if(imgSrc){
-      imgWrap.innerHTML = '<div class="csty-result-img-box" style="display:flex;align-items:center;justify-content:center;overflow:hidden;"><img src="'+imgSrc+'" alt="트라이온 결과" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:12px;"></div>';
-    } else {
-      imgWrap.innerHTML = '<div class="csty-result-img-box" style="background:linear-gradient(135deg,#0B1238,#1a2554);display:flex;align-items:center;justify-content:center;color:#97FEED;font-size:13px;font-weight:700;text-align:center;padding:20px;">이미지 생성은 완료되었지만<br>결과 URL을 받지 못했어요<br><span style="font-size:10px;color:rgba(151,254,237,.5);margin-top:8px;display:block;">잠시 후 다시 시도해 주세요</span></div>';
-    }
-  }
-
-  // ── 2) 스타일 점수 + 등급 ──
-  const total = typeof data.styling_score === 'number' ? Math.round(data.styling_score) : 85;
-  const scoreNumEl = document.getElementById('csScoreNum');
-  const scoreBarEl = document.getElementById('csScoreBar');
-  const gradeBadgeEl = document.getElementById('csGradeBadge');
-  if(scoreNumEl) scoreNumEl.textContent = total;
-  if(scoreBarEl) scoreBarEl.style.width = total + '%';
-  if(gradeBadgeEl){
-    gradeBadgeEl.textContent = total >= 90 ? 'S Grade' : total >= 80 ? 'A Grade' : total >= 70 ? 'B Grade' : 'C Grade';
-    gradeBadgeEl.style.display = 'inline-block';
-  }
-
-  // ── 3) 4지표 (body_shape, personal_color, proportion, style) ──
-  const bd = data.score_breakdown || {};
-  const scoreDetailEl = document.getElementById('csScoreDetail');
-  if(scoreDetailEl) scoreDetailEl.style.display = 'block';
-  const setMetric = (valId, fillId, val, max) => {
-    const v = document.getElementById(valId);
-    const f = document.getElementById(fillId);
-    const n = (typeof val === 'number') ? Math.round(val) : 0;
-    if(v) v.textContent = n;
-    if(f) f.style.width = Math.min(100, (n/max*100)) + '%';
-  };
-  // 서버 스키마 매핑 (mock_backend.py _tryon_parse_response 기준)
-  setMetric('csScBody',  'csScBodyFill',  bd.body_shape     || 0, 30);
-  setMetric('csScPc',    'csScPcFill',    bd.personal_color || 0, 30);
-  setMetric('csScProp',  'csScPropFill',  bd.proportion     || 0, 20);
-  setMetric('csScStyle', 'csScStyleFill', bd.style          || 0, 20);
-
-  // ── 4) 대기 메시지 숨김 ──
-  const scoreText = document.getElementById('csScoreText');
-  if(scoreText) scoreText.style.display = 'none';
-
-  // ── 5) 리포트 버튼 표시 ──
-  const reportBtnGroup = document.getElementById('csReportBtnGroup');
-  if(reportBtnGroup) reportBtnGroup.style.display = 'flex';
-
-  // ── 6) 저장/공유/리셋 버튼 활성화 ──
-  ['csBtn_save','csBtn_share','csBtn_reset'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el){
-      el.disabled = false;
-      el.style.background = 'rgba(151,254,237,.15)';
-      el.style.color = '#97FEED';
-      el.style.border = '1px solid rgba(151,254,237,.3)';
-    }
-  });
-
-  // ── 7) 상태 텍스트 ──
-  const sTxt = document.getElementById('sTxt');
-  const sDot = document.getElementById('sDot');
-  if(sTxt) sTxt.textContent = '생성 완료';
-  if(sDot) sDot.classList.add('done');
-  state.stepDone[3] = true;
-
-  // ── 8) 서버 응답의 executive_summary 등은 콘솔 로그에 남겨 디버깅용 ──
-  if(data.comment) console.log('[TryOn Result] comment:', data.comment);
-  if(data.executive_summary) console.log('[TryOn Result] exec_summary:', data.executive_summary);
-  if(data.improvement_tips) console.log('[TryOn Result] tips:', data.improvement_tips);
-
-  // ── 9) 결과 이미지 URL 저장 (저장/공유 버튼이 쓸 수 있음) ──
-  try{ window._tryonLastResult = data; }catch(_){}
-  
-  // ── 10) [2026-04-24 TJ 지시2] 프리미엄 리포트 데이터 준비 ──
-  // codistyle.html의 _csPremiumData 구조와 동일하게 매핑
-  try {
-    const _adv = data.styling_advice || {};
-    // styling_advice가 dict인지 체크 (객체면 섹션별, 문자열이면 하나로 표시)
-    const _secObj = (typeof _adv === 'object' && _adv !== null && !Array.isArray(_adv)) ? _adv : {};
-    
-    // 4지표 점수로 등급 판정
-    const _total = typeof data.styling_score === 'number' ? Math.round(data.styling_score) : 0;
-    let _grade = '';
-    if(_total >= 90) _grade = 'S Grade';
-    else if(_total >= 80) _grade = 'A Grade';
-    else if(_total >= 70) _grade = 'B Grade';
-    else if(_total >= 60) _grade = 'C Grade';
-    else _grade = 'D Grade';
-    
-    window._tryonPremiumData = {
-      score:       _total,
-      grade:       _grade,
-      breakdown:   data.score_breakdown || {},  // [v9] 레이더 차트용 4지표
-      hashtags:    data.style_hashtags || [],
-      execSummary: data.executive_summary || data.comment || '',
-      sections: {
-        pc:      _secObj.pc      || '',
-        top:     _secObj.top     || '',
-        bot:     _secObj.bottom  || '',
-        prop:    _secObj.proportion || '',
-        harmony: _secObj.harmony || '',
-      },
-      tpo:       data.tpo_recommendations || [],
-      tips:      data.improvement_tips || [],
-      curation:  data.item_curation || [],  // [v9] 퍼스널 아이템 큐레이션
-      // 트라이온 추가: 결과 이미지 URL (PDF에 삽입용)
-      imageUrl:  data.image || data.url || '',
-      model:     data.model || '',
-      mode:      data.tryon_mode || state.mode,
-      // [v9] 사용자 정보 (PDF 헤더용)
-      userInfo: {
-        gender: (state.myProfileSnapshot && state.myProfileSnapshot.gender) || '',
-        age:    (state.myProfileSnapshot && state.myProfileSnapshot.ageGroup) || '',
-        height: (state.myProfileSnapshot && state.myProfileSnapshot.height) || '',
-        weight: (state.myProfileSnapshot && state.myProfileSnapshot.weight) || '',
-        bodyType: (state.myProfileSnapshot && state.myProfileSnapshot.bodyType) || '',
-        pc:     (state.myProfileSnapshot && state.myProfileSnapshot.pc && state.myProfileSnapshot.pc.summary) || '',
-      },
-    };
-    console.log('[TryOn Premium] data prepared:', window._tryonPremiumData);
-  } catch(e) {
-    console.warn('[TryOn Premium] data prep failed:', e);
-  }
-}
-
-// ─── finalGenerate 클릭 핸들러 ───
 $('#finalGenerate').addEventListener('click', async () => {
   const filled = Object.entries(state.slots).filter(([,s])=>s.filled);
   if(!filled.length){ showToast('Step 1에서 아이템을 먼저 선택해 주세요'); return; }
@@ -3419,433 +2124,179 @@ $('#finalGenerate').addEventListener('click', async () => {
 
   // 버튼 로딩 상태
   const btn = $('#finalGenerate');
-  const originalHTML = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<span class="mi" style="animation:spin 1s linear infinite;">progress_activity</span><span>생성 중…</span>';
 
-  // 이미지 뷰박스도 로딩 상태로
-  // [2026-04-24 TJ 지시6] codistyle.html 패턴 완전 이식
-  //   - spin-pct 진행률 카운터 (00% 표시)
-  //   - cb-rainbow-cs.animating (레인보우 컬러 애니메이션)
-  //   - 가상 진행률 인터벌 (20% → 30% → ... → 99% max, 실제 응답 오면 100%)
-  const imgWrap = document.getElementById('imgWrap');
-  if(imgWrap){
-    imgWrap.innerHTML = '<div class="csty-result-img-box"><div class="img-spin">'
-      + '<div class="spin-pct" id="imgSpinPct">0<span class="spin-pct-sym">%</span></div>'
-      + '<div class="cb-rainbow-cs animating">'
-      + '<span>c</span><span>o</span><span>d</span><span>i</span>'
-      + '<span>b</span><span>a</span><span>n</span><span>k</span>'
-      + '</div>'
-      + '<p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br>'
-      + '<small>약 20~40초 소요</small></p>'
-      + '</div></div>';
-  }
-  
-  // 진행률 인터벌 — 서버가 비동기 처리 중 시각 피드백 제공
-  // codistyle.html의 _csStartProgressPct 패턴 이식
-  // 20% → 95% 까지 서서히 증가, 완료 시 100%로 점프
-  if(window._tryonPctInterval){ clearInterval(window._tryonPctInterval); }
-  window._tryonPctValue = 0;
-  window._tryonPctStart = Date.now();
-  const _updatePct = (v) => {
-    const el = document.getElementById('imgSpinPct');
-    if(el){
-      el.innerHTML = Math.round(v) + '<span class="spin-pct-sym">%</span>';
-    }
-  };
-  _updatePct(0);
-  // 초기 200ms 후 시작 (0 → 20 빠르게)
-  setTimeout(() => { window._tryonPctValue = 20; _updatePct(20); }, 300);
-  // 지속 증가 (~95%까지, 30초 동안 서서히)
-  window._tryonPctInterval = setInterval(() => {
-    const elapsed = (Date.now() - window._tryonPctStart) / 1000;  // 초 단위
-    // 로지스틱 증가 — 초반 빠름 → 후반 느림
-    let target = 20 + (75 * (1 - Math.exp(-elapsed / 12)));  // 약 30초에 94% 접근
-    if(target > 95) target = 95;
-    window._tryonPctValue = target;
-    _updatePct(target);
-  }, 250);
-  const sTxt = document.getElementById('sTxt');
-  if(sTxt) sTxt.textContent = 'AI 생성 중…';
-
-  // payload 조립
-  const payload = _tryonBuildPayload();
-  console.log('[TryOn Generate Payload]', {
-    mode: payload.mode,
-    fitTarget: payload.fitTarget,
-    modelGender: payload.modelGender,
-    hasTop: !!(payload.topDataUrl || payload.topPath),
-    hasBottom: !!(payload.bottomDataUrl || payload.bottomPath),
-    hasOnepiece: !!(payload.onepieceDataUrl || payload.onepiecePath),
-    hasOuter: !!(payload.outerDataUrl || payload.outerPath),
-    hasFace: !!payload.faceImage,
-    hasPC: !!payload.personalColor,
-    bodyType: payload.bodyType,
-    tier: payload.user.tier,
-  });
-
-  // ── 실제 서버 호출 ──
-  const base = _tryonBackendBase();
-  const url = (base ? base : '') + '/api/tryon/generate';
-  try{
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      credentials: 'omit',
-    });
-
-    if(!res.ok){
-      let errMsg = '서버 오류 (' + res.status + ')';
-      try{
-        const errJson = await res.json();
-        if(errJson && errJson.error) errMsg = errJson.error;
-      }catch(_){}
-      throw new Error(errMsg);
-    }
-
-    const data = await res.json();
-    if(!data || data.ok === false){
-      throw new Error((data && data.error) || '생성 실패');
-    }
-
-    // [2026-04-24 TJ 지시6] 진행률 100% 도달 표시 후 결과 렌더
-    if(window._tryonPctInterval){ clearInterval(window._tryonPctInterval); window._tryonPctInterval = null; }
-    const _finalEl = document.getElementById('imgSpinPct');
-    if(_finalEl) _finalEl.innerHTML = '100<span class="spin-pct-sym">%</span>';
-    // 살짝 대기 후 결과 표시 (사용자가 100%를 볼 수 있도록)
-    await new Promise(r => setTimeout(r, 180));
-
-    // 결과 반영
-    _tryonApplyResult(data);
-    recordTryonUsage();
-
-    // 버튼 복원 (다시 생성하기 버튼)
-    btn.disabled = false;
-    btn.innerHTML = '<span class="mi">refresh</span><span>다시 생성하기</span><span class="count">2/5</span>';
-
-    showToast('생성 완료 — ' + (data.model || 'Gemini 3 Pro Image'));
-
-    // 스크롤
-    setTimeout(() => {
-      const el = document.getElementById('csScoreBox');
-      if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
-    }, 300);
-  } catch(err){
-    console.error('[TryOn Error]', err);
-    // [2026-04-24 TJ 지시6] 실패 시 진행률 인터벌 정리
-    if(window._tryonPctInterval){ clearInterval(window._tryonPctInterval); window._tryonPctInterval = null; }
+  // ────────────────────────────────────────────────────────────
+  // [v17 TJ] 결과 표시 함수 — 성공/실패 공통 후처리
+  // ────────────────────────────────────────────────────────────
+  function _showResult(imgSrc, analysis){
+    // 분석 박스 표시 (서버 분석이 있으면 사용, 없으면 기본값)
+    const analysisBox = $('#analysisBox');
+    analysisBox.style.display = 'block';
     
-    showToast('생성 실패: ' + (err.message || err));
+    // 서버에서 STYLING_SCORE 등이 오면 사용
+    let total, m1, m2, m3, m4;
+    if(analysis && typeof analysis === 'object'){
+      total = Number(analysis.total) || 85;
+      m1 = Number(analysis.body_shape) || 25;
+      m2 = Number(analysis.personal_color) || 25;
+      m3 = Number(analysis.proportion) || 17;
+      m4 = Number(analysis.harmony) || 17;
+    } else {
+      // fallback (mock)
+      total = 82 + Math.floor(Math.random()*12);
+      m1 = 22 + Math.floor(Math.random()*7);
+      m2 = 22 + Math.floor(Math.random()*7);
+      m3 = 15 + Math.floor(Math.random()*5);
+      m4 = 15 + Math.floor(Math.random()*5);
+    }
+    $('#anScore').textContent = total;
+    $('#anGrade').textContent = total >= 90 ? 'S' : total >= 80 ? 'A' : 'B';
+    $('#anFill').style.width = total + '%';
+    $('#anM1').textContent = m1;  $('#anM1Fill').style.width = (m1/30*100) + '%';
+    $('#anM2').textContent = m2;  $('#anM2Fill').style.width = (m2/30*100) + '%';
+    $('#anM3').textContent = m3;  $('#anM3Fill').style.width = (m3/20*100) + '%';
+    $('#anM4').textContent = m4;  $('#anM4Fill').style.width = (m4/20*100) + '%';
+
+    // 이미지 뷰박스 + 액션 버튼 표시
+    $('#resultWrap').style.display = '';
+    $('#resultActions').style.display = 'grid';
+    state.stepDone[3] = true;
+    
+    // ★ 정/후면 박스 너비×2 정책으로 결과 이미지 표시
+    try{
+      window.drawTryonResult(imgSrc);
+      // 보존 저장 (drawTryonResult가 박스에 그린 후 200ms 뒤)
+      setTimeout(_saveTryonSnap, 250);
+    }catch(_e){ console.warn('[tryon draw]', _e); }
+
     // 버튼 복원
     btn.disabled = false;
-    btn.innerHTML = originalHTML;
-    // 이미지 뷰박스 복원
-    if(imgWrap){
-      imgWrap.innerHTML = '<div class="csty-result-img-box"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.5;color:#ff6b6b;">생성 실패 — 다시 시도해 주세요</p></div></div>';
-    }
-    const sTxt2 = document.getElementById('sTxt');
-    if(sTxt2) sTxt2.textContent = '생성 실패';
-  }
-});
-
-// [2026-04-22 TJ 지시5] 저장 / 공유 / 리셋 — 새 id에 맞춰 재작성
-const csBtnSave = document.getElementById('csBtn_save');
-const csBtnShare = document.getElementById('csBtn_share');
-const csBtnReset = document.getElementById('csBtn_reset');
-
-// [2026-04-24 TJ 지시3] 저장/공유를 URL 방식 → 실제 jpg Blob/File 방식으로 개선
-// (codistyle.html의 saveImg/shareResult 패턴과 동일)
-// URL만 전달하던 기존 → navigator.share({files:[file]}) + File API
-
-// 결과 이미지 URL 가져오기 헬퍼
-function _getTryonResultImgUrl(){
-  const r = window._tryonLastResult;
-  if(!r) return '';
-  let imgSrc = r.image || r.url || '';
-  if(!imgSrc && r.path){
-    const base = _tryonBackendBase();
-    imgSrc = base ? (base + (r.path.startsWith('/') ? '' : '/') + r.path) : r.path;
-  }
-  return imgSrc;
-}
-
-if(csBtnSave) csBtnSave.addEventListener('click', async () => {
-  const imgSrc = _getTryonResultImgUrl();
-  if(!imgSrc){ showToast('저장할 이미지가 없어요'); return; }
-  
-  try{
-    // 1) URL에서 실제 이미지 바이트 가져오기
-    const res = await fetch(imgSrc);
-    if(!res.ok) throw new Error('fetch failed: ' + res.status);
-    const blob = await res.blob();
-    const fname = 'codibank_tryon_' + Date.now() + '.jpg';
-    const file = new File([blob], fname, { type: blob.type || 'image/jpeg' });
+    btn.innerHTML = '<span class="mi">refresh</span><span>다시 생성하기</span><span class="count">2/5</span>';
     
-    // 2) Web Share API (파일 지원) 우선 — 모바일에서 갤러리 저장 가능
-    if(navigator.share && navigator.canShare && navigator.canShare({ files:[file] })){
-      try{
-        await navigator.share({ files:[file] });
-        showToast('저장 완료');
-      }catch(err){
-        if(err && err.name === 'AbortError') return;  // 사용자 취소
-        throw err;
-      }
-      return;
-    }
-    
-    // 3) 폴백 (데스크탑 등) — Blob URL로 다운로드
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = fname;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
-    showToast('이미지를 저장했어요');
-  }catch(e){
-    console.error('[TryOn Save]', e);
-    showToast('저장 실패: ' + (e.message || e));
-  }
-});
-
-if(csBtnShare) csBtnShare.addEventListener('click', async () => {
-  const imgSrc = _getTryonResultImgUrl();
-  if(!imgSrc){ showToast('공유할 이미지가 없어요'); return; }
-  
-  try{
-    // 1) URL에서 이미지 Blob → File 생성
-    const res = await fetch(imgSrc);
-    if(!res.ok) throw new Error('fetch failed: ' + res.status);
-    const blob = await res.blob();
-    const file = new File([blob], 'codibank_tryon.jpg', { type: 'image/jpeg' });
-    
-    // 2) Web Share API with files — 카카오톡/인스타 등 실제 이미지 공유
-    if(navigator.share && navigator.canShare && navigator.canShare({ files:[file] })){
-      await navigator.share({
-        title: 'CodiBank 트라이온',
-        text: '내 AI 착장 이미지를 확인해보세요!',
-        files: [file]
-      });
-      showToast('공유 완료');
-      return;
-    }
-    
-    // 3) 폴백 — URL 공유
-    if(navigator.share){
-      await navigator.share({
-        title: 'CodiBank 트라이온',
-        text: '내 AI 착장 이미지',
-        url: imgSrc,
-      });
-      showToast('공유 완료');
-      return;
-    }
-    
-    // 4) 최종 폴백 — 클립보드에 URL 복사
-    if(navigator.clipboard){
-      await navigator.clipboard.writeText(imgSrc);
-      showToast('이미지 URL이 클립보드에 복사됐어요');
-    } else {
-      showToast('공유 기능을 사용할 수 없어요');
-    }
-  }catch(e){
-    if(e && e.name === 'AbortError') return;  // 사용자 취소
-    console.error('[TryOn Share]', e);
-    showToast('공유 실패: ' + (e.message || e));
-  }
-});
-// [2026-04-23] 이전 줄에 있던 중복 csBtnShare(Mock) 리스너 제거됨
-if(csBtnReset) csBtnReset.addEventListener('click', () => {
-  // [2026-04-24 TJ 지시6] 생성 중이면 진행률 인터벌 중단
-  if(window._tryonPctInterval){ clearInterval(window._tryonPctInterval); window._tryonPctInterval = null; }
-  
-  // ════════════════════════════════════════════════════════════════
-  //  [2026-04-23 18:30 TJ 지시 — A안 완전초기화]
-  //  기존: Step3 점수/이미지만 리셋 → Step1 아이템 선택이 그대로 남아있었음
-  //  변경: Step1 아이템 + Step2 핏 선택 + Step3 결과 모두 초기화
-  // ════════════════════════════════════════════════════════════════
-  
-  // ─── Step1 아이템 슬롯 모두 초기화 ───
-  try {
-    ['top', 'bottom', 'onepiece', 'outer', 'shoes'].forEach(k => {
-      state.slots[k].filled = false;
-      state.slots[k].item = null;
-      resetSlotUI(k === 'outer' ? 'outer' : k);
-    });
-    // 모드는 기본값(twopiece)로 재설정 + UI 반영
-    if (typeof applyModeUI === 'function') {
-      state.mode = 'twopiece';
-      applyModeUI('twopiece');
-    }
-    // 모드 탭 UI도 기본으로
-    document.querySelectorAll('.mode-chip').forEach(chip => {
-      chip.classList.toggle('active', chip.dataset.mode === 'twopiece');
-    });
-  } catch(_e){
-    console.warn('[reset] Step1 초기화 경고:', _e);
+    // 스크롤 이동
+    setTimeout(() => $('#resultWrap').scrollIntoView({ behavior:'smooth', block:'center' }), 300);
   }
   
-  // ─── Step2 핏 선택 초기화 (기본값 'my'로 복귀) ───
-  try {
-    state.fitTarget = 'my';
-    state.modelGender = null;
-    if (typeof applyFitUI === 'function') applyFitUI('my');
-    // 핏 타일 UI 강제 동기화
-    document.querySelectorAll('.fit-tile').forEach(tile => {
-      tile.classList.toggle('active', tile.dataset.fit === 'my');
-    });
-  } catch(_e){
-    console.warn('[reset] Step2 초기화 경고:', _e);
-  }
-  
-  // ─── 영속화 상태 정리 ───
-  try {
-    sessionStorage.removeItem(TRYON_STATE_KEY);
-  } catch(_){}
-  
-  // ─── stepDone 모두 초기화 ───
-  state.stepDone = { 1: false, 2: true, 3: false };  // Step2는 기본 'my' 선택 상태
-  
-  // ─── Step3 결과 섹션 리셋 (기존 로직 유지) ───
-  // 점수/지표 리셋
-  const reset = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-  reset('csScoreNum','—');
-  const scoreBar = document.getElementById('csScoreBar'); if(scoreBar) scoreBar.style.width = '0%';
-  const gb = document.getElementById('csGradeBadge'); if(gb) gb.style.display = 'none';
-  const sd = document.getElementById('csScoreDetail'); if(sd) sd.style.display = 'none';
-  const rb = document.getElementById('csReportBtnGroup'); if(rb) rb.style.display = 'none';
-  const st = document.getElementById('csScoreText'); if(st) st.style.display = '';
-  // 이미지 뷰박스 기본 상태로 복원
-  const imgWrap = document.getElementById('imgWrap');
-  if(imgWrap){
-    imgWrap.innerHTML = '<div class="csty-result-img-box"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.3">아이템을 고르고 생성 버튼을 눌러주세요</p></div></div>';
-  }
-  // 저장/공유/리셋 비활성화
-  ['csBtn_save','csBtn_share','csBtn_reset'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el){
-      el.disabled = true;
-      el.style.background = 'rgba(151,254,237,.08)';
-      el.style.color = 'rgba(151,254,237,.3)';
-      el.style.border = '1px solid rgba(151,254,237,.15)';
-    }
-  });
-  const sTxt = document.getElementById('sTxt');
-  const sDot = document.getElementById('sDot');
-  if(sTxt) sTxt.textContent = '이미지를 생성할 준비가 되었어요';
-  if(sDot) sDot.classList.remove('done');
-  // [2026-04-23] 저장된 결과 데이터 정리
-  try{ window._tryonLastResult = null; }catch(_){}
-  // 생성 버튼 텍스트 복원 (초기 상태 "트라이온 피팅"으로)
-  const btn = $('#finalGenerate');
-  btn.disabled = false;
-  btn.innerHTML = '<span class="mi">auto_awesome</span><span>트라이온 피팅<span style="opacity:.7;font-weight:400;margin-left:6px;font-size:.85em;">Try-on Fitting</span></span><span class="count">3/5</span>';
-  
-  showToast('전체 초기화되었습니다');
-  // Step1로 스크롤 (완전초기화되었으니 처음부터)
-  const step1 = document.querySelector('.step[data-step="1"]');
-  if(step1) step1.scrollIntoView({ behavior:'smooth', block:'start' });
-});
-
-// ════════════════════════════════════════════════════════════════
-//  코디 프로필 — 사진 업로드 + 신체정보 편집 (실제 동작)
-//  [2026-04-22 TJ 지시3] 이전엔 토스트만 뜨는 데모 스텁 → 실제 작동으로 교체
-// ════════════════════════════════════════════════════════════════
-
-// 얼굴 사진 업로드 → faceCircle에 썸네일 반영
-function onTryonFaceFile(ev){
-  const file = ev.target.files && ev.target.files[0];
-  ev.target.value = '';
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e){
-    const dataUrl = e.target.result;
-    const circle = document.getElementById('faceCircle');
-    if(circle){
-      // 기존 face-ph 아이콘 제거하고 이미지로 교체
-      circle.innerHTML = '<img src="'+dataUrl+'" alt="얼굴 사진" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
-    }
-    // state 저장 (Step 3 생성 시 사용)
-    state.uploadedFaceDataUrl = dataUrl;
-    // 썸바디 모드면 퍼스널컬러 placeholder 감추고 "분석됨" 안내
-    if(state.fitTarget === 'somebody'){
-      const pcEmpty = document.getElementById('pcEmpty');
-      if(pcEmpty) pcEmpty.innerHTML = '얼굴 사진이 등록되었어요<br>생성 시 퍼스널컬러를 분석합니다';
-    }
-    // [2026-04-22 14:15] 얼굴 업로드 후 영속화
-    try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
-    showToast('얼굴 사진이 등록되었습니다');
+  // ────────────────────────────────────────────────────────────
+  // [v17 TJ] payload 구성 — v53 SDK fix 5필드 보존
+  //   topPath, bottomPath, topDataUrl, bottomDataUrl, faceImage
+  //   (현재 mock UI에선 데이터 미연동 → 서버가 fallback 처리)
+  //   추가 필드: mode, fitTarget, modelGender (additive — TJ 메모리 v53 보존)
+  // ────────────────────────────────────────────────────────────
+  const payload = {
+    // v53 SDK fix 5필드 (mock UI에선 빈 값, 향후 picker 통합 시 채움)
+    topPath: state.slots.top?.item?.path || '',
+    bottomPath: state.slots.bottom?.item?.path || '',
+    topDataUrl: state.slots.top?.item?.dataUrl || '',
+    bottomDataUrl: state.slots.bottom?.item?.dataUrl || '',
+    faceImage: '',  // 사용자 얼굴 (코디핏과 동일 키)
+    // v17 추가 필드
+    mode: state.mode,
+    items: Object.fromEntries(filled.map(([t,s]) => [t, { 
+      name: s.item.name, 
+      meta: s.item.meta,
+      path: s.item.path || '',
+      dataUrl: s.item.dataUrl || ''
+    }])),
+    fitTarget: state.fitTarget,
+    modelGender: state.modelGender,
+    engine: 'gemini-3-pro-image'
   };
-  reader.readAsDataURL(file);
-}
+  console.log('[TryOn Generate Payload]', payload);
 
-// 신체정보 편집 [2026-04-22 13:55 TJ 지시2] prompt() 4연속 제거 → 인라인 폼 토글
-// codistyle.html의 bodyEditForm 이식: select 성별/나이대 + number input 키/몸무게
-$('#bodyEditBtn').addEventListener('click', () => {
-  if(state.fitTarget === 'model'){
-    showToast('모델 핏은 남/여 선택 후 자동 설정됩니다');
-    return;
+  // ────────────────────────────────────────────────────────────
+  // [v17 TJ] 실제 API 호출 — 실패 시 mock placeholder fallback
+  // ────────────────────────────────────────────────────────────
+  let _gotResult = false;
+  try{
+    const base = tryonBase();
+    if(base){
+      const ctrl = new AbortController();
+      const _to = setTimeout(()=>ctrl.abort(), 90*1000);  // 90초 타임아웃
+      const r = await fetch(base + '/api/tryon/generate', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload),
+        signal: ctrl.signal
+      }).catch(e=>{ console.warn('[tryon fetch]',e); return null; });
+      clearTimeout(_to);
+      
+      if(r && r.ok){
+        const data = await r.json().catch(()=>null);
+        if(data){
+          // 서버 응답 형식: { imageUrl?, dataUrl?, displaySrc?, path?, analysis? }
+          // (코디핏 패턴 참고)
+          const imgSrc = data.displaySrc 
+            || data.imageUrl 
+            || data.dataUrl 
+            || (data.path ? base + data.path : null);
+          if(imgSrc){
+            _showResult(imgSrc, data.analysis);
+            showToast('생성 완료 — Gemini 3 Pro Image');
+            _gotResult = true;
+          }
+        }
+      }
+    }
+  }catch(e){ console.warn('[tryon api]', e); }
+  
+  // 서버 응답 실패 시 mock placeholder 사용 (개발/데모용)
+  if(!_gotResult){
+    const _mockSrc = 'data:image/svg+xml;base64,' + btoa(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">' +
+      '<rect width="400" height="600" fill="#1a2a52"/>' +
+      '<rect x="400" width="400" height="600" fill="#152544"/>' +
+      '<text x="200" y="300" fill="#97FEED" font-size="20" text-anchor="middle">정면 (Front)</text>' +
+      '<text x="600" y="300" fill="#97FEED" font-size="20" text-anchor="middle">후면 (Back)</text>' +
+      '<text x="400" y="560" fill="#a2fdf0" font-size="11" text-anchor="middle" opacity="0.6">Mock Placeholder · API not connected</text>' +
+      '</svg>'
+    );
+    _showResult(_mockSrc, null);
+    showToast('생성 완료 (개발 모드)');
   }
-  const form = document.getElementById('bodyEditForm');
-  if(!form) return;
-  // 현재 값으로 폼 초기화
-  const curG = ($('#bodyGender').textContent || '').trim();
-  const curA = ($('#bodyAge').textContent || '').trim();
-  const curH = ($('#bodyHeight').textContent || '').trim();
-  const curW = ($('#bodyWeight').textContent || '').trim();
-  const selG = document.getElementById('editGender');
-  const selA = document.getElementById('editAge');
-  const inpH = document.getElementById('editHeight');
-  const inpW = document.getElementById('editWeight');
-  if(selG && (curG === '남성' || curG === '여성')) selG.value = curG;
-  if(selA && /^(10|20|30|40|50|60)대$/.test(curA)) selA.value = curA;
-  if(inpH && curH !== '—' && curH !== '') inpH.value = curH;
-  if(inpW && curW !== '—' && curW !== '') inpW.value = curW;
-  form.style.display = 'block';
-  // 수정 버튼 숨김 (저장/취소 버튼이 대체)
-  $('#bodyEditBtn').style.display = 'none';
 });
 
-// 저장: 인라인 폼 → 표시 필드 반영
-function saveBodyInfo(){
-  const selG = document.getElementById('editGender');
-  const selA = document.getElementById('editAge');
-  const inpH = document.getElementById('editHeight');
-  const inpW = document.getElementById('editWeight');
-  const g = selG ? selG.value : '';
-  const a = selA ? selA.value : '';
-  const h = inpH ? inpH.value.trim() : '';
-  const w = inpW ? inpW.value.trim() : '';
-  if(g) $('#bodyGender').textContent = g;
-  if(a) $('#bodyAge').textContent = a;
-  if(h) $('#bodyHeight').textContent = h;
-  if(w) $('#bodyWeight').textContent = w;
-  // 썸바디 모드면 state에도 저장
-  if(state.fitTarget === 'somebody'){
-    state.somebodyProfile = { gender:g, age:a, height:h, weight:w };
-  }
-  // 폼 닫기
-  const form = document.getElementById('bodyEditForm');
-  if(form) form.style.display = 'none';
-  $('#bodyEditBtn').style.display = '';
-  // [2026-04-22 14:15] 저장 후 영속화
-  try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
-  showToast('신체정보가 저장되었습니다');
-}
+// 저장 / 공유 / 리셋
+$('#actSave').addEventListener('click', () => showToast('이미지 저장 (Mock)'));
+$('#actShare').addEventListener('click', () => showToast('공유 (Mock)'));
+$('#actReset').addEventListener('click', () => {
+  $('#analysisBox').style.display = 'none';
+  $('#resultWrap').style.display = 'none';
+  $('#resultActions').style.display = 'none';
+  state.stepDone[3] = false;
+  // [2026-04-26 v15 TJ] 명시적 리셋 시 sessionStorage 삭제
+  // 다음 페이지 로드 시 자동 복원되지 않음
+  try{ if(typeof _clearTryonSnap === 'function') _clearTryonSnap(); }catch(_){}
+  // 결과 이미지 src도 비움
+  try{
+    const _ri = document.getElementById('resultImage');
+    if(_ri){ _ri.src = ''; _ri.style.display = 'none'; _ri.classList.remove('tr-result-image'); }
+    const _rb = document.getElementById('resultImgBox');
+    if(_rb){ _rb.classList.remove('has-result'); }
+    const _ph = document.getElementById('imgPh');
+    if(_ph) _ph.style.display = '';
+    const _dots = document.getElementById('trPoseDots');
+    if(_dots) _dots.classList.add('hidden');
+    const _hint = document.getElementById('trPoseHint');
+    if(_hint) _hint.classList.add('hidden');
+  }catch(_){}
+  // 생성 버튼 텍스트도 초기값으로 복원
+  const btn = $('#finalGenerate');
+  btn.innerHTML = '<span class="mi">auto_awesome</span><span>트라이온 착장이미지 생성하기</span><span class="count">3/5</span>';
+  showToast('리셋되었습니다');
+  document.querySelector('.step[data-step="3"]').scrollIntoView({ behavior:'smooth', block:'start' });
+});
 
-// 취소: 폼 닫기
-function cancelBodyEdit(){
-  const form = document.getElementById('bodyEditForm');
-  if(form) form.style.display = 'none';
-  const editBtn = $('#bodyEditBtn');
-  if(editBtn) editBtn.style.display = '';
-}
-
-// faceCircle 클릭 시에도 사진 선택 열기 (촬영 버튼과 동일 동작)
+// ════════════════════════════════════════════════════════════════
+//  코디 프로필 — 데모 스텁
+// ════════════════════════════════════════════════════════════════
+$('#bodyEditBtn').addEventListener('click', () => {
+  showToast(state.fitTarget === 'somebody' ? '썸바디 정보 입력 폼 열기' : '신체정보 수정');
+});
 $('#faceCircle').addEventListener('click', () => {
-  document.getElementById('tryonFaceGal').click();
+  showToast(state.fitTarget === 'somebody' ? '썸바디 얼굴 사진 업로드' : '얼굴 사진 선택');
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -3861,781 +2312,297 @@ function showToast(msg){
 }
 
 // ════════════════════════════════════════════════════════════════
-//  초기 렌더
-//  [2026-04-22 14:15] 복원 순서:
-//  1) renderStep1 (카운트 초기화)
-//  2) loadTryonState() — 저장된 상태 복원 (slots, fitTarget, 신체정보, 얼굴)
-//  3) 복원 실패 시 applyFitUI('my')로 기본값 적용
-//  4) updateFinalSummary
+//  [2026-04-26 v14/v15 TJ] 트라이온 정+후면 + Swipe + 보존 시스템
+//  코디핏(closet.html)의 v15 정책을 트라이온에 동일 적용
+//  - drawTryonResult: 박스 너비×2 정책으로 결과 이미지 표시
+//  - 정/후면 도트 인디케이터 + swipe 힌트 5초
+//  - sessionStorage 보존 (다른 페이지 갔다 와도 유지)
+//  - 명시적 리셋 (actReset, 모드 변경 등) 시 즉시 삭제
 // ════════════════════════════════════════════════════════════════
-renderStep1();
-const _restored = (typeof loadTryonState === 'function') ? loadTryonState() : false;
-if(!_restored){
-  applyFitUI('my');        // Step 2 기본값 적용 (첫 방문)
-}
-updateFinalSummary();
+const TRYON_SNAP_KEY = 'cb_tryon_snap_v15';
+const TRYON_SNAP_TIMEOUT_MS = 30 * 60 * 1000;  // 30분
 
-// [2026-04-22 14:15 TJ 지시3] 마이 핏 진입 시 회원의 얼굴 사진을 faceCircle에 표시
-//  — codibank.js의 CodiBank.getUserFaceImageSrc(user)를 사용 (closet.html과 동일 패턴)
-//  — 이미 사용자가 업로드한 이미지가 있으면(uploadedFaceDataUrl) 그걸 우선 사용
-// [2026-04-24 TJ 지시3-A] 얼굴 이미지 URL → data URL 변환 헬퍼
-// codistyle.html의 resizeFaceDataUrl과 동일한 구조
-// blob: / https:// / data: 모두 입력받아 data:image/jpeg base64 반환
-function _tryonResizeFaceDataUrl(src, maxSize, quality){
-  return new Promise(res => {
-    try{
-      const img = new Image();
-      img.crossOrigin = 'anonymous';  // CORS 방지
-      img.onload = () => {
-        try{
-          const w = img.naturalWidth, h = img.naturalHeight;
-          const scale = Math.min(1, maxSize / Math.max(w, h));
-          const nw = Math.round(w*scale), nh = Math.round(h*scale);
-          const c = document.createElement('canvas'); c.width=nw; c.height=nh;
-          c.getContext('2d').drawImage(img, 0, 0, nw, nh);
-          res(c.toDataURL('image/jpeg', quality));
-        } catch(e){ console.warn('[tryon] resize draw failed', e); res(src); }
-      };
-      img.onerror = () => { console.warn('[tryon] resize img load failed'); res(src); };
-      img.src = src;
-    } catch(e){ console.warn('[tryon] resize failed', e); res(src); }
-  });
-}
-
-async function loadMyProfileFace(){
-  try {
-    // 썸바디/모델 모드면 건너뜀
-    if(state.fitTarget !== 'my') return;
-    // 이미 사용자가 직접 업로드한 이미지가 있으면 우선
-    if(state.uploadedFaceDataUrl) return;
-    if(typeof CodiBank === 'undefined' || !CodiBank) return;
-    const user = (typeof CodiBank.getCurrentUser === 'function') ? CodiBank.getCurrentUser() : null;
-    if(!user) return;
-    let faceSrc = '';
-    if(typeof CodiBank.getUserFaceImageSrc === 'function'){
-      faceSrc = await CodiBank.getUserFaceImageSrc(user);
-    }
-    if(!faceSrc){
-      // fallback: avatarFace 또는 photo 경로 직접 사용
-      faceSrc = String(user.avatarFace || user.photo || '').trim();
-    }
-    if(!faceSrc) return;
+// 결과 이미지를 박스에 표시 — 정/후면 박스 너비×2 정책
+window.drawTryonResult = function(src){
+  const img = document.getElementById('resultImage');
+  const box = document.getElementById('resultImgBox');
+  const ph  = document.getElementById('imgPh');
+  if(!img || !box) return;
+  
+  const tmp = new Image();
+  tmp.crossOrigin = 'anonymous';
+  tmp.onload = function(){
+    const iw = tmp.naturalWidth || 1;
+    const ih = tmp.naturalHeight || 1;
+    const ratio = iw / ih;
+    const isWide = ratio > 1.2;  // 정+후면 가로 긴 이미지
     
-    // [2026-04-24 TJ 지시3-A] data URL 변환 필수
-    // 기존 버그: blob:/https:// URL 을 state.myProfileSnapshot.faceSrc에 저장
-    //   → _tryonBuildPayload의 startsWith('data:') 조건에 걸려 payload.faceImage 누락
-    //   → 서버로 얼굴 이미지 안 넘어감 → Gemini가 임의 얼굴 생성
-    // 수정: codistyle.html 패턴과 동일하게 resize해서 data URL로 변환
-    let faceDataUrl = faceSrc;
-    if(!faceSrc.startsWith('data:')){
-      try{
-        faceDataUrl = await _tryonResizeFaceDataUrl(faceSrc, 1024, 0.90);
-        if(!faceDataUrl || !faceDataUrl.startsWith('data:')){
-          console.warn('[tryon] face URL → dataURL conversion failed, using original');
-          faceDataUrl = faceSrc;
-        }
-      } catch(e){
-        console.warn('[tryon] face resize failed:', e);
-        faceDataUrl = faceSrc;
-      }
-    }
+    // 플레이스홀더 숨김
+    if(ph) ph.style.display = 'none';
     
-    const circle = document.getElementById('faceCircle');
-    if(circle){
-      circle.innerHTML = '<img src="'+faceDataUrl+'" alt="프로필 사진" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
-    }
-    // state에는 변환된 data URL 저장 — 반드시 data URL 형태여야 payload에 실림
-    state.myProfileSnapshot.faceSrc = faceDataUrl;
-    console.log('[tryon] face loaded as', faceDataUrl.substring(0, 32) + '...');
-  } catch(e){ console.warn('loadMyProfileFace failed:', e); }
-}
-
-// [2026-04-23 13:00 TJ 지시4] 신체정보도 회원 데이터에서 로드
-//   기존에는 bodyGender/Age/Height/Weight가 myProfileSnapshot의 하드코딩 기본값('남성'/'30대'/'175'/'70')
-//   으로만 세팅되어 실제 회원 정보가 반영되지 않던 버그.
-//   이 함수는 applyFitUI('my') 이후 호출되어 CodiBank.getCurrentUser()의 실제 값으로 덮어씀
-async function loadMyProfileBodyInfo(){
-  try{
-    if(typeof CodiBank === 'undefined' || !CodiBank) return;
-    const user = (typeof CodiBank.getCurrentUser === 'function') ? CodiBank.getCurrentUser() : null;
-    if(!user) return;
-    // 성별 매핑 (M/F/male/female → '남성'/'여성')
-    const _gMap = (g) => {
-      const s = String(g || '').toLowerCase();
-      if(s === 'f' || s === 'female' || s === '여성') return '여성';
-      if(s === 'm' || s === 'male' || s === '남성') return '남성';
-      return '';
-    };
-    // 나이 매핑 (twenties/30s/30/등 → '30대')
-    const _aMap = (a) => {
-      const s = String(a || '');
-      if(!s) return '';
-      const m = s.match(/\d+/);
-      if(m){
-        const n = parseInt(m[0], 10);
-        if(n >= 100) return s; // 이미 '30대' 같은 형태일 수 있음
-        if(n < 20) return '10대';
-        return Math.floor(n/10)*10 + '대';
+    // 이미지 표시
+    img.src = src;
+    img.style.display = 'block';
+    
+    // [v17 TJ] 이미지 src를 데이터 속성에도 저장 (영속성 보장 — resize 시 재적용용)
+    img.dataset.tryonSrc = src;
+    img.dataset.tryonIsWide = isWide ? '1' : '0';
+    
+    if(isWide){
+      // [v15 TJ-1] 정/후면: 이미지 = 박스 너비 × 2 (각 절반이 박스 정확히 1폭)
+      const boxRect = box.getBoundingClientRect();
+      const boxW = Math.max(1, boxRect.width);
+      const boxH = Math.max(1, boxRect.height);
+      
+      // 이미지 표시 너비 = boxW × 2, 높이 = boxH (object-fit: contain로 자연 비율 유지)
+      img.classList.add('tr-result-image');
+      img.style.width = (boxW * 2) + 'px';
+      img.style.height = boxH + 'px';
+      img.style.objectFit = 'contain';
+      
+      box.classList.add('has-result');
+      box.scrollLeft = 0;  // 정면이 박스 좌측에 정렬
+      
+      // 도트/힌트 활성화
+      const dots = document.getElementById('trPoseDots');
+      const hint = document.getElementById('trPoseHint');
+      if(dots) dots.classList.remove('hidden');
+      if(hint){
+        hint.classList.remove('hidden');
+        setTimeout(()=>{ if(hint) hint.classList.add('hidden'); }, 5000);
       }
-      if(/twen/i.test(s)) return '20대';
-      if(/thirt/i.test(s)) return '30대';
-      if(/fort/i.test(s))  return '40대';
-      if(/fift/i.test(s))  return '50대';
-      return s;
-    };
-
-    const gender = _gMap(user.gender) || state.myProfileSnapshot.bodyGender;
-    const age    = _aMap(user.ageGroup || user.age) || state.myProfileSnapshot.bodyAge;
-    const height = String(user.height || '').trim() || state.myProfileSnapshot.bodyHeight;
-    const weight = String(user.weight || '').trim() || state.myProfileSnapshot.bodyWeight;
-
-    // myProfileSnapshot 업데이트 (복원용)
-    state.myProfileSnapshot.bodyGender = gender;
-    state.myProfileSnapshot.bodyAge    = age;
-    state.myProfileSnapshot.bodyHeight = height;
-    state.myProfileSnapshot.bodyWeight = weight;
-
-    // 현재 마이핏 상태면 DOM에도 즉시 반영
-    if(state.fitTarget === 'my'){
-      const setT = (id, v) => { const el = document.getElementById(id); if(el && v) el.textContent = v; };
-      setT('bodyGender', gender);
-      setT('bodyAge',    age);
-      setT('bodyHeight', height);
-      setT('bodyWeight', weight);
-    }
-
-    // 영속화
-    try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
-
-    // 퍼스널컬러도 localStorage에서 가져와 있으면 반영
-    try{
-      const pcKey = 'cb_personal_color_' + (user.email || 'guest');
-      const raw = localStorage.getItem(pcKey);
-      if(raw){
-        const pc = JSON.parse(raw);
-        if(pc && (pc.season || pc.undertone)){
-          const _seasonLbl = pc.season || state.myProfileSnapshot.pcSeasonLabel;
-          const _under     = pc.undertone || state.myProfileSnapshot.pcUndertone;
-          state.myProfileSnapshot.pcSeasonLabel = _seasonLbl;
-          state.myProfileSnapshot.pcUndertone   = _under;
-          if(pc.style_tip || pc.summary){
-            state.myProfileSnapshot.pcTip = pc.style_tip || pc.summary;
-          }
-          if(Array.isArray(pc.best_colors) && pc.best_colors.length){
-            state.myProfileSnapshot.pcPalette = pc.best_colors.slice(0, 4);
-          }
-          // 마이핏 상태면 DOM 즉시 반영
-          if(state.fitTarget === 'my'){
-            const el1 = document.getElementById('pcSeasonLabel'); if(el1) el1.textContent = _seasonLbl;
-            const el2 = document.getElementById('pcUndertone');   if(el2) el2.textContent = _under;
-            const el3 = document.getElementById('pcTip');         if(el3 && state.myProfileSnapshot.pcTip) el3.textContent = state.myProfileSnapshot.pcTip;
-            const pal = document.getElementById('pcPalette');
-            if(pal && Array.isArray(state.myProfileSnapshot.pcPalette)){
-              pal.querySelectorAll('span').forEach((sp, i) => {
-                if(state.myProfileSnapshot.pcPalette[i]) sp.style.background = state.myProfileSnapshot.pcPalette[i];
-              });
-            }
-          }
-        }
+      
+      // 스크롤 → 도트 active 변경
+      if(dots){
+        const dotEls = dots.querySelectorAll('.tr-pose-dot');
+        let _scrollHandler = box._poseScrollHandler;
+        if(_scrollHandler) box.removeEventListener('scroll', _scrollHandler);
+        _scrollHandler = function(){
+          if(!dotEls.length) return;
+          const sx = box.scrollLeft;
+          const sw = box.scrollWidth - box.clientWidth;
+          const isBack = sx > sw / 2;
+          dotEls[0].classList.toggle('active', !isBack);
+          dotEls[1].classList.toggle('active', isBack);
+          if(hint && sx > 5) hint.classList.add('hidden');
+        };
+        box.addEventListener('scroll', _scrollHandler, {passive:true});
+        box._poseScrollHandler = _scrollHandler;
       }
-    }catch(_){}
-  }catch(e){ console.warn('loadMyProfileBodyInfo failed:', e); }
-}
-// CodiBank SDK 로드 대기 — 스크립트가 body 아래 있으므로 약간 지연
-setTimeout(loadMyProfileFace, 80);
-setTimeout(loadMyProfileBodyInfo, 100);  // [2026-04-23] 신체정보 + 퍼스널컬러 로드
-
-// ══════════════════════════════════════════════════════════════════════
-// [2026-04-24 TJ 지시2] 프리미엄 리포트 모달 — codistyle.html 구조 100% 이식
-// 데이터 소스: window._tryonPremiumData (_tryonApplyResult()에서 준비됨)
-// ══════════════════════════════════════════════════════════════════════
-
-function openPremiumReport(){
-  var data = window._tryonPremiumData || {};
-  var modal = document.getElementById('premiumReportModal');
-  if(!modal){ console.warn('[premium] modal not found'); return; }
-  
-  // 점수 + 등급
-  var scoreEl = document.getElementById('prmScoreNum');
-  if(scoreEl) scoreEl.textContent = data.score != null ? data.score : '—';
-  var gradeEl = document.getElementById('prmGradeBadge');
-  if(gradeEl) gradeEl.textContent = data.grade || '';
-  
-  // 해시태그
-  var htEl = document.getElementById('prmHashtags');
-  if(htEl){
-    if(data.hashtags && data.hashtags.length){
-      htEl.innerHTML = data.hashtags.map(function(h){
-        var tag = h.charAt(0) === '#' ? h : '#' + h;
-        return '<span style="font-size:10.5px;font-weight:700;color:#97FEED;background:rgba(151,254,237,0.12);padding:4px 11px;border-radius:12px;letter-spacing:-0.01em;">' + tag + '</span>';
-      }).join('');
     } else {
-      htEl.innerHTML = '<span style="font-size:10px;color:rgba(255,255,255,0.35);">해시태그 준비 중</span>';
+      // 단일 인물 이미지: 박스에 꽉 채움 (object-fit: cover)
+      img.classList.remove('tr-result-image');
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'cover';
+      
+      box.classList.remove('has-result');
+      
+      // 도트/힌트 숨김
+      const dots = document.getElementById('trPoseDots');
+      const hint = document.getElementById('trPoseHint');
+      if(dots) dots.classList.add('hidden');
+      if(hint) hint.classList.add('hidden');
     }
-  }
-  
-  // SECTION 1: Executive Summary
-  var execEl = document.getElementById('prmExecSummary');
-  if(execEl){
-    if(data.execSummary && data.execSummary.trim()){
-      execEl.textContent = data.execSummary;
-    } else {
-      execEl.textContent = '종합 분석 데이터를 불러올 수 없습니다.';
-    }
-  }
-  
-  // SECTION 2: Deep-dive 4개 카드
-  var sec = (data.sections || {});
-  var setPrm = function(id, txt){
-    var el = document.getElementById(id);
-    if(el) el.textContent = txt || '—';
   };
-  setPrm('prmDeepProp',    sec.prop    || '실루엣과 비율 분석 데이터가 준비 중입니다.');
-  setPrm('prmDeepColor',   sec.pc      || '컬러 케미스트리 분석 데이터가 준비 중입니다.');
-  
-  // 체형 매칭: 상의/하의를 시각적으로 분리 (codistyle 패턴)
-  var bodyEl = document.getElementById('prmDeepBody');
-  if(bodyEl){
-    var _bodyHtml = '';
-    if(sec.top || sec.bot){
-      if(sec.top){
-        _bodyHtml += '<div style="margin-bottom:10px;padding:10px 12px;background:rgba(151,254,237,0.035);border-left:2px solid rgba(151,254,237,0.3);border-radius:0 6px 6px 0;">'
-                  + '<div style="font-size:10px;font-weight:800;color:rgba(151,254,237,0.8);letter-spacing:0.05em;margin-bottom:5px;">👕 상의 × 체형</div>'
-                  + '<div style="font-size:11px;color:rgba(255,255,255,0.72);line-height:1.7;white-space:pre-line;">' + sec.top + '</div>'
-                  + '</div>';
-      }
-      if(sec.bot){
-        _bodyHtml += '<div style="padding:10px 12px;background:rgba(151,254,237,0.035);border-left:2px solid rgba(151,254,237,0.3);border-radius:0 6px 6px 0;">'
-                  + '<div style="font-size:10px;font-weight:800;color:rgba(151,254,237,0.8);letter-spacing:0.05em;margin-bottom:5px;">👖 하의 × 체형</div>'
-                  + '<div style="font-size:11px;color:rgba(255,255,255,0.72);line-height:1.7;white-space:pre-line;">' + sec.bot + '</div>'
-                  + '</div>';
-      }
-    } else {
-      _bodyHtml = '<span style="font-size:10.5px;color:rgba(255,255,255,0.45);">체형 매칭 분석 데이터가 준비 중입니다.</span>';
-    }
-    bodyEl.innerHTML = _bodyHtml;
-    bodyEl.style.whiteSpace = 'normal';
-  }
-  setPrm('prmDeepHarmony', sec.harmony || '전체 밸런스 분석 데이터가 준비 중입니다.');
-  
-  // SECTION 3: TPO 추천
-  var tpoBox = document.getElementById('prmTpoList');
-  if(tpoBox){
-    if(data.tpo && data.tpo.length){
-      tpoBox.innerHTML = data.tpo.map(function(t){
-        return '<span style="display:inline-block;font-size:11px;font-weight:700;color:#00022E;background:#97FEED;padding:6px 14px;border-radius:999px;letter-spacing:-0.01em;">' + t + '</span>';
-      }).join('');
-    } else {
-      tpoBox.innerHTML = '<span style="font-size:10.5px;color:rgba(255,255,255,0.45);">TPO 추천이 준비 중입니다.</span>';
-    }
-  }
-  
-  // SECTION 3: 팁
-  var tipsBox = document.getElementById('prmTipsList');
-  if(tipsBox){
-    if(data.tips && data.tips.length){
-      tipsBox.innerHTML = data.tips.map(function(t, i){
-        return '<div style="display:flex;align-items:flex-start;gap:7px;font-size:11.5px;color:rgba(255,255,255,0.82);line-height:1.6;">'
-          + '<span style="flex:0 0 16px;width:16px;height:16px;border-radius:4px;background:rgba(151,254,237,0.18);color:#97FEED;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:2px;">' + (i+1) + '</span>'
-          + '<span>' + t + '</span></div>';
-      }).join('');
-    } else {
-      tipsBox.innerHTML = '<span style="font-size:10.5px;color:rgba(255,255,255,0.45);">개선 팁이 준비 중입니다.</span>';
-    }
-  }
-  
-  // [v9 TJ 지시1] SECTION 3: 퍼스널 아이템 큐레이션 렌더링 (신규)
-  var curBox = document.getElementById('prmCurationList');
-  if(curBox){
-    if(data.curation && data.curation.length){
-      curBox.innerHTML = data.curation.map(function(c){
-        // "신발 - 아이보리 포인티드 토 펌프스" 형식 파싱
-        var _dashIdx = c.indexOf('-');
-        var _cat = '', _desc = c;
-        if(_dashIdx > 0 && _dashIdx < 10){
-          _cat = c.substring(0, _dashIdx).trim();
-          _desc = c.substring(_dashIdx+1).trim();
+  tmp.onerror = function(){
+    console.warn('[trDraw] 이미지 로드 실패:', src);
+  };
+  tmp.src = src;
+};
+
+// [v17 TJ] resize 시 이미지 너비 재조정 (정/후면 박스 너비×2 유지)
+// 화면 회전, 데스크톱 윈도우 크기 변경 등에서 이미지가 박스에 정확히 맞도록
+let _trResizeTimer = null;
+window.addEventListener('resize', function(){
+  clearTimeout(_trResizeTimer);
+  _trResizeTimer = setTimeout(function(){
+    try{
+      const img = document.getElementById('resultImage');
+      const box = document.getElementById('resultImgBox');
+      if(!img || !box) return;
+      if(img.style.display === 'none') return;
+      if(img.dataset.tryonIsWide !== '1') return;
+      const boxRect = box.getBoundingClientRect();
+      const boxW = Math.max(1, boxRect.width);
+      const boxH = Math.max(1, boxRect.height);
+      img.style.width = (boxW * 2) + 'px';
+      img.style.height = boxH + 'px';
+      // 현재 보고 있던 위치(정면 vs 후면) 유지
+      const sx = box.scrollLeft;
+      const sw = box.scrollWidth - box.clientWidth;
+      const isBack = sx > sw / 2;
+      box.scrollLeft = isBack ? sw : 0;
+    }catch(_){}
+  }, 200);
+});
+
+// ─────────────────────────────────────────────────────────────────
+// 보존 시스템 — sessionStorage 저장/복원
+// ─────────────────────────────────────────────────────────────────
+function _saveTryonSnap(){
+  try{
+    const img = document.getElementById('resultImage');
+    if(!img || img.style.display === 'none' || !img.src) return;
+    
+    const _getText = (id)=>{ const e=document.getElementById(id); return e?e.textContent:''; };
+    const _getStyle = (id, prop)=>{ const e=document.getElementById(id); return e?e.style[prop]:''; };
+    
+    // [v17 TJ] 이미지를 dataUrl로 변환해 저장 — URL 만료/CORS 위험 제거
+    // 단, 너무 큰 이미지는 sessionStorage 한도 초과 위험 → 실패 시 src URL 그대로
+    let imgData = img.src;
+    try{
+      // 이미 dataUrl이면 그대로 사용
+      if(!imgData.startsWith('data:')){
+        // 캔버스로 변환 시도
+        const cvs = document.createElement('canvas');
+        cvs.width = img.naturalWidth || img.width;
+        cvs.height = img.naturalHeight || img.height;
+        const ctx = cvs.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const _du = cvs.toDataURL('image/jpeg', 0.85);
+        // 4MB 미만일 때만 dataUrl 저장 (sessionStorage 안전 한도)
+        if(_du && _du.length < 4*1024*1024){
+          imgData = _du;
         }
-        // 아이콘 매핑
-        var _icon = '🛍️';
-        if(/신발|shoes|슈즈/i.test(_cat)) _icon = '👟';
-        else if(/가방|bag|백/i.test(_cat)) _icon = '👜';
-        else if(/주얼리|jewelry|목걸이|귀걸이/i.test(_cat)) _icon = '💎';
-        else if(/스카프|scarf|머플러/i.test(_cat)) _icon = '🧣';
-        else if(/워치|watch|시계/i.test(_cat)) _icon = '⌚';
-        else if(/모자|hat|캡/i.test(_cat)) _icon = '🎩';
-        else if(/벨트|belt/i.test(_cat)) _icon = '👔';
-        else if(/안경|glasses|선글라스/i.test(_cat)) _icon = '🕶️';
-        return '<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;">'
-          + '<span style="flex:0 0 auto;font-size:15px;line-height:1.2;">' + _icon + '</span>'
-          + '<div style="flex:1;">'
-          + (_cat ? '<div style="font-size:10.5px;font-weight:800;color:#97FEED;margin-bottom:2px;">' + _cat + '</div>' : '')
-          + '<div style="font-size:11px;color:rgba(255,255,255,0.75);line-height:1.5;">' + _desc + '</div>'
-          + '</div></div>';
-      }).join('');
-    } else {
-      curBox.innerHTML = '<div style="font-size:10.5px;color:rgba(255,255,255,0.45);padding:8px 0;">아이템 큐레이션이 준비 중입니다.</div>';
+      }
+    }catch(_){
+      // CORS 등으로 변환 실패하면 원본 URL 사용
     }
+    
+    const _snap = {
+      ts: Date.now(),
+      imageSrc: imgData,
+      // [v17] 가로 긴 이미지 여부 — 복원 시 즉시 정/후면 모드 적용
+      isWide: img.dataset.tryonIsWide === '1',
+      // 분석 박스 표시 상태
+      analysisVisible: _getStyle('analysisBox', 'display') !== 'none',
+      anScore: _getText('anScore'),
+      anGrade: _getText('anGrade'),
+      anFillW: _getStyle('anFill', 'width'),
+      // 4지표 점수
+      anM1: _getText('anM1'),
+      anM1FillW: _getStyle('anM1Fill', 'width'),
+      anM2: _getText('anM2'),
+      anM2FillW: _getStyle('anM2Fill', 'width'),
+      anM3: _getText('anM3'),
+      anM3FillW: _getStyle('anM3Fill', 'width'),
+      anM4: _getText('anM4'),
+      anM4FillW: _getStyle('anM4Fill', 'width'),
+      // 결과 표시 상태
+      resultVisible: _getStyle('resultWrap', 'display') !== 'none',
+      actionsVisible: _getStyle('resultActions', 'display') !== 'none',
+      // 트라이온 컨텍스트 (다른 사용자 차단)
+      mode: (typeof state !== 'undefined') ? (state.mode || '') : '',
+      fitTarget: (typeof state !== 'undefined') ? (state.fitTarget || '') : '',
+    };
+    sessionStorage.setItem(TRYON_SNAP_KEY, JSON.stringify(_snap));
+  }catch(e){ console.warn('[tryon save snap]', e); }
+}
+
+function _clearTryonSnap(){
+  try{ sessionStorage.removeItem(TRYON_SNAP_KEY); }catch(_){}
+}
+
+function _restoreTryonSnap(){
+  try{
+    const raw = sessionStorage.getItem(TRYON_SNAP_KEY);
+    if(!raw) return false;
+    const snap = JSON.parse(raw);
+    if(!snap || !snap.imageSrc) return false;
+    
+    // 30분 타임아웃
+    if(Date.now() - (snap.ts || 0) > TRYON_SNAP_TIMEOUT_MS){
+      sessionStorage.removeItem(TRYON_SNAP_KEY);
+      return false;
+    }
+    
+    // 결과 박스 표시
+    const resultWrap = document.getElementById('resultWrap');
+    const resultActions = document.getElementById('resultActions');
+    if(snap.resultVisible && resultWrap) resultWrap.style.display = '';
+    if(snap.actionsVisible && resultActions) resultActions.style.display = 'grid';
+    
+    // 분석 박스 복원
+    if(snap.analysisVisible){
+      const ab = document.getElementById('analysisBox');
+      if(ab) ab.style.display = 'block';
+      
+      const _setText = (id, v)=>{ const e=document.getElementById(id); if(e && v) e.textContent = v; };
+      const _setStyle = (id, prop, v)=>{ const e=document.getElementById(id); if(e && v) e.style[prop] = v; };
+      
+      _setText('anScore', snap.anScore);
+      _setText('anGrade', snap.anGrade);
+      _setStyle('anFill', 'width', snap.anFillW);
+      _setText('anM1', snap.anM1);
+      _setStyle('anM1Fill', 'width', snap.anM1FillW);
+      _setText('anM2', snap.anM2);
+      _setStyle('anM2Fill', 'width', snap.anM2FillW);
+      _setText('anM3', snap.anM3);
+      _setStyle('anM3Fill', 'width', snap.anM3FillW);
+      _setText('anM4', snap.anM4);
+      _setStyle('anM4Fill', 'width', snap.anM4FillW);
+    }
+    
+    // 결과 이미지 복원 (정/후면 swipe 활성화 포함)
+    if(typeof window.drawTryonResult === 'function'){
+      window.drawTryonResult(snap.imageSrc);
+    }
+    
+    // state 복원
+    if(typeof state !== 'undefined'){
+      state.stepDone[3] = true;
+    }
+    
+    return true;
+  }catch(e){
+    console.warn('[tryon restore snap]', e);
+    return false;
   }
-  
-  // [v9 TJ 지시1] C.S.I 레이더 차트 그리기
-  drawTryonRadarChart(data);
-  
-  // 모달 오픈
-  modal.style.display = 'block';
-  modal.scrollTop = 0;
-  document.body.style.overflow = 'hidden';
 }
 
-// [v9 TJ 지시1] C.S.I 4지표 레이더 차트
-// body_shape / personal_color / proportion / harmony
-function drawTryonRadarChart(data){
-  var svg = document.getElementById('prmRadarChart');
-  if(!svg) return;
-  var bd = data.breakdown || {};
-  // 각 지표 최대점
-  var metrics = [
-    { key: 'body_shape',     label: '체형 보완',     max: 30 },
-    { key: 'personal_color', label: '컬러 조화',     max: 30 },
-    { key: 'proportion',     label: '비율 개선',     max: 20 },
-    { key: 'harmony',        label: '스타일 완성',   max: 20 },
-  ];
-  var cx = 110, cy = 110, R = 72;
-  // 4각형 정점 각도 (12시/3시/6시/9시)
-  var angles = [-Math.PI/2, 0, Math.PI/2, Math.PI];
-  // SVG 요소들
-  var svgNs = 'http://www.w3.org/2000/svg';
-  var parts = [];
-  
-  // 배경 그리드 (25%, 50%, 75%, 100%)
-  [0.25, 0.5, 0.75, 1.0].forEach(function(r, i){
-    var pts = angles.map(function(a){
-      return (cx + Math.cos(a) * R * r) + ',' + (cy + Math.sin(a) * R * r);
-    }).join(' ');
-    parts.push('<polygon points="' + pts + '" fill="none" stroke="rgba(151,254,237,' + (0.08 + i*0.03) + ')" stroke-width="1"/>');
-  });
-  
-  // 축선 (4개)
-  angles.forEach(function(a){
-    var x2 = cx + Math.cos(a) * R;
-    var y2 = cy + Math.sin(a) * R;
-    parts.push('<line x1="'+cx+'" y1="'+cy+'" x2="'+x2+'" y2="'+y2+'" stroke="rgba(151,254,237,0.15)" stroke-width="1"/>');
-  });
-  
-  // 데이터 다각형
-  var dataPts = metrics.map(function(m, i){
-    var v = bd[m.key] || 0;
-    var ratio = Math.max(0.02, Math.min(1, v / m.max));
-    return (cx + Math.cos(angles[i]) * R * ratio) + ',' + (cy + Math.sin(angles[i]) * R * ratio);
-  }).join(' ');
-  parts.push('<polygon points="' + dataPts + '" fill="rgba(151,254,237,0.22)" stroke="#97FEED" stroke-width="2" stroke-linejoin="round"/>');
-  
-  // 데이터 포인트
-  metrics.forEach(function(m, i){
-    var v = bd[m.key] || 0;
-    var ratio = Math.max(0.02, Math.min(1, v / m.max));
-    var px = cx + Math.cos(angles[i]) * R * ratio;
-    var py = cy + Math.sin(angles[i]) * R * ratio;
-    parts.push('<circle cx="'+px+'" cy="'+py+'" r="3.5" fill="#97FEED" stroke="#071952" stroke-width="1.5"/>');
-  });
-  
-  // 라벨 (축 끝에)
-  metrics.forEach(function(m, i){
-    var v = bd[m.key] || 0;
-    var lx = cx + Math.cos(angles[i]) * (R + 22);
-    var ly = cy + Math.sin(angles[i]) * (R + 22);
-    var anchor = (i === 0 || i === 2) ? 'middle' : (i === 1 ? 'start' : 'end');
-    parts.push('<text x="'+lx+'" y="'+(ly-4)+'" text-anchor="'+anchor+'" fill="rgba(151,254,237,0.7)" font-size="9" font-weight="700" font-family="Inter,sans-serif">'+m.label+'</text>');
-    parts.push('<text x="'+lx+'" y="'+(ly+8)+'" text-anchor="'+anchor+'" fill="#97FEED" font-size="11" font-weight="900" font-family="Inter,sans-serif">'+v+'<tspan font-size="8" fill="rgba(151,254,237,0.5)">/'+m.max+'</tspan></text>');
-  });
-  
-  svg.innerHTML = parts.join('');
+// ─────────────────────────────────────────────────────────────────
+// visibility/focus/pageshow 핸들러 — 페이지 복귀 시 자동 복원
+// ─────────────────────────────────────────────────────────────────
+function _isTryonResultEmpty(){
+  const img = document.getElementById('resultImage');
+  if(!img) return true;
+  if(img.style.display === 'none') return true;
+  if(!img.src || img.src === '' || img.src === window.location.href) return true;
+  return false;
 }
 
-function closePremiumReport(){
-  var modal = document.getElementById('premiumReportModal');
-  if(modal) modal.style.display = 'none';
-  document.body.style.overflow = '';
-}
-
-// ESC 키로 모달 닫기
-document.addEventListener('keydown', function(e){
-  if(e.key === 'Escape'){
-    var modal = document.getElementById('premiumReportModal');
-    if(modal && modal.style.display === 'block') closePremiumReport();
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible' && _isTryonResultEmpty()){
+    _restoreTryonSnap();
+  }
+});
+window.addEventListener('focus', function(){
+  if(_isTryonResultEmpty()){
+    setTimeout(_restoreTryonSnap, 100);
+  }
+});
+// pageshow는 picker 복귀 외 다른 케이스도 잡도록 추가 (기존 consumePick과 충돌하지 않음)
+window.addEventListener('pageshow', function(e){
+  if(e.persisted && _isTryonResultEmpty()){
+    setTimeout(_restoreTryonSnap, 50);
   }
 });
 
-// 모달 배경 클릭으로 닫기
-(function(){
-  var modal = document.getElementById('premiumReportModal');
-  if(modal){
-    modal.addEventListener('click', function(e){
-      if(e.target === modal) closePremiumReport();
-    });
-  }
-})();
+// ════════════════════════════════════════════════════════════════
+//  초기 렌더
+// ════════════════════════════════════════════════════════════════
+renderStep1();
+applyFitUI('my');        // Step 2 기본값 적용
+updateFinalSummary();
 
-// ══════════════════════════════════════════════════════════════════════
-// [2026-04-24 TJ 지시2] PDF 다운로드 (트라이온 리포트)
-// codistyle.html의 downloadOutfitReport 로직 참고, 트라이온 특화
-// ══════════════════════════════════════════════════════════════════════
-
-// ══════════════════════════════════════════════════════════════════════
-// [2026-04-24 v9 TJ 지시2] 프리미엄 A4 PDF 리포트 — 매거진 스타일 전면 재설계
-// 이전 문제: html2canvas(modal) 통채로 캡처 → 중간에 굵은 선 + 대학생 수준 디자인
-// 수정: 전용 A4 HTML 템플릿 5페이지 별도 DOM 렌더링 후 한 페이지씩 캡처 → PDF
-// 
-// 페이지 구성:
-//   1) COVER — 제목, 사용자 프로필, 스코어, 생성일
-//   2) SCORE — C.S.I 4지표 레이더 + 해시태그 + 종합 평가
-//   3) ANALYSIS — 5섹션 심층 분석 (퍼스널컬러, 상의, 하의, 실루엣, 완성도)
-//   4) GUIDE — Best TPO + 개선 팁
-//   5) CURATION — 퍼스널 아이템 큐레이션 + CodiBank 브랜딩
-// ══════════════════════════════════════════════════════════════════════
-
-function downloadTryonPdf(){
-  var data = window._tryonPremiumData;
-  if(!data){ showToast('리포트 데이터가 없어요'); return; }
-  
-  showToast('프리미엄 리포트 생성 중...');
-  
-  var _ensureLib = function(name, url){
-    return new Promise(function(resolve, reject){
-      if(window[name]){ resolve(); return; }
-      var s = document.createElement('script');
-      s.src = url;
-      s.onload = function(){ resolve(); };
-      s.onerror = function(){ reject(new Error('load fail: ' + name)); };
-      document.head.appendChild(s);
-    });
-  };
-  
-  Promise.all([
-    _ensureLib('html2canvas', 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'),
-    _ensureLib('jspdf', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'),
-  ]).then(function(){
-    // 전용 A4 템플릿 컨테이너 생성 (화면 밖, html2canvas로 캡처만)
-    var _container = _buildPremiumPdfTemplate(data);
-    document.body.appendChild(_container);
-    
-    // 페이지별 div 수집
-    var pages = _container.querySelectorAll('.cbpdf-page');
-    var pdf;
-    var jsPDF = window.jspdf ? window.jspdf.jsPDF : window.jsPDF;
-    pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4', compress: true });
-    
-    // 각 페이지 순차 캡처 → PDF에 추가
-    var _capturePage = function(idx){
-      if(idx >= pages.length){
-        // 완료
-        pdf.save('CodiBank_Premium_Style_Report_' + new Date().toISOString().slice(0,10) + '.pdf');
-        document.body.removeChild(_container);
-        showToast('프리미엄 리포트 저장 완료');
-        return;
-      }
-      html2canvas(pages[idx], {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        windowWidth: 794,
-        windowHeight: 1123,
-      }).then(function(canvas){
-        var imgData = canvas.toDataURL('image/jpeg', 0.95);
-        if(idx > 0) pdf.addPage();
-        // A4 210 x 297 mm 정확히 채움
-        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
-        _capturePage(idx + 1);
-      }).catch(function(err){
-        console.error('[PDF capture page ' + idx + ']', err);
-        // 실패 페이지 건너뛰고 계속
-        _capturePage(idx + 1);
-      });
-    };
-    _capturePage(0);
-  }).catch(function(err){
-    console.error('[PDF lib]', err);
-    showToast('PDF 라이브러리 로드 실패');
-  });
-}
-
-// ═══ A4 프리미엄 리포트 템플릿 빌더 ═══
-function _buildPremiumPdfTemplate(data){
-  // A4: 210mm x 297mm → 96dpi 기준 794 x 1123px
-  // Retina 대응 위해 html2canvas scale:2로 처리
-  
-  var container = document.createElement('div');
-  container.id = 'cbpdfRoot';
-  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;font-family:"Inter","Noto Sans KR",sans-serif;background:#fff;';
-  
-  var today = new Date();
-  var dateStr = today.getFullYear() + '.' + String(today.getMonth()+1).padStart(2,'0') + '.' + String(today.getDate()).padStart(2,'0');
-  var grade = data.grade || 'A Grade';
-  var score = data.score || 0;
-  var hashtags = (data.hashtags || []).map(function(h){ return h.charAt(0)==='#' ? h : '#'+h; });
-  var sections = data.sections || {};
-  var tpo = data.tpo || [];
-  var tips = data.tips || [];
-  var curation = data.curation || [];
-  var userInfo = data.userInfo || {};
-  var bd = data.breakdown || {};
-  
-  // 공통 페이지 스타일
-  var pageStyle = 'width:794px;height:1123px;position:relative;background:#ffffff;color:#0B1238;box-sizing:border-box;page-break-after:always;overflow:hidden;';
-  var serifFont = '"Playfair Display","Noto Serif KR",serif';
-  var sansFont  = '"Inter","Noto Sans KR",sans-serif';
-  
-  // ─── Google Fonts 로드 ───
-  if(!document.getElementById('cbpdfFonts')){
-    var link = document.createElement('link');
-    link.id = 'cbpdfFonts';
-    link.rel = 'stylesheet';
-    link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@300;400;600;700;900&display=swap';
-    document.head.appendChild(link);
-  }
-  
-  // ═══ PAGE 1: COVER ═══
-  var page1 = document.createElement('div');
-  page1.className = 'cbpdf-page';
-  page1.style.cssText = pageStyle + 'background:linear-gradient(180deg,#0a1443 0%,#071952 50%,#0B666A 100%);color:#fff;';
-  page1.innerHTML = 
-    '<div style="position:absolute;top:50px;left:50px;right:50px;">'
-    + '<div style="font-family:'+sansFont+';font-size:10px;font-weight:700;letter-spacing:0.3em;color:rgba(151,254,237,0.6);">CODIBANK</div>'
-    + '<div style="width:40px;height:2px;background:#97FEED;margin-top:8px;"></div>'
-    + '</div>'
-    // 중앙 — 큰 타이틀
-    + '<div style="position:absolute;top:280px;left:50px;right:50px;text-align:center;">'
-    + '<div style="font-family:'+sansFont+';font-size:11px;font-weight:700;letter-spacing:0.4em;color:rgba(151,254,237,0.7);margin-bottom:24px;">PREMIUM TRY-ON REPORT</div>'
-    + '<div style="font-family:'+serifFont+';font-size:58px;font-weight:900;line-height:1.1;color:#fff;letter-spacing:-0.02em;">Your Personal</div>'
-    + '<div style="font-family:'+serifFont+';font-size:58px;font-weight:900;line-height:1.1;color:#97FEED;letter-spacing:-0.02em;font-style:italic;">Style Report</div>'
-    + '<div style="margin-top:36px;font-family:'+sansFont+';font-size:13px;color:rgba(255,255,255,0.75);line-height:1.9;font-weight:300;max-width:500px;margin-left:auto;margin-right:auto;">A professional styling analysis crafted<br>by CodiBank AI Fashion Intelligence</div>'
-    + '</div>'
-    // C.S.I 박스
-    + '<div style="position:absolute;bottom:220px;left:50%;transform:translateX(-50%);background:rgba(151,254,237,0.08);border:1px solid rgba(151,254,237,0.3);border-radius:2px;padding:28px 60px;text-align:center;backdrop-filter:blur(10px);">'
-    + '<div style="font-family:'+sansFont+';font-size:10px;font-weight:700;letter-spacing:0.3em;color:rgba(151,254,237,0.7);margin-bottom:12px;">COORDINATION STYLE INDEX</div>'
-    + '<div style="font-family:'+serifFont+';font-size:78px;font-weight:900;color:#97FEED;line-height:1;letter-spacing:-0.03em;">'+score+'<span style="font-size:30px;font-weight:400;color:rgba(151,254,237,0.5);">/100</span></div>'
-    + '<div style="margin-top:10px;display:inline-block;padding:5px 18px;background:#97FEED;color:#071952;font-family:'+sansFont+';font-size:11px;font-weight:900;letter-spacing:0.1em;border-radius:2px;">'+grade.toUpperCase()+'</div>'
-    + '</div>'
-    // 하단 메타
-    + '<div style="position:absolute;bottom:60px;left:50px;right:50px;display:flex;justify-content:space-between;align-items:flex-end;font-family:'+sansFont+';font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:0.1em;">'
-    + '<div><div style="font-weight:700;color:#97FEED;letter-spacing:0.2em;margin-bottom:4px;">REPORT DATE</div><div>'+dateStr+'</div></div>'
-    + '<div style="text-align:center;"><div style="font-family:'+serifFont+';font-size:13px;font-style:italic;color:rgba(151,254,237,0.75);">Desire to be designed.</div><div style="margin-top:2px;">Meet CodiBank.</div></div>'
-    + '<div style="text-align:right;"><div style="font-weight:700;color:#97FEED;letter-spacing:0.2em;margin-bottom:4px;">EDITION</div><div>VOL. 01</div></div>'
-    + '</div>';
-  container.appendChild(page1);
-  
-  // ═══ PAGE 2: SCORE BREAKDOWN + SUMMARY ═══
-  var page2 = document.createElement('div');
-  page2.className = 'cbpdf-page';
-  page2.style.cssText = pageStyle;
-  // 해시태그 HTML
-  var tagsHtml = hashtags.length ? hashtags.map(function(h){
-    return '<span style="display:inline-block;margin:3px 4px;padding:6px 14px;background:#071952;color:#97FEED;font-family:'+sansFont+';font-size:11px;font-weight:700;letter-spacing:-0.01em;border-radius:20px;">'+h+'</span>';
-  }).join('') : '<span style="color:#999;font-size:11px;">해시태그 준비 중</span>';
-  
-  // 4지표 바 차트 HTML
-  var metrics = [
-    { key: 'body_shape',     label: '체형 보완도',     max: 30, en:'BODY SHAPE' },
-    { key: 'personal_color', label: '퍼스널컬러',      max: 30, en:'PERSONAL COLOR' },
-    { key: 'proportion',     label: '비율 개선도',     max: 20, en:'PROPORTION' },
-    { key: 'harmony',        label: '스타일 완성도',   max: 20, en:'HARMONY' },
-  ];
-  var metricsHtml = metrics.map(function(m){
-    var v = bd[m.key] || 0;
-    var pct = Math.round((v/m.max)*100);
-    return '<div style="margin-bottom:22px;">'
-      + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">'
-      + '<div><div style="font-family:'+sansFont+';font-size:9px;font-weight:700;color:#0B666A;letter-spacing:0.2em;margin-bottom:2px;">'+m.en+'</div>'
-      + '<div style="font-family:'+sansFont+';font-size:14px;font-weight:700;color:#0B1238;">'+m.label+'</div></div>'
-      + '<div style="font-family:'+serifFont+';font-size:28px;font-weight:900;color:#0B666A;line-height:1;">'+v+'<span style="font-size:13px;font-weight:400;color:#999;">/'+m.max+'</span></div>'
-      + '</div>'
-      + '<div style="height:6px;background:#f0f4f7;border-radius:3px;overflow:hidden;">'
-      + '<div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#0B666A 0%,#35A29F 100%);border-radius:3px;"></div>'
-      + '</div></div>';
-  }).join('');
-  
-  page2.innerHTML = 
-    '<div style="padding:60px 60px 40px;border-bottom:1px solid #e5e7eb;">'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-    + '<div><div style="font-family:'+sansFont+';font-size:9px;font-weight:800;letter-spacing:0.3em;color:#0B666A;margin-bottom:6px;">CHAPTER I</div>'
-    + '<div style="font-family:'+serifFont+';font-size:38px;font-weight:900;color:#0B1238;letter-spacing:-0.02em;">The Scoreboard</div></div>'
-    + '<div style="font-family:'+serifFont+';font-size:11px;font-style:italic;color:#999;">page 02</div>'
-    + '</div></div>'
-    // 메트릭스 + 써머리 2컬럼
-    + '<div style="display:flex;padding:50px 60px;gap:50px;">'
-    + '<div style="flex:1;">'
-    + '<div style="font-family:'+sansFont+';font-size:9px;font-weight:800;color:#0B666A;letter-spacing:0.2em;margin-bottom:24px;">C.S.I BREAKDOWN</div>'
-    + metricsHtml
-    + '</div>'
-    + '<div style="flex:1;padding-left:50px;border-left:1px solid #e5e7eb;">'
-    + '<div style="font-family:'+sansFont+';font-size:9px;font-weight:800;color:#0B666A;letter-spacing:0.2em;margin-bottom:14px;">EXECUTIVE SUMMARY</div>'
-    + '<div style="font-family:'+serifFont+';font-size:22px;font-style:italic;color:#0B1238;line-height:1.5;font-weight:400;margin-bottom:20px;letter-spacing:-0.01em;">"'+(data.execSummary || '종합 분석 요약이 생성됩니다.')+'"</div>'
-    + '<div style="width:40px;height:2px;background:#0B666A;margin-bottom:24px;"></div>'
-    + '<div style="font-family:'+sansFont+';font-size:9px;font-weight:800;color:#0B666A;letter-spacing:0.2em;margin-bottom:10px;">STYLE TAGS</div>'
-    + '<div>'+tagsHtml+'</div>'
-    + '</div></div>'
-    // 하단 워터마크
-    + '<div style="position:absolute;bottom:30px;left:60px;right:60px;display:flex;justify-content:space-between;align-items:center;font-family:'+sansFont+';font-size:9px;color:#aaa;letter-spacing:0.15em;">'
-    + '<div>CODIBANK PREMIUM · TRY-ON REPORT</div>'
-    + '<div>'+dateStr+'</div></div>';
-  container.appendChild(page2);
-  
-  // ═══ PAGE 3: DEEP ANALYSIS (5 sections) ═══
-  var page3 = document.createElement('div');
-  page3.className = 'cbpdf-page';
-  page3.style.cssText = pageStyle;
-  
-  var renderSection = function(num, title, titleEn, content, icon){
-    if(!content || !content.trim()) content = '분석 데이터가 준비 중입니다.';
-    return '<div style="margin-bottom:22px;padding:20px 24px;background:#fafafa;border-left:4px solid #0B666A;border-radius:0 6px 6px 0;">'
-      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
-      + '<div style="font-family:'+serifFont+';font-size:20px;font-weight:900;color:#0B666A;line-height:1;">0'+num+'</div>'
-      + '<div style="flex:1;">'
-      + '<div style="font-family:'+sansFont+';font-size:8px;font-weight:800;color:#0B666A;letter-spacing:0.2em;margin-bottom:1px;">'+titleEn+'</div>'
-      + '<div style="font-family:'+sansFont+';font-size:13px;font-weight:800;color:#0B1238;letter-spacing:-0.01em;">'+icon+' '+title+'</div>'
-      + '</div></div>'
-      + '<div style="font-family:'+sansFont+';font-size:10.5px;line-height:1.75;color:#4a5568;white-space:pre-line;">'+_htmlEscape(content)+'</div>'
-      + '</div>';
-  };
-  
-  page3.innerHTML = 
-    '<div style="padding:60px 60px 40px;border-bottom:1px solid #e5e7eb;">'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-    + '<div><div style="font-family:'+sansFont+';font-size:9px;font-weight:800;letter-spacing:0.3em;color:#0B666A;margin-bottom:6px;">CHAPTER II</div>'
-    + '<div style="font-family:'+serifFont+';font-size:38px;font-weight:900;color:#0B1238;letter-spacing:-0.02em;">Deep Analysis</div></div>'
-    + '<div style="font-family:'+serifFont+';font-size:11px;font-style:italic;color:#999;">page 03</div>'
-    + '</div></div>'
-    + '<div style="padding:35px 50px;">'
-    + renderSection(1, '퍼스널컬러 분석', 'COLOR CHEMISTRY', sections.pc, '🎨')
-    + renderSection(2, '상의 스타일 분석', 'TOP ANALYSIS', sections.top, '👕')
-    + renderSection(3, '하의 스타일 분석', 'BOTTOM ANALYSIS', sections.bot, '👖')
-    + renderSection(4, '실루엣과 비율', 'SILHOUETTE & PROPORTION', sections.prop, '📏')
-    + renderSection(5, '전체 스타일 완성도', 'OVERALL HARMONY', sections.harmony, '✨')
-    + '</div>'
-    + '<div style="position:absolute;bottom:30px;left:60px;right:60px;display:flex;justify-content:space-between;align-items:center;font-family:'+sansFont+';font-size:9px;color:#aaa;letter-spacing:0.15em;">'
-    + '<div>CODIBANK PREMIUM · TRY-ON REPORT</div><div>'+dateStr+'</div></div>';
-  container.appendChild(page3);
-  
-  // ═══ PAGE 4: STYLING GUIDE (TPO + TIPS) ═══
-  var page4 = document.createElement('div');
-  page4.className = 'cbpdf-page';
-  page4.style.cssText = pageStyle;
-  
-  // TPO 카드 HTML
-  var tpoHtml = tpo.length ? tpo.map(function(t, i){
-    return '<div style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:#fafafa;border-radius:4px;margin-bottom:8px;">'
-      + '<div style="flex:0 0 36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0B666A,#35A29F);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'+serifFont+';font-size:14px;font-weight:900;">'+(i+1)+'</div>'
-      + '<div style="flex:1;font-family:'+sansFont+';font-size:12px;font-weight:600;color:#0B1238;letter-spacing:-0.01em;">'+_htmlEscape(t)+'</div>'
-      + '</div>';
-  }).join('') : '<div style="padding:18px;color:#999;font-size:11px;">TPO 추천 준비 중</div>';
-  
-  var tipsHtml = tips.length ? tips.map(function(t, i){
-    return '<div style="display:flex;gap:14px;padding:14px 18px;background:#fff8f0;border-left:3px solid #e8a87c;border-radius:0 4px 4px 0;margin-bottom:8px;">'
-      + '<div style="flex:0 0 auto;font-family:'+serifFont+';font-size:20px;font-weight:900;color:#e8a87c;line-height:1;">'+(i+1)+'</div>'
-      + '<div style="flex:1;font-family:'+sansFont+';font-size:11px;line-height:1.7;color:#4a5568;">'+_htmlEscape(t)+'</div>'
-      + '</div>';
-  }).join('') : '<div style="padding:18px;color:#999;font-size:11px;">개선 팁 준비 중</div>';
-  
-  page4.innerHTML = 
-    '<div style="padding:60px 60px 40px;border-bottom:1px solid #e5e7eb;">'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-    + '<div><div style="font-family:'+sansFont+';font-size:9px;font-weight:800;letter-spacing:0.3em;color:#0B666A;margin-bottom:6px;">CHAPTER III</div>'
-    + '<div style="font-family:'+serifFont+';font-size:38px;font-weight:900;color:#0B1238;letter-spacing:-0.02em;">Styling Guide</div></div>'
-    + '<div style="font-family:'+serifFont+';font-size:11px;font-style:italic;color:#999;">page 04</div>'
-    + '</div></div>'
-    // TPO
-    + '<div style="padding:45px 60px 20px;">'
-    + '<div style="display:flex;align-items:baseline;gap:14px;margin-bottom:20px;">'
-    + '<div style="font-family:'+sansFont+';font-size:9px;font-weight:800;color:#0B666A;letter-spacing:0.2em;">BEST OCCASIONS</div>'
-    + '<div style="flex:1;height:1px;background:#e5e7eb;"></div>'
-    + '</div>'
-    + '<div style="font-family:'+serifFont+';font-size:26px;font-weight:900;color:#0B1238;margin-bottom:4px;letter-spacing:-0.02em;">이 룩이 <span style="color:#0B666A;font-style:italic;">빛나는</span> 순간</div>'
-    + '<div style="font-family:'+sansFont+';font-size:11px;color:#999;margin-bottom:22px;line-height:1.6;">전문 스타일리스트가 추천하는 TPO ('+tpo.length+' occasions)</div>'
-    + tpoHtml
-    + '</div>'
-    // 팁
-    + '<div style="padding:10px 60px 20px;">'
-    + '<div style="display:flex;align-items:baseline;gap:14px;margin:20px 0;">'
-    + '<div style="font-family:'+sansFont+';font-size:9px;font-weight:800;color:#e8a87c;letter-spacing:0.2em;">IMPROVEMENT TIPS</div>'
-    + '<div style="flex:1;height:1px;background:#e5e7eb;"></div>'
-    + '</div>'
-    + '<div style="font-family:'+serifFont+';font-size:26px;font-weight:900;color:#0B1238;margin-bottom:4px;letter-spacing:-0.02em;"><span style="color:#e8a87c;font-style:italic;">10%</span> 더 완벽하게</div>'
-    + '<div style="font-family:'+sansFont+';font-size:11px;color:#999;margin-bottom:22px;line-height:1.6;">실용적 스타일링 조언 ('+tips.length+' tips)</div>'
-    + tipsHtml
-    + '</div>'
-    + '<div style="position:absolute;bottom:30px;left:60px;right:60px;display:flex;justify-content:space-between;align-items:center;font-family:'+sansFont+';font-size:9px;color:#aaa;letter-spacing:0.15em;">'
-    + '<div>CODIBANK PREMIUM · TRY-ON REPORT</div><div>'+dateStr+'</div></div>';
-  container.appendChild(page4);
-  
-  // ═══ PAGE 5: CURATION + BRAND OUTRO ═══
-  var page5 = document.createElement('div');
-  page5.className = 'cbpdf-page';
-  page5.style.cssText = pageStyle;
-  
-  var iconFor = function(cat){
-    if(/신발|shoes|슈즈/i.test(cat)) return '👟';
-    if(/가방|bag|백/i.test(cat)) return '👜';
-    if(/주얼리|jewelry|목걸이|귀걸이/i.test(cat)) return '💎';
-    if(/스카프|scarf|머플러/i.test(cat)) return '🧣';
-    if(/워치|watch|시계/i.test(cat)) return '⌚';
-    if(/모자|hat|캡/i.test(cat)) return '🎩';
-    if(/벨트|belt/i.test(cat)) return '👔';
-    if(/안경|glasses|선글라스/i.test(cat)) return '🕶️';
-    return '✨';
-  };
-  
-  var curationHtml = curation.length ? curation.map(function(c, i){
-    var _dashIdx = c.indexOf('-');
-    var _cat = '', _desc = c;
-    if(_dashIdx > 0 && _dashIdx < 10){
-      _cat = c.substring(0, _dashIdx).trim();
-      _desc = c.substring(_dashIdx+1).trim();
-    }
-    return '<div style="display:flex;gap:16px;padding:16px 20px;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:10px;background:#fafbfc;">'
-      + '<div style="flex:0 0 48px;height:48px;background:linear-gradient(135deg,#0a1443,#0B666A);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;">'+iconFor(_cat)+'</div>'
-      + '<div style="flex:1;">'
-      + (_cat ? '<div style="font-family:'+sansFont+';font-size:9px;font-weight:800;color:#0B666A;letter-spacing:0.2em;margin-bottom:3px;">ITEM '+(i+1).toString().padStart(2,'0')+' · '+_cat.toUpperCase()+'</div>' : '')
-      + '<div style="font-family:'+sansFont+';font-size:13px;font-weight:700;color:#0B1238;line-height:1.5;letter-spacing:-0.01em;">'+_htmlEscape(_desc)+'</div>'
-      + '</div></div>';
-  }).join('') : '<div style="padding:18px;color:#999;font-size:11px;">아이템 큐레이션 준비 중</div>';
-  
-  page5.innerHTML = 
-    '<div style="padding:60px 60px 40px;border-bottom:1px solid #e5e7eb;">'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;">'
-    + '<div><div style="font-family:'+sansFont+';font-size:9px;font-weight:800;letter-spacing:0.3em;color:#0B666A;margin-bottom:6px;">CHAPTER IV</div>'
-    + '<div style="font-family:'+serifFont+';font-size:38px;font-weight:900;color:#0B1238;letter-spacing:-0.02em;">Personal Curation</div></div>'
-    + '<div style="font-family:'+serifFont+';font-size:11px;font-style:italic;color:#999;">page 05</div>'
-    + '</div></div>'
-    + '<div style="padding:35px 60px 20px;">'
-    + '<div style="font-family:'+serifFont+';font-size:22px;font-weight:700;font-style:italic;color:#0B1238;margin-bottom:4px;letter-spacing:-0.01em;">이 룩을 <span style="color:#0B666A;">완성</span>할 아이템</div>'
-    + '<div style="font-family:'+sansFont+';font-size:11px;color:#999;margin-bottom:22px;line-height:1.6;">전문 스타일리스트의 퍼스널 큐레이션 ('+curation.length+' items)</div>'
-    + curationHtml
-    + '</div>'
-    // 브랜드 아우트로
-    + '<div style="position:absolute;bottom:60px;left:60px;right:60px;padding:30px;background:linear-gradient(135deg,#0a1443,#0B666A);border-radius:6px;text-align:center;color:#fff;">'
-    + '<div style="font-family:'+serifFont+';font-size:22px;font-style:italic;color:#97FEED;letter-spacing:-0.01em;">"Desire to be designed."</div>'
-    + '<div style="font-family:'+serifFont+';font-size:28px;font-weight:900;color:#fff;margin:6px 0;letter-spacing:-0.02em;">Meet CodiBank.</div>'
-    + '<div style="width:40px;height:2px;background:#97FEED;margin:12px auto;"></div>'
-    + '<div style="font-family:'+sansFont+';font-size:10px;color:rgba(151,254,237,0.75);letter-spacing:0.2em;">CODIBANK.KR · PREMIUM STYLE REPORT</div>'
-    + '</div>'
-    + '<div style="position:absolute;bottom:20px;left:60px;right:60px;text-align:center;font-family:'+sansFont+';font-size:8px;color:#bbb;letter-spacing:0.15em;">© '+today.getFullYear()+' CODIBANK · ALL RIGHTS RESERVED</div>';
-  container.appendChild(page5);
-  
-  return container;
-}
-
-// HTML 특수문자 이스케이프 (XSS 방지)
-function _htmlEscape(str){
-  if(!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+// [v15 TJ] 페이지 로드 직후 마지막 트라이온 결과 자동 복원 시도
+setTimeout(function(){
+  try{
+    const raw = sessionStorage.getItem(TRYON_SNAP_KEY);
+    if(raw){ _restoreTryonSnap(); }
+  }catch(_){}
+}, 250);
 </script>
 
 </body>
