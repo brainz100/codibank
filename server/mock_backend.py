@@ -1456,13 +1456,14 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
 
     kw_str = ", ".join([str(k) for k in keywords if str(k).strip()][:6])
 
-    # 온도 버킷에 따른 레이어링 가이드
+    # [2026-04-26 v14 TJ] weather_rule — MVP 베이직 (스카프/머플러/가방/시계/모자 모두 X)
+    # 온도 버킷에 따른 레이어링 가이드 (no neckwear in MVP)
     if bucket in ("very cold", "cool"):
-        weather_rule = "Layer appropriately for cold weather (coat/jacket, warm inner, scarf optional)."
+        weather_rule = "Layer appropriately for cold weather (coat/jacket + warm inner). MVP: no scarf, no muffler, no bag."
     elif bucket == "hot":
-        weather_rule = "Choose breathable lightweight fabrics suitable for hot weather."
+        weather_rule = "Choose breathable lightweight fabrics suitable for hot weather. MVP: top + bottom + shoes only."
     else:
-        weather_rule = "Use balanced layering suitable for mild weather."
+        weather_rule = "Use balanced layering suitable for mild weather. MVP: no accessories (no bag, watch, scarf, hat)."
 
     # 결과 설명(100자 이내는 프론트에서 추가로 trim 가능)
     short = explanation
@@ -2072,6 +2073,25 @@ def _ai_styling_via_gemini(
         # 분석 JSON 출력 지시 — 핵심
         # ══════════════════════════════════════════
         "\n\n=== CRITICAL OUTPUT INSTRUCTIONS ===\n"
+        # ─────────────────────────────────────────────────────
+        # [2026-04-26 v14 TJ] 이미지 레이아웃 + MVP 베이직 알림
+        # 생성된 이미지는 정+후면 한 페이지 (좌=정면, 우=후면)
+        # 분석은 정면(LEFT) 기준으로 작성, 단 후면도 동일 의상임을 검증
+        # ─────────────────────────────────────────────────────
+        "[IMAGE LAYOUT CONTEXT]\n"
+        "The generated image contains TWO poses of the SAME person side by side: "
+        "LEFT half = FRONT view (face visible), RIGHT half = BACK view (back of head). "
+        "Both views show the SAME outfit on the SAME person. "
+        "Write the analysis based on the FRONT view (left half), but ensure your description "
+        "is consistent with both views. Do NOT analyze them as two different people.\n"
+        "\n"
+        "[MVP BASICS — outfit composition]\n"
+        "This is a CodiBank MVP basic look: outerwear + top + bottom + shoes only. "
+        "There are NO bags, NO watches, NO scarves/mufflers, NO hats, NO sunglasses, NO jewelry. "
+        "Both hands are empty. Both wrists are bare. "
+        "Your analysis text MUST NOT recommend or mention any forbidden accessories. "
+        "Focus on garment colors, silhouette, fabric, and how they suit the user.\n"
+        "\n"
         "Along with the generated outfit image, you MUST also output a structured " + ("English" if _cs_en else "Korean") + " analysis as TEXT. "
         "Wrap the JSON between exact markers <<<ANALYSIS_JSON>>> and <<<END_ANALYSIS>>> with no additional text outside markers. "
         "The JSON MUST follow this EXACT schema:\n"
@@ -2089,15 +2109,17 @@ def _ai_styling_via_gemini(
         '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
         '  },\n'
         '  "categoryKeywords": {\n'
-        '    "outer": "컬러, 아이템 (예: \\"베이지, 트렌치코트\\" — 반드시 콤마로 컬러와 아이템 분리)",\n'
+        '    "outer": "컬러, 아이템 (예: \\"베이지, 트렌치코트\\" — 반드시 콤마로 컬러와 아이템 분리, 아우터 없으면 빈 문자열)",\n'
         '    "top": "컬러, 아이템 (예: \\"화이트, 실크 블라우스\\")",\n'
         '    "bottom": "컬러, 아이템 (예: \\"네이비, 와이드 슬랙스\\")",\n'
         '    "shoes": "컬러, 아이템 (예: \\"브라운, 첼시 부츠\\")",\n'
-        '    "bag": "컬러, 아이템 (예: \\"블랙, 토트백\\" — 없으면 빈 문자열)",\n'
-        '    "scarf": "컬러, 아이템 (예: \\"카멜, 실크 스카프\\" — 없으면 빈 문자열)",\n'
-        '    "watch": "컬러, 아이템 (없으면 빈 문자열)",\n'
-        '    "socks": "컬러, 아이템 (예: \\"화이트, 면 양말\\")"\n'
+        '    "socks": "컬러, 아이템 (예: \\"화이트, 면 양말\\" — 보이지 않으면 빈 문자열)"\n'
         '  }\n'
+        # ─────────────────────────────────────────────────────
+        # [2026-04-26 v14 TJ MVP] bag/scarf/watch 카테고리 제거
+        # MVP는 (아우터)+상의+하의+신발+(양말)만 — 액세서리는 ABSOLUTE RULES에서 절대 금지
+        # 이미지에 없는 항목을 분석에 요청하면 AI 토큰 낭비 + 잘못된 출력 위험
+        # ─────────────────────────────────────────────────────
         "}\n"
         "RULES:\n"
         "1. Each text field MUST be 250-300 Korean characters (not more, not less significantly).\n"

@@ -122,85 +122,132 @@ def _resolve_body_type(gender_ko, body_type_raw):
 # ═══════════════════════════════════════════════════
 def _get_temp_policy(temp):
     """
-    [v10] 온도 → 아이템 허용/금지 정책 텍스트 (Gemini 프롬프트 직접 삽입용)
+    [v14 2026-04-26 KST] 8단계 온도 정책 — TJ 첨부 엑셀 그대로
     
-    TJ 정책 (2026-04-25):
-      ≤ 0°C:    한겨울 — 목도리·코트·패딩 OK / 가디건은 보조용
-      1~10°C:  추위  — 코트·패딩 OK / 목도리 X / 가디건은 코트 안 레이어
-      11~19°C: 환절기 — 가디건·액세서리 스카프 OK / 코트·패딩·목도리 X
-      ≥ 20°C:  따뜻함 — 모든 보온 아이템 X / 단일 가벼운 레이어
+    엑셀 정책 (예상 온도별 추천의상):
+      28°C↑    : 민소매, 반팔, 반바지 (무더위, 통기성)
+      23~27°C  : 반팔, 얇은 셔츠, 면바지 (쾌적함)
+      20~22°C  : 긴팔 티, 셔츠, 얇은 가디건 (선선함)
+      17~19°C  : 후드자켓, 가디건, 니트 (일교차)
+      12~16°C  : 자켓, 트렌치코트, 야상 (본격 자켓)
+      9~11°C   : 울 자켓, 트위드, 경량 패딩 (쌀쌀함)
+      5~8°C    : 코트, 가죽 자켓, 가벼운 점퍼 (초겨울)
+      4°C↓     : 패딩, 헤비 다운, 기모 (한겨울)
+    
+    추가 룰 (TJ 지시):
+      MVP 베이직: 시계·목도리·머플러·스카프·가방·모자 절대 금지
+      구성: (아우터) + 상의 + 하의 + 신발만
     """
     try:
         t = float(temp)
     except Exception:
-        t = 20.0
+        t = 22.0
     
-    if t <= 0:
+    if t >= 28:
         return {
-            "tier": "freezing",
-            "tier_label": "한겨울 (영하)",
-            "outer_allowed": ["winter coat", "padded coat", "puffer jacket", "wool overcoat"],
-            "outer_forbidden": [],
-            "neck_allowed": ["thick winter muffler/scarf (knit, wool, cashmere)"],
-            "neck_forbidden": ["light silk decorative scarf (too thin for sub-zero)"],
+            "tier": "hot",
+            "tier_label": "무더위 (28°C↑)",
             "summary_en": (
-                "FREEZING WEATHER (≤0°C): Heavy winter outerwear MANDATORY. "
-                "ALLOWED: thick winter coat, padded/puffer coat, wool muffler, gloves, beanie. "
-                "Layer cardigan/knitwear UNDER the coat for warmth. "
+                "HOT WEATHER (≥28°C): Single breathable layer only. "
+                "ALLOWED: sleeveless tops, short-sleeve T-shirts, light short-sleeve shirts, "
+                "shorts, light pants, sandals or canvas sneakers. "
+                "Fabrics: cotton, linen, lightweight breathable. "
+                "ABSOLUTELY FORBIDDEN: cardigan, blazer, jacket, coat, padded items, "
+                "long-sleeve sweater, knit, scarf, muffler. "
             ),
-            "summary_ko": "한겨울 영하 — 두꺼운 코트/패딩 + 머플러 필수, 가디건은 코트 안 레이어",
+            "summary_ko": "무더위 — 민소매/반팔/반바지, 통기성 위주, 모든 보온 아이템 X",
         }
-    elif t <= 10:
+    elif t >= 23:
         return {
-            "tier": "cold",
-            "tier_label": "추위 (1~10°C)",
-            "outer_allowed": ["coat", "wool jacket", "leather jacket", "padded jacket", "trench coat"],
-            "outer_forbidden": ["light cardigan as sole outer (too cold)"],
-            "neck_allowed": [],
-            "neck_forbidden": [
-                "ABSOLUTELY NO winter muffler/heavy scarf "
-                "(muffler is ONLY for ≤0°C — this temperature is above freezing, no muffler)"
-            ],
+            "tier": "pleasant",
+            "tier_label": "쾌적 (23~27°C)",
             "summary_en": (
-                "COLD WEATHER (1~10°C): Coat or padded jacket REQUIRED. "
-                "ALLOWED: tailored coat, wool/padded/leather/trench jacket. "
-                "FORBIDDEN: winter muffler, heavy knit scarf (only for ≤0°C). "
-                "FORBIDDEN: standalone cardigan as outer (insufficient warmth). "
-                "Cardigan may be layered UNDER the coat. "
+                "PLEASANT WEATHER (23~27°C): Single light layer. "
+                "ALLOWED: short-sleeve T-shirts, light shirts (cotton/linen short-sleeve), "
+                "cotton pants, light chinos, comfortable shoes. "
+                "FORBIDDEN: cardigan, jacket, blazer, coat, padded items, sweater, knit, "
+                "scarf, muffler. Single-layer top only. "
             ),
-            "summary_ko": "추위 — 코트/패딩 자켓 필수, 목도리/머플러 절대 금지(영하 아님), 가디건 단독 X",
+            "summary_ko": "쾌적 — 반팔, 얇은 셔츠, 면바지. 홑겹 상의만. 모든 보온 아이템 X",
         }
-    elif t <= 19:
+    elif t >= 20:
+        return {
+            "tier": "cool_breeze",
+            "tier_label": "선선함 (20~22°C)",
+            "summary_en": (
+                "COOL BREEZE (20~22°C): Long-sleeve top OR very light layering allowed. "
+                "ALLOWED: long-sleeve T-shirts, shirts, light thin cardigan (optional). "
+                "Light layering may begin (shirt over T-shirt, or thin cardigan over top). "
+                "FORBIDDEN: thick cardigan, blazer (heavy weight), jacket, coat, padded items, "
+                "wool sweater, scarf, muffler. "
+            ),
+            "summary_ko": "선선함 — 긴팔 티/셔츠/얇은 가디건, 가벼운 레이어링 시작",
+        }
+    elif t >= 17:
         return {
             "tier": "transitional",
-            "tier_label": "환절기 (11~19°C)",
-            "outer_allowed": ["cardigan", "light jacket", "blazer", "denim jacket", "knit cardigan"],
-            "outer_forbidden": ["thick winter coat", "padded jacket", "puffer", "down coat", "wool overcoat"],
-            "neck_allowed": ["light silk scarf (decorative accessory)", "thin cotton scarf"],
-            "neck_forbidden": ["thick winter muffler", "heavy knit/wool scarf"],
+            "tier_label": "환절기 (17~19°C)",
             "summary_en": (
-                "TRANSITIONAL WEATHER (11~19°C): Light layer outerwear ONLY. "
-                "ALLOWED: cardigan, light blazer, denim/light jacket, decorative silk scarf as accessory. "
-                "FORBIDDEN: thick coat, padded/puffer jacket, wool muffler, heavy winter scarf. "
-                "Layer breathably — single light outer over a top, no heavy bundling. "
+                "TRANSITIONAL (17~19°C): Light outerwear for daily temperature swings. "
+                "ALLOWED: hooded zip-up jackets, cardigans, knit sweaters, light denim/cotton jacket. "
+                "Layer a knit/cardigan over a top for typical morning-evening contrast. "
+                "FORBIDDEN: thick wool coat, padded jacket, puffer, down coat, "
+                "scarf, muffler. "
             ),
-            "summary_ko": "환절기 — 가디건/얇은 자켓 OK, 액세서리 실크스카프 OK, 코트·패딩·머플러 절대 금지",
+            "summary_ko": "환절기 — 후드자켓/가디건/니트 OK, 일교차 대비, 코트·패딩 X",
         }
-    else:  # >= 20
+    elif t >= 12:
         return {
-            "tier": "warm",
-            "tier_label": "따뜻함 (≥20°C)",
-            "outer_allowed": [],
-            "outer_forbidden": ["coat", "cardigan", "blazer", "jacket", "padded", "scarf of any kind"],
-            "neck_allowed": [],
-            "neck_forbidden": ["any scarf, muffler, or neckwear (too warm)"],
+            "tier": "jacket_weather",
+            "tier_label": "본격 자켓 (12~16°C)",
             "summary_en": (
-                "WARM WEATHER (≥20°C): NO outer layer. Single breathable layer ONLY. "
-                "ABSOLUTELY FORBIDDEN: coat, cardigan, blazer, jacket, padded items, scarf, muffler. "
-                "ALLOWED: cotton/linen shirt, breathable top, short sleeves OK if appropriate. "
-                "Fabrics must be lightweight and breathable. "
+                "JACKET WEATHER (12~16°C): Standard jacket required. "
+                "ALLOWED: tailored jackets, trench coats, field/utility jackets, "
+                "blazers, single-layer wool blazers (not heavy overcoat). "
+                "FORBIDDEN: heavy padded coat, puffer, fleece-lined heavy outerwear, "
+                "scarf, muffler. "
             ),
-            "summary_ko": "따뜻함 — 모든 보온 아이템 절대 금지, 통기성 단일 레이어만",
+            "summary_ko": "본격 자켓 — 자켓/트렌치코트/야상 OK, 무거운 패딩 X",
+        }
+    elif t >= 9:
+        return {
+            "tier": "chilly",
+            "tier_label": "쌀쌀함 (9~11°C)",
+            "summary_en": (
+                "CHILLY (9~11°C): Thicker materials needed. "
+                "ALLOWED: wool jackets, tweed jackets, light puffer/down vests, "
+                "thicker blazers, layered knit + light coat. "
+                "FORBIDDEN: heavy long down/padded coat (still too early), "
+                "scarf, muffler. "
+            ),
+            "summary_ko": "쌀쌀함 — 울 자켓/트위드/경량 패딩 OK, 헤비 다운 X",
+        }
+    elif t >= 5:
+        return {
+            "tier": "early_winter",
+            "tier_label": "초겨울 (5~8°C)",
+            "summary_en": (
+                "EARLY WINTER (5~8°C): Coat or warm jacket required. "
+                "ALLOWED: tailored coats (wool, cashmere), leather jackets, "
+                "light parkas, light puffer jackets. "
+                "FORBIDDEN: heavy ankle-length down (overkill at this temp), "
+                "scarf, muffler. "
+            ),
+            "summary_ko": "초겨울 — 코트/가죽 자켓/가벼운 점퍼 OK, 보온성 강화 시작",
+        }
+    else:  # t < 5 (4°C 이하)
+        return {
+            "tier": "deep_winter",
+            "tier_label": "한겨울 (4°C↓)",
+            "summary_en": (
+                "DEEP WINTER (≤4°C): Heavy winter outerwear MANDATORY. "
+                "ALLOWED: padded coats, heavy down parkas, fleece-lined outerwear, "
+                "long down coats, thick wool overcoats. "
+                "Layer knit/cardigan UNDER the coat for warmth. "
+                "FORBIDDEN: light cardigan as sole outer, scarf, muffler "
+                "(per TJ MVP basics — no neckwear). "
+            ),
+            "summary_ko": "한겨울 — 패딩/헤비 다운/기모 필수, 고보온 외투 mandatory",
         }
 
 
@@ -723,7 +770,12 @@ def build_styling_prompt(payload, fashion_db):
             "GENERATE THE PERSON'S FACE TO MATCH THE REFERENCE PHOTO AT 99.99% LIKENESS. "
             "This is the HIGHEST priority rule — no other rule overrides this. "
             "\n\n"
-            "EXACT match required for:\n"
+            "[v14 TWO-POSE NOTE]\n"
+            "• LEFT (front view): Face is fully visible — apply 99.99% likeness here.\n"
+            "• RIGHT (back view): Face is NOT visible (back of head only). "
+            "Match only the hair color, texture, length, parting, and hairline from the reference.\n"
+            "\n"
+            "EXACT match required (LEFT/front view):\n"
             "  • Face shape, jawline contour, chin angle\n"
             "  • Eye shape, size, eyelid type (single/double), pupil color, gaze direction\n"
             "  • Eyebrow shape, thickness, arch, color\n"
@@ -740,8 +792,9 @@ def build_styling_prompt(payload, fashion_db):
             "  ✗ Changing ethnicity or race\n"
             "  ✗ Generic Korean idol faces / model faces / stock-photo faces\n"
             "  ✗ Face replacement with a different person\n"
+            "  ✗ Showing face on the BACK view (it must be the back of head only)\n"
             "\n"
-            "If the generated face does NOT recognizably match the reference at 99.99% — REGENERATE. "
+            "If the front-view face does NOT recognizably match the reference at 99.99% — REGENERATE. "
             "The viewer must instantly recognize this is the SAME person from the reference photo. "
             "═══ END FACE RULE ═══\n"
         )
@@ -798,8 +851,8 @@ def build_styling_prompt(payload, fashion_db):
             f"PERSONAL COLOR: {pc_season} ({pc_undertone})\n"
             f"  • Tone reference (the user's flattering palette): {pc_best_str}\n"
             f"  • These best colors are a TONE GUIDE — use them especially near the face "
-            f"(top/blouse/scarf), but DO NOT limit the entire outfit to only these colors. "
-            f"Mix freely with other neutral, harmonious colors for top/bottom/accessories. "
+            f"(top/blouse), but DO NOT limit the entire outfit to only these colors. "
+            f"Mix freely with other neutral, harmonious colors for top/bottom. "
             f"AIM for varied, balanced color combinations — not monochrome from best palette only.\n"
             f"  • Avoid colors (NEVER use as main garment): {pc_avoid_str}\n"
         )
@@ -840,8 +893,19 @@ def build_styling_prompt(payload, fashion_db):
     }.get(active_city, "modern refined")
     
     prompt = (
-        # ─── [1] 헤더 ───
-        f"Create a photorealistic full-body fashion styling lookbook photo.\n\n"
+        # ─── [1] 헤더 — TJ v14: 정면+후면 한 페이지 룩북 ───
+        f"Create a photorealistic two-pose fashion lookbook photo (catalog/store style).\n\n"
+        
+        f"═══ LAYOUT (CRITICAL — MUST FOLLOW EXACTLY) ═══\n"
+        f"Output a SINGLE WIDE image with TWO poses of the SAME person, "
+        f"side by side, sharing the SAME flat solid pastel background:\n"
+        f"  • LEFT half: FRONT view (full body, facing camera, arms relaxed)\n"
+        f"  • RIGHT half: BACK view (full body, facing AWAY from camera, same pose)\n"
+        f"Aspect ratio: WIDE landscape (approximately 16:9 or 2:1).\n"
+        f"Both views show the EXACT SAME outfit, lighting, hair, and styling.\n"
+        f"The two figures are evenly spaced, not touching, on the same ground line.\n"
+        f"Reference: Uniqlo / Theory store catalog — clean, neutral, minimal.\n"
+        f"\n"
         
         # ─── [2] 얼굴 (HIGHEST PRIORITY) ───
         + f"{face_instruction}\n"
@@ -888,13 +952,34 @@ def build_styling_prompt(payload, fashion_db):
         # ─── [7] 하의 ───
         + f"{bottom_instruction}\n"
         
-        # ─── [8] 절대 룰 ───
+        # ─── [8] 절대 룰 (v14 TJ MVP 베이직) ───
         + f"═══ ABSOLUTE RULES (VIOLATION = REGENERATE) ═══\n"
-        + f"BODY PROPORTION: Upper body (head→waist) ≤ 40%, Lower body (waist→feet) ≥ 60%. "
-        + f"3:7 leg ratio MANDATORY. 5:5 or 4:6 = generation failure.\n"
-        + f"SOCKS: Both feet IDENTICAL — same color, same pattern. Mismatched FORBIDDEN.\n"
-        + f"BACKGROUND: Single SOLID FLAT PASTEL color contrasting with outfit. "
-        + f"Studio paper backdrop ONLY — no environment, no objects, no props.\n"
+        # ── (1) 베이직 룩 강제 — TJ MVP 지시 ──
+        + f"OUTFIT COMPOSITION (MVP basics — strict):\n"
+        + f"The outfit MUST consist ONLY of the following items:\n"
+        + f"  • Top (shirt/blouse/T-shirt/knit) — REQUIRED\n"
+        + f"  • Bottom (pants/skirt/shorts) — REQUIRED\n"
+        + f"  • Shoes (or sandals when appropriate for hot weather) — REQUIRED\n"
+        + f"  • Outerwear (coat/jacket/cardigan) — ONLY when temperature requires it (per Temperature Policy)\n"
+        + f"\n"
+        + f"❌ ABSOLUTELY FORBIDDEN ACCESSORIES (MVP scope):\n"
+        + f"  ✗ NO watch (no wristwatch on either wrist)\n"
+        + f"  ✗ NO scarf, NO muffler, NO neckwear of any kind\n"
+        + f"  ✗ NO bag (no handbag, tote, backpack, crossbody, clutch — BOTH hands EMPTY)\n"
+        + f"  ✗ NO hat, NO cap, NO beanie, NO headwear\n"
+        + f"  ✗ NO sunglasses, NO necklace, NO earrings (jewelry minimal/none)\n"
+        + f"  ✗ NO umbrella, NO phone, NO held objects\n"
+        + f"Keep the look CLEAN and BASIC — focus only on the core garments.\n"
+        + f"\n"
+        # ── (2) 두 자세 비율 ──
+        + f"BODY PROPORTION (apply to BOTH front and back views):\n"
+        + f"Upper body (head→waist) ≤ 40%, Lower body (waist→feet) ≥ 60%. "
+        + f"3:7 leg ratio MANDATORY for each pose. 5:5 or 4:6 = generation failure.\n"
+        + f"\n"
+        # ── (3) 양말/배경/스타일 ──
+        + f"SOCKS: Both feet IDENTICAL — same color, same pattern (each pose).\n"
+        + f"BACKGROUND: Single SOLID FLAT PASTEL color contrasting with outfit, "
+        + f"shared by both poses. Studio paper backdrop ONLY — no environment, no objects, no props.\n"
         + f"STYLE: Real-life wearable daily outfit only. "
         + f"FORBIDDEN: runway, avant-garde, asymmetric, experimental.\n"
         + f"NO text, NO watermark, NO logo, NO brand names visible.\n"
@@ -1385,11 +1470,25 @@ _PURPOSE_D = {"비즈니스 포멀":"Sharp professional — structured tailoring
 #   11~19°C : 가디건/얇은자켓 + 액세서리 스카프 (코트/패딩/머플러 X)
 #   ≥ 20°C  : 아우터 X
 # ─────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
+# [2026-04-26 v14 TJ] _OUTER_ITEMS 8단계 정책 (엑셀 그대로)
+#   28°C↑    : 아우터 X (hot)
+#   23~27°C  : 아우터 X (pleasant)
+#   20~22°C  : 얇은 가디건 (선택, cool_breeze)
+#   17~19°C  : 후드자켓/가디건/니트 (transitional)
+#   12~16°C  : 자켓/트렌치코트/야상 (jacket_weather)
+#   9~11°C   : 울 자켓/트위드/경량 패딩 (chilly)
+#   5~8°C    : 코트/가죽 자켓/가벼운 점퍼 (early_winter)
+#   4°C↓     : 패딩/헤비 다운/기모 (deep_winter)
+# ─────────────────────────────────────────────────────────
 _OUTER_ITEMS = {
-    "freezing":     {"M": "롱 패딩 코트", "F": "롱 패딩 코트"},      # ≤ 0°C
-    "cold":         {"M": "울 코트", "F": "울 트렌치코트"},          # 1~10°C
-    "transitional": {"M": "라이트 자켓", "F": "라이트 가디건"},      # 11~19°C
-    # ≥ 20°C는 키 없음 (아우터 X)
+    # 28+ / 23~27: 키 없음 (아우터 X)
+    "cool_breeze":    {"M": "얇은 셔츠 자켓", "F": "얇은 가디건"},        # 20~22°C
+    "transitional":   {"M": "후드 집업", "F": "니트 가디건"},             # 17~19°C
+    "jacket_weather": {"M": "테일러드 자켓", "F": "트렌치코트"},          # 12~16°C
+    "chilly":         {"M": "울 자켓", "F": "트위드 자켓"},               # 9~11°C
+    "early_winter":   {"M": "울 코트", "F": "울 코트"},                   # 5~8°C
+    "deep_winter":    {"M": "롱 패딩 코트", "F": "롱 패딩 코트"},         # 4°C↓
 }
 _TOP_ITEMS = {
     "비즈니스 포멀": {"M": "드레스 셔츠", "F": "실크 블라우스"},
@@ -1499,17 +1598,36 @@ def generate_outfit_spec(metadata, stylist):
     spec = {}
     
     # ─────────────────────────────────────────────────────
-    # [v10 TJ 지시] 아우터 4단계 정책 (≤0 / 1~10 / 11~19 / ≥20)
-    # ≥ 20°C는 t_key 없음 → 아우터 미생성
+    # [2026-04-26 v14 TJ] 아우터 8단계 정책 (엑셀 그대로)
+    # 28°C↑ / 23~27 → 아우터 X
+    # 20~22 → cool_breeze (얇은 가디건, 선택적)
+    # 17~19 → transitional
+    # 12~16 → jacket_weather
+    # 9~11  → chilly
+    # 5~8   → early_winter
+    # 4°C↓  → deep_winter
     # ─────────────────────────────────────────────────────
-    if temp <= 0:
-        t_key = "freezing"
-    elif temp <= 10:
-        t_key = "cold"
-    elif temp <= 19:
+    try:
+        _t = float(temp)
+    except Exception:
+        _t = 22.0
+    
+    if _t >= 28:
+        t_key = None  # 무더위 — 아우터 X
+    elif _t >= 23:
+        t_key = None  # 쾌적 — 아우터 X
+    elif _t >= 20:
+        t_key = "cool_breeze"
+    elif _t >= 17:
         t_key = "transitional"
+    elif _t >= 12:
+        t_key = "jacket_weather"
+    elif _t >= 9:
+        t_key = "chilly"
+    elif _t >= 5:
+        t_key = "early_winter"
     else:
-        t_key = None  # 20°C 이상 → 아우터 X
+        t_key = "deep_winter"
     
     if t_key:
         outer_items = _OUTER_ITEMS.get(t_key, {})
@@ -1572,52 +1690,54 @@ def generate_outfit_spec(metadata, stylist):
         spec['bottom'] = {'item_ko': bt_item, 'item_en': bt_item, 'color_ko': bottom_color}
     
     # ── 신발 ──
+    # [v14 TJ] 28°C 이상 캐주얼 계열은 샌들/캔버스 가능
     shoes_map = _SHOES_M if gender == "M" else _SHOES_F
     shoe = shoes_map.get(purpose, "로퍼" if gender == "M" else "플랫 슈즈")
+    _casual_purposes = {"주말 나들이","여행지 인생샷","꾸안꾸 데일리","스포티/애슬레저","트렌디/스트릿","로맨틱 데이트룩","소개팅룩"}
+    if _t >= 28 and purpose in _casual_purposes:
+        shoe = "샌들" if gender == "F" else "캔버스 스니커즈"
     spec['shoes'] = {'item_ko': shoe, 'item_en': shoe, 'color_ko': '브라운' if gender == "M" else '베이지'}
     
-    # ── 가방 (컬러 포함) ──
-    bag_map = _BAG_M if gender == "M" else _BAG_F
-    bag = bag_map.get(purpose, '')
-    if bag:
-        # [2026-04-06 수정] color2는 악세서리 이름이므로 사용하지 않음
-        _bag_colors_f = {'비즈니스 포멀':'블랙','결혼식 하객룩':'골드','소개팅룩':'베이지','로맨틱 데이트룩':'블랙','주말 나들이':'내추럴'}
-        bag_color = '블랙' if gender == 'M' else _bag_colors_f.get(purpose, '브라운')
-        spec['bag'] = {'item_ko': bag, 'item_en': bag, 'color_ko': bag_color}
+    # ─────────────────────────────────────────────────────────
+    # [2026-04-26 v14 TJ MVP] 가방/시계/스카프/목도리 모두 비활성화
+    # MVP는 (아우터)+상의+하의+신발만 제공
+    # 이전 코드는 향후 복원 가능하도록 if False 블록 안에 보관
+    # ─────────────────────────────────────────────────────────
+    if False:
+        # ── 가방 (MVP 비활성) ──
+        bag_map = _BAG_M if gender == "M" else _BAG_F
+        bag = bag_map.get(purpose, '')
+        if bag:
+            _bag_colors_f = {'비즈니스 포멀':'블랙','결혼식 하객룩':'골드','소개팅룩':'베이지','로맨틱 데이트룩':'블랙','주말 나들이':'내추럴'}
+            bag_color = '블랙' if gender == 'M' else _bag_colors_f.get(purpose, '브라운')
+            spec['bag'] = {'item_ko': bag, 'item_en': bag, 'color_ko': bag_color}
+        
+        # ── 시계 (MVP 비활성) ──
+        formal_purposes = ["비즈니스 포멀","데일리 오피스룩","면접룩","결혼식 하객룩","상견례/가족모임"]
+        if purpose in formal_purposes:
+            spec['watch'] = {'item_ko': '클래식 시계', 'item_en': 'classic watch', 'color_ko': '실버'}
+        
+        # ── 스카프/목도리 (MVP 비활성) ──
+        _age_num = metadata.get('age', 30)
+        try: _age_num = int(_age_num)
+        except: _age_num = 30
+        if gender == "F" and _age_num >= 30:
+            if temp < 13 and temp >= 8:
+                spec['scarf'] = {'item_ko': '실크 스카프', 'item_en': 'silk scarf', 'color_ko': '베이지'}
+            elif temp >= 1 and temp < 8:
+                spec['scarf'] = {'item_ko': '코튼 스카프', 'item_en': 'cotton scarf', 'color_ko': '라이트 베이지'}
+            elif temp >= -9 and temp < 1:
+                spec['scarf'] = {'item_ko': '캐시미어 목도리', 'item_en': 'cashmere muffler', 'color_ko': '그레이'}
+            elif temp < -9:
+                spec['scarf'] = {'item_ko': '울 목도리', 'item_en': 'wool muffler', 'color_ko': '차콜'}
+        elif gender == "M":
+            if temp >= 1 and temp < 8:
+                spec['scarf'] = {'item_ko': '캐시미어 목도리', 'item_en': 'cashmere muffler', 'color_ko': '차콜'}
+            elif temp < 1:
+                spec['scarf'] = {'item_ko': '울 목도리', 'item_en': 'wool muffler', 'color_ko': '차콜'}
+    # END if False (MVP 비활성 블록)
     
-    # ── 시계 (포멀 계열) ──
-    formal_purposes = ["비즈니스 포멀","데일리 오피스룩","면접룩","결혼식 하객룩","상견례/가족모임"]
-    if purpose in formal_purposes:
-        spec['watch'] = {'item_ko': '클래식 시계', 'item_en': 'classic watch', 'color_ko': '실버'}
-    
-    # ── 스카프/목도리 (여자 30대 이상 + 온도 조건) ──
-    # [2026-04-06 추가] 스카프 추천 조건:
-    # 1) 여자만 (남자는 목도리만 — 1도 이하)
-    # 2) 30대 이상만 (20대 이하에게 스카프 추천 안 함)
-    # 3) 온도 기준: 여자 13도 미만, 남자 8도 미만
-    # 4) 가방에 이미 스카프가 있으면 목 스카프 제외
-    _age_num = metadata.get('age', 30)
-    try: _age_num = int(_age_num)
-    except: _age_num = 30
-    
-    _has_bag_scarf = False  # 가방에 스카프 달린 경우 추적
-    
-    if gender == "F" and _age_num >= 30:
-        if temp < 13 and temp >= 8:
-            spec['scarf'] = {'item_ko': '실크 스카프', 'item_en': 'silk scarf', 'color_ko': '베이지'}
-        elif temp >= 1 and temp < 8:
-            spec['scarf'] = {'item_ko': '코튼 스카프', 'item_en': 'cotton scarf', 'color_ko': '라이트 베이지'}
-        elif temp >= -9 and temp < 1:
-            spec['scarf'] = {'item_ko': '캐시미어 목도리', 'item_en': 'cashmere muffler', 'color_ko': '그레이'}
-        elif temp < -9:
-            spec['scarf'] = {'item_ko': '울 목도리', 'item_en': 'wool muffler', 'color_ko': '차콜'}
-    elif gender == "M":
-        if temp >= 1 and temp < 8:
-            spec['scarf'] = {'item_ko': '캐시미어 목도리', 'item_en': 'cashmere muffler', 'color_ko': '차콜'}
-        elif temp < 1:
-            spec['scarf'] = {'item_ko': '울 목도리', 'item_en': 'wool muffler', 'color_ko': '차콜'}
-    
-    # ── 양말 (남성) ──
+    # ── 양말 (남성) — MVP에서는 유지 (필수 아이템) ──
     if gender == "M":
         spec['socks'] = {'item_ko': '톤온톤 삭스', 'item_en': 'tone-on-tone socks', 'color_ko': ''}
     
@@ -1626,18 +1746,18 @@ def generate_outfit_spec(metadata, stylist):
 
 def outfit_spec_to_prompt(spec):
     """
-    [2026-04-06 보강] 착장 스펙 → 이미지 생성 프롬프트 블록 변환
-    - 스카프는 TOP과 별도로 지시 (중복 방지)
-    - 가방 스카프 vs 목 스카프 충돌 방지
+    [v14 2026-04-26 TJ MVP] 착장 스펙 → 이미지 생성 프롬프트 블록
+    MVP 베이직: (아우터) + 상의 + 하의 + 신발 + (남성 양말)
+    가방/시계/스카프/목도리 모두 ABSOLUTE RULES에서 절대 금지
     """
     lines = ["\n=== OUTFIT SPECIFICATION (MUST FOLLOW EXACTLY) ==="]
     cat_labels = {
-        'outer': 'OUTER/JACKET', 'top': 'TOP/INNER',
-        'bottom': 'BOTTOM', 'shoes': 'SHOES',
-        'scarf': 'SCARF/NECKWEAR', 'bag': 'BAG',
-        'watch': 'WATCH', 'socks': 'SOCKS',
+        'outer':  'OUTER/JACKET',
+        'top':    'TOP/INNER',
+        'bottom': 'BOTTOM',
+        'shoes':  'SHOES',
+        'socks':  'SOCKS',
     }
-    has_scarf = 'scarf' in spec
     for cat, label in cat_labels.items():
         if cat in spec:
             s = spec[cat]
@@ -1646,16 +1766,9 @@ def outfit_spec_to_prompt(spec):
             desc = f"{color} {item}".strip() if color else item
             lines.append(f"[{label}]: {desc}")
     
-    # 스카프 중복 방지 지시
-    if has_scarf:
-        lines.append("SCARF RULE: The scarf must be worn around the NECK only.")
-        lines.append("Do NOT attach scarf to the bag. Scarf and bag are separate items.")
-    
-    # TOP과 스카프 분리 강조
-    lines.append("IMPORTANT: TOP/INNER is the main clothing item (shirt/blouse/knit).")
-    if has_scarf:
-        lines.append("SCARF is a SEPARATE accessory worn around the neck, NOT part of the top.")
-    
+    lines.append("IMPORTANT: TOP/INNER is the main clothing item (shirt/blouse/knit/T-shirt).")
+    lines.append("This outfit MUST NOT include any of: bag, watch, scarf, muffler, hat, sunglasses, jewelry.")
+    lines.append("Both hands must be EMPTY. Both wrists must be BARE.")
     lines.append("Follow this outfit specification EXACTLY. Each category color and design must match.")
     lines.append("=== END OUTFIT SPEC ===\n")
     return "\n".join(lines)
