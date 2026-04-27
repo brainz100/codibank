@@ -1607,12 +1607,11 @@
     -webkit-overflow-scrolling:touch;
   }
   .csty-result-img-box.has-result::-webkit-scrollbar{height:0;width:0;display:none;}
-  /* 정/후면 모드에서 이미지가 박스 너비×2로 자연 비율 표시 */
+  /* 정/후면 모드에서 이미지가 박스 너비×2로 자연 비율 표시 
+   * [2026-04-26 v22 TJ] width:auto !important 제거 — JS에서 box.W*2로 강제 설정 */
   .csty-result-img-box.has-result img.tr-result-image{
     position:relative;
     display:block;
-    height:100% !important;
-    width:auto !important;
     max-width:none !important;
     object-fit:cover;
     scroll-snap-align:start;
@@ -2650,7 +2649,11 @@ function setMode(mode, skipReset){
     $$('.twopiece-only').forEach(el => el.style.display = '');
     $$('.onepiece-only').forEach(el => el.style.display = 'none');
     $$('.outer-only').forEach(el => el.style.display = 'none');
-    $$('.twopiece-onepiece-only').forEach(el => el.style.display = '');
+    // [2026-04-26 v22 TJ 지시3] 투피스 모드 옵션: 신발만 (아우터 옵션 슬롯 제거)
+    // 이전: twopiece-onepiece-only(아우터 옵션) 표시 → 옵션 = 아우터 + 신발
+    // 변경: 아우터 옵션 슬롯 숨김 → 옵션 = 신발만
+    // ※ 모드 선택 영역의 '아우터' 모드 자체는 그대로 유지 (mode-btn에서 선택 가능)
+    $$('.twopiece-onepiece-only').forEach(el => el.style.display = 'none');
     // [2026-04-23 08:30 TJ 지시3] outer 모드 전용 옵션 슬롯 숨김
     $$('.outer-opt-only').forEach(el => el.style.display = 'none');
   } else if(mode === 'onepiece'){
@@ -3036,23 +3039,21 @@ function renderStep1(){
     if(s.role === 'optional' && s.filled) optHave++;
   });
   // [2026-04-23 08:30] 옵션 슬롯 개수는 모드에 따라 다름
-  //   twopiece: 아우터 + 신발 = 2
+  //   twopiece: 신발 = 1 (v22 TJ: 아우터 옵션 제거)
   //   onepiece: 아우터 + 신발 = 2
   //   outer:    상의 + 하의 + 신발 = 3 (옵션 아우터 없음, 아우터는 필수로 승격)
-  const optTotal = (state.mode === 'outer') ? 3 : 2;
+  const optTotal = (state.mode === 'outer') ? 3 : (state.mode === 'twopiece') ? 1 : 2;
   $('#reqCount').textContent = `${reqHave}/${reqNeed}`;
   $('#optCount').textContent = `${optHave}/${optTotal}`;
 
   const allReq = reqHave === reqNeed && reqNeed > 0;
   if(allReq){
-    const wasNotDone = !state.stepDone[1];
     state.stepDone[1] = true;
     const names = Object.entries(state.slots).filter(([,s])=>s.filled).map(([t])=>SLOT_LABELS[t]);
     $('#step1Summary').textContent = names.join(' · ');
-    // Step 1이 방금 완료되었고, 현재 Step 1이면 Step 2 자동 전환
-    if(wasNotDone && state.currentStep === 1){
-      setTimeout(() => setStep(2), 400);
-    }
+    // [2026-04-26 v22 TJ 작업4-1] 자동 Step 2 전환 제거
+    // 이전: setStep(2)를 setTimeout으로 자동 호출 → 사용자 흐름 끊김
+    // 변경: 사용자가 직접 Step 2 헤더를 눌러 이동
   } else {
     state.stepDone[1] = false;
     $('#step1Summary').textContent = '상의 · 하의 · 아우터 · 신발을 선택하세요';
@@ -3068,6 +3069,48 @@ const fitSwitch = $('#fitSwitch');
 fitSwitch.querySelectorAll('.mode-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const fit = btn.dataset.fit;
+    
+    // [2026-04-26 v22 TJ 작업4-2] 슬롯이 채워진 상태에서 fit 변경 시 팝업 확인
+    // 사용자 의도 보호: 의도치 않은 변경으로 Step1 작업이 사라지지 않도록
+    var _hasFilled = false;
+    try {
+      Object.values(state.slots).forEach(s => { if(s && s.filled) _hasFilled = true; });
+    } catch(_){}
+    
+    // 같은 fit을 다시 누르거나 슬롯이 비어있으면 팝업 없이 진행
+    if(_hasFilled && state.fitTarget && fit !== state.fitTarget){
+      var _proceed = window.confirm(
+        '입혀볼 대상을 변경하시겠어요?\n\n' +
+        '"확인"을 누르면 선택한 아이템이 초기화됩니다.\n' +
+        '"취소"를 누르면 현재 아이템을 그대로 유지합니다.'
+      );
+      if(_proceed){
+        // 변경 — Step1 슬롯 리셋
+        try {
+          Object.keys(state.slots).forEach(k => {
+            if(state.slots[k]){
+              state.slots[k].filled = false;
+              state.slots[k].item = null;
+            }
+            // outer-main 같은 변형 도메인 타입도 리셋
+            if(typeof resetSlotUI === 'function'){
+              resetSlotUI(k === 'outer' ? 'outer' : k);
+            }
+          });
+          state.stepDone[1] = false;
+          if(typeof renderStep1 === 'function') renderStep1();
+        } catch(e){ console.warn('[v22 fit-change reset] failed:', e); }
+      } else {
+        // 유지 — fit 변경 자체를 취소 (active 클래스 원래대로 복원)
+        var _curFit = state.fitTarget;
+        fitSwitch.querySelectorAll('.mode-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.fit === _curFit)
+        );
+        return;
+      }
+    }
+    
+    // 정상 fit 변경 처리
     state.fitTarget = fit;
     fitSwitch.dataset.fit = fit;
     fitSwitch.querySelectorAll('.mode-btn').forEach(b =>
@@ -3470,14 +3513,13 @@ function _tryonApplyResult(data){
       //   - 정면/후면 토글 버튼 (한 번 터치로 즉시 이동)
       // 단일 인물 이미지(가로 짧음)는 기존 contain 방식 유지
       // 
-      // [2026-04-26 v21 TJ] 코디핏 v19 패턴 적용:
-      //   - IMG 늘리기 → canvas 좌/우 분할 cover 방식
-      //   - 정면/후면 인물이 각자 박스 중앙에 정확히 위치
-      //   - 박스 비율 1/1.62 (코디핏과 통일됨)
+      // [2026-04-26 v22 TJ] 단순화 — IMG 단일 방식 (canvas 폐기)
+      //   - 코디핏 closet.html과 동일한 단순 패턴
+      //   - IMG 너비를 박스 너비×2로 강제 → scrollLeft로 정/후면 전환
+      //   - object-fit: cover 로 박스 풀 채움
       // ─────────────────────────────────────────────────────
       imgWrap.innerHTML = ''
         + '<div class="csty-result-img-box" id="trResultBox">'
-        +   '<canvas id="trResultCanvas" style="display:none;"></canvas>'
         +   '<img id="trResultImg" src="' + imgSrc + '" alt="트라이온 결과" '
         +       'style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:12px;display:block;">'
         +   '<div id="trPoseToggle" class="tr-pose-toggle hidden">'
@@ -3498,75 +3540,29 @@ function _tryonApplyResult(data){
           var ratio = iw / ih;
           var isWide = ratio > 1.2;  // 정+후면 가로 긴 이미지
           var box = document.getElementById('trResultBox');
-          var canvas = document.getElementById('trResultCanvas');
           var toggle = document.getElementById('trPoseToggle');
           var hint = document.getElementById('trPoseHint');
           if(!box) return;
           
-          if(isWide && canvas){
-            // ─── [v21 TJ] 코디핏 v19 패턴 — canvas 좌/우 분할 cover ───
-            // 정/후면 모드: IMG 숨기고 canvas로 좌/우 절반 분할 그리기
-            _img.style.display = 'none';
-            canvas.style.display = 'block';
-            
+          if(isWide){
+            // [v22] 정/후면 모드 — IMG를 박스 너비×2로 늘림 (코디핏과 동일)
             box.classList.add('has-result');
+            _img.classList.add('tr-result-image');
             
-            var DPR = window.devicePixelRatio || 1;
             var boxRect = box.getBoundingClientRect();
             var boxW = Math.max(1, boxRect.width);
             var boxH = Math.max(1, boxRect.height);
             
-            // 캔버스 = 박스 너비×2 × 박스 높이 (정/후면 각자 1폭)
-            var dispW = boxW * 2;
-            var dispH = boxH;
+            // 핵심: IMG가 박스 너비×2 + 박스 높이 = 좌측 절반 정면, 우측 절반 후면
+            _img.style.width = (boxW * 2) + 'px';
+            _img.style.height = boxH + 'px';
+            _img.style.maxWidth = 'none';
+            _img.style.maxHeight = 'none';
+            _img.style.objectFit = 'cover';
+            _img.style.borderRadius = '0';
+            _img.style.display = 'block';
             
-            canvas.width  = Math.round(dispW * DPR);
-            canvas.height = Math.round(dispH * DPR);
-            canvas.style.width  = dispW + 'px';
-            canvas.style.height = dispH + 'px';
-            canvas.style.position = 'relative';
-            canvas.classList.add('tr-result-image');
-            
-            var ctx = canvas.getContext('2d');
-            ctx.setTransform(DPR,0,0,DPR,0,0);
-            ctx.clearRect(0,0,dispW,dispH);
-            
-            // [v19 코디핏 동일 정책] 좌/우 절반 각각 cover로 박스 중앙 위치
-            var halfIw = iw / 2;
-            var boxRatio = boxW / boxH;
-            var halfRatio = halfIw / ih;
-            
-            // 좌측 절반(정면) → 캔버스 0~boxW
-            var lsx, lsy, lsw, lsh;
-            if(halfRatio > boxRatio){
-              lsh = ih;
-              lsw = ih * boxRatio;
-              lsx = (halfIw - lsw) / 2;  // 좌측 절반 안의 가로 중앙
-              lsy = 0;
-            } else {
-              lsw = halfIw;
-              lsh = halfIw / boxRatio;
-              lsx = 0;
-              lsy = (ih - lsh) / 2;
-            }
-            ctx.drawImage(_img, lsx, lsy, lsw, lsh, 0, 0, boxW, boxH);
-            
-            // 우측 절반(후면) → 캔버스 boxW~2*boxW
-            var rsx, rsy, rsw, rsh;
-            if(halfRatio > boxRatio){
-              rsh = ih;
-              rsw = ih * boxRatio;
-              rsx = halfIw + (halfIw - rsw) / 2;
-              rsy = 0;
-            } else {
-              rsw = halfIw;
-              rsh = halfIw / boxRatio;
-              rsx = halfIw;
-              rsy = (ih - rsh) / 2;
-            }
-            ctx.drawImage(_img, rsx, rsy, rsw, rsh, boxW, 0, boxW, boxH);
-            
-            box.scrollLeft = 0;  // 정면이 박스 좌측에 정렬
+            box.scrollLeft = 0;  // 정면이 박스 좌측 정중앙에 위치
             
             // 토글/힌트 표시
             if(toggle) toggle.classList.remove('hidden');
@@ -3603,56 +3599,18 @@ function _tryonApplyResult(data){
               });
             }
             
-            // resize 시 캔버스 너비 박스W×2 재조정 (정/후면 위치 유지)
+            // resize 시 IMG 너비 박스W×2 재조정 (정/후면 위치 유지)
             var _resizeTimer = null;
             window.addEventListener('resize', function(){
               clearTimeout(_resizeTimer);
               _resizeTimer = setTimeout(function(){
-                if(!canvas || !box || !_img) return;
+                if(!_img || !box) return;
                 var r = box.getBoundingClientRect();
-                var newBoxW = Math.max(1, r.width);
-                var newBoxH = Math.max(1, r.height);
                 var sx = box.scrollLeft;
                 var sw_old = box.scrollWidth - box.clientWidth;
                 var isBack = sx > sw_old / 2;
-                
-                var newDispW = newBoxW * 2;
-                var newDispH = newBoxH;
-                canvas.width  = Math.round(newDispW * DPR);
-                canvas.height = Math.round(newDispH * DPR);
-                canvas.style.width  = newDispW + 'px';
-                canvas.style.height = newDispH + 'px';
-                
-                var ctx2 = canvas.getContext('2d');
-                ctx2.setTransform(DPR,0,0,DPR,0,0);
-                ctx2.clearRect(0,0,newDispW,newDispH);
-                
-                var nBoxRatio = newBoxW / newBoxH;
-                var nHalfIw = iw / 2;
-                var nHalfRatio = nHalfIw / ih;
-                
-                // 좌측 정면
-                var nlsx, nlsy, nlsw, nlsh;
-                if(nHalfRatio > nBoxRatio){
-                  nlsh = ih; nlsw = ih * nBoxRatio;
-                  nlsx = (nHalfIw - nlsw) / 2; nlsy = 0;
-                } else {
-                  nlsw = nHalfIw; nlsh = nHalfIw / nBoxRatio;
-                  nlsx = 0; nlsy = (ih - nlsh) / 2;
-                }
-                ctx2.drawImage(_img, nlsx, nlsy, nlsw, nlsh, 0, 0, newBoxW, newBoxH);
-                
-                // 우측 후면
-                var nrsx, nrsy, nrsw, nrsh;
-                if(nHalfRatio > nBoxRatio){
-                  nrsh = ih; nrsw = ih * nBoxRatio;
-                  nrsx = nHalfIw + (nHalfIw - nrsw) / 2; nrsy = 0;
-                } else {
-                  nrsw = nHalfIw; nrsh = nHalfIw / nBoxRatio;
-                  nrsx = nHalfIw; nrsy = (ih - nrsh) / 2;
-                }
-                ctx2.drawImage(_img, nrsx, nrsy, nrsw, nrsh, newBoxW, 0, newBoxW, newBoxH);
-                
+                _img.style.width = (r.width * 2) + 'px';
+                _img.style.height = r.height + 'px';
                 requestAnimationFrame(function(){
                   var sw_new = box.scrollWidth - box.clientWidth;
                   box.scrollLeft = isBack ? sw_new : 0;
