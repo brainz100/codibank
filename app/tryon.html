@@ -1577,10 +1577,18 @@
 
   /* [codistyle 원본] 세련된 이미지 뷰박스
      [2026-04-24 TJ 지시1] aspect-ratio 1/1.6 → 9/16 (이미지 생성 비율과 정확 매칭)
-     [2026-04-26 v24 TJ] 9/16 → 1/1.62 (코디핏 박스와 통일) */
+     [2026-04-27 v26 TJ] 코디핏 .vto-result-box 패턴 100% 동일 적용
+       기존: display:flex + overflow:hidden → 이미지가 박스에 contain으로 작게 표시됨
+       변경: display:block + overflow-x:auto + scroll-snap (코디핏과 동일)
+             빈 상태(.csty-empty)에만 flex 정렬 적용 */
   .csty-result-img-box{
-    width:100%;aspect-ratio:1/1.62;border-radius:20px;overflow:hidden;position:relative;
-    display:flex;align-items:center;justify-content:center;
+    width:100%;
+    aspect-ratio:1/1.62;
+    border-radius:20px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    position:relative;
+    display:block;
     background:
       radial-gradient(ellipse 80% 60% at 50% 40%, rgba(53,162,159,0.08) 0%, transparent 60%),
       linear-gradient(160deg, #0B1238 0%, #050A24 100%);
@@ -1589,33 +1597,28 @@
       inset 0 1px 0 rgba(151,254,237,0.05),
       inset 0 -1px 0 rgba(0,0,0,0.3),
       0 8px 24px rgba(0,0,0,0.25);
-  }
-  .csty-result-img{width:100%;height:100%;border-radius:20px;display:block;object-fit:cover;}
-  
-  /* ─────────────────────────────────────────────────────────────
-   * [2026-04-27 v24 TJ] 트라이온 정/후면 표시 — 코디핏 동일 패턴
-   * .pose-mode 클래스가 추가된 박스: 가로 스크롤 + 정/후면 분할
-   * ───────────────────────────────────────────────────────────── */
-  .csty-result-img-box.pose-mode{
-    display:block !important;
-    align-items:initial !important;
-    justify-content:initial !important;
-    overflow-x:auto !important;
-    overflow-y:hidden !important;
     scroll-behavior:smooth;
     scroll-snap-type:x mandatory;
     -webkit-overflow-scrolling:touch;
   }
-  .csty-result-img-box.pose-mode::-webkit-scrollbar{height:0;width:0;display:none;}
-  .csty-result-img-box.pose-mode > .pose-canvas{
+  .csty-result-img-box::-webkit-scrollbar{height:0;width:0;display:none;}
+  /* 빈 상태(로딩/단일이미지 contain) — flex 정렬 */
+  .csty-result-img-box.csty-empty{
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+  }
+  /* canvas 표시 — 정/후면 모드 */
+  .csty-canvas{display:none;}
+  .csty-canvas.csty-result-image{
     display:block !important;
     height:100% !important;
     position:relative !important;
+    inset:auto !important;
     scroll-snap-align:start;
     border-radius:0;
   }
-  /* 정/후면 토글 버튼 — 글래스모피즘 (코디핏과 동일) */
-  .pose-toggle{
+  
+  /* ─── [v26 TJ 2026-04-27] 정/후면 토글 버튼 (코디핏과 100% 동일) ─── */
+  .csty-pose-toggle{
     position:absolute;left:50%;bottom:14px;
     transform:translateX(-50%);
     display:flex;gap:2px;z-index:10;
@@ -1628,8 +1631,8 @@
     transition:opacity .25s;
     pointer-events:auto;
   }
-  .pose-toggle.hidden{opacity:0;pointer-events:none;display:none;}
-  .pose-btn{
+  .csty-pose-toggle.hidden{opacity:0;pointer-events:none;display:none;}
+  .csty-pose-btn{
     padding:5px 16px;
     border-radius:999px;
     background:transparent;
@@ -1643,14 +1646,14 @@
     font-family:'Noto Sans KR', sans-serif;
     text-shadow:0 1px 2px rgba(0,0,0,0.18);
   }
-  .pose-btn:active{transform:scale(0.96);}
-  .pose-btn.active{
+  .csty-pose-btn:active{transform:scale(0.96);}
+  .csty-pose-btn.active{
     background:rgba(151,254,237,0.85);
     color:#050a24;
     text-shadow:none;
     box-shadow:0 1px 3px rgba(0,0,0,0.12);
   }
-  .pose-hint{
+  .csty-pose-hint{
     position:absolute;right:12px;top:12px;z-index:10;
     font-size:9px;font-weight:700;
     color:rgba(255,255,255,0.85);
@@ -1662,16 +1665,16 @@
     display:flex;align-items:center;gap:4px;
     pointer-events:none;
     text-shadow:0 1px 2px rgba(0,0,0,0.18);
-    animation:posePulse 2s ease-in-out infinite;
+    animation:cstyPosePulse 2s ease-in-out infinite;
   }
-  .pose-hint.hidden{display:none;}
-  @keyframes posePulse{
+  .csty-pose-hint.hidden{display:none;}
+  @keyframes cstyPosePulse{
     0%,100%{opacity:0.7;transform:translateX(0);}
     50%{opacity:1;transform:translateX(-3px);}
   }
-
+  
   /* 로딩 상태 [2026-04-24 TJ 지시1] aspect-ratio 1/1.6 → 9/16
-     [2026-04-26 v24 TJ] 9/16 → 1/1.62 */
+     [2026-04-27 v26 TJ] 9/16 → 1/1.62 (코디핏과 통일) */
   .img-spin{
     width:100%;aspect-ratio:1/1.62;border-radius:20px;overflow:hidden;position:relative;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
@@ -3368,166 +3371,251 @@ function _tryonApplyResult(data){
     }
     if(imgSrc){
       // ─────────────────────────────────────────────────────
-      // [2026-04-27 v24 TJ] 정/후면 표시 — 코디핏 closet.html 패턴 그대로
-      //   1) 박스를 .pose-mode로 전환 → 가로 스크롤 + scroll-snap
-      //   2) canvas로 좌/우 절반 분할 cover 그리기
-      //   3) 토글 버튼 — '정면'/'후면' 클릭으로 부드러운 이동
+      // [2026-04-27 v26 TJ] 트라이온 결과 표시 — 코디핏 closet.html 패턴 100% 동일
+      //   1) HTML 박스 = .csty-result-img-box.csty-empty (빈 상태 flex 정렬)
+      //   2) HTML 안에 canvas#tryonCanvas 미리 생성 (display:none)
+      //   3) Image 객체로 src 로드 → onload에서 박스 크기 확정 후 canvas 그리기
+      //   4) 정/후면(ratio>1.2) 시:
+      //        - canvas width = boxW*2 → 좌측 절반=정면, 우측 절반=후면 cover
+      //        - 박스에서 csty-empty 제거 → display:block + overflow-x:auto 작동
+      //        - 토글 + 힌트 표시
+      //        - scrollLeft=0 (정면이 정중앙)
+      //   5) 단일 인물 시:
+      //        - canvas width = boxW × boxH 그대로
+      //        - csty-empty 유지 (가운데 정렬)
+      //        - 토글/힌트 숨김
       // ─────────────────────────────────────────────────────
-      console.log('[v24 tryon] 결과 이미지 적용 시작:', imgSrc.substring(0, 80));
+      console.log('[v26 tryon] 결과 표시 시작:', imgSrc.substring(0, 80));
       
-      // 박스 + canvas + 토글 + 힌트 HTML 구성
       imgWrap.innerHTML = ''
-        + '<div class="csty-result-img-box" id="trResultBox" style="display:flex;align-items:center;justify-content:center;">'
-        +   '<canvas id="trPoseCanvas" class="pose-canvas" style="display:none;"></canvas>'
-        +   '<img id="trFallbackImg" src="' + imgSrc + '" alt="트라이온 결과" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:12px;display:block;">'
-        +   '<div id="trPoseToggle" class="pose-toggle hidden">'
-        +     '<button type="button" class="pose-btn active" data-pose="front">정면</button>'
-        +     '<button type="button" class="pose-btn" data-pose="back">후면</button>'
+        + '<div class="csty-result-img-box csty-empty" id="tryonResultBox">'
+        +   '<canvas id="tryonCanvas" class="csty-canvas"></canvas>'
+        +   '<div id="tryonPoseToggle" class="csty-pose-toggle hidden">'
+        +     '<button type="button" class="csty-pose-btn active" data-pose="front">정면</button>'
+        +     '<button type="button" class="csty-pose-btn" data-pose="back">후면</button>'
         +   '</div>'
-        +   '<div id="trPoseHint" class="pose-hint hidden"><span>정·후면</span></div>'
+        +   '<div id="tryonPoseHint" class="csty-pose-hint hidden"><span>정·후면</span></div>'
         + '</div>';
       
-      // 이미지 로드 → 정/후면 판정 → canvas로 그리기
       (function(){
-        var box = document.getElementById('trResultBox');
-        var canvas = document.getElementById('trPoseCanvas');
-        var fallbackImg = document.getElementById('trFallbackImg');
-        var toggle = document.getElementById('trPoseToggle');
-        var hint = document.getElementById('trPoseHint');
-        if(!box || !canvas) return;
+        var box = document.getElementById('tryonResultBox');
+        var canvas = document.getElementById('tryonCanvas');
+        var toggle = document.getElementById('tryonPoseToggle');
+        var hint = document.getElementById('tryonPoseHint');
+        if(!box || !canvas){
+          console.warn('[v26 tryon] 박스 또는 canvas 못 찾음');
+          return;
+        }
         
         var loaderImg = new Image();
         loaderImg.crossOrigin = 'anonymous';
         loaderImg.onerror = function(){
-          console.warn('[v24 tryon] 이미지 로드 실패 — fallback IMG 유지');
+          console.warn('[v26 tryon] 이미지 로드 실패:', imgSrc);
+          // fallback: 박스에 IMG로 표시
+          box.innerHTML = '<img src="' + imgSrc + '" alt="트라이온 결과" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:12px;">';
         };
         loaderImg.onload = function(){
           var iw = loaderImg.naturalWidth || 0;
           var ih = loaderImg.naturalHeight || 0;
-          if(!iw || !ih) return;
-          var ratio = iw / ih;
-          // [2026-04-27 v25 TJ] isWide 판정 보강
-          //   기존: ratio > 1.2 (정확한 가로 와이드만 인식)
-          //   문제: Gemini가 768x1376 (ratio 0.56) 같은 세로형에 정+후면을 가로 배치할 때 false 처리
-          //   변경: 가로형(>1.2) OR 두 인물 가로 배치 추정형(ratio 0.5~0.9 사이도 정/후면 가능성 검사)
-          //         단순 ratio만으로는 단일 인물과 구분 어려우므로,
-          //         단일 인물 portrait는 보통 0.5~0.7 비율이라 충돌 가능 →
-          //         일단 ratio > 1.2 만 정/후면 모드, 그 외엔 단일로 처리.
-          //         백엔드(v25)에서 가로 와이드 강제했으므로 기본 안전.
-          var isWide = ratio > 1.2;
-          
-          console.log('[v24 tryon] 이미지 분석:', iw + 'x' + ih, 'ratio=' + ratio.toFixed(2), 'isWide=' + isWide);
-          
-          if(!isWide){
-            // 단일 인물 이미지: fallback IMG 그대로 표시 (변경 없음)
-            console.log('[v24 tryon] 단일 인물 — IMG 모드 유지');
+          if(!iw || !ih){
+            console.warn('[v26 tryon] 이미지 크기 0');
             return;
           }
-          
-          // [v24] 정/후면 모드 진입 — fallback IMG 숨기고 canvas로 그리기
-          fallbackImg.style.display = 'none';
-          canvas.style.display = 'block';
-          box.classList.add('pose-mode');
-          // 박스의 inline display:flex를 inline 제거 → CSS의 .pose-mode가 작동
-          box.style.display = '';
-          box.style.alignItems = '';
-          box.style.justifyContent = '';
+          var ratio = iw / ih;
+          var isWide = ratio > 1.2;
           
           var DPR = window.devicePixelRatio || 1;
-          var boxRect = box.getBoundingClientRect();
-          var boxW = Math.max(1, boxRect.width);
-          var boxH = Math.max(1, boxRect.height);
-          
-          // 캔버스 = 박스 너비×2 × 박스 높이
-          var dispW = boxW * 2;
-          var dispH = boxH;
-          
-          canvas.width  = Math.round(dispW * DPR);
-          canvas.height = Math.round(dispH * DPR);
-          canvas.style.width  = dispW + 'px';
-          canvas.style.height = dispH + 'px';
-          
-          var ctx = canvas.getContext('2d');
-          ctx.setTransform(DPR,0,0,DPR,0,0);
-          ctx.clearRect(0,0,dispW,dispH);
-          
-          // [코디핏 v19 패턴] 좌/우 절반을 각자 cover로 그려서 인물 박스 중앙 위치
-          var halfIw = iw / 2;
-          var boxRatio = boxW / boxH;
-          var halfRatio = halfIw / ih;
-          
-          // 좌측 절반(정면) → 캔버스 0~boxW
-          var lsx, lsy, lsw, lsh;
-          if(halfRatio > boxRatio){
-            lsh = ih;
-            lsw = ih * boxRatio;
-            lsx = (halfIw - lsw) / 2;
-            lsy = 0;
-          } else {
-            lsw = halfIw;
-            lsh = halfIw / boxRatio;
-            lsx = 0;
-            lsy = (ih - lsh) / 2;
-          }
-          ctx.drawImage(loaderImg, lsx, lsy, lsw, lsh, 0, 0, boxW, boxH);
-          
-          // 우측 절반(후면) → 캔버스 boxW~2*boxW
-          var rsx, rsy, rsw, rsh;
-          if(halfRatio > boxRatio){
-            rsh = ih;
-            rsw = ih * boxRatio;
-            rsx = halfIw + (halfIw - rsw) / 2;
-            rsy = 0;
-          } else {
-            rsw = halfIw;
-            rsh = halfIw / boxRatio;
-            rsx = halfIw;
-            rsy = (ih - rsh) / 2;
-          }
-          ctx.drawImage(loaderImg, rsx, rsy, rsw, rsh, boxW, 0, boxW, boxH);
-          
-          box.scrollLeft = 0;  // 정면 박스 정중앙
-          
-          // 토글/힌트 표시
-          if(toggle) toggle.classList.remove('hidden');
-          if(hint){
-            hint.classList.remove('hidden');
-            setTimeout(function(){ if(hint) hint.classList.add('hidden'); }, 5000);
-          }
-          
-          console.log('[v24 tryon] 정/후면 모드 활성 완료 (canvas ' + dispW + 'x' + dispH + ')');
-          
-          // 스크롤 → 토글 active 동기화
-          if(toggle){
-            var btns = toggle.querySelectorAll('.pose-btn');
-            box.addEventListener('scroll', function(){
-              var sx = box.scrollLeft;
-              var sw = box.scrollWidth - box.clientWidth;
-              var isBack = sx > sw / 2;
-              if(btns[0]) btns[0].classList.toggle('active', !isBack);
-              if(btns[1]) btns[1].classList.toggle('active', isBack);
-              if(hint && sx > 5) hint.classList.add('hidden');
-            }, {passive:true});
+          // requestAnimationFrame으로 박스 크기 확정 후 그리기 (CSS 적용 보장)
+          requestAnimationFrame(function(){
+            var boxRect = box.getBoundingClientRect();
+            var boxW = Math.max(1, boxRect.width);
+            var boxH = Math.max(1, boxRect.height);
             
-            // 토글 버튼 클릭 — 한 번 터치로 정/후면 즉시 이동
-            btns.forEach(function(b){
-              b.addEventListener('click', function(){
-                var pose = b.dataset.pose;
-                var sw = box.scrollWidth - box.clientWidth;
-                if(pose === 'front'){
-                  box.scrollTo({ left: 0, behavior: 'smooth' });
-                } else {
-                  box.scrollTo({ left: sw, behavior: 'smooth' });
-                }
-                if(hint) hint.classList.add('hidden');
+            console.log('[v26 tryon] 분석:',
+              '이미지=' + iw + 'x' + ih,
+              'ratio=' + ratio.toFixed(2),
+              'isWide=' + isWide,
+              '박스=' + Math.round(boxW) + 'x' + Math.round(boxH));
+            
+            // 캔버스 크기 결정
+            var dispW, dispH;
+            if(isWide){
+              dispW = boxW * 2;
+              dispH = boxH;
+            } else {
+              dispW = boxW;
+              dispH = boxH;
+            }
+            
+            canvas.width  = Math.round(dispW * DPR);
+            canvas.height = Math.round(dispH * DPR);
+            canvas.style.width  = dispW + 'px';
+            canvas.style.height = dispH + 'px';
+            canvas.classList.add('csty-result-image');
+            
+            var ctx = canvas.getContext('2d');
+            ctx.setTransform(DPR,0,0,DPR,0,0);
+            ctx.clearRect(0,0,dispW,dispH);
+            
+            if(isWide){
+              // ─── 정/후면 모드 — 코디핏 drawNatural 패턴 그대로 ───
+              // 박스에서 csty-empty 제거 → display:block + overflow-x:auto 작동
+              box.classList.remove('csty-empty');
+              
+              // 좌/우 절반 cover로 박스 중앙 위치
+              var halfIw = iw / 2;
+              var boxRatio = boxW / boxH;
+              var halfRatio = halfIw / ih;
+              
+              // 좌측 절반(정면) → 캔버스 0~boxW
+              var lsx, lsy, lsw, lsh;
+              if(halfRatio > boxRatio){
+                lsh = ih;
+                lsw = ih * boxRatio;
+                lsx = (halfIw - lsw) / 2;
+                lsy = 0;
+              } else {
+                lsw = halfIw;
+                lsh = halfIw / boxRatio;
+                lsx = 0;
+                lsy = (ih - lsh) / 2;
+              }
+              ctx.drawImage(loaderImg, lsx, lsy, lsw, lsh, 0, 0, boxW, boxH);
+              
+              // 우측 절반(후면) → 캔버스 boxW~2*boxW
+              var rsx, rsy, rsw, rsh;
+              if(halfRatio > boxRatio){
+                rsh = ih;
+                rsw = ih * boxRatio;
+                rsx = halfIw + (halfIw - rsw) / 2;
+                rsy = 0;
+              } else {
+                rsw = halfIw;
+                rsh = halfIw / boxRatio;
+                rsx = halfIw;
+                rsy = (ih - rsh) / 2;
+              }
+              ctx.drawImage(loaderImg, rsx, rsy, rsw, rsh, boxW, 0, boxW, boxH);
+              
+              // 정면이 박스 정중앙에 위치
+              box.scrollLeft = 0;
+              
+              // 토글/힌트 표시
+              if(toggle) toggle.classList.remove('hidden');
+              if(hint){
+                hint.classList.remove('hidden');
+                setTimeout(function(){ if(hint) hint.classList.add('hidden'); }, 5000);
+              }
+              
+              console.log('[v26 tryon] 정/후면 모드 활성, canvas=' + dispW + 'x' + dispH);
+              
+              // 스크롤 → 토글 active 동기화
+              if(toggle){
+                var btns = toggle.querySelectorAll('.csty-pose-btn');
+                box.addEventListener('scroll', function(){
+                  var sx = box.scrollLeft;
+                  var sw = box.scrollWidth - box.clientWidth;
+                  var isBack = sx > sw / 2;
+                  if(btns[0]) btns[0].classList.toggle('active', !isBack);
+                  if(btns[1]) btns[1].classList.toggle('active', isBack);
+                  if(hint && sx > 5) hint.classList.add('hidden');
+                }, {passive:true});
+                
+                // 토글 버튼 클릭 — 한 번 터치로 정/후면 즉시 이동
+                btns.forEach(function(b){
+                  b.addEventListener('click', function(){
+                    var pose = b.dataset.pose;
+                    var sw = box.scrollWidth - box.clientWidth;
+                    if(pose === 'front'){
+                      box.scrollTo({ left: 0, behavior: 'smooth' });
+                    } else {
+                      box.scrollTo({ left: sw, behavior: 'smooth' });
+                    }
+                    if(hint) hint.classList.add('hidden');
+                  });
+                });
+              }
+              
+              // resize 시 canvas 재그리기 (정/후면 위치 유지)
+              var _resizeTimer = null;
+              window.addEventListener('resize', function(){
+                clearTimeout(_resizeTimer);
+                _resizeTimer = setTimeout(function(){
+                  if(!canvas || !box) return;
+                  var r = box.getBoundingClientRect();
+                  var nW = Math.max(1, r.width);
+                  var nH = Math.max(1, r.height);
+                  var sx = box.scrollLeft;
+                  var sw_old = box.scrollWidth - box.clientWidth;
+                  var isBack2 = sx > sw_old / 2;
+                  
+                  var nDispW = nW * 2;
+                  var nDispH = nH;
+                  canvas.width  = Math.round(nDispW * DPR);
+                  canvas.height = Math.round(nDispH * DPR);
+                  canvas.style.width  = nDispW + 'px';
+                  canvas.style.height = nDispH + 'px';
+                  
+                  var ctx2 = canvas.getContext('2d');
+                  ctx2.setTransform(DPR,0,0,DPR,0,0);
+                  ctx2.clearRect(0,0,nDispW,nDispH);
+                  
+                  var nBoxRatio = nW / nH;
+                  var nHalfIw = iw / 2;
+                  var nHalfRatio = nHalfIw / ih;
+                  
+                  var nlsx, nlsy, nlsw, nlsh;
+                  if(nHalfRatio > nBoxRatio){
+                    nlsh = ih; nlsw = ih * nBoxRatio;
+                    nlsx = (nHalfIw - nlsw) / 2; nlsy = 0;
+                  } else {
+                    nlsw = nHalfIw; nlsh = nHalfIw / nBoxRatio;
+                    nlsx = 0; nlsy = (ih - nlsh) / 2;
+                  }
+                  ctx2.drawImage(loaderImg, nlsx, nlsy, nlsw, nlsh, 0, 0, nW, nH);
+                  
+                  var nrsx, nrsy, nrsw, nrsh;
+                  if(nHalfRatio > nBoxRatio){
+                    nrsh = ih; nrsw = ih * nBoxRatio;
+                    nrsx = nHalfIw + (nHalfIw - nrsw) / 2; nrsy = 0;
+                  } else {
+                    nrsw = nHalfIw; nrsh = nHalfIw / nBoxRatio;
+                    nrsx = nHalfIw; nrsy = (ih - nrsh) / 2;
+                  }
+                  ctx2.drawImage(loaderImg, nrsx, nrsy, nrsw, nrsh, nW, 0, nW, nH);
+                  
+                  requestAnimationFrame(function(){
+                    var sw_new = box.scrollWidth - box.clientWidth;
+                    box.scrollLeft = isBack2 ? sw_new : 0;
+                  });
+                }, 200);
               });
-            });
-          }
+              
+            } else {
+              // ─── 단일 인물 모드 — canvas 1폭으로 cover 그리기 ───
+              var cvsRatio = dispW / dispH;
+              var sx, sy, sw, sh;
+              if(ratio > cvsRatio){
+                sh = ih; sw = ih * cvsRatio;
+                sx = (iw - sw) / 2; sy = 0;
+              } else {
+                sw = iw; sh = iw / cvsRatio;
+                sx = 0; sy = (ih - sh) / 2;
+              }
+              ctx.drawImage(loaderImg, sx, sy, sw, sh, 0, 0, dispW, dispH);
+              // 단일 인물: csty-empty 유지 (flex 정렬 + canvas absolute 안 됨)
+              // 위에서 canvas는 csty-result-image 클래스 추가됨 → display:block로 표시됨
+              // box는 여전히 csty-empty라 flex이지만 canvas가 절대 위치 없이 그려짐
+              // → 이 경우엔 csty-empty 제거하고 그냥 block 처리
+              box.classList.remove('csty-empty');
+              console.log('[v26 tryon] 단일 모드 활성, canvas=' + dispW + 'x' + dispH);
+            }
+          });
         };
         loaderImg.src = imgSrc;
       })();
     } else {
-      imgWrap.innerHTML = '<div class="csty-result-img-box" style="background:linear-gradient(135deg,#0B1238,#1a2554);display:flex;align-items:center;justify-content:center;color:#97FEED;font-size:13px;font-weight:700;text-align:center;padding:20px;">이미지 생성은 완료되었지만<br>결과 URL을 받지 못했어요<br><span style="font-size:10px;color:rgba(151,254,237,.5);margin-top:8px;display:block;">잠시 후 다시 시도해 주세요</span></div>';
+      imgWrap.innerHTML = '<div class="csty-result-img-box csty-empty" style="background:linear-gradient(135deg,#0B1238,#1a2554);display:flex;align-items:center;justify-content:center;color:#97FEED;font-size:13px;font-weight:700;text-align:center;padding:20px;">이미지 생성은 완료되었지만<br>결과 URL을 받지 못했어요<br><span style="font-size:10px;color:rgba(151,254,237,.5);margin-top:8px;display:block;">잠시 후 다시 시도해 주세요</span></div>';
     }
   }
 
@@ -3668,7 +3756,7 @@ $('#finalGenerate').addEventListener('click', async () => {
   //   - 가상 진행률 인터벌 (20% → 30% → ... → 99% max, 실제 응답 오면 100%)
   const imgWrap = document.getElementById('imgWrap');
   if(imgWrap){
-    imgWrap.innerHTML = '<div class="csty-result-img-box"><div class="img-spin">'
+    imgWrap.innerHTML = '<div class="csty-result-img-box csty-empty"><div class="img-spin">'
       + '<div class="spin-pct" id="imgSpinPct">0<span class="spin-pct-sym">%</span></div>'
       + '<div class="cb-rainbow-cs animating">'
       + '<span>c</span><span>o</span><span>d</span><span>i</span>'
@@ -3780,7 +3868,7 @@ $('#finalGenerate').addEventListener('click', async () => {
     btn.innerHTML = originalHTML;
     // 이미지 뷰박스 복원
     if(imgWrap){
-      imgWrap.innerHTML = '<div class="csty-result-img-box"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.5;color:#ff6b6b;">생성 실패 — 다시 시도해 주세요</p></div></div>';
+      imgWrap.innerHTML = '<div class="csty-result-img-box csty-empty"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.5;color:#ff6b6b;">생성 실패 — 다시 시도해 주세요</p></div></div>';
     }
     const sTxt2 = document.getElementById('sTxt');
     if(sTxt2) sTxt2.textContent = '생성 실패';
@@ -3958,7 +4046,7 @@ if(csBtnReset) csBtnReset.addEventListener('click', () => {
   // 이미지 뷰박스 기본 상태로 복원
   const imgWrap = document.getElementById('imgWrap');
   if(imgWrap){
-    imgWrap.innerHTML = '<div class="csty-result-img-box"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.3">아이템을 고르고 생성 버튼을 눌러주세요</p></div></div>';
+    imgWrap.innerHTML = '<div class="csty-result-img-box csty-empty"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.3">아이템을 고르고 생성 버튼을 눌러주세요</p></div></div>';
   }
   // 저장/공유/리셋 비활성화
   ['csBtn_save','csBtn_share','csBtn_reset'].forEach(id => {
