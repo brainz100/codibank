@@ -23,24 +23,36 @@ def _build_pc_prompt_block(personal_color, mode="styling"):
     style_tip = personal_color.get("style_tip", "")
 
     if mode == "styling":
+        # ─── [2026-04-26 v21 TJ] 컬러 자유도 증가 ───
+        # 이전: "Outfit MUST use colors from best palette" → 매번 같은 best 5색만 사용
+        # 변경: avoid 컬러만 강력 제외 + best는 우선 가이드 (스타일리스트가 코디 목적/날씨에 맞춰 자유 조합)
         lines = [
             "",
             "PERSONAL COLOR PROFILE (12-Subtype):",
             "  Season: " + season + " (" + (season_en or season_group or undertone) + ")",
             "  Undertone: " + undertone + " | Skin: " + skin_tone,
-            "  Best colors: " + best_names + " (" + best_colors + ")",
-            "  Avoid colors: " + avoid_names + " (" + avoid_colors + ")",
+            "  Recommended palette (for inspiration): " + best_names + " (" + best_colors + ")",
+            "  Colors to AVOID (strict): " + avoid_names + " (" + avoid_colors + ")",
         ]
         if chroma:
             lines.append("  Chroma: " + str(chroma) + " - " + str(clarity))
         lines += [
             "",
-            "  CRITICAL: Outfit MUST use colors from best palette.",
-            "  NEVER use avoid colors as main garment colors.",
-            "  Color harmony must match " + season + " type.",
+            "  COLOR RULES (priority order):",
+            "  1. STRICT: NEVER use any avoid color as a main garment color (top, bottom, dress, outer).",
+            "  2. STRICT: Avoid colors in skin-adjacent areas (collar, neckline, face frame).",
+            "  3. GUIDE: Recommended palette is INSPIRATION, not a hard limit.",
+            "     The stylist may use any color that harmonizes with " + season + " season tone,",
+            "     including neutrals (white, ivory, cream, beige, camel, charcoal, navy, denim blue),",
+            "     and complementary tones that suit the purpose and weather context.",
+            "  4. PRIORITY: The outfit must look natural, season-appropriate, and purpose-fit.",
+            "     Vary the color combinations across generations — DO NOT default to the same",
+            "     palette repeatedly. Different days, different occasions deserve different colors.",
+            "  5. HARMONY: All chosen colors must blend with " + (undertone or season) + " undertone",
+            "     (e.g., warm undertone → avoid pure icy blues; cool undertone → avoid warm yellows).",
         ]
         if style_tip:
-            lines.append("  Style: " + style_tip)
+            lines.append("  Style tip: " + style_tip)
         return "\n".join(lines)
     
     elif mode == "codistyle":
