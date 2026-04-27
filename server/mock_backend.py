@@ -4919,25 +4919,46 @@ def _tryon_build_prompt(
         wearing_bits.append(
             "Dress wearing: natural drape, full-length visible, hem at appropriate level."
         )
-    wearing = " ".join(wearing_bits) if wearing_bits else "Natural, well-fitted wearing style."
+    # [2026-04-26 v20 TJ] 정+후면 두 자세에서 동일 스타일링 보장
+    wearing_bits.append(
+        "CONSISTENCY: Both front and back views must show IDENTICAL wearing style — "
+        "same tuck/untuck, same hem position, same drape, same fit. "
+        "This is the SAME outfit on the SAME person, just photographed from front and back."
+    )
+    wearing = " ".join(wearing_bits) if wearing_bits else "Natural, well-fitted wearing style on both poses."
 
-    # ──────── Phase 4: IMAGE COMPOSITION (전신 엄수 — 2026-04-23 TJ 지시) ────────
-    # 기존: 발끝/신발이 프레임 밖으로 짤리는 문제 발생
-    # 해결: head-to-toe full-body 엄격 규정 + 9:16 세로 비율 + 상하 여백 안내
+    # ──────── Phase 4: IMAGE COMPOSITION (정+후면 한 페이지 — 2026-04-26 v20 TJ) ────────
+    # [2026-04-26 v20 TJ 지시] 코디핏과 동일한 정+후면 두 자세 레이아웃 적용
+    # 이전(v9 단일): 9:16 세로 + 단일 인물 정면
+    # 변경(v20): WIDE 가로 + 좌=정면 / 우=후면, 같은 사람 같은 옷
+    # 클라이언트(tryon.html)는 박스 너비×2 정책 + 토글 버튼으로 정/후면 표시
     image_compo = (
-        "IMAGE FRAMING RULES (MANDATORY — violations are critical errors): "
-        "• ASPECT RATIO: 9:16 vertical portrait (tall). "
-        "• FRAMING: complete FULL-BODY shot from TOP of head to BELOW the feet. "
+        "═══ LAYOUT (CRITICAL — MUST FOLLOW EXACTLY) ═══ "
+        "Output a SINGLE WIDE image with TWO poses of the SAME person, "
+        "side by side, sharing the SAME flat solid neutral background: "
+        "  • LEFT half: FRONT view (full body, facing camera, arms relaxed). "
+        "  • RIGHT half: BACK view (full body, facing AWAY from camera, same pose). "
+        "Aspect ratio: WIDE landscape (approximately 16:9 or 2:1). "
+        "Both views show the EXACT SAME outfit, lighting, hair, and styling. "
+        "The two figures are evenly spaced, not touching, on the same ground line. "
+        "Reference: Uniqlo / Theory store catalog — clean, neutral, minimal. "
+        "═══ END LAYOUT ═══ "
+        "\n\n"
+        "FACE/HEAD RULES: "
+        "• LEFT (front view): Face fully visible — preserve identity 99.99% to the reference face image. "
+        "• RIGHT (back view): Face NOT visible (back of head only). Match only hair color, texture, length, parting, hairline. "
+        "FORBIDDEN: Showing face on the BACK view. "
+        "\n\n"
+        "FRAMING RULES (apply to BOTH poses): "
+        "• Complete FULL-BODY shot from TOP of head to BELOW the feet. "
         "  The ENTIRE shoes must be fully visible including the soles on the ground. "
-        "  The top of the head must have ~8-12% breathing space above. "
-        "  The feet must have ~5-8% breathing space below (never cut at the ankle or shin). "
-        "• POSITION: model is vertically centered but slightly offset to show full outfit. "
+        "  Top of head: ~8-12% breathing space above. "
+        "  Feet: ~5-8% breathing space below (never cut at ankle or shin). "
+        "• Both figures vertically centered in their respective half. "
         "• CROP GUARD: NEVER crop at knees, ankles, shins, calves, or above the shoes. "
-        "  If the outfit is long (midi/maxi dress, long pants), ZOOM OUT so the hem and shoes are fully visible. "
-        "• POSE: natural relaxed standing posture, slight weight-shift to one leg, "
-        "  arms relaxed at sides or one hand slightly on hip. "
-        "• LIGHTING: soft even studio lighting, no harsh shadows. "
-        "• BACKGROUND: clean seamless neutral grey (#E8E8E8). "
+        "• POSE: natural relaxed standing posture for both views. Front = facing camera. Back = facing away. "
+        "• LIGHTING: soft even studio lighting, no harsh shadows, IDENTICAL across both poses. "
+        "• BACKGROUND: clean seamless neutral grey (#E8E8E8) shared by both poses. "
         "• STYLE: photographic realism — NO illustration, NO cartoon, NO anime style."
     )
 
