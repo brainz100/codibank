@@ -3406,7 +3406,15 @@ function _tryonApplyResult(data){
           var ih = loaderImg.naturalHeight || 0;
           if(!iw || !ih) return;
           var ratio = iw / ih;
-          var isWide = ratio > 1.2;  // 정+후면 가로 긴 이미지
+          // [2026-04-27 v25 TJ] isWide 판정 보강
+          //   기존: ratio > 1.2 (정확한 가로 와이드만 인식)
+          //   문제: Gemini가 768x1376 (ratio 0.56) 같은 세로형에 정+후면을 가로 배치할 때 false 처리
+          //   변경: 가로형(>1.2) OR 두 인물 가로 배치 추정형(ratio 0.5~0.9 사이도 정/후면 가능성 검사)
+          //         단순 ratio만으로는 단일 인물과 구분 어려우므로,
+          //         단일 인물 portrait는 보통 0.5~0.7 비율이라 충돌 가능 →
+          //         일단 ratio > 1.2 만 정/후면 모드, 그 외엔 단일로 처리.
+          //         백엔드(v25)에서 가로 와이드 강제했으므로 기본 안전.
+          var isWide = ratio > 1.2;
           
           console.log('[v24 tryon] 이미지 분석:', iw + 'x' + ih, 'ratio=' + ratio.toFixed(2), 'isWide=' + isWide);
           
