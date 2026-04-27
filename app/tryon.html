@@ -2843,10 +2843,49 @@ function resetSlotUI(domType){
 //  복원 시점: DOMContentLoaded에서 loadTryonState() 호출 후 렌더
 // ════════════════════════════════════════════════════════════════
 const TRYON_STATE_KEY = 'tryon_state_v1';
+// [2026-04-26 v20 TJ] 보존 타임아웃 = 10분 (코디핏과 동일)
+const TRYON_TIMEOUT_MS = 10 * 60 * 1000;
 
 function saveTryonState(){
   try {
+    // [v20] 현재 사용자 이메일 (로그아웃/사용자 변경 차단용)
+    const _curEmail = (window.user && window.user.email) || '';
+    
+    // [v20] 생성된 결과 이미지/분석 보존
+    let _resultSnap = null;
+    try {
+      const _img = document.getElementById('trResultImg');
+      const _scoreEl = document.getElementById('csScoreNum');
+      const _scoreDet = document.getElementById('csScoreDetail');
+      // 이미지가 표시 중이고 분석 점수가 있으면 결과 보존
+      if(_img && _img.src && _scoreEl && _scoreEl.textContent && _scoreEl.textContent !== '—'){
+        _resultSnap = {
+          imgSrc: _img.src,  // 결과 이미지 URL/dataUrl
+          isWide: _img.dataset.tryonIsWide || '',
+          // 분석 점수 텍스트 보존 (최소 핵심)
+          scoreNum: _scoreEl.textContent,
+          scoreBarW: (document.getElementById('csScoreBar')||{style:{}}).style.width || '',
+          gradeText: ((document.getElementById('csGradeBadge')||{}).textContent || ''),
+          gradeShow: ((document.getElementById('csGradeBadge')||{style:{}}).style.display || ''),
+          scoreDetailShow: (_scoreDet ? _scoreDet.style.display : ''),
+          reportBtnShow: ((document.getElementById('csReportBtnGroup')||{style:{}}).style.display || ''),
+          scoreTextShow: ((document.getElementById('csScoreText')||{style:{}}).style.display || ''),
+          // 4지표 (있으면)
+          m1: (document.getElementById('csM1')||{}).textContent || '',
+          m2: (document.getElementById('csM2')||{}).textContent || '',
+          m3: (document.getElementById('csM3')||{}).textContent || '',
+          m4: (document.getElementById('csM4')||{}).textContent || '',
+          // stepDone 3 활성 (결과까지 완료)
+          step3Done: !!(state && state.stepDone && state.stepDone[3]),
+        };
+      }
+    } catch(_){}
+    
     const snap = {
+      // [v20] 메타: 타임아웃/사용자 검증용
+      ts: Date.now(),
+      userEmail: _curEmail,
+      // 기존 필드 그대로
       mode: state.mode,
       fitTarget: state.fitTarget,
       modelGender: state.modelGender,
@@ -2856,6 +2895,8 @@ function saveTryonState(){
       bodyHeight: (document.getElementById('bodyHeight')||{}).textContent || '',
       bodyWeight: (document.getElementById('bodyWeight')||{}).textContent || '',
       uploadedFaceDataUrl: state.uploadedFaceDataUrl || '',
+      // [v20] 생성 결과 이미지/분석
+      result: _resultSnap,
     };
     Object.entries(state.slots).forEach(([k, s]) => {
       if(s.filled && s.item){
@@ -2878,6 +2919,19 @@ function loadTryonState(){
     const raw = sessionStorage.getItem(TRYON_STATE_KEY);
     if(!raw) return false;
     const snap = JSON.parse(raw);
+    
+    // [v20] 10분 타임아웃 검증 — 만료 시 자동 삭제
+    if(snap.ts && (Date.now() - snap.ts > TRYON_TIMEOUT_MS)){
+      sessionStorage.removeItem(TRYON_STATE_KEY);
+      return false;
+    }
+    // [v20] 다른 사용자 로그인 시 복원 차단
+    const _curEmail = (window.user && window.user.email) || '';
+    if(_curEmail && snap.userEmail && _curEmail !== snap.userEmail){
+      sessionStorage.removeItem(TRYON_STATE_KEY);
+      return false;
+    }
+    
     // 모드 복원 (setMode 호출하되 슬롯 리셋 방지를 위해 skipReset=true)
     if(snap.mode && snap.mode !== state.mode){
       if(typeof setMode === 'function') setMode(snap.mode, true);
@@ -2923,6 +2977,41 @@ function loadTryonState(){
         circle.innerHTML = '<img src="'+snap.uploadedFaceDataUrl+'" alt="얼굴 사진" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
       }
     }
+    
+    // [v20 TJ] 생성 결과 이미지 + 분석 점수 복원
+    if(snap.result && snap.result.imgSrc){
+      try {
+        // _tryonApplyResult 함수가 결과 표시 처리하므로 동일 형식으로 호출
+        if(typeof _tryonApplyResult === 'function'){
+          _tryonApplyResult({
+            imageUrl: snap.result.imgSrc,
+            // analysis는 비워둠 (점수 텍스트는 직접 복원)
+          });
+          // _tryonApplyResult 내부에서 점수 갱신 후, 보존했던 텍스트로 덮어쓰기
+          setTimeout(function(){
+            try{
+              const _setText = function(id, v){ const e=document.getElementById(id); if(e && v) e.textContent = v; };
+              const _setStyle = function(id, prop, v){ const e=document.getElementById(id); if(e && v) e.style[prop] = v; };
+              _setText('csScoreNum', snap.result.scoreNum);
+              _setStyle('csScoreBar', 'width', snap.result.scoreBarW);
+              _setText('csGradeBadge', snap.result.gradeText);
+              _setStyle('csGradeBadge', 'display', snap.result.gradeShow);
+              _setStyle('csScoreDetail', 'display', snap.result.scoreDetailShow);
+              _setStyle('csReportBtnGroup', 'display', snap.result.reportBtnShow);
+              _setStyle('csScoreText', 'display', snap.result.scoreTextShow);
+              _setText('csM1', snap.result.m1);
+              _setText('csM2', snap.result.m2);
+              _setText('csM3', snap.result.m3);
+              _setText('csM4', snap.result.m4);
+              if(snap.result.step3Done && state && state.stepDone){
+                state.stepDone[3] = true;
+              }
+            }catch(_){}
+          }, 200);
+        }
+      } catch(_e){ console.warn('[v20] 결과 복원 실패:', _e); }
+    }
+    
     return true;
   } catch(e){ console.warn('loadTryonState failed:', e); return false; }
 }
@@ -3591,6 +3680,16 @@ function _tryonApplyResult(data){
   } catch(e) {
     console.warn('[TryOn Premium] data prep failed:', e);
   }
+  
+  // [2026-04-26 v20 TJ] 결과 생성 완료 시점에 즉시 보존
+  // 사용자가 다른 페이지 갔다 와도 생성된 이미지 + 분석 점수 그대로 유지
+  // (10분 이내 + 같은 사용자 + 리셋 안 했을 때만)
+  try {
+    if(typeof saveTryonState === 'function'){
+      // 이미지 로드 후 보존하도록 약간 지연
+      setTimeout(saveTryonState, 300);
+    }
+  } catch(_){}
 }
 
 // ─── finalGenerate 클릭 핸들러 ───
