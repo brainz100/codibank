@@ -458,6 +458,25 @@ def build_styling_prompt(payload, fashion_db):
         f"{'WARM WEATHER RULE: NO blazer, NO jacket, NO cardigan, NO sweater, NO coat, NO heavy layers. Single light layer ONLY. Shirt sleeves can be short or rolled up. Fabrics must be BREATHABLE (cotton, linen, lightweight). ' if temp >= 22 else ''}"
         f"{'COLD WEATHER RULE: Must include warm outer layer (coat/jacket). Layering is essential. Warm fabrics required. ' if temp <= 10 else ''}"
         f"\n\n"
+        # ── [2026-04-27 v25 TJ] 정+후면 가로 와이드 LAYOUT (트라이온과 동일 정책) ──
+        f"🖼️ CRITICAL OUTPUT FORMAT (MUST OBEY — top priority): "
+        f"Generate a HORIZONTAL WIDE image. "
+        f"Output dimensions: 2048 pixels wide × 1024 pixels tall (2:1 aspect ratio). "
+        f"The width MUST be EXACTLY 2× the height. "
+        f"DO NOT generate vertical, portrait, or square images. "
+        f"DO NOT generate 9:16, 3:4, or 1:1 ratios. "
+        f"If you cannot achieve exactly 2:1, output 16:9 (1920×1080) instead. "
+        f"\n\n"
+        f"═══ LAYOUT (within the wide canvas) ═══ "
+        f"Output a SINGLE WIDE image with TWO poses of the SAME person, side by side: "
+        f"  • LEFT half (pixels 0 to 1024 wide): FRONT view (full body, facing camera). "
+        f"  • RIGHT half (pixels 1024 to 2048 wide): BACK view (full body, facing AWAY from camera, same pose). "
+        f"Both views show the EXACT SAME outfit, lighting, hair, and styling. "
+        f"The two figures are evenly spaced, not touching, on the same ground line. "
+        f"FACE/HEAD: LEFT = face fully visible (preserve identity 99.99% to reference). "
+        f"  RIGHT = face NOT visible (back of head only). FORBIDDEN: showing face on the BACK view. "
+        f"═══ END LAYOUT ═══ "
+        f"\n\n"
         # ── 금지 항목 (CRITICAL) ──
         f"=== ABSOLUTE RULES (VIOLATION = GENERATION FAILURE) ===\n"
         f"BODY PROPORTION (CRITICAL): Upper body (head to waist) MUST be 40% or LESS. "
@@ -470,6 +489,7 @@ def build_styling_prompt(payload, fashion_db):
         f"BACKGROUND (ABSOLUTE): Single SOLID FLAT PASTEL COLOR that CONTRASTS with outfit. "
         f"Studio paper backdrop ONLY — NO environment, NO objects, NO props.\n"
         f"NO text, NO watermark, NO logo, NO brand names visible.\n"
+        f"🖼️ FINAL REMINDER: Output WIDTH must be DOUBLE the HEIGHT. Wide horizontal canvas only.\n"
         f"=== END RULES ===\n"
     )
     

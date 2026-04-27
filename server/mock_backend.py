@@ -4927,18 +4927,28 @@ def _tryon_build_prompt(
     )
     wearing = " ".join(wearing_bits) if wearing_bits else "Natural, well-fitted wearing style on both poses."
 
-    # ──────── Phase 4: IMAGE COMPOSITION (정+후면 한 페이지 — 2026-04-26 v20 TJ) ────────
-    # [2026-04-26 v20 TJ 지시] 코디핏과 동일한 정+후면 두 자세 레이아웃 적용
-    # 이전(v9 단일): 9:16 세로 + 단일 인물 정면
-    # 변경(v20): WIDE 가로 + 좌=정면 / 우=후면, 같은 사람 같은 옷
-    # 클라이언트(tryon.html)는 박스 너비×2 정책 + 토글 버튼으로 정/후면 표시
+    # ──────── Phase 4: IMAGE COMPOSITION (정+후면 한 페이지 — 2026-04-27 v25 TJ) ────────
+    # [2026-04-27 v25 TJ 진단] v20 프롬프트로 생성된 이미지가 768x1376 세로형으로 나옴
+    #   원인: Gemini가 "WIDE landscape (16:9 or 2:1)" 지시를 무시하고
+    #         학습된 portrait 비율(9:16)에 두 인물을 가로로 배치
+    #   증거: 콘솔 로그 [v24 tryon] 이미지 분석: 768x1376 ratio=0.56 isWide=false
+    #         → ratio 0.56 (세로) → 정/후면 모드 진입 못 함
+    # [v25 변경] ASPECT RATIO 강제 명령을 *최상단 첫 줄*에 + 픽셀 크기 구체 명시
     image_compo = (
-        "═══ LAYOUT (CRITICAL — MUST FOLLOW EXACTLY) ═══ "
+        "🖼️ CRITICAL OUTPUT FORMAT (MUST OBEY — top priority): "
+        "Generate a HORIZONTAL WIDE image. "
+        "Output dimensions: 2048 pixels wide × 1024 pixels tall (2:1 aspect ratio). "
+        "The width MUST be EXACTLY 2× the height. "
+        "DO NOT generate vertical, portrait, or square images. "
+        "DO NOT generate 9:16, 3:4, or 1:1 ratios. "
+        "If you cannot achieve exactly 2:1, output 16:9 (1920×1080) instead. "
+        "The final image must be WIDER than tall — never the opposite. "
+        "\n\n"
+        "═══ LAYOUT (within the wide canvas) ═══ "
         "Output a SINGLE WIDE image with TWO poses of the SAME person, "
         "side by side, sharing the SAME flat solid neutral background: "
-        "  • LEFT half: FRONT view (full body, facing camera, arms relaxed). "
-        "  • RIGHT half: BACK view (full body, facing AWAY from camera, same pose). "
-        "Aspect ratio: WIDE landscape (approximately 16:9 or 2:1). "
+        "  • LEFT half (pixels 0 to 1024 wide): FRONT view (full body, facing camera, arms relaxed). "
+        "  • RIGHT half (pixels 1024 to 2048 wide): BACK view (full body, facing AWAY from camera, same pose). "
         "Both views show the EXACT SAME outfit, lighting, hair, and styling. "
         "The two figures are evenly spaced, not touching, on the same ground line. "
         "Reference: Uniqlo / Theory store catalog — clean, neutral, minimal. "
@@ -4959,7 +4969,9 @@ def _tryon_build_prompt(
         "• POSE: natural relaxed standing posture for both views. Front = facing camera. Back = facing away. "
         "• LIGHTING: soft even studio lighting, no harsh shadows, IDENTICAL across both poses. "
         "• BACKGROUND: clean seamless neutral grey (#E8E8E8) shared by both poses. "
-        "• STYLE: photographic realism — NO illustration, NO cartoon, NO anime style."
+        "• STYLE: photographic realism — NO illustration, NO cartoon, NO anime style. "
+        "\n\n"
+        "🖼️ FINAL REMINDER: Output WIDTH must be DOUBLE the HEIGHT. Wide horizontal canvas only."
     )
 
     # ──────── Phase 5: IMAGE-ONLY MODE (2026-04-23 17:30 — 병렬 처리 반영) ────────
