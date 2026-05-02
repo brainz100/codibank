@@ -1608,11 +1608,21 @@
   }
   /* canvas 표시 — 정/후면 모드 */
   .csty-canvas{display:none;}
+  /* [2026-05-02 v54 TJ] 정/후면 토글 작동 핵심 픽스
+   * BUG: width:auto / max-width:none / object-fit 누락 → canvas가 박스 너비(boxW)로 압축됨
+   *      → JS는 dispW = boxW*2 로 설정해도 CSS가 박스 너비로 제한 → 정/후면이 함께 보임
+   * FIX: closet.html .vto-canvas.vto-result-image 와 100% 동일 적용
+   *      width:auto !important + max-width:none !important → 캔버스 자연 너비(boxW*2) 보존
+   *      → overflow-x:auto 가 작동 → 가로 스크롤로 정/후면 분리 표시 */
   .csty-canvas.csty-result-image{
     display:block !important;
     height:100% !important;
     position:relative !important;
     inset:auto !important;
+    width:auto !important;        /* ⭐ 박스 너비 제한 무시 (자연 너비 보존) */
+    max-width:none !important;    /* ⭐ 가로 스크롤 활성화의 필수 조건 */
+    object-fit:contain !important;
+    object-position:center;
     scroll-snap-align:start;
     border-radius:0;
   }
@@ -3823,10 +3833,20 @@ $('#finalGenerate').addEventListener('click', async () => {
 
     if(!res.ok){
       let errMsg = '서버 오류 (' + res.status + ')';
+      let errCode = '';
       try{
         const errJson = await res.json();
         if(errJson && errJson.error) errMsg = errJson.error;
+        if(errJson && errJson.code) errCode = String(errJson.code);
       }catch(_){}
+      // [2026-05-02 v54 TJ] 403 PERMISSION_DENIED 전용 처리
+      // gemini-3-pro-image-preview 모델 권한 없음 → 사용자에게 명확한 안내
+      if(res.status === 500 && /PERMISSION_DENIED|denied access|403/i.test(errMsg)){
+        const hintMsg = 'Gemini 3 Pro Image API 접근 권한이 없습니다.\n서버 측 mock_backend.py에서 모델을 \'gemini-2.5-flash-image\' (Nano Banana 2)로 임시 fallback 처리해주세요.';
+        const e = new Error(hintMsg);
+        e._isPermissionDenied = true;
+        throw e;
+      }
       throw new Error(errMsg);
     }
 
@@ -3862,7 +3882,14 @@ $('#finalGenerate').addEventListener('click', async () => {
     // [2026-04-24 TJ 지시6] 실패 시 진행률 인터벌 정리
     if(window._tryonPctInterval){ clearInterval(window._tryonPctInterval); window._tryonPctInterval = null; }
     
-    showToast('생성 실패: ' + (err.message || err));
+    // [2026-05-02 v54 TJ] PERMISSION_DENIED 시 더 긴 토스트 + 콘솔 강조
+    if(err && err._isPermissionDenied){
+      console.error('%c[TryOn] ⚠️ Gemini 3 Pro Image 권한 없음', 'background:#ff6b6b;color:#fff;padding:4px 8px;font-weight:bold;');
+      console.error('서버 측 fix 필요: mock_backend.py 의 tryon 모델을 gemini-2.5-flash-image 로 변경');
+      showToast('Gemini 3 Pro 권한 없음 — 서버 모델 변경 필요', 5000);
+    } else {
+      showToast('생성 실패: ' + (err.message || err));
+    }
     // 버튼 복원
     btn.disabled = false;
     btn.innerHTML = originalHTML;
@@ -4178,12 +4205,12 @@ $('#faceCircle').addEventListener('click', () => {
 //  토스트
 // ════════════════════════════════════════════════════════════════
 let toastTimer;
-function showToast(msg){
+function showToast(msg, duration){
   const t = $('#toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  toastTimer = setTimeout(() => t.classList.remove('show'), (typeof duration === 'number' && duration > 0) ? duration : 2200);
 }
 
 // ════════════════════════════════════════════════════════════════
