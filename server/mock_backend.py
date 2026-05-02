@@ -5684,11 +5684,32 @@ def _tryon_analyze_via_text_model(
                 max_output_tokens=4096,
             )
         
-        response = client.models.generate_content(
-            model=analysis_model,
-            contents=contents,
-            config=_analysis_config,
-        )
+        # ─── [2026-05-02 v54 TJ] 분석 모델 403 권한 거부 자동 fallback ───
+        # gemini-3-pro-preview 권한 없으면 gemini-2.5-flash로 재시도.
+        # 2.5는 thinking_config 미지원이므로 폴백 시 config 재구성.
+        try:
+            response = client.models.generate_content(
+                model=analysis_model,
+                contents=contents,
+                config=_analysis_config,
+            )
+        except Exception as _ana_primary_err:
+            _emsg_ana = str(_ana_primary_err)
+            if ('403' in _emsg_ana or 'PERMISSION_DENIED' in _emsg_ana or 'denied access' in _emsg_ana):
+                _fallback_ana_model = _os.getenv("CODIBANK_MODEL_TRYON_ANALYSIS_FALLBACK", "gemini-2.5-flash")
+                print(f"[TRYON-FALLBACK-ANA] '{analysis_model}' 권한 없음 → '{_fallback_ana_model}'로 재시도 (thinking 제외)", flush=True)
+                # 2.5는 thinking 미지원 → config에서 thinking_config 제거
+                _analysis_config_fb = _gtypes.GenerateContentConfig(
+                    temperature=0.3,
+                    max_output_tokens=4096,
+                )
+                response = client.models.generate_content(
+                    model=_fallback_ana_model,
+                    contents=contents,
+                    config=_analysis_config_fb,
+                )
+            else:
+                raise
         
         # 텍스트 추출 (thought 필터링 포함)
         result_text = ""
@@ -5746,6 +5767,25 @@ def _tryon_analyze_via_text_model(
             )
         except TypeError:
             response = model.generate_content(contents_old)
+        except Exception as _ana_primary_err_old:
+            # ─── [2026-05-02 v54 TJ] old SDK 분석 403 권한 거부 fallback ───
+            _emsg_ana_old = str(_ana_primary_err_old)
+            if ('403' in _emsg_ana_old or 'PERMISSION_DENIED' in _emsg_ana_old or 'denied access' in _emsg_ana_old):
+                _fallback_ana_model = _os.getenv("CODIBANK_MODEL_TRYON_ANALYSIS_FALLBACK", "gemini-2.5-flash")
+                print(f"[TRYON-FALLBACK-ANA][old SDK] '{analysis_model}' 권한 없음 → '{_fallback_ana_model}'로 재시도", flush=True)
+                model_fb = _genai_old.GenerativeModel(_fallback_ana_model)
+                try:
+                    response = model_fb.generate_content(
+                        contents_old,
+                        generation_config={
+                            "temperature": 0.3,
+                            "max_output_tokens": 4096,
+                        },
+                    )
+                except TypeError:
+                    response = model_fb.generate_content(contents_old)
+            else:
+                raise
         
         try:
             return response.text or ""
@@ -6052,11 +6092,29 @@ def tryon_generate():
                         max_output_tokens=8192,
                     )
                 
-                response = client.models.generate_content(
-                    model=_TRYON_MODEL,
-                    contents=contents,
-                    config=_img_gen_config,
-                )
+                # ─── [2026-05-02 v54 TJ] 403 PERMISSION_DENIED 자동 fallback ───
+                # _TRYON_MODEL(기본 gemini-3-pro-image-preview) 권한 없으면
+                # gemini-2.5-flash-image (Nano Banana 2)로 자동 재시도.
+                # Render 환경변수 CODIBANK_MODEL_TRYON_FALLBACK 으로 변경 가능.
+                # 향후 3 Pro 권한 부여되면 자동 정상 작동 (코드 수정 불필요).
+                try:
+                    response = client.models.generate_content(
+                        model=_TRYON_MODEL,
+                        contents=contents,
+                        config=_img_gen_config,
+                    )
+                except Exception as _primary_err:
+                    _emsg = str(_primary_err)
+                    if ('403' in _emsg or 'PERMISSION_DENIED' in _emsg or 'denied access' in _emsg):
+                        _fallback_img_model = os.getenv("CODIBANK_MODEL_TRYON_FALLBACK", "gemini-2.5-flash-image")
+                        print(f"[TRYON-FALLBACK-IMG] '{_TRYON_MODEL}' 권한 없음 → '{_fallback_img_model}'로 재시도", flush=True)
+                        response = client.models.generate_content(
+                            model=_fallback_img_model,
+                            contents=contents,
+                            config=_img_gen_config,
+                        )
+                    else:
+                        raise
                 
                 # 이미지 + 백업 텍스트 추출
                 candidates = getattr(response, "candidates", []) or []
@@ -6104,6 +6162,26 @@ def tryon_generate():
                     )
                 except TypeError:
                     response = model_obj.generate_content(contents_old)
+                except Exception as _primary_err_old:
+                    # ─── [2026-05-02 v54 TJ] old SDK 403 권한 거부 fallback ───
+                    _emsg_old = str(_primary_err_old)
+                    if ('403' in _emsg_old or 'PERMISSION_DENIED' in _emsg_old or 'denied access' in _emsg_old):
+                        _fallback_img_model = os.getenv("CODIBANK_MODEL_TRYON_FALLBACK", "gemini-2.5-flash-image")
+                        print(f"[TRYON-FALLBACK-IMG][old SDK] '{_TRYON_MODEL}' 권한 없음 → '{_fallback_img_model}'로 재시도", flush=True)
+                        model_obj_fb = _genai_old.GenerativeModel(_fallback_img_model)
+                        try:
+                            response = model_obj_fb.generate_content(
+                                contents_old,
+                                generation_config={
+                                    "response_modalities": ["IMAGE", "TEXT"],
+                                    "temperature": 0.4,
+                                    "max_output_tokens": 8192,
+                                },
+                            )
+                        except TypeError:
+                            response = model_obj_fb.generate_content(contents_old)
+                    else:
+                        raise
                 
                 try:
                     _comment_fallback = response.text or ""
