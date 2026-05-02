@@ -6092,11 +6092,11 @@ def tryon_generate():
                         max_output_tokens=8192,
                     )
                 
-                # ─── [2026-05-02 v54 TJ] 403 PERMISSION_DENIED 자동 fallback ───
-                # _TRYON_MODEL(기본 gemini-3-pro-image-preview) 권한 없으면
-                # gemini-2.5-flash-image (Nano Banana 2)로 자동 재시도.
-                # Render 환경변수 CODIBANK_MODEL_TRYON_FALLBACK 으로 변경 가능.
-                # 향후 3 Pro 권한 부여되면 자동 정상 작동 (코드 수정 불필요).
+                # ─── [2026-05-02 v55 TJ] 403 권한 거부 자동 fallback (다단 재시도) ───
+                # 진단: gemini-3-pro-image-preview 권한 없을 때, 단순히 모델만 바꾸면
+                #       image_config(aspect_ratio,image_size)가 신규 모델 전용이라 fallback 모델이 거부함.
+                # 해결: fallback 시 image_config 제거 + response_modalities만 유지
+                # 추가: 그래도 실패하면 _CODISTYLE_MODEL(personal-color가 사용 중인 검증된 모델)로 재시도
                 try:
                     response = client.models.generate_content(
                         model=_TRYON_MODEL,
@@ -6106,13 +6106,35 @@ def tryon_generate():
                 except Exception as _primary_err:
                     _emsg = str(_primary_err)
                     if ('403' in _emsg or 'PERMISSION_DENIED' in _emsg or 'denied access' in _emsg):
+                        # ─── 1차 fallback: 환경변수 또는 기본 fallback 모델 + image_config 제거 ───
                         _fallback_img_model = os.getenv("CODIBANK_MODEL_TRYON_FALLBACK", "gemini-2.5-flash-image")
-                        print(f"[TRYON-FALLBACK-IMG] '{_TRYON_MODEL}' 권한 없음 → '{_fallback_img_model}'로 재시도", flush=True)
-                        response = client.models.generate_content(
-                            model=_fallback_img_model,
-                            contents=contents,
-                            config=_img_gen_config,
-                        )
+                        print(f"[TRYON-FALLBACK-IMG] '{_TRYON_MODEL}' 권한 없음 → '{_fallback_img_model}' (image_config 제거)로 재시도", flush=True)
+                        # image_config 없는 단순 config (aspect_ratio는 프롬프트로 전달)
+                        try:
+                            _simple_config = _gtypes.GenerateContentConfig(
+                                response_modalities=["IMAGE", "TEXT"],
+                                temperature=0.4,
+                                max_output_tokens=8192,
+                            )
+                        except Exception:
+                            _simple_config = None
+                        try:
+                            response = client.models.generate_content(
+                                model=_fallback_img_model,
+                                contents=contents,
+                                config=_simple_config,
+                            )
+                        except Exception as _fb1_err:
+                            _emsg2 = str(_fb1_err)
+                            print(f"[TRYON-FALLBACK-IMG] 1차 실패: {_emsg2[:200]}", flush=True)
+                            # ─── 2차 fallback: personal-color/codistyle와 동일한 _CODISTYLE_MODEL 사용 ───
+                            # personal-color가 200 OK로 작동 중이므로 이 모델은 검증됨
+                            print(f"[TRYON-FALLBACK-IMG] 2차 시도 → '{_CODISTYLE_MODEL}' (personal-color 검증 모델)", flush=True)
+                            response = client.models.generate_content(
+                                model=_CODISTYLE_MODEL,
+                                contents=contents,
+                                config=_simple_config,
+                            )
                     else:
                         raise
                 
@@ -6163,23 +6185,41 @@ def tryon_generate():
                 except TypeError:
                     response = model_obj.generate_content(contents_old)
                 except Exception as _primary_err_old:
-                    # ─── [2026-05-02 v54 TJ] old SDK 403 권한 거부 fallback ───
+                    # ─── [2026-05-02 v55 TJ] old SDK 403 권한 거부 다단 fallback ───
                     _emsg_old = str(_primary_err_old)
                     if ('403' in _emsg_old or 'PERMISSION_DENIED' in _emsg_old or 'denied access' in _emsg_old):
                         _fallback_img_model = os.getenv("CODIBANK_MODEL_TRYON_FALLBACK", "gemini-2.5-flash-image")
-                        print(f"[TRYON-FALLBACK-IMG][old SDK] '{_TRYON_MODEL}' 권한 없음 → '{_fallback_img_model}'로 재시도", flush=True)
+                        print(f"[TRYON-FALLBACK-IMG][old SDK] '{_TRYON_MODEL}' 권한 없음 → '{_fallback_img_model}' 재시도", flush=True)
                         model_obj_fb = _genai_old.GenerativeModel(_fallback_img_model)
                         try:
-                            response = model_obj_fb.generate_content(
-                                contents_old,
-                                generation_config={
-                                    "response_modalities": ["IMAGE", "TEXT"],
-                                    "temperature": 0.4,
-                                    "max_output_tokens": 8192,
-                                },
-                            )
-                        except TypeError:
-                            response = model_obj_fb.generate_content(contents_old)
+                            try:
+                                response = model_obj_fb.generate_content(
+                                    contents_old,
+                                    generation_config={
+                                        "response_modalities": ["IMAGE", "TEXT"],
+                                        "temperature": 0.4,
+                                        "max_output_tokens": 8192,
+                                    },
+                                )
+                            except TypeError:
+                                response = model_obj_fb.generate_content(contents_old)
+                        except Exception as _fb1_err_old:
+                            _emsg2_old = str(_fb1_err_old)
+                            print(f"[TRYON-FALLBACK-IMG][old SDK] 1차 실패: {_emsg2_old[:200]}", flush=True)
+                            # 2차 fallback: _CODISTYLE_MODEL (personal-color 검증 모델)
+                            print(f"[TRYON-FALLBACK-IMG][old SDK] 2차 시도 → '{_CODISTYLE_MODEL}'", flush=True)
+                            model_obj_fb2 = _genai_old.GenerativeModel(_CODISTYLE_MODEL)
+                            try:
+                                response = model_obj_fb2.generate_content(
+                                    contents_old,
+                                    generation_config={
+                                        "response_modalities": ["IMAGE", "TEXT"],
+                                        "temperature": 0.4,
+                                        "max_output_tokens": 8192,
+                                    },
+                                )
+                            except TypeError:
+                                response = model_obj_fb2.generate_content(contents_old)
                     else:
                         raise
                 
