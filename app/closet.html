@@ -7,6 +7,25 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-09 KST · TJ 지시 (Codifit UX) ─── [3가지 수정]
+  1) 날짜 가변성 강화
+     · callClaude 호출 직전 디버그 로그 추가 (콘솔에서 selDateKey/wx 확인 가능)
+     · imagePrompt의 weatherNote 명시화: 'Target date: TODAY/TOMORROW/MM/DD'
+       + 'Daytime high temperature: N°' + 강조 문구로 AI가 그 날짜의 날씨에
+       맞는 코디를 생성하도록 지시 강화
+     · 코드 흐름은 이미 가변(S.wx ← wxByDate[selKey]) — 프롬프트 명시가 부족했음
+  2) 리셋 버튼 작동 (이전엔 핸들러 누락)
+     · #resetBtn 클릭 핸들러 신규 등록 → resetAll() 호출
+     · resetAll 확장: 목적(S.pk/customPurpose) + 날짜(S.day=today, selDateKey='')
+       + 분석 리포트 섹션 hide + 생성 이미지 비움 + cb_used_stylists_* 캐시 정리
+     · 활성화 조건: 기존 setGenUiEnabled에서 saveBtn/againBtn/shareBtn과 동일하게
+       처리되어 hasGenerated 시 자동 enabled (수정 불필요)
+  3) 정/후면 플로팅 버튼 위치 분리
+     · 이전: 가운데 하단 묶음 → 이미지 중앙 하단 가림
+     · 변경: 정면=왼쪽 하단 / 후면=오른쪽 하단 (space-between)
+     · 컨테이너 배경/border 제거 → 각 버튼이 자체 글래스 배경 보유
+     · 컨테이너 pointer-events:none / 버튼만 auto → 중앙 영역 클릭 통과
+
 ─── 2026-05-09 KST · TJ 지시 (Design) ─── [코디핏 한도 표시 단독화]
   [원인] aiQuota 배지가 합산("스타일링 4회 가능")으로 표시되어
          구독플랜 페이지의 "코디핏 N회/월" 표기와 일치하지 않음 → 사용자 혼란
@@ -858,43 +877,48 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   object-position:center;
   scroll-snap-align:start;
 }
-/* [v19 TJ 2026-04-26] 정/후면 토글 — 글래스모피즘 (반투명, 추천코디 이미지 잘 보이도록)
- * 이전 v18: 진한 검정 배경 (rgba(0,0,0,0.55)) → 이미지 가림
- * 변경 v19: 반투명 흰색 + 강한 블러 (글래스모피즘) → 이미지 비치면서 자연스러움
- * active 색도 약간 투명하게 + 더 작은 패딩으로 미니멀하게 */
+/* ─── 2026-05-09 KST · TJ 지시 ─── 정/후면 버튼 좌하단/우하단 분리
+ * 이전: 컨테이너 묶음 가운데 정렬 (정·후면이 함께) → 이미지 중앙 하단을 가림
+ * 변경: 컨테이너 배경 제거, 좌우 끝(space-between)으로 두 버튼만 분리 배치
+ *       정면 = 왼쪽 하단, 후면 = 오른쪽 하단
+ *       각 버튼이 자체 글래스 배경을 가짐 → 이미지 중앙은 클리어 */
 .vto-pose-toggle{
-  position:absolute;left:50%;bottom:14px;
-  transform:translateX(-50%);
-  display:flex;gap:2px;z-index:5;
-  padding:3px;border-radius:999px;
-  background:rgba(255,255,255,0.14);
-  backdrop-filter:blur(14px) saturate(1.4);
-  -webkit-backdrop-filter:blur(14px) saturate(1.4);
-  border:1px solid rgba(255,255,255,0.18);
-  box-shadow:0 2px 6px rgba(0,0,0,0.12);
+  position:absolute;
+  left:0;right:0;bottom:14px;
+  display:flex;
+  justify-content:space-between;align-items:center;
+  padding:0 12px;
+  z-index:5;
+  pointer-events:none;          /* 컨테이너 자체는 클릭 통과, 자식 버튼만 받음 */
   transition:opacity .25s;
 }
 .vto-pose-toggle.hidden{opacity:0;pointer-events:none;display:none;}
 .vto-pose-btn{
-  padding:5px 16px;
+  pointer-events:auto;          /* 버튼은 클릭 받음 */
+  padding:6px 16px;
   border-radius:999px;
-  background:transparent;
-  color:rgba(255,255,255,0.7);
+  /* 각 버튼 자체 글래스모피즘 — 이전엔 컨테이너에만 있었음 */
+  background:rgba(255,255,255,0.16);
+  backdrop-filter:blur(14px) saturate(1.4);
+  -webkit-backdrop-filter:blur(14px) saturate(1.4);
+  border:1px solid rgba(255,255,255,0.2);
+  color:rgba(255,255,255,0.85);
   font-size:11px;
   font-weight:700;
   letter-spacing:.02em;
-  border:none;
   cursor:pointer;
   transition:all .22s cubic-bezier(.4,0,.2,1);
   font-family:'Noto Sans KR', sans-serif;
   text-shadow:0 1px 2px rgba(0,0,0,0.18);
+  box-shadow:0 2px 6px rgba(0,0,0,0.14);
 }
 .vto-pose-btn:active{transform:scale(0.96);}
 .vto-pose-btn.active{
   background:rgba(151,254,237,0.85);
+  border-color:rgba(151,254,237,0.95);
   color:#050a24;
   text-shadow:none;
-  box-shadow:0 1px 3px rgba(0,0,0,0.12);
+  box-shadow:0 2px 8px rgba(151,254,237,0.35);
 }
 /* swipe 힌트도 동일하게 더 가볍게 */
 .vto-pose-hint{
@@ -2514,6 +2538,14 @@ function resetStylingBox(msg){
 // - 일부 로직에서 resetVtoState(...)를 호출하지만 함수가 누락되어
 //   초기화가 중단되는 문제가 있었습니다.
 // - 기존 resetStylingBox와 동일하게 동작하도록 래핑합니다.
+//
+// ─── 2026-05-09 KST · TJ 지시 ─── 리셋 동작 확장
+//   요구: 리셋 버튼 클릭 시 "선택한 목적, 날짜, 분석된 리포트, 생성된 이미지 모두 초기화"
+//   기존: S.seed/hasGenerated만 리셋, 분석 섹션 hide, 이미지 뷰박스 비움
+//   변경: + S.pk='', S.customPurpose='' (목적 해제) + 카드 active 해제
+//         + S.day='today', S.selDateKey='' (날짜는 '오늘'로 복귀)
+//         + 날짜 카드 dc-on 해제 + 오늘 카드 활성화
+//         + cb_used_stylists_* 캐시도 정리(다음 생성 시 페르소나 다양성 유지)
 function resetAll(){
   // 4버튼 비활성화
   ['saveBtn','againBtn','shareBtn','resetBtn'].forEach(function(id){
@@ -2522,6 +2554,36 @@ function resetAll(){
   });
   S.seed = 0; S.hasGenerated = false;
   resetVtoState('empty','');
+  // ─── 목적 초기화 ───
+  try{
+    S.pk = '';
+    S.customPurpose = '';
+    // 목적 카드 active 해제
+    document.querySelectorAll('[data-purpose]').forEach(function(b){
+      b.classList.remove('active');
+      b.setAttribute('aria-pressed','false');
+    });
+    // 사용자 프로필에서도 제거 (다음 진입 시 prefill 방지)
+    try{ if(user && user.email) CodiBank.updateUserProfile(user.email, { codiPurposeKey: '', codiPurposeCustom: '' }); }catch(_){}
+  }catch(_){}
+  // ─── 날짜 초기화 (오늘로 복귀) ───
+  try{
+    S.day = 'today';
+    S.selDateKey = '';
+    // 날짜 카드 UI: 모두 dc-on 해제
+    document.querySelectorAll('.dc').forEach(function(c){ c.classList.remove('dc-on'); });
+    // 오늘 카드 활성화 (i===0이 오늘)
+    var _todayCard = document.querySelector('.dc[data-date-key]');
+    if(_todayCard){
+      var _td = _todayCard.parentElement && _todayCard.parentElement.querySelector('.dc');
+      if(_td) _td.classList.add('dc-on');
+    }
+    // weather 표시 동기화
+    try{ if(typeof applySelectedWeatherUI === 'function') applySelectedWeatherUI(); }catch(_){}
+    try{ if(typeof syncDayUi === 'function') syncDayUi(); }catch(_){}
+    try{ if(user && user.email) CodiBank.updateUserProfile(user.email, { codiDayKey: 'today', codiSelDateKey: '' }); }catch(_){}
+  }catch(_){}
+  // ─── 분석 리포트 섹션 hide + 텍스트 초기화 ───
   try{
     var _ssb=document.getElementById('stylistSummaryBox');if(_ssb)_ssb.classList.add('hidden');
     ['anPcSection','anBodySection','anPurposeSection'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.add('hidden');});
@@ -2530,7 +2592,21 @@ function resetAll(){
     var _cpSum=document.getElementById('cpSummarySection');if(_cpSum)_cpSum.classList.add('hidden');
     var _exp=document.getElementById('codiExplain');if(_exp)_exp.textContent=_L('목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.');
   }catch(_){}
+  // ─── 세션/페르소나 캐시 정리 ───
   try{ sessionStorage.removeItem('cb_closet_snap'); }catch(_){}
+  try{
+    // cb_used_stylists_* 키 일괄 삭제 (다음 생성 시 페르소나 풀 초기화)
+    var _ks = [];
+    for(var i=0;i<localStorage.length;i++){
+      var _k = localStorage.key(i);
+      if(_k && _k.indexOf('cb_used_stylists_') === 0) _ks.push(_k);
+    }
+    _ks.forEach(function(k){ try{ localStorage.removeItem(k); }catch(_){} });
+  }catch(_){}
+  // ─── 메타/배지 갱신 ───
+  try{ if(typeof setMetaLine === 'function') setMetaLine(); }catch(_){}
+  try{ if(typeof updateQuotaBadge === 'function') updateQuotaBadge(); }catch(_){}
+  try{ if(typeof setGenUiEnabled === 'function') setGenUiEnabled(canGenerateNow()); }catch(_){}
 }
 function resetVtoState(state, msg){
   const overlay=document.getElementById('vtoOverlay');
@@ -3895,7 +3971,25 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     }
     return `MUST reflect this exact body type: ${heightDesc} (${Math.round(hCm)}cm), ${build} (${Math.round(wKg)}kg). Clothing fit and silhouette must match this physique realistically.`;
   })();
-  const weatherNote = wxTxt&&tTxt?`${tTxt}, ${wxTxt} weather`:`${tTxt||'mild'} weather`;
+  // ─── 2026-05-09 KST · TJ 지시 ─── 날짜/날씨 명시화 강화
+  //   원인: 기존 weatherNote는 온도+날씨 텍스트만 있어 AI가 "오늘"로 인식하기 쉬움.
+  //         사용자가 미래 날짜를 선택해도 같은 패턴의 코디가 나오는 문제 발생.
+  //   변경: 날짜 라벨(dLab)과 최고온도(tempMax)까지 명시해 AI가 그 날짜의 날씨에 맞는
+  //         코디를 생성하도록 강화. tempMax는 옷차림 결정의 핵심 지표.
+  const _tMaxRaw = (wx && Number.isFinite(Number(wx.tempMax))) ? Math.round(Number(wx.tempMax)) : null;
+  const _tMaxTxt = _tMaxRaw !== null ? (_tMaxRaw + '°') : '';
+  const _dayPhrase = dLab
+    ? (dLab === '오늘' ? 'TODAY' : (dLab === '내일' ? 'TOMORROW' : ('the date ' + dLab)))
+    : 'today';
+  const weatherNote = (() => {
+    const parts = [];
+    parts.push(`Target date: ${_dayPhrase}.`);
+    if(_tMaxTxt) parts.push(`Daytime high temperature: ${_tMaxTxt}.`);
+    else if(tTxt) parts.push(`Temperature: ${tTxt}.`);
+    if(wxTxt) parts.push(`Weather: ${wxTxt}.`);
+    parts.push('The outfit MUST be appropriate for THIS specific date and weather — layering, fabric weight, and accessories must reflect the actual high temperature listed above.');
+    return parts.join(' ');
+  })();
   const bodyFlawPrompt = bodyType ? (
     (bodyType.tag==='비만형'||bodyType.tag==='통통형') ? 'Use dark-toned bottoms and structured V-neck outerwear to slim the silhouette.' :
     bodyType.tag==='마른형' ? 'Use layered textured fabrics to add volume.' :
@@ -4791,6 +4885,19 @@ async function updateVTO(opts={}){
   if(stepEl) stepEl.textContent='AI 코디 분석 중…';
   try{
     const _nGender = (g)=>{ const v=String(g||'').toLowerCase(); if(v==='male'||v==='m') return 'M'; if(v==='female'||v==='f') return 'F'; return 'M'; };
+    // ─── 2026-05-09 KST · TJ 지시 ─── 날짜 가변성 검증 디버그 로그
+    //   사용자가 선택한 날짜와 그 날짜의 날씨 데이터가 실제 callClaude로 들어가는지 확인.
+    //   Console에서 매 생성마다 selDateKey / day / temp / weather text가 다르게 출력되어야 정상.
+    try{
+      console.log('[CodiFit][callClaude]',
+        '· day=' + S.day,
+        '· selDateKey=' + (S.selDateKey || '(today)'),
+        '· wx.temp=' + (S.wx && S.wx.temp),
+        '· wx.tempMax=' + (S.wx && S.wx.tempMax),
+        '· wx.text=' + (S.wx && S.wx.text),
+        '· wx.location=' + (S.wx && S.wx.location)
+      );
+    }catch(_){}
     const r=await callClaude({faceSrc,wx:S.wx,pk:S.pk,profile:{gender:_nGender(user?.gender),ageGroup:user?.ageGroup,height:user?.height,weight:user?.weight,codiPurposeCustom:S.customPurpose||''},seed:S.seed,day:(S.day==='today'?'today':(S.selDateKey||'tomorrow'))});
     if(S.tok!==tok)return;
     if(r.palette)palette=r.palette;
@@ -5544,6 +5651,16 @@ document.getElementById('shareBtn')?.addEventListener('click',()=>{
   const c=document.getElementById('vtoCanvas');if(!c||c.style.display==='none'){alert(CodiBankI18n.t('먼저 스타일링을 생성해주세요.','Please generate styling first.'));return;}
   if(navigator.share&&navigator.canShare){c.toBlob(blob=>{const f=new File([blob],'codibank.png',{type:'image/png'});if(navigator.canShare({files:[f]}))navigator.share({files:[f],title:'코디뱅크 Ai 추천 스타일링'}).catch(()=>{});else{const a=document.createElement('a');a.download='codibank.png';a.href=URL.createObjectURL(blob);a.click();}},'image/png');}
   else{const a=document.createElement('a');a.download='codibank.png';a.href=c.toDataURL();a.click();}
+});
+
+// ─── 2026-05-09 KST · TJ 지시 ─── 리셋 버튼 클릭 핸들러 (이전엔 핸들러 누락)
+//   동작: 선택한 목적 / 선택한 날짜 / 분석 리포트 / 생성된 이미지 모두 초기화
+//   활성 조건: 추천코디 생성 후 (S.hasGenerated === true) 자동으로 enabled
+//             (setGenUiEnabled 함수에서 saveBtn/againBtn/shareBtn과 함께 일괄 처리)
+document.getElementById('resetBtn')?.addEventListener('click', function(e){
+  e.preventDefault();
+  if(this.disabled) return;
+  try{ resetAll(); }catch(err){ console.warn('[resetBtn]', err); }
 });
 
 // ─ 코디 목적 그리드 ─
