@@ -7,6 +7,16 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-09 KST · TJ 지시 Step 1 ─── [코디하기 잠금 + 풋바 변경]
+  [원인] '코디하기'(codistyle.html) 페이지를 사용 중지하고 풋바 네비
+         4번째 슬롯에 '코디앨범'(album.html)을 다시 노출.
+  [수정] 풋바 nav 4번째 <a> 태그:
+         - href: codistyle.html → album.html
+         - icon: palette       → photo_library
+         - label: 코디하기      → 코디앨범
+  [영향] codistyle.html은 별도 잠금 처리(Step 1-3에서). 카운팅 로직은
+         Step 2에서 코디핏+트라이온 기준으로 정리.
+
 ─── 2026-04-20 01:19 KST ────────────────────────────────────────────────
   [수정 이력 블록 도입 — 코드 변경 없음]
     - 파일 관리 정책: 모든 수정 시 상단 이력 누적 + 인라인 주석
@@ -1738,12 +1748,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   <a href="terms.html" style="color:rgba(151,254,237,0.45);text-decoration:none;">이용약관</a>
 </div>
 <nav class="cb-nav">
-  <!-- ─── 2026-04-22 KST · 5탭 구성: 신규 트라이온 + 기존 코디하기 병렬 운영 ─── -->
+  <!-- ─── 2026-05-09 KST · TJ 지시 Step 1 ─── 4번째 슬롯: 코디하기 → 코디앨범 -->
+  <!-- 이전: <a href="codistyle.html"...>코디하기</a> (palette 아이콘)
+       원인: '코디하기' 페이지(codistyle.html)는 사용 중지 (잠금 처리됨)
+       변경: href=album.html, icon=photo_library, label=코디앨범 -->
   <div class="cb-nav-inner">
     <a href="closet.html" class="cb-nav-tab on"><span class="ni">auto_awesome</span><span class="nl">코디핏</span></a>
     <a href="tryon.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">트라이온</span></a>
     <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
-    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">palette</span><span class="nl">코디하기</span></a>
+    <a href="album.html" class="cb-nav-tab"><span class="ni">photo_library</span><span class="nl">코디앨범</span></a>
     <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
   </div>
 </nav>

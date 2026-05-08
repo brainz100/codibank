@@ -1,4 +1,16 @@
 <!DOCTYPE html>
+<!--
+═══════════════════════════════════════════════════════════════════════
+─── 2026-05-09 KST · TJ 지시 Step 1 ─── [코디하기 잠금 + 풋바 전체 재구성]
+  [원인1] camera.html 풋바는 다른 메인 페이지와 5탭 순서가 달랐음:
+          이전:  코디핏 / 코디앨범 / Ai옷장 / 트라이 온 / MY
+          (게다가 4번째 라벨이 "트라이 온"인데 실제 링크는 codistyle.html — 옛 코드 잔재)
+  [원인2] codistyle.html은 사용 중지(잠금) 처리됨.
+  [수정] 다른 메인 페이지(closet/tryon/aicloset/album/mypage)와 동일한 표준 5탭으로 통일:
+         코디핏 / 트라이온 / Ai옷장 / 코디앨범 / MY
+         camera.html은 메모리상 "Ai옷장 소속" → Ai 옷장 탭에 .on 부여
+═══════════════════════════════════════════════════════════════════════
+-->
 <html lang="ko">
 <head>
 <!-- Google tag (gtag.js) -->
@@ -1659,11 +1671,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <!-- CodiBank 공통 풋바 -->
 <nav class="cb-nav">
+  <!-- ─── 2026-05-09 KST · TJ 지시 Step 1 ─── 풋바 5탭 표준화 -->
+  <!-- 이전: 코디핏 / 코디앨범 / Ai옷장 / 트라이 온(실제 링크 codistyle) / MY
+       변경: 코디핏 / 트라이온 / Ai옷장 / 코디앨범 / MY (다른 페이지와 통일)
+       camera.html은 'Ai옷장 소속'(아이템 등록 페이지) → Ai 옷장 탭에 .on -->
   <div class="cb-nav-inner">
     <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디핏</span></a>
-    <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
-    <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
-    <a href="codistyle.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">트라이 온</span></a>
+    <a href="tryon.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">트라이온</span></a>
+    <a href="aicloset.html" class="cb-nav-tab on"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
+    <a href="album.html" class="cb-nav-tab"><span class="ni">photo_library</span><span class="nl">코디앨범</span></a>
     <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
   </div>
 </nav>

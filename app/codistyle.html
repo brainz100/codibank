@@ -7,6 +7,16 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-09 KST · TJ 지시 Step 1 ─── [페이지 잠금 — 사용 중지]
+  [원인] '코디하기' 페이지(codistyle.html)는 더 이상 사용하지 않음.
+         이미지 생성은 '코디핏'(closet.html)과 '트라이온'(tryon.html)에서만 발생.
+  [수정] <head> 영역 최상단에 자동 redirect 스크립트 추가
+         → 직접 URL 접근(또는 레거시 링크)으로 진입해도 즉시 closet.html로 이동
+         → 페이지 본문 코드는 그대로 보존 (향후 재활성화 가능 / 풋바 일관성용 변경만 반영)
+         → 풋바 nav 4번째 슬롯도 codistyle → album.html로 변경 (다른 페이지와 통일)
+  [향후] 카운팅 로직(codistyle 카운트)은 Step 2/3에서 비활성화하고
+         서버 user_usage 테이블의 codistyle_count 필드는 레거시로 보존(데이터 손실 방지).
+
 ─── 2026-04-21 03:30 KST (⚠️치명적 JS 에러 + 치마 보정 + 덱 개선 + 버튼 폭) ────
   [TJ님 제보 + 스크린샷 6장 정밀 분석 결과]
 
@@ -283,6 +293,25 @@
 -->
 <html lang="ko">
 <head>
+<!-- ════════════════════════════════════════════════════════════════════
+     ─── 2026-05-09 KST · TJ 지시 Step 1 ─── [페이지 잠금 — 자동 redirect]
+     '코디하기' 페이지는 사용 중지됨. 이미지 생성은 코디핏/트라이온에서만.
+     아래 스크립트는 다른 모든 <script>/리소스 로딩 전 가장 먼저 실행되어
+     불필요한 네트워크 호출(Gemini API, R2 GET, 옷장 이미지 등)을 미리 차단함.
+     ════════════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  try{
+    // 무한 redirect 방지: ?from=codistyle 등으로 의도적 진입 표시한 경우는 통과
+    var qs = (window.location.search || '');
+    if(qs.indexOf('keep=1') !== -1) return;
+    // 즉시 코디핏으로 이동 (history는 replace로 — 뒤로가기로 돌아오지 않게)
+    window.location.replace('closet.html');
+  }catch(_){
+    try{ window.location.href = 'closet.html'; }catch(__){}
+  }
+})();
+</script>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-2ZWQ7K7H0V"></script>
 <script>
@@ -1330,12 +1359,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:#00022E;color:#fff;max-wid
   <a href="terms.html" style="color:rgba(151,254,237,0.45);text-decoration:none;">이용약관</a>
 </div>
 <nav class="cb-nav">
-  <!-- ─── 2026-04-22 KST · 5탭 구성 (트라이온과 코디하기 병렬 운영 중) ─── -->
+  <!-- ─── 2026-05-09 KST · TJ 지시 Step 1 ─── 4번째 슬롯: 코디하기 → 코디앨범 -->
+  <!-- 이 페이지(codistyle)는 잠금되어 진입 시 즉시 closet.html로 redirect되지만,
+       redirect 직전 짧은 순간이라도 풋바 일관성 유지. -->
   <div class="cb-nav-inner">
     <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디핏</span></a>
     <a href="tryon.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">트라이온</span></a>
     <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
-    <a href="codistyle.html" class="cb-nav-tab on"><span class="ni">palette</span><span class="nl">코디하기</span></a>
+    <a href="album.html" class="cb-nav-tab"><span class="ni">photo_library</span><span class="nl">코디앨범</span></a>
     <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
   </div>
 </nav>
