@@ -3,13 +3,40 @@
 ═══════════════════════════════════════════════════════════════════════
 📋 수정 이력 (MODIFICATION HISTORY) — 최신순
 ═══════════════════════════════════════════════════════════════════════
+─── 2026-05-09 KST · TJ 지시 (Design) ─── [마이페이지 재설계]
+  [원인] 마이페이지에 사용자 정보가 너무 많이 노출되어 정보 위계가 약함:
+         · 큰 mpPcSummary 박스 (어울리는 컬러 / 피해야 할 컬러 / 상하의 매칭)
+         · 구독플랜 사용량 3-카드 (코디핏/트라이온/아이템)
+         → 본인 페이지가 아닌 곳에서 모두 노출됨
+  [수정] 상단을 요약형 카드로 재설계, 상세는 진입형으로:
+    1) user-summary-card (헤더 카드):
+       · 큰 아바타 + 닉네임 + 성별/연령 chip
+       · 하단 2-grid trait pill: 퍼스널컬러('봄 웜톤') · 체형('표준 체형')
+       · 체형은 user.height/weight로 BMI 자동 계산 (tryon.html과 동일 로직)
+    2) action-cards: 프로필 수정 / 구독플랜 (큰 진입 버튼)
+       · 프로필 수정 → profile.html (상세 퍼스널컬러는 여기서 표시)
+       · 구독플랜    → pricing.html (사용량/플랜 변경 모두 여기서)
+    3) 기존 mpPcSummary, 사용량 3-카드는 hidden 영역으로 이동
+       · 기존 ID(mpCodifitUsed, mpTryonFill 등) 모두 보존 → JS 호환 유지
+  [영향] 사용자 시야가 깔끔해지고 진입 깊이는 +1 단계로 명확해짐.
+
+─── 2026-05-09 KST · TJ 지시 Step 2 ─── [트라이온 사용량 표시 버그 수정]
+  [원인] 트라이온 영역(mpTryonUsed)이 raw.tryonCount 대신 raw.codistyleCount
+         (코디하기 카운트)를 표시하고 있었음. 트라이온을 1번 사용해도
+         "트라이온 0회"로 표시되는 버그.
+  [수정]
+    1) localStorage 읽을 때 tryonUsed = parseInt(raw.tryonCount) 사용
+    2) mpTryonUsed.textContent = tryonUsed (코드스타일 → 트라이온)
+    3) 트라이온 % 게이지 계산도 tryonUsed 기준
+    4) 합산 사용량 계산: closetUsed + codistyleUsed → closetUsed + tryonUsed
+    5) cb_plan_info에 tryonUsed 필드 추가 저장 (한도체크/페이지간 동기화)
+       codistyleUsed는 레거시 데이터 보존용으로만 유지(미표시)
+
 ─── 2026-05-09 KST · TJ 지시 Step 1 ─── [코디하기 잠금 + 풋바 변경]
   [원인] '코디하기'(codistyle.html) 사용 중지. 풋바 4번째 슬롯에
          '코디앨범'(album.html) 다시 노출.
   [수정] nav 4번째 <a>: codistyle.html → album.html,
          palette → photo_library, 코디하기 → 코디앨범
-  [Step 2 예정] mypage.html 사용량 표시: 트라이 온 영역에서
-         codistyleCount(코디하기) 대신 tryonCount(트라이온)을 읽도록 수정
 ═══════════════════════════════════════════════════════════════════════
 -->
 <html lang="ko">
@@ -75,6 +102,155 @@
     color:#ff6b6b;font-size:15px;font-weight:700;font-family:inherit;
   }
 
+/* ════════════════════════════════════════════════════════════════════
+   ─── 2026-05-09 KST · TJ 지시 ─── 마이페이지 재설계 (디자이너 감각)
+   - 상단: 사진/닉네임/성별/퍼스널컬러/체형만 요약 (큰 헤더 카드)
+   - 본문: 프로필 수정 / 구독플랜 진입 카드 (큰 액션 카드)
+   - 기존 mpPcSummary, 사용량 3-카드는 hidden (해당 페이지에서 표시)
+   ════════════════════════════════════════════════════════════════════ */
+.user-summary-card{
+  margin:20px;border-radius:28px;padding:24px 22px 22px;
+  background:
+    radial-gradient(ellipse at top right,rgba(151,254,237,.18),transparent 55%),
+    radial-gradient(ellipse at bottom left,rgba(196,181,253,.12),transparent 55%),
+    linear-gradient(165deg,rgba(11,102,106,.25),rgba(7,25,82,.55));
+  border:1px solid rgba(151,254,237,.18);
+  position:relative;overflow:hidden;
+  box-shadow:0 12px 40px rgba(2,13,36,.4),inset 0 1px 0 rgba(255,255,255,.06);
+}
+.user-summary-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(151,254,237,.4),transparent);
+}
+.user-summary-top{display:flex;align-items:center;gap:18px;position:relative;z-index:1}
+.user-avatar{
+  width:88px;height:88px;border-radius:50%;flex-shrink:0;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,#0B666A,#35A29F);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 8px 24px rgba(11,102,106,.45),0 0 0 3px rgba(151,254,237,.15);
+}
+.user-info{flex:1;min-width:0}
+.user-nickname{
+  font-size:22px;font-weight:800;color:#fff;letter-spacing:-.02em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  margin-bottom:7px;line-height:1.15;
+}
+.user-meta-row{display:flex;flex-wrap:wrap;gap:6px}
+.user-meta-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;font-weight:700;
+  padding:4px 9px;border-radius:8px;
+  background:rgba(151,254,237,.1);
+  border:1px solid rgba(151,254,237,.25);
+  color:#97FEED;letter-spacing:.02em;
+}
+.user-meta-chip .mi{font-size:12px;line-height:1}
+
+.user-summary-divider{
+  height:1px;margin:18px 0 16px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);
+  position:relative;z-index:1;
+}
+
+.user-traits{display:grid;grid-template-columns:1fr 1fr;gap:10px;position:relative;z-index:1}
+.trait-pill{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 13px;border-radius:14px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  transition:border-color .15s,background .15s;
+}
+.trait-pill .trait-icon{
+  width:32px;height:32px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.trait-pill .trait-icon .mi{font-size:18px}
+.trait-pill .trait-text{display:flex;flex-direction:column;min-width:0;flex:1}
+.trait-pill .trait-label{font-size:9.5px;font-weight:700;letter-spacing:.04em;color:rgba(216,226,255,.5);margin-bottom:2px;text-transform:uppercase}
+.trait-pill .trait-value{font-size:14px;font-weight:800;color:#fff;letter-spacing:-.01em;line-height:1.1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 퍼스널컬러 트레잇 — mint 강조 */
+.trait-pill.pc .trait-icon{background:rgba(151,254,237,.12);color:#97FEED}
+.trait-pill.pc:hover{background:rgba(151,254,237,.06);border-color:rgba(151,254,237,.2)}
+/* 체형 트레잇 — coral 강조 */
+.trait-pill.body .trait-icon{background:rgba(240,163,197,.12);color:#F0A3C5}
+.trait-pill.body:hover{background:rgba(240,163,197,.06);border-color:rgba(240,163,197,.2)}
+
+/* 데이터 미입력 상태 */
+.trait-pill.empty .trait-value{color:rgba(216,226,255,.4);font-weight:600}
+.trait-pill.empty .trait-icon{opacity:.5}
+
+/* ── 액션 카드 (프로필 수정 / 구독플랜) ── */
+.action-cards{display:flex;flex-direction:column;gap:10px;margin:24px 20px 0}
+.action-card{
+  display:flex;align-items:center;gap:14px;
+  padding:18px 18px 18px 16px;
+  border-radius:18px;cursor:pointer;
+  background:linear-gradient(135deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.1);
+  transition:transform .15s cubic-bezier(.4,0,.2,1),border-color .15s,background .15s;
+  position:relative;overflow:hidden;
+}
+.action-card:hover{transform:translateY(-1px);background:linear-gradient(135deg,rgba(255,255,255,.07),rgba(255,255,255,.03));border-color:rgba(151,254,237,.2)}
+.action-card:active{transform:scale(.99)}
+.action-card-icon{
+  width:46px;height:46px;border-radius:14px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,rgba(151,254,237,.15),rgba(53,162,159,.08));
+  border:1px solid rgba(151,254,237,.18);
+}
+.action-card-icon .mi{font-size:24px;color:#97FEED}
+.action-card-body{flex:1;min-width:0}
+.action-card-title{font-size:15px;font-weight:800;color:#fff;letter-spacing:-.01em;line-height:1.2;margin-bottom:3px}
+.action-card-sub{font-size:11px;font-weight:500;color:rgba(216,226,255,.5);letter-spacing:.01em;line-height:1.35;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.action-card-arrow{color:rgba(216,226,255,.3);font-size:22px;flex-shrink:0;transition:transform .15s}
+.action-card:hover .action-card-arrow{color:#97FEED;transform:translateX(2px)}
+
+/* 구독플랜 카드 — 플랜 칩 강조 */
+.action-card.plan .action-card-icon{
+  background:linear-gradient(135deg,rgba(255,208,96,.18),rgba(212,160,23,.08));
+  border-color:rgba(255,208,96,.25);
+}
+.action-card.plan .action-card-icon .mi{color:#FFD060}
+.action-card-plan-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;font-weight:800;letter-spacing:.05em;
+  padding:2px 8px;border-radius:8px;
+  background:rgba(255,208,96,.12);
+  color:#FFD060;
+  border:1px solid rgba(255,208,96,.25);
+  margin-left:6px;vertical-align:1px;
+}
+
+/* 섹션 라벨 (재정의: 더 작고 컴팩트) */
+.menu-section{
+  margin:24px 20px 8px;
+  font-size:10px;font-weight:800;
+  color:rgba(216,226,255,.35);letter-spacing:.12em;
+  text-transform:uppercase;
+}
+
+/* 일반 메뉴 아이템 (재정의 — 새 디자인) */
+.menu-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;
+  background:transparent;
+  border-bottom:1px solid rgba(255,255,255,.04);
+  cursor:pointer;transition:background .15s;
+}
+.menu-item:hover{background:rgba(255,255,255,.03)}
+.menu-item-left{display:flex;align-items:center;gap:12px;color:rgba(255,255,255,.85);font-size:14px;font-weight:600}
+.menu-item-left .mi-lead{font-size:20px}
+
+/* 좁은 화면 보정 */
+@media(max-width:340px){
+  .user-traits{grid-template-columns:1fr}
+  .user-avatar{width:78px;height:78px}
+  .user-nickname{font-size:20px}
+}
+
 
 /* ── 풋바: Floating Glassmorphic Bar ── */
 .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px 10px;pointer-events:none;padding-bottom:max(10px,env(safe-area-inset-bottom));}
@@ -121,162 +297,138 @@
 </header>
 
 <main style="padding-bottom:100px;">
-  <!-- 프로필 -->
-  <div class="profile-card">
-    <div class="avatar" id="avatarWrap">
-      <span class="material-symbols-outlined" id="avatarIcon" style="font-size:42px;color:#97FEED;font-variation-settings:'FILL' 1,'wght' 300,'GRAD' 0,'opsz' 24;">person</span>
-      <img id="avatarImg" src="" alt="" style="display:none;width:100%;height:100%;position:absolute;top:0;left:0;border-radius:50%;object-fit:cover;border:2px solid #97FEED;"/>
-    </div>
-    <div>
-      <div id="userName" style="font-size:18px;font-weight:800;margin-bottom:6px;">사용자</div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-        <span id="userGender" style="font-size:12px;font-weight:700;color:#97FEED;padding:2px 10px;border-radius:8px;border:1px solid rgba(151,254,237,.3);background:rgba(151,254,237,.1);"></span>
-        <span id="userAge" style="font-size:12px;font-weight:700;color:#97FEED;padding:2px 10px;border-radius:8px;border:1px solid rgba(151,254,237,.3);background:rgba(151,254,237,.1);"></span>
+  <!-- ════════════════════════════════════════════════════════════════════
+       ─── 2026-05-09 KST · TJ 지시 ─── 사용자 요약 카드 (재설계)
+       표시: 사진 / 닉네임 / 성별·연령 chip / 퍼스널컬러 / 체형
+       나머지 정보는 '프로필 수정' / '구독플랜' 진입 카드를 통해 노출
+       ════════════════════════════════════════════════════════════════════ -->
+  <section class="user-summary-card">
+    <div class="user-summary-top">
+      <!-- 아바타 (id 유지: 기존 JS가 avatarImg/avatarIcon 참조) -->
+      <div class="user-avatar" id="avatarWrap">
+        <span class="material-symbols-outlined" id="avatarIcon" style="font-size:46px;color:#97FEED;font-variation-settings:'FILL' 1,'wght' 300,'GRAD' 0,'opsz' 24;">person</span>
+        <img id="avatarImg" src="" alt="" style="display:none;width:100%;height:100%;position:absolute;top:0;left:0;border-radius:50%;object-fit:cover;"/>
       </div>
+      <div class="user-info">
+        <div class="user-nickname" id="userName">사용자</div>
+        <div class="user-meta-row">
+          <span class="user-meta-chip" id="userGender" style="display:none;"></span>
+          <span class="user-meta-chip" id="userAge" style="display:none;"></span>
+        </div>
+      </div>
+    </div>
 
+    <div class="user-summary-divider"></div>
+
+    <!-- 퍼스널컬러 + 체형 요약 (2-grid) -->
+    <div class="user-traits">
+      <div class="trait-pill pc empty" id="traitPc">
+        <div class="trait-icon"><span class="mi material-symbols-outlined">palette</span></div>
+        <div class="trait-text">
+          <div class="trait-label" id="traitPcLabel">퍼스널컬러</div>
+          <div class="trait-value" id="traitPcValue">미진단</div>
+        </div>
+      </div>
+      <div class="trait-pill body empty" id="traitBody">
+        <div class="trait-icon"><span class="mi material-symbols-outlined">accessibility_new</span></div>
+        <div class="trait-text">
+          <div class="trait-label" id="traitBodyLabel">체형</div>
+          <div class="trait-value" id="traitBodyValue">정보 입력 전</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       액션 카드: 프로필 수정 / 구독플랜
+       ════════════════════════════════════════════════════════════════════ -->
+  <div class="action-cards">
+    <div class="action-card" onclick="location.href='profile.html'">
+      <div class="action-card-icon"><span class="mi material-symbols-outlined">manage_accounts</span></div>
+      <div class="action-card-body">
+        <div class="action-card-title" data-i18n="프로필 수정">프로필 수정</div>
+        <div class="action-card-sub" id="actionProfileSub">사진 · 신체정보 · 퍼스널컬러</div>
+      </div>
+      <span class="action-card-arrow material-symbols-outlined">chevron_right</span>
+    </div>
+
+    <div class="action-card plan" onclick="location.href='pricing.html'">
+      <div class="action-card-icon"><span class="mi material-symbols-outlined">workspace_premium</span></div>
+      <div class="action-card-body">
+        <div class="action-card-title" data-i18n="구독플랜">구독플랜
+          <span class="action-card-plan-chip" id="userPlanLabel">FREE</span>
+        </div>
+        <div class="action-card-sub" id="actionPlanSub">사용량 확인 · 플랜 변경</div>
+      </div>
+      <span class="action-card-arrow material-symbols-outlined">chevron_right</span>
     </div>
   </div>
 
-  <!-- Personal Color Summary -->
-  <div id="mpPcSummary" style="display:none;margin:0 16px 12px;padding:16px 18px;border-radius:14px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.15);">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
-      <span class="material-symbols-outlined" style="font-size:16px;color:#97FEED;">auto_awesome</span>
-      <span style="font-size:13px;font-weight:800;color:#97FEED;">Personal Color Summary</span>
+  <!-- ── 레거시 호환 영역 (display:none): 기존 JS의 setText/setStyle 호출이 깨지지 않도록 ID 보존 ── -->
+  <div style="display:none;" aria-hidden="true">
+    <!-- 구 profile-card -->
+    <div class="profile-card">
+      <div class="avatar"></div>
+      <div></div>
     </div>
-    <div id="mpPcType" style="font-size:15px;font-weight:800;color:#fff;margin-bottom:14px;"></div>
-    <!-- 어울리는 컬러 -->
-    <div style="margin-bottom:14px;">
-      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:10px;" data-i18n="어울리는 컬러">어울리는 컬러</div>
-      <div id="mpPcBest" style="display:flex;justify-content:flex-start;gap:20px;"></div>
+    <!-- 구 mpPcSummary (퍼스널컬러 큰 박스) — profile.html에서 표시 -->
+    <div id="mpPcSummary">
+      <div id="mpPcType"></div>
+      <div id="mpPcBest"></div>
+      <div id="mpPcAvoid"></div>
+      <div id="mpPcTop"></div>
+      <div id="mpPcBottom"></div>
     </div>
-    <!-- 피해야 할 컬러 -->
-    <div style="margin-bottom:16px;">
-      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:10px;" data-i18n="피해야 할 컬러">피해야 할 컬러</div>
-      <div id="mpPcAvoid" style="display:flex;justify-content:flex-start;gap:20px;"></div>
-    </div>
-    <!-- 상의 매칭 -->
-    <div style="padding:10px 12px;background:rgba(11,102,106,.1);border-radius:10px;margin-bottom:8px;">
-      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:4px;" data-i18n="상의 매칭 컬러">👔 상의 매칭 컬러</div>
-      <div id="mpPcTop" style="font-size:12px;font-weight:600;color:rgba(255,255,255,.75);"></div>
-    </div>
-    <!-- 하의 매칭 -->
-    <div style="padding:10px 12px;background:rgba(7,25,82,.15);border-radius:10px;">
-      <div style="font-size:13px;color:#fff;font-weight:700;margin-bottom:4px;" data-i18n="하의 매칭 컬러">👖 하의 매칭 컬러</div>
-      <div id="mpPcBottom" style="font-size:12px;font-weight:600;color:rgba(255,255,255,.75);"></div>
-    </div>
+    <!-- 구 사용량 카드 — pricing.html에서 표시 -->
+    <span id="mpCodifitUsed">0</span><span id="mpCodifitLimit">/ 3</span><div id="mpCodifitFill"></div>
+    <span id="mpTryonUsed">0</span><span id="mpTryonLimit">/ 1</span><div id="mpTryonFill"></div>
+    <span id="mpItemUsed">0</span><span id="mpItemLimit">/ 20</span><div id="mpItemFill"></div>
+    <span id="mpUsedCount">0</span><span id="mpLimitCount">/ 6</span><div id="mpUsageFill"></div>
+    <!-- pcBadge (codibank.js 등 외부 참조 가능) -->
+    <span id="pcBadge"><span id="pcBadgeText"></span><span id="pcColorDot"></span></span>
+    <span id="pcMiniColors"></span>
+    <span id="userPlanBox"></span>
   </div>
 
-  <!-- 메뉴 -->
-  <p class="menu-section">계정 관리</p>
-  <div class="menu-item" onclick="location.href='profile.html'">
-    <div class="menu-item-left">
-      <span class="material-symbols-outlined" style="color:#35A29F">manage_accounts</span>
-      프로필 수정
-    </div>
-    <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
-  </div>
-  <!-- ─── 2026-04-22 KST · 코디 앨범: 풋바 네비에서 MY 메뉴 내부로 이동 ─── -->
+  <!-- 부가 메뉴 -->
+  <p class="menu-section" data-i18n="서비스">서비스</p>
   <div class="menu-item" onclick="location.href='album.html'">
     <div class="menu-item-left">
-      <span class="material-symbols-outlined" style="color:#35A29F">collections</span>
+      <span class="material-symbols-outlined mi-lead" style="color:#97FEED">photo_library</span>
       <span data-i18n="코디 앨범">코디 앨범</span>
     </div>
     <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
   </div>
-  <!-- 구독 플랜 -->
-  <p class="menu-section">구독 플랜</p>
-  <div onclick="location.href='pricing.html'" style="margin:0 16px 8px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,rgba(11,102,106,.1),rgba(7,25,82,.2));border:1px solid rgba(151,254,237,.15);cursor:pointer;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div id="userPlanBox" style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:10px;background:linear-gradient(135deg,#0B666A,#35A29F);">
-        <span class="material-symbols-outlined" style="color:#fff;font-size:15px;">workspace_premium</span>
-        <span id="userPlanLabel" style="font-size:13px;font-weight:800;color:#fff;">FREE Plan</span>
-      </div>
-      <span class="material-symbols-outlined" style="color:rgba(255,255,255,.2);font-size:16px;">chevron_right</span>
-    </div>
-    <!-- ─── 2026-04-21: 코디핏 / 트라이온 / 아이템 3영역 분리 ─── -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
-      <!-- 코디핏 -->
-      <div style="background:rgba(7,25,82,.25);border-radius:8px;padding:8px 10px;">
-        <div style="font-size:8px;color:rgba(151,254,237,.5);font-weight:600;margin-bottom:3px;" data-i18n="코디핏">코디핏</div>
-        <div style="display:flex;align-items:baseline;gap:3px;">
-          <span id="mpCodifitUsed" style="font-size:16px;font-weight:900;color:#fff;">0</span>
-          <span id="mpCodifitLimit" style="font-size:10px;color:rgba(255,255,255,.35);">/ 3</span>
-        </div>
-        <div style="height:2px;background:rgba(255,255,255,.08);border-radius:1px;margin-top:4px;overflow:hidden;">
-          <div id="mpCodifitFill" style="height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:1px;transition:width .6s;"></div>
-        </div>
-      </div>
-      <!-- 트라이 온 -->
-      <div style="background:rgba(7,25,82,.25);border-radius:8px;padding:8px 10px;">
-        <div style="font-size:8px;color:rgba(240,163,197,.7);font-weight:600;margin-bottom:3px;" data-i18n="트라이 온">트라이 온</div>
-        <div style="display:flex;align-items:baseline;gap:3px;">
-          <span id="mpTryonUsed" style="font-size:16px;font-weight:900;color:#fff;">0</span>
-          <span id="mpTryonLimit" style="font-size:10px;color:rgba(255,255,255,.35);">/ 1</span>
-        </div>
-        <div style="height:2px;background:rgba(255,255,255,.08);border-radius:1px;margin-top:4px;overflow:hidden;">
-          <div id="mpTryonFill" style="height:100%;width:0%;background:linear-gradient(90deg,#d54f82,#F0A3C5);border-radius:1px;transition:width .6s;"></div>
-        </div>
-      </div>
-      <!-- 아이템 등록 -->
-      <div style="background:rgba(7,25,82,.25);border-radius:8px;padding:8px 10px;">
-        <div style="font-size:8px;color:rgba(196,181,253,.7);font-weight:600;margin-bottom:3px;" data-i18n="아이템 등록">아이템 등록</div>
-        <div style="display:flex;align-items:baseline;gap:3px;">
-          <span id="mpItemUsed" style="font-size:16px;font-weight:900;color:#fff;">0</span>
-          <span id="mpItemLimit" style="font-size:10px;color:rgba(255,255,255,.35);">/ 20</span>
-        </div>
-        <div style="height:2px;background:rgba(255,255,255,.08);border-radius:1px;margin-top:4px;overflow:hidden;">
-          <div id="mpItemFill" style="height:100%;width:0%;background:linear-gradient(90deg,#7c5cdb,#C4B5FD);border-radius:1px;transition:width .6s;"></div>
-        </div>
-      </div>
-    </div>
-    <!-- 하위 호환 히든 필드 -->
-    <div style="display:none;">
-      <span id="mpUsedCount">0</span><span id="mpLimitCount">/ 6</span>
-      <div id="mpUsageFill"></div>
-    </div>
-  </div>
 
-  <p class="menu-section">서비스</p>
-
-  <!-- 공유판매: 추후 오픈 예정
-  <div class="menu-item" onclick="location.href='codistyle.html'">
-    <div class="menu-item-left">
-      <span class="material-symbols-outlined" style="color:#35A29F">storefront</span>
-      공유·판매 관리
-    </div>
-    <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
-  </div>
-  -->
-
-  <p class="menu-section">기타</p>
+  <p class="menu-section" data-i18n="기타">기타</p>
   <div class="menu-item" onclick="location.href='terms.html'">
     <div class="menu-item-left">
-      <span class="material-symbols-outlined" style="color:rgba(255,255,255,.4)">description</span>
-      이용약관
+      <span class="material-symbols-outlined mi-lead" style="color:rgba(255,255,255,.4)">description</span>
+      <span data-i18n="이용약관">이용약관</span>
     </div>
     <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
   </div>
   <div class="menu-item" onclick="location.href='privacy.html'">
     <div class="menu-item-left">
-      <span class="material-symbols-outlined" style="color:rgba(255,255,255,.4)">privacy_tip</span>
-      개인정보처리방침
+      <span class="material-symbols-outlined mi-lead" style="color:rgba(255,255,255,.4)">privacy_tip</span>
+      <span data-i18n="개인정보처리방침">개인정보처리방침</span>
     </div>
     <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
   </div>
   <div class="menu-item" onclick="location.href='refund.html'">
     <div class="menu-item-left">
-      <span class="material-symbols-outlined" style="color:rgba(255,255,255,.4)">receipt_long</span>
-      환불정책
+      <span class="material-symbols-outlined mi-lead" style="color:rgba(255,255,255,.4)">receipt_long</span>
+      <span data-i18n="환불정책">환불정책</span>
     </div>
     <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
   </div>
 
   <!-- 로그아웃 -->
-  <button class="btn-logout" onclick="doLogout()">로그아웃</button>
+  <button class="btn-logout" onclick="doLogout()" data-i18n="로그아웃">로그아웃</button>
 
   <!-- 회원탈퇴 -->
   <div style="text-align:center;margin:16px 0 32px;">
-    <a href="withdraw.html" style="font-size:12px;color:rgba(255,255,255,.2);text-decoration:none;letter-spacing:.02em;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:1px;">회원탈퇴</a>
+    <a href="withdraw.html" style="font-size:12px;color:rgba(255,255,255,.2);text-decoration:none;letter-spacing:.02em;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:1px;" data-i18n="회원탈퇴">회원탈퇴</a>
   </div>
   <!-- 회사 정보 -->
   <div id="company-footer-ko" style="margin-top:28px;padding:20px 0;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(216,226,255,.25);line-height:1.8;text-align:center;">
@@ -517,14 +669,54 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       var _gMap = {male:_isEn?'Male':'남성',female:_isEn?'Female':'여성',M:_isEn?'Male':'남성',F:_isEn?'Female':'여성'};
       var _gEl = document.getElementById('userGender');
       var _aEl = document.getElementById('userAge');
-      if(_gEl) _gEl.textContent = _gMap[u.gender] || '';
-      if(_aEl) _aEl.textContent = u.ageGroup || '';
-      if(_gEl && !_gEl.textContent) _gEl.style.display='none';
-      if(_aEl && !_aEl.textContent) _aEl.style.display='none';
+      // ─── 2026-05-09 KST · TJ 지시 ─── 새 디자인 chip 복원 (display 자동 토글)
+      if(_gEl){
+        var _gTxt = _gMap[u.gender] || '';
+        _gEl.textContent = _gTxt;
+        _gEl.style.display = _gTxt ? 'inline-flex' : 'none';
+      }
+      if(_aEl){
+        var _aTxt = u.ageGroup || '';
+        // i18n: 한글 연령대 → 영문
+        if(_isEn){
+          var _ageMap={'10대':'Teens','20대':'20s','30대':'30s','40대':'40s','50대':'50s','60대':'60s'};
+          _aTxt = _ageMap[_aTxt] || _aTxt;
+        }
+        _aEl.textContent = _aTxt;
+        _aEl.style.display = _aTxt ? 'inline-flex' : 'none';
+      }
       // 구독 플랜
+      // ─── 2026-05-09 KST · TJ 지시 ─── 새 디자인: chip만 표시 (라벨 텍스트만, "Plan" 접미는 제거)
       var _planNames = {free:'FREE',silver:'SILVER',gold:'GOLD',diamond:'DIAMOND'};
       var _planId = (u.plan||'free').toLowerCase();
-      try{ document.getElementById('userPlanLabel').textContent = (_planNames[_planId]||'FREE') + ' Plan'; }catch(_){}
+      try{ document.getElementById('userPlanLabel').textContent = _planNames[_planId] || 'FREE'; }catch(_){}
+
+      // ─── 2026-05-09 KST · TJ 지시 ─── 체형(BMI 자동 계산) 트레잇 채우기
+      // tryon.html의 동일 로직 재사용:
+      //   <18.5 슬림 / <23 표준 / <26 보통 / ≥26 풍성
+      try{
+        var _bH = parseFloat(u.height) || 0;
+        var _bW = parseFloat(u.weight) || 0;
+        var _bodyType = '';
+        var _bodyTypeEn = '';
+        if(_bH > 0 && _bW > 0){
+          var _bmi = _bW / Math.pow(_bH/100, 2);
+          if(_bmi < 18.5)      { _bodyType='슬림'; _bodyTypeEn='Slim'; }
+          else if(_bmi < 23)   { _bodyType='표준'; _bodyTypeEn='Standard'; }
+          else if(_bmi < 26)   { _bodyType='보통'; _bodyTypeEn='Average'; }
+          else                 { _bodyType='풍성'; _bodyTypeEn='Full'; }
+        }
+        var _tbEl  = document.getElementById('traitBody');
+        var _tbVal = document.getElementById('traitBodyValue');
+        var _tbLab = document.getElementById('traitBodyLabel');
+        if(_tbLab) _tbLab.textContent = _isEn ? 'Body Type' : '체형';
+        if(_bodyType && _tbVal && _tbEl){
+          _tbVal.textContent = _isEn ? (_bodyTypeEn + ' Body') : (_bodyType + ' 체형');
+          _tbEl.classList.remove('empty');
+        } else if(_tbVal){
+          _tbVal.textContent = _isEn ? 'Add height/weight' : '키·몸무게 입력';
+        }
+      }catch(_){}
 
       // ── 구독/보너스 정보 실시간 표시 ──
       (async function(){
@@ -539,11 +731,17 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         const itemBase = ITEM_LIMITS[planId]  || 20;
 
         // ─── localStorage에서 즉시 표시 (코디핏/트라이온 분리) ───
-        let closetUsed = 0, codistyleUsed = 0;
+        // ─── 2026-05-09 Step 2 ─── 트라이온 표시 버그 수정
+        //   이전: codistyleUsed = parseInt(raw.codistyleCount || 0);
+        //         → 트라이온 자리에 코디하기 카운트가 표시되는 버그
+        //   변경: tryonUsed = parseInt(raw.tryonCount || 0);
+        //         (codistyleUsed는 레거시 데이터 보존용으로만 유지, 화면 표시 제외)
+        let closetUsed = 0, tryonUsed = 0, codistyleUsed = 0;
         try{
           const raw = JSON.parse(localStorage.getItem('cb_usage_'+u.email)||'{}');
           closetUsed    = parseInt(raw.closetCount || 0);
-          codistyleUsed = parseInt(raw.codistyleCount || 0);
+          tryonUsed     = parseInt(raw.tryonCount  || 0);   // [Step2] 트라이온 정확한 필드
+          codistyleUsed = parseInt(raw.codistyleCount || 0); // 레거시 보존(미표시)
         }catch(_){}
         
         // 즉시 표시 (보너스 없음 상태)
@@ -563,10 +761,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             if(coPct>80) document.getElementById('mpCodifitFill').style.background='linear-gradient(90deg,#ef4444,#fca5a5)';
           }catch(_){}
           // 트라이 온
+          // ─── 2026-05-09 Step 2 ─── 표시 변수: codistyleUsed → tryonUsed
           try{
-            document.getElementById('mpTryonUsed').textContent = codistyleUsed;
+            document.getElementById('mpTryonUsed').textContent = tryonUsed;
             document.getElementById('mpTryonLimit').textContent = '/ ' + trLimit;
-            const trPct = Math.min(100,Math.round(codistyleUsed/Math.max(trLimit,1)*100));
+            const trPct = Math.min(100,Math.round(tryonUsed/Math.max(trLimit,1)*100));
             document.getElementById('mpTryonFill').style.width = trPct+'%';
             if(trPct>80) document.getElementById('mpTryonFill').style.background='linear-gradient(90deg,#ef4444,#fca5a5)';
           }catch(_){}
@@ -578,9 +777,10 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             document.getElementById('mpItemFill').style.width = itPct+'%';
             if(itPct>80) document.getElementById('mpItemFill').style.background='linear-gradient(90deg,#ef4444,#fca5a5)';
           }catch(_){}
-          // 하위 호환 히든 필드
+          // 하위 호환 히든 필드 — 합산 사용량
+          // ─── 2026-05-09 Step 2 ─── codistyleUsed 제외, closet + tryon 합산
           try{
-            const totalUsed = closetUsed + codistyleUsed;
+            const totalUsed = closetUsed + tryonUsed;
             const totalLimit = (coUnlim?9999:coLimit) + trLimit;
             document.getElementById('mpUsedCount').textContent = totalUsed;
             document.getElementById('mpLimitCount').textContent = '/ ' + (totalLimit>=9999?'∞':totalLimit);
@@ -620,13 +820,16 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
           // 최신 보너스 반영
           updateCard(coBonus, trBonus, itemBonus, curItemUsed);
           // 로컬 캐시 업데이트
+          // ─── 2026-05-09 Step 2 ─── tryonUsed 필드 추가 (구독플랜/한도체크용)
           try{
             localStorage.setItem('cb_plan_info_'+u.email, JSON.stringify({
               updatedAt: new Date().toISOString().slice(0,7),
               planId: planId,
               codifitBonus: coBonus, tryonBonus: trBonus, itemBonus: itemBonus,
               codifitBase: coBase, tryonBase: trBase, itemBase: itemBase,
-              closetUsed: closetUsed, codistyleUsed: codistyleUsed, itemUsed: curItemUsed,
+              closetUsed: closetUsed, tryonUsed: tryonUsed,           // [Step2] 신규 필드
+              codistyleUsed: codistyleUsed,                            // 레거시 보존
+              itemUsed: curItemUsed,
             }));
           }catch(_){}
         }catch(_){}
@@ -657,8 +860,48 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
                 }).join('');
               }
             }
+            // ─── 2026-05-09 KST · TJ 지시 ─── 새 trait pill (퍼스널컬러) 채우기
+            //   형식: '봄 웜톤' (season + ' ' + undertone)
+            //   영어: 'Spring Warm' 또는 pc.season_en 사용
+            try{
+              var _tpEl  = document.getElementById('traitPc');
+              var _tpVal = document.getElementById('traitPcValue');
+              var _tpLab = document.getElementById('traitPcLabel');
+              var _tpEn  = window.CodiBankI18n && CodiBankI18n.isEn();
+              if(_tpLab) _tpLab.textContent = _tpEn ? 'Personal Color' : '퍼스널컬러';
+              if(_tpVal && _tpEl){
+                var _seasonTxt = _tpEn ? (pc.season_en || pc.season) : (pc.season || '');
+                var _undTxt    = pc.undertone || '';
+                if(_tpEn){
+                  _undTxt = (_undTxt==='웜톤') ? 'Warm' : (_undTxt==='쿨톤') ? 'Cool' : _undTxt;
+                }
+                // 형식 — 한글: '봄 웜톤'  /  영어: 'Spring · Warm'
+                var _pcDisplay = '';
+                if(_seasonTxt && _undTxt){
+                  _pcDisplay = _tpEn ? (_seasonTxt + ' · ' + _undTxt) : (_seasonTxt.replace('웜','').replace('쿨','') + ' ' + _undTxt);
+                } else {
+                  _pcDisplay = _seasonTxt || _undTxt || '';
+                }
+                if(_pcDisplay){
+                  _tpVal.textContent = _pcDisplay;
+                  _tpEl.classList.remove('empty');
+                  // 트레잇 아이콘 컬러를 시즌별로 살짝 바꾸기 (선택적 강조)
+                  var _seasonHues = {'봄웜':'#FFB347','여름쿨':'#87CEEB','가을웜':'#CD853F','겨울쿨':'#B0C4DE'};
+                  var _hue = _seasonHues[pc.season];
+                  if(_hue){
+                    var _icon = _tpEl.querySelector('.trait-icon');
+                    if(_icon){
+                      _icon.style.background = _hue + '24'; // alpha 14%
+                      _icon.style.color = _hue;
+                    }
+                  }
+                }
+              }
+            }catch(_){}
           }
           // ── Personal Color Summary 렌더링 ──
+          // 주: 컨테이너(#mpPcSummary)는 hidden 영역에 있어 사용자 화면엔 안 보임.
+          //     profile.html에서 상세 표시 — 여기서는 데이터 채우기만 보존.
           try{
             var _mpSum=document.getElementById('mpPcSummary');
             if(_mpSum){
