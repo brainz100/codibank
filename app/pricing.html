@@ -406,149 +406,153 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .section-label{font-size:10px;font-weight:800;letter-spacing:.14em;color:var(--tx-muted);margin-bottom:16px;padding-left:2px}
 
 /* ── 플랜 그리드 ── */
-.plan-grid{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+/* ─── 2026-05-09 KST · TJ 지시 (D2) ─── 배지 짤림 방지 위해 gap 확대 + 컨테이너 padding-top */
+.plan-grid{display:flex;flex-direction:column;gap:22px;margin:6px 0 16px;padding-top:14px}
 
 /* ════════════════════════════════════════════════════════════════════
-   ─── 2026-05-09 KST · TJ 지시 Step 2-Design ───
-   [재설계] 4개 플랜 카드 — 디자이너 수준의 시각적 위계
-   - 공통: 더 부드러운 라운드(20px), 미세 그라디언트, 호버 리프트
-   - FREE:    연한 블루 베이스, 친근하게
-   - SILVER:  차분한 그레이-블루 + 메탈릭 디테일
-   - GOLD:    추천 카드 — 다크 네이비 + 골드 그라디언트 + 글로우
-   - DIAMOND: 럭셔리 — 딥 퍼플 + 보석 그라디언트
+   ─── 2026-05-09 KST · TJ 지시 (D2) ─── 4개 플랜 카드 v2
+   - 배경: 4색 모두 연한 대표 컬러 (다크 다이아/골드 → 연한 컬러로 전환)
+   - 라인: 추천(GOLD)/현재 플랜은 더 두껍고 색상 강조
+   - overflow:visible 로 '추천'/'현재 플랜' 배지가 카드 위로 정상 노출
    ════════════════════════════════════════════════════════════════════ */
 /* ── 플랜 카드 공통 ── */
 .plan-card{
   border-radius:20px;
-  padding:22px 20px;
+  padding:24px 22px 22px;
   cursor:pointer;
   border:1.5px solid transparent;
   transition:transform .2s cubic-bezier(.4,0,.2,1),box-shadow .2s,border-color .2s;
   position:relative;
-  overflow:hidden;
+  overflow:visible;          /* 배지 짤림 방지 */
 }
 .plan-card::before{
   content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
-  opacity:0;transition:opacity .2s;
+  opacity:0;transition:opacity .2s;z-index:0;
 }
+.plan-card > *{position:relative;z-index:1}  /* 자식들이 ::before 위로 */
 .plan-card:hover{transform:translateY(-2px)}
 .plan-card:active{transform:scale(.985)}
 
-/* FREE — 연한 블루 베이스, 친근함 */
+/* FREE — 연한 그레이-블루 (시작 친숙) */
 .plan-card.card-free{
-  background:linear-gradient(160deg,#f6f9ff 0%,#eaf1ff 100%);
-  border-color:#d9e3f5;
-  box-shadow:0 2px 10px rgba(7,25,82,.05);
+  background:linear-gradient(160deg,#eef2fa 0%,#e3e9f5 100%);
+  border-color:#cdd6e8;
+  box-shadow:0 2px 12px rgba(7,25,82,.06);
 }
 .plan-card.card-free.selected{
-  border-color:#8fa3d4;
+  border-color:#6b80b8;
+  border-width:2px;
   box-shadow:0 6px 22px rgba(7,25,82,.14);
 }
 
-/* SILVER — 차분한 메탈릭 */
+/* SILVER — 연한 메탈릭 블루 */
 .plan-card.card-silver{
-  background:linear-gradient(160deg,#fafcff 0%,#eef3fa 100%);
-  border-color:#c8d4e8;
-  box-shadow:0 2px 12px rgba(100,120,160,.08);
+  background:linear-gradient(160deg,#e8effc 0%,#dde6f4 100%);
+  border-color:#b6c2dd;
+  box-shadow:0 3px 14px rgba(100,120,160,.1);
 }
 .plan-card.card-silver::before{
-  background:linear-gradient(135deg,rgba(143,163,200,.12),transparent 60%);
+  background:linear-gradient(135deg,rgba(143,163,200,.18),transparent 60%);
   opacity:1;
 }
 .plan-card.card-silver.selected{
-  border-color:var(--silver-ac);
+  border-color:#7d92be;
+  border-width:2px;
   box-shadow:0 8px 28px rgba(100,130,180,.2);
 }
 
-/* GOLD — 추천 카드: 다크 네이비 + 골드 글로우 */
+/* GOLD — 추천 카드: 연한 크림/골드 + 두꺼운 골드 라인 */
 .plan-card.card-gold{
-  background:linear-gradient(160deg,#0a1f4f 0%,#071952 70%,#04123e 100%);
-  border-color:rgba(212,160,23,.4);
+  background:linear-gradient(160deg,#fff8e1 0%,#fdecbe 100%);
+  border:2px solid #d4a017;
   box-shadow:
-    0 8px 32px rgba(7,25,82,.32),
-    0 0 0 1px rgba(212,160,23,.18);
-  margin:6px -4px;
-  padding:26px 22px;
-  border-radius:24px;
+    0 8px 28px rgba(212,160,23,.18),
+    0 0 0 6px rgba(255,208,96,.08);
+  margin-top:8px;             /* 추천 배지 공간 확보 */
 }
 .plan-card.card-gold::before{
   background:
-    radial-gradient(circle at 100% 0%,rgba(255,208,96,.15),transparent 50%),
-    radial-gradient(circle at 0% 100%,rgba(151,254,237,.08),transparent 50%);
+    radial-gradient(circle at 100% 0%,rgba(255,208,96,.25),transparent 55%),
+    radial-gradient(circle at 0% 100%,rgba(212,160,23,.12),transparent 55%);
   opacity:1;
 }
 .plan-card.card-gold.selected{
-  border-color:var(--gold-bd);
+  border-color:#a8770c;
+  border-width:2.5px;
   box-shadow:
-    0 14px 44px rgba(212,160,23,.28),
-    0 4px 16px rgba(7,25,82,.35),
-    0 0 0 1px rgba(255,208,96,.35);
+    0 12px 36px rgba(212,160,23,.28),
+    0 0 0 6px rgba(255,208,96,.18);
 }
 
-/* DIAMOND — 럭셔리 딥 퍼플 */
+/* DIAMOND — 연한 보라/라일락 + 진한 퍼플 라인 */
 .plan-card.card-diamond{
-  background:linear-gradient(160deg,#1a0f4d 0%,#120a3a 60%,#0a0625 100%);
-  border-color:rgba(155,125,255,.3);
-  box-shadow:0 6px 24px rgba(18,10,58,.4);
+  background:linear-gradient(160deg,#efeafe 0%,#e1d8fc 100%);
+  border-color:#9b7dff;
+  border-width:1.5px;
+  box-shadow:0 4px 18px rgba(155,125,255,.18);
 }
 .plan-card.card-diamond::before{
   background:
-    radial-gradient(circle at 100% 0%,rgba(196,181,253,.12),transparent 55%),
-    radial-gradient(circle at 0% 100%,rgba(151,254,237,.06),transparent 55%);
+    radial-gradient(circle at 100% 0%,rgba(155,125,255,.18),transparent 55%),
+    radial-gradient(circle at 0% 100%,rgba(196,181,253,.12),transparent 55%);
   opacity:1;
 }
 .plan-card.card-diamond.selected{
-  border-color:var(--diamond-bd);
-  box-shadow:
-    0 12px 40px rgba(155,125,255,.28),
-    0 0 0 1px rgba(196,181,253,.4);
+  border-color:#6d4dd9;
+  border-width:2.5px;
+  box-shadow:0 12px 36px rgba(155,125,255,.28),0 0 0 5px rgba(196,181,253,.18);
 }
 
 /* ── 추천 배지 ── */
+/* ─── 2026-05-09 KST · TJ 지시 (D2) ─── 잘림 방지: top -14px → 카드 padding-top 24px과 .plan-grid gap 22px로 안전 영역 확보 */
 .rec-badge{
-  position:absolute;top:-12px;left:50%;
+  position:absolute;top:-14px;left:50%;
   transform:translateX(-50%);
   background:linear-gradient(135deg,#d4a017 0%,#ffd060 50%,#fbbf24 100%);
   color:#1a0e00;
-  font-size:10px;font-weight:900;
-  padding:5px 16px;
+  font-size:11px;font-weight:900;
+  padding:6px 18px;
   border-radius:999px;
   white-space:nowrap;
   letter-spacing:.06em;
-  box-shadow:0 4px 14px rgba(212,160,23,.45),0 0 0 1px rgba(255,208,96,.5);
-  z-index:2;
+  box-shadow:0 4px 14px rgba(212,160,23,.5),0 0 0 2px rgba(255,208,96,.3);
+  z-index:5;
 }
-.rec-badge .mi{font-size:11px;vertical-align:-1px;margin-right:2px}
+.rec-badge .mi{font-size:12px;vertical-align:-1px;margin-right:3px}
 
 /* ── 카드 내부 ── */
-.plan-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;position:relative;z-index:1}
+.plan-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
 .plan-name{font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;line-height:1;letter-spacing:-.01em}
 .plan-tier{font-size:9.5px;font-weight:800;letter-spacing:.14em;display:block;margin-top:5px}
 
-/* 플랜별 텍스트 컬러 */
-.plan-name.free{color:var(--free-tx)}
-.plan-tier.free{color:var(--tx-muted)}
+/* ─── 2026-05-09 KST (D2) ─── 연한 배경 → 어두운 텍스트로 전환 (가독성) ─── */
+/* FREE 텍스트 — 다크 네이비 */
+.plan-name.free{color:#3a4f7a}
+.plan-tier.free{color:#7a89ad}
 
-.plan-name.silver{color:var(--silver-tx)}
-.plan-tier.silver{color:var(--silver-ac)}
+/* SILVER 텍스트 — 차분한 네이비 */
+.plan-name.silver{color:#3a4f7a}
+.plan-tier.silver{color:#6b80b8}
 
-.plan-name.gold{color:#FFD060}
-.plan-tier.gold{color:rgba(212,160,23,.7)}
+/* GOLD 텍스트 — 진한 골드 브론즈 */
+.plan-name.gold{color:#7a4f0c}
+.plan-tier.gold{color:#a8770c}
 
-.plan-name.diamond{color:var(--diamond-ac)}
-.plan-tier.diamond{color:rgba(155,125,255,.6)}
+/* DIAMOND 텍스트 — 진한 퍼플 */
+.plan-name.diamond{color:#4c3989}
+.plan-tier.diamond{color:#7c5cdb}
 
 /* 가격 */
-.plan-price-wrap{text-align:right;position:relative;z-index:1}
+.plan-price-wrap{text-align:right}
 .plan-price{font-family:'Outfit',sans-serif;font-size:28px;font-weight:900;line-height:1;letter-spacing:-.02em}
-.plan-price.free{font-size:20px;color:var(--tx-muted)}
-.plan-price.silver{color:var(--silver-tx)}
-.plan-price.gold{color:#fff}
-.plan-price.diamond{color:#fff}
+.plan-price.free{font-size:22px;color:#5a6a90}
+.plan-price.silver{color:#3a4f7a}
+.plan-price.gold{color:#7a4f0c}
+.plan-price.diamond{color:#4c3989}
 .plan-price-normal{font-size:13px;text-decoration:line-through;margin-bottom:2px}
-.plan-price-normal.silver{color:rgba(58,79,122,.35)}
-.plan-price-normal.gold{color:rgba(255,255,255,.25)}
-.plan-price-normal.diamond{color:rgba(196,181,253,.25)}
+.plan-price-normal.silver{color:rgba(58,79,122,.4)}
+.plan-price-normal.gold{color:rgba(122,79,12,.35)}
+.plan-price-normal.diamond{color:rgba(76,57,137,.4)}
 .plan-price-discount{
   font-size:10px;font-weight:800;
   padding:2px 8px;
@@ -556,88 +560,112 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
   display:inline-block;margin-bottom:4px;
   letter-spacing:.02em;
 }
-.plan-price-discount.silver{background:rgba(239,68,68,.08);color:#dc2626;border:1px solid rgba(239,68,68,.2)}
-.plan-price-discount.gold{background:rgba(212,160,23,.15);color:var(--gold-ac);border:1px solid rgba(212,160,23,.3)}
-.plan-price-discount.diamond{background:rgba(155,125,255,.15);color:var(--diamond-ac);border:1px solid rgba(155,125,255,.25)}
+.plan-price-discount.silver{background:rgba(239,68,68,.1);color:#dc2626;border:1px solid rgba(239,68,68,.25)}
+.plan-price-discount.gold{background:rgba(212,160,23,.18);color:#7a4f0c;border:1px solid rgba(212,160,23,.4)}
+.plan-price-discount.diamond{background:rgba(155,125,255,.15);color:#4c3989;border:1px solid rgba(155,125,255,.35)}
 .plan-period{font-size:11px;font-weight:600}
-.plan-period.silver{color:var(--tx-muted)}
-.plan-period.gold{color:rgba(255,255,255,.4)}
-.plan-period.diamond{color:rgba(196,181,253,.4)}
+.plan-period.silver{color:#7a89ad}
+.plan-period.gold{color:rgba(122,79,12,.55)}
+.plan-period.diamond{color:rgba(76,57,137,.6)}
 
-/* ── Stat Pills (코디핏 / 트라이 온 / 아이템 한도 시각화) ── */
-.plan-pills{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:14px 0 10px;position:relative;z-index:1}
+/* ── Stat Pills (코디핏 / 트라이 온 / 아이템 한도 — 숫자 강조) ── */
+.plan-pills{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:14px 0 10px}
 .plan-pill{
-  border-radius:11px;
-  padding:9px 8px 8px;
+  border-radius:12px;
+  padding:11px 8px 9px;
   text-align:center;
   border:1px solid transparent;
   position:relative;
 }
-.plan-pill-label{font-size:9px;font-weight:800;letter-spacing:.06em;margin-bottom:3px;text-transform:uppercase}
-.plan-pill-value{font-family:'Outfit',sans-serif;font-size:15px;font-weight:900;line-height:1.05;letter-spacing:-.01em}
+.plan-pill-label{font-size:9px;font-weight:800;letter-spacing:.06em;margin-bottom:4px;text-transform:uppercase}
+.plan-pill-value{font-family:'Outfit',sans-serif;font-size:18px;font-weight:900;line-height:1.05;letter-spacing:-.01em}
 .plan-pill-unit{font-size:9.5px;font-weight:600;margin-left:1px}
+/* 보너스 추가 표시 (현재 플랜만, +N 표시) */
+.plan-pill-bonus{
+  display:block;font-size:9px;font-weight:800;
+  margin-top:3px;letter-spacing:.02em;color:#0B666A;
+}
 
 /* FREE pills */
 .card-free .plan-pill{background:rgba(255,255,255,.55);border-color:rgba(143,163,212,.3)}
-.card-free .plan-pill-label{color:var(--tx-muted)}
-.card-free .plan-pill-value{color:var(--navy)}
-.card-free .plan-pill-unit{color:var(--tx-muted)}
+.card-free .plan-pill-label{color:#7a89ad}
+.card-free .plan-pill-value{color:#1a2e58}
+.card-free .plan-pill-unit{color:#7a89ad}
 /* SILVER pills */
-.card-silver .plan-pill{background:rgba(255,255,255,.6);border-color:rgba(143,163,200,.3)}
-.card-silver .plan-pill-label{color:var(--silver-ac)}
-.card-silver .plan-pill-value{color:var(--silver-tx)}
-.card-silver .plan-pill-unit{color:var(--silver-ac)}
-/* GOLD pills — 골드 강조 */
-.card-gold .plan-pill{background:rgba(255,255,255,.06);border-color:rgba(255,208,96,.18)}
-.card-gold .plan-pill-label{color:rgba(255,208,96,.7)}
-.card-gold .plan-pill-value{color:#fff}
-.card-gold .plan-pill-unit{color:rgba(255,255,255,.55)}
-/* DIAMOND pills — 보라 글로우 */
-.card-diamond .plan-pill{background:rgba(196,181,253,.08);border-color:rgba(155,125,255,.2)}
-.card-diamond .plan-pill-label{color:rgba(196,181,253,.65)}
-.card-diamond .plan-pill-value{color:#fff}
-.card-diamond .plan-pill-unit{color:rgba(196,181,253,.55)}
+.card-silver .plan-pill{background:rgba(255,255,255,.55);border-color:rgba(143,163,200,.35)}
+.card-silver .plan-pill-label{color:#6b80b8}
+.card-silver .plan-pill-value{color:#1a2e58}
+.card-silver .plan-pill-unit{color:#6b80b8}
+/* GOLD pills */
+.card-gold .plan-pill{background:rgba(255,255,255,.5);border-color:rgba(212,160,23,.3)}
+.card-gold .plan-pill-label{color:#a8770c}
+.card-gold .plan-pill-value{color:#5a3905}
+.card-gold .plan-pill-unit{color:#a8770c}
+.card-gold .plan-pill-bonus{color:#7a4f0c}
+/* DIAMOND pills */
+.card-diamond .plan-pill{background:rgba(255,255,255,.5);border-color:rgba(155,125,255,.3)}
+.card-diamond .plan-pill-label{color:#7c5cdb}
+.card-diamond .plan-pill-value{color:#3a2873}
+.card-diamond .plan-pill-unit{color:#7c5cdb}
+.card-diamond .plan-pill-bonus{color:#4c3989}
 
-/* ── AI 엔진 배지 ── */
+/* ── AI 엔진 듀얼 배지 (코디핏 N2 + 트라이온 NPro) ── */
+/* ─── 2026-05-09 KST · TJ 지시 (D2) ─── 두 엔진을 시각적으로 명확히 구분 ─── */
+.plan-engines{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
 .plan-engine{
-  display:inline-flex;align-items:center;gap:6px;
+  display:inline-flex;align-items:center;gap:5px;
   font-size:10.5px;font-weight:700;
-  padding:5px 10px;
-  border-radius:999px;
-  letter-spacing:.02em;
-  margin-top:2px;
-  position:relative;z-index:1;
+  padding:5px 9px;border-radius:8px;
+  letter-spacing:.01em;
+  flex:1;min-width:0;
 }
-.plan-engine .mi{font-size:13px}
-.plan-engine.basic{background:rgba(53,162,159,.1);color:var(--teal);border:1px solid rgba(53,162,159,.18)}
-.card-gold    .plan-engine.basic,
-.card-diamond .plan-engine.basic{background:rgba(151,254,237,.08);color:var(--mint);border-color:rgba(151,254,237,.18)}
-.plan-engine.pro{
-  background:linear-gradient(135deg,rgba(255,208,96,.18),rgba(212,160,23,.12));
-  color:#FFD060;
-  border:1px solid rgba(255,208,96,.35);
-  box-shadow:0 0 16px rgba(255,208,96,.15);
+.plan-engine .mi{font-size:13px;flex-shrink:0}
+.plan-engine .e-svc{font-weight:800;letter-spacing:.05em;font-size:9px;text-transform:uppercase;opacity:.7;margin-right:3px}
+.plan-engine .e-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 코디핏 (N2) — 청록 계열 */
+.plan-engine.codifit{background:rgba(53,162,159,.1);color:#0B666A;border:1px solid rgba(53,162,159,.25)}
+.card-gold    .plan-engine.codifit{background:rgba(11,102,106,.08);color:#0B666A;border-color:rgba(11,102,106,.22)}
+.card-diamond .plan-engine.codifit{background:rgba(11,102,106,.08);color:#0B666A;border-color:rgba(11,102,106,.22)}
+
+/* 트라이 온 (NPro) — 골드/프리미엄 강조 */
+.plan-engine.tryon{
+  background:linear-gradient(135deg,rgba(255,208,96,.22),rgba(212,160,23,.15));
+  color:#7a4f0c;
+  border:1px solid rgba(212,160,23,.4);
+  font-weight:800;
 }
-.card-free .plan-engine.pro,
-.card-silver .plan-engine.pro{background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border-color:#f59e0b;box-shadow:none}
+.plan-engine.tryon .e-svc{opacity:.85}
+/* '4K' 작은 태그 — 트라이 온 NPro 4K 화질 강조 */
+.plan-engine.tryon .e-tag{
+  display:inline-block;
+  font-size:8.5px;font-weight:900;letter-spacing:.04em;
+  padding:1px 5px;border-radius:5px;
+  background:linear-gradient(135deg,#d4a017,#ffd060);
+  color:#2a1a00;
+  margin-left:4px;
+  box-shadow:0 1px 3px rgba(212,160,23,.35);
+}
 
 /* DIAMOND 일일 한도 안내 */
 .plan-fup{
-  font-size:10px;color:rgba(196,181,253,.6);
-  margin-top:8px;letter-spacing:.02em;font-weight:600;
-  position:relative;z-index:1;
+  display:flex;align-items:center;gap:5px;
+  font-size:10.5px;font-weight:600;
+  margin-top:8px;letter-spacing:.01em;
+  padding:6px 10px;border-radius:8px;
 }
-.plan-fup .mi{font-size:12px;vertical-align:-1px;margin-right:3px}
-.card-gold .plan-fup{color:rgba(255,208,96,.55)}
+.plan-fup .mi{font-size:13px;flex-shrink:0}
+.card-diamond .plan-fup{background:rgba(155,125,255,.1);color:#4c3989;border:1px solid rgba(155,125,255,.18)}
 
-/* "현재 플랜" 배지 (재정의) */
+/* "현재 플랜" 배지 (재정의: 더 큰 안전 영역) */
 .cur-plan-badge{
-  position:absolute;top:-11px;right:18px;
+  position:absolute;top:-12px;right:18px;
   background:linear-gradient(135deg,#0B666A,#35A29F);
   color:#fff;font-size:10px;font-weight:900;
-  padding:4px 12px;border-radius:999px;letter-spacing:.04em;
-  box-shadow:0 4px 12px rgba(11,102,106,.4);
-  z-index:2;
+  padding:5px 13px;border-radius:999px;letter-spacing:.04em;
+  box-shadow:0 4px 14px rgba(11,102,106,.5),0 0 0 2px rgba(151,254,237,.2);
+  z-index:5;
+  white-space:nowrap;
 }
 .cur-plan-badge .mi{font-size:11px;vertical-align:-1px;margin-right:3px}
 
@@ -679,10 +707,29 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .pay-btn:not(:disabled):active{opacity:.85}
 .pay-note{text-align:center;font-size:11px;color:var(--tx-muted)}
 
-/* ── 안내 박스 ── */
-.info-box{background:var(--surface);border:1px solid #e2e8f4;border-radius:16px;padding:16px 18px;font-size:12px;color:var(--tx-mid);line-height:1.8;box-shadow:0 1px 6px rgba(7,25,82,.04)}
-.info-box b{color:var(--teal);display:block;margin-bottom:3px;margin-top:10px;font-weight:700}
-.info-box b:first-child{margin-top:0}
+/* ── 안내 박스 (D2: 텍스트+아이콘 3줄 컴팩트) ── */
+.info-box{
+  background:var(--surface);
+  border:1px solid #e2e8f4;
+  border-radius:14px;
+  padding:14px 16px;
+  margin-bottom:16px;
+  box-shadow:0 1px 6px rgba(7,25,82,.04);
+  display:flex;flex-direction:column;gap:9px;
+}
+.info-box .info-line{
+  display:flex;align-items:center;gap:9px;
+  font-size:12px;color:var(--tx-mid);line-height:1.4;
+}
+.info-box .info-line strong{font-weight:800;color:var(--navy)}
+.info-box .info-ico{
+  font-family:'Material Symbols Outlined';font-size:16px;line-height:1;
+  flex-shrink:0;color:var(--teal);
+  width:24px;height:24px;border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(53,162,159,.08);
+}
+.info-box .info-ico.engine{background:rgba(255,208,96,.15);color:#a8770c}
 
 /* ── 풋바 ── */
 .cb-nav{position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:0 16px;padding-bottom:max(10px,env(safe-area-inset-bottom));pointer-events:none}
@@ -790,24 +837,36 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
   <div class="section-label" style="color:var(--text3);">SUBSCRIPTION PLAN</div>
   <div class="plan-grid" id="planGrid"></div>
 
-  <!-- 안내 박스 -->
-  <div class="info-box" style="margin-bottom:16px" id="infoBoxKo">
-    <b>횟수 계산 방식 (2026-04-21 개편)</b>
-    코디핏(AI 추천)과 트라이 온(가상 시착)이 <strong>별도로</strong> 카운트됩니다.
-    <b>AI 엔진 차등 적용</b>
-    · 무료 / 실버: <strong style="color:#97FEED">Nano Banana 2</strong> (Gemini 3 Flash Image)<br/>
-    · 골드 / 다이아: <strong style="color:#FFD700">Nano Banana Pro</strong> (Gemini 3 Pro, 4K 고화질)
-    <b>FUP(공정 이용 정책)</b>
-    다이아 플랜의 코디핏 무제한은 <strong>일일 20회</strong>, 아이템 등록 무제한은 <strong>일일 100개</strong> 한도 내에서 운영됩니다.
+  <!-- ─── 2026-05-09 KST · TJ 지시 (D2) ─── 안내 박스 간결화
+       이전: 3개 섹션(횟수 계산 방식 + AI 엔진 차등 + FUP) 긴 문장
+       변경: 3줄 텍스트+아이콘 — 핵심만 -->
+  <div class="info-box" id="infoBoxKo">
+    <div class="info-line">
+      <span class="mi info-ico">tune</span>
+      <span>코디핏 · 트라이 온은 <strong>각각 별도</strong>로 카운트됩니다</span>
+    </div>
+    <div class="info-line">
+      <span class="mi info-ico engine">auto_awesome</span>
+      <span>코디핏 = <strong>Nano Banana 2</strong> · 트라이 온 = <strong style="color:#a8770c">Nano Banana Pro 4K</strong></span>
+    </div>
+    <div class="info-line">
+      <span class="mi info-ico">verified</span>
+      <span>다이아 무제한은 <strong>일 20회</strong>(코디핏) · <strong>일 100개</strong>(아이템) 한도</span>
+    </div>
   </div>
-  <div class="info-box" style="margin-bottom:16px;display:none;" id="infoBoxEn">
-    <b>Generation Counting (Updated 2026-04-21)</b>
-    Codi Fit (AI recommendation) and Try On (virtual try-on) are counted <strong>separately</strong>.
-    <b>Tiered AI Engine</b>
-    · Free / Silver: <strong style="color:#97FEED">Nano Banana 2</strong> (Gemini 3 Flash Image)<br/>
-    · Gold / Diamond: <strong style="color:#FFD700">Nano Banana Pro</strong> (Gemini 3 Pro, 4K quality)
-    <b>FUP (Fair Use Policy)</b>
-    Diamond's unlimited Codi Fit is subject to <strong>20/day</strong>, unlimited items to <strong>100/day</strong>.
+  <div class="info-box" id="infoBoxEn" style="display:none;">
+    <div class="info-line">
+      <span class="mi info-ico">tune</span>
+      <span>Codi Fit · Try On are counted <strong>separately</strong></span>
+    </div>
+    <div class="info-line">
+      <span class="mi info-ico engine">auto_awesome</span>
+      <span>Codi Fit = <strong>Nano Banana 2</strong> · Try On = <strong style="color:#a8770c">Nano Banana Pro 4K</strong></span>
+    </div>
+    <div class="info-line">
+      <span class="mi info-ico">verified</span>
+      <span>Diamond unlimited: <strong>20/day</strong> Codi Fit · <strong>100/day</strong> items (FUP)</span>
+    </div>
   </div>
 </div>
 
@@ -845,6 +904,10 @@ const _en = () => window.CodiBankI18n?.isEn?.() || false;
 // itemsLimit: 아이템 등록 총 한도
 // 가격: FREE ₩0 / SILVER ₩5,900 / GOLD ₩19,900 / DIAMOND ₩39,900
 const PLANS_DEF = [
+  // ─── 2026-05-09 KST · TJ 지시 (D2) ─── 엔진 정의 통일
+  //   코디핏 = Nano Banana 2 (Gemini 2.5 Flash Image) — 모든 플랜
+  //   트라이온 = Nano Banana Pro (Gemini 3 Pro Image) — 모든 플랜
+  //   플랜별 차등은 '한도'와 '일일 제한'으로만.
   {
     id: 'free',
     tier: 'FREE',
@@ -853,16 +916,11 @@ const PLANS_DEF = [
     discountLabel: null,
     codifitMonthly: 3, tryonMonthly: 1, itemsLimit: 20,
     dailyCodifit: null, dailyItems: null,
-    engineCo: 'Nano Banana 2', engineTry: 'Nano Banana 2',
+    engineCo: 'Nano Banana 2', engineTry: 'Nano Banana Pro',
     cardClass: 'card-free',
     nameClass: 'free',
     recommended: false,
-    features: [
-      { icon:'check', ko:'코디핏 <strong>월 3회</strong>', en:'<strong>3 Codi Fit/month</strong>' },
-      { icon:'check', ko:'트라이 온 <strong>월 1회</strong>', en:'<strong>1 Try On/month</strong>' },
-      { icon:'check', ko:'아이템 등록 <strong>20개</strong>', en:'<strong>20 items</strong> total' },
-      { icon:'check', ko:'AI 엔진: <strong>Nano Banana 2</strong>', en:'AI engine: <strong>Nano Banana 2</strong>' },
-    ],
+    features: [],
   },
   {
     id: 'silver',
@@ -872,36 +930,26 @@ const PLANS_DEF = [
     discountLabel: null,
     codifitMonthly: 60, tryonMonthly: 10, itemsLimit: 200,
     dailyCodifit: null, dailyItems: null,
-    engineCo: 'Nano Banana 2', engineTry: 'Nano Banana 2',
+    engineCo: 'Nano Banana 2', engineTry: 'Nano Banana Pro',
     cardClass: 'card-silver',
     nameClass: 'silver',
     recommended: false,
-    features: [
-      { icon:'check', ko:'코디핏 <strong>월 60회</strong>', en:'<strong>60 Codi Fit/month</strong>' },
-      { icon:'check', ko:'트라이 온 <strong>월 10회</strong>', en:'<strong>10 Try On/month</strong>' },
-      { icon:'check', ko:'아이템 등록 <strong>200개</strong>', en:'<strong>200 items</strong> total' },
-      { icon:'check', ko:'AI 엔진: <strong>Nano Banana 2</strong>', en:'AI engine: <strong>Nano Banana 2</strong>' },
-    ],
+    features: [],
   },
   {
     id: 'gold',
-    tier: 'GOLD ⭐',
+    tier: 'GOLD',
     nameKo: '골드', nameEn: 'Gold',
     price: 19900, normalPrice: null, priceUsd: 13.99, normalPriceUsd: null,
     discountLabel: null,
     codifitMonthly: 200, tryonMonthly: 30, itemsLimit: 1000,
     dailyCodifit: null, dailyItems: null,
-    engineCo: 'Nano Banana Pro', engineTry: 'Nano Banana Pro',
+    engineCo: 'Nano Banana 2', engineTry: 'Nano Banana Pro',
     cardClass: 'card-gold',
     nameClass: 'gold',
     recommended: true,
     btnClass: 'gold-btn',
-    features: [
-      { icon:'check', ko:'코디핏 <strong>월 200회</strong>', en:'<strong>200 Codi Fit/month</strong>' },
-      { icon:'check', ko:'트라이 온 <strong>월 30회</strong>', en:'<strong>30 Try On/month</strong>' },
-      { icon:'check', ko:'아이템 등록 <strong>1,000개</strong>', en:'<strong>1,000 items</strong> total' },
-      { icon:'check', ko:'AI 엔진: <strong>Nano Banana Pro</strong> (4K)', en:'AI engine: <strong>Nano Banana Pro</strong> (4K)' },
-    ],
+    features: [],
   },
   {
     id: 'diamond',
@@ -911,32 +959,38 @@ const PLANS_DEF = [
     discountLabel: null,
     codifitMonthly: 9999, tryonMonthly: 100, itemsLimit: 9999,
     dailyCodifit: 20, dailyItems: 100,
-    engineCo: 'Nano Banana Pro', engineTry: 'Nano Banana Pro',
+    engineCo: 'Nano Banana 2', engineTry: 'Nano Banana Pro',
     cardClass: 'card-diamond',
     nameClass: 'diamond',
     recommended: false,
     btnClass: 'diamond-btn',
-    features: [
-      { icon:'check', ko:'코디핏 <strong>무제한</strong>', en:'<strong>Unlimited</strong> Codi Fit' },
-      { icon:'check', ko:'1일 최대 <strong>20회</strong>', en:'<strong>20/day</strong> max', sub:true },
-      { icon:'check', ko:'트라이 온 <strong>월 100회</strong>', en:'<strong>100 Try On/month</strong>' },
-      { icon:'check', ko:'아이템 등록 <strong>무제한</strong>', en:'<strong>Unlimited</strong> items' },
-      { icon:'check', ko:'1일 최대 <strong>100개</strong>', en:'<strong>100/day</strong> max', sub:true },
-      { icon:'check', ko:'AI 엔진: <strong>Nano Banana Pro</strong> (4K)', en:'AI engine: <strong>Nano Banana Pro</strong> (4K)' },
-    ],
+    features: [],
   },
 ];
 
 let selectedPlanId = null;
 
 // ── 플랜 카드 렌더링 ──
-// ─── 2026-05-09 KST · TJ 지시 Step 2-Design ─── 디자이너 수준 재설계
-//   이전: 4줄 features 리스트(check 아이콘 + 텍스트)
-//   변경: 3-stat-pill (코디핏/트라이온/아이템 한도) + AI 엔진 배지 + DIAMOND 일일 한도
-//   이유: 핵심 정보(한도)를 한눈에, 시각적 위계를 통해 추천 플랜 강조
+// ─── 2026-05-09 KST · TJ 지시 (D2) ─── v3 디자인
+//   변경: ① engineHtml 단일 → .plan-engines 듀얼 배지 (코디핏=N2 / 트라이온=NPro)
+//         ② 현재 사용자 플랜 카드에만 stat pill 아래 '+N' 보너스 표시
+//         ③ tier 라벨 별표 제거 (PLANS_DEF에서도 'GOLD'로 단순화됨)
+//         ④ FUP 라인은 DIAMOND에만 적용 (GOLD는 트라이온 NPro 배지가 강조 역할)
 function renderPlans(){
   const en = _en();
   const curPlanId = (user.plan||'free').toLowerCase();
+
+  // ─── 현재 사용자 보너스 읽기 (cb_plan_info_<email>) ───
+  // 이 값들은 renderStatus()의 fetch 후 cb_plan_info에 저장됨.
+  // 첫 로드(fetch 전) 시 0으로 시작 → renderStatus 끝에서 renderPlans() 재호출되어 갱신됨.
+  let _myCoBonus=0,_myTrBonus=0,_myItBonus=0;
+  try{
+    const _pi = JSON.parse(localStorage.getItem('cb_plan_info_'+(user.email||'guest'))||'{}');
+    _myCoBonus = parseInt(_pi.codifitBonus||0);
+    _myTrBonus = parseInt(_pi.tryonBonus  ||0);
+    _myItBonus = parseInt(_pi.itemBonus   ||0);
+  }catch(_){}
+
   document.getElementById('planGrid').innerHTML = PLANS_DEF.map(p => {
     const isCurrent = (p.id === curPlanId);
     // 가격 표시: 정상가(취소선) + 할인 뱃지 + 할인가
@@ -954,7 +1008,7 @@ function renderPlans(){
       priceBlock = `${badge}${normal}<div class="plan-price ${p.nameClass}">${discStr}<span class="plan-period ${p.nameClass}">${period}</span></div>`;
     }
 
-    // ─── Stat Pills (코디핏 / 트라이온 / 아이템) ───
+    // ─── Stat Pills (코디핏 / 트라이온 / 아이템) — 숫자 강조 그대로 유지 ───
     const coUnlimited = p.codifitMonthly >= 9999;
     const trUnlimited = p.tryonMonthly   >= 9999;
     const itUnlimited = p.itemsLimit     >= 9999;
@@ -962,31 +1016,46 @@ function renderPlans(){
     const trVal = trUnlimited ? '∞' : p.tryonMonthly;
     const itVal = itUnlimited ? '∞' : p.itemsLimit.toLocaleString();
     const unitMo = en ? '/mo' : '/월';
+    // ─── 현재 플랜 카드에만 보너스 라인 표시 (요구 #4) ───
+    const coBonusLine = (isCurrent && _myCoBonus>0) ? `<span class="plan-pill-bonus">+${_myCoBonus} ${en?'bonus':'보너스'}</span>` : '';
+    const trBonusLine = (isCurrent && _myTrBonus>0) ? `<span class="plan-pill-bonus">+${_myTrBonus} ${en?'bonus':'보너스'}</span>` : '';
+    const itBonusLine = (isCurrent && _myItBonus>0) ? `<span class="plan-pill-bonus">+${_myItBonus} ${en?'bonus':'보너스'}</span>` : '';
+
     const pillsHtml = `
       <div class="plan-pills">
         <div class="plan-pill">
           <div class="plan-pill-label">${en?'Codi Fit':'코디핏'}</div>
           <div class="plan-pill-value">${coVal}<span class="plan-pill-unit">${coUnlimited?'':unitMo}</span></div>
+          ${coBonusLine}
         </div>
         <div class="plan-pill">
           <div class="plan-pill-label">${en?'Try On':'트라이 온'}</div>
           <div class="plan-pill-value">${trVal}<span class="plan-pill-unit">${trUnlimited?'':unitMo}</span></div>
+          ${trBonusLine}
         </div>
         <div class="plan-pill">
           <div class="plan-pill-label">${en?'Items':'아이템'}</div>
           <div class="plan-pill-value">${itVal}${itUnlimited?'':`<span class="plan-pill-unit">${en?'pcs':'개'}</span>`}</div>
+          ${itBonusLine}
         </div>
       </div>`;
 
-    // ─── AI 엔진 배지 ───
-    const isPro = (p.engineCo === 'Nano Banana Pro');
-    const engineLabel = isPro
-      ? `${en?'AI Engine':'AI 엔진'}: <strong>Nano Banana Pro</strong> · 4K`
-      : `${en?'AI Engine':'AI 엔진'}: <strong>Nano Banana 2</strong>`;
-    const engineHtml = `
-      <div class="plan-engine ${isPro?'pro':'basic'}">
-        <span class="mi">${isPro?'auto_awesome':'memory'}</span>
-        <span>${engineLabel}</span>
+    // ─── AI 엔진 듀얼 배지 (요구 #5) ───
+    //   코디핏 = Nano Banana 2 / 트라이온 = Nano Banana Pro
+    //   서비스별 차등을 시각적으로 명확히
+    const enginesHtml = `
+      <div class="plan-engines">
+        <div class="plan-engine codifit" title="${en?'Codi Fit AI engine':'코디핏 AI 엔진'}">
+          <span class="mi">memory</span>
+          <span class="e-svc">${en?'Codi Fit':'코디핏'}</span>
+          <span class="e-name">N2</span>
+        </div>
+        <div class="plan-engine tryon" title="${en?'Try On premium AI engine — 4K':'트라이 온 프리미엄 AI 엔진 — 4K 화질'}">
+          <span class="mi">auto_awesome</span>
+          <span class="e-svc">${en?'Try On':'트라이 온'}</span>
+          <span class="e-name">N Pro</span>
+          <span class="e-tag">4K</span>
+        </div>
       </div>`;
 
     // ─── DIAMOND 일일 한도 안내 (FUP) ───
@@ -995,15 +1064,9 @@ function renderPlans(){
       fupHtml = `
         <div class="plan-fup">
           <span class="mi">info</span>
-          ${en
-            ? `Fair Use: <strong>${p.dailyCodifit}/day</strong> Codi Fit · <strong>${p.dailyItems}/day</strong> items`
-            : `공정 이용: 코디핏 <strong>일 ${p.dailyCodifit}회</strong> · 아이템 <strong>일 ${p.dailyItems}개</strong>`}
-        </div>`;
-    } else if(p.id === 'gold'){
-      fupHtml = `
-        <div class="plan-fup">
-          <span class="mi">workspace_premium</span>
-          ${en?'High-quality 4K AI engine included':'고품질 4K AI 엔진 적용'}
+          <span>${en
+            ? `Daily cap: ${p.dailyCodifit} Codi Fit · ${p.dailyItems} items`
+            : `일일 한도: 코디핏 ${p.dailyCodifit}회 · 아이템 ${p.dailyItems}개`}</span>
         </div>`;
     }
 
@@ -1029,7 +1092,7 @@ function renderPlans(){
         </div>
       </div>
       ${pillsHtml}
-      ${engineHtml}
+      ${enginesHtml}
       ${fupHtml}
     </div>`;
   }).join('');
@@ -1339,6 +1402,20 @@ async function renderStatus(){
     }
     var _iU2 = document.getElementById('itemUnitSpan');
     if(_iU2) _iU2.innerHTML = en ? '/ <span id="itemQuotaLimit">'+(isItemUnlimited?'\u221E':itemTotalLimit)+'</span> registered' : '/ <span id="itemQuotaLimit">'+(isItemUnlimited?'\u221E':itemTotalLimit)+'</span>개 등록';
+
+    // ─── 2026-05-09 KST · TJ 지시 (D2) ─── itemBonus를 cb_plan_info에 병합 후 plan card 재렌더
+    //   (renderPlans는 cb_plan_info에서 itemBonus를 읽어 현재 플랜 카드에 +N 보너스 표시)
+    try{
+      const _key = 'cb_plan_info_'+(user.email||'guest');
+      const _pi  = JSON.parse(localStorage.getItem(_key)||'{}');
+      _pi.itemBase  = itemBaseLimit;
+      _pi.itemBonus = itemBonus;
+      _pi.itemUsed  = itemUsed;
+      _pi.itemLimit = itemTotalLimit;
+      localStorage.setItem(_key, JSON.stringify(_pi));
+    }catch(_){}
+    // 보너스 정보 반영된 카드로 다시 그림
+    try{ renderPlans(); }catch(_){}
   }catch(_){}
 }
 
