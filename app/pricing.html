@@ -1,6 +1,21 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════════════════
+─── 2026-05-09 KST · TJ 지시 (Design v3) ─── [구독플랜 5가지 추가]
+  1) plan card 보너스 chip 제거 — 보너스는 summary에만
+     · _myCoBonus/_myTrBonus/_myItBonus 변수 + ${coBonusLine} 등 모두 삭제
+  2) summary 보너스 chip 강화 — 그라디언트 + 아이콘 + 글로우
+     · .summary-stat-bonus.has: linear-gradient + 'redeem' 아이콘 + box-shadow
+  3) 엔진 표기: 박스 → 텍스트+아이콘+음영
+     · .plan-engine.codifit/tryon (박스 형태) 삭제
+     · .engine-line.codifit/tryon (인라인 텍스트) 추가
+     · 트라이온 모델명: text-shadow + linear-gradient text-fill로 강조
+     · 텍스트: "코디핏 코디 이미지 생성 모델 Nano Banana 2"
+              "트라이온 코디 이미지 생성 모델 Nano Banana PRO, 4K"
+  4-5) 한도 표기 일치성 — closet.html / tryon.html 별도 수정:
+     · closet.html updateQuotaBadge: 합산 → 코디핏 단독 ("코디핏 N회 가능")
+     · tryon.html updateTryonQuotaBadge 신규: 트라이온 단독 ("트라이 온 N회 가능")
+
 ─── 2026-05-09 KST · TJ 지시 Step 2-Design ─── [구독플랜 페이지 재설계]
   [원인] 상단 사용량 영역이 긴 문장형 텍스트라 정보 위계가 약함.
          4개 플랜 카드도 단순 features 리스트 형태라 시각적 구분 부족.
@@ -372,12 +387,27 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .summary-stat-limit{font-size:11px;color:rgba(216,226,255,.5);font-weight:600}
 .summary-stat-bar{height:3px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin-bottom:6px}
 .summary-stat-fill{height:100%;border-radius:99px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+/* ─── 2026-05-09 KST · TJ 지시 ─── 보너스 chip 디자인 강화 ───
+   has 상태(보너스 있음)는 그라디언트 + 아이콘 + 살짝 빛나는 글로우로 강조 */
 .summary-stat-bonus{
-  font-size:9.5px;font-weight:700;letter-spacing:.02em;
-  display:inline-flex;align-items:center;gap:2px;
+  display:inline-flex;align-items:center;gap:3px;
+  font-size:10px;font-weight:800;letter-spacing:.02em;
+  padding:3px 8px;border-radius:999px;
+  transition:all .2s;
 }
-.summary-stat-bonus.has{color:#fbbf24}
-.summary-stat-bonus.none{color:rgba(216,226,255,.35)}
+.summary-stat-bonus .mi{font-size:11px;line-height:1}
+.summary-stat-bonus.has{
+  background:linear-gradient(135deg,#fbbf24 0%,#fde68a 100%);
+  color:#7a4f0c;
+  box-shadow:0 2px 8px rgba(251,191,36,.45),inset 0 1px 0 rgba(255,255,255,.4);
+  text-shadow:0 1px 0 rgba(255,255,255,.2);
+}
+.summary-stat-bonus.none{
+  color:rgba(216,226,255,.4);
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.06);
+  font-weight:700;
+}
 
 /* 카드별 강조 컬러 */
 .summary-stat.codifit .summary-stat-icon{background:rgba(151,254,237,.15);color:var(--mint)}
@@ -580,11 +610,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .plan-pill-label{font-size:9px;font-weight:800;letter-spacing:.06em;margin-bottom:4px;text-transform:uppercase}
 .plan-pill-value{font-family:'Outfit',sans-serif;font-size:18px;font-weight:900;line-height:1.05;letter-spacing:-.01em}
 .plan-pill-unit{font-size:9.5px;font-weight:600;margin-left:1px}
-/* 보너스 추가 표시 (현재 플랜만, +N 표시) */
-.plan-pill-bonus{
-  display:block;font-size:9px;font-weight:800;
-  margin-top:3px;letter-spacing:.02em;color:#0B666A;
-}
+/* (보너스 표시는 plan card에서 제거됨 — summary 카드에서만 표시. plan-pill-bonus CSS 미사용) */
 
 /* FREE pills */
 .card-free .plan-pill{background:rgba(255,255,255,.55);border-color:rgba(143,163,212,.3)}
@@ -601,50 +627,74 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .card-gold .plan-pill-label{color:#a8770c}
 .card-gold .plan-pill-value{color:#5a3905}
 .card-gold .plan-pill-unit{color:#a8770c}
-.card-gold .plan-pill-bonus{color:#7a4f0c}
 /* DIAMOND pills */
 .card-diamond .plan-pill{background:rgba(255,255,255,.5);border-color:rgba(155,125,255,.3)}
 .card-diamond .plan-pill-label{color:#7c5cdb}
 .card-diamond .plan-pill-value{color:#3a2873}
 .card-diamond .plan-pill-unit{color:#7c5cdb}
-.card-diamond .plan-pill-bonus{color:#4c3989}
 
-/* ── AI 엔진 듀얼 배지 (코디핏 N2 + 트라이온 NPro) ── */
-/* ─── 2026-05-09 KST · TJ 지시 (D2) ─── 두 엔진을 시각적으로 명확히 구분 ─── */
-.plan-engines{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
-.plan-engine{
-  display:inline-flex;align-items:center;gap:5px;
-  font-size:10.5px;font-weight:700;
-  padding:5px 9px;border-radius:8px;
-  letter-spacing:.01em;
-  flex:1;min-width:0;
+/* ════════════════════════════════════════════════════════════════════
+   ─── 2026-05-09 KST · TJ 지시 ─── AI 엔진 표시 (재설계)
+   이전: 박스 형태(border + background) — 올드함
+   변경: 텍스트 + 아이콘 + 음영 강조 (인라인 라인 형태)
+   ════════════════════════════════════════════════════════════════════ */
+.plan-engines{
+  display:flex;flex-direction:column;gap:5px;
+  margin-top:12px;padding-top:11px;
+  border-top:1px dashed rgba(0,0,0,.08);
 }
-.plan-engine .mi{font-size:13px;flex-shrink:0}
-.plan-engine .e-svc{font-weight:800;letter-spacing:.05em;font-size:9px;text-transform:uppercase;opacity:.7;margin-right:3px}
-.plan-engine .e-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-/* 코디핏 (N2) — 청록 계열 */
-.plan-engine.codifit{background:rgba(53,162,159,.1);color:#0B666A;border:1px solid rgba(53,162,159,.25)}
-.card-gold    .plan-engine.codifit{background:rgba(11,102,106,.08);color:#0B666A;border-color:rgba(11,102,106,.22)}
-.card-diamond .plan-engine.codifit{background:rgba(11,102,106,.08);color:#0B666A;border-color:rgba(11,102,106,.22)}
-
-/* 트라이 온 (NPro) — 골드/프리미엄 강조 */
-.plan-engine.tryon{
-  background:linear-gradient(135deg,rgba(255,208,96,.22),rgba(212,160,23,.15));
-  color:#7a4f0c;
-  border:1px solid rgba(212,160,23,.4);
-  font-weight:800;
+.engine-line{
+  display:flex;align-items:center;gap:8px;
+  font-size:11px;font-weight:600;
+  line-height:1.3;
+  letter-spacing:-.01em;
 }
-.plan-engine.tryon .e-svc{opacity:.85}
-/* '4K' 작은 태그 — 트라이 온 NPro 4K 화질 강조 */
-.plan-engine.tryon .e-tag{
-  display:inline-block;
-  font-size:8.5px;font-weight:900;letter-spacing:.04em;
-  padding:1px 5px;border-radius:5px;
-  background:linear-gradient(135deg,#d4a017,#ffd060);
-  color:#2a1a00;
-  margin-left:4px;
-  box-shadow:0 1px 3px rgba(212,160,23,.35);
+.engine-line .engine-ico{
+  font-size:15px;flex-shrink:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:18px;
+}
+.engine-line .engine-text{flex:1;min-width:0}
+.engine-line .engine-text strong{
+  font-weight:800;letter-spacing:.01em;
+}
+
+/* 코디핏 라인 — 청록 톤 (Nano Banana 2 강조) */
+.engine-line.codifit{color:#1f3a52}
+.engine-line.codifit .engine-ico{color:#0B666A;text-shadow:0 0 8px rgba(11,102,106,.35)}
+.engine-line.codifit .engine-text strong{
+  color:#0B666A;
+  text-shadow:0 1px 0 rgba(255,255,255,.6),0 0 6px rgba(11,102,106,.18);
+}
+/* 다크/연색 카드별 미세 조정 */
+.card-gold .engine-line.codifit{color:#5a3905}
+.card-diamond .engine-line.codifit{color:#3a2873}
+
+/* 트라이온 라인 — 골드 프리미엄 (Nano Banana PRO 강조) */
+.engine-line.tryon{color:#5a3905;font-weight:700}
+.engine-line.tryon .engine-ico{
+  color:#a8770c;
+  text-shadow:0 0 10px rgba(255,208,96,.55),0 0 4px rgba(212,160,23,.4);
+}
+.engine-line.tryon .engine-text strong{
+  background:linear-gradient(135deg,#7a4f0c 0%,#a8770c 50%,#7a4f0c 100%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+  font-weight:900;letter-spacing:.02em;
+  filter:drop-shadow(0 1px 0 rgba(255,255,255,.4));
+}
+/* 4K 부분 — 더 작고 강조된 골드 */
+.engine-line.tryon .engine-4k{
+  font-weight:900;font-size:.9em;
+  letter-spacing:.04em;
+}
+.card-free .engine-line.tryon,
+.card-silver .engine-line.tryon{color:#5a3905}
+.card-diamond .engine-line.tryon{color:#3a2873}
+.card-diamond .engine-line.tryon .engine-text strong{
+  background:linear-gradient(135deg,#7a4f0c 0%,#c4924a 50%,#7a4f0c 100%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
 }
 
 /* DIAMOND 일일 한도 안내 */
@@ -979,17 +1029,8 @@ let selectedPlanId = null;
 function renderPlans(){
   const en = _en();
   const curPlanId = (user.plan||'free').toLowerCase();
-
-  // ─── 현재 사용자 보너스 읽기 (cb_plan_info_<email>) ───
-  // 이 값들은 renderStatus()의 fetch 후 cb_plan_info에 저장됨.
-  // 첫 로드(fetch 전) 시 0으로 시작 → renderStatus 끝에서 renderPlans() 재호출되어 갱신됨.
-  let _myCoBonus=0,_myTrBonus=0,_myItBonus=0;
-  try{
-    const _pi = JSON.parse(localStorage.getItem('cb_plan_info_'+(user.email||'guest'))||'{}');
-    _myCoBonus = parseInt(_pi.codifitBonus||0);
-    _myTrBonus = parseInt(_pi.tryonBonus  ||0);
-    _myItBonus = parseInt(_pi.itemBonus   ||0);
-  }catch(_){}
+  // ─── 2026-05-09 KST · TJ 지시 ─── plan card에서 보너스 표시 제거
+  // 보너스는 상단 summary 박스에만 표시됨 (위계 명확화)
 
   document.getElementById('planGrid').innerHTML = PLANS_DEF.map(p => {
     const isCurrent = (p.id === curPlanId);
@@ -1016,45 +1057,35 @@ function renderPlans(){
     const trVal = trUnlimited ? '∞' : p.tryonMonthly;
     const itVal = itUnlimited ? '∞' : p.itemsLimit.toLocaleString();
     const unitMo = en ? '/mo' : '/월';
-    // ─── 현재 플랜 카드에만 보너스 라인 표시 (요구 #4) ───
-    const coBonusLine = (isCurrent && _myCoBonus>0) ? `<span class="plan-pill-bonus">+${_myCoBonus} ${en?'bonus':'보너스'}</span>` : '';
-    const trBonusLine = (isCurrent && _myTrBonus>0) ? `<span class="plan-pill-bonus">+${_myTrBonus} ${en?'bonus':'보너스'}</span>` : '';
-    const itBonusLine = (isCurrent && _myItBonus>0) ? `<span class="plan-pill-bonus">+${_myItBonus} ${en?'bonus':'보너스'}</span>` : '';
 
     const pillsHtml = `
       <div class="plan-pills">
         <div class="plan-pill">
           <div class="plan-pill-label">${en?'Codi Fit':'코디핏'}</div>
           <div class="plan-pill-value">${coVal}<span class="plan-pill-unit">${coUnlimited?'':unitMo}</span></div>
-          ${coBonusLine}
         </div>
         <div class="plan-pill">
           <div class="plan-pill-label">${en?'Try On':'트라이 온'}</div>
           <div class="plan-pill-value">${trVal}<span class="plan-pill-unit">${trUnlimited?'':unitMo}</span></div>
-          ${trBonusLine}
         </div>
         <div class="plan-pill">
           <div class="plan-pill-label">${en?'Items':'아이템'}</div>
           <div class="plan-pill-value">${itVal}${itUnlimited?'':`<span class="plan-pill-unit">${en?'pcs':'개'}</span>`}</div>
-          ${itBonusLine}
         </div>
       </div>`;
 
-    // ─── AI 엔진 듀얼 배지 (요구 #5) ───
-    //   코디핏 = Nano Banana 2 / 트라이온 = Nano Banana Pro
-    //   서비스별 차등을 시각적으로 명확히
+    // ─── 2026-05-09 KST · TJ 지시 ─── AI 엔진 표기: 박스 → 텍스트+아이콘+음영
+    //   "코디핏 코디 이미지 생성 모델 Nano Banana 2"
+    //   "트라이온 코디 이미지 생성 모델 Nano Banana PRO, 4K"
     const enginesHtml = `
       <div class="plan-engines">
-        <div class="plan-engine codifit" title="${en?'Codi Fit AI engine':'코디핏 AI 엔진'}">
-          <span class="mi">memory</span>
-          <span class="e-svc">${en?'Codi Fit':'코디핏'}</span>
-          <span class="e-name">N2</span>
+        <div class="engine-line codifit">
+          <span class="mi engine-ico">memory</span>
+          <span class="engine-text">${en?'Codi Fit image gen model':'코디핏 코디 이미지 생성 모델'} <strong>Nano Banana 2</strong></span>
         </div>
-        <div class="plan-engine tryon" title="${en?'Try On premium AI engine — 4K':'트라이 온 프리미엄 AI 엔진 — 4K 화질'}">
-          <span class="mi">auto_awesome</span>
-          <span class="e-svc">${en?'Try On':'트라이 온'}</span>
-          <span class="e-name">N Pro</span>
-          <span class="e-tag">4K</span>
+        <div class="engine-line tryon">
+          <span class="mi engine-ico">auto_awesome</span>
+          <span class="engine-text">${en?'Try On image gen model':'트라이온 코디 이미지 생성 모델'} <strong>Nano Banana PRO<span class="engine-4k">, 4K</span></strong></span>
         </div>
       </div>`;
 
@@ -1139,6 +1170,7 @@ function selectPlan(id){
 // 한 번에 1개 stat 슬롯 갱신 (used/limit/fill%/bonus 표시)
 function _updateSummaryStat(prefix, used, limit, bonus, opts){
   const o = opts || {};
+  const en = _en();
   const isUnlimited = !!o.unlimited;
   const usedEl  = document.getElementById('sum'+prefix+'Used');
   const limitEl = document.getElementById('sum'+prefix+'Limit');
@@ -1157,12 +1189,16 @@ function _updateSummaryStat(prefix, used, limit, bonus, opts){
     fillEl.style.width = pct + '%';
     fillEl.classList.toggle('danger', pct >= 90);
   }
+  // ─── 2026-05-09 KST · TJ 지시 ─── 보너스 표시 강화: 아이콘+chip 형태
   if(bonusEl){
     if(bonus > 0){
-      bonusEl.textContent = '+' + bonus + ' bonus';
+      bonusEl.innerHTML = '<span class="mi">redeem</span><span>'+ (en?('+'+bonus+' bonus'):('+'+bonus+' 보너스'))+'</span>';
       bonusEl.className = 'summary-stat-bonus has';
+    } else if(isUnlimited){
+      bonusEl.innerHTML = '<span>'+ (en?'Unlimited':'무제한')+'</span>';
+      bonusEl.className = 'summary-stat-bonus none';
     } else {
-      bonusEl.textContent = isUnlimited ? 'Unlimited' : 'Plan base';
+      bonusEl.innerHTML = '<span>'+ (en?'Plan base':'기본')+'</span>';
       bonusEl.className = 'summary-stat-bonus none';
     }
   }

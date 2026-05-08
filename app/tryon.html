@@ -19,6 +19,38 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-05-09 KST · TJ 지시 (Design) ─── [트라이온 잔여 횟수 배지] │
+  │   [원인] csUsageBadge가 정적 텍스트("스타일링 5회 가능")로 박혀있어│
+  │          실제 사용/한도와 무관하게 표시 → 구독플랜과 불일치        │
+  │   [수정] updateTryonQuotaBadge() 함수 신규:                        │
+  │          · checkTryonUsage()의 tryonRemaining/tryonLimit 사용     │
+  │          · cb_plan_info의 tryonBase + tryonBonus = tryonLimit     │
+  │          · cb_usage의 tryonCount = tryonUsed                      │
+  │          · 표시: "트라이 온 N회 가능" (구독플랜 표기와 동일)        │
+  │          · 잔여 ≤ 1 또는 무제한 시 색상 자동 변경                   │
+  │          · DIAMOND 일일 잔여(FUP)는 보조 정보로 부착 (오늘 N회)    │
+  │   호출 시점:                                                       │
+  │          · 페이지 초기 로드                                         │
+  │          · pageshow (bfcache 복귀)                                │
+  │          · recordTryonUsage 직후 (사용 후 즉시 갱신)               │
+  │ ─── 2026-05-09 KST · TJ 지시 Step 2 ─── [사용량 집계 정리]      │
+  │ [원인1] tryon.html에 한도 체크 함수가 없어 사용자가 트라이온을  │
+  │         무한 호출 가능했음 (서버측 한도만 의존).                │
+  │ [원인2] recordTryonUsage의 totalCount 계산에 codistyle 포함      │
+  │         (Step 1에서 잠금된 페이지) → 정확한 합산 불가능.        │
+  │ [수정]                                                            │
+  │   1) _tryonGetUsage() 신규 — closet.html getUnifiedUsage 패턴 동일│
+  │   2) checkTryonUsage() 신규 — 3단계 한도 체크                    │
+  │      · 트라이온 단독 한도 (가장 엄격)                            │
+  │      · 코디핏+트라이온 합산 한도                                 │
+  │      · DIAMOND 일일 합산 한도 (20)                               │
+  │   3) recordTryonUsage()                                           │
+  │      · totalCount = closet + tryon (codistyle 제외)              │
+  │      · cb_plan_info의 tryonUsed/closetUsed 즉시 동기화            │
+  │   4) #finalGenerate 클릭 핸들러에 checkTryonUsage() 호출 추가    │
+  │      한도 초과 시 토스트 표시 + 생성 차단                       │
+  │ [영향] mypage/pricing의 트라이온 사용량 표시 버그는 별도 수정.   │
+  │                                                                   │
   │ ─── 2026-05-09 KST · TJ 지시 Step 1 ─── [코디하기 잠금 + 풋바]   │
   │ [원인] 코디하기(codistyle.html) 사용 중지 → 풋바 4번째 슬롯에   │
   │        코디앨범(album.html) 다시 노출.                           │
@@ -2770,6 +2802,8 @@ function _tryonPageshowHandler(event){
     }
     // 방금 picker에서 고른 아이템 추가 (tryon_pick_result가 있을 때만 작동)
     consumePick();
+    // ─── 2026-05-09 KST · TJ 지시 ─── 페이지 복귀 시 잔여 횟수 재계산
+    try{ if(typeof updateTryonQuotaBadge === 'function') updateTryonQuotaBadge(); }catch(_){}
   }catch(_){}
 }
 window.addEventListener('pageshow', _tryonPageshowHandler);
@@ -3242,12 +3276,119 @@ function _tryonLoadPersonalColor(email){
   return null;
 }
 
-// ─── 사용량 카운팅 — cb_usage_ 키에 tryonCount 추가 (codistyle.html과 키 공유) ───
+// ─── 사용량 카운팅 — cb_usage_ 키에 tryonCount 추가 (closet.html과 키 공유) ───
+// ─── 2026-05-09 Step 2 ─── totalCount 기준에서 codistyle 제외:
+//   이전: totalCount = closet + codistyle + tryon (코디하기 포함)
+//   변경: totalCount = closet + tryon (코디하기는 잠금되어 발생 안 함)
+//   합산 한도 체크 + 트라이온 단독 한도 체크 모두 추가 (checkTryonUsage)
 function _tryonUsageKey(){
   try{
     const user = (typeof CodiBank !== 'undefined' && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;
     return 'cb_usage_' + ((user && user.email) || 'guest');
   }catch(_){ return 'cb_usage_guest'; }
+}
+// ─── 2026-05-09 Step 2 ─── 사용량 조회 (closet.html의 getUnifiedUsage와 동일 구조)
+function _tryonGetUsage(){
+  try{
+    const k = _tryonUsageKey();
+    const raw = JSON.parse(localStorage.getItem(k) || '{}');
+    const now = new Date();
+    const monthKey = now.getFullYear()+'-'+(now.getMonth()+1);
+    const dayKey   = now.toISOString().slice(0,10);
+    if(raw.month !== monthKey){
+      raw.month=monthKey;
+      raw.closetCount=0; raw.codistyleCount=0; raw.tryonCount=0; raw.totalCount=0;
+    }
+    if(raw.day !== dayKey){
+      raw.day=dayKey;
+      raw.dayClosetCount=0; raw.dayCodiCount=0; raw.dayTryonCount=0; raw.dayTotal=0;
+    }
+    if(!('closetCount' in raw))    raw.closetCount    = 0;
+    if(!('tryonCount' in raw))     raw.tryonCount     = 0;
+    if(!('codistyleCount' in raw)) raw.codistyleCount = 0;  // 레거시
+    if(!('totalCount' in raw))     raw.totalCount     = (raw.closetCount||0)+(raw.tryonCount||0);
+    if(!('dayClosetCount' in raw)) raw.dayClosetCount = 0;
+    if(!('dayTryonCount' in raw))  raw.dayTryonCount  = 0;
+    if(!('dayCodiCount' in raw))   raw.dayCodiCount   = 0;
+    if(!('dayTotal' in raw))       raw.dayTotal       = (raw.dayClosetCount||0)+(raw.dayTryonCount||0);
+    return raw;
+  }catch(_){
+    return { month:'', closetCount:0, tryonCount:0, codistyleCount:0, totalCount:0,
+             day:'', dayClosetCount:0, dayTryonCount:0, dayCodiCount:0, dayTotal:0 };
+  }
+}
+// ─── 2026-05-09 Step 2 ─── 트라이온 한도 체크 (신규)
+//   기존: tryon.html에 한도 체크 함수가 없어 사용자가 무한 호출 가능 ← 버그
+//   현재: 코디핏+트라이온 합산 한도, 트라이온 단독 한도, DIAMOND 일일 한도 모두 검증
+//   반환: { blocked, remaining, totalLimit, totalUsed, tryonRemaining, tryonLimit, reason }
+//   ──────────────────────────────────────────────────────────────────
+//   [한도 정책] (cb_plan_info / PLANS 정의와 동일)
+//     FREE:    코디핏 3 / 트라이온 1 / 합산 4
+//     SILVER:  코디핏 60 / 트라이온 10 / 합산 70
+//     GOLD:    코디핏 200 / 트라이온 30 / 합산 230
+//     DIAMOND: 코디핏 9999 / 트라이온 100 / 합산 9999 / 일일 합산 20
+function _tryonGetPlanInfo(){
+  try{
+    const user = (typeof CodiBank !== 'undefined' && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;
+    const em   = (user && user.email) || 'guest';
+    const raw  = localStorage.getItem('cb_plan_info_'+em);
+    if(raw){
+      const info = JSON.parse(raw);
+      const nowYM = new Date().toISOString().slice(0,7);
+      if(info.updatedAt === nowYM) return info;
+    }
+  }catch(_){}
+  return null;
+}
+// 플랜 한도 폴백 (mypage.html과 동일 정의 — 단일 진실의 원천이 없어 중복 정의)
+const _TRYON_CODIFIT_LIMITS = {free:3, silver:60,  gold:200,  diamond:9999};
+const _TRYON_TRYON_LIMITS   = {free:1, silver:10,  gold:30,   diamond:100};
+const _TRYON_DAILY_LIMIT    = {free:null, silver:null, gold:null, diamond:20}; // DIAMOND만 일일 합산
+function checkTryonUsage(){
+  const user   = (typeof CodiBank !== 'undefined' && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;
+  const planId = ((user && user.plan) || 'free').toLowerCase();
+  const u      = _tryonGetUsage();
+  const info   = _tryonGetPlanInfo();
+  // 1) 플랜 기본 한도
+  const _coBase  = (info && Number.isFinite(Number(info.codifitBase))) ? Number(info.codifitBase) : (_TRYON_CODIFIT_LIMITS[planId] || 3);
+  const _trBase  = (info && Number.isFinite(Number(info.tryonBase)))   ? Number(info.tryonBase)   : (_TRYON_TRYON_LIMITS[planId]   || 1);
+  // 2) 보너스 합산 (관리자 지급)
+  const _coBonus = (info && Number.isFinite(Number(info.codifitBonus))) ? Number(info.codifitBonus) : 0;
+  const _trBonus = (info && Number.isFinite(Number(info.tryonBonus)))   ? Number(info.tryonBonus)   : 0;
+  // 3) 최종 한도 (다이아몬드 코디핏은 무제한 9999 유지)
+  const codifitLimit = _coBase >= 9999 ? 9999 : (_coBase + _coBonus);
+  const tryonLimit   = _trBase + _trBonus;
+  const totalLimit   = codifitLimit + tryonLimit;
+  // 4) 사용량
+  const closetUsed = Number(u.closetCount) || 0;
+  const tryonUsed  = Number(u.tryonCount)  || 0;
+  const totalUsed  = closetUsed + tryonUsed;
+  const dayTryonUsed = Number(u.dayTryonCount) || 0;
+  const dayClosetUsed= Number(u.dayClosetCount)|| 0;
+  const dayTotalUsed = dayClosetUsed + dayTryonUsed;
+  // 5) 한도 체크 (트라이온 단독 한도가 가장 엄격하므로 먼저 검증)
+  if(tryonUsed >= tryonLimit){
+    return { blocked:true, remaining:0, totalLimit, totalUsed, tryonRemaining:0, tryonLimit, tryonUsed,
+      reason: '트라이온 한도('+tryonLimit+'회)를 모두 사용했어요. 마이페이지에서 잔여 횟수를 확인해주세요.' };
+  }
+  if(totalUsed >= totalLimit){
+    return { blocked:true, remaining:0, totalLimit, totalUsed, tryonRemaining:Math.max(0,tryonLimit-tryonUsed), tryonLimit, tryonUsed,
+      reason: '이미지 생성 합산 한도('+totalLimit+'회)를 모두 사용했어요.' };
+  }
+  // DIAMOND 일일 합산 한도
+  const dailyLimit = _TRYON_DAILY_LIMIT[planId];
+  if(dailyLimit && dayTotalUsed >= dailyLimit){
+    return { blocked:true, remaining:Math.max(0,totalLimit-totalUsed), totalLimit, totalUsed,
+             tryonRemaining:Math.max(0,tryonLimit-tryonUsed), tryonLimit, tryonUsed,
+      reason: '오늘 일일 한도('+dailyLimit+'회)를 모두 사용했어요. 내일 다시 이용해주세요.' };
+  }
+  return {
+    blocked:false,
+    remaining: Math.max(0, totalLimit - totalUsed),
+    totalLimit, totalUsed,
+    tryonRemaining: Math.max(0, tryonLimit - tryonUsed),
+    tryonLimit, tryonUsed,
+  };
 }
 function recordTryonUsage(){
   try{
@@ -3266,11 +3407,69 @@ function recordTryonUsage(){
     }
     raw.tryonCount    = (raw.tryonCount||0) + 1;
     raw.dayTryonCount = (raw.dayTryonCount||0) + 1;
-    // 합산 카운터
-    raw.totalCount = (raw.closetCount||0) + (raw.codistyleCount||0) + (raw.tryonCount||0);
-    raw.dayTotal   = (raw.dayClosetCount||0) + (raw.dayCodiCount||0) + (raw.dayTryonCount||0);
+    // ─── 2026-05-09 Step 2 ─── 합산 카운터: codistyle 제외 (코디하기는 잠금)
+    raw.totalCount = (raw.closetCount||0) + (raw.tryonCount||0);
+    raw.dayTotal   = (raw.dayClosetCount||0) + (raw.dayTryonCount||0);
     localStorage.setItem(k, JSON.stringify(raw));
+    // ─── 2026-05-09 Step 2 ─── cb_plan_info 동기화 (mypage/pricing 즉시 반영용)
+    try{
+      const user = (typeof CodiBank !== 'undefined' && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;
+      const em   = (user && user.email) || 'guest';
+      const piKey = 'cb_plan_info_'+em;
+      const piRaw = localStorage.getItem(piKey);
+      if(piRaw){
+        const pi = JSON.parse(piRaw);
+        pi.closetUsed = Number(raw.closetCount) || 0;
+        pi.tryonUsed  = Number(raw.tryonCount)  || 0;
+        pi.codistyleUsed = Number(raw.codistyleCount) || 0;  // 레거시
+        pi.updatedAt  = new Date().toISOString().slice(0,7);
+        localStorage.setItem(piKey, JSON.stringify(pi));
+      }
+    }catch(_){}
   }catch(_){}
+}
+
+// ─── 2026-05-09 KST · TJ 지시 ─── 트라이온 단독 잔여 횟수 배지 갱신
+//   목적: 구독플랜의 '트라이 온 N회/월'과 트라이온 페이지의 '사용가능한 N회'가 일치
+//   기준: cb_plan_info의 tryonBase + tryonBonus / cb_usage의 tryonCount
+//        (트라이온 단독 — 코디핏 사용량과 무관하게 표시)
+function updateTryonQuotaBadge(){
+  const badge = document.getElementById('csUsageBadge');
+  if(!badge) return;
+  try{
+    const ck = checkTryonUsage();
+    const _en = window.CodiBankI18n && CodiBankI18n.isEn();
+    if(ck.blocked){
+      badge.style.background = 'rgba(239,68,68,.12)';
+      badge.style.borderColor = 'rgba(239,68,68,.3)';
+      badge.style.color = '#fca5a5';
+      badge.textContent = _en ? 'Limit reached' : '한도 초과';
+      return;
+    }
+    const _trRem   = Number.isFinite(Number(ck.tryonRemaining)) ? Number(ck.tryonRemaining) : 0;
+    const _trLimit = Number(ck.tryonLimit) || 0;
+    const _isUnlim = _trLimit >= 9999;
+    const _isLow   = !_isUnlim && _trRem <= 1;
+
+    // 일일 잔여 (DIAMOND FUP) 보조 표시
+    const _dRemSrc = (typeof ck.dailyRemaining === 'number') ? ck.dailyRemaining : null;
+    const dailyTxt = (_dRemSrc !== null) ? ` · ${_en?'today':'오늘'} ${_dRemSrc}` : '';
+
+    if(_isLow){
+      badge.style.background = 'rgba(239,68,68,.12)';
+      badge.style.borderColor = 'rgba(239,68,68,.3)';
+      badge.style.color = '#fca5a5';
+    } else {
+      badge.style.background = 'rgba(151,254,237,.1)';
+      badge.style.borderColor = 'rgba(151,254,237,.2)';
+      badge.style.color = '#97FEED';
+    }
+    badge.textContent = _en
+      ? `Try On: ${_isUnlim?'∞':_trRem} left${dailyTxt}`
+      : `트라이 온 ${_isUnlim?'무제한':_trRem+'회'} 가능${dailyTxt}`;
+  }catch(_){
+    badge.textContent = '트라이 온 0회 가능';
+  }
 }
 
 // ─── state → payload 매핑 함수 ───
@@ -3763,6 +3962,18 @@ $('#finalGenerate').addEventListener('click', async () => {
     showToast('남자/여자 모델을 선택해 주세요'); return;
   }
 
+  // ─── 2026-05-09 Step 2 ─── 한도 체크 (사용 전 차단)
+  // 이전: 한도 체크 함수가 없어 사용자가 무한 호출 가능 ← 버그
+  // 변경: checkTryonUsage() 호출하여 (1) 트라이온 단독 한도 (2) 합산 한도
+  //       (3) DIAMOND 일일 합산 한도 모두 검증, 초과 시 차단
+  try{
+    const ck = checkTryonUsage();
+    if(ck.blocked){
+      showToast(ck.reason || '한도를 모두 사용했어요', 4000);
+      return;
+    }
+  }catch(_){}
+
   // 버튼 로딩 상태
   const btn = $('#finalGenerate');
   const originalHTML = btn.innerHTML;
@@ -3875,6 +4086,8 @@ $('#finalGenerate').addEventListener('click', async () => {
     // 결과 반영
     _tryonApplyResult(data);
     recordTryonUsage();
+    // ─── 2026-05-09 KST · TJ 지시 ─── 사용 후 잔여 횟수 즉시 갱신
+    try{ updateTryonQuotaBadge(); }catch(_){}
 
     // 버튼 복원 (다시 생성하기 버튼)
     btn.disabled = false;
@@ -4237,6 +4450,8 @@ if(!_restored){
   applyFitUI('my');        // Step 2 기본값 적용 (첫 방문)
 }
 updateFinalSummary();
+// ─── 2026-05-09 KST · TJ 지시 ─── 트라이온 잔여 횟수 배지 초기 표시
+try{ updateTryonQuotaBadge(); }catch(_){}
 
 // [2026-04-22 14:15 TJ 지시3] 마이 핏 진입 시 회원의 얼굴 사진을 faceCircle에 표시
 //  — codibank.js의 CodiBank.getUserFaceImageSrc(user)를 사용 (closet.html과 동일 패턴)

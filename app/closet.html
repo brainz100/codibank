@@ -7,6 +7,36 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-09 KST · TJ 지시 (Design) ─── [코디핏 한도 표시 단독화]
+  [원인] aiQuota 배지가 합산("스타일링 4회 가능")으로 표시되어
+         구독플랜 페이지의 "코디핏 N회/월" 표기와 일치하지 않음 → 사용자 혼란
+  [수정] updateQuotaBadge():
+         · cb_plan_info의 codifitBase + codifitBonus만 사용 (코디핏 단독)
+         · cb_usage의 closetCount만 사용 (코디핏 단독)
+         · 표시: "코디핏 N회 가능" (구독플랜 페이지와 동일 단위)
+         · 차단 로직(checkUnifiedUsage)은 유지 — 합산/일일 한도는 그대로
+         · 일일 잔여(DIAMOND FUP)는 보조 정보로 유지 (" · 오늘 N회")
+
+─── 2026-05-09 KST · TJ 지시 Step 2 ─── [사용량 집계 — 코디핏+트라이온만]
+  [원인] 기존 getUnifiedUsage / recordUnifiedUsage / checkUnifiedUsage가
+         '코디핏(closet) + 코디하기(codistyle)' 합산을 기준으로 작동.
+         '코디하기'는 잠금 처리(Step 1)되어 더 이상 사용되지 않으므로,
+         합산 기준을 '코디핏 + 트라이온'으로 변경해야 함.
+  [수정]
+    1) getUnifiedUsage()
+       · 신규 필드: tryonCount, dayTryonCount (트라이온 사용량)
+       · totalCount = closetCount + tryonCount  (codistyleCount 제외)
+       · dayTotal   = dayClosetCount + dayTryonCount
+       · codistyleCount/dayCodiCount는 레거시 데이터 보존용으로 유지(사용 안 함)
+    2) recordUnifiedUsage(feature)
+       · 'closet' 분기만 동작. 'codistyle' 인자는 no-op(잠금 페이지에서 호출 안 됨)
+       · 합산 카운터는 closet+tryon 기준으로 갱신
+    3) _planComputed 폴백
+       · plan.closetMonthly+codistyleMonthly → codifitMonthly+tryonMonthly로 명확화
+         (값은 동일하나 의미를 정확히 반영)
+  [영향] 트라이온 사용 시 카운트가 합산 한도에 정확히 반영. mypage/pricing의
+         사용량 표시 버그(트라이온 자리에 codistyle 표시)는 각 페이지에서 별도 수정.
+
 ─── 2026-05-09 KST · TJ 지시 Step 1 ─── [코디하기 잠금 + 풋바 변경]
   [원인] '코디하기'(codistyle.html) 페이지를 사용 중지하고 풋바 네비
          4번째 슬롯에 '코디앨범'(album.html)을 다시 노출.
@@ -2222,8 +2252,10 @@ const PLANS = {
              closetMonthly:9999, codistyleMonthly:100, totalMonthly:9999, dailyTotal:20 },
 };
 function _usageKey(){ return 'cb_usage_' + (user.email||'guest'); }
-// ── 합산 사용량 추적 (내옷장 + 트라이 온 통합) ──
-// pricing.html 구독 상품의 이미지 생성 횟수와 반드시 동일하게 유지
+// ── 합산 사용량 추적 (코디핏 + 트라이온) ──
+// ─── 2026-05-09 Step 2 ─── 합산 기준이 '코디핏 + 코디하기'에서
+// '코디핏 + 트라이온'으로 변경됨. codistyleCount/dayCodiCount 필드는
+// 레거시 데이터 보존을 위해 유지하되 합산 계산에서는 제외.
 function getUnifiedUsage(){
   try{
     const raw = JSON.parse(localStorage.getItem(_usageKey()) || '{}');
@@ -2232,39 +2264,53 @@ function getUnifiedUsage(){
     const dayKey = now.toISOString().slice(0,10);
     if(raw.month !== monthKey){
       raw.month=monthKey;
-      raw.closetCount=0; raw.codistyleCount=0;
-      raw.totalCount=0;  // 합산 월 카운터
+      raw.closetCount=0;
+      raw.codistyleCount=0;     // 레거시(잠금) — 0 유지
+      raw.tryonCount=0;          // [Step2] 트라이온 사용량
+      raw.totalCount=0;          // 합산 월 카운터 (closet + tryon)
     }
     if(raw.day !== dayKey){
       raw.day=dayKey;
-      raw.dayClosetCount=0; raw.dayCodiCount=0;
-      raw.dayTotal=0;        // 합산 일 카운터
+      raw.dayClosetCount=0;
+      raw.dayCodiCount=0;        // 레거시(잠금) — 0 유지
+      raw.dayTryonCount=0;       // [Step2] 트라이온 일일 사용량
+      raw.dayTotal=0;             // 합산 일 카운터 (dayCloset + dayTryon)
     }
-    // 하위 호환
+    // 하위 호환 (필드 누락 시 0 초기화)
     if(!('closetCount' in raw))    raw.closetCount    = 0;
     if(!('codistyleCount' in raw)) raw.codistyleCount = 0;
-    if(!('totalCount' in raw))     raw.totalCount     = (raw.closetCount||0)+(raw.codistyleCount||0);
+    if(!('tryonCount' in raw))     raw.tryonCount     = 0;       // [Step2] 신규
+    // [Step2] totalCount: codistyle 제외, closet + tryon만 합산
+    if(!('totalCount' in raw))     raw.totalCount     = (raw.closetCount||0)+(raw.tryonCount||0);
     if(!('dayClosetCount' in raw)) raw.dayClosetCount = 0;
     if(!('dayCodiCount' in raw))   raw.dayCodiCount   = 0;
-    if(!('dayTotal' in raw))       raw.dayTotal       = (raw.dayClosetCount||0)+(raw.dayCodiCount||0);
+    if(!('dayTryonCount' in raw))  raw.dayTryonCount  = 0;       // [Step2] 신규
+    if(!('dayTotal' in raw))       raw.dayTotal       = (raw.dayClosetCount||0)+(raw.dayTryonCount||0);
     return raw;
   }catch(_){
-    return { month:'', closetCount:0, codistyleCount:0, totalCount:0,
-             day:'', dayClosetCount:0, dayCodiCount:0, dayTotal:0 };
+    return { month:'', closetCount:0, codistyleCount:0, tryonCount:0, totalCount:0,
+             day:'', dayClosetCount:0, dayCodiCount:0, dayTryonCount:0, dayTotal:0 };
   }
 }
 function recordUnifiedUsage(feature){
+  // ─── 2026-05-09 Step 2 ─── feature 인자 처리 변경
+  // 이전: 'codistyle' → codistyleCount +1 (코디하기)
+  //       그 외     → closetCount +1 (코디핏)
+  // 변경: 'closet' / 미지정 → closetCount +1 (코디핏)
+  //       'codistyle' 인자는 잠금된 페이지 잔재 호출 방어용으로 no-op
+  //       'tryon' 카운팅은 tryon.html의 recordTryonUsage()가 담당
   const u = getUnifiedUsage();
   if(feature === 'codistyle'){
-    u.codistyleCount  = (u.codistyleCount||0)  + 1;
-    u.dayCodiCount    = (u.dayCodiCount||0)    + 1;
+    // [Step2] 코디하기 페이지는 잠금됨 — 카운팅 안 함 (방어 코드)
+    // 합산 카운터만 갱신 후 종료
   } else {
+    // 코디핏 (기본)
     u.closetCount     = (u.closetCount||0)     + 1;
     u.dayClosetCount  = (u.dayClosetCount||0)  + 1;
   }
-  // 합산 카운터 갱신 (pricing.html 구독 한도와 동일 기준)
-  u.totalCount = (u.closetCount||0) + (u.codistyleCount||0);
-  u.dayTotal   = (u.dayClosetCount||0) + (u.dayCodiCount||0);
+  // [Step2] 합산 카운터: codistyle 제외, closet + tryon 기준
+  u.totalCount = (u.closetCount||0) + (u.tryonCount||0);
+  u.dayTotal   = (u.dayClosetCount||0) + (u.dayTryonCount||0);
   try{ localStorage.setItem(_usageKey(), JSON.stringify(u)); }catch(_){}
 }
 function checkUnifiedUsage(feature){
@@ -2315,10 +2361,14 @@ function checkUnifiedUsage(feature){
   // [v11 fallback 체인] cb_plan_info 못 읽으면 PLANS 정의값 사용
   if (!Number.isFinite(totalLimit) || totalLimit <= 0) {
     const _planTotal = Number(plan.totalMonthly);
-    const _planComputed = Number(plan.closetMonthly||0) + Number(plan.codistyleMonthly||0);
+    // [Step2 2026-05-09] 폴백 의미 명확화:
+    // 이전: closetMonthly + codistyleMonthly  (레거시 명칭, 우연히 값은 동일)
+    // 변경: codifitMonthly + tryonMonthly     (현행 표준 명칭)
+    const _planComputed = Number(plan.codifitMonthly||plan.closetMonthly||0)
+                        + Number(plan.tryonMonthly  ||plan.codistyleMonthly||0);
     if (Number.isFinite(_planTotal) && _planTotal > 0) totalLimit = _planTotal;
     else if (_planComputed > 0) totalLimit = _planComputed;
-    else totalLimit = 4;  // 최종 fallback (FREE 기본 한도)
+    else totalLimit = 4;  // 최종 fallback (FREE 기본 한도 = 코디핏 3 + 트라이온 1)
   }
   
   const remaining = Math.max(0, totalLimit - totalUsed);
@@ -2343,22 +2393,52 @@ function updateQuotaBadge(){
   const badge=document.getElementById('aiQuota');
   if(!badge) return;
   try{
+    // ─── 2026-05-09 KST · TJ 지시 ─── 코디핏 페이지: 코디핏 단독 한도 표시
+    //   (구독플랜의 코디핏 한도와 정확히 일치하도록)
+    //   이전: checkUnifiedUsage가 코디핏+트라이온 합산 잔여 표시 → 사용자 혼란
+    //   변경: cb_plan_info에서 codifitBase + codifitBonus만 사용
+    //         cb_usage에서 closetCount만 사용 (코디핏 단독)
+    //
+    //   blocked 차단 로직(checkUnifiedUsage)은 유지 — 합산 한도/일일 한도는 그대로 동작
+    //   여기서는 화면 표시만 코디핏 단독으로 노출
     const ck = checkUnifiedUsage('closet');
     if(ck.blocked){
       badge.className='ai-badge danger';
       badge.textContent=_L('한도 초과');
       return;
     }
-    // [v11 TJ] NaN 방어 — Number.isFinite로 검증 후 표시
-    const _rem = Number.isFinite(Number(ck.remaining)) ? Number(ck.remaining) : 0;
-    const _dRem = (ck.dailyRemaining !== null && ck.dailyRemaining !== undefined && Number.isFinite(Number(ck.dailyRemaining))) 
+
+    // 코디핏 단독 한도/사용 계산
+    const _planInfo = _getPlanInfo() || {};
+    const planId    = (user.plan || 'free').toLowerCase();
+    const plan      = PLANS[planId] || PLANS.free;
+    const _coBase   = Number.isFinite(Number(_planInfo.codifitBase))
+                        ? Number(_planInfo.codifitBase)
+                        : Number(plan.codifitMonthly || plan.closetMonthly || 0);
+    const _coBonus  = Number(_planInfo.codifitBonus) || 0;
+    const _coUnlimited = _coBase >= 9999;
+    const _coLimit  = _coUnlimited ? 9999 : (_coBase + _coBonus);
+
+    // 코디핏 단독 사용량 (cb_usage.closetCount)
+    let _coUsed = 0;
+    try{
+      const u = getUnifiedUsage();
+      _coUsed = Number(u.closetCount) || 0;
+    }catch(_){}
+
+    const _coRem = _coUnlimited ? '∞' : Math.max(0, _coLimit - _coUsed);
+
+    // 일일 합산 잔여 (DIAMOND FUP)는 보조 정보로 유지
+    const _dRem = (ck.dailyRemaining !== null && ck.dailyRemaining !== undefined && Number.isFinite(Number(ck.dailyRemaining)))
       ? Number(ck.dailyRemaining) : null;
-    
-    // 합산 잔여 횟수 표시 (내옷장+트라이 온 통합)
     const daily = (_dRem !== null) ? ` · 오늘 ${_dRem}회` : '';
-    badge.className = `ai-badge ${_rem<=2?'danger':'gray'}`;
-    var _bEn3=window.CodiBankI18n&&CodiBankI18n.isEn(); 
-    badge.textContent = _bEn3 ? `Styling: ${_rem} left${daily}` : `스타일링 ${_rem}회 가능${daily}`;
+
+    const _isLow = !_coUnlimited && Number(_coRem) <= 2;
+    badge.className = `ai-badge ${_isLow?'danger':'gray'}`;
+    var _bEn3=window.CodiBankI18n&&CodiBankI18n.isEn();
+    badge.textContent = _bEn3
+      ? `Codi Fit: ${_coRem} left${daily}`
+      : `코디핏 ${_coRem}회 가능${daily}`;
   }catch(_){
     badge.className='ai-badge gray';
     badge.textContent=_L('남은 0회');
@@ -5364,6 +5444,7 @@ async function updateVTO(opts={}){
       // ─── 2026-04-26 v16 TJ 지시 ─── plan_info의 closetUsed도 동기화
       // mypage.html이 cb_plan_info에 closetUsed를 별도 저장하므로
       // 즉시 갱신해야 다른 페이지에서도 정확한 사용량 표시
+      // ─── 2026-05-09 Step 2 ─── tryonUsed 필드도 함께 동기화 (마이페이지/구독플랜용)
       try{
         const _piKey = 'cb_plan_info_'+(user?.email||'guest');
         const _piRaw = localStorage.getItem(_piKey);
@@ -5372,7 +5453,8 @@ async function updateVTO(opts={}){
           // 최신 사용량 cb_usage에서 가져와 동기화
           const _u2 = getUnifiedUsage();
           _pi.closetUsed    = Number(_u2.closetCount) || 0;
-          _pi.codistyleUsed = Number(_u2.codistyleCount) || 0;
+          _pi.tryonUsed     = Number(_u2.tryonCount) || 0;       // [Step2] 신규
+          _pi.codistyleUsed = Number(_u2.codistyleCount) || 0;   // 레거시 보존
           _pi.updatedAt     = new Date().toISOString().slice(0,7);
           localStorage.setItem(_piKey, JSON.stringify(_pi));
         }
