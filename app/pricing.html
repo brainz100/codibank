@@ -1,4 +1,39 @@
 <!DOCTYPE html>
+<!--
+═══════════════════════════════════════════════════════════════════════
+─── 2026-05-09 KST · TJ 지시 Step 2-Design ─── [구독플랜 페이지 재설계]
+  [원인] 상단 사용량 영역이 긴 문장형 텍스트라 정보 위계가 약함.
+         4개 플랜 카드도 단순 features 리스트 형태라 시각적 구분 부족.
+  [수정]
+    1) 상단 영역 재설계:
+       · 'User Plan Summary' 영문 타이틀 + 한글 부제 추가
+       · 사용량 표시: 긴 문장 → 3-카드 그리드 (코디핏/트라이온/아이템)
+         각 카드 = 아이콘 + 사용/한도 + 미니 게이지 + 보너스 칩
+       · 레거시 ID(quotaInfoBox 등)는 hidden으로 유지(JS 호환)
+    2) 4개 플랜 카드 디자인 강화:
+       · 카드 공통: 라운드 20px, 미세 그라디언트, 호버 리프트
+       · FREE:    연한 블루-화이트 그라디언트
+       · SILVER:  메탈릭 미세 광택
+       · GOLD:    다크 네이비 + 골드 글로우 + 추천 배지 강조
+       · DIAMOND: 딥 퍼플 럭셔리 그라디언트
+       · 내용 구조: 가격 + 3-stat-pill (한도) + AI 엔진 배지 + FUP 안내
+       · 기존 features 리스트 → 더 직관적인 stat pill로 대체
+
+─── 2026-05-09 KST · TJ 지시 Step 2 ─── [트라이온 표시 버그 + plan_info]
+  [원인1] 트라이온 사용량 표시가 raw.tryonCount가 아닌 raw.codistyleCount
+          (코디하기 카운트)를 사용 → 트라이온 1회 사용해도 0회로 표시.
+  [원인2] cb_plan_info 저장 시 분리 필드(codifitBase/Bonus, tryonBase/Bonus,
+          closetUsed, tryonUsed)가 없어 closet.html/tryon.html 한도 체크가
+          폴백 경로로만 동작.
+  [수정]
+    1) localStorage 읽을 때 tryonUsed = parseInt(raw.tryonCount||0)
+    2) 트라이온 라인 표시: codistyleUsed → tryonUsed (잔여 횟수도 동일)
+    3) 합산 사용량: closet+codistyle → closet+tryon
+    4) cb_plan_info에 codifitBase/Bonus, tryonBase/Bonus, closetUsed, tryonUsed
+       필드 추가 저장 (mypage.html과 동일 구조 → 페이지간 동기화 정확)
+       codistyleUsed는 레거시 데이터 보존용으로 유지(미표시)
+═══════════════════════════════════════════════════════════════════════
+-->
 <html lang="ko">
 <head>
 <!-- Google tag (gtag.js) -->
@@ -269,27 +304,103 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .pg-title{font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;color:var(--navy)}
 .pg-sub{font-size:11px;color:var(--tx-muted);margin-top:2px}
 
-/* ── 현황 카드 ── */
-.status-card{
-  background:var(--navy);
-  border-radius:20px;
-  padding:20px;
+/* ════════════════════════════════════════════════════════════════════
+   ─── 2026-05-09 KST · TJ 지시 Step 2-Design ───
+   [재설계] User Plan Summary — 문장형(긴 글) → 카드형(시각적 위계)
+   - 헤더: 영문 타이틀 + 한글 부제
+   - 메인: 현재 플랜명 + 가격 + 다음 결제 정보
+   - 그리드 3카드: 코디핏 / 트라이 온 / 아이템
+     · 각 카드 = 아이콘 + 이름 + 사용/한도 + 미니 게이지 + 보너스 칩
+   ════════════════════════════════════════════════════════════════════ */
+.summary-section{
+  background:linear-gradient(165deg,#0a1f4f 0%,#071952 60%,#040f33 100%);
+  border-radius:24px;
+  padding:22px 20px 18px;
   margin-bottom:28px;
-  box-shadow:0 8px 32px rgba(7,25,82,.22);
   position:relative;
   overflow:hidden;
+  box-shadow:0 12px 40px rgba(7,25,82,.25),0 2px 8px rgba(7,25,82,.15);
 }
-.status-card::before{
-  content:'';position:absolute;top:-40px;right:-30px;
-  width:160px;height:160px;
-  background:radial-gradient(circle,rgba(151,254,237,.12),transparent 70%);
+.summary-section::before{
+  content:'';position:absolute;top:-60px;right:-40px;
+  width:200px;height:200px;
+  background:radial-gradient(circle,rgba(151,254,237,.14),transparent 70%);
   pointer-events:none;
 }
-.status-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-.status-plan{font-size:13px;font-weight:700;color:var(--mint)}
-.status-usage{font-size:12px;color:rgba(255,255,255,.45)}
-.usage-bar{height:5px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;margin-top:8px}
-.usage-fill{height:100%;background:linear-gradient(90deg,#35A29F,#97FEED);border-radius:3px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.summary-section::after{
+  content:'';position:absolute;bottom:-50px;left:-30px;
+  width:160px;height:160px;
+  background:radial-gradient(circle,rgba(155,125,255,.10),transparent 70%);
+  pointer-events:none;
+}
+.summary-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;position:relative;z-index:1}
+.summary-title-wrap{display:flex;flex-direction:column}
+.summary-title{font-family:'Outfit',sans-serif;font-size:16px;font-weight:900;color:#fff;letter-spacing:.02em;line-height:1.1}
+.summary-title .accent{color:var(--mint)}
+.summary-subtitle{font-size:10px;color:rgba(216,226,255,.55);letter-spacing:.08em;margin-top:3px;font-weight:600}
+.summary-plan-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 12px;border-radius:999px;
+  background:rgba(151,254,237,.12);
+  border:1px solid rgba(151,254,237,.3);
+  font-size:11px;font-weight:800;color:var(--mint);letter-spacing:.05em;
+  white-space:nowrap;
+}
+.summary-plan-chip .mi{font-size:13px;line-height:1}
+
+/* ─ 사용량 통계 3-카드 그리드 ─ */
+.summary-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;position:relative;z-index:1}
+.summary-stat{
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  padding:11px 10px 10px;
+  position:relative;
+  transition:transform .15s,border-color .15s;
+}
+.summary-stat:hover{transform:translateY(-1px)}
+.summary-stat-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.summary-stat-icon{
+  width:22px;height:22px;border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.summary-stat-icon .mi{font-size:14px;line-height:1}
+.summary-stat-name{font-size:10px;font-weight:800;letter-spacing:.04em;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.summary-stat-value{display:flex;align-items:baseline;gap:3px;margin-bottom:6px;line-height:1}
+.summary-stat-used{font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;color:#fff;letter-spacing:-.02em}
+.summary-stat-limit{font-size:11px;color:rgba(216,226,255,.5);font-weight:600}
+.summary-stat-bar{height:3px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin-bottom:6px}
+.summary-stat-fill{height:100%;border-radius:99px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.summary-stat-bonus{
+  font-size:9.5px;font-weight:700;letter-spacing:.02em;
+  display:inline-flex;align-items:center;gap:2px;
+}
+.summary-stat-bonus.has{color:#fbbf24}
+.summary-stat-bonus.none{color:rgba(216,226,255,.35)}
+
+/* 카드별 강조 컬러 */
+.summary-stat.codifit .summary-stat-icon{background:rgba(151,254,237,.15);color:var(--mint)}
+.summary-stat.codifit .summary-stat-fill{background:linear-gradient(90deg,#35A29F,#97FEED)}
+.summary-stat.tryon   .summary-stat-icon{background:rgba(240,163,197,.15);color:#F0A3C5}
+.summary-stat.tryon   .summary-stat-fill{background:linear-gradient(90deg,#d54f82,#F0A3C5)}
+.summary-stat.items   .summary-stat-icon{background:rgba(196,181,253,.15);color:#C4B5FD}
+.summary-stat.items   .summary-stat-fill{background:linear-gradient(90deg,#7C3AED,#C4B5FD)}
+
+/* 한도 초과 시 게이지 색상 */
+.summary-stat-fill.danger{background:linear-gradient(90deg,#ef4444,#fca5a5) !important}
+
+/* 모바일 좁은 화면 — 3-카드 가로 유지하되 살짝 컴팩트 */
+@media(max-width:380px){
+  .summary-stats{gap:6px}
+  .summary-stat{padding:10px 8px 9px}
+  .summary-stat-used{font-size:19px}
+  .summary-stat-limit{font-size:10px}
+  .summary-stat-name{font-size:9px}
+}
+
+/* (레거시 status-card 잔여 — 기존 ID 호환용 hidden) */
+.status-card{display:none}
 
 /* ── 섹션 라벨 ── */
 .section-label{font-size:10px;font-weight:800;letter-spacing:.14em;color:var(--tx-muted);margin-bottom:16px;padding-left:2px}
@@ -297,83 +408,122 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 /* ── 플랜 그리드 ── */
 .plan-grid{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
 
+/* ════════════════════════════════════════════════════════════════════
+   ─── 2026-05-09 KST · TJ 지시 Step 2-Design ───
+   [재설계] 4개 플랜 카드 — 디자이너 수준의 시각적 위계
+   - 공통: 더 부드러운 라운드(20px), 미세 그라디언트, 호버 리프트
+   - FREE:    연한 블루 베이스, 친근하게
+   - SILVER:  차분한 그레이-블루 + 메탈릭 디테일
+   - GOLD:    추천 카드 — 다크 네이비 + 골드 그라디언트 + 글로우
+   - DIAMOND: 럭셔리 — 딥 퍼플 + 보석 그라디언트
+   ════════════════════════════════════════════════════════════════════ */
 /* ── 플랜 카드 공통 ── */
 .plan-card{
-  border-radius:18px;
-  padding:20px;
+  border-radius:20px;
+  padding:22px 20px;
   cursor:pointer;
   border:1.5px solid transparent;
-  transition:transform .18s,box-shadow .18s,border-color .18s;
+  transition:transform .2s cubic-bezier(.4,0,.2,1),box-shadow .2s,border-color .2s;
   position:relative;
-  overflow:visible;
+  overflow:hidden;
 }
+.plan-card::before{
+  content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  opacity:0;transition:opacity .2s;
+}
+.plan-card:hover{transform:translateY(-2px)}
 .plan-card:active{transform:scale(.985)}
 
-/* FREE */
+/* FREE — 연한 블루 베이스, 친근함 */
 .plan-card.card-free{
-  background:var(--free-bg);
-  border-color:var(--free-bd);
-  box-shadow:0 2px 8px rgba(7,25,82,.06);
+  background:linear-gradient(160deg,#f6f9ff 0%,#eaf1ff 100%);
+  border-color:#d9e3f5;
+  box-shadow:0 2px 10px rgba(7,25,82,.05);
 }
 .plan-card.card-free.selected{
   border-color:#8fa3d4;
-  box-shadow:0 4px 16px rgba(7,25,82,.12);
+  box-shadow:0 6px 22px rgba(7,25,82,.14);
 }
 
-/* SILVER */
+/* SILVER — 차분한 메탈릭 */
 .plan-card.card-silver{
-  background:var(--silver-bg);
-  border-color:var(--silver-bd);
-  box-shadow:0 2px 10px rgba(100,120,160,.1);
+  background:linear-gradient(160deg,#fafcff 0%,#eef3fa 100%);
+  border-color:#c8d4e8;
+  box-shadow:0 2px 12px rgba(100,120,160,.08);
+}
+.plan-card.card-silver::before{
+  background:linear-gradient(135deg,rgba(143,163,200,.12),transparent 60%);
+  opacity:1;
 }
 .plan-card.card-silver.selected{
   border-color:var(--silver-ac);
-  box-shadow:0 4px 20px rgba(100,130,180,.18);
+  box-shadow:0 8px 28px rgba(100,130,180,.2);
 }
 
-/* GOLD — 추천 카드: 다크 배경으로 확실한 대비 */
+/* GOLD — 추천 카드: 다크 네이비 + 골드 글로우 */
 .plan-card.card-gold{
-  background:var(--gold-bg);
-  border-color:rgba(212,160,23,.35);
-  box-shadow:0 8px 32px rgba(7,25,82,.28);
-  margin:-2px -4px;          /* 살짝 튀어나오게 */
-  padding:24px;
-  border-radius:22px;
+  background:linear-gradient(160deg,#0a1f4f 0%,#071952 70%,#04123e 100%);
+  border-color:rgba(212,160,23,.4);
+  box-shadow:
+    0 8px 32px rgba(7,25,82,.32),
+    0 0 0 1px rgba(212,160,23,.18);
+  margin:6px -4px;
+  padding:26px 22px;
+  border-radius:24px;
+}
+.plan-card.card-gold::before{
+  background:
+    radial-gradient(circle at 100% 0%,rgba(255,208,96,.15),transparent 50%),
+    radial-gradient(circle at 0% 100%,rgba(151,254,237,.08),transparent 50%);
+  opacity:1;
 }
 .plan-card.card-gold.selected{
   border-color:var(--gold-bd);
-  box-shadow:0 12px 40px rgba(212,160,23,.22),0 4px 16px rgba(7,25,82,.3);
+  box-shadow:
+    0 14px 44px rgba(212,160,23,.28),
+    0 4px 16px rgba(7,25,82,.35),
+    0 0 0 1px rgba(255,208,96,.35);
 }
 
-/* DIAMOND */
+/* DIAMOND — 럭셔리 딥 퍼플 */
 .plan-card.card-diamond{
-  background:var(--diamond-bg);
-  border-color:rgba(155,125,255,.25);
-  box-shadow:0 4px 20px rgba(18,10,58,.35);
+  background:linear-gradient(160deg,#1a0f4d 0%,#120a3a 60%,#0a0625 100%);
+  border-color:rgba(155,125,255,.3);
+  box-shadow:0 6px 24px rgba(18,10,58,.4);
+}
+.plan-card.card-diamond::before{
+  background:
+    radial-gradient(circle at 100% 0%,rgba(196,181,253,.12),transparent 55%),
+    radial-gradient(circle at 0% 100%,rgba(151,254,237,.06),transparent 55%);
+  opacity:1;
 }
 .plan-card.card-diamond.selected{
   border-color:var(--diamond-bd);
-  box-shadow:0 8px 32px rgba(155,125,255,.2);
+  box-shadow:
+    0 12px 40px rgba(155,125,255,.28),
+    0 0 0 1px rgba(196,181,253,.4);
 }
 
 /* ── 추천 배지 ── */
 .rec-badge{
-  position:absolute;top:-13px;left:50%;
+  position:absolute;top:-12px;left:50%;
   transform:translateX(-50%);
-  background:linear-gradient(135deg,#d4a017,#ffd060);
+  background:linear-gradient(135deg,#d4a017 0%,#ffd060 50%,#fbbf24 100%);
   color:#1a0e00;
   font-size:10px;font-weight:900;
-  padding:4px 18px;
+  padding:5px 16px;
   border-radius:999px;
   white-space:nowrap;
-  letter-spacing:.04em;
-  box-shadow:0 3px 12px rgba(212,160,23,.4);
+  letter-spacing:.06em;
+  box-shadow:0 4px 14px rgba(212,160,23,.45),0 0 0 1px rgba(255,208,96,.5);
+  z-index:2;
 }
+.rec-badge .mi{font-size:11px;vertical-align:-1px;margin-right:2px}
 
 /* ── 카드 내부 ── */
-.plan-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
-.plan-name{font-family:'Outfit',sans-serif;font-size:19px;font-weight:900}
-.plan-tier{font-size:10px;font-weight:700;letter-spacing:.1em;display:block;margin-top:2px}
+.plan-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;position:relative;z-index:1}
+.plan-name{font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;line-height:1;letter-spacing:-.01em}
+.plan-tier{font-size:9.5px;font-weight:800;letter-spacing:.14em;display:block;margin-top:5px}
 
 /* 플랜별 텍스트 컬러 */
 .plan-name.free{color:var(--free-tx)}
@@ -382,19 +532,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .plan-name.silver{color:var(--silver-tx)}
 .plan-tier.silver{color:var(--silver-ac)}
 
-.plan-name.gold{color:var(--gold-ac)}
-.plan-tier.gold{color:rgba(212,160,23,.6)}
+.plan-name.gold{color:#FFD060}
+.plan-tier.gold{color:rgba(212,160,23,.7)}
 
 .plan-name.diamond{color:var(--diamond-ac)}
-.plan-tier.diamond{color:rgba(155,125,255,.55)}
+.plan-tier.diamond{color:rgba(155,125,255,.6)}
 
 /* 가격 */
-.plan-price-wrap{text-align:right}
-.plan-price{font-family:'Outfit',sans-serif;font-size:26px;font-weight:900;line-height:1}
+.plan-price-wrap{text-align:right;position:relative;z-index:1}
+.plan-price{font-family:'Outfit',sans-serif;font-size:28px;font-weight:900;line-height:1;letter-spacing:-.02em}
 .plan-price.free{font-size:20px;color:var(--tx-muted)}
 .plan-price.silver{color:var(--silver-tx)}
 .plan-price.gold{color:#fff}
-.plan-price.diamond{color:var(--diamond-ac)}
+.plan-price.diamond{color:#fff}
 .plan-price-normal{font-size:13px;text-decoration:line-through;margin-bottom:2px}
 .plan-price-normal.silver{color:rgba(58,79,122,.35)}
 .plan-price-normal.gold{color:rgba(255,255,255,.25)}
@@ -409,10 +559,87 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .plan-price-discount.silver{background:rgba(239,68,68,.08);color:#dc2626;border:1px solid rgba(239,68,68,.2)}
 .plan-price-discount.gold{background:rgba(212,160,23,.15);color:var(--gold-ac);border:1px solid rgba(212,160,23,.3)}
 .plan-price-discount.diamond{background:rgba(155,125,255,.15);color:var(--diamond-ac);border:1px solid rgba(155,125,255,.25)}
-.plan-period{font-size:11px}
+.plan-period{font-size:11px;font-weight:600}
 .plan-period.silver{color:var(--tx-muted)}
 .plan-period.gold{color:rgba(255,255,255,.4)}
 .plan-period.diamond{color:rgba(196,181,253,.4)}
+
+/* ── Stat Pills (코디핏 / 트라이 온 / 아이템 한도 시각화) ── */
+.plan-pills{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:14px 0 10px;position:relative;z-index:1}
+.plan-pill{
+  border-radius:11px;
+  padding:9px 8px 8px;
+  text-align:center;
+  border:1px solid transparent;
+  position:relative;
+}
+.plan-pill-label{font-size:9px;font-weight:800;letter-spacing:.06em;margin-bottom:3px;text-transform:uppercase}
+.plan-pill-value{font-family:'Outfit',sans-serif;font-size:15px;font-weight:900;line-height:1.05;letter-spacing:-.01em}
+.plan-pill-unit{font-size:9.5px;font-weight:600;margin-left:1px}
+
+/* FREE pills */
+.card-free .plan-pill{background:rgba(255,255,255,.55);border-color:rgba(143,163,212,.3)}
+.card-free .plan-pill-label{color:var(--tx-muted)}
+.card-free .plan-pill-value{color:var(--navy)}
+.card-free .plan-pill-unit{color:var(--tx-muted)}
+/* SILVER pills */
+.card-silver .plan-pill{background:rgba(255,255,255,.6);border-color:rgba(143,163,200,.3)}
+.card-silver .plan-pill-label{color:var(--silver-ac)}
+.card-silver .plan-pill-value{color:var(--silver-tx)}
+.card-silver .plan-pill-unit{color:var(--silver-ac)}
+/* GOLD pills — 골드 강조 */
+.card-gold .plan-pill{background:rgba(255,255,255,.06);border-color:rgba(255,208,96,.18)}
+.card-gold .plan-pill-label{color:rgba(255,208,96,.7)}
+.card-gold .plan-pill-value{color:#fff}
+.card-gold .plan-pill-unit{color:rgba(255,255,255,.55)}
+/* DIAMOND pills — 보라 글로우 */
+.card-diamond .plan-pill{background:rgba(196,181,253,.08);border-color:rgba(155,125,255,.2)}
+.card-diamond .plan-pill-label{color:rgba(196,181,253,.65)}
+.card-diamond .plan-pill-value{color:#fff}
+.card-diamond .plan-pill-unit{color:rgba(196,181,253,.55)}
+
+/* ── AI 엔진 배지 ── */
+.plan-engine{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:10.5px;font-weight:700;
+  padding:5px 10px;
+  border-radius:999px;
+  letter-spacing:.02em;
+  margin-top:2px;
+  position:relative;z-index:1;
+}
+.plan-engine .mi{font-size:13px}
+.plan-engine.basic{background:rgba(53,162,159,.1);color:var(--teal);border:1px solid rgba(53,162,159,.18)}
+.card-gold    .plan-engine.basic,
+.card-diamond .plan-engine.basic{background:rgba(151,254,237,.08);color:var(--mint);border-color:rgba(151,254,237,.18)}
+.plan-engine.pro{
+  background:linear-gradient(135deg,rgba(255,208,96,.18),rgba(212,160,23,.12));
+  color:#FFD060;
+  border:1px solid rgba(255,208,96,.35);
+  box-shadow:0 0 16px rgba(255,208,96,.15);
+}
+.card-free .plan-engine.pro,
+.card-silver .plan-engine.pro{background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border-color:#f59e0b;box-shadow:none}
+
+/* DIAMOND 일일 한도 안내 */
+.plan-fup{
+  font-size:10px;color:rgba(196,181,253,.6);
+  margin-top:8px;letter-spacing:.02em;font-weight:600;
+  position:relative;z-index:1;
+}
+.plan-fup .mi{font-size:12px;vertical-align:-1px;margin-right:3px}
+.card-gold .plan-fup{color:rgba(255,208,96,.55)}
+
+/* "현재 플랜" 배지 (재정의) */
+.cur-plan-badge{
+  position:absolute;top:-11px;right:18px;
+  background:linear-gradient(135deg,#0B666A,#35A29F);
+  color:#fff;font-size:10px;font-weight:900;
+  padding:4px 12px;border-radius:999px;letter-spacing:.04em;
+  box-shadow:0 4px 12px rgba(11,102,106,.4);
+  z-index:2;
+}
+.cur-plan-badge .mi{font-size:11px;vertical-align:-1px;margin-right:3px}
 
 /* 구분선 */
 .divider{height:1px;margin:14px 0}
@@ -481,32 +708,76 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
     </div>
   </div>
 
-  <!-- 현재 상태 + 보너스 -->
-  <div class="status-card">
-    <div class="status-row">
-      <span class="status-plan" id="curPlanLabel">로딩중…</span>
-      <span class="status-usage" id="curUsageLabel"></span>
+  <!-- ════════════════════════════════════════════════════════════════════
+       ─── 2026-05-09 KST · TJ 지시 Step 2-Design ─── User Plan Summary
+       이전: 한 줄 status + 긴 문장형 quotaInfoBox
+       변경: 영문 타이틀 + 3-카드 그리드 (코디핏/트라이온/아이템)
+             각 카드 = 아이콘 + 사용/한도 + 게이지 + 보너스
+       ════════════════════════════════════════════════════════════════════ -->
+  <section class="summary-section" id="summarySection">
+    <div class="summary-header">
+      <div class="summary-title-wrap">
+        <div class="summary-title" id="summaryTitle">User Plan <span class="accent">Summary</span></div>
+        <div class="summary-subtitle" id="summarySubtitle">내 플랜 · 이달 사용 현황</div>
+      </div>
+      <div class="summary-plan-chip" id="summaryPlanChip">
+        <span class="mi">workspace_premium</span>
+        <span id="curPlanLabel">FREE</span>
+      </div>
     </div>
+
+    <div class="summary-stats">
+      <!-- 코디핏 -->
+      <div class="summary-stat codifit">
+        <div class="summary-stat-head">
+          <div class="summary-stat-icon"><span class="mi">auto_awesome</span></div>
+          <div class="summary-stat-name" id="sumCoName">코디핏</div>
+        </div>
+        <div class="summary-stat-value">
+          <span class="summary-stat-used" id="sumCoUsed">0</span>
+          <span class="summary-stat-limit" id="sumCoLimit">/ 3</span>
+        </div>
+        <div class="summary-stat-bar"><div class="summary-stat-fill" id="sumCoFill" style="width:0%"></div></div>
+        <div class="summary-stat-bonus" id="sumCoBonus">기본</div>
+      </div>
+      <!-- 트라이 온 -->
+      <div class="summary-stat tryon">
+        <div class="summary-stat-head">
+          <div class="summary-stat-icon"><span class="mi">accessibility_new</span></div>
+          <div class="summary-stat-name" id="sumTrName">트라이 온</div>
+        </div>
+        <div class="summary-stat-value">
+          <span class="summary-stat-used" id="sumTrUsed">0</span>
+          <span class="summary-stat-limit" id="sumTrLimit">/ 1</span>
+        </div>
+        <div class="summary-stat-bar"><div class="summary-stat-fill" id="sumTrFill" style="width:0%"></div></div>
+        <div class="summary-stat-bonus" id="sumTrBonus">기본</div>
+      </div>
+      <!-- 아이템 -->
+      <div class="summary-stat items">
+        <div class="summary-stat-head">
+          <div class="summary-stat-icon"><span class="mi">checkroom</span></div>
+          <div class="summary-stat-name" id="sumItName">아이템</div>
+        </div>
+        <div class="summary-stat-value">
+          <span class="summary-stat-used" id="sumItUsed">0</span>
+          <span class="summary-stat-limit" id="sumItLimit">/ 20</span>
+        </div>
+        <div class="summary-stat-bar"><div class="summary-stat-fill" id="sumItFill" style="width:0%"></div></div>
+        <div class="summary-stat-bonus" id="sumItBonus">기본</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 레거시 status-card (display:none CSS) — JS 호환용 hidden 필드 -->
+  <div class="status-card" aria-hidden="true">
+    <span class="status-usage" id="curUsageLabel"></span>
     <div class="usage-bar"><div class="usage-fill" id="usageFill" style="width:0%"></div></div>
-    <!-- ─── 2026-04-21: 이미지 생성 가능 횟수 (코디핏 / 트라이온 분리 + 아이템 3줄 구조) ─── -->
-    <div id="quotaInfoBox" style="margin-top:10px;padding:12px 14px;background:rgba(151,254,237,0.1);border-radius:10px;border:1px solid rgba(151,254,237,0.25);display:none;">
-      <div style="font-size:11px;color:rgba(151,254,237,0.75);font-weight:700;margin-bottom:8px;letter-spacing:.04em;" id="quotaLabel">이달 남은 이미지 생성 가능 횟수</div>
-      <!-- 코디핏 요약 라인 -->
-      <div id="codifitQuotaLine" style="font-size:13px;color:#fff;font-weight:500;line-height:1.55;margin-bottom:6px;">
-        <span style="color:#97FEED;">✦</span>
-        <span id="codifitQuotaText">—</span>
-      </div>
-      <!-- 트라이온 요약 라인 -->
-      <div id="tryonQuotaLine" style="font-size:13px;color:#fff;font-weight:500;line-height:1.55;margin-bottom:6px;">
-        <span style="color:#F0A3C5;">✦</span>
-        <span id="tryonQuotaText">—</span>
-      </div>
-      <!-- 아이템 요약 라인 -->
-      <div id="itemQuotaLine" style="font-size:13px;color:#fff;font-weight:500;line-height:1.55;">
-        <span style="color:#C4B5FD;">✦</span>
-        <span id="itemQuotaText">—</span>
-      </div>
-      <!-- 히든 하위 호환 필드 -->
+    <div id="quotaInfoBox" style="display:none;">
+      <div id="quotaLabel"></div>
+      <div id="codifitQuotaLine"><span id="codifitQuotaText">—</span></div>
+      <div id="tryonQuotaLine"><span id="tryonQuotaText">—</span></div>
+      <div id="itemQuotaLine"><span id="itemQuotaText">—</span></div>
       <div style="display:none;">
         <span id="quotaTotal">—</span><span id="quotaUnit"></span><span id="quotaBreakdown"></span>
         <span id="itemQuotaLabel"></span><span id="itemQuotaUsed">—</span><span id="itemUnitSpan"></span>
@@ -659,6 +930,10 @@ const PLANS_DEF = [
 let selectedPlanId = null;
 
 // ── 플랜 카드 렌더링 ──
+// ─── 2026-05-09 KST · TJ 지시 Step 2-Design ─── 디자이너 수준 재설계
+//   이전: 4줄 features 리스트(check 아이콘 + 텍스트)
+//   변경: 3-stat-pill (코디핏/트라이온/아이템 한도) + AI 엔진 배지 + DIAMOND 일일 한도
+//   이유: 핵심 정보(한도)를 한눈에, 시각적 위계를 통해 추천 플랜 강조
 function renderPlans(){
   const en = _en();
   const curPlanId = (user.plan||'free').toLowerCase();
@@ -678,16 +953,68 @@ function renderPlans(){
       const normal    = hasDiscount ? `<div class="plan-price-normal ${p.nameClass}">${normalStr}${period}</div>` : '';
       priceBlock = `${badge}${normal}<div class="plan-price ${p.nameClass}">${discStr}<span class="plan-period ${p.nameClass}">${period}</span></div>`;
     }
-    const periodStr = '';  // priceBlock에 포함됨
 
-    const feats = p.features.map(f => {
-      const txt = en ? f.en : f.ko;
-      const subNote = f.sub ? `<span class="sub">${en?'Daily limit (codi fit + try on)':'코디핏·트라이 온 합산 일일 한도'}</span>` : '';
-      return `<div class="feat"><span class="mi ${f.icon === 'check' ? 'check' : 'x'}">${f.icon === 'check' ? 'check_circle' : 'cancel'}</span><span>${txt}${subNote}</span></div>`;
-    }).join('');
+    // ─── Stat Pills (코디핏 / 트라이온 / 아이템) ───
+    const coUnlimited = p.codifitMonthly >= 9999;
+    const trUnlimited = p.tryonMonthly   >= 9999;
+    const itUnlimited = p.itemsLimit     >= 9999;
+    const coVal = coUnlimited ? '∞' : p.codifitMonthly;
+    const trVal = trUnlimited ? '∞' : p.tryonMonthly;
+    const itVal = itUnlimited ? '∞' : p.itemsLimit.toLocaleString();
+    const unitMo = en ? '/mo' : '/월';
+    const pillsHtml = `
+      <div class="plan-pills">
+        <div class="plan-pill">
+          <div class="plan-pill-label">${en?'Codi Fit':'코디핏'}</div>
+          <div class="plan-pill-value">${coVal}<span class="plan-pill-unit">${coUnlimited?'':unitMo}</span></div>
+        </div>
+        <div class="plan-pill">
+          <div class="plan-pill-label">${en?'Try On':'트라이 온'}</div>
+          <div class="plan-pill-value">${trVal}<span class="plan-pill-unit">${trUnlimited?'':unitMo}</span></div>
+        </div>
+        <div class="plan-pill">
+          <div class="plan-pill-label">${en?'Items':'아이템'}</div>
+          <div class="plan-pill-value">${itVal}${itUnlimited?'':`<span class="plan-pill-unit">${en?'pcs':'개'}</span>`}</div>
+        </div>
+      </div>`;
 
-    const curBadge = isCurrent ? `<div style="position:absolute;top:-11px;right:16px;background:rgba(53,162,159,0.9);color:#fff;font-size:10px;font-weight:800;padding:3px 12px;border-radius:20px;">${en?'Current':'현재 플랜'}</div>` : '';
-    const recBadge = p.recommended && !isCurrent ? `<div class="rec-badge">${en?'⭐ Recommended':'⭐ 추천'}</div>` : '';
+    // ─── AI 엔진 배지 ───
+    const isPro = (p.engineCo === 'Nano Banana Pro');
+    const engineLabel = isPro
+      ? `${en?'AI Engine':'AI 엔진'}: <strong>Nano Banana Pro</strong> · 4K`
+      : `${en?'AI Engine':'AI 엔진'}: <strong>Nano Banana 2</strong>`;
+    const engineHtml = `
+      <div class="plan-engine ${isPro?'pro':'basic'}">
+        <span class="mi">${isPro?'auto_awesome':'memory'}</span>
+        <span>${engineLabel}</span>
+      </div>`;
+
+    // ─── DIAMOND 일일 한도 안내 (FUP) ───
+    let fupHtml = '';
+    if(p.dailyCodifit){
+      fupHtml = `
+        <div class="plan-fup">
+          <span class="mi">info</span>
+          ${en
+            ? `Fair Use: <strong>${p.dailyCodifit}/day</strong> Codi Fit · <strong>${p.dailyItems}/day</strong> items`
+            : `공정 이용: 코디핏 <strong>일 ${p.dailyCodifit}회</strong> · 아이템 <strong>일 ${p.dailyItems}개</strong>`}
+        </div>`;
+    } else if(p.id === 'gold'){
+      fupHtml = `
+        <div class="plan-fup">
+          <span class="mi">workspace_premium</span>
+          ${en?'High-quality 4K AI engine included':'고품질 4K AI 엔진 적용'}
+        </div>`;
+    }
+
+    const curBadge = isCurrent
+      ? `<div class="cur-plan-badge"><span class="mi">check_circle</span>${en?'Current':'현재 플랜'}</div>`
+      : '';
+    const recBadge = p.recommended && !isCurrent
+      ? `<div class="rec-badge"><span class="mi">star</span>${en?'RECOMMENDED':'추천'}</div>`
+      : '';
+    // 영문 tier 표기 (백워드 호환: tier 필드 있으면 사용, 없으면 nameEn 대문자화)
+    const tierLabel = (p.tier || (p.nameEn||'').toUpperCase()).replace(/\s*[★⭐]\s*/g,'').trim();
 
     return `
     <div class="plan-card ${p.cardClass}${isCurrent?' selected':''}" id="card-${p.id}" onclick="selectPlan('${p.id}')">
@@ -695,14 +1022,15 @@ function renderPlans(){
       <div class="plan-top">
         <div class="plan-name-wrap">
           <div class="plan-name ${p.nameClass}">${en?p.nameEn:p.nameKo}</div>
-          <span class="plan-tier">${p.tier}</span>
+          <span class="plan-tier ${p.nameClass}">${tierLabel}</span>
         </div>
         <div class="plan-price-wrap">
           ${priceBlock}
         </div>
       </div>
-      <div class="divider"></div>
-      <div class="feat-list">${feats}</div>
+      ${pillsHtml}
+      ${engineHtml}
+      ${fupHtml}
     </div>`;
   }).join('');
 }
@@ -744,24 +1072,78 @@ function selectPlan(id){
   wrap.style.display = 'block';
 }
 
+// ─── 2026-05-09 KST · TJ 지시 Step 2-Design ─── 새 Summary 카드 업데이트 헬퍼
+// 한 번에 1개 stat 슬롯 갱신 (used/limit/fill%/bonus 표시)
+function _updateSummaryStat(prefix, used, limit, bonus, opts){
+  const o = opts || {};
+  const isUnlimited = !!o.unlimited;
+  const usedEl  = document.getElementById('sum'+prefix+'Used');
+  const limitEl = document.getElementById('sum'+prefix+'Limit');
+  const fillEl  = document.getElementById('sum'+prefix+'Fill');
+  const bonusEl = document.getElementById('sum'+prefix+'Bonus');
+  if(usedEl)  usedEl.textContent  = used;
+  if(limitEl) limitEl.textContent = isUnlimited ? '/ ∞' : ('/ ' + limit);
+  // 게이지 % (무제한은 used/300 비율로 시각적 인디케이터)
+  let pct;
+  if(isUnlimited){
+    pct = Math.min(100, Math.round(used / 300 * 100));
+  } else {
+    pct = limit > 0 ? Math.min(100, Math.round(used / limit * 100)) : 0;
+  }
+  if(fillEl){
+    fillEl.style.width = pct + '%';
+    fillEl.classList.toggle('danger', pct >= 90);
+  }
+  if(bonusEl){
+    if(bonus > 0){
+      bonusEl.textContent = '+' + bonus + ' bonus';
+      bonusEl.className = 'summary-stat-bonus has';
+    } else {
+      bonusEl.textContent = isUnlimited ? 'Unlimited' : 'Plan base';
+      bonusEl.className = 'summary-stat-bonus none';
+    }
+  }
+}
+
 // ── 현재 플랜 상태 표시 + 보너스 조회 → cb_plan_info 저장 ──
 async function renderStatus(){
   const en = _en();
   const planId = (user.plan||'free').toLowerCase();
   const planDef = PLANS_DEF.find(p=>p.id===planId) || PLANS_DEF[0];
-  const planNames = {free:en?'Free Plan':'무료 플랜',silver:en?'Silver':'실버',gold:en?'Gold':'골드',diamond:en?'Diamond':'다이아'};
-  document.getElementById('curPlanLabel').textContent = planNames[planId] || (en?'Free Plan':'무료 플랜');
+  const planNames = {free:en?'FREE':'FREE',silver:en?'SILVER':'SILVER',gold:en?'GOLD':'GOLD',diamond:en?'DIAMOND':'DIAMOND'};
+  document.getElementById('curPlanLabel').textContent = planNames[planId] || 'FREE';
+  // 새 Summary 헤더 텍스트 i18n
+  var _sumTitle = document.getElementById('summaryTitle');
+  var _sumSub   = document.getElementById('summarySubtitle');
+  if(_sumTitle) _sumTitle.innerHTML = en ? 'User Plan <span class="accent">Summary</span>' : 'User Plan <span class="accent">Summary</span>';
+  if(_sumSub)   _sumSub.textContent  = en ? 'Your plan · This month\u2019s usage' : '내 플랜 · 이달 사용 현황';
+  // Summary stat 카드 라벨 i18n
+  var _sumCoName = document.getElementById('sumCoName');
+  var _sumTrName = document.getElementById('sumTrName');
+  var _sumItName = document.getElementById('sumItName');
+  if(_sumCoName) _sumCoName.textContent = en ? 'Codi Fit'  : '코디핏';
+  if(_sumTrName) _sumTrName.textContent = en ? 'Try On'    : '트라이 온';
+  if(_sumItName) _sumItName.textContent = en ? 'Items'     : '아이템';
 
   // ─── 2026-04-21: 코디핏/트라이온 사용량 분리 읽기 (localStorage) ───
+  // ─── 2026-05-09 Step 2 ─── 트라이온 사용량 필드 수정
+  //   이전: codistyleUsed = parseInt(raw.codistyleCount || 0);  // 코디하기 카운트
+  //         → 트라이온 영역에 코디하기 사용량이 표시되는 버그
+  //   변경: tryonUsed = parseInt(raw.tryonCount || 0);           // 트라이온 카운트
+  //         codistyleUsed는 레거시 데이터 보존용으로만 유지(미표시)
+  //   합산 기준도 closet + tryon (codistyle 제외)
   let closetUsed = 0;    // 코디핏 사용 횟수
-  let codistyleUsed = 0; // 트라이온 사용 횟수
+  let tryonUsed  = 0;    // 트라이온 사용 횟수 [Step2 신규]
+  let codistyleUsed = 0; // 레거시 코디하기 사용 횟수 (보존용)
   let totalUsed = 0;
   try{
     const key = 'cb_usage_'+(user.email||'guest');
     const raw = JSON.parse(localStorage.getItem(key)||'{}');
     closetUsed    = parseInt(raw.closetCount || 0);
+    tryonUsed     = parseInt(raw.tryonCount  || 0);          // [Step2] 정확한 필드
     codistyleUsed = parseInt(raw.codistyleCount || 0);
-    totalUsed     = parseInt(raw.totalCount || (closetUsed + codistyleUsed)) || 0;
+    // [Step2] totalCount: codistyle 제외, closet + tryon만 합산
+    totalUsed     = parseInt(raw.totalCount || (closetUsed + tryonUsed)) || 0;
   }catch(_){}
 
   // ─── 2026-04-21: 보너스 조회 — 코디핏/트라이온 분리 수신 ───
@@ -811,6 +1193,11 @@ async function renderStatus(){
     ? 'linear-gradient(90deg,#ef4444,#fca5a5)'
     : 'linear-gradient(90deg,#35A29F,#97FEED)';
 
+  // ─── 2026-05-09 Step 2-Design ─── 새 Summary 카드 stat 업데이트 (코디핏/트라이온)
+  _updateSummaryStat('Co', closetUsed, codifitLimit, codifitBonus, {unlimited:codifitUnlimited});
+  _updateSummaryStat('Tr', tryonUsed,  tryonLimit,   tryonBonus,   {unlimited:tryonUnlimited});
+  // 아이템은 아래 fetch 블록에서 itemUsed/itemBonus 조회 후 별도 호출됨
+
   // ─── 2026-04-21: 가능 횟수 박스 — 코디핏/트라이온/아이템 3줄 ───
   // 표시 형식: "*코디핏 생성 횟수 {총한도}회 = 구독플랜 {base}회 + 보너스 지급 {bonus}회   (사용: X회)"
   // 등호가 실제로 수학적으로 맞음 (total_limit = base + bonus)
@@ -828,12 +1215,13 @@ async function renderStatus(){
     if(coEl) coEl.innerHTML = coLine;
 
     // ─── 트라이온 라인 ───
+    // ─── 2026-05-09 Step 2 ─── 트라이온 사용량 변수: codistyleUsed → tryonUsed
     const trTotalDisplay = tryonUnlimited ? (en?'Unlimited':'무제한') : (tryonBase + tryonBonus);
     const trBaseDisplay  = tryonUnlimited ? (en?'Unlimited':'무제한') : tryonBase;
-    const trRemain = tryonUnlimited ? '∞' : Math.max(0, tryonLimit - codistyleUsed);
+    const trRemain = tryonUnlimited ? '∞' : Math.max(0, tryonLimit - tryonUsed);
     const trLine = en
-      ? `*Try On total: <b style="color:#F0A3C5">${trTotalDisplay}</b> = Plan ${trBaseDisplay} + Bonus ${tryonBonus} <span style="opacity:0.65;font-size:11px;">(used ${codistyleUsed}, remaining ${trRemain})</span>`
-      : `*트라이온 생성 횟수 <b style="color:#F0A3C5">${trTotalDisplay}${tryonUnlimited?'':'회'}</b> = 구독플랜 ${trBaseDisplay}${tryonUnlimited?'':'회'} + 보너스 지급 ${tryonBonus}회 <span style="opacity:0.65;font-size:11px;">(${codistyleUsed}회 사용, ${trRemain}${tryonUnlimited?'':'회'} 남음)</span>`;
+      ? `*Try On total: <b style="color:#F0A3C5">${trTotalDisplay}</b> = Plan ${trBaseDisplay} + Bonus ${tryonBonus} <span style="opacity:0.65;font-size:11px;">(used ${tryonUsed}, remaining ${trRemain})</span>`
+      : `*트라이온 생성 횟수 <b style="color:#F0A3C5">${trTotalDisplay}${tryonUnlimited?'':'회'}</b> = 구독플랜 ${trBaseDisplay}${tryonUnlimited?'':'회'} + 보너스 지급 ${tryonBonus}회 <span style="opacity:0.65;font-size:11px;">(${tryonUsed}회 사용, ${trRemain}${tryonUnlimited?'':'회'} 남음)</span>`;
     const trEl = document.getElementById('tryonQuotaText');
     if(trEl) trEl.innerHTML = trLine;
 
@@ -868,14 +1256,26 @@ async function renderStatus(){
   if(_ibKo) _ibKo.style.display = en ? 'none' : 'block';
   if(_ibEn) _ibEn.style.display = en ? 'block' : 'none';
 
-  // ── cb_plan_info 저장 → closet/codistyle에서 참조
+  // ── cb_plan_info 저장 → closet/tryon/mypage가 한도체크/표시에 사용 ──
+  // ─── 2026-05-09 Step 2 ─── 분리 필드 추가 (closet.html checkUnifiedUsage,
+  //   tryon.html checkTryonUsage가 codifitBase/codifitBonus/tryonBase/tryonBonus
+  //   필드를 참조하므로 mypage.html과 동일 구조로 저장)
   try{
     const info = {
       planId: planId,
+      // 기존 합산 필드 (하위 호환)
       baseLimit: baseLimit,
       bonusTotal: bonusTotal,
       totalLimit: totalLimit,
       totalUsed: totalUsed,
+      // [Step2] 분리 필드 — closet.html / tryon.html 한도 계산 정확도를 위함
+      codifitBase:  codifitBase,
+      codifitBonus: codifitBonus,
+      tryonBase:    tryonBase,
+      tryonBonus:   tryonBonus,
+      closetUsed:   closetUsed,
+      tryonUsed:    tryonUsed,
+      codistyleUsed: codistyleUsed,  // 레거시 보존
       updatedAt: new Date().toISOString().slice(0,7),
     };
     localStorage.setItem('cb_plan_info_'+(user.email||'guest'), JSON.stringify(info));
@@ -909,6 +1309,9 @@ async function renderStatus(){
     const itemTotalLimit = isItemUnlimited ? 9999 : (itemBaseLimit + itemBonus);
     // codibank.js addItem에서 참조할 보너스 캐시 저장
     try{ localStorage.setItem('cb_item_plan_'+user.email, JSON.stringify({bonus:itemBonus,limit:itemTotalLimit,plan:planId,updatedAt:new Date().toISOString().slice(0,7)})); }catch(_){}
+
+    // ─── 2026-05-09 Step 2-Design ─── 새 Summary 카드 stat 업데이트 (아이템)
+    _updateSummaryStat('It', itemUsed, itemTotalLimit, itemBonus, {unlimited:isItemUnlimited});
 
     // ─── 2026-04-21: 요약 박스 3번째 라인 (아이템) ───
     const itemEl = document.getElementById('itemQuotaText');
