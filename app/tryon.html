@@ -19,6 +19,19 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-05-09 KST · TJ 지시 (Tryon UX) ─── [4가지 UI 정리]     │
+  │   1) Step1 자동 스텝 이동 제거                                     │
+  │      · setStep(2) 호출 삭제 — 사용자가 직접 헤더 클릭으로 이동    │
+  │   2) 투피스/원피스 모드: 옵션 아우터 박스 숨김                     │
+  │      · twopiece/onepiece 모두 .twopiece-onepiece-only → none       │
+  │      · optTotal 카운트: 2 → 1 (신발만)                             │
+  │   3) '트라이온 피팅' 버튼 보조 텍스트 정리                          │
+  │      · "Try-on Fitting" 영문 작은 글씨 제거                        │
+  │      · "3/5" / "2/5" 진행 카운트 표기 제거 (의미 불명)             │
+  │   4) #csScoreBox 외부 박스 숨김                                    │
+  │      · 이미지 뷰박스 밖에 떠 있어 시각적 분리감 / 빈 박스로 보임   │
+  │      · display:none — 내부 ID는 보존(JS 호환)                     │
+  │      · 결과 후 스크롤 타겟: csScoreBox → imgWrap (실제 결과 영역) │
   │ ─── 2026-05-09 KST · TJ 지시 (Design) ─── [트라이온 잔여 횟수 배지] │
   │   [원인] csUsageBadge가 정적 텍스트("스타일링 5회 가능")로 박혀있어│
   │          실제 사용/한도와 무관하게 표시 → 구독플랜과 불일치        │
@@ -2173,21 +2186,28 @@
   </div>
   <div class="step-body">
 
-    <!-- 1. 트라이온 피팅 버튼 — [2026-04-23 18:30 TJ 지시] 텍스트 변경: "트라이온 착장이미지 생성하기" → "트라이온 피팅 (Try-on Fitting)" -->
+    <!-- 1. 트라이온 피팅 버튼 -->
+    <!-- ─── 2026-05-09 KST · TJ 지시 ─── 'Try-on Fitting 3/5' 보조 텍스트 제거 -->
     <button class="gen-btn" id="finalGenerate">
       <span class="mi">auto_awesome</span>
-      <span>트라이온 피팅<span style="opacity:.7;font-weight:400;margin-left:6px;font-size:.85em;">Try-on Fitting</span></span>
-      <span class="count">3/5</span>
+      <span>트라이온 피팅</span>
     </button>
 
     <!-- ════════════════════════════════════════════════════════════════
          [2026-04-22 TJ 지시5] codistyle.html의 분석박스 + 이미지 뷰박스
          디폴트 값 상태로 "그대로 복사" — 생성 전에도 항상 표시됨
          (이전: display:none 으로 숨김 / 지금: 기본 표시)
+
+         ─── 2026-05-09 KST · TJ 지시 ─── #csScoreBox 외부 박스 숨김
+         이유: 이미지 뷰박스 밖에 떠 있어 시각적으로 분리되어 보이고
+               생성 전엔 비어 있어 사용자에게 혼란을 줌.
+         처리: display:none — 내부 ID(csScoreNum/csScBody/csExecSummary 등)는
+               보존되어 점수 채우기 JS 코드는 계속 동작 (값만 invisible).
+               필요 시 결과 영역 안으로 통합 또는 별도 요청으로 재노출 가능.
          ════════════════════════════════════════════════════════════════ -->
 
-    <!-- (1) Personal Styling Analysis — #csScoreBox (codistyle.html 원본 구조) -->
-    <div id="csScoreBox" style="margin:14px 0 16px;padding:16px 20px;border-radius:16px;background:rgba(151,254,237,.04);border:1px solid rgba(151,254,237,.1);">
+    <!-- (1) Personal Styling Analysis — #csScoreBox (display:none, 호환성 위해 보존) -->
+    <div id="csScoreBox" style="display:none;margin:14px 0 16px;padding:16px 20px;border-radius:16px;background:rgba(151,254,237,.04);border:1px solid rgba(151,254,237,.1);">
 
       <!-- 총점 헤더 -->
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
@@ -2699,7 +2719,10 @@ function setMode(mode, skipReset){
     $$('.twopiece-only').forEach(el => el.style.display = '');
     $$('.onepiece-only').forEach(el => el.style.display = 'none');
     $$('.outer-only').forEach(el => el.style.display = 'none');
-    $$('.twopiece-onepiece-only').forEach(el => el.style.display = '');
+    // ─── 2026-05-09 KST · TJ 지시 ─── 투피스 모드에서 옵션 아우터 박스 숨김
+    //   이전: '' (표시) — 옵션으로 아우터 선택 가능
+    //   변경: 'none' (숨김) — 옵션은 신발만 노출
+    $$('.twopiece-onepiece-only').forEach(el => el.style.display = 'none');
     // [2026-04-23 08:30 TJ 지시3] outer 모드 전용 옵션 슬롯 숨김
     $$('.outer-opt-only').forEach(el => el.style.display = 'none');
   } else if(mode === 'onepiece'){
@@ -2713,8 +2736,10 @@ function setMode(mode, skipReset){
     $$('.twopiece-only').forEach(el => el.style.display = 'none');
     $$('.onepiece-only').forEach(el => el.style.display = '');
     $$('.outer-only').forEach(el => el.style.display = 'none');
-    // [2026-04-23 08:30 TJ 지시4] 원피스 모드 옵션: 아우터 + 신발 (기존 twopiece-onepiece-only 그대로 활용)
-    $$('.twopiece-onepiece-only').forEach(el => el.style.display = '');
+    // ─── 2026-05-09 KST · TJ 지시 ─── 원피스 모드에서도 옵션 아우터 박스 숨김
+    //   이전: '' (표시) — 옵션으로 아우터 선택 가능
+    //   변경: 'none' (숨김) — 옵션은 신발만 노출
+    $$('.twopiece-onepiece-only').forEach(el => el.style.display = 'none');
     $$('.outer-opt-only').forEach(el => el.style.display = 'none');
   } else if(mode === 'outer'){
     state.slots.top.active = false;
@@ -2998,23 +3023,23 @@ function renderStep1(){
     if(s.role === 'optional' && s.filled) optHave++;
   });
   // [2026-04-23 08:30] 옵션 슬롯 개수는 모드에 따라 다름
-  //   twopiece: 아우터 + 신발 = 2
-  //   onepiece: 아우터 + 신발 = 2
-  //   outer:    상의 + 하의 + 신발 = 3 (옵션 아우터 없음, 아우터는 필수로 승격)
-  const optTotal = (state.mode === 'outer') ? 3 : 2;
+  //   ─── 2026-05-09 KST · TJ 지시 ─── 옵션 아우터 박스 제거에 따른 카운트 조정
+  //   twopiece: 신발 = 1                     (이전: 아우터 + 신발 = 2)
+  //   onepiece: 신발 = 1                     (이전: 아우터 + 신발 = 2)
+  //   outer:    상의 + 하의 + 신발 = 3        (변경 없음)
+  const optTotal = (state.mode === 'outer') ? 3 : 1;
   $('#reqCount').textContent = `${reqHave}/${reqNeed}`;
   $('#optCount').textContent = `${optHave}/${optTotal}`;
 
   const allReq = reqHave === reqNeed && reqNeed > 0;
   if(allReq){
-    const wasNotDone = !state.stepDone[1];
     state.stepDone[1] = true;
     const names = Object.entries(state.slots).filter(([,s])=>s.filled).map(([t])=>SLOT_LABELS[t]);
     $('#step1Summary').textContent = names.join(' · ');
-    // Step 1이 방금 완료되었고, 현재 Step 1이면 Step 2 자동 전환
-    if(wasNotDone && state.currentStep === 1){
-      setTimeout(() => setStep(2), 400);
-    }
+    // ─── 2026-05-09 KST · TJ 지시 ─── Step1 자동 이동 제거
+    //   이전: Step1 완료 시 setTimeout(() => setStep(2), 400) 자동 호출
+    //   변경: 사용자가 직접 Step2 헤더를 클릭해 이동하도록 함
+    //         (자동 스크롤 동작이 사용성을 해치는 경우가 있음)
   } else {
     state.stepDone[1] = false;
     $('#step1Summary').textContent = '상의 · 하의 · 아우터 · 신발을 선택하세요';
@@ -4091,13 +4116,16 @@ $('#finalGenerate').addEventListener('click', async () => {
 
     // 버튼 복원 (다시 생성하기 버튼)
     btn.disabled = false;
-    btn.innerHTML = '<span class="mi">refresh</span><span>다시 생성하기</span><span class="count">2/5</span>';
+    // ─── 2026-05-09 KST · TJ 지시 ─── 버튼 텍스트 카운트 표기('2/5') 제거
+    btn.innerHTML = '<span class="mi">refresh</span><span>다시 생성하기</span>';
 
     showToast('생성 완료 — ' + (data.model || 'Gemini 3 Pro Image'));
 
-    // 스크롤
+    // ─── 2026-05-09 KST · TJ 지시 ─── 스크롤 타겟 변경
+    //   이전: csScoreBox (display:none 처리되어 안 보임)
+    //   변경: imgWrap → 결과 이미지 영역으로 스크롤
     setTimeout(() => {
-      const el = document.getElementById('csScoreBox');
+      const el = document.getElementById('imgWrap') || document.getElementById('resultArea');
       if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
     }, 300);
   } catch(err){
@@ -4315,9 +4343,10 @@ if(csBtnReset) csBtnReset.addEventListener('click', () => {
   // [2026-04-23] 저장된 결과 데이터 정리
   try{ window._tryonLastResult = null; }catch(_){}
   // 생성 버튼 텍스트 복원 (초기 상태 "트라이온 피팅"으로)
+  // ─── 2026-05-09 KST · TJ 지시 ─── 보조 영문/카운트 제거
   const btn = $('#finalGenerate');
   btn.disabled = false;
-  btn.innerHTML = '<span class="mi">auto_awesome</span><span>트라이온 피팅<span style="opacity:.7;font-weight:400;margin-left:6px;font-size:.85em;">Try-on Fitting</span></span><span class="count">3/5</span>';
+  btn.innerHTML = '<span class="mi">auto_awesome</span><span>트라이온 피팅</span>';
   
   showToast('전체 초기화되었습니다');
   // Step1로 스크롤 (완전초기화되었으니 처음부터)
