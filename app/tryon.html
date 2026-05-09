@@ -19,6 +19,63 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-05-09 KST · TJ 지시 (v31) ─── [🎯 슬롯 진짜 원인 + 여백]   │
+  │   1) 🎯 Step1 슬롯 사라짐 진짜 원인 픽스                            │
+  │      [원인] $$('.mode-btn')가 #modeSwitch + #fitSwitch 양쪽 매치    │
+  │             핏 버튼 클릭 → setMode(b.dataset.mode) 호출             │
+  │             핏 버튼은 data-mode 없음 → setMode(undefined)          │
+  │             skipReset=undefined(falsy) → 모든 슬롯 [filled=false,  │
+  │             item=null]로 리셋!                                      │
+  │      [픽스] 셀렉터를 #modeSwitch 내부로 한정                        │
+  │             $('#modeSwitch').querySelectorAll('.mode-btn')          │
+  │             핏 버튼은 별도 핸들러(fitSwitch)에서만 처리             │
+  │             → 핏 클릭 시 setMode 호출 안 됨 → 슬롯 보존             │
+  │   2) 페이지 박스 사이 여백 확대                                     │
+  │      .step margin-bottom: 10px → 18px                              │
+  │      .step[data-step="2"/"3"] margin-top: 30px → 36px              │
+  │      .step-body padding: 0 16px 16px → 6px 16px 22px               │
+  │      .gen-btn margin-bottom: 신규 18px                             │
+  │        → 트라이온 피팅 버튼과 결과 박스 겹침 해소                   │
+  │      .csty-result-img-box max-height: 100vh-280 → 100vh-320        │
+  │        (여백 증가 반영하여 모바일 박스가 화면 안에 들어가게)        │
+  │ ─── 2026-05-09 KST · TJ 지시 (v30) ─── [토글 위치 + 화질 업그레이드]│
+  │   1) 토글 좌하단/우하단 분리 — !important 강제 적용                │
+  │      [원인] v29 CSS는 정상이었으나 적용 안 되는 보고 반복           │
+  │      [수정] 모든 위치/레이아웃 속성에 !important 추가              │
+  │             첫 자식(정면) margin-right:auto / 마지막(후면) margin-left:auto│
+  │             space-between 보강으로 좌/우 밀착 강제                  │
+  │             이전 박스 배경(background/border/shadow) !important 무효화│
+  │   2) 이미지 화질 업그레이드 — 1K → 2K (4배 픽셀)                   │
+  │      [배경] 트라이온은 Nano Banana Pro($0.134/req) 프리미엄 기능   │
+  │             구독료 만족도를 위해 고화질 출력 필수                   │
+  │      [수정] mock_backend.py image_size "1K"(1024) → "2K"(2048)    │
+  │             가로 2K × 16:9 ≈ 2048×1152 → 정/후면 각 1024×1152     │
+  │             Retina에서도 선명, 저장/공유 시 고품질 보장             │
+  │             "4K"는 응답 30초+ / 미지원 위험 → "2K"가 최적점         │
+  │      [추가] 프롬프트 화질 키워드 강화 (Vogue/GQ/Uniqlo 수준 디테일) │
+  │             텍스처·선명도·자연스러운 피부톤 명시                    │
+  │ ─── 2026-05-09 KST · TJ 지시 (v29) ─── [3가지 재재수정]            │
+  │   1) 이미지 비율 — 검은 패딩 원인 해결                              │
+  │      [원인] mock_backend.py image_config aspect_ratio="9:16"       │
+  │             (portrait!) — 프롬프트가 가로 2:1 강제해도 image_config│
+  │             이 우선되어 9:16 캔버스에 가로 콘텐츠를 욱여넣고        │
+  │             위/아래 검은 패딩으로 채움 (TJ 첨부 이미지 1)           │
+  │      [수정] aspect_ratio "9:16" → "16:9" (landscape 1.78:1)        │
+  │             코디핏 출력(가로 2:1)과 비슷, 패딩 없음                 │
+  │   2) 정/후면 토글 좌하단/우하단 분리                                │
+  │      [원인] 가운데 묶음 (left:50% + transform translateX)          │
+  │      [수정] closet.html 패턴 100% 동일 적용                        │
+  │             컨테이너 left:0;right:0 + space-between                │
+  │             컨테이너 pointer-events:none / 버튼 pointer-events:auto│
+  │             각 버튼 자체 글래스모피즘 (이전엔 컨테이너에만)         │
+  │   3) Step1 슬롯 사라짐 — 강력 추적 + 강력 보호                     │
+  │      [추적] state.slots[k]에 setter wrap (Object.defineProperty)  │
+  │             filled→empty 변경 시 console.trace로 호출 위치 출력   │
+  │             window.__tryonResetting 플래그로 의도적 리셋은 제외   │
+  │      [보호] fitSwitch click handler에 추가 백업/복원 (v28 보완)    │
+  │             클릭 직후~종료 사이 어떤 부수효과로 슬롯이 비워져도   │
+  │             강제 복원 + fillSlot 재호출                            │
+  │             자동 setStep(3) 제거 (Step1/모델성별 정책 일관)        │
   │ ─── 2026-05-09 KST · TJ 지시 (v28) ─── [3가지 재수정]              │
   │   1) 가로 이미지 표시 + 토글 작동 (이전 v27 미해결)                │
   │      [원인] AI는 portrait 비율로 좌=정면/우=후면을 그렸지만        │
@@ -567,8 +624,11 @@
   /* 기존: margin:0 16px 10px (좌우 32px 실효 폭 잘림) */
   /* 수정: margin 좌우 0, 대신 .step-body의 padding만으로 내부 여백 확보 */
   /* closet.html 기준: px-5 = 20px → step 내부 padding도 비슷하게 맞춤 */
+  /* ─── 2026-05-09 KST · TJ 지시 (v31) ─── 박스 사이 여백 확대
+   * 이전: 박스 사이가 좁아 답답하고 일부 영역에서 겹침 발생
+   * 변경: .step 박스 아래 margin 10 → 18 / Step2,3 위 margin 30 → 36 */
   .step{
-    margin:0 0 10px;
+    margin:0 0 18px;
     background:rgba(11,102,106,0.12);
     border:1px solid rgba(151,254,237,0.12);
     border-radius:16px;
@@ -600,16 +660,12 @@
     background:transparent;
     box-shadow:none;
   }
-  /* [2026-04-22 16:05 TJ 지시1·2] Step 2, Step 3 타이틀 위쪽 여백 확보
-     — Step 2: 기존 10px → 30px (약 +50% 이상 증가, TJ 지시1)
-     — Step 3: Step 2와 동일하게 30px (TJ 지시2)
-     .step 기본 margin은 0 16px 10px인데 아래 여백만 있고 위 여백이 없어
-     Step 1의 아이템 슬롯 바로 밑에 Step 2 타이틀이 붙는 현상 해결 */
+  /* Step 2, Step 3 위 여백 확대 (v31: 30 → 36) */
   .step[data-step="2"]{
-    margin-top:30px;
+    margin-top:36px;
   }
   .step[data-step="3"]{
-    margin-top:30px;
+    margin-top:36px;
   }
 
   .step-head{
@@ -688,12 +744,19 @@
   .step-badge.lock .mi{ font-size:11px; }
 
   /* [2026-04-22 TJ 지시] step-body 항상 표시 — 순차 숨김/펼침 기능 제거 */
+  /* ─── 2026-05-09 KST · TJ 지시 (v31) ─── step-body 내부 여백 확대 */
   .step-body{
-    padding:0 16px 16px;
+    padding:6px 16px 22px;     /* 이전: 0 16px 16px — 위 6px / 아래 22px 추가 */
     display:block;
   }
   /* step-head 클릭 커서 제거 (아코디언 동작 없음) */
   .step-head{ cursor:default !important; }
+  
+  /* ─── 2026-05-09 KST · TJ 지시 (v31) ─── 트라이온 피팅 버튼 아래 여백
+   * 버튼 직후 결과 박스(result-img-wrap)가 바로 와서 겹침 → 18px 분리 */
+  .gen-btn{ margin-bottom:18px; }
+  /* result-img-wrap 위 여백도 명시 (이중 안전) */
+  .result-img-wrap{ margin-top:0; }
 
   .step-edit-btn{
     background:rgba(151,254,237,0.08);
@@ -1694,15 +1757,13 @@
        기존: display:flex + overflow:hidden → 이미지가 박스에 contain으로 작게 표시됨
        변경: display:block + overflow-x:auto + scroll-snap (코디핏과 동일)
              빈 상태(.csty-empty)에만 flex 정렬 적용 */
-  /* ─── 2026-05-09 KST · TJ 지시 (v28) ─── 박스 크기 제한
-   * 이전: aspect-ratio:1/1.62만 → 화면 폭 기준으로 박스 height가 계산되어
-   *       모바일에서 박스가 화면 높이를 초과 → 페이지 스크롤 필요
-   * 변경: max-height 추가 → 화면 안에 박스가 모두 들어가도록 강제
-   *       (헤더 + 헤더 카드 + 토글 + 액션 버튼 + 풋바를 제외한 가용 영역) */
+  /* ─── 2026-05-09 KST · TJ 지시 (v28/v31) ─── 박스 크기 제한
+   * v28: aspect-ratio:1/1.62 + max-height:calc(100vh - 280px)
+   * v31: 박스 사이 여백 증가 반영 → 320px (헤더+버튼+토글+풋바+여백)*/
   .csty-result-img-box{
     width:100%;
     aspect-ratio:1/1.62;
-    max-height: calc(100vh - 280px);
+    max-height: calc(100vh - 320px);
     border-radius:20px;
     overflow-x:auto;
     overflow-y:hidden;
@@ -1746,41 +1807,60 @@
     border-radius:0;
   }
   
-  /* ─── [v26 TJ 2026-04-27] 정/후면 토글 버튼 (코디핏과 100% 동일) ─── */
+  /* ─── 2026-05-09 KST · TJ 지시 (v29/v30) ─── 정/후면 버튼 좌하단/우하단 분리
+   * v29: space-between 적용했으나 적용 안 된 보고 반복
+   * v30: !important 강제 적용 + 첫/마지막 자식 명시 정렬 (space-between 보강) */
   .csty-pose-toggle{
-    position:absolute;left:50%;bottom:14px;
-    transform:translateX(-50%);
-    display:flex;gap:2px;z-index:10;
-    padding:3px;border-radius:999px;
-    background:rgba(255,255,255,0.14);
-    backdrop-filter:blur(14px) saturate(1.4);
-    -webkit-backdrop-filter:blur(14px) saturate(1.4);
-    border:1px solid rgba(255,255,255,0.18);
-    box-shadow:0 2px 6px rgba(0,0,0,0.12);
+    position:absolute !important;
+    left:0 !important; right:0 !important;
+    top:auto !important;
+    bottom:14px !important;
+    transform:none !important;             /* 이전 translateX(-50%) 강제 무효화 */
+    display:flex !important;
+    justify-content:space-between !important;
+    align-items:center !important;
+    padding:0 12px !important;
+    width:auto !important;
+    z-index:10;
+    pointer-events:none;                   /* 컨테이너는 클릭 통과 */
+    background:transparent !important;     /* 이전 박스 배경 강제 무효화 */
+    border:none !important;
+    box-shadow:none !important;
+    border-radius:0 !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
     transition:opacity .25s;
-    pointer-events:auto;
   }
-  .csty-pose-toggle.hidden{opacity:0;pointer-events:none;display:none;}
+  .csty-pose-toggle.hidden{opacity:0 !important;pointer-events:none;display:none !important;}
+  /* 첫 자식(정면) → 왼쪽 밀착, 마지막 자식(후면) → 오른쪽 밀착 (space-between 보강) */
+  .csty-pose-toggle > .csty-pose-btn:first-child{ margin-right:auto !important; }
+  .csty-pose-toggle > .csty-pose-btn:last-child{ margin-left:auto !important; }
   .csty-pose-btn{
-    padding:5px 16px;
-    border-radius:999px;
-    background:transparent;
-    color:rgba(255,255,255,0.7);
+    pointer-events:auto !important;        /* 버튼만 클릭 받음 */
+    padding:6px 16px !important;
+    border-radius:999px !important;
+    /* 각 버튼 자체 글래스모피즘 */
+    background:rgba(255,255,255,0.16) !important;
+    backdrop-filter:blur(14px) saturate(1.4) !important;
+    -webkit-backdrop-filter:blur(14px) saturate(1.4) !important;
+    border:1px solid rgba(255,255,255,0.2) !important;
+    color:rgba(255,255,255,0.85);
     font-size:11px;
     font-weight:700;
     letter-spacing:.02em;
-    border:none;
     cursor:pointer;
     transition:all .22s cubic-bezier(.4,0,.2,1);
     font-family:'Noto Sans KR', sans-serif;
     text-shadow:0 1px 2px rgba(0,0,0,0.18);
+    box-shadow:0 2px 6px rgba(0,0,0,0.14) !important;
   }
-  .csty-pose-btn:active{transform:scale(0.96);}
+  .csty-pose-btn:active{transform:scale(0.96) !important;}
   .csty-pose-btn.active{
-    background:rgba(151,254,237,0.85);
-    color:#050a24;
-    text-shadow:none;
-    box-shadow:0 1px 3px rgba(0,0,0,0.12);
+    background:rgba(151,254,237,0.85) !important;
+    border-color:rgba(151,254,237,0.95) !important;
+    color:#050a24 !important;
+    text-shadow:none !important;
+    box-shadow:0 2px 8px rgba(151,254,237,0.35) !important;
   }
   .csty-pose-hint{
     position:absolute;right:12px;top:12px;z-index:10;
@@ -2875,7 +2955,14 @@ function setMode(mode, skipReset){
   // 모드 변경 시 영속화
   try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
 }
-$$('.mode-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+// ─── 2026-05-09 KST · TJ 지시 (v31) ─── 🎯 Step1 슬롯 사라짐 진짜 원인 픽스
+//   원인: $$('.mode-btn')가 #modeSwitch(Step1 모드)와 #fitSwitch(Step2 핏) 양쪽
+//          모두에 매치 → 핏 버튼 클릭 시 setMode(b.dataset.mode) 호출.
+//          핏 버튼은 data-mode 속성 없음 → setMode(undefined) 호출 →
+//          state.mode = undefined + 모든 슬롯 [filled=false, item=null] 리셋!
+//   증상: Step2 핏 클릭 → Step1 아이템 모두 사라짐 (수십 차례 보고됨)
+//   픽스: 셀렉터를 #modeSwitch 내부로 한정 (핏 버튼은 별도 핸들러 fitSwitch에서 처리)
+$('#modeSwitch').querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
 $$('.slot').forEach(slot => {
   slot.addEventListener('click', e => {
@@ -3157,9 +3244,47 @@ function renderStep1(){
 // ════════════════════════════════════════════════════════════════
 const fitSwitch = $('#fitSwitch');
 
+// ─── 2026-05-09 KST · TJ 지시 (v29) ─── state.slots setter wrap (디버그/방어)
+//   목적: state.slots[k] = X 형태로 슬롯이 비워지는 모든 시점을 콘솔에 기록.
+//         filled→empty 변경 발생 시 stack trace로 호출 위치 추적.
+//   추가 방어: __slotsWatchActive 플래그로 의도적 리셋 시(전체초기화)는 trace 끔.
+(function _wrapSlotsForDebug(){
+  try{
+    if(window.__slotsWatchActive) return;
+    window.__slotsWatchActive = true;
+    ['top','bottom','onepiece','outer','shoes'].forEach(function(k){
+      var _val = state.slots[k];
+      Object.defineProperty(state.slots, k, {
+        configurable: true,
+        enumerable: true,
+        get: function(){ return _val; },
+        set: function(newVal){
+          // filled 슬롯이 비워지는 시점 trace
+          var wasFilled = _val && _val.filled && _val.item;
+          var nowEmpty = !newVal || !newVal.filled || !newVal.item;
+          if(wasFilled && nowEmpty && !window.__tryonResetting){
+            console.warn('[v29 slots] 슬롯[' + k + '] filled→empty 변경 감지');
+            console.trace();
+          }
+          _val = newVal;
+        }
+      });
+    });
+  }catch(e){ console.warn('[v29] slots wrap 실패:', e); }
+})();
+
 fitSwitch.querySelectorAll('.mode-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const fit = btn.dataset.fit;
+    
+    // ─── 2026-05-09 KST · TJ 지시 (v29) ─── 핏 클릭 시점부터 슬롯 백업
+    //   applyFitUI 안의 보호로도 부족했으므로 click 핸들러에서도 백업/복원.
+    //   click → applyFitUI → 자동 setStep(3) → 그 사이 어떤 부수효과로
+    //   슬롯이 비워져도 종료 시 강제 복원.
+    const _clickBackup = (function(){
+      try{ return JSON.parse(JSON.stringify(state.slots)); }catch(_){ return null; }
+    })();
+    
     state.fitTarget = fit;
     fitSwitch.dataset.fit = fit;
     fitSwitch.querySelectorAll('.mode-btn').forEach(b =>
@@ -3168,10 +3293,29 @@ fitSwitch.querySelectorAll('.mode-btn').forEach(btn => {
     applyFitUI(fit);
     state.stepDone[2] = (fit !== 'model');  // model은 성별까지 골라야 완료
     updateFinalSummary();
-    // model이 아니면 바로 Step 3 자동 오픈
-    if(fit !== 'model' && state.currentStep === 2){
-      setTimeout(() => setStep(3), 400);
-    }
+    
+    // ─── 클릭 끝 시점에 다시 한번 슬롯 검증 + 복원 ───
+    try{
+      if(_clickBackup){
+        Object.keys(_clickBackup).forEach(function(k){
+          var before = _clickBackup[k];
+          var after = state.slots[k];
+          if(before && before.filled && before.item){
+            if(!after || !after.filled || !after.item){
+              console.warn('[v29 click] 슬롯[' + k + '] click 핸들러에서 리셋 감지 → 복원');
+              state.slots[k] = JSON.parse(JSON.stringify(before));
+              if(typeof fillSlot === 'function') {
+                try{ fillSlot(k, before.item); }catch(_){}
+              }
+            }
+          }
+        });
+        if(typeof _resyncStep1FromState === 'function') _resyncStep1FromState();
+      }
+    }catch(e){ console.warn('[v29 click] backup 복원 실패:', e); }
+    
+    // ─── 2026-05-09 KST · TJ 지시 (Tryon UX) ─── Step 3 자동 이동 제거
+    //   (Step1 자동 이동 제거 정책과 일관 — 사용자가 직접 헤더 클릭으로 이동)
   });
 });
 
@@ -4438,6 +4582,11 @@ if(csBtnReset) csBtnReset.addEventListener('click', () => {
   //  변경: Step1 아이템 + Step2 핏 선택 + Step3 결과 모두 초기화
   // ════════════════════════════════════════════════════════════════
   
+  // ─── 2026-05-09 KST · TJ 지시 (v29) ─── 의도적 리셋 표시
+  //   state.slots setter wrap이 filled→empty를 모두 trace하므로
+  //   여기서는 의도적이므로 trace 끔. 끝나면 다시 켬.
+  window.__tryonResetting = true;
+
   // ─── Step1 아이템 슬롯 모두 초기화 ───
   try {
     ['top', 'bottom', 'onepiece', 'outer', 'shoes'].forEach(k => {
@@ -4457,6 +4606,9 @@ if(csBtnReset) csBtnReset.addEventListener('click', () => {
   } catch(_e){
     console.warn('[reset] Step1 초기화 경고:', _e);
   }
+  
+  // ─── 의도적 리셋 끝 — trace 다시 켬 (직후 다른 부수효과가 슬롯 비우면 잡힘) ───
+  setTimeout(function(){ window.__tryonResetting = false; }, 600);
   
   // ─── Step2 핏 선택 초기화 (기본값 'my'로 복귀) ───
   try {
