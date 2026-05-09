@@ -2754,6 +2754,125 @@
 <script src="i18n.js"></script>
 
 <script>
+// ─── 2026-05-09 KST · TJ 지시 (v51) ─── 트라이온 자체 i18n 적용 ───
+//   배경: tryon.html은 자체 i18n 사전(_T 객체)이 없어 i18n.js만 로드해선 동작 안 함.
+//          codibank.js v50 글로벌 정규화도 부분 텍스트(span 안 일부)는 못 잡음.
+//   처리: 영어 모드 시 페이지 한글을 직접 매핑.
+//          ① step-title의 innerHTML 통째로 교체 (부분 span 보존)
+//          ② 정확 일치 텍스트 매핑 (모든 element, 자식 없는 노드)
+//          ③ title 영어
+//   호출: DOMContentLoaded 직후 + 100/600/1500/3000ms (동적 렌더링 대비)
+(function _applyTryonI18nOnLoad(){
+  function apply(){
+    try{
+      var en = window.CodiBankI18n && CodiBankI18n.isEn && CodiBankI18n.isEn();
+      if(!en) return;
+      
+      // ① step-title의 innerHTML 통째로 교체 — 부분 span(.ac) 디자인 의도 보존
+      try{
+        document.querySelectorAll('.step-title').forEach(function(el){
+          var ih = el.innerHTML || '';
+          if(ih.indexOf('무엇을') !== -1 && ih.indexOf('입어볼까요') !== -1){
+            el.innerHTML = '<span class="step-prefix">Step 1.</span> What will you <span class="ac">wear</span>?';
+          } else if(ih.indexOf('누구의') !== -1 && ih.indexOf('보고 싶어요') !== -1){
+            el.innerHTML = '<span class="step-prefix">Step 2.</span> <span class="ac">Whose</span> fit?';
+          } else if(ih.indexOf('지금') !== -1 && ih.indexOf('입어볼까요') !== -1){
+            el.innerHTML = '<span class="step-prefix">Step 3.</span> <span class="ac">Try</span> it now?';
+          }
+        });
+      }catch(_){}
+      
+      // ② 정확 일치 텍스트 매핑
+      var map = {
+        // 페이지 헤더
+        '트라이 온':'Try-On',
+        '이 옷이 어울릴까 고민하지 마세요. 3단계로 착장을 완성해요':'Wonder if it suits you? Complete your outfit in 3 steps.',
+        
+        // Step 1 슬롯/모드
+        '상의 · 하의 · 아우터 · 신발을 선택하세요':'Choose top, bottom, outer, shoes',
+        '상의 · 하의 · 신발':'Top · Bottom · Shoes',
+        '투피스':'Two-piece','원피스':'One-piece','아우터':'Outer',
+        '상의':'Top','하의':'Bottom','신발':'Shoes',
+        '옷장에서 선택':'Choose from closet',
+        '내옷장':'My Closet','내 옷장':'My Closet',
+        '필수':'Required','옵션':'Optional','선택':'Select',
+        // 슬롯 hint
+        '코트 · 자켓 · 카디건':'Coat · Jacket · Cardigan',
+        '코트 · 자켓':'Coat · Jacket',
+        '셔츠 · 티셔츠 · 니트':'Shirt · T-shirt · Knit',
+        '바지 · 치마':'Pants · Skirt',
+        '스니커즈 · 로퍼':'Sneakers · Loafers',
+        '+ 신발':'+ Shoes','+ 아우터':'+ Outer','+ 상의':'+ Top','+ 하의':'+ Bottom',
+        
+        // Step 2 핏 모드
+        '마이 핏 · 썸바디 · 모델 핏':'My Fit · Somebody · Model Fit',
+        '마이 핏':'My Fit','썸바디':'Somebody','모델 핏':'Model Fit',
+        '코디 프로필':'Codi Profile',
+        '코디 프로필이 비어있어요':'Codi Profile is empty',
+        'AI가 개인화된 착장을 만드는 데 쓰여요':'Used by AI to personalize your styling',
+        '촬영':'Camera',
+        '성별':'Gender','나이대':'Age','키':'Height','몸무게':'Weight','수정':'Edit',
+        '남성':'Male','여성':'Female',
+        // 퍼스널컬러 시즌
+        '봄 라이트 웜톤':'Spring Light · Warm','봄 브라이트 웜톤':'Spring Bright · Warm',
+        '여름 라이트 쿨톤':'Summer Light · Cool','여름 뮤트 쿨톤':'Summer Muted · Cool',
+        '가을 딥 웜톤':'Autumn Deep · Warm','가을 뮤트 웜톤':'Autumn Muted · Warm',
+        '겨울 딥 쿨톤':'Winter Deep · Cool','겨울 브라이트 쿨톤':'Winter Bright · Cool',
+        '웜톤':'Warm','쿨톤':'Cool','뉴트럴':'Neutral',
+        // 연령
+        '10대':'Teens','20대':'20s','30대':'30s','40대':'40s','50대':'50s','60대':'60s',
+        
+        // Step 3
+        '선택한 데이터를 종합해서 착장이미지를 만들어드립니다!':'AI combines your data to generate a styled image!',
+        '이미지를 생성할 준비가 되었어요':'Ready to generate the image',
+        '트라이온 피팅':'Try-On Fit',
+        '트라이 온 1회 가능':'1 Try-On available',
+        '트라이 온 무제한':'Unlimited Try-On',
+        '재시도':'Retry','다시 시도':'Try again',
+        '저장':'Save','공유':'Share','다운로드':'Download',
+        
+        // 포즈/뷰
+        '정면':'Front','후면':'Back','정·후면':'Front · Back',
+        '정면 · 후면':'Front · Back',
+        
+        // 풋바 (codibank.js v51이 처리하지만 안전하게 중복)
+        '코디핏':'Codi Fit','코디 핏':'Codi Fit',
+        '트라이온':'Try-On','코디앨범':'Codi Album','코디 앨범':'Codi Album',
+        'Ai 옷장':'AI Closet','AI 옷장':'AI Closet',
+      };
+      
+      var sels = ['div','span','button','h1','h2','h3','h4','p','label','a','b','strong','em','small','option'];
+      document.querySelectorAll(sels.join(',')).forEach(function(el){
+        if(el.children.length > 0) return;
+        var cur = (el.textContent || '').trim();
+        if(map[cur]) el.textContent = map[cur];
+      });
+      
+      // ③ title
+      if(document.title.indexOf('트라이 온') !== -1){
+        document.title = document.title.replace('트라이 온', 'Try-On');
+      }
+      if(document.title.indexOf('트라이온') !== -1){
+        document.title = document.title.replace('트라이온', 'Try-On');
+      }
+    }catch(_){}
+  }
+  
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){
+      setTimeout(apply, 100);
+      setTimeout(apply, 600);
+      setTimeout(apply, 1500);
+      setTimeout(apply, 3000);
+    });
+  } else {
+    setTimeout(apply, 100);
+    setTimeout(apply, 600);
+    setTimeout(apply, 1500);
+    setTimeout(apply, 3000);
+  }
+})();
+
 // ════════════════════════════════════════════════════════════════
 //  상태 관리
 // ════════════════════════════════════════════════════════════════

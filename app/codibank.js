@@ -2205,7 +2205,7 @@ function _cbApplyGlobalEnLabels(){
     if(!en) return;
     
     var FOOTER_MAP = {
-      '코디핏':'Codi Fit','코디 핏':'Codi Fit','Outfit핏':'Codi Fit','Codissam':'Codi Fit',
+      '코디핏':'Codi Fit','코디 핏':'Codi Fit','Outfit핏':'Codi Fit','Outfit 핏':'Codi Fit','Codi 핏':'Codi Fit','Codissam':'Codi Fit',
       '트라이온':'Try-On','트라이 온':'Try-On','Try On':'Try-On',
       'Ai 옷장':'AI Closet','AI 옷장':'AI Closet','내옷장':'My Closet','내 옷장':'My Closet',
       '코디앨범':'Codi Album','코디 앨범':'Codi Album','Album':'Codi Album',
@@ -2220,6 +2220,11 @@ function _cbApplyGlobalEnLabels(){
     //   영어 모드에서 페이지가 자체 i18n으로 처리 못한 한글 잔존을 일괄 변환.
     //   정확 일치 + 자식 없는 텍스트 노드만 — 의도치 않은 변환 방지.
     var COMMON_MAP = {
+      // ─── (v51) 코디핏 짬뽕 잔존 (한/영 혼용) — 어디서든 정확 일치 시 통일 ───
+      '코디핏':'Codi Fit','코디 핏':'Codi Fit',
+      'Outfit 핏':'Codi Fit','Outfit핏':'Codi Fit','Codi 핏':'Codi Fit',
+      'Codissam':'Codi Fit',
+      
       // 날씨/위치/UV
       'UV 높음':'UV High','UV 보통':'UV Mid','UV 낮음':'UV Low',
       '오늘':'Today','내일':'Tomorrow',
