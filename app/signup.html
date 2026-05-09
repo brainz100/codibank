@@ -1,6 +1,32 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<meta charset="utf-8"/>
+<!-- ─── 2026-05-09 KST · TJ 지시 (v47) ─── signup.html 진입 가드 (sync, head 최상단)
+     배경: 이메일 인증 클릭 시 Supabase가 emailRedirectTo를 무시하고 signup.html로
+            보낼 수 있고, 토큰을 query string이 아닌 hash fragment로 전달하기도 함.
+            (예: signup.html#access_token=xxx&type=signup&refresh_token=xxx)
+     처리: 다음 중 하나라도 감지되면 즉시 login.html로 redirect (hash 보존):
+            ① ?verified=true   ② #access_token=  ③ ?type=signup   ④ #type=signup
+     IIFE async보다 먼저 실행되어 빈 페이지 노출 시간 최소화. -->
+<script>
+(function(){
+  try{
+    var s = window.location.search || '';
+    var h = window.location.hash   || '';
+    var isVerifiedReturn = false;
+    if(s.indexOf('verified=true') !== -1) isVerifiedReturn = true;
+    if(h.indexOf('access_token=')  !== -1) isVerifiedReturn = true;
+    if(s.indexOf('type=signup')    !== -1) isVerifiedReturn = true;
+    if(h.indexOf('type=signup')    !== -1) isVerifiedReturn = true;
+    if(h.indexOf('type=recovery')  !== -1) isVerifiedReturn = true; // 비밀번호 재설정도 동일 처리
+    if(isVerifiedReturn){
+      // login.html로 즉시 이동 (hash 보존 — Supabase 토큰이 그대로 따라감)
+      window.location.replace('login.html?verified=true' + h);
+    }
+  }catch(_){}
+})();
+</script>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-2ZWQ7K7H0V"></script>
 <script>
@@ -9,7 +35,6 @@
   gtag('js', new Date());
   gtag('config', 'G-2ZWQ7K7H0V');
 </script>
-<meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <title>CODIBANK - 회원가입</title>
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -103,11 +128,17 @@
         <span class="mi icon">mark_email_read</span>
         <h3>인증 이메일을 보냈습니다</h3>
         <p><b id="otpEmail"></b> 으로 인증 링크를 보냈습니다.<br>이메일을 확인하고 <b>인증하기 버튼</b>을 클릭해주세요.</p>
-        <p style="margin-top:12px;font-size:12px;color:rgba(255,255,255,.3);">메일이 안 보이면 스팸함을 확인해주세요.</p>
+        <!-- ─── 2026-05-09 KST · TJ 지시 (v46) ─── 도메인 오타 안내 강화 -->
+        <p style="margin-top:12px;font-size:12px;color:rgba(255,255,255,.4);line-height:1.6;" id="otpHint">
+          메일이 안 보이면 <b style="color:#97FEED;">스팸함</b>을 먼저 확인해주세요.<br>
+          그래도 없으면 이메일 주소에 오타가 없는지 확인해보세요 (gmail, naver 등).
+        </p>
       </div>
       <button class="check-btn" onclick="checkVerified()">✓ 인증 완료했어요</button>
       <p id="s2Err" class="err"></p>
       <button class="btn-ghost" style="width:100%;" onclick="resendEmail()">인증 메일 재발송</button>
+      <!-- (v46) 이메일 수정 버튼 — 오타였을 경우 Step 1로 돌아가서 다시 입력 -->
+      <button class="btn-ghost" style="width:100%;margin-top:8px;background:transparent;color:rgba(255,255,255,.4);" onclick="showStep('step1',1)">← 이메일 주소 수정하기</button>
     </div>
 
     <!-- ═══ STEP 3: 체형 정보 ═══ -->
@@ -158,6 +189,43 @@ function showStep(id,dot){
   document.getElementById(id).classList.add('active');
 }
 
+/* ─── 2026-05-09 KST · TJ 지시 (v46) ─── 이메일 도메인 오타 검증 ───
+   배경: TJ 테스트 중 `brainz.paek@gamil.com` 입력 → Supabase가 정상 발송했으나
+          gamil.com이 받을 수 없어 511 bounce. 사용자 오타가 원인.
+   처리: 흔한 오타 도메인 사전 매칭 + Levenshtein 거리(1) 검사로 의심 시 자동 제안.
+          [네 수정] / [그대로 진행] 선택 — 강제 차단 X (정상 도메인 오인 방지).
+*/
+const _COMMON_TYPOS = {
+  // Gmail
+  'gamil.com':'gmail.com', 'gnail.com':'gmail.com', 'gmial.com':'gmail.com',
+  'gmil.com':'gmail.com',  'gmaill.com':'gmail.com', 'gmail.co':'gmail.com',
+  'gmail.con':'gmail.com', 'gmail.cm':'gmail.com',  'gmail.om':'gmail.com',
+  // Naver
+  'navr.com':'naver.com',  'naver.con':'naver.com', 'naver.co':'naver.com',
+  'naver.cm':'naver.com',  'navee.com':'naver.com', 'naber.com':'naver.com',
+  // Daum / Kakao
+  'daun.net':'daum.net',   'duam.net':'daum.net',  'daum.ne':'daum.net',
+  'kakal.com':'kakao.com', 'kako.com':'kakao.com',
+  // Hotmail / Outlook
+  'hotmial.com':'hotmail.com', 'hotnail.com':'hotmail.com', 'hotmai.com':'hotmail.com',
+  'outlok.com':'outlook.com',  'outloo.com':'outlook.com',
+  // Yahoo
+  'yahooo.com':'yahoo.com', 'yaho.com':'yahoo.com',  'yahoo.co':'yahoo.com',
+  // Nate
+  'nate.con':'nate.com',    'nat.com':'nate.com',
+  // ICloud
+  'icoud.com':'icloud.com', 'iclud.com':'icloud.com',
+};
+function _suggestEmailFix(em){
+  if(!em || !em.includes('@')) return null;
+  const dom = em.split('@')[1].toLowerCase();
+  if(_COMMON_TYPOS[dom]) {
+    const local = em.split('@')[0];
+    return local + '@' + _COMMON_TYPOS[dom];
+  }
+  return null;
+}
+
 /* ── STEP 1 → 인증 이메일 발송 ── */
 async function sendVerification(){
   if(!sb) sb = window.CodiBank && window.CodiBank.getSupabaseClient ? window.CodiBank.getSupabaseClient() : null;
@@ -168,13 +236,53 @@ async function sendVerification(){
   if(!em||!em.includes('@')) return showErr('s1Err',CodiBankI18n.t('올바른 이메일을 입력해주세요.','Please enter a valid email.'));
   if(!pw||pw.length<6) return showErr('s1Err',CodiBankI18n.t('비밀번호는 6자 이상이어야 합니다.','Password must be 6+ characters.'));
   if(pw!==pw2) return showErr('s1Err',CodiBankI18n.t('비밀번호가 일치하지 않습니다.','Passwords do not match.'));
-  sEmail=em; sPw=pw;
+
+  // ─── (v46) 흔한 도메인 오타 감지 — confirm으로 사용자 확인 ───
+  const _suggestion = _suggestEmailFix(em);
+  if(_suggestion){
+    const en = window.CodiBankI18n && CodiBankI18n.isEn();
+    const msg = en
+      ? `Did you mean "${_suggestion}"?\n\nClick OK to use the suggested address, or Cancel to keep "${em}".`
+      : `혹시 "${_suggestion}" 아니신가요?\n\n[확인]을 누르면 수정된 주소로 진행하고,\n[취소]를 누르면 입력하신 "${em}" 그대로 진행합니다.`;
+    if(confirm(msg)){
+      // 사용자가 제안 수락 → input 값 업데이트 + 변수 갱신
+      document.getElementById('s1_email').value = _suggestion;
+      // em을 재할당하지 않고 새 변수로 진행
+      sEmail = _suggestion; sPw = pw;
+    } else {
+      sEmail = em; sPw = pw;
+    }
+  } else {
+    sEmail = em; sPw = pw;
+  }
+
+  // ─── 2026-05-09 KST · TJ 지시 (v47) ─── 인증 후 자동 채우기용 임시 저장 ───
+  //   배경: 이메일 인증 클릭 후 어느 URL로 redirect되든 login.html에서
+  //          email/password가 자동 채워져 [로그인] 버튼만 누르면 되게 함.
+  //   동작: Step 1 시점에 sEmail/sPw를 localStorage에 30분 TTL로 저장.
+  //          login.html이 ?verified=true 또는 일반 진입 시 읽어와서 input 채움.
+  //          로그인 성공 시 즉시 삭제(보안).
+  //   주의: 평문 localStorage라 같은 디바이스 내에서만 동작.
+  //          다른 디바이스에서 인증 클릭 시엔 사용자가 직접 입력해야.
+  try{
+    const _expiresAt = Date.now() + 30 * 60 * 1000; // 30분 TTL
+    localStorage.setItem('cb_pending_signup', JSON.stringify({
+      email: sEmail,
+      password: sPw,
+      expiresAt: _expiresAt,
+    }));
+  }catch(_){ /* localStorage 차단 환경에서는 자동 채우기 비활성 */ }
+
   const btn=document.getElementById('btnStep1'); btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> 발송 중…';
   try{
     if(!sb) throw new Error(CodiBankI18n.t('인증 서버 연결 실패','Auth server connection failed'));
     const{data,error}=await sb.auth.signUp({
-      email:em, password:pw,
-      options:{ emailRedirectTo:'https://codibank.kr/app/signup.html?verified=true' }
+      email: sEmail, password: sPw,
+      // ─── 2026-05-09 KST · TJ 지시 (v41) ─── 이메일 확인 후 → 로그인 페이지로
+      // 이전: signup.html?verified=true (다시 회원가입 페이지로 와서 추가 정보 입력)
+      // 변경: login.html?verified=true (사용자가 로그인 후 mypage로 자연스럽게 진입)
+      // 의도: 추가 정보 입력 단계 강요 제거 — 서비스 이용 포기 방지
+      options:{ emailRedirectTo:'https://codibank.kr/app/login.html?verified=true' }
     });
     if(error){
       if(error.message.includes('already')) throw new Error(CodiBankI18n.t('이미 가입된 이메일입니다. 로그인해주세요.','Email already registered. Please log in.'));
@@ -182,16 +290,21 @@ async function sendVerification(){
       throw new Error(error.message);
     }
     if(data&&data.session){
-      showStep('step3',3);
+      // (Supabase가 confirm email 옵션 OFF로 즉시 로그인 케이스) → 바로 로그인 페이지로
+      location.replace('login.html?verified=true');
       return;
     }
-    document.getElementById('otpEmail').textContent=em;
+    // (v46) sEmail = 사용자가 도메인 수정을 수락한 경우 수정된 주소
+    document.getElementById('otpEmail').textContent = sEmail;
     showStep('step2',2);
   }catch(e){ showErr('s1Err',e.message||'오류가 발생했습니다.'); }
   finally{ btn.disabled=false; btn.innerHTML='이메일 인증 요청 →'; }
 }
 
-/* ── 인증 완료 확인 ── */
+/* ── 인증 완료 확인 (Step 2 "이미 인증했어요" 버튼) ── */
+/* ─── 2026-05-09 KST · TJ 지시 (v41) ─── 인증 후 추가 입력 단계 우회
+   이전: signInWithPassword 성공 시 showStep('step3') (추가 정보 입력)
+   변경: mypage.html로 직행 (이미 로그인 상태 — 추가 정보는 자율적으로) */
 async function checkVerified(){
   if(!sb) sb = window.CodiBank && window.CodiBank.getSupabaseClient ? window.CodiBank.getSupabaseClient() : null;
   clrErr('s2Err');
@@ -202,7 +315,7 @@ async function checkVerified(){
         return showErr('s2Err',CodiBankI18n.t('아직 인증이 완료되지 않았습니다. 이메일을 확인해주세요.','Not verified yet. Check your email.'));
       throw new Error(error.message);
     }
-    showStep('step3',3);
+    location.replace('mypage.html');
   }catch(e){ showErr('s2Err',e.message||'인증 확인 실패'); }
 }
 
@@ -218,16 +331,13 @@ async function resendEmail(){
 }
 
 /* ── 이메일 링크 클릭 후 돌아온 경우 ── */
+/* ─── 2026-05-09 KST · TJ 지시 (v41) ─── 이메일 확인 → login.html로 이동
+   안전망: emailRedirectTo는 login.html로 보냈지만 혹시 signup.html에 ?verified로
+          돌아오는 옛 흐름이 있으면 즉시 login.html로 redirect (추가 정보 단계 우회) */
 (async function(){
   const params=new URLSearchParams(location.search);
   if(params.get('verified')==='true'){
-    try{
-      const{data}=await sb.auth.getSession();
-      if(data&&data.session){
-        sEmail=data.session.user.email;
-        showStep('step3',3);
-      }
-    }catch(_){}
+    location.replace('login.html?verified=true');
   }
 })();
 

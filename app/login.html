@@ -89,9 +89,70 @@
 <script src="codibank.js"></script>
 <script src="i18n.js"></script>
 <script>
-  // 이미 로그인된 경우 바로 이동
+  // ─── 2026-05-09 KST · TJ 지시 (v41) ─── 이미 로그인 시 mypage로
   if(window.CodiBank&&window.CodiBank.getCurrentUser&&window.CodiBank.getCurrentUser())
-    location.replace('closet.html');
+    location.replace('mypage.html');
+
+  // ─── 2026-05-09 KST · TJ 지시 (v47) ─── 회원가입 정보 자동 채우기 ───
+  //   배경: 회원가입 시 입력했던 email/password를 localStorage에 임시 저장(30분 TTL).
+  //          사용자가 이메일 인증 클릭 → login.html 진입 시 자동으로 input에 채움.
+  //          [로그인] 버튼만 누르면 끝.
+  //   안전: 30분 TTL 초과 시 자동 삭제. 로그인 성공 시 즉시 삭제.
+  (function _autofillFromPendingSignup(){
+    try{
+      var raw = localStorage.getItem('cb_pending_signup');
+      if(!raw) return;
+      var info = JSON.parse(raw);
+      // TTL 검사
+      if(!info.expiresAt || Date.now() > info.expiresAt){
+        localStorage.removeItem('cb_pending_signup');
+        return;
+      }
+      // 자동 채우기 (DOM 준비된 시점에)
+      function _fill(){
+        try{
+          var emailEl = document.getElementById('email');
+          var pwEl    = document.getElementById('password');
+          if(emailEl && info.email) emailEl.value = info.email;
+          if(pwEl && info.password) pwEl.value = info.password;
+        }catch(_){}
+      }
+      if(document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', _fill);
+      } else {
+        _fill();
+      }
+    }catch(_){}
+  })();
+
+  // ─── 2026-05-09 KST · TJ 지시 (v41/v47) ─── 이메일 인증 완료 안내
+  // 회원가입 후 이메일 링크 클릭 → login.html?verified=true 진입
+  // → 안내 메시지: "이메일 인증 완료. [로그인] 버튼만 누르면 시작합니다"
+  (function _showVerifiedNotice(){
+    try{
+      var p = new URLSearchParams(location.search);
+      if(p.get('verified') !== 'true') return;
+      function _show(){
+        try{
+          var card = document.querySelector('.card');
+          if(!card) return;
+          var en = window.CodiBankI18n && CodiBankI18n.isEn();
+          var msg = en
+            ? '✓ Email verified. Click Log in to continue.'
+            : '✓ 이메일 인증이 완료되었습니다.\n[로그인] 버튼을 눌러 시작하세요.';
+          var notice = document.createElement('div');
+          notice.style.cssText = 'background:rgba(151,254,237,0.10);border:1px solid rgba(151,254,237,0.35);color:#97FEED;padding:12px 14px;border-radius:12px;font-size:13px;font-weight:700;text-align:center;margin-bottom:18px;letter-spacing:.01em;line-height:1.5;white-space:pre-line;';
+          notice.textContent = msg;
+          card.insertBefore(notice, card.firstChild.nextSibling);
+        }catch(_){}
+      }
+      if(document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', _show);
+      } else {
+        _show();
+      }
+    }catch(_){}
+  })();
 
   function showErr(msg){const e=document.getElementById('loginErr');e.textContent=msg;e.classList.add('show');}
   function clearErr(){document.getElementById('loginErr').classList.remove('show');}
@@ -115,7 +176,10 @@
       const res = await Promise.resolve(window.CodiBank.login(email, pw));
 
       if(res && res.ok){
-        location.replace('closet.html');
+        // ─── 2026-05-09 KST · TJ 지시 (v47) ─── 임시 저장 정보 삭제 (보안)
+        try{ localStorage.removeItem('cb_pending_signup'); }catch(_){}
+        // ─── 2026-05-09 KST · TJ 지시 (v41) ─── 로그인 성공 → 마이페이지
+        location.replace('mypage.html');
       } else {
         const errMsg = (res && res.error) ? res.error : '로그인에 실패했습니다.';
         // Supabase 에러 메시지 한국어 변환
