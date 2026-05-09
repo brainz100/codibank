@@ -19,6 +19,26 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-05-09 KST · TJ 지시 (v28) ─── [3가지 재수정]              │
+  │   1) 가로 이미지 표시 + 토글 작동 (이전 v27 미해결)                │
+  │      [원인] AI는 portrait 비율로 좌=정면/우=후면을 그렸지만        │
+  │             ratio<0.8 → 'tall' 분기로 가서 위/아래 분할 가정 →    │
+  │             상반신/하반신만 보이는 현상 (TJ 첨부 이미지 1·2)       │
+  │      [수정] 분기 단순화 — 항상 좌/우 분할 (포트레이트도 좌/우 가정)│
+  │             ratio<0.45 (극단 single)만 단일 처리                   │
+  │   2) 박스가 화면을 초과하는 문제                                   │
+  │      [원인] aspect-ratio:1/1.62만 → 모바일 화면 높이 초과 가능     │
+  │      [수정] max-height: calc(100vh - 280px) 추가                  │
+  │             박스가 화면 안에 항상 들어가도록 강제                   │
+  │   3) measure 시점 정확화                                           │
+  │      [원인] empty 상태에서 box 측정 → 늦게 늘어난 박스 미반영      │
+  │      [수정] csty-empty 제거 → rAF 두 번 → 안정 박스 크기 측정    │
+  │   4) Step1 슬롯이 핏 변경 시 사라지는 버그 (강력 방어)             │
+  │      [원인] _resyncStep1FromState만으로 부족, state.slots 자체가  │
+  │             핏 변경 부수효과로 비워지는 케이스가 남아있음           │
+  │      [수정] applyFitUI 진입 시 deep-clone snapshot 저장           │
+  │             종료 시 비교 → 채워있던 슬롯이 비워졌으면 강제 복원   │
+  │             콘솔 경고로 어떤 슬롯이 영향받았는지 추적 가능         │
   │ ─── 2026-05-09 KST · TJ 지시 (v27) ─── [이미지 비율 자동 변환]    │
   │   [원인] Gemini가 가로 2:1 프롬프트 무시하고 portrait 반환         │
   │          → 이미지가 단일 인물로 인식되어 정/후면 토글 작동 못함     │
@@ -1674,9 +1694,15 @@
        기존: display:flex + overflow:hidden → 이미지가 박스에 contain으로 작게 표시됨
        변경: display:block + overflow-x:auto + scroll-snap (코디핏과 동일)
              빈 상태(.csty-empty)에만 flex 정렬 적용 */
+  /* ─── 2026-05-09 KST · TJ 지시 (v28) ─── 박스 크기 제한
+   * 이전: aspect-ratio:1/1.62만 → 화면 폭 기준으로 박스 height가 계산되어
+   *       모바일에서 박스가 화면 높이를 초과 → 페이지 스크롤 필요
+   * 변경: max-height 추가 → 화면 안에 박스가 모두 들어가도록 강제
+   *       (헤더 + 헤더 카드 + 토글 + 액션 버튼 + 풋바를 제외한 가용 영역) */
   .csty-result-img-box{
     width:100%;
     aspect-ratio:1/1.62;
+    max-height: calc(100vh - 280px);
     border-radius:20px;
     overflow-x:auto;
     overflow-y:hidden;
@@ -3150,6 +3176,17 @@ fitSwitch.querySelectorAll('.mode-btn').forEach(btn => {
 });
 
 function applyFitUI(fit){
+  // ─── 2026-05-09 KST · TJ 지시 (v28) ─── Step1 슬롯 강제 보호
+  //   원인: 핏 변경(my/somebody/model) 시 Step1 슬롯이 사라지는 보고 반복.
+  //         _resyncStep1FromState만으로는 부족 — state.slots 자체가 변경될 가능성.
+  //   대응: applyFitUI 진입 시점의 state.slots을 deep-clone으로 snapshot.
+  //         핏 처리 후 slot이 의도치 않게 변경되었으면 snapshot으로 강제 복원.
+  //         (filled/item이 있었는데 사라진 슬롯만 복원 — 정상 흐름은 영향 없음)
+  var _slotsSnapshot = null;
+  try{
+    _slotsSnapshot = JSON.parse(JSON.stringify(state.slots || {}));
+  }catch(_){}
+
   // [2026-04-22 14:15] state.fitTarget 저장 누락 버그 수정 + null 가드 (fitQuestion 삭제됨)
   state.fitTarget = fit;
   const faceWrap = $('#profileFaceWrap');
@@ -3189,6 +3226,25 @@ function applyFitUI(fit){
       gs.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
     }
   }
+  
+  // ─── 2026-05-09 KST · TJ 지시 (v28) ─── snapshot 비교 + 강제 복원
+  //   원인 진단: 핏 변경의 부수효과 어딘가에서 state.slots[k] = {filled:false, item:null}로 덮어쓰는 코드가
+  //              발생할 가능성. 어디서 왔든 핏 변경 직전에 채워있던 슬롯은 복원 보장.
+  try{
+    if(_slotsSnapshot){
+      Object.keys(_slotsSnapshot).forEach(function(k){
+        var before = _slotsSnapshot[k];
+        var after = state.slots[k];
+        if(before && before.filled && before.item){
+          // 진입 시 채워있던 슬롯 — 종료 시도 채워있어야 함
+          if(!after || !after.filled || !after.item){
+            console.warn('[v28] applyFitUI: 슬롯[' + k + '] 의도치 않은 리셋 감지 → 복원');
+            state.slots[k] = JSON.parse(JSON.stringify(before));
+          }
+        }
+      });
+    }
+  }catch(e){ console.warn('[applyFitUI] snapshot 복원 실패:', e); }
   
   // [2026-04-24 TJ 지시2] 핏 변경해도 Step1 슬롯 유지 보장
   // 이유: TJ 보고 — 핏 변경 시 Step1 아이템이 리셋되는 현상
@@ -3758,53 +3814,55 @@ function _tryonApplyResult(data){
             return;
           }
           var ratio = iw / ih;
-          // ─── 2026-05-09 KST · TJ 지시 (v27) ─── 이미지 방향 자동 분기
-          //   서버 프롬프트는 가로 2:1 (좌=정면/우=후면) 우선 요청.
-          //   Gemini가 무시하고 portrait 반환 시 폴백: 1:2 (위=정면/아래=후면).
-          //   클라이언트는 어느 방향이든 항상 가로 캔버스(좌=정면/우=후면)로 변환.
-          //
-          //   ratio > 1.2  → 'wide'   : 좌/우 분할 (가로 입력) — 기존 로직
-          //   ratio < 0.8  → 'tall'   : 상/하 분할 → 가로 캔버스로 변환 (신규)
-          //   0.8 ≤ ratio ≤ 1.2 → 'single' : 단일 인물 (정사각/근접) — 토글 숨김
+          // ─── 2026-05-09 KST · TJ 지시 (v28) ─── 분기 단순화 — 항상 좌/우 분할
+          //   원인 진단(이미지 1·2): AI가 portrait 비율로 좌=정면/우=후면을 그림
+          //                          (예: 1024×1376, ratio=0.74)
+          //   이전(v27): ratio<0.8 → 'tall' 분기 → 위/아래 분할 가정 → 잘못 잘림
+          //   변경(v28): 항상 좌/우 분할 (가로/portrait 모두 좌=정면/우=후면 가정)
+          //              ratio < 0.45 (극단 single portrait)만 단일 처리
           var orientation;
-          if(ratio > 1.2)      orientation = 'wide';
-          else if(ratio < 0.8) orientation = 'tall';
-          else                 orientation = 'single';
-          var isWide = (orientation === 'wide');
-          var isTall = (orientation === 'tall');
-          var hasTwoViews = (orientation !== 'single'); // 두 view 모드 통합 플래그
+          if(ratio < 0.45)     orientation = 'single';
+          else                 orientation = 'sideBySide';
+          var isWide = false; // (구버전 호환 — 사용 안 함)
+          var isTall = false; // (구버전 호환 — 사용 안 함)
+          var hasTwoViews = (orientation === 'sideBySide');
           
           var DPR = window.devicePixelRatio || 1;
-          // requestAnimationFrame으로 박스 크기 확정 후 그리기 (CSS 적용 보장)
+          // ─── 2026-05-09 KST · TJ 지시 (v28) ─── measure 시점 정확화
+          //   csty-empty 제거 → 한 frame 대기 → 박스 크기 정확히 측정
+          //   (이전: empty 상태에서 측정하면 패딩만 있는 작은 크기가 잡힘)
+          if(hasTwoViews) box.classList.remove('csty-empty');
+
           requestAnimationFrame(function(){
-            var boxRect = box.getBoundingClientRect();
-            var boxW = Math.max(1, boxRect.width);
-            var boxH = Math.max(1, boxRect.height);
-            
-            console.log('[v27 tryon] 분석:',
-              '이미지=' + iw + 'x' + ih,
-              'ratio=' + ratio.toFixed(2),
-              'orientation=' + orientation,
-              '박스=' + Math.round(boxW) + 'x' + Math.round(boxH));
-            
-            // 캔버스 크기 결정 — 두 view 모두 가로 캔버스로 통일 (좌=정면/우=후면)
-            var dispW, dispH;
-            if(hasTwoViews){
-              dispW = boxW * 2;
-              dispH = boxH;
-            } else {
-              dispW = boxW;
-              dispH = boxH;
-            }
-            
-            canvas.width  = Math.round(dispW * DPR);
-            canvas.height = Math.round(dispH * DPR);
-            canvas.style.width  = dispW + 'px';
-            canvas.style.height = dispH + 'px';
-            canvas.classList.add('csty-result-image');
-            
-            var ctx = canvas.getContext('2d');
-            ctx.setTransform(DPR,0,0,DPR,0,0);
+            requestAnimationFrame(function(){
+              var boxRect = box.getBoundingClientRect();
+              var boxW = Math.max(1, boxRect.width);
+              var boxH = Math.max(1, boxRect.height);
+
+              console.log('[v28 tryon] 분석:',
+                '이미지=' + iw + 'x' + ih,
+                'ratio=' + ratio.toFixed(2),
+                'orientation=' + orientation,
+                '박스=' + Math.round(boxW) + 'x' + Math.round(boxH));
+
+              // 캔버스 크기 결정 — 두 view 모두 가로 캔버스로 통일 (좌=정면/우=후면)
+              var dispW, dispH;
+              if(hasTwoViews){
+                dispW = boxW * 2;
+                dispH = boxH;
+              } else {
+                dispW = boxW;
+                dispH = boxH;
+              }
+              
+              canvas.width  = Math.round(dispW * DPR);
+              canvas.height = Math.round(dispH * DPR);
+              canvas.style.width  = dispW + 'px';
+              canvas.style.height = dispH + 'px';
+              canvas.classList.add('csty-result-image');
+              
+              var ctx = canvas.getContext('2d');
+              ctx.setTransform(DPR,0,0,DPR,0,0);
             ctx.clearRect(0,0,dispW,dispH);
             
             if(hasTwoViews){
@@ -3812,19 +3870,12 @@ function _tryonApplyResult(data){
               // 박스에서 csty-empty 제거 → display:block + overflow-x:auto 작동
               box.classList.remove('csty-empty');
               
-              // 입력 이미지에서 정면/후면 영역 좌표 결정
-              //   wide(가로): 정면 = 좌측 절반 / 후면 = 우측 절반
-              //   tall(세로): 정면 = 상단 절반 / 후면 = 하단 절반
-              var frontSrc, backSrc; // {x,y,w,h} — 입력 이미지 좌표
-              if(isWide){
-                var halfIw = iw / 2;
-                frontSrc = { x: 0,         y: 0,  w: halfIw, h: ih };
-                backSrc  = { x: halfIw,    y: 0,  w: halfIw, h: ih };
-              } else { // isTall
-                var halfIh = ih / 2;
-                frontSrc = { x: 0,  y: 0,         w: iw, h: halfIh };
-                backSrc  = { x: 0,  y: halfIh,    w: iw, h: halfIh };
-              }
+              // ─── 좌/우 분할 (모든 비율에 적용) ───
+              // 입력 이미지를 좌측 절반(정면) / 우측 절반(후면)으로 가정
+              // AI가 가로 wide든 portrait든 좌=정면/우=후면 layout을 따른다고 본다.
+              var halfIw = iw / 2;
+              var frontSrc = { x: 0,         y: 0, w: halfIw, h: ih };
+              var backSrc  = { x: halfIw,    y: 0, w: halfIw, h: ih };
               
               // 캔버스의 좌측 박스(정면), 우측 박스(후면)에 cover 방식으로 그림
               //   → 각 view의 인물이 박스 정중앙에 위치
@@ -3967,9 +4018,10 @@ function _tryonApplyResult(data){
               }
               ctx.drawImage(loaderImg, sx, sy, sw, sh, 0, 0, dispW, dispH);
               box.classList.remove('csty-empty');
-              console.log('[v27 tryon] 단일 모드 활성, canvas=' + dispW + 'x' + dispH);
+              console.log('[v28 tryon] 단일 모드 활성, canvas=' + dispW + 'x' + dispH);
             }
-          });
+            });  // 내부 requestAnimationFrame
+          });    // 외부 requestAnimationFrame
         };
         loaderImg.src = imgSrc;
       })();
