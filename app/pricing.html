@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════════════════
+─── 2026-05-09 KST · TJ 지시 (v37) ─── [Summary 카드 정리 3가지]
+  1) 3개 카드(코디핏/트라이온/아이템) 가로 사이즈 더 크게
+     · summary-section padding 좌/우: 20 → 12 (-8px씩 → 카드 +16px)
+     · summary-stats gap: 6 → 4 (간격 더 축소 → 카드 +4px씩)
+  2) 아이템 보너스 박스도 코디핏/트라이온과 동일하게 노출
+     · 이미 마크업/JS는 있었으나 시각적 일관성 강화
+     · itemBonus=0 시 회색 '기본' / >0 시 노란 그라디언트 chip
+  3) 보너스 텍스트를 숫자 아래줄로 이동 (숫자 인지 강화)
+     · 이전 마크업: [head][value][bar][bonus] — 게이지가 시선 가로챔
+     · 변경 마크업: [head][value][bonus][bar] — 숫자 → 보너스 → 게이지 흐름
+     · margin 조정: value mb 6→5, bar mt 0→6 + mb 6→0
 ─── 2026-05-09 KST · TJ 지시 (v36) ─── [구독플랜에서 풋바 숨김]
   이유: 결제 흐름 페이지에서 다른 메뉴로의 이탈 방지 + 결제 CTA 집중
   수정: <nav class="cb-nav"> style="display:none !important;" 적용
@@ -340,7 +351,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .summary-section{
   background:linear-gradient(165deg,#0a1f4f 0%,#071952 60%,#040f33 100%);
   border-radius:24px;
-  padding:22px 20px 18px;
+  /* ─── 2026-05-09 KST · TJ 지시 (v37) ─── 카드 가로 확대 위해 좌/우 padding 축소
+   * 이전: 22px 20px 18px → 좌우 20px
+   * 변경: 22px 12px 18px → 좌우 12px (-8px씩 = 카드 가로 +16px) */
+  padding:22px 12px 18px;
   margin-bottom:28px;
   position:relative;
   overflow:hidden;
@@ -374,15 +388,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .summary-plan-chip .mi{font-size:13px;line-height:1}
 
 /* ─ 사용량 통계 3-카드 그리드 ─ */
-/* ─── 2026-05-09 KST · TJ 지시 (v35) ─── 카드 가로 사이즈 확대
- * 이전: gap:8px + padding:11px 10px 10px → 카드 좁아 텍스트가 빡빡
- * 변경: gap 6px (간격 축소) + padding 좌/우 14px (여유 확대) */
-.summary-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;position:relative;z-index:1}
+/* ─── 2026-05-09 KST · TJ 지시 (v35/v37) ─── 카드 가로 사이즈 확대
+ * v35: gap 8 → 6, padding 좌우 10 → 14
+ * v37: gap 6 → 4 (간격 더 축소) + 카드 padding 좌/우 14 → 11 (내용 공간 확보) */
+.summary-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;position:relative;z-index:1}
 .summary-stat{
   background:rgba(255,255,255,.04);
   border:1px solid rgba(255,255,255,.08);
   border-radius:14px;
-  padding:11px 14px 10px;        /* 좌/우 10 → 14 */
+  padding:11px 11px 10px;
   position:relative;
   transition:transform .15s,border-color .15s;
 }
@@ -395,10 +409,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 }
 .summary-stat-icon .mi{font-size:14px;line-height:1}
 .summary-stat-name{font-size:10px;font-weight:800;letter-spacing:.04em;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.summary-stat-value{display:flex;align-items:baseline;gap:3px;margin-bottom:6px;line-height:1}
+/* ─── 2026-05-09 KST · TJ 지시 (v37) ─── 새 순서 [value→bonus→bar] margin 조정
+ * value: 숫자 강조 위해 margin-bottom 6 → 5 (보너스에 가깝게)
+ * bonus: bar 직전이므로 margin-bottom 6 (bar와 분리)
+ * bar  : 숫자/보너스 다음 가장 아래 — 기본 margin-bottom 0 */
+.summary-stat-value{display:flex;align-items:baseline;gap:3px;margin-bottom:5px;line-height:1}
 .summary-stat-used{font-family:'Outfit',sans-serif;font-size:22px;font-weight:900;color:#fff;letter-spacing:-.02em}
 .summary-stat-limit{font-size:11px;color:rgba(216,226,255,.5);font-weight:600}
-.summary-stat-bar{height:3px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin-bottom:6px}
+.summary-stat-bar{height:3px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin-top:6px;margin-bottom:0}
 .summary-stat-fill{height:100%;border-radius:99px;transition:width .6s cubic-bezier(.4,0,.2,1)}
 /* ─── 2026-05-09 KST · TJ 지시 (v35) ─── 보너스 박스 모양 변경
  * 이전: border-radius:999px (pill 형태)
@@ -842,6 +860,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 
     <div class="summary-stats">
       <!-- 코디핏 -->
+      <!-- ─── 2026-05-09 KST · TJ 지시 (v37) ─── 보너스를 숫자 아래줄로 이동
+           이전: [head][value][bar][bonus] → 게이지가 시선을 가로채 숫자 인지 약함
+           변경: [head][value][bonus][bar] → 숫자 → 보너스 → 게이지 자연 흐름 -->
       <div class="summary-stat codifit">
         <div class="summary-stat-head">
           <div class="summary-stat-icon"><span class="mi">auto_awesome</span></div>
@@ -851,8 +872,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
           <span class="summary-stat-used" id="sumCoUsed">0</span>
           <span class="summary-stat-limit" id="sumCoLimit">/ 3</span>
         </div>
-        <div class="summary-stat-bar"><div class="summary-stat-fill" id="sumCoFill" style="width:0%"></div></div>
         <div class="summary-stat-bonus" id="sumCoBonus">기본</div>
+        <div class="summary-stat-bar"><div class="summary-stat-fill" id="sumCoFill" style="width:0%"></div></div>
       </div>
       <!-- 트라이 온 -->
       <div class="summary-stat tryon">
@@ -864,10 +885,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
           <span class="summary-stat-used" id="sumTrUsed">0</span>
           <span class="summary-stat-limit" id="sumTrLimit">/ 1</span>
         </div>
-        <div class="summary-stat-bar"><div class="summary-stat-fill" id="sumTrFill" style="width:0%"></div></div>
         <div class="summary-stat-bonus" id="sumTrBonus">기본</div>
+        <div class="summary-stat-bar"><div class="summary-stat-fill" id="sumTrFill" style="width:0%"></div></div>
       </div>
-      <!-- 아이템 -->
+      <!-- 아이템 — v37: 보너스 박스 동일하게 노출(기존 0일 때 회색 '기본', >0이면 노란 chip) -->
       <div class="summary-stat items">
         <div class="summary-stat-head">
           <div class="summary-stat-icon"><span class="mi">checkroom</span></div>
@@ -877,8 +898,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
           <span class="summary-stat-used" id="sumItUsed">0</span>
           <span class="summary-stat-limit" id="sumItLimit">/ 20</span>
         </div>
-        <div class="summary-stat-bar"><div class="summary-stat-fill" id="sumItFill" style="width:0%"></div></div>
         <div class="summary-stat-bonus" id="sumItBonus">기본</div>
+        <div class="summary-stat-bar"><div class="summary-stat-fill" id="sumItFill" style="width:0%"></div></div>
       </div>
     </div>
   </section>
@@ -940,7 +961,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 <!-- 결제 버튼 영역 -->
 <div class="pay-wrap" id="payWrap" style="display:none">
   <div class="pay-wrap-inner">
-    <button class="pay-btn default" id="payBtn" onclick="doPay()">
+    <button class="pay-btn default" id="payBtn" onclick="doPay()" data-requires-auth="true">
       <span class="mi">lock</span>
       <span id="payBtnTxt">구독하기</span>
     </button>

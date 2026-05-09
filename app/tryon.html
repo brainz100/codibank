@@ -2400,8 +2400,8 @@
   <div class="step-body">
 
     <!-- 1. 트라이온 피팅 버튼 -->
-    <!-- ─── 2026-05-09 KST · TJ 지시 ─── 'Try-on Fitting 3/5' 보조 텍스트 제거 -->
-    <button class="gen-btn" id="finalGenerate">
+    <!-- ─── 2026-05-09 KST · TJ 지시 (v42) ─── data-requires-auth: 비로그인 시 팝업 -->
+    <button class="gen-btn" id="finalGenerate" data-requires-auth="true">
       <span class="mi">auto_awesome</span>
       <span>트라이온 피팅</span>
     </button>
@@ -3951,21 +3951,22 @@ function _tryonApplyResult(data){
       // ─────────────────────────────────────────────────────
       console.log('[v32 tryon] 결과 표시 시작:', imgSrc.substring(0, 80));
       
-      // ─── 2026-05-09 KST · TJ 지시 (v32) ─── 토글을 박스 밖으로 이동
-      //   원인: 이전 — 토글이 .csty-result-img-box(overflow-x:auto) 안에 absolute 위치
-      //          박스 가로 스크롤(scrollLeft=boxW) 시 토글의 left:0이 viewport 밖으로 밀림
-      //          → 후면 클릭 시 토글이 사라지는 현상
-      //   수정: 토글을 #imgWrap 직접 자식으로 이동. 박스 스크롤과 무관하게 항상 viewport 안.
-      //         #imgWrap에 position:relative + .csty-pose-toggle은 그 기준으로 absolute.
+      // ─── 2026-05-09 KST · TJ 지시 (v32/v40) ─── 토글 + 영어 분기
+      //   v32: 토글을 박스 밖으로 이동
+      //   v40: '정면'/'후면' 영어 분기 ('Front'/'Back')
+      var _enTog = window.CodiBankI18n && CodiBankI18n.isEn();
+      var _frontTxt = _enTog ? 'Front' : '정면';
+      var _backTxt  = _enTog ? 'Back'  : '후면';
+      var _hintTxt  = _enTog ? 'Front · Back' : '정·후면';
       imgWrap.innerHTML = ''
         + '<div class="csty-result-img-box csty-empty" id="tryonResultBox">'
         +   '<canvas id="tryonCanvas" class="csty-canvas"></canvas>'
         + '</div>'
         + '<div id="tryonPoseToggle" class="csty-pose-toggle hidden">'
-        +   '<button type="button" class="csty-pose-btn active" data-pose="front">정면</button>'
-        +   '<button type="button" class="csty-pose-btn" data-pose="back">후면</button>'
+        +   '<button type="button" class="csty-pose-btn active" data-pose="front">' + _frontTxt + '</button>'
+        +   '<button type="button" class="csty-pose-btn" data-pose="back">' + _backTxt + '</button>'
         + '</div>'
-        + '<div id="tryonPoseHint" class="csty-pose-hint hidden"><span>정·후면</span></div>';
+        + '<div id="tryonPoseHint" class="csty-pose-hint hidden"><span>' + _hintTxt + '</span></div>';
       
       (function(){
         var box = document.getElementById('tryonResultBox');
@@ -4367,15 +4368,32 @@ function _tryonApplyResult(data){
   function _doSaveTryonAlbum(email, ref){
     if(!ref) return;
     try{
+      // ─── 2026-05-09 KST · TJ 지시 (v40) ─── 영어 사용자 라벨 분기
+      var _enAlb = window.CodiBankI18n && CodiBankI18n.isEn();
       // 트라이온 메타: 핏 타겟·모드를 "코디 목적"으로 사용
-      var _fitLabel = ({my:'마이 핏', somebody:'썸바디', model:'모델 핏'})[state.fitTarget] || '트라이온';
-      var _modeLabel = ({twopiece:'투피스', onepiece:'원피스', outer:'아우터'})[state.mode] || '';
-      var _purposeLabel = '트라이온 (' + _fitLabel + (_modeLabel ? ' · ' + _modeLabel : '') + ')';
+      var _fitMap   = _enAlb
+        ? { my:'My Fit',  somebody:'Somebody', model:'Model Fit' }
+        : { my:'마이 핏', somebody:'썸바디',    model:'모델 핏'  };
+      var _modeMap  = _enAlb
+        ? { twopiece:'Two-piece', onepiece:'One-piece', outer:'Outer' }
+        : { twopiece:'투피스',     onepiece:'원피스',     outer:'아우터' };
+      var _fitLabel = _fitMap[state.fitTarget]   || (_enAlb ? 'Try-On' : '트라이온');
+      var _modeLabel = _modeMap[state.mode]      || '';
+      var _trLabel  = _enAlb ? 'Try-On' : '트라이온';
+      var _purposeLabel = _trLabel + ' (' + _fitLabel + (_modeLabel ? ' · ' + _modeLabel : '') + ')';
       var _today = new Date();
       var _dateKey = _today.getFullYear() + '-' + String(_today.getMonth()+1).padStart(2,'0') + '-' + String(_today.getDate()).padStart(2,'0');
-      var _stylistName = (state.fitTarget === 'model') 
-        ? (state.modelGender === 'female' ? '여자 모델' : '남자 모델')
-        : (state.fitTarget === 'somebody' ? '썸바디' : '');
+      var _stylistName;
+      if(state.fitTarget === 'model'){
+        _stylistName = _enAlb
+          ? (state.modelGender === 'female' ? 'Female Model' : 'Male Model')
+          : (state.modelGender === 'female' ? '여자 모델'    : '남자 모델');
+      } else if(state.fitTarget === 'somebody'){
+        _stylistName = _enAlb ? 'Somebody' : '썸바디';
+      } else {
+        _stylistName = '';
+      }
+      var _styleTitle = _enAlb ? 'Try-On Outfit' : '트라이온 착장';
       
       CodiBank.addAiAlbumEntry(email, {
         dateKey: _dateKey,
@@ -4385,7 +4403,7 @@ function _tryonApplyResult(data){
         purposeLabel: _purposeLabel,
         imageRef: ref,
         seed: 0,
-        styleTitle: '트라이온 착장',
+        styleTitle: _styleTitle,
         explanation: data.exec_summary || data.text || '',
         keywords: [],
         stylistName: _stylistName,

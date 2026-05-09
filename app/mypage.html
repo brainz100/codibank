@@ -420,7 +420,8 @@
   <!-- (v39) auth-cta-row는 페이지 하단(기타 메뉴 아래)으로 이동됨 -->
 
   <div class="action-cards">
-    <div class="action-card" onclick="location.href='profile.html'">
+    <!-- 프로필 수정 — 로그인 필수 (개인 정보 입력) -->
+    <div class="action-card" onclick="location.href='profile.html'" data-requires-auth="true">
       <div class="action-card-icon"><span class="mi material-symbols-outlined">manage_accounts</span></div>
       <div class="action-card-body">
         <div class="action-card-title" data-i18n="프로필 수정">프로필 수정</div>
@@ -429,6 +430,7 @@
       <span class="action-card-arrow material-symbols-outlined">chevron_right</span>
     </div>
 
+    <!-- 구독플랜 — 비로그인도 둘러보기 가능 (요금제 비교) -->
     <div class="action-card plan" onclick="location.href='pricing.html'">
       <div class="action-card-icon"><span class="mi material-symbols-outlined">workspace_premium</span></div>
       <div class="action-card-body">
@@ -658,6 +660,9 @@
     "하의 매칭 컬러":       "Bottom Match Colors",
     "로그아웃":            "Log Out",
     "사용자":              "User",
+    // ─── 2026-05-09 KST · TJ 지시 (v40) ─── 인증 버튼 i18n 추가
+    "회원가입":            "Sign Up",
+    "로그인":              "Log In",
 
     // ── 구독플랜 (pricing.html) ──
     "구독 플랜":           "Subscription Plans",
@@ -747,19 +752,24 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         if(signupBtn) signupBtn.classList.add('disabled');
         if(loginBtn){
           loginBtn.classList.add('is-logout');
-          loginBtn.classList.remove('auth-login');
-          loginBtn.classList.add('auth-login');  // 기본 클래스는 유지하면서 is-logout만 토글
         }
-        if(loginLab) loginLab.textContent = _en ? 'Logout' : '로그아웃';
+        if(loginLab){
+          loginLab.textContent = _en ? 'Logout' : '로그아웃';
+          // data-i18n 속성도 동기화 (i18n 시스템이 다시 호출되어도 일관성)
+          loginLab.setAttribute('data-i18n', '로그아웃');
+        }
         if(loginIcon) loginIcon.textContent = 'logout';
       } else {
         // 비로그인: 회원가입/로그인 둘 다 활성
         if(signupBtn) signupBtn.classList.remove('disabled');
         if(loginBtn) loginBtn.classList.remove('is-logout');
-        if(loginLab) loginLab.textContent = _en ? 'Login' : '로그인';
+        if(loginLab){
+          loginLab.textContent = _en ? 'Login' : '로그인';
+          loginLab.setAttribute('data-i18n', '로그인');
+        }
         if(loginIcon) loginIcon.textContent = 'login';
       }
-    }catch(e){ console.warn('[v38] _setupAuthButtons:', e); }
+    }catch(e){ console.warn('[v38/v40] _setupAuthButtons:', e); }
   }
   function _handleSignup(){
     var btn = document.getElementById('btnSignup');

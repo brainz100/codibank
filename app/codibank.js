@@ -1026,10 +1026,16 @@ function getBackendBaseResolved() {
       }
 
       // ── 세션 없음 — 신규 signUp
+      // ─── 2026-05-09 KST · TJ 지시 (v41) ─── 이메일 확인 → login.html
+      // 안전망: signup.html이 자체 sb.auth.signUp 호출하므로 이 경로는 잘 안 쓰지만,
+      //        만약 외부에서 CodiBank.signup()을 직접 호출하는 경우에도 일관된 흐름 보장.
       const { data, error } = await sb.auth.signUp({
         email,
         password: String(payload.password),   // Supabase Auth 파라미터 (meta에는 저장 안 함)
-        options: { data: meta },
+        options: {
+          data: meta,
+          emailRedirectTo: 'https://codibank.kr/app/login.html?verified=true'
+        },
       });
       if (error) {
         const msg = error.message || '';
@@ -2054,7 +2060,36 @@ window.CodiBank = {
   };
 })();
 
-// ─── 2026-05-09 KST · TJ 지시 (v39) ─── 비로그인 자동 모달 표시 ───
+// ─── 2026-05-09 KST · TJ 지시 (v42) ─── 비로그인 click 가드 ───
+//   동작: HTML에 [data-requires-auth] 속성 가진 요소 클릭 시
+//          비로그인 → preventDefault + stopPropagation + 팝업 강제 표시
+//          로그인됨 → 정상 동작
+//   범위: 모든 페이지 자동 적용 (codibank.js 로드 시점에 등록)
+(function _cbAuthClickGuard(){
+  function _isAuthed(){
+    try{ return !!(window.CodiBank && CodiBank.getCurrentUser && CodiBank.getCurrentUser()); }
+    catch(_){ return false; }
+  }
+  document.addEventListener('click', function(e){
+    try{
+      // 가드 대상 요소 탐색 (자기 자신 또는 가장 가까운 부모)
+      var t = e.target.closest && e.target.closest('[data-requires-auth]');
+      if(!t) return;
+      if(_isAuthed()) return;          // 로그인 상태면 통과
+      // 비로그인 → 차단 + 팝업
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation && e.stopImmediatePropagation();
+      try{
+        if(window.CodiBank && CodiBank.showAuthRequiredModal){
+          CodiBank.showAuthRequiredModal({force:true});
+        }
+      }catch(_){}
+    }catch(_){}
+  }, true);  // capture 단계 — 다른 핸들러보다 먼저 실행
+})();
+
+
 //   페이지 로드 후 비로그인 상태이면 모달 자동 표시.
 //   login.html / signup.html은 제외 (그 페이지 자체가 인증 진행 중).
 //   세션당 1회만 (sessionStorage 가드는 showAuthRequiredModal 내부에서 처리).

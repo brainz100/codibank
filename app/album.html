@@ -63,6 +63,14 @@
     "코디 앨범":"Codi Album",
     "뒤로":"Back",
     "전체삭제":"Delete All",
+    // ─── 2026-05-09 KST · TJ 지시 (v40) ─── 트라이온 album 라벨 영어 매핑
+    // (입력측 tryon.html이 이미 _enAlb 분기로 영어 라벨로 저장하지만,
+    //  과거 한글로 저장된 entry를 표시할 때 fallback으로 변환)
+    "트라이온":"Try-On",
+    "트라이온 착장":"Try-On Outfit",
+    "마이 핏":"My Fit","썸바디":"Somebody","모델 핏":"Model Fit",
+    "투피스":"Two-piece","원피스":"One-piece","아우터":"Outer",
+    "남자 모델":"Male Model","여자 모델":"Female Model",
   };
   window._cbI18n = _T;
   window.applyI18n = function(){
@@ -243,7 +251,7 @@ html,body{min-height:100dvh;background:#00022E;color:#ffffff;font-family:'Inter'
     </select>
   </div>
   <span id="cntBadge" class="hdr-badge"></span>
-  <button id="clearBtn" class="clear-btn" style="display:none;" onclick="clearAll()">전체삭제</button>
+  <button id="clearBtn" class="clear-btn" style="display:none;" onclick="clearAll()" data-requires-auth="true">전체삭제</button>
 </header>
 
 <!-- 로딩 -->
@@ -300,13 +308,14 @@ html,body{min-height:100dvh;background:#00022E;color:#ffffff;font-family:'Inter'
       </div>
     </div>
     <div class="modal-btns">
-      <button class="btn-save" onclick="doDownload()">
+      <!-- ─── 2026-05-09 KST · TJ 지시 (v43) ─── data-requires-auth: 비로그인 시 팝업 -->
+      <button class="btn-save" onclick="doDownload()" data-requires-auth="true">
         <span class="material-symbols-outlined" style="font-size:16px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 16;">bookmark</span>저장
       </button>
-      <button class="btn-share" onclick="doShare()">
+      <button class="btn-share" onclick="doShare()" data-requires-auth="true">
         <span class="material-symbols-outlined" style="font-size:16px;">share</span>공유
       </button>
-      <button class="btn-del" onclick="doDelete()">
+      <button class="btn-del" onclick="doDelete()" data-requires-auth="true">
         <span class="material-symbols-outlined" style="font-size:16px;">delete</span>삭제
       </button>
     </div>
@@ -638,6 +647,14 @@ function doDelete() { if (_cur) delEntry(_cur.id); }
 // ── 올바른 키(codibank_ai_album_v1)로 찜 토글 ──
 const ALBUM_KEY = 'codibank_ai_album_v1';
 function toggleLike(entryId) {
+  // ─── 2026-05-09 KST · TJ 지시 (v43) ─── 비로그인 가드
+  // 길게누르기는 click이 아니라 글로벌 [data-requires-auth] 가드 미적용 → 함수 내 가드
+  try{
+    if(window.CodiBank && CodiBank.getCurrentUser && !CodiBank.getCurrentUser()){
+      if(CodiBank.showAuthRequiredModal) CodiBank.showAuthRequiredModal({force:true});
+      return;
+    }
+  }catch(_){}
   try {
     // CodiBank 실제 저장 키 사용
     const all = JSON.parse(localStorage.getItem(ALBUM_KEY) || '[]');
