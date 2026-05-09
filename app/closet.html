@@ -1737,14 +1737,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       </div><!-- /vto-outer-layer -->
 
       <!-- 버튼 3개 — 대기:동일 스타일 / 활성:서브컬러 -->
+      <!-- ─── 2026-05-09 KST · TJ 지시 (v44) ─── data-requires-auth: 비로그인 시 팝업 -->
       <div class="vto-b-actions">
-        <button id="saveBtn" type="button" class="vto-bab vto-btn-inactive" disabled>
+        <button id="saveBtn" type="button" class="vto-bab vto-btn-inactive" disabled data-requires-auth="true">
           <span class="material-symbols-outlined" style="font-size:18px;">save_alt</span><span data-i18n="저장">저장</span>
         </button>
-        <button id="againBtn" type="button" class="vto-bab vto-btn-inactive" disabled>
+        <button id="againBtn" type="button" class="vto-bab vto-btn-inactive" disabled data-requires-auth="true">
           <span class="material-symbols-outlined" style="font-size:18px;">refresh</span><span data-i18n="다시요청">다시요청</span>
         </button>
-        <button id="shareBtn" type="button" class="vto-bab vto-btn-inactive" disabled>
+        <button id="shareBtn" type="button" class="vto-bab vto-btn-inactive" disabled data-requires-auth="true">
           <span class="material-symbols-outlined" style="font-size:18px;">share</span><span data-i18n="공유">공유</span>
         </button>
         <button id="resetBtn" type="button" class="vto-bab vto-btn-inactive" disabled>
@@ -1859,9 +1860,27 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
    - 단일 Canvas VTO (얼굴+몸+옷 완전 합성)
    - 의상 실루엣 명확하게 개선
    ============================================================ */
+// ─── 2026-05-09 KST · TJ 지시 (v44) ─── 비로그인 안전 가드 + 게스트 모드
+//   배경: v39에서 requireAuth가 redirect 대신 모달 표시로 변경됨.
+//          비로그인 사용자도 closet.html에 머물게 되었으나 user=null로 init 깨짐.
+//   수정: requireAuth 호출은 그대로 (모달 표시).
+//          단, getCurrentUser() null 대비 게스트 객체로 fallback.
+//          → 페이지 init이 정상 진행되어 IP 위치/날짜/목적 UI가 활성된 모습 표시.
+//          → 호기심 유발 → 회원가입 동기 부여.
+//          실제 추천 시작 버튼은 [data-requires-auth] 글로벌 가드에 의해 차단됨.
 if (!CodiBank.requireAuth('login.html')) {}
-const user = CodiBank.getCurrentUser();
-console.info('[CodiBank] closet build: v18.6.3 (2026-02-26)');
+const user = CodiBank.getCurrentUser() || {
+  email: '',
+  plan: 'FREE',
+  isGuest: true,
+  nickname: '',
+  gender: '',
+  ageGroup: '',
+  height: '',
+  weight: '',
+  bodyType: '',
+};
+console.info('[CodiBank] closet build: v44 (2026-05-09) · isGuest=' + (!!user.isGuest));
 
 {
   const plan=CodiBank.getUserPlan(user.email),lim=CodiBank.getPlanLimit(plan);
