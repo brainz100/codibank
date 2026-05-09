@@ -19,6 +19,22 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-05-09 KST · TJ 지시 (v32) ─── [토글 사라짐 + 비율 보장]   │
+  │   1) 후면 토글 클릭 시 토글 자체가 사라지는 버그                   │
+  │      [원인] 토글이 .csty-result-img-box(overflow-x:auto) 안에       │
+  │             absolute 위치 → 박스 scrollLeft=boxW 시 토글의 left:0 │
+  │             이 박스 viewport 밖으로 밀려 사라짐                     │
+  │      [수정] HTML 구조 변경: 토글을 #imgWrap 직접 자식으로 이동      │
+  │             #imgWrap에 position:relative 추가                       │
+  │             → 토글이 박스 가로 스크롤과 무관하게 viewport 안 고정  │
+  │   2) 박스 1:1.62 비율 강제 (검증 + 강화)                           │
+  │      [확인] aspect-ratio:1/1.62 적용되어 있었으나                  │
+  │             max-height: calc(100vh - 320px)이 작은 화면에서        │
+  │             aspect-ratio를 깨뜨릴 가능성                            │
+  │      [수정] aspect-ratio 1/1.62 !important + width 100% !important│
+  │             max-height: calc(100vh - 200px) (fallback only)        │
+  │             min-height: 380px (코디핏과 동일)                       │
+  │             → 일반 모바일에서 정확한 portrait 1:1.62 보장           │
   │ ─── 2026-05-09 KST · TJ 지시 (v31) ─── [🎯 슬롯 진짜 원인 + 여백]   │
   │   1) 🎯 Step1 슬롯 사라짐 진짜 원인 픽스                            │
   │      [원인] $$('.mode-btn')가 #modeSwitch + #fitSwitch 양쪽 매치    │
@@ -1749,7 +1765,7 @@
      - 기존: padding 10px 14px → 이미지 좌우에 여백 생김
      - 수정: padding 0 → 이미지가 뷰박스를 꽉 채움
      - aspect-ratio도 이미지 실제 생성 비율(9:16)과 매칭 */
-  .result-img-wrap{padding:0;}
+  .result-img-wrap{padding:0; position:relative;}  /* v32: position:relative — 토글이 이 기준 */
 
   /* [codistyle 원본] 세련된 이미지 뷰박스
      [2026-04-24 TJ 지시1] aspect-ratio 1/1.6 → 9/16 (이미지 생성 비율과 정확 매칭)
@@ -1757,13 +1773,15 @@
        기존: display:flex + overflow:hidden → 이미지가 박스에 contain으로 작게 표시됨
        변경: display:block + overflow-x:auto + scroll-snap (코디핏과 동일)
              빈 상태(.csty-empty)에만 flex 정렬 적용 */
-  /* ─── 2026-05-09 KST · TJ 지시 (v28/v31) ─── 박스 크기 제한
-   * v28: aspect-ratio:1/1.62 + max-height:calc(100vh - 280px)
-   * v31: 박스 사이 여백 증가 반영 → 320px (헤더+버튼+토글+풋바+여백)*/
+  /* ─── 2026-05-09 KST · TJ 지시 (v28/v31/v32) ─── 박스 크기 — 1:1.62 강제
+   * v32: aspect-ratio 1/1.62 강제 (!important). max-height는 화면 매우 작을 때만 작동.
+   *      예: 모바일 width 380 → height = 380 × 1.62 = 615.6px (portrait 1:1.62 보장)
+   *      max-height: calc(100vh - 200px) — 매우 작은 화면(<800px)에서만 발동 */
   .csty-result-img-box{
-    width:100%;
-    aspect-ratio:1/1.62;
-    max-height: calc(100vh - 320px);
+    width:100% !important;
+    aspect-ratio:1/1.62 !important;
+    max-height: calc(100vh - 200px);
+    min-height: 380px;
     border-radius:20px;
     overflow-x:auto;
     overflow-y:hidden;
@@ -3921,17 +3939,23 @@ function _tryonApplyResult(data){
       //        - csty-empty 유지 (가운데 정렬)
       //        - 토글/힌트 숨김
       // ─────────────────────────────────────────────────────
-      console.log('[v26 tryon] 결과 표시 시작:', imgSrc.substring(0, 80));
+      console.log('[v32 tryon] 결과 표시 시작:', imgSrc.substring(0, 80));
       
+      // ─── 2026-05-09 KST · TJ 지시 (v32) ─── 토글을 박스 밖으로 이동
+      //   원인: 이전 — 토글이 .csty-result-img-box(overflow-x:auto) 안에 absolute 위치
+      //          박스 가로 스크롤(scrollLeft=boxW) 시 토글의 left:0이 viewport 밖으로 밀림
+      //          → 후면 클릭 시 토글이 사라지는 현상
+      //   수정: 토글을 #imgWrap 직접 자식으로 이동. 박스 스크롤과 무관하게 항상 viewport 안.
+      //         #imgWrap에 position:relative + .csty-pose-toggle은 그 기준으로 absolute.
       imgWrap.innerHTML = ''
         + '<div class="csty-result-img-box csty-empty" id="tryonResultBox">'
         +   '<canvas id="tryonCanvas" class="csty-canvas"></canvas>'
-        +   '<div id="tryonPoseToggle" class="csty-pose-toggle hidden">'
-        +     '<button type="button" class="csty-pose-btn active" data-pose="front">정면</button>'
-        +     '<button type="button" class="csty-pose-btn" data-pose="back">후면</button>'
-        +   '</div>'
-        +   '<div id="tryonPoseHint" class="csty-pose-hint hidden"><span>정·후면</span></div>'
-        + '</div>';
+        + '</div>'
+        + '<div id="tryonPoseToggle" class="csty-pose-toggle hidden">'
+        +   '<button type="button" class="csty-pose-btn active" data-pose="front">정면</button>'
+        +   '<button type="button" class="csty-pose-btn" data-pose="back">후면</button>'
+        + '</div>'
+        + '<div id="tryonPoseHint" class="csty-pose-hint hidden"><span>정·후면</span></div>';
       
       (function(){
         var box = document.getElementById('tryonResultBox');
