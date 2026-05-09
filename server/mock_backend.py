@@ -4988,6 +4988,14 @@ def _tryon_build_prompt(
         "• LIGHTING: soft even studio lighting, no harsh shadows, IDENTICAL across both poses. "
         "• BACKGROUND: clean seamless neutral grey (#E8E8E8) shared by both poses. "
         "• STYLE: photographic realism — NO illustration, NO cartoon, NO anime style. "
+        # ─── 2026-05-09 KST · TJ 지시 (v30) ─── 화질 강화 키워드
+        # 배경: 트라이온은 프리미엄 기능 (Nano Banana Pro). 광고/잡지 수준 출력 필수.
+        # 효과: image_size=2K와 함께 작용해 디테일·텍스처·선명도 극대화.
+        "• QUALITY: ULTRA HIGH RESOLUTION, sharp focus, crisp clean edges, "
+        "  fine fabric texture detail (visible weave, stitching, drape, wrinkles, sheen). "
+        "  Skin tone with subtle variation, natural pores, individual hair strands visible. "
+        "  Magazine editorial quality — like Vogue, GQ, Uniqlo lookbook campaign. "
+        "  AVOID: blurry, soft focus, plastic skin, low-detail fabric, painterly look. "
         "\n\n"
         "🖼️ FINAL REMINDER: "
         "Strongly prefer wide 2:1 (LEFT=front, RIGHT=back). "
@@ -6097,6 +6105,13 @@ def tryon_generate():
                 #                위/아래 검은 패딩으로 채움 (TJ 첨부 이미지 1).
                 #   수정: "16:9" (landscape, 1.78:1) — 코디핏의 가로 2:1과 가까운 비율.
                 #         정/후면 두 인물이 가로로 자연스럽게 들어감, 패딩 없음.
+                # ─── 2026-05-09 KST · TJ 지시 (v30) ─── 이미지 화질 업그레이드
+                #   배경: 트라이온은 Nano Banana Pro($0.134/req) 사용 — 프리미엄 기능.
+                #          구독료 만족도를 위해 고화질 출력 필수.
+                #   변경: image_size "1K"(1024) → "2K"(2048) = 4배 픽셀 밀도
+                #          가로 2K × 16:9 ≈ 2048×1152 출력 → 정/후면 각 1024×1152
+                #          모바일 Retina 디스플레이에서도 선명, 저장/공유 시 고품질
+                #   주의: "4K"는 응답 30초+ / 일부 미지원 / 에러율 높음 → "2K"가 최적점
                 # ImageConfig는 SDK 버전에 따라 없을 수 있어 예외 처리.
                 try:
                     _img_gen_config = _gtypes.GenerateContentConfig(
@@ -6105,7 +6120,7 @@ def tryon_generate():
                         max_output_tokens=8192,
                         image_config=_gtypes.ImageConfig(
                             aspect_ratio="16:9",
-                            image_size="1K",
+                            image_size="2K",
                         ),
                     )
                 except (TypeError, AttributeError) as _cfg_e:
