@@ -4934,6 +4934,14 @@ def _tryon_build_prompt(
     #   증거: 콘솔 로그 [v24 tryon] 이미지 분석: 768x1376 ratio=0.56 isWide=false
     #         → ratio 0.56 (세로) → 정/후면 모드 진입 못 함
     # [v25 변경] ASPECT RATIO 강제 명령을 *최상단 첫 줄*에 + 픽셀 크기 구체 명시
+    #
+    # ─── 2026-05-09 KST · TJ 지시 (v27) ─── 폴백 layout 명확화
+    #   문제: Gemini가 가로 2:1을 무시하고 portrait를 반환할 때
+    #         두 인물이 어떻게 배치되는지 일관되지 않아 클라이언트가 분할 못함
+    #   해결: 1순위 = 가로 2:1 (좌=정면, 우=후면)
+    #         2순위(폴백) = 세로 1:2 (위=정면, 아래=후면) — "명확히 분할"
+    #         어느 방향이든 두 view가 정확히 절반씩 점유하도록 강제
+    #         클라이언트는 ratio로 분기하여 항상 가로 캔버스로 변환
     image_compo = (
         "🖼️ CRITICAL OUTPUT FORMAT (MUST OBEY — top priority): "
         "Generate a HORIZONTAL WIDE image. "
@@ -4944,7 +4952,7 @@ def _tryon_build_prompt(
         "If you cannot achieve exactly 2:1, output 16:9 (1920×1080) instead. "
         "The final image must be WIDER than tall — never the opposite. "
         "\n\n"
-        "═══ LAYOUT (within the wide canvas) ═══ "
+        "═══ PRIMARY LAYOUT (preferred — wide canvas) ═══ "
         "Output a SINGLE WIDE image with TWO poses of the SAME person, "
         "side by side, sharing the SAME flat solid neutral background: "
         "  • LEFT half (pixels 0 to 1024 wide): FRONT view (full body, facing camera, arms relaxed). "
@@ -4952,11 +4960,21 @@ def _tryon_build_prompt(
         "Both views show the EXACT SAME outfit, lighting, hair, and styling. "
         "The two figures are evenly spaced, not touching, on the same ground line. "
         "Reference: Uniqlo / Theory store catalog — clean, neutral, minimal. "
-        "═══ END LAYOUT ═══ "
+        "═══ END PRIMARY LAYOUT ═══ "
+        "\n\n"
+        "═══ FALLBACK LAYOUT (only if wide canvas is impossible) ═══ "
+        "If — and ONLY if — the wide 2:1 canvas is technically impossible for you, "
+        "use a VERTICAL 1:2 canvas (1024 wide × 2048 tall) with this STRICT layout: "
+        "  • TOP half (pixels 0 to 1024 tall): FRONT view (full body, facing camera). "
+        "  • BOTTOM half (pixels 1024 to 2048 tall): BACK view (full body, facing AWAY). "
+        "Each half MUST contain the COMPLETE FULL-BODY figure (head to feet) — never crop. "
+        "The two halves MUST be exactly equal in height (50% each). "
+        "Same outfit, same person, same lighting, same background — only the camera angle differs. "
+        "═══ END FALLBACK LAYOUT ═══ "
         "\n\n"
         "FACE/HEAD RULES: "
-        "• LEFT (front view): Face fully visible — preserve identity 99.99% to the reference face image. "
-        "• RIGHT (back view): Face NOT visible (back of head only). Match only hair color, texture, length, parting, hairline. "
+        "• FRONT view (LEFT in primary / TOP in fallback): Face fully visible — preserve identity 99.99% to the reference face image. "
+        "• BACK view (RIGHT in primary / BOTTOM in fallback): Face NOT visible (back of head only). Match only hair color, texture, length, parting, hairline. "
         "FORBIDDEN: Showing face on the BACK view. "
         "\n\n"
         "FRAMING RULES (apply to BOTH poses): "
@@ -4971,7 +4989,10 @@ def _tryon_build_prompt(
         "• BACKGROUND: clean seamless neutral grey (#E8E8E8) shared by both poses. "
         "• STYLE: photographic realism — NO illustration, NO cartoon, NO anime style. "
         "\n\n"
-        "🖼️ FINAL REMINDER: Output WIDTH must be DOUBLE the HEIGHT. Wide horizontal canvas only."
+        "🖼️ FINAL REMINDER: "
+        "Strongly prefer wide 2:1 (LEFT=front, RIGHT=back). "
+        "If portrait is unavoidable, use 1:2 with TOP=front, BOTTOM=back. "
+        "Whichever orientation you choose, the two views must be EXACTLY equal-sized halves with NO overlap and NO empty padding."
     )
 
     # ──────── Phase 5: IMAGE-ONLY MODE (2026-04-23 17:30 — 병렬 처리 반영) ────────
