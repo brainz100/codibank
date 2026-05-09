@@ -19,6 +19,21 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-05-09 KST · TJ 지시 (v27) ─── [이미지 비율 자동 변환]    │
+  │   [원인] Gemini가 가로 2:1 프롬프트 무시하고 portrait 반환         │
+  │          → 이미지가 단일 인물로 인식되어 정/후면 토글 작동 못함     │
+  │   [수정]                                                            │
+  │   1) 서버 (mock_backend.py _tryon_build_prompt):                   │
+  │      · 1순위 = 가로 2:1 (좌=정면/우=후면)                          │
+  │      · 폴백 = 세로 1:2 (위=정면/아래=후면) — 명확히 분할 강제      │
+  │      · 어느 방향이든 두 view가 정확히 절반씩 점유                   │
+  │   2) 클라이언트 (_tryonApplyResult onload):                        │
+  │      · ratio > 1.2 → 'wide'   : 좌/우 분할 (기존)                  │
+  │      · ratio < 0.8 → 'tall'   : 상/하 → 가로 캔버스로 변환 (신규) │
+  │      · 0.8≤ratio≤1.2 → 'single' : 단일 인물 (정사각 근접)          │
+  │      · 두 view 모드 모두 가로 캔버스(boxW×2)로 통일               │
+  │      · 정면이 박스 정중앙 / 후면 토글 시 오른쪽으로 스크롤         │
+  │      · resize 핸들러도 새 분기 사용 (window._tryonViewSrc 보존)    │
   │ ─── 2026-05-09 KST · TJ 지시 (Tryon UX 4) ─── [4가지 추가 수정]    │
   │   1) 옵션 아우터 박스 첫 진입 시 표시 버그                          │
   │      · HTML 옵션 아우터 슬롯에 style="display:none;" 추가          │
@@ -3743,7 +3758,21 @@ function _tryonApplyResult(data){
             return;
           }
           var ratio = iw / ih;
-          var isWide = ratio > 1.2;
+          // ─── 2026-05-09 KST · TJ 지시 (v27) ─── 이미지 방향 자동 분기
+          //   서버 프롬프트는 가로 2:1 (좌=정면/우=후면) 우선 요청.
+          //   Gemini가 무시하고 portrait 반환 시 폴백: 1:2 (위=정면/아래=후면).
+          //   클라이언트는 어느 방향이든 항상 가로 캔버스(좌=정면/우=후면)로 변환.
+          //
+          //   ratio > 1.2  → 'wide'   : 좌/우 분할 (가로 입력) — 기존 로직
+          //   ratio < 0.8  → 'tall'   : 상/하 분할 → 가로 캔버스로 변환 (신규)
+          //   0.8 ≤ ratio ≤ 1.2 → 'single' : 단일 인물 (정사각/근접) — 토글 숨김
+          var orientation;
+          if(ratio > 1.2)      orientation = 'wide';
+          else if(ratio < 0.8) orientation = 'tall';
+          else                 orientation = 'single';
+          var isWide = (orientation === 'wide');
+          var isTall = (orientation === 'tall');
+          var hasTwoViews = (orientation !== 'single'); // 두 view 모드 통합 플래그
           
           var DPR = window.devicePixelRatio || 1;
           // requestAnimationFrame으로 박스 크기 확정 후 그리기 (CSS 적용 보장)
@@ -3752,15 +3781,15 @@ function _tryonApplyResult(data){
             var boxW = Math.max(1, boxRect.width);
             var boxH = Math.max(1, boxRect.height);
             
-            console.log('[v26 tryon] 분석:',
+            console.log('[v27 tryon] 분석:',
               '이미지=' + iw + 'x' + ih,
               'ratio=' + ratio.toFixed(2),
-              'isWide=' + isWide,
+              'orientation=' + orientation,
               '박스=' + Math.round(boxW) + 'x' + Math.round(boxH));
             
-            // 캔버스 크기 결정
+            // 캔버스 크기 결정 — 두 view 모두 가로 캔버스로 통일 (좌=정면/우=후면)
             var dispW, dispH;
-            if(isWide){
+            if(hasTwoViews){
               dispW = boxW * 2;
               dispH = boxH;
             } else {
@@ -3778,45 +3807,59 @@ function _tryonApplyResult(data){
             ctx.setTransform(DPR,0,0,DPR,0,0);
             ctx.clearRect(0,0,dispW,dispH);
             
-            if(isWide){
-              // ─── 정/후면 모드 — 코디핏 drawNatural 패턴 그대로 ───
+            if(hasTwoViews){
+              // ─── 정/후면 모드 — 가로 캔버스 (좌=정면, 우=후면) ───
               // 박스에서 csty-empty 제거 → display:block + overflow-x:auto 작동
               box.classList.remove('csty-empty');
               
-              // 좌/우 절반 cover로 박스 중앙 위치
-              var halfIw = iw / 2;
+              // 입력 이미지에서 정면/후면 영역 좌표 결정
+              //   wide(가로): 정면 = 좌측 절반 / 후면 = 우측 절반
+              //   tall(세로): 정면 = 상단 절반 / 후면 = 하단 절반
+              var frontSrc, backSrc; // {x,y,w,h} — 입력 이미지 좌표
+              if(isWide){
+                var halfIw = iw / 2;
+                frontSrc = { x: 0,         y: 0,  w: halfIw, h: ih };
+                backSrc  = { x: halfIw,    y: 0,  w: halfIw, h: ih };
+              } else { // isTall
+                var halfIh = ih / 2;
+                frontSrc = { x: 0,  y: 0,         w: iw, h: halfIh };
+                backSrc  = { x: 0,  y: halfIh,    w: iw, h: halfIh };
+              }
+              
+              // 캔버스의 좌측 박스(정면), 우측 박스(후면)에 cover 방식으로 그림
+              //   → 각 view의 인물이 박스 정중앙에 위치
               var boxRatio = boxW / boxH;
-              var halfRatio = halfIw / ih;
               
-              // 좌측 절반(정면) → 캔버스 0~boxW
-              var lsx, lsy, lsw, lsh;
-              if(halfRatio > boxRatio){
-                lsh = ih;
-                lsw = ih * boxRatio;
-                lsx = (halfIw - lsw) / 2;
-                lsy = 0;
-              } else {
-                lsw = halfIw;
-                lsh = halfIw / boxRatio;
-                lsx = 0;
-                lsy = (ih - lsh) / 2;
+              // cover 방식 sx/sy/sw/sh 계산 (입력 영역 → 박스 비율 fit)
+              function fitCover(srcW, srcH, srcX, srcY){
+                var sRatio = srcW / srcH;
+                var sx, sy, sw, sh;
+                if(sRatio > boxRatio){
+                  // 너무 가로형 → 세로를 채우고 가로를 잘라냄 (중앙)
+                  sh = srcH;
+                  sw = srcH * boxRatio;
+                  sx = srcX + (srcW - sw) / 2;
+                  sy = srcY;
+                } else {
+                  // 너무 세로형 → 가로를 채우고 세로를 잘라냄 (중앙)
+                  sw = srcW;
+                  sh = srcW / boxRatio;
+                  sx = srcX;
+                  sy = srcY + (srcH - sh) / 2;
+                }
+                return { sx: sx, sy: sy, sw: sw, sh: sh };
               }
-              ctx.drawImage(loaderImg, lsx, lsy, lsw, lsh, 0, 0, boxW, boxH);
               
-              // 우측 절반(후면) → 캔버스 boxW~2*boxW
-              var rsx, rsy, rsw, rsh;
-              if(halfRatio > boxRatio){
-                rsh = ih;
-                rsw = ih * boxRatio;
-                rsx = halfIw + (halfIw - rsw) / 2;
-                rsy = 0;
-              } else {
-                rsw = halfIw;
-                rsh = halfIw / boxRatio;
-                rsx = halfIw;
-                rsy = (ih - rsh) / 2;
-              }
-              ctx.drawImage(loaderImg, rsx, rsy, rsw, rsh, boxW, 0, boxW, boxH);
+              // 정면 → 캔버스 0~boxW
+              var f = fitCover(frontSrc.w, frontSrc.h, frontSrc.x, frontSrc.y);
+              ctx.drawImage(loaderImg, f.sx, f.sy, f.sw, f.sh, 0, 0, boxW, boxH);
+              
+              // 후면 → 캔버스 boxW~2*boxW
+              var b = fitCover(backSrc.w, backSrc.h, backSrc.x, backSrc.y);
+              ctx.drawImage(loaderImg, b.sx, b.sy, b.sw, b.sh, boxW, 0, boxW, boxH);
+              
+              // resize 시 재그리기에 쓸 컨텍스트 보존
+              window._tryonViewSrc = { front: frontSrc, back: backSrc };
               
               // 정면이 박스 정중앙에 위치
               box.scrollLeft = 0;
@@ -3828,7 +3871,7 @@ function _tryonApplyResult(data){
                 setTimeout(function(){ if(hint) hint.classList.add('hidden'); }, 5000);
               }
               
-              console.log('[v26 tryon] 정/후면 모드 활성, canvas=' + dispW + 'x' + dispH);
+              console.log('[v27 tryon] 두 view 모드 활성 (' + orientation + '), canvas=' + dispW + 'x' + dispH);
               
               // 스크롤 → 토글 active 동기화
               if(toggle){
@@ -3881,29 +3924,28 @@ function _tryonApplyResult(data){
                   ctx2.setTransform(DPR,0,0,DPR,0,0);
                   ctx2.clearRect(0,0,nDispW,nDispH);
                   
+                  // ─── 2026-05-09 KST · TJ 지시 (v27) ─── 새 box ratio + 저장된 view 좌표 사용
                   var nBoxRatio = nW / nH;
-                  var nHalfIw = iw / 2;
-                  var nHalfRatio = nHalfIw / ih;
-                  
-                  var nlsx, nlsy, nlsw, nlsh;
-                  if(nHalfRatio > nBoxRatio){
-                    nlsh = ih; nlsw = ih * nBoxRatio;
-                    nlsx = (nHalfIw - nlsw) / 2; nlsy = 0;
-                  } else {
-                    nlsw = nHalfIw; nlsh = nHalfIw / nBoxRatio;
-                    nlsx = 0; nlsy = (ih - nlsh) / 2;
+                  function fitCover2(srcW, srcH, srcX, srcY){
+                    var sRatio = srcW / srcH;
+                    var sx2, sy2, sw2, sh2;
+                    if(sRatio > nBoxRatio){
+                      sh2 = srcH; sw2 = srcH * nBoxRatio;
+                      sx2 = srcX + (srcW - sw2) / 2; sy2 = srcY;
+                    } else {
+                      sw2 = srcW; sh2 = srcW / nBoxRatio;
+                      sx2 = srcX; sy2 = srcY + (srcH - sh2) / 2;
+                    }
+                    return { sx: sx2, sy: sy2, sw: sw2, sh: sh2 };
                   }
-                  ctx2.drawImage(loaderImg, nlsx, nlsy, nlsw, nlsh, 0, 0, nW, nH);
-                  
-                  var nrsx, nrsy, nrsw, nrsh;
-                  if(nHalfRatio > nBoxRatio){
-                    nrsh = ih; nrsw = ih * nBoxRatio;
-                    nrsx = nHalfIw + (nHalfIw - nrsw) / 2; nrsy = 0;
-                  } else {
-                    nrsw = nHalfIw; nrsh = nHalfIw / nBoxRatio;
-                    nrsx = nHalfIw; nrsy = (ih - nrsh) / 2;
-                  }
-                  ctx2.drawImage(loaderImg, nrsx, nrsy, nrsw, nrsh, nW, 0, nW, nH);
+                  var vs = window._tryonViewSrc || { 
+                    front: { x:0, y:0, w: iw/2, h: ih },
+                    back:  { x: iw/2, y:0, w: iw/2, h: ih }
+                  };
+                  var nf = fitCover2(vs.front.w, vs.front.h, vs.front.x, vs.front.y);
+                  ctx2.drawImage(loaderImg, nf.sx, nf.sy, nf.sw, nf.sh, 0, 0, nW, nH);
+                  var nb = fitCover2(vs.back.w, vs.back.h, vs.back.x, vs.back.y);
+                  ctx2.drawImage(loaderImg, nb.sx, nb.sy, nb.sw, nb.sh, nW, 0, nW, nH);
                   
                   requestAnimationFrame(function(){
                     var sw_new = box.scrollWidth - box.clientWidth;
@@ -3924,12 +3966,8 @@ function _tryonApplyResult(data){
                 sx = 0; sy = (ih - sh) / 2;
               }
               ctx.drawImage(loaderImg, sx, sy, sw, sh, 0, 0, dispW, dispH);
-              // 단일 인물: csty-empty 유지 (flex 정렬 + canvas absolute 안 됨)
-              // 위에서 canvas는 csty-result-image 클래스 추가됨 → display:block로 표시됨
-              // box는 여전히 csty-empty라 flex이지만 canvas가 절대 위치 없이 그려짐
-              // → 이 경우엔 csty-empty 제거하고 그냥 block 처리
               box.classList.remove('csty-empty');
-              console.log('[v26 tryon] 단일 모드 활성, canvas=' + dispW + 'x' + dispH);
+              console.log('[v27 tryon] 단일 모드 활성, canvas=' + dispW + 'x' + dispH);
             }
           });
         };
