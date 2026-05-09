@@ -3,6 +3,15 @@
 ═══════════════════════════════════════════════════════════════════════
 📋 수정 이력 (MODIFICATION HISTORY) — 최신순
 ═══════════════════════════════════════════════════════════════════════
+─── 2026-05-09 KST · TJ 지시 (v38) ─── [진입점 + 인증 버튼]
+  1) 비로그인 시 login.html로 redirect → 게스트 UI 표시 (랜딩 우회)
+     · 사용자명 '게스트' / 모든 chip·trait '없음'
+     · 액션 카드(프로필/구독플랜)는 그대로 보임 (클릭 시 각 페이지에서 자체 인증 처리)
+  2) 인증 버튼 영역 추가 — action-cards 위 [회원가입] [로그인/로그아웃]
+     · 비로그인: 회원가입(활성) + 로그인(활성)
+     · 로그인됨: 회원가입(.disabled 비활성) + 로그아웃(.is-logout 빨강 톤)
+     · CSS 'auth-cta-row' / 'auth-btn' 신규
+     · 로그아웃 시 confirm 후 CodiBank.logout() → mypage 리로드
 ─── 2026-05-09 KST · TJ 지시 (v34) ─── [코디앨범 삭제 + 체형 우선순위 + 일관성]
   1) 코디앨범 메뉴 항목 삭제 — 풋바 4번째 슬롯과 중복 제거
      · '서비스' 섹션 + 그 아래 album.html 메뉴 제거
@@ -203,6 +212,45 @@
 
 /* ── 액션 카드 (프로필 수정 / 구독플랜) ── */
 .action-cards{display:flex;flex-direction:column;gap:10px;margin:24px 20px 0}
+
+/* ─── 2026-05-09 KST · TJ 지시 (v38) ─── 인증 버튼 (회원가입/로그인/로그아웃) */
+.auth-cta-row{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  margin:18px 20px 0;
+}
+.auth-btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:14px 16px;border-radius:14px;
+  font-size:14px;font-weight:800;letter-spacing:.02em;
+  border:1px solid;cursor:pointer;
+  transition:transform .15s,filter .15s,opacity .15s;
+  font-family:inherit;
+}
+.auth-btn:active{transform:scale(.97);filter:brightness(.92);}
+.auth-btn.auth-signup{
+  background:rgba(151,254,237,.12);
+  border-color:rgba(151,254,237,.4);
+  color:#97FEED;
+}
+.auth-btn.auth-login{
+  background:linear-gradient(135deg,#0B666A,#35A29F);
+  border-color:transparent;
+  color:#fff;
+}
+/* 로그인됨 → 회원가입 비활성 */
+.auth-btn.auth-signup.disabled{
+  background:rgba(255,255,255,.04);
+  border-color:rgba(255,255,255,.08);
+  color:rgba(216,226,255,.35);
+  cursor:not-allowed;
+  pointer-events:none;
+}
+/* 로그아웃 상태 (로그인 됨) */
+.auth-btn.auth-login.is-logout{
+  background:rgba(239,68,68,.10);
+  border-color:rgba(239,68,68,.35);
+  color:#fca5a5;
+}
 .action-card{
   display:flex;align-items:center;gap:14px;
   padding:18px 18px 18px 16px;
@@ -362,6 +410,21 @@
   <!-- ════════════════════════════════════════════════════════════════════
        액션 카드: 프로필 수정 / 구독플랜
        ════════════════════════════════════════════════════════════════════ -->
+  
+  <!-- ─── 2026-05-09 KST · TJ 지시 (v38) ─── 인증 버튼 영역 ───
+       비로그인: [회원가입] [로그인] 두 버튼 모두 활성
+       로그인됨: [회원가입(비활성)] [로그아웃] -->
+  <div class="auth-cta-row" id="authCtaRow">
+    <button type="button" class="auth-btn auth-signup" id="btnSignup" onclick="_handleSignup()">
+      <span class="material-symbols-outlined" style="font-size:18px;">person_add</span>
+      <span id="btnSignupLabel" data-i18n="회원가입">회원가입</span>
+    </button>
+    <button type="button" class="auth-btn auth-login" id="btnLoginOrLogout" onclick="_handleLoginLogout()">
+      <span class="material-symbols-outlined" id="btnLoginIcon" style="font-size:18px;">login</span>
+      <span id="btnLoginLabel" data-i18n="로그인">로그인</span>
+    </button>
+  </div>
+
   <div class="action-cards">
     <div class="action-card" onclick="location.href='profile.html'">
       <div class="action-card-icon"><span class="mi material-symbols-outlined">manage_accounts</span></div>
@@ -666,7 +729,67 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
 </script>
 <script>
-  // 사용자 정보 표시
+  // ─── 2026-05-09 KST · TJ 지시 (v38) ─── 인증 버튼 핸들러 ───
+  function _setupAuthButtons(user){
+    try{
+      var _en = window.CodiBankI18n && CodiBankI18n.isEn();
+      var signupBtn = document.getElementById('btnSignup');
+      var loginBtn  = document.getElementById('btnLoginOrLogout');
+      var loginLab  = document.getElementById('btnLoginLabel');
+      var loginIcon = document.getElementById('btnLoginIcon');
+      if(user){
+        // 로그인 됨: 회원가입 비활성, 로그아웃 표시
+        if(signupBtn) signupBtn.classList.add('disabled');
+        if(loginBtn){
+          loginBtn.classList.add('is-logout');
+          loginBtn.classList.remove('auth-login');
+          loginBtn.classList.add('auth-login');  // 기본 클래스는 유지하면서 is-logout만 토글
+        }
+        if(loginLab) loginLab.textContent = _en ? 'Logout' : '로그아웃';
+        if(loginIcon) loginIcon.textContent = 'logout';
+      } else {
+        // 비로그인: 회원가입/로그인 둘 다 활성
+        if(signupBtn) signupBtn.classList.remove('disabled');
+        if(loginBtn) loginBtn.classList.remove('is-logout');
+        if(loginLab) loginLab.textContent = _en ? 'Login' : '로그인';
+        if(loginIcon) loginIcon.textContent = 'login';
+      }
+    }catch(e){ console.warn('[v38] _setupAuthButtons:', e); }
+  }
+  function _handleSignup(){
+    var btn = document.getElementById('btnSignup');
+    if(btn && btn.classList.contains('disabled')) return; // 비활성 시 무시
+    location.href = 'signup.html';
+  }
+  function _handleLoginLogout(){
+    var btn = document.getElementById('btnLoginOrLogout');
+    if(btn && btn.classList.contains('is-logout')){
+      // 로그아웃 — 확인 후 처리
+      var _en = window.CodiBankI18n && CodiBankI18n.isEn();
+      var msg = _en ? 'Are you sure you want to log out?' : '로그아웃 하시겠습니까?';
+      if(!confirm(msg)) return;
+      try{
+        if(window.CodiBank && CodiBank.logout){
+          var r = CodiBank.logout();
+          // logout이 Promise면 then로
+          if(r && typeof r.then === 'function'){
+            r.finally(function(){ location.replace('mypage.html'); });
+          } else {
+            location.replace('mypage.html');
+          }
+        } else {
+          // 폴백: 세션 직접 제거
+          try{ localStorage.removeItem('codibank_session'); }catch(_){}
+          try{ localStorage.removeItem('sb-drgsayvlpzcacurcczjq-auth-token'); }catch(_){}
+          location.replace('mypage.html');
+        }
+      }catch(e){ alert(e.message || String(e)); }
+    } else {
+      location.href = 'login.html';
+    }
+  }
+</script>
+<script>
   (async function(){
     try {
       // 컬러 이름 한→영
@@ -675,7 +798,32 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       var _mpIsEn = window.CodiBankI18n && CodiBankI18n.isEn();
 
       const u = window.CodiBank && window.CodiBank.getCurrentUser ? window.CodiBank.getCurrentUser() : null;
-      if (!u) { location.replace('login.html'); return; }
+      
+      // ─── 2026-05-09 KST · TJ 지시 (v38) ─── 비로그인 시 redirect 대신 게스트 UI
+      //   이전: !u → location.replace('login.html')
+      //   변경: 비로그인이어도 mypage에 머물고 회원가입/로그인 버튼만 보이게 처리
+      _setupAuthButtons(u);
+      if (!u) {
+        // 게스트 UI: 사용자 이름은 '게스트', 비활성 chip 모두 '없음', 액션 카드는 그대로 보임
+        try{document.getElementById('userName').textContent = (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'Guest' : '게스트';}catch(_){}
+        try{
+          var _g0 = document.getElementById('userGender');
+          var _a0 = document.getElementById('userAge');
+          var _NONE0 = (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'None' : '없음';
+          if(_g0){ _g0.textContent = _NONE0; _g0.style.display = 'inline-flex'; _g0.classList.add('empty'); }
+          if(_a0){ _a0.textContent = _NONE0; _a0.style.display = 'inline-flex'; _a0.classList.add('empty'); }
+          // 트레잇도 '없음'
+          var _tpVal0 = document.getElementById('traitPcValue');
+          var _tbVal0 = document.getElementById('traitBodyValue');
+          if(_tpVal0) _tpVal0.textContent = _NONE0;
+          if(_tbVal0) _tbVal0.textContent = _NONE0;
+          var _tpEl00 = document.getElementById('traitPc');
+          var _tbEl00 = document.getElementById('traitBody');
+          if(_tpEl00) _tpEl00.classList.add('empty');
+          if(_tbEl00) _tbEl00.classList.add('empty');
+        }catch(_){}
+        return;
+      }
 
       try{document.getElementById('userName').textContent  = u.nickname || (u.email?u.email.split('@')[0]:'') || '사용자';}catch(_){}
       // 성별/나이대 표시
