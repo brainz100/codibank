@@ -3,6 +3,19 @@
 ═══════════════════════════════════════════════════════════════════════
 📋 수정 이력 (MODIFICATION HISTORY) — 최신순
 ═══════════════════════════════════════════════════════════════════════
+─── 2026-05-09 KST · TJ 지시 (v34) ─── [코디앨범 삭제 + 체형 우선순위 + 일관성]
+  1) 코디앨범 메뉴 항목 삭제 — 풋바 4번째 슬롯과 중복 제거
+     · '서비스' 섹션 + 그 아래 album.html 메뉴 제거
+  2) 체형 표시 우선순위 변경
+     · 1순위: u.bodyType (프로필수정 페이지에서 직접 체크한 체형)
+     · 2순위: 키/몸무게로 BMI 자동 계산 (기존 로직)
+     · 3순위(폴백): '없음'
+  3) 모든 필드 '없음' 일관 처리 (신규 사용자 케이스)
+     · 성별 chip: 비어있으면 '없음' chip (display:none → empty 스타일)
+     · 연령 chip: 동일
+     · 퍼스널컬러 trait: pcRaw 없을 때 '없음' (이전엔 처리 없음)
+     · 체형 trait: 위 1·2 모두 없으면 '없음' (이전엔 '키·몸무게 입력')
+     · .user-meta-chip.empty 스타일 추가 (회색 비활성)
 ─── 2026-05-09 KST · TJ 지시 (Design) ─── [마이페이지 재설계]
   [원인] 마이페이지에 사용자 정보가 너무 많이 노출되어 정보 위계가 약함:
          · 큰 mpPcSummary 박스 (어울리는 컬러 / 피해야 할 컬러 / 상하의 매칭)
@@ -145,6 +158,13 @@
   color:#97FEED;letter-spacing:.02em;
 }
 .user-meta-chip .mi{font-size:12px;line-height:1}
+/* ─── 2026-05-09 KST · TJ 지시 (v34) ─── '없음' chip 비활성 스타일 (일관성) */
+.user-meta-chip.empty{
+  background:rgba(255,255,255,.04);
+  border-color:rgba(255,255,255,.10);
+  color:rgba(216,226,255,.45);
+  font-weight:600;
+}
 
 .user-summary-divider{
   height:1px;margin:18px 0 16px;
@@ -391,14 +411,8 @@
   </div>
 
   <!-- 부가 메뉴 -->
-  <p class="menu-section" data-i18n="서비스">서비스</p>
-  <div class="menu-item" onclick="location.href='album.html'">
-    <div class="menu-item-left">
-      <span class="material-symbols-outlined mi-lead" style="color:#97FEED">photo_library</span>
-      <span data-i18n="코디 앨범">코디 앨범</span>
-    </div>
-    <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
-  </div>
+  <!-- ─── 2026-05-09 KST · TJ 지시 (v34) ─── '코디 앨범' 메뉴 삭제
+       이유: 코디앨범이 풋바 4번째 슬롯으로 이동되어 중복. 풋바에서만 진입 -->
 
   <p class="menu-section" data-i18n="기타">기타</p>
   <div class="menu-item" onclick="location.href='terms.html'">
@@ -669,11 +683,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       var _gMap = {male:_isEn?'Male':'남성',female:_isEn?'Female':'여성',M:_isEn?'Male':'남성',F:_isEn?'Female':'여성'};
       var _gEl = document.getElementById('userGender');
       var _aEl = document.getElementById('userAge');
-      // ─── 2026-05-09 KST · TJ 지시 ─── 새 디자인 chip 복원 (display 자동 토글)
+      // ─── 2026-05-09 KST · TJ 지시 (v34) ─── 비어있으면 '없음' 일관 표시
+      //   이전: 비어있으면 display:none (chip 자체 숨김)
+      //   변경: 빈 chip을 '없음'으로 표시 → 모든 필드 일관성
+      var _NONE = _isEn ? 'None' : '없음';
       if(_gEl){
         var _gTxt = _gMap[u.gender] || '';
-        _gEl.textContent = _gTxt;
-        _gEl.style.display = _gTxt ? 'inline-flex' : 'none';
+        _gEl.textContent = _gTxt || _NONE;
+        _gEl.style.display = 'inline-flex';
+        _gEl.classList.toggle('empty', !_gTxt);
       }
       if(_aEl){
         var _aTxt = u.ageGroup || '';
@@ -682,8 +700,9 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
           var _ageMap={'10대':'Teens','20대':'20s','30대':'30s','40대':'40s','50대':'50s','60대':'60s'};
           _aTxt = _ageMap[_aTxt] || _aTxt;
         }
-        _aEl.textContent = _aTxt;
-        _aEl.style.display = _aTxt ? 'inline-flex' : 'none';
+        _aEl.textContent = _aTxt || _NONE;
+        _aEl.style.display = 'inline-flex';
+        _aEl.classList.toggle('empty', !_aTxt);
       }
       // 구독 플랜
       // ─── 2026-05-09 KST · TJ 지시 ─── 새 디자인: chip만 표시 (라벨 텍스트만, "Plan" 접미는 제거)
@@ -691,30 +710,51 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       var _planId = (u.plan||'free').toLowerCase();
       try{ document.getElementById('userPlanLabel').textContent = _planNames[_planId] || 'FREE'; }catch(_){}
 
-      // ─── 2026-05-09 KST · TJ 지시 ─── 체형(BMI 자동 계산) 트레잇 채우기
-      // tryon.html의 동일 로직 재사용:
-      //   <18.5 슬림 / <23 표준 / <26 보통 / ≥26 풍성
+      // ─── 2026-05-09 KST · TJ 지시 (v34) ─── 체형 표시 우선순위
+      //   1순위: 프로필수정 페이지에서 사용자가 직접 체크한 체형 (u.bodyType)
+      //   2순위: 키/몸무게로 BMI 자동 계산 (tryon.html과 동일 로직)
+      //          <18.5 슬림 / <23 표준 / <26 보통 / ≥26 풍성
+      //   3순위(폴백): '없음' (정보 하나도 없는 신규 사용자 케이스)
       try{
-        var _bH = parseFloat(u.height) || 0;
-        var _bW = parseFloat(u.weight) || 0;
         var _bodyType = '';
         var _bodyTypeEn = '';
-        if(_bH > 0 && _bW > 0){
-          var _bmi = _bW / Math.pow(_bH/100, 2);
-          if(_bmi < 18.5)      { _bodyType='슬림'; _bodyTypeEn='Slim'; }
-          else if(_bmi < 23)   { _bodyType='표준'; _bodyTypeEn='Standard'; }
-          else if(_bmi < 26)   { _bodyType='보통'; _bodyTypeEn='Average'; }
-          else                 { _bodyType='풍성'; _bodyTypeEn='Full'; }
+        // 1순위: 프로필수정에서 저장된 체형
+        var _profileBody = u.bodyType || u.body_type || u.bodyShape || '';
+        if(_profileBody){
+          // 한글 체형명 매핑 (저장 형식이 다양할 수 있어 정규화)
+          var _bodyMap = {
+            '슬림':'슬림','표준':'표준','보통':'보통','풍성':'풍성',
+            'slim':'슬림','standard':'표준','average':'보통','full':'풍성',
+            'Slim':'슬림','Standard':'표준','Average':'보통','Full':'풍성'
+          };
+          _bodyType = _bodyMap[_profileBody] || _profileBody;
+          var _bodyEnMap = {'슬림':'Slim','표준':'Standard','보통':'Average','풍성':'Full'};
+          _bodyTypeEn = _bodyEnMap[_bodyType] || _bodyType;
+        } else {
+          // 2순위: BMI 자동 계산
+          var _bH = parseFloat(u.height) || 0;
+          var _bW = parseFloat(u.weight) || 0;
+          if(_bH > 0 && _bW > 0){
+            var _bmi = _bW / Math.pow(_bH/100, 2);
+            if(_bmi < 18.5)      { _bodyType='슬림'; _bodyTypeEn='Slim'; }
+            else if(_bmi < 23)   { _bodyType='표준'; _bodyTypeEn='Standard'; }
+            else if(_bmi < 26)   { _bodyType='보통'; _bodyTypeEn='Average'; }
+            else                 { _bodyType='풍성'; _bodyTypeEn='Full'; }
+          }
         }
         var _tbEl  = document.getElementById('traitBody');
         var _tbVal = document.getElementById('traitBodyValue');
         var _tbLab = document.getElementById('traitBodyLabel');
         if(_tbLab) _tbLab.textContent = _isEn ? 'Body Type' : '체형';
-        if(_bodyType && _tbVal && _tbEl){
-          _tbVal.textContent = _isEn ? (_bodyTypeEn + ' Body') : (_bodyType + ' 체형');
-          _tbEl.classList.remove('empty');
-        } else if(_tbVal){
-          _tbVal.textContent = _isEn ? 'Add height/weight' : '키·몸무게 입력';
+        if(_tbVal && _tbEl){
+          if(_bodyType){
+            _tbVal.textContent = _isEn ? (_bodyTypeEn + ' Body') : (_bodyType + ' 체형');
+            _tbEl.classList.remove('empty');
+          } else {
+            // 3순위: 정보 없음 → '없음' 일관 표시
+            _tbVal.textContent = _isEn ? 'None' : '없음';
+            _tbEl.classList.add('empty');
+          }
         }
       }catch(_){}
 
@@ -938,6 +978,17 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
               if(_mpTop) _mpTop.textContent=_en99?(_topDBen[_sn2]||''):(_topDB[_sn2]||'');
               if(_mpBtm) _mpBtm.textContent=_en99?(_btmDBen[_sn2]||''):(_btmDB[_sn2]||'');
             }
+          }catch(_){}
+        } else {
+          // ─── 2026-05-09 KST · TJ 지시 (v34) ─── 퍼스널컬러 데이터 없음 → '없음' 표시
+          //   처음 접속자 (PC 진단 안 함) — 트레잇 pill 일관 처리
+          try{
+            var _tpEl0  = document.getElementById('traitPc');
+            var _tpVal0 = document.getElementById('traitPcValue');
+            var _tpLab0 = document.getElementById('traitPcLabel');
+            if(_tpLab0) _tpLab0.textContent = _isEn ? 'Personal Color' : '퍼스널컬러';
+            if(_tpVal0) _tpVal0.textContent = _isEn ? 'None' : '없음';
+            if(_tpEl0) _tpEl0.classList.add('empty');
           }catch(_){}
         }
       }catch(_){}

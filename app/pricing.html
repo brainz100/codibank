@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════════════════
+─── 2026-05-09 KST · TJ 지시 (v36) ─── [구독플랜에서 풋바 숨김]
+  이유: 결제 흐름 페이지에서 다른 메뉴로의 이탈 방지 + 결제 CTA 집중
+  수정: <nav class="cb-nav"> style="display:none !important;" 적용
+        .pay-wrap padding-bottom: 풋바 70px 공간 제거 → safe-area만 고려
+─── 2026-05-09 KST · TJ 지시 (v35) ─── [Summary 카드 디테일]
+  1) 카드 가로 사이즈 확대 — gap 8 → 6, padding 좌/우 10 → 14
+     (코디핏/트라이온/아이템 카드가 더 여유있게)
+  2) 보너스 박스 모양 — pill (radius 999) → 둥근 사각형 (radius 6)
+     (정보감 있는 형태로 변경)
+  3) 보너스 부분 redeem 아이콘 삭제 — 텍스트만 표시
 ─── 2026-05-09 KST · TJ 지시 (Design v3) ─── [구독플랜 5가지 추가]
   1) plan card 보너스 chip 제거 — 보너스는 summary에만
      · _myCoBonus/_myTrBonus/_myItBonus 변수 + ${coBonusLine} 등 모두 삭제
@@ -364,12 +374,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .summary-plan-chip .mi{font-size:13px;line-height:1}
 
 /* ─ 사용량 통계 3-카드 그리드 ─ */
-.summary-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;position:relative;z-index:1}
+/* ─── 2026-05-09 KST · TJ 지시 (v35) ─── 카드 가로 사이즈 확대
+ * 이전: gap:8px + padding:11px 10px 10px → 카드 좁아 텍스트가 빡빡
+ * 변경: gap 6px (간격 축소) + padding 좌/우 14px (여유 확대) */
+.summary-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;position:relative;z-index:1}
 .summary-stat{
   background:rgba(255,255,255,.04);
   border:1px solid rgba(255,255,255,.08);
   border-radius:14px;
-  padding:11px 10px 10px;
+  padding:11px 14px 10px;        /* 좌/우 10 → 14 */
   position:relative;
   transition:transform .15s,border-color .15s;
 }
@@ -387,12 +400,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .summary-stat-limit{font-size:11px;color:rgba(216,226,255,.5);font-weight:600}
 .summary-stat-bar{height:3px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin-bottom:6px}
 .summary-stat-fill{height:100%;border-radius:99px;transition:width .6s cubic-bezier(.4,0,.2,1)}
-/* ─── 2026-05-09 KST · TJ 지시 ─── 보너스 chip 디자인 강화 ───
-   has 상태(보너스 있음)는 그라디언트 + 아이콘 + 살짝 빛나는 글로우로 강조 */
+/* ─── 2026-05-09 KST · TJ 지시 (v35) ─── 보너스 박스 모양 변경
+ * 이전: border-radius:999px (pill 형태)
+ * 변경: border-radius:6px (둥근 사각형) — 좀더 정보감 있는 형태 */
 .summary-stat-bonus{
   display:inline-flex;align-items:center;gap:3px;
   font-size:10px;font-weight:800;letter-spacing:.02em;
-  padding:3px 8px;border-radius:999px;
+  padding:3px 8px;border-radius:6px;
   transition:all .2s;
 }
 .summary-stat-bonus .mi{font-size:11px;line-height:1}
@@ -747,7 +761,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .card-diamond .feat .sub{color:rgba(155,125,255,.5)}
 
 /* ── 결제 버튼 영역 ── */
-.pay-wrap{position:fixed;bottom:0;left:0;right:0;padding:12px 16px calc(12px + max(70px,env(safe-area-inset-bottom) + 70px));background:rgba(255,255,255,.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid #e8eef8;z-index:100000;box-shadow:0 -4px 20px rgba(7,25,82,.07)}
+/* ─── 2026-05-09 KST · TJ 지시 (v36) ─── 풋바 숨김 → padding-bottom 70px 제거
+ * 이전: calc(12px + max(70px, env() + 70px)) — 풋바 70px 공간 확보
+ * 변경: calc(12px + max(0px, env())) — 풋바 없으니 safe-area만 고려 */
+.pay-wrap{position:fixed;bottom:0;left:0;right:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:rgba(255,255,255,.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid #e8eef8;z-index:100000;box-shadow:0 -4px 20px rgba(7,25,82,.07)}
 .pay-wrap-inner{max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:6px}
 .pay-btn{width:100%;padding:16px;border-radius:16px;border:none;color:#fff;font-family:'Outfit',sans-serif;font-size:17px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s;letter-spacing:.02em}
 .pay-btn.default{background:linear-gradient(135deg,#0B666A,#35A29F)}
@@ -933,7 +950,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 
 <div class="toast" id="toast"></div>
 
-<nav class="cb-nav"><div class="cb-nav-inner">
+<!-- ─── 2026-05-09 KST · TJ 지시 (v36) ─── 구독플랜에서는 풋바 숨김
+     이유: 결제 흐름 페이지에선 다른 메뉴로의 이탈을 방지하고
+           결제 CTA(.pay-wrap)에 집중되도록 하단 네비 비표시 -->
+<nav class="cb-nav" style="display:none !important;"><div class="cb-nav-inner">
   <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디쌤</span></a>
   <a href="album.html" class="cb-nav-tab"><span class="ni">collections</span><span class="nl">코디앨범</span></a>
   <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
@@ -1189,10 +1209,10 @@ function _updateSummaryStat(prefix, used, limit, bonus, opts){
     fillEl.style.width = pct + '%';
     fillEl.classList.toggle('danger', pct >= 90);
   }
-  // ─── 2026-05-09 KST · TJ 지시 ─── 보너스 표시 강화: 아이콘+chip 형태
+  // ─── 2026-05-09 KST · TJ 지시 (v35) ─── 보너스 부분 아이콘 삭제 — 텍스트만
   if(bonusEl){
     if(bonus > 0){
-      bonusEl.innerHTML = '<span class="mi">redeem</span><span>'+ (en?('+'+bonus+' bonus'):('+'+bonus+' 보너스'))+'</span>';
+      bonusEl.innerHTML = '<span>'+ (en?('+'+bonus+' bonus'):('+'+bonus+' 보너스'))+'</span>';
       bonusEl.className = 'summary-stat-bonus has';
     } else if(isUnlimited){
       bonusEl.innerHTML = '<span>'+ (en?'Unlimited':'무제한')+'</span>';
