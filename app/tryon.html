@@ -2393,7 +2393,7 @@
       <!-- [2026-04-22 16:05 TJ 지시2] 타이틀 텍스트 변경: 트라이온 생성하기 → 지금 입어볼까요? -->
       <div class="step-title step-title-lg"><span class="step-prefix">Step 3.</span> 지금 <span class="ac">입어볼까요</span>?</div>
       <!-- [2026-04-22 13:55 TJ 지시3] summary 교체 -->
-      <div class="step-summary">선택한 데이터를 종합해서 착장이미지를 만들어드립니다!</div>
+      <div class="step-summary" id="step3Summary">선택한 데이터를 종합해서 착장이미지를 만들어드립니다!</div>
     </div>
     <!-- [2026-04-22 13:55 TJ 지시3] 잠김 뱃지 삭제 -->
   </div>
@@ -2855,6 +2855,15 @@
       if(document.title.indexOf('트라이온') !== -1){
         document.title = document.title.replace('트라이온', 'Try-On');
       }
+      
+      // ④ ─── 2026-05-09 KST · TJ 지시 (v52) ─── fit UI 영어 재적용 ───
+      //   배경: state.fitTarget이 'somebody' 또는 'model'일 때 페이지 로드 시
+      //          한국어 초기 마크업이 잠깐 보일 수 있음. applyFitUI를 영어로 재호출.
+      try{
+        if(typeof applyFitUI === 'function' && typeof state !== 'undefined' && state.fitTarget){
+          applyFitUI(state.fitTarget);
+        }
+      }catch(_){}
     }catch(_){}
   }
   
@@ -2950,6 +2959,13 @@ const mockItems = {
 
 const SLOT_LABELS = { top:'상의', bottom:'하의', onepiece:'원피스', outer:'아우터', shoes:'신발' };
 const FIT_LABELS  = { my:'마이 핏', somebody:'썸바디', model:'모델 핏' };
+// ─── 2026-05-09 KST · TJ 지시 (v52) ─── 영어 라벨 ───
+const SLOT_LABELS_EN = { top:'Top', bottom:'Bottom', onepiece:'One-piece', outer:'Outer', shoes:'Shoes' };
+const FIT_LABELS_EN  = { my:'My Fit', somebody:'Somebody', model:'Model Fit' };
+// 헬퍼: 현재 언어에 따라 라벨 반환
+function _isEn(){ return !!(window.CodiBankI18n && CodiBankI18n.isEn && CodiBankI18n.isEn()); }
+function _slotLabel(k){ return _isEn() ? (SLOT_LABELS_EN[k] || k) : (SLOT_LABELS[k] || k); }
+function _fitLabel(k){ return _isEn() ? (FIT_LABELS_EN[k] || k) : (FIT_LABELS[k] || k); }
 
 // DOM data-type → state.slots key 매핑 (outer-main은 state상 outer와 동일)
 const toStateKey = domType => domType === 'outer-main' ? 'outer' : domType;
@@ -3375,15 +3391,15 @@ function renderStep1(){
   const allReq = reqHave === reqNeed && reqNeed > 0;
   if(allReq){
     state.stepDone[1] = true;
-    const names = Object.entries(state.slots).filter(([,s])=>s.filled).map(([t])=>SLOT_LABELS[t]);
+    // ─── 2026-05-09 KST · TJ 지시 (v52) ─── 영어 모드 라벨
+    const names = Object.entries(state.slots).filter(([,s])=>s.filled).map(([t])=>_slotLabel(t));
     $('#step1Summary').textContent = names.join(' · ');
-    // ─── 2026-05-09 KST · TJ 지시 ─── Step1 자동 이동 제거
-    //   이전: Step1 완료 시 setTimeout(() => setStep(2), 400) 자동 호출
-    //   변경: 사용자가 직접 Step2 헤더를 클릭해 이동하도록 함
-    //         (자동 스크롤 동작이 사용성을 해치는 경우가 있음)
   } else {
     state.stepDone[1] = false;
-    $('#step1Summary').textContent = '상의 · 하의 · 아우터 · 신발을 선택하세요';
+    // ─── 2026-05-09 KST · TJ 지시 (v52) ─── 영어 분기
+    $('#step1Summary').textContent = _isEn()
+      ? 'Choose top, bottom, outer, shoes'
+      : '상의 · 하의 · 아우터 · 신발을 선택하세요';
   }
   updateFinalSummary();
 }
@@ -3488,29 +3504,36 @@ function applyFitUI(fit){
   const hintText = $('#profileHintText');
   const fitQuestion = document.getElementById('fitQuestion');  // 삭제된 경우 null
   const step2Sum = $('#step2Summary');
+  // ─── 2026-05-09 KST · TJ 지시 (v52) ─── 영어 분기
+  if(step2Sum) step2Sum.textContent = _fitLabel(fit) || '—';
 
-  if(step2Sum) step2Sum.textContent = FIT_LABELS[fit] || '—';
-
+  var _en = _isEn();
   if(fit === 'my'){
     if(faceWrap) faceWrap.style.display = '';
     if(modelWrap) modelWrap.style.display = 'none';
-    if(titleText) titleText.textContent = '코디 프로필';
-    if(hintText) hintText.textContent = 'AI가 개인화된 착장을 만드는 데 쓰여요';
-    if(fitQuestion) fitQuestion.innerHTML = '아래 <b style="color:var(--teal-light);">코디 프로필</b> 박스의 정보로 생성됩니다.';
+    if(titleText) titleText.textContent = _en ? 'Codi Profile' : '코디 프로필';
+    if(hintText) hintText.textContent = _en ? 'Used by AI to personalize your styling' : 'AI가 개인화된 착장을 만드는 데 쓰여요';
+    if(fitQuestion) fitQuestion.innerHTML = _en
+      ? 'Generated using the info in your <b style="color:var(--teal-light);">Codi Profile</b> below.'
+      : '아래 <b style="color:var(--teal-light);">코디 프로필</b> 박스의 정보로 생성됩니다.';
     loadMyProfile();
   } else if(fit === 'somebody'){
     if(faceWrap) faceWrap.style.display = '';
     if(modelWrap) modelWrap.style.display = 'none';
-    if(titleText) titleText.textContent = '썸바디 프로필';
-    if(hintText) hintText.textContent = '정보를 직접 입력해 주세요';
-    if(fitQuestion) fitQuestion.innerHTML = '누군가의 <b style="color:var(--teal-light);">프로필</b>을 아래에 입력해 주세요.';
+    if(titleText) titleText.textContent = _en ? 'Somebody Profile' : '썸바디 프로필';
+    if(hintText) hintText.textContent = _en ? 'Please enter the info directly' : '정보를 직접 입력해 주세요';
+    if(fitQuestion) fitQuestion.innerHTML = _en
+      ? 'Please enter the <b style="color:var(--teal-light);">profile</b> of someone below.'
+      : '누군가의 <b style="color:var(--teal-light);">프로필</b>을 아래에 입력해 주세요.';
     resetProfileForSomebody();
   } else if(fit === 'model'){
     if(faceWrap) faceWrap.style.display = 'none';
     if(modelWrap) modelWrap.style.display = '';
-    if(titleText) titleText.textContent = '모델 선택';
-    if(hintText) hintText.textContent = '남자 / 여자 모델 중 선택';
-    if(fitQuestion) fitQuestion.innerHTML = '아래에서 <b style="color:var(--teal-light);">남자 / 여자 모델</b>을 선택해 주세요.';
+    if(titleText) titleText.textContent = _en ? 'Select Model' : '모델 선택';
+    if(hintText) hintText.textContent = _en ? 'Choose Male / Female model' : '남자 / 여자 모델 중 선택';
+    if(fitQuestion) fitQuestion.innerHTML = _en
+      ? 'Please select a <b style="color:var(--teal-light);">Male / Female model</b> below.'
+      : '아래에서 <b style="color:var(--teal-light);">남자 / 여자 모델</b>을 선택해 주세요.';
     // 모델 모드 진입 시엔 성별 초기화
     state.modelGender = null;
     const gs = document.getElementById('genderSwitch');
@@ -3617,19 +3640,69 @@ function loadMyProfile(){
 }
 
 function resetProfileForSomebody(){
-  // 얼굴 리셋
-  $('#facePh').textContent = 'person_add';
-  // 퍼스널컬러 리셋
-  $('#pcSeasonLine').style.display = 'none';
-  $('#pcTip').style.display = 'none';
-  $('#pcPalette').style.display = 'none';
-  $('#pcEmpty').style.display = '';
-  $('#pcEmpty').innerHTML = '얼굴 사진을 등록하면<br>퍼스널컬러가 분석됩니다';
-  // 신체정보 리셋
-  $('#bodyGender').textContent = '—';
-  $('#bodyAge').textContent = '—';
-  $('#bodyHeight').textContent = '—';
-  $('#bodyWeight').textContent = '—';
+  // ─── 2026-05-09 KST · TJ 지시 (v52) ─── 썸바디 완전 리셋 + 영어 분기 ───
+  //   배경: 썸바디 선택 시 모든 정보가 빈 상태에서 사용자가 직접 입력하도록.
+  //         이전엔 일부 element만 리셋해서 잔존 데이터 발생.
+  //   처리: 얼굴 사진 / 퍼스널컬러 / 신체정보 / state 변수 모두 완전 초기화.
+  var en = _isEn();
+  
+  // ① 얼굴 사진 — img 태그 제거하고 placeholder span으로 복원
+  try{
+    var circle = document.getElementById('faceCircle');
+    if(circle){
+      circle.innerHTML = '<span class="face-ph" id="facePh">face</span>';
+    }
+  }catch(_){}
+  
+  // ② state.uploadedFaceDataUrl 비우기 (썸바디는 새로 입력)
+  try{
+    state.uploadedFaceDataUrl = '';
+    state.somebodyProfile = null;
+  }catch(_){}
+  
+  // ③ 퍼스널컬러 — 모두 hidden, empty 메시지 표시
+  try{
+    var pcSL = document.getElementById('pcSeasonLine');
+    var pcT  = document.getElementById('pcTip');
+    var pcP  = document.getElementById('pcPalette');
+    var pcE  = document.getElementById('pcEmpty');
+    if(pcSL) pcSL.style.display = 'none';
+    if(pcT)  pcT.style.display  = 'none';
+    if(pcP)  pcP.style.display  = 'none';
+    if(pcE){
+      pcE.style.display = '';
+      pcE.innerHTML = en
+        ? 'Upload a photo to<br>analyze personal color'
+        : '얼굴 사진을 등록하면<br>퍼스널컬러가 분석됩니다';
+    }
+  }catch(_){}
+  
+  // ④ 신체정보 — 모두 dash로
+  try{
+    var bg = document.getElementById('bodyGender');
+    var ba = document.getElementById('bodyAge');
+    var bh = document.getElementById('bodyHeight');
+    var bw = document.getElementById('bodyWeight');
+    if(bg) bg.textContent = '—';
+    if(ba) ba.textContent = '—';
+    if(bh) bh.textContent = '—';
+    if(bw) bw.textContent = '—';
+  }catch(_){}
+  
+  // ⑤ 신체정보 입력 폼이 열려있으면 input 값도 비우기
+  try{
+    var formInputs = ['bodyGenderInput','bodyAgeInput','bodyHeightInput','bodyWeightInput'];
+    formInputs.forEach(function(id){
+      var inp = document.getElementById(id);
+      if(inp){
+        if(inp.tagName === 'SELECT'){ inp.selectedIndex = 0; }
+        else { inp.value = ''; }
+      }
+    });
+  }catch(_){}
+  
+  // ⑥ 영속화 (썸바디 빈 state 저장)
+  try{ if(typeof saveTryonState === 'function') saveTryonState(); }catch(_){}
 }
 
 // 모델 성별 선택 (원형 라디오 카드)
