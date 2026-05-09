@@ -6090,9 +6090,13 @@ def tryon_generate():
                 client = _genai.Client(api_key=_GEMINI_KEY)
                 
                 # ─── 2026-04-23 17:30 [TJ 지시 — 전신 뷰박스 1:1.62 비율 대응] ───
-                # 이미지 뷰박스 세로 비율 1:1.62 ≈ 9:14.6
-                # Nano Banana Pro는 9:16 / 2:3 / 4:5 등 세로 비율 지원
-                # 9:16 선택 이유: 전신+신발+상단 여유공간 확보에 가장 적합
+                # ─── 2026-05-09 KST · TJ 지시 (v29) ─── aspect_ratio 가로로 강제
+                #   원인 진단: 이전 "9:16" (portrait)으로 설정되어 있었음.
+                #              프롬프트는 가로 2:1 강력 요청하지만 image_config가 우선.
+                #              → 모델이 9:16 캔버스에 가로 콘텐츠를 욱여넣고
+                #                위/아래 검은 패딩으로 채움 (TJ 첨부 이미지 1).
+                #   수정: "16:9" (landscape, 1.78:1) — 코디핏의 가로 2:1과 가까운 비율.
+                #         정/후면 두 인물이 가로로 자연스럽게 들어감, 패딩 없음.
                 # ImageConfig는 SDK 버전에 따라 없을 수 있어 예외 처리.
                 try:
                     _img_gen_config = _gtypes.GenerateContentConfig(
@@ -6100,7 +6104,7 @@ def tryon_generate():
                         temperature=0.4,
                         max_output_tokens=8192,
                         image_config=_gtypes.ImageConfig(
-                            aspect_ratio="9:16",
+                            aspect_ratio="16:9",
                             image_size="1K",
                         ),
                     )
