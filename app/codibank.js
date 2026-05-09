@@ -2236,6 +2236,8 @@ function _cbApplyGlobalEnLabels(){
       '이 옷이 어울릴까 고민하지 마세요. 3단계로 착장을 완성해요':'Wonder if it suits you? Complete your outfit in 3 steps.',
       'Step 1. 무엇을 입어볼까요?':'Step 1. What will you wear?',
       '상의 · 하의 · 아우터 · 신발을 선택하세요':'Choose top, bottom, outer, shoes',
+      '상의 · 하의 · 신발':'Top · Bottom · Shoes',
+      '상의 · 하의':'Top · Bottom',
       'Step 2. 누구의 핏을 보고 싶어요?':'Step 2. Whose fit?',
       'Step 3. 지금 입어볼까요?':'Step 3. Try it now?',
       '선택한 데이터를 종합해서 착장이미지를 만들어드립니다!':'AI combines your data to generate a styled image!',
@@ -2243,9 +2245,10 @@ function _cbApplyGlobalEnLabels(){
       '투피스':'Two-piece','원피스':'One-piece','아우터':'Outer',
       '상의':'Top','하의':'Bottom','신발':'Shoes',
       '옷장에서 선택':'Choose from closet',
+      '내옷장':'My Closet','내 옷장':'My Closet',
       '필수':'Required','옵션':'Optional','선택':'Select',
       '마이 핏':'My Fit','썸바디':'Somebody','모델 핏':'Model Fit',
-      '코디 프로필':'Codi Profile',
+      '코디 프로필':'Codi Profile','코디 프로필이 비어있어요':'Codi Profile is empty',
       'AI가 개인화된 착장을 만드는 데 쓰여요':'Used by AI to personalize your styling',
       '촬영':'Camera',
       '성별':'Gender','나이대':'Age','키':'Height','몸무게':'Weight','수정':'Edit',
@@ -2312,10 +2315,51 @@ function _cbApplyGlobalEnLabels(){
     document.addEventListener('DOMContentLoaded', function(){
       setTimeout(_run, 50);  // 페이지 자체 i18n 적용 직후
       setTimeout(_run, 500); // 동적 렌더링(예: 위치/날씨) 이후 한 번 더
+      setTimeout(_run, 1500); // ─── (v50) 추가: 더 늦은 동적 렌더링용
+      setTimeout(_run, 3000); // ─── (v50) 추가: 가장 늦은 콘텐츠
     });
   } else {
     setTimeout(_run, 50);
     setTimeout(_run, 500);
+    setTimeout(_run, 1500);
+    setTimeout(_run, 3000);
+  }
+  
+  // ─── 2026-05-09 KST · TJ 지시 (v50) ─── MutationObserver로 동적 DOM 정규화 ───
+  //   배경: tryon.html / closet.html 등의 동적 렌더링은 setTimeout보다 늦게 실행될 수 있음.
+  //          DOM에 새 노드 추가될 때마다 자동 정규화 실행.
+  //   안전: throttle로 과도 호출 방지 (200ms 디바운스).
+  function _initObserver(){
+    try{
+      var en = window.CodiBankI18n && window.CodiBankI18n.isEn && window.CodiBankI18n.isEn();
+      if(!en) return; // 한국어 모드는 observer 불필요
+      var _throttleTimer = null;
+      var observer = new MutationObserver(function(mutations){
+        // 새 노드 추가 또는 텍스트 변경 감지
+        var hasChange = false;
+        for(var i = 0; i < mutations.length; i++){
+          var m = mutations[i];
+          if(m.type === 'childList' && m.addedNodes.length > 0){ hasChange = true; break; }
+          if(m.type === 'characterData'){ hasChange = true; break; }
+        }
+        if(!hasChange) return;
+        if(_throttleTimer) return; // 이미 처리 예약됨
+        _throttleTimer = setTimeout(function(){
+          _throttleTimer = null;
+          try{ _cbApplyGlobalEnLabels(); }catch(_){}
+        }, 200);
+      });
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    }catch(_){}
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', _initObserver);
+  } else {
+    _initObserver();
   }
 })();
 

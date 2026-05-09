@@ -7511,9 +7511,15 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       }
     }catch(_){}
 
-    // 월 레이블 (오늘 기준)
+    // 월 레이블 (오늘 기준) — ─── 2026-05-09 KST · TJ 지시 (v50) ─── 영어 분기
     if(monthLabel){
-      monthLabel.textContent = `${today.getFullYear()}년 ${today.getMonth()+1}월`;
+      var _enMon = window.CodiBankI18n && CodiBankI18n.isEn && CodiBankI18n.isEn();
+      if(_enMon){
+        var _MN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        monthLabel.textContent = `${_MN[today.getMonth()]} ${today.getFullYear()}`;
+      } else {
+        monthLabel.textContent = `${today.getFullYear()}년 ${today.getMonth()+1}월`;
+      }
     }
 
     for(let i = 0; i < maxDays; i++){
