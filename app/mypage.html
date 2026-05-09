@@ -3,6 +3,11 @@
 ═══════════════════════════════════════════════════════════════════════
 📋 수정 이력 (MODIFICATION HISTORY) — 최신순
 ═══════════════════════════════════════════════════════════════════════
+─── 2026-05-09 KST · TJ 지시 (v39) ─── [인증 버튼 하단 + 비로그인 모달]
+  1) auth-cta-row를 페이지 하단(회원탈퇴 위)으로 이동
+     · v38: action-cards 위 → v39: 기타 메뉴 다음
+     · 기존 .btn-logout 제거 (auth-cta-row의 로그아웃과 중복)
+  2) 비로그인 시 모든 페이지 진입 가능 + 안내 모달 (codibank.js v39 작업)
 ─── 2026-05-09 KST · TJ 지시 (v38) ─── [진입점 + 인증 버튼]
   1) 비로그인 시 login.html로 redirect → 게스트 UI 표시 (랜딩 우회)
      · 사용자명 '게스트' / 모든 chip·trait '없음'
@@ -213,10 +218,11 @@
 /* ── 액션 카드 (프로필 수정 / 구독플랜) ── */
 .action-cards{display:flex;flex-direction:column;gap:10px;margin:24px 20px 0}
 
-/* ─── 2026-05-09 KST · TJ 지시 (v38) ─── 인증 버튼 (회원가입/로그인/로그아웃) */
+/* ─── 2026-05-09 KST · TJ 지시 (v38/v39) ─── 인증 버튼 (회원가입/로그인/로그아웃)
+ * v38: action-cards 위 / v39: 페이지 하단(회원탈퇴 위) 이동 */
 .auth-cta-row{
   display:grid;grid-template-columns:1fr 1fr;gap:10px;
-  margin:18px 20px 0;
+  margin:24px 20px 8px;            /* 위 여백 확대 (하단 배치 후 분리감) */
 }
 .auth-btn{
   display:flex;align-items:center;justify-content:center;gap:6px;
@@ -411,19 +417,7 @@
        액션 카드: 프로필 수정 / 구독플랜
        ════════════════════════════════════════════════════════════════════ -->
   
-  <!-- ─── 2026-05-09 KST · TJ 지시 (v38) ─── 인증 버튼 영역 ───
-       비로그인: [회원가입] [로그인] 두 버튼 모두 활성
-       로그인됨: [회원가입(비활성)] [로그아웃] -->
-  <div class="auth-cta-row" id="authCtaRow">
-    <button type="button" class="auth-btn auth-signup" id="btnSignup" onclick="_handleSignup()">
-      <span class="material-symbols-outlined" style="font-size:18px;">person_add</span>
-      <span id="btnSignupLabel" data-i18n="회원가입">회원가입</span>
-    </button>
-    <button type="button" class="auth-btn auth-login" id="btnLoginOrLogout" onclick="_handleLoginLogout()">
-      <span class="material-symbols-outlined" id="btnLoginIcon" style="font-size:18px;">login</span>
-      <span id="btnLoginLabel" data-i18n="로그인">로그인</span>
-    </button>
-  </div>
+  <!-- (v39) auth-cta-row는 페이지 하단(기타 메뉴 아래)으로 이동됨 -->
 
   <div class="action-cards">
     <div class="action-card" onclick="location.href='profile.html'">
@@ -500,8 +494,19 @@
     <span class="material-symbols-outlined" style="color:rgba(255,255,255,.25)">chevron_right</span>
   </div>
 
-  <!-- 로그아웃 -->
-  <button class="btn-logout" onclick="doLogout()" data-i18n="로그아웃">로그아웃</button>
+  <!-- ─── 2026-05-09 KST · TJ 지시 (v39) ─── 인증 버튼 영역 — 페이지 하단 배치
+       비로그인: [회원가입] [로그인]
+       로그인됨: [회원가입(비활성)] [로그아웃] -->
+  <div class="auth-cta-row" id="authCtaRow">
+    <button type="button" class="auth-btn auth-signup" id="btnSignup" onclick="_handleSignup()">
+      <span class="material-symbols-outlined" style="font-size:18px;">person_add</span>
+      <span id="btnSignupLabel" data-i18n="회원가입">회원가입</span>
+    </button>
+    <button type="button" class="auth-btn auth-login" id="btnLoginOrLogout" onclick="_handleLoginLogout()">
+      <span class="material-symbols-outlined" id="btnLoginIcon" style="font-size:18px;">login</span>
+      <span id="btnLoginLabel" data-i18n="로그인">로그인</span>
+    </button>
+  </div>
 
   <!-- 회원탈퇴 -->
   <div style="text-align:center;margin:16px 0 32px;">

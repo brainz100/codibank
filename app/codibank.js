@@ -464,8 +464,89 @@ function getBackendBaseResolved() {
   }
 
   // ── 인증 가드 (동기 + Supabase 세션 비동기 확인)
+  // ─── 2026-05-09 KST · TJ 지시 (v39) ─── 비로그인 안내 모달 ───
+  //   배경: 이전엔 비로그인 시 login.html로 강제 redirect.
+  //          TJ 지시로 비로그인이어도 모든 페이지 구경 가능 + 팝업 안내.
+  //   동작: 비로그인 감지 시 페이지 가운데 모달 표시.
+  //          [회원가입] [로그인] [둘러보기] 3개 버튼.
+  //          세션당 한 번만 자동 표시 (sessionStorage 플래그).
+  //          그 후 사용자가 기능 버튼 클릭 시도하면 페이지에서 별도 가드로 다시 표시.
+  function showAuthRequiredModal(opts){
+    opts = opts || {};
+    var isFirstShow = !opts.force;
+    // 자동 표시 케이스만 sessionStorage 가드
+    if(isFirstShow){
+      try{
+        if(sessionStorage.getItem('cb_auth_modal_shown') === '1') return;
+        sessionStorage.setItem('cb_auth_modal_shown', '1');
+      }catch(_){}
+    }
+    // 이미 모달이 떠 있으면 중복 생성 안 함
+    if(document.getElementById('cbAuthRequiredModal')) return;
+    
+    var en = (window.CodiBankI18n && CodiBankI18n.isEn());
+    var titleTxt = en ? 'Sign in required' : '회원가입 또는 로그인을 하세요';
+    var descTxt  = en
+      ? 'You can browse the pages, but features require an account.'
+      : '페이지는 둘러볼 수 있지만, 기능을 사용하려면 계정이 필요해요.';
+    var signupTxt = en ? 'Sign up' : '회원가입';
+    var loginTxt  = en ? 'Log in'  : '로그인';
+    var browseTxt = en ? 'Browse around' : '둘러보기';
+    
+    // 페이지 경로 보정 — login.html / signup.html이 같은 폴더 또는 app/ 안인지 자동 판단
+    function _resolveAuthPath(name){
+      var p = window.location.pathname || '';
+      // 이미 app/ 안에 있으면 상대 경로
+      if(p.indexOf('/app/') !== -1) return name;
+      // 루트인 경우 app/ 붙임
+      return 'app/' + name;
+    }
+    var signupHref = _resolveAuthPath('signup.html');
+    var loginHref  = _resolveAuthPath('login.html');
+    
+    var modal = document.createElement('div');
+    modal.id = 'cbAuthRequiredModal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:2147483640;display:flex;align-items:center;justify-content:center;background:rgba(2,4,32,0.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);padding:24px;animation:cbAuthFadeIn .25s ease;';
+    modal.innerHTML = ''
+      + '<div style="max-width:340px;width:100%;background:linear-gradient(165deg,#0a1f4f 0%,#071952 60%,#040f33 100%);border:1px solid rgba(151,254,237,0.25);border-radius:20px;padding:28px 24px 22px;box-shadow:0 24px 64px rgba(0,0,0,0.4);position:relative;animation:cbAuthPopIn .3s cubic-bezier(.16,1,.3,1);">'
+      +   '<div style="text-align:center;margin-bottom:18px;">'
+      +     '<div style="width:54px;height:54px;border-radius:16px;background:rgba(151,254,237,0.12);border:1px solid rgba(151,254,237,0.3);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">'
+      +       '<span class="material-symbols-outlined" style="font-size:28px;color:#97FEED;">login</span>'
+      +     '</div>'
+      +     '<div style="font-size:17px;font-weight:800;color:#fff;letter-spacing:-.01em;margin-bottom:6px;">' + titleTxt + '</div>'
+      +     '<div style="font-size:12.5px;color:rgba(216,226,255,0.6);line-height:1.55;">' + descTxt + '</div>'
+      +   '</div>'
+      +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
+      +     '<button type="button" id="cbAuthSignupBtn" style="padding:13px;border-radius:12px;border:1px solid rgba(151,254,237,0.4);background:rgba(151,254,237,0.12);color:#97FEED;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;">' + signupTxt + '</button>'
+      +     '<button type="button" id="cbAuthLoginBtn"  style="padding:13px;border-radius:12px;border:none;background:linear-gradient(135deg,#0B666A,#35A29F);color:#fff;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;">' + loginTxt + '</button>'
+      +   '</div>'
+      +   '<button type="button" id="cbAuthBrowseBtn" style="width:100%;padding:11px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:rgba(216,226,255,0.55);font-weight:600;font-size:12.5px;cursor:pointer;font-family:inherit;">' + browseTxt + '</button>'
+      + '</div>';
+    
+    // 키프레임 1회 주입
+    if(!document.getElementById('cbAuthModalKeyframes')){
+      var st = document.createElement('style');
+      st.id = 'cbAuthModalKeyframes';
+      st.textContent = '@keyframes cbAuthFadeIn{from{opacity:0}to{opacity:1}} @keyframes cbAuthPopIn{0%{opacity:0;transform:scale(.92) translateY(8px)}100%{opacity:1;transform:scale(1) translateY(0)}}';
+      document.head.appendChild(st);
+    }
+    
+    document.body.appendChild(modal);
+    
+    var close = function(){
+      try{ modal.remove(); }catch(_){ if(modal.parentNode) modal.parentNode.removeChild(modal); }
+    };
+    document.getElementById('cbAuthSignupBtn').onclick = function(){ window.location.href = signupHref; };
+    document.getElementById('cbAuthLoginBtn').onclick  = function(){ window.location.href = loginHref; };
+    document.getElementById('cbAuthBrowseBtn').onclick = close;
+  }
+
   function requireAuth(redirectTo) {
-    const to = redirectTo || 'login.html';
+    // ─── 2026-05-09 KST · TJ 지시 (v39) ─── 동작 변경: redirect → 모달
+    //   이전: 비로그인 → window.location.replace(redirectTo) (login.html)
+    //   변경: 비로그인 → 페이지에 머물고 모달 표시 + false 반환
+    //          호출처(closet/aicloset 등)는 false 받아도 페이지 init 계속 진행 가능.
+    //          단 페이지 코드가 user 의존 부분에서 try-catch로 이미 가드되어야 안전.
     if (getCurrentUser()) return true;
     const sb = _getSupabase();
     if (sb) {
@@ -476,11 +557,12 @@ function getBackendBaseResolved() {
           upsertUser(_cachedUser);
           localStorage.setItem(KEYS.PLAN, _cachedUser.plan || 'FREE');
         } else {
-          window.location.replace(to);
+          // Supabase 세션도 없음 → 모달 표시 (redirect 대신)
+          try{ showAuthRequiredModal(); }catch(_){}
         }
-      }).catch(() => window.location.replace(to));
+      }).catch(() => { try{ showAuthRequiredModal(); }catch(_){} });
     } else {
-      window.location.replace(to);
+      try{ showAuthRequiredModal(); }catch(_){}
     }
     return false;
   }
@@ -1911,6 +1993,7 @@ window.CodiBank = {
     hasAnyUser,
     getCurrentUser,
     requireAuth,
+    showAuthRequiredModal,    // (v39) 비로그인 안내 모달 — 호출처에서 force 옵션으로 강제 표시 가능
     login,
     signup,
     logout,
@@ -1969,4 +2052,37 @@ window.CodiBank = {
     detectRegion,
     getMainSubCities,
   };
+})();
+
+// ─── 2026-05-09 KST · TJ 지시 (v39) ─── 비로그인 자동 모달 표시 ───
+//   페이지 로드 후 비로그인 상태이면 모달 자동 표시.
+//   login.html / signup.html은 제외 (그 페이지 자체가 인증 진행 중).
+//   세션당 1회만 (sessionStorage 가드는 showAuthRequiredModal 내부에서 처리).
+(function _cbAutoAuthModal(){
+  function _shouldSkip(){
+    var p = (window.location.pathname || '').toLowerCase();
+    if(p.indexOf('login.html')   !== -1) return true;
+    if(p.indexOf('signup.html')  !== -1) return true;
+    if(p.indexOf('terms.html')   !== -1) return true;
+    if(p.indexOf('privacy.html') !== -1) return true;
+    if(p.indexOf('refund.html')  !== -1) return true;
+    if(p.indexOf('withdraw.html')!== -1) return true;
+    return false;
+  }
+  function _check(){
+    try{
+      if(_shouldSkip()) return;
+      // CodiBank 로드 확인
+      if(!window.CodiBank || !window.CodiBank.getCurrentUser) return;
+      if(window.CodiBank.getCurrentUser()) return;  // 로그인 됨
+      // 비로그인 — 모달 표시 (세션당 1회 자동)
+      window.CodiBank.showAuthRequiredModal();
+    }catch(_){}
+  }
+  // DOM 로드 후 약간 지연 (다른 init 이후에 떠야 자연스러움)
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(_check, 600); });
+  } else {
+    setTimeout(_check, 600);
+  }
 })();
