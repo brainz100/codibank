@@ -126,19 +126,18 @@
       </div>
       <div class="email-sent-box">
         <span class="mi icon">mark_email_read</span>
-        <h3>인증 이메일을 보냈습니다</h3>
-        <p><b id="otpEmail"></b> 으로 인증 링크를 보냈습니다.<br>이메일을 확인하고 <b>인증하기 버튼</b>을 클릭해주세요.</p>
-        <!-- ─── 2026-05-09 KST · TJ 지시 (v46) ─── 도메인 오타 안내 강화 -->
+        <!-- ─── 2026-05-09 KST · TJ 지시 (v49) ─── Step 2 영어 분기 -->
+        <h3 id="s2Title">인증 이메일을 보냈습니다</h3>
+        <p id="s2Desc"><b id="otpEmail"></b> 으로 인증 링크를 보냈습니다.<br>이메일을 확인하고 <b>인증하기 버튼</b>을 클릭해주세요.</p>
         <p style="margin-top:12px;font-size:12px;color:rgba(255,255,255,.4);line-height:1.6;" id="otpHint">
           메일이 안 보이면 <b style="color:#97FEED;">스팸함</b>을 먼저 확인해주세요.<br>
           그래도 없으면 이메일 주소에 오타가 없는지 확인해보세요 (gmail, naver 등).
         </p>
       </div>
-      <button class="check-btn" onclick="checkVerified()">✓ 인증 완료했어요</button>
+      <button class="check-btn" onclick="checkVerified()" id="s2CheckBtn">✓ 인증 완료했어요</button>
       <p id="s2Err" class="err"></p>
-      <button class="btn-ghost" style="width:100%;" onclick="resendEmail()">인증 메일 재발송</button>
-      <!-- (v46) 이메일 수정 버튼 — 오타였을 경우 Step 1로 돌아가서 다시 입력 -->
-      <button class="btn-ghost" style="width:100%;margin-top:8px;background:transparent;color:rgba(255,255,255,.4);" onclick="showStep('step1',1)">← 이메일 주소 수정하기</button>
+      <button class="btn-ghost" style="width:100%;" onclick="resendEmail()" id="s2ResendBtn">인증 메일 재발송</button>
+      <button class="btn-ghost" style="width:100%;margin-top:8px;background:transparent;color:rgba(255,255,255,.4);" onclick="showStep('step1',1)" id="s2EditBtn">← 이메일 주소 수정하기</button>
     </div>
 
     <!-- ═══ STEP 3: 체형 정보 ═══ -->
@@ -187,6 +186,28 @@ function clrErr(id){document.getElementById(id).classList.remove('show');}
 function showStep(id,dot){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  // ─── 2026-05-09 KST · TJ 지시 (v49) ─── Step 2 영어 분기 적용
+  try{
+    if(id === 'step2'){
+      var en = window.CodiBankI18n && CodiBankI18n.isEn && CodiBankI18n.isEn();
+      if(en){
+        var t = document.getElementById('s2Title');
+        var d = document.getElementById('s2Desc');
+        var h = document.getElementById('otpHint');
+        var c = document.getElementById('s2CheckBtn');
+        var r = document.getElementById('s2ResendBtn');
+        var ed= document.getElementById('s2EditBtn');
+        if(t) t.textContent = 'Verification email sent';
+        if(d) d.innerHTML = '<b id="otpEmail"></b> — check your inbox.<br>Check your email and <b>click the verify button</b>.';
+        // otpEmail 다시 채우기 (innerHTML 교체로 사라짐)
+        try{ document.getElementById('otpEmail').textContent = sEmail || ''; }catch(_){}
+        if(h) h.innerHTML = 'If you don\'t see the email, check your <b style="color:#97FEED;">spam folder</b> first.<br>Otherwise, verify there\'s no typo in the address (gmail, naver, etc.).';
+        if(c) c.textContent = '✓ Verified';
+        if(r) r.textContent = 'Resend Email';
+        if(ed) ed.textContent = '← Edit Email Address';
+      }
+    }
+  }catch(_){}
 }
 
 /* ─── 2026-05-09 KST · TJ 지시 (v46) ─── 이메일 도메인 오타 검증 ───

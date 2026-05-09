@@ -2181,8 +2181,6 @@ window.CodiBank = {
       if(!window.CodiBank || !window.CodiBank.validateSession) return;
       var result = await window.CodiBank.validateSession();
       if(result && !result.ok && result.cleared){
-        // 세션 정리됨 — 페이지 새로고침으로 비로그인 UI로 전환
-        // (이미 이 페이지에 들어와있으므로 reload만 해도 충분)
         try{ window.location.reload(); }catch(_){}
       }
     }catch(_){}
@@ -2191,6 +2189,133 @@ window.CodiBank = {
     document.addEventListener('DOMContentLoaded', function(){ setTimeout(_check, 200); });
   } else {
     setTimeout(_check, 200);
+  }
+})();
+
+// ─── 2026-05-09 KST · TJ 지시 (v49) ─── 영어 모드 풋바/공통 라벨 정규화 ───
+//   배경: 영어 모드에서 풋바 일부 라벨이 한글 그대로 노출 (트라이온, Ai 옷장, 코디앨범 등).
+//          페이지별 i18n 사전 매핑 누락/혼선이 원인.
+//   처리: 영어 모드일 때 codibank.js에서 글로벌 후처리로 일괄 정규화.
+//          ① 풋바(.cb-nav-tab .nl) 라벨
+//          ② 공통 한글 라벨이 그대로 남은 경우 매핑 (예: 'UV 높음' → 'UV High')
+//   주의: 한국어 모드에선 동작 안 함. 페이지가 자체적으로 i18n.t() 처리한 부분은 건드리지 않음.
+function _cbApplyGlobalEnLabels(){
+  try{
+    var en = window.CodiBankI18n && window.CodiBankI18n.isEn && window.CodiBankI18n.isEn();
+    if(!en) return;
+    
+    var FOOTER_MAP = {
+      '코디핏':'Codi Fit','코디 핏':'Codi Fit','Outfit핏':'Codi Fit','Codissam':'Codi Fit',
+      '트라이온':'Try-On','트라이 온':'Try-On','Try On':'Try-On',
+      'Ai 옷장':'AI Closet','AI 옷장':'AI Closet','내옷장':'My Closet','내 옷장':'My Closet',
+      '코디앨범':'Codi Album','코디 앨범':'Codi Album','Album':'Codi Album',
+      'MY':'MY','마이':'MY','My':'MY',
+    };
+    document.querySelectorAll('.cb-nav-tab .nl').forEach(function(el){
+      var cur = (el.textContent || '').trim();
+      if(FOOTER_MAP[cur]) el.textContent = FOOTER_MAP[cur];
+    });
+    
+    // ─── (v49) 광범위 한글 라벨 정규화 ───
+    //   영어 모드에서 페이지가 자체 i18n으로 처리 못한 한글 잔존을 일괄 변환.
+    //   정확 일치 + 자식 없는 텍스트 노드만 — 의도치 않은 변환 방지.
+    var COMMON_MAP = {
+      // 날씨/위치/UV
+      'UV 높음':'UV High','UV 보통':'UV Mid','UV 낮음':'UV Low',
+      '오늘':'Today','내일':'Tomorrow',
+      '맑음':'Clear','구름많음':'Cloudy','흐림':'Overcast','비':'Rain','눈':'Snow','소나기':'Showers',
+      '서울특별시':'Seoul','부산광역시':'Busan','대구광역시':'Daegu',
+      '인천광역시':'Incheon','광주광역시':'Gwangju','대전광역시':'Daejeon',
+      '울산광역시':'Ulsan','세종특별자치시':'Sejong',
+      '경기도':'Gyeonggi','강원도':'Gangwon','충청북도':'Chungbuk','충청남도':'Chungnam',
+      '전라북도':'Jeonbuk','전라남도':'Jeonnam','경상북도':'Gyeongbuk','경상남도':'Gyeongnam',
+      '제주특별자치도':'Jeju',
+      
+      // 트라이온 페이지
+      '트라이 온':'Try-On','트라이온':'Try-On',
+      '이 옷이 어울릴까 고민하지 마세요. 3단계로 착장을 완성해요':'Wonder if it suits you? Complete your outfit in 3 steps.',
+      'Step 1. 무엇을 입어볼까요?':'Step 1. What will you wear?',
+      '상의 · 하의 · 아우터 · 신발을 선택하세요':'Choose top, bottom, outer, shoes',
+      'Step 2. 누구의 핏을 보고 싶어요?':'Step 2. Whose fit?',
+      'Step 3. 지금 입어볼까요?':'Step 3. Try it now?',
+      '선택한 데이터를 종합해서 착장이미지를 만들어드립니다!':'AI combines your data to generate a styled image!',
+      '이미지를 생성할 준비가 되었어요':'Ready to generate the image',
+      '투피스':'Two-piece','원피스':'One-piece','아우터':'Outer',
+      '상의':'Top','하의':'Bottom','신발':'Shoes',
+      '옷장에서 선택':'Choose from closet',
+      '필수':'Required','옵션':'Optional','선택':'Select',
+      '마이 핏':'My Fit','썸바디':'Somebody','모델 핏':'Model Fit',
+      '코디 프로필':'Codi Profile',
+      'AI가 개인화된 착장을 만드는 데 쓰여요':'Used by AI to personalize your styling',
+      '촬영':'Camera',
+      '성별':'Gender','나이대':'Age','키':'Height','몸무게':'Weight','수정':'Edit',
+      '남성':'Male','여성':'Female',
+      '트라이온 피팅':'Try-On Fit',
+      '스니커즈 · 로퍼':'Sneakers · Loafers',
+      '+ 신발':'+ Shoes','+ 아우터':'+ Outer','+ 상의':'+ Top','+ 하의':'+ Bottom',
+      '트라이 온 1회 가능':'1 Try-On available',
+      
+      // 퍼스널 컬러 시즌 + 톤
+      '가을 딥 웜톤':'Autumn Deep · Warm',
+      '봄 라이트 웜톤':'Spring Light · Warm',
+      '여름 라이트 쿨톤':'Summer Light · Cool',
+      '겨울 딥 쿨톤':'Winter Deep · Cool',
+      '봄':'Spring','여름':'Summer','가을':'Autumn','겨울':'Winter',
+      '웜톤':'Warm','쿨톤':'Cool','뉴트럴':'Neutral',
+      '따뜻한 브라운 · 머스타드 · 올리브 계열이 잘 어울려요':'Warm browns, mustards & olives suit you well',
+      
+      // 연령
+      '20대':'20s','30대':'30s','40대':'40s','50대':'50s','60대':'60s','10대':'Teens',
+      
+      // mypage
+      '구독 Plan':'Subscription Plan','사용량 OK · Plan 변경':'Usage · Change Plan',
+      '사진 · 신체정보 · 퍼스널컬러':'Photo · Body Info · Personal Color',
+      '사용량 확인 · 플랜 변경':'Check Usage · Change Plan',
+      '사용자':'User','게스트':'Guest','없음':'None',
+      '회원가입':'Sign Up','로그인':'Log In','로그아웃':'Log Out',
+      
+      // closet 위치/날짜
+      'Choose outfit goal':'Choose outfit goal',  // 이미 영어
+    };
+    
+    // 정확 일치 + 자식 없는 텍스트 노드만 (안전)
+    var sels = ['div','span','p','h1','h2','h3','h4','button','label','a','b','strong','em','small'];
+    document.querySelectorAll(sels.join(',')).forEach(function(el){
+      if(el.children.length > 0) return;
+      var cur = (el.textContent || '').trim();
+      if(COMMON_MAP[cur]) el.textContent = COMMON_MAP[cur];
+    });
+    
+    // 날짜 형식: "2026년 5Mon" → "May 2026" (혼용 패턴)
+    var monMap = {'1Mon':'January','2Mon':'February','3Mon':'March','4Mon':'April',
+                  '5Mon':'May','6Mon':'June','7Mon':'July','8Mon':'August',
+                  '9Mon':'September','10Mon':'October','11Mon':'November','12Mon':'December'};
+    document.querySelectorAll(sels.join(',')).forEach(function(el){
+      if(el.children.length > 0) return;
+      var cur = (el.textContent || '').trim();
+      // "2026년 5Mon" 또는 "년 5Mon" 패턴
+      var m = cur.match(/^(\d{4})년\s+(\d{1,2}Mon)$/);
+      if(m && monMap[m[2]]){ el.textContent = monMap[m[2]] + ' ' + m[1]; return; }
+      // "2026.05.10 (Sun)"은 그대로 유지 (이미 영어 친화)
+    });
+    
+    // title 변환
+    var titleMap = {'트라이 온 — CodiBank':'Try-On — CodiBank','트라이온 — CodiBank':'Try-On — CodiBank'};
+    if(titleMap[document.title]) document.title = titleMap[document.title];
+  }catch(_){}
+}
+(function _cbAutoApplyEnLabels(){
+  function _run(){
+    try{ _cbApplyGlobalEnLabels(); }catch(_){}
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){
+      setTimeout(_run, 50);  // 페이지 자체 i18n 적용 직후
+      setTimeout(_run, 500); // 동적 렌더링(예: 위치/날씨) 이후 한 번 더
+    });
+  } else {
+    setTimeout(_run, 50);
+    setTimeout(_run, 500);
   }
 })();
 
