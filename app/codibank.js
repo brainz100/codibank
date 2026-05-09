@@ -449,7 +449,56 @@ function getBackendBaseResolved() {
   function setSession(s) { _cachedSession = s; saveJson(KEYS.SESSION, s); }
   function clearSession() {
     _cachedSession = null; _cachedUser = null; _sessionFetched = false;
-    localStorage.removeItem(KEYS.SESSION);
+    try{ localStorage.removeItem(KEYS.SESSION); }catch(_){}
+    // ─── 2026-05-09 KST · TJ 지시 (v48) ─── Supabase 토큰도 명시적으로 정리
+    //   배경: clearSession이 codibank 자체 키만 지웠음.
+    //          Supabase JS SDK가 'sb-{projectRef}-auth-token' 키에 access_token 저장 →
+    //          서버에서 사용자 삭제해도 이 토큰이 남아있으면 자동 로그인되는 현상 발생.
+    //   처리: codibank-* / sb-* / supabase.* 접두 키 모두 제거.
+    try{
+      var keysToRemove = [];
+      for(var i = 0; i < localStorage.length; i++){
+        var k = localStorage.key(i);
+        if(!k) continue;
+        if(k.indexOf('sb-') === 0 && k.indexOf('-auth-token') !== -1) keysToRemove.push(k);
+        if(k.indexOf('supabase.auth.token') === 0) keysToRemove.push(k);
+      }
+      keysToRemove.forEach(function(k){ try{ localStorage.removeItem(k); }catch(_){} });
+    }catch(_){}
+  }
+
+  // ─── 2026-05-09 KST · TJ 지시 (v48) ─── 서버 측 세션 유효성 검증 ───
+  //   배경: Supabase에서 사용자를 삭제해도 클라이언트 access_token은 만료 전까지 유효.
+  //          codibank.js는 _cachedUser/localStorage만 보고 로그인 상태로 판단 → 자동 로그인 버그.
+  //   처리: 페이지 진입 시 sb.auth.getUser() 호출 (서버 측 검증).
+  //          - error 또는 user null 반환 시: 사용자 삭제됨 → clearSession + sb.auth.signOut + reload
+  //          - 정상 user 반환 시: 캐시 동기화 (Supabase가 최신 정보)
+  //   효과: 서버에서 삭제된 계정은 다음 페이지 진입 즉시 자동 로그아웃됨.
+  async function validateSession(){
+    try{
+      const sb = _getSupabase();
+      if(!sb) return { ok: true, reason: 'no_supabase' };
+      // 캐시된 토큰이 없으면 검증할 것도 없음
+      if(!_cachedUser && !getSession()){
+        return { ok: true, reason: 'no_session' };
+      }
+      const { data, error } = await sb.auth.getUser();
+      if(error || !data || !data.user){
+        // 사용자 삭제됨 또는 토큰 무효 — 즉시 정리
+        console.warn('[CodiBank][v48] Session invalid — clearing local tokens', error && error.message);
+        try{ await sb.auth.signOut({ scope: 'local' }); }catch(_){}
+        clearSession();
+        return { ok: false, reason: 'invalid_user', cleared: true };
+      }
+      // 정상 — 캐시 동기화
+      _cachedUser = _sbUserToCb(data.user);
+      _cachedSession = { email: data.user.email, loggedInAt: nowIso() };
+      try{ upsertUser(_cachedUser); }catch(_){}
+      return { ok: true, user: _cachedUser };
+    }catch(e){
+      console.warn('[CodiBank][v48] validateSession error', e);
+      return { ok: true, reason: 'error', error: e };
+    }
   }
 
   // ── 현재 로그인 유저 (동기 — 캐시 기반)
@@ -2008,6 +2057,7 @@ window.CodiBank = {
     getCurrentUser,
     requireAuth,
     showAuthRequiredModal,    // (v39) 비로그인 안내 모달 — 호출처에서 force 옵션으로 강제 표시 가능
+    validateSession,          // (v48) 서버 측 세션 유효성 검증 — 삭제된 계정 자동 정리
     login,
     signup,
     logout,
@@ -2104,4 +2154,43 @@ window.CodiBank = {
 //        → 자동 표시 IIFE 제거. 페이지 진입은 깨끗하게.
 //        → [data-requires-auth] 가드(_cbAuthClickGuard)가 클릭 시 토스트 호출.
 //   (이전 _cbAutoAuthModal IIFE는 의도적으로 삭제됨)
+
+
+// ─── 2026-05-09 KST · TJ 지시 (v48) ─── 페이지 진입 시 자동 세션 검증 ───
+//   배경: Supabase 대시보드에서 사용자를 삭제해도 클라이언트 access_token은
+//          만료 전까지 유효 → 자동 로그인 상태로 보이는 버그.
+//   처리: 페이지 로드 후 sb.auth.getUser() 호출 (서버 검증).
+//          - 사용자 삭제됨 / 토큰 무효 → clearSession + reload (로그아웃 상태로)
+//          - 정상 → 캐시 동기화
+//   범위: 모든 codibank 페이지 자동 적용. login.html / signup.html은 제외
+//          (그 페이지 자체가 인증 진행 중).
+(function _cbAutoValidateSession(){
+  function _shouldSkip(){
+    var p = (window.location.pathname || '').toLowerCase();
+    if(p.indexOf('login.html')   !== -1) return true;
+    if(p.indexOf('signup.html')  !== -1) return true;
+    if(p.indexOf('terms.html')   !== -1) return true;
+    if(p.indexOf('privacy.html') !== -1) return true;
+    if(p.indexOf('refund.html')  !== -1) return true;
+    if(p.indexOf('withdraw.html')!== -1) return true;
+    return false;
+  }
+  async function _check(){
+    try{
+      if(_shouldSkip()) return;
+      if(!window.CodiBank || !window.CodiBank.validateSession) return;
+      var result = await window.CodiBank.validateSession();
+      if(result && !result.ok && result.cleared){
+        // 세션 정리됨 — 페이지 새로고침으로 비로그인 UI로 전환
+        // (이미 이 페이지에 들어와있으므로 reload만 해도 충분)
+        try{ window.location.reload(); }catch(_){}
+      }
+    }catch(_){}
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(_check, 200); });
+  } else {
+    setTimeout(_check, 200);
+  }
+})();
 
