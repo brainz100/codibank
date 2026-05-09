@@ -19,6 +19,22 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-05-09 KST · TJ 지시 (Tryon UX 4) ─── [4가지 추가 수정]    │
+  │   1) 옵션 아우터 박스 첫 진입 시 표시 버그                          │
+  │      · HTML 옵션 아우터 슬롯에 style="display:none;" 추가          │
+  │      · 첫 진입(applyModeUI 미호출) 시에도 일관성 유지              │
+  │   2) 첫째/둘째/셋째 → Step 1./Step 2./Step 3. 텍스트 변경         │
+  │   3) Step1 슬롯이 핏 선택 시 사라지는 버그 보강                    │
+  │      · _resyncStep1FromState 강화: state 기준 무조건 fillSlot 재호출│
+  │        (이전: DOM에 .filled 없을 때만 → 일부 케이스 누락)         │
+  │      · 모델 성별 선택 후에도 _resyncStep1FromState 호출            │
+  │      · 모델 성별 선택 후 Step3 자동 이동 제거 (Step1 정책 일관)   │
+  │   4) 남/여 모델 아이콘 — Material Symbols → 모델 마네킹 SVG       │
+  │      · 이전: man/woman (화장실 픽토그램 같음)                      │
+  │      · 변경: inline SVG 슬림 마네킹 실루엣                          │
+  │        · 남자: V라인 재킷 + 슬랙스                                 │
+  │        · 여자: V넥 + A라인 드레스 + 머리카락 라인                  │
+  │      · color:currentColor → checked 시 자동 흰색 전환             │
   │ ─── 2026-05-09 KST · TJ 지시 (Tryon UX) ─── [4가지 UI 정리]     │
   │   1) Step1 자동 스텝 이동 제거                                     │
   │      · setStep(2) 호출 삭제 — 사용자가 직접 헤더 클릭으로 이동    │
@@ -1445,10 +1461,18 @@
     transition:all .25s ease;
   }
   .gender-icon .mi{ font-size:32px; }
+  /* ─── 2026-05-09 KST · TJ 지시 ─── 모델 SVG 아이콘 스타일 (화장실 픽토그램 → 마네킹) */
+  .gender-icon .model-svg{
+    width:38px; height:46px;
+    color:var(--teal-light);
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.15));
+    transition:all .25s ease;
+  }
   .gender-card:has(input:checked) .gender-icon{
     background:linear-gradient(135deg, var(--teal-dark), var(--teal));
     border-color:rgba(151,254,237,0.4);
   }
+  .gender-card:has(input:checked) .gender-icon .model-svg{ color:#fff; filter:drop-shadow(0 1px 4px rgba(151,254,237,.4)); }
   .gender-label{
     font-family:'Outfit','Noto Sans KR',sans-serif;
     font-size:13px;
@@ -1849,7 +1873,7 @@
   <div class="step-head">
     <div class="step-head-body">
       <!-- [2026-04-22 13:55 TJ 지시1] Step 1 → 첫째 · 타이틀 +10% 크게 -->
-      <div class="step-title step-title-lg"><span class="step-prefix">첫째,</span> 무엇을 <span class="ac">입어볼까요</span>?</div>
+      <div class="step-title step-title-lg"><span class="step-prefix">Step 1.</span> 무엇을 <span class="ac">입어볼까요</span>?</div>
       <div class="step-summary" id="step1Summary">상의 · 하의 · 아우터 · 신발을 선택하세요</div>
     </div>
     <!-- [2026-04-22 13:55 TJ 지시1] NOW 뱃지 삭제 -->
@@ -1941,7 +1965,13 @@
     <div class="slot-section-label">옵션 <span class="count" id="optCount">0/2</span></div>
     <div class="slots" id="optionalSlots">
       <!-- 아우터 옵션 — twopiece, onepiece 모드에서만 표시 -->
-      <div class="slot add-slot twopiece-onepiece-only" data-type="outer" data-role="optional">
+      <!-- ─── 2026-05-09 KST · TJ 지시 ─── 기본 display:none
+           이유: 첫 진입(twopiece 기본) 시 applyModeUI가 호출되지 않아
+                 옵션 아우터 박스가 보이는 일관성 버그 발생.
+                 모든 모드에서 옵션 아우터는 숨김이 정책이므로
+                 HTML 기본값도 hidden으로 일치시킴.
+                 (다른 모드 진입 시에도 'none' 유지) -->
+      <div class="slot add-slot twopiece-onepiece-only" data-type="outer" data-role="optional" style="display:none;">
         <div class="slot-empty">
           <span class="opt-badge">선택</span>
           <div class="icon"><span class="mi">dry_cleaning</span></div>
@@ -2017,7 +2047,7 @@
   <div class="step-head">
     <div class="step-head-body">
       <!-- [2026-04-22 13:55 TJ 지시2] Step 2 → 둘째 · 타이틀 +10% 크게 -->
-      <div class="step-title step-title-lg"><span class="step-prefix">둘째,</span> 누구의 <span class="ac">핏</span>을 보고 싶어요?</div>
+      <div class="step-title step-title-lg"><span class="step-prefix">Step 2.</span> 누구의 <span class="ac">핏</span>을 보고 싶어요?</div>
       <div class="step-summary" id="step2Summary">마이 핏 · 썸바디 · 모델 핏</div>
     </div>
     <!-- [2026-04-22 13:55 TJ 지시2] 잠김 뱃지 삭제 -->
@@ -2155,14 +2185,48 @@
       <label class="gender-card" data-gender="male">
         <input type="radio" name="modelGender" value="male">
         <span class="gender-radio"></span>
-        <span class="gender-icon"><span class="mi">man</span></span>
+        <!-- ─── 2026-05-09 KST · TJ 지시 ─── 모델핏 느낌 SVG (이전: 화장실 픽토그램 같은 'man'/'woman') -->
+        <!-- 남자 모델 — 슬림 정장 마네킹 실루엣 -->
+        <span class="gender-icon">
+          <svg class="model-svg" viewBox="0 0 32 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <!-- 머리 -->
+            <circle cx="16" cy="7" r="4.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <!-- 목 -->
+            <path d="M14.5 11.2 L14.5 13.5 L17.5 13.5 L17.5 11.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <!-- 어깨 + 재킷 라펠 (V라인) -->
+            <path d="M9 16.5 Q12 14 14.5 13.8 L16 18 L17.5 13.8 Q20 14 23 16.5 L23.5 28 L8.5 28 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+            <!-- 단추 라인 -->
+            <circle cx="16" cy="20" r="0.5" fill="currentColor"/>
+            <circle cx="16" cy="23.5" r="0.5" fill="currentColor"/>
+            <!-- 슬랙스 (슬림핏) -->
+            <path d="M9.5 28 L8.5 49 L14 49 L15.4 30 L16.6 30 L18 49 L23.5 49 L22.5 28 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+        </span>
         <span class="gender-label">남자 모델</span>
         <!-- [2026-04-23 TJ 지시5] '175 cm · Standard' 텍스트 삭제 -->
       </label>
       <label class="gender-card" data-gender="female">
         <input type="radio" name="modelGender" value="female">
         <span class="gender-radio"></span>
-        <span class="gender-icon"><span class="mi">woman</span></span>
+        <!-- 여자 모델 — A라인 드레스 마네킹 실루엣 -->
+        <span class="gender-icon">
+          <svg class="model-svg" viewBox="0 0 32 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <!-- 머리 -->
+            <circle cx="16" cy="7" r="4.2" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <!-- 어깨까지 내려오는 머리카락 라인 -->
+            <path d="M11.6 8 Q10.5 13 11.4 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".75"/>
+            <path d="M20.4 8 Q21.5 13 20.6 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".75"/>
+            <!-- 목 -->
+            <path d="M14.8 11.2 L14.8 13.4 L17.2 13.4 L17.2 11.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <!-- 상의 (V넥) -->
+            <path d="M11.5 15.5 Q13 14 14.8 13.8 L16 17.5 L17.2 13.8 Q19 14 20.5 15.5 L21 22 L11 22 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            <!-- 허리 잘록 + A라인 스커트 -->
+            <path d="M11 22 Q10.5 24 11 26 Q9 32 7 42 L25 42 Q23 32 21 26 Q21.5 24 21 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+            <!-- 다리 (슬림) -->
+            <path d="M10.5 42 L11.5 50 L14 50 L15 42 Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+            <path d="M21.5 42 L20.5 50 L18 50 L17 42 Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          </svg>
+        </span>
         <span class="gender-label">여자 모델</span>
         <!-- [2026-04-23 TJ 지시5] '165 cm · Standard' 텍스트 삭제 -->
       </label>
@@ -2178,7 +2242,7 @@
     <div class="step-head-body">
       <!-- [2026-04-22 13:55 TJ 지시3] Step 3 → 셋째 · 타이틀 +10% 크게 -->
       <!-- [2026-04-22 16:05 TJ 지시2] 타이틀 텍스트 변경: 트라이온 생성하기 → 지금 입어볼까요? -->
-      <div class="step-title step-title-lg"><span class="step-prefix">셋째,</span> 지금 <span class="ac">입어볼까요</span>?</div>
+      <div class="step-title step-title-lg"><span class="step-prefix">Step 3.</span> 지금 <span class="ac">입어볼까요</span>?</div>
       <!-- [2026-04-22 13:55 TJ 지시3] summary 교체 -->
       <div class="step-summary">선택한 데이터를 종합해서 착장이미지를 만들어드립니다!</div>
     </div>
@@ -3125,17 +3189,29 @@ function applyFitUI(fit){
 
 // [2026-04-24 TJ 지시2] state.slots → Step1 DOM 재동기화 함수
 // applyFitUI 등 Step2 이벤트에서 호출되어 Step1 슬롯이 꺼지지 않도록 보장
+//
+// ─── 2026-05-09 KST · TJ 지시 ─── state 기준 강제 재동기화
+// 이전: DOM에 .filled 없을 때만 fillSlot 호출 (일부 케이스 누락)
+// 변경: state.slots에 데이터가 있으면 DOM 상태와 무관하게 무조건 fillSlot 재호출.
+//       또한 state에 데이터가 없는 슬롯은 빈 상태로 보장(resetSlotUI).
+//       핏 변경이 어떤 부수효과로 DOM을 건드려도 state가 유지되는 한 안전하게 복원.
 function _resyncStep1FromState(){
   Object.entries(state.slots).forEach(([key, s]) => {
+    // outer는 모드에 따라 DOM 키가 다름 (outer-main vs outer)
+    let domType = key;
+    if(key === 'outer') domType = (state.mode === 'outer') ? 'outer-main' : 'outer';
+
     if(s.filled && s.item){
-      // state에선 채워져있는데 혹시 UI가 비어있으면 fillSlot 재호출
-      let domType = key;
-      if(key === 'outer') domType = (state.mode === 'outer') ? 'outer-main' : 'outer';
-      const slotEl = document.querySelector(`.slot[data-type="${domType}"]`);
-      if(slotEl && !slotEl.classList.contains('filled')){
-        // filled 클래스가 빠진 상황 — fillSlot으로 재적용
-        if(typeof fillSlot === 'function') fillSlot(key, s.item);
-      }
+      // 채워진 상태: 무조건 fillSlot 재호출 (DOM 상태 검사 없이)
+      try{ if(typeof fillSlot === 'function') fillSlot(key, s.item); }catch(_){}
+    } else {
+      // 비어있는 상태: DOM에 잔존 .filled 클래스 정리 (state와 일치)
+      try{
+        const slotEl = document.querySelector(`.slot[data-type="${domType}"]`);
+        if(slotEl && slotEl.classList.contains('filled')){
+          if(typeof resetSlotUI === 'function') resetSlotUI(domType);
+        }
+      }catch(_){}
     }
   });
   // 카운터/요약 UI 갱신
@@ -3201,12 +3277,13 @@ $('#genderSwitch').querySelectorAll('.gender-card').forEach(card => {
     card.querySelector('input[type="radio"]').checked = true;
     state.stepDone[2] = true;
     updateFinalSummary();
+    // ─── 2026-05-09 KST · TJ 지시 ─── Step1 슬롯 보존 강제 재동기화
+    //   (모델 성별 선택 후 DOM 변경이 Step1에 영향 주지 않도록 방어)
+    try{ if(typeof _resyncStep1FromState === 'function') _resyncStep1FromState(); }catch(_){}
     // [2026-04-22 14:15] 모델 성별 선택 후 영속화
     try { if(typeof saveTryonState === 'function') saveTryonState(); } catch(_){}
-    // 성별까지 선택했으면 자동 Step 3 전환
-    if(state.currentStep === 2){
-      setTimeout(() => setStep(3), 400);
-    }
+    // ─── 2026-05-09 KST · TJ 지시 ─── Step3 자동 이동 제거
+    //   (Step1 자동 이동을 막은 정책과 일관 — 사용자가 직접 헤더 클릭)
   });
 });
 
