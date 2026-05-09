@@ -19,6 +19,16 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-05-09 KST · TJ 지시 (v33) ─── [트라이온 → 코디앨범 자동 저장]│
+  │   배경: 이전엔 코디핏 이미지만 코디앨범에 저장. 트라이온 누락.       │
+  │   수정: _tryonApplyResult 끝에 album 저장 로직 추가                  │
+  │         · closet.html generateAi의 album 저장 패턴 100% 동일 차용    │
+  │         · data.path / data.url / data.image 우선순위로 ref 결정     │
+  │         · /uploads/* 상대경로 → backendBase 절대URL 변환             │
+  │         · dataUrl만 있을 시 persistImageRefToServer / IndexedDB 저장 │
+  │         · purposeLabel: '트라이온 (마이 핏 · 투피스)' 형식           │
+  │         · stylistName: 모델 핏 → 남자/여자 모델 / 썸바디 → 썸바디    │
+  │         · source:'tryon' 필드로 코디핏과 구분                        │
   │ ─── 2026-05-09 KST · TJ 지시 (v32) ─── [토글 사라짐 + 비율 보장]   │
   │   1) 후면 토글 클릭 시 토글 자체가 사라지는 버그                   │
   │      [원인] 토글이 .csty-result-img-box(overflow-x:auto) 안에       │
@@ -4310,6 +4320,82 @@ function _tryonApplyResult(data){
     console.log('[TryOn Premium] data prepared:', window._tryonPremiumData);
   } catch(e) {
     console.warn('[TryOn Premium] data prep failed:', e);
+  }
+
+  // ─── 2026-05-09 KST · TJ 지시 (v33) ─── 트라이온 결과 → 코디앨범 자동 저장
+  //   배경: 이전엔 코디핏만 album 저장. TJ 지시로 트라이온도 동일 경로 저장.
+  //   참조: closet.html의 generateAi() 안 album 저장 로직 (5573 라인)과 동일 패턴.
+  //   동작: data.image(dataUrl) 또는 data.path(/uploads/...) 경로를 절대URL로 변환해
+  //         CodiBank.addAiAlbumEntry로 저장. album.html이 cb_album_<email>에서 자동 표시.
+  try{
+    if(window.CodiBank && CodiBank.addAiAlbumEntry){
+      var _user = (window.CodiBank.getCurrentUser && CodiBank.getCurrentUser()) || null;
+      if(_user && _user.email){
+        // 이미지 ref 결정 (코디핏 패턴과 동일)
+        var _ref = (data && (data.path || data.url || data.image)) || '';
+        if(_ref && _ref.startsWith && _ref.startsWith('/uploads/')){
+          var _bb = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || 'https://codibank-api.onrender.com';
+          _ref = _bb + _ref;
+        }
+        // dataUrl만 있고 server path 없으면 IndexedDB에 저장
+        if(_ref && _ref.startsWith && _ref.startsWith('data:')){
+          (async function(){
+            var _saved = _ref;
+            try{
+              if(CodiBank.persistImageRefToServer){
+                _saved = await CodiBank.persistImageRefToServer(_ref, 'tryon');
+                if(_saved && _saved.startsWith && _saved.startsWith('/uploads/')){
+                  var _bb2 = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || 'https://codibank-api.onrender.com';
+                  _saved = _bb2 + _saved;
+                }
+              }
+            }catch(_){}
+            try{
+              if(!_saved || _saved.startsWith('data:')){
+                _saved = await CodiBank.saveImage(_ref);
+              }
+            }catch(_){}
+            _doSaveTryonAlbum(_user.email, _saved);
+          })();
+        } else if(_ref){
+          _doSaveTryonAlbum(_user.email, _ref);
+        }
+      }
+    }
+  }catch(e){ console.warn('[TryOn] album save failed:', e); }
+  
+  function _doSaveTryonAlbum(email, ref){
+    if(!ref) return;
+    try{
+      // 트라이온 메타: 핏 타겟·모드를 "코디 목적"으로 사용
+      var _fitLabel = ({my:'마이 핏', somebody:'썸바디', model:'모델 핏'})[state.fitTarget] || '트라이온';
+      var _modeLabel = ({twopiece:'투피스', onepiece:'원피스', outer:'아우터'})[state.mode] || '';
+      var _purposeLabel = '트라이온 (' + _fitLabel + (_modeLabel ? ' · ' + _modeLabel : '') + ')';
+      var _today = new Date();
+      var _dateKey = _today.getFullYear() + '-' + String(_today.getMonth()+1).padStart(2,'0') + '-' + String(_today.getDate()).padStart(2,'0');
+      var _stylistName = (state.fitTarget === 'model') 
+        ? (state.modelGender === 'female' ? '여자 모델' : '남자 모델')
+        : (state.fitTarget === 'somebody' ? '썸바디' : '');
+      
+      CodiBank.addAiAlbumEntry(email, {
+        dateKey: _dateKey,
+        weatherText: '',
+        temp: null,
+        purposeKey: 'tryon',
+        purposeLabel: _purposeLabel,
+        imageRef: ref,
+        seed: 0,
+        styleTitle: '트라이온 착장',
+        explanation: data.exec_summary || data.text || '',
+        keywords: [],
+        stylistName: _stylistName,
+        stylistCity: '',
+        liked: false,
+        source: 'tryon',                    // 코디핏과 구분
+        createdAt: new Date().toISOString(),
+      });
+      console.log('[TryOn] 코디앨범 저장 완료');
+    }catch(e){ console.warn('[TryOn] _doSaveTryonAlbum 실패:', e); }
   }
 }
 
