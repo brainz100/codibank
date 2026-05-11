@@ -1093,6 +1093,74 @@
   }
 
   /* ═══════════════════════════════════════════════════════════
+     ─── 2026-05-09 KST · TJ 지시 (v53) ─── 리포트 다운로드 버튼
+        이미지 박스 위에 위치. 분석 리포트 완료 시 활성화.
+        활성 컬러는 .gen-btn(트라이온 피팅)과 동일 그라데이션.
+     ═══════════════════════════════════════════════════════════ */
+  .report-dl-btn{
+    width:100%;
+    padding:14px 18px;
+    border-radius:14px;
+    /* 비활성 — 흐린 톤 */
+    background:linear-gradient(135deg, rgba(11,102,106,.35), rgba(53,162,159,.35));
+    border:1px solid rgba(151,254,237,0.12);
+    color:rgba(255,255,255,.38);
+    font-family:'Outfit','Noto Sans KR',sans-serif;
+    font-size:14px;
+    font-weight:700;
+    letter-spacing:.02em;
+    cursor:not-allowed;
+    transition:.25s;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    margin-bottom:14px;
+    opacity:.65;
+  }
+  .report-dl-btn .mi{ font-size:20px; opacity:.6; }
+  .report-dl-btn .report-status{
+    font-size:11px;
+    font-weight:500;
+    opacity:.7;
+    margin-left:6px;
+    padding-left:8px;
+    border-left:1px solid rgba(151,254,237,0.15);
+  }
+  /* 활성 상태 — .gen-btn과 동일 톤 */
+  .report-dl-btn.is-ready{
+    background:linear-gradient(135deg,#0B666A,#35A29F);
+    border:1px solid rgba(151,254,237,0.3);
+    color:var(--teal-light);
+    cursor:pointer;
+    opacity:1;
+    box-shadow:0 6px 20px rgba(53,162,159,0.25);
+  }
+  .report-dl-btn.is-ready .mi{ opacity:1; }
+  .report-dl-btn.is-ready .report-status{ display:none; }
+  .report-dl-btn.is-ready:hover{
+    box-shadow:0 8px 28px rgba(53,162,159,0.35);
+    transform:translateY(-1px);
+  }
+  .report-dl-btn.is-ready:active{ transform:translateY(0) scale(.99); }
+  /* 실패 상태 */
+  .report-dl-btn.is-failed{
+    background:linear-gradient(135deg, rgba(127,29,29,.35), rgba(185,28,28,.35));
+    border:1px solid rgba(252,165,165,0.2);
+    color:rgba(252,165,165,.7);
+  }
+  .report-dl-btn.is-failed .mi{ opacity:.7; }
+  /* pending(준비 중) — 스피너 미세 펄스 */
+  .report-dl-btn.is-pending .mi{
+    animation:reportSpin 1.4s linear infinite;
+    opacity:.9;
+  }
+  @keyframes reportSpin{
+    from{ transform:rotate(0deg); }
+    to{ transform:rotate(360deg); }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
      Divider (원본 .divider)
      ═══════════════════════════════════════════════════════════ */
   .divider{
@@ -2559,6 +2627,21 @@
       <div id="csUsageBadge" style="display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:999px;font-size:11px;font-weight:800;background:rgba(151,254,237,.1);border:1px solid rgba(151,254,237,.2);color:#97FEED;">스타일링 5회 가능</div>
     </div>
 
+    <!-- ─── 2026-05-09 KST · TJ 지시 (v53) ─── (2.5) 리포트 다운로드 버튼 ───
+         위치: 스타일링 뱃지 아래, 이미지 뷰박스 위
+         초기: 비활성 (idle)
+         생성 클릭 후: pending (스피너 + "리포트 준비 중…")
+         분석 완료 후: ready (활성 + 클릭 가능)
+         분석 실패 시: failed (붉은 톤)
+         클릭 동작: downloadTryonPdf() — 기존 함수 재사용
+    -->
+    <button id="tryonReportDownloadBtn" class="report-dl-btn" disabled
+            onclick="if(!this.classList.contains('is-ready')) return; downloadTryonPdf();">
+      <span class="mi">picture_as_pdf</span>
+      <span class="lbl">리포트 다운로드</span>
+      <span class="report-status" id="tryonReportStatus">먼저 생성하기</span>
+    </button>
+
     <!-- (3) 생성된 착장 이미지 뷰박스 — codistyle.html 원본 구조 그대로 -->
     <div class="result-area" id="resultArea" style="padding:0;">
       <div class="result-box">
@@ -2839,6 +2922,12 @@
         '코디핏':'Codi Fit','코디 핏':'Codi Fit',
         '트라이온':'Try-On','코디앨범':'Codi Album','코디 앨범':'Codi Album',
         'Ai 옷장':'AI Closet','AI 옷장':'AI Closet',
+        
+        // ─── (v53) 리포트 다운로드 버튼 라벨 ───
+        '리포트 다운로드':'Download Report',
+        '먼저 생성하기':'Generate first',
+        '리포트 준비 중…':'Preparing report…',
+        '리포트 실패':'Report failed',
       };
       
       var sels = ['div','span','button','h1','h2','h3','h4','p','label','a','b','strong','em','small','option'];
@@ -2966,6 +3055,56 @@ const FIT_LABELS_EN  = { my:'My Fit', somebody:'Somebody', model:'Model Fit' };
 function _isEn(){ return !!(window.CodiBankI18n && CodiBankI18n.isEn && CodiBankI18n.isEn()); }
 function _slotLabel(k){ return _isEn() ? (SLOT_LABELS_EN[k] || k) : (SLOT_LABELS[k] || k); }
 function _fitLabel(k){ return _isEn() ? (FIT_LABELS_EN[k] || k) : (FIT_LABELS[k] || k); }
+
+// ─── 2026-05-09 KST · TJ 지시 (v53) ─── 리포트 다운로드 버튼 상태 제어 ───
+//   state: 'idle' | 'pending' | 'ready' | 'failed'
+//     idle    : 페이지 진입 / 초기 상태 — 비활성, "먼저 생성하기"
+//     pending : 생성 클릭 → 분석 진행 중 — 비활성 + 스피너, "리포트 준비 중…"
+//     ready   : 분석 완료 — 활성 (teal 그라데이션), 클릭 가능
+//     failed  : 분석 실패 — 붉은 톤, 비활성, "리포트 실패"
+function setReportDownloadState(state){
+  var btn = document.getElementById('tryonReportDownloadBtn');
+  var status = document.getElementById('tryonReportStatus');
+  var lbl = btn && btn.querySelector('.lbl');
+  if(!btn) return;
+  // 클래스 초기화
+  btn.classList.remove('is-ready','is-pending','is-failed');
+  var en = _isEn();
+  if(lbl) lbl.textContent = en ? 'Download Report' : '리포트 다운로드';
+  if(state === 'idle'){
+    btn.disabled = true;
+    if(status) status.textContent = en ? 'Generate first' : '먼저 생성하기';
+  } else if(state === 'pending'){
+    btn.disabled = true;
+    btn.classList.add('is-pending');
+    if(status) status.textContent = en ? 'Preparing report…' : '리포트 준비 중…';
+  } else if(state === 'ready'){
+    btn.disabled = false;
+    btn.classList.add('is-ready');
+  } else if(state === 'failed'){
+    btn.disabled = true;
+    btn.classList.add('is-failed');
+    if(status) status.textContent = en ? 'Report failed' : '리포트 실패';
+  }
+}
+// 페이지 로드 시 초기 상태
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', function(){ setReportDownloadState('idle'); });
+} else {
+  setReportDownloadState('idle');
+}
+// 언어 변경 시에도 라벨 갱신 (v51 IIFE setTimeout 호출에 함께 잡힘)
+setTimeout(function(){
+  try{
+    var btn = document.getElementById('tryonReportDownloadBtn');
+    if(!btn) return;
+    // 현재 상태 유지하면서 라벨만 다시 적용
+    var st = btn.classList.contains('is-ready')  ? 'ready' :
+             btn.classList.contains('is-pending')? 'pending' :
+             btn.classList.contains('is-failed') ? 'failed'  : 'idle';
+    setReportDownloadState(st);
+  }catch(_){}
+}, 800);
 
 // DOM data-type → state.slots key 매핑 (outer-main은 state상 outer와 동일)
 const toStateKey = domType => domType === 'outer-main' ? 'outer' : domType;
@@ -4638,6 +4777,9 @@ $('#finalGenerate').addEventListener('click', async () => {
   btn.disabled = true;
   btn.innerHTML = '<span class="mi" style="animation:spin 1s linear infinite;">progress_activity</span><span>생성 중…</span>';
 
+  // ─── 2026-05-09 KST · TJ 지시 (v53) ─── 리포트 다운로드 버튼 → pending 상태
+  try{ setReportDownloadState('pending'); }catch(_){}
+
   // 이미지 뷰박스도 로딩 상태로
   // [2026-04-24 TJ 지시6] codistyle.html 패턴 완전 이식
   //   - spin-pct 진행률 카운터 (00% 표시)
@@ -4747,6 +4889,18 @@ $('#finalGenerate').addEventListener('click', async () => {
     // ─── 2026-05-09 KST · TJ 지시 ─── 사용 후 잔여 횟수 즉시 갱신
     try{ updateTryonQuotaBadge(); }catch(_){}
 
+    // ─── 2026-05-09 KST · TJ 지시 (v53) ─── 리포트 다운로드 버튼 → ready 상태
+    //   현재는 이미지+분석이 함께 응답되므로 응답 시점에 ready.
+    //   Step 2/3에서 분석 비동기 분리 후엔 분석 결과 도착 시점에 ready로 변경 예정.
+    try{
+      if(data && (data.styling_score || data.executive_summary || data.styling_advice)){
+        setReportDownloadState('ready');
+      } else {
+        // 점수/분석이 없으면 실패 처리
+        setReportDownloadState('failed');
+      }
+    }catch(_){}
+
     // 버튼 복원 (다시 생성하기 버튼)
     btn.disabled = false;
     // ─── 2026-05-09 KST · TJ 지시 ─── 버튼 텍스트 카운트 표기('2/5') 제거
@@ -4765,6 +4919,9 @@ $('#finalGenerate').addEventListener('click', async () => {
     console.error('[TryOn Error]', err);
     // [2026-04-24 TJ 지시6] 실패 시 진행률 인터벌 정리
     if(window._tryonPctInterval){ clearInterval(window._tryonPctInterval); window._tryonPctInterval = null; }
+    
+    // ─── 2026-05-09 KST · TJ 지시 (v53) ─── 리포트 버튼 실패 상태
+    try{ setReportDownloadState('failed'); }catch(_){}
     
     // [2026-05-02 v54 TJ] PERMISSION_DENIED 시 더 긴 토스트 + 콘솔 강조
     if(err && err._isPermissionDenied){
