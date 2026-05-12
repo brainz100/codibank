@@ -7,6 +7,35 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-12 KST · TJ 지시 (v60) ─── [70 PERSONA_DB 제거 — 9,600 서버 스타일리스트로 일원화]
+  배경: 클라이언트의 70 페르소나(7 TPO × 10)와 서버의 9,600 스타일리스트가
+        따로 노는 이중 시스템 → 출력 다양성 압축.
+        클라이언트 70 페르소나가 palette/silhouette/layerStyle을 강제 박힘:
+        · 예) '모던 미니멀리스트' → layerStyle:'터틀넥+슬림코트', silhouette:'슬림'
+        · 예) '비즈니스 놈코어' → layerStyle:'회색수트+화이트셔츠'
+        → 사용자 보고: 비슷한 색상 + 터틀넥 반복 + 슬림핏 편중
+  [변경 — callClaude 함수 내부 (line ~3000 부근)]
+  1) PERSONA_DB 정의 (306라인) 완전 삭제
+     · 7 TPO × 10 페르소나 = 70개 객체 모두 제거
+  2) personas/personaIdx/persona 선택 로직 제거
+     · seed 기반 페르소나 순환 → 서버 측 9,600 스타일리스트 엔진에 위임
+  3) 단일 generic persona placeholder로 대체:
+     · voice:'AI 스타일리스트', en:'AI Stylist'
+     · palette: 중립 5색 (네이비/아이보리/차콜/블랙/골드)
+     · designKws: 6개 중립 키워드 (모던/세련/균형/자연스러운/실용적/클래식)
+     · 화면 초기 표시 fallback용 — 서버 응답 도착 후 실제 정보로 갱신
+       (S.codiStory ← r.codiStory, S.categoryKeywords ← r.categoryKeywords)
+  [유지]
+  · tpoKey 계산 로직 → 아래 accessory 매핑(bag/watch/socks)에서 사용
+  · 모든 persona.X 참조 (17곳) → fallback 객체로 안전 작동 (시뮬레이션 검증)
+  [관련 서버 변경 — 동시 적용 (v60)]
+  · mock_backend.py: dont_style ABSOLUTE FORBIDDEN, PANTS 발목 덮음 최상단
+  · stylist_matching_engine.py: BOTTOM 강화, calculate_bmi 슬림 유도 표현 완화
+  [효과]
+  · 출력 다양성 회복 (70 강제 페르소나 제거)
+  · 9,600 스타일리스트의 풍부한 출력으로 일원화
+  · 파일 크기 -79KB 감소 (422KB → 343KB)
+
 ─── 2026-05-12 KST · TJ 지시 (v59) ─── [이미지 저장 갤러리 직접 저장 복원]
   배경: 이전엔 Web Share API 우선 → 공유 시트가 매번 떠서
         '카메라 앨범 자동 저장' 의도와 맞지 않음.
@@ -2996,313 +3025,16 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const locationHint = (/[\u3131-\uD79D]/.test(loc)||_ls.includes('korea'))
     ? '한국 도심' : loc || '도심';
 
-  // ── [2] 70 PERSONA DATABASE (7 TPO × 10) ──
-  const PERSONA_DB = {
-    commute: [
-      { voice:'모던 미니멀리스트', en:'Modern Minimalist',
-        palette:{outer:'#1C1C1E',top:'#F5F5F0',pants:'#3D3D3D',shoes:'#1C1C1E',accent:'#C8B89A'},
-        designKws:['슬림핏','모노톤','레이어드','미니멀','클린라인','뉴트럴'],
-        shoe:'더비슈즈', silhouette:'슬림', layerStyle:'터틀넥+슬림코트' },
-      { voice:'어반 테크웨어', en:'Urban Techwear',
-        palette:{outer:'#0A0A0A',top:'#1A1A2E',pants:'#16213E',shoes:'#0F3460',accent:'#E94560'},
-        designKws:['테크웨어','기능성','스트레치','유틸리티','다크','쉘자켓'],
-        shoe:'테크러너', silhouette:'릴렉스', layerStyle:'쉘재킷+카고팬츠' },
-      { voice:'스마트 캐주얼', en:'Smart Casual',
-        palette:{outer:'#2C3E50',top:'#ECF0F1',pants:'#7F8C8D',shoes:'#2C3E50',accent:'#E67E22'},
-        designKws:['세미핏','균형감','스마트','캐주얼','포인트','정돈'],
-        shoe:'로퍼', silhouette:'세미슬림', layerStyle:'하운드투스자켓+차콜팬츠' },
-      { voice:'클래식 프레피', en:'Classic Preppy',
-        palette:{outer:'#1B3A6B',top:'#FFFEF7',pants:'#8B4513',shoes:'#4A2511',accent:'#C41E3A'},
-        designKws:['프레피','클래식','체크','헤링본','블레이저','버튼다운'],
-        shoe:'태슬로퍼', silhouette:'클래식', layerStyle:'네이비블레이저+카키치노' },
-      { voice:'컴포트 워크웨어', en:'Comfort Workwear',
-        palette:{outer:'#4A4A4A',top:'#E8E4DC',pants:'#6B6B6B',shoes:'#3C3C3C',accent:'#8B7355'},
-        designKws:['편안함','스트레치','기능성','워크','어스톤','편안한핏'],
-        shoe:'청키스니커즈', silhouette:'릴렉스', layerStyle:'후리스집업+스트레이트팬츠' },
-      { voice:'프렌치 시크', en:'French Chic',
-        palette:{outer:'#2F2F2F',top:'#F7F3EE',pants:'#1A1A1A',shoes:'#8B0000',accent:'#C8A882'},
-        designKws:['시크','에피소드','마린룩','스트라이프','베레모','포인트'],
-        shoe:'첼시부츠', silhouette:'테일러드', layerStyle:'스트라이프셔츠+테일러드트렌치' },
-      { voice:'비즈니스 놈코어', en:'Business Normcore',
-        palette:{outer:'#8B8B8B',top:'#FFFFFF',pants:'#4A4A4A',shoes:'#2C2C2C',accent:'#B8B8B8'},
-        designKws:['놈코어','베이직','심플','무지','정제된','실용적'],
-        shoe:'옥스포드', silhouette:'스트레이트', layerStyle:'회색수트+화이트셔츠' },
-      { voice:'바이크 커뮤터', en:'Bike Commuter',
-        palette:{outer:'#1A3A1A',top:'#2D5016',pants:'#1C1C1E',shoes:'#FF6B00',accent:'#FFCC00'},
-        designKws:['바이크','방수','반사재','기능성','컴팩트','스포티'],
-        shoe:'워킹슈즈', silhouette:'릴렉스', layerStyle:'윈드브레이커+퍼포먼스팬츠' },
-      { voice:'웨더 디펜더', en:'Weather Defender',
-        palette:{outer:'#1F3B4D',top:'#D4E8F0',pants:'#2C4A5A',shoes:'#1A1A2E',accent:'#4FC3F7'},
-        designKws:['방수','아우터','레이어','방한','기능성','클린'],
-        shoe:'고어텍스부츠', silhouette:'볼드', layerStyle:'다운파카+워터프루프팬츠' },
-      { voice:'에코 프렌들리', en:'Eco-Friendly',
-        palette:{outer:'#3D5A3E',top:'#C8D5B9',pants:'#5C4827',shoes:'#6B4E3D',accent:'#8FBC8F'},
-        designKws:['내추럴','어스톤','오가닉','리사이클','린넨','친환경'],
-        shoe:'캔버스스니커즈', silhouette:'릴렉스', layerStyle:'오가닉코튼셔츠+어스톤팬츠' },
-    ],
-    business: [
-      { voice:'클래식 사르토리아', en:'Classic Sartoria',
-        palette:{outer:'#1A1A2E',top:'#FAFAFA',pants:'#16213E',shoes:'#0A0A0A',accent:'#C8A000'},
-        designKws:['수트','라펠','포켓치프','이탈리안핏','테일러드','클래식'],
-        shoe:'옥스포드', silhouette:'테일러드', layerStyle:'네이비더블수트+화이트셔츠' },
-      { voice:'파워 드레서', en:'Power Dresser',
-        palette:{outer:'#0D0D0D',top:'#F8F4EE',pants:'#1A1A1A',shoes:'#0A0A0A',accent:'#8B0000'},
-        designKws:['파워','볼드숄더','스트럭처드','다크','임팩트','권위'],
-        shoe:'스트레이트팁', silhouette:'스트럭처드', layerStyle:'차콜더블수트+건메탈타이' },
-      { voice:'올드머니 럭셔리', en:'Old Money Luxury',
-        palette:{outer:'#5C4033',top:'#FAF7F0',pants:'#3D2B1F',shoes:'#4A2511',accent:'#C8B89A'},
-        designKws:['캐시미어','클럽컬러','헤리티지','로고리스','고급소재','퀴어트럭셔리'],
-        shoe:'모크크로코로퍼', silhouette:'클래식', layerStyle:'카멜코트+아이보리터틀넥' },
-      { voice:'모던 브리티시', en:'Modern British',
-        palette:{outer:'#1C3A2E',top:'#E8E4D8',pants:'#2A4A3A',shoes:'#1A2A1A',accent:'#8B6914'},
-        designKws:['헤링본','글렌체크','트위드','브리티시','핀스트라이프','리젠트'],
-        shoe:'브로그', silhouette:'테일러드슬림', layerStyle:'헤링본수트+버튼다운' },
-      { voice:'소프트 젠틀', en:'Soft Gentle',
-        palette:{outer:'#B0C4DE',top:'#FAFAFA',pants:'#778899',shoes:'#4A5568',accent:'#E8D5B7'},
-        designKws:['파스텔','소프트','젠틀','세미포멀','뉴트럴','부드러운'],
-        shoe:'수에드로퍼', silhouette:'세미슬림', layerStyle:'라이트그레이수트+소프트블루셔츠' },
-      { voice:'컨템포러리 비즈', en:'Contemporary Biz',
-        palette:{outer:'#2D3436',top:'#DFE6E9',pants:'#636E72',shoes:'#2D3436',accent:'#0984E3'},
-        designKws:['모던','세미포멀','테크소재','미니멀','블레이저','슬랙스'],
-        shoe:'청키더비', silhouette:'세미슬림', layerStyle:'그레이블레이저+테크팬츠' },
-      { voice:'테일러드 아웃도어', en:'Tailored Outdoor',
-        palette:{outer:'#3C5A3C',top:'#F5F0E8',pants:'#2C4A2C',shoes:'#4A3728',accent:'#8B6914'},
-        designKws:['고어텍스','아웃도어','테일러드','기능성','하이브리드','필드'],
-        shoe:'트레킹더비', silhouette:'스트레이트', layerStyle:'아웃도어블레이저+카고슬랙스' },
-      { voice:'노타이 스페셜리스트', en:'Tieless Specialist',
-        palette:{outer:'#34495E',top:'#ECF0F1',pants:'#2C3E50',shoes:'#1A252F',accent:'#16A085'},
-        designKws:['노타이','오픈칼라','모던포멀','크루넥','언버튼','세련된'],
-        shoe:'클린스니커즈', silhouette:'슬림', layerStyle:'다크수트+오픈칼라셔츠' },
-      { voice:'비즈 아방가르드', en:'Business Avant-garde',
-        palette:{outer:'#1A0A2E',top:'#E8E0F0',pants:'#2D1B4E',shoes:'#1A0A2E',accent:'#9B59B6'},
-        designKws:['아방가르드','비대칭','언발란스','퍼플','실험적','전위적'],
-        shoe:'플랫폼더비', silhouette:'오버사이즈', layerStyle:'비대칭재킷+와이드슬랙스' },
-      { voice:'클라이밋 어댑터', en:'Climate Adapter',
-        palette:{outer:'#4A5568',top:'#E2E8F0',pants:'#2D3748',shoes:'#1A202C',accent:'#38B2AC'},
-        designKws:['레이어블','온도조절','기능소재','탈착','올시즌','베르사타일'],
-        shoe:'워터프루프더비', silhouette:'스트레이트', layerStyle:'3in1재킷+온도조절팬츠' },
-    ],
-    social: [
-      { voice:'트렌드세터', en:'Trendsetter',
-        palette:{outer:'#FF6B6B',top:'#FFEAA7',pants:'#2D3436',shoes:'#0A0A0A',accent:'#FD79A8'},
-        designKws:['트렌디','믹스매치','컬러블로킹','포인트','시즌컬러','핫아이템'],
-        shoe:'청키스니커즈', silhouette:'오버사이즈', layerStyle:'컬러블로킹아웃터+그래픽티' },
-      { voice:'스트릿 하이엔드', en:'Street High-end',
-        palette:{outer:'#1A1A1A',top:'#F0F0F0',pants:'#1A1A1A',shoes:'#1A1A1A',accent:'#FFD700'},
-        designKws:['럭스스트릿','로고','골드포인트','하이스트릿','다크','프리미엄'],
-        shoe:'하이탑스니커즈', silhouette:'오버사이즈', layerStyle:'프리미엄후디+와이드팬츠+골드체인' },
-      { voice:'미니멀 보이프렌드', en:'Minimal Boyfriend',
-        palette:{outer:'#95A5A6',top:'#FAFAFA',pants:'#E8E8E8',shoes:'#D5D8DC',accent:'#BDC3C7'},
-        designKws:['릴렉스','오버핏','쿨한','그레이톤','미니멀','젠더리스'],
-        shoe:'뮬', silhouette:'오버사이즈', layerStyle:'오버핏셔츠+조거팬츠' },
-      { voice:'레트로 빈티지', en:'Retro Vintage',
-        palette:{outer:'#8B4513',top:'#F5DEB3',pants:'#DEB887',shoes:'#8B4513',accent:'#CD853F'},
-        designKws:['빈티지','레트로','아메카지','워싱','플레어','70s'],
-        shoe:'플랫폼부츠', silhouette:'플레어', layerStyle:'코듀로이재킷+플레어데님' },
-      { voice:'아방가르드', en:'Avant-garde',
-        palette:{outer:'#2C2C54',top:'#ECECEC',pants:'#40407A',shoes:'#0A0A0A',accent:'#FF4757'},
-        designKws:['아방가르드','비대칭','드레이핑','실험적','조형적','언발란스'],
-        shoe:'아방가르드부츠', silhouette:'오버사이즈', layerStyle:'비대칭드레이프코트+와이드팬츠' },
-      { voice:'Y2K 리바이벌', en:'Y2K Revival',
-        palette:{outer:'#E91E8C',top:'#00BCD4',pants:'#7C4DFF',shoes:'#FF6D00',accent:'#76FF03'},
-        designKws:['Y2K','크롭','메탈릭','홀로그램','컬러풀','2000년대'],
-        shoe:'플랫폼스니커즈', silhouette:'크롭', layerStyle:'메탈릭크롭자켓+로우라이즈팬츠' },
-      { voice:'컬러 팝', en:'Color Point Pop',
-        palette:{outer:'#FF5722',top:'#FFFFFF',pants:'#212121',shoes:'#FF5722',accent:'#FFC107'},
-        designKws:['컬러포인트','원색','팝','포인트아이템','흑백기반','강렬한'],
-        shoe:'컬러스니커즈', silhouette:'슬림', layerStyle:'화이트베이스+오렌지포인트코트' },
-      { voice:'그런지 반항아', en:'Grunge Rebellion',
-        palette:{outer:'#1A1A1A',top:'#4A4A4A',pants:'#2C2C2C',shoes:'#1A1A1A',accent:'#8B0000'},
-        designKws:['그런지','데스트로이드','레이어드','다크','체인','밴드티'],
-        shoe:'닥터마틴', silhouette:'오버사이즈', layerStyle:'오버핏플란넬+데스트로이드진' },
-      { voice:'긱 시크', en:'Geek Chic',
-        palette:{outer:'#2F4F8F',top:'#E8EAF6',pants:'#37474F',shoes:'#1A237E',accent:'#FF6F00'},
-        designKws:['긱시크','옥스포드','체크','안경','패치','레이어드'],
-        shoe:'화이트스니커즈', silhouette:'클래식슬림', layerStyle:'체크셔츠+카디건+슬림진' },
-      { voice:'로맨틱 보헤미안', en:'Romantic Bohemian',
-        palette:{outer:'#D4A96A',top:'#FDF3E3',pants:'#8B7355',shoes:'#6B4C2A',accent:'#C8956C'},
-        designKws:['보헤미안','플로럴','레이스','어스톤','레이어드','낭만적'],
-        shoe:'에스파드리유', silhouette:'플로우', layerStyle:'플로럴블라우스+린넨팬츠+베스트' },
-    ],
-    weekendOut: [
-      { voice:'코지 릴렉서', en:'Cozy Relaxer',
-        palette:{outer:'#8B7355',top:'#F5F0E8',pants:'#6B6B6B',shoes:'#4A4A4A',accent:'#D4B896'},
-        designKws:['코지','오버핏','니트','스웨트','릴렉스','홈웨어'],
-        shoe:'울리슬리퍼', silhouette:'오버사이즈', layerStyle:'오버핏니트+조거팬츠' },
-      { voice:'시티 보이', en:'City Boy',
-        palette:{outer:'#2C3E50',top:'#FFFFFF',pants:'#2C2C2C',shoes:'#1A1A1A',accent:'#3498DB'},
-        designKws:['시티','어반','스트릿','크루넥','스웨트셔츠','스니커즈'],
-        shoe:'에어맥스', silhouette:'릴렉스', layerStyle:'크루넥스웨트+카고팬츠' },
-      { voice:'스포티 액티브', en:'Sporty & Active',
-        palette:{outer:'#1A237E',top:'#E3F2FD',pants:'#0D47A1',shoes:'#FF6F00',accent:'#FF6F00'},
-        designKws:['스포티','애슬레저','퍼포먼스','러닝','테크패브릭','활동성'],
-        shoe:'러닝화', silhouette:'슬림', layerStyle:'트랙수트+스포츠아웃터' },
-      { voice:'아메카지', en:'Amekaji',
-        palette:{outer:'#8B4513',top:'#F5DEB3',pants:'#1C3A6B',shoes:'#4A2511',accent:'#CD853F'},
-        designKws:['아메카지','데님','워크부츠','플란넬','체인지','레이어드'],
-        shoe:'레드윙부츠', silhouette:'스트레이트', layerStyle:'데님자켓+체크플란넬+워싱진' },
-      { voice:'위켄드 캠퍼', en:'Weekend Camper',
-        palette:{outer:'#3C5A3C',top:'#F5F0E0',pants:'#5C4827',shoes:'#4A3728',accent:'#FF8C00'},
-        designKws:['캠핑','아웃도어','고프코어','패딩','방수','기능성'],
-        shoe:'하이킹부츠', silhouette:'릴렉스', layerStyle:'마운틴파카+카고팬츠' },
-      { voice:'카페 칠러', en:'Cafe Chiller',
-        palette:{outer:'#A0522D',top:'#FFF8DC',pants:'#D2691E',shoes:'#8B6914',accent:'#DEB887'},
-        designKws:['카페','어스톤','코지','레이어드','니트','캐주얼'],
-        shoe:'카멜첼시부츠', silhouette:'세미릴렉스', layerStyle:'오버핏가디건+슬랙스' },
-      { voice:'데님 마스터', en:'Denim Master',
-        palette:{outer:'#1C3A6B',top:'#FFFFFF',pants:'#4169E1',shoes:'#1C1C1E',accent:'#C8B89A'},
-        designKws:['데님온데님','캐나디안포멀','인디고','워싱','테일러드데님','데님'],
-        shoe:'화이트청키스니커즈', silhouette:'스트레이트', layerStyle:'데님트러커+데님팬츠+화이트티' },
-      { voice:'레더 앤 바이커', en:'Leather & Biker',
-        palette:{outer:'#0A0A0A',top:'#1C1C1C',pants:'#1A1A1A',shoes:'#0A0A0A',accent:'#C0C0C0'},
-        designKws:['레더','바이커','메탈','모터사이클','다크','체인'],
-        shoe:'바이커부츠', silhouette:'슬림', layerStyle:'레더라이더자켓+슬림블랙진' },
-      { voice:'오버사이즈 마에스트로', en:'Oversize Maestro',
-        palette:{outer:'#C8B89A',top:'#FFFEF7',pants:'#8B7355',shoes:'#4A4A4A',accent:'#D4A96A'},
-        designKws:['오버사이즈','볼드실루엣','드롭숄더','빅핏','레이어드','헤비'],
-        shoe:'청키부츠', silhouette:'오버사이즈', layerStyle:'오버사이즈코트+박시티+와이드팬츠' },
-      { voice:'리조트 라운저', en:'Resort Lounger',
-        palette:{outer:'#87CEEB',top:'#FFFEF7',pants:'#F4A460',shoes:'#DEB887',accent:'#20B2AA'},
-        designKws:['리조트','하와이안','린넨','라이트','밝은컬러','릴렉스'],
-        shoe:'에스파드리유', silhouette:'릴렉스', layerStyle:'린넨셔츠+쇼츠+레이어드' },
-    ],
-    weekendTrip: [
-      { voice:'고프코어', en:'Gorpcore',
-        palette:{outer:'#2E5E2E',top:'#C8D5B9',pants:'#4A5240',shoes:'#8B6914',accent:'#FF8C00'},
-        designKws:['고프코어','기능성','아웃도어','레이어','트레일','고어텍스'],
-        shoe:'트레일러너', silhouette:'릴렉스', layerStyle:'패딩조끼+플리스+카고팬츠' },
-      { voice:'트래블 테크', en:'Travel Tech',
-        palette:{outer:'#1A1A2E',top:'#16213E',pants:'#0F3460',shoes:'#1A1A2E',accent:'#E94560'},
-        designKws:['트래블','테크','경량','주름방지','기능성','스마트'],
-        shoe:'트래블스니커즈', silhouette:'슬림', layerStyle:'트래블자켓+테크팬츠' },
-      { voice:'레이어드 마스터', en:'Layered Master',
-        palette:{outer:'#4A3728',top:'#E8D5B7',pants:'#5C4827',shoes:'#3C2A1A',accent:'#D4A96A'},
-        designKws:['레이어드','믹스앤매치','온도조절','겹치기','어스톤','텍스처'],
-        shoe:'워킹부츠', silhouette:'볼드', layerStyle:'다운베스트+플란넬+코듀로이팬츠' },
-      { voice:'로드트립 드라이버', en:'Road Trip Driver',
-        palette:{outer:'#2C3E50',top:'#ECF0F1',pants:'#34495E',shoes:'#2C3E50',accent:'#E67E22'},
-        designKws:['로드트립','어메리칸','캐주얼','스트레이트','데님','클래식'],
-        shoe:'화이트로우스니커즈', silhouette:'스트레이트', layerStyle:'MA-1봄버+청바지+후드티' },
-      { voice:'헤리티지 워크웨어', en:'Heritage Workwear',
-        palette:{outer:'#5C4827',top:'#E8D5B7',pants:'#3C2A1A',shoes:'#4A3728',accent:'#8B6914'},
-        designKws:['헤리티지','워크웨어','캔버스','데님','체인스티치','아메카지'],
-        shoe:'엔지니어부츠', silhouette:'스트레이트', layerStyle:'캔버스워크재킷+데님오버롤' },
-      { voice:'백패커', en:'Backpacker',
-        palette:{outer:'#3C5A3C',top:'#C8D5B9',pants:'#4A5240',shoes:'#6B4E3D',accent:'#FF8C00'},
-        designKws:['백팩','경량','트레킹','레이어블','그린','실용적'],
-        shoe:'트레킹샌들', silhouette:'릴렉스', layerStyle:'경량다운+컨버터블팬츠' },
-      { voice:'포토제닉 투어리스트', en:'Photogenic Tourist',
-        palette:{outer:'#E8B4B8',top:'#FAFAFA',pants:'#C9A0DC',shoes:'#FFFFFF',accent:'#FFB347'},
-        designKws:['인스타','포토제닉','파스텔','밝은','트렌디','소셜'],
-        shoe:'화이트스니커즈', silhouette:'슬림', layerStyle:'파스텔블루셋업+컬러팝악세서리' },
-      { voice:'컬러블록 플레이어', en:'Color Block Player',
-        palette:{outer:'#E74C3C',top:'#3498DB',pants:'#2ECC71',shoes:'#F39C12',accent:'#9B59B6'},
-        designKws:['컬러블로킹','대담한','원색','믹스','팝아트','대조'],
-        shoe:'컬러화이트스니커즈', silhouette:'릴렉스', layerStyle:'컬러블록바람막이+와이드팬츠' },
-      { voice:'트레일 러너', en:'Trail Runner',
-        palette:{outer:'#FF6F00',top:'#1A1A2E',pants:'#2C3E50',shoes:'#FF6F00',accent:'#76FF03'},
-        designKws:['트레일','런닝','기능성','경량','다이나믹','퍼포먼스'],
-        shoe:'트레일러닝화', silhouette:'슬림', layerStyle:'윈드브레이커+퍼포먼스타이츠' },
-      { voice:'컨트리사이드 젠틀맨', en:'Countryside Gentleman',
-        palette:{outer:'#4A5E3A',top:'#F5F0E8',pants:'#5C4827',shoes:'#4A3728',accent:'#8B6914'},
-        designKws:['컨트리','트위드','헌팅','왁스코튼','귀족적','영국식'],
-        shoe:'브로그', silhouette:'클래식', layerStyle:'왁스코튼재킷+코듀로이팬츠' },
-    ],
-    overseasTrip: [
-      { voice:'제트셋 시크', en:'Jet-set Chic',
-        palette:{outer:'#1A1A2E',top:'#FAF0E6',pants:'#2C2C54',shoes:'#1A1A2E',accent:'#C8A000'},
-        designKws:['럭셔리','제트셋','시크','모노크롬','에디토리얼','글로시'],
-        shoe:'레더첼시부츠', silhouette:'슬림', layerStyle:'블랙마스터코트+모노크롬룩' },
-      { voice:'글로벌 노마드', en:'Global Nomad',
-        palette:{outer:'#8B7355',top:'#F5F0E8',pants:'#6B5A45',shoes:'#4A3728',accent:'#D4A96A'},
-        designKws:['노마드','글로벌','어스톤','레이어블','내추럴','크래프트'],
-        shoe:'슬리폰', silhouette:'릴렉스', layerStyle:'린넨코트+와이드팬츠+스카프' },
-      { voice:'올웨더 어댑터', en:'All-weather Adapter',
-        palette:{outer:'#2C3E50',top:'#ECF0F1',pants:'#34495E',shoes:'#2C3E50',accent:'#1ABC9C'},
-        designKws:['올웨더','기능성','방수','경량','레이어블','스마트'],
-        shoe:'고어텍스스니커즈', silhouette:'스트레이트', layerStyle:'3in1재킷+방수팬츠' },
-      { voice:'메트로폴리탄', en:'Metropolitan',
-        palette:{outer:'#1C1C1E',top:'#F5F5F7',pants:'#3A3A3C',shoes:'#1C1C1E',accent:'#FF375F'},
-        designKws:['메트로','어반','코즈모폴리탄','모던','소피스티케이트','시티'],
-        shoe:'레더스니커즈', silhouette:'슬림', layerStyle:'그레이코트+블랙팬츠+팝컬러백' },
-      { voice:'하이엔드 리조트', en:'High-end Resort',
-        palette:{outer:'#F0E6D3',top:'#FFFEF7',pants:'#E8D5B7',shoes:'#C8A882'},
-        designKws:['리조트','럭셔리','린넨','화이트','크림','우아한'],
-        shoe:'에스파드리유', silhouette:'릴렉스', layerStyle:'크림린넨셋업+골드악세서리' },
-      { voice:'이지케어', en:'Easy Care',
-        palette:{outer:'#778899',top:'#F0F4F8',pants:'#4A5568',shoes:'#2D3748',accent:'#63B3ED'},
-        designKws:['주름방지','폴리','기능성','워시앤웨어','경량','심플'],
-        shoe:'컬러스니커즈', silhouette:'스트레이트', layerStyle:'이지케어블레이저+클린슬랙스' },
-      { voice:'미니멀 패커', en:'Minimal Packer',
-        palette:{outer:'#2D3748',top:'#E2E8F0',pants:'#4A5568',shoes:'#2D3748',accent:'#68D391'},
-        designKws:['미니멀','패킹','다용도','뉴트럴','심플','레이어블'],
-        shoe:'화이트스니커즈', silhouette:'슬림', layerStyle:'뉴트럴코트+뉴트럴팬츠+기본티' },
-      { voice:'컬처럴 카멜레온', en:'Cultural Chameleon',
-        palette:{outer:'#6B3F6B',top:'#F5E6FF',pants:'#4A2D4A',shoes:'#2C1A2C',accent:'#FF79C6'},
-        designKws:['글로벌','컬처럴','에스닉믹스','보헤미안','크로스컬처','다양성'],
-        shoe:'에스닉플랫', silhouette:'플로우', layerStyle:'에스닉믹스아우터+드레이프팬츠' },
-      { voice:'세이프티 트래블러', en:'Safety Traveler',
-        palette:{outer:'#4A5568',top:'#E2E8F0',pants:'#2D3748',shoes:'#1A202C',accent:'#F6E05E'},
-        designKws:['실용성','RFID','은닉주머니','안전','기능성','심플'],
-        shoe:'워킹화', silhouette:'스트레이트', layerStyle:'트래블베스트+테크팬츠' },
-      { voice:'블레저 노마드', en:'Bleisure Nomad',
-        palette:{outer:'#1A1A2E',top:'#FAFAFA',pants:'#2C2C54',shoes:'#1A1A2E',accent:'#5E81F4'},
-        designKws:['블레저','비즈캐주얼','플렉시블','스마트','모던','듀얼'],
-        shoe:'레더청키스니커즈', silhouette:'세미슬림', layerStyle:'블레이저+테크팬츠+슬릭티' },
-    ],
-    custom: [
-      // [1] 요청 기반 스타일리스트 — 컨텍스트 중심, 실용적 해석
-      { voice:'라이프스타일 큐레이터', en:'Lifestyle Curator',
-        palette:{outer:'#2C3E50',top:'#D4C5A9',pants:'#4A5568',shoes:'#3D2B1F',accent:'#C8934A'},
-        designKws:['라이프스타일','컨텍스트','일상적','균형감','자연스러운','실용미'],
-        shoe:'클린더비', silhouette:'세미릴렉스', layerStyle:'다크네이비자켓+내추럴톤이너' },
-      // [2] 컬러 밸런스 — 상하의 대비 중시, 과도한 통일 지양
-      { voice:'컬러 밸런서', en:'Color Balancer',
-        palette:{outer:'#1B2848',top:'#F0EDE0',pants:'#5C6B4A',shoes:'#4A3728',accent:'#D4A574'},
-        designKws:['색채균형','대비','투톤','컬러블록','자연스러운대비','배색이론'],
-        shoe:'스웨이드로퍼', silhouette:'스트레이트', layerStyle:'네이비아우터+어스톤하의컬러대비' },
-      // [3] 소재 전문가 — 질감/소재 조합
-      { voice:'소재 아키텍트', en:'Material Architect',
-        palette:{outer:'#3D2B1F',top:'#E8E4D8',pants:'#5A5040',shoes:'#2C2C2C',accent:'#B8956A'},
-        designKws:['소재','텍스처','울','가죽','코듀로이','레이어드질감'],
-        shoe:'청키레더부츠', silhouette:'릴렉스', layerStyle:'울코트+면이너+코듀로이팬츠소재믹스' },
-      // [4] 핏 전문가 — 실루엣/비례 최적화
-      { voice:'핏 아키텍트', en:'Fit Architect',
-        palette:{outer:'#1C1C1E',top:'#F0EDE0',pants:'#4A5568',shoes:'#2A2A2A',accent:'#9B9B9B'},
-        designKws:['실루엣','비례','핏','구조적','라인','프로포션'],
-        shoe:'클린화이트스니커즈', silhouette:'테일러드슬림', layerStyle:'구조적자켓+스트레이트팬츠비율최적화' },
-      // [5] 데일리 스마트 — 캐주얼과 스마트의 균형
-      { voice:'데일리 스마트리스트', en:'Daily Smartist',
-        palette:{outer:'#4A5568',top:'#DBEAFE',pants:'#374151',shoes:'#4A3728',accent:'#93C5FD'},
-        designKws:['데일리','스마트캐주얼','균형','착용감','매일입을수있는','실용'],
-        shoe:'스웨이드더비', silhouette:'세미슬림', layerStyle:'그레이블레이저+스카이블루이너' },
-      // [6] 모노톤 스페셜리스트 — 단색 톤온톤 (의도적)
-      { voice:'톤온톤 마에스트로', en:'Tone-on-Tone Maestro',
-        palette:{outer:'#2D3748',top:'#4A5568',pants:'#718096',shoes:'#1A202C',accent:'#A0AEC0'},
-        designKws:['톤온톤','모노크롬','명도차','계층감','세련','미니멀리즘'],
-        shoe:'클린레더스니커즈', silhouette:'슬림', layerStyle:'그레이계열명도차레이어링' },
-      // [7] 레트로 모던 — 과거+현재 절충
-      { voice:'레트로 모더니스트', en:'Retro Modernist',
-        palette:{outer:'#5C4827',top:'#F0EDE0',pants:'#3A4A5A',shoe:'#4A3728',accent:'#C8A000'},
-        designKws:['레트로','헤리티지','아카이브','클래식현대화','시대믹스','핀스트라이프'],
-        shoe:'브로그', silhouette:'클래식', layerStyle:'헤링본자켓+클래식팬츠현대적해석' },
-      // [8] 스포티 엘레강스 — 운동감+우아함
-      { voice:'스포티 엘레강트', en:'Sporty Elegant',
-        palette:{outer:'#1A202C',top:'#E2E8F0',pants:'#2D4A6A',shoes:'#1A1A1A',accent:'#60A5FA'},
-        designKws:['스포티','엘레강스','애슬레틱','테크소재','기능미','세련된스포츠'],
-        shoe:'프리미엄스니커즈', silhouette:'테이퍼드', layerStyle:'스포츠재킷+슬림조거팬츠' },
-      // [9] 어반 내추럴 — 도시적 자연미
-      { voice:'어반 내추럴리스트', en:'Urban Naturalist',
-        palette:{outer:'#4D5A38',top:'#E8D5B0',pants:'#6B5A3A',shoes:'#4A3728',accent:'#8B7A4A'},
-        designKws:['어스톤','자연','내추럴','유기적','친환경소재','미니멀어스'],
-        shoe:'레더첼시부츠', silhouette:'릴렉스', layerStyle:'어스톤아우터+내추럴이너레이어링' },
-      // [10] 트렌드 해석가 — 최신 트렌드의 현실적 적용
-      { voice:'트렌드 트랜슬레이터', en:'Trend Translator',
-        palette:{outer:'#374151',top:'#F9FAFB',pants:'#7C3AED',shoes:'#1F2937',accent:'#DDD6FE'},
-        designKws:['트렌드','현실적적용','시즌','포인트컬러','스테이트먼트','업데이트'],
-        shoe:'플랫폼스니커즈', silhouette:'오버사이즈', layerStyle:'뉴트럴톤에포인트컬러트렌드아이템' },
-    ],
-  };
+  // ── [2] (v60) 70 PERSONA_DB 제거 — 9,600 서버 스타일리스트로 일원화
+  // ─── 2026-05-12 KST · TJ 지시 (v60) ─── 페르소나 70개 삭제 ───
+  //   배경: 클라이언트 70 페르소나와 서버 9,600 스타일리스트가 따로 노는 이중 시스템.
+  //          70 페르소나가 palette/silhouette/layerStyle을 강제 박힘 (예: '터틀넥+슬림코트',
+  //          '슬림핏')하여 출력 다양성 압축. 매번 같은 비슷한 코디 반복 발생.
+  //   변경: 70 페르소나 완전 삭제 → 단일 generic placeholder.
+  //          페르소나 voice/팔레트/디자인키워드는 서버 응답으로 갱신
+  //          (S.codiStory ← r.codiStory, S.categoryKeywords ← r.categoryKeywords).
+  //          이 placeholder는 서버 응답 도착 전 화면 초기 표시 fallback 역할만.
+  //   주의: TPO 매핑(tpoKey)은 아래 accessory(bag/watch/socks)에서 사용되므로 유지.
 
   // TPO 매핑
   const tpoKey = (()=>{
@@ -3313,11 +3045,20 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     if(pk==='overseasTrip') return 'overseasTrip';
     return 'custom';
   })();
-  const personas = PERSONA_DB[tpoKey] || PERSONA_DB.commute;
 
-  // ── [3] 다시코디: seed % personas.length로 TPO 내 다른 페르소나 순환
-  const personaIdx = sd % personas.length;
-  const persona = personas[personaIdx];
+  // ── [3] (v60) 단일 generic persona — 서버 응답 도착 전 placeholder
+  //   다시코디(seed)는 서버 측 9,600 스타일리스트가 처리 (stylist_matching_engine.py)
+  //   페르소나 voice/팔레트/스토리는 서버 응답으로 화면 갱신됨
+  const personaIdx = 0;  // 호환성 유지 (SPEC.seedOffset 참조)
+  const persona = {
+    voice:       'AI 스타일리스트',
+    en:          'AI Stylist',
+    palette:     { outer:'#1E3A5F', top:'#F0EEE9', pants:'#2D3748', shoes:'#1A202C', accent:'#C5A358' },
+    designKws:   ['모던','세련','균형','자연스러운','실용적','클래식'],
+    shoe:        '레더 슈즈',
+    silhouette:  '레귤러',
+    layerStyle:  '클래식 레이어드',
+  };
 
   // ── [4] AI 스타일리스트 대규모 풀 (수천 명)
   // 이름 풀 (100명) × 도시 풀 자동 조합 → TPO별 고유 이름 선정
