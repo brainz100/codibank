@@ -494,16 +494,28 @@ def _build_body_type_prompt(gender, body_type_key):
     info = _get_body_type_info(gender, body_type_key)
     if not info:
         return ""
+    # ─── 2026-05-12 KST · TJ 지시 (v60) ─── L1/L2/L3 구조 적용 ───
+    #   배경: 사용자 보고 — 체형별 dont_style(예: 남성 trapezoid '오버사이즈',
+    #         inverted_triangle '스키니진')이 결과 이미지에 종종 나타남.
+    #         원인: 이전 "Avoid style" / "AVOID 'dont_style'" 표현이 약함.
+    #   L1 (절대 제약): dont_style = ABSOLUTE FORBIDDEN, 위반 시 generation rejection
+    #   L2 (가이드):   do_style = inspiration only, AI 자율 변형 허용
+    #   L3 (AI 자율): 그 외 모든 선택 (실루엣, 핏, 디테일)
     lines = [
         "",
         "BODY TYPE PROFILE: " + info["label"] + " (" + info["en"] + ")",
         "  Feature: " + info["feature"],
-        "  Best color strategy: " + info["best_color"],
-        "  Avoid color strategy: " + info["worst_color"],
-        "  Recommended style: " + info["do_style"],
-        "  Avoid style: " + info["dont_style"],
-        "  IMPORTANT: Apply these body type rules when generating the outfit image.",
-        "  The outfit MUST follow 'do_style' and AVOID 'dont_style' silhouettes.",
+        "  Best color (INSPIRATION — AI may freely vary): " + info["best_color"],
+        "  ⛔ Avoid color (ABSOLUTE FORBIDDEN): " + info["worst_color"],
+        "  Style suggestion (INSPIRATION — AI may freely choose other compatible styles): " + info["do_style"],
+        "  ⛔ FORBIDDEN STYLE (ABSOLUTE — these MUST NOT appear in the generated image): " + info["dont_style"],
+        "",
+        "  CRITICAL PRIORITY RULES:",
+        "  1. The FORBIDDEN STYLE items above must NEVER appear in the output image, no exceptions.",
+        "  2. The forbidden items override all other styling preferences, keywords, and trends.",
+        "  3. If any forbidden item conflicts with other instructions, the FORBIDDEN STYLE wins.",
+        "  4. The style suggestion is inspiration only — AI is free to choose any other style",
+        "     that suits the purpose, weather, and body type, as long as forbidden items are avoided.",
     ]
     return "\n".join(lines)
 
@@ -557,11 +569,14 @@ def _build_body_profile_block(gender, age, height, weight, body_type_key, lang="
     lines.append("Physical: " + ", ".join(phys_parts) + ".")
 
     # 2) BMI 기반 실루엣 가이드 (암묵적 지시 대신 구체 지시)
+    # ─── 2026-05-12 KST · TJ 지시 (v60) ─── L2 가이드 톤 전환 ───
+    # 이전: "structured cuts maintain proportion" 등이 AI에 슬림핏 유도 신호
+    # 변경: 자율성을 살리되 극단(타이트/오버사이즈)만 회피하는 중립 톤
     bmi_guides = {
-        "slim":           "Slim build: avoid oversized/baggy silhouettes that swamp the frame. Subtle layering and structured cuts maintain proportion.",
-        "average":        "Average build: most silhouettes work; prioritize balanced proportions between top and bottom.",
-        "slightly heavy": "Slightly fuller build: straight or semi-fitted silhouettes work best. Avoid overly tight or overly baggy extremes that exaggerate volume.",
-        "heavier":        "Fuller build: vertical lines, darker tones on larger areas, and structured (not clingy, not voluminous) silhouettes flatter the frame.",
+        "slim":           "Slim build: balanced silhouettes work best — neither overly tight nor overly oversized. AI is free to choose any flattering proportion (regular fit, relaxed fit, or trendy oversized depending on purpose).",
+        "average":        "Average build: most silhouettes work. AI may freely choose any fit (regular, relaxed, oversized, or fashion-forward) that suits the purpose and weather.",
+        "slightly heavy": "Slightly fuller build: regular or relaxed silhouettes work best. Avoid only the extremes (skin-tight clingy or volume-exaggerating baggy).",
+        "heavier":        "Fuller build: comfortable regular or slightly relaxed silhouettes. Vertical lines and well-proportioned cuts work well. Avoid only clingy/skin-tight and overly voluminous extremes.",
     }
     if bmi_cat_en and bmi_guides.get(bmi_cat_en):
         lines.append("BMI-based silhouette guidance: " + bmi_guides[bmi_cat_en])
@@ -1498,9 +1513,16 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
         "covering ankle bone fully. Shoes visible below hem. FORBIDDEN: cropped/7/8/calf-length. "
         + ("RETRY: make pants VISIBLY LONGER — 2025-2026 KR trend is full-length with gentle drape. " if _is_retry_bp else "") +
         ""
-        "The trouser hem must be visible just above or touching the top of the shoes. "
+        # ─── 2026-05-12 KST · TJ 지시 (v60) ─── 바지 발목 덮음 강제 ───
+        # 이전: "trouser hem must be visible just above or touching the top of the shoes"
+        # 변경: 발목뼈 완전히 덮고 신발 위에 살짝 걸치는 길이 명확화
+        "⛔ PANTS LENGTH (CRITICAL — VIOLATION = REJECTION): "
+        "Trouser hem MUST FULLY COVER the ankle bone (medial/lateral malleolus). "
+        "Fabric MUST drape onto and slightly overlap the shoe top. "
+        "ABSOLUTELY FORBIDDEN: cropped, ankle-exposed, 7/8 length, capri, high-water, "
+        "any visible ankle skin between trouser hem and shoe. NO exceptions unless user explicitly requested. "
 
-        # ──── [2026-04-10 추가] 바지 핏 = 레귤러핏 기본 ────
+        # ──── [2026-04-10 추가 / v60 강화] 바지 핏 = 레귤러핏 기본 ────
         "[PANTS FIT — DEFAULT RULE]: Use REGULAR FIT (straight or slightly tapered) as the default pants silhouette. "
         "FORBIDDEN as default: slim fit, skinny fit, ultra-slim fit, spray-on tight fit. "
         "Slim/skinny fit is ONLY allowed when the user has EXPLICITLY requested it via custom input. "
@@ -2030,6 +2052,19 @@ def _ai_styling_via_gemini(
 
     gemini_prompt = (
         custom_directive + prompt + " "
+        # ─── 2026-05-12 KST · TJ 지시 (v60) ─── 바지 발목 덮음 최상단 강제 ───
+        # 사용자 보고: 남자 바지가 계속 슬림핏 + 발목 노출(7부/크롭) 기장으로 생성됨
+        # 이전: "Hem just above the shoe" — "just above"가 발목 노출 허용
+        # 변경: 발목뼈(malleolus)까지 완전히 덮고 신발에 살짝 걸치는 길이 명확화
+        #       최상단으로 이동 (이전엔 중간에 있어 우선순위 낮음)
+        "\n\n⛔ PANTS LENGTH (HIGHEST PRIORITY — VIOLATION = GENERATION REJECTION):\n"
+        "Trouser hem MUST FULLY COVER the ankle bone (both medial and lateral malleolus).\n"
+        "The fabric MUST drape onto and slightly overlap the shoe top — sock should be barely visible or hidden.\n"
+        "ABSOLUTELY FORBIDDEN as default: cropped pants, ankle-exposed pants, 7/8 length, "
+        "capri pants, high-water pants, hem above the ankle bone, any visible ankle skin "
+        "between the trouser hem and the shoe top.\n"
+        "Exception ONLY: when the user has EXPLICITLY requested cropped/ankle pants via custom input.\n"
+        "This rule applies to ALL genders, ALL purposes, ALL silhouettes, ALL temperatures — NO exceptions.\n\n"
         # ── 얼굴 보존 ── [2026-04-19 FACE] 재현 정확도 강화
         "IDENTITY PRESERVATION — HIGHEST PRIORITY: "
         "If a face reference image is provided, the FIRST image is that face. "
@@ -2061,7 +2096,7 @@ def _ai_styling_via_gemini(
         "Full body visible head to shoes. "
 
         # ── 바지/양말 ──
-        "PANTS: Full ankle-length only. Hem just above the shoe. Cropped/7-8 length FORBIDDEN. "
+        # [2026-05-12 v60] PANTS 규칙은 프롬프트 최상단으로 이동 (위 PANTS LENGTH 블록 참조)
         "SOCKS: Both feet IDENTICAL — same color and pattern. Mismatched FORBIDDEN. "
 
         # ── 스타일리스트 룰 ──

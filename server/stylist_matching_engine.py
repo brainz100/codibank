@@ -201,31 +201,36 @@ def get_main_sub_cities(user_location):
 # 2. BMI & 체형 분석
 # ═══════════════════════════════════════════════════
 def calculate_bmi(height_cm, weight_kg):
-    """BMI 계산 + 체형 분류 + 프롬프트 가이드"""
+    """BMI 계산 + 체형 분류 + 프롬프트 가이드
+    ─── 2026-05-12 KST · TJ 지시 (v60) ─── 슬림 유도 표현 완화 ───
+    이전: "slim and lean build, elongated silhouette, narrow shoulders" 같은 표현이
+          AI에 슬림핏 + 발목 노출 바지를 유도하는 경향.
+    변경: 중립적 신체 묘사만 남기고, 실루엣/핏 결정은 AI 자율에 맡김.
+    """
     if not height_cm or not weight_kg or height_cm < 100:
-        return {"bmi": 22, "category": "normal", "prompt": "average healthy build", "ko": "보통 체형"}
+        return {"bmi": 22, "category": "normal", "prompt": "average build, well-proportioned", "ko": "보통 체형"}
     
     h_m = height_cm / 100
     bmi = round(weight_kg / (h_m * h_m), 1)
     
     if bmi < 18.5:
         return {"bmi": bmi, "category": "underweight",
-                "prompt": f"slim and lean build (BMI {bmi}), elongated silhouette, narrow shoulders",
+                "prompt": f"slender build (BMI {bmi}), naturally lean frame",
                 "ko": "마른 체형",
                 "skirt_hint": "A-line or flared skirts to add volume, midi length recommended"}
     elif bmi < 23:
         return {"bmi": bmi, "category": "normal",
-                "prompt": f"balanced healthy build (BMI {bmi}), well-proportioned figure",
+                "prompt": f"average build (BMI {bmi}), well-proportioned figure",
                 "ko": "표준 체형",
                 "skirt_hint": "any skirt style works well, pencil or A-line, knee to midi length"}
     elif bmi < 25:
         return {"bmi": bmi, "category": "overweight",
-                "prompt": f"slightly full build (BMI {bmi}), medium frame with soft curves",
+                "prompt": f"slightly fuller build (BMI {bmi}), medium frame",
                 "ko": "약간 통통한 체형",
                 "skirt_hint": "A-line or wrap skirts for flattering fit, below-knee length preferred"}
     elif bmi < 30:
         return {"bmi": bmi, "category": "obese1",
-                "prompt": f"fuller build (BMI {bmi}), broad frame with rounded silhouette",
+                "prompt": f"fuller build (BMI {bmi}), broad frame",
                 "ko": "과체중 체형",
                 "skirt_hint": "structured A-line or midi wrap skirts, avoid tight pencil skirts, below-knee length"}
     else:
@@ -401,6 +406,7 @@ def build_styling_prompt(payload, fashion_db):
     temp_bucket = _get_temp_bucket(temp)
     
     # ── 여성 하의 타입 결정 ──
+    # ─── 2026-05-12 KST · TJ 지시 (v60) ─── 바지 발목 덮음 강제 통일 ───
     if gender_ko == "여성":
         bottom_type = get_bottom_type_for_women(retry_seed)
         if bottom_type == "skirt":
@@ -412,16 +418,22 @@ def build_styling_prompt(payload, fashion_db):
             )
         else:
             bottom_instruction = (
-                "BOTTOM: The woman wears well-fitted trousers or slacks. "
-                "Full ankle-length — FORBIDDEN: cropped, 7/8, calf-length. "
+                "⛔ BOTTOM (PANTS — HIGHEST PRIORITY): The woman wears well-fitted REGULAR FIT trousers. "
+                "Hem MUST FULLY COVER the ankle bone (medial/lateral malleolus) and slightly overlap the shoe top. "
+                "ABSOLUTELY FORBIDDEN: cropped, ankle-exposed, 7/8, capri, high-water, "
+                "any visible ankle skin between hem and shoe. "
+                "Slim/skinny fit FORBIDDEN unless user explicitly requested it. "
             )
     else:
         # [2026-04-19 BUGFIX #4] bottom_type 변수가 여성 분기에서만 정의되어
         # line 388 metadata 구성 시 NameError 위험 (현재 and 연산자 short-circuit으로 막혀있지만 취약)
         bottom_type = "pants"
         bottom_instruction = (
-            "BOTTOM: The man wears well-fitted trousers or slacks. "
-            "Full ankle-length — FORBIDDEN: cropped, 7/8, calf-length. "
+            "⛔ BOTTOM (PANTS — HIGHEST PRIORITY): The man wears well-fitted REGULAR FIT trousers. "
+            "Hem MUST FULLY COVER the ankle bone (medial/lateral malleolus) and slightly overlap the shoe top. "
+            "ABSOLUTELY FORBIDDEN: cropped, ankle-exposed, 7/8, capri, high-water, "
+            "any visible ankle skin between hem and shoe. "
+            "Slim/skinny fit FORBIDDEN unless user explicitly requested it. "
         )
     
     # ── 얼굴 사진 여부 ──
