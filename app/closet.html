@@ -7,6 +7,21 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-12 KST · TJ 지시 (v61) ─── [컬러 자율화 + 배경 6색 통일]
+  사용자 보고:
+  1) 퍼스널컬러 best 컬러가 여전히 바지에 자주 매칭됨
+  2) 배경 컬러를 사용자 명시 6색(화이트/그레이/다크그레이/라이트핑크/라이트블루/라이트베이지)으로
+  [변경 — closet.html line ~4948]
+  · _colorDirective의 paletteLabels.X 폴백 완전 제거
+  · 사용자가 categoryKeywords에 컬러 키워드 명시 안 했으면 빈 문자열 →
+    AI가 avoid_color 제외하고 자유롭게 상/하의 색 매칭
+  · 이전: paletteLabels (placeholder 고정 5색)이 항상 폴백으로 들어가 강제됨
+  [관련 서버 변경 — 동시 적용 (v61)]
+  · pc_prompt_helper.py: best palette → "Reference only LOOSE HINT",
+    상/하의 RANDOMIZE 명시 + ANTI-REPETITION 규칙 추가
+  · mock_backend.py BACKGROUND 3곳 통일:
+    화이트/라이트그레이/다크그레이/라이트핑크/라이트블루/라이트베이지 6색 + 대비 조건
+
 ─── 2026-05-12 KST · TJ 지시 (v60) ─── [70 PERSONA_DB 제거 — 9,600 서버 스타일리스트로 일원화]
   배경: 클라이언트의 70 페르소나(7 TPO × 10)와 서버의 9,600 스타일리스트가
         따로 노는 이중 시스템 → 출력 다양성 압축.
@@ -4944,13 +4959,22 @@ async function updateVTO(opts={}){
       const _outerType = Number.isFinite(_nt2) ? (_nt2<=7?'코트':_nt2<=15?'자켓':'가디건') : '자켓';
       // _colorDirective: S.categoryKeywords(SPEC 기반) 우선 사용
       // → updateVTO가 서버에 전달하는 컬러 지시문도 화면 포인트와 동일 소스
+      // ─── 2026-05-12 KST · TJ 지시 (v61) ─── palette 폴백 제거 ───
+      //   배경: 사용자 보고 — 퍼스널컬러 best 컬러가 바지에 자주 매칭됨
+      //   이전: 사용자가 categoryKeywords에 컬러 키워드 명시 안 했으면
+      //          paletteLabels(단일 placeholder의 고정 5색)이 폴백으로 들어가서
+      //          서버 prompt에 "하의 컬러: 다크차콜" 같이 강제로 박힘
+      //          → AI가 색 자율 결정 못 함 + 매번 비슷한 색 반복
+      //   변경: paletteLabels 폴백 완전 제거. 사용자가 색을 명시한 경우만
+      //          colorDirective에 포함. 명시 없으면 빈 문자열 →
+      //          AI가 avoid_color 제외하고 자유롭게 상/하의 색 매칭.
       const _ckw = S.categoryKeywords || {};
       const _colorDirective = [
-        _ckw.outer?.[0]  ? `${_outerType} 컬러: ${_ckw.outer[0]}`            : (paletteLabels.outer  ? `아우터 컬러: ${paletteLabels.outer}`  : ''),
-        _ckw.top?.[0]    ? `상의 컬러: ${_ckw.top[0]}`                       : (paletteLabels.top    ? `상의 컬러: ${paletteLabels.top}`    : ''),
-        _ckw.bottom?.[0] ? `하의 컬러: ${_ckw.bottom[0]}`                    : (paletteLabels.pants  ? `하의 컬러: ${paletteLabels.pants}`  : ''),
-        _ckw.shoes?.[0]  ? `신발: ${_ckw.shoes[0]} ${_ckw.shoes[1]||''}`.trim() : (paletteLabels.shoes ? `신발 컬러: ${paletteLabels.shoes}` : ''),
-        (_ckw.scarf?.[0] && _ckw.scarf[0]!=='포인트악세서리') ? `포인트: ${_ckw.scarf[0]}` : (paletteLabels.accent ? `포인트 컬러: ${paletteLabels.accent}` : ''),
+        _ckw.outer?.[0]  ? `${_outerType} 컬러: ${_ckw.outer[0]}`            : '',
+        _ckw.top?.[0]    ? `상의 컬러: ${_ckw.top[0]}`                       : '',
+        _ckw.bottom?.[0] ? `하의 컬러: ${_ckw.bottom[0]}`                    : '',
+        _ckw.shoes?.[0]  ? `신발: ${_ckw.shoes[0]} ${_ckw.shoes[1]||''}`.trim() : '',
+        (_ckw.scarf?.[0] && _ckw.scarf[0]!=='포인트악세서리') ? `포인트: ${_ckw.scarf[0]}` : '',
       ].filter(Boolean).join(', ');
       // ── 직접입력 텍스트에서 추가 키워드 추출
       const _customDirective = _customTxt
