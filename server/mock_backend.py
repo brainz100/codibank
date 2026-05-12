@@ -5,6 +5,56 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-12 KST · TJ 지시 (v66) ─── [코디핏 이미지 생성 → GPT Image 2 medium 전환]
+#   배경: v65 종합 픽스 후에도 결과 거의 동일 (사용자 보고)
+#   진짜 원인 (web search 검증):
+#     · `gemini-3.1-flash-image-preview`(Nano Banana 2 preview) 사용 중
+#     · Preview 모델은 instruction adherence 약함
+#     · 학습 편향 강해 generic 결과로 회귀
+#     · 분석 JSON 마커 무시 (로그 증거)
+#     · 얼굴 보존도 약함 (한국 잘생긴 남자 stereotype으로 변환)
+#   해결: OpenAI gpt-image-2 (2026.04.21 정식 출시) 전환
+#     · 얼굴 보존 압도적 우수 (블로그 evidence: 점/주름까지 보존)
+#     · Thinking mode로 지시 추종 강함 → STYLIST DNA 비로소 반영
+#     · 비용 21% 절감 (medium $0.053 vs Nano Banana 2 $0.067)
+#     · 단점: 응답 시간 +5초 (Gemini 20초 → GPT 25초)
+#   [변경 — 4 개 영역]
+#   1) _ENGINE_MODEL_MAP 확장 (line ~2901):
+#      · gpt_image_2_low/medium/high 3개 alias 추가 (모두 "gpt-image-2" 모델)
+#   2) _ENGINE_PROVIDER_MAP + _ENGINE_QUALITY_MAP 신규 추가:
+#      · provider: "gemini" | "openai" 구분
+#      · quality:  "low" | "medium" | "high" | None
+#   3) _ENGINE_SERVICE_DEFAULT 변경:
+#      · codifit: "flash_v2" → "gpt_image_2_medium" (TJ 선택)
+#      · tryon은 변경 없음 (Nano Banana Pro 그대로)
+#   4) _resolve_engine_full 헬퍼 함수 신규 추가:
+#      · (model, provider, quality) 동시 반환
+#      · 기존 _resolve_engine은 하위호환 위해 그대로 유지
+#   5) _ai_styling_via_gemini 함수에 GPT Image 2 분기 추가 (line ~2191):
+#      · provider == "openai" 시 OpenAI images.edit API 호출
+#      · 입력: face/top/bottom 이미지 파일 객체 리스트 (multipart)
+#      · 출력: response.data[0].b64_json → base64 디코드
+#      · 사이즈: 1536x768 (2:1 wide, 정+후면 layout)
+#      · prompt 30k chars 제한
+#      · Gemini 응답 파싱 skip (gpt_image_used flag)
+#      · GPT Image 2는 텍스트 안 줌 → 분석 JSON은 _generate_styling_analysis 폴백 사용
+#   6) 응답 model 식별자 변경:
+#      · "gemini:gemini-3.1-flash-image-preview" → "openai:gpt-image-2:medium"
+#   [환경변수 (Render 필수 설정)]
+#   · OPENAI_API_KEY="sk-proj-..." (필수, OpenAI API 키)
+#   · CODIBANK_GPT_IMAGE_SIZE="1536x768" (선택, 기본값)
+#   · CODIBANK_ALIAS_CODIFIT="flash_v2" (롤백용, 설정 시 기존 Gemini로 복귀)
+#   [효과 예상]
+#   · 얼굴 보존 50% → 95% (압도적 향상)
+#   · 다양성: stylist DNA 비로소 반영
+#   · 비용 21% 절감 ($0.067 → $0.053)
+#   · 응답 시간 +25% (~25초)
+#   [위험도 + 롤백]
+#   · 위험도: 중 (큰 변경이지만 외과적 — 기존 Gemini path 유지)
+#   · 롤백: Render 환경변수 CODIBANK_ALIAS_CODIFIT=flash_v2 추가 → 재배포 없이 즉시 복귀
+#   [TODO 추후]
+#   · 분석 JSON 별도 호출 추가 (현재 폴백만, Gemini Flash 텍스트 호출 추가하면 품질 향상)
+#
 # ─── 2026-05-12 KST · TJ 지시 (v65) ─── [Phase 1+2+4 종합 픽스 — 4 Pass 통합]
 #   사용자 보고: AI 스타일리스트가 매번 다른데 이미지는 거의 동일
 #   진단 결과 (Phase 1+2+4 분석):
@@ -2188,11 +2238,74 @@ def _ai_styling_via_gemini(
     ).upper().strip()
     if _resolved_tier not in ("FREE", "SILVER", "GOLD", "DIAMOND"):
         _resolved_tier = "FREE"
-    model_name = _resolve_engine(_resolved_tier, "codifit")
-    print(f"[CODIFIT] tier={_resolved_tier} → model={model_name}", flush=True)
+    # ─── 2026-05-12 KST · TJ 지시 (v66) ─── provider/quality 동시 조회 ───
+    model_name, _provider, _quality = _resolve_engine_full(_resolved_tier, "codifit")
+    print(f"[CODIFIT] tier={_resolved_tier} → provider={_provider}, model={model_name}, quality={_quality}", flush=True)
+
+    # ─── 2026-05-12 KST · TJ 지시 (v66) ─── GPT Image 2 분기 ───
+    # provider == "openai" 인 경우 OpenAI images.edit API 호출
+    # Gemini와 다른 점:
+    #   1. 이미지 출력만 (텍스트 분석 안 줌) → 분석 JSON은 별도 처리
+    #   2. 이미지 입력은 파일 객체 리스트 (multipart form-data)
+    #   3. response.data[0].b64_json으로 base64 이미지 추출
+    #   4. quality 파라미터 ('low'|'medium'|'high')
+    img_bytes = None
+    full_text = ""
+    gpt_image_used = (_provider == "openai" and model_name.startswith("gpt-image"))
 
     try:
-        if _SDK == "new":
+        if gpt_image_used:
+            # ── GPT Image 2 호출 path (v66 신규) ──
+            _openai_api_key = os.getenv("OPENAI_API_KEY")
+            if not _openai_api_key:
+                return jsonify(ok=False, error="OPENAI_API_KEY 미설정 — Render 환경변수에 추가 필요"), 500
+            
+            _gpt_client = OpenAI(api_key=_openai_api_key)
+            
+            # 파일 객체 준비 (BytesIO + name으로 OpenAI SDK 호환)
+            _image_files = []
+            for label, mime, raw in ordered_parts:
+                _img_io = io.BytesIO(raw)
+                # OpenAI SDK는 파일명 확장자로 mime 추론 → .png 또는 .jpg 명시 필요
+                _ext = "png" if "png" in (mime or "").lower() else "jpg"
+                _img_io.name = f"{label or 'ref'}.{_ext}"
+                _image_files.append(_img_io)
+            
+            # GPT Image 2는 prompt 32k chars 한계 → 안전하게 30k로 제한
+            _gpt_prompt = gemini_prompt[:30000] if len(gemini_prompt) > 30000 else gemini_prompt
+            
+            # 사이즈: 2:1 wide (정+후면 layout) — width/height 16의 배수
+            #   정확한 2:1: 1536x768 또는 2048x1024
+            #   medium quality에서는 1536x768이 비용/속도 최적
+            _gpt_size = os.getenv("CODIBANK_GPT_IMAGE_SIZE", "1536x768")
+            
+            try:
+                _gpt_response = _gpt_client.images.edit(
+                    model=model_name,             # "gpt-image-2"
+                    image=_image_files,
+                    prompt=_gpt_prompt,
+                    quality=_quality or "medium", # "low"|"medium"|"high"
+                    size=_gpt_size,
+                    n=1,
+                )
+            except Exception as _ge:
+                print(f"[ai_styling_gpt_image] 호출 실패: {type(_ge).__name__}: {str(_ge)[:300]}", flush=True)
+                return jsonify(ok=False, error=f"GPT Image 2 호출 실패: {str(_ge)[:300]}"), 500
+            
+            # 응답에서 base64 이미지 추출
+            try:
+                _b64 = _gpt_response.data[0].b64_json
+                img_bytes = base64.b64decode(_b64)
+                # GPT Image 2는 텍스트 분석 안 줌 → 폴백 활용
+                # 추후 별도 Gemini Flash 호출로 분석 JSON 생성 가능
+                full_text = ""
+                print(f"[ai_styling_gpt_image] ✅ 생성 완료: quality={_quality}, size={_gpt_size}, bytes={len(img_bytes)}", flush=True)
+            except (IndexError, AttributeError) as _pe:
+                return jsonify(ok=False, error=f"GPT Image 2 응답 파싱 실패: {_pe}"), 500
+            
+            # Gemini 호출 path skip — img_bytes/full_text 이미 채워짐
+        
+        elif _SDK == "new":
             contents = [gemini_prompt]
             for mime, raw in ordered_parts:
                 contents.append(_gtypes.Part.from_bytes(data=raw, mime_type=mime or "image/jpeg"))
@@ -2271,18 +2384,23 @@ def _ai_styling_via_gemini(
         return jsonify(ok=False, error=f"Gemini 호출 실패 ({_SDK}): {str(e)[:300]}", trace=_trace), 500
 
     # ── 응답에서 이미지 + 텍스트 추출 ──
-    img_bytes = None
-    full_text = ""
-    try:
-        for part in response.candidates[0].content.parts:
-            if part.inline_data and part.inline_data.data:
-                img_bytes = part.inline_data.data
-            elif part.text:
-                full_text += part.text
-    except (IndexError, AttributeError) as e:
-        return jsonify(ok=False, error=f"응답 파싱 실패: {str(e)[:200]}"), 500
+    # ─── 2026-05-12 KST · TJ 지시 (v66) ─── GPT Image 2 path는 이미 img_bytes 채움 ───
+    # GPT Image 2가 사용된 경우 img_bytes/full_text는 위에서 이미 추출됨 → 파싱 skip
+    if not gpt_image_used:
+        img_bytes = None
+        full_text = ""
+        try:
+            for part in response.candidates[0].content.parts:
+                if part.inline_data and part.inline_data.data:
+                    img_bytes = part.inline_data.data
+                elif part.text:
+                    full_text += part.text
+        except (IndexError, AttributeError) as e:
+            return jsonify(ok=False, error=f"응답 파싱 실패: {str(e)[:200]}"), 500
 
     if not img_bytes:
+        if gpt_image_used:
+            return jsonify(ok=False, error="GPT Image 2 이미지 미생성"), 500
         try:
             finish = response.candidates[0].finish_reason
         except Exception:
@@ -2380,7 +2498,7 @@ def _ai_styling_via_gemini(
         path=rel,
         url=f"{base}{rel}",
         explanation=short or "AI 코디 이미지 생성 완료!",
-        model=f"gemini:{model_name}",
+        model=f"{_provider}:{model_name}" + (f":{_quality}" if _quality else ""),
         cached=False,
         prompt=gemini_prompt if os.getenv("CODIBANK_DEBUG_PROMPT") == "1" else None,
         stylist=_stylist_response,
@@ -2901,6 +3019,30 @@ _ENGINE_MODEL_MAP = {
     "flash_v1": os.getenv("CODIBANK_MODEL_FLASH_V1", "gemini-2.5-flash-image"),        # Nano Banana 1 ($0.039)
     "flash_v2": os.getenv("CODIBANK_MODEL_FLASH_V2", "gemini-3.1-flash-image-preview"),# Nano Banana 2 ($0.067)
     "pro":      os.getenv("CODIBANK_MODEL_PRO",      "gemini-3-pro-image-preview"),    # Nano Banana Pro ($0.134)
+    # ─── 2026-05-12 KST · TJ 지시 (v66) ─── GPT Image 2 추가 ───
+    # 이유: Gemini Nano Banana 2(preview)의 다양성 부족 + 얼굴 보존 약함 한계
+    #       GPT Image 2는 얼굴 보존 압도적 우수 + Thinking mode로 지시 추종 강함
+    #       2026.04.21 OpenAI 정식 출시 (API 2026.05 초)
+    # 비용: medium 1024×1024 약 $0.053 (현재 flash_v2 $0.067 대비 21% 절감)
+    "gpt_image_2_low":    os.getenv("CODIBANK_MODEL_GPT_IMAGE_LOW",    "gpt-image-2"),  # $0.006/image
+    "gpt_image_2_medium": os.getenv("CODIBANK_MODEL_GPT_IMAGE_MEDIUM", "gpt-image-2"),  # $0.053/image (TJ 선택)
+    "gpt_image_2_high":   os.getenv("CODIBANK_MODEL_GPT_IMAGE_HIGH",   "gpt-image-2"),  # $0.211/image
+}
+
+# ─── 2026-05-12 KST · TJ 지시 (v66) ─── provider/quality 매핑 ───
+# 모델별 provider 구분 (Gemini vs OpenAI) + GPT Image 2 quality 옵션
+_ENGINE_PROVIDER_MAP = {
+    "flash_v1":           "gemini",
+    "flash_v2":           "gemini",
+    "pro":                "gemini",
+    "gpt_image_2_low":    "openai",
+    "gpt_image_2_medium": "openai",
+    "gpt_image_2_high":   "openai",
+}
+_ENGINE_QUALITY_MAP = {
+    "gpt_image_2_low":    "low",     # $0.006
+    "gpt_image_2_medium": "medium",  # $0.053 (TJ 기본)
+    "gpt_image_2_high":   "high",    # $0.211
 }
 
 # ─── 2026-04-22 17:05 KST (엔진 정책 단순화) ───────────────────────────
@@ -2912,9 +3054,17 @@ _ENGINE_MODEL_MAP = {
 # ────────────────────────────────────────────────────────────────────
 # 서비스별 고정 모델 (티어와 무관)
 # 구조: { 기능: 엔진별칭 }
+# ─── 2026-05-12 KST · TJ 지시 (v66) ─── 코디핏 → GPT Image 2 medium ───
+# 이전: codifit → flash_v2 (gemini-3.1-flash-image-preview) — 다양성/얼굴 보존 한계
+# 변경: codifit → gpt_image_2_medium (gpt-image-2, medium quality)
+#       · 얼굴 보존 압도적 우수 (블로그 evidence: 점/주름까지 보존)
+#       · Thinking mode로 지시 추종 강함 → STYLIST DNA 비로소 반영
+#       · 비용 21% 절감 ($0.067 → $0.053)
+#       · 단점: 속도 25초 (Gemini 20초 대비 +5초)
+# 롤백 안전망: Render 환경변수 CODIBANK_ALIAS_CODIFIT=flash_v2 설정 시 즉시 복귀
 _ENGINE_SERVICE_DEFAULT = {
-    "codifit": "flash_v2",   # Nano Banana 2 = gemini-3.1-flash-image-preview
-    "tryon":   "pro",         # Nano Banana Pro = gemini-3-pro-image-preview
+    "codifit": "gpt_image_2_medium",   # v66: GPT Image 2 medium ($0.053)
+    "tryon":   "pro",                   # Nano Banana Pro = gemini-3-pro-image-preview
 }
 
 # ─── 하위호환 유지: 기존 _ENGINE_MATRIX_DEFAULT 이름을 참조하는 코드가 있을 경우 대비 ───
@@ -2969,6 +3119,44 @@ def _resolve_engine(tier: str, feature: str) -> str:
     
     # 4. 최종 폴백
     return _CODISTYLE_MODEL
+
+
+# ─── 2026-05-12 KST · TJ 지시 (v66) ─── 헬퍼: provider + quality 동시 조회 ───
+def _resolve_engine_full(tier: str, feature: str) -> tuple:
+    """
+    모델 + provider + quality를 동시 반환 (v66 GPT Image 2 라우팅용).
+    
+    반환: (model_name: str, provider: str, quality: str|None)
+      - provider: "gemini" | "openai"
+      - quality:  "low" | "medium" | "high" | None (Gemini는 None)
+    
+    예시:
+      ("gpt-image-2", "openai", "medium")               # codifit 기본 (v66)
+      ("gemini-3-pro-image-preview", "gemini", None)    # tryon 기본
+    """
+    feature_low = (feature or "codifit").lower()
+    feature_up  = feature_low.upper()
+    
+    # alias 결정 (환경변수 우선)
+    env_alias = os.getenv(f"CODIBANK_ALIAS_{feature_up}")
+    if env_alias and env_alias in _ENGINE_MODEL_MAP:
+        alias = env_alias
+    else:
+        alias = _ENGINE_SERVICE_DEFAULT.get(feature_low, "flash_v2")
+    
+    # 환경변수 직접 모델 ID 우선
+    env_model = os.getenv(f"CODIBANK_MODEL_{feature_up}")
+    if env_model:
+        # 직접 모델 ID가 있으면 provider/quality 자동 추론
+        if env_model.startswith("gpt-image"):
+            return env_model, "openai", "medium"  # 기본 quality
+        return env_model, "gemini", None
+    
+    model = _ENGINE_MODEL_MAP.get(alias, _CODISTYLE_MODEL)
+    provider = _ENGINE_PROVIDER_MAP.get(alias, "gemini")
+    quality = _ENGINE_QUALITY_MAP.get(alias)  # Gemini는 None
+    return model, provider, quality
+
 
 def _get_engine_config_summary() -> dict:
     """
