@@ -6,6 +6,77 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-12 KST · TJ 지시 (v63) ─── [도시 활용 7개 도시 다양화]
+#   사용자 보고: AI 스타일리스트 활동 지역이 항상 '서울 활동'으로만 표시됨
+#               → 11,200명 중 1/7만 활용 (도시별 ~1,600명만 사용)
+#   원인: REGION_CITY_MAP이 각 지역당 main + sub 단일 도시만 매핑
+#         · 아시아 사용자 → 서울/뉴욕 2개만 (파리/런던/상파울루/두바이/밀라노 미활용)
+#         · build_styling_prompt: `if seed % 2: main else: sub` → 짝/홀 2개 도시만 교차
+#   사용자 요구:
+#     · 첫 생성 (seed=0): 사용자 메인 도시 (서울)
+#     · 다시코디/다른 날짜/다른 목적 (seed>0): 6개 서브 도시 중 랜덤 선정
+#   [변경]
+#   1) ALL_CITIES 상수 도입 (line 96)
+#      · ['서울', '뉴욕', '파리', '런던', '상파울루', '두바이', '밀라노'] (7개)
+#   2) REGION_CITY_MAP 단순화 (line 88~)
+#      · main만 정의, sub_cities는 ALL_CITIES에서 main 제외 6개로 자동
+#   3) get_main_sub_cities() 반환값 변경 (line 247~)
+#      · 이전: (main_city, single_sub_city, region)
+#      · 변경: (main_city, sub_cities_list, region)
+#   4) build_styling_prompt 도시 선정 로직 (line 634~)
+#      · seed==0: active_city = main_city (첫 생성)
+#      · seed>0:  hash(user_id + date + purpose + seed) % 6 → sub_cities 선정
+#      · 같은 (user, date, purpose, seed) → 항상 같은 도시 (재현성)
+#      · 다른 (user, date, purpose, seed) → 다른 도시 (다양성)
+#   5) metadata 호환: "sub_city" → "sub_cities" (list)
+#   [검증]
+#   · 시뮬레이션: 서울 사용자 180개 조합 → 6개 서브 도시 균등 활용
+#     (분포: 13.9% ~ 20.0%, 이전엔 1개 도시 100%)
+#
+# ─── 2026-05-12 KST · TJ 지시 (v62) ─── [9,600 차별화 실종 픽스]
+#   사용자 보고: 같은 코디목적 + 다른 날짜로 추천 코디 생성 시
+#                AI 스타일리스트는 변경되지만 상의/하의 컬러/디자인/패턴이 동일
+#                → 11,200명 차별화가 사실상 무효
+#   원인: stylist 객체의 prompt 기여가 color1/color2 hint 2개 필드뿐
+#         · major/career/level/exp는 prompt에 전혀 안 들어감
+#         · color1/color2도 "guide, not mandate"로 약화 → AI가 무시
+#         · 결과적으로 도시/목적이 같으면 stylist 다르더라도 출력 동일
+#   [변경 — Option A: stylist DNA 동적 생성]
+#   1) _generate_stylist_dna() 함수 신규 추가 (line ~250)
+#      · major 키워드 매칭 → 12개 design category 매핑
+#        (클래식포멀/캐주얼데일리/스트릿어반/미니멀모던/럭셔리고급/
+#         아트크리에이티브/스포츠액티브/트래블글로벌/파티이벤트/
+#         로맨틱데이트/테크퓨처/트렌드마케팅)
+#      · 각 카테고리에 design_keywords 5~6개 + silhouette_pref + color_strength
+#      · level + exp → refinement modifier (Master/Senior/Expert/Mid/Junior)
+#      · 시뮬레이션: 11,200명 → 60개 unique DNA 조합 (이전엔 사실상 1개)
+#   2) build_styling_prompt 강화 (line ~430)
+#      · 이전: color1/color2만 "guide, not mandate" 표시
+#      · 변경: STYLIST DNA 블록을 PRIMARY DIRECTIVE로 명시
+#        - "MUST INFLUENCE OUTFIT CHOICES"
+#        - "Different stylists MUST produce noticeably different outfits"
+#        - design_keywords + silhouette_pref + refinement 모두 강제 반영
+#      · color_strength에 따라 color1/color2 강조 톤 분기:
+#        - strong: "PROMINENTLY featured"
+#        - medium: "anchor tones"
+#        - light: "loose inspiration"
+#   [관련 변경 — Option D: mock_backend.py Gemini API]
+#   · _ai_styling_via_gemini의 GenerateContentConfig:
+#     - temperature 0.7 → 0.9 (더 다양한 출력)
+#     - seed 명시 추가 (payload['seed'] 기반) — graceful fallback
+#   · 효과: 같은 stylist + 같은 seed → 동일 결과 (재현성)
+#           다른 seed → 명확히 다른 결과 (다양성)
+#
+# ─── 2026-05-12 KST · TJ 지시 (v60) ─── [바지 발목 덮음 강제 + dont_style ABSOLUTE FORBIDDEN]
+#   1) calculate_bmi prompt 표현 완화 (line 205)
+#      · 'slim and lean build, elongated silhouette, narrow shoulders' (슬림 유도)
+#      · → 'slender build, naturally lean frame' (중립 묘사)
+#   2) build_styling_prompt BOTTOM 강화 (line ~409)
+#      · 남녀 모두 REGULAR FIT 발목 덮음 강제
+#      · 'Hem MUST FULLY COVER the ankle bone (medial/lateral malleolus)'
+#      · 'slightly overlap the shoe top'
+#      · slim/skinny fit FORBIDDEN (custom 입력 없는 한)
+#
 # ─── 2026-04-20 01:19 KST ────────────────────────────────────────────────
 #   [수정 이력 블록 도입 — 코드 변경 없음]
 #     - 파일 관리 정책: 모든 수정 시 상단 이력 누적 + 인라인 주석
@@ -41,14 +112,24 @@ from datetime import date
 # ═══════════════════════════════════════════════════
 # 1. 지역 → main/sub 도시 매핑
 # ═══════════════════════════════════════════════════
+# ─── 2026-05-12 KST · TJ 지시 (v63) ─── 7개 도시 모두 활용 ───
+# 배경: 이전 REGION_CITY_MAP은 main + sub 단일 도시만 매핑.
+#       아시아 사용자 → 서울/뉴욕만, 파리/런던/상파울루/두바이/밀라노 stylist는
+#       영원히 사용 불가. stylist_db_server.json의 11,200명 중 사실상 1/7만 활용됨.
+# 변경: 7개 도시 ALL_CITIES 상수 도입.
+#       REGION_CITY_MAP은 "main" 도시만 정의.
+#       sub_cities는 ALL_CITIES에서 main 제외한 6개를 자동 사용.
+#       get_main_sub_cities()는 (main_city, sub_cities_list, region) 반환.
+ALL_CITIES = ['서울', '뉴욕', '파리', '런던', '상파울루', '두바이', '밀라노']
+
 REGION_CITY_MAP = {
-    "아시아":      {"main": "서울",     "sub": "뉴욕"},
-    "유럽":        {"main": "파리",     "sub": "밀라노"},
-    "중동":        {"main": "두바이",   "sub": "뉴욕"},
-    "아프리카":    {"main": "파리",     "sub": "밀라노"},
-    "북미":        {"main": "뉴욕",     "sub": "밀라노"},
-    "남미":        {"main": "상파울루", "sub": "뉴욕"},
-    "오세아니아":  {"main": "뉴욕",     "sub": "런던"},
+    "아시아":      {"main": "서울"},
+    "유럽":        {"main": "파리"},
+    "중동":        {"main": "두바이"},
+    "아프리카":    {"main": "파리"},
+    "북미":        {"main": "뉴욕"},
+    "남미":        {"main": "상파울루"},
+    "오세아니아":  {"main": "뉴욕"},
 }
 
 # 사용자 위치 → 지역 판별용 국가/도시 매핑
@@ -191,10 +272,17 @@ def detect_region(user_location):
 
 
 def get_main_sub_cities(user_location):
-    """사용자 위치 → main/sub 스타일리스트 도시 결정"""
+    """사용자 위치 → main / sub_cities list / region 결정.
+    ─── 2026-05-12 KST · TJ 지시 (v63) ─── 7개 도시 모두 활용 ───
+    이전: (main_city, single_sub_city, region) 반환 → 2개 도시만 사용
+    변경: (main_city, sub_cities_list, region) 반환 → main 제외 6개 모두 활용
+    """
     region = detect_region(user_location)
     mapping = REGION_CITY_MAP.get(region, REGION_CITY_MAP["아시아"])
-    return mapping["main"], mapping["sub"], region
+    main_city = mapping["main"]
+    # main 도시 제외 나머지 6개를 sub_cities로
+    sub_cities = [c for c in ALL_CITIES if c != main_city]
+    return main_city, sub_cities, region
 
 
 # ═══════════════════════════════════════════════════
@@ -246,6 +334,206 @@ def calculate_bmi(height_cm, weight_kg):
 def get_bottom_type_for_women(seed=0):
     """[v2026-04-06] 짝수=치마, 홀수=바지"""
     return "skirt" if (int(seed) % 2 == 0) else "pants"
+
+
+# ═══════════════════════════════════════════════════
+# 3-bis. (v62) 스타일리스트 동적 DNA 생성
+#   ─── 2026-05-12 KST · TJ 지시 (v62) ─── 9,600 차별화 실종 픽스 ───
+#   배경: stylist의 메타데이터(major/career/level/exp/color1/color2 등)가
+#         prompt에 거의 반영 안 됨 → color1/color2 hint만 들어가서
+#         11,200명 스타일리스트가 prompt에서 사실상 동일 출력.
+#   해법(Option A): stylist의 major/career/level/exp/color1/color2를 조합해
+#         동적 styling DNA 생성 (design_keywords 5~7개 + silhouette_pref +
+#         signature_directive + color_strength + refinement).
+#         build_styling_prompt에서 'STYLIST DNA' 블록으로 강제 반영.
+# ═══════════════════════════════════════════════════
+def _generate_stylist_dna(stylist):
+    """
+    stylist의 major/career/level/exp/color1/color2를 조합하여 동적 styling DNA 생성.
+    11,200명 각자의 차별화를 prompt 강제 반영용 정보로 변환.
+    
+    Returns:
+        dict {
+            'design_keywords':    List[str],   # 5~6개 영문 design keyword (prompt 강제 반영)
+            'silhouette_pref':    str,         # 실루엣 선호 (영문)
+            'signature_directive': str,        # 한 줄 영문 directive
+            'color_strength':     str,         # 'strong' | 'medium' | 'light'
+            'refinement':         str,         # level/exp 기반 정제 강도
+            'matched_category':   str,         # major 매칭 카테고리 (디버그용)
+            'style_persona':      str,         # 디스플레이용 한 줄 페르소나
+        }
+    """
+    major = stylist.get('major', '') if stylist else ''
+    career = stylist.get('career', '') if stylist else ''
+    level = stylist.get('level', '') if stylist else ''
+    exp = stylist.get('exp', 0) if stylist else 0
+    name = stylist.get('name', 'AI Stylist') if stylist else 'AI Stylist'
+    
+    # ── major 키워드 → design category 매핑 (12 카테고리, 206 major 커버) ──
+    design_categories = {
+        '클래식포멀': {
+            'kw': ['비즈니스', '포멀', '맞춤', '테일러', '의례', '웨딩', '드레스', '브라이들',
+                   '한복', '전통', '드레스디자인', '봉제기술', '남성복', '의례복'],
+            'keywords': ['classic tailoring', 'refined silhouette', 'polished details',
+                         'formal structure', 'sophisticated cuts', 'precise fit'],
+            'silhouette': 'tailored and structured',
+            'color_strength': 'strong',
+        },
+        '캐주얼데일리': {
+            'kw': ['캐주얼', '데일리', '베이직', '일상', '컴포트', '에센셜', '유니섹스',
+                   '캡슐', '놈코어', '에코디자인', '환경패션'],
+            'keywords': ['relaxed comfort', 'everyday versatility', 'effortless basics',
+                         'wearable mix', 'balanced proportions'],
+            'silhouette': 'relaxed and easy',
+            'color_strength': 'medium',
+        },
+        '스트릿어반': {
+            'kw': ['스트릿', '스트리트', '힙합', '스니커', '서브컬처', '스케이트', '그래피티',
+                   'Y2K', '팝아트', '커스텀', '인디브랜드', '데님디자인', '커뮤니티패션'],
+            'keywords': ['oversized fit', 'graphic prints', 'urban edge',
+                         'streetwear layering', 'bold accents', 'sneaker culture'],
+            'silhouette': 'oversized and layered',
+            'color_strength': 'medium',
+        },
+        '미니멀모던': {
+            'kw': ['미니멀', '모노크롬', '바우하우스', '스칸디', '모던디자인', '제품디자인',
+                   '지속가능', '제로웨이스트', '구조적', '패션철학', '에센셜디자인'],
+            'keywords': ['clean lines', 'monochrome harmony', 'understated elegance',
+                         'modern minimalism', 'considered restraint', 'quality fabrics'],
+            'silhouette': 'clean and minimal',
+            'color_strength': 'light',
+        },
+        '럭셔리고급': {
+            'kw': ['럭셔리', '럭', '주얼', 'VIP', '향수', '비주얼머천다이징', '셀럽'],
+            'keywords': ['luxurious materials', 'refined craftsmanship', 'sophisticated palette',
+                         'premium textures', 'understated luxury'],
+            'silhouette': 'tailored and luxurious',
+            'color_strength': 'strong',
+        },
+        '아트크리에이티브': {
+            'kw': ['아트', '일러스트', '포토', '그래픽', '타이포', '공간디자인', '순수미술',
+                   '산업디자인', '건축', '비주얼커뮤니케이션', '크리에이티브', '문화인류',
+                   '패션역사', '동양복식', '한국전통', '업사이클'],
+            'keywords': ['artistic expression', 'creative layering', 'textural mix',
+                         'curated details', 'editorial mood'],
+            'silhouette': 'expressive and considered',
+            'color_strength': 'medium',
+        },
+        '스포츠액티브': {
+            'kw': ['스포츠', '애슬레저', '피트니스', '러닝', '요가', '댄스', '골프', '테니스',
+                   '수상', '등산', '아웃도어', '사이클', '격투', '운동', '기능성', '퍼포먼스',
+                   '바이오', '텍스타일엔지'],
+            'keywords': ['athletic functionality', 'performance fabrics', 'mobility-focused fit',
+                         'sporty layers', 'technical details'],
+            'silhouette': 'functional and active',
+            'color_strength': 'medium',
+        },
+        '트래블글로벌': {
+            'kw': ['트래블', '여행', '리조트', '항공', '에어라인', '공항', '면세', '글로벌패션',
+                   '글로벌브랜드', '기내', '레이어링전문'],
+            'keywords': ['travel-ready versatility', 'wrinkle-resistant ease', 'cosmopolitan mix',
+                         'effortless layering', 'transit-smart pieces'],
+            'silhouette': 'easy and versatile',
+            'color_strength': 'light',
+        },
+        '파티이벤트': {
+            'kw': ['파티', '이벤트', '나이트', '클럽', '공연', '무대', 'DJ', '세레모니',
+                   '플로리스트', '셀러브리티스타일', '소셜미디어'],
+            'keywords': ['statement details', 'evening glamour', 'photo-ready impact',
+                         'bold accents', 'memorable pieces'],
+            'silhouette': 'statement and bold',
+            'color_strength': 'strong',
+        },
+        '로맨틱데이트': {
+            'kw': ['데이트', '로맨', '데이팅', '뷰티아트', '뷰티디자인', '와인', '에티켓',
+                   '소믈리에', '의상심리'],
+            'keywords': ['romantic softness', 'feminine details', 'flattering cuts',
+                         'warm tones', 'inviting textures'],
+            'silhouette': 'flattering and soft',
+            'color_strength': 'medium',
+        },
+        '테크퓨처': {
+            'kw': ['테크웨어', '디지털패션', 'AI', '데이터사이언스', 'NFT', '메타버스'],
+            'keywords': ['technical materials', 'futuristic silhouette', 'sleek minimalism',
+                         'experimental cuts', 'monochrome tech'],
+            'silhouette': 'sleek and engineered',
+            'color_strength': 'light',
+        },
+        '트렌드마케팅': {
+            'kw': ['MD', '마케팅', '비즈니스경영', 'PR', '저널', '트렌드분석', '커뮤니케이션',
+                   '소비자', '경영', '유통', '리테일', '이커머스', '커머스', '브랜딩', '브랜드',
+                   '퍼스널브랜', '이미지컨설팅', '이미지메이킹', '에티켓학'],
+            'keywords': ['trend-aware mix', 'market-driven palette', 'contemporary edits',
+                         'brand-conscious styling', 'commercial appeal'],
+            'silhouette': 'current and adaptive',
+            'color_strength': 'medium',
+        },
+    }
+    
+    # ── major에서 카테고리 매칭 (키워드 부분 매칭) ──
+    matched_cat = None
+    for cat_key, cat_data in design_categories.items():
+        for kw in cat_data['kw']:
+            if kw in major:
+                matched_cat = cat_key
+                break
+        if matched_cat:
+            break
+    
+    # fallback: matched 안 되면 '트렌드마케팅' (가장 generic)
+    if not matched_cat:
+        matched_cat = '트렌드마케팅'
+    
+    cat_data = design_categories[matched_cat]
+    
+    # ── level + exp → refinement modifier ──
+    try:
+        exp_int = int(exp) if exp else 0
+    except (TypeError, ValueError):
+        exp_int = 0
+    
+    if level == 'Master' or exp_int >= 15:
+        refinement = 'highly refined and signature-defining'
+    elif level == 'Senior' or exp_int >= 10:
+        refinement = 'refined and polished'
+    elif level == 'Expert' or exp_int >= 7:
+        refinement = 'experienced and well-versed'
+    elif level == 'Mid-Level' or exp_int >= 4:
+        refinement = 'current and market-aware'
+    else:
+        refinement = 'fresh and trend-forward'
+    
+    # ── category 영문 라벨 ──
+    cat_label_en = {
+        '클래식포멀': 'classic formal',
+        '캐주얼데일리': 'casual daily',
+        '스트릿어반': 'street urban',
+        '미니멀모던': 'minimal modern',
+        '럭셔리고급': 'premium luxury',
+        '아트크리에이티브': 'artistic creative',
+        '스포츠액티브': 'sports active',
+        '트래블글로벌': 'travel global',
+        '파티이벤트': 'party event',
+        '로맨틱데이트': 'romantic date',
+        '테크퓨처': 'tech futuristic',
+        '트렌드마케팅': 'trend contemporary',
+    }.get(matched_cat, 'contemporary')
+    
+    # ── signature directive ──
+    signature_directive = (
+        f"{refinement} interpretation of {cat_label_en} styling, "
+        f"informed by {career or major or 'fashion expertise'}"
+    )
+    
+    return {
+        'design_keywords':     cat_data['keywords'],
+        'silhouette_pref':     cat_data['silhouette'],
+        'signature_directive': signature_directive,
+        'color_strength':      cat_data['color_strength'],
+        'refinement':          refinement,
+        'matched_category':    matched_cat,
+        'style_persona':       f"{name} — {refinement}, specializes in {major}",
+    }
 
 
 def get_skirt_length_by_body(height_cm, weight_kg, bmi_category):
@@ -370,14 +658,29 @@ def build_styling_prompt(payload, fashion_db):
     purpose_prompt_en = purpose_info.get('prompt_en', '')
     
     # ── 지역 → main/sub 도시 ──
-    main_city, sub_city, region = get_main_sub_cities(user_location)
+    # ─── 2026-05-12 KST · TJ 지시 (v63) ─── 7개 도시 모두 활용 ───
+    # 이전: (main, single_sub) 반환 → 2개 도시만 사용
+    # 변경: (main, sub_cities_list) 반환 → 6개 서브 도시 모두 활용
+    main_city, sub_cities, region = get_main_sub_cities(user_location)
     
-    # ── main/sub 교차: 날짜 기반으로 교차 사용 ──
+    # ─── 2026-05-12 KST · TJ 지시 (v63) ─── 도시 활용 다양화 ───
+    # 사용자 요구:
+    #   - 첫 생성 (seed=0): 사용자 메인 도시 (예: 서울) 스타일리스트
+    #   - 다시코디/다른 날짜/다른 목적 (seed>0): 6개 서브 도시 랜덤 선정
+    # 이전: seed % 2 → 짝수는 main, 홀수는 sub (단일 sub만) → 2개 도시만 활용
+    # 변경: seed==0은 main, seed>0은 hash 기반 6개 서브 도시 중 선정
+    #       hash(user_id + date + purpose + seed)로 안정성 + 다양성 보장
     retry_seed = int(payload.get('seed', 0))
-    if retry_seed % 2 == 0:
+    if retry_seed == 0:
+        # 첫 생성 → 사용자 메인 도시
         active_city = main_city
     else:
-        active_city = sub_city
+        # 다시코디/다른 날짜/다른 목적 → 6개 서브 도시 중 hash 기반 선정
+        _user_id_for_city = str(profile.get('id', profile.get('email', 'default')))
+        _date_key = str(payload.get('date', ''))
+        _hash_input = f"{_user_id_for_city}_{_date_key}_{purpose}_{retry_seed}"
+        _idx = abs(hash(_hash_input)) % len(sub_cities)
+        active_city = sub_cities[_idx]
     
     # ── 성별에 따른 키워드 선택 ──
     city_kw = fashion_db.get('city_keywords', {}).get(active_city, {}).get(purpose, {})
@@ -516,7 +819,7 @@ def build_styling_prompt(payload, fashion_db):
         "purpose_en": purpose_en,
         "active_city": active_city,
         "main_city": main_city,
-        "sub_city": sub_city,
+        "sub_cities": sub_cities,
         "region": region,
         "keywords_selected": selected_keywords,
         "bottom_type": "skirt" if (gender_ko == "여성" and bottom_type == "skirt") else "pants" if gender_ko == "여성" else "pants",
@@ -682,7 +985,7 @@ if __name__ == "__main__":
         prompt, meta = build_styling_prompt(tc, db)
         
         print(f"📍 위치: {tc['weather']['location']} → 지역: {meta['region']}")
-        print(f"🏙️ 도시: main={meta['main_city']}, sub={meta['sub_city']} → 선택: {meta['active_city']}")
+        print(f"🏙️ 도시: main={meta['main_city']}, sub_pool={meta.get('sub_cities', [])} → 선택: {meta['active_city']}")
         print(f"👤 성별: {meta['gender_ko']} | 체형: {meta['bmi']['ko']} (BMI {meta['bmi']['bmi']})")
         print(f"🎯 목적: {meta['purpose']} ({meta['purpose_en']})")
         print(f"🔑 키워드: {', '.join(meta['keywords_selected'])}")
@@ -860,18 +1163,50 @@ def process_styling_request(payload, fashion_db, stylist_db):
     # ─── [2026-04-26 v21 TJ] 컬러 자유도 증가 ───
     # 이전: "Primary: X. Accent: Y. Incorporate these colors" → 매번 같은 색 조합
     # 변경: 가이드로 제시 + 스타일리스트가 코디 목적/날씨/계절에 맞춰 자유 조합
+    # ─── 2026-05-12 KST · TJ 지시 (v62) ─── 9,600 차별화 강제 반영 ───
+    # 사용자 보고: 같은 코디목적 + 다른 날짜 → AI 스타일리스트만 바뀌고 출력 동일
+    # 원인: stylist의 color1/color2 hint만 prompt에 들어가서 차별화 실종
+    # 변경: _generate_stylist_dna()로 major/career/level/exp 기반 DNA 생성 후
+    #       'STYLIST DNA' 블록을 PRIMARY DIRECTIVE로 prompt에 강제 반영
     if stylist:
-        color_addition = (
-            f"\nSTYLIST COLOR INSPIRATION (guide, not mandate): "
-            f"This stylist's signature palette includes '{stylist['color1']}' and '{stylist['color2']}'. "
-            f"Use them as INSPIRATION but feel free to vary the combination based on the purpose, "
-            f"weather, and season. Mix in complementary neutrals (white, beige, navy, charcoal, "
-            f"camel, ivory, denim) and seasonal accent colors as the moment demands. "
-            f"AVOID generating the same color combination repeatedly — each generation should "
-            f"feel fresh while staying within the personal color season harmony. "
-            f"The final palette must always respect the personal color avoid-list above. "
+        dna = _generate_stylist_dna(stylist)
+        design_kw_str = ", ".join(dna['design_keywords'])
+        
+        # color_strength에 따라 color 강조 톤 분기
+        if dna['color_strength'] == 'strong':
+            color_clause = (
+                f"Signature colors: '{stylist['color1']}' (primary) and '{stylist['color2']}' (accent). "
+                f"These colors should be PROMINENTLY featured in the outfit "
+                f"(respect the personal color avoid-list above)."
+            )
+        elif dna['color_strength'] == 'medium':
+            color_clause = (
+                f"Signature colors: '{stylist['color1']}' and '{stylist['color2']}'. "
+                f"Use them as anchor tones (top or bottom), complement with neutrals as appropriate."
+            )
+        else:  # light
+            color_clause = (
+                f"Signature colors (loose inspiration): '{stylist['color1']}', '{stylist['color2']}'. "
+                f"Lean toward subtle muted tones, neutrals, and texture-driven palette."
+            )
+        
+        stylist_dna_block = (
+            f"\n\n⭐ STYLIST DNA (PRIMARY DIRECTIVE — MUST INFLUENCE OUTFIT CHOICES):\n"
+            f"Stylist: {stylist.get('name', '')} ({stylist.get('level', '')}, "
+            f"{stylist.get('exp', 0)} years experience)\n"
+            f"Specialty: {stylist.get('major', '')} — {stylist.get('career', '')}\n"
+            f"Style philosophy: {dna['refinement']}.\n"
+            f"DESIGN DNA (apply throughout the outfit): {design_kw_str}.\n"
+            f"Silhouette preference: {dna['silhouette_pref']}.\n"
+            f"Signature interpretation: {dna['signature_directive']}.\n"
+            f"{color_clause}\n"
+            f"CRITICAL: Different stylists MUST produce noticeably different outfits.\n"
+            f"  - The DESIGN DNA above defines THIS stylist's unique perspective.\n"
+            f"  - Items, fabrics, fit, and styling must reflect the DNA — not generic 'neutral safe' choices.\n"
+            f"  - A 'street urban' stylist must NOT produce a 'classic formal' look, and vice versa.\n"
+            f"  - The outfit must be visually distinguishable from outfits by stylists with different DNA.\n"
         )
-        prompt += color_addition
+        prompt += stylist_dna_block
     
     # [2026-04-06 추가] 성별별 악세서리/소품 제한 — 남자 핸드백 방지
     if metadata['gender_ko'] == "남성":

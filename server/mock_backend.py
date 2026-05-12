@@ -2211,13 +2211,34 @@ def _ai_styling_via_gemini(
                 contents.append(_gtypes.Part.from_bytes(data=raw, mime_type=mime or "image/jpeg"))
 
             client = _genai.Client(api_key=_GEMINI_KEY)
+            # ─── 2026-05-12 KST · TJ 지시 (v62) ─── seed + temperature 강화 ───
+            #   배경: 같은 stylist+seed면 같은 결과(재현성),
+            #          다른 seed면 다른 결과(다양성) — 9,600 차별화 보완
+            #   변경: temperature 0.7 → 0.9 (더 다양한 출력)
+            #          seed 명시 추가 (payload['seed'] 기반) — 다시코디 시 seed 변경되면
+            #          명확히 다른 결과 보장
+            _user_seed = 0
+            try:
+                _user_seed = int(payload.get("seed", 0) or 0)
+            except (TypeError, ValueError):
+                _user_seed = 0
+            try:
+                # seed 지원 시도
+                _gemini_config = _gtypes.GenerateContentConfig(
+                    response_modalities=["IMAGE", "TEXT"],
+                    temperature=0.9,
+                    seed=_user_seed,
+                )
+            except TypeError:
+                # seed 미지원 SDK 버전 폴백
+                _gemini_config = _gtypes.GenerateContentConfig(
+                    response_modalities=["IMAGE", "TEXT"],
+                    temperature=0.9,
+                )
             response = client.models.generate_content(
                 model=model_name,
                 contents=contents,
-                config=_gtypes.GenerateContentConfig(
-                    response_modalities=["IMAGE", "TEXT"],
-                    temperature=0.7,
-                ),
+                config=_gemini_config,
             )
         else:
             from PIL import Image as _PILImage
@@ -2228,16 +2249,34 @@ def _ai_styling_via_gemini(
             for mime, raw in ordered_parts:
                 contents_old.append(_PILImage.open(io.BytesIO(raw)))
 
+            # ─── 2026-05-12 KST · TJ 지시 (v62) ─── 구 SDK도 동일 패턴 ───
+            _user_seed_old = 0
             try:
+                _user_seed_old = int(payload.get("seed", 0) or 0)
+            except (TypeError, ValueError):
+                _user_seed_old = 0
+            try:
+                # seed + 0.9 temperature 시도
                 response = model.generate_content(
                     contents_old,
-                    generation_config={"response_modalities": ["IMAGE", "TEXT"], "temperature": 0.7},
+                    generation_config={
+                        "response_modalities": ["IMAGE", "TEXT"],
+                        "temperature": 0.9,
+                        "seed": _user_seed_old,
+                    },
                 )
             except TypeError:
-                response = model.generate_content(
-                    contents_old,
-                    generation_config=_genai_old.GenerationConfig(temperature=0.7),
-                )
+                # 구 SDK는 seed 미지원 가능 — temperature만
+                try:
+                    response = model.generate_content(
+                        contents_old,
+                        generation_config={"response_modalities": ["IMAGE", "TEXT"], "temperature": 0.9},
+                    )
+                except TypeError:
+                    response = model.generate_content(
+                        contents_old,
+                        generation_config=_genai_old.GenerationConfig(temperature=0.9),
+                    )
     except Exception as e:
         import traceback as _tb
         _trace = _tb.format_exc()[-400:]
