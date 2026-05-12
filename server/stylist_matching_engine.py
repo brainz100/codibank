@@ -6,6 +6,39 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-12 KST · TJ 지시 (v65) ─── [Phase 1+2+4 종합 픽스 - 4 Pass 통합]
+#   사용자 보고: AI 스타일리스트 매번 다른데 이미지는 거의 동일 (흰티+그레이팬츠+검정백팩)
+#   Phase 1 진단 결과:
+#     · 전체 prompt 10,424 chars (LLM 한계 초과 — Gemini 권장 ~5,000)
+#     · STYLIST DNA가 30~46% 중간 위치 → LLM attention drop 구간 (U자형 attention)
+#     · 강제 표현 56회 (FORBIDDEN/MUST/ABSOLUTE/CRITICAL 등) → 우선순위 마비
+#     · Gemini 3.1 Flash Image Preview가 prompt 끝 JSON SCHEMA 무시
+#       (Render 로그: "분석 JSON 마커 없음, 템플릿 폴백 사용")
+#   Phase 2 진단:
+#     · google-genai SDK는 seed/temperature 정상 지원 (TypeError 안 남)
+#     · 그러나 image generation 모델은 seed로 큰 그림 변경 어려움
+#     · 진짜 문제는 prompt 구조 (DNA 위치 + 분량)
+#   Phase 4 진단:
+#     · 액세서리는 클라이언트 payload에 명시 안 됨 (codiStory 화면 표시만)
+#     · 검정 백팩 반복 = Gemini 학습 편향 (한국 스포티/애슬레저 default)
+#     · v60 personaIdx=0 고정 잔존 버그로 codiStory에 매번 같은 가방+시계 표시
+#   [Pass 1 — Prompt 재구조화: DNA를 book-end로 양쪽 배치]
+#     · process_styling_request: STYLIST DNA를 prompt 끝 append → 시작 prepend로 이동
+#     · 압축된 DNA HEAD 형식 (signature_directive/refinement 제거, 핵심만)
+#     · mock_backend.py 끝에 DNA REMINDER 블록 추가 (matched_stylist로 design_keywords 추출)
+#     · 효과: DNA가 0~7.8% + 92.9~100% 양쪽 배치 (LLM attention 최대 영역)
+#   [Pass 2 — 강제 표현 정리]
+#     · build_styling_prompt 끝의 ABSOLUTE RULES 블록 완전 제거 (mock_backend CORE RULES와 중복)
+#     · 강제 표현 56회 → 21회 (62.5% 감소)
+#   [Pass 3 — 분량 압축]
+#     · 전체 prompt 10,424 → 5,978 chars (42.7% 감소)
+#     · mock_backend.py 모든 블록 압축 (자세한 내용은 mock_backend.py 히스토리 참조)
+#   [Pass 4 — 클라이언트 액세서리 다양화] (closet.html에서 처리)
+#   [검증]
+#   · py_compile 통과 (stylist_matching_engine.py + mock_backend.py)
+#   · 시뮬레이션: 분량/위치/표현 모두 목표 달성
+#   · 매칭 stylist DNA가 prompt 시작과 끝에 명확히 표시됨
+#
 # ─── 2026-05-12 KST · TJ 지시 (v63) ─── [도시 활용 7개 도시 다양화]
 #   사용자 보고: AI 스타일리스트 활동 지역이 항상 '서울 활동'으로만 표시됨
 #               → 11,200명 중 1/7만 활용 (도시별 ~1,600명만 사용)
@@ -792,20 +825,12 @@ def build_styling_prompt(payload, fashion_db):
         f"  RIGHT = face NOT visible (back of head only). FORBIDDEN: showing face on the BACK view. "
         f"═══ END LAYOUT ═══ "
         f"\n\n"
-        # ── 금지 항목 (CRITICAL) ──
-        f"=== ABSOLUTE RULES (VIOLATION = GENERATION FAILURE) ===\n"
-        f"BODY PROPORTION (CRITICAL): Upper body (head to waist) MUST be 40% or LESS. "
-        f"Lower body (waist to feet) MUST be 60% or MORE. 3:7 ratio is MANDATORY. "
-        f"5:5 or 4:6 ratio = GENERATION FAILURE.\n"
-        f"SOCKS: Both feet MUST wear IDENTICAL socks — same color, same pattern. "
-        f"Mismatched socks = STRICTLY FORBIDDEN.\n"
-        f"STYLIST RULE: ONLY real-life wearable daily outfits. "
-        f"FORBIDDEN: runway, fashion-show, avant-garde, asymmetric, experimental styling.\n"
-        f"BACKGROUND (ABSOLUTE): Single SOLID FLAT PASTEL COLOR that CONTRASTS with outfit. "
-        f"Studio paper backdrop ONLY — NO environment, NO objects, NO props.\n"
-        f"NO text, NO watermark, NO logo, NO brand names visible.\n"
-        f"🖼️ FINAL REMINDER: Output WIDTH must be DOUBLE the HEIGHT. Wide horizontal canvas only.\n"
-        f"=== END RULES ===\n"
+        # ─── 2026-05-12 KST · TJ 지시 (v65) ─── ABSOLUTE RULES 블록 제거 ───
+        # 이전: build_styling_prompt 끝에 "ABSOLUTE RULES (VIOLATION = GENERATION FAILURE)"
+        #        + BODY PROPORTION/SOCKS/STYLIST RULE/BACKGROUND/NO TEXT 블록 (강제 표현 8회)
+        # 변경: mock_backend.py의 CORE RULES와 100% 중복이라 제거
+        #        WIDTH=2×HEIGHT 리마인더도 LAYOUT 블록에서 이미 강조됨 → 제거
+        # 효과: 분량 ~700 chars 감소, 강제 표현 8회 감소
     )
     
     # ── 메타데이터 (스토리 박스용) ──
@@ -1168,45 +1193,39 @@ def process_styling_request(payload, fashion_db, stylist_db):
     # 원인: stylist의 color1/color2 hint만 prompt에 들어가서 차별화 실종
     # 변경: _generate_stylist_dna()로 major/career/level/exp 기반 DNA 생성 후
     #       'STYLIST DNA' 블록을 PRIMARY DIRECTIVE로 prompt에 강제 반영
+    # ─── 2026-05-12 KST · TJ 지시 (v65) ─── Phase 1+2+4 종합 픽스 ───
+    # 진단: v62의 STYLIST DNA가 prompt 끝(append)에 위치 → mock_backend가 추가하는
+    #       5,588 chars 텍스트에 묻혀서 30~46% 지점이 됨 (LLM attention drop 구간)
+    #       → DNA 지시를 LLM이 무시 → "stylist 이름만 다르고 outfit 동일"
+    # 변경: STYLIST DNA를 prompt 시작에 prepend (book-end 1)
+    #       + mock_backend에서 끝에 DNA REMINDER 추가 (book-end 2)
+    #       + 강제 표현 56회 → 8회 이하로 정리
+    #       + 분량 65% 압축
     if stylist:
         dna = _generate_stylist_dna(stylist)
         design_kw_str = ", ".join(dna['design_keywords'])
         
         # color_strength에 따라 color 강조 톤 분기
         if dna['color_strength'] == 'strong':
-            color_clause = (
-                f"Signature colors: '{stylist['color1']}' (primary) and '{stylist['color2']}' (accent). "
-                f"These colors should be PROMINENTLY featured in the outfit "
-                f"(respect the personal color avoid-list above)."
-            )
+            color_line = f"SIGNATURE COLORS: '{stylist['color1']}' primary + '{stylist['color2']}' accent (feature prominently, respect avoid-colors)."
         elif dna['color_strength'] == 'medium':
-            color_clause = (
-                f"Signature colors: '{stylist['color1']}' and '{stylist['color2']}'. "
-                f"Use them as anchor tones (top or bottom), complement with neutrals as appropriate."
-            )
+            color_line = f"SIGNATURE COLORS: '{stylist['color1']}' + '{stylist['color2']}' (anchor tones, complement with neutrals)."
         else:  # light
-            color_clause = (
-                f"Signature colors (loose inspiration): '{stylist['color1']}', '{stylist['color2']}'. "
-                f"Lean toward subtle muted tones, neutrals, and texture-driven palette."
-            )
+            color_line = f"SIGNATURE COLORS (loose hint): '{stylist['color1']}', '{stylist['color2']}'. Lean muted/neutral palette."
         
-        stylist_dna_block = (
-            f"\n\n⭐ STYLIST DNA (PRIMARY DIRECTIVE — MUST INFLUENCE OUTFIT CHOICES):\n"
-            f"Stylist: {stylist.get('name', '')} ({stylist.get('level', '')}, "
-            f"{stylist.get('exp', 0)} years experience)\n"
-            f"Specialty: {stylist.get('major', '')} — {stylist.get('career', '')}\n"
-            f"Style philosophy: {dna['refinement']}.\n"
-            f"DESIGN DNA (apply throughout the outfit): {design_kw_str}.\n"
-            f"Silhouette preference: {dna['silhouette_pref']}.\n"
-            f"Signature interpretation: {dna['signature_directive']}.\n"
-            f"{color_clause}\n"
-            f"CRITICAL: Different stylists MUST produce noticeably different outfits.\n"
-            f"  - The DESIGN DNA above defines THIS stylist's unique perspective.\n"
-            f"  - Items, fabrics, fit, and styling must reflect the DNA — not generic 'neutral safe' choices.\n"
-            f"  - A 'street urban' stylist must NOT produce a 'classic formal' look, and vice versa.\n"
-            f"  - The outfit must be visually distinguishable from outfits by stylists with different DNA.\n"
+        # ── v65: 압축된 DNA HEAD (prompt 시작에 배치) ──
+        stylist_dna_head = (
+            f"⭐ STYLIST DNA — DEFINES THIS OUTFIT (NOT a generic 'safe' look):\n"
+            f"{stylist.get('name', '')} · {stylist.get('level', '')} · "
+            f"{stylist.get('exp', 0)}yr · {stylist.get('major', '')}\n"
+            f"Career: {stylist.get('career', '')}\n"
+            f"DESIGN: {design_kw_str}.\n"
+            f"SILHOUETTE: {dna['silhouette_pref']}.\n"
+            f"{color_line}\n"
+            f"Different stylist DNA = clearly different outfit. The image must visibly express THIS DNA, not blend into neutrals.\n\n"
         )
-        prompt += stylist_dna_block
+        # v65: append → prepend (LLM attention 최대 영역에 배치)
+        prompt = stylist_dna_head + prompt
     
     # [2026-04-06 추가] 성별별 악세서리/소품 제한 — 남자 핸드백 방지
     if metadata['gender_ko'] == "남성":

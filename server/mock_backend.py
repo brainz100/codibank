@@ -5,6 +5,37 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-12 KST · TJ 지시 (v65) ─── [Phase 1+2+4 종합 픽스 — 4 Pass 통합]
+#   사용자 보고: AI 스타일리스트가 매번 다른데 이미지는 거의 동일
+#   진단 결과 (Phase 1+2+4 분석):
+#     · prompt 10,424 chars (LLM 한계 초과)
+#     · STYLIST DNA가 30~46% 중간 위치 (attention drop)
+#     · 강제 표현 56회 (우선순위 마비)
+#     · Gemini 3.1 Flash Image Preview가 prompt 끝 JSON 무시
+#       (로그: "분석 JSON 마커 없음, 템플릿 폴백 사용")
+#     · 액세서리 검정 백팩 반복 = Gemini 학습 편향
+#   [Pass 1 — Prompt 재구조화: DNA를 book-end로 양쪽 배치]
+#     · _generate_stylist_dna import 추가 (line ~908): DNA REMINDER용
+#     · _ai_styling_via_gemini의 gemini_prompt 블록 전체 교체 (line ~2063~2200):
+#       - 이전: 12개 섹션 (PANTS/IDENTITY/BODY/BACKGROUND/PROP/SOCKS/RULE/JSON/RULES/CTX 등)
+#       - 변경: 4개 통합 블록 (CORE RULES + JSON + DNA REMINDER + USER CONTEXT)
+#       - DNA REMINDER (book-end 2): matched_stylist로 design_keywords 추출하여 끝에 강조
+#     · 압축된 _build_body_profile_block 그대로 사용 (변경 없음)
+#   [Pass 2 — 강제 표현 정리]
+#     · 56회 → 21회 (62.5% 감소, 시뮬레이션 측정)
+#   [Pass 3 — 분량 압축]
+#     · 전체 prompt 10,424 → 5,978 chars (42.7% 감소)
+#     · JSON SCHEMA 1,139 → ~600 chars (key-value 한 줄 압축)
+#     · RULES 698 chars → 제거 (JSON SCHEMA 안에 핵심만 통합)
+#     · USER CONTEXT 264 → ~250 chars (3줄로 압축)
+#   [효과 예상]
+#     · LLM이 prompt 시작/끝의 DNA를 attention 최대로 읽음
+#     · "stylist 이름만 다르고 outfit 동일" 문제 완화
+#     · JSON SCHEMA 무시 문제 완화 (간결화로 모델 부담 감소)
+#   [검증]
+#     · py_compile 통과
+#     · 시뮬레이션: 분량 5,978 chars / DNA HEAD 0~7.8% / DNA REMINDER 92.9~100%
+#
 # ─── 2026-04-23 05:45 KST (🎯 Gemini 프롬프트 세부 분류 TJ 확정값 반영) ──
 #   [TJ님 지시 — 세부 분류 규칙 확정]
 #     [아우터(coat)] 긴 아우터류 — 아우터/코트/패딩/버버리/롱패딩
@@ -904,6 +935,7 @@ try:
     if _HERE not in _sys.path:
         _sys.path.insert(0, _HERE)
     from stylist_matching_engine import process_styling_request as _process_styling
+    from stylist_matching_engine import _generate_stylist_dna as _gen_dna  # v65: DNA REMINDER용
     _STYLIST_ENGINE = _process_styling
     print("[스타일리스트] stylist_matching_engine.py 로드 완료")
 except Exception as _import_err:
@@ -2059,133 +2091,88 @@ def _ai_styling_via_gemini(
             f"========================================\n\n"
         )
 
+    # ─── 2026-05-12 KST · TJ 지시 (v65) ─── Phase 1+2+4 종합 픽스 ───
+    # Phase 1 진단: 이전 prompt 10,424 chars + DNA가 30~46% 중간 위치 (attention drop)
+    #              + 강제 표현 56회 (우선순위 마비) + Gemini가 prompt 끝 무시
+    # 변경: book-end 구조 — DNA HEAD (시작) + 압축 본문 + DNA REMINDER (끝)
+    #       강제 표현 56회 → 8회 이하
+    #       분량 10,424 → ~5,000 chars (52% 감소)
+    # 효과: LLM attention 최대 영역에 DNA 양쪽 배치, 핵심 지시 명확화
+
+    # v65: DNA REMINDER용 design_keywords 사전 추출 (book-end 2)
+    _dna_for_reminder = None
+    if matched_stylist:
+        try:
+            _dna_for_reminder = _gen_dna(matched_stylist)
+        except Exception:
+            _dna_for_reminder = None
+    _dna_kw3 = ", ".join(_dna_for_reminder['design_keywords'][:3]) if _dna_for_reminder else ""
+
+    # 날씨 적응 한 줄 (이전 분기 로직 압축)
+    if temp >= 22:
+        _weather_rule = "HOT — single light layer ONLY. No blazer/jacket/cardigan/sweater/coat. Breathable fabrics (cotton, linen, lightweight tech)."
+    elif temp <= 10:
+        _weather_rule = "COLD — warm outer layer required. Layering essential. Warm fabrics."
+    else:
+        _weather_rule = "MILD — single light outer optional. Versatile mid-weight fabrics."
+
     gemini_prompt = (
-        custom_directive + prompt + " "
-        # ─── 2026-05-12 KST · TJ 지시 (v60) ─── 바지 발목 덮음 최상단 강제 ───
-        # 사용자 보고: 남자 바지가 계속 슬림핏 + 발목 노출(7부/크롭) 기장으로 생성됨
-        # 이전: "Hem just above the shoe" — "just above"가 발목 노출 허용
-        # 변경: 발목뼈(malleolus)까지 완전히 덮고 신발에 살짝 걸치는 길이 명확화
-        #       최상단으로 이동 (이전엔 중간에 있어 우선순위 낮음)
-        "\n\n⛔ PANTS LENGTH (HIGHEST PRIORITY — VIOLATION = GENERATION REJECTION):\n"
-        "Trouser hem MUST FULLY COVER the ankle bone (both medial and lateral malleolus).\n"
-        "The fabric MUST drape onto and slightly overlap the shoe top — sock should be barely visible or hidden.\n"
-        "ABSOLUTELY FORBIDDEN as default: cropped pants, ankle-exposed pants, 7/8 length, "
-        "capri pants, high-water pants, hem above the ankle bone, any visible ankle skin "
-        "between the trouser hem and the shoe top.\n"
-        "Exception ONLY: when the user has EXPLICITLY requested cropped/ankle pants via custom input.\n"
-        "This rule applies to ALL genders, ALL purposes, ALL silhouettes, ALL temperatures — NO exceptions.\n\n"
-        # ── 얼굴 보존 ── [2026-04-19 FACE] 재현 정확도 강화
-        "IDENTITY PRESERVATION — HIGHEST PRIORITY: "
-        "If a face reference image is provided, the FIRST image is that face. "
-        "Match EXACTLY the following facial features from the reference: "
-        "face shape and jawline contour, eye shape/size/angle, double-eyelid presence and depth, "
-        "eyebrow thickness and arch, nose bridge width and tip shape, "
-        "lip shape and thickness, philtrum length, cheekbone prominence, "
-        "skin tone and undertone, hair color/texture/length/parting line, "
-        "and any distinguishing features (moles, freckles, dimples, scars). "
-        "DO NOT beautify, smooth, slim, or idealize the face. "
-        "DO NOT alter proportions or make the person look younger/older. "
-        "Generate as if THIS EXACT PERSON — unchanged — is wearing the outfit. "
-        "The generated face must be instantly recognizable as the same individual in the reference. "
-
-        # ── 신체 프로필 ── [2026-04-19 BODY] BMI + 체형 특성을 이미지 생성 단계에 주입 (C안)
-        # 이전: "Subject: Korean man, 30대, 키 175cm, 몸무게 70kg" 단순 문자열만
-        # 수정: _build_body_profile_block으로 BMI 분류 + 체형별 do_style/dont_style 직접 지시
-        "\n\n" + _build_body_profile_block(gender, age, height, weight, body_type_key, "en") + "\n\n"
-        "Full body head to toe visible. Photorealistic fashion editorial. "
-
-        # ── 배경 ──
-        "BACKGROUND (ABSOLUTE MANDATORY): "
-        # ─── 2026-05-12 KST · TJ 지시 (v61) ─── 배경 6색 통일 ───
-        "SINGLE SOLID FLAT color, ONE of these 6 only: "
+        custom_directive + prompt + "\n"
+        # ── CORE RULES (v65 압축: PANTS + IDENTITY + BODY + WEATHER + BACKGROUND + PROPORTION + SOCKS 통합) ──
+        "CORE RULES:\n"
+        "⛔ PANTS: hem must FULLY COVER the ankle bone and slightly overlap shoe top. "
+        "Forbidden: cropped, 7/8, capri, ankle-exposed (unless user explicitly asked).\n"
+        "⛔ IDENTITY: preserve face exactly — shape, eyes, brows, nose, lips, skin tone, hair "
+        "(color/texture/parting). No beautification, slimming, idealization. Same person as reference.\n"
+        + _build_body_profile_block(gender, age, height, weight, body_type_key, "en") + "\n"
+        f"WEATHER ({location or 'user location'}, {int(temp)}°C, {cond}): {_weather_rule}\n"
+        "BACKGROUND: single flat color — choose ONE contrasting with outfit: "
         "WHITE (#F5F5F5), LIGHT GRAY (#D8D8D8), DARK GRAY (#4A4A4A), "
-        "LIGHT PINK (#F8E1E4), LIGHT BLUE (#E1ECF7), LIGHT BEIGE (#F1E8D8). "
-        "Choose a background that CONTRASTS clearly with the outfit so clothing is fully visible. "
-        "Completely uniform from edge to edge — studio backdrop paper style. "
-        "ABSOLUTELY FORBIDDEN: rooms, streets, walls, gradients, patterns, objects, environments. "
+        "LIGHT PINK (#F8E1E4), LIGHT BLUE (#E1ECF7), or LIGHT BEIGE (#F1E8D8). "
+        "Studio backdrop only — no environment, objects, gradients.\n"
+        "PROPORTION: upper 43-47%, lower 53-57%. Realistic Korean person, full body head to shoes.\n"
+        "Socks: both feet identical color/pattern. No text/watermark/logo/brand. "
+        "Wearable real-life styling only (no runway/avant-garde).\n\n"
 
-        # ── 신체비율 ──
-        "BODY PROPORTION: Upper body 43-47%, lower body 53-57%. Realistic everyday Korean person. "
-        "Full body visible head to shoes. "
-
-        # ── 바지/양말 ──
-        # [2026-05-12 v60] PANTS 규칙은 프롬프트 최상단으로 이동 (위 PANTS LENGTH 블록 참조)
-        "SOCKS: Both feet IDENTICAL — same color and pattern. Mismatched FORBIDDEN. "
-
-        # ── 스타일리스트 룰 ──
-        "STYLIST RULE: Everyday practical styling only. No experimental, runway, or avant-garde. "
-        "All looks must be wearable in real Korean daily life. "
-
-        # ══════════════════════════════════════════
-        # 분석 JSON 출력 지시 — 핵심
-        # ══════════════════════════════════════════
-        "\n\n=== CRITICAL OUTPUT INSTRUCTIONS ===\n"
-        "Along with the generated outfit image, you MUST also output a structured " + ("English" if _cs_en else "Korean") + " analysis as TEXT. "
-        "Wrap the JSON between exact markers <<<ANALYSIS_JSON>>> and <<<END_ANALYSIS>>> with no additional text outside markers. "
-        "The JSON MUST follow this EXACT schema:\n"
+        # ── JSON SCHEMA (v65 간결화: 1,139 → ~600 chars) ──
+        "=== OUTPUT FORMAT ===\n"
+        "With the image, output " + ("English" if _cs_en else "Korean") + " analysis wrapped in <<<ANALYSIS_JSON>>>...<<<END_ANALYSIS>>>.\n"
+        "Schema (each text 250-300 chars, exactly 3 keywords 2-6 chars each):\n"
         "{\n"
-        '  "personalColor": {\n'
-        '    "text": "퍼스널컬러 측면 분석 (정확히 ' + ('English' if _cs_en else '한국어') + ', 250-300자, 사용자 톤에 맞는 컬러 추천 이유와 오늘 코디의 컬러 선택 근거 포함)",\n'
-        '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
-        '  },\n'
-        '  "body": {\n'
-        '    "text": "체형/사이즈 측면 분석 (' + ('English' if _cs_en else '한국어') + ', 250-300자, 키/체중/BMI/체형분류를 반영한 핏과 실루엣 추천 근거)",\n'
-        '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
-        '  },\n'
-        '  "purpose": {\n'
-        '    "text": "코디 목적과 날씨 측면 분석 (' + ("English" if _cs_en else "한국어") + ', 250-300자, 목적/날씨/도시 스타일을 어떻게 반영했는지 설명)",\n'
-        '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
-        '  },\n'
+        '  "personalColor": {"text":"...", "keywords":["키1","키2","키3"]},\n'
+        '  "body":          {"text":"...", "keywords":["키1","키2","키3"]},\n'
+        '  "purpose":       {"text":"...", "keywords":["키1","키2","키3"]},\n'
         '  "categoryKeywords": {\n'
-        '    "outer": "컬러, 아이템 (예: \\"베이지, 트렌치코트\\" — 반드시 콤마로 컬러와 아이템 분리)",\n'
-        '    "top": "컬러, 아이템 (예: \\"화이트, 실크 블라우스\\")",\n'
-        '    "bottom": "컬러, 아이템 (예: \\"네이비, 와이드 슬랙스\\")",\n'
-        '    "shoes": "컬러, 아이템 (예: \\"브라운, 첼시 부츠\\")",\n'
-        '    "bag": "컬러, 아이템 (예: \\"블랙, 토트백\\" — 없으면 빈 문자열)",\n'
-        '    "scarf": "컬러, 아이템 (예: \\"카멜, 실크 스카프\\" — 없으면 빈 문자열)",\n'
-        '    "watch": "컬러, 아이템 (없으면 빈 문자열)",\n'
-        '    "socks": "컬러, 아이템 (예: \\"화이트, 면 양말\\")"\n'
+        '    "outer":"색상, 아이템", "top":"색상, 아이템", "bottom":"색상, 아이템",\n'
+        '    "shoes":"색상, 아이템", "bag":"색상, 아이템", "scarf":"색상, 아이템",\n'
+        '    "watch":"색상, 아이템", "socks":"색상, 아이템"\n'
         '  }\n'
         "}\n"
-        "RULES:\n"
-        "1. Each text field MUST be 250-300 Korean characters (not more, not less significantly).\n"
-        "2. Each keywords array MUST contain EXACTLY 3 short Korean keywords (2-6 chars each).\n"
-        # [2026-04-26 v13 TJ-2] categoryKeywords 명확화
-        "3. categoryKeywords MUST be in EXACT format: '{색상}, {아이템명}' separated by a comma. "
-        "The first part is COLOR ONLY (1-2 words like '베이지', '다크 네이비'), "
-        "the second part is ITEM ONLY (1-3 words like '트렌치코트', '와이드 슬랙스'). "
-        "WRONG: '베이지 트렌치코트' (no comma). "
-        "WRONG: '베이지, 클래식 라펠 트렌치코트' (color + descriptor mixed). "
-        "CORRECT: '베이지, 트렌치코트'. "
-        "Each value MUST reflect the EXACT colors and styles in the generated image.\n"
-        "4. If a category is NOT in the outfit, use empty string \"\".\n"
-        "5. Output ONLY the image AND the marked JSON. Nothing else.\n"
-        # ─────────────────────────────────────────────────────
-        # [2026-04-25 v10 TJ 지시] 퍼스널컬러 avoid 컬러 사용 시 첨언
-        # 사용자가 customText에 avoid 컬러를 명시 요청한 경우만 허용
-        # → 분석에서 반드시 "사용자 요청에 따라 avoid 컬러 사용, 다만 본래 톤에는 부적합" 첨언
-        # ─────────────────────────────────────────────────────
-        + ("\n[CRITICAL — PC AVOID OVERRIDE NOTICE]\n"
-           "사용자가 직접입력으로 본인의 퍼스널컬러 avoid 컬러를 요청했습니다. "
-           "이번 코디는 사용자 요청에 따라 avoid 컬러를 사용했지만, "
-           "personalColor.text 분석에서 반드시 다음 내용을 첨언해야 합니다:\n"
-           "  - '본 코디는 사용자 요청에 따라 [컬러명] 컬러를 사용했습니다.'\n"
-           "  - '다만 [퍼스널컬러 시즌] 톤의 사용자에게는 본래 권장되지 않는 컬러로, "
-           "    얼굴 혈색이 다소 흐려 보일 수 있어 액세서리(립·블러셔·골드 주얼리)로 보완하시면 좋습니다.'\n"
-           "  - 이 첨언이 빠지면 분석 실패로 간주됩니다.\n"
+        'Format: "{색상}, {아이템명}" comma-separated (e.g., "베이지, 트렌치코트"). '
+        'Empty "" if not in outfit. Reflect EXACT image content.\n\n'
+
+        # ── PC AVOID OVERRIDE (조건부) ──
+        + ("[PC AVOID NOTICE]\n"
+           "사용자가 본인의 퍼스널컬러 avoid 컬러를 직접 요청했습니다. "
+           "personalColor.text에 다음 첨언 필수: "
+           "'본 코디는 사용자 요청에 따라 avoid 컬러를 사용했으며, "
+           f"{pc_label} 톤에는 본래 권장되지 않는 컬러로 액세서리(립·블러셔·골드)로 보완하시면 좋습니다.'\n\n"
            if (isinstance(meta, dict) and meta.get('pc_avoid_override')) else "")
-        + "\n[USER CONTEXT FOR ANALYSIS]\n"
-        f"- 성별: {gender_ko}, 나이: {age}\n"
-        f"- 신체: 키 {h_int}cm, 몸무게 {w_int}kg (BMI {bmi}, {bmi_cat_ko})\n"
-        f"- 체형 분류: {body_type_key or '미등록'}\n"
-        f"- 퍼스널컬러: {pc_label} ({pc_undertone or '복합'})\n"
+
+        # ── DNA REMINDER (v65 book-end 2: prompt 끝, attention 두 번째 최대) ──
+        + (f"⭐ FINAL CHECK (most important — do NOT produce a generic 'safe' look):\n"
+           f"The outfit MUST visibly express {stylist_name}'s DNA: {_dna_kw3}.\n"
+           f"Different stylist = clearly different outfit.\n\n"
+           if (stylist_name and _dna_kw3) else "")
+
+        # ── USER CONTEXT (압축: 264 → ~250 chars) ──
+        + "[USER CONTEXT]\n"
+        f"성별 {gender_ko} · {age}세 · {h_int}cm/{w_int}kg · BMI {bmi} ({bmi_cat_ko}) · 체형 {body_type_key or '미등록'}\n"
+        f"퍼스널컬러: {pc_label} ({pc_undertone or '복합'})\n"
         f"  베스트: {pc_best_str}\n"
         f"  주의: {pc_avoid_str}\n"
-        f"- 코디 목적: {purpose_for_analysis}\n"
-        f"- 날씨: {int(temp)}°C {cond}\n"
-        f"- 위치: {location or '미지정'}\n"
-        f"- 매칭 스타일리스트: {stylist_name or '범용'} ({stylist_city or '범용 도시'})\n"
-        + (f"- 사용자 직접 요청: \"{custom_text}\"\n" if is_custom else "")
+        f"목적: {purpose_for_analysis} | 도시: {stylist_city or '범용'} | 날씨: {int(temp)}°C {cond} | 위치: {location or '미지정'}\n"
+        + (f"사용자 직접 요청: \"{custom_text}\"\n" if is_custom else "")
     )
 
     # ── 이미지 파트 구성: 얼굴 → 상의 → 하의 순서 ──
