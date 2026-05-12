@@ -19,6 +19,33 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-05-12 KST · TJ 지시 (v56) ─── [후면 토글 + 저장 알림 픽스]│
+  │   1) 후면 토글 미작동 → 작동                                       │
+  │      [원인] CSS scroll-snap-type:x mandatory + canvas의            │
+  │             scroll-snap-align:start 조합. canvas가 박스의 유일한   │
+  │             자식이므로 left=0(정면)이 유일한 snap point.          │
+  │             box.scrollTo({left: sw}) 실행해도 mandatory snap이     │
+  │             즉시 left=0으로 강제 복귀 → 후면 못 봄.                │
+  │             정면 토글은 이미 left=0이라 정상으로 보일 뿐.          │
+  │      [픽스] (CSS) scroll-snap-type: x mandatory → x proximity     │
+  │             명시적 scrollTo 위치는 보존됨. 가까울 때만 snap.       │
+  │             (JS) 토글 클릭 핸들러 강화:                            │
+  │             · 클릭 즉시 active 클래스 직접 동기화 (scroll 대기 X)  │
+  │             · ev.preventDefault + stopPropagation                  │
+  │             · scrollSnapType 일시 'none' → scroll → 700ms 후 복구  │
+  │             · smooth scroll 실패 시 scrollLeft 직접 할당 폴백      │
+  │             · 위치 검증 (smooth 도중 밀렸을 경우 재할당)           │
+  │   2) 이미지 저장 시스템 알림 미사라짐 → 알림 자체 회피             │
+  │      [원인] v55의 <a download> 자동 클릭 방식이 안드로이드 OS /    │
+  │             Samsung Internet의 시스템 다운로드 알림 카드 발생.    │
+  │             ("다운로드 1개 완료 (2.11MB) 열기")                    │
+  │             이 알림은 JS로 닫을 수 없고 X 버튼도 없음.            │
+  │      [픽스] saveTryonImage()에 Web Share API 우선 시도 추가:      │
+  │             · navigator.canShare({files}) 지원 시 navigator.share │
+  │               → 공유 시트 → "이미지로 저장" → 시스템 알림 발생 X  │
+  │             · AbortError(사용자 취소): 조용히 종료, 폴백 안 함    │
+  │             · 그 외 에러 / 미지원: <a download> 폴백 (데스크탑)   │
+  │             · '저장됐어요' 인앱 토스트만 2초 자동 사라짐          │
   │ ─── 2026-05-09 KST · TJ 지시 (v33) ─── [트라이온 → 코디앨범 자동 저장]│
   │   배경: 이전엔 코디핏 이미지만 코디앨범에 저장. 트라이온 누락.       │
   │   수정: _tryonApplyResult 끝에 album 저장 로직 추가                  │
@@ -1858,6 +1885,14 @@
    * v32: aspect-ratio 1/1.62 강제 (!important). max-height는 화면 매우 작을 때만 작동.
    *      예: 모바일 width 380 → height = 380 × 1.62 = 615.6px (portrait 1:1.62 보장)
    *      max-height: calc(100vh - 200px) — 매우 작은 화면(<800px)에서만 발동 */
+  /* ─── 2026-05-12 KST · TJ 지시 (v56) ─── 후면 토글 미작동 진짜 원인 픽스 ───
+   * BUG: scroll-snap-type:x mandatory + canvas 1개의 scroll-snap-align:start 조합
+   *      → canvas의 left=0(정면)이 유일한 snap point가 되어
+   *      → box.scrollTo({left: sw}) (후면 토글 클릭) 실행 시
+   *      → mandatory snap이 즉시 left=0으로 강제 복귀 → 후면이 보이지 않음
+   *      → 사용자에게 "후면 토글 작동 안 함"으로 보임
+   * FIX: mandatory → proximity 변경 — JS에서 명시적 scrollTo한 위치는 보존됨
+   *      가까울 때만 snap. 사용자가 손으로 살짝 스와이프하면 가까운 끝으로 정렬. */
   .csty-result-img-box{
     width:100% !important;
     aspect-ratio:1/1.62 !important;
@@ -1877,7 +1912,7 @@
       inset 0 -1px 0 rgba(0,0,0,0.3),
       0 8px 24px rgba(0,0,0,0.25);
     scroll-behavior:smooth;
-    scroll-snap-type:x mandatory;
+    scroll-snap-type:x proximity;  /* v56: mandatory → proximity (후면 토글 작동) */
     -webkit-overflow-scrolling:touch;
   }
   .csty-result-img-box::-webkit-scrollbar{height:0;width:0;display:none;}
@@ -4544,16 +4579,46 @@ function _tryonApplyResult(data){
                   if(hint && sx > 5) hint.classList.add('hidden');
                 }, {passive:true});
                 
-                // 토글 버튼 클릭 — 한 번 터치로 정/후면 즉시 이동
+                // ─── 2026-05-12 KST · TJ 지시 (v56) ─── 토글 클릭 강화
+                //   1) 클릭 즉시 active 클래스 직접 동기화 (scroll 이벤트 대기 안 함)
+                //   2) smooth scroll 시도 → 실패/미지원 시 scrollLeft 직접 할당
+                //   3) snap proximity로 변경됐지만, 혹시 mandatory가 살아있을 경우 대비
+                //      일시적으로 scroll-snap-type을 'none'으로 변경 후 scroll, 끝나면 복구
                 btns.forEach(function(b){
-                  b.addEventListener('click', function(){
+                  b.addEventListener('click', function(ev){
+                    ev.preventDefault();
+                    ev.stopPropagation();
                     var pose = b.dataset.pose;
+                    
+                    // [1] active 클래스 즉시 동기화
+                    btns.forEach(function(bb){ bb.classList.remove('active'); });
+                    b.classList.add('active');
+                    
+                    // [2] snap 일시 비활성화 (smooth scroll 안전 보장)
+                    var prevSnap = box.style.scrollSnapType;
+                    box.style.scrollSnapType = 'none';
+                    
+                    // [3] 목표 위치 계산
                     var sw = box.scrollWidth - box.clientWidth;
-                    if(pose === 'front'){
-                      box.scrollTo({ left: 0, behavior: 'smooth' });
-                    } else {
-                      box.scrollTo({ left: sw, behavior: 'smooth' });
+                    var targetLeft = (pose === 'front') ? 0 : sw;
+                    
+                    // [4] smooth scroll 시도 + 폴백
+                    try {
+                      box.scrollTo({ left: targetLeft, behavior: 'smooth' });
+                    } catch(e){
+                      box.scrollLeft = targetLeft;
                     }
+                    
+                    // [5] smooth scroll 완료 후 snap 복구 (proximity)
+                    //     smooth scroll 보통 300~500ms → 700ms 후 복구
+                    setTimeout(function(){
+                      box.style.scrollSnapType = prevSnap || '';
+                      // 위치 정확히 재확인 (smooth 도중에 다른 이벤트로 밀렸을 경우 대비)
+                      if(Math.abs(box.scrollLeft - targetLeft) > 5){
+                        box.scrollLeft = targetLeft;
+                      }
+                    }, 700);
+                    
                     if(hint) hint.classList.add('hidden');
                   });
                 });
@@ -5132,16 +5197,19 @@ async function _toJpegBlob(imgSrc, quality){
   });
 }
 
-// ─── 2026-05-09 KST · TJ 지시 (v55) ─── 이미지 저장 — 갤러리 자동 다운로드 ───
-//   목적: '공유' 버튼과 명확한 차별 — 사용자 추가 선택 없이 자동 저장.
+// ─── 2026-05-12 KST · TJ 지시 (v56) ─── 이미지 저장 — 시스템 알림 회피 ───
+//   배경: v55의 <a download> 방식이 안드로이드 OS/Samsung Internet의
+//         시스템 다운로드 알림 카드를 발생시킴 ("다운로드 1개 완료" + "열기")
+//         이 알림은 JS로 닫을 수 없고, 사용자가 swipe해야 사라짐.
+//   변경: 모바일에서 Web Share API + canShare({files}) 지원 시 navigator.share 사용
+//         → 공유 시트 표시 → 사용자가 "이미지로 저장" 선택 → 갤러리 저장
+//         → 시스템 다운로드 알림이 발생하지 않음
+//         미지원 환경(데스크탑 등)은 기존 <a download> 폴백
 //   동작:
-//     1) JPEG로 변환 (범용 호환성)
-//     2) <a download> 자동 클릭 → 다운로드 폴더로 저장 (Web Share API 사용 안 함!)
-//     3) 플랫폼별 안내 토스트 (Android/iOS/데스크탑)
-//   결과:
-//     • Android: /storage/emulated/0/Download/ → 갤러리 자동 인식
-//     • iOS: 파일 앱 → 다운로드 폴더 (사진 앱 자동 저장은 OS 제약상 불가)
-//     • 데스크탑: 브라우저 다운로드 폴더
+//     • Android Chrome/Samsung Internet (canShare 지원): 공유 시트 → 갤러리 저장
+//     • iOS Safari: 공유 시트 → "이미지 저장" → 사진 앱 저장
+//     • 데스크탑: <a download> → 다운로드 폴더
+//     • 사용자가 공유 시트 취소 (AbortError): 조용히 종료 (에러/토스트 없음)
 async function saveTryonImage(){
   var en = _isEn();
   var imgSrc = _getTryonResultImgUrl();
@@ -5156,7 +5224,7 @@ async function saveTryonImage(){
     // 1) JPEG로 변환
     var blob = await _toJpegBlob(imgSrc, 0.92);
     
-    // 2) 파일명 — 타임스탬프 (예: codibank_tryon_20260510_011803.jpg)
+    // 2) 파일명 — 타임스탬프
     var ts = new Date();
     var p2 = function(n){ return String(n).padStart(2,'0'); };
     var fname = 'codibank_tryon_' +
@@ -5164,7 +5232,32 @@ async function saveTryonImage(){
       p2(ts.getHours()) + p2(ts.getMinutes()) + p2(ts.getSeconds()) +
       '.jpg';
     
-    // 3) <a download> 자동 클릭 (Web Share API 사용 X — 공유 버튼과 차별)
+    // 3) Web Share API 우선 시도 — 시스템 다운로드 알림 회피
+    var file = new File([blob], fname, { type: 'image/jpeg' });
+    var canUseShare = (
+      typeof navigator !== 'undefined' &&
+      navigator.share &&
+      navigator.canShare &&
+      navigator.canShare({ files: [file] })
+    );
+    
+    if(canUseShare){
+      try {
+        await navigator.share({ files: [file] });
+        // 성공: 사용자가 공유 시트에서 "이미지로 저장" 또는 다른 앱 선택 완료
+        showToast(en ? 'Saved' : '저장됐어요', 2000);
+        return;
+      } catch(err){
+        // AbortError = 사용자가 공유 시트 취소 → 조용히 종료 (의도된 취소)
+        if(err && err.name === 'AbortError') {
+          return;
+        }
+        // 그 외 에러는 폴백으로 진행
+        console.warn('[TryOn Save] navigator.share failed, fallback:', err);
+      }
+    }
+    
+    // 4) 폴백 — <a download> (데스크탑 / Web Share 미지원 환경)
     var blobUrl = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = blobUrl;
@@ -5175,21 +5268,21 @@ async function saveTryonImage(){
     document.body.removeChild(a);
     setTimeout(function(){ URL.revokeObjectURL(blobUrl); }, 3000);
     
-    // 4) 플랫폼별 안내 토스트
+    // 5) 폴백 환경 안내 토스트
     var ua = navigator.userAgent || '';
     var isIOS = /iPad|iPhone|iPod/.test(ua);
     var isAndroid = /Android/i.test(ua);
     
     if(isIOS){
       showToast(en
-        ? 'Saved to Files → Downloads. To add to Photos, open Files app.'
-        : '파일 앱 → 다운로드 폴더에 저장됐어요.\n사진 앱에 추가하려면 파일 앱을 열어주세요.',
-        5000);
+        ? 'Saved to Files → Downloads'
+        : '파일 앱 → 다운로드 폴더에 저장됐어요',
+        3500);
     } else if(isAndroid){
       showToast(en
         ? 'Saved to gallery (Downloads folder)'
-        : '갤러리에 저장됐어요 (다운로드 폴더에서 확인)',
-        3500);
+        : '갤러리에 저장됐어요 (다운로드 폴더 확인)',
+        3000);
     } else {
       showToast(en
         ? 'Image saved'
@@ -5203,9 +5296,9 @@ async function saveTryonImage(){
 }
 
 if(csBtnSave) csBtnSave.addEventListener('click', async () => {
-  // ─── 2026-05-09 KST · TJ 지시 (v55) ─── 갤러리 자동 다운로드 ───
-  //   이전: navigator.share({files}) 사용 → 시스템 시트(공유와 동일)
-  //   현재: saveTryonImage() — <a download> 자동 클릭 → 갤러리 다운로드
+  // ─── 2026-05-12 KST · TJ 지시 (v56) ─── Web Share API 우선 + 폴백 ───
+  //   v55: <a download> 단독 → 안드로이드 시스템 다운로드 알림 못 닫는 문제
+  //   v56: 모바일 Web Share API → 시스템 알림 회피, 데스크탑은 폴백
   await saveTryonImage();
 });
 
