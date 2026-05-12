@@ -7,6 +7,19 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-12 KST · TJ 지시 (v65 Pass 4) ─── [codiStory 액세서리 다양화]
+  진단 (Phase 4):
+  · v60에서 personaIdx=0 고정 후 codiStory의 액세서리 표시 조건
+    (personaIdx%3!==2, personaIdx%4===0)이 항상 true → 매번 가방+시계 표시
+  · 화면 codiStory에 "검정 백팩 + 시계"가 매번 동일하게 표시되는 잔존 버그
+  변경 (callClaude 함수 안 personaIdx 정의, line ~3093):
+  · const personaIdx = 0 → seed/day/pk 기반 hash로 0~4 다양화
+  · 5개 변형 → codiStory 액세서리 표시 패턴 3가지 (가방O+시계O / 가방O+시계X / 가방X+시계X)
+  · 시뮬레이션 검증: 다양화 100% (v60: 1가지 → v65: 3가지 패턴)
+  주의: 이건 codiStory(화면 표시 텍스트)만 영향 — 이미지 자체는 서버 prompt 책임
+  관련 v65 종합 픽스 (다른 파일):
+  · stylist_matching_engine.py + mock_backend.py에서 prompt 재구조화로 이미지 다양성 향상
+
 ─── 2026-05-12 KST · TJ 지시 (v64) ─── ['서울지역 활동' 고정 버그 임시 픽스]
   사용자 보고: AI 스타일리스트가 매번 변경되는데(로그: 밀라노/Hugo David,
               상파울루/Lucas Alves) 화면에는 항상 "서울지역 활동" 고정 표시.
@@ -3089,7 +3102,21 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   // ── [3] (v60) 단일 generic persona — 서버 응답 도착 전 placeholder
   //   다시코디(seed)는 서버 측 9,600 스타일리스트가 처리 (stylist_matching_engine.py)
   //   페르소나 voice/팔레트/스토리는 서버 응답으로 화면 갱신됨
-  const personaIdx = 0;  // 호환성 유지 (SPEC.seedOffset 참조)
+  // ─── 2026-05-12 KST · TJ 지시 (v65 Pass 4) ─── codiStory 액세서리 다양화 ───
+  //   진단: v60에서 personaIdx=0 고정 후, codiStory의 액세서리 표시 조건
+  //          (personaIdx%3!==2, personaIdx%4===0)이 항상 true → 매번 가방+시계 표시
+  //   변경: seed + 날짜 + 코디목적 기반 hash로 personaIdx 다양화
+  //          → 다시코디할 때마다 액세서리 표시 패턴 변경 (5가지 변형)
+  const _personaSeed = (() => {
+    const sd = parseInt(String(seed||0), 10) || 0;
+    const dayKey = String(day||'');
+    const purposeKey = String(pk||'');
+    // 간단 hash (sd + dayKey + purposeKey 합산)
+    let h = sd;
+    for (const c of dayKey + purposeKey) h = ((h<<5) - h + c.charCodeAt(0)) | 0;
+    return Math.abs(h);
+  })();
+  const personaIdx = _personaSeed % 5;  // 0~4 다양화 (codiStory 액세서리 패턴 다양화)
   const persona = {
     voice:       'AI 스타일리스트',
     en:          'AI Stylist',
