@@ -7,6 +7,31 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-12 KST · TJ 지시 (v64) ─── ['서울지역 활동' 고정 버그 임시 픽스]
+  사용자 보고: AI 스타일리스트가 매번 변경되는데(로그: 밀라노/Hugo David,
+              상파울루/Lucas Alves) 화면에는 항상 "서울지역 활동" 고정 표시.
+  진짜 원인 발견:
+  · 서버 mock_backend.py line 2389: `stylist=matched_stylist` 그대로 응답
+  · 그러나 matched_stylist 객체에 city 필드 자체가 없음
+    (stylist_db_server.json 구조: id/name/color1/color2/bodyType/exp/level/major/career/rating)
+  · 클라이언트 closet.html line 5093: `(data.stylist.city||'서울')`
+    → city undefined → 폴백 '서울' 항상 작동 → "서울지역 활동" 고정
+  · 서버는 engineCity 필드로 active_city 따로 보내지만 클라이언트가 사용 안 함
+  [변경 — closet.html]
+  1) line 5093 표시 로직:
+     · _activeCity = data.stylist?.city || data.engineCity || '서울' 폴백 우선순위
+     · 서버가 engineCity로도 보내므로 stylist.city 없어도 정상 표시
+  2) line 5141 영문 모드 변환:
+     · 이전: '서울지역 활동'만 'Seoul-based' 매핑
+     · 변경: 7개 도시 모두 매핑 (서울/뉴욕/파리/런던/상파울루/두바이/밀라노)
+  [관련 서버 변경 — 동시 적용 (v64)]
+  · mock_backend.py: 응답에 stylist.city 필드 주입
+    (matched_stylist 얕은 복사 후 city = meta['active_city'] 추가)
+  [한계]
+  · 이건 임시 픽스 — 화면에 도시 표시만 정상화됨
+  · 진짜 큰 문제(이미지 자체 다양성 부족, Gemini가 stylist DNA 무시)는
+    오늘/내일 별도 깊은 분석 필요 (가설 A~E 검증 예정)
+
 ─── 2026-05-12 KST · TJ 지시 (v61) ─── [컬러 자율화 + 배경 6색 통일]
   사용자 보고:
   1) 퍼스널컬러 best 컬러가 여전히 바지에 자주 매칭됨
@@ -5086,11 +5111,17 @@ async function updateVTO(opts={}){
         if(data.stylist) {
           S.stylist = data.stylist;
           // [2026-04-11] 스타일리스트 요약 표시
+          // ─── 2026-05-12 KST · TJ 지시 (v64) ─── '서울지역 활동' 고정 픽스 ───
+          //   원인: data.stylist.city가 undefined (서버가 stylist 객체에 city 안 박음)
+          //          → 폴백 '서울'만 작동 → "서울지역 활동" 고정
+          //   픽스: 폴백 우선순위 (data.stylist.city || data.engineCity || '서울')
+          //         + 도시명 영문 매핑 (영문 모드에서 다른 도시도 변환)
           try{
             var _ssBox = document.getElementById('stylistSummaryBox');
             var _ssTxt = document.getElementById('stylistSummaryText');
             if(_ssBox && _ssTxt && data.stylist){
-              _ssTxt.innerHTML = '<strong>' + (data.stylist.name||'') + '</strong>, ' + (data.stylist.city||'서울') + '지역 활동' +
+              var _activeCity = (data.stylist && data.stylist.city) || data.engineCity || '서울';
+              _ssTxt.innerHTML = '<strong>' + (data.stylist.name||'') + '</strong>, ' + _activeCity + '지역 활동' +
                 '<br><span style="font-size:10px;color:rgba(255,255,255,0.5);">' + (data.stylist.voice||data.stylist.career||'') + '</span>';
               _ssBox.classList.remove('hidden');
             }
@@ -5138,7 +5169,17 @@ async function updateVTO(opts={}){
             const _sn = S.stylist.name || '';
             var _sv = S.stylist.career || S.stylist.voice || '';
             if(window.CodiBankI18n && CodiBankI18n.isEn()){
-              _sv = _sv.replace('서울지역 활동','Seoul-based').replace('지역 활동',' area');
+              // ─── 2026-05-12 KST · TJ 지시 (v64) ─── 7개 도시 영문 매핑 ───
+              // 이전: '서울지역 활동'만 'Seoul-based'로 변환 → 다른 도시는 ' area'만 남음
+              // 변경: 7개 도시 모두 영문 매핑
+              var _cityEnMap = {
+                '서울': 'Seoul', '뉴욕': 'New York', '파리': 'Paris', '런던': 'London',
+                '상파울루': 'São Paulo', '두바이': 'Dubai', '밀라노': 'Milan'
+              };
+              Object.keys(_cityEnMap).forEach(function(ko){
+                _sv = _sv.replace(ko + '지역 활동', _cityEnMap[ko] + '-based');
+              });
+              _sv = _sv.replace('지역 활동', ' area');  // 폴백
             }
             _sb2.textContent = _sn ? _sn + ' · ' + _sv : _sv;
             _sb2.classList.remove('hidden');
