@@ -19,6 +19,35 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-05-12 KST · TJ 지시 (v58) ─── [outer 모드 옵션 슬롯 픽스] │
+  │   [에러 1] outer 모드에서 옵션(상의/하의/신발) 선택 후 picker      │
+  │            돌아오면 선택한 아이템이 사라짐                          │
+  │   [에러 2] outer 모드 + outer 아이템 저장 후 옵션 선택 picker      │
+  │            돌아오면 아우터 아이템도 함께 사라짐 (보고 기준)        │
+  │   [원인] DOM에 같은 data-type 슬롯이 모드별 2개씩 존재:           │
+  │          · data-type="top"  : twopiece 메인 + outer 옵션 = 2개    │
+  │          · data-type="bottom": twopiece 메인 + outer 옵션 = 2개   │
+  │          모드별로 한쪽만 display:'' 처리 (다른 쪽은 hidden)        │
+  │          그러나 fillSlot/resetSlotUI/_resyncStep1FromState의      │
+  │          querySelector('.slot[data-type="top"]')는 첫 매치(=     │
+  │          twopiece 메인, 보통 hidden)만 반환                       │
+  │          → outer 모드에서 옵션 top/bottom picker 다녀오면         │
+  │             hidden twopiece 메인 슬롯에 .filled 추가됨            │
+  │          → 사용자가 보는 outer-opt-only 옵션 슬롯은 변화 없음     │
+  │          → 빈 상태로 보임 (사라진 것처럼 보고됨)                  │
+  │   [픽스] state.mode + key 조합으로 정확한 클래스 한정 셀렉터:     │
+  │          · outer 모드 + top/bottom → .outer-opt-only 한정         │
+  │          · 그 외 모드 + top/bottom → .twopiece-only 한정          │
+  │          · outer key → outer-main(outer 모드) / outer(twopiece)   │
+  │          · onepiece/shoes → 단일 슬롯이므로 클래스 한정 불필요    │
+  │          폴백: 클래스 매치 실패 시 일반 셀렉터 사용 (안전망)      │
+  │   [수정 함수]                                                      │
+  │          · fillSlot         (line ~3529)                          │
+  │          · resetSlotUI      (line ~3565)                          │
+  │          · _resyncStep1FromState (line ~3875)                     │
+  │   [영향] outer 모드 옵션 슬롯(상의/하의)이 정상 표시됨            │
+  │          neat side effect: twopiece/onepiece 모드도 더 안전해짐  │
+  │          (모드 전환 후 hidden 슬롯에 잔존 .filled 정리 정확)      │
   │ ─── 2026-05-12 KST · TJ 지시 (v57) ─── [토글 jitter 픽스]          │
   │   배경: v56에서 후면 토글 미작동 픽스 완료. 그러나 토글 클릭 시   │
   │         박스 사이즈가 미세 변동했다가 복귀하는 jitter 보고.        │
@@ -3532,15 +3561,35 @@ function fillSlot(keyOrDomType, item){
   state.slots[key].active = true;
   state.slots[key].item = item;
 
-  // 현재 모드에서 보이는 DOM 선택:
-  //   outer 모드 + key==='outer' → outer-main DOM
-  //   그 외 → state key와 동일한 data-type DOM
-  let domType = keyOrDomType;
+  // ─── 2026-05-12 KST · TJ 지시 (v58) ─── 슬롯 DOM 정확 매칭 ───
+  //   BUG: document.querySelector('.slot[data-type="top"]')는 첫 매치만 반환.
+  //        DOM에 data-type="top"이 2개 존재 (모두 항상 DOM에 있음):
+  //        · twopiece 메인: <div class="slot twopiece-only" data-type="top"> (line 2248)
+  //        · outer 옵션:   <div class="slot outer-opt-only" data-type="top"> (line 2345)
+  //        bottom도 동일하게 2개. 모드별로 한쪽만 display:'' 처리.
+  //        → 셀렉터가 항상 twopiece 메인(보통 hidden)만 매치 → outer 모드에서
+  //          옵션 top/bottom picker 다녀오면 hidden 슬롯에 .filled 추가됨 →
+  //          사용자가 보는 outer-opt-only 옵션 슬롯은 빈 상태로 남음.
+  //   FIX: state.mode + key에 따라 클래스로 한정:
+  //        · outer 모드 + top/bottom → .outer-opt-only 한정
+  //        · twopiece 모드 + top/bottom → .twopiece-only 한정
+  //        · outer key → outer-main(outer 모드) 또는 outer(twopiece/onepiece)
+  //        · onepiece/shoes → 단일 슬롯이므로 클래스 한정 불필요
+  let slotEl = null;
   if(key === 'outer'){
-    domType = (state.mode === 'outer') ? 'outer-main' : 'outer';
+    const domType = (state.mode === 'outer') ? 'outer-main' : 'outer';
+    slotEl = document.querySelector(`.slot[data-type="${domType}"]`);
+  } else if(key === 'top' || key === 'bottom'){
+    // outer 모드: outer-opt-only 옵션 / 그 외: twopiece-only 메인
+    const cls = (state.mode === 'outer') ? '.outer-opt-only' : '.twopiece-only';
+    slotEl = document.querySelector(`.slot${cls}[data-type="${key}"]`);
+    // 폴백 — 클래스 매치 실패 시 일반 셀렉터 사용 (안전망)
+    if(!slotEl) slotEl = document.querySelector(`.slot[data-type="${key}"]`);
+  } else {
+    // onepiece, shoes — 단일 슬롯
+    slotEl = document.querySelector(`.slot[data-type="${key}"]`);
   }
 
-  const slotEl = document.querySelector(`.slot[data-type="${domType}"]`);
   if(!slotEl) return;
   slotEl.classList.add('filled');
   slotEl.classList.remove('add-slot');
@@ -3563,7 +3612,23 @@ function fillSlot(keyOrDomType, item){
 }
 
 function resetSlotUI(domType){
-  const slotEl = document.querySelector(`.slot[data-type="${domType}"]`);
+  // ─── 2026-05-12 KST · TJ 지시 (v58) ─── 모드별 슬롯 정확 매칭 ───
+  //   fillSlot과 동일 패턴: data-type 중복 문제 해결
+  const key = toStateKey(domType);
+  let slotEl = null;
+  if(domType === 'outer-main'){
+    // 명시적으로 outer-main 요청 (setMode 등)
+    slotEl = document.querySelector(`.slot[data-type="outer-main"]`);
+  } else if(key === 'outer'){
+    const dt = (state.mode === 'outer') ? 'outer-main' : 'outer';
+    slotEl = document.querySelector(`.slot[data-type="${dt}"]`);
+  } else if(key === 'top' || key === 'bottom'){
+    const cls = (state.mode === 'outer') ? '.outer-opt-only' : '.twopiece-only';
+    slotEl = document.querySelector(`.slot${cls}[data-type="${key}"]`);
+    if(!slotEl) slotEl = document.querySelector(`.slot[data-type="${key}"]`);
+  } else {
+    slotEl = document.querySelector(`.slot[data-type="${key}"]`);
+  }
   if(!slotEl) return;
   slotEl.classList.remove('filled');
   if(slotEl.dataset.role === 'optional') slotEl.classList.add('add-slot');
@@ -3874,19 +3939,27 @@ function applyFitUI(fit){
 //       핏 변경이 어떤 부수효과로 DOM을 건드려도 state가 유지되는 한 안전하게 복원.
 function _resyncStep1FromState(){
   Object.entries(state.slots).forEach(([key, s]) => {
-    // outer는 모드에 따라 DOM 키가 다름 (outer-main vs outer)
-    let domType = key;
-    if(key === 'outer') domType = (state.mode === 'outer') ? 'outer-main' : 'outer';
-
+    // ─── 2026-05-12 KST · TJ 지시 (v58) ─── 모드별 슬롯 정확 매칭 ───
+    //   fillSlot과 동일한 셀렉터 픽스 적용 — data-type 중복 문제 해결
     if(s.filled && s.item){
-      // 채워진 상태: 무조건 fillSlot 재호출 (DOM 상태 검사 없이)
+      // 채워진 상태: 무조건 fillSlot 재호출 (fillSlot에서 v58 픽스 적용됨)
       try{ if(typeof fillSlot === 'function') fillSlot(key, s.item); }catch(_){}
     } else {
       // 비어있는 상태: DOM에 잔존 .filled 클래스 정리 (state와 일치)
       try{
-        const slotEl = document.querySelector(`.slot[data-type="${domType}"]`);
+        let slotEl = null;
+        if(key === 'outer'){
+          const dt = (state.mode === 'outer') ? 'outer-main' : 'outer';
+          slotEl = document.querySelector(`.slot[data-type="${dt}"]`);
+        } else if(key === 'top' || key === 'bottom'){
+          const cls = (state.mode === 'outer') ? '.outer-opt-only' : '.twopiece-only';
+          slotEl = document.querySelector(`.slot${cls}[data-type="${key}"]`);
+          if(!slotEl) slotEl = document.querySelector(`.slot[data-type="${key}"]`);
+        } else {
+          slotEl = document.querySelector(`.slot[data-type="${key}"]`);
+        }
         if(slotEl && slotEl.classList.contains('filled')){
-          if(typeof resetSlotUI === 'function') resetSlotUI(domType);
+          if(typeof resetSlotUI === 'function') resetSlotUI(key);
         }
       }catch(_){}
     }
