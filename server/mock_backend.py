@@ -1398,10 +1398,15 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
 
                 # ── 배경 (CRITICAL) ──
                 "BACKGROUND (ABSOLUTE MANDATORY): "
-                "The background MUST be a SINGLE SOLID FLAT PASTEL COLOR only. "
-                "Choose a pastel that CONTRASTS clearly with the outfit: "
-                "dark outfit → light pastel (cream, pale mint, soft ivory); "
-                "light outfit → slightly deeper pastel (soft lavender, muted peach, pale sage). "
+                # ─── 2026-05-12 KST · TJ 지시 (v61) ─── 배경 6색 통일 ───
+                # 사용자 요청: 화이트, 그레이, 다크그레이, 라이트핑크, 라이트블루, 라이트베이지
+                # 대비 조건: 의상이 잘 보이도록 outfit과 대비되는 배경 선택
+                "The background MUST be a SINGLE SOLID FLAT color, ONE of these 6 only: "
+                "WHITE (#F5F5F5), LIGHT GRAY (#D8D8D8), DARK GRAY (#4A4A4A), "
+                "LIGHT PINK (#F8E1E4), LIGHT BLUE (#E1ECF7), LIGHT BEIGE (#F1E8D8). "
+                "Choose a background that CONTRASTS clearly with the outfit so clothing is fully visible: "
+                "dark/saturated outfit → light background (WHITE / LIGHT GRAY / LIGHT PINK / LIGHT BLUE / LIGHT BEIGE); "
+                "light/pastel/white outfit → DARK GRAY or LIGHT GRAY. "
                 "Completely uniform and flat from edge to edge — like studio backdrop paper. "
                 "FORBIDDEN: rooms, streets, walls, floors, gradients, patterns, objects, environments of any kind. "
                 "ONLY ONE FLAT SOLID PASTEL COLOR. No exceptions. "
@@ -1542,10 +1547,14 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
 
         # ── 배경 (CRITICAL) ──
         "BACKGROUND (ABSOLUTE MANDATORY — HIGHEST PRIORITY RULE): "
-        "The background MUST be a SINGLE SOLID FLAT PASTEL COLOR only. "
-        "Choose a pastel color that CONTRASTS clearly with the outfit so the clothing is fully visible: "
-        "if the outfit is dark, use light pastel (cream, pale mint, soft ivory, light sky blue); "
-        "if the outfit is light/white, use a slightly deeper pastel (soft lavender, muted peach, pale sage). "
+        # ─── 2026-05-12 KST · TJ 지시 (v61) ─── 배경 6색 통일 ───
+        # 사용자 요청: 화이트, 그레이, 다크그레이, 라이트핑크, 라이트블루, 라이트베이지
+        "The background MUST be a SINGLE SOLID FLAT color, ONE of these 6 only: "
+        "WHITE (#F5F5F5), LIGHT GRAY (#D8D8D8), DARK GRAY (#4A4A4A), "
+        "LIGHT PINK (#F8E1E4), LIGHT BLUE (#E1ECF7), LIGHT BEIGE (#F1E8D8). "
+        "Choose a background that CONTRASTS clearly with the outfit so the clothing is fully visible: "
+        "if the outfit is dark or saturated, use a LIGHT background (WHITE / LIGHT GRAY / LIGHT PINK / LIGHT BLUE / LIGHT BEIGE); "
+        "if the outfit is light, pastel, or mostly white, use DARK GRAY or LIGHT GRAY for clear contrast. "
         "The background must be completely uniform and flat from edge to edge — like professional studio backdrop paper. "
         "ABSOLUTELY FORBIDDEN: rooms, streets, walls, floors, gradients, patterns, textures, objects, scenery, or any environment. "
         "ONLY ONE FLAT SOLID PASTEL COLOR. No exceptions. "
@@ -2086,8 +2095,12 @@ def _ai_styling_via_gemini(
         "Full body head to toe visible. Photorealistic fashion editorial. "
 
         # ── 배경 ──
-        "BACKGROUND (ABSOLUTE MANDATORY): SINGLE SOLID FLAT PASTEL COLOR ONLY. "
-        "Choose a pastel that CONTRASTS with the outfit. "
+        "BACKGROUND (ABSOLUTE MANDATORY): "
+        # ─── 2026-05-12 KST · TJ 지시 (v61) ─── 배경 6색 통일 ───
+        "SINGLE SOLID FLAT color, ONE of these 6 only: "
+        "WHITE (#F5F5F5), LIGHT GRAY (#D8D8D8), DARK GRAY (#4A4A4A), "
+        "LIGHT PINK (#F8E1E4), LIGHT BLUE (#E1ECF7), LIGHT BEIGE (#F1E8D8). "
+        "Choose a background that CONTRASTS clearly with the outfit so clothing is fully visible. "
         "Completely uniform from edge to edge — studio backdrop paper style. "
         "ABSOLUTELY FORBIDDEN: rooms, streets, walls, gradients, patterns, objects, environments. "
 
