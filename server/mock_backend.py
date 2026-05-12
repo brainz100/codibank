@@ -2377,6 +2377,16 @@ def _ai_styling_via_gemini(
         pass
     merged_cat_kws.update(category_keywords_from_ai or {})
 
+    # ─── 2026-05-12 KST · TJ 지시 (v64) ─── 화면 표시 '서울지역 활동' 고정 픽스 ───
+    # 원인: matched_stylist 객체에 city 필드 자체가 없음 (stylist_db_server.json 구조)
+    #       → 클라이언트 closet.html line 5093: (data.stylist.city||'서울')
+    #       → 항상 '서울' 폴백 작동 → "서울지역 활동" 고정 표시
+    # 픽스: 응답할 때만 stylist에 city 필드 주입 (원본 DB 객체는 변경 안 함)
+    _stylist_response = None
+    if matched_stylist:
+        _stylist_response = dict(matched_stylist)  # 얕은 복사로 원본 보호
+        _stylist_response['city'] = (meta or {}).get('active_city', '') if meta else ''
+
     return jsonify(
         ok=True,
         image=f"{base}{rel}",
@@ -2386,7 +2396,7 @@ def _ai_styling_via_gemini(
         model=f"gemini:{model_name}",
         cached=False,
         prompt=gemini_prompt if os.getenv("CODIBANK_DEBUG_PROMPT") == "1" else None,
-        stylist=matched_stylist,
+        stylist=_stylist_response,
         stylingStory=(meta or {}).get("styling_story") if meta else None,
         engineKeywords=(meta or {}).get('keywords_selected', []) if meta else [],
         engineCategoryKeywords=merged_cat_kws,
