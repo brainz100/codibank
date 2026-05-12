@@ -19,6 +19,24 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-05-12 KST · TJ 지시 (v59) ─── [이미지 저장 갤러리 직접 저장 복원]│
+  │   배경: v56에서 안드로이드 시스템 알림 회피 위해 Web Share API     │
+  │         우선 채택했으나 TJ 보고:                                    │
+  │         "공유하는 방식과 같이 돼있는 지금이 아니라 카메라앨범에    │
+  │          이미지가 저장되는 방식으로 다시 수정해주세요"             │
+  │         → v55 방식(<a download> 자동 클릭)으로 복원                │
+  │         → 공유 시트 안 뜨고 바로 갤러리 저장                       │
+  │         → 시스템 다운로드 알림은 OS 레벨이라 JS 제어 불가          │
+  │           (TJ가 이 부분 수용 확인 후 진행)                          │
+  │   [변경 — saveTryonImage 함수]                                     │
+  │          · navigator.share / canShare 분기 코드 완전 제거           │
+  │          · AbortError 처리 코드 제거                                │
+  │          · 곧바로 <a download> 자동 클릭 단독 사용                  │
+  │          · 자체 인앱 토스트(자동 사라짐) 환경별 메시지 유지         │
+  │            - Android: '갤러리에 저장됐어요 (다운로드 폴더 확인)'    │
+  │            - iOS:     '파일 앱 → 다운로드 폴더에 저장됐어요'        │
+  │            - PC:      '이미지를 저장했어요'                          │
+  │   [영향 — 같은 패턴 closet.html에도 동시 적용 (v59)]               │
   │ ─── 2026-05-12 KST · TJ 지시 (v58) ─── [outer 모드 옵션 슬롯 픽스] │
   │   [에러 1] outer 모드에서 옵션(상의/하의/신발) 선택 후 picker      │
   │            돌아오면 선택한 아이템이 사라짐                          │
@@ -5290,19 +5308,21 @@ async function _toJpegBlob(imgSrc, quality){
   });
 }
 
-// ─── 2026-05-12 KST · TJ 지시 (v56) ─── 이미지 저장 — 시스템 알림 회피 ───
-//   배경: v55의 <a download> 방식이 안드로이드 OS/Samsung Internet의
-//         시스템 다운로드 알림 카드를 발생시킴 ("다운로드 1개 완료" + "열기")
-//         이 알림은 JS로 닫을 수 없고, 사용자가 swipe해야 사라짐.
-//   변경: 모바일에서 Web Share API + canShare({files}) 지원 시 navigator.share 사용
-//         → 공유 시트 표시 → 사용자가 "이미지로 저장" 선택 → 갤러리 저장
-//         → 시스템 다운로드 알림이 발생하지 않음
-//         미지원 환경(데스크탑 등)은 기존 <a download> 폴백
+// ─── 2026-05-12 KST · TJ 지시 (v59) ─── 이미지 저장 — 갤러리 자동 다운로드 복원 ───
+//   배경: v56에서 안드로이드 시스템 알림 회피 위해 Web Share API 우선 채택했으나
+//         TJ 보고: 공유 시트가 매번 뜨는 UX가 자동 저장 의도와 맞지 않음.
+//         → v55 방식(<a download> 자동 클릭)으로 복원.
+//         시스템 다운로드 알림(자동 사라지지 않음, X 없음)은 OS/브라우저 레벨이라
+//         JS로 제어 불가. TJ가 이 부분을 수용함을 확인하고 진행.
 //   동작:
-//     • Android Chrome/Samsung Internet (canShare 지원): 공유 시트 → 갤러리 저장
-//     • iOS Safari: 공유 시트 → "이미지 저장" → 사진 앱 저장
-//     • 데스크탑: <a download> → 다운로드 폴더
-//     • 사용자가 공유 시트 취소 (AbortError): 조용히 종료 (에러/토스트 없음)
+//     1) JPEG로 변환 (범용 호환성)
+//     2) <a download> 자동 클릭 → 다운로드 폴더로 저장 (공유 시트 안 뜸)
+//     3) 자체 인앱 토스트 (자동 사라짐 2~3초) — 환경별 메시지
+//   결과:
+//     • Android: /storage/emulated/0/Download/ → 갤러리 자동 인식
+//                (Samsung Internet 등의 시스템 알림 발생 가능 — 수용)
+//     • iOS: 파일 앱 → 다운로드 폴더 (사진 앱 자동 저장은 OS 제약상 불가)
+//     • 데스크탑: 브라우저 다운로드 폴더
 async function saveTryonImage(){
   var en = _isEn();
   var imgSrc = _getTryonResultImgUrl();
@@ -5317,7 +5337,7 @@ async function saveTryonImage(){
     // 1) JPEG로 변환
     var blob = await _toJpegBlob(imgSrc, 0.92);
     
-    // 2) 파일명 — 타임스탬프
+    // 2) 파일명 — 타임스탬프 (예: codibank_tryon_20260512_011803.jpg)
     var ts = new Date();
     var p2 = function(n){ return String(n).padStart(2,'0'); };
     var fname = 'codibank_tryon_' +
@@ -5325,32 +5345,7 @@ async function saveTryonImage(){
       p2(ts.getHours()) + p2(ts.getMinutes()) + p2(ts.getSeconds()) +
       '.jpg';
     
-    // 3) Web Share API 우선 시도 — 시스템 다운로드 알림 회피
-    var file = new File([blob], fname, { type: 'image/jpeg' });
-    var canUseShare = (
-      typeof navigator !== 'undefined' &&
-      navigator.share &&
-      navigator.canShare &&
-      navigator.canShare({ files: [file] })
-    );
-    
-    if(canUseShare){
-      try {
-        await navigator.share({ files: [file] });
-        // 성공: 사용자가 공유 시트에서 "이미지로 저장" 또는 다른 앱 선택 완료
-        showToast(en ? 'Saved' : '저장됐어요', 2000);
-        return;
-      } catch(err){
-        // AbortError = 사용자가 공유 시트 취소 → 조용히 종료 (의도된 취소)
-        if(err && err.name === 'AbortError') {
-          return;
-        }
-        // 그 외 에러는 폴백으로 진행
-        console.warn('[TryOn Save] navigator.share failed, fallback:', err);
-      }
-    }
-    
-    // 4) 폴백 — <a download> (데스크탑 / Web Share 미지원 환경)
+    // 3) <a download> 자동 클릭 — 갤러리/다운로드 폴더로 저장 (Web Share API 사용 안 함)
     var blobUrl = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = blobUrl;
@@ -5361,7 +5356,7 @@ async function saveTryonImage(){
     document.body.removeChild(a);
     setTimeout(function(){ URL.revokeObjectURL(blobUrl); }, 3000);
     
-    // 5) 폴백 환경 안내 토스트
+    // 4) 플랫폼별 안내 토스트 (자체 인앱 토스트 — 자동 사라짐)
     var ua = navigator.userAgent || '';
     var isIOS = /iPad|iPhone|iPod/.test(ua);
     var isAndroid = /Android/i.test(ua);
@@ -5389,9 +5384,9 @@ async function saveTryonImage(){
 }
 
 if(csBtnSave) csBtnSave.addEventListener('click', async () => {
-  // ─── 2026-05-12 KST · TJ 지시 (v56) ─── Web Share API 우선 + 폴백 ───
-  //   v55: <a download> 단독 → 안드로이드 시스템 다운로드 알림 못 닫는 문제
-  //   v56: 모바일 Web Share API → 시스템 알림 회피, 데스크탑은 폴백
+  // ─── 2026-05-12 KST · TJ 지시 (v59) ─── 갤러리 자동 다운로드 복원 ───
+  //   v55 → v56(Web Share API) → v59(원복: <a download> 자동 클릭)
+  //   공유 시트 안 뜨고 바로 갤러리 저장. 시스템 알림은 TJ 수용 확인.
   await saveTryonImage();
 });
 

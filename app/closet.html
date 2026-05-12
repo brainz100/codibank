@@ -7,6 +7,22 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-12 KST · TJ 지시 (v59) ─── [이미지 저장 갤러리 직접 저장 복원]
+  배경: 이전엔 Web Share API 우선 → 공유 시트가 매번 떠서
+        '카메라 앨범 자동 저장' 의도와 맞지 않음.
+        TJ 지시: "공유하는 방식과 같이 돼있는 지금이 아니라
+                  카메라앨범에 이미지가 저장되는 방식으로 다시 수정"
+        → tryon.html과 동일 패턴으로 통일 (v59)
+        → 공유 시트 안 뜨고 바로 갤러리 저장
+        → 시스템 다운로드 알림은 OS 레벨이라 JS 제어 불가
+          (TJ가 이 부분 수용 확인 후 진행)
+  [변경 — saveBtn click 핸들러 (line ~5653)]
+        · navigator.share / canShare 분기 코드 완전 제거
+        · AbortError 처리 코드 제거
+        · <a download> 자동 클릭 단독 사용 (display:none + appendChild)
+        · revokeObjectURL 3초 후 정리 (메모리 누수 방지)
+  [관련] tryon.html도 동일 패턴으로 동시 적용 (v59)
+
 ─── 2026-05-09 KST · TJ 지시 (Codifit UX) ─── [3가지 수정]
   1) 날짜 가변성 강화
      · callClaude 호출 직전 디버그 로그 추가 (콘솔에서 selDateKey/wx 확인 가능)
@@ -5653,23 +5669,23 @@ async function updateVTO(opts={}){
 document.getElementById('saveBtn')?.addEventListener('click',async()=>{
   const c=document.getElementById('vtoCanvas');
   if(!c||c.style.display==='none'){alert(CodiBankI18n.t('먼저 스타일링을 생성해주세요.','Please generate styling first.'));return;}
-  // [2026-04-17] 브라우저 네이티브 다운로드 알림(흰색 팝업) 제거:
-  //   Web Share API(파일 지원) 사용 → 공유 시트에서 "이미지 저장" 선택 시 갤러리 저장
+  // ─── 2026-05-12 KST · TJ 지시 (v59) ─── 갤러리 자동 다운로드 복원 ───
+  //   배경: 이전엔 Web Share API 우선 → 공유 시트 매번 뜨는 UX 문제
+  //         TJ 지시: "공유하는 방식이 아니라 카메라앨범에 이미지가 저장되는 방식"
+  //   변경: navigator.share / canShare 분기 제거, <a download> 단독 사용
+  //         시스템 다운로드 알림은 OS 레벨 — TJ 수용 확인 후 진행
   try{
     const blob = await new Promise(res => c.toBlob(res, 'image/png', 1.0));
     if(!blob){ alert(CodiBankI18n.t('저장 실패','Save failed')); return; }
     const fname = `codibank_${Date.now()}.png`;
-    const file = new File([blob], fname, { type:'image/png' });
-    if(navigator.share && navigator.canShare && navigator.canShare({ files:[file] })){
-      try{ await navigator.share({ files:[file] }); }
-      catch(err){ if(err && err.name==='AbortError') return; throw err; }
-      return;
-    }
-    // 폴백 (데스크탑 등)
+    // <a download> 자동 클릭 — 갤러리/다운로드 폴더로 저장 (공유 시트 안 뜸)
     const a=document.createElement('a');
     a.download=fname;
     a.href=URL.createObjectURL(blob);
+    a.style.display='none';
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     setTimeout(()=>URL.revokeObjectURL(a.href),3000);
   }catch(e){alert(CodiBankI18n.t('저장 실패:','Save failed:')+(e && e.message || ''));}
 });
