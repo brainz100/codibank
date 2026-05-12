@@ -3,6 +3,35 @@
 ═══════════════════════════════════════════════════════════════════════
 📋 수정 이력 (MODIFICATION HISTORY) — 최신순
 ═══════════════════════════════════════════════════════════════════════
+─── 2026-05-12 KST · TJ 지시 (v40) ─── [trait 박스 폭 동일 + 체형 한글 매핑]
+  1) 퍼스널컬러/체형 박스 폭 동일 강제
+     [원인] .user-traits는 grid-template-columns:1fr 1fr 정상 설정
+            .trait-text에 min-width:0 있음
+            그러나 grid item인 .trait-pill 자체에 min-width 없어
+            기본값 min-width:auto가 자식 내용물의 최소 폭을 따라가
+            1fr/1fr 동등 분할이 깨짐. 긴 텍스트('inverted_triangle_m')
+            때문에 체형 박스가 화면 폭을 넘어가는 현상.
+     [픽스] .trait-pill { min-width: 0; } 추가
+            → grid의 1fr/1fr 동등 분할이 강제 적용
+            → 자식 .trait-text의 min-width:0 + .trait-value의 ellipsis
+              결합되어 긴 텍스트는 ... 으로 잘림
+  2) 체형 한글 표시 — body_type_db.json 카테고리 키 매핑
+     [원인] _bodyMap이 BMI 카테고리(슬림/표준/보통/풍성)만 다룸.
+            u.bodyType에 'inverted_triangle_m' 등 body_type_db.json
+            raw 키가 저장돼 있으면 매치 안 됨 → raw 키 그대로 화면 노출.
+     [픽스] _bodyCategoryMap 추가 (body_type_db.json 14개 키 매핑):
+            · 남성: trapezoid/inverted_triangle_m/rectangle_m/triangle_m/
+                    oval/diamond/hourglass_m
+            · 여성: neat_hourglass/full_hourglass/pear/apple/
+                    inverted_triangle_f/rectangle_f/lean_column
+            · ko/en 라벨은 body_type_db.json 원본 그대로
+            매칭 우선순위:
+            [A] raw 키 매치 (예: 'inverted_triangle_m')
+            [B] 한글 라벨로 저장된 케이스 (예: '역삼각형')
+            [C] BMI 카테고리(슬림/표준/보통/풍성) — 기존 로직
+            표시 형식 분기 (_isCategoryBody 플래그):
+            · 카테고리 체형: '역삼각형' 단독 (이미 '형'으로 끝남)
+            · BMI 폴백: '슬림 체형' / 'Slim Body' (접미사 유지)
 ─── 2026-05-09 KST · TJ 지시 (v39) ─── [인증 버튼 하단 + 비로그인 모달]
   1) auth-cta-row를 페이지 하단(회원탈퇴 위)으로 이동
      · v38: action-cards 위 → v39: 기타 메뉴 다음
@@ -187,12 +216,20 @@
 }
 
 .user-traits{display:grid;grid-template-columns:1fr 1fr;gap:10px;position:relative;z-index:1}
+/* ─── 2026-05-12 KST · TJ 지시 (v40) ─── 박스 폭 동일 강제
+ * BUG: 자식 텍스트가 너무 길면(예: 'inverted_triangle_m') grid item의
+ *      기본 min-width:auto가 텍스트 최소 폭을 따라가 1fr/1fr 동등 분할이
+ *      깨지고 박스 폭이 화면 밖으로 늘어남. 체형 박스만 폭 초과 현상.
+ * FIX: .trait-pill 자체에 min-width:0 추가 → grid의 1fr/1fr 강제 적용
+ *      자식 .trait-text의 min-width:0 + .trait-value의 ellipsis와 결합되어
+ *      긴 텍스트는 ... 으로 잘림. */
 .trait-pill{
   display:flex;align-items:center;gap:10px;
   padding:12px 13px;border-radius:14px;
   background:rgba(255,255,255,.04);
   border:1px solid rgba(255,255,255,.08);
   transition:border-color .15s,background .15s;
+  min-width:0;  /* v40: grid item 폭 동등 분할 강제 */
 }
 .trait-pill .trait-icon{
   width:32px;height:32px;border-radius:10px;
@@ -884,21 +921,71 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       //   2순위: 키/몸무게로 BMI 자동 계산 (tryon.html과 동일 로직)
       //          <18.5 슬림 / <23 표준 / <26 보통 / ≥26 풍성
       //   3순위(폴백): '없음' (정보 하나도 없는 신규 사용자 케이스)
+      // ─── 2026-05-12 KST · TJ 지시 (v40) ─── body_type_db.json 카테고리 매핑 ───
+      //   BUG: u.bodyType에 'inverted_triangle_m' 같은 body_type_db.json 키가
+      //        저장돼 있는데 _bodyMap이 BMI 카테고리(슬림/표준/보통/풍성)만 다뤄
+      //        매치 안 됨 → raw 키('inverted_triangle_m')가 그대로 화면 노출.
+      //   FIX: _bodyCategoryMap을 우선 매치 (body_type_db.json 모든 키 포함)
+      //        매치되면 카테고리 체형 → '역삼각형' 단독 표시 (접미사 없음)
+      //        매치 안 되면 기존 BMI 매핑 → '슬림 체형' 표시 (접미사 있음)
       try{
         var _bodyType = '';
         var _bodyTypeEn = '';
+        var _isCategoryBody = false;  // v40: 카테고리 체형 여부 (접미사 분기)
         // 1순위: 프로필수정에서 저장된 체형
         var _profileBody = u.bodyType || u.body_type || u.bodyShape || '';
         if(_profileBody){
-          // 한글 체형명 매핑 (저장 형식이 다양할 수 있어 정규화)
-          var _bodyMap = {
-            '슬림':'슬림','표준':'표준','보통':'보통','풍성':'풍성',
-            'slim':'슬림','standard':'표준','average':'보통','full':'풍성',
-            'Slim':'슬림','Standard':'표준','Average':'보통','Full':'풍성'
+          // [v40] body_type_db.json 카테고리 매핑 (남성 7 + 여성 7 = 14개 키)
+          //       label과 en 값은 body_type_db.json 원본 그대로
+          var _bodyCategoryMap = {
+            // ── 남성 ──
+            'trapezoid':           { ko:'사다리꼴',         en:'Trapezoid' },
+            'inverted_triangle_m': { ko:'역삼각형',         en:'Inverted Triangle' },
+            'rectangle_m':         { ko:'직사각형',         en:'Rectangle' },
+            'triangle_m':          { ko:'삼각형',           en:'Triangle' },
+            'oval':                { ko:'타원형',           en:'Oval' },
+            'diamond':             { ko:'다이아몬드',       en:'Diamond' },
+            'hourglass_m':         { ko:'모래시계',         en:'Hourglass' },
+            // ── 여성 ──
+            'neat_hourglass':      { ko:'깔끔한 모래시계',  en:'Neat Hourglass' },
+            'full_hourglass':      { ko:'풍만한 모래시계',  en:'Full Hourglass' },
+            'pear':                { ko:'배형 (삼각형)',    en:'Pear' },
+            'apple':               { ko:'사과형 (원형)',    en:'Apple' },
+            'inverted_triangle_f': { ko:'역삼각형',         en:'Inverted Triangle' },
+            'rectangle_f':         { ko:'직사각형',         en:'Rectangle' },
+            'lean_column':         { ko:'마른 직사각형',    en:'Lean Column' }
           };
-          _bodyType = _bodyMap[_profileBody] || _profileBody;
-          var _bodyEnMap = {'슬림':'Slim','표준':'Standard','보통':'Average','풍성':'Full'};
-          _bodyTypeEn = _bodyEnMap[_bodyType] || _bodyType;
+          // 한글 라벨로도 매치 시도 (이미 한글로 저장된 경우)
+          var _bodyCategoryKoMap = {
+            '사다리꼴':'Trapezoid','역삼각형':'Inverted Triangle','직사각형':'Rectangle',
+            '삼각형':'Triangle','타원형':'Oval','다이아몬드':'Diamond','모래시계':'Hourglass',
+            '깔끔한 모래시계':'Neat Hourglass','풍만한 모래시계':'Full Hourglass',
+            '배형 (삼각형)':'Pear','사과형 (원형)':'Apple','마른 직사각형':'Lean Column'
+          };
+          var _cat = _bodyCategoryMap[_profileBody];
+          if(_cat){
+            // [A] body_type_db.json raw 키로 매치
+            _bodyType = _cat.ko;
+            _bodyTypeEn = _cat.en;
+            _isCategoryBody = true;
+          } else if(_bodyCategoryKoMap[_profileBody]){
+            // [B] 한글 카테고리 라벨로 저장된 케이스
+            _bodyType = _profileBody;
+            _bodyTypeEn = _bodyCategoryKoMap[_profileBody];
+            _isCategoryBody = true;
+          } else {
+            // [C] BMI 카테고리(슬림/표준/보통/풍성) 매핑
+            var _bodyMap = {
+              '슬림':'슬림','표준':'표준','보통':'보통','풍성':'풍성',
+              'slim':'슬림','standard':'표준','average':'보통','full':'풍성',
+              'Slim':'슬림','Standard':'표준','Average':'보통','Full':'풍성'
+            };
+            _bodyType = _bodyMap[_profileBody] || _profileBody;
+            var _bodyEnMap = {'슬림':'Slim','표준':'Standard','보통':'Average','풍성':'Full'};
+            _bodyTypeEn = _bodyEnMap[_bodyType] || _bodyType;
+            // BMI 카테고리만 접미사 ('체형'/'Body'), 그 외 raw는 그대로
+            _isCategoryBody = false;
+          }
         } else {
           // 2순위: BMI 자동 계산
           var _bH = parseFloat(u.height) || 0;
@@ -909,6 +996,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             else if(_bmi < 23)   { _bodyType='표준'; _bodyTypeEn='Standard'; }
             else if(_bmi < 26)   { _bodyType='보통'; _bodyTypeEn='Average'; }
             else                 { _bodyType='풍성'; _bodyTypeEn='Full'; }
+            _isCategoryBody = false;  // BMI 폴백은 접미사 붙임
           }
         }
         var _tbEl  = document.getElementById('traitBody');
@@ -917,7 +1005,12 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         if(_tbLab) _tbLab.textContent = _isEn ? 'Body Type' : '체형';
         if(_tbVal && _tbEl){
           if(_bodyType){
-            _tbVal.textContent = _isEn ? (_bodyTypeEn + ' Body') : (_bodyType + ' 체형');
+            // v40: 카테고리 체형은 단독 표시 ('역삼각형'), BMI는 접미사 ('슬림 체형'/'Slim Body')
+            if(_isCategoryBody){
+              _tbVal.textContent = _isEn ? _bodyTypeEn : _bodyType;
+            } else {
+              _tbVal.textContent = _isEn ? (_bodyTypeEn + ' Body') : (_bodyType + ' 체형');
+            }
             _tbEl.classList.remove('empty');
           } else {
             // 3순위: 정보 없음 → '없음' 일관 표시

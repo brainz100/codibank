@@ -19,6 +19,26 @@
 ═══════════════════════════════════════════════════════════════════════
 
   ┏━━ 수정 히스토리 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-05-12 KST · TJ 지시 (v57) ─── [토글 jitter 픽스]          │
+  │   배경: v56에서 후면 토글 미작동 픽스 완료. 그러나 토글 클릭 시   │
+  │         박스 사이즈가 미세 변동했다가 복귀하는 jitter 보고.        │
+  │   [원인] v56에서 안전장치로 추가한 scrollSnapType inline 변경:    │
+  │          · 클릭 시 box.style.scrollSnapType='none' 설정            │
+  │          · 700ms 후 prevSnap || '' 으로 복구                       │
+  │          .csty-result-img-box의 aspect-ratio:1/1.62와              │
+  │          scroll-snap-type 동적 변경이 충돌:                        │
+  │          → 브라우저가 scroll 컨텍스트 재평가 → aspect-ratio        │
+  │            계산 재트리거 → 박스 width/height 미세 변동             │
+  │          → 클릭+복구 2번 jitter 발생                               │
+  │   [픽스] scrollSnapType inline 변경 코드 완전 제거                 │
+  │          v56에서 CSS를 x mandatory → x proximity로 변경했으므로    │
+  │          명시적 scrollTo({left, smooth}) 위치는 자동 보존됨        │
+  │          (proximity는 가까울 때만 snap, scrollTo 강제 복귀 안 함) │
+  │          → inline 'none' 비활성화 불필요 → 제거                    │
+  │          → inline style 변경 없으므로 layout reflow 안 트리거됨   │
+  │          → jitter 사라짐                                            │
+  │   [유지] active 클래스 즉시 동기화, smooth scroll 폴백,            │
+  │          위치 검증 setTimeout (임계값 5px → 10px로 여유 확대)     │
   │ ─── 2026-05-12 KST · TJ 지시 (v56) ─── [후면 토글 + 저장 알림 픽스]│
   │   1) 후면 토글 미작동 → 작동                                       │
   │      [원인] CSS scroll-snap-type:x mandatory + canvas의            │
@@ -4579,11 +4599,15 @@ function _tryonApplyResult(data){
                   if(hint && sx > 5) hint.classList.add('hidden');
                 }, {passive:true});
                 
-                // ─── 2026-05-12 KST · TJ 지시 (v56) ─── 토글 클릭 강화
-                //   1) 클릭 즉시 active 클래스 직접 동기화 (scroll 이벤트 대기 안 함)
-                //   2) smooth scroll 시도 → 실패/미지원 시 scrollLeft 직접 할당
-                //   3) snap proximity로 변경됐지만, 혹시 mandatory가 살아있을 경우 대비
-                //      일시적으로 scroll-snap-type을 'none'으로 변경 후 scroll, 끝나면 복구
+                // ─── 2026-05-12 KST · TJ 지시 (v57) ─── jitter 픽스
+                //   BUG (v56): box.style.scrollSnapType = 'none' / 복구의
+                //     inline style 변경이 aspect-ratio:1/1.62 박스의 scroll
+                //     컨텍스트 재평가를 트리거 → 박스 width/height 미세 변동
+                //     → 토글 클릭 시 박스 사이즈 깜빡임 (클릭+복구 2번 jitter)
+                //   FIX: snap을 proximity로 변경(v56)했으므로 명시적 scrollTo
+                //     위치는 보존됨. inline 'none' 비활성화는 불필요한 안전장치
+                //     였고 오히려 jitter 원인. 단순화하여 제거.
+                //   유지: active 즉시 동기화 + smooth scroll 폴백 + 위치 검증
                 btns.forEach(function(b){
                   b.addEventListener('click', function(ev){
                     ev.preventDefault();
@@ -4594,27 +4618,23 @@ function _tryonApplyResult(data){
                     btns.forEach(function(bb){ bb.classList.remove('active'); });
                     b.classList.add('active');
                     
-                    // [2] snap 일시 비활성화 (smooth scroll 안전 보장)
-                    var prevSnap = box.style.scrollSnapType;
-                    box.style.scrollSnapType = 'none';
-                    
-                    // [3] 목표 위치 계산
+                    // [2] 목표 위치 계산
                     var sw = box.scrollWidth - box.clientWidth;
                     var targetLeft = (pose === 'front') ? 0 : sw;
                     
-                    // [4] smooth scroll 시도 + 폴백
+                    // [3] smooth scroll 시도 + 폴백
+                    //     proximity snap이므로 inline 'none' 비활성화 불필요 (v57)
                     try {
                       box.scrollTo({ left: targetLeft, behavior: 'smooth' });
                     } catch(e){
                       box.scrollLeft = targetLeft;
                     }
                     
-                    // [5] smooth scroll 완료 후 snap 복구 (proximity)
-                    //     smooth scroll 보통 300~500ms → 700ms 후 복구
+                    // [4] smooth scroll 완료 후 위치 검증 (안전망)
+                    //     proximity가 약하게라도 끌어당겼을 경우만 보정 (10px 이상 어긋났을 때)
+                    //     inline style 변경 없으므로 layout reflow 안 트리거됨
                     setTimeout(function(){
-                      box.style.scrollSnapType = prevSnap || '';
-                      // 위치 정확히 재확인 (smooth 도중에 다른 이벤트로 밀렸을 경우 대비)
-                      if(Math.abs(box.scrollLeft - targetLeft) > 5){
+                      if(Math.abs(box.scrollLeft - targetLeft) > 10){
                         box.scrollLeft = targetLeft;
                       }
                     }, 700);
