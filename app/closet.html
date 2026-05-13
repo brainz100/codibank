@@ -7,167 +7,6 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
-─── 2026-05-13 KST · TJ 지시 (v66 픽스5) ─── [faceDataUrl 자체 캐싱 — face=False 완전 차단]
-  배경: v66 픽스4 배포 후 Render 로그에서 face=False 재발 확인
-    · 첫 호출(05:41:08): ref images: face=True ✅
-    · 다시요청(05:42:00): ref images: face=False ❌ (또 다시!)
-  진단: v66 픽스4의 faceSrc 캐시만으로 부족
-    · faceSrc는 캐싱됐지만 toDataUrl(faceSrc) 변환이 다시요청 시 실패
-    · 가능한 원인: blob URL revoke, IDB stale, fetch race condition
-    · 결과: faceDataUrl='' → 페이로드 faceImage=null → 서버 face=False
-  해결 — 1개:
-    [JS] faceDataUrl 자체 캐싱 (line ~5164):
-      · window.__codifitFaceDataUrlCache — 변환 후 결과를 직접 캐시
-      · 다시요청 시 캐시 우선 사용 → toDataUrl/shrinkDataUrl 호출 우회
-      · 첫 호출 성공 시 변환 결과를 캐시에 저장
-      · 콘솔 로그: "[코디핏] faceDataUrl 캐시 재사용/저장 (XXXbytes)"
-  효과: 다시요청 시 face=True 100% 보장 (변환 단계 우회)
-
-─── 2026-05-13 KST · TJ 지시 (v66 픽스4) ─── [face 캐싱으로 다시요청 안정성 보장]
-  배경: Render 로그 결정적 증거 — 첫 호출 face=True ✅, 다시요청 face=False ❌
-    · 다시요청(againBtn) 클릭 시 generateStyling({bumpSeed:true})로 재실행
-    · getUserFaceImageSrc()가 다시 호출 시 race condition 또는 IDB 캐시 누락
-    · 결과: faceSrc='' → 페이로드에 faceImage 없음 → 서버 ref_images 0개
-    · 서버: BadRequestError 400 → Gemini 실패 → DALL-E 폴백 (사용자 보고된 placeholder UI)
-  변경 — 1개 영역:
-    [JS] generateStyling 함수 face 로드 (line ~4848):
-      · window.__codifitFaceCache 추가 — 첫 호출 성공 시 faceSrc 캐싱
-      · 다시요청 시 캐시 우선 사용 (재로드 실패 방지)
-      · loadImg 실패 시 faceSrc 비우지 않음 (서버 전송은 data URL로 가능)
-      · console.log 디버그 추가 ([코디핏] face 캐시 재사용/저장)
-  영향: 다시요청 시 face image 100% 전달 보장. 첫 호출이 성공한 경우 후속 호출도 성공.
-
-─── 2026-05-13 KST · TJ 지시 (v66 픽스3) ─── [통합 PERSONAL STYLING REPORT — 두 박스 합치고 세련된 디자인]
-  배경: 사용자 요구 — "리포트가 중복되지 않게 그리고 디자인도 통일해서
-        실제 리포트를 보는 것처럼 디자인을 좀더 세련되게 변경"
-  진단:
-    · AI 코디핏 스토리 박스(codiDetailBox) + AI 코디핏 포인트 박스(codiPointBox)가
-      별도 박스로 존재하면서 비슷한 분석 정보(outfit 구성)를 다른 형식으로 표시
-    · 사용자 입장에서 "이중"으로 느껴짐
-  변경 — 3개 영역:
-    (1) [HTML] codiPointBox 박스 자체 제거 (line ~1820):
-        · 내부 콘텐츠를 codiDetailBox 안의 새 섹션 "Today's Outfit"으로 이동
-        · 이동된 ID: catKwSection, catKwRow, kwRow, stylistBadge, matchRow
-        · "오늘의 코디" / "Today's Outfit" i18n 라벨 통일
-    (2) [CSS] 세련된 리포트 디자인 (~80줄 추가):
-        · 통합 박스 그라데이션 (실크 같은 부드러움)
-        · 골드 액센트(212,175,55) — PREMIUM 리포트 느낌
-        · 섹션 헤더 letterspacing 통일 (.16em)
-        · 섹션 구분선에 골드 그라데이션 추가
-        · 카테고리별 코디 카드 hover 효과 강화
-        · 스타일 키워드 칩 디자인 강화
-        · "AI 코디핏 스토리" 라벨에 민트→골드 그라데이션 텍스트
-        · signature 배경 골드 톤
-    (3) [JS] 새 섹션 표시/숨김 로직 (3곳):
-        · renderStylingPoint 함수: kwRow/catKwSection 활성화 시 anOutfitSection도 함께
-        · reset 로직 3곳: anOutfitSection도 hidden 추가
-  영향 범위: 코디핏 결과 페이지(closet.html)만. 트라이온/내옷장 변경 없음.
-
-─── 2026-05-13 KST · TJ 지시 (v66 픽스2) ─── [viewbox 1:1.62 원상복구]
-  배경: v66 픽스1에서 viewbox 2/1로 변경한 것을 사용자 요구로 원상복구
-    · 이미지 사이즈가 16:9로 변경됨 (mock_backend.py v66 픽스2)
-    · 박스는 세로 1:1.62 비율로 유지 + 가로 스크롤로 정/후면 전환
-  변경 — 1 개:
-    [CSS] .vto-result-box (line ~946):
-      · aspect-ratio: 2/1 → 1/1.62 (사용자 요구 — 원상복구)
-
-─── 2026-05-12 KST · TJ 지시 (v66 픽스) ─── [코디핏 viewbox 가로 + 정/후면 토글 강제 활성화]
-  배경: mock_backend.py v66(GPT Image 2 medium 전환) 후 사용자 보고 3건
-    1) 박스 비율이 세로 길어서 이미지가 작게 표시 (1/1.62 비율)
-    2) 정면/후면 토글 버튼 사라짐 (이미지는 가로 wide인데 토글 안 보임)
-    3) 얼굴/체형 전혀 반영 안됨 (→ mock_backend.py에서 별도 픽스)
-  변경 — 3 개 영역:
-    (1) [CSS] .vto-result-box (line ~946):
-        · aspect-ratio: 1/1.62 → 2/1 (이미지와 정확히 일치)
-        · 효과: 한 화면에 정+후면 모두 명확히 표시, 스크롤 불필요, 모바일 자동 맞춤
-    (2) [JS] drawNatural 함수 끝 토글 활성화 (line ~4565):
-        · 이전: if(isWide) {표시} else {숨김} — ratio 평가 환경에 따라 false 떨어지는 케이스
-        · 변경: isWide 조건 우회 — 무조건 표시 (코디핏은 정의상 정+후면 wide)
-    (3) [JS] line ~2941 두 번째 토글 활성화 path도 동일하게 강제 표시
-  영향 범위: 코디핏 결과 페이지(closet.html) 정/후면 표시만. 트라이온/내옷장 변경 없음.
-
-─── 2026-05-12 KST · TJ 지시 (v65 Pass 4) ─── [codiStory 액세서리 다양화]
-  진단 (Phase 4):
-  · v60에서 personaIdx=0 고정 후 codiStory의 액세서리 표시 조건
-    (personaIdx%3!==2, personaIdx%4===0)이 항상 true → 매번 가방+시계 표시
-  · 화면 codiStory에 "검정 백팩 + 시계"가 매번 동일하게 표시되는 잔존 버그
-  변경 (callClaude 함수 안 personaIdx 정의, line ~3093):
-  · const personaIdx = 0 → seed/day/pk 기반 hash로 0~4 다양화
-  · 5개 변형 → codiStory 액세서리 표시 패턴 3가지 (가방O+시계O / 가방O+시계X / 가방X+시계X)
-  · 시뮬레이션 검증: 다양화 100% (v60: 1가지 → v65: 3가지 패턴)
-  주의: 이건 codiStory(화면 표시 텍스트)만 영향 — 이미지 자체는 서버 prompt 책임
-  관련 v65 종합 픽스 (다른 파일):
-  · stylist_matching_engine.py + mock_backend.py에서 prompt 재구조화로 이미지 다양성 향상
-
-─── 2026-05-12 KST · TJ 지시 (v64) ─── ['서울지역 활동' 고정 버그 임시 픽스]
-  사용자 보고: AI 스타일리스트가 매번 변경되는데(로그: 밀라노/Hugo David,
-              상파울루/Lucas Alves) 화면에는 항상 "서울지역 활동" 고정 표시.
-  진짜 원인 발견:
-  · 서버 mock_backend.py line 2389: `stylist=matched_stylist` 그대로 응답
-  · 그러나 matched_stylist 객체에 city 필드 자체가 없음
-    (stylist_db_server.json 구조: id/name/color1/color2/bodyType/exp/level/major/career/rating)
-  · 클라이언트 closet.html line 5093: `(data.stylist.city||'서울')`
-    → city undefined → 폴백 '서울' 항상 작동 → "서울지역 활동" 고정
-  · 서버는 engineCity 필드로 active_city 따로 보내지만 클라이언트가 사용 안 함
-  [변경 — closet.html]
-  1) line 5093 표시 로직:
-     · _activeCity = data.stylist?.city || data.engineCity || '서울' 폴백 우선순위
-     · 서버가 engineCity로도 보내므로 stylist.city 없어도 정상 표시
-  2) line 5141 영문 모드 변환:
-     · 이전: '서울지역 활동'만 'Seoul-based' 매핑
-     · 변경: 7개 도시 모두 매핑 (서울/뉴욕/파리/런던/상파울루/두바이/밀라노)
-  [관련 서버 변경 — 동시 적용 (v64)]
-  · mock_backend.py: 응답에 stylist.city 필드 주입
-    (matched_stylist 얕은 복사 후 city = meta['active_city'] 추가)
-  [한계]
-  · 이건 임시 픽스 — 화면에 도시 표시만 정상화됨
-  · 진짜 큰 문제(이미지 자체 다양성 부족, Gemini가 stylist DNA 무시)는
-    오늘/내일 별도 깊은 분석 필요 (가설 A~E 검증 예정)
-
-─── 2026-05-12 KST · TJ 지시 (v61) ─── [컬러 자율화 + 배경 6색 통일]
-  사용자 보고:
-  1) 퍼스널컬러 best 컬러가 여전히 바지에 자주 매칭됨
-  2) 배경 컬러를 사용자 명시 6색(화이트/그레이/다크그레이/라이트핑크/라이트블루/라이트베이지)으로
-  [변경 — closet.html line ~4948]
-  · _colorDirective의 paletteLabels.X 폴백 완전 제거
-  · 사용자가 categoryKeywords에 컬러 키워드 명시 안 했으면 빈 문자열 →
-    AI가 avoid_color 제외하고 자유롭게 상/하의 색 매칭
-  · 이전: paletteLabels (placeholder 고정 5색)이 항상 폴백으로 들어가 강제됨
-  [관련 서버 변경 — 동시 적용 (v61)]
-  · pc_prompt_helper.py: best palette → "Reference only LOOSE HINT",
-    상/하의 RANDOMIZE 명시 + ANTI-REPETITION 규칙 추가
-  · mock_backend.py BACKGROUND 3곳 통일:
-    화이트/라이트그레이/다크그레이/라이트핑크/라이트블루/라이트베이지 6색 + 대비 조건
-
-─── 2026-05-12 KST · TJ 지시 (v60) ─── [70 PERSONA_DB 제거 — 9,600 서버 스타일리스트로 일원화]
-  배경: 클라이언트의 70 페르소나(7 TPO × 10)와 서버의 9,600 스타일리스트가
-        따로 노는 이중 시스템 → 출력 다양성 압축.
-        클라이언트 70 페르소나가 palette/silhouette/layerStyle을 강제 박힘:
-        · 예) '모던 미니멀리스트' → layerStyle:'터틀넥+슬림코트', silhouette:'슬림'
-        · 예) '비즈니스 놈코어' → layerStyle:'회색수트+화이트셔츠'
-        → 사용자 보고: 비슷한 색상 + 터틀넥 반복 + 슬림핏 편중
-  [변경 — callClaude 함수 내부 (line ~3000 부근)]
-  1) PERSONA_DB 정의 (306라인) 완전 삭제
-     · 7 TPO × 10 페르소나 = 70개 객체 모두 제거
-  2) personas/personaIdx/persona 선택 로직 제거
-     · seed 기반 페르소나 순환 → 서버 측 9,600 스타일리스트 엔진에 위임
-  3) 단일 generic persona placeholder로 대체:
-     · voice:'AI 스타일리스트', en:'AI Stylist'
-     · palette: 중립 5색 (네이비/아이보리/차콜/블랙/골드)
-     · designKws: 6개 중립 키워드 (모던/세련/균형/자연스러운/실용적/클래식)
-     · 화면 초기 표시 fallback용 — 서버 응답 도착 후 실제 정보로 갱신
-       (S.codiStory ← r.codiStory, S.categoryKeywords ← r.categoryKeywords)
-  [유지]
-  · tpoKey 계산 로직 → 아래 accessory 매핑(bag/watch/socks)에서 사용
-  · 모든 persona.X 참조 (17곳) → fallback 객체로 안전 작동 (시뮬레이션 검증)
-  [관련 서버 변경 — 동시 적용 (v60)]
-  · mock_backend.py: dont_style ABSOLUTE FORBIDDEN, PANTS 발목 덮음 최상단
-  · stylist_matching_engine.py: BOTTOM 강화, calculate_bmi 슬림 유도 표현 완화
-  [효과]
-  · 출력 다양성 회복 (70 강제 페르소나 제거)
-  · 9,600 스타일리스트의 풍부한 출력으로 일원화
-  · 파일 크기 -79KB 감소 (422KB → 343KB)
-
 ─── 2026-05-12 KST · TJ 지시 (v59) ─── [이미지 저장 갤러리 직접 저장 복원]
   배경: 이전엔 Web Share API 우선 → 공유 시트가 매번 떠서
         '카메라 앨범 자동 저장' 의도와 맞지 않음.
@@ -1021,14 +860,10 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
  * 이전: aspect-ratio 1/1.62 (세로 긴) — 단일 인물용
  * 변경: 박스 비율은 1/1.62 유지하되 내부 이미지가 가로 긴(2:1)
  *      → overflow-x: auto 로 스크롤 가능하게
- * ─────────────────────────────────────────────
- * [2026-05-13 v66 픽스2 TJ 지시] 1:1.62 세로 비율 원상복구
- *   직전 v66 픽스에서 2/1로 변경했으나 사용자 요구로 원상복구
- *   이미지가 16:9 가로로 생성되어 박스 안에서 가로 스크롤로 정/후면 전환
  * ───────────────────────────────────────────── */
 .vto-result-box{
   width:100%;
-  aspect-ratio:1/1.62;    /* [v66 픽스2] 2/1 → 1/1.62 원상복구 (사용자 요구) */
+  aspect-ratio:1/1.62;
   border-radius:20px;
   overflow-x:auto;        /* [v14] 가로 스크롤 활성화 */
   overflow-y:hidden;
@@ -1432,86 +1267,6 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 #codiDetailBox #bodyTypeBadge{
   padding:10px 16px 0;
 }
-
-/* ─── 2026-05-13 KST · TJ 지시 (v66 픽스3) ─── 세련된 리포트 디자인 ───
- *   배경: 사용자 요구 "실제 리포트를 보는 것처럼 디자인을 좀더 세련되게"
- *   변경:
- *     · 골드 액센트 (212,175,55) — PREMIUM 리포트 느낌
- *     · 섹션 헤더 hover/spacing 통일
- *     · 섹션 구분선 더 부드럽게
- *     · 카테고리별 코디 포인트 카드 디자인 강화
- *   영향: codiDetailBox 내부 통합 리포트 (코디핏 결과 페이지)
- * ─────────────────────────────────────────────── */
-
-/* 통합 리포트 박스 그라데이션 (실크 같은 부드러움) */
-#codiDetailBox{
-  background:linear-gradient(180deg, rgba(7,25,82,0.78) 0%, rgba(5,15,52,0.85) 100%) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(151,254,237,0.08),
-    0 4px 16px rgba(0,0,0,0.18) !important;
-}
-
-/* 섹션 헤더 통일 — 골드 액센트 (PREMIUM 느낌) */
-#codiDetailBox .flex.items-center.gap-1\.5.mb-1 > p,
-#codiDetailBox .flex.items-center.gap-1\.5.mb-1\.5 > p,
-#codiDetailBox .flex.items-center.gap-1\.5.mb-2 > p{
-  font-size:10.5px !important;
-  letter-spacing:0.16em !important;
-}
-
-/* 섹션 구분선 더 부드럽게 (점선 같은 느낌) */
-#codiDetailBox > div[id^="an"]{
-  border-top:1px solid rgba(151,254,237,0.05) !important;
-  position:relative;
-}
-#codiDetailBox > div[id^="an"]::before{
-  content:'';
-  position:absolute;
-  top:-1px; left:16px; right:16px;
-  height:1px;
-  background:linear-gradient(90deg, transparent, rgba(212,175,55,0.18) 50%, transparent);
-}
-
-/* 카테고리별 코디 포인트 카드 강화 */
-#catKwRow > div{
-  background:linear-gradient(135deg, rgba(7,25,82,0.5), rgba(11,18,56,0.4)) !important;
-  border:1px solid rgba(151,254,237,0.12) !important;
-  border-radius:10px !important;
-  padding:8px 10px !important;
-  transition:all 0.2s !important;
-}
-#catKwRow > div:hover{
-  border-color:rgba(212,175,55,0.3) !important;
-  background:linear-gradient(135deg, rgba(7,25,82,0.6), rgba(11,18,56,0.5)) !important;
-}
-
-/* 스타일 키워드 (kwRow) 칩 디자인 강화 */
-#kwRow > span{
-  background:linear-gradient(135deg, rgba(53,162,159,0.18), rgba(53,162,159,0.08)) !important;
-  border:1px solid rgba(151,254,237,0.22) !important;
-  color:rgba(162,253,240,0.92) !important;
-  padding:4px 9px !important;
-  border-radius:7px !important;
-  font-size:10px !important;
-  font-weight:600 !important;
-  letter-spacing:0.02em !important;
-}
-
-/* 리포트 헤더 골드 톤 강조 (PREMIUM 뱃지 옆 라벨) */
-#codiDetailBox > div:first-child p[data-i18n="AI 코디핏 스토리"]{
-  background:linear-gradient(135deg, #97FEED 0%, rgba(212,175,55,0.85) 100%);
-  -webkit-background-clip:text;
-  background-clip:text;
-  -webkit-text-fill-color:transparent;
-  letter-spacing:0.22em !important;
-}
-
-/* signature 더 세련되게 (워터마크 스타일) */
-#codiDetailBox .cdb-signature{
-  background:linear-gradient(180deg, transparent 0%, rgba(212,175,55,0.04) 100%) !important;
-  border-top:1px solid rgba(212,175,55,0.12) !important;
-}
-
 #codiDetailBox #bodyTypeBadge span{
   background:linear-gradient(135deg,rgba(53,162,159,0.22),rgba(53,162,159,0.1));
   border:1px solid rgba(151,254,237,0.28);
@@ -1893,25 +1648,6 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <div class="px-4 pb-2 pt-2">
         <p id="codiExplain" class="text-[13px] leading-[1.75] font-normal" style="color:rgba(255,255,255,0.78);">목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.</p>
       </div>
-      <!-- ─── 2026-05-13 KST · TJ 지시 (v66 픽스3) ─── Today's Outfit 통합 섹션 ─── -->
-      <!-- 이전 별도 박스(codiPointBox)였던 스타일 키워드 + 카테고리별 코디 포인트를 -->
-      <!-- 통합 PERSONAL STYLING REPORT의 한 섹션으로 이동 (중복 제거 + 디자인 통일) -->
-      <div id="anOutfitSection" class="hidden px-4 pt-2 pb-2" style="border-top:1px solid rgba(151,254,237,0.06);">
-        <div class="flex items-center justify-between mb-1.5">
-          <div class="flex items-center gap-1.5">
-            <span style="font-size:12px;">✦</span>
-            <p class="text-[10px] font-extrabold tracking-[0.14em]" style="color:rgba(151,254,237,0.65);" data-i18n="오늘의 코디">오늘의 코디</p>
-          </div>
-          <span id="stylistBadge" class="hidden text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(18,148,144,0.25);border:1px solid rgba(151,254,237,0.3);color:#97FEED;"></span>
-        </div>
-        <!-- 스타일 키워드 -->
-        <div id="kwRow" class="flex flex-wrap gap-1 mb-2 hidden"></div>
-        <!-- 카테고리별 코디 포인트 -->
-        <div id="catKwSection" class="hidden">
-          <div id="catKwRow" class="flex flex-col gap-1.5"></div>
-        </div>
-        <div id="matchRow" style="display:none;"></div>
-      </div>
       <!-- ① 퍼스널컬러 분석 -->
       <div id="anPcSection" class="hidden px-4 pt-2 pb-2" style="border-top:1px solid rgba(151,254,237,0.06);">
         <div class="flex items-center gap-1.5 mb-1">
@@ -1949,9 +1685,28 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       </div>
     </div>
 
-    <!-- ─── 2026-05-13 KST · TJ 지시 (v66 픽스3) ─── 통합 완료 ─── -->
-    <!-- 이전 별도 박스였던 codiPointBox는 PERSONAL STYLING REPORT 안의 -->
-    <!-- "Today's Outfit" 섹션 (anOutfitSection)으로 통합됨. 박스 자체 제거. -->
+    <!-- ② AI 스타일리스트 포인트 박스 -->
+    <div id="codiPointBox" class="mb-4 overflow-hidden" style="background:rgba(7,25,82,0.7);border:1px solid rgba(151,254,237,0.18);border-radius:16px;">
+      <div class="flex items-center justify-between px-4 py-2.5" style="background:rgba(18,148,144,0.18);border-bottom:1px solid rgba(151,254,237,0.1);">
+        <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-[14px]" style="color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 14;">auto_awesome</span>
+        <p class="text-[10px] font-extrabold tracking-[0.2em]" style="color:#97FEED;" data-i18n="AI 코디핏 포인트">AI 코디핏 포인트</p>
+        <span id="stylistBadge" class="hidden text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(18,148,144,0.25);border:1px solid rgba(151,254,237,0.3);color:#97FEED;"></span>
+      </div>
+      </div>
+      <!-- 스타일 키워드 -->
+      <div class="px-4 pt-3 pb-1">
+        <p class="text-[9px] font-extrabold tracking-[0.18em] mb-1.5" style="color:rgba(151,254,237,0.45);">스타일 키워드</p>
+        <div id="kwRow" class="flex flex-wrap gap-1 hidden"></div>
+      </div>
+      <!-- 카테고리별 키워드 -->
+      <div id="catKwSection" class="hidden px-4 pt-2 pb-3">
+        <p class="text-[9px] font-extrabold tracking-[0.18em] mb-2 mt-1" style="color:rgba(151,254,237,0.45);">카테고리별 코디 포인트</p>
+        <div id="catKwRow" class="flex flex-col gap-1.5"></div>
+        <p class="text-[10px] mt-2.5 leading-relaxed" style="color:rgba(151,254,237,0.4);display:none;">↓ 아래 모바일 옷장과 AI 매칭 분석 중</p>
+      </div>
+      <div id="matchRow" style="display:none;"></div>
+    </div>
 
     <!-- VTO 영역 -->
     <!-- [v12 TJ-6] 분석 박스와 이미지 뷰박스 사이 여백 확대 (mt-8 = 32px) -->
@@ -2873,7 +2628,7 @@ function resetAll(){
   // ─── 분석 리포트 섹션 hide + 텍스트 초기화 ───
   try{
     var _ssb=document.getElementById('stylistSummaryBox');if(_ssb)_ssb.classList.add('hidden');
-    ['anPcSection','anBodySection','anPurposeSection','anOutfitSection'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.add('hidden');});
+    ['anPcSection','anBodySection','anPurposeSection'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.add('hidden');});
     var _catKw=document.getElementById('catKwSection');if(_catKw)_catKw.classList.add('hidden');
     var _kwRow=document.getElementById('kwRow');if(_kwRow){_kwRow.innerHTML='';_kwRow.classList.add('hidden');}
     var _cpSum=document.getElementById('cpSummarySection');if(_cpSum)_cpSum.classList.add('hidden');
@@ -3100,14 +2855,14 @@ async function _tryRestoreLastResult(){
     if(pctEl) pctEl.style.display='none';
     
     // [v15] swipe 도트 + 힌트 표시 (가로 긴 이미지일 때)
-    // ─── 2026-05-12 KST · TJ 지시 (v66) ─── 코디핏 결과는 항상 가로 wide → 무조건 표시 ───
     const isWide = ratio > 1.2;
     const _dots = document.getElementById('vtoPoseToggle');
     const _hint = document.getElementById('vtoPoseHint');
-    // v66: isWide 조건 우회 — 코디핏은 정의상 정+후면 wide
-    if(_dots) _dots.classList.remove('hidden');
-    if(_hint) _hint.classList.remove('hidden');
-    setTimeout(()=>{ if(_hint) _hint.classList.add('hidden'); }, 5000);
+    if(isWide){
+      if(_dots) _dots.classList.remove('hidden');
+      if(_hint) _hint.classList.remove('hidden');
+      setTimeout(()=>{ if(_hint) _hint.classList.add('hidden'); }, 5000);
+    }
     
     // [v15 TJ-1] 정면이 박스 중앙에 보이도록 초기 스크롤 위치 조정
     setTimeout(()=>{
@@ -3241,16 +2996,313 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   const locationHint = (/[\u3131-\uD79D]/.test(loc)||_ls.includes('korea'))
     ? '한국 도심' : loc || '도심';
 
-  // ── [2] (v60) 70 PERSONA_DB 제거 — 9,600 서버 스타일리스트로 일원화
-  // ─── 2026-05-12 KST · TJ 지시 (v60) ─── 페르소나 70개 삭제 ───
-  //   배경: 클라이언트 70 페르소나와 서버 9,600 스타일리스트가 따로 노는 이중 시스템.
-  //          70 페르소나가 palette/silhouette/layerStyle을 강제 박힘 (예: '터틀넥+슬림코트',
-  //          '슬림핏')하여 출력 다양성 압축. 매번 같은 비슷한 코디 반복 발생.
-  //   변경: 70 페르소나 완전 삭제 → 단일 generic placeholder.
-  //          페르소나 voice/팔레트/디자인키워드는 서버 응답으로 갱신
-  //          (S.codiStory ← r.codiStory, S.categoryKeywords ← r.categoryKeywords).
-  //          이 placeholder는 서버 응답 도착 전 화면 초기 표시 fallback 역할만.
-  //   주의: TPO 매핑(tpoKey)은 아래 accessory(bag/watch/socks)에서 사용되므로 유지.
+  // ── [2] 70 PERSONA DATABASE (7 TPO × 10) ──
+  const PERSONA_DB = {
+    commute: [
+      { voice:'모던 미니멀리스트', en:'Modern Minimalist',
+        palette:{outer:'#1C1C1E',top:'#F5F5F0',pants:'#3D3D3D',shoes:'#1C1C1E',accent:'#C8B89A'},
+        designKws:['슬림핏','모노톤','레이어드','미니멀','클린라인','뉴트럴'],
+        shoe:'더비슈즈', silhouette:'슬림', layerStyle:'터틀넥+슬림코트' },
+      { voice:'어반 테크웨어', en:'Urban Techwear',
+        palette:{outer:'#0A0A0A',top:'#1A1A2E',pants:'#16213E',shoes:'#0F3460',accent:'#E94560'},
+        designKws:['테크웨어','기능성','스트레치','유틸리티','다크','쉘자켓'],
+        shoe:'테크러너', silhouette:'릴렉스', layerStyle:'쉘재킷+카고팬츠' },
+      { voice:'스마트 캐주얼', en:'Smart Casual',
+        palette:{outer:'#2C3E50',top:'#ECF0F1',pants:'#7F8C8D',shoes:'#2C3E50',accent:'#E67E22'},
+        designKws:['세미핏','균형감','스마트','캐주얼','포인트','정돈'],
+        shoe:'로퍼', silhouette:'세미슬림', layerStyle:'하운드투스자켓+차콜팬츠' },
+      { voice:'클래식 프레피', en:'Classic Preppy',
+        palette:{outer:'#1B3A6B',top:'#FFFEF7',pants:'#8B4513',shoes:'#4A2511',accent:'#C41E3A'},
+        designKws:['프레피','클래식','체크','헤링본','블레이저','버튼다운'],
+        shoe:'태슬로퍼', silhouette:'클래식', layerStyle:'네이비블레이저+카키치노' },
+      { voice:'컴포트 워크웨어', en:'Comfort Workwear',
+        palette:{outer:'#4A4A4A',top:'#E8E4DC',pants:'#6B6B6B',shoes:'#3C3C3C',accent:'#8B7355'},
+        designKws:['편안함','스트레치','기능성','워크','어스톤','편안한핏'],
+        shoe:'청키스니커즈', silhouette:'릴렉스', layerStyle:'후리스집업+스트레이트팬츠' },
+      { voice:'프렌치 시크', en:'French Chic',
+        palette:{outer:'#2F2F2F',top:'#F7F3EE',pants:'#1A1A1A',shoes:'#8B0000',accent:'#C8A882'},
+        designKws:['시크','에피소드','마린룩','스트라이프','베레모','포인트'],
+        shoe:'첼시부츠', silhouette:'테일러드', layerStyle:'스트라이프셔츠+테일러드트렌치' },
+      { voice:'비즈니스 놈코어', en:'Business Normcore',
+        palette:{outer:'#8B8B8B',top:'#FFFFFF',pants:'#4A4A4A',shoes:'#2C2C2C',accent:'#B8B8B8'},
+        designKws:['놈코어','베이직','심플','무지','정제된','실용적'],
+        shoe:'옥스포드', silhouette:'스트레이트', layerStyle:'회색수트+화이트셔츠' },
+      { voice:'바이크 커뮤터', en:'Bike Commuter',
+        palette:{outer:'#1A3A1A',top:'#2D5016',pants:'#1C1C1E',shoes:'#FF6B00',accent:'#FFCC00'},
+        designKws:['바이크','방수','반사재','기능성','컴팩트','스포티'],
+        shoe:'워킹슈즈', silhouette:'릴렉스', layerStyle:'윈드브레이커+퍼포먼스팬츠' },
+      { voice:'웨더 디펜더', en:'Weather Defender',
+        palette:{outer:'#1F3B4D',top:'#D4E8F0',pants:'#2C4A5A',shoes:'#1A1A2E',accent:'#4FC3F7'},
+        designKws:['방수','아우터','레이어','방한','기능성','클린'],
+        shoe:'고어텍스부츠', silhouette:'볼드', layerStyle:'다운파카+워터프루프팬츠' },
+      { voice:'에코 프렌들리', en:'Eco-Friendly',
+        palette:{outer:'#3D5A3E',top:'#C8D5B9',pants:'#5C4827',shoes:'#6B4E3D',accent:'#8FBC8F'},
+        designKws:['내추럴','어스톤','오가닉','리사이클','린넨','친환경'],
+        shoe:'캔버스스니커즈', silhouette:'릴렉스', layerStyle:'오가닉코튼셔츠+어스톤팬츠' },
+    ],
+    business: [
+      { voice:'클래식 사르토리아', en:'Classic Sartoria',
+        palette:{outer:'#1A1A2E',top:'#FAFAFA',pants:'#16213E',shoes:'#0A0A0A',accent:'#C8A000'},
+        designKws:['수트','라펠','포켓치프','이탈리안핏','테일러드','클래식'],
+        shoe:'옥스포드', silhouette:'테일러드', layerStyle:'네이비더블수트+화이트셔츠' },
+      { voice:'파워 드레서', en:'Power Dresser',
+        palette:{outer:'#0D0D0D',top:'#F8F4EE',pants:'#1A1A1A',shoes:'#0A0A0A',accent:'#8B0000'},
+        designKws:['파워','볼드숄더','스트럭처드','다크','임팩트','권위'],
+        shoe:'스트레이트팁', silhouette:'스트럭처드', layerStyle:'차콜더블수트+건메탈타이' },
+      { voice:'올드머니 럭셔리', en:'Old Money Luxury',
+        palette:{outer:'#5C4033',top:'#FAF7F0',pants:'#3D2B1F',shoes:'#4A2511',accent:'#C8B89A'},
+        designKws:['캐시미어','클럽컬러','헤리티지','로고리스','고급소재','퀴어트럭셔리'],
+        shoe:'모크크로코로퍼', silhouette:'클래식', layerStyle:'카멜코트+아이보리터틀넥' },
+      { voice:'모던 브리티시', en:'Modern British',
+        palette:{outer:'#1C3A2E',top:'#E8E4D8',pants:'#2A4A3A',shoes:'#1A2A1A',accent:'#8B6914'},
+        designKws:['헤링본','글렌체크','트위드','브리티시','핀스트라이프','리젠트'],
+        shoe:'브로그', silhouette:'테일러드슬림', layerStyle:'헤링본수트+버튼다운' },
+      { voice:'소프트 젠틀', en:'Soft Gentle',
+        palette:{outer:'#B0C4DE',top:'#FAFAFA',pants:'#778899',shoes:'#4A5568',accent:'#E8D5B7'},
+        designKws:['파스텔','소프트','젠틀','세미포멀','뉴트럴','부드러운'],
+        shoe:'수에드로퍼', silhouette:'세미슬림', layerStyle:'라이트그레이수트+소프트블루셔츠' },
+      { voice:'컨템포러리 비즈', en:'Contemporary Biz',
+        palette:{outer:'#2D3436',top:'#DFE6E9',pants:'#636E72',shoes:'#2D3436',accent:'#0984E3'},
+        designKws:['모던','세미포멀','테크소재','미니멀','블레이저','슬랙스'],
+        shoe:'청키더비', silhouette:'세미슬림', layerStyle:'그레이블레이저+테크팬츠' },
+      { voice:'테일러드 아웃도어', en:'Tailored Outdoor',
+        palette:{outer:'#3C5A3C',top:'#F5F0E8',pants:'#2C4A2C',shoes:'#4A3728',accent:'#8B6914'},
+        designKws:['고어텍스','아웃도어','테일러드','기능성','하이브리드','필드'],
+        shoe:'트레킹더비', silhouette:'스트레이트', layerStyle:'아웃도어블레이저+카고슬랙스' },
+      { voice:'노타이 스페셜리스트', en:'Tieless Specialist',
+        palette:{outer:'#34495E',top:'#ECF0F1',pants:'#2C3E50',shoes:'#1A252F',accent:'#16A085'},
+        designKws:['노타이','오픈칼라','모던포멀','크루넥','언버튼','세련된'],
+        shoe:'클린스니커즈', silhouette:'슬림', layerStyle:'다크수트+오픈칼라셔츠' },
+      { voice:'비즈 아방가르드', en:'Business Avant-garde',
+        palette:{outer:'#1A0A2E',top:'#E8E0F0',pants:'#2D1B4E',shoes:'#1A0A2E',accent:'#9B59B6'},
+        designKws:['아방가르드','비대칭','언발란스','퍼플','실험적','전위적'],
+        shoe:'플랫폼더비', silhouette:'오버사이즈', layerStyle:'비대칭재킷+와이드슬랙스' },
+      { voice:'클라이밋 어댑터', en:'Climate Adapter',
+        palette:{outer:'#4A5568',top:'#E2E8F0',pants:'#2D3748',shoes:'#1A202C',accent:'#38B2AC'},
+        designKws:['레이어블','온도조절','기능소재','탈착','올시즌','베르사타일'],
+        shoe:'워터프루프더비', silhouette:'스트레이트', layerStyle:'3in1재킷+온도조절팬츠' },
+    ],
+    social: [
+      { voice:'트렌드세터', en:'Trendsetter',
+        palette:{outer:'#FF6B6B',top:'#FFEAA7',pants:'#2D3436',shoes:'#0A0A0A',accent:'#FD79A8'},
+        designKws:['트렌디','믹스매치','컬러블로킹','포인트','시즌컬러','핫아이템'],
+        shoe:'청키스니커즈', silhouette:'오버사이즈', layerStyle:'컬러블로킹아웃터+그래픽티' },
+      { voice:'스트릿 하이엔드', en:'Street High-end',
+        palette:{outer:'#1A1A1A',top:'#F0F0F0',pants:'#1A1A1A',shoes:'#1A1A1A',accent:'#FFD700'},
+        designKws:['럭스스트릿','로고','골드포인트','하이스트릿','다크','프리미엄'],
+        shoe:'하이탑스니커즈', silhouette:'오버사이즈', layerStyle:'프리미엄후디+와이드팬츠+골드체인' },
+      { voice:'미니멀 보이프렌드', en:'Minimal Boyfriend',
+        palette:{outer:'#95A5A6',top:'#FAFAFA',pants:'#E8E8E8',shoes:'#D5D8DC',accent:'#BDC3C7'},
+        designKws:['릴렉스','오버핏','쿨한','그레이톤','미니멀','젠더리스'],
+        shoe:'뮬', silhouette:'오버사이즈', layerStyle:'오버핏셔츠+조거팬츠' },
+      { voice:'레트로 빈티지', en:'Retro Vintage',
+        palette:{outer:'#8B4513',top:'#F5DEB3',pants:'#DEB887',shoes:'#8B4513',accent:'#CD853F'},
+        designKws:['빈티지','레트로','아메카지','워싱','플레어','70s'],
+        shoe:'플랫폼부츠', silhouette:'플레어', layerStyle:'코듀로이재킷+플레어데님' },
+      { voice:'아방가르드', en:'Avant-garde',
+        palette:{outer:'#2C2C54',top:'#ECECEC',pants:'#40407A',shoes:'#0A0A0A',accent:'#FF4757'},
+        designKws:['아방가르드','비대칭','드레이핑','실험적','조형적','언발란스'],
+        shoe:'아방가르드부츠', silhouette:'오버사이즈', layerStyle:'비대칭드레이프코트+와이드팬츠' },
+      { voice:'Y2K 리바이벌', en:'Y2K Revival',
+        palette:{outer:'#E91E8C',top:'#00BCD4',pants:'#7C4DFF',shoes:'#FF6D00',accent:'#76FF03'},
+        designKws:['Y2K','크롭','메탈릭','홀로그램','컬러풀','2000년대'],
+        shoe:'플랫폼스니커즈', silhouette:'크롭', layerStyle:'메탈릭크롭자켓+로우라이즈팬츠' },
+      { voice:'컬러 팝', en:'Color Point Pop',
+        palette:{outer:'#FF5722',top:'#FFFFFF',pants:'#212121',shoes:'#FF5722',accent:'#FFC107'},
+        designKws:['컬러포인트','원색','팝','포인트아이템','흑백기반','강렬한'],
+        shoe:'컬러스니커즈', silhouette:'슬림', layerStyle:'화이트베이스+오렌지포인트코트' },
+      { voice:'그런지 반항아', en:'Grunge Rebellion',
+        palette:{outer:'#1A1A1A',top:'#4A4A4A',pants:'#2C2C2C',shoes:'#1A1A1A',accent:'#8B0000'},
+        designKws:['그런지','데스트로이드','레이어드','다크','체인','밴드티'],
+        shoe:'닥터마틴', silhouette:'오버사이즈', layerStyle:'오버핏플란넬+데스트로이드진' },
+      { voice:'긱 시크', en:'Geek Chic',
+        palette:{outer:'#2F4F8F',top:'#E8EAF6',pants:'#37474F',shoes:'#1A237E',accent:'#FF6F00'},
+        designKws:['긱시크','옥스포드','체크','안경','패치','레이어드'],
+        shoe:'화이트스니커즈', silhouette:'클래식슬림', layerStyle:'체크셔츠+카디건+슬림진' },
+      { voice:'로맨틱 보헤미안', en:'Romantic Bohemian',
+        palette:{outer:'#D4A96A',top:'#FDF3E3',pants:'#8B7355',shoes:'#6B4C2A',accent:'#C8956C'},
+        designKws:['보헤미안','플로럴','레이스','어스톤','레이어드','낭만적'],
+        shoe:'에스파드리유', silhouette:'플로우', layerStyle:'플로럴블라우스+린넨팬츠+베스트' },
+    ],
+    weekendOut: [
+      { voice:'코지 릴렉서', en:'Cozy Relaxer',
+        palette:{outer:'#8B7355',top:'#F5F0E8',pants:'#6B6B6B',shoes:'#4A4A4A',accent:'#D4B896'},
+        designKws:['코지','오버핏','니트','스웨트','릴렉스','홈웨어'],
+        shoe:'울리슬리퍼', silhouette:'오버사이즈', layerStyle:'오버핏니트+조거팬츠' },
+      { voice:'시티 보이', en:'City Boy',
+        palette:{outer:'#2C3E50',top:'#FFFFFF',pants:'#2C2C2C',shoes:'#1A1A1A',accent:'#3498DB'},
+        designKws:['시티','어반','스트릿','크루넥','스웨트셔츠','스니커즈'],
+        shoe:'에어맥스', silhouette:'릴렉스', layerStyle:'크루넥스웨트+카고팬츠' },
+      { voice:'스포티 액티브', en:'Sporty & Active',
+        palette:{outer:'#1A237E',top:'#E3F2FD',pants:'#0D47A1',shoes:'#FF6F00',accent:'#FF6F00'},
+        designKws:['스포티','애슬레저','퍼포먼스','러닝','테크패브릭','활동성'],
+        shoe:'러닝화', silhouette:'슬림', layerStyle:'트랙수트+스포츠아웃터' },
+      { voice:'아메카지', en:'Amekaji',
+        palette:{outer:'#8B4513',top:'#F5DEB3',pants:'#1C3A6B',shoes:'#4A2511',accent:'#CD853F'},
+        designKws:['아메카지','데님','워크부츠','플란넬','체인지','레이어드'],
+        shoe:'레드윙부츠', silhouette:'스트레이트', layerStyle:'데님자켓+체크플란넬+워싱진' },
+      { voice:'위켄드 캠퍼', en:'Weekend Camper',
+        palette:{outer:'#3C5A3C',top:'#F5F0E0',pants:'#5C4827',shoes:'#4A3728',accent:'#FF8C00'},
+        designKws:['캠핑','아웃도어','고프코어','패딩','방수','기능성'],
+        shoe:'하이킹부츠', silhouette:'릴렉스', layerStyle:'마운틴파카+카고팬츠' },
+      { voice:'카페 칠러', en:'Cafe Chiller',
+        palette:{outer:'#A0522D',top:'#FFF8DC',pants:'#D2691E',shoes:'#8B6914',accent:'#DEB887'},
+        designKws:['카페','어스톤','코지','레이어드','니트','캐주얼'],
+        shoe:'카멜첼시부츠', silhouette:'세미릴렉스', layerStyle:'오버핏가디건+슬랙스' },
+      { voice:'데님 마스터', en:'Denim Master',
+        palette:{outer:'#1C3A6B',top:'#FFFFFF',pants:'#4169E1',shoes:'#1C1C1E',accent:'#C8B89A'},
+        designKws:['데님온데님','캐나디안포멀','인디고','워싱','테일러드데님','데님'],
+        shoe:'화이트청키스니커즈', silhouette:'스트레이트', layerStyle:'데님트러커+데님팬츠+화이트티' },
+      { voice:'레더 앤 바이커', en:'Leather & Biker',
+        palette:{outer:'#0A0A0A',top:'#1C1C1C',pants:'#1A1A1A',shoes:'#0A0A0A',accent:'#C0C0C0'},
+        designKws:['레더','바이커','메탈','모터사이클','다크','체인'],
+        shoe:'바이커부츠', silhouette:'슬림', layerStyle:'레더라이더자켓+슬림블랙진' },
+      { voice:'오버사이즈 마에스트로', en:'Oversize Maestro',
+        palette:{outer:'#C8B89A',top:'#FFFEF7',pants:'#8B7355',shoes:'#4A4A4A',accent:'#D4A96A'},
+        designKws:['오버사이즈','볼드실루엣','드롭숄더','빅핏','레이어드','헤비'],
+        shoe:'청키부츠', silhouette:'오버사이즈', layerStyle:'오버사이즈코트+박시티+와이드팬츠' },
+      { voice:'리조트 라운저', en:'Resort Lounger',
+        palette:{outer:'#87CEEB',top:'#FFFEF7',pants:'#F4A460',shoes:'#DEB887',accent:'#20B2AA'},
+        designKws:['리조트','하와이안','린넨','라이트','밝은컬러','릴렉스'],
+        shoe:'에스파드리유', silhouette:'릴렉스', layerStyle:'린넨셔츠+쇼츠+레이어드' },
+    ],
+    weekendTrip: [
+      { voice:'고프코어', en:'Gorpcore',
+        palette:{outer:'#2E5E2E',top:'#C8D5B9',pants:'#4A5240',shoes:'#8B6914',accent:'#FF8C00'},
+        designKws:['고프코어','기능성','아웃도어','레이어','트레일','고어텍스'],
+        shoe:'트레일러너', silhouette:'릴렉스', layerStyle:'패딩조끼+플리스+카고팬츠' },
+      { voice:'트래블 테크', en:'Travel Tech',
+        palette:{outer:'#1A1A2E',top:'#16213E',pants:'#0F3460',shoes:'#1A1A2E',accent:'#E94560'},
+        designKws:['트래블','테크','경량','주름방지','기능성','스마트'],
+        shoe:'트래블스니커즈', silhouette:'슬림', layerStyle:'트래블자켓+테크팬츠' },
+      { voice:'레이어드 마스터', en:'Layered Master',
+        palette:{outer:'#4A3728',top:'#E8D5B7',pants:'#5C4827',shoes:'#3C2A1A',accent:'#D4A96A'},
+        designKws:['레이어드','믹스앤매치','온도조절','겹치기','어스톤','텍스처'],
+        shoe:'워킹부츠', silhouette:'볼드', layerStyle:'다운베스트+플란넬+코듀로이팬츠' },
+      { voice:'로드트립 드라이버', en:'Road Trip Driver',
+        palette:{outer:'#2C3E50',top:'#ECF0F1',pants:'#34495E',shoes:'#2C3E50',accent:'#E67E22'},
+        designKws:['로드트립','어메리칸','캐주얼','스트레이트','데님','클래식'],
+        shoe:'화이트로우스니커즈', silhouette:'스트레이트', layerStyle:'MA-1봄버+청바지+후드티' },
+      { voice:'헤리티지 워크웨어', en:'Heritage Workwear',
+        palette:{outer:'#5C4827',top:'#E8D5B7',pants:'#3C2A1A',shoes:'#4A3728',accent:'#8B6914'},
+        designKws:['헤리티지','워크웨어','캔버스','데님','체인스티치','아메카지'],
+        shoe:'엔지니어부츠', silhouette:'스트레이트', layerStyle:'캔버스워크재킷+데님오버롤' },
+      { voice:'백패커', en:'Backpacker',
+        palette:{outer:'#3C5A3C',top:'#C8D5B9',pants:'#4A5240',shoes:'#6B4E3D',accent:'#FF8C00'},
+        designKws:['백팩','경량','트레킹','레이어블','그린','실용적'],
+        shoe:'트레킹샌들', silhouette:'릴렉스', layerStyle:'경량다운+컨버터블팬츠' },
+      { voice:'포토제닉 투어리스트', en:'Photogenic Tourist',
+        palette:{outer:'#E8B4B8',top:'#FAFAFA',pants:'#C9A0DC',shoes:'#FFFFFF',accent:'#FFB347'},
+        designKws:['인스타','포토제닉','파스텔','밝은','트렌디','소셜'],
+        shoe:'화이트스니커즈', silhouette:'슬림', layerStyle:'파스텔블루셋업+컬러팝악세서리' },
+      { voice:'컬러블록 플레이어', en:'Color Block Player',
+        palette:{outer:'#E74C3C',top:'#3498DB',pants:'#2ECC71',shoes:'#F39C12',accent:'#9B59B6'},
+        designKws:['컬러블로킹','대담한','원색','믹스','팝아트','대조'],
+        shoe:'컬러화이트스니커즈', silhouette:'릴렉스', layerStyle:'컬러블록바람막이+와이드팬츠' },
+      { voice:'트레일 러너', en:'Trail Runner',
+        palette:{outer:'#FF6F00',top:'#1A1A2E',pants:'#2C3E50',shoes:'#FF6F00',accent:'#76FF03'},
+        designKws:['트레일','런닝','기능성','경량','다이나믹','퍼포먼스'],
+        shoe:'트레일러닝화', silhouette:'슬림', layerStyle:'윈드브레이커+퍼포먼스타이츠' },
+      { voice:'컨트리사이드 젠틀맨', en:'Countryside Gentleman',
+        palette:{outer:'#4A5E3A',top:'#F5F0E8',pants:'#5C4827',shoes:'#4A3728',accent:'#8B6914'},
+        designKws:['컨트리','트위드','헌팅','왁스코튼','귀족적','영국식'],
+        shoe:'브로그', silhouette:'클래식', layerStyle:'왁스코튼재킷+코듀로이팬츠' },
+    ],
+    overseasTrip: [
+      { voice:'제트셋 시크', en:'Jet-set Chic',
+        palette:{outer:'#1A1A2E',top:'#FAF0E6',pants:'#2C2C54',shoes:'#1A1A2E',accent:'#C8A000'},
+        designKws:['럭셔리','제트셋','시크','모노크롬','에디토리얼','글로시'],
+        shoe:'레더첼시부츠', silhouette:'슬림', layerStyle:'블랙마스터코트+모노크롬룩' },
+      { voice:'글로벌 노마드', en:'Global Nomad',
+        palette:{outer:'#8B7355',top:'#F5F0E8',pants:'#6B5A45',shoes:'#4A3728',accent:'#D4A96A'},
+        designKws:['노마드','글로벌','어스톤','레이어블','내추럴','크래프트'],
+        shoe:'슬리폰', silhouette:'릴렉스', layerStyle:'린넨코트+와이드팬츠+스카프' },
+      { voice:'올웨더 어댑터', en:'All-weather Adapter',
+        palette:{outer:'#2C3E50',top:'#ECF0F1',pants:'#34495E',shoes:'#2C3E50',accent:'#1ABC9C'},
+        designKws:['올웨더','기능성','방수','경량','레이어블','스마트'],
+        shoe:'고어텍스스니커즈', silhouette:'스트레이트', layerStyle:'3in1재킷+방수팬츠' },
+      { voice:'메트로폴리탄', en:'Metropolitan',
+        palette:{outer:'#1C1C1E',top:'#F5F5F7',pants:'#3A3A3C',shoes:'#1C1C1E',accent:'#FF375F'},
+        designKws:['메트로','어반','코즈모폴리탄','모던','소피스티케이트','시티'],
+        shoe:'레더스니커즈', silhouette:'슬림', layerStyle:'그레이코트+블랙팬츠+팝컬러백' },
+      { voice:'하이엔드 리조트', en:'High-end Resort',
+        palette:{outer:'#F0E6D3',top:'#FFFEF7',pants:'#E8D5B7',shoes:'#C8A882'},
+        designKws:['리조트','럭셔리','린넨','화이트','크림','우아한'],
+        shoe:'에스파드리유', silhouette:'릴렉스', layerStyle:'크림린넨셋업+골드악세서리' },
+      { voice:'이지케어', en:'Easy Care',
+        palette:{outer:'#778899',top:'#F0F4F8',pants:'#4A5568',shoes:'#2D3748',accent:'#63B3ED'},
+        designKws:['주름방지','폴리','기능성','워시앤웨어','경량','심플'],
+        shoe:'컬러스니커즈', silhouette:'스트레이트', layerStyle:'이지케어블레이저+클린슬랙스' },
+      { voice:'미니멀 패커', en:'Minimal Packer',
+        palette:{outer:'#2D3748',top:'#E2E8F0',pants:'#4A5568',shoes:'#2D3748',accent:'#68D391'},
+        designKws:['미니멀','패킹','다용도','뉴트럴','심플','레이어블'],
+        shoe:'화이트스니커즈', silhouette:'슬림', layerStyle:'뉴트럴코트+뉴트럴팬츠+기본티' },
+      { voice:'컬처럴 카멜레온', en:'Cultural Chameleon',
+        palette:{outer:'#6B3F6B',top:'#F5E6FF',pants:'#4A2D4A',shoes:'#2C1A2C',accent:'#FF79C6'},
+        designKws:['글로벌','컬처럴','에스닉믹스','보헤미안','크로스컬처','다양성'],
+        shoe:'에스닉플랫', silhouette:'플로우', layerStyle:'에스닉믹스아우터+드레이프팬츠' },
+      { voice:'세이프티 트래블러', en:'Safety Traveler',
+        palette:{outer:'#4A5568',top:'#E2E8F0',pants:'#2D3748',shoes:'#1A202C',accent:'#F6E05E'},
+        designKws:['실용성','RFID','은닉주머니','안전','기능성','심플'],
+        shoe:'워킹화', silhouette:'스트레이트', layerStyle:'트래블베스트+테크팬츠' },
+      { voice:'블레저 노마드', en:'Bleisure Nomad',
+        palette:{outer:'#1A1A2E',top:'#FAFAFA',pants:'#2C2C54',shoes:'#1A1A2E',accent:'#5E81F4'},
+        designKws:['블레저','비즈캐주얼','플렉시블','스마트','모던','듀얼'],
+        shoe:'레더청키스니커즈', silhouette:'세미슬림', layerStyle:'블레이저+테크팬츠+슬릭티' },
+    ],
+    custom: [
+      // [1] 요청 기반 스타일리스트 — 컨텍스트 중심, 실용적 해석
+      { voice:'라이프스타일 큐레이터', en:'Lifestyle Curator',
+        palette:{outer:'#2C3E50',top:'#D4C5A9',pants:'#4A5568',shoes:'#3D2B1F',accent:'#C8934A'},
+        designKws:['라이프스타일','컨텍스트','일상적','균형감','자연스러운','실용미'],
+        shoe:'클린더비', silhouette:'세미릴렉스', layerStyle:'다크네이비자켓+내추럴톤이너' },
+      // [2] 컬러 밸런스 — 상하의 대비 중시, 과도한 통일 지양
+      { voice:'컬러 밸런서', en:'Color Balancer',
+        palette:{outer:'#1B2848',top:'#F0EDE0',pants:'#5C6B4A',shoes:'#4A3728',accent:'#D4A574'},
+        designKws:['색채균형','대비','투톤','컬러블록','자연스러운대비','배색이론'],
+        shoe:'스웨이드로퍼', silhouette:'스트레이트', layerStyle:'네이비아우터+어스톤하의컬러대비' },
+      // [3] 소재 전문가 — 질감/소재 조합
+      { voice:'소재 아키텍트', en:'Material Architect',
+        palette:{outer:'#3D2B1F',top:'#E8E4D8',pants:'#5A5040',shoes:'#2C2C2C',accent:'#B8956A'},
+        designKws:['소재','텍스처','울','가죽','코듀로이','레이어드질감'],
+        shoe:'청키레더부츠', silhouette:'릴렉스', layerStyle:'울코트+면이너+코듀로이팬츠소재믹스' },
+      // [4] 핏 전문가 — 실루엣/비례 최적화
+      { voice:'핏 아키텍트', en:'Fit Architect',
+        palette:{outer:'#1C1C1E',top:'#F0EDE0',pants:'#4A5568',shoes:'#2A2A2A',accent:'#9B9B9B'},
+        designKws:['실루엣','비례','핏','구조적','라인','프로포션'],
+        shoe:'클린화이트스니커즈', silhouette:'테일러드슬림', layerStyle:'구조적자켓+스트레이트팬츠비율최적화' },
+      // [5] 데일리 스마트 — 캐주얼과 스마트의 균형
+      { voice:'데일리 스마트리스트', en:'Daily Smartist',
+        palette:{outer:'#4A5568',top:'#DBEAFE',pants:'#374151',shoes:'#4A3728',accent:'#93C5FD'},
+        designKws:['데일리','스마트캐주얼','균형','착용감','매일입을수있는','실용'],
+        shoe:'스웨이드더비', silhouette:'세미슬림', layerStyle:'그레이블레이저+스카이블루이너' },
+      // [6] 모노톤 스페셜리스트 — 단색 톤온톤 (의도적)
+      { voice:'톤온톤 마에스트로', en:'Tone-on-Tone Maestro',
+        palette:{outer:'#2D3748',top:'#4A5568',pants:'#718096',shoes:'#1A202C',accent:'#A0AEC0'},
+        designKws:['톤온톤','모노크롬','명도차','계층감','세련','미니멀리즘'],
+        shoe:'클린레더스니커즈', silhouette:'슬림', layerStyle:'그레이계열명도차레이어링' },
+      // [7] 레트로 모던 — 과거+현재 절충
+      { voice:'레트로 모더니스트', en:'Retro Modernist',
+        palette:{outer:'#5C4827',top:'#F0EDE0',pants:'#3A4A5A',shoe:'#4A3728',accent:'#C8A000'},
+        designKws:['레트로','헤리티지','아카이브','클래식현대화','시대믹스','핀스트라이프'],
+        shoe:'브로그', silhouette:'클래식', layerStyle:'헤링본자켓+클래식팬츠현대적해석' },
+      // [8] 스포티 엘레강스 — 운동감+우아함
+      { voice:'스포티 엘레강트', en:'Sporty Elegant',
+        palette:{outer:'#1A202C',top:'#E2E8F0',pants:'#2D4A6A',shoes:'#1A1A1A',accent:'#60A5FA'},
+        designKws:['스포티','엘레강스','애슬레틱','테크소재','기능미','세련된스포츠'],
+        shoe:'프리미엄스니커즈', silhouette:'테이퍼드', layerStyle:'스포츠재킷+슬림조거팬츠' },
+      // [9] 어반 내추럴 — 도시적 자연미
+      { voice:'어반 내추럴리스트', en:'Urban Naturalist',
+        palette:{outer:'#4D5A38',top:'#E8D5B0',pants:'#6B5A3A',shoes:'#4A3728',accent:'#8B7A4A'},
+        designKws:['어스톤','자연','내추럴','유기적','친환경소재','미니멀어스'],
+        shoe:'레더첼시부츠', silhouette:'릴렉스', layerStyle:'어스톤아우터+내추럴이너레이어링' },
+      // [10] 트렌드 해석가 — 최신 트렌드의 현실적 적용
+      { voice:'트렌드 트랜슬레이터', en:'Trend Translator',
+        palette:{outer:'#374151',top:'#F9FAFB',pants:'#7C3AED',shoes:'#1F2937',accent:'#DDD6FE'},
+        designKws:['트렌드','현실적적용','시즌','포인트컬러','스테이트먼트','업데이트'],
+        shoe:'플랫폼스니커즈', silhouette:'오버사이즈', layerStyle:'뉴트럴톤에포인트컬러트렌드아이템' },
+    ],
+  };
 
   // TPO 매핑
   const tpoKey = (()=>{
@@ -3261,34 +3313,11 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     if(pk==='overseasTrip') return 'overseasTrip';
     return 'custom';
   })();
+  const personas = PERSONA_DB[tpoKey] || PERSONA_DB.commute;
 
-  // ── [3] (v60) 단일 generic persona — 서버 응답 도착 전 placeholder
-  //   다시코디(seed)는 서버 측 9,600 스타일리스트가 처리 (stylist_matching_engine.py)
-  //   페르소나 voice/팔레트/스토리는 서버 응답으로 화면 갱신됨
-  // ─── 2026-05-12 KST · TJ 지시 (v65 Pass 4) ─── codiStory 액세서리 다양화 ───
-  //   진단: v60에서 personaIdx=0 고정 후, codiStory의 액세서리 표시 조건
-  //          (personaIdx%3!==2, personaIdx%4===0)이 항상 true → 매번 가방+시계 표시
-  //   변경: seed + 날짜 + 코디목적 기반 hash로 personaIdx 다양화
-  //          → 다시코디할 때마다 액세서리 표시 패턴 변경 (5가지 변형)
-  const _personaSeed = (() => {
-    const sd = parseInt(String(seed||0), 10) || 0;
-    const dayKey = String(day||'');
-    const purposeKey = String(pk||'');
-    // 간단 hash (sd + dayKey + purposeKey 합산)
-    let h = sd;
-    for (const c of dayKey + purposeKey) h = ((h<<5) - h + c.charCodeAt(0)) | 0;
-    return Math.abs(h);
-  })();
-  const personaIdx = _personaSeed % 5;  // 0~4 다양화 (codiStory 액세서리 패턴 다양화)
-  const persona = {
-    voice:       'AI 스타일리스트',
-    en:          'AI Stylist',
-    palette:     { outer:'#1E3A5F', top:'#F0EEE9', pants:'#2D3748', shoes:'#1A202C', accent:'#C5A358' },
-    designKws:   ['모던','세련','균형','자연스러운','실용적','클래식'],
-    shoe:        '레더 슈즈',
-    silhouette:  '레귤러',
-    layerStyle:  '클래식 레이어드',
-  };
+  // ── [3] 다시코디: seed % personas.length로 TPO 내 다른 페르소나 순환
+  const personaIdx = sd % personas.length;
+  const persona = personas[personaIdx];
 
   // ── [4] AI 스타일리스트 대규모 풀 (수천 명)
   // 이름 풀 (100명) × 도시 풀 자동 조합 → TPO별 고유 이름 선정
@@ -4729,15 +4758,16 @@ async function updateVTO(opts={}){
       _box.scrollLeft = 0;
     }
     
-    // ─── 2026-05-12 KST · TJ 지시 (v66) ─── 정/후면 토글 강제 활성화 ───
-    // 이유: 코디핏 결과는 GPT Image 2/Gemini 모두 강제로 정+후면 wide(1536x768)로 생성됨
-    //       isWide 평가가 환경/타이밍에 따라 false로 떨어지는 케이스 있음 → 강제 활성화로 픽스
-    // 이전 코드: if(isWide) → 조건부 표시
-    // 변경: 무조건 표시 (코디핏 결과는 정의상 가로 wide)
-    if(_dots) _dots.classList.remove('hidden');
-    if(_hint) _hint.classList.remove('hidden');
-    // 5초 후 힌트 자동 숨김
-    setTimeout(()=>{ if(_hint) _hint.classList.add('hidden'); }, 5000);
+    if(isWide){
+      if(_dots) _dots.classList.remove('hidden');
+      if(_hint) _hint.classList.remove('hidden');
+      // 5초 후 힌트 자동 숨김
+      setTimeout(()=>{ if(_hint) _hint.classList.add('hidden'); }, 5000);
+    } else {
+      // 단일 인물 이미지면 도트/힌트 숨김
+      if(_dots) _dots.classList.add('hidden');
+      if(_hint) _hint.classList.add('hidden');
+    }
     
     // 스크롤에 따라 토글 버튼 active 변경
     if(_box && _dots && isWide){
@@ -4875,49 +4905,18 @@ async function updateVTO(opts={}){
   if(hint) hint.style.display='none';
 
   // 1) 얼굴 로드 (로컬 폴백/프롬프트용)
-  // ─── 2026-05-13 KST · TJ 지시 (v66 픽스4) ─── face 캐싱으로 다시요청 안정성 보장 ───
-  // 진단: 첫 호출은 face=True 정상, 다시요청(againBtn)은 face=False 발생 (Render 로그 증거)
-  //   원인 추정: getUserFaceImageSrc()가 다시 호출 시 race condition 또는 IDB 캐시 누락
-  //   결과: 두 번째 generateStyling 호출 시 faceSrc='' → 페이로드에 faceImage 없음
-  //         → 서버 GPT Image 2 호출 시 ref_images 0개 → BadRequestError → DALL-E 폴백
-  // 해결: 첫 호출 성공한 faceSrc를 window.__codifitFaceCache에 캐싱, 다시요청 시 재사용
   let faceSrc='',faceImg=null;
   try{
-    // 캐시 우선 사용 (이전 호출이 성공했으면 동일 face 재사용)
-    if(window.__codifitFaceCache && window.__codifitFaceCache.src){
-      faceSrc = window.__codifitFaceCache.src;
-      console.log('[코디핏] face 캐시 재사용 (' + (faceSrc.startsWith('data:') ? 'dataURL ' + faceSrc.length + 'bytes' : faceSrc.substring(0,50)) + ')');
-    } else if(typeof CodiBank.getUserFaceImageSrc === 'function'){
+    if(typeof CodiBank.getUserFaceImageSrc === 'function'){
       faceSrc = await CodiBank.getUserFaceImageSrc(user);
-      if(faceSrc){
-        // 첫 로드 성공 → 캐싱
-        window.__codifitFaceCache = { src: faceSrc, timestamp: Date.now() };
-        console.log('[코디핏] face 캐시 저장 (' + (faceSrc.startsWith('data:') ? 'dataURL ' + faceSrc.length + 'bytes' : faceSrc.substring(0,50)) + ')');
-      } else {
-        console.warn('[코디핏] getUserFaceImageSrc 결과 비어있음 — 사용자 마이페이지 얼굴 등록 확인 필요');
-      }
     }else{
       const faceRef = String(user?.avatarFace || user?.photo || '').trim();
-      if(faceRef){
-        faceSrc = await CodiBank.getImageSrc(faceRef);
-        if(faceSrc) window.__codifitFaceCache = { src: faceSrc, timestamp: Date.now() };
-      }
+      if(faceRef) faceSrc = await CodiBank.getImageSrc(faceRef);
     }
-  }catch(e){
-    console.warn('[코디핏] faceSrc 로드 실패:', e);
-    faceSrc='';
-  }
+  }catch(_){ faceSrc=''; }
   if(faceSrc){
     if(stepEl) stepEl.textContent=_L('얼굴 사진 불러오는 중…');
-    try{
-      faceImg=await loadImg(faceSrc);
-    }catch(e){
-      console.warn('[코디핏] faceImg loadImg 실패:', e);
-      faceImg=null;
-      // ← faceSrc는 비우지 않음 (data URL이라 서버 전송은 가능)
-      // 이전 코드: faceSrc='' → 페이로드에서 faceImage 누락
-      // 변경: faceSrc 유지 → 서버는 받음 (이미지 객체 로딩 실패는 클라이언트 표시용)
-    }
+    try{faceImg=await loadImg(faceSrc);}catch(e){console.warn('얼굴 로드 실패:',e);faceImg=null;faceSrc='';}
   }
 
   // 2) 코디 플랜(텍스트/키워드/팔레트) 생성
@@ -5177,41 +5176,18 @@ async function updateVTO(opts={}){
       if(stepEl) stepEl.textContent= hasCache ? 'OpenAI 업데이트 중…' : 'OpenAI 이미지 생성 중…';
       if(metaEl) metaEl.textContent = AI_DEBUG ? 'OpenAI 생성중…' : '';
 
-      // ─── 2026-05-13 KST · TJ 지시 (v66 픽스5) ─── faceDataUrl 자체 캐싱 ───
-      // 진단: v66 픽스4의 faceSrc 캐시만으로는 부족 (Render 로그 face=False 재발)
-      //   원인: faceSrc 캐시는 됐지만 toDataUrl(faceSrc) 호출이 다시요청 시 실패
-      //         (blob URL revoke / IDB stale / race condition)
-      //   결과: faceDataUrl='' → 페이로드 faceImage=null → 서버 face=False
-      // 해결: faceDataUrl(변환 후 결과)을 직접 캐싱 → 다시요청 시 변환 우회, 100% 성공
-      let faceDataUrl = '';
-      if(window.__codifitFaceDataUrlCache){
-        // 캐시 우선 사용 (다시요청 시 변환 실패 회피)
-        faceDataUrl = window.__codifitFaceDataUrlCache;
-        console.log('[코디핏] faceDataUrl 캐시 재사용 (' + faceDataUrl.length + 'bytes)');
-      } else if(faceSrc){
-        try{
-          faceDataUrl = await toDataUrl(faceSrc);
-          // [2026-04-19 FACE] 얼굴 디테일 보존을 위해 해상도 상향
-          //   이전: 480px/0.75 (눈 폭 18px → 쌍꺼풀/눈꼬리 식별 불가)
-          //   수정: 1024px/0.90 (눈 폭 40px → 미세 특징 보존)
-          //   파일크기 ~200KB로 증가하지만 백엔드 body 한도 대비 안전
-          try{
-            faceDataUrl = await shrinkDataUrl(faceDataUrl, 1024, 0.90);
-            // safety net: 혹시 300KB 초과하는 고해상도라면 한 번 더 축소
-            if(faceDataUrl && faceDataUrl.length > 400000){
-              faceDataUrl = await shrinkDataUrl(faceDataUrl, 720, 0.85);
-            }
-          }catch(_){}
-          // 변환 성공 → 캐시에 저장 (다시요청 시 재사용)
-          if(faceDataUrl){
-            window.__codifitFaceDataUrlCache = faceDataUrl;
-            console.log('[코디핏] faceDataUrl 캐시 저장 (' + faceDataUrl.length + 'bytes)');
-          }
-        }catch(e){
-          console.warn('[코디핏] faceDataUrl 변환 실패:', e);
-          faceDataUrl = '';
+      let faceDataUrl = faceSrc ? await toDataUrl(faceSrc) : '';
+      // [2026-04-19 FACE] 얼굴 디테일 보존을 위해 해상도 상향
+      //   이전: 480px/0.75 (눈 폭 18px → 쌍꺼풀/눈꼬리 식별 불가)
+      //   수정: 1024px/0.90 (눈 폭 40px → 미세 특징 보존)
+      //   파일크기 ~200KB로 증가하지만 백엔드 body 한도 대비 안전
+      try{
+        faceDataUrl = await shrinkDataUrl(faceDataUrl, 1024, 0.90);
+        // safety net: 혹시 300KB 초과하는 고해상도라면 한 번 더 축소
+        if(faceDataUrl && faceDataUrl.length > 400000){
+          faceDataUrl = await shrinkDataUrl(faceDataUrl, 720, 0.85);
         }
-      }
+      }catch(_){}
       // ── 컬러 팔레트를 한국어 이름으로 변환해서 프롬프트에 명시
       const _pal = palette || {};
       const paletteLabels = {
@@ -5227,22 +5203,13 @@ async function updateVTO(opts={}){
       const _outerType = Number.isFinite(_nt2) ? (_nt2<=7?'코트':_nt2<=15?'자켓':'가디건') : '자켓';
       // _colorDirective: S.categoryKeywords(SPEC 기반) 우선 사용
       // → updateVTO가 서버에 전달하는 컬러 지시문도 화면 포인트와 동일 소스
-      // ─── 2026-05-12 KST · TJ 지시 (v61) ─── palette 폴백 제거 ───
-      //   배경: 사용자 보고 — 퍼스널컬러 best 컬러가 바지에 자주 매칭됨
-      //   이전: 사용자가 categoryKeywords에 컬러 키워드 명시 안 했으면
-      //          paletteLabels(단일 placeholder의 고정 5색)이 폴백으로 들어가서
-      //          서버 prompt에 "하의 컬러: 다크차콜" 같이 강제로 박힘
-      //          → AI가 색 자율 결정 못 함 + 매번 비슷한 색 반복
-      //   변경: paletteLabels 폴백 완전 제거. 사용자가 색을 명시한 경우만
-      //          colorDirective에 포함. 명시 없으면 빈 문자열 →
-      //          AI가 avoid_color 제외하고 자유롭게 상/하의 색 매칭.
       const _ckw = S.categoryKeywords || {};
       const _colorDirective = [
-        _ckw.outer?.[0]  ? `${_outerType} 컬러: ${_ckw.outer[0]}`            : '',
-        _ckw.top?.[0]    ? `상의 컬러: ${_ckw.top[0]}`                       : '',
-        _ckw.bottom?.[0] ? `하의 컬러: ${_ckw.bottom[0]}`                    : '',
-        _ckw.shoes?.[0]  ? `신발: ${_ckw.shoes[0]} ${_ckw.shoes[1]||''}`.trim() : '',
-        (_ckw.scarf?.[0] && _ckw.scarf[0]!=='포인트악세서리') ? `포인트: ${_ckw.scarf[0]}` : '',
+        _ckw.outer?.[0]  ? `${_outerType} 컬러: ${_ckw.outer[0]}`            : (paletteLabels.outer  ? `아우터 컬러: ${paletteLabels.outer}`  : ''),
+        _ckw.top?.[0]    ? `상의 컬러: ${_ckw.top[0]}`                       : (paletteLabels.top    ? `상의 컬러: ${paletteLabels.top}`    : ''),
+        _ckw.bottom?.[0] ? `하의 컬러: ${_ckw.bottom[0]}`                    : (paletteLabels.pants  ? `하의 컬러: ${paletteLabels.pants}`  : ''),
+        _ckw.shoes?.[0]  ? `신발: ${_ckw.shoes[0]} ${_ckw.shoes[1]||''}`.trim() : (paletteLabels.shoes ? `신발 컬러: ${paletteLabels.shoes}` : ''),
+        (_ckw.scarf?.[0] && _ckw.scarf[0]!=='포인트악세서리') ? `포인트: ${_ckw.scarf[0]}` : (paletteLabels.accent ? `포인트 컬러: ${paletteLabels.accent}` : ''),
       ].filter(Boolean).join(', ');
       // ── 직접입력 텍스트에서 추가 키워드 추출
       const _customDirective = _customTxt
@@ -5354,17 +5321,11 @@ async function updateVTO(opts={}){
         if(data.stylist) {
           S.stylist = data.stylist;
           // [2026-04-11] 스타일리스트 요약 표시
-          // ─── 2026-05-12 KST · TJ 지시 (v64) ─── '서울지역 활동' 고정 픽스 ───
-          //   원인: data.stylist.city가 undefined (서버가 stylist 객체에 city 안 박음)
-          //          → 폴백 '서울'만 작동 → "서울지역 활동" 고정
-          //   픽스: 폴백 우선순위 (data.stylist.city || data.engineCity || '서울')
-          //         + 도시명 영문 매핑 (영문 모드에서 다른 도시도 변환)
           try{
             var _ssBox = document.getElementById('stylistSummaryBox');
             var _ssTxt = document.getElementById('stylistSummaryText');
             if(_ssBox && _ssTxt && data.stylist){
-              var _activeCity = (data.stylist && data.stylist.city) || data.engineCity || '서울';
-              _ssTxt.innerHTML = '<strong>' + (data.stylist.name||'') + '</strong>, ' + _activeCity + '지역 활동' +
+              _ssTxt.innerHTML = '<strong>' + (data.stylist.name||'') + '</strong>, ' + (data.stylist.city||'서울') + '지역 활동' +
                 '<br><span style="font-size:10px;color:rgba(255,255,255,0.5);">' + (data.stylist.voice||data.stylist.career||'') + '</span>';
               _ssBox.classList.remove('hidden');
             }
@@ -5412,17 +5373,7 @@ async function updateVTO(opts={}){
             const _sn = S.stylist.name || '';
             var _sv = S.stylist.career || S.stylist.voice || '';
             if(window.CodiBankI18n && CodiBankI18n.isEn()){
-              // ─── 2026-05-12 KST · TJ 지시 (v64) ─── 7개 도시 영문 매핑 ───
-              // 이전: '서울지역 활동'만 'Seoul-based'로 변환 → 다른 도시는 ' area'만 남음
-              // 변경: 7개 도시 모두 영문 매핑
-              var _cityEnMap = {
-                '서울': 'Seoul', '뉴욕': 'New York', '파리': 'Paris', '런던': 'London',
-                '상파울루': 'São Paulo', '두바이': 'Dubai', '밀라노': 'Milan'
-              };
-              Object.keys(_cityEnMap).forEach(function(ko){
-                _sv = _sv.replace(ko + '지역 활동', _cityEnMap[ko] + '-based');
-              });
-              _sv = _sv.replace('지역 활동', ' area');  // 폴백
+              _sv = _sv.replace('서울지역 활동','Seoul-based').replace('지역 활동',' area');
             }
             _sb2.textContent = _sn ? _sn + ' · ' + _sv : _sv;
             _sb2.classList.remove('hidden');
@@ -5939,7 +5890,7 @@ function setPurpose(k){
   // [2026-04-11] 새 요청 시 이전 분석/스타일리스트 리셋
   try{
     var _ssb=document.getElementById('stylistSummaryBox');if(_ssb)_ssb.classList.add('hidden');
-    ['anPcSection','anBodySection','anPurposeSection','anOutfitSection'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.add('hidden');});
+    ['anPcSection','anBodySection','anPurposeSection'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.add('hidden');});
   }catch(_){}
 }
 
@@ -6294,12 +6245,7 @@ function renderStylingPoint(){
         chip.textContent = kw;
         kwRow.appendChild(chip);
       });
-      if((S.keywords||[]).length){
-        kwRow.classList.remove("hidden");
-        // ─── 2026-05-13 KST · TJ 지시 (v66 픽스3) ─── 통합 리포트 부모 섹션도 활성화 ───
-        var _outfitSec = document.getElementById("anOutfitSection");
-        if(_outfitSec) _outfitSec.classList.remove("hidden");
-      }
+      if((S.keywords||[]).length) kwRow.classList.remove("hidden");
     }
   }catch(_){}
 
@@ -6386,10 +6332,6 @@ function renderStylingPoint(){
     if(hasAny && catKwSection){
       catKwSection.classList.remove("hidden");
       catKwSection.style.display = "";
-      // ─── 2026-05-13 KST · TJ 지시 (v66 픽스3) ─── 통합 리포트 섹션 활성화 ───
-      // 새 통합 섹션 anOutfitSection도 함께 hidden 제거 (codiPointBox 박스에서 이동됨)
-      var _outfitSec = document.getElementById("anOutfitSection");
-      if(_outfitSec) _outfitSec.classList.remove("hidden");
     }
   }catch(e){ console.warn("renderStylingPoint error:", e); }
 }
@@ -7081,7 +7023,7 @@ document.getElementById('againBtn')?.addEventListener('click', function(){
   // resetAll() 함수와 동일한 분석 박스 hidden 처리 적용 (단, 4버튼은 유지)
   try{
     var _ssb=document.getElementById('stylistSummaryBox');if(_ssb)_ssb.classList.add('hidden');
-    ['anPcSection','anBodySection','anPurposeSection','anOutfitSection'].forEach(function(id){
+    ['anPcSection','anBodySection','anPurposeSection'].forEach(function(id){
       var e=document.getElementById(id); if(e) e.classList.add('hidden');
     });
     var _catKw=document.getElementById('catKwSection');if(_catKw)_catKw.classList.add('hidden');
