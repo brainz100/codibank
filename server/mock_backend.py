@@ -5,6 +5,22 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-13 KST · TJ 지시 (v66 픽스4) ─── [face 미등록 처리 + images.generate fallback]
+#   배경: 사용자 보고 — "이미지 생성 실패" + "얼굴없이 이미지를 생성" 메시지 표시
+#   Render 로그 진단:
+#     첫 호출(05:19:24): ref images: face=True ✅ 성공 (55초)
+#     다시요청(05:20:20): ref images: face=False ❌
+#       → BadRequestError: Missing required parameter: 'image'
+#       → Gemini 실패, OpenAI(DALL-E) 폴백
+#   원인: 클라이언트(closet.html)의 다시요청 시 face image 페이로드 누락
+#         + 서버는 ref_images 0개일 때 images.edit 강제 호출 → 400 에러
+#   변경 — 1개 영역:
+#   1) face/top/bottom 모두 미등록 시 images.generate(text-to-image)로 분기 (line ~2370):
+#      · 이전: images.edit 강제 호출 → 'image' 파라미터 누락 → 400 에러
+#      · 변경: ref_images 비어있으면 images.generate 호출 (얼굴 자동 생성)
+#      · prompt 헤더: "NOTE: No user face reference provided. Generate a natural Korean fashion model face."
+#   클라이언트(closet.html)에서도 face 캐싱 추가 (별도 픽스)
+#
 # ─── 2026-05-13 KST · TJ 지시 (v66 픽스2) ─── [코디핏 이미지 사이즈 16:9 + prompt 정리]
 #   배경: v66 픽스1 배포 후에도 이미지 생성 결과가 엉망 (사용자 보고)
 #     · 1536x768 (정확히 2:1)이 너무 와이드 → 인물 가로로 짜부 + 얼굴 잘림
@@ -2352,7 +2368,9 @@ def _ai_styling_via_gemini(
             if _ref_lines:
                 _ref_header = "REFERENCES: " + ", ".join(_ref_lines) + ".\n\n"
             else:
-                _ref_header = ""
+                # ─── 2026-05-13 KST · TJ 지시 (v66 픽스4) ─── face 미등록 처리 ───
+                # 사용자 마이페이지에 얼굴 미등록 시 generic 얼굴 자동 생성
+                _ref_header = "NOTE: No user face reference provided. Generate a natural Korean fashion model face.\n\n"
             
             # GPT Image 2는 prompt 32k chars 한계 → 안전하게 30k로 제한
             _gpt_prompt = _ref_header + (gemini_prompt[:30000] if len(gemini_prompt) > 30000 else gemini_prompt)
@@ -2360,20 +2378,33 @@ def _ai_styling_via_gemini(
             # ─── 2026-05-13 KST · TJ 지시 (v66 픽스2) ─── 사이즈 16:9 변경 ───
             # 이전: 1536x768 (정확히 2:1) — 너무 와이드 → 정/후면 인물 가로로 짜부 + 얼굴 잘림
             # 변경: 1536x864 (16:9 = 1.78:1) — 사용자가 명시한 비율
-            #       정+후면 인물이 적절한 비율로 자연스럽게 표시됨
-            # OpenAI gpt-image-2 size 제약: width/height 16 배수, aspect 1:3 ~ 3:1
-            #   1536x864: 16배수 OK, ratio 1.778 OK
             _gpt_size = os.getenv("CODIBANK_GPT_IMAGE_SIZE", "1536x864")
             
             try:
-                _gpt_response = _gpt_client.images.edit(
-                    model=model_name,             # "gpt-image-2"
-                    image=_image_files,
-                    prompt=_gpt_prompt,
-                    quality=_quality or "medium", # "low"|"medium"|"high"
-                    size=_gpt_size,
-                    n=1,
-                )
+                # ─── 2026-05-13 KST · TJ 지시 (v66 픽스4) ─── face 유무에 따라 API 분기 ───
+                # 이전: ref_images 0개여도 images.edit 호출 → 400 BadRequestError
+                # 변경: ref_images 비어있으면 images.generate (text-to-image)로 fallback
+                #       사용자 마이페이지 얼굴 미등록 케이스 정상 처리
+                if len(_image_files) > 0:
+                    # face/top/bottom 중 하나라도 있으면 images.edit
+                    _gpt_response = _gpt_client.images.edit(
+                        model=model_name,             # "gpt-image-2"
+                        image=_image_files,
+                        prompt=_gpt_prompt,
+                        quality=_quality or "medium", # "low"|"medium"|"high"
+                        size=_gpt_size,
+                        n=1,
+                    )
+                else:
+                    # 모든 reference 미등록 → images.generate (text-to-image)
+                    print(f"[ai_styling_gpt_image] 모든 ref 미등록 → images.generate fallback (face 자동 생성)", flush=True)
+                    _gpt_response = _gpt_client.images.generate(
+                        model=model_name,             # "gpt-image-2"
+                        prompt=_gpt_prompt,
+                        quality=_quality or "medium",
+                        size=_gpt_size,
+                        n=1,
+                    )
             except Exception as _ge:
                 print(f"[ai_styling_gpt_image] 호출 실패: {type(_ge).__name__}: {str(_ge)[:300]}", flush=True)
                 return jsonify(ok=False, error=f"GPT Image 2 호출 실패: {str(_ge)[:300]}"), 500
