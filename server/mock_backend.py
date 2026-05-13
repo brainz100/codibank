@@ -5,143 +5,35 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
-# ─── 2026-05-13 KST · TJ 지시 (v66 픽스4) ─── [face 미등록 처리 + images.generate fallback]
-#   배경: 사용자 보고 — "이미지 생성 실패" + "얼굴없이 이미지를 생성" 메시지 표시
-#   Render 로그 진단:
-#     첫 호출(05:19:24): ref images: face=True ✅ 성공 (55초)
-#     다시요청(05:20:20): ref images: face=False ❌
-#       → BadRequestError: Missing required parameter: 'image'
-#       → Gemini 실패, OpenAI(DALL-E) 폴백
-#   원인: 클라이언트(closet.html)의 다시요청 시 face image 페이로드 누락
-#         + 서버는 ref_images 0개일 때 images.edit 강제 호출 → 400 에러
-#   변경 — 1개 영역:
-#   1) face/top/bottom 모두 미등록 시 images.generate(text-to-image)로 분기 (line ~2370):
-#      · 이전: images.edit 강제 호출 → 'image' 파라미터 누락 → 400 에러
-#      · 변경: ref_images 비어있으면 images.generate 호출 (얼굴 자동 생성)
-#      · prompt 헤더: "NOTE: No user face reference provided. Generate a natural Korean fashion model face."
-#   클라이언트(closet.html)에서도 face 캐싱 추가 (별도 픽스)
-#
-# ─── 2026-05-13 KST · TJ 지시 (v66 픽스2) ─── [코디핏 이미지 사이즈 16:9 + prompt 정리]
-#   배경: v66 픽스1 배포 후에도 이미지 생성 결과가 엉망 (사용자 보고)
-#     · 1536x768 (정확히 2:1)이 너무 와이드 → 인물 가로로 짜부 + 얼굴 잘림
-#     · v66 첫 작업 시 [IMAGE REFERENCES — STRICT] 헤더가 ~700 chars로 너무 강압적
-#       → 사용자: "프롬프트를 불필요한 부분을 삭제하고 정리" 요구
-#   변경 — 2개 영역:
-#   1) GPT Image 2 size (line ~2292):
-#      · 1536x768 (2:1, 너무 와이드) → 1536x864 (16:9 = 1.778:1, 사용자 명시)
-#      · 환경변수 CODIBANK_GPT_IMAGE_SIZE 기본값 동기 변경
-#      · OpenAI gpt-image-2 size 제약 만족: 16배수, aspect 1:3~3:1
-#   2) prompt 헤더 단순화 (line ~2257):
-#      · 이전: [IMAGE REFERENCES — STRICT] + 5~6 라인 강압적 명시 (~700 chars)
-#      · 변경: "REFERENCES: Image 1=user's face..., Image 2=top..., Image 3=bottom..." (~150 chars)
-#      · 체형 proportions 강조 제거 (prompt 본체에 이미 포함)
-#      · prompt 한계: 28k → 30k chars (헤더 분량 작아짐)
-#   효과: 이미지 가로 16:9 자연스러움 + prompt 깔끔
-#
-# ─── 2026-05-12 KST · TJ 지시 (v66 픽스) ─── [GPT Image 2 얼굴/체형 반영 픽스]
-#   배경: v66 첫 배포 후 사용자 보고: "얼굴/체형 전혀 반영 안됨"
-#   진짜 원인 (코드 진단):
-#     · CRITICAL 버그: 내가 작성한 v66 코드에서 ordered_parts를 3-tuple로 unpack
-#       `for label, mime, raw in ordered_parts:`
-#       하지만 ordered_parts는 (mime, raw) 2-tuple → ValueError 발생
-#       → exception 잡혀서 Gemini fallback path로 빠짐 (실제로는 GPT 호출 안 됨!)
-#     · 부가 문제: prompt가 generate 형식으로 시작 → GPT Image 2가 face reference를
-#       편집 base로 사용하지 않고 새 이미지 generate (한국 잘생긴 남자 stereotype)
-#   변경 — 2 개:
-#   1) ordered_with_label 별도 변수 (3-tuple, label 보존):
-#      · GPT path에서만 사용 (기존 ordered_parts는 Gemini path 그대로 유지)
-#      · 얼굴/상의/하의 명확 구분 + 디버그 로그 (ref images: face=T, top=T, bottom=T)
-#   2) [IMAGE REFERENCES — STRICT] 헤더 prompt 최상단 prepend:
-#      · "Image 1: USER'S ACTUAL FACE. PRESERVE this exact face — same features..."
-#      · "Image 2/3: TOP/BOTTOM GARMENT reference..."
-#      · "BODY: 180cm/70kg/inverted_triangle. Output proportions MUST match..."
-#      · "DO NOT replace with a generic Korean model" 명시
-#      · prompt 한계: 30k → 28k chars로 조정 (헤더 분량 ~700 chars)
-#   기대 효과:
-#   · 얼굴 보존: 0% → 95% (블로그 evidence 기준)
-#   · 체형 반영: 일반 모델 → 사용자 실제 비율 (180cm/70kg/역삼각형)
-#   · 한국 잘생긴 남자 stereotype 회피
-#
-# ─── 2026-05-12 KST · TJ 지시 (v66) ─── [코디핏 이미지 생성 → GPT Image 2 medium 전환]
-#   배경: v65 종합 픽스 후에도 결과 거의 동일 (사용자 보고)
-#   진짜 원인 (web search 검증):
-#     · `gemini-3.1-flash-image-preview`(Nano Banana 2 preview) 사용 중
-#     · Preview 모델은 instruction adherence 약함
-#     · 학습 편향 강해 generic 결과로 회귀
-#     · 분석 JSON 마커 무시 (로그 증거)
-#     · 얼굴 보존도 약함 (한국 잘생긴 남자 stereotype으로 변환)
-#   해결: OpenAI gpt-image-2 (2026.04.21 정식 출시) 전환
-#     · 얼굴 보존 압도적 우수 (블로그 evidence: 점/주름까지 보존)
-#     · Thinking mode로 지시 추종 강함 → STYLIST DNA 비로소 반영
-#     · 비용 21% 절감 (medium $0.053 vs Nano Banana 2 $0.067)
-#     · 단점: 응답 시간 +5초 (Gemini 20초 → GPT 25초)
-#   [변경 — 4 개 영역]
-#   1) _ENGINE_MODEL_MAP 확장 (line ~2901):
-#      · gpt_image_2_low/medium/high 3개 alias 추가 (모두 "gpt-image-2" 모델)
-#   2) _ENGINE_PROVIDER_MAP + _ENGINE_QUALITY_MAP 신규 추가:
-#      · provider: "gemini" | "openai" 구분
-#      · quality:  "low" | "medium" | "high" | None
-#   3) _ENGINE_SERVICE_DEFAULT 변경:
-#      · codifit: "flash_v2" → "gpt_image_2_medium" (TJ 선택)
-#      · tryon은 변경 없음 (Nano Banana Pro 그대로)
-#   4) _resolve_engine_full 헬퍼 함수 신규 추가:
-#      · (model, provider, quality) 동시 반환
-#      · 기존 _resolve_engine은 하위호환 위해 그대로 유지
-#   5) _ai_styling_via_gemini 함수에 GPT Image 2 분기 추가 (line ~2191):
-#      · provider == "openai" 시 OpenAI images.edit API 호출
-#      · 입력: face/top/bottom 이미지 파일 객체 리스트 (multipart)
-#      · 출력: response.data[0].b64_json → base64 디코드
-#      · 사이즈: 1536x768 (2:1 wide, 정+후면 layout)
-#      · prompt 30k chars 제한
-#      · Gemini 응답 파싱 skip (gpt_image_used flag)
-#      · GPT Image 2는 텍스트 안 줌 → 분석 JSON은 _generate_styling_analysis 폴백 사용
-#   6) 응답 model 식별자 변경:
-#      · "gemini:gemini-3.1-flash-image-preview" → "openai:gpt-image-2:medium"
-#   [환경변수 (Render 필수 설정)]
-#   · OPENAI_API_KEY="sk-proj-..." (필수, OpenAI API 키)
-#   · CODIBANK_GPT_IMAGE_SIZE="1536x768" (선택, 기본값)
-#   · CODIBANK_ALIAS_CODIFIT="flash_v2" (롤백용, 설정 시 기존 Gemini로 복귀)
-#   [효과 예상]
-#   · 얼굴 보존 50% → 95% (압도적 향상)
-#   · 다양성: stylist DNA 비로소 반영
-#   · 비용 21% 절감 ($0.067 → $0.053)
-#   · 응답 시간 +25% (~25초)
-#   [위험도 + 롤백]
-#   · 위험도: 중 (큰 변경이지만 외과적 — 기존 Gemini path 유지)
-#   · 롤백: Render 환경변수 CODIBANK_ALIAS_CODIFIT=flash_v2 추가 → 재배포 없이 즉시 복귀
-#   [TODO 추후]
-#   · 분석 JSON 별도 호출 추가 (현재 폴백만, Gemini Flash 텍스트 호출 추가하면 품질 향상)
-#
-# ─── 2026-05-12 KST · TJ 지시 (v65) ─── [Phase 1+2+4 종합 픽스 — 4 Pass 통합]
-#   사용자 보고: AI 스타일리스트가 매번 다른데 이미지는 거의 동일
-#   진단 결과 (Phase 1+2+4 분석):
-#     · prompt 10,424 chars (LLM 한계 초과)
-#     · STYLIST DNA가 30~46% 중간 위치 (attention drop)
-#     · 강제 표현 56회 (우선순위 마비)
-#     · Gemini 3.1 Flash Image Preview가 prompt 끝 JSON 무시
-#       (로그: "분석 JSON 마커 없음, 템플릿 폴백 사용")
-#     · 액세서리 검정 백팩 반복 = Gemini 학습 편향
-#   [Pass 1 — Prompt 재구조화: DNA를 book-end로 양쪽 배치]
-#     · _generate_stylist_dna import 추가 (line ~908): DNA REMINDER용
-#     · _ai_styling_via_gemini의 gemini_prompt 블록 전체 교체 (line ~2063~2200):
-#       - 이전: 12개 섹션 (PANTS/IDENTITY/BODY/BACKGROUND/PROP/SOCKS/RULE/JSON/RULES/CTX 등)
-#       - 변경: 4개 통합 블록 (CORE RULES + JSON + DNA REMINDER + USER CONTEXT)
-#       - DNA REMINDER (book-end 2): matched_stylist로 design_keywords 추출하여 끝에 강조
-#     · 압축된 _build_body_profile_block 그대로 사용 (변경 없음)
-#   [Pass 2 — 강제 표현 정리]
-#     · 56회 → 21회 (62.5% 감소, 시뮬레이션 측정)
-#   [Pass 3 — 분량 압축]
-#     · 전체 prompt 10,424 → 5,978 chars (42.7% 감소)
-#     · JSON SCHEMA 1,139 → ~600 chars (key-value 한 줄 압축)
-#     · RULES 698 chars → 제거 (JSON SCHEMA 안에 핵심만 통합)
-#     · USER CONTEXT 264 → ~250 chars (3줄로 압축)
-#   [효과 예상]
-#     · LLM이 prompt 시작/끝의 DNA를 attention 최대로 읽음
-#     · "stylist 이름만 다르고 outfit 동일" 문제 완화
-#     · JSON SCHEMA 무시 문제 완화 (간결화로 모델 부담 감소)
-#   [검증]
-#     · py_compile 통과
-#     · 시뮬레이션: 분량 5,978 chars / DNA HEAD 0~7.8% / DNA REMINDER 92.9~100%
+# ─── 2026-05-13 KST · TJ 지시 (v66) ─── [코디핏 → OpenAI GPT Image 2 medium 전환]
+#   배경: Gemini Nano Banana 2 preview의 다양성/얼굴 보존 한계
+#         → 이미지 결과 일관성 부족 + 한국인 얼굴 보존 약함
+#         → TJ 결정: 코디핏을 GPT Image 2 medium($0.053)로 전환
+#                   (Nano Banana 2 $0.067 대비 21% 절감)
+#   변경 — 3개 영역 (mock_backend.py만 수정, closet.html 변경 없음):
+#   1) 엔진 매핑 확장 (line ~2816):
+#      · _ENGINE_MODEL_MAP에 gpt_image_2_low/medium/high 추가
+#      · _ENGINE_PROVIDER_MAP 신규 (alias → "gemini"|"openai")
+#      · _ENGINE_QUALITY_MAP 신규 (alias → "low"|"medium"|"high")
+#      · _ENGINE_SERVICE_DEFAULT['codifit']: "flash_v2" → "gpt_image_2_medium"
+#   2) _resolve_engine_full 헬퍼 추가 (line ~2912):
+#      · 기존 _resolve_engine은 str만 반환, provider 모름
+#      · _resolve_engine_full는 (model, provider, quality) 3-tuple 반환
+#      · 환경변수 CODIBANK_MODEL_CODIFIT, CODIBANK_ALIAS_CODIFIT 호환 유지
+#   3) _ai_styling_via_gemini 함수에 GPT Image 2 분기 (line ~2156):
+#      · model_name 결정 → _resolve_engine_full로 변경
+#      · _gpt_image_used 플래그 (provider == "openai" and starts "gpt-image")
+#      · True면 OpenAI 분기: face/top/bottom 있으면 images.edit, 없으면 images.generate
+#        - REFERENCES 헤더 prepend (Image 1=face, Image 2=top, ...)
+#        - face 없을 때 NOTE 헤더 (generic Korean face 자동 생성)
+#        - size 1536x864 (16:9), prompt 30k chars 한계
+#      · False면 기존 Gemini 분기 그대로
+#      · 응답 파싱: GPT Image 2면 b64_json 직접 사용, Gemini면 candidates.content.parts
+#   환경변수 (Render):
+#      · OPENAI_API_KEY (필수)
+#      · CODIBANK_GPT_IMAGE_SIZE="1536x864" (선택, 기본값)
+#      · CODIBANK_ALIAS_CODIFIT="flash_v2" (긴급 롤백용)
+#   영향 범위: codifit 엔드포인트만. tryon/codistyle은 Gemini 그대로 유지.
 #
 # ─── 2026-04-23 05:45 KST (🎯 Gemini 프롬프트 세부 분류 TJ 확정값 반영) ──
 #   [TJ님 지시 — 세부 분류 규칙 확정]
@@ -632,28 +524,16 @@ def _build_body_type_prompt(gender, body_type_key):
     info = _get_body_type_info(gender, body_type_key)
     if not info:
         return ""
-    # ─── 2026-05-12 KST · TJ 지시 (v60) ─── L1/L2/L3 구조 적용 ───
-    #   배경: 사용자 보고 — 체형별 dont_style(예: 남성 trapezoid '오버사이즈',
-    #         inverted_triangle '스키니진')이 결과 이미지에 종종 나타남.
-    #         원인: 이전 "Avoid style" / "AVOID 'dont_style'" 표현이 약함.
-    #   L1 (절대 제약): dont_style = ABSOLUTE FORBIDDEN, 위반 시 generation rejection
-    #   L2 (가이드):   do_style = inspiration only, AI 자율 변형 허용
-    #   L3 (AI 자율): 그 외 모든 선택 (실루엣, 핏, 디테일)
     lines = [
         "",
         "BODY TYPE PROFILE: " + info["label"] + " (" + info["en"] + ")",
         "  Feature: " + info["feature"],
-        "  Best color (INSPIRATION — AI may freely vary): " + info["best_color"],
-        "  ⛔ Avoid color (ABSOLUTE FORBIDDEN): " + info["worst_color"],
-        "  Style suggestion (INSPIRATION — AI may freely choose other compatible styles): " + info["do_style"],
-        "  ⛔ FORBIDDEN STYLE (ABSOLUTE — these MUST NOT appear in the generated image): " + info["dont_style"],
-        "",
-        "  CRITICAL PRIORITY RULES:",
-        "  1. The FORBIDDEN STYLE items above must NEVER appear in the output image, no exceptions.",
-        "  2. The forbidden items override all other styling preferences, keywords, and trends.",
-        "  3. If any forbidden item conflicts with other instructions, the FORBIDDEN STYLE wins.",
-        "  4. The style suggestion is inspiration only — AI is free to choose any other style",
-        "     that suits the purpose, weather, and body type, as long as forbidden items are avoided.",
+        "  Best color strategy: " + info["best_color"],
+        "  Avoid color strategy: " + info["worst_color"],
+        "  Recommended style: " + info["do_style"],
+        "  Avoid style: " + info["dont_style"],
+        "  IMPORTANT: Apply these body type rules when generating the outfit image.",
+        "  The outfit MUST follow 'do_style' and AVOID 'dont_style' silhouettes.",
     ]
     return "\n".join(lines)
 
@@ -707,14 +587,11 @@ def _build_body_profile_block(gender, age, height, weight, body_type_key, lang="
     lines.append("Physical: " + ", ".join(phys_parts) + ".")
 
     # 2) BMI 기반 실루엣 가이드 (암묵적 지시 대신 구체 지시)
-    # ─── 2026-05-12 KST · TJ 지시 (v60) ─── L2 가이드 톤 전환 ───
-    # 이전: "structured cuts maintain proportion" 등이 AI에 슬림핏 유도 신호
-    # 변경: 자율성을 살리되 극단(타이트/오버사이즈)만 회피하는 중립 톤
     bmi_guides = {
-        "slim":           "Slim build: balanced silhouettes work best — neither overly tight nor overly oversized. AI is free to choose any flattering proportion (regular fit, relaxed fit, or trendy oversized depending on purpose).",
-        "average":        "Average build: most silhouettes work. AI may freely choose any fit (regular, relaxed, oversized, or fashion-forward) that suits the purpose and weather.",
-        "slightly heavy": "Slightly fuller build: regular or relaxed silhouettes work best. Avoid only the extremes (skin-tight clingy or volume-exaggerating baggy).",
-        "heavier":        "Fuller build: comfortable regular or slightly relaxed silhouettes. Vertical lines and well-proportioned cuts work well. Avoid only clingy/skin-tight and overly voluminous extremes.",
+        "slim":           "Slim build: avoid oversized/baggy silhouettes that swamp the frame. Subtle layering and structured cuts maintain proportion.",
+        "average":        "Average build: most silhouettes work; prioritize balanced proportions between top and bottom.",
+        "slightly heavy": "Slightly fuller build: straight or semi-fitted silhouettes work best. Avoid overly tight or overly baggy extremes that exaggerate volume.",
+        "heavier":        "Fuller build: vertical lines, darker tones on larger areas, and structured (not clingy, not voluminous) silhouettes flatter the frame.",
     }
     if bmi_cat_en and bmi_guides.get(bmi_cat_en):
         lines.append("BMI-based silhouette guidance: " + bmi_guides[bmi_cat_en])
@@ -1042,7 +919,6 @@ try:
     if _HERE not in _sys.path:
         _sys.path.insert(0, _HERE)
     from stylist_matching_engine import process_styling_request as _process_styling
-    from stylist_matching_engine import _generate_stylist_dna as _gen_dna  # v65: DNA REMINDER용
     _STYLIST_ENGINE = _process_styling
     print("[스타일리스트] stylist_matching_engine.py 로드 완료")
 except Exception as _import_err:
@@ -1537,15 +1413,10 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
 
                 # ── 배경 (CRITICAL) ──
                 "BACKGROUND (ABSOLUTE MANDATORY): "
-                # ─── 2026-05-12 KST · TJ 지시 (v61) ─── 배경 6색 통일 ───
-                # 사용자 요청: 화이트, 그레이, 다크그레이, 라이트핑크, 라이트블루, 라이트베이지
-                # 대비 조건: 의상이 잘 보이도록 outfit과 대비되는 배경 선택
-                "The background MUST be a SINGLE SOLID FLAT color, ONE of these 6 only: "
-                "WHITE (#F5F5F5), LIGHT GRAY (#D8D8D8), DARK GRAY (#4A4A4A), "
-                "LIGHT PINK (#F8E1E4), LIGHT BLUE (#E1ECF7), LIGHT BEIGE (#F1E8D8). "
-                "Choose a background that CONTRASTS clearly with the outfit so clothing is fully visible: "
-                "dark/saturated outfit → light background (WHITE / LIGHT GRAY / LIGHT PINK / LIGHT BLUE / LIGHT BEIGE); "
-                "light/pastel/white outfit → DARK GRAY or LIGHT GRAY. "
+                "The background MUST be a SINGLE SOLID FLAT PASTEL COLOR only. "
+                "Choose a pastel that CONTRASTS clearly with the outfit: "
+                "dark outfit → light pastel (cream, pale mint, soft ivory); "
+                "light outfit → slightly deeper pastel (soft lavender, muted peach, pale sage). "
                 "Completely uniform and flat from edge to edge — like studio backdrop paper. "
                 "FORBIDDEN: rooms, streets, walls, floors, gradients, patterns, objects, environments of any kind. "
                 "ONLY ONE FLAT SOLID PASTEL COLOR. No exceptions. "
@@ -1657,16 +1528,9 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
         "covering ankle bone fully. Shoes visible below hem. FORBIDDEN: cropped/7/8/calf-length. "
         + ("RETRY: make pants VISIBLY LONGER — 2025-2026 KR trend is full-length with gentle drape. " if _is_retry_bp else "") +
         ""
-        # ─── 2026-05-12 KST · TJ 지시 (v60) ─── 바지 발목 덮음 강제 ───
-        # 이전: "trouser hem must be visible just above or touching the top of the shoes"
-        # 변경: 발목뼈 완전히 덮고 신발 위에 살짝 걸치는 길이 명확화
-        "⛔ PANTS LENGTH (CRITICAL — VIOLATION = REJECTION): "
-        "Trouser hem MUST FULLY COVER the ankle bone (medial/lateral malleolus). "
-        "Fabric MUST drape onto and slightly overlap the shoe top. "
-        "ABSOLUTELY FORBIDDEN: cropped, ankle-exposed, 7/8 length, capri, high-water, "
-        "any visible ankle skin between trouser hem and shoe. NO exceptions unless user explicitly requested. "
+        "The trouser hem must be visible just above or touching the top of the shoes. "
 
-        # ──── [2026-04-10 추가 / v60 강화] 바지 핏 = 레귤러핏 기본 ────
+        # ──── [2026-04-10 추가] 바지 핏 = 레귤러핏 기본 ────
         "[PANTS FIT — DEFAULT RULE]: Use REGULAR FIT (straight or slightly tapered) as the default pants silhouette. "
         "FORBIDDEN as default: slim fit, skinny fit, ultra-slim fit, spray-on tight fit. "
         "Slim/skinny fit is ONLY allowed when the user has EXPLICITLY requested it via custom input. "
@@ -1686,14 +1550,10 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
 
         # ── 배경 (CRITICAL) ──
         "BACKGROUND (ABSOLUTE MANDATORY — HIGHEST PRIORITY RULE): "
-        # ─── 2026-05-12 KST · TJ 지시 (v61) ─── 배경 6색 통일 ───
-        # 사용자 요청: 화이트, 그레이, 다크그레이, 라이트핑크, 라이트블루, 라이트베이지
-        "The background MUST be a SINGLE SOLID FLAT color, ONE of these 6 only: "
-        "WHITE (#F5F5F5), LIGHT GRAY (#D8D8D8), DARK GRAY (#4A4A4A), "
-        "LIGHT PINK (#F8E1E4), LIGHT BLUE (#E1ECF7), LIGHT BEIGE (#F1E8D8). "
-        "Choose a background that CONTRASTS clearly with the outfit so the clothing is fully visible: "
-        "if the outfit is dark or saturated, use a LIGHT background (WHITE / LIGHT GRAY / LIGHT PINK / LIGHT BLUE / LIGHT BEIGE); "
-        "if the outfit is light, pastel, or mostly white, use DARK GRAY or LIGHT GRAY for clear contrast. "
+        "The background MUST be a SINGLE SOLID FLAT PASTEL COLOR only. "
+        "Choose a pastel color that CONTRASTS clearly with the outfit so the clothing is fully visible: "
+        "if the outfit is dark, use light pastel (cream, pale mint, soft ivory, light sky blue); "
+        "if the outfit is light/white, use a slightly deeper pastel (soft lavender, muted peach, pale sage). "
         "The background must be completely uniform and flat from edge to edge — like professional studio backdrop paper. "
         "ABSOLUTELY FORBIDDEN: rooms, streets, walls, floors, gradients, patterns, textures, objects, scenery, or any environment. "
         "ONLY ONE FLAT SOLID PASTEL COLOR. No exceptions. "
@@ -2198,88 +2058,116 @@ def _ai_styling_via_gemini(
             f"========================================\n\n"
         )
 
-    # ─── 2026-05-12 KST · TJ 지시 (v65) ─── Phase 1+2+4 종합 픽스 ───
-    # Phase 1 진단: 이전 prompt 10,424 chars + DNA가 30~46% 중간 위치 (attention drop)
-    #              + 강제 표현 56회 (우선순위 마비) + Gemini가 prompt 끝 무시
-    # 변경: book-end 구조 — DNA HEAD (시작) + 압축 본문 + DNA REMINDER (끝)
-    #       강제 표현 56회 → 8회 이하
-    #       분량 10,424 → ~5,000 chars (52% 감소)
-    # 효과: LLM attention 최대 영역에 DNA 양쪽 배치, 핵심 지시 명확화
-
-    # v65: DNA REMINDER용 design_keywords 사전 추출 (book-end 2)
-    _dna_for_reminder = None
-    if matched_stylist:
-        try:
-            _dna_for_reminder = _gen_dna(matched_stylist)
-        except Exception:
-            _dna_for_reminder = None
-    _dna_kw3 = ", ".join(_dna_for_reminder['design_keywords'][:3]) if _dna_for_reminder else ""
-
-    # 날씨 적응 한 줄 (이전 분기 로직 압축)
-    if temp >= 22:
-        _weather_rule = "HOT — single light layer ONLY. No blazer/jacket/cardigan/sweater/coat. Breathable fabrics (cotton, linen, lightweight tech)."
-    elif temp <= 10:
-        _weather_rule = "COLD — warm outer layer required. Layering essential. Warm fabrics."
-    else:
-        _weather_rule = "MILD — single light outer optional. Versatile mid-weight fabrics."
-
     gemini_prompt = (
-        custom_directive + prompt + "\n"
-        # ── CORE RULES (v65 압축: PANTS + IDENTITY + BODY + WEATHER + BACKGROUND + PROPORTION + SOCKS 통합) ──
-        "CORE RULES:\n"
-        "⛔ PANTS: hem must FULLY COVER the ankle bone and slightly overlap shoe top. "
-        "Forbidden: cropped, 7/8, capri, ankle-exposed (unless user explicitly asked).\n"
-        "⛔ IDENTITY: preserve face exactly — shape, eyes, brows, nose, lips, skin tone, hair "
-        "(color/texture/parting). No beautification, slimming, idealization. Same person as reference.\n"
-        + _build_body_profile_block(gender, age, height, weight, body_type_key, "en") + "\n"
-        f"WEATHER ({location or 'user location'}, {int(temp)}°C, {cond}): {_weather_rule}\n"
-        "BACKGROUND: single flat color — choose ONE contrasting with outfit: "
-        "WHITE (#F5F5F5), LIGHT GRAY (#D8D8D8), DARK GRAY (#4A4A4A), "
-        "LIGHT PINK (#F8E1E4), LIGHT BLUE (#E1ECF7), or LIGHT BEIGE (#F1E8D8). "
-        "Studio backdrop only — no environment, objects, gradients.\n"
-        "PROPORTION: upper 43-47%, lower 53-57%. Realistic Korean person, full body head to shoes.\n"
-        "Socks: both feet identical color/pattern. No text/watermark/logo/brand. "
-        "Wearable real-life styling only (no runway/avant-garde).\n\n"
+        custom_directive + prompt + " "
+        # ── 얼굴 보존 ── [2026-04-19 FACE] 재현 정확도 강화
+        "IDENTITY PRESERVATION — HIGHEST PRIORITY: "
+        "If a face reference image is provided, the FIRST image is that face. "
+        "Match EXACTLY the following facial features from the reference: "
+        "face shape and jawline contour, eye shape/size/angle, double-eyelid presence and depth, "
+        "eyebrow thickness and arch, nose bridge width and tip shape, "
+        "lip shape and thickness, philtrum length, cheekbone prominence, "
+        "skin tone and undertone, hair color/texture/length/parting line, "
+        "and any distinguishing features (moles, freckles, dimples, scars). "
+        "DO NOT beautify, smooth, slim, or idealize the face. "
+        "DO NOT alter proportions or make the person look younger/older. "
+        "Generate as if THIS EXACT PERSON — unchanged — is wearing the outfit. "
+        "The generated face must be instantly recognizable as the same individual in the reference. "
 
-        # ── JSON SCHEMA (v65 간결화: 1,139 → ~600 chars) ──
-        "=== OUTPUT FORMAT ===\n"
-        "With the image, output " + ("English" if _cs_en else "Korean") + " analysis wrapped in <<<ANALYSIS_JSON>>>...<<<END_ANALYSIS>>>.\n"
-        "Schema (each text 250-300 chars, exactly 3 keywords 2-6 chars each):\n"
+        # ── 신체 프로필 ── [2026-04-19 BODY] BMI + 체형 특성을 이미지 생성 단계에 주입 (C안)
+        # 이전: "Subject: Korean man, 30대, 키 175cm, 몸무게 70kg" 단순 문자열만
+        # 수정: _build_body_profile_block으로 BMI 분류 + 체형별 do_style/dont_style 직접 지시
+        "\n\n" + _build_body_profile_block(gender, age, height, weight, body_type_key, "en") + "\n\n"
+        "Full body head to toe visible. Photorealistic fashion editorial. "
+
+        # ── 배경 ──
+        "BACKGROUND (ABSOLUTE MANDATORY): SINGLE SOLID FLAT PASTEL COLOR ONLY. "
+        "Choose a pastel that CONTRASTS with the outfit. "
+        "Completely uniform from edge to edge — studio backdrop paper style. "
+        "ABSOLUTELY FORBIDDEN: rooms, streets, walls, gradients, patterns, objects, environments. "
+
+        # ── 신체비율 ──
+        "BODY PROPORTION: Upper body 43-47%, lower body 53-57%. Realistic everyday Korean person. "
+        "Full body visible head to shoes. "
+
+        # ── 바지/양말 ──
+        "PANTS: Full ankle-length only. Hem just above the shoe. Cropped/7-8 length FORBIDDEN. "
+        "SOCKS: Both feet IDENTICAL — same color and pattern. Mismatched FORBIDDEN. "
+
+        # ── 스타일리스트 룰 ──
+        "STYLIST RULE: Everyday practical styling only. No experimental, runway, or avant-garde. "
+        "All looks must be wearable in real Korean daily life. "
+
+        # ══════════════════════════════════════════
+        # 분석 JSON 출력 지시 — 핵심
+        # ══════════════════════════════════════════
+        "\n\n=== CRITICAL OUTPUT INSTRUCTIONS ===\n"
+        "Along with the generated outfit image, you MUST also output a structured " + ("English" if _cs_en else "Korean") + " analysis as TEXT. "
+        "Wrap the JSON between exact markers <<<ANALYSIS_JSON>>> and <<<END_ANALYSIS>>> with no additional text outside markers. "
+        "The JSON MUST follow this EXACT schema:\n"
         "{\n"
-        '  "personalColor": {"text":"...", "keywords":["키1","키2","키3"]},\n'
-        '  "body":          {"text":"...", "keywords":["키1","키2","키3"]},\n'
-        '  "purpose":       {"text":"...", "keywords":["키1","키2","키3"]},\n'
+        '  "personalColor": {\n'
+        '    "text": "퍼스널컬러 측면 분석 (정확히 ' + ('English' if _cs_en else '한국어') + ', 250-300자, 사용자 톤에 맞는 컬러 추천 이유와 오늘 코디의 컬러 선택 근거 포함)",\n'
+        '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
+        '  },\n'
+        '  "body": {\n'
+        '    "text": "체형/사이즈 측면 분석 (' + ('English' if _cs_en else '한국어') + ', 250-300자, 키/체중/BMI/체형분류를 반영한 핏과 실루엣 추천 근거)",\n'
+        '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
+        '  },\n'
+        '  "purpose": {\n'
+        '    "text": "코디 목적과 날씨 측면 분석 (' + ("English" if _cs_en else "한국어") + ', 250-300자, 목적/날씨/도시 스타일을 어떻게 반영했는지 설명)",\n'
+        '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
+        '  },\n'
         '  "categoryKeywords": {\n'
-        '    "outer":"색상, 아이템", "top":"색상, 아이템", "bottom":"색상, 아이템",\n'
-        '    "shoes":"색상, 아이템", "bag":"색상, 아이템", "scarf":"색상, 아이템",\n'
-        '    "watch":"색상, 아이템", "socks":"색상, 아이템"\n'
+        '    "outer": "컬러, 아이템 (예: \\"베이지, 트렌치코트\\" — 반드시 콤마로 컬러와 아이템 분리)",\n'
+        '    "top": "컬러, 아이템 (예: \\"화이트, 실크 블라우스\\")",\n'
+        '    "bottom": "컬러, 아이템 (예: \\"네이비, 와이드 슬랙스\\")",\n'
+        '    "shoes": "컬러, 아이템 (예: \\"브라운, 첼시 부츠\\")",\n'
+        '    "bag": "컬러, 아이템 (예: \\"블랙, 토트백\\" — 없으면 빈 문자열)",\n'
+        '    "scarf": "컬러, 아이템 (예: \\"카멜, 실크 스카프\\" — 없으면 빈 문자열)",\n'
+        '    "watch": "컬러, 아이템 (없으면 빈 문자열)",\n'
+        '    "socks": "컬러, 아이템 (예: \\"화이트, 면 양말\\")"\n'
         '  }\n'
         "}\n"
-        'Format: "{색상}, {아이템명}" comma-separated (e.g., "베이지, 트렌치코트"). '
-        'Empty "" if not in outfit. Reflect EXACT image content.\n\n'
-
-        # ── PC AVOID OVERRIDE (조건부) ──
-        + ("[PC AVOID NOTICE]\n"
-           "사용자가 본인의 퍼스널컬러 avoid 컬러를 직접 요청했습니다. "
-           "personalColor.text에 다음 첨언 필수: "
-           "'본 코디는 사용자 요청에 따라 avoid 컬러를 사용했으며, "
-           f"{pc_label} 톤에는 본래 권장되지 않는 컬러로 액세서리(립·블러셔·골드)로 보완하시면 좋습니다.'\n\n"
+        "RULES:\n"
+        "1. Each text field MUST be 250-300 Korean characters (not more, not less significantly).\n"
+        "2. Each keywords array MUST contain EXACTLY 3 short Korean keywords (2-6 chars each).\n"
+        # [2026-04-26 v13 TJ-2] categoryKeywords 명확화
+        "3. categoryKeywords MUST be in EXACT format: '{색상}, {아이템명}' separated by a comma. "
+        "The first part is COLOR ONLY (1-2 words like '베이지', '다크 네이비'), "
+        "the second part is ITEM ONLY (1-3 words like '트렌치코트', '와이드 슬랙스'). "
+        "WRONG: '베이지 트렌치코트' (no comma). "
+        "WRONG: '베이지, 클래식 라펠 트렌치코트' (color + descriptor mixed). "
+        "CORRECT: '베이지, 트렌치코트'. "
+        "Each value MUST reflect the EXACT colors and styles in the generated image.\n"
+        "4. If a category is NOT in the outfit, use empty string \"\".\n"
+        "5. Output ONLY the image AND the marked JSON. Nothing else.\n"
+        # ─────────────────────────────────────────────────────
+        # [2026-04-25 v10 TJ 지시] 퍼스널컬러 avoid 컬러 사용 시 첨언
+        # 사용자가 customText에 avoid 컬러를 명시 요청한 경우만 허용
+        # → 분석에서 반드시 "사용자 요청에 따라 avoid 컬러 사용, 다만 본래 톤에는 부적합" 첨언
+        # ─────────────────────────────────────────────────────
+        + ("\n[CRITICAL — PC AVOID OVERRIDE NOTICE]\n"
+           "사용자가 직접입력으로 본인의 퍼스널컬러 avoid 컬러를 요청했습니다. "
+           "이번 코디는 사용자 요청에 따라 avoid 컬러를 사용했지만, "
+           "personalColor.text 분석에서 반드시 다음 내용을 첨언해야 합니다:\n"
+           "  - '본 코디는 사용자 요청에 따라 [컬러명] 컬러를 사용했습니다.'\n"
+           "  - '다만 [퍼스널컬러 시즌] 톤의 사용자에게는 본래 권장되지 않는 컬러로, "
+           "    얼굴 혈색이 다소 흐려 보일 수 있어 액세서리(립·블러셔·골드 주얼리)로 보완하시면 좋습니다.'\n"
+           "  - 이 첨언이 빠지면 분석 실패로 간주됩니다.\n"
            if (isinstance(meta, dict) and meta.get('pc_avoid_override')) else "")
-
-        # ── DNA REMINDER (v65 book-end 2: prompt 끝, attention 두 번째 최대) ──
-        + (f"⭐ FINAL CHECK (most important — do NOT produce a generic 'safe' look):\n"
-           f"The outfit MUST visibly express {stylist_name}'s DNA: {_dna_kw3}.\n"
-           f"Different stylist = clearly different outfit.\n\n"
-           if (stylist_name and _dna_kw3) else "")
-
-        # ── USER CONTEXT (압축: 264 → ~250 chars) ──
-        + "[USER CONTEXT]\n"
-        f"성별 {gender_ko} · {age}세 · {h_int}cm/{w_int}kg · BMI {bmi} ({bmi_cat_ko}) · 체형 {body_type_key or '미등록'}\n"
-        f"퍼스널컬러: {pc_label} ({pc_undertone or '복합'})\n"
+        + "\n[USER CONTEXT FOR ANALYSIS]\n"
+        f"- 성별: {gender_ko}, 나이: {age}\n"
+        f"- 신체: 키 {h_int}cm, 몸무게 {w_int}kg (BMI {bmi}, {bmi_cat_ko})\n"
+        f"- 체형 분류: {body_type_key or '미등록'}\n"
+        f"- 퍼스널컬러: {pc_label} ({pc_undertone or '복합'})\n"
         f"  베스트: {pc_best_str}\n"
         f"  주의: {pc_avoid_str}\n"
-        f"목적: {purpose_for_analysis} | 도시: {stylist_city or '범용'} | 날씨: {int(temp)}°C {cond} | 위치: {location or '미지정'}\n"
-        + (f"사용자 직접 요청: \"{custom_text}\"\n" if is_custom else "")
+        f"- 코디 목적: {purpose_for_analysis}\n"
+        f"- 날씨: {int(temp)}°C {cond}\n"
+        f"- 위치: {location or '미지정'}\n"
+        f"- 매칭 스타일리스트: {stylist_name or '범용'} ({stylist_city or '범용 도시'})\n"
+        + (f"- 사용자 직접 요청: \"{custom_text}\"\n" if is_custom else "")
     )
 
     # ── 이미지 파트 구성: 얼굴 → 상의 → 하의 순서 ──
@@ -2295,66 +2183,47 @@ def _ai_styling_via_gemini(
     ).upper().strip()
     if _resolved_tier not in ("FREE", "SILVER", "GOLD", "DIAMOND"):
         _resolved_tier = "FREE"
-    # ─── 2026-05-12 KST · TJ 지시 (v66) ─── provider/quality 동시 조회 ───
+    # ─── 2026-05-13 KST · TJ 지시 (v66) ─── GPT Image 2 라우팅 ───
+    # _resolve_engine_full로 변경: (model, provider, quality) 동시 반환
+    # provider == "openai" → GPT Image 2 분기, 그 외 → 기존 Gemini 분기
     model_name, _provider, _quality = _resolve_engine_full(_resolved_tier, "codifit")
+    _gpt_image_used = (_provider == "openai" and model_name.startswith("gpt-image"))
     print(f"[CODIFIT] tier={_resolved_tier} → provider={_provider}, model={model_name}, quality={_quality}", flush=True)
 
-    # ─── 2026-05-12 KST · TJ 지시 (v66) ─── GPT Image 2 분기 ───
-    # provider == "openai" 인 경우 OpenAI images.edit API 호출
-    # Gemini와 다른 점:
-    #   1. 이미지 출력만 (텍스트 분석 안 줌) → 분석 JSON은 별도 처리
-    #   2. 이미지 입력은 파일 객체 리스트 (multipart form-data)
-    #   3. response.data[0].b64_json으로 base64 이미지 추출
-    #   4. quality 파라미터 ('low'|'medium'|'high')
-    img_bytes = None
-    full_text = ""
-    gpt_image_used = (_provider == "openai" and model_name.startswith("gpt-image"))
-
-    # ─── 2026-05-12 KST · TJ 지시 (v66 픽스) ─── label 보존 ref_images 별도 구성 ───
-    # 이전 v66 첫 작업의 CRITICAL 버그: ordered_parts는 (mime, raw) 2-tuple인데
-    # GPT path에서 (label, mime, raw) 3-tuple로 unpack → ValueError → fallback 동작
-    # → face image가 실제로 GPT에 전달되지 않아 얼굴 반영 실패
-    # 해결: label 정보가 필요한 GPT path를 위해 별도 ordered_with_label 구성
-    _face_ref_lbl = [(lbl, mime, raw) for lbl, mime, raw in ref_images if lbl == "face"]
-    _top_ref_lbl = [(lbl, mime, raw) for lbl, mime, raw in ref_images if lbl == "top"]
-    _bottom_ref_lbl = [(lbl, mime, raw) for lbl, mime, raw in ref_images if lbl == "bottom"]
-    ordered_with_label = _face_ref_lbl + _top_ref_lbl + _bottom_ref_lbl
-
-    try:
-        if gpt_image_used:
-            # ── GPT Image 2 호출 path (v66 신규) ──
-            _openai_api_key = os.getenv("OPENAI_API_KEY")
-            if not _openai_api_key:
-                return jsonify(ok=False, error="OPENAI_API_KEY 미설정 — Render 환경변수에 추가 필요"), 500
+    # ─── 2026-05-13 KST · TJ 지시 (v66) ─── GPT Image 2 분기 ───
+    response = None        # Gemini 응답 객체 (GPT Image 2면 None 유지)
+    _gpt_img_bytes = None  # GPT Image 2 응답 (b64 → bytes)
+    
+    if _gpt_image_used:
+        # ─── OpenAI GPT Image 2 호출 ───
+        try:
+            _openai_key = os.getenv("OPENAI_API_KEY")
+            if not _openai_key:
+                return jsonify(ok=False, error="OPENAI_API_KEY 환경변수 미설정"), 500
             
-            _gpt_client = OpenAI(api_key=_openai_api_key)
+            _gpt_client = OpenAI(api_key=_openai_key)
             
-            # 파일 객체 준비 (BytesIO + name으로 OpenAI SDK 호환)
-            # ─── 2026-05-12 KST · TJ 지시 (v66 픽스) ─── label 포함 unpack ───
+            # 이미지 reference 구성 (face/top/bottom 순서, BytesIO + name 속성 필수)
+            _has_face_ref = bool(face_parts)
+            _has_top_ref = bool(top_parts)
+            _has_bottom_ref = bool(bottom_parts)
             _image_files = []
-            _has_face_ref = False
-            _has_top_ref = False
-            _has_bottom_ref = False
-            for _label, _mime, _raw in ordered_with_label:
-                _img_io = io.BytesIO(_raw)
-                # OpenAI SDK는 파일명 확장자로 mime 추론 → .png 또는 .jpg 명시 필요
-                _ext = "png" if "png" in (_mime or "").lower() else "jpg"
-                _img_io.name = f"{_label or 'ref'}.{_ext}"
-                _image_files.append(_img_io)
-                if _label == "face":
-                    _has_face_ref = True
-                elif _label == "top":
-                    _has_top_ref = True
-                elif _label == "bottom":
-                    _has_bottom_ref = True
+            for _i, (mime, raw) in enumerate(face_parts):
+                _bio = io.BytesIO(raw)
+                _bio.name = f"face_{_i}.jpg"
+                _image_files.append(_bio)
+            for _i, (mime, raw) in enumerate(top_parts):
+                _bio = io.BytesIO(raw)
+                _bio.name = f"top_{_i}.jpg"
+                _image_files.append(_bio)
+            for _i, (mime, raw) in enumerate(bottom_parts):
+                _bio = io.BytesIO(raw)
+                _bio.name = f"bottom_{_i}.jpg"
+                _image_files.append(_bio)
             
             print(f"[ai_styling_gpt_image] ref images: face={_has_face_ref}, top={_has_top_ref}, bottom={_has_bottom_ref}, total={len(_image_files)}", flush=True)
             
-            # ─── 2026-05-13 KST · TJ 지시 (v66 픽스2) ─── prompt 헤더 단순화 ───
-            # 이전 v66 픽스: [IMAGE REFERENCES — STRICT] 헤더 ~700 chars로 강압적 명시
-            #   문제: 너무 길고 강압적 → 이미지 결과 엉망 (사용자 보고)
-            # 변경: 짧고 자연스러운 한 줄 지시문 (~150 chars)
-            #   원칙: prompt를 어지럽히지 않고 핵심 정보만 전달
+            # 짧고 명확한 reference 헤더 (prompt 앞에 prepend)
             _ref_lines = []
             if _has_face_ref:
                 _ref_lines.append("Image 1=user's face (preserve identity exactly)")
@@ -2368,144 +2237,97 @@ def _ai_styling_via_gemini(
             if _ref_lines:
                 _ref_header = "REFERENCES: " + ", ".join(_ref_lines) + ".\n\n"
             else:
-                # ─── 2026-05-13 KST · TJ 지시 (v66 픽스4) ─── face 미등록 처리 ───
-                # 사용자 마이페이지에 얼굴 미등록 시 generic 얼굴 자동 생성
+                # 사용자 face 미등록 → generic Korean face 자동 생성
                 _ref_header = "NOTE: No user face reference provided. Generate a natural Korean fashion model face.\n\n"
             
-            # GPT Image 2는 prompt 32k chars 한계 → 안전하게 30k로 제한
+            # GPT Image 2 prompt 32k chars 한계 → 안전하게 30k로 제한
             _gpt_prompt = _ref_header + (gemini_prompt[:30000] if len(gemini_prompt) > 30000 else gemini_prompt)
             
-            # ─── 2026-05-13 KST · TJ 지시 (v66 픽스2) ─── 사이즈 16:9 변경 ───
-            # 이전: 1536x768 (정확히 2:1) — 너무 와이드 → 정/후면 인물 가로로 짜부 + 얼굴 잘림
-            # 변경: 1536x864 (16:9 = 1.78:1) — 사용자가 명시한 비율
+            # 사이즈: 16:9 wide (정+후면 layout 지원)
             _gpt_size = os.getenv("CODIBANK_GPT_IMAGE_SIZE", "1536x864")
             
-            try:
-                # ─── 2026-05-13 KST · TJ 지시 (v66 픽스4) ─── face 유무에 따라 API 분기 ───
-                # 이전: ref_images 0개여도 images.edit 호출 → 400 BadRequestError
-                # 변경: ref_images 비어있으면 images.generate (text-to-image)로 fallback
-                #       사용자 마이페이지 얼굴 미등록 케이스 정상 처리
-                if len(_image_files) > 0:
-                    # face/top/bottom 중 하나라도 있으면 images.edit
-                    _gpt_response = _gpt_client.images.edit(
-                        model=model_name,             # "gpt-image-2"
-                        image=_image_files,
-                        prompt=_gpt_prompt,
-                        quality=_quality or "medium", # "low"|"medium"|"high"
-                        size=_gpt_size,
-                        n=1,
-                    )
-                else:
-                    # 모든 reference 미등록 → images.generate (text-to-image)
-                    print(f"[ai_styling_gpt_image] 모든 ref 미등록 → images.generate fallback (face 자동 생성)", flush=True)
-                    _gpt_response = _gpt_client.images.generate(
-                        model=model_name,             # "gpt-image-2"
-                        prompt=_gpt_prompt,
-                        quality=_quality or "medium",
-                        size=_gpt_size,
-                        n=1,
-                    )
-            except Exception as _ge:
-                print(f"[ai_styling_gpt_image] 호출 실패: {type(_ge).__name__}: {str(_ge)[:300]}", flush=True)
-                return jsonify(ok=False, error=f"GPT Image 2 호출 실패: {str(_ge)[:300]}"), 500
+            # face/top/bottom 유무에 따라 API 분기
+            #   - 이미지 reference 있음 → images.edit
+            #   - 모두 없음 → images.generate (text-to-image, face 자동 생성)
+            if len(_image_files) > 0:
+                _gpt_response = _gpt_client.images.edit(
+                    model=model_name,
+                    image=_image_files,
+                    prompt=_gpt_prompt,
+                    quality=_quality or "medium",
+                    size=_gpt_size,
+                    n=1,
+                )
+            else:
+                print(f"[ai_styling_gpt_image] 모든 ref 미등록 → images.generate fallback (face 자동 생성)", flush=True)
+                _gpt_response = _gpt_client.images.generate(
+                    model=model_name,
+                    prompt=_gpt_prompt,
+                    quality=_quality or "medium",
+                    size=_gpt_size,
+                    n=1,
+                )
             
-            # 응답에서 base64 이미지 추출
-            try:
-                _b64 = _gpt_response.data[0].b64_json
-                img_bytes = base64.b64decode(_b64)
-                # GPT Image 2는 텍스트 분석 안 줌 → 폴백 활용
-                # 추후 별도 Gemini Flash 호출로 분석 JSON 생성 가능
-                full_text = ""
-                print(f"[ai_styling_gpt_image] ✅ 생성 완료: quality={_quality}, size={_gpt_size}, bytes={len(img_bytes)}", flush=True)
-            except (IndexError, AttributeError) as _pe:
-                return jsonify(ok=False, error=f"GPT Image 2 응답 파싱 실패: {_pe}"), 500
-            
-            # Gemini 호출 path skip — img_bytes/full_text 이미 채워짐
-        
-        elif _SDK == "new":
-            contents = [gemini_prompt]
-            for mime, raw in ordered_parts:
-                contents.append(_gtypes.Part.from_bytes(data=raw, mime_type=mime or "image/jpeg"))
+            # 응답에서 base64 → bytes
+            _b64 = _gpt_response.data[0].b64_json
+            _gpt_img_bytes = base64.b64decode(_b64)
+            print(f"[ai_styling_gpt_image] ✅ 생성 완료: quality={_quality}, size={_gpt_size}, bytes={len(_gpt_img_bytes)}", flush=True)
+        except Exception as _ge:
+            import traceback as _tb
+            _trace = _tb.format_exc()[-400:]
+            print(f"[ai_styling_gpt_image] 호출 실패: {type(_ge).__name__}: {str(_ge)[:300]}", flush=True)
+            return jsonify(ok=False, error=f"GPT Image 2 호출 실패: {str(_ge)[:300]}", trace=_trace), 500
+    else:
+        # ─── Gemini 분기 (기존 코드 그대로) ───
+        try:
+            if _SDK == "new":
+                contents = [gemini_prompt]
+                for mime, raw in ordered_parts:
+                    contents.append(_gtypes.Part.from_bytes(data=raw, mime_type=mime or "image/jpeg"))
 
-            client = _genai.Client(api_key=_GEMINI_KEY)
-            # ─── 2026-05-12 KST · TJ 지시 (v62) ─── seed + temperature 강화 ───
-            #   배경: 같은 stylist+seed면 같은 결과(재현성),
-            #          다른 seed면 다른 결과(다양성) — 9,600 차별화 보완
-            #   변경: temperature 0.7 → 0.9 (더 다양한 출력)
-            #          seed 명시 추가 (payload['seed'] 기반) — 다시코디 시 seed 변경되면
-            #          명확히 다른 결과 보장
-            _user_seed = 0
-            try:
-                _user_seed = int(payload.get("seed", 0) or 0)
-            except (TypeError, ValueError):
-                _user_seed = 0
-            try:
-                # seed 지원 시도
-                _gemini_config = _gtypes.GenerateContentConfig(
-                    response_modalities=["IMAGE", "TEXT"],
-                    temperature=0.9,
-                    seed=_user_seed,
+                client = _genai.Client(api_key=_GEMINI_KEY)
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config=_gtypes.GenerateContentConfig(
+                        response_modalities=["IMAGE", "TEXT"],
+                        temperature=0.7,
+                    ),
                 )
-            except TypeError:
-                # seed 미지원 SDK 버전 폴백
-                _gemini_config = _gtypes.GenerateContentConfig(
-                    response_modalities=["IMAGE", "TEXT"],
-                    temperature=0.9,
-                )
-            response = client.models.generate_content(
-                model=model_name,
-                contents=contents,
-                config=_gemini_config,
-            )
-        else:
-            from PIL import Image as _PILImage
-            _genai_old.configure(api_key=_GEMINI_KEY)
-            model = _genai_old.GenerativeModel(model_name)
+            else:
+                from PIL import Image as _PILImage
+                _genai_old.configure(api_key=_GEMINI_KEY)
+                model = _genai_old.GenerativeModel(model_name)
 
-            contents_old = [gemini_prompt]
-            for mime, raw in ordered_parts:
-                contents_old.append(_PILImage.open(io.BytesIO(raw)))
+                contents_old = [gemini_prompt]
+                for mime, raw in ordered_parts:
+                    contents_old.append(_PILImage.open(io.BytesIO(raw)))
 
-            # ─── 2026-05-12 KST · TJ 지시 (v62) ─── 구 SDK도 동일 패턴 ───
-            _user_seed_old = 0
-            try:
-                _user_seed_old = int(payload.get("seed", 0) or 0)
-            except (TypeError, ValueError):
-                _user_seed_old = 0
-            try:
-                # seed + 0.9 temperature 시도
-                response = model.generate_content(
-                    contents_old,
-                    generation_config={
-                        "response_modalities": ["IMAGE", "TEXT"],
-                        "temperature": 0.9,
-                        "seed": _user_seed_old,
-                    },
-                )
-            except TypeError:
-                # 구 SDK는 seed 미지원 가능 — temperature만
                 try:
                     response = model.generate_content(
                         contents_old,
-                        generation_config={"response_modalities": ["IMAGE", "TEXT"], "temperature": 0.9},
+                        generation_config={"response_modalities": ["IMAGE", "TEXT"], "temperature": 0.7},
                     )
                 except TypeError:
                     response = model.generate_content(
                         contents_old,
-                        generation_config=_genai_old.GenerationConfig(temperature=0.9),
+                        generation_config=_genai_old.GenerationConfig(temperature=0.7),
                     )
-    except Exception as e:
-        import traceback as _tb
-        _trace = _tb.format_exc()[-400:]
-        print(f"[ai_styling_gemini] Gemini 호출 실패: {_trace}")
-        return jsonify(ok=False, error=f"Gemini 호출 실패 ({_SDK}): {str(e)[:300]}", trace=_trace), 500
+        except Exception as e:
+            import traceback as _tb
+            _trace = _tb.format_exc()[-400:]
+            print(f"[ai_styling_gemini] Gemini 호출 실패: {_trace}")
+            return jsonify(ok=False, error=f"Gemini 호출 실패 ({_SDK}): {str(e)[:300]}", trace=_trace), 500
 
     # ── 응답에서 이미지 + 텍스트 추출 ──
-    # ─── 2026-05-12 KST · TJ 지시 (v66) ─── GPT Image 2 path는 이미 img_bytes 채움 ───
-    # GPT Image 2가 사용된 경우 img_bytes/full_text는 위에서 이미 추출됨 → 파싱 skip
-    if not gpt_image_used:
-        img_bytes = None
-        full_text = ""
+    # ─── 2026-05-13 KST · TJ 지시 (v66) ─── GPT Image 2면 b64 결과 직접 사용 ───
+    img_bytes = None
+    full_text = ""
+    if _gpt_image_used:
+        # GPT Image 2 응답은 이미 위에서 디코딩됨
+        img_bytes = _gpt_img_bytes
+        full_text = ""  # GPT Image 2는 텍스트 응답 없음 → 분석 JSON 폴백 사용
+    else:
         try:
             for part in response.candidates[0].content.parts:
                 if part.inline_data and part.inline_data.data:
@@ -2516,8 +2338,6 @@ def _ai_styling_via_gemini(
             return jsonify(ok=False, error=f"응답 파싱 실패: {str(e)[:200]}"), 500
 
     if not img_bytes:
-        if gpt_image_used:
-            return jsonify(ok=False, error="GPT Image 2 이미지 미생성"), 500
         try:
             finish = response.candidates[0].finish_reason
         except Exception:
@@ -2599,26 +2419,16 @@ def _ai_styling_via_gemini(
         pass
     merged_cat_kws.update(category_keywords_from_ai or {})
 
-    # ─── 2026-05-12 KST · TJ 지시 (v64) ─── 화면 표시 '서울지역 활동' 고정 픽스 ───
-    # 원인: matched_stylist 객체에 city 필드 자체가 없음 (stylist_db_server.json 구조)
-    #       → 클라이언트 closet.html line 5093: (data.stylist.city||'서울')
-    #       → 항상 '서울' 폴백 작동 → "서울지역 활동" 고정 표시
-    # 픽스: 응답할 때만 stylist에 city 필드 주입 (원본 DB 객체는 변경 안 함)
-    _stylist_response = None
-    if matched_stylist:
-        _stylist_response = dict(matched_stylist)  # 얕은 복사로 원본 보호
-        _stylist_response['city'] = (meta or {}).get('active_city', '') if meta else ''
-
     return jsonify(
         ok=True,
         image=f"{base}{rel}",
         path=rel,
         url=f"{base}{rel}",
         explanation=short or "AI 코디 이미지 생성 완료!",
-        model=f"{_provider}:{model_name}" + (f":{_quality}" if _quality else ""),
+        model=f"gemini:{model_name}",
         cached=False,
         prompt=gemini_prompt if os.getenv("CODIBANK_DEBUG_PROMPT") == "1" else None,
-        stylist=_stylist_response,
+        stylist=matched_stylist,
         stylingStory=(meta or {}).get("styling_story") if meta else None,
         engineKeywords=(meta or {}).get('keywords_selected', []) if meta else [],
         engineCategoryKeywords=merged_cat_kws,
@@ -3131,23 +2941,20 @@ def ai_styling():
 #              → 기본 매트릭스 → 최종 폴백 (_CODISTYLE_MODEL)
 # ───────────────────────────────────────────────────────────────
 
-# 엔진 별칭 → 실제 Gemini 모델 ID 매핑
+# 엔진 별칭 → 실제 모델 ID 매핑
 _ENGINE_MODEL_MAP = {
     "flash_v1": os.getenv("CODIBANK_MODEL_FLASH_V1", "gemini-2.5-flash-image"),        # Nano Banana 1 ($0.039)
     "flash_v2": os.getenv("CODIBANK_MODEL_FLASH_V2", "gemini-3.1-flash-image-preview"),# Nano Banana 2 ($0.067)
     "pro":      os.getenv("CODIBANK_MODEL_PRO",      "gemini-3-pro-image-preview"),    # Nano Banana Pro ($0.134)
-    # ─── 2026-05-12 KST · TJ 지시 (v66) ─── GPT Image 2 추가 ───
-    # 이유: Gemini Nano Banana 2(preview)의 다양성 부족 + 얼굴 보존 약함 한계
-    #       GPT Image 2는 얼굴 보존 압도적 우수 + Thinking mode로 지시 추종 강함
-    #       2026.04.21 OpenAI 정식 출시 (API 2026.05 초)
-    # 비용: medium 1024×1024 약 $0.053 (현재 flash_v2 $0.067 대비 21% 절감)
-    "gpt_image_2_low":    os.getenv("CODIBANK_MODEL_GPT_IMAGE_LOW",    "gpt-image-2"),  # $0.006/image
-    "gpt_image_2_medium": os.getenv("CODIBANK_MODEL_GPT_IMAGE_MEDIUM", "gpt-image-2"),  # $0.053/image (TJ 선택)
-    "gpt_image_2_high":   os.getenv("CODIBANK_MODEL_GPT_IMAGE_HIGH",   "gpt-image-2"),  # $0.211/image
+    # ─── 2026-05-13 KST · TJ 지시 (v66) ─── GPT Image 2 추가 (codifit 전용) ───
+    # 이유: Gemini Nano Banana 2 preview의 다양성/얼굴 보존 한계 → GPT Image 2 medium 전환
+    # 비용: medium 1024×1024 약 $0.053 (Nano Banana 2 $0.067 대비 21% 절감)
+    "gpt_image_2_low":    os.getenv("CODIBANK_MODEL_GPT_IMAGE_LOW",    "gpt-image-2"),  # $0.006
+    "gpt_image_2_medium": os.getenv("CODIBANK_MODEL_GPT_IMAGE_MEDIUM", "gpt-image-2"),  # $0.053 (기본)
+    "gpt_image_2_high":   os.getenv("CODIBANK_MODEL_GPT_IMAGE_HIGH",   "gpt-image-2"),  # $0.211
 }
 
-# ─── 2026-05-12 KST · TJ 지시 (v66) ─── provider/quality 매핑 ───
-# 모델별 provider 구분 (Gemini vs OpenAI) + GPT Image 2 quality 옵션
+# ─── 2026-05-13 KST · TJ 지시 (v66) ─── provider + quality 매핑 (GPT Image 2용) ───
 _ENGINE_PROVIDER_MAP = {
     "flash_v1":           "gemini",
     "flash_v2":           "gemini",
@@ -3157,9 +2964,9 @@ _ENGINE_PROVIDER_MAP = {
     "gpt_image_2_high":   "openai",
 }
 _ENGINE_QUALITY_MAP = {
-    "gpt_image_2_low":    "low",     # $0.006
-    "gpt_image_2_medium": "medium",  # $0.053 (TJ 기본)
-    "gpt_image_2_high":   "high",    # $0.211
+    "gpt_image_2_low":    "low",
+    "gpt_image_2_medium": "medium",
+    "gpt_image_2_high":   "high",
 }
 
 # ─── 2026-04-22 17:05 KST (엔진 정책 단순화) ───────────────────────────
@@ -3169,19 +2976,12 @@ _ENGINE_QUALITY_MAP = {
 #   • 트라이온 → pro (Nano Banana Pro, 원가 ~₩120/회, 프리미엄)
 # 사용 제한은 회원 티어별 "코디핏 N회 / 트라이온 M회"로 이미 관리됨.
 # ────────────────────────────────────────────────────────────────────
+# ─── 2026-05-13 KST · TJ 지시 (v66) ─── 코디핏 → GPT Image 2 medium ───
 # 서비스별 고정 모델 (티어와 무관)
 # 구조: { 기능: 엔진별칭 }
-# ─── 2026-05-12 KST · TJ 지시 (v66) ─── 코디핏 → GPT Image 2 medium ───
-# 이전: codifit → flash_v2 (gemini-3.1-flash-image-preview) — 다양성/얼굴 보존 한계
-# 변경: codifit → gpt_image_2_medium (gpt-image-2, medium quality)
-#       · 얼굴 보존 압도적 우수 (블로그 evidence: 점/주름까지 보존)
-#       · Thinking mode로 지시 추종 강함 → STYLIST DNA 비로소 반영
-#       · 비용 21% 절감 ($0.067 → $0.053)
-#       · 단점: 속도 25초 (Gemini 20초 대비 +5초)
-# 롤백 안전망: Render 환경변수 CODIBANK_ALIAS_CODIFIT=flash_v2 설정 시 즉시 복귀
 _ENGINE_SERVICE_DEFAULT = {
-    "codifit": "gpt_image_2_medium",   # v66: GPT Image 2 medium ($0.053)
-    "tryon":   "pro",                   # Nano Banana Pro = gemini-3-pro-image-preview
+    "codifit": "gpt_image_2_medium",  # ← v66 변경: flash_v2 → gpt_image_2_medium
+    "tryon":   "pro",                  # Nano Banana Pro = gemini-3-pro-image-preview
 }
 
 # ─── 하위호환 유지: 기존 _ENGINE_MATRIX_DEFAULT 이름을 참조하는 코드가 있을 경우 대비 ───
@@ -3238,10 +3038,10 @@ def _resolve_engine(tier: str, feature: str) -> str:
     return _CODISTYLE_MODEL
 
 
-# ─── 2026-05-12 KST · TJ 지시 (v66) ─── 헬퍼: provider + quality 동시 조회 ───
+# ─── 2026-05-13 KST · TJ 지시 (v66) ─── _resolve_engine_full 헬퍼 ───
 def _resolve_engine_full(tier: str, feature: str) -> tuple:
     """
-    모델 + provider + quality를 동시 반환 (v66 GPT Image 2 라우팅용).
+    모델 + provider + quality를 동시 반환 (GPT Image 2 라우팅용).
     
     반환: (model_name: str, provider: str, quality: str|None)
       - provider: "gemini" | "openai"
@@ -3254,6 +3054,13 @@ def _resolve_engine_full(tier: str, feature: str) -> tuple:
     feature_low = (feature or "codifit").lower()
     feature_up  = feature_low.upper()
     
+    # 환경변수 직접 모델 ID 우선 (배포 후 즉시 롤백 가능)
+    env_model = os.getenv(f"CODIBANK_MODEL_{feature_up}")
+    if env_model:
+        if env_model.startswith("gpt-image"):
+            return env_model, "openai", "medium"
+        return env_model, "gemini", None
+    
     # alias 결정 (환경변수 우선)
     env_alias = os.getenv(f"CODIBANK_ALIAS_{feature_up}")
     if env_alias and env_alias in _ENGINE_MODEL_MAP:
@@ -3261,17 +3068,9 @@ def _resolve_engine_full(tier: str, feature: str) -> tuple:
     else:
         alias = _ENGINE_SERVICE_DEFAULT.get(feature_low, "flash_v2")
     
-    # 환경변수 직접 모델 ID 우선
-    env_model = os.getenv(f"CODIBANK_MODEL_{feature_up}")
-    if env_model:
-        # 직접 모델 ID가 있으면 provider/quality 자동 추론
-        if env_model.startswith("gpt-image"):
-            return env_model, "openai", "medium"  # 기본 quality
-        return env_model, "gemini", None
-    
     model = _ENGINE_MODEL_MAP.get(alias, _CODISTYLE_MODEL)
     provider = _ENGINE_PROVIDER_MAP.get(alias, "gemini")
-    quality = _ENGINE_QUALITY_MAP.get(alias)  # Gemini는 None
+    quality = _ENGINE_QUALITY_MAP.get(alias)
     return model, provider, quality
 
 
