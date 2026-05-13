@@ -7,6 +7,35 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-13 KST · TJ 지시 (v66 UX) ─── [코디핏 진행률 + 완료 인터스티셜 개선]
+  배경: GPT Image 2 medium 응답시간 약 60초간 진행률 표시가 부자연스러움
+    1) 초반 빠르게 증가 → 55%에서 10여초 정지 (step 텍스트 매핑 기반)
+    2) 이미지 도착 즉시 표시 → 완료 감동 없음
+  TJ 요청:
+    1) 처음부터 끝까지 1%씩 균등하게 증가
+    2) 이미지 표시 직전 슬로건 + 완료 텍스트 1초 인터스티셜
+  변경 — 4개 영역:
+    [CSS] .vto-complete-overlay / .vto-complete-slogan / .vto-complete-title (line ~1029):
+      · 슬로건: Georgia italic, mint 글로우, 26px
+      · 타이틀: Manrope 700, 21px
+      · 가운데 divider (mint gradient)
+      · fade-in 0.35s + slogan slide-up 0.55s + title pop-in 0.65s
+    [JS] _vtoStartLinearProgress + _vtoStopLinearProgress (line ~4530):
+      · 60초 동안 0%→95%로 균등 증가 (≈ 632ms당 1%)
+      · window.__vtoLinearMode 플래그로 step observer 우회 (충돌 방지)
+      · _vtoResetPct / _vtoCompletePct에도 linear timer 정리 추가
+    [JS] _vtoShowCompletionInterstitial 함수 (line ~4595):
+      · vtoCanvas 부모에 .vto-complete-overlay div 동적 생성
+      · "Design to be desired" 슬로건 + divider + "코디뱅크 추천코디 완료!!"
+      · 1.0초 표시 후 fade-out 0.36s + remove → Promise 해소
+      · i18n 지원 (_L 함수 사용)
+    [JS] generateStyling 흐름 통합 (line ~5523, 5438):
+      · callRemote 호출 직전: _vtoStartLinearProgress(60, 95)
+      · callRemote 응답 직후: _vtoStopLinearProgress
+      · drawNatural 호출 직전: _vtoCompletePct + _vtoShowCompletionInterstitial 1초 대기
+      · 에러 catch 시에도 linear timer 정리
+  영향: 코디핏 페이지(closet.html)만. 트라이온/코디하기 영향 없음.
+
 ─── 2026-05-13 KST · TJ 지시 (v66) ─── [코디핏 fetch timeout 35초 → 120초]
   배경: mock_backend.py v66로 코디핏 모델 Gemini → GPT Image 2 medium 전환 후
         브라우저 콘솔에 "AbortError: signal is aborted without reason" 발생
@@ -1026,6 +1055,46 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 }
 .vto-spin-pct .vto-spin-pct-sym{
   font-size:14px;font-weight:600;opacity:0.7;margin-left:1px;
+}
+
+/* ─── 2026-05-13 KST · TJ 지시 (v66 UX) ─── 완료 인터스티셜 ─── */
+.vto-complete-overlay{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  gap:18px;
+  background:linear-gradient(135deg, rgba(15,23,42,0.96), rgba(30,41,59,0.96));
+  border-radius:inherit;
+  z-index:50;opacity:0;
+  transition:opacity .35s ease;
+  pointer-events:none;
+}
+.vto-complete-overlay.is-visible{opacity:1;}
+.vto-complete-slogan{
+  font-family:'Georgia','Playfair Display',serif;
+  font-style:italic;font-size:26px;letter-spacing:2.5px;
+  color:#a2fdf0;
+  text-shadow:0 0 22px rgba(53,162,159,0.5);
+  text-align:center;
+  animation:vtoCompleteSloganIn .55s cubic-bezier(0.16,1,0.3,1);
+}
+.vto-complete-title{
+  font-family:'Manrope','Inter',sans-serif;
+  font-size:21px;font-weight:700;letter-spacing:0.5px;
+  color:#fff;text-align:center;
+  animation:vtoCompleteTitleIn .65s cubic-bezier(0.16,1,0.3,1) .12s both;
+}
+.vto-complete-divider{
+  width:60px;height:2px;
+  background:linear-gradient(90deg, transparent, #97FEED, transparent);
+  opacity:0.6;
+}
+@keyframes vtoCompleteSloganIn{
+  from{opacity:0;transform:translateY(10px);}
+  to{opacity:1;transform:translateY(0);}
+}
+@keyframes vtoCompleteTitleIn{
+  from{opacity:0;transform:translateY(8px) scale(0.96);}
+  to{opacity:1;transform:translateY(0) scale(1);}
 }
 .vto-b-actions{display:flex;gap:8px;padding:12px 0 6px;}
 /* 버튼 공통 */
@@ -4526,6 +4595,8 @@ async function updateVTO(opts={}){
   // 진행률 초기화 (새 생성 시작 시 0부터)
   const _vtoResetPct = () => {
     if(window.__vtoPctTimer){ clearInterval(window.__vtoPctTimer); window.__vtoPctTimer = null; }
+    if(window.__vtoLinearTimer){ clearInterval(window.__vtoLinearTimer); window.__vtoLinearTimer = null; }
+    window.__vtoLinearMode = false;
     window.__vtoPctCurrent = 0;
     window.__vtoPctTarget = 0;
     _setVtoPctDom(0);
@@ -4533,17 +4604,94 @@ async function updateVTO(opts={}){
   // 즉시 완료(100%) — ready 시점
   const _vtoCompletePct = () => {
     if(window.__vtoPctTimer){ clearInterval(window.__vtoPctTimer); window.__vtoPctTimer = null; }
+    if(window.__vtoLinearTimer){ clearInterval(window.__vtoLinearTimer); window.__vtoLinearTimer = null; }
+    window.__vtoLinearMode = false;
     window.__vtoPctCurrent = 100;
     window.__vtoPctTarget = 100;
     _setVtoPctDom(100);
   };
+  // ─── 2026-05-13 KST · TJ 지시 (v66 UX) ─── Linear progress 모드 ───
+  // 배경: GPT Image 2 medium 응답 시간 50-70초 동안 진행률 55%에서 멈춤
+  // 해결: callRemote 호출 직전 linear timer 시작 → 60초 동안 균등하게 0%→95%
+  //       응답 도착 시 _vtoStopLinearProgress + _vtoCompletePct로 100%
+  const _vtoStartLinearProgress = (durationSec = 60, maxPct = 95) => {
+    // 기존 타이머 모두 정리
+    if(window.__vtoPctTimer){ clearInterval(window.__vtoPctTimer); window.__vtoPctTimer = null; }
+    if(window.__vtoLinearTimer){ clearInterval(window.__vtoLinearTimer); window.__vtoLinearTimer = null; }
+    // Linear mode 활성화 → step observer 우회
+    window.__vtoLinearMode = true;
+    // 현재 진행률에서 시작 (보통 0)
+    const startPct = window.__vtoPctCurrent || 0;
+    const remaining = maxPct - startPct;
+    if(remaining <= 0) return;
+    // 60초 / 95단계 ≈ 632ms당 1%
+    const intervalMs = Math.max(100, Math.round((durationSec * 1000) / remaining));
+    window.__vtoLinearTimer = setInterval(() => {
+      const cur = window.__vtoPctCurrent || 0;
+      if(cur >= maxPct){
+        clearInterval(window.__vtoLinearTimer);
+        window.__vtoLinearTimer = null;
+        return;
+      }
+      window.__vtoPctCurrent = cur + 1;
+      window.__vtoPctTarget = window.__vtoPctCurrent;
+      _setVtoPctDom(window.__vtoPctCurrent);
+    }, intervalMs);
+  };
+  const _vtoStopLinearProgress = () => {
+    if(window.__vtoLinearTimer){ clearInterval(window.__vtoLinearTimer); window.__vtoLinearTimer = null; }
+    window.__vtoLinearMode = false;
+  };
+  // ─── 2026-05-13 KST · TJ 지시 (v66 UX) ─── 완료 인터스티셜 ───
+  // 이미지 표시 직전 약 1초간 슬로건 + 완료 텍스트 표시
+  const _vtoShowCompletionInterstitial = () => new Promise(resolve => {
+    try {
+      const _canvas = document.getElementById('vtoCanvas');
+      const _box = _canvas?.parentElement || document.getElementById('vtoWrap');
+      if(!_box){ resolve(); return; }
+      // 기존 인터스티셜 잔존하면 제거
+      const _old = document.getElementById('vtoCompleteOverlay');
+      if(_old) _old.remove();
+      // spinner / pct 숨김
+      const _sp = document.getElementById('vtoSpinner');
+      if(_sp){ _sp.classList.remove('animating'); _sp.style.display='none'; }
+      const _pctEl = document.getElementById('vtoSpinPct');
+      if(_pctEl) _pctEl.style.display='none';
+      // 오버레이 생성
+      const _ov = document.createElement('div');
+      _ov.id = 'vtoCompleteOverlay';
+      _ov.className = 'vto-complete-overlay';
+      _ov.innerHTML = `
+        <div class="vto-complete-slogan">Design to be desired</div>
+        <div class="vto-complete-divider"></div>
+        <div class="vto-complete-title">${_L('코디뱅크 추천코디 완료!!')}</div>
+      `;
+      // box의 position이 relative인지 확인
+      const _cs = window.getComputedStyle(_box);
+      if(_cs.position === 'static'){ _box.style.position = 'relative'; }
+      _box.appendChild(_ov);
+      // fade in
+      requestAnimationFrame(() => { _ov.classList.add('is-visible'); });
+      // 약 1초 표시 후 fade out + 제거
+      setTimeout(() => {
+        _ov.classList.remove('is-visible');
+        setTimeout(() => { _ov.remove(); resolve(); }, 360);
+      }, 1000);
+    } catch(e){
+      console.warn('[코디핏] 인터스티셜 실패:', e);
+      resolve();
+    }
+  });
   // 기존 호환용 (외부에서 _updateVtoPct를 호출하는 곳이 있을 경우 대비)
   const _updateVtoPct = (pct) => _vtoAnimatePct(pct);
   // [2026-04-18] stepEl의 textContent 변경을 감지해 진행률 자동 업데이트
   //   → 기존의 모든 stepEl.textContent = '...' 호출에서 자동 반영됨 (코드 수정 불필요)
+  //   ─── 2026-05-13 KST · TJ 지시 (v66 UX) ─── Linear mode 중에는 우회 ───
   if(stepEl && !stepEl._vtoPctObserver){
     try {
       const _obs = new MutationObserver(() => {
+        // Linear progress 모드 중에는 step 텍스트 변경을 무시 (균등 증가 유지)
+        if(window.__vtoLinearMode) return;
         _vtoAnimatePct(_vtoStepToPct(stepEl.textContent));
       });
       _obs.observe(stepEl, { childList: true, characterData: true, subtree: true });
@@ -5316,6 +5464,12 @@ async function updateVTO(opts={}){
         }
         if(!displaySrc) throw new Error(data?.error||'이미지 URL 없음');
 
+        // ─── 2026-05-13 KST · TJ 지시 (v66 UX) ─── 완료 인터스티셜 ───
+        // 이미지 표시 직전 약 1초간 "Design to be desired" + "코디뱅크 추천코디 완료!!" 표시
+        try{ _vtoCompletePct(); }catch(_){}
+        await _vtoShowCompletionInterstitial();
+        if(S.tok!==tok)return;
+
         await drawNatural(displaySrc);
         // 생성 완료: blur 해제 + rainbow 정지 + 상태 텍스트
         const _canvasDone = document.getElementById('vtoCanvas');
@@ -5402,6 +5556,9 @@ async function updateVTO(opts={}){
       };
 
       let r = null;
+      // ─── 2026-05-13 KST · TJ 지시 (v66 UX) ─── linear progress 시작 ───
+      // GPT Image 2 medium 응답시간 약 60초 → 0%~95%로 균등 증가 (≈ 0.63초/1%)
+      try{ _vtoStartLinearProgress(60, 95); }catch(_){}
       try{
         r = await callRemote(faceDataUrl);
       }catch(e1){
@@ -5412,12 +5569,16 @@ async function updateVTO(opts={}){
             if(stepEl) stepEl.textContent=_L('얼굴 없이 다시 생성 중…');
             r = await callRemote('');
           }catch(_e2){
+            try{ _vtoStopLinearProgress(); }catch(_){}
             throw e1;
           }
         }else{
+          try{ _vtoStopLinearProgress(); }catch(_){}
           throw e1;
         }
       }
+      // 응답 도착 → linear timer 정지 (drawNatural 직전 인터스티셜이 100% 표시)
+      try{ _vtoStopLinearProgress(); }catch(_){}
       if(S.tok!==tok)return;
 
       const data = r?.data || null;
