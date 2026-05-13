@@ -7,6 +7,19 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-13 KST · TJ 지시 (v66) ─── [코디핏 fetch timeout 35초 → 120초]
+  배경: mock_backend.py v66로 코디핏 모델 Gemini → GPT Image 2 medium 전환 후
+        브라우저 콘솔에 "AbortError: signal is aborted without reason" 발생
+        화면에 "추천 이미지 생성중" placeholder 무한 표시 (Render 로그상 서버는 정상 완료)
+  Render 로그 증거:
+        [ai_styling_gpt_image] ✅ 생성 완료: bytes=1464876, 응답시간 67초
+        → 클라이언트가 35초 abort 후 로컬 폴백 → placeholder UI
+  변경 — 1개 영역만 (다른 변경 없음):
+    [JS] callRemote 함수의 postJson timeout (line ~5275):
+      · 35000ms → 120000ms (Render gunicorn --timeout 120과 동일)
+      · GPT Image 2 medium 응답 시간 50-70초 안정 처리
+  영향: codifit /api/ai/styling 호출만 영향. 다른 endpoint 영향 없음.
+
 ─── 2026-05-12 KST · TJ 지시 (v59) ─── [이미지 저장 갤러리 직접 저장 복원]
   배경: 이전엔 Web Share API 우선 → 공유 시트가 매번 떠서
         '카메라 앨범 자동 저장' 의도와 맞지 않음.
@@ -5270,9 +5283,15 @@ async function updateVTO(opts={}){
 
       // (안정화) OpenAI 호출은 네트워크/요금/바디크기 등에 따라 간헐적으로 실패할 수 있어
       // 1) 얼굴 포함으로 1회 시도 → 2) 실패 시 얼굴 없이 1회 재시도(요청 바디 축소)
+      // ─── 2026-05-13 KST · TJ 지시 (v66) ─── timeout 35초 → 120초 ───
+      //   배경: 코디핏 모델을 Gemini Nano Banana 2 → GPT Image 2 medium으로 전환 후
+      //         응답 시간 증가 (30-40초 → 50-70초, Render 로그 67초 측정)
+      //   원인: 클라이언트 35초 timeout으로 AbortError 발생 → 로컬 폴백 → placeholder 표시
+      //   변경: timeout 120000ms (Render gunicorn --timeout 120과 동일)
+      //   영향: 응답이 정상이면 서버 완료까지 대기, 비정상은 120초 후 abort
       const callRemote = async (faceDataUrlOpt)=>{
         const p = Object.assign({}, payload, { faceImage: faceDataUrlOpt || null });
-        const data = await postJson(`${aiBase}/api/ai/styling`, p, 35000);
+        const data = await postJson(`${aiBase}/api/ai/styling`, p, 120000);
         if(S.tok!==tok)return null;
         if(!data || data.ok!==true) throw new Error(data?.error||'AI 이미지 생성 실패');
 
