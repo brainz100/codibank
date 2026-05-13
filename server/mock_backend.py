@@ -5,27 +5,6 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
-# ─── 2026-05-13 KST · TJ 지시 (v66 위치 픽스) ─── [정/후면 좌·우 위치 강화]
-#   배경: v66 QUALITY 배포 후 정/후면 인물이 가운데로 몰리는 현상 지속
-#         (정면 ~40% / 후면 ~60% 위치 — 목표 25% / 75%와 거리)
-#   원인: 기존 LAYOUT "horizontal center at 25%/75%" 지시가 너무 약함
-#         GPT Image 2가 "중앙 정렬"을 절반의 중심이 아닌 전체 중심으로 해석
-#   변경 — 1개 영역 (_layout_directives 항목 4 + _final_reminder, line ~2300):
-#   A) LAYOUT 항목 4 강화 (VERY IMPORTANT, most common mistake):
-#      · "Front figure body center MUST be at horizontal position 25%"
-#      · "Back figure body center MUST be at horizontal position 75%"
-#      · "The MIDDLE 30% of the canvas (35-65%) MUST be COMPLETELY EMPTY background"
-#      · "Place the two figures FAR APART, near the OUTER quarters"
-#      · "DO NOT cluster both figures in the middle"
-#      · 가운데 빈 공간 명시 → GPT가 두 figure를 떨어뜨림
-#   B) FINAL REMINDER에 POSITIONING ★ 표시로 최우선 강조:
-#      · "FRONT figure: place at LEFT side, centered at 25%"
-#      · "BACK figure: place at RIGHT side, centered at 75%"
-#      · "MIDDLE of the image (35-65%) MUST be empty background"
-#      · "two figures must be FAR APART, NOT close together"
-#   효과: GPT Image 2가 "FAR APART + EMPTY MIDDLE" 지시를 따라
-#         두 인물을 좌/우 절반의 중앙(25%, 75%)에 정확히 배치
-#
 # ─── 2026-05-13 KST · TJ 지시 (v66 QUALITY) ─── [prompt 단순화 + 패션모델 비율]
 #   배경: medium 품질에서 결과 디테일 부족 + 비율 어색
 #   TJ 결정 (3가지):
@@ -2319,14 +2298,9 @@ def _ai_styling_via_gemini(
                 "1. CANVAS: 16:9 wide landscape, single image split into two equal vertical halves.\n"
                 "2. LEFT HALF (0% to 50% horizontal): FRONT view of the person — face fully visible, looking at camera.\n"
                 "3. RIGHT HALF (50% to 100% horizontal): BACK view of the SAME person — rear view, no face visible.\n"
-                "4. HORIZONTAL POSITIONING — VERY IMPORTANT (most common mistake):\n"
-                "   - Front figure body center MUST be at horizontal position 25% (one quarter from LEFT edge)\n"
-                "   - Back figure body center MUST be at horizontal position 75% (three quarters from LEFT edge)\n"
-                "   - The MIDDLE 30% of the canvas (horizontal positions 35% to 65%) MUST be COMPLETELY EMPTY background — NO PERSON, NO BODY PART in this middle zone\n"
-                "   - Place the two figures FAR APART, near the OUTER quarters of the image\n"
-                "   - DO NOT place figures close to each other near the center\n"
-                "   - DO NOT cluster both figures in the middle of the image\n"
-                "   - Imagine a vertical line dividing each HALF into its own center — each figure sits on that center line\n"
+                "4. HORIZONTAL CENTERING: Each figure perfectly centered within its own half.\n"
+                "   - Front figure: horizontal center at 25% of total image width\n"
+                "   - Back figure: horizontal center at 75% of total image width\n"
                 "5. VERTICAL SIZING: Each figure's total height = approximately 85% of image height.\n"
                 "   - Leave ~7.5% empty space above the head (top margin)\n"
                 "   - Leave ~7.5% empty space below the feet (bottom margin)\n"
@@ -2350,20 +2324,14 @@ def _ai_styling_via_gemini(
             #       gemini_prompt 첫 부분에 위치하므로 4000자만 발췌.
             _outfit_prompt = gemini_prompt[:4000] if len(gemini_prompt) > 4000 else gemini_prompt
             
-            # ─── 2026-05-13 KST · TJ 지시 (v66 위치 픽스) ─── FINAL REMINDER에 위치 강조 ───
-            # GPT Image 2는 prompt 끝부분 지시를 강하게 따르는 특성 활용
+            # FINAL REMINDER (prompt 끝에 강조) — GPT Image 2는 끝부분 지시를 강하게 따름
             _final_reminder = (
                 "\n\n=== FINAL REMINDER (most critical) ===\n"
-                "★ POSITIONING (most important rule):\n"
-                "  - FRONT figure: place at LEFT side, centered at 25% horizontal position\n"
-                "  - BACK figure: place at RIGHT side, centered at 75% horizontal position\n"
-                "  - The MIDDLE of the image (35-65% horizontal) MUST be empty background\n"
-                "  - The two figures must be FAR APART, NOT close together in the center\n"
-                "★ SIZE:\n"
-                "  - Each figure height = 85% of image height (NOT 100%, leave top/bottom margin)\n"
-                "  - Body = 8.5 head heights, face SMALL relative to body (DO NOT enlarge face)\n"
-                "★ STYLE: Editorial fashion photo, slim tall fashion model silhouette\n"
-                "★ BACKGROUND: Clean solid pale color, no text, no logos, no watermarks\n"
+                "- 16:9 wide image, TWO figures side-by-side (LEFT=front, RIGHT=back)\n"
+                "- Each figure height = 85% of image height (figure must NOT fill entire canvas)\n"
+                "- Body = 8.5 head heights — DO NOT enlarge the face\n"
+                "- Face should appear small and proportional to a tall slim fashion model body\n"
+                "- Clean solid pale background. No text, no logos, no watermarks.\n"
             )
             
             _gpt_prompt = _ref_header + _layout_directives + _outfit_prompt + _final_reminder
