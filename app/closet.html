@@ -7,6 +7,40 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-13 KST · TJ 지시 (v66 픽스3) ─── [통합 PERSONAL STYLING REPORT — 두 박스 합치고 세련된 디자인]
+  배경: 사용자 요구 — "리포트가 중복되지 않게 그리고 디자인도 통일해서
+        실제 리포트를 보는 것처럼 디자인을 좀더 세련되게 변경"
+  진단:
+    · AI 코디핏 스토리 박스(codiDetailBox) + AI 코디핏 포인트 박스(codiPointBox)가
+      별도 박스로 존재하면서 비슷한 분석 정보(outfit 구성)를 다른 형식으로 표시
+    · 사용자 입장에서 "이중"으로 느껴짐
+  변경 — 3개 영역:
+    (1) [HTML] codiPointBox 박스 자체 제거 (line ~1820):
+        · 내부 콘텐츠를 codiDetailBox 안의 새 섹션 "Today's Outfit"으로 이동
+        · 이동된 ID: catKwSection, catKwRow, kwRow, stylistBadge, matchRow
+        · "오늘의 코디" / "Today's Outfit" i18n 라벨 통일
+    (2) [CSS] 세련된 리포트 디자인 (~80줄 추가):
+        · 통합 박스 그라데이션 (실크 같은 부드러움)
+        · 골드 액센트(212,175,55) — PREMIUM 리포트 느낌
+        · 섹션 헤더 letterspacing 통일 (.16em)
+        · 섹션 구분선에 골드 그라데이션 추가
+        · 카테고리별 코디 카드 hover 효과 강화
+        · 스타일 키워드 칩 디자인 강화
+        · "AI 코디핏 스토리" 라벨에 민트→골드 그라데이션 텍스트
+        · signature 배경 골드 톤
+    (3) [JS] 새 섹션 표시/숨김 로직 (3곳):
+        · renderStylingPoint 함수: kwRow/catKwSection 활성화 시 anOutfitSection도 함께
+        · reset 로직 3곳: anOutfitSection도 hidden 추가
+  영향 범위: 코디핏 결과 페이지(closet.html)만. 트라이온/내옷장 변경 없음.
+
+─── 2026-05-13 KST · TJ 지시 (v66 픽스2) ─── [viewbox 1:1.62 원상복구]
+  배경: v66 픽스1에서 viewbox 2/1로 변경한 것을 사용자 요구로 원상복구
+    · 이미지 사이즈가 16:9로 변경됨 (mock_backend.py v66 픽스2)
+    · 박스는 세로 1:1.62 비율로 유지 + 가로 스크롤로 정/후면 전환
+  변경 — 1 개:
+    [CSS] .vto-result-box (line ~946):
+      · aspect-ratio: 2/1 → 1/1.62 (사용자 요구 — 원상복구)
+
 ─── 2026-05-12 KST · TJ 지시 (v66 픽스) ─── [코디핏 viewbox 가로 + 정/후면 토글 강제 활성화]
   배경: mock_backend.py v66(GPT Image 2 medium 전환) 후 사용자 보고 3건
     1) 박스 비율이 세로 길어서 이미지가 작게 표시 (1/1.62 비율)
@@ -958,17 +992,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
  * 변경: 박스 비율은 1/1.62 유지하되 내부 이미지가 가로 긴(2:1)
  *      → overflow-x: auto 로 스크롤 가능하게
  * ─────────────────────────────────────────────
- * [2026-05-12 v66 TJ 지시] 박스 비율 가로 wide로 변경
- *   이전: 1/1.62 (세로 긴) — 2:1 이미지가 박스에 압축되어 작게 표시
- *   변경: 2/1 (가로 wide, 이미지와 정확히 일치)
- *        → 한 화면에 정+후면 모두 명확히 표시, 스크롤 불필요
- *        → 모바일 화면 폭에 맞춰 자동 조정
+ * [2026-05-13 v66 픽스2 TJ 지시] 1:1.62 세로 비율 원상복구
+ *   직전 v66 픽스에서 2/1로 변경했으나 사용자 요구로 원상복구
+ *   이미지가 16:9 가로로 생성되어 박스 안에서 가로 스크롤로 정/후면 전환
  * ───────────────────────────────────────────── */
 .vto-result-box{
   width:100%;
-  aspect-ratio:2/1;       /* [v66] 1/1.62 → 2/1 (가로 wide) */
+  aspect-ratio:1/1.62;    /* [v66 픽스2] 2/1 → 1/1.62 원상복구 (사용자 요구) */
   border-radius:20px;
-  overflow-x:auto;        /* [v14] 가로 스크롤 활성화 (예외 케이스 대비) */
+  overflow-x:auto;        /* [v14] 가로 스크롤 활성화 */
   overflow-y:hidden;
   position:relative;
   display:block;          /* flex → block (스크롤 보존) */
@@ -1370,6 +1402,86 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 #codiDetailBox #bodyTypeBadge{
   padding:10px 16px 0;
 }
+
+/* ─── 2026-05-13 KST · TJ 지시 (v66 픽스3) ─── 세련된 리포트 디자인 ───
+ *   배경: 사용자 요구 "실제 리포트를 보는 것처럼 디자인을 좀더 세련되게"
+ *   변경:
+ *     · 골드 액센트 (212,175,55) — PREMIUM 리포트 느낌
+ *     · 섹션 헤더 hover/spacing 통일
+ *     · 섹션 구분선 더 부드럽게
+ *     · 카테고리별 코디 포인트 카드 디자인 강화
+ *   영향: codiDetailBox 내부 통합 리포트 (코디핏 결과 페이지)
+ * ─────────────────────────────────────────────── */
+
+/* 통합 리포트 박스 그라데이션 (실크 같은 부드러움) */
+#codiDetailBox{
+  background:linear-gradient(180deg, rgba(7,25,82,0.78) 0%, rgba(5,15,52,0.85) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(151,254,237,0.08),
+    0 4px 16px rgba(0,0,0,0.18) !important;
+}
+
+/* 섹션 헤더 통일 — 골드 액센트 (PREMIUM 느낌) */
+#codiDetailBox .flex.items-center.gap-1\.5.mb-1 > p,
+#codiDetailBox .flex.items-center.gap-1\.5.mb-1\.5 > p,
+#codiDetailBox .flex.items-center.gap-1\.5.mb-2 > p{
+  font-size:10.5px !important;
+  letter-spacing:0.16em !important;
+}
+
+/* 섹션 구분선 더 부드럽게 (점선 같은 느낌) */
+#codiDetailBox > div[id^="an"]{
+  border-top:1px solid rgba(151,254,237,0.05) !important;
+  position:relative;
+}
+#codiDetailBox > div[id^="an"]::before{
+  content:'';
+  position:absolute;
+  top:-1px; left:16px; right:16px;
+  height:1px;
+  background:linear-gradient(90deg, transparent, rgba(212,175,55,0.18) 50%, transparent);
+}
+
+/* 카테고리별 코디 포인트 카드 강화 */
+#catKwRow > div{
+  background:linear-gradient(135deg, rgba(7,25,82,0.5), rgba(11,18,56,0.4)) !important;
+  border:1px solid rgba(151,254,237,0.12) !important;
+  border-radius:10px !important;
+  padding:8px 10px !important;
+  transition:all 0.2s !important;
+}
+#catKwRow > div:hover{
+  border-color:rgba(212,175,55,0.3) !important;
+  background:linear-gradient(135deg, rgba(7,25,82,0.6), rgba(11,18,56,0.5)) !important;
+}
+
+/* 스타일 키워드 (kwRow) 칩 디자인 강화 */
+#kwRow > span{
+  background:linear-gradient(135deg, rgba(53,162,159,0.18), rgba(53,162,159,0.08)) !important;
+  border:1px solid rgba(151,254,237,0.22) !important;
+  color:rgba(162,253,240,0.92) !important;
+  padding:4px 9px !important;
+  border-radius:7px !important;
+  font-size:10px !important;
+  font-weight:600 !important;
+  letter-spacing:0.02em !important;
+}
+
+/* 리포트 헤더 골드 톤 강조 (PREMIUM 뱃지 옆 라벨) */
+#codiDetailBox > div:first-child p[data-i18n="AI 코디핏 스토리"]{
+  background:linear-gradient(135deg, #97FEED 0%, rgba(212,175,55,0.85) 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  letter-spacing:0.22em !important;
+}
+
+/* signature 더 세련되게 (워터마크 스타일) */
+#codiDetailBox .cdb-signature{
+  background:linear-gradient(180deg, transparent 0%, rgba(212,175,55,0.04) 100%) !important;
+  border-top:1px solid rgba(212,175,55,0.12) !important;
+}
+
 #codiDetailBox #bodyTypeBadge span{
   background:linear-gradient(135deg,rgba(53,162,159,0.22),rgba(53,162,159,0.1));
   border:1px solid rgba(151,254,237,0.28);
@@ -1751,6 +1863,25 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <div class="px-4 pb-2 pt-2">
         <p id="codiExplain" class="text-[13px] leading-[1.75] font-normal" style="color:rgba(255,255,255,0.78);">목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.</p>
       </div>
+      <!-- ─── 2026-05-13 KST · TJ 지시 (v66 픽스3) ─── Today's Outfit 통합 섹션 ─── -->
+      <!-- 이전 별도 박스(codiPointBox)였던 스타일 키워드 + 카테고리별 코디 포인트를 -->
+      <!-- 통합 PERSONAL STYLING REPORT의 한 섹션으로 이동 (중복 제거 + 디자인 통일) -->
+      <div id="anOutfitSection" class="hidden px-4 pt-2 pb-2" style="border-top:1px solid rgba(151,254,237,0.06);">
+        <div class="flex items-center justify-between mb-1.5">
+          <div class="flex items-center gap-1.5">
+            <span style="font-size:12px;">✦</span>
+            <p class="text-[10px] font-extrabold tracking-[0.14em]" style="color:rgba(151,254,237,0.65);" data-i18n="오늘의 코디">오늘의 코디</p>
+          </div>
+          <span id="stylistBadge" class="hidden text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(18,148,144,0.25);border:1px solid rgba(151,254,237,0.3);color:#97FEED;"></span>
+        </div>
+        <!-- 스타일 키워드 -->
+        <div id="kwRow" class="flex flex-wrap gap-1 mb-2 hidden"></div>
+        <!-- 카테고리별 코디 포인트 -->
+        <div id="catKwSection" class="hidden">
+          <div id="catKwRow" class="flex flex-col gap-1.5"></div>
+        </div>
+        <div id="matchRow" style="display:none;"></div>
+      </div>
       <!-- ① 퍼스널컬러 분석 -->
       <div id="anPcSection" class="hidden px-4 pt-2 pb-2" style="border-top:1px solid rgba(151,254,237,0.06);">
         <div class="flex items-center gap-1.5 mb-1">
@@ -1788,28 +1919,9 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       </div>
     </div>
 
-    <!-- ② AI 스타일리스트 포인트 박스 -->
-    <div id="codiPointBox" class="mb-4 overflow-hidden" style="background:rgba(7,25,82,0.7);border:1px solid rgba(151,254,237,0.18);border-radius:16px;">
-      <div class="flex items-center justify-between px-4 py-2.5" style="background:rgba(18,148,144,0.18);border-bottom:1px solid rgba(151,254,237,0.1);">
-        <div class="flex items-center gap-2">
-        <span class="material-symbols-outlined text-[14px]" style="color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 14;">auto_awesome</span>
-        <p class="text-[10px] font-extrabold tracking-[0.2em]" style="color:#97FEED;" data-i18n="AI 코디핏 포인트">AI 코디핏 포인트</p>
-        <span id="stylistBadge" class="hidden text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(18,148,144,0.25);border:1px solid rgba(151,254,237,0.3);color:#97FEED;"></span>
-      </div>
-      </div>
-      <!-- 스타일 키워드 -->
-      <div class="px-4 pt-3 pb-1">
-        <p class="text-[9px] font-extrabold tracking-[0.18em] mb-1.5" style="color:rgba(151,254,237,0.45);">스타일 키워드</p>
-        <div id="kwRow" class="flex flex-wrap gap-1 hidden"></div>
-      </div>
-      <!-- 카테고리별 키워드 -->
-      <div id="catKwSection" class="hidden px-4 pt-2 pb-3">
-        <p class="text-[9px] font-extrabold tracking-[0.18em] mb-2 mt-1" style="color:rgba(151,254,237,0.45);">카테고리별 코디 포인트</p>
-        <div id="catKwRow" class="flex flex-col gap-1.5"></div>
-        <p class="text-[10px] mt-2.5 leading-relaxed" style="color:rgba(151,254,237,0.4);display:none;">↓ 아래 모바일 옷장과 AI 매칭 분석 중</p>
-      </div>
-      <div id="matchRow" style="display:none;"></div>
-    </div>
+    <!-- ─── 2026-05-13 KST · TJ 지시 (v66 픽스3) ─── 통합 완료 ─── -->
+    <!-- 이전 별도 박스였던 codiPointBox는 PERSONAL STYLING REPORT 안의 -->
+    <!-- "Today's Outfit" 섹션 (anOutfitSection)으로 통합됨. 박스 자체 제거. -->
 
     <!-- VTO 영역 -->
     <!-- [v12 TJ-6] 분석 박스와 이미지 뷰박스 사이 여백 확대 (mt-8 = 32px) -->
@@ -2731,7 +2843,7 @@ function resetAll(){
   // ─── 분석 리포트 섹션 hide + 텍스트 초기화 ───
   try{
     var _ssb=document.getElementById('stylistSummaryBox');if(_ssb)_ssb.classList.add('hidden');
-    ['anPcSection','anBodySection','anPurposeSection'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.add('hidden');});
+    ['anPcSection','anBodySection','anPurposeSection','anOutfitSection'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.add('hidden');});
     var _catKw=document.getElementById('catKwSection');if(_catKw)_catKw.classList.add('hidden');
     var _kwRow=document.getElementById('kwRow');if(_kwRow){_kwRow.innerHTML='';_kwRow.classList.add('hidden');}
     var _cpSum=document.getElementById('cpSummarySection');if(_cpSum)_cpSum.classList.add('hidden');
@@ -5743,7 +5855,7 @@ function setPurpose(k){
   // [2026-04-11] 새 요청 시 이전 분석/스타일리스트 리셋
   try{
     var _ssb=document.getElementById('stylistSummaryBox');if(_ssb)_ssb.classList.add('hidden');
-    ['anPcSection','anBodySection','anPurposeSection'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.add('hidden');});
+    ['anPcSection','anBodySection','anPurposeSection','anOutfitSection'].forEach(function(id){var e=document.getElementById(id);if(e)e.classList.add('hidden');});
   }catch(_){}
 }
 
@@ -6098,7 +6210,12 @@ function renderStylingPoint(){
         chip.textContent = kw;
         kwRow.appendChild(chip);
       });
-      if((S.keywords||[]).length) kwRow.classList.remove("hidden");
+      if((S.keywords||[]).length){
+        kwRow.classList.remove("hidden");
+        // ─── 2026-05-13 KST · TJ 지시 (v66 픽스3) ─── 통합 리포트 부모 섹션도 활성화 ───
+        var _outfitSec = document.getElementById("anOutfitSection");
+        if(_outfitSec) _outfitSec.classList.remove("hidden");
+      }
     }
   }catch(_){}
 
@@ -6185,6 +6302,10 @@ function renderStylingPoint(){
     if(hasAny && catKwSection){
       catKwSection.classList.remove("hidden");
       catKwSection.style.display = "";
+      // ─── 2026-05-13 KST · TJ 지시 (v66 픽스3) ─── 통합 리포트 섹션 활성화 ───
+      // 새 통합 섹션 anOutfitSection도 함께 hidden 제거 (codiPointBox 박스에서 이동됨)
+      var _outfitSec = document.getElementById("anOutfitSection");
+      if(_outfitSec) _outfitSec.classList.remove("hidden");
     }
   }catch(e){ console.warn("renderStylingPoint error:", e); }
 }
@@ -6876,7 +6997,7 @@ document.getElementById('againBtn')?.addEventListener('click', function(){
   // resetAll() 함수와 동일한 분석 박스 hidden 처리 적용 (단, 4버튼은 유지)
   try{
     var _ssb=document.getElementById('stylistSummaryBox');if(_ssb)_ssb.classList.add('hidden');
-    ['anPcSection','anBodySection','anPurposeSection'].forEach(function(id){
+    ['anPcSection','anBodySection','anPurposeSection','anOutfitSection'].forEach(function(id){
       var e=document.getElementById(id); if(e) e.classList.add('hidden');
     });
     var _catKw=document.getElementById('catKwSection');if(_catKw)_catKw.classList.add('hidden');
