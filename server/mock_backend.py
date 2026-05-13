@@ -5,6 +5,73 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-13 KST · TJ 지시 (v66 위치 픽스) ─── [정/후면 좌·우 위치 강화]
+#   배경: v66 QUALITY 배포 후 정/후면 인물이 가운데로 몰리는 현상 지속
+#         (정면 ~40% / 후면 ~60% 위치 — 목표 25% / 75%와 거리)
+#   원인: 기존 LAYOUT "horizontal center at 25%/75%" 지시가 너무 약함
+#         GPT Image 2가 "중앙 정렬"을 절반의 중심이 아닌 전체 중심으로 해석
+#   변경 — 1개 영역 (_layout_directives 항목 4 + _final_reminder, line ~2300):
+#   A) LAYOUT 항목 4 강화 (VERY IMPORTANT, most common mistake):
+#      · "Front figure body center MUST be at horizontal position 25%"
+#      · "Back figure body center MUST be at horizontal position 75%"
+#      · "The MIDDLE 30% of the canvas (35-65%) MUST be COMPLETELY EMPTY background"
+#      · "Place the two figures FAR APART, near the OUTER quarters"
+#      · "DO NOT cluster both figures in the middle"
+#      · 가운데 빈 공간 명시 → GPT가 두 figure를 떨어뜨림
+#   B) FINAL REMINDER에 POSITIONING ★ 표시로 최우선 강조:
+#      · "FRONT figure: place at LEFT side, centered at 25%"
+#      · "BACK figure: place at RIGHT side, centered at 75%"
+#      · "MIDDLE of the image (35-65%) MUST be empty background"
+#      · "two figures must be FAR APART, NOT close together"
+#   효과: GPT Image 2가 "FAR APART + EMPTY MIDDLE" 지시를 따라
+#         두 인물을 좌/우 절반의 중앙(25%, 75%)에 정확히 배치
+#
+# ─── 2026-05-13 KST · TJ 지시 (v66 QUALITY) ─── [prompt 단순화 + 패션모델 비율]
+#   배경: medium 품질에서 결과 디테일 부족 + 비율 어색
+#   TJ 결정 (3가지):
+#     1) 이미지 퀄리티: medium 유지 + prompt 단순화 (비용 동일, 결과 보고 결정)
+#     2) 인물 비율: 패션모델 8.5 heads (세련됨)
+#     3) 인물 세로 크기: 85% (균형, 위/아래 7.5% 마진)
+#   변경 — 1개 영역 (_ai_styling_via_gemini OpenAI 분기, line ~2263):
+#   A) prompt 단순화 (28k → ~5k chars):
+#      · 이유: gemini_prompt 28k는 Gemini용 디테일(4-Pass, DNA, 액세서리 다양성)로
+#              GPT Image 2에는 noise. 핵심 정보는 첫 부분에 위치
+#      · 변경: gemini_prompt[:4000]만 발췌 (스타일리스트/색상/카테고리/사용자 정보)
+#      · 추가: FINAL REMINDER 블록 (prompt 끝에 핵심 지시 강조)
+#        - GPT Image 2는 끝부분 지시를 강하게 따르는 특성 활용
+#   B) LAYOUT 비율 변경 (8.5 heads + 85% 세로):
+#      · BODY: 7.5-8 heads → 8.5 heads (FASHION MODEL PROPORTIONS)
+#      · FACE: 1/8 → 1/8.5 (얼굴 더 작게)
+#      · UPPER:LOWER 비율 1:1.15 추가 (다리 살짝 길게)
+#      · 어깨 너비 2 head widths 추가
+#      · slim, tall, balanced silhouette 명시
+#      · 세로: 90% → 85% (위/아래 5% → 7.5% 마진)
+#      · PHOTOGRAPHY STYLE 추가 (editorial fashion, sharp focus, studio lighting)
+#   효과 예상:
+#      · prompt 단축 → GPT가 LAYOUT 지시를 더 잘 따름
+#      · 8.5 heads + 작은 얼굴 → 패션 화보 느낌
+#      · 85% 세로 → 답답함 해소
+#
+# ─── 2026-05-13 KST · TJ 지시 (v66 LAYOUT) ─── [GPT Image 2 prompt에 LAYOUT 지시 추가]
+#   배경: 첫 GPT Image 2 medium 생성 결과 분석 후 TJ 요청
+#         1) 정/후면 위치가 좌/우 절반의 중앙으로 정렬되지 않음
+#         2) 인물이 이미지 세로 100%에 꽉 차게 생성됨 → 답답한 느낌
+#         3) 얼굴이 신체 대비 크게 생성됨 → 신체 비율 부자연스러움
+#   변경 — 1개 영역 (_ai_styling_via_gemini의 OpenAI 분기, line ~2243):
+#     · _layout_directives 블록 추가 (REFERENCES 헤더 직후 prepend)
+#     · 9개 명시적 지시 (CRITICAL FOLLOW EXACTLY):
+#       1. CANVAS: 16:9 wide, 좌/우 절반 분할
+#       2. LEFT HALF: FRONT view, face visible
+#       3. RIGHT HALF: BACK view, no face
+#       4. HORIZONTAL CENTERING: 각 figure 자기 절반 중앙 (25%, 75%)
+#       5. VERTICAL SIZING: 인물 height = 이미지 height의 90% (위/아래 5% 마진)
+#       6. BODY PROPORTIONS: 7.5-8 head heights, face = 1/8 figure height
+#       7. BACKGROUND: solid soft neutral (light blue/off-white/soft gray)
+#       8. NO text/logos/watermarks/UI
+#       9. 두 figure SAME outfit (color + garments + accessories)
+#     · prompt 한계 조정: 30k → 28k (LAYOUT 블록 추가 공간 확보)
+#   영향: codifit 이미지만. tryon/codistyle 영향 없음.
+#
 # ─── 2026-05-13 KST · TJ 지시 (v66) ─── [코디핏 → OpenAI GPT Image 2 medium 전환]
 #   배경: Gemini Nano Banana 2 preview의 다양성/얼굴 보존 한계
 #         → 이미지 결과 일관성 부족 + 한국인 얼굴 보존 약함
@@ -2240,8 +2307,66 @@ def _ai_styling_via_gemini(
                 # 사용자 face 미등록 → generic Korean face 자동 생성
                 _ref_header = "NOTE: No user face reference provided. Generate a natural Korean fashion model face.\n\n"
             
-            # GPT Image 2 prompt 32k chars 한계 → 안전하게 30k로 제한
-            _gpt_prompt = _ref_header + (gemini_prompt[:30000] if len(gemini_prompt) > 30000 else gemini_prompt)
+            # ─── 2026-05-13 KST · TJ 지시 (v66 QUALITY) ─── prompt 단순화 + 패션모델 비율 ───
+            # 배경: medium 품질에서 결과 디테일 부족 + 비율 어색
+            #   원인 분석:
+            #     1) gemini_prompt 28k chars가 GPT Image 2에 noise (Gemini용 한국어 디테일)
+            #     2) 비율 7.5-8 heads는 사실적이지만 패션 화보로는 평범
+            #     3) 90% 세로 사이즈는 답답함
+            #   TJ 선택: medium 유지 + prompt 단순화 / 8.5 heads / 85% 세로
+            _layout_directives = (
+                "COMPOSITION REQUIREMENTS (CRITICAL - FOLLOW EXACTLY):\n"
+                "1. CANVAS: 16:9 wide landscape, single image split into two equal vertical halves.\n"
+                "2. LEFT HALF (0% to 50% horizontal): FRONT view of the person — face fully visible, looking at camera.\n"
+                "3. RIGHT HALF (50% to 100% horizontal): BACK view of the SAME person — rear view, no face visible.\n"
+                "4. HORIZONTAL POSITIONING — VERY IMPORTANT (most common mistake):\n"
+                "   - Front figure body center MUST be at horizontal position 25% (one quarter from LEFT edge)\n"
+                "   - Back figure body center MUST be at horizontal position 75% (three quarters from LEFT edge)\n"
+                "   - The MIDDLE 30% of the canvas (horizontal positions 35% to 65%) MUST be COMPLETELY EMPTY background — NO PERSON, NO BODY PART in this middle zone\n"
+                "   - Place the two figures FAR APART, near the OUTER quarters of the image\n"
+                "   - DO NOT place figures close to each other near the center\n"
+                "   - DO NOT cluster both figures in the middle of the image\n"
+                "   - Imagine a vertical line dividing each HALF into its own center — each figure sits on that center line\n"
+                "5. VERTICAL SIZING: Each figure's total height = approximately 85% of image height.\n"
+                "   - Leave ~7.5% empty space above the head (top margin)\n"
+                "   - Leave ~7.5% empty space below the feet (bottom margin)\n"
+                "   - The figure must NOT touch the top or bottom edge of the image\n"
+                "6. FASHION MODEL PROPORTIONS (IMPORTANT):\n"
+                "   - Body height = approximately 8.5 head heights (elegant fashion model proportions)\n"
+                "   - Face height ≈ 1/8.5 of total figure height — keep face SMALL relative to body\n"
+                "   - Upper body : lower body ratio ≈ 1 : 1.15 (legs slightly longer for elegance)\n"
+                "   - Shoulder width ≈ 2 head widths\n"
+                "   - Slim, tall, balanced silhouette (editorial fashion editorial style)\n"
+                "   - Do NOT make the head or face oversized — this is a common mistake to avoid\n"
+                "7. BACKGROUND: Clean, solid, soft neutral color (pale blue, off-white, or soft gray).\n"
+                "8. PHOTOGRAPHY STYLE: Editorial fashion photography, sharp focus, professional studio lighting, high detail on garments and accessories.\n"
+                "9. NO text, NO logos, NO watermarks, NO UI elements anywhere in the image.\n"
+                "10. Both figures wear the EXACT SAME outfit — identical colors, identical garments, identical accessories.\n\n"
+            )
+            
+            # ─── 2026-05-13 KST · TJ 지시 (v66 QUALITY) ─── prompt 28k → 4k 단순화 ───
+            # 이유: gemini_prompt 28k chars는 Gemini용 디테일(4-Pass, DNA, 액세서리 다양성 등)이라
+            #       GPT Image 2에는 오히려 noise. 핵심 정보(스타일리스트/색상/카테고리/사용자)는
+            #       gemini_prompt 첫 부분에 위치하므로 4000자만 발췌.
+            _outfit_prompt = gemini_prompt[:4000] if len(gemini_prompt) > 4000 else gemini_prompt
+            
+            # ─── 2026-05-13 KST · TJ 지시 (v66 위치 픽스) ─── FINAL REMINDER에 위치 강조 ───
+            # GPT Image 2는 prompt 끝부분 지시를 강하게 따르는 특성 활용
+            _final_reminder = (
+                "\n\n=== FINAL REMINDER (most critical) ===\n"
+                "★ POSITIONING (most important rule):\n"
+                "  - FRONT figure: place at LEFT side, centered at 25% horizontal position\n"
+                "  - BACK figure: place at RIGHT side, centered at 75% horizontal position\n"
+                "  - The MIDDLE of the image (35-65% horizontal) MUST be empty background\n"
+                "  - The two figures must be FAR APART, NOT close together in the center\n"
+                "★ SIZE:\n"
+                "  - Each figure height = 85% of image height (NOT 100%, leave top/bottom margin)\n"
+                "  - Body = 8.5 head heights, face SMALL relative to body (DO NOT enlarge face)\n"
+                "★ STYLE: Editorial fashion photo, slim tall fashion model silhouette\n"
+                "★ BACKGROUND: Clean solid pale color, no text, no logos, no watermarks\n"
+            )
+            
+            _gpt_prompt = _ref_header + _layout_directives + _outfit_prompt + _final_reminder
             
             # 사이즈: 16:9 wide (정+후면 layout 지원)
             _gpt_size = os.getenv("CODIBANK_GPT_IMAGE_SIZE", "1536x864")
