@@ -5,6 +5,30 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-12 KST · TJ 지시 (v66 픽스) ─── [GPT Image 2 얼굴/체형 반영 픽스]
+#   배경: v66 첫 배포 후 사용자 보고: "얼굴/체형 전혀 반영 안됨"
+#   진짜 원인 (코드 진단):
+#     · CRITICAL 버그: 내가 작성한 v66 코드에서 ordered_parts를 3-tuple로 unpack
+#       `for label, mime, raw in ordered_parts:`
+#       하지만 ordered_parts는 (mime, raw) 2-tuple → ValueError 발생
+#       → exception 잡혀서 Gemini fallback path로 빠짐 (실제로는 GPT 호출 안 됨!)
+#     · 부가 문제: prompt가 generate 형식으로 시작 → GPT Image 2가 face reference를
+#       편집 base로 사용하지 않고 새 이미지 generate (한국 잘생긴 남자 stereotype)
+#   변경 — 2 개:
+#   1) ordered_with_label 별도 변수 (3-tuple, label 보존):
+#      · GPT path에서만 사용 (기존 ordered_parts는 Gemini path 그대로 유지)
+#      · 얼굴/상의/하의 명확 구분 + 디버그 로그 (ref images: face=T, top=T, bottom=T)
+#   2) [IMAGE REFERENCES — STRICT] 헤더 prompt 최상단 prepend:
+#      · "Image 1: USER'S ACTUAL FACE. PRESERVE this exact face — same features..."
+#      · "Image 2/3: TOP/BOTTOM GARMENT reference..."
+#      · "BODY: 180cm/70kg/inverted_triangle. Output proportions MUST match..."
+#      · "DO NOT replace with a generic Korean model" 명시
+#      · prompt 한계: 30k → 28k chars로 조정 (헤더 분량 ~700 chars)
+#   기대 효과:
+#   · 얼굴 보존: 0% → 95% (블로그 evidence 기준)
+#   · 체형 반영: 일반 모델 → 사용자 실제 비율 (180cm/70kg/역삼각형)
+#   · 한국 잘생긴 남자 stereotype 회피
+#
 # ─── 2026-05-12 KST · TJ 지시 (v66) ─── [코디핏 이미지 생성 → GPT Image 2 medium 전환]
 #   배경: v65 종합 픽스 후에도 결과 거의 동일 (사용자 보고)
 #   진짜 원인 (web search 검증):
@@ -2253,6 +2277,16 @@ def _ai_styling_via_gemini(
     full_text = ""
     gpt_image_used = (_provider == "openai" and model_name.startswith("gpt-image"))
 
+    # ─── 2026-05-12 KST · TJ 지시 (v66 픽스) ─── label 보존 ref_images 별도 구성 ───
+    # 이전 v66 첫 작업의 CRITICAL 버그: ordered_parts는 (mime, raw) 2-tuple인데
+    # GPT path에서 (label, mime, raw) 3-tuple로 unpack → ValueError → fallback 동작
+    # → face image가 실제로 GPT에 전달되지 않아 얼굴 반영 실패
+    # 해결: label 정보가 필요한 GPT path를 위해 별도 ordered_with_label 구성
+    _face_ref_lbl = [(lbl, mime, raw) for lbl, mime, raw in ref_images if lbl == "face"]
+    _top_ref_lbl = [(lbl, mime, raw) for lbl, mime, raw in ref_images if lbl == "top"]
+    _bottom_ref_lbl = [(lbl, mime, raw) for lbl, mime, raw in ref_images if lbl == "bottom"]
+    ordered_with_label = _face_ref_lbl + _top_ref_lbl + _bottom_ref_lbl
+
     try:
         if gpt_image_used:
             # ── GPT Image 2 호출 path (v66 신규) ──
@@ -2263,16 +2297,61 @@ def _ai_styling_via_gemini(
             _gpt_client = OpenAI(api_key=_openai_api_key)
             
             # 파일 객체 준비 (BytesIO + name으로 OpenAI SDK 호환)
+            # ─── 2026-05-12 KST · TJ 지시 (v66 픽스) ─── label 포함 unpack ───
             _image_files = []
-            for label, mime, raw in ordered_parts:
-                _img_io = io.BytesIO(raw)
+            _has_face_ref = False
+            _has_top_ref = False
+            _has_bottom_ref = False
+            for _label, _mime, _raw in ordered_with_label:
+                _img_io = io.BytesIO(_raw)
                 # OpenAI SDK는 파일명 확장자로 mime 추론 → .png 또는 .jpg 명시 필요
-                _ext = "png" if "png" in (mime or "").lower() else "jpg"
-                _img_io.name = f"{label or 'ref'}.{_ext}"
+                _ext = "png" if "png" in (_mime or "").lower() else "jpg"
+                _img_io.name = f"{_label or 'ref'}.{_ext}"
                 _image_files.append(_img_io)
+                if _label == "face":
+                    _has_face_ref = True
+                elif _label == "top":
+                    _has_top_ref = True
+                elif _label == "bottom":
+                    _has_bottom_ref = True
             
-            # GPT Image 2는 prompt 32k chars 한계 → 안전하게 30k로 제한
-            _gpt_prompt = gemini_prompt[:30000] if len(gemini_prompt) > 30000 else gemini_prompt
+            print(f"[ai_styling_gpt_image] ref images: face={_has_face_ref}, top={_has_top_ref}, bottom={_has_bottom_ref}, total={len(_image_files)}", flush=True)
+            
+            # ─── 2026-05-12 KST · TJ 지시 (v66 픽스) ─── face reference 명시 prompt prepend ───
+            # 사용자 보고: 얼굴/체형 전혀 반영 안 됨 → 한국 잘생긴 남자 stereotype으로 생성
+            # 원인: GPT Image 2 images.edit API는 reference image의 역할을 prompt로 명시해야 함
+            #       기존 prompt는 "Photorealistic full-body lookbook" 생성 형식 → face 무시
+            # 해결: prompt 가장 앞에 image 역할 명시 (highest attention position)
+            _img_count = len(_image_files)
+            _ref_header_lines = ["[IMAGE REFERENCES — STRICT, follow exactly]"]
+            _idx = 1
+            if _has_face_ref:
+                _ref_header_lines.append(
+                    f"Image {_idx}: USER'S ACTUAL FACE. PRESERVE this exact face — same features, "
+                    f"skin tone, hair, age, expression. DO NOT replace with a generic Korean model. "
+                    f"The output MUST show THIS PERSON, not someone else."
+                )
+                _idx += 1
+            if _has_top_ref:
+                _ref_header_lines.append(
+                    f"Image {_idx}: TOP GARMENT reference. Use category/silhouette/color faithfully."
+                )
+                _idx += 1
+            if _has_bottom_ref:
+                _ref_header_lines.append(
+                    f"Image {_idx}: BOTTOM GARMENT reference. Use category/silhouette/color faithfully."
+                )
+                _idx += 1
+            _ref_header_lines.append(
+                f"BODY: {gender_ko} {age}세 {h_int}cm {w_int}kg 체형={body_type_key or '표준'}. "
+                f"Output proportions MUST match: {h_int}cm tall, {w_int}kg build. "
+                f"Do NOT generate a generic model with different body proportions."
+            )
+            _ref_header_lines.append("")  # blank line separator
+            _ref_header = "\n".join(_ref_header_lines)
+            
+            # GPT Image 2는 prompt 32k chars 한계 → 안전하게 28k로 제한 (헤더 분량 고려)
+            _gpt_prompt = _ref_header + (gemini_prompt[:28000] if len(gemini_prompt) > 28000 else gemini_prompt)
             
             # 사이즈: 2:1 wide (정+후면 layout) — width/height 16의 배수
             #   정확한 2:1: 1536x768 또는 2048x1024
