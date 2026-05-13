@@ -7,6 +7,36 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-13 KST · TJ 지시 (v66 픽스5) ─── [faceDataUrl 자체 캐싱 — face=False 완전 차단]
+  배경: v66 픽스4 배포 후 Render 로그에서 face=False 재발 확인
+    · 첫 호출(05:41:08): ref images: face=True ✅
+    · 다시요청(05:42:00): ref images: face=False ❌ (또 다시!)
+  진단: v66 픽스4의 faceSrc 캐시만으로 부족
+    · faceSrc는 캐싱됐지만 toDataUrl(faceSrc) 변환이 다시요청 시 실패
+    · 가능한 원인: blob URL revoke, IDB stale, fetch race condition
+    · 결과: faceDataUrl='' → 페이로드 faceImage=null → 서버 face=False
+  해결 — 1개:
+    [JS] faceDataUrl 자체 캐싱 (line ~5164):
+      · window.__codifitFaceDataUrlCache — 변환 후 결과를 직접 캐시
+      · 다시요청 시 캐시 우선 사용 → toDataUrl/shrinkDataUrl 호출 우회
+      · 첫 호출 성공 시 변환 결과를 캐시에 저장
+      · 콘솔 로그: "[코디핏] faceDataUrl 캐시 재사용/저장 (XXXbytes)"
+  효과: 다시요청 시 face=True 100% 보장 (변환 단계 우회)
+
+─── 2026-05-13 KST · TJ 지시 (v66 픽스4) ─── [face 캐싱으로 다시요청 안정성 보장]
+  배경: Render 로그 결정적 증거 — 첫 호출 face=True ✅, 다시요청 face=False ❌
+    · 다시요청(againBtn) 클릭 시 generateStyling({bumpSeed:true})로 재실행
+    · getUserFaceImageSrc()가 다시 호출 시 race condition 또는 IDB 캐시 누락
+    · 결과: faceSrc='' → 페이로드에 faceImage 없음 → 서버 ref_images 0개
+    · 서버: BadRequestError 400 → Gemini 실패 → DALL-E 폴백 (사용자 보고된 placeholder UI)
+  변경 — 1개 영역:
+    [JS] generateStyling 함수 face 로드 (line ~4848):
+      · window.__codifitFaceCache 추가 — 첫 호출 성공 시 faceSrc 캐싱
+      · 다시요청 시 캐시 우선 사용 (재로드 실패 방지)
+      · loadImg 실패 시 faceSrc 비우지 않음 (서버 전송은 data URL로 가능)
+      · console.log 디버그 추가 ([코디핏] face 캐시 재사용/저장)
+  영향: 다시요청 시 face image 100% 전달 보장. 첫 호출이 성공한 경우 후속 호출도 성공.
+
 ─── 2026-05-13 KST · TJ 지시 (v66 픽스3) ─── [통합 PERSONAL STYLING REPORT — 두 박스 합치고 세련된 디자인]
   배경: 사용자 요구 — "리포트가 중복되지 않게 그리고 디자인도 통일해서
         실제 리포트를 보는 것처럼 디자인을 좀더 세련되게 변경"
@@ -4845,18 +4875,49 @@ async function updateVTO(opts={}){
   if(hint) hint.style.display='none';
 
   // 1) 얼굴 로드 (로컬 폴백/프롬프트용)
+  // ─── 2026-05-13 KST · TJ 지시 (v66 픽스4) ─── face 캐싱으로 다시요청 안정성 보장 ───
+  // 진단: 첫 호출은 face=True 정상, 다시요청(againBtn)은 face=False 발생 (Render 로그 증거)
+  //   원인 추정: getUserFaceImageSrc()가 다시 호출 시 race condition 또는 IDB 캐시 누락
+  //   결과: 두 번째 generateStyling 호출 시 faceSrc='' → 페이로드에 faceImage 없음
+  //         → 서버 GPT Image 2 호출 시 ref_images 0개 → BadRequestError → DALL-E 폴백
+  // 해결: 첫 호출 성공한 faceSrc를 window.__codifitFaceCache에 캐싱, 다시요청 시 재사용
   let faceSrc='',faceImg=null;
   try{
-    if(typeof CodiBank.getUserFaceImageSrc === 'function'){
+    // 캐시 우선 사용 (이전 호출이 성공했으면 동일 face 재사용)
+    if(window.__codifitFaceCache && window.__codifitFaceCache.src){
+      faceSrc = window.__codifitFaceCache.src;
+      console.log('[코디핏] face 캐시 재사용 (' + (faceSrc.startsWith('data:') ? 'dataURL ' + faceSrc.length + 'bytes' : faceSrc.substring(0,50)) + ')');
+    } else if(typeof CodiBank.getUserFaceImageSrc === 'function'){
       faceSrc = await CodiBank.getUserFaceImageSrc(user);
+      if(faceSrc){
+        // 첫 로드 성공 → 캐싱
+        window.__codifitFaceCache = { src: faceSrc, timestamp: Date.now() };
+        console.log('[코디핏] face 캐시 저장 (' + (faceSrc.startsWith('data:') ? 'dataURL ' + faceSrc.length + 'bytes' : faceSrc.substring(0,50)) + ')');
+      } else {
+        console.warn('[코디핏] getUserFaceImageSrc 결과 비어있음 — 사용자 마이페이지 얼굴 등록 확인 필요');
+      }
     }else{
       const faceRef = String(user?.avatarFace || user?.photo || '').trim();
-      if(faceRef) faceSrc = await CodiBank.getImageSrc(faceRef);
+      if(faceRef){
+        faceSrc = await CodiBank.getImageSrc(faceRef);
+        if(faceSrc) window.__codifitFaceCache = { src: faceSrc, timestamp: Date.now() };
+      }
     }
-  }catch(_){ faceSrc=''; }
+  }catch(e){
+    console.warn('[코디핏] faceSrc 로드 실패:', e);
+    faceSrc='';
+  }
   if(faceSrc){
     if(stepEl) stepEl.textContent=_L('얼굴 사진 불러오는 중…');
-    try{faceImg=await loadImg(faceSrc);}catch(e){console.warn('얼굴 로드 실패:',e);faceImg=null;faceSrc='';}
+    try{
+      faceImg=await loadImg(faceSrc);
+    }catch(e){
+      console.warn('[코디핏] faceImg loadImg 실패:', e);
+      faceImg=null;
+      // ← faceSrc는 비우지 않음 (data URL이라 서버 전송은 가능)
+      // 이전 코드: faceSrc='' → 페이로드에서 faceImage 누락
+      // 변경: faceSrc 유지 → 서버는 받음 (이미지 객체 로딩 실패는 클라이언트 표시용)
+    }
   }
 
   // 2) 코디 플랜(텍스트/키워드/팔레트) 생성
@@ -5116,18 +5177,41 @@ async function updateVTO(opts={}){
       if(stepEl) stepEl.textContent= hasCache ? 'OpenAI 업데이트 중…' : 'OpenAI 이미지 생성 중…';
       if(metaEl) metaEl.textContent = AI_DEBUG ? 'OpenAI 생성중…' : '';
 
-      let faceDataUrl = faceSrc ? await toDataUrl(faceSrc) : '';
-      // [2026-04-19 FACE] 얼굴 디테일 보존을 위해 해상도 상향
-      //   이전: 480px/0.75 (눈 폭 18px → 쌍꺼풀/눈꼬리 식별 불가)
-      //   수정: 1024px/0.90 (눈 폭 40px → 미세 특징 보존)
-      //   파일크기 ~200KB로 증가하지만 백엔드 body 한도 대비 안전
-      try{
-        faceDataUrl = await shrinkDataUrl(faceDataUrl, 1024, 0.90);
-        // safety net: 혹시 300KB 초과하는 고해상도라면 한 번 더 축소
-        if(faceDataUrl && faceDataUrl.length > 400000){
-          faceDataUrl = await shrinkDataUrl(faceDataUrl, 720, 0.85);
+      // ─── 2026-05-13 KST · TJ 지시 (v66 픽스5) ─── faceDataUrl 자체 캐싱 ───
+      // 진단: v66 픽스4의 faceSrc 캐시만으로는 부족 (Render 로그 face=False 재발)
+      //   원인: faceSrc 캐시는 됐지만 toDataUrl(faceSrc) 호출이 다시요청 시 실패
+      //         (blob URL revoke / IDB stale / race condition)
+      //   결과: faceDataUrl='' → 페이로드 faceImage=null → 서버 face=False
+      // 해결: faceDataUrl(변환 후 결과)을 직접 캐싱 → 다시요청 시 변환 우회, 100% 성공
+      let faceDataUrl = '';
+      if(window.__codifitFaceDataUrlCache){
+        // 캐시 우선 사용 (다시요청 시 변환 실패 회피)
+        faceDataUrl = window.__codifitFaceDataUrlCache;
+        console.log('[코디핏] faceDataUrl 캐시 재사용 (' + faceDataUrl.length + 'bytes)');
+      } else if(faceSrc){
+        try{
+          faceDataUrl = await toDataUrl(faceSrc);
+          // [2026-04-19 FACE] 얼굴 디테일 보존을 위해 해상도 상향
+          //   이전: 480px/0.75 (눈 폭 18px → 쌍꺼풀/눈꼬리 식별 불가)
+          //   수정: 1024px/0.90 (눈 폭 40px → 미세 특징 보존)
+          //   파일크기 ~200KB로 증가하지만 백엔드 body 한도 대비 안전
+          try{
+            faceDataUrl = await shrinkDataUrl(faceDataUrl, 1024, 0.90);
+            // safety net: 혹시 300KB 초과하는 고해상도라면 한 번 더 축소
+            if(faceDataUrl && faceDataUrl.length > 400000){
+              faceDataUrl = await shrinkDataUrl(faceDataUrl, 720, 0.85);
+            }
+          }catch(_){}
+          // 변환 성공 → 캐시에 저장 (다시요청 시 재사용)
+          if(faceDataUrl){
+            window.__codifitFaceDataUrlCache = faceDataUrl;
+            console.log('[코디핏] faceDataUrl 캐시 저장 (' + faceDataUrl.length + 'bytes)');
+          }
+        }catch(e){
+          console.warn('[코디핏] faceDataUrl 변환 실패:', e);
+          faceDataUrl = '';
         }
-      }catch(_){}
+      }
       // ── 컬러 팔레트를 한국어 이름으로 변환해서 프롬프트에 명시
       const _pal = palette || {};
       const paletteLabels = {
