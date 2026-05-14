@@ -7,6 +7,23 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.7-fix4) ─── [카테고리 포인트 갱신 + 온도 + 토글]
+  변경 (closet.html, 4곳):
+    1) line ~5574: 서버 응답으로 categoryKeywords 갱신 후 renderStylingPoint() 재호출
+       · 버그: '카테고리별 코디 포인트'가 첫 SPEC 기반으로 고정, 이미지 변경되어도 UI 갱신 안 됨
+       · 수정: data.engineCategoryKeywords 적용 직후 renderStylingPoint() 명시적 호출
+    2) line ~5419: 코디 기준 온도 정책 (월별 분기)
+       · 4월~10월: 최고온도 × 0.94 (낮 활동 기준)
+       · 11월~3월: 최저온도 × 0.90 (아침/저녁 보온 기준)
+       · payload.weather.temp = 계산된 기준 온도
+       · tempMax/tempMin/tempDisplay 추가 필드로 예보값 보존
+    3) line ~6989: 날씨 UI 표시 변경
+       · 이전: 오늘만 `↑최고°` 1개, 미래 미표시 → 평균치처럼 보임
+       · 변경: 항상 `↑최고° ↓최저°` 둘 다 표시 (예보 그대로)
+    4) line ~4983: 정/후면 토글 시 인물 중앙 정렬 보정
+       · 박스 너비의 3% offset 적용 — 정면은 우측 보정, 후면은 좌측 보정
+  무영향: 백엔드, prompt 빌드, 캐시 키, v53 SDK fix zone
+
 ─── 2026-05-14 KST · TJ 지시 (v67 UI POLISH) ─── [저장 버튼 텍스트 + 버튼박스 높이]
   변경 (closet.html, 3곳):
     1) line 1862: 저장 버튼 텍스트 "저장" → "이미지 저장"
@@ -4980,14 +4997,21 @@ async function updateVTO(opts={}){
       _box._poseScrollHandler = _scrollHandler;
       
       // [v18 TJ-3] 토글 버튼 클릭 핸들러 — 한 번 터치로 즉시 이동
+      // ─── 2026-05-14 KST · TJ 보고 ─── 인물 중앙 정렬 미세 보정
+      // TJ 보고: 토글 시 인물이 박스 중앙에서 조금 벗어남
+      // 원인: 16:9 wide 이미지에서 AI가 만드는 인물이 좌측 25%/우측 75% 정중앙에 위치하지 않을 수 있음
+      // 보정: 토글 시 각 절반의 정중앙에 가깝게 미세 offset 적용
+      //       정면 → 박스 너비의 3% 만큼 오른쪽으로 (정면 인물을 박스 정중앙 쪽으로)
+      //       후면 → 박스 너비의 3% 만큼 왼쪽으로 (후면 인물을 박스 정중앙 쪽으로)
       const _btnHandler = function(e){
         const btn = e.currentTarget;
         const pose = btn.dataset.pose;
         const sw2 = _box.scrollWidth - _box.clientWidth;
+        const _adj = Math.round(_box.clientWidth * 0.03);  // 박스 너비의 3% offset
         if(pose === 'front'){
-          _box.scrollTo({ left: 0, behavior: 'smooth' });
+          _box.scrollTo({ left: Math.max(0, _adj), behavior: 'smooth' });
         } else {
-          _box.scrollTo({ left: sw2, behavior: 'smooth' });
+          _box.scrollTo({ left: Math.max(0, sw2 - _adj), behavior: 'smooth' });
         }
         if(_hint) _hint.classList.add('hidden');
       };
@@ -5416,16 +5440,40 @@ async function updateVTO(opts={}){
         }catch(_){}
         return 'FREE';
       })();
+      // ─── 2026-05-14 KST · TJ 지시 ─── 코디 기준 온도 정책 변경 ──────
+      // 이전: payload.weather.temp = UI 표시값(오늘=현재, 미래=최고)
+      // 변경: 추천코디 기준 온도를 월별로 분기 계산
+      //   · 4월~10월: 최고온도 × 0.94 (낮 기온 기반, 여름~가을)
+      //   · 11월~3월: 최저온도 × 0.90 (아침/저녁 기반, 겨울)
+      // 화면 표시(weather UI)는 최저/최고 그대로 노출 — 별건
+      const _baseTemp = (function(){
+        try{
+          const _dKey = getSelectedDateKey ? getSelectedDateKey() : '';
+          const _m = _dKey && /^\d{4}-(\d{2})-/.test(_dKey)
+            ? parseInt(_dKey.match(/^\d{4}-(\d{2})-/)[1], 10)
+            : (new Date().getMonth() + 1);
+          const _tMax = Number.isFinite(Number(S.wx?.tempMax)) ? Number(S.wx.tempMax) : null;
+          const _tMin = Number.isFinite(Number(S.wx?.tempMin)) ? Number(S.wx.tempMin) : null;
+          // 4~10월: 최고 × 0.94 (여름~가을 낮 활동)
+          // 11~3월: 최저 × 0.90 (겨울 아침/저녁 보온)
+          if(_m >= 4 && _m <= 10){
+            if(_tMax !== null) return Math.round(_tMax * 0.94 * 10) / 10;
+          }else{
+            if(_tMin !== null) return Math.round(_tMin * 0.90 * 10) / 10;
+          }
+          return S.wx?.temp;
+        }catch(_){ return S.wx?.temp; }
+      })();
       const payload={
         user:{email:user?.email||'',gender:user?.gender||'',ageGroup:user?.ageGroup||'',height:user?.height||'',weight:user?.weight||'',bodyType:user?.bodyType||'', tier:_userTier},
         // [2026-04-26 v11 TJ 지시] weather payload 강화
-        // - temp는 UI 표시값(오늘=현재, 미래=최고)
-        // - tempMax: 코디 생성용 핵심 값 (TJ: 사용자는 그날 최고온도 기준 코디)
-        // - tempMin, precipProb, windMax, uvMax, pm25: 추가 환경 정보
+        // - temp는 코디 생성 기준 온도 (월별 정책 적용 — v67 Phase 1.7-fix4)
+        // - tempMax/tempMin: 실제 예보값 (UI 표시 + 백엔드 참고용)
         weather:{
-          temp: S.wx.temp,                // UI 표시값
-          tempMax: S.wx.tempMax,          // ★ 코디 생성 기준 (최고온도)
-          tempMin: S.wx.tempMin,
+          temp: _baseTemp,                // ★ 코디 생성 기준 온도 (월별 정책 적용)
+          tempMax: S.wx.tempMax,          // 예보 최고온도 (UI 표시)
+          tempMin: S.wx.tempMin,          // 예보 최저온도 (UI 표시)
+          tempDisplay: S.wx.temp,         // 기존 UI 표시값 (호환 유지)
           text: S.wx.text || '',
           location: (S.wx.location || user?.location || ''),
           precipProb: S.wx.precipProb,    // 강수 확률 %
@@ -5573,6 +5621,10 @@ async function updateVTO(opts={}){
           var _hasAny = Object.keys(_eckw).some(function(k){ return _eckw[k] && (Array.isArray(_eckw[k]) ? _eckw[k].length > 0 : !!_eckw[k]); });
           if(_hasAny) S.categoryKeywords = _eckw;
         }
+        // ─── 2026-05-14 KST · TJ 보고 ─── '카테고리별 코디 포인트' 갱신 누락 버그 수정
+        // 원인: S.categoryKeywords는 위에서 갱신되지만 renderStylingPoint() 재호출이 없어 UI는 SPEC 기반 그대로
+        // 효과: 매 코디 생성 시 카테고리 포인트가 실제 결과를 반영하여 변경
+        try{ renderStylingPoint(); }catch(_){}
         // [2026-04-06] 스타일리스트 배지 즉시 교체
         // (구: 'Mia · 트렌드세터' → 신: '주유나 · 데이트 장소별 코디 전문')
         try {
@@ -6953,6 +7005,7 @@ function applySelectedWeatherUI(){
   const isToday = (selKey===todayKey);
   const cur     = Number.isFinite(Number(S.wx.temp))    ? Math.round(Number(S.wx.temp))    : null;
   const tmax    = Number.isFinite(Number(S.wx.tempMax)) ? Math.round(Number(S.wx.tempMax)) : null;
+  const tmin    = Number.isFinite(Number(S.wx.tempMin)) ? Math.round(Number(S.wx.tempMin)) : null;
   const wxMeta  = CodiBank.weatherCodeToKorean(S.wx.code);
   
   if(wE.temp){
@@ -6964,10 +7017,15 @@ function applySelectedWeatherUI(){
       wE.temp.textContent = (tmax!==null) ? `${tmax}°` : (cur!==null ? `${cur}°` : '--°');
     }
   }
+  // ─── 2026-05-14 KST · TJ 지시 ─── 최저/최고 둘 다 표시 (예보 그대로)
+  // 이전: 오늘만 `↑최고°` 1개 표시, 미래는 미표시 → 평균치처럼 보임
+  // 변경: 오늘도 미래도 항상 `↑최고° ↓최저°` 둘 다 표시
   if(wE.tempMax){
-    // 오늘만 최고값을 작게 옆에 표시 (현재값과 다를 때)
-    if(isToday && tmax!==null && cur!==null && tmax!==cur){
-      wE.tempMax.textContent = `↑${tmax}°`;
+    const _hi = (tmax !== null) ? `↑${tmax}°` : '';
+    const _lo = (tmin !== null) ? `↓${tmin}°` : '';
+    const _both = [_hi, _lo].filter(Boolean).join(' ');
+    if(_both){
+      wE.tempMax.textContent = _both;
       wE.tempMax.style.display = 'inline';
     }else{
       wE.tempMax.style.display = 'none';
