@@ -7,6 +7,36 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-14 KST · TJ 지시 (v67 UI POLISH) ─── [저장 버튼 텍스트 + 버튼박스 높이]
+  변경 (closet.html, 3곳):
+    1) line 1862: 저장 버튼 텍스트 "저장" → "이미지 저장"
+       · data-i18n 키도 함께 변경 ("저장" → "이미지 저장")
+    2) line 231: i18n 매핑 ko→en 키 변경 ("저장":"Save" → "이미지 저장":"Save Image")
+    3) line 1117: .vto-bab 버튼 박스 세로 높이 약 10% 축소
+       · padding 14px 0 → 12px 0 (위아래 합 -4px)
+       · min-height 64px → 58px (-6px)
+       · 실제 높이 64px → 58px (-9.375% ≈ 10%)
+  영향:
+    · 4개 버튼(저장/다시요청/공유/리셋) 동일 클래스이므로 모두 동일 축소
+    · 다른 페이지(codistyle.html, tryon.html)의 동일 클래스 사용 시 영향 가능 → 확인 필요
+  무영향: 백엔드, 분석 시스템, 캐시 키, v53 SDK fix zone
+
+─── 2026-05-14 KST · TJ 보고 (v67 Phase 1.7-fix2) ─── [로컬 폴백 사용량 차감 방지]
+  배경 (GPT 진단 원인 3):
+    백엔드 실패(GPT Image 2 timeout / NameError / 500 등) 시
+    클라이언트가 catch에서 로컬 폴백(placeholder/canvas 렌더링) 진입함.
+    이때 didGenerateNew=true 설정 → recordUnifiedUsage('closet') 호출 → 사용량 차감.
+    사용자는 실제 AI 이미지를 받지 못했는데도 무료 횟수가 소모됨 (부당).
+  수정 (closet.html, line ~5629):
+    · 로컬 폴백 진입부의 `didGenerateNew=true;` 제거
+    · 시작값(line 5049 `let didGenerateNew=false;`) 유지 → 차감 안 됨
+    · 정상 흐름(line 5588 백엔드 성공 후)에서만 didGenerateNew=true 설정
+  영향:
+    · 백엔드 실패 시 placeholder 렌더링은 그대로 (UX 변화 없음)
+    · 사용량 차감 안 됨 → 사용자 보호
+    · 백엔드 정상 성공 + 캐시 hit/miss 흐름은 무변경
+  v53 SDK fix zone (config.js → cfg.backendBase, payload 구성 등) 무영향.
+
 ─── 2026-05-13 KST · TJ 지시 (v66 UX) ─── [코디핏 진행률 + 완료 인터스티셜 개선]
   배경: GPT Image 2 medium 응답시간 약 60초간 진행률 표시가 부자연스러움
     1) 초반 빠르게 증가 → 55%에서 10여초 정지 (step 텍스트 매핑 기반)
@@ -212,7 +242,7 @@
     "마이페이지에서 얼굴 사진을 등록하면 내 얼굴에 코디를 입혀드려요.":
       "Go to My Page to register your photo and style outfits on your face.",
     "등록":              "Register",
-    "저장":              "Save",
+    "이미지 저장":         "Save Image",
     "다시요청":           "Retry",
     "공유":              "Share",
     "모바일 옷장":        "Mobile Closet",
@@ -1098,7 +1128,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 }
 .vto-b-actions{display:flex;gap:8px;padding:12px 0 6px;}
 /* 버튼 공통 */
-.vto-bab{flex:1;padding:14px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:64px;}
+.vto-bab{flex:1;padding:12px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:58px;}/* 2026-05-14 v67 UI POLISH: 14px→12px, 64px→58px (약 10% 축소) */
 /* 대기 상태: 3개 동일 */
 /* [2026-04-26 v12 TJ-7] 비활성 텍스트 컬러를 라인 컬러(#97FEED)와 동일하게 변경 */
 .vto-btn-inactive{background:transparent;color:#97FEED;border:1.5px solid #97FEED;cursor:not-allowed;opacity:0.55;}
@@ -1843,7 +1873,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <!-- ─── 2026-05-09 KST · TJ 지시 (v44) ─── data-requires-auth: 비로그인 시 팝업 -->
       <div class="vto-b-actions">
         <button id="saveBtn" type="button" class="vto-bab vto-btn-inactive" disabled data-requires-auth="true">
-          <span class="material-symbols-outlined" style="font-size:18px;">save_alt</span><span data-i18n="저장">저장</span>
+          <span class="material-symbols-outlined" style="font-size:18px;">save_alt</span><span data-i18n="이미지 저장">이미지 저장</span>
         </button>
         <button id="againBtn" type="button" class="vto-bab vto-btn-inactive" disabled data-requires-auth="true">
           <span class="material-symbols-outlined" style="font-size:18px;">refresh</span><span data-i18n="다시요청">다시요청</span>
@@ -5626,7 +5656,11 @@ async function updateVTO(opts={}){
   if(!usedRemote && (refresh || !hasCache)){
     if(stepEl) stepEl.textContent=_L('스타일링 이미지 생성 중…');
     try{
-      didGenerateNew=true;
+      // ─── 2026-05-14 KST · TJ 보고 (v67 Phase 1.7-fix2) ─── 로컬 폴백은 사용량 차감 대상 아님
+      // 이전: didGenerateNew=true (placeholder도 새 생성으로 간주 → 부당 차감)
+      // 변경: 줄 자체 제거 (시작값 false 유지) → recordUnifiedUsage('closet') 미호출
+      // 근거: 백엔드 실패 시 클라이언트의 로컬 폴백은 canvas placeholder 렌더링이며
+      //       실제 AI 이미지 생성이 아니므로 사용량 차감 대상에서 제외.
       const _nG2 = (g)=>{ const v=String(g||'').toLowerCase(); return (v==='male'||v==='m')?'M':(v==='female'||v==='f')?'F':'M'; };
       await renderVTO(canvas,palette,{pk:S.pk,wx:S.wx,profile:{gender:_nG2(user?.gender),height:user?.height,weight:user?.weight},faceImg,styleTitle,explain,keywords});
 
