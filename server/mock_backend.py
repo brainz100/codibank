@@ -2439,7 +2439,7 @@ def _ai_styling_via_gemini(
         # ─────────────────────────────────────────────────────────────
         + "\n\n=== STEP 1: USER DATA (analysis input) ===\n"
         "- Face photo: USE THE FIRST REFERENCE IMAGE (provided)\n"
-        f"- Gender: {'female' if gender_code == 'F' else 'male'}\n"
+        f"- Gender: {'female' if gender == 'F' else 'male'}\n"
         f"- Age group: {age}\n"
         f"- Body: height {h_int}cm, weight {w_int}kg (BMI {bmi}, {bmi_cat_ko})\n"
         f"- Body type classification: {body_type_key or 'standard'}\n"
