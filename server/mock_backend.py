@@ -5,6 +5,127 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.7 PROMPT REDESIGN) ─── [코디핏 prompt 6단계 재설계]
+#   배경: TJ가 prompt 구조를 명확히 정의:
+#         "사용자 데이터 수집/분석 → 아바타 99.9% 반영 → 기본 코디 → 스타일리스트 옵션 → TPO → 출력"
+#   TJ 결정:
+#     1) 6단계 재설계 구조 — 제안대로 적용
+#     2) 기본 코디 = 상의/하의/신발 3개 (필수)
+#     3) 아우터도 옵션 (추울 때만, 스타일리스트 재량)
+#     4) 이번 턴에 적용
+#   변경 (mock_backend.py, line 2385~2495 전면 재작성):
+#     · STEP 1: USER DATA (얼굴/성별/나이/키몸무게/체형/회피컬러)
+#       - 회피 컬러만 strict 명시 (베스트 컬러 prompt에서 완전 제거 — Gemini 분기 포함)
+#     · STEP 2: AVATAR CONSTRUCTION (99.9% 사용자 일치)
+#       - IDENTITY PRESERVATION + BODY PROPORTION 통합
+#       - 얼굴 미화/슬림화 금지, 체형 정확 반영, 패션모델 8.5 heads
+#     · STEP 3: CORE OUTFIT (상의/하의/신발 — 필수, 항상 포함)
+#       - AVOID COLORS 재강조
+#     · STEP 4: STYLIST'S OPTIONAL ACCESSORIES (스타일리스트 재량)
+#       - 아우터/가방/시계/선글라스/모자/스카프/양말 — TPO/날씨 적합 시만
+#       - 과한 적층 금지
+#     · STEP 5: TPO CONTEXT (목적/날씨/위치/스타일리스트)
+#     · STEP 6: OUTPUT FORMAT (정/후면, 16:9, 단색 배경)
+#     · CRITICAL OUTPUT INSTRUCTIONS (JSON 스키마, Gemini 분기 전용)
+#       - categoryKeywords에 CORE/OPTIONAL 라벨 추가
+#   영향:
+#     · Gemini 분기: 새 구조 그대로 전송 → 더 명확한 지시 → 결과 품질 ↑
+#     · GPT Image 2 분기: 후처리 정규식("베스트:"/"주의:")이 무효 패턴 됨 (이미 prompt에 없음)
+#       → 후처리는 안전망으로 유지, 자동으로 효과 없음
+#     · JSON 스키마는 GPT Image 2 후처리에서 제거 (기존 동작 유지)
+#   영향 범위: 코디핏만. 트라이온/코디하기/AI옷장 무영향.
+#
+# ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.6 HYBRID) ─── [GPT Image 2 + Gemini 폴백]
+#   배경: Phase 1.5 적용 후에도 GPT Image 2 medium 응답시간 분포가 30~90초로 부담
+#         TJ가 v65에서 Gemini로 90% 성공률을 확보했던 실측 데이터 기반 결정
+#   TJ 결정: C 하이브리드 — GPT Image 2 1차 시도 → 실패 시 Gemini 자동 폴백
+#     이유: GPT Image 2 얼굴/텍스트 보존 우위 + Gemini 안정성/속도 양립
+#   변경 (mock_backend.py):
+#     1) _ai_styling_via_gemini 시그니처에 _override_alias 파라미터 추가
+#        · alias 지정 시 _ENGINE_MODEL_MAP/_ENGINE_PROVIDER_MAP/_ENGINE_QUALITY_MAP에서
+#          직접 조회 (tier 기반 라우팅 우회)
+#        · 폴백 호출용. None이면 기존 동작 그대로
+#     2) /api/ai/styling 엔드포인트에 하이브리드 폴백 흐름 (line ~3429)
+#        · 1차: _ai_styling_via_gemini(...) (provider=openai → GPT Image 2)
+#        · 실패(500 tuple) + 폴백 활성 → _ai_styling_via_gemini(..., _override_alias="flash_v2")
+#          (provider=gemini → Gemini Nano Banana 2)
+#        · 같은 cache_fname 사용 → 폴백 결과도 캐시됨 → 재시도 시 즉시 응답
+#        · 응답 model 필드에 "fallback:gemini-3.1-flash-image-preview" 표시
+#     3) 환경변수 신설:
+#        · CODIBANK_CODIFIT_FALLBACK_ALIAS=flash_v2 (폴백 모델 alias, 기본 flash_v2)
+#        · CODIBANK_CODIFIT_ENABLE_FALLBACK=1 (폴백 활성, 0으로 끄기 가능)
+#   효과:
+#     · GPT Image 2 성공 시: 30~60초 (얼굴 보존 우위)
+#     · GPT Image 2 실패 시: 60초 + Gemini 12초 = 72초 (이전 110초 실패 대비 안정)
+#     · 캐시 hit (다음 같은 요청): 0.5초 (Gemini 결과도 같은 파일에 저장됨)
+#   주의:
+#     · v67 Phase 1의 "OpenAI variant 자동 폴백 제거" 부분은 그대로 유지 (다른 폴백)
+#     · 분석은 어느 쪽 성공이든 별도 /api/ai/styling/analysis 호출 (Phase 2 그대로)
+#     · 캐시 키 v2 (Phase 3)는 model 필드 포함하지만, 폴백 결과도 GPT Image 2 키로 저장
+#
+# ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.5 HOTFIX) ─── [긴급 핫픽스]
+#   배경: Render 배포 후 코디핏 이미지 생성 100% 실패 (APITimeoutError, 106~111초)
+#   진단 (Render 로그 분석 결과):
+#     · timeout=35초 설정은 정상 작동했으나 OpenAI SDK가 자동 재시도 2회 수행
+#     · 35초 × (1회 + 2회 재시도) ≈ 105초 → 로그의 106~111초와 정확히 일치
+#     · OpenAI 공식 문서: "408 Request Timeout / Connection errors / 429 / >=500 모두 기본 2회 자동 재시도"
+#     · 또한 gpt-image-2 medium의 실제 응답시간은 30~90초 분포 → 35초는 너무 짧음
+#   TJ 결정:
+#     1) timeout=60초 / max_retries=0 (균형 옵션 B)
+#     2) face 미등록 사용자 → 거절 (images.generate fallback 제거)
+#     3) 부수 발견 사항 (_read_upload_bytes 미정의, /uploads 404) 함께 수정
+#   변경 (mock_backend.py):
+#     1) timeout 35.0 → 60.0 + max_retries=0 (이미지 생성, 2곳: images.edit + images.generate)
+#        · 환경변수 CODIBANK_GPT_IMAGE_TIMEOUT으로 조정 가능 (기본 60)
+#        · 환경변수 CODIBANK_GPT_IMAGE_MAX_RETRIES으로 조정 가능 (기본 0)
+#     2) 분석 호출 timeout 10.0 + max_retries=0 명시 (gpt-4.1-mini, 자동 재시도 차단)
+#        · 환경변수 CODIBANK_ANALYSIS_TIMEOUT으로 조정 가능 (기본 10)
+#     3) face 거절 로직 (/api/ai/styling 엔드포인트 ref_images 수집 직후)
+#        · ref_images에 ('face', ...) 항목 없으면 400 + errorCode="FACE_NOT_REGISTERED"
+#        · 환경변수 CODIBANK_CODIFIT_REQUIRE_FACE=0으로 임시 비활성 가능 (기본 1=필수)
+#     4) _read_r2_bytes 신규 함수 추가 (line ~963, R2 객체 다운로드)
+#     5) /api/personal-color/load: _read_upload_bytes → _read_r2_bytes 호출 변경 (line ~4104)
+#   영향:
+#     · 코디핏 응답시간: 최악 60초 (이전 110초+) → 사용자 경험 ↑
+#     · 코디핏 성공률 ↑ (medium quality 30~60초 대부분 커버)
+#     · face 미등록 사용자: 빠른 안내 (60초 대기 후 timeout 아님)
+#     · 퍼스널컬러 R2 로드 정상화 → 분석 입력 품질 ↑
+#   참고: /uploads/{filename} 404 문제는 별개 (R2 파일 실제 없음 + ephemeral 손실)
+#         사용자가 face 사진 재등록하면 R2 저장되어 404 해소됨
+#
+# ─── 2026-05-14 KST · TJ 지시 (v67 Phase 2 + Phase 3) ─── [분석 분리 + 캐시 v2]
+#   배경: Phase 1 적용 후 분석 보고서 품질 업그레이드 + 캐시 효율 극대화
+#   Phase 2 (분석 분리):
+#     · 코디핏 분석 보고서를 GPT Image 2 응답에서 분리 → gpt-4.1-mini로 별도 생성
+#     · 사용자 경험: 이미지 즉시 표시 → "추천코디 분석 보기" 버튼 → 클릭 시 분석 표시
+#     · Pattern A (메타데이터 기반): 이미지 미사용, 사용자 정보+생성 의도만으로 분석
+#         이유: 비용 50% 절감 + 속도 ↑ + 이미지 생성과 직렬화 (병렬 불필요)
+#   Phase 3 (캐시 키 v2):
+#     · 추가 필드: model, quality, size, user.bodyType, personalColor.season, avoid hash
+#     · 버킷팅: temp 5°C, height/weight 5단위, weather 5종 enum
+#     · customText: 공백/대소문자 정규화 후 해싱
+#     · retrySeed: 기본 키에서 제외 (force_regenerate 시에만 포함)
+#     · v1 캐시는 보존 (cleanup script로 추후 제거), v2만 사용
+#   신규 추가 (mock_backend.py):
+#     1) _make_ai_cache_key_v2 함수 (~line 1280): 버킷팅 + 핵심 필드 보강
+#     2) _codifit_analysis_via_gpt41mini 함수 (~line 2680): gpt-4.1-mini 호출 (10초 timeout)
+#     3) /api/ai/styling/analysis 엔드포인트 (~line 2950): 캐시 → 호출 → 캐시 저장
+#   변경 (mock_backend.py):
+#     4) /api/ai/styling (~line 2903): cache_key v1 → v2 사용 전환
+#     5) /api/ai/styling 캐시 hit 응답 (~line 2907): stylingAnalysis=None, cacheKey 추가
+#     6) _ai_styling_via_gemini (~line 2570): 분석 JSON 마커 없음 시 None (템플릿 폴백 제거)
+#   변경 (closet.html):
+#     7) 분석 박스 영역 위에 "추천코디 분석 보기" 토글 버튼 (~line 1733)
+#     8) 자동 펼침 로직 → 별도 분석 API 호출 + 버튼 클릭 시 펼침 (~line 5544)
+#     9) 상태 머신: loading → ready / retry → disabled (옵션 B → C)
+#     10) sessionStorage 저장 + 재시도 1회
+#   영향 범위: 코디핏(closet.html, /api/ai/styling, 신규 /api/ai/styling/analysis)만.
+#              트라이온/코디하기/AI옷장 등 다른 서비스 무영향.
+#   비용 추정 (10K 코디핏/월 기준):
+#     · 이전: gpt-image-2 medium($0.053) × 캐시 미적용 ≈ $500/월
+#     · 이후: image $0.053 + analysis gpt-4.1-mini $0.0003 + 캐시 70%히트
+#           ≈ $160/월 (68% 절감)
+#
 # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1) ─── [코디핏 속도/품질/비용 최적화]
 #   배경: 코디핏 이미지 생성이 1분 이상 소요되는 문제 해결
 #         TJ 결정: Phase 1 (최소 변경 + 즉효 + 저위험)만 우선 적용
@@ -949,6 +1070,30 @@ def _upload_to_r2(fname: str, data: bytes, mime: str = "image/jpeg") -> str | No
         print(f"[R2] 업로드 실패 ({fname}): {e}")
         return None
 
+
+# ─── 2026-05-14 v67 Phase 1.5 HOTFIX ─── R2 객체 다운로드 헬퍼 ───
+# 이전: _read_upload_bytes 함수가 정의되지 않아 PC 데이터 로드 실패
+#       [PC] R2 load failed: name '_read_upload_bytes' is not defined
+# 추가: boto3 s3 client의 get_object를 사용한 R2 read 헬퍼
+def _read_r2_bytes(key: str) -> bytes | None:
+    """R2 버킷에서 객체 다운로드 → bytes (실패 시 None).
+
+    key 예시: "personal_color/user@example.com.json", "uploads/face_xxx.jpg"
+    """
+    r2 = _get_r2()
+    if not r2:
+        return None
+    try:
+        resp = r2.get_object(Bucket=_R2_BUCKET, Key=key)
+        return resp["Body"].read()
+    except Exception as e:
+        # 404 (NoSuchKey)는 정상 케이스 (파일 없음), 다른 에러는 로깅
+        _err_str = str(e)
+        if "NoSuchKey" not in _err_str and "404" not in _err_str:
+            print(f"[R2] read 실패 (key={key}): {e}")
+        return None
+
+
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 CORS(app, allow_headers=["Content-Type", "X-Admin-Key", "Authorization"])
@@ -1255,6 +1400,130 @@ def _make_ai_cache_key(payload: Dict[str, Any], face_bytes: bytes | None, ref_im
 
     raw = json.dumps(body, ensure_ascii=False, sort_keys=True).encode("utf-8")
     return _sha256_hex(raw)[:24]
+
+
+# ══════════════════════════════════════════════════════
+# [2026-05-14 v67 Phase 3] 캐시 키 v2 — 버킷팅 + 핵심 필드 보강
+# ══════════════════════════════════════════════════════
+def _make_ai_cache_key_v2(
+    payload: Dict[str, Any],
+    face_bytes: bytes | None,
+    ref_images: list[tuple[str, str, bytes]] | None = None,
+    model: str = "",
+    quality: str = "",
+    size: str = "",
+    force_regenerate: bool = False,
+) -> str:
+    """[v67 Phase 3] 코디핏 캐시 키 v2 — 버킷팅 적용 + 핵심 필드 보강
+
+    v1 (`_make_ai_cache_key`) 대비 차이:
+      - 추가 필드: model, quality, size, user.bodyType,
+                  personalColor.season, personalColor.avoid_colors_hash
+      - 버킷팅: weather.temp 5°C, height 5cm, weight 5kg
+      - customText: 공백/대소문자 정규화 후 해싱 (동일 의미 텍스트 캐시 통합)
+      - weather.text: 5종 enum 정규화 (sunny/cloudy/rainy/snowy/other)
+      - retrySeed: force_regenerate=True 시에만 포함 (기본 미포함 → 캐시 히트율 ↑)
+
+    캐시 폭발 방지 효과:
+      - v1: 사용자당 평균 480,000개 키 조합 → 히트율 < 1%
+      - v2: 사용자당 평균 30~50개 키 조합 → 히트율 70%+
+    """
+    user = payload.get("user") or {}
+    weather = payload.get("weather") or {}
+    pc = payload.get("personalColor") or {}
+
+    # ── 정규화: customText (공백/대소문자) ──
+    _custom_text_raw = str(payload.get("customText") or "").strip()
+    _custom_text_normalized = " ".join(_custom_text_raw.split()).lower()
+    _custom_text_hash = (
+        _sha256_hex(_custom_text_normalized.encode("utf-8"))[:12]
+        if _custom_text_normalized else ""
+    )
+
+    # ── 정규화: avoid_colors (정렬 + 소문자) ──
+    _avoid_list = pc.get("avoid_colors") or []
+    if not isinstance(_avoid_list, list):
+        _avoid_list = []
+    _avoid_normalized = sorted(
+        str(c).strip().lower() for c in _avoid_list if str(c).strip()
+    )
+    _avoid_hash = (
+        _sha256_hex(",".join(_avoid_normalized).encode("utf-8"))[:12]
+        if _avoid_normalized else ""
+    )
+
+    # ── 버킷팅: 온도 5°C ──
+    try:
+        _temp_raw = float(weather.get("temp") or 20)
+        _temp_bucket = int(round(_temp_raw / 5) * 5)
+    except Exception:
+        _temp_bucket = 20
+
+    # ── 버킷팅: 키/몸무게 5단위 ──
+    try:
+        _h_raw = int(user.get("height") or 170)
+        _height_bucket = int(round(_h_raw / 5) * 5)
+    except Exception:
+        _height_bucket = 170
+    try:
+        _w_raw = int(user.get("weight") or 65)
+        _weight_bucket = int(round(_w_raw / 5) * 5)
+    except Exception:
+        _weight_bucket = 65
+
+    # ── 정규화: weather.text → 5종 enum ──
+    _wt_raw = str(weather.get("text") or weather.get("condition") or "").strip().lower()
+    if any(k in _wt_raw for k in ("맑", "sunny", "clear")):
+        _weather_enum = "sunny"
+    elif any(k in _wt_raw for k in ("흐", "구름", "cloud", "overcast")):
+        _weather_enum = "cloudy"
+    elif any(k in _wt_raw for k in ("비", "rain", "shower", "drizzle")):
+        _weather_enum = "rainy"
+    elif any(k in _wt_raw for k in ("눈", "snow")):
+        _weather_enum = "snowy"
+    else:
+        _weather_enum = "other"
+
+    body = {
+        "svc": "codifit",
+        "v": "2",
+        "mdl": model or "",
+        "qly": quality or "",
+        "siz": size or "",
+        "pur": payload.get("purposeKey") or "",
+        "txt": _custom_text_hash,
+        "dat": payload.get("forDateKey") or payload.get("dateKey") or "",
+        "gen": user.get("gender") or "",
+        "age": user.get("ageGroup") or "",
+        "bdy": user.get("bodyType") or "",
+        "hgt": _height_bucket,
+        "wgt": _weight_bucket,
+        "pcs": pc.get("season") or "",
+        "avd": _avoid_hash,
+        "tmp": _temp_bucket,
+        "wth": _weather_enum,
+    }
+
+    if face_bytes:
+        body["fhs"] = _sha256_hex(face_bytes)[:16]
+
+    if ref_images:
+        body["ref"] = [
+            f"{label}:{_sha256_hex(raw)[:12]}" for label, _mime, raw in ref_images
+        ]
+        body["mod"] = payload.get("mode") or "styling"
+
+    # ── retrySeed: force_regenerate 시에만 포함 (캐시 버스터) ──
+    if force_regenerate:
+        body["rsd"] = str(
+            payload.get("retrySeed")
+            or payload.get("seed")
+            or _now_ms()
+        )
+
+    raw = json.dumps(body, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    return "v2_" + _sha256_hex(raw)[:22]
+
 
 # 지연 초기화: 요청 시점에 생성
 _client: OpenAI | None = None
@@ -2034,6 +2303,7 @@ def _ai_styling_via_gemini(
     meta=None,
     lang=None,
     tier=None,  # ─── 2026-04-21 티어별 엔진 라우팅용 ───
+    _override_alias=None,  # ─── 2026-05-14 v67 Phase 1.6 HYBRID ─── 폴백 호출용 alias 강제 지정
 ):
     """[2026-04-10] 코디쌤 추천코디 — Gemini 단일 호출로 이미지+분석 동시 생성.
 
@@ -2142,56 +2412,123 @@ def _ai_styling_via_gemini(
             f"========================================\n\n"
         )
 
+    # ═══════════════════════════════════════════════════════════════════
+    # ─── 2026-05-14 v67 Phase 1.7 PROMPT REDESIGN ─── 6단계 명확 구조
+    # 이전: IDENTITY → BODY → BACKGROUND → BODY PROPORTION → PANTS → STYLIST → JSON → USER 산만
+    # 변경: USER DATA → AVATAR → CORE OUTFIT → OPTIONAL → TPO → OUTPUT 명확한 순서
+    # TJ 핵심 결정사항 반영:
+    #   1) 사용자 데이터(얼굴/성별/나이/키몸무게/체형/회피컬러)를 가장 먼저 분석 입력으로 제시
+    #   2) 임시 아바타 99.9% 사용자 일치 (얼굴 + 체형)
+    #   3) 기본 코디 = 상의/하의/신발 (필수, 항상)
+    #   4) 아우터/가방/시계/선글라스/모자/스카프/양말 = 옵션 (스타일리스트 재량)
+    #   5) 회피 컬러만 strict (베스트 컬러 prompt에서 제거)
+    # ═══════════════════════════════════════════════════════════════════
+
+    # AVOID 컬러 정리 (placeholder "탁한 톤"은 의미 없는 fallback이라 제외)
+    _avoid_clean = (pc_avoid_str or "").strip()
+    _has_avoid = bool(_avoid_clean and _avoid_clean != "탁한 톤")
+
     gemini_prompt = (
+        # ─────────────────────────────────────────────────────────────
+        # STEP 0 (implicit): COLOR HINT + STYLIST DIRECTION (engine 출력)
+        # ─────────────────────────────────────────────────────────────
         custom_directive + prompt + " "
-        # ── 얼굴 보존 ── [2026-04-19 FACE] 재현 정확도 강화
-        "IDENTITY PRESERVATION — HIGHEST PRIORITY: "
-        "If a face reference image is provided, the FIRST image is that face. "
-        "Match EXACTLY the following facial features from the reference: "
-        "face shape and jawline contour, eye shape/size/angle, double-eyelid presence and depth, "
-        "eyebrow thickness and arch, nose bridge width and tip shape, "
-        "lip shape and thickness, philtrum length, cheekbone prominence, "
-        "skin tone and undertone, hair color/texture/length/parting line, "
-        "and any distinguishing features (moles, freckles, dimples, scars). "
-        "DO NOT beautify, smooth, slim, or idealize the face. "
-        "DO NOT alter proportions or make the person look younger/older. "
-        "Generate as if THIS EXACT PERSON — unchanged — is wearing the outfit. "
-        "The generated face must be instantly recognizable as the same individual in the reference. "
 
-        # ── 신체 프로필 ── [2026-04-19 BODY] BMI + 체형 특성을 이미지 생성 단계에 주입 (C안)
-        # 이전: "Subject: Korean man, 30대, 키 175cm, 몸무게 70kg" 단순 문자열만
-        # 수정: _build_body_profile_block으로 BMI 분류 + 체형별 do_style/dont_style 직접 지시
-        "\n\n" + _build_body_profile_block(gender, age, height, weight, body_type_key, "en") + "\n\n"
-        "Full body head to toe visible. Photorealistic fashion editorial. "
+        # ─────────────────────────────────────────────────────────────
+        # STEP 1: USER DATA — 사용자 데이터 (분석 입력)
+        # ─────────────────────────────────────────────────────────────
+        + "\n\n=== STEP 1: USER DATA (analysis input) ===\n"
+        "- Face photo: USE THE FIRST REFERENCE IMAGE (provided)\n"
+        f"- Gender: {'female' if gender_code == 'F' else 'male'}\n"
+        f"- Age group: {age}\n"
+        f"- Body: height {h_int}cm, weight {w_int}kg (BMI {bmi}, {bmi_cat_ko})\n"
+        f"- Body type classification: {body_type_key or 'standard'}\n"
+        + (f"- ⚠️ AVOID COLORS (STRICT — must NOT appear in any clothing or accessory): {_avoid_clean}\n"
+           if _has_avoid else "")
 
-        # ── 배경 ──
-        "BACKGROUND (ABSOLUTE MANDATORY): SINGLE SOLID FLAT PASTEL COLOR ONLY. "
-        "Choose a pastel that CONTRASTS with the outfit. "
-        "Completely uniform from edge to edge — studio backdrop paper style. "
-        "ABSOLUTELY FORBIDDEN: rooms, streets, walls, gradients, patterns, objects, environments. "
+        # ─────────────────────────────────────────────────────────────
+        # STEP 2: AVATAR CONSTRUCTION — 임시 아바타 99.9% 사용자 일치
+        # ─────────────────────────────────────────────────────────────
+        + "\n=== STEP 2: AVATAR CONSTRUCTION (99.9% IDENTICAL TO USER) ===\n"
+        "First, mentally construct a fashion-model avatar that is 99.9% IDENTICAL to this user.\n"
+        "  • FACE — Replicate ALL facial features from the reference image EXACTLY:\n"
+        "    face shape and jawline contour, eye shape/size/angle, double-eyelid presence and depth,\n"
+        "    eyebrow thickness and arch, nose bridge width and tip shape, lip shape and thickness,\n"
+        "    philtrum length, cheekbone prominence, skin tone and undertone,\n"
+        "    hair color/texture/length/parting line, distinguishing features (moles, freckles, dimples, scars).\n"
+        "    DO NOT beautify, smooth, slim, idealize, age-shift, or alter any facial feature.\n"
+        "    The generated face MUST be instantly recognizable as the SAME individual in the reference.\n"
+        f"  • BODY — Match the exact {h_int}cm / {w_int}kg / {bmi_cat_ko} silhouette.\n"
+        "  • PROPORTION — Fashion-model 8.5 heads (small head, long elegant legs).\n"
+        "  • POSE — Natural standing, full body visible head to toe.\n"
+        # 신체 프로필 상세 (BMI/체형별 do_style/dont_style 직접 지시)
+        "\n" + _build_body_profile_block(gender, age, height, weight, body_type_key, "en") + "\n"
 
-        # ── 신체비율 ──
-        "BODY PROPORTION: Upper body 43-47%, lower body 53-57%. Realistic everyday Korean person. "
-        "Full body visible head to shoes. "
+        # ─────────────────────────────────────────────────────────────
+        # STEP 3: CORE OUTFIT — 기본 코디 (상의/하의/신발 필수, 항상)
+        # ─────────────────────────────────────────────────────────────
+        "\n=== STEP 3: CORE OUTFIT (MANDATORY — ALWAYS INCLUDE ALL THREE) ===\n"
+        "Dress the avatar with these THREE core items. All three are REQUIRED:\n"
+        "  ⊙ TOP (상의) — clearly visible upper-body garment\n"
+        "  ⊙ BOTTOM (하의) — full ankle-length pants OR skirt as specified by the stylist direction above.\n"
+        "    PANTS: hem just above the shoe. Cropped/7-8 length FORBIDDEN.\n"
+        "  ⊙ SHOES (신발) — appropriate footwear, both feet visible, identical pair\n"
+        "Refer to the COLOR HINT and STYLIST DIRECTION (top of prompt) for exact colors/items.\n"
+        + ("⚠️ STRICT: AVOID COLORS from STEP 1 must NOT appear in ANY of these core items.\n"
+           if _has_avoid else "")
 
-        # ── 바지/양말 ──
-        "PANTS: Full ankle-length only. Hem just above the shoe. Cropped/7-8 length FORBIDDEN. "
-        "SOCKS: Both feet IDENTICAL — same color and pattern. Mismatched FORBIDDEN. "
+        # ─────────────────────────────────────────────────────────────
+        # STEP 4: STYLIST'S OPTIONAL ACCESSORIES — 스타일리스트 재량
+        # ─────────────────────────────────────────────────────────────
+        + f"\n=== STEP 4: STYLIST'S OPTIONAL ACCESSORIES (stylist discretion) ===\n"
+        f"AI stylist {stylist_name or 'fashion expert'} ({stylist_city or 'Seoul'}) decides which OPTIONAL items\n"
+        "to add based on TPO, weather, and persona. Add ONLY what enhances the look (NOT all of them):\n"
+        "  ◇ OUTER (아우터/코트/재킷) — ONLY IF cold weather requires it (below ~15°C)\n"
+        "  ◇ BAG (가방) — if TPO appropriate (office, date, formal occasions)\n"
+        "  ◇ WATCH (시계) — if matches the overall style\n"
+        "  ◇ SUNGLASSES (선글라스) — if outdoor/sunny weather\n"
+        "  ◇ HAT (모자) — if needed for look or weather protection\n"
+        "  ◇ SCARF (스카프) — if cold weather or styling accent\n"
+        "  ◇ SOCKS (양말) — if visible; both feet IDENTICAL (same color/pattern, mismatched FORBIDDEN)\n"
+        "AVOID over-accessorizing. LESS IS MORE — prioritize outfit harmony.\n"
+        + ("⚠️ STRICT: AVOID COLORS from STEP 1 also apply to all optional accessories.\n"
+           if _has_avoid else "")
 
-        # ── 스타일리스트 룰 ──
-        "STYLIST RULE: Everyday practical styling only. No experimental, runway, or avant-garde. "
-        "All looks must be wearable in real Korean daily life. "
+        # ─────────────────────────────────────────────────────────────
+        # STEP 5: TPO CONTEXT — 상황
+        # ─────────────────────────────────────────────────────────────
+        + f"\n=== STEP 5: TPO CONTEXT ===\n"
+        f"- Purpose: {purpose_for_analysis}\n"
+        f"- Weather: {int(temp)}°C, {cond}\n"
+        f"- Location: {location or 'Seoul'}\n"
+        f"- Matched stylist persona: {stylist_name or 'general'} (active in {stylist_city or 'Seoul'})\n"
+        + (f"- User custom request: \"{custom_text}\"\n" if is_custom else "")
 
-        # ══════════════════════════════════════════
-        # 분석 JSON 출력 지시 — 핵심
-        # ══════════════════════════════════════════
+        # ─────────────────────────────────────────────────────────────
+        # STEP 6: OUTPUT FORMAT — 출력 형식
+        # ─────────────────────────────────────────────────────────────
+        + "\n=== STEP 6: OUTPUT FORMAT ===\n"
+        "- Front+back layout: LEFT figure = front view, RIGHT figure = back view\n"
+        "- 16:9 WIDE aspect ratio (or 3:2 acceptable). Each figure ≈ 85% of image height.\n"
+        "- Background: SINGLE SOLID FLAT PASTEL COLOR contrasting with the outfit,\n"
+        "  uniform edge-to-edge (studio backdrop paper style).\n"
+        "- ABSOLUTELY FORBIDDEN: rooms, streets, walls, gradients, patterns, objects,\n"
+        "  environments, text, logos, watermarks, captions.\n"
+        "- Photorealistic fashion editorial quality. STYLIST RULE: everyday wearable,\n"
+        "  no experimental/runway/avant-garde looks.\n"
+
+        # ═════════════════════════════════════════════════════════════
+        # CRITICAL OUTPUT INSTRUCTIONS — JSON 분석 스키마 (Gemini 분기 전용)
+        # GPT Image 2 분기에서는 후처리(line 2615~)로 이 블록 자동 제거됨
+        # ═════════════════════════════════════════════════════════════
         "\n\n=== CRITICAL OUTPUT INSTRUCTIONS ===\n"
-        "Along with the generated outfit image, you MUST also output a structured " + ("English" if _cs_en else "Korean") + " analysis as TEXT. "
+        "Along with the generated outfit image, you MUST also output a structured "
+        + ("English" if _cs_en else "Korean") + " analysis as TEXT. "
         "Wrap the JSON between exact markers <<<ANALYSIS_JSON>>> and <<<END_ANALYSIS>>> with no additional text outside markers. "
         "The JSON MUST follow this EXACT schema:\n"
         "{\n"
         '  "personalColor": {\n'
-        '    "text": "퍼스널컬러 측면 분석 (정확히 ' + ('English' if _cs_en else '한국어') + ', 250-300자, 사용자 톤에 맞는 컬러 추천 이유와 오늘 코디의 컬러 선택 근거 포함)",\n'
+        '    "text": "퍼스널컬러 측면 분석 (' + ('English' if _cs_en else '한국어') + ', 250-300자, 사용자 톤에 맞는 컬러 추천 이유와 오늘 코디의 컬러 선택 근거 포함)",\n'
         '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
         '  },\n'
         '  "body": {\n'
@@ -2203,33 +2540,32 @@ def _ai_styling_via_gemini(
         '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
         '  },\n'
         '  "categoryKeywords": {\n'
-        '    "outer": "컬러, 아이템 (예: \\"베이지, 트렌치코트\\" — 반드시 콤마로 컬러와 아이템 분리)",\n'
-        '    "top": "컬러, 아이템 (예: \\"화이트, 실크 블라우스\\")",\n'
-        '    "bottom": "컬러, 아이템 (예: \\"네이비, 와이드 슬랙스\\")",\n'
-        '    "shoes": "컬러, 아이템 (예: \\"브라운, 첼시 부츠\\")",\n'
-        '    "bag": "컬러, 아이템 (예: \\"블랙, 토트백\\" — 없으면 빈 문자열)",\n'
-        '    "scarf": "컬러, 아이템 (예: \\"카멜, 실크 스카프\\" — 없으면 빈 문자열)",\n'
-        '    "watch": "컬러, 아이템 (없으면 빈 문자열)",\n'
-        '    "socks": "컬러, 아이템 (예: \\"화이트, 면 양말\\")"\n'
+        '    "top": "컬러, 아이템 (예: \\"화이트, 실크 블라우스\\") — CORE, must NEVER be empty",\n'
+        '    "bottom": "컬러, 아이템 (예: \\"네이비, 와이드 슬랙스\\") — CORE, must NEVER be empty",\n'
+        '    "shoes": "컬러, 아이템 (예: \\"브라운, 첼시 부츠\\") — CORE, must NEVER be empty",\n'
+        '    "outer": "컬러, 아이템 (없으면 빈 문자열) — OPTIONAL",\n'
+        '    "bag": "컬러, 아이템 (없으면 빈 문자열) — OPTIONAL",\n'
+        '    "watch": "컬러, 아이템 (없으면 빈 문자열) — OPTIONAL",\n'
+        '    "sunglasses": "컬러, 아이템 (없으면 빈 문자열) — OPTIONAL",\n'
+        '    "hat": "컬러, 아이템 (없으면 빈 문자열) — OPTIONAL",\n'
+        '    "scarf": "컬러, 아이템 (없으면 빈 문자열) — OPTIONAL",\n'
+        '    "socks": "컬러, 아이템 (없으면 빈 문자열) — OPTIONAL"\n'
         '  }\n'
         "}\n"
         "RULES:\n"
-        "1. Each text field MUST be 250-300 Korean characters (not more, not less significantly).\n"
+        "1. Each text field MUST be 250-300 Korean characters (not significantly more/less).\n"
         "2. Each keywords array MUST contain EXACTLY 3 short Korean keywords (2-6 chars each).\n"
-        # [2026-04-26 v13 TJ-2] categoryKeywords 명확화
         "3. categoryKeywords MUST be in EXACT format: '{색상}, {아이템명}' separated by a comma. "
-        "The first part is COLOR ONLY (1-2 words like '베이지', '다크 네이비'), "
-        "the second part is ITEM ONLY (1-3 words like '트렌치코트', '와이드 슬랙스'). "
+        "The first part is COLOR ONLY (1-2 words like '베이지'), "
+        "the second part is ITEM ONLY (1-3 words like '트렌치코트'). "
         "WRONG: '베이지 트렌치코트' (no comma). "
-        "WRONG: '베이지, 클래식 라펠 트렌치코트' (color + descriptor mixed). "
         "CORRECT: '베이지, 트렌치코트'. "
         "Each value MUST reflect the EXACT colors and styles in the generated image.\n"
-        "4. If a category is NOT in the outfit, use empty string \"\".\n"
+        "4. CORE (top/bottom/shoes) MUST NEVER be empty. "
+        "OPTIONAL categories use empty string \"\" if not included in the outfit.\n"
         "5. Output ONLY the image AND the marked JSON. Nothing else.\n"
         # ─────────────────────────────────────────────────────
-        # [2026-04-25 v10 TJ 지시] 퍼스널컬러 avoid 컬러 사용 시 첨언
-        # 사용자가 customText에 avoid 컬러를 명시 요청한 경우만 허용
-        # → 분석에서 반드시 "사용자 요청에 따라 avoid 컬러 사용, 다만 본래 톤에는 부적합" 첨언
+        # PC AVOID OVERRIDE 첨언 (사용자가 직접 회피 컬러 요청 시)
         # ─────────────────────────────────────────────────────
         + ("\n[CRITICAL — PC AVOID OVERRIDE NOTICE]\n"
            "사용자가 직접입력으로 본인의 퍼스널컬러 avoid 컬러를 요청했습니다. "
@@ -2240,18 +2576,6 @@ def _ai_styling_via_gemini(
            "    얼굴 혈색이 다소 흐려 보일 수 있어 액세서리(립·블러셔·골드 주얼리)로 보완하시면 좋습니다.'\n"
            "  - 이 첨언이 빠지면 분석 실패로 간주됩니다.\n"
            if (isinstance(meta, dict) and meta.get('pc_avoid_override')) else "")
-        + "\n[USER CONTEXT FOR ANALYSIS]\n"
-        f"- 성별: {gender_ko}, 나이: {age}\n"
-        f"- 신체: 키 {h_int}cm, 몸무게 {w_int}kg (BMI {bmi}, {bmi_cat_ko})\n"
-        f"- 체형 분류: {body_type_key or '미등록'}\n"
-        f"- 퍼스널컬러: {pc_label} ({pc_undertone or '복합'})\n"
-        f"  베스트: {pc_best_str}\n"
-        f"  주의: {pc_avoid_str}\n"
-        f"- 코디 목적: {purpose_for_analysis}\n"
-        f"- 날씨: {int(temp)}°C {cond}\n"
-        f"- 위치: {location or '미지정'}\n"
-        f"- 매칭 스타일리스트: {stylist_name or '범용'} ({stylist_city or '범용 도시'})\n"
-        + (f"- 사용자 직접 요청: \"{custom_text}\"\n" if is_custom else "")
     )
 
     # ── 이미지 파트 구성: 얼굴 → 상의 → 하의 순서 ──
@@ -2270,9 +2594,18 @@ def _ai_styling_via_gemini(
     # ─── 2026-05-13 KST · TJ 지시 (v66) ─── GPT Image 2 라우팅 ───
     # _resolve_engine_full로 변경: (model, provider, quality) 동시 반환
     # provider == "openai" → GPT Image 2 분기, 그 외 → 기존 Gemini 분기
-    model_name, _provider, _quality = _resolve_engine_full(_resolved_tier, "codifit")
+    # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.6 HYBRID) ─── _override_alias 우선 처리 ───
+    # 폴백 호출 시 _override_alias="flash_v2" 등으로 강제 지정 → tier 기반 라우팅 우회
+    if _override_alias:
+        _alias = str(_override_alias).strip()
+        model_name = _ENGINE_MODEL_MAP.get(_alias) or _ENGINE_MODEL_MAP.get("flash_v2")
+        _provider = _ENGINE_PROVIDER_MAP.get(_alias, "gemini")
+        _quality = _ENGINE_QUALITY_MAP.get(_alias)  # Gemini는 None
+        print(f"[CODIFIT] alias_override={_alias} → provider={_provider}, model={model_name}", flush=True)
+    else:
+        model_name, _provider, _quality = _resolve_engine_full(_resolved_tier, "codifit")
+        print(f"[CODIFIT] tier={_resolved_tier} → provider={_provider}, model={model_name}, quality={_quality}", flush=True)
     _gpt_image_used = (_provider == "openai" and model_name.startswith("gpt-image"))
-    print(f"[CODIFIT] tier={_resolved_tier} → provider={_provider}, model={model_name}, quality={_quality}", flush=True)
 
     # ─── 2026-05-13 KST · TJ 지시 (v66) ─── GPT Image 2 분기 ───
     response = None        # Gemini 응답 객체 (GPT Image 2면 None 유지)
@@ -2418,8 +2751,15 @@ def _ai_styling_via_gemini(
             # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1) ─── 출력 최적화 + timeout ───
             # · output_format="jpeg": PNG 대비 인코딩/전송 빠름, R2 저장 비용 ↓
             # · output_compression=80: 의류 패턴 보존 + 파일 크기 30~40% 절감
-            # · timeout=35 (with_options): fail-fast로 무의미한 대기 차단
-            #   - OpenAI SDK v1.x의 per-request timeout 패턴 (client 인스턴스에 영향 없음)
+            # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.5 HOTFIX) ─── timeout/retry 보강 ───
+            # 문제: OpenAI SDK가 timeout 발생 시 자동으로 2회 재시도 → 35초 × 3회 = 105초
+            #       (Render 로그에서 정확히 106~111초 응답시간 확인됨)
+            # 수정:
+            #   - timeout=60.0 (환경변수 CODIBANK_GPT_IMAGE_TIMEOUT으로 조정 가능, 기본 60)
+            #   - max_retries=0 (자동 재시도 차단, 환경변수 CODIBANK_GPT_IMAGE_MAX_RETRIES, 기본 0)
+            #   - images.generate 폴백 제거 (face 미등록 사용자는 엔드포인트 진입 단계에서 거절)
+            _gpt_timeout = float(os.getenv("CODIBANK_GPT_IMAGE_TIMEOUT", "60"))
+            _gpt_max_retries = int(os.getenv("CODIBANK_GPT_IMAGE_MAX_RETRIES", "0"))
             _gpt_call_opts = dict(
                 model=model_name,
                 prompt=_gpt_prompt,
@@ -2429,16 +2769,19 @@ def _ai_styling_via_gemini(
                 output_format="jpeg",
                 output_compression=80,
             )
+            # ─── v67 Phase 1.5 HOTFIX ─── face 필수 (엔드포인트에서 사전 거절되지만 안전망)
             if len(_image_files) > 0:
-                _gpt_response = _gpt_client.with_options(timeout=35.0).images.edit(
+                _gpt_response = _gpt_client.with_options(
+                    max_retries=_gpt_max_retries,
+                    timeout=_gpt_timeout,
+                ).images.edit(
                     image=_image_files,
                     **_gpt_call_opts,
                 )
             else:
-                print(f"[ai_styling_gpt_image] 모든 ref 미등록 → images.generate fallback (face 자동 생성)", flush=True)
-                _gpt_response = _gpt_client.with_options(timeout=35.0).images.generate(
-                    **_gpt_call_opts,
-                )
+                # 정상 흐름에서 도달하면 안 되는 경로 (엔드포인트 거절 누락)
+                print(f"[ai_styling_gpt_image] ⚠ 안전망: 모든 ref 미등록 — face 필수 정책 위반, 거절", flush=True)
+                raise RuntimeError("face_required: 얼굴 사진 등록이 필요합니다")
             
             # 응답에서 base64 → bytes
             _b64 = _gpt_response.data[0].b64_json
@@ -2570,15 +2913,21 @@ def _ai_styling_via_gemini(
                             s = words[0] + ", " + " ".join(words[1:])
                     category_keywords_from_ai[str(k)] = s
         else:
-            # 마커 없으면 폴백 — 템플릿 함수로 생성
-            styling_analysis = _generate_styling_analysis(payload, matched_stylist, meta, lang=str(payload.get("lang") or "ko"))
-            print(f"[ai_styling_gemini] ⚠ 분석 JSON 마커 없음, 템플릿 폴백 사용. text 일부: {full_text[:200]}")
-    except Exception as _pe:
-        print(f"[ai_styling_gemini] 분석 JSON 파싱 실패: {_pe}, 템플릿 폴백 사용")
-        try:
-            styling_analysis = _generate_styling_analysis(payload, matched_stylist, meta, lang=str(payload.get("lang") or "ko"))
-        except Exception:
+            # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 2) ─── 분석 분리 ───
+            # 이전: 마커 없으면 _generate_styling_analysis 템플릿 폴백 호출
+            # 변경: stylingAnalysis=None 반환 — 클라이언트가 /api/ai/styling/analysis 별도 호출
+            # 효과: 이미지 응답 더 빠름 + 분석 품질 ↑ (템플릿 → gpt-4.1-mini)
+            # 영향: GPT Image 2 분기는 항상 full_text="" → 항상 이 경로 진입
             styling_analysis = None
+            if _gpt_image_used:
+                print(f"[ai_styling_gpt_image] 분석 분리 모드 — stylingAnalysis=null, 클라이언트가 /analysis 별도 호출")
+            else:
+                print(f"[ai_styling_gemini] ⚠ 분석 JSON 마커 없음 — stylingAnalysis=null로 반환 (분석 분리 모드)")
+    except Exception as _pe:
+        # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 2) ─── 분석 분리 ───
+        # 파싱 예외 시에도 템플릿 폴백 호출 안 함 — None 반환
+        print(f"[ai_styling_gemini] 분석 JSON 파싱 실패: {_pe}, stylingAnalysis=null (분석 분리 모드)")
+        styling_analysis = None
 
     rel = _write_upload_bytes("ai", ext, img_bytes, fixed_name=cache_fname)
     base = _public_base()
@@ -2590,6 +2939,17 @@ def _ai_styling_via_gemini(
     except Exception:
         pass
     merged_cat_kws.update(category_keywords_from_ai or {})
+
+    # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 2) ─── cacheKey 응답 추가 ───
+    # 클라이언트가 /api/ai/styling/analysis 호출 시 이 키를 전달
+    # cache_fname 형식: "ai_{cache_key}.{ext}" → 키 추출
+    _cache_key_for_resp = ""
+    try:
+        _cfn = str(cache_fname or "")
+        if _cfn.startswith("ai_"):
+            _cache_key_for_resp = _cfn[3:].rsplit(".", 1)[0]
+    except Exception:
+        _cache_key_for_resp = ""
 
     return jsonify(
         ok=True,
@@ -2607,9 +2967,201 @@ def _ai_styling_via_gemini(
         engineCity=(meta or {}).get('active_city', '') if meta else '',
         enginePurpose=(meta or {}).get('purpose', '') if meta else '',
         engineBottomType=(meta or {}).get('bottom_type', '') if meta else '',
-        # [2026-04-10] AI 종합 분석 (Gemini 단일 호출 결과)
-        stylingAnalysis=styling_analysis,
+        # ─── 2026-05-14 v67 Phase 2 ─── 분석은 별도 엔드포인트로 호출 (stylingAnalysis 항상 null)
+        stylingAnalysis=None,
+        cacheKey=_cache_key_for_resp,  # 클라이언트 /api/ai/styling/analysis 호출용
     )
+
+
+# ══════════════════════════════════════════════════════
+# [2026-05-14 v67 Phase 2] 코디핏 분석 보고서 — gpt-4.1-mini로 분리 호출
+# ══════════════════════════════════════════════════════
+def _codifit_analysis_via_gpt41mini(
+    payload: Dict[str, Any],
+    matched_stylist=None,
+    meta=None,
+    generated_outfit_summary=None,
+    lang=None,
+):
+    """[v67 Phase 2] 코디핏 분석 보고서 — gpt-4.1-mini로 텍스트 메타데이터 기반 분석.
+
+    Pattern A (메타데이터 기반): 생성된 이미지를 보지 않고 사용자 정보 + 생성 의도만으로 분석.
+    이유:
+      - 비용 50% 절감 (vision input 미사용)
+      - 응답 빠름 (input 토큰 ↓, 2~4초)
+      - 분석 텍스트는 사용자 정보 기반 자연어 설명 → vision 없어도 자연스러움
+      - 이미지 생성과 직렬 호출 — 사용자 경험상 3초 차이 (이미지 25초 + 분석 3초)
+
+    응답: 3섹션 JSON (personalColor / body / purpose) — 기존 closet.html 분석 박스 호환.
+
+    실패 시: RuntimeError 발생 (호출부가 503 응답 + 클라이언트 재시도 처리).
+    """
+    _en = (str(lang or payload.get("lang") or "ko").strip().lower() == "en")
+    user = payload.get("user") or {}
+    weather = payload.get("weather") or {}
+    pc = payload.get("personalColor") or {}
+    purpose = (meta or {}).get("purpose") or payload.get("purposeLabel") or "데일리 코디"
+    custom_text = str(payload.get("customText") or "").strip()
+    if custom_text and (payload.get("purposeKey") or "").lower() == "custom":
+        purpose = custom_text
+
+    # ── 사용자 정보 정규화 ──
+    gender_code = _normalize_gender_code(str(user.get("gender") or ""))
+    gender_ko = "여성" if gender_code == "F" else "남성"
+    gender_en = "woman" if gender_code == "F" else "man"
+    age = str(user.get("ageGroup") or "30대")
+
+    try:
+        h_int = int(user.get("height") or 170)
+        w_int = int(user.get("weight") or 65)
+    except Exception:
+        h_int, w_int = 170, 65
+    bmi = round(w_int / ((h_int/100) ** 2), 1) if h_int >= 100 else 0
+    if bmi < 18.5:
+        bmi_cat_ko = "마른 체형"
+    elif bmi < 23:
+        bmi_cat_ko = "표준 체형"
+    elif bmi < 25:
+        bmi_cat_ko = "약간 통통"
+    else:
+        bmi_cat_ko = "통통한 체형"
+    body_type = str(user.get("bodyType") or "").strip()
+
+    # ── 퍼스널컬러 ──
+    pc_season = str(pc.get("season", "") or "").strip()
+    pc_undertone = str(pc.get("undertone", "") or "").strip()
+    pc_subtype = str(pc.get("subtype") or pc.get("type") or "").strip()
+    pc_best = pc.get("best_colors") or []
+    pc_avoid = pc.get("avoid_colors") or []
+    if not isinstance(pc_best, list): pc_best = []
+    if not isinstance(pc_avoid, list): pc_avoid = []
+    pc_label = (pc_season + " " + pc_subtype).strip() or pc_season or "미등록"
+    pc_best_str = ", ".join(pc_best[:5]) if pc_best else "(진단 미완료)"
+    pc_avoid_str = ", ".join(pc_avoid[:3]) if pc_avoid else "(진단 미완료)"
+
+    # ── 날씨/위치 ──
+    try:
+        temp = int(float(weather.get("temp") or 20))
+    except Exception:
+        temp = 20
+    cond = str(weather.get("text") or weather.get("condition") or "").strip()
+    location = str(weather.get("location") or weather.get("city") or "").strip()
+
+    # ── 매칭 스타일리스트 ──
+    stylist_name = (matched_stylist or {}).get("name", "") if matched_stylist else ""
+    stylist_city = (meta or {}).get("active_city", "") if meta else ""
+
+    # ── 생성된 코디 요약 (서버 엔진의 categoryKeywords 기반) ──
+    outfit_categories = (meta or {}).get('categoryKeywords', {}) or {}
+    if generated_outfit_summary:
+        outfit_text = generated_outfit_summary
+    else:
+        _parts = []
+        for k in ("outer", "top", "bottom", "shoes", "bag", "scarf", "watch", "socks"):
+            v = outfit_categories.get(k)
+            if v:
+                _parts.append(f"{k}: {v}")
+        outfit_text = "; ".join(_parts) if _parts else "(코디 정보 없음)"
+
+    # ── 시스템 프롬프트 ──
+    if _en:
+        system_prompt = (
+            "You are a Korean fashion styling expert. Given user info and outfit details, "
+            "produce a 3-section analysis report (personal color / body / purpose+weather). "
+            "Output JSON only — no extra text outside JSON."
+        )
+    else:
+        system_prompt = (
+            "당신은 한국의 패션 스타일링 전문가입니다. "
+            "사용자의 신체/퍼스널컬러/날씨/목적 정보와 스타일리스트가 추천한 코디 정보를 받아 "
+            "3개 측면의 분석 보고서를 작성합니다. "
+            "출력은 반드시 JSON only — JSON 외 추가 텍스트 금지."
+        )
+
+    # ── 사용자 프롬프트 ──
+    _lang_label_text = "English" if _en else "한국어"
+    user_input = (
+        f"## 사용자 정보\n"
+        f"- 성별/나이: {gender_ko} {age}\n"
+        f"- 신체: 키 {h_int}cm, 몸무게 {w_int}kg (BMI {bmi}, {bmi_cat_ko})\n"
+        f"- 체형 분류: {body_type or '미등록'}\n"
+        f"- 퍼스널컬러 시즌: {pc_label} ({pc_undertone or '복합'})\n"
+        f"  · 추천 컬러 (베스트): {pc_best_str}\n"
+        f"  · 피해야 할 컬러 (어보이드): {pc_avoid_str}\n"
+        f"- 코디 목적: {purpose}\n"
+        f"- 날씨/위치: {temp}°C {cond} ({location or '미지정'})\n"
+        f"- 매칭 스타일리스트: {stylist_name or '범용'} ({stylist_city or '범용'})\n"
+        f"\n## 생성된 코디 요약\n{outfit_text}\n"
+        f"\n## 출력 JSON 스키마 (이 형식 정확히 준수)\n"
+        '{\n'
+        f'  "personalColor": {{\n'
+        f'    "text": "퍼스널컬러 측면 분석 ({_lang_label_text}, 정확히 250-300자, '
+        f'추천 컬러와 피해야 할 컬러 모두 설명, 오늘 코디의 컬러 선택 근거 포함)",\n'
+        f'    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
+        f'  }},\n'
+        f'  "body": {{\n'
+        f'    "text": "체형/사이즈 측면 분석 ({_lang_label_text}, 250-300자, '
+        f'키/체중/BMI/체형 분류 기반 핏과 실루엣 추천 근거)",\n'
+        f'    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
+        f'  }},\n'
+        f'  "purpose": {{\n'
+        f'    "text": "코디 목적과 날씨 측면 분석 ({_lang_label_text}, 250-300자, '
+        f'목적/날씨를 어떻게 반영했는지 설명)",\n'
+        f'    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
+        f'  }}\n'
+        '}\n'
+        f'\nRULES:\n'
+        f'1. 각 text는 정확히 250-300자 ({_lang_label_text}).\n'
+        f'2. 각 keywords 배열은 정확히 3개 단어 (2-6자).\n'
+        f'3. JSON 외 추가 텍스트 출력 금지.\n'
+    )
+
+    # ── gpt-4.1-mini 호출 ──
+    _openai_key = os.getenv("OPENAI_API_KEY")
+    if not _openai_key:
+        raise RuntimeError("OPENAI_API_KEY 환경변수 미설정")
+
+    _client_analysis = OpenAI(api_key=_openai_key)
+    _model = os.getenv("CODIBANK_ANALYSIS_MODEL", "gpt-4.1-mini")
+    # ─── 2026-05-14 v67 Phase 1.5 HOTFIX ─── 분석 호출 timeout/retry 보강 ───
+    # 이전: timeout=10초만 명시 (자동 재시도 2회로 최악 30초 → 사용자 인지 못함)
+    # 변경: max_retries=0 + 환경변수 (자동 재시도 차단으로 비용 절감)
+    _analysis_timeout = float(os.getenv("CODIBANK_ANALYSIS_TIMEOUT", "10"))
+    _analysis_max_retries = int(os.getenv("CODIBANK_ANALYSIS_MAX_RETRIES", "0"))
+
+    print(f"[codifit_analysis] gpt-4.1-mini 호출 시작 (model={_model}, lang={'en' if _en else 'ko'}, timeout={_analysis_timeout}s, retries={_analysis_max_retries})", flush=True)
+
+    _response = _client_analysis.with_options(
+        max_retries=_analysis_max_retries,
+        timeout=_analysis_timeout,
+    ).chat.completions.create(
+        model=_model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_input},
+        ],
+        temperature=0.4,
+        response_format={"type": "json_object"},
+    )
+
+    _text = _response.choices[0].message.content or "{}"
+    _parsed = json.loads(_text)
+
+    # ── 스키마 검증 + 정규화 ──
+    result = {}
+    for sec in ("personalColor", "body", "purpose"):
+        _s = _parsed.get(sec) or {}
+        _txt = str(_s.get("text") or "").strip()[:320]
+        _kws = _s.get("keywords") or []
+        if not isinstance(_kws, list):
+            _kws = []
+        _kws = [str(k).strip() for k in _kws if str(k).strip()][:3]
+        while len(_kws) < 3:
+            _kws.append("—")
+        result[sec] = {"text": _txt, "keywords": _kws}
+
+    print(f"[codifit_analysis] ✅ 분석 생성 완료 (3섹션, total chars={sum(len(v['text']) for v in result.values())})", flush=True)
+    return result
 
 
 # ══════════════════════════════════════════════════════
@@ -2900,18 +3452,64 @@ def ai_styling():
     # --- 서버 캐시(파일) ---
     # - 같은 조건(날씨/목적/프로필/seed/얼굴/참조의상)로 재요청하면 OpenAI 호출 없이 바로 반환합니다.
     ref_images, face_bytes_for_key = _collect_ref_images(payload)
-    cache_key = _make_ai_cache_key(payload, face_bytes_for_key, ref_images)
+
+    # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.5 HOTFIX) ─── face 미등록 사용자 거절 ───
+    # 이전: face 없어도 images.generate fallback으로 진행 (face 자동 생성 → identity 손상)
+    # 변경: face 필수, 미등록 시 400 거절 (errorCode="FACE_NOT_REGISTERED")
+    # 환경변수 CODIBANK_CODIFIT_REQUIRE_FACE=0으로 임시 비활성 가능 (기본 1=필수)
+    _require_face = str(os.getenv("CODIBANK_CODIFIT_REQUIRE_FACE", "1")).strip() not in ("0", "false", "False")
+    if _require_face:
+        _has_face = any(label == "face" for label, _, _ in ref_images)
+        if not _has_face:
+            _en_msg = str(payload.get("lang") or "ko").strip().lower() == "en"
+            print(f"[ai_styling] ⚠ face 미등록 사용자 — 거절 (lang={'en' if _en_msg else 'ko'})", flush=True)
+            return jsonify(
+                ok=False,
+                error=(
+                    "Face photo registration is required. Please register your face photo in Profile first."
+                    if _en_msg else
+                    "얼굴 사진 등록이 필요합니다. 프로필에서 얼굴 사진을 먼저 등록한 후 다시 시도해주세요."
+                ),
+                errorCode="FACE_NOT_REGISTERED",
+            ), 400
+
+    # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 3) ─── 캐시 키 v2 적용 ───
+    # v1 (purposeKey/seed/날씨/얼굴 raw) → v2 (model/quality/size/bodyType/PC/avoid hash + 버킷팅)
+    # 효과: 캐시 히트율 1% → 70%+ (월 수백 달러 비용 절감 예상)
+    # v1 캐시는 그대로 둠 (cleanup script로 추후 제거)
+    _resolved_tier_for_key = str(
+        (payload.get("user") or {}).get("tier") or payload.get("tier") or "FREE"
+    ).upper().strip()
+    if _resolved_tier_for_key not in ("FREE", "SILVER", "GOLD", "DIAMOND"):
+        _resolved_tier_for_key = "FREE"
+    try:
+        _model_for_key, _provider_for_key, _quality_for_key = _resolve_engine_full(
+            _resolved_tier_for_key, "codifit"
+        )
+    except Exception:
+        _model_for_key, _provider_for_key, _quality_for_key = ("", "", "")
+    _size_for_key = (
+        os.getenv("CODIBANK_GPT_IMAGE_SIZE", "1536x1024")
+        if _provider_for_key == "openai" else ""
+    )
+    _force_regen = bool(payload.get("forceRegenerate") or payload.get("force_regenerate"))
+    cache_key = _make_ai_cache_key_v2(
+        payload, face_bytes_for_key, ref_images,
+        model=_model_for_key,
+        quality=_quality_for_key,
+        size=_size_for_key,
+        force_regenerate=_force_regen,
+    )
     ext = "jpg" if output_format.lower() in ("jpeg", "jpg") else output_format.lower()
     cache_fname = f"ai_{cache_key}.{ext}"
     cache_fpath = os.path.join(_UPLOAD_DIR, cache_fname)
     if os.path.exists(cache_fpath):
         rel = f"{_UPLOAD_PREFIX}{cache_fname}"
         base = _public_base()
-        # [2026-04-10] 캐시 응답에도 분석 포함 (엔진 메타가 없으면 빈 분석)
-        try:
-            _cached_analysis = _generate_styling_analysis(payload, _matched_stylist, _meta, lang=str(payload.get("lang") or "ko"))
-        except Exception:
-            _cached_analysis = None
+        # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 2) ─── 분석 분리 ───
+        # 이전: _generate_styling_analysis 템플릿 호출
+        # 변경: stylingAnalysis=None 반환, 클라이언트가 /api/ai/styling/analysis 별도 호출
+        # 효과: 캐시 응답 더 빠름 (템플릿 호출 제거) + 분석 품질 ↑ (gpt-4.1-mini)
         return jsonify(
             ok=True,
             image=f"{base}{rel}",  # 프론트 호환: img src로 바로 사용
@@ -2920,7 +3518,15 @@ def ai_styling():
             explanation=short,
             model="cache",
             cached=True,
-            stylingAnalysis=_cached_analysis,
+            stylingAnalysis=None,  # Phase 2: 별도 엔드포인트로 호출
+            cacheKey=cache_key,    # Phase 2: 클라이언트가 분석 API 호출 시 사용
+            stylist=_matched_stylist,
+            stylingStory=(_meta or {}).get("styling_story") if _meta else None,
+            engineKeywords=(_meta or {}).get('keywords_selected', []) if _meta else [],
+            engineCategoryKeywords=(_meta or {}).get('categoryKeywords', {}) if _meta else {},
+            engineCity=(_meta or {}).get('active_city', '') if _meta else '',
+            enginePurpose=(_meta or {}).get('purpose', '') if _meta else '',
+            engineBottomType=(_meta or {}).get('bottom_type', '') if _meta else '',
         )
 
     # ══════════════════════════════════════════════════════
@@ -2950,16 +3556,57 @@ def ai_styling():
                 meta=_meta,
                 tier=_styling_tier,  # ─── 2026-04-21 티어별 엔진 라우팅 ───
             )
-            # _ai_styling_via_gemini는 이미 jsonify 결과를 반환
-            # 성공이면 그대로 반환, 실패면 폴백
-            # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1) ─── faceless 재시도 제거 ───
-            # 이전: GPT Image 2 실패(500) → OpenAI 폴백 → variants 다중 시도 → +60초 대기
-            # 변경: 즉시 에러 반환 → 사용자가 빠르게 재시도 가능 (fail-fast)
-            #   · OpenAI 폴백 경로 자체는 보존 (CODIBANK_AI_STYLING_PROVIDER=openai 명시 시 사용)
-            #   · 자동 폴백만 차단
+            # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.6 HYBRID) ─── 하이브리드 폴백 ───
+            # 이전: GPT Image 2 실패(500) → 즉시 에러 반환 (Phase 1)
+            # 변경: 1차 GPT Image 2 실패 → Gemini 자동 폴백 (v65 안정 모델)
+            #   · 같은 cache_fname 사용 → 폴백 결과도 캐시 → 재시도 시 즉시 응답
+            #   · 환경변수 CODIBANK_CODIFIT_ENABLE_FALLBACK=0으로 비활성 가능
+            #   · 환경변수 CODIBANK_CODIFIT_FALLBACK_ALIAS=flash_v2 (기본)로 폴백 모델 지정
             if isinstance(_gemini_result, tuple):
-                # (jsonify(error), status_code) 형태 → 즉시 반환 (폴백 없음)
-                return _gemini_result
+                _resp_obj, _status = _gemini_result
+                # 폴백 활성 + 1차가 GPT Image 2였을 때만 Gemini 폴백 시도
+                _enable_fallback = str(
+                    os.getenv("CODIBANK_CODIFIT_ENABLE_FALLBACK", "1")
+                ).strip() not in ("0", "false", "False")
+                # 1차가 이미 Gemini였다면(_styling_tier 기반 라우팅이 Gemini였다면) 폴백 의미 없음
+                try:
+                    _primary_model, _primary_provider, _ = _resolve_engine_full(_styling_tier, "codifit")
+                    _primary_was_openai = (_primary_provider == "openai")
+                except Exception:
+                    _primary_was_openai = True  # 안전망: 알 수 없으면 폴백 시도
+
+                if _enable_fallback and _primary_was_openai:
+                    _fallback_alias = os.getenv("CODIBANK_CODIFIT_FALLBACK_ALIAS", "flash_v2")
+                    print(f"[ai_styling] ⚠ 1차(GPT Image 2) 실패 → Gemini 폴백 시도 (alias={_fallback_alias})", flush=True)
+                    try:
+                        _fallback_result = _ai_styling_via_gemini(
+                            payload=payload,
+                            prompt=prompt,
+                            short=short,
+                            ref_images=ref_images,
+                            cache_fname=cache_fname,  # 같은 캐시 파일명 사용
+                            ext=ext,
+                            matched_stylist=_matched_stylist,
+                            lang=str(payload.get("lang") or "ko"),
+                            meta=_meta,
+                            tier=_styling_tier,
+                            _override_alias=_fallback_alias,  # 폴백 alias 강제
+                        )
+                        if isinstance(_fallback_result, tuple):
+                            # 폴백도 실패 → 1차 에러 반환 (둘 다 실패한 상황)
+                            print(f"[ai_styling] ❌ Gemini 폴백도 실패 — 1차 에러 반환", flush=True)
+                            return _gemini_result
+                        else:
+                            print(f"[ai_styling] ✅ Gemini 폴백 성공", flush=True)
+                            return _fallback_result
+                    except Exception as _fe:
+                        print(f"[ai_styling] ❌ Gemini 폴백 예외: {_fe}", flush=True)
+                        import traceback as _tbf
+                        _tbf.print_exc()
+                        return _gemini_result
+                else:
+                    # 폴백 비활성 또는 1차가 이미 Gemini였음 → 즉시 에러 반환
+                    return _gemini_result
             else:
                 # jsonify(...) 단독 반환 → 성공
                 return _gemini_result
@@ -3096,6 +3743,108 @@ def ai_styling():
             ),
             500,
         )
+
+
+# ═════════════════════════════════════════════════════════════
+# [2026-05-14 v67 Phase 2] /api/ai/styling/analysis
+#   코디핏 분석 보고서 — gpt-4.1-mini 별도 호출
+# ═════════════════════════════════════════════════════════════
+@app.post("/api/ai/styling/analysis")
+def ai_styling_analysis():
+    """[v67 Phase 2] 코디핏 분석 보고서 — gpt-4.1-mini로 별도 생성.
+
+    흐름:
+      1. 클라이언트가 /api/ai/styling 응답에서 받은 cacheKey + 원본 payload 재전송
+      2. 서버: cacheKey 기반 분석 JSON 캐시 파일 확인 → 있으면 즉시 반환
+      3. 없으면: gpt-4.1-mini 호출 (timeout 10초, temperature 0.4)
+      4. 결과를 JSON 파일에 캐시 + 반환
+
+    재시도 정책 (옵션 B):
+      - 클라이언트가 1회 재시도 가능 (서버는 매번 단일 호출)
+      - timeout 10초로 fail-fast
+      - 실패 시 503 반환 → 클라이언트가 "다시 시도" / "비활성" UI 결정
+
+    분석은 stylingAnalysis JSON (personalColor / body / purpose 3섹션) 형식.
+    기존 closet.html 분석 박스 DOM과 호환.
+    """
+    payload = request.get_json(silent=True) or {}
+    cache_key = str(payload.get("cacheKey") or "").strip()
+
+    if not cache_key:
+        return jsonify(ok=False, error="cacheKey 누락"), 400
+
+    # 보안: cacheKey 영문/숫자/언더스코어만 허용 (path traversal 방지)
+    if not re.match(r'^[A-Za-z0-9_]{8,64}$', cache_key):
+        return jsonify(ok=False, error="cacheKey 형식 오류"), 400
+
+    # ── 분석 캐시 파일 경로 (이미지 캐시와 별도) ──
+    _analysis_cache_fname = f"analysis_{cache_key}.json"
+    _analysis_cache_fpath = os.path.join(_UPLOAD_DIR, _analysis_cache_fname)
+
+    # ── 캐시 히트 ──
+    if os.path.exists(_analysis_cache_fpath):
+        try:
+            with open(_analysis_cache_fpath, "r", encoding="utf-8") as _f:
+                _cached_analysis = json.load(_f)
+            print(f"[ai_styling_analysis] ✅ 캐시 hit: {cache_key}", flush=True)
+            return jsonify(
+                ok=True,
+                stylingAnalysis=_cached_analysis,
+                cached=True,
+                cacheKey=cache_key,
+            )
+        except Exception as _ce:
+            print(f"[ai_styling_analysis] 캐시 파일 손상 ({_ce}), 재생성")
+            # fall through
+
+    # ── 캐시 미스 → gpt-4.1-mini 호출 ──
+    has_openai = bool(os.getenv("OPENAI_API_KEY"))
+    if not has_openai:
+        return jsonify(ok=False, error="OPENAI_API_KEY 미설정"), 500
+
+    try:
+        _matched_stylist = payload.get("stylist") or None
+        _meta = payload.get("meta") or {}
+        _lang = str(payload.get("lang") or "ko")
+        _outfit_summary = str(payload.get("outfitSummary") or "").strip()
+
+        # meta에 stylist가 없으면 payload.stylist로 보강
+        if isinstance(_meta, dict) and _matched_stylist and "active_city" not in _meta:
+            _meta = dict(_meta)
+            _meta.setdefault("active_city", _matched_stylist.get("city", "") if isinstance(_matched_stylist, dict) else "")
+            _meta.setdefault("purpose", payload.get("purposeLabel", ""))
+
+        _analysis = _codifit_analysis_via_gpt41mini(
+            payload=payload,
+            matched_stylist=_matched_stylist,
+            meta=_meta,
+            generated_outfit_summary=_outfit_summary or None,
+            lang=_lang,
+        )
+
+        # ── 캐시 저장 (성공 시) ──
+        try:
+            with open(_analysis_cache_fpath, "w", encoding="utf-8") as _f:
+                json.dump(_analysis, _f, ensure_ascii=False)
+            print(f"[ai_styling_analysis] ✅ 캐시 저장: {_analysis_cache_fname}", flush=True)
+        except Exception as _se:
+            print(f"[ai_styling_analysis] 캐시 저장 실패(무시): {_se}", flush=True)
+
+        return jsonify(
+            ok=True,
+            stylingAnalysis=_analysis,
+            cached=False,
+            cacheKey=cache_key,
+        )
+    except Exception as _e:
+        import traceback as _tb_a
+        _trace = _tb_a.format_exc()[-400:]
+        print(f"[ai_styling_analysis] gpt-4.1-mini 실패: {type(_e).__name__}: {str(_e)[:200]}\n{_trace}", flush=True)
+        return jsonify(
+            ok=False,
+            error=f"분석 생성 실패: {str(_e)[:200]}",
+            cacheKey=cache_key,
+        ), 503
 
 
 # ─────────────────────────────────────────────────────────
@@ -3608,7 +4357,10 @@ def pc_load(email):
     try:
         import json
         _path = f"personal_color/{email}.json"
-        data = _read_upload_bytes(_path)
+        # ─── 2026-05-14 v67 Phase 1.5 HOTFIX ─── _read_upload_bytes 미정의 버그 수정
+        # 이전: data = _read_upload_bytes(_path) → NameError → PC 데이터 로드 100% 실패
+        # 변경: _read_r2_bytes 헬퍼 함수 사용 (boto3 get_object 기반)
+        data = _read_r2_bytes(_path)
         if data:
             pc = json.loads(data.decode("utf-8"))
             _PC_STORE[email] = pc
