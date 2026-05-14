@@ -6,6 +6,30 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.7-fix3 engine) ─── [career 통일 부작용 수정]
+#   배경: stylist_db_server.json의 career 11,200개를 모두 '패션 스타일리스트'로 통일
+#         (TJ 지시: 이상한 경력 표현이 부적절)
+#   부작용 진단:
+#     · line 558 signature_directive: career를 핵심 차별화 요소로 사용
+#       → 통일 후 모두 동일한 directive 생성 ("informed by 패션 스타일리스트")
+#     · line 1221 STYLIST DNA HEAD의 Career 줄: 모든 스타일리스트 동일 → 무의미
+#     · 결과: 11,200명 → 디자인 카테고리 12개로 평준화 (major 다양성 미활용)
+#   수정 (2곳):
+#     1) line 558 signature_directive:
+#        · 이전: "informed by {career or major}"
+#        · 변경: "specialty in {major}" (206개 다양성 활용)
+#     2) line 1221 STYLIST DNA HEAD:
+#        · "Career: ..." 줄 제거
+#        · major를 "SPECIALTY: ..." 로 격상 강조
+#        · "this is the stylist's expert domain — outfit MUST reflect it" 명시
+#   효과:
+#     · 11,200명 → 206개 major별 차별화 (×17 배 증가)
+#     · STYLIST DNA HEAD의 SPECIALTY가 LLM attention 최상단 영역에서 차별화 유도
+#   추가 진단 (다음 턴 작업 후보):
+#     · design_categories 12개 → 30~50개 세분화로 더 강한 차별화
+#     · major를 한글→영문 매핑 (이미지 모델 인식률 향상)
+#     · closet.html colorDirective 셀프 강화 루프 제거
+#
 # ─── 2026-05-12 KST · TJ 지시 (v65) ─── [Phase 1+2+4 종합 픽스 - 4 Pass 통합]
 #   사용자 보고: AI 스타일리스트 매번 다른데 이미지는 거의 동일 (흰티+그레이팬츠+검정백팩)
 #   Phase 1 진단 결과:
@@ -553,9 +577,13 @@ def _generate_stylist_dna(stylist):
     }.get(matched_cat, 'contemporary')
     
     # ── signature directive ──
+    # ─── 2026-05-14 KST · TJ 지시 ─── career 통일 후 차별화 활용 변경
+    # 이전: f"informed by {career or major or 'fashion expertise'}"
+    #       → career가 모두 '패션 스타일리스트'로 통일되어 차별화 사라짐
+    # 변경: major를 핵심 차별화 요소로 활용 (206개 다양성 활용)
     signature_directive = (
         f"{refinement} interpretation of {cat_label_en} styling, "
-        f"informed by {career or major or 'fashion expertise'}"
+        f"specialty in {major or 'contemporary fashion'}"
     )
     
     return {
@@ -1214,12 +1242,15 @@ def process_styling_request(payload, fashion_db, stylist_db):
             color_line = f"SIGNATURE COLORS (loose hint): '{stylist['color1']}', '{stylist['color2']}'. Lean muted/neutral palette."
         
         # ── v65: 압축된 DNA HEAD (prompt 시작에 배치) ──
+        # ─── 2026-05-14 KST · TJ 지시 ─── career 통일 → Career 줄 제거 + major 강조
+        # 이전: f"Career: {stylist.get('career', '')}\n" (모두 '패션 스타일리스트' 동일)
+        # 변경: Career 줄 제거. major를 핵심 차별화 정보로 격상 (206개 다양성 활용)
         stylist_dna_head = (
             f"⭐ STYLIST DNA — DEFINES THIS OUTFIT (NOT a generic 'safe' look):\n"
-            f"{stylist.get('name', '')} · {stylist.get('level', '')} · "
-            f"{stylist.get('exp', 0)}yr · {stylist.get('major', '')}\n"
-            f"Career: {stylist.get('career', '')}\n"
-            f"DESIGN: {design_kw_str}.\n"
+            f"Name: {stylist.get('name', '')} · Level: {stylist.get('level', '')} · "
+            f"Experience: {stylist.get('exp', 0)}yr\n"
+            f"SPECIALTY: {stylist.get('major', '')} (this is the stylist's expert domain — outfit MUST reflect it)\n"
+            f"DESIGN KEYWORDS: {design_kw_str}.\n"
             f"SILHOUETTE: {dna['silhouette_pref']}.\n"
             f"{color_line}\n"
             f"Different stylist DNA = clearly different outfit. The image must visibly express THIS DNA, not blend into neutrals.\n\n"

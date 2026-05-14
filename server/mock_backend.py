@@ -5,6 +5,59 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.7-fix3) ─── [7단계 + 활동지역 + 캐리어]
+#   배경: 9,600명 스타일리스트 페르소나가 결과에 반영 안 됨 (사용자 보고)
+#   TJ 지시 4가지:
+#     1) 프롬프트 순서 재설계 6단계 → 7단계
+#     2) DB career 일괄 '패션 스타일리스트'로 변경 (이상한 경력 부적절)
+#     3) 활동지역 '서울 고정' 버그 → 스타일리스트의 실제 도시로 표시
+#     4) "프롬프트 무시 임의 스타일링" 의심 영역 검사
+#   변경 (mock_backend.py, 3곳):
+#     1) prompt 7단계 재설계 (line ~2415):
+#        STEP 1: USER DATA
+#        STEP 2: AVATAR CONSTRUCTION (99.9%)
+#        STEP 3: AI STYLIST SELECTION ★ (신설 — 시그니처 컬러/레벨/경력 명시)
+#                · color1/color2/level/exp를 prompt에 직접 노출
+#                · "Different stylists MUST produce VISIBLY DIFFERENT outfits" 강조
+#                · STEP 0 engine output → STEP 3 안으로 통합
+#        STEP 4: TPO ANALYSIS + OUTFIT DECISION (중간 위치로 이동)
+#        STEP 5: CORE OUTFIT GENERATION (이전 STEP 3)
+#        STEP 6: OPTIONAL ACCESSORIES (이전 STEP 4)
+#        STEP 7: OUTPUT FORMAT + ANALYSIS REPORT (이전 STEP 6 + JSON 통합)
+#     2) AVOID COLORS 반복: 3회(STEP 1/3/4) → 1회(STEP 1만) 축소
+#        → 컬러 다양성 회복, 9,600명 시그니처 컬러 표현 자유도 확보
+#     3) 활동지역 city 주입 (3곳 응답, line ~2995/3566/3770):
+#        matched_stylist에 active_city를 'city' 키로 주입하여 응답
+#        DB 구조상 city는 외부 key였으나, frontend는 stylist.city를 읽어 fallback '서울'
+#     4) 검사 보고 (별건):
+#        · "직접입력 강제" override 로직 (line 3444) — purpose='custom'일 때만 작동, 정상
+#        · colorDirective 셀프 강화 루프 의심 (closet.html line 5398) — 다음 턴 작업
+#   DB 변경 (stylist_db_server.json):
+#     · 11,200개 career → 모두 '패션 스타일리스트' 통일
+#   영향:
+#     · 코디핏 prompt 구조 7단계로 명확화
+#     · 스타일리스트별 차별화 강화 (시그니처 컬러 prompt 직접 노출)
+#     · 컬러 다양성 회복 (AVOID 1회 축소)
+#     · 활동지역 정확 표시
+#   무영향: 트라이온, 코디하기, v53 SDK fix zone, 캐시 키 v2, 분석 분리
+#
+# ─── 2026-05-14 KST · TJ 보고 (v67 Phase 1.7-fix · CACHE KEY STYLIST FIELDS) ───
+#   TJ 보고: "퍼스널컬러 추천 컬러가 AI 스타일리스트 변경해도 상의/하의 컬러와 스타일 그대로 유지"
+#   진단: 캐시 키 v2의 body 딕셔너리에 stylist_name/city 누락
+#         → 사용자가 스타일리스트만 변경 시 캐시 키 동일 산출
+#         → cache_fpath 존재 → 캐시 HIT → 이전 이미지 반환
+#         → 백엔드의 AI 호출 자체가 일어나지 않음
+#         → 새 prompt(v67 Phase 1.7 6단계) 효과 없음
+#   수정 (mock_backend.py, 3곳):
+#     · _make_ai_cache_key_v2 시그니처: matched_stylist, meta 인자 추가 (line ~1416)
+#     · body 딕셔너리: "stl"(stylist name), "cty"(city) 필드 추가 (line ~1505)
+#     · /api/ai/styling 호출부: _matched_stylist, _meta 전달 (line ~3498)
+#   효과:
+#     · 스타일리스트가 다르면 → 다른 캐시 키 → 새 이미지 생성
+#     · 같은 스타일리스트로 재요청 → 캐시 HIT 유지 (디스크 절약)
+#   주의: 기존 캐시(stylist 정보 없이 생성된 v2_* 키)는 영원히 미사용
+#         → 디스크 누적되므로 R2/로컬 정리 권장 (별건)
+#
 # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.7 PROMPT REDESIGN) ─── [코디핏 prompt 6단계 재설계]
 #   배경: TJ가 prompt 구조를 명확히 정의:
 #         "사용자 데이터 수집/분석 → 아바타 99.9% 반영 → 기본 코디 → 스타일리스트 옵션 → TPO → 출력"
@@ -1413,6 +1466,8 @@ def _make_ai_cache_key_v2(
     quality: str = "",
     size: str = "",
     force_regenerate: bool = False,
+    matched_stylist: dict | None = None,
+    meta: dict | None = None,
 ) -> str:
     """[v67 Phase 3] 코디핏 캐시 키 v2 — 버킷팅 적용 + 핵심 필드 보강
 
@@ -1424,9 +1479,17 @@ def _make_ai_cache_key_v2(
       - weather.text: 5종 enum 정규화 (sunny/cloudy/rainy/snowy/other)
       - retrySeed: force_regenerate=True 시에만 포함 (기본 미포함 → 캐시 히트율 ↑)
 
-    캐시 폭발 방지 효과:
+    ─── 2026-05-14 v67 Phase 1.7-fix ─── 스타일리스트 식별 추가 ──
+    TJ 보고: "AI 스타일리스트 변경해도 코디 컬러/스타일 동일"
+    원인: 캐시 키에 stylist_name/city 누락 → 다른 스타일리스트인데도 같은 키 산출
+          → 캐시 HIT → 백엔드 AI 호출 자체가 일어나지 않음
+    수정: matched_stylist/meta를 인자로 받아 캐시 키에 stl(이름)/cty(도시) 포함
+    효과: 스타일리스트가 다르면 다른 캐시 키 → 새 이미지 생성
+
+    캐시 폭발 방지 효과 (유지):
       - v1: 사용자당 평균 480,000개 키 조합 → 히트율 < 1%
       - v2: 사용자당 평균 30~50개 키 조합 → 히트율 70%+
+      - v2+stylist: 사용자당 평균 ~100개 (스타일리스트 풀 × 시나리오) → 여전히 양호
     """
     user = payload.get("user") or {}
     weather = payload.get("weather") or {}
@@ -1502,6 +1565,11 @@ def _make_ai_cache_key_v2(
         "avd": _avoid_hash,
         "tmp": _temp_bucket,
         "wth": _weather_enum,
+        # ─── 2026-05-14 v67 Phase 1.7-fix ─── 스타일리스트 식별
+        # 누락 시: 같은 (사용자, 날씨, 목적)에서 스타일리스트만 바뀌어도 캐시 HIT
+        # → 백엔드 AI 호출 안 됨 → 새 prompt 효과 없음
+        "stl": (matched_stylist or {}).get("name", "") if matched_stylist else "",
+        "cty": (meta or {}).get("active_city", "") if meta else "",
     }
 
     if face_bytes:
@@ -2413,118 +2481,129 @@ def _ai_styling_via_gemini(
         )
 
     # ═══════════════════════════════════════════════════════════════════
-    # ─── 2026-05-14 v67 Phase 1.7 PROMPT REDESIGN ─── 6단계 명확 구조
-    # 이전: IDENTITY → BODY → BACKGROUND → BODY PROPORTION → PANTS → STYLIST → JSON → USER 산만
-    # 변경: USER DATA → AVATAR → CORE OUTFIT → OPTIONAL → TPO → OUTPUT 명확한 순서
-    # TJ 핵심 결정사항 반영:
-    #   1) 사용자 데이터(얼굴/성별/나이/키몸무게/체형/회피컬러)를 가장 먼저 분석 입력으로 제시
-    #   2) 임시 아바타 99.9% 사용자 일치 (얼굴 + 체형)
-    #   3) 기본 코디 = 상의/하의/신발 (필수, 항상)
-    #   4) 아우터/가방/시계/선글라스/모자/스카프/양말 = 옵션 (스타일리스트 재량)
-    #   5) 회피 컬러만 strict (베스트 컬러 prompt에서 제거)
+    # ─── 2026-05-14 v67 Phase 1.7-fix3 PROMPT 7-STEP REDESIGN ─────────
+    # TJ 지시: 6단계 → 7단계로 재구조 + 스타일리스트 차별화 강화
+    # 변경 핵심:
+    #   1) STEP 3 신설: AI 스타일리스트 선정 명시 (시그니처 컬러 강조)
+    #      → 9,600명 페르소나 데이터(color1/color2)가 prompt에 직접 노출
+    #   2) STEP 4: TPO 분석 + 코디 세팅 (이전 STEP 5 → 중간 위치로 이동)
+    #   3) STEP 5: CORE OUTFIT 이미지 생성 (이전 STEP 3)
+    #   4) STEP 6: OPTIONAL 판단 (이전 STEP 4)
+    #   5) STEP 7: OUTPUT FORMAT + 분석 리포트 병행 (이전 STEP 6 + JSON 통합)
+    #   6) AVOID COLORS 3회 반복 → 1회로 축소 (컬러 다양성 회복)
     # ═══════════════════════════════════════════════════════════════════
 
-    # AVOID 컬러 정리 (placeholder "탁한 톤"은 의미 없는 fallback이라 제외)
+    # AVOID 컬러 정리
     _avoid_clean = (pc_avoid_str or "").strip()
     _has_avoid = bool(_avoid_clean and _avoid_clean != "탁한 톤")
 
-    gemini_prompt = (
-        # ─────────────────────────────────────────────────────────────
-        # STEP 0 (implicit): COLOR HINT + STYLIST DIRECTION (engine 출력)
-        # ─────────────────────────────────────────────────────────────
-        custom_directive + prompt + " "
+    # 스타일리스트 시그니처 컬러/메타 (matched_stylist 객체에서 직접 추출)
+    _stylist_color1 = ""
+    _stylist_color2 = ""
+    _stylist_level = ""
+    _stylist_exp = ""
+    if isinstance(matched_stylist, dict):
+        _stylist_color1 = str(matched_stylist.get('color1', '')).strip()
+        _stylist_color2 = str(matched_stylist.get('color2', '')).strip()
+        _stylist_level = str(matched_stylist.get('level', '')).strip()
+        _stylist_exp = str(matched_stylist.get('exp', '')).strip()
 
+    gemini_prompt = (
         # ─────────────────────────────────────────────────────────────
         # STEP 1: USER DATA — 사용자 데이터 (분석 입력)
         # ─────────────────────────────────────────────────────────────
-        + "\n\n=== STEP 1: USER DATA (analysis input) ===\n"
+        "=== STEP 1: USER DATA ===\n"
         "- Face photo: USE THE FIRST REFERENCE IMAGE (provided)\n"
         f"- Gender: {'female' if gender == 'F' else 'male'}\n"
         f"- Age group: {age}\n"
         f"- Body: height {h_int}cm, weight {w_int}kg (BMI {bmi}, {bmi_cat_ko})\n"
-        f"- Body type classification: {body_type_key or 'standard'}\n"
-        + (f"- ⚠️ AVOID COLORS (STRICT — must NOT appear in any clothing or accessory): {_avoid_clean}\n"
-           if _has_avoid else "")
+        f"- Body type: {body_type_key or 'standard'}\n"
+        + (f"- ⚠️ AVOID COLORS (STRICT): {_avoid_clean}\n" if _has_avoid else "")
 
         # ─────────────────────────────────────────────────────────────
         # STEP 2: AVATAR CONSTRUCTION — 임시 아바타 99.9% 사용자 일치
         # ─────────────────────────────────────────────────────────────
-        + "\n=== STEP 2: AVATAR CONSTRUCTION (99.9% IDENTICAL TO USER) ===\n"
-        "First, mentally construct a fashion-model avatar that is 99.9% IDENTICAL to this user.\n"
-        "  • FACE — Replicate ALL facial features from the reference image EXACTLY:\n"
-        "    face shape and jawline contour, eye shape/size/angle, double-eyelid presence and depth,\n"
-        "    eyebrow thickness and arch, nose bridge width and tip shape, lip shape and thickness,\n"
-        "    philtrum length, cheekbone prominence, skin tone and undertone,\n"
-        "    hair color/texture/length/parting line, distinguishing features (moles, freckles, dimples, scars).\n"
-        "    DO NOT beautify, smooth, slim, idealize, age-shift, or alter any facial feature.\n"
-        "    The generated face MUST be instantly recognizable as the SAME individual in the reference.\n"
-        f"  • BODY — Match the exact {h_int}cm / {w_int}kg / {bmi_cat_ko} silhouette.\n"
-        "  • PROPORTION — Fashion-model 8.5 heads (small head, long elegant legs).\n"
-        "  • POSE — Natural standing, full body visible head to toe.\n"
-        # 신체 프로필 상세 (BMI/체형별 do_style/dont_style 직접 지시)
+        + "\n=== STEP 2: AVATAR CONSTRUCTION ===\n"
+        "Construct a fashion-model avatar 99.9% IDENTICAL to this user:\n"
+        "  • FACE — Replicate ALL features from reference EXACTLY (jawline, eyes,\n"
+        "    eyebrows, nose, lips, philtrum, skin tone, hair). NO beautification.\n"
+        f"  • BODY — Match {h_int}cm/{w_int}kg/{bmi_cat_ko} silhouette.\n"
+        "  • PROPORTION — Fashion-model 8.5 heads, full body visible.\n"
         "\n" + _build_body_profile_block(gender, age, height, weight, body_type_key, "en") + "\n"
 
         # ─────────────────────────────────────────────────────────────
-        # STEP 3: CORE OUTFIT — 기본 코디 (상의/하의/신발 필수, 항상)
+        # STEP 3: AI STYLIST SELECTION ★ 시그니처 차별화 핵심
         # ─────────────────────────────────────────────────────────────
-        "\n=== STEP 3: CORE OUTFIT (MANDATORY — ALWAYS INCLUDE ALL THREE) ===\n"
-        "Dress the avatar with these THREE core items. All three are REQUIRED:\n"
-        "  ⊙ TOP (상의) — clearly visible upper-body garment\n"
-        "  ⊙ BOTTOM (하의) — full ankle-length pants OR skirt as specified by the stylist direction above.\n"
-        "    PANTS: hem just above the shoe. Cropped/7-8 length FORBIDDEN.\n"
-        "  ⊙ SHOES (신발) — appropriate footwear, both feet visible, identical pair\n"
-        "Refer to the COLOR HINT and STYLIST DIRECTION (top of prompt) for exact colors/items.\n"
-        + ("⚠️ STRICT: AVOID COLORS from STEP 1 must NOT appear in ANY of these core items.\n"
-           if _has_avoid else "")
+        + "\n=== STEP 3: AI STYLIST SELECTION ★ ===\n"
+        f"Today's matched AI stylist: {stylist_name or 'general expert'}\n"
+        f"  · Active region: {stylist_city or 'Seoul'}\n"
+        + (f"  · Level: {_stylist_level} (experience: {_stylist_exp} years)\n"
+           if (_stylist_level or _stylist_exp) else "")
+        + (f"  · SIGNATURE COLOR (primary): {_stylist_color1}\n"
+           if _stylist_color1 else "")
+        + (f"  · SIGNATURE ACCENT: {_stylist_color2}\n"
+           if _stylist_color2 else "")
+        + "\n"
+        "STYLIST'S CREATIVE DIRECTION (from their expertise & city aesthetics):\n"
+        + custom_directive + prompt + "\n"
+        "\n"
+        "⚠️ CRITICAL: This stylist's signature colors and aesthetic MUST visibly shape\n"
+        "the final outfit. Different stylists MUST produce VISIBLY DIFFERENT outfits\n"
+        "even with the same user, TPO, and weather. Do NOT default to generic looks.\n"
 
         # ─────────────────────────────────────────────────────────────
-        # STEP 4: STYLIST'S OPTIONAL ACCESSORIES — 스타일리스트 재량
+        # STEP 4: TPO ANALYSIS + OUTFIT DECISION
         # ─────────────────────────────────────────────────────────────
-        + f"\n=== STEP 4: STYLIST'S OPTIONAL ACCESSORIES (stylist discretion) ===\n"
-        f"AI stylist {stylist_name or 'fashion expert'} ({stylist_city or 'Seoul'}) decides which OPTIONAL items\n"
-        "to add based on TPO, weather, and persona. Add ONLY what enhances the look (NOT all of them):\n"
-        "  ◇ OUTER (아우터/코트/재킷) — ONLY IF cold weather requires it (below ~15°C)\n"
-        "  ◇ BAG (가방) — if TPO appropriate (office, date, formal occasions)\n"
-        "  ◇ WATCH (시계) — if matches the overall style\n"
-        "  ◇ SUNGLASSES (선글라스) — if outdoor/sunny weather\n"
-        "  ◇ HAT (모자) — if needed for look or weather protection\n"
-        "  ◇ SCARF (스카프) — if cold weather or styling accent\n"
-        "  ◇ SOCKS (양말) — if visible; both feet IDENTICAL (same color/pattern, mismatched FORBIDDEN)\n"
-        "AVOID over-accessorizing. LESS IS MORE — prioritize outfit harmony.\n"
-        + ("⚠️ STRICT: AVOID COLORS from STEP 1 also apply to all optional accessories.\n"
-           if _has_avoid else "")
-
-        # ─────────────────────────────────────────────────────────────
-        # STEP 5: TPO CONTEXT — 상황
-        # ─────────────────────────────────────────────────────────────
-        + f"\n=== STEP 5: TPO CONTEXT ===\n"
+        + "\n=== STEP 4: TPO ANALYSIS + OUTFIT DECISION ===\n"
         f"- Purpose: {purpose_for_analysis}\n"
         f"- Weather: {int(temp)}°C, {cond}\n"
         f"- Location: {location or 'Seoul'}\n"
-        f"- Matched stylist persona: {stylist_name or 'general'} (active in {stylist_city or 'Seoul'})\n"
         + (f"- User custom request: \"{custom_text}\"\n" if is_custom else "")
+        + "\n"
+        "Combining STEP 3 (stylist signature) with the TPO above, decide the outfit:\n"
+        "  → Primary color: should reflect stylist's signature color when appropriate\n"
+        "  → Style direction: must match both TPO and stylist's expertise\n"
+        "  → Weather: bring outer/scarf if cold (<15°C), skip if warm\n"
 
         # ─────────────────────────────────────────────────────────────
-        # STEP 6: OUTPUT FORMAT — 출력 형식
+        # STEP 5: CORE OUTFIT IMAGE GENERATION (필수, 항상)
         # ─────────────────────────────────────────────────────────────
-        + "\n=== STEP 6: OUTPUT FORMAT ===\n"
-        "- Front+back layout: LEFT figure = front view, RIGHT figure = back view\n"
-        "- 16:9 WIDE aspect ratio (or 3:2 acceptable). Each figure ≈ 85% of image height.\n"
-        "- Background: SINGLE SOLID FLAT PASTEL COLOR contrasting with the outfit,\n"
-        "  uniform edge-to-edge (studio backdrop paper style).\n"
-        "- ABSOLUTELY FORBIDDEN: rooms, streets, walls, gradients, patterns, objects,\n"
-        "  environments, text, logos, watermarks, captions.\n"
-        "- Photorealistic fashion editorial quality. STYLIST RULE: everyday wearable,\n"
-        "  no experimental/runway/avant-garde looks.\n"
+        + "\n=== STEP 5: CORE OUTFIT GENERATION (MANDATORY) ===\n"
+        "Generate the avatar wearing these three CORE items (ALL required):\n"
+        "  ⊙ TOP (상의) — clearly visible upper-body garment\n"
+        "  ⊙ BOTTOM (하의) — full ankle-length pants OR skirt as decided in STEP 4\n"
+        "    PANTS: hem just above the shoe. Cropped/7-8 length FORBIDDEN.\n"
+        "  ⊙ SHOES (신발) — both feet visible, identical pair\n"
+
+        # ─────────────────────────────────────────────────────────────
+        # STEP 6: OPTIONAL ACCESSORIES — 스타일리스트 재량
+        # ─────────────────────────────────────────────────────────────
+        + "\n=== STEP 6: OPTIONAL ACCESSORIES (stylist's discretion) ===\n"
+        "Based on STEP 4 TPO/weather and STEP 3 stylist persona, add ONLY what enhances:\n"
+        "  ◇ OUTER (아우터) — only if cold (<15°C)\n"
+        "  ◇ BAG (가방) — if TPO appropriate (office, date, formal)\n"
+        "  ◇ WATCH / SUNGLASSES / HAT / SCARF / SOCKS — only when fitting\n"
+        "AVOID over-accessorizing. LESS IS MORE.\n"
+        "Both feet must wear IDENTICAL socks if socks visible.\n"
+
+        # ─────────────────────────────────────────────────────────────
+        # STEP 7: OUTPUT FORMAT + ANALYSIS REPORT
+        # ─────────────────────────────────────────────────────────────
+        + "\n=== STEP 7: OUTPUT FORMAT + ANALYSIS REPORT ===\n"
+        "[Image format]\n"
+        "- Front+back layout: LEFT = front view, RIGHT = back view\n"
+        "- 16:9 wide aspect ratio. Each figure ≈ 85% of image height.\n"
+        "- Background: SINGLE SOLID FLAT PASTEL COLOR contrasting with outfit,\n"
+        "  uniform edge-to-edge. NO rooms/streets/walls/gradients/text/logos.\n"
+        "- Photorealistic fashion editorial. Everyday wearable (no avant-garde).\n"
 
         # ═════════════════════════════════════════════════════════════
-        # CRITICAL OUTPUT INSTRUCTIONS — JSON 분석 스키마 (Gemini 분기 전용)
-        # GPT Image 2 분기에서는 후처리(line 2615~)로 이 블록 자동 제거됨
+        # 분석 리포트 (STEP 7 병행) — JSON 스키마
+        # GPT Image 2 분기에서는 후처리로 이 블록 자동 제거됨
         # ═════════════════════════════════════════════════════════════
-        "\n\n=== CRITICAL OUTPUT INSTRUCTIONS ===\n"
-        "Along with the generated outfit image, you MUST also output a structured "
-        + ("English" if _cs_en else "Korean") + " analysis as TEXT. "
-        "Wrap the JSON between exact markers <<<ANALYSIS_JSON>>> and <<<END_ANALYSIS>>> with no additional text outside markers. "
+        + "\n[Analysis report — output as TEXT alongside the image]\n"
+        "Wrap the JSON between exact markers <<<ANALYSIS_JSON>>> and <<<END_ANALYSIS>>> "
+        "with no additional text outside markers.\n"
         "The JSON MUST follow this EXACT schema:\n"
         "{\n"
         '  "personalColor": {\n'
@@ -2540,33 +2619,26 @@ def _ai_styling_via_gemini(
         '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
         '  },\n'
         '  "categoryKeywords": {\n'
-        '    "top": "컬러, 아이템 (예: \\"화이트, 실크 블라우스\\") — CORE, must NEVER be empty",\n'
-        '    "bottom": "컬러, 아이템 (예: \\"네이비, 와이드 슬랙스\\") — CORE, must NEVER be empty",\n'
-        '    "shoes": "컬러, 아이템 (예: \\"브라운, 첼시 부츠\\") — CORE, must NEVER be empty",\n'
-        '    "outer": "컬러, 아이템 (없으면 빈 문자열) — OPTIONAL",\n'
-        '    "bag": "컬러, 아이템 (없으면 빈 문자열) — OPTIONAL",\n'
-        '    "watch": "컬러, 아이템 (없으면 빈 문자열) — OPTIONAL",\n'
-        '    "sunglasses": "컬러, 아이템 (없으면 빈 문자열) — OPTIONAL",\n'
-        '    "hat": "컬러, 아이템 (없으면 빈 문자열) — OPTIONAL",\n'
-        '    "scarf": "컬러, 아이템 (없으면 빈 문자열) — OPTIONAL",\n'
-        '    "socks": "컬러, 아이템 (없으면 빈 문자열) — OPTIONAL"\n'
+        '    "top": "컬러, 아이템 (CORE, must NEVER be empty)",\n'
+        '    "bottom": "컬러, 아이템 (CORE, must NEVER be empty)",\n'
+        '    "shoes": "컬러, 아이템 (CORE, must NEVER be empty)",\n'
+        '    "outer": "컬러, 아이템 (OPTIONAL, empty string if not included)",\n'
+        '    "bag": "컬러, 아이템 (OPTIONAL)",\n'
+        '    "watch": "컬러, 아이템 (OPTIONAL)",\n'
+        '    "sunglasses": "컬러, 아이템 (OPTIONAL)",\n'
+        '    "hat": "컬러, 아이템 (OPTIONAL)",\n'
+        '    "scarf": "컬러, 아이템 (OPTIONAL)",\n'
+        '    "socks": "컬러, 아이템 (OPTIONAL)"\n'
         '  }\n'
         "}\n"
         "RULES:\n"
-        "1. Each text field MUST be 250-300 Korean characters (not significantly more/less).\n"
-        "2. Each keywords array MUST contain EXACTLY 3 short Korean keywords (2-6 chars each).\n"
-        "3. categoryKeywords MUST be in EXACT format: '{색상}, {아이템명}' separated by a comma. "
-        "The first part is COLOR ONLY (1-2 words like '베이지'), "
-        "the second part is ITEM ONLY (1-3 words like '트렌치코트'). "
-        "WRONG: '베이지 트렌치코트' (no comma). "
-        "CORRECT: '베이지, 트렌치코트'. "
-        "Each value MUST reflect the EXACT colors and styles in the generated image.\n"
-        "4. CORE (top/bottom/shoes) MUST NEVER be empty. "
-        "OPTIONAL categories use empty string \"\" if not included in the outfit.\n"
+        "1. Each text field MUST be 250-300 Korean characters.\n"
+        "2. Each keywords array MUST contain EXACTLY 3 short Korean keywords (2-6 chars).\n"
+        "3. categoryKeywords format: '{색상}, {아이템}' comma-separated.\n"
+        "   First part = COLOR (1-2 words), second part = ITEM (1-3 words).\n"
+        "4. CORE (top/bottom/shoes) MUST NEVER be empty. OPTIONAL uses \"\" if absent.\n"
         "5. Output ONLY the image AND the marked JSON. Nothing else.\n"
-        # ─────────────────────────────────────────────────────
-        # PC AVOID OVERRIDE 첨언 (사용자가 직접 회피 컬러 요청 시)
-        # ─────────────────────────────────────────────────────
+        # PC AVOID OVERRIDE 첨언
         + ("\n[CRITICAL — PC AVOID OVERRIDE NOTICE]\n"
            "사용자가 직접입력으로 본인의 퍼스널컬러 avoid 컬러를 요청했습니다. "
            "이번 코디는 사용자 요청에 따라 avoid 컬러를 사용했지만, "
@@ -2960,7 +3032,14 @@ def _ai_styling_via_gemini(
         model=f"gemini:{model_name}",
         cached=False,
         prompt=gemini_prompt if os.getenv("CODIBANK_DEBUG_PROMPT") == "1" else None,
-        stylist=matched_stylist,
+        # ─── 2026-05-14 KST · TJ 보고 ─── 활동지역 '서울 고정' 버그 수정
+        # matched_stylist 객체는 DB 구조상 city 필드 없음 (city는 최상위 key)
+        # → 응답 직전 active_city를 stylist.city로 주입하여 frontend가 정확히 표시
+        stylist=(
+            (lambda s, c: ({**s, 'city': c} if isinstance(s, dict) and c else s))(
+                matched_stylist, (meta or {}).get('active_city', '') if meta else ''
+            )
+        ),
         stylingStory=(meta or {}).get("styling_story") if meta else None,
         engineKeywords=(meta or {}).get('keywords_selected', []) if meta else [],
         engineCategoryKeywords=merged_cat_kws,
@@ -3499,6 +3578,10 @@ def ai_styling():
         quality=_quality_for_key,
         size=_size_for_key,
         force_regenerate=_force_regen,
+        # ─── 2026-05-14 v67 Phase 1.7-fix ─── 스타일리스트 정보 전달
+        # TJ 보고 "스타일리스트 변경해도 코디 동일" 버그 수정
+        matched_stylist=_matched_stylist,
+        meta=_meta,
     )
     ext = "jpg" if output_format.lower() in ("jpeg", "jpg") else output_format.lower()
     cache_fname = f"ai_{cache_key}.{ext}"
@@ -3520,7 +3603,12 @@ def ai_styling():
             cached=True,
             stylingAnalysis=None,  # Phase 2: 별도 엔드포인트로 호출
             cacheKey=cache_key,    # Phase 2: 클라이언트가 분석 API 호출 시 사용
-            stylist=_matched_stylist,
+            # ─── 2026-05-14 KST · TJ 보고 ─── 활동지역 city 주입 (서울 고정 버그 수정)
+            stylist=(
+                (lambda s, c: ({**s, 'city': c} if isinstance(s, dict) and c else s))(
+                    _matched_stylist, (_meta or {}).get('active_city', '') if _meta else ''
+                )
+            ),
             stylingStory=(_meta or {}).get("styling_story") if _meta else None,
             engineKeywords=(_meta or {}).get('keywords_selected', []) if _meta else [],
             engineCategoryKeywords=(_meta or {}).get('categoryKeywords', {}) if _meta else {},
@@ -3719,7 +3807,12 @@ def ai_styling():
             model=model_used,
             cached=False,
             prompt=prompt if os.getenv("CODIBANK_DEBUG_PROMPT") == "1" else None,
-            stylist=_matched_stylist,
+            # ─── 2026-05-14 KST · TJ 보고 ─── 활동지역 city 주입 (서울 고정 버그 수정)
+            stylist=(
+                (lambda s, c: ({**s, 'city': c} if isinstance(s, dict) and c else s))(
+                    _matched_stylist, _meta.get('active_city', '') if _meta else ''
+                )
+            ),
             stylingStory=_styling_story or None,
             # [2026-04-06 추가] UI 스타일링 포인트용 데이터
             engineKeywords=_meta.get('keywords_selected', []),
