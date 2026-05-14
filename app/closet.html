@@ -5527,11 +5527,16 @@ async function updateVTO(opts={}){
           try{
             var _ssBox = document.getElementById('stylistSummaryBox');
             var _ssTxt = document.getElementById('stylistSummaryText');
-            if(_ssBox && _ssTxt && data.stylist){
-              _ssTxt.innerHTML = '<strong>' + (data.stylist.name||'') + '</strong>, ' + (data.stylist.city||'서울') + '지역 활동' +
-                '<br><span style="font-size:10px;color:rgba(255,255,255,0.5);">' + (data.stylist.voice||data.stylist.career||'') + '</span>';
-              _ssBox.classList.remove('hidden');
-            }
+          // ─── 2026-05-14 KST · TJ 보고 ─── 활동지역 '서울 고정' 버그 수정
+          // 이전: data.stylist.city || '서울' → 백엔드가 city 안 주면 항상 '서울' 표시
+          // 변경: data.stylist.city || data.engineCity || '서울' → engineCity는 항상 active_city를 담음
+          // 백엔드도 동시에 수정 (matched_stylist에 city 주입)했지만 이중 안전망으로 유지
+          var _activeCity = (data.stylist && data.stylist.city) || data.engineCity || '서울';
+          if(_ssBox && _ssTxt && data.stylist){
+            _ssTxt.innerHTML = '<strong>' + (data.stylist.name||'') + '</strong>, ' + _activeCity + '지역 활동' +
+              '<br><span style="font-size:10px;color:rgba(255,255,255,0.5);">' + (data.stylist.voice||data.stylist.career||'') + '</span>';
+            _ssBox.classList.remove('hidden');
+          }
           }catch(_){}
           // [2026-04-11] 3개 분석 섹션 렌더링
           try{
