@@ -5,6 +5,44 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1) ─── [코디핏 속도/품질/비용 최적화]
+#   배경: 코디핏 이미지 생성이 1분 이상 소요되는 문제 해결
+#         TJ 결정: Phase 1 (최소 변경 + 즉효 + 저위험)만 우선 적용
+#         Phase 2(분석 분리/UI 개편) / Phase 3(캐시 v2)는 별도 진행
+#   목표: 품질 중상 유지 + 생성시간 단축 + 실패율 감소 + 비용 절감
+#   변경 — 5개 영역 (모두 _ai_styling_via_gemini 함수 + /api/ai/styling 엔드포인트 내부):
+#   1) 이미지 사이즈 기본값 변경 (line ~2340):
+#      · "1536x864" (16:9) → "1536x1024" (표준 3:2)
+#      · 이유: 정/후면 토글 가독성 우선, gpt-image-2 standard size 안정성
+#      · 환경변수 CODIBANK_GPT_IMAGE_SIZE로 오버라이드 가능
+#   2) GPT Image 2 분기 prompt 후처리 (line ~2325):
+#      · _outfit_prompt = gemini_prompt[:4000] (slice) → 정규식 후처리로 변경
+#      · A. JSON 분석 스키마 블록 제거 (GPT Image 2는 텍스트 출력 안 함 → 토큰 낭비)
+#           "=== CRITICAL OUTPUT INSTRUCTIONS ===" ~ "Nothing else." 통째로 제거
+#      · B. "베스트: ..." 줄 제거 (퍼스널컬러 추천 컬러)
+#           이유: 추천 컬러 prompt 명시 → 이미지 다양성 저하 (TJ 지적)
+#           해결: 추천 컬러는 분석 보고서에서만 다루고, 이미지에는 미명시
+#      · C. "주의: ..." 줄을 AVOID COLORS strict로 강조 변환
+#           이유: 피해야 할 컬러만 strict로 강조 (TJ 결정)
+#           예외: "탁한 톤" (default fallback) 케이스는 제거
+#      · D. 최종 길이 제한 4000자 유지
+#   3) OpenAI 호출 옵션 추가 (line ~2346-2362):
+#      · output_format="jpeg" (PNG 대비 인코딩/전송 빠름, R2 저장 비용 ↓)
+#      · output_compression=80 (의류 패턴 보존 + 파일 크기 30~40% 절감)
+#      · timeout=35 (with_options) — fail-fast로 무의미한 대기 차단
+#      · images.edit / images.generate 양쪽 적용
+#   4) faceless 재시도 제거 (line ~2876-2883):
+#      · _ai_styling_via_gemini 실패 시 OpenAI 폴백 라우팅 제거
+#      · 이전: GPT Image 2 실패 → OpenAI variants 다중 시도 → 추가 60초+ 대기
+#      · 변경: 실패 시 즉시 에러 반환 → 사용자가 빠르게 재시도 가능
+#      · OpenAI 폴백 경로 자체는 보존 (CODIBANK_AI_STYLING_PROVIDER=openai 시 사용)
+#   5) (없음 — Phase 2/3에서 처리)
+#   영향 범위: 코디핏(closet.html, /api/ai/styling)만.
+#              트라이온/코디하기/AI옷장 등 다른 서비스 무영향.
+#   환경변수 (Render 변경 권장):
+#      · CODIBANK_GPT_IMAGE_SIZE="1536x1024" (코드 기본값과 동일, 명시적 설정 권장)
+#   롤백 방법: 이 블록 + 5개 수정 지점의 v67 주석 영역 원복
+#
 # ─── 2026-05-13 KST · TJ 지시 (v66 QUALITY) ─── [prompt 단순화 + 패션모델 비율]
 #   배경: medium 품질에서 결과 디테일 부족 + 비율 어색
 #   TJ 결정 (3가지):
@@ -2322,7 +2360,39 @@ def _ai_styling_via_gemini(
             # 이유: gemini_prompt 28k chars는 Gemini용 디테일(4-Pass, DNA, 액세서리 다양성 등)이라
             #       GPT Image 2에는 오히려 noise. 핵심 정보(스타일리스트/색상/카테고리/사용자)는
             #       gemini_prompt 첫 부분에 위치하므로 4000자만 발췌.
-            _outfit_prompt = gemini_prompt[:4000] if len(gemini_prompt) > 4000 else gemini_prompt
+            # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1) ─── prompt 후처리 강화 ───
+            # 단순 slice → 정규식 후처리로 변경:
+            #   A) JSON 분석 스키마 블록 제거 (GPT Image 2는 텍스트 출력 안 함 → 토큰 낭비)
+            #   B) 퍼스널컬러 "베스트: ..." 줄 제거 (TJ 지적: 추천 컬러 명시 → 이미지 다양성 저하)
+            #   C) 퍼스널컬러 "주의: ..." 줄을 AVOID COLORS strict로 강조 변환
+            #      → 추천 컬러는 분석 보고서에서만 다루고, 이미지에는 미명시 (TJ 결정)
+            #   D) 마지막에 4000자 길이 제한
+            import re as _re_pp
+            _outfit_prompt = gemini_prompt
+            # A) JSON 스키마 블록 제거 (인덱스 기반 — 정규식 fragile 회피)
+            _json_start = _outfit_prompt.find("=== CRITICAL OUTPUT INSTRUCTIONS ===")
+            if _json_start != -1:
+                _json_end_marker = "Output ONLY the image AND the marked JSON. Nothing else."
+                _json_end = _outfit_prompt.find(_json_end_marker, _json_start)
+                if _json_end != -1:
+                    _outfit_prompt = (
+                        _outfit_prompt[:_json_start].rstrip()
+                        + "\n"
+                        + _outfit_prompt[_json_end + len(_json_end_marker):]
+                    )
+            # B) "베스트: ..." 줄 제거 (퍼스널컬러 추천 컬러 — 이미지 다양성 확보)
+            _outfit_prompt = _re_pp.sub(r'\s*베스트:[^\n]*\n', '\n', _outfit_prompt)
+            # C) "주의: ..." 줄을 AVOID COLORS strict로 강조 변환
+            #    예외: "탁한 톤" (default fallback, 의미 없는 placeholder) 케이스는 줄 자체 제거
+            def _avoid_replace(_m):
+                _v = _m.group(1).strip()
+                if not _v or _v == "탁한 톤":
+                    return "\n"
+                return f"\n  ⚠️ AVOID COLORS (must NOT appear anywhere in the outfit): {_v}\n"
+            _outfit_prompt = _re_pp.sub(r'\s*주의:\s*([^\n]+)\n', _avoid_replace, _outfit_prompt)
+            # D) 길이 제한
+            if len(_outfit_prompt) > 4000:
+                _outfit_prompt = _outfit_prompt[:4000]
             
             # FINAL REMINDER (prompt 끝에 강조) — GPT Image 2는 끝부분 지시를 강하게 따름
             _final_reminder = (
@@ -2336,29 +2406,38 @@ def _ai_styling_via_gemini(
             
             _gpt_prompt = _ref_header + _layout_directives + _outfit_prompt + _final_reminder
             
-            # 사이즈: 16:9 wide (정+후면 layout 지원)
-            _gpt_size = os.getenv("CODIBANK_GPT_IMAGE_SIZE", "1536x864")
+            # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1) ─── 사이즈 표준 3:2로 변경 ───
+            # 이전: "1536x864" (16:9) — 정/후면 각 768x864 (8:9 세로형, 약간 비좁음)
+            # 변경: "1536x1024" (3:2) — 정/후면 각 768x1024 (3:4 세로형, 가독성 ↑)
+            # gpt-image-2의 standard size 중 하나라 안정적 + 캐시 효율 ↑
+            _gpt_size = os.getenv("CODIBANK_GPT_IMAGE_SIZE", "1536x1024")
             
             # face/top/bottom 유무에 따라 API 분기
             #   - 이미지 reference 있음 → images.edit
             #   - 모두 없음 → images.generate (text-to-image, face 자동 생성)
+            # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1) ─── 출력 최적화 + timeout ───
+            # · output_format="jpeg": PNG 대비 인코딩/전송 빠름, R2 저장 비용 ↓
+            # · output_compression=80: 의류 패턴 보존 + 파일 크기 30~40% 절감
+            # · timeout=35 (with_options): fail-fast로 무의미한 대기 차단
+            #   - OpenAI SDK v1.x의 per-request timeout 패턴 (client 인스턴스에 영향 없음)
+            _gpt_call_opts = dict(
+                model=model_name,
+                prompt=_gpt_prompt,
+                quality=_quality or "medium",
+                size=_gpt_size,
+                n=1,
+                output_format="jpeg",
+                output_compression=80,
+            )
             if len(_image_files) > 0:
-                _gpt_response = _gpt_client.images.edit(
-                    model=model_name,
+                _gpt_response = _gpt_client.with_options(timeout=35.0).images.edit(
                     image=_image_files,
-                    prompt=_gpt_prompt,
-                    quality=_quality or "medium",
-                    size=_gpt_size,
-                    n=1,
+                    **_gpt_call_opts,
                 )
             else:
                 print(f"[ai_styling_gpt_image] 모든 ref 미등록 → images.generate fallback (face 자동 생성)", flush=True)
-                _gpt_response = _gpt_client.images.generate(
-                    model=model_name,
-                    prompt=_gpt_prompt,
-                    quality=_quality or "medium",
-                    size=_gpt_size,
-                    n=1,
+                _gpt_response = _gpt_client.with_options(timeout=35.0).images.generate(
+                    **_gpt_call_opts,
                 )
             
             # 응답에서 base64 → bytes
@@ -2873,23 +2952,24 @@ def ai_styling():
             )
             # _ai_styling_via_gemini는 이미 jsonify 결과를 반환
             # 성공이면 그대로 반환, 실패면 폴백
+            # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1) ─── faceless 재시도 제거 ───
+            # 이전: GPT Image 2 실패(500) → OpenAI 폴백 → variants 다중 시도 → +60초 대기
+            # 변경: 즉시 에러 반환 → 사용자가 빠르게 재시도 가능 (fail-fast)
+            #   · OpenAI 폴백 경로 자체는 보존 (CODIBANK_AI_STYLING_PROVIDER=openai 명시 시 사용)
+            #   · 자동 폴백만 차단
             if isinstance(_gemini_result, tuple):
-                # (jsonify(error), status_code) 형태 → 에러 발생
-                _resp_obj, _status = _gemini_result
-                if _status == 500 and has_openai:
-                    print(f"[ai_styling] Gemini 실패, OpenAI 폴백으로 전환")
-                    # 폴백 로직으로 진행 (아래 OpenAI 코드 실행)
-                else:
-                    return _gemini_result
+                # (jsonify(error), status_code) 형태 → 즉시 반환 (폴백 없음)
+                return _gemini_result
             else:
                 # jsonify(...) 단독 반환 → 성공
                 return _gemini_result
         except Exception as _ge:
-            print(f"[ai_styling] Gemini 라우팅 예외: {_ge}, OpenAI 폴백 시도")
+            print(f"[ai_styling] Gemini 라우팅 예외: {_ge}")
             import traceback as _tbg
             _tbg.print_exc()
-            if not has_openai:
-                return jsonify(ok=False, error=f"Gemini 실패: {str(_ge)[:300]}"), 500
+            # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1) ─── 자동 폴백 차단 ───
+            # 예외 발생 시에도 OpenAI 폴백으로 자동 전환하지 않음.
+            return jsonify(ok=False, error=f"이미지 생성 실패: {str(_ge)[:300]}"), 500
 
     # ── 코디쌤(/api/ai/styling) OpenAI 폴백 경로 ──
     # 위 Gemini 라우팅이 실패했거나 명시적으로 OpenAI를 선택한 경우 사용
