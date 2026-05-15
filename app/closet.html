@@ -49,6 +49,17 @@
         - fetchAnalysisAndFill(cacheKey) — 분석 텍스트 별도 호출
     · window.renderStylingPoint = renderStylingPoint 노출 (line 7007)
       → v68 IIFE가 카테고리 키워드 렌더링 함수 접근 가능
+  ★ 2026-05-14 추가 변경 (CB.api 미정의 버그 수정 + 순차 호출):
+    · v68 IIFE 자체 v68Fetch 헬퍼 추가 (line 8670)
+      → 기존 postJson은 callClaude IIFE 내부 const라 별도 IIFE에서 접근 불가
+      → aiBase 자체 추출 (cfg.backendBase | CodiBank.getBackendBaseResolved)
+      → 4곳 CB.api 호출 모두 v68Fetch로 교체 (STEP A/B/C + 분석)
+      → HTTP 상태 코드 체크 추가 (!r.ok 시 명확한 에러 메시지)
+    · STEP A 동시 호출 → stagger 시작 (1.5초 간격) 변경 (line 8998)
+      → 이유: 4개 동시 호출 시 OpenAI Tier 1 5/분 제한 또는 Render 메모리 부담 → 모두 실패
+      → 호출 시점만 1.5초씩 stagger (0s/1.5s/3s/4.5s 시작), 응답 대기는 각자 비동기 병렬
+      → 총 예상: 마지막 호출 시작(4.5s) + LOW 응답(25-35s) = 약 30-40초
+      → setTimeout(() => fetchStepACard(i).then(resolve), i * 1500) + Promise.all
   영향 범위:
     · 코디핏(closet.html, /api/ai/styling) 전용
     · 트라이온/코디하기/AI옷장 무영향
@@ -8966,14 +8977,17 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     };
   }
 
-  // ─── STEP A 시작 (4번 병렬) ───
+  // ─── 2026-05-14 KST · TJ 지시 (v68 4→2→1 흐름) ─── stagger 시작 ────
+  // TJ 의도: API 호출 시점만 1.5초씩 미루고, 응답 대기는 각자 비동기 병렬
+  // 즉 4개 호출이 0s/1.5s/3s/4.5s에 시작 → rate limit 회피 + 빠른 완료
+  // (순차 await는 X — 그러면 총 4분 소요. stagger 시작은 마지막 호출 시작 ~4.5s 후 응답)
+  // 총 예상: 마지막 호출 시작(4.5s) + LOW 응답(25-35s) = 약 30-40초
   async function startStepA(){
     if(flow.busy) return;
     flow.busy = true;
     flow.stepACards = [null, null, null, null];
     flow.stepASelected = null;
-    // ─── 2026-05-14 KST · TJ 지시 (v68) ─── 분석 박스 강제 숨김 ──────
-    // STEP A 시작 시 두 박스가 이전 결과로 보일 수 있어 안전망으로 hidden 강제
+    // 분석 박스 강제 숨김 (이전 결과 잔여물 안전망)
     hideAnalysisBoxes();
     // 섹션 표시 + 카드 초기 그리기
     showSection('stepAGrid');
@@ -8982,8 +8996,17 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     cities.forEach((c, i) => renderStepACard(i, c, 'loading', null));
     const statusEl = $('stepAStatus');
     if(statusEl) statusEl.textContent = '(4명 병렬 생성 중...)';
-    // 4번 병렬 호출 (Promise.allSettled — 일부 실패 허용)
-    await Promise.allSettled(cities.map((_, i) => fetchStepACard(i)));
+    // stagger 시작 — 각 호출의 시작 시점만 1.5초씩 지연, 응답 대기는 병렬
+    const STAGGER_MS = 1500;
+    const promises = cities.map((_, i) => {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          // 시작 시점이 지연되어 도착 → 즉시 호출 (응답은 비동기 병렬 대기)
+          fetchStepACard(i).then(resolve).catch(() => resolve());
+        }, i * STAGGER_MS);
+      });
+    });
+    await Promise.all(promises);
     if(statusEl) statusEl.textContent = '(1개 탭하여 선택)';
     flow.busy = false;
   }
