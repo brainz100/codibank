@@ -1010,12 +1010,13 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
  * ───────────────────────────────────────────── */
 .vto-result-box{
   width:100%;
-  aspect-ratio:1/1.62;
+  aspect-ratio: 3 / 2;    /* ─── 2026-05-14 KST · TJ 보고 ─── 1/1.62 세로형 → 3/2 가로형
+                              wide 1536×1024 (16:9 ≈ 3:2) 풀 표시. 인물 잘림 없음 */
   border-radius:20px;
-  overflow-x:auto;        /* [v14] 가로 스크롤 활성화 */
+  overflow-x:auto;
   overflow-y:hidden;
   position:relative;
-  display:block;          /* flex → block (스크롤 보존) */
+  display:block;
   background:
     radial-gradient(ellipse 90% 60% at 50% 45%, rgba(53,162,159,0.12) 0%, transparent 65%),
     linear-gradient(160deg, #0B1238 0%, #050A24 100%);
@@ -1024,7 +1025,6 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     inset 0 1px 0 rgba(151,254,237,0.06),
     inset 0 -1px 0 rgba(0,0,0,0.35),
     0 8px 24px rgba(0,0,0,0.3);
-  /* [v14] 부드러운 스크롤 + 스냅 */
   scroll-behavior:smooth;
   scroll-snap-type:x mandatory;
   -webkit-overflow-scrolling:touch;
@@ -1398,44 +1398,56 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .step-b-stack{
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 .step-b-card{
   position: relative;
   width: 100%;
-  aspect-ratio: 3 / 2;
-  border-radius: 12px;
+  aspect-ratio: 3 / 2;     /* wide 16:9 이미지 → 3:2 박스에 풀 fit */
+  border-radius: 16px;
   overflow: hidden;
-  background: rgba(7, 25, 82, 0.6);
-  border: 1px solid rgba(151, 254, 237, 0.15);
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 50%, rgba(53,162,159,0.08) 0%, transparent 60%),
+    linear-gradient(160deg, #0B1238 0%, #050A24 100%);
+  border: 1px solid rgba(151, 254, 237, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(151,254,237,0.06),
+    0 6px 20px rgba(0,0,0,0.3);
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
-.step-b-card:hover{ border-color: rgba(151, 254, 237, 0.4); }
+.step-b-card:hover{
+  border-color: rgba(151, 254, 237, 0.4);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(151,254,237,0.1), 0 8px 24px rgba(0,0,0,0.4);
+}
 .step-b-card.selected{
   border-color: #97FEED;
   border-width: 2px;
-  box-shadow: 0 0 0 2px rgba(151, 254, 237, 0.3);
+  box-shadow: 0 0 0 2px rgba(151, 254, 237, 0.3),
+              inset 0 1px 0 rgba(151,254,237,0.1),
+              0 8px 24px rgba(0,0,0,0.4);
 }
 .step-b-card .card-img{
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: 25% center;
+  object-fit: contain;     /* 3:2 wide 이미지 풀 표시 (잘림 없음) */
   display: block;
 }
 .step-b-card .card-label{
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: 10px;
+  left: 10px;
   font-size: 10px;
-  font-weight: 700;
-  color: #fff;
-  background: rgba(7, 25, 82, 0.85);
-  border: 1px solid rgba(151, 254, 237, 0.3);
-  padding: 4px 9px;
+  font-weight: 800;
+  color: #97FEED;
+  background: rgba(5, 16, 48, 0.85);
+  border: 1px solid rgba(151, 254, 237, 0.4);
+  padding: 5px 11px;
   border-radius: 999px;
   pointer-events: none;
+  letter-spacing: 0.05em;
+  backdrop-filter: blur(4px);
 }
 
 /* 확대 모달 */
@@ -1509,12 +1521,10 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-imgbox{
   position: relative;
   width: 100%;
-  /* ─── 2026-05-14 KST · TJ 보고 ─── 모달 박스 크기 축소 (버튼 가려지는 문제) ───
-     이전: aspect-ratio 4/5 + max-height 50vh (모바일에서 분석/버튼 가려짐)
-     변경: aspect-ratio 1/1 (정사각형) + max-height 38vh
-     인물 정면(좌측 절반)이 정사각형 박스에 더 잘 보이고, 하단 영역 확보 */
-  aspect-ratio: 1 / 1;
-  max-height: 38vh;
+  /* ─── 2026-05-14 KST · TJ 보고 ─── 1/1 → 3/2 비율 ───
+     생성 이미지가 1536×1024 (3:2) → 박스도 3:2로 풀 fit (인물 잘림 없음) */
+  aspect-ratio: 3 / 2;
+  max-height: 40vh;
   border-radius: 14px;
   overflow: hidden;
   background: rgba(7, 25, 82, 0.6);
@@ -1561,6 +1571,27 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+/* ─── 2026-05-14 KST · TJ 보고 ─── 분석 영역에 헤더(도시/스타일리스트) 통합 ─── */
+.expand-modal-analysis-header{
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(151, 254, 237, 0.12);
+}
+.expand-modal-analysis-city{
+  font-size: 14px;
+  font-weight: 800;
+  color: #97FEED;
+  letter-spacing: 0.05em;
+}
+.expand-modal-analysis-stylist{
+  font-size: 11px;
+  color: rgba(151, 254, 237, 0.65);
+  font-weight: 500;
 }
 .expand-modal-analysis-title{
   font-size: 10px;
@@ -9414,9 +9445,18 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const vtoBox = $('vtoResultBox');
     const vtoOverlay = $('vtoOverlay');
     const vtoCanvas = $('vtoCanvas');
-    if(vtoBox) vtoBox.classList.remove('hidden');
+    const vtoSpinner = $('vtoSpinner');
+    if(vtoBox){
+      vtoBox.classList.remove('hidden');
+      // ─── 2026-05-14 KST · TJ 보고 ─── codibank 텍스트 컬러 변환 동적 효과 ─── 
+      vtoBox.classList.add('vto-loading');   // shimmer + pulse ring 활성화
+    }
     if(vtoOverlay){ vtoOverlay.style.display = 'flex'; }
     if(vtoCanvas){ vtoCanvas.style.display = 'none'; }
+    if(vtoSpinner){
+      vtoSpinner.style.display = 'flex';
+      vtoSpinner.classList.add('animating');  // ★ codibank 글자 색상 변환 시작
+    }
     // STEP C 호출 — Medium quality, 같은 도시, 같은 스타일리스트 매칭 시도
     try{
       const cityInfo = getGridCities()[flow.stepASelected];
@@ -9438,6 +9478,12 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         // fallback: 직접 그리기
         await drawStepCToCanvas(j.image);
       }
+      // ─── 로딩 효과 정리 (완료 시) ───
+      if(vtoBox) vtoBox.classList.remove('vto-loading');
+      if(vtoSpinner){
+        vtoSpinner.classList.remove('animating');
+        vtoSpinner.style.display = 'none';
+      }
       if(vtoOverlay) vtoOverlay.style.display = 'none';
       if(vtoCanvas) vtoCanvas.style.display = 'block';
       // 정/후면 토글 활성화
@@ -9456,6 +9502,9 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       showAnalysisBoxes();
     }catch(err){
       console.error('[v68 STEP C]', err);
+      // 에러 시에도 로딩 효과 정리
+      if(vtoBox) vtoBox.classList.remove('vto-loading');
+      if(vtoSpinner) vtoSpinner.classList.remove('animating');
       alert('최종 이미지 생성 실패: ' + (err.message || ''));
     }
     flow.busy = false;
@@ -9532,10 +9581,6 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       <button class="expand-modal-close" id="expandModalClose" aria-label="닫기">
         <span class="material-symbols-outlined" style="font-size:20px;">close</span>
       </button>
-      <div class="expand-modal-header">
-        <span id="expandModalCity" style="font-size:12px;font-weight:700;color:#97FEED;letter-spacing:0.05em;">서울</span>
-        <span id="expandModalStylist" style="font-size:10px;color:rgba(151,254,237,0.6);"></span>
-      </div>
       <div class="expand-modal-imgbox" id="expandModalImgBox">
         <canvas id="expandModalCanvas"></canvas>
       </div>
@@ -9543,8 +9588,12 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         <button type="button" class="expand-pose-btn active" data-pose="front">정면</button>
         <button type="button" class="expand-pose-btn" data-pose="back">후면</button>
       </div>
-      <!-- ─── 2026-05-14 KST · TJ 지시 (v68) ─── 모달 분석 영역 ─── -->
+      <!-- ─── 2026-05-14 KST · TJ 보고 ─── 헤더 텍스트(도시/스타일리스트) → 분석 영역 이동 ─── -->
       <div class="expand-modal-analysis" id="expandModalAnalysis">
+        <div class="expand-modal-analysis-header">
+          <span id="expandModalCity" class="expand-modal-analysis-city">서울</span>
+          <span id="expandModalStylist" class="expand-modal-analysis-stylist"></span>
+        </div>
         <div class="expand-modal-analysis-title">스타일 분석</div>
         <div class="expand-modal-analysis-text" id="expandModalAnalysisText">
           스타일리스트의 시그니처를 반영한 코디입니다.
