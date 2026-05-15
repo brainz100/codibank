@@ -7,6 +7,53 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-14 KST · TJ 지시 (v68 4→2→1 흐름) ─── [코디핏 새 UX]
+  배경: 추천코디 1장 단일 생성 → 4장 선택지 + 유사 변형 + 고화질 최종 흐름으로 전면 개편
+  추가 (closet.html, 3개 영역):
+    1) HTML 골격 (vto-outer-layer 직전 ~line 1880):
+       · #stepAGrid — 4장 2×2 그리드 (도시별 4명 스타일리스트)
+       · #stepBCompare — 2장 1×2 비교 (선택 + 유사 변형, 3:2 비율)
+       · #stepCLabel — STEP C 안내 (기존 #vtoResultBox 재활용)
+       · #expandModal — 카드 탭 시 확대 모달 (정/후면 토글 + 선택 버튼)
+    2) CSS (line 1195 직후 ~150줄):
+       · .step-section / .visible / .hidden 트랜지션 (max-height + opacity)
+       · .step-a-grid / .step-a-card — 2×2 정사각형 카드
+       · .step-b-stack / .step-b-card — 1×2 3:2 비율
+       · .expand-modal — 풀스크린 모달 + 정/후면 토글
+    3) JS (마지막 script 끝 ~370줄):
+       · startStepA() — 4번 병렬 호출 (Promise.allSettled, 부분 실패 허용)
+       · openModalForCard() / toggleModalPose() — 모달 + 정/후면 토글
+       · onModalSelect() → confirm 팝업 → STEP B 또는 STEP C 분기
+       · startStepB() — 선택 stylist의 유사 변형 1장 (_similar_variation hook)
+       · startStepC() — Medium 업그레이드 (_force_quality='medium', 기존 vto-box 재활용)
+       · window.runCodifitGridFlow — 외부 트리거용 노출
+  백엔드 동시 변경 (mock_backend.py):
+    · /api/ai/styling에 hook 3개 추가 (_force_city / _force_quality / _similar_variation)
+    · 추가 endpoint 없음 (기존 endpoint 재사용)
+  미완성 / 다음 턴:
+    · STEP C input_fidelity="high" — 선택한 LOW 이미지를 reference로 사용
+      → 새 endpoint /api/codifit/upgrade 필요 (images.edit + ref_image)
+    · STEP A 카드 점진 표시 (도착 순서대로 fade-in)
+    · 캐시 키 v68 분리 (4장은 캐시 안 함, STEP C만 캐시)
+  ★ 2026-05-14 추가 변경 (트리거 연결 완료):
+    · window.S = S 노출 (line 2462) — 새 IIFE가 S 접근 가능
+    · armAndGenerate 내부 generateStyling 호출 → runCodifitGridFlow 교체 (line 6753)
+    · buildStepAPayload — purposeKey/customText 정확히 매핑 (S.pk, S.customPurpose)
+    · 기존 단일 1장 흐름은 fallback으로 유지 (runCodifitGridFlow 미정의 시)
+  ★ 2026-05-14 추가 변경 (분석 박스 표시 시점 제어):
+    · #codiDetailBox / #codiPointBox 초기 hidden class 추가 (line 2068, 2144)
+    · v68 IIFE에 헬퍼 함수 4개 추가:
+        - hideAnalysisBoxes() — STEP A 시작 시 안전망 호출
+        - showAnalysisBoxes() — STEP C 응답 도착 시 표시
+        - fillAnalysisBoxes(data) — stylist/카테고리/스토리 채우기
+        - fetchAnalysisAndFill(cacheKey) — 분석 텍스트 별도 호출
+    · window.renderStylingPoint = renderStylingPoint 노출 (line 7007)
+      → v68 IIFE가 카테고리 키워드 렌더링 함수 접근 가능
+  영향 범위:
+    · 코디핏(closet.html, /api/ai/styling) 전용
+    · 트라이온/코디하기/AI옷장 무영향
+    · v53 SDK fix zone 무영향
+
 ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.7-fix4) ─── [카테고리 포인트 갱신 + 온도 + 토글]
   변경 (closet.html, 4곳):
     1) line ~5574: 서버 응답으로 categoryKeywords 갱신 후 renderStylingPoint() 재호출
@@ -1193,6 +1240,292 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
 /* ── 저장 완료 토스트 (2026-04-16 비활성화됨 — .show 규칙 제거로 항상 숨김) ── */
 #vtoSaveToast{display:none !important;}
+
+/* ═══════════════════════════════════════════════════════════════════════ */
+/* ─── 2026-05-14 KST · TJ 지시 (v68 4→2→1 흐름) ─── 새 UI CSS         */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+/* 섹션 펼침 트랜지션 (max-height + opacity) */
+.step-section{
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.5s ease-out, opacity 0.4s ease-out, margin 0.3s ease-out;
+}
+.step-section.visible{
+  max-height: 2000px;  /* 충분히 큰 값 */
+  opacity: 1;
+}
+.step-section.hidden{ /* 초기 상태 강제 */
+  max-height: 0;
+  opacity: 0;
+  margin: 0;
+}
+
+/* STEP A 4장 그리드 (2×2) */
+.step-a-grid{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.step-a-card{
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(7, 25, 82, 0.6);
+  border: 1px solid rgba(151, 254, 237, 0.15);
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.step-a-card:hover{
+  border-color: rgba(151, 254, 237, 0.4);
+  transform: translateY(-2px);
+}
+.step-a-card.selected{
+  border-color: #97FEED;
+  border-width: 2px;
+  box-shadow: 0 0 0 2px rgba(151, 254, 237, 0.3);
+}
+.step-a-card .card-img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 25% center;  /* wide 16:9에서 좌측 절반(정면) 위주 표시 */
+  display: block;
+}
+.step-a-card .card-loading{
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.step-a-card .card-spinner{
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(151, 254, 237, 0.2);
+  border-top-color: #97FEED;
+  border-radius: 50%;
+  animation: cb-spin 0.8s linear infinite;
+}
+@keyframes cb-spin{ to{ transform: rotate(360deg); } }
+.step-a-card .card-city-badge{
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #fff;
+  background: rgba(7, 25, 82, 0.85);
+  border: 1px solid rgba(151, 254, 237, 0.3);
+  padding: 3px 7px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+.step-a-card .card-selected-check{
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #097E72;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  opacity: 0;
+  transform: scale(0);
+  transition: opacity 0.2s, transform 0.2s;
+}
+.step-a-card.selected .card-selected-check{
+  opacity: 1;
+  transform: scale(1);
+}
+.step-a-card .card-error{
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: rgba(58, 13, 13, 0.5);
+}
+.step-a-card .card-error span:first-child{
+  font-size: 10px;
+  color: rgba(248, 113, 113, 0.9);
+}
+.step-a-card .card-error button{
+  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(151, 254, 237, 0.15);
+  border: 1px solid rgba(151, 254, 237, 0.3);
+  color: #97FEED;
+  cursor: pointer;
+}
+
+/* STEP B 2장 스택 (3:2 비율 1×2) */
+.step-b-stack{
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.step-b-card{
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(7, 25, 82, 0.6);
+  border: 1px solid rgba(151, 254, 237, 0.15);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.step-b-card:hover{ border-color: rgba(151, 254, 237, 0.4); }
+.step-b-card.selected{
+  border-color: #97FEED;
+  border-width: 2px;
+  box-shadow: 0 0 0 2px rgba(151, 254, 237, 0.3);
+}
+.step-b-card .card-img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 25% center;
+  display: block;
+}
+.step-b-card .card-label{
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(7, 25, 82, 0.85);
+  border: 1px solid rgba(151, 254, 237, 0.3);
+  padding: 4px 9px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* 확대 모달 */
+.expand-modal{
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.expand-modal.hidden{ display: none; }
+.expand-modal-backdrop{
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 9, 28, 0.85);
+  backdrop-filter: blur(8px);
+}
+.expand-modal-content{
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  background: linear-gradient(180deg, #051030 0%, #07193D 100%);
+  border: 1px solid rgba(151, 254, 237, 0.2);
+  border-radius: 20px;
+  padding: 20px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: modalSlideIn 0.3s ease-out;
+}
+@keyframes modalSlideIn{
+  from{ transform: translateY(20px); opacity: 0; }
+  to  { transform: translateY(0);    opacity: 1; }
+}
+.expand-modal-close{
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(151, 254, 237, 0.1);
+  border: 1px solid rgba(151, 254, 237, 0.2);
+  color: #97FEED;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.expand-modal-header{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding-right: 36px;
+}
+.expand-modal-imgbox{
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(7, 25, 82, 0.6);
+  border: 1px solid rgba(151, 254, 237, 0.15);
+  scroll-snap-type: x mandatory;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.expand-modal-imgbox::-webkit-scrollbar{ display: none; }
+.expand-modal-imgbox canvas{
+  display: block;
+  height: 100%;
+}
+.expand-modal-toggle{
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+.expand-pose-btn{
+  font-size: 11px;
+  font-weight: 700;
+  padding: 7px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(151, 254, 237, 0.25);
+  background: rgba(151, 254, 237, 0.05);
+  color: rgba(151, 254, 237, 0.7);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.expand-pose-btn.active{
+  background: #097E72;
+  color: #fff;
+  border-color: #097E72;
+}
+.expand-modal-select-btn{
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0E9D8E 0%, #097E72 100%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.expand-modal-select-btn:hover{ filter: brightness(1.1); }
+.expand-modal-select-btn:disabled{ opacity: 0.5; cursor: not-allowed; }
+
+/* ═══════════════════════════════════════════════════════════════════════ */
 </style>
 
 <style>
@@ -1740,7 +2073,8 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   <section class="px-5 mt-6">
 
     <!-- ① 코디핏 상세 설명 박스 -->
-    <div id="codiDetailBox" class="mb-3 overflow-hidden" style="background:rgba(7,25,82,0.7);border:1px solid rgba(151,254,237,0.18);border-radius:16px;">
+    <!-- ─── 2026-05-14 KST · TJ 지시 (v68) ─── 최종 STEP C 완료 전까지 숨김 ─── -->
+    <div id="codiDetailBox" class="mb-3 overflow-hidden hidden" style="background:rgba(7,25,82,0.7);border:1px solid rgba(151,254,237,0.18);border-radius:16px;">
       <!-- 헤더 바 -->
       <div class="flex items-center justify-between px-4 py-2.5" style="background:rgba(18,148,144,0.18);border-bottom:1px solid rgba(151,254,237,0.1);">
         <div class="flex items-center gap-2">
@@ -1815,7 +2149,8 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     </div>
 
     <!-- ② AI 스타일리스트 포인트 박스 -->
-    <div id="codiPointBox" class="mb-4 overflow-hidden" style="background:rgba(7,25,82,0.7);border:1px solid rgba(151,254,237,0.18);border-radius:16px;">
+    <!-- ─── 2026-05-14 KST · TJ 지시 (v68) ─── 최종 STEP C 완료 전까지 숨김 ─── -->
+    <div id="codiPointBox" class="mb-4 overflow-hidden hidden" style="background:rgba(7,25,82,0.7);border:1px solid rgba(151,254,237,0.18);border-radius:16px;">
       <div class="flex items-center justify-between px-4 py-2.5" style="background:rgba(18,148,144,0.18);border-bottom:1px solid rgba(151,254,237,0.1);">
         <div class="flex items-center gap-2">
         <span class="material-symbols-outlined text-[14px]" style="color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 14;">auto_awesome</span>
@@ -1844,6 +2179,47 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
         <span class="vto-status-txt" id="vtoStateText" style="font-size:12px;color:rgba(162,253,240,0.7);font-weight:500;"></span>
         <span id="aiQuota" class="ai-badge gray">남은 0회</span>
+      </div>
+
+      <!-- ═════════════════════════════════════════════════════════════════════════ -->
+      <!-- ─── 2026-05-14 KST · TJ 지시 (v68 4→2→1 흐름) ─── 새 추천코디 UX ──── -->
+      <!-- STEP A: 4장 그리드 (도시별 4명 스타일리스트, LOW quality 병렬 생성)      -->
+      <!-- STEP B: 2장 비교 (선택 + 유사 변형, LOW quality)                        -->
+      <!-- STEP C: 1장 최종 (Medium quality) — 기존 vto-outer-layer 재활용         -->
+      <!-- ═════════════════════════════════════════════════════════════════════════ -->
+
+      <!-- STEP A 4장 그리드 -->
+      <div id="stepAGrid" class="step-section hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:11px;color:rgba(151,254,237,0.6);font-weight:600;letter-spacing:0.05em;">
+            STEP A · 4명 스타일리스트가 추천 <span id="stepAStatus" style="color:rgba(151,254,237,0.4);"></span>
+          </span>
+        </div>
+        <div class="step-a-grid" id="stepACards">
+          <!-- 4개 카드는 JS에서 동적 생성 -->
+        </div>
+        <p style="margin-top:8px;text-align:center;color:rgba(151,254,237,0.45);font-size:10px;">
+          탭하여 정/후면 자세히 보고 선택
+        </p>
+      </div>
+
+      <!-- STEP B 2장 비교 (선택 + 유사 변형) -->
+      <div id="stepBCompare" class="step-section hidden" style="margin-top:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:11px;color:rgba(151,254,237,0.6);font-weight:600;letter-spacing:0.05em;">
+            STEP B · 선택 + 유사 변형 <span id="stepBStatus" style="color:rgba(151,254,237,0.4);"></span>
+          </span>
+        </div>
+        <div class="step-b-stack" id="stepBCards">
+          <!-- 2개 카드 (3:2 비율) 동적 생성 -->
+        </div>
+      </div>
+
+      <!-- STEP C 안내 라벨 (vto-outer-layer 위) -->
+      <div id="stepCLabel" class="hidden" style="margin-top:24px;margin-bottom:8px;">
+        <span style="font-size:11px;color:rgba(151,254,237,0.6);font-weight:600;letter-spacing:0.05em;">
+          STEP C · 최종 코디 (고화질)
+        </span>
       </div>
 
       <!-- 이미지 박스 — 외부 어두운 네이비 레이어 + 내부 이미지 박스 -->
@@ -2095,6 +2471,10 @@ const S = {
   // [2026-04-17] aiCallBtn 상태 추적: 마지막 요청 이후 목적/날짜 변경 감지
   _configDirty: false
 };
+// ─── 2026-05-14 KST · TJ 지시 (v68 4→2→1 흐름) ─── window 노출 ──────
+// 새 흐름(v68 IIFE)이 별도 script 스코프이므로 S 객체 접근을 위해 명시 노출
+// 기존 코드는 const S 그대로 사용 (변경 없음), 새 흐름만 window.S 참조
+window.S = S;
 const getPur = k => PURPOSES.find(p=>p.key===k)||PURPOSES[0];
 const pNum = v => {const n=Number(v);return Number.isFinite(n)?n:null;};
 const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
@@ -6389,7 +6769,32 @@ async function armAndGenerate(mode){
   syncDayUi();
 
   try{
-    await generateStyling({bumpSeed:false});
+    // ─── 2026-05-14 KST · TJ 지시 (v68 4→2→1 흐름) ─── 새 흐름 호출 ───
+    // 이전: 단일 1장 생성 → vto 박스에 표시
+    // 변경: STEP A 4장 그리드 → 모달 선택 → STEP B 2장 → STEP C Medium 1장
+    // 기존 검증(목적/날짜/직접입력) 유지, 결과 표시만 새 흐름으로 전환
+    // S/wx/face 등 컨텍스트는 window.S로 노출되어 새 IIFE가 접근
+    if(typeof window.runCodifitGridFlow === 'function'){
+      // 직접입력 모드일 때 S에 customText 명시 (새 흐름이 참조)
+      if(S.pk === 'custom'){
+        S.customText = String(S.customPurpose || '').trim();
+      }else{
+        const _p = getPur(S.pk);
+        S.purposeKey = S.pk;
+        S.purposeLabel = _p ? _p.label : '';
+      }
+      // face 이미지 준비 (기존 generateStyling이 하던 사전 처리)
+      try{
+        if(typeof getUserFaceImageSrc === 'function' && !S.faceImage){
+          S.faceImage = await getUserFaceImageSrc();
+        }
+      }catch(_){}
+      await window.runCodifitGridFlow();
+    }else{
+      // fallback: 기존 단일 1장 흐름 (만약 v68 IIFE 로드 실패 시)
+      console.warn('[v68] runCodifitGridFlow 미정의 — 기존 흐름 사용');
+      await generateStyling({bumpSeed:false});
+    }
   }finally{
     if(mode==='today') D.todayStage=1;
     if(mode==='tomorrow') D.tomorrowStage=1;
@@ -6606,6 +7011,9 @@ function renderStylingPoint(){
     }
   }catch(e){ console.warn("renderStylingPoint error:", e); }
 }
+// ─── 2026-05-14 KST · TJ 지시 (v68) ─── window 노출 ──────────────
+// v68 IIFE(별도 script 스코프)가 renderStylingPoint 호출 가능하도록 명시 노출
+window.renderStylingPoint = renderStylingPoint;
 
 // ════════════════════════════════════════════════════════════════
 // generateStyling — 코디핏 8단계 프로세스 실행 (절대 변경 금지)
@@ -8242,6 +8650,638 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   });
 })();
 
-</script>
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── 2026-05-14 KST · TJ 지시 (v68 4→2→1 흐름) ─── 새 추천코디 UX 로직 ─
+// STEP A: 4장 LOW 병렬 생성 (도시별 4명 스타일리스트)
+// STEP B: 선택한 stylist의 유사 변형 1장 추가 (LOW)
+// STEP C: 최종 선택을 Medium quality로 재생성 (기존 vto 박스 재활용)
+// 모달: 카드 탭 → wide 16:9 이미지 + 정/후면 토글 + 선택 버튼
+// 호환: 기존 callRemote / callClaude / vto-result-box 무수정
+// ═══════════════════════════════════════════════════════════════════════════
+(function(){
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const CB = window.CodiBank;
+  if(!CB) { console.warn('[v68] CodiBank module not loaded'); return; }
+
+  // ─── 도시 매핑 (4장) ───
+  // A = 사용자 접속지역 (S.wx.location 또는 '서울' fallback)
+  // B = 뉴욕, C = 밀라노, D = 런던
+  function getGridCities(){
+    const userLoc = (window.S && window.S.wx && window.S.wx.location) || '서울';
+    return [
+      { key: 'A', city: userLoc,   label: userLoc || '서울' },
+      { key: 'B', city: '뉴욕',    label: '뉴욕' },
+      { key: 'C', city: '밀라노',  label: '밀라노' },
+      { key: 'D', city: '런던',    label: '런던' },
+    ];
+  }
+
+  // ─── State ───
+  const flow = {
+    stepACards: [null, null, null, null],   // 각 호출 결과 {imageUrl, stylist, prompt}
+    stepASelected: null,                     // 선택한 인덱스
+    stepBCards: [null, null],
+    stepBSelected: null,
+    stepCResult: null,
+    modalCurrentIdx: -1,                     // 모달에서 보는 카드 idx
+    modalCurrentPose: 'front',
+    busy: false,
+  };
+
+  // ─── 섹션 펼침/접힘 (트랜지션 + 자동 스크롤) ───
+  function showSection(sectionId){
+    const el = $(sectionId);
+    if(!el) return;
+    el.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      el.classList.add('visible');
+      setTimeout(() => {
+        try{ el.scrollIntoView({ behavior:'smooth', block:'start' }); }catch(_){}
+      }, 200);
+    });
+  }
+  function hideSection(sectionId){
+    const el = $(sectionId);
+    if(!el) return;
+    el.classList.remove('visible');
+    el.classList.add('hidden');
+  }
+
+  // ─── 2026-05-14 KST · TJ 지시 (v68) ─── 분석 박스 핸들러 (3개) ──────
+  // 'AI 코디핏 스토리' (#codiDetailBox) + 'AI 코디핏 포인트' (#codiPointBox)
+  // 초기/STEP A/B 중: hidden, STEP C 완료 시: 표시
+  function hideAnalysisBoxes(){
+    ['codiDetailBox', 'codiPointBox'].forEach(id => {
+      const el = $(id);
+      if(el) el.classList.add('hidden');
+    });
+  }
+  function showAnalysisBoxes(){
+    ['codiDetailBox', 'codiPointBox'].forEach(id => {
+      const el = $(id);
+      if(el) el.classList.remove('hidden');
+    });
+  }
+  // STEP C 응답 데이터로 두 박스 내용 채우기
+  // 핵심 필드: data.stylist, data.engineCity, data.engineCategoryKeywords, data.stylingStory
+  function fillAnalysisBoxes(data){
+    if(!data) return;
+    // 1) AI 코디핏 스토리 — 스타일리스트 요약 (#stylistSummaryBox + #stylistSummaryText)
+    try{
+      const ssBox = $('stylistSummaryBox');
+      const ssTxt = $('stylistSummaryText');
+      if(ssBox && ssTxt && data.stylist){
+        const _city = (data.stylist.city || data.engineCity || '서울');
+        const _name = data.stylist.name || '';
+        const _voice = data.stylist.voice || data.stylist.career || '';
+        ssTxt.innerHTML = '<strong>' + _name + '</strong>, ' + _city + '지역 활동' +
+          (_voice ? '<br><span style="font-size:10px;color:rgba(255,255,255,0.5);">' + _voice + '</span>' : '');
+        ssBox.classList.remove('hidden');
+      }
+    }catch(_){}
+    // 2) 코디핏 이야기 텍스트 (#codiExplain) — stylingStory 또는 explanation 활용
+    try{
+      const explainEl = $('codiExplain');
+      if(explainEl){
+        const story = data.stylingStory || data.explanation || '';
+        if(story) explainEl.textContent = story;
+      }
+    }catch(_){}
+    // 3) AI 코디핏 포인트 — 카테고리별 키워드 (#catKwSection + #catKwRow)
+    try{
+      if(data.engineCategoryKeywords && typeof data.engineCategoryKeywords === 'object'){
+        // window.S에 갱신 (기존 renderStylingPoint이 S 참조)
+        if(window.S){
+          window.S.categoryKeywords = data.engineCategoryKeywords;
+        }
+        // 기존 renderStylingPoint 함수 호출 (IIFE 내부였다면 전역 노출 필요)
+        if(typeof window.renderStylingPoint === 'function'){
+          window.renderStylingPoint();
+        }
+      }
+    }catch(_){}
+    // 4) 분석 텍스트 (퍼스널컬러/체형/목적+날씨) — cacheKey 활용 별도 호출
+    if(data.cacheKey){
+      fetchAnalysisAndFill(data.cacheKey);
+    }
+  }
+  // 분석 별도 호출 (`/api/ai/styling/analysis`)
+  async function fetchAnalysisAndFill(cacheKey){
+    try{
+      const r = await CB.api('/api/ai/styling/analysis', {
+        method: 'POST',
+        body: { cacheKey: cacheKey }
+      });
+      if(!r.ok) return;
+      const j = await r.json();
+      if(!j.ok || !j.stylingAnalysis) return;
+      const _sa = j.stylingAnalysis;
+      // anPcSection / anBodySection / anPurposeSection 채우기
+      const _setText = (id, v) => { const e = $(id); if(e) e.textContent = String(v||''); };
+      const _setKws = (id, arr) => {
+        const e = $(id);
+        if(!e) return;
+        e.innerHTML = '';
+        (arr || []).slice(0, 3).forEach(k => {
+          const sp = document.createElement('span');
+          sp.className = 'inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full';
+          sp.style.cssText = 'background:rgba(151,254,237,0.1);border:1px solid rgba(151,254,237,0.25);color:rgba(151,254,237,0.85);';
+          sp.textContent = String(k || '');
+          e.appendChild(sp);
+        });
+      };
+      if(_sa.personalColor){
+        _setText('anPcText', _sa.personalColor.text);
+        _setKws('anPcKws', _sa.personalColor.keywords);
+        const sec = $('anPcSection'); if(sec) sec.classList.remove('hidden');
+      }
+      if(_sa.body){
+        _setText('anBodyText', _sa.body.text);
+        _setKws('anBodyKws', _sa.body.keywords);
+        const sec = $('anBodySection'); if(sec) sec.classList.remove('hidden');
+      }
+      if(_sa.purpose){
+        _setText('anPurposeText', _sa.purpose.text);
+        _setKws('anPurposeKws', _sa.purpose.keywords);
+        const sec = $('anPurposeSection'); if(sec) sec.classList.remove('hidden');
+      }
+    }catch(err){
+      console.warn('[v68] analysis fetch err:', err);
+    }
+  }
+
+  // ─── STEP A 카드 1개 렌더 (로딩/완료/에러 상태) ───
+  function renderStepACard(idx, cityInfo, state, data){
+    const container = $('stepACards');
+    if(!container) return;
+    let card = container.querySelector(`[data-idx="${idx}"]`);
+    if(!card){
+      card = document.createElement('div');
+      card.className = 'step-a-card';
+      card.dataset.idx = idx;
+      container.appendChild(card);
+    }
+    card.innerHTML = '';
+    // 도시 뱃지
+    const badge = document.createElement('div');
+    badge.className = 'card-city-badge';
+    badge.textContent = cityInfo.label;
+    card.appendChild(badge);
+    // 선택 체크
+    const check = document.createElement('div');
+    check.className = 'card-selected-check';
+    check.textContent = '✓';
+    card.appendChild(check);
+
+    if(state === 'loading'){
+      const ld = document.createElement('div');
+      ld.className = 'card-loading';
+      ld.innerHTML = '<div class="card-spinner"></div><span style="font-size:9px;color:rgba(151,254,237,0.6);">생성 중…</span>';
+      card.appendChild(ld);
+    }else if(state === 'done' && data && data.imageUrl){
+      const img = document.createElement('img');
+      img.className = 'card-img';
+      img.src = data.imageUrl;
+      img.alt = cityInfo.label + ' 스타일링';
+      img.loading = 'lazy';
+      card.appendChild(img);
+      card.onclick = () => openModalForCard(idx);
+    }else if(state === 'error'){
+      const er = document.createElement('div');
+      er.className = 'card-error';
+      er.innerHTML = '<span>실패</span><button type="button">재시도</button>';
+      er.querySelector('button').onclick = (e) => {
+        e.stopPropagation();
+        retryStepACard(idx);
+      };
+      card.appendChild(er);
+    }
+  }
+
+  // ─── STEP A 단일 카드 호출 ───
+  async function fetchStepACard(idx){
+    const cities = getGridCities();
+    const cityInfo = cities[idx];
+    renderStepACard(idx, cityInfo, 'loading', null);
+    try{
+      const payload = buildStepAPayload(cityInfo.city);
+      const r = await CB.api('/api/ai/styling', { method:'POST', body: payload });
+      const j = await r.json();
+      if(!r.ok || !j.ok || !j.image){
+        throw new Error(j.error || '생성 실패');
+      }
+      flow.stepACards[idx] = {
+        imageUrl: j.image,
+        url: j.url || j.image,
+        stylist: j.stylist || {},
+        engineCity: j.engineCity || cityInfo.city,
+        prompt: j.prompt || '',
+        cacheKey: j.cacheKey || '',
+      };
+      renderStepACard(idx, cityInfo, 'done', flow.stepACards[idx]);
+    }catch(err){
+      console.error('[v68 STEP A]', idx, err);
+      renderStepACard(idx, cityInfo, 'error', null);
+    }
+  }
+  function retryStepACard(idx){
+    fetchStepACard(idx).catch(()=>{});
+  }
+
+  // ─── STEP A 호출 페이로드 (기존 callRemote payload 거의 동일 + force fields) ───
+  function buildStepAPayload(forceCity){
+    // window.S 와 사용자 컨텍스트에서 payload 추출
+    // 핵심: 기존 callRemote가 만든 payload 구조를 재현
+    const S = window.S || {};
+    const user = (S.user || (window.user) || {});  // S.user 또는 글로벌 user
+    const wx = (S.wx || {});
+    const _userTier = (window.CodiBank && CB.getCurrentTier) ? CB.getCurrentTier() : 'FREE';
+    // 월별 기준 온도 (4-10월 max*0.94, 11-3월 min*0.90)
+    let _baseTemp = wx.temp;
+    try{
+      const _now = new Date();
+      const _m = _now.getMonth() + 1;
+      const _tMax = Number(wx.tempMax), _tMin = Number(wx.tempMin);
+      if(_m >= 4 && _m <= 10 && Number.isFinite(_tMax)) _baseTemp = Math.round(_tMax * 0.94 * 10) / 10;
+      else if(Number.isFinite(_tMin)) _baseTemp = Math.round(_tMin * 0.90 * 10) / 10;
+    }catch(_){}
+    // 직접입력 처리
+    const _isCustom = (S.pk === 'custom' || S.purposeKey === 'custom');
+    const _customText = _isCustom ? String(S.customText || S.customPurpose || '').trim() : '';
+    return {
+      user: {
+        email: user.email || '',
+        gender: user.gender || '',
+        ageGroup: user.ageGroup || '',
+        height: user.height || '',
+        weight: user.weight || '',
+        bodyType: user.bodyType || '',
+        tier: _userTier
+      },
+      weather: {
+        temp: _baseTemp,
+        tempMax: wx.tempMax,
+        tempMin: wx.tempMin,
+        text: wx.text || '',
+        location: forceCity,         // ★ 도시 강제
+        precipProb: wx.precipProb,
+        windMax: wx.windMax,
+        uvMax: wx.uvMax,
+        pm25: wx.pm25,
+      },
+      purposeKey: S.pk || S.purposeKey || '',
+      purposeLabel: S.purposeLabel || '',
+      customText: _customText,
+      faceImage: S.faceImage || '',  // 이미 등록된 face Data URL
+      // ★ v68 신규 hook
+      _force_city: forceCity,
+      _force_quality: 'low',
+    };
+  }
+
+  // ─── STEP A 시작 (4번 병렬) ───
+  async function startStepA(){
+    if(flow.busy) return;
+    flow.busy = true;
+    flow.stepACards = [null, null, null, null];
+    flow.stepASelected = null;
+    // ─── 2026-05-14 KST · TJ 지시 (v68) ─── 분석 박스 강제 숨김 ──────
+    // STEP A 시작 시 두 박스가 이전 결과로 보일 수 있어 안전망으로 hidden 강제
+    hideAnalysisBoxes();
+    // 섹션 표시 + 카드 초기 그리기
+    showSection('stepAGrid');
+    const cities = getGridCities();
+    $('stepACards').innerHTML = '';
+    cities.forEach((c, i) => renderStepACard(i, c, 'loading', null));
+    const statusEl = $('stepAStatus');
+    if(statusEl) statusEl.textContent = '(4명 병렬 생성 중...)';
+    // 4번 병렬 호출 (Promise.allSettled — 일부 실패 허용)
+    await Promise.allSettled(cities.map((_, i) => fetchStepACard(i)));
+    if(statusEl) statusEl.textContent = '(1개 탭하여 선택)';
+    flow.busy = false;
+  }
+
+  // ─── 모달 ───
+  function openModalForCard(idx){
+    const card = flow.stepACards[idx];
+    if(!card || !card.imageUrl) return;
+    flow.modalCurrentIdx = idx;
+    flow.modalCurrentPose = 'front';
+    const cities = getGridCities();
+    $('expandModalCity').textContent = cities[idx].label;
+    $('expandModalStylist').textContent = (card.stylist && card.stylist.name) ? (card.stylist.name + ' 스타일리스트') : '';
+    // 이미지 그리기 (wide 16:9, 가로 스크롤로 정/후면 토글)
+    drawModalImage(card.imageUrl);
+    // 토글 초기화
+    document.querySelectorAll('.expand-pose-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.pose === 'front');
+    });
+    // 모달 표시
+    const modal = $('expandModal');
+    if(modal){ modal.classList.remove('hidden'); document.body.style.overflow='hidden'; }
+  }
+  function closeModal(){
+    const modal = $('expandModal');
+    if(modal){ modal.classList.add('hidden'); document.body.style.overflow=''; }
+  }
+  function drawModalImage(imageUrl){
+    const canvas = $('expandModalCanvas');
+    const box = $('expandModalImgBox');
+    if(!canvas || !box) return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      // 박스 너비 = 단일 폭, 캔버스 너비 = 박스 × 2 (정/후면 좌우 분할)
+      const boxW = box.clientWidth || 320;
+      const boxH = box.clientHeight || Math.round(boxW * 2 / 3);
+      // 16:9 wide 이미지를 캔버스에 cover로 그림
+      // dispW = boxW * 2 (정면 좌측 + 후면 우측)
+      const dispW = boxW * 2;
+      const dispH = boxH;
+      canvas.width = dispW;
+      canvas.height = dispH;
+      // cover 계산
+      const imgRatio = img.naturalWidth / img.naturalHeight;
+      const dispRatio = dispW / dispH;
+      let sx=0, sy=0, sw=img.naturalWidth, sh=img.naturalHeight;
+      if(imgRatio > dispRatio){
+        sw = img.naturalHeight * dispRatio;
+        sx = (img.naturalWidth - sw) / 2;
+      }else{
+        sh = img.naturalWidth / dispRatio;
+        sy = (img.naturalHeight - sh) / 2;
+      }
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, dispW, dispH);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dispW, dispH);
+      // 초기 스크롤 위치 (정면 = 좌측, 3% offset)
+      const _adj = Math.round(boxW * 0.03);
+      box.scrollTo({ left: _adj, behavior: 'instant' });
+    };
+    img.src = imageUrl;
+  }
+  function toggleModalPose(pose){
+    flow.modalCurrentPose = pose;
+    document.querySelectorAll('.expand-pose-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.pose === pose);
+    });
+    const box = $('expandModalImgBox');
+    if(!box) return;
+    const boxW = box.clientWidth;
+    const sw2 = box.scrollWidth - box.clientWidth;
+    const _adj = Math.round(boxW * 0.03);
+    if(pose === 'front'){
+      box.scrollTo({ left: _adj, behavior: 'smooth' });
+    }else{
+      box.scrollTo({ left: sw2 - _adj, behavior: 'smooth' });
+    }
+  }
+
+  // ─── 모달 "이 코디 선택" → STEP B로 ───
+  async function onModalSelect(){
+    const idx = flow.modalCurrentIdx;
+    if(idx < 0) return;
+    flow.stepASelected = idx;
+    // STEP A 카드에 선택 표시
+    document.querySelectorAll('.step-a-card').forEach(c => c.classList.remove('selected'));
+    const sel = document.querySelector(`.step-a-card[data-idx="${idx}"]`);
+    if(sel) sel.classList.add('selected');
+    closeModal();
+    // 팝업 — 유사 변형 생성 여부
+    const ok = window.confirm('선택하신 추천코디와 유사하지만 조금 다른 디자인을 보여드릴까요?\n\n[예] 비교용 1장 더 생성\n[아니오] 바로 고화질 최종 코디로');
+    if(ok){
+      await startStepB();
+    }else{
+      // STEP B 건너뛰고 바로 STEP C
+      await startStepC(flow.stepACards[idx]);
+    }
+  }
+
+  // ─── STEP B 호출 (유사 변형 1장) ───
+  async function startStepB(){
+    if(flow.busy) return;
+    flow.busy = true;
+    const idx = flow.stepASelected;
+    const baseCard = flow.stepACards[idx];
+    if(!baseCard){ flow.busy = false; return; }
+    const cities = getGridCities();
+    const cityInfo = cities[idx];
+
+    // STEP B 섹션 렌더 (원본 + 변형 placeholder)
+    flow.stepBCards = [baseCard, null];
+    showSection('stepBCompare');
+    const container = $('stepBCards');
+    if(container){
+      container.innerHTML = '';
+      // 원본 카드
+      const card1 = document.createElement('div');
+      card1.className = 'step-b-card';
+      card1.dataset.idx = '0';
+      card1.innerHTML = `
+        <div class="card-label">원본 — ${cityInfo.label}</div>
+        <img class="card-img" src="${baseCard.imageUrl}" alt="원본" />
+      `;
+      card1.onclick = () => selectStepBCard(0);
+      container.appendChild(card1);
+      // 변형 카드 (로딩)
+      const card2 = document.createElement('div');
+      card2.className = 'step-b-card';
+      card2.dataset.idx = '1';
+      card2.innerHTML = `
+        <div class="card-label">유사 변형</div>
+        <div class="card-loading"><div class="card-spinner"></div></div>
+      `;
+      container.appendChild(card2);
+    }
+    const statusEl = $('stepBStatus');
+    if(statusEl) statusEl.textContent = '(유사 변형 생성 중...)';
+
+    // 변형 호출
+    try{
+      const p = buildStepAPayload(cityInfo.city);
+      p._similar_variation = true;   // ★ 백엔드 hook
+      const r = await CB.api('/api/ai/styling', { method:'POST', body: p });
+      const j = await r.json();
+      if(!r.ok || !j.ok || !j.image) throw new Error(j.error || '변형 실패');
+      flow.stepBCards[1] = {
+        imageUrl: j.image, url: j.url || j.image,
+        stylist: j.stylist || {}, engineCity: j.engineCity || cityInfo.city,
+        prompt: j.prompt || '', cacheKey: j.cacheKey || '',
+      };
+      const card2 = container && container.querySelector('[data-idx="1"]');
+      if(card2){
+        card2.innerHTML = `
+          <div class="card-label">유사 변형</div>
+          <img class="card-img" src="${j.image}" alt="유사 변형" />
+        `;
+        card2.onclick = () => selectStepBCard(1);
+      }
+      if(statusEl) statusEl.textContent = '(1개 선택)';
+    }catch(err){
+      console.error('[v68 STEP B]', err);
+      const card2 = container && container.querySelector('[data-idx="1"]');
+      if(card2){
+        card2.innerHTML = `<div class="card-error"><span>변형 생성 실패</span><button type="button">재시도</button></div>`;
+        card2.querySelector('button').onclick = (e) => { e.stopPropagation(); startStepB(); };
+      }
+    }
+    flow.busy = false;
+  }
+
+  function selectStepBCard(idx){
+    flow.stepBSelected = idx;
+    document.querySelectorAll('.step-b-card').forEach(c => c.classList.remove('selected'));
+    const sel = document.querySelector(`.step-b-card[data-idx="${idx}"]`);
+    if(sel) sel.classList.add('selected');
+    const chosen = flow.stepBCards[idx];
+    if(!chosen) return;
+    setTimeout(() => {
+      if(window.confirm('이 코디로 최종 고화질 이미지를 생성할까요? (Medium 품질)')){
+        startStepC(chosen);
+      }
+    }, 300);
+  }
+
+  // ─── STEP C (Medium 업그레이드) — 기존 vto-result-box 활용 ───
+  async function startStepC(baseCard){
+    if(flow.busy) return;
+    flow.busy = true;
+    showSection('stepCLabel');
+    // 기존 vto-result-box를 표시 + 로딩
+    const vtoBox = $('vtoResultBox');
+    const vtoOverlay = $('vtoOverlay');
+    const vtoCanvas = $('vtoCanvas');
+    if(vtoBox) vtoBox.classList.remove('hidden');
+    if(vtoOverlay){ vtoOverlay.style.display = 'flex'; }
+    if(vtoCanvas){ vtoCanvas.style.display = 'none'; }
+    // STEP C 호출 — Medium quality, 같은 도시, 같은 스타일리스트 매칭 시도
+    try{
+      const cityInfo = getGridCities()[flow.stepASelected];
+      const p = buildStepAPayload(cityInfo.city);
+      p._force_quality = 'medium';
+      // input_fidelity 통합은 백엔드 endpoint /api/codifit/upgrade 추가 시 (다음 턴)
+      const r = await CB.api('/api/ai/styling', { method:'POST', body: p });
+      const j = await r.json();
+      if(!r.ok || !j.ok || !j.image) throw new Error(j.error || 'Medium 실패');
+      flow.stepCResult = j;
+      // 기존 결과 표시 함수 활용 (drawNatural 또는 비슷한 캔버스 그리기)
+      if(typeof window.drawResultToVtoCanvas === 'function'){
+        window.drawResultToVtoCanvas(j.image);
+      }else{
+        // fallback: 직접 그리기
+        await drawStepCToCanvas(j.image);
+      }
+      if(vtoOverlay) vtoOverlay.style.display = 'none';
+      if(vtoCanvas) vtoCanvas.style.display = 'block';
+      // 정/후면 토글 활성화
+      const toggle = $('vtoPoseToggle');
+      if(toggle) toggle.classList.remove('hidden');
+      // 기존 저장/다시요청/공유 버튼 활성화 트리거
+      try{
+        ['saveBtn','againBtn','shareBtn'].forEach(id => {
+          const b = $(id); if(b){ b.disabled = false; b.classList.remove('vto-btn-inactive'); }
+        });
+      }catch(_){}
+      // ─── 2026-05-14 KST · TJ 지시 (v68) ─── 최종 완료 시 분석 박스 표시 ──
+      // 두 박스(코디핏 스토리/포인트)를 STEP C 응답 데이터로 채우고 표시
+      // 위치: HTML 상 이미 STEP A/B/C 위에 위치하므로 별도 DOM 이동 불필요
+      fillAnalysisBoxes(j);
+      showAnalysisBoxes();
+    }catch(err){
+      console.error('[v68 STEP C]', err);
+      alert('최종 이미지 생성 실패: ' + (err.message || ''));
+    }
+    flow.busy = false;
+  }
+
+  async function drawStepCToCanvas(imageUrl){
+    return new Promise((resolve) => {
+      const canvas = $('vtoCanvas');
+      const box = $('vtoResultBox');
+      if(!canvas || !box) return resolve();
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const boxW = box.clientWidth || 320;
+        const boxH = box.clientHeight || Math.round(boxW * 2 / 3);
+        const dispW = boxW * 2;
+        canvas.width = dispW;
+        canvas.height = boxH;
+        const imgRatio = img.naturalWidth / img.naturalHeight;
+        const dispRatio = dispW / boxH;
+        let sx=0, sy=0, sw=img.naturalWidth, sh=img.naturalHeight;
+        if(imgRatio > dispRatio){
+          sw = img.naturalHeight * dispRatio;
+          sx = (img.naturalWidth - sw) / 2;
+        }else{
+          sh = img.naturalWidth / dispRatio;
+          sy = (img.naturalHeight - sh) / 2;
+        }
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, dispW, boxH);
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dispW, boxH);
+        resolve();
+      };
+      img.onerror = () => resolve();
+      img.src = imageUrl;
+    });
+  }
+
+  // ─── 모달 이벤트 바인딩 ───
+  function bindModalEvents(){
+    const close = $('expandModalClose');
+    const backdrop = document.querySelector('.expand-modal-backdrop');
+    const selBtn = $('expandModalSelect');
+    if(close) close.onclick = closeModal;
+    if(backdrop) backdrop.onclick = closeModal;
+    if(selBtn) selBtn.onclick = onModalSelect;
+    document.querySelectorAll('.expand-pose-btn').forEach(b => {
+      b.onclick = () => toggleModalPose(b.dataset.pose);
+    });
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape' && !$('expandModal').classList.contains('hidden')) closeModal();
+    });
+  }
+
+  // ─── 외부 노출 ───
+  // 기존 "추천 받기" 트리거에서 startStepA()를 호출하도록 연결
+  window.runCodifitGridFlow = startStepA;
+
+  // 초기화
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', bindModalEvents);
+  }else{
+    bindModalEvents();
+  }
+})();
+
+</script>  <!-- ═════════════════════════════════════════════════════════════════════════ -->
+  <!-- ─── 2026-05-14 KST · TJ 지시 (v68) ─── 4장 그리드 카드 탭 확대 모달 ─── -->
+  <!-- 카드 탭 시 큰 이미지 표시 + 정/후면 토글 + "이 코디 선택" 버튼            -->
+  <!-- ═════════════════════════════════════════════════════════════════════════ -->
+  <div id="expandModal" class="expand-modal hidden">
+    <div class="expand-modal-backdrop"></div>
+    <div class="expand-modal-content">
+      <button class="expand-modal-close" id="expandModalClose" aria-label="닫기">
+        <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+      </button>
+      <div class="expand-modal-header">
+        <span id="expandModalCity" style="font-size:12px;font-weight:700;color:#97FEED;letter-spacing:0.05em;">서울</span>
+        <span id="expandModalStylist" style="font-size:10px;color:rgba(151,254,237,0.6);"></span>
+      </div>
+      <div class="expand-modal-imgbox" id="expandModalImgBox">
+        <canvas id="expandModalCanvas"></canvas>
+      </div>
+      <div class="expand-modal-toggle">
+        <button type="button" class="expand-pose-btn active" data-pose="front">정면</button>
+        <button type="button" class="expand-pose-btn" data-pose="back">후면</button>
+      </div>
+      <button type="button" id="expandModalSelect" class="expand-modal-select-btn">
+        이 코디 선택
+      </button>
+    </div>
+  </div>
+
 </body>
 </html>
