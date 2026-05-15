@@ -1277,9 +1277,14 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .step-a-grid{
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  max-width: 340px;        /* 2x2 정렬, 1:1.6 비율 보존을 위해 폭 제한 */
+  gap: 12px;
+  /* ─── 2026-05-14 KST · TJ 보고 ─── 카드 폭 확장 (480 → 100%) ───
+     이전: max-width 480px (PC에서 좁아 보임)
+     변경: max-width 제거 → 위/아래 박스들(코디핏 요청, N회 가능)과 동일한 폭으로 통일
+     5:8 비율 유지 → 가로 넓어지면 세로도 비례 (인물 더 크게) */
+  width: 100%;
   margin: 0 auto;
+  padding: 0;
 }
 .step-a-card{
   position: relative;
@@ -1453,16 +1458,17 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-content{
   position: relative;
   width: 100%;
-  max-width: 360px;     /* 1:1.6 비율을 위해 폭 약간 축소 */
-  max-height: calc(100vh - 32px);
+  max-width: 360px;
+  /* ─── 모달 컴팩트화 — 패딩/gap 축소 ─── */
+  max-height: calc(100vh - 24px);
   overflow-y: auto;
   background: linear-gradient(180deg, #051030 0%, #0A1F4D 60%, #051840 100%);
   border: 1px solid rgba(151, 254, 237, 0.25);
-  border-radius: 24px;
-  padding: 18px 16px 18px;
+  border-radius: 22px;
+  padding: 14px 14px 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 9px;
   animation: modalSlideIn 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.1);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6),
               0 0 0 1px rgba(151, 254, 237, 0.08) inset;
@@ -1503,7 +1509,12 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-imgbox{
   position: relative;
   width: 100%;
-  aspect-ratio: 5 / 8;     /* 1:1.6 세로형 (TJ 지시 v68) */
+  /* ─── 2026-05-14 KST · TJ 보고 ─── 모달 박스 크기 축소 (버튼 가려지는 문제) ───
+     이전: aspect-ratio 4/5 + max-height 50vh (모바일에서 분석/버튼 가려짐)
+     변경: aspect-ratio 1/1 (정사각형) + max-height 38vh
+     인물 정면(좌측 절반)이 정사각형 박스에 더 잘 보이고, 하단 영역 확보 */
+  aspect-ratio: 1 / 1;
+  max-height: 38vh;
   border-radius: 14px;
   overflow: hidden;
   background: rgba(7, 25, 82, 0.6);
@@ -6857,33 +6868,81 @@ async function armAndGenerate(mode){
         S.purposeLabel = _p ? _p.label : '';
       }
       // face 이미지 준비 (기존 callRemote와 동일한 방식)
-      // ─── 2026-05-14 KST · TJ 보고 ─── face 미등록 오인 버그 수정 ──────
-      // 이전: typeof getUserFaceImageSrc 체크했지만 이 함수는 CodiBank 모듈의 메서드
-      //       즉 글로벌 아님 → 체크 실패 → S.faceImage 빈 상태로 백엔드 호출 → 400 거절
-      // 변경: CodiBank.getUserFaceImageSrc(user) 정식 호출 + shrinkDataUrl 압축
-      //       기존 callRemote(line 5517)와 동일한 흐름
+      // ─── 2026-05-14 KST · TJ 보고 ─── 모바일 face 미등록 진단 ──────
+      // 모바일 콘솔 접근 어려우므로 alert에 디버그 정보 표시
+      // IDB는 디바이스별 분리 → PC IDB에 face 있어도 모바일 IDB에는 없을 수 있음
+      const _faceDebug = {
+        'user.email': (user && user.email) || 'none',
+        'user.avatarFace': (user && user.avatarFace) || 'NONE',
+        'user.photo': (user && user.photo) || 'NONE',
+        'has CodiBank': !!window.CodiBank,
+        'has getUserFaceImageSrc': typeof (window.CodiBank && window.CodiBank.getUserFaceImageSrc),
+        'has shrinkDataUrl': typeof shrinkDataUrl,
+        'platform': /Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad/i.test(navigator.userAgent) ? 'iOS' : 'Desktop'),
+      };
       try{
         if(window.CodiBank && typeof CodiBank.getUserFaceImageSrc === 'function'){
           let _faceSrc = await CodiBank.getUserFaceImageSrc(user);
+          // ─── 2026-05-14 KST · TJ 보고 ─── face URL 형식 식별 + 변환 ───
+          // getUserFaceImageSrc 반환값은 3가지 가능: Data URL, blob: URL (ObjectURL), http URL
+          // 백엔드는 Data URL만 받음 → blob:/http는 canvas로 변환 필요
+          const _faceType = _faceSrc
+            ? (_faceSrc.startsWith('data:') ? 'dataUrl' :
+               _faceSrc.startsWith('blob:') ? 'blobUrl' :
+               _faceSrc.startsWith('http')  ? 'httpUrl' : 'other')
+            : 'empty';
+          _faceDebug['face URL 타입'] = _faceType;
+          _faceDebug['getUserFaceImageSrc 결과'] = _faceSrc
+            ? (`${_faceType} ${_faceSrc.length}bytes (${_faceSrc.substring(0, 30)}...)`)
+            : 'EMPTY (IDB에 face 이미지 없음)';
+          // blob: 또는 http URL → Data URL 변환 (모바일에서 흔히 필요)
+          if(_faceSrc && (_faceType === 'blobUrl' || _faceType === 'httpUrl')){
+            try{
+              _faceSrc = await new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                  try{
+                    const c = document.createElement('canvas');
+                    c.width = img.naturalWidth;
+                    c.height = img.naturalHeight;
+                    c.getContext('2d').drawImage(img, 0, 0);
+                    resolve(c.toDataURL('image/jpeg', 0.90));
+                  }catch(e){ reject(e); }
+                };
+                img.onerror = () => reject(new Error('image load failed (CORS?)'));
+                img.src = _faceSrc;
+              });
+              _faceDebug['URL→DataURL 변환'] = 'OK ' + _faceSrc.length + 'bytes';
+            }catch(convErr){
+              _faceDebug['URL→DataURL 변환 실패'] = String(convErr);
+              _faceSrc = '';  // 변환 실패 → 거절
+            }
+          }
           if(_faceSrc){
-            // Data URL 압축 (백엔드 처리 부담 ↓, 기존 1024px 0.90 quality와 동일)
+            // Data URL 압축 (백엔드 처리 부담 ↓)
             if(_faceSrc.startsWith('data:') && typeof shrinkDataUrl === 'function'){
-              try{ _faceSrc = await shrinkDataUrl(_faceSrc, 1024, 0.90); }catch(_){}
+              try{ _faceSrc = await shrinkDataUrl(_faceSrc, 1024, 0.90); }catch(e){
+                _faceDebug['shrinkDataUrl 에러'] = String(e);
+              }
             }
             S.faceImage = _faceSrc;
+            _faceDebug['최종 face 크기'] = S.faceImage.length + ' bytes';
             console.log('[v68] face image loaded, length=', _faceSrc.length);
-          }else{
-            console.warn('[v68] face image is empty after getUserFaceImageSrc');
           }
         }else{
-          console.warn('[v68] CodiBank.getUserFaceImageSrc not available');
+          _faceDebug['실패'] = 'CodiBank.getUserFaceImageSrc 함수 없음 (CodiBank 모듈 미로드)';
         }
       }catch(err){
-        console.warn('[v68] face load failed:', err);
+        _faceDebug['예외 발생'] = String(err);
       }
-      // face 로드 후에도 없으면 사용자에게 안내 (백엔드 거절 방지)
+      console.log('[v68 face DEBUG]', _faceDebug);
+      // face 로드 후에도 없으면 사용자에게 디버그 정보 함께 표시 (모바일 진단용)
       if(!S.faceImage){
-        alert(_L('얼굴 사진 등록이 필요합니다. 프로필에서 얼굴 사진을 먼저 등록한 후 다시 시도해주세요.'));
+        const _msg = '얼굴 사진 등록이 필요합니다.\n프로필에서 얼굴 사진을 먼저 등록한 후 다시 시도해주세요.\n\n[디버그 정보]\n'
+          + Object.entries(_faceDebug).map(([k,v]) => `${k}: ${v}`).join('\n')
+          + '\n\n※ 다른 기기에서 등록한 face는 이 기기 IDB에 없을 수 있습니다. 이 기기에서 face 사진을 재등록하세요.';
+        alert(_msg);
         return;
       }
       await window.runCodifitGridFlow();
@@ -9191,9 +9250,9 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      // 박스: 1:1.6 세로형. 캔버스 너비 = 박스 너비 × 2 (정면 좌측 + 후면 우측 가로 스크롤)
+      // 박스: 4/5 비율 (1:1.25). 캔버스 너비 = 박스 너비 × 2 (정면 좌측 + 후면 우측 가로 스크롤)
       const boxW = box.clientWidth || 320;
-      const boxH = box.clientHeight || Math.round(boxW * 1.6);  // 1:1.6 비율
+      const boxH = box.clientHeight || Math.round(boxW * 1.25);  // 4/5 비율
       const dispW = boxW * 2;
       const dispH = boxH;
       canvas.width = dispW;
