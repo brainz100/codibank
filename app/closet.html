@@ -1010,8 +1010,9 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
  * ───────────────────────────────────────────── */
 .vto-result-box{
   width:100%;
-  aspect-ratio: 3 / 2;    /* ─── 2026-05-14 KST · TJ 보고 ─── 1/1.62 세로형 → 3/2 가로형
-                              wide 1536×1024 (16:9 ≈ 3:2) 풀 표시. 인물 잘림 없음 */
+  /* ─── 2026-05-14 KST · TJ 보고 4번 ─── 원래 세로형(1/1.62) 복원
+     drawNatural 패턴 (캔버스 2x 가로 + 정/후면 분할) 활용 */
+  aspect-ratio: 1 / 1.62;
   border-radius:20px;
   overflow-x:auto;
   overflow-y:hidden;
@@ -1286,6 +1287,90 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   margin: 0 auto;
   padding: 0;
 }
+/* ─── 2026-05-14 KST · TJ 보고 1번 ─── 4개 카드 위 오버레이 + codiBank 컬러 변환 ─── */
+.step-a-overlay{
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;   /* step-a-grid와 동일한 gap → cell이 카드와 정확히 정렬 */
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 10;
+  transition: opacity 0.6s ease;
+}
+.step-a-overlay.hidden-overlay{
+  opacity: 0;
+  pointer-events: none;
+}
+.step-a-overlay-cell{
+  /* 각 cell이 한 카드를 덮는 마스크 (서브컬러) */
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 45%, rgba(53,162,159,0.18) 0%, transparent 65%),
+    linear-gradient(160deg, #0B1F4D 0%, #051030 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(151, 254, 237, 0.18);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+.step-a-overlay-cell.cell-done{
+  opacity: 0;
+  transform: scale(1.02);
+}
+.step-a-overlay-text{
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: none;
+  z-index: 11;
+}
+.step-a-overlay.hidden-overlay .step-a-overlay-text{
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.step-a-cb-rainbow{
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  font-family: 'Manrope', 'Inter', sans-serif;
+  display: flex;
+  gap: 1px;
+  filter: drop-shadow(0 2px 12px rgba(53, 162, 159, 0.4));
+}
+.step-a-cb-rainbow span{
+  color: rgba(255, 255, 255, 0.3);
+  animation: stepACbColor 2.4s infinite;
+}
+.step-a-cb-rainbow span:nth-child(1){ animation-delay: 0s; }
+.step-a-cb-rainbow span:nth-child(2){ animation-delay: 0.18s; }
+.step-a-cb-rainbow span:nth-child(3){ animation-delay: 0.36s; }
+.step-a-cb-rainbow span:nth-child(4){ animation-delay: 0.54s; }
+.step-a-cb-rainbow span:nth-child(5){ animation-delay: 0.72s; }
+.step-a-cb-rainbow span:nth-child(6){ animation-delay: 0.90s; }
+.step-a-cb-rainbow span:nth-child(7){ animation-delay: 1.08s; }
+.step-a-cb-rainbow span:nth-child(8){ animation-delay: 1.26s; }
+@keyframes stepACbColor{
+  0%, 100%   { color: rgba(255,255,255,0.3); }
+  20%        { color: #97FEED; }   /* 메인 시안 */
+  40%        { color: #35A29F; }   /* 서브 틸 */
+  60%        { color: #FFD66B; }   /* 액센트 골드 */
+  80%        { color: rgba(255,255,255,0.85); }
+}
+.step-a-overlay-sub{
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(151, 254, 237, 0.7);
+  letter-spacing: 0.04em;
+  animation: stepASubPulse 1.6s infinite ease-in-out;
+}
+@keyframes stepASubPulse{
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1.0; }
+}
 .step-a-card{
   position: relative;
   aspect-ratio: 5 / 8;     /* 1:1.6 세로형 (TJ 지시 v68) */
@@ -1406,32 +1491,33 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   aspect-ratio: 3 / 2;     /* wide 16:9 이미지 → 3:2 박스에 풀 fit */
   border-radius: 16px;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse 80% 50% at 50% 50%, rgba(53,162,159,0.08) 0%, transparent 60%),
-    linear-gradient(160deg, #0B1238 0%, #050A24 100%);
-  border: 1px solid rgba(151, 254, 237, 0.18);
+  /* ─── 2026-05-14 KST · TJ 보고 3번 ─── 어두운 배경 → 라이트 (이미지 흰 배경과 매칭, 인물 흐려짐 방지) */
+  background: linear-gradient(160deg, #f5f7fb 0%, #e8eef5 100%);
+  border: 1px solid rgba(151, 254, 237, 0.25);
   box-shadow:
-    inset 0 1px 0 rgba(151,254,237,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.6),
     0 6px 20px rgba(0,0,0,0.3);
   cursor: pointer;
   transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 .step-b-card:hover{
-  border-color: rgba(151, 254, 237, 0.4);
+  border-color: rgba(151, 254, 237, 0.5);
   transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(151,254,237,0.1), 0 8px 24px rgba(0,0,0,0.4);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 8px 24px rgba(0,0,0,0.4);
 }
 .step-b-card.selected{
   border-color: #97FEED;
   border-width: 2px;
   box-shadow: 0 0 0 2px rgba(151, 254, 237, 0.3),
-              inset 0 1px 0 rgba(151,254,237,0.1),
+              inset 0 1px 0 rgba(255,255,255,0.7),
               0 8px 24px rgba(0,0,0,0.4);
 }
 .step-b-card .card-img{
   width: 100%;
   height: 100%;
-  object-fit: contain;     /* 3:2 wide 이미지 풀 표시 (잘림 없음) */
+  /* ─── cover로 박스 풀 채움 (3:2 = wide 1.5와 거의 동일 → 잘림 최소) */
+  object-fit: cover;
+  object-position: center;
   display: block;
 }
 .step-b-card .card-label{
@@ -1470,9 +1556,9 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-content{
   position: relative;
   width: 100%;
-  max-width: 360px;
-  /* ─── 모달 컴팩트화 — 패딩/gap 축소 ─── */
-  max-height: calc(100vh - 24px);
+  /* ─── 2026-05-14 KST · TJ 보고 2번 ─── 팝업 크게 (360 → 420) ─── */
+  max-width: 420px;
+  max-height: calc(100vh - 16px);
   overflow-y: auto;
   background: linear-gradient(180deg, #051030 0%, #0A1F4D 60%, #051840 100%);
   border: 1px solid rgba(151, 254, 237, 0.25);
@@ -1521,17 +1607,19 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-imgbox{
   position: relative;
   width: 100%;
-  /* ─── 2026-05-14 KST · TJ 보고 ─── 1/1 → 3/2 비율 ───
-     생성 이미지가 1536×1024 (3:2) → 박스도 3:2로 풀 fit (인물 잘림 없음) */
-  aspect-ratio: 3 / 2;
-  max-height: 40vh;
+  /* ─── 2026-05-14 KST · TJ 보고 2번 ─── 3/2 → 1/1.6 세로형
+     세로 박스가 인물 풀로 잘 보임. drawNatural 패턴(정/후면 분리)으로 그림 */
+  aspect-ratio: 1 / 1.6;
+  max-height: 52vh;
   border-radius: 14px;
   overflow: hidden;
-  background: rgba(7, 25, 82, 0.6);
-  border: 1px solid rgba(151, 254, 237, 0.18);
+  background: linear-gradient(160deg, #f5f7fb 0%, #e8eef5 100%);   /* 이미지 흰 배경 매칭 */
+  border: 1px solid rgba(151, 254, 237, 0.2);
   scroll-snap-type: x mandatory;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
+  scroll-behavior: smooth;
 }
 .expand-modal-imgbox::-webkit-scrollbar{ display: none; }
 .expand-modal-imgbox canvas{
@@ -1592,6 +1680,36 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   font-size: 11px;
   color: rgba(151, 254, 237, 0.65);
   font-weight: 500;
+}
+/* ─── 2026-05-14 KST · TJ 보고 2번 ─── 저장/공유 버튼 ─── */
+.expand-modal-actions{
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(151, 254, 237, 0.12);
+}
+.expand-modal-action-btn{
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  background: rgba(151, 254, 237, 0.08);
+  border: 1px solid rgba(151, 254, 237, 0.25);
+  color: #97FEED;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.expand-modal-action-btn:hover{
+  background: rgba(151, 254, 237, 0.16);
+}
+.expand-modal-action-btn:active{
+  transform: scale(0.97);
 }
 .expand-modal-analysis-title{
   font-size: 10px;
@@ -2310,8 +2428,26 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             STEP A · 4명 스타일리스트가 추천 <span id="stepAStatus" style="color:rgba(151,254,237,0.4);"></span>
           </span>
         </div>
-        <div class="step-a-grid" id="stepACards">
-          <!-- 4개 카드는 JS에서 동적 생성 -->
+        <!-- ─── 2026-05-14 KST · TJ 보고 1번 ─── 4개 카드 위 오버레이 (position: relative 부모) ─── -->
+        <div class="step-a-wrap" style="position:relative;">
+          <div class="step-a-grid" id="stepACards">
+            <!-- 4개 카드는 JS에서 동적 생성 -->
+          </div>
+          <!-- 4개 카드 grid 전체를 덮는 오버레이 (생성 중에만 표시) -->
+          <div class="step-a-overlay" id="stepAOverlay">
+            <!-- 4개 cell이 각 카드를 덮음 (개별 투명화) -->
+            <div class="step-a-overlay-cell" data-idx="0"></div>
+            <div class="step-a-overlay-cell" data-idx="1"></div>
+            <div class="step-a-overlay-cell" data-idx="2"></div>
+            <div class="step-a-overlay-cell" data-idx="3"></div>
+            <!-- 중앙 codiBank 텍스트 (컬러 변환 효과) -->
+            <div class="step-a-overlay-text">
+              <div class="step-a-cb-rainbow">
+                <span>c</span><span>o</span><span>d</span><span>i</span><span>B</span><span>a</span><span>n</span><span>k</span>
+              </div>
+              <div class="step-a-overlay-sub">4명 스타일리스트가 코디 중...</div>
+            </div>
+          </div>
         </div>
         <p style="margin-top:8px;text-align:center;color:rgba(151,254,237,0.45);font-size:10px;">
           탭하여 정/후면 자세히 보고 선택
@@ -9189,6 +9325,13 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     cities.forEach((c, i) => renderStepACard(i, c, 'loading', null));
     const statusEl = $('stepAStatus');
     if(statusEl) statusEl.textContent = '(4명 병렬 생성 중...)';
+    // ─── 2026-05-14 KST · TJ 보고 1번 ─── 오버레이 표시 (codiBank 컬러 변환 시작) ───
+    const overlay = $('stepAOverlay');
+    if(overlay){
+      overlay.classList.remove('hidden-overlay');
+      // 4개 cell 모두 활성화 (이전 카드 잔여물 제거)
+      overlay.querySelectorAll('.step-a-overlay-cell').forEach(c => c.classList.remove('cell-done'));
+    }
     // stagger 시작 — 각 호출의 시작 시점만 1.5초씩 지연, 응답 대기는 병렬
     const STAGGER_MS = 1500;
     const _startTime = Date.now();
@@ -9201,6 +9344,9 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           fetchStepACard(i).then(() => {
             const _done = ((Date.now() - _startTime) / 1000).toFixed(2);
             console.log(`[v68 STEP A] 카드 ${i} (${cities[i].label}) ✅ 응답 도착 — t+${_done}s`);
+            // ─── 2026-05-14 KST · TJ 보고 1번 ─── 해당 cell 투명화 ───
+            const cell = overlay && overlay.querySelector(`.step-a-overlay-cell[data-idx="${i}"]`);
+            if(cell) cell.classList.add('cell-done');
             resolve();
           }).catch(() => resolve());
         }, i * STAGGER_MS);
@@ -9209,6 +9355,11 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     await Promise.all(promises);
     const _totalSec = ((Date.now() - _startTime) / 1000).toFixed(2);
     console.log(`[v68 STEP A] 4장 완료 — 총 ${_totalSec}s`);
+    // ─── 2026-05-14 KST · TJ 보고 1번 ─── 전체 오버레이 사라짐 ───
+    if(overlay){
+      // 마지막 cell 페이드 끝나는 시점에 전체 오버레이 숨김
+      setTimeout(() => { overlay.classList.add('hidden-overlay'); }, 400);
+    }
     if(statusEl) statusEl.textContent = '(1개 탭하여 선택)';
     flow.busy = false;
   }
@@ -9274,6 +9425,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const modal = $('expandModal');
     if(modal){ modal.classList.add('hidden'); document.body.style.overflow=''; }
   }
+  // ─── 2026-05-14 KST · TJ 보고 2번 ─── drawNatural 패턴 (1:1.6 박스 + 정/후면 분리) ───
   function drawModalImage(imageUrl){
     const canvas = $('expandModalCanvas');
     const box = $('expandModalImgBox');
@@ -9281,32 +9433,77 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      // 박스: 4/5 비율 (1:1.25). 캔버스 너비 = 박스 너비 × 2 (정면 좌측 + 후면 우측 가로 스크롤)
-      const boxW = box.clientWidth || 320;
-      const boxH = box.clientHeight || Math.round(boxW * 1.25);  // 4/5 비율
-      const dispW = boxW * 2;
-      const dispH = boxH;
-      canvas.width = dispW;
-      canvas.height = dispH;
-      // wide 이미지를 캔버스에 cover로 그림 (전체 정/후면 보존)
-      const imgRatio = img.naturalWidth / img.naturalHeight;
-      const dispRatio = dispW / dispH;
-      let sx=0, sy=0, sw=img.naturalWidth, sh=img.naturalHeight;
-      if(imgRatio > dispRatio){
-        // 이미지가 더 가로형 → 가로 잘림
-        sw = img.naturalHeight * dispRatio;
-        sx = (img.naturalWidth - sw) / 2;
+      const DPR = window.devicePixelRatio || 1;
+      const iw = img.naturalWidth || img.width;
+      const ih = img.naturalHeight || img.height;
+      if(!iw || !ih) return;
+
+      const boxRect = box.getBoundingClientRect();
+      const boxW = Math.max(1, Math.round(boxRect.width));
+      const boxH = Math.max(1, Math.round(boxRect.height));
+      const ratio = iw / ih;
+      const isWide = ratio > 1.2;
+
+      let dispW, dispH;
+      if(isWide){
+        dispW = boxW * 2;  // 정/후면 분리
+        dispH = boxH;
       }else{
-        // 이미지가 더 세로형 → 세로 잘림
-        sh = img.naturalWidth / dispRatio;
-        sy = (img.naturalHeight - sh) / 2;
+        dispW = boxW;
+        dispH = boxH;
       }
+
+      canvas.width  = Math.round(dispW * DPR);
+      canvas.height = Math.round(dispH * DPR);
+      canvas.style.width  = dispW + 'px';
+      canvas.style.height = dispH + 'px';
+
       const ctx = canvas.getContext('2d');
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
       ctx.clearRect(0, 0, dispW, dispH);
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dispW, dispH);
-      // 초기 스크롤 위치 (정면 = 좌측, 3% offset)
-      const _adj = Math.round(boxW * 0.03);
-      box.scrollTo({ left: _adj, behavior: 'instant' });
+
+      if(isWide){
+        const halfIw = iw / 2;
+        const boxRatio = boxW / boxH;
+        const halfRatio = halfIw / ih;
+
+        // 좌측 절반(정면) → cover로 박스 1폭 풀
+        let lsx, lsy, lsw, lsh;
+        if(halfRatio > boxRatio){
+          lsh = ih; lsw = ih * boxRatio;
+          lsx = (halfIw - lsw) / 2; lsy = 0;
+        }else{
+          lsw = halfIw; lsh = halfIw / boxRatio;
+          lsx = 0; lsy = (ih - lsh) / 2;
+        }
+        ctx.drawImage(img, lsx, lsy, lsw, lsh, 0, 0, boxW, boxH);
+
+        // 우측 절반(후면)
+        let rsx, rsy, rsw, rsh;
+        if(halfRatio > boxRatio){
+          rsh = ih; rsw = ih * boxRatio;
+          rsx = halfIw + (halfIw - rsw) / 2; rsy = 0;
+        }else{
+          rsw = halfIw; rsh = halfIw / boxRatio;
+          rsx = halfIw; rsy = (ih - rsh) / 2;
+        }
+        ctx.drawImage(img, rsx, rsy, rsw, rsh, boxW, 0, boxW, boxH);
+      }else{
+        // 단일 인물 cover
+        const imgRatio = iw / ih;
+        const boxRatio = boxW / boxH;
+        let sx, sy, sw, sh;
+        if(imgRatio > boxRatio){
+          sh = ih; sw = ih * boxRatio;
+          sx = (iw - sw) / 2; sy = 0;
+        }else{
+          sw = iw; sh = iw / boxRatio;
+          sx = 0; sy = (ih - sh) / 2;
+        }
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dispW, dispH);
+      }
+      // 초기 스크롤 위치 (정면 = 좌측 0)
+      box.scrollTo({ left: 0, behavior: 'instant' });
     };
     img.src = imageUrl;
   }
@@ -9510,6 +9707,9 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     flow.busy = false;
   }
 
+  // ─── 2026-05-14 KST · TJ 보고 4번 ─── drawNatural 패턴 적용
+  // 박스 세로형(1/1.62) + 캔버스 2x 가로 → 좌측 절반=정면, 우측 절반=후면
+  // 정/후면 각각 박스 1폭에 cover로 그림 → 인물 박스 중앙 배치, 풀 채움, 잘림 자연스러움
   async function drawStepCToCanvas(imageUrl){
     return new Promise((resolve) => {
       const canvas = $('vtoCanvas');
@@ -9518,24 +9718,95 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        const boxW = box.clientWidth || 320;
-        const boxH = box.clientHeight || Math.round(boxW * 2 / 3);
-        const dispW = boxW * 2;
-        canvas.width = dispW;
-        canvas.height = boxH;
-        const imgRatio = img.naturalWidth / img.naturalHeight;
-        const dispRatio = dispW / boxH;
-        let sx=0, sy=0, sw=img.naturalWidth, sh=img.naturalHeight;
-        if(imgRatio > dispRatio){
-          sw = img.naturalHeight * dispRatio;
-          sx = (img.naturalWidth - sw) / 2;
+        const DPR = window.devicePixelRatio || 1;
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if(!iw || !ih) return resolve();
+
+        // 박스 실제 표시 크기
+        const boxRect = box.getBoundingClientRect();
+        const boxW = Math.max(1, Math.round(boxRect.width));
+        const boxH = Math.max(1, Math.round(boxRect.height));
+        const ratio = iw / ih;
+        const isWide = ratio > 1.2;   // wide(정/후면 합본) 판정
+
+        let dispW, dispH;
+        if(isWide){
+          // 정/후면: 캔버스 가로 = 박스 가로 × 2 (좌측 정면 | 우측 후면)
+          dispW = boxW * 2;
+          dispH = boxH;
         }else{
-          sh = img.naturalWidth / dispRatio;
-          sy = (img.naturalHeight - sh) / 2;
+          // 단일 인물
+          dispW = boxW;
+          dispH = boxH;
         }
+
+        // 캔버스 크기 적용 (DPR 고려)
+        canvas.width  = Math.round(dispW * DPR);
+        canvas.height = Math.round(dispH * DPR);
+        canvas.style.width  = dispW + 'px';
+        canvas.style.height = dispH + 'px';
+        canvas.style.position = 'relative';
+        canvas.style.inset = 'auto';
+        canvas.classList.add('vto-result-image');
+
         const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, dispW, boxH);
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dispW, boxH);
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+        ctx.clearRect(0, 0, dispW, dispH);
+
+        if(isWide){
+          // 좌/우 절반 분리 → 각각 박스 1폭에 cover (정/후면 중앙 배치)
+          const halfIw = iw / 2;
+          const boxRatio = boxW / boxH;
+          const halfRatio = halfIw / ih;
+
+          // 좌측 절반(정면) → 캔버스 0~boxW
+          let lsx, lsy, lsw, lsh;
+          if(halfRatio > boxRatio){
+            lsh = ih;
+            lsw = ih * boxRatio;
+            lsx = (halfIw - lsw) / 2;
+            lsy = 0;
+          }else{
+            lsw = halfIw;
+            lsh = halfIw / boxRatio;
+            lsx = 0;
+            lsy = (ih - lsh) / 2;
+          }
+          ctx.drawImage(img, lsx, lsy, lsw, lsh, 0, 0, boxW, boxH);
+
+          // 우측 절반(후면) → 캔버스 boxW~2×boxW
+          let rsx, rsy, rsw, rsh;
+          if(halfRatio > boxRatio){
+            rsh = ih;
+            rsw = ih * boxRatio;
+            rsx = halfIw + (halfIw - rsw) / 2;
+            rsy = 0;
+          }else{
+            rsw = halfIw;
+            rsh = halfIw / boxRatio;
+            rsx = halfIw;
+            rsy = (ih - rsh) / 2;
+          }
+          ctx.drawImage(img, rsx, rsy, rsw, rsh, boxW, 0, boxW, boxH);
+        }else{
+          // 단일 인물 — 박스 풀 cover
+          const imgRatio = iw / ih;
+          const boxRatio = boxW / boxH;
+          let sx, sy, sw, sh;
+          if(imgRatio > boxRatio){
+            sh = ih;
+            sw = ih * boxRatio;
+            sx = (iw - sw) / 2;
+            sy = 0;
+          }else{
+            sw = iw;
+            sh = iw / boxRatio;
+            sx = 0;
+            sy = (ih - sh) / 2;
+          }
+          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dispW, dispH);
+        }
         resolve();
       };
       img.onerror = () => resolve();
@@ -9554,9 +9825,76 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     document.querySelectorAll('.expand-pose-btn').forEach(b => {
       b.onclick = () => toggleModalPose(b.dataset.pose);
     });
+    // ─── 2026-05-14 KST · TJ 보고 2번 ─── 저장/공유 버튼 ───
+    const saveBtn = $('expandModalSave');
+    const shareBtn = $('expandModalShare');
+    if(saveBtn) saveBtn.onclick = onModalSaveImage;
+    if(shareBtn) shareBtn.onclick = onModalShareImage;
     document.addEventListener('keydown', (e) => {
       if(e.key === 'Escape' && !$('expandModal').classList.contains('hidden')) closeModal();
     });
+  }
+
+  // ─── 2026-05-14 KST · TJ 보고 2번 ─── 모달 이미지 저장 ───
+  async function onModalSaveImage(){
+    const idx = flow.modalCurrentIdx;
+    const card = flow.stepACards[idx];
+    if(!card || !card.imageUrl){ alert('이미지가 없습니다.'); return; }
+    try{
+      const res = await fetch(card.imageUrl, { mode: 'cors' });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const cityLabel = (getGridCities()[idx] || {}).label || 'codibank';
+      const ts = new Date().toISOString().slice(0,10).replace(/-/g,'');
+      a.href = url;
+      a.download = `codibank_${cityLabel}_${ts}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }catch(err){
+      console.error('[모달 저장]', err);
+      // fallback: 새 탭에서 열기
+      window.open(card.imageUrl, '_blank');
+    }
+  }
+
+  // ─── 2026-05-14 KST · TJ 보고 2번 ─── 모달 이미지 공유 ───
+  async function onModalShareImage(){
+    const idx = flow.modalCurrentIdx;
+    const card = flow.stepACards[idx];
+    if(!card || !card.imageUrl){ alert('이미지가 없습니다.'); return; }
+    const cityLabel = (getGridCities()[idx] || {}).label || 'codibank';
+    const stylistName = (card.stylist && card.stylist.name) ? card.stylist.name + ' 스타일리스트' : '';
+    const shareText = `[CodiBank] ${cityLabel} ${stylistName}의 코디 추천`;
+    const shareUrl = card.imageUrl;
+    // navigator.share 지원 시 (모바일)
+    if(navigator.share){
+      try{
+        // 이미지를 File로 변환해서 공유 가능하면 같이
+        let files = [];
+        try{
+          const r = await fetch(shareUrl, { mode: 'cors' });
+          const blob = await r.blob();
+          const file = new File([blob], `codibank_${cityLabel}.jpg`, { type: blob.type || 'image/jpeg' });
+          if(navigator.canShare && navigator.canShare({ files: [file] })){
+            files = [file];
+          }
+        }catch(_){}
+        await navigator.share(files.length ? { title: 'CodiBank', text: shareText, files } : { title: 'CodiBank', text: shareText, url: shareUrl });
+      }catch(err){
+        if(err.name !== 'AbortError') console.error('[모달 공유]', err);
+      }
+    }else{
+      // 데스크톱 fallback: 클립보드에 URL 복사
+      try{
+        await navigator.clipboard.writeText(shareUrl);
+        alert('이미지 링크가 클립보드에 복사되었습니다.');
+      }catch(_){
+        prompt('이미지 링크를 복사하세요:', shareUrl);
+      }
+    }
   }
 
   // ─── 외부 노출 ───
@@ -9599,6 +9937,17 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           스타일리스트의 시그니처를 반영한 코디입니다.
         </div>
         <div class="expand-modal-analysis-kws" id="expandModalAnalysisKws"></div>
+        <!-- ─── 2026-05-14 KST · TJ 보고 2번 ─── 저장 + 공유 버튼 ─── -->
+        <div class="expand-modal-actions">
+          <button type="button" id="expandModalSave" class="expand-modal-action-btn">
+            <span class="material-symbols-outlined" style="font-size:18px;">download</span>
+            이미지 저장
+          </button>
+          <button type="button" id="expandModalShare" class="expand-modal-action-btn">
+            <span class="material-symbols-outlined" style="font-size:18px;">share</span>
+            공유
+          </button>
+        </div>
       </div>
       <button type="button" id="expandModalSelect" class="expand-modal-select-btn">
         이 코디 선택
