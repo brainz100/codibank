@@ -8664,6 +8664,31 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   const CB = window.CodiBank;
   if(!CB) { console.warn('[v68] CodiBank module not loaded'); return; }
 
+  // ─── 2026-05-14 KST · TJ 보고 ─── CB.api 미정의 버그 수정 ──────
+  // 기존 코드는 const postJson (callClaude 내부)를 사용. v68 IIFE는 별도 스코프라 접근 불가.
+  // 자체 fetch 헬퍼 추가 — 기존 postJson과 동일한 동작 (aiBase + 120s timeout)
+  async function v68Fetch(path, body){
+    const cfg = window.CODIBANK_CONFIG || {};
+    const backendBase = String(cfg.backendBase || '').trim()
+      || ((window.CodiBank && CodiBank.getBackendBaseResolved)
+            ? String(CodiBank.getBackendBaseResolved() || '').trim() : '');
+    const aiBase = (String(cfg.aiBase || '').trim() || backendBase || '').replace(/\/$/, '');
+    if(!aiBase) throw new Error('backend URL not configured');
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 120000);
+    try{
+      const r = await fetch(aiBase + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: ctl.signal
+      });
+      return r;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   // ─── 도시 매핑 (4장) ───
   // A = 사용자 접속지역 (S.wx.location 또는 '서울' fallback)
   // B = 뉴욕, C = 밀라노, D = 런던
@@ -8769,10 +8794,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   // 분석 별도 호출 (`/api/ai/styling/analysis`)
   async function fetchAnalysisAndFill(cacheKey){
     try{
-      const r = await CB.api('/api/ai/styling/analysis', {
-        method: 'POST',
-        body: { cacheKey: cacheKey }
-      });
+      const r = await v68Fetch('/api/ai/styling/analysis', { cacheKey: cacheKey });
       if(!r.ok) return;
       const j = await r.json();
       if(!j.ok || !j.stylingAnalysis) return;
@@ -8866,9 +8888,13 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     renderStepACard(idx, cityInfo, 'loading', null);
     try{
       const payload = buildStepAPayload(cityInfo.city);
-      const r = await CB.api('/api/ai/styling', { method:'POST', body: payload });
+      const r = await v68Fetch('/api/ai/styling', payload);
+      if(!r.ok){
+        const txt = await r.text().catch(()=>'');
+        throw new Error('HTTP ' + r.status + ' ' + txt.slice(0, 200));
+      }
       const j = await r.json();
-      if(!r.ok || !j.ok || !j.image){
+      if(!j.ok || !j.image){
         throw new Error(j.error || '생성 실패');
       }
       flow.stepACards[idx] = {
@@ -9101,9 +9127,13 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     try{
       const p = buildStepAPayload(cityInfo.city);
       p._similar_variation = true;   // ★ 백엔드 hook
-      const r = await CB.api('/api/ai/styling', { method:'POST', body: p });
+      const r = await v68Fetch('/api/ai/styling', p);
+      if(!r.ok){
+        const txt = await r.text().catch(()=>'');
+        throw new Error('HTTP ' + r.status + ' ' + txt.slice(0, 200));
+      }
       const j = await r.json();
-      if(!r.ok || !j.ok || !j.image) throw new Error(j.error || '변형 실패');
+      if(!j.ok || !j.image) throw new Error(j.error || '변형 실패');
       flow.stepBCards[1] = {
         imageUrl: j.image, url: j.url || j.image,
         stylist: j.stylist || {}, engineCity: j.engineCity || cityInfo.city,
@@ -9161,9 +9191,13 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       const p = buildStepAPayload(cityInfo.city);
       p._force_quality = 'medium';
       // input_fidelity 통합은 백엔드 endpoint /api/codifit/upgrade 추가 시 (다음 턴)
-      const r = await CB.api('/api/ai/styling', { method:'POST', body: p });
+      const r = await v68Fetch('/api/ai/styling', p);
+      if(!r.ok){
+        const txt = await r.text().catch(()=>'');
+        throw new Error('HTTP ' + r.status + ' ' + txt.slice(0, 200));
+      }
       const j = await r.json();
-      if(!r.ok || !j.ok || !j.image) throw new Error(j.error || 'Medium 실패');
+      if(!j.ok || !j.image) throw new Error(j.error || 'Medium 실패');
       flow.stepCResult = j;
       // 기존 결과 표시 함수 활용 (drawNatural 또는 비슷한 캔버스 그리기)
       if(typeof window.drawResultToVtoCanvas === 'function'){
