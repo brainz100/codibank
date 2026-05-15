@@ -5,6 +5,51 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-14 KST · TJ 지시 (v68 4→2→1 흐름) ─── [hook 3개 추가]
+#   배경: 코디핏 UX를 4장 그리드 → 2장 비교 → 1장 Medium으로 개편
+#         프론트엔드(closet.html)에서 새 흐름 구현, 백엔드는 hook만 추가
+#   변경 (mock_backend.py):
+#     1) /api/ai/styling 페이로드 처리 (~line 3470):
+#        · _force_city: weather.location 강제 변경 (4장 그리드 도시별 매칭)
+#        · _force_quality: 'low'|'medium'|'high' → _override_alias 자동 매핑
+#        · _similar_variation: STEP B 유사 변형용 prompt suffix 주입
+#     2) prompt 후처리 (~line 3540): _similar_variation 시 강력한 VARIATION 지시 추가
+#        · "Same stylist, same palette, but change ONE major item"
+#        · 같은 도시/스타일리스트지만 outfit details 미세 변형
+#   미완성 / 다음 턴 작업:
+#     · /api/codifit/upgrade 신규 endpoint
+#       → images.edit + input_fidelity="high" + prev_image as reference
+#       → STEP C에서 LOW를 reference로 Medium 업그레이드 (outfit 일관성 보장)
+#     · STEP A 4장 cache 키 분리 (현재는 일반 캐시와 같은 키 사용 → 다양성 저해 가능)
+#   영향 범위:
+#     · /api/ai/styling만 hook 추가 (기본 동작 무변경)
+#     · 트라이온, 코디하기, 캐시 키, v53 SDK fix zone 무영향
+#
+# ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.7-fix5) ─── [KMA 백엔드 프록시 + 하이브리드]
+#   배경: TJ 보고 — Open-Meteo가 서울 실측 대비 2°C 오차 발생
+#   원인: Open-Meteo는 한국 지역에서 글로벌 모델(GFS/ECMWF) 사용 → 지역 모델 미적용
+#   해결: KMA(한국 기상청) 단기예보+초단기실황 백엔드 프록시 추가
+#   추가 (mock_backend.py 파일 마지막 ~10923행):
+#     · _kma_dfs_xy_conv(lat, lon) — Lambert Conformal Conic 5km 격자 변환
+#     · _kma_calc_base_dt() — 단기예보(8회/일) + 초단기실황(매시) base_date/time 계산
+#     · _kma_pty_sky_to_wmo() — KMA PTY/SKY 코드 → WMO weather_code 매핑
+#     · /api/weather endpoint:
+#       - 초단기실황(getUltraSrtNcst) → 현재 기온(T1H) + 풍속(WSD) + 강수형태(PTY)
+#       - 단기예보(getVilageFcst) → 3일 시간별(TMP/POP/PTY/SKY/WSD) + 일별 TMX/TMN
+#       - Open-Meteo 보강 → UV 지수 + PM2.5 (KMA 미제공 항목)
+#       - 응답 형식: Open-Meteo Forecast API 호환 (frontend 무수정)
+#   환경변수: KMA_SERVICE_KEY (공공데이터포털 발급 — TJ 작업)
+#     · 미설정 시 503 반환 → 프론트엔드가 자동으로 Open-Meteo fallback
+#   하이브리드 라우팅 (codibank.js 동시 수정):
+#     · 한국 좌표(33-39N, 124-132E) 자동 감지 → KMA 호출
+#     · 한국 외 좌표 → Open-Meteo 그대로
+#     · config.js weatherProvider: "AUTO" (신규 모드)
+#   검증 dry-run:
+#     · 서울/부산/제주/인천/대구 5개 도시 좌표 변환 정확
+#     · JS syntax OK
+#     · 한국/일본/중국/미국 좌표 감지 정확
+#   무영향: 코디핏 prompt, 캐시 키, v53 SDK fix zone, 스타일리스트 엔진
+#
 # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.7-fix3) ─── [7단계 + 활동지역 + 캐리어]
 #   배경: 9,600명 스타일리스트 페르소나가 결과에 반영 안 됨 (사용자 보고)
 #   TJ 지시 4가지:
@@ -3441,6 +3486,24 @@ def ai_styling():
 
     payload = request.get_json(silent=True) or {}
 
+    # ─── 2026-05-14 KST · TJ 지시 (v68 4→2→1 흐름) ─── 새 흐름 hook ──────
+    # 코디핏 새 UX: 4장 그리드 → 2장 비교 → 최종 1장 Medium
+    # 프론트엔드가 같은 endpoint를 다른 페이로드로 호출:
+    #   · STEP A: _force_city + _force_quality='low' (4번 병렬)
+    #   · STEP B: _force_quality='low' + _similar_variation=true (같은 stylist 변형)
+    #   · STEP C: 별도 endpoint /api/codifit/upgrade
+    _force_city = str(payload.get('_force_city') or '').strip()
+    _force_quality = str(payload.get('_force_quality') or '').strip().lower()
+    _similar_variation = bool(payload.get('_similar_variation'))
+    if _force_city:
+        if 'weather' not in payload or not isinstance(payload.get('weather'), dict):
+            payload['weather'] = {}
+        payload['weather']['location'] = _force_city
+        print(f"[v68 grid] _force_city={_force_city}", flush=True)
+    if _force_quality in ('low', 'medium', 'high'):
+        payload['_override_alias'] = f'gpt_image_2_{_force_quality}'
+        print(f"[v68 grid] _force_quality={_force_quality} → alias={payload['_override_alias']}", flush=True)
+
     # [v2026-04-06] 9,600명 AI 스타일리스트 엔진 — 프론트 프롬프트 완전 대체
     # 구: closet.html(코디쌤) PERSONA_DB → imagePrompt → 서버 통과 → OpenAI (목적 차별화 불가)
     # 신: 서버 엔진이 목적+도시 기반 전용 프롬프트 생성 → OpenAI (16개 목적 완전 차별화)
@@ -3493,6 +3556,22 @@ def ai_styling():
     # 해결: customText가 있으면 엔진 결과의 맨 앞과 맨 뒤 모두에 강력한 오버라이드 prepend/append
     _purpose_key = str(payload.get("purposeKey", "")).strip().lower()
     _custom_text_force = str(payload.get("customText") or "").strip()
+
+    # ─── 2026-05-14 KST · TJ 지시 (v68 STEP B) ─── 유사 변형 prompt 주입 ────
+    # _similar_variation=true이면 prompt 끝에 강력한 variation 지시 추가
+    # 효과: 같은 stylist + 같은 TPO지만 outfit details가 약간 다른 결과 생성
+    if _similar_variation and prompt:
+        prompt += (
+            "\n\n[VARIATION REQUIREMENT — STEP B SIMILAR ALTERNATIVE]\n"
+            "Generate an ALTERNATIVE outfit by the SAME stylist with the SAME color palette and overall vibe, "
+            "but with SUBTLE design variations:\n"
+            "  · Change ONE major item (e.g., shirt → polo, slacks → chinos, oxford → loafers)\n"
+            "  · OR swap accessory choice (different bag style, different watch type)\n"
+            "  · Keep the overall mood/silhouette/season-appropriateness identical\n"
+            "  · Do NOT change colors significantly — keep the stylist's signature palette\n"
+            "This is a 'similar but different' version for the user to compare side-by-side.\n"
+        )
+        print("[v68 STEP B] similar_variation prompt injected", flush=True)
     if _purpose_key == "custom" and _custom_text_force:
         _force_header = (
             f"\n\n========================================\n"
@@ -10918,6 +10997,259 @@ def api_extract_product_images():
         "pageTitle": page_title,
         "sourceUrl": final_url,
         "count": len(images),
+    }), 200
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ─── 2026-05-14 v67 Phase 1.7-fix5 ─── KMA(한국 기상청) 백엔드 프록시
+# 배경: Open-Meteo는 한국 지역에서 글로벌 모델 사용 → 실측 대비 2°C 오차
+# 해결: 한국 좌표는 KMA 단기예보/초단기실황 API를 백엔드 프록시로 호출
+#       UV/PM2.5는 KMA에서 미제공이라 Open-Meteo air-quality로 보강
+# 환경변수: KMA_SERVICE_KEY (공공데이터포털 발급, URL-encoded 형식)
+#   미설정 시 503 반환 → 프론트엔드가 Open-Meteo fallback
+# 라우팅: 프론트엔드가 한국 좌표(33-39N, 124-132E) 감지 시 호출
+# ═══════════════════════════════════════════════════════════════════
+
+def _kma_dfs_xy_conv(lat, lon):
+    """위경도 → KMA 격자 좌표 변환 (Lambert Conformal Conic, 5km 격자)"""
+    import math
+    RE, GRID = 6371.00877, 5.0
+    SLAT1, SLAT2 = 30.0, 60.0
+    OLON, OLAT = 126.0, 38.0
+    XO, YO = 43, 136
+    DEGRAD = math.pi / 180.0
+    re = RE / GRID
+    slat1, slat2 = SLAT1 * DEGRAD, SLAT2 * DEGRAD
+    olon, olat = OLON * DEGRAD, OLAT * DEGRAD
+    sn = math.tan(math.pi * 0.25 + slat2 * 0.5) / math.tan(math.pi * 0.25 + slat1 * 0.5)
+    sn = math.log(math.cos(slat1) / math.cos(slat2)) / math.log(sn)
+    sf = math.tan(math.pi * 0.25 + slat1 * 0.5)
+    sf = math.pow(sf, sn) * math.cos(slat1) / sn
+    ro = math.tan(math.pi * 0.25 + olat * 0.5)
+    ro = re * sf / math.pow(ro, sn)
+    ra = math.tan(math.pi * 0.25 + lat * DEGRAD * 0.5)
+    ra = re * sf / math.pow(ra, sn)
+    theta = lon * DEGRAD - olon
+    if theta > math.pi: theta -= 2.0 * math.pi
+    if theta < -math.pi: theta += 2.0 * math.pi
+    theta *= sn
+    nx = int(ra * math.sin(theta) + XO + 0.5)
+    ny = int(ro - ra * math.cos(theta) + YO + 0.5)
+    return nx, ny
+
+
+def _kma_calc_base_dt(now=None, kind="village"):
+    """KMA API 호출용 base_date/base_time 계산
+    kind:
+      'village' — 단기예보 (1일 8회: 02/05/08/11/14/17/20/23시, 10분 후 제공)
+      'ultra'   — 초단기실황 (매시 정각, 10분 후 제공)
+    """
+    from datetime import datetime, timedelta
+    if now is None:
+        now = datetime.now()
+    if kind == "ultra":
+        # 매시 정각 발표, 10분 후 제공
+        if now.minute < 10:
+            now -= timedelta(hours=1)
+        return now.strftime("%Y%m%d"), now.strftime("%H00")
+    # village (단기예보): 8회 발표
+    base_hours = [2, 5, 8, 11, 14, 17, 20, 23]
+    cur_hhmm = now.hour * 100 + now.minute
+    selected_h = None
+    for bh in reversed(base_hours):
+        if cur_hhmm >= bh * 100 + 10:  # 발표 10분 후부터 사용 가능
+            selected_h = bh
+            break
+    if selected_h is None:
+        # 어제 23시 발표
+        now -= timedelta(days=1)
+        selected_h = 23
+    return now.strftime("%Y%m%d"), f"{selected_h:02d}00"
+
+
+def _kma_pty_sky_to_wmo(pty, sky):
+    """KMA PTY(강수형태)+SKY(하늘상태) → WMO weather_code 매핑"""
+    try:
+        pty = int(pty); sky = int(sky)
+    except (TypeError, ValueError):
+        return 0
+    # PTY: 0=없음, 1=비, 2=비/눈, 3=눈, 4=소나기, 5=빗방울, 6=빗방울눈날림, 7=눈날림
+    if pty == 1: return 61   # rain
+    if pty == 2: return 67   # freezing rain (sleet)
+    if pty == 3: return 71   # snow
+    if pty == 4: return 80   # rain showers
+    if pty == 5: return 51   # drizzle
+    if pty == 6: return 68   # light freezing rain
+    if pty == 7: return 73   # light snow
+    # PTY=0: SKY 기준 (1=맑음, 3=구름많음, 4=흐림)
+    return {1: 0, 3: 2, 4: 3}.get(sky, 0)
+
+
+@app.route("/api/weather", methods=["GET"])
+def weather_endpoint():
+    """KMA 한국 기상청 + Open-Meteo air-quality 하이브리드 프록시
+    Query: lat, lon, tz(optional)
+    Response: Open-Meteo Forecast API 호환 형식
+    """
+    try:
+        lat = float(request.args.get("lat") or 0)
+        lon = float(request.args.get("lon") or 0)
+        tz  = str(request.args.get("tz") or "Asia/Seoul")
+    except (TypeError, ValueError):
+        return jsonify(ok=False, error="invalid lat/lon"), 400
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return jsonify(ok=False, error="lat/lon out of range"), 400
+
+    service_key = os.getenv("KMA_SERVICE_KEY", "").strip()
+    if not service_key:
+        return jsonify(ok=False, error="KMA_SERVICE_KEY not configured"), 503
+
+    nx, ny = _kma_dfs_xy_conv(lat, lon)
+    from datetime import datetime, timedelta
+    now = datetime.now()
+
+    # ── 1) 초단기실황 (현재 시점 기온 — 가장 정확) ──
+    cur_temp = None
+    cur_wsd = None
+    cur_pty = 0
+    cur_reh = None
+    try:
+        base_date_u, base_time_u = _kma_calc_base_dt(now, kind="ultra")
+        url_ultra = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
+        params_u = {
+            "serviceKey": service_key, "pageNo": 1, "numOfRows": 100,
+            "dataType": "JSON", "base_date": base_date_u, "base_time": base_time_u,
+            "nx": nx, "ny": ny
+        }
+        ru = http_requests.get(url_ultra, params=params_u, timeout=6)
+        rj = ru.json()
+        items = (((rj or {}).get("response") or {}).get("body") or {}).get("items", {}).get("item", []) or []
+        for it in items:
+            cat = it.get("category"); val = it.get("obsrValue")
+            if cat == "T1H" and val not in (None, "", "-99"): cur_temp = float(val)
+            elif cat == "WSD" and val not in (None, "", "-99"): cur_wsd = float(val)
+            elif cat == "PTY":
+                try: cur_pty = int(val or 0)
+                except (TypeError, ValueError): cur_pty = 0
+            elif cat == "REH" and val not in (None, "", "-99"): cur_reh = float(val)
+    except Exception as _e:
+        print(f"[KMA ultra-now] err: {_e}", flush=True)
+
+    # ── 2) 단기예보 (3일 시간별 + 일별 최저/최고) ──
+    hourly = {"time": [], "temperature_2m": [], "weather_code": [],
+              "precipitation_probability": [], "wind_speed_10m": []}
+    daily_map = {}  # date → {tmax, tmin, pop_max, wsd_max, sky_dominant}
+    try:
+        base_date_v, base_time_v = _kma_calc_base_dt(now, kind="village")
+        url_vill = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
+        params_v = {
+            "serviceKey": service_key, "pageNo": 1, "numOfRows": 1000,
+            "dataType": "JSON", "base_date": base_date_v, "base_time": base_time_v,
+            "nx": nx, "ny": ny
+        }
+        rv = http_requests.get(url_vill, params=params_v, timeout=8)
+        rj = rv.json()
+        items = (((rj or {}).get("response") or {}).get("body") or {}).get("items", {}).get("item", []) or []
+        # 시간별 데이터 buffer: {(date, time) → {TMP, POP, PTY, SKY, WSD}}
+        slot = {}
+        for it in items:
+            d = it.get("fcstDate"); t = it.get("fcstTime")
+            cat = it.get("category"); v = it.get("fcstValue")
+            if not d or not t: continue
+            key = (d, t)
+            slot.setdefault(key, {})[cat] = v
+            # 일별 최저/최고
+            if cat == "TMX" and v not in (None, "", "-99"):
+                daily_map.setdefault(d, {})["tmax"] = float(v)
+            elif cat == "TMN" and v not in (None, "", "-99"):
+                daily_map.setdefault(d, {})["tmin"] = float(v)
+        # 시간 정렬
+        for (d, t) in sorted(slot.keys()):
+            s = slot[(d, t)]
+            try: tmp = float(s.get("TMP") or 0)
+            except (TypeError, ValueError): tmp = None
+            try: pop = float(s.get("POP") or 0)
+            except (TypeError, ValueError): pop = 0
+            try: wsd = float(s.get("WSD") or 0)
+            except (TypeError, ValueError): wsd = 0
+            iso_time = f"{d[0:4]}-{d[4:6]}-{d[6:8]}T{t[0:2]}:{t[2:4]}"
+            hourly["time"].append(iso_time)
+            hourly["temperature_2m"].append(tmp)
+            hourly["weather_code"].append(_kma_pty_sky_to_wmo(s.get("PTY"), s.get("SKY")))
+            hourly["precipitation_probability"].append(int(pop))
+            hourly["wind_speed_10m"].append(wsd)
+            # 일별 누적 (POP max, WSD max)
+            dm = daily_map.setdefault(d, {})
+            dm["pop_max"] = max(dm.get("pop_max", 0), pop)
+            dm["wsd_max"] = max(dm.get("wsd_max", 0), wsd)
+            # 우세 날씨코드 (POP 가장 높은 시간 또는 정오 기준)
+            if t == "1200" or "sky_pty" not in dm:
+                dm["sky_pty"] = (s.get("PTY"), s.get("SKY"))
+    except Exception as _e:
+        print(f"[KMA village-fcst] err: {_e}", flush=True)
+
+    # ── 3) Open-Meteo air-quality + UV 보강 (KMA는 UV/PM2.5 미제공) ──
+    uv_max_per_day = {}
+    pm25_current = None
+    try:
+        url_om = (f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
+                  f"&daily=uv_index_max&timezone={tz}&forecast_days=14")
+        ro = http_requests.get(url_om, timeout=6).json()
+        d_dates = ((ro or {}).get("daily") or {}).get("time", []) or []
+        d_uvs = ((ro or {}).get("daily") or {}).get("uv_index_max", []) or []
+        for i, dt in enumerate(d_dates):
+            uv_max_per_day[dt.replace("-", "")] = d_uvs[i] if i < len(d_uvs) else None
+    except Exception as _e:
+        print(f"[Open-Meteo UV] err: {_e}", flush=True)
+    try:
+        url_aq = (f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}"
+                  f"&current=pm2_5,pm10&timezone={tz}")
+        ra = http_requests.get(url_aq, timeout=6).json()
+        pm25_current = ((ra or {}).get("current") or {}).get("pm2_5")
+    except Exception as _e:
+        print(f"[Open-Meteo AQ] err: {_e}", flush=True)
+
+    # ── 4) Open-Meteo 형식으로 매핑 ──
+    daily_sorted_dates = sorted(daily_map.keys())
+    daily = {
+        "time": [f"{d[0:4]}-{d[4:6]}-{d[6:8]}" for d in daily_sorted_dates],
+        "temperature_2m_max": [daily_map[d].get("tmax") for d in daily_sorted_dates],
+        "temperature_2m_min": [daily_map[d].get("tmin") for d in daily_sorted_dates],
+        "weather_code": [_kma_pty_sky_to_wmo(*daily_map[d].get("sky_pty", (0, 1))) for d in daily_sorted_dates],
+        "precipitation_probability_max": [int(daily_map[d].get("pop_max", 0)) for d in daily_sorted_dates],
+        "wind_speed_10m_max": [daily_map[d].get("wsd_max", 0) for d in daily_sorted_dates],
+        "uv_index_max": [uv_max_per_day.get(d) for d in daily_sorted_dates],
+    }
+
+    # 현재 weather_code: 초단기실황 PTY + 단기예보 첫 SKY
+    cur_sky = 1
+    if hourly["time"]:
+        # 첫 시간 SKY 활용 (대략 현재에 가장 가까움)
+        try:
+            first_d = hourly["time"][0][0:4] + hourly["time"][0][5:7] + hourly["time"][0][8:10]
+            first_t = hourly["time"][0][11:13] + hourly["time"][0][14:16]
+            cur_sky_pty = daily_map.get(first_d, {}).get("sky_pty", (cur_pty, 1))
+            cur_sky = int(cur_sky_pty[1]) if cur_sky_pty[1] else 1
+        except Exception:
+            pass
+    current = {
+        "time": now.strftime("%Y-%m-%dT%H:%M"),
+        "temperature_2m": cur_temp,
+        "weather_code": _kma_pty_sky_to_wmo(cur_pty, cur_sky),
+        "is_day": 1 if 6 <= now.hour < 19 else 0,
+        "precipitation": 0,
+        "wind_speed_10m": cur_wsd,
+    }
+
+    return jsonify({
+        "latitude": lat,
+        "longitude": lon,
+        "timezone": tz,
+        "source": "KMA+OpenMeteo",
+        "current": current,
+        "hourly": hourly,
+        "daily": daily,
+        "airQuality": {"current": {"pm2_5": pm25_current}},
     }), 200
 
 
