@@ -6794,12 +6794,36 @@ async function armAndGenerate(mode){
         S.purposeKey = S.pk;
         S.purposeLabel = _p ? _p.label : '';
       }
-      // face 이미지 준비 (기존 generateStyling이 하던 사전 처리)
+      // face 이미지 준비 (기존 callRemote와 동일한 방식)
+      // ─── 2026-05-14 KST · TJ 보고 ─── face 미등록 오인 버그 수정 ──────
+      // 이전: typeof getUserFaceImageSrc 체크했지만 이 함수는 CodiBank 모듈의 메서드
+      //       즉 글로벌 아님 → 체크 실패 → S.faceImage 빈 상태로 백엔드 호출 → 400 거절
+      // 변경: CodiBank.getUserFaceImageSrc(user) 정식 호출 + shrinkDataUrl 압축
+      //       기존 callRemote(line 5517)와 동일한 흐름
       try{
-        if(typeof getUserFaceImageSrc === 'function' && !S.faceImage){
-          S.faceImage = await getUserFaceImageSrc();
+        if(window.CodiBank && typeof CodiBank.getUserFaceImageSrc === 'function'){
+          let _faceSrc = await CodiBank.getUserFaceImageSrc(user);
+          if(_faceSrc){
+            // Data URL 압축 (백엔드 처리 부담 ↓, 기존 1024px 0.90 quality와 동일)
+            if(_faceSrc.startsWith('data:') && typeof shrinkDataUrl === 'function'){
+              try{ _faceSrc = await shrinkDataUrl(_faceSrc, 1024, 0.90); }catch(_){}
+            }
+            S.faceImage = _faceSrc;
+            console.log('[v68] face image loaded, length=', _faceSrc.length);
+          }else{
+            console.warn('[v68] face image is empty after getUserFaceImageSrc');
+          }
+        }else{
+          console.warn('[v68] CodiBank.getUserFaceImageSrc not available');
         }
-      }catch(_){}
+      }catch(err){
+        console.warn('[v68] face load failed:', err);
+      }
+      // face 로드 후에도 없으면 사용자에게 안내 (백엔드 거절 방지)
+      if(!S.faceImage){
+        alert(_L('얼굴 사진 등록이 필요합니다. 프로필에서 얼굴 사진을 먼저 등록한 후 다시 시도해주세요.'));
+        return;
+      }
       await window.runCodifitGridFlow();
     }else{
       // fallback: 기존 단일 1장 흐름 (만약 v68 IIFE 로드 실패 시)
