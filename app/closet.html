@@ -1277,11 +1277,13 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .step-a-grid{
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
+  max-width: 340px;        /* 2x2 정렬, 1:1.6 비율 보존을 위해 폭 제한 */
+  margin: 0 auto;
 }
 .step-a-card{
   position: relative;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 5 / 8;     /* 1:1.6 세로형 (TJ 지시 v68) */
   border-radius: 12px;
   overflow: hidden;
   background: rgba(7, 25, 82, 0.6);
@@ -1302,7 +1304,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 25% center;  /* wide 16:9에서 좌측 절반(정면) 위주 표시 */
+  /* wide 16:9 이미지의 좌측(정면) 부분만 카드에 표시.
+     이미지 가로 1.5 / 세로 1 (가로 길이가 세로의 1.5배).
+     카드 비율 0.625(5:8) → 이미지가 더 가로형이라 좌우 잘림.
+     object-position: 12% center → 정면(0~50%) 영역에서 인물 중앙 정도 */
+  object-position: 12% center;
   display: block;
 }
 .step-a-card .card-loading{
@@ -1441,56 +1447,67 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-backdrop{
   position: absolute;
   inset: 0;
-  background: rgba(2, 9, 28, 0.85);
-  backdrop-filter: blur(8px);
+  background: rgba(2, 9, 28, 0.88);
+  backdrop-filter: blur(12px);
 }
 .expand-modal-content{
   position: relative;
   width: 100%;
-  max-width: 420px;
-  background: linear-gradient(180deg, #051030 0%, #07193D 100%);
-  border: 1px solid rgba(151, 254, 237, 0.2);
-  border-radius: 20px;
-  padding: 20px 16px 16px;
+  max-width: 360px;     /* 1:1.6 비율을 위해 폭 약간 축소 */
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: linear-gradient(180deg, #051030 0%, #0A1F4D 60%, #051840 100%);
+  border: 1px solid rgba(151, 254, 237, 0.25);
+  border-radius: 24px;
+  padding: 18px 16px 18px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  animation: modalSlideIn 0.3s ease-out;
+  animation: modalSlideIn 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6),
+              0 0 0 1px rgba(151, 254, 237, 0.08) inset;
+  scrollbar-width: none;
 }
+.expand-modal-content::-webkit-scrollbar{ display: none; }
 @keyframes modalSlideIn{
-  from{ transform: translateY(20px); opacity: 0; }
-  to  { transform: translateY(0);    opacity: 1; }
+  from{ transform: translateY(24px) scale(0.96); opacity: 0; }
+  to  { transform: translateY(0) scale(1);       opacity: 1; }
 }
 .expand-modal-close{
   position: absolute;
   top: 12px;
   right: 12px;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: rgba(151, 254, 237, 0.1);
-  border: 1px solid rgba(151, 254, 237, 0.2);
+  background: rgba(151, 254, 237, 0.12);
+  border: 1px solid rgba(151, 254, 237, 0.25);
   color: #97FEED;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 2;
+  transition: background 0.2s;
 }
+.expand-modal-close:hover{ background: rgba(151, 254, 237, 0.22); }
 .expand-modal-header{
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding-right: 36px;
+  gap: 3px;
+  padding-right: 40px;
+  padding-left: 8px;
+  text-align: center;
 }
 .expand-modal-imgbox{
   position: relative;
   width: 100%;
-  aspect-ratio: 3 / 2;
-  border-radius: 12px;
+  aspect-ratio: 5 / 8;     /* 1:1.6 세로형 (TJ 지시 v68) */
+  border-radius: 14px;
   overflow: hidden;
   background: rgba(7, 25, 82, 0.6);
-  border: 1px solid rgba(151, 254, 237, 0.15);
+  border: 1px solid rgba(151, 254, 237, 0.18);
   scroll-snap-type: x mandatory;
   overflow-x: auto;
   scrollbar-width: none;
@@ -1508,7 +1525,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-pose-btn{
   font-size: 11px;
   font-weight: 700;
-  padding: 7px 18px;
+  padding: 7px 22px;
   border-radius: 999px;
   border: 1px solid rgba(151, 254, 237, 0.25);
   background: rgba(151, 254, 237, 0.05);
@@ -1517,23 +1534,68 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   transition: all 0.2s;
 }
 .expand-pose-btn.active{
-  background: #097E72;
+  background: linear-gradient(135deg, #0E9D8E 0%, #097E72 100%);
   color: #fff;
-  border-color: #097E72;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(14, 157, 142, 0.4);
 }
+
+/* ─── 2026-05-14 KST · TJ 지시 (v68) ─── 모달 분석 영역 ─── */
+.expand-modal-analysis{
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(151, 254, 237, 0.06);
+  border: 1px solid rgba(151, 254, 237, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.expand-modal-analysis-title{
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(151, 254, 237, 0.8);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.expand-modal-analysis-text{
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.6;
+}
+.expand-modal-analysis-kws{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.expand-modal-analysis-kws span{
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(151, 254, 237, 0.12);
+  border: 1px solid rgba(151, 254, 237, 0.28);
+  color: rgba(151, 254, 237, 0.92);
+}
+
 .expand-modal-select-btn{
   width: 100%;
-  padding: 12px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #0E9D8E 0%, #097E72 100%);
+  padding: 13px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0EAB99 0%, #098272 100%);
   color: #fff;
   font-size: 13px;
   font-weight: 800;
   border: none;
   cursor: pointer;
   margin-top: 4px;
+  box-shadow: 0 4px 14px rgba(14, 171, 153, 0.35);
+  transition: filter 0.15s, transform 0.1s;
 }
-.expand-modal-select-btn:hover{ filter: brightness(1.1); }
+.expand-modal-select-btn:hover{ filter: brightness(1.08); }
+.expand-modal-select-btn:active{ transform: scale(0.98); }
 .expand-modal-select-btn:disabled{ opacity: 0.5; cursor: not-allowed; }
 
 /* ═══════════════════════════════════════════════════════════════════════ */
@@ -8710,7 +8772,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const aiBase = (String(cfg.aiBase || '').trim() || backendBase || '').replace(/\/$/, '');
     if(!aiBase) throw new Error('backend URL not configured');
     const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 120000);
+    const timer = setTimeout(() => ctl.abort(), 180000);  // 180s — medium quality 응답 마진
     try{
       const r = await fetch(aiBase + path, {
         method: 'POST',
@@ -8869,6 +8931,9 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   }
 
   // ─── STEP A 카드 1개 렌더 (로딩/완료/에러 상태) ───
+  // ─── 2026-05-14 KST · TJ 지시 (v68 추가) ─── 정면만 보임 + 즉시 표시 ─────
+  // 이미지: wide 16:9 (정면 좌측 + 후면 우측). 카드는 1:1.6 세로형 → object-position: 0% center로
+  // 좌측(정면)만 보임. 후면은 카드 탭 시 모달에서 토글로 확인.
   function renderStepACard(idx, cityInfo, state, data){
     const container = $('stepACards');
     if(!container) return;
@@ -8897,13 +8962,27 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       ld.innerHTML = '<div class="card-spinner"></div><span style="font-size:9px;color:rgba(151,254,237,0.6);">생성 중…</span>';
       card.appendChild(ld);
     }else if(state === 'done' && data && data.imageUrl){
-      const img = document.createElement('img');
+      // ─── 스피너 유지 + 이미지 onload 시 교체 (R2 다운로드 대기) ───
+      // 응답 도착 직후에도 R2에서 이미지 다운로드 1-3초 걸림 → 그동안 빈 카드 보이지 않게 스피너 유지
+      const ld = document.createElement('div');
+      ld.className = 'card-loading';
+      ld.innerHTML = '<div class="card-spinner"></div><span style="font-size:9px;color:rgba(151,254,237,0.7);">불러오는 중…</span>';
+      card.appendChild(ld);
+
+      const img = new Image();
       img.className = 'card-img';
-      img.src = data.imageUrl;
       img.alt = cityInfo.label + ' 스타일링';
-      img.loading = 'lazy';
-      card.appendChild(img);
-      card.onclick = () => openModalForCard(idx);
+      img.loading = 'eager';  // 즉시 로드
+      img.onload = () => {
+        // R2 다운로드 완료 → 카드에 추가 + 스피너 제거
+        try{ ld.remove(); }catch(_){}
+        card.appendChild(img);
+        card.onclick = () => openModalForCard(idx);
+      };
+      img.onerror = () => {
+        ld.innerHTML = '<span style="font-size:10px;color:rgba(248,113,113,0.9);">이미지 로드 실패</span>';
+      };
+      img.src = data.imageUrl;
     }else if(state === 'error'){
       const er = document.createElement('div');
       er.className = 'card-error';
@@ -9022,15 +9101,24 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     if(statusEl) statusEl.textContent = '(4명 병렬 생성 중...)';
     // stagger 시작 — 각 호출의 시작 시점만 1.5초씩 지연, 응답 대기는 병렬
     const STAGGER_MS = 1500;
+    const _startTime = Date.now();
+    console.log('[v68 STEP A] 4장 stagger 시작 — 클라이언트는 1.5s 간격으로 호출 시작, 응답은 비동기 병렬 대기');
     const promises = cities.map((_, i) => {
       return new Promise((resolve) => {
         setTimeout(() => {
-          // 시작 시점이 지연되어 도착 → 즉시 호출 (응답은 비동기 병렬 대기)
-          fetchStepACard(i).then(resolve).catch(() => resolve());
+          const _elapsed = ((Date.now() - _startTime) / 1000).toFixed(2);
+          console.log(`[v68 STEP A] 카드 ${i} (${cities[i].label}) fetch 호출 시작 — t+${_elapsed}s`);
+          fetchStepACard(i).then(() => {
+            const _done = ((Date.now() - _startTime) / 1000).toFixed(2);
+            console.log(`[v68 STEP A] 카드 ${i} (${cities[i].label}) ✅ 응답 도착 — t+${_done}s`);
+            resolve();
+          }).catch(() => resolve());
         }, i * STAGGER_MS);
       });
     });
     await Promise.all(promises);
+    const _totalSec = ((Date.now() - _startTime) / 1000).toFixed(2);
+    console.log(`[v68 STEP A] 4장 완료 — 총 ${_totalSec}s`);
     if(statusEl) statusEl.textContent = '(1개 탭하여 선택)';
     flow.busy = false;
   }
@@ -9044,6 +9132,44 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const cities = getGridCities();
     $('expandModalCity').textContent = cities[idx].label;
     $('expandModalStylist').textContent = (card.stylist && card.stylist.name) ? (card.stylist.name + ' 스타일리스트') : '';
+    // ─── 2026-05-14 KST · TJ 지시 (v68) ─── 분석 텍스트 + 키워드 채우기 ───
+    // 응답 data에서 stylist.voice / stylingStory / engineCategoryKeywords 활용
+    const _txt = $('expandModalAnalysisText');
+    const _kws = $('expandModalAnalysisKws');
+    if(_txt){
+      let analysisText = '';
+      if(card.stylist && card.stylist.voice){
+        analysisText = card.stylist.voice;
+      }else if(card.stylingStory){
+        // 너무 길면 첫 문장만
+        const sents = String(card.stylingStory).split(/[.。]/);
+        analysisText = (sents[0] || '').trim() + (sents.length > 1 ? '.' : '');
+      }else{
+        analysisText = cities[idx].label + ' 스타일리스트의 시그니처를 반영한 코디입니다.';
+      }
+      _txt.textContent = analysisText;
+    }
+    if(_kws){
+      _kws.innerHTML = '';
+      // engineCategoryKeywords가 있으면 top/bottom/shoes 각 1개씩 추출
+      const ckw = card.engineCategoryKeywords;
+      let kwsArr = [];
+      if(ckw && typeof ckw === 'object'){
+        ['top', 'bottom', 'shoes', 'outer'].forEach(cat => {
+          const v = ckw[cat];
+          if(v) kwsArr.push(typeof v === 'string' ? v.split(',')[0].trim() : String(v));
+        });
+      }
+      // engineKeywords 콤마 구분 fallback
+      if(kwsArr.length === 0 && card.engineKeywords){
+        kwsArr = String(card.engineKeywords).split(',').map(s => s.trim()).filter(Boolean).slice(0, 4);
+      }
+      kwsArr.slice(0, 4).forEach(k => {
+        const sp = document.createElement('span');
+        sp.textContent = k;
+        _kws.appendChild(sp);
+      });
+    }
     // 이미지 그리기 (wide 16:9, 가로 스크롤로 정/후면 토글)
     drawModalImage(card.imageUrl);
     // 토글 초기화
@@ -9065,23 +9191,23 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      // 박스 너비 = 단일 폭, 캔버스 너비 = 박스 × 2 (정/후면 좌우 분할)
+      // 박스: 1:1.6 세로형. 캔버스 너비 = 박스 너비 × 2 (정면 좌측 + 후면 우측 가로 스크롤)
       const boxW = box.clientWidth || 320;
-      const boxH = box.clientHeight || Math.round(boxW * 2 / 3);
-      // 16:9 wide 이미지를 캔버스에 cover로 그림
-      // dispW = boxW * 2 (정면 좌측 + 후면 우측)
+      const boxH = box.clientHeight || Math.round(boxW * 1.6);  // 1:1.6 비율
       const dispW = boxW * 2;
       const dispH = boxH;
       canvas.width = dispW;
       canvas.height = dispH;
-      // cover 계산
+      // wide 이미지를 캔버스에 cover로 그림 (전체 정/후면 보존)
       const imgRatio = img.naturalWidth / img.naturalHeight;
       const dispRatio = dispW / dispH;
       let sx=0, sy=0, sw=img.naturalWidth, sh=img.naturalHeight;
       if(imgRatio > dispRatio){
+        // 이미지가 더 가로형 → 가로 잘림
         sw = img.naturalHeight * dispRatio;
         sx = (img.naturalWidth - sw) / 2;
       }else{
+        // 이미지가 더 세로형 → 세로 잘림
         sh = img.naturalWidth / dispRatio;
         sy = (img.naturalHeight - sh) / 2;
       }
@@ -9357,6 +9483,14 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       <div class="expand-modal-toggle">
         <button type="button" class="expand-pose-btn active" data-pose="front">정면</button>
         <button type="button" class="expand-pose-btn" data-pose="back">후면</button>
+      </div>
+      <!-- ─── 2026-05-14 KST · TJ 지시 (v68) ─── 모달 분석 영역 ─── -->
+      <div class="expand-modal-analysis" id="expandModalAnalysis">
+        <div class="expand-modal-analysis-title">스타일 분석</div>
+        <div class="expand-modal-analysis-text" id="expandModalAnalysisText">
+          스타일리스트의 시그니처를 반영한 코디입니다.
+        </div>
+        <div class="expand-modal-analysis-kws" id="expandModalAnalysisKws"></div>
       </div>
       <button type="button" id="expandModalSelect" class="expand-modal-select-btn">
         이 코디 선택
