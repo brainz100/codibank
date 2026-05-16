@@ -7,6 +7,24 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-16 KST · TJ 지시 (STEP C UI 4건 / Q3 개편) ───
+  2) STEP C 타이틀 → Q3 (Q2와 동일 디자인)
+     · stepCLabel: 작은 회색 'STEP C·최종 코디' → h3 'Q3. 높은 퀄리티를 확인하세요!'
+       (text-[18px] font-bold text-white, Q2와 동일 폰트/사이즈/위치)
+  3) STEP C 정/후면 중앙 배치 재설계 (drawStepCToCanvas)
+     · 이전: 캔버스 2x 가로 + 가로 스크롤 → 정면·후면이 박스 가장자리 잘림
+     · 변경: 캔버스 = 박스 1배 크기. _renderStepCPose(pose) 로 해당 절반만
+       cover 재그리기. _bindStepCPoseToggle 로 정/후면 버튼 = 캔버스 재그리기
+       → 각 면이 박스 정중앙에 풀 채움 (스크롤 제거)
+  4) Q3 버튼 4개 개편 (vtoBActions)
+     · saveBtn: '이미지 저장' → '보고서 저장' (description 아이콘)
+       핸들러 = _downloadCodiReport() — 분석 보고서 .txt 다운로드
+     · againBtn: '다시요청' → '이미지 저장' (save_alt 아이콘)
+       핸들러 = 캔버스 PNG 다운로드 (이전 재생성 기능 제거)
+     · shareBtn / resetBtn: 그대로
+     · CSS: 라인=서브컬러(#97FEED) 고정, 비활성=투명배경, 활성=배경#97FEED,
+       선택(:active)=화이트. STEP C 완료 시 4개 모두 vto-btn-active 적용
+
 ─── 2026-05-16 KST · TJ 지시 (Q2 이미지 박스 완전 재구축) ───
   TJ 관찰: 어두운 타원은 '완성된 이미지뷰(<img>)'에만 발생, 생성 중 카드는 정상
    → <img> 태그가 들어가는 순간 옛 코드가 그 위에 타원 레이어를 씌움
@@ -1250,15 +1268,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .vto-b-actions{display:flex;gap:8px;padding:12px 0 6px;}
 /* 버튼 공통 */
 .vto-bab{flex:1;padding:12px 0;border-radius:14px;font-size:11px;font-weight:800;text-align:center;cursor:pointer;border:none;transition:.15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:58px;}/* 2026-05-14 v67 UI POLISH: 14px→12px, 64px→58px (약 10% 축소) */
-/* 대기 상태: 3개 동일 */
+/* 대기/비활성 상태: 라인=서브컬러(#97FEED), 배경 투명 (현재 컬러 유지) */
 /* [2026-04-26 v12 TJ-7] 비활성 텍스트 컬러를 라인 컬러(#97FEED)와 동일하게 변경 */
 .vto-btn-inactive{background:transparent;color:#97FEED;border:1.5px solid #97FEED;cursor:not-allowed;opacity:0.55;}
 .vto-btn-inactive .material-symbols-outlined{color:#97FEED;}
-/* 활성 상태: 텍스트도 라인 컬러(#35A29F)와 동일하게 (배경 투명) */
-/* [v12 TJ-7] 이전: 배경 #35A29F + 흰 글씨 → 변경: 배경 투명 + 텍스트 #35A29F (라인과 동일) */
-.vto-btn-active{background:transparent !important;border:1.5px solid #35A29F !important;color:#35A29F !important;opacity:1 !important;font-weight:800 !important;}
-.vto-btn-active .material-symbols-outlined{color:#35A29F !important;}
-.vto-btn-active:active{transform:scale(.97);background:#35A29F !important;border-color:#35A29F !important;color:#fff !important;}
+/* ─── 2026-05-16 KST · TJ 지시 4번 ─── 활성화 시 서브컬러(#97FEED)가 배경
+   선택(탭) 시 화이트. 라인은 항상 서브컬러 유지 */
+.vto-btn-active{background:#97FEED !important;border:1.5px solid #97FEED !important;color:#050A24 !important;opacity:1 !important;font-weight:800 !important;}
+.vto-btn-active .material-symbols-outlined{color:#050A24 !important;}
+.vto-btn-active:active{transform:scale(.97);background:#35A29F !important;border-color:#97FEED !important;color:#fff !important;}
 .vto-btn-active:active .material-symbols-outlined{color:#fff !important;}
 /* canvas는 result-box 내부에 절대 위치 */
 #vtoCanvas.vto-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;border-radius:16px;}
@@ -2739,11 +2757,9 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       </div>
 
       <!-- STEP C 안내 라벨 (vto-outer-layer 위) -->
-      <!-- ─── 2026-05-16 KST · TJ 지시 ─── .hidden 클래스(Tailwind 의존) → 인라인 style 확실 숨김 ─── -->
-      <div id="stepCLabel" style="display:none;margin-top:24px;margin-bottom:8px;">
-        <span style="font-size:11px;color:rgba(151,254,237,0.6);font-weight:600;letter-spacing:0.05em;">
-          STEP C · 최종 코디 (고화질)
-        </span>
+      <!-- ─── 2026-05-16 KST · TJ 지시 ─── STEP C 타이틀 → Q3 (Q2와 동일 디자인) ─── -->
+      <div id="stepCLabel" style="display:none;margin-top:24px;">
+        <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-bottom:10px;">Q3. 높은 퀄리티를 확인하세요!</h3>
       </div>
 
       <!-- 이미지 박스 — 외부 어두운 네이비 레이어 + 내부 이미지 박스 -->
@@ -2792,12 +2808,13 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <!-- ─── 2026-05-09 KST · TJ 지시 (v44) ─── data-requires-auth: 비로그인 시 팝업 -->
       <!-- ─── 2026-05-16 KST · TJ 지시 5번 ─── 최종 이미지 선택(STEP C) 전까지 숨김 ─── -->
       <!-- ─── 2026-05-16 KST · TJ 지시 ─── .hidden 클래스 → 인라인 style 확실 숨김 ─── -->
+      <!-- ─── 2026-05-16 KST · TJ 지시 4번 ─── saveBtn→보고서저장 / againBtn→이미지저장 ─── -->
       <div class="vto-b-actions" id="vtoBActions" style="display:none;">
         <button id="saveBtn" type="button" class="vto-bab vto-btn-inactive" disabled data-requires-auth="true">
-          <span class="material-symbols-outlined" style="font-size:18px;">save_alt</span><span data-i18n="이미지 저장">이미지 저장</span>
+          <span class="material-symbols-outlined" style="font-size:18px;">description</span><span data-i18n="보고서 저장">보고서 저장</span>
         </button>
         <button id="againBtn" type="button" class="vto-bab vto-btn-inactive" disabled data-requires-auth="true">
-          <span class="material-symbols-outlined" style="font-size:18px;">refresh</span><span data-i18n="다시요청">다시요청</span>
+          <span class="material-symbols-outlined" style="font-size:18px;">save_alt</span><span data-i18n="이미지 저장">이미지 저장</span>
         </button>
         <button id="shareBtn" type="button" class="vto-bab vto-btn-inactive" disabled data-requires-auth="true">
           <span class="material-symbols-outlined" style="font-size:18px;">share</span><span data-i18n="공유">공유</span>
@@ -6845,28 +6862,69 @@ async function updateVTO(opts={}){
 }
 
 // 저장/공유
-document.getElementById('saveBtn')?.addEventListener('click',async()=>{
-  const c=document.getElementById('vtoCanvas');
-  if(!c||c.style.display==='none'){alert(CodiBankI18n.t('먼저 스타일링을 생성해주세요.','Please generate styling first.'));return;}
-  // ─── 2026-05-12 KST · TJ 지시 (v59) ─── 갤러리 자동 다운로드 복원 ───
-  //   배경: 이전엔 Web Share API 우선 → 공유 시트 매번 뜨는 UX 문제
-  //         TJ 지시: "공유하는 방식이 아니라 카메라앨범에 이미지가 저장되는 방식"
-  //   변경: navigator.share / canShare 분기 제거, <a download> 단독 사용
-  //         시스템 다운로드 알림은 OS 레벨 — TJ 수용 확인 후 진행
+// ─── 2026-05-16 KST · TJ 지시 4번 ─── '보고서 저장' — 분석 보고서 다운로드 ───
+//   이전: saveBtn = 이미지 저장 → 변경: 보고서 저장 (이미지 저장은 againBtn으로 이동)
+//   분석 보고서: STEP C 결과(스타일리스트/스토리/분석 박스 텍스트)를 .txt 로 다운로드
+function _downloadCodiReport(){
+  const j = flow.stepCResult || {};
+  const lines = [];
+  lines.push('═══════════════════════════════════════');
+  lines.push('   CodiBank Ai 스타일 분석 보고서');
+  lines.push('═══════════════════════════════════════');
+  lines.push('생성일시 : ' + new Date().toLocaleString('ko-KR'));
+  lines.push('');
+  // 1) 담당 스타일리스트
+  const st = j.stylist || {};
+  if(st.name){
+    lines.push('▶ 담당 스타일리스트');
+    lines.push('   ' + st.name + (st.city ? ' (' + st.city + ' 활동)' : ''));
+    const _v = st.voice || st.career || '';
+    if(_v) lines.push('   ' + _v);
+    lines.push('');
+  }
+  // 2) 코디핏 스토리
+  let storyText = j.stylingStory || j.explanation || '';
+  if(!storyText){
+    const ex = document.getElementById('codiExplain');
+    if(ex) storyText = (ex.innerText || ex.textContent || '').trim();
+  }
+  if(storyText){
+    lines.push('▶ 코디핏 스토리');
+    lines.push('   ' + storyText);
+    lines.push('');
+  }
+  // 3) 화면 분석 박스 텍스트 수집 (코디핏 상세 / 포인트)
+  ['codiDetailBox', 'codiPointBox'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el && !el.classList.contains('hidden')){
+      const txt = (el.innerText || el.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
+      if(txt){ lines.push(txt); lines.push(''); }
+    }
+  });
+  lines.push('───────────────────────────────────────');
+  lines.push('   codibank.kr — Ai 퍼스널 스타일링');
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.download = 'codibank_report_' + Date.now() + '.txt';
+  a.href = URL.createObjectURL(blob);
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+document.getElementById('saveBtn')?.addEventListener('click', function(){
+  if(this.disabled) return;
+  const c = document.getElementById('vtoCanvas');
+  if(!c || c.style.display === 'none'){
+    alert(CodiBankI18n.t('먼저 스타일링을 생성해주세요.','Please generate styling first.'));
+    return;
+  }
   try{
-    const blob = await new Promise(res => c.toBlob(res, 'image/png', 1.0));
-    if(!blob){ alert(CodiBankI18n.t('저장 실패','Save failed')); return; }
-    const fname = `codibank_${Date.now()}.png`;
-    // <a download> 자동 클릭 — 갤러리/다운로드 폴더로 저장 (공유 시트 안 뜸)
-    const a=document.createElement('a');
-    a.download=fname;
-    a.href=URL.createObjectURL(blob);
-    a.style.display='none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(a.href),3000);
-  }catch(e){alert(CodiBankI18n.t('저장 실패:','Save failed:')+(e && e.message || ''));}
+    _downloadCodiReport();
+  }catch(e){
+    alert(CodiBankI18n.t('보고서 저장 실패:','Report save failed:') + (e && e.message || ''));
+  }
 });
 document.getElementById('shareBtn')?.addEventListener('click',()=>{
   const c=document.getElementById('vtoCanvas');if(!c||c.style.display==='none'){alert(CodiBankI18n.t('먼저 스타일링을 생성해주세요.','Please generate styling first.'));return;}
@@ -8302,38 +8360,30 @@ setTimeout(function(){
   }catch(_){}
 }, 250);
 
-document.getElementById('againBtn')?.addEventListener('click', function(){
-  // [2026-04-26 v12 TJ-1] 다시요청 클릭 시 분석 박스(스토리/포인트) 리셋
-  // 이전 결과가 그대로 표시되어 사용자가 새 결과 기다리는 동안 혼란
-  // resetAll() 함수와 동일한 분석 박스 hidden 처리 적용 (단, 4버튼은 유지)
+// ─── 2026-05-16 KST · TJ 지시 4번 ─── '이미지 저장' — 캔버스 이미지 다운로드 ───
+//   이전: againBtn = 다시요청(재생성) → 변경: 이미지 저장
+//   캔버스(vtoCanvas) 내용을 PNG 로 갤러리/다운로드 폴더에 저장
+document.getElementById('againBtn')?.addEventListener('click', async function(){
+  if(this.disabled) return;
+  const c = document.getElementById('vtoCanvas');
+  if(!c || c.style.display === 'none'){
+    alert(CodiBankI18n.t('먼저 스타일링을 생성해주세요.','Please generate styling first.'));
+    return;
+  }
   try{
-    var _ssb=document.getElementById('stylistSummaryBox');if(_ssb)_ssb.classList.add('hidden');
-    ['anPcSection','anBodySection','anPurposeSection'].forEach(function(id){
-      var e=document.getElementById(id); if(e) e.classList.add('hidden');
-    });
-    var _catKw=document.getElementById('catKwSection');if(_catKw)_catKw.classList.add('hidden');
-    var _kwRow=document.getElementById('kwRow');if(_kwRow){_kwRow.innerHTML='';_kwRow.classList.add('hidden');}
-    var _cpSum=document.getElementById('cpSummarySection');if(_cpSum)_cpSum.classList.add('hidden');
-    // codiExplain은 사용자 안내 텍스트라 빈 문자열로 대체 (생성 진행 중 안내)
-    var _exp=document.getElementById('codiExplain');
-    if(_exp) _exp.textContent = _L('새로운 코디를 준비 중입니다…');
-  }catch(_){}
-  
-  // 기존 이미지 blur + rainbow 애니메이션 (사라지지 않고 흐려짐)
-  const _canvas = document.getElementById('vtoCanvas');
-  const _spinner = document.getElementById('vtoSpinner');
-  const _spinTxt = document.getElementById('vtoSpinTxt');
-  if(_canvas && _canvas.style.display !== 'none'){
-    _canvas.style.transition = 'filter 0.4s ease, opacity 0.4s ease';
-    _canvas.style.filter = 'blur(8px) brightness(0.35)';
-    _canvas.style.opacity = '0.45';
+    const blob = await new Promise(res => c.toBlob(res, 'image/png', 1.0));
+    if(!blob){ alert(CodiBankI18n.t('저장 실패','Save failed')); return; }
+    const a = document.createElement('a');
+    a.download = `codibank_${Date.now()}.png`;
+    a.href = URL.createObjectURL(blob);
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  }catch(e){
+    alert(CodiBankI18n.t('저장 실패:','Save failed:') + (e && e.message || ''));
   }
-  if(_spinner){
-    _spinner.style.display = '';
-    _spinner.classList.add('animating');
-  }
-  if(_spinTxt) _spinTxt.textContent = '새로운 스타일링을 준비 중...';
-  generateStyling({ bumpSeed:true });
 });
 
 // 날씨 초기화(성공/실패 모두 UI는 유지)
@@ -10101,10 +10151,13 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       // 정/후면 토글 활성화
       const toggle = $('vtoPoseToggle');
       if(toggle) toggle.classList.remove('hidden');
-      // 기존 저장/다시요청/공유 버튼 활성화 트리거
+      // ─── 2026-05-16 KST · TJ 지시 4번 ─── 4개 버튼 모두 활성(vto-btn-active) ───
+      // 이전: saveBtn/againBtn/shareBtn 만 inactive 제거 → 클래스 없음 → 테두리 사라짐
+      // 변경: resetBtn 포함 4개 모두 'vto-bab vto-btn-active' 명시 (라인=서브컬러 유지)
       try{
-        ['saveBtn','againBtn','shareBtn'].forEach(id => {
-          const b = $(id); if(b){ b.disabled = false; b.classList.remove('vto-btn-inactive'); }
+        ['saveBtn','againBtn','shareBtn','resetBtn'].forEach(id => {
+          const b = $(id);
+          if(b){ b.disabled = false; b.className = 'vto-bab vto-btn-active'; }
         });
       }catch(_){}
       // ─── 2026-05-14 KST · TJ 지시 (v68) ─── 최종 완료 시 분석 박스 표시 ──
@@ -10122,9 +10175,89 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     flow.busy = false;
   }
 
-  // ─── 2026-05-14 KST · TJ 보고 4번 ─── drawNatural 패턴 적용
-  // 박스 세로형(1/1.62) + 캔버스 2x 가로 → 좌측 절반=정면, 우측 절반=후면
-  // 정/후면 각각 박스 1폭에 cover로 그림 → 인물 박스 중앙 배치, 풀 채움, 잘림 자연스러움
+  // ─── 2026-05-16 KST · TJ 지시 3번 ─── STEP C 정/후면 중앙 배치 재설계
+  // 이전: 캔버스 2x 가로 + 가로 스크롤 → 정면·후면이 박스 가장자리에 잘려 보임
+  // 변경: 캔버스 = 박스 1배 크기. 정면/후면 토글 시 해당 절반만 cover로 다시 그림
+  //       → 각 면이 박스 정중앙에 풀 채움 (스크롤 불필요)
+  function _renderStepCPose(pose){
+    const canvas = $('vtoCanvas');
+    const box = $('vtoResultBox');
+    const img = flow._stepCImg;
+    if(!canvas || !box || !img) return;
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if(!iw || !ih) return;
+    const DPR = window.devicePixelRatio || 1;
+    const r = box.getBoundingClientRect();
+    const boxW = Math.max(1, Math.round(r.width));
+    const boxH = Math.max(1, Math.round(r.height));
+    const isWide = (iw / ih) > 1.2;   // wide(정/후면 합본) 판정
+
+    // 캔버스 = 박스 1배 크기 (.vto-canvas 기본 CSS: absolute·inset0·100%×100%)
+    canvas.classList.remove('vto-result-image');  // 자연너비(2x) 모드 해제
+    canvas.style.position = '';
+    canvas.style.inset = '';
+    canvas.style.width = '';
+    canvas.style.height = '';
+    canvas.width  = Math.round(boxW * DPR);
+    canvas.height = Math.round(boxH * DPR);
+
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, boxW, boxH);
+
+    // 그릴 소스 영역 (wide면 좌측=정면 / 우측=후면)
+    let srcX, srcW;
+    if(isWide){
+      const half = iw / 2;
+      srcX = (pose === 'back') ? half : 0;
+      srcW = half;
+    }else{
+      srcX = 0; srcW = iw;
+    }
+    // cover: srcW×ih 영역을 boxW×boxH 에 가득 채움 (중앙 정렬)
+    const srcRatio = srcW / ih;
+    const boxRatio = boxW / boxH;
+    let sx, sy, sw, sh;
+    if(srcRatio > boxRatio){
+      sh = ih;
+      sw = ih * boxRatio;
+      sx = srcX + (srcW - sw) / 2;
+      sy = 0;
+    }else{
+      sw = srcW;
+      sh = srcW / boxRatio;
+      sx = srcX;
+      sy = (ih - sh) / 2;
+    }
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, boxW, boxH);
+  }
+
+  // 정/후면 토글 버튼 바인딩 (클릭 시 캔버스 재그리기)
+  function _bindStepCPoseToggle(){
+    const dots = $('vtoPoseToggle');
+    const img = flow._stepCImg;
+    if(!dots || !img) return;
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    const isWide = iw && ih && (iw / ih) > 1.2;
+    if(!isWide){ dots.classList.add('hidden'); return; }
+    dots.classList.remove('hidden');
+    const btns = dots.querySelectorAll('.vto-pose-btn');
+    btns.forEach(b => {
+      if(b._stepCHandler) b.removeEventListener('click', b._stepCHandler);
+      const h = () => {
+        const pose = b.dataset.pose || 'front';
+        _renderStepCPose(pose);
+        btns.forEach(x => x.classList.toggle('active', x === b));
+      };
+      b.addEventListener('click', h);
+      b._stepCHandler = h;
+    });
+    // 초기 active = 정면
+    btns.forEach(x => x.classList.toggle('active', (x.dataset.pose === 'front')));
+  }
+
   async function drawStepCToCanvas(imageUrl){
     return new Promise((resolve) => {
       const canvas = $('vtoCanvas');
@@ -10133,96 +10266,14 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        const DPR = window.devicePixelRatio || 1;
-        const iw = img.naturalWidth || img.width;
-        const ih = img.naturalHeight || img.height;
-        if(!iw || !ih) return resolve();
-
-        // 박스 실제 표시 크기
-        const boxRect = box.getBoundingClientRect();
-        const boxW = Math.max(1, Math.round(boxRect.width));
-        const boxH = Math.max(1, Math.round(boxRect.height));
-        const ratio = iw / ih;
-        const isWide = ratio > 1.2;   // wide(정/후면 합본) 판정
-
-        let dispW, dispH;
-        if(isWide){
-          // 정/후면: 캔버스 가로 = 박스 가로 × 2 (좌측 정면 | 우측 후면)
-          dispW = boxW * 2;
-          dispH = boxH;
-        }else{
-          // 단일 인물
-          dispW = boxW;
-          dispH = boxH;
-        }
-
-        // 캔버스 크기 적용 (DPR 고려)
-        canvas.width  = Math.round(dispW * DPR);
-        canvas.height = Math.round(dispH * DPR);
-        canvas.style.width  = dispW + 'px';
-        canvas.style.height = dispH + 'px';
-        canvas.style.position = 'relative';
-        canvas.style.inset = 'auto';
-        canvas.classList.add('vto-result-image');
-
-        const ctx = canvas.getContext('2d');
-        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-        ctx.clearRect(0, 0, dispW, dispH);
-
-        if(isWide){
-          // 좌/우 절반 분리 → 각각 박스 1폭에 cover (정/후면 중앙 배치)
-          const halfIw = iw / 2;
-          const boxRatio = boxW / boxH;
-          const halfRatio = halfIw / ih;
-
-          // 좌측 절반(정면) → 캔버스 0~boxW
-          let lsx, lsy, lsw, lsh;
-          if(halfRatio > boxRatio){
-            lsh = ih;
-            lsw = ih * boxRatio;
-            lsx = (halfIw - lsw) / 2;
-            lsy = 0;
-          }else{
-            lsw = halfIw;
-            lsh = halfIw / boxRatio;
-            lsx = 0;
-            lsy = (ih - lsh) / 2;
-          }
-          ctx.drawImage(img, lsx, lsy, lsw, lsh, 0, 0, boxW, boxH);
-
-          // 우측 절반(후면) → 캔버스 boxW~2×boxW
-          let rsx, rsy, rsw, rsh;
-          if(halfRatio > boxRatio){
-            rsh = ih;
-            rsw = ih * boxRatio;
-            rsx = halfIw + (halfIw - rsw) / 2;
-            rsy = 0;
-          }else{
-            rsw = halfIw;
-            rsh = halfIw / boxRatio;
-            rsx = halfIw;
-            rsy = (ih - rsh) / 2;
-          }
-          ctx.drawImage(img, rsx, rsy, rsw, rsh, boxW, 0, boxW, boxH);
-        }else{
-          // 단일 인물 — 박스 풀 cover
-          const imgRatio = iw / ih;
-          const boxRatio = boxW / boxH;
-          let sx, sy, sw, sh;
-          if(imgRatio > boxRatio){
-            sh = ih;
-            sw = ih * boxRatio;
-            sx = (iw - sw) / 2;
-            sy = 0;
-          }else{
-            sw = iw;
-            sh = iw / boxRatio;
-            sx = 0;
-            sy = (ih - sh) / 2;
-          }
-          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dispW, dispH);
-        }
-        resolve();
+        flow._stepCImg = img;                 // 토글 재그리기용 캐시
+        box.classList.remove('vto-empty');     // 결과 표시 모드
+        // 박스 크기 확정 후 그리기 (display 전환 직후 rect=0 방지)
+        requestAnimationFrame(() => {
+          _renderStepCPose('front');
+          _bindStepCPoseToggle();
+          resolve();
+        });
       };
       img.onerror = () => resolve();
       img.src = imageUrl;
