@@ -1,0 +1,40 @@
+name: Fashion Trend Cache
+
+# ─────────────────────────────────────────────────────────────
+# CodiBank 패션 트렌드 캐시 — 3일마다 자동 실행
+#   Brave Search → gpt-4.1-mini 정제 → R2 trend_cache.json 업로드
+# ─────────────────────────────────────────────────────────────
+
+on:
+  schedule:
+    # 3일마다 UTC 18:00 실행 (= 한국시간 KST 익일 03:00, 사용자 적은 새벽)
+    - cron: '0 18 */3 * *'
+  # 수동 실행 버튼 (Actions 탭에서 즉시 테스트 가능)
+  workflow_dispatch:
+
+jobs:
+  build-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install boto3 openai
+
+      - name: Build trend cache
+        env:
+          BRAVE_API_KEY:        ${{ secrets.BRAVE_API_KEY }}
+          OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
+          R2_BUCKET_NAME:       ${{ secrets.R2_BUCKET_NAME }}
+          R2_ACCOUNT_ID:        ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID:     ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: python server/build_trend_cache.py
