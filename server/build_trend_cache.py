@@ -94,6 +94,34 @@ def brave_search(query, count=8):
 # ══════════════════════════════════════════════════════════════
 # 2) LLM 정제 — 검색 결과 → 구체적 의상 키워드 15개 (men/women)
 # ══════════════════════════════════════════════════════════════
+# 여성 전용 의류 토큰 — men 리스트에 섞이면 제거 (한글/영문 모두)
+_FEMALE_ONLY_TOKENS = [
+    'slip dress', 'mini dress', 'maxi dress', 'midi dress', 'shirt dress',
+    'wrap dress', 'skirt', 'camisole', 'bustier', 'corset', 'gown',
+    'pumps', 'stiletto', 'slingback', 'mary jane', 'ballet flat',
+    '원피스', '스커트', '캐미솔', '뷔스티에', '코르셋', '가운',
+    '펌프스', '스틸레토', '슬링백', '메리제인', '발레 플랫', '발레플랫',
+]
+
+def _is_female_only(kw):
+    """키워드가 명백한 여성 전용 의류인지 판정 (men 리스트 필터용).
+    'dress shirt'(드레스 셔츠)는 남성 정장 셔츠이므로 예외 처리."""
+    low = kw.lower()
+    # 'dress shirt' / '드레스 셔츠'는 menswear — 여성 전용 아님
+    is_dress_shirt = ('dress shirt' in low) or ('드레스 셔츠' in kw) or ('드레스셔츠' in kw)
+    if not is_dress_shirt:
+        if 'dress' in low or '드레스' in kw:
+            return True
+    for t in _FEMALE_ONLY_TOKENS:
+        if t in low or t in kw:
+            return True
+    # 'heels' / 'high heels' 단어 단위 매칭 (오탐 방지)
+    import re
+    if re.search(r'\bheels?\b', low) or '하이힐' in kw or ('힐(' in kw):
+        return True
+    return False
+
+
 def refine_keywords(city_en, purpose_ko, purpose_en, search_text):
     """gpt-4.1-mini로 검색 스니펫 → 구체적 패션 키워드 JSON"""
     from openai import OpenAI
@@ -106,6 +134,11 @@ def refine_keywords(city_en, purpose_ko, purpose_en, search_text):
         "- Only garment, fabric, silhouette, footwear, and accessory words.\n"
         "- NO mood adjectives (chic, sexy, elegant), NO makeup, NO hair, NO background.\n"
         "- Reflect the SPECIFIC city's fashion identity, not generic terms.\n"
+        "- CRITICAL GENDER SEPARATION: the 'men' list must contain ONLY menswear. "
+        "NEVER put women-only garments in the men list — this includes any kind of "
+        "dress, slip dress, skirt, gown, camisole, bustier, corset, heels, pumps, "
+        "stiletto, slingback, ballet flats. (Note: a 'dress shirt' is menswear and "
+        "is allowed.) Likewise the 'women' list must contain womenswear.\n"
         "- Output strict JSON only, no markdown."
     )
     user = (
@@ -114,6 +147,8 @@ def refine_keywords(city_en, purpose_ko, purpose_en, search_text):
         f"Web search snippets (current trends):\n{search_text[:2800]}\n\n"
         f"Extract 15 men's and 15 women's concrete fashion keywords for this "
         f"city + occasion. Each keyword MUST be formatted as 'Korean(English)'.\n"
+        f"Keep men's and women's lists strictly gender-appropriate "
+        f"(no dresses/skirts/heels in the men list).\n"
         f'Return strict JSON: {{"men": ["...x15"], "women": ["...x15"]}}'
     )
     resp = client.chat.completions.create(
@@ -128,6 +163,10 @@ def refine_keywords(city_en, purpose_ko, purpose_en, search_text):
     obj = json.loads(resp.choices[0].message.content)
     men = [str(k).strip() for k in (obj.get('men') or []) if str(k).strip()]
     women = [str(k).strip() for k in (obj.get('women') or []) if str(k).strip()]
+    # ── 코드 레벨 안전장치 — men 리스트에서 여성 전용 의류 제거 ──
+    # LLM(temperature 0.8)이 가끔 성별을 흐트러뜨려 'slip dress' 등이
+    # men에 섞임. 최종 방어선으로 명백한 여성 전용 키워드를 필터링.
+    men = [k for k in men if not _is_female_only(k)]
     if len(men) < 8 or len(women) < 8:
         raise ValueError(f'키워드 부족 (men={len(men)}, women={len(women)})')
     return {'men': men[:15], 'women': women[:15]}
