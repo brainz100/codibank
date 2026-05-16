@@ -1521,6 +1521,42 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   letter-spacing: 0.05em;
   backdrop-filter: blur(4px);
 }
+/* ─── 2026-05-16 KST · TJ 지시 ─── STEP B 변형 카드 생성 중 codibank 컬러변환 ─── */
+.step-b-card .step-b-loading{
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.step-b-cb-rainbow{
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  font-family: 'Manrope', 'Inter', sans-serif;
+  display: flex;
+  gap: 1px;
+}
+.step-b-cb-rainbow span{
+  color: rgba(120, 140, 170, 0.4);
+  animation: stepBCbColor 2.4s infinite;
+}
+.step-b-cb-rainbow span:nth-child(1){ animation-delay: 0s; }
+.step-b-cb-rainbow span:nth-child(2){ animation-delay: 0.18s; }
+.step-b-cb-rainbow span:nth-child(3){ animation-delay: 0.36s; }
+.step-b-cb-rainbow span:nth-child(4){ animation-delay: 0.54s; }
+.step-b-cb-rainbow span:nth-child(5){ animation-delay: 0.72s; }
+.step-b-cb-rainbow span:nth-child(6){ animation-delay: 0.90s; }
+.step-b-cb-rainbow span:nth-child(7){ animation-delay: 1.08s; }
+.step-b-cb-rainbow span:nth-child(8){ animation-delay: 1.26s; }
+/* 라이트 배경(#f5f7fb)용 — 어두운 톤 컬러로 변환 (밝은 흰색 제외) */
+@keyframes stepBCbColor{
+  0%, 100% { color: rgba(120, 140, 170, 0.4); }
+  20%      { color: #13BBAF; }
+  40%      { color: #0E9D8E; }
+  60%      { color: #C9A227; }
+  80%      { color: rgba(60, 80, 110, 0.85); }
+}
 
 /* 확대 모달 */
 .expand-modal{
@@ -9685,6 +9721,10 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   async function startStepB(){
     if(flow.busy) return;
     flow.busy = true;
+    // ─── 2026-05-16 KST · TJ 지시 ─── STEP A 오버레이 잔재 제거 (STEP B 화면 가림 방지) ───
+    const _aOverlay = $('stepAOverlay');
+    if(_aOverlay) _aOverlay.classList.add('hidden-overlay');
+    if(typeof finishStepAProgress === 'function') finishStepAProgress();
     const idx = flow.stepASelected;
     const baseCard = flow.stepACards[idx];
     if(!baseCard){ flow.busy = false; return; }
@@ -9707,13 +9747,17 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       `;
       card1.onclick = () => selectStepBCard(0);
       container.appendChild(card1);
-      // 변형 카드 (로딩)
+      // 변형 카드 (로딩 — codibank 컬러변환)
       const card2 = document.createElement('div');
       card2.className = 'step-b-card';
       card2.dataset.idx = '1';
       card2.innerHTML = `
         <div class="card-label">유사 변형</div>
-        <div class="card-loading"><div class="card-spinner"></div></div>
+        <div class="step-b-loading">
+          <div class="step-b-cb-rainbow">
+            <span>c</span><span>o</span><span>d</span><span>i</span><span>B</span><span>a</span><span>n</span><span>k</span>
+          </div>
+        </div>
       `;
       container.appendChild(card2);
     }
