@@ -163,7 +163,7 @@ mock_backend.py에 통합하여 사용
 8. 추천 이유 스토리 박스 생성
 """
 
-import json, random, hashlib, math
+import json, random, hashlib, math, os, time, datetime
 from datetime import date
 
 # ═══════════════════════════════════════════════════
@@ -664,6 +664,71 @@ def select_daily_keywords(keywords_str, user_id, purpose, count=8, retry_seed=0)
 
 
 # ═══════════════════════════════════════════════════
+# [2026-05-14 KST · TJ 지시] 트렌드 캐시 — R2 trend_cache.json
+#   GitHub Actions 배치(3일 1회)가 Brave Search + gpt-4.1-mini로
+#   7도시×15목적 패션 트렌드 키워드를 생성 → R2에 업로드.
+#   build_styling_prompt가 요청 시점에 이 캐시를 우선 조회,
+#   없음/만료(6일+)/실패 시 fashion_keywords_db.json으로 자동 폴백.
+# ═══════════════════════════════════════════════════
+_TREND_CACHE = None
+_TREND_CACHE_LOADED_AT = 0.0
+_TREND_CACHE_TTL = 3600          # 1시간마다 R2 재조회 (서버 상주 대비)
+_TREND_CACHE_MAX_AGE_SEC = 6 * 86400   # 6일 초과 시 만료 → 정적 DB 폴백
+
+def _load_trend_cache():
+    """R2에서 trend_cache.json 로드 (1시간 메모리 캐싱).
+    실패/만료 시 None 반환 → 호출부가 정적 DB로 폴백."""
+    global _TREND_CACHE, _TREND_CACHE_LOADED_AT
+    now = time.time()
+    # 메모리 캐시 유효 → 재사용
+    if _TREND_CACHE is not None and (now - _TREND_CACHE_LOADED_AT) < _TREND_CACHE_TTL:
+        return _TREND_CACHE
+    # TTL 경과 — R2에서 재조회
+    _TREND_CACHE_LOADED_AT = now
+    try:
+        import boto3
+        bucket = os.getenv('R2_BUCKET_NAME', 'codibank')
+        ep = os.getenv('R2_ENDPOINT', '').strip()
+        if not ep:
+            acct = os.getenv('R2_ACCOUNT_ID', '').strip()
+            if acct:
+                ep = f'https://{acct}.r2.cloudflarestorage.com'
+        ak = os.getenv('R2_ACCESS_KEY_ID', '').strip()
+        sk = os.getenv('R2_SECRET_ACCESS_KEY', '').strip()
+        if not (ep and ak and sk):
+            _TREND_CACHE = None
+            return None
+        client = boto3.client(
+            's3', endpoint_url=ep,
+            aws_access_key_id=ak, aws_secret_access_key=sk,
+            region_name='auto',
+        )
+        resp = client.get_object(Bucket=bucket, Key='trend_cache.json')
+        data = json.loads(resp['Body'].read().decode('utf-8'))
+        # 신선도 체크 — 6일 초과 시 만료
+        gen_str = str(data.get('generated_at', '')).replace('Z', '').strip()
+        if gen_str:
+            try:
+                gen_dt = datetime.datetime.fromisoformat(gen_str)
+                age = (datetime.datetime.utcnow() - gen_dt).total_seconds()
+                if age > _TREND_CACHE_MAX_AGE_SEC:
+                    print(f'[트렌드캐시] 만료 ({age/86400:.1f}일 경과) — 정적 DB 폴백', flush=True)
+                    _TREND_CACHE = None
+                    return None
+            except Exception:
+                pass  # 날짜 파싱 실패해도 캐시는 사용
+        _TREND_CACHE = data
+        _stats = data.get('stats', {})
+        print(f"[트렌드캐시] ✅ 로드 완료 (generated_at={gen_str}, "
+              f"성공 {_stats.get('ok','?')}건)", flush=True)
+        return _TREND_CACHE
+    except Exception as e:
+        print(f'[트렌드캐시] 로드 실패 ({type(e).__name__}: {e}) — 정적 DB 폴백', flush=True)
+        _TREND_CACHE = None
+        return None
+
+
+# ═══════════════════════════════════════════════════
 # 5. 메인 프롬프트 빌더
 # ═══════════════════════════════════════════════════
 def build_styling_prompt(payload, fashion_db):
@@ -744,10 +809,25 @@ def build_styling_prompt(payload, fashion_db):
         active_city = sub_cities[_idx]
     
     # ── 성별에 따른 키워드 선택 ──
-    city_kw = fashion_db.get('city_keywords', {}).get(active_city, {}).get(purpose, {})
     kw_key = "women" if gender_ko == "여성" else "men"
-    keywords_str = city_kw.get(kw_key, '')
-    
+    # ─── 2026-05-14 KST · TJ 지시 ─── 트렌드 캐시 우선 조회 ───
+    # R2 trend_cache.json (3일 1회 Brave Search 갱신) → 해당 셀 있으면 사용
+    # 없음/만료/실패 → fashion_keywords_db.json 정적 DB 폴백
+    keywords_str = ''
+    _trend = _load_trend_cache()
+    if _trend:
+        _tc_cell = (_trend.get('city_keywords', {})
+                          .get(active_city, {})
+                          .get(purpose, {}))
+        keywords_str = _tc_cell.get(kw_key, '')
+        if keywords_str:
+            print(f"[트렌드캐시] 키워드 사용: {active_city}/{purpose}/{kw_key} "
+                  f"({len(keywords_str) if isinstance(keywords_str, list) else '?'}개)", flush=True)
+    # 폴백: 트렌드 캐시 없음/해당 셀 없음 → 정적 DB
+    if not keywords_str:
+        city_kw = fashion_db.get('city_keywords', {}).get(active_city, {}).get(purpose, {})
+        keywords_str = city_kw.get(kw_key, '')
+
     user_id = str(profile.get('id', profile.get('email', 'default')))
     selected_keywords = select_daily_keywords(keywords_str, user_id, purpose, count=8, retry_seed=retry_seed)
     
