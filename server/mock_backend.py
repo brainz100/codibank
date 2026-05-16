@@ -5,6 +5,19 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-16 KST · TJ 지시 (STEP B 유사 변형 캐시 버그 수정) ───
+#   문제: Q2 '유사 변형'이 원본과 100% 동일 — 토큰만 쓰고 같은 이미지 반환
+#   원인: _make_ai_cache_key_v2 의 캐시키 body 에 _similar_variation 플래그가
+#         없음 → STEP B 변형이 STEP A 원본과 같은 (도시/목적/스타일리스트/사용자/
+#         quality) → 같은 cacheKey → cache_fname 동일 → 캐시 HIT → AI 호출 자체가
+#         일어나지 않고 STEP A 원본 이미지가 그대로 반환됨
+#         (Render 로그: STEP A 파리 카드와 STEP C 가 같은 ai_v2_24e0176a... 사용)
+#   변경 (~line 3678): _similar_variation 이면 _force_regen=True 강제
+#     → 캐시키 body 에 시간 nonce(rsd) 포함 → 매번 새 키 → 캐시 MISS →
+#       항상 새로 생성. cache_fname 도 매번 달라 STEP A 파일을 덮지 않음
+#   변경 (~line 3563): 유사변형 프롬프트 강화 — 신발 컬러+디자인 변경 필수,
+#     악세사리 일절 금지(no bag/watch/necklace/scarf/hat/sunglasses) 명시
+#
 # ─── 2026-05-16 KST · TJ 지시 (STEP B 유사 변형 프롬프트 수정) ───
 #   문제: Q2 '유사 변형'이 원본과 거의 동일하게 생성됨
 #   원인: _similar_variation 프롬프트에 "Do NOT change colors" 지시가 있어
@@ -3573,10 +3586,10 @@ def ai_styling():
     if _similar_variation and prompt:
         prompt += (
             "\n\n[VARIATION REQUIREMENT — STEP B SIMILAR ALTERNATIVE]\n"
-            "Generate a CLEARLY DIFFERENT alternative outfit by the SAME stylist for the "
-            "SAME occasion, SAME date, SAME weather. This is a 'similar but visibly different' "
-            "version shown side-by-side with the original — it MUST be immediately "
-            "distinguishable from the original outfit.\n"
+            "Take the SELECTED outfit as the base and generate a CLEARLY DIFFERENT "
+            "alternative by the SAME stylist for the SAME occasion, SAME date, SAME weather. "
+            "This is a 'similar but visibly different' version shown side-by-side with the "
+            "original — it MUST be immediately distinguishable from the original outfit.\n"
             "\n"
             "KEEP IDENTICAL (do NOT change):\n"
             "  - The stylist's identity and overall styling philosophy\n"
@@ -3584,19 +3597,21 @@ def ai_styling():
             "  - The general formality level and season suitability\n"
             "\n"
             "MUST CHANGE (these MUST be clearly different from the original):\n"
-            "  - TOP color: choose a DISTINCTLY DIFFERENT color from the original top\n"
-            "  - BOTTOM color: choose a DISTINCTLY DIFFERENT color from the original bottom\n"
-            "  - PATTERN: change the pattern of the top and/or bottom "
-            "(e.g., solid <-> striped <-> checked <-> textured / melange)\n"
-            "  - Optionally also swap ONE garment type (e.g., dress shirt -> knit polo, "
-            "slacks -> chinos, blazer -> cardigan)\n"
+            "  - TOP: change to a DISTINCTLY DIFFERENT color AND a different pattern "
+            "(solid <-> striped <-> checked <-> textured / melange)\n"
+            "  - BOTTOM: change to a DISTINCTLY DIFFERENT color AND a different pattern\n"
+            "  - SHOES: change to a DIFFERENT color and a DIFFERENT design "
+            "(e.g., loafers <-> derby <-> sneakers, brown <-> black <-> white)\n"
+            "\n"
+            "ACCESSORIES — STRICT:\n"
+            "  - Do NOT include ANY accessories: no bag, no watch, no necklace, "
+            "no scarf, no hat, no sunglasses. The model holds nothing and wears no accessory.\n"
             "\n"
             "CRITICAL: When the two outfits are placed side-by-side, the user must "
-            "INSTANTLY see they are different in color and pattern. Do NOT reproduce the "
-            "same top/bottom colors or the same pattern as the original outfit. "
-            "The silhouette and vibe stay similar, but the colors and patterns are clearly new.\n"
+            "INSTANTLY see they differ in top/bottom color, pattern, and shoes. "
+            "Do NOT reproduce the same colors, patterns, or shoes as the original outfit.\n"
         )
-        print("[v68 STEP B] similar_variation prompt injected (color+pattern variation)", flush=True)
+        print("[v68 STEP B] similar_variation prompt injected (color+pattern+shoes, no accessories)", flush=True)
     if _purpose_key == "custom" and _custom_text_force:
         _force_header = (
             f"\n\n========================================\n"
@@ -3676,6 +3691,13 @@ def ai_styling():
         if _provider_for_key == "openai" else ""
     )
     _force_regen = bool(payload.get("forceRegenerate") or payload.get("force_regenerate"))
+    # ─── 2026-05-16 KST · TJ 지시 ─── STEP B 유사 변형: 캐시 사용 금지 ───
+    # 문제: _similar_variation 이 캐시키에 없어 STEP A 원본과 같은 키 → 캐시 HIT
+    #       → 변형 프롬프트가 적용돼도 캐시된 원본 이미지가 그대로 반환됨
+    # 해결: _similar_variation 이면 force_regenerate=True → 캐시키에 시간 nonce(rsd)
+    #       포함 → 매번 새 키 → 캐시 MISS → 항상 새로 생성 (STEP A 파일도 안 덮음)
+    if _similar_variation:
+        _force_regen = True
     cache_key = _make_ai_cache_key_v2(
         payload, face_bytes_for_key, ref_images,
         model=_model_for_key,
