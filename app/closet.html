@@ -1288,15 +1288,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   padding: 0;
 }
 /* ─── 2026-05-14 KST · TJ 보고 1번 ─── 4개 카드 위 오버레이 + codiBank 컬러 변환 ─── */
+/* ─── 2026-05-16 KST · TJ 지시 4번 ─── 통짜 불투명 박스 (테두리 컬러 없음) ─── */
 .step-a-overlay{
   position: absolute;
   inset: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 12px;   /* step-a-grid와 동일한 gap → cell이 카드와 정확히 정렬 */
+  background: linear-gradient(160deg, #0B1F4D 0%, #051030 100%);
   border-radius: 12px;
-  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 10;
   transition: opacity 0.6s ease;
 }
@@ -1304,22 +1304,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   opacity: 0;
   pointer-events: none;
 }
-.step-a-overlay-cell{
-  /* 각 cell이 한 카드를 덮는 마스크 (서브컬러) */
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 45%, rgba(53,162,159,0.18) 0%, transparent 65%),
-    linear-gradient(160deg, #0B1F4D 0%, #051030 100%);
-  border-radius: 12px;
-  border: 1px solid rgba(151, 254, 237, 0.18);
-  transition: opacity 0.8s ease, transform 0.8s ease;
-}
-.step-a-overlay-cell.cell-done{
-  opacity: 0;
-  transform: scale(1.02);
-}
 .step-a-overlay-text{
-  position: absolute;
-  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1360,12 +1345,13 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   60%        { color: #FFD66B; }   /* 액센트 골드 */
   80%        { color: rgba(255,255,255,0.85); }
 }
-.step-a-overlay-sub{
-  font-size: 11px;
-  font-weight: 500;
-  color: rgba(151, 254, 237, 0.7);
-  letter-spacing: 0.04em;
-  animation: stepASubPulse 1.6s infinite ease-in-out;
+/* ─── 2026-05-16 KST · TJ 지시 4번 ─── % 카운터 ('코디 중' 텍스트 대체) ─── */
+.step-a-overlay-pct{
+  font-size: 14px;
+  font-weight: 800;
+  color: rgba(151, 254, 237, 0.9);
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
 }
 @keyframes stepASubPulse{
   0%, 100% { opacity: 0.6; }
@@ -1556,17 +1542,17 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-content{
   position: relative;
   width: 100%;
-  /* ─── 2026-05-14 KST · TJ 보고 2번 ─── 팝업 크게 (360 → 420) ─── */
-  max-width: 420px;
-  max-height: calc(100vh - 16px);
+  /* ─── 2026-05-16 KST · TJ 지시 1번 ─── 팝업 20% 축소 (420 → 336) ─── */
+  max-width: 336px;
+  max-height: calc(100vh - 40px);
   overflow-y: auto;
   background: linear-gradient(180deg, #051030 0%, #0A1F4D 60%, #051840 100%);
   border: 1px solid rgba(151, 254, 237, 0.25);
-  border-radius: 22px;
-  padding: 14px 14px 14px;
+  border-radius: 20px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 7px;
   animation: modalSlideIn 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.1);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6),
               0 0 0 1px rgba(151, 254, 237, 0.08) inset;
@@ -1607,15 +1593,18 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-imgbox{
   position: relative;
   width: 100%;
-  /* ─── 2026-05-16 KST · TJ 지시 2번 ─── 정/후면 토글 정확도 개선
-     이전: 가로 스크롤 + scroll-snap + _adj 보정 → 정/후면 경계 어긋남
-     변경: overflow hidden + 캔버스 재그리기 방식 (좌/우 절반 정확 분할) */
-  aspect-ratio: 1 / 1.6;
-  max-height: 52vh;
-  border-radius: 14px;
+  /* ─── 2026-05-16 KST · TJ 지시 2번 ─── 정사각 이미지 위아래 잘림 해결
+     세로 고정 + flex 중앙. drawModalPose가 이미지 비율대로 캔버스를
+     contain 방식으로 그려 잘림 없이 전체 표시 (가로는 비율 자동) */
+  height: 40vh;
+  max-height: 340px;
+  border-radius: 12px;
   overflow: hidden;
   background: linear-gradient(160deg, #f5f7fb 0%, #e8eef5 100%);   /* 이미지 흰 배경 매칭 */
   border: 1px solid rgba(151, 254, 237, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .expand-modal-imgbox canvas{
   display: block;
@@ -1645,14 +1634,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
 /* ─── 2026-05-14 KST · TJ 지시 (v68) ─── 모달 분석 영역 ─── */
 .expand-modal-analysis{
-  margin-top: 4px;
-  padding: 12px 14px;
-  border-radius: 12px;
+  margin-top: 2px;
+  /* ─── 2026-05-16 KST · TJ 지시 1번 ─── 텍스트박스 비례 축소 ─── */
+  padding: 10px 12px;
+  border-radius: 11px;
   background: rgba(151, 254, 237, 0.06);
   border: 1px solid rgba(151, 254, 237, 0.15);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 /* ─── 2026-05-14 KST · TJ 보고 ─── 분석 영역에 헤더(도시/스타일리스트) 통합 ─── */
 .expand-modal-analysis-header{
@@ -1770,6 +1760,86 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-select-btn:hover{ filter: brightness(1.08); }
 .expand-modal-select-btn:active{ transform: scale(0.98); }
 .expand-modal-select-btn:disabled{ opacity: 0.5; cursor: not-allowed; }
+
+/* ─── 2026-05-16 KST · TJ 지시 3번 ─── 선택 후 3버튼 팝업 ─── */
+.choice-modal{
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.choice-modal.hidden{ display: none; }
+.choice-modal-backdrop{
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 9, 28, 0.9);
+  backdrop-filter: blur(10px);
+}
+.choice-modal-box{
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  background: linear-gradient(180deg, #051030 0%, #0A1F4D 70%, #051840 100%);
+  border: 1px solid rgba(151, 254, 237, 0.25);
+  border-radius: 18px;
+  padding: 22px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  animation: modalSlideIn 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+.choice-modal-msg{
+  font-size: 13.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.6;
+  text-align: center;
+  margin: 0 0 2px;
+}
+.choice-modal-row{
+  display: flex;
+  gap: 9px;
+}
+.choice-btn{
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+  font-family: inherit;
+}
+.choice-btn:active{ transform: scale(0.97); }
+.choice-modal-row .choice-btn{ flex: 1; }
+.choice-btn-primary{
+  background: linear-gradient(135deg, #4cdbce, #13bbaf);
+  color: #07132a;
+  border: none;
+}
+.choice-btn-primary:hover{ filter: brightness(1.07); }
+.choice-btn-ghost{
+  background: rgba(151, 254, 237, 0.06);
+  color: rgba(216, 226, 255, 0.78);
+  border: 1px solid rgba(151, 254, 237, 0.22);
+}
+.choice-btn-hd{
+  width: 100%;
+  background: rgba(151, 254, 237, 0.1);
+  color: #97FEED;
+  border: 1px solid rgba(151, 254, 237, 0.35);
+}
+.choice-btn-hd:hover{ background: rgba(151, 254, 237, 0.16); }
+.choice-modal-divider{
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(216, 226, 255, 0.4);
+  letter-spacing: 0.08em;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════ */
 </style>
@@ -2446,19 +2516,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
           <div class="step-a-grid" id="stepACards">
             <!-- 4개 카드는 JS에서 동적 생성 -->
           </div>
-          <!-- 4개 카드 grid 전체를 덮는 오버레이 (생성 중에만 표시) -->
+          <!-- ─── 2026-05-16 KST · TJ 지시 4번 ─── 통짜 불투명 박스(테두리 없음) ───
+               이전: 4개 cell이 각 카드를 개별 마스크 → 순차 공개
+               변경: 전체를 덮는 단일 불투명 박스 + codibank 텍스트 + % 카운터 -->
           <div class="step-a-overlay" id="stepAOverlay">
-            <!-- 4개 cell이 각 카드를 덮음 (개별 투명화) -->
-            <div class="step-a-overlay-cell" data-idx="0"></div>
-            <div class="step-a-overlay-cell" data-idx="1"></div>
-            <div class="step-a-overlay-cell" data-idx="2"></div>
-            <div class="step-a-overlay-cell" data-idx="3"></div>
-            <!-- 중앙 codiBank 텍스트 (컬러 변환 효과) -->
             <div class="step-a-overlay-text">
               <div class="step-a-cb-rainbow">
                 <span>c</span><span>o</span><span>d</span><span>i</span><span>B</span><span>a</span><span>n</span><span>k</span>
               </div>
-              <div class="step-a-overlay-sub">4명 스타일리스트가 코디 중...</div>
+              <div class="step-a-overlay-pct" id="stepAProgress">0%</div>
             </div>
           </div>
         </div>
@@ -9374,13 +9440,10 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     cities.forEach((c, i) => renderStepACard(i, c, 'loading', null));
     const statusEl = $('stepAStatus');
     if(statusEl) statusEl.textContent = '(4명 병렬 생성 중...)';
-    // ─── 2026-05-14 KST · TJ 보고 1번 ─── 오버레이 표시 (codiBank 컬러 변환 시작) ───
+    // ─── 2026-05-16 KST · TJ 지시 4번 ─── 통짜 오버레이 표시 + 진행률 카운터 시작 ───
     const overlay = $('stepAOverlay');
-    if(overlay){
-      overlay.classList.remove('hidden-overlay');
-      // 4개 cell 모두 활성화 (이전 카드 잔여물 제거)
-      overlay.querySelectorAll('.step-a-overlay-cell').forEach(c => c.classList.remove('cell-done'));
-    }
+    if(overlay) overlay.classList.remove('hidden-overlay');
+    startStepAProgress();
     // stagger 시작 — 각 호출의 시작 시점만 1.5초씩 지연, 응답 대기는 병렬
     const STAGGER_MS = 1500;
     const _startTime = Date.now();
@@ -9393,9 +9456,6 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           fetchStepACard(i).then(() => {
             const _done = ((Date.now() - _startTime) / 1000).toFixed(2);
             console.log(`[v68 STEP A] 카드 ${i} (${cities[i].label}) ✅ 응답 도착 — t+${_done}s`);
-            // ─── 2026-05-14 KST · TJ 보고 1번 ─── 해당 cell 투명화 ───
-            const cell = overlay && overlay.querySelector(`.step-a-overlay-cell[data-idx="${i}"]`);
-            if(cell) cell.classList.add('cell-done');
             resolve();
           }).catch(() => resolve());
         }, i * STAGGER_MS);
@@ -9404,13 +9464,34 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     await Promise.all(promises);
     const _totalSec = ((Date.now() - _startTime) / 1000).toFixed(2);
     console.log(`[v68 STEP A] 4장 완료 — 총 ${_totalSec}s`);
-    // ─── 2026-05-14 KST · TJ 보고 1번 ─── 전체 오버레이 사라짐 ───
+    // ─── 2026-05-16 KST · TJ 지시 4번 ─── 진행률 100% → 통짜 오버레이 페이드아웃 ───
+    finishStepAProgress();
     if(overlay){
-      // 마지막 cell 페이드 끝나는 시점에 전체 오버레이 숨김
-      setTimeout(() => { overlay.classList.add('hidden-overlay'); }, 400);
+      setTimeout(() => { overlay.classList.add('hidden-overlay'); }, 500);
     }
     if(statusEl) statusEl.textContent = '(1개 탭하여 선택)';
     flow.busy = false;
+  }
+
+  // ─── 2026-05-16 KST · TJ 지시 4번 ─── STEP A 진행률 카운터 (0 → 100%) ───
+  let _stepAProgressTimer = null;
+  function startStepAProgress(){
+    const el = $('stepAProgress');
+    let pct = 0;
+    if(el) el.textContent = '0%';
+    if(_stepAProgressTimer) clearInterval(_stepAProgressTimer);
+    _stepAProgressTimer = setInterval(() => {
+      if(pct < 92){
+        pct += Math.random() * 3 + 1;   // 1~4%씩 자연스럽게 증가
+        if(pct > 92) pct = 92;          // 응답 전까지 92%에서 대기
+        if(el) el.textContent = Math.floor(pct) + '%';
+      }
+    }, 420);
+  }
+  function finishStepAProgress(){
+    if(_stepAProgressTimer){ clearInterval(_stepAProgressTimer); _stepAProgressTimer = null; }
+    const el = $('stepAProgress');
+    if(el) el.textContent = '100%';
   }
 
   // ─── 모달 ───
@@ -9531,14 +9612,6 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       const boxRect = box.getBoundingClientRect();
       const boxW = Math.max(1, Math.round(boxRect.width));
       const boxH = Math.max(1, Math.round(boxRect.height));
-      // 캔버스 = 박스와 정확히 동일 크기 (스크롤 없음)
-      canvas.width  = Math.round(boxW * DPR);
-      canvas.height = Math.round(boxH * DPR);
-      canvas.style.width  = boxW + 'px';
-      canvas.style.height = boxH + 'px';
-      const ctx = canvas.getContext('2d');
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-      ctx.clearRect(0, 0, boxW, boxH);
       // wide(16:9 등) → 좌/우 절반 분할 / 아니면 전체
       const isWide = (iw / ih) > 1.2;
       let srcX, srcW;
@@ -9549,18 +9622,25 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       }else{
         srcX = 0; srcW = iw;
       }
-      // 선택된 절반을 박스에 cover로 그림 (인물 중앙 정렬)
+      // ─── 2026-05-16 KST · TJ 지시 2번 ─── contain 방식 (잘림 없음) ───
+      // 캔버스를 이미지(절반) 비율대로 만들어 박스 안에 전체가 들어가게.
+      // 박스 세로 우선, 가로가 박스를 넘으면 가로 기준으로 축소.
       const srcRatio = srcW / ih;
-      const boxRatio = boxW / boxH;
-      let sx, sy, sw, sh;
-      if(srcRatio > boxRatio){
-        sh = ih; sw = ih * boxRatio;
-        sx = srcX + (srcW - sw) / 2; sy = 0;
-      }else{
-        sw = srcW; sh = srcW / boxRatio;
-        sx = srcX; sy = (ih - sh) / 2;
+      let cw = boxH * srcRatio;
+      let ch = boxH;
+      if(cw > boxW){
+        cw = boxW;
+        ch = boxW / srcRatio;
       }
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, boxW, boxH);
+      canvas.width  = Math.round(cw * DPR);
+      canvas.height = Math.round(ch * DPR);
+      canvas.style.width  = cw + 'px';
+      canvas.style.height = ch + 'px';
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      ctx.clearRect(0, 0, cw, ch);
+      // 선택된 절반 전체를 캔버스에 그림 (잘림 없음)
+      ctx.drawImage(img, srcX, 0, srcW, ih, 0, 0, cw, ch);
     };
     if(_modalImgCache && _modalImgCacheUrl === url){
       render(_modalImgCache);
@@ -9579,8 +9659,8 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     drawModalPose(pose);
   }
 
-  // ─── 모달 "이 코디 선택" → STEP B로 ───
-  async function onModalSelect(){
+  // ─── 모달 "이 코디 선택" → 커스텀 3버튼 팝업 ───
+  function onModalSelect(){
     const idx = flow.modalCurrentIdx;
     if(idx < 0) return;
     flow.stepASelected = idx;
@@ -9589,14 +9669,16 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const sel = document.querySelector(`.step-a-card[data-idx="${idx}"]`);
     if(sel) sel.classList.add('selected');
     closeModal();
-    // 팝업 — 유사 변형 생성 여부
-    const ok = window.confirm('선택하신 추천코디와 유사하지만 조금 다른 디자인을 보여드릴까요?\n\n[예] 비교용 1장 더 생성\n[아니오] 바로 고화질 최종 코디로');
-    if(ok){
-      await startStepB();
-    }else{
-      // STEP B 건너뛰고 바로 STEP C
-      await startStepC(flow.stepACards[idx]);
-    }
+    // ─── 2026-05-16 KST · TJ 지시 3번 ─── 커스텀 3버튼 팝업 (예/아니오/고화질) ───
+    openSelectChoice();
+  }
+  function openSelectChoice(){
+    const m = $('selectChoiceModal');
+    if(m){ m.classList.remove('hidden'); document.body.style.overflow='hidden'; }
+  }
+  function closeSelectChoice(){
+    const m = $('selectChoiceModal');
+    if(m){ m.classList.add('hidden'); document.body.style.overflow=''; }
   }
 
   // ─── STEP B 호출 (유사 변형 1장) ───
@@ -9888,6 +9970,25 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     document.addEventListener('keydown', (e) => {
       if(e.key === 'Escape' && !$('expandModal').classList.contains('hidden')) closeModal();
     });
+    // ─── 2026-05-16 KST · TJ 지시 3번 ─── 선택 후 3버튼 팝업 이벤트 ───
+    const cYes = $('choiceYes');
+    const cNo  = $('choiceNo');
+    const cHD  = $('choiceHD');
+    const cBackdrop = document.querySelector('.choice-modal-backdrop');
+    // [예] 동일 스타일리스트 + 스타일링만 다르게 → STEP B
+    if(cYes) cYes.onclick = async () => {
+      closeSelectChoice();
+      await startStepB();
+    };
+    // [아니오] 팝업 닫고 4개 이미지 화면으로
+    if(cNo) cNo.onclick = () => { closeSelectChoice(); };
+    // [고화질 요청] STEP B 없이 바로 STEP C (고화질 생성)
+    if(cHD) cHD.onclick = async () => {
+      closeSelectChoice();
+      const idx = flow.stepASelected;
+      if(idx >= 0 && flow.stepACards[idx]) await startStepC(flow.stepACards[idx]);
+    };
+    if(cBackdrop) cBackdrop.onclick = closeSelectChoice;
   }
 
   // ─── 2026-05-14 KST · TJ 보고 2번 ─── 모달 이미지 저장 ───
@@ -10006,6 +10107,24 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       <button type="button" id="expandModalSelect" class="expand-modal-select-btn">
         이 코디 선택
       </button>
+    </div>
+  </div>
+
+  <!-- ═════════════════════════════════════════════════════════════════════════ -->
+  <!-- 2026-05-16 KST · TJ 지시 3번 ─ "이 코디 선택" 후 3버튼 팝업               -->
+  <!-- [예] 동일 스타일리스트·스타일링만 변형(STEP B) / [아니오] 닫기            -->
+  <!-- [고화질 요청] STEP B 생략하고 바로 고화질 생성(STEP C)                    -->
+  <!-- ═════════════════════════════════════════════════════════════════════════ -->
+  <div id="selectChoiceModal" class="choice-modal hidden">
+    <div class="choice-modal-backdrop"></div>
+    <div class="choice-modal-box">
+      <p class="choice-modal-msg">선택하신 추천코디와 유사하지만 조금 다른 디자인을 보여드릴까요?</p>
+      <div class="choice-modal-row">
+        <button type="button" id="choiceYes" class="choice-btn choice-btn-primary">예</button>
+        <button type="button" id="choiceNo" class="choice-btn choice-btn-ghost">아니오</button>
+      </div>
+      <div class="choice-modal-divider">또는</div>
+      <button type="button" id="choiceHD" class="choice-btn choice-btn-hd">고화질 요청</button>
     </div>
   </div>
 
