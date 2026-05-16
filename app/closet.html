@@ -1607,24 +1607,18 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-imgbox{
   position: relative;
   width: 100%;
-  /* ─── 2026-05-14 KST · TJ 보고 2번 ─── 3/2 → 1/1.6 세로형
-     세로 박스가 인물 풀로 잘 보임. drawNatural 패턴(정/후면 분리)으로 그림 */
+  /* ─── 2026-05-16 KST · TJ 지시 2번 ─── 정/후면 토글 정확도 개선
+     이전: 가로 스크롤 + scroll-snap + _adj 보정 → 정/후면 경계 어긋남
+     변경: overflow hidden + 캔버스 재그리기 방식 (좌/우 절반 정확 분할) */
   aspect-ratio: 1 / 1.6;
   max-height: 52vh;
   border-radius: 14px;
   overflow: hidden;
   background: linear-gradient(160deg, #f5f7fb 0%, #e8eef5 100%);   /* 이미지 흰 배경 매칭 */
   border: 1px solid rgba(151, 254, 237, 0.2);
-  scroll-snap-type: x mandatory;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  scroll-behavior: smooth;
 }
-.expand-modal-imgbox::-webkit-scrollbar{ display: none; }
 .expand-modal-imgbox canvas{
   display: block;
-  height: 100%;
 }
 .expand-modal-toggle{
   display: flex;
@@ -1711,33 +1705,52 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-action-btn:active{
   transform: scale(0.97);
 }
-.expand-modal-analysis-title{
-  font-size: 10px;
-  font-weight: 800;
-  color: rgba(151, 254, 237, 0.8);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-.expand-modal-analysis-text{
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.88);
-  line-height: 1.6;
-}
-.expand-modal-analysis-kws{
+/* ─── 2026-05-16 KST · TJ 지시 3번 ─── 카테고리별 코디 분석 ─── */
+.expand-modal-cody{
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+  gap: 7px;
 }
-.expand-modal-analysis-kws span{
-  display: inline-flex;
-  align-items: center;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 4px 9px;
-  border-radius: 999px;
-  background: rgba(151, 254, 237, 0.12);
-  border: 1px solid rgba(151, 254, 237, 0.28);
-  color: rgba(151, 254, 237, 0.92);
+.expand-modal-cody .cody-row{
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.expand-modal-cody .cody-label{
+  flex: 0 0 54px;
+  font-size: 11px;
+  font-weight: 800;
+  color: rgba(151, 254, 237, 0.7);
+  letter-spacing: 0.02em;
+}
+.expand-modal-cody .cody-val{
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.92);
+  line-height: 1.45;
+}
+.expand-modal-concept{
+  margin-top: 3px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(151, 254, 237, 0.12);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.expand-modal-concept .concept-label{
+  flex: 0 0 54px;
+  font-size: 11px;
+  font-weight: 800;
+  color: rgba(151, 254, 237, 0.7);
+  letter-spacing: 0.02em;
+}
+.expand-modal-concept .concept-val{
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #97FEED;
+  line-height: 1.5;
 }
 
 .expand-modal-select-btn{
@@ -9015,14 +9028,41 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   // ─── 도시 매핑 (4장) ───
   // A = 사용자 접속지역 (S.wx.location 또는 '서울' fallback)
   // B = 뉴욕, C = 밀라노, D = 런던
-  function getGridCities(){
+  // ─── 2026-05-14 KST · TJ 지시 (작업2 재수정) ─── STEP A 4도시 ───
+  // 1번 도시 = 사용자 접속 지역의 메인 도시 (픽스)
+  // 2~4번 도시 = 나머지 6개 중 랜덤 3개 (다양성 보장)
+  // 흐름 일관성: startStepA에서 1회 결정 → flow.gridCities에 캐시 → 같은 흐름 내 재사용
+  function computeGridCities(){
     const userLoc = (window.S && window.S.wx && window.S.wx.location) || '서울';
-    return [
-      { key: 'A', city: userLoc,   label: userLoc || '서울' },
-      { key: 'B', city: '뉴욕',    label: '뉴욕' },
-      { key: 'C', city: '밀라노',  label: '밀라노' },
-      { key: 'D', city: '런던',    label: '런던' },
-    ];
+    const region = (window.CodiBank && CodiBank.detectRegion)
+      ? CodiBank.detectRegion(userLoc) : '아시아';
+    // 지역별 1번 도시 (메인만 픽스)
+    const FIRST_CITY_BY_REGION = {
+      '아시아':     '서울',
+      '북미':       '뉴욕',
+      '남미':       '상파울루',
+      '중동':       '두바이',
+      '유럽':       '파리',
+      '아프리카':   '파리',
+      '오세아니아': '뉴욕',
+    };
+    const ALL_CITIES = ['서울', '뉴욕', '파리', '런던', '상파울루', '두바이', '밀라노'];
+    const first = FIRST_CITY_BY_REGION[region] || '서울';
+    // 1번 제외 나머지 6개 → Fisher-Yates 셔플 → 앞 3개
+    const rest = ALL_CITIES.filter(c => c !== first);
+    for(let i = rest.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = rest[i]; rest[i] = rest[j]; rest[j] = t;
+    }
+    const cities = [first, rest[0], rest[1], rest[2]];
+    const keys = ['A', 'B', 'C', 'D'];
+    return cities.map((c, i) => ({ key: keys[i], city: c, label: c }));
+  }
+  function getGridCities(){
+    // startStepA에서 결정된 배열 재사용 (모달/STEP B/C가 같은 도시 참조)
+    if(flow.gridCities && flow.gridCities.length === 4) return flow.gridCities;
+    flow.gridCities = computeGridCities();
+    return flow.gridCities;
   }
 
   // ─── State ───
@@ -9032,6 +9072,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     stepBCards: [null, null],
     stepBSelected: null,
     stepCResult: null,
+    gridCities: null,                        // STEP A 4도시 (흐름별 1회 결정 — 1번 픽스 + 2~4번 랜덤)
     modalCurrentIdx: -1,                     // 모달에서 보는 카드 idx
     modalCurrentPose: 'front',
     busy: false,
@@ -9244,6 +9285,11 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         engineCity: j.engineCity || cityInfo.city,
         prompt: j.prompt || '',
         cacheKey: j.cacheKey || '',
+        // ─── 2026-05-16 KST · TJ 지시 3번 ─── 모달 분석용 데이터 보존 ───
+        // 이전: 응답의 분석 데이터를 카드에 안 담아 모달이 폴백 문구만 표시
+        engineCategoryKeywords: j.engineCategoryKeywords || {},
+        stylingStory: j.stylingStory || '',
+        enginePurpose: j.enginePurpose || '',
       };
       renderStepACard(idx, cityInfo, 'done', flow.stepACards[idx]);
     }catch(err){
@@ -9316,6 +9362,9 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     flow.busy = true;
     flow.stepACards = [null, null, null, null];
     flow.stepASelected = null;
+    // ─── 2026-05-14 KST · TJ 지시 (작업2) ─── 매 STEP A 시작마다 도시 재선정 ───
+    // 1번=지역 메인 픽스, 2~4번=랜덤 → "다시 추천" 때마다 새로운 도시 조합
+    flow.gridCities = computeGridCities();
     // 분석 박스 강제 숨김 (이전 결과 잔여물 안전망)
     hideAnalysisBoxes();
     // 섹션 표시 + 카드 초기 그리기
@@ -9373,155 +9422,161 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const cities = getGridCities();
     $('expandModalCity').textContent = cities[idx].label;
     $('expandModalStylist').textContent = (card.stylist && card.stylist.name) ? (card.stylist.name + ' 스타일리스트') : '';
-    // ─── 2026-05-14 KST · TJ 지시 (v68) ─── 분석 텍스트 + 키워드 채우기 ───
-    // 응답 data에서 stylist.voice / stylingStory / engineCategoryKeywords 활용
-    const _txt = $('expandModalAnalysisText');
-    const _kws = $('expandModalAnalysisKws');
-    if(_txt){
-      let analysisText = '';
-      if(card.stylist && card.stylist.voice){
-        analysisText = card.stylist.voice;
-      }else if(card.stylingStory){
-        // 너무 길면 첫 문장만
-        const sents = String(card.stylingStory).split(/[.。]/);
-        analysisText = (sents[0] || '').trim() + (sents.length > 1 ? '.' : '');
-      }else{
-        analysisText = cities[idx].label + ' 스타일리스트의 시그니처를 반영한 코디입니다.';
-      }
-      _txt.textContent = analysisText;
-    }
-    if(_kws){
-      _kws.innerHTML = '';
-      // engineCategoryKeywords가 있으면 top/bottom/shoes 각 1개씩 추출
-      const ckw = card.engineCategoryKeywords;
-      let kwsArr = [];
-      if(ckw && typeof ckw === 'object'){
-        ['top', 'bottom', 'shoes', 'outer'].forEach(cat => {
-          const v = ckw[cat];
-          if(v) kwsArr.push(typeof v === 'string' ? v.split(',')[0].trim() : String(v));
-        });
-      }
-      // engineKeywords 콤마 구분 fallback
-      if(kwsArr.length === 0 && card.engineKeywords){
-        kwsArr = String(card.engineKeywords).split(',').map(s => s.trim()).filter(Boolean).slice(0, 4);
-      }
-      kwsArr.slice(0, 4).forEach(k => {
-        const sp = document.createElement('span');
-        sp.textContent = k;
-        _kws.appendChild(sp);
+    // ─── 2026-05-16 KST · TJ 지시 3번 ─── 카테고리별 코디 분석 (클릭 즉시) ───
+    // 응답의 engineCategoryKeywords(각 카테고리 [컬러,아이템])를 즉시 표시.
+    // 백엔드 추가 호출 없음 — 카드 데이터에 이미 있어 빠름.
+    const _cody = $('expandModalCody');
+    const _concept = $('expandModalConcept');
+    if(_cody){
+      _cody.innerHTML = '';
+      const ckw = card.engineCategoryKeywords || {};
+      // 액세서리 = bag/watch/scarf 중 존재하는 첫 항목
+      const _acc = ckw.bag || ckw.watch || ckw.scarf || null;
+      const rows = [
+        ['상의', ckw.top],
+        ['하의', ckw.bottom],
+        ['신발', ckw.shoes],
+        ['액세서리', _acc],
+      ];
+      rows.forEach(function(pair){
+        const label = pair[0], val = pair[1];
+        if(!val) return;
+        // val: [컬러, 아이템] 배열 또는 콤마구분 문자열
+        let text = '';
+        if(Array.isArray(val)){
+          text = val.filter(Boolean).join(' · ');
+        }else{
+          text = String(val).split(',').map(function(s){return s.trim();})
+                   .filter(Boolean).join(' · ');
+        }
+        if(!text) return;
+        const row = document.createElement('div');
+        row.className = 'cody-row';
+        const lab = document.createElement('span');
+        lab.className = 'cody-label';
+        lab.textContent = label;
+        const v = document.createElement('span');
+        v.className = 'cody-val';
+        v.textContent = text;
+        row.appendChild(lab); row.appendChild(v);
+        _cody.appendChild(row);
       });
     }
-    // 이미지 그리기 (wide 16:9, 가로 스크롤로 정/후면 토글)
-    drawModalImage(card.imageUrl);
+    if(_concept){
+      // 컨셉 한 줄: stylingStory 첫 문장 → stylist.voice → 목적 폴백
+      let concept = '';
+      if(card.stylingStory){
+        const s = String(card.stylingStory).split(/[.。\n]/)[0].trim();
+        if(s) concept = s;
+      }
+      if(!concept && card.stylist && card.stylist.voice){
+        concept = String(card.stylist.voice).trim();
+      }
+      if(!concept){
+        const _pp = card.enginePurpose || '';
+        concept = _pp ? (_pp + '에 어울리는 코디') : '추천 코디';
+      }
+      _concept.innerHTML = '';
+      const cl = document.createElement('span');
+      cl.className = 'concept-label';
+      cl.textContent = '컨셉';
+      const cv = document.createElement('span');
+      cv.className = 'concept-val';
+      cv.textContent = concept;
+      _concept.appendChild(cl); _concept.appendChild(cv);
+    }
+    // ─── 2026-05-16 KST · TJ 지시 2번 ─── 캔버스 재그리기 방식 (정면 초기 표시) ───
+    flow.modalImageUrl = card.imageUrl;
+    drawModalPose('front');
     // 토글 초기화
     document.querySelectorAll('.expand-pose-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.pose === 'front');
     });
     // 모달 표시
     const modal = $('expandModal');
-    if(modal){ modal.classList.remove('hidden'); document.body.style.overflow='hidden'; }
+    if(modal){
+      modal.classList.remove('hidden');
+      document.body.style.overflow='hidden';
+      // ─── 2026-05-16 KST · TJ 지시 1번 ─── 모달 표시 중 풋바 nav 숨김 ───
+      const _nav = document.querySelector('.cb-nav');
+      if(_nav) _nav.style.display = 'none';
+    }
   }
   function closeModal(){
     const modal = $('expandModal');
-    if(modal){ modal.classList.add('hidden'); document.body.style.overflow=''; }
+    if(modal){
+      modal.classList.add('hidden');
+      document.body.style.overflow='';
+      // ─── 2026-05-16 KST · TJ 지시 1번 ─── 모달 닫힐 때 풋바 nav 복원 ───
+      const _nav = document.querySelector('.cb-nav');
+      if(_nav) _nav.style.display = '';
+    }
   }
-  // ─── 2026-05-14 KST · TJ 보고 2번 ─── drawNatural 패턴 (1:1.6 박스 + 정/후면 분리) ───
-  function drawModalImage(imageUrl){
+  // ─── 2026-05-16 KST · TJ 지시 2번 ─── 캔버스 재그리기 방식 (정/후면 정확 분할) ───
+  // 이전: 캔버스 2배폭 + 가로 스크롤 → scroll-snap 미작동·_adj 보정으로 경계 어긋남
+  // 변경: 캔버스 = 박스 크기. pose에 따라 이미지 좌/우 절반만 cover로 재그림.
+  let _modalImgCache = null;      // 로드된 Image 객체 (toggle 시 재사용)
+  let _modalImgCacheUrl = '';
+  function drawModalPose(pose){
     const canvas = $('expandModalCanvas');
     const box = $('expandModalImgBox');
     if(!canvas || !box) return;
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
+    const url = flow.modalImageUrl || '';
+    if(!url) return;
+    const render = (img) => {
       const DPR = window.devicePixelRatio || 1;
       const iw = img.naturalWidth || img.width;
       const ih = img.naturalHeight || img.height;
       if(!iw || !ih) return;
-
       const boxRect = box.getBoundingClientRect();
       const boxW = Math.max(1, Math.round(boxRect.width));
       const boxH = Math.max(1, Math.round(boxRect.height));
-      const ratio = iw / ih;
-      const isWide = ratio > 1.2;
-
-      let dispW, dispH;
-      if(isWide){
-        dispW = boxW * 2;  // 정/후면 분리
-        dispH = boxH;
-      }else{
-        dispW = boxW;
-        dispH = boxH;
-      }
-
-      canvas.width  = Math.round(dispW * DPR);
-      canvas.height = Math.round(dispH * DPR);
-      canvas.style.width  = dispW + 'px';
-      canvas.style.height = dispH + 'px';
-
+      // 캔버스 = 박스와 정확히 동일 크기 (스크롤 없음)
+      canvas.width  = Math.round(boxW * DPR);
+      canvas.height = Math.round(boxH * DPR);
+      canvas.style.width  = boxW + 'px';
+      canvas.style.height = boxH + 'px';
       const ctx = canvas.getContext('2d');
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-      ctx.clearRect(0, 0, dispW, dispH);
-
+      ctx.clearRect(0, 0, boxW, boxH);
+      // wide(16:9 등) → 좌/우 절반 분할 / 아니면 전체
+      const isWide = (iw / ih) > 1.2;
+      let srcX, srcW;
       if(isWide){
-        const halfIw = iw / 2;
-        const boxRatio = boxW / boxH;
-        const halfRatio = halfIw / ih;
-
-        // 좌측 절반(정면) → cover로 박스 1폭 풀
-        let lsx, lsy, lsw, lsh;
-        if(halfRatio > boxRatio){
-          lsh = ih; lsw = ih * boxRatio;
-          lsx = (halfIw - lsw) / 2; lsy = 0;
-        }else{
-          lsw = halfIw; lsh = halfIw / boxRatio;
-          lsx = 0; lsy = (ih - lsh) / 2;
-        }
-        ctx.drawImage(img, lsx, lsy, lsw, lsh, 0, 0, boxW, boxH);
-
-        // 우측 절반(후면)
-        let rsx, rsy, rsw, rsh;
-        if(halfRatio > boxRatio){
-          rsh = ih; rsw = ih * boxRatio;
-          rsx = halfIw + (halfIw - rsw) / 2; rsy = 0;
-        }else{
-          rsw = halfIw; rsh = halfIw / boxRatio;
-          rsx = halfIw; rsy = (ih - rsh) / 2;
-        }
-        ctx.drawImage(img, rsx, rsy, rsw, rsh, boxW, 0, boxW, boxH);
+        const half = iw / 2;
+        srcX = (pose === 'back') ? half : 0;
+        srcW = half;
       }else{
-        // 단일 인물 cover
-        const imgRatio = iw / ih;
-        const boxRatio = boxW / boxH;
-        let sx, sy, sw, sh;
-        if(imgRatio > boxRatio){
-          sh = ih; sw = ih * boxRatio;
-          sx = (iw - sw) / 2; sy = 0;
-        }else{
-          sw = iw; sh = iw / boxRatio;
-          sx = 0; sy = (ih - sh) / 2;
-        }
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dispW, dispH);
+        srcX = 0; srcW = iw;
       }
-      // 초기 스크롤 위치 (정면 = 좌측 0)
-      box.scrollTo({ left: 0, behavior: 'instant' });
+      // 선택된 절반을 박스에 cover로 그림 (인물 중앙 정렬)
+      const srcRatio = srcW / ih;
+      const boxRatio = boxW / boxH;
+      let sx, sy, sw, sh;
+      if(srcRatio > boxRatio){
+        sh = ih; sw = ih * boxRatio;
+        sx = srcX + (srcW - sw) / 2; sy = 0;
+      }else{
+        sw = srcW; sh = srcW / boxRatio;
+        sx = srcX; sy = (ih - sh) / 2;
+      }
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, boxW, boxH);
     };
-    img.src = imageUrl;
+    if(_modalImgCache && _modalImgCacheUrl === url){
+      render(_modalImgCache);
+    }else{
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => { _modalImgCache = img; _modalImgCacheUrl = url; render(img); };
+      img.src = url;
+    }
   }
   function toggleModalPose(pose){
     flow.modalCurrentPose = pose;
     document.querySelectorAll('.expand-pose-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.pose === pose);
     });
-    const box = $('expandModalImgBox');
-    if(!box) return;
-    const boxW = box.clientWidth;
-    const sw2 = box.scrollWidth - box.clientWidth;
-    const _adj = Math.round(boxW * 0.03);
-    if(pose === 'front'){
-      box.scrollTo({ left: _adj, behavior: 'smooth' });
-    }else{
-      box.scrollTo({ left: sw2 - _adj, behavior: 'smooth' });
-    }
+    drawModalPose(pose);
   }
 
   // ─── 모달 "이 코디 선택" → STEP B로 ───
@@ -9932,11 +9987,10 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           <span id="expandModalCity" class="expand-modal-analysis-city">서울</span>
           <span id="expandModalStylist" class="expand-modal-analysis-stylist"></span>
         </div>
-        <div class="expand-modal-analysis-title">스타일 분석</div>
-        <div class="expand-modal-analysis-text" id="expandModalAnalysisText">
-          스타일리스트의 시그니처를 반영한 코디입니다.
-        </div>
-        <div class="expand-modal-analysis-kws" id="expandModalAnalysisKws"></div>
+        <!-- ─── 2026-05-16 KST · TJ 지시 3번 ─── '스타일 분석' 제목 삭제
+             상의/하의/신발/액세서리 컬러·디자인 + 컨셉 한 줄 (클릭 즉시 표시) -->
+        <div class="expand-modal-cody" id="expandModalCody"></div>
+        <div class="expand-modal-concept" id="expandModalConcept"></div>
         <!-- ─── 2026-05-14 KST · TJ 보고 2번 ─── 저장 + 공유 버튼 ─── -->
         <div class="expand-modal-actions">
           <button type="button" id="expandModalSave" class="expand-modal-action-btn">
