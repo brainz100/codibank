@@ -7,6 +7,19 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-16 KST · TJ 지시 (Q2 이미지 박스 완전 재구축) ───
+  TJ 관찰: 어두운 타원은 '완성된 이미지뷰(<img>)'에만 발생, 생성 중 카드는 정상
+   → <img> 태그가 들어가는 순간 옛 코드가 그 위에 타원 레이어를 씌움
+   → 기존 step-b-card 를 계속 고치는 것은 무의미 — 삭제 후 재구축 지시
+  대응 — Q2 두 이미지 박스 완전 재구축:
+   · 옛 step-b-* 클래스/CSS 전부 폐기 (.step-b-stack/.step-b-card/.step-b-loading
+     /.step-b-cb-rainbow/@keyframes stepBCbColor 삭제)
+   · 새 cbq2-* 클래스로 교체 (.cbq2-stack/.cbq2-card/.cbq2-canvas/.cbq2-label
+     /.cbq2-loading/.cbq2-cb/.cbq2-error)
+   · 이미지 렌더를 <img> 태그 → <canvas> 로 변경 (drawQ2Card 함수)
+     → <img> 가 없으므로 옛 코드가 이미지에 레이어를 씌울 수 없음 (원천 차단)
+   · startStepB / selectStepBCard 모두 cbq2 구조로 갱신
+
 ─── 2026-05-16 KST · TJ 지시 (STEP B 어두운 타원 — 인라인 강제 + 옛코드 방어) ───
   TJ 분석: 옛 v44 코드가 살아있어 새 디자인 위에 덮어쓰기되는 것으로 추정
   검증 결과:
@@ -1497,54 +1510,49 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   cursor: pointer;
 }
 
-/* STEP B 2장 스택 (3:2 비율 1×2) */
-.step-b-stack{
+/* ═══════════════════════════════════════════════════════════════════════
+ * 2026-05-16 KST · TJ 지시 ─ Q2 이미지 박스 완전 재구축
+ * 옛 step-b-card 구조 폐기 (어두운 타원 버그 — 옛 코드가 <img>에 레이어 씌움)
+ * 새 cbq2-* 클래스 + <canvas> 렌더 (img 태그 미사용 → 옛 코드 개입 원천 차단)
+ * ═══════════════════════════════════════════════════════════════════════ */
+.cbq2-stack{
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
-.step-b-card{
+.cbq2-card{
   position: relative;
   width: 100%;
-  aspect-ratio: 3 / 2;     /* wide 16:9 이미지 → 3:2 박스에 풀 fit */
+  aspect-ratio: 3 / 2;
   border-radius: 16px;
   overflow: hidden;
-  /* ─── 2026-05-14 KST · TJ 보고 3번 ─── 어두운 배경 → 라이트 (이미지 흰 배경과 매칭, 인물 흐려짐 방지) */
-  /* ─── 2026-05-16 KST · TJ 지시 ─── 어두운 타원 버그: 배경 무효화 차단 위해 !important 강제 ─── */
-  background: linear-gradient(160deg, #f5f7fb 0%, #e8eef5 100%) !important;
-  border: 1px solid rgba(151, 254, 237, 0.25);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.6),
-    0 6px 20px rgba(0,0,0,0.3);
+  background: #ffffff;
+  border: 1px solid rgba(151, 254, 237, 0.30);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.28);
   cursor: pointer;
-  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, transform 0.2s;
 }
-.step-b-card:hover{
-  border-color: rgba(151, 254, 237, 0.5);
+.cbq2-card:hover{
+  border-color: rgba(151, 254, 237, 0.55);
   transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 8px 24px rgba(0,0,0,0.4);
 }
-.step-b-card.selected{
-  border-color: #97FEED;
-  border-width: 2px;
-  box-shadow: 0 0 0 2px rgba(151, 254, 237, 0.3),
-              inset 0 1px 0 rgba(255,255,255,0.7),
-              0 8px 24px rgba(0,0,0,0.4);
+.cbq2-card.cbq2-selected{
+  border: 2px solid #97FEED;
+  box-shadow: 0 0 0 3px rgba(151, 254, 237, 0.25);
 }
-.step-b-card .card-img{
+.cbq2-canvas{
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  /* ─── cover로 박스 풀 채움 (3:2 = wide 1.5와 거의 동일 → 잘림 최소) */
-  object-fit: cover;
-  object-position: center;
   display: block;
-  /* ─── 2026-05-16 KST · TJ 지시 ─── 이미지 투명/로딩영역 흰색 보장 ─── */
-  background: #fff;
+  background: #ffffff;
 }
-.step-b-card .card-label{
+.cbq2-label{
   position: absolute;
   top: 10px;
   left: 10px;
+  z-index: 3;
   font-size: 10px;
   font-weight: 800;
   color: #97FEED;
@@ -1552,21 +1560,19 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   border: 1px solid rgba(151, 254, 237, 0.4);
   padding: 5px 11px;
   border-radius: 999px;
-  pointer-events: none;
   letter-spacing: 0.05em;
-  backdrop-filter: blur(4px);
+  pointer-events: none;
 }
-/* ─── 2026-05-16 KST · TJ 지시 ─── STEP B 변형 카드 생성 중 codibank 컬러변환 ─── */
-.step-b-card .step-b-loading{
+.cbq2-loading{
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* ─── 2026-05-16 KST · TJ 지시 ─── 변형카드(이미지 없음) 어두운 타원 차단: 라이트 배경 명시 ─── */
-  background: linear-gradient(160deg, #f5f7fb 0%, #e8eef5 100%);
+  background: #ffffff;
 }
-.step-b-cb-rainbow{
+.cbq2-cb{
   font-size: 26px;
   font-weight: 800;
   letter-spacing: 2px;
@@ -1574,25 +1580,50 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   display: flex;
   gap: 1px;
 }
-.step-b-cb-rainbow span{
-  color: rgba(120, 140, 170, 0.4);
-  animation: stepBCbColor 2.4s infinite;
+.cbq2-cb span{
+  color: rgba(120, 140, 170, 0.45);
+  animation: cbq2CbColor 2.4s infinite;
 }
-.step-b-cb-rainbow span:nth-child(1){ animation-delay: 0s; }
-.step-b-cb-rainbow span:nth-child(2){ animation-delay: 0.18s; }
-.step-b-cb-rainbow span:nth-child(3){ animation-delay: 0.36s; }
-.step-b-cb-rainbow span:nth-child(4){ animation-delay: 0.54s; }
-.step-b-cb-rainbow span:nth-child(5){ animation-delay: 0.72s; }
-.step-b-cb-rainbow span:nth-child(6){ animation-delay: 0.90s; }
-.step-b-cb-rainbow span:nth-child(7){ animation-delay: 1.08s; }
-.step-b-cb-rainbow span:nth-child(8){ animation-delay: 1.26s; }
-/* 라이트 배경(#f5f7fb)용 — 어두운 톤 컬러로 변환 (밝은 흰색 제외) */
-@keyframes stepBCbColor{
-  0%, 100% { color: rgba(120, 140, 170, 0.4); }
+.cbq2-cb span:nth-child(1){ animation-delay: 0s; }
+.cbq2-cb span:nth-child(2){ animation-delay: 0.18s; }
+.cbq2-cb span:nth-child(3){ animation-delay: 0.36s; }
+.cbq2-cb span:nth-child(4){ animation-delay: 0.54s; }
+.cbq2-cb span:nth-child(5){ animation-delay: 0.72s; }
+.cbq2-cb span:nth-child(6){ animation-delay: 0.90s; }
+.cbq2-cb span:nth-child(7){ animation-delay: 1.08s; }
+.cbq2-cb span:nth-child(8){ animation-delay: 1.26s; }
+@keyframes cbq2CbColor{
+  0%, 100% { color: rgba(120, 140, 170, 0.40); }
   20%      { color: #13BBAF; }
   40%      { color: #0E9D8E; }
   60%      { color: #C9A227; }
   80%      { color: rgba(60, 80, 110, 0.85); }
+}
+.cbq2-error{
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #ffffff;
+}
+.cbq2-error span{
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 600;
+}
+.cbq2-error button{
+  font-size: 12px;
+  font-weight: 700;
+  color: #0E7C8B;
+  background: rgba(151, 254, 237, 0.15);
+  border: 1px solid rgba(53, 162, 159, 0.3);
+  border-radius: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
 }
 
 /* 확대 모달 */
@@ -2701,8 +2732,9 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <div id="stepBCompare" class="step-section hidden" style="margin-top:24px;">
         <!-- ─── 2026-05-16 KST · TJ 지시 4번 ─── 'STEP B·선택+유사변형' → Q2 (Q1 동일 디자인) -->
         <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-bottom:10px;">Q2. 유사한 스타일 중에서 어떤 게 더 좋으세요?</h3>
-        <div class="step-b-stack" id="stepBCards">
-          <!-- 2개 카드 (3:2 비율) 동적 생성 -->
+        <!-- ─── 2026-05-16 KST · TJ 지시 ─── Q2 박스 완전 재구축: step-b-stack → cbq2-stack -->
+        <div class="cbq2-stack" id="stepBCards">
+          <!-- 2개 카드 (3:2 비율) 동적 생성 — cbq2-card + canvas -->
         </div>
       </div>
 
@@ -9875,29 +9907,28 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const container = $('stepBCards');
     if(container){
       container.innerHTML = '';
-      // ─── 2026-05-16 KST · TJ 지시 ─── 어두운 타원 버그 최종 대응 ───
-      // 옛 코드/Tailwind 무엇이 덮어쓰든, 인라인 !important 스타일은 최우선 → 무조건 라이트
-      const _lightBg = 'linear-gradient(160deg,#f5f7fb 0%,#e8eef5 100%)';
+      // ─── 2026-05-16 KST · TJ 지시 ─── Q2 박스 완전 재구축 ───
+      // 옛 step-b-card(<img>) 폐기 → cbq2-card + <canvas>
+      // <img> 태그를 쓰지 않으므로 옛 코드가 이미지에 타원 레이어를 씌울 수 없음
       // 원본 카드
       const card1 = document.createElement('div');
-      card1.className = 'step-b-card';
+      card1.className = 'cbq2-card';
       card1.dataset.idx = '0';
-      card1.style.setProperty('background', _lightBg, 'important');
       card1.innerHTML = `
-        <div class="card-label">원본 — ${cityInfo.label}</div>
-        <img class="card-img" src="${baseCard.imageUrl}" alt="원본" style="background:#fff;" />
+        <div class="cbq2-label">원본 — ${cityInfo.label}</div>
+        <canvas class="cbq2-canvas"></canvas>
       `;
       card1.onclick = () => selectStepBCard(0);
       container.appendChild(card1);
+      drawQ2Card(card1.querySelector('.cbq2-canvas'), baseCard.imageUrl);
       // 변형 카드 (로딩 — codibank 컬러변환)
       const card2 = document.createElement('div');
-      card2.className = 'step-b-card';
+      card2.className = 'cbq2-card';
       card2.dataset.idx = '1';
-      card2.style.setProperty('background', _lightBg, 'important');
       card2.innerHTML = `
-        <div class="card-label">유사 변형</div>
-        <div class="step-b-loading" style="background:${_lightBg} !important;">
-          <div class="step-b-cb-rainbow">
+        <div class="cbq2-label">유사 변형</div>
+        <div class="cbq2-loading">
+          <div class="cbq2-cb">
             <span>c</span><span>o</span><span>d</span><span>i</span><span>B</span><span>a</span><span>n</span><span>k</span>
           </div>
         </div>
@@ -9926,28 +9957,68 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       const card2 = container && container.querySelector('[data-idx="1"]');
       if(card2){
         card2.innerHTML = `
-          <div class="card-label">유사 변형</div>
-          <img class="card-img" src="${j.image}" alt="유사 변형" style="background:#fff;" />
+          <div class="cbq2-label">유사 변형</div>
+          <canvas class="cbq2-canvas"></canvas>
         `;
         card2.onclick = () => selectStepBCard(1);
+        drawQ2Card(card2.querySelector('.cbq2-canvas'), j.image);
       }
       if(statusEl) statusEl.textContent = '(1개 선택)';
     }catch(err){
       console.error('[v68 STEP B]', err);
       const card2 = container && container.querySelector('[data-idx="1"]');
       if(card2){
-        card2.innerHTML = `<div class="card-error"><span>변형 생성 실패</span><button type="button">재시도</button></div>`;
+        card2.innerHTML = `<div class="cbq2-error"><span>변형 생성 실패</span><button type="button">재시도</button></div>`;
         card2.querySelector('button').onclick = (e) => { e.stopPropagation(); startStepB(); };
       }
     }
     flow.busy = false;
   }
 
+  // ─── 2026-05-16 KST · TJ 지시 ─── Q2 카드 이미지 렌더 (canvas, img 태그 미사용) ───
+  function drawQ2Card(canvas, imageUrl){
+    if(!canvas || !imageUrl) return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      requestAnimationFrame(() => {
+        const box = canvas.parentElement;
+        if(!box) return;
+        const rect = box.getBoundingClientRect();
+        const w = Math.max(1, Math.round(rect.width));
+        const h = Math.max(1, Math.round(rect.height));
+        const DPR = window.devicePixelRatio || 1;
+        canvas.width  = Math.round(w * DPR);
+        canvas.height = Math.round(h * DPR);
+        canvas.style.width  = w + 'px';
+        canvas.style.height = h + 'px';
+        const ctx = canvas.getContext('2d');
+        if(!ctx) return;
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if(!iw || !ih) return;
+        // cover: 박스를 꽉 채우도록 스케일
+        const scale = Math.max(w / iw, h / ih);
+        const dw = iw * scale, dh = ih * scale;
+        const dx = (w - dw) / 2, dy = (h - dh) / 2;
+        ctx.drawImage(img, dx, dy, dw, dh);
+      });
+    };
+    img.onerror = () => {
+      const ctx = canvas.getContext('2d');
+      if(ctx){ ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width || 1, canvas.height || 1); }
+    };
+    img.src = imageUrl;
+  }
+
   function selectStepBCard(idx){
     flow.stepBSelected = idx;
-    document.querySelectorAll('.step-b-card').forEach(c => c.classList.remove('selected'));
-    const sel = document.querySelector(`.step-b-card[data-idx="${idx}"]`);
-    if(sel) sel.classList.add('selected');
+    document.querySelectorAll('.cbq2-card').forEach(c => c.classList.remove('cbq2-selected'));
+    const sel = document.querySelector(`.cbq2-card[data-idx="${idx}"]`);
+    if(sel) sel.classList.add('cbq2-selected');
     const chosen = flow.stepBCards[idx];
     if(!chosen) return;
     // ─── 2026-05-16 KST · TJ 지시 2번 ─── window.confirm → 커스텀 모달 ───
