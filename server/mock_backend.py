@@ -5,6 +5,15 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-16 KST · TJ 지시 (STEP B 유사 변형 프롬프트 수정) ───
+#   문제: Q2 '유사 변형'이 원본과 거의 동일하게 생성됨
+#   원인: _similar_variation 프롬프트에 "Do NOT change colors" 지시가 있어
+#         원본과 같은 컬러·패턴으로 생성됨
+#   변경 (~line 3563): _similar_variation 프롬프트 전면 교체
+#     · 유지: 같은 stylist / TPO / 날짜 / 날씨 / 격식 / 실루엣
+#     · 필수 변경: 상의 컬러, 하의 컬러, 패턴(solid/stripe/check/textured)
+#     · "side-by-side 시 즉시 구분되어야 한다" 강력 명시
+#
 # ─── 2026-05-14 KST · TJ 지시 (v68 4→2→1 흐름) ─── [hook 3개 추가]
 #   배경: 코디핏 UX를 4장 그리드 → 2장 비교 → 1장 Medium으로 개편
 #         프론트엔드(closet.html)에서 새 흐름 구현, 백엔드는 hook만 추가
@@ -3558,20 +3567,36 @@ def ai_styling():
     _custom_text_force = str(payload.get("customText") or "").strip()
 
     # ─── 2026-05-14 KST · TJ 지시 (v68 STEP B) ─── 유사 변형 prompt 주입 ────
-    # _similar_variation=true이면 prompt 끝에 강력한 variation 지시 추가
-    # 효과: 같은 stylist + 같은 TPO지만 outfit details가 약간 다른 결과 생성
+    # ─── 2026-05-16 KST · TJ 지시 ─── 원본과 거의 동일하게 생성되던 문제 수정 ───
+    #   기존: "Do NOT change colors" → 원본과 똑같은 결과
+    #   변경: 같은 stylist/TPO/날씨 유지하되 상·하의 컬러+패턴은 반드시 변경
     if _similar_variation and prompt:
         prompt += (
             "\n\n[VARIATION REQUIREMENT — STEP B SIMILAR ALTERNATIVE]\n"
-            "Generate an ALTERNATIVE outfit by the SAME stylist with the SAME color palette and overall vibe, "
-            "but with SUBTLE design variations:\n"
-            "  · Change ONE major item (e.g., shirt → polo, slacks → chinos, oxford → loafers)\n"
-            "  · OR swap accessory choice (different bag style, different watch type)\n"
-            "  · Keep the overall mood/silhouette/season-appropriateness identical\n"
-            "  · Do NOT change colors significantly — keep the stylist's signature palette\n"
-            "This is a 'similar but different' version for the user to compare side-by-side.\n"
+            "Generate a CLEARLY DIFFERENT alternative outfit by the SAME stylist for the "
+            "SAME occasion, SAME date, SAME weather. This is a 'similar but visibly different' "
+            "version shown side-by-side with the original — it MUST be immediately "
+            "distinguishable from the original outfit.\n"
+            "\n"
+            "KEEP IDENTICAL (do NOT change):\n"
+            "  - The stylist's identity and overall styling philosophy\n"
+            "  - The occasion / TPO, the date, and weather-appropriateness\n"
+            "  - The general formality level and season suitability\n"
+            "\n"
+            "MUST CHANGE (these MUST be clearly different from the original):\n"
+            "  - TOP color: choose a DISTINCTLY DIFFERENT color from the original top\n"
+            "  - BOTTOM color: choose a DISTINCTLY DIFFERENT color from the original bottom\n"
+            "  - PATTERN: change the pattern of the top and/or bottom "
+            "(e.g., solid <-> striped <-> checked <-> textured / melange)\n"
+            "  - Optionally also swap ONE garment type (e.g., dress shirt -> knit polo, "
+            "slacks -> chinos, blazer -> cardigan)\n"
+            "\n"
+            "CRITICAL: When the two outfits are placed side-by-side, the user must "
+            "INSTANTLY see they are different in color and pattern. Do NOT reproduce the "
+            "same top/bottom colors or the same pattern as the original outfit. "
+            "The silhouette and vibe stay similar, but the colors and patterns are clearly new.\n"
         )
-        print("[v68 STEP B] similar_variation prompt injected", flush=True)
+        print("[v68 STEP B] similar_variation prompt injected (color+pattern variation)", flush=True)
     if _purpose_key == "custom" and _custom_text_force:
         _force_header = (
             f"\n\n========================================\n"
