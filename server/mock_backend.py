@@ -5,6 +5,21 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-17 KST · TJ 승인 (온도 의류 게이트 — closet.html 규칙 이식) ───
+#   배경: closet.html(line 5189~5212)에 강한 온도 규칙이 있었으나
+#         S.imagePrompt='' 차단으로 STEP A/B/C(서버 엔진)엔 미적용
+#         → 서버 STEP 4/6 의 약한 규칙('<15°C', SCARF 'when fitting')만 작동
+#         → 24~26°C 에도 목도리가 추천되던 문제 (TPO 기준 위반)
+#   수정: closet.html 규칙을 STEP 1-7 프롬프트(_ai_styling_via_gemini)에 이식
+#     1) _temp_gate_block (gemini_prompt 빌드 직전): 온도 7구간 게이트
+#        · 아우터: 20°C 미만에서만 (closet: outer nt>=20 → [])
+#        · 머플러/스카프: 0°C 이하에서만 (closet: _hasMuffler nt<=0)
+#        · 23°C 이상: 코트/패딩/니트/스카프/머플러 전면 금지
+#     2) STEP 4: 약한 '<15°C' 한 줄 → _temp_gate_block 으로 교체
+#     3) STEP 6: OUTER 'NEVER at 20°C+', SCARF/MUFFLER 'ONLY at 0°C-' 명시
+#     4) weather_rule: 3분기 → _temp_bucket 5단계 (warm 보온 금지 명시)
+#   ※ STEP A/B/C 모두 동일 _ai_styling_via_gemini 프롬프트 → 전부 적용
+#
 # ─── 2026-05-16 KST · TJ 지시 (vision 분석 timeout 보강) ───
 #   _codifit_analysis_via_gpt41mini (~line 3346): vision 모드 timeout 확대
 #   · 텍스트 분석 10초 → vision 분석 20초 (CODIBANK_ANALYSIS_TIMEOUT_VISION)
@@ -2002,13 +2017,19 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
 
     kw_str = ", ".join([str(k) for k in keywords if str(k).strip()][:6])
 
-    # 온도 버킷에 따른 레이어링 가이드
-    if bucket in ("very cold", "cool"):
-        weather_rule = "Layer appropriately for cold weather (coat/jacket, warm inner, scarf optional)."
-    elif bucket == "hot":
-        weather_rule = "Choose breathable lightweight fabrics suitable for hot weather."
-    else:
-        weather_rule = "Use balanced layering suitable for mild weather."
+    # ─── 2026-05-17 KST · TJ 승인 ─── 온도 레이어링 규칙 강화 (closet.html 규칙 이식) ───
+    # 이전: very cold/cool→방한, hot→통기, mild/warm→'balanced'(보온 허용) 3분기
+    # 변경: _temp_bucket 5단계별 명확한 규칙 — warm(21-27°C)에서 보온 아이템 금지 명시
+    if bucket == "very cold":
+        weather_rule = "Very cold weather: a thick coat or padding is essential with warm inner layers. A muffler is appropriate."
+    elif bucket == "cool":
+        weather_rule = "Cool weather: jacket and light knit layering. Do NOT add a muffler unless near-freezing."
+    elif bucket == "mild":
+        weather_rule = "Mild weather: a light jacket or cardigan is optional. NO heavy coat/padding, NO muffler, NO scarf."
+    elif bucket == "warm":
+        weather_rule = "Warm weather: a single light layer is enough. NO outer layer, NO knit sweater, NO scarf, NO muffler. Short sleeves are appropriate."
+    else:  # hot
+        weather_rule = "Hot weather: light breathable short-sleeve clothing only. NO warm layers, NO scarf, NO muffler of any kind."
 
     # 결과 설명(100자 이내는 프론트에서 추가로 trim 가능)
     short = explanation
@@ -2603,6 +2624,58 @@ def _ai_styling_via_gemini(
         _stylist_level = str(matched_stylist.get('level', '')).strip()
         _stylist_exp = str(matched_stylist.get('exp', '')).strip()
 
+    # ─── 2026-05-17 KST · TJ 승인 ─── 온도 의류 게이트 (closet.html 규칙 이식) ───
+    # closet.html(line 5189~5212)의 강한 온도 규칙을 서버 STEP 1-7 에 이식:
+    #   · 아우터: 20°C 이상이면 제외 (closet: categoryKeywords.outer nt>=20 → [])
+    #   · 머플러/넥워머: 0°C 이하에서만 (closet: _hasMuffler = nt<=0 && 겨울월)
+    #   · 23°C 이상: 코트/패딩/니트/스카프/머플러 등 보온 아이템 전면 금지
+    # 이전: STEP 4/6 에 '<15°C' 단일 기준 + SCARF 'when fitting'(온도 무관) 뿐
+    #       → 24~26°C 에도 목도리 추천되던 문제
+    try:
+        _t_gate = int(round(float(temp)))
+    except Exception:
+        _t_gate = 20
+    if _t_gate >= 28:
+        _gate_lines = [
+            "HOT (>=28C): short-sleeve and light breathable fabrics ONLY.",
+            "FORBIDDEN: any outer layer, knit sweater, scarf, muffler, gloves, heavy long-sleeve tops.",
+        ]
+    elif _t_gate >= 23:
+        _gate_lines = [
+            "WARM (23-27C): a single light layer (short sleeve or thin long sleeve).",
+            "FORBIDDEN: outer layer (coat/jacket/cardigan/blazer), knit sweater, scarf, muffler, gloves.",
+        ]
+    elif _t_gate >= 20:
+        _gate_lines = [
+            "MILD-WARM (20-22C): a single light top; a thin shirt-jacket is the ABSOLUTE MAX.",
+            "FORBIDDEN: coat, padding, heavy jacket, knit sweater, scarf, muffler.",
+        ]
+    elif _t_gate >= 12:
+        _gate_lines = [
+            "MILD (12-19C): a light jacket or cardigan is optional.",
+            "FORBIDDEN: heavy coat/padding, scarf, muffler.",
+        ]
+    elif _t_gate >= 5:
+        _gate_lines = [
+            "COOL (5-11C): jacket plus light knit layering is recommended.",
+            "FORBIDDEN: muffler/neck-warmer (allowed only at 0C or below).",
+        ]
+    elif _t_gate >= 1:
+        _gate_lines = [
+            "COLD (1-4C): a thick coat or padding is essential, with warm inner layers.",
+            "FORBIDDEN: muffler/neck-warmer (allowed only at 0C or below).",
+        ]
+    else:
+        _gate_lines = [
+            "VERY COLD (<=0C): a thick coat/padding is essential; muffler/neck-warmer is appropriate.",
+        ]
+    _temp_gate_block = (
+        f"  → ⚠️ TEMPERATURE GATE (current {_t_gate}°C — STRICT, overrides stylist discretion):\n"
+        + "".join(f"     · {ln}\n" for ln in _gate_lines)
+        + "     · These temperature rules are ABSOLUTE. NEVER add a warm-layer or muffler/scarf\n"
+        "       just because it looks fashionable — temperature appropriateness comes first.\n"
+    )
+
     gemini_prompt = (
         # ─────────────────────────────────────────────────────────────
         # STEP 1: USER DATA — 사용자 데이터 (분석 입력)
@@ -2658,7 +2731,7 @@ def _ai_styling_via_gemini(
         "Combining STEP 3 (stylist signature) with the TPO above, decide the outfit:\n"
         "  → Primary color: should reflect stylist's signature color when appropriate\n"
         "  → Style direction: must match both TPO and stylist's expertise\n"
-        "  → Weather: bring outer/scarf if cold (<15°C), skip if warm\n"
+        + _temp_gate_block
 
         # ─────────────────────────────────────────────────────────────
         # STEP 5: CORE OUTFIT IMAGE GENERATION (필수, 항상)
@@ -2675,10 +2748,12 @@ def _ai_styling_via_gemini(
         # ─────────────────────────────────────────────────────────────
         + "\n=== STEP 6: OPTIONAL ACCESSORIES (stylist's discretion) ===\n"
         "Based on STEP 4 TPO/weather and STEP 3 stylist persona, add ONLY what enhances:\n"
-        "  ◇ OUTER (아우터) — only if cold (<15°C)\n"
+        "  ◇ OUTER (아우터) — ONLY per the STEP 4 TEMPERATURE GATE (NEVER at 20°C or above)\n"
         "  ◇ BAG (가방) — if TPO appropriate (office, date, formal)\n"
-        "  ◇ WATCH / SUNGLASSES / HAT / SCARF / SOCKS — only when fitting\n"
-        "AVOID over-accessorizing. LESS IS MORE.\n"
+        "  ◇ WATCH / SUNGLASSES / HAT — only when fitting\n"
+        "  ◇ SCARF / MUFFLER (스카프·목도리) — ONLY at 0°C or below (winter cold).\n"
+        "    STRICTLY FORBIDDEN above 0°C — never add a scarf/muffler in mild or warm weather.\n"
+        "AVOID over-accessorizing. LESS IS MORE. The STEP 4 TEMPERATURE GATE always wins.\n"
         "Both feet must wear IDENTICAL socks if socks visible.\n"
 
         # ─────────────────────────────────────────────────────────────
