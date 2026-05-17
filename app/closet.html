@@ -7,6 +7,16 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-16 KST · TJ 지시 (옵션 A — 팝업 분석·이미지 일치) ───
+  4번 후속: 모달 코디 분석을 '생성 이미지 기반 vision 분석'으로 전환
+  · _renderModalCody(outfit, ckw): outfit(vision 실제분석) 우선 →
+    없으면 engineCategoryKeywords(엔진 추천, vision 도착 전 임시) 표시
+  · _fetchModalOutfit(card): 모달 열 때 /api/ai/styling/analysis 호출
+    (cacheKey + imageUrl 전송) → 응답 outfit 섹션으로 코디 영역 교체
+    + card.outfitAnalysis 캐시 (재오픈 시 즉시 정확)
+  · fetchAnalysisAndFill: imageUrl 인자 추가 → STEP C 분석박스도 vision 일치
+  → 모달 옷 정보가 실제 생성 이미지와 일치
+
 ─── 2026-05-16 KST · TJ 지시 (Q1 로딩 / Q2 팝업 4건) ───
   1) Q1 로딩 커버박스 — 심장박동 파동 추가
      · .step-a-overlay 안에 .step-a-pulse-wrap + 4코너 파동 8개(코너당 2개)
@@ -9552,13 +9562,17 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     }catch(_){}
     // 4) 분석 텍스트 (퍼스널컬러/체형/목적+날씨) — cacheKey 활용 별도 호출
     if(data.cacheKey){
-      fetchAnalysisAndFill(data.cacheKey);
+      fetchAnalysisAndFill(data.cacheKey, data.image || data.url || '');
     }
   }
   // 분석 별도 호출 (`/api/ai/styling/analysis`)
-  async function fetchAnalysisAndFill(cacheKey){
+  // ─── 2026-05-16 KST · TJ 지시 (옵션 A) ─── imageUrl 전달 → 백엔드 vision 분석 ───
+  async function fetchAnalysisAndFill(cacheKey, imageUrl){
     try{
-      const r = await v68Fetch('/api/ai/styling/analysis', { cacheKey: cacheKey });
+      const r = await v68Fetch('/api/ai/styling/analysis', {
+        cacheKey: cacheKey,
+        imageUrl: imageUrl || '',
+      });
       if(!r.ok) return;
       const j = await r.json();
       if(!j.ok || !j.stylingAnalysis) return;
@@ -9847,45 +9861,89 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   // ─── 2026-05-16 KST · TJ 지시 3번 ─── Q1·Q2 공용 팝업 렌더 함수 ───
   //   기존 openModalForCard(STEP A 전용)를 공통 _renderExpandModal 로 추출
   //   → Q2(STEP B) 카드도 동일 팝업 사용
+  // ─── 2026-05-16 KST · TJ 지시 (옵션 A) ─── 모달 코디 분석 렌더 ───
+  //   outfit(vision 실제 분석) 우선 — 없으면 ckw(엔진 추천 키워드, 임시)
+  function _renderModalCody(outfit, ckw){
+    const _cody = $('expandModalCody');
+    if(!_cody) return;
+    _cody.innerHTML = '';
+    let rows;
+    if(outfit && (outfit.top || outfit.bottom || outfit.shoes)){
+      // 생성 이미지를 직접 본 실제 착장 분석 (정확 — 이미지와 일치)
+      rows = [
+        ['상의', outfit.top],
+        ['하의', outfit.bottom],
+        ['신발', outfit.shoes],
+        ['액세서리', outfit.accessory],
+      ];
+    }else{
+      // 엔진 추천 키워드 (vision 분석 도착 전 임시 표시)
+      const _kw = ckw || {};
+      const _acc = _kw.bag || _kw.watch || _kw.scarf || null;
+      rows = [
+        ['상의', _kw.top],
+        ['하의', _kw.bottom],
+        ['신발', _kw.shoes],
+        ['액세서리', _acc],
+      ];
+    }
+    rows.forEach(function(pair){
+      const label = pair[0], val = pair[1];
+      if(val == null) return;
+      let text = '';
+      if(Array.isArray(val)){
+        text = val.filter(Boolean).join(' · ');
+      }else{
+        text = String(val).split(',').map(function(s){return s.trim();})
+                 .filter(Boolean).join(' · ');
+      }
+      if(!text) return;
+      const row = document.createElement('div');
+      row.className = 'cody-row';
+      const lab = document.createElement('span');
+      lab.className = 'cody-label';
+      lab.textContent = label;
+      const v = document.createElement('span');
+      v.className = 'cody-val';
+      v.textContent = text;
+      row.appendChild(lab); row.appendChild(v);
+      _cody.appendChild(row);
+    });
+  }
+  // 생성 이미지 vision 분석 fetch → 모달 코디 영역 교체 (실제 옷과 일치)
+  async function _fetchModalOutfit(card){
+    if(!card || !card.cacheKey) return;
+    const _idxAtCall = flow.modalCurrentIdx;
+    const _srcAtCall = flow.modalSource;
+    try{
+      const r = await v68Fetch('/api/ai/styling/analysis', {
+        cacheKey: card.cacheKey,
+        imageUrl: card.imageUrl || card.url || '',
+        stylist: card.stylist || null,
+        lang: (window.CodiBankI18n && CodiBankI18n.lang) ? CodiBankI18n.lang : 'ko',
+      });
+      if(!r.ok) return;
+      const j = await r.json();
+      const outfit = j && j.stylingAnalysis && j.stylingAnalysis.outfit;
+      if(!outfit || !(outfit.top || outfit.bottom || outfit.shoes)) return;
+      card.outfitAnalysis = outfit;   // 카드에 캐시 (다음 오픈 시 즉시)
+      // 모달이 여전히 같은 카드를 보고 있을 때만 갱신
+      const modal = $('expandModal');
+      if(modal && !modal.classList.contains('hidden') &&
+         flow.modalCurrentIdx === _idxAtCall && flow.modalSource === _srcAtCall){
+        _renderModalCody(outfit, null);
+      }
+    }catch(_){}
+  }
   function _renderExpandModal(card, cityLabel){
     $('expandModalCity').textContent = cityLabel || '';
     $('expandModalStylist').textContent = (card.stylist && card.stylist.name) ? (card.stylist.name + ' 스타일리스트') : '';
-    // 카테고리별 코디 분석 (상의/하의/신발/액세서리)
-    const _cody = $('expandModalCody');
-    const _concept = $('expandModalConcept');
-    if(_cody){
-      _cody.innerHTML = '';
-      const ckw = card.engineCategoryKeywords || {};
-      const _acc = ckw.bag || ckw.watch || ckw.scarf || null;
-      const rows = [
-        ['상의', ckw.top],
-        ['하의', ckw.bottom],
-        ['신발', ckw.shoes],
-        ['액세서리', _acc],
-      ];
-      rows.forEach(function(pair){
-        const label = pair[0], val = pair[1];
-        if(!val) return;
-        let text = '';
-        if(Array.isArray(val)){
-          text = val.filter(Boolean).join(' · ');
-        }else{
-          text = String(val).split(',').map(function(s){return s.trim();})
-                   .filter(Boolean).join(' · ');
-        }
-        if(!text) return;
-        const row = document.createElement('div');
-        row.className = 'cody-row';
-        const lab = document.createElement('span');
-        lab.className = 'cody-label';
-        lab.textContent = label;
-        const v = document.createElement('span');
-        v.className = 'cody-val';
-        v.textContent = text;
-        row.appendChild(lab); row.appendChild(v);
-        _cody.appendChild(row);
-      });
+    // 코디 분석: 이미 분석된 outfit 있으면 즉시, 없으면 추천 키워드(임시) → vision fetch
+    _renderModalCody(card.outfitAnalysis || null, card.engineCategoryKeywords || {});
+    if(!card.outfitAnalysis){
+      _fetchModalOutfit(card);
     }
+    const _concept = $('expandModalConcept');
     if(_concept){
       let concept = '';
       if(card.stylingStory){
