@@ -5,6 +5,19 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-16 KST · TJ 지시 (옵션 A — 코디핏 분석 vision 전환) ───
+#   문제: 분석이 생성 이미지를 보지 않고 메타데이터로만 만들어져 실제 옷과 불일치
+#   해결: gpt-4.1-mini vision 모드 — 생성 이미지를 직접 입력하여 분석
+#   변경 1) _codifit_analysis_via_gpt41mini (~line 3125): image_b64 파라미터 추가
+#     · image_b64 있으면 멀티모달(텍스트+이미지) 호출, detail=low (옷 식별 충분+토큰절감)
+#     · 4섹션 생성 — personalColor/body/purpose + outfit(이미지의 실제 옷 컬러·종류)
+#     · image_b64 없으면 기존 3섹션 텍스트 모드 (하위호환·graceful degradation)
+#   변경 2) /api/ai/styling/analysis (~line 3990): vision 이미지 확보 로직
+#     · 로컬 ai_{cacheKey}.jpg 우선 → 없으면 payload.imageUrl 에서 다운로드
+#     · PIL: wide(정/후면 합본)면 좌측 절반(정면) crop + 768px 축소 → base64
+#     · 구버전 캐시(outfit 섹션 없음) 자동 무효화 → vision 재생성
+#   비용: gpt-4.1-mini + 이미지, 캐시 70%히트 기준 실질 ~$0.0003/회 (기존과 동등)
+#
 # ─── 2026-05-16 KST · TJ 지시 (STEP B 유사 변형 캐시 버그 수정) ───
 #   문제: Q2 '유사 변형'이 원본과 100% 동일 — 토큰만 쓰고 같은 이미지 반환
 #   원인: _make_ai_cache_key_v2 의 캐시키 body 에 _similar_variation 플래그가
@@ -3128,17 +3141,20 @@ def _codifit_analysis_via_gpt41mini(
     meta=None,
     generated_outfit_summary=None,
     lang=None,
+    image_b64=None,
 ):
-    """[v67 Phase 2] 코디핏 분석 보고서 — gpt-4.1-mini로 텍스트 메타데이터 기반 분석.
+    """[v67 Phase 2] 코디핏 분석 보고서 — gpt-4.1-mini.
 
-    Pattern A (메타데이터 기반): 생성된 이미지를 보지 않고 사용자 정보 + 생성 의도만으로 분석.
-    이유:
-      - 비용 50% 절감 (vision input 미사용)
-      - 응답 빠름 (input 토큰 ↓, 2~4초)
-      - 분석 텍스트는 사용자 정보 기반 자연어 설명 → vision 없어도 자연스러움
-      - 이미지 생성과 직렬 호출 — 사용자 경험상 3초 차이 (이미지 25초 + 분석 3초)
+    ─── 2026-05-16 KST · TJ 지시 (옵션 A) ─── vision 모드 추가 ──
+    image_b64 가 주어지면 생성된 코디 이미지를 직접 입력(vision)하여 분석.
+    이 경우 4섹션(personalColor/body/purpose/outfit)을 생성하며,
+    outfit 섹션은 '이미지에 실제로 보이는 옷'을 기준으로 작성 → 분석과 이미지 일치.
+    image_b64 가 없으면 기존 텍스트 메타데이터 기반 3섹션 (하위호환).
 
-    응답: 3섹션 JSON (personalColor / body / purpose) — 기존 closet.html 분석 박스 호환.
+    Pattern A (vision): 생성 이미지를 직접 보고 착장을 분석 → 모달 표시 내용과 일치.
+    Pattern A-legacy (텍스트): 이미지 없이 사용자 정보 + 생성 의도만으로 분석.
+
+    응답: vision 시 4섹션, 텍스트 시 3섹션 JSON.
 
     실패 시: RuntimeError 발생 (호출부가 503 응답 + 클라이언트 재시도 처리).
     """
@@ -3210,22 +3226,56 @@ def _codifit_analysis_via_gpt41mini(
         outfit_text = "; ".join(_parts) if _parts else "(코디 정보 없음)"
 
     # ── 시스템 프롬프트 ──
+    _vision = bool(image_b64)
     if _en:
-        system_prompt = (
-            "You are a Korean fashion styling expert. Given user info and outfit details, "
-            "produce a 3-section analysis report (personal color / body / purpose+weather). "
-            "Output JSON only — no extra text outside JSON."
-        )
+        if _vision:
+            system_prompt = (
+                "You are a Korean fashion styling expert. An AI-generated outfit image is "
+                "attached. Look directly at the image and analyze the clothes the person is "
+                "ACTUALLY wearing. Produce a 4-section report (personal color / body / "
+                "purpose+weather / outfit). The 'outfit' section MUST describe exactly what "
+                "is visible in the image (real colors and garment types), NOT recommended "
+                "keywords. Output JSON only — no extra text outside JSON."
+            )
+        else:
+            system_prompt = (
+                "You are a Korean fashion styling expert. Given user info and outfit details, "
+                "produce a 3-section analysis report (personal color / body / purpose+weather). "
+                "Output JSON only — no extra text outside JSON."
+            )
     else:
-        system_prompt = (
-            "당신은 한국의 패션 스타일링 전문가입니다. "
-            "사용자의 신체/퍼스널컬러/날씨/목적 정보와 스타일리스트가 추천한 코디 정보를 받아 "
-            "3개 측면의 분석 보고서를 작성합니다. "
-            "출력은 반드시 JSON only — JSON 외 추가 텍스트 금지."
-        )
+        if _vision:
+            system_prompt = (
+                "당신은 한국의 패션 스타일링 전문가입니다. "
+                "AI가 생성한 코디 이미지가 첨부되어 있습니다. 이미지를 직접 보고, "
+                "이미지 속 인물이 실제로 착용한 옷을 분석하세요. "
+                "퍼스널컬러 / 체형 / 목적+날씨 / 착장(outfit) 4개 섹션의 분석 보고서를 작성합니다. "
+                "'outfit' 섹션은 반드시 이미지에 실제로 보이는 옷(실제 컬러와 종류)을 기준으로 작성하세요. "
+                "추천 키워드가 아니라 이미지에 보이는 그대로입니다. "
+                "출력은 반드시 JSON only — JSON 외 추가 텍스트 금지."
+            )
+        else:
+            system_prompt = (
+                "당신은 한국의 패션 스타일링 전문가입니다. "
+                "사용자의 신체/퍼스널컬러/날씨/목적 정보와 스타일리스트가 추천한 코디 정보를 받아 "
+                "3개 측면의 분석 보고서를 작성합니다. "
+                "출력은 반드시 JSON only — JSON 외 추가 텍스트 금지."
+            )
 
     # ── 사용자 프롬프트 ──
     _lang_label_text = "English" if _en else "한국어"
+    # vision 시 outfit 섹션 스키마 (없으면 빈 문자열 → 3섹션)
+    _outfit_schema = ""
+    if _vision:
+        _outfit_schema = (
+            f',\n'
+            f'  "outfit": {{\n'
+            f'    "top": "이미지 속 상의의 실제 컬러+종류 (예: 라이트 그레이 옥스퍼드 셔츠)",\n'
+            f'    "bottom": "이미지 속 하의의 실제 컬러+종류 (예: 차콜 그레이 슬랙스)",\n'
+            f'    "shoes": "이미지 속 신발의 실제 컬러+종류 (예: 블랙 더비 슈즈)",\n'
+            f'    "accessory": "이미지 속 액세서리(가방/시계/스카프 등), 없으면 \'없음\'"\n'
+            f'  }}'
+        )
     user_input = (
         f"## 사용자 정보\n"
         f"- 성별/나이: {gender_ko} {age}\n"
@@ -3237,8 +3287,15 @@ def _codifit_analysis_via_gpt41mini(
         f"- 코디 목적: {purpose}\n"
         f"- 날씨/위치: {temp}°C {cond} ({location or '미지정'})\n"
         f"- 매칭 스타일리스트: {stylist_name or '범용'} ({stylist_city or '범용'})\n"
-        f"\n## 생성된 코디 요약\n{outfit_text}\n"
-        f"\n## 출력 JSON 스키마 (이 형식 정확히 준수)\n"
+        + (
+            f"\n## 분석 지침\n"
+            f"첨부된 이미지를 직접 보고 분석하세요. 'outfit' 섹션은 반드시 이미지에 보이는 "
+            f"실제 옷(컬러·종류)을 적고, personalColor/body/purpose 섹션의 코디 컬러 언급도 "
+            f"이미지의 실제 색과 일치시키세요.\n"
+            if _vision else
+            f"\n## 생성된 코디 요약\n{outfit_text}\n"
+        )
+        + f"\n## 출력 JSON 스키마 (이 형식 정확히 준수)\n"
         '{\n'
         f'  "personalColor": {{\n'
         f'    "text": "퍼스널컬러 측면 분석 ({_lang_label_text}, 정확히 250-300자, '
@@ -3254,12 +3311,16 @@ def _codifit_analysis_via_gpt41mini(
         f'    "text": "코디 목적과 날씨 측면 분석 ({_lang_label_text}, 250-300자, '
         f'목적/날씨를 어떻게 반영했는지 설명)",\n'
         f'    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
-        f'  }}\n'
+        f'  }}'
+        + _outfit_schema + '\n'
         '}\n'
         f'\nRULES:\n'
         f'1. 각 text는 정확히 250-300자 ({_lang_label_text}).\n'
         f'2. 각 keywords 배열은 정확히 3개 단어 (2-6자).\n'
-        f'3. JSON 외 추가 텍스트 출력 금지.\n'
+        + (f'3. outfit 의 각 항목은 짧은 문구 (10-25자), 이미지의 실제 옷 기준.\n'
+           f'4. JSON 외 추가 텍스트 출력 금지.\n'
+           if _vision else
+           f'3. JSON 외 추가 텍스트 출력 금지.\n')
     )
 
     # ── gpt-4.1-mini 호출 ──
@@ -3275,7 +3336,19 @@ def _codifit_analysis_via_gpt41mini(
     _analysis_timeout = float(os.getenv("CODIBANK_ANALYSIS_TIMEOUT", "10"))
     _analysis_max_retries = int(os.getenv("CODIBANK_ANALYSIS_MAX_RETRIES", "0"))
 
-    print(f"[codifit_analysis] gpt-4.1-mini 호출 시작 (model={_model}, lang={'en' if _en else 'ko'}, timeout={_analysis_timeout}s, retries={_analysis_max_retries})", flush=True)
+    print(f"[codifit_analysis] gpt-4.1-mini 호출 시작 (model={_model}, lang={'en' if _en else 'ko'}, vision={_vision}, timeout={_analysis_timeout}s, retries={_analysis_max_retries})", flush=True)
+
+    # vision 시 user 메시지를 멀티모달(텍스트+이미지)로 구성
+    if _vision:
+        _user_msg_content = [
+            {"type": "text", "text": user_input},
+            {"type": "image_url", "image_url": {
+                "url": f"data:image/jpeg;base64,{image_b64}",
+                "detail": "low",   # 옷 컬러·종류 식별엔 low 충분 + 토큰 절감
+            }},
+        ]
+    else:
+        _user_msg_content = user_input
 
     _response = _client_analysis.with_options(
         max_retries=_analysis_max_retries,
@@ -3284,7 +3357,7 @@ def _codifit_analysis_via_gpt41mini(
         model=_model,
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_input},
+            {"role": "user", "content": _user_msg_content},
         ],
         temperature=0.4,
         response_format={"type": "json_object"},
@@ -3306,7 +3379,19 @@ def _codifit_analysis_via_gpt41mini(
             _kws.append("—")
         result[sec] = {"text": _txt, "keywords": _kws}
 
-    print(f"[codifit_analysis] ✅ 분석 생성 완료 (3섹션, total chars={sum(len(v['text']) for v in result.values())})", flush=True)
+    # ── vision 시 outfit 섹션 검증 (이미지 기반 실제 착장) ──
+    if _vision:
+        _of = _parsed.get("outfit") or {}
+        if isinstance(_of, dict):
+            result["outfit"] = {
+                "top": str(_of.get("top") or "").strip()[:60],
+                "bottom": str(_of.get("bottom") or "").strip()[:60],
+                "shoes": str(_of.get("shoes") or "").strip()[:60],
+                "accessory": str(_of.get("accessory") or "").strip()[:60],
+            }
+
+    _sec_n = "4섹션" if "outfit" in result else "3섹션"
+    print(f"[codifit_analysis] ✅ 분석 생성 완료 ({_sec_n}, vision={_vision}, total chars={sum(len(v.get('text','')) for k,v in result.items() if k!='outfit')})", flush=True)
     return result
 
 
@@ -4005,13 +4090,19 @@ def ai_styling_analysis():
         try:
             with open(_analysis_cache_fpath, "r", encoding="utf-8") as _f:
                 _cached_analysis = json.load(_f)
-            print(f"[ai_styling_analysis] ✅ 캐시 hit: {cache_key}", flush=True)
-            return jsonify(
-                ok=True,
-                stylingAnalysis=_cached_analysis,
-                cached=True,
-                cacheKey=cache_key,
-            )
+            # ─── 2026-05-16 KST · TJ 지시 (옵션 A) ─── 구버전 캐시 무효화 ───
+            # vision 도입 전 캐시(outfit 섹션 없음)는 재생성 (분석-이미지 불일치 방지)
+            if isinstance(_cached_analysis, dict) and _cached_analysis.get("outfit"):
+                print(f"[ai_styling_analysis] ✅ 캐시 hit: {cache_key}", flush=True)
+                return jsonify(
+                    ok=True,
+                    stylingAnalysis=_cached_analysis,
+                    cached=True,
+                    cacheKey=cache_key,
+                )
+            else:
+                print(f"[ai_styling_analysis] 구버전 캐시(outfit 없음) — vision 재생성: {cache_key}", flush=True)
+                # fall through → 재생성
         except Exception as _ce:
             print(f"[ai_styling_analysis] 캐시 파일 손상 ({_ce}), 재생성")
             # fall through
@@ -4033,12 +4124,59 @@ def ai_styling_analysis():
             _meta.setdefault("active_city", _matched_stylist.get("city", "") if isinstance(_matched_stylist, dict) else "")
             _meta.setdefault("purpose", payload.get("purposeLabel", ""))
 
+        # ─── 2026-05-16 KST · TJ 지시 (옵션 A) ─── vision 분석용 이미지 확보 ───
+        #   1) 로컬 캐시 이미지 ai_{cacheKey}.jpg 우선 (생성 직후라면 존재)
+        #   2) 없으면 클라이언트가 보낸 imageUrl 에서 다운로드 (R2 public URL)
+        #   3) PIL 로 정면 crop(wide면 좌측 절반) + 768px 축소 → base64 (토큰 절감)
+        #   실패 시 _image_b64=None → 함수가 텍스트 모드로 graceful degradation
+        _image_b64 = None
+        try:
+            _img_bytes = None
+            for _ext in ("jpg", "jpeg", "png", "webp"):
+                _ip = os.path.join(_UPLOAD_DIR, f"ai_{cache_key}.{_ext}")
+                if os.path.exists(_ip):
+                    with open(_ip, "rb") as _f:
+                        _img_bytes = _f.read()
+                    break
+            if not _img_bytes:
+                _img_url = str(payload.get("imageUrl") or payload.get("image") or "").strip()
+                if _img_url.startswith("http"):
+                    _rr = http_requests.get(_img_url, timeout=8)
+                    if _rr.ok:
+                        _img_bytes = _rr.content
+            if _img_bytes:
+                from PIL import Image as _PILImg
+                import io as _io
+                _im = _PILImg.open(_io.BytesIO(_img_bytes)).convert("RGB")
+                _w, _h = _im.size
+                # wide(정/후면 합본)면 좌측 절반(정면)만 — 옷은 정면으로 충분
+                if _w / max(1, _h) > 1.2:
+                    _im = _im.crop((0, 0, _w // 2, _h))
+                # 긴 변 768px 로 축소 (vision 입력 토큰 절감)
+                _mx = max(_im.size)
+                if _mx > 768:
+                    _sc = 768.0 / _mx
+                    _im = _im.resize(
+                        (max(1, int(_im.size[0] * _sc)), max(1, int(_im.size[1] * _sc))),
+                        _PILImg.LANCZOS,
+                    )
+                _buf = _io.BytesIO()
+                _im.save(_buf, format="JPEG", quality=82)
+                _image_b64 = base64.b64encode(_buf.getvalue()).decode("ascii")
+                print(f"[ai_styling_analysis] vision 이미지 준비 완료 ({_im.size[0]}x{_im.size[1]})", flush=True)
+            else:
+                print(f"[ai_styling_analysis] 이미지 미확보 — 텍스트 분석으로 진행", flush=True)
+        except Exception as _ie:
+            print(f"[ai_styling_analysis] vision 이미지 준비 실패(텍스트 분석 진행): {_ie}", flush=True)
+            _image_b64 = None
+
         _analysis = _codifit_analysis_via_gpt41mini(
             payload=payload,
             matched_stylist=_matched_stylist,
             meta=_meta,
             generated_outfit_summary=_outfit_summary or None,
             lang=_lang,
+            image_b64=_image_b64,
         )
 
         # ── 캐시 저장 (성공 시) ──
