@@ -7,6 +7,27 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-16 KST · TJ 지시 (Q1 로딩 / Q2 팝업 4건) ───
+  1) Q1 로딩 커버박스 — 심장박동 파동 추가
+     · .step-a-overlay 안에 .step-a-pulse-wrap + 4코너 파동 8개(코너당 2개)
+     · 귀퉁이에서 크게 시작 → 중앙으로 이동하며 작아지고 사라짐
+     · 코너당 2개(.d2 0.19s 딜레이) = 심장박동 더블비트 리듬
+  2) STEP A 진행률 타이머 재조정 (startStepAProgress)
+     · 이전: 0→92%를 ~15초 → 실제 생성(평균 43초)까지 27초 멈춤
+     · 변경: 0→95%를 ~38초 (3단계 감속곡선: 전반 빠름→중반→후반 매우 느림)
+  3) Q2 카드 클릭 → Q1과 동일 팝업
+     · openModalForCard 공통화 → _renderExpandModal(card, label) 추출
+     · openModalForStepBCard 신규 (Q2 카드용 진입점)
+     · onModalSelect: flow.modalSource('A'/'B')로 분기
+       - A → 3버튼 팝업 / B → cbq2 선택표시 + STEP C 확인 모달
+     · Q2 변형 카드에 분석 데이터(engineCategoryKeywords 등) 보존
+  4) 팝업 분석-스타일링 일치 — [진단 보고 / 미완]
+     · 원인: 모달 옷 정보=engineCategoryKeywords(엔진 추천 키워드),
+       분석=_codifit_analysis_via_gpt41mini(메타데이터 기반) — 둘 다
+       '생성된 이미지를 보지 않음' → 실제 이미지와 본질적 불일치
+     · 해결엔 생성 이미지 vision 분석(백엔드, vision input 비용 추가) 필요
+       → TJ 확인 후 별도 진행
+
 ─── 2026-05-16 KST · TJ 지시 (STEP C UI 4건 / Q3 개편) ───
   2) STEP C 타이틀 → Q3 (Q2와 동일 디자인)
      · stepCLabel: 작은 회색 'STEP C·최종 코디' → h3 'Q3. 높은 퀄리티를 확인하세요!'
@@ -1420,6 +1441,64 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   0%, 100% { opacity: 0.6; }
   50%      { opacity: 1.0; }
 }
+/* ─── 2026-05-16 KST · TJ 지시 1번 ─── 심장박동 파동 (4코너 → 중앙)
+   귀퉁이에서 크게 시작 → 중앙으로 이동하며 작아지고 사라짐
+   코너당 2개(.d2 딜레이) = 심장박동 더블비트 "두-근" 리듬 */
+.step-a-pulse-wrap{
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 2;          /* overlay 배경 위, codibank 텍스트(z11) 아래 */
+}
+.step-a-pulse{
+  position: absolute;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(151,254,237,0.52) 0%,
+    rgba(151,254,237,0.14) 46%,
+    rgba(151,254,237,0) 72%);
+  opacity: 0;
+  will-change: left, top, transform, opacity;
+}
+.step-a-pulse.p-tl{ animation: saPulseTL 1.5s cubic-bezier(.4,0,.3,1) infinite; }
+.step-a-pulse.p-tr{ animation: saPulseTR 1.5s cubic-bezier(.4,0,.3,1) infinite; }
+.step-a-pulse.p-bl{ animation: saPulseBL 1.5s cubic-bezier(.4,0,.3,1) infinite; }
+.step-a-pulse.p-br{ animation: saPulseBR 1.5s cubic-bezier(.4,0,.3,1) infinite; }
+.step-a-pulse.d2{ animation-delay: 0.19s; }   /* 더블비트 두 번째 박 */
+@keyframes saPulseTL{
+  0%   { left: 8%;  top: 9%;  transform: translate(-50%,-50%) scale(1.6); opacity: 0; }
+  10%  { opacity: .72; }
+  55%  { opacity: .30; }
+  80%  { opacity: 0; }
+  100% { left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.12); opacity: 0; }
+}
+@keyframes saPulseTR{
+  0%   { left: 92%; top: 9%;  transform: translate(-50%,-50%) scale(1.6); opacity: 0; }
+  10%  { opacity: .72; }
+  55%  { opacity: .30; }
+  80%  { opacity: 0; }
+  100% { left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.12); opacity: 0; }
+}
+@keyframes saPulseBL{
+  0%   { left: 8%;  top: 91%; transform: translate(-50%,-50%) scale(1.6); opacity: 0; }
+  10%  { opacity: .72; }
+  55%  { opacity: .30; }
+  80%  { opacity: 0; }
+  100% { left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.12); opacity: 0; }
+}
+@keyframes saPulseBR{
+  0%   { left: 92%; top: 91%; transform: translate(-50%,-50%) scale(1.6); opacity: 0; }
+  10%  { opacity: .72; }
+  55%  { opacity: .30; }
+  80%  { opacity: 0; }
+  100% { left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.12); opacity: 0; }
+}
+/* 오버레이 사라질 때 파동도 함께 페이드 */
+.step-a-overlay.hidden-overlay .step-a-pulse-wrap{ opacity: 0; transition: opacity .4s ease; }
 .step-a-card{
   position: relative;
   aspect-ratio: 5 / 8;     /* 1:1.6 세로형 (TJ 지시 v68) */
@@ -2735,6 +2814,13 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
                이전: 4개 cell이 각 카드를 개별 마스크 → 순차 공개
                변경: 전체를 덮는 단일 불투명 박스 + codibank 텍스트 + % 카운터 -->
           <div class="step-a-overlay" id="stepAOverlay">
+            <!-- ─── 2026-05-16 KST · TJ 지시 1번 ─── 심장박동 파동 (4코너→중앙) ─── -->
+            <div class="step-a-pulse-wrap" aria-hidden="true">
+              <span class="step-a-pulse p-tl"></span><span class="step-a-pulse p-tl d2"></span>
+              <span class="step-a-pulse p-tr"></span><span class="step-a-pulse p-tr d2"></span>
+              <span class="step-a-pulse p-bl"></span><span class="step-a-pulse p-bl d2"></span>
+              <span class="step-a-pulse p-br"></span><span class="step-a-pulse p-br d2"></span>
+            </div>
             <div class="step-a-overlay-text">
               <div class="step-a-cb-rainbow">
                 <span>c</span><span>o</span><span>d</span><span>i</span><span>B</span><span>a</span><span>n</span><span>k</span>
@@ -9725,7 +9811,10 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     flow.busy = false;
   }
 
-  // ─── 2026-05-16 KST · TJ 지시 4번 ─── STEP A 진행률 카운터 (0 → 100%) ───
+  // ─── 2026-05-16 KST · TJ 지시 2번 ─── STEP A 진행률 타이머 재조정 ───
+  //   문제: 0→92%를 ~15초만에 도달 → 실제 생성(평균 43초)까지 27초 멈춤
+  //   변경: 0→95%를 ~38초에 걸쳐 도달하도록 3단계 감속 곡선 적용
+  //         (전반 빠름 → 중반 보통 → 후반 매우 느림 → 95%에서 응답 대기)
   let _stepAProgressTimer = null;
   function startStepAProgress(){
     const el = $('stepAProgress');
@@ -9733,12 +9822,20 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     if(el) el.textContent = '0%';
     if(_stepAProgressTimer) clearInterval(_stepAProgressTimer);
     _stepAProgressTimer = setInterval(() => {
-      if(pct < 92){
-        pct += Math.random() * 3 + 1;   // 1~4%씩 자연스럽게 증가
-        if(pct > 92) pct = 92;          // 응답 전까지 92%에서 대기
+      if(pct < 95){
+        let inc;
+        if(pct < 70){
+          inc = Math.random() * 1.7 + 0.85;   // 0.85~2.55%/틱 (~0초 구간 빠르게)
+        }else if(pct < 90){
+          inc = Math.random() * 0.9 + 0.45;   // 0.45~1.35%/틱 (중반 감속)
+        }else{
+          inc = Math.random() * 0.40 + 0.18;  // 0.18~0.58%/틱 (90~95 매우 느림)
+        }
+        pct += inc;
+        if(pct > 95) pct = 95;                // 응답 전까지 95%에서 대기
         if(el) el.textContent = Math.floor(pct) + '%';
       }
-    }, 420);
+    }, 500);
   }
   function finishStepAProgress(){
     if(_stepAProgressTimer){ clearInterval(_stepAProgressTimer); _stepAProgressTimer = null; }
@@ -9747,23 +9844,18 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   }
 
   // ─── 모달 ───
-  function openModalForCard(idx){
-    const card = flow.stepACards[idx];
-    if(!card || !card.imageUrl) return;
-    flow.modalCurrentIdx = idx;
-    flow.modalCurrentPose = 'front';
-    const cities = getGridCities();
-    $('expandModalCity').textContent = cities[idx].label;
+  // ─── 2026-05-16 KST · TJ 지시 3번 ─── Q1·Q2 공용 팝업 렌더 함수 ───
+  //   기존 openModalForCard(STEP A 전용)를 공통 _renderExpandModal 로 추출
+  //   → Q2(STEP B) 카드도 동일 팝업 사용
+  function _renderExpandModal(card, cityLabel){
+    $('expandModalCity').textContent = cityLabel || '';
     $('expandModalStylist').textContent = (card.stylist && card.stylist.name) ? (card.stylist.name + ' 스타일리스트') : '';
-    // ─── 2026-05-16 KST · TJ 지시 3번 ─── 카테고리별 코디 분석 (클릭 즉시) ───
-    // 응답의 engineCategoryKeywords(각 카테고리 [컬러,아이템])를 즉시 표시.
-    // 백엔드 추가 호출 없음 — 카드 데이터에 이미 있어 빠름.
+    // 카테고리별 코디 분석 (상의/하의/신발/액세서리)
     const _cody = $('expandModalCody');
     const _concept = $('expandModalConcept');
     if(_cody){
       _cody.innerHTML = '';
       const ckw = card.engineCategoryKeywords || {};
-      // 액세서리 = bag/watch/scarf 중 존재하는 첫 항목
       const _acc = ckw.bag || ckw.watch || ckw.scarf || null;
       const rows = [
         ['상의', ckw.top],
@@ -9774,7 +9866,6 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       rows.forEach(function(pair){
         const label = pair[0], val = pair[1];
         if(!val) return;
-        // val: [컬러, 아이템] 배열 또는 콤마구분 문자열
         let text = '';
         if(Array.isArray(val)){
           text = val.filter(Boolean).join(' · ');
@@ -9796,7 +9887,6 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       });
     }
     if(_concept){
-      // 컨셉 한 줄: stylingStory 첫 문장 → stylist.voice → 목적 폴백
       let concept = '';
       if(card.stylingStory){
         const s = String(card.stylingStory).split(/[.。\n]/)[0].trim();
@@ -9818,22 +9908,37 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       cv.textContent = concept;
       _concept.appendChild(cl); _concept.appendChild(cv);
     }
-    // ─── 2026-05-16 KST · TJ 지시 2번 ─── 캔버스 재그리기 방식 (정면 초기 표시) ───
+    // 캔버스 재그리기 (정면 초기 표시)
     flow.modalImageUrl = card.imageUrl;
     drawModalPose('front');
-    // 토글 초기화
     document.querySelectorAll('.expand-pose-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.pose === 'front');
     });
-    // 모달 표시
     const modal = $('expandModal');
     if(modal){
       modal.classList.remove('hidden');
-      document.body.style.overflow='hidden';
-      // ─── 2026-05-16 KST · TJ 지시 1번 ─── 모달 표시 중 풋바 nav 숨김 ───
+      document.body.style.overflow = 'hidden';
       const _nav = document.querySelector('.cb-nav');
       if(_nav) _nav.style.display = 'none';
     }
+  }
+  function openModalForCard(idx){
+    const card = flow.stepACards[idx];
+    if(!card || !card.imageUrl) return;
+    flow.modalSource = 'A';            // Q1 = STEP A
+    flow.modalCurrentIdx = idx;
+    flow.modalCurrentPose = 'front';
+    const cities = getGridCities();
+    _renderExpandModal(card, (cities[idx] || {}).label || '');
+  }
+  // ─── 2026-05-16 KST · TJ 지시 3번 ─── Q2 카드 클릭 시 팝업 (Q1과 동일 UI) ───
+  function openModalForStepBCard(idx){
+    const card = flow.stepBCards && flow.stepBCards[idx];
+    if(!card || !card.imageUrl) return;
+    flow.modalSource = 'B';            // Q2 = STEP B
+    flow.modalCurrentIdx = idx;
+    flow.modalCurrentPose = 'front';
+    _renderExpandModal(card, idx === 0 ? '원본' : '유사 변형');
   }
   function closeModal(){
     const modal = $('expandModal');
@@ -9915,13 +10020,24 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   function onModalSelect(){
     const idx = flow.modalCurrentIdx;
     if(idx < 0) return;
+    // ─── 2026-05-16 KST · TJ 지시 3번 ─── Q1(STEP A)/Q2(STEP B) 분기 ───
+    if(flow.modalSource === 'B'){
+      // Q2: 모달 닫고 → 선택 표시 → STEP C 고화질 확인 모달
+      closeModal();
+      flow.stepBSelected = idx;
+      document.querySelectorAll('.cbq2-card').forEach(c => c.classList.remove('cbq2-selected'));
+      const selB = document.querySelector(`.cbq2-card[data-idx="${idx}"]`);
+      if(selB) selB.classList.add('cbq2-selected');
+      const chosen = flow.stepBCards && flow.stepBCards[idx];
+      if(chosen) setTimeout(() => openStepCConfirm(chosen), 220);
+      return;
+    }
+    // Q1(STEP A): 선택 표시 → 3버튼(예/아니오/고화질) 팝업
     flow.stepASelected = idx;
-    // STEP A 카드에 선택 표시
     document.querySelectorAll('.step-a-card').forEach(c => c.classList.remove('selected'));
     const sel = document.querySelector(`.step-a-card[data-idx="${idx}"]`);
     if(sel) sel.classList.add('selected');
     closeModal();
-    // ─── 2026-05-16 KST · TJ 지시 3번 ─── 커스텀 3버튼 팝업 (예/아니오/고화질) ───
     openSelectChoice();
   }
   function openSelectChoice(){
@@ -9968,7 +10084,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         <div class="cbq2-label">원본 — ${cityInfo.label}</div>
         <canvas class="cbq2-canvas"></canvas>
       `;
-      card1.onclick = () => selectStepBCard(0);
+      card1.onclick = () => openModalForStepBCard(0);
       container.appendChild(card1);
       drawQ2Card(card1.querySelector('.cbq2-canvas'), baseCard.imageUrl);
       // 변형 카드 (로딩 — codibank 컬러변환)
@@ -10003,6 +10119,10 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         imageUrl: j.image, url: j.url || j.image,
         stylist: j.stylist || {}, engineCity: j.engineCity || cityInfo.city,
         prompt: j.prompt || '', cacheKey: j.cacheKey || '',
+        // ─── 2026-05-16 KST · TJ 지시 ─── Q2 모달 분석 표시용 데이터 보존 ───
+        engineCategoryKeywords: j.engineCategoryKeywords || {},
+        stylingStory: j.stylingStory || '',
+        enginePurpose: j.enginePurpose || '',
       };
       const card2 = container && container.querySelector('[data-idx="1"]');
       if(card2){
@@ -10010,7 +10130,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           <div class="cbq2-label">유사 변형</div>
           <canvas class="cbq2-canvas"></canvas>
         `;
-        card2.onclick = () => selectStepBCard(1);
+        card2.onclick = () => openModalForStepBCard(1);
         drawQ2Card(card2.querySelector('.cbq2-canvas'), j.image);
       }
       if(statusEl) statusEl.textContent = '(1개 선택)';
