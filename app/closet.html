@@ -7,6 +7,16 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-16 KST · TJ 지시 (모달 분석 로딩 UX — 2번) ───
+  문제: 모달 열면 엔진 추천 키워드(임시)가 먼저 보였다가 vision 분석으로
+        교체 → 임의 내용이 바뀌고, 임시 키워드는 실제 이미지와 불일치
+  수정: _renderModalCody 를 로딩/완료/에러 3상태로 재설계
+        · 분석 전: '스타일링 분석 중입니다…' 로 분석박스 덮어쓰기
+        · vision 완료: 실제 착장 텍스트 전체 표시
+        · _fetchModalOutfit 실패 시 1회 재시도, 최종 실패 시 에러 표시
+        · 엔진 추천 키워드(engineCategoryKeywords) 임시 표시 완전 제거
+  ※ 1번(온도 기준 — Q1 목도리 추천)은 점검 결과 보고 후 승인 대기 (미수정)
+
 ─── 2026-05-16 KST · TJ 지시 (모달 확대 / Q2·Q3 진행률·토글·버튼) ───
   1.1) 모달 이미지 뷰박스 최대 확대
      · 정/후면 토글을 이미지박스 위 레이어드(absolute 하단) → 토글 공간 회수
@@ -1997,6 +2007,32 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   font-weight: 500;
   color: rgba(255, 255, 255, 0.92);
   line-height: 1.35;
+}
+/* ─── 2026-05-16 KST · TJ 지시 2번 ─── 분석 중/에러 상태 (분석박스 덮어쓰기) ─── */
+.expand-modal-cody .cody-status{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 16px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(151, 254, 237, 0.65);
+  text-align: center;
+}
+.expand-modal-cody .cody-status-loading{
+  color: rgba(151, 254, 237, 0.85);
+}
+.expand-modal-cody .cody-status-dot{
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #97FEED;
+  animation: codyStatusPulse 1s ease-in-out infinite;
+}
+@keyframes codyStatusPulse{
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50%      { opacity: 1;   transform: scale(1.25); }
 }
 .expand-modal-concept{ display: none; }
 .expand-modal-concept .concept-label{
@@ -10008,32 +10044,39 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   // ─── 2026-05-16 KST · TJ 지시 3번 ─── Q1·Q2 공용 팝업 렌더 함수 ───
   //   기존 openModalForCard(STEP A 전용)를 공통 _renderExpandModal 로 추출
   //   → Q2(STEP B) 카드도 동일 팝업 사용
-  // ─── 2026-05-16 KST · TJ 지시 (옵션 A) ─── 모달 코디 분석 렌더 ───
-  //   outfit(vision 실제 분석) 우선 — 없으면 ckw(엔진 추천 키워드, 임시)
-  function _renderModalCody(outfit, ckw){
+  // ─── 2026-05-16 KST · TJ 지시 2번 ─── 모달 코디 분석 = 로딩 → 완료 2단계 ───
+  //   이전: 엔진 추천 키워드(임시)를 먼저 보여줬다가 vision 분석으로 교체
+  //         → 임의 내용이 보였다 바뀌고, 임시 키워드는 실제 이미지와 불일치
+  //   변경: 분석 전에는 '스타일링 분석 중입니다' 로 분석박스를 덮고,
+  //         vision 분석 완료 시에만 실제 착장 텍스트 표시
+  function _renderModalCody(outfit, state){
     const _cody = $('expandModalCody');
     if(!_cody) return;
     _cody.innerHTML = '';
-    let rows;
-    if(outfit && (outfit.top || outfit.bottom || outfit.shoes)){
-      // 생성 이미지를 직접 본 실제 착장 분석 (정확 — 이미지와 일치)
-      rows = [
-        ['상의', outfit.top],
-        ['하의', outfit.bottom],
-        ['신발', outfit.shoes],
-        ['액세서리', outfit.accessory],
-      ];
-    }else{
-      // 엔진 추천 키워드 (vision 분석 도착 전 임시 표시)
-      const _kw = ckw || {};
-      const _acc = _kw.bag || _kw.watch || _kw.scarf || null;
-      rows = [
-        ['상의', _kw.top],
-        ['하의', _kw.bottom],
-        ['신발', _kw.shoes],
-        ['액세서리', _acc],
-      ];
+    // 분석 미완 → 상태 메시지로 분석박스 덮어쓰기
+    if(!outfit || !(outfit.top || outfit.bottom || outfit.shoes)){
+      const msg = document.createElement('div');
+      msg.className = 'cody-status';
+      if(state === 'error'){
+        msg.textContent = '스타일 분석을 불러오지 못했습니다.';
+      }else{
+        msg.classList.add('cody-status-loading');
+        const dot = document.createElement('span');
+        dot.className = 'cody-status-dot';
+        const t = document.createElement('span');
+        t.textContent = '스타일링 분석 중입니다…';
+        msg.appendChild(dot); msg.appendChild(t);
+      }
+      _cody.appendChild(msg);
+      return;
     }
+    // 생성 이미지를 직접 본 실제 착장 분석 (정확 — 이미지와 일치)
+    const rows = [
+      ['상의', outfit.top],
+      ['하의', outfit.bottom],
+      ['신발', outfit.shoes],
+      ['액세서리', outfit.accessory],
+    ];
     rows.forEach(function(pair){
       const label = pair[0], val = pair[1];
       if(val == null) return;
@@ -10058,10 +10101,16 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     });
   }
   // 생성 이미지 vision 분석 fetch → 모달 코디 영역 교체 (실제 옷과 일치)
-  async function _fetchModalOutfit(card){
-    if(!card || !card.cacheKey) return;
+  // ─── 2026-05-16 KST · TJ 지시 2번 ─── 실패 시 1회 재시도, 최종 실패 시 error 표시
+  async function _fetchModalOutfit(card, _isRetry){
+    if(!card || !card.cacheKey){ _renderModalCody(null, 'error'); return; }
     const _idxAtCall = flow.modalCurrentIdx;
     const _srcAtCall = flow.modalSource;
+    const _stillSame = () => {
+      const modal = $('expandModal');
+      return modal && !modal.classList.contains('hidden') &&
+             flow.modalCurrentIdx === _idxAtCall && flow.modalSource === _srcAtCall;
+    };
     try{
       const r = await v68Fetch('/api/ai/styling/analysis', {
         cacheKey: card.cacheKey,
@@ -10069,18 +10118,25 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         stylist: card.stylist || null,
         lang: (window.CodiBankI18n && CodiBankI18n.lang) ? CodiBankI18n.lang : 'ko',
       });
-      if(!r.ok) return;
+      if(!r.ok){
+        if(!_isRetry){ await new Promise(rs=>setTimeout(rs,1800)); return _fetchModalOutfit(card, true); }
+        if(_stillSame()) _renderModalCody(null, 'error');
+        return;
+      }
       const j = await r.json();
       const outfit = j && j.stylingAnalysis && j.stylingAnalysis.outfit;
-      if(!outfit || !(outfit.top || outfit.bottom || outfit.shoes)) return;
+      if(!outfit || !(outfit.top || outfit.bottom || outfit.shoes)){
+        if(!_isRetry){ await new Promise(rs=>setTimeout(rs,1800)); return _fetchModalOutfit(card, true); }
+        if(_stillSame()) _renderModalCody(null, 'error');
+        return;
+      }
       card.outfitAnalysis = outfit;   // 카드에 캐시 (다음 오픈 시 즉시)
       // 모달이 여전히 같은 카드를 보고 있을 때만 갱신
-      const modal = $('expandModal');
-      if(modal && !modal.classList.contains('hidden') &&
-         flow.modalCurrentIdx === _idxAtCall && flow.modalSource === _srcAtCall){
-        _renderModalCody(outfit, null);
-      }
-    }catch(_){}
+      if(_stillSame()) _renderModalCody(outfit);
+    }catch(_){
+      if(!_isRetry){ await new Promise(rs=>setTimeout(rs,1800)); return _fetchModalOutfit(card, true); }
+      if(_stillSame()) _renderModalCody(null, 'error');
+    }
   }
   function _renderExpandModal(card, cityLabel){
     // ─── 2026-05-16 KST · TJ 지시 1.2 ─── 헤더 한 줄: "서울 스타일리스트 / 주말나들이"
@@ -10096,9 +10152,11 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const _headerTxt = _city + ' 스타일리스트' + (_conceptShort ? ' / ' + _conceptShort : '');
     const cityEl = $('expandModalCity');
     if(cityEl) cityEl.textContent = _headerTxt;
-    // 코디 분석: 이미 분석된 outfit 있으면 즉시, 없으면 추천 키워드(임시) → vision fetch
-    _renderModalCody(card.outfitAnalysis || null, card.engineCategoryKeywords || {});
-    if(!card.outfitAnalysis){
+    // ─── 2026-05-16 KST · TJ 지시 2번 ─── 코디 분석: 캐시 즉시 / 없으면 '분석 중' ───
+    if(card.outfitAnalysis){
+      _renderModalCody(card.outfitAnalysis);
+    }else{
+      _renderModalCody(null, 'loading');   // '스타일링 분석 중입니다…'
       _fetchModalOutfit(card);
     }
     // 캔버스 재그리기 (정면 초기 표시)
