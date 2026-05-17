@@ -7,6 +7,43 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-16 KST · TJ 지시 (모달 확대 / Q2·Q3 진행률·토글·버튼) ───
+  1.1) 모달 이미지 뷰박스 최대 확대
+     · 정/후면 토글을 이미지박스 위 레이어드(absolute 하단) → 토글 공간 회수
+     · expand-modal-imgbox 40vh→56vh (max 340→520px)
+  1.2) 모달 텍스트박스 축소
+     · 헤더 한 줄 "도시 스타일리스트 / 컨셉" (스타일리스트 이름 제거)
+     · 별도 컨셉 줄 삭제, 줄간격·여백 축소
+  2) Q2·Q3 진행률 0→100% 카운터 추가 (Q1 로직 복제)
+     · _makeProgressTimer 헬퍼 → startStepBProgress/startStepCProgress
+     · Q2: cbq2-loading 에 #cbq2Pct, Q3: #vtoSpinPct 표시
+  3) Q3 정/후면 토글 — 생성 시작 시 숨김 (startStepC 진입 시 add hidden)
+     · 이전: 생성 중에도 토글 노출 → 완성 후에만 표시되도록 수정
+  4) Q3 버튼 4개 — 생성 시작 시 비활성(vto-btn-inactive)
+     · 이전: 생성 중에도 활성 배경 → 완성 시 vto-btn-active 로 활성화
+
+─── 2026-05-16 KST · TJ 지시 (모달 저장/공유 과거 이미지 버그 — 심각) ───
+  버그: Q2 카드를 모달로 열어 저장/공유하면 과거(STEP A) 이미지가 나감
+  원인: onModalSaveImage / onModalShareImage 가 flow.stepACards[idx] 만 참조
+        → Q2(stepBCards) 모달에서 STEP A 의 같은 인덱스(다른 도시) 이미지 사용
+        (모달 표시는 flow.modalImageUrl 기반이라 정상 → 표시·저장 불일치)
+  수정: 모달이 '실제 그리는' expandModalCanvas 를 toBlob 하여 저장/공유
+        → 표시 = 저장 = 공유 항상 일치 (카드 인덱스 경유 제거)
+        _getCurrentModalCard(): modalSource(A/B)로 올바른 카드 반환(공유 텍스트용)
+  점검: Q3 againBtn/shareBtn 은 vtoCanvas(표시 캔버스) 직접 toBlob →
+        구조적으로 표시=저장 일치, 수정 불필요 확인
+
+─── 2026-05-16 KST · TJ 지시 (분석 보고서 위치·내용) ───
+  1) 분석 박스 위치 이동 — codiDetailBox/codiPointBox 를 Q3 아래로
+     · _moveAnalysisBoxesBelowQ3(): STEP C 완료 시 두 박스를 STEP 컨테이너
+       (.mt-8 = Q1·Q2·Q3) 바로 아래로 DOM 이동 (showAnalysisBoxes에서 호출)
+     · 이전: Q1 그리드 위 → 변경: Q3 최종이미지·버튼 다음
+  2) 분석 보고서 미생성 대응
+     · fetchAnalysisAndFill: 응답 실패(503 등) 시 1.8초 후 1회 재시도
+     · (백엔드) vision 분석 timeout 10→20초 (이미지 처리 시간 반영)
+     · STEP C 완료 시 fetchAnalysisAndFill(cacheKey, 이미지URL) → 생성된
+       이미지를 vision 분석 → 퍼스널컬러/체형/목적 보고서 채움
+
 ─── 2026-05-16 KST · TJ 지시 (Q2·Q3 로딩 파동 / Q3 고화질 3건) ───
   1) Q2·Q3 로딩 화면에도 심장박동 파동 적용 (Q1과 동일)
      · Q2 cbq2-loading: 배경 흰색 → Q1 오버레이와 동일 어두운 네이비로 통일,
@@ -1691,11 +1728,22 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   inset: 0;
   z-index: 2;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   /* ─── 2026-05-16 KST · TJ 지시 1번 ─── 심장박동 파동 적용 위해 Q1 오버레이와
      동일한 어두운 네이비 배경으로 통일 (흰 배경에선 시안 파동이 안 보임) */
   background: linear-gradient(160deg, #0B1F4D 0%, #051030 100%);
+}
+/* ─── 2026-05-16 KST · TJ 지시 2번 ─── Q2 진행률 % 표시 ─── */
+.cbq2-pct{
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(151, 254, 237, 0.85);
+  position: relative;
+  z-index: 3;
+  letter-spacing: 0.03em;
 }
 .cbq2-cb{
   font-size: 26px;
@@ -1824,11 +1872,10 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-imgbox{
   position: relative;
   width: 100%;
-  /* ─── 2026-05-16 KST · TJ 지시 2번 ─── 정사각 이미지 위아래 잘림 해결
-     세로 고정 + flex 중앙. drawModalPose가 이미지 비율대로 캔버스를
-     contain 방식으로 그려 잘림 없이 전체 표시 (가로는 비율 자동) */
-  height: 40vh;
-  max-height: 340px;
+  /* ─── 2026-05-16 KST · TJ 지시 1.1 ─── 이미지 뷰박스 최대 확대 ───
+     토글을 박스 위에 레이어드 → 토글 공간만큼 + 텍스트박스 축소분만큼 확대 */
+  height: 56vh;
+  max-height: 520px;
   border-radius: 12px;
   overflow: hidden;
   background: linear-gradient(160deg, #f5f7fb 0%, #e8eef5 100%);   /* 이미지 흰 배경 매칭 */
@@ -1840,21 +1887,27 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-imgbox canvas{
   display: block;
 }
+/* ─── 2026-05-16 KST · TJ 지시 1.1 ─── 정/후면 토글 = 이미지박스 위 레이어드 ─── */
 .expand-modal-toggle{
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   gap: 6px;
-  justify-content: center;
+  z-index: 3;
 }
 .expand-pose-btn{
   font-size: 11px;
   font-weight: 700;
   padding: 7px 22px;
   border-radius: 999px;
-  border: 1px solid rgba(151, 254, 237, 0.25);
-  background: rgba(151, 254, 237, 0.05);
-  color: rgba(151, 254, 237, 0.7);
+  border: 1px solid rgba(151, 254, 237, 0.3);
+  background: rgba(5, 16, 48, 0.78);   /* 이미지 위 레이어 → 어두운 반투명 */
+  color: rgba(151, 254, 237, 0.85);
   cursor: pointer;
   transition: all 0.2s;
+  backdrop-filter: blur(4px);
 }
 .expand-pose-btn.active{
   background: linear-gradient(135deg, #0E9D8E 0%, #097E72 100%);
@@ -1866,42 +1919,36 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 /* ─── 2026-05-14 KST · TJ 지시 (v68) ─── 모달 분석 영역 ─── */
 .expand-modal-analysis{
   margin-top: 2px;
-  /* ─── 2026-05-16 KST · TJ 지시 1번 ─── 텍스트박스 비례 축소 ─── */
-  padding: 10px 12px;
+  /* ─── 2026-05-16 KST · TJ 지시 1.2 ─── 텍스트박스 축소 (줄간격·여백 최소화) ─── */
+  padding: 9px 11px;
   border-radius: 11px;
   background: rgba(151, 254, 237, 0.06);
   border: 1px solid rgba(151, 254, 237, 0.15);
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
 }
-/* ─── 2026-05-14 KST · TJ 보고 ─── 분석 영역에 헤더(도시/스타일리스트) 통합 ─── */
+/* ─── 2026-05-16 KST · TJ 지시 1.2 ─── 헤더 한 줄 (서울 스타일리스트 / 주말나들이) ─── */
 .expand-modal-analysis-header{
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding-bottom: 8px;
-  margin-bottom: 4px;
+  align-items: center;
+  padding-bottom: 6px;
+  margin-bottom: 2px;
   border-bottom: 1px solid rgba(151, 254, 237, 0.12);
 }
 .expand-modal-analysis-city{
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   color: #97FEED;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
 }
-.expand-modal-analysis-stylist{
-  font-size: 11px;
-  color: rgba(151, 254, 237, 0.65);
-  font-weight: 500;
-}
+.expand-modal-analysis-stylist{ display: none; }
 /* ─── 2026-05-14 KST · TJ 보고 2번 ─── 저장/공유 버튼 ─── */
 .expand-modal-actions{
   display: flex;
   gap: 8px;
-  margin-top: 10px;
-  padding-top: 10px;
+  margin-top: 7px;
+  padding-top: 8px;
   border-top: 1px solid rgba(151, 254, 237, 0.12);
 }
 .expand-modal-action-btn{
@@ -1910,7 +1957,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 10px 8px;
+  padding: 9px 8px;
   border-radius: 10px;
   background: rgba(151, 254, 237, 0.08);
   border: 1px solid rgba(151, 254, 237, 0.25);
@@ -1926,11 +1973,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-action-btn:active{
   transform: scale(0.97);
 }
-/* ─── 2026-05-16 KST · TJ 지시 3번 ─── 카테고리별 코디 분석 ─── */
+/* ─── 2026-05-16 KST · TJ 지시 1.2 ─── 카테고리별 코디 분석 (줄간격 축소) ─── */
 .expand-modal-cody{
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 4px;
 }
 .expand-modal-cody .cody-row{
   display: flex;
@@ -1946,32 +1993,23 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 }
 .expand-modal-cody .cody-val{
   flex: 1;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.92);
-  line-height: 1.45;
+  line-height: 1.35;
 }
-.expand-modal-concept{
-  margin-top: 3px;
-  padding-top: 9px;
-  border-top: 1px solid rgba(151, 254, 237, 0.12);
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
+.expand-modal-concept{ display: none; }
 .expand-modal-concept .concept-label{
   flex: 0 0 54px;
   font-size: 11px;
   font-weight: 800;
   color: rgba(151, 254, 237, 0.7);
-  letter-spacing: 0.02em;
 }
 .expand-modal-concept .concept-val{
   flex: 1;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   color: #97FEED;
-  line-height: 1.5;
 }
 
 .expand-modal-select-btn{
@@ -9544,10 +9582,35 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     });
   }
   function showAnalysisBoxes(){
+    // ─── 2026-05-16 KST · TJ 지시 ─── 분석 박스를 Q3 아래로 이동 후 표시 ───
+    _moveAnalysisBoxesBelowQ3();
     ['codiDetailBox', 'codiPointBox'].forEach(id => {
       const el = $(id);
       if(el) el.classList.remove('hidden');
     });
+  }
+  // ─── 2026-05-16 KST · TJ 지시 ─── 분석 보고서 박스 위치 이동 ───
+  // 이전: codiDetailBox/codiPointBox 가 Q1 그리드 위에 위치 → STEP C 완료 시
+  //       과거 위치(화면 상단)에 분석이 노출되어 어색
+  // 변경: STEP C 완료 시 두 박스를 STEP 컨테이너(.mt-8 = Q1·Q2·Q3) 바로 아래로 이동
+  //       → Q3 최종 이미지·버튼 다음에 분석 보고서가 표시됨
+  function _moveAnalysisBoxesBelowQ3(){
+    try{
+      const detail = $('codiDetailBox');
+      const point = $('codiPointBox');
+      const bActions = $('vtoBActions');
+      if(!detail || !point || !bActions) return;
+      const section = detail.parentNode;        // <section>
+      if(!section) return;
+      // STEP 컨테이너(.mt-8) = vtoBActions 의 조상 중 section 의 직계 자식
+      let stepWrap = bActions;
+      while(stepWrap && stepWrap.parentNode !== section) stepWrap = stepWrap.parentNode;
+      if(!stepWrap || stepWrap.parentNode !== section) return;
+      // 이미 Q3 아래로 옮겨졌으면 재이동 skip (idempotent)
+      if(stepWrap.nextElementSibling === detail) return;
+      section.insertBefore(detail, stepWrap.nextSibling);
+      section.insertBefore(point, detail.nextSibling);
+    }catch(_){}
   }
   // STEP C 응답 데이터로 두 박스 내용 채우기
   // 핵심 필드: data.stylist, data.engineCity, data.engineCategoryKeywords, data.stylingStory
@@ -9594,15 +9657,30 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   }
   // 분석 별도 호출 (`/api/ai/styling/analysis`)
   // ─── 2026-05-16 KST · TJ 지시 (옵션 A) ─── imageUrl 전달 → 백엔드 vision 분석 ───
-  async function fetchAnalysisAndFill(cacheKey, imageUrl){
+  // ─── 2026-05-16 KST · TJ 지시 ─── 실패 시 1회 재시도 (analysis 503/일시오류 대비) ───
+  async function fetchAnalysisAndFill(cacheKey, imageUrl, _isRetry){
     try{
       const r = await v68Fetch('/api/ai/styling/analysis', {
         cacheKey: cacheKey,
         imageUrl: imageUrl || '',
       });
-      if(!r.ok) return;
+      if(!r.ok){
+        if(!_isRetry){
+          // 503 등 일시 실패 → 1.8초 후 1회 재시도
+          await new Promise(rs => setTimeout(rs, 1800));
+          return fetchAnalysisAndFill(cacheKey, imageUrl, true);
+        }
+        console.warn('[v68] analysis 응답 실패:', r.status);
+        return;
+      }
       const j = await r.json();
-      if(!j.ok || !j.stylingAnalysis) return;
+      if(!j.ok || !j.stylingAnalysis){
+        if(!_isRetry){
+          await new Promise(rs => setTimeout(rs, 1800));
+          return fetchAnalysisAndFill(cacheKey, imageUrl, true);
+        }
+        return;
+      }
       const _sa = j.stylingAnalysis;
       // anPcSection / anBodySection / anPurposeSection 채우기
       const _setText = (id, v) => { const e = $(id); if(e) e.textContent = String(v||''); };
@@ -9884,6 +9962,48 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     if(el) el.textContent = '100%';
   }
 
+  // ─── 2026-05-16 KST · TJ 지시 2번 ─── Q2/Q3 진행률 카운터 (Q1 로직 복제) ───
+  // 0→95% 를 ~38초에 걸쳐 3단계 감속, 응답 도착 시 finish()로 100%
+  function _makeProgressTimer(getEl, setText){
+    let pct = 0, timer = null;
+    return {
+      start(){
+        pct = 0;
+        const e = getEl(); if(e) setText(e, 0);
+        if(timer) clearInterval(timer);
+        timer = setInterval(() => {
+          if(pct < 95){
+            let inc;
+            if(pct < 70)      inc = Math.random() * 1.7 + 0.85;
+            else if(pct < 90) inc = Math.random() * 0.9 + 0.45;
+            else              inc = Math.random() * 0.40 + 0.18;
+            pct += inc;
+            if(pct > 95) pct = 95;
+            const e = getEl(); if(e) setText(e, Math.floor(pct));
+          }
+        }, 500);
+      },
+      finish(){
+        if(timer){ clearInterval(timer); timer = null; }
+        const e = getEl(); if(e) setText(e, 100);
+      }
+    };
+  }
+  // Q2 — cbq2 로딩 카드의 % 요소
+  const _q2Progress = _makeProgressTimer(
+    () => document.getElementById('cbq2Pct'),
+    (e, v) => { e.textContent = v + '%'; }
+  );
+  function startStepBProgress(){ _q2Progress.start(); }
+  function finishStepBProgress(){ _q2Progress.finish(); }
+  // Q3 — vtoSpinPct (숫자 + <span>% 구조)
+  const _q3Progress = _makeProgressTimer(
+    () => document.getElementById('vtoSpinPct'),
+    (e, v) => { e.innerHTML = v + '<span class="vto-spin-pct-sym">%</span>'; }
+  );
+  function startStepCProgress(){ _q3Progress.start(); }
+  function finishStepCProgress(){ _q3Progress.finish(); }
+
   // ─── 모달 ───
   // ─── 2026-05-16 KST · TJ 지시 3번 ─── Q1·Q2 공용 팝업 렌더 함수 ───
   //   기존 openModalForCard(STEP A 전용)를 공통 _renderExpandModal 로 추출
@@ -9963,35 +10083,23 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     }catch(_){}
   }
   function _renderExpandModal(card, cityLabel){
-    $('expandModalCity').textContent = cityLabel || '';
-    $('expandModalStylist').textContent = (card.stylist && card.stylist.name) ? (card.stylist.name + ' 스타일리스트') : '';
+    // ─── 2026-05-16 KST · TJ 지시 1.2 ─── 헤더 한 줄: "서울 스타일리스트 / 주말나들이"
+    //   지명(스타일리스트 이름)은 불필요 → 제거. 도시 + '스타일리스트' + 컨셉 축약
+    const _city = (card.stylist && card.stylist.city) || card.engineCity || cityLabel || '서울';
+    let _conceptShort = '';
+    if(card.enginePurpose){
+      _conceptShort = String(card.enginePurpose).trim();
+    }else if(card.stylingStory){
+      const s = String(card.stylingStory).split(/[.。\n]/)[0].trim();
+      if(s) _conceptShort = (s.length > 14) ? s.slice(0, 14) : s;
+    }
+    const _headerTxt = _city + ' 스타일리스트' + (_conceptShort ? ' / ' + _conceptShort : '');
+    const cityEl = $('expandModalCity');
+    if(cityEl) cityEl.textContent = _headerTxt;
     // 코디 분석: 이미 분석된 outfit 있으면 즉시, 없으면 추천 키워드(임시) → vision fetch
     _renderModalCody(card.outfitAnalysis || null, card.engineCategoryKeywords || {});
     if(!card.outfitAnalysis){
       _fetchModalOutfit(card);
-    }
-    const _concept = $('expandModalConcept');
-    if(_concept){
-      let concept = '';
-      if(card.stylingStory){
-        const s = String(card.stylingStory).split(/[.。\n]/)[0].trim();
-        if(s) concept = s;
-      }
-      if(!concept && card.stylist && card.stylist.voice){
-        concept = String(card.stylist.voice).trim();
-      }
-      if(!concept){
-        const _pp = card.enginePurpose || '';
-        concept = _pp ? (_pp + '에 어울리는 코디') : '추천 코디';
-      }
-      _concept.innerHTML = '';
-      const cl = document.createElement('span');
-      cl.className = 'concept-label';
-      cl.textContent = '컨셉';
-      const cv = document.createElement('span');
-      cv.className = 'concept-val';
-      cv.textContent = concept;
-      _concept.appendChild(cl); _concept.appendChild(cv);
     }
     // 캔버스 재그리기 (정면 초기 표시)
     flow.modalImageUrl = card.imageUrl;
@@ -10188,12 +10296,15 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           <div class="cbq2-cb">
             <span>c</span><span>o</span><span>d</span><span>i</span><span>B</span><span>a</span><span>n</span><span>k</span>
           </div>
+          <div class="cbq2-pct" id="cbq2Pct">0%</div>
         </div>
       `;
       container.appendChild(card2);
     }
     const statusEl = $('stepBStatus');
     if(statusEl) statusEl.textContent = '(유사 변형 생성 중...)';
+    // ─── 2026-05-16 KST · TJ 지시 2번 ─── Q2 진행률 0→100% 카운터 시작 ───
+    startStepBProgress();
 
     // 변형 호출
     try{
@@ -10206,6 +10317,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       }
       const j = await r.json();
       if(!j.ok || !j.image) throw new Error(j.error || '변형 실패');
+      finishStepBProgress();   // ─── TJ 지시 2번 ─── 진행률 100% 후 종료
       flow.stepBCards[1] = {
         imageUrl: j.image, url: j.url || j.image,
         stylist: j.stylist || {}, engineCity: j.engineCity || cityInfo.city,
@@ -10227,6 +10339,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       if(statusEl) statusEl.textContent = '(1개 선택)';
     }catch(err){
       console.error('[v68 STEP B]', err);
+      finishStepBProgress();
       const card2 = container && container.querySelector('[data-idx="1"]');
       if(card2){
         card2.innerHTML = `<div class="cbq2-error"><span>변형 생성 실패</span><button type="button">재시도</button></div>`;
@@ -10330,6 +10443,20 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       vtoSpinner.style.display = 'flex';
       vtoSpinner.classList.add('animating');  // ★ codibank 글자 색상 변환 시작
     }
+    // ─── 2026-05-16 KST · TJ 지시 3번 ─── 생성 시작 시 정/후면 토글 숨김 ───
+    // (토글은 이미지 완성 후 _bindStepCPoseToggle 에서 표시 — 생성 중엔 보이면 안 됨)
+    const _poseToggle = $('vtoPoseToggle');
+    if(_poseToggle) _poseToggle.classList.add('hidden');
+    // ─── 2026-05-16 KST · TJ 지시 4번 ─── 생성 시작 시 버튼 4개 비활성 ───
+    // (이미지 완성 시 vto-btn-active 로 활성화 — 생성 중엔 비활성 배경이어야 함)
+    ['saveBtn','againBtn','shareBtn','resetBtn'].forEach(id => {
+      const b = $(id);
+      if(b){ b.disabled = true; b.className = 'vto-bab vto-btn-inactive'; }
+    });
+    // ─── 2026-05-16 KST · TJ 지시 2번 ─── Q3 진행률 0→100% 카운터 시작 ───
+    const _vtoPct = $('vtoSpinPct');
+    if(_vtoPct){ _vtoPct.style.display = ''; }
+    startStepCProgress();
     // ─── 2026-05-16 KST · TJ 지시 3번 ─── STEP C 고화질 = high quality ───
     // 이전: _force_quality='medium' (STEP A와 동일 화질 → 고화질 아님)
     // 변경: 'high' — 최종 1회만 생성하므로 비용 영향 적고 화질 확실히 상승
@@ -10353,6 +10480,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         await drawStepCToCanvas(j.image);
       }
       // ─── 로딩 효과 정리 (완료 시) ───
+      finishStepCProgress();   // ─── TJ 지시 2번 ─── 진행률 100% 후 종료
       if(vtoBox) vtoBox.classList.remove('vto-loading');
       if(vtoSpinner){
         vtoSpinner.classList.remove('animating');
@@ -10380,6 +10508,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     }catch(err){
       console.error('[v68 STEP C]', err);
       // 에러 시에도 로딩 효과 정리
+      finishStepCProgress();
       if(vtoBox) vtoBox.classList.remove('vto-loading');
       if(vtoSpinner) vtoSpinner.classList.remove('animating');
       alert('최종 이미지 생성 실패: ' + (err.message || ''));
@@ -10555,63 +10684,72 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   }
 
   // ─── 2026-05-14 KST · TJ 보고 2번 ─── 모달 이미지 저장 ───
-  async function onModalSaveImage(){
+  // ─── 2026-05-16 KST · TJ 지시 ─── 모달 저장/공유 과거 이미지 버그 수정 ───
+  //   버그: onModalSave/Share 가 flow.stepACards[idx] 만 참조 → Q2(stepBCards)
+  //         모달을 열면 STEP A 의 같은 인덱스(과거 다른 도시) 이미지가 저장/공유됨
+  //   수정: 모달이 '실제 그리고 있는' expandModalCanvas 를 직접 저장/공유
+  //         → 표시 = 저장 = 공유 항상 일치 (카드 인덱스 경유 안 함)
+  function _getCurrentModalCard(){
     const idx = flow.modalCurrentIdx;
-    const card = flow.stepACards[idx];
-    if(!card || !card.imageUrl){ alert('이미지가 없습니다.'); return; }
+    if(idx == null || idx < 0) return null;
+    if(flow.modalSource === 'B'){
+      return (flow.stepBCards && flow.stepBCards[idx]) || null;
+    }
+    return (flow.stepACards && flow.stepACards[idx]) || null;
+  }
+  async function onModalSaveImage(){
+    const canvas = $('expandModalCanvas');
+    if(!canvas || !canvas.width){
+      if(flow.modalImageUrl){ window.open(flow.modalImageUrl, '_blank'); }
+      else alert('이미지가 없습니다.');
+      return;
+    }
     try{
-      const res = await fetch(card.imageUrl, { mode: 'cors' });
-      const blob = await res.blob();
+      const blob = await new Promise((rs) => canvas.toBlob(rs, 'image/jpeg', 0.95));
+      if(!blob) throw new Error('toBlob 실패');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      const cityLabel = (getGridCities()[idx] || {}).label || 'codibank';
-      const ts = new Date().toISOString().slice(0,10).replace(/-/g,'');
       a.href = url;
-      a.download = `codibank_${cityLabel}_${ts}.jpg`;
+      a.download = `codibank_${Date.now()}.jpg`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1500);
     }catch(err){
       console.error('[모달 저장]', err);
-      // fallback: 새 탭에서 열기
-      window.open(card.imageUrl, '_blank');
+      // 캔버스가 CORS-tainted 등으로 실패 → 현재 모달 이미지 URL 새 탭
+      if(flow.modalImageUrl) window.open(flow.modalImageUrl, '_blank');
+      else alert('저장에 실패했습니다.');
     }
   }
-
-  // ─── 2026-05-14 KST · TJ 보고 2번 ─── 모달 이미지 공유 ───
   async function onModalShareImage(){
-    const idx = flow.modalCurrentIdx;
-    const card = flow.stepACards[idx];
-    if(!card || !card.imageUrl){ alert('이미지가 없습니다.'); return; }
-    const cityLabel = (getGridCities()[idx] || {}).label || 'codibank';
-    const stylistName = (card.stylist && card.stylist.name) ? card.stylist.name + ' 스타일리스트' : '';
-    const shareText = `[CodiBank] ${cityLabel} ${stylistName}의 코디 추천`;
-    const shareUrl = card.imageUrl;
-    // navigator.share 지원 시 (모바일)
+    const canvas = $('expandModalCanvas');
+    const card = _getCurrentModalCard() || {};
+    const stylistName = (card.stylist && card.stylist.name) ? (card.stylist.name + ' 스타일리스트') : '';
+    const shareText = `[CodiBank] ${stylistName ? stylistName + '의 ' : ''}코디 추천`;
+    let blob = null;
+    if(canvas && canvas.width){
+      try{ blob = await new Promise((rs) => canvas.toBlob(rs, 'image/jpeg', 0.95)); }catch(_){}
+    }
     if(navigator.share){
       try{
-        // 이미지를 File로 변환해서 공유 가능하면 같이
         let files = [];
-        try{
-          const r = await fetch(shareUrl, { mode: 'cors' });
-          const blob = await r.blob();
-          const file = new File([blob], `codibank_${cityLabel}.jpg`, { type: blob.type || 'image/jpeg' });
-          if(navigator.canShare && navigator.canShare({ files: [file] })){
-            files = [file];
-          }
-        }catch(_){}
-        await navigator.share(files.length ? { title: 'CodiBank', text: shareText, files } : { title: 'CodiBank', text: shareText, url: shareUrl });
+        if(blob && navigator.canShare){
+          const file = new File([blob], `codibank_${Date.now()}.jpg`, { type: 'image/jpeg' });
+          if(navigator.canShare({ files: [file] })) files = [file];
+        }
+        await navigator.share(files.length
+          ? { title: 'CodiBank', text: shareText, files }
+          : { title: 'CodiBank', text: shareText, url: flow.modalImageUrl || '' });
       }catch(err){
         if(err.name !== 'AbortError') console.error('[모달 공유]', err);
       }
     }else{
-      // 데스크톱 fallback: 클립보드에 URL 복사
       try{
-        await navigator.clipboard.writeText(shareUrl);
+        await navigator.clipboard.writeText(flow.modalImageUrl || '');
         alert('이미지 링크가 클립보드에 복사되었습니다.');
       }catch(_){
-        prompt('이미지 링크를 복사하세요:', shareUrl);
+        prompt('이미지 링크를 복사하세요:', flow.modalImageUrl || '');
       }
     }
   }
@@ -10640,22 +10778,20 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       </button>
       <div class="expand-modal-imgbox" id="expandModalImgBox">
         <canvas id="expandModalCanvas"></canvas>
+        <!-- ─── 2026-05-16 KST · TJ 지시 1.1 ─── 토글을 이미지박스 위에 레이어드 ─── -->
+        <div class="expand-modal-toggle">
+          <button type="button" class="expand-pose-btn active" data-pose="front">정면</button>
+          <button type="button" class="expand-pose-btn" data-pose="back">후면</button>
+        </div>
       </div>
-      <div class="expand-modal-toggle">
-        <button type="button" class="expand-pose-btn active" data-pose="front">정면</button>
-        <button type="button" class="expand-pose-btn" data-pose="back">후면</button>
-      </div>
-      <!-- ─── 2026-05-14 KST · TJ 보고 ─── 헤더 텍스트(도시/스타일리스트) → 분석 영역 이동 ─── -->
+      <!-- ─── 2026-05-16 KST · TJ 지시 1.2 ─── 분석 텍스트박스 축소 ─── -->
       <div class="expand-modal-analysis" id="expandModalAnalysis">
         <div class="expand-modal-analysis-header">
-          <span id="expandModalCity" class="expand-modal-analysis-city">서울</span>
-          <span id="expandModalStylist" class="expand-modal-analysis-stylist"></span>
+          <!-- 한 줄: "서울 스타일리스트 / 주말나들이" -->
+          <span id="expandModalCity" class="expand-modal-analysis-city"></span>
         </div>
-        <!-- ─── 2026-05-16 KST · TJ 지시 3번 ─── '스타일 분석' 제목 삭제
-             상의/하의/신발/액세서리 컬러·디자인 + 컨셉 한 줄 (클릭 즉시 표시) -->
         <div class="expand-modal-cody" id="expandModalCody"></div>
-        <div class="expand-modal-concept" id="expandModalConcept"></div>
-        <!-- ─── 2026-05-14 KST · TJ 보고 2번 ─── 저장 + 공유 버튼 ─── -->
+        <!-- 저장 + 공유 버튼 -->
         <div class="expand-modal-actions">
           <button type="button" id="expandModalSave" class="expand-modal-action-btn">
             <span class="material-symbols-outlined" style="font-size:18px;">download</span>
