@@ -5,6 +5,11 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-16 KST · TJ 지시 (vision 분석 timeout 보강) ───
+#   _codifit_analysis_via_gpt41mini (~line 3346): vision 모드 timeout 확대
+#   · 텍스트 분석 10초 → vision 분석 20초 (CODIBANK_ANALYSIS_TIMEOUT_VISION)
+#   · 이미지 처리로 응답이 느려 timeout→503→분석 보고서 미생성되던 문제 대응
+#
 # ─── 2026-05-16 KST · TJ 지시 (STEP C 고화질 — _force_quality 실제 반영) ───
 #   문제: STEP C(_force_quality='high')가 실제로는 medium 으로 생성됨
 #   원인: _force_quality → payload['_override_alias'] 설정은 되나, 1차 생성
@@ -3344,6 +3349,13 @@ def _codifit_analysis_via_gpt41mini(
     # 이전: timeout=10초만 명시 (자동 재시도 2회로 최악 30초 → 사용자 인지 못함)
     # 변경: max_retries=0 + 환경변수 (자동 재시도 차단으로 비용 절감)
     _analysis_timeout = float(os.getenv("CODIBANK_ANALYSIS_TIMEOUT", "10"))
+    # ─── 2026-05-16 KST · TJ 지시 ─── vision 분석은 이미지 처리로 더 오래 걸림 ───
+    # 텍스트 10초 → vision 20초 (timeout 부족 시 503 → 분석 보고서 미생성 방지)
+    if _vision:
+        _analysis_timeout = max(
+            _analysis_timeout,
+            float(os.getenv("CODIBANK_ANALYSIS_TIMEOUT_VISION", "20")),
+        )
     _analysis_max_retries = int(os.getenv("CODIBANK_ANALYSIS_MAX_RETRIES", "0"))
 
     print(f"[codifit_analysis] gpt-4.1-mini 호출 시작 (model={_model}, lang={'en' if _en else 'ko'}, vision={_vision}, timeout={_analysis_timeout}s, retries={_analysis_max_retries})", flush=True)
