@@ -5,6 +5,16 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-16 KST · TJ 지시 (STEP C 고화질 — _force_quality 실제 반영) ───
+#   문제: STEP C(_force_quality='high')가 실제로는 medium 으로 생성됨
+#   원인: _force_quality → payload['_override_alias'] 설정은 되나, 1차 생성
+#         호출 _ai_styling_via_gemini(...) 에 _override_alias 인자를 전달하지
+#         않아 함수 내부에서 None → tier 기반(medium) 라우팅으로 떨어짐
+#         (Render 로그: [CODIFIT] tier=FREE → ... quality=medium = else 분기)
+#   변경 (~line 3846): 1차 호출에 _override_alias=payload.get('_override_alias')
+#         전달 → STEP A=low / STEP B=low / STEP C=high 가 실제 quality 로 반영
+#   변경 (~line 2756): alias_override 로그에 quality 표시 (디버깅용)
+#
 # ─── 2026-05-16 KST · TJ 지시 (옵션 A — 코디핏 분석 vision 전환) ───
 #   문제: 분석이 생성 이미지를 보지 않고 메타데이터로만 만들어져 실제 옷과 불일치
 #   해결: gpt-4.1-mini vision 모드 — 생성 이미지를 직접 입력하여 분석
@@ -2753,7 +2763,7 @@ def _ai_styling_via_gemini(
         model_name = _ENGINE_MODEL_MAP.get(_alias) or _ENGINE_MODEL_MAP.get("flash_v2")
         _provider = _ENGINE_PROVIDER_MAP.get(_alias, "gemini")
         _quality = _ENGINE_QUALITY_MAP.get(_alias)  # Gemini는 None
-        print(f"[CODIFIT] alias_override={_alias} → provider={_provider}, model={model_name}", flush=True)
+        print(f"[CODIFIT] alias_override={_alias} → provider={_provider}, model={model_name}, quality={_quality}", flush=True)
     else:
         model_name, _provider, _quality = _resolve_engine_full(_resolved_tier, "codifit")
         print(f"[CODIFIT] tier={_resolved_tier} → provider={_provider}, model={model_name}, quality={_quality}", flush=True)
@@ -3854,6 +3864,12 @@ def ai_styling():
                 lang=str(payload.get("lang") or "ko"),
                 meta=_meta,
                 tier=_styling_tier,  # ─── 2026-04-21 티어별 엔진 라우팅 ───
+                # ─── 2026-05-16 KST · TJ 지시 ─── _force_quality 실제 반영 ───
+                # 문제: _force_quality → payload['_override_alias'] 설정했으나
+                #       1차 호출에 전달 안 함 → STEP A/B/C 모두 tier 기반 medium 고정
+                # 수정: payload['_override_alias']를 1차 호출에 전달
+                #       → STEP C(_force_quality='high')가 실제 high quality 생성
+                _override_alias=payload.get('_override_alias') or None,
             )
             # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1.6 HYBRID) ─── 하이브리드 폴백 ───
             # 이전: GPT Image 2 실패(500) → 즉시 에러 반환 (Phase 1)
