@@ -7,6 +7,17 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-16 KST · TJ 지시 (Q2·Q3 로딩 파동 / Q3 고화질 3건) ───
+  1) Q2·Q3 로딩 화면에도 심장박동 파동 적용 (Q1과 동일)
+     · Q2 cbq2-loading: 배경 흰색 → Q1 오버레이와 동일 어두운 네이비로 통일,
+       cbq2-cb 텍스트 밝게(어두운 배경용), step-a-pulse-wrap 8개 추가
+     · Q3 vtoOverlay: step-a-pulse-wrap 추가, 로딩 텍스트 z-index:3(파동 위)
+  2) Q3 정/후면 — drawStepCToCanvas 박스크기 확정 재시도 보강
+     · 렌더 함수는 직전 턴에 이미 '가로 1장 + 정/후면 토글'로 재작성됨(정상)
+     · display 전환 직후 rect=0 대비 최대 5회 rAF 재시도 추가
+  3) Q3 고화질 — _force_quality 'medium' → 'high'
+     · STEP C 가 실제 high quality 로 생성 (이전엔 백엔드 alias 미전달로 medium)
+
 ─── 2026-05-16 KST · TJ 지시 (옵션 A — 팝업 분석·이미지 일치) ───
   4번 후속: 모달 코디 분석을 '생성 이미지 기반 vision 분석'으로 전환
   · _renderModalCody(outfit, ckw): outfit(vision 실제분석) 우선 →
@@ -1227,6 +1238,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 }
 .vto-img-spin{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;position:absolute;inset:0;z-index:2;}
 .vto-spin-txt{font-size:11.5px;color:rgba(162,253,240,0.65);text-align:center;line-height:1.8;padding:0 20px;letter-spacing:.04em;font-weight:500;}
+/* ─── 2026-05-16 KST · TJ 지시 1번 ─── 파동(z2) 위에 로딩 텍스트 표시 ─── */
+#vtoOverlay > .vto-spin-pct,
+#vtoOverlay > .cb-rainbow-vto,
+#vtoOverlay > .vto-spin-txt,
+#vtoOverlay > .vto-step{ position: relative; z-index: 3; }
 /* codibank 레인보우 텍스트 — codistyle과 동일한 미니멀 사이즈 */
 .cb-rainbow-vto{
   font-size:26px;font-weight:800;letter-spacing:3px;
@@ -1677,7 +1693,9 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ffffff;
+  /* ─── 2026-05-16 KST · TJ 지시 1번 ─── 심장박동 파동 적용 위해 Q1 오버레이와
+     동일한 어두운 네이비 배경으로 통일 (흰 배경에선 시안 파동이 안 보임) */
+  background: linear-gradient(160deg, #0B1F4D 0%, #051030 100%);
 }
 .cbq2-cb{
   font-size: 26px;
@@ -1686,9 +1704,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   font-family: 'Manrope', 'Inter', sans-serif;
   display: flex;
   gap: 1px;
+  position: relative;   /* 파동(z2) 위에 텍스트 표시 */
+  z-index: 3;
 }
 .cbq2-cb span{
-  color: rgba(120, 140, 170, 0.45);
+  color: rgba(255, 255, 255, 0.3);
   animation: cbq2CbColor 2.4s infinite;
 }
 .cbq2-cb span:nth-child(1){ animation-delay: 0s; }
@@ -1700,11 +1720,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .cbq2-cb span:nth-child(7){ animation-delay: 1.08s; }
 .cbq2-cb span:nth-child(8){ animation-delay: 1.26s; }
 @keyframes cbq2CbColor{
-  0%, 100% { color: rgba(120, 140, 170, 0.40); }
-  20%      { color: #13BBAF; }
-  40%      { color: #0E9D8E; }
-  60%      { color: #C9A227; }
-  80%      { color: rgba(60, 80, 110, 0.85); }
+  0%, 100% { color: rgba(255,255,255,0.3); }
+  20%      { color: #97FEED; }
+  40%      { color: #35A29F; }
+  60%      { color: #FFD66B; }
+  80%      { color: rgba(255,255,255,0.85); }
 }
 .cbq2-error{
   position: absolute;
@@ -2867,6 +2887,13 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         <div class="vto-result-box vto-empty" id="vtoResultBox">
           <!-- 내부 대기/로딩 화면 — 트라이 온 img-spin 동일 구조 -->
           <div class="vto-img-spin" id="vtoOverlay">
+            <!-- ─── 2026-05-16 KST · TJ 지시 1번 ─── 심장박동 파동 (Q1·Q2 동일) ─── -->
+            <div class="step-a-pulse-wrap" aria-hidden="true">
+              <span class="step-a-pulse p-tl"></span><span class="step-a-pulse p-tl d2"></span>
+              <span class="step-a-pulse p-tr"></span><span class="step-a-pulse p-tr d2"></span>
+              <span class="step-a-pulse p-bl"></span><span class="step-a-pulse p-bl d2"></span>
+              <span class="step-a-pulse p-br"></span><span class="step-a-pulse p-br d2"></span>
+            </div>
             <!-- [2026-04-18] 진행률 표시 — 로딩 중에만 표시 (codibank 로고 위) -->
             <div class="vto-spin-pct" id="vtoSpinPct" style="display:none;">0<span class="vto-spin-pct-sym">%</span></div>
             <!-- codibank 레인보우 텍스트 -->
@@ -10152,6 +10179,12 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       card2.innerHTML = `
         <div class="cbq2-label">유사 변형</div>
         <div class="cbq2-loading">
+          <div class="step-a-pulse-wrap" aria-hidden="true">
+            <span class="step-a-pulse p-tl"></span><span class="step-a-pulse p-tl d2"></span>
+            <span class="step-a-pulse p-tr"></span><span class="step-a-pulse p-tr d2"></span>
+            <span class="step-a-pulse p-bl"></span><span class="step-a-pulse p-bl d2"></span>
+            <span class="step-a-pulse p-br"></span><span class="step-a-pulse p-br d2"></span>
+          </div>
           <div class="cbq2-cb">
             <span>c</span><span>o</span><span>d</span><span>i</span><span>B</span><span>a</span><span>n</span><span>k</span>
           </div>
@@ -10297,12 +10330,13 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       vtoSpinner.style.display = 'flex';
       vtoSpinner.classList.add('animating');  // ★ codibank 글자 색상 변환 시작
     }
-    // STEP C 호출 — Medium quality, 같은 도시, 같은 스타일리스트 매칭 시도
+    // ─── 2026-05-16 KST · TJ 지시 3번 ─── STEP C 고화질 = high quality ───
+    // 이전: _force_quality='medium' (STEP A와 동일 화질 → 고화질 아님)
+    // 변경: 'high' — 최종 1회만 생성하므로 비용 영향 적고 화질 확실히 상승
     try{
       const cityInfo = getGridCities()[flow.stepASelected];
       const p = buildStepAPayload(cityInfo.city);
-      p._force_quality = 'medium';
-      // input_fidelity 통합은 백엔드 endpoint /api/codifit/upgrade 추가 시 (다음 턴)
+      p._force_quality = 'high';
       const r = await v68Fetch('/api/ai/styling', p);
       if(!r.ok){
         const txt = await r.text().catch(()=>'');
@@ -10446,12 +10480,19 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       img.onload = () => {
         flow._stepCImg = img;                 // 토글 재그리기용 캐시
         box.classList.remove('vto-empty');     // 결과 표시 모드
-        // 박스 크기 확정 후 그리기 (display 전환 직후 rect=0 방지)
-        requestAnimationFrame(() => {
+        // ─── 2026-05-16 KST · TJ 지시 2번 ─── 박스 크기 확정 후 그리기 ───
+        // display 전환 직후 getBoundingClientRect 가 0일 수 있어 최대 5회 재시도
+        const _tryDraw = (attempt) => {
+          const rr = box.getBoundingClientRect();
+          if((rr.width < 10 || rr.height < 10) && attempt < 5){
+            requestAnimationFrame(() => _tryDraw(attempt + 1));
+            return;
+          }
           _renderStepCPose('front');
           _bindStepCPoseToggle();
           resolve();
-        });
+        };
+        requestAnimationFrame(() => _tryDraw(0));
       };
       img.onerror = () => resolve();
       img.src = imageUrl;
