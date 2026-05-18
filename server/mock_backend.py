@@ -5,6 +5,39 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 🔒 [정상 확정 baseline] 2026-05-18 — Q1/Q2 가로 1장 생성 (수정 시 주의)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  이 날짜 기준, 코디핏 Q1·Q2 가 가로 1장(정면+후면)으로 정상 생성됨을
+#  TJ 가 실기기에서 확인함 (closet.html 팝업이미지박스 정상 표시/저장).
+#
+#  [생성 규약 — 바꾸면 closet.html 팝업이 깨진다]
+#   · _gpt_size = "1536x1024" (3:2 가로). gpt-image-2 표준 사이즈.
+#       (≈ line 2993 의 _gpt_size 선언부 — 인라인 🔒 주석 + 강제 교정 있음)
+#     - 1024x1536(세로)·1536x864(16:9 비표준)으로 바꾸지 말 것.
+#       세로로 응답하면 closet.html 이 정면/후면을 못 나눠 짤린다.
+#   · 프롬프트는 "ONE horizontal image / 정면=LEFT · 후면=RIGHT 2명"을
+#     반드시 지시 — _gpt_prompt 조립부(≈ line 2740) 의 _outfit_prompt /
+#     _layout_directives 가 좌우 2명·가로 1장 규약을 담는다.
+#   · 응답은 가로 1장 URL 1개 (jsonify image=f"{base}{rel}").
+#     정면/후면 URL 을 따로 응답하도록 바꾸지 말 것 —
+#     closet.html 은 'image 1개 = 가로 1장' 을 전제로 동작한다.
+#
+#  ※ Q1·Q2·Q3(STEP A/B/C) 모두 동일한 가로 1장 규약을 공유한다.
+#    프롬프트·사이즈 수정 시 closet.html 파일 상단의 동일 baseline
+#    주석(모달 5요소)을 함께 확인할 것.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# ─── 2026-05-18 KST · TJ 지시 (Q3 최종 고화질 → Nano Banana Pro 전환) ───
+#   문제: Q3(_force_quality='high')가 gpt_image_2_high 로 호출 → 생성 60초+
+#         소요로 APITimeoutError 빈발(Render 로그 16:24·16:26 등 86~89초),
+#         결국 Gemini 폴백으로 결과를 냄.
+#   설계 의도: Q3 = Q2 에서 선택한 최종 코디를 확대해도 안 깨지는 고퀄로.
+#   수정(~line 3719): _force_quality=='high' → _override_alias='pro'
+#         (pro = gemini-3-pro-image-preview = Nano Banana Pro, provider=gemini)
+#         · Q1·Q2(_force_quality='low')는 gpt_image_2_low 그대로 유지.
+#         · gpt high 대비 빠르고 저렴, 화질·얼굴 보존 우수.
+#
 # ─── 2026-05-18 KST · TJ 지시 (세로 이미지 출력 버그 수정) ───
 #   증상: 뉴 프롬프트 적용 후 gpt-image-2 가 가로 1536x1024 대신 세로(3:4,
 #         예: 875x1166) 1인 이미지로 출력 → 모달·저장이 세로 한 명만 표시
@@ -2967,6 +3000,9 @@ def _ai_styling_via_gemini(
             # ─── 2026-05-17 KST · TJ 지시 ─── 정/후면 가로 3:2 강제 ───
             # 문제: 환경변수가 'auto'/'1024x1536'(세로) 이면 정면만 세로로 생성됨
             # 수정: 정/후면 2분할은 가로 3:2(1536x1024) 필수 — 다른 값이면 강제 교정
+            # 🔒 baseline 2026-05-18 — 파일 상단 '정상 확정 baseline' 주석 참조.
+            #   이 강제 교정은 closet.html 팝업이미지박스(가로 1장)의 안전장치다.
+            #   아래 if 강제 교정을 제거하거나 세로 사이즈를 허용하지 말 것.
             _gpt_size = os.getenv("CODIBANK_GPT_IMAGE_SIZE", "1536x1024")
             if _gpt_size != "1536x1024":
                 print(f"[ai_styling_gpt_image] ⚠ size={_gpt_size} → 1536x1024 강제 "
@@ -3690,7 +3726,19 @@ def ai_styling():
             payload['weather'] = {}
         payload['weather']['location'] = _force_city
         print(f"[v68 grid] _force_city={_force_city}", flush=True)
-    if _force_quality in ('low', 'medium', 'high'):
+    # ─── 2026-05-18 KST · TJ 지시 ─── Q3 최종 고화질 = Nano Banana Pro ───
+    #   설계 의도: Q3 = Q2 에서 선택한 최종 코디를 "확대해도 깨지지 않는
+    #             고퀄 이미지"로 보는 단계.
+    #   변경 이유: 기존 gpt_image_2_high 는 생성에 60초+ 소요 → 타임아웃
+    #             (APITimeoutError) 빈발 후 Gemini 로 폴백해 결과를 냄.
+    #             그럴 거면 처음부터 Nano Banana Pro 로 직행 — 더 빠르고
+    #             저렴하며 화질·얼굴 보존이 우수.
+    #   매핑: alias 'pro' → gemini-3-pro-image-preview (provider=gemini).
+    #   ※ Q1·Q2(_force_quality='low')는 기존 gpt_image_2_low 그대로 유지.
+    if _force_quality == 'high':
+        payload['_override_alias'] = 'pro'
+        print(f"[v68 grid] _force_quality=high → Q3 최종 = Nano Banana Pro (alias=pro)", flush=True)
+    elif _force_quality in ('low', 'medium'):
         payload['_override_alias'] = f'gpt_image_2_{_force_quality}'
         print(f"[v68 grid] _force_quality={_force_quality} → alias={payload['_override_alias']}", flush=True)
 
