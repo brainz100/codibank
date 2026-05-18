@@ -10609,6 +10609,12 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       const cityInfo = getGridCities()[flow.stepASelected];
       const p = buildStepAPayload(cityInfo.city);
       p._force_quality = 'high';
+      // ─── 2026-05-18 KST · TJ 지시 ─── Q3 = 선택한 추천 코디를 reference 로 ───
+      //   baseCard.imageUrl = Q1/Q2 에서 사용자가 최종 선택한 이미지.
+      //   서버가 이 이미지를 style reference 로 받아 의상을 99.9% 복제 →
+      //   사용자 얼굴 + 선택 코디로 고화질(Nano Banana Pro) 재생성.
+      //   이게 없으면 서버가 텍스트 조건만으로 새로 생성 → 원본/변형이 임의로 나옴.
+      p._force_ref_image = (baseCard && baseCard.imageUrl) || '';
       const r = await v68Fetch('/api/ai/styling', p);
       if(!r.ok){
         const txt = await r.text().catch(()=>'');
