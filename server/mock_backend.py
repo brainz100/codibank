@@ -5,6 +5,38 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-18 KST · TJ 승인 (뉴 프롬프트 v2026.05.18 — 전체 루프 적용) ───
+#   목적: 설명·중복 문장 제거, 범용(Gemini·GPT Image 공용) 항목식 프롬프트
+#   변경:
+#     1) gemini_prompt 빌더를 항목식으로 재작성 (STEP1~7 설명체 → 8개 항목):
+#        SUBJECT / STYLIST / TPO / OUTFIT-CORE / OUTFIT-OPTIONAL /
+#        CONSISTENCY / IMAGE FORMAT / ANALYSIS REPORT
+#        · 성별·스타일리스트·이미지포맷·일관성을 각 1회만 (이전 2~3회 중복)
+#     2) GPT Image 2 분기: 중복 directive 4개 제거
+#        (_gender_directive/_stylist_directive/_layout_directives/_final_reminder)
+#        → gemini_prompt 에서 '=== ANALYSIS REPORT' 마커부터 끝까지만 제거하여 사용
+#        → _gpt_prompt = _ref_header + _outfit_prompt
+#     3) 길이: STEP A ~4,600자 / STEP B ~5,500자 → 6,500자 안전장치 내 = 절단 없음
+#     4) Gemini 분기: 뉴 gemini_prompt(ANALYSIS 포함) 그대로 사용
+#   적용 범위: STEP A/B/C × (GPT Image 2 / Gemini) 전체 루프 공통
+#
+# ─── 2026-05-18 KST · TJ 지시 (스타일리스트×도시 차별화 누락 검토) ───
+#   문제: 같은 코디 목적이면 도시·AI스타일리스트가 달라도 결과가 비슷
+#   원인: 스타일리스트 차별화 지시는 STEP 3(gemini_prompt)에만 있는데,
+#         GPT Image 2 프롬프트는 _outfit_prompt 4000자 절단 → STEP 3/4가
+#         절단 경계에 걸려 스타일리스트·도시 시그니처가 약화/누락 가능
+#   수정: _stylist_directive 신설 — 스타일리스트명·도시·시그니처 컬러 +
+#         '같은 목적이라도 다른 도시/스타일리스트는 VISIBLY DIFFERENT 결과,
+#         두 스타일리스트가 거의 동일한 룩 금지'를 GPT Image 2 프롬프트
+#         맨 앞에 명시 (4000자 절단과 무관하게 항상 반영)
+#
+# ─── 2026-05-18 KST · TJ 지시 (정/후면 가방 불일치 — 숄더백→백팩) ───
+#   문제: 한 장 안에서 정면=숄더백, 후면=백팩으로 다르게 생성
+#   원인: 정/후면 액세서리 동일 강제가 약함 (가방 종류 미명시)
+#   수정: _layout_directives 11번 신설 + _final_reminder 한 줄 —
+#         정/후면은 같은 사람·같은 촬영, 동일 가방(숄더백은 후면에서도
+#         숄더백, 절대 백팩 아님)·동일 액세서리 명시
+#
 # ─── 2026-05-18 KST · TJ 지시 (밀라노 카드 — 얼굴만 여성·몸 남성 버그) ───
 #   문제: 여성 사용자인데 추천 코디 일부가 남성 체형 + 여성 얼굴로 생성
 #   원인: 성별 명시가 STEP 1 'Gender' 한 줄뿐 → GPT Image 2 가 강하게
@@ -2700,151 +2732,104 @@ def _ai_styling_via_gemini(
         "       just because it looks fashionable — temperature appropriateness comes first.\n"
     )
 
+    # ═══════════════════════════════════════════════════════════════════
+    # ─── 2026-05-18 KST · TJ 승인 ─── 뉴 프롬프트 v2026.05.18 ───────────
+    # 범용(Gemini·GPT Image 공용) 항목식 프롬프트. 설명·중복 문장 제거.
+    #   · 성별/스타일리스트/이미지포맷/일관성 각 1회만 (이전: 2~3회 중복)
+    #   · STEP A/B/C × (GPT Image 2 / Gemini) 전체 루프 공통
+    #   · GPT Image 2 분기는 '=== ANALYSIS REPORT' 마커부터 끝까지 제거
+    #   · 길이 ~2,500자 → 4000자 절단 사실상 불필요 (안전장치만 유지)
+    # ═══════════════════════════════════════════════════════════════════
     gemini_prompt = (
-        # ─────────────────────────────────────────────────────────────
-        # STEP 1: USER DATA — 사용자 데이터 (분석 입력)
-        # ─────────────────────────────────────────────────────────────
-        "=== STEP 1: USER DATA ===\n"
-        "- Face photo: USE THE FIRST REFERENCE IMAGE (provided)\n"
-        f"- Gender: {'female' if gender == 'F' else 'male'}\n"
-        f"- Age group: {age}\n"
-        f"- Body: height {h_int}cm, weight {w_int}kg (BMI {bmi}, {bmi_cat_ko})\n"
-        f"- Body type: {body_type_key or 'standard'}\n"
-        + (f"- ⚠️ AVOID COLORS (STRICT): {_avoid_clean}\n" if _has_avoid else "")
+        "[CODIBANK STYLING PROMPT v2026.05.18]\n"
+        + (f"\n[USER DIRECT REQUEST — highest priority, overrides all templates]\n"
+           f"\"{custom_text}\"\n" if is_custom else "")
 
-        # ─────────────────────────────────────────────────────────────
-        # STEP 2: AVATAR CONSTRUCTION — 임시 아바타 99.9% 사용자 일치
-        # ─────────────────────────────────────────────────────────────
-        + "\n=== STEP 2: AVATAR CONSTRUCTION ===\n"
-        "Construct a fashion-model avatar 99.9% IDENTICAL to this user:\n"
-        "  • FACE — Replicate ALL features from reference EXACTLY (jawline, eyes,\n"
-        "    eyebrows, nose, lips, philtrum, skin tone, hair). NO beautification.\n"
-        f"  • BODY — Match {h_int}cm/{w_int}kg/{bmi_cat_ko} silhouette. "
-        f"The body MUST be unmistakably {'female' if gender == 'F' else 'male'} — "
-        f"{'female' if gender == 'F' else 'male'} physique and silhouette, "
-        f"NEVER the opposite sex regardless of the outfit style.\n"
-        "  • PROPORTION — Fashion-model 8.5 heads, full body visible.\n"
-        "\n" + _build_body_profile_block(gender, age, height, weight, body_type_key, "en") + "\n"
+        + "\n# SUBJECT\n"
+        f"- Sex: {'FEMALE' if gender == 'F' else 'MALE'}. Body, physique and silhouette "
+        f"MUST be {'female' if gender == 'F' else 'male'} — never the opposite sex, even "
+        "if the outfit style is traditionally for the other sex.\n"
+        f"- Age: {age} | Body: {h_int}cm, {w_int}kg, BMI {bmi} ({bmi_cat_ko}) | "
+        f"Body type: {body_type_key or 'standard'}\n"
+        "- Face: replicate the FIRST reference image exactly (jawline, eyes, eyebrows, "
+        "nose, lips, skin tone, hair). No beautification.\n"
+        "- Proportion: fashion-model 8.5 heads, full body visible; head/face not oversized.\n"
+        + (f"- Avoid colors (STRICT — must not appear anywhere): {_avoid_clean}\n"
+           if _has_avoid else "")
+        + _build_body_profile_block(gender, age, height, weight, body_type_key, "en") + "\n"
 
-        # ─────────────────────────────────────────────────────────────
-        # STEP 3: AI STYLIST SELECTION ★ 시그니처 차별화 핵심
-        # ─────────────────────────────────────────────────────────────
-        + "\n=== STEP 3: AI STYLIST SELECTION ★ ===\n"
-        f"Today's matched AI stylist: {stylist_name or 'general expert'}\n"
-        f"  · Active region: {stylist_city or 'Seoul'}\n"
-        + (f"  · Level: {_stylist_level} (experience: {_stylist_exp} years)\n"
-           if (_stylist_level or _stylist_exp) else "")
-        + (f"  · SIGNATURE COLOR (primary): {_stylist_color1}\n"
+        + "\n# STYLIST (differentiator — must visibly shape the result)\n"
+        f"- {stylist_name or 'expert stylist'} \u00b7 {stylist_city or 'Seoul'}"
+        + (f" \u00b7 {_stylist_level}" if _stylist_level else "")
+        + (f" ({_stylist_exp}y)" if _stylist_exp else "")
+        + "\n"
+        + (f"- Signature color: {_stylist_color1}"
+           + (f" | accent: {_stylist_color2}\n" if _stylist_color2 else "\n")
            if _stylist_color1 else "")
-        + (f"  · SIGNATURE ACCENT: {_stylist_color2}\n"
-           if _stylist_color2 else "")
-        + "\n"
-        "STYLIST'S CREATIVE DIRECTION (from their expertise & city aesthetics):\n"
-        + custom_directive + prompt + "\n"
-        "\n"
-        "⚠️ CRITICAL: This stylist's signature colors and aesthetic MUST visibly shape\n"
-        "the final outfit. Different stylists MUST produce VISIBLY DIFFERENT outfits\n"
-        "even with the same user, TPO, and weather. Do NOT default to generic looks.\n"
+        + (f"- Direction: {(custom_directive + prompt).strip()[:1500]}\n"
+           if (custom_directive + prompt).strip() else "")
+        + "- Rule: a different stylist or city MUST yield a visibly different outfit; "
+        "never a generic, safe, default look.\n"
 
-        # ─────────────────────────────────────────────────────────────
-        # STEP 4: TPO ANALYSIS + OUTFIT DECISION
-        # ─────────────────────────────────────────────────────────────
-        + "\n=== STEP 4: TPO ANALYSIS + OUTFIT DECISION ===\n"
+        + "\n# TPO\n"
         f"- Purpose: {purpose_for_analysis}\n"
-        f"- Weather: {int(temp)}°C, {cond}\n"
-        f"- Location: {location or 'Seoul'}\n"
-        + (f"- User custom request: \"{custom_text}\"\n" if is_custom else "")
-        + "\n"
-        "Combining STEP 3 (stylist signature) with the TPO above, decide the outfit:\n"
-        "  → Primary color: should reflect stylist's signature color when appropriate\n"
-        "  → Style direction: must match both TPO and stylist's expertise\n"
+        f"- Weather: {int(temp)}\u00b0C, {cond} | City: {location or 'Seoul'}\n"
         + _temp_gate_block
 
-        # ─────────────────────────────────────────────────────────────
-        # STEP 5: CORE OUTFIT IMAGE GENERATION (필수, 항상)
-        # ─────────────────────────────────────────────────────────────
-        + "\n=== STEP 5: CORE OUTFIT GENERATION (MANDATORY) ===\n"
-        "Generate the avatar wearing these three CORE items (ALL required):\n"
-        "  ⊙ TOP (상의) — clearly visible upper-body garment\n"
-        "  ⊙ BOTTOM (하의) — full ankle-length pants OR skirt as decided in STEP 4\n"
-        "    PANTS: hem just above the shoe. Cropped/7-8 length FORBIDDEN.\n"
-        "  ⊙ SHOES (신발) — both feet visible, identical pair\n"
+        + "\n# OUTFIT - CORE (all 3 required)\n"
+        "- TOP: upper-body garment, clearly visible.\n"
+        "- BOTTOM: full-length pants or skirt; pants hem at the shoe line "
+        "(cropped / 7-8 length forbidden).\n"
+        "- SHOES: both feet visible, identical pair.\n"
 
-        # ─────────────────────────────────────────────────────────────
-        # STEP 6: OPTIONAL ACCESSORIES — 스타일리스트 재량
-        # ─────────────────────────────────────────────────────────────
-        + "\n=== STEP 6: OPTIONAL ACCESSORIES (stylist's discretion) ===\n"
-        "Based on STEP 4 TPO/weather and STEP 3 stylist persona, add ONLY what enhances:\n"
-        "  ◇ OUTER (아우터) — ONLY per the STEP 4 TEMPERATURE GATE (NEVER at 20°C or above)\n"
-        "  ◇ BAG (가방) — if TPO appropriate (office, date, formal)\n"
-        "  ◇ WATCH / SUNGLASSES / HAT — only when fitting\n"
-        "  ◇ SCARF / MUFFLER (스카프·목도리) — ONLY at 0°C or below (winter cold).\n"
-        "    STRICTLY FORBIDDEN above 0°C — never add a scarf/muffler in mild or warm weather.\n"
-        "AVOID over-accessorizing. LESS IS MORE. The STEP 4 TEMPERATURE GATE always wins.\n"
-        "Both feet must wear IDENTICAL socks if socks visible.\n"
+        + "\n# OUTFIT - OPTIONAL (only if it enhances; less is more)\n"
+        "- OUTER: only per the TEMPERATURE GATE above (never at 20\u00b0C or higher).\n"
+        "- BAG / WATCH / JEWELRY / HAT: only if TPO-appropriate.\n"
+        "- SCARF / MUFFLER: only at 0\u00b0C or below.\n"
+        "- The temperature gate always wins over stylist discretion.\n"
 
-        # ─────────────────────────────────────────────────────────────
-        # STEP 7: OUTPUT FORMAT + ANALYSIS REPORT
-        # ─────────────────────────────────────────────────────────────
-        + "\n=== STEP 7: OUTPUT FORMAT + ANALYSIS REPORT ===\n"
-        "[Image format]\n"
-        "- ONE single HORIZONTAL image — NEVER vertical/portrait, NEVER a single-figure image\n"
-        "- Front+back layout in ONE image: LEFT half = front view, RIGHT half = back view\n"
-        "- 3:2 wide landscape aspect ratio (1536 wide × 1024 tall). Each figure ≈ 85% of image height.\n"
-        "- Background: SINGLE SOLID FLAT PASTEL COLOR contrasting with outfit,\n"
-        "  uniform edge-to-edge. NO rooms/streets/walls/gradients/text/logos.\n"
-        "- Photorealistic fashion editorial. Everyday wearable (no avant-garde).\n"
+        + "\n# CONSISTENCY\n"
+        "- Front view and back view are the SAME person in the SAME shoot.\n"
+        "- Identical outfit, identical bag (a shoulder bag stays a shoulder bag - never a "
+        "backpack), identical accessories and shoes on both sides.\n"
 
-        # ═════════════════════════════════════════════════════════════
-        # 분석 리포트 (STEP 7 병행) — JSON 스키마
-        # GPT Image 2 분기에서는 후처리로 이 블록 자동 제거됨
-        # ═════════════════════════════════════════════════════════════
-        + "\n[Analysis report — output as TEXT alongside the image]\n"
-        "Wrap the JSON between exact markers <<<ANALYSIS_JSON>>> and <<<END_ANALYSIS>>> "
-        "with no additional text outside markers.\n"
-        "The JSON MUST follow this EXACT schema:\n"
+        + "\n# IMAGE FORMAT\n"
+        "- ONE horizontal 3:2 image, 1536x1024 px. Never vertical / portrait / square.\n"
+        "- LEFT half = front view; RIGHT half = back view of the same person.\n"
+        "- Each figure approx 85% of image height, centered in its half (~7.5% margin "
+        "top and bottom); never a single figure alone.\n"
+        "- Solid flat pastel background, uniform edge-to-edge; no rooms / walls / gradients.\n"
+        "- Photorealistic fashion editorial, studio lighting. No text, logo, watermark.\n"
+
+        + "\n=== ANALYSIS REPORT (text output) ===\n"
+        "Output the analysis as TEXT after the image, wrapped between exact markers "
+        "<<<ANALYSIS_JSON>>> and <<<END_ANALYSIS>>> (nothing outside the markers).\n"
+        "Schema:\n"
         "{\n"
-        '  "personalColor": {\n'
-        '    "text": "퍼스널컬러 측면 분석 (' + ('English' if _cs_en else '한국어') + ', 250-300자, 사용자 톤에 맞는 컬러 추천 이유와 오늘 코디의 컬러 선택 근거 포함)",\n'
-        '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
-        '  },\n'
-        '  "body": {\n'
-        '    "text": "체형/사이즈 측면 분석 (' + ('English' if _cs_en else '한국어') + ', 250-300자, 키/체중/BMI/체형분류를 반영한 핏과 실루엣 추천 근거)",\n'
-        '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
-        '  },\n'
-        '  "purpose": {\n'
-        '    "text": "코디 목적과 날씨 측면 분석 (' + ("English" if _cs_en else "한국어") + ', 250-300자, 목적/날씨/도시 스타일을 어떻게 반영했는지 설명)",\n'
-        '    "keywords": ["키워드1", "키워드2", "키워드3"]\n'
-        '  },\n'
-        '  "categoryKeywords": {\n'
-        '    "top": "컬러, 아이템 (CORE, must NEVER be empty)",\n'
-        '    "bottom": "컬러, 아이템 (CORE, must NEVER be empty)",\n'
-        '    "shoes": "컬러, 아이템 (CORE, must NEVER be empty)",\n'
-        '    "outer": "컬러, 아이템 (OPTIONAL, empty string if not included)",\n'
-        '    "bag": "컬러, 아이템 (OPTIONAL)",\n'
-        '    "watch": "컬러, 아이템 (OPTIONAL)",\n'
-        '    "sunglasses": "컬러, 아이템 (OPTIONAL)",\n'
-        '    "hat": "컬러, 아이템 (OPTIONAL)",\n'
-        '    "scarf": "컬러, 아이템 (OPTIONAL)",\n'
-        '    "socks": "컬러, 아이템 (OPTIONAL)"\n'
-        '  }\n'
+        '  "personalColor": {"text": "'
+        + ('English' if _cs_en else 'Korean')
+        + ' 250-300 chars", "keywords": ["k1","k2","k3"]},\n'
+        '  "body": {"text": "'
+        + ('English' if _cs_en else 'Korean')
+        + ' 250-300 chars", "keywords": ["k1","k2","k3"]},\n'
+        '  "purpose": {"text": "'
+        + ('English' if _cs_en else 'Korean')
+        + ' 250-300 chars", "keywords": ["k1","k2","k3"]},\n'
+        '  "categoryKeywords": {"top":"\uc0c9\uc0c1, \uc544\uc774\ud15c",'
+        '"bottom":"\uc0c9\uc0c1, \uc544\uc774\ud15c","shoes":"\uc0c9\uc0c1, \uc544\uc774\ud15c",'
+        '"outer":"","bag":"","watch":"","sunglasses":"","hat":"","scarf":"","socks":""}\n'
         "}\n"
-        "RULES:\n"
-        "1. Each text field MUST be 250-300 Korean characters.\n"
-        "2. Each keywords array MUST contain EXACTLY 3 short Korean keywords (2-6 chars).\n"
-        "3. categoryKeywords format: '{색상}, {아이템}' comma-separated.\n"
-        "   First part = COLOR (1-2 words), second part = ITEM (1-3 words).\n"
-        "4. CORE (top/bottom/shoes) MUST NEVER be empty. OPTIONAL uses \"\" if absent.\n"
-        "5. Output ONLY the image AND the marked JSON. Nothing else.\n"
-        # PC AVOID OVERRIDE 첨언
-        + ("\n[CRITICAL — PC AVOID OVERRIDE NOTICE]\n"
-           "사용자가 직접입력으로 본인의 퍼스널컬러 avoid 컬러를 요청했습니다. "
-           "이번 코디는 사용자 요청에 따라 avoid 컬러를 사용했지만, "
-           "personalColor.text 분석에서 반드시 다음 내용을 첨언해야 합니다:\n"
-           "  - '본 코디는 사용자 요청에 따라 [컬러명] 컬러를 사용했습니다.'\n"
-           "  - '다만 [퍼스널컬러 시즌] 톤의 사용자에게는 본래 권장되지 않는 컬러로, "
-           "    얼굴 혈색이 다소 흐려 보일 수 있어 액세서리(립·블러셔·골드 주얼리)로 보완하시면 좋습니다.'\n"
-           "  - 이 첨언이 빠지면 분석 실패로 간주됩니다.\n"
+        "Rules: each text 250-300 chars; each keywords array EXACTLY 3 short Korean words "
+        "(2-6 chars); categoryKeywords value = '{color}, {item}'; CORE (top/bottom/shoes) "
+        "MUST NEVER be empty, OPTIONAL uses \"\" if absent; output ONLY the image and the "
+        "marked JSON.\n"
+        + ("\n[PC AVOID OVERRIDE] \uc0ac\uc6a9\uc790\uac00 \ubcf8\uc778 \ud37c\uc2a4\ub110\ucef4\ub7ec avoid "
+           "\ucef4\ub7ec\ub97c \uc9c1\uc811 \uc694\uccad\ud588\uc2b5\ub2c8\ub2e4. personalColor.text \uc5d0 "
+           "\ubc18\ub4dc\uc2dc \ucca8\uc5b8: \ubcf8 \ucf54\ub514\ub294 \uc0ac\uc6a9\uc790 \uc694\uccad\uc73c\ub85c \ud574\ub2f9 "
+           "\ucef4\ub7ec\ub97c \uc0ac\uc6a9\ud588\uace0, \ud574\ub2f9 \ud37c\uc2a4\ub110\ucef4\ub7ec \ud1a4\uc5d0\ub294 "
+           "\uad8c\uc7a5\ub418\uc9c0 \uc54a\uc544 \uc5bc\uad74 \ud608\uc0c9\uc774 \ud750\ub824 \ubcf4\uc77c \uc218 \uc788\uc73c\ubbc0\ub85c "
+           "\ub9bd\u00b7\ube14\ub7ec\uc154\u00b7\uace8\ub4dc \uc8fc\uc5bc\ub9ac\ub85c \ubcf4\uc644 \uad8c\uc7a5 (\ucca8\uc5b8 "
+           "\ub204\ub77d \uc2dc \ubd84\uc11d \uc2e4\ud328).\n"
            if (isinstance(meta, dict) and meta.get('pc_avoid_override')) else "")
     )
 
@@ -2927,115 +2912,31 @@ def _ai_styling_via_gemini(
                 # 사용자 face 미등록 → generic Korean face 자동 생성
                 _ref_header = "NOTE: No user face reference provided. Generate a natural Korean fashion model face.\n\n"
             
-            # ─── 2026-05-13 KST · TJ 지시 (v66 QUALITY) ─── prompt 단순화 + 패션모델 비율 ───
-            # 배경: medium 품질에서 결과 디테일 부족 + 비율 어색
-            #   원인 분석:
-            #     1) gemini_prompt 28k chars가 GPT Image 2에 noise (Gemini용 한국어 디테일)
-            #     2) 비율 7.5-8 heads는 사실적이지만 패션 화보로는 평범
-            #     3) 90% 세로 사이즈는 답답함
-            #   TJ 선택: medium 유지 + prompt 단순화 / 8.5 heads / 85% 세로
-            # ─── 2026-05-18 KST · TJ 지시 ─── 성별 강조 (밀라노 카드 남성 체형 버그) ───
-            # 문제: STEP 1 'Gender' 한 줄뿐 → GPT Image 2가 강하게 따르는 프롬프트
-            #       앞/끝부분에 성별 없음 → 남성복 키워드(tuxedo 등)에 체형이 끌려가
-            #       얼굴만 여성·몸은 남성으로 생성됨
-            # 수정: 프롬프트 맨 앞(_gender_directive) + 끝(_final_reminder)에 성별 명시
-            _gender_adj  = "female" if gender == "F" else "male"
-            _gender_word = "woman"  if gender == "F" else "man"
-            _opp_adj     = "male"   if gender == "F" else "female"
-            _gender_directive = (
-                "⚠️ SUBJECT SEX (ABSOLUTE — HIGHEST PRIORITY RULE):\n"
-                f"The person is a {_gender_adj.upper()} ({_gender_word}). The uploaded face\n"
-                f"reference photo is a {_gender_word}.\n"
-                f"BOTH the front-view figure AND the back-view figure MUST have an\n"
-                f"unmistakably {_gender_adj} body — {_gender_adj} physique, build, shoulders,\n"
-                f"waist, hips, and overall silhouette.\n"
-                f"NEVER generate a {_opp_adj} body or {_opp_adj} physique under any\n"
-                f"circumstance — not even if the outfit style is traditionally associated\n"
-                f"with the {_opp_adj} sex. A {_opp_adj}-bodied result is a CRITICAL FAILURE.\n"
-                f"The clothing must be styled and tailored for a {_gender_word}.\n\n"
-            )
-
-            _layout_directives = (
-                "COMPOSITION REQUIREMENTS (CRITICAL - FOLLOW EXACTLY):\n"
-                "1. CANVAS: ONE single HORIZONTAL 3:2 landscape image (1536 wide x 1024 tall pixels),\n"
-                "   split into two equal vertical halves. It is ALWAYS a wide horizontal image —\n"
-                "   NEVER a vertical/portrait image, NEVER a square image.\n"
-                "   NEVER generate a single figure alone — the image MUST contain BOTH views.\n"
-                "2. LEFT HALF (0% to 50% horizontal): FRONT view of the person — face fully visible, looking at camera.\n"
-                "3. RIGHT HALF (50% to 100% horizontal): BACK view of the SAME person — rear view, no face visible.\n"
-                "4. HORIZONTAL CENTERING: Each figure perfectly centered within its own half.\n"
-                "   - Front figure: horizontal center at 25% of total image width\n"
-                "   - Back figure: horizontal center at 75% of total image width\n"
-                "5. VERTICAL SIZING: Each figure's total height = approximately 85% of image height.\n"
-                "   - Leave ~7.5% empty space above the head (top margin)\n"
-                "   - Leave ~7.5% empty space below the feet (bottom margin)\n"
-                "   - The figure must NOT touch the top or bottom edge of the image\n"
-                "6. FASHION MODEL PROPORTIONS (IMPORTANT):\n"
-                "   - Body height = approximately 8.5 head heights (elegant fashion model proportions)\n"
-                "   - Face height ≈ 1/8.5 of total figure height — keep face SMALL relative to body\n"
-                "   - Upper body : lower body ratio ≈ 1 : 1.15 (legs slightly longer for elegance)\n"
-                "   - Shoulder width ≈ 2 head widths\n"
-                "   - Slim, tall, balanced silhouette (editorial fashion editorial style)\n"
-                "   - Do NOT make the head or face oversized — this is a common mistake to avoid\n"
-                "7. BACKGROUND: Clean, solid, soft neutral color (pale blue, off-white, or soft gray).\n"
-                "8. PHOTOGRAPHY STYLE: Editorial fashion photography, sharp focus, professional studio lighting, high detail on garments and accessories.\n"
-                "9. NO text, NO logos, NO watermarks, NO UI elements anywhere in the image.\n"
-                "10. Both figures wear the EXACT SAME outfit — identical colors, identical garments, identical accessories.\n\n"
-            )
-            
-            # ─── 2026-05-13 KST · TJ 지시 (v66 QUALITY) ─── prompt 28k → 4k 단순화 ───
-            # 이유: gemini_prompt 28k chars는 Gemini용 디테일(4-Pass, DNA, 액세서리 다양성 등)이라
-            #       GPT Image 2에는 오히려 noise. 핵심 정보(스타일리스트/색상/카테고리/사용자)는
-            #       gemini_prompt 첫 부분에 위치하므로 4000자만 발췌.
-            # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1) ─── prompt 후처리 강화 ───
-            # 단순 slice → 정규식 후처리로 변경:
-            #   A) JSON 분석 스키마 블록 제거 (GPT Image 2는 텍스트 출력 안 함 → 토큰 낭비)
-            #   B) 퍼스널컬러 "베스트: ..." 줄 제거 (TJ 지적: 추천 컬러 명시 → 이미지 다양성 저하)
-            #   C) 퍼스널컬러 "주의: ..." 줄을 AVOID COLORS strict로 강조 변환
-            #      → 추천 컬러는 분석 보고서에서만 다루고, 이미지에는 미명시 (TJ 결정)
-            #   D) 마지막에 4000자 길이 제한
+            # ─── 2026-05-18 KST · TJ 승인 ─── 뉴 프롬프트 v2026.05.18 적용 ───
+            # gemini_prompt 자체가 항목식·범용으로 재작성됨 → 별도 directive
+            # (_gender_directive / _stylist_directive / _layout_directives /
+            #  _final_reminder) 불필요 (중복 제거). GPT Image 2 분기는
+            # gemini_prompt 에서 ANALYSIS 블록만 제거하고 그대로 사용.
             import re as _re_pp
             _outfit_prompt = gemini_prompt
-            # A) JSON 스키마 블록 제거 (인덱스 기반 — 정규식 fragile 회피)
-            _json_start = _outfit_prompt.find("=== CRITICAL OUTPUT INSTRUCTIONS ===")
-            if _json_start != -1:
-                _json_end_marker = "Output ONLY the image AND the marked JSON. Nothing else."
-                _json_end = _outfit_prompt.find(_json_end_marker, _json_start)
-                if _json_end != -1:
-                    _outfit_prompt = (
-                        _outfit_prompt[:_json_start].rstrip()
-                        + "\n"
-                        + _outfit_prompt[_json_end + len(_json_end_marker):]
-                    )
-            # B) "베스트: ..." 줄 제거 (퍼스널컬러 추천 컬러 — 이미지 다양성 확보)
-            _outfit_prompt = _re_pp.sub(r'\s*베스트:[^\n]*\n', '\n', _outfit_prompt)
-            # C) "주의: ..." 줄을 AVOID COLORS strict로 강조 변환
-            #    예외: "탁한 톤" (default fallback, 의미 없는 placeholder) 케이스는 줄 자체 제거
+            # ANALYSIS REPORT 블록 제거 (GPT Image 2는 텍스트 분석을 출력하지 않음)
+            _an_start = _outfit_prompt.find("=== ANALYSIS REPORT (text output) ===")
+            if _an_start != -1:
+                _outfit_prompt = _outfit_prompt[:_an_start].rstrip() + "\n"
+            # 퍼스널컬러 "베스트:" 줄 제거(이미지 다양성), "주의:" 줄 AVOID 강조 변환
+            _outfit_prompt = _re_pp.sub(r'\s*\ubca0\uc2a4\ud2b8:[^\n]*\n', '\n', _outfit_prompt)
             def _avoid_replace(_m):
                 _v = _m.group(1).strip()
-                if not _v or _v == "탁한 톤":
+                if not _v or _v == "\ud0c1\ud55c \ud1a4":
                     return "\n"
-                return f"\n  ⚠️ AVOID COLORS (must NOT appear anywhere in the outfit): {_v}\n"
-            _outfit_prompt = _re_pp.sub(r'\s*주의:\s*([^\n]+)\n', _avoid_replace, _outfit_prompt)
-            # D) 길이 제한
-            if len(_outfit_prompt) > 4000:
-                _outfit_prompt = _outfit_prompt[:4000]
-            
-            # FINAL REMINDER (prompt 끝에 강조) — GPT Image 2는 끝부분 지시를 강하게 따름
-            _final_reminder = (
-                "\n\n=== FINAL REMINDER (most critical) ===\n"
-                f"- SUBJECT SEX: the person is a {_gender_word} — body, physique, and\n"
-                f"  silhouette MUST be clearly {_gender_adj}, NEVER {_opp_adj}\n"
-                "- ONE single 3:2 wide HORIZONTAL image (1536 wide x 1024 tall) — NEVER vertical, NEVER portrait, NEVER square\n"
-                "- The image MUST contain TWO figures side-by-side: LEFT half = front view, RIGHT half = back view\n"
-                "- NEVER generate only one figure. NEVER omit the back view. NEVER split into separate images.\n"
-                "- Each figure height = 85% of image height (figure must NOT fill entire canvas)\n"
-                "- Body = 8.5 head heights — DO NOT enlarge the face\n"
-                "- Face should appear small and proportional to a tall slim fashion model body\n"
-                "- Clean solid pale background. No text, no logos, no watermarks.\n"
-            )
-            
-            _gpt_prompt = _ref_header + _gender_directive + _layout_directives + _outfit_prompt + _final_reminder
+                return f"\n- Avoid colors (STRICT - must not appear anywhere): {_v}\n"
+            _outfit_prompt = _re_pp.sub(r'\s*\uc8fc\uc758:\s*([^\n]+)\n', _avoid_replace, _outfit_prompt)
+            # 안전장치 길이 제한 (뉴 프롬프트 STEP A ~4,600자 / STEP B ~5,500자
+            # → 6,500자 한도 내 = 절단 없음. 만일의 초장문 입력만 방어)
+            if len(_outfit_prompt) > 6500:
+                _outfit_prompt = _outfit_prompt[:6500]
+
+            _gpt_prompt = _ref_header + _outfit_prompt
             
             # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1) ─── 사이즈 표준 3:2로 변경 ───
             # 이전: "1536x864" (16:9) — 정/후면 각 768x864 (8:9 세로형, 약간 비좁음)
