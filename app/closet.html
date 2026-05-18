@@ -7,6 +7,27 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-18 KST · TJ 지시 (모달 — 원본 가로 이미지 + 스와이프 재설계) ───
+  문제: ① 저장/공유가 여전히 정면/후면 절반만 첨부됨
+        ② 모달 이미지뷰박스 위·아래에 여백
+  원인: drawModalPose() 가 원본 wide 를 canvas 로 좌/우 절반 잘라 그림
+        → 표시·저장 불일치 + 박스 비율 ≠ 절반 비율 → 상하 여백
+  수정:
+    · HTML: <canvas> → <div.expand-modal-scroller><img#expandModalImg>
+    · CSS : imgbox aspect-ratio 3/4(정면 절반 비율 → 여백 제거),
+            scroller overflow-x:auto(스크롤바 숨김), img height:100%
+    · JS  : drawModalPose 삭제 → showModalPose(pose,smooth) = scrollLeft
+            이동(정면=0 / 후면=maxLeft) + _initModalScrollSync() = 스와이프
+            → 토글 active 동기화. toggleModalPose 는 showModalPose 호출
+    · 저장/공유: _getModalFullBlob() 이 원본 <img#expandModalImg> 직접
+            캔버스화 → 표시=저장=공유 모두 동일한 원본 가로 1장
+
+─── 2026-05-18 KST · TJ 지시 3번 (모달 저장/공유 = 가로 1장 전체) ───
+  버그: onModalSave/Share 가 expandModalCanvas(현재 토글된 절반만)를
+        저장 → 정면 토글 시 정면 절반(세로 한 명)만 저장/공유됨
+  수정: _getModalFullBlob() — 원본 wide 이미지(flow.modalImageUrl) 전체를
+        임시 캔버스에 그려 blob 화 → 항상 가로 3:2 한 장(정면+후면) 저장/공유
+
 ─── 2026-05-18 KST · TJ 지시 (성별 버그 근본 원인 — 4장 모두 남성) ───
   버그: 여성 사용자인데 코디핏 Q1/Q2/Q3 추천 코디가 모두 남성으로 생성
   원인: buildStepAPayload() 안의 'const user = (S.user||window.user||{})'
@@ -1900,24 +1921,38 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   padding-left: 8px;
   text-align: center;
 }
+/* ─── 2026-05-18 KST · TJ 지시 ─── 원본 가로 이미지 + 가로 스와이프 ───
+   imgbox 를 정면 절반(768×1024 = 3:4) 비율로 → 위아래 여백 제거.
+   원본 wide(1536×1024) 이미지를 height 100%로 넣어 가로 2배 → 스크롤. */
 .expand-modal-imgbox{
   position: relative;
   width: 100%;
-  /* ─── 2026-05-18 KST · TJ 지시 2번 ─── 버튼 3개 한 줄로 줄어든 만큼 더 확대 ─── */
-  height: 64vh;
+  aspect-ratio: 3 / 4;            /* 정면 절반 비율 — 상하 여백 없음 */
   max-height: 600px;
   border-radius: 12px;
   overflow: hidden;
-  background: linear-gradient(160deg, #f5f7fb 0%, #e8eef5 100%);   /* 이미지 흰 배경 매칭 */
+  background: linear-gradient(160deg, #f5f7fb 0%, #e8eef5 100%);
   border: 1px solid rgba(151, 254, 237, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
-.expand-modal-imgbox canvas{
+.expand-modal-scroller{
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  scrollbar-width: none;          /* Firefox */
+}
+.expand-modal-scroller::-webkit-scrollbar{ display: none; }   /* Chrome/Safari */
+.expand-modal-img{
+  height: 100%;
+  width: auto;
+  max-width: none;
   display: block;
+  user-select: none;
+  -webkit-user-drag: none;
 }
-/* ─── 2026-05-18 KST · TJ 지시 1번 ─── 정면=왼쪽 / 후면=오른쪽 끝으로 분리 ─── */
+/* ─── 정면=왼쪽 / 후면=오른쪽 끝 ─── (토글 wrap은 스와이프 통과) */
 .expand-modal-toggle{
   position: absolute;
   bottom: 10px;
@@ -1926,8 +1961,10 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   display: flex;
   justify-content: space-between;
   z-index: 3;
+  pointer-events: none;
 }
 .expand-pose-btn{
+  pointer-events: auto;
   font-size: 11px;
   font-weight: 700;
   padding: 7px 22px;
@@ -10184,9 +10221,17 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       _renderModalCody(null, 'loading');   // '스타일링 분석 중입니다…'
       _fetchModalOutfit(card);
     }
-    // 캔버스 재그리기 (정면 초기 표시)
+    // ─── 2026-05-18 KST · TJ 지시 ─── 원본 가로 이미지 직접 표시 ───
     flow.modalImageUrl = card.imageUrl;
-    drawModalPose('front');
+    flow.modalCurrentPose = 'front';
+    const _mImg = $('expandModalImg');
+    if(_mImg){
+      _mImg.onload = () => { showModalPose('front', false); };
+      _mImg.src = card.imageUrl || '';
+      // 캐시 HIT 시 onload 미발화 → complete 즉시 처리
+      if(_mImg.complete && _mImg.naturalWidth){ showModalPose('front', false); }
+    }
+    _initModalScrollSync();
     document.querySelectorAll('.expand-pose-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.pose === 'front');
     });
@@ -10229,67 +10274,48 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   // ─── 2026-05-16 KST · TJ 지시 2번 ─── 캔버스 재그리기 방식 (정/후면 정확 분할) ───
   // 이전: 캔버스 2배폭 + 가로 스크롤 → scroll-snap 미작동·_adj 보정으로 경계 어긋남
   // 변경: 캔버스 = 박스 크기. pose에 따라 이미지 좌/우 절반만 cover로 재그림.
-  let _modalImgCache = null;      // 로드된 Image 객체 (toggle 시 재사용)
-  let _modalImgCacheUrl = '';
-  function drawModalPose(pose){
-    const canvas = $('expandModalCanvas');
-    const box = $('expandModalImgBox');
-    if(!canvas || !box) return;
-    const url = flow.modalImageUrl || '';
-    if(!url) return;
-    const render = (img) => {
-      const DPR = window.devicePixelRatio || 1;
-      const iw = img.naturalWidth || img.width;
-      const ih = img.naturalHeight || img.height;
-      if(!iw || !ih) return;
-      const boxRect = box.getBoundingClientRect();
-      const boxW = Math.max(1, Math.round(boxRect.width));
-      const boxH = Math.max(1, Math.round(boxRect.height));
-      // wide(16:9 등) → 좌/우 절반 분할 / 아니면 전체
-      const isWide = (iw / ih) > 1.2;
-      let srcX, srcW;
-      if(isWide){
-        const half = iw / 2;
-        srcX = (pose === 'back') ? half : 0;
-        srcW = half;
-      }else{
-        srcX = 0; srcW = iw;
-      }
-      // ─── 2026-05-16 KST · TJ 지시 2번 ─── contain 방식 (잘림 없음) ───
-      // 캔버스를 이미지(절반) 비율대로 만들어 박스 안에 전체가 들어가게.
-      // 박스 세로 우선, 가로가 박스를 넘으면 가로 기준으로 축소.
-      const srcRatio = srcW / ih;
-      let cw = boxH * srcRatio;
-      let ch = boxH;
-      if(cw > boxW){
-        cw = boxW;
-        ch = boxW / srcRatio;
-      }
-      canvas.width  = Math.round(cw * DPR);
-      canvas.height = Math.round(ch * DPR);
-      canvas.style.width  = cw + 'px';
-      canvas.style.height = ch + 'px';
-      const ctx = canvas.getContext('2d');
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-      ctx.clearRect(0, 0, cw, ch);
-      // 선택된 절반 전체를 캔버스에 그림 (잘림 없음)
-      ctx.drawImage(img, srcX, 0, srcW, ih, 0, 0, cw, ch);
-    };
-    if(_modalImgCache && _modalImgCacheUrl === url){
-      render(_modalImgCache);
-    }else{
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => { _modalImgCache = img; _modalImgCacheUrl = url; render(img); };
-      img.src = url;
-    }
+  // ─── 2026-05-18 KST · TJ 지시 ─── 원본 가로 이미지 + 스와이프 ───
+  //   이전: canvas 로 wide 이미지를 좌/우 절반으로 잘라 그림 → 저장/공유가
+  //         '절반'만 됨. 표시·저장 불일치.
+  //   변경: 원본 wide <img> 를 스크롤 컨테이너에 그대로 두고, 정면/후면 토글은
+  //         scrollLeft 이동으로 해당 절반을 뷰박스에 맞춤. 좌우 스와이프도 지원.
+  //         저장/공유는 동일한 원본 <img> 를 쓰므로 항상 가로 1장.
+  function showModalPose(pose, smooth){
+    const sc = $('expandModalScroller');
+    const img = $('expandModalImg');
+    if(!sc || !img) return;
+    flow.modalCurrentPose = pose;
+    const maxLeft = Math.max(0, img.scrollWidth - sc.clientWidth);
+    const target = (pose === 'back') ? maxLeft : 0;   // 정면=왼쪽, 후면=오른쪽
+    try{ sc.scrollTo({ left: target, behavior: smooth ? 'smooth' : 'auto' }); }
+    catch(_){ sc.scrollLeft = target; }
+    document.querySelectorAll('.expand-pose-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.pose === pose));
+  }
+  // 스와이프(자유 스크롤) → 토글 버튼 active 동기화
+  function _initModalScrollSync(){
+    const sc = $('expandModalScroller');
+    const img = $('expandModalImg');
+    if(!sc || !img || sc._syncBound) return;
+    sc._syncBound = true;
+    let _raf = 0;
+    sc.addEventListener('scroll', () => {
+      if(_raf) return;
+      _raf = requestAnimationFrame(() => {
+        _raf = 0;
+        if(!img.scrollWidth) return;
+        const mid = sc.scrollLeft + sc.clientWidth / 2;
+        const pose = (mid > img.scrollWidth / 2) ? 'back' : 'front';
+        if(pose !== flow.modalCurrentPose){
+          flow.modalCurrentPose = pose;
+          document.querySelectorAll('.expand-pose-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.pose === pose));
+        }
+      });
+    }, { passive: true });
   }
   function toggleModalPose(pose){
-    flow.modalCurrentPose = pose;
-    document.querySelectorAll('.expand-pose-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.pose === pose);
-    });
-    drawModalPose(pose);
+    showModalPose(pose, true);
   }
 
   // ─── 모달 "이 코디 선택" → 커스텀 3버튼 팝업 ───
@@ -10780,16 +10806,40 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     }
     return (flow.stepACards && flow.stepACards[idx]) || null;
   }
+  // ─── 2026-05-18 KST · TJ 지시 ─── 저장/공유 = 원본 가로 1장(정면+후면) 전체 ───
+  //   모달이 표시하는 원본 <img id="expandModalImg"> 를 그대로 캔버스에 그려 blob 화.
+  //   표시 = 저장 = 공유 모두 동일한 원본 wide 이미지 → 항상 가로 3:2 한 장.
+  async function _getModalFullBlob(){
+    let img = $('expandModalImg');
+    // 모달 이미지가 아직 로드 전이면 URL 로 직접 로드
+    if(!img || !img.complete || !(img.naturalWidth)){
+      const url = flow.modalImageUrl || '';
+      if(!url) return null;
+      img = await new Promise((rs, rj) => {
+        const im = new Image();
+        im.crossOrigin = 'anonymous';
+        im.onload = () => rs(im);
+        im.onerror = () => rj(new Error('img load 실패'));
+        im.src = url;
+      });
+    }
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if(!iw || !ih) return null;
+    const c = document.createElement('canvas');
+    c.width = iw; c.height = ih;
+    c.getContext('2d').drawImage(img, 0, 0);
+    return await new Promise((rs) => c.toBlob(rs, 'image/jpeg', 0.95));
+  }
   async function onModalSaveImage(){
-    const canvas = $('expandModalCanvas');
-    if(!canvas || !canvas.width){
+    let blob = null;
+    try{ blob = await _getModalFullBlob(); }catch(_){}
+    if(!blob){
       if(flow.modalImageUrl){ window.open(flow.modalImageUrl, '_blank'); }
       else alert('이미지가 없습니다.');
       return;
     }
     try{
-      const blob = await new Promise((rs) => canvas.toBlob(rs, 'image/jpeg', 0.95));
-      if(!blob) throw new Error('toBlob 실패');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -10800,20 +10850,16 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       setTimeout(() => URL.revokeObjectURL(url), 1500);
     }catch(err){
       console.error('[모달 저장]', err);
-      // 캔버스가 CORS-tainted 등으로 실패 → 현재 모달 이미지 URL 새 탭
       if(flow.modalImageUrl) window.open(flow.modalImageUrl, '_blank');
       else alert('저장에 실패했습니다.');
     }
   }
   async function onModalShareImage(){
-    const canvas = $('expandModalCanvas');
     const card = _getCurrentModalCard() || {};
     const stylistName = (card.stylist && card.stylist.name) ? (card.stylist.name + ' 스타일리스트') : '';
     const shareText = `[CodiBank] ${stylistName ? stylistName + '의 ' : ''}코디 추천`;
     let blob = null;
-    if(canvas && canvas.width){
-      try{ blob = await new Promise((rs) => canvas.toBlob(rs, 'image/jpeg', 0.95)); }catch(_){}
-    }
+    try{ blob = await _getModalFullBlob(); }catch(_){}
     if(navigator.share){
       try{
         let files = [];
@@ -10859,9 +10905,11 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       <button class="expand-modal-close" id="expandModalClose" aria-label="닫기">
         <span class="material-symbols-outlined" style="font-size:20px;">close</span>
       </button>
+      <!-- ─── 2026-05-18 KST · TJ 지시 ─── 원본 가로 이미지 + 스와이프 ─── -->
       <div class="expand-modal-imgbox" id="expandModalImgBox">
-        <canvas id="expandModalCanvas"></canvas>
-        <!-- ─── 2026-05-16 KST · TJ 지시 1.1 ─── 토글을 이미지박스 위에 레이어드 ─── -->
+        <div class="expand-modal-scroller" id="expandModalScroller">
+          <img id="expandModalImg" class="expand-modal-img" alt="" crossorigin="anonymous" />
+        </div>
         <div class="expand-modal-toggle">
           <button type="button" class="expand-pose-btn active" data-pose="front">정면</button>
           <button type="button" class="expand-pose-btn" data-pose="back">후면</button>
