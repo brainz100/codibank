@@ -5,6 +5,18 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-17 KST · TJ 지시 (코디핏 이미지 정/후면 분리 — 가로 3:2 강제) ───
+#   문제: Q1/Q2/Q3 추천 코디가 정면만 세로로 생성되거나 정/후면이 분리됨
+#   원인: ① 프롬프트는 '16:9'인데 _gpt_size 는 '1536x1024'(3:2) — 불일치
+#         ② CODIBANK_GPT_IMAGE_SIZE 환경변수가 세로/auto 면 세로 출력
+#         ③ '단일 이미지에 정/후면 둘 다' 강제가 약함 → 정면 1명만 생성
+#   수정 (STEP A/B/C 공통 _ai_styling_via_gemini, GPT Image 2 분기):
+#     1) _gpt_size: '1536x1024' 아니면 강제 교정 (정/후면 가로 3:2 필수)
+#     2) _layout_directives: '16:9'→'3:2', 'ONE horizontal image,
+#        NEVER vertical/portrait, NEVER single figure' 명시
+#     3) _final_reminder: '16:9'→'3:2', 정/후면 누락·분리 금지 강조
+#     4) STEP 7 [Image format]: '16:9'→'3:2 (1536x1024)', 단일 이미지 금지
+#
 # ─── 2026-05-17 KST · TJ 승인 (온도 의류 게이트 — closet.html 규칙 이식) ───
 #   배경: closet.html(line 5189~5212)에 강한 온도 규칙이 있었으나
 #         S.imagePrompt='' 차단으로 STEP A/B/C(서버 엔진)엔 미적용
@@ -2761,8 +2773,9 @@ def _ai_styling_via_gemini(
         # ─────────────────────────────────────────────────────────────
         + "\n=== STEP 7: OUTPUT FORMAT + ANALYSIS REPORT ===\n"
         "[Image format]\n"
-        "- Front+back layout: LEFT = front view, RIGHT = back view\n"
-        "- 16:9 wide aspect ratio. Each figure ≈ 85% of image height.\n"
+        "- ONE single HORIZONTAL image — NEVER vertical/portrait, NEVER a single-figure image\n"
+        "- Front+back layout in ONE image: LEFT half = front view, RIGHT half = back view\n"
+        "- 3:2 wide landscape aspect ratio (1536 wide × 1024 tall). Each figure ≈ 85% of image height.\n"
         "- Background: SINGLE SOLID FLAT PASTEL COLOR contrasting with outfit,\n"
         "  uniform edge-to-edge. NO rooms/streets/walls/gradients/text/logos.\n"
         "- Photorealistic fashion editorial. Everyday wearable (no avant-garde).\n"
@@ -2908,7 +2921,10 @@ def _ai_styling_via_gemini(
             #   TJ 선택: medium 유지 + prompt 단순화 / 8.5 heads / 85% 세로
             _layout_directives = (
                 "COMPOSITION REQUIREMENTS (CRITICAL - FOLLOW EXACTLY):\n"
-                "1. CANVAS: 16:9 wide landscape, single image split into two equal vertical halves.\n"
+                "1. CANVAS: ONE single HORIZONTAL 3:2 landscape image (1536 wide x 1024 tall pixels),\n"
+                "   split into two equal vertical halves. It is ALWAYS a wide horizontal image —\n"
+                "   NEVER a vertical/portrait image, NEVER a square image.\n"
+                "   NEVER generate a single figure alone — the image MUST contain BOTH views.\n"
                 "2. LEFT HALF (0% to 50% horizontal): FRONT view of the person — face fully visible, looking at camera.\n"
                 "3. RIGHT HALF (50% to 100% horizontal): BACK view of the SAME person — rear view, no face visible.\n"
                 "4. HORIZONTAL CENTERING: Each figure perfectly centered within its own half.\n"
@@ -2972,7 +2988,9 @@ def _ai_styling_via_gemini(
             # FINAL REMINDER (prompt 끝에 강조) — GPT Image 2는 끝부분 지시를 강하게 따름
             _final_reminder = (
                 "\n\n=== FINAL REMINDER (most critical) ===\n"
-                "- 16:9 wide image, TWO figures side-by-side (LEFT=front, RIGHT=back)\n"
+                "- ONE single 3:2 wide HORIZONTAL image (1536 wide x 1024 tall) — NEVER vertical, NEVER portrait, NEVER square\n"
+                "- The image MUST contain TWO figures side-by-side: LEFT half = front view, RIGHT half = back view\n"
+                "- NEVER generate only one figure. NEVER omit the back view. NEVER split into separate images.\n"
                 "- Each figure height = 85% of image height (figure must NOT fill entire canvas)\n"
                 "- Body = 8.5 head heights — DO NOT enlarge the face\n"
                 "- Face should appear small and proportional to a tall slim fashion model body\n"
@@ -2985,7 +3003,14 @@ def _ai_styling_via_gemini(
             # 이전: "1536x864" (16:9) — 정/후면 각 768x864 (8:9 세로형, 약간 비좁음)
             # 변경: "1536x1024" (3:2) — 정/후면 각 768x1024 (3:4 세로형, 가독성 ↑)
             # gpt-image-2의 standard size 중 하나라 안정적 + 캐시 효율 ↑
+            # ─── 2026-05-17 KST · TJ 지시 ─── 정/후면 가로 3:2 강제 ───
+            # 문제: 환경변수가 'auto'/'1024x1536'(세로) 이면 정면만 세로로 생성됨
+            # 수정: 정/후면 2분할은 가로 3:2(1536x1024) 필수 — 다른 값이면 강제 교정
             _gpt_size = os.getenv("CODIBANK_GPT_IMAGE_SIZE", "1536x1024")
+            if _gpt_size != "1536x1024":
+                print(f"[ai_styling_gpt_image] ⚠ size={_gpt_size} → 1536x1024 강제 "
+                      f"(정/후면 가로 3:2 레이아웃 필수)", flush=True)
+                _gpt_size = "1536x1024"
             
             # face/top/bottom 유무에 따라 API 분기
             #   - 이미지 reference 있음 → images.edit
