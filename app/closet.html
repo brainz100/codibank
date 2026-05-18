@@ -7,6 +7,16 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-18 KST · TJ 지시 (성별 버그 근본 원인 — 4장 모두 남성) ───
+  버그: 여성 사용자인데 코디핏 Q1/Q2/Q3 추천 코디가 모두 남성으로 생성
+  원인: buildStepAPayload() 안의 'const user = (S.user||window.user||{})'
+        가 파일 상단 전역 user(CodiBank.getCurrentUser())를 빈 객체로
+        가림(shadowing). S.user·window.user 둘 다 존재하지 않아
+        user={} → payload.user.gender='' → 서버가 빈 값을 'M'으로
+        정규화 → 전부 남성. (서버 성별 강조가 무의미했던 진짜 이유)
+  수정: buildStepAPayload 내 지역 user 선언 제거 → 전역 user 사용
+        STEP A/B/C 모두 buildStepAPayload 재사용 → 한 곳 수정으로 해결
+
 ─── 2026-05-18 KST · TJ 지시 (모달 토글 위치 / 버튼 한 줄) ───
   1) 정/후면 토글 — 이미지박스 하단 좌우 끝으로 분리
      · 이전: 중앙에 모임 → 변경: 정면=왼쪽 끝, 후면=오른쪽 끝
@@ -9869,8 +9879,14 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   function buildStepAPayload(forceCity){
     // window.S 와 사용자 컨텍스트에서 payload 추출
     // 핵심: 기존 callRemote가 만든 payload 구조를 재현
+    // ─── 2026-05-18 KST · TJ 지시 (성별 버그 근본 원인 수정) ───
+    //   버그: 'const user = (S.user || window.user || {})' 가 전역 user 를
+    //         빈 객체로 가림(shadowing) → S.user/window.user 둘 다 없어서
+    //         user={} → user.gender='' → 서버가 빈 값을 'M'으로 정규화
+    //         → 여성 사용자인데 4장 모두 남성으로 생성
+    //   수정: 지역 user 선언 제거 → 파일 상단 전역 user(CodiBank.getCurrentUser())
+    //         를 그대로 사용 (gender/ageGroup/height/weight 정상 포함)
     const S = window.S || {};
-    const user = (S.user || (window.user) || {});  // S.user 또는 글로벌 user
     const wx = (S.wx || {});
     const _userTier = (window.CodiBank && CB.getCurrentTier) ? CB.getCurrentTier() : 'FREE';
     // 월별 기준 온도 (4-10월 max*0.94, 11-3월 min*0.90)
