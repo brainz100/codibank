@@ -5,6 +5,19 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-18 KST · TJ 지시 (세로 이미지 출력 버그 수정) ───
+#   증상: 뉴 프롬프트 적용 후 gpt-image-2 가 가로 1536x1024 대신 세로(3:4,
+#         예: 875x1166) 1인 이미지로 출력 → 모달·저장이 세로 한 명만 표시
+#   진단: 과거 저장본 실측 — 05:48 건 1536x1024(가로), 09:03 건 875x1166(세로).
+#         유일한 변화 = 뉴 프롬프트. 구버전은 _layout_directives(11항목 상세)+
+#         _final_reminder 가 가로 지시를 프롬프트 맨 앞·맨 끝 2회 강하게 배치 →
+#         gpt-image-2 가 size 파라미터보다 프롬프트를 따라 가로 유지.
+#         뉴 프롬프트는 IMAGE FORMAT 을 맨 뒤·1회로 축소 → 가로 지시 약화 →
+#         gpt-image-2 가 input(세로 얼굴사진) 비율로 세로 출력.
+#   수정: gemini_prompt 의 IMAGE FORMAT 블록을 '# OUTPUT IMAGE FORMAT
+#         (MOST CRITICAL — APPLY FIRST)' 로 강화하여 프롬프트 맨 앞(헤더 직후,
+#         SUBJECT 보다 먼저)으로 이동. 1536x1024·가로·정면후면 2인을 최우선 명시.
+#
 # ─── 2026-05-18 KST · TJ 승인 (뉴 프롬프트 v2026.05.18 — 전체 루프 적용) ───
 #   목적: 설명·중복 문장 제거, 범용(Gemini·GPT Image 공용) 항목식 프롬프트
 #   변경:
@@ -2742,6 +2755,23 @@ def _ai_styling_via_gemini(
     # ═══════════════════════════════════════════════════════════════════
     gemini_prompt = (
         "[CODIBANK STYLING PROMPT v2026.05.18]\n"
+
+        + "\n# OUTPUT IMAGE FORMAT (MOST CRITICAL — APPLY FIRST)\n"
+        "- The output MUST be ONE single HORIZONTAL image, exactly 1536x1024 pixels "
+        "(3:2 landscape — WIDER than tall).\n"
+        "- NEVER vertical, NEVER portrait, NEVER square, NEVER a 3:4 image. "
+        "A vertical or single-figure image is a CRITICAL FAILURE.\n"
+        "- The image contains TWO full-body figures SIDE BY SIDE in one frame:\n"
+        "  - LEFT half (0-50% width) = FRONT view, face visible, looking at camera.\n"
+        "  - RIGHT half (50-100% width) = BACK view of the SAME person, no face.\n"
+        "- NEVER generate only one figure. NEVER omit the back view. NEVER split into "
+        "two separate images.\n"
+        "- Each figure approx 85% of image height, centered in its own half "
+        "(~7.5% empty margin above the head and below the feet).\n"
+        "- Background: ONE solid flat pastel color, uniform edge-to-edge; no rooms, "
+        "walls, gradients, text, logo, or watermark.\n"
+        "- Photorealistic fashion editorial style, professional studio lighting.\n"
+
         + (f"\n[USER DIRECT REQUEST — highest priority, overrides all templates]\n"
            f"\"{custom_text}\"\n" if is_custom else "")
 
@@ -2792,14 +2822,6 @@ def _ai_styling_via_gemini(
         "- Front view and back view are the SAME person in the SAME shoot.\n"
         "- Identical outfit, identical bag (a shoulder bag stays a shoulder bag - never a "
         "backpack), identical accessories and shoes on both sides.\n"
-
-        + "\n# IMAGE FORMAT\n"
-        "- ONE horizontal 3:2 image, 1536x1024 px. Never vertical / portrait / square.\n"
-        "- LEFT half = front view; RIGHT half = back view of the same person.\n"
-        "- Each figure approx 85% of image height, centered in its half (~7.5% margin "
-        "top and bottom); never a single figure alone.\n"
-        "- Solid flat pastel background, uniform edge-to-edge; no rooms / walls / gradients.\n"
-        "- Photorealistic fashion editorial, studio lighting. No text, logo, watermark.\n"
 
         + "\n=== ANALYSIS REPORT (text output) ===\n"
         "Output the analysis as TEXT after the image, wrapped between exact markers "
