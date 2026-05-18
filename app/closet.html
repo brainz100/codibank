@@ -7,6 +7,17 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-18 KST · TJ 지시 (모달 토글 위치 / 버튼 한 줄) ───
+  1) 정/후면 토글 — 이미지박스 하단 좌우 끝으로 분리
+     · 이전: 중앙에 모임 → 변경: 정면=왼쪽 끝, 후면=오른쪽 끝
+       (expand-modal-toggle: left:50%+translateX → left/right:12px+space-between)
+  2) 버튼 3개 가로 한 줄 통합 (이미지 저장 · 공유 · 코디 선택)
+     · 별도 줄이던 '이 코디 선택'(expand-modal-select-btn)을 actions 안으로
+       이동, 텍스트 '코디 선택'으로, 3개 균등 너비(flex:1 1 0)
+     · '코디 선택'은 expand-modal-action-btn-primary(녹색)로 강조
+     · 죽은 CSS .expand-modal-select-btn 제거
+     · 버튼이 한 줄로 줄어든 만큼 이미지박스 확대 (56vh→64vh, 520→600px)
+
 ─── 2026-05-16 KST · TJ 지시 (모달 분석 로딩 UX — 2번) ───
   문제: 모달 열면 엔진 추천 키워드(임시)가 먼저 보였다가 vision 분석으로
         교체 → 임의 내용이 바뀌고, 임시 키워드는 실제 이미지와 불일치
@@ -1882,10 +1893,9 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-imgbox{
   position: relative;
   width: 100%;
-  /* ─── 2026-05-16 KST · TJ 지시 1.1 ─── 이미지 뷰박스 최대 확대 ───
-     토글을 박스 위에 레이어드 → 토글 공간만큼 + 텍스트박스 축소분만큼 확대 */
-  height: 56vh;
-  max-height: 520px;
+  /* ─── 2026-05-18 KST · TJ 지시 2번 ─── 버튼 3개 한 줄로 줄어든 만큼 더 확대 ─── */
+  height: 64vh;
+  max-height: 600px;
   border-radius: 12px;
   overflow: hidden;
   background: linear-gradient(160deg, #f5f7fb 0%, #e8eef5 100%);   /* 이미지 흰 배경 매칭 */
@@ -1897,14 +1907,14 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .expand-modal-imgbox canvas{
   display: block;
 }
-/* ─── 2026-05-16 KST · TJ 지시 1.1 ─── 정/후면 토글 = 이미지박스 위 레이어드 ─── */
+/* ─── 2026-05-18 KST · TJ 지시 1번 ─── 정면=왼쪽 / 후면=오른쪽 끝으로 분리 ─── */
 .expand-modal-toggle{
   position: absolute;
   bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 12px;
+  right: 12px;
   display: flex;
-  gap: 6px;
+  justify-content: space-between;
   z-index: 3;
 }
 .expand-pose-btn{
@@ -1953,35 +1963,52 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   letter-spacing: 0.02em;
 }
 .expand-modal-analysis-stylist{ display: none; }
-/* ─── 2026-05-14 KST · TJ 보고 2번 ─── 저장/공유 버튼 ─── */
+/* ─── 2026-05-18 KST · TJ 지시 2번 ─── 3개 버튼 가로 한 줄 (균등 너비) ─── */
 .expand-modal-actions{
   display: flex;
-  gap: 8px;
-  margin-top: 7px;
-  padding-top: 8px;
+  gap: 7px;
+  margin-top: 8px;
+  padding-top: 9px;
   border-top: 1px solid rgba(151, 254, 237, 0.12);
 }
 .expand-modal-action-btn{
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;                /* 3개 균등 — 텍스트 길어도 동일 너비 */
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 9px 8px;
+  gap: 3px;
+  padding: 9px 4px;
   border-radius: 10px;
   background: rgba(151, 254, 237, 0.08);
   border: 1px solid rgba(151, 254, 237, 0.25);
   color: #97FEED;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
+  transition: background 0.15s, transform 0.1s, filter 0.15s;
 }
 .expand-modal-action-btn:hover{
   background: rgba(151, 254, 237, 0.16);
 }
 .expand-modal-action-btn:active{
   transform: scale(0.97);
+}
+/* 코디 선택 = 메인 액션 (녹색 강조) */
+.expand-modal-action-btn-primary{
+  background: linear-gradient(135deg, #13A89B 0%, #0B7E73 100%);
+  border-color: transparent;
+  color: #ffffff;
+}
+.expand-modal-action-btn-primary:hover{
+  background: linear-gradient(135deg, #13A89B 0%, #0B7E73 100%);
+  filter: brightness(1.1);
+}
+.expand-modal-action-btn-primary:disabled{
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 /* ─── 2026-05-16 KST · TJ 지시 1.2 ─── 카테고리별 코디 분석 (줄간격 축소) ─── */
 .expand-modal-cody{
@@ -2047,24 +2074,6 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   font-weight: 600;
   color: #97FEED;
 }
-
-.expand-modal-select-btn{
-  width: 100%;
-  padding: 13px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #0EAB99 0%, #098272 100%);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 800;
-  border: none;
-  cursor: pointer;
-  margin-top: 4px;
-  box-shadow: 0 4px 14px rgba(14, 171, 153, 0.35);
-  transition: filter 0.15s, transform 0.1s;
-}
-.expand-modal-select-btn:hover{ filter: brightness(1.08); }
-.expand-modal-select-btn:active{ transform: scale(0.98); }
-.expand-modal-select-btn:disabled{ opacity: 0.5; cursor: not-allowed; }
 
 /* ─── 2026-05-16 KST · TJ 지시 3번 ─── 선택 후 3버튼 팝업 ─── */
 .choice-modal{
@@ -10849,21 +10858,22 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           <span id="expandModalCity" class="expand-modal-analysis-city"></span>
         </div>
         <div class="expand-modal-cody" id="expandModalCody"></div>
-        <!-- 저장 + 공유 버튼 -->
+        <!-- ─── 2026-05-18 KST · TJ 지시 2번 ─── 3개 버튼 가로 한 줄 (균등 너비) ─── -->
         <div class="expand-modal-actions">
           <button type="button" id="expandModalSave" class="expand-modal-action-btn">
-            <span class="material-symbols-outlined" style="font-size:18px;">download</span>
+            <span class="material-symbols-outlined" style="font-size:16px;">download</span>
             이미지 저장
           </button>
           <button type="button" id="expandModalShare" class="expand-modal-action-btn">
-            <span class="material-symbols-outlined" style="font-size:18px;">share</span>
+            <span class="material-symbols-outlined" style="font-size:16px;">share</span>
             공유
+          </button>
+          <button type="button" id="expandModalSelect" class="expand-modal-action-btn expand-modal-action-btn-primary">
+            <span class="material-symbols-outlined" style="font-size:16px;">check_circle</span>
+            코디 선택
           </button>
         </div>
       </div>
-      <button type="button" id="expandModalSelect" class="expand-modal-select-btn">
-        이 코디 선택
-      </button>
     </div>
   </div>
 
