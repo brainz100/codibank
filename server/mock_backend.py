@@ -5,6 +5,18 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-18 KST · TJ 지시 (밀라노 카드 — 얼굴만 여성·몸 남성 버그) ───
+#   문제: 여성 사용자인데 추천 코디 일부가 남성 체형 + 여성 얼굴로 생성
+#   원인: 성별 명시가 STEP 1 'Gender' 한 줄뿐 → GPT Image 2 가 강하게
+#         따르는 프롬프트 앞/끝부분에 성별 없음 → 남성복 키워드
+#         (Corduroy suit, Tuxedo 등)에 체형이 끌려감
+#   수정: 성별을 4곳에 강하게 명시 (GPT Image 2 + Gemini 양 경로)
+#     1) _gender_directive: 프롬프트 맨 앞 — 'SUBJECT SEX ABSOLUTE',
+#        앞/뒤 figure 모두 해당 성별, 반대 성별 체형 = CRITICAL FAILURE
+#     2) _final_reminder: 프롬프트 끝 — 성별 강조 한 줄
+#     3) STEP 2 AVATAR BODY: 'unmistakably female/male, NEVER opposite sex'
+#     4) STEP 1 Gender (기존 유지)
+#
 # ─── 2026-05-17 KST · TJ 지시 (코디핏 이미지 정/후면 분리 — 가로 3:2 강제) ───
 #   문제: Q1/Q2/Q3 추천 코디가 정면만 세로로 생성되거나 정/후면이 분리됨
 #   원인: ① 프롬프트는 '16:9'인데 _gpt_size 는 '1536x1024'(3:2) — 불일치
@@ -2707,7 +2719,10 @@ def _ai_styling_via_gemini(
         "Construct a fashion-model avatar 99.9% IDENTICAL to this user:\n"
         "  • FACE — Replicate ALL features from reference EXACTLY (jawline, eyes,\n"
         "    eyebrows, nose, lips, philtrum, skin tone, hair). NO beautification.\n"
-        f"  • BODY — Match {h_int}cm/{w_int}kg/{bmi_cat_ko} silhouette.\n"
+        f"  • BODY — Match {h_int}cm/{w_int}kg/{bmi_cat_ko} silhouette. "
+        f"The body MUST be unmistakably {'female' if gender == 'F' else 'male'} — "
+        f"{'female' if gender == 'F' else 'male'} physique and silhouette, "
+        f"NEVER the opposite sex regardless of the outfit style.\n"
         "  • PROPORTION — Fashion-model 8.5 heads, full body visible.\n"
         "\n" + _build_body_profile_block(gender, age, height, weight, body_type_key, "en") + "\n"
 
@@ -2919,6 +2934,27 @@ def _ai_styling_via_gemini(
             #     2) 비율 7.5-8 heads는 사실적이지만 패션 화보로는 평범
             #     3) 90% 세로 사이즈는 답답함
             #   TJ 선택: medium 유지 + prompt 단순화 / 8.5 heads / 85% 세로
+            # ─── 2026-05-18 KST · TJ 지시 ─── 성별 강조 (밀라노 카드 남성 체형 버그) ───
+            # 문제: STEP 1 'Gender' 한 줄뿐 → GPT Image 2가 강하게 따르는 프롬프트
+            #       앞/끝부분에 성별 없음 → 남성복 키워드(tuxedo 등)에 체형이 끌려가
+            #       얼굴만 여성·몸은 남성으로 생성됨
+            # 수정: 프롬프트 맨 앞(_gender_directive) + 끝(_final_reminder)에 성별 명시
+            _gender_adj  = "female" if gender == "F" else "male"
+            _gender_word = "woman"  if gender == "F" else "man"
+            _opp_adj     = "male"   if gender == "F" else "female"
+            _gender_directive = (
+                "⚠️ SUBJECT SEX (ABSOLUTE — HIGHEST PRIORITY RULE):\n"
+                f"The person is a {_gender_adj.upper()} ({_gender_word}). The uploaded face\n"
+                f"reference photo is a {_gender_word}.\n"
+                f"BOTH the front-view figure AND the back-view figure MUST have an\n"
+                f"unmistakably {_gender_adj} body — {_gender_adj} physique, build, shoulders,\n"
+                f"waist, hips, and overall silhouette.\n"
+                f"NEVER generate a {_opp_adj} body or {_opp_adj} physique under any\n"
+                f"circumstance — not even if the outfit style is traditionally associated\n"
+                f"with the {_opp_adj} sex. A {_opp_adj}-bodied result is a CRITICAL FAILURE.\n"
+                f"The clothing must be styled and tailored for a {_gender_word}.\n\n"
+            )
+
             _layout_directives = (
                 "COMPOSITION REQUIREMENTS (CRITICAL - FOLLOW EXACTLY):\n"
                 "1. CANVAS: ONE single HORIZONTAL 3:2 landscape image (1536 wide x 1024 tall pixels),\n"
@@ -2988,6 +3024,8 @@ def _ai_styling_via_gemini(
             # FINAL REMINDER (prompt 끝에 강조) — GPT Image 2는 끝부분 지시를 강하게 따름
             _final_reminder = (
                 "\n\n=== FINAL REMINDER (most critical) ===\n"
+                f"- SUBJECT SEX: the person is a {_gender_word} — body, physique, and\n"
+                f"  silhouette MUST be clearly {_gender_adj}, NEVER {_opp_adj}\n"
                 "- ONE single 3:2 wide HORIZONTAL image (1536 wide x 1024 tall) — NEVER vertical, NEVER portrait, NEVER square\n"
                 "- The image MUST contain TWO figures side-by-side: LEFT half = front view, RIGHT half = back view\n"
                 "- NEVER generate only one figure. NEVER omit the back view. NEVER split into separate images.\n"
@@ -2997,7 +3035,7 @@ def _ai_styling_via_gemini(
                 "- Clean solid pale background. No text, no logos, no watermarks.\n"
             )
             
-            _gpt_prompt = _ref_header + _layout_directives + _outfit_prompt + _final_reminder
+            _gpt_prompt = _ref_header + _gender_directive + _layout_directives + _outfit_prompt + _final_reminder
             
             # ─── 2026-05-14 KST · TJ 지시 (v67 Phase 1) ─── 사이즈 표준 3:2로 변경 ───
             # 이전: "1536x864" (16:9) — 정/후면 각 768x864 (8:9 세로형, 약간 비좁음)
