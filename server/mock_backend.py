@@ -28,6 +28,23 @@
 #    주석(모달 5요소)을 함께 확인할 것.
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #
+# ─── 2026-05-18 KST · TJ 지시 (Q3 재설계 — 선택 코디 99.9% 복제) ───
+#   문제: ① Q3 결과가 세로로 나뉘어 생성 (Gemini 가 가로 1장 지시 무시)
+#         ② Q2 에서 '유사 변형'을 골랐는데 원본 추천이 고화질로 나옴
+#         ③ 선택한 코디와 의상이 달라짐
+#   원인: Q3(startStepC)가 선택 이미지를 서버에 전혀 안 보냄 → 서버가 텍스트
+#         조건만으로 새로 생성 + 캐시키 동일 → STEP A 원본 재사용.
+#   수정 (6곳):
+#     1) closet.html startStepC: p._force_ref_image = baseCard.imageUrl 전달
+#     2) _collect_ref_images: _force_ref_image → "style_ref" 라벨 ref 수집
+#     3) ordered_parts: face → style_ref → top → bottom 순으로 포함
+#     4) Q3 전용 gemini_prompt: 선택 코디 의상 99.9% 복제 + 16:9 가로 1장
+#        (좌=정면/우=후면, 같은 인물·같은 의상, 포즈만 변경)
+#     5) gemini config: Q3 시 image_config(aspect_ratio="16:9") 강제
+#        (SDK 미지원 시 프롬프트 지시로 폴백)
+#     6) Q3 캐시 우회: _force_quality='high' → force_regenerate=True
+#   ※ Q1·Q2 는 style_ref 가 없어 Q3 분기 미적용 — 기존 동작 그대로.
+#
 # ─── 2026-05-18 KST · TJ 지시 (Q3 최종 고화질 → Nano Banana Pro 전환) ───
 #   문제: Q3(_force_quality='high')가 gpt_image_2_high 로 호출 → 생성 60초+
 #         소요로 APITimeoutError 빈발(Render 로그 16:24·16:26 등 86~89초),
@@ -1615,6 +1632,25 @@ def _collect_ref_images(payload: Dict[str, Any]) -> Tuple[list[tuple[str, str, b
             except Exception:
                 pass
 
+    # ─── 2026-05-18 KST · TJ 지시 ─── Q3: 선택한 추천 코디 = style reference ───
+    #   closet.html startStepC 가 baseCard.imageUrl 을 _force_ref_image 로 전달.
+    #   이 이미지를 "style_ref" 라벨로 수집 → Q3 프롬프트가 의상을 99.9% 복제.
+    #   data URL / 원격 URL 모두 지원.
+    style_ref_data = str(payload.get("_force_ref_image_data") or "").strip()
+    style_ref_url = str(payload.get("_force_ref_image") or "").strip()
+    if style_ref_data:
+        try:
+            mime, img_bytes = _data_url_to_bytes(style_ref_data)
+            refs.append(("style_ref", mime, img_bytes))
+        except Exception:
+            pass
+    elif style_ref_url.startswith(("http://", "https://")):
+        try:
+            mime, img_bytes = _download_remote_image(style_ref_url)
+            refs.append(("style_ref", mime, img_bytes))
+        except Exception:
+            pass
+
     return refs, face_bytes_for_key
 
 
@@ -2888,11 +2924,66 @@ def _ai_styling_via_gemini(
            if (isinstance(meta, dict) and meta.get('pc_avoid_override')) else "")
     )
 
-    # ── 이미지 파트 구성: 얼굴 → 상의 → 하의 순서 ──
+    # ── 이미지 파트 구성: 얼굴 → 선택코디(style_ref) → 상의 → 하의 순서 ──
     face_parts = [(mime, raw) for label, mime, raw in ref_images if label == "face"]
+    style_ref_parts = [(mime, raw) for label, mime, raw in ref_images if label == "style_ref"]
     top_parts = [(mime, raw) for label, mime, raw in ref_images if label == "top"]
     bottom_parts = [(mime, raw) for label, mime, raw in ref_images if label == "bottom"]
-    ordered_parts = face_parts + top_parts + bottom_parts
+    ordered_parts = face_parts + style_ref_parts + top_parts + bottom_parts
+
+    # ─── 2026-05-18 KST · TJ 지시 ─── Q3 최종 고화질: 선택 코디 99.9% 복제 ───
+    #   Q3(_force_quality='high') + style_ref 이미지가 있으면, gemini_prompt 를
+    #   Q3 전용 프롬프트로 교체한다.
+    #   설계 의도: Q2 에서 선택한 추천 코디를, 의상은 100% 그대로 두고 포즈만
+    #             정면/후면으로 바꿔 16:9 가로 1장(좌=정면, 우=후면)에 고화질 생성.
+    #   reference 순서: [1] 얼굴(face)  [2] 선택 코디(style_ref)
+    #   ※ Q1·Q2 는 style_ref 가 없으므로 이 분기를 타지 않음 — 기존 프롬프트 유지.
+    _is_q3 = (str(payload.get('_force_quality') or '').strip().lower() == 'high')
+    _has_style_ref = len(style_ref_parts) > 0
+    if _is_q3 and _has_style_ref:
+        _has_face_ref = len(face_parts) > 0
+        _ref_guide = (
+            "You are given TWO reference images. "
+            "Reference image [1] = the person's FACE. "
+            "Reference image [2] = the SELECTED OUTFIT (a styled coordination the user chose)."
+        ) if _has_face_ref else (
+            "You are given ONE reference image. "
+            "Reference image [1] = the SELECTED OUTFIT (a styled coordination the user chose)."
+        )
+        _face_idx = "[1]" if _has_face_ref else "(generate a natural Korean face)"
+        _outfit_idx = "[2]" if _has_face_ref else "[1]"
+        gemini_prompt = (
+            "# TASK — FINAL HIGH-QUALITY RENDER (Q3)\n"
+            + _ref_guide + "\n\n"
+            "# ABSOLUTE RULE — OUTFIT MUST BE 99.9% IDENTICAL\n"
+            f"Reproduce the outfit from reference image {_outfit_idx} EXACTLY. "
+            "Every garment, color, fabric, texture, pattern, silhouette, length, "
+            "neckline, sleeve, accessory, bag, shoes and styling detail MUST be "
+            "identical to that reference. DO NOT redesign, restyle, swap, recolor "
+            "or add/remove any item. This is an upscale/re-render of the SAME outfit, "
+            "not a new styling.\n\n"
+            "# FACE\n"
+            f"Use reference image {_face_idx} for the facial identity — preserve the "
+            "same face exactly (jawline, eyes, eyebrows, nose, lips, skin tone).\n\n"
+            "# OUTPUT IMAGE FORMAT (MOST CRITICAL — APPLY FIRST)\n"
+            "Output ONE single horizontal 16:9 landscape image (e.g. 1920x1080), "
+            "wide format. The image contains the SAME person TWICE, side by side:\n"
+            "  - LEFT half  = FRONT view of the person wearing the outfit.\n"
+            "  - RIGHT half = BACK view of the SAME person wearing the SAME outfit.\n"
+            "Both figures: full body, head-to-toe, ~85% of image height, centered "
+            "in their half. Plain solid studio background, same color on both halves.\n"
+            "DO NOT generate a vertical / portrait / square image. "
+            "DO NOT generate only one figure. "
+            "If you cannot achieve exactly 16:9, output a wide landscape image with "
+            "the two figures side by side — NEVER vertical.\n\n"
+            "# POSE\n"
+            "Only the POSE differs between the two figures (front-facing vs. "
+            "back-facing). The outfit, hair, accessories and body are identical.\n\n"
+            "# QUALITY\n"
+            "Maximum photographic quality: sharp focus, clean lighting, high "
+            "resolution, no blur, no artifacts, no text, no watermark.\n"
+        )
+        print(f"[ai_styling] Q3 전용 프롬프트 적용 (style_ref={_has_style_ref}, face={_has_face_ref})", flush=True)
 
     # ─── 2026-04-21 KST ─── 티어별 엔진 라우팅 적용 ───
     # payload.tier > 직접 전달된 tier > 기본값 FREE
@@ -3065,13 +3156,30 @@ def _ai_styling_via_gemini(
                     contents.append(_gtypes.Part.from_bytes(data=raw, mime_type=mime or "image/jpeg"))
 
                 client = _genai.Client(api_key=_GEMINI_KEY)
+                # ─── 2026-05-18 KST · TJ 지시 ─── Q3: 16:9 가로 강제 ───
+                #   Gemini 가 "좌우 2명 가로 1장" 지시를 무시하고 세로로 출력하는
+                #   것을 막기 위해 image_config 로 aspect_ratio 를 강제한다.
+                #   SDK 버전에 따라 image_config 미지원이면 TypeError/AttributeError
+                #   → 프롬프트의 OUTPUT IMAGE FORMAT 지시만으로 폴백.
+                _gem_cfg_kwargs = dict(
+                    response_modalities=["IMAGE", "TEXT"],
+                    temperature=0.7,
+                )
+                _gem_cfg = None
+                if _is_q3:
+                    try:
+                        _gem_cfg = _gtypes.GenerateContentConfig(
+                            image_config=_gtypes.ImageConfig(aspect_ratio="16:9"),
+                            **_gem_cfg_kwargs,
+                        )
+                    except (TypeError, AttributeError):
+                        _gem_cfg = None
+                if _gem_cfg is None:
+                    _gem_cfg = _gtypes.GenerateContentConfig(**_gem_cfg_kwargs)
                 response = client.models.generate_content(
                     model=model_name,
                     contents=contents,
-                    config=_gtypes.GenerateContentConfig(
-                        response_modalities=["IMAGE", "TEXT"],
-                        temperature=0.7,
-                    ),
+                    config=_gem_cfg,
                 )
             else:
                 from PIL import Image as _PILImage
@@ -3913,6 +4021,13 @@ def ai_styling():
     # 해결: _similar_variation 이면 force_regenerate=True → 캐시키에 시간 nonce(rsd)
     #       포함 → 매번 새 키 → 캐시 MISS → 항상 새로 생성 (STEP A 파일도 안 덮음)
     if _similar_variation:
+        _force_regen = True
+    # ─── 2026-05-18 KST · TJ 지시 ─── Q3 캐시 우회 ───
+    #   Q3(_force_quality='high')는 사용자가 선택한 코디(_force_ref_image)별로
+    #   매번 새로 생성해야 한다. 캐시 HIT 되면 STEP A 원본 이미지가 그대로
+    #   반환되는 버그(원본/변형 임의 노출) 발생 → force_regenerate 로 nonce 를
+    #   넣어 항상 MISS, cache_fname 도 매번 달라 STEP A/B 파일을 덮지 않음.
+    if str(payload.get('_force_quality') or '').strip().lower() == 'high':
         _force_regen = True
     cache_key = _make_ai_cache_key_v2(
         payload, face_bytes_for_key, ref_images,
