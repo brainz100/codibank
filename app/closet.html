@@ -7,16 +7,36 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-18 KST · TJ 지시 (코디핏 진행상태 영속화 + 변경 워닝) ───
+ 문제: 1st/2nd 생성 후 다른 페이지 갔다 오면 flow·날짜·목적·분석 리셋.
+ 원인: flow/S 가 JS 메모리 변수 → 페이지 전환마다 closet.html 재로드.
+ 해결:
+  1) 영속화 엔진 — cb_codifit_state_v1(sessionStorage)에 flow 전체 +
+     S 핵심 + 분석 DOM 저장. 이미지는 R2 URL 이라 용량 작음.
+     · _codifitSaveState/_codifitRestoreState/_codifitRebuildUI (IIFE 내부)
+     · _codifitClearState/_codifitWarn 계열 (전역)
+  2) 저장 트리거 = visibilitychange(hidden)/pagehide. 복원 = window load.
+  3) 리셋 5가지: ①로그아웃·사용자변경(userEmail 불일치) ②리셋버튼
+     (resetAll) ③30분 무활동(마지막 활동 기준, visible 복귀 시 체크)
+     ④날짜변경 ⑤코디목적변경 → 워닝 팝업 확인 후.
+  4) 워닝 팝업 #codifitWarnModal — 생성된 코디가 있을 때 날짜/목적
+     변경 시 초기화 확인. setPurpose/selectTodayStage1/setTomorrowDate
+     에 가드 삽입. (stepc-modal 스타일 재사용)
+  5) 구버전 _restoreSnap 은 v68 상태 존재 시 스킵.
+
+─── 2026-05-19 KST · TJ 지시 (코디핏 3박스 커버 — 원래 파동 복원) ───
+ 직전(05-18) cfitCornerWave 작업이 커버박스 자체를 scale 로 중앙
+ 축소시킨 게 오류. → 폐기하고 원래 파동을 복원:
+  · 원래 파동(step-a-pulse-wrap 8 span + step-a-pulse + saPulse*)
+    복원 — 작은 글로우 원이 4코너 → 중앙으로 이동하며 사라짐.
+    커버박스: 1st=step-a-overlay / 2nd=cbq2-loading / 3rd=vtoOverlay.
+  · 네 모서리 정적 화이트 그라데이션(::before)은 유지 — 애니메이션
+    없음. 커버박스(.step-a-overlay/.cbq2-loading/.vto-img-spin)에만.
+  · cfitCornerWave/cfitGlowPulse 키프레임 + ::after(scale) 레이어 제거.
+
 ─── 2026-05-18 KST · TJ 지시 (코디핏 라벨 + 3박스 디자인) ───
  1) 화면 라벨 텍스트 변경: Q1→1st, Q2→2nd, Q3→3rd (h3 3곳)
- 2) 1st/2nd/3rd 이미지박스 디자인 통일 — 모서리 글로우 + 생성 중 파동:
-    · [정적] 네 귀퉁이 화이트 글로우(radial 4겹) 두껍게 → 변 따라
-      중앙으로 갈수록 얇아짐. (.step-a-overlay/.vto-result-box/.cbq2-card ::before)
-    · [생성 중] 글로우가 중앙으로 수렴하는 파동(cfitCornerWave) + 정적
-      글로우 밝기 펄스(cfitGlowPulse). --cfit-wave-dur 공유 → 이동·밝기
-      주기 완전 동기화. (::after / .vto-img-spin::before / .cbq2-loading::before)
-    · 구 심장박동 파동(step-a-pulse-wrap 8 span, saPulse*, csShimmerVto,
-      csPulseRingVto) 전면 제거 — Q1·Q2·Q3 HTML/CSS 모두.
+ 2) 1st/2nd/3rd 이미지박스 — 모서리 글로우/파동 (→ 05-19 에 재수정)
 
 ─── 2026-05-18 KST · TJ 지시 (Q3 재설계 — 선택 코디 reference) ───
  startStepC: p._force_ref_image = baseCard.imageUrl 전달.
@@ -1067,9 +1087,6 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 :root{
   --cb-navy:#071952; --cb-navy2:#0D2E5E; --cb-teal:#35A29F;
   --cb-teal2:#137373; --cb-mint:#97FEED; --cb-mint2:#9EF9EF;
-  /* ─── 2026-05-18 KST · TJ 지시 ─── 코디핏 3박스(1st/2nd/3rd) 모서리 글로우·파동 ───
-     정적 글로우와 생성 중 파동이 동일 주기로 밝아지도록 duration 을 공유한다. */
-  --cfit-wave-dur: 2.6s;
 }
 
 /* 전체 다크 패널 */
@@ -1355,13 +1372,6 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   0%,100%{opacity:0.7;transform:translateX(0);}
   50%{opacity:1;transform:translateX(-3px);}
 }
-/* ─── 2026-05-18 KST · TJ 지시 ─── 3rd 박스 생성 중 ───
-   정적 모서리 글로우(.vto-result-box::before)에 밝기 펄스를 더한다.
-   중앙 수렴 파동은 .vto-img-spin::before(로딩 오버레이)가 담당 —
-   공통 규칙(cfitCornerWave)에서 처리. duration 공유 → 주기 동기화. */
-.vto-result-box.vto-loading::before{
-  animation: cfitGlowPulse var(--cfit-wave-dur) ease-in-out infinite;
-}
 .vto-img-spin{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;position:absolute;inset:0;z-index:2;}
 .vto-spin-txt{font-size:11.5px;color:rgba(162,253,240,0.65);text-align:center;line-height:1.8;padding:0 20px;letter-spacing:.04em;font-weight:500;}
 /* ─── 2026-05-16 KST · TJ 지시 1번 ─── 파동(z2) 위에 로딩 텍스트 표시 ─── */
@@ -1590,30 +1600,19 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   font-variant-numeric: tabular-nums;
 }
 /* ═══════════════════════════════════════════════════════════════════════
- * 2026-05-18 KST · TJ 지시 ─ 코디핏 3박스(1st/2nd/3rd) 모서리 글로우 + 파동
+ * 2026-05-19 KST · TJ 지시 ─ 코디핏 3박스(1st/2nd/3rd) 커버박스 디자인
  * ───────────────────────────────────────────────────────────────────────
- * [정적] 네 귀퉁이에서 화이트 글로우가 두껍게 시작 → 변(라인)을 따라
- *        중앙으로 갈수록 점차 얇아진다. (각 코너 radial-gradient 4겹)
- * [생성 중] 그 모서리 글로우가 중앙으로 수렴하는 파동(cfitCornerWave) +
- *           정적 글로우의 밝기 펄스(cfitGlowPulse). 둘 다 --cfit-wave-dur
- *           을 공유하고 50% 지점에서 최대 → 이동·밝기 주기가 완전히 동기화.
- * 적용: 1st = .step-a-overlay / 2nd = .cbq2-card·.cbq2-loading
- *       3rd = .vto-result-box·.vto-img-spin
+ * [원래 파동] 작은 글로우 원이 네 모서리에서 중앙으로 이동하며 사라진다.
+ *            (step-a-pulse-wrap / step-a-pulse / saPulse*) — 그대로 복원.
+ * [추가] 네 모서리 정적 화이트 그라데이션(::before) — 애니메이션 없음.
+ * 적용 커버박스: 1st=.step-a-overlay / 2nd=.cbq2-loading / 3rd=.vto-img-spin
+ * ※ 직전(cfitCornerWave)의 '커버박스 자체가 scale 로 중앙 축소'되는
+ *   동작은 폐기. 박스는 고정, 파동(글로우 원)만 이동한다.
  * ═══════════════════════════════════════════════════════════════════════ */
-@keyframes cfitCornerWave{
-  /* 코너의 두꺼운 글로우 → 중앙으로 모이며(=scale 축소) 밝아짐 */
-  0%, 100% { transform: scale(1);    opacity: 0.12; }
-  50%      { transform: scale(0.52); opacity: 0.92; }
-}
-@keyframes cfitGlowPulse{
-  /* 정적 모서리 글로우의 밝기 — 파동과 동일 주기로 밝아짐 */
-  0%, 100% { opacity: 0.42; }
-  50%      { opacity: 1;    }
-}
-/* 정적 모서리 글로우 (4코너 두껍게 → 변 따라 중앙으로 얇아짐) */
+/* 네 모서리 정적 그라데이션 — 커버박스에만, 항상 표시 (애니메이션 없음) */
 .step-a-overlay::before,
-.vto-result-box::before,
-.cbq2-card::before{
+.cbq2-loading::before,
+.vto-img-spin::before{
   content:'';
   position:absolute;
   inset:0;
@@ -1626,26 +1625,63 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     radial-gradient(58% 56% at 0%   100%, rgba(255,255,255,0.46), rgba(255,255,255,0) 70%),
     radial-gradient(58% 56% at 100% 100%, rgba(255,255,255,0.46), rgba(255,255,255,0) 70%);
 }
-/* 생성 중 — 중앙 수렴 파동 레이어 (코너 글로우가 더 두껍게, 중앙으로 이동) */
-.step-a-overlay::after,
-.vto-img-spin::before,
-.cbq2-loading::before{
-  content:'';
-  position:absolute;
-  inset:0;
-  border-radius:inherit;
-  pointer-events:none;
-  z-index:1;
-  transform-origin:center;
-  background:
-    radial-gradient(56% 54% at 0%   0%,   rgba(255,255,255,0.66), rgba(255,255,255,0) 68%),
-    radial-gradient(56% 54% at 100% 0%,   rgba(255,255,255,0.66), rgba(255,255,255,0) 68%),
-    radial-gradient(56% 54% at 0%   100%, rgba(255,255,255,0.66), rgba(255,255,255,0) 68%),
-    radial-gradient(56% 54% at 100% 100%, rgba(255,255,255,0.66), rgba(255,255,255,0) 68%);
-  animation: cfitCornerWave var(--cfit-wave-dur) ease-in-out infinite;
+/* ─── 원래 파동 ─── 작은 글로우 원이 4코너 → 중앙으로 이동하며 사라짐
+   코너당 2개(.d2 딜레이) = 심장박동 더블비트 "두-근" 리듬 */
+.step-a-pulse-wrap{
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;          /* 정적 그라데이션(z1) 위, 로딩 텍스트(z3) 아래 */
 }
-/* ── 1st (Q1 커버박스) — 로딩 전용 오버레이라 항상 글로우+파동 ── */
-.step-a-overlay::before{ animation: cfitGlowPulse var(--cfit-wave-dur) ease-in-out infinite; }
+.step-a-pulse{
+  position: absolute;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(151,254,237,0.52) 0%,
+    rgba(151,254,237,0.14) 46%,
+    rgba(151,254,237,0) 72%);
+  opacity: 0;
+  will-change: left, top, transform, opacity;
+}
+.step-a-pulse.p-tl{ animation: saPulseTL 1.5s cubic-bezier(.4,0,.3,1) infinite; }
+.step-a-pulse.p-tr{ animation: saPulseTR 1.5s cubic-bezier(.4,0,.3,1) infinite; }
+.step-a-pulse.p-bl{ animation: saPulseBL 1.5s cubic-bezier(.4,0,.3,1) infinite; }
+.step-a-pulse.p-br{ animation: saPulseBR 1.5s cubic-bezier(.4,0,.3,1) infinite; }
+.step-a-pulse.d2{ animation-delay: 0.19s; }   /* 더블비트 두 번째 박 */
+@keyframes saPulseTL{
+  0%   { left: 8%;  top: 9%;  transform: translate(-50%,-50%) scale(1.6); opacity: 0; }
+  10%  { opacity: .72; }
+  55%  { opacity: .30; }
+  80%  { opacity: 0; }
+  100% { left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.12); opacity: 0; }
+}
+@keyframes saPulseTR{
+  0%   { left: 92%; top: 9%;  transform: translate(-50%,-50%) scale(1.6); opacity: 0; }
+  10%  { opacity: .72; }
+  55%  { opacity: .30; }
+  80%  { opacity: 0; }
+  100% { left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.12); opacity: 0; }
+}
+@keyframes saPulseBL{
+  0%   { left: 8%;  top: 91%; transform: translate(-50%,-50%) scale(1.6); opacity: 0; }
+  10%  { opacity: .72; }
+  55%  { opacity: .30; }
+  80%  { opacity: 0; }
+  100% { left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.12); opacity: 0; }
+}
+@keyframes saPulseBR{
+  0%   { left: 92%; top: 91%; transform: translate(-50%,-50%) scale(1.6); opacity: 0; }
+  10%  { opacity: .72; }
+  55%  { opacity: .30; }
+  80%  { opacity: 0; }
+  100% { left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.12); opacity: 0; }
+}
+/* 오버레이 사라질 때 파동도 함께 페이드 */
+.step-a-overlay.hidden-overlay .step-a-pulse-wrap{ opacity: 0; transition: opacity .4s ease; }
 /* 오버레이 사라질 때 글로우·파동도 함께 페이드 (부모 opacity 상속) */
 .step-a-card{
   position: relative;
@@ -3011,9 +3047,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
                이전: 4개 cell이 각 카드를 개별 마스크 → 순차 공개
                변경: 전체를 덮는 단일 불투명 박스 + codibank 텍스트 + % 카운터 -->
           <div class="step-a-overlay" id="stepAOverlay">
-            <!-- ─── 2026-05-18 KST · TJ 지시 ─── 모서리 글로우 + 중앙수렴 파동은
-                 .step-a-overlay::before(글로우) / ::after(파동) CSS 로 처리.
-                 구 step-a-pulse-wrap(8개 span) 제거. -->
+            <!-- ─── 2026-05-19 KST · TJ 지시 ─── 원래 파동 복원 ───
+                 작은 글로우 원이 4코너 → 중앙으로 이동(saPulse).
+                 네 모서리 정적 그라데이션은 .step-a-overlay::before CSS. -->
+            <div class="step-a-pulse-wrap" aria-hidden="true">
+              <span class="step-a-pulse p-tl"></span><span class="step-a-pulse p-tl d2"></span>
+              <span class="step-a-pulse p-tr"></span><span class="step-a-pulse p-tr d2"></span>
+              <span class="step-a-pulse p-bl"></span><span class="step-a-pulse p-bl d2"></span>
+              <span class="step-a-pulse p-br"></span><span class="step-a-pulse p-br d2"></span>
+            </div>
             <div class="step-a-overlay-text">
               <div class="step-a-cb-rainbow">
                 <span>c</span><span>o</span><span>d</span><span>i</span><span>B</span><span>a</span><span>n</span><span>k</span>
@@ -3050,8 +3092,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         <div class="vto-result-box vto-empty" id="vtoResultBox">
           <!-- 내부 대기/로딩 화면 — 트라이 온 img-spin 동일 구조 -->
           <div class="vto-img-spin" id="vtoOverlay">
-            <!-- ─── 2026-05-18 KST · TJ 지시 ─── 중앙수렴 파동은 .vto-img-spin::before
-                 CSS 로 처리. 구 step-a-pulse-wrap(8개 span) 제거. -->
+            <!-- ─── 2026-05-19 KST · TJ 지시 ─── 원래 파동 복원 ───
+                 작은 글로우 원이 4코너 → 중앙으로 이동(saPulse).
+                 네 모서리 정적 그라데이션은 .vto-img-spin::before CSS. -->
+            <div class="step-a-pulse-wrap" aria-hidden="true">
+              <span class="step-a-pulse p-tl"></span><span class="step-a-pulse p-tl d2"></span>
+              <span class="step-a-pulse p-tr"></span><span class="step-a-pulse p-tr d2"></span>
+              <span class="step-a-pulse p-bl"></span><span class="step-a-pulse p-bl d2"></span>
+              <span class="step-a-pulse p-br"></span><span class="step-a-pulse p-br d2"></span>
+            </div>
             <!-- [2026-04-18] 진행률 표시 — 로딩 중에만 표시 (codibank 로고 위) -->
             <div class="vto-spin-pct" id="vtoSpinPct" style="display:none;">0<span class="vto-spin-pct-sym">%</span></div>
             <!-- codibank 레인보우 텍스트 -->
@@ -3971,6 +4020,8 @@ function resetAll(){
   }catch(_){}
   // ─── 세션/페르소나 캐시 정리 ───
   try{ sessionStorage.removeItem('cb_closet_snap'); }catch(_){}
+  // ─── 2026-05-18 KST · TJ 지시 ─── 리셋 버튼 → 코디핏 진행상태 폐기 ───
+  try{ if(typeof _codifitClearState === 'function') _codifitClearState(); }catch(_){}
   try{
     // cb_used_stylists_* 키 일괄 삭제 (다음 생성 시 페르소나 풀 초기화)
     var _ks = [];
@@ -4064,18 +4115,87 @@ function localPalette(pk,temp,seed){
 
 // 추천 코디에서 "카테고리-컬러" 키워드를 뽑아 디지털 옷장과 매칭하기 위한 데이터
 // ════════════════════════════════════════════════════════════════════════
-// [2026-04-26 v15 TJ-2] 추천 코디 보존/복원 시스템 (CRITICAL BUG FIX)
+// ─── 2026-05-18 KST · TJ 지시 ─── v68 코디핏 진행상태 영속화 엔진
 // ════════════════════════════════════════════════════════════════════════
-// 문제: 다른 페이지/앱 갔다 오면 추천코디 이미지가 사라짐
-// 원인: 페이지 로드 시 line 6343의 resetVtoState('empty')가 무조건 호출
-//       이미지는 localStorage에 캐싱되지만, generateStyling()이 호출돼야만 그려짐
-// 해결: 마지막 추천 결과를 sessionStorage에 보존
-//       페이지 로드 시 resetVtoState 후 자동 복원 시도
-// 리셋 케이스 (sessionStorage 삭제):
-//   - 사용자 명시적 리셋 버튼
-//   - 로그아웃
-//   - 코디 목적 변경
-//   - 날짜 변경
+// 문제: 1st 4장 / 2nd 2장 생성 후 다른 페이지(마이/앨범/트라이온) 갔다
+//       돌아오면 flow(생성 이미지)·S(날짜·목적·분석)가 전부 리셋.
+// 원인: flow / S 는 JS 메모리 변수 → 페이지 전환마다 closet.html 재로드.
+// 해결: flow 전체 + S 핵심 + 분석 DOM 을 sessionStorage 에 저장,
+//       페이지 로드 시 단계별 화면 재구성(_codifitRestoreState).
+// 리셋(상태 폐기) 5가지:
+//   ① 로그아웃 / 사용자 변경 → 복원 시 userEmail 불일치 → 자동 폐기
+//   ② 리셋 버튼 → resetAll() 에서 _codifitClearState()
+//   ③ 30분 무활동 → 복원 시 (now - lastActive) > 30분 → 자동 폐기
+//   ④ 날짜 변경  → 워닝 팝업 확인 후 _codifitClearState() (2단계)
+//   ⑤ 코디목적 변경 → 워닝 팝업 확인 후 _codifitClearState() (2단계)
+// ※ 이미지는 전부 R2 URL → 직렬화 용량 작음(데이터 URL 아님).
+// ════════════════════════════════════════════════════════════════════════
+const _CODIFIT_STATE_KEY = 'cb_codifit_state_v1';
+const _CODIFIT_IDLE_MS   = 30 * 60 * 1000;   // 30분 무활동 → 폐기
+
+// 마지막 활동 시각 — 생성·선택·터치 등 사용자 활동마다 갱신.
+let _codifitLastActive = Date.now();
+function _codifitTouch(){
+  // "핸드폰을 사용 안 하고 30분" = 마지막 활동 기준.
+  _codifitLastActive = Date.now();
+  // 저장본이 있으면 lastActive 만 즉시 갱신(가벼운 쓰기).
+  try{
+    const raw = sessionStorage.getItem(_CODIFIT_STATE_KEY);
+    if(raw){
+      const o = JSON.parse(raw);
+      o.lastActive = _codifitLastActive;
+      sessionStorage.setItem(_CODIFIT_STATE_KEY, JSON.stringify(o));
+    }
+  }catch(_){}
+}
+
+function _codifitClearState(){
+  try{ sessionStorage.removeItem(_CODIFIT_STATE_KEY); }catch(_){}
+}
+
+// ─── 2026-05-18 KST · TJ 지시 ─── 날짜/목적 변경 워닝 팝업 ───
+//   생성된 추천 코디가 있을 때 날짜·코디목적을 바꾸면 진행 내용이 모두
+//   초기화됨을 먼저 확인받는다. 생성된 코디가 없으면 팝업 없이 바로 진행.
+let _codifitWarnCb = null;
+window._codifitWarnBypass = false;   // 가드 우회 플래그(확인 후 재호출용)
+
+function _codifitWarn(kind, onConfirm){
+  let hasGen = false;
+  try{ hasGen = !!(window._codifitHasGen && window._codifitHasGen()); }catch(_){}
+  if(!hasGen){ try{ onConfirm(); }catch(_){} return; }   // 생성물 없으면 바로 진행
+  _codifitWarnCb = onConfirm;
+  const desc = document.getElementById('codifitWarnDesc');
+  if(desc){
+    desc.innerHTML = kind + '을(를) 변경하면 지금까지 생성한 추천 코디와<br>'
+                   + '분석 내용이 모두 사라집니다. 변경하시겠습니까?';
+  }
+  const m = document.getElementById('codifitWarnModal');
+  if(m) m.style.display = 'flex';
+}
+function _codifitWarnClose(){
+  const m = document.getElementById('codifitWarnModal');
+  if(m) m.style.display = 'none';
+  _codifitWarnCb = null;
+}
+function _codifitWarnConfirm(){
+  const cb = _codifitWarnCb;
+  _codifitWarnClose();
+  // 진행 내용(저장본 + 화면 + flow) 폐기 후 변경 콜백 실행
+  try{ _codifitClearState(); }catch(_){}
+  try{ if(window._codifitResetUI) window._codifitResetUI(); }catch(_){}
+  if(cb){ try{ cb(); }catch(_){} }
+}
+document.addEventListener('DOMContentLoaded', function(){
+  const _ok = document.getElementById('codifitWarnOk');
+  const _ca = document.getElementById('codifitWarnCancel');
+  if(_ok) _ok.addEventListener('click', _codifitWarnConfirm);
+  if(_ca) _ca.addEventListener('click', _codifitWarnClose);
+  // 배경 탭 시 취소
+  const _bg = document.getElementById('codifitWarnModal');
+  if(_bg) _bg.addEventListener('click', function(e){ if(e.target===_bg) _codifitWarnClose(); });
+});
+
+// 추천 코디 보존/복원 (구버전 — v68 이전 단일 흐름)
 // ════════════════════════════════════════════════════════════════════════
 const _CB_LAST_KEY = 'cb_closet_last_result_v15';
 
@@ -7372,6 +7492,19 @@ function updateAiCallBtn(){
   }
 }
 function setPurpose(k){
+  // ─── 2026-05-18 KST · TJ 지시 ─── 코디목적 변경 워닝 가드 ───
+  //   생성된 코디가 있고 목적이 실제로 바뀌면 → 초기화 확인 팝업.
+  //   확인 시 _codifitWarnConfirm 이 상태/화면을 비우고 이 함수를 재호출.
+  if(!window._codifitWarnBypass && k !== S.pk
+     && window._codifitHasGen && window._codifitHasGen()){
+    _codifitWarn('코디 목적', function(){
+      window._codifitWarnBypass = true;
+      setPurpose(k);
+      window._codifitWarnBypass = false;
+    });
+    return;
+  }
+  window._codifitWarnBypass = false;
   S.pk = k;
   S._configDirty = true;  // [2026-04-17] 목적 변경 → aiCallBtn 재활성화
   user.codiPurposeKey = k;
@@ -7548,6 +7681,18 @@ function resetRecommendation(){
 }
 
 function selectTodayStage1(){
+  // ─── 2026-05-18 KST · TJ 지시 ─── 날짜 변경 워닝 가드 ───
+  //   생성된 코디가 있고 현재 '오늘'이 아니면 → 초기화 확인 팝업.
+  if(!window._codifitWarnBypass && S.day !== 'today'
+     && window._codifitHasGen && window._codifitHasGen()){
+    _codifitWarn('날짜', function(){
+      window._codifitWarnBypass = true;
+      selectTodayStage1();
+      window._codifitWarnBypass = false;
+    });
+    return;
+  }
+  window._codifitWarnBypass = false;
   S.day='today';
   S.selDateKey='';
   S._configDirty = true;  // [2026-04-17] 날짜 변경 → aiCallBtn 재활성화
@@ -7575,6 +7720,21 @@ function openTomorrowPicker(){
 }
 
 function setTomorrowDate(dateKey){
+  // ─── 2026-05-18 KST · TJ 지시 ─── 날짜 변경 워닝 가드 ───
+  //   생성된 코디가 있고 실제로 다른 날짜로 바꾸면 → 초기화 확인 팝업.
+  if(!window._codifitWarnBypass
+     && window._codifitHasGen && window._codifitHasGen()){
+    const _changing = (String(dateKey) !== String(S.selDateKey)) || (S.day !== 'tomorrow');
+    if(_changing){
+      _codifitWarn('날짜', function(){
+        window._codifitWarnBypass = true;
+        setTomorrowDate(dateKey);
+        window._codifitWarnBypass = false;
+      });
+      return;
+    }
+  }
+  window._codifitWarnBypass = false;
   const todayKey = getTodayKey();
   const tomorrowKey = getTomorrowKey();
   const maxKey = S.forecastMaxDateKey || '';
@@ -9297,6 +9457,10 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
 
   function _restoreSnap(){
     try{
+      // ─── 2026-05-18 KST · TJ 지시 ─── v68 영속화 우선 ───
+      //   cb_codifit_state_v1(1st/2nd/3rd 흐름)이 있으면 구버전 단일
+      //   이미지 복원이 vto 캔버스를 덮어쓰지 않도록 스킵한다.
+      if(sessionStorage.getItem('cb_codifit_state_v1')) return;
       var raw = sessionStorage.getItem(SNAP_KEY);
       if(!raw) return;
       var snap = JSON.parse(raw);
@@ -9672,6 +9836,200 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     modalCurrentPose: 'front',
     busy: false,
   };
+
+  // ════════════════════════════════════════════════════════════════════
+  // ─── 2026-05-18 KST · TJ 지시 ─── 코디핏 진행상태 영속화 (IIFE 내부)
+  //   flow / 렌더 함수가 이 IIFE 스코프에 있으므로 저장·복원·재구성
+  //   함수도 여기 정의한다. (_codifitClearState/_codifitTouch 는 전역)
+  // ════════════════════════════════════════════════════════════════════
+  // 생성된 추천 코디가 하나라도 있는지 — 워닝 팝업 표시 판단용.
+  function _codifitHasGen(){
+    try{
+      return (flow.stepACards||[]).some(c => c && c.imageUrl)
+          || (flow.stepBCards||[]).some(c => c && c.imageUrl)
+          || !!flow.stepCResult;
+    }catch(_){ return false; }
+  }
+  // 화면+flow 초기화 — 날짜/목적 변경 확정 시 호출.
+  function _codifitResetUI(){
+    flow.stepACards = [null,null,null,null]; flow.stepASelected = null;
+    flow.stepBCards = [null,null]; flow.stepBSelected = null;
+    flow.stepCResult = null; flow.gridCities = null;
+    ['stepAGrid','stepBCompare','stepCLabel','vtoOuterLayer'].forEach(function(id){
+      const e=document.getElementById(id);
+      if(e){ e.classList.add('hidden'); e.style.display='none'; }
+    });
+    const _a=document.getElementById('stepACards'); if(_a) _a.innerHTML='';
+    const _b=document.getElementById('stepBCards'); if(_b) _b.innerHTML='';
+  }
+  // 전역 가드(setPurpose 등)에서 호출하도록 window 노출.
+  window._codifitHasGen   = _codifitHasGen;
+  window._codifitResetUI  = _codifitResetUI;
+
+  // 진행상태 전체 스냅샷 저장 — 이미지는 전부 R2 URL 이라 용량 작음.
+  function _codifitSaveState(){
+    try{
+      const hasA = (flow.stepACards||[]).some(c => c && c.imageUrl);
+      const hasB = (flow.stepBCards||[]).some(c => c && c.imageUrl);
+      if(!hasA && !hasB && !flow.stepCResult) return;   // 저장할 게 없으면 스킵
+
+      const _domHTML = (id)=>{ const e=document.getElementById(id); return e?e.innerHTML:''; };
+      const _domTxt  = (id)=>{ const e=document.getElementById(id); return e?e.textContent:''; };
+      const _vis     = (id)=>{ const e=document.getElementById(id); return !!(e && !e.classList.contains('hidden') && e.style.display!=='none'); };
+
+      const data = {
+        ver: 1,
+        lastActive: Date.now(),
+        userEmail: (window.user && user.email) || '',
+        S: {
+          pk: S.pk || '', customPurpose: S.customPurpose || '',
+          day: S.day || 'today', selDateKey: S.selDateKey || '',
+          seed: Number(S.seed||0), hasGenerated: !!S.hasGenerated,
+          _lastCacheKey: S._lastCacheKey || '',
+        },
+        flow: {
+          stepACards: flow.stepACards || [null,null,null,null],
+          stepASelected: flow.stepASelected,
+          stepBCards: flow.stepBCards || [null,null],
+          stepBSelected: flow.stepBSelected,
+          stepCResult: flow.stepCResult || null,
+          gridCities: flow.gridCities || null,
+        },
+        ui: { stepA:_vis('stepAGrid'), stepB:_vis('stepBCompare'), stepC:_vis('stepCLabel') },
+        report: {
+          story:       _domHTML('codiExplain'),
+          pcText:      _domTxt('anPcText'),      pcKws:      _domHTML('anPcKws'),
+          bodyText:    _domTxt('anBodyText'),    bodyKws:    _domHTML('anBodyKws'),
+          purposeText: _domTxt('anPurposeText'), purposeKws: _domHTML('anPurposeKws'),
+          catKwHtml:   _domHTML('catKwRow'),
+          stylistBadge:_domHTML('stylistBadge'),
+        },
+      };
+      sessionStorage.setItem(_CODIFIT_STATE_KEY, JSON.stringify(data));
+      _codifitLastActive = data.lastActive;
+    }catch(e){ console.warn('[codifit] state 저장 실패', e); }
+  }
+
+  // 단계별 화면 재구성 — 기존 렌더 함수를 재호출하므로 모달·vto 박스
+  // baseline 을 일절 건드리지 않는다.
+  async function _codifitRebuildUI(ui){
+    ui = ui || {};
+    // ── 1st: 4장 그리드 ──
+    if(ui.stepA && (flow.stepACards||[]).some(c => c && c.imageUrl)){
+      const cities = getGridCities();
+      showSection('stepAGrid');
+      for(let i=0;i<4;i++){
+        const card = flow.stepACards[i];
+        if(card && card.imageUrl){
+          renderStepACard(i, cities[i], 'done', card);
+        }
+      }
+      // 선택돼 있던 카드 표시
+      if(flow.stepASelected!=null){
+        const sel = document.querySelector(`#stepACards [data-idx="${flow.stepASelected}"]`);
+        if(sel) sel.classList.add('step-a-selected');
+      }
+    }
+    // ── 2nd: 2장 비교 ──
+    if(ui.stepB && (flow.stepBCards||[]).some(c => c && c.imageUrl)){
+      showSection('stepBCompare');
+      const container = document.getElementById('stepBCards');
+      if(container){
+        container.innerHTML = '';
+        // 원본 카드 라벨 = "원본 — {도시}" (startStepB 와 동일 표기)
+        const _q2Cities = getGridCities();
+        const _q2BaseLabel = (flow.stepASelected!=null && _q2Cities[flow.stepASelected])
+          ? ('원본 — ' + _q2Cities[flow.stepASelected].label) : '원본';
+        for(let i=0;i<2;i++){
+          const c = flow.stepBCards[i];
+          if(!c || !c.imageUrl) continue;
+          const card = document.createElement('div');
+          card.className = 'cbq2-card';
+          card.dataset.idx = String(i);
+          card.innerHTML = `<div class="cbq2-label">${i===0?_q2BaseLabel:'유사 변형'}</div><canvas class="cbq2-canvas"></canvas>`;
+          card.onclick = () => openModalForStepBCard(i);
+          if(flow.stepBSelected===i) card.classList.add('cbq2-selected');
+          container.appendChild(card);
+          try{ drawQ2Card(card.querySelector('.cbq2-canvas'), c.imageUrl); }catch(_){}
+        }
+      }
+    }
+    // ── 3rd: 최종 고화질 ──
+    if(ui.stepC && flow.stepCResult && flow.stepCResult.image){
+      const _cLabel = document.getElementById('stepCLabel');
+      const _outer  = document.getElementById('vtoOuterLayer');
+      if(_cLabel) _cLabel.style.display = '';
+      if(_outer)  _outer.style.display  = '';
+      const vtoBox = document.getElementById('vtoResultBox');
+      if(vtoBox){ vtoBox.classList.remove('hidden'); vtoBox.classList.remove('vto-loading'); }
+      try{
+        if(typeof window.drawResultToVtoCanvas === 'function'){
+          window.drawResultToVtoCanvas(flow.stepCResult.image);
+        }else{
+          await drawStepCToCanvas(flow.stepCResult.image);
+        }
+      }catch(_){}
+    }
+  }
+
+  // 페이지 로드 시 호출 — 저장된 진행상태를 복원
+  async function _codifitRestoreState(){
+    let raw = null;
+    try{ raw = sessionStorage.getItem(_CODIFIT_STATE_KEY); }catch(_){ return false; }
+    if(!raw) return false;
+
+    let data;
+    try{ data = JSON.parse(raw); }catch(_){ _codifitClearState(); return false; }
+    if(!data || data.ver !== 1){ _codifitClearState(); return false; }
+
+    // ① 30분 무활동 → 폐기
+    if(Date.now() - (data.lastActive||0) > _CODIFIT_IDLE_MS){
+      _codifitClearState(); return false;
+    }
+    // ② 로그아웃 / 사용자 변경 → 폐기
+    const _curEmail = (window.user && user.email) || '';
+    if(_curEmail && data.userEmail && _curEmail !== data.userEmail){
+      _codifitClearState(); return false;
+    }
+
+    try{
+      if(data.S){
+        S.pk = data.S.pk || S.pk;
+        S.customPurpose = data.S.customPurpose || S.customPurpose;
+        S.day = data.S.day || S.day;
+        S.selDateKey = data.S.selDateKey || S.selDateKey;
+        S.seed = Number(data.S.seed||0);
+        S.hasGenerated = !!data.S.hasGenerated;
+        S._lastCacheKey = data.S._lastCacheKey || S._lastCacheKey;
+      }
+      if(data.flow){
+        flow.stepACards    = data.flow.stepACards || [null,null,null,null];
+        flow.stepASelected = (data.flow.stepASelected==null) ? null : data.flow.stepASelected;
+        flow.stepBCards    = data.flow.stepBCards || [null,null];
+        flow.stepBSelected = (data.flow.stepBSelected==null) ? null : data.flow.stepBSelected;
+        flow.stepCResult   = data.flow.stepCResult || null;
+        flow.gridCities    = data.flow.gridCities || null;
+      }
+      if(data.report){
+        const R = data.report;
+        const _setHTML = (id,html)=>{ const e=document.getElementById(id); if(e&&html) e.innerHTML=html; };
+        const _setTxt  = (id,txt) =>{ const e=document.getElementById(id); if(e&&txt) e.textContent=txt; };
+        const _show    = (id)=>{ const e=document.getElementById(id); if(e) e.classList.remove('hidden'); };
+        if(R.story) _setHTML('codiExplain', R.story);
+        if(R.pcText){ _setTxt('anPcText',R.pcText); _setHTML('anPcKws',R.pcKws); _show('anPcSection'); }
+        if(R.bodyText){ _setTxt('anBodyText',R.bodyText); _setHTML('anBodyKws',R.bodyKws); _show('anBodySection'); }
+        if(R.purposeText){ _setTxt('anPurposeText',R.purposeText); _setHTML('anPurposeKws',R.purposeKws); _show('anPurposeSection'); }
+        if(R.catKwHtml){ _setHTML('catKwRow',R.catKwHtml); _show('catKwSection'); const _kr=document.getElementById('kwRow'); if(_kr) _kr.classList.remove('hidden'); }
+        if(R.stylistBadge){ _setHTML('stylistBadge',R.stylistBadge); _show('stylistSummaryBox'); }
+      }
+      await _codifitRebuildUI(data.ui || {});
+      _codifitLastActive = data.lastActive || Date.now();
+      return true;
+    }catch(e){
+      console.warn('[codifit] state 복원 실패', e);
+      return false;
+    }
+  }
 
   // ─── 섹션 펼침/접힘 (트랜지션 + 자동 스크롤) ───
   function showSection(sectionId){
@@ -10424,6 +10782,12 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       card2.innerHTML = `
         <div class="cbq2-label">유사 변형</div>
         <div class="cbq2-loading">
+          <div class="step-a-pulse-wrap" aria-hidden="true">
+            <span class="step-a-pulse p-tl"></span><span class="step-a-pulse p-tl d2"></span>
+            <span class="step-a-pulse p-tr"></span><span class="step-a-pulse p-tr d2"></span>
+            <span class="step-a-pulse p-bl"></span><span class="step-a-pulse p-bl d2"></span>
+            <span class="step-a-pulse p-br"></span><span class="step-a-pulse p-br d2"></span>
+          </div>
           <div class="cbq2-cb">
             <span>c</span><span>o</span><span>d</span><span>i</span><span>B</span><span>a</span><span>n</span><span>k</span>
           </div>
@@ -10924,6 +11288,36 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   }else{
     bindModalEvents();
   }
+
+  // ════════════════════════════════════════════════════════════════════
+  // ─── 2026-05-18 KST · TJ 지시 ─── 코디핏 진행상태 영속화 리스너
+  //   페이지 이동/복귀 시 1st/2nd/3rd·날짜·목적·분석이 리셋되지 않도록.
+  //   리셋은 ①로그아웃 ②리셋버튼 ③30분 무활동 ④⑤날짜·목적변경(2단계)뿐.
+  // ════════════════════════════════════════════════════════════════════
+  // 페이지 최초 로드 → 저장된 진행상태 복원 (user/날씨 초기화 후 실행)
+  window.addEventListener('load', function(){
+    setTimeout(function(){
+      try{ _codifitRestoreState().catch(function(){}); }catch(_){}
+    }, 480);
+  });
+  // 페이지 이탈·백그라운드 전환 → 현재 상태 저장 / 복귀 → 30분 체크
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'hidden'){
+      _codifitSaveState();                       // 떠나는 시각이 마지막 활동
+    }else if(document.visibilityState === 'visible'){
+      // ③ 핸드폰 미사용 30분 경과 후 복귀 → 전체 리셋
+      if(Date.now() - _codifitLastActive > _CODIFIT_IDLE_MS){
+        _codifitClearState();
+        try{ if(typeof resetAll === 'function') resetAll(); }catch(_){}
+      }
+    }
+  });
+  // bfcache·앱 종료 등 — pagehide 에서도 저장 보장
+  window.addEventListener('pagehide', function(){ _codifitSaveState(); });
+  // 페이지 내 사용자 활동 → 마지막 활동 시각 갱신 (메모리만, 가벼움)
+  ['click','touchstart','keydown'].forEach(function(ev){
+    document.addEventListener(ev, function(){ _codifitLastActive = Date.now(); }, {passive:true});
+  });
 })();
 
 </script>  <!-- ═════════════════════════════════════════════════════════════════════════ -->
@@ -11003,6 +11397,23 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         <button type="button" id="stepCConfirmOk" class="stepc-modal-btn stepc-modal-ok">
           <span class="material-symbols-outlined">hd</span>완성하기
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── 2026-05-18 KST · TJ 지시 ─── 날짜/목적 변경 워닝 팝업 ───
+       생성된 추천 코디가 있을 때 날짜·코디목적을 바꾸면, 진행 내용이
+       모두 초기화됨을 먼저 확인받는다. (stepc-modal 스타일 재사용) -->
+  <div id="codifitWarnModal" class="stepc-modal">
+    <div class="stepc-modal-card">
+      <div class="stepc-modal-icon" style="background:linear-gradient(145deg,rgba(255,200,90,0.22),rgba(255,160,60,0.12));border-color:rgba(255,200,90,0.4);">
+        <span class="material-symbols-outlined" style="color:#FFC85A;">warning</span>
+      </div>
+      <h3 class="stepc-modal-title">진행한 코디가 초기화됩니다</h3>
+      <p class="stepc-modal-desc" id="codifitWarnDesc">변경하면 지금까지 생성한 추천 코디와<br>분석 내용이 모두 사라집니다. 변경하시겠습니까?</p>
+      <div class="stepc-modal-actions">
+        <button type="button" id="codifitWarnCancel" class="stepc-modal-btn stepc-modal-cancel">취소</button>
+        <button type="button" id="codifitWarnOk" class="stepc-modal-btn stepc-modal-ok">변경</button>
       </div>
     </div>
   </div>
