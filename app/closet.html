@@ -7,7 +7,18 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
-─── 2026-05-19 KST · TJ 보고 (복원 시 1st/3rd 누락 수정) ───
+─── 2026-05-19 KST · TJ 지시 (STEP1 직접입력 UI 개편 + 목적 인식 수정) ───
+ ① 직접입력을 그리드에서 분리해 전체폭 박스(#purposeCustomBox)로 변경.
+ ② 별도 텍스트 창(#purposeCustomWrap) 폐지 → 박스가 활성화되면 박스
+    안에서 직접 입력. (CSS .purpose-custom-box / .pcb-input 토글)
+ ③ 직접입력 텍스트가 1st 생성 시 코디목적으로 인식 안 되던 에러:
+    · closet.html: input 핸들러 IME 보호(30자 초과 시에만 value 재할당)
+      + window.S 명시 기록 + buildStepAPayload 가 custom 시 purposeLabel
+      에도 customText 동봉(이중 안전장치).
+    · 근본 원인은 서버 — stylist_matching_engine.py 가 pk='custom' 을
+      '직접입력' 고정 문자열로 변환하고 customText 를 무시 → 엔진에서
+      customText 를 실제 목적으로 인식하도록 수정(별도 파일).
+ ※ stylist_matching_engine.py 도 함께 Render 재배포 필요.
  증상: 페이지 이동 후 복귀 시 2nd(2장)만 복원되고 1st(4장)·3rd
        (최종)는 리셋.
  원인: _codifitRebuildUI 가 저장 시점 DOM 가시성(ui.stepA/B/C)에
@@ -1153,6 +1164,33 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 .purpose-card-dark:active{transform:scale(.96);}
 .purpose-card-dark.active{background:#ffffff !important;border-color:#ffffff !important;color:#071952 !important;box-shadow:0 4px 16px rgba(255,255,255,0.15);}
 .purpose-card-dark.active .material-symbols-outlined{font-variation-settings:'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 24;color:#071952 !important;}
+
+/* ─── 2026-05-19 KST · TJ 지시 ─── 직접입력 — 전체폭 통합 박스 ─── */
+.purpose-custom-box{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;min-height:52px;padding:10px 16px;margin-top:10px;
+  border-radius:14px;border:1.5px solid rgba(151,254,237,.22);
+  background:rgba(255,255,255,.05);
+  font-size:12px;font-weight:800;color:rgba(255,255,255,.7);
+  cursor:pointer;transition:all 180ms ease;
+  -webkit-tap-highlight-color:transparent;box-sizing:border-box;
+}
+.purpose-custom-box .material-symbols-outlined{font-size:17px;transition:color 180ms ease;color:rgba(151,254,237,.6);}
+.purpose-custom-box:active{transform:scale(.99);}
+.purpose-custom-box.active{
+  background:#ffffff !important;border-color:#ffffff !important;color:#071952 !important;
+  box-shadow:0 4px 16px rgba(255,255,255,.15);
+}
+.purpose-custom-box.active .material-symbols-outlined{color:#071952 !important;}
+.pcb-label{display:flex;align-items:center;gap:6px;}
+.pcb-input{
+  display:none;width:100%;background:transparent;border:none;outline:none;
+  text-align:center;font-size:14px;font-weight:800;
+  font-family:'Outfit','Noto Sans KR',sans-serif;color:#071952;
+}
+.pcb-input::placeholder{color:rgba(7,25,82,.4);font-weight:600;}
+.purpose-custom-box.active .pcb-label{display:none;}
+.purpose-custom-box.active .pcb-input{display:block;}
 
 /* 날짜 카드 스크롤 */
 .date-scroll{
@@ -2869,14 +2907,17 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     <!-- 목적 그리드 (3열) -->
     <div id="purposeGrid" class="purpose-grid" style="--pc-bg:transparent;--pc-border:rgba(255,255,255,0.40);--pc-color:rgba(255,255,255,0.85);--pc-icon:rgba(255,255,255,0.75);--pc-active-bg:#ffffff;--pc-active-border:#ffffff;--pc-active-color:#071952;"></div>
 
-    <!-- 직접입력 -->
-    <div id="purposeCustomWrap" class="hidden mt-3">
-      <label class="text-[11px] font-extrabold" style="color:rgba(151,254,237,0.8);">직접입력 (최대 30자)</label>
+    <!-- ─── 2026-05-19 KST · TJ 지시 ─── 직접입력 — 전체폭 통합 박스 ─── -->
+    <!-- 클릭 시 박스가 활성화되며 박스 안에서 직접 텍스트를 입력한다.
+         (별도 텍스트 창 #purposeCustomWrap 폐지) -->
+    <div id="purposeCustomBox" class="purpose-custom-box" role="button" tabindex="0"
+         data-purpose="custom" aria-label="직접입력">
+      <span id="pcbLabel" class="pcb-label">
+        <span class="material-symbols-outlined">edit</span>
+        <span>직접입력</span>
+      </span>
       <input id="purposeCustomInput" type="text" maxlength="30"
-        class="mt-2 w-full px-4 py-3 text-sm font-semibold placeholder-white/30 text-white outline-none"
-        style="background:rgba(255,255,255,0.07);border:1.5px solid rgba(151,254,237,0.2);border-radius:14px;font-family:'Outfit','Noto Sans KR',sans-serif;"
-        placeholder="예: 발표, 면접, 클래식 공연"/>
-      <p class="mt-2 text-[11px]" style="color:rgba(255,255,255,0.4);">30자 이내로 입력해주세요.</p>
+        class="pcb-input" placeholder="코디 목적을 직접 입력 (최대 30자)" />
     </div>
   </section>
 
@@ -7425,6 +7466,8 @@ function _stopPurposeIdleAnim(){
 function renderPurposeGrid(){
   const el=document.getElementById('purposeGrid');if(!el)return;el.innerHTML='';
   PURPOSES.forEach(p=>{
+    // ─── 2026-05-19 KST · TJ 지시 ─── 직접입력은 전용 전체폭 박스로 분리 ───
+    if(p.key==='custom') return;
     const b=document.createElement('button');b.type='button';b.className='purpose-card';b.dataset.purpose=p.key;
     var _isEn2=window.CodiBankI18n&&CodiBankI18n.isEn();
     b.innerHTML=`<span class="material-symbols-outlined">${p.icon}</span><span>${_isEn2&&p.labelEn?p.labelEn:p.label}</span>`;
@@ -7432,16 +7475,21 @@ function renderPurposeGrid(){
   });
   setActivePurpose(S.pk);
 
-  // 직접입력 UI 토글
-  const cw = document.getElementById('purposeCustomWrap');
+  // ─── 직접입력 전용 박스 동기화 ───
+  //   setActivePurpose 가 data-purpose='custom' 박스에 .active 를 토글하면
+  //   CSS 가 라벨↔input 표시를 전환한다. 여기서는 input 값 동기화 + 포커스만.
   const ci = document.getElementById('purposeCustomInput');
-  if (cw && ci) {
+  const _isEnPcb = window.CodiBankI18n && CodiBankI18n.isEn();
+  const _pcbText = document.querySelector('#pcbLabel span:last-child');
+  if (_pcbText) _pcbText.textContent = _isEnPcb ? 'Custom' : '직접입력';
+  if (ci) {
+    ci.placeholder = _isEnPcb
+      ? 'Type your styling purpose (max 30 chars)'
+      : '코디 목적을 직접 입력 (최대 30자)';
+    const _cv = (S.customPurpose || '').slice(0, 30);
+    if (ci.value !== _cv) ci.value = _cv;
     if (S.pk === 'custom') {
-      cw.classList.remove('hidden');
-      ci.value = (S.customPurpose || '').slice(0, 30);
       setTimeout(() => { try { ci.focus(); } catch(e){} }, 60);
-    } else {
-      cw.classList.add('hidden');
     }
   }
 }
@@ -8780,21 +8828,46 @@ renderPurposeGrid();
 if(!S.pk) _startPurposeIdleAnim();
 
 // 직접입력 입력값 저장(최대 30자)
+// ─── 2026-05-19 KST · TJ 지시 ─── 직접입력 통합 박스 — 입력/활성 처리 ───
+const purposeCustomBoxEl   = document.getElementById('purposeCustomBox');
 const purposeCustomInputEl = document.getElementById('purposeCustomInput');
+
+// 박스(라벨 영역) 클릭/키보드 → custom 목적 활성화
+purposeCustomBoxEl?.addEventListener('click', (e)=>{
+  // input 자체 클릭은 박스 토글 대상 아님 (이미 활성 상태에서 커서 이동)
+  if(e.target && e.target.id === 'purposeCustomInput') return;
+  setPurpose('custom');
+});
+purposeCustomBoxEl?.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); setPurpose('custom'); }
+});
+// input 클릭이 박스로 버블돼 setPurpose 가 중복 실행되지 않도록
+purposeCustomInputEl?.addEventListener('click', (e)=>{ e.stopPropagation(); });
+
+// 직접입력 텍스트 → S.customPurpose (1st 생성 시 코디목적으로 사용)
 purposeCustomInputEl?.addEventListener('input', (e)=>{
-  const v = String(e.target.value||'').slice(0,30);
-  e.target.value = v;
-  S.customPurpose = v;
-  if(S.pk==='custom'){
-    CodiBank.updateUserProfile(user.email, { codiPurposeKey:'custom', codiPurposeCustom: v });
-    setMetaLine();
-    // 입력이 바뀌면 추천 결과 리셋
-    S.seed=0;
-    S.hasGenerated=false;
-    resetVtoState('empty','');
-    // [2026-04-26 v15 TJ-2] 직접입력 변경 시 sessionStorage 삭제 (명시적 리셋)
-    try{ sessionStorage.removeItem('cb_closet_snap'); }catch(_){}
-  }
+  // ── 한글 IME 보호 ──
+  //   매 input 마다 e.target.value 를 재할당하면 한글 조합이 깨져
+  //   마지막 글자가 누락될 수 있다 → 30자 초과일 때만 잘라서 재할당.
+  let v = String(e.target.value || '');
+  if(v.length > 30){ v = v.slice(0, 30); e.target.value = v; }
+  // ── window.S 에 직접 기록 (buildStepAPayload 가 window.S 를 읽음) ──
+  const _S = (window.S = window.S || {});
+  _S.customPurpose = v;
+  _S.pk = 'custom';            // 직접입력 = custom 목적 확정
+  _S._configDirty = true;
+  try{
+    if(typeof user !== 'undefined' && user && user.email){
+      CodiBank.updateUserProfile(user.email, { codiPurposeKey:'custom', codiPurposeCustom: v });
+    }
+  }catch(_){}
+  try{ setMetaLine(); }catch(_){}
+  try{ updateAiCallBtn(); }catch(_){}
+  // 입력이 바뀌면 기존 추천 결과 리셋
+  _S.seed = 0;
+  _S.hasGenerated = false;
+  try{ resetVtoState('empty',''); }catch(_){}
+  try{ sessionStorage.removeItem('cb_closet_snap'); }catch(_){}
 });
 
 // (요청) 오늘의 코디는 비활성화(0단계)로 시작
@@ -10395,7 +10468,10 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         pm25: wx.pm25,
       },
       purposeKey: S.pk || S.purposeKey || '',
-      purposeLabel: S.purposeLabel || '',
+      // ─── 2026-05-19 KST · TJ 지시 ─── 직접입력 목적 안전장치 ───
+      //   custom 이면 purposeLabel 에도 사용자 입력 텍스트를 실어 보낸다.
+      //   (서버 엔진이 customText 를 못 읽는 경우에도 purposeLabel 로 인식)
+      purposeLabel: (_isCustom && _customText) ? _customText : (S.purposeLabel || ''),
       customText: _customText,
       faceImage: S.faceImage || '',  // 이미 등록된 face Data URL
       // ★ v68 신규 hook
