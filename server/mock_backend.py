@@ -5,6 +5,21 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-19 KST · TJ 보고 (Q3 세로 출력 — 가로강제 진단 강화) ───
+#  증상: 코디핏 3rd(Nano Banana Pro) 결과가 16:9 가로가 아니라 세로
+#        (968×1567)로 생성됨.
+#  원인: Q3 gemini 호출의 image_config(aspect_ratio="16:9") 가
+#        SDK 미지원 시 except 로 '조용히' 폴백 → aspect_ratio 누락.
+#        requirements.txt 의 google-genai>=1.0.0 하한이 낮아 Render 가
+#        ImageConfig 없는 구버전을 설치하면 폴백된다.
+#  수정: ① requirements.txt: google-genai>=1.0.0 → >=1.49.0
+#           (ImageConfig + image_size 확실 포함 버전)
+#        ② Q3 gemini config(~line 3169): 폴백 단계별 로그 추가
+#           ①image_config(ratio+size) ②ratio만 ③미지원 — 어느 경로인지
+#           로그로 노출 + image_size="2K" 추가.
+#  ※ 적용하려면 requirements.txt + 본 파일을 Render 에 재배포(재빌드)
+#    필수. 재배포 후 로그의 [ai_styling_gemini] Q3 가로강제 ①/②/③ 확인.
+#
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🔒 [정상 확정 baseline] 2026-05-18 — Q1/Q2 가로 1장 생성 (수정 시 주의)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -3167,13 +3182,35 @@ def _ai_styling_via_gemini(
                 )
                 _gem_cfg = None
                 if _is_q3:
+                    # ─── 2026-05-19 KST · TJ 보고 ─── Q3 가로강제 진단 강화 ───
+                    #   증상: image_config 폴백이 조용히 일어나 aspect_ratio 가
+                    #         통째로 누락 → 세로 출력. 어느 경로인지 로그로 노출.
+                    #   ① image_config(aspect_ratio + image_size)  ← google-genai 1.49.0+
+                    #   ② image_config(aspect_ratio only)          ← image_size 미지원 구SDK
+                    #   ③ 폴백(프롬프트만)                          ← ImageConfig 자체 미지원
                     try:
                         _gem_cfg = _gtypes.GenerateContentConfig(
-                            image_config=_gtypes.ImageConfig(aspect_ratio="16:9"),
+                            image_config=_gtypes.ImageConfig(
+                                aspect_ratio="16:9", image_size="2K"),
                             **_gem_cfg_kwargs,
                         )
-                    except (TypeError, AttributeError):
-                        _gem_cfg = None
+                        print("[ai_styling_gemini] Q3 가로강제 ① image_config"
+                              "(aspect_ratio=16:9, image_size=2K) 적용", flush=True)
+                    except (TypeError, AttributeError) as _e_full:
+                        try:
+                            _gem_cfg = _gtypes.GenerateContentConfig(
+                                image_config=_gtypes.ImageConfig(aspect_ratio="16:9"),
+                                **_gem_cfg_kwargs,
+                            )
+                            print("[ai_styling_gemini] Q3 가로강제 ② image_config"
+                                  f"(aspect_ratio=16:9) 적용 — image_size 미지원({_e_full})",
+                                  flush=True)
+                        except (TypeError, AttributeError) as _e_ratio:
+                            print("[ai_styling_gemini] ⚠⚠ Q3 가로강제 ③ 실패 — "
+                                  "ImageConfig 미지원으로 세로 출력 위험! "
+                                  f"google-genai SDK 업그레이드 필요 ({_e_ratio})",
+                                  flush=True)
+                            _gem_cfg = None
                 if _gem_cfg is None:
                     _gem_cfg = _gtypes.GenerateContentConfig(**_gem_cfg_kwargs)
                 response = client.models.generate_content(
