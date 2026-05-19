@@ -7,6 +7,23 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-18 KST · TJ 지시 (코디핏 라벨 + 3박스 디자인) ───
+ 1) 화면 라벨 텍스트 변경: Q1→1st, Q2→2nd, Q3→3rd (h3 3곳)
+ 2) 1st/2nd/3rd 이미지박스 디자인 통일 — 모서리 글로우 + 생성 중 파동:
+    · [정적] 네 귀퉁이 화이트 글로우(radial 4겹) 두껍게 → 변 따라
+      중앙으로 갈수록 얇아짐. (.step-a-overlay/.vto-result-box/.cbq2-card ::before)
+    · [생성 중] 글로우가 중앙으로 수렴하는 파동(cfitCornerWave) + 정적
+      글로우 밝기 펄스(cfitGlowPulse). --cfit-wave-dur 공유 → 이동·밝기
+      주기 완전 동기화. (::after / .vto-img-spin::before / .cbq2-loading::before)
+    · 구 심장박동 파동(step-a-pulse-wrap 8 span, saPulse*, csShimmerVto,
+      csPulseRingVto) 전면 제거 — Q1·Q2·Q3 HTML/CSS 모두.
+
+─── 2026-05-18 KST · TJ 지시 (Q3 재설계 — 선택 코디 reference) ───
+ startStepC: p._force_ref_image = baseCard.imageUrl 전달.
+ Q3 = 사용자가 선택한 추천 코디 이미지를 서버에 reference 로 보내
+ 의상 99.9% 복제 + 사용자 얼굴로 고화질(Nano Banana Pro) 재생성.
+ (서버측 _collect_ref_images/Q3 프롬프트/캐시우회는 mock_backend.py 참조)
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🔒 [정상 확정 baseline] 2026-05-18 — Q1/Q2 팝업이미지박스 (수정 시 주의)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1050,6 +1067,9 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 :root{
   --cb-navy:#071952; --cb-navy2:#0D2E5E; --cb-teal:#35A29F;
   --cb-teal2:#137373; --cb-mint:#97FEED; --cb-mint2:#9EF9EF;
+  /* ─── 2026-05-18 KST · TJ 지시 ─── 코디핏 3박스(1st/2nd/3rd) 모서리 글로우·파동 ───
+     정적 글로우와 생성 중 파동이 동일 주기로 밝아지도록 duration 을 공유한다. */
+  --cfit-wave-dur: 2.6s;
 }
 
 /* 전체 다크 패널 */
@@ -1335,27 +1355,12 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   0%,100%{opacity:0.7;transform:translateX(0);}
   50%{opacity:1;transform:translateX(-3px);}
 }
-/* 로딩 상태에서만 shimmer와 pulse ring 표시 */
+/* ─── 2026-05-18 KST · TJ 지시 ─── 3rd 박스 생성 중 ───
+   정적 모서리 글로우(.vto-result-box::before)에 밝기 펄스를 더한다.
+   중앙 수렴 파동은 .vto-img-spin::before(로딩 오버레이)가 담당 —
+   공통 규칙(cfitCornerWave)에서 처리. duration 공유 → 주기 동기화. */
 .vto-result-box.vto-loading::before{
-  content:'';position:absolute;inset:0;pointer-events:none;z-index:1;
-  background:linear-gradient(180deg, transparent 0%, rgba(151,254,237,0.04) 50%, transparent 100%);
-  background-size:100% 300%;
-  animation:csShimmerVto 3.5s ease-in-out infinite;
-}
-@keyframes csShimmerVto{
-  0%,100%{background-position:50% 0%;}
-  50%{background-position:50% 100%;}
-}
-.vto-result-box.vto-loading::after{
-  content:'';position:absolute;
-  width:140px;height:140px;border-radius:50%;
-  border:1.5px solid rgba(151,254,237,0.15);
-  animation:csPulseRingVto 2.2s ease-out infinite;
-  pointer-events:none;z-index:1;
-}
-@keyframes csPulseRingVto{
-  0%{transform:scale(0.7);opacity:0.8;}
-  100%{transform:scale(1.4);opacity:0;}
+  animation: cfitGlowPulse var(--cfit-wave-dur) ease-in-out infinite;
 }
 .vto-img-spin{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;position:absolute;inset:0;z-index:2;}
 .vto-spin-txt{font-size:11.5px;color:rgba(162,253,240,0.65);text-align:center;line-height:1.8;padding:0 20px;letter-spacing:.04em;font-weight:500;}
@@ -1584,68 +1589,64 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   letter-spacing: 0.05em;
   font-variant-numeric: tabular-nums;
 }
-@keyframes stepASubPulse{
-  0%, 100% { opacity: 0.6; }
-  50%      { opacity: 1.0; }
+/* ═══════════════════════════════════════════════════════════════════════
+ * 2026-05-18 KST · TJ 지시 ─ 코디핏 3박스(1st/2nd/3rd) 모서리 글로우 + 파동
+ * ───────────────────────────────────────────────────────────────────────
+ * [정적] 네 귀퉁이에서 화이트 글로우가 두껍게 시작 → 변(라인)을 따라
+ *        중앙으로 갈수록 점차 얇아진다. (각 코너 radial-gradient 4겹)
+ * [생성 중] 그 모서리 글로우가 중앙으로 수렴하는 파동(cfitCornerWave) +
+ *           정적 글로우의 밝기 펄스(cfitGlowPulse). 둘 다 --cfit-wave-dur
+ *           을 공유하고 50% 지점에서 최대 → 이동·밝기 주기가 완전히 동기화.
+ * 적용: 1st = .step-a-overlay / 2nd = .cbq2-card·.cbq2-loading
+ *       3rd = .vto-result-box·.vto-img-spin
+ * ═══════════════════════════════════════════════════════════════════════ */
+@keyframes cfitCornerWave{
+  /* 코너의 두꺼운 글로우 → 중앙으로 모이며(=scale 축소) 밝아짐 */
+  0%, 100% { transform: scale(1);    opacity: 0.12; }
+  50%      { transform: scale(0.52); opacity: 0.92; }
 }
-/* ─── 2026-05-16 KST · TJ 지시 1번 ─── 심장박동 파동 (4코너 → 중앙)
-   귀퉁이에서 크게 시작 → 중앙으로 이동하며 작아지고 사라짐
-   코너당 2개(.d2 딜레이) = 심장박동 더블비트 "두-근" 리듬 */
-.step-a-pulse-wrap{
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: 12px;
-  pointer-events: none;
-  z-index: 2;          /* overlay 배경 위, codibank 텍스트(z11) 아래 */
+@keyframes cfitGlowPulse{
+  /* 정적 모서리 글로우의 밝기 — 파동과 동일 주기로 밝아짐 */
+  0%, 100% { opacity: 0.42; }
+  50%      { opacity: 1;    }
 }
-.step-a-pulse{
-  position: absolute;
-  width: 92px;
-  height: 92px;
-  border-radius: 50%;
-  background: radial-gradient(circle,
-    rgba(151,254,237,0.52) 0%,
-    rgba(151,254,237,0.14) 46%,
-    rgba(151,254,237,0) 72%);
-  opacity: 0;
-  will-change: left, top, transform, opacity;
+/* 정적 모서리 글로우 (4코너 두껍게 → 변 따라 중앙으로 얇아짐) */
+.step-a-overlay::before,
+.vto-result-box::before,
+.cbq2-card::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+  z-index:1;
+  background:
+    radial-gradient(58% 56% at 0%   0%,   rgba(255,255,255,0.46), rgba(255,255,255,0) 70%),
+    radial-gradient(58% 56% at 100% 0%,   rgba(255,255,255,0.46), rgba(255,255,255,0) 70%),
+    radial-gradient(58% 56% at 0%   100%, rgba(255,255,255,0.46), rgba(255,255,255,0) 70%),
+    radial-gradient(58% 56% at 100% 100%, rgba(255,255,255,0.46), rgba(255,255,255,0) 70%);
 }
-.step-a-pulse.p-tl{ animation: saPulseTL 1.5s cubic-bezier(.4,0,.3,1) infinite; }
-.step-a-pulse.p-tr{ animation: saPulseTR 1.5s cubic-bezier(.4,0,.3,1) infinite; }
-.step-a-pulse.p-bl{ animation: saPulseBL 1.5s cubic-bezier(.4,0,.3,1) infinite; }
-.step-a-pulse.p-br{ animation: saPulseBR 1.5s cubic-bezier(.4,0,.3,1) infinite; }
-.step-a-pulse.d2{ animation-delay: 0.19s; }   /* 더블비트 두 번째 박 */
-@keyframes saPulseTL{
-  0%   { left: 8%;  top: 9%;  transform: translate(-50%,-50%) scale(1.6); opacity: 0; }
-  10%  { opacity: .72; }
-  55%  { opacity: .30; }
-  80%  { opacity: 0; }
-  100% { left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.12); opacity: 0; }
+/* 생성 중 — 중앙 수렴 파동 레이어 (코너 글로우가 더 두껍게, 중앙으로 이동) */
+.step-a-overlay::after,
+.vto-img-spin::before,
+.cbq2-loading::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+  z-index:1;
+  transform-origin:center;
+  background:
+    radial-gradient(56% 54% at 0%   0%,   rgba(255,255,255,0.66), rgba(255,255,255,0) 68%),
+    radial-gradient(56% 54% at 100% 0%,   rgba(255,255,255,0.66), rgba(255,255,255,0) 68%),
+    radial-gradient(56% 54% at 0%   100%, rgba(255,255,255,0.66), rgba(255,255,255,0) 68%),
+    radial-gradient(56% 54% at 100% 100%, rgba(255,255,255,0.66), rgba(255,255,255,0) 68%);
+  animation: cfitCornerWave var(--cfit-wave-dur) ease-in-out infinite;
 }
-@keyframes saPulseTR{
-  0%   { left: 92%; top: 9%;  transform: translate(-50%,-50%) scale(1.6); opacity: 0; }
-  10%  { opacity: .72; }
-  55%  { opacity: .30; }
-  80%  { opacity: 0; }
-  100% { left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.12); opacity: 0; }
-}
-@keyframes saPulseBL{
-  0%   { left: 8%;  top: 91%; transform: translate(-50%,-50%) scale(1.6); opacity: 0; }
-  10%  { opacity: .72; }
-  55%  { opacity: .30; }
-  80%  { opacity: 0; }
-  100% { left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.12); opacity: 0; }
-}
-@keyframes saPulseBR{
-  0%   { left: 92%; top: 91%; transform: translate(-50%,-50%) scale(1.6); opacity: 0; }
-  10%  { opacity: .72; }
-  55%  { opacity: .30; }
-  80%  { opacity: 0; }
-  100% { left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.12); opacity: 0; }
-}
-/* 오버레이 사라질 때 파동도 함께 페이드 */
-.step-a-overlay.hidden-overlay .step-a-pulse-wrap{ opacity: 0; transition: opacity .4s ease; }
+/* ── 1st (Q1 커버박스) — 로딩 전용 오버레이라 항상 글로우+파동 ── */
+.step-a-overlay::before{ animation: cfitGlowPulse var(--cfit-wave-dur) ease-in-out infinite; }
+/* 오버레이 사라질 때 글로우·파동도 함께 페이드 (부모 opacity 상속) */
 .step-a-card{
   position: relative;
   aspect-ratio: 5 / 8;     /* 1:1.6 세로형 (TJ 지시 v68) */
@@ -2868,7 +2869,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     </button>
 
     <!-- ─── 2026-05-16 KST · TJ 지시 1번 ─── Q1 질문 텍스트 ('스타일링 추천받기'와 동일 스타일) -->
-    <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-top:16px;">Q1. 이번 코디에는 어떤 스타일링이 좋으세요?</h3>
+    <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-top:16px;">1st. 이번 코디에는 어떤 스타일링이 좋으세요?</h3>
 
 
 
@@ -3010,13 +3011,9 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
                이전: 4개 cell이 각 카드를 개별 마스크 → 순차 공개
                변경: 전체를 덮는 단일 불투명 박스 + codibank 텍스트 + % 카운터 -->
           <div class="step-a-overlay" id="stepAOverlay">
-            <!-- ─── 2026-05-16 KST · TJ 지시 1번 ─── 심장박동 파동 (4코너→중앙) ─── -->
-            <div class="step-a-pulse-wrap" aria-hidden="true">
-              <span class="step-a-pulse p-tl"></span><span class="step-a-pulse p-tl d2"></span>
-              <span class="step-a-pulse p-tr"></span><span class="step-a-pulse p-tr d2"></span>
-              <span class="step-a-pulse p-bl"></span><span class="step-a-pulse p-bl d2"></span>
-              <span class="step-a-pulse p-br"></span><span class="step-a-pulse p-br d2"></span>
-            </div>
+            <!-- ─── 2026-05-18 KST · TJ 지시 ─── 모서리 글로우 + 중앙수렴 파동은
+                 .step-a-overlay::before(글로우) / ::after(파동) CSS 로 처리.
+                 구 step-a-pulse-wrap(8개 span) 제거. -->
             <div class="step-a-overlay-text">
               <div class="step-a-cb-rainbow">
                 <span>c</span><span>o</span><span>d</span><span>i</span><span>B</span><span>a</span><span>n</span><span>k</span>
@@ -3031,7 +3028,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <!-- STEP B 2장 비교 (선택 + 유사 변형) -->
       <div id="stepBCompare" class="step-section hidden" style="margin-top:24px;">
         <!-- ─── 2026-05-16 KST · TJ 지시 4번 ─── 'STEP B·선택+유사변형' → Q2 (Q1 동일 디자인) -->
-        <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-bottom:10px;">Q2. 유사한 스타일 중에서 어떤 게 더 좋으세요?</h3>
+        <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-bottom:10px;">2nd. 유사한 스타일 중에서 어떤 게 더 좋으세요?</h3>
         <!-- ─── 2026-05-16 KST · TJ 지시 ─── Q2 박스 완전 재구축: step-b-stack → cbq2-stack -->
         <div class="cbq2-stack" id="stepBCards">
           <!-- 2개 카드 (3:2 비율) 동적 생성 — cbq2-card + canvas -->
@@ -3041,7 +3038,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <!-- STEP C 안내 라벨 (vto-outer-layer 위) -->
       <!-- ─── 2026-05-16 KST · TJ 지시 ─── STEP C 타이틀 → Q3 (Q2와 동일 디자인) ─── -->
       <div id="stepCLabel" style="display:none;margin-top:24px;">
-        <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-bottom:10px;">Q3. 높은 퀄리티를 확인하세요!</h3>
+        <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-bottom:10px;">3rd. 높은 퀄리티를 확인하세요!</h3>
       </div>
 
       <!-- 이미지 박스 — 외부 어두운 네이비 레이어 + 내부 이미지 박스 -->
@@ -3053,13 +3050,8 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         <div class="vto-result-box vto-empty" id="vtoResultBox">
           <!-- 내부 대기/로딩 화면 — 트라이 온 img-spin 동일 구조 -->
           <div class="vto-img-spin" id="vtoOverlay">
-            <!-- ─── 2026-05-16 KST · TJ 지시 1번 ─── 심장박동 파동 (Q1·Q2 동일) ─── -->
-            <div class="step-a-pulse-wrap" aria-hidden="true">
-              <span class="step-a-pulse p-tl"></span><span class="step-a-pulse p-tl d2"></span>
-              <span class="step-a-pulse p-tr"></span><span class="step-a-pulse p-tr d2"></span>
-              <span class="step-a-pulse p-bl"></span><span class="step-a-pulse p-bl d2"></span>
-              <span class="step-a-pulse p-br"></span><span class="step-a-pulse p-br d2"></span>
-            </div>
+            <!-- ─── 2026-05-18 KST · TJ 지시 ─── 중앙수렴 파동은 .vto-img-spin::before
+                 CSS 로 처리. 구 step-a-pulse-wrap(8개 span) 제거. -->
             <!-- [2026-04-18] 진행률 표시 — 로딩 중에만 표시 (codibank 로고 위) -->
             <div class="vto-spin-pct" id="vtoSpinPct" style="display:none;">0<span class="vto-spin-pct-sym">%</span></div>
             <!-- codibank 레인보우 텍스트 -->
@@ -10432,12 +10424,6 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       card2.innerHTML = `
         <div class="cbq2-label">유사 변형</div>
         <div class="cbq2-loading">
-          <div class="step-a-pulse-wrap" aria-hidden="true">
-            <span class="step-a-pulse p-tl"></span><span class="step-a-pulse p-tl d2"></span>
-            <span class="step-a-pulse p-tr"></span><span class="step-a-pulse p-tr d2"></span>
-            <span class="step-a-pulse p-bl"></span><span class="step-a-pulse p-bl d2"></span>
-            <span class="step-a-pulse p-br"></span><span class="step-a-pulse p-br d2"></span>
-          </div>
           <div class="cbq2-cb">
             <span>c</span><span>o</span><span>d</span><span>i</span><span>B</span><span>a</span><span>n</span><span>k</span>
           </div>
