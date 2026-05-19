@@ -770,18 +770,38 @@ def build_styling_prompt(payload, fashion_db):
     
     # ── 코디 목적 ──
     purpose = payload.get('purpose', '')
+    _custom_text = str(payload.get('customText', '')).strip()
+    _is_custom_purpose = False
     if not purpose:
         pk = str(payload.get('purposeKey', '')).strip()
         pl = str(payload.get('purposeLabel', '')).strip()
-        # [2026-04-19 BUGFIX #3] purposeKey → 한글 변환 우선 (영어 UI 대응)
-        # 원인: purposeLabel은 i18n 변환된 UI 언어라 영어 UI 시 "Business Formal" 등
-        #       → DB 한글 키("비즈니스 포멀")와 mismatch → DB miss → 매칭/프롬프트 오류
-        # 해결: 언어 무관한 내부 키 purposeKey를 DB 한글 라벨로 변환 (최우선)
-        #       한글 UI 호환: pl이 이미 한글이면 그대로 사용 (기존 동작 보장)
-        purpose = PURPOSE_KEY_TO_KO.get(pk) or pl or pk or '데일리 오피스룩'
+        # ─── 2026-05-19 KST · TJ 지시 ─── 직접입력(custom) 목적 인식 ───
+        #   문제: pk='custom' 이면 PURPOSE_KEY_TO_KO['custom']='직접입력' 으로
+        #         고정 변환돼, 사용자가 입력한 실제 텍스트(customText)가 무시됨.
+        #         → 1st 4장이 사용자 의도와 무관하게 생성됨.
+        #   해결: pk='custom' + customText 가 있으면 그 텍스트를 목적으로 사용.
+        #         (스타일리스트 풀은 line ~1191 의 '직접입력' fallback 으로 처리)
+        if pk == 'custom' and _custom_text:
+            purpose = _custom_text
+            _is_custom_purpose = True
+            print(f"[엔진] 직접입력 목적 인식: '{_custom_text}'", flush=True)
+        else:
+            # [2026-04-19 BUGFIX #3] purposeKey → 한글 변환 우선 (영어 UI 대응)
+            purpose = PURPOSE_KEY_TO_KO.get(pk) or pl or pk or '데일리 오피스룩'
     purpose_info = fashion_db.get('base_prompts', {}).get(purpose, {})
     purpose_en = purpose_info.get('en', purpose)
     purpose_prompt_en = purpose_info.get('prompt_en', '')
+    # ─── 2026-05-19 KST · TJ 지시 ─── 직접입력 목적 — prompt_en 동적 생성 ───
+    #   custom 목적은 base_prompts 에 없어 purpose_prompt_en 이 빈 문자열이 됨
+    #   → 16개 고정 목적 대비 이미지 프롬프트의 스타일 지시가 빈약해진다.
+    #   사용자가 입력한 텍스트를 기반으로 styling 지시를 동적 생성해 보강.
+    if _is_custom_purpose and not purpose_prompt_en:
+        purpose_prompt_en = (
+            f"Custom styling request from the user: \"{_custom_text}\". "
+            f"Carefully interpret the occasion, mood, formality and context "
+            f"implied by \"{_custom_text}\", and design a fashion-appropriate, "
+            f"well-coordinated outfit that perfectly suits that purpose."
+        )
     
     # ── 지역 → main/sub 도시 ──
     # ─── 2026-05-12 KST · TJ 지시 (v63) ─── 7개 도시 모두 활용 ───
