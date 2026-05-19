@@ -5,7 +5,32 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-05-19 KST · TJ 보고 (STEP A 과거 이미지 재탕 — 캐시 HIT 수정) ───
+#  증상: 같은 목적(하객룩)으로 다시 생성 시 4개 도시 추천코디가 단 하나도
+#        안 바뀌고 과거 이미지 그대로. 오전 생성 = 오후 생성.
+#  원인: STEP A(4장 그리드)는 ① force_regen 누락 → 캐시 키에 시간 nonce(rsd)
+#        없음 → 같은 (목적·날짜·스타일리스트·도시) 면 캐시 키 동일 → 캐시
+#        HIT → AI 호출 자체가 안 일어남. ② 스타일리스트 엔진이
+#        hash(user+purpose+today+seed) 결정론적 → seed 고정 시 같은
+#        키워드/스타일리스트/도시 선정. (STEP B·Q3 는 force_regen=True 였으나
+#        STEP A 만 빠져 있었음.)
+#  수정: STEP A 진입 시(~line 3884) seed/retrySeed 를 서버 시각(ms)으로 강제
+#        + force_regen=True(~line 4090). → 엔진이 매번 다른 키워드/스타일리스트
+#        선정 + 캐시 키도 매번 달라져 캐시 MISS → 매 생성 새 코디.
+#  ※ '랜덤 여부' 답: 스타일리스트 선정은 완전 랜덤이 아니라 seed 기반
+#    결정론적(재현성 설계). 본 수정으로 STEP A 는 매번 새 seed 가 되어
+#    실질적으로 매 생성 다른 스타일리스트/코디가 나온다. 7일 이내 중복은
+#    자동 충족(매번 새로 생성). 정밀한 7일 시그니처 중복필터는 사용자별
+#    생성 이력 저장소(Supabase) 구축 후 별도 작업 권장.
+#
 # ─── 2026-05-19 KST · TJ 보고 (Q3 세로 출력 — 가로강제 진단 강화) ───
+#  · [후속] 3rd 결과가 여전히 968x1567 세로(정면 1명)로 생성됨.
+#    트라이온(_tryon_build_prompt)은 같은 Nano Banana Pro 로 가로 정상.
+#    → 트라이온의 검증된 프롬프트 패턴을 Q3 gemini_prompt(~line 2988)에
+#      이식: ① OUTPUT FORMAT 을 프롬프트 최상단(top priority) 배치
+#      ② LEFT/RIGHT 를 픽셀 좌표("pixels 0 to 1024 wide" 등)로 명시
+#      ③ "reference 이미지가 세로여도 무시, 출력은 항상 가로" 명시
+#      ④ 세로 fallback 문구 제거. 로그도 'Q3 전용 프롬프트 적용 v2'.
 #  증상: 코디핏 3rd(Nano Banana Pro) 결과가 16:9 가로가 아니라 세로
 #        (968×1567)로 생성됨.
 #  원인: Q3 gemini 호출의 image_config(aspect_ratio="16:9") 가
@@ -2968,6 +2993,27 @@ def _ai_styling_via_gemini(
         _face_idx = "[1]" if _has_face_ref else "(generate a natural Korean face)"
         _outfit_idx = "[2]" if _has_face_ref else "[1]"
         gemini_prompt = (
+            # ─── 2026-05-19 KST · TJ 보고 ─── Q3 세로 출력 — 프롬프트 강화 ───
+            #   트라이온(_tryon_build_prompt)에서 가로가 정상 생성되는 검증된
+            #   패턴을 이식: ① OUTPUT FORMAT 을 프롬프트 최상단(top priority)
+            #   ② LEFT/RIGHT 를 픽셀 좌표로 명시 ③ reference 이미지가 세로여도
+            #   무시하라고 명시 (Nano Banana Pro 가 reference 비율을 따라가
+            #   세로로 출력하던 것을 차단).
+            "🖼️ CRITICAL OUTPUT FORMAT — READ FIRST, MUST OBEY (TOP PRIORITY)\n"
+            "Output ONE SINGLE WIDE HORIZONTAL image. The image MUST be wider "
+            "than it is tall (landscape 16:9, about 2048 px wide x 1152 px tall).\n"
+            "The wide image shows the SAME person TWICE, side by side, sharing "
+            "ONE continuous flat solid studio background:\n"
+            "  - LEFT half  (pixels 0 to 1024 wide): FRONT view — full body, "
+            "head to feet, facing the camera.\n"
+            "  - RIGHT half (pixels 1024 to 2048 wide): BACK view — the SAME "
+            "person, full body, head to feet, facing AWAY from the camera.\n"
+            "Each figure occupies ~85% of the image height, centered in its half.\n"
+            "ABSOLUTELY FORBIDDEN: a vertical / portrait / square image; an "
+            "image taller than it is wide; or an image with only ONE figure.\n"
+            "IMPORTANT: the reference images below may be VERTICAL — IGNORE "
+            "their orientation. Your output is ALWAYS a WIDE horizontal image "
+            "regardless of the shape of the reference images.\n\n"
             "# TASK — FINAL HIGH-QUALITY RENDER (Q3)\n"
             + _ref_guide + "\n\n"
             "# ABSOLUTE RULE — OUTFIT MUST BE 99.9% IDENTICAL\n"
@@ -2980,25 +3026,18 @@ def _ai_styling_via_gemini(
             "# FACE\n"
             f"Use reference image {_face_idx} for the facial identity — preserve the "
             "same face exactly (jawline, eyes, eyebrows, nose, lips, skin tone).\n\n"
-            "# OUTPUT IMAGE FORMAT (MOST CRITICAL — APPLY FIRST)\n"
-            "Output ONE single horizontal 16:9 landscape image (e.g. 1920x1080), "
-            "wide format. The image contains the SAME person TWICE, side by side:\n"
-            "  - LEFT half  = FRONT view of the person wearing the outfit.\n"
-            "  - RIGHT half = BACK view of the SAME person wearing the SAME outfit.\n"
-            "Both figures: full body, head-to-toe, ~85% of image height, centered "
-            "in their half. Plain solid studio background, same color on both halves.\n"
-            "DO NOT generate a vertical / portrait / square image. "
-            "DO NOT generate only one figure. "
-            "If you cannot achieve exactly 16:9, output a wide landscape image with "
-            "the two figures side by side — NEVER vertical.\n\n"
             "# POSE\n"
             "Only the POSE differs between the two figures (front-facing vs. "
             "back-facing). The outfit, hair, accessories and body are identical.\n\n"
             "# QUALITY\n"
             "Maximum photographic quality: sharp focus, clean lighting, high "
-            "resolution, no blur, no artifacts, no text, no watermark.\n"
+            "resolution, no blur, no artifacts, no text, no watermark.\n\n"
+            "# FINAL REMINDER (MOST IMPORTANT)\n"
+            "The output image MUST be WIDE horizontal landscape, containing TWO "
+            "full-body figures side by side — FRONT on the left, BACK on the "
+            "right. NEVER vertical. NEVER a single figure.\n"
         )
-        print(f"[ai_styling] Q3 전용 프롬프트 적용 (style_ref={_has_style_ref}, face={_has_face_ref})", flush=True)
+        print(f"[ai_styling] Q3 전용 프롬프트 적용 v2 (가로강제 강화, style_ref={_has_style_ref}, face={_has_face_ref})", flush=True)
 
     # ─── 2026-04-21 KST ─── 티어별 엔진 라우팅 적용 ───
     # payload.tier > 직접 전달된 tier > 기본값 FREE
@@ -3871,6 +3910,22 @@ def ai_styling():
             payload['weather'] = {}
         payload['weather']['location'] = _force_city
         print(f"[v68 grid] _force_city={_force_city}", flush=True)
+    # ─── 2026-05-19 KST · TJ 지시 ─── STEP A 매 생성마다 새 코디 ───
+    #   문제: STEP A(4장 그리드)는 seed 고정 시 ① 스타일리스트 엔진이
+    #         hash(user+purpose+today+seed) 로 같은 키워드/스타일리스트/도시를
+    #         선정 → 같은 코디 프롬프트 ② 캐시 키도 동일 → 캐시 HIT →
+    #         과거 이미지 그대로 (오전 생성이 오후에도 동일, 재생성해도 동일).
+    #   해결: STEP A 진입 시 seed/retrySeed 를 서버 시각(ms)으로 강제.
+    #         → 엔진이 매번 다른 키워드/스타일리스트 선정 (다양성 확보)
+    #         → 캐시 키 rsd 도 매번 달라짐 (아래 force_regen 와 함께 캐시 MISS)
+    #   ※ STEP A = _force_city 있고 유사변형(STEP B)·Q3(high) 둘 다 아님.
+    #     같은 "추천 받기"의 4개 도시는 _force_city(cty) 로 키가 구분된다.
+    _is_step_a_grid = bool(_force_city) and (not _similar_variation) and (_force_quality != 'high')
+    if _is_step_a_grid:
+        _step_a_nonce = _now_ms()
+        payload['seed'] = _step_a_nonce
+        payload['retrySeed'] = _step_a_nonce
+        print(f"[v68 grid] STEP A 새 코디 강제 — seed={_step_a_nonce}", flush=True)
     # ─── 2026-05-18 KST · TJ 지시 ─── Q3 최종 고화질 = Nano Banana Pro ───
     #   설계 의도: Q3 = Q2 에서 선택한 최종 코디를 "확대해도 깨지지 않는
     #             고퀄 이미지"로 보는 단계.
@@ -4065,6 +4120,13 @@ def ai_styling():
     #   반환되는 버그(원본/변형 임의 노출) 발생 → force_regenerate 로 nonce 를
     #   넣어 항상 MISS, cache_fname 도 매번 달라 STEP A/B 파일을 덮지 않음.
     if str(payload.get('_force_quality') or '').strip().lower() == 'high':
+        _force_regen = True
+    # ─── 2026-05-19 KST · TJ 지시 ─── STEP A 도 캐시 우회 (매 생성 새 코디) ───
+    #   STEP A 진입 시 seed/retrySeed 를 서버 시각(ms)으로 강제했으므로,
+    #   force_regen=True 면 캐시 키 body 에 rsd=그 nonce 가 들어가 매번 새 키
+    #   → 캐시 MISS → AI 가 실제로 새 이미지 생성. (캐시 HIT 로 과거 이미지가
+    #   그대로 반환되던 버그 차단.)
+    if _is_step_a_grid:
         _force_regen = True
     cache_key = _make_ai_cache_key_v2(
         payload, face_bytes_for_key, ref_images,
