@@ -7,6 +7,29 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-05-19 KST · TJ 보고 (복원 시 1st/3rd 누락 수정) ───
+ 증상: 페이지 이동 후 복귀 시 2nd(2장)만 복원되고 1st(4장)·3rd
+       (최종)는 리셋.
+ 원인: _codifitRebuildUI 가 저장 시점 DOM 가시성(ui.stepA/B/C)에
+       의존 → ui.stepA/stepC 가 false 면 flow 데이터가 있어도 화면
+       재구성을 건너뜀. (2nd 만 우연히 ui.stepB=true 였음)
+ 수정: ui 플래그 의존 전면 제거 → flow 데이터(이미지) 유무로만
+       각 단계 복원 판단. 3rd 는 결과 이미지 + 버튼 4개 + 정/후면
+       토글 + 분석 박스까지 완전 복원하도록 보강.
+
+─── 2026-05-19 KST · TJ 보고 (3rd 고화질 생성 실패 수정) ───
+ 증상: 3rd(Nano Banana Pro) 생성 실패 — ①signal is aborted
+       ②HTTP 400 "얼굴 사진 등록 필요".
+ 원인:
+  ② (핵심) 영속화(05-18)가 flow 는 복원하나 S.faceImage 는 복원
+     안 함 → 페이지 이동 후 3rd 생성 시 faceImage 누락 → 서버 거절.
+  ① 3rd 가 20~24초 소요, 그 사이 모바일 브라우저가 백그라운드
+     전환 시 진행 중 fetch 를 중단(v68Fetch 180s 와 무관).
+ 수정:
+  · _codifitSaveState/_codifitRestoreState 에 S.faceImage 포함.
+  · startStepC: faceImage 없으면 서버 왕복 없이 일찍 명확히 안내.
+  · startStepC catch: abort 에러를 사용자 친화 메시지로 안내.
+
 ─── 2026-05-18 KST · TJ 지시 (코디핏 진행상태 영속화 + 변경 워닝) ───
  문제: 1st/2nd 생성 후 다른 페이지 갔다 오면 flow·날짜·목적·분석 리셋.
  원인: flow/S 가 JS 메모리 변수 → 페이지 전환마다 closet.html 재로드.
@@ -9875,7 +9898,6 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
 
       const _domHTML = (id)=>{ const e=document.getElementById(id); return e?e.innerHTML:''; };
       const _domTxt  = (id)=>{ const e=document.getElementById(id); return e?e.textContent:''; };
-      const _vis     = (id)=>{ const e=document.getElementById(id); return !!(e && !e.classList.contains('hidden') && e.style.display!=='none'); };
 
       const data = {
         ver: 1,
@@ -9886,6 +9908,10 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           day: S.day || 'today', selDateKey: S.selDateKey || '',
           seed: Number(S.seed||0), hasGenerated: !!S.hasGenerated,
           _lastCacheKey: S._lastCacheKey || '',
+          // ─── 2026-05-19 KST · TJ ─── 얼굴 사진(data URL) 포함 ───
+          //   복원 후 3rd 생성 시 faceImage 누락 → 서버 400 거절 방지.
+          //   S.faceImage 는 압축된 data URL(~수백 KB) — sessionStorage 한도 내.
+          faceImage: S.faceImage || '',
         },
         flow: {
           stepACards: flow.stepACards || [null,null,null,null],
@@ -9895,7 +9921,6 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           stepCResult: flow.stepCResult || null,
           gridCities: flow.gridCities || null,
         },
-        ui: { stepA:_vis('stepAGrid'), stepB:_vis('stepBCompare'), stepC:_vis('stepCLabel') },
         report: {
           story:       _domHTML('codiExplain'),
           pcText:      _domTxt('anPcText'),      pcKws:      _domHTML('anPcKws'),
@@ -9912,10 +9937,11 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
 
   // 단계별 화면 재구성 — 기존 렌더 함수를 재호출하므로 모달·vto 박스
   // baseline 을 일절 건드리지 않는다.
-  async function _codifitRebuildUI(ui){
-    ui = ui || {};
+  // ※ 저장 시점의 DOM 가시성(ui 플래그)은 섹션 숨김/표시 타이밍에 따라
+  //   불안정 → flow 데이터(이미지) 유무로만 각 단계 복원을 판단한다.
+  async function _codifitRebuildUI(){
     // ── 1st: 4장 그리드 ──
-    if(ui.stepA && (flow.stepACards||[]).some(c => c && c.imageUrl)){
+    if((flow.stepACards||[]).some(c => c && c.imageUrl)){
       const cities = getGridCities();
       showSection('stepAGrid');
       for(let i=0;i<4;i++){
@@ -9924,19 +9950,17 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           renderStepACard(i, cities[i], 'done', card);
         }
       }
-      // 선택돼 있던 카드 표시
       if(flow.stepASelected!=null){
         const sel = document.querySelector(`#stepACards [data-idx="${flow.stepASelected}"]`);
         if(sel) sel.classList.add('step-a-selected');
       }
     }
     // ── 2nd: 2장 비교 ──
-    if(ui.stepB && (flow.stepBCards||[]).some(c => c && c.imageUrl)){
+    if((flow.stepBCards||[]).some(c => c && c.imageUrl)){
       showSection('stepBCompare');
       const container = document.getElementById('stepBCards');
       if(container){
         container.innerHTML = '';
-        // 원본 카드 라벨 = "원본 — {도시}" (startStepB 와 동일 표기)
         const _q2Cities = getGridCities();
         const _q2BaseLabel = (flow.stepASelected!=null && _q2Cities[flow.stepASelected])
           ? ('원본 — ' + _q2Cities[flow.stepASelected].label) : '원본';
@@ -9954,13 +9978,18 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         }
       }
     }
-    // ── 3rd: 최종 고화질 ──
-    if(ui.stepC && flow.stepCResult && flow.stepCResult.image){
+    // ── 3rd: 최종 고화질 — 결과 이미지 + 버튼 + 토글까지 완전 복원 ──
+    if(flow.stepCResult && flow.stepCResult.image){
       const _cLabel = document.getElementById('stepCLabel');
       const _outer  = document.getElementById('vtoOuterLayer');
+      const _bAct   = document.getElementById('vtoBActions');
       if(_cLabel) _cLabel.style.display = '';
       if(_outer)  _outer.style.display  = '';
-      const vtoBox = document.getElementById('vtoResultBox');
+      if(_bAct)   _bAct.style.display   = '';
+      const vtoBox     = document.getElementById('vtoResultBox');
+      const vtoOverlay = document.getElementById('vtoOverlay');
+      const vtoCanvas  = document.getElementById('vtoCanvas');
+      const vtoSpinner = document.getElementById('vtoSpinner');
       if(vtoBox){ vtoBox.classList.remove('hidden'); vtoBox.classList.remove('vto-loading'); }
       try{
         if(typeof window.drawResultToVtoCanvas === 'function'){
@@ -9968,6 +9997,24 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         }else{
           await drawStepCToCanvas(flow.stepCResult.image);
         }
+      }catch(_){}
+      // 로딩 오버레이 숨김 + 캔버스 표시 (startStepC 완료부와 동일)
+      if(vtoSpinner){ vtoSpinner.classList.remove('animating'); vtoSpinner.style.display='none'; }
+      if(vtoOverlay) vtoOverlay.style.display='none';
+      if(vtoCanvas)  vtoCanvas.style.display='block';
+      const _toggle = document.getElementById('vtoPoseToggle');
+      if(_toggle) _toggle.classList.remove('hidden');
+      // 버튼 4개 활성화
+      try{
+        ['saveBtn','againBtn','shareBtn','resetBtn'].forEach(function(id){
+          const b = document.getElementById(id);
+          if(b){ b.disabled = false; b.className = 'vto-bab vto-btn-active'; }
+        });
+      }catch(_){}
+      // 분석 박스 — stepCResult 로 채워 표시
+      try{
+        if(typeof fillAnalysisBoxes === 'function') fillAnalysisBoxes(flow.stepCResult);
+        if(typeof showAnalysisBoxes === 'function') showAnalysisBoxes();
       }catch(_){}
     }
   }
@@ -10001,6 +10048,8 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         S.seed = Number(data.S.seed||0);
         S.hasGenerated = !!data.S.hasGenerated;
         S._lastCacheKey = data.S._lastCacheKey || S._lastCacheKey;
+        // ─── 2026-05-19 KST · TJ ─── 얼굴 사진 복원 — 3rd 생성 필수값 ───
+        if(data.S.faceImage) S.faceImage = data.S.faceImage;
       }
       if(data.flow){
         flow.stepACards    = data.flow.stepACards || [null,null,null,null];
@@ -10022,7 +10071,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         if(R.catKwHtml){ _setHTML('catKwRow',R.catKwHtml); _show('catKwSection'); const _kr=document.getElementById('kwRow'); if(_kr) _kr.classList.remove('hidden'); }
         if(R.stylistBadge){ _setHTML('stylistBadge',R.stylistBadge); _show('stylistSummaryBox'); }
       }
-      await _codifitRebuildUI(data.ui || {});
+      await _codifitRebuildUI();
       _codifitLastActive = data.lastActive || Date.now();
       return true;
     }catch(e){
@@ -10956,6 +11005,18 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     // 이전: _force_quality='medium' (STEP A와 동일 화질 → 고화질 아님)
     // 변경: 'high' — 최종 1회만 생성하므로 비용 영향 적고 화질 확실히 상승
     try{
+      // ─── 2026-05-19 KST · TJ ─── faceImage 보장 ───
+      //   페이지 이동/복원 후 S.faceImage 소실 시 서버가 400 으로 거절한다.
+      //   영속화(cb_codifit_state_v1)가 복원하지만, 만일을 대비해 한 번 더 확인.
+      if(!S.faceImage){
+        finishStepCProgress();
+        if(vtoBox) vtoBox.classList.remove('vto-loading');
+        if(vtoSpinner){ vtoSpinner.classList.remove('animating'); vtoSpinner.style.display='none'; }
+        if(vtoOverlay) vtoOverlay.style.display='none';
+        alert('얼굴 사진을 찾을 수 없어요.\n프로필에서 얼굴 사진을 등록한 뒤, 1st 단계부터 다시 진행해주세요.');
+        flow.busy = false;
+        return;
+      }
       const cityInfo = getGridCities()[flow.stepASelected];
       const p = buildStepAPayload(cityInfo.city);
       p._force_quality = 'high';
@@ -11012,7 +11073,15 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       finishStepCProgress();
       if(vtoBox) vtoBox.classList.remove('vto-loading');
       if(vtoSpinner) vtoSpinner.classList.remove('animating');
-      alert('최종 이미지 생성 실패: ' + (err.message || ''));
+      // ─── 2026-05-19 KST · TJ ─── abort 에러 안내 개선 ───
+      //   모바일 브라우저가 백그라운드 전환 시 진행 중 fetch 를 중단시키면
+      //   'signal is aborted' 가 뜬다 → 원인을 알려주고 재시도 유도.
+      let _msg = (err && err.message) || '';
+      if((err && err.name === 'AbortError') || /abort/i.test(_msg)){
+        _msg = '생성이 중단됐어요. 앱이 백그라운드로 전환되거나 화면이 꺼지면 '
+             + '연결이 끊길 수 있어요.\n화면을 켠 상태로 잠시 기다려 주시고, 다시 시도해주세요.';
+      }
+      alert('최종 이미지 생성 실패: ' + _msg);
     }
     flow.busy = false;
   }
