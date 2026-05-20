@@ -24,6 +24,14 @@
 #    생성 이력 저장소(Supabase) 구축 후 별도 작업 권장.
 #
 # ─── 2026-05-19 KST · TJ 보고 (Q3 세로 출력 — 가로강제 진단 강화) ───
+#  · [최종 수정] Q3 세로 재발 — 코디핏 Q3 config 를 트라이온과 100% 동일하게.
+#    트라이온(_TRYON_MODEL, line 7938~)은 가로 정상이라 코드 비교한 결과
+#    두 가지 다름이 결정적이었음:
+#      ① temperature: 트라이온 0.4 vs Q3 0.7
+#      ② max_output_tokens: 트라이온 8192 명시 vs Q3 미설정(기본값)
+#    특히 ② — image_size="2K"(2048px) 출력에 필요한 토큰이 부족하면
+#    모델이 작은 해상도로 fallback 하면서 aspect_ratio 지시도 약화돼
+#    세로가 나온다. Q3 config 를 트라이온 검증값으로 맞춤(~line 3230).
 #  · [후속] 3rd 결과가 여전히 968x1567 세로(정면 1명)로 생성됨.
 #    트라이온(_tryon_build_prompt)은 같은 Nano Banana Pro 로 가로 정상.
 #    → 트라이온의 검증된 프롬프트 패턴을 Q3 gemini_prompt(~line 2988)에
@@ -3221,28 +3229,37 @@ def _ai_styling_via_gemini(
                 )
                 _gem_cfg = None
                 if _is_q3:
-                    # ─── 2026-05-19 KST · TJ 보고 ─── Q3 가로강제 진단 강화 ───
-                    #   증상: image_config 폴백이 조용히 일어나 aspect_ratio 가
-                    #         통째로 누락 → 세로 출력. 어느 경로인지 로그로 노출.
-                    #   ① image_config(aspect_ratio + image_size)  ← google-genai 1.49.0+
-                    #   ② image_config(aspect_ratio only)          ← image_size 미지원 구SDK
-                    #   ③ 폴백(프롬프트만)                          ← ImageConfig 자체 미지원
+                    # ─── 2026-05-19 KST · TJ 보고 ─── Q3 가로강제 — 트라이온 동일 패턴 ───
+                    #   증상: Q3 가 세로(968×1567)로 계속 생성됨.
+                    #   진짜 원인: 같은 Nano Banana Pro 를 쓰는 트라이온은 가로 정상.
+                    #     비교한 결과 코디핏 Q3 config 가 트라이온과 두 가지 다름:
+                    #       ① temperature: 트라이온 0.4 vs Q3 0.7
+                    #       ② max_output_tokens: 트라이온 8192 명시 vs Q3 미설정
+                    #     특히 ②가 결정적 — image_size="2K"(2048px) 출력 토큰이
+                    #     부족하면 모델이 작은 해상도로 fallback 하면서 aspect_ratio
+                    #     지시도 약화돼 세로가 나온다.
+                    #   해결: 트라이온의 검증된 config 와 100% 동일하게 맞춤.
+                    #     로그로 어느 경로(①/②/③)인지 노출.
                     try:
                         _gem_cfg = _gtypes.GenerateContentConfig(
+                            response_modalities=["IMAGE", "TEXT"],
+                            temperature=0.4,            # 트라이온 동일
+                            max_output_tokens=8192,     # 트라이온 동일 — 2K 이미지 토큰 확보
                             image_config=_gtypes.ImageConfig(
                                 aspect_ratio="16:9", image_size="2K"),
-                            **_gem_cfg_kwargs,
                         )
                         print("[ai_styling_gemini] Q3 가로강제 ① image_config"
-                              "(aspect_ratio=16:9, image_size=2K) 적용", flush=True)
+                              "(aspect_ratio=16:9, image_size=2K, temp=0.4, max_tokens=8192) 적용", flush=True)
                     except (TypeError, AttributeError) as _e_full:
                         try:
                             _gem_cfg = _gtypes.GenerateContentConfig(
+                                response_modalities=["IMAGE", "TEXT"],
+                                temperature=0.4,
+                                max_output_tokens=8192,
                                 image_config=_gtypes.ImageConfig(aspect_ratio="16:9"),
-                                **_gem_cfg_kwargs,
                             )
                             print("[ai_styling_gemini] Q3 가로강제 ② image_config"
-                                  f"(aspect_ratio=16:9) 적용 — image_size 미지원({_e_full})",
+                                  f"(aspect_ratio=16:9, max_tokens=8192) 적용 — image_size 미지원({_e_full})",
                                   flush=True)
                         except (TypeError, AttributeError) as _e_ratio:
                             print("[ai_styling_gemini] ⚠⚠ Q3 가로강제 ③ 실패 — "
