@@ -1,11 +1,41 @@
 <!DOCTYPE html>
 <!--
 ═══════════════════════════════════════════════════════════════════════
+📦 CodiBank · closet.html
+   Version:        v2026.05.21
+   Last Modified:  2026-05-21 KST
+═══════════════════════════════════════════════════════════════════════
+-->
+<!--
+═══════════════════════════════════════════════════════════════════════
 📋 수정 이력 (MODIFICATION HISTORY) — 최신순
 ═══════════════════════════════════════════════════════════════════════
 이 블록은 파일 수정 때마다 최상단에 누적됩니다.
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
+
+─── 2026-05-21 KST · TJ 지시 (AI 옷장 자동 저장 브릿지 복원) ───
+ 증상: AI 옷장(aicloset.html) 의 '추천코디 이미지 뷰박스' 와 '유사한 아이템
+       찾기' 기능이 화면에서 사라진 것처럼 보임. (코드는 그대로 살아있음)
+ 원인: v68(4→2→1) 흐름 전환 이후 startStepA/B/C 가 IndexedDB
+       (codibank.codi_history) 에 전혀 저장하지 않음. 옛 updateVTO 의
+       저장 로직은 v68 미로드 시 fallback 이라 평소엔 미실행 →
+       aicloset 가 읽을 데이터가 없어 hasAI=false 로 박스 영구 숨김.
+ 수정:
+  ① v68 IIFE 내부에 _saveCodiToAiCloset(entry) 헬퍼 신규 (line ~9937)
+     · 동일 img URL 옛 엔트리 삭제 → 중복 방지
+     · 새 ts 로 IDB 저장 (codibank.codi_history, keyPath:'ts')
+     · 최대 5개 유지 + 24h 초과 자동 정리 (aicloset 와 동일 규칙)
+     · cb_codi_generated localStorage 플래그도 함께 갱신 (폴백용)
+  ② openModalForCard(idx) (line ~10852) — 1st(STEP A) 카드 모달
+     오픈 시 _saveCodiToAiCloset({_stage:'A'}) 호출.
+  ③ openModalForStepBCard(idx) (line ~10876) — 2nd(STEP B) 카드
+     모달 오픈 시 _saveCodiToAiCloset({_stage:'B'}) 호출.
+  ④ startStepC() 성공 분기 fillAnalysisBoxes 직후 (line ~11255) —
+     3rd 최종 고화질 이미지 자동 저장 _saveCodiToAiCloset({_stage:'C'}).
+ 보존: 옛 updateVTO 의 IDB 저장(line ~7128~7191) 그대로 유지 (fallback 안전망).
+ 효과: 사용자가 코디분석 팝업으로 1st/2nd 를 본 시점과 3rd 생성 완료 시
+       AI 옷장 추천코디 박스에 즉시 반영, '유사한 아이템 찾기' 활성화.
 
 ─── 2026-05-19 KST · TJ 지시 (STEP1 직접입력 UI 개편 + 목적 인식 수정) ───
  ① 직접입력을 그리드에서 분리해 전체폭 박스(#purposeCustomBox)로 변경.
@@ -550,6 +580,9 @@
 </script>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <!-- ─── 2026-05-21 KST · 버전·수정일자 메타 (모든 파일 공통 표준) ─── -->
+  <meta name="app-version" content="v2026.05.21"/>
+  <meta name="app-last-modified" content="2026-05-21"/>
   <title>코디 핏 - 코디뱅크</title>
   <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet"/>
@@ -9934,6 +9967,88 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   };
 
   // ════════════════════════════════════════════════════════════════════
+  // ─── 2026-05-21 KST · TJ 지시 ─── AI 옷장 자동 저장 브릿지 (v68 신규)
+  //   배경: v68(4→2→1) 전환 후 startStepA/B/C 가 IndexedDB 에 저장하지
+  //         않아 aicloset.html 의 추천코디 박스가 영구히 빈 상태였음.
+  //         (옛 updateVTO 의 저장 로직은 fallback 이라 평소 미실행)
+  //   동작: 1st 모달 오픈 / 2nd 모달 오픈 / 3rd 생성 완료 시 호출.
+  //         동일 img URL 엔트리는 삭제 후 새 ts로 재삽입 → 중복 방지.
+  //         최대 5개 유지, 24h 초과 자동 정리 (aicloset 와 동일 규칙).
+  //   DB:  codibank.codi_history (keyPath:'ts') — aicloset 가 읽는 DB
+  // ════════════════════════════════════════════════════════════════════
+  function _saveCodiToAiCloset(entry){
+    if(!entry) return;
+    if(!entry.img && (!entry.categoryKeywords || !Object.keys(entry.categoryKeywords).length)) return;
+    var DB_NAME='codibank', STORE='codi_history', DB_VER=1;
+    function openDB(){
+      return new Promise(function(resolve, reject){
+        var req = indexedDB.open(DB_NAME, DB_VER);
+        req.onupgradeneeded = function(e){
+          var db = e.target.result;
+          if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, {keyPath:'ts'});
+        };
+        req.onsuccess = function(){ resolve(req.result); };
+        req.onerror   = function(){ reject(req.error); };
+      });
+    }
+    openDB().then(function(db){
+      // 1) 동일 img URL 의 옛 엔트리 제거 (중복 방지)
+      var tx0 = db.transaction(STORE, 'readwrite');
+      var st0 = tx0.objectStore(STORE);
+      var rq0 = st0.getAll();
+      rq0.onsuccess = function(){
+        var all = rq0.result || [];
+        all.forEach(function(e){
+          if(e && e.img && entry.img && e.img === entry.img){
+            try{ st0.delete(e.ts); }catch(_){}
+          }
+        });
+      };
+      tx0.oncomplete = function(){
+        // 2) 새 엔트리 저장 (현재 ts)
+        var newEntry = {
+          ts:               Date.now(),
+          img:              entry.img || '',
+          categoryKeywords: entry.categoryKeywords || {},
+          purpose:          entry.purpose || '',
+          stylistName:      entry.stylistName || '',
+          _stage:           entry._stage || ''   // 'A' | 'B' | 'C' (디버깅용)
+        };
+        var tx1 = db.transaction(STORE, 'readwrite');
+        tx1.objectStore(STORE).put(newEntry);
+        tx1.oncomplete = function(){
+          // 3) 정리 — 최대 5개 유지 + 24h 초과 삭제
+          var tx2 = db.transaction(STORE, 'readonly');
+          var rq2 = tx2.objectStore(STORE).getAll();
+          rq2.onsuccess = function(){
+            var arr = rq2.result || [];
+            arr.sort(function(a, b){ return (b.ts||0) - (a.ts||0); });
+            var now = Date.now();
+            var toDel = [];
+            arr.forEach(function(e, i){
+              if(i >= 5 || (now - (e.ts||0) > 86400000)) toDel.push(e.ts);
+            });
+            if(toDel.length){
+              var tx3 = db.transaction(STORE, 'readwrite');
+              var st3 = tx3.objectStore(STORE);
+              toDel.forEach(function(ts){ try{ st3.delete(ts); }catch(_){} });
+            }
+          };
+        };
+        tx1.onerror = function(){ console.warn('[AI옷장] 저장 실패', tx1.error); };
+      };
+      // 4) 폴백용 localStorage 플래그 갱신 (aicloset 가 IDB 비었을 때 참조)
+      try{
+        localStorage.setItem('cb_codi_generated', JSON.stringify({
+          ts: Date.now(),
+          hasGenerated: true,
+          categoryKeywords: entry.categoryKeywords || {}
+        }));
+      }catch(_){}
+    }).catch(function(e){ console.warn('[AI옷장] IDB open 실패', e); });
+  }
+
+  // ════════════════════════════════════════════════════════════════════
   // ─── 2026-05-18 KST · TJ 지시 ─── 코디핏 진행상태 영속화 (IIFE 내부)
   //   flow / 렌더 함수가 이 IIFE 스코프에 있으므로 저장·복원·재구성
   //   함수도 여기 정의한다. (_codifitClearState/_codifitTouch 는 전역)
@@ -10762,6 +10877,17 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     flow.modalCurrentPose = 'front';
     const cities = getGridCities();
     _renderExpandModal(card, (cities[idx] || {}).label || '');
+    // ─── 2026-05-21 KST · TJ 지시 ─── AI 옷장 자동 저장 (1st 모달 오픈 시) ───
+    // 사용자가 1st 카드를 코디분석 팝업으로 상세 확인한 시점 = "관심 표명" → 저장.
+    try{
+      _saveCodiToAiCloset({
+        img:              card.imageUrl,
+        categoryKeywords: card.engineCategoryKeywords || {},
+        purpose:          (function(){ try{ const p=getPur(window.S && S.pk); return (p&&p.label)||(window.S&&S.purposeLabel)||(window.S&&S.pk)||''; }catch(_){ return ''; } })(),
+        stylistName:      (card.stylist && card.stylist.name) || '',
+        _stage:           'A'
+      });
+    }catch(_e){ console.warn('[AI옷장 1st 저장]', _e); }
   }
   // ─── 2026-05-16 KST · TJ 지시 3번 ─── Q2 카드 클릭 시 팝업 (Q1과 동일 UI) ───
   function openModalForStepBCard(idx){
@@ -10771,6 +10897,17 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     flow.modalCurrentIdx = idx;
     flow.modalCurrentPose = 'front';
     _renderExpandModal(card, idx === 0 ? '원본' : '유사 변형');
+    // ─── 2026-05-21 KST · TJ 지시 ─── AI 옷장 자동 저장 (2nd 모달 오픈 시) ───
+    // 사용자가 2nd 카드(원본/유사변형)를 코디분석 팝업으로 상세 확인한 시점 → 저장.
+    try{
+      _saveCodiToAiCloset({
+        img:              card.imageUrl,
+        categoryKeywords: card.engineCategoryKeywords || {},
+        purpose:          (function(){ try{ const p=getPur(window.S && S.pk); return (p&&p.label)||(window.S&&S.purposeLabel)||(window.S&&S.pk)||''; }catch(_){ return ''; } })(),
+        stylistName:      (card.stylist && card.stylist.name) || '',
+        _stage:           'B'
+      });
+    }catch(_e){ console.warn('[AI옷장 2nd 저장]', _e); }
   }
   function closeModal(){
     const modal = $('expandModal');
@@ -11143,6 +11280,29 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       // 위치: HTML 상 이미 STEP A/B/C 위에 위치하므로 별도 DOM 이동 불필요
       fillAnalysisBoxes(j);
       showAnalysisBoxes();
+      // ─── 2026-05-21 KST · TJ 지시 ─── AI 옷장 자동 저장 (3rd 최종 완료 시) ───
+      // 3rd 는 최종 고화질 이미지(Nano Banana Pro). 사용자가 모달을 따로 열 필요
+      // 없이 자동 저장 — 코디핏 흐름의 결과물로서 AI 옷장 추천 코디 박스에 표시.
+      try{
+        // categoryKeywords 우선순위: STEP C 응답 → S 전역 → 빈 객체
+        var _ckwC = (j && j.engineCategoryKeywords) ? j.engineCategoryKeywords
+                  : ((window.S && S.categoryKeywords) || {});
+        // img 우선순위: STEP C 응답 image URL → 합본 캔버스 PNG (원본 해상도)
+        var _imgC = (j && j.image) ? j.image : '';
+        if(!_imgC){
+          try{
+            var _cv = document.getElementById('vtoCanvas');
+            if(_cv && _cv.style.display !== 'none') _imgC = _cv.toDataURL('image/png');
+          }catch(_){}
+        }
+        _saveCodiToAiCloset({
+          img:              _imgC,
+          categoryKeywords: _ckwC,
+          purpose:          (function(){ try{ const p=getPur(window.S && S.pk); return (p&&p.label)||(window.S&&S.purposeLabel)||(window.S&&S.pk)||''; }catch(_){ return ''; } })(),
+          stylistName:      (j && j.stylist && j.stylist.name) || (window.S && S.stylist && S.stylist.name) || '',
+          _stage:           'C'
+        });
+      }catch(_e){ console.warn('[AI옷장 3rd 저장]', _e); }
     }catch(err){
       console.error('[v68 STEP C]', err);
       // 에러 시에도 로딩 효과 정리
