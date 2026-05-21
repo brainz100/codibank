@@ -2,7 +2,7 @@
 <!--
 ═══════════════════════════════════════════════════════════════════════
 📦 CodiBank · closet.html
-   Version:        v2026.05.21
+   Version:        v2026.05.21.002
    Last Modified:  2026-05-21 KST
 ═══════════════════════════════════════════════════════════════════════
 -->
@@ -13,6 +13,28 @@
 이 블록은 파일 수정 때마다 최상단에 누적됩니다.
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
+
+─── 2026-05-21 KST · TJ 지시 v2026.05.21.002 (3 버그 수정) ───
+ [버그#1] 1st 리셋 불완전 — "다시 추천" 클릭 시 stepACards 만 초기화되어
+        2nd/3rd 흐름 데이터·DOM 이 화면에 잔존하던 문제.
+   수정: startStepA 진입 시 flow.stepBCards/stepBSelected/stepCResult/
+        _stepCImg 함께 초기화 + stepBCompare/vtoResultBox/vtoCanvas/
+        vtoPoseToggle DOM 도 정리. (line ~10610)
+ [버그#2] 최종 고화질 분석이 사용자가 선택한 이미지와 다른 내용으로
+        표시되는 문제 — STEP C 가 baseCard 의 99.9% 복제본인데 서버가
+        image-edit 모드에서 다른 일반화된 키워드를 반환하는 경우 발생.
+ [버그#3] 최종 이미지 분석에서 AI 코디핏 포인트(카테고리별 컬러·디자인·
+        스타일) 가 누락되는 문제 — STEP C 서버 응답의
+        engineCategoryKeywords 가 비어있는 경우 발생.
+   수정 (버그#2+#3 동시): startStepC 의 fillAnalysisBoxes(j) 호출 직전에
+        j 의 분석 필드를 baseCard 의 것으로 보정 (line ~11280):
+        · engineCategoryKeywords  → 항상 baseCard 우선 (override)
+        · stylingStory            → 비어있을 때 baseCard 폴백
+        · stylist                 → 비어있을 때 baseCard 폴백
+        · cacheKey                → 비어있을 때 baseCard 폴백
+        · S.categoryKeywords 도   → j 의 최종 값으로 동기화
+   원칙: STEP C 고화질 이미지 = baseCard 의 99.9% 복제본 → 분석도
+        baseCard 가 정답. 서버 응답이 다르면 baseCard 로 덮어쓴다.
 
 ─── 2026-05-21 KST · TJ 지시 (AI 옷장 자동 저장 브릿지 복원) ───
  증상: AI 옷장(aicloset.html) 의 '추천코디 이미지 뷰박스' 와 '유사한 아이템
@@ -581,7 +603,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <!-- ─── 2026-05-21 KST · 버전·수정일자 메타 (모든 파일 공통 표준) ─── -->
-  <meta name="app-version" content="v2026.05.21"/>
+  <meta name="app-version" content="v2026.05.21.002"/>
   <meta name="app-last-modified" content="2026-05-21"/>
   <title>코디 핏 - 코디뱅크</title>
   <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
@@ -10605,6 +10627,35 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     flow.busy = true;
     flow.stepACards = [null, null, null, null];
     flow.stepASelected = null;
+    // ─── 2026-05-21 KST · TJ 지시 (버그#1 1st 리셋 불완전 수정) ───
+    //   배경: 기존엔 stepACards 만 초기화 → "다시 추천" 클릭 시 2nd/3rd 흐름
+    //        데이터와 화면이 잔존. 사용자는 새 1st 4장이 생성되는 동안에도
+    //        아래 화면에 옛 2nd 2장과 3rd 고화질 이미지가 그대로 보이는 상태.
+    //   수정: 새 1st 시작 = 흐름 전체 초기화. flow 의 STEP B/C 데이터 + 관련
+    //        DOM(stepBCompare, vtoResultBox, vtoCanvas) + 캐시(_stepCImg) 모두 정리.
+    flow.stepBCards = [null, null];
+    flow.stepBSelected = null;
+    flow.stepCResult = null;
+    flow._stepCImg = null;
+    // STEP B 섹션 + STEP B 카드 컨테이너 비우기/숨김
+    const _stepBSection = $('stepBCompare');
+    if(_stepBSection){ _stepBSection.classList.add('hidden'); _stepBSection.style.display = 'none'; }
+    const _stepBContainer = $('stepBCards');
+    if(_stepBContainer) _stepBContainer.innerHTML = '';
+    // STEP C 최종 이미지 박스 + 캔버스 정리
+    const _vtoBox = $('vtoResultBox');
+    if(_vtoBox) _vtoBox.classList.add('hidden');
+    const _vtoCanvas = $('vtoCanvas');
+    if(_vtoCanvas){
+      try{
+        const _ctx = _vtoCanvas.getContext('2d');
+        if(_ctx) _ctx.clearRect(0, 0, _vtoCanvas.width, _vtoCanvas.height);
+      }catch(_){}
+      _vtoCanvas.style.display = 'none';
+    }
+    // 정/후면 토글도 숨김 (STEP C 의 토글이 남아 보이지 않도록)
+    const _poseToggle = $('vtoPoseToggle');
+    if(_poseToggle) _poseToggle.classList.add('hidden');
     // ─── 2026-05-16 KST · TJ 지시 ─── 옛 코드 방어: STEP C 어두운 박스 강제 숨김 ───
     ['vtoOuterLayer','vtoBActions','stepCLabel'].forEach(_id=>{
       const _el = $(_id); if(_el) _el.style.display = 'none';
@@ -11247,6 +11298,47 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       const j = await r.json();
       if(!j.ok || !j.image) throw new Error(j.error || 'Medium 실패');
       flow.stepCResult = j;
+      // ─── 2026-05-21 KST · TJ 지시 (버그#2 #3 — STEP C 분석 보정) ─────────
+      //   배경: STEP C 는 baseCard(사용자가 2nd 에서 선택한 이미지)를
+      //        _force_ref_image 로 받아 99.9% 고화질 복제하는 image-edit 모드.
+      //        이 모드에서 서버가 ①engineCategoryKeywords 를 비워서 반환하거나
+      //        ②baseCard 와 다른 일반화된 키워드를 반환하는 경우가 발생 →
+      //        화면의 "AI 코디핏 포인트" 가 누락되거나 엉뚱하게 표시됨.
+      //   원칙: 고화질 이미지 = baseCard 의 복제본이므로 분석도 baseCard 의 것이
+      //        정답이다. 서버 응답이 비거나 다르면 baseCard 의 분석으로 덮어쓴다.
+      //   효과: ① 카테고리 키워드 항상 표시 (버그#3 해결)
+      //         ② 사용자가 선택한 이미지의 실제 스타일로 분석 표시 (버그#2 해결)
+      //         ③ 스타일리스트/스토리/cacheKey 도 baseCard 폴백으로 일관성 보장
+      try{
+        if(baseCard){
+          // (1) AI 코디핏 포인트 — 항상 baseCard 의 키워드를 우선 사용
+          //     baseCard 가 가진 키워드는 fetchStepACard/startStepB 응답으로 받은
+          //     실제 그 이미지의 분석 결과이므로 가장 신뢰 가능.
+          const _baseCkw = baseCard.engineCategoryKeywords || {};
+          if(_baseCkw && Object.keys(_baseCkw).length){
+            j.engineCategoryKeywords = _baseCkw;
+          }
+          // (2) 코디핏 이야기 — 서버 응답 비어있으면 baseCard 사용
+          if(!j.stylingStory && baseCard.stylingStory){
+            j.stylingStory = baseCard.stylingStory;
+          }
+          // (3) 스타일리스트 — 서버 응답 비어있으면 baseCard 사용
+          //     사용자가 선택한 카드의 스타일리스트가 분석 박스에 표시되어야 함.
+          if((!j.stylist || !j.stylist.name) && baseCard.stylist && baseCard.stylist.name){
+            j.stylist = baseCard.stylist;
+          }
+          // (4) cacheKey — fetchAnalysisAndFill 이 정확한 분석(퍼스널컬러/체형/목적)
+          //     을 가져오도록 baseCard 의 cacheKey 폴백.
+          if(!j.cacheKey && baseCard.cacheKey){
+            j.cacheKey = baseCard.cacheKey;
+          }
+          // S.categoryKeywords 도 즉시 동기화 (renderStylingPoint / AI 옷장 저장이 참조)
+          if(window.S && j.engineCategoryKeywords){
+            window.S.categoryKeywords = j.engineCategoryKeywords;
+          }
+        }
+      }catch(_e){ console.warn('[STEP C 분석 보정 실패]', _e); }
+      // ─── (보정 끝) ───────────────────────────────────────────────────────
       // 기존 결과 표시 함수 활용 (drawNatural 또는 비슷한 캔버스 그리기)
       if(typeof window.drawResultToVtoCanvas === 'function'){
         window.drawResultToVtoCanvas(j.image);
