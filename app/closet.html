@@ -2,7 +2,7 @@
 <!--
 ═══════════════════════════════════════════════════════════════════════
 📦 CodiBank · closet.html
-   Version:        v2026.05.21.002
+   Version:        v2026.05.21.003
    Last Modified:  2026-05-21 KST
 ═══════════════════════════════════════════════════════════════════════
 -->
@@ -13,6 +13,23 @@
 이 블록은 파일 수정 때마다 최상단에 누적됩니다.
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
+
+─── 2026-05-21 KST · TJ 보고 v2026.05.21.003 (긴급 — 2nd 박스 안 나타남) ───
+ 증상: 코디핏 페이지에서 1st 4장은 정상 생성되지만, 1st 선택 → 변형 후
+       STEP B(2nd) 가 화면에 나타나지 않음. (서버 로그상 STEP B 변형
+       이미지 정상 생성·R2 업로드 완료 확인됨 — 클라이언트 표시 문제)
+ 원인: v2026.05.21.002 의 startStepA 리셋 코드가 stepBCompare 에
+       'classList.add(hidden)' 와 함께 'style.display=none' 을 인라인
+       설정 → showSection() 은 .hidden 클래스만 제거하고 인라인은
+       건드리지 않으므로 startStepB → showSection('stepBCompare')
+       호출 후에도 박스가 영구히 숨겨진 상태로 남음.
+ 수정:
+  ① startStepA 리셋 코드 (line ~10641): stepBCompare 의 인라인
+     style.display 설정 제거 — .hidden 클래스만 토글하도록 통일.
+  ② showSection() 함수 강화 (line ~10294): 표시할 때 인라인
+     display:none 잔재를 ''(default) 로 복원하는 안전망 추가.
+     _codifitResetUI(line ~10086) 등 다른 reset 함수에서 동일 패턴이
+     남아있어 미래의 같은 버그를 차단.
 
 ─── 2026-05-21 KST · TJ 지시 v2026.05.21.002 (3 버그 수정) ───
  [버그#1] 1st 리셋 불완전 — "다시 추천" 클릭 시 stepACards 만 초기화되어
@@ -603,7 +620,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <!-- ─── 2026-05-21 KST · 버전·수정일자 메타 (모든 파일 공통 표준) ─── -->
-  <meta name="app-version" content="v2026.05.21.002"/>
+  <meta name="app-version" content="v2026.05.21.003"/>
   <meta name="app-last-modified" content="2026-05-21"/>
   <title>코디 핏 - 코디뱅크</title>
   <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
@@ -10295,6 +10312,13 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const el = $(sectionId);
     if(!el) return;
     el.classList.remove('hidden');
+    // ─── 2026-05-21 KST · TJ 보고 ─── 잔재 인라인 display:none 정리 (안전망) ───
+    //   배경: _codifitResetUI 등 reset 류 함수가 element.style.display='none'
+    //        을 인라인으로 설정 → showSection 이 .hidden 클래스만 제거해도
+    //        인라인 display:none 이 남아 박스가 안 보이는 버그가 발생.
+    //   수정: 표시할 때 인라인 display:none 만 골라서 ''(default) 로 복원.
+    //        다른 inline display 값(block/flex 등)은 의도일 수 있으므로 보존.
+    if(el.style.display === 'none') el.style.display = '';
     requestAnimationFrame(() => {
       el.classList.add('visible');
       setTimeout(() => {
@@ -10638,8 +10662,15 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     flow.stepCResult = null;
     flow._stepCImg = null;
     // STEP B 섹션 + STEP B 카드 컨테이너 비우기/숨김
+    // ─── 2026-05-21 KST · TJ 보고 (긴급 수정) ─────────────────────────────
+    //   ⚠ showSection() 은 classList.remove('hidden') 만 하고 인라인
+    //     style.display 는 건드리지 않는다. 따라서 여기서 인라인
+    //     style.display='none' 을 설정하면 영구히 숨겨져서 startStepB →
+    //     showSection('stepBCompare') 가 작동하지 않는다 (2nd 카드 안 나타남).
+    //   → .hidden 클래스만 추가하고 인라인 style 은 절대 손대지 말 것.
+    //     (Tailwind 의 .hidden{display:none} 으로 자연스럽게 숨겨진다)
     const _stepBSection = $('stepBCompare');
-    if(_stepBSection){ _stepBSection.classList.add('hidden'); _stepBSection.style.display = 'none'; }
+    if(_stepBSection) _stepBSection.classList.add('hidden');
     const _stepBContainer = $('stepBCards');
     if(_stepBContainer) _stepBContainer.innerHTML = '';
     // STEP C 최종 이미지 박스 + 캔버스 정리
