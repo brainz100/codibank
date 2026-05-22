@@ -2,14 +2,25 @@
 <!--
 ═══════════════════════════════════════════════════════════════════════
 📦 CodiBank · aicloset.html
-   Version:        v2026.05.21.002
-   Last Modified:  2026-05-21 KST
+   Version:        v2026.05.21.003
+   Last Modified:  2026-05-22 KST
 ═══════════════════════════════════════════════════════════════════════
 -->
 <!--
 ═══════════════════════════════════════════════════════════════════════
 📋 수정 이력 (MODIFICATION HISTORY) — 최신순
 ═══════════════════════════════════════════════════════════════════════
+
+─── 2026-05-22 KST · TJ 지시 v2026.05.21.003 (좌우 화살표 박스 분리) ───
+ 증상: 추천코디 이미지 viewbox 안에 position:absolute; bottom:14px 로
+       cycle nav 가 레이오버되어 모델의 다리·신발을 가림.
+ 변경: nav 를 image section 의 sibling 으로 분리. 이미지 viewbox 바로
+       아래에 독립된 행으로 배치 (margin:8px 22px 0).
+ 디자인 유지: 동일한 둥근 알약 (좌/카운터/우 3분할) — 배경 투명도만
+            소폭 증가(20%→50%) 로 위치 분리에 맞게 가독성 향상.
+ 기능 영향 없음: codiRecPrevBtn / codiRecNextBtn / codiRecCycleLabel /
+                codiRecCycleCount / codiRecCycleDot / codiRecCycleBtn
+                모든 ID 그대로 유지 → JS 로직 (_cycleCodiRec 등) 무수정 동작.
 
 ─── 2026-05-21 KST · TJ 지시 v2026.05.21.002 (Ai 옷장 UI 레이아웃 개선) ───
  [1] '유사한 아이템 찾기' 버튼 위치 이동
@@ -48,8 +59,8 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <!-- ─── 2026-05-21 KST · 버전·수정일자 메타 (모든 파일 공통 표준) ─── -->
-  <meta name="app-version" content="v2026.05.21.002"/>
-  <meta name="app-last-modified" content="2026-05-21"/>
+  <meta name="app-version" content="v2026.05.21.003"/>
+  <meta name="app-last-modified" content="2026-05-22"/>
   <title>Ai 옷장 - 코디뱅크</title>
 
   <!--
@@ -1391,7 +1402,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
              이유: 서버가 생성하는 코디핏 이미지가 1536×1024 (3:2 가로) 이므로
                   세로 박스에 넣으면 object-fit:contain 으로 위아래 빈 공간 발생.
                   3:2 로 맞추면 이미지가 박스를 가득 채워 빈 공간 제거되고,
-                  bottom:14px 절대 위치인 nav 바가 이미지 바로 아래에 자연스럽게 표시. -->
+                  cycle nav 가 이미지 바로 아래에 자연스럽게 표시. -->
         <section style="position:relative; margin:12px 22px 0; aspect-ratio:3/2; overflow:hidden; background:#00022E; border-radius:16px; border:1px solid rgba(151,254,237,0.08);">
           <div id="codiRecImgInner" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
             <div style="text-align:center; color:rgba(151,254,237,0.2);">
@@ -1399,45 +1410,50 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
               <p style="margin-top:12px; font-size:11px; letter-spacing:0.2em; font-weight:700;" data-i18n="코디핏 대기 중">코디핏 대기 중</p>
             </div>
           </div>
-
-          <!-- [2026-04-17] 하단 floating 네비게이션 — 좌(이전) / 중(카운터) / 우(다음) 3분할, 투명도 20% -->
-          <nav style="position:absolute; bottom:14px; left:14px; right:14px; z-index:30; pointer-events:auto;">
-            <div id="codiRecCycleBar" style="
-              display:flex; align-items:stretch; justify-content:space-between;
-              background:rgba(0,2,46,0.20); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
-              border:1px solid rgba(255,255,255,0.15); border-radius:9999px;
-              box-shadow:0 8px 24px rgba(0,0,0,0.4);
-              overflow:hidden;
-            ">
-              <!-- 이전 -->
-              <button id="codiRecPrevBtn" type="button" onclick="window._cycleCodiRec&&window._cycleCodiRec(-1)" aria-label="이전 코디핏" style="
-                flex:0 0 52px; display:flex; align-items:center; justify-content:center;
-                padding:12px 0; background:transparent; border:none; cursor:pointer;
-                font-family:inherit; color:inherit; transition:background .2s;
-              " onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='transparent'">
-                <span class="material-symbols-outlined" style="font-size:20px; color:#ffffff; font-weight:600;">arrow_back_ios_new</span>
-              </button>
-
-              <!-- 중앙 카운터 -->
-              <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 0; border-left:1px solid rgba(255,255,255,0.10); border-right:1px solid rgba(255,255,255,0.10);">
-                <span id="codiRecCycleLabel" style="font-size:12px; font-weight:800; letter-spacing:0.08em; color:#ffffff;" data-i18n="코디핏">코디핏</span>
-                <span id="codiRecCycleCount" style="font-size:12px; font-weight:900; color:#40e0d0; letter-spacing:0.04em;">—</span>
-                <span id="codiRecCycleDot" style="width:6px; height:6px; border-radius:50%; background:rgba(64,224,208,0.6);"></span>
-              </div>
-
-              <!-- 다음 -->
-              <button id="codiRecNextBtn" type="button" onclick="window._cycleCodiRec&&window._cycleCodiRec(1)" aria-label="다음 코디핏" style="
-                flex:0 0 52px; display:flex; align-items:center; justify-content:center;
-                padding:12px 0; background:transparent; border:none; cursor:pointer;
-                font-family:inherit; color:inherit; transition:background .2s;
-              " onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='transparent'">
-                <span class="material-symbols-outlined" style="font-size:20px; color:#ffffff; font-weight:600;">arrow_forward_ios</span>
-              </button>
-            </div>
-            <!-- 하위 호환: 기존 코드가 #codiRecCycleBtn을 참조할 수 있어 숨김 alias 유지 -->
-            <button id="codiRecCycleBtn" type="button" style="display:none;" aria-hidden="true"></button>
-          </nav>
         </section>
+
+        <!-- ─── 2026-05-22 KST · TJ 지시 ─── 좌우 화살표 박스 분리 ─────────
+             이전: 이미지 viewbox 내부에 position:absolute; bottom:14px 로
+                  레이오버되어 모델의 다리/신발을 가렸음.
+             변경: 이미지 viewbox 의 sibling 요소로 분리 → 이미지 바로 아래
+                  에 독립된 행으로 표시 (이미지를 가리지 않음).
+             스타일 유지: 동일 디자인 (둥근 알약, 좌/카운터/우 3분할). -->
+        <nav style="margin:8px 22px 0; pointer-events:auto;">
+          <div id="codiRecCycleBar" style="
+            display:flex; align-items:stretch; justify-content:space-between;
+            background:rgba(0,2,46,0.50); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+            border:1px solid rgba(255,255,255,0.15); border-radius:9999px;
+            box-shadow:0 8px 24px rgba(0,0,0,0.4);
+            overflow:hidden;
+          ">
+            <!-- 이전 -->
+            <button id="codiRecPrevBtn" type="button" onclick="window._cycleCodiRec&&window._cycleCodiRec(-1)" aria-label="이전 코디핏" style="
+              flex:0 0 52px; display:flex; align-items:center; justify-content:center;
+              padding:12px 0; background:transparent; border:none; cursor:pointer;
+              font-family:inherit; color:inherit; transition:background .2s;
+            " onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='transparent'">
+              <span class="material-symbols-outlined" style="font-size:20px; color:#ffffff; font-weight:600;">arrow_back_ios_new</span>
+            </button>
+
+            <!-- 중앙 카운터 -->
+            <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 0; border-left:1px solid rgba(255,255,255,0.10); border-right:1px solid rgba(255,255,255,0.10);">
+              <span id="codiRecCycleLabel" style="font-size:12px; font-weight:800; letter-spacing:0.08em; color:#ffffff;" data-i18n="코디핏">코디핏</span>
+              <span id="codiRecCycleCount" style="font-size:12px; font-weight:900; color:#40e0d0; letter-spacing:0.04em;">—</span>
+              <span id="codiRecCycleDot" style="width:6px; height:6px; border-radius:50%; background:rgba(64,224,208,0.6);"></span>
+            </div>
+
+            <!-- 다음 -->
+            <button id="codiRecNextBtn" type="button" onclick="window._cycleCodiRec&&window._cycleCodiRec(1)" aria-label="다음 코디핏" style="
+              flex:0 0 52px; display:flex; align-items:center; justify-content:center;
+              padding:12px 0; background:transparent; border:none; cursor:pointer;
+              font-family:inherit; color:inherit; transition:background .2s;
+            " onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='transparent'">
+              <span class="material-symbols-outlined" style="font-size:20px; color:#ffffff; font-weight:600;">arrow_forward_ios</span>
+            </button>
+          </div>
+          <!-- 하위 호환: 기존 코드가 #codiRecCycleBtn을 참조할 수 있어 숨김 alias 유지 -->
+          <button id="codiRecCycleBtn" type="button" style="display:none;" aria-hidden="true"></button>
+        </nav>
 
         <!-- [2] AI Vision Analysis 섹션 -->
         <section class="cri-dim" style="width:100%; padding:30px 22px 18px; display:flex; flex-direction:column; gap:14px; transition:opacity .3s;">

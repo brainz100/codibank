@@ -2,8 +2,8 @@
 <!--
 ═══════════════════════════════════════════════════════════════════════
 📦 CodiBank · closet.html
-   Version:        v2026.05.21.003
-   Last Modified:  2026-05-21 KST
+   Version:        v2026.05.21.004
+   Last Modified:  2026-05-22 KST
 ═══════════════════════════════════════════════════════════════════════
 -->
 <!--
@@ -13,6 +13,26 @@
 이 블록은 파일 수정 때마다 최상단에 누적됩니다.
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
+
+─── 2026-05-22 KST · TJ 지시 v2026.05.21.004 (분석 내용 이미지 불일치 수정) ───
+ 증상: AI 옷장 추천코디 박스에서 이미지는 흰색 V넥 블라우스+베이지 와이드
+       팬츠인데 카테고리 분석은 "라이트 그레이 크루넥 니트 / 블랙 랩 스커트
+       / 베이지 로퍼" 로 다른 옷이 표시됨 (이미지와 키워드 불일치).
+ 원인: IDB 저장 시 card.engineCategoryKeywords (엔진 프롬프트 키워드 =
+       '의도') 를 사용했으나, GPT 가 자유 해석으로 의도와 다른 옷을 생성
+       하는 경우가 많아 결과 이미지와 키워드가 어긋남.
+       실제 이미지의 정확한 분석은 /api/ai/styling/analysis 가 반환하는
+       outfit 객체 (vision 분석 — closet.html line 10843 주석에 "이미지와
+       일치" 명시) 이지만 IDB 에 저장되지 않았음.
+ 수정 — 2곳:
+  ① _fetchModalOutfit /analysis 성공 분기 (line ~10907):
+     outfit (vision 분석 결과) 으로 IDB 재저장 추가. _saveCodiToAiCloset
+     은 img URL 로 dedup 하므로 모달오픈 시 저장된 엔트리 자동 갱신.
+  ② startStepC AI 옷장 자동 저장 분기 (line ~11428):
+     categoryKeywords 우선순위 = baseCard.outfitAnalysis (vision)
+     → j.engineCategoryKeywords (엔진) → S.categoryKeywords (전역).
+     baseCard 의 vision 분석이 있으면 항상 우선 사용.
+ 효과: AI 옷장 추천코디 박스의 카테고리 키워드가 실제 이미지의 옷과 일치.
 
 ─── 2026-05-21 KST · TJ 보고 v2026.05.21.003 (긴급 — 2nd 박스 안 나타남) ───
  증상: 코디핏 페이지에서 1st 4장은 정상 생성되지만, 1st 선택 → 변형 후
@@ -620,8 +640,8 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <!-- ─── 2026-05-21 KST · 버전·수정일자 메타 (모든 파일 공통 표준) ─── -->
-  <meta name="app-version" content="v2026.05.21.003"/>
-  <meta name="app-last-modified" content="2026-05-21"/>
+  <meta name="app-version" content="v2026.05.21.004"/>
+  <meta name="app-last-modified" content="2026-05-22"/>
   <title>코디 핏 - 코디뱅크</title>
   <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;700;900&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet"/>
@@ -10903,6 +10923,28 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       card.outfitAnalysis = outfit;   // 카드에 캐시 (다음 오픈 시 즉시)
       // 모달이 여전히 같은 카드를 보고 있을 때만 갱신
       if(_stillSame()) _renderModalCody(outfit);
+      // ─── 2026-05-22 KST · TJ 지시 ─── AI 옷장 IDB 재저장 (vision 분석 일치) ───
+      //   배경: 모달 오픈 시점의 IDB 저장은 card.engineCategoryKeywords (엔진
+      //        프롬프트 키워드 — '의도') 를 사용했음. 그러나 실제 생성된 이미지
+      //        는 GPT 의 자유 해석으로 엔진 의도와 다른 옷이 나올 수 있어,
+      //        AI 옷장에서 이미지와 분석 키워드가 일치하지 않는 버그 발생.
+      //   원칙: outfit = /analysis 가 실제 생성 이미지를 vision 분석한 결과
+      //        → 이미지와 100% 일치 (closet.html line 10843 주석 명시).
+      //   수정: /analysis 성공 시 outfit 으로 IDB 재저장. _saveCodiToAiCloset
+      //        은 img URL 로 dedup 하므로 이전 모달오픈 시 저장한 엔트리는
+      //        자동 삭제·갱신됨.
+      //   효과: AI 옷장 추천코디 박스의 카테고리 키워드가 실제 이미지와 일치.
+      try{
+        if(typeof _saveCodiToAiCloset === 'function' && outfit && card.imageUrl){
+          _saveCodiToAiCloset({
+            img:              card.imageUrl,
+            categoryKeywords: outfit,                       // ← vision 분석 (이미지 일치)
+            purpose:          (function(){ try{ const p=getPur(window.S && S.pk); return (p&&p.label)||(window.S&&S.purposeLabel)||(window.S&&S.pk)||''; }catch(_){ return ''; } })(),
+            stylistName:      (card.stylist && card.stylist.name) || '',
+            _stage:           _srcAtCall || (flow.modalSource || 'A')   // 'A' or 'B'
+          });
+        }
+      }catch(_e){ console.warn('[AI옷장 outfit 재저장 실패]', _e); }
     }catch(_){
       if(!_isRetry){ await new Promise(rs=>setTimeout(rs,1800)); return _fetchModalOutfit(card, true); }
       if(_stillSame()) _renderModalCody(null, 'error');
@@ -11403,13 +11445,21 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       // 위치: HTML 상 이미 STEP A/B/C 위에 위치하므로 별도 DOM 이동 불필요
       fillAnalysisBoxes(j);
       showAnalysisBoxes();
-      // ─── 2026-05-21 KST · TJ 지시 ─── AI 옷장 자동 저장 (3rd 최종 완료 시) ───
-      // 3rd 는 최종 고화질 이미지(Nano Banana Pro). 사용자가 모달을 따로 열 필요
-      // 없이 자동 저장 — 코디핏 흐름의 결과물로서 AI 옷장 추천 코디 박스에 표시.
+      // ─── 2026-05-22 KST · TJ 지시 ─── AI 옷장 자동 저장 (3rd 최종 완료 시) ───
+      //   배경: 3rd 는 최종 고화질 이미지(Nano Banana Pro)로 baseCard 의
+      //        99.9% 복제본. 따라서 분석도 baseCard 의 것이 정답.
+      //   우선순위 (categoryKeywords):
+      //     1순위) baseCard.outfitAnalysis — vision 분석 (이미지와 100% 일치)
+      //     2순위) j.engineCategoryKeywords — STEP C 응답의 엔진 키워드
+      //     3순위) S.categoryKeywords — 전역 상태
+      //   이로써 AI 옷장에 표시되는 카테고리가 실제 이미지 옷과 일치.
       try{
-        // categoryKeywords 우선순위: STEP C 응답 → S 전역 → 빈 객체
-        var _ckwC = (j && j.engineCategoryKeywords) ? j.engineCategoryKeywords
-                  : ((window.S && S.categoryKeywords) || {});
+        // categoryKeywords 우선순위
+        var _ckwC = (baseCard && baseCard.outfitAnalysis)
+                  ? baseCard.outfitAnalysis
+                  : ((j && j.engineCategoryKeywords)
+                      ? j.engineCategoryKeywords
+                      : ((window.S && S.categoryKeywords) || {}));
         // img 우선순위: STEP C 응답 image URL → 합본 캔버스 PNG (원본 해상도)
         var _imgC = (j && j.image) ? j.image : '';
         if(!_imgC){
