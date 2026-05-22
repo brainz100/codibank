@@ -2,12 +2,37 @@
 <!--
 ═══════════════════════════════════════════════════════════════════════
 📦 CodiBank · aicloset.html
-   Version:        v2026.05.21
+   Version:        v2026.05.21.002
    Last Modified:  2026-05-21 KST
-   Note:           코드 무수정 — 버전 스탬프만 추가.
-                   추천코디 이미지 뷰박스 / 유사한 아이템 찾기 / 카테고리-
-                   컬러 매칭 / IDB(codibank.codi_history) 수신 브릿지 정상.
-                   closet.html v2026.05.21 의 자동 저장 브릿지와 함께 동작.
+═══════════════════════════════════════════════════════════════════════
+-->
+<!--
+═══════════════════════════════════════════════════════════════════════
+📋 수정 이력 (MODIFICATION HISTORY) — 최신순
+═══════════════════════════════════════════════════════════════════════
+
+─── 2026-05-21 KST · TJ 지시 v2026.05.21.002 (Ai 옷장 UI 레이아웃 개선) ───
+ [1] '유사한 아이템 찾기' 버튼 위치 이동
+     이전: 분석 섹션 맨 아래 (이미지 한참 밑) — 스크롤 필요했음.
+     변경: #codiRecommendBox 의 맨 위 (이미지 viewbox 바로 위) 로 이동.
+     효과: 화면 진입 즉시 액션 가능, 사용자 동선 단축.
+     기능 영향 없음: #codiRecommendBox.cri-active / .cri-analyzed CSS
+                   규칙이 여전히 부모 박스를 참조해 토글 정상 동작.
+
+ [2] 이미지 viewbox aspect-ratio 수정 (여백 축소)
+     원인: 서버가 생성하는 코디핏 이미지는 1536×1024 (= 3:2 가로형)
+          인데 viewbox 는 aspect-ratio:1/1.62 (세로형 portrait) 였음.
+          → object-fit:contain 으로 이미지가 박스 가운데 끼이고
+            위·아래 빈 공간이 생겨 nav 바가 이미지 한참 아래에 떠 있는
+            형태로 보임 (TJ 지적한 "여백이 너무 많이").
+     변경: aspect-ratio: 1/1.62 → 3/2.
+     효과: 이미지가 박스 전체를 채우고, bottom:14px 절대 위치인 nav 바가
+          이미지 바로 아래에 자연스럽게 표시됨.
+     버튼 padding 조정: 32px → 22px (이미지 위로 이동하며 적정 크기).
+
+─── 2026-05-21 KST · v2026.05.21 (closet.html 자동 저장 브릿지와 함께 배포) ───
+ 추천코디 이미지 뷰박스 / 유사한 아이템 찾기 / 카테고리-컬러 매칭 /
+ IDB(codibank.codi_history) 수신 브릿지 정상 확인 (코드 무수정, 스탬프만 추가).
 ═══════════════════════════════════════════════════════════════════════
 -->
 <html lang="ko">
@@ -23,7 +48,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <!-- ─── 2026-05-21 KST · 버전·수정일자 메타 (모든 파일 공통 표준) ─── -->
-  <meta name="app-version" content="v2026.05.21"/>
+  <meta name="app-version" content="v2026.05.21.002"/>
   <meta name="app-last-modified" content="2026-05-21"/>
   <title>Ai 옷장 - 코디뱅크</title>
 
@@ -1338,8 +1363,36 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         position:relative;
       ">
 
-        <!-- [1] 코디핏 이미지 (1:1.62 황금비율, 버튼 너비에 맞춤) -->
-        <section style="position:relative; margin:18px 22px 0; aspect-ratio:1/1.62; overflow:hidden; background:#00022E; border-radius:16px; border:1px solid rgba(151,254,237,0.08);">
+        <!-- ─── 2026-05-21 KST · TJ 지시 ─── [0] CTA 버튼 (이미지 위로 이동) ───
+             이전: 분석 섹션 맨 아래 (이미지 한참 밑) — 사용자가 스크롤해야 보임.
+             변경: 이미지 viewbox 바로 위로 이동 → 화면 진입 즉시 액션 가능.
+             기능 유지: #codiRecommendBox.cri-active/cri-analyzed CSS 규칙이
+                      여전히 부모 박스 클래스를 참조하므로 토글 정상 동작. -->
+        <section style="padding:18px 22px 0;">
+          <button id="closetToggleBtn" type="button" style="
+            width:100%; position:relative; overflow:hidden;
+            background:linear-gradient(90deg, #114b5f 0%, #32a097 100%);
+            color:#e0f2f1; padding:22px 20px; border-radius:12px; border:none;
+            font-family:'Manrope','Outfit','Noto Sans KR',sans-serif;
+            font-weight:700; font-size:14px; letter-spacing:0.08em;
+            cursor:default; pointer-events:none; opacity:0.5;
+            box-shadow:0 12px 28px rgba(0,0,0,0.35);
+            transition:background .25s ease, color .25s ease, opacity .3s, filter .3s, transform .1s;
+            display:flex; flex-direction:row; flex-wrap:nowrap; align-items:center; justify-content:center; gap:8px;
+            text-transform:none; line-height:1; white-space:nowrap;
+          ">
+            <span class="material-symbols-outlined" style="font-size:20px; line-height:1; flex-shrink:0; vertical-align:middle;">search</span>
+            <span class="ctb-title" style="line-height:1; white-space:nowrap; vertical-align:middle;" data-i18n="유사한 아이템 찾기">유사한 아이템 찾기</span>
+          </button>
+        </section>
+
+        <!-- ─── 2026-05-21 KST · TJ 지시 ─── [1] 코디핏 이미지 viewbox ─────
+             aspect-ratio 변경: 1/1.62 (세로형) → 3/2 (가로형).
+             이유: 서버가 생성하는 코디핏 이미지가 1536×1024 (3:2 가로) 이므로
+                  세로 박스에 넣으면 object-fit:contain 으로 위아래 빈 공간 발생.
+                  3:2 로 맞추면 이미지가 박스를 가득 채워 빈 공간 제거되고,
+                  bottom:14px 절대 위치인 nav 바가 이미지 바로 아래에 자연스럽게 표시. -->
+        <section style="position:relative; margin:12px 22px 0; aspect-ratio:3/2; overflow:hidden; background:#00022E; border-radius:16px; border:1px solid rgba(151,254,237,0.08);">
           <div id="codiRecImgInner" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
             <div style="text-align:center; color:rgba(151,254,237,0.2);">
               <span class="material-symbols-outlined" style="font-size:80px; display:block;">checkroom</span>
@@ -1414,25 +1467,10 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             </div>
           </div>
 
-          <!-- [4] CTA 버튼 -->
-          <div style="margin-top:10px;">
-            <button id="closetToggleBtn" type="button" style="
-              width:100%; position:relative; overflow:hidden;
-              background:linear-gradient(90deg, #114b5f 0%, #32a097 100%);
-              color:#e0f2f1; padding:32px 20px; border-radius:12px; border:none;
-              /* [2026-04-23 TJ 지시] 버튼 높이 1.5배 증가 (padding 21px → 32px) */
-              font-family:'Manrope','Outfit','Noto Sans KR',sans-serif;
-              font-weight:700; font-size:14px; letter-spacing:0.08em;
-              cursor:default; pointer-events:none; opacity:0.5;
-              box-shadow:0 20px 40px rgba(0,0,0,0.4);
-              transition:background .25s ease, color .25s ease, opacity .3s, filter .3s, transform .1s;
-              display:flex; flex-direction:row; flex-wrap:nowrap; align-items:center; justify-content:center; gap:8px;
-              text-transform:none; line-height:1; white-space:nowrap;
-            ">
-              <span class="material-symbols-outlined" style="font-size:20px; line-height:1; flex-shrink:0; vertical-align:middle;">search</span>
-              <span class="ctb-title" style="line-height:1; white-space:nowrap; vertical-align:middle;" data-i18n="유사한 아이템 찾기">유사한 아이템 찾기</span>
-            </button>
-          </div>
+          <!-- ─── 2026-05-21 KST · TJ 지시 ─── [4] (CTA 버튼은 박스 최상단으로 이동) ───
+               이전 위치: 이 자리에 closetToggleBtn 있었음.
+               변경: 박스 최상단 section [0] 으로 이동 → 이미지 위 즉시 액션 가능.
+               이 자리는 비워두고 다음 [5] 하단 레이블만 표시. -->
 
           <!-- [5] 하단 레이블 (Curated by) -->
           <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center; opacity:0.3;">
