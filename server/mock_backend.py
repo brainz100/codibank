@@ -2482,19 +2482,26 @@ def storage_upload():
         ext = _mime_to_ext(mime)
         slot = re.sub(r"[^a-z0-9_-]+", "", str(payload.get("slot") or "img").lower())[:16] or "img"
 
-    # ── [Phase 1 — 2026-05-22 KST · TJ 지시] 의류 아이템 rembg 재활성화 ──
-    #   배경: 자동분류 정확도 20% 의 핵심 원인 중 하나가 배경 잡색·잡물체.
-    #         이전 비활성화는 체크패턴/밝은색 의류에서 옷 본체까지 제거되는
-    #         부작용 때문이었으나, 2026-04-09 비투명<15% 폴백 로직(rembg
-    #         함수 내장) 으로 이 문제 해결됨 → 안전하게 재활성화.
-    #   제외: face/profile/avatar — 인물 사진은 배경 유지 (얼굴 분석용)
-    #   안전장치: remove_clothing_bg 가 실패·품질불량 시 원본 자동 반환
-    # ──
-    if slot not in ("face", "profile", "avatar"):
-        _cleaned = remove_clothing_bg(img_bytes)
-        if _cleaned is not img_bytes:
-            img_bytes = _cleaned
-            ext = "png"
+    # ── [HOTFIX A — 2026-05-23 KST · TJ 지시] 의류 아이템 rembg 재비활성화 ──
+    #   배경: 2026-05-22 Phase 1 에서 rembg 재활성화 했으나, 실사용 테스트에서
+    #         "블랙+버건디 반반 콤비자켓" 케이스의 절반 영역이 배경으로 오판되어
+    #         사라지는 부작용 재확인 (사용자 스크린샷 증거).
+    #         비투명<15% 폴백은 "옷 전체 사라짐"만 잡고 "부분 사라짐"은 못 잡음.
+    #         → 2026-04-10 비활성화 결정으로 회귀 (검증된 안전 상태).
+    #   향후: 자동분류 정확도 개선은 Phase 2 (HF Space 분리, 더 정교한
+    #         segmentation 모델 + FashionCLIP) 에서 처리.
+    #
+    # ── [2026-04-10 원본 결정 — 유지] 의류 아이템 배경 제거 비활성화 ──
+    # 원인: 화이트/밝은 체크패턴 의류에서 rembg가 옷 본체까지 삭제
+    # 해결: 원본 이미지를 그대로 저장. Gemini 분석/착장 생성은 원본으로 충분
+    # - Gemini analyze-item: 이미 원본(shotBlobUrl) 사용 중 ✅
+    # - codistyle generate: 프롬프트에 배경 무시 지시 추가
+    # - 코디쌤 styling: 텍스트 프롬프트 기반이라 영향 없음
+    # if slot not in ("face", "profile", "avatar"):
+    #     _cleaned = remove_clothing_bg(img_bytes)
+    #     if _cleaned is not img_bytes:
+    #         img_bytes = _cleaned
+    #         ext = "png"
 
     fname = f"{slot}_{_now_ms()}_{os.urandom(3).hex()}.{ext}"
     try:
@@ -8940,14 +8947,22 @@ def ai_analyze_item():
                     + '"total_score":0~100,"total_comment":"종합 한줄평(한국어)"}'
                 )
                 
+                # ── [HOTFIX B — 2026-05-23 KST · TJ 지시] 호환성 평가 모델 교체 ──
+                #   원인: gemini-2.0-flash 가 신규 사용자에게 비활성화됨 (Google 정책 변경).
+                #         로그에서 매 analyze-item 호출마다 다음 에러 발생:
+                #         "404 NOT_FOUND. models/gemini-2.0-flash is no longer available
+                #          to new users."
+                #         → 호환성 평가(pc_score/bt_score/total_score) 누락된 채 응답.
+                #   해결: gemini-2.5-flash-lite 로 교체 (Phase 1 의 메인 분석과 동일 모델).
+                #         텍스트 전용 호출이라 image 모델 비호환 이슈 없음.
                 if _SDK == "new":
                     _compat_resp = _cli.models.generate_content(
-                        model="gemini-2.0-flash",
+                        model="gemini-2.5-flash-lite",
                         contents=[_compat_prompt],
                     )
                     _compat_text = _compat_resp.text.strip()
                 else:
-                    _compat_model = _gmod.GenerativeModel("gemini-2.0-flash")
+                    _compat_model = _gmod.GenerativeModel("gemini-2.5-flash-lite")
                     _compat_resp = _compat_model.generate_content(_compat_prompt)
                     _compat_text = _compat_resp.text.strip()
                 
