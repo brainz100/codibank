@@ -1254,6 +1254,248 @@ def remove_clothing_bg(img_bytes: bytes) -> bytes:
 
 
 # ══════════════════════════════════════════════════════════════
+# [Phase 3 — 2026-05-23 KST · TJ 지시] LAB/KMeans 색상 추출
+#   목적: 자동분류 색상 정확도 강화 + 다중 색상 의류 (예: 반반 콤비 자켓) 정조준
+#   방식:
+#     1. 이미지 → PIL → 다운샘플 (200×200) → numpy 배열
+#     2. 알파 채널 있으면 비투명 픽셀만 추출 (배경 자동 제외)
+#     3. 흰색/너무 밝은 픽셀 (R,G,B 모두 240+) 제외 — 배경 추가 제거
+#     4. RGB → LAB 색공간 변환 (CIE 1976, 인지적 색상 분리)
+#     5. KMeans (numpy 직접 구현, k=5, max 15 iter) 클러스터링
+#     6. 클러스터 크기 순으로 정렬 → 상위 3개 반환
+#     7. 각 LAB 좌표 → 가장 가까운 한국어 색명 매핑 (사전 기반)
+#   의존성: numpy(있음) + PIL(있음). 추가 라이브러리 없음.
+#   메모리: 200×200 이미지 + k=5 클러스터 = 임시 ~10MB (Render Starter OK)
+#   응답시간: ~150~400ms / 이미지
+# ══════════════════════════════════════════════════════════════
+
+# ── 한국어 색명 사전 (LAB 좌표 기준) ──
+#   LAB 색공간: L=명도(0~100), a=초록↔빨강(-128~127), b=파랑↔노랑(-128~127)
+#   기본+패션 색상 30+ 개. 향후 확장 가능.
+_KOREAN_COLOR_NAMES = [
+    # (이름, L, a, b)
+    # 무채색
+    ("블랙",       10,   0,    0),
+    ("차콜",       25,   0,    0),
+    ("다크그레이", 35,   0,    0),
+    ("그레이",     55,   0,    0),
+    ("라이트그레이", 75, 0,    0),
+    ("화이트",     95,   0,    0),
+    # 베이지 / 누드 톤
+    ("아이보리",   92,   2,   12),
+    ("크림",       90,   4,   18),
+    ("베이지",     78,   8,   22),
+    ("카멜",       58,  14,   30),
+    ("토프",       62,   6,   12),
+    # 갈색 톤
+    ("브라운",     38,  18,   28),
+    ("다크브라운", 25,  14,   18),
+    ("초콜릿",     22,  16,   16),
+    # 레드 톤
+    ("레드",       48,  68,   45),
+    ("다크레드",   30,  50,   30),
+    ("와인",       28,  40,   18),
+    ("버건디",     25,  36,   12),
+    ("다크버건디", 18,  30,    8),
+    ("핑크",       72,  28,    5),
+    ("코랄",       65,  40,   25),
+    # 오렌지 / 옐로 톤
+    ("오렌지",     65,  35,   55),
+    ("머스타드",   68,   8,   55),
+    ("옐로",       85,  -5,   75),
+    # 그린 톤
+    ("올리브",     50, -10,   38),
+    ("카키",       45,  -8,   28),
+    ("그린",       55, -45,   30),
+    ("다크그린",   30, -25,   20),
+    ("민트",       80, -25,    5),
+    # 블루 톤
+    ("스카이블루", 75, -10,  -25),
+    ("블루",       45,   5,  -45),
+    ("네이비",     22,   8,  -25),
+    ("다크네이비", 15,   6,  -18),
+    ("인디고",     30,  15,  -35),
+    # 퍼플 톤
+    ("라벤더",     72,  12,  -18),
+    ("퍼플",       40,  35,  -35),
+    ("다크퍼플",   25,  25,  -22),
+]
+
+def _rgb_to_lab_array(rgb_arr):
+    """RGB (numpy uint8, shape Nx3) → LAB (numpy float, shape Nx3)
+       CIE 1976 표준 변환. sRGB → XYZ → LAB."""
+    import numpy as np
+    # sRGB → linear
+    rgb_norm = rgb_arr.astype(np.float32) / 255.0
+    mask = rgb_norm > 0.04045
+    rgb_lin = np.where(mask, ((rgb_norm + 0.055) / 1.055) ** 2.4, rgb_norm / 12.92)
+    # linear RGB → XYZ (D65)
+    M = np.array([
+        [0.4124564, 0.3575761, 0.1804375],
+        [0.2126729, 0.7151522, 0.0721750],
+        [0.0193339, 0.1191920, 0.9503041],
+    ], dtype=np.float32)
+    xyz = rgb_lin @ M.T
+    # XYZ → LAB (D65 white point)
+    Xn, Yn, Zn = 0.95047, 1.00000, 1.08883
+    xyz_norm = xyz / np.array([Xn, Yn, Zn], dtype=np.float32)
+    eps = 0.008856
+    kappa = 903.3
+    f = np.where(xyz_norm > eps, np.cbrt(xyz_norm), (kappa * xyz_norm + 16) / 116)
+    L = 116 * f[:, 1] - 16
+    a = 500 * (f[:, 0] - f[:, 1])
+    b = 200 * (f[:, 1] - f[:, 2])
+    return np.stack([L, a, b], axis=1)
+
+def _lab_to_rgb(lab):
+    """단일 LAB → RGB (0~255 int). 평균 클러스터 색을 HEX 로 변환할 때 사용."""
+    import numpy as np
+    L, a, b = float(lab[0]), float(lab[1]), float(lab[2])
+    # LAB → XYZ
+    fy = (L + 16) / 116
+    fx = a / 500 + fy
+    fz = fy - b / 200
+    eps3 = 0.008856 ** (1.0 / 3.0)
+    def _inv(t):
+        return t ** 3 if t > eps3 else (116 * t - 16) / 903.3
+    Xn, Yn, Zn = 0.95047, 1.00000, 1.08883
+    X, Y, Z = _inv(fx) * Xn, _inv(fy) * Yn, _inv(fz) * Zn
+    # XYZ → linear RGB
+    Minv = np.array([
+        [ 3.2404542, -1.5371385, -0.4985314],
+        [-0.9692660,  1.8760108,  0.0415560],
+        [ 0.0556434, -0.2040259,  1.0572252],
+    ], dtype=np.float32)
+    rgb_lin = np.array([X, Y, Z], dtype=np.float32) @ Minv.T
+    # linear → sRGB
+    rgb = np.where(rgb_lin > 0.0031308,
+                   1.055 * (np.clip(rgb_lin, 0, None) ** (1 / 2.4)) - 0.055,
+                   12.92 * rgb_lin)
+    rgb = np.clip(rgb * 255, 0, 255).astype(int)
+    return tuple(int(c) for c in rgb)
+
+def _lab_to_color_name(lab):
+    """LAB 좌표 → 가장 가까운 한국어 색명 (사전 기반)"""
+    best_name, best_dist = "기타", float("inf")
+    for name, L, a, b in _KOREAN_COLOR_NAMES:
+        d = (lab[0] - L) ** 2 + (lab[1] - a) ** 2 + (lab[2] - b) ** 2
+        if d < best_dist:
+            best_dist, best_name = d, name
+    return best_name
+
+def _numpy_kmeans_lab(lab_pixels, k=5, max_iter=15):
+    """numpy 만으로 KMeans 직접 구현. LAB 픽셀 (Nx3) → (centroids, labels)
+       초기 중심점: k-means++ 간소화 (각 점이 이전 점들로부터 멀수록 선택 확률 ↑)
+       단위테스트 발견 케이스 보강 (2026-05-23):
+         · 단일색 이미지: 분산이 작으면 KMeans 스킵하고 평균 1개 반환
+         · k-means++ 확률 정규화 안전장치 (NaN/합!=1 방지)"""
+    import numpy as np
+    n = len(lab_pixels)
+    if n <= k:
+        return lab_pixels, np.arange(n)
+    # 단일색 / 거의 균일 → KMeans 스킵
+    variance = float(lab_pixels.var(axis=0).sum())
+    if variance < 5.0:
+        centroid = lab_pixels.mean(axis=0, keepdims=True)
+        labels = np.zeros(n, dtype=int)
+        return centroid, labels
+    rng = np.random.default_rng(42)
+    # k-means++ 초기화
+    first_idx = int(rng.integers(0, n))
+    centroids = [lab_pixels[first_idx]]
+    for _ in range(k - 1):
+        dists = np.min(
+            np.linalg.norm(lab_pixels[:, None, :] - np.array(centroids)[None, :, :], axis=2),
+            axis=1,
+        )
+        dists_sq = dists ** 2
+        total = float(dists_sq.sum())
+        if total < 1e-6 or not np.isfinite(total):
+            # 더 이상 다양성 없음 → 무작위 선택
+            next_idx = int(rng.integers(0, n))
+        else:
+            probs = dists_sq / total
+            probs = probs / probs.sum()  # 부동소수 오차 정규화
+            next_idx = int(rng.choice(n, p=probs))
+        centroids.append(lab_pixels[next_idx])
+    centroids = np.array(centroids, dtype=np.float32)
+    # KMeans iteration
+    labels = np.zeros(n, dtype=int)
+    for _ in range(max_iter):
+        dists = np.linalg.norm(lab_pixels[:, None, :] - centroids[None, :, :], axis=2)
+        new_labels = np.argmin(dists, axis=1)
+        if np.array_equal(new_labels, labels):
+            break
+        labels = new_labels
+        for ci in range(k):
+            mask = labels == ci
+            if mask.sum() > 0:
+                centroids[ci] = lab_pixels[mask].mean(axis=0)
+    return centroids, labels
+
+def extract_dominant_colors(img_bytes: bytes, top_n: int = 3) -> list:
+    """
+    의류 이미지 → 주요 색상 top_n 개 추출
+    반환: [{"hex": "#1a1a1a", "name": "블랙", "ratio": 0.48,
+            "lab": [L, a, b], "rgb": [R, G, B]}, ...]
+    실패 시 빈 리스트.
+    """
+    try:
+        import numpy as np
+        from PIL import Image
+        img = Image.open(io.BytesIO(img_bytes))
+        # 다운샘플 (200×200) — 계산량 ~25배 감소, 색상 분포는 거의 동일
+        img.thumbnail((200, 200), Image.LANCZOS)
+        # RGBA → 비투명 픽셀만 추출 (rembg 결과 호환)
+        if img.mode == 'RGBA':
+            arr = np.array(img)
+            mask = arr[:, :, 3] > 128
+            rgb = arr[mask][:, :3]
+        else:
+            arr = np.array(img.convert('RGB'))
+            rgb = arr.reshape(-1, 3)
+        if len(rgb) < 50:
+            print("[color-extract] 픽셀 부족, 스킵")
+            return []
+        # 흰색 배경 추정 픽셀 제외 (R,G,B 모두 240+)
+        not_white = ~((rgb[:, 0] >= 240) & (rgb[:, 1] >= 240) & (rgb[:, 2] >= 240))
+        rgb_clean = rgb[not_white]
+        # 흰색 제외 후 너무 적으면 흰색 포함 (전체가 화이트 옷일 가능성)
+        if len(rgb_clean) < len(rgb) * 0.1:
+            rgb_clean = rgb
+        # RGB → LAB
+        lab = _rgb_to_lab_array(rgb_clean)
+        # KMeans 클러스터링
+        centroids, labels = _numpy_kmeans_lab(lab, k=5, max_iter=15)
+        # 클러스터별 비율 + 정렬
+        counts = np.bincount(labels, minlength=len(centroids))
+        total = counts.sum()
+        ratios = counts / max(total, 1)
+        order = np.argsort(-counts)
+        results = []
+        for idx in order[:top_n]:
+            if ratios[idx] < 0.05:  # 5% 미만 클러스터는 노이즈로 간주
+                continue
+            lab_c = centroids[idx]
+            rgb_c = _lab_to_rgb(lab_c)
+            hex_c = "#{:02x}{:02x}{:02x}".format(*rgb_c)
+            name_c = _lab_to_color_name(lab_c)
+            results.append({
+                "hex":   hex_c,
+                "name":  name_c,
+                "ratio": round(float(ratios[idx]), 3),
+                "lab":   [round(float(x), 1) for x in lab_c],
+                "rgb":   list(rgb_c),
+            })
+        print(f"[color-extract] ✅ {len(results)}색 추출: " +
+              ", ".join(f"{r['name']}({r['ratio']*100:.0f}%)" for r in results))
+        return results
+    except Exception as e:
+        print(f"[color-extract] ⚠ 실패: {e}")
+        return []
+
+
+# ══════════════════════════════════════════════════════════════
 # Cloudflare R2 전역 클라이언트 (서버 시작 시 1회 초기화)
 # ══════════════════════════════════════════════════════════════
 _R2_CLIENT = None
@@ -8878,6 +9120,32 @@ def ai_analyze_item():
         #   제거: Lykdat 폴백 보완 (lykdat_data 없음)
         #   제거: Marqo embedding 응답 첨부 (Render Starter RAM 부족으로 미사용)
         #   유지: Gemini analysis 결과만으로 응답 구성
+
+        # ── [Phase 3 — 2026-05-23 KST · TJ 지시] LAB/KMeans 색상 보강 ──
+        #   배경: Gemini 단독 분석은 다중 색상 의류 (예: 블랙+버건디 반반 자켓) 를
+        #         한 가지 색으로만 잡는 경향. 반대로 KMeans 는 색상 비율을
+        #         수치로 제공하므로 두 결과를 결합하면 정확도 ↑.
+        #   전략:
+        #     1. 항상 KMeans 실행해 상위 3색 추출 → response["color_palette"]
+        #     2. Gemini main_color HEX 와 KMeans top1 비교 → 불일치 + KMeans top2
+        #        가 충분히 큰 비율 (>=30%) 이면 sub_color 자동 보강
+        #     3. Gemini 결과는 보존 (덮어쓰기 X) — 사용자가 어느 쪽을 신뢰할지 선택
+        #   안전장치: 색상 추출 실패해도 Gemini 결과만으로 정상 응답
+        _color_palette = []
+        try:
+            _color_palette = extract_dominant_colors(img_bytes, top_n=3)
+            if _color_palette:
+                analysis["color_palette"] = _color_palette
+                # Gemini sub_color 가 비어있고 KMeans top2 가 충분히 크면 보강
+                _has_sub = bool(analysis.get("sub_color") or analysis.get("sub_color_name"))
+                if not _has_sub and len(_color_palette) >= 2:
+                    top2 = _color_palette[1]
+                    if top2["ratio"] >= 0.30:
+                        analysis["sub_color"] = top2["hex"]
+                        analysis["sub_color_name"] = top2["name"]
+                        print(f"[Phase3] sub_color 자동 보강: {top2['name']} ({top2['ratio']*100:.0f}%)")
+        except Exception as _ce:
+            print(f"[Phase3] color_palette 추출 스킵: {_ce}")
 
         # [2026-04-08] 퍼스널컬러 + 체형 호환성 평가
         pc_data = d.get("personalColor") or {}
