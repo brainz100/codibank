@@ -3188,8 +3188,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <!-- ═════════════════════════════════════════════════════════════════════════ -->
 
       <!-- STEP A 4장 그리드 -->
-      <!-- ─── 2026-05-23 KST · TJ 지시 ─── 디폴트 visible (1st 라벨/그리드 항상 표시) ─── -->
-      <div id="stepAGrid" class="step-section visible">
+      <!-- ─── 2026-05-23 KST · TJ 지시 수정 ─── 박스 자체는 hidden 유지
+           (이전 작업에서 visible 로 변경했으나 stepAOverlay (codiBank 로고)
+            와 빈 카드 슬롯이 노출되어 1st 라벨 아래 화면이 엉킴.
+            라벨은 박스 밖에 있어 이미 항상 보임. 박스는 데이터 있을 때만 표시.) -->
+      <div id="stepAGrid" class="step-section hidden">
         <!-- ─── 2026-05-16 KST · TJ 지시 2번 ─── 'STEP A·4명 추천' → 선택 안내 텍스트 -->
         <!-- ─── 2026-05-23 KST · TJ 지시 ─── 안내문구 아래 여백 8px → 14px ─── -->
         <div style="margin-bottom:14px;">
@@ -3226,12 +3229,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         <!-- 2026-05-16 KST · TJ 지시 3번 ─ 정/후면 안내 문구 삭제 -->
       </div>
 
-      <!-- STEP B 2장 비교 (선택 + 유사 변형) -->
-      <!-- ─── 2026-05-23 KST · TJ 지시 ─── 디폴트 visible (2nd 라벨 항상 표시) + 위 간격 24→40 ─── -->
-      <div id="stepBCompare" class="step-section visible" style="margin-top:40px;">
-        <!-- ─── 2026-05-16 KST · TJ 지시 4번 ─── 'STEP B·선택+유사변형' → Q2 (Q1 동일 디자인) -->
-        <!-- ─── 2026-05-23 KST · TJ 지시 ─── 라벨 아래 여백 10→14 ─── -->
-        <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-bottom:14px;">2nd. 유사한 스타일 중에서 어떤 게 더 좋으세요?</h3>
+      <!-- ─── 2026-05-23 KST · TJ 지시 수정 ─── 2nd 라벨을 박스 밖으로 분리
+           이전: 라벨이 stepBCompare 안에 있어 박스 visible 일 때만 보였음.
+                 박스 visible 로 강제하니 그 안의 빈 비교 카드 슬롯이 노출됨.
+           변경: 라벨만 박스 밖으로 빼서 항상 보이게, 박스 자체는 hidden 유지.
+                 데이터(2nd 카드) 있을 때만 박스가 visible 로 전환됨. -->
+      <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-top:40px;margin-bottom:14px;">2nd. 유사한 스타일 중에서 어떤 게 더 좋으세요?</h3>
+
+      <!-- STEP B 2장 비교 (선택 + 유사 변형) — 박스 자체는 hidden 유지 -->
+      <div id="stepBCompare" class="step-section hidden">
         <!-- ─── 2026-05-16 KST · TJ 지시 ─── Q2 박스 완전 재구축: step-b-stack → cbq2-stack -->
         <div class="cbq2-stack" id="stepBCards">
           <!-- 2개 카드 (3:2 비율) 동적 생성 — cbq2-card + canvas -->
