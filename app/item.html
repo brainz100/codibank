@@ -151,9 +151,15 @@
 </div>
 <div class="mt-3 px-1">
 <h2 id="itemTitle" class="text-lg font-serif dark:text-white mb-2 italic"></h2>
-<div class="flex items-center gap-2 mb-2">
+<!-- ── [2026-05-23 KST · TJ 지시] 메타 태그 풍부화 ──
+     기존: 색상 태그 1개만 표시
+     변경: 색상 + 디자인(sub_category) + 소재(material) + 핏(fit) + 시즌(season) + TPO 키워드(style_keywords)
+     목적: 향후 ai옷장 코디 추천 시 유사 코디 매칭의 근거 데이터
+     flex-wrap: 태그 개수가 많아져도 줄바꿈으로 자연스러운 표시 -->
+<div class="flex flex-wrap items-center gap-1.5 mb-2">
 <span id="itemBrandTag" class="px-2.5 py-1 rounded-full bg-accent/10 text-accent text-[10px] font-bold tracking-tight"></span>
 <span id="itemColorTag" class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 text-[10px] font-bold tracking-tight">컬러 미정</span>
+<span id="itemMetaTags" class="contents"></span>
 </div>
 <p id="itemNote" class="text-slate-600 dark:text-zinc-400 leading-relaxed text-sm"></p>
 </div>
@@ -284,6 +290,57 @@
       : (_isEn ? 'No description yet. Add features in "Edit".' : '아이템 설명이 아직 없습니다. “수정”에서 특징을 추가해보세요.');
     document.getElementById('itemNote').textContent = _isEn ? _translateNote(_rawNote) : _rawNote;
 
+    // ── [2026-05-23 KST · TJ 지시] 메타 태그 풍부화 ──
+    //   목적: 색상 외에 디자인(sub_category)/소재(material)/핏(fit)/시즌(season)/TPO 키워드(style_keywords)를
+    //         같은 pill 스타일로 함께 표시. 향후 ai옷장 코디 추천 시 유사 코디 매칭 근거 데이터.
+    //   안전: 옛 데이터(meta.gemini 없음)는 자연스럽게 표시 생략 (조건부 push).
+    //   XSS: 사용자 입력 가능성 있는 필드라 escapeHtml 처리.
+    (function appendMetaTags(){
+      var metaTagsEl = document.getElementById('itemMetaTags');
+      if(!metaTagsEl) return;
+      var g = (item.meta && item.meta.gemini) || {};
+      var tags = [];
+      // ① 디자인 (sub_category) — 예: '숄더백', '다운자켓', '미디원피스'
+      if(g.sub_category) tags.push(String(g.sub_category).trim());
+      // ② 소재 (material) — 콤마 구분이면 첫 번째만, 예: '가죽'
+      if(g.material) {
+        var m = String(g.material).split(',')[0].trim();
+        if(m) tags.push(m);
+      }
+      // ③ 핏 (fit) — '레귤러' 는 흔한 값이라 정보 가치 낮음 → 표시 생략
+      if(g.fit && g.fit !== '레귤러') tags.push(String(g.fit).trim());
+      // ④ 시즌 (season) — 예: '사계절'
+      if(g.season) tags.push(String(g.season).trim());
+      // ⑤ TPO 키워드 (style_keywords 배열) — 최대 3개
+      if(Array.isArray(g.style_keywords)) {
+        g.style_keywords.slice(0, 3).forEach(function(kw){
+          if(kw && typeof kw === 'string'){
+            var s = kw.trim();
+            if(s) tags.push(s);
+          }
+        });
+      }
+      // 중복 제거 + 빈 값 제거 + 최대 8개 (UI 보호)
+      var seenTag = {};
+      var uniq = tags.filter(function(t){
+        if(!t) return false;
+        var k = t.toLowerCase();
+        if(seenTag[k]) return false;
+        seenTag[k] = true;
+        return true;
+      }).slice(0, 8);
+      // XSS 방지 escape
+      function escHtml(s){
+        return String(s).replace(/[&<>"']/g, function(c){
+          return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+        });
+      }
+      // 렌더링 — 색상 태그와 동일한 pill 스타일로 통일
+      metaTagsEl.innerHTML = uniq.map(function(t){
+        return '<span class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 text-[10px] font-bold tracking-tight">' + escHtml(t) + '</span>';
+      }).join('');
+    })();
+
     // Images — 메인 이미지 직접 로드
     const main = document.getElementById('mainImage');
     const imgs = [
@@ -307,15 +364,20 @@
     var _anSec = document.getElementById('analysisSection');
     var _anTxt = document.getElementById('analysisText');
     if(_anSec && _anTxt){
-      // ── [2026-05-23 KST · TJ 지시] analysisText 에도 dedupeNote 적용 ──
-      //   배경: 위 itemNote 는 dedupeNote 처리되지만 여기는 누락되어 있었음.
-      //   효과: 옛 데이터(camera.html 수정 전 등록분) 의 "다운자켓 다운자켓" 같은
-      //         중복 텍스트도 표시 단계에서 정리됨. 방어막 역할.
-      var _note = item.note || '';
-      if(_note && _note.length > 10){
-        var _cleanNote = dedupeNote(_note);
-        _anTxt.textContent = _isEn ? _translateNote(_cleanNote) : _cleanNote;
+      // ── [2026-05-23 KST · TJ 지시] analysisText 데이터 소스 변경 ──
+      //   배경: 위 itemNote 와 동일한 item.note 를 표시해 중복이었음.
+      //   변경: Gemini 가 분석한 coordinate_hint (TPO 추천 코디, 50자 이내) 표시.
+      //   폴백 1: coordinate_hint 가 없는 옛 데이터 → 섹션 자체 숨김 (display:none)
+      //   폴백 2: 50자 초과 시 60자에서 trim (안전망, 백엔드 프롬프트가 1차 제어)
+      var _hint = (item.meta && item.meta.gemini && item.meta.gemini.coordinate_hint) || '';
+      _hint = String(_hint).trim();
+      if(_hint && _hint.length >= 5){
+        // 50자 안전 trim — 더 길면 '...' 부착
+        var _displayHint = _hint.length > 60 ? (_hint.substring(0, 57) + '…') : _hint;
+        _anTxt.textContent = _isEn ? _translateNote(_displayHint) : _displayHint;
         _anSec.style.display = 'block';
+      } else {
+        _anSec.style.display = 'none';
       }
     }
   }
