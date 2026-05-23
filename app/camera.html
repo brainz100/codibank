@@ -1583,8 +1583,13 @@ document.addEventListener('DOMContentLoaded', () => {
           if (g.pattern && g.pattern !== '단색') parts.push(g.pattern);
           if (g.material) parts.push(g.material.split(',')[0]);
           if (g.fit && g.fit !== '레귤러') parts.push(g.fit);
-          if (g.sub_category) parts.push(g.sub_category);
-          if (parts.length > 0) noteText = parts.join(' ') + ' ' + (g.sub_category || catLabel);
+          // ── [2026-05-23 KST · TJ 지시] 카테고리명 중복 버그 수정 ──
+          //   이전: parts 에 sub_category 추가 후, join 결과에 또 ' ' + sub_category 를 append
+          //         → "블랙 폴리에스터 다운자켓 다운자켓" 같은 중복 텍스트 생성
+          //   수정: parts 에 sub_category(또는 폴백 catLabel) 한 번만 추가 후 join
+          const _tail = g.sub_category || catLabel;
+          if (_tail) parts.push(_tail);
+          if (parts.length > 0) noteText = parts.join(' ');
           if (g.design_points) noteText = noteText.trim();
         }
 

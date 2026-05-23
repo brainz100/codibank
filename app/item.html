@@ -307,9 +307,14 @@
     var _anSec = document.getElementById('analysisSection');
     var _anTxt = document.getElementById('analysisText');
     if(_anSec && _anTxt){
+      // ── [2026-05-23 KST · TJ 지시] analysisText 에도 dedupeNote 적용 ──
+      //   배경: 위 itemNote 는 dedupeNote 처리되지만 여기는 누락되어 있었음.
+      //   효과: 옛 데이터(camera.html 수정 전 등록분) 의 "다운자켓 다운자켓" 같은
+      //         중복 텍스트도 표시 단계에서 정리됨. 방어막 역할.
       var _note = item.note || '';
       if(_note && _note.length > 10){
-        _anTxt.textContent = _isEn ? _translateNote(_note) : _note;
+        var _cleanNote = dedupeNote(_note);
+        _anTxt.textContent = _isEn ? _translateNote(_cleanNote) : _cleanNote;
         _anSec.style.display = 'block';
       }
     }
