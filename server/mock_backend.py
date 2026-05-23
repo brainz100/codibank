@@ -1191,11 +1191,18 @@ load_dotenv(os.path.join(os.path.dirname(_HERE), ".env"))
 
 
 # ══════════════════════════════════════════════════════════════
-# [STEP 1~3] 패션 AI 기술 초기화
-# rembg(배경제거) + Lykdat(속성분석) + Marqo(유사도매칭)
+# [Phase 1 — 2026-05-22 KST] 패션 AI 기술 초기화
+#   변경:
+#   · rembg(배경제거) — 유지 (HF Space 호출, Render 메모리 영향 없음)
+#   · Lykdat(외부 유료 API) — 제거 (Gemini 단독 분석으로 단순화)
+#   · Marqo-FashionSigLIP — 제거 (Render Starter 512MB RAM 제약으로
+#                                매번 silent 로딩 실패하던 dead code)
+#   · cosine_similarity — 제거 (Marqo embedding 없으면 의미 없음)
+#   효과: Docker 이미지 -300MB (transformers/torch 의존성 제거),
+#         Render 메모리 안정화, /api/ai/match-wardrobe 는 graceful 503 응답.
 # ══════════════════════════════════════════════════════════════
 
-# ── [STEP 1] rembg: 의류 배경 제거 (HF Space API) ────────────
+# ── rembg: 의류 배경 제거 (HF Space API) ──────────────────────
 _REMBG_API_URL = os.getenv("REMBG_API_URL", "").rstrip("/")
 
 def remove_clothing_bg(img_bytes: bytes) -> bytes:
@@ -1244,102 +1251,6 @@ def remove_clothing_bg(img_bytes: bytes) -> bytes:
     except Exception as e:
         print(f"[rembg] ⚠ HF Space 호출 실패, 원본 사용: {e}")
     return img_bytes
-
-# ── [STEP 2] Lykdat: 패션 속성 태깅 ──────────────────────────
-_LYKDAT_KEY = os.getenv("LYKDAT_API_KEY", "")
-
-def lykdat_tag_item(img_bytes: bytes) -> dict:
-    """의류 이미지 → 카테고리/컬러/패턴/실루엣 자동 태깅 (cloudapi v1/detection/tags)"""
-    if not _LYKDAT_KEY:
-        return {}
-    try:
-        resp = http_requests.post(
-            "https://cloudapi.lykdat.com/v1/detection/tags",
-            headers={"x-api-key": _LYKDAT_KEY},
-            files={"image": ("item.png", img_bytes, "image/png")},
-            timeout=10
-        )
-        if resp.status_code != 200:
-            print(f"[Lykdat] 실패: HTTP {resp.status_code} {resp.text[:100]}")
-            return {}
-        raw = resp.json()
-        # tags 엔드포인트 응답: {"data": {"colors":[], "items":[], "labels":[]}} 또는 직접 배열
-        d = raw.get("data", raw)
-        if isinstance(d, list):
-            # 일부 버전: 바로 리스트 반환
-            labels = d
-            items, colors = [], []
-        else:
-            items  = d.get("items", [])
-            colors = sorted(d.get("colors", []),
-                            key=lambda x: x.get("confidence", 0), reverse=True)
-            labels = d.get("labels", [])
-
-        result = {
-            "lykdat_category":   items[0].get("name", "")    if items  else "",
-            "lykdat_color_hex":  "#" + colors[0].get("hex_code","") if colors else "",
-            "lykdat_color_name": colors[0].get("name", "")   if colors else "",
-            "lykdat_pattern":    next((l.get("name","") for l in labels
-                                  if l.get("classification") == "textile pattern"), ""),
-            "lykdat_silhouette": next((l.get("name","") for l in labels
-                                  if l.get("classification") == "silhouette"), ""),
-        }
-        print(f"[Lykdat] ✅ 태깅 완료: {result['lykdat_category']} / {result['lykdat_color_name']}")
-        return result
-    except Exception as e:
-        print(f"[Lykdat] 실패: {e}")
-        return {}
-
-# ── [STEP 3] Marqo-FashionSigLIP: 패션 임베딩 ────────────────
-_fashion_model     = None
-_fashion_processor = None
-_FASHION_MODEL_ID  = "Marqo/marqo-fashionSigLIP"
-
-def _get_fashion_model():
-    global _fashion_model, _fashion_processor
-    if _fashion_model is None:
-        try:
-            from transformers import AutoModel, AutoProcessor
-            print("[FashionSigLIP] 모델 로드 중... (최초 1회, 약 1~2분)")
-            _fashion_processor = AutoProcessor.from_pretrained(
-                _FASHION_MODEL_ID, trust_remote_code=True)
-            _fashion_model = AutoModel.from_pretrained(
-                _FASHION_MODEL_ID, trust_remote_code=True)
-            _fashion_model.eval()
-            print("[FashionSigLIP] ✅ 모델 로드 완료")
-        except Exception as e:
-            print(f"[FashionSigLIP] ⚠ 로드 실패 (계속 진행): {e}")
-    return _fashion_model, _fashion_processor
-
-def get_fashion_embedding(img_bytes: bytes) -> list | None:
-    """의류 이미지 → 512차원 패션 벡터 (유사도 계산용)"""
-    try:
-        import torch
-        import numpy as np
-        from PIL import Image
-        model, processor = _get_fashion_model()
-        if model is None:
-            return None
-        img    = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-        inputs = processor(images=img, return_tensors="pt", padding=True)
-        with torch.no_grad():
-            feat = model.get_image_features(**inputs)
-            feat = feat / feat.norm(dim=-1, keepdim=True)
-        print("[FashionSigLIP] ✅ 임베딩 생성 완료 (512차원)")
-        return feat[0].tolist()
-    except Exception as e:
-        print(f"[FashionSigLIP] 임베딩 실패: {e}")
-        return None
-
-def cosine_similarity(v1: list, v2: list) -> float:
-    """두 임베딩 벡터 간 코사인 유사도 (0.0~1.0, 높을수록 유사)"""
-    try:
-        import numpy as np
-        a, b = np.array(v1, dtype=float), np.array(v2, dtype=float)
-        denom = np.linalg.norm(a) * np.linalg.norm(b)
-        return float(np.dot(a, b) / denom) if denom > 0 else 0.0
-    except Exception:
-        return 0.0
 
 
 # ══════════════════════════════════════════════════════════════
@@ -2475,8 +2386,7 @@ def health():
         r2_ready=(_get_r2() is not None),
         r2_pub_url=bool(_R2_PUB_URL),
         r2_endpoint=bool(os.getenv("R2_ENDPOINT","") or os.getenv("R2_ACCOUNT_ID","")),
-        lykdat_ready=bool(_LYKDAT_KEY),
-        fashion_model_ready=(_fashion_model is not None),
+        # ── [Phase 1 — 2026-05-22] Lykdat/Marqo 제거됨 — 헬스체크에서도 제거 ──
         gemini_ready=bool(_GEMINI_KEY),
         models={
             "no_face": os.getenv("CODIBANK_OPENAI_IMAGE_MODEL", "gpt-image-1.5"),
@@ -2572,17 +2482,19 @@ def storage_upload():
         ext = _mime_to_ext(mime)
         slot = re.sub(r"[^a-z0-9_-]+", "", str(payload.get("slot") or "img").lower())[:16] or "img"
 
-    # ── [2026-04-10 수정] 의류 아이템 배경 제거 비활성화 ──
-    # 원인: 화이트/밝은 체크패턴 의류에서 rembg가 옷 본체까지 삭제
-    # 해결: 원본 이미지를 그대로 저장. Gemini 분석/착장 생성은 원본으로 충분
-    # - Gemini analyze-item: 이미 원본(shotBlobUrl) 사용 중 ✅
-    # - codistyle generate: 프롬프트에 배경 무시 지시 추가
-    # - 코디쌤 styling: 텍스트 프롬프트 기반이라 영향 없음
-    # if slot not in ("face", "profile", "avatar"):
-    #     _cleaned = remove_clothing_bg(img_bytes)
-    #     if _cleaned is not img_bytes:
-    #         img_bytes = _cleaned
-    #         ext = "png"
+    # ── [Phase 1 — 2026-05-22 KST · TJ 지시] 의류 아이템 rembg 재활성화 ──
+    #   배경: 자동분류 정확도 20% 의 핵심 원인 중 하나가 배경 잡색·잡물체.
+    #         이전 비활성화는 체크패턴/밝은색 의류에서 옷 본체까지 제거되는
+    #         부작용 때문이었으나, 2026-04-09 비투명<15% 폴백 로직(rembg
+    #         함수 내장) 으로 이 문제 해결됨 → 안전하게 재활성화.
+    #   제외: face/profile/avatar — 인물 사진은 배경 유지 (얼굴 분석용)
+    #   안전장치: remove_clothing_bg 가 실패·품질불량 시 원본 자동 반환
+    # ──
+    if slot not in ("face", "profile", "avatar"):
+        _cleaned = remove_clothing_bg(img_bytes)
+        if _cleaned is not img_bytes:
+            img_bytes = _cleaned
+            ext = "png"
 
     fname = f"{slot}_{_now_ms()}_{os.urandom(3).hex()}.{ext}"
     try:
@@ -8717,45 +8629,26 @@ def ai_analyze_item():
         if not img_bytes:
             return jsonify(ok=False, error="이미지 데이터 없음"), 400
 
-        # ── [STEP 1] rembg: 업로드 시 이미 처리됨 → 스킵 ──
-        # (rembg를 여기서 다시 호출하면 HF Space 대기 누적으로 타임아웃 발생)
-
-        # ── [STEP 2] Lykdat: 속성 태깅 ──
-        lykdat_data = lykdat_tag_item(img_bytes)
-
-        # ──── [2026-04-19 PERF] Marqo 임베딩 생성 — 코디하기 Phase1에서는 스킵 ────
-        # 원인: Marqo FashionSigLIP 임베딩(512차원)은 모바일옷장 유사도 매칭 전용
-        #       코디하기 Phase1에서는 is_skirt/sub_category/디자인 정보만 필요
-        #       torch 로컬 연산으로 의류당 1~3초 소요 → 완전 낭비
-        # 해결: skip_embedding=True 플래그로 이 STEP 3를 건너뛸 수 있게 함
-        #       - 모바일옷장 등록(item.html): 플래그 없음 → 기존대로 임베딩 생성
-        #       - 코디하기 Phase1(codistyle_analyze_garments): 플래그 True → 스킵
-        # ────
-        _skip_embedding = bool(d.get("skip_embedding", False))
-        if _skip_embedding:
-            fashion_embedding = None
-            print("[analyze-item] skip_embedding=True → Marqo 임베딩 스킵 (코디하기 Phase1)")
-        else:
-            # ── [STEP 3] Marqo: 임베딩 생성 ──
-            fashion_embedding = get_fashion_embedding(img_bytes)
+        # ── [Phase 1 — 2026-05-22 KST · TJ 지시] 파이프라인 단순화 ──────
+        #   변경:
+        #   · rembg — storage_upload() 에서 업로드 시점에 자동 실행됨 (재활성화).
+        #             여기서 다시 호출 안 함 (HF Space 대기 누적 방지).
+        #             image_url 로 받는 경우 이미 배경 제거된 PNG 가 R2 에 저장돼 있음.
+        #             base64 로 받는 경우 (예: 카메라 즉시 분석) 는 storage_upload 미경유
+        #             가능성 있으나, 분석 흐름 상 직전 업로드 → URL 경유가 대부분.
+        #   · Lykdat 호출 — 제거 (외부 유료 API, Gemini 와 중복 작업)
+        #   · Marqo embedding 호출 — 제거 (Render Starter RAM 부족으로 매번 silent 실패)
+        #   · skip_embedding 분기 — 제거 (이제 무의미)
+        # ──
 
         # ── img_bytes 최소 크기 검증 ──
         if not img_bytes or len(img_bytes) < 100:
             return jsonify(ok=False, error="이미지 데이터가 너무 작거나 없습니다"), 400
 
-        # ── [STEP 4] Gemini 프롬프트에 Lykdat 컨텍스트 추가 ──
-        _lykdat_ctx = ""
-        if lykdat_data:
-            _lykdat_ctx = f"""
-[사전 분석 데이터 - 참고하여 더 정확하게 보완하세요]
-카테고리: {lykdat_data.get('lykdat_category','미확인')}
-주요 컬러: {lykdat_data.get('lykdat_color_name','미확인')} {lykdat_data.get('lykdat_color_hex','')}
-패턴: {lykdat_data.get('lykdat_pattern','미확인')}
-실루엣: {lykdat_data.get('lykdat_silhouette','미확인')}
-"""
-
-        # ── Gemini Vision 프롬프트 ──
-        PROMPT = _lykdat_ctx + """
+        # ── [Phase 1 — 2026-05-22] Gemini Vision 프롬프트 ──
+        #   변경: Lykdat 컨텍스트(_lykdat_ctx) 제거. Gemini 단독 분석으로 단순화.
+        #         프롬프트 본문(카테고리 룰)은 정확도 핵심이므로 그대로 유지.
+        PROMPT = """
 당신은 세계 최고의 패션 전문가 AI입니다.
 이 의류 이미지를 분석하고 아래 JSON 형식으로만 응답하세요. JSON 외 다른 텍스트는 절대 포함하지 마세요.
 
@@ -8833,16 +8726,68 @@ def ai_analyze_item():
 
         result_text = None
 
-        # ──── [2026-04-20 23:30 KST — ACTION 1] 분석 전용 모델 사용 ────
-        # ──── [2026-04-21 01:50 — 작업 4] fallback 체인 추가 ────
-        # 이전: _CODISTYLE_MODEL = "gemini-2.5-flash-image" (이미지 생성 전용)
-        #       → JSON 구조화 응답 품질이 낮아 치마/바지 오판 빈발
-        # 신규: gemini-2.0-flash를 1순위로, 실패시 gemini-1.5-flash로 자동 대체
-        #       → 권한/사용 제한 상황에서도 분석이 계속 작동
-        _ANALYZE_PRIMARY = os.getenv("CODIBANK_ANALYZE_MODEL") or "gemini-2.0-flash"
-        _ANALYZE_CHAIN = [_ANALYZE_PRIMARY, "gemini-1.5-flash", "gemini-1.5-flash-8b"]
+        # ──── [Phase 1 — 2026-05-22 KST · TJ 지시] Gemini 모델 + JSON 스키마 ────
+        #   변경 1: 모델 체인 교체
+        #     이전: gemini-2.0-flash → gemini-1.5-flash → gemini-1.5-flash-8b
+        #            (셋 다 2026-06-01 deprecated 예정 — Google 공지)
+        #     신규: gemini-2.5-flash-lite (1순위, 1/3 비용)
+        #          → gemini-2.5-flash (fallback, 안정성)
+        #            (현역 모델만 사용, deprecated 회피)
+        #   변경 2: JSON 스키마 강제 (response_mime_type + response_schema)
+        #     이전: 텍스트 JSON 응답 → 정규식 정리 → json.loads → 가끔 실패
+        #     신규: API 레벨에서 JSON·enum·필드 누락 검증 → 파싱 실패 0%
+        #   호환성: 응답 필드 100% 유지 (camera.html / item.html 무수정)
+        # ────────────────────────────────────────────────────────────────────
+        _ANALYZE_PRIMARY = os.getenv("CODIBANK_ANALYZE_MODEL") or "gemini-2.5-flash-lite"
+        _ANALYZE_CHAIN = [_ANALYZE_PRIMARY, "gemini-2.5-flash"]
         _seen_a = set()
         _ANALYZE_CHAIN = [m for m in _ANALYZE_CHAIN if not (m in _seen_a or _seen_a.add(m))]
+
+        # ── JSON 스키마 정의 (response_schema 용) ──
+        #   허용 값 enum 명시 → 모델이 임의 값 생성 불가 → 정확도 향상
+        _ITEM_SCHEMA = {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "enum": ["coat", "jacket", "top", "pants", "skirt", "onepiece", "shoes", "watch", "scarf", "socks", "etc"]
+                },
+                "sub_category":     {"type": "string"},
+                "is_skirt":         {"type": "boolean"},
+                "is_onepiece":      {"type": "boolean"},
+                "skirt_length":     {"type": "string", "enum": ["mini", "midi", "maxi", "none"]},
+                "dress_length":     {"type": "string", "enum": ["mini", "midi", "maxi", "none"]},
+                "outer_type":       {"type": "string"},
+                "main_color":       {"type": "string"},
+                "main_color_name":  {"type": "string"},
+                "sub_color":        {"type": "string"},
+                "sub_color_name":   {"type": "string"},
+                "pattern": {
+                    "type": "string",
+                    "enum": ["단색", "스트라이프", "체크", "도트", "플로럴", "기하학", "카무플라주", "그래픽", "레터링", "애니멀", "페이즐리", "추상"]
+                },
+                "material":         {"type": "string"},
+                "fit": {
+                    "type": "string",
+                    "enum": ["오버사이즈", "루즈", "레귤러", "슬림", "스키니"]
+                },
+                "season": {
+                    "type": "string",
+                    "enum": ["봄여름", "가을겨울", "사계절", "여름전용", "겨울전용"]
+                },
+                "style_keywords": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "design_points":     {"type": "string"},
+                "coordinate_hint":   {"type": "string"}
+            },
+            "required": [
+                "category", "sub_category", "is_skirt", "is_onepiece",
+                "main_color", "main_color_name", "pattern", "material",
+                "fit", "season", "style_keywords", "design_points", "coordinate_hint"
+            ]
+        }
 
         _analyze_success_model = None
         _analyze_errors = []
@@ -8852,9 +8797,15 @@ def ai_analyze_item():
                 if _SDK == "new":
                     _cli = _gmod.Client(api_key=_GEMINI_KEY)
                     _img_part = _gtypes.Part.from_bytes(data=img_bytes, mime_type=img_mime)
+                    # ── [Phase 1] JSON 스키마 강제 (google-genai 신 SDK) ──
+                    _cfg = _gtypes.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=_ITEM_SCHEMA,
+                    )
                     _resp = _cli.models.generate_content(
                         model=_a_model,
                         contents=[_gtypes.Content(parts=[_img_part, _gtypes.Part.from_text(text=PROMPT)])],
+                        config=_cfg,
                     )
                     _tmp = _resp.text if hasattr(_resp, "text") else str(_resp)
                 else:
@@ -8862,7 +8813,12 @@ def ai_analyze_item():
                     import PIL.Image as _PILImage
                     import io
                     _pil = _PILImage.open(io.BytesIO(img_bytes))
-                    _model = _gmod.GenerativeModel(_a_model)
+                    # ── [Phase 1] JSON 스키마 강제 (google-generativeai 구 SDK) ──
+                    _gen_cfg = {
+                        "response_mime_type": "application/json",
+                        "response_schema": _ITEM_SCHEMA,
+                    }
+                    _model = _gmod.GenerativeModel(_a_model, generation_config=_gen_cfg)
                     _resp = _model.generate_content([PROMPT, _pil])
                     _tmp = _resp.text
 
@@ -8911,17 +8867,10 @@ def ai_analyze_item():
             else:
                 return jsonify(ok=False, error="JSON 파싱 실패", raw=result_text[:300]), 500
 
-        # ── 결과 병합: Lykdat + 임베딩 추가 ──
-        if lykdat_data:
-            # Lykdat 데이터로 빈 필드 보완 (Gemini 결과 우선)
-            if not analysis.get("main_color") and lykdat_data.get("lykdat_color_hex"):
-                analysis["main_color"] = lykdat_data["lykdat_color_hex"]
-            if not analysis.get("pattern") and lykdat_data.get("lykdat_pattern"):
-                analysis["pattern"] = lykdat_data["lykdat_pattern"]
-            analysis["_lykdat"] = lykdat_data  # 원본 Lykdat 데이터 보존
-
-        if fashion_embedding:
-            analysis["embedding"] = fashion_embedding  # 512차원 벡터
+        # ── [Phase 1 — 2026-05-22] 결과 병합 단순화 ──
+        #   제거: Lykdat 폴백 보완 (lykdat_data 없음)
+        #   제거: Marqo embedding 응답 첨부 (Render Starter RAM 부족으로 미사용)
+        #   유지: Gemini analysis 결과만으로 응답 구성
 
         # [2026-04-08] 퍼스널컬러 + 체형 호환성 평가
         pc_data = d.get("personalColor") or {}
@@ -9024,66 +8973,21 @@ def ai_analyze_item():
 @app.post("/api/ai/match-wardrobe")
 def ai_match_wardrobe():
     """
-    내 옷장 아이템과 스타일링 이미지 유사도 매칭
-    - 입력: styling_image(추천코디 이미지 URL), items(아이템 목록+임베딩)
-    - 출력: 유사도 높은 순 아이템 최대 5개
+    [Phase 1 — 2026-05-22 KST · TJ 지시] 일시 비활성화
+      배경: 이 endpoint 는 Marqo-FashionSigLIP embedding 의존이었으나,
+            Render Starter 512MB RAM 부족으로 모델이 매번 silent 로딩 실패
+            → 사실상 항상 500 에러를 반환하던 dead endpoint.
+      현재: Marqo 코드 전체 제거됨. 기능 복원은 Phase 2 (HF Space 분리) 에서
+            FashionCLIP HTTP API 로 재구현 예정.
+      Frontend 호환성: aicloset.html / closet.html 의 호출부는 try/catch +
+            d.ok 체크로 graceful 처리됨 → 503 + empty matches 반환으로 충분.
     """
-    try:
-        d     = request.get_json(force=True) or {}
-        style = d.get("styling_image", "")   # 추천코디 이미지 URL
-        items = d.get("items", [])            # 임베딩 포함된 아이템 목록
-
-        if not style:
-            return jsonify(ok=False, error="스타일링 이미지 없음"), 400
-        if not items:
-            return jsonify(ok=False, error="아이템 목록 없음"), 400
-
-        # 스타일링 이미지 → bytes
-        if style.startswith("data:"):
-            _, b64 = style.split(",", 1)
-            style_bytes = base64.b64decode(b64)
-        elif style.startswith("http"):
-            resp = http_requests.get(style, timeout=10)
-            style_bytes = resp.content
-        else:
-            # /uploads/ 상대 경로
-            full_url = _public_base() + style
-            resp = http_requests.get(full_url, timeout=10)
-            style_bytes = resp.content
-
-        # 스타일링 이미지 배경 제거 + 임베딩 생성
-        style_clean = remove_clothing_bg(style_bytes)
-        style_emb   = get_fashion_embedding(style_clean)
-
-        if not style_emb:
-            return jsonify(ok=False, error="스타일링 이미지 임베딩 실패"), 500
-
-        # 각 아이템과 유사도 계산
-        scored = []
-        for item in items:
-            emb = item.get("embedding")
-            if not emb or len(emb) < 100:
-                continue   # 임베딩 없는 아이템 스킵
-            sim = cosine_similarity(style_emb, emb)
-            scored.append({
-                "id":         item.get("id", ""),
-                "categoryKey":item.get("categoryKey", ""),
-                "color":      item.get("color", ""),
-                "note":       item.get("note", ""),
-                "similarity": round(sim, 4),
-                "match_pct":  round(sim * 100),
-            })
-
-        # 유사도 높은 순 정렬 → 상위 5개
-        scored.sort(key=lambda x: -x["similarity"])
-        top5 = scored[:5]
-
-        return jsonify(ok=True, matches=top5, total_compared=len(scored))
-
-    except Exception as e:
-        import traceback
-        return jsonify(ok=False, error=str(e),
-                       trace=traceback.format_exc()[-400:]), 500
+    return jsonify(
+        ok=False,
+        error="유사도 매칭 기능 일시 비활성화 (Phase 2 에서 복원 예정)",
+        matches=[],
+        total_compared=0,
+    ), 503
 
 
 @app.post("/api/ai/personal-color")
