@@ -1363,11 +1363,14 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     <div class="pt-2">
 
       <!-- ★ 코디핏 코디핏 + 유사 아이템 찾기 (Atelier 스타일) -->
-      <!-- [2026-04-23 TJ 지시] 추천이미지가 생성되기 전에는 이 박스 전체를 숨김 -->
-      <!-- hasAI === true(=_renderCodiRecBox에서 판단)일 때만 display:flex로 전환됨 -->
+      <!-- ─── 2026-05-23 KST · TJ 지시 ─── 디폴트 표시 ─────────────────────
+           이전: display:none + hasAI === true 일 때만 표시
+           변경: display:flex (항상 표시) → 사용자가 진입 즉시 UI 인지 가능
+           폴백: 데이터 없으면 viewbox 는 '코디핏 대기 중' placeholder 유지
+           -->
       <div id="codiRecommendBox" style="
         width:100%; max-width:100%; margin:0 auto 20px;
-        display:none; flex-direction:column;
+        display:flex; flex-direction:column;
         background:#00022E;
         transition:opacity .4s ease;
         font-family:'Manrope','Outfit','Noto Sans KR',sans-serif;
@@ -1410,6 +1413,26 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
               <p style="margin-top:12px; font-size:11px; letter-spacing:0.2em; font-weight:700;" data-i18n="코디핏 대기 중">코디핏 대기 중</p>
             </div>
           </div>
+          <!-- ─── 2026-05-23 KST · TJ 지시 ─── 영구 표시 체크박스 (북마크 토글)
+               동작: 클릭 시 현재 viewbox 의 추천코디를 ai_album 의 liked:true 로 저장
+                    → 다른 페이지 다녀와도 ai옷장에 계속 보임
+                    체크 해제 시 ai_album 에서 liked:false 처리 → 24시간/세션 종료 시 사라짐
+               UX: 우상단 위치, 빈 상태(미체크)/채워진 상태(체크) 시각 구분 -->
+          <button id="codiRecPinBtn" type="button" title="이 코디를 ai옷장에 영구 표시" aria-label="영구 표시 토글" style="
+            display:none;
+            position:absolute; top:10px; right:10px;
+            width:36px; height:36px;
+            border-radius:50%; border:none;
+            background:rgba(0,2,46,0.65); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+            color:rgba(151,254,237,0.55);
+            cursor:pointer; padding:0;
+            display:none; align-items:center; justify-content:center;
+            box-shadow:0 4px 12px rgba(0,0,0,0.35);
+            transition:color .2s ease, background .2s ease, transform .15s ease;
+            z-index:5;
+          ">
+            <span id="codiRecPinIcon" class="material-symbols-outlined" style="font-size:22px;">bookmark</span>
+          </button>
         </section>
 
         <!-- ─── 2026-05-22 KST · TJ 지시 ─── 좌우 화살표 박스 분리 ─────────
@@ -6102,14 +6125,19 @@ renderCategories();
       if(!Array.isArray(all)) all = [];
       all.sort(function(a,b){ return (b.ts||0) - (a.ts||0); });
       var now = Date.now();
-      _codiHist = all.filter(function(e){ return now - (e.ts||0) < 86400000; }).slice(0,5);
+      // ─── 2026-05-23 KST · TJ 지시 ───────────────────────────────────
+      //  완화: 24시간/5개 → 7일/20개. 체크박스(북마크)로 영구 표시 가능하므로
+      //        기본 보존 기간을 충분히 길게 잡되 너무 많지 않게 제한.
+      // ────────────────────────────────────────────────────────────────
+      var SEVEN_DAYS = 7 * 86400000;
+      _codiHist = all.filter(function(e){ return now - (e.ts||0) < SEVEN_DAYS; }).slice(0, 20);
 
       // 폴백: IDB가 비어있으면 기존 localStorage 확인 (이전 버전 사용자용)
       if(!_codiHist.length){
         try{
           var legacy = JSON.parse(localStorage.getItem('cb_codi_history')||'[]');
           if(Array.isArray(legacy)){
-            _codiHist = legacy.filter(function(e){ return now - (e.ts||0) < 86400000; });
+            _codiHist = legacy.filter(function(e){ return now - (e.ts||0) < SEVEN_DAYS; });
           }
         }catch(_){}
         // 단일 엔트리 폴백
@@ -6120,6 +6148,73 @@ renderCategories();
           }catch(_){}
         }
       }
+
+      // ─── 2026-05-23 KST · TJ 지시 ───────────────────────────────────
+      //  ai_album.liked === true 엔트리도 함께 표시 (영구 보존).
+      //  codi_history 와 형식이 다르므로 매핑 후 병합:
+      //    ai_album.imageRef → entry.img
+      //    ai_album.createdAt(ISO) → entry.ts(ms)
+      //    ai_album.keywords[] → entry.categoryKeywords{} (가능한 한 매핑)
+      //  중복 제거: ts(ms) ±1초 → img substring(0,80) → 둘 다 안 맞으면 별도 항목
+      //  소스 마킹: entry._src ('idb' | 'album') 로 체크박스 토글 시 라우팅에 사용
+      // ────────────────────────────────────────────────────────────────
+      try{
+        var _user = (window.CodiBank && CodiBank.session) ? CodiBank.session() : null;
+        var _userEmail = (_user && _user.email) || '';
+        if(_userEmail && window.CodiBank && typeof CodiBank.getAiAlbumEntries === 'function'){
+          var albumEntries = CodiBank.getAiAlbumEntries(_userEmail) || [];
+          var likedAlbum = albumEntries.filter(function(x){ return x && x.liked === true; });
+          // ai_album → codi_history 형식 변환
+          var albumAsHist = likedAlbum.map(function(a){
+            var tsMs = 0;
+            try{ tsMs = Date.parse(a.createdAt || '') || 0; }catch(_){ tsMs = 0; }
+            if(!tsMs) tsMs = Number(a.id) || Date.now();
+            // keywords 배열 → categoryKeywords 객체 (단순 매핑, 비어있으면 그대로)
+            var ckw = {};
+            if(Array.isArray(a.keywords) && a.keywords.length){
+              // 키워드를 'top' 카테고리에 일괄 집어넣음 (분류 정보 없으므로 안전한 폴백)
+              // 향후 ai_album 에 categoryKeywords 가 저장되면 그것을 우선 사용
+              ckw = a.categoryKeywords || { top: a.keywords };
+            } else if(a.categoryKeywords){
+              ckw = a.categoryKeywords;
+            }
+            return {
+              ts: tsMs,
+              img: a.imageRef || a.img || '',
+              categoryKeywords: ckw,
+              _src: 'album',           // 소스 마킹 (체크박스 라우팅용)
+              _albumId: a.id || '',    // 토글 시 사용
+              _liked: true,            // 표시
+              styleTitle: a.styleTitle || '',
+              explanation: a.explanation || '',
+              seed: a.seed || '',
+            };
+          });
+
+          // 기존 _codiHist 에 소스 마킹
+          _codiHist = _codiHist.map(function(e){
+            return Object.assign({}, e, { _src: e._src || 'idb' });
+          });
+
+          // 중복 제거: ts(ms) ±1초 또는 img substring 일치 → album 우선 (liked 이므로 영구)
+          var merged = albumAsHist.slice();
+          _codiHist.forEach(function(idbE){
+            var dup = merged.some(function(albumE){
+              if(Math.abs((idbE.ts||0) - (albumE.ts||0)) < 1000) return true;
+              var idbImg = String(idbE.img||'').slice(0, 80);
+              var albumImg = String(albumE.img||'').slice(0, 80);
+              if(idbImg && albumImg && idbImg === albumImg) return true;
+              return false;
+            });
+            if(!dup) merged.push(idbE);
+          });
+
+          // 최신 순 정렬
+          merged.sort(function(a,b){ return (b.ts||0) - (a.ts||0); });
+          _codiHist = merged;
+        }
+      }catch(e){ console.warn('[ai_album merge] failed', e); }
+
       _codiHistIdx = 0;
       if(typeof cb === 'function') cb();
     }).catch(function(err){
@@ -6301,9 +6396,53 @@ renderCategories();
         if(_analyzed) _tEl.textContent = _isEn ? 'Analysis Complete' : '분석 완료';
         else _tEl.textContent = _isEn ? 'Find Similar Items' : '유사한 아이템 찾기';
       }
+
+      // ─── 2026-05-23 KST · TJ 지시 ─── 체크박스(북마크) 상태 동기화 ──
+      //  현재 보고 있는 추천코디가 ai_album 에 liked:true 로 저장돼 있으면 채워진 북마크,
+      //  아니면 빈 북마크. 사용자 클릭 시 _toggleCodiRecPin() 로 토글.
+      var _pinBtn = document.getElementById('codiRecPinBtn');
+      var _pinIcon = document.getElementById('codiRecPinIcon');
+      if(_pinBtn && _pinIcon){
+        _pinBtn.style.display = 'flex';
+        // 체크 상태 판정:
+        //   ① entry._src === 'album' && entry._liked === true → 채워짐 (이미 영구 저장)
+        //   ② IDB 엔트리지만 ai_album 에 같은 ts/img 가 liked:true 로 존재 → 채워짐
+        var _isPinned = (entry._src === 'album' && entry._liked === true);
+        if(!_isPinned){
+          // IDB 엔트리에 대해 ai_album 매칭 확인 (비용 절약: liked만 검사)
+          try{
+            var _u = (window.CodiBank && CodiBank.session) ? CodiBank.session() : null;
+            var _ue = (_u && _u.email) || '';
+            if(_ue && typeof CodiBank.getAiAlbumEntries === 'function'){
+              var _albs = CodiBank.getAiAlbumEntries(_ue) || [];
+              _isPinned = _albs.some(function(a){
+                if(!a || a.liked !== true) return false;
+                var aTs = Date.parse(a.createdAt||'') || 0;
+                if(Math.abs(aTs - (entry.ts||0)) < 1000) return true;
+                var aImg = String(a.imageRef||a.img||'').slice(0, 80);
+                var eImg = String(entry.img||'').slice(0, 80);
+                return (aImg && eImg && aImg === eImg);
+              });
+            }
+          }catch(_){}
+        }
+        if(_isPinned){
+          _pinIcon.textContent = 'bookmark';
+          _pinBtn.style.color = '#97FEED';
+          _pinBtn.style.background = 'rgba(151,254,237,0.18)';
+        } else {
+          _pinIcon.textContent = 'bookmark_border';
+          _pinBtn.style.color = 'rgba(151,254,237,0.55)';
+          _pinBtn.style.background = 'rgba(0,2,46,0.65)';
+        }
+      }
     } else {
-      // [2026-04-23 TJ 지시] 추천이 아직 없으면 박스 전체 숨김
-      if(box) box.style.display = 'none';
+      // ─── 2026-05-23 KST · TJ 지시 ─── 박스 디폴트 표시 ───────────────
+      //  이전: 데이터 없으면 #codiRecommendBox 전체 display:none
+      //  변경: 박스는 항상 표시. 데이터 없으면 viewbox 만 placeholder.
+      //  효과: 사용자가 진입 즉시 '유사한 아이템 찾기' UI 인지 가능.
+      // ─────────────────────────────────────────────────────────────────
+      // (box.style.display = 'none' 제거)
       // 비활성 (아래는 표시될 경우를 대비해 내부 상태만 초기화)
       if(box){ box.classList.remove('cri-active','cri-analyzed'); }
       if(imgInner){
@@ -6326,12 +6465,90 @@ renderCategories();
       if(refEl) refEl.textContent = 'REF: —';
       var _tEl2 = findBtn.querySelector('.ctb-title');
       if(_tEl2) _tEl2.textContent = _isEn ? 'Find Similar Items' : '유사한 아이템 찾기';
+      // ─── 2026-05-23 KST · TJ 지시 ─── 체크박스 숨김 (데이터 없을 때) ──
+      var _pinBtnEmpty = document.getElementById('codiRecPinBtn');
+      if(_pinBtnEmpty) _pinBtnEmpty.style.display = 'none';
     }
   }
 
   function _updateClosetBtnState(){ _loadCodiHistory(_renderCodiRecBox); }
   // 초기 로드 - IDB 비동기
   _loadCodiHistory(_renderCodiRecBox);
+
+  // ─── 2026-05-23 KST · TJ 지시 ─── 체크박스(북마크) 클릭 핸들러 ────────
+  //  동작:
+  //    1) 현재 보고 있는 추천코디 entry 의 _src ('album'|'idb') 확인
+  //    2) album 출신: ai_album 의 liked 토글 (true → false 시 ai옷장에서 사라짐)
+  //    3) idb 출신: ai_album 에 신규 엔트리 추가 (liked:true) → 영구 표시 시작
+  //    4) ai_album 매칭 (ts/img) 시: 그 엔트리 liked 토글
+  //    5) 토글 후 _loadCodiHistory 재호출로 데이터 갱신 + 재렌더
+  //  안전: CodiBank.getAiAlbumEntries / updateAiAlbumEntry / addAiAlbumEntry
+  //       함수가 codibank.js 에서 export 됨 (line 2095~2097).
+  // ──────────────────────────────────────────────────────────────────────
+  (function bindPinHandler(){
+    var pinBtn = document.getElementById('codiRecPinBtn');
+    if(!pinBtn) return;
+    if(pinBtn._cbBound) return;
+    pinBtn._cbBound = true;
+    pinBtn.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      try{
+        var entry = _codiHist[_codiHistIdx] || null;
+        if(!entry){ console.warn('[pin] no current entry'); return; }
+        var u = (window.CodiBank && CodiBank.session) ? CodiBank.session() : null;
+        var ue = (u && u.email) || '';
+        if(!ue){ console.warn('[pin] no user'); return; }
+
+        // 시각 피드백 (즉시): 클릭 직후 토글 애니메이션
+        pinBtn.style.transform = 'scale(0.85)';
+        setTimeout(function(){ pinBtn.style.transform = 'scale(1)'; }, 120);
+
+        var albumEntries = (typeof CodiBank.getAiAlbumEntries === 'function')
+          ? (CodiBank.getAiAlbumEntries(ue) || []) : [];
+
+        // 매칭 ai_album 엔트리 찾기 (ts ±1초 또는 img substring)
+        var matched = null;
+        for(var i=0; i<albumEntries.length; i++){
+          var a = albumEntries[i];
+          if(!a) continue;
+          var aTs = Date.parse(a.createdAt||'') || Number(a.id) || 0;
+          if(Math.abs(aTs - (entry.ts||0)) < 1000){ matched = a; break; }
+          var aImg = String(a.imageRef||a.img||'').slice(0, 80);
+          var eImg = String(entry.img||'').slice(0, 80);
+          if(aImg && eImg && aImg === eImg){ matched = a; break; }
+        }
+
+        if(matched){
+          // 토글
+          var newLiked = !matched.liked;
+          if(typeof CodiBank.updateAiAlbumEntry === 'function'){
+            CodiBank.updateAiAlbumEntry(ue, matched.id, { liked: newLiked });
+            console.log('[pin] toggle existing ai_album entry:', matched.id, '→ liked:', newLiked);
+          }
+        } else {
+          // 신규 추가 — liked:true 로
+          if(typeof CodiBank.addAiAlbumEntry === 'function'){
+            CodiBank.addAiAlbumEntry(ue, {
+              imageRef: entry.img || '',
+              seed: entry.seed || '',
+              styleTitle: entry.styleTitle || '',
+              explanation: entry.explanation || '',
+              keywords: [],
+              categoryKeywords: entry.categoryKeywords || {},
+              liked: true,
+              createdAt: new Date(entry.ts || Date.now()).toISOString(),
+            });
+            console.log('[pin] add new ai_album entry, liked:true');
+          }
+        }
+
+        // 데이터 다시 로드 → 재렌더 (체크 상태 UI 갱신 포함)
+        _loadCodiHistory(_renderCodiRecBox);
+      }catch(err){
+        console.error('[pin] toggle failed', err);
+      }
+    });
+  })();
 
   btn.addEventListener('click', ()=>{
     if(_analyzed) return;
