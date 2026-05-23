@@ -11232,6 +11232,194 @@ def _proxy_pick_referer(host: str):
     return None
 
 
+# ══════════════════════════════════════════════════════════════
+# [Phase 4 — 2026-05-23 KST · TJ 지시] 사용자 수정 피드백 루프
+#   목적: 사용자가 AI 자동분류 결과를 수정해 저장할 때마다 (AI 결과, 사용자 수정
+#         결과) 쌍을 Supabase 에 누적 저장. 향후 프롬프트 개선·few-shot 학습·
+#         Phase 3 색명 사전 확장의 근거 데이터로 활용.
+#   사전조건: Supabase 에 item_corrections 테이블 + 4개 통계 뷰가 생성돼 있어야 함
+#            (supabase_phase4_schema.sql 실행 필요)
+#   기존 헬퍼 재사용: supabase_admin_headers(), supabase_url() — line 8553~8563
+#   환경변수: SUPABASE_SERVICE_KEY, SUPABASE_URL (둘 다 이미 설정됨)
+# ══════════════════════════════════════════════════════════════
+
+# AI 결과 키 ↔ 사용자 저장 키 매핑 (필드명 다른 케이스)
+#   AI 응답은 analyze-item endpoint 의 analysis 객체 (백엔드 스키마 정의)
+#   사용자 저장은 프론트엔드 item 객체 (CodiBank.addItem 의 필드명)
+_FIELD_PAIRS = [
+    # (ai_key,            user_key,         정규화 함수 또는 None)
+    ("category",          "categoryKey",    None),       # 'jacket' vs 'jacket'
+    ("sub_category",      "sub_category",   None),       # '다운자켓' vs '다운자켓'
+    ("main_color",        "main_color",     None),       # '#1a1a1a' (HEX)
+    ("main_color_name",   "color",          None),       # '블랙' (한국어 색명)
+    ("sub_color",         "sub_color",      None),
+    ("sub_color_name",    "sub_color_name", None),
+    ("pattern",           "pattern",        None),
+    ("material",          "material",       None),
+    ("fit",               "fit",            None),
+    ("season",            "season",         None),
+    ("brand",             "brand",          None),
+]
+
+def _norm_val(v):
+    """비교 정규화: None/빈 → '', str 은 strip + 소문자, 그 외 str() 처리"""
+    if v is None:
+        return ""
+    if isinstance(v, str):
+        return v.strip().lower()
+    if isinstance(v, (list, dict)):
+        # 복잡 필드는 비교 안 함 (color_palette 등)
+        return ""
+    return str(v).strip().lower()
+
+def _compute_changed_fields(ai_result, user_result):
+    """ai_result vs user_result 비교 → 변경된 필드명 배열 (ai 측 키 기준).
+       빈값 → 채워진 값 도 변경으로 간주."""
+    if not isinstance(ai_result, dict) or not isinstance(user_result, dict):
+        return []
+    changed = []
+    for ai_key, user_key, _norm_fn in _FIELD_PAIRS:
+        ai_v   = _norm_val(ai_result.get(ai_key))
+        user_v = _norm_val(user_result.get(user_key))
+        if ai_v != user_v:
+            changed.append(ai_key)
+    return changed
+
+
+@app.post("/api/ai/record-correction")
+def ai_record_correction():
+    """
+    사용자가 AI 자동분류 결과를 수정해 저장한 시점에 호출.
+      Body:
+        user_email          : str  (필수)
+        ai_result           : dict (필수) — analyze-item 응답의 analysis 객체
+        user_result         : dict (필수) — 사용자 최종 저장 값 (item 객체)
+        correction_source   : str  (필수) — 'item.html' | 'aicloset.html' | 'camera.html'
+        item_id             : str  (옵션) — 원본 아이템 ID
+        image_url           : str  (옵션) — R2 이미지 URL
+      응답:
+        { ok, id, changed_fields, no_change }
+        - no_change=True : 변경 사항 없으면 저장 안 함 (200 응답, id 없음)
+
+    실패 시: ok=false + error + 적절한 HTTP 코드
+    """
+    try:
+        d = request.get_json(force=True, silent=True) or {}
+    except Exception:
+        return jsonify(ok=False, error="JSON 파싱 실패"), 400
+
+    user_email = (d.get("user_email") or "").strip().lower()
+    ai_result  = d.get("ai_result")
+    user_result= d.get("user_result")
+    source     = (d.get("correction_source") or "other").strip()
+    item_id    = d.get("item_id") or None
+    image_url  = d.get("image_url") or None
+
+    # 입력 검증
+    if not user_email:
+        return jsonify(ok=False, error="user_email 누락"), 400
+    if not isinstance(ai_result, dict) or not isinstance(user_result, dict):
+        return jsonify(ok=False, error="ai_result/user_result 는 객체여야 합니다"), 400
+    if source not in ("item.html", "aicloset.html", "camera.html", "other"):
+        source = "other"
+
+    # 변경 필드 자동 계산
+    changed_fields = _compute_changed_fields(ai_result, user_result)
+    if not changed_fields:
+        # 사용자가 저장은 눌렀지만 실제 변경 없음 → 저장 안 함 (저장량 절약)
+        return jsonify(ok=True, no_change=True, changed_fields=[])
+
+    # Supabase REST API 로 INSERT
+    svc_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+    if not svc_key:
+        print("[record-correction] ⚠ SUPABASE_SERVICE_KEY 미설정 — 저장 스킵")
+        return jsonify(ok=False, error="Supabase 키 미설정"), 500
+
+    payload = {
+        "user_email":        user_email,
+        "item_id":           item_id,
+        "image_url":         image_url,
+        "ai_result":         ai_result,
+        "user_result":       user_result,
+        "changed_fields":    changed_fields,
+        "correction_source": source,
+    }
+    try:
+        url = supabase_url().rstrip("/") + "/rest/v1/item_corrections"
+        headers = supabase_admin_headers()
+        # 응답에 생성된 행 포함하려면 Prefer 헤더 필요
+        headers["Prefer"] = "return=representation"
+        resp = http_requests.post(url, json=payload, headers=headers, timeout=8)
+        if resp.status_code in (200, 201):
+            rows = resp.json() if resp.text else []
+            row_id = (rows[0].get("id") if rows else None) if isinstance(rows, list) else None
+            print(f"[record-correction] ✅ 저장: user={user_email} source={source} "
+                  f"changed={changed_fields}")
+            return jsonify(ok=True, id=row_id, changed_fields=changed_fields)
+        else:
+            print(f"[record-correction] ⚠ Supabase {resp.status_code}: {resp.text[:200]}")
+            return jsonify(ok=False, error=f"Supabase {resp.status_code}",
+                           detail=resp.text[:200]), 500
+    except Exception as e:
+        print(f"[record-correction] ⚠ 예외: {e}")
+        return jsonify(ok=False, error=str(e)[:200]), 500
+
+
+# ── 통계 뷰 이름 화이트리스트 (SQL injection 방지) ──
+_CORRECTION_VIEWS = {
+    "field_freq":       "v_correction_field_freq",
+    "by_category":      "v_correction_by_category",
+    "category_mapping": "v_correction_category_mapping",
+    "color_mapping":    "v_correction_color_mapping",
+}
+
+@app.get("/admin/correction-stats")
+def admin_correction_stats():
+    """
+    Phase 4 통계 뷰 조회 (admin 전용).
+      Query params:
+        view  : 'field_freq' | 'by_category' | 'category_mapping' | 'color_mapping' (필수)
+        limit : 1~500 (기본 100)
+      응답:
+        { ok, view, rows: [...], count }
+    """
+    if not verify_admin(request):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    view_key = (request.args.get("view") or "").strip()
+    if view_key not in _CORRECTION_VIEWS:
+        return jsonify(ok=False,
+                       error="view 파라미터 필요",
+                       allowed=list(_CORRECTION_VIEWS.keys())), 400
+
+    try:
+        limit = int(request.args.get("limit", "100"))
+        limit = max(1, min(500, limit))
+    except Exception:
+        limit = 100
+
+    view_name = _CORRECTION_VIEWS[view_key]
+    svc_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+    if not svc_key:
+        return jsonify(ok=False, error="SUPABASE_SERVICE_KEY 미설정"), 500
+
+    try:
+        url = f"{supabase_url().rstrip('/')}/rest/v1/{view_name}?limit={limit}"
+        headers = supabase_admin_headers()
+        resp = http_requests.get(url, headers=headers, timeout=8)
+        if resp.status_code == 200:
+            rows = resp.json() if resp.text else []
+            return jsonify(ok=True, view=view_key, count=len(rows), rows=rows)
+        else:
+            print(f"[correction-stats] ⚠ Supabase {resp.status_code}: {resp.text[:200]}")
+            return jsonify(ok=False,
+                           error=f"Supabase {resp.status_code}",
+                           detail=resp.text[:200]), 500
+    except Exception as e:
+        print(f"[correction-stats] ⚠ 예외: {e}")
+        return jsonify(ok=False, error=str(e)[:200]), 500
+
+
 @app.route("/api/proxy-image", methods=["POST"])
 def api_proxy_image():
     """쇼핑몰 이미지 URL → 서버가 대신 받아 base64 dataURL로 전달.
