@@ -322,7 +322,8 @@ function getBackendBaseResolved() {
     { key: 'socks',    label: '양말',   icon: '🧦' },  // 2026-04-23 13:00 TJ 지시: 신발 바로 다음으로 이동
     { key: 'watch',    label: '시계',   icon: '⌚' },
     { key: 'scarf',    label: '스카프', icon: '🧣' },
-    { key: 'etc',      label: '기타',   icon: '👜' },
+    { key: 'bag',      label: '가방',   icon: '👜' },  // 2026-05-23 KST · TJ 지시 — 가방 독립 카테고리 신규 추가
+    { key: 'etc',      label: '기타',   icon: '🎁' },  // 2026-05-23 KST · TJ 지시 — 아이콘 변경: 👜(가방) → 🎁(잡화/기타), bag 분리에 따른 시각적 충돌 해소
   ];
 
   // (레거시/확장용) 기본 외 카테고리는 사용자 커스텀으로 추가하도록 유도
