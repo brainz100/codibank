@@ -12471,7 +12471,8 @@ def _runway_extract_user_email(req):
 
 
 def _runway_get_user_tier(user_email):
-    """user_email 로 tier 조회 — Supabase user_usage 또는 게스트시 FREE."""
+    """user_email 로 tier 조회 — Supabase user_usage 또는 게스트시 FREE.
+       ⚠️ user_usage 테이블의 실제 컬럼명은 'email' (기존 코드와 동일 패턴)."""
     if not user_email:
         return "FREE"
     try:
@@ -12480,10 +12481,10 @@ def _runway_get_user_tier(user_email):
         sb_url = os.environ.get("SUPABASE_URL", "https://drgsayvlpzcacurcczjq.supabase.co")
         if not svc_key:
             return "FREE"
-        # user_usage 테이블에서 tier 조회 (다른 API 와 동일 패턴)
+        # user_usage 테이블에서 tier 조회 — 컬럼명: email (user_email 아님)
         r = _rq.get(
             f"{sb_url}/rest/v1/user_usage",
-            params={"select": "tier", "user_email": f"eq.{user_email}", "limit": 1},
+            params={"select": "tier", "email": f"eq.{user_email}", "limit": 1},
             headers={
                 "apikey": svc_key,
                 "Authorization": f"Bearer {svc_key}",
@@ -12501,7 +12502,8 @@ def _runway_get_user_tier(user_email):
 
 
 def _runway_get_monthly_video_count(user_email):
-    """이번 달 동영상 생성 횟수 조회 — Supabase user_usage.runway_count."""
+    """이번 달 동영상 생성 횟수 조회 — Supabase user_usage.runway_count.
+       ⚠️ 컬럼명: email + month (user_email/month_key 아님)."""
     if not user_email:
         return 0
     try:
@@ -12516,8 +12518,8 @@ def _runway_get_monthly_video_count(user_email):
             f"{sb_url}/rest/v1/user_usage",
             params={
                 "select": "runway_count",
-                "user_email": f"eq.{user_email}",
-                "month_key": f"eq.{month_key}",
+                "email": f"eq.{user_email}",
+                "month": f"eq.{month_key}",
                 "limit": 1,
             },
             headers={
@@ -12824,6 +12826,127 @@ def runway_usage():
     except Exception as e:
         print(f"[runway_usage] error: {e}", flush=True)
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ─── 2026-05-24 KST · Phase C 활성화 점검 endpoint ────────────────────
+#   동영상 생성 서비스가 작동 가능한지 한눈에 확인.
+#   배포 후 호출:
+#     curl https://codibank-api.onrender.com/api/runway/health
+#   응답:
+#     - ready: true (모든 조건 충족)
+#     - missing: ["LUMA_API_KEY", ...] (부족한 환경변수)
+#     - checks: 각 항목별 상세
+# ─────────────────────────────────────────────────────────────────────
+@app.route("/api/runway/health", methods=["GET"])
+def runway_health():
+    """동영상 생성 활성화 점검 — 환경변수 + Supabase + Luma 핑."""
+    checks = {}
+    missing = []
+
+    # ① LUMA_API_KEY 환경변수
+    luma_key = os.environ.get("LUMA_API_KEY", "").strip()
+    checks["LUMA_API_KEY"] = {
+        "set": bool(luma_key),
+        "prefix": (luma_key[:8] + "...") if luma_key else "(미설정)",
+    }
+    if not luma_key:
+        missing.append("LUMA_API_KEY")
+
+    # ② Supabase 연결
+    svc_key = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
+    sb_url = os.environ.get("SUPABASE_URL", "https://drgsayvlpzcacurcczjq.supabase.co")
+    checks["SUPABASE_SERVICE_KEY"] = {
+        "set": bool(svc_key),
+        "url": sb_url,
+    }
+    if not svc_key:
+        missing.append("SUPABASE_SERVICE_KEY")
+
+    # ③ Supabase user_usage 테이블 점검 (tier/runway_count 컬럼 존재 — month 는 기존)
+    sb_table_ok = False
+    sb_table_error = ""
+    if svc_key:
+        try:
+            import requests as _rq
+            r = _rq.get(
+                f"{sb_url}/rest/v1/user_usage",
+                params={"select": "tier,runway_count,month", "limit": 1},
+                headers={
+                    "apikey": svc_key,
+                    "Authorization": f"Bearer {svc_key}",
+                    "Accept": "application/json",
+                },
+                timeout=8,
+            )
+            if r.status_code == 200:
+                sb_table_ok = True
+            else:
+                sb_table_error = f"HTTP {r.status_code}: {r.text[:200]}"
+        except Exception as e:
+            sb_table_error = str(e)[:200]
+    checks["supabase_user_usage"] = {
+        "ok": sb_table_ok,
+        "expected_columns": ["tier", "runway_count", "month"],
+        "error": sb_table_error,
+    }
+    if not sb_table_ok and svc_key:
+        missing.append("supabase_user_usage_columns")
+
+    # ④ Luma API 핑 (인증 검증만 — 실제 생성 X)
+    luma_api_ok = False
+    luma_api_error = ""
+    if luma_key:
+        try:
+            import requests as _rq
+            r = _rq.get(
+                "https://api.lumalabs.ai/dream-machine/v1/generations",
+                params={"limit": "1"},
+                headers={
+                    "Authorization": f"Bearer {luma_key}",
+                    "Accept": "application/json",
+                },
+                timeout=10,
+            )
+            if r.status_code == 200:
+                luma_api_ok = True
+            elif r.status_code == 401:
+                luma_api_error = "인증 실패 — API Key 가 유효하지 않음"
+            else:
+                luma_api_error = f"HTTP {r.status_code}: {r.text[:200]}"
+        except Exception as e:
+            luma_api_error = str(e)[:200]
+    checks["luma_api"] = {
+        "ok": luma_api_ok,
+        "endpoint": "https://api.lumalabs.ai/dream-machine/v1/generations",
+        "error": luma_api_error,
+    }
+    if not luma_api_ok and luma_key:
+        missing.append("luma_api_auth")
+
+    # ⑤ R2 / 결제 관련 (향후)
+    checks["r2_video_storage"] = {
+        "ok": False,
+        "note": "향후 R2 비디오 저장 활성화 시 점검",
+    }
+
+    ready = (
+        bool(luma_key)
+        and bool(svc_key)
+        and sb_table_ok
+        and luma_api_ok
+    )
+
+    return jsonify({
+        "ok": True,
+        "ready": ready,
+        "missing": missing,
+        "checks": checks,
+        "tier_limits": _RUNWAY_TIER_LIMITS,
+        "_note": (
+            "ready=true 일 때 동영상 생성 가능. "
+            "missing 항목이 있다면 가이드에 따라 환경변수 설정 또는 Supabase 마이그레이션 필요."
+        ),
+    })
 
 
 # ═══════════════════════════════════════════════════════════════════════════
