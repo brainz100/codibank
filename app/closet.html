@@ -11376,6 +11376,96 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       //   사용자 얼굴 + 선택 코디로 고화질(Nano Banana Pro) 재생성.
       //   이게 없으면 서버가 텍스트 조건만으로 새로 생성 → 원본/변형이 임의로 나옴.
       p._force_ref_image = (baseCard && baseCard.imageUrl) || '';
+
+      // ─── 2026-05-23 KST · TJ 지시 ─── 3rd 단계 클라이언트 트랜지션 테스트 ──
+      //  배경: 3rd 단계 고퀄 이미지 생성은 Nano Banana Pro 사용 — 비용 가장 높음.
+      //  변경: 백엔드 호출(/api/ai/styling _force_quality=high)을 우회하고,
+      //        2nd 단계 선택 이미지(baseCard.imageUrl, 정면+후면 합본)를 그대로
+      //        vtoCanvas 에 표시. 정면(좌측) ↔ 후면(우측) 자동 트랜지션.
+      //  효과: 서버 호출 0, 비용 0. UX 는 자동 회전 효과로 보완.
+      //  복원: _STEPC_TRANSITION_TEST = false 로 변경하면 기존 서버 호출 복원.
+      // ───────────────────────────────────────────────────────────────────
+      const _STEPC_TRANSITION_TEST = true;
+      if(_STEPC_TRANSITION_TEST){
+        // baseCard.imageUrl 검증
+        const _testImgUrl = p._force_ref_image;
+        if(!_testImgUrl){
+          finishStepCProgress();
+          if(vtoBox) vtoBox.classList.remove('vto-loading');
+          if(vtoSpinner){ vtoSpinner.classList.remove('animating'); vtoSpinner.style.display='none'; }
+          if(vtoOverlay) vtoOverlay.style.display='none';
+          alert('테스트 모드: 2nd 단계에서 선택한 이미지를 찾을 수 없어요.\n1st 단계부터 다시 진행해주세요.');
+          flow.busy = false;
+          return;
+        }
+        // 이미지 로드 (Promise 래핑)
+        await new Promise(function(resolve){
+          const _img = new Image();
+          _img.crossOrigin = 'anonymous';
+          _img.onload = function(){ flow._stepCImg = _img; resolve(); };
+          _img.onerror = function(){ flow._stepCImg = null; resolve(); };
+          _img.src = _testImgUrl;
+        });
+        if(!flow._stepCImg){
+          finishStepCProgress();
+          if(vtoBox) vtoBox.classList.remove('vto-loading');
+          if(vtoSpinner){ vtoSpinner.classList.remove('animating'); vtoSpinner.style.display='none'; }
+          if(vtoOverlay) vtoOverlay.style.display='none';
+          alert('테스트 모드: 선택 이미지 로드 실패. 잠시 후 다시 시도해주세요.');
+          flow.busy = false;
+          return;
+        }
+        // 가짜 결과 객체 (baseCard 데이터로 채움 — 분석 박스/AI 옷장 저장용)
+        flow.stepCResult = {
+          ok: true,
+          image: _testImgUrl,
+          engineCategoryKeywords: (baseCard && baseCard.engineCategoryKeywords) || {},
+          stylingStory:           (baseCard && baseCard.stylingStory)           || '',
+          stylist:                (baseCard && baseCard.stylist)                || null,
+          cacheKey:               (baseCard && baseCard.cacheKey)               || '',
+          _testMode: true,
+        };
+        if(window.S && flow.stepCResult.engineCategoryKeywords
+           && Object.keys(flow.stepCResult.engineCategoryKeywords).length){
+          window.S.categoryKeywords = flow.stepCResult.engineCategoryKeywords;
+        }
+        // 로딩 UI 정리
+        finishStepCProgress();
+        if(vtoBox) vtoBox.classList.remove('vto-loading');
+        if(vtoSpinner){ vtoSpinner.classList.remove('animating'); vtoSpinner.style.display='none'; }
+        if(vtoOverlay) vtoOverlay.style.display = 'none';
+        if(vtoCanvas) vtoCanvas.style.display = 'block';
+        // 캔버스에 정면 그리기 + 토글 바인딩
+        _renderStepCPose('front');
+        _bindStepCPoseToggle();
+        // 4개 액션 버튼 활성화
+        ['saveBtn','againBtn','shareBtn','resetBtn'].forEach(function(id){
+          const b = $(id);
+          if(b){ b.disabled = false; b.className = 'vto-bab vto-btn-active'; }
+        });
+        // 분석 박스 채우기
+        try{ fillAnalysisBoxes(flow.stepCResult); showAnalysisBoxes(); }catch(_e){}
+        // AI 옷장 자동 저장 (baseCard 기준)
+        try{
+          var _ckwT = (baseCard && baseCard.outfitAnalysis)
+                    ? baseCard.outfitAnalysis
+                    : (flow.stepCResult.engineCategoryKeywords || {});
+          _saveCodiToAiCloset({
+            img: _testImgUrl,
+            categoryKeywords: _ckwT,
+            purpose: (function(){ try{ const pu=getPur(window.S && window.S.pk); return (pu&&pu.label)||(window.S&&window.S.purposeLabel)||(window.S&&window.S.pk)||''; }catch(_){ return ''; } })(),
+            stylistName: (flow.stepCResult.stylist && flow.stepCResult.stylist.name) || '',
+            _stage: 'C_TEST'
+          });
+        }catch(_e){ console.warn('[3rd 테스트 — AI 옷장 저장]', _e); }
+        // 자동 클라이언트 트랜지션 시작 (3초마다 정 ↔ 후 전환)
+        if(typeof _startStepCTransition === 'function') _startStepCTransition();
+        console.log('[STEP C · 클라이언트 트랜지션 테스트] 서버 호출 우회 완료. baseCard:', _testImgUrl.slice(0, 60));
+        flow.busy = false;
+        return;
+      }
+      // ─── (테스트 모드 끝) ─── 이하 기존 서버 호출 로직 ─────────────────
+
       const r = await v68Fetch('/api/ai/styling', p);
       if(!r.ok){
         const txt = await r.text().catch(()=>'');
@@ -11580,6 +11670,8 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     btns.forEach(b => {
       if(b._stepCHandler) b.removeEventListener('click', b._stepCHandler);
       const h = () => {
+        // ─── 2026-05-23 KST · TJ 지시 ─── 사용자 수동 토글 시 자동 트랜지션 정지 ─
+        if(typeof _stopStepCTransition === 'function') _stopStepCTransition();
         const pose = b.dataset.pose || 'front';
         _renderStepCPose(pose);
         btns.forEach(x => x.classList.toggle('active', x === b));
@@ -11589,6 +11681,58 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     });
     // 초기 active = 정면
     btns.forEach(x => x.classList.toggle('active', (x.dataset.pose === 'front')));
+  }
+
+  // ─── 2026-05-23 KST · TJ 지시 ─── 3rd 단계 자동 클라이언트 트랜지션 ─────
+  //  배경: 3rd 단계 백엔드 호출 우회 시(_STEPC_TRANSITION_TEST=true) 정면/후면
+  //        합본 이미지를 자동 회전 사이클로 보여줌. 단순한 정/후면 토글이지만
+  //        타이머로 자동 사이클링 + fade 효과로 동영상에 가까운 UX 제공.
+  //  주기: 3초마다 정 ↔ 후 전환 (총 6초 사이클).
+  //  중지: _stopStepCTransition() 호출 / 사용자가 토글 버튼 클릭 / 페이지 이탈.
+  //  비용: 0 (서버 호출 없음, 클라이언트 CPU 최소 사용).
+  // ──────────────────────────────────────────────────────────────────────
+  let _stepCTransitionTimer = null;
+  let _stepCCurrentPose = 'front';
+
+  function _startStepCTransition(){
+    _stopStepCTransition();
+    _stepCCurrentPose = 'front';
+    _renderStepCPose('front');
+    document.querySelectorAll('.vto-pose-btn').forEach(function(b){
+      b.classList.toggle('active', b.dataset.pose === 'front');
+    });
+    _stepCTransitionTimer = setInterval(function(){
+      _stepCCurrentPose = (_stepCCurrentPose === 'front') ? 'back' : 'front';
+      // fade out → 그리기 → fade in (부드러운 전환)
+      const cv = document.getElementById('vtoCanvas');
+      if(cv){
+        cv.style.transition = 'opacity 0.4s ease';
+        cv.style.opacity = '0';
+        setTimeout(function(){
+          _renderStepCPose(_stepCCurrentPose);
+          cv.style.opacity = '1';
+        }, 400);
+      } else {
+        _renderStepCPose(_stepCCurrentPose);
+      }
+      document.querySelectorAll('.vto-pose-btn').forEach(function(b){
+        b.classList.toggle('active', b.dataset.pose === _stepCCurrentPose);
+      });
+    }, 3000);
+  }
+
+  function _stopStepCTransition(){
+    if(_stepCTransitionTimer){
+      clearInterval(_stepCTransitionTimer);
+      _stepCTransitionTimer = null;
+    }
+    const cv = document.getElementById('vtoCanvas');
+    if(cv){ cv.style.opacity = ''; }
+  }
+
+  // 페이지 이탈 시 정리 (메모리 누수 방지)
+  if(typeof window !== 'undefined'){
+    window.addEventListener('beforeunload', _stopStepCTransition);
   }
 
   async function drawStepCToCanvas(imageUrl){
