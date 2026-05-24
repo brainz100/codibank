@@ -12909,42 +12909,90 @@ def runway_health():
     if not sb_table_ok and svc_key:
         missing.append("supabase_user_usage_columns")
 
-    # ④ Luma API 핑 (인증 검증만 — 실제 생성 X)
+    # ④ Luma API 핑 — Dream Machine + Agents 양쪽 시도 (TJ 의 키가 어디 호환되는지 진단)
     luma_api_ok = False
     luma_api_error = ""
     luma_api_hint = ""
+    luma_endpoint_results = {}
     if luma_key:
         try:
             import requests as _rq
-            r = _rq.get(
-                "https://api.lumalabs.ai/dream-machine/v1/generations",
-                params={"limit": "1"},
-                headers={
-                    "Authorization": f"Bearer {luma_key}",
-                    "Accept": "application/json",
-                },
-                timeout=10,
-            )
-            if r.status_code == 200:
+            # 시도 1: Dream Machine API (비디오용 — 현재 백엔드가 사용)
+            try:
+                r1 = _rq.get(
+                    "https://api.lumalabs.ai/dream-machine/v1/generations",
+                    params={"limit": "1"},
+                    headers={
+                        "Authorization": f"Bearer {luma_key}",
+                        "Accept": "application/json",
+                    },
+                    timeout=10,
+                )
+                luma_endpoint_results["dream_machine"] = {
+                    "url": "api.lumalabs.ai/dream-machine/v1",
+                    "status": r1.status_code,
+                    "ok": (r1.status_code == 200),
+                    "body": r1.text[:200] if r1.status_code != 200 else "(success)",
+                }
+            except Exception as e1:
+                luma_endpoint_results["dream_machine"] = {
+                    "url": "api.lumalabs.ai/dream-machine/v1",
+                    "status": -1,
+                    "ok": False,
+                    "body": str(e1)[:200],
+                }
+
+            # 시도 2: Luma Agents API (이미지용)
+            try:
+                r2 = _rq.get(
+                    "https://agents.lumalabs.ai/v1/generations",
+                    params={"limit": "1"},
+                    headers={
+                        "Authorization": f"Bearer {luma_key}",
+                        "Accept": "application/json",
+                    },
+                    timeout=10,
+                )
+                luma_endpoint_results["agents"] = {
+                    "url": "agents.lumalabs.ai/v1",
+                    "status": r2.status_code,
+                    "ok": (r2.status_code == 200),
+                    "body": r2.text[:200] if r2.status_code != 200 else "(success)",
+                }
+            except Exception as e2:
+                luma_endpoint_results["agents"] = {
+                    "url": "agents.lumalabs.ai/v1",
+                    "status": -1,
+                    "ok": False,
+                    "body": str(e2)[:200],
+                }
+
+            # 결과 종합
+            dm_ok = luma_endpoint_results.get("dream_machine", {}).get("ok", False)
+            ag_ok = luma_endpoint_results.get("agents", {}).get("ok", False)
+
+            if dm_ok:
                 luma_api_ok = True
-            elif r.status_code == 401:
-                luma_api_error = "인증 실패 (401) — API Key 가 유효하지 않음"
-                luma_api_hint = "Luma 콘솔(lumalabs.ai/dream-machine/api/keys)에서 키 재발급 필요"
-            elif r.status_code == 403:
-                luma_api_error = "권한 거부 (403) — Not authenticated"
+                luma_api_hint = "Dream Machine API 작동 — 비디오 생성 가능"
+            elif ag_ok:
+                luma_api_error = "Dream Machine 403 — 키가 Luma Agents 전용 (이미지만 가능)"
                 luma_api_hint = (
-                    "⚠️ Dream Machine 웹 구독 (Luma Plus) 와 API 는 별도 결제!\n"
-                    "→ https://lumalabs.ai/api/billing/overview 에서 API Credits 충전 필요 (별도 카드 등록)"
+                    "TJ 의 키는 platform.lumalabs.ai (Agents) 에서 발급됨. "
+                    "비디오 생성을 위해서는 lumalabs.ai/dream-machine/api/keys 에서 별도 가입 필요. "
+                    "또는 Google Veo 로 전환 권장."
                 )
             else:
-                luma_api_error = f"HTTP {r.status_code}: {r.text[:200]}"
+                dm_status = luma_endpoint_results.get("dream_machine", {}).get("status", -1)
+                ag_status = luma_endpoint_results.get("agents", {}).get("status", -1)
+                luma_api_error = f"양쪽 endpoint 모두 실패 (DM={dm_status}, Agents={ag_status})"
+                luma_api_hint = "키 자체가 무효이거나 결제 문제 — Luma 콘솔 재확인 필요"
         except Exception as e:
             luma_api_error = str(e)[:200]
     checks["luma_api"] = {
         "ok": luma_api_ok,
-        "endpoint": "https://api.lumalabs.ai/dream-machine/v1/generations",
         "error": luma_api_error,
         "hint": luma_api_hint,
+        "endpoints_tested": luma_endpoint_results,
     }
     if not luma_api_ok and luma_key:
         missing.append("luma_api_auth")
