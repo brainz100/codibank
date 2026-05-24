@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#00022E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>런웨이 · CodiBank</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..700,0..1,-50..200" rel="stylesheet">
+
+<style>
+/* ─── 2026-05-24 KST · 런웨이 페이지 (신규 임시 시안) ───────────────
+   디자인 토큰: closet.html / tryon.html / aicloset.html 과 일관
+   · 배경: #00022E (메인) / #07132A (보조 카드)
+   · 액센트: #97FEED (민트)
+   · 폰트: Outfit / Manrope / Noto Sans KR / Material Symbols
+─────────────────────────────────────────────────────────────────── */
+
+:root {
+  --bg-primary: #00022E;
+  --bg-secondary: #07132A;
+  --bg-tertiary: #0A1A38;
+  --accent: #97FEED;
+  --accent-dim: rgba(151,254,237,0.55);
+  --accent-soft: rgba(151,254,237,0.14);
+  --text-primary: rgba(216,226,255,0.92);
+  --text-secondary: rgba(216,226,255,0.55);
+  --text-tertiary: rgba(216,226,255,0.32);
+  --border-soft: rgba(151,254,237,0.08);
+  --border-strong: rgba(151,254,237,0.22);
+  --grad-mint: linear-gradient(135deg, #4cdbce, #13bbaf);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; -webkit-tap-highlight-color: transparent; }
+body {
+  min-height: 100dvh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Outfit','Noto Sans KR',sans-serif;
+  padding-bottom: 100px;
+  overflow-x: hidden;
+}
+
+/* 배경 미세 그라데이션 (다른 페이지와 톤 통일) */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse at top, rgba(151,254,237,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom, rgba(151,254,237,0.02) 0%, transparent 40%);
+  pointer-events: none; z-index: 0;
+}
+
+.rw-container {
+  position: relative; z-index: 1;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+}
+
+/* === 헤더 (코디핏 STEP 라벨 + 큰 타이틀 톤) === */
+.rw-header {
+  padding: 16px 0 36px;
+}
+.rw-step-label {
+  font-family: 'Manrope', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.32em;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.rw-title {
+  font-size: 32px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -0.025em;
+  margin-bottom: 8px;
+  line-height: 1.0;
+}
+.rw-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+/* === 섹션 === */
+.rw-section {
+  margin-bottom: 28px;
+}
+.rw-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.rw-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+.rw-section-meta {
+  font-family: 'Manrope', sans-serif;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* === 영상 후보 가로 스크롤 === */
+.rw-candidates {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -16px;
+  padding: 4px 16px 12px;
+  scrollbar-width: none;
+}
+.rw-candidates::-webkit-scrollbar { display: none; }
+
+.rw-candidate {
+  flex: 0 0 132px;
+  scroll-snap-align: start;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  position: relative;
+}
+.rw-candidate:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+}
+.rw-candidate.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 12px 32px -8px rgba(151,254,237,0.25);
+}
+.rw-candidate.selected::after {
+  content: 'check_circle';
+  font-family: 'Material Symbols Outlined';
+  font-variation-settings: 'FILL' 1;
+  position: absolute;
+  top: 6px; right: 6px;
+  z-index: 3;
+  font-size: 22px;
+  color: var(--accent);
+  background: var(--bg-primary);
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.rw-candidate-img {
+  width: 100%;
+  aspect-ratio: 3/4;
+  position: relative;
+  background: linear-gradient(135deg, #1a2447 0%, #0a1226 100%);
+  overflow: hidden;
+}
+.rw-candidate-img::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 30% 40%, rgba(151,254,237,0.12) 0%, transparent 55%);
+}
+/* 종류별 그라데이션 (시안 단계 — 실제로는 R2 이미지) */
+.rw-candidate[data-type="codifit"] .rw-candidate-img {
+  background: linear-gradient(135deg, #2a3a72 0%, #0e1937 100%);
+}
+.rw-candidate[data-type="tryon"] .rw-candidate-img {
+  background: linear-gradient(135deg, #4a2a72 0%, #19112e 100%);
+}
+.rw-candidate-img-placeholder {
+  position: absolute; inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Material Symbols Outlined';
+  font-size: 36px;
+  color: rgba(151,254,237,0.2);
+  font-variation-settings: 'wght' 300;
+}
+
+.rw-candidate-type {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 4px 9px;
+  border-radius: 9999px;
+  background: rgba(0,2,46,0.7);
+  color: var(--accent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 2;
+}
+
+.rw-candidate-foot {
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.rw-candidate-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.rw-candidate-date {
+  font-family: 'Manrope', sans-serif;
+  font-size: 9.5px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+/* === 동영상 뷰박스 === */
+.rw-viewbox-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9/16;
+  max-height: 60vh;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-soft);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.rw-viewbox-wrap::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(151,254,237,0.06) 0%, transparent 60%),
+    radial-gradient(circle at 50% 80%, rgba(151,254,237,0.04) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.rw-viewbox-empty {
+  position: absolute; inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  text-align: center;
+  gap: 14px;
+  padding: 20px;
+  z-index: 1;
+}
+.rw-empty-icon {
+  font-family: 'Material Symbols Outlined';
+  font-size: 64px;
+  font-variation-settings: 'wght' 300;
+  color: var(--accent-dim);
+  opacity: 0.5;
+  line-height: 1;
+}
+.rw-empty-text {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.rw-empty-sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.01em;
+}
+
+.rw-viewbox-video {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  background: #000;
+  display: none;
+}
+
+/* 로딩 상태 */
+.rw-viewbox-loading {
+  position: absolute; inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  z-index: 2;
+  background: rgba(0,2,46,0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.rw-viewbox-loading.active { display: flex; }
+.rw-loading-spinner {
+  font-family: 'Material Symbols Outlined';
+  font-size: 56px;
+  color: var(--accent);
+  animation: rw-spin 1.4s linear infinite;
+  line-height: 1;
+}
+@keyframes rw-spin { to { transform: rotate(360deg); } }
+.rw-loading-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+}
+.rw-loading-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+/* === 액션 버튼 (저장 / 공유 / 리셋) === */
+.rw-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 14px 0 32px;
+}
+.rw-btn {
+  height: 46px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-radius: 12px;
+  font-family: 'Outfit','Noto Sans KR',sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  letter-spacing: -0.005em;
+}
+.rw-btn:active { transform: scale(0.97); }
+.rw-btn:not(:disabled):hover {
+  border-color: var(--border-strong);
+  color: var(--accent);
+}
+.rw-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.rw-btn .material-symbols-outlined {
+  font-size: 18px;
+  font-variation-settings: 'wght' 400;
+}
+
+/* === 내 런웨이 영상 리스트 === */
+.rw-video-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rw-video-item {
+  display: flex;
+  gap: 14px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  align-items: center;
+}
+.rw-video-item:hover {
+  border-color: var(--border-strong);
+  transform: translateX(2px);
+}
+
+.rw-video-thumb {
+  flex: 0 0 64px;
+  width: 64px; height: 64px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2a3a72 0%, #0a1226 100%);
+  position: relative;
+  overflow: hidden;
+}
+.rw-video-thumb[data-type="tryon"] {
+  background: linear-gradient(135deg, #4a2a72 0%, #19112e 100%);
+}
+.rw-video-thumb::after {
+  content: 'play_arrow';
+  font-family: 'Material Symbols Outlined';
+  font-variation-settings: 'FILL' 1;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: rgba(151,254,237,0.85);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.rw-video-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rw-video-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rw-video-info {
+  display: flex;
+  gap: 10px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.01em;
+}
+.rw-video-info span { display: flex; align-items: center; gap: 3px; }
+.rw-video-info .material-symbols-outlined { font-size: 12px; }
+
+.rw-video-duration {
+  font-family: 'Manrope', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  padding: 4px 8px;
+  background: var(--accent-soft);
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+
+/* === 풋바 네비 === */
+.cb-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 99999;
+  padding: 0 16px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+.cb-nav-inner {
+  pointer-events: all;
+  max-width: 400px;
+  margin: 0 auto;
+  height: 64px;
+  border-radius: 9999px;
+  background: rgba(7,19,42,0.6);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid rgba(151,254,237,0.08);
+  box-shadow: 0 24px 48px -8px rgba(2,13,36,0.5);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0 6px;
+}
+.cb-nav-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: rgba(216,226,255,0.42);
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+  min-width: 44px;
+}
+.cb-nav-tab .ni {
+  font-family: 'Material Symbols Outlined';
+  font-size: 22px;
+  line-height: 1;
+  font-variation-settings: 'FILL' 0, 'wght' 400;
+}
+.cb-nav-tab .nl {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.cb-nav-tab.on {
+  color: #07132A;
+  background: var(--grad-mint);
+  padding: 8px 14px;
+  box-shadow: 0 8px 20px -4px rgba(19,187,175,0.4);
+}
+.cb-nav-tab.on .ni {
+  font-variation-settings: 'FILL' 1, 'wght' 500;
+}
+</style>
+</head>
+<body>
+
+<div class="rw-container">
+
+  <!-- ─── 1. 헤더 (RUNWAY 라벨 + 큰 타이틀 + 부제) ─── -->
+  <header class="rw-header">
+    <div class="rw-step-label">RUNWAY</div>
+    <h1 class="rw-title">런웨이</h1>
+    <p class="rw-subtitle">코디핏·트라이온 이미지를 동영상으로 만들어<br/>나만의 워크 영상을 완성해보세요.</p>
+  </header>
+
+  <!-- ─── 2. 영상 후보 리스트 (가로 스크롤) ─── -->
+  <section class="rw-section">
+    <div class="rw-section-head">
+      <h2 class="rw-section-title">영상으로 만들 이미지</h2>
+      <span class="rw-section-meta">총 6개</span>
+    </div>
+    <div class="rw-candidates" id="rwCandidates">
+      <div class="rw-candidate" data-id="c1" data-type="codifit">
+        <div class="rw-candidate-img">
+          <span class="rw-candidate-type">CODIFIT</span>
+          <div class="rw-candidate-img-placeholder material-symbols-outlined">accessibility_new</div>
+        </div>
+        <div class="rw-candidate-foot">
+          <span class="rw-candidate-label">코디핏</span>
+          <span class="rw-candidate-date">05.24</span>
+        </div>
+      </div>
+      <div class="rw-candidate" data-id="c2" data-type="codifit">
+        <div class="rw-candidate-img">
+          <span class="rw-candidate-type">CODIFIT</span>
+          <div class="rw-candidate-img-placeholder material-symbols-outlined">accessibility_new</div>
+        </div>
+        <div class="rw-candidate-foot">
+          <span class="rw-candidate-label">코디핏</span>
+          <span class="rw-candidate-date">05.23</span>
+        </div>
+      </div>
+      <div class="rw-candidate" data-id="c3" data-type="tryon">
+        <div class="rw-candidate-img">
+          <span class="rw-candidate-type">TRYON</span>
+          <div class="rw-candidate-img-placeholder material-symbols-outlined">person</div>
+        </div>
+        <div class="rw-candidate-foot">
+          <span class="rw-candidate-label">트라이온</span>
+          <span class="rw-candidate-date">05.23</span>
+        </div>
+      </div>
+      <div class="rw-candidate" data-id="c4" data-type="codifit">
+        <div class="rw-candidate-img">
+          <span class="rw-candidate-type">CODIFIT</span>
+          <div class="rw-candidate-img-placeholder material-symbols-outlined">accessibility_new</div>
+        </div>
+        <div class="rw-candidate-foot">
+          <span class="rw-candidate-label">코디핏</span>
+          <span class="rw-candidate-date">05.22</span>
+        </div>
+      </div>
+      <div class="rw-candidate" data-id="c5" data-type="tryon">
+        <div class="rw-candidate-img">
+          <span class="rw-candidate-type">TRYON</span>
+          <div class="rw-candidate-img-placeholder material-symbols-outlined">person</div>
+        </div>
+        <div class="rw-candidate-foot">
+          <span class="rw-candidate-label">트라이온</span>
+          <span class="rw-candidate-date">05.20</span>
+        </div>
+      </div>
+      <div class="rw-candidate" data-id="c6" data-type="codifit">
+        <div class="rw-candidate-img">
+          <span class="rw-candidate-type">CODIFIT</span>
+          <div class="rw-candidate-img-placeholder material-symbols-outlined">accessibility_new</div>
+        </div>
+        <div class="rw-candidate-foot">
+          <span class="rw-candidate-label">코디핏</span>
+          <span class="rw-candidate-date">05.18</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── 3. 동영상 뷰박스 ─── -->
+  <section class="rw-section">
+    <div class="rw-section-head">
+      <h2 class="rw-section-title">미리보기</h2>
+      <span class="rw-section-meta" id="rwViewboxMeta">이미지를 선택하세요</span>
+    </div>
+    <div class="rw-viewbox-wrap" id="rwViewbox">
+      <div class="rw-viewbox-empty" id="rwViewboxEmpty">
+        <span class="rw-empty-icon material-symbols-outlined">slideshow</span>
+        <div class="rw-empty-text">위에서 이미지를 선택하면<br/>AI가 6초 동영상을 생성합니다</div>
+        <div class="rw-empty-sub">소요 시간 약 30~60초</div>
+      </div>
+      <div class="rw-viewbox-loading" id="rwViewboxLoading">
+        <span class="rw-loading-spinner material-symbols-outlined">progress_activity</span>
+        <div class="rw-loading-text">AI가 동영상을 만들고 있어요</div>
+        <div class="rw-loading-sub">약 30~60초 소요 · 페이지를 닫지 마세요</div>
+      </div>
+      <video class="rw-viewbox-video" id="rwVideo" autoplay loop muted playsinline></video>
+    </div>
+  </section>
+
+  <!-- ─── 4. 액션 버튼 (저장 / 공유 / 리셋) ─── -->
+  <section class="rw-actions">
+    <button class="rw-btn" id="rwBtnSave" disabled>
+      <span class="material-symbols-outlined">download</span>저장
+    </button>
+    <button class="rw-btn" id="rwBtnShare" disabled>
+      <span class="material-symbols-outlined">ios_share</span>공유
+    </button>
+    <button class="rw-btn" id="rwBtnReset">
+      <span class="material-symbols-outlined">refresh</span>리셋
+    </button>
+  </section>
+
+  <!-- ─── 5. 내 런웨이 영상 리스트 ─── -->
+  <section class="rw-section">
+    <div class="rw-section-head">
+      <h2 class="rw-section-title">내 런웨이 영상</h2>
+      <span class="rw-section-meta">총 4개</span>
+    </div>
+    <div class="rw-video-list" id="rwVideoList">
+      <div class="rw-video-item" data-id="v1" data-type="codifit">
+        <div class="rw-video-thumb" data-type="codifit"></div>
+        <div class="rw-video-meta">
+          <div class="rw-video-title">코디핏 영상 #001</div>
+          <div class="rw-video-info">
+            <span><span class="material-symbols-outlined">schedule</span>2026.05.24 14:30</span>
+            <span><span class="material-symbols-outlined">videocam</span>코디핏</span>
+          </div>
+        </div>
+        <div class="rw-video-duration">6s</div>
+      </div>
+      <div class="rw-video-item" data-id="v2" data-type="tryon">
+        <div class="rw-video-thumb" data-type="tryon"></div>
+        <div class="rw-video-meta">
+          <div class="rw-video-title">트라이온 영상 #002</div>
+          <div class="rw-video-info">
+            <span><span class="material-symbols-outlined">schedule</span>2026.05.23 18:15</span>
+            <span><span class="material-symbols-outlined">videocam</span>트라이온</span>
+          </div>
+        </div>
+        <div class="rw-video-duration">6s</div>
+      </div>
+      <div class="rw-video-item" data-id="v3" data-type="codifit">
+        <div class="rw-video-thumb" data-type="codifit"></div>
+        <div class="rw-video-meta">
+          <div class="rw-video-title">코디핏 영상 #003</div>
+          <div class="rw-video-info">
+            <span><span class="material-symbols-outlined">schedule</span>2026.05.20 10:45</span>
+            <span><span class="material-symbols-outlined">videocam</span>코디핏</span>
+          </div>
+        </div>
+        <div class="rw-video-duration">6s</div>
+      </div>
+      <div class="rw-video-item" data-id="v4" data-type="codifit">
+        <div class="rw-video-thumb" data-type="codifit"></div>
+        <div class="rw-video-meta">
+          <div class="rw-video-title">코디핏 영상 #004</div>
+          <div class="rw-video-info">
+            <span><span class="material-symbols-outlined">schedule</span>2026.05.18 09:20</span>
+            <span><span class="material-symbols-outlined">videocam</span>코디핏</span>
+          </div>
+        </div>
+        <div class="rw-video-duration">6s</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ─── 풋바 네비 (5탭 새 순서) ─── -->
+<!-- 코디핏 - 트라이온 - 런웨이(active) - 코디앨범 - MY -->
+<!-- ※ Ai 옷장은 이번 변경에서 풋바에서 제외 (TJ 지시) -->
+<nav class="cb-nav">
+  <div class="cb-nav-inner">
+    <a href="closet.html" class="cb-nav-tab">
+      <span class="ni">auto_awesome</span><span class="nl">코디핏</span>
+    </a>
+    <a href="tryon.html" class="cb-nav-tab">
+      <span class="ni">accessibility_new</span><span class="nl">트라이온</span>
+    </a>
+    <a href="runway.html" class="cb-nav-tab on">
+      <span class="ni">movie_filter</span><span class="nl">런웨이</span>
+    </a>
+    <a href="album.html" class="cb-nav-tab">
+      <span class="ni">photo_library</span><span class="nl">코디앨범</span>
+    </a>
+    <a href="mypage.html" class="cb-nav-tab">
+      <span class="ni">person</span><span class="nl">MY</span>
+    </a>
+  </div>
+</nav>
+
+<script>
+(function(){
+  /* ─── 2026-05-24 KST · 런웨이 페이지 임시 시안 스크립트 ─────────────
+       상태: UI 시안 단계 — 더미 데이터 + 페이크 로딩
+       향후 통합:
+         · 후보 리스트: IDB/Supabase 에서 사용자 코디핏/트라이온 결과 로드
+         · 동영상 생성: Luma Ray2 / Veo 2 API 호출 + R2 저장
+         · 영상 리스트: R2 + Supabase 메타데이터 조회
+  ─────────────────────────────────────────────────────────────────── */
+  var selectedCandidate = null;
+  var fakeTimer = null;
+
+  function $(id) { return document.getElementById(id); }
+  function $$(sel) { return document.querySelectorAll(sel); }
+
+  function resetViewbox() {
+    if (fakeTimer) clearTimeout(fakeTimer);
+    $$('.rw-candidate').forEach(function(c){ c.classList.remove('selected'); });
+    selectedCandidate = null;
+    $('rwViewboxLoading').classList.remove('active');
+    $('rwVideo').style.display = 'none';
+    $('rwViewboxMeta').textContent = '이미지를 선택하세요';
+    $('rwViewboxEmpty').innerHTML =
+      '<span class="rw-empty-icon material-symbols-outlined">slideshow</span>' +
+      '<div class="rw-empty-text">위에서 이미지를 선택하면<br/>AI가 6초 동영상을 생성합니다</div>' +
+      '<div class="rw-empty-sub">소요 시간 약 30~60초</div>';
+    $('rwViewboxEmpty').style.display = 'flex';
+    $('rwBtnSave').disabled = true;
+    $('rwBtnShare').disabled = true;
+  }
+
+  function selectCandidate(card) {
+    if (!card) return;
+    $$('.rw-candidate').forEach(function(c){ c.classList.remove('selected'); });
+    card.classList.add('selected');
+    selectedCandidate = card.getAttribute('data-id');
+
+    var labelText = card.querySelector('.rw-candidate-label').textContent;
+    $('rwViewboxMeta').textContent = labelText + ' 영상 생성 중';
+    $('rwViewboxEmpty').style.display = 'none';
+    $('rwVideo').style.display = 'none';
+    $('rwViewboxLoading').classList.add('active');
+
+    $('rwBtnSave').disabled = true;
+    $('rwBtnShare').disabled = true;
+
+    if (fakeTimer) clearTimeout(fakeTimer);
+    fakeTimer = setTimeout(function() {
+      $('rwViewboxLoading').classList.remove('active');
+      $('rwViewboxMeta').textContent = labelText + ' · 6s';
+      $('rwViewboxEmpty').innerHTML =
+        '<span class="rw-empty-icon material-symbols-outlined" style="color: var(--accent); opacity: 0.85;">play_circle</span>' +
+        '<div class="rw-empty-text" style="color: #fff;">동영상 생성 완료 (시안)</div>' +
+        '<div class="rw-empty-sub">실제 통합 시 여기에 6초 영상이 재생됩니다</div>';
+      $('rwViewboxEmpty').style.display = 'flex';
+      $('rwBtnSave').disabled = false;
+      $('rwBtnShare').disabled = false;
+    }, 2200);
+  }
+
+  // 후보 클릭
+  $$('.rw-candidate').forEach(function(card) {
+    card.addEventListener('click', function() { selectCandidate(card); });
+  });
+
+  // 영상 리스트 클릭 → 뷰박스 재생 (시안)
+  $$('.rw-video-item').forEach(function(item) {
+    item.addEventListener('click', function() {
+      if (fakeTimer) clearTimeout(fakeTimer);
+      var titleText = item.querySelector('.rw-video-title').textContent;
+      $('rwViewboxLoading').classList.remove('active');
+      $('rwViewboxMeta').textContent = titleText + ' 재생 중';
+      $('rwViewboxEmpty').innerHTML =
+        '<span class="rw-empty-icon material-symbols-outlined" style="color: var(--accent); opacity: 0.85;">play_circle</span>' +
+        '<div class="rw-empty-text" style="color: #fff;">' + titleText + '</div>' +
+        '<div class="rw-empty-sub">실제 통합 시 영상이 재생됩니다</div>';
+      $('rwViewboxEmpty').style.display = 'flex';
+      $('rwBtnSave').disabled = false;
+      $('rwBtnShare').disabled = false;
+      $('rwViewbox').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
+
+  // 액션 버튼
+  $('rwBtnSave').addEventListener('click', function() {
+    alert('동영상 저장 (시안)\n실제 통합 시 R2 URL 다운로드 처리됩니다.');
+  });
+  $('rwBtnShare').addEventListener('click', function() {
+    if (navigator.share) {
+      navigator.share({
+        title: 'CodiBank 런웨이',
+        text: '내 런웨이 영상을 확인해보세요',
+        url: location.href
+      }).catch(function(){});
+    } else {
+      alert('공유 (시안)\n실제 통합 시 Web Share API 또는 링크 복사로 처리됩니다.');
+    }
+  });
+  $('rwBtnReset').addEventListener('click', resetViewbox);
+
+  console.log('[런웨이 시안] 페이지 로드 완료 — 후보 6개 · 영상 4개 (더미 데이터)');
+})();
+</script>
+
+</body>
+</html>
