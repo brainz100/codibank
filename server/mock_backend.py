@@ -12386,6 +12386,254 @@ def weather_endpoint():
     }), 200
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# ─── 2026-05-24 KST · 런웨이 (동영상 서비스) API ──────────────────────────
+#   상태: stub 단계 — 더미 데이터 응답 + placeholder 비디오 응답
+#   엔드포인트:
+#     GET    /api/runway/candidates       후보 리스트 (코디핏 3rd + 트라이온)
+#     POST   /api/runway/generate         동영상 생성 (Luma/Veo placeholder)
+#     GET    /api/runway/videos           사용자 생성 영상 리스트
+#     DELETE /api/runway/videos/<id>      영상 삭제
+#     GET    /api/runway/usage            tier 별 사용량 / 한도
+#
+#   향후 통합 (TODO):
+#     · 사용자 인증: Supabase 토큰 검증 (다른 API 와 동일 패턴)
+#     · 후보 리스트: Supabase 'ai_album' 테이블 (코디핏 3rd 결과 + 트라이온)
+#     · 동영상 생성: Luma Ray2 API (image-to-video, 6초) + 폴링 + R2 저장
+#     · 영상 리스트: Supabase 'user_videos' 테이블 + R2 URL 조회
+#     · 사용량: Supabase 'user_usage' 테이블 (월별 video_count)
+#     · tier 한도: FREE/SILVER=0, GOLD=20, DIAMOND=50 (월 기준)
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def _runway_now_iso():
+    """현재 시각 ISO 포맷 (UTC+9 한국 시간)."""
+    from datetime import datetime, timezone, timedelta
+    return datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def _runway_dummy_candidates():
+    """후보 리스트 더미 데이터 — 코디핏 4 + 트라이온 2."""
+    return [
+        {"id": "c1", "type": "codifit", "image_url": "", "label": "코디핏",
+         "date": "2026-05-24", "thumb_gradient": "linear-gradient(135deg,#2a3a72 0%,#0e1937 100%)"},
+        {"id": "c2", "type": "codifit", "image_url": "", "label": "코디핏",
+         "date": "2026-05-23", "thumb_gradient": "linear-gradient(135deg,#2a3a72 0%,#0e1937 100%)"},
+        {"id": "c3", "type": "tryon",   "image_url": "", "label": "트라이온",
+         "date": "2026-05-23", "thumb_gradient": "linear-gradient(135deg,#4a2a72 0%,#19112e 100%)"},
+        {"id": "c4", "type": "codifit", "image_url": "", "label": "코디핏",
+         "date": "2026-05-22", "thumb_gradient": "linear-gradient(135deg,#2a3a72 0%,#0e1937 100%)"},
+        {"id": "c5", "type": "tryon",   "image_url": "", "label": "트라이온",
+         "date": "2026-05-20", "thumb_gradient": "linear-gradient(135deg,#4a2a72 0%,#19112e 100%)"},
+        {"id": "c6", "type": "codifit", "image_url": "", "label": "코디핏",
+         "date": "2026-05-18", "thumb_gradient": "linear-gradient(135deg,#2a3a72 0%,#0e1937 100%)"},
+    ]
+
+
+def _runway_dummy_videos():
+    """영상 리스트 더미 데이터 — 코디핏 3 + 트라이온 1."""
+    return [
+        {"id": "v1", "title": "코디핏 영상 #001", "type": "codifit",
+         "duration_seconds": 6, "video_url": "", "thumb_url": "",
+         "created_at": "2026-05-24T14:30:00", "candidate_id": "c1"},
+        {"id": "v2", "title": "트라이온 영상 #002", "type": "tryon",
+         "duration_seconds": 6, "video_url": "", "thumb_url": "",
+         "created_at": "2026-05-23T18:15:00", "candidate_id": "c3"},
+        {"id": "v3", "title": "코디핏 영상 #003", "type": "codifit",
+         "duration_seconds": 6, "video_url": "", "thumb_url": "",
+         "created_at": "2026-05-20T10:45:00", "candidate_id": "c2"},
+        {"id": "v4", "title": "코디핏 영상 #004", "type": "codifit",
+         "duration_seconds": 6, "video_url": "", "thumb_url": "",
+         "created_at": "2026-05-18T09:20:00", "candidate_id": "c4"},
+    ]
+
+
+# tier 별 월 동영상 한도 (향후 Supabase 사용자 tier 와 연동)
+_RUNWAY_TIER_LIMITS = {
+    "FREE":    0,
+    "SILVER":  0,
+    "GOLD":    20,
+    "DIAMOND": 50,
+}
+
+
+@app.route("/api/runway/candidates", methods=["GET"])
+def runway_candidates():
+    """후보 리스트 — 사용자의 코디핏 3rd 결과 + 트라이온 결과."""
+    try:
+        # TODO: 실제 사용자 데이터 조회 (Supabase ai_album, ai_tryon)
+        #   예시:
+        #     user_id = _extract_user_id_from_request(request)
+        #     codifit_rows = supabase.from_('ai_album').select('*')
+        #                            .eq('user_id', user_id)
+        #                            .eq('stage', 'C_FINAL')   # 3rd 단계 결과만
+        #                            .order('created_at', desc=True)
+        #                            .limit(20).execute()
+        #     tryon_rows = supabase.from_('ai_tryon').select('*')
+        #                          .eq('user_id', user_id)
+        #                          .order('created_at', desc=True)
+        #                          .limit(10).execute()
+        #     candidates = _merge_runway_candidates(codifit_rows, tryon_rows)
+        candidates = _runway_dummy_candidates()
+        return jsonify({
+            "ok": True,
+            "candidates": candidates,
+            "total": len(candidates),
+            "_stub": True,
+            "_note": "후보 리스트는 향후 Supabase 실제 데이터로 교체 예정",
+        })
+    except Exception as e:
+        print(f"[runway_candidates] error: {e}", flush=True)
+        return jsonify({"ok": False, "error": str(e), "candidates": [], "total": 0}), 500
+
+
+@app.route("/api/runway/generate", methods=["POST"])
+def runway_generate():
+    """
+    동영상 생성 — placeholder (실제 통합 시 Luma Ray2 / Veo 2 API 호출).
+    payload:
+      · candidate_id: 후보 ID (필수)
+      · duration: 영상 길이 초 (기본 6)
+      · model: 'luma' | 'veo' | 'placeholder' (기본 'placeholder')
+    """
+    try:
+        payload = request.get_json(silent=True) or {}
+        candidate_id = str(payload.get("candidate_id") or "").strip()
+        duration = int(payload.get("duration") or 6)
+        model = str(payload.get("model") or "placeholder").strip().lower()
+
+        if not candidate_id:
+            return jsonify({"ok": False, "error": "candidate_id 가 필요합니다"}), 400
+        if duration < 4 or duration > 10:
+            return jsonify({"ok": False, "error": "duration 은 4~10초 범위"}), 400
+
+        # TODO: 실제 통합 시 흐름
+        #   1. 사용자 tier 검증 — GOLD/DIAMOND 만 허용
+        #      user = _extract_user_from_request(request)
+        #      if user.tier not in ("GOLD", "DIAMOND"):
+        #          return jsonify({"ok": False, "error": "GOLD 이상 요금제 필요"}), 403
+        #
+        #   2. 월 사용량 한도 체크 (Supabase user_usage)
+        #      used = _get_monthly_video_count(user.id)
+        #      limit = _RUNWAY_TIER_LIMITS.get(user.tier, 0)
+        #      if used >= limit:
+        #          return jsonify({"ok": False, "error": "월 한도 초과", "used": used, "limit": limit}), 429
+        #
+        #   3. R2 캐시 hit 체크
+        #      cache_key = f"runway/{user.id}/{candidate_id}-{duration}s.mp4"
+        #      cached_url = _r2_get_video(cache_key)
+        #      if cached_url:
+        #          return jsonify({"ok": True, "video_url": cached_url, "cached": True})
+        #
+        #   4. 후보 이미지 조회 (Supabase)
+        #      image_url = _get_candidate_image(user.id, candidate_id)
+        #
+        #   5. Luma Ray2 API 호출 (image-to-video)
+        #      from lumaai import LumaAI
+        #      client = LumaAI(auth_token=os.getenv("LUMA_API_KEY"))
+        #      generation = client.generations.create(
+        #          prompt="Korean fashion model, smooth 360 rotation, ...",
+        #          keyframes={"frame0": {"type": "image", "url": image_url}},
+        #          model="ray-2",
+        #          duration=f"{duration}s",
+        #      )
+        #
+        #   6. 폴링 (30-60초)
+        #   7. R2 업로드 + URL 반환
+        #   8. Supabase user_usage += 1
+        #   9. Supabase user_videos 에 메타데이터 저장
+
+        return jsonify({
+            "ok": True,
+            "video_url": "",        # 향후 R2 URL
+            "thumb_url": "",
+            "duration_seconds": duration,
+            "model": model,
+            "candidate_id": candidate_id,
+            "generated_at": _runway_now_iso(),
+            "_stub": True,
+            "_note": "실제 비디오 생성은 Luma/Veo 통합 후 활성화됩니다",
+        })
+    except Exception as e:
+        print(f"[runway_generate] error: {e}", flush=True)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/runway/videos", methods=["GET"])
+def runway_videos_list():
+    """사용자가 생성한 동영상 리스트."""
+    try:
+        # TODO: Supabase user_videos 테이블 조회
+        #   user_id = _extract_user_id_from_request(request)
+        #   rows = supabase.from_('user_videos').select('*')
+        #                  .eq('user_id', user_id)
+        #                  .order('created_at', desc=True)
+        #                  .limit(50).execute()
+        #   videos = [_format_video_row(r) for r in rows.data]
+        videos = _runway_dummy_videos()
+        return jsonify({
+            "ok": True,
+            "videos": videos,
+            "total": len(videos),
+            "_stub": True,
+        })
+    except Exception as e:
+        print(f"[runway_videos_list] error: {e}", flush=True)
+        return jsonify({"ok": False, "error": str(e), "videos": [], "total": 0}), 500
+
+
+@app.route("/api/runway/videos/<video_id>", methods=["DELETE"])
+def runway_video_delete(video_id):
+    """영상 삭제."""
+    try:
+        vid = str(video_id or "").strip()
+        if not vid:
+            return jsonify({"ok": False, "error": "video_id 가 필요합니다"}), 400
+        # TODO: R2 + Supabase 에서 삭제
+        #   user_id = _extract_user_id_from_request(request)
+        #   row = supabase.from_('user_videos').select('r2_key').eq('id', vid).eq('user_id', user_id).single().execute()
+        #   if not row.data:
+        #       return jsonify({"ok": False, "error": "영상을 찾을 수 없습니다"}), 404
+        #   _r2_delete(row.data['r2_key'])
+        #   supabase.from_('user_videos').delete().eq('id', vid).eq('user_id', user_id).execute()
+        return jsonify({
+            "ok": True,
+            "deleted_id": vid,
+            "_stub": True,
+        })
+    except Exception as e:
+        print(f"[runway_video_delete] error: {e}", flush=True)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/runway/usage", methods=["GET"])
+def runway_usage():
+    """tier 별 사용량 + 한도."""
+    try:
+        # TODO: 실제 사용자 tier + Supabase 월별 사용량 조회
+        #   user = _extract_user_from_request(request)
+        #   used = _get_monthly_video_count(user.id)
+        #   limit = _RUNWAY_TIER_LIMITS.get(user.tier, 0)
+        tier = "FREE"  # 향후: user.tier
+        used = 0       # 향후: _get_monthly_video_count(user.id)
+        limit = _RUNWAY_TIER_LIMITS.get(tier, 0)
+        return jsonify({
+            "ok": True,
+            "tier": tier,
+            "used_this_month": used,
+            "monthly_limit": limit,
+            "remaining": max(0, limit - used),
+            "tier_limits": _RUNWAY_TIER_LIMITS,
+            "_stub": True,
+        })
+    except Exception as e:
+        print(f"[runway_usage] error: {e}", flush=True)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8787"))
     # ✅ 안정성 기본값: debug OFF
