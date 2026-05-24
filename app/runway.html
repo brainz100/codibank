@@ -444,6 +444,74 @@ body::before {
   letter-spacing: 0.02em;
 }
 
+/* === 로딩/빈 상태 placeholder === */
+.rw-loading-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px 16px;
+  width: 100%;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+.rw-loading-placeholder p {
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+}
+.rw-empty-list {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-soft);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.rw-empty-list .material-symbols-outlined {
+  font-size: 32px;
+  color: var(--accent-dim);
+  opacity: 0.5;
+}
+
+/* === 사용량 표시 === */
+.rw-usage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  margin-top: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+.rw-usage .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--accent);
+  font-variation-settings: 'wght' 400;
+}
+
+/* === 에러 상태 === */
+.rw-error {
+  padding: 14px 16px;
+  background: rgba(255, 107, 107, 0.08);
+  border: 1px solid rgba(255, 107, 107, 0.25);
+  border-radius: 12px;
+  font-size: 12px;
+  color: #ff9b9b;
+  text-align: center;
+  margin: 8px 0;
+}
+
 /* === 풋바 네비 === */
 .cb-nav {
   position: fixed;
@@ -519,68 +587,13 @@ body::before {
   <section class="rw-section">
     <div class="rw-section-head">
       <h2 class="rw-section-title">영상으로 만들 이미지</h2>
-      <span class="rw-section-meta">총 6개</span>
+      <span class="rw-section-meta" id="rwCandidatesCount">불러오는 중...</span>
     </div>
     <div class="rw-candidates" id="rwCandidates">
-      <div class="rw-candidate" data-id="c1" data-type="codifit">
-        <div class="rw-candidate-img">
-          <span class="rw-candidate-type">CODIFIT</span>
-          <div class="rw-candidate-img-placeholder material-symbols-outlined">accessibility_new</div>
-        </div>
-        <div class="rw-candidate-foot">
-          <span class="rw-candidate-label">코디핏</span>
-          <span class="rw-candidate-date">05.24</span>
-        </div>
-      </div>
-      <div class="rw-candidate" data-id="c2" data-type="codifit">
-        <div class="rw-candidate-img">
-          <span class="rw-candidate-type">CODIFIT</span>
-          <div class="rw-candidate-img-placeholder material-symbols-outlined">accessibility_new</div>
-        </div>
-        <div class="rw-candidate-foot">
-          <span class="rw-candidate-label">코디핏</span>
-          <span class="rw-candidate-date">05.23</span>
-        </div>
-      </div>
-      <div class="rw-candidate" data-id="c3" data-type="tryon">
-        <div class="rw-candidate-img">
-          <span class="rw-candidate-type">TRYON</span>
-          <div class="rw-candidate-img-placeholder material-symbols-outlined">person</div>
-        </div>
-        <div class="rw-candidate-foot">
-          <span class="rw-candidate-label">트라이온</span>
-          <span class="rw-candidate-date">05.23</span>
-        </div>
-      </div>
-      <div class="rw-candidate" data-id="c4" data-type="codifit">
-        <div class="rw-candidate-img">
-          <span class="rw-candidate-type">CODIFIT</span>
-          <div class="rw-candidate-img-placeholder material-symbols-outlined">accessibility_new</div>
-        </div>
-        <div class="rw-candidate-foot">
-          <span class="rw-candidate-label">코디핏</span>
-          <span class="rw-candidate-date">05.22</span>
-        </div>
-      </div>
-      <div class="rw-candidate" data-id="c5" data-type="tryon">
-        <div class="rw-candidate-img">
-          <span class="rw-candidate-type">TRYON</span>
-          <div class="rw-candidate-img-placeholder material-symbols-outlined">person</div>
-        </div>
-        <div class="rw-candidate-foot">
-          <span class="rw-candidate-label">트라이온</span>
-          <span class="rw-candidate-date">05.20</span>
-        </div>
-      </div>
-      <div class="rw-candidate" data-id="c6" data-type="codifit">
-        <div class="rw-candidate-img">
-          <span class="rw-candidate-type">CODIFIT</span>
-          <div class="rw-candidate-img-placeholder material-symbols-outlined">accessibility_new</div>
-        </div>
-        <div class="rw-candidate-foot">
-          <span class="rw-candidate-label">코디핏</span>
-          <span class="rw-candidate-date">05.18</span>
-        </div>
+      <!-- 백엔드 /api/runway/candidates 응답으로 동적 렌더링 -->
+      <div class="rw-loading-placeholder">
+        <span class="material-symbols-outlined" style="font-size:32px;color:var(--accent-dim);animation:rw-spin 1.4s linear infinite;">progress_activity</span>
+        <p>이미지 목록 불러오는 중...</p>
       </div>
     </div>
   </section>
@@ -623,55 +636,22 @@ body::before {
   <section class="rw-section">
     <div class="rw-section-head">
       <h2 class="rw-section-title">내 런웨이 영상</h2>
-      <span class="rw-section-meta">총 4개</span>
+      <span class="rw-section-meta" id="rwVideosCount">불러오는 중...</span>
     </div>
     <div class="rw-video-list" id="rwVideoList">
-      <div class="rw-video-item" data-id="v1" data-type="codifit">
-        <div class="rw-video-thumb" data-type="codifit"></div>
-        <div class="rw-video-meta">
-          <div class="rw-video-title">코디핏 영상 #001</div>
-          <div class="rw-video-info">
-            <span><span class="material-symbols-outlined">schedule</span>2026.05.24 14:30</span>
-            <span><span class="material-symbols-outlined">videocam</span>코디핏</span>
-          </div>
-        </div>
-        <div class="rw-video-duration">6s</div>
-      </div>
-      <div class="rw-video-item" data-id="v2" data-type="tryon">
-        <div class="rw-video-thumb" data-type="tryon"></div>
-        <div class="rw-video-meta">
-          <div class="rw-video-title">트라이온 영상 #002</div>
-          <div class="rw-video-info">
-            <span><span class="material-symbols-outlined">schedule</span>2026.05.23 18:15</span>
-            <span><span class="material-symbols-outlined">videocam</span>트라이온</span>
-          </div>
-        </div>
-        <div class="rw-video-duration">6s</div>
-      </div>
-      <div class="rw-video-item" data-id="v3" data-type="codifit">
-        <div class="rw-video-thumb" data-type="codifit"></div>
-        <div class="rw-video-meta">
-          <div class="rw-video-title">코디핏 영상 #003</div>
-          <div class="rw-video-info">
-            <span><span class="material-symbols-outlined">schedule</span>2026.05.20 10:45</span>
-            <span><span class="material-symbols-outlined">videocam</span>코디핏</span>
-          </div>
-        </div>
-        <div class="rw-video-duration">6s</div>
-      </div>
-      <div class="rw-video-item" data-id="v4" data-type="codifit">
-        <div class="rw-video-thumb" data-type="codifit"></div>
-        <div class="rw-video-meta">
-          <div class="rw-video-title">코디핏 영상 #004</div>
-          <div class="rw-video-info">
-            <span><span class="material-symbols-outlined">schedule</span>2026.05.18 09:20</span>
-            <span><span class="material-symbols-outlined">videocam</span>코디핏</span>
-          </div>
-        </div>
-        <div class="rw-video-duration">6s</div>
+      <!-- 백엔드 /api/runway/videos 응답으로 동적 렌더링 -->
+      <div class="rw-loading-placeholder">
+        <span class="material-symbols-outlined" style="font-size:32px;color:var(--accent-dim);animation:rw-spin 1.4s linear infinite;">progress_activity</span>
+        <p>영상 목록 불러오는 중...</p>
       </div>
     </div>
   </section>
+
+  <!-- 사용량 표시 영역 (tier 별 한도) -->
+  <div class="rw-usage" id="rwUsage" style="display:none;">
+    <span class="material-symbols-outlined">analytics</span>
+    <span id="rwUsageText">이번 달 사용량 확인 중...</span>
+  </div>
 
 </div>
 
@@ -700,25 +680,273 @@ body::before {
 
 <script>
 (function(){
-  /* ─── 2026-05-24 KST · 런웨이 페이지 임시 시안 스크립트 ─────────────
-       상태: UI 시안 단계 — 더미 데이터 + 페이크 로딩
-       향후 통합:
-         · 후보 리스트: IDB/Supabase 에서 사용자 코디핏/트라이온 결과 로드
-         · 동영상 생성: Luma Ray2 / Veo 2 API 호출 + R2 저장
-         · 영상 리스트: R2 + Supabase 메타데이터 조회
+  /* ─── 2026-05-24 KST · 런웨이 페이지 (실제 백엔드 연동) ──────────────
+       엔드포인트:
+         GET    /api/runway/candidates       후보 리스트
+         POST   /api/runway/generate         동영상 생성
+         GET    /api/runway/videos           영상 리스트
+         DELETE /api/runway/videos/<id>      영상 삭제
+         GET    /api/runway/usage            tier 사용량
+       현재: 백엔드 stub 응답 (더미 데이터). 향후 Luma/Veo 실제 통합.
   ─────────────────────────────────────────────────────────────────── */
-  var selectedCandidate = null;
-  var fakeTimer = null;
+
+  // ── 백엔드 URL — config.js 가 있으면 사용, 없으면 하드코딩 폴백 ──
+  function _runwayBackendBase(){
+    try {
+      if (window.cfg && window.cfg.backendBase) return window.cfg.backendBase;
+      if (typeof getBackendBaseResolved === 'function') return getBackendBaseResolved();
+    } catch (_) {}
+    return 'https://codibank-api.onrender.com';
+  }
+  const RW_BASE = _runwayBackendBase();
+
+  let selectedCandidate = null;   // {id, type, label, date}
+  let currentVideoUrl = '';       // 현재 뷰박스 영상 URL
 
   function $(id) { return document.getElementById(id); }
   function $$(sel) { return document.querySelectorAll(sel); }
 
+  // ─── 1. 후보 리스트 로드 + 렌더링 ─────────────────────────────────
+  async function loadCandidates() {
+    const wrap = $('rwCandidates');
+    const meta = $('rwCandidatesCount');
+    try {
+      const res = await fetch(`${RW_BASE}/api/runway/candidates`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || '후보 리스트 로드 실패');
+      const candidates = data.candidates || [];
+      if (meta) meta.textContent = `총 ${candidates.length}개`;
+      if (!candidates.length) {
+        wrap.innerHTML = `
+          <div class="rw-empty-list" style="flex:1;min-width:100%;">
+            <span class="material-symbols-outlined">photo_library</span>
+            <p>아직 만든 코디핏·트라이온이 없어요</p>
+          </div>`;
+        return;
+      }
+      wrap.innerHTML = candidates.map(renderCandidateCard).join('');
+      bindCandidateClicks();
+    } catch (e) {
+      console.error('[런웨이 후보 로드 실패]', e);
+      if (meta) meta.textContent = '오류';
+      wrap.innerHTML = `<div class="rw-error" style="flex:1;min-width:100%;">후보 리스트를 불러오지 못했어요.<br/><span style="font-size:11px;opacity:0.7;">${escapeHtml(e.message || '')}</span></div>`;
+    }
+  }
+
+  function renderCandidateCard(c) {
+    const isTryon = (c.type === 'tryon');
+    const typeLabel = isTryon ? 'TRYON' : 'CODIFIT';
+    const iconName = isTryon ? 'person' : 'accessibility_new';
+    const dateShort = (c.date || '').slice(5).replace('-', '.');
+    const imgStyle = c.image_url
+      ? `background-image:url('${escapeAttr(c.image_url)}');background-size:cover;background-position:center;`
+      : (c.thumb_gradient ? `background:${escapeAttr(c.thumb_gradient)};` : '');
+    const imgInner = c.image_url
+      ? `<span class="rw-candidate-type">${typeLabel}</span>`
+      : `<span class="rw-candidate-type">${typeLabel}</span>
+         <div class="rw-candidate-img-placeholder material-symbols-outlined">${iconName}</div>`;
+    return `
+      <div class="rw-candidate" data-id="${escapeAttr(c.id)}" data-type="${escapeAttr(c.type)}" data-label="${escapeAttr(c.label || '')}">
+        <div class="rw-candidate-img" style="${imgStyle}">${imgInner}</div>
+        <div class="rw-candidate-foot">
+          <span class="rw-candidate-label">${escapeHtml(c.label || '')}</span>
+          <span class="rw-candidate-date">${escapeHtml(dateShort)}</span>
+        </div>
+      </div>`;
+  }
+
+  function bindCandidateClicks() {
+    $$('.rw-candidate').forEach(function(card) {
+      card.addEventListener('click', function() { onCandidateClick(card); });
+    });
+  }
+
+  // ─── 2. 후보 선택 → 백엔드 generate 호출 ──────────────────────────
+  async function onCandidateClick(card) {
+    if (!card) return;
+    $$('.rw-candidate').forEach(function(c){ c.classList.remove('selected'); });
+    card.classList.add('selected');
+
+    const candidate_id = card.getAttribute('data-id');
+    const label = card.getAttribute('data-label') || '코디';
+    const type = card.getAttribute('data-type') || 'codifit';
+    selectedCandidate = { id: candidate_id, label: label, type: type };
+
+    $('rwViewboxMeta').textContent = `${label} 영상 생성 중`;
+    $('rwViewboxEmpty').style.display = 'none';
+    $('rwVideo').style.display = 'none';
+    $('rwViewboxLoading').classList.add('active');
+    $('rwBtnSave').disabled = true;
+    $('rwBtnShare').disabled = true;
+
+    try {
+      const res = await fetch(`${RW_BASE}/api/runway/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          candidate_id: candidate_id,
+          duration: 6,
+          model: 'placeholder',  // 향후: 'luma' or 'veo'
+        }),
+      });
+      const data = await res.json();
+      $('rwViewboxLoading').classList.remove('active');
+      if (!data.ok) throw new Error(data.error || '생성 실패');
+
+      $('rwViewboxMeta').textContent = `${label} · ${data.duration_seconds || 6}s`;
+
+      if (data.video_url) {
+        // 실제 비디오 URL 받음 — 재생
+        currentVideoUrl = data.video_url;
+        const vid = $('rwVideo');
+        vid.src = data.video_url;
+        vid.style.display = 'block';
+        vid.play().catch(function(){});
+        $('rwBtnSave').disabled = false;
+        $('rwBtnShare').disabled = false;
+      } else {
+        // stub 단계 — 영상 URL 없음, placeholder 표시
+        currentVideoUrl = '';
+        $('rwViewboxEmpty').innerHTML =
+          '<span class="rw-empty-icon material-symbols-outlined" style="color: var(--accent); opacity: 0.85;">play_circle</span>' +
+          '<div class="rw-empty-text" style="color: #fff;">동영상 생성 완료 (stub 모드)</div>' +
+          '<div class="rw-empty-sub">실제 Luma/Veo 통합 후 여기에 6초 영상이 재생됩니다</div>';
+        $('rwViewboxEmpty').style.display = 'flex';
+        $('rwBtnSave').disabled = false;
+        $('rwBtnShare').disabled = false;
+      }
+    } catch (e) {
+      console.error('[런웨이 생성 실패]', e);
+      $('rwViewboxLoading').classList.remove('active');
+      $('rwViewboxMeta').textContent = '생성 실패';
+      $('rwViewboxEmpty').innerHTML =
+        '<span class="rw-empty-icon material-symbols-outlined" style="color:#ff9b9b;">error</span>' +
+        '<div class="rw-empty-text" style="color:#ff9b9b;">동영상 생성에 실패했어요</div>' +
+        '<div class="rw-empty-sub">' + escapeHtml(e.message || '잠시 후 다시 시도해주세요') + '</div>';
+      $('rwViewboxEmpty').style.display = 'flex';
+    }
+  }
+
+  // ─── 3. 영상 리스트 로드 + 렌더링 ─────────────────────────────────
+  async function loadVideos() {
+    const wrap = $('rwVideoList');
+    const meta = $('rwVideosCount');
+    try {
+      const res = await fetch(`${RW_BASE}/api/runway/videos`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || '영상 리스트 로드 실패');
+      const videos = data.videos || [];
+      if (meta) meta.textContent = `총 ${videos.length}개`;
+      if (!videos.length) {
+        wrap.innerHTML = `
+          <div class="rw-empty-list">
+            <span class="material-symbols-outlined">video_library</span>
+            <p>아직 만든 런웨이 영상이 없어요</p>
+            <p style="font-size:11px;opacity:0.7;">위에서 이미지를 선택해 첫 영상을 만들어보세요</p>
+          </div>`;
+        return;
+      }
+      wrap.innerHTML = videos.map(renderVideoItem).join('');
+      bindVideoClicks();
+    } catch (e) {
+      console.error('[런웨이 영상 리스트 로드 실패]', e);
+      if (meta) meta.textContent = '오류';
+      wrap.innerHTML = `<div class="rw-error">영상 리스트를 불러오지 못했어요.</div>`;
+    }
+  }
+
+  function renderVideoItem(v) {
+    const isTryon = (v.type === 'tryon');
+    const created = (v.created_at || '').replace('T', ' ').slice(0, 16).replace(/-/g, '.');
+    const typeLabel = isTryon ? '트라이온' : '코디핏';
+    return `
+      <div class="rw-video-item" data-id="${escapeAttr(v.id)}" data-type="${escapeAttr(v.type)}" data-url="${escapeAttr(v.video_url || '')}" data-title="${escapeAttr(v.title || '')}">
+        <div class="rw-video-thumb" data-type="${escapeAttr(v.type)}"${v.thumb_url ? ` style="background-image:url('${escapeAttr(v.thumb_url)}');background-size:cover;background-position:center;"` : ''}></div>
+        <div class="rw-video-meta">
+          <div class="rw-video-title">${escapeHtml(v.title || '제목 없음')}</div>
+          <div class="rw-video-info">
+            <span><span class="material-symbols-outlined">schedule</span>${escapeHtml(created)}</span>
+            <span><span class="material-symbols-outlined">videocam</span>${typeLabel}</span>
+          </div>
+        </div>
+        <div class="rw-video-duration">${v.duration_seconds || 6}s</div>
+      </div>`;
+  }
+
+  function bindVideoClicks() {
+    $$('.rw-video-item').forEach(function(item) {
+      item.addEventListener('click', function() { onVideoItemClick(item); });
+    });
+  }
+
+  function onVideoItemClick(item) {
+    const title = item.getAttribute('data-title') || '런웨이 영상';
+    const videoUrl = item.getAttribute('data-url') || '';
+    $('rwViewboxLoading').classList.remove('active');
+    $('rwViewboxMeta').textContent = `${title} 재생`;
+
+    if (videoUrl) {
+      currentVideoUrl = videoUrl;
+      const vid = $('rwVideo');
+      vid.src = videoUrl;
+      vid.style.display = 'block';
+      $('rwViewboxEmpty').style.display = 'none';
+      vid.play().catch(function(){});
+    } else {
+      currentVideoUrl = '';
+      $('rwVideo').style.display = 'none';
+      $('rwViewboxEmpty').innerHTML =
+        '<span class="rw-empty-icon material-symbols-outlined" style="color: var(--accent); opacity: 0.85;">play_circle</span>' +
+        `<div class="rw-empty-text" style="color: #fff;">${escapeHtml(title)}</div>` +
+        '<div class="rw-empty-sub">실제 영상 URL 통합 후 재생됩니다 (현재 stub)</div>';
+      $('rwViewboxEmpty').style.display = 'flex';
+    }
+    $('rwBtnSave').disabled = !videoUrl;
+    $('rwBtnShare').disabled = false;
+    $('rwViewbox').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // ─── 4. 사용량 표시 ─────────────────────────────────────────────
+  async function loadUsage() {
+    try {
+      const res = await fetch(`${RW_BASE}/api/runway/usage`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!data.ok) return;
+      const usageBox = $('rwUsage');
+      const usageText = $('rwUsageText');
+      if (!usageBox || !usageText) return;
+      const tierEmoji = { FREE: '⚪', SILVER: '🥈', GOLD: '🥇', DIAMOND: '💎' }[data.tier] || '⚪';
+      if (data.monthly_limit > 0) {
+        usageText.textContent = `${tierEmoji} ${data.tier} · 이번 달 ${data.used_this_month}/${data.monthly_limit}개 사용 (남은 영상 ${data.remaining}개)`;
+      } else {
+        usageText.textContent = `${tierEmoji} ${data.tier} · 런웨이 영상은 GOLD 이상 요금제에서 이용 가능합니다`;
+      }
+      usageBox.style.display = 'flex';
+    } catch (e) {
+      console.warn('[런웨이 사용량 로드 실패]', e);
+    }
+  }
+
+  // ─── 5. 액션 버튼 ───────────────────────────────────────────────
   function resetViewbox() {
-    if (fakeTimer) clearTimeout(fakeTimer);
     $$('.rw-candidate').forEach(function(c){ c.classList.remove('selected'); });
     selectedCandidate = null;
+    currentVideoUrl = '';
+    const vid = $('rwVideo');
+    vid.pause();
+    vid.removeAttribute('src');
+    vid.style.display = 'none';
     $('rwViewboxLoading').classList.remove('active');
-    $('rwVideo').style.display = 'none';
     $('rwViewboxMeta').textContent = '이미지를 선택하세요';
     $('rwViewboxEmpty').innerHTML =
       '<span class="rw-empty-icon material-symbols-outlined">slideshow</span>' +
@@ -729,76 +957,73 @@ body::before {
     $('rwBtnShare').disabled = true;
   }
 
-  function selectCandidate(card) {
-    if (!card) return;
-    $$('.rw-candidate').forEach(function(c){ c.classList.remove('selected'); });
-    card.classList.add('selected');
-    selectedCandidate = card.getAttribute('data-id');
-
-    var labelText = card.querySelector('.rw-candidate-label').textContent;
-    $('rwViewboxMeta').textContent = labelText + ' 영상 생성 중';
-    $('rwViewboxEmpty').style.display = 'none';
-    $('rwVideo').style.display = 'none';
-    $('rwViewboxLoading').classList.add('active');
-
-    $('rwBtnSave').disabled = true;
-    $('rwBtnShare').disabled = true;
-
-    if (fakeTimer) clearTimeout(fakeTimer);
-    fakeTimer = setTimeout(function() {
-      $('rwViewboxLoading').classList.remove('active');
-      $('rwViewboxMeta').textContent = labelText + ' · 6s';
-      $('rwViewboxEmpty').innerHTML =
-        '<span class="rw-empty-icon material-symbols-outlined" style="color: var(--accent); opacity: 0.85;">play_circle</span>' +
-        '<div class="rw-empty-text" style="color: #fff;">동영상 생성 완료 (시안)</div>' +
-        '<div class="rw-empty-sub">실제 통합 시 여기에 6초 영상이 재생됩니다</div>';
-      $('rwViewboxEmpty').style.display = 'flex';
-      $('rwBtnSave').disabled = false;
-      $('rwBtnShare').disabled = false;
-    }, 2200);
+  function onSaveClick() {
+    if (!currentVideoUrl) {
+      alert('아직 동영상이 없어요. 먼저 이미지를 선택해 영상을 생성해주세요.\n(현재 stub 모드 — Luma/Veo 통합 후 실제 다운로드 가능)');
+      return;
+    }
+    // 실제 다운로드
+    const a = document.createElement('a');
+    a.href = currentVideoUrl;
+    a.download = `codibank-runway-${Date.now()}.mp4`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
-  // 후보 클릭
-  $$('.rw-candidate').forEach(function(card) {
-    card.addEventListener('click', function() { selectCandidate(card); });
-  });
-
-  // 영상 리스트 클릭 → 뷰박스 재생 (시안)
-  $$('.rw-video-item').forEach(function(item) {
-    item.addEventListener('click', function() {
-      if (fakeTimer) clearTimeout(fakeTimer);
-      var titleText = item.querySelector('.rw-video-title').textContent;
-      $('rwViewboxLoading').classList.remove('active');
-      $('rwViewboxMeta').textContent = titleText + ' 재생 중';
-      $('rwViewboxEmpty').innerHTML =
-        '<span class="rw-empty-icon material-symbols-outlined" style="color: var(--accent); opacity: 0.85;">play_circle</span>' +
-        '<div class="rw-empty-text" style="color: #fff;">' + titleText + '</div>' +
-        '<div class="rw-empty-sub">실제 통합 시 영상이 재생됩니다</div>';
-      $('rwViewboxEmpty').style.display = 'flex';
-      $('rwBtnSave').disabled = false;
-      $('rwBtnShare').disabled = false;
-      $('rwViewbox').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-  });
-
-  // 액션 버튼
-  $('rwBtnSave').addEventListener('click', function() {
-    alert('동영상 저장 (시안)\n실제 통합 시 R2 URL 다운로드 처리됩니다.');
-  });
-  $('rwBtnShare').addEventListener('click', function() {
+  function onShareClick() {
+    const shareUrl = currentVideoUrl || location.href;
+    const shareText = '내 런웨이 영상을 확인해보세요';
     if (navigator.share) {
-      navigator.share({
-        title: 'CodiBank 런웨이',
-        text: '내 런웨이 영상을 확인해보세요',
-        url: location.href
-      }).catch(function(){});
+      navigator.share({ title: 'CodiBank 런웨이', text: shareText, url: shareUrl }).catch(function(){});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(shareUrl).then(function(){
+        alert('링크가 복사되었어요!');
+      }).catch(function(){
+        alert('공유 기능을 사용할 수 없어요. 링크: ' + shareUrl);
+      });
     } else {
-      alert('공유 (시안)\n실제 통합 시 Web Share API 또는 링크 복사로 처리됩니다.');
+      alert('공유 기능을 사용할 수 없어요. 링크: ' + shareUrl);
     }
-  });
-  $('rwBtnReset').addEventListener('click', resetViewbox);
+  }
 
-  console.log('[런웨이 시안] 페이지 로드 완료 — 후보 6개 · 영상 4개 (더미 데이터)');
+  // ─── 유틸 ────────────────────────────────────────────────────────
+  function escapeHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function escapeAttr(s) {
+    return String(s || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // ─── 페이지 진입 ─────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function() {
+    $('rwBtnSave').addEventListener('click', onSaveClick);
+    $('rwBtnShare').addEventListener('click', onShareClick);
+    $('rwBtnReset').addEventListener('click', resetViewbox);
+
+    // 백엔드 3개 API 동시 호출
+    loadCandidates();
+    loadVideos();
+    loadUsage();
+
+    console.log('[런웨이] 페이지 로드 — 백엔드:', RW_BASE);
+  });
+
+  // 즉시 실행 (DOMContentLoaded 이미 지났을 경우 대비)
+  if (document.readyState !== 'loading') {
+    setTimeout(function(){
+      try {
+        $('rwBtnSave').addEventListener('click', onSaveClick);
+        $('rwBtnShare').addEventListener('click', onShareClick);
+        $('rwBtnReset').addEventListener('click', resetViewbox);
+        loadCandidates();
+        loadVideos();
+        loadUsage();
+      } catch (_) {}
+    }, 0);
+  }
 })();
 </script>
 
