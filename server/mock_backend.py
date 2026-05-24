@@ -12448,6 +12448,113 @@ def _runway_dummy_videos():
     ]
 
 
+# ─── 2026-05-24 KST · Phase A · 사용자 인증 헬퍼 ────────────────────────
+#   다른 페이지(closet.html 등)의 패턴 차용:
+#     - 프론트엔드가 payload 또는 query 에 user.email 포함
+#     - 백엔드는 user_email / userEmail 둘 다 허용
+#     - 비어있어도 통과 (게스트 모드 — stub 단계). 향후 강제 필수.
+# ─────────────────────────────────────────────────────────────────────
+def _runway_extract_user_email(req):
+    """request 에서 user_email 추출 — POST payload / GET query 모두 지원."""
+    try:
+        # POST / DELETE: JSON payload
+        if req.method in ("POST", "PUT", "DELETE", "PATCH"):
+            data = req.get_json(silent=True) or {}
+            email = (data.get("user_email") or data.get("userEmail") or "").strip().lower()
+            if email:
+                return email
+        # GET: query string
+        email = (req.args.get("user_email") or req.args.get("userEmail") or "").strip().lower()
+        return email
+    except Exception:
+        return ""
+
+
+def _runway_get_user_tier(user_email):
+    """user_email 로 tier 조회 — Supabase user_usage 또는 게스트시 FREE."""
+    if not user_email:
+        return "FREE"
+    try:
+        import requests as _rq
+        svc_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+        sb_url = os.environ.get("SUPABASE_URL", "https://drgsayvlpzcacurcczjq.supabase.co")
+        if not svc_key:
+            return "FREE"
+        # user_usage 테이블에서 tier 조회 (다른 API 와 동일 패턴)
+        r = _rq.get(
+            f"{sb_url}/rest/v1/user_usage",
+            params={"select": "tier", "user_email": f"eq.{user_email}", "limit": 1},
+            headers={
+                "apikey": svc_key,
+                "Authorization": f"Bearer {svc_key}",
+                "Accept": "application/json",
+            },
+            timeout=8,
+        )
+        if r.status_code == 200:
+            rows = r.json() or []
+            if rows and rows[0].get("tier"):
+                return str(rows[0]["tier"]).upper().strip()
+    except Exception as e:
+        print(f"[_runway_get_user_tier] error: {e}", flush=True)
+    return "FREE"
+
+
+def _runway_get_monthly_video_count(user_email):
+    """이번 달 동영상 생성 횟수 조회 — Supabase user_usage.runway_count."""
+    if not user_email:
+        return 0
+    try:
+        import requests as _rq
+        from datetime import datetime
+        svc_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+        sb_url = os.environ.get("SUPABASE_URL", "https://drgsayvlpzcacurcczjq.supabase.co")
+        if not svc_key:
+            return 0
+        month_key = datetime.now().strftime("%Y-%m")
+        r = _rq.get(
+            f"{sb_url}/rest/v1/user_usage",
+            params={
+                "select": "runway_count",
+                "user_email": f"eq.{user_email}",
+                "month_key": f"eq.{month_key}",
+                "limit": 1,
+            },
+            headers={
+                "apikey": svc_key,
+                "Authorization": f"Bearer {svc_key}",
+                "Accept": "application/json",
+            },
+            timeout=8,
+        )
+        if r.status_code == 200:
+            rows = r.json() or []
+            if rows:
+                return int(rows[0].get("runway_count") or 0)
+    except Exception as e:
+        print(f"[_runway_get_monthly_video_count] error: {e}", flush=True)
+    return 0
+
+
+def _runway_increment_usage(user_email):
+    """사용량 +1 — 향후 Supabase upsert 처리. 현재 stub 로깅만."""
+    if not user_email:
+        return
+    try:
+        # TODO: Supabase user_usage 테이블 upsert
+        #   import requests as _rq
+        #   from datetime import datetime
+        #   month_key = datetime.now().strftime("%Y-%m")
+        #   _rq.post(
+        #       f"{sb_url}/rest/v1/rpc/increment_runway_usage",
+        #       json={"p_user_email": user_email, "p_month_key": month_key},
+        #       headers={...},
+        #   )
+        print(f"[runway_usage_increment] user={user_email} (stub — Supabase upsert 향후 구현)", flush=True)
+    except Exception as e:
+        print(f"[_runway_increment_usage] error: {e}", flush=True)
+
+
 # tier 별 월 동영상 한도 (향후 Supabase 사용자 tier 와 연동)
 _RUNWAY_TIER_LIMITS = {
     "FREE":    0,
@@ -12459,28 +12566,23 @@ _RUNWAY_TIER_LIMITS = {
 
 @app.route("/api/runway/candidates", methods=["GET"])
 def runway_candidates():
-    """후보 리스트 — 사용자의 코디핏 3rd 결과 + 트라이온 결과."""
+    """
+    후보 리스트 — 코디핏 3rd 결과 + 트라이온 결과.
+    ⚠️ 실제 데이터는 클라이언트 IDB ('codibank' DB > 'codi_history' store) 에 있음.
+    백엔드는 향후 Supabase 마이그레이션 시 활성화. 현재는 빈 배열 + 안내.
+    클라이언트 (runway.html) 가 IDB 에서 직접 가져옴.
+    """
     try:
-        # TODO: 실제 사용자 데이터 조회 (Supabase ai_album, ai_tryon)
-        #   예시:
-        #     user_id = _extract_user_id_from_request(request)
-        #     codifit_rows = supabase.from_('ai_album').select('*')
-        #                            .eq('user_id', user_id)
-        #                            .eq('stage', 'C_FINAL')   # 3rd 단계 결과만
-        #                            .order('created_at', desc=True)
-        #                            .limit(20).execute()
-        #     tryon_rows = supabase.from_('ai_tryon').select('*')
-        #                          .eq('user_id', user_id)
-        #                          .order('created_at', desc=True)
-        #                          .limit(10).execute()
-        #     candidates = _merge_runway_candidates(codifit_rows, tryon_rows)
-        candidates = _runway_dummy_candidates()
+        user_email = _runway_extract_user_email(request)
+        # 향후: Supabase 마이그레이션 시 user_email 로 ai_album 조회
+        # 현재: 클라이언트가 IDB 에서 가져오므로 빈 배열 안내
         return jsonify({
             "ok": True,
-            "candidates": candidates,
-            "total": len(candidates),
-            "_stub": True,
-            "_note": "후보 리스트는 향후 Supabase 실제 데이터로 교체 예정",
+            "candidates": [],
+            "total": 0,
+            "user_email": user_email,
+            "_source": "client_idb",
+            "_note": "후보 리스트는 클라이언트 IDB(codibank.codi_history)에서 가져옵니다. 이 endpoint 는 향후 Supabase 마이그레이션용 placeholder.",
         })
     except Exception as e:
         print(f"[runway_candidates] error: {e}", flush=True)
@@ -12490,70 +12592,169 @@ def runway_candidates():
 @app.route("/api/runway/generate", methods=["POST"])
 def runway_generate():
     """
-    동영상 생성 — placeholder (실제 통합 시 Luma Ray2 / Veo 2 API 호출).
+    동영상 생성 — Luma Ray2 REST API (실제 호출 + 폴백).
     payload:
       · candidate_id: 후보 ID (필수)
-      · duration: 영상 길이 초 (기본 6)
-      · model: 'luma' | 'veo' | 'placeholder' (기본 'placeholder')
+      · image_url: 후보 이미지 URL (Luma 입력) — 빈 값이면 stub
+      · duration: 영상 길이 초 (기본 6, 범위 4~10)
+      · model: 'luma' | 'placeholder' (기본 'luma' — 키 있으면 시도, 없으면 폴백)
+      · user_email: 사용자 식별 (Phase A)
+      · prompt: 프롬프트 (선택, 기본 패션 회전 프롬프트)
     """
     try:
         payload = request.get_json(silent=True) or {}
         candidate_id = str(payload.get("candidate_id") or "").strip()
+        image_url = str(payload.get("image_url") or "").strip()
         duration = int(payload.get("duration") or 6)
-        model = str(payload.get("model") or "placeholder").strip().lower()
+        model_req = str(payload.get("model") or "luma").strip().lower()
+        prompt_in = str(payload.get("prompt") or "").strip()
 
         if not candidate_id:
             return jsonify({"ok": False, "error": "candidate_id 가 필요합니다"}), 400
         if duration < 4 or duration > 10:
             return jsonify({"ok": False, "error": "duration 은 4~10초 범위"}), 400
 
-        # TODO: 실제 통합 시 흐름
-        #   1. 사용자 tier 검증 — GOLD/DIAMOND 만 허용
-        #      user = _extract_user_from_request(request)
-        #      if user.tier not in ("GOLD", "DIAMOND"):
-        #          return jsonify({"ok": False, "error": "GOLD 이상 요금제 필요"}), 403
-        #
-        #   2. 월 사용량 한도 체크 (Supabase user_usage)
-        #      used = _get_monthly_video_count(user.id)
-        #      limit = _RUNWAY_TIER_LIMITS.get(user.tier, 0)
-        #      if used >= limit:
-        #          return jsonify({"ok": False, "error": "월 한도 초과", "used": used, "limit": limit}), 429
-        #
-        #   3. R2 캐시 hit 체크
-        #      cache_key = f"runway/{user.id}/{candidate_id}-{duration}s.mp4"
-        #      cached_url = _r2_get_video(cache_key)
-        #      if cached_url:
-        #          return jsonify({"ok": True, "video_url": cached_url, "cached": True})
-        #
-        #   4. 후보 이미지 조회 (Supabase)
-        #      image_url = _get_candidate_image(user.id, candidate_id)
-        #
-        #   5. Luma Ray2 API 호출 (image-to-video)
-        #      from lumaai import LumaAI
-        #      client = LumaAI(auth_token=os.getenv("LUMA_API_KEY"))
-        #      generation = client.generations.create(
-        #          prompt="Korean fashion model, smooth 360 rotation, ...",
-        #          keyframes={"frame0": {"type": "image", "url": image_url}},
-        #          model="ray-2",
-        #          duration=f"{duration}s",
-        #      )
-        #
-        #   6. 폴링 (30-60초)
-        #   7. R2 업로드 + URL 반환
-        #   8. Supabase user_usage += 1
-        #   9. Supabase user_videos 에 메타데이터 저장
+        # ─── Phase A · 사용자 인증 + tier 검증 ───────────────────────
+        user_email = _runway_extract_user_email(request)
+        user_tier = _runway_get_user_tier(user_email)
+        # 게스트(이메일 없음) 또는 FREE/SILVER 는 stub 모드만
+        # GOLD/DIAMOND 는 실제 Luma 시도
+        is_paid = user_tier in ("GOLD", "DIAMOND")
 
-        return jsonify({
-            "ok": True,
-            "video_url": "",        # 향후 R2 URL
-            "thumb_url": "",
-            "duration_seconds": duration,
-            "model": model,
-            "candidate_id": candidate_id,
-            "generated_at": _runway_now_iso(),
-            "_stub": True,
-            "_note": "실제 비디오 생성은 Luma/Veo 통합 후 활성화됩니다",
-        })
+        # ─── tier 별 월 한도 체크 (유료 사용자만) ─────────────────────
+        if is_paid:
+            used = _runway_get_monthly_video_count(user_email)
+            limit = _RUNWAY_TIER_LIMITS.get(user_tier, 0)
+            if used >= limit > 0:
+                return jsonify({
+                    "ok": False,
+                    "error": f"월 한도 초과 ({used}/{limit})",
+                    "tier": user_tier,
+                    "used_this_month": used,
+                    "monthly_limit": limit,
+                }), 429
+
+        # ─── Phase C · Luma Ray2 통합 ────────────────────────────────
+        luma_key = os.environ.get("LUMA_API_KEY", "").strip()
+        force_stub = (model_req == "placeholder") or (not luma_key) or (not is_paid) or (not image_url)
+
+        if force_stub:
+            # stub 모드 — 즉시 빈 응답
+            reason = (
+                "placeholder 명시" if model_req == "placeholder" else
+                "LUMA_API_KEY 미설정" if not luma_key else
+                f"비유료 tier ({user_tier})" if not is_paid else
+                "image_url 없음" if not image_url else
+                "기타"
+            )
+            return jsonify({
+                "ok": True,
+                "video_url": "",
+                "thumb_url": "",
+                "duration_seconds": duration,
+                "model": "placeholder",
+                "candidate_id": candidate_id,
+                "generated_at": _runway_now_iso(),
+                "_stub": True,
+                "_stub_reason": reason,
+                "_note": "실제 영상 생성을 위해 GOLD 이상 요금제 + LUMA_API_KEY 환경변수 설정 필요",
+            })
+
+        # ─── Luma Ray2 REST API 호출 (실제) ──────────────────────────
+        try:
+            import requests as _rq
+            luma_prompt = prompt_in or (
+                "Korean fashion model in stylish outfit, smooth 360 degree rotation showing "
+                "front to back view, full body shot, soft natural lighting, neutral solid "
+                f"background, {duration} seconds, professional fashion video, "
+                "clothing details clearly visible during rotation, no text or graphics."
+            )
+            # 1) 비디오 생성 요청 (image-to-video, keyframes.frame0 = 후보 이미지)
+            create_url = "https://api.lumalabs.ai/dream-machine/v1/generations"
+            create_payload = {
+                "prompt": luma_prompt,
+                "keyframes": {
+                    "frame0": {"type": "image", "url": image_url}
+                },
+                "model": "ray-2",
+                "duration": f"{duration}s",
+                "resolution": "720p",
+                "aspect_ratio": "9:16",
+            }
+            create_headers = {
+                "Authorization": f"Bearer {luma_key}",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            }
+            cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
+            if cr.status_code >= 400:
+                raise RuntimeError(f"Luma create 실패 ({cr.status_code}): {cr.text[:200]}")
+            gen_data = cr.json() or {}
+            gen_id = gen_data.get("id")
+            if not gen_id:
+                raise RuntimeError(f"Luma response 에 id 없음: {str(gen_data)[:200]}")
+
+            # 2) 폴링 (최대 120초, 3초 간격)
+            import time as _time
+            poll_url = f"https://api.lumalabs.ai/dream-machine/v1/generations/{gen_id}"
+            video_url = ""
+            thumb_url = ""
+            for _i in range(40):  # 40 * 3 = 120초
+                _time.sleep(3)
+                pr = _rq.get(poll_url, headers=create_headers, timeout=15)
+                if pr.status_code >= 400:
+                    continue
+                pd = pr.json() or {}
+                state = (pd.get("state") or "").lower()
+                if state == "completed":
+                    assets = pd.get("assets") or {}
+                    video_url = assets.get("video") or ""
+                    thumb_url = assets.get("image") or ""
+                    break
+                if state == "failed":
+                    raise RuntimeError(f"Luma 생성 실패: {pd.get('failure_reason') or 'unknown'}")
+            if not video_url:
+                raise RuntimeError("Luma 폴링 타임아웃 (120초)")
+
+            # 3) Supabase 사용량 +1
+            _runway_increment_usage(user_email)
+
+            # TODO: R2 비디오 저장 + 자체 URL 발급 (장기 보관용)
+            #   import boto3
+            #   r2_client = boto3.client('s3', endpoint_url=...)
+            #   video_bytes = _rq.get(video_url).content
+            #   r2_key = f"runway/{user_email}/{candidate_id}-{duration}s.mp4"
+            #   r2_client.put_object(Bucket=..., Key=r2_key, Body=video_bytes, ContentType='video/mp4')
+            #   final_url = f"https://r2.codibank.kr/{r2_key}"
+
+            return jsonify({
+                "ok": True,
+                "video_url": video_url,        # 현재: Luma 직접 URL (만료 가능)
+                "thumb_url": thumb_url,
+                "duration_seconds": duration,
+                "model": "luma-ray-2",
+                "candidate_id": candidate_id,
+                "generated_at": _runway_now_iso(),
+                "luma_generation_id": gen_id,
+                "tier": user_tier,
+            })
+
+        except Exception as luma_err:
+            print(f"[runway_generate · Luma 호출 실패] {luma_err}", flush=True)
+            # Luma 실패 시 stub 응답으로 폴백
+            return jsonify({
+                "ok": True,
+                "video_url": "",
+                "thumb_url": "",
+                "duration_seconds": duration,
+                "model": "placeholder",
+                "candidate_id": candidate_id,
+                "generated_at": _runway_now_iso(),
+                "_stub": True,
+                "_stub_reason": "Luma API 호출 실패",
+                "_luma_error": str(luma_err)[:200],
+            })
+
     except Exception as e:
         print(f"[runway_generate] error: {e}", flush=True)
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -12561,21 +12762,21 @@ def runway_generate():
 
 @app.route("/api/runway/videos", methods=["GET"])
 def runway_videos_list():
-    """사용자가 생성한 동영상 리스트."""
+    """사용자가 생성한 동영상 리스트 (Supabase user_videos 테이블 — 향후 구현)."""
     try:
+        user_email = _runway_extract_user_email(request)
         # TODO: Supabase user_videos 테이블 조회
-        #   user_id = _extract_user_id_from_request(request)
-        #   rows = supabase.from_('user_videos').select('*')
-        #                  .eq('user_id', user_id)
-        #                  .order('created_at', desc=True)
-        #                  .limit(50).execute()
-        #   videos = [_format_video_row(r) for r in rows.data]
-        videos = _runway_dummy_videos()
+        #   rows = _rq.get(f"{sb_url}/rest/v1/user_videos",
+        #                  params={"select": "*", "user_email": f"eq.{user_email}",
+        #                          "order": "created_at.desc", "limit": "50"},
+        #                  headers={...})
+        # 현재: 빈 배열 (테이블 미생성)
         return jsonify({
             "ok": True,
-            "videos": videos,
-            "total": len(videos),
-            "_stub": True,
+            "videos": [],
+            "total": 0,
+            "user_email": user_email,
+            "_note": "user_videos 테이블 생성 후 활성화 — 현재는 빈 배열",
         })
     except Exception as e:
         print(f"[runway_videos_list] error: {e}", flush=True)
@@ -12589,16 +12790,12 @@ def runway_video_delete(video_id):
         vid = str(video_id or "").strip()
         if not vid:
             return jsonify({"ok": False, "error": "video_id 가 필요합니다"}), 400
-        # TODO: R2 + Supabase 에서 삭제
-        #   user_id = _extract_user_id_from_request(request)
-        #   row = supabase.from_('user_videos').select('r2_key').eq('id', vid).eq('user_id', user_id).single().execute()
-        #   if not row.data:
-        #       return jsonify({"ok": False, "error": "영상을 찾을 수 없습니다"}), 404
-        #   _r2_delete(row.data['r2_key'])
-        #   supabase.from_('user_videos').delete().eq('id', vid).eq('user_id', user_id).execute()
+        user_email = _runway_extract_user_email(request)
+        # TODO: R2 + Supabase 에서 삭제 (소유권 검증 포함)
         return jsonify({
             "ok": True,
             "deleted_id": vid,
+            "user_email": user_email,
             "_stub": True,
         })
     except Exception as e:
@@ -12610,21 +12807,19 @@ def runway_video_delete(video_id):
 def runway_usage():
     """tier 별 사용량 + 한도."""
     try:
-        # TODO: 실제 사용자 tier + Supabase 월별 사용량 조회
-        #   user = _extract_user_from_request(request)
-        #   used = _get_monthly_video_count(user.id)
-        #   limit = _RUNWAY_TIER_LIMITS.get(user.tier, 0)
-        tier = "FREE"  # 향후: user.tier
-        used = 0       # 향후: _get_monthly_video_count(user.id)
+        user_email = _runway_extract_user_email(request)
+        tier = _runway_get_user_tier(user_email)
+        used = _runway_get_monthly_video_count(user_email) if user_email else 0
         limit = _RUNWAY_TIER_LIMITS.get(tier, 0)
         return jsonify({
             "ok": True,
+            "user_email": user_email,
             "tier": tier,
             "used_this_month": used,
             "monthly_limit": limit,
             "remaining": max(0, limit - used),
             "tier_limits": _RUNWAY_TIER_LIMITS,
-            "_stub": True,
+            "is_paid": tier in ("GOLD", "DIAMOND"),
         })
     except Exception as e:
         print(f"[runway_usage] error: {e}", flush=True)
