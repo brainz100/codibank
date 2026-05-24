@@ -1101,10 +1101,88 @@ def _compute_bmi(height_str, weight_str):
         return 0, "", ""
 
 
-def _build_body_profile_block(gender, age, height, weight, body_type_key, lang="en"):
+# ─── 2026-05-23 KST · TJ 지시 ─── 지역별 head-to-body ratio 결정 ────────────
+#   요구사항:
+#     · 아시아 지역(서울/일본/중국/동남아 등) + 신체 데이터 있음  → 7.5 (한국 성인 평균)
+#     · 그 외 지역(서양/북미/유럽/오세아니아 등)                  → 8.0 (서양 평균)
+#     · 신체 데이터 없음                                        → 8.0 (사용자 본인 비율 알 수 없음)
+#   호출처: _build_body_profile_block(), _ai_styling_via_gemini()
+# ───────────────────────────────────────────────────────────────────────────
+_ASIA_LOCATION_KEYWORDS = (
+    # 한국 ─────────────────────────────────────────────────
+    "서울", "부산", "인천", "대구", "광주", "대전", "울산", "수원", "고양",
+    "용인", "성남", "청주", "안산", "전주", "안양", "천안", "남양주", "화성",
+    "포항", "제주", "춘천", "원주", "강릉", "목포", "순천", "여수", "창원",
+    "seoul", "busan", "incheon", "daegu", "gwangju", "daejeon", "ulsan",
+    "suwon", "korea", "south korea", "republic of korea",
+    # 일본 ─────────────────────────────────────────────────
+    "tokyo", "osaka", "kyoto", "yokohama", "nagoya", "sapporo", "fukuoka",
+    "kobe", "hiroshima", "japan", "도쿄", "오사카", "교토", "나고야",
+    # 중국 ─────────────────────────────────────────────────
+    "beijing", "shanghai", "guangzhou", "shenzhen", "chengdu", "tianjin",
+    "hangzhou", "wuhan", "xian", "china", "베이징", "상하이", "광저우",
+    # 대만/홍콩/마카오 ─────────────────────────────────────
+    "taipei", "taiwan", "hong kong", "hongkong", "macau", "macao",
+    "타이베이", "홍콩", "마카오",
+    # 동남아 ───────────────────────────────────────────────
+    "bangkok", "thailand", "singapore", "kuala lumpur", "malaysia",
+    "jakarta", "indonesia", "manila", "philippines",
+    "ho chi minh", "saigon", "hanoi", "vietnam", "phnom penh", "cambodia",
+    "yangon", "myanmar", "vientiane", "laos", "brunei",
+    "방콕", "싱가포르", "쿠알라룸푸르", "자카르타", "마닐라", "호치민", "하노이",
+    # 인도/남아시아 ────────────────────────────────────────
+    "mumbai", "delhi", "new delhi", "bangalore", "kolkata", "chennai",
+    "hyderabad", "india", "dhaka", "bangladesh",
+    "karachi", "lahore", "islamabad", "pakistan",
+    "kathmandu", "nepal", "colombo", "sri lanka",
+    # 중앙아시아 ───────────────────────────────────────────
+    "almaty", "kazakhstan", "tashkent", "uzbekistan",
+    # 대륙 ─────────────────────────────────────────────────
+    "asia", "asian", "아시아", "아시안",
+)
+
+
+def _get_head_ratio(location: str = "", has_body_data: bool = False) -> tuple:
+    """
+    지역 + 신체 데이터 유무로 인체 head-to-body ratio 결정.
+
+    Args:
+        location: 사용자 위치 (예: "서울", "Tokyo", "New York") — 빈 문자열 허용
+        has_body_data: height/weight 가 모두 등록되어 있는지
+
+    Returns:
+        (ratio_str, region_label_en): 예) ("7.5", "Korean/East Asian adult")
+                                         ("8.0", "general adult")
+    """
+    # 신체 데이터 없으면 무조건 8.0 (사용자 본인 비율 모름 → 일반 평균)
+    if not has_body_data:
+        return ("8.0", "general adult")
+
+    # location 없으면 안전 폴백 8.0
+    if not location:
+        return ("8.0", "general adult")
+
+    location_lower = str(location).lower().strip()
+    for kw in _ASIA_LOCATION_KEYWORDS:
+        if kw in location_lower:
+            return ("7.5", "Korean/East Asian adult")
+
+    return ("8.0", "general adult")
+
+
+def _build_body_profile_block(gender, age, height, weight, body_type_key, lang="en", location=""):
     """
     신체 프로필 통합 블록 생성 (Phase 1 PERSONA에 삽입)
     이미지 생성 단계에서 체형 특성이 실제로 반영되도록 구조화
+
+    ─── 2026-05-23 KST · TJ 승인 (옵션 다 + 7.5 heads) ─────────────────
+      추가: 키 기반 신장감(Stature), 몸무게 기반 체격감(Body mass) 시각 묘사
+      목적: BMI 카테고리(slim/average/...)만으로는 부족한 사용자 실제 데이터 강조
+            → 99.0% 닮은 아바타: 키 175cm 와 165cm 가 시각적으로 구분되도록
+
+    ─── 2026-05-23 KST · TJ 지시 ─── location 인자 추가 ────────────────
+      location: 사용자 지역 (서울/일본/중국 등 아시아 → 7.5 / 그 외 → 8.0)
+      신체 데이터 없으면 무조건 8.0 적용
     """
     lines = []
     gender_en = "woman" if str(gender).upper() in ("F", "FEMALE", "여성") else "man"
@@ -1121,7 +1199,43 @@ def _build_body_profile_block(gender, age, height, weight, body_type_key, lang="
             phys_parts.append(f"height {height}cm, weight {weight}kg")
     lines.append("Physical: " + ", ".join(phys_parts) + ".")
 
-    # 2) BMI 기반 실루엣 가이드 (암묵적 지시 대신 구체 지시)
+    # ─── 2026-05-23 KST · TJ 승인 (옵션 C 강화) ───
+    # 2-A) 키 기반 신장감(Stature) — 한국 성인 평균(남 173, 여 161) 기준 5단계
+    try:
+        h_int_local = int(float(str(height).strip())) if height else 0
+    except Exception:
+        h_int_local = 0
+    if h_int_local >= 100:
+        # 남녀 공통 기준 (남자는 +5cm 가산 효과를 AI 가 추정)
+        if h_int_local >= 180:
+            lines.append(f"Stature: TALL — visibly above-average height ({h_int_local}cm). Render with elongated stance and longer limbs proportional to height.")
+        elif h_int_local >= 170:
+            lines.append(f"Stature: ABOVE-AVERAGE — moderately tall ({h_int_local}cm). Render with slightly above-average leg length.")
+        elif h_int_local >= 160:
+            lines.append(f"Stature: AVERAGE — typical Korean adult height ({h_int_local}cm). Render with standard everyday proportions.")
+        elif h_int_local >= 150:
+            lines.append(f"Stature: BELOW-AVERAGE — shorter than average ({h_int_local}cm). Render with proportionally shorter stance. DO NOT artificially elongate legs.")
+        else:
+            lines.append(f"Stature: PETITE — notably short ({h_int_local}cm). Render with petite, compact silhouette.")
+
+    # 2-B) 몸무게 기반 체격감(Body mass) — BMI 와 다른 축으로 실제 부피감 명시
+    try:
+        w_int_local = int(float(str(weight).strip())) if weight else 0
+    except Exception:
+        w_int_local = 0
+    if w_int_local >= 30:
+        if w_int_local >= 90:
+            lines.append(f"Body mass: VISIBLY LARGER frame ({w_int_local}kg) — render with realistic fullness in shoulders, torso, and limbs. DO NOT slim down or flatter the figure.")
+        elif w_int_local >= 75:
+            lines.append(f"Body mass: SOLID frame ({w_int_local}kg) — render with realistic body mass, neither slimmed down nor exaggerated.")
+        elif w_int_local >= 60:
+            lines.append(f"Body mass: MODERATE frame ({w_int_local}kg) — average Korean build, realistic proportions.")
+        elif w_int_local >= 50:
+            lines.append(f"Body mass: SLENDER frame ({w_int_local}kg) — render slim but natural, not emaciated.")
+        else:
+            lines.append(f"Body mass: VERY SLIM frame ({w_int_local}kg) — render with petite, slender build. DO NOT add volume.")
+
+    # 3) BMI 기반 실루엣 가이드 (암묵적 지시 대신 구체 지시)
     bmi_guides = {
         "slim":           "Slim build: avoid oversized/baggy silhouettes that swamp the frame. Subtle layering and structured cuts maintain proportion.",
         "average":        "Average build: most silhouettes work; prioritize balanced proportions between top and bottom.",
@@ -1131,17 +1245,24 @@ def _build_body_profile_block(gender, age, height, weight, body_type_key, lang="
     if bmi_cat_en and bmi_guides.get(bmi_cat_en):
         lines.append("BMI-based silhouette guidance: " + bmi_guides[bmi_cat_en])
 
-    # 3) 체형 특성 블록 (_build_body_type_prompt 재활용)
+    # 4) 체형 특성 블록 (_build_body_type_prompt 재활용)
     bt_block = _build_body_type_prompt(gender, body_type_key)
     if bt_block:
         lines.append(bt_block.strip())
 
-    # 4) 객관성 강제 지시
+    # 5) 객관성 강제 지시 (─── 2026-05-23 KST · TJ 지시 ─── 지역별 ratio 동적 결정 ───)
+    _has_body_data_for_ratio = bool(height and weight)
+    _ratio_str, _region_lbl = _get_head_ratio(location, _has_body_data_for_ratio)
     lines.append(
         "CRITICAL — OBJECTIVE RENDERING: "
-        "The generated image MUST show the outfit AS IT WOULD ACTUALLY LOOK on this specific body. "
-        "Apply the recommended silhouette, avoid the forbidden silhouette, "
-        "and render realistic body conforming — do not default to a generic idealized model body."
+        "The generated image MUST show the outfit AS IT WOULD ACTUALLY LOOK on this SPECIFIC body. "
+        + (f"Use the EXACT height ({height}cm) and weight ({weight}kg) stated above — "
+           if _has_body_data_for_ratio else
+           "Use natural average adult proportions since user body data is not registered — ")
+        + "do NOT default to an exaggerated supermodel body. "
+        f"Body proportions: {_ratio_str} head-to-body ratio ({_region_lbl}). "
+        "Apply the recommended silhouette, avoid the forbidden silhouette. "
+        "This is a REAL person with REAL body — render accordingly."
     )
 
     return "\n".join(lines)
@@ -2930,6 +3051,19 @@ def _ai_styling_via_gemini(
     stylist_city = (meta or {}).get("active_city", "") if meta else ""
     stylist_name = (matched_stylist or {}).get("name", "") if matched_stylist else ""
 
+    # ─── 2026-05-23 KST · TJ 지시 ─── 지역별 head-to-body ratio 결정 ──────
+    #   기준:
+    #     · 아시아 지역(서울/일본/중국/동남아 등) + 신체 데이터 있음 → 7.5
+    #     · 그 외 지역(서양/북미/유럽 등)                          → 8.0
+    #     · 신체 데이터 없음                                       → 8.0
+    #   우선순위: location(사용자 현재 위치) > stylist_city(스타일리스트 활동 도시)
+    #   변수 사용처: 아래 SUBJECT 블록의 Proportion 줄 + _build_body_profile_block()
+    # ─────────────────────────────────────────────────────────────────────
+    _has_body_data_ratio = bool(height and weight)
+    _loc_for_ratio = location or stylist_city or ""
+    _head_ratio, _region_label_en = _get_head_ratio(_loc_for_ratio, _has_body_data_ratio)
+    _is_asia_region = (_head_ratio == "7.5")
+
     # ── Gemini 통합 프롬프트 (이미지 생성 + 분석 JSON 동시) ──
     # 핵심: response_modalities=["IMAGE","TEXT"] 활용해 한 번의 호출로 두 출력 동시 획득
     custom_directive = ""
@@ -3061,10 +3195,31 @@ def _ai_styling_via_gemini(
         f"Body type: {body_type_key or 'standard'}\n"
         "- Face: replicate the FIRST reference image exactly (jawline, eyes, eyebrows, "
         "nose, lips, skin tone, hair). No beautification.\n"
-        "- Proportion: fashion-model 8.5 heads, full body visible; head/face not oversized.\n"
+        # ─── 2026-05-23 KST · TJ 승인 (옵션 다 + 지역별 ratio) ─────────────
+        #  이전: "Proportion: fashion-model 8.5 heads" — 슈퍼모델 비율 강제
+        #        → BMI 27 통통한 사용자도 8.5등신 슈퍼모델로 렌더링되던 문제
+        #  변경 1차: 7.5 head-to-body ratio 강제 (한국 성인 평균)
+        #  변경 2차 (현재): 지역별 동적 결정
+        #    · 아시아(서울/일본/중국/동남아) + 신체 데이터 있음 → 7.5
+        #    · 그 외 지역 또는 신체 데이터 없음                → 8.0
+        #    · {_head_ratio} 와 {_region_label_en} 는 함수 진입부에서 계산
+        # ────────────────────────────────────────────────────────────────
+        f"- Proportion: REALISTIC adult body — approximately {_head_ratio} head-to-body ratio "
+        f"({_region_label_en} average)."
+        + (" Korean/East Asian build, NOT a Western 8+ ratio of fashion supermodels."
+           if _is_asia_region else " General adult build, NOT an exaggerated 9+ ratio of runway supermodels.")
+        + " "
+        + (f"Head and face size MUST be proportional to the actual body scale stated above "
+           f"({h_int}cm tall, {w_int}kg, BMI {bmi}). "
+           if _has_body_data_ratio else
+           "Head and face size MUST be naturally proportional to the body (user body data not registered, use general average). ")
+        + ("This is a REAL EVERYDAY Asian person, NOT a runway mannequin, NOT a supermodel."
+           if _is_asia_region else "This is a REAL adult person, NOT a runway mannequin, NOT a supermodel.")
+        + " STRICTLY AVOID: excessive leg elongation, oversized/undersized head, "
+        "idealized fashion-model body. Full body visible from top of head to toe of shoes.\n"
         + (f"- Avoid colors (STRICT — must not appear anywhere): {_avoid_clean}\n"
            if _has_avoid else "")
-        + _build_body_profile_block(gender, age, height, weight, body_type_key, "en") + "\n"
+        + _build_body_profile_block(gender, age, height, weight, body_type_key, "en", _loc_for_ratio) + "\n"
 
         + "\n# STYLIST (differentiator — must visibly shape the result)\n"
         f"- {stylist_name or 'expert stylist'} \u00b7 {stylist_city or 'Seoul'}"
@@ -3139,6 +3294,40 @@ def _ai_styling_via_gemini(
     top_parts = [(mime, raw) for label, mime, raw in ref_images if label == "top"]
     bottom_parts = [(mime, raw) for label, mime, raw in ref_images if label == "bottom"]
     ordered_parts = face_parts + style_ref_parts + top_parts + bottom_parts
+
+    # ─── 2026-05-23 KST · TJ 승인 (옵션 B) ─── frontend imagePrompt BODY 섹션 통합 ──
+    #   배경: closet.html line 5646~5685 의 imagePrompt 에는 사용자 체형에 맞춘
+    #         BODY PROPORTION 지시 + bodyFlawPrompt (체형별 영문 가이드) 가 포함됨.
+    #         이전: /api/ai/styling 일반 케이스에서 무시됨 (custom 분기에서만 사용)
+    #         변경: BODY 관련 섹션만 좁게 추출해 STEP 1-7 프롬프트에 추가
+    #               → 99.0% 닮은 아바타 정확도 추가 향상
+    #   안전: BODY PROPORTION + bodyFlawPrompt 패턴만 추출 (전체 통합은 중복/충돌 위험).
+    #         Q3 분기에서는 gemini_prompt 가 다음 단계에서 덮어쓰이므로 적용 안 됨 (의도된 동작).
+    try:
+        _front_image_prompt = str(payload.get("imagePrompt") or "").strip()
+        if _front_image_prompt and len(_front_image_prompt) > 30:
+            import re as _re_body
+            _body_sections = []
+            # BODY PROPORTION 섹션 추출 (REALISTIC ratio 등)
+            _m1 = _re_body.search(r'BODY PROPORTION[^.]*\.[^.]*\.[^.]*\.', _front_image_prompt, _re_body.IGNORECASE)
+            if _m1:
+                _body_sections.append(_m1.group())
+            # bodyFlawPrompt 패턴 추출 (Use dark-toned / layered / cropped / long coat ...)
+            _m2 = _re_body.search(r'Use (dark-toned|layered textured|cropped outerwear|long coat)[^.]+\.', _front_image_prompt)
+            if _m2:
+                _body_sections.append(_m2.group())
+            # ANATOMY 섹션 추출 (자연스러운 손가락 등)
+            _m3 = _re_body.search(r'ANATOMY[^.]*\.[^.]*\.', _front_image_prompt, _re_body.IGNORECASE)
+            if _m3:
+                _body_sections.append(_m3.group())
+            if _body_sections:
+                gemini_prompt = gemini_prompt + (
+                    "\n\n# FRONTEND BODY GUIDANCE (USER-SPECIFIC — ALSO MUST FOLLOW)\n"
+                    + "\n".join(_body_sections)
+                    + "\n"
+                )
+    except Exception as _be:
+        print(f"[front imagePrompt BODY merge] skipped: {_be}", flush=True)
 
     # ─── 2026-05-18 KST · TJ 지시 ─── Q3 최종 고화질: 선택 코디 99.9% 복제 ───
     #   Q3(_force_quality='high') + style_ref 이미지가 있으면, gemini_prompt 를
@@ -8955,9 +9144,9 @@ def ai_analyze_item():
   "material": "면|린넨|울|캐시미어|실크|폴리에스터|나일론|데님|가죽|니트|혼방|기타 중 하나 이상 (쉼표 구분)",
   "fit": "오버사이즈|루즈|레귤러|슬림|스키니 중 하나",
   "season": "봄여름|가을겨울|사계절|여름전용|겨울전용 중 하나",
-  "style_keywords": ["캐주얼|포멀|스트릿|미니멀|빈티지|스포티|로맨틱|클래식 중 최대 3개"],
+  "style_keywords": ["캐주얼|포멀|스트릿|미니멀|빈티지|스포티|로맨틱|클래식|오피스|데이트|데일리|파티|여행|운동 중 최대 3개 — TPO/스타일 태그로 활용"],
   "design_points": "이 아이템의 디자인 특징 1~2문장 (한국어) — 착용샷이면 의류 아이템만 묘사",
-  "coordinate_hint": "이 아이템과 잘 어울리는 하의/상의/아우터 추천 (한국어 1문장)"
+  "coordinate_hint": "이 아이템이 적합한 TPO(시간/장소/상황) 추천 코디 — 한국어 1문장, **반드시 50자 이내** — 예시: '오피스룩과 데이트 모두 어울리는 데일리 아이템' / '주말 카페나 친구 모임에 좋은 캐주얼 가방' / '격식 있는 비즈니스 자리에 적합한 클래식 아이템'"
 }
 
 분석 기준:
