@@ -11701,20 +11701,47 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     document.querySelectorAll('.vto-pose-btn').forEach(function(b){
       b.classList.toggle('active', b.dataset.pose === 'front');
     });
+    // ─── 2026-05-23 KST · TJ 지시 ─── 3D rotateY 카드 플립 효과 ────────
+    //  이전: opacity fade (1→0→1) — 단순 페이드 인/아웃
+    //  변경: 3D rotateY 회전 — Y축 카드 뒤집기 효과
+    //  Phase 1 (0~400ms):  0deg → 90deg (옆모습으로 사라짐)
+    //  Phase 2 (400ms):    90deg 시점에 새 pose 그리고 -90deg 로 즉시 점프
+    //  Phase 3 (400~800ms): -90deg → 0deg (복귀, 새 pose 등장)
+    //  → 동영상 회전과 가장 비슷한 효과. 사이클 3초 유지.
+    // ─────────────────────────────────────────────────────────────────
     _stepCTransitionTimer = setInterval(function(){
       _stepCCurrentPose = (_stepCCurrentPose === 'front') ? 'back' : 'front';
-      // fade out → 그리기 → fade in (부드러운 전환)
       const cv = document.getElementById('vtoCanvas');
+      const box = document.getElementById('vtoResultBox');
+      // perspective 1회 설정 (캔버스 부모에) + backface 숨김
+      if(box && box.style.perspective !== '1200px'){
+        box.style.perspective = '1200px';
+      }
+      if(cv && cv.style.backfaceVisibility !== 'hidden'){
+        cv.style.backfaceVisibility = 'hidden';
+        cv.style.webkitBackfaceVisibility = 'hidden';
+        // opacity 잔재 제거 (이전 fade 방식 흔적)
+        cv.style.opacity = '';
+      }
       if(cv){
-        cv.style.transition = 'opacity 0.4s ease';
-        cv.style.opacity = '0';
+        // Phase 1: 0deg → 90deg 회전 (사라짐)
+        cv.style.transition = 'transform 0.4s ease-in';
+        cv.style.transform = 'rotateY(90deg)';
         setTimeout(function(){
+          // Phase 2: 90deg 시점 — 새 pose 그리고 즉시 -90deg 로 점프 (transition 없이)
           _renderStepCPose(_stepCCurrentPose);
-          cv.style.opacity = '1';
+          cv.style.transition = 'none';
+          cv.style.transform = 'rotateY(-90deg)';
+          // Phase 3: 다음 프레임에 0deg 로 부드럽게 복귀
+          requestAnimationFrame(function(){
+            cv.style.transition = 'transform 0.4s ease-out';
+            cv.style.transform = 'rotateY(0deg)';
+          });
         }, 400);
       } else {
         _renderStepCPose(_stepCCurrentPose);
       }
+      // 토글 active 동기화
       document.querySelectorAll('.vto-pose-btn').forEach(function(b){
         b.classList.toggle('active', b.dataset.pose === _stepCCurrentPose);
       });
@@ -11726,8 +11753,13 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       clearInterval(_stepCTransitionTimer);
       _stepCTransitionTimer = null;
     }
+    // 캔버스 상태 복원 (회전 중간에 멈췄을 경우 0deg 로 부드럽게 복귀)
     const cv = document.getElementById('vtoCanvas');
-    if(cv){ cv.style.opacity = ''; }
+    if(cv){
+      cv.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+      cv.style.transform = 'rotateY(0deg)';
+      cv.style.opacity = '';
+    }
   }
 
   // 페이지 이탈 시 정리 (메모리 누수 방지)
