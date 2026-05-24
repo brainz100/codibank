@@ -12845,9 +12845,26 @@ def runway_health():
 
     # ① LUMA_API_KEY 환경변수
     luma_key = os.environ.get("LUMA_API_KEY", "").strip()
+    # 진단용: 더 자세한 정보
+    # 정상 Luma 키 형식: 'luma-api-XXXXX-...' (luma-api- 가 정상 prefix)
+    key_format_ok = False
+    key_format_warning = ""
+    if luma_key:
+        if luma_key.startswith("luma-") and len(luma_key) >= 20:
+            key_format_ok = True
+        elif " " in luma_key or "\n" in luma_key or "\t" in luma_key:
+            key_format_warning = "환경변수에 공백/줄바꿈/탭 포함 — 값 재입력 필요"
+        elif not luma_key.startswith("luma-"):
+            key_format_warning = "'luma-' 로 시작하지 않음 (정상은 'luma-api-...' 형식)"
+        elif len(luma_key) < 20:
+            key_format_warning = f"키 길이가 너무 짧음 ({len(luma_key)}자) — 일부만 복사했을 가능성"
     checks["LUMA_API_KEY"] = {
         "set": bool(luma_key),
-        "prefix": (luma_key[:8] + "...") if luma_key else "(미설정)",
+        "length": len(luma_key) if luma_key else 0,
+        "prefix": (luma_key[:14] + "...") if len(luma_key) > 14 else luma_key,
+        "suffix": ("..." + luma_key[-4:]) if len(luma_key) > 18 else "",
+        "format_ok": key_format_ok,
+        "format_warning": key_format_warning,
     }
     if not luma_key:
         missing.append("LUMA_API_KEY")
@@ -12895,6 +12912,7 @@ def runway_health():
     # ④ Luma API 핑 (인증 검증만 — 실제 생성 X)
     luma_api_ok = False
     luma_api_error = ""
+    luma_api_hint = ""
     if luma_key:
         try:
             import requests as _rq
@@ -12910,7 +12928,14 @@ def runway_health():
             if r.status_code == 200:
                 luma_api_ok = True
             elif r.status_code == 401:
-                luma_api_error = "인증 실패 — API Key 가 유효하지 않음"
+                luma_api_error = "인증 실패 (401) — API Key 가 유효하지 않음"
+                luma_api_hint = "Luma 콘솔(lumalabs.ai/dream-machine/api/keys)에서 키 재발급 필요"
+            elif r.status_code == 403:
+                luma_api_error = "권한 거부 (403) — Not authenticated"
+                luma_api_hint = (
+                    "⚠️ Dream Machine 웹 구독 (Luma Plus) 와 API 는 별도 결제!\n"
+                    "→ https://lumalabs.ai/api/billing/overview 에서 API Credits 충전 필요 (별도 카드 등록)"
+                )
             else:
                 luma_api_error = f"HTTP {r.status_code}: {r.text[:200]}"
         except Exception as e:
@@ -12919,6 +12944,7 @@ def runway_health():
         "ok": luma_api_ok,
         "endpoint": "https://api.lumalabs.ai/dream-machine/v1/generations",
         "error": luma_api_error,
+        "hint": luma_api_hint,
     }
     if not luma_api_ok and luma_key:
         missing.append("luma_api_auth")
