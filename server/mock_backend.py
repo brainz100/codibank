@@ -12471,10 +12471,18 @@ def _runway_extract_user_email(req):
 
 
 def _runway_get_user_tier(user_email):
-    """user_email 로 tier 조회 — Supabase user_usage 또는 게스트시 FREE.
+    """user_email 로 tier 조회.
+       1) admin/test 이메일 화이트리스트 → 자동 DIAMOND (Supabase 우회)
+       2) Supabase user_usage.tier 조회
+       3) fallback: FREE
        ⚠️ user_usage 테이블의 실제 컬럼명은 'email' (기존 코드와 동일 패턴)."""
     if not user_email:
         return "FREE"
+    # ① 관리자/테스트 이메일은 Supabase 설정 없이 자동 DIAMOND
+    email_lower = str(user_email).strip().lower()
+    if email_lower in _RUNWAY_ADMIN_EMAILS or email_lower in _RUNWAY_TEST_EMAILS:
+        return "DIAMOND"
+    # ② Supabase user_usage 테이블에서 tier 조회
     try:
         import requests as _rq
         svc_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
@@ -12499,6 +12507,13 @@ def _runway_get_user_tier(user_email):
     except Exception as e:
         print(f"[_runway_get_user_tier] error: {e}", flush=True)
     return "FREE"
+
+
+def _runway_is_admin(user_email):
+    """관리자 이메일 검증 — admin endpoint 보호용."""
+    if not user_email:
+        return False
+    return str(user_email).strip().lower() in _RUNWAY_ADMIN_EMAILS
 
 
 def _runway_get_monthly_video_count(user_email):
@@ -12565,6 +12580,16 @@ _RUNWAY_TIER_LIMITS = {
     "DIAMOND": 50,
 }
 
+# 총괄 관리자 이메일 — admin endpoint 접근 권한 + 자동 DIAMOND 처리
+_RUNWAY_ADMIN_EMAILS = {
+    "admin@codibank.kr",
+}
+
+# 테스트 사용자 이메일 — 자동 DIAMOND 처리 (admin endpoint 접근 권한 없음)
+_RUNWAY_TEST_EMAILS = {
+    "prowizard@naver.com",
+}
+
 
 @app.route("/api/runway/candidates", methods=["GET"])
 def runway_candidates():
@@ -12623,10 +12648,12 @@ def runway_generate():
         # GOLD/DIAMOND 는 실제 Seedance 시도
         is_paid = user_tier in ("GOLD", "DIAMOND")
 
-        # ─── tier 별 월 한도 체크 (유료 사용자만) ─────────────────────
+        # ─── tier 별 월 한도 체크 (유료 사용자만) + 런웨이 보너스 합산 ───────
         if is_paid:
             used = _runway_get_monthly_video_count(user_email)
-            limit = _RUNWAY_TIER_LIMITS.get(user_tier, 0)
+            base_limit = _RUNWAY_TIER_LIMITS.get(user_tier, 0)
+            bonus = _runway_get_bonus(user_email)
+            limit = base_limit + bonus  # 실효 한도 = tier 한도 + 보너스
             if used >= limit > 0:
                 return jsonify({
                     "ok": False,
@@ -12634,6 +12661,8 @@ def runway_generate():
                     "tier": user_tier,
                     "used_this_month": used,
                     "monthly_limit": limit,
+                    "base_limit": base_limit,
+                    "runway_bonus": bonus,
                 }), 429
 
         # ─── Phase C · BytePlus Seedance 2.0 통합 ────────────────────
@@ -12816,19 +12845,23 @@ def runway_video_delete(video_id):
 
 @app.route("/api/runway/usage", methods=["GET"])
 def runway_usage():
-    """tier 별 사용량 + 한도."""
+    """tier 별 사용량 + 한도 + 보너스."""
     try:
         user_email = _runway_extract_user_email(request)
         tier = _runway_get_user_tier(user_email)
         used = _runway_get_monthly_video_count(user_email) if user_email else 0
-        limit = _RUNWAY_TIER_LIMITS.get(tier, 0)
+        base_limit = _RUNWAY_TIER_LIMITS.get(tier, 0)
+        bonus = _runway_get_bonus(user_email) if user_email else 0
+        effective_limit = base_limit + bonus
         return jsonify({
             "ok": True,
             "user_email": user_email,
             "tier": tier,
             "used_this_month": used,
-            "monthly_limit": limit,
-            "remaining": max(0, limit - used),
+            "monthly_limit": effective_limit,   # 실효 한도 (보너스 포함)
+            "base_limit": base_limit,           # tier 기본 한도
+            "runway_bonus": bonus,              # 이번달 보너스
+            "remaining": max(0, effective_limit - used),
             "tier_limits": _RUNWAY_TIER_LIMITS,
             "is_paid": tier in ("GOLD", "DIAMOND"),
         })
@@ -13009,6 +13042,465 @@ def runway_health():
             "missing 항목이 있다면 가이드에 따라 환경변수 설정 또는 Supabase 마이그레이션 필요."
         ),
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Runway Admin Endpoints (2026-05-25 KST)
+#
+# 관리자 페이지(admin.html)의 '런웨이' 탭에서 사용하는 endpoint 4개.
+# 모든 admin endpoint 는 X-Admin-Email 헤더 또는 admin_email 쿼리/페이로드로
+# 관리자 검증. _RUNWAY_ADMIN_EMAILS 에 포함된 이메일만 통과.
+#
+# Endpoint 목록:
+#   GET    /api/admin/runway/stats        — 전체 통계 (총 영상 수, 총 사용자 수)
+#   GET    /api/admin/runway/users        — 사용자별 런웨이 사용 현황
+#   GET    /api/admin/runway/videos       — 전체 영상 목록 (최근 N개)
+#   PATCH  /api/admin/runway/user/<email> — 사용자 tier 변경 + 한도 초기화
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _runway_admin_check(req):
+    """admin 권한 검증 — 헤더/쿼리/페이로드 모두 확인.
+       유효한 admin 이메일 반환, 아니면 None."""
+    candidates = []
+    try:
+        candidates.append(req.headers.get("X-Admin-Email", ""))
+    except Exception:
+        pass
+    try:
+        candidates.append(req.args.get("admin_email", ""))
+    except Exception:
+        pass
+    try:
+        body = req.get_json(silent=True) or {}
+        candidates.append(body.get("admin_email", ""))
+    except Exception:
+        pass
+    for c in candidates:
+        if c and _runway_is_admin(c):
+            return str(c).strip().lower()
+    return None
+
+
+@app.route("/api/admin/runway/stats", methods=["GET"])
+def admin_runway_stats():
+    """런웨이 전체 통계 — 총 사용자 수, 총 영상 수, tier별 분포, 월별 사용량.
+       헤더: X-Admin-Email: admin@codibank.kr"""
+    admin = _runway_admin_check(request)
+    if not admin:
+        return jsonify({"ok": False, "error": "관리자 권한 필요 (X-Admin-Email 헤더 또는 admin_email 쿼리)"}), 403
+
+    stats = {
+        "total_users": 0,
+        "total_videos_this_month": 0,
+        "tier_distribution": {"FREE": 0, "SILVER": 0, "GOLD": 0, "DIAMOND": 0},
+        "admin_emails": list(_RUNWAY_ADMIN_EMAILS),
+        "test_emails": list(_RUNWAY_TEST_EMAILS),
+        "tier_limits": _RUNWAY_TIER_LIMITS,
+    }
+    try:
+        import requests as _rq
+        from datetime import datetime
+        svc_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+        sb_url = os.environ.get("SUPABASE_URL", "https://drgsayvlpzcacurcczjq.supabase.co")
+        if svc_key:
+            month_key = datetime.now().strftime("%Y-%m")
+            # 1) 이번 달 user_usage row 조회 — tier 분포 + 총 사용자/영상
+            r = _rq.get(
+                f"{sb_url}/rest/v1/user_usage",
+                params={
+                    "select": "email,tier,runway_count",
+                    "month": f"eq.{month_key}",
+                    "limit": "1000",
+                },
+                headers={
+                    "apikey": svc_key,
+                    "Authorization": f"Bearer {svc_key}",
+                    "Accept": "application/json",
+                },
+                timeout=10,
+            )
+            if r.status_code == 200:
+                rows = r.json() or []
+                stats["total_users"] = len(rows)
+                total_videos = 0
+                for row in rows:
+                    tier = str(row.get("tier") or "FREE").upper().strip()
+                    if tier in stats["tier_distribution"]:
+                        stats["tier_distribution"][tier] += 1
+                    total_videos += int(row.get("runway_count") or 0)
+                stats["total_videos_this_month"] = total_videos
+                stats["month"] = month_key
+    except Exception as e:
+        print(f"[admin_runway_stats] error: {e}", flush=True)
+        stats["_error"] = str(e)[:200]
+
+    return jsonify({"ok": True, "stats": stats, "admin": admin})
+
+
+@app.route("/api/admin/runway/users", methods=["GET"])
+def admin_runway_users():
+    """사용자별 런웨이 사용 현황 — 이메일/tier/이번달 영상수/한도.
+       쿼리:
+         - month (선택): YYYY-MM (기본 현재 달)
+         - tier (선택): FREE/SILVER/GOLD/DIAMOND (필터)
+         - sort (선택): runway_count|email (기본 runway_count desc)
+         - limit (선택): 기본 100, 최대 500"""
+    admin = _runway_admin_check(request)
+    if not admin:
+        return jsonify({"ok": False, "error": "관리자 권한 필요"}), 403
+
+    try:
+        import requests as _rq
+        from datetime import datetime
+        svc_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+        sb_url = os.environ.get("SUPABASE_URL", "https://drgsayvlpzcacurcczjq.supabase.co")
+        if not svc_key:
+            return jsonify({"ok": False, "error": "SUPABASE_SERVICE_KEY 미설정"}), 500
+
+        month_key = (request.args.get("month") or datetime.now().strftime("%Y-%m")).strip()
+        tier_filter = (request.args.get("tier") or "").strip().upper()
+        sort_param = (request.args.get("sort") or "runway_count").strip().lower()
+        limit = min(int(request.args.get("limit") or 100), 500)
+
+        params = {
+            "select": "email,tier,runway_count,month",
+            "month": f"eq.{month_key}",
+            "limit": str(limit),
+        }
+        if tier_filter in ("FREE", "SILVER", "GOLD", "DIAMOND"):
+            params["tier"] = f"eq.{tier_filter}"
+        # Supabase 정렬: runway_count desc / email asc
+        if sort_param == "email":
+            params["order"] = "email.asc"
+        else:
+            params["order"] = "runway_count.desc"
+
+        r = _rq.get(
+            f"{sb_url}/rest/v1/user_usage",
+            params=params,
+            headers={
+                "apikey": svc_key,
+                "Authorization": f"Bearer {svc_key}",
+                "Accept": "application/json",
+            },
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return jsonify({"ok": False, "error": f"Supabase HTTP {r.status_code}: {r.text[:200]}"}), 500
+
+        rows = r.json() or []
+        users = []
+        for row in rows:
+            email = str(row.get("email") or "").strip()
+            tier = str(row.get("tier") or "FREE").upper().strip()
+            used = int(row.get("runway_count") or 0)
+            limit_val = _RUNWAY_TIER_LIMITS.get(tier, 0)
+            users.append({
+                "email": email,
+                "tier": tier,
+                "runway_count": used,
+                "monthly_limit": limit_val,
+                "usage_pct": round((used / limit_val * 100), 1) if limit_val > 0 else 0,
+                "is_admin": email.lower() in _RUNWAY_ADMIN_EMAILS,
+                "is_test": email.lower() in _RUNWAY_TEST_EMAILS,
+            })
+
+        return jsonify({
+            "ok": True,
+            "month": month_key,
+            "count": len(users),
+            "users": users,
+            "admin": admin,
+        })
+
+    except Exception as e:
+        print(f"[admin_runway_users] error: {e}", flush=True)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/admin/runway/videos", methods=["GET"])
+def admin_runway_videos():
+    """전체 영상 목록 (최근 N개) — 향후 user_videos 테이블 연동.
+       현재는 stub (Supabase user_videos 테이블 미구현 상태).
+       쿼리: limit (기본 50, 최대 200)"""
+    admin = _runway_admin_check(request)
+    if not admin:
+        return jsonify({"ok": False, "error": "관리자 권한 필요"}), 403
+
+    limit = min(int(request.args.get("limit") or 50), 200)
+
+    # TODO: Supabase user_videos 테이블 구현 후 실제 조회
+    #   현재는 user_usage 의 runway_count 만 조회 가능
+    return jsonify({
+        "ok": True,
+        "videos": [],
+        "count": 0,
+        "limit": limit,
+        "admin": admin,
+        "_note": (
+            "현재 stub — Supabase user_videos 테이블 (id, user_email, candidate_id, "
+            "task_id, video_url, thumb_url, model, duration, created_at) 구현 후 실제 조회 가능."
+        ),
+    })
+
+
+@app.route("/api/admin/runway/user/<path:user_email>", methods=["PATCH"])
+def admin_runway_user_update(user_email):
+    """사용자 tier 변경 + 한도 초기화.
+       payload:
+         - tier (선택): FREE/SILVER/GOLD/DIAMOND
+         - reset_runway_count (선택): true → runway_count 0 으로 초기화
+       헤더: X-Admin-Email"""
+    admin = _runway_admin_check(request)
+    if not admin:
+        return jsonify({"ok": False, "error": "관리자 권한 필요"}), 403
+
+    try:
+        payload = request.get_json(silent=True) or {}
+        new_tier = str(payload.get("tier") or "").upper().strip()
+        reset_count = bool(payload.get("reset_runway_count"))
+
+        if new_tier and new_tier not in ("FREE", "SILVER", "GOLD", "DIAMOND"):
+            return jsonify({"ok": False, "error": "tier 는 FREE/SILVER/GOLD/DIAMOND 중 하나"}), 400
+        if not new_tier and not reset_count:
+            return jsonify({"ok": False, "error": "tier 또는 reset_runway_count 중 하나 지정"}), 400
+
+        import requests as _rq
+        from datetime import datetime
+        svc_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+        sb_url = os.environ.get("SUPABASE_URL", "https://drgsayvlpzcacurcczjq.supabase.co")
+        if not svc_key:
+            return jsonify({"ok": False, "error": "SUPABASE_SERVICE_KEY 미설정"}), 500
+
+        month_key = datetime.now().strftime("%Y-%m")
+        update_data = {}
+        if new_tier:
+            update_data["tier"] = new_tier
+        if reset_count:
+            update_data["runway_count"] = 0
+
+        # PATCH user_usage WHERE email=user_email AND month=current
+        r = _rq.patch(
+            f"{sb_url}/rest/v1/user_usage",
+            params={
+                "email": f"eq.{user_email}",
+                "month": f"eq.{month_key}",
+            },
+            json=update_data,
+            headers={
+                "apikey": svc_key,
+                "Authorization": f"Bearer {svc_key}",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation",
+            },
+            timeout=10,
+        )
+        if r.status_code not in (200, 201, 204):
+            return jsonify({"ok": False, "error": f"Supabase HTTP {r.status_code}: {r.text[:300]}"}), 500
+
+        updated_rows = r.json() if r.text else []
+
+        return jsonify({
+            "ok": True,
+            "user_email": user_email,
+            "month": month_key,
+            "updates_applied": update_data,
+            "updated_rows": updated_rows,
+            "admin": admin,
+        })
+
+    except Exception as e:
+        print(f"[admin_runway_user_update] error: {e}", flush=True)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Runway Bonus System (2026-05-25 KST)
+#
+# 동영상 생성 무료 보너스 — 코디핏/트라이온 보너스와 동일 패턴.
+# user_usage_bonus 테이블의 'runway_bonus' 컬럼 사용 (메모리 캐시 폴백).
+#
+# Endpoint 목록:
+#   GET    /api/usage/runway-bonus/<email>  — 앱 조회용 (인증 불필요)
+#   POST   /admin/runway/set-bonus          — MASTER 전용, 런웨이 보너스 설정
+#   GET    /admin/runway/bonus-list         — MASTER 전용, 현황 조회
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _runway_get_bonus(email):
+    """이번달 런웨이 보너스 횟수 조회 (Supabase + 메모리 폴백)."""
+    if not email:
+        return 0
+    email_lower = str(email).strip().lower()
+    now_ym = __import__('datetime').datetime.now().strftime("%Y-%m")
+    bonus = 0
+    # ① Supabase 조회 (user_usage_bonus.runway_bonus 컬럼)
+    try:
+        import requests as _rq
+        svc_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+        sb_url = os.environ.get("SUPABASE_URL", "https://drgsayvlpzcacurcczjq.supabase.co")
+        if svc_key:
+            r = _rq.get(
+                f"{sb_url}/rest/v1/user_usage_bonus",
+                params={
+                    "select": "runway_bonus",
+                    "email": f"eq.{email_lower}",
+                    "month": f"eq.{now_ym}",
+                    "limit": 1,
+                },
+                headers={
+                    "apikey": svc_key,
+                    "Authorization": f"Bearer {svc_key}",
+                    "Accept": "application/json",
+                },
+                timeout=6,
+            )
+            if r.status_code == 200:
+                rows = r.json() or []
+                if rows and rows[0].get("runway_bonus") is not None:
+                    bonus = int(rows[0]["runway_bonus"] or 0)
+    except Exception as e:
+        print(f"[_runway_get_bonus] supabase error: {e}", flush=True)
+    # ② 메모리 캐시 우선 (supabase 컬럼 없을 때 폴백)
+    try:
+        if hasattr(app, "_runway_bonus_cache"):
+            mkey = f"{email_lower}:{now_ym}"
+            if mkey in app._runway_bonus_cache:
+                bonus = int(app._runway_bonus_cache[mkey] or 0)
+    except Exception:
+        pass
+    return max(0, bonus)
+
+
+@app.get("/api/usage/runway-bonus/<email>")
+def get_runway_bonus(email):
+    """런웨이 보너스 조회 (앱 호출용 — 인증 불필요).
+       응답: { ok, month, runway_bonus }"""
+    try:
+        email_lower = str(email).strip().lower()
+        now_ym = __import__('datetime').datetime.now().strftime("%Y-%m")
+        bonus = _runway_get_bonus(email_lower)
+        return jsonify({
+            "ok": True,
+            "month": now_ym,
+            "email": email_lower,
+            "runway_bonus": bonus,
+        })
+    except Exception as e:
+        return jsonify({
+            "ok": True,
+            "month": __import__('datetime').datetime.now().strftime("%Y-%m"),
+            "runway_bonus": 0,
+            "error": str(e),
+        })
+
+
+@app.post("/admin/runway/set-bonus")
+def admin_set_runway_bonus():
+    """런웨이 보너스 설정 (MASTER 전용).
+       payload: { email, runway_bonus, month? }
+       헤더: X-Admin-Key (verify_master 통과 필요)"""
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+    try:
+        data = request.get_json(silent=True) or {}
+        email = str(data.get("email", "")).strip().lower()
+        runway_b = max(0, int(data.get("runway_bonus", 0) or 0))
+        month = str(data.get("month") or __import__('datetime').datetime.now().strftime("%Y-%m"))
+        if not email:
+            return jsonify({"ok": False, "error": "email 필수"}), 400
+
+        # ① Supabase upsert 시도 (runway_bonus 컬럼)
+        import requests as _rq
+        body = {
+            "email": email,
+            "month": month,
+            "runway_bonus": runway_b,
+            "updated_at": __import__('datetime').datetime.utcnow().isoformat() + "Z",
+            "updated_by": (request.headers.get("X-Admin-Key") or "")[:16],
+        }
+        try:
+            url = f"{supabase_url()}/rest/v1/user_usage_bonus"
+            headers = supabase_admin_headers()
+            headers["Prefer"] = "resolution=merge-duplicates,return=representation"
+            r = _rq.post(url, headers=headers, json=body, timeout=10)
+            if r.status_code in (200, 201):
+                # 메모리 캐시도 동기화
+                if not hasattr(app, "_runway_bonus_cache"):
+                    app._runway_bonus_cache = {}
+                app._runway_bonus_cache[f"{email}:{month}"] = runway_b
+                return jsonify({
+                    "ok": True, "email": email, "month": month,
+                    "runway_bonus": runway_b, "source": "supabase",
+                })
+        except Exception as supabase_err:
+            print(f"[admin_set_runway_bonus] supabase fail: {supabase_err}", flush=True)
+
+        # ② Supabase 실패 → 메모리 캐시 (재시작 시 휘발)
+        if not hasattr(app, "_runway_bonus_cache"):
+            app._runway_bonus_cache = {}
+        app._runway_bonus_cache[f"{email}:{month}"] = runway_b
+        return jsonify({
+            "ok": True, "email": email, "month": month,
+            "runway_bonus": runway_b, "source": "memory_fallback",
+            "note": "Supabase user_usage_bonus.runway_bonus 컬럼 추가 필요",
+        })
+
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.get("/admin/runway/bonus-list")
+def admin_runway_bonus_list():
+    """이달 런웨이 보너스 지급 현황 (MASTER 전용)."""
+    if not verify_master(request):
+        return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
+    try:
+        now_ym = __import__('datetime').datetime.now().strftime("%Y-%m")
+        result_map = {}  # email → row
+
+        # ① 메모리 캐시 수집
+        if hasattr(app, "_runway_bonus_cache"):
+            for k, v in app._runway_bonus_cache.items():
+                if not k.endswith(now_ym):
+                    continue
+                em = k.split(":")[0]
+                result_map[em] = {
+                    "email": em, "month": now_ym,
+                    "runway_bonus": int(v or 0),
+                    "updated_at": "—",
+                }
+
+        # ② Supabase 조회 (runway_bonus 컬럼이 있는 경우)
+        try:
+            r = sb_query("GET", "user_usage_bonus", params={
+                "month": f"eq.{now_ym}",
+                "select": "email,month,runway_bonus,updated_at",
+                "order": "updated_at.desc",
+                "limit": "500",
+            })
+            if r.status_code == 200:
+                for row in (r.json() or []):
+                    em = (row.get("email") or "").lower()
+                    rb = row.get("runway_bonus")
+                    if rb is None:
+                        continue  # 컬럼 없는 row 는 무시
+                    # 메모리 캐시 우선 (최신값)
+                    if em not in result_map:
+                        result_map[em] = {
+                            "email": em, "month": now_ym,
+                            "runway_bonus": int(rb or 0),
+                            "updated_at": row.get("updated_at") or "—",
+                        }
+        except Exception as sq_err:
+            print(f"[admin_runway_bonus_list] supabase fail: {sq_err}", flush=True)
+
+        rows = [v for v in result_map.values() if int(v.get("runway_bonus") or 0) > 0]
+        rows.sort(key=lambda r: r.get("email", ""))
+        return jsonify({"ok": True, "month": now_ym, "list": rows})
+
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 # ═══════════════════════════════════════════════════════════════════════════
