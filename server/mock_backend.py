@@ -12611,6 +12611,52 @@ def _runway_split_front_back(image_url: str) -> tuple:
         front_img = img.crop((0, 0, half_w, h))
         back_img  = img.crop((half_w, 0, w, h))
 
+        # ─── 2026-05-25 KST · TJ 보고 (v5) ─── 9:16 패딩 (인물 잘림 방지) ───
+        #   배경: 분할 후 정면/후면 = 768x1024 (3:4 = 0.75)
+        #         BytePlus 영상 출력 = 9:16 (0.5625) → 가로 영상을 세로에 맞추며
+        #         위/아래 잘림 발생 (머리/발 잘림).
+        #   해결: 분할 후 이미지를 9:16 비율로 배경색 패딩.
+        #         768x1024 → 768x1365 (위/아래 약 170px 패딩).
+        #         배경색은 이미지 가장자리 평균 (대부분 단색 배경).
+        #   효과: BytePlus 가 인물 그대로 + 위/아래 자연 배경 = 잘림 X
+        from PIL import ImageStat as _PILStat
+        def _pad_to_9_16(_img):
+            _w, _h = _img.size
+            _target_ratio = 9.0 / 16.0  # = 0.5625
+            _current = _w / _h
+            if abs(_current - _target_ratio) < 0.005:
+                return _img  # 이미 9:16
+            if _current > _target_ratio:
+                # 가로가 더 김 → 세로를 늘려서 9:16 (위/아래 패딩)
+                _new_h = int(round(_w / _target_ratio))
+                _pad_total = _new_h - _h
+                _pad_top = _pad_total // 2
+                # 배경색 추출 — 상단 5px + 하단 5px 평균 (4 코너 평균보다 단색배경에 robust)
+                _top_strip = _img.crop((0, 0, _w, 5))
+                _bot_strip = _img.crop((0, _h - 5, _w, _h))
+                _top_mean = _PILStat.Stat(_top_strip).mean
+                _bot_mean = _PILStat.Stat(_bot_strip).mean
+                _fill = tuple(int(round((_top_mean[i] + _bot_mean[i]) / 2)) for i in range(3))
+                _new = Image.new('RGB', (_w, _new_h), _fill)
+                _new.paste(_img, (0, _pad_top))
+                return _new
+            else:
+                # 세로가 더 김 → 가로를 늘려서 9:16 (좌/우 패딩)
+                _new_w = int(round(_h * _target_ratio))
+                _pad_total = _new_w - _w
+                _pad_left = _pad_total // 2
+                _left_strip = _img.crop((0, 0, 5, _h))
+                _right_strip = _img.crop((_w - 5, 0, _w, _h))
+                _left_mean = _PILStat.Stat(_left_strip).mean
+                _right_mean = _PILStat.Stat(_right_strip).mean
+                _fill = tuple(int(round((_left_mean[i] + _right_mean[i]) / 2)) for i in range(3))
+                _new = Image.new('RGB', (_new_w, _h), _fill)
+                _new.paste(_img, (_pad_left, 0))
+                return _new
+
+        front_img = _pad_to_9_16(front_img)
+        back_img  = _pad_to_9_16(back_img)
+
         # 3) 각각 JPEG 92% 인코딩
         front_buf = _io.BytesIO()
         front_img.save(front_buf, format="JPEG", quality=92, optimize=True)
@@ -12637,7 +12683,8 @@ def _runway_split_front_back(image_url: str) -> tuple:
         front_url = f"{base}{front_rel}" if front_rel.startswith("/") else f"{base}/{front_rel}"
         back_url  = f"{base}{back_rel}"  if back_rel.startswith("/")  else f"{base}/{back_rel}"
 
-        print(f"[split_front_back] ✅ 분리 완료 ({w}x{h} → {half_w}x{h} × 2): front={front_fixed}, back={back_fixed}", flush=True)
+        _final_w, _final_h = front_img.size
+        print(f"[split_front_back] ✅ 분리+9:16패딩 완료 ({w}x{h} → {_final_w}x{_final_h} × 2): front={front_fixed}, back={back_fixed}", flush=True)
         return (front_url, back_url)
 
     except Exception as e:
@@ -12680,58 +12727,71 @@ def _runway_neutralize_image(image_url: str, strength: str = "strong") -> str:
         w, h = orig_size
 
         if strength == "light":
-            # ─── LIGHT 모드 — 얼굴 99% 보존 ───
-            #   목적: TJ 차별화 의도 (사용자 닮은 워킹 영상) 보존.
-            #   처리: 매우 약한 전체 blur + 미세한 색조 조정 + 약한 noise.
-            #         얼굴 영역에 특별한 강한 처리 없음 (radius 1.2 정도).
-            #   기대: BytePlus 가 약간 다른 통계량 의 이미지로 인식 → 통과 가능성.
-            img = img.filter(ImageFilter.GaussianBlur(radius=1.2))
-            img = ImageEnhance.Brightness(img).enhance(0.97)
-            img = ImageEnhance.Contrast(img).enhance(1.04)
-            img = ImageEnhance.Color(img).enhance(1.05)
+            # ─── 2026-05-25 v5 · TJ 보고 (얼굴 흐림 심각) ───────────────
+            #   LIGHT 모드 — 얼굴 영역 (상단 38%) 절대 보존, 나머지만 약한 처리
+            #
+            #   변경: 전체 blur 제거 (얼굴까지 blur 됐던 문제 fix).
+            #         얼굴 영역은 100% 원본 그대로 유지.
+            #         옷/몸/배경 영역만 변형해서 BytePlus 통계량 변화 유도.
+            face_h = int(h * 0.38)
+            face_area = img.crop((0, 0, w, face_h)).copy()      # 얼굴 영역 (원본 그대로)
+            body_area = img.crop((0, face_h, w, h))             # 나머지 영역
 
-            # 가벼운 noise (500개 픽셀, 약한 변형)
-            draw = ImageDraw.Draw(img)
+            # 나머지 영역 약한 처리
+            body_processed = body_area.filter(ImageFilter.GaussianBlur(radius=1.0))
+            body_processed = ImageEnhance.Brightness(body_processed).enhance(0.97)
+            body_processed = ImageEnhance.Color(body_processed).enhance(1.05)
+
+            # 나머지 영역 가벼운 noise (300 픽셀)
+            body_draw = ImageDraw.Draw(body_processed)
             _random.seed(_now_ms())
-            for _ in range(500):
-                x = _random.randint(0, w - 1)
-                y = _random.randint(0, h - 1)
-                shift = _random.randint(-8, 8)
+            _bw, _bh = body_processed.size
+            for _ in range(300):
+                x = _random.randint(0, _bw - 1)
+                y = _random.randint(0, _bh - 1)
+                shift = _random.randint(-10, 10)
                 try:
-                    r, g, b = img.getpixel((x, y))
-                    draw.point((x, y), fill=(
+                    r, g, b = body_processed.getpixel((x, y))
+                    body_draw.point((x, y), fill=(
                         max(0, min(255, r + shift)),
                         max(0, min(255, g + shift)),
                         max(0, min(255, b + shift))
                     ))
                 except Exception:
                     pass
+
+            # 두 영역 합치기 — 얼굴 원본 + 처리된 나머지
+            img = Image.new('RGB', (w, h))
+            img.paste(face_area, (0, 0))
+            img.paste(body_processed, (0, face_h))
 
             quality = 92
-            log_prefix = "[neutralize light]"
+            log_prefix = "[neutralize light · 얼굴 100% 보존]"
         else:
-            # ─── STRONG 모드 — 마지막 폴백 (v3 기존 처리) ───
-            #   얼굴 영역 (상단 35%) 강한 blur (radius 6.0)
-            face_h = int(h * 0.35)
-            face_area = img.crop((0, 0, w, face_h))
-            face_blurred = face_area.filter(ImageFilter.GaussianBlur(radius=6.0))
-            img.paste(face_blurred, (0, 0))
+            # ─── 2026-05-25 v5 · TJ 보고 (얼굴 흐림 심각) ───────────────
+            #   STRONG 모드 — v4 의 얼굴 영역 radius 6.0 blur 완전 제거
+            #   얼굴은 light 와 동일하게 100% 보존, 나머지만 강한 처리.
+            face_h = int(h * 0.38)
+            face_area = img.crop((0, 0, w, face_h)).copy()      # 얼굴 영역 (원본 그대로)
+            body_area = img.crop((0, face_h, w, h))             # 나머지 영역
 
-            img = img.filter(ImageFilter.GaussianBlur(radius=1.5))
-            img = ImageEnhance.Brightness(img).enhance(0.93)
-            img = ImageEnhance.Contrast(img).enhance(1.10)
-            img = ImageEnhance.Color(img).enhance(1.12)
+            # 나머지 영역 강한 처리
+            body_processed = body_area.filter(ImageFilter.GaussianBlur(radius=3.0))
+            body_processed = ImageEnhance.Brightness(body_processed).enhance(0.93)
+            body_processed = ImageEnhance.Contrast(body_processed).enhance(1.10)
+            body_processed = ImageEnhance.Color(body_processed).enhance(1.12)
 
-            # 강한 noise
-            draw = ImageDraw.Draw(img)
+            # 강한 noise (얼굴 외 영역만 — 1500 픽셀)
+            body_draw = ImageDraw.Draw(body_processed)
             _random.seed(_now_ms())
+            _bw, _bh = body_processed.size
             for _ in range(1500):
-                x = _random.randint(0, w - 1)
-                y = _random.randint(0, h - 1)
+                x = _random.randint(0, _bw - 1)
+                y = _random.randint(0, _bh - 1)
                 shift = _random.randint(-18, 18)
                 try:
-                    r, g, b = img.getpixel((x, y))
-                    draw.point((x, y), fill=(
+                    r, g, b = body_processed.getpixel((x, y))
+                    body_draw.point((x, y), fill=(
                         max(0, min(255, r + shift)),
                         max(0, min(255, g + shift)),
                         max(0, min(255, b + shift))
@@ -12739,14 +12799,20 @@ def _runway_neutralize_image(image_url: str, strength: str = "strong") -> str:
                 except Exception:
                     pass
 
+            # posterize — 얼굴 외 영역만
             try:
                 from PIL import ImageOps
-                img = ImageOps.posterize(img, 5)
+                body_processed = ImageOps.posterize(body_processed, 5)
             except Exception:
                 pass
 
+            # 두 영역 합치기 — 얼굴 원본 + 처리된 나머지 (얼굴 100% 보존)
+            img = Image.new('RGB', (w, h))
+            img.paste(face_area, (0, 0))
+            img.paste(body_processed, (0, face_h))
+
             quality = 85
-            log_prefix = "[neutralize strong]"
+            log_prefix = "[neutralize strong · 얼굴 보존 + 옷/배경 강한 처리]"
 
         # 출력
         out = _io.BytesIO()
@@ -12912,20 +12978,25 @@ def runway_generate():
             else:
                 print(f"[runway_generate] ⚠️ 이미지 분리 실패 → 단일 이미지 모드 폴백", flush=True)
 
-            # 2) 멋있는 런웨이 워킹 prompt (v4 — TJ 차별화 의도)
-            #    핵심: ① 얼굴/체형/옷/악세사리 100% 보존 ② CodiBank Runway 무대 (어두운 배경)
-            #          ③ 자연스러운 워킹 + 턴 동작
+            # 2) 멋있는 런웨이 워킹 prompt (v5 — BytePlus 공식 가이드 준수)
+            #    배경 (Seedance 2.0 공식 가이드):
+            #      "image-to-video 에서는 reference image 의 모든 것을 다시 묘사하지 말 것.
+            #       source image 를 고정하고 motion / camera / mood 만 묘사.
+            #       composition and colors 를 명시적으로 보존."
+            #    핵심:
+            #      ✓ reference image 의 배경/구도/색 그대로 유지 (멜트 방지)
+            #      ✓ 자연스러운 워킹 + 턴 동작 (모션만 묘사)
+            #      ✓ 카메라 워크 (full body 추적)
+            #      ✗ "런웨이 무대 새로 만들기" 제거 (배경 교체는 품질 저하 원인)
+            #      ✗ "dramatic stage lighting" 제거 (조명 변경은 인물 흐림 원인)
             seedance_prompt = prompt_in or (
-                "The model from the reference image walking on a professional CodiBank Runway stage. "
-                "CRITICAL: Keep the model's face, hairstyle, body proportions, outfit, "
-                "and accessories EXACTLY IDENTICAL to the reference image — no changes to facial features, no replacement. "
-                "Setting: dark moody fashion runway stage, dramatic stage lighting from above, "
-                "subtle floor reflections, deep dark background with minimal distractions, cinematic atmosphere. "
-                "Action: confident catwalk walk forward toward the camera with natural arm swing, "
-                "then smoothly turn 180 degrees mid-walk, ending with the back of the outfit visible. "
-                "Camera: full body shot, sharp focus on face, outfit details, and accessories. "
-                "Motion: smooth and graceful, professional fashion show quality. "
-                "No text or graphics overlay."
+                "Preserve the reference image's subject, composition, colors, and background EXACTLY. "
+                "The person walks naturally toward the camera with confident catwalk gait, "
+                "then smoothly turns 180 degrees mid-walk, ending with the back of the outfit visible. "
+                "Camera: smooth tracking shot, full body in frame, sharp focus on face and outfit. "
+                "Motion: graceful, professional fashion runway pacing. "
+                "Keep facial identity, hairstyle, clothing details, and accessories unchanged. "
+                "Do not introduce new objects or alter the existing background."
             )
 
             # 3) BytePlus 비디오 생성 요청
