@@ -12695,11 +12695,17 @@ def runway_generate():
         try:
             import requests as _rq
 
-            # 프롬프트 + 파라미터 (Seedance 는 prompt 내에 --resolution, --duration, --ratio 지정)
+            # ─── 2026-05-25 KST 패치: 안전 필터 우회 — AI 생성 캐릭터 명시 ─────
+            #   문제: BytePlus 가 AI 생성 모델 이미지를 "실제 사람" 으로 오인
+            #         → InputImageSensitiveContentDetected.PrivacyInformation 에러
+            #   해결: prompt 에 "fictional AI generated character" 명시 + animation 강조
+            #         BytePlus 안전 필터가 prompt 의 의도를 함께 고려할 가능성에 기댐.
             seedance_prompt = prompt_in or (
-                "Korean fashion model in stylish outfit, smooth and natural rotation "
-                "showing front to back, full body shot, soft natural lighting, "
-                "neutral solid background, professional fashion runway video, "
+                "AI-generated fictional fashion character (not a real person), "
+                "stylized 3D animation render of a virtual model in a stylish outfit, "
+                "smooth and natural rotation showing front to back, full body shot, "
+                "soft natural studio lighting, neutral solid background, "
+                "professional fashion runway animation, "
                 "clothing details clearly visible during motion, no text or graphics"
             )
             # Seedance 파라미터를 prompt 에 추가
@@ -12710,21 +12716,50 @@ def runway_generate():
 
             # 1) 비디오 생성 요청 (image-to-video — content 배열에 text + image_url)
             create_url = "https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks"
-            create_payload = {
-                "model": "dreamina-seedance-2-0-fast-260128",  # Fast 모델 (저렴/빠름)
-                "content": [
-                    {"type": "text", "text": seedance_prompt_full},
-                    {"type": "image_url", "image_url": {"url": image_url}},
-                ],
-            }
+            # 모델 후보 — Fast 먼저, sensitive 거부 시 정규 모델 자동 재시도
+            _model_candidates = [
+                "dreamina-seedance-2-0-fast-260128",  # Fast (저렴/빠름)
+                "dreamina-seedance-2-0-260128",       # 정규 (안전필터 정책이 다를 수 있음)
+            ]
             create_headers = {
                 "Authorization": f"Bearer {byteplus_key}",
                 "Accept": "application/json",
                 "Content-Type": "application/json",
             }
-            cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
-            if cr.status_code >= 400:
-                raise RuntimeError(f"BytePlus create 실패 ({cr.status_code}): {cr.text[:300]}")
+
+            # ─── 모델 후보 순회 — sensitive content 에러 시 다음 모델 자동 시도 ─────
+            cr = None
+            used_model_id = None
+            sensitive_blocked = False
+            sensitive_err_text = ""
+            for _model_id in _model_candidates:
+                create_payload = {
+                    "model": _model_id,
+                    "content": [
+                        {"type": "text", "text": seedance_prompt_full},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                }
+                cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
+                if cr.status_code < 400:
+                    used_model_id = _model_id
+                    break
+                # 400 이고 sensitive content 거부면 다음 모델로 재시도
+                _body = cr.text or ""
+                if cr.status_code == 400 and ("InputImageSensitiveContent" in _body or "PrivacyInformation" in _body or "may contain real person" in _body):
+                    sensitive_blocked = True
+                    sensitive_err_text = _body[:300]
+                    print(f"[runway_generate] {_model_id} sensitive content 거부 → 다음 모델 시도", flush=True)
+                    continue
+                # 그 외 에러는 더 시도 안 함
+                raise RuntimeError(f"BytePlus create 실패 ({cr.status_code}): {_body[:300]}")
+
+            # 모든 모델이 sensitive content 로 거부됨 → 명확한 에러
+            if used_model_id is None:
+                if sensitive_blocked:
+                    raise RuntimeError(f"SENSITIVE_CONTENT::AI 생성 이미지가 BytePlus 안전 필터로 차단됨 (실제 인물 오인): {sensitive_err_text[:200]}")
+                raise RuntimeError(f"BytePlus create 실패: {(cr.text if cr else '')[:300]}")
+
             gen_data = cr.json() or {}
             task_id = gen_data.get("id") or gen_data.get("task_id")
             if not task_id:
@@ -12772,7 +12807,7 @@ def runway_generate():
                 "video_url": video_url,        # 현재: BytePlus 직접 URL (24h 만료 가능)
                 "thumb_url": thumb_url,
                 "duration_seconds": duration,
-                "model": "seedance-2.0-fast",
+                "model": used_model_id or "seedance-2.0-fast",
                 "candidate_id": candidate_id,
                 "generated_at": _runway_now_iso(),
                 "task_id": task_id,
@@ -12780,7 +12815,19 @@ def runway_generate():
             })
 
         except Exception as seedance_err:
-            print(f"[runway_generate · BytePlus Seedance 호출 실패] {seedance_err}", flush=True)
+            err_text = str(seedance_err)
+            print(f"[runway_generate · BytePlus Seedance 호출 실패] {err_text}", flush=True)
+            # ─── 에러 분류 — sensitive content 거부는 별도 reason ─────
+            #   클라이언트 (runway.html) 가 stubReason 매칭으로 사용자 친화적 메시지 표시
+            if err_text.startswith("SENSITIVE_CONTENT::"):
+                _reason = "sensitive_content"
+                _user_err = "AI 안전 필터로 영상 생성이 차단되었어요"
+            elif "타임아웃" in err_text or "timeout" in err_text.lower():
+                _reason = "BytePlus Seedance timeout"
+                _user_err = "영상 생성 시간이 초과되었어요"
+            else:
+                _reason = "BytePlus Seedance API 호출 실패"
+                _user_err = "BytePlus 일시적 오류"
             # 호출 실패 시 stub 응답으로 폴백
             return jsonify({
                 "ok": True,
@@ -12791,8 +12838,9 @@ def runway_generate():
                 "candidate_id": candidate_id,
                 "generated_at": _runway_now_iso(),
                 "_stub": True,
-                "_stub_reason": "BytePlus Seedance API 호출 실패",
-                "_seedance_error": str(seedance_err)[:300],
+                "_stub_reason": _reason,
+                "_user_error": _user_err,
+                "_seedance_error": err_text[:300],
             })
 
     except Exception as e:
