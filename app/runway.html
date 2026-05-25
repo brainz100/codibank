@@ -311,18 +311,21 @@ body::before {
   display: none;
 }
 
-/* ─── 2026-05-25 KST · TJ 지시 (v4) — 동영상 N회 가능 배지 (뷰박스 우측 상단) ─── */
+/* ─── 2026-05-25 KST · TJ 지시 (v5) — 동영상 N회 가능 배지 (뷰박스 밖 우측 상단) ─── */
+.rw-viewbox-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 0 2px;
+}
 .rw-usage-badge {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 4;
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 6px 11px 6px 8px;
   border-radius: 9999px;
-  background: rgba(15, 36, 82, 0.75);
+  background: rgba(15, 36, 82, 0.65);
   border: 1px solid rgba(151, 254, 237, 0.32);
   color: #97FEED;
   font-family: 'Manrope', sans-serif;
@@ -331,15 +334,14 @@ body::before {
   letter-spacing: 0.02em;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05);
-  pointer-events: none;  /* 클릭 통과 (뷰박스 상호작용 우선) */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 .rw-usage-badge .material-symbols-outlined {
   font-size: 14px;
   font-variation-settings: 'wght' 500, 'FILL' 1;
 }
 .rw-usage-badge.exhausted {
-  background: rgba(82, 15, 36, 0.78);
+  background: rgba(82, 15, 36, 0.6);
   border-color: rgba(255, 122, 184, 0.35);
   color: #ff7ab8;
 }
@@ -806,13 +808,14 @@ body::before {
 
   <!-- ─── 3. 동영상 뷰박스 ─── -->
   <section class="rw-section">
-    <!-- 2026-05-25 KST · TJ 지시 (v4) — '미리보기' 헤더 + meta 텍스트 삭제, 우측 상단 사용량 배지 추가 -->
-    <div class="rw-viewbox-wrap" id="rwViewbox">
-      <!-- 동영상 N회 가능 배지 (구독플랜 연동) — 뷰박스 우측 상단 -->
+    <!-- 2026-05-25 KST · TJ 지시 (v5) — 사용량 배지를 뷰박스 밖 우측 상단으로 (코디핏 패턴) -->
+    <div class="rw-viewbox-header">
       <div class="rw-usage-badge" id="rwUsageBadge">
         <span class="material-symbols-outlined">videocam</span>
         <span id="rwUsageBadgeText">동영상 0회 가능</span>
       </div>
+    </div>
+    <div class="rw-viewbox-wrap" id="rwViewbox">
       <div class="rw-viewbox-empty" id="rwViewboxEmpty">
         <span class="rw-empty-icon material-symbols-outlined">slideshow</span>
         <div class="rw-empty-text">위에서 이미지를 선택하면<br/>AI가 6초 동영상을 생성합니다</div>
