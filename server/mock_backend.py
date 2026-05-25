@@ -12594,12 +12594,12 @@ def runway_candidates():
 @app.route("/api/runway/generate", methods=["POST"])
 def runway_generate():
     """
-    동영상 생성 — Luma Ray2 REST API (실제 호출 + 폴백).
+    동영상 생성 — BytePlus ModelArk Seedance 2.0 (Fast) REST API.
     payload:
       · candidate_id: 후보 ID (필수)
-      · image_url: 후보 이미지 URL (Luma 입력) — 빈 값이면 stub
+      · image_url: 후보 이미지 URL (Seedance 입력) — 빈 값이면 stub
       · duration: 영상 길이 초 (기본 6, 범위 4~10)
-      · model: 'luma' | 'placeholder' (기본 'luma' — 키 있으면 시도, 없으면 폴백)
+      · model: 'seedance' | 'placeholder' (기본 'seedance' — 키 있으면 시도, 없으면 폴백)
       · user_email: 사용자 식별 (Phase A)
       · prompt: 프롬프트 (선택, 기본 패션 회전 프롬프트)
     """
@@ -12608,7 +12608,7 @@ def runway_generate():
         candidate_id = str(payload.get("candidate_id") or "").strip()
         image_url = str(payload.get("image_url") or "").strip()
         duration = int(payload.get("duration") or 6)
-        model_req = str(payload.get("model") or "luma").strip().lower()
+        model_req = str(payload.get("model") or "seedance").strip().lower()
         prompt_in = str(payload.get("prompt") or "").strip()
 
         if not candidate_id:
@@ -12620,7 +12620,7 @@ def runway_generate():
         user_email = _runway_extract_user_email(request)
         user_tier = _runway_get_user_tier(user_email)
         # 게스트(이메일 없음) 또는 FREE/SILVER 는 stub 모드만
-        # GOLD/DIAMOND 는 실제 Luma 시도
+        # GOLD/DIAMOND 는 실제 Seedance 시도
         is_paid = user_tier in ("GOLD", "DIAMOND")
 
         # ─── tier 별 월 한도 체크 (유료 사용자만) ─────────────────────
@@ -12636,15 +12636,15 @@ def runway_generate():
                     "monthly_limit": limit,
                 }), 429
 
-        # ─── Phase C · Luma Ray2 통합 ────────────────────────────────
-        luma_key = os.environ.get("LUMA_API_KEY", "").strip()
-        force_stub = (model_req == "placeholder") or (not luma_key) or (not is_paid) or (not image_url)
+        # ─── Phase C · BytePlus Seedance 2.0 통합 ────────────────────
+        byteplus_key = os.environ.get("BYTEPLUS_API_KEY", "").strip()
+        force_stub = (model_req == "placeholder") or (not byteplus_key) or (not is_paid) or (not image_url)
 
         if force_stub:
             # stub 모드 — 즉시 빈 응답
             reason = (
                 "placeholder 명시" if model_req == "placeholder" else
-                "LUMA_API_KEY 미설정" if not luma_key else
+                "BYTEPLUS_API_KEY 미설정" if not byteplus_key else
                 f"비유료 tier ({user_tier})" if not is_paid else
                 "image_url 없음" if not image_url else
                 "기타"
@@ -12659,69 +12659,78 @@ def runway_generate():
                 "generated_at": _runway_now_iso(),
                 "_stub": True,
                 "_stub_reason": reason,
-                "_note": "실제 영상 생성을 위해 GOLD 이상 요금제 + LUMA_API_KEY 환경변수 설정 필요",
+                "_note": "실제 영상 생성을 위해 GOLD 이상 요금제 + BYTEPLUS_API_KEY 환경변수 설정 필요",
             })
 
-        # ─── Luma Ray2 REST API 호출 (실제) ──────────────────────────
+        # ─── BytePlus Seedance 2.0 Fast REST API 호출 (실제) ─────────
         try:
             import requests as _rq
-            luma_prompt = prompt_in or (
-                "Korean fashion model in stylish outfit, smooth 360 degree rotation showing "
-                "front to back view, full body shot, soft natural lighting, neutral solid "
-                f"background, {duration} seconds, professional fashion video, "
-                "clothing details clearly visible during rotation, no text or graphics."
+
+            # 프롬프트 + 파라미터 (Seedance 는 prompt 내에 --resolution, --duration, --ratio 지정)
+            seedance_prompt = prompt_in or (
+                "Korean fashion model in stylish outfit, smooth and natural rotation "
+                "showing front to back, full body shot, soft natural lighting, "
+                "neutral solid background, professional fashion runway video, "
+                "clothing details clearly visible during motion, no text or graphics"
             )
-            # 1) 비디오 생성 요청 (image-to-video, keyframes.frame0 = 후보 이미지)
-            create_url = "https://api.lumalabs.ai/dream-machine/v1/generations"
+            # Seedance 파라미터를 prompt 에 추가
+            seedance_prompt_full = (
+                f"{seedance_prompt} "
+                f"--resolution 720p --duration {duration} --ratio 9:16"
+            )
+
+            # 1) 비디오 생성 요청 (image-to-video — content 배열에 text + image_url)
+            create_url = "https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks"
             create_payload = {
-                "prompt": luma_prompt,
-                "keyframes": {
-                    "frame0": {"type": "image", "url": image_url}
-                },
-                "model": "ray-2",
-                "duration": f"{duration}s",
-                "resolution": "720p",
-                "aspect_ratio": "9:16",
+                "model": "dreamina-seedance-2-0-fast-260128",  # Fast 모델 (저렴/빠름)
+                "content": [
+                    {"type": "text", "text": seedance_prompt_full},
+                    {"type": "image_url", "image_url": {"url": image_url}},
+                ],
             }
             create_headers = {
-                "Authorization": f"Bearer {luma_key}",
+                "Authorization": f"Bearer {byteplus_key}",
                 "Accept": "application/json",
                 "Content-Type": "application/json",
             }
             cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
             if cr.status_code >= 400:
-                raise RuntimeError(f"Luma create 실패 ({cr.status_code}): {cr.text[:200]}")
+                raise RuntimeError(f"BytePlus create 실패 ({cr.status_code}): {cr.text[:300]}")
             gen_data = cr.json() or {}
-            gen_id = gen_data.get("id")
-            if not gen_id:
-                raise RuntimeError(f"Luma response 에 id 없음: {str(gen_data)[:200]}")
+            task_id = gen_data.get("id") or gen_data.get("task_id")
+            if not task_id:
+                raise RuntimeError(f"BytePlus response 에 task id 없음: {str(gen_data)[:200]}")
 
-            # 2) 폴링 (최대 120초, 3초 간격)
+            # 2) 폴링 (최대 180초, 3초 간격 — Seedance 평균 60~120초 소요)
             import time as _time
-            poll_url = f"https://api.lumalabs.ai/dream-machine/v1/generations/{gen_id}"
+            poll_url = f"https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks/{task_id}"
             video_url = ""
             thumb_url = ""
-            for _i in range(40):  # 40 * 3 = 120초
+            for _i in range(60):  # 60 * 3 = 180초
                 _time.sleep(3)
                 pr = _rq.get(poll_url, headers=create_headers, timeout=15)
                 if pr.status_code >= 400:
                     continue
                 pd = pr.json() or {}
-                state = (pd.get("state") or "").lower()
-                if state == "completed":
-                    assets = pd.get("assets") or {}
-                    video_url = assets.get("video") or ""
-                    thumb_url = assets.get("image") or ""
+                status = (pd.get("status") or "").lower()
+                if status in ("succeeded", "completed", "success"):
+                    content = pd.get("content") or {}
+                    video_url = content.get("video_url") or ""
+                    # BytePlus 는 thumbnail 별도 안 줄 수도
+                    thumb_url = content.get("thumbnail_url") or content.get("first_frame_url") or ""
                     break
-                if state == "failed":
-                    raise RuntimeError(f"Luma 생성 실패: {pd.get('failure_reason') or 'unknown'}")
+                if status in ("failed", "error", "cancelled"):
+                    err = pd.get("error") or {}
+                    err_msg = err.get("message") or err.get("code") or str(err)[:200]
+                    raise RuntimeError(f"Seedance 생성 실패: {err_msg}")
             if not video_url:
-                raise RuntimeError("Luma 폴링 타임아웃 (120초)")
+                raise RuntimeError("Seedance 폴링 타임아웃 (180초)")
 
             # 3) Supabase 사용량 +1
             _runway_increment_usage(user_email)
 
             # TODO: R2 비디오 저장 + 자체 URL 발급 (장기 보관용)
+            #   BytePlus 비디오 URL 도 만료 시간이 있을 수 있음
             #   import boto3
             #   r2_client = boto3.client('s3', endpoint_url=...)
             #   video_bytes = _rq.get(video_url).content
@@ -12731,19 +12740,19 @@ def runway_generate():
 
             return jsonify({
                 "ok": True,
-                "video_url": video_url,        # 현재: Luma 직접 URL (만료 가능)
+                "video_url": video_url,        # 현재: BytePlus 직접 URL (24h 만료 가능)
                 "thumb_url": thumb_url,
                 "duration_seconds": duration,
-                "model": "luma-ray-2",
+                "model": "seedance-2.0-fast",
                 "candidate_id": candidate_id,
                 "generated_at": _runway_now_iso(),
-                "luma_generation_id": gen_id,
+                "task_id": task_id,
                 "tier": user_tier,
             })
 
-        except Exception as luma_err:
-            print(f"[runway_generate · Luma 호출 실패] {luma_err}", flush=True)
-            # Luma 실패 시 stub 응답으로 폴백
+        except Exception as seedance_err:
+            print(f"[runway_generate · BytePlus Seedance 호출 실패] {seedance_err}", flush=True)
+            # 호출 실패 시 stub 응답으로 폴백
             return jsonify({
                 "ok": True,
                 "video_url": "",
@@ -12753,8 +12762,8 @@ def runway_generate():
                 "candidate_id": candidate_id,
                 "generated_at": _runway_now_iso(),
                 "_stub": True,
-                "_stub_reason": "Luma API 호출 실패",
-                "_luma_error": str(luma_err)[:200],
+                "_stub_reason": "BytePlus Seedance API 호출 실패",
+                "_seedance_error": str(seedance_err)[:300],
             })
 
     except Exception as e:
@@ -12828,46 +12837,44 @@ def runway_usage():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-# ─── 2026-05-24 KST · Phase C 활성화 점검 endpoint ────────────────────
+# ─── 2026-05-25 KST · Phase C 활성화 점검 endpoint (BytePlus Seedance 2.0) ─
 #   동영상 생성 서비스가 작동 가능한지 한눈에 확인.
 #   배포 후 호출:
 #     curl https://codibank-api.onrender.com/api/runway/health
 #   응답:
 #     - ready: true (모든 조건 충족)
-#     - missing: ["LUMA_API_KEY", ...] (부족한 환경변수)
+#     - missing: ["BYTEPLUS_API_KEY", ...] (부족한 환경변수)
 #     - checks: 각 항목별 상세
 # ─────────────────────────────────────────────────────────────────────
 @app.route("/api/runway/health", methods=["GET"])
 def runway_health():
-    """동영상 생성 활성화 점검 — 환경변수 + Supabase + Luma 핑."""
+    """동영상 생성 활성화 점검 — 환경변수 + Supabase + BytePlus Seedance 핑."""
     checks = {}
     missing = []
 
-    # ① LUMA_API_KEY 환경변수
-    luma_key = os.environ.get("LUMA_API_KEY", "").strip()
-    # 진단용: 더 자세한 정보
-    # 정상 Luma 키 형식: 'luma-api-XXXXX-...' (luma-api- 가 정상 prefix)
+    # ① BYTEPLUS_API_KEY 환경변수
+    byteplus_key = os.environ.get("BYTEPLUS_API_KEY", "").strip()
     key_format_ok = False
     key_format_warning = ""
-    if luma_key:
-        if luma_key.startswith("luma-") and len(luma_key) >= 20:
+    if byteplus_key:
+        # BytePlus ModelArk 키는 UUID 형식 또는 base64 형식
+        # 최소 길이 16자 이상
+        if len(byteplus_key) >= 16:
             key_format_ok = True
-        elif " " in luma_key or "\n" in luma_key or "\t" in luma_key:
+        elif " " in byteplus_key or "\n" in byteplus_key or "\t" in byteplus_key:
             key_format_warning = "환경변수에 공백/줄바꿈/탭 포함 — 값 재입력 필요"
-        elif not luma_key.startswith("luma-"):
-            key_format_warning = "'luma-' 로 시작하지 않음 (정상은 'luma-api-...' 형식)"
-        elif len(luma_key) < 20:
-            key_format_warning = f"키 길이가 너무 짧음 ({len(luma_key)}자) — 일부만 복사했을 가능성"
-    checks["LUMA_API_KEY"] = {
-        "set": bool(luma_key),
-        "length": len(luma_key) if luma_key else 0,
-        "prefix": (luma_key[:14] + "...") if len(luma_key) > 14 else luma_key,
-        "suffix": ("..." + luma_key[-4:]) if len(luma_key) > 18 else "",
+        else:
+            key_format_warning = f"키 길이가 너무 짧음 ({len(byteplus_key)}자) — 일부만 복사했을 가능성"
+    checks["BYTEPLUS_API_KEY"] = {
+        "set": bool(byteplus_key),
+        "length": len(byteplus_key) if byteplus_key else 0,
+        "prefix": (byteplus_key[:8] + "...") if len(byteplus_key) > 8 else byteplus_key,
+        "suffix": ("..." + byteplus_key[-4:]) if len(byteplus_key) > 12 else "",
         "format_ok": key_format_ok,
         "format_warning": key_format_warning,
     }
-    if not luma_key:
-        missing.append("LUMA_API_KEY")
+    if not byteplus_key:
+        missing.append("BYTEPLUS_API_KEY")
 
     # ② Supabase 연결
     svc_key = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
@@ -12909,93 +12916,67 @@ def runway_health():
     if not sb_table_ok and svc_key:
         missing.append("supabase_user_usage_columns")
 
-    # ④ Luma API 핑 — Dream Machine + Agents 양쪽 시도 (TJ 의 키가 어디 호환되는지 진단)
-    luma_api_ok = False
-    luma_api_error = ""
-    luma_api_hint = ""
-    luma_endpoint_results = {}
-    if luma_key:
+    # ④ BytePlus Seedance API 핑 (인증 + 모델 확인)
+    #   생성 호출은 비용이 들기 때문에 list endpoint 만 호출 (인증 검증)
+    seedance_api_ok = False
+    seedance_api_error = ""
+    seedance_api_hint = ""
+    seedance_status_code = None
+    seedance_response_body = ""
+    if byteplus_key:
         try:
             import requests as _rq
-            # 시도 1: Dream Machine API (비디오용 — 현재 백엔드가 사용)
-            try:
-                r1 = _rq.get(
-                    "https://api.lumalabs.ai/dream-machine/v1/generations",
-                    params={"limit": "1"},
-                    headers={
-                        "Authorization": f"Bearer {luma_key}",
-                        "Accept": "application/json",
-                    },
-                    timeout=10,
+            # BytePlus ModelArk 비디오 생성 작업 목록 조회 (인증 검증용 — 비용 0)
+            ping_url = "https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks"
+            r = _rq.get(
+                ping_url,
+                params={"page_size": "1"},
+                headers={
+                    "Authorization": f"Bearer {byteplus_key}",
+                    "Accept": "application/json",
+                },
+                timeout=10,
+            )
+            seedance_status_code = r.status_code
+            seedance_response_body = r.text[:300]
+            if r.status_code in (200, 201):
+                seedance_api_ok = True
+                seedance_api_hint = "✅ BytePlus Seedance 2.0 API 정상 작동 — 비디오 생성 가능"
+            elif r.status_code == 401:
+                seedance_api_error = "인증 실패 (401) — API Key 가 유효하지 않음"
+                seedance_api_hint = (
+                    "Render 환경변수 BYTEPLUS_API_KEY 확인. "
+                    "BytePlus 콘솔 (console.byteplus.com/ark) 의 'API keys' 에서 키 재확인."
                 )
-                luma_endpoint_results["dream_machine"] = {
-                    "url": "api.lumalabs.ai/dream-machine/v1",
-                    "status": r1.status_code,
-                    "ok": (r1.status_code == 200),
-                    "body": r1.text[:200] if r1.status_code != 200 else "(success)",
-                }
-            except Exception as e1:
-                luma_endpoint_results["dream_machine"] = {
-                    "url": "api.lumalabs.ai/dream-machine/v1",
-                    "status": -1,
-                    "ok": False,
-                    "body": str(e1)[:200],
-                }
-
-            # 시도 2: Luma Agents API (이미지용)
-            try:
-                r2 = _rq.get(
-                    "https://agents.lumalabs.ai/v1/generations",
-                    params={"limit": "1"},
-                    headers={
-                        "Authorization": f"Bearer {luma_key}",
-                        "Accept": "application/json",
-                    },
-                    timeout=10,
+            elif r.status_code == 403:
+                seedance_api_error = "권한 거부 (403) — 모델 활성화 또는 결제 문제"
+                seedance_api_hint = (
+                    "BytePlus 콘솔의 'Model activation' 에서 Dreamina-Seedance-2.0 활성화 확인. "
+                    "Free Credits Only Mode 가 켜져 있고 무료 크레딧 0 이면 자동 중단됨."
                 )
-                luma_endpoint_results["agents"] = {
-                    "url": "agents.lumalabs.ai/v1",
-                    "status": r2.status_code,
-                    "ok": (r2.status_code == 200),
-                    "body": r2.text[:200] if r2.status_code != 200 else "(success)",
-                }
-            except Exception as e2:
-                luma_endpoint_results["agents"] = {
-                    "url": "agents.lumalabs.ai/v1",
-                    "status": -1,
-                    "ok": False,
-                    "body": str(e2)[:200],
-                }
-
-            # 결과 종합
-            dm_ok = luma_endpoint_results.get("dream_machine", {}).get("ok", False)
-            ag_ok = luma_endpoint_results.get("agents", {}).get("ok", False)
-
-            if dm_ok:
-                luma_api_ok = True
-                luma_api_hint = "Dream Machine API 작동 — 비디오 생성 가능"
-            elif ag_ok:
-                luma_api_error = "Dream Machine 403 — 키가 Luma Agents 전용 (이미지만 가능)"
-                luma_api_hint = (
-                    "TJ 의 키는 platform.lumalabs.ai (Agents) 에서 발급됨. "
-                    "비디오 생성을 위해서는 lumalabs.ai/dream-machine/api/keys 에서 별도 가입 필요. "
-                    "또는 Google Veo 로 전환 권장."
+            elif r.status_code == 404:
+                seedance_api_error = "endpoint 404 — base URL 점검 필요"
+                seedance_api_hint = (
+                    "리전 확인. 사용 리전: ap-southeast (Japan). "
+                    "다른 리전은 endpoint 가 다름 (예: cn-beijing)."
                 )
             else:
-                dm_status = luma_endpoint_results.get("dream_machine", {}).get("status", -1)
-                ag_status = luma_endpoint_results.get("agents", {}).get("status", -1)
-                luma_api_error = f"양쪽 endpoint 모두 실패 (DM={dm_status}, Agents={ag_status})"
-                luma_api_hint = "키 자체가 무효이거나 결제 문제 — Luma 콘솔 재확인 필요"
+                seedance_api_error = f"HTTP {r.status_code}"
+                seedance_api_hint = "응답 본문 확인 후 BytePlus 문서 참조"
         except Exception as e:
-            luma_api_error = str(e)[:200]
-    checks["luma_api"] = {
-        "ok": luma_api_ok,
-        "error": luma_api_error,
-        "hint": luma_api_hint,
-        "endpoints_tested": luma_endpoint_results,
+            seedance_api_error = str(e)[:200]
+            seedance_api_hint = "네트워크 오류 — Render 외부 호출 가능한지 확인"
+    checks["byteplus_seedance_api"] = {
+        "ok": seedance_api_ok,
+        "endpoint": "https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks",
+        "status_code": seedance_status_code,
+        "error": seedance_api_error,
+        "hint": seedance_api_hint,
+        "response_body_preview": seedance_response_body,
+        "model_id_used": "dreamina-seedance-2-0-fast-260128",
     }
-    if not luma_api_ok and luma_key:
-        missing.append("luma_api_auth")
+    if not seedance_api_ok and byteplus_key:
+        missing.append("byteplus_seedance_api_auth")
 
     # ⑤ R2 / 결제 관련 (향후)
     checks["r2_video_storage"] = {
@@ -13004,10 +12985,10 @@ def runway_health():
     }
 
     ready = (
-        bool(luma_key)
+        bool(byteplus_key)
         and bool(svc_key)
         and sb_table_ok
-        and luma_api_ok
+        and seedance_api_ok
     )
 
     return jsonify({
@@ -13016,6 +12997,13 @@ def runway_health():
         "missing": missing,
         "checks": checks,
         "tier_limits": _RUNWAY_TIER_LIMITS,
+        "model_info": {
+            "provider": "BytePlus ModelArk",
+            "model": "Dreamina-Seedance-2.0-fast",
+            "model_id": "dreamina-seedance-2-0-fast-260128",
+            "region": "Asia Pacific (Japan)",
+            "base_url": "https://ark.ap-southeast.bytepluses.com/api/v3",
+        },
         "_note": (
             "ready=true 일 때 동영상 생성 가능. "
             "missing 항목이 있다면 가이드에 따라 환경변수 설정 또는 Supabase 마이그레이션 필요."
