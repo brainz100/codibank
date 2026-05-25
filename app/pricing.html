@@ -631,7 +631,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .plan-period.diamond{color:rgba(76,57,137,.6)}
 
 /* ── Stat Pills (코디핏 / 트라이 온 / 아이템 한도 — 숫자 강조) ── */
-.plan-pills{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:14px 0 10px}
+.plan-pills{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin:14px 0 10px}
 .plan-pill{
   border-radius:12px;
   padding:11px 8px 9px;
@@ -992,6 +992,7 @@ const _en = () => window.CodiBankI18n?.isEn?.() || false;
 // ══════════════════════════════════════════════════
 // ─── 2026-04-21 KST 확정 플랜 ───
 // codifitMonthly: 코디핏 월 한도  /  tryonMonthly: 트라이온 월 한도
+// runwayMonthly: 런웨이 동영상 월 한도 (BytePlus Seedance 2.0)
 // itemsLimit: 아이템 등록 총 한도
 // 가격: FREE ₩0 / SILVER ₩5,900 / GOLD ₩19,900 / DIAMOND ₩39,900
 const PLANS_DEF = [
@@ -1005,7 +1006,7 @@ const PLANS_DEF = [
     nameKo: '무료', nameEn: 'Free',
     price: 0, normalPrice: null, priceUsd: 0, normalPriceUsd: null,
     discountLabel: null,
-    codifitMonthly: 3, tryonMonthly: 1, itemsLimit: 20,
+    codifitMonthly: 3, tryonMonthly: 1, runwayMonthly: 0, itemsLimit: 20,
     dailyCodifit: null, dailyItems: null,
     engineCo: 'Nano Banana 2', engineTry: 'Nano Banana Pro',
     cardClass: 'card-free',
@@ -1019,7 +1020,7 @@ const PLANS_DEF = [
     nameKo: '실버', nameEn: 'Silver',
     price: 5900, normalPrice: null, priceUsd: 4.99, normalPriceUsd: null,
     discountLabel: null,
-    codifitMonthly: 60, tryonMonthly: 10, itemsLimit: 200,
+    codifitMonthly: 60, tryonMonthly: 10, runwayMonthly: 2, itemsLimit: 200,
     dailyCodifit: null, dailyItems: null,
     engineCo: 'Nano Banana 2', engineTry: 'Nano Banana Pro',
     cardClass: 'card-silver',
@@ -1033,7 +1034,7 @@ const PLANS_DEF = [
     nameKo: '골드', nameEn: 'Gold',
     price: 19900, normalPrice: null, priceUsd: 13.99, normalPriceUsd: null,
     discountLabel: null,
-    codifitMonthly: 200, tryonMonthly: 30, itemsLimit: 1000,
+    codifitMonthly: 200, tryonMonthly: 30, runwayMonthly: 20, itemsLimit: 1000,
     dailyCodifit: null, dailyItems: null,
     engineCo: 'Nano Banana 2', engineTry: 'Nano Banana Pro',
     cardClass: 'card-gold',
@@ -1048,7 +1049,7 @@ const PLANS_DEF = [
     nameKo: '다이아', nameEn: 'Diamond',
     price: 39900, normalPrice: null, priceUsd: 28.99, normalPriceUsd: null,
     discountLabel: null,
-    codifitMonthly: 9999, tryonMonthly: 100, itemsLimit: 9999,
+    codifitMonthly: 9999, tryonMonthly: 100, runwayMonthly: 50, itemsLimit: 9999,
     dailyCodifit: 20, dailyItems: 100,
     engineCo: 'Nano Banana 2', engineTry: 'Nano Banana Pro',
     cardClass: 'card-diamond',
@@ -1090,12 +1091,14 @@ function renderPlans(){
       priceBlock = `${badge}${normal}<div class="plan-price ${p.nameClass}">${discStr}<span class="plan-period ${p.nameClass}">${period}</span></div>`;
     }
 
-    // ─── Stat Pills (코디핏 / 트라이온 / 아이템) — 숫자 강조 그대로 유지 ───
+    // ─── Stat Pills (코디핏 / 트라이온 / 런웨이 / 아이템) — 4종 모두 동등 표시 ───
     const coUnlimited = p.codifitMonthly >= 9999;
     const trUnlimited = p.tryonMonthly   >= 9999;
+    const rwUnlimited = (p.runwayMonthly || 0) >= 9999;
     const itUnlimited = p.itemsLimit     >= 9999;
     const coVal = coUnlimited ? '∞' : p.codifitMonthly;
     const trVal = trUnlimited ? '∞' : p.tryonMonthly;
+    const rwVal = rwUnlimited ? '∞' : (p.runwayMonthly || 0);
     const itVal = itUnlimited ? '∞' : p.itemsLimit.toLocaleString();
     const unitMo = en ? '/mo' : '/월';
 
@@ -1108,6 +1111,10 @@ function renderPlans(){
         <div class="plan-pill">
           <div class="plan-pill-label">${en?'Try On':'트라이 온'}</div>
           <div class="plan-pill-value">${trVal}<span class="plan-pill-unit">${trUnlimited?'':unitMo}</span></div>
+        </div>
+        <div class="plan-pill">
+          <div class="plan-pill-label">${en?'Runway':'런웨이'}</div>
+          <div class="plan-pill-value">${rwVal}<span class="plan-pill-unit">${rwUnlimited?'':unitMo}</span></div>
         </div>
         <div class="plan-pill">
           <div class="plan-pill-label">${en?'Items':'아이템'}</div>
