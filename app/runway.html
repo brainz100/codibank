@@ -250,8 +250,14 @@ body::before {
 .rw-viewbox-wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 1/1.62;  /* 2026-05-25 KST · TJ 지시 — 황금비율 (페이지 첫 로드부터 강제) */
-  max-height: 80vh;       /* v3: 60vh → 80vh — 작은 모바일에서도 비율 유지 */
+  /* ─── 2026-05-25 KST · TJ 보고 (v6) ─── 영상 비율과 매치 ──────────────
+   *   문제: aspect-ratio 1/1.62 (= 0.617) 인데 영상은 9:16 (= 0.5625) →
+   *         영상이 뷰박스 안에서 좌우 약 20-30% 빈 공간 발생.
+   *   해결: 뷰박스 비율을 영상과 동일한 9:16 으로 변경.
+   *         영상이 뷰박스 가로/세로 꽉 채움. 빈 공간 X.
+   */
+  aspect-ratio: 9/16;
+  max-height: 80vh;
   background: var(--bg-secondary);
   border: 1px solid var(--border-soft);
   border-radius: 18px;
@@ -299,13 +305,17 @@ body::before {
 }
 
 .rw-viewbox-video {
-  /* 2026-05-25 KST · TJ 지시 (v4) — 뷰박스 세로 80% 차지하도록 축소, contain 으로 전체 보이게 */
+  /* ─── 2026-05-25 KST · TJ 보고 (v6) ─── 뷰박스 꽉 채우기 ──────────────
+   *   뷰박스를 9:16 으로 변경 → 영상(9:16)과 비율 매치.
+   *   height 80% → 100% + object-fit: contain → 영상이 뷰박스 가로/세로 꽉 참.
+   *   인물은 영상 자체에 9:16 패딩되어 있으므로 잘림 X.
+   */
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: 100%;
-  height: 80%;
+  height: 100%;
   object-fit: contain;
   background: transparent;
   display: none;
