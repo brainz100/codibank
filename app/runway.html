@@ -250,7 +250,7 @@ body::before {
 .rw-viewbox-wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 9/16;
+  aspect-ratio: 1/1.62;  /* 2026-05-25 KST · TJ 지시 — 황금비율 (이전: 9/16 너무 세로 길었음) */
   max-height: 60vh;
   background: var(--bg-secondary);
   border: 1px solid var(--border-soft);
@@ -313,32 +313,87 @@ body::before {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: 14px;
   z-index: 2;
-  background: rgba(0,2,46,0.78);
+  background: rgba(0,2,46,0.82);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  padding: 24px;
 }
 .rw-viewbox-loading.active { display: flex; }
+
+/* ─── 2026-05-25 KST · TJ 지시 — 무지개 RUNWAY 텍스트 ─── */
+.rw-loading-runway-text {
+  font-family: 'Manrope', sans-serif;
+  font-size: 52px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-align: center;
+  line-height: 1;
+  margin: 0;
+  background: linear-gradient(
+    90deg,
+    #ff3366, #ff8c00, #ffd700, #00ff7f, #00d4ff, #5b6cff, #c264ff, #ff3366
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: rw-rainbow-shift 3.2s linear infinite;
+  filter: drop-shadow(0 4px 16px rgba(151,254,237,0.18));
+}
+@keyframes rw-rainbow-shift {
+  0%   { background-position: 0%   50%; }
+  100% { background-position: 220% 50%; }
+}
+
 .rw-loading-spinner {
   font-family: 'Material Symbols Outlined';
-  font-size: 56px;
+  font-size: 40px;
   color: var(--accent);
   animation: rw-spin 1.4s linear infinite;
   line-height: 1;
+  opacity: 0.7;
 }
 @keyframes rw-spin { to { transform: rotate(360deg); } }
 .rw-loading-text {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 600;
-  color: #fff;
+  color: rgba(255,255,255,0.92);
   text-align: center;
+  letter-spacing: 0.02em;
+  margin-top: 8px;       /* progress bar 와 자연스러운 간격 */
+  line-height: 1.5;
 }
 .rw-loading-sub {
   font-size: 11px;
   color: var(--text-secondary);
   letter-spacing: 0.02em;
   text-align: center;
+}
+
+/* ─── 2026-05-25 KST · TJ 지시 — 35초 기준 가로 progress bar ─── */
+.rw-loading-progress-bar {
+  width: 84%;
+  max-width: 280px;
+  height: 5px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 2px;
+  border: 1px solid rgba(151,254,237,0.12);
+  position: relative;
+}
+.rw-loading-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #5b6cff, var(--accent), #c264ff);
+  background-size: 200% 100%;
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 10px rgba(151,254,237,0.5);
+  animation: rw-rainbow-shift 3.2s linear infinite;
 }
 
 /* === 액션 버튼 (저장 / 공유 / 리셋) === */
@@ -635,9 +690,12 @@ body::before {
         <div class="rw-empty-sub">소요 시간 약 30~60초</div>
       </div>
       <div class="rw-viewbox-loading" id="rwViewboxLoading">
-        <span class="rw-loading-spinner material-symbols-outlined">progress_activity</span>
-        <div class="rw-loading-text">AI가 동영상을 만들고 있어요</div>
-        <div class="rw-loading-sub">약 30~60초 소요 · 페이지를 닫지 마세요</div>
+        <!-- 2026-05-25 KST · TJ 지시 (v3) — 구성: RUNWAY → progress bar → 안내 문구 (단일 행) -->
+        <div class="rw-loading-runway-text">RUNWAY</div>
+        <div class="rw-loading-progress-bar">
+          <div class="rw-loading-progress-fill" id="rwLoadingFill"></div>
+        </div>
+        <div class="rw-loading-text">Ai가 당신만의 쇼를 준비하고 있어요</div>
       </div>
       <video class="rw-viewbox-video" id="rwVideo" autoplay loop muted playsinline></video>
     </div>
@@ -746,6 +804,47 @@ body::before {
       if (window.user && window.user.email) return String(window.user.email).trim().toLowerCase();
     } catch (_) {}
     return '';
+  }
+
+  // ─── 2026-05-25 KST · TJ 지시 ─── 35초 기준 progress bar 애니메이션 ───
+  //   0~35초: 0% → 90% (선형 증가)
+  //   35~95초: 90% → 99% (천천히, 60초 추가에 99% 도달)
+  //   95초 이후: 99% 유지 (영상 완성 대기)
+  //   영상 완성 시: _stopRwProgressBar() 로 100% + cleanup
+  let _rwProgressTimer = null;
+  function _startRwProgressBar(durationMs) {
+    durationMs = durationMs || 35000;
+    const fill = document.getElementById('rwLoadingFill');
+    if (!fill) return;
+    fill.style.width = '0%';
+    if (_rwProgressTimer) { clearInterval(_rwProgressTimer); _rwProgressTimer = null; }
+    const start = Date.now();
+    _rwProgressTimer = setInterval(function() {
+      const elapsed = Date.now() - start;
+      let pct;
+      if (elapsed < durationMs) {
+        // 0~35초: 0% → 90%
+        pct = (elapsed / durationMs) * 90;
+      } else {
+        // 35초 이후: 90% → 99% (60초 추가에 99% 도달)
+        const extra = elapsed - durationMs;
+        pct = 90 + Math.min(9, (extra / 60000) * 9);
+      }
+      if (pct > 99) pct = 99;
+      fill.style.width = pct + '%';
+    }, 250);
+  }
+  function _stopRwProgressBar(success) {
+    if (_rwProgressTimer) {
+      clearInterval(_rwProgressTimer);
+      _rwProgressTimer = null;
+    }
+    const fill = document.getElementById('rwLoadingFill');
+    if (fill) {
+      // success 가 명시되지 않으면 자동 추정: 영상 URL 이 있으면 100%, 없으면 0% 리셋
+      const isSuccess = (typeof success === 'boolean') ? success : !!currentVideoUrl;
+      fill.style.width = isSuccess ? '100%' : '0%';
+    }
   }
 
   let selectedCandidate = null;
@@ -889,6 +988,17 @@ body::before {
   // ═══════════════════════════════════════════════════════════════════
   async function onCandidateClick(card) {
     if (!card) return;
+
+    // ─── 2026-05-25 KST · TJ 지시 ─── 동영상 생성 confirm 팝업 ───
+    //   목적: 사용자가 실수로 카드 클릭해서 사용횟수가 차감되는 것 방지.
+    //         confirm() 은 native 브라우저 다이얼로그 — 어느 환경에서도 작동.
+    //   동작: 취소 → 아무 일도 안 일어남 (카드 selected 도 X)
+    //         확인 → selected + 영상 생성 시작
+    const _confirmed = window.confirm('동영상 생성을 원하세요?\n사용횟수가 차감됩니다.');
+    if (!_confirmed) {
+      return;  // 취소 시 즉시 종료 — selected 클래스도 안 붙음
+    }
+
     $$('.rw-candidate').forEach(function(c){ c.classList.remove('selected'); });
     card.classList.add('selected');
 
@@ -909,6 +1019,7 @@ body::before {
     $('rwViewboxEmpty').style.display = 'none';
     $('rwVideo').style.display = 'none';
     $('rwViewboxLoading').classList.add('active');
+    _startRwProgressBar(35000);  // 2026-05-25 KST · TJ 지시 — 35초 기준 progress bar 시작
     $('rwBtnSave').disabled = true;
     $('rwBtnShare').disabled = true;
 
@@ -934,6 +1045,7 @@ body::before {
       });
       const data = await res.json();
       $('rwViewboxLoading').classList.remove('active');
+      _stopRwProgressBar();  // 2026-05-25 KST · progress bar 정리
 
       if (!data.ok) {
         // 429 (한도) 또는 4xx
@@ -1000,6 +1112,7 @@ body::before {
     } catch (e) {
       console.error('[런웨이 · 생성 호출 실패]', e);
       $('rwViewboxLoading').classList.remove('active');
+      _stopRwProgressBar();  // 2026-05-25 KST · progress bar 정리
       $('rwViewboxMeta').textContent = '생성 실패';
       $('rwViewboxEmpty').innerHTML =
         '<span class="rw-empty-icon material-symbols-outlined" style="color:#ff9b9b;">error</span>' +
@@ -1069,6 +1182,7 @@ body::before {
     const title = item.getAttribute('data-title') || '런웨이 영상';
     const videoUrl = item.getAttribute('data-url') || '';
     $('rwViewboxLoading').classList.remove('active');
+      _stopRwProgressBar();  // 2026-05-25 KST · progress bar 정리
     $('rwViewboxMeta').textContent = `${title} 재생`;
 
     if (videoUrl) {
@@ -1134,6 +1248,7 @@ body::before {
     vid.removeAttribute('src');
     vid.style.display = 'none';
     $('rwViewboxLoading').classList.remove('active');
+      _stopRwProgressBar();  // 2026-05-25 KST · progress bar 정리
     $('rwViewboxMeta').textContent = '이미지를 선택하세요';
     $('rwViewboxEmpty').innerHTML =
       '<span class="rw-empty-icon material-symbols-outlined">slideshow</span>' +
