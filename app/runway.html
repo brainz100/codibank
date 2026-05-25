@@ -299,11 +299,49 @@ body::before {
 }
 
 .rw-viewbox-video {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  object-fit: cover;
-  background: #000;
+  /* 2026-05-25 KST · TJ 지시 (v4) — 뷰박스 세로 80% 차지하도록 축소, contain 으로 전체 보이게 */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 80%;
+  object-fit: contain;
+  background: transparent;
   display: none;
+}
+
+/* ─── 2026-05-25 KST · TJ 지시 (v4) — 동영상 N회 가능 배지 (뷰박스 우측 상단) ─── */
+.rw-usage-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px 6px 8px;
+  border-radius: 9999px;
+  background: rgba(15, 36, 82, 0.75);
+  border: 1px solid rgba(151, 254, 237, 0.32);
+  color: #97FEED;
+  font-family: 'Manrope', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05);
+  pointer-events: none;  /* 클릭 통과 (뷰박스 상호작용 우선) */
+}
+.rw-usage-badge .material-symbols-outlined {
+  font-size: 14px;
+  font-variation-settings: 'wght' 500, 'FILL' 1;
+}
+.rw-usage-badge.exhausted {
+  background: rgba(82, 15, 36, 0.78);
+  border-color: rgba(255, 122, 184, 0.35);
+  color: #ff7ab8;
 }
 
 /* 로딩 상태 */
@@ -768,11 +806,13 @@ body::before {
 
   <!-- ─── 3. 동영상 뷰박스 ─── -->
   <section class="rw-section">
-    <div class="rw-section-head">
-      <h2 class="rw-section-title">미리보기</h2>
-      <span class="rw-section-meta" id="rwViewboxMeta">이미지를 선택하세요</span>
-    </div>
+    <!-- 2026-05-25 KST · TJ 지시 (v4) — '미리보기' 헤더 + meta 텍스트 삭제, 우측 상단 사용량 배지 추가 -->
     <div class="rw-viewbox-wrap" id="rwViewbox">
+      <!-- 동영상 N회 가능 배지 (구독플랜 연동) — 뷰박스 우측 상단 -->
+      <div class="rw-usage-badge" id="rwUsageBadge">
+        <span class="material-symbols-outlined">videocam</span>
+        <span id="rwUsageBadgeText">동영상 0회 가능</span>
+      </div>
       <div class="rw-viewbox-empty" id="rwViewboxEmpty">
         <span class="rw-empty-icon material-symbols-outlined">slideshow</span>
         <div class="rw-empty-text">위에서 이미지를 선택하면<br/>AI가 6초 동영상을 생성합니다</div>
@@ -972,10 +1012,92 @@ body::before {
 
   let selectedCandidate = null;
   let currentVideoUrl = '';
+  let currentVideoMeta = null;  // 2026-05-25 v4 — 자동 저장용
   let usageInfo = { tier: 'FREE', monthly_limit: 0, used_this_month: 0, is_paid: false };
 
   function $(id) { return document.getElementById(id); }
   function $$(sel) { return document.querySelectorAll(sel); }
+
+  // ─── 2026-05-25 KST · TJ 지시 (v4) — '미리보기'/meta 텍스트 삭제 ───
+  //   기존 _safeMeta('...' 호출 다수 → HTML 에서 요소 삭제됨.
+  //   에러 방지 stub: 호출은 그대로 두되 element 없으면 안전하게 skip.
+  //   (별도 텍스트 표시 없음 — 사용자가 영상으로 직접 확인)
+  function _safeMeta(text) {
+    const el = document.getElementById('rwViewboxMeta');
+    if (el) el.textContent = text;
+  }
+
+  // ─── 2026-05-25 KST · TJ 지시 (v4) — 동영상 N회 가능 배지 (구독플랜 연동) ───
+  //   usageInfo 의 tier + monthly_limit + used_this_month 로 잔여 횟수 계산.
+  //   FREE: "동영상 0회 가능" — 회색
+  //   유료: "동영상 N회 가능" — 민트
+  //   소진: "한도 소진" — 분홍
+  function _updateUsageBadge() {
+    const badge = document.getElementById('rwUsageBadge');
+    const text = document.getElementById('rwUsageBadgeText');
+    if (!badge || !text) return;
+    const limit = Number(usageInfo.monthly_limit || 0);
+    const used  = Number(usageInfo.used_this_month || 0);
+    const remaining = Math.max(0, limit - used);
+    if (limit === 0) {
+      text.textContent = '동영상 0회 가능';
+      badge.classList.add('exhausted');
+    } else if (remaining === 0) {
+      text.textContent = '한도 소진';
+      badge.classList.add('exhausted');
+    } else {
+      text.textContent = '동영상 ' + remaining + '회 가능';
+      badge.classList.remove('exhausted');
+    }
+  }
+
+  // ─── 2026-05-25 KST · TJ 지시 (v4) — 영상 자동 저장 (localStorage) ───
+  //   배경: 백엔드 user_videos 테이블 미구현 (stub 응답). 메모리 저장만으로는
+  //         새로고침 시 사라짐. localStorage 에 영상 메타를 저장해서
+  //         '내 런웨이 영상' 리스트에 자동 표시.
+  //   키: 'cb_runway_videos_' + user_email (사용자별)
+  //   최대 50개, 최신순.
+  function _rwLocalKey() {
+    let email = 'guest';
+    try {
+      if (typeof CodiBank !== 'undefined' && CodiBank.getCurrentUser) {
+        const u = CodiBank.getCurrentUser();
+        if (u && u.email) email = String(u.email).trim().toLowerCase();
+      }
+    } catch (_) {}
+    return 'cb_runway_videos_' + email;
+  }
+  function _rwLocalLoad() {
+    try {
+      const raw = localStorage.getItem(_rwLocalKey());
+      return raw ? (JSON.parse(raw) || []) : [];
+    } catch (_) { return []; }
+  }
+  function _rwLocalSave(videoMeta) {
+    if (!videoMeta || !videoMeta.video_url) return;
+    try {
+      const list = _rwLocalLoad();
+      // 중복 방지 (candidate_id + task_id 기준)
+      const exists = list.find(function(v){ return v.task_id && v.task_id === videoMeta.task_id; });
+      if (exists) return;
+      list.unshift({
+        id:           videoMeta.candidate_id || ('rw-' + Date.now()),
+        task_id:      videoMeta.task_id || '',
+        video_url:    videoMeta.video_url,
+        thumb_url:    videoMeta.thumb_url || '',
+        label:        videoMeta.label || '코디핏',
+        duration:     videoMeta.duration_seconds || 6,
+        model:        videoMeta.model || '',
+        candidate_image_url: videoMeta.candidate_image_url || '',
+        created_at:   videoMeta.generated_at || new Date().toISOString(),
+      });
+      if (list.length > 50) list.length = 50;
+      localStorage.setItem(_rwLocalKey(), JSON.stringify(list));
+      console.log('[runway] ✅ 영상 자동 저장 완료, 총', list.length, '개');
+    } catch (e) {
+      console.error('[runway] 영상 자동 저장 실패', e);
+    }
+  }
 
   // ═══════════════════════════════════════════════════════════════════
   // Phase B — 후보 리스트: IDB (codibank.codi_history) 직접 조회
@@ -1135,7 +1257,7 @@ body::before {
       return;
     }
 
-    $('rwViewboxMeta').textContent = `${label} 영상 생성 중`;
+    _safeMeta(`${label} 영상 생성 중`);
     $('rwViewboxEmpty').style.display = 'none';
     $('rwVideo').style.display = 'none';
     $('rwViewboxLoading').classList.add('active');
@@ -1170,7 +1292,7 @@ body::before {
       if (!data.ok) {
         // 429 (한도) 또는 4xx
         const errMsg = data.error || '생성 실패';
-        $('rwViewboxMeta').textContent = '생성 실패';
+        _safeMeta('생성 실패');
         $('rwViewboxEmpty').innerHTML =
           '<span class="rw-empty-icon material-symbols-outlined" style="color:#ff9b9b;">error</span>' +
           `<div class="rw-empty-text" style="color:#ff9b9b;">${escapeHtml(errMsg)}</div>` +
@@ -1179,7 +1301,7 @@ body::before {
         return;
       }
 
-      $('rwViewboxMeta').textContent = `${label} · ${data.duration_seconds || 6}s · ${data.model || 'placeholder'}`;
+      _safeMeta(`${label} · ${data.duration_seconds || 6}s · ${data.model || 'placeholder'}`);
 
       if (data.video_url) {
         // 실제 비디오 URL — 재생
@@ -1195,6 +1317,22 @@ body::before {
         usageInfo.used_this_month += 1;
         usageInfo.remaining = Math.max(0, usageInfo.monthly_limit - usageInfo.used_this_month);
         updateUsageDisplay();
+        _updateUsageBadge();  // 2026-05-25 v4 — 뷰박스 우측 상단 배지 갱신
+
+        // ─── 2026-05-25 v4 · TJ 지시 ─── 자동 저장 + 리스트 즉시 갱신 ───
+        currentVideoMeta = {
+          candidate_id:        candidate_id,
+          task_id:             data.task_id || '',
+          video_url:           data.video_url,
+          thumb_url:           data.thumb_url || '',
+          label:               label,
+          duration_seconds:    data.duration_seconds || 6,
+          model:               data.model || '',
+          candidate_image_url: image_url,
+          generated_at:        data.generated_at || new Date().toISOString(),
+        };
+        _rwLocalSave(currentVideoMeta);
+        try { loadVideoList(); } catch (_) {}  // 리스트 즉시 갱신
       } else {
         // stub 응답 — 사유에 따라 다른 메시지
         currentVideoUrl = '';
@@ -1233,7 +1371,7 @@ body::before {
       console.error('[런웨이 · 생성 호출 실패]', e);
       $('rwViewboxLoading').classList.remove('active');
       _stopRwProgressBar();  // 2026-05-25 KST · progress bar 정리
-      $('rwViewboxMeta').textContent = '생성 실패';
+      _safeMeta('생성 실패');
       $('rwViewboxEmpty').innerHTML =
         '<span class="rw-empty-icon material-symbols-outlined" style="color:#ff9b9b;">error</span>' +
         '<div class="rw-empty-text" style="color:#ff9b9b;">서버 연결에 실패했어요</div>' +
@@ -1243,52 +1381,70 @@ body::before {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // 영상 리스트 로드 (백엔드 GET /api/runway/videos)
+  // 영상 리스트 로드 — 백엔드 GET /api/runway/videos + localStorage 병합
   // ═══════════════════════════════════════════════════════════════════
+  //   백엔드 user_videos 테이블 미구현 (stub) → localStorage 가 진실의 출처.
+  //   백엔드 향후 구현 시 양쪽 병합 + 중복 제거 (task_id 기준).
   async function loadVideos() {
     const wrap = $('rwVideoList');
     const meta = $('rwVideosCount');
     const user_email = _getUserEmail();
+
+    // ① localStorage 먼저 로드 (즉시 표시)
+    let videos = _rwLocalLoad();
+
+    // ② 백엔드 응답이 있으면 병합 (현재는 stub 빈 응답)
     try {
       const url = `${RW_BASE}/api/runway/videos${user_email ? '?user_email=' + encodeURIComponent(user_email) : ''}`;
-      const res = await fetch(url, { method: 'GET', credentials: 'include' });
+      const res = await fetch(url, { method: 'GET' });
       const data = await res.json();
-      if (!data.ok) throw new Error(data.error || '영상 리스트 로드 실패');
-      const videos = data.videos || [];
-      if (meta) meta.textContent = `총 ${videos.length}개`;
-      if (!videos.length) {
-        wrap.innerHTML = `
-          <div class="rw-empty-list">
-            <span class="material-symbols-outlined">video_library</span>
-            <p>아직 만든 런웨이 영상이 없어요</p>
-            <p style="font-size:11px;opacity:0.7;">위에서 이미지를 선택해 첫 영상을 만들어보세요</p>
-          </div>`;
-        return;
+      if (data && data.ok && Array.isArray(data.videos) && data.videos.length > 0) {
+        const localIds = new Set(videos.map(function(v){ return v.task_id || v.id; }));
+        const serverOnly = data.videos.filter(function(v){
+          return !localIds.has(v.task_id || v.id);
+        });
+        videos = videos.concat(serverOnly);
       }
-      wrap.innerHTML = videos.map(renderVideoItem).join('');
-      bindVideoClicks();
     } catch (e) {
-      console.error('[런웨이 · 영상 리스트 로드 실패]', e);
-      if (meta) meta.textContent = '오류';
-      wrap.innerHTML = `<div class="rw-error">영상 리스트를 불러오지 못했어요.</div>`;
+      console.warn('[런웨이 · 백엔드 영상 리스트 실패 — localStorage 만 사용]', e.message);
     }
+
+    if (meta) meta.textContent = `총 ${videos.length}개`;
+    if (!videos.length) {
+      wrap.innerHTML = `
+        <div class="rw-empty-list">
+          <span class="material-symbols-outlined">video_library</span>
+          <p>아직 만든 런웨이 영상이 없어요</p>
+          <p style="font-size:11px;opacity:0.7;">위에서 이미지를 선택해 첫 영상을 만들어보세요</p>
+        </div>`;
+      return;
+    }
+    wrap.innerHTML = videos.map(renderVideoItem).join('');
+    bindVideoClicks();
   }
+
+  // 별명 — 영상 생성 직후 호출용 (의미 명확)
+  function loadVideoList() { return loadVideos(); }
 
   function renderVideoItem(v) {
     const isTryon = (v.type === 'tryon');
     const created = (v.created_at || '').replace('T', ' ').slice(0, 16).replace(/-/g, '.');
     const typeLabel = isTryon ? '트라이온' : '코디핏';
+    // 2026-05-25 v4 — localStorage 와 백엔드 응답 양쪽 호환 (title/label, duration_seconds/duration)
+    const displayTitle = v.title || v.label || typeLabel;
+    const displayDur   = v.duration_seconds || v.duration || 6;
+    const thumbUrl     = v.thumb_url || v.candidate_image_url || '';
     return `
-      <div class="rw-video-item" data-id="${escapeAttr(v.id)}" data-type="${escapeAttr(v.type)}" data-url="${escapeAttr(v.video_url || '')}" data-title="${escapeAttr(v.title || '')}">
-        <div class="rw-video-thumb" data-type="${escapeAttr(v.type)}"${v.thumb_url ? ` style="background-image:url('${escapeAttr(v.thumb_url)}');background-size:cover;background-position:center;"` : ''}></div>
+      <div class="rw-video-item" data-id="${escapeAttr(v.id)}" data-type="${escapeAttr(v.type || 'codifit')}" data-url="${escapeAttr(v.video_url || '')}" data-title="${escapeAttr(displayTitle)}">
+        <div class="rw-video-thumb" data-type="${escapeAttr(v.type || 'codifit')}"${thumbUrl ? ` style="background-image:url('${escapeAttr(thumbUrl)}');background-size:cover;background-position:center;"` : ''}></div>
         <div class="rw-video-meta">
-          <div class="rw-video-title">${escapeHtml(v.title || '제목 없음')}</div>
+          <div class="rw-video-title">${escapeHtml(displayTitle)}</div>
           <div class="rw-video-info">
             <span><span class="material-symbols-outlined">schedule</span>${escapeHtml(created)}</span>
             <span><span class="material-symbols-outlined">videocam</span>${typeLabel}</span>
           </div>
         </div>
-        <div class="rw-video-duration">${v.duration_seconds || 6}s</div>
+        <div class="rw-video-duration">${displayDur}s</div>
       </div>`;
   }
 
@@ -1303,7 +1459,7 @@ body::before {
     const videoUrl = item.getAttribute('data-url') || '';
     $('rwViewboxLoading').classList.remove('active');
       _stopRwProgressBar();  // 2026-05-25 KST · progress bar 정리
-    $('rwViewboxMeta').textContent = `${title} 재생`;
+    _safeMeta(`${title} 재생`);
 
     if (videoUrl) {
       currentVideoUrl = videoUrl;
@@ -1332,12 +1488,14 @@ body::before {
   async function loadUsage() {
     const user_email = _getUserEmail();
     try {
+      // 2026-05-25 v4 — credentials: 'include' 제거 (CORS Wildcard 충돌 방지)
       const url = `${RW_BASE}/api/runway/usage${user_email ? '?user_email=' + encodeURIComponent(user_email) : ''}`;
-      const res = await fetch(url, { method: 'GET', credentials: 'include' });
+      const res = await fetch(url, { method: 'GET' });
       const data = await res.json();
       if (!data.ok) return;
       usageInfo = data;
       updateUsageDisplay();
+      _updateUsageBadge();  // 2026-05-25 v4 — 뷰박스 우측 상단 배지 갱신
     } catch (e) {
       console.warn('[런웨이 · 사용량 로드 실패]', e);
     }
@@ -1369,7 +1527,7 @@ body::before {
     vid.style.display = 'none';
     $('rwViewboxLoading').classList.remove('active');
       _stopRwProgressBar();  // 2026-05-25 KST · progress bar 정리
-    $('rwViewboxMeta').textContent = '이미지를 선택하세요';
+    _safeMeta('이미지를 선택하세요');
     $('rwViewboxEmpty').innerHTML =
       '<span class="rw-empty-icon material-symbols-outlined">slideshow</span>' +
       '<div class="rw-empty-text">위에서 이미지를 선택하면<br/>AI가 6초 동영상을 생성합니다</div>' +
@@ -1392,18 +1550,80 @@ body::before {
     a.remove();
   }
 
-  function onShareClick() {
-    const shareUrl = currentVideoUrl || location.href;
-    if (navigator.share) {
-      navigator.share({ title: 'CodiBank 런웨이', text: '내 런웨이 영상을 확인해보세요', url: shareUrl }).catch(function(){});
-    } else if (navigator.clipboard) {
-      navigator.clipboard.writeText(shareUrl).then(function(){
-        alert('링크가 복사되었어요!');
-      }).catch(function(){
-        alert('공유 기능을 사용할 수 없어요. 링크: ' + shareUrl);
-      });
-    } else {
-      alert('공유 기능을 사용할 수 없어요. 링크: ' + shareUrl);
+  // ─── 2026-05-25 KST · TJ 지시 (v4) ─── 공유 기능 단순화 ───
+  //   기존 문제: BytePlus signed URL (~500자) 그대로 공유 → 카톡에서 정신없는 텍스트.
+  //             URL 클릭 시 mp4 직접 다운로드 → 재생 안 됨.
+  //   해결: Web Share API + 파일 공유 (navigator.share with files).
+  //         mp4 파일 자체를 카톡/메신저에 첨부 → 받는 사람도 영상으로 받음.
+  //   폴백: 파일 공유 미지원 시 → 영상을 짧은 페이지 URL 로 공유 (현재 codibank.kr 도메인).
+  //         또는 클립보드 복사 + 토스트.
+  async function onShareClick() {
+    if (!currentVideoUrl) {
+      alert('공유할 영상이 없습니다');
+      return;
+    }
+    const btn = $('rwBtnShare');
+    const _origIcon = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="material-symbols-outlined" style="animation:rw-spin 1.4s linear infinite">progress_activity</span>준비 중';
+    }
+
+    try {
+      // 시도 1: Web Share API + 파일 (mp4 자체를 첨부)
+      if (navigator.share && navigator.canShare) {
+        const res = await fetch(currentVideoUrl);
+        const blob = await res.blob();
+        const file = new File([blob], 'codibank-runway.mp4', { type: 'video/mp4' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'CodiBank 런웨이',
+            text: '내 런웨이 영상 ✨'
+          });
+          return;  // 성공
+        }
+      }
+
+      // 시도 2: Web Share API (URL only — 폴백)
+      if (navigator.share) {
+        await navigator.share({
+          title: 'CodiBank 런웨이',
+          text: '내 런웨이 영상을 확인해보세요',
+          url: currentVideoUrl
+        });
+        return;
+      }
+
+      // 시도 3: 클립보드 복사 (브라우저가 share API 미지원)
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(currentVideoUrl);
+        alert('영상 링크가 복사되었어요!');
+      } else {
+        alert('이 브라우저에서는 공유 기능을 사용할 수 없어요.');
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') {
+        // 사용자가 공유 취소 — 정상
+        return;
+      }
+      console.error('[runway · 공유 실패]', e);
+      // 폴백: 클립보드라도 복사 시도
+      try {
+        if (navigator.clipboard && currentVideoUrl) {
+          await navigator.clipboard.writeText(currentVideoUrl);
+          alert('영상 링크가 복사되었어요!');
+        } else {
+          alert('공유 실패: ' + (e.message || '잠시 후 다시 시도해주세요'));
+        }
+      } catch (_) {
+        alert('공유 실패: ' + (e.message || ''));
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = _origIcon;
+      }
     }
   }
 
