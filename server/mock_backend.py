@@ -12859,19 +12859,14 @@ def runway_generate():
                 print(f"[runway_generate] ⚠️ 이미지 분리 실패 → 단일 이미지 모드 폴백", flush=True)
 
             # 2) 멋있는 런웨이 워킹 prompt (TJ 차별화 의도: 자신이 워킹하는 듯한 모습)
+            #    단축 버전 — BytePlus 가 너무 긴 prompt 를 거부할 가능성 대비
             seedance_prompt = prompt_in or (
-                "AI-generated fashion model wearing the outfit shown in the reference images, "
-                "performing a confident and elegant runway walk on a professional fashion show stage. "
-                "The video starts with the model walking forward toward the camera in the front-facing pose, "
-                "with natural arm swing and graceful catwalk gait, full body in frame. "
-                "Then the model gracefully turns around 180 degrees mid-walk with smooth body rotation, "
-                "transitioning naturally to reveal the back of the outfit. "
-                "The video ends with the model continuing to walk away in the back-facing pose, "
-                "showcasing the rear details of the clothing. "
-                "Smooth cinematic motion throughout, professional fashion runway atmosphere, "
-                "soft studio lighting with subtle rim light, neutral solid background, "
-                "sharp focus on clothing texture and silhouette, high-quality fashion video aesthetics, "
-                "no text or graphics overlay."
+                "AI-generated fashion model in the outfit, "
+                "confident runway catwalk: walking forward toward camera in front view, "
+                "then smoothly turning 180 degrees mid-walk to reveal the back of the outfit, "
+                "natural arm swing and elegant gait, full body in frame, "
+                "smooth cinematic motion, soft studio lighting, neutral background, "
+                "professional fashion runway atmosphere, sharp clothing details."
             )
 
             # 3) BytePlus 비디오 생성 요청
@@ -12886,8 +12881,11 @@ def runway_generate():
                 "Content-Type": "application/json",
             }
 
-            def _build_payload(_model_id: str, _front: str, _back: str, _use_first_last: bool) -> dict:
-                """payload 빌더 — first/last frame 모드 또는 단일 frame 모드"""
+            def _build_payload(_model_id: str, _front: str, _back: str, _use_first_last: bool, _use_role: bool = False) -> dict:
+                """payload 빌더 — first/last frame 모드 또는 단일 frame 모드
+                _use_role=True: image_url object 에 role 필드 (BytePlus 일부 wrapper 표준)
+                _use_role=False: 순서로 인식 (첫 번째=first, 두 번째=last) — BytePlus 공식 가능성 높음
+                """
                 base = {
                     "model": _model_id,
                     "ratio": "9:16",         # root 파라미터 — 세로 영상
@@ -12895,12 +12893,20 @@ def runway_generate():
                     "duration": duration,    # root 파라미터
                 }
                 if _use_first_last:
-                    # First/Last Frame 모드: 정면 = first, 후면 = last
-                    base["content"] = [
-                        {"type": "text", "text": seedance_prompt},
-                        {"type": "image_url", "image_url": {"url": _front}, "role": "first_frame"},
-                        {"type": "image_url", "image_url": {"url": _back},  "role": "last_frame"},
-                    ]
+                    if _use_role:
+                        # 시도 A: role 필드 명시 (wrapper API 표준)
+                        base["content"] = [
+                            {"type": "text", "text": seedance_prompt},
+                            {"type": "image_url", "image_url": {"url": _front}, "role": "first_frame"},
+                            {"type": "image_url", "image_url": {"url": _back},  "role": "last_frame"},
+                        ]
+                    else:
+                        # 시도 B: 순서로 인식 (BytePlus ModelArk 공식 가능성)
+                        base["content"] = [
+                            {"type": "text", "text": seedance_prompt},
+                            {"type": "image_url", "image_url": {"url": _front}},  # 순서 1 = first
+                            {"type": "image_url", "image_url": {"url": _back}},   # 순서 2 = last
+                        ]
                 else:
                     # 단일 이미지 모드 (분리 실패 또는 first/last 거부 시 폴백)
                     base["content"] = [
@@ -13011,12 +13017,12 @@ def runway_generate():
             if not task_id:
                 raise RuntimeError(f"BytePlus response 에 task id 없음: {str(gen_data)[:200]}")
 
-            # 2) 폴링 (최대 180초, 3초 간격 — Seedance 평균 60~120초 소요)
+            # 2) 폴링 (최대 300초, 3초 간격 — Seedance 평균 60~180초 소요, 안전 margin)
             import time as _time
             poll_url = f"https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks/{task_id}"
             video_url = ""
             thumb_url = ""
-            for _i in range(60):  # 60 * 3 = 180초
+            for _i in range(100):  # 100 * 3 = 300초
                 _time.sleep(3)
                 pr = _rq.get(poll_url, headers=create_headers, timeout=15)
                 if pr.status_code >= 400:
@@ -13034,7 +13040,7 @@ def runway_generate():
                     err_msg = err.get("message") or err.get("code") or str(err)[:200]
                     raise RuntimeError(f"Seedance 생성 실패: {err_msg}")
             if not video_url:
-                raise RuntimeError("Seedance 폴링 타임아웃 (180초)")
+                raise RuntimeError("Seedance 폴링 타임아웃 (300초)")
 
             # 3) Supabase 사용량 +1
             _runway_increment_usage(user_email)
