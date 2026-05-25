@@ -264,7 +264,7 @@ body {
 <!-- 회원 목록 -->
 <div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">group</span>회원 목록</div><button class="rb" onclick="ldU()"><span class="mi">refresh</span>새로고침</button></div>
 <div class="tw"><div class="cb"><input id="qU" placeholder="이메일 검색..." oninput="fU()"><select id="sU" onchange="fU()"><option value="c_d">가입일 최신순</option><option value="c_a">가입일 오래된순</option><option value="l_d">최근로그인순</option><option value="e_a">이메일순</option></select></div>
-<table><thead><tr><th>이메일</th><th>닉네임</th><th>가입일</th><th>최근로그인</th><th>회원구분</th><th>성별</th><th>상태</th><th>코디핏 보너스</th><th>트라이온 보너스</th><th>관리</th></tr></thead><tbody id="tU"></tbody></table>
+<table><thead><tr><th>이메일</th><th>닉네임</th><th>가입일</th><th>최근로그인</th><th>회원구분</th><th>성별</th><th>상태</th><th>코디핏 보너스</th><th>트라이온 보너스</th><th>런웨이 보너스</th><th>관리</th></tr></thead><tbody id="tU"></tbody></table>
 <div class="pager" id="pgU"><span></span><span><button onclick="pgU(-1)">◀</button> <span id="pgUt">1/1</span> <button onclick="pgU(1)">▶</button> <select id="ppU" onchange="fU()"><option>20</option><option>50</option><option>100</option></select>건</span></div>
 </div></div>
 </div>
@@ -483,6 +483,52 @@ body {
       <tbody id="tItemBonusList"><tr><td colspan="5" class="empty">새로고침 버튼을 눌러주세요</td></tr></tbody>
     </table>
   </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     섹션 1-C: 런웨이 동영상 보너스 관리 (MASTER) — 2026-05-25 신규
+     BytePlus Seedance 2.0 기반 동영상 생성 무료 보너스
+══════════════════════════════════════════════════ -->
+<div class="card-sec" id="secRunwayBonusMgr" style="display:none;">
+  <div class="card-sec-title">
+    <span class="mi">movie</span>런웨이 동영상 보너스 관리
+    <span class="master-only-badge">MASTER 전용</span>
+  </div>
+  <div class="card-sec-sub">
+    특정 회원에게 런웨이 동영상 생성 무료 보너스 횟수를 지급·수정·취소합니다.<br>
+    <span style="color:#0B666A;font-weight:700;">※ BytePlus Seedance 2.0 기반 — tier 한도(GOLD 20/DIAMOND 50)에 보너스 추가됨.</span>
+  </div>
+
+  <!-- 지급 폼 -->
+  <div style="background:#fff5f8;border:1px solid #ffd6e7;border-radius:9px;padding:14px;margin-bottom:12px;">
+    <div style="font-size:12px;font-weight:800;color:#071952;margin-bottom:10px;">런웨이 보너스 지급 / 수정</div>
+    <div style="display:grid;grid-template-columns:1fr 110px 100px;gap:8px;align-items:end;">
+      <div>
+        <label class="fl">회원 이메일 <span style="color:#e53e3e">*</span></label>
+        <input id="runwayBonusEmail" type="email" class="fi" placeholder="user@codibank.kr">
+      </div>
+      <div>
+        <label class="fl" style="color:#b41a6a;">동영상 +</label>
+        <input id="runwayBonusCount" type="number" min="0" max="9999" value="5" class="fi" style="text-align:center;font-size:15px;font-weight:800;color:#b41a6a;border-color:#b41a6a;">
+      </div>
+      <button class="btn-main" onclick="applyRunwayBonus()" style="height:38px;background:#b41a6a;">지급하기</button>
+    </div>
+    <div style="font-size:10px;color:#888;margin-top:5px;">※ 0 = 보너스 취소 &nbsp;|&nbsp; 기존 지급 내역을 덮어씁니다 &nbsp;|&nbsp; tier 월 한도에 추가됨</div>
+    <div id="runwayBonusResult" style="margin-top:8px;font-size:12px;font-weight:600;min-height:16px;"></div>
+  </div>
+
+  <!-- 지급 현황 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div style="font-size:12px;font-weight:800;color:#071952;">이달 런웨이 보너스 현황 <span id="runwayBonusMonth" style="font-size:10px;color:#888;font-weight:500;"></span></div>
+    <button class="rb" onclick="ldRunwayBonusMgr()"><span class="mi">refresh</span>새로고침</button>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr><th>이메일</th><th style="text-align:center;color:#b41a6a;">동영상 보너스</th><th style="text-align:center;">저장</th><th style="text-align:center;">앱 반영</th><th style="text-align:center;">수정 / 취소</th></tr></thead>
+      <tbody id="tRunwayBonusList"><tr><td colspan="5" class="empty">새로고침 버튼을 눌러주세요</td></tr></tbody>
+    </table>
+  </div>
+  <div id="runwayBonusListNote" style="padding:5px 0;font-size:10px;color:#e65100;display:none;">⚠ 서버 메모리에만 저장 — 재시작 시 초기화됩니다. Supabase user_usage_bonus.runway_bonus 컬럼 추가 필요.</div>
 </div>
 
 <!-- ══════════════════════════════════════════════════
@@ -751,7 +797,7 @@ function applyPermissions(){
   });
   // 계정관리 섹션 마스터 전용
   if(_ME.role!=='MASTER'){
-    ['secAdminMgr','secBonusMgr','secItemBonusMgr','secTestAcct','secSyncSupabase','secSysStatus'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
+    ['secAdminMgr','secBonusMgr','secItemBonusMgr','secRunwayBonusMgr','secTestAcct','secSyncSupabase','secSysStatus'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
   }
 }
 function stab(el,n){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on')});document.querySelectorAll('.tp').forEach(function(p){p.classList.remove('on')});el.classList.add('on');document.getElementById('p-'+n).classList.add('on')}
@@ -1284,6 +1330,102 @@ async function cancelItemBonus(btn){
   }catch(e){toast('❌ '+e.message,true);}
 }
 
+// ═══ 런웨이 동영상 보너스 (2026-05-25 신규) ════════════════════════
+// BytePlus Seedance 2.0 기반 — tier 한도에 보너스 추가
+async function applyRunwayBonus(){
+  if(!isMaster()){toast('MASTER 권한이 필요합니다',true);return;}
+  var email=document.getElementById('runwayBonusEmail').value.trim().toLowerCase();
+  var runwayB=parseInt(document.getElementById('runwayBonusCount').value)||0;
+  var res=document.getElementById('runwayBonusResult');
+  if(!email){res.style.color='#e53e3e';res.textContent='⚠ 이메일을 입력하세요';return;}
+  if(runwayB<0){res.style.color='#e53e3e';res.textContent='⚠ 0 이상의 숫자를 입력하세요';return;}
+  res.style.color='#666';res.textContent='⏳ 저장 중...';
+  try{
+    var r=await authFetch(B+'/admin/runway/set-bonus',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:email,runway_bonus:runwayB})
+    });
+    var d=await r.json();
+    if(d.ok){
+      res.style.color='#0B666A';
+      res.textContent='✅ '+email+' 런웨이 보너스 '+(runwayB===0?'취소':'+'+runwayB+'개')+' 지급 완료'+(d.source==='memory_fallback'?' (메모리 임시저장)':'');
+      toast('✅ 런웨이 보너스 지급 완료');
+      document.getElementById('runwayBonusEmail').value='';
+      document.getElementById('runwayBonusCount').value='5';
+      ldRunwayBonusMgr();
+    }else{
+      res.style.color='#e53e3e';res.textContent='❌ '+(d.error||'실패');
+      toast('❌ '+(d.error||'지급 실패'),true);
+    }
+  }catch(e){res.style.color='#e53e3e';res.textContent='❌ '+e.message;toast('❌ '+e.message,true);}
+}
+
+async function ldRunwayBonusMgr(){
+  var tb=document.getElementById('tRunwayBonusList');
+  tb.innerHTML='<tr><td colspan="5" class="ld"><span class="sp"></span>불러오는 중...</td></tr>';
+  try{
+    var r=await authFetch(B+'/admin/runway/bonus-list');
+    var d=await r.json();
+    if(!d.ok)throw new Error(d.error||'조회 실패');
+    var rows=d.list||[];
+    var monthEl=document.getElementById('runwayBonusMonth');
+    if(monthEl)monthEl.textContent='('+d.month+')';
+    if(!rows.length){tb.innerHTML='<tr><td colspan="5" class="empty">지급된 런웨이 보너스가 없습니다</td></tr>';return;}
+    var h='',hasFallback=false;
+    rows.forEach(function(x){
+      var email=(x.email||'').toLowerCase();
+      var rb=parseInt(x.runway_bonus||0);
+      if(x.updated_at==='—')hasFallback=true;
+      h+='<tr>'
+        +'<td style="font-weight:600;color:#071952">'+email+'</td>'
+        +'<td style="text-align:center;font-weight:800;color:#b41a6a;">+'+rb+'</td>'
+        +'<td style="text-align:center;color:#888;font-size:10px;">'+(x.updated_at==='—'?'<span style="color:#e65100;">메모리</span>':'Supabase')+'</td>'
+        +'<td style="text-align:center;color:#0B666A;font-weight:700;">자동 반영</td>'
+        +'<td style="text-align:center;white-space:nowrap;">'
+        +'<button class="rb" onclick="fixRunwayBonus(this)" data-email="'+email+'" data-rb="'+rb+'" title="수정"><span class="mi">edit</span>수정</button> '
+        +'<button class="rb" style="border-color:#e53e3e;color:#e53e3e;" onclick="cancelRunwayBonus(this)" data-email="'+email+'" title="취소(0)"><span class="mi">cancel</span>취소</button>'
+        +'</td>'
+        +'</tr>';
+    });
+    tb.innerHTML=h;
+    var note=document.getElementById('runwayBonusListNote');
+    if(note)note.style.display=hasFallback?'block':'none';
+  }catch(e){tb.innerHTML='<tr><td colspan="5" class="empty">조회 실패: '+e.message+'</td></tr>';}
+}
+
+async function fixRunwayBonus(btn){
+  if(!isMaster()){toast('MASTER 권한이 필요합니다',true);return;}
+  var email=btn&&btn.dataset?btn.dataset.email:btn;
+  var currentRb=btn&&btn.dataset?parseInt(btn.dataset.rb||0):0;
+  var newStr=prompt(email+'\n현재 런웨이 보너스: +'+currentRb+'회\n새 동영상 횟수를 입력하세요 (취소=0):', currentRb);
+  if(newStr===null)return;
+  var rb=parseInt(newStr)||0;
+  if(rb<0){alert('0 이상의 숫자를 입력하세요.');return;}
+  try{
+    var r=await authFetch(B+'/admin/runway/set-bonus',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:email,runway_bonus:rb})
+    });
+    var d=await r.json();
+    if(d.ok){toast('✅ '+email+' 런웨이 보너스 '+(rb===0?'취소':'+'+rb)+' 수정 완료');ldRunwayBonusMgr();}
+    else toast('❌ '+(d.error||'실패'),true);
+  }catch(e){toast('❌ '+e.message,true);}
+}
+
+async function cancelRunwayBonus(btn){
+  var email=btn&&btn.dataset?btn.dataset.email:btn;
+  if(!confirm(email+' 의 런웨이 동영상 보너스를 취소(0으로 설정)하시겠습니까?'))return;
+  try{
+    var r=await authFetch(B+'/admin/runway/set-bonus',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:email,runway_bonus:0})
+    });
+    var d=await r.json();
+    if(d.ok){toast('✅ '+email+' 런웨이 보너스 취소 완료');ldRunwayBonusMgr();}
+    else toast('❌ '+(d.error||'실패'),true);
+  }catch(e){toast('❌ '+e.message,true);}
+}
+
 // ── 이미지 생성 보너스 수정 (코디핏/트라이온 분리) ─── 2026-04-21 개편 ───
 async function editBonus(btn){
   if(!isMaster()){toast('MASTER 권한이 필요합니다',true);return;}
@@ -1587,9 +1729,10 @@ function ldAll(){
     ldAdmins();
     ldBonusMgr();
     ldItemBonusMgr();
+    ldRunwayBonusMgr();
     ldUsageSummary();
     setTimeout(showSysStatus, 600);
-    ['secBonusMgr','secItemBonusMgr','secTestAcct','secAdminMgr','secSyncSupabase','secSysStatus','secMemberBonus','secUsageSummary'].forEach(function(id){
+    ['secBonusMgr','secItemBonusMgr','secRunwayBonusMgr','secTestAcct','secAdminMgr','secSyncSupabase','secSysStatus','secMemberBonus','secUsageSummary'].forEach(function(id){
       var el=document.getElementById(id); if(el) el.style.display='block';
     });
   }
