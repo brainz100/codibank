@@ -710,8 +710,20 @@ body::before {
   const RW_BASE = _runwayBackendBase();
 
   // ── Phase A: 사용자 이메일 추출 (다른 페이지와 동일 패턴) ──
+  //   ─── 2026-05-25 KST · 패치: stub 원인 수정 ───
+  //   이전: window.user.email 만 체크 → 항상 빈 값 반환 → 백엔드가 게스트(FREE) 처리
+  //   → /api/runway/generate 가 'is_paid=False' 분기로 stub 모드 발동
+  //   증거: Render log responseTimeMS=4ms (즉시 stub 응답)
+  //   수정: closet.html / tryon.html 패턴과 동일하게 CodiBank.getCurrentUser() 우선
+  //   효과: prowizard@naver.com → 화이트리스트 매칭 → DIAMOND → 실제 Seedance 호출
   function _getUserEmail() {
     try {
+      // ① CodiBank.getCurrentUser() — 표준 (closet/tryon/aicloset 동일)
+      if (typeof CodiBank !== 'undefined' && CodiBank.getCurrentUser) {
+        const u = CodiBank.getCurrentUser();
+        if (u && u.email) return String(u.email).trim().toLowerCase();
+      }
+      // ② window.user — 레거시 호환
       if (window.user && window.user.email) return String(window.user.email).trim().toLowerCase();
     } catch (_) {}
     return '';
@@ -933,14 +945,18 @@ body::before {
         currentVideoUrl = '';
         const stubReason = data._stub_reason || '';
         let stubMsg = '동영상 생성 완료 (stub 모드)';
-        let stubSub = '실제 영상은 Luma 통합 + GOLD 이상 요금제에서 제공됩니다';
-        if (stubReason.indexOf('비유료') >= 0 || stubReason.indexOf('FREE') >= 0 || stubReason.indexOf('SILVER') >= 0) {
-          stubMsg = 'GOLD 이상 요금제 필요';
-          stubSub = '런웨이 영상은 GOLD/DIAMOND 회원만 이용 가능합니다';
-        } else if (stubReason.indexOf('LUMA_API_KEY') >= 0) {
+        let stubSub = '실제 영상은 BytePlus Seedance 통합 + 유료 회원에서 제공됩니다';
+        // ─── 2026-05-25 KST 패치: SILVER도 동영상 가능, 메시지 업데이트 ───
+        if (stubReason.indexOf('비유료') >= 0 || stubReason.indexOf('FREE') >= 0) {
+          stubMsg = '유료 회원 전용';
+          stubSub = '런웨이 영상은 SILVER · GOLD · DIAMOND 회원만 이용 가능합니다';
+        } else if (stubReason.indexOf('BYTEPLUS_API_KEY') >= 0) {
           stubMsg = '서비스 준비 중';
           stubSub = '동영상 생성 서비스 활성화 후 다시 시도해주세요';
-        } else if (stubReason.indexOf('Luma') >= 0) {
+        } else if (stubReason.indexOf('image_url') >= 0) {
+          stubMsg = '이미지 URL 누락';
+          stubSub = '코디핏 결과 이미지를 다시 선택하고 시도해주세요';
+        } else if (stubReason.indexOf('Seedance') >= 0 || stubReason.indexOf('BytePlus') >= 0) {
           stubMsg = '일시적 오류';
           stubSub = '잠시 후 다시 시도해주세요';
         }

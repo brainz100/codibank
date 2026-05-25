@@ -278,6 +278,20 @@ function getBackendBaseResolved() {
   function _sbUserToCb(sbUser) {
     if (!sbUser) return null;
     const m = sbUser.user_metadata || {};
+
+    // ─── 2026-05-25 KST 패치: 관리자/테스트 계정 자동 DIAMOND plan 처리 ───
+    //   대상:
+    //     · admin@codibank.kr   (총괄 관리자)
+    //     · prowizard@naver.com (테스트 계정)
+    //   효과: 두 계정은 모든 페이지에서 user.plan='DIAMOND' 로 처리됨.
+    //         코디핏(∞), 트라이온(100/월), 아이템(∞), 런웨이(50/월) 모두
+    //         DIAMOND tier 한도로 적용. pricing.html '현재 플랜'도 다이아 표시.
+    //   백엔드 _RUNWAY_ADMIN_EMAILS / _RUNWAY_TEST_EMAILS 와 일치.
+    const _email = (sbUser.email || '').toLowerCase().trim();
+    const _ADMIN_PLAN_EMAILS = ['admin@codibank.kr', 'prowizard@naver.com'];
+    const _forceAdminPlan = _ADMIN_PLAN_EMAILS.indexOf(_email) >= 0;
+    const _resolvedPlan = _forceAdminPlan ? 'DIAMOND' : (m.plan || 'FREE');
+
     return {
       email:            sbUser.email || '',
       gender:           m.gender     || '',
@@ -287,7 +301,7 @@ function getBackendBaseResolved() {
       location:         m.location   || '',
       nickname:         m.nickname   || m.name || '',
       avatarFace:       m.avatarFace || '',
-      plan:             m.plan       || 'FREE',
+      plan:             _resolvedPlan,
       categories:       m.categories || DEFAULT_CATEGORIES.map((c) => c.key),
       customCategories: m.customCategories || [],
       createdAt:        sbUser.created_at  || nowIso(),

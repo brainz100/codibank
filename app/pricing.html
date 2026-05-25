@@ -391,7 +391,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 /* ─── 2026-05-09 KST · TJ 지시 (v35/v37) ─── 카드 가로 사이즈 확대
  * v35: gap 8 → 6, padding 좌우 10 → 14
  * v37: gap 6 → 4 (간격 더 축소) + 카드 padding 좌/우 14 → 11 (내용 공간 확보) */
-.summary-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;position:relative;z-index:1}
+.summary-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;position:relative;z-index:1}
 .summary-stat{
   background:rgba(255,255,255,.04);
   border:1px solid rgba(255,255,255,.08);
@@ -446,6 +446,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .summary-stat.codifit .summary-stat-fill{background:linear-gradient(90deg,#35A29F,#97FEED)}
 .summary-stat.tryon   .summary-stat-icon{background:rgba(240,163,197,.15);color:#F0A3C5}
 .summary-stat.tryon   .summary-stat-fill{background:linear-gradient(90deg,#d54f82,#F0A3C5)}
+.summary-stat.runway  .summary-stat-icon{background:rgba(180,26,106,.18);color:#ff7ab8}
+.summary-stat.runway  .summary-stat-fill{background:linear-gradient(90deg,#b41a6a,#ff7ab8)}
 .summary-stat.items   .summary-stat-icon{background:rgba(196,181,253,.15);color:#C4B5FD}
 .summary-stat.items   .summary-stat-fill{background:linear-gradient(90deg,#7C3AED,#C4B5FD)}
 
@@ -888,6 +890,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
         <div class="summary-stat-bonus" id="sumTrBonus">기본</div>
         <div class="summary-stat-bar"><div class="summary-stat-fill" id="sumTrFill" style="width:0%"></div></div>
       </div>
+      <!-- ─── 2026-05-25 KST 신규 ─── 런웨이 동영상 (BytePlus Seedance 2.0) ─── -->
+      <div class="summary-stat runway">
+        <div class="summary-stat-head">
+          <div class="summary-stat-icon"><span class="mi">movie</span></div>
+          <div class="summary-stat-name" id="sumRwName">런웨이</div>
+        </div>
+        <div class="summary-stat-value">
+          <span class="summary-stat-used" id="sumRwUsed">0</span>
+          <span class="summary-stat-limit" id="sumRwLimit">/ 0</span>
+        </div>
+        <div class="summary-stat-bonus" id="sumRwBonus">기본</div>
+        <div class="summary-stat-bar"><div class="summary-stat-fill" id="sumRwFill" style="width:0%"></div></div>
+      </div>
       <!-- 아이템 — v37: 보너스 박스 동일하게 노출(기존 0일 때 회색 '기본', >0이면 노란 chip) -->
       <div class="summary-stat items">
         <div class="summary-stat-head">
@@ -1267,9 +1282,11 @@ async function renderStatus(){
   // Summary stat 카드 라벨 i18n
   var _sumCoName = document.getElementById('sumCoName');
   var _sumTrName = document.getElementById('sumTrName');
+  var _sumRwName = document.getElementById('sumRwName');
   var _sumItName = document.getElementById('sumItName');
   if(_sumCoName) _sumCoName.textContent = en ? 'Codi Fit'  : '코디핏';
   if(_sumTrName) _sumTrName.textContent = en ? 'Try On'    : '트라이 온';
+  if(_sumRwName) _sumRwName.textContent = en ? 'Runway'    : '런웨이';
   if(_sumItName) _sumItName.textContent = en ? 'Items'     : '아이템';
 
   // ─── 2026-04-21: 코디핏/트라이온 사용량 분리 읽기 (localStorage) ───
@@ -1344,6 +1361,36 @@ async function renderStatus(){
   _updateSummaryStat('Co', closetUsed, codifitLimit, codifitBonus, {unlimited:codifitUnlimited});
   _updateSummaryStat('Tr', tryonUsed,  tryonLimit,   tryonBonus,   {unlimited:tryonUnlimited});
   // 아이템은 아래 fetch 블록에서 itemUsed/itemBonus 조회 후 별도 호출됨
+
+  // ─── 2026-05-25 KST 신규 ─── 런웨이 사용량/한도/보너스 조회 + 카드 업데이트 ───
+  //   백엔드: GET /api/runway/usage?user_email=...     → used_this_month, base_limit, runway_bonus
+  //           GET /api/usage/runway-bonus/<email>      → runway_bonus (fallback)
+  //   카드 ID: sumRwUsed / sumRwLimit / sumRwBonus / sumRwFill
+  (async function _updateRunwaySummary(){
+    let rwUsed   = 0;
+    let rwBase   = parseInt(planDef.runwayMonthly || 0);
+    let rwBonus  = 0;
+    let rwUnlim  = rwBase >= 9999;
+    try{
+      const bb = (typeof CodiBank.getBackendBaseResolved==='function') ? CodiBank.getBackendBaseResolved() : '';
+      if(bb && user.email){
+        // 1) /api/runway/usage — used + base_limit + runway_bonus 한 번에
+        const r = await fetch(bb+'/api/runway/usage?user_email='+encodeURIComponent(user.email));
+        if(r.ok){
+          const d = await r.json();
+          if(d && d.ok){
+            rwUsed  = parseInt(d.used_this_month || 0);
+            // tier 기반 base 우선 사용 (백엔드와 일치)
+            if(typeof d.base_limit === 'number') rwBase = parseInt(d.base_limit);
+            rwBonus = parseInt(d.runway_bonus || 0);
+            rwUnlim = rwBase >= 9999;
+          }
+        }
+      }
+    }catch(_){}
+    const rwLimit = rwUnlim ? 9999 : (rwBase + rwBonus);
+    _updateSummaryStat('Rw', rwUsed, rwLimit, rwBonus, {unlimited:rwUnlim});
+  })();
 
   // ─── 2026-04-21: 가능 횟수 박스 — 코디핏/트라이온/아이템 3줄 ───
   // 표시 형식: "*코디핏 생성 횟수 {총한도}회 = 구독플랜 {base}회 + 보너스 지급 {bonus}회   (사용: X회)"
