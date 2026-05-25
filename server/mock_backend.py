@@ -12575,7 +12575,7 @@ def _runway_increment_usage(user_email):
 # tier 별 월 동영상 한도 (향후 Supabase 사용자 tier 와 연동)
 _RUNWAY_TIER_LIMITS = {
     "FREE":    0,
-    "SILVER":  0,
+    "SILVER":  2,
     "GOLD":    20,
     "DIAMOND": 50,
 }
@@ -12644,9 +12644,9 @@ def runway_generate():
         # ─── Phase A · 사용자 인증 + tier 검증 ───────────────────────
         user_email = _runway_extract_user_email(request)
         user_tier = _runway_get_user_tier(user_email)
-        # 게스트(이메일 없음) 또는 FREE/SILVER 는 stub 모드만
-        # GOLD/DIAMOND 는 실제 Seedance 시도
-        is_paid = user_tier in ("GOLD", "DIAMOND")
+        # 게스트(이메일 없음) 또는 FREE 는 stub 모드만
+        # SILVER/GOLD/DIAMOND 는 실제 Seedance 시도 (2026-05-25: SILVER 도 동영상 2회 기본)
+        is_paid = user_tier in ("SILVER", "GOLD", "DIAMOND")
 
         # ─── tier 별 월 한도 체크 (유료 사용자만) + 런웨이 보너스 합산 ───────
         if is_paid:
