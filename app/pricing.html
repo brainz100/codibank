@@ -1000,6 +1000,27 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 <script>
 if(!CodiBank.requireAuth('login.html')){}
 const user = CodiBank.getCurrentUser() || {};
+
+// ─── 2026-05-25 KST 패치: 관리자/테스트 계정 자동 DIAMOND plan (이중 보호) ───
+//   원인 진단: codibank.js 의 _sbUserToCb 화이트리스트가 적용되어 있어도
+//              브라우저 캐시 또는 Vercel 배포 지연으로 옛 버전이 로드될 수 있음.
+//              결과: prowizard@naver.com 인데도 user.plan='free' 표시 (이미지 증거).
+//   해결: pricing.html 자체에서 화이트리스트 한 번 더 적용.
+//        const 인 user 변수의 속성은 변경 가능 (const = reference 만 불변).
+//   대상: admin@codibank.kr, prowizard@naver.com → 자동 DIAMOND
+(function _ensureAdminDiamondPlan(){
+  try {
+    const _email = String(user.email || '').toLowerCase().trim();
+    const _ADMIN_PLAN_EMAILS = ['admin@codibank.kr', 'prowizard@naver.com'];
+    if (_ADMIN_PLAN_EMAILS.indexOf(_email) >= 0) {
+      user.plan = 'DIAMOND';
+      console.log('[pricing] ✅ 관리자/테스트 계정 자동 DIAMOND 적용:', _email);
+    }
+  } catch (e) {
+    console.warn('[pricing] 화이트리스트 적용 실패:', e);
+  }
+})();
+
 const _en = () => window.CodiBankI18n?.isEn?.() || false;
 
 // ══════════════════════════════════════════════════
