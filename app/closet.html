@@ -8208,6 +8208,10 @@ function renderStylingPoint(){
     const catKwRow     = document.getElementById("catKwRow");
     if(!catKwRow) return;
 
+    // ─── 2026-05-25 KST · 패치: _isEn2 외부 스코프 정의 누락 (ReferenceError 수정) ───
+    //   line 8253의 forEach 콜백 안 `var _isEn2`는 콜백 스코프 한정이라 
+    //   바깥(여기 line ~8211)에서는 ReferenceError 발생함. 외부 정의 명시.
+    const _isEn2 = window.CodiBankI18n && CodiBankI18n.isEn();
     const _outerDisplayLabel = S.outerLabel || (_isEn2?'Outer':'아우터');
     const CAT_LABELS = [
       { key:"outer",  label:_outerDisplayLabel, icon:"🧥" },

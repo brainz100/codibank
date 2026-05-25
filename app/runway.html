@@ -591,7 +591,7 @@ body::before {
   <!-- ─── 2. 영상 후보 리스트 (가로 스크롤) ─── -->
   <section class="rw-section">
     <div class="rw-section-head">
-      <h2 class="rw-section-title">영상으로 만들 이미지</h2>
+      <h2 class="rw-section-title">영상제작 리스트</h2>
       <span class="rw-section-meta" id="rwCandidatesCount">불러오는 중...</span>
     </div>
     <div class="rw-candidates" id="rwCandidates">
@@ -822,16 +822,16 @@ body::before {
 
   function renderCandidateCard(c) {
     const isTryon = (c.type === 'tryon');
-    const typeLabel = isTryon ? 'TRYON' : 'CODIFIT';
     const iconName = isTryon ? 'person' : 'accessibility_new';
     // 실제 IDB 이미지가 있으면 표시, 없으면 placeholder
     const imgStyle = c.image_url
       ? `background-image:url('${escapeAttr(c.image_url)}');background-size:cover;background-position:center;`
       : '';
+    // ─── 2026-05-24 KST · TJ 지시 ─── 이미지 위 레이어드된 'CODIFIT' 텍스트박스 삭제
+    //    카드 하단 라벨만 유지 (rw-candidate-foot)
     const imgInner = c.image_url
-      ? `<span class="rw-candidate-type">${typeLabel}</span>`
-      : `<span class="rw-candidate-type">${typeLabel}</span>
-         <div class="rw-candidate-img-placeholder material-symbols-outlined">${iconName}</div>`;
+      ? ''
+      : `<div class="rw-candidate-img-placeholder material-symbols-outlined">${iconName}</div>`;
     const labelText = c.stage ? `${c.label} ${c.stage}` : c.label;
     return `
       <div class="rw-candidate" data-id="${escapeAttr(c.id)}" data-type="${escapeAttr(c.type)}" data-label="${escapeAttr(labelText)}" data-image-url="${escapeAttr(c.image_url || '')}">
@@ -880,10 +880,15 @@ body::before {
     const user_email = _getUserEmail();
 
     try {
+      // ─── 2026-05-25 KST 패치: credentials: 'include' 제거
+      //   원인: 백엔드 CORS Access-Control-Allow-Origin: * (Wildcard)와
+      //         credentials: 'include'가 브라우저 표준 상 충돌 →
+      //         preflight 200 OK 받아도 실제 POST 요청이 차단됨.
+      //   증거: Render 로그에 OPTIONS 200 OK 만 있고 POST 호출 자체가 없음.
+      //   해결: closet.html / tryon.html 패턴과 동일하게 credentials 옵션 제거.
       const res = await fetch(`${RW_BASE}/api/runway/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           candidate_id: candidate_id,
           image_url: image_url,
