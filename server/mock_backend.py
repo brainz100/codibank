@@ -12762,33 +12762,34 @@ def _runway_neutralize_image(image_url: str, strength: str = "strong") -> str:
             face_area = img.crop((0, 0, w, face_h))
             body_area = img.crop((0, face_h, w, h))
 
-            # 얼굴 영역 — 중간 blur + median + edge enhance + posterize
-            face_processed = face_area.filter(ImageFilter.GaussianBlur(radius=2.5))
-            face_processed = face_processed.filter(ImageFilter.MedianFilter(size=5))
-            face_processed = face_processed.filter(ImageFilter.EDGE_ENHANCE_MORE)
-            face_processed = ImageOps.posterize(face_processed, 6)
+            # 얼굴 영역 — 약한 blur + median + edge enhance (posterize 제거)
+            face_processed = face_area.filter(ImageFilter.GaussianBlur(radius=2.0))
+            face_processed = face_processed.filter(ImageFilter.MedianFilter(size=3))
+            face_processed = face_processed.filter(ImageFilter.EDGE_ENHANCE)
 
-            # 옷/배경 — 강한 painterly
-            body_processed = body_area.filter(ImageFilter.GaussianBlur(radius=3.0))
-            body_processed = body_processed.filter(ImageFilter.MedianFilter(size=7))
-            body_processed = body_processed.filter(ImageFilter.EDGE_ENHANCE_MORE)
-            body_processed = ImageOps.posterize(body_processed, 4)
+            # 옷/배경 — 중간 painterly (v6 의 강한 처리 약화 — TJ 보고 배경 픽셀화 fix)
+            #   변경: MedianFilter 7 → 5, Posterize 4 → 6 (16단계 → 64단계 색상)
+            #   효과: 배경 깨짐 ↓ + BytePlus 통과는 유지 (충분한 stylization)
+            body_processed = body_area.filter(ImageFilter.GaussianBlur(radius=2.5))
+            body_processed = body_processed.filter(ImageFilter.MedianFilter(size=5))
+            body_processed = body_processed.filter(ImageFilter.EDGE_ENHANCE)
+            body_processed = ImageOps.posterize(body_processed, 6)
 
             # 색조 변형 (강하게)
-            face_processed = ImageEnhance.Color(face_processed).enhance(1.30)
-            face_processed = ImageEnhance.Contrast(face_processed).enhance(1.10)
-            body_processed = ImageEnhance.Color(body_processed).enhance(1.40)
-            body_processed = ImageEnhance.Contrast(body_processed).enhance(1.15)
-            body_processed = ImageEnhance.Brightness(body_processed).enhance(0.92)
+            face_processed = ImageEnhance.Color(face_processed).enhance(1.20)
+            face_processed = ImageEnhance.Contrast(face_processed).enhance(1.05)
+            body_processed = ImageEnhance.Color(body_processed).enhance(1.30)
+            body_processed = ImageEnhance.Contrast(body_processed).enhance(1.10)
+            body_processed = ImageEnhance.Brightness(body_processed).enhance(0.94)
 
-            # 추가 noise (옷/배경만)
+            # 추가 noise (옷/배경만 — 1000 → 800 약화)
             body_draw = ImageDraw.Draw(body_processed)
             _random.seed(_now_ms())
             _bw, _bh = body_processed.size
-            for _ in range(1000):
+            for _ in range(800):
                 x = _random.randint(0, _bw - 1)
                 y = _random.randint(0, _bh - 1)
-                shift = _random.randint(-15, 15)
+                shift = _random.randint(-12, 12)
                 try:
                     r, g, b = body_processed.getpixel((x, y))
                     body_draw.point((x, y), fill=(
@@ -12803,8 +12804,8 @@ def _runway_neutralize_image(image_url: str, strength: str = "strong") -> str:
             img.paste(face_processed, (0, 0))
             img.paste(body_processed, (0, face_h))
 
-            quality = 82
-            log_prefix = "[neutralize strong · 강한 painterly stylization]"
+            quality = 88
+            log_prefix = "[neutralize strong v2 · 약화된 painterly]"
 
         out = _io.BytesIO()
         img.save(out, format="JPEG", quality=quality, optimize=True)
@@ -12968,23 +12969,29 @@ def runway_generate():
             else:
                 print(f"[runway_generate] ⚠️ 이미지 분리 실패 → 단일 이미지 모드 폴백", flush=True)
 
-            # 2) 멋있는 런웨이 워킹 prompt (v5 — BytePlus 공식 가이드 준수)
-            #    배경 (Seedance 2.0 공식 가이드):
-            #      "image-to-video 에서는 reference image 의 모든 것을 다시 묘사하지 말 것.
-            #       source image 를 고정하고 motion / camera / mood 만 묘사.
-            #       composition and colors 를 명시적으로 보존."
-            #    핵심:
-            #      ✓ reference image 의 배경/구도/색 그대로 유지 (멜트 방지)
-            #      ✓ 자연스러운 워킹 + 턴 동작 (모션만 묘사)
-            #      ✓ 카메라 워크 (full body 추적)
-            #      ✗ "런웨이 무대 새로 만들기" 제거 (배경 교체는 품질 저하 원인)
-            #      ✗ "dramatic stage lighting" 제거 (조명 변경은 인물 흐림 원인)
+            # 2) 런웨이 워킹 prompt (v7 — TJ 지시 시퀀스 2026-05-25 KST)
+            #    워킹 시퀀스 (총 6초):
+            #      ① 0~2초: 정지 상태에서 정면으로 자연스럽게 걸어옴
+            #      ② 2~2.4초: 정면 정지 포즈 (0.4초)
+            #      ③ 2.4~2.8초: 측면 정지 포즈 (좌/우 랜덤, 0.4초)
+            #      ④ 2.8~3.2초: 후면 정지 포즈 (0.4초)
+            #      ⑤ 3.2~4초: 포즈 변경 동안 (약 1초)
+            #      ⑥ 4~6초: 천천히 뒤로 걸어감 (후면 모습, 2초)
+            #    핵심 제약:
+            #      ✓ 인물이 화면 가로/세로 사이즈를 초과하지 않도록 (full body always in frame)
+            #      ✓ reference image 의 배경/구도/색 그대로 유지
+            #      ✓ 얼굴/헤어/의상/액세서리 변경 금지
             seedance_prompt = prompt_in or (
                 "Preserve the reference image's subject, composition, colors, and background EXACTLY. "
-                "The person walks naturally toward the camera with confident catwalk gait, "
-                "then smoothly turns 180 degrees mid-walk, ending with the back of the outfit visible. "
-                "Camera: smooth tracking shot, full body in frame, sharp focus on face and outfit. "
-                "Motion: graceful, professional fashion runway pacing. "
+                "Fashion runway walking sequence: "
+                "(1) First 2 seconds — person walks naturally forward toward the camera with a confident, graceful catwalk gait, starting from a stationary pose. "
+                "(2) Next 0.4 seconds — stops and holds a still frontal pose. "
+                "(3) Next 0.4 seconds — turns to side profile (randomly left or right) and holds still. "
+                "(4) Next 0.4 seconds — turns to back view and holds still. "
+                "(5) Approximately 1 second total for the smooth pose transitions between (2)(3)(4). "
+                "(6) Final 2 seconds — walks slowly away from the camera with the back of the outfit visible. "
+                "CRITICAL: Keep the entire body (head to feet) fully visible inside the frame at all times. Do not crop any part of the body. "
+                "Camera: static or smooth subtle tracking, full body always in frame, never zoom in past the full body view. "
                 "Keep facial identity, hairstyle, clothing details, and accessories unchanged. "
                 "Do not introduce new objects or alter the existing background."
             )
