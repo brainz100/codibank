@@ -250,8 +250,8 @@ body::before {
 .rw-viewbox-wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 1/1.62;  /* 2026-05-25 KST · TJ 지시 — 황금비율 (이전: 9/16 너무 세로 길었음) */
-  max-height: 60vh;
+  aspect-ratio: 1/1.62;  /* 2026-05-25 KST · TJ 지시 — 황금비율 (페이지 첫 로드부터 강제) */
+  max-height: 80vh;       /* v3: 60vh → 80vh — 작은 모바일에서도 비율 유지 */
   background: var(--bg-secondary);
   border: 1px solid var(--border-soft);
   border-radius: 18px;
@@ -325,7 +325,7 @@ body::before {
 /* ─── 2026-05-25 KST · TJ 지시 — 무지개 RUNWAY 텍스트 ─── */
 .rw-loading-runway-text {
   font-family: 'Manrope', sans-serif;
-  font-size: 52px;
+  font-size: 34px;          /* v3 — TJ 지시: 52px × 65% = 34px */
   font-weight: 900;
   letter-spacing: 0.04em;
   text-align: center;
@@ -644,6 +644,95 @@ body::before {
 .cb-nav-tab.on .ni {
   font-variation-settings: 'FILL' 1, 'wght' 500;
 }
+
+/* ─── 2026-05-25 KST · TJ 지시 ─── 동영상 생성 confirm 모달 (closet.html stepc-modal 스타일 재사용) ─── */
+.rw-confirm-modal{
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: none;            /* JS에서 flex 로 표시 */
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(3, 8, 24, 0.78);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  animation: rwModalFadeIn 0.2s ease-out;
+}
+@keyframes rwModalFadeIn{ from{opacity:0;} to{opacity:1;} }
+.rw-confirm-modal-card{
+  width: 100%;
+  max-width: 320px;
+  background: linear-gradient(165deg, #0F2452 0%, #081538 100%);
+  border: 1px solid rgba(151, 254, 237, 0.22);
+  border-radius: 22px;
+  padding: 28px 24px 22px;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06);
+  animation: rwModalPop 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes rwModalPop{
+  from{ opacity:0; transform: scale(0.92) translateY(8px); }
+  to{ opacity:1; transform: scale(1) translateY(0); }
+}
+.rw-confirm-modal-icon{
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, rgba(151,254,237,0.22), rgba(91,108,255,0.12));
+  border: 1px solid rgba(151,254,237,0.4);
+}
+.rw-confirm-modal-icon .material-symbols-outlined{
+  font-size: 28px;
+  color: #97FEED;
+}
+.rw-confirm-modal-title{
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 8px;
+  letter-spacing: 0.01em;
+}
+.rw-confirm-modal-desc{
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(220, 230, 245, 0.72);
+  margin: 0 0 22px;
+}
+.rw-confirm-modal-actions{
+  display: flex;
+  gap: 10px;
+}
+.rw-confirm-modal-btn{
+  flex: 1;
+  height: 46px;
+  border-radius: 13px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: filter 0.18s ease, transform 0.18s ease;
+}
+.rw-confirm-modal-btn:active{ transform: scale(0.97); }
+.rw-confirm-modal-cancel{
+  background: rgba(255,255,255,0.07);
+  color: rgba(220,230,245,0.8);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.rw-confirm-modal-ok{
+  background: linear-gradient(135deg, #35A29F 0%, #97FEED 100%);
+  color: #042B2A;
+  border: 0;
+}
+.rw-confirm-modal-ok:hover{ filter: brightness(1.07); }
+.rw-confirm-modal-ok .material-symbols-outlined{ font-size: 18px; }
 </style>
 </head>
 <body>
@@ -691,7 +780,7 @@ body::before {
       </div>
       <div class="rw-viewbox-loading" id="rwViewboxLoading">
         <!-- 2026-05-25 KST · TJ 지시 (v3) — 구성: RUNWAY → progress bar → 안내 문구 (단일 행) -->
-        <div class="rw-loading-runway-text">RUNWAY</div>
+        <div class="rw-loading-runway-text">runway</div>
         <div class="rw-loading-progress-bar">
           <div class="rw-loading-progress-fill" id="rwLoadingFill"></div>
         </div>
@@ -847,6 +936,40 @@ body::before {
     }
   }
 
+  // ─── 2026-05-25 KST · TJ 지시 ─── 동영상 생성 confirm 모달 (Promise) ───
+  //   closet.html 의 stepc-modal 패턴 재사용. native confirm() 대체.
+  //   사용: const ok = await _rwShowConfirm();
+  //   동작: 취소 / 배경 탭 → resolve(false), 생성 → resolve(true)
+  function _rwShowConfirm() {
+    return new Promise(function(resolve){
+      const modal = document.getElementById('rwConfirmModal');
+      const okBtn = document.getElementById('rwConfirmOk');
+      const cancelBtn = document.getElementById('rwConfirmCancel');
+      if (!modal || !okBtn || !cancelBtn) { resolve(false); return; }
+
+      let _done = false;
+      function _close(result) {
+        if (_done) return;
+        _done = true;
+        modal.style.display = 'none';
+        // 이벤트 리스너 정리 (다음 호출 시 중복 방지)
+        okBtn.removeEventListener('click', _onOk);
+        cancelBtn.removeEventListener('click', _onCancel);
+        modal.removeEventListener('click', _onBg);
+        resolve(result);
+      }
+      function _onOk()     { _close(true); }
+      function _onCancel() { _close(false); }
+      function _onBg(e)    { if (e.target === modal) _close(false); }
+
+      okBtn.addEventListener('click', _onOk);
+      cancelBtn.addEventListener('click', _onCancel);
+      modal.addEventListener('click', _onBg);
+
+      modal.style.display = 'flex';
+    });
+  }
+
   let selectedCandidate = null;
   let currentVideoUrl = '';
   let usageInfo = { tier: 'FREE', monthly_limit: 0, used_this_month: 0, is_paid: false };
@@ -989,12 +1112,9 @@ body::before {
   async function onCandidateClick(card) {
     if (!card) return;
 
-    // ─── 2026-05-25 KST · TJ 지시 ─── 동영상 생성 confirm 팝업 ───
-    //   목적: 사용자가 실수로 카드 클릭해서 사용횟수가 차감되는 것 방지.
-    //         confirm() 은 native 브라우저 다이얼로그 — 어느 환경에서도 작동.
-    //   동작: 취소 → 아무 일도 안 일어남 (카드 selected 도 X)
-    //         확인 → selected + 영상 생성 시작
-    const _confirmed = window.confirm('동영상 생성을 원하세요?\n사용횟수가 차감됩니다.');
+    // ─── 2026-05-25 KST · TJ 지시 ─── 커스텀 모달 (closet.html stepc-modal 패턴) ───
+    //   배경 탭 또는 취소 버튼 → false, 생성 버튼 → true
+    const _confirmed = await _rwShowConfirm();
     if (!_confirmed) {
       return;  // 취소 시 즉시 종료 — selected 클래스도 안 붙음
     }
@@ -1326,6 +1446,23 @@ body::before {
   }
 })();
 </script>
+
+<!-- ─── 2026-05-25 KST · TJ 지시 ─── 동영상 생성 confirm 모달 ─── -->
+<div id="rwConfirmModal" class="rw-confirm-modal">
+  <div class="rw-confirm-modal-card">
+    <div class="rw-confirm-modal-icon">
+      <span class="material-symbols-outlined">videocam</span>
+    </div>
+    <h3 class="rw-confirm-modal-title">동영상 생성을 시작할까요?</h3>
+    <p class="rw-confirm-modal-desc">선택하신 코디로 워킹 영상을 만듭니다.<br>사용횟수가 1회 차감됩니다.</p>
+    <div class="rw-confirm-modal-actions">
+      <button type="button" id="rwConfirmCancel" class="rw-confirm-modal-btn rw-confirm-modal-cancel">취소</button>
+      <button type="button" id="rwConfirmOk" class="rw-confirm-modal-btn rw-confirm-modal-ok">
+        <span class="material-symbols-outlined">play_arrow</span>생성
+      </button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
