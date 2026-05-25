@@ -5021,7 +5021,72 @@ function _tryonApplyResult(data){
         createdAt: new Date().toISOString(),
       });
       console.log('[TryOn] 코디앨범 저장 완료');
+
+      // ─── 2026-05-25 KST · TJ 지시 ─── 런웨이 후보로 자동 등록 ─────────────
+      //   배경: 런웨이 페이지의 _idbGetCodifitHistory() 는 IDB 'codi_history'
+      //         store 에서 후보를 가져옴. 트라이온은 그동안 코디앨범에만
+      //         저장되어 런웨이 후보에 안 나타남.
+      //   해결: codi_history 에도 _stage='tryon' 으로 저장 → 런웨이 자동 등록.
+      try { _saveTryonToCodiHistory(ref, _purposeLabel, _stylistName); } catch(_){}
     }catch(e){ console.warn('[TryOn] _doSaveTryonAlbum 실패:', e); }
+  }
+
+  // ─── 2026-05-25 KST · TJ 지시 ─── 트라이온 결과를 IDB codi_history 에 저장 ───
+  //   런웨이 페이지의 _idbGetCodifitHistory() 가 이 store 에서 후보 로드.
+  //   _stage='tryon' 으로 표시 → 런웨이가 트라이온 카드로 구분 표시.
+  //   img URL 로 dedup → 같은 결과 중복 저장 방지.
+  function _saveTryonToCodiHistory(imageRef, purposeLabel, stylistName){
+    if(!imageRef) return;
+    var DB_NAME='codibank', STORE='codi_history', DB_VER=1;
+    function openDB(){
+      return new Promise(function(resolve, reject){
+        var req = indexedDB.open(DB_NAME, DB_VER);
+        req.onupgradeneeded = function(e){
+          var db = e.target.result;
+          if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, {keyPath:'ts'});
+        };
+        req.onsuccess = function(){ resolve(req.result); };
+        req.onerror   = function(){ reject(req.error); };
+      });
+    }
+    openDB().then(function(db){
+      // 1) 동일 img URL 의 옛 엔트리 제거 (중복 방지)
+      var tx0 = db.transaction(STORE, 'readwrite');
+      var st0 = tx0.objectStore(STORE);
+      var rq0 = st0.getAll();
+      rq0.onsuccess = function(){
+        var all = rq0.result || [];
+        all.forEach(function(e){
+          if(e && e.img && imageRef && e.img === imageRef){
+            try{ st0.delete(e.ts); }catch(_){}
+          }
+        });
+        // 2) 새 엔트리 저장
+        tx0.oncomplete = function(){
+          var tx = db.transaction(STORE, 'readwrite');
+          var st = tx.objectStore(STORE);
+          var entry = {
+            ts: Date.now(),
+            img: imageRef,
+            _stage: 'tryon',                       // 런웨이가 트라이온 카드로 구분
+            type: 'tryon',                          // 추가 구분
+            stylistName: stylistName || '',
+            purpose: purposeLabel || '트라이온',
+            source: 'tryon',
+          };
+          st.put(entry);
+          tx.oncomplete = function(){
+            console.log('[TryOn] codi_history 저장 완료 (런웨이 후보 자동 등록)');
+            try{ db.close(); }catch(_){}
+          };
+          tx.onerror = function(){ try{ db.close(); }catch(_){} };
+        };
+        tx0.onerror = function(){ try{ db.close(); }catch(_){} };
+      };
+      rq0.onerror = function(){ try{ db.close(); }catch(_){} };
+    }).catch(function(e){
+      console.warn('[TryOn] codi_history 저장 실패:', e);
+    });
   }
 }
 

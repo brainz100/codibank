@@ -1176,12 +1176,16 @@ body::before {
 
       // 각 entry 를 후보 카드로 변환
       const candidates = validEntries.map(function(e) {
+        // ─── 2026-05-25 KST · TJ 지시 ─── 트라이온 엔트리 자동 인식 ───
+        //   IDB codi_history 에 _stage='tryon' 또는 type='tryon' 또는
+        //   source='tryon' 으로 저장된 엔트리 → 트라이온 카드로 표시.
+        const isTryon = (e._stage === 'tryon' || e.type === 'tryon' || e.source === 'tryon');
         return {
-          id: 'codi-' + e.ts,
-          type: 'codifit',
+          id: (isTryon ? 'tryon-' : 'codi-') + e.ts,
+          type: isTryon ? 'tryon' : 'codifit',
           image_url: e.img,
-          label: '코디핏',
-          stage: _stageLabel(e._stage || ''),
+          label: isTryon ? '트라이온' : '코디핏',
+          stage: isTryon ? '트라이온' : _stageLabel(e._stage || ''),
           date: _formatDateShort(e.ts),
           stylistName: e.stylistName || '',
           purpose: e.purpose || '',
