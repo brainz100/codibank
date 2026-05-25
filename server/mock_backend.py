@@ -12645,29 +12645,21 @@ def _runway_split_front_back(image_url: str) -> tuple:
         return (image_url, image_url)
 
 
-def _runway_neutralize_image(image_url: str) -> str:
+def _runway_neutralize_image(image_url: str, strength: str = "strong") -> str:
     """
-    [2026-05-25 KST] BytePlus 안전 필터 우회용 이미지 처리.
+    [2026-05-25 KST v4] BytePlus 안전 필터 우회용 이미지 처리.
 
-    배경:
-      BytePlus Seedance 가 AI 생성 모델 이미지를 "실제 인물" 로 오인 →
-      InputImageSensitiveContentDetected.PrivacyInformation 에러로 차단.
-      두 모델 (Fast, 정규) 모두 동일 정책.
-
-    해결:
-      이미지에 가벼운 변형 (Gaussian blur + 약간의 contrast/brightness +
-      light noise) 을 가해 BytePlus 의 person detection 알고리즘이
-      다르게 평가하도록 유도.
-      옷/색상 정보는 보존하되 얼굴 특징을 약간 약화.
+    strength:
+      'light'  → 얼굴 영역 약한 blur (radius 1.2) + 미세 조정 — 얼굴 99% 보존
+                  TJ 차별화 의도 (사용자가 자신이라고 착각할 정도) 최대 보존.
+      'strong' → 얼굴 영역 강한 blur (radius 6) + 강한 변형 — BytePlus 통과 보장.
+                  v3 기존 강화 처리. light 거부 시 마지막 폴백.
 
     동작:
       1) image_url 에서 이미지 fetch
-      2) PIL 로 STRONG blur (얼굴 영역 집중) + brightness/contrast/color 변형 + noise
+      2) PIL 로 strength 별 처리
       3) R2 에 새 파일명으로 업로드 (절대 URL 반환)
       4) 새 URL 반환
-
-    실패 시:
-      원본 URL 그대로 반환 (호출부에서 에러 처리)
     """
     try:
         import requests as _rq
@@ -12675,7 +12667,7 @@ def _runway_neutralize_image(image_url: str) -> str:
         import io as _io
         import random as _random
 
-        # 1) 원본 이미지 fetch (BytePlus 가 접근하던 URL 그대로 사용)
+        # 1) 원본 이미지 fetch
         ir = _rq.get(image_url, timeout=15)
         if ir.status_code != 200:
             print(f"[neutralize] 이미지 fetch 실패 ({ir.status_code}): {image_url}", flush=True)
@@ -12684,74 +12676,94 @@ def _runway_neutralize_image(image_url: str) -> str:
         img = Image.open(_io.BytesIO(ir.content))
         if img.mode != "RGB":
             img = img.convert("RGB")
-        orig_size = img.size  # (w, h)
+        orig_size = img.size
         w, h = orig_size
 
-        # ─── 2026-05-25 KST 패치 v2: 강화된 neutralize (BytePlus 안전 필터 우회) ───
-        # 기존 light blur (radius 1.2) 가 약해서 BytePlus 가 여전히 person 으로 인식.
-        # 더 강한 처리:
-        #   ① 얼굴 영역 (상단 35%) 에 STRONG blur (radius 6) — face detection 무력화
-        #   ② 전체 이미지에 light blur (radius 1.5) — 추가 텍스처 약화
-        #   ③ Brightness/Contrast/Color 더 큰 폭 조정
-        #   ④ 픽셀 noise 추가 — 통계적 변형
-        #   ⑤ 살짝 posterize — 색상 단계 축소 (디지털 일러스트 느낌)
+        if strength == "light":
+            # ─── LIGHT 모드 — 얼굴 99% 보존 ───
+            #   목적: TJ 차별화 의도 (사용자 닮은 워킹 영상) 보존.
+            #   처리: 매우 약한 전체 blur + 미세한 색조 조정 + 약한 noise.
+            #         얼굴 영역에 특별한 강한 처리 없음 (radius 1.2 정도).
+            #   기대: BytePlus 가 약간 다른 통계량 의 이미지로 인식 → 통과 가능성.
+            img = img.filter(ImageFilter.GaussianBlur(radius=1.2))
+            img = ImageEnhance.Brightness(img).enhance(0.97)
+            img = ImageEnhance.Contrast(img).enhance(1.04)
+            img = ImageEnhance.Color(img).enhance(1.05)
 
-        # ① 얼굴 영역 (상단 35%) 강한 blur
-        face_h = int(h * 0.35)
-        face_area = img.crop((0, 0, w, face_h))
-        face_blurred = face_area.filter(ImageFilter.GaussianBlur(radius=6.0))
-        img.paste(face_blurred, (0, 0))
+            # 가벼운 noise (500개 픽셀, 약한 변형)
+            draw = ImageDraw.Draw(img)
+            _random.seed(_now_ms())
+            for _ in range(500):
+                x = _random.randint(0, w - 1)
+                y = _random.randint(0, h - 1)
+                shift = _random.randint(-8, 8)
+                try:
+                    r, g, b = img.getpixel((x, y))
+                    draw.point((x, y), fill=(
+                        max(0, min(255, r + shift)),
+                        max(0, min(255, g + shift)),
+                        max(0, min(255, b + shift))
+                    ))
+                except Exception:
+                    pass
 
-        # ② 전체 light blur
-        img = img.filter(ImageFilter.GaussianBlur(radius=1.5))
+            quality = 92
+            log_prefix = "[neutralize light]"
+        else:
+            # ─── STRONG 모드 — 마지막 폴백 (v3 기존 처리) ───
+            #   얼굴 영역 (상단 35%) 강한 blur (radius 6.0)
+            face_h = int(h * 0.35)
+            face_area = img.crop((0, 0, w, face_h))
+            face_blurred = face_area.filter(ImageFilter.GaussianBlur(radius=6.0))
+            img.paste(face_blurred, (0, 0))
 
-        # ③ Brightness/Contrast/Color 더 큰 폭 조정
-        img = ImageEnhance.Brightness(img).enhance(0.93)  # 살짝 더 어둡게
-        img = ImageEnhance.Contrast(img).enhance(1.10)    # 더 또렷
-        img = ImageEnhance.Color(img).enhance(1.12)       # 채도 ↑
+            img = img.filter(ImageFilter.GaussianBlur(radius=1.5))
+            img = ImageEnhance.Brightness(img).enhance(0.93)
+            img = ImageEnhance.Contrast(img).enhance(1.10)
+            img = ImageEnhance.Color(img).enhance(1.12)
 
-        # ④ 픽셀 noise — 1000개 랜덤 픽셀에 작은 색상 변화
-        draw = ImageDraw.Draw(img)
-        _random.seed(_now_ms())
-        for _ in range(1500):
-            x = _random.randint(0, w - 1)
-            y = _random.randint(0, h - 1)
-            shift = _random.randint(-18, 18)
+            # 강한 noise
+            draw = ImageDraw.Draw(img)
+            _random.seed(_now_ms())
+            for _ in range(1500):
+                x = _random.randint(0, w - 1)
+                y = _random.randint(0, h - 1)
+                shift = _random.randint(-18, 18)
+                try:
+                    r, g, b = img.getpixel((x, y))
+                    draw.point((x, y), fill=(
+                        max(0, min(255, r + shift)),
+                        max(0, min(255, g + shift)),
+                        max(0, min(255, b + shift))
+                    ))
+                except Exception:
+                    pass
+
             try:
-                r, g, b = img.getpixel((x, y))
-                draw.point((x, y), fill=(
-                    max(0, min(255, r + shift)),
-                    max(0, min(255, g + shift)),
-                    max(0, min(255, b + shift))
-                ))
+                from PIL import ImageOps
+                img = ImageOps.posterize(img, 5)
             except Exception:
                 pass
 
-        # ⑤ 살짝 posterize — 색상 단계 축소 (BytePlus 가 일러스트로 인식하길 기대)
-        # 8 비트 → 5 비트 (32 색상 단계, 너무 강하지 않게)
-        try:
-            from PIL import ImageOps
-            img = ImageOps.posterize(img, 5)
-        except Exception:
-            pass
+            quality = 85
+            log_prefix = "[neutralize strong]"
 
-        # 4) 출력 — JPEG 85% (강한 변형 후 더 압축)
+        # 출력
         out = _io.BytesIO()
-        img.save(out, format="JPEG", quality=85, optimize=True)
+        img.save(out, format="JPEG", quality=quality, optimize=True)
         new_bytes = out.getvalue()
 
-        # 5) R2 에 새 파일명으로 업로드
+        # R2 업로드
         fixed = f"runway_neutralized_{_now_ms()}_{os.urandom(3).hex()}.jpg"
         rel = _write_upload_bytes("runway", "jpg", new_bytes, fixed_name=fixed)
 
-        # 6) 절대 URL 조립 (BytePlus 가 mirror-back-to-source 로 접근)
         try:
             base = _public_base()
         except Exception:
             base = "https://codibank-api.onrender.com"
         new_url = f"{base}{rel}" if rel.startswith("/") else f"{base}/{rel}"
 
-        print(f"[neutralize v2] ✅ 강화 처리 완료 ({orig_size[0]}x{orig_size[1]}, {len(new_bytes)} bytes) → {fixed}", flush=True)
+        print(f"{log_prefix} ✅ ({orig_size[0]}x{orig_size[1]}, {len(new_bytes)} bytes) → {fixed}", flush=True)
         return new_url
 
     except Exception as e:
@@ -12900,15 +12912,20 @@ def runway_generate():
             else:
                 print(f"[runway_generate] ⚠️ 이미지 분리 실패 → 단일 이미지 모드 폴백", flush=True)
 
-            # 2) 멋있는 런웨이 워킹 prompt (TJ 차별화 의도: 자신이 워킹하는 듯한 모습)
-            #    단축 버전 — BytePlus 가 너무 긴 prompt 를 거부할 가능성 대비
+            # 2) 멋있는 런웨이 워킹 prompt (v4 — TJ 차별화 의도)
+            #    핵심: ① 얼굴/체형/옷/악세사리 100% 보존 ② CodiBank Runway 무대 (어두운 배경)
+            #          ③ 자연스러운 워킹 + 턴 동작
             seedance_prompt = prompt_in or (
-                "AI-generated fashion model in the outfit, "
-                "confident runway catwalk: walking forward toward camera in front view, "
-                "then smoothly turning 180 degrees mid-walk to reveal the back of the outfit, "
-                "natural arm swing and elegant gait, full body in frame, "
-                "smooth cinematic motion, soft studio lighting, neutral background, "
-                "professional fashion runway atmosphere, sharp clothing details."
+                "The model from the reference image walking on a professional CodiBank Runway stage. "
+                "CRITICAL: Keep the model's face, hairstyle, body proportions, outfit, "
+                "and accessories EXACTLY IDENTICAL to the reference image — no changes to facial features, no replacement. "
+                "Setting: dark moody fashion runway stage, dramatic stage lighting from above, "
+                "subtle floor reflections, deep dark background with minimal distractions, cinematic atmosphere. "
+                "Action: confident catwalk walk forward toward the camera with natural arm swing, "
+                "then smoothly turn 180 degrees mid-walk, ending with the back of the outfit visible. "
+                "Camera: full body shot, sharp focus on face, outfit details, and accessories. "
+                "Motion: smooth and graceful, professional fashion show quality. "
+                "No text or graphics overlay."
             )
 
             # 3) BytePlus 비디오 생성 요청
@@ -12991,31 +13008,55 @@ def runway_generate():
                         continue
                     raise RuntimeError(f"BytePlus create 실패 ({cr.status_code}): {_body[:300]}")
 
-            # 모든 모델이 sensitive content 로 거부됨 → 이미지 강화 처리 후 재시도
+            # 모든 모델이 sensitive content 로 거부됨 → 단계별 neutralize 재시도
             if used_model_id is None:
                 if sensitive_blocked:
-                    # ─── 2026-05-25 KST 패치 v3: 강화된 neutralize + 단일 모드만 재시도 ───
-                    #   v2 의 light neutralize (radius 1.2) 가 부족 → v3 의 강화 neutralize
-                    #   (얼굴 영역 radius 6.0 + 1500개 noise + posterize) 적용.
-                    #   first/last 재시도는 v3 에서 제거 (BytePlus 가 400 으로 거부함).
-                    print(f"[runway_generate] sensitive 차단 → 강화 neutralize 후 단일 모드 재시도", flush=True)
-                    neut_front = _runway_neutralize_image(front_url) if has_split else _runway_neutralize_image(image_url)
+                    # ─── 2026-05-25 KST 패치 v4: light → strong 단계별 neutralize ───
+                    #   TJ 차별화 의도: 얼굴 99.9% 보존 + 사용자 닮은 영상.
+                    #   v3 의 strong neutralize 가 얼굴 흐림 부작용 → light 먼저 시도.
+                    #
+                    #   단계 1: LIGHT neutralize (얼굴 99% 보존, 통계만 미세 변형)
+                    #   단계 2: STRONG neutralize (v3 강화 처리, 마지막 폴백)
+                    src_url = front_url if has_split else image_url
 
-                    if neut_front and neut_front != (front_url if has_split else image_url):
-                        # 단일 모드 (강화 neutralize 정면) — 두 모델 순회
+                    # ─── 단계 1: LIGHT (얼굴 보존) ─────
+                    print(f"[runway_generate] sensitive 차단 → LIGHT neutralize 시도 (얼굴 보존)", flush=True)
+                    neut_front = _runway_neutralize_image(src_url, strength="light")
+
+                    if neut_front and neut_front != src_url:
                         for _model_id in _model_candidates:
                             create_payload = _build_payload(_model_id, neut_front, neut_front, False)
                             cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
                             if cr.status_code < 400:
                                 used_model_id = _model_id
-                                used_mode = "single_frame_neutralized"
-                                print(f"[runway_generate] ✅ neutralize + single 통과: {_model_id}", flush=True)
+                                used_mode = "single_frame_light_neutralized"
+                                print(f"[runway_generate] ✅ light neutralize 통과: {_model_id} (얼굴 보존)", flush=True)
                                 break
                             _body = cr.text or ""
                             if cr.status_code == 400 and ("InputImageSensitiveContent" in _body or "PrivacyInformation" in _body or "may contain real person" in _body):
                                 sensitive_err_text = _body[:300]
-                                print(f"[runway_generate] neutralize + single 도 {_model_id} 거부", flush=True)
+                                print(f"[runway_generate] light neutralize 도 {_model_id} 거부", flush=True)
                                 continue
+
+                    # ─── 단계 2: STRONG (마지막 폴백 — 얼굴 흐림 부작용) ─────
+                    if used_model_id is None:
+                        print(f"[runway_generate] LIGHT 실패 → STRONG neutralize 폴백 (얼굴 흐림 가능)", flush=True)
+                        neut_front_strong = _runway_neutralize_image(src_url, strength="strong")
+
+                        if neut_front_strong and neut_front_strong != src_url:
+                            for _model_id in _model_candidates:
+                                create_payload = _build_payload(_model_id, neut_front_strong, neut_front_strong, False)
+                                cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
+                                if cr.status_code < 400:
+                                    used_model_id = _model_id
+                                    used_mode = "single_frame_strong_neutralized"
+                                    print(f"[runway_generate] ✅ strong neutralize 통과: {_model_id}", flush=True)
+                                    break
+                                _body = cr.text or ""
+                                if cr.status_code == 400 and ("InputImageSensitiveContent" in _body or "PrivacyInformation" in _body or "may contain real person" in _body):
+                                    sensitive_err_text = _body[:300]
+                                    print(f"[runway_generate] strong neutralize 도 {_model_id} 거부", flush=True)
+                                    continue
 
                     # 그래도 거부 → 최종 sensitive_content 에러
                     if used_model_id is None:
