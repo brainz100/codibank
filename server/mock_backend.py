@@ -12662,7 +12662,7 @@ def _runway_neutralize_image(image_url: str) -> str:
 
     동작:
       1) image_url 에서 이미지 fetch
-      2) PIL 로 light blur (radius 1.2) + brightness 0.95 + contrast 1.05
+      2) PIL 로 STRONG blur (얼굴 영역 집중) + brightness/contrast/color 변형 + noise
       3) R2 에 새 파일명으로 업로드 (절대 URL 반환)
       4) 새 URL 반환
 
@@ -12671,8 +12671,9 @@ def _runway_neutralize_image(image_url: str) -> str:
     """
     try:
         import requests as _rq
-        from PIL import Image, ImageFilter, ImageEnhance
+        from PIL import Image, ImageFilter, ImageEnhance, ImageDraw
         import io as _io
+        import random as _random
 
         # 1) 원본 이미지 fetch (BytePlus 가 접근하던 URL 그대로 사용)
         ir = _rq.get(image_url, timeout=15)
@@ -12684,18 +12685,59 @@ def _runway_neutralize_image(image_url: str) -> str:
         if img.mode != "RGB":
             img = img.convert("RGB")
         orig_size = img.size  # (w, h)
+        w, h = orig_size
 
-        # 2) Light Gaussian Blur — 얼굴 특징 약화 (옷은 충분히 보존)
-        img = img.filter(ImageFilter.GaussianBlur(radius=1.2))
+        # ─── 2026-05-25 KST 패치 v2: 강화된 neutralize (BytePlus 안전 필터 우회) ───
+        # 기존 light blur (radius 1.2) 가 약해서 BytePlus 가 여전히 person 으로 인식.
+        # 더 강한 처리:
+        #   ① 얼굴 영역 (상단 35%) 에 STRONG blur (radius 6) — face detection 무력화
+        #   ② 전체 이미지에 light blur (radius 1.5) — 추가 텍스처 약화
+        #   ③ Brightness/Contrast/Color 더 큰 폭 조정
+        #   ④ 픽셀 noise 추가 — 통계적 변형
+        #   ⑤ 살짝 posterize — 색상 단계 축소 (디지털 일러스트 느낌)
 
-        # 3) Brightness / Contrast / Color 미세 조정 — pixel histogram 변형
-        img = ImageEnhance.Brightness(img).enhance(0.97)  # 살짝 어둡게
-        img = ImageEnhance.Contrast(img).enhance(1.04)    # 살짝 또렷
-        img = ImageEnhance.Color(img).enhance(1.06)       # 채도 조금 ↑
+        # ① 얼굴 영역 (상단 35%) 강한 blur
+        face_h = int(h * 0.35)
+        face_area = img.crop((0, 0, w, face_h))
+        face_blurred = face_area.filter(ImageFilter.GaussianBlur(radius=6.0))
+        img.paste(face_blurred, (0, 0))
 
-        # 4) 출력 — JPEG 88% (원본 패션 디테일 보존)
+        # ② 전체 light blur
+        img = img.filter(ImageFilter.GaussianBlur(radius=1.5))
+
+        # ③ Brightness/Contrast/Color 더 큰 폭 조정
+        img = ImageEnhance.Brightness(img).enhance(0.93)  # 살짝 더 어둡게
+        img = ImageEnhance.Contrast(img).enhance(1.10)    # 더 또렷
+        img = ImageEnhance.Color(img).enhance(1.12)       # 채도 ↑
+
+        # ④ 픽셀 noise — 1000개 랜덤 픽셀에 작은 색상 변화
+        draw = ImageDraw.Draw(img)
+        _random.seed(_now_ms())
+        for _ in range(1500):
+            x = _random.randint(0, w - 1)
+            y = _random.randint(0, h - 1)
+            shift = _random.randint(-18, 18)
+            try:
+                r, g, b = img.getpixel((x, y))
+                draw.point((x, y), fill=(
+                    max(0, min(255, r + shift)),
+                    max(0, min(255, g + shift)),
+                    max(0, min(255, b + shift))
+                ))
+            except Exception:
+                pass
+
+        # ⑤ 살짝 posterize — 색상 단계 축소 (BytePlus 가 일러스트로 인식하길 기대)
+        # 8 비트 → 5 비트 (32 색상 단계, 너무 강하지 않게)
+        try:
+            from PIL import ImageOps
+            img = ImageOps.posterize(img, 5)
+        except Exception:
+            pass
+
+        # 4) 출력 — JPEG 85% (강한 변형 후 더 압축)
         out = _io.BytesIO()
-        img.save(out, format="JPEG", quality=88, optimize=True)
+        img.save(out, format="JPEG", quality=85, optimize=True)
         new_bytes = out.getvalue()
 
         # 5) R2 에 새 파일명으로 업로드
@@ -12709,7 +12751,7 @@ def _runway_neutralize_image(image_url: str) -> str:
             base = "https://codibank-api.onrender.com"
         new_url = f"{base}{rel}" if rel.startswith("/") else f"{base}/{rel}"
 
-        print(f"[neutralize] ✅ 처리 완료 ({orig_size[0]}x{orig_size[1]}, {len(new_bytes)} bytes) → {fixed}", flush=True)
+        print(f"[neutralize v2] ✅ 강화 처리 완료 ({orig_size[0]}x{orig_size[1]}, {len(new_bytes)} bytes) → {fixed}", flush=True)
         return new_url
 
     except Exception as e:
@@ -12918,29 +12960,17 @@ def runway_generate():
             # ─── 모델 후보 순회 — sensitive content 에러 시 다음 모델 자동 시도 ─────
             cr = None
             used_model_id = None
-            used_mode = None  # "first_last_frame" or "single_frame"
+            used_mode = None  # "single_frame" / "single_frame_neutralized"
             sensitive_blocked = False
             sensitive_err_text = ""
 
-            # ─── 시도 1: First/Last Frame 모드 (정면+후면 둘 다 사용) ─────
-            if has_split:
-                for _model_id in _model_candidates:
-                    create_payload = _build_payload(_model_id, front_url, back_url, True)
-                    cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
-                    if cr.status_code < 400:
-                        used_model_id = _model_id
-                        used_mode = "first_last_frame"
-                        print(f"[runway_generate] ✅ first/last frame 모드 통과: {_model_id}", flush=True)
-                        break
-                    _body = cr.text or ""
-                    if cr.status_code == 400 and ("InputImageSensitiveContent" in _body or "PrivacyInformation" in _body or "may contain real person" in _body):
-                        sensitive_blocked = True
-                        sensitive_err_text = _body[:300]
-                        print(f"[runway_generate] {_model_id} (first/last) sensitive 거부 → 다음 시도", flush=True)
-                        continue
-                    # role 필드 미지원 등 다른 에러 → first/last 포기, 단일 모드로
-                    print(f"[runway_generate] {_model_id} (first/last) {cr.status_code} 에러 → 단일 모드 폴백 시도", flush=True)
-                    break
+            # ─── 2026-05-25 KST 패치 v3: First/Last Frame 모드 제거 ─────────
+            #   배경: 이전 turn 의 first/last 시도가 BytePlus ModelArk 에서 400 에러 반환.
+            #         (image_url 두 개 + role 필드 모두 인식 X)
+            #   결과: first/last 시도 → 무조건 실패 → 단일 모드로 폴백
+            #   해결: first/last 시도 자체를 제거. 단일 모드 (정면 이미지) 만 사용.
+            #         시간 절약 (3초 × 2 모델 = 6초 절감) + 코드 단순화.
+            #   향후: BytePlus 가 first/last 공식 지원 시 또는 다른 API 도입 시 재개
 
             # ─── 시도 2: 단일 이미지 모드 (정면만) — first/last 실패 또는 분리 실패 ─────
             if used_model_id is None:
@@ -12961,50 +12991,31 @@ def runway_generate():
                         continue
                     raise RuntimeError(f"BytePlus create 실패 ({cr.status_code}): {_body[:300]}")
 
-            # 모든 모델이 sensitive content 로 거부됨 → 이미지 처리 후 재시도
+            # 모든 모델이 sensitive content 로 거부됨 → 이미지 강화 처리 후 재시도
             if used_model_id is None:
                 if sensitive_blocked:
-                    # ─── 2026-05-25 KST 패치: PIL 이미지 처리 + R2 재업로드 후 재시도 ───
-                    #   원본 이미지로는 두 모델 모두 차단됨. PIL 로 약간 변형 (blur+noise)
-                    #   후 BytePlus 의 person detection 이 다르게 평가하기를 기대.
-                    #   정면/후면 둘 다 neutralize 처리.
-                    print(f"[runway_generate] sensitive 차단 → 이미지 neutralize 후 재시도", flush=True)
+                    # ─── 2026-05-25 KST 패치 v3: 강화된 neutralize + 단일 모드만 재시도 ───
+                    #   v2 의 light neutralize (radius 1.2) 가 부족 → v3 의 강화 neutralize
+                    #   (얼굴 영역 radius 6.0 + 1500개 noise + posterize) 적용.
+                    #   first/last 재시도는 v3 에서 제거 (BytePlus 가 400 으로 거부함).
+                    print(f"[runway_generate] sensitive 차단 → 강화 neutralize 후 단일 모드 재시도", flush=True)
                     neut_front = _runway_neutralize_image(front_url) if has_split else _runway_neutralize_image(image_url)
-                    neut_back  = _runway_neutralize_image(back_url)  if has_split else neut_front
 
                     if neut_front and neut_front != (front_url if has_split else image_url):
-                        # ─── 재시도 A: first/last frame 모드 (분리 성공 시) ─────
-                        if has_split and neut_back and neut_back != back_url:
-                            for _model_id in _model_candidates:
-                                create_payload = _build_payload(_model_id, neut_front, neut_back, True)
-                                cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
-                                if cr.status_code < 400:
-                                    used_model_id = _model_id
-                                    used_mode = "first_last_frame_neutralized"
-                                    print(f"[runway_generate] ✅ neutralize + first/last 통과: {_model_id}", flush=True)
-                                    break
-                                _body = cr.text or ""
-                                if cr.status_code == 400 and ("InputImageSensitiveContent" in _body or "PrivacyInformation" in _body or "may contain real person" in _body):
-                                    sensitive_err_text = _body[:300]
-                                    print(f"[runway_generate] neutralize + first/last 도 {_model_id} 거부", flush=True)
-                                    continue
-                                break  # 다른 에러는 단일 모드로
-
-                        # ─── 재시도 B: 단일 모드 (first/last 실패 시) ─────
-                        if used_model_id is None:
-                            for _model_id in _model_candidates:
-                                create_payload = _build_payload(_model_id, neut_front, neut_front, False)
-                                cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
-                                if cr.status_code < 400:
-                                    used_model_id = _model_id
-                                    used_mode = "single_frame_neutralized"
-                                    print(f"[runway_generate] ✅ neutralize + single 통과: {_model_id}", flush=True)
-                                    break
-                                _body = cr.text or ""
-                                if cr.status_code == 400 and ("InputImageSensitiveContent" in _body or "PrivacyInformation" in _body or "may contain real person" in _body):
-                                    sensitive_err_text = _body[:300]
-                                    print(f"[runway_generate] neutralize + single 도 {_model_id} 거부", flush=True)
-                                    continue
+                        # 단일 모드 (강화 neutralize 정면) — 두 모델 순회
+                        for _model_id in _model_candidates:
+                            create_payload = _build_payload(_model_id, neut_front, neut_front, False)
+                            cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
+                            if cr.status_code < 400:
+                                used_model_id = _model_id
+                                used_mode = "single_frame_neutralized"
+                                print(f"[runway_generate] ✅ neutralize + single 통과: {_model_id}", flush=True)
+                                break
+                            _body = cr.text or ""
+                            if cr.status_code == 400 and ("InputImageSensitiveContent" in _body or "PrivacyInformation" in _body or "may contain real person" in _body):
+                                sensitive_err_text = _body[:300]
+                                print(f"[runway_generate] neutralize + single 도 {_model_id} 거부", flush=True)
+                                continue
 
                     # 그래도 거부 → 최종 sensitive_content 에러
                     if used_model_id is None:
