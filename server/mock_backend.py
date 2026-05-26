@@ -12757,44 +12757,57 @@ def _runway_neutralize_image(image_url: str, strength: str = "strong") -> str:
             log_prefix = "[neutralize light · painterly stylization]"
 
         elif strength == "very_strong":
-            # ─── 2026-05-25 KST · TJ 보고 ─── VERY_STRONG 모드 (최후의 폴백) ─────
-            # 트라이온 이미지 등 매우 사실적인 얼굴까지 우회.
-            # 얼굴 영역에도 강한 painterly + Posterize 4 적용 (사용자 인식 어려움 감수).
-            # STRONG 재시도까지 거부된 경우만 사용.
+            # ─── 2026-05-26 KST · TJ 보고 (남자 영상 배경 깨짐) ─── VERY_STRONG v2 ─────
+            # 진단 (Render log):
+            #   남자 트라이온 → 5단계 모두 거쳐 VERY_STRONG 통과 → 영상 배경 컬러 블록 깨짐
+            #   여자 트라이온 → LIGHT/STRONG 1차 통과 → 영상 배경 깨끗
+            #
+            # BytePlus 영상 처리 분석:
+            #   - 인물(얼굴/옷)은 BytePlus 가 자체 모델로 재생성 → painterly 영향 약함
+            #   - 배경은 input image 의 색조/구조 그대로 사용 → painterly 영향 강함
+            #
+            # 핵심 전략 변경 (v2):
+            #   - 얼굴 영역: 강한 painterly 유지 (BytePlus person detection 회피 필수)
+            #   - 옷/배경 영역: painterly 대폭 약화 (영상 결과 배경 깨끗하게)
+            #     Posterize 4 → 6 (16색 → 64색 - 색상 블록 줄임)
+            #     MedianFilter 9 → 5 (배경 깨짐 줄임)
+            #     GaussianBlur 4.0 → 2.5 (배경 부드럽게)
+            #     Color 1.60 → 1.30 (배경 hue shift 약화)
             face_h = int(h * 0.38)
             face_area = img.crop((0, 0, w, face_h))
             body_area = img.crop((0, face_h, w, h))
 
-            # 얼굴 — 강한 painterly (Posterize 4 추가, EDGE_ENHANCE_MORE)
+            # 얼굴 — 강한 painterly 유지 (BytePlus 통과 필수)
             face_processed = face_area.filter(ImageFilter.GaussianBlur(radius=3.5))
             face_processed = face_processed.filter(ImageFilter.MedianFilter(size=7))
             face_processed = face_processed.filter(ImageFilter.EDGE_ENHANCE_MORE)
             face_processed = ImageOps.posterize(face_processed, 4)
 
-            # 옷/배경 — 매우 강한 painterly
-            body_processed = body_area.filter(ImageFilter.GaussianBlur(radius=4.0))
-            body_processed = body_processed.filter(ImageFilter.MedianFilter(size=9))
-            body_processed = body_processed.filter(ImageFilter.EDGE_ENHANCE_MORE)
-            body_processed = ImageOps.posterize(body_processed, 4)
+            # 옷/배경 — 약화 (영상 결과 깨끗하게)
+            body_processed = body_area.filter(ImageFilter.GaussianBlur(radius=2.5))
+            body_processed = body_processed.filter(ImageFilter.MedianFilter(size=5))
+            body_processed = body_processed.filter(ImageFilter.EDGE_ENHANCE)
+            body_processed = ImageOps.posterize(body_processed, 6)
 
-            # 색조 변형 (매우 강함 + hue shift 효과)
+            # 색조 변형 — 얼굴 강함 유지, 배경 약화
             face_processed = ImageEnhance.Color(face_processed).enhance(1.50)
             face_processed = ImageEnhance.Contrast(face_processed).enhance(1.20)
             face_processed = ImageEnhance.Brightness(face_processed).enhance(0.90)
-            body_processed = ImageEnhance.Color(body_processed).enhance(1.60)
-            body_processed = ImageEnhance.Contrast(body_processed).enhance(1.25)
-            body_processed = ImageEnhance.Brightness(body_processed).enhance(0.88)
+            body_processed = ImageEnhance.Color(body_processed).enhance(1.30)
+            body_processed = ImageEnhance.Contrast(body_processed).enhance(1.10)
+            body_processed = ImageEnhance.Brightness(body_processed).enhance(0.94)
 
-            # 매우 강한 noise (얼굴 + 옷 모두 — 2000 픽셀)
+            # noise — 얼굴 강함(1500), 배경 약화(800, 이전 2000 → 800)
             for _area, _is_face in [(face_processed, True), (body_processed, False)]:
                 _draw = ImageDraw.Draw(_area)
                 _random.seed(_now_ms() + (1 if _is_face else 0))
                 _aw, _ah = _area.size
-                _count = 1500 if _is_face else 2000
+                _count = 1500 if _is_face else 800
+                _shift_max = 25 if _is_face else 12  # 배경 noise shift 약화
                 for _ in range(_count):
                     x = _random.randint(0, _aw - 1)
                     y = _random.randint(0, _ah - 1)
-                    shift = _random.randint(-25, 25)
+                    shift = _random.randint(-_shift_max, _shift_max)
                     try:
                         r, g, b = _area.getpixel((x, y))
                         _draw.point((x, y), fill=(
@@ -12809,8 +12822,8 @@ def _runway_neutralize_image(image_url: str, strength: str = "strong") -> str:
             img.paste(face_processed, (0, 0))
             img.paste(body_processed, (0, face_h))
 
-            quality = 78
-            log_prefix = "[neutralize VERY_STRONG · 얼굴 포함 매우 강한 painterly]"
+            quality = 84  # 78 → 84 (배경 화질 ↑)
+            log_prefix = "[neutralize VERY_STRONG v2 · 얼굴 강함 + 배경 약화]"
 
         else:
             # STRONG 모드 — 약화된 painterly stylization v2 (2026-05-25 KST)
