@@ -250,39 +250,91 @@ body::before {
 .rw-viewbox-wrap {
   position: relative;
   width: 100%;
-  /* ─── 2026-05-27 KST · TJ 지시 ─── 후보 카드 / 영상 카드 X 삭제 버튼 ─── */
+  /* ─── 2026-05-27 KST · TJ 지시 (v2) ─── 후보 카드 / 영상 카드 X 삭제 버튼 ─────
+ *   디자인 컨셉: Glassmorphism + 부드러운 그림자 + Spring hover 애니메이션
+ *   특징:
+ *     - 28px 원형, 반투명 다크 배경 + backdrop-blur (영상/이미지 위에 자연스럽게 떠있음)
+ *     - 내부 1px 하얀 테두리 (Apple Vision Pro 스타일 미세 디테일)
+ *     - 이중 그림자 (가까운 + 먼) — 깊이감
+ *     - hover: 빨강 그라데이션 + scale 1.1 + 그림자 강조
+ *     - active: scale 0.92 (살짝 눌리는 피드백)
+ *     - 모든 transition cubic-bezier 로 부드럽게
+ *     - opacity 0.88 기본 (영상 컨텐츠 방해 안 함)
+ */
 .rw-candidate-del,
 .rw-video-del {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 22px;
-  height: 22px;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
   padding: 0;
+  margin: 0;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  background: rgba(15, 18, 28, 0.55);
+  -webkit-backdrop-filter: blur(10px) saturate(180%);
+  backdrop-filter: blur(10px) saturate(180%);
+  color: rgba(255, 255, 255, 0.96);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 10;
-  transition: background 0.15s ease, transform 0.15s ease;
-  opacity: 0.78;
+  transition:
+    background 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.18s ease;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.22),
+    0 4px 12px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.22);
+  opacity: 0.88;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .rw-candidate-del:hover,
 .rw-video-del:hover {
-  background: rgba(231, 76, 60, 0.95);  /* 빨강 hover */
+  background: linear-gradient(135deg, rgba(255, 87, 87, 0.95) 0%, rgba(220, 50, 50, 0.95) 100%);
   opacity: 1;
-  transform: scale(1.08);
+  transform: scale(1.10);
+  box-shadow:
+    0 2px 6px rgba(220, 50, 50, 0.35),
+    0 8px 20px rgba(220, 50, 50, 0.30),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.4);
+}
+.rw-candidate-del:active,
+.rw-video-del:active {
+  transform: scale(0.92);
+  transition-duration: 0.1s;
 }
 .rw-candidate-del .material-symbols-outlined,
 .rw-video-del .material-symbols-outlined {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1;
-  font-weight: 600;
+  font-weight: 500;
+  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
+.rw-candidate-del:hover .material-symbols-outlined,
+.rw-video-del:hover .material-symbols-outlined {
+  transform: rotate(90deg);  /* hover 시 부드러운 90도 회전 */
+}
+
+/* 영상 카드의 X 버튼은 카드 자체가 가로 레이아웃이므로 좌측 상단이 아닌 우측 상단으로 (overlap with duration) */
+/* duration 표시와 겹치지 않게 약간 더 우측 위로 */
+.rw-video-del {
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+}
+.rw-video-del .material-symbols-outlined {
+  font-size: 14px;
+}
+
 /* 후보 카드 내부에 position 기준 위해 */
 .rw-candidate { position: relative; }
 .rw-video-item { position: relative; }
