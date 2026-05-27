@@ -250,7 +250,44 @@ body::before {
 .rw-viewbox-wrap {
   position: relative;
   width: 100%;
-  /* ─── 2026-05-25 KST · TJ 보고 (v6) ─── 영상 비율과 매치 ──────────────
+  /* ─── 2026-05-27 KST · TJ 지시 ─── 후보 카드 / 영상 카드 X 삭제 버튼 ─── */
+.rw-candidate-del,
+.rw-video-del {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.15s ease, transform 0.15s ease;
+  opacity: 0.78;
+}
+.rw-candidate-del:hover,
+.rw-video-del:hover {
+  background: rgba(231, 76, 60, 0.95);  /* 빨강 hover */
+  opacity: 1;
+  transform: scale(1.08);
+}
+.rw-candidate-del .material-symbols-outlined,
+.rw-video-del .material-symbols-outlined {
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 600;
+}
+/* 후보 카드 내부에 position 기준 위해 */
+.rw-candidate { position: relative; }
+.rw-video-item { position: relative; }
+
+/* ─── 2026-05-25 KST · TJ 보고 (v6) ─── 영상 비율과 매치 ──────────────
    *   문제: aspect-ratio 1/1.62 (= 0.617) 인데 영상은 9:16 (= 0.5625) →
    *         영상이 뷰박스 안에서 좌우 약 20-30% 빈 공간 발생.
    *   해결: 뷰박스 비율을 영상과 동일한 9:16 으로 변경.
@@ -319,6 +356,22 @@ body::before {
   object-fit: contain;
   background: transparent;
   display: none;
+}
+
+/* ─── 2026-05-27 KST · TJ 지시 ─── pause/play 멈춤 표시 ─── */
+.rw-pause-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 5;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+  animation: rwPausePulse 1.4s ease-in-out infinite;
+}
+@keyframes rwPausePulse {
+  0%, 100% { opacity: 0.85; transform: translate(-50%, -50%) scale(1); }
+  50%      { opacity: 1.00; transform: translate(-50%, -50%) scale(1.06); }
 }
 
 /* ─── 2026-05-25 KST · TJ 지시 (v5) — 동영상 N회 가능 배지 (뷰박스 밖 우측 상단) ─── */
@@ -839,7 +892,11 @@ body::before {
         </div>
         <div class="rw-loading-text">Ai가 당신만의 쇼를 준비하고 있어요</div>
       </div>
-      <video class="rw-viewbox-video" id="rwVideo" autoplay loop muted playsinline></video>
+      <video class="rw-viewbox-video" id="rwVideo" autoplay loop muted playsinline style="cursor:pointer;"></video>
+      <!-- 2026-05-27 KST · TJ 지시 ─── 영상 멈춤 표시 아이콘 (paused 시만 표시) ─── -->
+      <div class="rw-pause-indicator" id="rwPauseIndicator" style="display:none;">
+        <span class="material-symbols-outlined" style="font-size:64px;color:#fff;opacity:0.85;">play_circle</span>
+      </div>
     </div>
   </section>
 
@@ -1229,8 +1286,14 @@ body::before {
       ? '<span class="rw-candidate-face-tag">정면</span>'
       : `<div class="rw-candidate-img-placeholder material-symbols-outlined">${iconName}</div>`;
     const labelText = c.stage ? `${c.label} ${c.stage}` : c.label;
+    // 2026-05-27 KST · TJ 지시 — 후보 카드 X 버튼 (event.stopPropagation 으로 카드 클릭과 분리)
+    const tsForDelete = (c.ts || (c.id || '').replace(/^(codi|tryon)-/, '')) || '';
+    const delBtn = tsForDelete
+      ? `<button class="rw-candidate-del" data-ts="${escapeAttr(tsForDelete)}" data-label="${escapeAttr(labelText)}" title="후보에서 삭제" onclick="event.stopPropagation();window._rwDeleteCandidate(${Number(tsForDelete)},this.getAttribute('data-label'));return false;"><span class="material-symbols-outlined">close</span></button>`
+      : '';
     return `
       <div class="rw-candidate" data-id="${escapeAttr(c.id)}" data-type="${escapeAttr(c.type)}" data-label="${escapeAttr(labelText)}" data-image-url="${escapeAttr(c.image_url || '')}">
+        ${delBtn}
         <div class="rw-candidate-img" style="${imgStyle}">${imgInner}</div>
         <div class="rw-candidate-foot">
           <span class="rw-candidate-label">${escapeHtml(labelText)}</span>
@@ -1451,6 +1514,10 @@ body::before {
     const displayTitle = v.title || v.label || typeLabel;
     const displayDur   = v.duration_seconds || v.duration || 6;
     const thumbUrl     = v.thumb_url || v.candidate_image_url || '';
+    // 2026-05-27 KST · TJ 지시 — 영상 카드 X 버튼
+    const delBtn = v.id
+      ? `<button class="rw-video-del" title="영상 리스트에서 삭제" onclick="event.stopPropagation();window._rwDeleteVideo('${escapeAttr(v.id)}');return false;"><span class="material-symbols-outlined">close</span></button>`
+      : '';
     return `
       <div class="rw-video-item" data-id="${escapeAttr(v.id)}" data-type="${escapeAttr(v.type || 'codifit')}" data-url="${escapeAttr(v.video_url || '')}" data-title="${escapeAttr(displayTitle)}">
         <div class="rw-video-thumb" data-type="${escapeAttr(v.type || 'codifit')}"${thumbUrl ? ` style="background-image:url('${escapeAttr(thumbUrl)}');background-size:cover;background-position:center;"` : ''}></div>
@@ -1462,6 +1529,7 @@ body::before {
           </div>
         </div>
         <div class="rw-video-duration">${displayDur}s</div>
+        ${delBtn}
       </div>`;
   }
 
@@ -1665,6 +1733,29 @@ body::before {
       $('rwBtnShare').addEventListener('click', onShareClick);
       $('rwBtnReset').addEventListener('click', resetViewbox);
 
+      // ─── 2026-05-27 KST · TJ 지시 ─── 영상 클릭 시 pause/play 토글 ─────
+      const _video = $('rwVideo');
+      const _pauseInd = $('rwPauseIndicator');
+      if (_video) {
+        _video.addEventListener('click', function(){
+          try {
+            if (_video.paused) {
+              _video.play();
+              if (_pauseInd) _pauseInd.style.display = 'none';
+            } else {
+              _video.pause();
+              if (_pauseInd) _pauseInd.style.display = 'block';
+            }
+          } catch(e) { console.warn('[런웨이] 영상 토글 실패:', e); }
+        });
+        // 영상 로드 / 변경 시 인디케이터 숨김 (재생 시작 상태)
+        _video.addEventListener('play',  function(){ if (_pauseInd) _pauseInd.style.display = 'none'; });
+        _video.addEventListener('pause', function(){
+          // 영상 끝나서 자동 pause 인 경우는 표시 안 함 (loop 이라 거의 발생 X)
+          if (!_video.ended) { if (_pauseInd) _pauseInd.style.display = 'block'; }
+        });
+      }
+
       // 병렬 로드: IDB 후보 + 백엔드 영상 리스트 + 사용량
       loadCandidates();
       loadVideos();
@@ -1675,6 +1766,58 @@ body::before {
       console.error('[런웨이 · 초기화 실패]', e);
     }
   }
+
+  // ─── 2026-05-27 KST · TJ 지시 ─── 후보 카드 삭제 (IDB codi_history) ─────
+  //   후보 카드의 X 버튼 클릭 시 호출. confirm 후 IDB 에서 해당 ts 의 항목 삭제 + UI 새로고침.
+  async function _deleteCandidate(ts, label) {
+    if (!ts) return;
+    if (!confirm((label||'후보') + '을(를) 후보 리스트에서 삭제할까요?\n(원본 코디핏/트라이온 결과는 그대로 유지됩니다)')) return;
+    try {
+      const db = await new Promise(function(res, rej){
+        const rq = indexedDB.open('codibank', 1);
+        rq.onsuccess = function(){ res(rq.result); };
+        rq.onerror   = function(){ rej(rq.error); };
+      });
+      const tx = db.transaction('codi_history', 'readwrite');
+      const st = tx.objectStore('codi_history');
+      st.delete(Number(ts));
+      tx.oncomplete = function(){
+        try { db.close(); } catch(_){}
+        // UI 새로고침
+        loadCandidates();
+      };
+      tx.onerror = function(){ try{ db.close(); }catch(_){} };
+    } catch(e) {
+      console.warn('[런웨이] 후보 삭제 실패:', e);
+      alert('삭제 실패: ' + (e.message || e));
+    }
+  }
+  // 글로벌 노출 (HTML onclick 에서 호출)
+  window._rwDeleteCandidate = _deleteCandidate;
+
+  // ─── 2026-05-27 KST · TJ 지시 ─── 영상 카드 삭제 (localStorage) ─────────
+  //   영상 카드의 X 버튼 클릭 시 호출. confirm 후 localStorage 에서 해당 영상 삭제 + UI 새로고침.
+  function _deleteVideo(videoId) {
+    if (!videoId) return;
+    if (!confirm('이 영상을 리스트에서 삭제할까요?\n(BytePlus 원본 URL 은 24시간 후 자동 만료됩니다)')) return;
+    try {
+      const email = _getUserEmail();
+      if (!email) return;
+      const key = _videosStorageKey(email);
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      let list = [];
+      try { list = JSON.parse(raw) || []; } catch(_){}
+      const filtered = list.filter(function(v){ return String(v.id) !== String(videoId); });
+      localStorage.setItem(key, JSON.stringify(filtered));
+      // UI 새로고침
+      loadVideos();
+    } catch(e) {
+      console.warn('[런웨이] 영상 삭제 실패:', e);
+      alert('삭제 실패: ' + (e.message || e));
+    }
+  }
+  window._rwDeleteVideo = _deleteVideo;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
