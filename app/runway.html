@@ -250,92 +250,142 @@ body::before {
 .rw-viewbox-wrap {
   position: relative;
   width: 100%;
-  /* ─── 2026-05-27 KST · TJ 지시 (v2) ─── 후보 카드 / 영상 카드 X 삭제 버튼 ─────
- *   디자인 컨셉: Glassmorphism + 부드러운 그림자 + Spring hover 애니메이션
- *   특징:
- *     - 28px 원형, 반투명 다크 배경 + backdrop-blur (영상/이미지 위에 자연스럽게 떠있음)
- *     - 내부 1px 하얀 테두리 (Apple Vision Pro 스타일 미세 디테일)
- *     - 이중 그림자 (가까운 + 먼) — 깊이감
- *     - hover: 빨강 그라데이션 + scale 1.1 + 그림자 강조
- *     - active: scale 0.92 (살짝 눌리는 피드백)
- *     - 모든 transition cubic-bezier 로 부드럽게
- *     - opacity 0.88 기본 (영상 컨텐츠 방해 안 함)
+  /* ─── 2026-05-27 KST · TJ 지시 (v3) ─── 후보/영상 카드 X 삭제 버튼 ─────
+ *   디자인 컨셉: Floating Glass Pill — 영상/이미지 위에 진짜로 떠 있는 듯한 느낌
+ *   변경 사유 (v2 → v3):
+ *     v2 의 button 기본 user-agent CSS (border, background) 가 우리 스타일을 override
+ *     → 첨부 영상에서 흰색 사각형 + 검은 X 로 표시됨.
+ *     해결: appearance:none + 모든 속성 명시적 reset + 강한 다크 글래스 효과 강화
+ *
+ *   디자인 디테일:
+ *     - all: unset 으로 button 기본 스타일 완전 제거
+ *     - 28px 원형, 진한 다크 글래스 (rgba 0,0,0, 0.5 + backdrop blur 16px)
+ *     - 3단계 그림자 (가까운/중간/먼) — 진짜 떠 있는 효과
+ *     - inset 1px 하얀 글로우 → Apple 디자인 디테일
+ *     - hover: 빨강 그라데이션 + scale 1.12 + 아이콘 90° 회전 + 빨강 발광
+ *     - active: scale 0.92 햅틱 피드백
  */
+button.rw-candidate-del,
+button.rw-video-del,
 .rw-candidate-del,
 .rw-video-del {
+  /* 1) 완전 reset (user-agent button 스타일 제거) */
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  font: inherit;
+  text-decoration: none;
+  user-select: none;
+  -webkit-user-select: none;
+
+  /* 2) 위치 + 크기 */
   position: absolute;
   top: 8px;
   right: 8px;
   width: 28px;
   height: 28px;
-  padding: 0;
-  margin: 0;
-  border: none;
-  border-radius: 50%;
-  background: rgba(15, 18, 28, 0.55);
-  -webkit-backdrop-filter: blur(10px) saturate(180%);
-  backdrop-filter: blur(10px) saturate(180%);
-  color: rgba(255, 255, 255, 0.96);
-  display: flex;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-sizing: border-box;
+
+  /* 3) 모양 — 원형 */
+  border: 0 !important;
+  outline: none !important;
+  border-radius: 50% !important;
+
+  /* 4) 배경 — 진한 다크 글래스 (영상 위에서 명확히 보임) */
+  background:
+    linear-gradient(135deg, rgba(20, 22, 30, 0.62) 0%, rgba(10, 12, 18, 0.72) 100%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
+
+  /* 5) 아이콘 색상 */
+  color: rgba(255, 255, 255, 0.98) !important;
+
+  /* 6) Flex center */
+  display: flex !important;
   align-items: center;
   justify-content: center;
+
+  /* 7) 인터랙션 */
   cursor: pointer;
-  z-index: 10;
-  transition:
-    background 0.22s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.18s ease;
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.22),
-    0 4px 12px rgba(0, 0, 0, 0.28),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.22);
-  opacity: 0.88;
-  outline: none;
+  z-index: 100;
   -webkit-tap-highlight-color: transparent;
+
+  /* 8) Spring 트랜지션 */
+  transition:
+    background 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease;
+
+  /* 9) Floating shadow — 3단 레이어 (Material Design elevation 6 수준) */
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.40),
+    0 4px 14px rgba(0, 0, 0, 0.32),
+    0 10px 28px rgba(0, 0, 0, 0.18),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.28);
+
+  opacity: 0.92;
 }
+
+button.rw-candidate-del:hover,
+button.rw-video-del:hover,
 .rw-candidate-del:hover,
 .rw-video-del:hover {
-  background: linear-gradient(135deg, rgba(255, 87, 87, 0.95) 0%, rgba(220, 50, 50, 0.95) 100%);
+  background:
+    linear-gradient(135deg, rgba(255, 88, 88, 0.95) 0%, rgba(214, 48, 49, 0.95) 100%) !important;
   opacity: 1;
-  transform: scale(1.10);
+  transform: scale(1.12);
   box-shadow:
-    0 2px 6px rgba(220, 50, 50, 0.35),
-    0 8px 20px rgba(220, 50, 50, 0.30),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.4);
+    0 2px 6px rgba(214, 48, 49, 0.40),
+    0 8px 22px rgba(214, 48, 49, 0.35),
+    0 14px 36px rgba(214, 48, 49, 0.20),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.45);
 }
+
+button.rw-candidate-del:active,
+button.rw-video-del:active,
 .rw-candidate-del:active,
 .rw-video-del:active {
   transform: scale(0.92);
   transition-duration: 0.1s;
 }
+
 .rw-candidate-del .material-symbols-outlined,
 .rw-video-del .material-symbols-outlined {
-  font-size: 16px;
+  font-size: 16px !important;
   line-height: 1;
-  font-weight: 500;
+  font-weight: 500 !important;
   font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
-  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35));
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;  /* 아이콘 클릭은 부모 button 이 받도록 */
 }
 .rw-candidate-del:hover .material-symbols-outlined,
 .rw-video-del:hover .material-symbols-outlined {
-  transform: rotate(90deg);  /* hover 시 부드러운 90도 회전 */
+  transform: rotate(90deg);
 }
 
-/* 영상 카드의 X 버튼은 카드 자체가 가로 레이아웃이므로 좌측 상단이 아닌 우측 상단으로 (overlap with duration) */
-/* duration 표시와 겹치지 않게 약간 더 우측 위로 */
+/* 영상 카드의 X 버튼 — 카드가 가로 레이아웃이라 약간 작게 */
 .rw-video-del {
-  top: 6px;
-  right: 6px;
-  width: 24px;
-  height: 24px;
+  width: 26px !important;
+  height: 26px !important;
+  top: 50% !important;
+  right: 10px !important;
+  transform: translateY(-50%);  /* duration 라벨과 같은 라인으로 정렬 */
+}
+.rw-video-del:hover {
+  transform: translateY(-50%) scale(1.12);
+}
+.rw-video-del:active {
+  transform: translateY(-50%) scale(0.92);
 }
 .rw-video-del .material-symbols-outlined {
-  font-size: 14px;
+  font-size: 14px !important;
 }
 
-/* 후보 카드 내부에 position 기준 위해 */
+/* 후보 카드 / 영상 카드 자체에 position relative (X 버튼 absolute 기준) */
 .rw-candidate { position: relative; }
 .rw-video-item { position: relative; }
 
@@ -1335,7 +1385,7 @@ body::before {
     // ─── 2026-05-24 KST · TJ 지시 ─── 이미지 위 레이어드된 'CODIFIT' 텍스트박스 삭제
     //    카드 하단 라벨만 유지 (rw-candidate-foot)
     const imgInner = c.image_url
-      ? '<span class="rw-candidate-face-tag">정면</span>'
+      ? ''  // 2026-05-27 KST · TJ 지시 — 런웨이는 정면/후면 토글 불필요 → '정면' 라벨 제거
       : `<div class="rw-candidate-img-placeholder material-symbols-outlined">${iconName}</div>`;
     const labelText = c.stage ? `${c.label} ${c.stage}` : c.label;
     // 2026-05-27 KST · TJ 지시 — 후보 카드 X 버튼 (event.stopPropagation 으로 카드 클릭과 분리)
