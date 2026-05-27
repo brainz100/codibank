@@ -12777,11 +12777,13 @@ def _runway_neutralize_image(image_url: str, strength: str = "strong") -> str:
             face_area = img.crop((0, 0, w, face_h))
             body_area = img.crop((0, face_h, w, h))
 
-            # 얼굴 — 강한 painterly 유지 (BytePlus 통과 필수)
-            face_processed = face_area.filter(ImageFilter.GaussianBlur(radius=3.5))
-            face_processed = face_processed.filter(ImageFilter.MedianFilter(size=7))
+            # 얼굴 — 강한 painterly 유지 + 약간 약화 (2026-05-27 KST · TJ 보고)
+            #   변경: Posterize 4 → 5 (16색 → 32색), MedianFilter 7 → 5
+            #         → BytePlus 통과는 유지, 그러나 얼굴 features (안경 등) 보존 ↑
+            face_processed = face_area.filter(ImageFilter.GaussianBlur(radius=3.0))
+            face_processed = face_processed.filter(ImageFilter.MedianFilter(size=5))
             face_processed = face_processed.filter(ImageFilter.EDGE_ENHANCE_MORE)
-            face_processed = ImageOps.posterize(face_processed, 4)
+            face_processed = ImageOps.posterize(face_processed, 5)
 
             # 옷/배경 — 약화 (영상 결과 깨끗하게)
             body_processed = body_area.filter(ImageFilter.GaussianBlur(radius=2.5))
@@ -13038,31 +13040,30 @@ def runway_generate():
             else:
                 print(f"[runway_generate] ⚠️ 이미지 분리 실패 → 단일 이미지 모드 폴백", flush=True)
 
-            # 2) 런웨이 워킹 prompt (v7 — TJ 지시 시퀀스 2026-05-25 KST)
+            # 2) 런웨이 워킹 prompt (v8 — TJ 보고 2026-05-27 KST)
+            #    변경 사유: TJ 첨부 영상에서 얼굴 features 변형 (안경 손실, 얼굴 다름) →
+            #              prompt 에 얼굴 보존 강조 명시 + 새 워킹 시퀀스 (TJ 명시) +
+            #              자연스러운 워킹 (손 주머니 X) + 소품 처리 + 토큰 효율
             #    워킹 시퀀스 (총 6초):
-            #      ① 0~2초: 정지 상태에서 정면으로 자연스럽게 걸어옴
-            #      ② 2~2.4초: 정면 정지 포즈 (0.4초)
-            #      ③ 2.4~2.8초: 측면 정지 포즈 (좌/우 랜덤, 0.4초)
-            #      ④ 2.8~3.2초: 후면 정지 포즈 (0.4초)
-            #      ⑤ 3.2~4초: 포즈 변경 동안 (약 1초)
-            #      ⑥ 4~6초: 천천히 뒤로 걸어감 (후면 모습, 2초)
-            #    핵심 제약:
-            #      ✓ 인물이 화면 가로/세로 사이즈를 초과하지 않도록 (full body always in frame)
-            #      ✓ reference image 의 배경/구도/색 그대로 유지
-            #      ✓ 얼굴/헤어/의상/액세서리 변경 금지
+            #      ① 0~2초: 정면으로 자연스럽게 걸어옴
+            #      ② 0.4초: 정면 정지 포즈
+            #      ③ 0.4초: 90도 회전 → 옆모습 정지
+            #      ④ 0.3초: 90도 회전 → 뒷모습 정지
+            #      ⑤ 마지막 2초: 천천히 뒤로 걸어감 (뒷모습)
             seedance_prompt = prompt_in or (
                 "Preserve the reference image's subject, composition, colors, and background EXACTLY. "
-                "Fashion runway walking sequence: "
-                "(1) First 2 seconds — person walks naturally forward toward the camera with a confident, graceful catwalk gait, starting from a stationary pose. "
-                "(2) Next 0.4 seconds — stops and holds a still frontal pose. "
-                "(3) Next 0.4 seconds — turns to side profile (randomly left or right) and holds still. "
-                "(4) Next 0.4 seconds — turns to back view and holds still. "
-                "(5) Approximately 1 second total for the smooth pose transitions between (2)(3)(4). "
-                "(6) Final 2 seconds — walks slowly away from the camera with the back of the outfit visible. "
-                "CRITICAL: Keep the entire body (head to feet) fully visible inside the frame at all times. Do not crop any part of the body. "
-                "Camera: static or smooth subtle tracking, full body always in frame, never zoom in past the full body view. "
-                "Keep facial identity, hairstyle, clothing details, and accessories unchanged. "
-                "Do not introduce new objects or alter the existing background."
+                "CRITICAL: Keep the EXACT face features (eyes, nose, mouth, eyeglasses if present), "
+                "hairstyle, and outfit details from the reference image unchanged. "
+                "Fashion runway sequence (6 seconds total): "
+                "(1) 0-2s: walks naturally forward toward the camera with confident catwalk gait. "
+                "(2) 0.4s: stops with a still frontal pose. "
+                "(3) Rotates 90 degrees smoothly to side profile, holds still 0.4s. "
+                "(4) Rotates another 90 degrees to back view, brief hold 0.3s. "
+                "(5) Last 2s: walks slowly away from camera showing the back of the outfit. "
+                "Natural walking: arms swing freely (do NOT keep hands in pockets continuously). "
+                "Wearable bags (handbag, clutch, crossbody, backpack) move naturally with the body. "
+                "Other handheld items (laptop, large box, etc.) stay in their original position while only the person walks. "
+                "Camera: smooth tracking shot, full body always in frame."
             )
 
             # 3) BytePlus 비디오 생성 요청
