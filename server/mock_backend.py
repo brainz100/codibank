@@ -12963,6 +12963,17 @@ def runway_generate():
         model_req = str(payload.get("model") or "seedance").strip().lower()
         prompt_in = str(payload.get("prompt") or "").strip()
 
+        # ─── 2026-05-27 KST · TJ 디자인 시안 ─── 해상도 옵션 (80M/1K/4K) ─────
+        #   프론트 UI 토글 매핑:
+        #     '80M' → 480p (854x480, BytePlus size='480p', 토큰 ~57K, 저렴)
+        #     '1K'  → 720p (1280x720, BytePlus size='720p', 토큰 ~130K, 기본)
+        #     '4K'  → 1080p (1920x1080, BytePlus size='1080p', 토큰 ~291K, 고화질)
+        #   기본 = '1K' (720p) — 기존 동작과 호환.
+        _res_in = str(payload.get("resolution") or "1K").strip().upper()
+        _res_map = {"80M": "480p", "1K": "720p", "4K": "1080p"}
+        seedance_size = _res_map.get(_res_in, "720p")
+        print(f"[runway_generate] 해상도 옵션: {_res_in} → BytePlus size={seedance_size}", flush=True)
+
         if not candidate_id:
             return jsonify({"ok": False, "error": "candidate_id 가 필요합니다"}), 400
         if duration < 4 or duration > 10:
@@ -13081,7 +13092,7 @@ def runway_generate():
                 base = {
                     "model": _model_id,
                     "ratio": "9:16",         # root 파라미터 — 세로 영상
-                    "resolution": "720p",    # root 파라미터
+                    "resolution": seedance_size,  # 2026-05-27 KST · TJ 시안 — 사용자 선택 (480p/720p/1080p)
                     "duration": duration,    # root 파라미터
                 }
                 if _use_first_last:
@@ -13278,6 +13289,7 @@ def runway_generate():
                     #                    pd.content.usage = {...} 또는 pd.metadata.usage 등 다양.
                     #   공식 계산: (width × height × duration × 24fps) / 1024 = tokens
                     #   720p (720×1280) × 6초 × 24fps / 1024 = 129,600 tokens / 영상
+                    #   2026-05-27 KST · TJ 시안 — 해상도별 동적 계산
                     _usage = {}
                     try:
                         _u1 = pd.get("usage") or {}
@@ -13286,10 +13298,16 @@ def runway_generate():
                         for _u in [_u1, _u2, _u3]:
                             if _u and isinstance(_u, dict):
                                 _usage.update(_u)
-                        # 응답에 usage 없으면 공식으로 추정 (720p × 6초)
+                        # 응답에 usage 없으면 공식으로 추정 (해상도별)
                         if not _usage:
-                            _est_tokens = (720 * 1280 * 6 * 24) // 1024  # = 129,600
-                            _usage = {"estimated_tokens": _est_tokens, "source": "formula"}
+                            _res_dims = {
+                                "480p":  (854, 480),    # 80M → ~57K tokens
+                                "720p":  (1280, 720),   # 1K  → ~129K tokens
+                                "1080p": (1920, 1080),  # 4K  → ~291K tokens
+                            }
+                            _w, _h = _res_dims.get(seedance_size, (1280, 720))
+                            _est_tokens = (_w * _h * duration * 24) // 1024
+                            _usage = {"estimated_tokens": _est_tokens, "source": f"formula_{seedance_size}"}
                     except Exception:
                         pass
 
