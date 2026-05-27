@@ -250,102 +250,85 @@ body::before {
 .rw-viewbox-wrap {
   position: relative;
   width: 100%;
-  /* ─── 2026-05-27 KST · TJ 지시 (v3) ─── 후보/영상 카드 X 삭제 버튼 ─────
- *   디자인 컨셉: Floating Glass Pill — 영상/이미지 위에 진짜로 떠 있는 듯한 느낌
- *   변경 사유 (v2 → v3):
- *     v2 의 button 기본 user-agent CSS (border, background) 가 우리 스타일을 override
- *     → 첨부 영상에서 흰색 사각형 + 검은 X 로 표시됨.
- *     해결: appearance:none + 모든 속성 명시적 reset + 강한 다크 글래스 효과 강화
+  /* ─── 2026-05-27 KST · TJ 지시 (v4 — div 전환) ─── X 삭제 버튼 ─────────────
+ *   디자인 컨셉: Premium Floating Glass — 영상/이미지 위에 떠 있는 다크 글래스 펄
+ *   변경 사유 (v3 → v4):
+ *     v3 가 HTML <button> 의 user-agent CSS 에 막혀 흰색 사각형으로 표시되는 환경 존재
+ *     → HTML 을 <div role="button" tabindex="0"> 로 전환하여 user-agent CSS 완전 회피
+ *     → 동시에 디자인을 더 명확한 다크 글래스 + 강한 그림자로 강화
  *
- *   디자인 디테일:
- *     - all: unset 으로 button 기본 스타일 완전 제거
- *     - 28px 원형, 진한 다크 글래스 (rgba 0,0,0, 0.5 + backdrop blur 16px)
- *     - 3단계 그림자 (가까운/중간/먼) — 진짜 떠 있는 효과
- *     - inset 1px 하얀 글로우 → Apple 디자인 디테일
+ *   특징:
+ *     - 28px 원형 div (button 의 user-agent 영향 0)
+ *     - 진한 다크 그라데이션 (rgba 0,0,0,0.55 → 0.72) + backdrop-blur 16px
+ *     - 4단 그림자 (Material Design elevation 8)
+ *     - inset 1px 하얀 글로우 (Apple 디테일)
  *     - hover: 빨강 그라데이션 + scale 1.12 + 아이콘 90° 회전 + 빨강 발광
- *     - active: scale 0.92 햅틱 피드백
+ *     - active: scale 0.92 (햅틱)
  */
-button.rw-candidate-del,
-button.rw-video-del,
 .rw-candidate-del,
 .rw-video-del {
-  /* 1) 완전 reset (user-agent button 스타일 제거) */
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  -moz-appearance: none !important;
-  font: inherit;
-  text-decoration: none;
-  user-select: none;
-  -webkit-user-select: none;
-
-  /* 2) 위치 + 크기 */
+  /* 위치 + 크기 */
   position: absolute;
   top: 8px;
   right: 8px;
   width: 28px;
   height: 28px;
-  padding: 0 !important;
-  margin: 0 !important;
   box-sizing: border-box;
 
-  /* 3) 모양 — 원형 */
-  border: 0 !important;
-  outline: none !important;
-  border-radius: 50% !important;
+  /* 모양 — 완벽한 원형 */
+  border-radius: 50%;
 
-  /* 4) 배경 — 진한 다크 글래스 (영상 위에서 명확히 보임) */
+  /* 배경 — 다크 글래스 (영상/이미지 위에서 명확히 시인) */
   background:
-    linear-gradient(135deg, rgba(20, 22, 30, 0.62) 0%, rgba(10, 12, 18, 0.72) 100%) !important;
+    linear-gradient(135deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.72) 100%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   backdrop-filter: blur(16px) saturate(180%);
 
-  /* 5) 아이콘 색상 */
-  color: rgba(255, 255, 255, 0.98) !important;
+  /* 아이콘 색상 */
+  color: #ffffff;
 
-  /* 6) Flex center */
-  display: flex !important;
+  /* Flex center */
+  display: flex;
   align-items: center;
   justify-content: center;
 
-  /* 7) 인터랙션 */
+  /* 인터랙션 */
   cursor: pointer;
   z-index: 100;
+  user-select: none;
+  -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
 
-  /* 8) Spring 트랜지션 */
+  /* Spring 트랜지션 */
   transition:
     background 0.25s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
     box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.2s ease;
+    opacity 0.18s ease;
 
-  /* 9) Floating shadow — 3단 레이어 (Material Design elevation 6 수준) */
+  /* 4단 Floating shadow — Material Design elevation 8 */
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.40),
-    0 4px 14px rgba(0, 0, 0, 0.32),
-    0 10px 28px rgba(0, 0, 0, 0.18),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.28);
+    0 1px 2px rgba(0, 0, 0, 0.42),
+    0 4px 14px rgba(0, 0, 0, 0.35),
+    0 10px 28px rgba(0, 0, 0, 0.22),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.32);
 
-  opacity: 0.92;
+  opacity: 0.94;
 }
 
-button.rw-candidate-del:hover,
-button.rw-video-del:hover,
 .rw-candidate-del:hover,
 .rw-video-del:hover {
   background:
-    linear-gradient(135deg, rgba(255, 88, 88, 0.95) 0%, rgba(214, 48, 49, 0.95) 100%) !important;
+    linear-gradient(135deg, rgba(255, 88, 88, 0.96) 0%, rgba(214, 48, 49, 0.96) 100%);
   opacity: 1;
   transform: scale(1.12);
   box-shadow:
-    0 2px 6px rgba(214, 48, 49, 0.40),
-    0 8px 22px rgba(214, 48, 49, 0.35),
-    0 14px 36px rgba(214, 48, 49, 0.20),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.45);
+    0 2px 6px rgba(214, 48, 49, 0.45),
+    0 8px 22px rgba(214, 48, 49, 0.38),
+    0 14px 38px rgba(214, 48, 49, 0.24),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.50);
 }
 
-button.rw-candidate-del:active,
-button.rw-video-del:active,
 .rw-candidate-del:active,
 .rw-video-del:active {
   transform: scale(0.92);
@@ -354,38 +337,32 @@ button.rw-video-del:active,
 
 .rw-candidate-del .material-symbols-outlined,
 .rw-video-del .material-symbols-outlined {
-  font-size: 16px !important;
+  font-size: 16px;
   line-height: 1;
-  font-weight: 500 !important;
-  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
-  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35));
+  font-weight: 600;
+  font-variation-settings: 'FILL' 0, 'wght' 600, 'GRAD' 0, 'opsz' 24;
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.4));
   transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
-  pointer-events: none;  /* 아이콘 클릭은 부모 button 이 받도록 */
+  pointer-events: none;  /* 아이콘 클릭은 부모 div 가 받도록 */
 }
 .rw-candidate-del:hover .material-symbols-outlined,
 .rw-video-del:hover .material-symbols-outlined {
   transform: rotate(90deg);
 }
 
-/* 영상 카드의 X 버튼 — 카드가 가로 레이아웃이라 약간 작게 */
+/* 영상 카드의 X — 가로 카드 우측 끝 (6s 라벨 옆에 같은 라인) */
 .rw-video-del {
-  width: 26px !important;
-  height: 26px !important;
-  top: 50% !important;
-  right: 10px !important;
-  transform: translateY(-50%);  /* duration 라벨과 같은 라인으로 정렬 */
-}
-.rw-video-del:hover {
-  transform: translateY(-50%) scale(1.12);
-}
-.rw-video-del:active {
-  transform: translateY(-50%) scale(0.92);
+  width: 26px;
+  height: 26px;
+  top: 50%;
+  right: 12px;
+  margin-top: -13px;  /* translateY(-50%) 대신 — transform 충돌 회피 */
 }
 .rw-video-del .material-symbols-outlined {
-  font-size: 14px !important;
+  font-size: 14px;
 }
 
-/* 후보 카드 / 영상 카드 자체에 position relative (X 버튼 absolute 기준) */
+/* 후보 카드 / 영상 카드 자체 — position 기준 */
 .rw-candidate { position: relative; }
 .rw-video-item { position: relative; }
 
@@ -1391,7 +1368,7 @@ button.rw-video-del:active,
     // 2026-05-27 KST · TJ 지시 — 후보 카드 X 버튼 (event.stopPropagation 으로 카드 클릭과 분리)
     const tsForDelete = (c.ts || (c.id || '').replace(/^(codi|tryon)-/, '')) || '';
     const delBtn = tsForDelete
-      ? `<button class="rw-candidate-del" data-ts="${escapeAttr(tsForDelete)}" data-label="${escapeAttr(labelText)}" title="후보에서 삭제" onclick="event.stopPropagation();window._rwDeleteCandidate(${Number(tsForDelete)},this.getAttribute('data-label'));return false;"><span class="material-symbols-outlined">close</span></button>`
+      ? `<div role="button" tabindex="0" class="rw-candidate-del" data-ts="${escapeAttr(tsForDelete)}" data-label="${escapeAttr(labelText)}" title="후보에서 삭제" onclick="event.stopPropagation();window._rwDeleteCandidate(${Number(tsForDelete)},this.getAttribute('data-label'));return false;"><span class="material-symbols-outlined">close</span></div>`
       : '';
     return `
       <div class="rw-candidate" data-id="${escapeAttr(c.id)}" data-type="${escapeAttr(c.type)}" data-label="${escapeAttr(labelText)}" data-image-url="${escapeAttr(c.image_url || '')}">
@@ -1618,7 +1595,7 @@ button.rw-video-del:active,
     const thumbUrl     = v.thumb_url || v.candidate_image_url || '';
     // 2026-05-27 KST · TJ 지시 — 영상 카드 X 버튼
     const delBtn = v.id
-      ? `<button class="rw-video-del" title="영상 리스트에서 삭제" onclick="event.stopPropagation();window._rwDeleteVideo('${escapeAttr(v.id)}');return false;"><span class="material-symbols-outlined">close</span></button>`
+      ? `<div role="button" tabindex="0" class="rw-video-del" title="영상 리스트에서 삭제" onclick="event.stopPropagation();window._rwDeleteVideo('${escapeAttr(v.id)}');return false;"><span class="material-symbols-outlined">close</span></div>`
       : '';
     return `
       <div class="rw-video-item" data-id="${escapeAttr(v.id)}" data-type="${escapeAttr(v.type || 'codifit')}" data-url="${escapeAttr(v.video_url || '')}" data-title="${escapeAttr(displayTitle)}">
