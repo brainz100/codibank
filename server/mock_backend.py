@@ -13276,6 +13276,41 @@ def runway_generate():
                     video_url = content.get("video_url") or ""
                     # BytePlus 는 thumbnail 별도 안 줄 수도
                     thumb_url = content.get("thumbnail_url") or content.get("first_frame_url") or ""
+
+                    # ─── 2026-05-27 KST · TJ 질문 ─── 토큰 사용량 추출 + log ─────
+                    #   BytePlus 응답에 usage 정보가 포함되어 있다면 추출 + log 기록.
+                    #   응답 구조 (관찰): pd.usage = {"total_tokens", "completion_tokens", "input_tokens"} 또는
+                    #                    pd.content.usage = {...} 또는 pd.metadata.usage 등 다양.
+                    #   공식 계산: (width × height × duration × 24fps) / 1024 = tokens
+                    #   720p (720×1280) × 6초 × 24fps / 1024 = 129,600 tokens / 영상
+                    _usage = {}
+                    try:
+                        _u1 = pd.get("usage") or {}
+                        _u2 = (content.get("usage") if isinstance(content, dict) else None) or {}
+                        _u3 = (pd.get("metadata", {}) or {}).get("usage") or {}
+                        for _u in [_u1, _u2, _u3]:
+                            if _u and isinstance(_u, dict):
+                                _usage.update(_u)
+                        # 응답에 usage 없으면 공식으로 추정 (720p × 6초)
+                        if not _usage:
+                            _est_tokens = (720 * 1280 * 6 * 24) // 1024  # = 129,600
+                            _usage = {"estimated_tokens": _est_tokens, "source": "formula"}
+                    except Exception:
+                        pass
+
+                    _tok_total = _usage.get("total_tokens") or _usage.get("estimated_tokens") or 0
+                    _tok_cost_usd = round((_tok_total / 1_000_000) * 3.30, 4) if _tok_total else 0  # fast pack: $3.30/1M
+                    _tok_cost_krw = round(_tok_cost_usd * 1400, 0) if _tok_cost_usd else 0
+                    print(f"[runway_generate · 토큰 사용량] task={task_id}, tokens={_tok_total:,}, "
+                          f"비용=${_tok_cost_usd:.4f} ≈ ₩{int(_tok_cost_krw):,}, source={_usage.get('source','byteplus_response')}", flush=True)
+
+                    # 응답에 포함 (프론트가 사용량 표시 가능)
+                    _token_info = {
+                        "tokens": _tok_total,
+                        "cost_usd": _tok_cost_usd,
+                        "cost_krw": int(_tok_cost_krw),
+                        "source": _usage.get("source", "byteplus_response"),
+                    }
                     break
                 if status in ("failed", "error", "cancelled"):
                     err = pd.get("error") or {}
@@ -13307,6 +13342,7 @@ def runway_generate():
                 "generated_at": _runway_now_iso(),
                 "task_id": task_id,
                 "tier": user_tier,
+                "token_usage": _token_info if '_token_info' in dir() else None,  # 2026-05-27 KST · TJ 질문
             })
 
         except Exception as seedance_err:
