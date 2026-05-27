@@ -13040,30 +13040,25 @@ def runway_generate():
             else:
                 print(f"[runway_generate] ⚠️ 이미지 분리 실패 → 단일 이미지 모드 폴백", flush=True)
 
-            # 2) 런웨이 워킹 prompt (v8 — TJ 보고 2026-05-27 KST)
-            #    변경 사유: TJ 첨부 영상에서 얼굴 features 변형 (안경 손실, 얼굴 다름) →
-            #              prompt 에 얼굴 보존 강조 명시 + 새 워킹 시퀀스 (TJ 명시) +
-            #              자연스러운 워킹 (손 주머니 X) + 소품 처리 + 토큰 효율
-            #    워킹 시퀀스 (총 6초):
-            #      ① 0~2초: 정면으로 자연스럽게 걸어옴
-            #      ② 0.4초: 정면 정지 포즈
-            #      ③ 0.4초: 90도 회전 → 옆모습 정지
-            #      ④ 0.3초: 90도 회전 → 뒷모습 정지
-            #      ⑤ 마지막 2초: 천천히 뒤로 걸어감 (뒷모습)
+            # 2) 런웨이 워킹 prompt (v10 — TJ 지시 2026-05-27 KST · 토큰 효율 압축)
+            #    변경: v9 의 자연어 문장형 → 보고형 단답으로 압축. 중복 단어 제거.
+            #          v9 단어 224 / 토큰 ~359 → v10 단어 ~110 / 토큰 ~180 (절감 약 50%)
+            #    유지: 모든 핵심 룰 (얼굴 보존, 액세서리 보존, 워킹 시퀀스, 카메라)
             seedance_prompt = prompt_in or (
-                "Preserve the reference image's subject, composition, colors, and background EXACTLY. "
-                "CRITICAL: Keep the EXACT face features (eyes, nose, mouth, eyeglasses if present), "
-                "hairstyle, and outfit details from the reference image unchanged. "
-                "Fashion runway sequence (6 seconds total): "
-                "(1) 0-2s: walks naturally forward toward the camera with confident catwalk gait. "
-                "(2) 0.4s: stops with a still frontal pose. "
-                "(3) Rotates 90 degrees smoothly to side profile, holds still 0.4s. "
-                "(4) Rotates another 90 degrees to back view, brief hold 0.3s. "
-                "(5) Last 2s: walks slowly away from camera showing the back of the outfit. "
-                "Natural walking: arms swing freely (do NOT keep hands in pockets continuously). "
-                "Wearable bags (handbag, clutch, crossbody, backpack) move naturally with the body. "
-                "Other handheld items (laptop, large box, etc.) stay in their original position while only the person walks. "
-                "Camera: smooth tracking shot, full body always in frame."
+                "PRESERVE reference image EXACTLY: subject, composition, colors, background, "
+                "face features (eyes/nose/mouth/eyeglasses), hairstyle, outfit. Unchanged throughout. "
+                "ACCESSORIES (STRICT): keep EXACT count/position/appearance of all items "
+                "(bag/handbag/tote/clutch/crossbody/backpack/hat/cap/sunglasses/glasses/watch/umbrella/scarf). "
+                "No add. No remove. No duplicate. No relocate. "
+                "1 shoulder bag → stays 1 bag, same shoulder. Never multiply. "
+                "RUNWAY SEQUENCE (6s total): "
+                "0-2s walk forward, catwalk gait. "
+                "0.4s frontal pose, still. "
+                "0.4s rotate 90° to side, still. "
+                "0.3s rotate 90° to back, still. "
+                "last 2s walk slowly away (back visible). "
+                "WALKING: free arm swing, no hands in pockets. "
+                "CAMERA: smooth tracking, full body always in frame."
             )
 
             # 3) BytePlus 비디오 생성 요청
