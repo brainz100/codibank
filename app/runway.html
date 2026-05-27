@@ -453,14 +453,94 @@ body::before {
   50%      { opacity: 1.00; transform: translate(-50%, -50%) scale(1.06); }
 }
 
-/* ─── 2026-05-25 KST · TJ 지시 (v5) — 동영상 N회 가능 배지 (뷰박스 밖 우측 상단) ─── */
+/* ─── 2026-05-27 KST · TJ 디자인 시안 — 좌: 해상도 토글 / 우: 사용량 배지 ─── */
 .rw-viewbox-header {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
   padding: 0 2px;
+  gap: 10px;
 }
+
+/* ─── 2026-05-27 KST · TJ 디자인 시안 — 후보 슬라이더 페이지네이션 점 ─── */
+.rw-candidates-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 4px;
+  min-height: 8px;
+}
+.rw-candidates-dots .rw-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(215, 227, 250, 0.20);
+  transition:
+    background 0.22s ease,
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    width 0.22s ease;
+  cursor: pointer;
+}
+.rw-candidates-dots .rw-dot.active {
+  background: #1cdfbf;  /* mint primary (DESIGN.md primary-fixed-dim) */
+  width: 18px;          /* active 는 pill 모양으로 확장 */
+  border-radius: 9999px;
+  box-shadow: 0 0 8px rgba(28, 223, 191, 0.5);
+}
+
+/* === 해상도 토글 (80M / 1K / 4K) === */
+.rw-resolution-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 9999px;
+  background: rgba(15, 28, 44, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  gap: 0;
+}
+.rw-res-opt {
+  position: relative;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  color: rgba(215, 227, 250, 0.5);
+  font-family: 'Manrope', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.22s ease,
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.22s ease;
+  outline: none;
+}
+.rw-res-opt:hover:not(.active) {
+  color: rgba(215, 227, 250, 0.85);
+}
+.rw-res-opt.active {
+  background: linear-gradient(135deg, #ff9b3d 0%, #ff7a1a 100%);
+  color: #fff;
+  box-shadow:
+    0 1px 3px rgba(255, 122, 26, 0.35),
+    0 4px 12px rgba(255, 122, 26, 0.28),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.22);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
+}
+.rw-res-opt:active {
+  transform: scale(0.95);
+  transition-duration: 0.1s;
+}
+
+/* === 사용량 배지 (기존 유지) === */
 .rw-usage-badge {
   display: inline-flex;
   align-items: center;
@@ -936,7 +1016,7 @@ body::before {
   <!-- ─── 2. 영상 후보 리스트 (가로 스크롤) ─── -->
   <section class="rw-section">
     <div class="rw-section-head">
-      <h2 class="rw-section-title">영상제작 리스트</h2>
+      <h2 class="rw-section-title">내가 찜한 추천코디 리스트</h2>
       <span class="rw-section-meta" id="rwCandidatesCount">불러오는 중...</span>
     </div>
     <div class="rw-candidates" id="rwCandidates">
@@ -946,12 +1026,19 @@ body::before {
         <p>이미지 목록 불러오는 중...</p>
       </div>
     </div>
+    <!-- 2026-05-27 KST · TJ 디자인 시안 — 후보 슬라이더 페이지네이션 점 -->
+    <div class="rw-candidates-dots" id="rwCandidatesDots" aria-hidden="true"></div>
   </section>
 
   <!-- ─── 3. 동영상 뷰박스 ─── -->
   <section class="rw-section">
-    <!-- 2026-05-25 KST · TJ 지시 (v5) — 사용량 배지를 뷰박스 밖 우측 상단으로 (코디핏 패턴) -->
+    <!-- 2026-05-27 KST · TJ 디자인 시안 — 좌: 해상도 토글 / 우: 사용량 배지 -->
     <div class="rw-viewbox-header">
+      <div class="rw-resolution-toggle" id="rwResolutionToggle" role="radiogroup" aria-label="영상 해상도 선택">
+        <div role="radio" tabindex="0" class="rw-res-opt"          data-res="80M" aria-checked="false">80M</div>
+        <div role="radio" tabindex="0" class="rw-res-opt active"   data-res="1K"  aria-checked="true" >1K</div>
+        <div role="radio" tabindex="0" class="rw-res-opt"          data-res="4K"  aria-checked="false">4K</div>
+      </div>
       <div class="rw-usage-badge" id="rwUsageBadge">
         <span class="material-symbols-outlined">videocam</span>
         <span id="rwUsageBadgeText">동영상 0회 가능</span>
@@ -995,7 +1082,7 @@ body::before {
   <!-- ─── 5. 내 런웨이 영상 리스트 ─── -->
   <section class="rw-section">
     <div class="rw-section-head">
-      <h2 class="rw-section-title">내 런웨이 영상</h2>
+      <h2 class="rw-section-title">런웨이 동영상 리스트</h2>
       <span class="rw-section-meta" id="rwVideosCount">불러오는 중...</span>
     </div>
     <div class="rw-video-list" id="rwVideoList">
@@ -1341,10 +1428,56 @@ body::before {
 
       wrap.innerHTML = candidates.map(renderCandidateCard).join('');
       bindCandidateClicks();
+      _rwRenderDots(candidates.length);  // 2026-05-27 KST · TJ 디자인 시안 — 점 동기화
     } catch (e) {
       console.error('[런웨이 · 후보 로드 실패]', e);
       if (meta) meta.textContent = '오류';
       wrap.innerHTML = `<div class="rw-error" style="flex:1;min-width:100%;">후보 리스트를 불러오지 못했어요.<br/><span style="font-size:11px;opacity:0.7;">${escapeHtml(e.message || '')}</span></div>`;
+      _rwRenderDots(0);
+    }
+  }
+
+  // ─── 2026-05-27 KST · TJ 디자인 시안 ─── 후보 슬라이더 페이지네이션 점 ─────
+  //   N개 카드 → N개 점 생성. 스크롤 위치에 따라 active 점 동기화.
+  //   첫 카드 표시 시 첫 점 active, 끝 카드 도달 시 끝 점 active.
+  function _rwRenderDots(count) {
+    const dots = $('rwCandidatesDots');
+    const wrap = $('rwCandidates');
+    if (!dots) return;
+    if (!count || count < 2) {  // 1개 이하면 점 숨김
+      dots.innerHTML = '';
+      return;
+    }
+    let html = '';
+    for (let i = 0; i < count; i++) {
+      html += `<div class="rw-dot${i === 0 ? ' active' : ''}" data-idx="${i}"></div>`;
+    }
+    dots.innerHTML = html;
+    // 점 클릭 → 해당 카드 위치로 스크롤
+    dots.querySelectorAll('.rw-dot').forEach(function(d){
+      d.addEventListener('click', function(){
+        const idx = Number(d.getAttribute('data-idx'));
+        const cards = wrap.querySelectorAll('.rw-candidate');
+        if (cards[idx]) cards[idx].scrollIntoView({behavior:'smooth', inline:'start', block:'nearest'});
+      });
+    });
+    // 스크롤 이벤트 → 현재 보이는 카드 인덱스 계산 → active 점 갱신
+    if (!wrap._rwDotScrollBound) {
+      wrap._rwDotScrollBound = true;
+      let rafId = null;
+      wrap.addEventListener('scroll', function(){
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(function(){
+          const cards = wrap.querySelectorAll('.rw-candidate');
+          if (!cards.length) return;
+          const cardWidth = cards[0].offsetWidth + 12;  // gap 포함
+          const idx = Math.round(wrap.scrollLeft / cardWidth);
+          const allDots = dots.querySelectorAll('.rw-dot');
+          allDots.forEach(function(d, i){
+            d.classList.toggle('active', i === idx);
+          });
+        });
+      });
     }
   }
 
@@ -1433,6 +1566,9 @@ body::before {
       //         preflight 200 OK 받아도 실제 POST 요청이 차단됨.
       //   증거: Render 로그에 OPTIONS 200 OK 만 있고 POST 호출 자체가 없음.
       //   해결: closet.html / tryon.html 패턴과 동일하게 credentials 옵션 제거.
+      // 2026-05-27 KST · TJ 디자인 시안 — 사용자 선택 해상도 (80M/1K/4K) 전달
+      const _selectedRes = (typeof window._rwGetResolution === 'function')
+        ? window._rwGetResolution() : '1K';
       const res = await fetch(`${RW_BASE}/api/runway/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1442,6 +1578,7 @@ body::before {
           duration: 6,
           model: 'luma',          // 백엔드가 LUMA_API_KEY + tier 검사 후 자동 폴백
           user_email: user_email,
+          resolution: _selectedRes,  // 80M / 1K / 4K → 백엔드에서 480p/720p/1080p 로 매핑
         }),
       });
       const data = await res.json();
@@ -1834,6 +1971,43 @@ body::before {
           if (!_video.ended) { if (_pauseInd) _pauseInd.style.display = 'block'; }
         });
       }
+
+      // ─── 2026-05-27 KST · TJ 디자인 시안 ─── 해상도 토글 (80M / 1K / 4K) ───
+      //   1K (720p) 가 기본. 사용자 선택은 localStorage 저장.
+      //   영상 생성 시 백엔드 /api/runway/generate 의 `resolution` 파라미터로 전달.
+      //   백엔드 매핑 (서버에서 처리):
+      //     - 80M → 480p (854x480, 토큰 ~57K, 저렴)
+      //     - 1K  → 720p (1280x720, 토큰 ~130K, 기본)
+      //     - 4K  → 1080p (1920x1080, 토큰 ~291K, 고화질)
+      const _resKey = 'cb_runway_resolution';
+      try {
+        const _saved = localStorage.getItem(_resKey) || '1K';
+        $$('.rw-res-opt').forEach(function(opt){
+          const isActive = opt.getAttribute('data-res') === _saved;
+          opt.classList.toggle('active', isActive);
+          opt.setAttribute('aria-checked', isActive ? 'true' : 'false');
+        });
+      } catch(_) {}
+      $$('.rw-res-opt').forEach(function(opt){
+        opt.addEventListener('click', function(){
+          const res = opt.getAttribute('data-res');
+          // 모든 옵션 inactive → 이 옵션만 active
+          $$('.rw-res-opt').forEach(function(o){
+            o.classList.remove('active');
+            o.setAttribute('aria-checked', 'false');
+          });
+          opt.classList.add('active');
+          opt.setAttribute('aria-checked', 'true');
+          // localStorage 저장
+          try { localStorage.setItem(_resKey, res); } catch(_){}
+          console.log('[런웨이] 해상도 변경:', res);
+        });
+      });
+      // 글로벌 노출 — 영상 생성 시 사용
+      window._rwGetResolution = function(){
+        const active = document.querySelector('.rw-res-opt.active');
+        return active ? active.getAttribute('data-res') : '1K';
+      };
 
       // 병렬 로드: IDB 후보 + 백엔드 영상 리스트 + 사용량
       loadCandidates();
