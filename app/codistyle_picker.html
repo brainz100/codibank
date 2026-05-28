@@ -4329,7 +4329,9 @@ function _csInitWin(items,si){
   return w;
 }
 
-function _csLayerContent(el,item,type){
+function _csLayerContent(el,item,type,idx){
+  // 2026-05-28 KST · TJ 보고 — shift 후 data-idx 동기화 (idx 인자 추가)
+  if(idx!=null) el.setAttribute('data-idx', (idx>=0?idx:-1));
   el.innerHTML='';
   if(!item){el.innerHTML='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"><span class="mi" style="font-size:18px;color:rgba(150,150,150,.2);">'+(type==='top'?'styler':'apparel')+'</span></div>';return;}
   var imgEl=document.createElement('img');imgEl.alt='';imgEl.style.opacity='0';imgEl.style.transition='opacity .3s';
@@ -4387,7 +4389,7 @@ function drawDeck(type,items,ci){
         if(!_self.animating)return;
         lv.classList.remove('exit-left','exit-right');
         var ep=dir>0?7:1,ei=dir>0?_self.windowIndices[6]:_self.windowIndices[0];
-        _csLayerContent(lv,ei>=0?_self.items[ei]:null,_self.type);
+        _csLayerContent(lv,ei>=0?_self.items[ei]:null,_self.type,ei);
         lv.classList.add('no-transition');_csSlc(lv,ep);lv.classList.add(dir>0?'enter-right':'enter-left');
         try{void lv.offsetHeight;}catch(_){}
         lv.classList.remove('no-transition');
@@ -4403,20 +4405,27 @@ function drawDeck(type,items,ci){
   for(var pos=1;pos<=7;pos++){
     var a=document.createElement('div');a.className='cs-layer cs-l'+pos;
     var idx=ctrl.windowIndices[pos-1];
-    a.setAttribute('data-idx',idx>=0?idx:-1);
-    _csLayerContent(a,idx>=0?ctrl.items[idx]:null,type);
+    _csLayerContent(a,idx>=0?ctrl.items[idx]:null,type,idx);  // data-idx 는 _csLayerContent 가 설정
     ctrl.els.push(a);el.appendChild(a);
   }
   _csDeckCtrl[type]=ctrl;
 
   // 중앙 카드(l4) 클릭 → 선택
+  // ─── 2026-05-28 KST · TJ 보고 (버그 수정) ─────────────────────────────
+  //   BUG: 스와이프(shift) 후 카드를 클릭하면 보이는 이미지와 다른 엉뚱한
+  //        아이템이 미리보기에 표시됨.
+  //   원인: shift() 가 windowIndices·카드 내용(_csLayerContent)은 갱신하지만
+  //         각 카드의 data-idx 속성은 초기 생성(line 4406) 이후 갱신 안 함.
+  //         → 중앙 카드 클릭 시 stale data-idx → items[stale] = 엉뚱한 아이템.
+  //   FIX: data-idx 대신 ctrl.windowIndices[CENTER=3] (항상 정확한 중앙 인덱스) 사용.
+  //        + type 강제변환('top'?'top':'bottom') 제거 → 원래 type 그대로 전달.
   el.addEventListener('click',function(ev){
     var c=ev.target.closest('.cs-l4');
     if(!c||ctrl.animating)return;
-    var idx=parseInt(c.getAttribute('data-idx'));
-    if(isNaN(idx)||idx<0)return;
+    var idx=ctrl.windowIndices[3];  // 중앙 카드(cs-l4)의 실제 인덱스 — data-idx 신뢰 안 함
+    if(idx==null||isNaN(idx)||idx<0)return;
     if(type==='top')_dkTopSel=idx; else _dkBotSel=idx;
-    pickDeckItem(type==='top'?'top':'bottom',items[idx]);
+    pickDeckItem(type, ctrl.items[idx]);
   });
 
   // 터치 스와이프
