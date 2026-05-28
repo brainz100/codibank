@@ -5093,7 +5093,9 @@ def _get_engine_config_summary() -> dict:
     }
     
     # [2026-04-23 17:00] 트라이온 분석 전용 설정 (병렬 처리용)
-    _tryon_analysis_model = os.getenv("CODIBANK_MODEL_TRYON_ANALYSIS", "gemini-3-pro-preview")
+    # [2026-05-28 KST · TJ 보고] gemini-3-pro-preview 가 2026-03-09 종료됨 (404 NOT_FOUND)
+    #   → gemini-3.1-pro-preview 로 마이그레이션 (Google 공식 후속 모델, 동일 가격/기능)
+    _tryon_analysis_model = os.getenv("CODIBANK_MODEL_TRYON_ANALYSIS", "gemini-3.1-pro-preview")
     _tryon_thinking_raw = (os.getenv("CODIBANK_TRYON_THINKING_LEVEL") or "").strip().lower()
     _tryon_thinking_effective = _tryon_thinking_raw if _tryon_thinking_raw in ("low", "medium", "high") else "low"
     
@@ -13270,6 +13272,7 @@ def runway_generate():
             poll_url = f"https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks/{task_id}"
             video_url = ""
             thumb_url = ""
+            _copyright_retried = False  # 2026-05-28 KST · TJ 보고 — copyright 1회 재시도 플래그
             for _i in range(100):  # 100 * 3 = 300초
                 _time.sleep(3)
                 pr = _rq.get(poll_url, headers=create_headers, timeout=15)
@@ -13328,6 +13331,30 @@ def runway_generate():
                 if status in ("failed", "error", "cancelled"):
                     err = pd.get("error") or {}
                     err_msg = err.get("message") or err.get("code") or str(err)[:200]
+                    # ─── 2026-05-28 KST · TJ 보고 ─── copyright 거부 → very_strong 재시도 ───
+                    #   케이스: 원본이 단일 모드로 입력 통과 → 출력 영상에서 copyright 거부.
+                    #   주로 트라이온(사실적) 이미지. very_strong painterly 처리 시
+                    #   출력 영상도 painterly → 저작권/초상권 회피 가능성 ↑. 1회만 재시도.
+                    if ("copyright" in str(err_msg).lower()
+                            and not _copyright_retried
+                            and used_mode and "neutralized" not in str(used_mode)):
+                        _copyright_retried = True
+                        print("[runway_generate] copyright 거부 → very_strong painterly 재시도", flush=True)
+                        _src_retry = front_url if has_split else image_url
+                        _neut_retry = _runway_neutralize_image(_src_retry, strength="very_strong")
+                        if _neut_retry and _neut_retry != _src_retry:
+                            _retry_payload = _build_payload(used_model_id, _neut_retry, _neut_retry, False)
+                            _rc = _rq.post(create_url, json=_retry_payload, headers=create_headers, timeout=20)
+                            if _rc.status_code < 400:
+                                _rd = _rc.json() or {}
+                                _new_task = _rd.get("id") or _rd.get("task_id")
+                                if _new_task:
+                                    task_id = _new_task
+                                    poll_url = f"https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks/{task_id}"
+                                    used_mode = "single_frame_very_strong_neutralized"
+                                    print(f"[runway_generate] ✅ copyright 재시도 create 성공 → task={task_id}", flush=True)
+                                    continue  # 폴링 루프 재진입 (새 task_id)
+                        print("[runway_generate] copyright 재시도 실패 → 최종 에러", flush=True)
                     raise RuntimeError(f"Seedance 생성 실패: {err_msg}")
             if not video_url:
                 raise RuntimeError("Seedance 폴링 타임아웃 (300초)")
@@ -13366,6 +13393,12 @@ def runway_generate():
             if err_text.startswith("SENSITIVE_CONTENT::"):
                 _reason = "sensitive_content"
                 _user_err = "AI 안전 필터로 영상 생성이 차단되었어요"
+            elif "copyright" in err_text.lower():
+                # 2026-05-28 KST · TJ 보고 — 출력 영상 저작권/초상권 차단
+                #   주로 트라이온 이미지(사실적)에서 발생. BytePlus 가 실제 인물/유명인
+                #   닮은 영상을 저작권 위험으로 판단. 코디핏 이미지는 거의 발생 안 함.
+                _reason = "copyright_content"
+                _user_err = "이 이미지는 안전 필터로 영상 생성이 어려워요. 다른 코디를 시도해보세요"
             elif "타임아웃" in err_text or "timeout" in err_text.lower():
                 _reason = "BytePlus Seedance timeout"
                 _user_err = "영상 생성 시간이 초과되었어요"
