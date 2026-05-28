@@ -250,116 +250,100 @@ body::before {
 .rw-viewbox-wrap {
   position: relative;
   width: 100%;
-  /* ─── 2026-05-27 KST · TJ 지시 (v4 — div 전환) ─── X 삭제 버튼 ─────────────
- *   디자인 컨셉: Premium Floating Glass — 영상/이미지 위에 떠 있는 다크 글래스 펄
- *   변경 사유 (v3 → v4):
- *     v3 가 HTML <button> 의 user-agent CSS 에 막혀 흰색 사각형으로 표시되는 환경 존재
- *     → HTML 을 <div role="button" tabindex="0"> 로 전환하여 user-agent CSS 완전 회피
- *     → 동시에 디자인을 더 명확한 다크 글래스 + 강한 그림자로 강화
+  /* ─── 2026-05-27 KST · TJ 시안 디자인 (v5) ─── X 삭제 버튼 ─────────────
+ *   시안 코드 (Tailwind) 를 일반 CSS 로 변환:
  *
- *   특징:
- *     - 28px 원형 div (button 의 user-agent 영향 0)
- *     - 진한 다크 그라데이션 (rgba 0,0,0,0.55 → 0.72) + backdrop-blur 16px
- *     - 4단 그림자 (Material Design elevation 8)
- *     - inset 1px 하얀 글로우 (Apple 디테일)
- *     - hover: 빨강 그라데이션 + scale 1.12 + 아이콘 90° 회전 + 빨강 발광
- *     - active: scale 0.92 (햅틱)
+ *   [후보 카드 X - 사진 위에 위치]
+ *     class="absolute top-2 right-2 w-6 h-6 flex items-center justify-center
+ *            rounded-full bg-black/40 text-white hover:bg-black/60
+ *            transition-colors z-10"
+ *     <span class="material-symbols-outlined text-[16px]">close</span>
+ *
+ *   [영상 카드 X - 카드 배경 위에 위치]
+ *     class="w-8 h-8 flex items-center justify-center rounded-full
+ *            bg-on-surface-variant/10 text-on-surface-variant
+ *            hover:bg-error/20 hover:text-error transition-all"
+ *     <span class="material-symbols-outlined text-[18px] font-light">close</span>
+ *
+ *   변경 사유 (v4 → v5):
+ *     v4 의 4단 그림자 + 빨강 회전 + 28px 글래스 디자인이 과한 느낌
+ *     → 시안의 미니멀 + 컨텍스트별 색상 (사진 위=검정, 카드 위=회색) 적용
+ *     → div role="button" 유지 (user-agent button CSS 회피)
  */
-.rw-candidate-del,
-.rw-video-del {
-  /* 위치 + 크기 */
+
+/* === 후보 카드 X 버튼 (이미지/사진 위) === */
+.rw-candidate-del {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 28px;
-  height: 28px;
-  box-sizing: border-box;
-
-  /* 모양 — 완벽한 원형 */
-  border-radius: 50%;
-
-  /* 배경 — 다크 글래스 (영상/이미지 위에서 명확히 시인) */
-  background:
-    linear-gradient(135deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.72) 100%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  backdrop-filter: blur(16px) saturate(180%);
-
-  /* 아이콘 색상 */
-  color: #ffffff;
-
-  /* Flex center */
+  width: 24px;       /* w-6 */
+  height: 24px;      /* h-6 */
   display: flex;
   align-items: center;
   justify-content: center;
-
-  /* 인터랙션 */
+  border-radius: 9999px;       /* rounded-full */
+  background: rgba(0, 0, 0, 0.40);    /* bg-black/40 */
+  color: #ffffff;              /* text-white */
   cursor: pointer;
-  z-index: 100;
+  z-index: 10;
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
-
-  /* Spring 트랜지션 */
-  transition:
-    background 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.18s ease;
-
-  /* 4단 Floating shadow — Material Design elevation 8 */
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.42),
-    0 4px 14px rgba(0, 0, 0, 0.35),
-    0 10px 28px rgba(0, 0, 0, 0.22),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.32);
-
-  opacity: 0.94;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  box-sizing: border-box;
 }
-
-.rw-candidate-del:hover,
-.rw-video-del:hover {
-  background:
-    linear-gradient(135deg, rgba(255, 88, 88, 0.96) 0%, rgba(214, 48, 49, 0.96) 100%);
-  opacity: 1;
-  transform: scale(1.12);
-  box-shadow:
-    0 2px 6px rgba(214, 48, 49, 0.45),
-    0 8px 22px rgba(214, 48, 49, 0.38),
-    0 14px 38px rgba(214, 48, 49, 0.24),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.50);
+.rw-candidate-del:hover {
+  background: rgba(0, 0, 0, 0.60);    /* bg-black/60 */
 }
-
-.rw-candidate-del:active,
-.rw-video-del:active {
-  transform: scale(0.92);
+.rw-candidate-del:active {
+  transform: scale(0.94);
   transition-duration: 0.1s;
 }
-
-.rw-candidate-del .material-symbols-outlined,
-.rw-video-del .material-symbols-outlined {
-  font-size: 16px;
+.rw-candidate-del .material-symbols-outlined {
+  font-size: 16px;             /* text-[16px] */
   line-height: 1;
-  font-weight: 600;
-  font-variation-settings: 'FILL' 0, 'wght' 600, 'GRAD' 0, 'opsz' 24;
-  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.4));
-  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
-  pointer-events: none;  /* 아이콘 클릭은 부모 div 가 받도록 */
-}
-.rw-candidate-del:hover .material-symbols-outlined,
-.rw-video-del:hover .material-symbols-outlined {
-  transform: rotate(90deg);
+  pointer-events: none;
 }
 
-/* 영상 카드의 X — 가로 카드 우측 끝 (6s 라벨 옆에 같은 라인) */
+/* === 영상 카드 X 버튼 (카드 배경 위) === */
 .rw-video-del {
-  width: 26px;
-  height: 26px;
+  position: absolute;
   top: 50%;
   right: 12px;
-  margin-top: -13px;  /* translateY(-50%) 대신 — transform 충돌 회피 */
+  margin-top: -16px;           /* h-8 의 반 (16px) — translateY(-50%) 대신 */
+  width: 32px;                 /* w-8 */
+  height: 32px;                /* h-8 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;       /* rounded-full */
+  background: rgba(186, 202, 196, 0.10);  /* bg-on-surface-variant/10 */
+  color: #bacac4;              /* text-on-surface-variant */
+  cursor: pointer;
+  z-index: 10;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+  box-sizing: border-box;
+}
+.rw-video-del:hover {
+  background: rgba(255, 180, 171, 0.20);  /* bg-error/20 */
+  color: #ffb4ab;              /* text-error */
+}
+.rw-video-del:active {
+  transform: scale(0.94);
+  transition-duration: 0.1s;
 }
 .rw-video-del .material-symbols-outlined {
-  font-size: 14px;
+  font-size: 18px;             /* text-[18px] */
+  font-weight: 300;            /* font-light */
+  font-variation-settings: 'wght' 300;
+  line-height: 1;
+  pointer-events: none;
 }
 
 /* 후보 카드 / 영상 카드 자체 — position 기준 */
@@ -394,12 +378,57 @@ body::before {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--text-tertiary);
   text-align: center;
-  gap: 14px;
   padding: 20px;
   z-index: 1;
 }
+
+/* ─── 2026-05-27 KST · TJ 시안 ─── 64px 라운드 박스 + 32px play_arrow ─── */
+.rw-empty-icon-box {
+  width: 64px;            /* w-16 */
+  height: 64px;           /* h-16 */
+  border-radius: 16px;    /* rounded-2xl */
+  background: rgba(42, 53, 71, 0.5);   /* bg-surface-variant/50 (#2a3547 50%) */
+  border: 1px solid rgba(59, 74, 69, 0.5);  /* border-outline-variant/50 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #bacac4;         /* text-on-surface-variant */
+  margin-bottom: 32px;    /* mb-8 */
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: all 0.3s ease;
+}
+.rw-empty-icon-box .material-symbols-outlined {
+  font-size: 32px;        /* text-[32px] */
+  font-variation-settings: 'FILL' 1, 'wght' 400;  /* filled */
+  margin-left: 4px;       /* ml-1 — play 아이콘 시각 균형 */
+  line-height: 1;
+}
+
+/* 텍스트 그룹 */
+.rw-empty-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;               /* space-y-2 */
+}
+.rw-empty-text {
+  font-size: 16px;        /* body-lg */
+  line-height: 24px;
+  font-weight: 400;
+  color: #d7e3fa;         /* text-on-surface — 밝은 색 */
+  margin: 0;
+}
+.rw-empty-sub {
+  font-size: 12px;        /* label-md */
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  color: #bacac4;         /* text-on-surface-variant */
+  padding-top: 8px;       /* pt-2 */
+  margin: 0;
+}
+/* 이전 .rw-empty-icon 셀렉터 (에러 상태 등에서 사용) — 기존 동작 유지용 */
 .rw-empty-icon {
   font-family: 'Material Symbols Outlined';
   font-size: 64px;
@@ -407,17 +436,7 @@ body::before {
   color: var(--accent-dim);
   opacity: 0.5;
   line-height: 1;
-}
-.rw-empty-text {
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
-.rw-empty-sub {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  letter-spacing: 0.01em;
+  margin-bottom: 14px;
 }
 
 .rw-viewbox-video {
@@ -1046,9 +1065,15 @@ body::before {
     </div>
     <div class="rw-viewbox-wrap" id="rwViewbox">
       <div class="rw-viewbox-empty" id="rwViewboxEmpty">
-        <span class="rw-empty-icon material-symbols-outlined">slideshow</span>
-        <div class="rw-empty-text">위에서 이미지를 선택하면<br/>AI가 6초 동영상을 생성합니다</div>
-        <div class="rw-empty-sub">소요 시간 약 30~60초</div>
+        <!-- 2026-05-27 KST · TJ 시안 — 64px 라운드 박스 + 32px play_arrow filled -->
+        <div class="rw-empty-icon-box">
+          <span class="material-symbols-outlined">play_arrow</span>
+        </div>
+        <div class="rw-empty-text-group">
+          <p class="rw-empty-text">위에서 이미지를 선택하면</p>
+          <p class="rw-empty-text">AI가 6초 동영상을 생성합니다</p>
+          <p class="rw-empty-sub">소요 시간 약 30~60초</p>
+        </div>
       </div>
       <div class="rw-viewbox-loading" id="rwViewboxLoading">
         <!-- 2026-05-25 KST · TJ 지시 (v3) — 구성: RUNWAY → progress bar → 안내 문구 (단일 행) -->
