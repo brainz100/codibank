@@ -7841,7 +7841,8 @@ def _tryon_analyze_via_text_model(
     실패 시: 예외를 그대로 raise (상위에서 future.result() 시 잡음)
     """
     import os as _os
-    analysis_model = _os.getenv("CODIBANK_MODEL_TRYON_ANALYSIS", "gemini-3-pro-preview")
+    # [2026-05-28 KST · TJ 보고] gemini-3-pro-preview 2026-03-09 종료(404) → gemini-3.1-pro-preview
+    analysis_model = _os.getenv("CODIBANK_MODEL_TRYON_ANALYSIS", "gemini-3.1-pro-preview")
     _thinking_level = _resolve_thinking_level()
     
     # Gemini 3 시리즈만 thinking_config 지원 (2.5 이하는 미지원)
@@ -8496,7 +8497,7 @@ def tryon_generate():
     import concurrent.futures as _cf
     import time as _time
     
-    _ANALYSIS_MODEL = os.getenv("CODIBANK_MODEL_TRYON_ANALYSIS", "gemini-3-pro-preview")
+    _ANALYSIS_MODEL = os.getenv("CODIBANK_MODEL_TRYON_ANALYSIS", "gemini-3.1-pro-preview")
     _ANALYSIS_THINKING = _resolve_thinking_level()  # 환경변수 기반, 마스터가 실시간 변경 가능
     _t0 = _time.time()
     print(
@@ -12622,36 +12623,63 @@ def _runway_split_front_back(image_url: str) -> tuple:
         #         배경색은 이미지 가장자리 평균 (대부분 단색 배경).
         #   효과: BytePlus 가 인물 그대로 + 위/아래 자연 배경 = 잘림 X
         from PIL import ImageStat as _PILStat
+        # ─── 2026-05-28 KST · TJ 기준 ─── 배경 확대 패딩 (솔리드 파스텔 보존) ───
+        #   원칙: 코디뱅크 입력 = 아바타 + 솔리드 파스텔 배경.
+        #         배경 컬러를 변경·변형하지 않고, 뷰박스 빈틈 없게 "배경색만 확대".
+        #   동작: 4 가장자리(상/하/좌/우 테두리)를 샘플링 → 표준편차로 단색 여부 판정.
+        #         · 단색(파스텔)이면: 그 정확한 단색으로 캔버스 전체를 채움 → 이음새 0.
+        #         · 비단색이면: 기존 방식(인접 가장자리 평균)으로 fallback.
+        def _edge_fill_color(_img):
+            """4 가장자리 테두리에서 배경색 추출 + 단색 여부 반환 → (fill_rgb, is_solid)"""
+            _w, _h = _img.size
+            _b = max(3, min(_w, _h) // 40)  # 테두리 두께 (이미지 비례, 최소 3px)
+            _strips = [
+                _img.crop((0, 0, _w, _b)),          # 상
+                _img.crop((0, _h - _b, _w, _h)),    # 하
+                _img.crop((0, 0, _b, _h)),          # 좌
+                _img.crop((_w - _b, 0, _w, _h)),    # 우
+            ]
+            _means = [_PILStat.Stat(s).mean for s in _strips]
+            _stds  = [_PILStat.Stat(s).stddev for s in _strips]
+            # 전체 가장자리 평균 = 패딩색
+            _fill = tuple(
+                int(round(sum(m[i] for m in _means) / len(_means))) for i in range(3)
+            )
+            # 단색 판정: 각 가장자리 내부 표준편차 + 가장자리 간 색차 모두 작아야 함
+            _max_internal_std = max(max(s[:3]) for s in _stds)
+            _ch_spread = max(
+                max(m[i] for m in _means) - min(m[i] for m in _means) for i in range(3)
+            )
+            _is_solid = (_max_internal_std < 8.0) and (_ch_spread < 10.0)
+            return _fill, _is_solid
+
         def _pad_to_9_16(_img):
             _w, _h = _img.size
             _target_ratio = 9.0 / 16.0  # = 0.5625
             _current = _w / _h
             if abs(_current - _target_ratio) < 0.005:
                 return _img  # 이미 9:16
+            _fill, _is_solid = _edge_fill_color(_img)
             if _current > _target_ratio:
                 # 가로가 더 김 → 세로를 늘려서 9:16 (위/아래 패딩)
                 _new_h = int(round(_w / _target_ratio))
-                _pad_total = _new_h - _h
-                _pad_top = _pad_total // 2
-                # 배경색 추출 — 상단 5px + 하단 5px 평균 (4 코너 평균보다 단색배경에 robust)
-                _top_strip = _img.crop((0, 0, _w, 5))
-                _bot_strip = _img.crop((0, _h - 5, _w, _h))
-                _top_mean = _PILStat.Stat(_top_strip).mean
-                _bot_mean = _PILStat.Stat(_bot_strip).mean
-                _fill = tuple(int(round((_top_mean[i] + _bot_mean[i]) / 2)) for i in range(3))
+                _pad_top = (_new_h - _h) // 2
+                if not _is_solid:
+                    # 비단색 fallback — 상/하 가장자리 평균
+                    _top_mean = _PILStat.Stat(_img.crop((0, 0, _w, 5))).mean
+                    _bot_mean = _PILStat.Stat(_img.crop((0, _h - 5, _w, _h))).mean
+                    _fill = tuple(int(round((_top_mean[i] + _bot_mean[i]) / 2)) for i in range(3))
                 _new = Image.new('RGB', (_w, _new_h), _fill)
                 _new.paste(_img, (0, _pad_top))
                 return _new
             else:
                 # 세로가 더 김 → 가로를 늘려서 9:16 (좌/우 패딩)
                 _new_w = int(round(_h * _target_ratio))
-                _pad_total = _new_w - _w
-                _pad_left = _pad_total // 2
-                _left_strip = _img.crop((0, 0, 5, _h))
-                _right_strip = _img.crop((_w - 5, 0, _w, _h))
-                _left_mean = _PILStat.Stat(_left_strip).mean
-                _right_mean = _PILStat.Stat(_right_strip).mean
-                _fill = tuple(int(round((_left_mean[i] + _right_mean[i]) / 2)) for i in range(3))
+                _pad_left = (_new_w - _w) // 2
+                if not _is_solid:
+                    _left_mean = _PILStat.Stat(_img.crop((0, 0, 5, _h))).mean
+                    _right_mean = _PILStat.Stat(_img.crop((_w - 5, 0, _w, _h))).mean
+                    _fill = tuple(int(round((_left_mean[i] + _right_mean[i]) / 2)) for i in range(3))
                 _new = Image.new('RGB', (_new_w, _h), _fill)
                 _new.paste(_img, (_pad_left, 0))
                 return _new
@@ -13058,8 +13086,17 @@ def runway_generate():
             #          v9 단어 224 / 토큰 ~359 → v10 단어 ~110 / 토큰 ~180 (절감 약 50%)
             #    유지: 모든 핵심 룰 (얼굴 보존, 액세서리 보존, 워킹 시퀀스, 카메라)
             seedance_prompt = prompt_in or (
+                # ─── 2026-05-28 KST · TJ 기준 ─── 안전필터 정공법 우회 ───
+                #   코디뱅크 입력은 실사가 아니라 'AI 생성 스타일라이즈드 아바타 + 솔리드 파스텔 배경'.
+                #   이미지를 painterly 로 손상시키지 않고, 프롬프트로 '비실사 아바타'임을 명시 →
+                #   BytePlus 의 'real person' 오판(PrivacyInformation 차단)을 줄임.
+                #   (코디핏 이미지가 통과하는 원리를 입력 변형 없이 재현)
+                "This is a STYLIZED DIGITAL FASHION AVATAR, an AI-generated illustrated character, "
+                "NOT a real person, NOT a photograph. Animate it as a 3D fashion model. "
                 "PRESERVE reference image EXACTLY: subject, composition, colors, background, "
                 "face features (eyes/nose/mouth/eyeglasses), hairstyle, outfit. Unchanged throughout. "
+                "BACKGROUND: keep the solid pastel background color EXACTLY as-is. "
+                "Do not change, gradient, texture, or add objects to the background. "
                 "ACCESSORIES (STRICT): keep EXACT count/position/appearance of all items "
                 "(bag/handbag/tote/clutch/crossbody/backpack/hat/cap/sunglasses/glasses/watch/umbrella/scarf). "
                 "No add. No remove. No duplicate. No relocate. "
@@ -13204,61 +13241,19 @@ def runway_generate():
                                     print(f"[runway_generate] strong neutralize 도 {_model_id} 거부", flush=True)
                                     continue
 
-                    # ─── 2026-05-25 KST · TJ 보고 ─── 트라이온 일관성 fix ─────────────
-                    # ─── 단계 3: STRONG 재시도 (다른 random seed) ──────────────────
-                    #   배경: TJ 보고 — 같은 트라이온 이미지인데 어떤 건 성공/어떤 건 실패.
-                    #   원인:
-                    #     ① BytePlus 안전 필터의 비결정론 (같은 이미지여도 다른 결과)
-                    #     ② painterly stylization 의 noise 가 매번 다름 (random seed)
-                    #     ③ 현재 STRONG 한 번만 시도 → 재시도 시 통과 가능성 ↑
-                    #   해결: STRONG 거부 시 한 번 더 STRONG 시도 (새 noise 패턴).
+                    # ─── 2026-05-28 KST · TJ 기준 ─── 배경 보존 우선 정책 ─────────────
+                    #   변경 이유: 기존 STRONG 재시도(단계3) + VERY_STRONG(단계4)는
+                    #             배경을 강한 painterly 로 변형 → 솔리드 파스텔 배경이
+                    #             컬러블록으로 깨짐 (TJ 기준 위반: "배경 변형 금지").
+                    #   신규 정책: 작업 B(배경 단색 보존 패딩) + 작업 C(아바타 명시 프롬프트)로
+                    #             1차 통과율을 높이고, neutralize 는 배경 손상이 적은
+                    #             LIGHT + STRONG 까지만 시도. 그래도 실패하면 사용자에게
+                    #             "다른 코디로 시도" 안내 (배경 망가진 영상을 내보내지 않음).
+                    #   제거: STRONG 재시도(중복) + VERY_STRONG(배경/얼굴 강한 변형).
+
+                    # 그래도 거부 → 최종 sensitive_content 에러 (배경 손상 폴백 없이 명확 안내)
                     if used_model_id is None:
-                        print(f"[runway_generate] STRONG 1차 실패 → STRONG 재시도 (다른 noise 패턴)", flush=True)
-                        # 약간의 시간 차로 random seed 변경 → 다른 painterly 결과
-                        import time as _t
-                        _t.sleep(0.3)
-                        neut_front_strong2 = _runway_neutralize_image(src_url, strength="strong")
-
-                        if neut_front_strong2 and neut_front_strong2 != src_url:
-                            for _model_id in _model_candidates:
-                                create_payload = _build_payload(_model_id, neut_front_strong2, neut_front_strong2, False)
-                                cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
-                                if cr.status_code < 400:
-                                    used_model_id = _model_id
-                                    used_mode = "single_frame_strong_neutralized_retry"
-                                    print(f"[runway_generate] ✅ STRONG 재시도 통과: {_model_id}", flush=True)
-                                    break
-                                _body = cr.text or ""
-                                if cr.status_code == 400 and ("InputImageSensitiveContent" in _body or "PrivacyInformation" in _body or "may contain real person" in _body):
-                                    sensitive_err_text = _body[:300]
-                                    print(f"[runway_generate] STRONG 재시도 도 {_model_id} 거부", flush=True)
-                                    continue
-
-                    # ─── 단계 4: VERY_STRONG (얼굴까지 강한 painterly + hue shift) ──
-                    #   최후의 폴백. 얼굴도 강하게 변형 (사용자 인식 어려울 수 있음).
-                    #   트라이온의 매우 사실적인 얼굴까지 우회 가능하도록.
-                    if used_model_id is None:
-                        print(f"[runway_generate] STRONG 재시도도 실패 → VERY_STRONG 폴백 (얼굴 강한 변형)", flush=True)
-                        neut_front_vs = _runway_neutralize_image(src_url, strength="very_strong")
-
-                        if neut_front_vs and neut_front_vs != src_url:
-                            for _model_id in _model_candidates:
-                                create_payload = _build_payload(_model_id, neut_front_vs, neut_front_vs, False)
-                                cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
-                                if cr.status_code < 400:
-                                    used_model_id = _model_id
-                                    used_mode = "single_frame_very_strong_neutralized"
-                                    print(f"[runway_generate] ✅ VERY_STRONG 통과: {_model_id}", flush=True)
-                                    break
-                                _body = cr.text or ""
-                                if cr.status_code == 400 and ("InputImageSensitiveContent" in _body or "PrivacyInformation" in _body or "may contain real person" in _body):
-                                    sensitive_err_text = _body[:300]
-                                    print(f"[runway_generate] VERY_STRONG 도 {_model_id} 거부", flush=True)
-                                    continue
-
-                    # 그래도 거부 → 최종 sensitive_content 에러
-                    if used_model_id is None:
-                        raise RuntimeError(f"SENSITIVE_CONTENT::AI 생성 이미지가 BytePlus 안전 필터로 차단됨 (4단계 우회 모두 거부): {sensitive_err_text[:200]}")
+                        raise RuntimeError(f"SENSITIVE_CONTENT::AI 생성 이미지가 BytePlus 안전 필터로 차단됨 (배경 보존 우회 실패): {sensitive_err_text[:200]}")
                 else:
                     raise RuntimeError(f"BytePlus create 실패: {(cr.text if cr else '')[:300]}")
 
@@ -13272,7 +13267,6 @@ def runway_generate():
             poll_url = f"https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks/{task_id}"
             video_url = ""
             thumb_url = ""
-            _copyright_retried = False  # 2026-05-28 KST · TJ 보고 — copyright 1회 재시도 플래그
             for _i in range(100):  # 100 * 3 = 300초
                 _time.sleep(3)
                 pr = _rq.get(poll_url, headers=create_headers, timeout=15)
@@ -13331,30 +13325,11 @@ def runway_generate():
                 if status in ("failed", "error", "cancelled"):
                     err = pd.get("error") or {}
                     err_msg = err.get("message") or err.get("code") or str(err)[:200]
-                    # ─── 2026-05-28 KST · TJ 보고 ─── copyright 거부 → very_strong 재시도 ───
-                    #   케이스: 원본이 단일 모드로 입력 통과 → 출력 영상에서 copyright 거부.
-                    #   주로 트라이온(사실적) 이미지. very_strong painterly 처리 시
-                    #   출력 영상도 painterly → 저작권/초상권 회피 가능성 ↑. 1회만 재시도.
-                    if ("copyright" in str(err_msg).lower()
-                            and not _copyright_retried
-                            and used_mode and "neutralized" not in str(used_mode)):
-                        _copyright_retried = True
-                        print("[runway_generate] copyright 거부 → very_strong painterly 재시도", flush=True)
-                        _src_retry = front_url if has_split else image_url
-                        _neut_retry = _runway_neutralize_image(_src_retry, strength="very_strong")
-                        if _neut_retry and _neut_retry != _src_retry:
-                            _retry_payload = _build_payload(used_model_id, _neut_retry, _neut_retry, False)
-                            _rc = _rq.post(create_url, json=_retry_payload, headers=create_headers, timeout=20)
-                            if _rc.status_code < 400:
-                                _rd = _rc.json() or {}
-                                _new_task = _rd.get("id") or _rd.get("task_id")
-                                if _new_task:
-                                    task_id = _new_task
-                                    poll_url = f"https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks/{task_id}"
-                                    used_mode = "single_frame_very_strong_neutralized"
-                                    print(f"[runway_generate] ✅ copyright 재시도 create 성공 → task={task_id}", flush=True)
-                                    continue  # 폴링 루프 재진입 (새 task_id)
-                        print("[runway_generate] copyright 재시도 실패 → 최종 에러", flush=True)
+                    # ─── 2026-05-28 KST · TJ 기준 ─── 배경 보존: very_strong 재시도 제거 ───
+                    #   기존: 출력 영상 copyright 거부 시 very_strong painterly 재시도.
+                    #   변경: very_strong 은 배경을 강한 painterly 로 변형 → 솔리드 파스텔
+                    #         배경 깨짐 (TJ 기준 위반). 배경 망가진 영상을 내보내느니
+                    #         명확한 안내로 처리 (작업 B/C 가 입력 단계에서 통과율을 높임).
                     raise RuntimeError(f"Seedance 생성 실패: {err_msg}")
             if not video_url:
                 raise RuntimeError("Seedance 폴링 타임아웃 (300초)")
