@@ -2079,13 +2079,10 @@ body::before {
     if (!videoId) return;
     if (!confirm('이 영상을 리스트에서 삭제할까요?\n(BytePlus 원본 URL 은 24시간 후 자동 만료됩니다)')) return;
     try {
-      const email = _getUserEmail();
-      if (!email) return;
-      const key = _videosStorageKey(email);
-      const raw = localStorage.getItem(key);
-      if (!raw) return;
-      let list = [];
-      try { list = JSON.parse(raw) || []; } catch(_){}
+      // 2026-05-28 KST · TJ 보고 — 버그 수정: 존재하지 않는 _videosStorageKey(email) 호출 →
+      //   실제 영상 저장 키/로더인 _rwLocalKey() + _rwLocalLoad() 사용으로 교체.
+      const key = _rwLocalKey();
+      const list = _rwLocalLoad();
       const filtered = list.filter(function(v){ return String(v.id) !== String(videoId); });
       localStorage.setItem(key, JSON.stringify(filtered));
       // UI 새로고침
