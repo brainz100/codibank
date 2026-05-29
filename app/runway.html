@@ -1793,6 +1793,15 @@ body::before {
       vid.src = videoUrl;
       vid.style.display = 'block';
       $('rwViewboxEmpty').style.display = 'none';
+      // 2026-05-29 KST · TJ 지시 (2번) — 재생 실패(만료 URL 등) 시 사용자 안내
+      vid.onerror = function() {
+        vid.style.display = 'none';
+        $('rwViewboxEmpty').innerHTML =
+          '<span class="rw-empty-icon material-symbols-outlined" style="color: var(--accent); opacity: 0.85;">error</span>' +
+          `<div class="rw-empty-text" style="color: #fff;">${escapeHtml(title)}</div>` +
+          '<div class="rw-empty-sub">영상을 불러올 수 없어요 (오래된 영상은 다시 생성해주세요)</div>';
+        $('rwViewboxEmpty').style.display = 'flex';
+      };
       vid.play().catch(function(){});
     } else {
       currentVideoUrl = '';
