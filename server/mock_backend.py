@@ -1773,7 +1773,7 @@ def _write_upload_bytes(slot: str, ext: str, data: bytes, *, fixed_name: str | N
 
     # 1순위: Cloudflare R2 업로드
     mime_map = {"jpg":"image/jpeg","jpeg":"image/jpeg","png":"image/png",
-                "webp":"image/webp","gif":"image/gif"}
+                "webp":"image/webp","gif":"image/gif","mp4":"video/mp4"}
     mime = mime_map.get(ext, "image/jpeg")
     r2_url = _upload_to_r2(fname, data, mime)
     if r2_url:
@@ -13489,18 +13489,35 @@ def runway_generate():
             # 3) Supabase 사용량 +1
             _runway_increment_usage(user_email)
 
-            # TODO: R2 비디오 저장 + 자체 URL 발급 (장기 보관용)
-            #   BytePlus 비디오 URL 도 만료 시간이 있을 수 있음
-            #   import boto3
-            #   r2_client = boto3.client('s3', endpoint_url=...)
-            #   video_bytes = _rq.get(video_url).content
-            #   r2_key = f"runway/{user_email}/{candidate_id}-{duration}s.mp4"
-            #   r2_client.put_object(Bucket=..., Key=r2_key, Body=video_bytes, ContentType='video/mp4')
-            #   final_url = f"https://r2.codibank.kr/{r2_key}"
+            # ─── 2026-05-29 KST · TJ 지시 (2번 — 영상 리스트 재생 안 됨 fix) ───
+            #   원인: BytePlus 영상 URL 은 24h 만료 → 어제 만든 영상 오늘 재생 불가.
+            #   해결: 생성 직후 BytePlus 영상을 다운로드해 R2 에 영구 저장 →
+            #         자체 URL(/uploads/..)을 반환. 만료 없는 영구 재생.
+            #   실패 시: BytePlus 원본 URL 로 폴백 (최소한 당장은 재생되게).
+            final_video_url = video_url
+            try:
+                _vid_resp = _rq.get(video_url, timeout=60)
+                if _vid_resp.status_code == 200 and _vid_resp.content:
+                    _vid_name = f"runway_video_{_now_ms()}_{os.urandom(3).hex()}.mp4"
+                    _vid_rel = _write_upload_bytes("runway", "mp4", _vid_resp.content,
+                                                   fixed_name=_vid_name)
+                    try:
+                        _vbase = _public_base()
+                    except Exception:
+                        _vbase = "https://codibank-api.onrender.com"
+                    final_video_url = (f"{_vbase}{_vid_rel}" if _vid_rel.startswith("/")
+                                       else f"{_vbase}/{_vid_rel}")
+                    print(f"[runway_video_r2] ✅ 영상 R2 영구저장 완료: {_vid_name} "
+                          f"({len(_vid_resp.content)//1024}KB)", flush=True)
+                else:
+                    print(f"[runway_video_r2] ⚠ 영상 다운로드 실패 ({_vid_resp.status_code}) "
+                          f"→ BytePlus 원본 URL 사용", flush=True)
+            except Exception as _ve:
+                print(f"[runway_video_r2] ⚠ R2 저장 실패 → BytePlus 원본 URL 사용: {_ve}", flush=True)
 
             return jsonify({
                 "ok": True,
-                "video_url": video_url,        # 현재: BytePlus 직접 URL (24h 만료 가능)
+                "video_url": final_video_url,  # R2 영구 URL (실패 시 BytePlus 원본)
                 "thumb_url": thumb_url,
                 "duration_seconds": duration,
                 "model": used_model_id or "seedance-2.0-fast",
