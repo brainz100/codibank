@@ -4467,20 +4467,24 @@ function drawDeck(type,items,ci){
 async function pickDeckItem(type,entry){
   _resetResultArea(); // 아이템 변경 → 착장이미지+분석 리셋
   if(!entry) return;
+  // [FIX 2026-05-30] 레거시 카드덱은 하의를 'bot' 약어로 넘기지만 ST 객체 키는 'bottom'.
+  //   기존엔 ST['bot'](=undefined)에 접근 → TypeError로 하의 선택이 중단되어
+  //   '하의 선택완료' 버튼이 활성화되지 않았음. ST 접근용 정규화 키만 분리.
+  var stKey = (type === 'top') ? 'top' : 'bottom';
   var pvEl=document.getElementById(type==='top'?'topPreview':'botPreview');
   if(!pvEl) return;
   var src='';
   try{if(CodiBank.getImageSrc) src=await CodiBank.getImageSrc(entry.ref);}catch(_){}
   if(!src) return;
   pvEl.innerHTML='<img src="'+src+'" style="width:100%;height:100%;object-fit:contain;border-radius:8px;">'+
-    '<button class="cpreview-x" data-clear="'+type+'"><span class="mi" style="font-size:18px;font-weight:900;">close</span></button>'+
+    '<button class="cpreview-x" data-clear="'+stKey+'"><span class="mi" style="font-size:18px;font-weight:900;">close</span></button>'+
     '<div class="cpreview-badge">Selected Item</div>';
   // dataUrl + 업로드
   var dataUrl=src;
   if(!src.startsWith('data:')){try{var r=await fetch(src);var b=await r.blob();dataUrl=await new Promise(function(ok){var fr=new FileReader();fr.onload=function(){ok(fr.result);};fr.readAsDataURL(b);});}catch(_){}}
-  ST[type].dataUrl=dataUrl;
-  try{var img=new Image();img.src=src;ST[type].naturalWidth=img.naturalWidth||400;ST[type].naturalHeight=img.naturalHeight||600;}catch(_){}
-  ST[type].label=entry.label+' '+(entry.item.color||'');
+  ST[stKey].dataUrl=dataUrl;
+  try{var img=new Image();img.src=src;ST[stKey].naturalWidth=img.naturalWidth||400;ST[stKey].naturalHeight=img.naturalHeight||600;}catch(_){}
+  ST[stKey].label=entry.label+' '+(entry.item.color||'');
   // [2026-04-09] Ai옷장 아이템: 이미 분석된 데이터를 캐시에 저장 (Phase1 스킵)
   if(entry.item && entry.item.meta && entry.item.meta.gemini) {
     var gm = entry.item.meta.gemini;
@@ -4531,9 +4535,9 @@ async function pickDeckItem(type,entry){
     }
   }
   // 서버 업로드 시작 (업로드 완료 전에도 dataUrl로 생성 가능하도록)
-  if(dataUrl && !ST[type].serverPath) ST[type].serverPath = '_pending_';
-  _uploadDeckItem(type,dataUrl);
-  var del=document.getElementById('del-'+type);if(del)del.style.display='flex';
+  if(dataUrl && !ST[stKey].serverPath) ST[stKey].serverPath = '_pending_';
+  _uploadDeckItem(stKey,dataUrl);
+  var del=document.getElementById('del-'+stKey);if(del)del.style.display='flex';
   updateGenerateBtn();
   _savePageState(); // [2026-04-11] 아이템 선택 후 상태 보존
 }
