@@ -12575,6 +12575,86 @@ def _runway_increment_usage(user_email):
         print(f"[_runway_increment_usage] error: {e}", flush=True)
 
 
+def _runway_make_stage_bg(_pil_img):
+    """
+    ─── 2026-05-29 KST · TJ 지시 (방법 A — 런웨이 전용 무대 배경) ───────────
+    인물을 분리해 '어두운 런웨이 무대' 배경에 합성한다.
+
+    목적:
+      · 코디핏/트라이온 정지이미지(파스텔)는 그대로 두고,
+        런웨이 영상 진입 시에만 배경을 어두운 무대로 교체.
+      · 어두운 단색 배경 → BytePlus 안전필터 통과 유리 + 진짜 런웨이 느낌
+        + 워킹하는 착장이 부각됨 (인물 외 요소 최소).
+
+    동작:
+      1) rembg(HF Space)로 인물 분리 (RGBA)
+      2) 비투명 비율 < 15% 면 실패로 간주 → None 반환 (호출부에서 원본 사용)
+      3) 어두운 무대 배경(상단 어두움 → 하단 약간 밝은 바닥 그라데이션)에 합성
+      4) 합성된 RGB PIL 이미지 반환
+
+    입력: PIL RGB 이미지 (정면 또는 후면 1장)
+    반환: 합성된 PIL RGB 이미지 (성공) 또는 None (실패 → 원본 유지)
+    """
+    try:
+        from PIL import Image as _PImg
+        import io as _io2
+        _w, _h = _pil_img.size
+
+        # 1) 인물 분리 (rembg HF Space) — RGBA 결과 직접 받기 위해 흰배경 합성 전 단계 사용
+        if not _REMBG_API_URL:
+            print("[runway_stage] ⚠ REMBG 미설정 → 무대배경 합성 스킵", flush=True)
+            return None
+        _buf = _io2.BytesIO()
+        _pil_img.save(_buf, format="JPEG", quality=92)
+        _resp = http_requests.post(
+            f"{_REMBG_API_URL}/remove-bg",
+            files={"file": ("frame.jpg", _buf.getvalue(), "image/jpeg")},
+            timeout=30,
+        )
+        if _resp.status_code != 200:
+            print(f"[runway_stage] ⚠ rembg 응답 오류 {_resp.status_code} → 스킵", flush=True)
+            return None
+        _data = _resp.json()
+        if not (_data.get("ok") and _data.get("image")):
+            print("[runway_stage] ⚠ rembg 결과 없음 → 스킵", flush=True)
+            return None
+        _b64 = _data["image"].split(",", 1)[1]
+        _cut = _PImg.open(_io2.BytesIO(base64.b64decode(_b64)))
+        if _cut.mode != "RGBA":
+            _cut = _cut.convert("RGBA")
+
+        # 2) 분리 품질 검증 (비투명 비율)
+        _alpha = _cut.getchannel("A")
+        _total = _cut.width * _cut.height
+        _visible = sum(1 for p in _alpha.getdata() if p > 128)
+        _ratio = _visible / max(_total, 1)
+        if _ratio < 0.15:
+            print(f"[runway_stage] ⚠ 인물 분리 품질 불량 (비투명 {_ratio:.1%}) → 원본 유지", flush=True)
+            return None
+
+        # 3) 어두운 무대 배경 생성 (세로 그라데이션: 상단 #14171c → 하단 #2a2e36 바닥)
+        #    솔리드에 가까운 어두운 톤이라 필터·패딩 모두 유리.
+        _top = (20, 23, 28)     # 어두운 상단
+        _bot = (42, 46, 54)     # 약간 밝은 바닥
+        _stage = _PImg.new("RGB", (_w, _h), _top)
+        _px = _stage.load()
+        for _y in range(_h):
+            _t = _y / max(_h - 1, 1)
+            _r = int(_top[0] + (_bot[0] - _top[0]) * _t)
+            _g = int(_top[1] + (_bot[1] - _top[1]) * _t)
+            _b = int(_top[2] + (_bot[2] - _top[2]) * _t)
+            for _x in range(_w):
+                _px[_x, _y] = (_r, _g, _b)
+
+        # 4) 인물 합성 (알파 마스크 사용)
+        _stage.paste(_cut, (0, 0), mask=_cut.split()[3])
+        print(f"[runway_stage] ✅ 어두운 무대 배경 합성 완료 (인물 {_ratio:.0%})", flush=True)
+        return _stage
+    except Exception as _e:
+        print(f"[runway_stage] ⚠ 무대배경 합성 실패 → 원본 유지: {_e}", flush=True)
+        return None
+
+
 def _runway_split_front_back(image_url: str) -> tuple:
     """
     [2026-05-25 KST] 코디핏 1536x1024 합성 이미지를 정면(좌) + 후면(우) 두 URL로 분리.
@@ -12683,6 +12763,19 @@ def _runway_split_front_back(image_url: str) -> tuple:
                 _new = Image.new('RGB', (_new_w, _h), _fill)
                 _new.paste(_img, (_pad_left, 0))
                 return _new
+
+        # ─── 2026-05-29 KST · TJ 지시 (방법 A) ─── 런웨이 무대 배경 교체 ───
+        #   환경변수 CODIBANK_RUNWAY_STAGE_BG=1 (기본 on) 이면, 패딩 전에
+        #   인물을 분리해 어두운 무대 배경에 합성.
+        #   실패 시 None → 원본(파스텔 배경) 그대로 사용 (안전 폴백).
+        _stage_on = os.getenv("CODIBANK_RUNWAY_STAGE_BG", "1") == "1"
+        if _stage_on:
+            _f2 = _runway_make_stage_bg(front_img)
+            if _f2 is not None:
+                front_img = _f2
+            _b2 = _runway_make_stage_bg(back_img)
+            if _b2 is not None:
+                back_img = _b2
 
         front_img = _pad_to_9_16(front_img)
         back_img  = _pad_to_9_16(back_img)
@@ -13086,29 +13179,17 @@ def runway_generate():
             #          v9 단어 224 / 토큰 ~359 → v10 단어 ~110 / 토큰 ~180 (절감 약 50%)
             #    유지: 모든 핵심 룰 (얼굴 보존, 액세서리 보존, 워킹 시퀀스, 카메라)
             seedance_prompt = prompt_in or (
-                # ─── 2026-05-28 KST · TJ 기준 ─── 안전필터 정공법 우회 ───
-                #   코디뱅크 입력은 실사가 아니라 'AI 생성 스타일라이즈드 아바타 + 솔리드 파스텔 배경'.
-                #   이미지를 painterly 로 손상시키지 않고, 프롬프트로 '비실사 아바타'임을 명시 →
-                #   BytePlus 의 'real person' 오판(PrivacyInformation 차단)을 줄임.
-                #   (코디핏 이미지가 통과하는 원리를 입력 변형 없이 재현)
-                "This is a STYLIZED DIGITAL FASHION AVATAR, an AI-generated illustrated character, "
-                "NOT a real person, NOT a photograph. Animate it as a 3D fashion model. "
-                "PRESERVE reference image EXACTLY: subject, composition, colors, background, "
-                "face features (eyes/nose/mouth/eyeglasses), hairstyle, outfit. Unchanged throughout. "
-                "BACKGROUND: keep the solid pastel background color EXACTLY as-is. "
-                "Do not change, gradient, texture, or add objects to the background. "
-                "ACCESSORIES (STRICT): keep EXACT count/position/appearance of all items "
-                "(bag/handbag/tote/clutch/crossbody/backpack/hat/cap/sunglasses/glasses/watch/umbrella/scarf). "
-                "No add. No remove. No duplicate. No relocate. "
-                "1 shoulder bag → stays 1 bag, same shoulder. Never multiply. "
-                "RUNWAY SEQUENCE (6s total): "
-                "0-2s walk forward, catwalk gait. "
-                "0.4s frontal pose, still. "
-                "0.4s rotate 90° to side, still. "
-                "0.3s rotate 90° to back, still. "
-                "last 2s walk slowly away (back visible). "
-                "WALKING: free arm swing, no hands in pockets. "
-                "CAMERA: smooth tracking, full body always in frame."
+                # ─── 2026-05-29 KST · TJ 지시 (v11) ─── 무대배경 + 경량화 + 필터통과 ───
+                #   필터 분석: 짧고 모호한 프롬프트일수록 통과율↑ (레퍼런스 이미지가 의도 전달).
+                #             'illustrated avatar / not a real person' 명시로 real person 오판↓.
+                #   배경: 입력이 이미 어두운 무대(방법 A 합성)이므로 '어두운 무대 유지'로 일치.
+                #   v10(180토큰) → v11(~95토큰) 추가 절감 + 무대배경 일치.
+                "Stylized illustrated fashion avatar, not a real person, not a photo. "
+                "Keep the same face, hairstyle, outfit, and accessories exactly. "
+                "Dark minimal runway stage background, kept dark throughout. "
+                "RUNWAY WALK (6s): walk forward with catwalk gait, brief frontal pose, "
+                "turn to show the back, then walk away. "
+                "Full body always in frame, smooth camera, natural arm swing."
             )
 
             # 3) BytePlus 비디오 생성 요청
