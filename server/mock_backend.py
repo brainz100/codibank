@@ -12575,6 +12575,77 @@ def _runway_increment_usage(user_email):
         print(f"[_runway_increment_usage] error: {e}", flush=True)
 
 
+def _runway_stage_bg_colorkey(_pil_img):
+    """
+    ─── 2026-05-29 KST · TJ 지시 (방법 A fallback — REMBG 없이 배경 교체) ───
+    rembg(HF Space) 없이, 색상 기반으로 솔리드 파스텔 배경을 어둡게 교체.
+
+    원리:
+      코디핏/트라이온 배경은 '솔리드 파스텔'(거의 단색)이라, 가장자리 색을
+      배경색으로 추정한 뒤, 그 색과 비슷한 픽셀(=배경)만 어두운 무대 톤으로 교체.
+      인물(배경색과 다른 픽셀)은 그대로 보존.
+
+    한계:
+      배경색과 비슷한 옷(예: 흰 배경 + 흰 셔츠)은 일부 함께 어두워질 수 있음.
+      → 임계값(_thresh)을 보수적으로 잡아 인물 손상 최소화.
+      배경이 단색이 아니면(그라데이션/복잡) None 반환 → 원본 유지.
+
+    입력: PIL RGB 이미지
+    반환: 배경 교체된 RGB PIL 이미지 (성공) 또는 None (단색 아님 → 원본 유지)
+    """
+    try:
+        from PIL import Image as _PImg, ImageStat as _PStat, ImageFilter as _PFilt
+        _w, _h = _pil_img.size
+        if _pil_img.mode != "RGB":
+            _pil_img = _pil_img.convert("RGB")
+
+        # 1) 배경색 추정 — 4 모서리 영역 평균 (인물은 보통 중앙)
+        _cs = max(4, min(_w, _h) // 20)
+        _corners = [
+            _pil_img.crop((0, 0, _cs, _cs)),
+            _pil_img.crop((_w - _cs, 0, _w, _cs)),
+            _pil_img.crop((0, _h - _cs, _cs, _h)),
+            _pil_img.crop((_w - _cs, _h - _cs, _w, _h)),
+        ]
+        _means = [_PStat.Stat(c).mean for c in _corners]
+        _bg = tuple(sum(m[i] for m in _means) / 4 for i in range(3))
+        # 모서리 간 색 편차가 크면 단색 배경 아님 → fallback 포기
+        _spread = max(max(m[i] for m in _means) - min(m[i] for m in _means) for i in range(3))
+        if _spread > 25:
+            print(f"[runway_stage_colorkey] ⚠ 배경 비단색 (편차 {_spread:.0f}) → 원본 유지", flush=True)
+            return None
+
+        # 2) 어두운 무대 톤 (세로 그라데이션 상단→바닥)
+        _top = (20, 23, 28)
+        _bot = (42, 46, 54)
+
+        # 3) 픽셀 단위 배경 교체 — 배경색과의 거리로 판정
+        #    distance < _thresh → 배경 → 어둡게 / 아니면 인물 → 유지
+        _thresh = 60.0   # 색 거리 임계 (보수적 — 인물 손상 최소화)
+        _thresh_sq = _thresh * _thresh
+        _src = _pil_img.load()
+        _out = _PImg.new("RGB", (_w, _h))
+        _dst = _out.load()
+        _br, _bgc, _bb = _bg
+        for _y in range(_h):
+            _t = _y / max(_h - 1, 1)
+            _sr = int(_top[0] + (_bot[0] - _top[0]) * _t)
+            _sg = int(_top[1] + (_bot[1] - _top[1]) * _t)
+            _sb = int(_top[2] + (_bot[2] - _top[2]) * _t)
+            for _x in range(_w):
+                _r, _g, _b = _src[_x, _y]
+                _d = (_r - _br) ** 2 + (_g - _bgc) ** 2 + (_b - _bb) ** 2
+                if _d < _thresh_sq:
+                    _dst[_x, _y] = (_sr, _sg, _sb)   # 배경 → 어두운 무대
+                else:
+                    _dst[_x, _y] = (_r, _g, _b)       # 인물 → 유지
+        print(f"[runway_stage_colorkey] ✅ 색상기반 배경 교체 완료 (bg≈{tuple(int(v) for v in _bg)})", flush=True)
+        return _out
+    except Exception as _e:
+        print(f"[runway_stage_colorkey] ⚠ 실패 → 원본 유지: {_e}", flush=True)
+        return None
+
+
 def _runway_make_stage_bg(_pil_img):
     """
     ─── 2026-05-29 KST · TJ 지시 (방법 A — 런웨이 전용 무대 배경) ───────────
@@ -12602,8 +12673,8 @@ def _runway_make_stage_bg(_pil_img):
 
         # 1) 인물 분리 (rembg HF Space) — RGBA 결과 직접 받기 위해 흰배경 합성 전 단계 사용
         if not _REMBG_API_URL:
-            print("[runway_stage] ⚠ REMBG 미설정 → 무대배경 합성 스킵", flush=True)
-            return None
+            print("[runway_stage] ⚠ REMBG 미설정 → 색상기반 배경 교체 fallback", flush=True)
+            return _runway_stage_bg_colorkey(_pil_img)
         _buf = _io2.BytesIO()
         _pil_img.save(_buf, format="JPEG", quality=92)
         _resp = http_requests.post(
@@ -12612,12 +12683,12 @@ def _runway_make_stage_bg(_pil_img):
             timeout=30,
         )
         if _resp.status_code != 200:
-            print(f"[runway_stage] ⚠ rembg 응답 오류 {_resp.status_code} → 스킵", flush=True)
-            return None
+            print(f"[runway_stage] ⚠ rembg 응답 오류 {_resp.status_code} → 색상기반 fallback", flush=True)
+            return _runway_stage_bg_colorkey(_pil_img)
         _data = _resp.json()
         if not (_data.get("ok") and _data.get("image")):
-            print("[runway_stage] ⚠ rembg 결과 없음 → 스킵", flush=True)
-            return None
+            print("[runway_stage] ⚠ rembg 결과 없음 → 색상기반 fallback", flush=True)
+            return _runway_stage_bg_colorkey(_pil_img)
         _b64 = _data["image"].split(",", 1)[1]
         _cut = _PImg.open(_io2.BytesIO(base64.b64decode(_b64)))
         if _cut.mode != "RGBA":
