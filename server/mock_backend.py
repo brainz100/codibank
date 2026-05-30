@@ -12839,7 +12839,12 @@ def _runway_split_front_back(image_url: str) -> tuple:
         #   환경변수 CODIBANK_RUNWAY_STAGE_BG=1 (기본 on) 이면, 패딩 전에
         #   인물을 분리해 어두운 무대 배경에 합성.
         #   실패 시 None → 원본(파스텔 배경) 그대로 사용 (안전 폴백).
-        _stage_on = os.getenv("CODIBANK_RUNWAY_STAGE_BG", "1") == "1"
+        # [2026-05-30 TJ 결정] 배경 제거 전면 중단 — 원본 정/후면 그대로 사용.
+        #   사유: 배경제거가 밝은 코트에 남긴 검은 잔흔을 Seedance가 '무늬'로 증폭시킴
+        #         (TJ 첨부 영상). 무대 배경은 영상 모델이 프롬프트로 직접 생성하도록 위임.
+        #   기본값 OFF. 재개하려면 CODIBANK_RUNWAY_STAGE_BG=1 (단, 잔흔 재발 주의).
+        #   ※ Render 환경변수에 CODIBANK_RUNWAY_STAGE_BG=1 이 설정돼 있으면 삭제 필요.
+        _stage_on = os.getenv("CODIBANK_RUNWAY_STAGE_BG", "0") == "1"
         if _stage_on:
             _f2 = _runway_make_stage_bg(front_img)
             if _f2 is not None:
@@ -13343,69 +13348,12 @@ def runway_generate():
                         continue
                     raise RuntimeError(f"BytePlus create 실패 ({cr.status_code}): {_body[:300]}")
 
-            # 모든 모델이 sensitive content 로 거부됨 → 단계별 neutralize 재시도
+            # [2026-05-30 TJ 결정] neutralize/스타일화 폴백 전면 제거 — 원본 그대로만 사용.
+            #   이미지를 일절 변형하지 않으므로, BytePlus 필터가 거부하면 그대로 사용자에게 안내.
+            #   (기존 LIGHT/STRONG painterly neutralize 는 옷·얼굴을 손상시켜 제거함.)
             if used_model_id is None:
                 if sensitive_blocked:
-                    # ─── 2026-05-25 KST 패치 v4: light → strong 단계별 neutralize ───
-                    #   TJ 차별화 의도: 얼굴 99.9% 보존 + 사용자 닮은 영상.
-                    #   v3 의 strong neutralize 가 얼굴 흐림 부작용 → light 먼저 시도.
-                    #
-                    #   단계 1: LIGHT neutralize (얼굴 99% 보존, 통계만 미세 변형)
-                    #   단계 2: STRONG neutralize (v3 강화 처리, 마지막 폴백)
-                    src_url = front_url if has_split else image_url
-
-                    # ─── 단계 1: LIGHT (얼굴 보존) ─────
-                    print(f"[runway_generate] sensitive 차단 → LIGHT neutralize 시도 (얼굴 보존)", flush=True)
-                    neut_front = _runway_neutralize_image(src_url, strength="light")
-
-                    if neut_front and neut_front != src_url:
-                        for _model_id in _model_candidates:
-                            create_payload = _build_payload(_model_id, neut_front, neut_front, False)
-                            cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
-                            if cr.status_code < 400:
-                                used_model_id = _model_id
-                                used_mode = "single_frame_light_neutralized"
-                                print(f"[runway_generate] ✅ light neutralize 통과: {_model_id} (얼굴 보존)", flush=True)
-                                break
-                            _body = cr.text or ""
-                            if cr.status_code == 400 and ("InputImageSensitiveContent" in _body or "PrivacyInformation" in _body or "may contain real person" in _body):
-                                sensitive_err_text = _body[:300]
-                                print(f"[runway_generate] light neutralize 도 {_model_id} 거부", flush=True)
-                                continue
-
-                    # ─── 단계 2: STRONG (painterly stylization 약화 v2) ─────
-                    if used_model_id is None:
-                        print(f"[runway_generate] LIGHT 실패 → STRONG neutralize 폴백 (약화된 painterly v2)", flush=True)
-                        neut_front_strong = _runway_neutralize_image(src_url, strength="strong")
-
-                        if neut_front_strong and neut_front_strong != src_url:
-                            for _model_id in _model_candidates:
-                                create_payload = _build_payload(_model_id, neut_front_strong, neut_front_strong, False)
-                                cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
-                                if cr.status_code < 400:
-                                    used_model_id = _model_id
-                                    used_mode = "single_frame_strong_neutralized"
-                                    print(f"[runway_generate] ✅ strong neutralize 통과: {_model_id}", flush=True)
-                                    break
-                                _body = cr.text or ""
-                                if cr.status_code == 400 and ("InputImageSensitiveContent" in _body or "PrivacyInformation" in _body or "may contain real person" in _body):
-                                    sensitive_err_text = _body[:300]
-                                    print(f"[runway_generate] strong neutralize 도 {_model_id} 거부", flush=True)
-                                    continue
-
-                    # ─── 2026-05-28 KST · TJ 기준 ─── 배경 보존 우선 정책 ─────────────
-                    #   변경 이유: 기존 STRONG 재시도(단계3) + VERY_STRONG(단계4)는
-                    #             배경을 강한 painterly 로 변형 → 솔리드 파스텔 배경이
-                    #             컬러블록으로 깨짐 (TJ 기준 위반: "배경 변형 금지").
-                    #   신규 정책: 작업 B(배경 단색 보존 패딩) + 작업 C(아바타 명시 프롬프트)로
-                    #             1차 통과율을 높이고, neutralize 는 배경 손상이 적은
-                    #             LIGHT + STRONG 까지만 시도. 그래도 실패하면 사용자에게
-                    #             "다른 코디로 시도" 안내 (배경 망가진 영상을 내보내지 않음).
-                    #   제거: STRONG 재시도(중복) + VERY_STRONG(배경/얼굴 강한 변형).
-
-                    # 그래도 거부 → 최종 sensitive_content 에러 (배경 손상 폴백 없이 명확 안내)
-                    if used_model_id is None:
-                        raise RuntimeError(f"SENSITIVE_CONTENT::AI 생성 이미지가 BytePlus 안전 필터로 차단됨 (배경 보존 우회 실패): {sensitive_err_text[:200]}")
+                    raise RuntimeError(f"SENSITIVE_CONTENT::AI 생성 이미지가 BytePlus 안전 필터로 차단됨 (원본 그대로 사용 정책 — 다른 코디로 다시 시도해주세요): {sensitive_err_text[:200]}")
                 else:
                     raise RuntimeError(f"BytePlus create 실패: {(cr.text if cr else '')[:300]}")
 
