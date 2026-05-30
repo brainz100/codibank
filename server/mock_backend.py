@@ -12415,6 +12415,25 @@ def _runway_now_iso():
     return datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%dT%H:%M:%S")
 
 
+def _runway_model_candidates():
+    """런웨이 영상 생성 모델 ID 목록.
+
+    [2026-05-30 TJ 결정] Seedance 2.0 → Seedance 1.5 Pro 전환.
+      사유: 2.0 은 모델 레이어에서 사실적 인물 레퍼런스를 하드 차단(deepfake 정책).
+            공식 가이드도 '사람은 1.5 Pro / Kling / Veo 사용' 권고.
+            1.5 Pro 는 사실적 인물 모션 + image-to-video 지원 → 인물 워킹 가능.
+
+    ⚠️ 모델 ID 문자열은 플랫폼별로 다름:
+      · Volcengine(중국, ark.cn-beijing): doubao-seedance-1-5-pro-251215
+      · BytePlus 인터내셔널(ap-southeast, 현재 사용): 콘솔 'Get Model ID' 에서 확인 필요.
+    따라서 환경변수 CODIBANK_RUNWAY_MODEL(쉼표 구분 가능)로 지정하는 것을 우선한다.
+    Render 에 정확한 ID 를 넣으면 재배포 없이 교체 가능. (아래 기본값은 추정치)
+    """
+    raw = os.getenv("CODIBANK_RUNWAY_MODEL", "seedance-1-5-pro-251215").strip()
+    cands = [m.strip() for m in raw.split(",") if m.strip()]
+    return cands or ["seedance-1-5-pro-251215"]
+
+
 def _runway_dummy_candidates():
     """후보 리스트 더미 데이터 — 코디핏 4 + 트라이온 2."""
     return [
@@ -13255,25 +13274,27 @@ def runway_generate():
             #          v9 단어 224 / 토큰 ~359 → v10 단어 ~110 / 토큰 ~180 (절감 약 50%)
             #    유지: 모든 핵심 룰 (얼굴 보존, 액세서리 보존, 워킹 시퀀스, 카메라)
             seedance_prompt = prompt_in or (
-                # ─── 2026-05-29 KST · TJ 지시 (v11) ─── 무대배경 + 경량화 + 필터통과 ───
-                #   필터 분석: 짧고 모호한 프롬프트일수록 통과율↑ (레퍼런스 이미지가 의도 전달).
-                #             'illustrated avatar / not a real person' 명시로 real person 오판↓.
-                #   배경: 입력이 이미 어두운 무대(방법 A 합성)이므로 '어두운 무대 유지'로 일치.
-                #   v10(180토큰) → v11(~95토큰) 추가 절감 + 무대배경 일치.
-                "Stylized illustrated fashion avatar, not a real person, not a photo. "
-                "Keep the same face, hairstyle, outfit, and accessories exactly. "
-                "Dark minimal runway stage background, kept dark throughout. "
-                "RUNWAY WALK (6s): walk forward with catwalk gait, brief frontal pose, "
-                "turn to show the back, then walk away. "
-                "Full body always in frame, smooth camera, natural arm swing."
+                # ─── 2026-05-30 KST · TJ 지시 (v12) ─── Seedance 1.5 Pro 사실적 워킹 ───
+                #   공식 가이드 구조 적용: Subject → Action → Environment → Camera → Lighting → Style.
+                #   1.5 Pro 권고: 페이싱 단어(slow/rhythmic/smooth) 사용, i2v 에선 이미지 객체 재묘사 X.
+                #   변경점:
+                #     · 'illustrated / not a real person' 제거 — 사실감 저해 + 이미지기반 필터엔 무효.
+                #     · 동작 4개(walk·pose·turn·walk) → 2비트(전진 → 턴)로 축소(morphing 억제).
+                #     · 별도 negative_prompt 필드는 ModelArk 지원 불확실 → 안정성 큐를 본문에 양성 표현.
+                "A fashion model walks toward the camera on a runway, then turns to "
+                "reveal the back of the outfit and keeps walking. She moves with a slow, "
+                "confident, rhythmic catwalk gait. Dark minimal runway, soft overhead "
+                "spotlight, subtle glossy floor reflection. Static wide full-body shot "
+                "with a slow, smooth dolly-in. Cinematic fashion-film lighting, "
+                "photorealistic, sharp fabric detail. Keep the same person's face and "
+                "outfit consistent throughout, full body always in frame, natural arm "
+                "swing, smooth and stable motion with no warping or distortion."
             )
 
             # 3) BytePlus 비디오 생성 요청
             create_url = "https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks"
-            _model_candidates = [
-                "dreamina-seedance-2-0-fast-260128",  # Fast (저렴/빠름)
-                "dreamina-seedance-2-0-260128",       # 정규 (안전필터 정책이 다를 수 있음)
-            ]
+            # [2026-05-30] 모델 = Seedance 1.5 Pro (env CODIBANK_RUNWAY_MODEL 로 정확 ID 지정)
+            _model_candidates = _runway_model_candidates()
             create_headers = {
                 "Authorization": f"Bearer {byteplus_key}",
                 "Accept": "application/json",
@@ -13723,7 +13744,7 @@ def runway_health():
         "error": seedance_api_error,
         "hint": seedance_api_hint,
         "response_body_preview": seedance_response_body,
-        "model_id_used": "dreamina-seedance-2-0-fast-260128",
+        "model_id_used": _runway_model_candidates()[0],
     }
     if not seedance_api_ok and byteplus_key:
         missing.append("byteplus_seedance_api_auth")
@@ -13749,8 +13770,8 @@ def runway_health():
         "tier_limits": _RUNWAY_TIER_LIMITS,
         "model_info": {
             "provider": "BytePlus ModelArk",
-            "model": "Dreamina-Seedance-2.0-fast",
-            "model_id": "dreamina-seedance-2-0-fast-260128",
+            "model": "Seedance 1.5 Pro",
+            "model_id": _runway_model_candidates()[0],
             "region": "Asia Pacific (Japan)",
             "base_url": "https://ark.ap-southeast.bytepluses.com/api/v3",
         },
