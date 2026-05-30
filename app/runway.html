@@ -138,6 +138,10 @@ body::before {
   cursor: pointer;
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
   position: relative;
+  /* ─── 2026-05-30 KST · TJ 지시 (#1) ─── 이미지가 상단을 풀로 채우고 라벨만 하단 ─── */
+  display: flex;
+  flex-direction: column;
+  height: 214px;
 }
 .rw-candidate:hover {
   border-color: var(--border-strong);
@@ -147,23 +151,13 @@ body::before {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent), 0 12px 32px -8px rgba(151,254,237,0.25);
 }
-.rw-candidate.selected::after {
-  content: 'check_circle';
-  font-family: 'Material Symbols Outlined';
-  font-variation-settings: 'FILL' 1;
-  position: absolute;
-  top: 6px; right: 6px;
-  z-index: 3;
-  font-size: 22px;
-  color: var(--accent);
-  background: var(--bg-primary);
-  border-radius: 50%;
-  line-height: 1;
-}
+/* 2026-05-30 KST · TJ 지시 (#2) — 선택 체크(✓) 표시 삭제. 선택은 테두리/글로우로만 표시.
+   삭제(X) 버튼은 체크가 있던 우상단 위치를 그대로 사용한다 (.rw-candidate-del). */
 
 .rw-candidate-img {
   width: 100%;
-  aspect-ratio: 3/4;
+  flex: 1 1 auto;       /* 2026-05-30 TJ (#1) — 상단을 꽉 채움 (aspect-ratio 제거) */
+  min-height: 0;
   position: relative;
   background: linear-gradient(135deg, #1a2447 0%, #0a1226 100%);
   overflow: hidden;
@@ -276,6 +270,7 @@ body::before {
   position: absolute;
   top: 8px;
   right: 8px;
+  left: auto;        /* 2026-05-30 TJ (#2) — 우상단(체크 자리) 고정 */
   width: 24px;       /* w-6 */
   height: 24px;      /* h-6 */
   display: flex;
@@ -1334,6 +1329,56 @@ body::before {
       return raw ? (JSON.parse(raw) || []) : [];
     } catch (_) { return []; }
   }
+
+  // ─── 2026-05-30 KST · TJ 지시 (#4) ─── 뷰박스 '현재 영상' 유지(persist) ───
+  //   요구: 다른 페이지 갔다 와도 뷰박스의 생성 영상이 유지. 단, 아래에만 리셋:
+  //     ① 사용자가 리셋 선택  ② 다른 영상 생성(덮어쓰기)  ③ 로그아웃  ④ 30분 경과
+  //   저장 키: 'cb_runway_current_' + email (사용자별). 비로그인 시 복원 안 함.
+  const _RW_CURRENT_TTL_MS = 30 * 60 * 1000;  // 30분
+  function _rwCurrentKey() { return _rwLocalKey().replace('cb_runway_videos_', 'cb_runway_current_'); }
+  function _rwSaveCurrent(meta) {
+    if (!meta || !meta.video_url) return;
+    try {
+      localStorage.setItem(_rwCurrentKey(), JSON.stringify({
+        video_url:           meta.video_url,
+        thumb_url:           meta.thumb_url || '',
+        label:               meta.label || '',
+        candidate_image_url: meta.candidate_image_url || '',
+        ts:                  Date.now(),
+      }));
+    } catch (_) {}
+  }
+  function _rwClearCurrent() { try { localStorage.removeItem(_rwCurrentKey()); } catch (_) {} }
+  function _rwLoadCurrent() {
+    try {
+      const raw = localStorage.getItem(_rwCurrentKey());
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      if (!o || !o.video_url || !o.ts) return null;
+      if (Date.now() - Number(o.ts) > _RW_CURRENT_TTL_MS) { _rwClearCurrent(); return null; }  // ④ 30분 경과
+      return o;
+    } catch (_) { return null; }
+  }
+  // 페이지 진입 시 호출 — 로그인 + 30분 이내면 뷰박스에 이전 영상 복원
+  function _rwRestoreCurrent() {
+    try {
+      const email = (typeof _getUserEmail === 'function') ? _getUserEmail() : '';
+      if (!email) { _rwClearCurrent(); return; }   // ③ 비로그인/로그아웃 → 복원 안 함
+      const cur = _rwLoadCurrent();
+      if (!cur || !cur.video_url) return;
+      currentVideoUrl = cur.video_url;
+      const vid = $('rwVideo');
+      if (!vid) return;
+      vid.src = cur.video_url;
+      vid.style.display = 'block';
+      const empty = $('rwViewboxEmpty'); if (empty) empty.style.display = 'none';
+      vid.play().catch(function(){});
+      const sb = $('rwBtnSave'); if (sb) sb.disabled = false;
+      const sh = $('rwBtnShare'); if (sh) sh.disabled = false;
+      _safeMeta((cur.label || '런웨이') + ' · 이어보기');
+      console.log('[runway] 이전 생성 영상 복원 (30분 이내)');
+    } catch (e) { console.warn('[runway] 영상 복원 실패', e); }
+  }
   function _rwLocalSave(videoMeta) {
     if (!videoMeta || !videoMeta.video_url) return;
     try {
@@ -1653,6 +1698,7 @@ body::before {
           generated_at:        data.generated_at || new Date().toISOString(),
         };
         _rwLocalSave(currentVideoMeta);
+        _rwSaveCurrent(currentVideoMeta);   // 2026-05-30 TJ (#4) — 뷰박스 유지용 현재영상 저장(새 생성=덮어쓰기)
         try { loadVideoList(); } catch (_) {}  // 리스트 즉시 갱신
       } else {
         // stub 응답 — 사유에 따라 다른 메시지
@@ -1856,6 +1902,7 @@ body::before {
     $$('.rw-candidate').forEach(function(c){ c.classList.remove('selected'); });
     selectedCandidate = null;
     currentVideoUrl = '';
+    _rwClearCurrent();   // 2026-05-30 TJ (#4) — ① 사용자 리셋 시 유지 영상 삭제
     const vid = $('rwVideo');
     vid.pause();
     vid.removeAttribute('src');
@@ -2047,6 +2094,7 @@ body::before {
       loadCandidates();
       loadVideos();
       loadUsage();
+      _rwRestoreCurrent();   // 2026-05-30 TJ (#4) — 30분 이내 + 로그인 시 이전 영상 복원
 
       console.log('[런웨이] 페이지 로드 — 백엔드:', RW_BASE, '· 사용자:', _getUserEmail() || '(게스트)');
     } catch (e) {
