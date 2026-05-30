@@ -281,10 +281,12 @@ body::before {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;       /* rounded-full */
-  background: rgba(0, 0, 0, 0.40);    /* bg-black/40 */
+  background: rgba(0, 0, 0, 0.55);    /* 2026-05-30 TJ — 가시성 강화 */
+  border: 1px solid rgba(255, 255, 255, 0.45);   /* 밝은 이미지 위에서도 보이도록 외곽선 */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
   color: #ffffff;              /* text-white */
   cursor: pointer;
-  z-index: 10;
+  z-index: 20;                 /* 2026-05-30 TJ — 절대배치 이미지 위로 확실히 노출 */
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -1579,12 +1581,12 @@ body::before {
       : '';
     return `
       <div class="rw-candidate" data-id="${escapeAttr(c.id)}" data-type="${escapeAttr(c.type)}" data-label="${escapeAttr(labelText)}" data-image-url="${escapeAttr(c.image_url || '')}">
-        ${delBtn}
         <div class="rw-candidate-img" style="${imgStyle}">${imgInner}</div>
         <div class="rw-candidate-foot">
           <span class="rw-candidate-label">${escapeHtml(labelText)}</span>
           <span class="rw-candidate-date">${escapeHtml(c.date || '')}</span>
         </div>
+        ${delBtn}
       </div>`;
   }
 
