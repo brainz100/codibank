@@ -12576,20 +12576,64 @@ def _runway_get_monthly_video_count(user_email):
 
 
 def _runway_increment_usage(user_email):
-    """사용량 +1 — 향후 Supabase upsert 처리. 현재 stub 로깅만."""
+    """동영상 생성 1회당 사용량 +1 — Supabase user_usage.runway_count 영구 반영.
+       ─── 2026-05-30 KST · TJ 지시 (#3) ───
+       이 컬럼이 진실의 출처(source of truth):
+         · 앱 배지 '동영상 N회 가능' → GET /api/runway/usage 가 동일 컬럼을 읽음(구독플랜 한도와 연동)
+         · 관리자페이지 '동영상 횟수' → 동일 user_usage 테이블의 runway_count 를 읽으면 자동 동기화
+       month 포맷은 '%Y-%m'(예 2026-05) — _runway_get_monthly_video_count / /api/runway/usage 와 일치.
+       증가 방식: read-modify-write (행 있으면 PATCH, 없으면 POST). 동시성은 본 용도에서 허용 범위.
+    """
     if not user_email:
         return
     try:
-        # TODO: Supabase user_usage 테이블 upsert
-        #   import requests as _rq
-        #   from datetime import datetime
-        #   month_key = datetime.now().strftime("%Y-%m")
-        #   _rq.post(
-        #       f"{sb_url}/rest/v1/rpc/increment_runway_usage",
-        #       json={"p_user_email": user_email, "p_month_key": month_key},
-        #       headers={...},
-        #   )
-        print(f"[runway_usage_increment] user={user_email} (stub — Supabase upsert 향후 구현)", flush=True)
+        import requests as _rq
+        from datetime import datetime
+        svc_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+        sb_url  = os.environ.get("SUPABASE_URL", "https://drgsayvlpzcacurcczjq.supabase.co")
+        if not svc_key:
+            print("[runway_usage_increment] ⚠ SUPABASE_SERVICE_KEY 없음 → 차감 미반영", flush=True)
+            return
+        month_key = datetime.now().strftime("%Y-%m")
+        hdrs = {
+            "apikey": svc_key,
+            "Authorization": f"Bearer {svc_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        # 1) 현재 행 존재 여부 + 현재 값 조회
+        chk = _rq.get(
+            f"{sb_url}/rest/v1/user_usage",
+            params={
+                "select": "runway_count",
+                "email": f"eq.{user_email}",
+                "month": f"eq.{month_key}",
+                "limit": 1,
+            },
+            headers=hdrs, timeout=8,
+        )
+        rows = chk.json() if chk.status_code == 200 else []
+        if rows:
+            cur = int(rows[0].get("runway_count") or 0)
+            r = _rq.patch(
+                f"{sb_url}/rest/v1/user_usage",
+                params={"email": f"eq.{user_email}", "month": f"eq.{month_key}"},
+                json={"runway_count": cur + 1},
+                headers={**hdrs, "Prefer": "return=minimal"}, timeout=8,
+            )
+            new_val = cur + 1
+        else:
+            r = _rq.post(
+                f"{sb_url}/rest/v1/user_usage",
+                json={"email": user_email, "month": month_key, "runway_count": 1},
+                headers={**hdrs, "Prefer": "return=minimal"}, timeout=8,
+            )
+            new_val = 1
+        ok = r.status_code in (200, 201, 204)
+        print(f"[runway_usage_increment] user={user_email} {month_key} runway_count→{new_val} "
+              f"(status={r.status_code}, ok={ok})", flush=True)
+        if not ok:
+            print(f"[runway_usage_increment] ⚠ 응답본문: {(r.text or '')[:200]}", flush=True)
     except Exception as e:
         print(f"[_runway_increment_usage] error: {e}", flush=True)
 
