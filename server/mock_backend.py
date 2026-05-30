@@ -13274,21 +13274,24 @@ def runway_generate():
             #          v9 단어 224 / 토큰 ~359 → v10 단어 ~110 / 토큰 ~180 (절감 약 50%)
             #    유지: 모든 핵심 룰 (얼굴 보존, 액세서리 보존, 워킹 시퀀스, 카메라)
             seedance_prompt = prompt_in or (
-                # ─── 2026-05-30 KST · TJ 지시 (v12) ─── Seedance 1.5 Pro 사실적 워킹 ───
-                #   공식 가이드 구조 적용: Subject → Action → Environment → Camera → Lighting → Style.
-                #   1.5 Pro 권고: 페이싱 단어(slow/rhythmic/smooth) 사용, i2v 에선 이미지 객체 재묘사 X.
-                #   변경점:
-                #     · 'illustrated / not a real person' 제거 — 사실감 저해 + 이미지기반 필터엔 무효.
-                #     · 동작 4개(walk·pose·turn·walk) → 2비트(전진 → 턴)로 축소(morphing 억제).
-                #     · 별도 negative_prompt 필드는 ModelArk 지원 불확실 → 안정성 큐를 본문에 양성 표현.
-                "A fashion model walks toward the camera on a runway, then turns to "
-                "reveal the back of the outfit and keeps walking. She moves with a slow, "
-                "confident, rhythmic catwalk gait. Dark minimal runway, soft overhead "
-                "spotlight, subtle glossy floor reflection. Static wide full-body shot "
-                "with a slow, smooth dolly-in. Cinematic fashion-film lighting, "
-                "photorealistic, sharp fabric detail. Keep the same person's face and "
-                "outfit consistent throughout, full body always in frame, natural arm "
-                "swing, smooth and stable motion with no warping or distortion."
+                # ─── 2026-05-30 KST · TJ 지시 (v13) ─── 배경 고정 + 자연 워킹 ───
+                #   문제: v12 의 'Dark minimal runway, spotlight, glossy floor' 묘사가
+                #         모델에게 '새 무대를 그리라'고 지시 → 원본 배경이 매 프레임 바뀜(TJ 보고).
+                #   수정:
+                #     · 무대/조명/바닥 묘사 전면 제거.
+                #     · '입력 이미지 배경 그대로 유지, 변경 금지' 를 최우선 지시로 명시.
+                #     · 카메라를 fixed/static 으로 — 카메라 이동이 배경 드리프트를 유발하므로 고정.
+                #     · 워킹: 정면 → 측면(프로필) → 후면 → 걸어감 (TJ 지정 시퀀스).
+                "A fashion model walks naturally toward the camera, then slowly turns "
+                "to show her side profile, continues turning to reveal the back of the "
+                "outfit, and walks away. She moves with a slow, confident, rhythmic "
+                "catwalk gait. CRITICAL: keep the exact background of the input image "
+                "completely unchanged — do not replace, redraw, restyle, or relight the "
+                "background or scene. Only the person moves; the background stays static "
+                "and identical to the source image. Fixed static camera, wide full-body "
+                "shot. Photorealistic, sharp fabric detail, the same face and outfit kept "
+                "consistent throughout, full body always in frame, natural arm swing, "
+                "smooth and stable motion with no warping or distortion."
             )
 
             # 3) BytePlus 비디오 생성 요청
