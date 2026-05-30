@@ -1574,11 +1574,12 @@ body::before {
       ? ''  // 2026-05-27 KST · TJ 지시 — 런웨이는 정면/후면 토글 불필요 → '정면' 라벨 제거
       : `<div class="rw-candidate-img-placeholder material-symbols-outlined">${iconName}</div>`;
     const labelText = c.stage ? `${c.label} ${c.stage}` : c.label;
-    // 2026-05-27 KST · TJ 지시 — 후보 카드 X 버튼 (event.stopPropagation 으로 카드 클릭과 분리)
+    // 2026-05-30 KST · TJ 지시 — X 버튼이 안 보이던 문제 해결:
+    //   ① 무조건 렌더(조건부 제거)  ② 위치/가시성 스타일을 인라인으로(스타일시트 스태킹·오버라이드 무력화)
+    //   ③ 아이콘폰트 의존 제거 → 순수 텍스트 '✕'  ④ z-index 50 으로 이미지 위 확실히 노출
     const tsForDelete = (c.ts || (c.id || '').replace(/^(codi|tryon)-/, '')) || '';
-    const delBtn = tsForDelete
-      ? `<div role="button" tabindex="0" class="rw-candidate-del" data-ts="${escapeAttr(tsForDelete)}" data-label="${escapeAttr(labelText)}" title="후보에서 삭제" onclick="event.stopPropagation();window._rwDeleteCandidate(${Number(tsForDelete)},this.getAttribute('data-label'));return false;"><span class="material-symbols-outlined">close</span></div>`
-      : '';
+    const _delTsArg = Number(tsForDelete) || 0;
+    const delBtn = `<div role="button" tabindex="0" class="rw-candidate-del" data-ts="${escapeAttr(tsForDelete)}" data-label="${escapeAttr(labelText)}" title="후보에서 삭제" style="position:absolute;top:8px;right:8px;left:auto;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:rgba(0,0,0,0.62);border:1.5px solid rgba(255,255,255,0.9);color:#fff;font-size:15px;font-weight:700;line-height:1;z-index:50;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.5);box-sizing:border-box;-webkit-tap-highlight-color:transparent;" onclick="event.stopPropagation();window._rwDeleteCandidate(${_delTsArg},this.getAttribute('data-label'));return false;">✕</div>`;
     return `
       <div class="rw-candidate" data-id="${escapeAttr(c.id)}" data-type="${escapeAttr(c.type)}" data-label="${escapeAttr(labelText)}" data-image-url="${escapeAttr(c.image_url || '')}">
         <div class="rw-candidate-img" style="${imgStyle}">${imgInner}</div>
