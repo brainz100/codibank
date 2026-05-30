@@ -3249,7 +3249,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <!-- ─── 2026-05-23 KST · TJ 지시 ─── 디폴트 visible (3rd 라벨 항상 표시) + 위 간격 24→40 ─── -->
       <div id="stepCLabel" style="margin-top:40px;">
         <!-- ─── 2026-05-23 KST · TJ 지시 ─── 라벨 아래 여백 10→14 ─── -->
-        <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-bottom:14px;">3rd. 높은 퀄리티를 확인하세요!</h3>
+        <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-bottom:14px;">선택한 이미지 크게 보세요</h3>
       </div>
 
       <!-- 이미지 박스 — 외부 어두운 네이비 레이어 + 내부 이미지 박스 -->
@@ -10208,6 +10208,16 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     if((flow.stepACards||[]).some(c => c && c.imageUrl)){
       const cities = getGridCities();
       showSection('stepAGrid');
+      // ─── 2026-05-25 KST · TJ 보고 (강화 fix) ─── 1st 박스 강제 visible ──
+      //   배경: showSection 이 stepAGrid 의 hidden 만 풀지만, 그 안의
+      //         stepACards 컨테이너가 어떤 init 코드에 의해 display:none
+      //         또는 비어있는 상태일 수 있음. 강제 visible + 비우기 후 다시 채움.
+      const _stepACardsEl = document.getElementById('stepACards');
+      if(_stepACardsEl){
+        _stepACardsEl.style.display = '';
+        _stepACardsEl.classList.remove('hidden');
+        _stepACardsEl.innerHTML = '';  // 이전 잔여물 정리 (renderStepACard 가 append)
+      }
       for(let i=0;i<4;i++){
         const card = flow.stepACards[i];
         if(card && card.imageUrl){
@@ -10235,7 +10245,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           card.className = 'cbq2-card';
           card.dataset.idx = String(i);
           card.innerHTML = `<div class="cbq2-label">${i===0?_q2BaseLabel:'유사 변형'}</div><canvas class="cbq2-canvas"></canvas>`;
-          card.onclick = () => openModalForStepBCard(i);
+          card.onclick = () => viewStepBInStepC(i, true);
           if(flow.stepBSelected===i) card.classList.add('cbq2-selected');
           container.appendChild(card);
           try{ drawQ2Card(card.querySelector('.cbq2-canvas'), c.imageUrl); }catch(_){}
@@ -10254,7 +10264,13 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       const vtoOverlay = document.getElementById('vtoOverlay');
       const vtoCanvas  = document.getElementById('vtoCanvas');
       const vtoSpinner = document.getElementById('vtoSpinner');
-      if(vtoBox){ vtoBox.classList.remove('hidden'); vtoBox.classList.remove('vto-loading'); }
+      if(vtoBox){
+        vtoBox.classList.remove('hidden');
+        vtoBox.classList.remove('vto-loading');
+        // ─── 2026-05-25 KST · TJ 보고 (강화 fix) ─── 3rd 박스 강제 visible ──
+        //   다른 코드가 vtoBox 에 inline display:none 설정한 케이스 대비
+        if(vtoBox.style.display === 'none') vtoBox.style.display = '';
+      }
       try{
         if(typeof window.drawResultToVtoCanvas === 'function'){
           window.drawResultToVtoCanvas(flow.stepCResult.image);
@@ -10609,6 +10625,10 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         enginePurpose: j.enginePurpose || '',
       };
       renderStepACard(idx, cityInfo, 'done', flow.stepACards[idx]);
+      // ─── 2026-05-25 KST · TJ 보고 (1st 사라짐 fix) ─────────────
+      //   카드 1장 완료 시 즉시 저장. pagehide / visibilitychange 가
+      //   놓치는 케이스(모바일 백그라운드 처리, 빠른 화면 전환) 대비.
+      try{ if(typeof _codifitSaveState === 'function') _codifitSaveState(); }catch(_){}
     }catch(err){
       console.error('[v68 STEP A]', idx, err);
       renderStepACard(idx, cityInfo, 'error', null);
@@ -10698,6 +10718,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     flow.stepBSelected = null;
     flow.stepCResult = null;
     flow._stepCImg = null;
+    flow._stepCSavedOnce = false;   // [2026-05-30] 3rd 뷰박스 AI옷장 1회 저장 플래그 리셋
     // STEP B 섹션 + STEP B 카드 컨테이너 비우기/숨김
     // ─── 2026-05-21 KST · TJ 보고 (긴급 수정) ─────────────────────────────
     //   ⚠ showSection() 은 classList.remove('hidden') 만 하고 인라인
@@ -11175,7 +11196,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         <div class="cbq2-label">원본 — ${cityInfo.label}</div>
         <canvas class="cbq2-canvas"></canvas>
       `;
-      card1.onclick = () => openModalForStepBCard(0);
+      card1.onclick = () => viewStepBInStepC(0, true);
       container.appendChild(card1);
       drawQ2Card(card1.querySelector('.cbq2-canvas'), baseCard.imageUrl);
       // 변형 카드 (로딩 — codibank 컬러변환)
@@ -11225,16 +11246,22 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         stylingStory: j.stylingStory || '',
         enginePurpose: j.enginePurpose || '',
       };
+      // ─── 2026-05-25 KST · TJ 보고 ─── 2nd 완료 즉시 저장 (일관성)
+      try{ if(typeof _codifitSaveState === 'function') _codifitSaveState(); }catch(_){}
       const card2 = container && container.querySelector('[data-idx="1"]');
       if(card2){
         card2.innerHTML = `
           <div class="cbq2-label">유사 변형</div>
           <canvas class="cbq2-canvas"></canvas>
         `;
-        card2.onclick = () => openModalForStepBCard(1);
+        card2.onclick = () => viewStepBInStepC(1, true);
         drawQ2Card(card2.querySelector('.cbq2-canvas'), j.image);
       }
-      if(statusEl) statusEl.textContent = '(1개 선택)';
+      if(statusEl) statusEl.textContent = '(이미지를 탭하면 아래에서 크게 볼 수 있어요)';
+      // ─── 2026-05-30 KST · TJ 지시 ─── 2nd 두 장 완료 → 3rd '크게보기' 뷰박스 자동 표시 ───
+      //   기본은 0번(선택한 추천코디). 이후 사용자가 2nd 카드를 탭하면 그 이미지로 교체.
+      //   setTimeout(0): startStepB 가 flow.busy=false 로 끝난 뒤 실행되도록.
+      setTimeout(function(){ try{ viewStepBInStepC(0, false); }catch(_){} }, 0);
     }catch(err){
       console.error('[v68 STEP B]', err);
       finishStepBProgress();
@@ -11310,6 +11337,74 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const m = $('stepCConfirmModal');
     if(m){ m.style.display = 'none'; }
     _stepCConfirmTarget = null;
+  }
+
+  // ─── 2026-05-30 KST · TJ 지시 ─── 3rd = 2nd 선택 이미지 '크게 보기' 뷰박스 ───
+  //   변경 배경: 3rd 에서 Nano Banana Pro 고화질 신규 생성을 하지 않고,
+  //             2nd(선택 추천코디 / 유사 추천코디) 중 사용자가 탭한 이미지를
+  //             3rd 뷰박스(vtoCanvas)에 크게 표시한다. (서버 호출 0)
+  //   - fromTap=true  : 사용자가 2nd 카드를 탭 → 해당 이미지로 교체 + 뷰박스로 스크롤
+  //   - fromTap=false : 2nd 두 장 생성 완료 시 자동 표시(기본 0번), 스크롤 없음
+  //   - 정/후면 토글·액션버튼·분석박스는 기존 헬퍼 재사용. AI옷장 저장은 흐름당 1회.
+  //   - 기존 startStepC(고화질 생성)/확인모달 경로는 더 이상 탭에서 호출되지 않음(잔존·무해).
+  function viewStepBInStepC(idx, fromTap){
+    const card = flow.stepBCards && flow.stepBCards[idx];
+    if(!card || !card.imageUrl) return;
+    flow.stepBSelected = idx;
+    // 탭한 2nd 카드 하이라이트
+    document.querySelectorAll('.cbq2-card').forEach(c=>c.classList.remove('cbq2-selected'));
+    const _sel = document.querySelector('.cbq2-card[data-idx="'+idx+'"]');
+    if(_sel) _sel.classList.add('cbq2-selected');
+    // 3rd 라벨/박스 노출 (자동 표시 시 스크롤 없이)
+    ['stepCLabel','vtoOuterLayer','vtoBActions'].forEach(function(id){
+      const el = $(id); if(el){ el.classList.remove('hidden'); if(el.style.display==='none') el.style.display=''; }
+    });
+    const vtoBox=$('vtoResultBox'), vtoOverlay=$('vtoOverlay'), vtoCanvas=$('vtoCanvas'), vtoSpinner=$('vtoSpinner');
+    if(vtoBox){ vtoBox.classList.remove('hidden'); vtoBox.classList.remove('vto-loading'); if(vtoBox.style.display==='none') vtoBox.style.display=''; }
+    if(vtoSpinner){ vtoSpinner.classList.remove('animating'); vtoSpinner.style.display='none'; }
+    if(vtoOverlay) vtoOverlay.style.display='none';
+    const _img = new Image();
+    _img.crossOrigin = 'anonymous';
+    _img.onload = function(){
+      flow._stepCImg = _img;
+      // 분석/저장/복원용 결과 객체 (baseCard 데이터로 채움 — 신규 생성 아님)
+      flow.stepCResult = {
+        ok: true, image: card.imageUrl,
+        engineCategoryKeywords: card.engineCategoryKeywords || {},
+        stylingStory: card.stylingStory || '',
+        stylist: card.stylist || null,
+        cacheKey: card.cacheKey || '',
+        _testMode: true,
+      };
+      if(window.S && flow.stepCResult.engineCategoryKeywords
+         && Object.keys(flow.stepCResult.engineCategoryKeywords).length){
+        window.S.categoryKeywords = flow.stepCResult.engineCategoryKeywords;
+      }
+      if(vtoCanvas) vtoCanvas.style.display = 'block';
+      try{ _renderStepCPose('front'); }catch(_){}
+      try{ _bindStepCPoseToggle(); }catch(_){}
+      const _pt = $('vtoPoseToggle'); if(_pt) _pt.classList.remove('hidden');
+      try{ ['saveBtn','againBtn','shareBtn','resetBtn'].forEach(function(id){ const b=$(id); if(b){ b.disabled=false; b.className='vto-bab vto-btn-active'; } }); }catch(_){}
+      try{ fillAnalysisBoxes(flow.stepCResult); showAnalysisBoxes(); }catch(_){}
+      try{ if(typeof _startStepCTransition === 'function') _startStepCTransition(); }catch(_){}
+      try{ if(typeof _codifitSaveState === 'function') _codifitSaveState(); }catch(_){}
+      // AI 옷장 저장 — 흐름당 1회만 (탭 전환마다 중복 저장 방지)
+      if(!flow._stepCSavedOnce){
+        flow._stepCSavedOnce = true;
+        try{
+          _saveCodiToAiCloset({
+            img: card.imageUrl,
+            categoryKeywords: (card.outfitAnalysis || flow.stepCResult.engineCategoryKeywords || {}),
+            purpose: (function(){ try{ const p=getPur(window.S && window.S.pk); return (p&&p.label)||(window.S&&window.S.purposeLabel)||(window.S&&window.S.pk)||''; }catch(_){ return ''; } })(),
+            stylistName: (flow.stepCResult.stylist && flow.stepCResult.stylist.name) || '',
+            _stage: 'C_VIEW'
+          });
+        }catch(_){}
+      }
+      if(fromTap){ try{ const _o=$('vtoOuterLayer'); if(_o) _o.scrollIntoView({behavior:'smooth', block:'center'}); }catch(_){} }
+    };
+    _img.onerror = function(){ /* 로드 실패 시 조용히 무시 */ };
+    _img.src = card.imageUrl;
   }
 
   // ─── STEP C (Medium 업그레이드) — 기존 vto-result-box 활용 ───
@@ -11478,6 +11573,9 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       const j = await r.json();
       if(!j.ok || !j.image) throw new Error(j.error || 'Medium 실패');
       flow.stepCResult = j;
+      // ─── 2026-05-25 KST · TJ 보고 (3rd 사라짐 fix) ─────────────
+      //   3rd 결과 완료 즉시 저장. pagehide 가 놓치는 케이스 대비.
+      try{ if(typeof _codifitSaveState === 'function') _codifitSaveState(); }catch(_){}
       // ─── 2026-05-21 KST · TJ 지시 (버그#2 #3 — STEP C 분석 보정) ─────────
       //   배경: STEP C 는 baseCard(사용자가 2nd 에서 선택한 이미지)를
       //        _force_ref_image 로 받아 99.9% 고화질 복제하는 image-edit 모드.
@@ -11970,8 +12068,22 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     setTimeout(function(){
       try{ _codifitRestoreState().catch(function(){}); }catch(_){}
     }, 480);
+    // ─── 2026-05-25 KST · TJ 보고 (강화 fix) ──────────────────────────
+    //   첫 시도(480ms) 가 실패하는 케이스 대비 — DOM 미준비, 외부 초기화
+    //   코드의 race condition, async fetch 지연 등. 1.5초 후 1st 박스가
+    //   비어있는데 저장 데이터가 있으면 재시도.
+    setTimeout(function(){
+      try{
+        const raw = sessionStorage.getItem(_CODIFIT_STATE_KEY);
+        const has1st = document.querySelector('#stepACards .step-a-card, #stepACards [class*="step-a"]');
+        if(raw && !has1st){
+          console.log('[codifit] retry: 1st 비어있고 저장 데이터 존재 → 재복원');
+          _codifitRestoreState().catch(function(){});
+        }
+      }catch(_){}
+    }, 1500);
   });
-  // 페이지 이탈·백그라운드 전환 → 현재 상태 저장 / 복귀 → 30분 체크
+  // 페이지 이탈·백그라운드 전환 → 현재 상태 저장 / 복귀 → 30분 체크 + 복원
   document.addEventListener('visibilitychange', function(){
     if(document.visibilityState === 'hidden'){
       _codifitSaveState();                       // 떠나는 시각이 마지막 활동
@@ -11980,11 +12092,45 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       if(Date.now() - _codifitLastActive > _CODIFIT_IDLE_MS){
         _codifitClearState();
         try{ if(typeof resetAll === 'function') resetAll(); }catch(_){}
+      }else{
+        // ─── 2026-05-25 KST · TJ 보고 (1st/3rd 사라짐 fix) ─────────────
+        //   원인: 다른 페이지 갔다 돌아올 때 window.load 가 fire 안 됨
+        //         (특히 vercel 라우팅, bfcache 복귀). 따라서 복원 호출 안 됨.
+        //         visibilitychange 'visible' 에서 30분 체크만 하고 복원은 skip.
+        //   증상: 2nd 만 우연히 DOM 잔존 → 1st 와 3rd 가 사라짐.
+        //   수정: 30분 미만이면 복원 시도. _codifitRestoreState 가 자체적으로
+        //         저장된 데이터 유무 + 사용자 일치 검증. 데이터 없으면 자동 skip.
+        try{ _codifitRestoreState().catch(function(){}); }catch(_){}
       }
     }
   });
   // bfcache·앱 종료 등 — pagehide 에서도 저장 보장
   window.addEventListener('pagehide', function(){ _codifitSaveState(); });
+  // ─── 2026-05-25 KST · TJ 보고 (1st/3rd 사라짐 fix) ─────────────────
+  //   pageshow 이벤트 — bfcache (Back-Forward Cache) 에서 복귀 시 fire.
+  //   load 는 안 fire, visibilitychange 도 hidden 안 거치므로 별도 처리 필수.
+  //   e.persisted === true 면 bfcache 에서 복귀한 것 → 복원 시도.
+  window.addEventListener('pageshow', function(e){
+    if(e && e.persisted){
+      try{ _codifitRestoreState().catch(function(){}); }catch(_){}
+    }
+  });
+  // ─── 2026-05-25 KST · TJ 보고 (강화 fix) ─── window focus 안전망 ──────
+  //   배경: visibilitychange / pageshow / load 가 모두 놓치는 케이스가 있음.
+  //         예: 모바일 PWA 에서 다른 앱 → 코디핏 복귀, 또는 split-screen.
+  //   동작: window 가 focus 받으면 (탭/창 활성화) 저장 데이터 있고 1st 박스
+  //         비어있으면 강제 재복원. 30분 미경과 시에만.
+  window.addEventListener('focus', function(){
+    try{
+      if(Date.now() - _codifitLastActive > _CODIFIT_IDLE_MS) return;
+      const raw = sessionStorage.getItem(_CODIFIT_STATE_KEY);
+      if(!raw) return;
+      const has1st = document.querySelector('#stepACards .step-a-card, #stepACards [class*="step-a"]');
+      if(!has1st){
+        _codifitRestoreState().catch(function(){});
+      }
+    }catch(_){}
+  });
   // 페이지 내 사용자 활동 → 마지막 활동 시각 갱신 (메모리만, 가벼움)
   ['click','touchstart','keydown'].forEach(function(ev){
     document.addEventListener(ev, function(){ _codifitLastActive = Date.now(); }, {passive:true});
