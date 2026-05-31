@@ -13318,24 +13318,36 @@ def runway_generate():
             #          v9 단어 224 / 토큰 ~359 → v10 단어 ~110 / 토큰 ~180 (절감 약 50%)
             #    유지: 모든 핵심 룰 (얼굴 보존, 액세서리 보존, 워킹 시퀀스, 카메라)
             seedance_prompt = prompt_in or (
-                # ─── 2026-05-30 KST · TJ 지시 (v13) ─── 배경 고정 + 자연 워킹 ───
-                #   문제: v12 의 'Dark minimal runway, spotlight, glossy floor' 묘사가
-                #         모델에게 '새 무대를 그리라'고 지시 → 원본 배경이 매 프레임 바뀜(TJ 보고).
-                #   수정:
-                #     · 무대/조명/바닥 묘사 전면 제거.
-                #     · '입력 이미지 배경 그대로 유지, 변경 금지' 를 최우선 지시로 명시.
-                #     · 카메라를 fixed/static 으로 — 카메라 이동이 배경 드리프트를 유발하므로 고정.
-                #     · 워킹: 정면 → 측면(프로필) → 후면 → 걸어감 (TJ 지정 시퀀스).
-                "A fashion model walks naturally toward the camera, then slowly turns "
-                "to show her side profile, continues turning to reveal the back of the "
-                "outfit, and walks away. She moves with a slow, confident, rhythmic "
-                "catwalk gait. CRITICAL: keep the exact background of the input image "
-                "completely unchanged — do not replace, redraw, restyle, or relight the "
-                "background or scene. Only the person moves; the background stays static "
-                "and identical to the source image. Fixed static camera, wide full-body "
-                "shot. Photorealistic, sharp fabric detail, the same face and outfit kept "
-                "consistent throughout, full body always in frame, natural arm swing, "
-                "smooth and stable motion with no warping or distortion."
+                # ─── 2026-06-01 KST · TJ 지시 (v14) ─── 신체 일체성 + 정밀 워킹 시퀀스 ───
+                #   #2 괴기/유령 현상 방지: 머리·몸통·팔·다리가 따로 도는 분리 회전 금지.
+                #      해부학적으로 '하나의 자연스러운 인체'로만 움직이게 강제.
+                #   #3 시퀀스(6초): 정면 워킹(2.5s) → 정면 정지(0.5s) → 좌/우로 몸 돌려 측면 정지(0.5s)
+                #      → 같은 방향 90도 더 돌아 후면(0.5s) → 후면 유지하며 걸어 들어감(2s).
+                #   #3.1 배경·인물·소지품(가방/모자/안경) 절대 변경/삭제 금지.
+                #   #4 빠른 비트(드럼+일렉/베이스 기타) 워킹 리듬감 — 모션 cadence 로만 반영.
+                #      (Seedance 출력은 무음. 실제 음원 합성은 비용/토큰 고려해 생략.)
+                "A real fashion model performs a runway walk in a single continuous shot. "
+                "ANATOMY (most important): the whole body moves as ONE coherent, naturally "
+                "connected human. Head, neck, torso, arms and legs stay attached and turn "
+                "TOGETHER with the body; never rotate the head, limbs or torso independently; "
+                "no detached, twisted, spinning, 360-degree or backward-bending parts; no "
+                "horror, ghost or puppet-like distortion; only natural human biomechanics. "
+                "SEQUENCE (about 6 seconds): (1) for ~2.5s the model walks forward toward the "
+                "camera with a confident, brisk, rhythmic catwalk cadence, as if stepping to a "
+                "fast drum-and-bass-guitar beat, facing the camera; (2) stops and holds a front "
+                "pose for ~0.5s; (3) naturally turns the entire body to one side (either left or "
+                "right) and pauses ~0.5s showing the side profile; (4) continues turning 90 "
+                "degrees in the SAME direction to reveal the back, pausing ~0.5s; (5) for the "
+                "last ~2s keeps the back to the camera and walks away. It starts front-facing "
+                "and ends back-facing. "
+                "PRESERVE: keep the exact background of the input image completely unchanged — "
+                "do not replace, redraw, restyle or relight it; the background stays static and "
+                "identical, only the person moves. Keep the same face, hair, body, outfit and "
+                "ALL accessories (bag, hat, glasses, etc.) exactly as in the source image; never "
+                "add, remove or alter clothing or items. "
+                "CAMERA/QUALITY: fixed static camera, wide full-body shot with the full body "
+                "always in frame; photorealistic, sharp fabric detail, smooth stable motion, no "
+                "warping or distortion."
             )
 
             # 3) BytePlus 비디오 생성 요청
