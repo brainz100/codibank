@@ -13317,30 +13317,49 @@ def runway_generate():
             #    변경: v9 의 자연어 문장형 → 보고형 단답으로 압축. 중복 단어 제거.
             #          v9 단어 224 / 토큰 ~359 → v10 단어 ~110 / 토큰 ~180 (절감 약 50%)
             #    유지: 모든 핵심 룰 (얼굴 보존, 액세서리 보존, 워킹 시퀀스, 카메라)
+            # ─── 2026-06-01 KST · TJ 지시 ─── 턴 방향 확정(생성마다 좌→우 교대) ───
+            #   배경: 좌/우 미확정 시 모델이 턴 중 괴기스럽게 변형됨.
+            #   성별 판별은 프롬프트가 길어지고 비용↑ → 누적 생성수(runway_count) 짝/홀로 교대.
+            #   (생성 성공 시 카운트 +1 되므로 다음 생성은 반대 방향 — 좌→우→좌…)
+            try:
+                _rw_cnt = _runway_get_monthly_video_count(user_email) or 0
+            except Exception:
+                _rw_cnt = 0
+            _turn_dir = "left" if (int(_rw_cnt) % 2 == 0) else "right"
+            print(f"[runway_generate] 턴 방향: {_turn_dir} (count={_rw_cnt})", flush=True)
+
             seedance_prompt = prompt_in or (
-                # ─── 2026-06-01 KST · TJ 지시 (v15) ─── 자연스럽되 자신감 있는 모델워킹 + 각 뷰 명확한 정지 ───
-                #   v14 대비: (a) 걸음을 '자연스럽지만 자신감 있는 프로 슈퍼모델 워킹'으로,
-                #            (b) 정면·측면·후면에서 '완전히 잠깐 멈춰 정지 포즈가 분명히 보이도록' 강화.
-                #   #2 신체 일체성, #3.1 배경·인물·소지품 보존, #4 리듬 cadence 는 유지.
+                # ─── 2026-06-01 KST · TJ 지시 (v16) ─── 턴 방향 확정 + 시선 정합 + 자신감 워킹 + 정지 강제 ───
+                #   #1 턴 방향을 {_turn_dir} 하나로 확정(괴기 변형 방지).
+                #   #2 시선/머리는 항상 '몸이 향한 방향'을 주시(정면 의식 금지).
+                #   #3 힘없이 덜렁대지 않는 자신감 있는 프로 모델 워킹.
+                #   #4 정면·측면·후면에서 '확실히 멈춰 정지' 하는 모습이 생략되지 않도록 강하게 명시.
                 "A real fashion model performs a runway walk in a single continuous shot. "
                 "ANATOMY (most important): the whole body moves as ONE coherent, naturally "
                 "connected human. Head, neck, torso, arms and legs stay attached and turn "
                 "TOGETHER with the body; never rotate the head, limbs or torso independently; "
                 "no detached, twisted, spinning, 360-degree or backward-bending parts; no "
                 "horror, ghost or puppet-like distortion; only natural human biomechanics. "
-                "STYLE: a natural yet confident, poised professional supermodel runway walk — "
-                "smooth, graceful, self-assured posture, relaxed natural arm swing, not stiff "
-                "and not exaggerated. "
-                "SEQUENCE (about 6 seconds), with a clear, fully still pause at each of the "
-                "three views so the front, side and back are each plainly visible: "
-                "(1) for ~2.5s the model walks forward toward the camera with a confident, "
-                "rhythmic catwalk cadence, as if stepping to a fast drum-and-bass-guitar beat, "
-                "facing the camera; (2) comes to a complete, brief standstill facing front and "
-                "holds the front pose still for ~0.5s; (3) naturally turns the whole body to one "
-                "side (either left or right), stops and holds the side profile still for ~0.5s; "
-                "(4) continues turning 90 degrees in the SAME direction to face away, stops and "
-                "holds the back view still for ~0.5s; (5) for the last ~2s keeps the back to the "
-                "camera and walks away. It starts front-facing and ends back-facing. "
+                "WALK STYLE: an energetic, purposeful, confident professional catwalk stride "
+                "with an upright posture, engaged core and steady tempo — never limp, floppy, "
+                "sluggish, droopy or aimless. "
+                "GAZE: the head and eyes always follow the body's current facing direction; "
+                "the model does NOT keep glancing back at the camera or staying front-focused "
+                "while turning — when the body faces the side, the gaze faces the side; when it "
+                "faces away, the gaze faces away. "
+                f"TURN: turn the whole body decisively to its {_turn_dir} side, in that ONE "
+                f"direction only — never undecided, never reversing, wobbling or flickering. "
+                "SEQUENCE (about 6 seconds) — the still pauses at front, side and back MUST be "
+                "clearly shown and must NOT be skipped: "
+                "(1) the model walks forward toward the camera with the confident catwalk stride; "
+                "(2) comes to a COMPLETE STOP facing front and stands still, holding the front "
+                "view for ~0.5s; "
+                f"(3) turns naturally to its {_turn_dir} side, STOPS and stands still, holding "
+                "the side profile for ~0.5s; "
+                f"(4) continues turning in the SAME {_turn_dir} direction to face fully away, "
+                "STOPS and stands still, holding the back view for ~0.5s; "
+                "(5) then slowly walks away with the back to the camera using the same confident "
+                "model walk. It starts front-facing and ends back-facing. "
                 "PRESERVE: keep the exact background of the input image completely unchanged — "
                 "do not replace, redraw, restyle or relight it; the background stays static and "
                 "identical, only the person moves. Keep the same face, hair, body, outfit and "
