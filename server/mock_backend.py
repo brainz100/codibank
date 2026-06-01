@@ -13317,42 +13317,19 @@ def runway_generate():
             else:
                 print(f"[runway_generate] ⚠️ 이미지 분리 실패 → 단일 이미지 모드 폴백", flush=True)
 
-            # 2) 런웨이 워킹 prompt (v10 — TJ 지시 2026-05-27 KST · 토큰 효율 압축)
-            #    변경: v9 의 자연어 문장형 → 보고형 단답으로 압축. 중복 단어 제거.
-            #          v9 단어 224 / 토큰 ~359 → v10 단어 ~110 / 토큰 ~180 (절감 약 50%)
-            #    유지: 모든 핵심 룰 (얼굴 보존, 액세서리 보존, 워킹 시퀀스, 카메라)
-            # ─── 2026-06-01 KST · TJ 지시 ─── 턴 방향 확정(생성마다 좌→우 교대) ───
-            #   배경: 좌/우 미확정 시 모델이 턴 중 괴기스럽게 변형됨.
-            #   성별 판별은 프롬프트가 길어지고 비용↑ → 누적 생성수(runway_count) 짝/홀로 교대.
-            #   (생성 성공 시 카운트 +1 되므로 다음 생성은 반대 방향 — 좌→우→좌…)
-            try:
-                _rw_cnt = _runway_get_monthly_video_count(user_email) or 0
-            except Exception:
-                _rw_cnt = 0
-            _turn_dir = "left" if (int(_rw_cnt) % 2 == 0) else "right"
-            print(f"[runway_generate] 턴 방향: {_turn_dir} (count={_rw_cnt})", flush=True)
-
+            # 2) 런웨이 워킹 prompt
+            # ─── 2026-06-01 KST · TJ 지시 (v19) ─── 동작 최소 가이드만 ───────────────
+            #   배경: 과한 안무 설명(90도 턴·정지 비트·자세 형용사)이 오히려 포즈를 망침.
+            #         (건들거림·어정쩡한 중간 포즈) → 동작 설명을 전부 제거.
+            #   세팅: "정면 워킹 → 잠깐 정지 → 뒤돌아 걸어 들어감, 총 6초" 가이드만.
+            #         first/last(정면=first, 후면=last)와 자연 정합. 추가 동작 묘사 없음.
+            #   ※ 좌/우 턴 방향 지정 제거(불필요) → runway_count 조회도 생략(비용 절감).
             seedance_prompt = prompt_in or (
-                # ─── 2026-06-01 KST · TJ 승인 (B/v18) ─── first/last 연동 + 간소화 ───
-                #   끝 자세(후면)는 last_frame 이미지로 고정되므로 안무 서술을 압축.
-                #   유지: 신체 일체성(턴 글리치 차단) · 절도있는 모델워킹 · 방향 확정 턴 · 짧은 정지.
-                #   ratio/resolution/duration 은 root 파라미터(프롬프트에 미포함).
-                "A real fashion model does a runway walk in one continuous shot, starting from "
-                "the first frame (front) and ending at the last frame (back). "
-                "The whole body stays as ONE natural human and rotates only around its vertical "
-                "axis; head, torso, arms and legs stay attached and move together; never let any "
-                "part snap, flip, spin or rotate 180 degrees on its own; arms swing naturally, "
-                "no distorted or ghost-like limbs. "
-                "Style: a disciplined, elegant, confident model walk — upright posture, steady "
-                "controlled steps; not slouchy, swaggering or sloppy. The gaze follows the "
-                "body's facing direction. "
-                f"Motion: walk forward facing front and briefly stop (front view); then smoothly "
-                f"turn 90 degrees to the {_turn_dir} and briefly stop (side view); then turn "
-                f"again the same way to face away and briefly stop (back view); then walk away "
-                "with the back to the camera. The three brief stops must be visible. "
-                "Keep the exact background, face, hair, outfit and all accessories from the "
-                "input images unchanged; fixed static camera, full body in frame, photorealistic, "
-                "smooth and stable, no warping."
+                "A fashion model walks toward the camera with a natural model pose, "
+                "briefly stops, then turns around and walks away from the camera. "
+                "About 6 seconds total. "
+                "Keep the same person, face, outfit, accessories and background as in the "
+                "input images; photorealistic, smooth, stable, fixed camera."
             )
 
             # 3) BytePlus 비디오 생성 요청
