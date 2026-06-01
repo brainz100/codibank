@@ -449,6 +449,46 @@ body::before {
   margin-bottom: 14px;
 }
 
+/* ─── 2026-06-01 KST · TJ 지시 ─── 생성 성공 축포 연출 (불꽃놀이 + 무지개 글로우) ─── */
+.rw-celebrate {
+  position: absolute; inset: 0;
+  z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(11, 11, 42, 0.0);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.45s ease;
+}
+.rw-celebrate.fade-out { opacity: 0; }
+.rw-celebrate canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none; z-index: 0;
+}
+.rw-celebrate-text {
+  position: relative; z-index: 1;
+  text-align: center; padding: 0 16px;
+  transform: translateY(-6%);
+}
+.rw-celebrate-title {
+  font-family: 'Outfit','Manrope',sans-serif;
+  font-size: 44px; font-weight: 800; line-height: 1.05;
+  display: inline-block; padding-bottom: 2px;
+  background: linear-gradient(90deg, #ffd700, #ff3aa6, #00e5ff);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  animation: rwCelebHue 2s linear infinite, rwCelebGlow 1.5s ease-in-out infinite;
+}
+.rw-celebrate-sub {
+  margin-top: 12px; font-size: 14px; font-weight: 600;
+  letter-spacing: 0.02em; color: rgba(216,226,255,0.85);
+}
+@keyframes rwCelebHue { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+@keyframes rwCelebGlow {
+  0%, 100% { text-shadow: 0 0 10px rgba(255,215,0,0.8), 0 0 20px rgba(255,0,255,0.5), 0 0 30px rgba(0,255,255,0.4); }
+  50%      { text-shadow: 0 0 20px rgba(255,215,0,1),   0 0 40px rgba(255,0,255,0.8), 0 0 60px rgba(0,255,255,0.6); }
+}
+
 .rw-viewbox-video {
   /* ─── 2026-05-25 KST · TJ 보고 (v6) ─── 뷰박스 꽉 채우기 ──────────────
    *   뷰박스를 9:16 으로 변경 → 영상(9:16)과 비율 매치.
@@ -1215,6 +1255,80 @@ body::before {
   //   영상 완성 시: _stopRwProgressBar() 로 100% + cleanup
   let _rwProgressTimer = null;
   // 2026-06-01 KST · TJ — clip 경계로 진행 표시: [0,bx]=물결 지렁이, [bx,280]=직선 막대 (겹침 없음)
+  // ─── 2026-06-01 KST · TJ 지시 ─── 생성 성공 축포 연출 (불꽃놀이 + 'Succeed !!') ───
+  //   뷰박스(rwViewbox) 안에 캔버스 불꽃놀이 + 무지개 글로우 텍스트를 durationMs 동안 표시 후 onDone().
+  function _rwShowSuccessCelebration(durationMs, onDone) {
+    durationMs = durationMs || 2000;
+    const wrap = document.getElementById('rwViewbox');
+    if (!wrap) { if (onDone) onDone(); return; }
+    // 오버레이 DOM
+    const ov = document.createElement('div');
+    ov.className = 'rw-celebrate';
+    const canvas = document.createElement('canvas');
+    const txt = document.createElement('div');
+    txt.className = 'rw-celebrate-text';
+    txt.innerHTML = '<div class="rw-celebrate-title">Succeed !!</div>' +
+                    '<div class="rw-celebrate-sub">생성이 완료되었어요</div>';
+    ov.appendChild(canvas); ov.appendChild(txt);
+    wrap.appendChild(ov);
+
+    const ctx = canvas.getContext('2d');
+    let W = canvas.width = wrap.clientWidth || 360;
+    let H = canvas.height = wrap.clientHeight || 600;
+    const colors = ['#FFD700','#FF3366','#00FFFF','#FF00FF','#39FF14','#FF1493','#FCE205','#FFFFFF','#FF4500'];
+    const particles = [];
+    function explode(x, y) {
+      const n = Math.floor(Math.random()*90)+70;
+      const base = colors[Math.floor(Math.random()*colors.length)];
+      const mix = Math.random() > 0.5;
+      for (let i=0;i<n;i++){
+        const a = Math.random()*Math.PI*2;
+        const s = Math.random()*8+2;
+        particles.push({ x, y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:1,
+          decay:Math.random()*0.015+0.006,
+          color: mix ? colors[Math.floor(Math.random()*colors.length)] : base,
+          size: Math.random()*2.6+1.4, sparkle: Math.random()>0.8 });
+      }
+    }
+    let raf = null, running = true;
+    function frame(){
+      if (!running) return;
+      ctx.clearRect(0,0,W,H);
+      for (let i=particles.length-1;i>=0;i--){
+        const p = particles[i];
+        p.vy += 0.14; p.vx *= 0.98; p.vy *= 0.98;
+        p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+        if (p.life <= 0){ particles.splice(i,1); continue; }
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, (p.sparkle && Math.random()>0.5)?p.size*1.5:p.size, 0, Math.PI*2);
+        ctx.fillStyle = p.color; ctx.globalAlpha = Math.max(0,p.life);
+        ctx.shadowBlur = 14; ctx.shadowColor = p.color; ctx.fill();
+      }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      raf = requestAnimationFrame(frame);
+    }
+    frame();
+    // 초기 대형 폭발 + 연속 폭발
+    explode(W/2, H*0.33);
+    setTimeout(()=>explode(W*0.28, H*0.26), 180);
+    setTimeout(()=>explode(W*0.72, H*0.30), 360);
+    const iv = setInterval(()=>{
+      explode(Math.random()*W, Math.random()*(H*0.5)+H*0.10);
+    }, 520);
+
+    // durationMs 후 페이드아웃 → 정리 → onDone
+    setTimeout(()=>{
+      clearInterval(iv);
+      ov.classList.add('fade-out');
+      setTimeout(()=>{
+        running = false;
+        if (raf) cancelAnimationFrame(raf);
+        if (ov.parentNode) ov.parentNode.removeChild(ov);
+        if (onDone) onDone();
+      }, 450);
+    }, durationMs);
+  }
+
   function _rwSetWormProgress(pct) {
     if (pct < 0) pct = 0; if (pct > 100) pct = 100;
     const bx = 6 + 268 * (pct / 100);
@@ -1701,17 +1815,14 @@ body::before {
         currentVideoUrl = data.video_url;
         const vid = $('rwVideo');
         vid.src = data.video_url;
-        // 2026-06-01 KST · TJ 지시 (#4) — 완료 시 'Succeed !!' 빈 화면을 잠깐 보여준 뒤 영상 재생
+        // 2026-06-01 KST · TJ 지시 — 완료 시 '성공 축포'(불꽃놀이+Succeed) 2초 후 영상 재생
         vid.style.display = 'none';
-        $('rwViewboxEmpty').innerHTML =
-          '<span class="rw-empty-icon material-symbols-outlined" style="color:var(--accent);font-size:46px;">check_circle</span>' +
-          '<div class="rw-empty-text" style="color:var(--accent);font-weight:800;letter-spacing:0.04em;">Succeed !!</div>';
-        $('rwViewboxEmpty').style.display = 'flex';
-        setTimeout(function () {
+        $('rwViewboxEmpty').style.display = 'none';
+        _rwShowSuccessCelebration(2000, function () {
           const _e = $('rwViewboxEmpty'); if (_e) _e.style.display = 'none';
           vid.style.display = 'block';
           vid.play().catch(function(){});
-        }, 800);
+        });
         $('rwBtnSave').disabled = false;
         $('rwBtnShare').disabled = false;
         // 사용량 +1 (UI 즉시 반영, 서버는 이미 차감함)
