@@ -12601,32 +12601,36 @@ def _runway_increment_usage(user_email):
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
-        # 1) 현재 행 존재 여부 + 현재 값 조회
+        # 1) 현재 행 조회 — PK 가 email 단독(유저당 1행)이므로 email 로만 조회
         chk = _rq.get(
             f"{sb_url}/rest/v1/user_usage",
             params={
-                "select": "runway_count",
+                "select": "runway_count,month",
                 "email": f"eq.{user_email}",
-                "month": f"eq.{month_key}",
                 "limit": 1,
             },
             headers=hdrs, timeout=8,
         )
         rows = chk.json() if chk.status_code == 200 else []
         if rows:
-            cur = int(rows[0].get("runway_count") or 0)
+            # 행 존재 → 같은 달이면 +1, 다른 달이면 카운트 리셋(=1) + month 갱신
+            row_month = str(rows[0].get("month") or "")
+            if row_month == month_key:
+                new_val = int(rows[0].get("runway_count") or 0) + 1
+            else:
+                new_val = 1
             r = _rq.patch(
                 f"{sb_url}/rest/v1/user_usage",
-                params={"email": f"eq.{user_email}", "month": f"eq.{month_key}"},
-                json={"runway_count": cur + 1},
+                params={"email": f"eq.{user_email}"},   # email 단독키로 PATCH
+                json={"month": month_key, "runway_count": new_val},
                 headers={**hdrs, "Prefer": "return=minimal"}, timeout=8,
             )
-            new_val = cur + 1
         else:
+            # 행 없음 → 신규 insert (동시성 대비 merge-duplicates 로 upsert 안전망)
             r = _rq.post(
                 f"{sb_url}/rest/v1/user_usage",
                 json={"email": user_email, "month": month_key, "runway_count": 1},
-                headers={**hdrs, "Prefer": "return=minimal"}, timeout=8,
+                headers={**hdrs, "Prefer": "resolution=merge-duplicates,return=minimal"}, timeout=8,
             )
             new_val = 1
         ok = r.status_code in (200, 201, 204)
@@ -13329,49 +13333,26 @@ def runway_generate():
             print(f"[runway_generate] 턴 방향: {_turn_dir} (count={_rw_cnt})", flush=True)
 
             seedance_prompt = prompt_in or (
-                # ─── 2026-06-01 KST · TJ 지시 (v17) ─── 절도있는 모델워킹 + 턴 글리치 차단 + 정밀 타이밍 ───
-                #   #3 '껄렁/불량'한 걸음 금지 → 절도있고 우아한 프로 런웨이 워킹.
-                #   #4 턴 시 머리·팔·다리가 180도로 휙 도는 글리치/괴기 변형 차단:
-                #      전신이 수직축 중심으로 '하나의 강체처럼' 부드럽게 90도씩 회전.
-                #   타이밍: 정면워킹2.5s → 정면정지0.5s → 90도턴 측면정지0.5s → 후면턴 정지0.5s → 퇴장2s.
-                "A real fashion model performs a runway walk in a single continuous shot. "
-                "ANATOMY (most important): the whole body is ONE rigid, naturally connected "
-                "human that rotates only around its vertical axis. Head, neck, torso, arms and "
-                "legs always stay attached and move TOGETHER; NEVER let the head, arms, legs or "
-                "torso snap, flip, spin, swap sides, bend backward or rotate 180 degrees "
-                "independently; no detached, twisted, glitching, ghost or puppet-like parts; "
-                "arms hang and swing naturally at the sides, legs step naturally. Only natural "
-                "human biomechanics. "
-                "WALK STYLE: a disciplined, crisp, elegant and confident professional runway "
-                "model walk — tall upright spine, square shoulders, controlled poised steps in "
-                "a straight line, chin level. It must NOT look slouchy, swaggering, cocky, "
-                "sloppy, lazy, bouncing or sloppy-cool; it is refined and self-assured. "
-                "GAZE: the head and eyes follow the body's current facing direction at all "
-                "times (front when facing front, side when turned to the side, away when "
-                "facing back); do not keep glancing at the camera while turning. "
-                f"TURNS are smooth, natural 90-degree pivots of the WHOLE body to its "
-                f"{_turn_dir} side, in that one direction only — never reversing, wobbling, "
-                "flickering or flipping. "
-                "EXACT SEQUENCE (about 6 seconds); the three still pauses MUST be clearly shown "
-                "and must NOT be skipped: "
-                "(1) ~2.5s: walks forward toward the camera, facing front, with the disciplined "
-                "model walk; "
-                "(2) ~0.5s: comes to a COMPLETE STOP facing front and stands perfectly still "
-                "(front view); "
-                f"(3) ~0.5s: smoothly pivots 90 degrees to its {_turn_dir} side, then STOPS and "
-                "stands perfectly still (side profile view); "
-                f"(4) ~0.5s: smoothly pivots another 90 degrees in the SAME {_turn_dir} "
-                "direction to face fully away, then STOPS and stands perfectly still (back view); "
-                "(5) ~2s: slowly walks away with the back to the camera using the same "
-                "disciplined model walk. It starts front-facing and ends back-facing. "
-                "PRESERVE: keep the exact background of the input image completely unchanged — "
-                "do not replace, redraw, restyle or relight it; the background stays static and "
-                "identical, only the person moves. Keep the same face, hair, body, outfit and "
-                "ALL accessories (bag, hat, glasses, etc.) exactly as in the source image; never "
-                "add, remove or alter clothing or items. "
-                "CAMERA/QUALITY: fixed static camera, wide full-body shot with the full body "
-                "always in frame; photorealistic, sharp fabric detail, smooth stable motion, no "
-                "warping or distortion."
+                # ─── 2026-06-01 KST · TJ 승인 (B/v18) ─── first/last 연동 + 간소화 ───
+                #   끝 자세(후면)는 last_frame 이미지로 고정되므로 안무 서술을 압축.
+                #   유지: 신체 일체성(턴 글리치 차단) · 절도있는 모델워킹 · 방향 확정 턴 · 짧은 정지.
+                #   ratio/resolution/duration 은 root 파라미터(프롬프트에 미포함).
+                "A real fashion model does a runway walk in one continuous shot, starting from "
+                "the first frame (front) and ending at the last frame (back). "
+                "The whole body stays as ONE natural human and rotates only around its vertical "
+                "axis; head, torso, arms and legs stay attached and move together; never let any "
+                "part snap, flip, spin or rotate 180 degrees on its own; arms swing naturally, "
+                "no distorted or ghost-like limbs. "
+                "Style: a disciplined, elegant, confident model walk — upright posture, steady "
+                "controlled steps; not slouchy, swaggering or sloppy. The gaze follows the "
+                "body's facing direction. "
+                f"Motion: walk forward facing front and briefly stop (front view); then smoothly "
+                f"turn 90 degrees to the {_turn_dir} and briefly stop (side view); then turn "
+                f"again the same way to face away and briefly stop (back view); then walk away "
+                "with the back to the camera. The three brief stops must be visible. "
+                "Keep the exact background, face, hair, outfit and all accessories from the "
+                "input images unchanged; fixed static camera, full body in frame, photorealistic, "
+                "smooth and stable, no warping."
             )
 
             # 3) BytePlus 비디오 생성 요청
@@ -13425,17 +13406,44 @@ def runway_generate():
             sensitive_blocked = False
             sensitive_err_text = ""
 
-            # ─── 2026-05-25 KST 패치 v3: First/Last Frame 모드 제거 ─────────
-            #   배경: 이전 turn 의 first/last 시도가 BytePlus ModelArk 에서 400 에러 반환.
-            #         (image_url 두 개 + role 필드 모두 인식 X)
-            #   결과: first/last 시도 → 무조건 실패 → 단일 모드로 폴백
-            #   해결: first/last 시도 자체를 제거. 단일 모드 (정면 이미지) 만 사용.
-            #         시간 절약 (3초 × 2 모델 = 6초 절감) + 코드 단순화.
-            #   향후: BytePlus 가 first/last 공식 지원 시 또는 다른 API 도입 시 재개
+            # ─── 2026-06-01 KST · TJ 승인 (A) ─── First/Last Frame 재활성화 ─────────
+            #   배경: 정면 1장만 보내 측면·후면 자세를 모델이 상상 → 턴 괴기 변형.
+            #   해결: 정면=first_frame, 후면=last_frame 으로 보내 끝자세를 이미지로 고정.
+            #   Seedance 1.5 Pro 는 first/last frame 공식 지원(시작·끝 프레임 일관성).
+            #   전략: ①role 형식(first_frame/last_frame) → ②순서 형식 → ③단일(정면) 폴백.
+            #         400 응답 본문을 전부 로그에 남겨 거부 시 원인 즉시 확인.
+            #   ※ 분리 실패(has_split=False) 시엔 first/last 생략하고 곧장 단일 모드.
+
+            # ─── 시도 1: First/Last Frame (정면=first, 후면=last) ─── has_split 일 때만 ───
+            if used_model_id is None and has_split:
+                for _model_id in _model_candidates:
+                    _broke_sensitive = False
+                    for _use_role in (True, False):  # role 형식 우선, 실패 시 순서 형식
+                        _mode_lbl = "first_last(role)" if _use_role else "first_last(order)"
+                        create_payload = _build_payload(_model_id, front_url, back_url, True, _use_role)
+                        cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
+                        if cr.status_code < 400:
+                            used_model_id = _model_id
+                            used_mode = _mode_lbl
+                            print(f"[runway_generate] ✅ {_mode_lbl} 통과: {_model_id} (정면=first, 후면=last)", flush=True)
+                            break
+                        _body = cr.text or ""
+                        # sensitive 거부면 다음 '모델' 로 (형식 바꿔도 동일하게 거부됨)
+                        if cr.status_code == 400 and ("InputImageSensitiveContent" in _body or "PrivacyInformation" in _body or "may contain real person" in _body):
+                            sensitive_blocked = True
+                            sensitive_err_text = _body[:300]
+                            print(f"[runway_generate] {_model_id} ({_mode_lbl}) sensitive 거부 → 다음 모델", flush=True)
+                            _broke_sensitive = True
+                            break
+                        # 그 외 400 → 형식 문제일 수 있으니 본문 전체 로그 후 다음 형식 시도
+                        print(f"[runway_generate] ⚠ {_mode_lbl} 거부 ({cr.status_code}): {_body[:400]}", flush=True)
+                    if used_model_id is not None or _broke_sensitive:
+                        break
 
             # ─── 시도 2: 단일 이미지 모드 (정면만) — first/last 실패 또는 분리 실패 ─────
-            if used_model_id is None:
+            if used_model_id is None and not sensitive_blocked:
                 fallback_url = front_url if has_split else image_url
+                print(f"[runway_generate] ↪ first/last 미통과 → 단일(정면) 모드 폴백", flush=True)
                 for _model_id in _model_candidates:
                     create_payload = _build_payload(_model_id, fallback_url, fallback_url, False)
                     cr = _rq.post(create_url, json=create_payload, headers=create_headers, timeout=20)
