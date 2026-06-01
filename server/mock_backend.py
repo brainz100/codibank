@@ -12879,17 +12879,16 @@ def _runway_split_front_back(image_url: str) -> tuple:
                 return _img  # 이미 9:16
             _fill, _is_solid = _edge_fill_color(_img)
             if _current > _target_ratio:
-                # 가로가 더 김 → 세로를 늘려서 9:16 (위/아래 패딩)
-                _new_h = int(round(_w / _target_ratio))
-                _pad_top = (_new_h - _h) // 2
-                if not _is_solid:
-                    # 비단색 fallback — 상/하 가장자리 평균
-                    _top_mean = _PILStat.Stat(_img.crop((0, 0, _w, 5))).mean
-                    _bot_mean = _PILStat.Stat(_img.crop((0, _h - 5, _w, _h))).mean
-                    _fill = tuple(int(round((_top_mean[i] + _bot_mean[i]) / 2)) for i in range(3))
-                _new = Image.new('RGB', (_w, _new_h), _fill)
-                _new.paste(_img, (0, _pad_top))
-                return _new
+                # ─── 2026-06-01 KST · TJ 지시 ─── 위/아래 회색 밴드 제거 ───
+                #   기존: 세로를 늘려 9:16 → 위/아래 큰 회색 패딩이 영상에 그대로 구워짐
+                #         (인물이 가운데 작게, 상/하 밴드 발생).
+                #   변경: 좌우를 중앙 기준으로 잘라 9:16 → 인물이 프레임을 세로로 꽉 채움.
+                #         높이(머리~발)는 그대로 유지하므로 인물 잘림 없음(양옆 배경 여백만 제거).
+                _new_w = int(round(_h * _target_ratio))
+                if _new_w >= _w:
+                    return _img  # 안전장치: 계산상 더 넓어지면 그대로
+                _crop_left = (_w - _new_w) // 2
+                return _img.crop((_crop_left, 0, _crop_left + _new_w, _h))
             else:
                 # 세로가 더 김 → 가로를 늘려서 9:16 (좌/우 패딩)
                 _new_w = int(round(_h * _target_ratio))
