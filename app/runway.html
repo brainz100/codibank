@@ -250,7 +250,7 @@ body::before {
 /* === 동영상 뷰박스 === */
 .rw-viewbox-wrap {
   position: relative;
-  width: 100%;
+  /* width 는 아래에서 높이 기준(9:16)으로 산출 */
   /* ─── 2026-05-27 KST · TJ 시안 디자인 (v5) ─── X 삭제 버튼 ─────────────
  *   시안 코드 (Tailwind) 를 일반 CSS 로 변환:
  *
@@ -361,24 +361,35 @@ body::before {
    *         영상이 뷰박스 가로/세로 꽉 채움. 빈 공간 X.
    */
   aspect-ratio: 9/16;
-  max-height: 80vh;
+  /* ─── 2026-06-01 KST · TJ 지시 ─── 뷰박스가 화면(헤더/푸터) 위로 넘침 → 높이 기준 바운드 ───
+   *   기존: width:100% + max-height:80vh → 기기에 따라 박스가 화면보다 커져 넘침.
+   *   변경: 높이를 화면 높이 기준으로 제한(9:16 유지) → 폭은 자동 산출, 가운데 정렬.
+   *         min() 로 '세로 제한(72vh)' 과 '가로 100% 기준 높이' 중 작은 값 → 항상 화면 안.
+   */
+  height: min(72vh, calc((100vw - 36px) * 16 / 9));
+  width: auto;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
   background: var(--bg-secondary);
-  /* 2026-06-01 KST · TJ (#2) — 서브 컬러 라인 + 외부로 확장되는 그라데이션 글로우 */
-  border: 1.5px solid var(--accent-sub);
+  /* 2026-06-01 KST · TJ — 라인 #97FEED + 외부로 더 넓게/바깥일수록 점점 투명해지는 글로우 */
+  border: 1.5px solid var(--accent);
   border-radius: 18px;
   overflow: hidden;
   box-shadow:
-    0 0 0 1px rgba(124,140,255,0.30),
-    0 0 16px rgba(124,140,255,0.45),
-    0 0 42px rgba(124,140,255,0.26),
-    0 0 84px rgba(124,140,255,0.13);
+    0 0 0 1px rgba(151,254,237,0.55),
+    0 0 14px rgba(151,254,237,0.45),
+    0 0 32px rgba(151,254,237,0.32),
+    0 0 60px rgba(151,254,237,0.20),
+    0 0 96px rgba(151,254,237,0.11),
+    0 0 140px rgba(151,254,237,0.05);
 }
 .rw-viewbox-wrap::before {
   content: '';
   position: absolute; inset: 0;
   background:
-    radial-gradient(circle at 50% 30%, rgba(124,140,255,0.07) 0%, transparent 60%),
-    radial-gradient(circle at 50% 80%, rgba(124,140,255,0.05) 0%, transparent 50%);
+    radial-gradient(circle at 50% 30%, rgba(151,254,237,0.07) 0%, transparent 60%),
+    radial-gradient(circle at 50% 80%, rgba(151,254,237,0.05) 0%, transparent 50%);
   pointer-events: none;
 }
 
