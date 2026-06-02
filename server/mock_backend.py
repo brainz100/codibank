@@ -13364,23 +13364,38 @@ def runway_generate():
                 print(f"[runway_generate] ⚠️ 이미지 분리 실패 → 단일 이미지 모드 폴백", flush=True)
 
             # 2) 런웨이 워킹 prompt
-            # ─── 2026-06-01 KST · TJ 지시 (v20) ─── 인물 프레임 유지 + 모델워킹 교정 ───
-            #   #1 인물이 카메라로 다가오며 커져 머리·발이 잘림 → '프레임 안에 전신 유지,
-            #      카메라로 다가오지 않음' 명시(뷰박스보다 커지지 않게).
-            #   #2 교정(부정 제약): 손을 주머니에 넣지 말 것(항상 보이게), 표정 자연/중립,
-            #      턴은 부드럽게 자연스럽게, 마지막 퇴장도 자연스러운 모델 워킹.
-            #   과한 안무 비트는 여전히 배제(간결 유지). first/last(정면→후면)와 정합.
+            # ─── 2026-06-02 KST · TJ 지시 (v21) ─── 첨부 프롬프트로 완전 교체 ───
+            #   배경: 초기엔 정상이었으나 누적 수정으로 영상이 점점 변형(워킹 붕괴·복제 인물).
+            #   조치: TJ 첨부 프롬프트를 '그대로' 적용. FRONT/BACK 역할 명시 + 단계별 워킹 +
+            #         풍부한 부정 제약(No extra people 등) 포함.
+            #   꼭 필요한 보완 1줄만: 복제 인물 방지를 'exactly one single person, only one'
+            #         으로 한번 더 강조(스크린샷의 2명 등장 문제 직결).
             seedance_prompt = prompt_in or (
-                "A fashion model does a calm, confident runway walk while staying fully "
-                "visible from head to toe inside the frame the entire time, and does NOT "
-                "come closer to the camera (keep the same full-body size, never cropped). "
-                "Arms hang relaxed and swing naturally at the sides with hands open and "
-                "visible — hands are NEVER in pockets. Calm, natural, neutral facial "
-                "expression looking ahead. The model briefly stops facing front, then turns "
-                "around smoothly and naturally to face away, then walks away calmly with the "
-                "same natural model walk. About 6 seconds total. "
-                "Keep the same person, face, outfit, accessories and background as in the "
-                "input images; photorealistic, smooth, stable, fixed full-body camera."
+                "Use the FRONT image as the starting appearance and the BACK image as the reference for the rear outfit details.\n"
+                "A realistic fashion runway presentation of the same person.\n"
+                "The model starts standing naturally facing the camera.\n"
+                "The model slowly walks forward toward the camera with smooth professional runway steps.\n"
+                "After approaching the camera, the model stops naturally and holds a front-facing pose for a moment so the entire outfit can be clearly seen.\n"
+                "Then the model slowly rotates 90 degrees to show the full side profile.\n"
+                "After holding the side profile briefly, the model continues rotating until the full back view is visible.\n"
+                "The model pauses to clearly display the back of the outfit.\n"
+                "Finally, the model walks away from the camera while maintaining the back view until gradually moving into the distance.\n"
+                "The person must remain identical throughout the entire sequence.\n"
+                "Preserve all clothing details, silhouette, colors, textures, accessories, and proportions exactly.\n"
+                "The front view must match the front reference image.\n"
+                "The back view must match the back reference image.\n"
+                "Natural body motion.\n"
+                "Smooth turning motion.\n"
+                "Professional fashion model walk.\n"
+                "No camera movement.\n"
+                "No scene changes.\n"
+                "No outfit changes.\n"
+                "No facial distortion.\n"
+                "No extra people.\n"
+                "Exactly one single person in the entire video, only one model, no duplicate or clone of the person.\n"
+                "Luxury fashion presentation.\n"
+                "Photorealistic.\n"
+                "High-end commercial fashion video."
             )
 
             # 3) BytePlus 비디오 생성 요청
