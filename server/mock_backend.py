@@ -12884,8 +12884,19 @@ def _runway_split_front_back(image_url: str) -> tuple:
             _cur = _w / _h
             _fill, _is_solid = _edge_fill_color(_img)
 
+            # 2026-06-02 KST · TJ #1 — 인물이 프레임을 꽉 채워 워킹 시 머리·발 잘림.
+            #   → 9:16 유지하며 인물을 88%로 축소해 상하/좌우 소폭 여백 부여(워킹 다가옴 버퍼).
+            #     배경은 가장자리색(_fill)로 채움(스튜디오 배경과 동일 톤).
+            def _finalize(_im):
+                _scale = 0.88
+                _iw, _ih = int(round(_STD[0] * _scale)), int(round(_STD[1] * _scale))
+                _inner = _im.resize((_iw, _ih), _LANCZOS)
+                _canvas = Image.new('RGB', _STD, _fill)
+                _canvas.paste(_inner, ((_STD[0] - _iw) // 2, (_STD[1] - _ih) // 2))
+                return _canvas
+
             if abs(_cur - _t) < 0.005:
-                return _img.resize(_STD, _LANCZOS)
+                return _finalize(_img)
 
             if _cur > _t:
                 _need = _w - int(round(_h * _t))   # 9:16 되려면 줄여야 할 가로 px (예: 768→576 = 192)
@@ -12934,8 +12945,8 @@ def _runway_split_front_back(image_url: str) -> tuple:
                         _fill = tuple(int(round((_tm[i] + _bm[i]) / 2)) for i in range(3))
                     _new = Image.new('RGB', (_cw, _nh), _fill)
                     _new.paste(_crop, (0, _pt))
-                    return _new.resize(_STD, _LANCZOS)
-                return _crop.resize(_STD, _LANCZOS)
+                    return _finalize(_new)
+                return _finalize(_crop)
             else:
                 # 세로가 더 김 → 가로를 늘려서 9:16 (좌/우 패딩)
                 _new_w = int(round(_h * _t))
@@ -12946,7 +12957,7 @@ def _runway_split_front_back(image_url: str) -> tuple:
                     _fill = tuple(int(round((_left_mean[i] + _right_mean[i]) / 2)) for i in range(3))
                 _new = Image.new('RGB', (_new_w, _h), _fill)
                 _new.paste(_img, (_pad_left, 0))
-                return _new.resize(_STD, _LANCZOS)
+                return _finalize(_new)
 
         # ─── 2026-05-29 KST · TJ 지시 (방법 A) ─── 런웨이 무대 배경 교체 ───
         #   환경변수 CODIBANK_RUNWAY_STAGE_BG=1 (기본 on) 이면, 패딩 전에
@@ -13381,6 +13392,8 @@ def runway_generate():
                 "The model pauses to clearly display the back of the outfit.\n"
                 "Finally, the model walks away from the camera while maintaining the back view until gradually moving into the distance.\n"
                 "While walking, the arms swing naturally and gently at the sides in rhythm with the steps, like a real person walking.\n"
+                "Always keep the model's entire body, from the top of the head to the feet, fully inside the frame at all times; keep a full-body shot and never crop the head or feet, and never zoom in closer than a full-body view, even while the model walks toward the camera.\n"
+                "While walking — both when walking toward the camera and when walking away — both hands are always out of the pockets and the arms swing naturally with the steps. The hands may rest in the pockets only while standing still during a pause, and must be taken out again before walking. Never walk with the hands in the pockets.\n"
                 "The person must remain identical throughout the entire sequence.\n"
                 "Preserve all clothing details, silhouette, colors, textures, accessories, and proportions exactly.\n"
                 "The front view must match the front reference image.\n"
