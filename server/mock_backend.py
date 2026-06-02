@@ -13364,12 +13364,12 @@ def runway_generate():
                 print(f"[runway_generate] ⚠️ 이미지 분리 실패 → 단일 이미지 모드 폴백", flush=True)
 
             # 2) 런웨이 워킹 prompt
-            # ─── 2026-06-02 KST · TJ 지시 (v21) ─── 첨부 프롬프트로 완전 교체 ───
-            #   배경: 초기엔 정상이었으나 누적 수정으로 영상이 점점 변형(워킹 붕괴·복제 인물).
-            #   조치: TJ 첨부 프롬프트를 '그대로' 적용. FRONT/BACK 역할 명시 + 단계별 워킹 +
-            #         풍부한 부정 제약(No extra people 등) 포함.
-            #   꼭 필요한 보완 1줄만: 복제 인물 방지를 'exactly one single person, only one'
-            #         으로 한번 더 강조(스크린샷의 2명 등장 문제 직결).
+            # ─── 2026-06-02 KST · TJ 지시 (v22) ─── v21 고정본 + 3가지 보강(추가만) ───
+            #   ※ v21 본문은 한 줄도 삭제/변경하지 않고 그대로 유지. 아래 문장만 추가.
+            #   ① 워킹 시 팔을 자연스럽게 흔들며 걷기.
+            #   ② 배경 이미지(스튜디오 배경)는 처음부터 끝까지 변경 금지.
+            #   ③ 물리법칙 일관성: 정면 이미지에 보인 모든 요소(가방 위치/끈, 시계, 신발, 헤어,
+            #      소지품, 비율)가 워킹·턴·후면에서도 동일하게 물리적으로 자연스럽게 유지.
             seedance_prompt = prompt_in or (
                 "Use the FRONT image as the starting appearance and the BACK image as the reference for the rear outfit details.\n"
                 "A realistic fashion runway presentation of the same person.\n"
@@ -13380,15 +13380,18 @@ def runway_generate():
                 "After holding the side profile briefly, the model continues rotating until the full back view is visible.\n"
                 "The model pauses to clearly display the back of the outfit.\n"
                 "Finally, the model walks away from the camera while maintaining the back view until gradually moving into the distance.\n"
+                "While walking, the arms swing naturally and gently at the sides in rhythm with the steps, like a real person walking.\n"
                 "The person must remain identical throughout the entire sequence.\n"
                 "Preserve all clothing details, silhouette, colors, textures, accessories, and proportions exactly.\n"
                 "The front view must match the front reference image.\n"
                 "The back view must match the back reference image.\n"
+                "Keep every element exactly as shown in the front image consistent and physically correct during walking and turning: the bag stays on the same shoulder with its strap in a natural, fixed position, the watch, shoes, hair and all items stay in the same place and obey real-world physics, with no floating, morphing, swapping sides, duplicating or sudden changes.\n"
                 "Natural body motion.\n"
                 "Smooth turning motion.\n"
                 "Professional fashion model walk.\n"
                 "No camera movement.\n"
                 "No scene changes.\n"
+                "Do not change or replace the background; keep the exact same background scene from start to end.\n"
                 "No outfit changes.\n"
                 "No facial distortion.\n"
                 "No extra people.\n"
@@ -13397,6 +13400,8 @@ def runway_generate():
                 "Photorealistic.\n"
                 "High-end commercial fashion video."
             )
+            # 2026-06-02 KST · TJ — 배포본이 실제 어느 프롬프트인지 로그로 확인 (배포 지연 진단용)
+            print(f"[runway_generate] 프롬프트 버전: v22 | override(prompt_in)={'Y' if prompt_in else 'N'} | 길이={len(seedance_prompt)}자", flush=True)
 
             # 3) BytePlus 비디오 생성 요청
             create_url = "https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks"
