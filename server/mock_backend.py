@@ -12872,26 +12872,73 @@ def _runway_split_front_back(image_url: str) -> tuple:
             return _fill, _is_solid
 
         def _pad_to_9_16(_img):
+            # ─── 2026-06-02 KST · TJ 지시 (옵션 A) ─── 인물 잘림 없이 9:16 ───
+            #   배경: 직전 '좌우 25% 크롭'이 인물 어깨/팔까지 잘라 인물이 과대·잘림.
+            #   해결: ①인물 바운딩박스를 감지해 '배경 여백 범위 내에서만' 좌우 크롭(인물 보존)
+            #         ②남은 비율 차이는 위/아래 '최소' 패딩으로 보정
+            #         ③정면/후면을 동일 720×1280(9:16)로 정규화 → first/last 크기 일치.
+            _STD = (720, 1280)
+            _LANCZOS = getattr(Image, "LANCZOS", None) or getattr(getattr(Image, "Resampling", None), "LANCZOS", 1)
             _w, _h = _img.size
-            _target_ratio = 9.0 / 16.0  # = 0.5625
-            _current = _w / _h
-            if abs(_current - _target_ratio) < 0.005:
-                return _img  # 이미 9:16
+            _t = 9.0 / 16.0  # 0.5625
+            _cur = _w / _h
             _fill, _is_solid = _edge_fill_color(_img)
-            if _current > _target_ratio:
-                # ─── 2026-06-01 KST · TJ 지시 ─── 위/아래 회색 밴드 제거 ───
-                #   기존: 세로를 늘려 9:16 → 위/아래 큰 회색 패딩이 영상에 그대로 구워짐
-                #         (인물이 가운데 작게, 상/하 밴드 발생).
-                #   변경: 좌우를 중앙 기준으로 잘라 9:16 → 인물이 프레임을 세로로 꽉 채움.
-                #         높이(머리~발)는 그대로 유지하므로 인물 잘림 없음(양옆 배경 여백만 제거).
-                _new_w = int(round(_h * _target_ratio))
-                if _new_w >= _w:
-                    return _img  # 안전장치: 계산상 더 넓어지면 그대로
-                _crop_left = (_w - _new_w) // 2
-                return _img.crop((_crop_left, 0, _crop_left + _new_w, _h))
+
+            if abs(_cur - _t) < 0.005:
+                return _img.resize(_STD, _LANCZOS)
+
+            if _cur > _t:
+                _need = _w - int(round(_h * _t))   # 9:16 되려면 줄여야 할 가로 px (예: 768→576 = 192)
+                # ── 인물 좌우 경계 감지(배경색 대비 차이) ──
+                _safe_l, _safe_r = None, None
+                try:
+                    import numpy as _np
+                    _small = _img.convert('RGB').resize((192, int(192 * _h / _w)), _LANCZOS)
+                    _a = _np.asarray(_small, dtype=_np.int16)
+                    _fv = _np.array(_fill, dtype=_np.int16)
+                    _d = _np.abs(_a - _fv).sum(axis=2)               # 행×열 배경 대비 차이
+                    _colact = (_d > 45).sum(axis=0)                  # 열별 '인물' 픽셀 수
+                    _rowthr = max(2, int(_small.size[1] * 0.04))
+                    _cols = _np.where(_colact > _rowthr)[0]
+                    if len(_cols) > 0:
+                        _sx = _w / float(_small.size[0])
+                        _pl = int(_cols[0] * _sx)                    # 인물 좌단(원본 px)
+                        _pr = int((_cols[-1] + 1) * _sx)             # 인물 우단
+                        _safe_l = max(0, _pl)                        # 좌측 배경 여백
+                        _safe_r = max(0, _w - _pr)                   # 우측 배경 여백
+                except Exception:
+                    _safe_l = _safe_r = None
+
+                if _safe_l is None:
+                    # 감지 실패 → 보수적으로 한쪽 최대 10%까지만 크롭
+                    _safe_l = _safe_r = int(_w * 0.10)
+
+                # ── 배경 여백 범위 내에서만 좌우 크롭(인물 보존) ──
+                _each = _need / 2.0
+                _cl = int(min(_safe_l, _each))
+                _cr = int(min(_safe_r, _each))
+                _deficit = _need - (_cl + _cr)
+                if _deficit > 0:                                     # 한쪽 여백 부족분은 다른 쪽에서 보충(여전히 배경만)
+                    _ex = int(min(_safe_l - _cl, _deficit)); _cl += _ex; _deficit -= _ex
+                    _ex = int(min(_safe_r - _cr, _deficit)); _cr += _ex; _deficit -= _ex
+                _crop = _img.crop((_cl, 0, _w - _cr, _h))
+                _cw, _ch = _crop.size
+
+                if (_cw / _ch) > (_t + 0.005):
+                    # 아직 가로가 김 → 부족분만큼 위/아래 '최소' 패딩
+                    _nh = int(round(_cw / _t))
+                    _pt = (_nh - _ch) // 2
+                    if not _is_solid:
+                        _tm = _PILStat.Stat(_crop.crop((0, 0, _cw, 5))).mean
+                        _bm = _PILStat.Stat(_crop.crop((0, _ch - 5, _cw, _ch))).mean
+                        _fill = tuple(int(round((_tm[i] + _bm[i]) / 2)) for i in range(3))
+                    _new = Image.new('RGB', (_cw, _nh), _fill)
+                    _new.paste(_crop, (0, _pt))
+                    return _new.resize(_STD, _LANCZOS)
+                return _crop.resize(_STD, _LANCZOS)
             else:
                 # 세로가 더 김 → 가로를 늘려서 9:16 (좌/우 패딩)
-                _new_w = int(round(_h * _target_ratio))
+                _new_w = int(round(_h * _t))
                 _pad_left = (_new_w - _w) // 2
                 if not _is_solid:
                     _left_mean = _PILStat.Stat(_img.crop((0, 0, 5, _h))).mean
@@ -12899,7 +12946,7 @@ def _runway_split_front_back(image_url: str) -> tuple:
                     _fill = tuple(int(round((_left_mean[i] + _right_mean[i]) / 2)) for i in range(3))
                 _new = Image.new('RGB', (_new_w, _h), _fill)
                 _new.paste(_img, (_pad_left, 0))
-                return _new
+                return _new.resize(_STD, _LANCZOS)
 
         # ─── 2026-05-29 KST · TJ 지시 (방법 A) ─── 런웨이 무대 배경 교체 ───
         #   환경변수 CODIBANK_RUNWAY_STAGE_BG=1 (기본 on) 이면, 패딩 전에
@@ -13317,18 +13364,23 @@ def runway_generate():
                 print(f"[runway_generate] ⚠️ 이미지 분리 실패 → 단일 이미지 모드 폴백", flush=True)
 
             # 2) 런웨이 워킹 prompt
-            # ─── 2026-06-01 KST · TJ 지시 (v19) ─── 동작 최소 가이드만 ───────────────
-            #   배경: 과한 안무 설명(90도 턴·정지 비트·자세 형용사)이 오히려 포즈를 망침.
-            #         (건들거림·어정쩡한 중간 포즈) → 동작 설명을 전부 제거.
-            #   세팅: "정면 워킹 → 잠깐 정지 → 뒤돌아 걸어 들어감, 총 6초" 가이드만.
-            #         first/last(정면=first, 후면=last)와 자연 정합. 추가 동작 묘사 없음.
-            #   ※ 좌/우 턴 방향 지정 제거(불필요) → runway_count 조회도 생략(비용 절감).
+            # ─── 2026-06-01 KST · TJ 지시 (v20) ─── 인물 프레임 유지 + 모델워킹 교정 ───
+            #   #1 인물이 카메라로 다가오며 커져 머리·발이 잘림 → '프레임 안에 전신 유지,
+            #      카메라로 다가오지 않음' 명시(뷰박스보다 커지지 않게).
+            #   #2 교정(부정 제약): 손을 주머니에 넣지 말 것(항상 보이게), 표정 자연/중립,
+            #      턴은 부드럽게 자연스럽게, 마지막 퇴장도 자연스러운 모델 워킹.
+            #   과한 안무 비트는 여전히 배제(간결 유지). first/last(정면→후면)와 정합.
             seedance_prompt = prompt_in or (
-                "A fashion model walks toward the camera with a natural model pose, "
-                "briefly stops, then turns around and walks away from the camera. "
-                "About 6 seconds total. "
+                "A fashion model does a calm, confident runway walk while staying fully "
+                "visible from head to toe inside the frame the entire time, and does NOT "
+                "come closer to the camera (keep the same full-body size, never cropped). "
+                "Arms hang relaxed and swing naturally at the sides with hands open and "
+                "visible — hands are NEVER in pockets. Calm, natural, neutral facial "
+                "expression looking ahead. The model briefly stops facing front, then turns "
+                "around smoothly and naturally to face away, then walks away calmly with the "
+                "same natural model walk. About 6 seconds total. "
                 "Keep the same person, face, outfit, accessories and background as in the "
-                "input images; photorealistic, smooth, stable, fixed camera."
+                "input images; photorealistic, smooth, stable, fixed full-body camera."
             )
 
             # 3) BytePlus 비디오 생성 요청
