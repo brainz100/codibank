@@ -11162,6 +11162,68 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   }
 
   // ─── STEP B 호출 (유사 변형 1장) ───
+  // ─── 2026-06-09 KST · TJ 지시 ─── 코디핏 2nd(선택+유사) 코디앨범 자동 저장 ───
+  //   STEP B 완료(선택 코디 + 유사 변형 2장)되면 두 장을 코디앨범에 자동 저장.
+  //   기존 트라이온 저장과 동일하게 CodiBank.addAiAlbumEntry 사용(스키마 일치).
+  //   중복 방지: flow._stepBSavedToAlbum(이번 STEP B 1회) + 동일 imageRef 존재 시 skip.
+  function _codifitAlbumEntryFromCard(card){
+    let ref = (card && (card.imageUrl || card.url)) || '';
+    if(ref && ref.startsWith('/uploads/')){
+      var _bb = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || 'https://codibank-api.onrender.com';
+      ref = _bb + ref;
+    }
+    let kws = [];
+    try{
+      const eck = card && card.engineCategoryKeywords;
+      if(Array.isArray(eck)) kws = eck.filter(Boolean).map(String);
+      else if(eck && typeof eck === 'object') kws = Object.values(eck).filter(Boolean).map(String);
+    }catch(_){}
+    const purposeLabel = (S.pk==='custom'
+      ? (String(S.customPurpose||'').trim() || _L('직접입력'))
+      : (_L(getPur(S.pk)?.label) || '')) || '';
+    return {
+      ref,
+      entry: {
+        dateKey: getSelectedDateKey(),
+        weatherText: (S.wx && S.wx.text) || '',
+        temp: S.wx && S.wx.temp,
+        purposeKey: S.pk,
+        purposeLabel,
+        imageRef: ref,
+        seed: S.seed,
+        styleTitle: '',
+        explanation: (card && card.stylingStory) || '',
+        keywords: kws,
+        stylistName: (card && card.stylist && card.stylist.name) || (S.stylist && S.stylist.name) || '',
+        stylistCity: (card && card.stylist && card.stylist.city) || (S.stylist && S.stylist.city) || '',
+        source: 'codifit_stepB',
+        liked: false,
+        createdAt: new Date().toISOString(),
+      }
+    };
+  }
+  function _codifitSaveStepBToAlbum(){
+    try{
+      if(!(window.CodiBank && CodiBank.addAiAlbumEntry)) return;
+      if(!user || !user.email) return;
+      const cards = flow.stepBCards || [];
+      if(!cards[0] || !cards[1]) return;          // 두 장 모두 준비됐을 때만
+      if(flow._stepBSavedToAlbum) return;          // 이번 STEP B 1회만
+      const _norm = (u) => String(u||'').replace(/^https?:\/\/[^/]+/, '');  // 호스트 제거 후 비교
+      let existNorm = [];
+      try{ existNorm = (CodiBank.getAiAlbumEntries(user.email)||[]).map(x => _norm(x && x.imageRef)); }catch(_){}
+      [cards[0], cards[1]].forEach(c => {
+        const built = _codifitAlbumEntryFromCard(c);
+        if(!built.ref) return;
+        if(existNorm.includes(_norm(built.ref))) return;   // 동일 이미지 중복 skip
+        CodiBank.addAiAlbumEntry(user.email, built.entry);
+        existNorm.push(_norm(built.ref));
+      });
+      flow._stepBSavedToAlbum = true;
+      console.log('[코디핏] 2nd 단계(선택+유사) 코디앨범 자동 저장 완료');
+    }catch(e){ console.warn('[코디핏] stepB 앨범 저장 실패', e); }
+  }
+
   async function startStepB(){
     if(flow.busy) return;
     flow.busy = true;
@@ -11181,6 +11243,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
 
     // STEP B 섹션 렌더 (원본 + 변형 placeholder)
     flow.stepBCards = [baseCard, null];
+    flow._stepBSavedToAlbum = false;   // 2026-06-09 · 새 STEP B 시작 → 앨범 저장 플래그 리셋
     showSection('stepBCompare');
     const container = $('stepBCards');
     if(container){
@@ -11248,6 +11311,8 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       };
       // ─── 2026-05-25 KST · TJ 보고 ─── 2nd 완료 즉시 저장 (일관성)
       try{ if(typeof _codifitSaveState === 'function') _codifitSaveState(); }catch(_){}
+      // ─── 2026-06-09 KST · TJ 지시 ─── 2nd(선택+유사 2장) 코디앨범 자동 저장 ───
+      try{ _codifitSaveStepBToAlbum(); }catch(_){}
       const card2 = container && container.querySelector('[data-idx="1"]');
       if(card2){
         card2.innerHTML = `
