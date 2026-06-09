@@ -12888,11 +12888,37 @@ def _runway_split_front_back(image_url: str) -> tuple:
             #   → 9:16 유지하며 인물을 88%로 축소해 상하/좌우 소폭 여백 부여(워킹 다가옴 버퍼).
             #     배경은 가장자리색(_fill)로 채움(스튜디오 배경과 동일 톤).
             def _finalize(_im):
+                # ─── 2026-06-09 KST · TJ 지시 (#3) ─── 영상 속 '이중 액자틀' 제거 ───
+                #   기존: 인물 88% 축소 후 단색(_fill) 패딩 → 영상에 사각 테두리(액자틀)가 구워짐.
+                #   변경: 여백을 단색이 아니라 인물 이미지의 '가장자리 픽셀을 늘려' 채움
+                #         → 스튜디오 배경이 자연스럽게 연속, 보이는 프레임 없음(워킹 여백은 유지).
                 _scale = 0.88
                 _iw, _ih = int(round(_STD[0] * _scale)), int(round(_STD[1] * _scale))
                 _inner = _im.resize((_iw, _ih), _LANCZOS)
+                _ox, _oy = (_STD[0] - _iw) // 2, (_STD[1] - _ih) // 2
+                _rm, _bm = _STD[0] - (_ox + _iw), _STD[1] - (_oy + _ih)  # 우/하 여백
                 _canvas = Image.new('RGB', _STD, _fill)
-                _canvas.paste(_inner, ((_STD[0] - _iw) // 2, (_STD[1] - _ih) // 2))
+                # 상/하 여백 = 위/아래 끝줄 늘리기
+                if _oy > 0:
+                    _canvas.paste(_inner.crop((0, 0, _iw, 1)).resize((_iw, _oy), _LANCZOS), (_ox, 0))
+                if _bm > 0:
+                    _canvas.paste(_inner.crop((0, _ih - 1, _iw, _ih)).resize((_iw, _bm), _LANCZOS), (_ox, _oy + _ih))
+                # 좌/우 여백 = 좌/우 끝열 늘리기
+                if _ox > 0:
+                    _canvas.paste(_inner.crop((0, 0, 1, _ih)).resize((_ox, _ih), _LANCZOS), (0, _oy))
+                if _rm > 0:
+                    _canvas.paste(_inner.crop((_iw - 1, 0, _iw, _ih)).resize((_rm, _ih), _LANCZOS), (_ox + _iw, _oy))
+                # 코너 4곳 = 코너 픽셀로 채움
+                if _ox > 0 and _oy > 0:
+                    _canvas.paste(_inner.crop((0, 0, 1, 1)).resize((_ox, _oy), _LANCZOS), (0, 0))
+                if _rm > 0 and _oy > 0:
+                    _canvas.paste(_inner.crop((_iw - 1, 0, _iw, 1)).resize((_rm, _oy), _LANCZOS), (_ox + _iw, 0))
+                if _ox > 0 and _bm > 0:
+                    _canvas.paste(_inner.crop((0, _ih - 1, 1, _ih)).resize((_ox, _bm), _LANCZOS), (0, _oy + _ih))
+                if _rm > 0 and _bm > 0:
+                    _canvas.paste(_inner.crop((_iw - 1, _ih - 1, _iw, _ih)).resize((_rm, _bm), _LANCZOS), (_ox + _iw, _oy + _ih))
+                # 마지막에 선명한 인물 본체를 위에 붙임
+                _canvas.paste(_inner, (_ox, _oy))
                 return _canvas
 
             if abs(_cur - _t) < 0.005:
@@ -13399,6 +13425,9 @@ def runway_generate():
                 "The front view must match the front reference image.\n"
                 "The back view must match the back reference image.\n"
                 "Keep every element exactly as shown in the front image consistent and physically correct during walking and turning: the bag stays on the same shoulder with its strap in a natural, fixed position, the watch, shoes, hair and all items stay in the same place and obey real-world physics, with no floating, morphing, swapping sides, duplicating or sudden changes.\n"
+                "Always render correct, realistic human anatomy: exactly two eyes, one nose, one mouth, two ears, two arms, two legs, and exactly five fingers on each hand; never add, remove, duplicate, merge or deform any body part.\n"
+                "Obey real-world physics at all times: gravity applies, the body, clothing and hair move together naturally and consistently with the motion, and the hair falls and sways according to gravity and momentum.\n"
+                "Never move any body part beyond the natural human range of motion. The head and neck must NEVER rotate a full 180 degrees or twist backwards; turning to show the back is done by rotating the whole body, never by spinning the head or neck around. Absolutely no grotesque, horror-like, impossible or broken-joint deformations.\n"
                 "Natural body motion.\n"
                 "Smooth turning motion.\n"
                 "Professional fashion model walk.\n"
@@ -13414,7 +13443,7 @@ def runway_generate():
                 "High-end commercial fashion video."
             )
             # 2026-06-02 KST · TJ — 배포본이 실제 어느 프롬프트인지 로그로 확인 (배포 지연 진단용)
-            print(f"[runway_generate] 프롬프트 버전: v22 | override(prompt_in)={'Y' if prompt_in else 'N'} | 길이={len(seedance_prompt)}자", flush=True)
+            print(f"[runway_generate] 프롬프트 버전: v24 | override(prompt_in)={'Y' if prompt_in else 'N'} | 길이={len(seedance_prompt)}자", flush=True)
 
             # 3) BytePlus 비디오 생성 요청
             create_url = "https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks"
