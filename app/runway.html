@@ -703,9 +703,10 @@ body::before {
 .rw-loading-worm-row {
   width: 84%;
   max-width: 300px;
+  /* 2026-06-10 KST · TJ 지시 (#3) — % 텍스트를 막대 오른쪽 끝 '위에 겹치게' absolute 배치 기준 */
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 9px;
   margin-top: 2px;
 }
 .rw-loading-worm {
@@ -729,14 +730,19 @@ body::before {
   stroke-linejoin: round;
 }
 .rw-loading-worm-pct {
+  /* 2026-06-10 KST · TJ 지시 (#3) — 막대 라인 오른쪽 끝, 라인 바로 위에 겹쳐서 표시 */
+  position: absolute;
+  right: 0;
+  bottom: 50%;
+  margin-bottom: 4px;       /* 중앙선(라인) 위로 살짝 띄워 겹침 */
   font-family: 'Manrope', sans-serif;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.02em;
   color: #97FEED;
-  min-width: 40px;
   text-align: right;
   text-shadow: 0 0 8px rgba(151, 254, 237, 0.45);
+  pointer-events: none;
 }
 
 /* ─── 2026-05-25 KST · TJ 지시 — 무지개 RUNWAY 텍스트 ─── */
@@ -1231,7 +1237,7 @@ body::before {
           </svg>
           <span class="rw-loading-worm-pct" id="rwWormPct">0%</span>
         </div>
-        <div class="rw-loading-text">Ai가 당신만의 쇼를 준비하고 있어요</div>
+        <!-- 2026-06-10 KST · TJ 지시 (#2) — 'Ai가 당신만의 쇼를 준비하고 있어요' 텍스트 삭제 -->
       </div>
       <video class="rw-viewbox-video" id="rwVideo" autoplay loop muted playsinline style="cursor:pointer;"></video>
       <!-- 2026-05-27 KST · TJ 지시 ─── 영상 멈춤 표시 아이콘 (paused 시만 표시) ─── -->
@@ -1354,11 +1360,12 @@ body::before {
   let _rwProgressTimer = null;
   // ─── 2026-06-10 KST · TJ 지시 (#1) ─── 진행률 연동 물결 지렁이 드로잉 ───
   //   _rwDrawWorm(pct, phase):
-  //     · 지렁이(완료 구간): x=0 → head(=pct% 지점)까지 사인파. 진폭 = 최대 13px × (pct/100).
-  //       시작점(0지점)은 진폭 0에서 출발(rampIn), 머리 직전도 진폭 0으로 수렴(rampOut)
-  //       → 머리가 항상 직선(중앙선)과 같은 높이에서 일치.
+  //     · 지렁이(완료 구간): x=0 → head(=pct% 지점)까지 사인파. 진폭 = 최대 16px × (pct/100).
+  //     · [2026-06-10 TJ #3] 파동 위상을 '머리(head)' 기준으로 계산 → 움직임이 머리에서
+  //       시작되어 꼬리 쪽으로 전파. 진폭 엔벨로프 = sin(π·x/head) → 중간 지점이 가장 높고
+  //       양끝(0지점·머리)은 진폭 0 → 머리는 항상 직선(중앙선)과 일치.
   //     · 직선(남은 구간): head → 오른쪽 끝. 진행률이 오를수록 줄어듦.
-  //     · phase 를 시간으로 흘려 파동이 살아 움직이는 효과. 우측 % 텍스트 동시 갱신.
+  //     · 진행률 % 텍스트는 막대 라인 오른쪽 끝 '위에 겹치게' 표시(CSS absolute).
   let _rwWormRaf = null;
   let _rwWormPctVal = 0;
   function _rwDrawWorm(pct, phase) {
@@ -1366,17 +1373,18 @@ body::before {
     const line = document.getElementById('rwWormLine');
     const pctEl = document.getElementById('rwWormPct');
     if (!body || !line) return;
-    const W = 300, MID = 20, WAVELEN = 36, AMP_MAX = 13;
+    const W = 300, MID = 20, WAVELEN = 36, AMP_MAX = 16;
     const p = Math.max(0, Math.min(100, pct));
     const head = (p / 100) * W;
     const amp = AMP_MAX * (p / 100);          // 진행률 비례 진폭
     let d = 'M0 ' + MID;
     if (head >= 1) {
       for (let x = 3; x < head; x += 3) {
-        const rampIn  = Math.min(1, x / 28);            // 0지점 무진폭 → 점차 상승
-        const rampOut = Math.min(1, (head - x) / 14);   // 머리 부근 진폭 0 수렴
-        const a = amp * rampIn * rampOut;
-        const y = MID + a * Math.sin((x * 2 * Math.PI) / WAVELEN - phase);
+        // 중간 최대·양끝 0 엔벨로프 (sin π·x/head) → 중간 지점 진폭 강조 + 머리=중앙선 일치
+        const env = Math.sin(Math.PI * (x / head));
+        const a = amp * env;
+        // 위상 기준점 = 머리(head) → 파동이 머리에서 발생해 꼬리 방향으로 전파
+        const y = MID + a * Math.sin(((head - x) * 2 * Math.PI) / WAVELEN + phase);
         d += ' L' + x.toFixed(1) + ' ' + y.toFixed(2);
       }
       d += ' L' + head.toFixed(1) + ' ' + MID;          // 머리 끝점 = 중앙선(직선과 일치)
@@ -1386,7 +1394,7 @@ body::before {
     if (pctEl) pctEl.textContent = Math.round(p) + '%';
   }
   function _rwWormLoop() {
-    const phase = ((Date.now() % 100000) / 170);        // 파동 진행 위상 (좌→우 흐름)
+    const phase = ((Date.now() % 100000) / 170);        // 머리에서 발생한 파동이 꼬리로 흐르는 위상
     _rwDrawWorm(_rwWormPctVal, phase);
     _rwWormRaf = requestAnimationFrame(_rwWormLoop);
   }
