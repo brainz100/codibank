@@ -12884,45 +12884,13 @@ def _runway_split_front_back(image_url: str) -> tuple:
             _cur = _w / _h
             _fill, _is_solid = _edge_fill_color(_img)
 
-            # 2026-06-02 KST · TJ #1 — 인물이 프레임을 꽉 채워 워킹 시 머리·발 잘림.
-            #   → 9:16 유지하며 인물을 88%로 축소해 상하/좌우 소폭 여백 부여(워킹 다가옴 버퍼).
-            #     배경은 가장자리색(_fill)로 채움(스튜디오 배경과 동일 톤).
-            def _finalize(_im):
-                # ─── 2026-06-09 KST · TJ 지시 (#3) ─── 영상 속 '이중 액자틀' 제거 ───
-                #   기존: 인물 88% 축소 후 단색(_fill) 패딩 → 영상에 사각 테두리(액자틀)가 구워짐.
-                #   변경: 여백을 단색이 아니라 인물 이미지의 '가장자리 픽셀을 늘려' 채움
-                #         → 스튜디오 배경이 자연스럽게 연속, 보이는 프레임 없음(워킹 여백은 유지).
-                _scale = 0.88
-                _iw, _ih = int(round(_STD[0] * _scale)), int(round(_STD[1] * _scale))
-                _inner = _im.resize((_iw, _ih), _LANCZOS)
-                _ox, _oy = (_STD[0] - _iw) // 2, (_STD[1] - _ih) // 2
-                _rm, _bm = _STD[0] - (_ox + _iw), _STD[1] - (_oy + _ih)  # 우/하 여백
-                _canvas = Image.new('RGB', _STD, _fill)
-                # 상/하 여백 = 위/아래 끝줄 늘리기
-                if _oy > 0:
-                    _canvas.paste(_inner.crop((0, 0, _iw, 1)).resize((_iw, _oy), _LANCZOS), (_ox, 0))
-                if _bm > 0:
-                    _canvas.paste(_inner.crop((0, _ih - 1, _iw, _ih)).resize((_iw, _bm), _LANCZOS), (_ox, _oy + _ih))
-                # 좌/우 여백 = 좌/우 끝열 늘리기
-                if _ox > 0:
-                    _canvas.paste(_inner.crop((0, 0, 1, _ih)).resize((_ox, _ih), _LANCZOS), (0, _oy))
-                if _rm > 0:
-                    _canvas.paste(_inner.crop((_iw - 1, 0, _iw, _ih)).resize((_rm, _ih), _LANCZOS), (_ox + _iw, _oy))
-                # 코너 4곳 = 코너 픽셀로 채움
-                if _ox > 0 and _oy > 0:
-                    _canvas.paste(_inner.crop((0, 0, 1, 1)).resize((_ox, _oy), _LANCZOS), (0, 0))
-                if _rm > 0 and _oy > 0:
-                    _canvas.paste(_inner.crop((_iw - 1, 0, _iw, 1)).resize((_rm, _oy), _LANCZOS), (_ox + _iw, 0))
-                if _ox > 0 and _bm > 0:
-                    _canvas.paste(_inner.crop((0, _ih - 1, 1, _ih)).resize((_ox, _bm), _LANCZOS), (0, _oy + _ih))
-                if _rm > 0 and _bm > 0:
-                    _canvas.paste(_inner.crop((_iw - 1, _ih - 1, _iw, _ih)).resize((_rm, _bm), _LANCZOS), (_ox + _iw, _oy + _ih))
-                # 마지막에 선명한 인물 본체를 위에 붙임
-                _canvas.paste(_inner, (_ox, _oy))
-                return _canvas
+            # ─── 2026-06-10 KST · TJ 지시 (#①) ─── _finalize 완전 제거 ───
+            #   기존: 인물 88% 축소 + 가장자리 패딩(_finalize) → 영상에 사각 액자틀이 구워짐.
+            #   변경: 9:16 비율 정규화(인물 보존 크롭/최소 패딩) 후 720×1280 리사이즈만 수행.
+            #         영상 배경 사이즈 = 영상 뷰박스 사이즈 일치 → 액자틀 제거.
 
             if abs(_cur - _t) < 0.005:
-                return _finalize(_img)
+                return _img.resize(_STD, _LANCZOS)
 
             if _cur > _t:
                 _need = _w - int(round(_h * _t))   # 9:16 되려면 줄여야 할 가로 px (예: 768→576 = 192)
@@ -12971,8 +12939,8 @@ def _runway_split_front_back(image_url: str) -> tuple:
                         _fill = tuple(int(round((_tm[i] + _bm[i]) / 2)) for i in range(3))
                     _new = Image.new('RGB', (_cw, _nh), _fill)
                     _new.paste(_crop, (0, _pt))
-                    return _finalize(_new)
-                return _finalize(_crop)
+                    return _new.resize(_STD, _LANCZOS)
+                return _crop.resize(_STD, _LANCZOS)
             else:
                 # 세로가 더 김 → 가로를 늘려서 9:16 (좌/우 패딩)
                 _new_w = int(round(_h * _t))
@@ -12983,7 +12951,7 @@ def _runway_split_front_back(image_url: str) -> tuple:
                     _fill = tuple(int(round((_left_mean[i] + _right_mean[i]) / 2)) for i in range(3))
                 _new = Image.new('RGB', (_new_w, _h), _fill)
                 _new.paste(_img, (_pad_left, 0))
-                return _finalize(_new)
+                return _new.resize(_STD, _LANCZOS)
 
         # ─── 2026-05-29 KST · TJ 지시 (방법 A) ─── 런웨이 무대 배경 교체 ───
         #   환경변수 CODIBANK_RUNWAY_STAGE_BG=1 (기본 on) 이면, 패딩 전에
