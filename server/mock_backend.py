@@ -13379,6 +13379,11 @@ def runway_generate():
             #   증상: 인물이 좌/우측에서 중앙으로 비스듬히 걸어 들어오는 영상이 간헐 생성.
             #   보강: 첫 프레임부터 프레임 가로 중앙에 위치 + 중앙축을 따라 카메라 정면으로
             #         직진(좌/우 진입·대각선 워킹·횡이동 금지) 문장 2개를 워킹 문장 직후 추가.
+            # ─── 2026-06-10 KST · TJ 지시 (v26) ─── 괴기 턴 동작 차단 보강(추가만) ───
+            #   증상: 몸은 후면인데 얼굴이 어깨 너머로 카메라를 향하는(목만 꺾인) 괴기 컷 생성.
+            #   보강: ①턴 시 머리·목·어깨·몸통 일체 회전(머리는 항상 가슴과 같은 방향),
+            #         ②몸이 후면일 때는 뒤통수·머리카락만 보이고 얼굴 노출 절대 금지
+            #         (어깨 너머 돌아보기 금지) 문장 2개를 가동범위 제약 직후 추가.
             seedance_prompt = prompt_in or (
                 "Use the FRONT image as the starting appearance and the BACK image as the reference for the rear outfit details.\n"
                 "A realistic fashion runway presentation of the same person.\n"
@@ -13402,6 +13407,8 @@ def runway_generate():
                 "Always render correct, realistic human anatomy: exactly two eyes, one nose, one mouth, two ears, two arms, two legs, and exactly five fingers on each hand; never add, remove, duplicate, merge or deform any body part.\n"
                 "Obey real-world physics at all times: gravity applies, the body, clothing and hair move together naturally and consistently with the motion, and the hair falls and sways according to gravity and momentum.\n"
                 "Never move any body part beyond the natural human range of motion. The head and neck must NEVER rotate a full 180 degrees or twist backwards; turning to show the back is done by rotating the whole body, never by spinning the head or neck around. Absolutely no grotesque, horror-like, impossible or broken-joint deformations.\n"
+                "During every turn, the head, neck, shoulders and torso rotate together as one connected unit; the head always faces the same direction as the chest, and never turns independently of the body.\n"
+                "Whenever the body is facing away from the camera, only the back of the head and the hair are visible from behind; the face must never be visible while the back is shown, and the model never looks back over the shoulder toward the camera.\n"
                 "Natural body motion.\n"
                 "Smooth turning motion.\n"
                 "Professional fashion model walk.\n"
@@ -13417,7 +13424,7 @@ def runway_generate():
                 "High-end commercial fashion video."
             )
             # 2026-06-02 KST · TJ — 배포본이 실제 어느 프롬프트인지 로그로 확인 (배포 지연 진단용)
-            print(f"[runway_generate] 프롬프트 버전: v25 | override(prompt_in)={'Y' if prompt_in else 'N'} | 길이={len(seedance_prompt)}자", flush=True)
+            print(f"[runway_generate] 프롬프트 버전: v26 | override(prompt_in)={'Y' if prompt_in else 'N'} | 길이={len(seedance_prompt)}자", flush=True)
 
             # 3) BytePlus 비디오 생성 요청
             create_url = "https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks"
