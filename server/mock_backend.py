@@ -13375,11 +13375,17 @@ def runway_generate():
             #   ② 배경 이미지(스튜디오 배경)는 처음부터 끝까지 변경 금지.
             #   ③ 물리법칙 일관성: 정면 이미지에 보인 모든 요소(가방 위치/끈, 시계, 신발, 헤어,
             #      소지품, 비율)가 워킹·턴·후면에서도 동일하게 물리적으로 자연스럽게 유지.
+            # ─── 2026-06-10 KST · TJ 지시 (v25) ─── 정면 직진 워킹 보강(추가만) ───
+            #   증상: 인물이 좌/우측에서 중앙으로 비스듬히 걸어 들어오는 영상이 간헐 생성.
+            #   보강: 첫 프레임부터 프레임 가로 중앙에 위치 + 중앙축을 따라 카메라 정면으로
+            #         직진(좌/우 진입·대각선 워킹·횡이동 금지) 문장 2개를 워킹 문장 직후 추가.
             seedance_prompt = prompt_in or (
                 "Use the FRONT image as the starting appearance and the BACK image as the reference for the rear outfit details.\n"
                 "A realistic fashion runway presentation of the same person.\n"
                 "The model starts standing naturally facing the camera.\n"
                 "The model slowly walks forward toward the camera with smooth professional runway steps.\n"
+                "The model is positioned at the horizontal center of the frame from the very first frame, and walks straight forward toward the camera along the center line of the frame, facing the camera squarely head-on the entire time while walking forward.\n"
+                "Never enter the frame from the left side or the right side, never walk diagonally toward the center, and never drift sideways; the walking path stays exactly on the center axis of the frame.\n"
                 "After approaching the camera, the model stops naturally and holds a front-facing pose for a moment so the entire outfit can be clearly seen.\n"
                 "Then the model slowly rotates 90 degrees to show the full side profile.\n"
                 "After holding the side profile briefly, the model continues rotating until the full back view is visible.\n"
@@ -13411,7 +13417,7 @@ def runway_generate():
                 "High-end commercial fashion video."
             )
             # 2026-06-02 KST · TJ — 배포본이 실제 어느 프롬프트인지 로그로 확인 (배포 지연 진단용)
-            print(f"[runway_generate] 프롬프트 버전: v24 | override(prompt_in)={'Y' if prompt_in else 'N'} | 길이={len(seedance_prompt)}자", flush=True)
+            print(f"[runway_generate] 프롬프트 버전: v25 | override(prompt_in)={'Y' if prompt_in else 'N'} | 길이={len(seedance_prompt)}자", flush=True)
 
             # 3) BytePlus 비디오 생성 요청
             create_url = "https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks"
