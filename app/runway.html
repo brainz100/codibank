@@ -729,6 +729,11 @@ body::before {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.rw-worm-head {
+  /* 2026-06-10 KST · TJ 지시 — 지렁이 머리를 몸통보다 굵게(원형), 그라디언트 끝색(보라)+글로우 */
+  fill: #c264ff;
+  filter: drop-shadow(0 0 6px rgba(194, 100, 255, 0.85));
+}
 .rw-loading-worm-pct {
   /* 2026-06-10 KST · TJ 지시 (#3) — 막대 라인 오른쪽 끝, 라인 바로 위에 겹쳐서 표시 */
   position: absolute;
@@ -767,8 +772,10 @@ body::before {
   filter: drop-shadow(0 4px 16px rgba(151,254,237,0.18));
 }
 @keyframes rw-rainbow-shift {
-  0%   { background-position: 0%   50%; }
-  100% { background-position: 220% 50%; }
+  /* 2026-06-10 KST · TJ 지시 (#2) — 컬러 변경 흐름 방향 반전: 우→좌였던 것을 좌→우로.
+   *   background-position 0%→220% 는 그라디언트가 우→좌로 흐르는 시각 효과였음 → 역방향으로 수정. */
+  0%   { background-position: 220% 50%; }
+  100% { background-position: 0%   50%; }
 }
 
 .rw-loading-spinner {
@@ -1234,6 +1241,8 @@ body::before {
             </defs>
             <path class="rw-worm-line" id="rwWormLine" d="M0 20 L300 20"/>
             <path class="rw-worm-body" id="rwWormBody" d="M0 20"/>
+            <!-- 2026-06-10 KST · TJ 지시 — 몸통(4.5px)보다 굵은 지렁이 머리(r=5.5) -->
+            <circle class="rw-worm-head" id="rwWormHead" cx="0" cy="20" r="0"/>
           </svg>
           <span class="rw-loading-worm-pct" id="rwWormPct">0%</span>
         </div>
@@ -1361,36 +1370,46 @@ body::before {
   // ─── 2026-06-10 KST · TJ 지시 (#1) ─── 진행률 연동 물결 지렁이 드로잉 ───
   //   _rwDrawWorm(pct, phase):
   //     · 지렁이(완료 구간): x=0 → head(=pct% 지점)까지 사인파. 진폭 = 최대 16px × (pct/100).
-  //     · [2026-06-10 TJ #3] 파동 위상을 '머리(head)' 기준으로 계산 → 움직임이 머리에서
-  //       시작되어 꼬리 쪽으로 전파. 진폭 엔벨로프 = sin(π·x/head) → 중간 지점이 가장 높고
-  //       양끝(0지점·머리)은 진폭 0 → 머리는 항상 직선(중앙선)과 일치.
-  //     · 직선(남은 구간): head → 오른쪽 끝. 진행률이 오를수록 줄어듦.
+  //     · 파동 위상은 '머리(head)' 기준 → 움직임이 머리에서 시작되어 꼬리 쪽으로 전파.
+  //     · [2026-06-10 TJ 수정] 진폭 엔벨로프 = sin(π·x/(head×1.12)) → 중간 부분이 가장
+  //       높고 양쪽으로 기울어진 산(山) 형태. 머리(x=head)에서도 약 33% 진폭이 남아
+  //       머리가 직선 라인에 고정되지 않고 라인 위/아래로 출렁이며 주기적으로 라인을 터치.
+  //     · [2026-06-10 TJ 수정] 머리는 별도 원(circle)으로 몸통(4.5px)보다 굵게(r=5.5) 표시.
+  //     · 직선(남은 구간): head → 오른쪽 끝(중앙선 고정). 진행률이 오를수록 줄어듦.
   //     · 진행률 % 텍스트는 막대 라인 오른쪽 끝 '위에 겹치게' 표시(CSS absolute).
   let _rwWormRaf = null;
   let _rwWormPctVal = 0;
   function _rwDrawWorm(pct, phase) {
     const body = document.getElementById('rwWormBody');
     const line = document.getElementById('rwWormLine');
+    const headEl = document.getElementById('rwWormHead');
     const pctEl = document.getElementById('rwWormPct');
     if (!body || !line) return;
-    const W = 300, MID = 20, WAVELEN = 36, AMP_MAX = 16;
+    const W = 300, MID = 20, WAVELEN = 36, AMP_MAX = 16, ENV_DIV = 1.12;
     const p = Math.max(0, Math.min(100, pct));
     const head = (p / 100) * W;
     const amp = AMP_MAX * (p / 100);          // 진행률 비례 진폭
+    // 엔벨로프: 중간 최고·양쪽 경사, 머리에서도 sin(π/1.12)≈0.33 진폭 유지(머리 출렁임용)
+    const env = function (x) { return Math.sin(Math.PI * x / (head * ENV_DIV)); };
+    const yAt = function (x) {
+      return MID + amp * env(x) * Math.sin(((head - x) * 2 * Math.PI) / WAVELEN + phase);
+    };
     let d = 'M0 ' + MID;
+    let headY = MID;
     if (head >= 1) {
       for (let x = 3; x < head; x += 3) {
-        // 중간 최대·양끝 0 엔벨로프 (sin π·x/head) → 중간 지점 진폭 강조 + 머리=중앙선 일치
-        const env = Math.sin(Math.PI * (x / head));
-        const a = amp * env;
-        // 위상 기준점 = 머리(head) → 파동이 머리에서 발생해 꼬리 방향으로 전파
-        const y = MID + a * Math.sin(((head - x) * 2 * Math.PI) / WAVELEN + phase);
-        d += ' L' + x.toFixed(1) + ' ' + y.toFixed(2);
+        d += ' L' + x.toFixed(1) + ' ' + yAt(x).toFixed(2);
       }
-      d += ' L' + head.toFixed(1) + ' ' + MID;          // 머리 끝점 = 중앙선(직선과 일치)
+      headY = yAt(head);                       // 머리 = 라인 위/아래 출렁이며 라인 터치
+      d += ' L' + head.toFixed(1) + ' ' + headY.toFixed(2);
     }
     body.setAttribute('d', d);
     line.setAttribute('d', 'M' + head.toFixed(1) + ' ' + MID + ' L' + W + ' ' + MID);
+    if (headEl) {                              // 굵은 머리(circle) 위치/표시 갱신
+      headEl.setAttribute('cx', head.toFixed(1));
+      headEl.setAttribute('cy', headY.toFixed(2));
+      headEl.setAttribute('r', head >= 1 ? '5.5' : '0');
+    }
     if (pctEl) pctEl.textContent = Math.round(p) + '%';
   }
   function _rwWormLoop() {
