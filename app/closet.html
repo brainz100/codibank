@@ -3372,10 +3372,14 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
           <span class="material-symbols-outlined" style="font-size:18px;">restart_alt</span><span data-i18n="리셋">리셋</span>
         </button>
       </div>
+      <!-- 2026-06-19 KST · TJ 지시 (#2) — 분석 진행 표시 (4버튼 아래) -->
+      <div id="codiAnalyzing" class="hidden" style="margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;color:#97FEED;font-size:12px;font-weight:700;">
+        <span class="codi-analyzing-spinner" style="width:14px;height:14px;border:2px solid rgba(151,254,237,0.25);border-top-color:#97FEED;border-radius:50%;display:inline-block;animation:codiSpin 0.8s linear infinite;"></span>
+        <span data-i18n="스타일링 분석중">스타일링 분석중...</span>
+      </div>
     </div>
   </section>
-
-  <!-- [2026-04-09] 내 모바일 옷장 — 숨김 처리 -->
+  <style>@keyframes codiSpin{to{transform:rotate(360deg);}}</style>
   <section class="px-0 mt-8" style="display:none !important;">
     <div class="pt-2">
 
@@ -7577,37 +7581,47 @@ function _downloadCodiReport(){
     });
   });
 })();
-document.getElementById('saveBtn')?.addEventListener('click', function(){
+document.getElementById('saveBtn')?.addEventListener('click', async function(){
   if(this.disabled) return;
   const c = document.getElementById('vtoCanvas');
   if(!c || c.style.display === 'none'){
     alert(CodiBankI18n.t('먼저 스타일링을 생성해주세요.','Please generate styling first.'));
     return;
   }
-  // ─── 2026-06-19 KST · TJ 지시 ─── '보고서 생성' = 분석 + 리포트 표시 ───
-  //   증상: 클릭해도 분석이 안 채워지고 보고서가 안 보임.
-  //   원인/보강: showAnalysisBoxes 만으로는 (1) 박스 이동 전이거나 (2) 분석 내용이
-  //     아직 안 채워진 경우가 있었음. 클릭 시 stepCResult 로 fillAnalysisBoxes 를
-  //     다시 호출(퍼스널컬러/체형 등 cacheKey 기반 분석 재요청 포함)하고,
-  //     박스를 Q3 아래로 이동 + 표시한 뒤 스크롤한다.
+  // ─── 2026-06-19 KST · TJ 지시 (#1,#2) ─── '보고서 생성' = 분석 진행 → 완료 후 보고서 표시 ───
+  //   1) '스타일링 분석중...' 표시 (4버튼 아래)
+  //   2) stepCResult 로 fillAnalysisBoxes 호출(서버 분석 요청) → await 로 완료 대기
+  //   3) 분석중 숨김 + '추천 스타일링 보고서' 타이틀/박스를 Q3 아래 여백과 함께 표시
+  const _analyzing = document.getElementById('codiAnalyzing');
+  const _res = (typeof flow !== 'undefined' && flow && flow.stepCResult) ? flow.stepCResult : null;
   try{
-    const _res = (typeof flow !== 'undefined' && flow && flow.stepCResult) ? flow.stepCResult : null;
+    // 이전 보고서는 숨기고 분석중 표시
+    if(typeof hideAnalysisBoxes === 'function') hideAnalysisBoxes();
+    if(_analyzing) _analyzing.classList.remove('hidden');
+    let _fillP = Promise.resolve();
     if(_res && typeof fillAnalysisBoxes === 'function'){
-      fillAnalysisBoxes(_res);   // 분석 내용 채우기(상세 분석은 비동기 도착)
+      try{ _fillP = fillAnalysisBoxes(_res) || Promise.resolve(); }catch(_){ _fillP = Promise.resolve(); }
     }
-    if(typeof showAnalysisBoxes === 'function') showAnalysisBoxes();
-    // 표시 확인 로그 (디버깅용)
+    // 분석 완료 대기 (최대 12초 타임아웃 — 분석이 늦어도 보고서는 띄움)
+    await Promise.race([
+      _fillP.catch(function(){}),
+      new Promise(function(rs){ setTimeout(rs, 12000); })
+    ]);
     try{
       const _d = document.getElementById('codiDetailBox');
-      console.log('[보고서 생성] stepCResult cacheKey=', _res && _res.cacheKey,
+      console.log('[보고서 생성] cacheKey=', _res && _res.cacheKey,
         '| story=', !!(_res && _res.stylingStory),
         '| detailBox hidden=', _d ? _d.classList.contains('hidden') : 'no-el');
     }catch(_){}
+  }catch(e){
+    console.warn('[보고서 생성] 분석 처리 경고:', e);
+  }finally{
+    if(_analyzing) _analyzing.classList.add('hidden');
+    // 보고서 표시 (Q3 아래 여백 포함 — codiReportTitle margin-top + 박스)
+    try{ if(typeof showAnalysisBoxes === 'function') showAnalysisBoxes(); }catch(_){}
     const _title = document.getElementById('codiReportTitle');
     const _scrollTarget = _title || document.getElementById('codiDetailBox');
-    if(_scrollTarget) setTimeout(function(){ try{ _scrollTarget.scrollIntoView({behavior:'smooth', block:'start'}); }catch(_){} }, 120);
-  }catch(e){
-    alert(CodiBankI18n.t('보고서 생성 실패:','Report generation failed:') + (e && e.message || ''));
+    if(_scrollTarget) setTimeout(function(){ try{ _scrollTarget.scrollIntoView({behavior:'smooth', block:'start'}); }catch(_){} }, 150);
   }
 });
 // 2026-06-19 KST · TJ 지시 (#4) — 보고서 영역 '저장'(.txt 다운로드)
@@ -10613,10 +10627,12 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     //   기존: data.cacheKey 가 있을 때만 분석 요청 → 크게보기 경로에서 cacheKey 가
     //   비면 상세 분석이 영영 안 채워짐. 변경: cacheKey 가 없어도 이미지 URL 이
     //   있으면 vision 기반 분석을 요청(백엔드가 imageUrl 로 분석 가능).
+    //   2026-06-19: 분석 Promise 를 반환 → '보고서 생성' 핸들러가 완료를 await.
     const _imgForAnalysis = data.image || data.url || '';
     if(data.cacheKey || _imgForAnalysis){
-      fetchAnalysisAndFill(data.cacheKey || '', _imgForAnalysis);
+      return fetchAnalysisAndFill(data.cacheKey || '', _imgForAnalysis);
     }
+    return Promise.resolve();
   }
   // 분석 별도 호출 (`/api/ai/styling/analysis`)
   // ─── 2026-05-16 KST · TJ 지시 (옵션 A) ─── imageUrl 전달 → 백엔드 vision 분석 ───
