@@ -1142,35 +1142,34 @@ _ASIA_LOCATION_KEYWORDS = (
 )
 
 
-def _get_head_ratio(location: str = "", has_body_data: bool = False) -> tuple:
+def _get_head_ratio(location: str = "", has_body_data: bool = False, has_face: bool = True) -> tuple:
     """
-    지역 + 신체 데이터 유무로 인체 head-to-body ratio 결정.
+    얼굴 이미지 유무 + 지역 + 신체 데이터로 인체 head-to-body ratio 결정.
+
+    ─── 2026-06-19 KST · TJ 지시 ─── 등신 규칙 명확화 ───────────────────
+      · 사용자 얼굴 이미지 있음            → 7.5 (실제 사용자 전신, 한국 성인 평균)
+      · 얼굴 없음(모델핏/별도 모델 요청)   → 8.0 (패션 모델핏)
+      얼굴 유무가 1순위. 얼굴이 있으면 지역/신체데이터와 무관하게 7.5 고정
+      (전신 이미지에서 사용자 얼굴이 7.5등신으로 분할 적용되도록).
 
     Args:
-        location: 사용자 위치 (예: "서울", "Tokyo", "New York") — 빈 문자열 허용
+        location: 사용자 위치 (예: "서울", "Tokyo") — 빈 문자열 허용
         has_body_data: height/weight 가 모두 등록되어 있는지
+        has_face: 사용자 얼굴 reference 이미지가 있는지 (없으면 모델핏)
 
     Returns:
-        (ratio_str, region_label_en): 예) ("7.5", "Korean/East Asian adult")
-                                         ("8.0", "general adult")
+        (ratio_str, region_label_en): 예) ("7.5", "Korean/East Asian adult (user face)")
+                                         ("8.0", "fashion model fit")
     """
-    # 신체 데이터 없으면 무조건 8.0 (사용자 본인 비율 모름 → 일반 평균)
-    if not has_body_data:
-        return ("8.0", "general adult")
+    # 1순위: 얼굴 없음 = 모델핏 → 8.0 (남녀 패션 모델 비율)
+    if not has_face:
+        return ("8.0", "fashion model fit")
 
-    # location 없으면 안전 폴백 8.0
-    if not location:
-        return ("8.0", "general adult")
-
-    location_lower = str(location).lower().strip()
-    for kw in _ASIA_LOCATION_KEYWORDS:
-        if kw in location_lower:
-            return ("7.5", "Korean/East Asian adult")
-
-    return ("8.0", "general adult")
+    # 얼굴 있음 = 실제 사용자 전신 → 7.5 등신 고정
+    return ("7.5", "Korean/East Asian adult (user face)")
 
 
-def _build_body_profile_block(gender, age, height, weight, body_type_key, lang="en", location=""):
+def _build_body_profile_block(gender, age, height, weight, body_type_key, lang="en", location="", has_face=True):
     """
     신체 프로필 통합 블록 생성 (Phase 1 PERSONA에 삽입)
     이미지 생성 단계에서 체형 특성이 실제로 반영되도록 구조화
@@ -1250,9 +1249,10 @@ def _build_body_profile_block(gender, age, height, weight, body_type_key, lang="
     if bt_block:
         lines.append(bt_block.strip())
 
-    # 5) 객관성 강제 지시 (─── 2026-05-23 KST · TJ 지시 ─── 지역별 ratio 동적 결정 ───)
+    # 5) 객관성 강제 지시 (─── 2026-06-19 KST · TJ 지시 ─── 얼굴 유무 기반 ratio ───)
+    #    얼굴 있음 → 7.5등신(사용자 전신) / 얼굴 없음 → 8.0등신(모델핏)
     _has_body_data_for_ratio = bool(height and weight)
-    _ratio_str, _region_lbl = _get_head_ratio(location, _has_body_data_for_ratio)
+    _ratio_str, _region_lbl = _get_head_ratio(location, _has_body_data_for_ratio, has_face)
     lines.append(
         "CRITICAL — OBJECTIVE RENDERING: "
         "The generated image MUST show the outfit AS IT WOULD ACTUALLY LOOK on this SPECIFIC body. "
@@ -3061,7 +3061,10 @@ def _ai_styling_via_gemini(
     # ─────────────────────────────────────────────────────────────────────
     _has_body_data_ratio = bool(height and weight)
     _loc_for_ratio = location or stylist_city or ""
-    _head_ratio, _region_label_en = _get_head_ratio(_loc_for_ratio, _has_body_data_ratio)
+    # ─── 2026-06-19 KST · TJ 지시 ─── 얼굴 유무로 등신 결정 (얼굴 7.5 / 모델핏 8.0) ───
+    #   face_parts 계산을 ratio 계산 앞으로 선이동 (기존 3292행 계산은 그대로 유지/중복 무해).
+    _has_face_for_ratio = any(label == "face" for label, _mime, _raw in ref_images)
+    _head_ratio, _region_label_en = _get_head_ratio(_loc_for_ratio, _has_body_data_ratio, _has_face_for_ratio)
     _is_asia_region = (_head_ratio == "7.5")
 
     # ── Gemini 통합 프롬프트 (이미지 생성 + 분석 JSON 동시) ──
@@ -3193,33 +3196,46 @@ def _ai_styling_via_gemini(
         "if the outfit style is traditionally for the other sex.\n"
         f"- Age: {age} | Body: {h_int}cm, {w_int}kg, BMI {bmi} ({bmi_cat_ko}) | "
         f"Body type: {body_type_key or 'standard'}\n"
-        "- Face: replicate the FIRST reference image exactly (jawline, eyes, eyebrows, "
-        "nose, lips, skin tone, hair). No beautification.\n"
+        "- Face: replicate the FIRST reference image with 99.9% accuracy — the generated "
+        "face MUST be unmistakably the SAME person (jawline, eye shape, eyebrows, nose, "
+        "lips, face contour, skin tone, hair). No beautification, no idealization.\n"
+        "- IMPORTANT — use the FIRST reference image ONLY as a FACE/identity source. "
+        "IGNORE and DO NOT COPY anything else in that photo: any clothing, top, outerwear, "
+        "necklace, earrings, glasses, hat, scarf, bag or other accessory worn in the face "
+        "photo, and its background, must NOT appear in the generated outfit. The outfit "
+        "comes ONLY from the styling instructions below, never from the face photo.\n"
+        "- Face SCALE: the head/face MUST be a natural, correctly-sized part of the FULL "
+        f"BODY figure (about 1/{_head_ratio} of the total standing height). Do NOT enlarge, zoom, or "
+        "blow up the face; an oversized head is a FAILURE. This is a full-body image where "
+        f"the user's face is fitted at proper {_head_ratio}-head proportion, not a face close-up.\n"
         # ─── 2026-05-23 KST · TJ 승인 (옵션 다 + 지역별 ratio) ─────────────
         #  이전: "Proportion: fashion-model 8.5 heads" — 슈퍼모델 비율 강제
         #        → BMI 27 통통한 사용자도 8.5등신 슈퍼모델로 렌더링되던 문제
         #  변경 1차: 7.5 head-to-body ratio 강제 (한국 성인 평균)
-        #  변경 2차 (현재): 지역별 동적 결정
-        #    · 아시아(서울/일본/중국/동남아) + 신체 데이터 있음 → 7.5
-        #    · 그 외 지역 또는 신체 데이터 없음                → 8.0
-        #    · {_head_ratio} 와 {_region_label_en} 는 함수 진입부에서 계산
+        # ─── 2026-06-19 KST · TJ 지시 ─── 등신 규칙: 얼굴 유무 기반 ───────
+        #  이전: 지역별(아시아 7.5 / 그 외 8.0) 동적 결정
+        #  변경(현재): 사용자 얼굴 이미지 유무가 1순위
+        #    · 얼굴 있음           → 7.5 (실제 사용자 전신, 얼굴이 7.5등신으로 분할 적용)
+        #    · 얼굴 없음(모델핏)   → 8.0 (남녀 패션 모델핏)
+        #    · {_head_ratio}/{_region_label_en}/{_is_asia_region} 는 함수 진입부에서 계산
+        #      (_is_asia_region == True  ⟺  얼굴 있음(7.5))
         # ────────────────────────────────────────────────────────────────
         f"- Proportion: REALISTIC adult body — approximately {_head_ratio} head-to-body ratio "
-        f"({_region_label_en} average)."
+        f"({_region_label_en})."
         + (" Korean/East Asian build, NOT a Western 8+ ratio of fashion supermodels."
-           if _is_asia_region else " General adult build, NOT an exaggerated 9+ ratio of runway supermodels.")
+           if _is_asia_region else " Clean fashion-model fit at 8-head proportion, balanced and natural, NOT an exaggerated 9+ ratio.")
         + " "
         + (f"Head and face size MUST be proportional to the actual body scale stated above "
            f"({h_int}cm tall, {w_int}kg, BMI {bmi}). "
            if _has_body_data_ratio else
            "Head and face size MUST be naturally proportional to the body (user body data not registered, use general average). ")
         + ("This is a REAL EVERYDAY Asian person, NOT a runway mannequin, NOT a supermodel."
-           if _is_asia_region else "This is a REAL adult person, NOT a runway mannequin, NOT a supermodel.")
+           if _is_asia_region else "This is a clean fashion model fit (no user face provided).")
         + " STRICTLY AVOID: excessive leg elongation, oversized/undersized head, "
         "idealized fashion-model body. Full body visible from top of head to toe of shoes.\n"
         + (f"- Avoid colors (STRICT — must not appear anywhere): {_avoid_clean}\n"
            if _has_avoid else "")
-        + _build_body_profile_block(gender, age, height, weight, body_type_key, "en", _loc_for_ratio) + "\n"
+        + _build_body_profile_block(gender, age, height, weight, body_type_key, "en", _loc_for_ratio, _has_face_for_ratio) + "\n"
 
         + "\n# STYLIST (differentiator — must visibly shape the result)\n"
         f"- {stylist_name or 'expert stylist'} \u00b7 {stylist_city or 'Seoul'}"
@@ -6018,7 +6034,11 @@ def codistyle_generate():
         # [PHASE 1] PERSONA & BODY — [2026-04-20 03:52 KST] 퍼스널컬러 summary 추가
         "\n\n[PHASE 1 — PERSONA]: "
         + face_line
-        + "\n" + _build_body_profile_block(gender, age, height, weight, _body_type_key, "en")
+        # 2026-06-19 KST · TJ 지시(코디핏 등신 규칙) 작업 시 _build_body_profile_block 시그니처에
+        # has_face 인자가 추가됨. codistyle(절대수정금지 영역)의 기존 동작은 location 미전달 →
+        # 항상 8.0 등신이었으므로, 그 동작을 그대로 보존하기 위해 has_face=False 를 명시 전달.
+        # (codistyle 의 출력/등신은 이전과 100% 동일하게 유지됨)
+        + "\n" + _build_body_profile_block(gender, age, height, weight, _body_type_key, "en", "", False)
         + (f"\nPersonal color: {_pc_season} ({_pc_undertone}). "
            f"Best palette: {_pc_best_colors}. Avoid: {_pc_avoid_colors}. "
            + (f"Summary: {_pc_summary}. " if _pc_summary else "")
