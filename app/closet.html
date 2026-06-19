@@ -3087,7 +3087,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
     <!-- ─── 2026-05-16 KST · TJ 지시 1번 ─── Q1 질문 텍스트 ('스타일링 추천받기'와 동일 스타일) -->
     <!-- ─── 2026-05-23 KST · TJ 지시 ─── 여백 확장 (16px → 24px) + 라벨 아래 14px 간격 추가 ─── -->
-    <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-top:24px;margin-bottom:14px;">1st. 이번 코디에는 어떤 스타일링이 좋으세요?</h3>
+    <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-top:24px;margin-bottom:14px;">1st. 어떤 스타일링이 마음에 드세요?</h3>
 
 
 
@@ -3106,7 +3106,19 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
           <p class="text-[10px] font-extrabold tracking-[0.2em]" style="color:#97FEED;" data-i18n="AI 코디핏 스토리">AI 코디핏 스토리</p>
           <span class="cdb-premium-badge" data-i18n="PREMIUM">PREMIUM</span>
         </div>
-        <p id="vtoMeta" class="text-[10px]" style="color:rgba(255,255,255,0.35);"></p>
+        <!-- 2026-06-19 KST · TJ 지시 (#4) — 보고서 영역에 저장·공유 기능 추가 -->
+        <div class="flex items-center gap-1.5">
+          <button id="reportSaveBtn" type="button" title="보고서 저장"
+            style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#97FEED;background:rgba(53,162,159,0.25);border:1px solid rgba(151,254,237,0.3);border-radius:8px;padding:4px 8px;cursor:pointer;">
+            <span class="material-symbols-outlined" style="font-size:14px;">download</span><span data-i18n="저장">저장</span>
+          </button>
+          <button id="reportShareBtn" type="button" title="보고서 공유"
+            style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#97FEED;background:rgba(53,162,159,0.25);border:1px solid rgba(151,254,237,0.3);border-radius:8px;padding:4px 8px;cursor:pointer;">
+            <span class="material-symbols-outlined" style="font-size:14px;">share</span><span data-i18n="공유">공유</span>
+          </button>
+        </div>
+        <!-- vtoMeta: 기존 JS 참조 유지용(숨김) -->
+        <p id="vtoMeta" class="text-[10px]" style="display:none;color:rgba(255,255,255,0.35);"></p>
       </div>
       <!-- 서브 헤더 -->
       <div class="cdb-subheader">
@@ -3254,18 +3266,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         <!-- 2026-05-16 KST · TJ 지시 3번 ─ 정/후면 안내 문구 삭제 -->
       </div>
 
-      <!-- ─── 2026-05-23 KST · TJ 지시 수정 ─── 2nd 라벨을 박스 밖으로 분리
-           이전: 라벨이 stepBCompare 안에 있어 박스 visible 일 때만 보였음.
-                 박스 visible 로 강제하니 그 안의 빈 비교 카드 슬롯이 노출됨.
-           변경: 라벨만 박스 밖으로 빼서 항상 보이게, 박스 자체는 hidden 유지.
-                 데이터(2nd 카드) 있을 때만 박스가 visible 로 전환됨. -->
-      <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-top:40px;margin-bottom:14px;">2nd. 유사한 스타일 중에서 어떤 게 더 좋으세요?</h3>
+      <!-- ─── 2026-06-19 KST · TJ 지시 (#2) ─── 2nd(유사 이미지 생성) 프로세스 삭제 ───
+           유사 변형(STEP B) 생성을 제거하므로 2nd 타이틀/비교박스를 화면에서 숨김.
+           (DOM 은 남겨 잔존 로직의 참조 오류 방지, CSS display:none 으로 비노출) -->
+      <h3 class="text-[18px] font-bold text-white tracking-tight" style="display:none;margin-top:40px;margin-bottom:14px;">2nd. 유사한 스타일 중에서 어떤 게 더 좋으세요?</h3>
 
-      <!-- STEP B 2장 비교 (선택 + 유사 변형) — 박스 자체는 hidden 유지 -->
-      <div id="stepBCompare" class="step-section hidden">
-        <!-- ─── 2026-05-16 KST · TJ 지시 ─── Q2 박스 완전 재구축: step-b-stack → cbq2-stack -->
+      <!-- STEP B 2장 비교 (선택 + 유사 변형) — 2026-06-19 삭제: display:none 강제 -->
+      <div id="stepBCompare" class="step-section hidden" style="display:none;">
         <div class="cbq2-stack" id="stepBCards">
-          <!-- 2개 카드 (3:2 비율) 동적 생성 — cbq2-card + canvas -->
+          <!-- 2026-06-19 TJ 지시로 미사용 (유사 생성 제거) -->
         </div>
       </div>
 
@@ -3335,7 +3344,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <!-- ─── 2026-05-16 KST · TJ 지시 4번 ─── saveBtn→보고서저장 / againBtn→이미지저장 ─── -->
       <div class="vto-b-actions" id="vtoBActions" style="display:none;">
         <button id="saveBtn" type="button" class="vto-bab vto-btn-inactive" disabled data-requires-auth="true">
-          <span class="material-symbols-outlined" style="font-size:18px;">description</span><span data-i18n="보고서 저장">보고서 저장</span>
+          <span class="material-symbols-outlined" style="font-size:18px;">description</span><span data-i18n="보고서 생성">보고서 생성</span>
         </button>
         <button id="againBtn" type="button" class="vto-bab vto-btn-inactive" disabled data-requires-auth="true">
           <span class="material-symbols-outlined" style="font-size:18px;">save_alt</span><span data-i18n="이미지 저장">이미지 저장</span>
@@ -3957,6 +3966,33 @@ function recordUnifiedUsage(feature){
   u.dayTotal   = (u.dayClosetCount||0) + (u.dayTryonCount||0);
   try{ localStorage.setItem(_usageKey(), JSON.stringify(u)); }catch(_){}
 }
+
+// ─── 2026-06-19 KST · TJ 지시 ─── 코디핏 사용량 차감 + 구독플랜 연동 (공용 헬퍼) ───
+//   배경: 코디핏 1st(STEP A)는 4장을 병렬 생성하지만 사용량 차감이 누락되어 있었음.
+//         (차감은 단일 이미지 경로 updateVTO 에만 존재) → 4장 생성해도 횟수가 안 줄어듦.
+//   해결: 카드 1장 성공 시마다 _recordClosetUsageOne() 1회 호출(정상 4장이면 4회 차감).
+//   연동: 차감 직후 cb_plan_info_*.closetUsed 를 cb_usage 값과 동기화 →
+//         구독플랜(pricing)·마이페이지가 즉시 같은 수치를 표시.
+function _syncPlanInfoUsage(){
+  try{
+    const _piKey = 'cb_plan_info_'+((typeof user!=='undefined' && user && user.email)||'guest');
+    const _piRaw = localStorage.getItem(_piKey);
+    if(_piRaw){
+      const _pi = JSON.parse(_piRaw);
+      const _u2 = getUnifiedUsage();
+      _pi.closetUsed    = Number(_u2.closetCount) || 0;
+      _pi.tryonUsed     = Number(_u2.tryonCount) || 0;
+      _pi.codistyleUsed = Number(_u2.codistyleCount) || 0;   // 레거시 보존
+      _pi.updatedAt     = new Date().toISOString().slice(0,7);
+      localStorage.setItem(_piKey, JSON.stringify(_pi));
+    }
+  }catch(_){}
+}
+function _recordClosetUsageOne(){
+  recordUnifiedUsage('closet');   // closetCount +1
+  _syncPlanInfoUsage();           // 구독플랜/마이페이지 연동
+  try{ updateQuotaBadge(); }catch(_){}
+}
 function checkUnifiedUsage(feature){
   // ★ 내옷장+트라이 온 합산(totalMonthly - totalCount) 기준
   // pricing.html이 저장한 cb_plan_info에서 totalLimit 읽기
@@ -4082,7 +4118,7 @@ function updateQuotaBadge(){
     var _bEn3=window.CodiBankI18n&&CodiBankI18n.isEn();
     badge.textContent = _bEn3
       ? `Codi Fit: ${_coRem} left${daily}`
-      : `코디핏 ${_coRem}회 가능${daily}`;
+      : `코디핏 ${_coRem}회 사용가능${daily}`;
   }catch(_){
     badge.className='ai-badge gray';
     badge.textContent=_L('남은 0회');
@@ -7515,11 +7551,36 @@ document.getElementById('saveBtn')?.addEventListener('click', function(){
     alert(CodiBankI18n.t('먼저 스타일링을 생성해주세요.','Please generate styling first.'));
     return;
   }
+  // ─── 2026-06-19 KST · TJ 지시 (#4) ─── '보고서 생성' → 상세 스타일링 보고서 표시 ───
+  //   이전: 클릭 시 .txt 다운로드. 변경: 상세 보고서(분석 박스)를 화면에 노출.
+  //   저장(.txt)·공유는 보고서 영역 헤더의 reportSaveBtn / reportShareBtn 이 담당.
   try{
-    _downloadCodiReport();
+    if(typeof showAnalysisBoxes === 'function') showAnalysisBoxes();
+    const _d = document.getElementById('codiDetailBox');
+    if(_d) _d.scrollIntoView({behavior:'smooth', block:'start'});
   }catch(e){
-    alert(CodiBankI18n.t('보고서 저장 실패:','Report save failed:') + (e && e.message || ''));
+    alert(CodiBankI18n.t('보고서 생성 실패:','Report generation failed:') + (e && e.message || ''));
   }
+});
+// 2026-06-19 KST · TJ 지시 (#4) — 보고서 영역 '저장'(.txt 다운로드)
+document.getElementById('reportSaveBtn')?.addEventListener('click', function(){
+  try{ _downloadCodiReport(); }
+  catch(e){ alert(CodiBankI18n.t('보고서 저장 실패:','Report save failed:') + (e && e.message || '')); }
+});
+// 2026-06-19 KST · TJ 지시 (#4) — 보고서 영역 '공유' (보고서 텍스트 공유, 미지원 시 클립보드 복사)
+document.getElementById('reportShareBtn')?.addEventListener('click', async function(){
+  try{
+    const j = flow.stepCResult || {};
+    let txt = (j.stylingStory || j.explanation || '');
+    if(!txt){ const ex = document.getElementById('codiExplain'); if(ex) txt = (ex.innerText||ex.textContent||'').trim(); }
+    const shareText = 'CodiBank Ai 스타일 분석 보고서\n\n' + (txt || '') + '\n\ncodibank.kr';
+    if(navigator.share){
+      await navigator.share({ title: '코디뱅크 Ai 스타일 보고서', text: shareText }).catch(function(){});
+    } else if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(shareText);
+      alert(CodiBankI18n.t('보고서가 클립보드에 복사되었어요.','Report copied to clipboard.'));
+    }
+  }catch(e){ /* 조용히 무시 */ }
 });
 document.getElementById('shareBtn')?.addEventListener('click',()=>{
   const c=document.getElementById('vtoCanvas');if(!c||c.style.display==='none'){alert(CodiBankI18n.t('먼저 스타일링을 생성해주세요.','Please generate styling first.'));return;}
@@ -10650,6 +10711,15 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         enginePurpose: j.enginePurpose || '',
       };
       renderStepACard(idx, cityInfo, 'done', flow.stepACards[idx]);
+      // ─── 2026-06-19 KST · TJ 지시 ─── 카드 1장 성공 = 사용량 1회 차감 ───
+      //   정상 4장 생성 시 4회 차감. 재시도(retryStepACard)로 같은 칸을 다시
+      //   생성해도 카드별 _usageCharged 플래그로 이중 차감 방지.
+      //   (한 흐름에서 idx 칸이 최초 성공할 때 1회만 차감)
+      if(!flow._stepAUsageCharged) flow._stepAUsageCharged = {};
+      if(!flow._stepAUsageCharged[idx]){
+        flow._stepAUsageCharged[idx] = true;
+        try{ _recordClosetUsageOne(); }catch(_){}
+      }
       // ─── 2026-05-25 KST · TJ 보고 (1st 사라짐 fix) ─────────────
       //   카드 1장 완료 시 즉시 저장. pagehide / visibilitychange 가
       //   놓치는 케이스(모바일 백그라운드 처리, 빠른 화면 전환) 대비.
@@ -10733,6 +10803,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     flow.busy = true;
     flow.stepACards = [null, null, null, null];
     flow.stepASelected = null;
+    flow._stepAUsageCharged = {};   // 2026-06-19 TJ: 새 1st 시작 → 카드별 차감 플래그 리셋
     // ─── 2026-05-21 KST · TJ 지시 (버그#1 1st 리셋 불완전 수정) ───
     //   배경: 기존엔 stepACards 만 초기화 → "다시 추천" 클릭 시 2nd/3rd 흐름
     //        데이터와 화면이 잔존. 사용자는 새 1st 4장이 생성되는 동안에도
@@ -11169,13 +11240,17 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       if(chosen) setTimeout(() => openStepCConfirm(chosen), 220);
       return;
     }
-    // Q1(STEP A): 선택 표시 → 3버튼(예/아니오/고화질) 팝업
+    // ─── 2026-06-19 KST · TJ 지시 ─── 1st '크게 보기' → 3rd 뷰박스 직행 ───
+    //   기존: STEP A 선택 → openSelectChoice()(유사 디자인 생성 여부 팝업) → STEP B.
+    //   변경: 유사 생성(STEP B) 프로세스 완전 제거. 선택 카드를 바로
+    //         '선택한 이미지 크게 보세요' 뷰박스(vtoCanvas)에 크게 표시.
     flow.stepASelected = idx;
     document.querySelectorAll('.step-a-card').forEach(c => c.classList.remove('selected'));
     const sel = document.querySelector(`.step-a-card[data-idx="${idx}"]`);
     if(sel) sel.classList.add('selected');
     closeModal();
-    openSelectChoice();
+    const chosenA = flow.stepACards && flow.stepACards[idx];
+    if(chosenA){ setTimeout(() => viewStepBInStepC(chosenA, true), 220); }
   }
   function openSelectChoice(){
     const m = $('selectChoiceModal');
@@ -11438,13 +11513,20 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   //   - 정/후면 토글·액션버튼·분석박스는 기존 헬퍼 재사용. AI옷장 저장은 흐름당 1회.
   //   - 기존 startStepC(고화질 생성)/확인모달 경로는 더 이상 탭에서 호출되지 않음(잔존·무해).
   function viewStepBInStepC(idx, fromTap){
-    const card = flow.stepBCards && flow.stepBCards[idx];
+    // ─── 2026-06-19 KST · TJ 지시 ─── STEP A(1st) 카드도 직접 표시 가능하게 일반화 ───
+    //   idx 가 카드 객체이면 그대로 사용(1st '크게 보기' 직행), 숫자면 기존 2nd 카드 참조.
+    let card;
+    if(idx && typeof idx === 'object' && idx.imageUrl){
+      card = idx;
+    } else {
+      card = flow.stepBCards && flow.stepBCards[idx];
+      flow.stepBSelected = idx;
+      // 탭한 2nd 카드 하이라이트 (2nd 경로일 때만)
+      document.querySelectorAll('.cbq2-card').forEach(c=>c.classList.remove('cbq2-selected'));
+      const _sel = document.querySelector('.cbq2-card[data-idx="'+idx+'"]');
+      if(_sel) _sel.classList.add('cbq2-selected');
+    }
     if(!card || !card.imageUrl) return;
-    flow.stepBSelected = idx;
-    // 탭한 2nd 카드 하이라이트
-    document.querySelectorAll('.cbq2-card').forEach(c=>c.classList.remove('cbq2-selected'));
-    const _sel = document.querySelector('.cbq2-card[data-idx="'+idx+'"]');
-    if(_sel) _sel.classList.add('cbq2-selected');
     // 3rd 라벨/박스 노출 (자동 표시 시 스크롤 없이)
     ['stepCLabel','vtoOuterLayer','vtoBActions'].forEach(function(id){
       const el = $(id); if(el){ el.classList.remove('hidden'); if(el.style.display==='none') el.style.display=''; }
@@ -11475,7 +11557,9 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       try{ _bindStepCPoseToggle(); }catch(_){}
       const _pt = $('vtoPoseToggle'); if(_pt) _pt.classList.remove('hidden');
       try{ ['saveBtn','againBtn','shareBtn','resetBtn'].forEach(function(id){ const b=$(id); if(b){ b.disabled=false; b.className='vto-bab vto-btn-active'; } }); }catch(_){}
-      try{ fillAnalysisBoxes(flow.stepCResult); showAnalysisBoxes(); }catch(_){}
+      // 2026-06-19 KST · TJ 지시 (#4) — 보고서 내용은 미리 채우되, 화면 노출은
+      //   '보고서 생성'(saveBtn) 클릭 시에만. (자동 showAnalysisBoxes 제거)
+      try{ fillAnalysisBoxes(flow.stepCResult); hideAnalysisBoxes(); }catch(_){}
       try{ if(typeof _startStepCTransition === 'function') _startStepCTransition(); }catch(_){}
       try{ if(typeof _codifitSaveState === 'function') _codifitSaveState(); }catch(_){}
       // AI 옷장 저장 — 흐름당 1회만 (탭 전환마다 중복 저장 방지)
@@ -11632,8 +11716,8 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           const b = $(id);
           if(b){ b.disabled = false; b.className = 'vto-bab vto-btn-active'; }
         });
-        // 분석 박스 채우기
-        try{ fillAnalysisBoxes(flow.stepCResult); showAnalysisBoxes(); }catch(_e){}
+        // 분석 박스 채우기 (2026-06-19 TJ #4: 자동 노출 제거 → '보고서 생성' 클릭 시 표시)
+        try{ fillAnalysisBoxes(flow.stepCResult); hideAnalysisBoxes(); }catch(_e){}
         // AI 옷장 자동 저장 (baseCard 기준)
         try{
           var _ckwT = (baseCard && baseCard.outfitAnalysis)
@@ -11735,11 +11819,10 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           if(b){ b.disabled = false; b.className = 'vto-bab vto-btn-active'; }
         });
       }catch(_){}
-      // ─── 2026-05-14 KST · TJ 지시 (v68) ─── 최종 완료 시 분석 박스 표시 ──
-      // 두 박스(코디핏 스토리/포인트)를 STEP C 응답 데이터로 채우고 표시
-      // 위치: HTML 상 이미 STEP A/B/C 위에 위치하므로 별도 DOM 이동 불필요
+      // ─── 2026-05-14 KST · TJ 지시 (v68) ─── 최종 완료 시 분석 박스 ──
+      // 2026-06-19 KST · TJ 지시 (#4): 자동 노출 제거 → '보고서 생성' 클릭 시 표시.
       fillAnalysisBoxes(j);
-      showAnalysisBoxes();
+      hideAnalysisBoxes();
       // ─── 2026-05-22 KST · TJ 지시 ─── AI 옷장 자동 저장 (3rd 최종 완료 시) ───
       //   배경: 3rd 는 최종 고화질 이미지(Nano Banana Pro)로 baseCard 의
       //        99.9% 복제본. 따라서 분석도 baseCard 의 것이 정답.
@@ -12270,8 +12353,8 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
             공유
           </button>
           <button type="button" id="expandModalSelect" class="expand-modal-action-btn expand-modal-action-btn-primary">
-            <span class="material-symbols-outlined" style="font-size:16px;">check_circle</span>
-            코디 선택
+            <span class="material-symbols-outlined" style="font-size:16px;">zoom_out_map</span>
+            크게 보기
           </button>
         </div>
       </div>
