@@ -3373,7 +3373,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         </button>
       </div>
       <!-- 2026-06-19 KST · TJ 지시 (#2) — 분석 진행 표시 (4버튼 아래) -->
-      <div id="codiAnalyzing" class="hidden" style="margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;color:#97FEED;font-size:12px;font-weight:700;">
+      <div id="codiAnalyzing" style="display:none;margin-top:14px;align-items:center;justify-content:center;gap:8px;color:#97FEED;font-size:12px;font-weight:700;">
         <span class="codi-analyzing-spinner" style="width:14px;height:14px;border:2px solid rgba(151,254,237,0.25);border-top-color:#97FEED;border-radius:50%;display:inline-block;animation:codiSpin 0.8s linear infinite;"></span>
         <span data-i18n="스타일링 분석중">스타일링 분석중...</span>
       </div>
@@ -7597,7 +7597,7 @@ document.getElementById('saveBtn')?.addEventListener('click', async function(){
   try{
     // 이전 보고서는 숨기고 분석중 표시
     if(typeof hideAnalysisBoxes === 'function') hideAnalysisBoxes();
-    if(_analyzing) _analyzing.classList.remove('hidden');
+    if(_analyzing) _analyzing.style.display = 'flex';
     let _fillP = Promise.resolve();
     if(_res && typeof fillAnalysisBoxes === 'function'){
       try{ _fillP = fillAnalysisBoxes(_res) || Promise.resolve(); }catch(_){ _fillP = Promise.resolve(); }
@@ -7616,7 +7616,7 @@ document.getElementById('saveBtn')?.addEventListener('click', async function(){
   }catch(e){
     console.warn('[보고서 생성] 분석 처리 경고:', e);
   }finally{
-    if(_analyzing) _analyzing.classList.add('hidden');
+    if(_analyzing) _analyzing.style.display = 'none';
     // 보고서 표시 (Q3 아래 여백 포함 — codiReportTitle margin-top + 박스)
     try{ if(typeof showAnalysisBoxes === 'function') showAnalysisBoxes(); }catch(_){}
     const _title = document.getElementById('codiReportTitle');
@@ -10547,10 +10547,17 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   }
   function showAnalysisBoxes(){
     // ─── 2026-05-16 KST · TJ 지시 ─── 분석 박스를 Q3 아래로 이동 후 표시 ───
-    _moveAnalysisBoxesBelowQ3();
+    // 2026-06-19 KST · TJ 지시 (#2) — 분석 안 보임 수정:
+    //   hidden 클래스 제거 + 인라인 display 강제(block) → 어떤 경우에도 확실히 노출.
+    try{ _moveAnalysisBoxesBelowQ3(); }catch(_){}
     ['codiReportTitle', 'codiDetailBox', 'codiPointBox'].forEach(id => {
       const el = $(id);
-      if(el) el.classList.remove('hidden');
+      if(el){
+        el.classList.remove('hidden');
+        el.style.display = '';       // 인라인 display:none 잔재 제거
+        // Tailwind .hidden 가 혹시 안 먹는 환경 대비 — 강제 노출
+        if(getComputedStyle(el).display === 'none') el.style.display = 'block';
+      }
     });
   }
   // ─── 2026-05-16 KST · TJ 지시 ─── 분석 보고서 박스 위치 이동 ───
