@@ -3098,6 +3098,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
     <!-- ① 코디핏 상세 설명 박스 -->
     <!-- ─── 2026-05-14 KST · TJ 지시 (v68) ─── 최종 STEP C 완료 전까지 숨김 ─── -->
+    <!-- 2026-06-19 KST · TJ 지시 (#2,#3) — '추천 스타일링 보고서' 타이틀 + 이미지뷰박스와 여백 확대 -->
+    <div id="codiReportTitle" class="hidden" style="margin-top:28px;margin-bottom:14px;text-align:center;">
+      <div style="display:inline-flex;align-items:center;gap:7px;font-size:16px;font-weight:800;color:#97FEED;letter-spacing:0.01em;">
+        <span class="material-symbols-outlined" style="font-size:19px;">description</span>
+        <span data-i18n="추천 스타일링 보고서">추천 스타일링 보고서</span>
+      </div>
+      <div style="margin:9px auto 0;width:54px;height:2px;border-radius:2px;background:linear-gradient(90deg,transparent,#97FEED,transparent);"></div>
+    </div>
+
     <div id="codiDetailBox" class="mb-3 overflow-hidden hidden" style="background:rgba(7,25,82,0.7);border:1px solid rgba(151,254,237,0.18);border-radius:16px;">
       <!-- 헤더 바 -->
       <div class="flex items-center justify-between px-4 py-2.5" style="background:rgba(18,148,144,0.18);border-bottom:1px solid rgba(151,254,237,0.1);">
@@ -10377,10 +10386,11 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           if(b){ b.disabled = false; b.className = 'vto-bab vto-btn-active'; }
         });
       }catch(_){}
-      // 분석 박스 — stepCResult 로 채워 표시
+      // 분석 박스 — stepCResult 로 내용만 채우고 숨김 유지
+      // 2026-06-19 KST · TJ 지시 (#1): 자동 표시 제거 → '보고서 생성' 버튼 클릭 시에만 노출.
       try{
         if(typeof fillAnalysisBoxes === 'function') fillAnalysisBoxes(flow.stepCResult);
-        if(typeof showAnalysisBoxes === 'function') showAnalysisBoxes();
+        if(typeof hideAnalysisBoxes === 'function') hideAnalysisBoxes();
       }catch(_){}
     }
   }
@@ -10476,7 +10486,8 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   // 'AI 코디핏 스토리' (#codiDetailBox) + 'AI 코디핏 포인트' (#codiPointBox)
   // 초기/STEP A/B 중: hidden, STEP C 완료 시: 표시
   function hideAnalysisBoxes(){
-    ['codiDetailBox', 'codiPointBox'].forEach(id => {
+    // 2026-06-19 TJ: 타이틀(codiReportTitle)도 함께 토글
+    ['codiReportTitle', 'codiDetailBox', 'codiPointBox'].forEach(id => {
       const el = $(id);
       if(el) el.classList.add('hidden');
     });
@@ -10484,7 +10495,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   function showAnalysisBoxes(){
     // ─── 2026-05-16 KST · TJ 지시 ─── 분석 박스를 Q3 아래로 이동 후 표시 ───
     _moveAnalysisBoxesBelowQ3();
-    ['codiDetailBox', 'codiPointBox'].forEach(id => {
+    ['codiReportTitle', 'codiDetailBox', 'codiPointBox'].forEach(id => {
       const el = $(id);
       if(el) el.classList.remove('hidden');
     });
@@ -10496,6 +10507,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   //       → Q3 최종 이미지·버튼 다음에 분석 보고서가 표시됨
   function _moveAnalysisBoxesBelowQ3(){
     try{
+      const title = $('codiReportTitle');   // 2026-06-19 TJ: 보고서 타이틀
       const detail = $('codiDetailBox');
       const point = $('codiPointBox');
       const bActions = $('vtoBActions');
@@ -10507,8 +10519,15 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       while(stepWrap && stepWrap.parentNode !== section) stepWrap = stepWrap.parentNode;
       if(!stepWrap || stepWrap.parentNode !== section) return;
       // 이미 Q3 아래로 옮겨졌으면 재이동 skip (idempotent)
-      if(stepWrap.nextElementSibling === detail) return;
-      section.insertBefore(detail, stepWrap.nextSibling);
+      // 순서: [stepWrap] → 타이틀 → detail → point
+      if(title && stepWrap.nextElementSibling === title) return;
+      if(!title && stepWrap.nextElementSibling === detail) return;
+      if(title){
+        section.insertBefore(title, stepWrap.nextSibling);
+        section.insertBefore(detail, title.nextSibling);
+      }else{
+        section.insertBefore(detail, stepWrap.nextSibling);
+      }
       section.insertBefore(point, detail.nextSibling);
     }catch(_){}
   }
