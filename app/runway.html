@@ -722,17 +722,13 @@ body::before {
   stroke-width: 3;
   stroke-linecap: round;
 }
-.rw-worm-body {
+.rw-worm-body path {
+  /* 2026-06-18 KST · TJ 지시 — 테이퍼 몸통: 세그먼트별 stroke-width 는 JS 가 부여.
+     색은 그라디언트 공유, 끝단은 둥글게. */
   fill: none;
   stroke: url(#rwWormGrad);
-  stroke-width: 4.5;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-.rw-worm-head {
-  /* 2026-06-10 KST · TJ 지시 — 지렁이 머리를 몸통보다 굵게(원형), 그라디언트 끝색(보라)+글로우 */
-  fill: #c264ff;
-  filter: drop-shadow(0 0 6px rgba(194, 100, 255, 0.85));
 }
 .rw-loading-worm-pct {
   /* 2026-06-10 KST · TJ 지시 (#3) — 막대 라인 오른쪽 끝, 라인 바로 위에 겹쳐서 표시 */
@@ -1240,9 +1236,10 @@ body::before {
               </linearGradient>
             </defs>
             <path class="rw-worm-line" id="rwWormLine" d="M0 20 L300 20"/>
-            <path class="rw-worm-body" id="rwWormBody" d="M0 20"/>
-            <!-- 2026-06-10 KST · TJ 지시 — 몸통(4.5px)보다 굵은 지렁이 머리(r=5.5) -->
-            <circle class="rw-worm-head" id="rwWormHead" cx="0" cy="20" r="0"/>
+            <!-- 2026-06-18 KST · TJ 지시 — 몸통: 머리가 굵고 꼬리로 갈수록 자연스럽게 가늘어지는
+                 테이퍼 형태. 단일 path는 굵기 변화 불가 → 구간별 stroke-width 세그먼트 그룹으로 그림.
+                 (기존 원형 머리 circle 제거) -->
+            <g class="rw-worm-body" id="rwWormBody"></g>
           </svg>
           <span class="rw-loading-worm-pct" id="rwWormPct">0%</span>
         </div>
@@ -1371,21 +1368,23 @@ body::before {
   //   _rwDrawWorm(pct, phase):
   //     · 지렁이(완료 구간): x=0 → head(=pct% 지점)까지 사인파. 진폭 = 최대 16px × (pct/100).
   //     · 파동 위상은 '머리(head)' 기준 → 움직임이 머리에서 시작되어 꼬리 쪽으로 전파.
-  //     · [2026-06-10 TJ 수정] 진폭 엔벨로프 = sin(π·x/(head×1.12)) → 중간 부분이 가장
-  //       높고 양쪽으로 기울어진 산(山) 형태. 머리(x=head)에서도 약 33% 진폭이 남아
-  //       머리가 직선 라인에 고정되지 않고 라인 위/아래로 출렁이며 주기적으로 라인을 터치.
-  //     · [2026-06-10 TJ 수정] 머리는 별도 원(circle)으로 몸통(4.5px)보다 굵게(r=5.5) 표시.
+  //     · 진폭 엔벨로프 = sin(π·x/(head×1.12)) → 중간이 가장 높고 양쪽 경사. 머리에서도
+  //       약 33% 진폭이 남아 라인 위/아래로 출렁이며 주기적으로 라인 터치.
+  //     · [2026-06-18 TJ 지시] 원형 머리(circle) 제거. 몸통 굵기를 머리(굵음)→꼬리(가늚)로
+  //       자연스럽게 줄어드는 테이퍼로 표현. SVG path 는 가변 굵기 불가 → 인접 점들을
+  //       구간별 stroke-width 가 다른 다수의 짧은 path 세그먼트로 그려 매끈한 테이퍼 구현.
   //     · 직선(남은 구간): head → 오른쪽 끝(중앙선 고정). 진행률이 오를수록 줄어듦.
   //     · 진행률 % 텍스트는 막대 라인 오른쪽 끝 '위에 겹치게' 표시(CSS absolute).
   let _rwWormRaf = null;
   let _rwWormPctVal = 0;
+  const RW_HEAD_W = 7.5;   // 머리 굵기(px)
+  const RW_TAIL_W = 1.2;   // 꼬리 굵기(px)
   function _rwDrawWorm(pct, phase) {
-    const body = document.getElementById('rwWormBody');
+    const bodyG = document.getElementById('rwWormBody');
     const line = document.getElementById('rwWormLine');
-    const headEl = document.getElementById('rwWormHead');
     const pctEl = document.getElementById('rwWormPct');
-    if (!body || !line) return;
-    const W = 300, MID = 20, WAVELEN = 36, AMP_MAX = 16, ENV_DIV = 1.12;
+    if (!bodyG || !line) return;
+    const W = 300, MID = 20, WAVELEN = 36, AMP_MAX = 16, ENV_DIV = 1.12, STEP = 3;
     const p = Math.max(0, Math.min(100, pct));
     const head = (p / 100) * W;
     const amp = AMP_MAX * (p / 100);          // 진행률 비례 진폭
@@ -1394,22 +1393,29 @@ body::before {
     const yAt = function (x) {
       return MID + amp * env(x) * Math.sin(((head - x) * 2 * Math.PI) / WAVELEN + phase);
     };
-    let d = 'M0 ' + MID;
-    let headY = MID;
-    if (head >= 1) {
-      for (let x = 3; x < head; x += 3) {
-        d += ' L' + x.toFixed(1) + ' ' + yAt(x).toFixed(2);
-      }
-      headY = yAt(head);                       // 머리 = 라인 위/아래 출렁이며 라인 터치
-      d += ' L' + head.toFixed(1) + ' ' + headY.toFixed(2);
+    if (head < 1) {
+      bodyG.innerHTML = '';
+      line.setAttribute('d', 'M0 ' + MID + ' L' + W + ' ' + MID);
+      if (pctEl) pctEl.textContent = Math.round(p) + '%';
+      return;
     }
-    body.setAttribute('d', d);
+    // 점 샘플링 (꼬리 x=0 → 머리 x=head)
+    const pts = [];
+    for (let x = 0; x < head; x += STEP) pts.push([x, yAt(x)]);
+    pts.push([head, yAt(head)]);
+    // 인접 점들을 세그먼트로 잇되, 머리(끝)로 갈수록 굵게(테이퍼).
+    //   t=0(꼬리)→RW_TAIL_W, t=1(머리)→RW_HEAD_W. 살짝 ease 로 머리 쪽 볼륨감 강조.
+    let svg = '';
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const t = (b[0] / head);                 // 머리 쪽 위치 비율(0~1)
+      const w = RW_TAIL_W + (RW_HEAD_W - RW_TAIL_W) * (t * t * (3 - 2 * t)); // smoothstep
+      svg += '<path d="M' + a[0].toFixed(1) + ' ' + a[1].toFixed(2) +
+             ' L' + b[0].toFixed(1) + ' ' + b[1].toFixed(2) +
+             '" stroke-width="' + w.toFixed(2) + '"/>';
+    }
+    bodyG.innerHTML = svg;
     line.setAttribute('d', 'M' + head.toFixed(1) + ' ' + MID + ' L' + W + ' ' + MID);
-    if (headEl) {                              // 굵은 머리(circle) 위치/표시 갱신
-      headEl.setAttribute('cx', head.toFixed(1));
-      headEl.setAttribute('cy', headY.toFixed(2));
-      headEl.setAttribute('r', head >= 1 ? '5.5' : '0');
-    }
     if (pctEl) pctEl.textContent = Math.round(p) + '%';
   }
   function _rwWormLoop() {
