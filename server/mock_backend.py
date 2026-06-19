@@ -3171,12 +3171,13 @@ def _ai_styling_via_gemini(
     gemini_prompt = (
         "[CODIBANK STYLING PROMPT v2026.05.18]\n"
 
-        + "\n# OUTPUT IMAGE FORMAT (MOST CRITICAL — APPLY FIRST)\n"
+        + "\n# OUTPUT IMAGE FORMAT (technical spec — the person shown is the STEP 1 avatar)\n"
         "- The output MUST be ONE single HORIZONTAL image, exactly 1536x1024 pixels "
         "(3:2 landscape — WIDER than tall).\n"
         "- NEVER vertical, NEVER portrait, NEVER square, NEVER a 3:4 image. "
         "A vertical or single-figure image is a CRITICAL FAILURE.\n"
-        "- The image contains TWO full-body figures SIDE BY SIDE in one frame:\n"
+        "- The image contains TWO full-body figures SIDE BY SIDE in one frame, and BOTH "
+        "figures are the SAME locked avatar defined in STEP 1 below (same face, same body):\n"
         "  - LEFT half (0-50% width) = FRONT view, face visible, looking at camera.\n"
         "  - RIGHT half (50-100% width) = BACK view of the SAME person, no face.\n"
         "- NEVER generate only one figure. NEVER omit the back view. NEVER split into "
@@ -3190,35 +3191,35 @@ def _ai_styling_via_gemini(
         + (f"\n[USER DIRECT REQUEST — highest priority, overrides all templates]\n"
            f"\"{custom_text}\"\n" if is_custom else "")
 
-        + "\n# SUBJECT\n"
-        # ─── 2026-06-19 KST · TJ 지시 ─── 4장 아바타 신체/얼굴 통일 ───
-        #   증상: 1st 4장(도시별)에서 인물 체형·키 비율·얼굴이 제각각으로 생성.
-        #   요구: 스타일링(옷)만 달라야 하고 아바타(체형/얼굴크기/키 비율)는 동일해야 함.
-        #         헤어스타일은 사용자 사진에서 확인되는 헤어를 적용, 없으면 일관 유지.
-        #   조치: 아래 'CONSISTENT AVATAR' 고정 지시 — 같은 1명의 인물을 고정하고
-        #         성별/나이/키/몸무게/BMI/등신/얼굴크기를 정확히 동일하게 유지.
-        "- CONSISTENT AVATAR (CRITICAL): render ONE single consistent person. The body "
-        f"physique, height, weight, BMI, {_head_ratio}-head body proportion, face size and "
-        "facial identity MUST stay EXACTLY THE SAME regardless of the outfit or background. "
-        "Only the clothing/styling may change — the person (body shape, body scale, face, "
-        "head-to-body ratio) must NOT change. Do NOT generate a different model, a different "
-        "body size, or a different face. Same body, same face, same proportions every time.\n"
+        + "\n# STEP 1 — BUILD THE AVATAR FIRST (do this BEFORE any clothing/styling)\n"
+        # ─── 2026-06-19 KST · TJ 지시 ─── 아바타 우선 생성 + 4장 통일 ───
+        #   요구: 추천코디 4장(랜덤 스타일링) 전에 '사용자를 99.9% 닮은 아바타'를
+        #         먼저 확정하고, 그 동일 아바타에 옷만 바꿔 입힌다.
+        #   순서: 이 STEP 1(아바타 정의)이 STYLIST/OUTFIT(STEP 2)보다 먼저 와야 함.
+        #   조치: 얼굴/신체/체형/등신/헤어를 먼저 고정 → 4장 모두 같은 아바타 사용.
+        "FIRST construct ONE fixed avatar of the user, THEN dress it. The avatar (face, "
+        "body, physique, proportions) is locked and identical in every image; only the "
+        "outfit changes. Treat the avatar as a constant — never regenerate a new person.\n"
+        "- AVATAR IDENTITY LOCK (CRITICAL): the same single person must appear with the "
+        f"EXACT SAME face, body physique, height, weight, BMI, {_head_ratio}-head proportion "
+        "and face size in every output, regardless of outfit or background. Do NOT generate "
+        "a different model, a different body size, or a different face across images.\n"
         f"- Sex: {'FEMALE' if gender == 'F' else 'MALE'}. Body, physique and silhouette "
         f"MUST be {'female' if gender == 'F' else 'male'} — never the opposite sex, even "
         "if the outfit style is traditionally for the other sex.\n"
         f"- Age: {age} | Body: {h_int}cm, {w_int}kg, BMI {bmi} ({bmi_cat_ko}) | "
         f"Body type: {body_type_key or 'standard'}\n"
-        "- Face: replicate the FIRST reference image with 99.9% accuracy — the generated "
-        "face MUST be unmistakably the SAME person (jawline, eye shape, eyebrows, nose, "
-        "lips, face contour, skin tone, hair). No beautification, no idealization.\n"
+        "- Face (99.9% identity): replicate the FIRST reference image with 99.9% accuracy — "
+        "the generated face MUST be unmistakably the SAME person (jawline, eye shape, "
+        "eyebrows, nose, lips, face contour, skin tone). No beautification, no idealization.\n"
         "- HAIR: use the hairstyle visible in the user's reference photo (length, parting, "
         "color, texture). If no face reference is provided, keep a single consistent "
-        "hairstyle across images. Hair may follow the look but the FACE and BODY stay identical.\n"
+        "hairstyle across images. The FACE and BODY stay identical in all images.\n"
         "- IMPORTANT — use the FIRST reference image ONLY as a FACE/identity source. "
         "IGNORE and DO NOT COPY anything else in that photo: any clothing, top, outerwear, "
         "necklace, earrings, glasses, hat, scarf, bag or other accessory worn in the face "
         "photo, and its background, must NOT appear in the generated outfit. The outfit "
-        "comes ONLY from the styling instructions below, never from the face photo.\n"
+        "comes ONLY from the STEP 2 styling instructions below, never from the face photo.\n"
         "- Face SCALE: the head/face MUST be a natural, correctly-sized part of the FULL "
         f"BODY figure (about 1/{_head_ratio} of the total standing height). Do NOT enlarge, zoom, or "
         "blow up the face; an oversized head is a FAILURE. This is a full-body image where "
@@ -3252,7 +3253,8 @@ def _ai_styling_via_gemini(
            if _has_avoid else "")
         + _build_body_profile_block(gender, age, height, weight, body_type_key, "en", _loc_for_ratio, _has_face_for_ratio) + "\n"
 
-        + "\n# STYLIST (differentiator — must visibly shape the result)\n"
+        + "\n# STEP 2 — DRESS THE AVATAR (styling differs per image; the avatar above stays identical)\n"
+        + "# STYLIST (differentiator — must visibly shape the result)\n"
         f"- {stylist_name or 'expert stylist'} \u00b7 {stylist_city or 'Seoul'}"
         + (f" \u00b7 {_stylist_level}" if _stylist_level else "")
         + (f" ({_stylist_exp}y)" if _stylist_exp else "")
