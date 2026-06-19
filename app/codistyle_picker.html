@@ -1862,10 +1862,13 @@ document.addEventListener('DOMContentLoaded', function(){
     console.warn('[picker] user 없음 - aicloset 연동 스킵');
     return;
   }
-  // 각 슬롯 카드덱에 aicloset 아이템 표시
-  SLOT_KEYS.forEach(function(k){
-    try { _pickerRenderAiclosetDeck(k); } catch(e){ console.warn('[picker] deck render fail:', k, e); }
-  });
+  // ─── 2026-06-19 KST · TJ 지시 ─── 사진 카드덱 일원화 ───
+  //   기존: _pickerRenderAiclosetDeck()로 5슬롯에 '옷걸이 아이콘' placeholder 표시.
+  //         → 상의/하의는 drawDeck(사진), 신규3슬롯은 아이콘으로 불일치 발생.
+  //   변경: loadDeck()이 5슬롯 전부 '사진 카드덱(drawDeck)'으로 렌더하므로
+  //         아이콘 placeholder 호출 제거. (loadDeck은 세션 복원 블록에서 호출됨)
+  //   ※ _pickerRenderAiclosetDeck 함수 자체는 잔존(다른 경로 호환) 하되 미호출.
+  try { if(typeof loadDeck === 'function') loadDeck(); } catch(e){ console.warn('[picker] loadDeck fail:', e); }
 });
 
 /* ─── 2026-04-23 13:00 KST [TJ 지시6] 각 슬롯 상단 타이틀 왼쪽에 '← 이전' 화살표 추가 ───
@@ -4294,9 +4297,47 @@ var _dkTopSel=-1, _dkBotSel=-1; // [2026-04-09] 선택된 아이템 인덱스 (-
 var _cpTopK=['coat','jacket','outer','padding','cardigan','top','shirt','knit','tshirt','blouse'];
 var _cpBotK=['pants','skirt','slacks','jeans'];
 
+/* ─── 2026-06-19 KST · TJ 지시 ─── 원피스/아우터/신발 사진 카드덱 미표시 버그 수정 ───
+ *   증상: 상의/하의는 Ai옷장 아이템이 '사진 미니카드(coverflow)'로 표시되는데,
+ *         원피스·아우터·신발은 옷걸이 아이콘 placeholder 만 표시됨.
+ *   원인: 사진 카드덱(drawDeck/loadDeck/pickDeckItem)이 top/bot 2슬롯만 처리.
+ *         신규 3슬롯은 옛 Phase1 함수(_pickerRenderAiclosetDeck=아이콘)만 그림.
+ *   수정: drawDeck/loadDeck/pickDeckItem 을 5슬롯으로 일반화. type 은 슬롯키 사용.
+ *
+ *   슬롯별 매핑(DOM prefix / ST 키 / 카테고리). top·bottom 은 기존 약어(top/bot) 보존.
+ *   - deck/preview/count DOM id = prefix + 'Deck'|'Preview'|'Count'
+ *   - ST 객체 키(stKey)는 SLOT_KEYS 와 동일(top/bottom/onepiece/outer/shoes)
+ *   - 카테고리는 SLOT_TO_AICLOSET_CAT 재사용(상의/하의/원피스/아우터/신발). */
+var _DECK_SLOTS = ['top','bottom','onepiece','outer','shoes'];
+function _deckDomPrefix(type){
+  // 레거시 호환: 'bot' 약어가 들어와도 'bottom' 으로 정규화
+  if(type === 'bot') return 'bot';
+  return SLOT_DOM_PREFIX[type] || type;   // top→top, bottom→bot, 신규→풀네임
+}
+function _deckStKey(type){ return (type === 'bot') ? 'bottom' : type; }
+// 슬롯별 선택 인덱스 (top/bottom 은 기존 변수와 동기화, 신규는 _dkSelIdx 사용)
+function _deckGetSel(type){
+  var k = _deckStKey(type);
+  if(k === 'top') return _dkTopSel;
+  if(k === 'bottom') return _dkBotSel;
+  return (_dkSelIdx[k] != null) ? _dkSelIdx[k] : -1;
+}
+function _deckSetSel(type, idx){
+  var k = _deckStKey(type);
+  if(k === 'top') _dkTopSel = idx;
+  else if(k === 'bottom') _dkBotSel = idx;
+  else _dkSelIdx[k] = idx;
+}
+// 슬롯별 수집 아이템 (drawDeck 재호출 시 인덱스 참조용)
+var _deckItems = { top:[], bottom:[], onepiece:[], outer:[], shoes:[] };
+
 function loadDeck(){
   if(!window.CodiBank||!user||!user.email) return;
   _dkTopItems=[]; _dkBotItems=[];
+  // ─── 2026-06-19 KST · TJ 지시 ─── 5슬롯 사진 카드덱 일반화 ───
+  //   기존 상의/하의(_cpTopK/_cpBotK) 수집은 그대로 유지하고, 신규 3슬롯
+  //   (원피스/아우터/신발)도 SLOT_TO_AICLOSET_CAT 기준으로 사진 아이템 수집.
+  _deckItems = { top:[], bottom:[], onepiece:[], outer:[], shoes:[] };
   var cats=CodiBank.getCategoriesForUser(user.email)||[];
   cats.forEach(function(c){
     var items=CodiBank.getItemsByUserAndCategory(user.email,c.key)||[];
@@ -4309,12 +4350,26 @@ function loadDeck(){
       var e={id:it.id,cat:c.key,label:c.label,item:it,ref:ref};
       if(_cpTopK.indexOf(c.key)>=0) _dkTopItems.push(e);
       if(_cpBotK.indexOf(c.key)>=0) _dkBotItems.push(e);
+      // 신규 3슬롯: 카테고리 키가 해당 슬롯 매핑에 포함되면 수집
+      ['onepiece','outer','shoes'].forEach(function(sk){
+        var catList = SLOT_TO_AICLOSET_CAT[sk] || [sk];
+        if(catList.indexOf(c.key) >= 0) _deckItems[sk].push(e);
+      });
     });
   });
+  // 상의/하의도 통합 저장소에 동기화(인덱스 참조 일관성)
+  _deckItems.top = _dkTopItems;
+  _deckItems.bottom = _dkBotItems;
   // ──── [2026-04-10] 진단 로그 ────
-  console.log('[loadDeck] 상의:', _dkTopItems.length+'개, 하의:', _dkBotItems.length+'개');
+  console.log('[loadDeck] 상의:', _dkTopItems.length+'개, 하의:', _dkBotItems.length
+    +'개, 원피스:', _deckItems.onepiece.length+'개, 아우터:', _deckItems.outer.length
+    +'개, 신발:', _deckItems.shoes.length+'개');
   drawDeck('top',_dkTopItems,_dkTopIdx);
   drawDeck('bot',_dkBotItems,_dkBotIdx);
+  // 신규 3슬롯 사진 카드덱 렌더 (아이콘 placeholder 대체)
+  drawDeck('onepiece', _deckItems.onepiece, 0);
+  drawDeck('outer',    _deckItems.outer,    0);
+  drawDeck('shoes',    _deckItems.shoes,    0);
 }
 
 function _circIdx(i,len){ return ((i%len)+len)%len; }
@@ -4342,10 +4397,12 @@ function _csLayerContent(el,item,type,idx){
   if(CodiBank.getImageSrc)CodiBank.getImageSrc(ref).then(function(src){if(src){imgEl.onload=function(){imgEl.style.opacity='1';};imgEl.src=src;}}).catch(function(){});
 }
 
-var _csDeckCtrl={top:null,bot:null};
+var _csDeckCtrl={top:null,bot:null,onepiece:null,outer:null,shoes:null};
 
 function drawDeck(type,items,ci){
-  var el=document.getElementById(type==='top'?'topDeck':'botDeck');
+  // ─── 2026-06-19 KST · TJ 지시 ─── 5슬롯 일반화 (기존 top/bot 동작 보존) ───
+  var _pfx = _deckDomPrefix(type);                 // top→top, bot→bot, 신규→풀네임
+  var el=document.getElementById(_pfx+'Deck');
   if(!el) return;
   el.innerHTML='';
   // 이전 이벤트 리스너 제거를 위해 복제
@@ -4353,12 +4410,15 @@ function drawDeck(type,items,ci){
   el.parentNode.replaceChild(newEl,el);
   el=newEl;
 
-  var cntEl=document.getElementById(type==='top'?'topCount':'botCount');
-    var wrapEl=document.getElementById(type==='top'?'topCountWrap':'botCountWrap');
+  var cntEl=document.getElementById(_pfx+'Count');
+    var wrapEl=document.getElementById(_pfx+'CountWrap');
     var _cEn3=window.CodiBankI18n&&CodiBankI18n.isEn();
     if(wrapEl){
-      var prefix=_cEn3?(type==='top'?'AI Closet Top ':'AI Closet Bottom '):(type==='top'?'ai옷장 상의 ':'ai옷장 하의 ');
-      wrapEl.innerHTML=prefix+'<span id="'+(type==='top'?'topCount':'botCount')+'" style="color:#97FEED;">'+items.length+(_cEn3?' items':'개')+'</span>';
+      // 슬롯 라벨 기반 카운트 문구 (상의/하의는 기존 문구 유지, 신규는 라벨 사용)
+      var _stk = _deckStKey(type);
+      var _lblKo = SLOT_LABEL_KO[_stk] || '아이템';
+      var prefix=_cEn3 ? ('AI Closet '+ _lblKo +' ') : ('ai옷장 '+ _lblKo +' ');
+      wrapEl.innerHTML=prefix+'<span id="'+_pfx+'Count" style="color:#97FEED;">'+items.length+(_cEn3?' items':'개')+'</span>';
     }
   if(cntEl) cntEl.textContent=items.length+(_cEn3?' items':'개');
   if(!items.length){
@@ -4424,7 +4484,7 @@ function drawDeck(type,items,ci){
     if(!c||ctrl.animating)return;
     var idx=ctrl.windowIndices[3];  // 중앙 카드(cs-l4)의 실제 인덱스 — data-idx 신뢰 안 함
     if(idx==null||isNaN(idx)||idx<0)return;
-    if(type==='top')_dkTopSel=idx; else _dkBotSel=idx;
+    _deckSetSel(type, idx);   // 2026-06-19 TJ: 슬롯 일반화 (top/bottom/onepiece/outer/shoes)
     pickDeckItem(type, ctrl.items[idx]);
   });
 
@@ -4470,9 +4530,11 @@ async function pickDeckItem(type,entry){
   // [FIX 2026-05-30] 레거시 카드덱은 하의를 'bot' 약어로 넘기지만 ST 객체 키는 'bottom'.
   //   기존엔 ST['bot'](=undefined)에 접근 → TypeError로 하의 선택이 중단되어
   //   '하의 선택완료' 버튼이 활성화되지 않았음. ST 접근용 정규화 키만 분리.
-  var stKey = (type === 'top') ? 'top' : 'bottom';
-  var pvEl=document.getElementById(type==='top'?'topPreview':'botPreview');
-  if(!pvEl) return;
+  // [2026-06-19 TJ] 5슬롯 일반화: stKey/preview DOM 을 매핑으로 산출.
+  var stKey = _deckStKey(type);                       // top/bottom/onepiece/outer/shoes
+  var _pfx  = _deckDomPrefix(type);                   // top/bot/onepiece/outer/shoes
+  var pvEl=document.getElementById(_pfx+'Preview');
+  if(!pvEl || !ST[stKey]) return;
   var src='';
   try{if(CodiBank.getImageSrc) src=await CodiBank.getImageSrc(entry.ref);}catch(_){}
   if(!src) return;
@@ -4486,7 +4548,9 @@ async function pickDeckItem(type,entry){
   try{var img=new Image();img.src=src;ST[stKey].naturalWidth=img.naturalWidth||400;ST[stKey].naturalHeight=img.naturalHeight||600;}catch(_){}
   ST[stKey].label=entry.label+' '+(entry.item.color||'');
   // [2026-04-09] Ai옷장 아이템: 이미 분석된 데이터를 캐시에 저장 (Phase1 스킵)
-  if(entry.item && entry.item.meta && entry.item.meta.gemini) {
+  // [2026-06-19 TJ] 분석 캐시(상의/하의 밸런스 분석용)는 상의/하의 슬롯에만 적용.
+  //   신규 슬롯(원피스/아우터/신발)은 캐시 분기에서 제외(하의 캐시 오염 방지).
+  if((stKey==='top' || stKey==='bottom') && entry.item && entry.item.meta && entry.item.meta.gemini) {
     var gm = entry.item.meta.gemini;
     // [2026-04-21 03:30 긴급수정] 치마/바지 왔다갔다 버그 수정
     //   원인: 같은 치마 아이템이 내옷장 등록 시점마다 Gemini의 is_skirt 판정이
@@ -4527,7 +4591,7 @@ async function pickDeckItem(type,entry){
       _fromCloset: true,  // Ai옷장 캐시 마커
       _skirtCorrected: (_isSkirtCorrected !== (gm.is_skirt === true || gm.is_skirt === 'true'))  // 보정 발생 여부 추적
     };
-    if(type==='top') { _topAnalysisCache = cached; console.log('[pickDeck] 상의 캐시 설정:', cached.sub_category, cached.color_ko); }
+    if(stKey==='top') { _topAnalysisCache = cached; console.log('[pickDeck] 상의 캐시 설정:', cached.sub_category, cached.color_ko); }
     else { 
       _bottomAnalysisCache = cached;
       var _suf = cached._skirtCorrected ? ' (자동 보정됨 ⚠️)' : '';

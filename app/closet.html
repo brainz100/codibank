@@ -2168,6 +2168,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
   scrollbar-width: none;          /* Firefox */
+  /* ─── 2026-06-19 KST · TJ 지시 (#1) ─── '폴더처럼 후면 반쯤 걸쳐 보임' 제거 ───
+   *   정면/후면이 한 면씩만 딱 멈추도록 스냅. 정면을 볼 때 후면이 옆에
+   *   미리보기로 걸치지 않고, 스와이프하면 후면으로 정확히 넘어감.
+   *   (저장/공유는 원본 <img> 통째 사용 — baseline 5요소 불변) */
+  scroll-snap-type: x mandatory;
 }
 .expand-modal-scroller::-webkit-scrollbar{ display: none; }   /* Chrome/Safari */
 .expand-modal-img{
@@ -2177,6 +2182,9 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   display: block;
   user-select: none;
   -webkit-user-drag: none;
+  /* 2026-06-19 KST · TJ 지시 (#1) — 이미지 양 끝(정면=시작 / 후면=끝)을 스냅 포인트로 */
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 /* ─── 정면=왼쪽 / 후면=오른쪽 끝 ─── (토글 wrap은 스와이프 통과) */
 .expand-modal-toggle{
@@ -2211,15 +2219,32 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
 /* ─── 2026-05-14 KST · TJ 지시 (v68) ─── 모달 분석 영역 ─── */
 .expand-modal-analysis{
-  margin-top: 2px;
-  /* ─── 2026-05-16 KST · TJ 지시 1.2 ─── 텍스트박스 축소 (줄간격·여백 최소화) ─── */
-  padding: 9px 11px;
-  border-radius: 11px;
+  /* ─── 2026-06-19 KST · TJ 지시 (#2) ─── 이미지뷰박스와 보고서 분리감 ───
+   *   기존 margin-top:2px → 이미지박스/토글버튼과 간격이 너무 협소.
+   *   여백을 크게 확대하고, 상단에 옅은 구분선을 둬 시각적으로 분리. */
+  margin-top: 22px;
+  padding: 16px 14px 13px;
+  border-radius: 14px;
   background: rgba(151, 254, 237, 0.06);
   border: 1px solid rgba(151, 254, 237, 0.15);
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 7px;
+}
+/* 2026-06-19 KST · TJ 지시 (#2) — '추천 스타일링 보고서' 타이틀 (테이블 위) */
+.expand-modal-analysis-title{
+  font-size: 14px;
+  font-weight: 800;
+  color: #97FEED;
+  letter-spacing: 0.01em;
+  text-align: center;
+  padding-bottom: 11px;
+  margin-bottom: 3px;
+  border-bottom: 1px solid rgba(151, 254, 237, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 /* ─── 2026-05-16 KST · TJ 지시 1.2 ─── 헤더 한 줄 (서울 스타일리스트 / 주말나들이) ─── */
 .expand-modal-analysis-header{
@@ -12224,6 +12249,11 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       </div>
       <!-- ─── 2026-05-16 KST · TJ 지시 1.2 ─── 분석 텍스트박스 축소 ─── -->
       <div class="expand-modal-analysis" id="expandModalAnalysis">
+        <!-- 2026-06-19 KST · TJ 지시 (#2) — 보고서 타이틀 (테이블 위, 이미지뷰박스와 분리) -->
+        <div class="expand-modal-analysis-title">
+          <span class="material-symbols-outlined" style="font-size:17px;">description</span>
+          추천 스타일링 보고서
+        </div>
         <div class="expand-modal-analysis-header">
           <!-- 한 줄: "서울 스타일리스트 / 주말나들이" -->
           <span id="expandModalCity" class="expand-modal-analysis-city"></span>
