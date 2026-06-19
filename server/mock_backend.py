@@ -3191,6 +3191,18 @@ def _ai_styling_via_gemini(
            f"\"{custom_text}\"\n" if is_custom else "")
 
         + "\n# SUBJECT\n"
+        # ─── 2026-06-19 KST · TJ 지시 ─── 4장 아바타 신체/얼굴 통일 ───
+        #   증상: 1st 4장(도시별)에서 인물 체형·키 비율·얼굴이 제각각으로 생성.
+        #   요구: 스타일링(옷)만 달라야 하고 아바타(체형/얼굴크기/키 비율)는 동일해야 함.
+        #         헤어스타일은 사용자 사진에서 확인되는 헤어를 적용, 없으면 일관 유지.
+        #   조치: 아래 'CONSISTENT AVATAR' 고정 지시 — 같은 1명의 인물을 고정하고
+        #         성별/나이/키/몸무게/BMI/등신/얼굴크기를 정확히 동일하게 유지.
+        "- CONSISTENT AVATAR (CRITICAL): render ONE single consistent person. The body "
+        f"physique, height, weight, BMI, {_head_ratio}-head body proportion, face size and "
+        "facial identity MUST stay EXACTLY THE SAME regardless of the outfit or background. "
+        "Only the clothing/styling may change — the person (body shape, body scale, face, "
+        "head-to-body ratio) must NOT change. Do NOT generate a different model, a different "
+        "body size, or a different face. Same body, same face, same proportions every time.\n"
         f"- Sex: {'FEMALE' if gender == 'F' else 'MALE'}. Body, physique and silhouette "
         f"MUST be {'female' if gender == 'F' else 'male'} — never the opposite sex, even "
         "if the outfit style is traditionally for the other sex.\n"
@@ -3199,6 +3211,9 @@ def _ai_styling_via_gemini(
         "- Face: replicate the FIRST reference image with 99.9% accuracy — the generated "
         "face MUST be unmistakably the SAME person (jawline, eye shape, eyebrows, nose, "
         "lips, face contour, skin tone, hair). No beautification, no idealization.\n"
+        "- HAIR: use the hairstyle visible in the user's reference photo (length, parting, "
+        "color, texture). If no face reference is provided, keep a single consistent "
+        "hairstyle across images. Hair may follow the look but the FACE and BODY stay identical.\n"
         "- IMPORTANT — use the FIRST reference image ONLY as a FACE/identity source. "
         "IGNORE and DO NOT COPY anything else in that photo: any clothing, top, outerwear, "
         "necklace, earrings, glasses, hat, scarf, bag or other accessory worn in the face "
@@ -4807,9 +4822,23 @@ def ai_styling_analysis():
     """
     payload = request.get_json(silent=True) or {}
     cache_key = str(payload.get("cacheKey") or "").strip()
+    _img_url_in = str(payload.get("imageUrl") or payload.get("image") or "").strip()
+
+    # ─── 2026-06-19 KST · TJ 지시 ─── 분석 미동작 수정 ───
+    #   증상: '보고서 생성' 눌러도 분석이 안 됨.
+    #   원인: cacheKey 가 없으면 400 으로 거부 → 크게보기 경로(카드에 cacheKey 부재
+    #         가능)에서 분석이 영영 안 됨.
+    #   변경: cacheKey 가 없어도 imageUrl 이 있으면 진행. 캐시 파일명에 쓸 키는
+    #         imageUrl 의 해시로 대체(분석 캐시는 동작, vision 분석은 imageUrl 로 수행).
+    if not cache_key and _img_url_in:
+        try:
+            cache_key = "url" + hashlib.md5(_img_url_in.encode("utf-8")).hexdigest()[:40]
+            print(f"[ai_styling_analysis] cacheKey 없음 → imageUrl 해시로 대체: {cache_key}", flush=True)
+        except Exception:
+            cache_key = ""
 
     if not cache_key:
-        return jsonify(ok=False, error="cacheKey 누락"), 400
+        return jsonify(ok=False, error="cacheKey 또는 imageUrl 필요"), 400
 
     # 보안: cacheKey 영문/숫자/언더스코어만 허용 (path traversal 방지)
     if not re.match(r'^[A-Za-z0-9_]{8,64}$', cache_key):
