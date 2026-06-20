@@ -10567,28 +10567,20 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   //       → Q3 최종 이미지·버튼 다음에 분석 보고서가 표시됨
   function _moveAnalysisBoxesBelowQ3(){
     try{
-      const title = $('codiReportTitle');   // 2026-06-19 TJ: 보고서 타이틀
+      const title = $('codiReportTitle');
       const detail = $('codiDetailBox');
       const point = $('codiPointBox');
-      const bActions = $('vtoBActions');
-      if(!detail || !point || !bActions) return;
-      const section = detail.parentNode;        // <section>
-      if(!section) return;
-      // STEP 컨테이너(.mt-8) = vtoBActions 의 조상 중 section 의 직계 자식
-      let stepWrap = bActions;
-      while(stepWrap && stepWrap.parentNode !== section) stepWrap = stepWrap.parentNode;
-      if(!stepWrap || stepWrap.parentNode !== section) return;
-      // 이미 Q3 아래로 옮겨졌으면 재이동 skip (idempotent)
-      // 순서: [stepWrap] → 타이틀 → detail → point
-      if(title && stepWrap.nextElementSibling === title) return;
-      if(!title && stepWrap.nextElementSibling === detail) return;
-      if(title){
-        section.insertBefore(title, stepWrap.nextSibling);
-        section.insertBefore(detail, title.nextSibling);
-      }else{
-        section.insertBefore(detail, stepWrap.nextSibling);
-      }
-      section.insertBefore(point, detail.nextSibling);
+      if(!detail || !point) return;
+      // ─── 2026-06-20 KST · TJ 지시 ─── 보고서를 코디핏 페이지 '가장 아래'로 ───
+      //   기존: 같은 section 안에서만 이동 → 위치가 애매하거나 이동 실패 가능.
+      //   변경: <main> 컨테이너의 맨 마지막(보이는 콘텐츠 다음)으로 이동해
+      //         이미지뷰박스·4버튼보다 아래에 확실히 표시.
+      const main = document.querySelector('main');
+      if(!main) return;
+      // 순서: ... → 타이틀 → detail → point 를 main 끝에 append
+      if(title) main.appendChild(title);
+      main.appendChild(detail);
+      main.appendChild(point);
     }catch(_){}
   }
   // STEP C 응답 데이터로 두 박스 내용 채우기
