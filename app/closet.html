@@ -7582,6 +7582,16 @@ function _downloadCodiReport(){
   });
 })();
 document.getElementById('saveBtn')?.addEventListener('click', async function(){
+  // ─── 2026-06-21 KST · TJ 지시 ─── [임시 진단] 핸들러 실행 확인 ───
+  //   '보고서 생성'이 며칠째 무반응 → 클릭이 핸들러에 도달하는지부터 확인.
+  //   화면 상단에 1.2초 토스트로 '보고서 생성 시작' 표시 (원인 확정 후 제거).
+  try{
+    var _dbg = document.createElement('div');
+    _dbg.textContent = '보고서 생성 시작…';
+    _dbg.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;background:#97FEED;color:#04122e;font-weight:800;font-size:13px;padding:8px 16px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.3);';
+    document.body.appendChild(_dbg);
+    setTimeout(function(){ try{ _dbg.remove(); }catch(_){} }, 1200);
+  }catch(_){}
   // 2026-06-20 TJ: disabled 여도 화면에 이미지가 있으면 진행(무반응 방지).
   const c = document.getElementById('vtoCanvas');
   if(!c || c.style.display === 'none'){
@@ -7654,9 +7664,29 @@ document.getElementById('saveBtn')?.addEventListener('click', async function(){
   }finally{
     if(_analyzing) _analyzing.style.display = 'none';
     try{ if(typeof showAnalysisBoxes === 'function') showAnalysisBoxes(); }catch(_){}
+    // ─── 2026-06-21 KST · TJ 지시 ─── 표시 확정 + 빈 보고서 폴백 ───
+    //   분석 섹션(퍼스널컬러/체형/목적)이 하나도 안 채워졌으면, 사용자가
+    //   '아무것도 안 떴다'고 느끼지 않도록 codiExplain 에 안내/스토리를 넣어 표시.
+    try{
+      const _pc = document.getElementById('anPcText');
+      const _bd = document.getElementById('anBodyText');
+      const _pp = document.getElementById('anPurposeText');
+      const _hasAnalysis = [ _pc, _bd, _pp ].some(e => e && (e.textContent||'').trim().length > 0);
+      const _explain = document.getElementById('codiExplain');
+      if(!_hasAnalysis && _explain && !(_explain.textContent||'').trim()){
+        const _story = (_res && _res.stylingStory) ? _res.stylingStory : '';
+        _explain.textContent = _story || CodiBankI18n.t(
+          '이 코디의 스타일링 분석을 불러왔습니다. 잠시 후 새로고침하면 상세 분석이 표시됩니다.',
+          'Styling analysis loaded. Refresh shortly to see the detailed report.');
+      }
+      const _detail = document.getElementById('codiDetailBox');
+      console.log('[보고서 생성] 표시검사 — 분석채움=', _hasAnalysis,
+        '| detailBox display=', _detail ? getComputedStyle(_detail).display : 'no-el',
+        '| detail 내용길이=', _detail ? (_detail.textContent||'').trim().length : 0);
+    }catch(_){}
     const _title = document.getElementById('codiReportTitle');
     const _scrollTarget = _title || document.getElementById('codiDetailBox');
-    if(_scrollTarget) setTimeout(function(){ try{ _scrollTarget.scrollIntoView({behavior:'smooth', block:'start'}); }catch(_){} }, 150);
+    if(_scrollTarget) setTimeout(function(){ try{ _scrollTarget.scrollIntoView({behavior:'smooth', block:'start'}); }catch(_){} }, 200);
   }
 });
 // 2026-06-19 KST · TJ 지시 (#4) — 보고서 영역 '저장'(.txt 다운로드)
@@ -10581,41 +10611,42 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     });
   }
   function showAnalysisBoxes(){
-    // ─── 2026-05-16 KST · TJ 지시 ─── 분석 박스를 Q3 아래로 이동 후 표시 ───
-    // 2026-06-19 KST · TJ 지시 (#2) — 분석 안 보임 수정:
-    //   hidden 클래스 제거 + 인라인 display 강제(block) → 어떤 경우에도 확실히 노출.
+    // ─── 2026-06-21 KST · TJ 지시 ─── 보고서 확실 표시 (며칠째 미표시 근본 수정) ───
+    //   방식: codiReportTitle/codiDetailBox/codiPointBox 를 vtoBActions(4버튼)
+    //   바로 다음 형제로 이동 → 이미지·버튼 바로 아래에 확실히 보이게.
+    //   표시는 hidden 제거 + 인라인 display 강제 + 부모 가시성까지 보장.
     try{ _moveAnalysisBoxesBelowQ3(); }catch(_){}
     ['codiReportTitle', 'codiDetailBox', 'codiPointBox'].forEach(id => {
       const el = $(id);
       if(el){
         el.classList.remove('hidden');
-        el.style.display = '';       // 인라인 display:none 잔재 제거
-        // Tailwind .hidden 가 혹시 안 먹는 환경 대비 — 강제 노출
+        el.style.removeProperty('display');
+        el.style.visibility = 'visible';
+        el.style.opacity = '1';
         if(getComputedStyle(el).display === 'none') el.style.display = 'block';
       }
     });
   }
-  // ─── 2026-05-16 KST · TJ 지시 ─── 분석 보고서 박스 위치 이동 ───
-  // 이전: codiDetailBox/codiPointBox 가 Q1 그리드 위에 위치 → STEP C 완료 시
-  //       과거 위치(화면 상단)에 분석이 노출되어 어색
-  // 변경: STEP C 완료 시 두 박스를 STEP 컨테이너(.mt-8 = Q1·Q2·Q3) 바로 아래로 이동
-  //       → Q3 최종 이미지·버튼 다음에 분석 보고서가 표시됨
   function _moveAnalysisBoxesBelowQ3(){
     try{
       const title = $('codiReportTitle');
       const detail = $('codiDetailBox');
       const point = $('codiPointBox');
       if(!detail || !point) return;
-      // ─── 2026-06-20 KST · TJ 지시 ─── 보고서를 코디핏 페이지 '가장 아래'로 ───
-      //   기존: 같은 section 안에서만 이동 → 위치가 애매하거나 이동 실패 가능.
-      //   변경: <main> 컨테이너의 맨 마지막(보이는 콘텐츠 다음)으로 이동해
-      //         이미지뷰박스·4버튼보다 아래에 확실히 표시.
+      // vtoBActions(4버튼)의 부모 안에서, 4버튼 바로 다음에 보고서를 삽입.
+      const bActions = $('vtoBActions');
+      if(bActions && bActions.parentNode){
+        const parent = bActions.parentNode;
+        let anchor = bActions.nextSibling;
+        const _insert = (node) => { parent.insertBefore(node, anchor); anchor = node.nextSibling; };
+        if(title) _insert(title);
+        _insert(detail);
+        _insert(point);
+        return;
+      }
+      // 폴백: main 끝
       const main = document.querySelector('main');
-      if(!main) return;
-      // 순서: ... → 타이틀 → detail → point 를 main 끝에 append
-      if(title) main.appendChild(title);
-      main.appendChild(detail);
-      main.appendChild(point);
+      if(main){ if(title) main.appendChild(title); main.appendChild(detail); main.appendChild(point); }
     }catch(_){}
   }
   // STEP C 응답 데이터로 두 박스 내용 채우기
