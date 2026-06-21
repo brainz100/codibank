@@ -10657,11 +10657,19 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       }
     }catch(_){}
     // 4) 분석 텍스트 (퍼스널컬러/체형/목적+날씨)
-    // ─── 2026-06-19 KST · TJ 지시 ─── 분석 누락 수정 ───
-    //   기존: data.cacheKey 가 있을 때만 분석 요청 → 크게보기 경로에서 cacheKey 가
-    //   비면 상세 분석이 영영 안 채워짐. 변경: cacheKey 가 없어도 이미지 URL 이
-    //   있으면 vision 기반 분석을 요청(백엔드가 imageUrl 로 분석 가능).
-    //   2026-06-19: 분석 Promise 를 반환 → '보고서 생성' 핸들러가 완료를 await.
+    // ─── 2026-06-21 KST · TJ 지시 (#3) ─── 팝업에서 이미 분석했으면 재사용 ───
+    //   stepCResult.stylingAnalysis 가 있으면(팝업 _fetchModalOutfit 가 받아둠)
+    //   서버에 중복 요청하지 않고 즉시 보고서 섹션에 채운다.
+    try{
+      if(data && data.stylingAnalysis){
+        const _ok = _applyStylingAnalysis(data.stylingAnalysis);
+        if(_ok){
+          console.log('[보고서] 팝업 분석 재사용 — 중복 요청 안 함');
+          return Promise.resolve();
+        }
+      }
+    }catch(_){}
+    // 분석 데이터가 없을 때만 서버 요청 (cacheKey 또는 imageUrl 기반 vision 분석)
     const _imgForAnalysis = data.image || data.url || '';
     if(data.cacheKey || _imgForAnalysis){
       return fetchAnalysisAndFill(data.cacheKey || '', _imgForAnalysis);
@@ -10696,38 +10704,48 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         return;
       }
       const _sa = j.stylingAnalysis;
-      // anPcSection / anBodySection / anPurposeSection 채우기
-      const _setText = (id, v) => { const e = $(id); if(e) e.textContent = String(v||''); };
-      const _setKws = (id, arr) => {
-        const e = $(id);
-        if(!e) return;
-        e.innerHTML = '';
-        (arr || []).slice(0, 3).forEach(k => {
-          const sp = document.createElement('span');
-          sp.className = 'inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full';
-          sp.style.cssText = 'background:rgba(151,254,237,0.1);border:1px solid rgba(151,254,237,0.25);color:rgba(151,254,237,0.85);';
-          sp.textContent = String(k || '');
-          e.appendChild(sp);
-        });
-      };
-      if(_sa.personalColor){
-        _setText('anPcText', _sa.personalColor.text);
-        _setKws('anPcKws', _sa.personalColor.keywords);
-        const sec = $('anPcSection'); if(sec) sec.classList.remove('hidden');
-      }
-      if(_sa.body){
-        _setText('anBodyText', _sa.body.text);
-        _setKws('anBodyKws', _sa.body.keywords);
-        const sec = $('anBodySection'); if(sec) sec.classList.remove('hidden');
-      }
-      if(_sa.purpose){
-        _setText('anPurposeText', _sa.purpose.text);
-        _setKws('anPurposeKws', _sa.purpose.keywords);
-        const sec = $('anPurposeSection'); if(sec) sec.classList.remove('hidden');
-      }
+      _applyStylingAnalysis(_sa);
     }catch(err){
       console.warn('[v68] analysis fetch err:', err);
     }
+  }
+  // ─── 2026-06-21 KST · TJ 지시 (#3) ─── 분석 데이터 → 보고서 섹션 채우기 (재사용) ───
+  //   서버 응답이든, 팝업에서 미리 받아둔 stepCResult.stylingAnalysis 든 동일하게 적용.
+  function _applyStylingAnalysis(_sa){
+    if(!_sa) return false;
+    const _setText = (id, v) => { const e = $(id); if(e) e.textContent = String(v||''); };
+    const _setKws = (id, arr) => {
+      const e = $(id);
+      if(!e) return;
+      e.innerHTML = '';
+      (arr || []).slice(0, 3).forEach(k => {
+        const sp = document.createElement('span');
+        sp.className = 'inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full';
+        sp.style.cssText = 'background:rgba(151,254,237,0.1);border:1px solid rgba(151,254,237,0.25);color:rgba(151,254,237,0.85);';
+        sp.textContent = String(k || '');
+        e.appendChild(sp);
+      });
+    };
+    let _any = false;
+    if(_sa.personalColor){
+      _setText('anPcText', _sa.personalColor.text);
+      _setKws('anPcKws', _sa.personalColor.keywords);
+      const sec = $('anPcSection'); if(sec) sec.classList.remove('hidden');
+      _any = true;
+    }
+    if(_sa.body){
+      _setText('anBodyText', _sa.body.text);
+      _setKws('anBodyKws', _sa.body.keywords);
+      const sec = $('anBodySection'); if(sec) sec.classList.remove('hidden');
+      _any = true;
+    }
+    if(_sa.purpose){
+      _setText('anPurposeText', _sa.purpose.text);
+      _setKws('anPurposeKws', _sa.purpose.keywords);
+      const sec = $('anPurposeSection'); if(sec) sec.classList.remove('hidden');
+      _any = true;
+    }
+    return _any;
   }
 
   // ─── STEP A 카드 1개 렌더 (로딩/완료/에러 상태) ───
@@ -11141,7 +11159,11 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   // 생성 이미지 vision 분석 fetch → 모달 코디 영역 교체 (실제 옷과 일치)
   // ─── 2026-05-16 KST · TJ 지시 2번 ─── 실패 시 1회 재시도, 최종 실패 시 error 표시
   async function _fetchModalOutfit(card, _isRetry){
-    if(!card || !card.cacheKey){ _renderModalCody(null, 'error'); return; }
+    if(!card || !card.cacheKey){
+      _renderModalCody(null, 'error');
+      try{ if(typeof _setExpandSelectEnabled === 'function') _setExpandSelectEnabled(true); }catch(_){}
+      return;
+    }
     const _idxAtCall = flow.modalCurrentIdx;
     const _srcAtCall = flow.modalSource;
     const _stillSame = () => {
@@ -11169,6 +11191,12 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         return;
       }
       card.outfitAnalysis = outfit;   // 카드에 캐시 (다음 오픈 시 즉시)
+      // ─── 2026-06-21 KST · TJ 지시 (#2,#3) ─── 전체 분석 캐시 + 크게보기 활성화 ───
+      //   팝업에서 받은 전체 분석(stylingAnalysis)을 카드에 저장 → '보고서 생성'이
+      //   중복 분석 없이 이 데이터를 재사용. 분석 완료 시 '크게 보기' 버튼 활성화.
+      try{ card.stylingAnalysis = (j && j.stylingAnalysis) || null; }catch(_){}
+      try{ card._analysisDone = true; }catch(_){}
+      try{ if(typeof _setExpandSelectEnabled === 'function') _setExpandSelectEnabled(true); }catch(_){}
       // 모달이 여전히 같은 카드를 보고 있을 때만 갱신
       if(_stillSame()) _renderModalCody(outfit);
       // ─── 2026-05-22 KST · TJ 지시 ─── AI 옷장 IDB 재저장 (vision 분석 일치) ───
@@ -11196,6 +11224,23 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     }catch(_){
       if(!_isRetry){ await new Promise(rs=>setTimeout(rs,1800)); return _fetchModalOutfit(card, true); }
       if(_stillSame()) _renderModalCody(null, 'error');
+      // 분석 실패해도 이미지 열람은 가능해야 하므로 '크게 보기' 활성화
+      try{ if(typeof _setExpandSelectEnabled === 'function') _setExpandSelectEnabled(true); }catch(_){}
+    }
+  }
+  // ─── 2026-06-21 KST · TJ 지시 (#2) ─── '크게 보기' 버튼 활성/비활성 헬퍼 ───
+  //   분석 완료 전: 비활성(흐리게, '분석 중…') / 완료 후: 활성('크게 보기').
+  function _setExpandSelectEnabled(enabled){
+    const btn = $('expandModalSelect');
+    if(!btn) return;
+    btn.disabled = !enabled;
+    btn.style.opacity = enabled ? '' : '0.5';
+    btn.style.pointerEvents = enabled ? '' : 'none';
+    const lbl = btn.querySelector('.expand-sel-label');
+    if(lbl){
+      lbl.textContent = enabled
+        ? CodiBankI18n.t('크게 보기','View Large')
+        : CodiBankI18n.t('분석 중…','Analyzing…');
     }
   }
   function _renderExpandModal(card, cityLabel){
@@ -11213,10 +11258,13 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const cityEl = $('expandModalCity');
     if(cityEl) cityEl.textContent = _headerTxt;
     // ─── 2026-05-16 KST · TJ 지시 2번 ─── 코디 분석: 캐시 즉시 / 없으면 '분석 중' ───
-    if(card.outfitAnalysis){
+    // ─── 2026-06-21 KST · TJ 지시 (#2) ─── '크게 보기'는 분석 완료 후에만 활성화 ───
+    if(card._analysisDone && card.outfitAnalysis){
       _renderModalCody(card.outfitAnalysis);
+      _setExpandSelectEnabled(true);
     }else{
       _renderModalCody(null, 'loading');   // '스타일링 분석 중입니다…'
+      _setExpandSelectEnabled(false);      // 분석 끝나면 _fetchModalOutfit 가 활성화
       _fetchModalOutfit(card);
     }
     // ─── 2026-05-18 KST · TJ 지시 ─── 원본 가로 이미지 직접 표시 ───
@@ -11670,6 +11718,12 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         stylingStory: card.stylingStory || '',
         stylist: card.stylist || null,
         cacheKey: card.cacheKey || '',
+        // ─── 2026-06-21 KST · TJ 지시 (#3) ─── 팝업에서 이미 분석한 결과 재사용 ───
+        //   '보고서 생성'이 중복 분석을 하지 않도록, 팝업(_fetchModalOutfit)에서
+        //   받아둔 전체 분석(stylingAnalysis)과 outfit 을 결과에 그대로 전달.
+        stylingAnalysis: card.stylingAnalysis || null,
+        outfitAnalysis: card.outfitAnalysis || null,
+        _analysisDone: !!card._analysisDone,
         _testMode: true,
       };
       if(window.S && flow.stepCResult.engineCategoryKeywords
@@ -12479,7 +12533,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           </button>
           <button type="button" id="expandModalSelect" class="expand-modal-action-btn expand-modal-action-btn-primary">
             <span class="material-symbols-outlined" style="font-size:16px;">zoom_out_map</span>
-            크게 보기
+            <span class="expand-sel-label">크게 보기</span>
           </button>
         </div>
       </div>
