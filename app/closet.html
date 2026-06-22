@@ -7016,27 +7016,18 @@ async function updateVTO(opts={}){
         }catch(_){}
         return 'FREE';
       })();
-      // ─── 2026-05-14 KST · TJ 지시 ─── 코디 기준 온도 정책 변경 ──────
-      // 이전: payload.weather.temp = UI 표시값(오늘=현재, 미래=최고)
-      // 변경: 추천코디 기준 온도를 월별로 분기 계산
-      //   · 4월~10월: 최고온도 × 0.94 (낮 기온 기반, 여름~가을)
-      //   · 11월~3월: 최저온도 × 0.90 (아침/저녁 기반, 겨울)
-      // 화면 표시(weather UI)는 최저/최고 그대로 노출 — 별건
+      // ─── 2026-06-22 KST · TJ 지시 ─── 코디 기준 온도 = 고점 − 2도 ──────
+      //   배경: 저점(예 15°C) 기준으로 코디하면 한낮(예 30°C)에 못 입음.
+      //   정책: 계절·월 무관하게 '그날 최고온도 − 2°C' 를 코디 기준 온도로 사용.
+      //         (한낮 활동 기준 — 옷차림 결정의 핵심 지표)
+      //   화면 표시(weather UI)는 최저/최고 그대로 노출 — 별건.
       const _baseTemp = (function(){
         try{
-          const _dKey = getSelectedDateKey ? getSelectedDateKey() : '';
-          const _m = _dKey && /^\d{4}-(\d{2})-/.test(_dKey)
-            ? parseInt(_dKey.match(/^\d{4}-(\d{2})-/)[1], 10)
-            : (new Date().getMonth() + 1);
           const _tMax = Number.isFinite(Number(S.wx?.tempMax)) ? Number(S.wx.tempMax) : null;
-          const _tMin = Number.isFinite(Number(S.wx?.tempMin)) ? Number(S.wx.tempMin) : null;
-          // 4~10월: 최고 × 0.94 (여름~가을 낮 활동)
-          // 11~3월: 최저 × 0.90 (겨울 아침/저녁 보온)
-          if(_m >= 4 && _m <= 10){
-            if(_tMax !== null) return Math.round(_tMax * 0.94 * 10) / 10;
-          }else{
-            if(_tMin !== null) return Math.round(_tMin * 0.90 * 10) / 10;
-          }
+          if(_tMax !== null) return Math.round((_tMax - 2) * 10) / 10;
+          // 최고온도 예보가 없으면 현재값에서 -2 (폴백)
+          const _tCur = Number.isFinite(Number(S.wx?.temp)) ? Number(S.wx.temp) : null;
+          if(_tCur !== null) return Math.round((_tCur - 2) * 10) / 10;
           return S.wx?.temp;
         }catch(_){ return S.wx?.temp; }
       })();
@@ -7516,53 +7507,73 @@ async function updateVTO(opts={}){
 // ─── 2026-05-16 KST · TJ 지시 4번 ─── '보고서 저장' — 분석 보고서 다운로드 ───
 //   이전: saveBtn = 이미지 저장 → 변경: 보고서 저장 (이미지 저장은 againBtn으로 이동)
 //   분석 보고서: STEP C 결과(스타일리스트/스토리/분석 박스 텍스트)를 .txt 로 다운로드
-function _downloadCodiReport(){
-  const j = flow.stepCResult || {};
-  const lines = [];
-  lines.push('═══════════════════════════════════════');
-  lines.push('   CodiBank Ai 스타일 분석 보고서');
-  lines.push('═══════════════════════════════════════');
-  lines.push('생성일시 : ' + new Date().toLocaleString('ko-KR'));
-  lines.push('');
-  // 1) 담당 스타일리스트
-  const st = j.stylist || {};
-  if(st.name){
-    lines.push('▶ 담당 스타일리스트');
-    lines.push('   ' + st.name + (st.city ? ' (' + st.city + ' 활동)' : ''));
-    const _v = st.voice || st.career || '';
-    if(_v) lines.push('   ' + _v);
-    lines.push('');
-  }
-  // 2) 코디핏 스토리
-  let storyText = j.stylingStory || j.explanation || '';
-  if(!storyText){
-    const ex = document.getElementById('codiExplain');
-    if(ex) storyText = (ex.innerText || ex.textContent || '').trim();
-  }
-  if(storyText){
-    lines.push('▶ 코디핏 스토리');
-    lines.push('   ' + storyText);
-    lines.push('');
-  }
-  // 3) 화면 분석 박스 텍스트 수집 (코디핏 상세 / 포인트)
-  ['codiDetailBox', 'codiPointBox'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el && !el.classList.contains('hidden')){
-      const txt = (el.innerText || el.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
-      if(txt){ lines.push(txt); lines.push(''); }
-    }
+// ─── 2026-06-22 KST · TJ 지시 (#3) ─── 보고서 'PDF 저장' + flow 스코프 수정 ───
+//   기존: flow.stepCResult 직접 참조 → 'flow is not defined'(IIFE 밖). .txt 저장.
+//   변경: window.codifitReportApi.getFlow() 경유 + 보고서 영역을 PDF 로 저장.
+function _loadScriptOnce(src){
+  return new Promise(function(resolve, reject){
+    if(document.querySelector('script[src="'+src+'"]')){ resolve(); return; }
+    var s = document.createElement('script');
+    s.src = src; s.onload = function(){ resolve(); }; s.onerror = function(){ reject(new Error('load fail: '+src)); };
+    document.head.appendChild(s);
   });
-  lines.push('───────────────────────────────────────');
-  lines.push('   codibank.kr — Ai 퍼스널 스타일링');
-  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
-  const a = document.createElement('a');
-  a.download = 'codibank_report_' + Date.now() + '.txt';
-  a.href = URL.createObjectURL(blob);
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+async function _downloadCodiReport(){
+  // 보고서 영역(타이틀+상세+포인트)을 한 캔버스로 캡처해 PDF 저장
+  const title = document.getElementById('codiReportTitle');
+  const detail = document.getElementById('codiDetailBox');
+  const point = document.getElementById('codiPointBox');
+  if(!detail){ alert(CodiBankI18n.t('먼저 보고서를 생성해주세요.','Please generate the report first.')); return; }
+  // 캡처 대상을 임시 래퍼로 묶음
+  let _toast = null;
+  try{
+    _toast = document.createElement('div');
+    _toast.textContent = CodiBankI18n.t('PDF 저장 준비 중…','Preparing PDF…');
+    _toast.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;background:#97FEED;color:#04122e;font-weight:800;font-size:13px;padding:8px 16px;border-radius:999px;';
+    document.body.appendChild(_toast);
+
+    await _loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await _loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+
+    // 임시 컨테이너에 보고서 복제 (원본 레이아웃 영향 없이 캡처)
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;left:-99999px;top:0;width:720px;background:#00022E;padding:24px;';
+    if(title) wrap.appendChild(title.cloneNode(true));
+    wrap.appendChild(detail.cloneNode(true));
+    if(point && !point.classList.contains('hidden')) wrap.appendChild(point.cloneNode(true));
+    // 복제본의 display 강제 (원본이 important 인 경우 대비)
+    wrap.querySelectorAll('*').forEach(function(el){ if(el.style && el.style.display==='none') el.style.display=''; });
+    document.body.appendChild(wrap);
+
+    const canvas = await window.html2canvas(wrap, { backgroundColor:'#00022E', scale:2, useCORS:true });
+    document.body.removeChild(wrap);
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit:'pt', format:'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const imgW = pageW;
+    const imgH = canvas.height * (pageW / canvas.width);
+    let pos = 0;
+    let remaining = imgH;
+    // 여러 페이지 분할
+    if(imgH <= pageH){
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+    }else{
+      while(remaining > 0){
+        pdf.addImage(imgData, 'JPEG', 0, pos, imgW, imgH);
+        remaining -= pageH;
+        if(remaining > 0){ pdf.addPage(); pos -= pageH; }
+      }
+    }
+    pdf.save('codibank_report_' + Date.now() + '.pdf');
+  }catch(e){
+    console.warn('[보고서 PDF]', e);
+    alert(CodiBankI18n.t('PDF 저장에 실패했어요. 잠시 후 다시 시도해주세요.','PDF export failed. Please try again.'));
+  }finally{
+    if(_toast){ try{ _toast.remove(); }catch(_){} }
+  }
 }
 // ─── 2026-06-19 KST · TJ 지시 (#2) ─── 터치한 액션버튼만 배경 화이트 ───
 //   4개 버튼(보고서생성/이미지저장/공유/리셋) 중 클릭한 버튼에 .vto-btn-picked
@@ -7582,16 +7593,6 @@ function _downloadCodiReport(){
   });
 })();
 document.getElementById('saveBtn')?.addEventListener('click', async function(){
-  // ─── 2026-06-21 KST · TJ 지시 ─── [임시 진단] 핸들러 실행 확인 ───
-  //   '보고서 생성'이 며칠째 무반응 → 클릭이 핸들러에 도달하는지부터 확인.
-  //   화면 상단에 1.2초 토스트로 '보고서 생성 시작' 표시 (원인 확정 후 제거).
-  try{
-    var _dbg = document.createElement('div');
-    _dbg.textContent = '보고서 생성 시작…';
-    _dbg.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;background:#97FEED;color:#04122e;font-weight:800;font-size:13px;padding:8px 16px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.3);';
-    document.body.appendChild(_dbg);
-    setTimeout(function(){ try{ _dbg.remove(); }catch(_){} }, 1200);
-  }catch(_){}
   // 2026-06-20 TJ: disabled 여도 화면에 이미지가 있으면 진행(무반응 방지).
   const c = document.getElementById('vtoCanvas');
   if(!c || c.style.display === 'none'){
@@ -7708,20 +7709,56 @@ document.getElementById('reportSaveBtn')?.addEventListener('click', function(){
   try{ _downloadCodiReport(); }
   catch(e){ alert(CodiBankI18n.t('보고서 저장 실패:','Report save failed:') + (e && e.message || '')); }
 });
-// 2026-06-19 KST · TJ 지시 (#4) — 보고서 영역 '공유' (보고서 텍스트 공유, 미지원 시 클립보드 복사)
+// 2026-06-22 KST · TJ 지시 (#3) — 보고서 'SNS 공유' (이미지+텍스트, flow API 경유)
 document.getElementById('reportShareBtn')?.addEventListener('click', async function(){
+  const _api = window.codifitReportApi || null;
+  const flow = _api && _api.getFlow ? _api.getFlow() : (window.flow || {});
   try{
-    const j = flow.stepCResult || {};
+    const j = (flow && flow.stepCResult) || {};
     let txt = (j.stylingStory || j.explanation || '');
     if(!txt){ const ex = document.getElementById('codiExplain'); if(ex) txt = (ex.innerText||ex.textContent||'').trim(); }
-    const shareText = 'CodiBank Ai 스타일 분석 보고서\n\n' + (txt || '') + '\n\ncodibank.kr';
-    if(navigator.share){
-      await navigator.share({ title: '코디뱅크 Ai 스타일 보고서', text: shareText }).catch(function(){});
-    } else if(navigator.clipboard && navigator.clipboard.writeText){
-      await navigator.clipboard.writeText(shareText);
-      alert(CodiBankI18n.t('보고서가 클립보드에 복사되었어요.','Report copied to clipboard.'));
+    const shareText = 'CodiBank Ai 스타일 분석 보고서\n\n' + (txt || '') + '\n\nhttps://codibank.kr';
+
+    // 1) 보고서 영역을 이미지로 캡처해서 SNS에 이미지로 공유 (가능한 환경)
+    const detail = document.getElementById('codiDetailBox');
+    let _shared = false;
+    if(detail && navigator.canShare){
+      try{
+        await _loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+        const title = document.getElementById('codiReportTitle');
+        const point = document.getElementById('codiPointBox');
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'position:fixed;left:-99999px;top:0;width:720px;background:#00022E;padding:24px;';
+        if(title) wrap.appendChild(title.cloneNode(true));
+        wrap.appendChild(detail.cloneNode(true));
+        if(point && !point.classList.contains('hidden')) wrap.appendChild(point.cloneNode(true));
+        document.body.appendChild(wrap);
+        const canvas = await window.html2canvas(wrap, { backgroundColor:'#00022E', scale:2, useCORS:true });
+        document.body.removeChild(wrap);
+        await new Promise(function(resolve){
+          canvas.toBlob(async function(blob){
+            try{
+              const file = new File([blob], 'codibank_report.png', { type:'image/png' });
+              if(blob && navigator.canShare({ files:[file] })){
+                await navigator.share({ files:[file], title:'코디뱅크 Ai 스타일 보고서', text: shareText });
+                _shared = true;
+              }
+            }catch(_){}
+            resolve();
+          }, 'image/png');
+        });
+      }catch(_){}
     }
-  }catch(e){ /* 조용히 무시 */ }
+    // 2) 이미지 공유 미지원/실패 → 텍스트 공유
+    if(!_shared){
+      if(navigator.share){
+        await navigator.share({ title:'코디뱅크 Ai 스타일 보고서', text: shareText }).catch(function(){});
+      }else if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(shareText);
+        alert(CodiBankI18n.t('보고서가 클립보드에 복사되었어요. SNS에 붙여넣기 하세요.','Report copied to clipboard. Paste it on your SNS.'));
+      }
+    }
+  }catch(e){ console.warn('[보고서 공유]', e); }
 });
 document.getElementById('shareBtn')?.addEventListener('click',()=>{
   const c=document.getElementById('vtoCanvas');if(!c||c.style.display==='none'){alert(CodiBankI18n.t('먼저 스타일링을 생성해주세요.','Please generate styling first.'));return;}
@@ -10721,9 +10758,24 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   async function fetchAnalysisAndFill(cacheKey, imageUrl, _isRetry){
     console.log('[analysis] 요청 전송 — cacheKey=', cacheKey || '(none)', '| imageUrl=', imageUrl ? imageUrl.slice(0,60) : '(none)');
     try{
+      // ─── 2026-06-22 KST · TJ 지시 (#2) ─── 사용자 신체정보/퍼스널컬러 전달 ───
+      //   서버는 user 가 없으면 기본값(170cm/65kg)으로 분석함 → 마이페이지 실제
+      //   프로필을 함께 전송해 정확한 체형/퍼스널컬러 기반 분석이 되도록 한다.
+      let _userInfo = {};
+      let _pc = null;
+      try{
+        const _p = buildStepAPayload((window.S && window.S.wx && window.S.wx.location) || '');
+        _userInfo = (_p && _p.user) || {};
+      }catch(_){}
+      try{
+        // 퍼스널컬러: 전역 user 또는 프로필에서
+        _pc = (user && user.personalColor) || (window.user && window.user.personalColor) || null;
+      }catch(_){}
       const r = await v68Fetch('/api/ai/styling/analysis', {
         cacheKey: cacheKey,
         imageUrl: imageUrl || '',
+        user: _userInfo,                 // height/weight/gender/bodyType/ageGroup
+        personalColor: _pc || undefined, // 퍼스널컬러(있으면)
       });
       if(!r.ok){
         if(!_isRetry){
@@ -11211,10 +11263,22 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
              flow.modalCurrentIdx === _idxAtCall && flow.modalSource === _srcAtCall;
     };
     try{
+      // ─── 2026-06-22 KST · TJ 지시 (#2) ─── 팝업 분석에 사용자 프로필 포함 ───
+      //   팝업에서 분석한 결과가 보고서에 재사용되므로, 여기서부터 마이페이지의
+      //   실제 신체정보(height/weight/gender/bodyType)·퍼스널컬러를 함께 전송한다.
+      let _userInfo = {};
+      let _pc = null;
+      try{
+        const _p = buildStepAPayload((window.S && window.S.wx && window.S.wx.location) || '');
+        _userInfo = (_p && _p.user) || {};
+      }catch(_){}
+      try{ _pc = (user && user.personalColor) || (window.user && window.user.personalColor) || null; }catch(_){}
       const r = await v68Fetch('/api/ai/styling/analysis', {
         cacheKey: card.cacheKey,
         imageUrl: card.imageUrl || card.url || '',
         stylist: card.stylist || null,
+        user: _userInfo,
+        personalColor: _pc || undefined,
         lang: (window.CodiBankI18n && CodiBankI18n.lang) ? CodiBankI18n.lang : 'ko',
       });
       if(!r.ok){
