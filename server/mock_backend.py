@@ -2480,16 +2480,20 @@ def build_prompt(payload: Dict[str, Any]) -> Tuple[str, str]:
     # ─── 2026-05-17 KST · TJ 승인 ─── 온도 레이어링 규칙 강화 (closet.html 규칙 이식) ───
     # 이전: very cold/cool→방한, hot→통기, mild/warm→'balanced'(보온 허용) 3분기
     # 변경: _temp_bucket 5단계별 명확한 규칙 — warm(21-27°C)에서 보온 아이템 금지 명시
+    # ─── 2026-06-22 KST · TJ 지시 ─── 부정 규정(NO scarf/muffler) 제거 → 긍정문 ───
+    #   더운/온화 구간에서 'NO scarf, NO muffler' 같이 보온 아이템 이름을 나열하면
+    #   이미지 생성 AI가 그 단어에 반응해 오히려 그려 넣는 역효과 → 긍정문만 사용.
+    #   보온 아이템은 추운 구간에서만 '입어라'로 언급한다.
     if bucket == "very cold":
-        weather_rule = "Very cold weather: a thick coat or padding is essential with warm inner layers. A muffler is appropriate."
+        weather_rule = "Very cold weather: a thick coat or padding with warm inner layers; a muffler is appropriate."
     elif bucket == "cool":
-        weather_rule = "Cool weather: jacket and light knit layering. Do NOT add a muffler unless near-freezing."
+        weather_rule = "Cool weather: a jacket with light knit layering."
     elif bucket == "mild":
-        weather_rule = "Mild weather: a light jacket or cardigan is optional. NO heavy coat/padding, NO muffler, NO scarf."
+        weather_rule = "Mild weather: a light jacket or cardigan over a top. Keep it light, no heavy winter layers."
     elif bucket == "warm":
-        weather_rule = "Warm weather: a single light layer is enough. NO outer layer, NO knit sweater, NO scarf, NO muffler. Short sleeves are appropriate."
+        weather_rule = "Warm weather: a single light layer — short sleeves or a thin long-sleeve top."
     else:  # hot
-        weather_rule = "Hot weather: light breathable short-sleeve clothing only. NO warm layers, NO scarf, NO muffler of any kind."
+        weather_rule = "Hot weather: light breathable short-sleeve clothing only. Keep it minimal and airy."
 
     # 결과 설명(100자 이내는 프론트에서 추가로 trim 가능)
     short = explanation
@@ -3115,49 +3119,50 @@ def _ai_styling_via_gemini(
     #   · 23°C 이상: 코트/패딩/니트/스카프/머플러 등 보온 아이템 전면 금지
     # 이전: STEP 4/6 에 '<15°C' 단일 기준 + SCARF 'when fitting'(온도 무관) 뿐
     #       → 24~26°C 에도 목도리 추천되던 문제
+    # ─── 2026-06-22 KST · TJ 지시 ─── 부정 규정(금지 아이템 나열) 역효과 제거 ───
+    #   문제: 더운 날에도 "FORBIDDEN: scarf, muffler..." 처럼 금지 아이템 '이름'을
+    #         프롬프트에 나열 → 이미지 생성 AI가 그 단어(scarf/muffler)에 반응해
+    #         오히려 목도리/스카프를 그려 넣는 역효과(무의미한 부정 규정 혼입).
+    #   변경: 더운/온화한 구간(>=20°C)에서는 '입을 것(긍정문)'만 명시하고
+    #         보온 아이템 이름을 아예 적지 않는다. 추운 구간만 보온 아이템 언급.
     try:
         _t_gate = int(round(float(temp)))
     except Exception:
         _t_gate = 20
     if _t_gate >= 28:
         _gate_lines = [
-            "HOT (>=28C): short-sleeve and light breathable fabrics ONLY.",
-            "FORBIDDEN: any outer layer, knit sweater, scarf, muffler, gloves, heavy long-sleeve tops.",
+            "HOT (>=28C): short-sleeve top with light, breathable fabrics ONLY. Keep it minimal and airy.",
         ]
     elif _t_gate >= 23:
         _gate_lines = [
-            "WARM (23-27C): a single light layer (short sleeve or thin long sleeve).",
-            "FORBIDDEN: outer layer (coat/jacket/cardigan/blazer), knit sweater, scarf, muffler, gloves.",
+            "WARM (23-27C): a single light layer only — short sleeve, or a thin long-sleeve shirt.",
         ]
     elif _t_gate >= 20:
         _gate_lines = [
-            "MILD-WARM (20-22C): a single light top; a thin shirt-jacket is the ABSOLUTE MAX.",
-            "FORBIDDEN: coat, padding, heavy jacket, knit sweater, scarf, muffler.",
+            "MILD-WARM (20-22C): a single light top; at most a thin unlined shirt-jacket.",
         ]
     elif _t_gate >= 12:
         _gate_lines = [
-            "MILD (12-19C): a light jacket or cardigan is optional.",
-            "FORBIDDEN: heavy coat/padding, scarf, muffler.",
+            "MILD (12-19C): a light jacket or cardigan over a top is ideal. No heavy winter layers.",
         ]
     elif _t_gate >= 5:
         _gate_lines = [
-            "COOL (5-11C): jacket plus light knit layering is recommended.",
-            "FORBIDDEN: muffler/neck-warmer (allowed only at 0C or below).",
+            "COOL (5-11C): a jacket with light knit layering. No neck-warmer/muffler yet.",
         ]
     elif _t_gate >= 1:
         _gate_lines = [
-            "COLD (1-4C): a thick coat or padding is essential, with warm inner layers.",
-            "FORBIDDEN: muffler/neck-warmer (allowed only at 0C or below).",
+            "COLD (1-4C): a thick coat or padded outer with warm inner layers.",
         ]
     else:
         _gate_lines = [
-            "VERY COLD (<=0C): a thick coat/padding is essential; muffler/neck-warmer is appropriate.",
+            "VERY COLD (<=0C): a thick coat/padding; a muffler/neck-warmer is appropriate here.",
         ]
+    # 보온 아이템(머플러/스카프) 금지는 '추운 척도'에서만, 그것도 이름 1회로 최소 언급.
     _temp_gate_block = (
-        f"  → ⚠️ TEMPERATURE GATE (current {_t_gate}°C — STRICT, overrides stylist discretion):\n"
+        f"  → ⚠️ TEMPERATURE GATE (dress for {_t_gate}°C — STRICT, overrides stylist discretion):\n"
         + "".join(f"     · {ln}\n" for ln in _gate_lines)
-        + "     · These temperature rules are ABSOLUTE. NEVER add a warm-layer or muffler/scarf\n"
-        "       just because it looks fashionable — temperature appropriateness comes first.\n"
+        + "     · Dress strictly for this temperature. Choose items by weather-appropriateness FIRST,\n"
+        "       never add a layer merely because it looks fashionable.\n"
     )
 
     # ═══════════════════════════════════════════════════════════════════
@@ -3281,8 +3286,11 @@ def _ai_styling_via_gemini(
         + "\n# OUTFIT - OPTIONAL (only if it enhances; less is more)\n"
         "- OUTER: only per the TEMPERATURE GATE above (never at 20\u00b0C or higher).\n"
         "- BAG / WATCH / JEWELRY / HAT: only if TPO-appropriate.\n"
-        "- SCARF / MUFFLER: only at 0\u00b0C or below.\n"
-        "- The temperature gate always wins over stylist discretion.\n"
+        # ─── 2026-06-22 KST · TJ 지시 ─── scarf/muffler 단어는 0°C 이하에서만 노출 ───
+        #   평상시(0°C 초과)엔 이 줄 자체를 빼서 'scarf/muffler' 단어가 프롬프트에
+        #   등장하지 않게 함(단어 노출이 오히려 생성을 유발하는 역효과 차단).
+        + ("- SCARF / MUFFLER: appropriate for this cold temperature.\n" if _t_gate <= 0 else "")
+        + "- The temperature gate always wins over stylist discretion.\n"
 
         + "\n# CONSISTENCY\n"
         "- Front view and back view are the SAME person in the SAME shoot.\n"
@@ -4841,6 +4849,27 @@ def ai_styling_analysis():
 
     if not cache_key:
         return jsonify(ok=False, error="cacheKey 또는 imageUrl 필요"), 400
+
+    # ─── 2026-06-22 KST · TJ 지시 (#2) ─── 캐시 키에 사용자 프로필 반영 ───
+    #   증상: 분석 보고서의 체형/퍼스널컬러가 마이페이지 실제 프로필과 무관.
+    #   원인: 캐시가 cacheKey(이미지)만으로 저장 → 같은 이미지면 user 가 달라도
+    #         과거 캐시(프로필 미반영) 반환. 또 팝업이 user 없이 먼저 캐시 생성.
+    #   변경: user(height/weight/gender/bodyType)+personalColor 를 짧은 해시로
+    #         만들어 캐시 키에 덧붙임 → 프로필이 다르면 분석을 새로 생성.
+    try:
+        _u = payload.get("user") or {}
+        _pc_in = payload.get("personalColor") or {}
+        _u_sig = "|".join([
+            str(_u.get("height") or ""), str(_u.get("weight") or ""),
+            str(_u.get("gender") or ""), str(_u.get("bodyType") or ""),
+            str(_u.get("ageGroup") or ""),
+            str((_pc_in or {}).get("season") or (_pc_in or {}).get("type") or ""),
+        ])
+        if _u_sig.strip("|"):
+            _u_hash = hashlib.md5(_u_sig.encode("utf-8")).hexdigest()[:8]
+            cache_key = (cache_key + "_u" + _u_hash)[:64]
+    except Exception:
+        pass
 
     # 보안: cacheKey 영문/숫자/언더스코어만 허용 (path traversal 방지)
     if not re.match(r'^[A-Za-z0-9_]{8,64}$', cache_key):
