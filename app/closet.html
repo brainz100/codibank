@@ -7605,8 +7605,14 @@ document.getElementById('saveBtn')?.addEventListener('click', async function(){
   //         결과 객체를 즉석 구성해서 분석을 반드시 요청한다.
   const _analyzing = document.getElementById('codiAnalyzing');
 
+  // ─── 2026-06-22 KST · TJ 지시 ─── IIFE 스코프 연결 (핵심 수정) ───
+  //   flow/fillAnalysisBoxes/showAnalysisBoxes 는 v68 IIFE 안에 있어 이 전역
+  //   핸들러에서 직접 접근 불가 → window.codifitReportApi 경유로 호출한다.
+  const _api = window.codifitReportApi || null;
+  const flow = _api && _api.getFlow ? _api.getFlow() : (window.flow || null);
+
   // 1) 분석 대상 결과 객체 확보 (없으면 현재 이미지로 구성)
-  let _res = (typeof flow !== 'undefined' && flow && flow.stepCResult) ? flow.stepCResult : null;
+  let _res = (flow && flow.stepCResult) ? flow.stepCResult : null;
   function _pickCurrentImageUrl(){
     // 우선순위: stepCResult.image → 선택된 STEP A 카드 → 마지막 표시 이미지
     try{
@@ -7642,14 +7648,16 @@ document.getElementById('saveBtn')?.addEventListener('click', async function(){
 
   try{
     // 이전 보고서 숨기고 '분석중' 표시
-    if(typeof hideAnalysisBoxes === 'function') hideAnalysisBoxes();
+    if(_api && _api.hideAnalysisBoxes) _api.hideAnalysisBoxes();
     if(_analyzing) _analyzing.style.display = 'flex';
 
     // 분석 요청 (반드시 호출 — cacheKey 또는 image 중 하나라도 있으면 서버가 분석)
     let _fillP = Promise.resolve();
-    if(typeof fillAnalysisBoxes === 'function'){
-      try{ _fillP = fillAnalysisBoxes(_res) || Promise.resolve(); }
+    if(_api && _api.fillAnalysisBoxes){
+      try{ _fillP = _api.fillAnalysisBoxes(_res) || Promise.resolve(); }
       catch(err){ console.warn('[보고서 생성] fillAnalysisBoxes 예외:', err); _fillP = Promise.resolve(); }
+    }else{
+      console.warn('[보고서 생성] codifitReportApi.fillAnalysisBoxes 없음 — 스코프 연결 실패');
     }
     await Promise.race([
       _fillP.catch(function(){}),
@@ -7663,7 +7671,7 @@ document.getElementById('saveBtn')?.addEventListener('click', async function(){
     console.warn('[보고서 생성] 분석 처리 경고:', e);
   }finally{
     if(_analyzing) _analyzing.style.display = 'none';
-    try{ if(typeof showAnalysisBoxes === 'function') showAnalysisBoxes(); }catch(_){}
+    try{ if(_api && _api.showAnalysisBoxes) _api.showAnalysisBoxes(); }catch(_){}
     // ─── 2026-06-21 KST · TJ 지시 ─── 표시 확정 + 빈 보고서 폴백 ───
     //   분석 섹션(퍼스널컬러/체형/목적)이 하나도 안 채워졌으면, 사용자가
     //   '아무것도 안 떴다'고 느끼지 않도록 codiExplain 에 안내/스토리를 넣어 표시.
@@ -7680,11 +7688,15 @@ document.getElementById('saveBtn')?.addEventListener('click', async function(){
           'Styling analysis loaded. Refresh shortly to see the detailed report.');
       }
       const _detail = document.getElementById('codiDetailBox');
+      let _rect = null;
+      try{ _rect = _detail ? _detail.getBoundingClientRect() : null; }catch(_){}
       console.log('[보고서 생성] 표시검사 — 분석채움=', _hasAnalysis,
-        '| detailBox display=', _detail ? getComputedStyle(_detail).display : 'no-el',
+        '| display=', _detail ? getComputedStyle(_detail).display : 'no-el',
         '| hidden클래스=', _detail ? _detail.classList.contains('hidden') : 'no-el',
+        '| 부모=', (_detail && _detail.parentNode) ? (_detail.parentNode.tagName + '.' + (_detail.parentNode.className||'')) : 'no-parent',
         '| 부모display=', (_detail && _detail.parentNode) ? getComputedStyle(_detail.parentNode).display : 'no-parent',
-        '| detail 내용길이=', _detail ? (_detail.textContent||'').trim().length : 0);
+        '| rect=', _rect ? ('top'+Math.round(_rect.top)+' h'+Math.round(_rect.height)+' w'+Math.round(_rect.width)) : 'no-rect',
+        '| 내용길이=', _detail ? (_detail.textContent||'').trim().length : 0);
     }catch(_){}
     const _title = document.getElementById('codiReportTitle');
     const _scrollTarget = _title || document.getElementById('codiDetailBox');
@@ -10631,24 +10643,18 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   }
   function _moveAnalysisBoxesBelowQ3(){
     try{
-      const title = $('codiReportTitle');
-      const detail = $('codiDetailBox');
-      const point = $('codiPointBox');
+      const title = document.getElementById('codiReportTitle');
+      const detail = document.getElementById('codiDetailBox');
+      const point = document.getElementById('codiPointBox');
       if(!detail || !point) return;
-      // vtoBActions(4버튼)의 부모 안에서, 4버튼 바로 다음에 보고서를 삽입.
-      const bActions = $('vtoBActions');
-      if(bActions && bActions.parentNode){
-        const parent = bActions.parentNode;
-        let anchor = bActions.nextSibling;
-        const _insert = (node) => { parent.insertBefore(node, anchor); anchor = node.nextSibling; };
-        if(title) _insert(title);
-        _insert(detail);
-        _insert(point);
-        return;
-      }
-      // 폴백: main 끝
+      // ─── 2026-06-22 KST · TJ 지시 ─── 보고서를 main 최상위 직속으로 이동 ───
+      //   부모 section/래퍼의 display·overflow 영향을 완전히 배제하기 위해
+      //   <main> 의 마지막 직계 자식으로 보고서를 옮긴다. (vtoBActions 형제 배치 폐기)
       const main = document.querySelector('main');
-      if(main){ if(title) main.appendChild(title); main.appendChild(detail); main.appendChild(point); }
+      if(!main) return;
+      if(title) main.appendChild(title);
+      main.appendChild(detail);
+      main.appendChild(point);
     }catch(_){}
   }
   // STEP C 응답 데이터로 두 박스 내용 채우기
@@ -12435,6 +12441,20 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   // ─── 외부 노출 ───
   // 기존 "추천 받기" 트리거에서 startStepA()를 호출하도록 연결
   window.runCodifitGridFlow = startStepA;
+
+  // ─── 2026-06-22 KST · TJ 지시 ─── 보고서 스코프 연결 (핵심 수정) ───
+  //   원인: '보고서 생성'(saveBtn) 핸들러는 이 v68 IIFE '밖'(전역)에 있고,
+  //   flow/fillAnalysisBoxes/showAnalysisBoxes 등은 IIFE '안'에 있어
+  //   핸들러에서 typeof fillAnalysisBoxes === 'function' 이 false → 표시 로직 미실행.
+  //   해결: IIFE 내부 함수/상태를 window.codifitReportApi 로 노출해 핸들러가 호출.
+  window.codifitReportApi = {
+    getFlow: function(){ return flow; },
+    fillAnalysisBoxes: fillAnalysisBoxes,
+    showAnalysisBoxes: showAnalysisBoxes,
+    hideAnalysisBoxes: hideAnalysisBoxes,
+    fetchAnalysisAndFill: fetchAnalysisAndFill,
+    applyStylingAnalysis: (typeof _applyStylingAnalysis === 'function') ? _applyStylingAnalysis : null,
+  };
 
   // 초기화
   if(document.readyState === 'loading'){
