@@ -10762,10 +10762,12 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       //   서버는 user 가 없으면 기본값(170cm/65kg)으로 분석함 → 마이페이지 실제
       //   프로필을 함께 전송해 정확한 체형/퍼스널컬러 기반 분석이 되도록 한다.
       let _userInfo = {};
+      let _weatherInfo = undefined;
       let _pc = null;
       try{
         const _p = buildStepAPayload((window.S && window.S.wx && window.S.wx.location) || '');
         _userInfo = (_p && _p.user) || {};
+        _weatherInfo = (_p && _p.weather) || undefined;   // 최고−2 기준온도 전달 (OCCASION 정확도)
       }catch(_){}
       try{
         // 퍼스널컬러: 전역 user 또는 프로필에서
@@ -10775,6 +10777,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         cacheKey: cacheKey,
         imageUrl: imageUrl || '',
         user: _userInfo,                 // height/weight/gender/bodyType/ageGroup
+        weather: _weatherInfo,           // 기준온도(최고−2)/최고/최저 — OCCASION 섹션용
         personalColor: _pc || undefined, // 퍼스널컬러(있으면)
       });
       if(!r.ok){
@@ -10836,6 +10839,36 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       const sec = $('anPurposeSection'); if(sec) sec.classList.remove('hidden');
       _any = true;
     }
+    // ─── 2026-06-23 KST · TJ 지시 (#2) ─── 카테고리 포인트 = '뷰박스 이미지' vision 분석 ───
+    //   버그: '보고서 생성' 시 카테고리별 코디 포인트가 생성 시점 의도 키워드
+    //         (engineCategoryKeywords)로 표시 → 실제 생성 이미지(뷰박스)와 불일치.
+    //         (예: 두바이 베이지 셔츠 + 로퍼 이미지인데 보고서엔 그레이/블랙/첼시부츠)
+    //   원칙: _sa.outfit 은 백엔드가 '뷰박스 이미지를 직접 vision 분석'한 실제 착장.
+    //         (이미지와 100% 일치 — 백엔드 _codifit_analysis_via_gpt41mini 명시)
+    //   조치: outfit 이 있으면 그것으로 S.categoryKeywords 를 덮어쓰고 재렌더 →
+    //         보고서 카테고리 포인트가 뷰박스 이미지와 항상 일치.
+    try{
+      const _of = _sa.outfit;
+      if(_of && (_of.top || _of.bottom || _of.shoes || _of.accessory)){
+        const _ck = {};
+        if(_of.top)    _ck.top    = String(_of.top).trim();
+        if(_of.bottom) _ck.bottom = String(_of.bottom).trim();
+        if(_of.shoes)  _ck.shoes  = String(_of.shoes).trim();
+        // accessory(가방/시계/스카프 등) → 키워드로 적절한 슬롯에 배치 ('없음'은 제외)
+        const _acc = String(_of.accessory || '').trim();
+        if(_acc && !/^(없음|none|n\/a|-)$/i.test(_acc)){
+          if(/시계|watch/i.test(_acc))       _ck.watch = _acc;
+          else if(/스카프|머플러|scarf|muffler/i.test(_acc)) _ck.scarf = _acc;
+          else if(/가방|백|bag|backpack|tote|crossbody/i.test(_acc)) _ck.bag = _acc;
+          else _ck.bag = _acc;
+        }
+        if(Object.keys(_ck).length){
+          if(window.S) window.S.categoryKeywords = _ck;   // ★ vision 착장으로 덮어쓰기
+          if(typeof window.renderStylingPoint === 'function') window.renderStylingPoint();
+          _any = true;
+        }
+      }
+    }catch(_){}
     return _any;
   }
 
@@ -10970,14 +11003,22 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const S = window.S || {};
     const wx = (S.wx || {});
     const _userTier = (window.CodiBank && CB.getCurrentTier) ? CB.getCurrentTier() : 'FREE';
-    // 월별 기준 온도 (4-10월 max*0.94, 11-3월 min*0.90)
+    // ─── 2026-06-23 KST · TJ 지시 ─── 코디 기준 온도 = 그날 최고 − 2°C (계절·월 무관) ───
+    //   버그: 이 그리드 경로(buildStepAPayload)는 옛 월별 정책(4-10월 max*0.94,
+    //         11-3월 min*0.90)을 그대로 사용 → tempMax 부재 시 min*0.90 으로 떨어져
+    //         최저(18°C)×0.9=16°C 기준이 되어, 한낮(최고 29°C)에 자켓·터틀넥 추천.
+    //   원칙: generateStyling(line ~7024)와 동일하게 '최고온도 − 2°C' 단일 정책으로 통일.
+    //         (한낮 활동 기준 — 최저도, 평균도 아님. 무조건 최고 − 2.)
+    //   화면(weather UI)은 최저/최고 그대로 노출 — 별건.
     let _baseTemp = wx.temp;
     try{
-      const _now = new Date();
-      const _m = _now.getMonth() + 1;
-      const _tMax = Number(wx.tempMax), _tMin = Number(wx.tempMin);
-      if(_m >= 4 && _m <= 10 && Number.isFinite(_tMax)) _baseTemp = Math.round(_tMax * 0.94 * 10) / 10;
-      else if(Number.isFinite(_tMin)) _baseTemp = Math.round(_tMin * 0.90 * 10) / 10;
+      const _tMax = Number.isFinite(Number(wx.tempMax)) ? Number(wx.tempMax) : null;
+      if(_tMax !== null){
+        _baseTemp = Math.round((_tMax - 2) * 10) / 10;     // ★ 최고 − 2°C
+      }else{
+        const _tCur = Number.isFinite(Number(wx.temp)) ? Number(wx.temp) : null;
+        if(_tCur !== null) _baseTemp = Math.round((_tCur - 2) * 10) / 10;  // 폴백: 현재값 − 2
+      }
     }catch(_){}
     // 직접입력 처리
     const _isCustom = (S.pk === 'custom' || S.purposeKey === 'custom');
@@ -11267,10 +11308,14 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       //   팝업에서 분석한 결과가 보고서에 재사용되므로, 여기서부터 마이페이지의
       //   실제 신체정보(height/weight/gender/bodyType)·퍼스널컬러를 함께 전송한다.
       let _userInfo = {};
+      let _weatherInfo = undefined;
       let _pc = null;
       try{
         const _p = buildStepAPayload((window.S && window.S.wx && window.S.wx.location) || '');
         _userInfo = (_p && _p.user) || {};
+        // ─── 2026-06-23 KST · TJ 지시 (#2) ─── 분석에 날씨(최고−2 기준온도) 전달 ───
+        //   누락 시 백엔드가 기본 20°C 로 분석 → 보고서 OCCASION 이 '20도'로 오표시.
+        _weatherInfo = (_p && _p.weather) || undefined;
       }catch(_){}
       try{ _pc = (user && user.personalColor) || (window.user && window.user.personalColor) || null; }catch(_){}
       const r = await v68Fetch('/api/ai/styling/analysis', {
@@ -11278,6 +11323,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         imageUrl: card.imageUrl || card.url || '',
         stylist: card.stylist || null,
         user: _userInfo,
+        weather: _weatherInfo,
         personalColor: _pc || undefined,
         lang: (window.CodiBankI18n && CodiBankI18n.lang) ? CodiBankI18n.lang : 'ko',
       });
