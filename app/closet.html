@@ -11393,17 +11393,17 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     }
   }
   function _renderExpandModal(card, cityLabel){
-    // ─── 2026-05-16 KST · TJ 지시 1.2 ─── 헤더 한 줄: "서울 스타일리스트 / 주말나들이"
-    //   지명(스타일리스트 이름)은 불필요 → 제거. 도시 + '스타일리스트' + 컨셉 축약
-    const _city = (card.stylist && card.stylist.city) || card.engineCity || cityLabel || '서울';
-    let _conceptShort = '';
-    if(card.enginePurpose){
-      _conceptShort = String(card.enginePurpose).trim();
-    }else if(card.stylingStory){
-      const s = String(card.stylingStory).split(/[.。\n]/)[0].trim();
-      if(s) _conceptShort = (s.length > 14) ? s.slice(0, 14) : s;
+    // ─── 2026-06-23 KST · TJ 지시 ─── 헤더: 지역보다 '누가 추천했는지'가 중요 ───
+    //   이전: "{도시} 스타일리스트 / {컨셉}" (지역 중심)
+    //   변경: "{선정된 AI 스타일리스트 이름}의 추천코디" — 스타일리스트 이름 노출.
+    const _stylistName = (card.stylist && card.stylist.name) ? String(card.stylist.name).trim() : '';
+    const _isEnHdr = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+    let _headerTxt;
+    if(_stylistName){
+      _headerTxt = _isEnHdr ? ('Cody by ' + _stylistName) : (_stylistName + '의 추천코디');
+    }else{
+      _headerTxt = _isEnHdr ? 'Recommended Cody' : '추천코디';
     }
-    const _headerTxt = _city + ' 스타일리스트' + (_conceptShort ? ' / ' + _conceptShort : '');
     const cityEl = $('expandModalCity');
     if(cityEl) cityEl.textContent = _headerTxt;
     // ─── 2026-05-16 KST · TJ 지시 2번 ─── 코디 분석: 캐시 즉시 / 없으면 '분석 중' ───
@@ -12674,11 +12674,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       </div>
       <!-- ─── 2026-05-16 KST · TJ 지시 1.2 ─── 분석 텍스트박스 축소 ─── -->
       <div class="expand-modal-analysis" id="expandModalAnalysis">
-        <!-- 2026-06-19 KST · TJ 지시 (#2) — 보고서 타이틀 (테이블 위, 이미지뷰박스와 분리) -->
-        <div class="expand-modal-analysis-title">
-          <span class="material-symbols-outlined" style="font-size:17px;">description</span>
-          추천 스타일링 보고서
-        </div>
+        <!-- 2026-06-23 KST · TJ 지시 — '추천 스타일링 보고서' 타이틀 삭제 (불필요) -->
         <div class="expand-modal-analysis-header">
           <!-- 한 줄: "서울 스타일리스트 / 주말나들이" -->
           <span id="expandModalCity" class="expand-modal-analysis-city"></span>
