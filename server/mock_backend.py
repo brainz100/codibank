@@ -2253,81 +2253,91 @@ def _temp_bucket(temp: Any) -> str:
 def _purpose_to_style(purpose_key: str, purpose_label: str) -> Tuple[str, str]:
     k = (purpose_key or "").strip()
 
+    # ─── 2026-06-24 KST · TJ 지시 ─── 코디목적 영문 설명 정리(중복·부적합어 제거) ───
+    #   ① 배경/조명어 제거: 배경은 단색 파스텔 스튜디오 강제(이 함수 하단/STEP 규칙)라
+    #      'office lighting / cafe background / outdoor park / exotic / urban street /
+    #      soft warm lighting, intimate atmosphere / studio background' 등은 무의미하고
+    #      오히려 모델이 장면 요소를 끼워넣어 혼선 → 전부 삭제.
+    #   ② 성별 종속 의류 제거: 'dress'(로맨틱) → 남성에 안 맞음. 의류명 대신 격식/핏/팔레트로.
+    #   ③ 목적 간 중복 형용사 정리: trendy/stylish/chic/elegant/suit 가 여러 목적에 산재 →
+    #      각 목적이 의류·핏·팔레트 중심의 고유 시그니처를 갖도록 재서술.
+    #   ④ 로맨틱 데이트: 'dress shirt' 한 단어뿐이라 오피스룩으로 붕괴 → '저녁 약속용 격상된
+    #      스마트캐주얼(따뜻/리치 포인트컬러)'로 명확화. 오피스/정장 톤과 분리.
     _MAP = {
         # 1. 비즈니스 포멀
         "bizFormal": (
             "business formal",
-            "sharp tailored suit, silk tie, polished leather shoes, high-end corporate setting, professional confidence",
+            "a sharp, well-tailored two-piece suit with a crisp shirt and a tie, polished leather dress shoes; the most formal register",
         ),
         # 2. 데일리 오피스룩
         "officeDaily": (
             "daily office look",
-            "smart casual office wear, blazer with slacks, modern professional look, bright office lighting",
+            "smart-casual workwear: a single blazer over a shirt with tailored slacks, refined but relaxed, no tie required",
         ),
         # 3. 면접룩
         "interview": (
             "interview attire",
-            "neat and trustworthy interview attire, navy or charcoal suit, modest accessories, clean and polished aesthetic",
+            "neat, trustworthy interview attire in navy or charcoal, conservative fit, minimal accessories, quietly assured",
         ),
         # 4. 결혼식 하객룩
         "weddingGuest": (
             "wedding guest outfit",
-            "elegant wedding guest outfit, sophisticated semi-formal, pastel or neutral tones, chic guest look",
+            "a refined semi-formal guest ensemble in soft pastel or muted tones, coordinated and celebratory",
         ),
         # 5. 소개팅룩
         "blindDate": (
             "blind date outfit",
-            "charming blind date outfit, clean knitwear and chinos, soft and approachable vibe, cozy cafe background",
+            "an approachable smart-casual look: a fine-gauge knit or a clean shirt with chinos, soft, friendly and tidy",
         ),
         # 6. 로맨틱 데이트룩
         "romanticDate": (
-            "romantic date night",
-            "romantic date night style, stylish dress or dress shirt, soft warm lighting, intimate atmosphere",
+            "romantic date look",
+            "an elevated evening smart-casual look: a refined shirt or fine knit in a warm, rich accent color, well-fitted and put-together for a special night out, polished and personal — deliberately more stylish than office wear",
         ),
         # 7. 상견례/가족모임
         "familyMeet": (
             "formal family gathering",
-            "formal family gathering look, conservative and elegant, modest coat or suit, graceful aesthetic",
+            "a conservative, refined ensemble in classic neutral tones, modest tailoring, respectful and understated",
         ),
         # 8. 사교 모임/파티
         "socialParty": (
             "social party",
-            "trendy social party outfit, statement accessories, vibrant party vibe, stylish evening look",
+            "a dressy evening party outfit with one statement accessory, richer fabrics and a confident, glamorous edge",
         ),
         # 9. 주말 나들이
         "weekendOut": (
             "casual weekend outing",
-            "casual weekend outing, bright colors, outdoor park background, relaxed and natural aesthetic",
+            "a relaxed weekend casual look: comfortable denim or chinos with a soft top, easygoing and natural in bright, fresh colors",
         ),
         # 10. 여행지 인생샷
         "travelShot": (
-            "vacation travel shot",
-            "vacation photography style, resort wear, straw hat, sunglasses, exotic background, travel mood",
+            "vacation travel look",
+            "breezy resort wear: lightweight linen and airy fabrics in vacation-bright tones, effortless holiday styling",
         ),
         # 11. 꾸안꾸 데일리
         "dailyCasual": (
-            "effortless chic daily",
-            "effortless chic, oversized fit, comfortable joggers or denim, natural street style, minimal look",
+            "effortless daily",
+            "an effortless, nonchalant daily look: a relaxed oversized fit with basic staples in easy neutral tones, comfortable and unfussy",
         ),
         # 12. 스포티/애슬레저
         "sporty": (
             "sporty athleisure",
-            "sporty athleisure style, high-tech activewear, stylish leggings and hoodie, athletic vibe",
+            "functional athleisure: technical activewear with joggers and a hoodie or zip-up, sporty and performance-minded",
         ),
         # 13. 공항 패션
         "airport": (
             "airport fashion",
-            "comfortable airport fashion, layered cozy outfit, sunglasses, travel luggage, chic traveler vibe",
+            "comfortable travel layering: soft, cozy separates that work on a long trip, modern and fuss-free",
         ),
         # 14. 미니멀/심플
         "minimal": (
             "minimalist simple",
-            "minimalist simple aesthetic, neutral color palette, clean lines, minimalist studio background",
+            "a minimalist look: a clean achromatic neutral palette, simple lines and uncluttered tailoring",
         ),
         # 15. 트렌디/스트릿
         "streetTrend": (
             "trendy streetwear",
-            "trendy streetwear, graphic t-shirt, hypebeast sneakers, urban city street background",
+            "trendy streetwear: a graphic tee or a bold piece with statement sneakers, urban, current and bold",
         ),
         # 레거시 키 호환
         "commute":      ("smart casual commute", "clean minimal smart-casual outfit suitable for commuting"),
@@ -3158,11 +3168,20 @@ def _ai_styling_via_gemini(
             "VERY COLD (<=0C): a thick coat/padding; a muffler/neck-warmer is appropriate here.",
         ]
     # 보온 아이템(머플러/스카프) 금지는 '추운 척도'에서만, 그것도 이름 1회로 최소 언급.
+    # ─── 2026-06-24 KST · TJ 지시 ─── 온도 게이트 권위 강화(자켓 누수 차단) ───
+    #   문제: 게이트 문구는 옳으나(27°→단일 경량) 한 줄로 묻혀 스타일리스트/페르소나
+    #         '차별화·에디토리얼' 압박에 밀려 자켓이 생성됨.
+    #   변경: 게이트가 스타일리스트·페르소나 시그니처·에디토리얼 본능을 '무효화'한다고
+    #         명시하고, 따뜻/더운 구간(>=23°C)에선 '상의가 곧 가장 바깥 옷'이라는 최종
+    #         착장 상태를 긍정문으로 강제(금지 아이템 이름 나열 없음 — 역효과 방지).
     _temp_gate_block = (
-        f"  → ⚠️ TEMPERATURE GATE (dress for {_t_gate}°C — STRICT, overrides stylist discretion):\n"
+        f"  → ⚠️ TEMPERATURE GATE (dress for {_t_gate}°C — STRICT; this OVERRIDES the stylist, the persona signature, and any editorial/lookbook instinct):\n"
         + "".join(f"     · {ln}\n" for ln in _gate_lines)
-        + "     · Dress strictly for this temperature. Choose items by weather-appropriateness FIRST,\n"
-        "       never add a layer merely because it looks fashionable.\n"
+        + "     · Dress strictly for this temperature. Choose every garment by weather-appropriateness FIRST.\n"
+        + ("     · At this temperature the shirt/top IS the outermost garment: the sleeves and torso are\n"
+           "       fully visible and nothing is worn over the top. Express style through color, fabric and fit.\n"
+           if _t_gate >= 23 else
+           "     · Add an upper layer only if this temperature genuinely calls for one, never merely because it looks fashionable.\n")
     )
 
     # ═══════════════════════════════════════════════════════════════════
@@ -3189,6 +3208,23 @@ def _ai_styling_via_gemini(
         "two separate images.\n"
         "- Each figure approx 85% of image height, centered in its own half "
         "(~7.5% empty margin above the head and below the feet).\n"
+        # ─── 2026-06-24 KST · TJ 지시 ─── 카메라 앵글 고정 (내려찍기 금지 → 살짝 로우앵글) ───
+        #   문제: 위에서 아래로 내려찍은 듯한 하이앵글 → 머리·상체 크고 하체 작게(왜곡)
+        #         생성됨. (얼굴 셀카가 보통 위에서 찍혀 그 앵글로 편향되는 경향)
+        #   변경: 카메라 높이를 피사체 허리~가슴 아래(거의 눈높이)로 두고, 정면 또는
+        #         아주 미세한 로우앵글(살짝 올려찍기)로 강제. 하이앵글/내려보기는 실패로 규정.
+        #         → 다리가 길어 보이고 7.5등신 비율이 화면에서 유지되어 예쁘게 보임.
+        "- CAMERA & VIEWPOINT (CRITICAL): place the camera at the subjects' waist-to-lower-"
+        "chest height and shoot both figures straight-on at eye level — or with a VERY SLIGHT "
+        "low angle (tilted marginally UPWARD). The camera is NEVER above the subjects and "
+        "NEVER tilted downward. (This governs the camera height only; the LEFT figure still "
+        "faces the camera and the RIGHT figure still shows the back as specified above.) "
+        "A high/downward (looking-down) angle that enlarges the head and upper body while "
+        "shrinking the legs and lower body is a CRITICAL FAILURE. This subtle eye-level-to-"
+        "slightly-low framing keeps the legs long and the whole body in correct, flattering "
+        "proportion. No fisheye, no perspective distortion.\n"
+        "- Both figures stand upright and vertical, feet flat on the ground at the bottom "
+        "of the frame; the head sits near the top — full head-to-toe length filling the height.\n"
         "- Background: ONE solid flat pastel color, uniform edge-to-edge; no rooms, "
         "walls, gradients, text, logo, or watermark.\n"
         "- Photorealistic fashion editorial style, professional studio lighting.\n"
@@ -3209,14 +3245,27 @@ def _ai_styling_via_gemini(
         f"EXACT SAME face, body physique, height, weight, BMI, {_head_ratio}-head proportion "
         "and face size in every output, regardless of outfit or background. Do NOT generate "
         "a different model, a different body size, or a different face across images.\n"
+        # ─── 2026-06-24 KST · TJ 지시 ─── 4장 얼굴 100% 동일(복제 작업으로 명시) ───
+        #   문제: 4개 카드가 각각 별도 생성(도시별 병렬 호출)이라 같은 얼굴 사진을 줘도
+        #         모델이 매번 다르게 '재해석' → 4장 얼굴이 제각각.
+        #   변경: 얼굴은 창작이 아니라 '복제(copy)' 작업임을 강하게 명시. 동일 레퍼런스를
+        #         글자 그대로 복사(골격/눈/코/입/턱선/얼굴폭/피부톤)하고, 미화·슬림·노화·
+        #         평균화 금지. 4장 모두(별개 생성이라도) 동일 인물로 인식돼야 함을 강조.
+        "- SAME FACE ACROSS ALL FOUR CARDS (ABSOLUTE): this person is generated four times "
+        "(one per city) as separate images, but the FACE must be the SAME individual every "
+        "time — identical features in all four, as if photographed on the same day. The four "
+        "faces being different from each other is a CRITICAL FAILURE.\n"
         f"- Sex: {'FEMALE' if gender == 'F' else 'MALE'}. Body, physique and silhouette "
         f"MUST be {'female' if gender == 'F' else 'male'} — never the opposite sex, even "
         "if the outfit style is traditionally for the other sex.\n"
         f"- Age: {age} | Body: {h_int}cm, {w_int}kg, BMI {bmi} ({bmi_cat_ko}) | "
         f"Body type: {body_type_key or 'standard'}\n"
-        "- Face (99.9% identity): replicate the FIRST reference image with 99.9% accuracy — "
-        "the generated face MUST be unmistakably the SAME person (jawline, eye shape, "
-        "eyebrows, nose, lips, face contour, skin tone). No beautification, no idealization.\n"
+        "- Face (99.9% identity — this is a COPY task, NOT a creative one): reproduce the "
+        "FIRST reference image's face EXACTLY — same bone structure, eye shape and spacing, "
+        "eyebrows, nose, lips, jawline, face width/contour and skin tone. Do NOT beautify, "
+        "slim, age, average, prettify, or otherwise alter the face. The generated face must "
+        "be unmistakably the SAME real individual as the reference, recognizable to people "
+        "who know them. Treat the reference face as ground truth to be copied, not restyled.\n"
         "- HAIR: use the hairstyle visible in the user's reference photo (length, parting, "
         "color, texture). If no face reference is provided, keep a single consistent "
         "hairstyle across images. The FACE and BODY stay identical in all images.\n"
@@ -3269,8 +3318,10 @@ def _ai_styling_via_gemini(
            if _stylist_color1 else "")
         + (f"- Direction: {(custom_directive + prompt).strip()[:1500]}\n"
            if (custom_directive + prompt).strip() else "")
-        + "- Rule: a different stylist or city MUST yield a visibly different outfit; "
-        "never a generic, safe, default look.\n"
+        + "- Rule: a different stylist or city MUST yield a visibly different outfit. "
+        "Differentiate through COLOR, pattern, fabric, fit and silhouette — NOT by adding warm "
+        "layers that the TEMPERATURE GATE below disallows. Weather-appropriateness always "
+        "outranks the urge to look distinctive.\n"
 
         + "\n# TPO\n"
         f"- Purpose: {purpose_for_analysis}\n"
