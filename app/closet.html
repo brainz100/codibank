@@ -3594,20 +3594,30 @@ console.info('[CodiBank] closet build: v44 (2026-05-09) · isGuest=' + (!!user.i
 // ── 16개 코디 목적 (TJ v44 정정 — 이전 주석 "10개"는 구버전 잔존 표기) ──
 //   비즈니스/오피스(3) · 격식 모임(2) · 데이트(2) · 가족(1) · 파티(1) ·
 //   주말·여행(3) · 데일리·스트릿(3) · 직접입력(1) = 총 16개
+// ─── 2026-06-24 KST · TJ 지시 ─── 코디목적 kw(기준 단어) 중복·부적합어 정리 ───
+//   배경: kw 가 payload.keywords 로 전송되고 화면 키워드·캐시 키에도 쓰임.
+//   ① 중복 제거: '스트릿'(꾸안꾸·스트릿), '트렌디'(파티·스트릿), '슬랙스'(오피스·소개팅),
+//      '우아/우아함'(하객·상견례), '세미정장/세미포멀' 근접중복 → 목적별로 1곳에만 둠.
+//   ② 부적합어 제거:
+//      · '드레스'(로맨틱), '원피스'(하객) — 남성에겐 안 맞는 성별 종속 의류 → 제거.
+//      · '감성'(로맨틱) — 너무 추상적이라 구체 아이템 단서가 없음 → '시크/포인트컬러'로.
+//      · '야외/공원'(주말), '이국적'(여행) — 배경어인데 배경은 단색 파스텔 강제라 무의미.
+//      · '인생샷'(여행) — 사진 컨셉어(의류 아님), '레깅스'(스포티) — 성별 종속 → 교체.
+//   ③ 각 목적이 의류/실루엣/팔레트 중심의 서로 겹치지 않는 단어 4개를 갖도록 재구성.
 const PURPOSES = [
-  {key:'bizFormal',    label:'비즈니스 포멀',   labelEn:'Business Formal',   icon:'business_center', kw:['비즈니스','포멀','수트','프로페셔널']},
-  {key:'officeDaily',  label:'데일리 오피스룩', labelEn:'Daily Office', icon:'work',             kw:['오피스','세미정장','블레이저','슬랙스']},
-  {key:'interview',    label:'면접룩',          labelEn:'Interview',          icon:'badge',           kw:['면접','단정','네이비','그레이']},
-  {key:'weddingGuest', label:'결혼식 하객룩',   labelEn:'Wedding Guest',   icon:'celebration',     kw:['하객룩','원피스','세미포멀','우아함']},
-  {key:'blindDate',    label:'소개팅룩',         labelEn:'Blind Date',         icon:'favorite',        kw:['소개팅','니트','슬랙스','호감']},
-  {key:'romanticDate', label:'로맨틱 데이트룩', labelEn:'Romantic Date', icon:'favorite_border', kw:['데이트','로맨틱','드레스','감성']},
-  {key:'familyMeet',   label:'상견례/가족모임', labelEn:'Family Gathering', icon:'family_restroom', kw:['상견례','보수적','우아','단아']},
-  {key:'socialParty',  label:'사교 모임/파티',  labelEn:'Social / Party',  icon:'groups',          kw:['파티','트렌디','액세서리','모임']},
-  {key:'weekendOut',   label:'주말 나들이',      labelEn:'Weekend Outing',      icon:'weekend',         kw:['주말','캐주얼','야외','공원']},
-  {key:'travelShot',   label:'여행지 인생샷',   labelEn:'Travel Photo',   icon:'flight',          kw:['여행','휴양지','이국적','인생샷']},
-  {key:'dailyCasual',  label:'꾸안꾸 데일리',   labelEn:'Effortless Daily',   icon:'style',           kw:['꾸안꾸','오버사이즈','스트릿','자연스러움']},
-  {key:'sporty',       label:'스포티/애슬레저', labelEn:'Sporty / Athleisure', icon:'fitness_center',  kw:['스포티','애슬레저','운동복','레깅스']},
-  {key:'airport',      label:'공항 패션',        labelEn:'Airport Fashion',        icon:'luggage',         kw:['공항','레이어드','편안','여행자']},
+  {key:'bizFormal',    label:'비즈니스 포멀',   labelEn:'Business Formal',   icon:'business_center', kw:['비즈니스','수트','타이','격식']},
+  {key:'officeDaily',  label:'데일리 오피스룩', labelEn:'Daily Office', icon:'work',             kw:['오피스','블레이저','슬랙스','세미정장']},
+  {key:'interview',    label:'면접룩',          labelEn:'Interview',          icon:'badge',           kw:['면접','단정','네이비','차분']},
+  {key:'weddingGuest', label:'결혼식 하객룩',   labelEn:'Wedding Guest',   icon:'celebration',     kw:['하객','셋업','우아','파스텔']},
+  {key:'blindDate',    label:'소개팅룩',         labelEn:'Blind Date',         icon:'favorite',        kw:['소개팅','니트','깔끔','호감']},
+  {key:'romanticDate', label:'로맨틱 데이트룩', labelEn:'Romantic Date', icon:'favorite_border', kw:['데이트','로맨틱','시크','포인트컬러']},
+  {key:'familyMeet',   label:'상견례/가족모임', labelEn:'Family Gathering', icon:'family_restroom', kw:['상견례','보수적','단아','클래식']},
+  {key:'socialParty',  label:'사교 모임/파티',  labelEn:'Social / Party',  icon:'groups',          kw:['파티','화려','액세서리','이브닝']},
+  {key:'weekendOut',   label:'주말 나들이',      labelEn:'Weekend Outing',      icon:'weekend',         kw:['주말','캐주얼','데님','릴랙스']},
+  {key:'travelShot',   label:'여행지 인생샷',   labelEn:'Travel Photo',   icon:'flight',          kw:['여행','휴양','린넨','리조트']},
+  {key:'dailyCasual',  label:'꾸안꾸 데일리',   labelEn:'Effortless Daily',   icon:'style',           kw:['꾸안꾸','오버사이즈','베이직','자연스러움']},
+  {key:'sporty',       label:'스포티/애슬레저', labelEn:'Sporty / Athleisure', icon:'fitness_center',  kw:['스포티','애슬레저','기능성','조거']},
+  {key:'airport',      label:'공항 패션',        labelEn:'Airport Fashion',        icon:'luggage',         kw:['공항','레이어드','편안','모던']},
   {key:'minimal',      label:'미니멀/심플',      labelEn:'Minimal / Simple',      icon:'fiber_manual_record', kw:['미니멀','무채색','심플','클린']},
   {key:'streetTrend',  label:'트렌디/스트릿',   labelEn:'Trendy / Street',   icon:'local_fire_department', kw:['스트릿','트렌디','그래픽','스니커즈']},
   {key:'custom',       label:'직접입력',          labelEn:'Custom Input',          icon:'edit',            kw:['맞춤']},
@@ -5087,12 +5097,30 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   };
 
   // TPO 매핑
+  // ─── 2026-06-24 KST · TJ 지시 ─── 신규 15개 코디목적 키 → 페르소나 풀 재매핑 ───
+  //   문제: 기존 매핑이 레거시 키(commute/business/meet/blindDate/partyLook/…) 기준이라
+  //         현재 15개 신규 키(bizFormal/officeDaily/romanticDate/socialParty/…) 대부분이
+  //         어디에도 안 걸려 'custom'(범용 스마트캐주얼·블레이저 풀)로 폴백 →
+  //         로맨틱데이트·하객·상견례·파티·여행 등이 전부 '데일리 오피스룩'처럼 보이던
+  //         근본 원인. (정상 매핑은 blindDate→social, weekendOut→weekendOut 둘뿐이었음)
+  //   변경: 신규 키를 의미에 맞는 풀로 직접 매핑.
+  //         포멀(비즈/면접/하객/상견례)→business · 데이트/소개팅/파티/스트릿→social ·
+  //         오피스→commute · 여행지(리조트)→overseasTrip · 공항(여행레이어링)→weekendTrip ·
+  //         꾸안꾸/스포티/미니멀/직접입력→custom. (레거시 키도 계속 지원)
   const tpoKey = (()=>{
-    if(pk==='commute'||pk==='business') return pk;
-    if(pk==='meet'||pk==='blindDate'||pk==='partyLook') return 'social';
+    // 포멀/격식 — 정장·수트 풀
+    if(pk==='bizFormal'||pk==='interview'||pk==='weddingGuest'||pk==='familyMeet'||pk==='business') return 'business';
+    // 오피스(스마트캐주얼) 풀
+    if(pk==='officeDaily'||pk==='commute') return 'commute';
+    // 데이트·소개팅·파티·스트릿(트렌디/감각) 풀
+    if(pk==='romanticDate'||pk==='blindDate'||pk==='socialParty'||pk==='streetTrend'||pk==='meet'||pk==='partyLook') return 'social';
+    // 주말 나들이 풀
     if(pk==='weekendOut') return 'weekendOut';
-    if(pk==='weekendTrip'||pk==='domesticTrip') return 'weekendTrip';
-    if(pk==='overseasTrip') return 'overseasTrip';
+    // 공항(여행 레이어링) 풀
+    if(pk==='airport'||pk==='weekendTrip'||pk==='domesticTrip') return 'weekendTrip';
+    // 여행지(리조트/휴양) 풀
+    if(pk==='travelShot'||pk==='overseasTrip') return 'overseasTrip';
+    // 꾸안꾸·스포티·미니멀·직접입력 등 → 범용 스마트캐주얼 풀
     return 'custom';
   })();
   const personas = PERSONA_DB[tpoKey] || PERSONA_DB.commute;
@@ -5798,27 +5826,50 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   // ─── 2026-05-09 KST · TJ 지시 ─── 날짜/날씨 명시화 강화
   //   원인: 기존 weatherNote는 온도+날씨 텍스트만 있어 AI가 "오늘"로 인식하기 쉬움.
   //         사용자가 미래 날짜를 선택해도 같은 패턴의 코디가 나오는 문제 발생.
-  //   변경: 날짜 라벨(dLab)과 최고온도(tempMax)까지 명시해 AI가 그 날짜의 날씨에 맞는
-  //         코디를 생성하도록 강화. tempMax는 옷차림 결정의 핵심 지표.
-  const _tMaxRaw = (wx && Number.isFinite(Number(wx.tempMax))) ? Math.round(Number(wx.tempMax)) : null;
-  const _tMaxTxt = _tMaxRaw !== null ? (_tMaxRaw + '°') : '';
+  //   변경: 날짜 라벨(dLab)과 온도까지 명시해 AI가 그 날짜의 날씨에 맞는 코디를 생성.
+  // ─── 2026-06-24 KST · TJ 지시 ─── 프롬프트 온도 = 코디 기준온도(고점−2°C)로 통일 ───
+  //   문제: weatherNote가 예보 '최고온도(고점)'를 그대로 노출(예 29°)하고
+  //         "the actual high temperature"에 맞추라고 지시 → 백엔드 게이트가 쓰는
+  //         기준온도(payload.weather.temp = 고점−2 = 27°)와 충돌. 고점 자체에 맞추라는
+  //         지시가 한낮 고점 기준 과한 레이어(자켓)를 유발하는 한 원인.
+  //   변경: payload.weather.temp 와 동일한 '코디 기준온도(고점−2°C)'를 프롬프트 온도로
+  //         노출하고, 옷차림은 이 기준온도에 맞춘다(고점 자체가 아님)고 통일.
+  const _tMaxRaw  = (wx && Number.isFinite(Number(wx.tempMax))) ? Math.round(Number(wx.tempMax)) : null;
+  const _tBaseRaw = (_tMaxRaw !== null) ? (_tMaxRaw - 2)
+                    : ((wx && Number.isFinite(Number(wx.temp))) ? Math.round(Number(wx.temp)) : null);
+  const _tBaseTxt = _tBaseRaw !== null ? (_tBaseRaw + '°') : '';
   const _dayPhrase = dLab
     ? (dLab === '오늘' ? 'TODAY' : (dLab === '내일' ? 'TOMORROW' : ('the date ' + dLab)))
     : 'today';
   const weatherNote = (() => {
     const parts = [];
     parts.push(`Target date: ${_dayPhrase}.`);
-    if(_tMaxTxt) parts.push(`Daytime high temperature: ${_tMaxTxt}.`);
+    if(_tBaseTxt) parts.push(`Dressing temperature: ${_tBaseTxt} (daytime activity basis).`);
     else if(tTxt) parts.push(`Temperature: ${tTxt}.`);
     if(wxTxt) parts.push(`Weather: ${wxTxt}.`);
-    parts.push('The outfit MUST be appropriate for THIS specific date and weather — layering, fabric weight, and accessories must reflect the actual high temperature listed above.');
+    parts.push('The outfit MUST suit THIS dressing temperature — fabric weight and layering must match this exact temperature, not a colder reading.');
     return parts.join(' ');
   })();
+  // ─── 2026-06-24 KST · TJ 지시 ─── 체형 보정 팁의 아우터/코트 표현을 온도로 게이트 ───
+  //   문제: 체형 보정 문구가 온도 무관하게 'V-neck outerwear / cropped outerwear /
+  //         long coat' 등 아우터·코트를 지시 → 따뜻한 날(예 27°)에도 자켓/코트 생성 유발.
+  //   변경: 20°C 이상이면 아우터 없이 같은 효과를 내는 표현(다크 하의/세로 라인/
+  //         하이웨이스트/풀렝스 팬츠)으로 대체. 20°C 미만은 기존 표현 유지.
+  //         (보온 아이템 이름을 나열하지 않는 긍정문 — 금지어 역효과 방지)
+  const _warmNoOuter = Number.isFinite(nt) && nt >= 20;
   const bodyFlawPrompt = bodyType ? (
-    (bodyType.tag==='비만형'||bodyType.tag==='통통형') ? 'Use dark-toned bottoms and structured V-neck outerwear to slim the silhouette.' :
-    bodyType.tag==='마른형' ? 'Use layered textured fabrics to add volume.' :
-    bodyType.tag==='단신형' ? 'Use cropped outerwear with high-waist pants to elongate legs.' :
-    bodyType.tag==='장신형' ? 'Use long coat with full-length trousers for perfect proportions.' : ''
+    (bodyType.tag==='비만형'||bodyType.tag==='통통형')
+      ? (_warmNoOuter ? 'Use dark-toned bottoms and a clean vertical-line single top (worn on its own) to slim the silhouette.'
+                      : 'Use dark-toned bottoms and structured V-neck outerwear to slim the silhouette.') :
+    bodyType.tag==='마른형'
+      ? (_warmNoOuter ? 'Use a lightweight textured single-layer top to add gentle volume.'
+                      : 'Use layered textured fabrics to add volume.') :
+    bodyType.tag==='단신형'
+      ? (_warmNoOuter ? 'Tuck the top into high-waist full-length pants to elongate the legs.'
+                      : 'Use cropped outerwear with high-waist pants to elongate legs.') :
+    bodyType.tag==='장신형'
+      ? (_warmNoOuter ? 'Pair a balanced single top with full-length trousers for perfect proportions.'
+                      : 'Use long coat with full-length trousers for perfect proportions.') : ''
   ) : '';
 
   // ── custom(직접입력)일 때 imagePrompt를 사용자 요청 중심으로 완전 재생성
@@ -5852,7 +5903,15 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     !_skipBag ? `[6] BAG: ${_extSpec.bag.en}.` : '',
     !_skipWatch ? `[7] WATCH: ${_extSpec.watch.en}.` : '',
     `[8] SOCKS: ${_extSpec.socks.en}. CRITICAL: Both left AND right socks must be IDENTICAL — same color and same pattern on both feet. Mismatched socks (different colors per foot) are STRICTLY FORBIDDEN.`,
-    `Style: ${persona.en} persona. Silhouette: ${persona.layerStyle}.`,
+    // ─── 2026-06-24 KST · TJ 지시 ─── Silhouette(페르소나 layerStyle) 온도 게이트 ───
+    //   문제: persona.layerStyle 이 '네이비블레이저+카키치노'처럼 자켓/코트/수트를 거의
+    //         항상 포함 → 온도와 무관하게 프롬프트에 노출되어 27°에도 자켓이 생성됨.
+    //         (categoryKeywords·[1]OUTERWEAR 라인은 이미 nt>=20에서 제외되는데 이 줄만 누락)
+    //   변경: 20°C 이상이면 layerStyle 대신 '단일 경량 상의'를 긍정문으로 명시
+    //         (보온 아이템 이름을 나열하지 않음 — 금지어 역효과 방지). 20°C 미만 기존 유지.
+    (Number.isFinite(nt) && nt >= 20)
+      ? `Style: ${persona.en} persona — express the persona through color, fit and fabric, NOT through extra layers. Silhouette: a single light top worn on its own (a short-sleeve or thin long-sleeve shirt); the sleeves and torso are fully visible with nothing worn over the top.`
+      : `Style: ${persona.en} persona. Silhouette: ${persona.layerStyle}.`,
     bodyFlawPrompt||'',
     'POSE: Natural, relaxed standing pose. Frontal view, slight smile. Both feet on the ground, weight balanced. NO awkward, exaggerated, or unnatural poses. NO sitting, NO leaning, NO jumping.',
     'BACKGROUND (ABSOLUTE MANDATORY — MOST IMPORTANT RULE): The background must be a SINGLE SOLID FLAT PASTEL COLOR that CONTRASTS with the outfit to make the clothing clearly visible. If the outfit is dark, use a lighter pastel (cream, pale pink, light mint). If the outfit is light, use a slightly deeper pastel (soft lavender, muted sky blue, warm peach). The background must be completely uniform and flat edge to edge — like professional studio backdrop paper. ABSOLUTELY NO room, NO street, NO wall, NO floor, NO gradient, NO pattern, NO objects, NO scenery, NO environment. ONLY ONE FLAT SOLID PASTEL COLOR.',
