@@ -13515,6 +13515,10 @@ def runway_generate():
             #   보강: ①턴 시 머리·목·어깨·몸통 일체 회전(머리는 항상 가슴과 같은 방향),
             #         ②몸이 후면일 때는 뒤통수·머리카락만 보이고 얼굴 노출 절대 금지
             #         (어깨 너머 돌아보기 금지) 문장 2개를 가동범위 제약 직후 추가.
+            # ─── 2026-06-24 KST · TJ 지시 (v27) ─── 영상 중 얼굴/체형 변형 차단 보강(추가만) ───
+            #   증상: 이미지→영상 생성 시 가끔 얼굴(때로 체형)이 원본과 다른 사람으로 바뀜.
+            #   보강: FRONT 이미지의 얼굴·체형을 99.9% 동일하게 '모든 프레임' 보존(미화·슬림·
+            #         교체·프레임간 드리프트 금지)하는 문장 2개를 'remain identical' 직후 추가.
             seedance_prompt = prompt_in or (
                 "Use the FRONT image as the starting appearance and the BACK image as the reference for the rear outfit details.\n"
                 "A realistic fashion runway presentation of the same person.\n"
@@ -13531,6 +13535,8 @@ def runway_generate():
                 "Always keep the model's entire body, from the top of the head to the feet, fully inside the frame at all times; keep a full-body shot and never crop the head or feet, and never zoom in closer than a full-body view, even while the model walks toward the camera.\n"
                 "While walking — both when walking toward the camera and when walking away — both hands are always out of the pockets and the arms swing naturally with the steps. The hands may rest in the pockets only while standing still during a pause, and must be taken out again before walking. Never walk with the hands in the pockets.\n"
                 "The person must remain identical throughout the entire sequence.\n"
+                "The model's face and body are taken directly from the FRONT image and MUST be preserved with 99.9% identity in every single frame: keep the exact same face — same facial bone structure, same eye shape and spacing, same eyebrows, same nose, same lips, same jawline, same face shape and the same skin tone — and the exact same body type, build, height and proportions as shown in the FRONT image.\n"
+                "This is the same real individual as in the FRONT image; only animate this person. NEVER beautify, slim, fatten, age, restyle, average, regenerate or replace the face or the body with a different-looking person, and never let the facial features drift between frames. A changing, morphing or different face or body at any point in the video is a CRITICAL FAILURE.\n"
                 "Preserve all clothing details, silhouette, colors, textures, accessories, and proportions exactly.\n"
                 "The front view must match the front reference image.\n"
                 "The back view must match the back reference image.\n"
@@ -13555,7 +13561,7 @@ def runway_generate():
                 "High-end commercial fashion video."
             )
             # 2026-06-02 KST · TJ — 배포본이 실제 어느 프롬프트인지 로그로 확인 (배포 지연 진단용)
-            print(f"[runway_generate] 프롬프트 버전: v26 | override(prompt_in)={'Y' if prompt_in else 'N'} | 길이={len(seedance_prompt)}자", flush=True)
+            print(f"[runway_generate] 프롬프트 버전: v27 | override(prompt_in)={'Y' if prompt_in else 'N'} | 길이={len(seedance_prompt)}자", flush=True)
 
             # 3) BytePlus 비디오 생성 요청
             create_url = "https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks"
