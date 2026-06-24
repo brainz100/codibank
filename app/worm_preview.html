@@ -1,0 +1,172 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>물결 지렁이 — 미리보기</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@800&display=swap">
+<style>
+  html,body{margin:0;background:#0a1428;color:#cfe;font-family:'Manrope',system-ui,sans-serif;}
+  .stage{max-width:480px;margin:0 auto;padding:40px 24px;}
+  .panel{background:radial-gradient(120% 100% at 50% 0%,rgba(20,40,70,.6),rgba(7,16,34,.95));border:1px solid rgba(151,254,237,.12);border-radius:18px;padding:42px 22px 34px;display:flex;flex-direction:column;align-items:center;gap:14px;}
+  .rwt{font-size:30px;font-weight:900;letter-spacing:.04em;background:linear-gradient(90deg,#ff3366,#ff8c00,#ffd700,#00ff7f,#00d4ff,#5b6cff,#c264ff,#ff3366);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .note{font-size:12px;color:#6b7c98;letter-spacing:.4px;margin:18px 4px 8px;text-align:center;}
+  .ctrl{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:18px;}
+  .ctrl input{width:220px;} .ctrl button{background:#13332f;color:#97FEED;border:1px solid rgba(151,254,237,.3);border-radius:8px;padding:6px 12px;font-weight:800;cursor:pointer;}
+.rw-loading-worm-row {
+  width: 84%;
+  max-width: 300px;
+  /* 2026-06-10 KST · TJ 지시 (#3) — % 텍스트를 막대 오른쪽 끝 '위에 겹치게' absolute 배치 기준 */
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+}
+.rw-loading-worm {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  overflow: visible;
+  filter: drop-shadow(0 0 7px rgba(151, 254, 237, 0.45));
+}
+.rw-worm-line {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.rw-worm-body path {
+  /* 2026-06-18 KST · TJ 지시 — 테이퍼 몸통: 세그먼트별 stroke-width 는 JS 가 부여.
+     색은 그라디언트 공유, 끝단은 둥글게. */
+  fill: none;
+  stroke: url(#rwWormGrad);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.rw-loading-worm-pct {
+  /* 2026-06-10 KST · TJ 지시 (#3) — 막대 라인 오른쪽 끝, 라인 바로 위에 겹쳐서 표시 */
+  position: absolute;
+  right: 0;
+  bottom: 50%;
+  margin-bottom: 4px;       /* 중앙선(라인) 위로 살짝 띄워 겹침 */
+  font-family: 'Manrope', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #97FEED;
+  text-align: right;
+  text-shadow: 0 0 8px rgba(151, 254, 237, 0.45);
+  pointer-events: none;
+}
+
+</style></head>
+<body>
+<div class="stage">
+  <div class="note">물결 지렁이 미리보기 · runway.html 실제 CSS/SVG/드로잉 그대로<br>(점선 제거 · 시작→머리 색 변화 · 머리가 라인 먹는 입)</div>
+  <div class="panel">
+    <div class="rwt">runway</div>
+    <div class="rw-loading-worm-row">
+      <svg class="rw-loading-worm" id="rwWormSvg" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <!-- 2026-06-24 KST · TJ 지시 (#1,#2) — userSpaceOnUse 로 전환(세그먼트별 색램프
+                   반복으로 생기던 '점선/줄무늬' 제거) + 꼬리(딥틸)→머리(밝은 시안) 단일 램프.
+                   x2 는 _rwDrawWorm 이 매 프레임 머리 위치(head)로 갱신. -->
+              <linearGradient id="rwWormGrad" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="300" y2="20">
+                <stop offset="0%"   stop-color="#0E5D58"/>
+                <stop offset="55%"  stop-color="#35A29F"/>
+                <stop offset="100%" stop-color="#97FEED"/>
+              </linearGradient>
+            </defs>
+            <path class="rw-worm-line" id="rwWormLine" d="M0 20 L300 20"/>
+            <!-- 2026-06-18 KST · TJ 지시 — 몸통: 머리가 굵고 꼬리로 갈수록 자연스럽게 가늘어지는
+                 테이퍼 형태. 단일 path는 굵기 변화 불가 → 구간별 stroke-width 세그먼트 그룹으로 그림.
+                 (기존 원형 머리 circle 제거) -->
+            <g class="rw-worm-body" id="rwWormBody"></g>
+          </svg>
+      <span class="rw-loading-worm-pct" id="rwWormPct">0%</span>
+    </div>
+  </div>
+  <div class="ctrl">
+    <button id="autoBtn">자동 0→100 반복</button>
+    <input id="sld" type="range" min="0" max="100" value="0">
+    <span id="lbl" style="color:#97FEED;font-weight:800;">0%</span>
+  </div>
+</div>
+<script>
+const RW_HEAD_W = 7.5;   // 머리 굵기(px)
+  const RW_TAIL_W = 1.2;   // 꼬리 굵기(px)
+  function _rwDrawWorm(pct, phase) {
+    const bodyG = document.getElementById('rwWormBody');
+    const line = document.getElementById('rwWormLine');
+    const pctEl = document.getElementById('rwWormPct');
+    if (!bodyG || !line) return;
+    const W = 300, MID = 20, WAVELEN = 36, AMP_MAX = 16, ENV_DIV = 1.12, STEP = 3;
+    const p = Math.max(0, Math.min(100, pct));
+    const head = (p / 100) * W;
+    // ─── 2026-06-24 KST · TJ 지시 (#1,#2) ─── 점선(세그먼트별 그라디언트 반복) 제거 +
+    //   '시작→머리' 컬러 변화: 그라디언트(userSpaceOnUse)의 x 범위를 0→머리(head)로 매
+    //   프레임 맞춰, 몸 전체에 한 번의 매끈한 색램프(꼬리 딥틸 → 머리 밝은 시안)를 적용.
+    const _grad = document.getElementById('rwWormGrad');
+    if (_grad) { _grad.setAttribute('x1', '0'); _grad.setAttribute('x2', String(Math.max(1, head))); }
+    const amp = AMP_MAX * (p / 100);          // 진행률 비례 진폭
+    // 엔벨로프: 중간 최고·양쪽 경사, 머리에서도 sin(π/1.12)≈0.33 진폭 유지(머리 출렁임용)
+    const env = function (x) { return Math.sin(Math.PI * x / (head * ENV_DIV)); };
+    const yAt = function (x) {
+      return MID + amp * env(x) * Math.sin(((head - x) * 2 * Math.PI) / WAVELEN + phase);
+    };
+    if (head < 1) {
+      bodyG.innerHTML = '';
+      line.setAttribute('d', 'M0 ' + MID + ' L' + W + ' ' + MID);
+      if (pctEl) pctEl.textContent = Math.round(p) + '%';
+      return;
+    }
+    // 점 샘플링 (꼬리 x=0 → 머리 x=head)
+    const pts = [];
+    for (let x = 0; x < head; x += STEP) pts.push([x, yAt(x)]);
+    pts.push([head, yAt(head)]);
+    // 인접 점들을 세그먼트로 잇되, 머리(끝)로 갈수록 굵게(테이퍼).
+    //   t=0(꼬리)→RW_TAIL_W, t=1(머리)→RW_HEAD_W. 살짝 ease 로 머리 쪽 볼륨감 강조.
+    let svg = '';
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const t = (b[0] / head);                 // 머리 쪽 위치 비율(0~1)
+      const w = RW_TAIL_W + (RW_HEAD_W - RW_TAIL_W) * (t * t * (3 - 2 * t)); // smoothstep
+      svg += '<path d="M' + a[0].toFixed(1) + ' ' + a[1].toFixed(2) +
+             ' L' + b[0].toFixed(1) + ' ' + b[1].toFixed(2) +
+             '" stroke-width="' + w.toFixed(2) + '"/>';
+    }
+    // ─── 2026-06-24 KST · TJ 지시 (#3) ─── 머리가 직선(남은 구간)을 먹어치우는 팩맨 입 ───
+    //   머리 지점(중앙선)에 입이 +x(직선 방향)로 벌어졌다 닫혔다 하는 팩맨을 몸통 위에 그려,
+    //   진행하며 라인을 '먹는' 느낌을 준다. 입 반각이 sin 으로 진동(닫힘↔열림). 채움색은
+    //   몸통 그라디언트 끝색과 동일한 밝은 시안. (rwWormBody 가 직선보다 위 z-order → 라인을 덮음)
+    (function(){
+      const R = 7.6, cx = head, cy = MID;
+      const chew = 0.5 + 0.5 * Math.sin(Date.now() / 120);   // 0(닫힘)~1(열림)
+      const th = 0.06 + (0.62 - 0.06) * chew;                // 입 반각(rad, ~3.4°~38°)
+      const ex = (cx + R * Math.cos(th)).toFixed(2);
+      const topY = (cy - R * Math.sin(th)).toFixed(2);
+      const botY = (cy + R * Math.sin(th)).toFixed(2);
+      svg += '<path d="M' + cx.toFixed(2) + ' ' + cy.toFixed(2) +
+             ' L' + ex + ' ' + topY +
+             ' A' + R + ' ' + R + ' 0 1 0 ' + ex + ' ' + botY + ' Z"' +
+             ' style="fill:#97FEED;stroke:none"/>';
+    })();
+    bodyG.innerHTML = svg;
+    line.setAttribute('d', 'M' + head.toFixed(1) + ' ' + MID + ' L' + W + ' ' + MID);
+    if (pctEl) pctEl.textContent = Math.round(p) + '%';
+  }
+function _rwWormLoop() {
+    const phase = ((Date.now() % 100000) / 170);        // 머리에서 발생한 파동이 꼬리로 흐르는 위상
+    _rwDrawWorm(_rwWormPctVal, phase);
+    _rwWormRaf = requestAnimationFrame(_rwWormLoop);
+  }
+  let _rwWormPctVal = 0, _rwWormRaf=null, auto=true, dir=1;
+  const sld=document.getElementById('sld'), lbl=document.getElementById('lbl'), autoBtn=document.getElementById('autoBtn');
+  function tick(){
+    if(auto){ _rwWormPctVal += dir*0.4; if(_rwWormPctVal>=100){_rwWormPctVal=100;dir=-1;} if(_rwWormPctVal<=0){_rwWormPctVal=0;dir=1;} sld.value=_rwWormPctVal; }
+    lbl.textContent=Math.round(_rwWormPctVal)+'%';
+  }
+  setInterval(tick,40);
+  function _loop(){ const phase=((Date.now()%100000)/170); _rwDrawWorm(_rwWormPctVal, phase); _rwWormRaf=requestAnimationFrame(_loop); }
+  _loop();
+  sld.addEventListener('input',()=>{ auto=false; autoBtn.textContent='자동 0→100 반복'; _rwWormPctVal=+sld.value; });
+  autoBtn.addEventListener('click',()=>{ auto=!auto; autoBtn.textContent= auto?'정지':'자동 0→100 반복'; });
+</script>
+</body></html>

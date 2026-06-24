@@ -1229,10 +1229,13 @@ body::before {
         <div class="rw-loading-worm-row">
           <svg class="rw-loading-worm" id="rwWormSvg" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true">
             <defs>
-              <linearGradient id="rwWormGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%"   stop-color="#35A29F"/>
-                <stop offset="55%"  stop-color="#97FEED"/>
-                <stop offset="100%" stop-color="#c264ff"/>
+              <!-- 2026-06-24 KST · TJ 지시 (#1,#2) — userSpaceOnUse 로 전환(세그먼트별 색램프
+                   반복으로 생기던 '점선/줄무늬' 제거) + 꼬리(딥틸)→머리(밝은 시안) 단일 램프.
+                   x2 는 _rwDrawWorm 이 매 프레임 머리 위치(head)로 갱신. -->
+              <linearGradient id="rwWormGrad" gradientUnits="userSpaceOnUse" x1="0" y1="20" x2="300" y2="20">
+                <stop offset="0%"   stop-color="#0E5D58"/>
+                <stop offset="55%"  stop-color="#35A29F"/>
+                <stop offset="100%" stop-color="#97FEED"/>
               </linearGradient>
             </defs>
             <path class="rw-worm-line" id="rwWormLine" d="M0 20 L300 20"/>
@@ -1387,6 +1390,11 @@ body::before {
     const W = 300, MID = 20, WAVELEN = 36, AMP_MAX = 16, ENV_DIV = 1.12, STEP = 3;
     const p = Math.max(0, Math.min(100, pct));
     const head = (p / 100) * W;
+    // ─── 2026-06-24 KST · TJ 지시 (#1,#2) ─── 점선(세그먼트별 그라디언트 반복) 제거 +
+    //   '시작→머리' 컬러 변화: 그라디언트(userSpaceOnUse)의 x 범위를 0→머리(head)로 매
+    //   프레임 맞춰, 몸 전체에 한 번의 매끈한 색램프(꼬리 딥틸 → 머리 밝은 시안)를 적용.
+    const _grad = document.getElementById('rwWormGrad');
+    if (_grad) { _grad.setAttribute('x1', '0'); _grad.setAttribute('x2', String(Math.max(1, head))); }
     const amp = AMP_MAX * (p / 100);          // 진행률 비례 진폭
     // 엔벨로프: 중간 최고·양쪽 경사, 머리에서도 sin(π/1.12)≈0.33 진폭 유지(머리 출렁임용)
     const env = function (x) { return Math.sin(Math.PI * x / (head * ENV_DIV)); };
@@ -1414,6 +1422,22 @@ body::before {
              ' L' + b[0].toFixed(1) + ' ' + b[1].toFixed(2) +
              '" stroke-width="' + w.toFixed(2) + '"/>';
     }
+    // ─── 2026-06-24 KST · TJ 지시 (#3) ─── 머리가 직선(남은 구간)을 먹어치우는 팩맨 입 ───
+    //   머리 지점(중앙선)에 입이 +x(직선 방향)로 벌어졌다 닫혔다 하는 팩맨을 몸통 위에 그려,
+    //   진행하며 라인을 '먹는' 느낌을 준다. 입 반각이 sin 으로 진동(닫힘↔열림). 채움색은
+    //   몸통 그라디언트 끝색과 동일한 밝은 시안. (rwWormBody 가 직선보다 위 z-order → 라인을 덮음)
+    (function(){
+      const R = 7.6, cx = head, cy = MID;
+      const chew = 0.5 + 0.5 * Math.sin(Date.now() / 120);   // 0(닫힘)~1(열림)
+      const th = 0.06 + (0.62 - 0.06) * chew;                // 입 반각(rad, ~3.4°~38°)
+      const ex = (cx + R * Math.cos(th)).toFixed(2);
+      const topY = (cy - R * Math.sin(th)).toFixed(2);
+      const botY = (cy + R * Math.sin(th)).toFixed(2);
+      svg += '<path d="M' + cx.toFixed(2) + ' ' + cy.toFixed(2) +
+             ' L' + ex + ' ' + topY +
+             ' A' + R + ' ' + R + ' 0 1 0 ' + ex + ' ' + botY + ' Z"' +
+             ' style="fill:#97FEED;stroke:none"/>';
+    })();
     bodyG.innerHTML = svg;
     line.setAttribute('d', 'M' + head.toFixed(1) + ' ' + MID + ' L' + W + ' ' + MID);
     if (pctEl) pctEl.textContent = Math.round(p) + '%';
