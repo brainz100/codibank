@@ -1064,11 +1064,8 @@ def _build_body_type_prompt(gender, body_type_key):
         "BODY TYPE PROFILE: " + info["label"] + " (" + info["en"] + ")",
         "  Feature: " + info["feature"],
         "  Best color strategy: " + info["best_color"],
-        "  Avoid color strategy: " + info["worst_color"],
-        "  Recommended style: " + info["do_style"],
-        "  Avoid style: " + info["dont_style"],
-        "  IMPORTANT: Apply these body type rules when generating the outfit image.",
-        "  The outfit MUST follow 'do_style' and AVOID 'dont_style' silhouettes.",
+        "  Recommended silhouette: " + info["do_style"],
+        "  IMPORTANT: build the outfit around the best color strategy and recommended silhouette above — let them define the shape and palette (positive guidance only).",
     ]
     return "\n".join(lines)
 
@@ -2958,6 +2955,14 @@ def ai_diagnose():
         return jsonify(ok=False, error=str(e)), 500
 
 
+# [2026-06-25 KST · TJ 지시] 접속지역 문화 반영 — 보수적 문화권 판정
+_CONSERVATIVE_LOC = ['두바이','중동','아부다비','리야드','도하','사우디','카타르','쿠웨이트',
+                     'dubai','abu dhabi','riyadh','doha','uae','saudi','qatar','kuwait','middle east']
+def _loc_is_conservative(loc):
+    l = str(loc or '').lower()
+    return any(c in l for c in _CONSERVATIVE_LOC)
+
+
 def _ai_styling_via_gemini(
     payload: Dict[str, Any],
     prompt: str,
@@ -3327,6 +3332,21 @@ def _ai_styling_via_gemini(
         f"- Purpose: {purpose_for_analysis}\n"
         f"- Weather: {int(temp)}\u00b0C, {cond} | City: {location or 'Seoul'}\n"
         + _temp_gate_block
+
+        # ─── 2026-06-25 KST · TJ 지시 ─── 차원별 '제외'를 긍정문으로만 표현 ───
+        #   실제 제외는 엔진 prefilter가 후보 제거로 enforce. 여기선 모델이 반드시 받는
+        #   래퍼(비절단)에 '긍정 지시'만 추가 — NO/AVOID 나열 없음(역효과·이중부정 무력화 방지).
+        + "\n# COVERAGE & FIT (positive — state only what TO do)\n"
+        + ("- The outfit keeps the torso, chest and midriff comfortably covered: tasteful, "
+           "non-revealing coverage suitable for a public setting.\n")
+        + ("- Coverage stays modest and culturally appropriate for the local culture "
+           "(shoulders and legs reasonably covered).\n" if _loc_is_conservative(location) else "")
+        + ("- Interview look: muted neutral SOLID colors only (navy, charcoal, grey, white, beige) "
+           "in plain, clean, unpatterned surfaces; conservative and understated, for men and women alike.\n"
+           if purpose_label == "면접룩" else "")
+        + ("- Airport look: prioritize genuine in-flight comfort — relaxed, breathable, easy pieces; "
+           "understated and practical; any bag is a simple carry-on, used only if needed.\n"
+           if purpose_label == "공항 패션" else "")
 
         + "\n# OUTFIT - CORE (all 3 required)\n"
         "- TOP: upper-body garment, clearly visible.\n"

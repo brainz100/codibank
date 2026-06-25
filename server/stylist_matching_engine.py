@@ -612,6 +612,95 @@ def get_skirt_length_by_body(height_cm, weight_kg, bmi_category):
 
 
 # ═══════════════════════════════════════════════════
+# [2026-06-25 KST · TJ 지시] 차원별 "추천 제외" — 프로세스(prefilter)에서만 적용
+#   원칙: 제외는 후보(키워드·아웃핏 스펙)에서 '제거'로 enforce.
+#   이미지 프롬프트에 NO/AVOID 나열 금지(역효과·이중부정 무력화 방지) → 긍정문만.
+#   · 과도한 노출  = 전 연령·전 지역 공통 제외
+#   · 보수적 문화권 = 어깨/다리 노출 추가 제외
+#   · 면접룩       = 남녀 모두 화려한 컬러/디자인/패턴 제외
+# ═══════════════════════════════════════════════════
+_EXPOSURE_BLOCK = [
+    'crop top','cropped top','crop ','bralette','bra top','bustier','tube top','tube ',
+    'halter','off-shoulder','off shoulder','one-shoulder','one shoulder','strapless',
+    'backless','open back','open-back','plunging','plunge','deep v','deep-v','low-cut','low cut',
+    'cleavage','micro mini','micro-mini','micro skirt','mini skirt','miniskirt','mini dress','micro dress','hot pants',
+    'hotpants','booty shorts','short shorts','see-through','see through','sheer','mesh ',
+    'cutout','cut-out','cut out','midriff','navel','bodycon','lingerie','underwear',
+    '크롭','크롭탑','브라탑','브라렛','뷔스티에','튜브탑','홀터','오프숄더','원숄더','스트랩리스',
+    '백리스','등파임','등트임','깊은브이','로우컷','가슴파임','마이크로','미니스커트',
+    '핫팬츠','시스루','비치는','망사','컷아웃','배꼽','보디콘','속옷','미니드레스','미니원피스','마이크로원피스',
+]
+_CONSERVATIVE_REGIONS = ['두바이','중동','아부다비','리야드','도하','사우디','카타르','쿠웨이트',
+                         'dubai','abu dhabi','riyadh','doha','uae','saudi','qatar','kuwait','middle east']
+_CONSERVATIVE_EXTRA = [
+    'sleeveless','sleeve-less','tank top','tank ','camisole','spaghetti strap','spaghetti',
+    'shorts','above-knee','above knee','short skirt','bare shoulder','bare arm','bare arms',
+    '슬리브리스','민소매','나시','캐미솔','탱크탑','스파게티','반바지','쇼츠','짧은치마','무릎위','어깨노출','맨어깨',
+]
+_INTERVIEW_BLOCK = [
+    'neon','fluorescent','hot pink','electric','vivid','bright red','flashy','loud',
+    'bold pattern','floral','flower','leopard','animal print','zebra','snake print','graphic',
+    'large print','big print','paisley','tie-dye','tie dye','sequin','glitter','sparkle',
+    'shiny','metallic','holographic','rhinestone','logo print','colorful','multicolor','multi-color',
+    'sleeveless','off-shoulder',
+    '네온','형광','쨍한','비비드','강렬한','플로럴','꽃무늬','레오파드','애니멀','지브라',
+    '그래픽','큰프린트','페이즐리','타이다이','시퀸','글리터','반짝','메탈릭','홀로그램','컬러풀',
+    '알록달록','슬리브리스','민소매',
+]
+
+def _excl_norm(s): return str(s).lower()
+
+def _is_conservative_region(region):
+    r = _excl_norm(region or '')
+    return any(c in r for c in _CONSERVATIVE_REGIONS)
+
+def _build_exclusion_block(purpose, region):
+    """차원별 제외 토큰 — 과도노출(공통) + 보수지역 + 면접 화려함."""
+    block = list(_EXPOSURE_BLOCK)
+    if _is_conservative_region(region):
+        block += _CONSERVATIVE_EXTRA
+    if purpose == '면접룩':
+        block += _INTERVIEW_BLOCK
+    # 중복 제거
+    seen = set(); out = []
+    for b in block:
+        if b not in seen:
+            seen.add(b); out.append(b)
+    return out
+
+def _is_excluded(text, block):
+    t = _excl_norm(text)
+    return any(w in t for w in block)
+
+def _filter_excluded(items, block):
+    """prefilter — 제외 토큰을 가진 항목 제거(단일 부정, 무력화 없음)."""
+    if not block: return items
+    return [x for x in items if not _is_excluded(x, block)]
+
+def _drop_revealing(cands, block, safe_default=None):
+    """outfit_spec 후보 리스트 정제 — 비면 안전 기본값/원본 반환(빈 후보 방지)."""
+    if not block or not cands: return cands
+    f = [c for c in cands if not _is_excluded(c, block)]
+    if f: return f
+    return [safe_default] if safe_default else cands
+
+def _positive_directives(purpose, region):
+    """제외를 '긍정문'으로만 표현(역효과 방지). prefilter가 실제 enforce."""
+    parts = ["Coverage: the outfit keeps the torso, chest and midriff comfortably covered "
+             "— tasteful, non-revealing coverage suitable for a public setting."]
+    if _is_conservative_region(region):
+        parts.append("Cultural fit: coverage stays modest and culturally appropriate, "
+                     "with shoulders and legs reasonably covered.")
+    if purpose == '면접룩':
+        parts.append("Interview look: muted neutral SOLID colors only (navy, charcoal, grey, white, beige) "
+                     "in plain, clean, unpatterned surfaces — conservative and understated, for men and women alike.")
+    if purpose == '공항 패션':
+        parts.append("Airport look: prioritize genuine comfort for a flight — relaxed, breathable, easy pieces; "
+                     "understated and practical; any bag is a simple carry-on used only if needed.")
+    return " ".join(parts)
+
+
+# ═══════════════════════════════════════════════════
 # 4. 키워드 랜덤 선택 (1일 1회 고정)
 # ═══════════════════════════════════════════════════
 def select_daily_keywords(keywords_str, user_id, purpose, count=8, retry_seed=0):
@@ -875,7 +964,12 @@ def build_styling_prompt(payload, fashion_db):
         # 추운 날씨 → 시원한 키워드 제거
         selected_keywords = [kw for kw in selected_keywords 
                             if not any(w in kw.lower() for w in _cold_block)]
-    
+
+    # [2026-06-25 KST · TJ 지시] 차원별 제외 prefilter — 과도노출/보수지역/면접 화려함
+    #   제외는 여기서 후보 제거로만 enforce(프롬프트 NO 나열 없음 → 역효과/이중부정 방지)
+    _excl_block = _build_exclusion_block(purpose, user_location)
+    selected_keywords = _filter_excluded(selected_keywords, _excl_block)
+
     # ── 온도 버킷 ──
     temp_bucket = _get_temp_bucket(temp)
     
@@ -941,7 +1035,7 @@ def build_styling_prompt(payload, fashion_db):
         f"Local temperature: {temp}°C, Condition: {condition}. "
         f"Outfit MUST be appropriate for THIS temperature — NOT for the stylist city. "
         f"Outfit weight guide: {temp_bucket}. "
-        f"{'WARM WEATHER RULE: NO blazer, NO jacket, NO cardigan, NO sweater, NO coat, NO heavy layers. Single light layer ONLY. Shirt sleeves can be short or rolled up. Fabrics must be BREATHABLE (cotton, linen, lightweight). ' if temp >= 22 else ''}"
+        f"{'WARM WEATHER: a single light, breathable layer (cotton/linen). The top is the outermost garment, with short or rolled-up sleeves. ' if temp >= 22 else ''}"
         f"{'COLD WEATHER RULE: Must include warm outer layer (coat/jacket). Layering is essential. Warm fabrics required. ' if temp <= 10 else ''}"
         f"\n\n"
         # ── [2026-04-27 v25 TJ] 정+후면 가로 와이드 LAYOUT (트라이온과 동일 정책) ──
@@ -985,6 +1079,7 @@ def build_styling_prompt(payload, fashion_db):
         "sub_cities": sub_cities,
         "region": region,
         "keywords_selected": selected_keywords,
+        "_excl_block": _excl_block,
         "bottom_type": "skirt" if (gender_ko == "여성" and bottom_type == "skirt") else "pants" if gender_ko == "여성" else "pants",
         "temp": temp,
         "condition": condition,
@@ -1708,7 +1803,7 @@ def generate_outfit_spec(metadata, stylist):
     # ── 상의 (스카프는 별도 카테고리 — 상의에 포함하지 않음) ──
     # [2026-05-16 방안A] 후보 리스트 → 스타일리스트 해시로 선택
     top_map = _TOP_ITEMS.get(purpose, {"M": ["셔츠"], "F": ["블라우스"]})
-    top_item = _pick_by_stylist(top_map.get(gender, ["셔츠"]), stylist, 'top')
+    top_item = _pick_by_stylist(_drop_revealing(top_map.get(gender, ["셔츠"]), metadata.get('_excl_block', []), "블라우스" if gender=="F" else "셔츠"), stylist, 'top')
     # [2026-04-06 수정] 상의 컬러는 스타일리스트 color2가 아닌 목적별 적절한 컬러 사용
     # [2026-04-06 추가] 따뜻한 날씨(22도+)에 상의를 가벼운 아이템으로 변경
     # [2026-05-16 방안A] 여름 상의도 후보 리스트 → 스타일리스트 해시 선택
@@ -1729,7 +1824,7 @@ def generate_outfit_spec(metadata, stylist):
         }
         _summer_cands = _summer_tops.get(gender, {}).get(purpose, [])
         if _summer_cands:
-            top_item = _pick_by_stylist(_summer_cands, stylist, 'summer_top')
+            top_item = _pick_by_stylist(_drop_revealing(_summer_cands, metadata.get('_excl_block', []), "반팔 블라우스" if gender=="F" else "반팔 셔츠"), stylist, 'summer_top')
 
     # [2026-05-16 방안A] 상의 컬러 후보 팔레트 → 스타일리스트 해시 선택
     top_color = _pick_by_stylist(_TOP_COLORS.get(purpose, ['베이지']), stylist, 'top_color')
@@ -1743,7 +1838,7 @@ def generate_outfit_spec(metadata, stylist):
     # [2026-05-16 방안A] 하의 아이템·컬러 모두 후보 리스트 → 스타일리스트 해시 선택
     _bt_color = _pick_by_stylist(_bottom_color_pool(purpose), stylist, 'bottom_color')
     if gender == "F" and bottom_type == "skirt":
-        bt_item = _pick_by_stylist(_BOTTOM_ITEMS_F_SKIRT.get(purpose, ["A라인 스커트"]), stylist, 'bottom')
+        bt_item = _pick_by_stylist(_drop_revealing(_BOTTOM_ITEMS_F_SKIRT.get(purpose, ["A라인 스커트"]), metadata.get('_excl_block', []), "미디 스커트"), stylist, 'bottom')
         spec['bottom'] = {'item_ko': bt_item, 'item_en': bt_item, 'color_ko': _bt_color}
     elif gender == "F":
         bt_item = _pick_by_stylist(_BOTTOM_ITEMS_F_PANTS.get(purpose, ["슬랙스"]), stylist, 'bottom')
