@@ -735,7 +735,10 @@ def select_daily_keywords(keywords_str, user_id, purpose, count=8, retry_seed=0)
     
     _warm_filter = ['coat','cardigan','sweater','knit','wool','muffler','scarf',
                     'turtleneck','fleece','padding','puffer','layered','layer',
-                    'heavy','thick','warm','보온','니트','코트','패딩','가디건','머플러']
+                    'heavy','thick','warm','보온','니트','코트','패딩','가디건','머플러',
+                    'blazer','jacket','vest','waistcoat','gilet','sport coat','sportcoat',
+                    'hoodie','sweatshirt','pullover','parka','anorak','windbreaker','quilted',
+                    'outerwear','jumper','블레이저','자켓','재킷','조끼','베스트','후드','맨투맨','점퍼','외투','야상']
     _cold_filter = ['sleeveless','tank','sandal','shorts','crop','민소매','반팔','샌들']
     
     selected = rng.sample(keywords, min(count, len(keywords)))
@@ -953,7 +956,15 @@ def build_styling_prompt(payload, fashion_db):
     # [2026-04-06 추가] 온도 기반 키워드 필터링 — 25도에 Cardigan/Coat 제거
     _warm_block = ['coat','cardigan','sweater','knit','wool','muffler','scarf',
                    'turtleneck','fleece','padding','puffer','layered','layer',
-                   'heavy','thick','down jacket','overcoat','trench']
+                   'heavy','thick','down jacket','overcoat','trench',
+                   # ─── 2026-06-25 KST · TJ 지시 ─── 26°+ 겉옷/레이어드 누수 차단 ───
+                   #   blazer/jacket/vest/후드 등이 키워드로 살아남아 모델이 겉옷을 그림 → 제거
+                   'blazer','jacket','vest','waistcoat','gilet','sport coat','sportcoat',
+                   'hoodie','sweatshirt','pullover','parka','anorak','windbreaker','quilted',
+                   'outerwear','jumper','sweater vest','cardigan vest',
+                   'casual suit','business suit','suit jacket','wool suit','summer suit','linen suit',
+                   'tailored suit','three-piece','three piece','3-piece','3 piece','pantsuit','pant suit','suit set',
+                   '블레이저','자켓','재킷','조끼','베스트','후드','맨투맨','점퍼','외투','야상','가디건','니트','코트','패딩']
     _cold_block = ['sleeveless','tank top','sandal','shorts','crop top']
     
     if temp >= 22:

@@ -3146,11 +3146,11 @@ def _ai_styling_via_gemini(
         _t_gate = 20
     if _t_gate >= 28:
         _gate_lines = [
-            "HOT (>=28C): short-sleeve top with light, breathable fabrics ONLY. Keep it minimal and airy.",
+            "HOT (>=28C): a short-sleeve top with light, breathable fabrics ONLY, worn on its own as the only upper garment. Keep it minimal and airy.",
         ]
     elif _t_gate >= 23:
         _gate_lines = [
-            "WARM (23-27C): a single light layer only — short sleeve, or a thin long-sleeve shirt.",
+            "WARM (23-27C): a single light layer worn on its own — short sleeve, or a thin long-sleeve shirt — and it is the only upper garment, with nothing layered under or over it.",
         ]
     elif _t_gate >= 20:
         _gate_lines = [
