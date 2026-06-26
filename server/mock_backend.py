@@ -12398,9 +12398,12 @@ def weather_endpoint():
     if not (-90 <= lat <= 90 and -180 <= lon <= 180):
         return jsonify(ok=False, error="lat/lon out of range"), 400
 
+    # ─── 2026-06-26 KST · TJ 지시 ─── KMA 키 없거나 실패해도 503 금지 → Open-Meteo 폴백 ───
+    #   기존: 키 없으면 즉시 503 → 프론트가 날씨/예보를 전혀 못 받아 날짜카드 온도가 사라짐.
+    #   변경: 키 없으면 KMA 호출은 자연스레 실패(except로 무시)하고, 아래 Open-Meteo가
+    #         일별기온/현재날씨를 채워 항상 정상 응답을 반환한다.
     service_key = os.getenv("KMA_SERVICE_KEY", "").strip()
-    if not service_key:
-        return jsonify(ok=False, error="KMA_SERVICE_KEY not configured"), 503
+    _kma_enabled = bool(service_key)
 
     nx, ny = _kma_dfs_xy_conv(lat, lon)
     from datetime import datetime, timedelta
@@ -12486,19 +12489,39 @@ def weather_endpoint():
     except Exception as _e:
         print(f"[KMA village-fcst] err: {_e}", flush=True)
 
-    # ── 3) Open-Meteo air-quality + UV 보강 (KMA는 UV/PM2.5 미제공) ──
+    # ── 3) Open-Meteo 보강 (KMA UV/PM2.5 미제공 + KMA 실패/범위초과 시 일별 기온 폴백) ──
+    # ─── 2026-06-26 KST · TJ 지시 ─── 날짜별 예보(최저/최고) 누락 방어 ───
+    #   원인: KMA 단기예보는 ~3일 + 키/네트워크 실패 시 daily가 비어 날짜카드 온도가 사라짐.
+    #   조치: Open-Meteo daily(기온/날씨/강수/풍속, 14일)를 함께 받아, KMA에 없는 날짜는 폴백.
     uv_max_per_day = {}
+    om_daily = {}   # {YYYYMMDD: {tmax,tmin,wcode,pop,wsd}}
+    om_current = {} # 현재 날씨 폴백 (KMA 실황 없을 때)
     pm25_current = None
     try:
         url_om = (f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
-                  f"&daily=uv_index_max&timezone={tz}&forecast_days=14")
+                  f"&current=temperature_2m,weather_code,is_day,wind_speed_10m,precipitation"
+                  f"&daily=temperature_2m_max,temperature_2m_min,weather_code,"
+                  f"precipitation_probability_max,wind_speed_10m_max,uv_index_max"
+                  f"&timezone={tz}&forecast_days=14")
         ro = http_requests.get(url_om, timeout=6).json()
-        d_dates = ((ro or {}).get("daily") or {}).get("time", []) or []
-        d_uvs = ((ro or {}).get("daily") or {}).get("uv_index_max", []) or []
+        om_current = ((ro or {}).get("current") or {})
+        _od = ((ro or {}).get("daily") or {})
+        d_dates = _od.get("time", []) or []
         for i, dt in enumerate(d_dates):
-            uv_max_per_day[dt.replace("-", "")] = d_uvs[i] if i < len(d_uvs) else None
+            k = str(dt).replace("-", "")
+            def _g(_name, _i=i):
+                _arr = _od.get(_name) or []
+                return _arr[_i] if _i < len(_arr) else None
+            uv_max_per_day[k] = _g("uv_index_max")
+            om_daily[k] = {
+                "tmax": _g("temperature_2m_max"),
+                "tmin": _g("temperature_2m_min"),
+                "wcode": _g("weather_code"),
+                "pop": _g("precipitation_probability_max"),
+                "wsd": _g("wind_speed_10m_max"),
+            }
     except Exception as _e:
-        print(f"[Open-Meteo UV] err: {_e}", flush=True)
+        print(f"[Open-Meteo daily] err: {_e}", flush=True)
     try:
         url_aq = (f"https://air-quality-api.open-meteo.com/v1/air-quality?latitude={lat}&longitude={lon}"
                   f"&current=pm2_5,pm10&timezone={tz}")
@@ -12507,16 +12530,33 @@ def weather_endpoint():
     except Exception as _e:
         print(f"[Open-Meteo AQ] err: {_e}", flush=True)
 
-    # ── 4) Open-Meteo 형식으로 매핑 ──
-    daily_sorted_dates = sorted(daily_map.keys())
+    # ── 4) Open-Meteo 형식으로 매핑 (KMA 우선, 결측은 Open-Meteo 폴백) ──
+    # ─── 2026-06-26 KST · TJ 지시 ─── KMA∪OpenMeteo 날짜 합집합 + 결측 폴백 ───
+    #   KMA에 값이 있으면 KMA(정확) 사용, 없으면 Open-Meteo로 메움 → daily가 비는 일 없음.
+    all_dates = sorted(set(daily_map.keys()) | set(om_daily.keys()))
+    def _pick(_d, _kma_key, _om_key):
+        _v = daily_map.get(_d, {}).get(_kma_key)
+        if _v is None:
+            _v = om_daily.get(_d, {}).get(_om_key)
+        return _v
     daily = {
-        "time": [f"{d[0:4]}-{d[4:6]}-{d[6:8]}" for d in daily_sorted_dates],
-        "temperature_2m_max": [daily_map[d].get("tmax") for d in daily_sorted_dates],
-        "temperature_2m_min": [daily_map[d].get("tmin") for d in daily_sorted_dates],
-        "weather_code": [_kma_pty_sky_to_wmo(*daily_map[d].get("sky_pty", (0, 1))) for d in daily_sorted_dates],
-        "precipitation_probability_max": [int(daily_map[d].get("pop_max", 0)) for d in daily_sorted_dates],
-        "wind_speed_10m_max": [daily_map[d].get("wsd_max", 0) for d in daily_sorted_dates],
-        "uv_index_max": [uv_max_per_day.get(d) for d in daily_sorted_dates],
+        "time": [f"{d[0:4]}-{d[4:6]}-{d[6:8]}" for d in all_dates],
+        "temperature_2m_max": [_pick(d, "tmax", "tmax") for d in all_dates],
+        "temperature_2m_min": [_pick(d, "tmin", "tmin") for d in all_dates],
+        "weather_code": [
+            (_kma_pty_sky_to_wmo(*daily_map[d]["sky_pty"])
+             if (d in daily_map and daily_map[d].get("sky_pty"))
+             else om_daily.get(d, {}).get("wcode"))
+            for d in all_dates
+        ],
+        "precipitation_probability_max": [
+            (int(daily_map[d]["pop_max"])
+             if (d in daily_map and "pop_max" in daily_map[d])
+             else int(om_daily.get(d, {}).get("pop") or 0))
+            for d in all_dates
+        ],
+        "wind_speed_10m_max": [_pick(d, "wsd_max", "wsd") for d in all_dates],
+        "uv_index_max": [uv_max_per_day.get(d) for d in all_dates],
     }
 
     # 현재 weather_code: 초단기실황 PTY + 단기예보 첫 SKY
@@ -12530,13 +12570,20 @@ def weather_endpoint():
             cur_sky = int(cur_sky_pty[1]) if cur_sky_pty[1] else 1
         except Exception:
             pass
+    # ─── 2026-06-26 KST · TJ 지시 ─── KMA 실황 없으면 Open-Meteo 현재값으로 폴백 ───
+    _cur_temp = cur_temp if cur_temp is not None else om_current.get("temperature_2m")
+    _cur_wsd  = cur_wsd  if cur_wsd  is not None else om_current.get("wind_speed_10m")
+    _cur_wcode = (_kma_pty_sky_to_wmo(cur_pty, cur_sky) if cur_temp is not None
+                  else (om_current.get("weather_code")
+                        if om_current.get("weather_code") is not None
+                        else _kma_pty_sky_to_wmo(cur_pty, cur_sky)))
     current = {
         "time": now.strftime("%Y-%m-%dT%H:%M"),
-        "temperature_2m": cur_temp,
-        "weather_code": _kma_pty_sky_to_wmo(cur_pty, cur_sky),
+        "temperature_2m": _cur_temp,
+        "weather_code": _cur_wcode,
         "is_day": 1 if 6 <= now.hour < 19 else 0,
         "precipitation": 0,
-        "wind_speed_10m": cur_wsd,
+        "wind_speed_10m": _cur_wsd,
     }
 
     return jsonify({
