@@ -9017,6 +9017,12 @@ async function initWeather(){
     updateQuotaBadge();
     setGenUiEnabled(canGenerateNow());
 
+    // ─── 2026-06-26 KST · TJ 지시 ─── 신선 예보 로드 후 날짜카드 강제 갱신 ───
+    //   buildDateCards 는 'forecastLoaded' 만 listen 하는데, 이 이벤트가 그동안
+    //   코드 어디서도 dispatch 되지 않아 신선 daily(예: 6/26~)가 도착해도 날짜카드가
+    //   초기/1500ms 시점의 stale·빈 데이터로 고정돼 있었음 → 명시적으로 발생시킨다.
+    try{ document.dispatchEvent(new Event('forecastLoaded')); }catch(_){}
+
     // ✅ 캐시 저장(다음 방문 시 즉시 표시)
     try{
       saveWxCache({
@@ -9040,12 +9046,14 @@ async function initWeather(){
     const fresh = hasGeo && Number.isFinite(ts) && (Date.now() - ts) < (6*60*60*1000);
 
     if(hasGeo){
-      // (안정화) 저장된 geo는 stale일 수 있지만, 캐시가 없을 때는 우선 반영해
-      // '날씨가 비어 보이는' 시간을 최소화합니다.
-      if(fresh || !hadWxCache){
-        try{ await applyWeatherFromCoords(g.lat, g.lon); }catch(_){}
-      }
-      // fresh면 여기서 종료(불필요한 GPS/IP 재조회 방지)
+      // ─── 2026-06-26 KST · TJ 지시 ─── 저장 geo로 '항상' 신선 예보 시도 ───
+      //   기존: 캐시가 있고 geo가 stale(6h↑) 이면 (fresh||!hadWxCache)=false 가 되어
+      //   저장 geo fetch를 건너뛰고 getSmartLocation(2단계)에만 의존했음.
+      //   → GPS/IP 재조회가 실패하면 과거 날짜(예: 5월)의 stale 캐시가 그대로 남아
+      //     상단 위젯은 과거 예보를, STEP2 날짜카드(오늘~)는 빈칸을 표시했음.
+      //   조치: 저장 위치만 있으면 신선도와 무관하게 항상 재조회해 daily를 최신화.
+      try{ await applyWeatherFromCoords(g.lat, g.lon); }catch(_){}
+      // geo가 신선하면 이미 최신 좌표 → 불필요한 GPS/IP 재조회 방지 후 종료
       if(fresh) return;
     }
   }catch(e){ console.warn('날씨(저장 geo):', e); }
