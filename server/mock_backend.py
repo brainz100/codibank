@@ -1166,7 +1166,7 @@ def _get_head_ratio(location: str = "", has_body_data: bool = False, has_face: b
     return ("7.5", "Korean/East Asian adult (user face)")
 
 
-def _build_body_profile_block(gender, age, height, weight, body_type_key, lang="en", location="", has_face=True):
+def _build_body_profile_block(gender, age, height, weight, body_type_key, lang="en", location="", has_face=True, objective=True):
     """
     신체 프로필 통합 블록 생성 (Phase 1 PERSONA에 삽입)
     이미지 생성 단계에서 체형 특성이 실제로 반영되도록 구조화
@@ -1248,19 +1248,23 @@ def _build_body_profile_block(gender, age, height, weight, body_type_key, lang="
 
     # 5) 객관성 강제 지시 (─── 2026-06-19 KST · TJ 지시 ─── 얼굴 유무 기반 ratio ───)
     #    얼굴 있음 → 7.5등신(사용자 전신) / 얼굴 없음 → 8.0등신(모델핏)
-    _has_body_data_for_ratio = bool(height and weight)
-    _ratio_str, _region_lbl = _get_head_ratio(location, _has_body_data_for_ratio, has_face)
-    lines.append(
-        "CRITICAL — OBJECTIVE RENDERING: "
-        "The generated image MUST show the outfit AS IT WOULD ACTUALLY LOOK on this SPECIFIC body. "
-        + (f"Use the EXACT height ({height}cm) and weight ({weight}kg) stated above — "
-           if _has_body_data_for_ratio else
-           "Use natural average adult proportions since user body data is not registered — ")
-        + "do NOT default to an exaggerated supermodel body. "
-        f"Body proportions: {_ratio_str} head-to-body ratio ({_region_lbl}). "
-        "Apply the recommended silhouette, avoid the forbidden silhouette. "
-        "This is a REAL person with REAL body — render accordingly."
-    )
+    # ─── 2026-06-26 KST · TJ 지시 ─── objective=False(코디핏)면 이 블록 생략 ───
+    #    코디핏 STEP1의 Proportion 줄이 동일 내용(실제착장·정확신체·7.5등신·슈퍼모델 아님)을
+    #    이미 담아 중복 → 코디핏만 끔. codistyle 등 기본값 True는 현행 100% 유지(수정금지 준수).
+    if objective:
+        _has_body_data_for_ratio = bool(height and weight)
+        _ratio_str, _region_lbl = _get_head_ratio(location, _has_body_data_for_ratio, has_face)
+        lines.append(
+            "CRITICAL — OBJECTIVE RENDERING: "
+            "The generated image MUST show the outfit AS IT WOULD ACTUALLY LOOK on this SPECIFIC body. "
+            + (f"Use the EXACT height ({height}cm) and weight ({weight}kg) stated above — "
+               if _has_body_data_for_ratio else
+               "Use natural average adult proportions since user body data is not registered — ")
+            + "do NOT default to an exaggerated supermodel body. "
+            f"Body proportions: {_ratio_str} head-to-body ratio ({_region_lbl}). "
+            "Apply the recommended silhouette, avoid the forbidden silhouette. "
+            "This is a REAL person with REAL body — render accordingly."
+        )
 
     return "\n".join(lines)
 
@@ -3197,42 +3201,59 @@ def _ai_styling_via_gemini(
     #   · GPT Image 2 분기는 '=== ANALYSIS REPORT' 마커부터 끝까지 제거
     #   · 길이 ~2,500자 → 4000자 절단 사실상 불필요 (안전장치만 유지)
     # ═══════════════════════════════════════════════════════════════════
+    # ─── 2026-06-25 KST · TJ 지시 ─── Direction[:1500] 절단으로 모델에 안 닿던
+    #   '구체 착장 + 날씨'를 래퍼 상단(비절단)으로 끌어올려 반드시 전달한다.
+    #   (엔진 outfit_spec = meta['categoryKeywords']; 날씨는 _t_gate 기준)
+    _ck = meta.get('categoryKeywords', {}) if isinstance(meta, dict) else {}
+    def _ck_join(_k):
+        _v = _ck.get(_k)
+        if isinstance(_v, list):
+            return " ".join(str(x) for x in _v if x).strip()
+        return str(_v or "").strip()
+    _ck_top, _ck_bottom, _ck_shoes = _ck_join('top'), _ck_join('bottom'), _ck_join('shoes')
+    _abs_outfit_line = ""
+    if _ck_top or _ck_bottom or _ck_shoes:
+        _abs_outfit_line = (
+            "- THE OUTFIT (build EXACTLY these; the stylist varies only color/pattern/fabric/fit): "
+            f"top={_ck_top or 'light top'} \u00b7 bottom={_ck_bottom or 'trousers'} \u00b7 shoes={_ck_shoes or 'shoes'}.\n"
+        )
+    _abs_weather_line = (
+        (f"At {_t_gate}\u00b0C the upper body is EXACTLY ONE light, breathable top worn on its own as the "
+         "ONLY upper-body garment (short sleeve, or a thin long-sleeve shirt), with an open, unadorned neckline.")
+        if _t_gate >= 23 else
+        (f"Layer appropriately for {_t_gate}\u00b0C exactly as the TEMPERATURE GATE below specifies.")
+    )
+
     gemini_prompt = (
         "[CODIBANK STYLING PROMPT v2026.05.18]\n"
 
-        + "\n# OUTPUT IMAGE FORMAT (technical spec — the person shown is the STEP 1 avatar)\n"
-        "- The output MUST be ONE single HORIZONTAL image, exactly 1536x1024 pixels "
-        "(3:2 landscape — WIDER than tall).\n"
-        "- NEVER vertical, NEVER portrait, NEVER square, NEVER a 3:4 image. "
-        "A vertical or single-figure image is a CRITICAL FAILURE.\n"
-        "- The image contains TWO full-body figures SIDE BY SIDE in one frame, and BOTH "
-        "figures are the SAME locked avatar defined in STEP 1 below (same face, same body):\n"
-        "  - LEFT half (0-50% width) = FRONT view, face visible, looking at camera.\n"
-        "  - RIGHT half (50-100% width) = BACK view of the SAME person, no face.\n"
-        "- NEVER generate only one figure. NEVER omit the back view. NEVER split into "
-        "two separate images.\n"
-        "- Each figure approx 85% of image height, centered in its own half "
-        "(~7.5% empty margin above the head and below the feet).\n"
-        # ─── 2026-06-24 KST · TJ 지시 ─── 카메라 앵글 고정 (내려찍기 금지 → 살짝 로우앵글) ───
-        #   문제: 위에서 아래로 내려찍은 듯한 하이앵글 → 머리·상체 크고 하체 작게(왜곡)
-        #         생성됨. (얼굴 셀카가 보통 위에서 찍혀 그 앵글로 편향되는 경향)
-        #   변경: 카메라 높이를 피사체 허리~가슴 아래(거의 눈높이)로 두고, 정면 또는
-        #         아주 미세한 로우앵글(살짝 올려찍기)로 강제. 하이앵글/내려보기는 실패로 규정.
-        #         → 다리가 길어 보이고 7.5등신 비율이 화면에서 유지되어 예쁘게 보임.
-        "- CAMERA & VIEWPOINT (CRITICAL): place the camera at the subjects' waist-to-lower-"
-        "chest height and shoot both figures straight-on at eye level — or with a VERY SLIGHT "
-        "low angle (tilted marginally UPWARD). The camera is NEVER above the subjects and "
-        "NEVER tilted downward. (This governs the camera height only; the LEFT figure still "
-        "faces the camera and the RIGHT figure still shows the back as specified above.) "
-        "A high/downward (looking-down) angle that enlarges the head and upper body while "
-        "shrinking the legs and lower body is a CRITICAL FAILURE. This subtle eye-level-to-"
-        "slightly-low framing keeps the legs long and the whole body in correct, flattering "
-        "proportion. No fisheye, no perspective distortion.\n"
-        "- Both figures stand upright and vertical, feet flat on the ground at the bottom "
-        "of the frame; the head sits near the top — full head-to-toe length filling the height.\n"
-        "- Background: ONE solid flat pastel color, uniform edge-to-edge; no rooms, "
-        "walls, gradients, text, logo, or watermark.\n"
-        "- Photorealistic fashion editorial style, professional studio lighting.\n"
+        # ─── 2026-06-26 KST · TJ 지시 ─── OUTPUT FORMAT 정리형 압축 (서술형→속성나열, ~-60%) ───
+        #   원칙: 한 줄=한 제약, 긍정형 전용(부정 나열 제거 → reverse-psychology 방지), 중복 제거.
+        #         제약은 100% 보존(캔버스·2인·정면/후면·비율·카메라·배경·스타일) — 단어만 삭감.
+        #   카메라(2026-06-24 의도 유지): 허리~가슴 아래 눈높이/살짝 로우앵글 → 다리 길게·비율 유지.
+        + "\n# OUTPUT FORMAT (technical spec — the person shown is the STEP 1 avatar)\n"
+        "- Canvas: 1536x1024 px, 3:2 landscape (wider than tall); one single image.\n"
+        "- Two full-body figures side by side, both = the SAME STEP-1 avatar (same face and body).\n"
+        "  - Left 0-50%: front view, face to camera.  - Right 50-100%: back view of same person, no face.\n"
+        "- Each figure ~85% of height, centered in its half, ~7.5% margin above head and below feet; "
+        "upright, feet flat at bottom, head near top, full head-to-toe.\n"
+        "- Camera at waist-to-lower-chest height, straight-on eye level or very slight upward tilt; "
+        "legs long, body in correct proportion; no fisheye, no perspective distortion.\n"
+        "- Background: one solid flat pastel, uniform edge-to-edge; no rooms, walls, gradients, text, logo, or watermark.\n"
+        "- Photorealistic fashion editorial, professional studio lighting.\n"
+
+        # ─── 2026-06-25 KST · TJ 지시 ─── HARD 제약(날씨·성별·TPO·구체착장)을 최상단에 ───
+        #   배경: 이전엔 날씨/착장이 STEP2의 Direction[:1500] 안에 묻혀 '절단'되거나
+        #         스타일리스트 페르소나·키워드(blazer 등)에 밀려 30°에도 자켓이 생성됨.
+        #   변경: 자유도(색·패턴·핏)는 열어두되, '절대 어기면 안 되는' 날씨·성별·TPO·구체착장을
+        #         맨 위에 올려 스타일리스트/페르소나/키워드보다 우선하도록 못 박는다.
+        + "\n# \u26a0\ufe0f ABSOLUTE RULES (HARD CONSTRAINTS \u2014 these OVERRIDE the stylist, persona, keywords and any editorial instinct below)\n"
+        + f"- WEATHER {_t_gate}\u00b0C: {_abs_weather_line}\n"
+        + f"- SEX: {'FEMALE' if gender == 'F' else 'MALE'} \u2014 silhouette, garments and accessories are "
+        + f"{'women' if gender == 'F' else 'men'}'s; never the opposite sex's items.\n"
+        + f"- TPO: {purpose_for_analysis} \u2014 the outfit must clearly suit this occasion.\n"
+        + _abs_outfit_line
+        + "- Freedom is allowed ONLY in color, pattern, fabric and fit; it may NEVER override the weather, sex, TPO or the outfit above.\n"
 
         + (f"\n[USER DIRECT REQUEST — highest priority, overrides all templates]\n"
            f"\"{custom_text}\"\n" if is_custom else "")
@@ -3243,46 +3264,35 @@ def _ai_styling_via_gemini(
         #         먼저 확정하고, 그 동일 아바타에 옷만 바꿔 입힌다.
         #   순서: 이 STEP 1(아바타 정의)이 STYLIST/OUTFIT(STEP 2)보다 먼저 와야 함.
         #   조치: 얼굴/신체/체형/등신/헤어를 먼저 고정 → 4장 모두 같은 아바타 사용.
-        "FIRST construct ONE fixed avatar of the user, THEN dress it. The avatar (face, "
-        "body, physique, proportions) is locked and identical in every image; only the "
-        "outfit changes. Treat the avatar as a constant — never regenerate a new person.\n"
-        "- AVATAR IDENTITY LOCK (CRITICAL): the same single person must appear with the "
-        f"EXACT SAME face, body physique, height, weight, BMI, {_head_ratio}-head proportion "
-        "and face size in every output, regardless of outfit or background. Do NOT generate "
-        "a different model, a different body size, or a different face across images.\n"
+        # ─── 2026-06-26 KST · TJ 지시 ─── STEP1 정리형 압축(서술형→라벨형, 중복 제거) ───
+        #   원칙: 한 줄=한 제약, 긍정형 우선, 동일 제약 1회. 제약은 보존(아바타고정·4장얼굴
+        #         동일·성별·신체·얼굴복제·헤어·얼굴출처한정·등신/얼굴크기) — 단어만 삭감.
+        "- Build ONE fixed avatar of the user, then dress it. Avatar (face, body, physique, "
+        f"proportions, {_head_ratio}-head ratio, face size) is locked and identical in every "
+        "image; only the outfit changes. Never regenerate a different person, body size, or face.\n"
         # ─── 2026-06-24 KST · TJ 지시 ─── 4장 얼굴 100% 동일(복제 작업으로 명시) ───
         #   문제: 4개 카드가 각각 별도 생성(도시별 병렬 호출)이라 같은 얼굴 사진을 줘도
         #         모델이 매번 다르게 '재해석' → 4장 얼굴이 제각각.
         #   변경: 얼굴은 창작이 아니라 '복제(copy)' 작업임을 강하게 명시. 동일 레퍼런스를
         #         글자 그대로 복사(골격/눈/코/입/턱선/얼굴폭/피부톤)하고, 미화·슬림·노화·
         #         평균화 금지. 4장 모두(별개 생성이라도) 동일 인물로 인식돼야 함을 강조.
-        "- SAME FACE ACROSS ALL FOUR CARDS (ABSOLUTE): this person is generated four times "
-        "(one per city) as separate images, but the FACE must be the SAME individual every "
-        "time — identical features in all four, as if photographed on the same day. The four "
-        "faces being different from each other is a CRITICAL FAILURE.\n"
-        f"- Sex: {'FEMALE' if gender == 'F' else 'MALE'}. Body, physique and silhouette "
-        f"MUST be {'female' if gender == 'F' else 'male'} — never the opposite sex, even "
-        "if the outfit style is traditionally for the other sex.\n"
-        f"- Age: {age} | Body: {h_int}cm, {w_int}kg, BMI {bmi} ({bmi_cat_ko}) | "
-        f"Body type: {body_type_key or 'standard'}\n"
-        "- Face (99.9% identity — this is a COPY task, NOT a creative one): reproduce the "
-        "FIRST reference image's face EXACTLY — same bone structure, eye shape and spacing, "
-        "eyebrows, nose, lips, jawline, face width/contour and skin tone. Do NOT beautify, "
-        "slim, age, average, prettify, or otherwise alter the face. The generated face must "
-        "be unmistakably the SAME real individual as the reference, recognizable to people "
-        "who know them. Treat the reference face as ground truth to be copied, not restyled.\n"
-        "- HAIR: use the hairstyle visible in the user's reference photo (length, parting, "
-        "color, texture). If no face reference is provided, keep a single consistent "
-        "hairstyle across images. The FACE and BODY stay identical in all images.\n"
-        "- IMPORTANT — use the FIRST reference image ONLY as a FACE/identity source. "
-        "IGNORE and DO NOT COPY anything else in that photo: any clothing, top, outerwear, "
-        "necklace, earrings, glasses, hat, scarf, bag or other accessory worn in the face "
-        "photo, and its background, must NOT appear in the generated outfit. The outfit "
-        "comes ONLY from the STEP 2 styling instructions below, never from the face photo.\n"
-        "- Face SCALE: the head/face MUST be a natural, correctly-sized part of the FULL "
-        f"BODY figure (about 1/{_head_ratio} of the total standing height). Do NOT enlarge, zoom, or "
-        "blow up the face; an oversized head is a FAILURE. This is a full-body image where "
-        f"the user's face is fitted at proper {_head_ratio}-head proportion, not a face close-up.\n"
+        "- 4-CARD FACE LOCK (critical): generated 4 times (one per city) as separate images; "
+        "the FACE is the SAME individual with identical features in all four, as if shot the "
+        "same day. Different faces across cards = failure.\n"
+        f"- Sex: {'FEMALE' if gender == 'F' else 'MALE'} — body, physique and silhouette "
+        f"{'female' if gender == 'F' else 'male'}; never the opposite sex, even for outfits "
+        "traditionally worn by the other sex.\n"
+        f"- Subject: {'Korean woman' if gender == 'F' else 'Korean man'}, {age} · {h_int}cm · "
+        f"{w_int}kg · BMI {bmi} ({bmi_cat_ko}) · body type {body_type_key or 'standard'}.\n"
+        "- FACE = exact copy of the FIRST reference (99.9% identity; COPY task, not creative): "
+        "same bone structure, eye shape and spacing, eyebrows, nose, lips, jawline, face "
+        "width/contour, skin tone. Keep every feature so it is unmistakably the SAME real "
+        "individual, recognizable to those who know them. No beautifying, slimming, aging, averaging.\n"
+        "- Hair: match the reference photo (length, parting, color, texture); if no reference, "
+        "one consistent hairstyle across all images; face and body stay identical.\n"
+        "- Face photo = identity source ONLY: take nothing else from it. Any clothing, "
+        "outerwear, necklace, earrings, glasses, hat, scarf, bag, or background in the face "
+        "photo is excluded; the outfit comes only from STEP 2 below.\n"
         # ─── 2026-05-23 KST · TJ 승인 (옵션 다 + 지역별 ratio) ─────────────
         #  이전: "Proportion: fashion-model 8.5 heads" — 슈퍼모델 비율 강제
         #        → BMI 27 통통한 사용자도 8.5등신 슈퍼모델로 렌더링되던 문제
@@ -3295,22 +3305,19 @@ def _ai_styling_via_gemini(
         #    · {_head_ratio}/{_region_label_en}/{_is_asia_region} 는 함수 진입부에서 계산
         #      (_is_asia_region == True  ⟺  얼굴 있음(7.5))
         # ────────────────────────────────────────────────────────────────
-        f"- Proportion: REALISTIC adult body — approximately {_head_ratio} head-to-body ratio "
-        f"({_region_label_en})."
-        + (" Korean/East Asian build, NOT a Western 8+ ratio of fashion supermodels."
-           if _is_asia_region else " Clean fashion-model fit at 8-head proportion, balanced and natural, NOT an exaggerated 9+ ratio.")
-        + " "
-        + (f"Head and face size MUST be proportional to the actual body scale stated above "
-           f"({h_int}cm tall, {w_int}kg, BMI {bmi}). "
-           if _has_body_data_ratio else
-           "Head and face size MUST be naturally proportional to the body (user body data not registered, use general average). ")
-        + ("This is a REAL EVERYDAY Asian person, NOT a runway mannequin, NOT a supermodel."
-           if _is_asia_region else "This is a clean fashion model fit (no user face provided).")
-        + " STRICTLY AVOID: excessive leg elongation, oversized/undersized head, "
-        "idealized fashion-model body. Full body visible from top of head to toe of shoes.\n"
+        f"- Proportion: realistic everyday adult, ~{_head_ratio} head-to-body ratio "
+        f"({_region_label_en}); head and face are a natural part of the FULL BODY "
+        f"(about 1/{_head_ratio} of standing height), sized to the real body"
+        + (f" ({h_int}cm, {w_int}kg, BMI {bmi})." if _has_body_data_ratio
+           else " (user body data not registered; use general average).")
+        + (" Korean/East-Asian build, not a Western 8+ supermodel ratio; a real everyday "
+           "person, not a runway mannequin." if _is_asia_region
+           else " Clean fashion-model fit at 8-head proportion, balanced and natural, not a 9+ ratio.")
+        + " Natural head size and leg length; full body head-to-toe in frame; "
+        "oversized head or elongated legs = failure.\n"
         + (f"- Avoid colors (STRICT — must not appear anywhere): {_avoid_clean}\n"
            if _has_avoid else "")
-        + _build_body_profile_block(gender, age, height, weight, body_type_key, "en", _loc_for_ratio, _has_face_for_ratio) + "\n"
+        + _build_body_profile_block(gender, age, height, weight, body_type_key, "en", _loc_for_ratio, _has_face_for_ratio, objective=False) + "\n"
 
         + "\n# STEP 2 — DRESS THE AVATAR (styling differs per image; the avatar above stays identical)\n"
         + "# STYLIST (differentiator — must visibly shape the result)\n"
@@ -3355,7 +3362,7 @@ def _ai_styling_via_gemini(
         "- SHOES: both feet visible, identical pair.\n"
 
         + "\n# OUTFIT - OPTIONAL (only if it enhances; less is more)\n"
-        "- OUTER: only per the TEMPERATURE GATE above (never at 20\u00b0C or higher).\n"
+        "- OUTER: include an outer layer only when the TEMPERATURE GATE above calls for one; at 20\u00b0C and above the top is the outermost layer, worn on its own.\n"
         "- BAG / WATCH / JEWELRY / HAT: only if TPO-appropriate.\n"
         # ─── 2026-06-22 KST · TJ 지시 ─── scarf/muffler 단어는 0°C 이하에서만 노출 ───
         #   평상시(0°C 초과)엔 이 줄 자체를 빼서 'scarf/muffler' 단어가 프롬프트에
@@ -3601,10 +3608,14 @@ def _ai_styling_via_gemini(
                     return "\n"
                 return f"\n- Avoid colors (STRICT - must not appear anywhere): {_v}\n"
             _outfit_prompt = _re_pp.sub(r'\s*\uc8fc\uc758:\s*([^\n]+)\n', _avoid_replace, _outfit_prompt)
-            # 안전장치 길이 제한 (뉴 프롬프트 STEP A ~4,600자 / STEP B ~5,500자
-            # → 6,500자 한도 내 = 절단 없음. 만일의 초장문 입력만 방어)
-            if len(_outfit_prompt) > 6500:
-                _outfit_prompt = _outfit_prompt[:6500]
+            # ─── 2026-06-26 KST · TJ 지시 ─── 길이 캡 6,500 → 14,000 상향 ───
+            #   실측: 현재 프롬프트는 ~10,200자(≈2,550토큰)로, 기존 6,500자 캡에 걸려
+            #   Direction(키워드/스타일리스트)·TEMPERATURE GATE·TPO·COVERAGE·OUTFIT-CORE 가
+            #   통째로 잘려 모델에 닿지 않았음 (30°에 자켓/니트/목스카프 누수의 근본 원인).
+            #   gpt-image 실사용 안전권장(~6,000~7,000토큰=~24,000~28,000자) 한참 아래라
+            #   14,000자(~3,500토큰)로 상향 — 전체 프롬프트가 절단 없이 전달됨.
+            if len(_outfit_prompt) > 14000:
+                _outfit_prompt = _outfit_prompt[:14000]
 
             _gpt_prompt = _ref_header + _outfit_prompt
             

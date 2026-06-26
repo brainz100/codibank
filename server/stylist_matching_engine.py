@@ -1834,8 +1834,12 @@ def generate_outfit_spec(metadata, stylist):
                    "공항 패션": ["반팔 린넨 셔츠", "반팔 티셔츠"]},
         }
         _summer_cands = _summer_tops.get(gender, {}).get(purpose, [])
-        if _summer_cands:
-            top_item = _pick_by_stylist(_drop_revealing(_summer_cands, metadata.get('_excl_block', []), "반팔 블라우스" if gender=="F" else "반팔 셔츠"), stylist, 'summer_top')
+        # ─── 2026-06-25 KST · TJ 지시 ─── 여름 매핑 없는 목적이 일반 top_map(니트 포함)으로 빠지던 버그 차단 ───
+        #   (로맨틱/결혼식/상견례/사교/여행지/꾸안꾸/스포티/미니멀/트렌디 → 고온(≥22°)엔 반드시 경량 상의)
+        if not _summer_cands:
+            _summer_cands = {"M": ["린넨 셔츠", "반팔 셔츠", "반팔 티셔츠"],
+                             "F": ["린넨 블라우스", "반팔 블라우스", "반팔 티셔츠"]}.get(gender, ["반팔 셔츠"])
+        top_item = _pick_by_stylist(_drop_revealing(_summer_cands, metadata.get('_excl_block', []), "반팔 블라우스" if gender=="F" else "반팔 셔츠"), stylist, 'summer_top')
 
     # [2026-05-16 방안A] 상의 컬러 후보 팔레트 → 스타일리스트 해시 선택
     top_color = _pick_by_stylist(_TOP_COLORS.get(purpose, ['베이지']), stylist, 'top_color')
@@ -1995,13 +1999,16 @@ def generate_prompt_injection(metadata, stylist, fashion_db):
         city_desc = _CITY_F.get(city, '')
     
     # [2026-04-06 추가] 날씨 강조
+    # ─── 2026-06-26 KST · TJ 지시 ─── 부정 나열 제거(긍정형) + 정리형 ───
+    #   기존 "NO jacket, NO blazer, NO sweater"는 reverse-psychology 유발(오히려 해당 아이템 생성).
+    #   제외는 프리필터(_warm_block 등)가 담당 → 프롬프트엔 긍정 지시만 남긴다.
     weather_note = ""
     if temp >= 28:
-        weather_note = f"\nWEATHER OVERRIDE: {temp}°C — HOT. NO jacket, NO blazer, NO sweater. Single thin layer ONLY."
+        weather_note = f"\nWEATHER: {temp}°C HOT — a single thin, breathable top worn on its own; the top is the outermost layer."
     elif temp >= 22:
-        weather_note = f"\nWEATHER NOTE: {temp}°C — WARM. Light single layer. NO heavy outerwear."
+        weather_note = f"\nWEATHER: {temp}°C WARM — a light single layer; the top is the outermost garment."
     elif temp <= 5:
-        weather_note = f"\nWEATHER NOTE: {temp}°C — COLD. Warm layering required."
+        weather_note = f"\nWEATHER: {temp}°C COLD — warm layering required."
     
     return (f"\n=== AI STYLIST [v2026-04-06] ===\n"
             f"CITY: {city} — {city_desc}.\n"
@@ -2009,7 +2016,6 @@ def generate_prompt_injection(metadata, stylist, fashion_db):
             f"KEYWORDS: {', '.join(keywords[:8])}.\n"
             f"{s_info}"
             f"{weather_note}"
-            f"\nSTYLING RULE: Apply {city} fashion SENSIBILITY (aesthetic, trends, silhouette) "
-            f"but dress for the USER\'S LOCAL WEATHER (temperature, season). "
-            f"The stylist city defines STYLE DIRECTION, NOT weather-appropriate clothing weight."
+            f"\nSTYLING RULE: use {city} style sensibility (aesthetic, trend, silhouette); "
+            f"dress for the user's local weather. City sets style direction; weather sets clothing weight."
             f"\n=== END ===\n")
