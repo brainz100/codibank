@@ -2711,10 +2711,231 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   display:flex; align-items:center; gap:6px;
 }
 
-/* ─── 2026-06-24 KST · TJ 지시 ─── 구버전 프리미엄 리포트 CSS 전면 제거 ───
-   사유: 카드형/컬러 좌측보더/원형 아이콘뱃지/인용부호 등 구 스타일이 !important 로
-         첨부 DC 디자인을 덮어써 '부분 적용'처럼 보이던 문제. 인라인+DC(아래) 스타일만
-         남겨 첨부 보고서와 1:1 일치시킴. (분석 섹션 = 플랫 에디토리얼: 상단 보더만) */
+/* ═══════════════════════════════════════════════════════ */
+/*  [2026-04-18] 프리미엄 스타일리스트 리포트 디자인       */
+/* ═══════════════════════════════════════════════════════ */
+
+/* ── 헤더 업그레이드: SERIAL 번호 + PREMIUM 뱃지 ── */
+#codiDetailBox .cdb-header-meta{
+  display:flex;align-items:center;gap:6px;
+  font-family:'Manrope','Inter',sans-serif;
+  font-size:9px;font-weight:500;letter-spacing:.1em;
+  color:rgba(151,254,237,0.5);
+}
+#codiDetailBox .cdb-premium-badge{
+  display:inline-flex;align-items:center;gap:3px;
+  padding:2px 7px;border-radius:999px;
+  background:linear-gradient(135deg,rgba(212,175,55,0.18),rgba(212,175,55,0.08));
+  border:1px solid rgba(212,175,55,0.35);
+  color:#E8C876;font-size:8px;font-weight:500;letter-spacing:.15em;
+}
+#codiDetailBox .cdb-premium-badge::before{
+  content:'★';font-size:8px;
+}
+
+/* ── 서브 헤더: PERSONAL STYLIST REPORT 라벨 ── */
+.cdb-subheader{
+  padding:10px 16px 8px;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  border-bottom:1px dashed rgba(151,254,237,0.08);
+}
+.cdb-subheader-title{
+  font-family:'Manrope','Inter',sans-serif;
+  font-size:8.5px;font-weight:500;letter-spacing:.3em;
+  color:rgba(151,254,237,0.55);text-transform:uppercase;
+}
+.cdb-subheader-line{
+  flex:1;height:1px;
+  background:linear-gradient(90deg,rgba(151,254,237,0.2),transparent);
+}
+
+/* ── 체형 뱃지 고급화 ── */
+#codiDetailBox #bodyTypeBadge{
+  padding:10px 16px 0;
+}
+#codiDetailBox #bodyTypeBadge span{
+  background:linear-gradient(135deg,rgba(53,162,159,0.22),rgba(53,162,159,0.1));
+  border:1px solid rgba(151,254,237,0.28);
+  box-shadow:0 2px 8px rgba(53,162,159,0.15);
+}
+
+/* ── 컨텍스트 태그 (목적/날짜/온도) 고급화 ── */
+#codiDetailBox #codiContextRow{
+  padding:10px 16px 4px;
+  gap:5px !important;
+}
+#codiDetailBox #codiContextRow > span{
+  padding:3.5px 9px !important;
+  border-radius:6px !important;
+  background:rgba(7,25,82,0.6) !important;
+  border:1px solid rgba(151,254,237,0.15) !important;
+  color:rgba(162,253,240,0.75) !important;
+  font-size:9.5px !important;
+  font-weight:500 !important;
+  letter-spacing:.02em !important;
+}
+
+/* ── AI 스타일리스트 코멘트 박스 (고급 인용 형식) ── */
+#codiDetailBox #stylistSummaryBox{
+  margin:10px 14px 0;
+  padding:12px 14px 12px 36px !important;
+  border:1px solid rgba(151,254,237,0.14) !important;
+  border-bottom:1px solid rgba(151,254,237,0.14) !important;
+  border-radius:10px;
+  background:
+    linear-gradient(135deg,rgba(53,162,159,0.08) 0%,rgba(7,25,82,0.4) 100%);
+  position:relative;
+}
+#codiDetailBox #stylistSummaryBox::before{
+  content:'"';
+  position:absolute;
+  left:10px;top:6px;
+  font-family:'Playfair Display','Georgia',serif;
+  font-size:40px;font-weight:700;line-height:1;
+  color:rgba(151,254,237,0.35);
+}
+#codiDetailBox #stylistSummaryBox > div:first-child{
+  margin-bottom:6px !important;
+}
+#codiDetailBox #stylistSummaryBox > div:first-child p{
+  font-family:'Manrope','Inter',sans-serif;
+  font-size:9px !important;font-weight:500 !important;
+  letter-spacing:.22em !important;
+  color:rgba(151,254,237,0.7) !important;
+  text-transform:uppercase;
+}
+#codiDetailBox #stylistSummaryText{
+  font-size:12.5px !important;line-height:1.75 !important;
+  color:rgba(255,255,255,0.88) !important;
+  font-weight:400 !important;
+  letter-spacing:-0.005em;
+  font-style:italic;
+}
+
+/* ── 메인 코디 스토리: 큰 따옴표 없이 깔끔한 본문 ── */
+#codiDetailBox > div.px-4.pb-2.pt-2{
+  padding:14px 18px 12px !important;
+  position:relative;
+}
+#codiDetailBox #codiExplain{
+  font-size:13.5px !important;
+  line-height:1.78 !important;
+  color:rgba(255,255,255,0.85) !important;
+  font-weight:400 !important;
+  letter-spacing:-0.005em !important;
+}
+
+/* ── 분석 섹션 공통: 카드형 디자인 ── */
+#codiDetailBox #anPcSection,
+#codiDetailBox #anBodySection,
+#codiDetailBox #anPurposeSection{
+  margin:10px 14px 0 !important;
+  padding:11px 13px !important;
+  border-top:none !important;
+  border:1px solid rgba(151,254,237,0.1) !important;
+  border-radius:10px;
+  background:rgba(5,15,42,0.45);
+  position:relative;
+}
+#codiDetailBox #anPurposeSection{
+  margin-bottom:14px !important;
+}
+
+/* 각 분석 섹션 컬러 액센트 (좌측 보더) */
+#codiDetailBox #anPcSection{border-left:2px solid rgba(255,180,200,0.55) !important;}
+#codiDetailBox #anBodySection{border-left:2px solid rgba(151,254,237,0.55) !important;}
+#codiDetailBox #anPurposeSection{border-left:2px solid rgba(255,220,150,0.55) !important;}
+
+/* 분석 섹션 헤더 */
+#codiDetailBox #anPcSection > div:first-child,
+#codiDetailBox #anBodySection > div:first-child,
+#codiDetailBox #anPurposeSection > div:first-child{
+  margin-bottom:7px !important;
+  gap:7px !important;
+}
+#codiDetailBox #anPcSection p:first-of-type,
+#codiDetailBox #anBodySection p:first-of-type,
+#codiDetailBox #anPurposeSection p:first-of-type{
+  font-family:'Manrope','Inter',sans-serif;
+  font-size:9px !important;font-weight:500 !important;
+  letter-spacing:.22em !important;
+  color:rgba(151,254,237,0.75) !important;
+  text-transform:uppercase !important;
+}
+
+/* 분석 섹션 본문 텍스트 */
+#codiDetailBox #anPcText,
+#codiDetailBox #anBodyText,
+#codiDetailBox #anPurposeText{
+  font-size:11.5px !important;
+  line-height:1.7 !important;
+  color:rgba(255,255,255,0.78) !important;
+  letter-spacing:-0.003em;
+}
+
+/* 분석 키워드 칩 — 고급 pill 스타일 */
+#codiDetailBox #anPcKws,
+#codiDetailBox #anBodyKws,
+#codiDetailBox #anPurposeKws{
+  margin-top:8px !important;
+  gap:5px !important;
+}
+#codiDetailBox #anPcKws > span,
+#codiDetailBox #anBodyKws > span,
+#codiDetailBox #anPurposeKws > span{
+  padding:3px 9px !important;
+  border-radius:999px !important;
+  font-size:9.5px !important;
+  font-weight:500 !important;
+  letter-spacing:.02em !important;
+  background:rgba(7,25,82,0.5) !important;
+  border:1px solid rgba(151,254,237,0.2) !important;
+  color:rgba(255,255,255,0.85) !important;
+}
+
+/* 분석 섹션 아이콘 원형 뱃지 */
+#codiDetailBox #anPcSection > div:first-child > span:first-child,
+#codiDetailBox #anBodySection > div:first-child > span:first-child,
+#codiDetailBox #anPurposeSection > div:first-child > span:first-child{
+  display:inline-flex !important;
+  align-items:center;justify-content:center;
+  width:22px !important;height:22px !important;
+  border-radius:50%;
+  font-size:11px !important;
+  flex-shrink:0;
+}
+#codiDetailBox #anPcSection > div:first-child > span:first-child{
+  background:rgba(255,180,200,0.15);
+  border:1px solid rgba(255,180,200,0.3);
+}
+#codiDetailBox #anBodySection > div:first-child > span:first-child{
+  background:rgba(151,254,237,0.12);
+  border:1px solid rgba(151,254,237,0.3);
+}
+#codiDetailBox #anPurposeSection > div:first-child > span:first-child{
+  background:rgba(255,220,150,0.15);
+  border:1px solid rgba(255,220,150,0.3);
+}
+
+/* ── 하단 서명 라인 (리포트 같은 느낌 마무리) ── */
+#codiDetailBox .cdb-signature{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px 12px;
+  border-top:1px dashed rgba(151,254,237,0.1);
+  margin-top:4px;
+}
+#codiDetailBox .cdb-signature-left{
+  display:flex;align-items:center;gap:7px;
+  font-family:'Playfair Display','Georgia',serif;
+  font-style:italic;font-size:10px;
+  color:rgba(151,254,237,0.55);
+}
+#codiDetailBox .cdb-signature-right{
+  font-family:'Manrope','Inter',sans-serif;
+  font-size:8px;font-weight:500;letter-spacing:.2em;
+  color:rgba(151,254,237,0.35);
+  text-transform:uppercase;
+}
 
 </style>
 <style>
@@ -2751,54 +2972,6 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     margin-right: auto !important;
   }
 }
-</style>
-<style id="dc-report-style">
-/* ═══ 2026-06-23 KST · TJ 지시 ═══ '추천 스타일링 보고서' DC 디자인 적용 ═══ */
-:root{ --dc-accent:#7d8cf6; --dc-accent-faint:rgba(125,140,246,.4); }
-/* 보고서 3박스: 카드 → 플랫 에디토리얼 (배경·테두리 제거, 연속 흐름) */
-#codiReportTitle, #codiDetailBox, #codiPointBox{
-  background:transparent !important; border:none !important; border-radius:0 !important;
-  box-shadow:none !important; overflow:visible !important;
-  max-width:430px; margin-left:auto !important; margin-right:auto !important;
-  font-family:'Pretendard','Noto Sans KR',system-ui,sans-serif;
-}
-#codiReportTitle{ margin-top:30px !important; margin-bottom:0 !important; text-align:left !important;
-  padding:34px 22px 0 !important;
-  background:radial-gradient(110% 60% at 50% -5%,rgba(38,66,120,.22),transparent 55%) !important; }
-#codiDetailBox{ margin:0 !important; padding:0 22px !important; }
-#codiPointBox{ margin:0 0 26px !important; padding:0 22px !important; }
-/* 옛 장식 제거 */
-#codiDetailBox .cdb-subheader, #codiDetailBox .cdb-signature{ display:none !important; }
-#codiDetailBox #stylistSummaryBox::before{ content:none !important; display:none !important; }
-/* 부제(코디 스토리) */
-#codiExplain{ font-size:14px !important; line-height:1.6 !important; color:#9aa8c0 !important;
-  font-weight:400 !important; letter-spacing:-0.2px !important; margin:14px 0 0 !important; }
-#codiExplain strong{ color:#c4d0e6 !important; }
-/* STYLIST'S NOTE */
-#codiDetailBox #stylistSummaryBox{ margin:24px 0 0 !important; padding:0 0 0 15px !important;
-  background:transparent !important; border:none !important;
-  border-left:2px solid var(--dc-accent) !important; border-radius:0 !important; }
-#codiDetailBox #stylistSummaryText{ font-size:16px !important; line-height:1.4 !important;
-  color:#9aa8c0 !important; font-weight:400 !important; font-style:normal !important;
-  letter-spacing:-0.2px !important; margin:9px 0 0 !important; }
-#codiDetailBox #stylistSummaryText strong{ font-style:italic; font-weight:700; color:#eef3fb; }
-/* ─── 2026-06-24 KST · TJ 지시 ─── 첨부 보고서엔 없는 요소 숨김(컨텍스트 태그·체형 뱃지) ─── */
-/*   분석 내용은 02 BODY & FIT / 03 OCCASION & WEATHER 본문에 들어가므로 별도 칩/뱃지는 제거. */
-#codiDetailBox #codiContextRow{ display:none !important; }
-#codiDetailBox #bodyTypeBadge{ display:none !important; }
-/* 분석 섹션 본문 */
-#anPcText, #anBodyText, #anPurposeText{ font-size:13.5px !important; line-height:1.82 !important;
-  color:#a9b8cf !important; letter-spacing:-0.1px !important; margin:14px 0 0 !important; font-weight:400 !important; }
-/* 분석 섹션 키워드 칩 → DC 중립 칩 (인라인 cyan 덮어쓰기) */
-#anPcKws span, #anBodyKws span, #anPurposeKws span{ background:transparent !important;
-  border:1px solid rgba(140,165,205,.2) !important; color:#aebbd2 !important; border-radius:6px !important;
-  padding:5px 11px !important; font-size:11px !important; font-weight:500 !important; }
-/* 스타일 키워드 펜 */
-#kwRow span{ padding:6px 13px !important; border-radius:999px !important; font-size:11.5px !important;
-  font-weight:500 !important; color:#c4d0e6 !important; background:rgba(255,255,255,.035) !important;
-  border:1px solid rgba(140,165,205,.16) !important; }
-/* 카테고리 포인트 행 */
-#catKwRow > div:last-child{ border-bottom:none !important; }
 </style>
 </head>
 
@@ -2932,110 +3105,123 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
     <!-- ① 코디핏 상세 설명 박스 -->
     <!-- ─── 2026-05-14 KST · TJ 지시 (v68) ─── 최종 STEP C 완료 전까지 숨김 ─── -->
-    <!-- 2026-06-23 KST · TJ 지시 — '추천 스타일링 보고서' DC 디자인 (헤더) -->
-    <div id="codiReportTitle" class="hidden">
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:10px;font-weight:600;letter-spacing:2.6px;color:#5e6e8c;">PERSONAL STYLIST REPORT</span>
-        <span style="font-size:10px;font-weight:600;letter-spacing:2.6px;color:#3f4c66;">CODIBANK</span>
+    <!-- 2026-06-19 KST · TJ 지시 (#2,#3) — '추천 스타일링 보고서' 타이틀 + 이미지뷰박스와 여백 확대 -->
+    <div id="codiReportTitle" class="hidden" style="margin-top:28px;margin-bottom:14px;text-align:center;">
+      <div style="display:inline-flex;align-items:center;gap:7px;font-size:16px;font-weight:800;color:#97FEED;letter-spacing:0.01em;">
+        <span class="material-symbols-outlined" style="font-size:19px;">description</span>
+        <span data-i18n="추천 스타일링 보고서">추천 스타일링 보고서</span>
       </div>
-      <h1 style="margin:18px 0 0;font-size:25px;font-weight:700;letter-spacing:-0.6px;line-height:1.2;color:#f0f4fb;"><span data-i18n="추천 스타일링 보고서">추천 스타일링 보고서</span></h1>
-      <p id="codiExplain">목적을 선택하면 AI가 날씨와 체형에 맞는 코디를 추천해요.</p>
+      <div style="margin:9px auto 0;width:54px;height:2px;border-radius:2px;background:linear-gradient(90deg,transparent,#97FEED,transparent);"></div>
     </div>
 
-    <div id="codiDetailBox" class="hidden">
-      <!-- BYLINE STRIP -->
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:24px;padding:13px 0;border-top:1px solid rgba(140,165,205,.13);border-bottom:1px solid rgba(140,165,205,.13);">
-        <div style="display:flex;align-items:center;gap:9px;min-width:0;">
-          <span style="font-size:12.5px;font-weight:600;color:#d4ddee;letter-spacing:-0.1px;white-space:nowrap;" data-i18n="AI 코디핏 스토리">AI 코디핏 스토리</span>
-          <span style="font-size:9px;font-weight:700;letter-spacing:1.2px;color:var(--dc-accent,#7d8cf6);padding:2px 7px;border:1px solid var(--dc-accent-faint,rgba(125,140,246,.4));border-radius:4px;" data-i18n="PREMIUM">PREMIUM</span>
+    <div id="codiDetailBox" class="mb-3 overflow-hidden hidden" style="background:rgba(7,25,82,0.7);border:1px solid rgba(151,254,237,0.18);border-radius:16px;">
+      <!-- 헤더 바 -->
+      <div class="flex items-center justify-between px-4 py-2.5" style="background:rgba(18,148,144,0.18);border-bottom:1px solid rgba(151,254,237,0.1);">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-[14px]" style="color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 14;">style</span>
+          <p class="text-[10px] font-extrabold tracking-[0.2em]" style="color:#97FEED;" data-i18n="AI 코디핏 스토리">AI 코디핏 스토리</p>
+          <span class="cdb-premium-badge" data-i18n="PREMIUM">PREMIUM</span>
         </div>
-        <!-- 2026-06-19 KST · TJ 지시 (#4) — 보고서 저장·공유 -->
-        <div style="display:flex;gap:4px;flex:none;">
-          <button id="reportSaveBtn" type="button" title="저장" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;color:#9aa8c0;background:transparent;border:1px solid rgba(140,165,205,.16);cursor:pointer;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 20h14"/></svg>
+        <!-- 2026-06-19 KST · TJ 지시 (#4) — 보고서 영역에 저장·공유 기능 추가 -->
+        <div class="flex items-center gap-1.5">
+          <button id="reportSaveBtn" type="button" title="보고서 저장"
+            style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#97FEED;background:rgba(53,162,159,0.25);border:1px solid rgba(151,254,237,0.3);border-radius:8px;padding:4px 8px;cursor:pointer;">
+            <span class="material-symbols-outlined" style="font-size:14px;">download</span><span data-i18n="저장">저장</span>
           </button>
-          <button id="reportShareBtn" type="button" title="공유" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;color:#9aa8c0;background:transparent;border:1px solid rgba(140,165,205,.16);cursor:pointer;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="2.2"/><circle cx="17" cy="6" r="2.2"/><circle cx="17" cy="18" r="2.2"/><path d="M8 11l7-4M8 13l7 4"/></svg>
+          <button id="reportShareBtn" type="button" title="보고서 공유"
+            style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#97FEED;background:rgba(53,162,159,0.25);border:1px solid rgba(151,254,237,0.3);border-radius:8px;padding:4px 8px;cursor:pointer;">
+            <span class="material-symbols-outlined" style="font-size:14px;">share</span><span data-i18n="공유">공유</span>
           </button>
         </div>
         <!-- vtoMeta: 기존 JS 참조 유지용(숨김) -->
-        <p id="vtoMeta" style="display:none;"></p>
+        <p id="vtoMeta" class="text-[10px]" style="display:none;color:rgba(255,255,255,0.35);"></p>
       </div>
-
+      <!-- 서브 헤더 -->
+      <div class="cdb-subheader">
+        <span class="cdb-subheader-title" data-i18n="Personal Stylist Report">Personal Stylist Report</span>
+        <span class="cdb-subheader-line"></span>
+      </div>
       <!-- 컨텍스트 태그 (목적/날짜/온도/지역) -->
-      <div id="codiContextRow" class="flex flex-wrap"></div>
+      <div id="codiContextRow" class="flex flex-wrap gap-1.5 px-4 pt-3 pb-1"></div>
       <!-- 체형 뱃지 -->
-      <div id="bodyTypeBadge" class="hidden">
-        <span id="bodyTypeTxt" class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1">
+      <div id="bodyTypeBadge" class="hidden px-4 pb-1">
+        <span id="bodyTypeTxt" class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full" style="background:rgba(53,162,159,0.2);border:1px solid rgba(151,254,237,0.3);color:#97FEED;">
           <span class="material-symbols-outlined" style="font-size:13px;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 13;">accessibility_new</span>
           <span id="bodyTypeLabel"></span>
         </span>
       </div>
-
-      <!-- STYLIST'S NOTE -->
-      <div id="stylistSummaryBox" class="hidden">
-        <div style="font-size:10px;font-weight:600;letter-spacing:2px;color:#5e6e8c;">STYLIST'S NOTE</div>
-        <p id="stylistSummaryText"></p>
-        <div style="margin-top:4px;font-size:12px;color:#6b7c98;" data-i18n="패션 스타일리스트 · 스타일몬스터의 노트">패션 스타일리스트 · 스타일몬스터의 노트</div>
+      <!-- 상세 설명 (400자) -->
+      <!-- [2026-04-11] AI 스타일리스트 요약 -->
+      <div id="stylistSummaryBox" class="hidden px-4 pt-3 pb-2" style="border-bottom:1px solid rgba(151,254,237,0.08);">
+        <div class="flex items-center gap-1.5 mb-1.5">
+          <span class="material-symbols-outlined" style="font-size:14px;color:#97FEED;font-variation-settings:'FILL' 1;">psychology</span>
+          <p class="text-[10px] font-extrabold tracking-[0.16em]" style="color:rgba(151,254,237,0.75);" data-i18n="스타일몬스터의 노트">스타일몬스터의 노트</p>
+        </div>
+        <p id="stylistSummaryText" class="text-[12px] leading-[1.7]" style="color:rgba(162,253,240,0.9);"></p>
       </div>
-
-      <!-- 01 COLOR ANALYSIS -->
-      <section id="anPcSection" class="hidden" style="margin-top:30px;padding-top:24px;border-top:1px solid rgba(140,165,205,.13);">
-        <div style="display:flex;align-items:baseline;gap:13px;">
-          <span style="font-size:12px;font-weight:600;color:var(--dc-accent,#7d8cf6);letter-spacing:.5px;font-variant-numeric:tabular-nums;">01</span>
-          <span style="font-size:13px;font-weight:600;letter-spacing:1.8px;color:#d2ddee;" data-i18n="Color Analysis">COLOR ANALYSIS</span>
+      <!-- 코디핏 이야기 -->
+      <div class="px-4 pb-2 pt-2">
+        <p id="codiExplain" class="text-[13px] leading-[1.75] font-normal" style="color:rgba(255,255,255,0.78);">목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.</p>
+      </div>
+      <!-- ① 퍼스널컬러 분석 -->
+      <div id="anPcSection" class="hidden px-4 pt-2 pb-2" style="border-top:1px solid rgba(151,254,237,0.06);">
+        <div class="flex items-center gap-1.5 mb-1">
+          <span style="font-size:12px;">🎨</span>
+          <p class="text-[10px] font-extrabold tracking-[0.14em]" style="color:rgba(151,254,237,0.65);" data-i18n="Color Analysis">Color Analysis</p>
         </div>
-        <p id="anPcText"></p>
-        <div id="anPcKws" class="flex flex-wrap" style="gap:7px;margin-top:15px;"></div>
-      </section>
-
-      <!-- 02 BODY & FIT -->
-      <section id="anBodySection" class="hidden" style="margin-top:26px;padding-top:24px;border-top:1px solid rgba(140,165,205,.13);">
-        <div style="display:flex;align-items:baseline;gap:13px;">
-          <span style="font-size:12px;font-weight:600;color:var(--dc-accent,#7d8cf6);letter-spacing:.5px;font-variant-numeric:tabular-nums;">02</span>
-          <span style="font-size:13px;font-weight:600;letter-spacing:1.8px;color:#d2ddee;" data-i18n="Body & Fit">BODY &amp; FIT</span>
+        <p id="anPcText" class="text-[11px] leading-[1.65]" style="color:rgba(255,255,255,0.72);"></p>
+        <div id="anPcKws" class="flex flex-wrap gap-1 mt-1.5"></div>
+      </div>
+      <!-- ② 체형 분석 -->
+      <div id="anBodySection" class="hidden px-4 pt-2 pb-2" style="border-top:1px solid rgba(151,254,237,0.06);">
+        <div class="flex items-center gap-1.5 mb-1">
+          <span style="font-size:12px;">📐</span>
+          <p class="text-[10px] font-extrabold tracking-[0.14em]" style="color:rgba(151,254,237,0.65);" data-i18n="Body & Fit">Body &amp; Fit</p>
         </div>
-        <p id="anBodyText"></p>
-        <div id="anBodyKws" class="flex flex-wrap" style="gap:7px;margin-top:15px;"></div>
-      </section>
-
-      <!-- 03 OCCASION & WEATHER -->
-      <section id="anPurposeSection" class="hidden" style="margin-top:26px;padding-top:24px;border-top:1px solid rgba(140,165,205,.13);">
-        <div style="display:flex;align-items:baseline;gap:13px;">
-          <span style="font-size:12px;font-weight:600;color:var(--dc-accent,#7d8cf6);letter-spacing:.5px;font-variant-numeric:tabular-nums;">03</span>
-          <span style="font-size:13px;font-weight:600;letter-spacing:1.8px;color:#d2ddee;" data-i18n="Occasion & Weather">OCCASION &amp; WEATHER</span>
+        <p id="anBodyText" class="text-[11px] leading-[1.65]" style="color:rgba(255,255,255,0.72);"></p>
+        <div id="anBodyKws" class="flex flex-wrap gap-1 mt-1.5"></div>
+      </div>
+      <!-- ③ 코디목적 + 날씨 분석 -->
+      <div id="anPurposeSection" class="hidden px-4 pt-2 pb-3" style="border-top:1px solid rgba(151,254,237,0.06);">
+        <div class="flex items-center gap-1.5 mb-1">
+          <span style="font-size:12px;">🌤️</span>
+          <p class="text-[10px] font-extrabold tracking-[0.14em]" style="color:rgba(151,254,237,0.65);" data-i18n="Occasion & Weather">Occasion &amp; Weather</p>
         </div>
-        <p id="anPurposeText"></p>
-        <div id="anPurposeKws" class="flex flex-wrap" style="gap:7px;margin-top:15px;"></div>
-      </section>
+        <p id="anPurposeText" class="text-[11px] leading-[1.65]" style="color:rgba(255,255,255,0.72);"></p>
+        <div id="anPurposeKws" class="flex flex-wrap gap-1 mt-1.5"></div>
+      </div>
+      <!-- [2026-04-18] 리포트 하단 서명 라인 -->
+      <div class="cdb-signature">
+        <div class="cdb-signature-left">
+          <span class="material-symbols-outlined" style="font-size:13px;color:rgba(212,175,55,0.7);font-variation-settings:'FILL' 1;">verified</span>
+          <span data-i18n="Curated by Codibank Style Monster">Curated by Codibank Style Monster</span>
+        </div>
+        <span class="cdb-signature-right">CODIBANK · 2026</span>
+      </div>
     </div>
-
 
     <!-- ② AI 스타일리스트 포인트 박스 -->
     <!-- ─── 2026-05-14 KST · TJ 지시 (v68) ─── 최종 STEP C 완료 전까지 숨김 ─── -->
-    <div id="codiPointBox" class="hidden">
-      <section style="margin-top:36px;padding-top:24px;border-top:1px solid rgba(140,165,205,.2);">
-        <div style="display:flex;align-items:center;gap:9px;">
-          <h2 style="margin:0;font-size:15px;font-weight:700;color:#eef3fb;letter-spacing:-0.2px;" data-i18n="AI 코디핏 포인트">AI 코디핏 포인트</h2>
-          <span id="stylistBadge" class="hidden" style="font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--dc-accent,#7d8cf6);padding:2px 8px;border:1px solid var(--dc-accent-faint,rgba(125,140,246,.4));border-radius:999px;"></span>
-        </div>
-        <!-- 스타일 키워드 -->
-        <div style="margin-top:20px;">
-          <div style="font-size:10px;font-weight:600;letter-spacing:2px;color:#5e6e8c;margin-bottom:12px;" data-i18n="스타일 키워드">스타일 키워드</div>
-          <div id="kwRow" class="flex flex-wrap hidden" style="gap:7px;"></div>
-        </div>
-        <!-- 카테고리별 코디 포인트 -->
-        <div id="catKwSection" class="hidden" style="margin-top:26px;">
-          <div style="font-size:10px;font-weight:600;letter-spacing:2px;color:#5e6e8c;margin-bottom:4px;" data-i18n="카테고리별 코디 포인트">카테고리별 코디 포인트</div>
-          <div id="catKwRow"></div>
-        </div>
-        <div id="matchRow" style="display:none;"></div>
-      </section>
-      <!-- FOOTER -->
-      <div style="margin-top:34px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
-        <span style="font-size:12px;font-style:italic;color:#6b7c98;letter-spacing:.1px;" data-i18n="Curated by Codibank Style Monster">Curated by Codibank Style Monster</span>
-        <span style="font-size:9.5px;font-weight:600;letter-spacing:1.4px;color:#3f4c66;flex:none;">2026</span>
+    <div id="codiPointBox" class="mb-4 overflow-hidden hidden" style="background:rgba(7,25,82,0.7);border:1px solid rgba(151,254,237,0.18);border-radius:16px;">
+      <div class="flex items-center justify-between px-4 py-2.5" style="background:rgba(18,148,144,0.18);border-bottom:1px solid rgba(151,254,237,0.1);">
+        <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-[14px]" style="color:#97FEED;font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 14;">auto_awesome</span>
+        <p class="text-[10px] font-extrabold tracking-[0.2em]" style="color:#97FEED;" data-i18n="AI 코디핏 포인트">AI 코디핏 포인트</p>
+        <span id="stylistBadge" class="hidden text-[9px] font-bold px-2 py-0.5 rounded-full" style="background:rgba(18,148,144,0.25);border:1px solid rgba(151,254,237,0.3);color:#97FEED;"></span>
       </div>
+      </div>
+      <!-- 스타일 키워드 -->
+      <div class="px-4 pt-3 pb-1">
+        <p class="text-[9px] font-extrabold tracking-[0.18em] mb-1.5" style="color:rgba(151,254,237,0.45);">스타일 키워드</p>
+        <div id="kwRow" class="flex flex-wrap gap-1 hidden"></div>
+      </div>
+      <!-- 카테고리별 키워드 -->
+      <div id="catKwSection" class="hidden px-4 pt-2 pb-3">
+        <p class="text-[9px] font-extrabold tracking-[0.18em] mb-2 mt-1" style="color:rgba(151,254,237,0.45);">카테고리별 코디 포인트</p>
+        <div id="catKwRow" class="flex flex-col gap-1.5"></div>
+        <p class="text-[10px] mt-2.5 leading-relaxed" style="color:rgba(151,254,237,0.4);display:none;">↓ 아래 모바일 옷장과 AI 매칭 분석 중</p>
+      </div>
+      <div id="matchRow" style="display:none;"></div>
     </div>
 
     <!-- VTO 영역 -->
@@ -3306,40 +3492,6 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 //          → 페이지 init이 정상 진행되어 IP 위치/날짜/목적 UI가 활성된 모습 표시.
 //          → 호기심 유발 → 회원가입 동기 부여.
 //          실제 추천 시작 버튼은 [data-requires-auth] 글로벌 가드에 의해 차단됨.
-// ─── 2026-06-23 KST · 프리뷰/로드순서 안전장치 ──────────────────────────────
-//   CodiBank 전역은 codibank.js, CodiBankI18n 은 i18n.js 에서 정의됨.
-//   프리뷰·단독 열람 등에서 그 스크립트들이 먼저 로드되지 않으면, 바로 아래
-//   최상위 'CodiBank.requireAuth(...)' 호출이 "CodiBank is not defined" 로
-//   전체 스크립트를 중단시켜 페이지가 비어 보이고 어떤 수정도 화면에 안 나타남.
-//   → 둘 중 '미정의일 때만' 게스트 폴백 shim 주입(크래시 방지·렌더 전용).
-//     프로덕션에서는 위 <script src="codibank.js"> 가 동기 로드되어 먼저
-//     정의되므로 이 블록은 실행되지 않음. (실제 데이터 기능은 codibank.js 필요)
-if (typeof window.CodiBank === 'undefined') {
-  console.warn('[CodiBank] codibank.js 미로드 — 게스트 프리뷰 폴백(렌더 전용) 활성화');
-  var _cbList = { getItemsByUserAndCategory:1, getItemsByUser:1, getAiAlbumEntries:1, getCategoriesForUser:1, getMainSubCities:1 };
-  window.CodiBank = new Proxy({}, { get: function(_t, prop){
-    return function(){
-      switch(prop){
-        case 'requireAuth':            return true;
-        case 'getUserPlan':            return 'FREE';
-        case 'getPlanLimit':           return 0;
-        case 'getBackendBaseResolved': return '';
-        case 'nowIso':                 return new Date().toISOString();
-        default:                       return _cbList[prop] ? [] : null;
-      }
-    };
-  }});
-}
-if (typeof window.CodiBankI18n === 'undefined') {
-  console.warn('[CodiBankI18n] i18n.js 미로드 — 한국어 폴백 활성화');
-  window.CodiBankI18n = {
-    lang: 'ko',
-    isEn:    function(){ return false; },
-    t:       function(ko, en){ return ko; },
-    setLang: function(l){ this.lang = l || 'ko'; },
-  };
-}
-// ───────────────────────────────────────────────────────────────────────────
 if (!CodiBank.requireAuth('login.html')) {}
 const user = CodiBank.getCurrentUser() || {
   email: '',
@@ -3365,30 +3517,20 @@ console.info('[CodiBank] closet build: v44 (2026-05-09) · isGuest=' + (!!user.i
 // ── 16개 코디 목적 (TJ v44 정정 — 이전 주석 "10개"는 구버전 잔존 표기) ──
 //   비즈니스/오피스(3) · 격식 모임(2) · 데이트(2) · 가족(1) · 파티(1) ·
 //   주말·여행(3) · 데일리·스트릿(3) · 직접입력(1) = 총 16개
-// ─── 2026-06-24 KST · TJ 지시 ─── 코디목적 kw(기준 단어) 중복·부적합어 정리 ───
-//   배경: kw 가 payload.keywords 로 전송되고 화면 키워드·캐시 키에도 쓰임.
-//   ① 중복 제거: '스트릿'(꾸안꾸·스트릿), '트렌디'(파티·스트릿), '슬랙스'(오피스·소개팅),
-//      '우아/우아함'(하객·상견례), '세미정장/세미포멀' 근접중복 → 목적별로 1곳에만 둠.
-//   ② 부적합어 제거:
-//      · '드레스'(로맨틱), '원피스'(하객) — 남성에겐 안 맞는 성별 종속 의류 → 제거.
-//      · '감성'(로맨틱) — 너무 추상적이라 구체 아이템 단서가 없음 → '시크/포인트컬러'로.
-//      · '야외/공원'(주말), '이국적'(여행) — 배경어인데 배경은 단색 파스텔 강제라 무의미.
-//      · '인생샷'(여행) — 사진 컨셉어(의류 아님), '레깅스'(스포티) — 성별 종속 → 교체.
-//   ③ 각 목적이 의류/실루엣/팔레트 중심의 서로 겹치지 않는 단어 4개를 갖도록 재구성.
 const PURPOSES = [
-  {key:'bizFormal',    label:'비즈니스 포멀',   labelEn:'Business Formal',   icon:'business_center', kw:['비즈니스','수트','타이','격식']},
-  {key:'officeDaily',  label:'데일리 오피스룩', labelEn:'Daily Office', icon:'work',             kw:['오피스','블레이저','슬랙스','세미정장']},
-  {key:'interview',    label:'면접룩',          labelEn:'Interview',          icon:'badge',           kw:['면접','단정','네이비','차분']},
-  {key:'weddingGuest', label:'결혼식 하객룩',   labelEn:'Wedding Guest',   icon:'celebration',     kw:['하객','셋업','우아','파스텔']},
-  {key:'blindDate',    label:'소개팅룩',         labelEn:'Blind Date',         icon:'favorite',        kw:['소개팅','니트','깔끔','호감']},
-  {key:'romanticDate', label:'로맨틱 데이트룩', labelEn:'Romantic Date', icon:'favorite_border', kw:['데이트','로맨틱','시크','포인트컬러']},
-  {key:'familyMeet',   label:'상견례/가족모임', labelEn:'Family Gathering', icon:'family_restroom', kw:['상견례','보수적','단아','클래식']},
-  {key:'socialParty',  label:'사교 모임/파티',  labelEn:'Social / Party',  icon:'groups',          kw:['파티','화려','액세서리','이브닝']},
-  {key:'weekendOut',   label:'주말 나들이',      labelEn:'Weekend Outing',      icon:'weekend',         kw:['주말','캐주얼','데님','릴랙스']},
-  {key:'travelShot',   label:'여행지 인생샷',   labelEn:'Travel Photo',   icon:'flight',          kw:['여행','휴양','린넨','리조트']},
-  {key:'dailyCasual',  label:'꾸안꾸 데일리',   labelEn:'Effortless Daily',   icon:'style',           kw:['꾸안꾸','오버사이즈','베이직','자연스러움']},
-  {key:'sporty',       label:'스포티/애슬레저', labelEn:'Sporty / Athleisure', icon:'fitness_center',  kw:['스포티','애슬레저','기능성','조거']},
-  {key:'airport',      label:'공항 패션',        labelEn:'Airport Fashion',        icon:'luggage',         kw:['공항','레이어드','편안','모던']},
+  {key:'bizFormal',    label:'비즈니스 포멀',   labelEn:'Business Formal',   icon:'business_center', kw:['비즈니스','포멀','수트','프로페셔널']},
+  {key:'officeDaily',  label:'데일리 오피스룩', labelEn:'Daily Office', icon:'work',             kw:['오피스','세미정장','블레이저','슬랙스']},
+  {key:'interview',    label:'면접룩',          labelEn:'Interview',          icon:'badge',           kw:['면접','단정','네이비','그레이']},
+  {key:'weddingGuest', label:'결혼식 하객룩',   labelEn:'Wedding Guest',   icon:'celebration',     kw:['하객룩','원피스','세미포멀','우아함']},
+  {key:'blindDate',    label:'소개팅룩',         labelEn:'Blind Date',         icon:'favorite',        kw:['소개팅','니트','슬랙스','호감']},
+  {key:'romanticDate', label:'로맨틱 데이트룩', labelEn:'Romantic Date', icon:'favorite_border', kw:['데이트','로맨틱','드레스','감성']},
+  {key:'familyMeet',   label:'상견례/가족모임', labelEn:'Family Gathering', icon:'family_restroom', kw:['상견례','보수적','우아','단아']},
+  {key:'socialParty',  label:'사교 모임/파티',  labelEn:'Social / Party',  icon:'groups',          kw:['파티','트렌디','액세서리','모임']},
+  {key:'weekendOut',   label:'주말 나들이',      labelEn:'Weekend Outing',      icon:'weekend',         kw:['주말','캐주얼','야외','공원']},
+  {key:'travelShot',   label:'여행지 인생샷',   labelEn:'Travel Photo',   icon:'flight',          kw:['여행','휴양지','이국적','인생샷']},
+  {key:'dailyCasual',  label:'꾸안꾸 데일리',   labelEn:'Effortless Daily',   icon:'style',           kw:['꾸안꾸','오버사이즈','스트릿','자연스러움']},
+  {key:'sporty',       label:'스포티/애슬레저', labelEn:'Sporty / Athleisure', icon:'fitness_center',  kw:['스포티','애슬레저','운동복','레깅스']},
+  {key:'airport',      label:'공항 패션',        labelEn:'Airport Fashion',        icon:'luggage',         kw:['공항','레이어드','편안','여행자']},
   {key:'minimal',      label:'미니멀/심플',      labelEn:'Minimal / Simple',      icon:'fiber_manual_record', kw:['미니멀','무채색','심플','클린']},
   {key:'streetTrend',  label:'트렌디/스트릿',   labelEn:'Trendy / Street',   icon:'local_fire_department', kw:['스트릿','트렌디','그래픽','스니커즈']},
   {key:'custom',       label:'직접입력',          labelEn:'Custom Input',          icon:'edit',            kw:['맞춤']},
@@ -4868,30 +5010,12 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   };
 
   // TPO 매핑
-  // ─── 2026-06-24 KST · TJ 지시 ─── 신규 15개 코디목적 키 → 페르소나 풀 재매핑 ───
-  //   문제: 기존 매핑이 레거시 키(commute/business/meet/blindDate/partyLook/…) 기준이라
-  //         현재 15개 신규 키(bizFormal/officeDaily/romanticDate/socialParty/…) 대부분이
-  //         어디에도 안 걸려 'custom'(범용 스마트캐주얼·블레이저 풀)로 폴백 →
-  //         로맨틱데이트·하객·상견례·파티·여행 등이 전부 '데일리 오피스룩'처럼 보이던
-  //         근본 원인. (정상 매핑은 blindDate→social, weekendOut→weekendOut 둘뿐이었음)
-  //   변경: 신규 키를 의미에 맞는 풀로 직접 매핑.
-  //         포멀(비즈/면접/하객/상견례)→business · 데이트/소개팅/파티/스트릿→social ·
-  //         오피스→commute · 여행지(리조트)→overseasTrip · 공항(여행레이어링)→weekendTrip ·
-  //         꾸안꾸/스포티/미니멀/직접입력→custom. (레거시 키도 계속 지원)
   const tpoKey = (()=>{
-    // 포멀/격식 — 정장·수트 풀
-    if(pk==='bizFormal'||pk==='interview'||pk==='weddingGuest'||pk==='familyMeet'||pk==='business') return 'business';
-    // 오피스(스마트캐주얼) 풀
-    if(pk==='officeDaily'||pk==='commute') return 'commute';
-    // 데이트·소개팅·파티·스트릿(트렌디/감각) 풀
-    if(pk==='romanticDate'||pk==='blindDate'||pk==='socialParty'||pk==='streetTrend'||pk==='meet'||pk==='partyLook') return 'social';
-    // 주말 나들이 풀
+    if(pk==='commute'||pk==='business') return pk;
+    if(pk==='meet'||pk==='blindDate'||pk==='partyLook') return 'social';
     if(pk==='weekendOut') return 'weekendOut';
-    // 공항(여행 레이어링) 풀
-    if(pk==='airport'||pk==='weekendTrip'||pk==='domesticTrip') return 'weekendTrip';
-    // 여행지(리조트/휴양) 풀
-    if(pk==='travelShot'||pk==='overseasTrip') return 'overseasTrip';
-    // 꾸안꾸·스포티·미니멀·직접입력 등 → 범용 스마트캐주얼 풀
+    if(pk==='weekendTrip'||pk==='domesticTrip') return 'weekendTrip';
+    if(pk==='overseasTrip') return 'overseasTrip';
     return 'custom';
   })();
   const personas = PERSONA_DB[tpoKey] || PERSONA_DB.commute;
@@ -5597,50 +5721,27 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   // ─── 2026-05-09 KST · TJ 지시 ─── 날짜/날씨 명시화 강화
   //   원인: 기존 weatherNote는 온도+날씨 텍스트만 있어 AI가 "오늘"로 인식하기 쉬움.
   //         사용자가 미래 날짜를 선택해도 같은 패턴의 코디가 나오는 문제 발생.
-  //   변경: 날짜 라벨(dLab)과 온도까지 명시해 AI가 그 날짜의 날씨에 맞는 코디를 생성.
-  // ─── 2026-06-24 KST · TJ 지시 ─── 프롬프트 온도 = 코디 기준온도(고점−2°C)로 통일 ───
-  //   문제: weatherNote가 예보 '최고온도(고점)'를 그대로 노출(예 29°)하고
-  //         "the actual high temperature"에 맞추라고 지시 → 백엔드 게이트가 쓰는
-  //         기준온도(payload.weather.temp = 고점−2 = 27°)와 충돌. 고점 자체에 맞추라는
-  //         지시가 한낮 고점 기준 과한 레이어(자켓)를 유발하는 한 원인.
-  //   변경: payload.weather.temp 와 동일한 '코디 기준온도(고점−2°C)'를 프롬프트 온도로
-  //         노출하고, 옷차림은 이 기준온도에 맞춘다(고점 자체가 아님)고 통일.
-  const _tMaxRaw  = (wx && Number.isFinite(Number(wx.tempMax))) ? Math.round(Number(wx.tempMax)) : null;
-  const _tBaseRaw = (_tMaxRaw !== null) ? (_tMaxRaw - 2)
-                    : ((wx && Number.isFinite(Number(wx.temp))) ? Math.round(Number(wx.temp)) : null);
-  const _tBaseTxt = _tBaseRaw !== null ? (_tBaseRaw + '°') : '';
+  //   변경: 날짜 라벨(dLab)과 최고온도(tempMax)까지 명시해 AI가 그 날짜의 날씨에 맞는
+  //         코디를 생성하도록 강화. tempMax는 옷차림 결정의 핵심 지표.
+  const _tMaxRaw = (wx && Number.isFinite(Number(wx.tempMax))) ? Math.round(Number(wx.tempMax)) : null;
+  const _tMaxTxt = _tMaxRaw !== null ? (_tMaxRaw + '°') : '';
   const _dayPhrase = dLab
     ? (dLab === '오늘' ? 'TODAY' : (dLab === '내일' ? 'TOMORROW' : ('the date ' + dLab)))
     : 'today';
   const weatherNote = (() => {
     const parts = [];
     parts.push(`Target date: ${_dayPhrase}.`);
-    if(_tBaseTxt) parts.push(`Dressing temperature: ${_tBaseTxt} (daytime activity basis).`);
+    if(_tMaxTxt) parts.push(`Daytime high temperature: ${_tMaxTxt}.`);
     else if(tTxt) parts.push(`Temperature: ${tTxt}.`);
     if(wxTxt) parts.push(`Weather: ${wxTxt}.`);
-    parts.push('The outfit MUST suit THIS dressing temperature — fabric weight and layering must match this exact temperature, not a colder reading.');
+    parts.push('The outfit MUST be appropriate for THIS specific date and weather — layering, fabric weight, and accessories must reflect the actual high temperature listed above.');
     return parts.join(' ');
   })();
-  // ─── 2026-06-24 KST · TJ 지시 ─── 체형 보정 팁의 아우터/코트 표현을 온도로 게이트 ───
-  //   문제: 체형 보정 문구가 온도 무관하게 'V-neck outerwear / cropped outerwear /
-  //         long coat' 등 아우터·코트를 지시 → 따뜻한 날(예 27°)에도 자켓/코트 생성 유발.
-  //   변경: 20°C 이상이면 아우터 없이 같은 효과를 내는 표현(다크 하의/세로 라인/
-  //         하이웨이스트/풀렝스 팬츠)으로 대체. 20°C 미만은 기존 표현 유지.
-  //         (보온 아이템 이름을 나열하지 않는 긍정문 — 금지어 역효과 방지)
-  const _warmNoOuter = Number.isFinite(nt) && nt >= 20;
   const bodyFlawPrompt = bodyType ? (
-    (bodyType.tag==='비만형'||bodyType.tag==='통통형')
-      ? (_warmNoOuter ? 'Use dark-toned bottoms and a clean vertical-line single top (worn on its own) to slim the silhouette.'
-                      : 'Use dark-toned bottoms and structured V-neck outerwear to slim the silhouette.') :
-    bodyType.tag==='마른형'
-      ? (_warmNoOuter ? 'Use a lightweight textured single-layer top to add gentle volume.'
-                      : 'Use layered textured fabrics to add volume.') :
-    bodyType.tag==='단신형'
-      ? (_warmNoOuter ? 'Tuck the top into high-waist full-length pants to elongate the legs.'
-                      : 'Use cropped outerwear with high-waist pants to elongate legs.') :
-    bodyType.tag==='장신형'
-      ? (_warmNoOuter ? 'Pair a balanced single top with full-length trousers for perfect proportions.'
-                      : 'Use long coat with full-length trousers for perfect proportions.') : ''
+    (bodyType.tag==='비만형'||bodyType.tag==='통통형') ? 'Use dark-toned bottoms and structured V-neck outerwear to slim the silhouette.' :
+    bodyType.tag==='마른형' ? 'Use layered textured fabrics to add volume.' :
+    bodyType.tag==='단신형' ? 'Use cropped outerwear with high-waist pants to elongate legs.' :
+    bodyType.tag==='장신형' ? 'Use long coat with full-length trousers for perfect proportions.' : ''
   ) : '';
 
   // ── custom(직접입력)일 때 imagePrompt를 사용자 요청 중심으로 완전 재생성
@@ -5674,15 +5775,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
     !_skipBag ? `[6] BAG: ${_extSpec.bag.en}.` : '',
     !_skipWatch ? `[7] WATCH: ${_extSpec.watch.en}.` : '',
     `[8] SOCKS: ${_extSpec.socks.en}. CRITICAL: Both left AND right socks must be IDENTICAL — same color and same pattern on both feet. Mismatched socks (different colors per foot) are STRICTLY FORBIDDEN.`,
-    // ─── 2026-06-24 KST · TJ 지시 ─── Silhouette(페르소나 layerStyle) 온도 게이트 ───
-    //   문제: persona.layerStyle 이 '네이비블레이저+카키치노'처럼 자켓/코트/수트를 거의
-    //         항상 포함 → 온도와 무관하게 프롬프트에 노출되어 27°에도 자켓이 생성됨.
-    //         (categoryKeywords·[1]OUTERWEAR 라인은 이미 nt>=20에서 제외되는데 이 줄만 누락)
-    //   변경: 20°C 이상이면 layerStyle 대신 '단일 경량 상의'를 긍정문으로 명시
-    //         (보온 아이템 이름을 나열하지 않음 — 금지어 역효과 방지). 20°C 미만 기존 유지.
-    (Number.isFinite(nt) && nt >= 20)
-      ? `Style: ${persona.en} persona — express the persona through color, fit and fabric, NOT through extra layers. Silhouette: a single light top worn on its own (a short-sleeve or thin long-sleeve shirt); the sleeves and torso are fully visible with nothing worn over the top.`
-      : `Style: ${persona.en} persona. Silhouette: ${persona.layerStyle}.`,
+    `Style: ${persona.en} persona. Silhouette: ${persona.layerStyle}.`,
     bodyFlawPrompt||'',
     'POSE: Natural, relaxed standing pose. Frontal view, slight smile. Both feet on the ground, weight balanced. NO awkward, exaggerated, or unnatural poses. NO sitting, NO leaning, NO jumping.',
     'BACKGROUND (ABSOLUTE MANDATORY — MOST IMPORTANT RULE): The background must be a SINGLE SOLID FLAT PASTEL COLOR that CONTRASTS with the outfit to make the clothing clearly visible. If the outfit is dark, use a lighter pastel (cream, pale pink, light mint). If the outfit is light, use a slightly deeper pastel (soft lavender, muted sky blue, warm peach). The background must be completely uniform and flat edge to edge — like professional studio backdrop paper. ABSOLUTELY NO room, NO street, NO wall, NO floor, NO gradient, NO pattern, NO objects, NO scenery, NO environment. ONLY ONE FLAT SOLID PASTEL COLOR.',
@@ -7055,7 +7148,8 @@ async function updateVTO(opts={}){
           // 백엔드도 동시에 수정 (matched_stylist에 city 주입)했지만 이중 안전망으로 유지
           var _activeCity = (data.stylist && data.stylist.city) || data.engineCity || '서울';
           if(_ssBox && _ssTxt && data.stylist){
-            _ssTxt.innerHTML = '<strong>' + (data.stylist.name||'') + '</strong>, ' + _activeCity + '지역 활동';
+            _ssTxt.innerHTML = '<strong>' + (data.stylist.name||'') + '</strong>, ' + _activeCity + '지역 활동' +
+              '<br><span style="font-size:10px;color:rgba(255,255,255,0.5);">' + (data.stylist.voice||data.stylist.career||'') + '</span>';
             _ssBox.classList.remove('hidden');
           }
           }catch(_){}
@@ -8357,7 +8451,7 @@ function renderStylingPoint(){
     if(kwRow){
       kwRow.innerHTML = "";
       kwRow.classList.add("hidden");
-      (S.keywords||[]).slice(0,6).forEach((kw,i)=>{
+      (S.keywords||[]).slice(0,4).forEach((kw,i)=>{
         const chip = document.createElement("span");
         chip.className = "px-2.5 py-1 rounded-full text-[10px] font-bold";
         chip.style.cssText = i===0
@@ -8428,17 +8522,29 @@ function renderStylingPoint(){
       const kws = _toKwArray(ckw[key]).map(function(k){ return _kwValEn(k); });
       if(!kws.length) return;
       hasAny = true;
-      // ─── 2026-06-23 KST · TJ 지시 ─── DC 디자인: 라벨(좌) · 값(우) 한 줄, 하단 구분선 ───
       const row = document.createElement("div");
-      row.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-bottom:1px solid rgba(140,165,205,.1);";
+      row.className = "flex items-center gap-1.5 flex-wrap";
       const lbl = document.createElement("span");
-      lbl.style.cssText = "font-size:12.5px;color:#7e8ca6;flex:none;";
-      lbl.textContent = label;
-      const val = document.createElement("span");
-      val.style.cssText = "font-size:13px;font-weight:600;color:#e6edf8;text-align:right;letter-spacing:-0.2px;";
-      val.textContent = kws.join(" ");   // 컬러+아이템 결합 (예: "라이트 그레이 반팔 셔츠")
+      lbl.className = "text-[10px] font-extrabold min-w-[68px] flex items-center gap-0.5";
+      lbl.style.color = "rgba(151,254,237,0.6)";
+      lbl.textContent = icon + " " + label;
       row.appendChild(lbl);
-      row.appendChild(val);
+      // [2026-04-06 보강] 컬러칩(1번째)과 디자인칩(2번째) 분리 표시
+      // 원인: 컬러와 디자인이 합쳐져 있어 유사도 매칭 시 구분 어려움
+      // 해결: 1번째=컬러(진한배경), 2번째=디자인(연한배경) 구분
+      kws.forEach((kw,i)=>{
+        const chip = document.createElement("span");
+        chip.className = "px-2 py-0.5 rounded-full text-[10px] font-bold";
+        if(i===0) {
+          // 첫 번째 = 컬러 칩 (진한 배경)
+          chip.style.cssText = "background:rgba(18,148,144,0.3);border:1px solid rgba(151,254,237,0.5);color:#a2fdf0;font-weight:800;";
+        } else {
+          // 두 번째 = 디자인/아이템 칩 (연한 배경)
+          chip.style.cssText = "background:rgba(53,162,159,0.1);border:1px solid rgba(151,254,237,0.18);color:rgba(151,254,237,0.55);font-weight:600;";
+        }
+        chip.textContent = kw;
+        row.appendChild(chip);
+      });
       catKwRow.appendChild(row);
     });
 
@@ -8970,12 +9076,15 @@ async function initWeather(){
   // 기본적으로 오늘 날짜를 표시
   if(wE.date) wE.date.textContent = formatKoDateKey(getTodayKey());
 
+  // ─── 2026-06-26 KST · TJ 지시 ─── 신선 예보 fetch 성공 여부 플래그 ───
+  let _wxOk = false;
   const applyWeatherFromCoords = async (lat, lon) => {
     const w = await CodiBank.getWeatherByCoords(lat, lon, {timeoutMs:9000, timezone:'auto'});
     S.weatherRaw = w || null;
 
     const todayKey = getTodayKey();
     const dailyTimes = (w && w.daily && Array.isArray(w.daily.time)) ? w.daily.time : [];
+    if(dailyTimes.length) _wxOk = true;
 
     // 예보 기간(최대 선택 가능 날짜)
     if(dailyTimes.length){
@@ -9017,10 +9126,10 @@ async function initWeather(){
     updateQuotaBadge();
     setGenUiEnabled(canGenerateNow());
 
-    // ─── 2026-06-26 KST · TJ 지시 ─── 신선 예보 로드 후 날짜카드 강제 갱신 ───
-    //   buildDateCards 는 'forecastLoaded' 만 listen 하는데, 이 이벤트가 그동안
-    //   코드 어디서도 dispatch 되지 않아 신선 daily(예: 6/26~)가 도착해도 날짜카드가
-    //   초기/1500ms 시점의 stale·빈 데이터로 고정돼 있었음 → 명시적으로 발생시킨다.
+    // ─── 2026-06-26 KST · TJ 지시 ─── 신선 예보 로드 후 STEP2 날짜카드 강제 갱신 ───
+    //   buildDateCards 는 'forecastLoaded' 만 listen 하는데, 이 이벤트가 코드 어디서도
+    //   dispatch 되지 않아 신선 daily(오늘~)가 도착해도 날짜카드가 stale·빈 데이터로
+    //   고정됐음 → 명시적으로 발생시켜 26~30 등의 최저/최고 온도가 표시되게 한다.
     try{ document.dispatchEvent(new Event('forecastLoaded')); }catch(_){}
 
     // ✅ 캐시 저장(다음 방문 시 즉시 표시)
@@ -9047,14 +9156,12 @@ async function initWeather(){
 
     if(hasGeo){
       // ─── 2026-06-26 KST · TJ 지시 ─── 저장 geo로 '항상' 신선 예보 시도 ───
-      //   기존: 캐시가 있고 geo가 stale(6h↑) 이면 (fresh||!hadWxCache)=false 가 되어
-      //   저장 geo fetch를 건너뛰고 getSmartLocation(2단계)에만 의존했음.
-      //   → GPS/IP 재조회가 실패하면 과거 날짜(예: 5월)의 stale 캐시가 그대로 남아
-      //     상단 위젯은 과거 예보를, STEP2 날짜카드(오늘~)는 빈칸을 표시했음.
+      //   기존: 캐시가 있고 geo가 stale(6h↑)이면 (fresh||!hadWxCache)=false 가 되어
+      //   저장 geo fetch를 건너뛰고 getSmartLocation(2단계)에만 의존했음 → 그게 실패하면
+      //   과거 날짜(예: 5월)의 stale 캐시가 그대로 남아 STEP2 날짜카드가 빈칸이 됐음.
       //   조치: 저장 위치만 있으면 신선도와 무관하게 항상 재조회해 daily를 최신화.
       try{ await applyWeatherFromCoords(g.lat, g.lon); }catch(_){}
-      // geo가 신선하면 이미 최신 좌표 → 불필요한 GPS/IP 재조회 방지 후 종료
-      if(fresh) return;
+      if(fresh) return;   // geo 신선 → 불필요한 GPS/IP 재조회 방지
     }
   }catch(e){ console.warn('날씨(저장 geo):', e); }
 
@@ -9074,6 +9181,14 @@ async function initWeather(){
       return;
     }
   }catch(e){ console.warn('날씨:', e); }
+
+  // ─── 2026-06-26 KST · TJ 지시 ─── 위치 획득 전부 실패 시 기본좌표(서울)로라도 신선 예보 확보 ───
+  //   저장 geo 없음 + GPS/IP 실패 시 weather fetch가 한 번도 안 돌아 과거 stale 캐시/빈
+  //   화면이 됨. 서울 기본좌표로 1회 더 시도해 daily(오늘~)를 확보한다(이후 위치 정상화되면 갱신).
+  if(!_wxOk){
+    try{ await applyWeatherFromCoords(37.5665, 126.9780); }catch(_){}
+    if(_wxOk){ try{ setStylingTitle(); setMetaLine(); updateQuotaBadge(); setGenUiEnabled(canGenerateNow()); }catch(_){ } return; }
+  }
 
   // 실패 시에도 UI는 유지
   if(!hadWxCache){
@@ -10608,7 +10723,8 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         const _city = (data.stylist.city || data.engineCity || '서울');
         const _name = data.stylist.name || '';
         const _voice = data.stylist.voice || data.stylist.career || '';
-        ssTxt.innerHTML = '<strong>' + _name + '</strong>, ' + _city + '지역 활동';
+        ssTxt.innerHTML = '<strong>' + _name + '</strong>, ' + _city + '지역 활동' +
+          (_voice ? '<br><span style="font-size:10px;color:rgba(255,255,255,0.5);">' + _voice + '</span>' : '');
         ssBox.classList.remove('hidden');
       }
     }catch(_){}
