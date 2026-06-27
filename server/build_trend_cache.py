@@ -36,22 +36,23 @@ CITIES = {
 }
 
 # ── 15개 코디 목적 (한글 → 영문) ──
+# 2026-06-27 KST · TJ 지시 — 코디목적 9개 재정의 (트렌드 검색어 동기화)
 PURPOSES = {
-    '비즈니스 포멀': 'Business Formal',
-    '데일리 오피스룩': 'Daily Office Look',
+    '셋업': 'Coordinated Setup',
+    '오피스룩': 'Office Look',
     '면접룩': 'Job Interview Look',
     '결혼식 하객룩': 'Wedding Guest Look',
     '소개팅룩': 'Blind Date Look',
-    '로맨틱 데이트룩': 'Romantic Date Look',
-    '상견례/가족모임': 'Formal Family Gathering',
-    '사교 모임/파티': 'Social Party',
+    '데이트룩': 'Date Look',
+    '올드머니룩': 'Old Money Quiet Luxury',
+    '빈티지 레트로': 'Vintage Retro Y2K',
     '주말 나들이': 'Weekend Outing',
-    '여행지 인생샷': 'Travel Photo Look',
+    '여행룩': 'Travel Look',
     '꾸안꾸 데일리': 'Effortless Chic Daily',
     '스포티/애슬레저': 'Sporty Athleisure',
-    '공항 패션': 'Airport Fashion',
-    '미니멀/심플': 'Minimal Simple',
-    '트렌디/스트릿': 'Trendy Street',
+    '프레피룩': 'Preppy Collegiate',
+    '미니멀룩': 'Minimal Look',
+    '스트릿패션': 'Street Fashion',
 }
 
 BRAVE_KEY = os.environ.get('BRAVE_API_KEY', '').strip()

@@ -289,30 +289,36 @@ LOCATION_TO_REGION = {
 # [2026-04-19 BUGFIX #3] 코디목적 영문 키 → DB 한글 라벨 매핑
 # ───────────────────────────────────────────────────
 # 원인: 프론트(closet.html)는 purposeKey(영문 내부 키, 예: "bizFormal") +
-#       purposeLabel(i18n 변환된 UI 언어, 한국어="비즈니스 포멀" / 영어="Business Formal")
+#       purposeLabel(i18n 변환된 UI 언어, 한국어="셋업" / 영어="Business Formal")
 #       을 함께 전송. DB(fashion_keywords_db.json, stylist_db_server.json)의 키는
 #       한글 라벨만 저장되어 있음.
 #       → 영어 UI 사용자는 purposeLabel="Business Formal" → DB miss → fallback 목적
 #       → 전체 목적 기반 매칭/프롬프트가 제대로 작동 안함
 # 해결: purposeKey를 한글 라벨로 변환해 DB 조회 (언어 무관 단일 소스)
 # 프론트 closet.html의 PURPOSES 배열과 1:1 매칭 (16개 목적)
+# ───────────────────────────────────────────────────
+# 2026-06-27 KST · TJ 지시 — 코디목적 9개 재정의(라벨/콘텐츠 교체).
+#   영문 내부키(bizFormal 등)는 조인 안정성 위해 유지, 한글 라벨만 교체:
+#   bizFormal=셋업, officeDaily=오피스룩, romanticDate=데이트룩,
+#   familyMeet=올드머니룩, socialParty=빈티지 레트로, travelShot=여행룩,
+#   airport=프레피룩, minimal=미니멀룩, streetTrend=스트릿패션.
 # ═══════════════════════════════════════════════════
 PURPOSE_KEY_TO_KO = {
-    "bizFormal":    "비즈니스 포멀",
-    "officeDaily":  "데일리 오피스룩",
+    "bizFormal":    "셋업",
+    "officeDaily":  "오피스룩",
     "interview":    "면접룩",
     "weddingGuest": "결혼식 하객룩",
     "blindDate":    "소개팅룩",
-    "romanticDate": "로맨틱 데이트룩",
-    "familyMeet":   "상견례/가족모임",
-    "socialParty":  "사교 모임/파티",
+    "romanticDate": "데이트룩",
+    "familyMeet":   "올드머니룩",
+    "socialParty":  "빈티지 레트로",
     "weekendOut":   "주말 나들이",
-    "travelShot":   "여행지 인생샷",
+    "travelShot":   "여행룩",
     "dailyCasual":  "꾸안꾸 데일리",
     "sporty":       "스포티/애슬레저",
-    "airport":      "공항 패션",
-    "minimal":      "미니멀/심플",
-    "streetTrend":  "트렌디/스트릿",
+    "airport":      "프레피룩",
+    "minimal":      "미니멀룩",
+    "streetTrend":  "스트릿패션",
     "custom":       "직접입력",
 }
 
@@ -694,9 +700,15 @@ def _positive_directives(purpose, region):
     if purpose == '면접룩':
         parts.append("Interview look: muted neutral SOLID colors only (navy, charcoal, grey, white, beige) "
                      "in plain, clean, unpatterned surfaces — conservative and understated, for men and women alike.")
-    if purpose == '공항 패션':
-        parts.append("Airport look: prioritize genuine comfort for a flight — relaxed, breathable, easy pieces; "
-                     "understated and practical; any bag is a simple carry-on used only if needed.")
+    if purpose == '올드머니룩':
+        parts.append("Old money look: quiet-luxury heritage styling — cashmere, wool and fine tailoring in a "
+                     "neutral palette (beige, ivory, navy, camel), logo-free, understated and refined.")
+    if purpose == '빈티지 레트로':
+        parts.append("Vintage retro look: washed or raw denim, faded pigment tees and Americana workwear (chore "
+                     "jacket, plaid shirt) with a Y2K retro mood, corduroy or tweed textures and vintage sneakers.")
+    if purpose == '프레피룩':
+        parts.append("Preppy look: collegiate and neat — a collared shirt or knit vest with cardigan or blazer "
+                     "layering, check or stripe patterns, chinos or a pleated skirt and loafers; clean and scholarly.")
     return " ".join(parts)
 
 
@@ -879,7 +891,7 @@ def build_styling_prompt(payload, fashion_db):
             print(f"[엔진] 직접입력 목적 인식: '{_custom_text}'", flush=True)
         else:
             # [2026-04-19 BUGFIX #3] purposeKey → 한글 변환 우선 (영어 UI 대응)
-            purpose = PURPOSE_KEY_TO_KO.get(pk) or pl or pk or '데일리 오피스룩'
+            purpose = PURPOSE_KEY_TO_KO.get(pk) or pl or pk or '오피스룩'
     purpose_info = fashion_db.get('base_prompts', {}).get(purpose, {})
     purpose_en = purpose_info.get('en', purpose)
     purpose_prompt_en = purpose_info.get('prompt_en', '')
@@ -1154,21 +1166,21 @@ def generate_styling_story(metadata):
 def _get_styling_intent(m):
     """코디 목적별 스타일링 의도 문구"""
     intents = {
-        "비즈니스 포멀": f"{m['age']}대 {m['gender_ko']}의 프로페셔널한 이미지를 극대화하는 포멀 룩입니다. {m['active_city']} 비즈니스 씬에서 통용되는 신뢰감 있는 스타일을 제안합니다.",
-        "데일리 오피스룩": f"매일 입어도 질리지 않으면서 센스 있어 보이는 오피스 스타일입니다. {m['active_city']} 직장인들의 스마트 캐주얼 트렌드를 반영했습니다.",
+        "셋업": f"{m['age']}대 {m['gender_ko']}에게 어울리는 깔끔한 셋업 룩입니다. 상하의 매칭으로 {m['active_city']}에서 가장 갖춰입은 단정한 스타일을 제안합니다.",
+        "오피스룩": f"매일 입어도 질리지 않으면서 센스 있어 보이는 오피스 스타일입니다. {m['active_city']} 직장인들의 스마트 캐주얼 트렌드를 반영했습니다.",
         "면접룩": f"첫인상에서 신뢰감과 전문성을 어필할 수 있는 면접 전용 스타일입니다. 깔끔한 라인과 절제된 컬러로 진정성을 표현합니다.",
         "결혼식 하객룩": f"축하의 자리에 어울리는 화사하면서도 격식을 갖춘 하객 패션입니다. 주인공을 빛내면서도 본인만의 스타일을 살립니다.",
         "소개팅룩": f"자연스러운 호감을 주는 스타일입니다. 과하지 않으면서도 매력이 느껴지는 {m['active_city']} 트렌드의 데이트 룩을 제안합니다.",
-        "로맨틱 데이트룩": f"특별한 날의 로맨틱한 분위기를 살리는 코디입니다. 세련되면서도 감성적인 무드를 연출합니다.",
-        "상견례/가족모임": f"격식과 예의를 갖추면서도 현대적인 감각을 더한 가족 모임 스타일입니다. 어른들에게도 좋은 인상을 주는 단정한 룩입니다.",
-        "사교 모임/파티": f"파티 씬에서 돋보이는 글래머러스한 스타일입니다. {m['active_city']}의 소셜 이벤트 트렌드를 반영한 센스 있는 룩입니다.",
+        "데이트룩": f"특별한 날의 로맨틱한 분위기를 살리는 코디입니다. 세련되면서도 감성적인 무드를 연출합니다.",
+        "올드머니룩": f"절제된 고급스러움을 담은 올드머니 룩입니다. 캐시미어·울 소재와 차분한 뉴트럴 톤으로 로고 없이도 품격이 느껴지는 {m['active_city']} 무드를 제안합니다.",
+        "빈티지 레트로": f"워싱 데님과 빈티지 무드를 살린 레트로 스타일입니다. 아메카지·Y2K 감성으로 {m['active_city']}의 빈티지 신을 반영한 개성 있는 룩입니다.",
         "주말 나들이": f"편안하면서도 스타일리시한 주말 캐주얼입니다. 활동하기 좋으면서도 사진발 잘 받는 코디를 추천합니다.",
-        "여행지 인생샷": f"여행지에서 인생샷을 위한 포토제닉 코디입니다. 배경과 어울리는 컬러감과 실루엣으로 SNS에서도 돋보이는 스타일입니다.",
+        "여행룩": f"여행지에서 인생샷을 위한 포토제닉 코디입니다. 배경과 어울리는 컬러감과 실루엣으로 SNS에서도 돋보이는 스타일입니다.",
         "꾸안꾸 데일리": f"노력하지 않은 듯 세련된 에포트리스 스타일입니다. 베이직 아이템의 조합으로 자연스러운 멋을 냅니다.",
         "스포티/애슬레저": f"운동에서 일상까지 자연스럽게 이어지는 애슬레저 스타일입니다. 기능성과 패션성을 동시에 잡았습니다.",
-        "공항 패션": f"장시간 이동에도 편안하면서 도착지에서도 세련되어 보이는 공항 패션입니다. 레이어링이 핵심입니다.",
-        "미니멀/심플": f"불필요한 것을 덜어내고 본질적인 멋에 집중한 미니멀 스타일입니다. 깔끔한 라인과 뉴트럴 톤이 핵심입니다.",
-        "트렌디/스트릿": f"최신 스트릿 트렌드를 반영한 감각적인 스타일입니다. {m['active_city']}의 스트릿 씬에서 영감을 받았습니다.",
+        "프레피룩": f"단정한 캠퍼스 무드의 프레피 룩입니다. 니트 베스트와 카라 셔츠, 가디건 레이어드로 지적이고 정돈된 인상을 연출합니다.",
+        "미니멀룩": f"불필요한 것을 덜어내고 본질적인 멋에 집중한 미니멀 스타일입니다. 깔끔한 라인과 뉴트럴 톤이 핵심입니다.",
+        "스트릿패션": f"최신 스트릿 트렌드를 반영한 감각적인 스타일입니다. {m['active_city']}의 스트릿 씬에서 영감을 받았습니다.",
     }
     return intents.get(m['purpose'], f"{m['purpose']} 목적에 맞는 스타일을 {m['active_city']} 트렌드 기반으로 제안합니다.")
 
@@ -1225,15 +1237,15 @@ if __name__ == "__main__":
     print("=" * 70)
     
     test_cases = [
-        {"name": "서울 여성 30대 (비즈니스 포멀)",
+        {"name": "서울 여성 30대 (셋업)",
          "profile": {"gender": "female", "age": 32, "height": 163, "weight": 52, "id": "user001"},
          "weather": {"temp": 8, "condition": "cloudy", "location": "Seoul"},
-         "purpose": "비즈니스 포멀", "face_image": True},
+         "purpose": "셋업", "face_image": True},
         
         {"name": "두바이 남성 40대 (데일리 오피스)",
          "profile": {"gender": "male", "age": 42, "height": 178, "weight": 85, "id": "user002"},
          "weather": {"temp": 38, "condition": "clear", "location": "Dubai"},
-         "purpose": "데일리 오피스룩", "face_image": False},
+         "purpose": "오피스룩", "face_image": False},
         
         {"name": "파리 여성 20대 (소개팅룩)",
          "profile": {"gender": "female", "age": 27, "height": 168, "weight": 58, "id": "user003"},
@@ -1277,7 +1289,7 @@ if __name__ == "__main__":
     pants_count = 0
     for i in range(30):
         # 다른 날짜를 시뮬레이션
-        result = "skirt" if (int(hashlib.md5(f"user001_비즈니스 포멀_2026-04-{i+1:02d}".encode()).hexdigest(), 16) % 3) < 2 else "pants"
+        result = "skirt" if (int(hashlib.md5(f"user001_셋업_2026-04-{i+1:02d}".encode()).hexdigest(), 16) % 3) < 2 else "pants"
         if result == "skirt": skirt_count += 1
         else: pants_count += 1
     print(f"  치마: {skirt_count}회 | 바지: {pants_count}회 (목표: 2:1 비율)")
@@ -1314,7 +1326,7 @@ def select_stylist(stylist_db, city, purpose, user_gender, user_body_type=None, 
     
     if not pool:
         # fallback: 직접입력 풀 또는 첫번째 목적
-        for fallback_purpose in [purpose, "직접입력", "데일리 오피스룩"]:
+        for fallback_purpose in [purpose, "직접입력", "오피스룩"]:
             pool = city_data.get(fallback_purpose, {}).get(gender_key, [])
             if pool:
                 break
@@ -1524,7 +1536,7 @@ _CITY_F_WARM = {"서울":"Korean K-fashion: clean modern, light single-layer sty
     ,"두바이":"Dubai: lightweight premium fabrics, breathable elegance"
     ,"밀라노":"Milan: light Italian fabrics, summer Sprezzatura"}
 _CITY_F = {"서울":"Korean K-fashion: clean modern, layered styling","뉴욕":"New York urban: high-low mixing, street-smart","파리":"Parisian chic: understated elegance, neutral tones","런던":"London heritage: tailored layers, eclectic texture","상파울루":"São Paulo tropical: bold colors, casual-smart","두바이":"Dubai luxury: premium fabrics, modest elegance","밀라노":"Milan craft: soft-shoulder tailoring, Sprezzatura"}
-_PURPOSE_D = {"비즈니스 포멀":"Sharp professional — structured tailoring, boardroom-ready","데일리 오피스룩":"Smart-casual office — polished but comfortable","면접룩":"Interview — trustworthy, clean, conservative modern","결혼식 하객룩":"Wedding guest — celebratory, sophisticated color","소개팅룩":"First-date — naturally attractive, soft textures, warm colors, subtle charm","로맨틱 데이트룩":"Romantic evening — refined, rich fabrics, dinner-worthy","상견례/가족모임":"Family gathering — respectful, age-appropriate elegance","사교 모임/파티":"Social party — eye-catching, bold accessories","주말 나들이":"Weekend outing — comfortable, photo-ready, cheerful","여행지 인생샷":"Travel photogenic — backdrop-matching, SNS-worthy","꾸안꾸 데일리":"Effortless chic — basic items cleverly combined","스포티/애슬레저":"Sporty athleisure — functional, performance fabrics, dynamic","공항 패션":"Airport travel — comfort with polish, layered, wrinkle-resistant","미니멀/심플":"Minimal — capsule wardrobe, clean lines, quiet luxury","트렌디/스트릿":"Trendy street — bold graphics, sneaker culture, youth energy","직접입력":"Custom styling"}
+_PURPOSE_D = {"셋업":"Coordinated setup — matching jacket and trousers, sharp and put-together","오피스룩":"Smart-casual office — polished but comfortable","면접룩":"Interview — trustworthy, clean, conservative modern","결혼식 하객룩":"Wedding guest — celebratory, sophisticated color","소개팅룩":"First-date — naturally attractive, soft textures, warm colors, subtle charm","데이트룩":"Romantic evening — refined, rich fabrics, dinner-worthy","올드머니룩":"Old money quiet luxury — cashmere, wool, neutral heritage palette, understated","빈티지 레트로":"Vintage retro — washed denim, faded tees, Americana workwear, Y2K mood","주말 나들이":"Weekend outing — comfortable, photo-ready, cheerful","여행룩":"Travel photogenic — backdrop-matching, SNS-worthy","꾸안꾸 데일리":"Effortless chic — basic items cleverly combined","스포티/애슬레저":"Sporty athleisure — functional, performance fabrics, dynamic","프레피룩":"Preppy campus — knit vest, collared shirt, blazer, argyle, collegiate","미니멀룩":"Minimal — capsule wardrobe, clean lines, neutral monochrome","스트릿패션":"Trendy street — bold graphics, sneaker culture, youth energy","직접입력":"Custom styling"}
 
 
 # ═══════════════════════════════════════════════════
@@ -1575,9 +1587,9 @@ _OUTER_ITEMS = {
                      "F": ["라이트 가디건", "얇은 자켓", "니트 베스트"]},
 }
 _TOP_ITEMS = {
-    "비즈니스 포멀": {"M": ["드레스 셔츠", "스프레드칼라 셔츠", "모크넥 니트"],
+    "셋업": {"M": ["드레스 셔츠", "스프레드칼라 셔츠", "모크넥 니트"],
                  "F": ["실크 블라우스", "테일러드 셔츠", "노카라 블라우스"]},
-    "데일리 오피스룩": {"M": ["옥스포드 셔츠", "버튼다운 셔츠", "니트 폴로"],
+    "오피스룩": {"M": ["옥스포드 셔츠", "버튼다운 셔츠", "니트 폴로"],
                   "F": ["니트 탑", "셔츠 블라우스", "라운드 니트"]},
     "면접룩": {"M": ["화이트 셔츠", "솔리드 드레스셔츠", "라이트블루 셔츠"],
             "F": ["클린 블라우스", "솔리드 블라우스", "라운드넥 니트"]},
@@ -1585,153 +1597,162 @@ _TOP_ITEMS = {
                 "F": ["시폰 블라우스", "새틴 블라우스", "레이스 탑"]},
     "소개팅룩": {"M": ["니트 셔츠", "캐주얼 셔츠", "라운드 니트"],
              "F": ["파스텔 니트", "셔링 블라우스", "라운드 니트"]},
-    "로맨틱 데이트룩": {"M": ["캐시미어 니트", "터틀넥 니트", "실크 셔츠"],
+    "데이트룩": {"M": ["캐시미어 니트", "터틀넥 니트", "실크 셔츠"],
                   "F": ["오프숄더 탑", "레이스 블라우스", "니트 탑"]},
-    "상견례/가족모임": {"M": ["폴로 셔츠", "니트 셔츠", "버튼다운 셔츠"],
-                  "F": ["단정한 블라우스", "라운드 니트", "셔츠 블라우스"]},
-    "사교 모임/파티": {"M": ["새틴 셔츠", "벨벳 셔츠", "실크 셔츠"],
-                  "F": ["새틴 캐미솔", "시퀸 탑", "실크 블라우스"]},
+    "올드머니룩": {"M": ["카라 니트", "케이블 니트", "옥스퍼드 셔츠"],
+                  "F": ["실크 블라우스", "케이블 니트", "폴로 카라 니트"]},
+    "빈티지 레트로": {"M": ["피그먼트 티셔츠", "체크 셔츠", "코듀로이 셔츠"],
+                  "F": ["크롭 니트", "프린트 티셔츠", "빈티지 블라우스"]},
     "주말 나들이": {"M": ["스트라이프 티셔츠", "코튼 티셔츠", "헨리넥 티셔츠"],
                "F": ["프린트 티셔츠", "코튼 블라우스", "스트라이프 탑"]},
-    "여행지 인생샷": {"M": ["린넨 셔츠", "오버셔츠", "코튼 셔츠"],
+    "여행룩": {"M": ["린넨 셔츠", "오버셔츠", "코튼 셔츠"],
                 "F": ["오버사이즈 셔츠", "린넨 블라우스", "프린트 탑"]},
     "꾸안꾸 데일리": {"M": ["플레인 티셔츠", "코튼 스웨트셔츠", "베이직 니트"],
                 "F": ["베이직 니트", "코튼 티셔츠", "크루넥 스웨트"]},
     "스포티/애슬레저": {"M": ["테크 티셔츠", "퍼포먼스 탑", "집업 탑"],
                   "F": ["크롭 탑", "퍼포먼스 탑", "집업 탑"]},
-    "공항 패션": {"M": ["캐시미어 니트", "오버핏 후디", "니트 풀오버"],
-              "F": ["가디건 레이어드", "니트 풀오버", "오버핏 후디"]},
-    "미니멀/심플": {"M": ["모크넥 니트", "크루넥 니트", "솔리드 셔츠"],
+    "프레피룩": {"M": ["니트 베스트", "카라 셔츠", "옥스퍼드 셔츠"],
+              "F": ["니트 베스트", "카라 블라우스", "가디건"]},
+    "미니멀룩": {"M": ["모크넥 니트", "크루넥 니트", "솔리드 셔츠"],
                "F": ["터틀넥 니트", "크루넥 니트", "솔리드 블라우스"]},
-    "트렌디/스트릿": {"M": ["그래픽 티셔츠", "오버핏 후디", "니트 폴로"],
+    "스트릿패션": {"M": ["그래픽 티셔츠", "오버핏 후디", "니트 폴로"],
                "F": ["크롭 후디", "그래픽 티셔츠", "니트 베스트"]},
 }
 _BOTTOM_ITEMS_M = {
-    "비즈니스 포멀": ["울 슬랙스", "테일러드 슬랙스", "노턱 슬랙스"],
-    "데일리 오피스룩": ["치노 팬츠", "코튼 슬랙스", "슬림 슬랙스"],
+    "셋업": ["울 슬랙스", "테일러드 슬랙스", "노턱 슬랙스"],
+    "오피스룩": ["치노 팬츠", "코튼 슬랙스", "슬림 슬랙스"],
     "면접룩": ["네이비 슬랙스", "차콜 슬랙스", "울 슬랙스"],
     "결혼식 하객룩": ["울 드레스 팬츠", "테일러드 슬랙스", "슬림 슬랙스"],
     "소개팅룩": ["슬림 치노", "코튼 슬랙스", "테이퍼드 팬츠"],
-    "로맨틱 데이트룩": ["와이드 슬랙스", "테일러드 슬랙스", "슬림 슬랙스"],
-    "상견례/가족모임": ["울 슬랙스", "코튼 슬랙스", "테일러드 슬랙스"],
-    "사교 모임/파티": ["슬림 슬랙스", "테일러드 슬랙스", "블랙 슬랙스"],
+    "데이트룩": ["와이드 슬랙스", "테일러드 슬랙스", "슬림 슬랙스"],
+    "올드머니룩": ["테일러드 슬랙스", "울 슬랙스", "치노 팬츠"],
+    "빈티지 레트로": ["워싱 데님", "생지 데님", "코듀로이 팬츠"],
     "주말 나들이": ["코튼 팬츠", "데님 팬츠", "치노 팬츠"],
-    "여행지 인생샷": ["린넨 팬츠", "코튼 팬츠", "와이드 팬츠"],
+    "여행룩": ["린넨 팬츠", "코튼 팬츠", "와이드 팬츠"],
     "꾸안꾸 데일리": ["코튼 팬츠", "데님 팬츠", "치노 팬츠"],
     "스포티/애슬레저": ["트레이닝 팬츠", "조거 팬츠", "테크 팬츠"],
-    "공항 패션": ["조거 팬츠", "와이드 팬츠", "코튼 팬츠"],
-    "미니멀/심플": ["스트레이트 슬랙스", "와이드 팬츠", "테이퍼드 팬츠"],
-    "트렌디/스트릿": ["카고 팬츠", "와이드 데님", "배기 팬츠"],
+    "프레피룩": ["치노 팬츠", "코튼 슬랙스", "테일러드 슬랙스"],
+    "미니멀룩": ["스트레이트 슬랙스", "와이드 팬츠", "테이퍼드 팬츠"],
+    "스트릿패션": ["카고 팬츠", "와이드 데님", "배기 팬츠"],
 }
 _BOTTOM_ITEMS_F_SKIRT = {
-    "비즈니스 포멀": ["미디 펜슬 스커트", "H라인 스커트", "테일러드 스커트"],
-    "데일리 오피스룩": ["미디 A라인 스커트", "H라인 스커트", "플리츠 미디 스커트"],
+    "셋업": ["미디 펜슬 스커트", "H라인 스커트", "테일러드 스커트"],
+    "오피스룩": ["미디 A라인 스커트", "H라인 스커트", "플리츠 미디 스커트"],
     "면접룩": ["미디 펜슬 스커트", "H라인 스커트", "테일러드 스커트"],
     "결혼식 하객룩": ["A라인 미디 스커트", "플레어 미디 스커트", "플리츠 스커트"],
     "소개팅룩": ["플리츠 스커트", "플레어 스커트", "A라인 미니스커트"],
-    "로맨틱 데이트룩": ["플레어 스커트", "플리츠 미디 스커트", "랩 스커트"],
-    "상견례/가족모임": ["미디 A라인 스커트", "H라인 스커트", "플리츠 미디 스커트"],
-    "사교 모임/파티": ["새틴 미디 스커트", "시퀸 스커트", "플레어 스커트"],
+    "데이트룩": ["플레어 스커트", "플리츠 미디 스커트", "랩 스커트"],
+    "올드머니룩": ["H라인 미디 스커트", "플리츠 미디 스커트", "테일러드 스커트"],
+    "빈티지 레트로": ["데님 미디 스커트", "코듀로이 스커트", "플리츠 스커트"],
     "주말 나들이": ["플리츠 미니스커트", "데님 스커트", "A라인 스커트"],
-    "여행지 인생샷": ["플레어 미디 스커트", "린넨 스커트", "랩 스커트"],
+    "여행룩": ["플레어 미디 스커트", "린넨 스커트", "랩 스커트"],
     "꾸안꾸 데일리": ["A라인 미디 스커트", "데님 스커트", "플리츠 스커트"],
-    "미니멀/심플": ["H라인 미디 스커트", "스트레이트 스커트", "랩 스커트"],
-    "트렌디/스트릿": ["카고 스커트", "데님 미니스커트", "플리츠 스커트"],
+    "미니멀룩": ["H라인 미디 스커트", "스트레이트 스커트", "랩 스커트"],
+    "스트릿패션": ["카고 스커트", "데님 미니스커트", "플리츠 스커트"],
+    "프레피룩": ["플리츠 미니스커트", "체크 미니스커트", "테니스 스커트"],
 }
 _BOTTOM_ITEMS_F_PANTS = {
-    "비즈니스 포멀": ["와이드 슬랙스", "테일러드 슬랙스", "스트레이트 슬랙스"],
-    "데일리 오피스룩": ["스트레이트 팬츠", "테이퍼드 슬랙스", "와이드 슬랙스"],
+    "셋업": ["와이드 슬랙스", "테일러드 슬랙스", "스트레이트 슬랙스"],
+    "오피스룩": ["스트레이트 팬츠", "테이퍼드 슬랙스", "와이드 슬랙스"],
     "면접룩": ["스트레이트 슬랙스", "테일러드 슬랙스", "와이드 슬랙스"],
     "결혼식 하객룩": ["테일러드 와이드 팬츠", "스트레이트 슬랙스", "드레스 팬츠"],
     "소개팅룩": ["테이퍼드 팬츠", "스트레이트 슬랙스", "와이드 슬랙스"],
-    "로맨틱 데이트룩": ["와이드 슬랙스", "플레어 팬츠", "스트레이트 슬랙스"],
-    "상견례/가족모임": ["스트레이트 슬랙스", "테일러드 슬랙스", "와이드 슬랙스"],
-    "사교 모임/파티": ["테일러드 와이드 팬츠", "슬림 슬랙스", "스트레이트 슬랙스"],
+    "데이트룩": ["와이드 슬랙스", "플레어 팬츠", "스트레이트 슬랙스"],
+    "올드머니룩": ["테일러드 슬랙스", "스트레이트 슬랙스", "와이드 슬랙스"],
+    "빈티지 레트로": ["워싱 데님", "와이드 데님", "코듀로이 팬츠"],
     "주말 나들이": ["코튼 팬츠", "데님 팬츠", "치노 팬츠"],
-    "여행지 인생샷": ["린넨 팬츠", "와이드 팬츠", "코튼 팬츠"],
+    "여행룩": ["린넨 팬츠", "와이드 팬츠", "코튼 팬츠"],
     "꾸안꾸 데일리": ["코튼 팬츠", "데님 팬츠", "와이드 슬랙스"],
     "스포티/애슬레저": ["레깅스", "조거 팬츠", "트레이닝 팬츠"],
-    "공항 패션": ["와이드 팬츠", "조거 팬츠", "코튼 팬츠"],
-    "미니멀/심플": ["스트레이트 슬랙스", "와이드 팬츠", "테이퍼드 팬츠"],
-    "트렌디/스트릿": ["카고 팬츠", "와이드 데님", "배기 팬츠"],
+    "프레피룩": ["치노 팬츠", "스트레이트 슬랙스", "테이퍼드 팬츠"],
+    "미니멀룩": ["스트레이트 슬랙스", "와이드 팬츠", "테이퍼드 팬츠"],
+    "스트릿패션": ["카고 팬츠", "와이드 데님", "배기 팬츠"],
 }
 _SHOES_M = {
-    "비즈니스 포멀": ["옥스포드 슈즈", "더비 슈즈", "몽크스트랩"],
-    "데일리 오피스룩": ["더비 슈즈", "로퍼", "첼시부츠"],
+    "셋업": ["옥스포드 슈즈", "더비 슈즈", "몽크스트랩"],
+    "오피스룩": ["더비 슈즈", "로퍼", "첼시부츠"],
     "면접룩": ["스트레이트팁 슈즈", "옥스포드 슈즈", "더비 슈즈"],
     "결혼식 하객룩": ["몽크스트랩", "옥스포드 슈즈", "더비 슈즈"],
     "소개팅룩": ["로퍼", "첼시부츠", "미니멀 스니커즈"],
-    "로맨틱 데이트룩": ["첼시부츠", "로퍼", "더비 슈즈"],
-    "상견례/가족모임": ["로퍼", "더비 슈즈", "옥스포드 슈즈"],
-    "사교 모임/파티": ["로퍼", "첼시부츠", "몽크스트랩"],
+    "데이트룩": ["첼시부츠", "로퍼", "더비 슈즈"],
+    "올드머니룩": ["로퍼", "스웨이드 로퍼", "더비 슈즈"],
+    "빈티지 레트로": ["빈티지 스니커즈", "캔버스 스니커즈", "더비 슈즈"],
     "주말 나들이": ["캔버스 스니커즈", "화이트 스니커즈", "로퍼"],
-    "여행지 인생샷": ["캔버스 스니커즈", "슬립온", "로퍼"],
+    "여행룩": ["캔버스 스니커즈", "슬립온", "로퍼"],
     "꾸안꾸 데일리": ["미니멀 스니커즈", "캔버스 스니커즈", "로퍼"],
     "스포티/애슬레저": ["러닝화", "트레이닝화", "청키 스니커즈"],
-    "공항 패션": ["슬립온", "미니멀 스니커즈", "첼시부츠"],
-    "미니멀/심플": ["화이트 스니커즈", "미니멀 스니커즈", "로퍼"],
-    "트렌디/스트릿": ["하이탑 스니커즈", "청키 스니커즈", "캔버스 스니커즈"],
+    "프레피룩": ["로퍼", "더비 슈즈", "보트 슈즈"],
+    "미니멀룩": ["화이트 스니커즈", "미니멀 스니커즈", "로퍼"],
+    "스트릿패션": ["하이탑 스니커즈", "청키 스니커즈", "캔버스 스니커즈"],
 }
 _SHOES_F = {
-    "비즈니스 포멀": ["포인티드 펌프스", "스틸레토 힐", "로퍼"],
-    "데일리 오피스룩": ["로퍼", "블록힐", "메리제인"],
+    "셋업": ["포인티드 펌프스", "스틸레토 힐", "로퍼"],
+    "오피스룩": ["로퍼", "블록힐", "메리제인"],
     "면접룩": ["클로즈드토 힐", "포인티드 펌프스", "로퍼"],
     "결혼식 하객룩": ["슬링백", "스트랩 힐", "포인티드 펌프스"],
     "소개팅룩": ["메리제인", "발레 플랫", "블록힐"],
-    "로맨틱 데이트룩": ["스트랩 힐", "슬링백", "앵클 부츠"],
-    "상견례/가족모임": ["로퍼", "블록힐", "메리제인"],
-    "사교 모임/파티": ["스트랩 힐", "슬링백", "스틸레토 힐"],
+    "데이트룩": ["스트랩 힐", "슬링백", "앵클 부츠"],
+    "올드머니룩": ["로퍼", "슬링백", "발레 플랫"],
+    "빈티지 레트로": ["빈티지 스니커즈", "메리제인", "로퍼"],
     "주말 나들이": ["플랫 슈즈", "캔버스 스니커즈", "로퍼"],
-    "여행지 인생샷": ["플랫 슈즈", "캔버스 스니커즈", "슬링백"],
+    "여행룩": ["플랫 슈즈", "캔버스 스니커즈", "슬링백"],
     "꾸안꾸 데일리": ["발레 플랫", "로퍼", "캔버스 스니커즈"],
     "스포티/애슬레저": ["러닝화", "트레이닝화", "청키 스니커즈"],
-    "공항 패션": ["컴포트 스니커즈", "슬립온", "로퍼"],
-    "미니멀/심플": ["뮬", "로퍼", "미니멀 플랫"],
-    "트렌디/스트릿": ["청키 스니커즈", "플랫폼 슈즈", "하이탑 스니커즈"],
+    "프레피룩": ["로퍼", "메리제인", "발레 플랫"],
+    "미니멀룩": ["뮬", "로퍼", "미니멀 플랫"],
+    "스트릿패션": ["청키 스니커즈", "플랫폼 슈즈", "하이탑 스니커즈"],
 }
 _BAG_M = {
-    "비즈니스 포멀": ["블랙 브리프케이스", "레더 토트", "서류 가방"],
-    "공항 패션": ["캐리온 러기지", "더플백", "백팩"],
+    "셋업": ["블랙 브리프케이스", "레더 토트", "서류 가방"],
+    "프레피룩": ["레더 백팩", "메신저백", "토트백"],
     "주말 나들이": ["캐주얼 백팩", "크로스백", "토트백"],
     "스포티/애슬레저": ["스포츠 백팩", "짐색", "크로스백"],
-    "여행지 인생샷": ["데이팩", "크로스백", "더플백"],
+    "여행룩": ["데이팩", "크로스백", "더플백"],
 }
 _BAG_F = {
-    "비즈니스 포멀": ["레더 토트백", "스트럭처드 토트", "핸드백"],
-    "데일리 오피스룩": ["숄더백", "토트백", "핸드백"],
+    "셋업": ["레더 토트백", "스트럭처드 토트", "핸드백"],
+    "오피스룩": ["숄더백", "토트백", "핸드백"],
     "결혼식 하객룩": ["클러치", "미니 핸드백", "체인 백"],
     "소개팅룩": ["미니 크로스백", "체인 숄더백", "미니 토트"],
-    "로맨틱 데이트룩": ["이브닝 클러치", "미니 크로스백", "체인 백"],
+    "데이트룩": ["이브닝 클러치", "미니 크로스백", "체인 백"],
     "주말 나들이": ["캔버스 토트", "크로스백", "버킷백"],
-    "공항 패션": ["여행 숄더백", "토트백", "백팩"],
-    "사교 모임/파티": ["클러치", "체인 백", "미니 백"],
+    "프레피룩": ["레더 토트백", "백팩", "크로스백"],
+    "빈티지 레트로": ["캔버스 토트", "숄더백", "크로스백"],
 }
 # 상의 컬러 — 목적별 후보 팔레트 (스타일리스트 해시로 선택)
 _TOP_COLORS = {
-    "비즈니스 포멀": ["화이트", "라이트 블루", "아이보리"],
-    "데일리 오피스룩": ["아이보리", "라이트 그레이", "스카이 블루"],
+    "셋업": ["화이트", "라이트 블루", "아이보리"],
+    "오피스룩": ["아이보리", "라이트 그레이", "스카이 블루"],
     "면접룩": ["화이트", "라이트 블루", "아이보리"],
     "결혼식 하객룩": ["크림", "페일 핑크", "라이트 그레이"],
     "소개팅룩": ["파스텔 핑크", "크림", "라벤더"],
-    "로맨틱 데이트룩": ["크림", "페일 핑크", "아이보리"],
-    "상견례/가족모임": ["라이트 베이지", "아이보리", "페일 그레이"],
-    "사교 모임/파티": ["샴페인", "블랙", "딥 버건디"],
+    "데이트룩": ["크림", "페일 핑크", "아이보리"],
+    "올드머니룩": ["아이보리", "카멜", "네이비"],
+    "빈티지 레트로": ["바랜 카키", "오트밀", "버건디"],
     "주말 나들이": ["라이트 그레이", "화이트", "머스타드"],
-    "여행지 인생샷": ["화이트", "베이지", "스카이 블루"],
+    "여행룩": ["화이트", "베이지", "스카이 블루"],
     "꾸안꾸 데일리": ["오프화이트", "라이트 그레이", "베이지"],
     "스포티/애슬레저": ["화이트", "블랙", "쿨 그레이"],
-    "공항 패션": ["크림", "오트밀", "차콜"],
-    "미니멀/심플": ["오프화이트", "라이트 그레이", "블랙"],
-    "트렌디/스트릿": ["블랙", "오프화이트", "카키"],
+    "프레피룩": ["화이트", "네이비", "버건디"],
+    "미니멀룩": ["오프화이트", "라이트 그레이", "블랙"],
+    "스트릿패션": ["블랙", "오프화이트", "카키"],
 }
 
 def _bottom_color_pool(purpose):
     """하의 컬러 후보 팔레트 — 목적 그룹별"""
-    if purpose in ['비즈니스 포멀', '면접룩', '결혼식 하객룩', '상견례/가족모임']:
+    # ─── 2026-06-27 KST · TJ 지시 ─── 신규 목적 3종 전용 팔레트
+    #   올드머니=헤리티지 뉴트럴 / 빈티지 레트로=데님·워싱 / 프레피=치노톤
+    if purpose == '올드머니룩':
+        return ['네이비', '차콜', '카멜']
+    if purpose == '빈티지 레트로':
+        return ['인디고', '워시드 블루', '카키']
+    if purpose == '프레피룩':
+        return ['베이지', '네이비', '카키']
+    if purpose in ['셋업', '면접룩', '결혼식 하객룩']:
         return ['네이비', '차콜', '다크 그레이']
-    if purpose in ['데일리 오피스룩', '사교 모임/파티', '미니멀/심플']:
+    if purpose in ['오피스룩', '미니멀룩']:
         return ['차콜', '블랙', '다크 네이비']
-    if purpose in ['여행지 인생샷', '주말 나들이', '꾸안꾸 데일리']:
+    if purpose in ['여행룩', '주말 나들이', '꾸안꾸 데일리']:
         return ['베이지', '라이트 그레이', '인디고']
     return ['차콜', '네이비', '베이지']
 
@@ -1780,7 +1801,7 @@ def generate_outfit_spec(metadata, stylist):
       socks: {...},  # 남성만
     }
     """
-    purpose = metadata.get('purpose', '데일리 오피스룩')
+    purpose = metadata.get('purpose', '오피스룩')
     gender = "M" if metadata.get('gender_ko') == "남성" else "F"
     temp = metadata.get('temp', 20)
     kws = metadata.get('keywords_selected', [])
@@ -1820,18 +1841,18 @@ def generate_outfit_spec(metadata, stylist):
     # [2026-05-16 방안A] 여름 상의도 후보 리스트 → 스타일리스트 해시 선택
     if temp >= 22:
         _summer_tops = {
-            "M": {"비즈니스 포멀": ["린넨 셔츠", "반팔 드레스셔츠"],
-                   "데일리 오피스룩": ["반팔 셔츠", "린넨 셔츠"],
+            "M": {"셋업": ["린넨 셔츠", "반팔 드레스셔츠"],
+                   "오피스룩": ["반팔 셔츠", "린넨 셔츠"],
                    "면접룩": ["반팔 드레스 셔츠", "린넨 셔츠"],
                    "소개팅룩": ["린넨 셔츠", "반팔 니트"],
                    "주말 나들이": ["반팔 티셔츠", "린넨 셔츠"],
-                   "공항 패션": ["반팔 린넨 셔츠", "반팔 티셔츠"]},
-            "F": {"비즈니스 포멀": ["반팔 블라우스", "슬리브리스 블라우스"],
-                   "데일리 오피스룩": ["반팔 니트", "반팔 블라우스"],
+                   "프레피룩": ["반팔 카라 셔츠", "폴로 셔츠"]},
+            "F": {"셋업": ["반팔 블라우스", "슬리브리스 블라우스"],
+                   "오피스룩": ["반팔 니트", "반팔 블라우스"],
                    "면접룩": ["반팔 블라우스", "슬리브리스 블라우스"],
                    "소개팅룩": ["슬리브리스 블라우스", "반팔 니트"],
                    "주말 나들이": ["반팔 티셔츠", "린넨 블라우스"],
-                   "공항 패션": ["반팔 린넨 셔츠", "반팔 티셔츠"]},
+                   "프레피룩": ["반팔 카라 블라우스", "폴로 셔츠"]},
         }
         _summer_cands = _summer_tops.get(gender, {}).get(purpose, [])
         # ─── 2026-06-25 KST · TJ 지시 ─── 여름 매핑 없는 목적이 일반 top_map(니트 포함)으로 빠지던 버그 차단 ───
@@ -1875,12 +1896,12 @@ def generate_outfit_spec(metadata, stylist):
     bag = _pick_by_stylist(bag_map.get(purpose, []), stylist, 'bag')
     if bag:
         # [2026-04-06 수정] color2는 악세서리 이름이므로 사용하지 않음
-        _bag_colors_f = {'비즈니스 포멀':'블랙','결혼식 하객룩':'골드','소개팅룩':'베이지','로맨틱 데이트룩':'블랙','주말 나들이':'내추럴'}
+        _bag_colors_f = {'셋업':'블랙','결혼식 하객룩':'골드','소개팅룩':'베이지','데이트룩':'블랙','주말 나들이':'내추럴'}
         bag_color = '블랙' if gender == 'M' else _bag_colors_f.get(purpose, '브라운')
         spec['bag'] = {'item_ko': bag, 'item_en': bag, 'color_ko': bag_color}
     
     # ── 시계 (포멀 계열) ──
-    formal_purposes = ["비즈니스 포멀","데일리 오피스룩","면접룩","결혼식 하객룩","상견례/가족모임"]
+    formal_purposes = ["셋업","오피스룩","면접룩","결혼식 하객룩","올드머니룩"]
     if purpose in formal_purposes:
         spec['watch'] = {'item_ko': '클래식 시계', 'item_en': 'classic watch', 'color_ko': '실버'}
     
@@ -1983,7 +2004,7 @@ def outfit_spec_to_category_keywords(spec):
 def generate_prompt_injection(metadata, stylist, fashion_db):
     # [2026-04-06 수정] 서울 하드코딩 제거 — 글로벌 서비스
     city = metadata.get('active_city', '')
-    purpose = metadata.get('purpose', '데일리 오피스룩')
+    purpose = metadata.get('purpose', '오피스룩')
     keywords = metadata.get('keywords_selected', [])
     temp = metadata.get('temp', 20)
     

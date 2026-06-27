@@ -2264,15 +2264,18 @@ def _purpose_to_style(purpose_key: str, purpose_label: str) -> Tuple[str, str]:
     #      각 목적이 의류·핏·팔레트 중심의 고유 시그니처를 갖도록 재서술.
     #   ④ 로맨틱 데이트: 'dress shirt' 한 단어뿐이라 오피스룩으로 붕괴 → '저녁 약속용 격상된
     #      스마트캐주얼(따뜻/리치 포인트컬러)'로 명확화. 오피스/정장 톤과 분리.
+    # ─── 2026-06-27 KST · TJ 지시 ─── 코디목적 9개 재정의(영문키 유지, label/desc 교체):
+    #   bizFormal=셋업, officeDaily=오피스룩, romanticDate=데이트룩, familyMeet=올드머니룩,
+    #   socialParty=빈티지 레트로, travelShot=여행룩, airport=프레피룩, minimal=미니멀룩, streetTrend=스트릿패션
     _MAP = {
-        # 1. 비즈니스 포멀
+        # 1. 셋업
         "bizFormal": (
-            "business formal",
-            "a sharp, well-tailored two-piece suit with a crisp shirt and a tie, polished leather dress shoes; the most formal register",
+            "setup",
+            "a coordinated setup: a matching tailored jacket and trousers in one fabric and tone with a crisp shirt, sharp and put-together — the dressiest register",
         ),
-        # 2. 데일리 오피스룩
+        # 2. 오피스룩
         "officeDaily": (
-            "daily office look",
+            "office look",
             "smart-casual workwear: a single blazer over a shirt with tailored slacks, refined but relaxed, no tie required",
         ),
         # 3. 면접룩
@@ -2290,29 +2293,29 @@ def _purpose_to_style(purpose_key: str, purpose_label: str) -> Tuple[str, str]:
             "blind date outfit",
             "an approachable smart-casual look: a fine-gauge knit or a clean shirt with chinos, soft, friendly and tidy",
         ),
-        # 6. 로맨틱 데이트룩
+        # 6. 데이트룩
         "romanticDate": (
-            "romantic date look",
+            "date look",
             "an elevated evening smart-casual look: a refined shirt or fine knit in a warm, rich accent color, well-fitted and put-together for a special night out, polished and personal — deliberately more stylish than office wear",
         ),
-        # 7. 상견례/가족모임
+        # 7. 올드머니룩
         "familyMeet": (
-            "formal family gathering",
-            "a conservative, refined ensemble in classic neutral tones, modest tailoring, respectful and understated",
+            "old money look",
+            "quiet-luxury old-money styling: cashmere knit, a wool coat or tailored blazer and fine trousers in a heritage neutral palette (beige, ivory, navy, camel), logo-free premium fabrics and leather loafers — understated and refined",
         ),
-        # 8. 사교 모임/파티
+        # 8. 빈티지 레트로
         "socialParty": (
-            "social party",
-            "a dressy evening party outfit with one statement accessory, richer fabrics and a confident, glamorous edge",
+            "vintage retro look",
+            "vintage retro styling: washed or raw denim, a faded pigment tee or plaid Americana workwear shirt, corduroy or tweed textures with a Y2K retro mood and vintage sneakers",
         ),
         # 9. 주말 나들이
         "weekendOut": (
             "casual weekend outing",
             "a relaxed weekend casual look: comfortable denim or chinos with a soft top, easygoing and natural in bright, fresh colors",
         ),
-        # 10. 여행지 인생샷
+        # 10. 여행룩
         "travelShot": (
-            "vacation travel look",
+            "travel look",
             "breezy resort wear: lightweight linen and airy fabrics in vacation-bright tones, effortless holiday styling",
         ),
         # 11. 꾸안꾸 데일리
@@ -2325,19 +2328,19 @@ def _purpose_to_style(purpose_key: str, purpose_label: str) -> Tuple[str, str]:
             "sporty athleisure",
             "functional athleisure: technical activewear with joggers and a hoodie or zip-up, sporty and performance-minded",
         ),
-        # 13. 공항 패션
+        # 13. 프레피룩
         "airport": (
-            "airport fashion",
-            "comfortable travel layering: soft, cozy separates that work on a long trip, modern and fuss-free",
+            "preppy look",
+            "preppy collegiate styling: a collared shirt with a knit vest or cardigan and blazer layering, check or stripe patterns, chinos or a pleated skirt and loafers — clean, neat and scholarly",
         ),
-        # 14. 미니멀/심플
+        # 14. 미니멀룩
         "minimal": (
-            "minimalist simple",
+            "minimal look",
             "a minimalist look: a clean achromatic neutral palette, simple lines and uncluttered tailoring",
         ),
-        # 15. 트렌디/스트릿
+        # 15. 스트릿패션
         "streetTrend": (
-            "trendy streetwear",
+            "street fashion",
             "trendy streetwear: a graphic tee or a bold piece with statement sneakers, urban, current and bold",
         ),
         # 레거시 키 호환
@@ -3351,9 +3354,9 @@ def _ai_styling_via_gemini(
         + ("- Interview look: muted neutral SOLID colors only (navy, charcoal, grey, white, beige) "
            "in plain, clean, unpatterned surfaces; conservative and understated, for men and women alike.\n"
            if purpose_label == "면접룩" else "")
-        + ("- Airport look: prioritize genuine in-flight comfort — relaxed, breathable, easy pieces; "
-           "understated and practical; any bag is a simple carry-on, used only if needed.\n"
-           if purpose_label == "공항 패션" else "")
+        + ("- Preppy look: collegiate and neat — a collared shirt or knit vest with cardigan or blazer layering, "
+           "check or stripe patterns, chinos or a pleated skirt and loafers; clean and scholarly.\n"
+           if purpose_label == "프레피룩" else "")
 
         + "\n# OUTFIT - CORE (all 3 required)\n"
         "- TOP: upper-body garment, clearly visible.\n"
@@ -4412,10 +4415,13 @@ def ai_styling():
     #     같은 "추천 받기"의 4개 도시는 _force_city(cty) 로 키가 구분된다.
     _is_step_a_grid = bool(_force_city) and (not _similar_variation) and (_force_quality != 'high')
     if _is_step_a_grid:
-        _step_a_nonce = _now_ms()
+        # 2026-06-27 KST · TJ 지시 — 2도시×2장(A/B) 그리드: 같은 도시 2장도 seed 분리
+        #   _grid_variant(0~3)에 소수 오프셋을 곱해 ms 충돌 시에도 4장 seed 보장
+        _grid_variant = int(payload.get('_grid_variant', 0) or 0)
+        _step_a_nonce = _now_ms() + _grid_variant * 7919
         payload['seed'] = _step_a_nonce
         payload['retrySeed'] = _step_a_nonce
-        print(f"[v68 grid] STEP A 새 코디 강제 — seed={_step_a_nonce}", flush=True)
+        print(f"[v68 grid] STEP A 새 코디 강제 — seed={_step_a_nonce} (variant={_grid_variant})", flush=True)
     # ─── 2026-05-18 KST · TJ 지시 ─── Q3 최종 고화질 = Nano Banana Pro ───
     #   설계 의도: Q3 = Q2 에서 선택한 최종 코디를 "확대해도 깨지지 않는
     #             고퀄 이미지"로 보는 단계.
