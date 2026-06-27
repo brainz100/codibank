@@ -805,21 +805,21 @@
       "Diamond plan unlimited is subject to a daily limit of 30.",
 
     // ── 코디목적 16개 ──
-    "비즈니스 포멀":     "Business Formal",
-    "데일리 오피스룩":    "Daily Office",
+    "셋업":     "Setup",
+    "오피스룩":    "Office Look",
     "면접룩":            "Interview",
     "결혼식 하객룩":      "Wedding Guest",
     "소개팅룩":           "Blind Date",
-    "로맨틱 데이트룩":    "Romantic Date",
-    "상견례/가족모임":    "Family Gathering",
-    "사교 모임/파티":     "Social/Party",
+    "데이트룩":    "Date Look",
+    "올드머니룩":    "Old Money",
+    "빈티지 레트로":     "Vintage Retro",
     "주말 나들이":        "Weekend Outing",
-    "여행지 인생샷":      "Travel Photo",
+    "여행룩":      "Travel Look",
     "꾸안꾸 데일리":      "Effortless Daily",
     "스포티/애슬레저":    "Sporty/Athleisure",
-    "공항 패션":          "Airport Fashion",
-    "미니멀/심플":        "Minimal/Simple",
-    "트렌디/스트릿":      "Trendy/Street",
+    "프레피룩":          "Preppy Look",
+    "미니멀룩":        "Minimal Look",
+    "스트릿패션":      "Street Fashion",
     "직접입력":           "Custom",
     "맞춤":                  "Custom",
     "카테고리별":         "Per category",
@@ -1893,7 +1893,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 @keyframes cb-spin{ to{ transform: rotate(360deg); } }
 .step-a-card .card-city-badge{
   position: absolute;
-  top: 6px;
+  bottom: 6px;            /* 2026-06-27 KST · TJ 지시 — 좌상단 → 좌하단 이동 */
   left: 6px;
   font-size: 9px;
   font-weight: 700;
@@ -3517,22 +3517,25 @@ console.info('[CodiBank] closet build: v44 (2026-05-09) · isGuest=' + (!!user.i
 // ── 16개 코디 목적 (TJ v44 정정 — 이전 주석 "10개"는 구버전 잔존 표기) ──
 //   비즈니스/오피스(3) · 격식 모임(2) · 데이트(2) · 가족(1) · 파티(1) ·
 //   주말·여행(3) · 데일리·스트릿(3) · 직접입력(1) = 총 16개
+/* 2026-06-27 KST · TJ 지시 — 코디목적 9개 재정의(영문 key 유지, label/labelEn/icon/kw 교체):
+   bizFormal=셋업, officeDaily=오피스룩, romanticDate=데이트룩, familyMeet=올드머니룩,
+   socialParty=빈티지 레트로, travelShot=여행룩, airport=프레피룩, minimal=미니멀룩, streetTrend=스트릿패션 */
 const PURPOSES = [
-  {key:'bizFormal',    label:'비즈니스 포멀',   labelEn:'Business Formal',   icon:'business_center', kw:['비즈니스','포멀','수트','프로페셔널']},
-  {key:'officeDaily',  label:'데일리 오피스룩', labelEn:'Daily Office', icon:'work',             kw:['오피스','세미정장','블레이저','슬랙스']},
+  {key:'bizFormal',    label:'셋업',   labelEn:'Setup',   icon:'business_center', kw:['셋업','매칭','테일러드','단정']},
+  {key:'officeDaily',  label:'오피스룩', labelEn:'Office Look', icon:'work',             kw:['오피스','세미정장','블레이저','슬랙스']},
   {key:'interview',    label:'면접룩',          labelEn:'Interview',          icon:'badge',           kw:['면접','단정','네이비','그레이']},
   {key:'weddingGuest', label:'결혼식 하객룩',   labelEn:'Wedding Guest',   icon:'celebration',     kw:['하객룩','원피스','세미포멀','우아함']},
   {key:'blindDate',    label:'소개팅룩',         labelEn:'Blind Date',         icon:'favorite',        kw:['소개팅','니트','슬랙스','호감']},
-  {key:'romanticDate', label:'로맨틱 데이트룩', labelEn:'Romantic Date', icon:'favorite_border', kw:['데이트','로맨틱','드레스','감성']},
-  {key:'familyMeet',   label:'상견례/가족모임', labelEn:'Family Gathering', icon:'family_restroom', kw:['상견례','보수적','우아','단아']},
-  {key:'socialParty',  label:'사교 모임/파티',  labelEn:'Social / Party',  icon:'groups',          kw:['파티','트렌디','액세서리','모임']},
+  {key:'romanticDate', label:'데이트룩', labelEn:'Date Look', icon:'favorite_border', kw:['데이트','로맨틱','드레스','감성']},
+  {key:'familyMeet',   label:'올드머니룩', labelEn:'Old Money', icon:'diamond', kw:['올드머니','캐시미어','뉴트럴','클래식']},
+  {key:'socialParty',  label:'빈티지 레트로',  labelEn:'Vintage Retro',  icon:'history',          kw:['빈티지','레트로','워싱데님','Y2K']},
   {key:'weekendOut',   label:'주말 나들이',      labelEn:'Weekend Outing',      icon:'weekend',         kw:['주말','캐주얼','야외','공원']},
-  {key:'travelShot',   label:'여행지 인생샷',   labelEn:'Travel Photo',   icon:'flight',          kw:['여행','휴양지','이국적','인생샷']},
+  {key:'travelShot',   label:'여행룩',   labelEn:'Travel Look',   icon:'flight',          kw:['여행','휴양지','이국적','인생샷']},
   {key:'dailyCasual',  label:'꾸안꾸 데일리',   labelEn:'Effortless Daily',   icon:'style',           kw:['꾸안꾸','오버사이즈','스트릿','자연스러움']},
   {key:'sporty',       label:'스포티/애슬레저', labelEn:'Sporty / Athleisure', icon:'fitness_center',  kw:['스포티','애슬레저','운동복','레깅스']},
-  {key:'airport',      label:'공항 패션',        labelEn:'Airport Fashion',        icon:'luggage',         kw:['공항','레이어드','편안','여행자']},
-  {key:'minimal',      label:'미니멀/심플',      labelEn:'Minimal / Simple',      icon:'fiber_manual_record', kw:['미니멀','무채색','심플','클린']},
-  {key:'streetTrend',  label:'트렌디/스트릿',   labelEn:'Trendy / Street',   icon:'local_fire_department', kw:['스트릿','트렌디','그래픽','스니커즈']},
+  {key:'airport',      label:'프레피룩',        labelEn:'Preppy Look',        icon:'school',         kw:['프레피','캠퍼스','니트베스트','가디건']},
+  {key:'minimal',      label:'미니멀룩',      labelEn:'Minimal Look',      icon:'fiber_manual_record', kw:['미니멀','무채색','심플','클린']},
+  {key:'streetTrend',  label:'스트릿패션',   labelEn:'Street Fashion',   icon:'local_fire_department', kw:['스트릿','트렌디','그래픽','스니커즈']},
   {key:'custom',       label:'직접입력',          labelEn:'Custom Input',          icon:'edit',            kw:['맞춤']},
 ];
 
@@ -5620,7 +5623,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   }
 
   // ── [14] styleTitle
-  const titleMap = {bizFormal:_L('비즈니스 포멀'),officeDaily:_L('데일리 오피스룩'),interview:_L('면접룩'),weddingGuest:_L('결혼식 하객룩'),blindDate:_L('소개팅룩'),romanticDate:_L('로맨틱 데이트룩'),familyMeet:_L('상견례/가족모임'),socialParty:_L('사교 모임/파티'),weekendOut:_L('주말 나들이'),travelShot:_L('여행지 인생샷'),dailyCasual:_L('꾸안꾸 데일리'),sporty:_L('스포티/애슬레저'),airport:_L('공항 패션'),minimal:_L('미니멀/심플'),streetTrend:_L('트렌디/스트릿'),custom:_L('맞춤')};
+  const titleMap = {bizFormal:_L('셋업'),officeDaily:_L('오피스룩'),interview:_L('면접룩'),weddingGuest:_L('결혼식 하객룩'),blindDate:_L('소개팅룩'),romanticDate:_L('데이트룩'),familyMeet:_L('올드머니룩'),socialParty:_L('빈티지 레트로'),weekendOut:_L('주말 나들이'),travelShot:_L('여행룩'),dailyCasual:_L('꾸안꾸 데일리'),sporty:_L('스포티/애슬레저'),airport:_L('프레피룩'),minimal:_L('미니멀룩'),streetTrend:_L('스트릿패션'),custom:_L('맞춤')};
   const titleMapEn = {commute:'Commute',business:'Business',weekendOut:'Weekend',weekendTrip:'Trip',domesticTrip:'Domestic Trip',overseasTrip:'Overseas Trip',meet:'Social',blindDate:'Blind Date',partyLook:'Party',custom:'Custom'};
   const _isEn = window.CodiBankI18n && CodiBankI18n.isEn();
   const baseTitle = _isEn ? (titleMapEn[pk]||purposeName||'Today') : (titleMap[pk]||purposeName||'오늘의');
@@ -10278,30 +10281,46 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   // 2~4번 도시 = 나머지 6개 중 랜덤 3개 (다양성 보장)
   // 흐름 일관성: startStepA에서 1회 결정 → flow.gridCities에 캐시 → 같은 흐름 내 재사용
   function computeGridCities(){
+    // ─── 2026-06-27 KST · TJ 지시 ─── 4도시 그리드 → 2도시 × 2장(A/B) ───
+    //   접속지역(대륙/세분지역)별 지정 2개 도시에서 각 2장씩 = 4장.
+    //   같은 도시 2장(A/B)은 같은 코디목적의 세분 변형(_grid_variant seed 차등)으로 생성.
     const userLoc = (window.S && window.S.wx && window.S.wx.location) || '서울';
-    const region = (window.CodiBank && CodiBank.detectRegion)
+    const locL = String(userLoc).toLowerCase();
+    // 광역 region(외부 detectRegion) → 9개 세분 region 으로 정밀화
+    const broad = (window.CodiBank && CodiBank.detectRegion)
       ? CodiBank.detectRegion(userLoc) : '아시아';
-    // 지역별 1번 도시 (메인만 픽스)
-    const FIRST_CITY_BY_REGION = {
-      '아시아':     '서울',
-      '북미':       '뉴욕',
-      '남미':       '상파울루',
-      '중동':       '두바이',
-      '유럽':       '파리',
-      '아프리카':   '파리',
-      '오세아니아': '뉴욕',
-    };
-    const ALL_CITIES = ['서울', '뉴욕', '파리', '런던', '상파울루', '두바이', '밀라노'];
-    const first = FIRST_CITY_BY_REGION[region] || '서울';
-    // 1번 제외 나머지 6개 → Fisher-Yates 셔플 → 앞 3개
-    const rest = ALL_CITIES.filter(c => c !== first);
-    for(let i = rest.length - 1; i > 0; i--){
-      const j = Math.floor(Math.random() * (i + 1));
-      const t = rest[i]; rest[i] = rest[j]; rest[j] = t;
+    const _has = (arr) => arr.some(k => locL.includes(k));
+    let region;
+    if(broad === '유럽'){
+      if(_has(['uk','united kingdom','england','britain','scotland','wales','london','manchester','liverpool','영국','런던','잉글랜드','스코틀랜드'])) region = '영국';
+      else if(_has(['italy','italia','milan','milano','rome','roma','venice','florence','naples','turin','이탈리아','이태리','밀라노','로마','베네치아','피렌체','나폴리'])) region = '이태리';
+      else region = '영국이외유럽';
+    } else if(broad === '오세아니아'){
+      region = '호주';
+    } else {
+      region = broad;   // 아시아 / 중동 / 아프리카 / 북미 / 남미
     }
-    const cities = [first, rest[0], rest[1], rest[2]];
-    const keys = ['A', 'B', 'C', 'D'];
-    return cities.map((c, i) => ({ key: keys[i], city: c, label: c }));
+    // 9개 세분 region → [A도시, B도시]
+    const REGION_TWO_CITIES = {
+      '아시아':       ['서울', '뉴욕'],
+      '북미':         ['뉴욕', '파리'],
+      '남미':         ['상파울루', '밀라노'],
+      '중동':         ['두바이', '밀라노'],
+      '영국':         ['런던', '밀라노'],
+      '영국이외유럽': ['파리', '밀라노'],
+      '이태리':       ['밀라노', '파리'],
+      '아프리카':     ['파리', '밀라노'],
+      '호주':         ['뉴욕', '파리'],
+    };
+    const pair = REGION_TWO_CITIES[region] || REGION_TWO_CITIES['아시아'];
+    const c1 = pair[0], c2 = pair[1];
+    // 4장 = 도시1 A/B + 도시2 A/B (라벨 '도시 A' / '도시 B')
+    return [
+      { key: 'A', city: c1, label: c1 + ' A' },
+      { key: 'B', city: c1, label: c1 + ' B' },
+      { key: 'A', city: c2, label: c2 + ' A' },
+      { key: 'B', city: c2, label: c2 + ' B' },
+    ];
   }
   function getGridCities(){
     // startStepA에서 결정된 배열 재사용 (모달/STEP B/C가 같은 도시 참조)
@@ -10960,7 +10979,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     const cityInfo = cities[idx];
     renderStepACard(idx, cityInfo, 'loading', null);
     try{
-      const payload = buildStepAPayload(cityInfo.city);
+      const payload = buildStepAPayload(cityInfo.city, idx);
       const r = await v68Fetch('/api/ai/styling', payload);
       if(!r.ok){
         const txt = await r.text().catch(()=>'');
@@ -11007,7 +11026,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   }
 
   // ─── STEP A 호출 페이로드 (기존 callRemote payload 거의 동일 + force fields) ───
-  function buildStepAPayload(forceCity){
+  function buildStepAPayload(forceCity, gridVariant){
     // window.S 와 사용자 컨텍스트에서 payload 추출
     // 핵심: 기존 callRemote가 만든 payload 구조를 재현
     // ─── 2026-05-18 KST · TJ 지시 (성별 버그 근본 원인 수정) ───
@@ -11071,6 +11090,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       // ★ v68 신규 hook
       _force_city: forceCity,
       _force_quality: 'low',
+      _grid_variant: (gridVariant | 0),   // 2026-06-27 KST · TJ 지시 — 같은 도시 2장(A/B) seed 분리용
     };
   }
 
