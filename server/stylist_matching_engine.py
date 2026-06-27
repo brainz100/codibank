@@ -322,6 +322,20 @@ PURPOSE_KEY_TO_KO = {
     "custom":       "직접입력",
 }
 
+# ─── 2026-06-27 KST · TJ 지시 ─── 트렌드캐시 구 라벨 호환 alias ───
+#   R2 trend_cache.json 이 라벨 변경(06-27) 전 키로 남아있는 구간 동안,
+#   '개념이 동일한' 6개 단순변경 목적만 구 라벨로 재조회 → 실시간 트렌드 유지.
+#   ※ 3개 의미변경(올드머니/빈티지/프레피)은 옛 개념(상견례/사교/공항)과 달라 제외.
+#   ※ 캐시가 신규 키로 재생성되면 신규 키가 먼저 적중하므로 이 alias 는 자동 무효화.
+_PURPOSE_LEGACY_ALIAS = {
+    "셋업":         "비즈니스 포멀",
+    "오피스룩":     "데일리 오피스룩",
+    "데이트룩":     "로맨틱 데이트룩",
+    "여행룩":       "여행지 인생샷",
+    "미니멀룩":     "미니멀/심플",
+    "스트릿패션":   "트렌디/스트릿",
+}
+
 
 def detect_region(user_location):
     """사용자 위치 문자열 → 지역 판별"""
@@ -947,12 +961,19 @@ def build_styling_prompt(payload, fashion_db):
     # ─── 2026-05-14 KST · TJ 지시 ─── 트렌드 캐시 우선 조회 ───
     # R2 trend_cache.json (3일 1회 Brave Search 갱신) → 해당 셀 있으면 사용
     # 없음/만료/실패 → fashion_keywords_db.json 정적 DB 폴백
+    # ─── 2026-06-27 KST · TJ 지시 ─── 코디목적 라벨 변경 → 캐시 키 호환 ───
+    #   R2 캐시(구 라벨) 미갱신 구간에도 6개 단순변경 목적은 구 라벨 alias로 실시간 트렌드 사용.
+    #   (3개 의미변경 올드머니/빈티지/프레피는 옛 개념과 달라 alias 제외 → 신규 정적 DB 사용)
     keywords_str = ''
     _trend = _load_trend_cache()
     if _trend:
-        _tc_cell = (_trend.get('city_keywords', {})
-                          .get(active_city, {})
-                          .get(purpose, {}))
+        _tc_city = _trend.get('city_keywords', {}).get(active_city, {})
+        _tc_cell = _tc_city.get(purpose)
+        if not _tc_cell:
+            _legacy = _PURPOSE_LEGACY_ALIAS.get(purpose)
+            if _legacy:
+                _tc_cell = _tc_city.get(_legacy)
+        _tc_cell = _tc_cell or {}
         keywords_str = _tc_cell.get(kw_key, '')
         if keywords_str:
             print(f"[트렌드캐시] 키워드 사용: {active_city}/{purpose}/{kw_key} "
@@ -1787,6 +1808,53 @@ def _extract_color(raw_color):
             return ''
     return raw_color
 
+# ─── 2026-06-27 KST · TJ 지시 ─── 도시 트렌드 키워드 → 실제 의상 반영 ───
+#   배경: generate_outfit_spec 이 키워드를 받기만 하고 의상 선택엔 안 써서
+#         서울/뉴욕이 같은 '목적 전용 풀'에서만 뽑혀 결과가 유사했음.
+#   해결: 도시별 트렌드 키워드에서 '구체 의상' 토큰을 추출 → 해당 카테고리
+#         후보 풀에 가중 병합(2x) → 스타일리스트 해시가 도시 의상을 뽑을 확률↑.
+#         (드레스·아우터·소재·액세서리·추상무드는 자연 제외 → 상하의 분리 구조 유지)
+def _extract_kw_garments(kws, bottom_type):
+    """도시 키워드 리스트 → {top:[...], bottom:[...], shoes:[...]} 구체 의상 토큰."""
+    cats = {'top': [], 'bottom': [], 'shoes': []}
+    if not kws:
+        return cats
+    _TOP   = ['블라우스', '셔츠', '니트', '티셔츠', '탑', '캐미솔', '오프숄더',
+              '크롭', '풀오버', '폴로', '맨투맨', '튜닉']
+    _SKIRT = ['스커트', '치마']
+    _PANTS = ['팬츠', '슬랙스', '데님', '청바지', '와이드', '조거', '치노']
+    _SHOES = ['힐', '로퍼', '스니커즈', '부츠', '플랫', '펌프스', '슬링백',
+              '메리제인', '샌들', '구두', '옥스퍼드', '더비', '첼시', '뮬']
+    for kw in kws:
+        ko = str(kw).split('(')[0].strip()
+        if not ko:
+            continue
+        if any(t in ko for t in _TOP):
+            cats['top'].append(ko)
+        elif any(b in ko for b in _SKIRT):
+            if bottom_type == 'skirt':
+                cats['bottom'].append(ko)
+        elif any(b in ko for b in _PANTS):
+            if bottom_type != 'skirt':
+                cats['bottom'].append(ko)
+        elif any(s in ko for s in _SHOES):
+            cats['shoes'].append(ko)
+    # 카테고리당 최대 3개로 제한 (풀 과점 방지)
+    return {k: v[:3] for k, v in cats.items()}
+
+
+def _merge_kw_pool(base_pool, kw_items, weight=2):
+    """키워드 의상을 후보 풀 앞쪽에 가중(weight배) 병합. 키워드 없으면 원본 유지."""
+    base = list(base_pool) if base_pool else []
+    if not kw_items:
+        return base
+    merged = []
+    for it in kw_items:
+        merged += [it] * weight
+    merged += [b for b in base if b not in kw_items]
+    return merged or base
+
+
 def generate_outfit_spec(metadata, stylist):
     """
     카테고리별 착장 스펙 생성 — 프롬프트 + UI 공용
@@ -1808,7 +1876,9 @@ def generate_outfit_spec(metadata, stylist):
     color1 = stylist.get('color1', '') if stylist else ''
     color2 = stylist.get('color2', '') if stylist else ''
     bottom_type = metadata.get('bottom_type', 'pants')
-    
+    # 2026-06-27 KST · TJ 지시 — 도시 트렌드 키워드의 구체 의상 추출 (도시 차별화)
+    _kwg = _extract_kw_garments(kws, bottom_type)
+
     spec = {}
     
     # ── 아우터 (20도 이상 제외) ──
@@ -1835,7 +1905,7 @@ def generate_outfit_spec(metadata, stylist):
     # ── 상의 (스카프는 별도 카테고리 — 상의에 포함하지 않음) ──
     # [2026-05-16 방안A] 후보 리스트 → 스타일리스트 해시로 선택
     top_map = _TOP_ITEMS.get(purpose, {"M": ["셔츠"], "F": ["블라우스"]})
-    top_item = _pick_by_stylist(_drop_revealing(top_map.get(gender, ["셔츠"]), metadata.get('_excl_block', []), "블라우스" if gender=="F" else "셔츠"), stylist, 'top')
+    top_item = _pick_by_stylist(_merge_kw_pool(_drop_revealing(top_map.get(gender, ["셔츠"]), metadata.get('_excl_block', []), "블라우스" if gender=="F" else "셔츠"), _kwg['top']), stylist, 'top')
     # [2026-04-06 수정] 상의 컬러는 스타일리스트 color2가 아닌 목적별 적절한 컬러 사용
     # [2026-04-06 추가] 따뜻한 날씨(22도+)에 상의를 가벼운 아이템으로 변경
     # [2026-05-16 방안A] 여름 상의도 후보 리스트 → 스타일리스트 해시 선택
@@ -1860,7 +1930,7 @@ def generate_outfit_spec(metadata, stylist):
         if not _summer_cands:
             _summer_cands = {"M": ["린넨 셔츠", "반팔 셔츠", "반팔 티셔츠"],
                              "F": ["린넨 블라우스", "반팔 블라우스", "반팔 티셔츠"]}.get(gender, ["반팔 셔츠"])
-        top_item = _pick_by_stylist(_drop_revealing(_summer_cands, metadata.get('_excl_block', []), "반팔 블라우스" if gender=="F" else "반팔 셔츠"), stylist, 'summer_top')
+        top_item = _pick_by_stylist(_merge_kw_pool(_drop_revealing(_summer_cands, metadata.get('_excl_block', []), "반팔 블라우스" if gender=="F" else "반팔 셔츠"), _kwg['top']), stylist, 'summer_top')
 
     # [2026-05-16 방안A] 상의 컬러 후보 팔레트 → 스타일리스트 해시 선택
     top_color = _pick_by_stylist(_TOP_COLORS.get(purpose, ['베이지']), stylist, 'top_color')
@@ -1874,20 +1944,20 @@ def generate_outfit_spec(metadata, stylist):
     # [2026-05-16 방안A] 하의 아이템·컬러 모두 후보 리스트 → 스타일리스트 해시 선택
     _bt_color = _pick_by_stylist(_bottom_color_pool(purpose), stylist, 'bottom_color')
     if gender == "F" and bottom_type == "skirt":
-        bt_item = _pick_by_stylist(_drop_revealing(_BOTTOM_ITEMS_F_SKIRT.get(purpose, ["A라인 스커트"]), metadata.get('_excl_block', []), "미디 스커트"), stylist, 'bottom')
+        bt_item = _pick_by_stylist(_merge_kw_pool(_drop_revealing(_BOTTOM_ITEMS_F_SKIRT.get(purpose, ["A라인 스커트"]), metadata.get('_excl_block', []), "미디 스커트"), _kwg['bottom']), stylist, 'bottom')
         spec['bottom'] = {'item_ko': bt_item, 'item_en': bt_item, 'color_ko': _bt_color}
     elif gender == "F":
-        bt_item = _pick_by_stylist(_BOTTOM_ITEMS_F_PANTS.get(purpose, ["슬랙스"]), stylist, 'bottom')
+        bt_item = _pick_by_stylist(_merge_kw_pool(_BOTTOM_ITEMS_F_PANTS.get(purpose, ["슬랙스"]), _kwg['bottom']), stylist, 'bottom')
         spec['bottom'] = {'item_ko': bt_item, 'item_en': bt_item, 'color_ko': _bt_color}
     else:
-        bt_item = _pick_by_stylist(_BOTTOM_ITEMS_M.get(purpose, ["슬랙스"]), stylist, 'bottom')
+        bt_item = _pick_by_stylist(_merge_kw_pool(_BOTTOM_ITEMS_M.get(purpose, ["슬랙스"]), _kwg['bottom']), stylist, 'bottom')
         spec['bottom'] = {'item_ko': bt_item, 'item_en': bt_item, 'color_ko': _bt_color}
     
     # ── 신발 ──
     # [2026-05-16 방안A] 신발 후보 리스트 → 스타일리스트 해시 선택
     shoes_map = _SHOES_M if gender == "M" else _SHOES_F
     _shoe_cands = shoes_map.get(purpose, ["로퍼"] if gender == "M" else ["플랫 슈즈"])
-    shoe = _pick_by_stylist(_shoe_cands, stylist, 'shoes')
+    shoe = _pick_by_stylist(_merge_kw_pool(_shoe_cands, _kwg['shoes']), stylist, 'shoes')
     spec['shoes'] = {'item_ko': shoe, 'item_en': shoe, 'color_ko': '브라운' if gender == "M" else '베이지'}
     
     # ── 가방 (컬러 포함) ──
