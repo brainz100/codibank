@@ -12071,6 +12071,183 @@ def _score_image(url: str) -> int:
     return score
 
 
+# ─── 2026-06-28 KST · TJ 지시 ─── 이미지 가져오기 1차 보강 + 2차 폴백 ───
+#   1차: requests + 헤더 위장 + og:image/JSON-LD/<img> 추출 (현행 보강: JSON-LD를 json.loads 견고 파싱)
+#   2차: 1차가 403/429/503/연결실패면 curl_cffi(TLS 지문 임퍼소네이션)로 재시도 후 동일 파싱
+#   ※ curl_cffi 미설치 환경에서도 1차는 그대로 동작 (graceful degradation)
+try:
+    from curl_cffi import requests as _cffi_requests
+    _HAS_CURL_CFFI = True
+except Exception:
+    _cffi_requests = None
+    _HAS_CURL_CFFI = False
+
+_CFFI_IMPERSONATE = "chrome"   # 최신 Chrome TLS/JA3 지문 자동 추적
+
+
+def _detect_html_encoding(raw: bytes, fallback=None) -> str:
+    """HTML <meta charset> 우선 인코딩 감지."""
+    try:
+        cm = re.search(rb'<meta\s+[^>]*charset\s*=\s*["\']?([^"\'\s>]+)', raw[:2048], re.IGNORECASE)
+        if cm:
+            enc = cm.group(1).decode("ascii", errors="ignore").strip()
+            if enc:
+                return enc
+    except Exception:
+        pass
+    return fallback or "utf-8"
+
+
+def _collect_image_field(img, out):
+    """JSON-LD image 필드(문자열/배열/ImageObject) → URL 수집."""
+    if isinstance(img, str):
+        if img.strip():
+            out.append(img.strip())
+    elif isinstance(img, list):
+        for it in img:
+            _collect_image_field(it, out)
+    elif isinstance(img, dict):
+        u = img.get("url") or img.get("contentUrl") or img.get("@id")
+        if u:
+            _collect_image_field(u, out)
+
+
+def _walk_jsonld_image(node, out, depth=0):
+    """JSON-LD 트리를 순회하며 image 필드 추출 (@graph/offers/hasVariant 등 중첩 대응)."""
+    if depth > 6 or node is None:
+        return
+    if isinstance(node, list):
+        for it in node:
+            _walk_jsonld_image(it, out, depth + 1)
+        return
+    if isinstance(node, dict):
+        if "image" in node:
+            _collect_image_field(node.get("image"), out)
+        for k in ("@graph", "hasVariant", "itemListElement", "mainEntity", "offers", "mainEntityOfPage"):
+            if k in node:
+                _walk_jsonld_image(node[k], out, depth + 1)
+
+
+def _extract_jsonld_images(html: str) -> list:
+    """<script type="application/ld+json"> 블록을 json.loads로 견고 파싱해 이미지 URL 추출."""
+    out = []
+    for m in re.finditer(
+        r'<script\s+[^>]*type\s*=\s*["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+        html, re.IGNORECASE | re.DOTALL
+    ):
+        block = (m.group(1) or "").strip()
+        if not block:
+            continue
+        obj = None
+        try:
+            obj = json.loads(block)
+        except Exception:
+            # 흔한 깨짐(후행 콤마) 보정 후 재시도
+            try:
+                obj = json.loads(re.sub(r',\s*([}\]])', r'\1', block))
+            except Exception:
+                obj = None
+        if obj is not None:
+            _walk_jsonld_image(obj, out)
+    return out
+
+
+def _fetch_page_html(page_url, headers, max_bytes=_EXTRACT_MAX_HTML_BYTES, timeout=_EXTRACT_TIMEOUT):
+    """상품 페이지 HTML 가져오기. 1차 requests → 차단 시 2차 curl_cffi 폴백.
+    반환 dict: {ok, status, final_url, html, error, via}
+    error 코드: timeout|connection|not_html:<ct>|ssrf_redirect|http_<code>|req:..|stream:..|cffi:..
+    """
+    # ── 1차: requests (헤더 위장) ──
+    def _via_requests():
+        try:
+            resp = http_requests.get(page_url, headers=headers, timeout=timeout,
+                                     stream=True, allow_redirects=True)
+        except http_requests.exceptions.Timeout:
+            return {"ok": False, "status": 0, "error": "timeout", "retry": False}
+        except http_requests.exceptions.ConnectionError:
+            return {"ok": False, "status": 0, "error": "connection", "retry": True}
+        except http_requests.exceptions.RequestException as e:
+            return {"ok": False, "status": 0, "error": f"req:{str(e)[:80]}", "retry": True}
+        final_url = resp.url
+        if resp.history:
+            fp = urllib.parse.urlparse(final_url)
+            if fp.hostname and _proxy_is_private_ip(fp.hostname):
+                resp.close()
+                return {"ok": False, "status": 0, "error": "ssrf_redirect", "retry": False}
+        status = resp.status_code
+        if status != 200:
+            resp.close()
+            return {"ok": False, "status": status, "error": f"http_{status}",
+                    "retry": status in (401, 403, 429, 451, 503)}
+        ct = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ct and "html" not in ct and "xml" not in ct:
+            resp.close()
+            return {"ok": False, "status": status, "error": f"not_html:{ct}", "retry": False}
+        buf, total = [], 0
+        try:
+            for chunk in resp.iter_content(chunk_size=65536):
+                if not chunk:
+                    continue
+                total += len(chunk)
+                if total > max_bytes:
+                    break
+                buf.append(chunk)
+        except Exception as e:
+            resp.close()
+            return {"ok": False, "status": status, "error": f"stream:{str(e)[:60]}", "retry": True}
+        finally:
+            resp.close()
+        raw = b"".join(buf)
+        enc = _detect_html_encoding(raw, getattr(resp, "encoding", None))
+        return {"ok": True, "status": 200, "final_url": final_url,
+                "html": raw.decode(enc, errors="replace"), "via": "requests"}
+
+    # ── 2차: curl_cffi (TLS 임퍼소네이션) ──
+    def _via_curl_cffi():
+        if not _HAS_CURL_CFFI:
+            return None
+        # impersonate가 UA/sec-ch-ua를 자동 세팅하므로 최소 헤더만 전달
+        cf_headers = {
+            "Referer": headers.get("Referer", "https://www.google.com/"),
+            "Accept-Language": headers.get("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8"),
+        }
+        try:
+            r = _cffi_requests.get(page_url, headers=cf_headers, impersonate=_CFFI_IMPERSONATE,
+                                   timeout=timeout, allow_redirects=True)
+        except Exception as e:
+            return {"ok": False, "status": 0, "error": f"cffi:{str(e)[:80]}", "via": "curl_cffi"}
+        final_url = str(getattr(r, "url", page_url) or page_url)
+        fp = urllib.parse.urlparse(final_url)
+        if fp.hostname and _proxy_is_private_ip(fp.hostname):
+            return {"ok": False, "status": 0, "error": "ssrf_redirect", "via": "curl_cffi"}
+        if r.status_code != 200:
+            return {"ok": False, "status": r.status_code, "error": f"http_{r.status_code}", "via": "curl_cffi"}
+        ct = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ct and "html" not in ct and "xml" not in ct:
+            return {"ok": False, "status": 200, "error": f"not_html:{ct}", "via": "curl_cffi"}
+        raw = r.content or b""
+        if len(raw) > max_bytes:
+            raw = raw[:max_bytes]
+        enc = _detect_html_encoding(raw, getattr(r, "encoding", None))
+        return {"ok": True, "status": 200, "final_url": final_url,
+                "html": raw.decode(enc, errors="replace"), "via": "curl_cffi"}
+
+    res = _via_requests()
+    if res.get("ok"):
+        return res
+    # 폴백 조건: 차단성 상태/연결 실패 + curl_cffi 가용
+    if res.get("retry") and _HAS_CURL_CFFI:
+        print(f"[extract-product-images] 1차 실패({res.get('error')}) → 2차 curl_cffi 폴백", flush=True)
+        cf = _via_curl_cffi()
+        if cf and cf.get("ok"):
+            print(f"[extract-product-images] ✅ 2차 curl_cffi 성공 ({page_url[:80]})", flush=True)
+            return cf
+        if cf:
+            print(f"[extract-product-images] 2차 curl_cffi 실패({cf.get('error')})", flush=True)
+            return cf if cf.get("status") else res
+    return res
+
+
 @app.route("/api/extract-product-images", methods=["POST"])
 def api_extract_product_images():
     """쇼핑몰 상품 페이지 URL → 이미지 후보 URL 리스트 반환.
@@ -12140,32 +12317,21 @@ def api_extract_product_images():
     else:
         # 일반 사이트는 구글 검색에서 왔다고 위장
         headers["Referer"] = "https://www.google.com/"
-    try:
-        resp = http_requests.get(
-            page_url,
-            headers=headers,
-            timeout=_EXTRACT_TIMEOUT,
-            stream=True,
-            allow_redirects=True,
-        )
-    except http_requests.exceptions.Timeout:
-        return jsonify({"ok": False, "error": "Page loading timed out"}), 504
-    except http_requests.exceptions.ConnectionError:
-        return jsonify({"ok": False, "error": "Could not connect to page"}), 502
-    except http_requests.exceptions.RequestException as e:
-        return jsonify({"ok": False, "error": f"Fetch failed: {str(e)[:100]}"}), 502
-
-    # 리다이렉트 후 재검증
-    final_url = resp.url
-    if resp.history:
-        fp = urllib.parse.urlparse(final_url)
-        if fp.hostname and _proxy_is_private_ip(fp.hostname):
-            resp.close()
+    # ── 1차 requests → (차단 시) 2차 curl_cffi 폴백으로 HTML 가져오기 ──
+    fetch_res = _fetch_page_html(page_url, headers)
+    if not fetch_res.get("ok"):
+        _err = fetch_res.get("error", "")
+        _status = fetch_res.get("status", 0)
+        if _err == "timeout":
+            return jsonify({"ok": False, "error": "Page loading timed out"}), 504
+        if _err == "connection":
+            return jsonify({"ok": False, "error": "Could not connect to page"}), 502
+        if _err == "ssrf_redirect":
             return jsonify({"ok": False, "error": "Blocked: redirect to internal network"}), 400
-
-    if resp.status_code != 200:
-        resp.close()
-        # 강한 차단 사이트 친절 안내
+        if _err.startswith("not_html"):
+            _ct = _err.split(":", 1)[1] if ":" in _err else ""
+            return jsonify({"ok": False, "error": f"Not an HTML page (Content-Type: {_ct})"}), 400
+        # 1차+2차 모두 실패 → 강한 차단 사이트 친절 안내
         _hint = None
         _host_lower = parsed.hostname.lower()
         for _bad_host, _shop_name in _PROXY_HARD_BLOCK_HINTS.items():
@@ -12173,48 +12339,20 @@ def api_extract_product_images():
                 _hint = _shop_name
                 break
         if _hint:
-            err_msg = f"{_hint} is actively blocking automated access. Please save the image and upload directly."
-            print(f"[extract-product-images] ⚠️ {_hint} blocked: HTTP {resp.status_code} for {page_url[:100]}")
+            print(f"[extract-product-images] ⚠️ {_hint} blocked (1차+2차): {_err} for {page_url[:100]}")
             return jsonify({
                 "ok": False,
-                "error": err_msg,
+                "error": f"{_hint} is actively blocking automated access. Please save the image and upload directly.",
                 "hardBlocked": True,
                 "shopName": _hint,
             }), 502
-        print(f"[extract-product-images] HTTP {resp.status_code} for {page_url[:100]}")
-        return jsonify({"ok": False, "error": f"Page returned HTTP {resp.status_code}"}), 502
+        print(f"[extract-product-images] 실패(1차+2차): {_err} for {page_url[:100]}")
+        if _status and _status >= 400:
+            return jsonify({"ok": False, "error": f"Page returned HTTP {_status}"}), 502
+        return jsonify({"ok": False, "error": f"Fetch failed: {_err[:100]}"}), 502
 
-    ct = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
-    if ct and "html" not in ct and "xml" not in ct:
-        resp.close()
-        return jsonify({"ok": False, "error": f"Not an HTML page (Content-Type: {ct})"}), 400
-
-    # HTML 스트리밍 with 사이즈 제한
-    html_bytes = []
-    total = 0
-    try:
-        for chunk in resp.iter_content(chunk_size=65536):
-            if not chunk:
-                continue
-            total += len(chunk)
-            if total > _EXTRACT_MAX_HTML_BYTES:
-                break   # 초과해도 지금까지 받은 부분으로 파싱 시도
-            html_bytes.append(chunk)
-    except Exception as e:
-        resp.close()
-        return jsonify({"ok": False, "error": f"Download interrupted: {str(e)[:100]}"}), 502
-    finally:
-        resp.close()
-
-    raw = b"".join(html_bytes)
-    # 인코딩 감지
-    try:
-        # HTML meta charset 우선
-        cm = re.search(rb'<meta\s+[^>]*charset\s*=\s*["\']?([^"\'\s>]+)', raw[:2048], re.IGNORECASE)
-        encoding = cm.group(1).decode("ascii", errors="ignore") if cm else (resp.encoding or "utf-8")
-        html = raw.decode(encoding, errors="replace")
-    except Exception:
-        html = raw.decode("utf-8", errors="replace")
+    final_url = fetch_res["final_url"]
+    html = fetch_res["html"]
 
     # ── 페이지 타이틀 추출 ──
     page_title = ""
@@ -12233,18 +12371,9 @@ def api_extract_product_images():
     ]):
         candidates.append((url, 100))  # 메타는 고정 100점
 
-    # 2) JSON-LD Product.image 파싱 (일부 쇼핑몰 지원)
-    for m in re.finditer(
-        r'<script\s+[^>]*type\s*=\s*["\']application/ld\+json["\'][^>]*>(.*?)</script>',
-        html, re.IGNORECASE | re.DOTALL
-    ):
-        block = m.group(1)
-        for im in re.finditer(r'"image"\s*:\s*("([^"]+)"|\[([^\]]+)\])', block):
-            if im.group(2):
-                candidates.append((im.group(2), 90))
-            elif im.group(3):
-                for url_m in re.finditer(r'"([^"]+)"', im.group(3)):
-                    candidates.append((url_m.group(1), 85))
+    # 2) JSON-LD Product.image — json.loads 견고 파싱 (@graph/offers/ImageObject 중첩 대응)
+    for url in _extract_jsonld_images(html):
+        candidates.append((url, 90))
 
     # 3) <img> 태그 전체
     for url in _extract_img_src(html):
