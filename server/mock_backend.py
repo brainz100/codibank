@@ -12083,6 +12083,149 @@ except Exception:
     _HAS_CURL_CFFI = False
 
 _CFFI_IMPERSONATE = "chrome"   # 최신 Chrome TLS/JA3 지문 자동 추적
+print(f"[extract-product-images] curl_cffi(2차 폴백) 가용: {_HAS_CURL_CFFI}", flush=True)
+
+# ─── 2026-06-29 KST · TJ 지시 ─── 앱 공유 딥링크 + 3차 언퍼 프록시 ───
+#   문제: 무신사 앱 '공유'는 onelink.me(AppsFlyer 딥링크)를 반환 → 상품페이지 아님(JS 리디렉트 셔임).
+#         + Render 데이터센터 IP는 무신사/AppsFlyer가 IP 평판으로 차단 → curl_cffi(TLS)로도 못 뚫음.
+#   해법: ① 딥링크/단축링크는 외부 렌더링 서비스(거주IP+JS)로 리디렉트 해석 후 og:image 추출
+#         ② 일반 사이트도 1차/2차 실패 시 동일 3차로 폴백
+#         ③ 3차도 불가하면 '브라우저에서 실제 상품 URL 복사' 안내
+_APP_DEEPLINK_HOSTS = (
+    "onelink.me",        # AppsFlyer (무신사 등)
+    "app.link", "applink.io", "bnc.lt",   # Branch
+    "page.link", "firebase.app",          # Firebase Dynamic Links
+    "smart.link", "lnk.to",
+    "go.link",
+)
+_SHORTENER_HOSTS = (
+    "naver.me", "bit.ly", "buly.kr", "abr.ge", "c11.kr", "vo.la",
+    "han.gl", "url.kr", "me2.do", "muz.so", "t.co", "tinyurl.com",
+)
+
+_UNFURL_TIMEOUT = 20
+# 거주IP + JS렌더 외부 서비스 (env로 키 주입 시 활성)
+_SCRAPINGBEE_KEY = os.environ.get("SCRAPINGBEE_API_KEY", "").strip()
+_SCRAPERAPI_KEY = os.environ.get("SCRAPERAPI_KEY", "").strip()
+# Microlink 무료 엔드포인트는 키 불필요(베스트에포트). 끄려면 UNFURL_USE_MICROLINK=0
+_UNFURL_USE_MICROLINK = os.environ.get("UNFURL_USE_MICROLINK", "1").strip() != "0"
+# ScrapingBee 프록시 티어: basic(1)·js(5)·premium(25)·stealth(75). 운영 기본값 env로 조정
+_SCRAPINGBEE_MODE = (os.environ.get("SCRAPINGBEE_MODE", "premium").strip().lower() or "premium")
+_UNFURL_COUNTRY = (os.environ.get("UNFURL_COUNTRY", "kr").strip().lower() or "kr")
+_SCRAPINGBEE_CREDIT = {"basic": 1, "js": 5, "premium": 25, "stealth": 75}
+
+
+def _scrapingbee_fetch(url, mode):
+    """ScrapingBee 단일 호출(티어 선택). 반환 (images:list, http_status:int, credits:int, err:str).
+    티어: basic(JS없음,1) · js(렌더,5) · premium(렌더+프리미엄프록시,25) · stealth(스텔스,75)."""
+    if not _SCRAPINGBEE_KEY:
+        return [], 0, 0, "no_key"
+    params = {"api_key": _SCRAPINGBEE_KEY, "url": url, "country_code": _UNFURL_COUNTRY}
+    if mode == "basic":
+        params["render_js"] = "false"
+    elif mode == "js":
+        params["render_js"] = "true"; params["wait"] = "2500"
+    elif mode == "stealth":
+        params["stealth_proxy"] = "true"; params["wait"] = "3000"
+    else:  # premium (기본)
+        mode = "premium"
+        params["render_js"] = "true"; params["premium_proxy"] = "true"; params["wait"] = "2500"
+    est = _SCRAPINGBEE_CREDIT.get(mode, 25)
+    try:
+        r = http_requests.get("https://app.scrapingbee.com/api/v1/", params=params, timeout=_UNFURL_TIMEOUT)
+    except Exception as e:
+        return [], 0, est, f"exc:{str(e)[:60]}"
+    # 실제 소모 크레딧(헤더) 우선, 없으면 추정치
+    try:
+        credits = int(r.headers.get("Spb-cost") or r.headers.get("spb-cost") or est)
+    except (ValueError, TypeError):
+        credits = est
+    if r.status_code == 200 and r.text:
+        imgs = _unfurl_extract_from_html(r.text, url)
+        return imgs[:_EXTRACT_MAX_IMAGES], 200, credits, ("" if imgs else "no_images")
+    return [], r.status_code, credits, f"http_{r.status_code}"
+
+
+def _is_app_deeplink(host: str) -> bool:
+    h = (host or "").lower()
+    return any(h == d or h.endswith("." + d) for d in _APP_DEEPLINK_HOSTS)
+
+
+def _is_shortener(host: str) -> bool:
+    h = (host or "").lower()
+    return any(h == s or h.endswith("." + s) for s in _SHORTENER_HOSTS)
+
+
+def _unfurl_extract_from_html(html: str, base_url: str) -> list:
+    """외부 서비스가 돌려준 HTML에서 og:image/JSON-LD 추출 → 절대경로 리스트."""
+    imgs = []
+    for u in _extract_meta_image(html, [
+        "og:image", "og:image:secure_url", "og:image:url",
+        "twitter:image", "twitter:image:src", "product:image",
+    ]):
+        imgs.append(u)
+    imgs += _extract_jsonld_images(html)
+    out, seen = [], set()
+    for u in imgs:
+        au = _resolve_url(base_url, u)
+        if au.startswith(("http://", "https://")) and au not in seen:
+            seen.add(au)
+            out.append(au)
+    return out
+
+
+def _unfurl_image_via_proxy(page_url: str):
+    """3차: 외부 렌더링/거주IP 서비스로 이미지 추출. 딥링크 리디렉트도 해석.
+    반환: (images:list, via:str|None). 미설정/실패 시 ([], None)."""
+    # ── ScrapingBee (유료 키) — 티어(env SCRAPINGBEE_MODE)로 JS렌더/프리미엄/스텔스 ──
+    if _SCRAPINGBEE_KEY:
+        imgs, st, cr, err = _scrapingbee_fetch(page_url, _SCRAPINGBEE_MODE)
+        if imgs:
+            print(f"[extract-product-images] ✅ ScrapingBee[{_SCRAPINGBEE_MODE}] 성공 ({len(imgs)}장, {cr}cr)", flush=True)
+            return imgs[:_EXTRACT_MAX_IMAGES], f"scrapingbee:{_SCRAPINGBEE_MODE}"
+        print(f"[extract-product-images] ScrapingBee[{_SCRAPINGBEE_MODE}] 실패 ({err}, {cr}cr)", flush=True)
+
+    # ── ScraperAPI (유료 키) — 동일 컨셉 ──
+    if _SCRAPERAPI_KEY:
+        try:
+            r = http_requests.get(
+                "https://api.scraperapi.com/",
+                params={"api_key": _SCRAPERAPI_KEY, "url": page_url,
+                        "render": "true", "country_code": "kr"},
+                timeout=_UNFURL_TIMEOUT,
+            )
+            if r.status_code == 200 and r.text:
+                final = _unfurl_extract_from_html(r.text, page_url)
+                if final:
+                    return final[:_EXTRACT_MAX_IMAGES], "scraperapi"
+        except Exception as e:
+            print(f"[extract-product-images] ScraperAPI 실패: {str(e)[:80]}", flush=True)
+
+    # ── Microlink 무료 (키 불필요, 베스트에포트) — 리디렉트/메타 해석 후 대표 이미지 ──
+    if _UNFURL_USE_MICROLINK:
+        try:
+            r = http_requests.get(
+                "https://api.microlink.io/",
+                params={"url": page_url},
+                timeout=_UNFURL_TIMEOUT,
+            )
+            if r.status_code == 200:
+                j = r.json()
+                if j.get("status") == "success":
+                    d = j.get("data") or {}
+                    imgs = []
+                    for key in ("image", "logo"):
+                        node = d.get(key)
+                        if isinstance(node, dict) and node.get("url"):
+                            imgs.append(node["url"])
+                    if imgs:
+                        return imgs[:_EXTRACT_MAX_IMAGES], "microlink"
+            else:
+                print(f"[extract-product-images] Microlink HTTP {r.status_code}", flush=True)
+        except Exception as e:
+            print(f"[extract-product-images] Microlink 실패: {str(e)[:80]}", flush=True)
+
+    return [], None
 
 
 def _detect_html_encoding(raw: bytes, fallback=None) -> str:
@@ -12282,6 +12425,24 @@ def api_extract_product_images():
     if parsed.port is not None and parsed.port not in (80, 443, 8080, 8443):
         return jsonify({"ok": False, "error": "Blocked: non-standard port"}), 400
 
+    # ── 앱 공유 딥링크(onelink.me 등)는 직접 fetch가 무의미 → 3차 언퍼로 직행 ──
+    #   (상품페이지가 아닌 JS 리디렉트 셔임 + 데이터센터 IP 차단이라 1·2차로는 못 가져옴)
+    if _is_app_deeplink(parsed.hostname):
+        print(f"[extract-product-images] 앱 딥링크 감지({parsed.hostname}) → 3차 언퍼 직행", flush=True)
+        _imgs, _via = _unfurl_image_via_proxy(page_url)
+        if _imgs:
+            print(f"[extract-product-images] ✅ 딥링크 해석 성공 via={_via} ({len(_imgs)}장)", flush=True)
+            return jsonify({"ok": True, "images": _imgs, "pageTitle": "",
+                            "sourceUrl": page_url, "count": len(_imgs), "via": _via}), 200
+        print(f"[extract-product-images] 딥링크 해석 실패: {page_url[:100]}")
+        return jsonify({
+            "ok": False,
+            "error": ("앱 공유 링크(onelink)예요. 브라우저에서 상품을 연 뒤 주소창의 실제 상품 URL"
+                      "(예: www.musinsa.com/products/...)을 복사해 붙여넣거나, 상품 이미지를 길게 눌러 "
+                      "저장 후 '사진선택'을 이용해주세요."),
+            "deeplink": True,
+        }), 422
+
     # ── HTML 페이지 fetch ──
     # [2026-04-17] 헤더 강화: 실제 Chrome 브라우저처럼 위장 + 사이트별 Referer
     # 데스크톱 Chrome UA가 모바일 Safari보다 차단 덜 당함 (봇 탐지 우회)
@@ -12331,7 +12492,14 @@ def api_extract_product_images():
         if _err.startswith("not_html"):
             _ct = _err.split(":", 1)[1] if ":" in _err else ""
             return jsonify({"ok": False, "error": f"Not an HTML page (Content-Type: {_ct})"}), 400
-        # 1차+2차 모두 실패 → 강한 차단 사이트 친절 안내
+        # ── 1차+2차 실패 → 3차: 외부 렌더링/거주IP 언퍼 프록시 시도 ──
+        print(f"[extract-product-images] 1차+2차 실패({_err}) → 3차 언퍼 프록시 시도", flush=True)
+        _imgs, _via = _unfurl_image_via_proxy(page_url)
+        if _imgs:
+            print(f"[extract-product-images] ✅ 3차 언퍼 성공 via={_via} ({len(_imgs)}장)", flush=True)
+            return jsonify({"ok": True, "images": _imgs, "pageTitle": "",
+                            "sourceUrl": page_url, "count": len(_imgs), "via": _via}), 200
+        # 3차도 실패 → 강한 차단 사이트 친절 안내
         _hint = None
         _host_lower = parsed.hostname.lower()
         for _bad_host, _shop_name in _PROXY_HARD_BLOCK_HINTS.items():
@@ -12339,14 +12507,14 @@ def api_extract_product_images():
                 _hint = _shop_name
                 break
         if _hint:
-            print(f"[extract-product-images] ⚠️ {_hint} blocked (1차+2차): {_err} for {page_url[:100]}")
+            print(f"[extract-product-images] ⚠️ {_hint} blocked (1·2·3차): {_err} for {page_url[:100]}")
             return jsonify({
                 "ok": False,
                 "error": f"{_hint} is actively blocking automated access. Please save the image and upload directly.",
                 "hardBlocked": True,
                 "shopName": _hint,
             }), 502
-        print(f"[extract-product-images] 실패(1차+2차): {_err} for {page_url[:100]}")
+        print(f"[extract-product-images] 실패(1·2·3차): {_err} for {page_url[:100]}")
         if _status and _status >= 400:
             return jsonify({"ok": False, "error": f"Page returned HTTP {_status}"}), 502
         return jsonify({"ok": False, "error": f"Fetch failed: {_err[:100]}"}), 502
@@ -12431,6 +12599,115 @@ def api_extract_product_images():
         "sourceUrl": final_url,
         "count": len(images),
     }), 200
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  /api/extract-product-images/probe  — [테스트 전용] ScrapingBee 무료크레딧 검증
+#  [2026-06-29] 사이트별로 이미지 추출 가능 여부 + 최소 필요 티어 + 크레딧 소모를 확인.
+#  사용법(브라우저/curl):
+#    GET /api/extract-product-images/probe?url=<상품URL>&mode=auto
+#    mode: auto(js→premium→stealth 순차, 성공 시 중단) | basic | js | premium | stealth
+#    free=1 (기본) → 먼저 1·2차(requests+curl_cffi, 무료) 시도 후 실패 시에만 ScrapingBee
+#    force=1       → 1·2차 결과와 무관하게 ScrapingBee도 항상 실행(딥링크는 항상 ScrapingBee)
+# ═══════════════════════════════════════════════════════════════════
+@app.route("/api/extract-product-images/probe", methods=["GET", "POST"])
+def api_extract_product_images_probe():
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        page_url = str(data.get("url", "")).strip()
+        mode = str(data.get("mode", "auto")).strip().lower()
+        force = str(data.get("force", "")).strip() in ("1", "true", "yes")
+    else:
+        page_url = str(request.args.get("url", "")).strip()
+        mode = str(request.args.get("mode", "auto")).strip().lower()
+        force = str(request.args.get("force", "")).strip() in ("1", "true", "yes")
+
+    if not page_url:
+        return jsonify({"ok": False, "error": "url is required"}), 400
+    parsed = urllib.parse.urlparse(page_url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return jsonify({"ok": False, "error": "invalid url (http/https only)"}), 400
+    if _proxy_is_private_ip(parsed.hostname):
+        return jsonify({"ok": False, "error": "blocked: private network"}), 400
+
+    host = parsed.hostname.lower()
+    is_deeplink = _is_app_deeplink(host)
+    report = {
+        "ok": False, "host": host, "url": page_url,
+        "isDeeplink": is_deeplink,
+        "freeFlow": None, "scrapingbee": None,
+        "bestMode": None, "imagesFound": 0, "images": [],
+        "totalCreditsUsed": 0, "note": "",
+    }
+
+    # ── 1·2차 (requests + curl_cffi) — 무료. 딥링크는 건너뜀(상품페이지 아님) ──
+    free_imgs = []
+    if not is_deeplink:
+        std_headers = {
+            "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                           "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Referer": _proxy_pick_referer(host) or "https://www.google.com/",
+        }
+        ff = _fetch_page_html(page_url, std_headers)
+        if ff.get("ok"):
+            free_imgs = _unfurl_extract_from_html(ff["html"], ff.get("final_url") or page_url)
+            free_imgs += [u for u in _extract_img_src(ff["html"])]
+            # 절대경로 + 중복 제거
+            seen, norm = set(), []
+            for u in free_imgs:
+                au = _resolve_url(ff.get("final_url") or page_url, u)
+                if au.startswith(("http://", "https://")) and au not in seen:
+                    seen.add(au); norm.append(au)
+            free_imgs = norm[:_EXTRACT_MAX_IMAGES]
+            report["freeFlow"] = {"ok": bool(free_imgs), "via": ff.get("via"),
+                                  "httpStatus": 200, "imagesFound": len(free_imgs)}
+        else:
+            report["freeFlow"] = {"ok": False, "via": None,
+                                  "httpStatus": ff.get("status", 0), "error": ff.get("error")}
+        # 1·2차로 충분하고 force가 아니면 여기서 종료 (크레딧 0)
+        if free_imgs and not force:
+            report.update({"ok": True, "bestMode": "free(1·2차)",
+                           "imagesFound": len(free_imgs), "images": free_imgs,
+                           "note": "1·2차(무료)로 추출 성공 — ScrapingBee 불필요(크레딧 0)"})
+            return jsonify(report), 200
+
+    # ── 3차 ScrapingBee 티어 검증 ──
+    if not _SCRAPINGBEE_KEY:
+        report["note"] = ("SCRAPINGBEE_API_KEY 미설정. Render 환경변수에 무료 키를 추가 후 재배포하세요. "
+                          "(1·2차 결과만 위 freeFlow에 표시됨)")
+        report["ok"] = bool(free_imgs)
+        if free_imgs:
+            report.update({"bestMode": "free(1·2차)", "imagesFound": len(free_imgs), "images": free_imgs})
+        return jsonify(report), 200
+
+    order = [mode] if mode in ("basic", "js", "premium", "stealth") else ["js", "premium", "stealth"]
+    sb_results, total, best, sb_imgs = [], 0, None, []
+    for m in order:
+        imgs, st, cr, err = _scrapingbee_fetch(page_url, m)
+        total += cr
+        sb_results.append({"mode": m, "httpStatus": st, "imagesFound": len(imgs),
+                           "credits": cr, "error": err or None})
+        print(f"[probe] {host} [{m}] http={st} imgs={len(imgs)} {cr}cr → {('OK' if imgs else err)}", flush=True)
+        if imgs:
+            best, sb_imgs = m, imgs
+            break
+
+    report["scrapingbee"] = sb_results
+    report["totalCreditsUsed"] = total
+    if sb_imgs:
+        report.update({"ok": True, "bestMode": f"scrapingbee:{best}",
+                       "imagesFound": len(sb_imgs), "images": sb_imgs,
+                       "note": f"ScrapingBee '{best}' 티어에서 성공 (소모 {total}크레딧)"})
+    elif free_imgs:
+        report.update({"ok": True, "bestMode": "free(1·2차)",
+                       "imagesFound": len(free_imgs), "images": free_imgs,
+                       "note": f"ScrapingBee 전 티어 실패했으나 1·2차로 가능 (ScrapingBee {total}크레딧 소모)"})
+    else:
+        report["note"] = (f"1·2차 + ScrapingBee 전 티어 실패 (소모 {total}크레딧). "
+                          "이 사이트는 ScrapingBee로도 차단되거나 추출 이미지가 없음 — 저장 후 업로드 권장.")
+    return jsonify(report), 200
 
 
 # ═══════════════════════════════════════════════════════════════════
