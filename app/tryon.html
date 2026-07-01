@@ -4344,6 +4344,22 @@ function recordTryonUsage(){
         }).catch(function(){});
       }
     }catch(_){}
+    // ─── 2026-06-30 KST · TJ 지시 ─── 통합 집계용 styling_logs 기록 (type=tryon) ───
+    //   관리자 'AI 이미지 및 영상' 페이지가 styling_logs 를 집계하므로 코디핏과 동일 패턴으로 기록.
+    try{
+      var _u2 = (typeof CodiBank!=='undefined' && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;
+      var _te2 = (_u2 && _u2.email) || '';
+      var _tg2 = (_u2 && _u2.gender) || '';
+      var _tp2 = (_u2 && _u2.plan) || 'FREE';
+      var _tb2 = (typeof _tryonBackendBase==='function') ? _tryonBackendBase() : '';
+      if(_te2 && _tb2){
+        fetch(_tb2+'/api/track/styling', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({email:_te2, type:'tryon', gender:_tg2, plan:_tp2, points_used:0}),
+          keepalive:true
+        }).catch(function(){});
+      }
+    }catch(_){}
     // ─── 2026-05-09 Step 2 ─── cb_plan_info 동기화 (mypage/pricing 즉시 반영용)
     try{
       const user = (typeof CodiBank !== 'undefined' && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;

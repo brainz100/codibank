@@ -150,8 +150,7 @@ body {
 <button class="tab on" onclick="stab(this,'dash')">일반현황</button>
 <button class="tab" onclick="stab(this,'users')">회원현황</button>
 <button class="tab" onclick="stab(this,'pay')">결제현황</button>
-<button class="tab" onclick="stab(this,'closet')">내옷장 코디핏</button>
-<button class="tab" onclick="stab(this,'codi')">트라이 온</button>
+<button class="tab" onclick="stab(this,'aigen')">AI 이미지 및 영상</button>
 <button class="tab" onclick="stab(this,'items')">아이템등록</button>
 <button class="tab" onclick="stab(this,'acct')">계정관리</button>
 </div>
@@ -297,42 +296,30 @@ body {
 </div></div>
 </div>
 
-<!-- ═══ 내옷장 ═══ -->
-<div class="tp" id="p-closet">
-<div class="tab-desc"><div class="td-icon">👗</div><div><div class="td-title">내옷장 코디핏</div><div class="td-text">내옷장 AI 코디핏 생성 기록을 확인합니다. 누가 언제 어떤 스타일리스트로 생성했는지 조회할 수 있습니다.</div></div></div>
-<div class="row r3">
-<div class="kpi" id="kcTotal"><div class="kpi-l">전체</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
-<div class="kpi" id="kcMonth"><div class="kpi-l">이번 달</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
-<div class="kpi" id="kcToday"><div class="kpi-l">오늘</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<!-- ═══ AI 이미지 및 영상 (코디핏·트라이온·런웨이 통합) ═══ -->
+<div class="tp" id="p-aigen">
+<div class="tab-desc"><div class="td-icon">✨</div><div><div class="td-title">AI 이미지 및 영상</div><div class="td-text">코디핏 이미지 · 트라이온 이미지 · 런웨이 영상 생성 현황을 회원 아이디별 · 성별 · 구독플랜별 · 월별로 한번에 집계합니다. (서버 styling_logs 기준)</div></div></div>
+<div class="row r4">
+<div class="kpi g" id="kAgTotal"><div class="kpi-l">전체 생성</div><div class="kpi-v">0</div><div class="kpi-s">코디핏+트라이온+런웨이</div></div>
+<div class="kpi" id="kAgCodifit"><div class="kpi-l">코디핏 이미지</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="kpi" id="kAgTryon"><div class="kpi-l">트라이온 이미지</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="kpi" id="kAgRunway"><div class="kpi-l">런웨이 영상</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
 </div>
 <div class="row r2">
-<div class="chart-box"><h3>월별 이용 추이</h3><div class="chart-wrap"><canvas id="chCl2"></canvas></div></div>
-<div class="chart-box"><h3>코디목적별</h3><div class="chart-wrap"><canvas id="chCl3"></canvas></div></div>
-</div>
-<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">checkroom</span>내옷장 코디핏</div><button class="rb" onclick="ldS()"><span class="mi">refresh</span>새로고침</button></div>
-<div class="tw"><div class="cb"><input id="qCl" placeholder="이메일 검색..." oninput="fCl()"><select id="sCl" onchange="fCl()"><option value="d_d">최신순</option><option value="d_a">오래된순</option></select><select id="fGCl" onchange="fCl()"><option value="">전체</option><option value="M">남</option><option value="F">여</option></select></div>
-<table><thead><tr><th>이용자</th><th>코디목적</th><th>코디일자</th><th>회원구분</th><th>성별</th><th>포인트</th></tr></thead><tbody id="tCl"></tbody></table>
-<div class="pager"><span></span><span><button onclick="pgCl2(-1)">◀</button> <span id="pgClt">1/1</span> <button onclick="pgCl2(1)">▶</button> <select id="ppCl" onchange="fCl()"><option>20</option><option>50</option></select>건</span></div>
-</div></div>
-</div>
-
-<!-- ═══ 트라이 온 ═══ -->
-<div class="tp" id="p-codi">
-<div class="tab-desc"><div class="td-icon">🧥</div><div><div class="td-title">트라이 온</div><div class="td-text">트라이 온 착장 이미지 생성 기록을 확인합니다. 생성 성공/실패 여부와 사용된 이미지 정보를 조회할 수 있습니다.</div></div></div>
-<div class="row r3">
-<div class="kpi" id="kdTotal"><div class="kpi-l">전체</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
-<div class="kpi" id="kdMonth"><div class="kpi-l">이번 달</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
-<div class="kpi" id="kdToday"><div class="kpi-l">오늘</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="chart-box"><h3>월별 생성 추이 (유형별)</h3><div class="chart-wrap"><canvas id="chAgMonth"></canvas></div></div>
+<div class="chart-box"><h3>구독플랜별 생성 비율</h3><div class="chart-wrap"><canvas id="chAgPlan"></canvas></div></div>
 </div>
 <div class="row r2">
-<div class="chart-box"><h3>월별 이용 추이</h3><div class="chart-wrap"><canvas id="chCd2"></canvas></div></div>
-<div class="chart-box"><h3>성별 비율</h3><div class="chart-wrap"><canvas id="chCd3"></canvas></div></div>
+<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">wc</span>성별별 집계</div></div>
+<table><thead><tr><th>성별</th><th>코디핏</th><th>트라이온</th><th>런웨이</th><th>합계</th></tr></thead><tbody id="tAgGender"></tbody></table></div>
+<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">card_membership</span>구독플랜별 집계</div></div>
+<table><thead><tr><th>플랜</th><th>코디핏</th><th>트라이온</th><th>런웨이</th><th>합계</th></tr></thead><tbody id="tAgPlan"></tbody></table></div>
 </div>
-<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">auto_awesome</span>트라이 온 현황</div><button class="rb" onclick="ldS()"><span class="mi">refresh</span>새로고침</button></div>
-<div class="tw"><div class="cb"><input id="qCd" placeholder="이메일 검색..." oninput="fCd()"><select id="sCd" onchange="fCd()"><option value="d_d">최신순</option><option value="d_a">오래된순</option></select><select id="fGCd" onchange="fCd()"><option value="">전체</option><option value="M">남</option><option value="F">여</option></select></div>
-<table><thead><tr><th>이용자</th><th>코디일자</th><th>회원구분</th><th>성별</th><th>포인트</th></tr></thead><tbody id="tCd"></tbody></table>
-<div class="pager"><span></span><span><button onclick="pgCd2(-1)">◀</button> <span id="pgCdt">1/1</span> <button onclick="pgCd2(1)">▶</button> <select id="ppCd" onchange="fCd()"><option>20</option><option>50</option></select>건</span></div>
-</div></div>
+<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">calendar_month</span>월별 집계</div><button class="rb" onclick="ldS()"><span class="mi">refresh</span>새로고침</button></div>
+<div class="tw"><table><thead><tr><th>월</th><th>코디핏</th><th>트라이온</th><th>런웨이</th><th>합계</th></tr></thead><tbody id="tAgMonth"></tbody></table></div></div>
+<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">group</span>회원 아이디별 집계</div><button class="rb" onclick="ldS()"><span class="mi">refresh</span>새로고침</button></div>
+<div class="tw"><div class="cb"><input id="qAg" placeholder="이메일 검색..." oninput="renderAgUsers()"><select id="fGAg" onchange="renderAgUsers()"><option value="">성별 전체</option><option value="M">남</option><option value="F">여</option></select><select id="fPAg" onchange="renderAgUsers()"><option value="">플랜 전체</option><option value="FREE">FREE</option><option value="SILVER">SILVER</option><option value="GOLD">GOLD</option><option value="DIAMOND">DIAMOND</option></select></div>
+<table><thead><tr><th>이메일</th><th>성별</th><th>플랜</th><th>코디핏</th><th>트라이온</th><th>런웨이</th><th>합계</th></tr></thead><tbody id="tAgUsers"></tbody></table></div></div>
 </div>
 
 <!-- ═══ 아이템등록 ═══ -->
@@ -1743,7 +1730,7 @@ function quickBonus(email){
 }
 
 function ldAll(){
-  ldH();ldU();ldP();ldS();ldI();ldGenTotals();
+  ldH();ldU();ldP();ldS();ldI();
   if(isMaster()){
     ldAdmins();
     ldBonusMgr();
@@ -1857,10 +1844,90 @@ if(!pg.data.length){document.getElementById('tP').innerHTML='<tr><td colspan="6"
 var h='';pg.data.forEach(function(x){h+='<tr><td>'+fdt(x.created_at)+'</td><td style="font-weight:600;color:#071952">'+x.email+'</td><td style="font-weight:700">'+fm(x.amount)+'</td><td>'+Number(x.points_granted||0).toLocaleString()+'P</td><td>'+pb(x.plan_id)+'</td><td>'+(x.status==='completed'?'<span class="badge b-ok">완료</span>':'<span class="badge b-err">'+x.status+'</span>')+'</td></tr>'});document.getElementById('tP').innerHTML=h}
 function pgP2(d){pgState.P+=d;renderP()}
 // Styling
-async function ldS(){['tCl','tCd'].forEach(function(id){document.getElementById(id).innerHTML='<tr><td colspan="6" class="ld"><span class="sp"></span></td></tr>'});try{var r=await authFetch(B+'/admin/styling-logs');if(!r.ok)throw 0;aS=(await r.json()).logs||[];var cl=aS.filter(function(s){return s.type==='closet'}),co=aS.filter(function(s){return s.type==='codistyle'});
-kpi('kCloset',cl.length);kpi('kcTotal',cl.length);kpi('kcMonth',cl.filter(function(s){return isThisMonth(s.created_at)}).length);kpi('kcToday',cl.filter(function(s){return isToday(s.created_at)}).length);
-kpi('kCodi',co.length);kpi('kdTotal',co.length);kpi('kdMonth',co.filter(function(s){return isThisMonth(s.created_at)}).length);kpi('kdToday',co.filter(function(s){return isToday(s.created_at)}).length);
-fCl();fCd();drawStyleCharts(cl,co)}catch(e){document.getElementById('tCl').innerHTML='<tr><td colspan="6" class="empty">데이터 없음</td></tr>';document.getElementById('tCd').innerHTML='<tr><td colspan="5" class="empty">데이터 없음</td></tr>'}}
+// ─── 2026-06-30 KST · TJ 지시 ─── AI 이미지 및 영상 통합 집계 (styling_logs) ───
+//   type: closet=코디핏 · tryon=트라이온 · runway=런웨이. 회원/성별/플랜/월별 집계 후
+//   통합 페이지 렌더 + 일반현황 '이달 AI 생성' KPI + 대시보드 레거시 KPI 갱신.
+var AG={byUser:{},byMonth:{},byGender:{},byPlan:{},total:{codifit:0,tryon:0,runway:0},monthNow:{codifit:0,tryon:0,runway:0}};
+function _agZ(){return {codifit:0,tryon:0,runway:0};}
+function _agType(x){var t=(x.type||'').toLowerCase();if(t==='closet')return 'codifit';if(t==='tryon')return 'tryon';if(t==='runway')return 'runway';return null;}
+function _agPlan(p){p=(p||'').toString().toUpperCase().trim();if(['FREE','SILVER','GOLD','DIAMOND'].indexOf(p)>=0)return p;return p||'FREE';}
+function _aggAiGen(){
+  var byUser={},byMonth={},byGender={M:_agZ(),F:_agZ(),'기타':_agZ()},byPlan={},total=_agZ(),monthNow=_agZ();
+  var nowKey=(new Date()).toISOString().slice(0,7);
+  (aS||[]).forEach(function(x){
+    var ty=_agType(x);if(!ty)return;
+    var em=(x.email||'(미상)');
+    var g=(x.gender||'').toUpperCase();if(g!=='M'&&g!=='F')g='기타';
+    var pl=_agPlan(x.plan);
+    var mk=(x.created_at||'').slice(0,7)||'미상';
+    if(!byUser[em])byUser[em]={email:em,gender:g,plan:pl,codifit:0,tryon:0,runway:0};
+    byUser[em][ty]++;if(g!=='기타')byUser[em].gender=g;byUser[em].plan=pl;
+    if(!byMonth[mk])byMonth[mk]=_agZ();byMonth[mk][ty]++;
+    byGender[g][ty]++;
+    if(!byPlan[pl])byPlan[pl]=_agZ();byPlan[pl][ty]++;
+    total[ty]++;if(mk===nowKey)monthNow[ty]++;
+  });
+  AG={byUser:byUser,byMonth:byMonth,byGender:byGender,byPlan:byPlan,total:total,monthNow:monthNow};
+  kpi('kAgTotal',total.codifit+total.tryon+total.runway);kpi('kAgCodifit',total.codifit);kpi('kAgTryon',total.tryon);kpi('kAgRunway',total.runway);
+}
+function _agTd(v,st){return '<td'+(st?' style="'+st+'"':'')+'>'+v+'</td>';}
+function _agLine(name,v,nameSt){var t=v.codifit+v.tryon+v.runway;return '<tr>'+_agTd(name,nameSt||'font-weight:600')+_agTd(v.codifit,'text-align:center;color:#0B666A')+_agTd(v.tryon,'text-align:center;color:#b41a6a')+_agTd(v.runway,'text-align:center;color:#1a5fb4')+_agTd(t,'text-align:center;font-weight:700;color:#071952')+'</tr>';}
+function renderAgUsers(){
+  var tb=document.getElementById('tAgUsers');if(!tb)return;
+  var q=(document.getElementById('qAg')&&document.getElementById('qAg').value.toLowerCase())||'';
+  var fg=(document.getElementById('fGAg')&&document.getElementById('fGAg').value)||'';
+  var fp=(document.getElementById('fPAg')&&document.getElementById('fPAg').value)||'';
+  var rows=Object.keys(AG.byUser).map(function(k){return AG.byUser[k];}).filter(function(u){return (u.codifit+u.tryon+u.runway)>0;});
+  if(q)rows=rows.filter(function(u){return u.email.toLowerCase().indexOf(q)>=0;});
+  if(fg)rows=rows.filter(function(u){return u.gender===fg;});
+  if(fp)rows=rows.filter(function(u){return u.plan===fp;});
+  rows.sort(function(a,b){return (b.codifit+b.tryon+b.runway)-(a.codifit+a.tryon+a.runway);});
+  if(!rows.length){tb.innerHTML='<tr><td colspan="7" class="empty">데이터 없음</td></tr>';return;}
+  tb.innerHTML=rows.map(function(u){var t=u.codifit+u.tryon+u.runway;var gt=u.gender==='M'?'남':(u.gender==='F'?'여':'-');
+    return '<tr>'+_agTd(u.email,'font-weight:600;color:#071952')+_agTd(gt,'text-align:center')+_agTd(u.plan,'text-align:center')+_agTd(u.codifit,'text-align:center;color:#0B666A;font-weight:600')+_agTd(u.tryon,'text-align:center;color:#b41a6a;font-weight:600')+_agTd(u.runway,'text-align:center;color:#1a5fb4;font-weight:600')+_agTd(t,'text-align:center;font-weight:700;color:#071952')+'</tr>';
+  }).join('');
+}
+function renderAgMonth(){
+  var tb=document.getElementById('tAgMonth');if(!tb)return;
+  var keys=Object.keys(AG.byMonth).filter(function(k){return k!=='미상';}).sort().reverse();
+  if(!keys.length){tb.innerHTML='<tr><td colspan="5" class="empty">데이터 없음</td></tr>';return;}
+  tb.innerHTML=keys.map(function(k){return _agLine(k,AG.byMonth[k]);}).join('');
+}
+function renderAgGender(){
+  var tb=document.getElementById('tAgGender');if(!tb)return;
+  tb.innerHTML=[['M','남'],['F','여'],['기타','미상']].map(function(o){return _agLine(o[1],AG.byGender[o[0]]||_agZ());}).join('');
+}
+function renderAgPlan(){
+  var tb=document.getElementById('tAgPlan');if(!tb)return;
+  var order=['FREE','SILVER','GOLD','DIAMOND'];
+  var keys=order.filter(function(p){return AG.byPlan[p];}).concat(Object.keys(AG.byPlan).filter(function(p){return order.indexOf(p)<0;}));
+  if(!keys.length){tb.innerHTML='<tr><td colspan="5" class="empty">데이터 없음</td></tr>';return;}
+  tb.innerHTML=keys.map(function(p){return _agLine(p,AG.byPlan[p]);}).join('');
+}
+function drawAgCharts(){
+  var keys=Object.keys(AG.byMonth).filter(function(k){return k!=='미상';}).sort().slice(-6);
+  mkChart('chAgMonth','bar',keys,[
+    {label:'코디핏',data:keys.map(function(k){return AG.byMonth[k].codifit;}),backgroundColor:'#35A29F'},
+    {label:'트라이온',data:keys.map(function(k){return AG.byMonth[k].tryon;}),backgroundColor:'#b41a6a'},
+    {label:'런웨이',data:keys.map(function(k){return AG.byMonth[k].runway;}),backgroundColor:'#1a5fb4'}
+  ],{scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}});
+  var porder=['FREE','SILVER','GOLD','DIAMOND'].filter(function(p){return AG.byPlan[p];});
+  mkChart('chAgPlan','doughnut',porder,[{data:porder.map(function(p){var v=AG.byPlan[p];return v.codifit+v.tryon+v.runway;}),backgroundColor:['#8894a8','#35A29F','#c17b00','#6a1fb4']}]);
+}
+async function ldS(){
+  ['tAgUsers','tAgMonth','tAgGender','tAgPlan'].forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML='<tr><td colspan="7" class="ld"><span class="sp"></span>불러오는 중...</td></tr>';});
+  try{
+    var r=await authFetch(B+'/admin/styling-logs');if(!r.ok)throw 0;
+    aS=(await r.json()).logs||[];
+    _aggAiGen();
+    renderAgUsers();renderAgMonth();renderAgGender();renderAgPlan();drawAgCharts();
+    var mn=AG.monthNow;
+    kpi('kGenCodifit',mn.codifit);kpi('kGenTryon',mn.tryon);kpi('kRunwayGen',mn.runway);kpi('kGenTotal',mn.codifit+mn.tryon+mn.runway);
+    kpi('kCloset',AG.total.codifit);kpi('kCodi',AG.total.tryon);
+  }catch(e){
+    ['tAgUsers','tAgMonth','tAgGender','tAgPlan'].forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML='<tr><td colspan="7" class="empty">데이터 없음</td></tr>';});
+  }
+}
 function drawStyleCharts(cl,co){var moCl={},moCo={},purp={},gCo={M:0,F:0,O:0};cl.forEach(function(s){var k=monthKey(s.created_at);moCl[k]=(moCl[k]||0)+1;var p=s.purpose||'일상';purp[p]=(purp[p]||0)+1});co.forEach(function(s){var k=monthKey(s.created_at);moCo[k]=(moCo[k]||0)+1;if(s.gender==='M')gCo.M++;else if(s.gender==='F')gCo.F++;else gCo.O++});
 var allK=Object.keys(Object.assign({},moCl,moCo)).sort().slice(-6);mkChart('chStyleMonth','bar',allK,[{label:'내옷장',data:allK.map(function(k){return moCl[k]||0}),backgroundColor:'#35A29F'},{label:'트라이 온',data:allK.map(function(k){return moCo[k]||0}),backgroundColor:'#071952'}]);
 mkChart('chCl2','bar',allK,[{label:'내옷장',data:allK.map(function(k){return moCl[k]||0}),backgroundColor:'#35A29F'}]);
