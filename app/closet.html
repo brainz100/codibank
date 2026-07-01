@@ -3988,7 +3988,45 @@ function recordUnifiedUsage(feature){
   u.totalCount = (u.closetCount||0) + (u.tryonCount||0);
   u.dayTotal   = (u.dayClosetCount||0) + (u.dayTryonCount||0);
   try{ localStorage.setItem(_usageKey(), JSON.stringify(u)); }catch(_){}
+  // ─── 2026-06-30 KST · TJ 지시 ─── 서버 사용량 동기화 (dual-write) ───
+  //   admin/마이페이지/구독플랜이 서버 user_usage 를 읽으므로 localStorage 증가와
+  //   동일 시점에 서버에도 +1 기록 (코디핏만; codistyle 은 잠금 no-op).
+  if(feature !== 'codistyle'){
+    try{
+      var _uem = (user && user.email) || '';
+      var _ubb = (CodiBank.getBackendBaseResolved ? CodiBank.getBackendBaseResolved() : ((window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || ''));
+      if(_uem && _ubb){
+        fetch(_ubb+'/api/usage/record', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({email:_uem, feature:'closet'}), keepalive:true
+        }).catch(function(){});
+      }
+    }catch(_){}
+  }
 }
+
+// ─── 2026-06-30 KST · TJ 지시 ─── 서버 사용량 → localStorage 동기화 (로드 시) ───
+//   목적: 모든 기기/브라우저에서 코디핏·트라이온 잔여횟수가 서버(권위)와 일치.
+async function _syncUsageFromServer(){
+  try{
+    var _uem = (user && user.email) || '';
+    var _ubb = (CodiBank.getBackendBaseResolved ? CodiBank.getBackendBaseResolved() : ((window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || ''));
+    if(!_uem || !_ubb) return;
+    var r = await fetch(_ubb+'/api/usage/get/'+encodeURIComponent(_uem));
+    if(!r.ok) return;
+    var d = await r.json();
+    if(!d || !d.ok) return;
+    var u = getUnifiedUsage();
+    u.closetCount    = parseInt(d.closetCount||0);
+    u.tryonCount     = parseInt(d.tryonCount||0);
+    u.dayClosetCount = parseInt(d.dayClosetCount||0);
+    u.dayTryonCount  = parseInt(d.dayTryonCount||0);
+    u.totalCount     = (u.closetCount||0)+(u.tryonCount||0);
+    if(d.month) u.month = d.month;
+    try{ localStorage.setItem(_usageKey(), JSON.stringify(u)); }catch(_){}
+  }catch(_){}
+}
+try{ window.addEventListener('load', function(){ setTimeout(_syncUsageFromServer, 350); }); }catch(_){}
 
 // ─── 2026-06-19 KST · TJ 지시 ─── 코디핏 사용량 차감 + 구독플랜 연동 (공용 헬퍼) ───
 //   배경: 코디핏 1st(STEP A)는 4장을 병렬 생성하지만 사용량 차감이 누락되어 있었음.

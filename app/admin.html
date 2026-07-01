@@ -241,7 +241,7 @@ body {
     <button class="rb" onclick="ldUsageSummary()"><span class="mi">refresh</span>새로고침</button>
   </div>
   <p style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.6;">
-    서버(Supabase)에 기록된 이달 회원별 이미지 생성 사용량입니다. 모든 기기·브라우저의 실제 사용 내역이 반영됩니다.
+    서버(Supabase)에 기록된 이달 회원별 이미지(코디핏·트라이온)·영상(런웨이) 생성 사용량입니다. 모든 기기·브라우저의 실제 사용 내역이 반영됩니다.
   </p>
   <div class="row r4" style="margin-bottom:10px;">
     <div class="kpi g" id="kuUsageTotal"><div class="kpi-l">이달 이미지생성</div><div class="kpi-v">0</div><div class="kpi-s">회</div></div>
@@ -251,7 +251,7 @@ body {
   </div>
   <div class="row r4" style="margin-bottom:10px;">
     <div class="kpi" id="kuUsageUsers"><div class="kpi-l">활성 사용자</div><div class="kpi-v">0</div><div class="kpi-s">명</div></div>
-    <div class="kpi" style="opacity:0;pointer-events:none"></div>
+    <div class="kpi" id="kuUsageRunway"><div class="kpi-l">런웨이 영상</div><div class="kpi-v">0</div><div class="kpi-s">회</div></div>
     <div class="kpi" style="opacity:0;pointer-events:none"></div>
     <div class="kpi" style="opacity:0;pointer-events:none"></div>
   </div>
@@ -1613,7 +1613,7 @@ async function ldUsageSummary(){
     var sumCloset=0, sumCodi=0, sumTotal=0, sumItems=0;
     list.forEach(function(x){
       sumCloset += parseInt(x.closet_count||0);
-      sumCodi   += parseInt(x.codistyle_count||0);
+      sumCodi   += parseInt(x.tryon_count||0);   // [2026-06-30] 트라이온 실집계(서버)
       sumTotal  += parseInt(x.total_count||0);
       sumItems  += parseInt(x.item_count||0);
     });
@@ -1622,6 +1622,17 @@ async function ldUsageSummary(){
     kpi('kuUsageCodi', sumCodi);
     kpi('kuUsageItems', sumItems);
     kpi('kuUsageUsers', list.length);
+    // ─── 2026-06-30 KST · TJ 지시 ─── 런웨이 영상 생성 집계(서버 runway_count) ───
+    //   런웨이는 별도 월포맷/엔드포인트 → /api/admin/runway/stats 로 집계 표시.
+    //   plain fetch 사용(authFetch의 403 자동 로그아웃 부작용 회피).
+    try{
+      var _rem2 = (typeof _ME!=='undefined' && _ME.email) || '';
+      var _rr = await fetch(B+'/api/admin/runway/stats', {headers:{'X-Admin-Key':K(),'X-Admin-Email':_rem2}});
+      if(_rr.ok){
+        var _rd = await _rr.json();
+        if(_rd && _rd.ok && _rd.stats){ kpi('kuUsageRunway', _rd.stats.total_videos_this_month||0); }
+      }
+    }catch(_){}
 
     if(!list.length){
       tbody.innerHTML='<tr><td colspan="12" class="empty">이달 사용 기록이 없습니다</td></tr>';
@@ -1642,11 +1653,11 @@ async function ldUsageSummary(){
         +'<td>'+nnTxt+'</td>'
         +'<td style="text-align:center">'+genTxt+'</td>'
         +'<td style="text-align:center;color:#0B666A;font-weight:600">'+(x.closet_count||0)+'</td>'
-        +'<td style="text-align:center;color:#b41a6a;font-weight:600">'+(x.codistyle_count||0)+'</td>'
+        +'<td style="text-align:center;color:#b41a6a;font-weight:600">'+(x.tryon_count||0)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#071952">'+(x.total_count||0)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#1a5fb4">'+(x.item_count||0)+'</td>'
         +'<td style="text-align:center;color:#0B666A">'+(x.day_closet_count||0)+'</td>'
-        +'<td style="text-align:center;color:#b41a6a">'+(x.day_codi_count||0)+'</td>'
+        +'<td style="text-align:center;color:#b41a6a">'+(x.day_tryon_count||0)+'</td>'
         +'<td style="text-align:center;font-weight:600">'+(x.day_total||0)+'</td>'
         +'<td style="text-align:center;font-weight:600;color:#1a5fb4">'+(x.day_item_count||0)+'</td>'
         +'<td style="font-size:10px;color:#888">'+upd+'</td>'

@@ -1330,6 +1330,28 @@ async function renderStatus(){
     // [Step2] totalCount: codistyle 제외, closet + tryon만 합산
     totalUsed     = parseInt(raw.totalCount || (closetUsed + tryonUsed)) || 0;
   }catch(_){}
+  // ─── 2026-06-30 KST · TJ 지시 ─── 서버 사용량(권위) 우선 — 모든 기기 동기화 ───
+  //   admin 집계와 동일 소스(서버 user_usage)를 읽어 구독플랜-관리자 수치 일치.
+  try{
+    const _pbb = (typeof CodiBank.getBackendBaseResolved==='function') ? CodiBank.getBackendBaseResolved() : 'https://codibank-api.onrender.com';
+    const _pem = (user && user.email) || '';
+    if(_pem){
+      const _pr = await fetch(_pbb+'/api/usage/get/'+encodeURIComponent(_pem));
+      if(_pr.ok){
+        const _pd = await _pr.json();
+        if(_pd && _pd.ok){
+          closetUsed = parseInt(_pd.closetCount||0);
+          tryonUsed  = parseInt(_pd.tryonCount||0);
+          totalUsed  = closetUsed + tryonUsed;
+          try{
+            const _k='cb_usage_'+(user.email||'guest'), _r=JSON.parse(localStorage.getItem(_k)||'{}');
+            _r.closetCount=closetUsed; _r.tryonCount=tryonUsed; if(_pd.month)_r.month=_pd.month;
+            localStorage.setItem(_k, JSON.stringify(_r));
+          }catch(_){}
+        }
+      }
+    }
+  }catch(_){}
 
   // ─── 2026-04-21: 보너스 조회 — 코디핏/트라이온 분리 수신 ───
   let codifitBonus = 0;

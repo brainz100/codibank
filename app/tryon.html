@@ -4332,6 +4332,18 @@ function recordTryonUsage(){
     raw.totalCount = (raw.closetCount||0) + (raw.tryonCount||0);
     raw.dayTotal   = (raw.dayClosetCount||0) + (raw.dayTryonCount||0);
     localStorage.setItem(k, JSON.stringify(raw));
+    // ─── 2026-06-30 KST · TJ 지시 ─── 서버 사용량 동기화 (dual-write) ───
+    //   admin/마이페이지/구독플랜이 서버 user_usage 를 읽으므로 트라이온도 서버에 +1.
+    try{
+      var _tem = (typeof CodiBank!=='undefined' && CodiBank.getCurrentUser) ? ((CodiBank.getCurrentUser()||{}).email||'') : '';
+      var _tbb = (typeof _tryonBackendBase==='function') ? _tryonBackendBase() : '';
+      if(_tem && _tbb){
+        fetch(_tbb+'/api/usage/record', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({email:_tem, feature:'tryon'}), keepalive:true
+        }).catch(function(){});
+      }
+    }catch(_){}
     // ─── 2026-05-09 Step 2 ─── cb_plan_info 동기화 (mypage/pricing 즉시 반영용)
     try{
       const user = (typeof CodiBank !== 'undefined' && CodiBank.getCurrentUser) ? CodiBank.getCurrentUser() : null;
@@ -4349,6 +4361,30 @@ function recordTryonUsage(){
     }catch(_){}
   }catch(_){}
 }
+
+// ─── 2026-06-30 KST · TJ 지시 ─── 서버 사용량 → localStorage 동기화 (로드 시) ───
+//   목적: 모든 기기/브라우저에서 트라이온 잔여횟수가 서버(권위)와 일치.
+async function _syncTryonUsageFromServer(){
+  try{
+    var _tem = (typeof CodiBank!=='undefined' && CodiBank.getCurrentUser) ? ((CodiBank.getCurrentUser()||{}).email||'') : '';
+    var _tbb = (typeof _tryonBackendBase==='function') ? _tryonBackendBase() : '';
+    if(!_tem || !_tbb) return;
+    var r = await fetch(_tbb+'/api/usage/get/'+encodeURIComponent(_tem));
+    if(!r.ok) return;
+    var d = await r.json();
+    if(!d || !d.ok) return;
+    var k = _tryonUsageKey();
+    var raw = JSON.parse(localStorage.getItem(k)||'{}');
+    raw.closetCount    = parseInt(d.closetCount||0);
+    raw.tryonCount     = parseInt(d.tryonCount||0);
+    raw.dayTryonCount  = parseInt(d.dayTryonCount||0);
+    raw.totalCount     = (raw.closetCount||0)+(raw.tryonCount||0);
+    if(d.month) raw.month = d.month;
+    localStorage.setItem(k, JSON.stringify(raw));
+    try{ if(typeof updateTryonQuotaBadge==='function') updateTryonQuotaBadge(); }catch(_){}
+  }catch(_){}
+}
+try{ document.addEventListener('DOMContentLoaded', function(){ setTimeout(_syncTryonUsageFromServer, 350); }); }catch(_){}
 
 // ─── 2026-05-09 KST · TJ 지시 ─── 트라이온 단독 잔여 횟수 배지 갱신
 //   목적: 구독플랜의 '트라이 온 N회/월'과 트라이온 페이지의 '사용가능한 N회'가 일치

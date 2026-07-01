@@ -1045,6 +1045,24 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
           tryonUsed     = parseInt(raw.tryonCount  || 0);   // [Step2] 트라이온 정확한 필드
           codistyleUsed = parseInt(raw.codistyleCount || 0); // 레거시 보존(미표시)
         }catch(_){}
+        // ─── 2026-06-30 KST · TJ 지시 ─── 서버 사용량(권위) 우선 — 모든 기기 동기화 ───
+        //   admin 집계와 동일 소스(서버 user_usage)를 읽어 마이페이지-관리자 수치 일치.
+        try{
+          const _sbb = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || 'https://codibank-api.onrender.com';
+          const _ur = await fetch(_sbb+'/api/usage/get/'+encodeURIComponent(u.email));
+          if(_ur.ok){
+            const _ud = await _ur.json();
+            if(_ud && _ud.ok){
+              closetUsed = parseInt(_ud.closetCount || 0);
+              tryonUsed  = parseInt(_ud.tryonCount  || 0);
+              try{
+                const _k='cb_usage_'+u.email, _r=JSON.parse(localStorage.getItem(_k)||'{}');
+                _r.closetCount=closetUsed; _r.tryonCount=tryonUsed; if(_ud.month)_r.month=_ud.month;
+                localStorage.setItem(_k, JSON.stringify(_r));
+              }catch(_){}
+            }
+          }
+        }catch(_){}
         
         // 즉시 표시 (보너스 없음 상태)
         function updateCard(coBonus, trBonus, itemBonus, itemUsed){
