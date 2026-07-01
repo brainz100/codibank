@@ -10380,8 +10380,8 @@ def api_usage_record():
         feature = str(data.get("feature", "")).strip().lower()
         if not email:
             return jsonify({"ok": False, "error": "email 필수"}), 400
-        if feature not in ("closet", "codistyle", "item"):
-            return jsonify({"ok": False, "error": "feature must be closet, codistyle, or item"}), 400
+        if feature not in ("closet", "codistyle", "item", "tryon"):
+            return jsonify({"ok": False, "error": "feature must be closet, codistyle, item, or tryon"}), 400
 
         import datetime as _dt
         now      = _dt.datetime.now()
@@ -10406,21 +10406,23 @@ def api_usage_record():
                 row["month"] = month_k
                 row["closet_count"] = 0
                 row["codistyle_count"] = 0
+                row["tryon_count"] = 0
                 row["total_count"] = 0
                 row["item_count"] = 0
             if row.get("day") != day_k:
                 row["day"] = day_k
                 row["day_closet_count"] = 0
                 row["day_codi_count"] = 0
+                row["day_tryon_count"] = 0
                 row["day_total"] = 0
                 row["day_item_count"] = 0
         else:
             row = {
                 "email": email, "month": month_k, "day": day_k,
-                "closet_count": 0, "codistyle_count": 0, "total_count": 0,
-                "item_count": 0,
-                "day_closet_count": 0, "day_codi_count": 0, "day_total": 0,
-                "day_item_count": 0,
+                "closet_count": 0, "codistyle_count": 0, "tryon_count": 0,
+                "total_count": 0, "item_count": 0,
+                "day_closet_count": 0, "day_codi_count": 0, "day_tryon_count": 0,
+                "day_total": 0, "day_item_count": 0,
             }
 
         # 3) 카운터 증가
@@ -10433,8 +10435,11 @@ def api_usage_record():
         elif feature == "item":
             row["item_count"]       = int(row.get("item_count") or 0) + 1
             row["day_item_count"]   = int(row.get("day_item_count") or 0) + 1
+        elif feature == "tryon":
+            row["tryon_count"]      = int(row.get("tryon_count") or 0) + 1
+            row["day_tryon_count"]  = int(row.get("day_tryon_count") or 0) + 1
 
-        row["total_count"] = int(row.get("closet_count") or 0) + int(row.get("codistyle_count") or 0)
+        row["total_count"] = int(row.get("closet_count") or 0) + int(row.get("codistyle_count") or 0) + int(row.get("tryon_count") or 0)
         row["day_total"]   = int(row.get("day_closet_count") or 0) + int(row.get("day_codi_count") or 0)
         row["updated_at"]  = _dt.datetime.utcnow().isoformat() + "Z"
 
@@ -10442,8 +10447,10 @@ def api_usage_record():
         body = {
             "email": email, "month": row["month"], "day": row["day"],
             "closet_count": row["closet_count"], "codistyle_count": row["codistyle_count"],
+            "tryon_count": int(row.get("tryon_count") or 0),
             "total_count": row["total_count"], "item_count": int(row.get("item_count") or 0),
             "day_closet_count": row["day_closet_count"], "day_codi_count": row["day_codi_count"],
+            "day_tryon_count": int(row.get("day_tryon_count") or 0),
             "day_total": row["day_total"], "day_item_count": int(row.get("day_item_count") or 0),
             "updated_at": row["updated_at"],
         }
@@ -10492,40 +10499,42 @@ def api_usage_get(email):
 
         if not row:
             return jsonify({"ok": True, "month": month_k, "day": day_k,
-                            "closetCount": 0, "codistyleCount": 0, "totalCount": 0,
-                            "itemCount": 0,
-                            "dayClosetCount": 0, "dayCodiCount": 0, "dayTotal": 0,
-                            "dayItemCount": 0})
+                            "closetCount": 0, "codistyleCount": 0, "tryonCount": 0,
+                            "totalCount": 0, "itemCount": 0,
+                            "dayClosetCount": 0, "dayCodiCount": 0, "dayTryonCount": 0,
+                            "dayTotal": 0, "dayItemCount": 0})
 
         # 월/일 리셋
         r_month = row.get("month", "")
         r_day   = row.get("day", "")
         cc = int(row.get("closet_count") or 0)
         cs = int(row.get("codistyle_count") or 0)
+        tr = int(row.get("tryon_count") or 0)
         tc = int(row.get("total_count") or 0)
         ic = int(row.get("item_count") or 0)
         dc = int(row.get("day_closet_count") or 0)
         dd = int(row.get("day_codi_count") or 0)
+        dtr = int(row.get("day_tryon_count") or 0)
         dt_ = int(row.get("day_total") or 0)
         di = int(row.get("day_item_count") or 0)
 
         if r_month != month_k:
-            cc = cs = tc = ic = 0
+            cc = cs = tr = tc = ic = 0
         if r_day != day_k:
-            dc = dd = dt_ = di = 0
+            dc = dd = dtr = dt_ = di = 0
 
         return jsonify({
             "ok": True, "month": month_k, "day": day_k,
-            "closetCount": cc, "codistyleCount": cs, "totalCount": tc,
-            "itemCount": ic,
-            "dayClosetCount": dc, "dayCodiCount": dd, "dayTotal": dt_,
-            "dayItemCount": di,
+            "closetCount": cc, "codistyleCount": cs, "tryonCount": tr,
+            "totalCount": tc, "itemCount": ic,
+            "dayClosetCount": dc, "dayCodiCount": dd, "dayTryonCount": dtr,
+            "dayTotal": dt_, "dayItemCount": di,
         })
     except Exception as e:
         return jsonify({"ok": True, "month": "", "closetCount": 0, "codistyleCount": 0,
-                        "totalCount": 0, "itemCount": 0,
-                        "dayClosetCount": 0, "dayCodiCount": 0, "dayTotal": 0,
-                        "dayItemCount": 0, "error": str(e)})
+                        "tryonCount": 0, "totalCount": 0, "itemCount": 0,
+                        "dayClosetCount": 0, "dayCodiCount": 0, "dayTryonCount": 0,
+                        "dayTotal": 0, "dayItemCount": 0, "error": str(e)})
 
 
 @app.get("/admin/usage/summary")
@@ -10537,7 +10546,7 @@ def admin_usage_summary():
         import datetime as _dt
         now_ym  = _dt.datetime.now().strftime("%Y-") + str(_dt.datetime.now().month)
         params  = {"month": f"eq.{now_ym}", "order": "total_count.desc", "limit": "500",
-                    "select": "email,month,day,closet_count,codistyle_count,total_count,item_count,day_closet_count,day_codi_count,day_total,day_item_count,updated_at"}
+                    "select": "email,month,day,closet_count,codistyle_count,tryon_count,total_count,item_count,day_closet_count,day_codi_count,day_tryon_count,day_total,day_item_count,updated_at"}
         r = sb_query("GET", "user_usage", params=params)
         if r.status_code == 200:
             return jsonify({"ok": True, "list": r.json(), "month": now_ym})
