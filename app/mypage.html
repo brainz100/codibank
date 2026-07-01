@@ -1053,11 +1053,15 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
           if(_ur.ok){
             const _ud = await _ur.json();
             if(_ud && _ud.ok){
-              closetUsed = parseInt(_ud.closetCount || 0);
-              tryonUsed  = parseInt(_ud.tryonCount  || 0);
+              // ─── 2026-07-01 KST · TJ 지시 ─── 서버값 '덮어쓰기' → '현재월 max 병합' ───
+              var _now=new Date(), _cur=_now.getFullYear()+'-'+(_now.getMonth()+1), _sM=_ud.month||'', _lM=raw.month||'';
+              var _sC=(_sM===_cur)?parseInt(_ud.closetCount||0):0, _lC=(_lM===_cur)?parseInt(raw.closetCount||0):0;
+              var _sT=(_sM===_cur)?parseInt(_ud.tryonCount||0):0,  _lT=(_lM===_cur)?parseInt(raw.tryonCount||0):0;
+              closetUsed = Math.max(_sC,_lC);
+              tryonUsed  = Math.max(_sT,_lT);
               try{
                 const _k='cb_usage_'+u.email, _r=JSON.parse(localStorage.getItem(_k)||'{}');
-                _r.closetCount=closetUsed; _r.tryonCount=tryonUsed; if(_ud.month)_r.month=_ud.month;
+                _r.closetCount=closetUsed; _r.tryonCount=tryonUsed; _r.month=_cur;
                 localStorage.setItem(_k, JSON.stringify(_r));
               }catch(_){}
             }

@@ -3522,6 +3522,8 @@ function _tryonPageshowHandler(event){
     }
     // 방금 picker에서 고른 아이템 추가 (tryon_pick_result가 있을 때만 작동)
     consumePick();
+    // ─── 2026-07-01 ─── 페이지 복귀 시 생성 결과 이미지 복원
+    try{ if(typeof _tryonRestoreResult==='function') _tryonRestoreResult(); }catch(_){}
     // ─── 2026-05-09 KST · TJ 지시 ─── 페이지 복귀 시 잔여 횟수 재계산
     try{ if(typeof updateTryonQuotaBadge === 'function') updateTryonQuotaBadge(); }catch(_){}
   }catch(_){}
@@ -3660,6 +3662,26 @@ function resetSlotUI(domType){
 //  복원 시점: DOMContentLoaded에서 loadTryonState() 호출 후 렌더
 // ════════════════════════════════════════════════════════════════
 const TRYON_STATE_KEY = 'tryon_state_v1';
+// ─── 2026-07-01 KST · TJ 지시 ─── 생성 결과(이미지+분석) 세션 저장/복원 ───
+//   문제: 다른 페이지 다녀오면 결과 이미지뷰박스가 비워짐(새로고침 시 DOM 초기화).
+//   해결: 생성 결과 data 를 세션에 저장 → 복귀 시 _tryonApplyResult(data, true) 로 재렌더.
+//   복원 재호출 시 앨범/런웨이후보 재저장을 막기 위해 window._tryonRestoring 플래그 사용.
+const TRYON_RESULT_KEY = 'tryon_result_v1';
+function _tryonRestoreResult(){
+  try{
+    var raw = sessionStorage.getItem(TRYON_RESULT_KEY);
+    if(!raw) return false;
+    var iw = document.getElementById('imgWrap');
+    // 이미 결과가 렌더돼 있으면(bfcache 복귀 등) 재렌더 불필요
+    if(iw && iw.querySelector('#tryonResultBox')) return true;
+    var data = JSON.parse(raw);
+    if(typeof _tryonApplyResult !== 'function') return false;
+    window._tryonRestoring = true;
+    try{ _tryonApplyResult(data, true); }catch(e){ console.warn('[TryOn] 결과 복원 실패:', e); }
+    setTimeout(function(){ window._tryonRestoring = false; }, 6000);
+    return true;
+  }catch(_){ return false; }
+}
 
 function saveTryonState(){
   try {
@@ -4391,11 +4413,26 @@ async function _syncTryonUsageFromServer(){
     if(!d || !d.ok) return;
     var k = _tryonUsageKey();
     var raw = JSON.parse(localStorage.getItem(k)||'{}');
-    raw.closetCount    = parseInt(d.closetCount||0);
-    raw.tryonCount     = parseInt(d.tryonCount||0);
-    raw.dayTryonCount  = parseInt(d.dayTryonCount||0);
-    raw.totalCount     = (raw.closetCount||0)+(raw.tryonCount||0);
-    if(d.month) raw.month = d.month;
+    // ─── 2026-07-01 KST · TJ 지시 ─── 서버값으로 로컬 '덮어쓰기' 금지 → '병합(max)' ───
+    //   원인: 서버 저장이 실패(예: user_usage 컬럼 부재로 400)하면 서버 카운트가 0으로
+    //         내려오는데, 기존엔 이 0을 로컬에 그대로 덮어써서 방금 차감한 값이 리셋됐음.
+    //   해결: 사용량은 '월 내 단조증가' 이므로, 같은 달일 때 서버·로컬 중 큰 값을 사용.
+    //         (크로스디바이스로 서버가 더 크면 서버가 반영되고, 서버가 실패해 0이면 로컬 유지)
+    var _now = new Date();
+    var _curMonth = _now.getFullYear()+'-'+(_now.getMonth()+1);
+    var _srvMonth = d.month || '';
+    var _locMonth = raw.month || '';
+    var _srvT = (_srvMonth===_curMonth) ? parseInt(d.tryonCount||0)    : 0;
+    var _locT = (_locMonth===_curMonth) ? parseInt(raw.tryonCount||0)  : 0;
+    var _srvC = (_srvMonth===_curMonth) ? parseInt(d.closetCount||0)   : 0;
+    var _locC = (_locMonth===_curMonth) ? parseInt(raw.closetCount||0) : 0;
+    var _srvDT= (_srvMonth===_curMonth) ? parseInt(d.dayTryonCount||0) : 0;
+    var _locDT= (_locMonth===_curMonth) ? parseInt(raw.dayTryonCount||0): 0;
+    raw.tryonCount    = Math.max(_srvT,  _locT);
+    raw.closetCount   = Math.max(_srvC,  _locC);
+    raw.dayTryonCount = Math.max(_srvDT, _locDT);
+    raw.totalCount    = (raw.closetCount||0)+(raw.tryonCount||0);
+    raw.month = _curMonth;
     localStorage.setItem(k, JSON.stringify(raw));
     try{ if(typeof updateTryonQuotaBadge==='function') updateTryonQuotaBadge(); }catch(_){}
   }catch(_){}
@@ -4562,6 +4599,15 @@ function _tryonApplyResult(data){
       imgSrc = base ? (base + (data.path.startsWith('/') ? '' : '/') + data.path) : data.path;
     }
     if(imgSrc){
+      // ─── 2026-07-01 KST · TJ 지시 ─── 결과를 세션에 저장 (페이지 복귀 시 복원용)
+      //   base64(data.image)는 용량 커서 url/path 있으면 제외하고 저장.
+      if(!window._tryonRestoring){
+        try{
+          var _rsave = data;
+          if(data && data.image && (data.url || data.path)){ _rsave = Object.assign({}, data); delete _rsave.image; }
+          sessionStorage.setItem(TRYON_RESULT_KEY, JSON.stringify(_rsave));
+        }catch(_){}
+      }
       // ─────────────────────────────────────────────────────
       // [2026-04-27 v26 TJ] 트라이온 결과 표시 — 코디핏 closet.html 패턴 100% 동일
       //   1) HTML 박스 = .csty-result-img-box.csty-empty (빈 상태 flex 정렬)
@@ -5027,6 +5073,7 @@ function _tryonApplyResult(data){
   
   function _doSaveTryonAlbum(email, ref){
     if(!ref) return;
+    if(window._tryonRestoring) return;  // [2026-07-01] 결과 복원 재렌더 시 앨범/런웨이후보 중복저장 방지
     try{
       // ─── 2026-05-09 KST · TJ 지시 (v40) ─── 영어 사용자 라벨 분기
       var _enAlb = window.CodiBankI18n && CodiBankI18n.isEn();
@@ -5782,6 +5829,8 @@ const _restored = (typeof loadTryonState === 'function') ? loadTryonState() : fa
 if(!_restored){
   applyFitUI('my');        // Step 2 기본값 적용 (첫 방문)
 }
+// ─── 2026-07-01 KST · TJ 지시 ─── 생성 결과 이미지뷰박스 복원 (다른 페이지 다녀와도 유지)
+try{ setTimeout(_tryonRestoreResult, 250); }catch(_){}
 updateFinalSummary();
 // ─── 2026-05-09 KST · TJ 지시 ─── 트라이온 잔여 횟수 배지 초기 표시
 try{ updateTryonQuotaBadge(); }catch(_){}

@@ -1340,12 +1340,17 @@ async function renderStatus(){
       if(_pr.ok){
         const _pd = await _pr.json();
         if(_pd && _pd.ok){
-          closetUsed = parseInt(_pd.closetCount||0);
-          tryonUsed  = parseInt(_pd.tryonCount||0);
+          // ─── 2026-07-01 KST · TJ 지시 ─── 서버값 '덮어쓰기' → '현재월 max 병합' ───
+          //   서버 저장이 실패(user_usage 컬럼 부재 등)해 0이 와도 로컬 차감분을 지우지 않음.
+          var _now=new Date(), _cur=_now.getFullYear()+'-'+(_now.getMonth()+1), _sM=_pd.month||'', _lM=raw.month||'';
+          var _sC=(_sM===_cur)?parseInt(_pd.closetCount||0):0, _lC=(_lM===_cur)?parseInt(raw.closetCount||0):0;
+          var _sT=(_sM===_cur)?parseInt(_pd.tryonCount||0):0,  _lT=(_lM===_cur)?parseInt(raw.tryonCount||0):0;
+          closetUsed = Math.max(_sC,_lC);
+          tryonUsed  = Math.max(_sT,_lT);
           totalUsed  = closetUsed + tryonUsed;
           try{
             const _k='cb_usage_'+(user.email||'guest'), _r=JSON.parse(localStorage.getItem(_k)||'{}');
-            _r.closetCount=closetUsed; _r.tryonCount=tryonUsed; if(_pd.month)_r.month=_pd.month;
+            _r.closetCount=closetUsed; _r.tryonCount=tryonUsed; _r.month=_cur;
             localStorage.setItem(_k, JSON.stringify(_r));
           }catch(_){}
         }
