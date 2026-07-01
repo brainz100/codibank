@@ -10484,7 +10484,13 @@ def api_usage_record():
 
         if resp.status_code in (200, 201):
             return jsonify({"ok": True, **body})
-        return jsonify({"ok": True, **body, "note": "memory_fallback"})
+        # [2026-06-30 KST · TJ 지시] 저장 실패 원인 노출 (컬럼 부재 등) — memory_fallback 은 유지.
+        #   user_usage 에 tryon_count/day_tryon_count 컬럼이 없으면 여기서 400 이 나고 집계에 안 잡힘.
+        _err_txt = (resp.text or "")[:300]
+        print(f"[usage/record] ⚠ Supabase 저장 실패 status={resp.status_code} feature={feature} email={email} → {_err_txt}", flush=True)
+        if resp.status_code == 400 and ("tryon_count" in _err_txt or "column" in _err_txt.lower()):
+            print("[usage/record] ⚠⚠ user_usage 테이블에 tryon_count/day_tryon_count 컬럼이 없는 것으로 보입니다. Supabase SQL 실행 필요.", flush=True)
+        return jsonify({"ok": True, **body, "note": "memory_fallback", "db_status": resp.status_code, "db_error": _err_txt})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
