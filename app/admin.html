@@ -171,6 +171,14 @@ body {
 <div class="kpi" id="kCodi"><div class="kpi-l">트라이 온</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
 <div class="kpi" id="kItem"><div class="kpi-l">아이템 등록</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
 </div>
+<!-- ─── 2026-06-30 KST · TJ 지시 ─── 이달 AI 생성 총합계 (서버 집계, 회원현황 표와 동일 소스) ─── -->
+<div class="sec-t" style="margin:6px 2px 8px;font-size:13px;"><span class="mi">bolt</span>이달 AI 생성 총합계 <span style="font-size:10px;color:#888;font-weight:500;">(서버 기준 · 모든 기기 반영)</span></div>
+<div class="row r4">
+<div class="kpi g" id="kGenTotal"><div class="kpi-l">이달 AI 생성 총합계</div><div class="kpi-v">0</div><div class="kpi-s">코디핏+트라이온+런웨이</div></div>
+<div class="kpi" id="kGenCodifit"><div class="kpi-l">코디핏 이미지</div><div class="kpi-v">0</div><div class="kpi-s">이달 생성</div></div>
+<div class="kpi" id="kGenTryon"><div class="kpi-l">트라이온 이미지</div><div class="kpi-v">0</div><div class="kpi-s">이달 생성</div></div>
+<div class="kpi" id="kRunwayGen"><div class="kpi-l">런웨이 영상</div><div class="kpi-v">0</div><div class="kpi-s">이달 생성</div></div>
+</div>
 <div class="row r2">
 <div class="chart-box"><h3>회원 가입 추이 (월별)</h3><div class="chart-wrap"><canvas id="chUserMonth"></canvas></div></div>
 <div class="chart-box"><h3>매출 추이 (월별)</h3><div class="chart-wrap"><canvas id="chRevMonth"></canvas></div></div>
@@ -1735,7 +1743,7 @@ function quickBonus(email){
 }
 
 function ldAll(){
-  ldH();ldU();ldP();ldS();ldI();
+  ldH();ldU();ldP();ldS();ldI();ldGenTotals();
   if(isMaster()){
     ldAdmins();
     ldBonusMgr();
@@ -1805,6 +1813,39 @@ async function ldU(){
 }
 async function delU(id,em){if(!confirm('"'+em+'" 삭제?'))return;try{await authFetch(B+'/admin/users/'+id,{method:'DELETE'});toast(em+' 삭제');ldU()}catch(e){toast('실패',true)}}
 // Health
+// ─── 2026-06-30 KST · TJ 지시 ─── 이달 AI 생성 총합계 (일반현황 대시보드) ───
+//   코디핏·트라이온: /admin/usage/summary (서버 user_usage 이달)  ·  런웨이: /api/admin/runway/stats
+//   plain fetch 사용(403 자동 로그아웃 회피). 회원현황 '이달 사용량 현황' 표와 동일 수치.
+async function ldGenTotals(){
+  var coq=0, trq=0, rwq=0;
+  try{
+    var _master = (typeof isMaster==='function') ? isMaster() : true;
+    if(_master){
+      var r=await fetch(B+'/admin/usage/summary', {headers:{'X-Admin-Key':K()}});
+      if(r.ok){
+        var d=await r.json();
+        if(d && d.ok){
+          (d.list||[]).forEach(function(x){
+            coq += parseInt(x.closet_count||0);
+            trq += parseInt(x.tryon_count||0);
+          });
+        }
+      }
+    }
+  }catch(_){}
+  try{
+    var _rem = (typeof _ME!=='undefined' && _ME.email) || '';
+    var rr=await fetch(B+'/api/admin/runway/stats', {headers:{'X-Admin-Key':K(),'X-Admin-Email':_rem}});
+    if(rr.ok){
+      var rd=await rr.json();
+      if(rd && rd.ok && rd.stats){ rwq = parseInt(rd.stats.total_videos_this_month||0); }
+    }
+  }catch(_){}
+  kpi('kGenCodifit', coq);
+  kpi('kGenTryon', trq);
+  kpi('kRunwayGen', rwq);
+  kpi('kGenTotal', coq+trq+rwq);
+}
 async function ldH(){try{var r=await authFetch(B+'/health');var j=await r.json();kpi('kServer',j.ok?'ONLINE':'ERROR',new Date().toLocaleTimeString())}catch(e){kpi('kServer','OFFLINE','연결실패')}}
 // Payments
 async function ldP(){document.getElementById('tP').innerHTML='<tr><td colspan="6" class="ld"><span class="sp"></span></td></tr>';try{var r=await authFetch(B+'/admin/payments');if(!r.ok)throw 0;aP=(await r.json()).payments||[];var tot=0,tm=0,tw=0,tt=0;aP.forEach(function(p){if(p.status!=='completed')return;tot+=p.amount||0;if(isThisMonth(p.created_at))tm+=p.amount||0;if(isThisWeek(p.created_at))tw+=p.amount||0;if(isToday(p.created_at))tt+=p.amount||0});kpi('kRevenue',fm(tot));kpi('kPayCnt',aP.length);kpi('kpTotal',fm(tot));kpi('kpMonth',fm(tm));kpi('kpWeek',fm(tw));kpi('kpToday',fm(tt));fP();drawPayCharts()}catch(e){document.getElementById('tP').innerHTML='<tr><td colspan="6" class="empty">데이터 없음</td></tr>'}}
