@@ -9167,7 +9167,8 @@ def track_payment():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@app.post("/api/track/styling")
+# [2026-07-01 KST · TJ 지시] 라우트 데코레이터는 track_styling 에만 붙어야 함.
+#   (이전: 데코레이터가 이 헬퍼에 잘못 붙어 /api/track/styling 이 500 발생 → 수정)
 def _log_generation_event(email, gen_type, gender="", plan="FREE", points=0):
     """[2026-06-30] AI 생성 이벤트를 styling_logs 에 통합 기록 (관리자 집계용).
     코디핏(closet)은 기존 track_styling 경로, 트라이온(tryon)은 클라이언트, 
@@ -9185,6 +9186,7 @@ def _log_generation_event(email, gen_type, gender="", plan="FREE", points=0):
         print(f"[_log_generation_event] {gen_type} 기록 실패: {str(e)[:80]}", flush=True)
 
 
+@app.post("/api/track/styling")
 def track_styling():
     """스타일링 사용 시 프론트에서 호출"""
     try:
