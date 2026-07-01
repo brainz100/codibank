@@ -158,6 +158,7 @@ body {
 <!-- ═══ 일반현황 ═══ -->
 <div class="tp on" id="p-dash">
 <div class="tab-desc"><div class="td-icon">📊</div><div><div class="td-title">일반현황</div><div class="td-text">서비스 전체 현황을 한눈에 확인합니다. 회원 수, 결제 금액, 이미지 생성 횟수 등 핵심 지표와 차트를 보여줍니다.</div></div></div>
+<div style="display:flex;justify-content:flex-end;margin:2px 0 10px;"><button class="rb" onclick="refreshDash()"><span class="mi">refresh</span>이 페이지 새로고침</button></div>
 <div class="row r4">
 <div class="kpi" id="kServer"><div class="kpi-l">서버</div><div class="kpi-v">—</div><div class="kpi-s">확인 중</div></div>
 <div class="kpi" id="kUsers"><div class="kpi-l">전체 회원</div><div class="kpi-v">—</div><div class="kpi-s">누적</div></div>
@@ -201,6 +202,7 @@ body {
 <!-- ═══ 회원현황 ═══ -->
 <div class="tp" id="p-users">
 <div class="tab-desc"><div class="td-icon">👥</div><div><div class="td-title">회원현황</div><div class="td-text">가입 회원 목록과 통계를 관리합니다. 회원 검색, 플랜 확인, 가입일 등을 조회하고 필요 시 회원을 삭제할 수 있습니다.</div></div></div>
+<div style="display:flex;justify-content:flex-end;margin:2px 0 10px;"><button class="rb" onclick="refreshUsers()"><span class="mi">refresh</span>이 페이지 새로고침</button></div>
 <div class="row r4">
 <div class="kpi" id="kuTotal"><div class="kpi-l">전체</div><div class="kpi-v">—</div><div class="kpi-u">명</div></div>
 <div class="kpi" id="kuMonth"><div class="kpi-l">이번 달</div><div class="kpi-v">0</div><div class="kpi-u">명</div></div>
@@ -279,6 +281,7 @@ body {
 <!-- ═══ 결제현황 ═══ -->
 <div class="tp" id="p-pay">
 <div class="tab-desc"><div class="td-icon">💳</div><div><div class="td-title">결제현황</div><div class="td-text">유료 플랜 결제 내역을 확인합니다. 결제 금액, 플랜 종류, 결제 날짜를 조회할 수 있습니다.</div></div></div>
+<div style="display:flex;justify-content:flex-end;margin:2px 0 10px;"><button class="rb" onclick="refreshPay()"><span class="mi">refresh</span>이 페이지 새로고침</button></div>
 <div class="row r4">
 <div class="kpi" id="kpTotal"><div class="kpi-l">총 매출</div><div class="kpi-v">₩0</div><div class="kpi-s">누적</div></div>
 <div class="kpi" id="kpMonth"><div class="kpi-l">이번 달</div><div class="kpi-v">₩0</div><div class="kpi-s"></div></div>
@@ -299,6 +302,7 @@ body {
 <!-- ═══ AI 이미지 및 영상 (코디핏·트라이온·런웨이 통합) ═══ -->
 <div class="tp" id="p-aigen">
 <div class="tab-desc"><div class="td-icon">✨</div><div><div class="td-title">AI 이미지 및 영상</div><div class="td-text">코디핏 이미지 · 트라이온 이미지 · 런웨이 영상 생성 현황을 회원 아이디별 · 성별 · 구독플랜별 · 월별로 한번에 집계합니다. (서버 styling_logs 기준)</div></div></div>
+<div style="display:flex;justify-content:flex-end;margin:2px 0 10px;"><button class="rb" onclick="refreshAigen()"><span class="mi">refresh</span>이 페이지 새로고침</button></div>
 <div class="row r4">
 <div class="kpi g" id="kAgTotal"><div class="kpi-l">전체 생성</div><div class="kpi-v">0</div><div class="kpi-s">코디핏+트라이온+런웨이</div></div>
 <div class="kpi" id="kAgCodifit"><div class="kpi-l">코디핏 이미지</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
@@ -325,6 +329,7 @@ body {
 <!-- ═══ 아이템등록 ═══ -->
 <div class="tp" id="p-items">
 <div class="tab-desc"><div class="td-icon">👔</div><div><div class="td-title">아이템등록</div><div class="td-text">회원들이 등록한 의류 아이템 현황을 확인합니다. 카테고리별 통계와 업로드된 이미지 수를 파악할 수 있습니다.</div></div></div>
+<div style="display:flex;justify-content:flex-end;margin:2px 0 10px;"><button class="rb" onclick="refreshItems()"><span class="mi">refresh</span>이 페이지 새로고침</button></div>
 <div class="row r3">
 <div class="kpi" id="kiTotal"><div class="kpi-l">전체</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
 <div class="kpi" id="kiMonth"><div class="kpi-l">이번 달</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
@@ -797,11 +802,22 @@ function applyPermissions(){
 }
 function stab(el,n){document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on')});document.querySelectorAll('.tp').forEach(function(p){p.classList.remove('on')});el.classList.add('on');document.getElementById('p-'+n).classList.add('on')}
 function toast(m,e){var el=document.getElementById('toast');el.textContent=m;el.className='toast show'+(e?' err':'');setTimeout(function(){el.className='toast'},3000)}
+// [2026-06-30 KST · TJ 지시] 페이지별 새로고침 — 로그인 시점 집계를 로그아웃 없이 갱신
+function refreshDash(){toast('일반현황 새로고침');ldH();ldU();ldP();ldS();ldI();}
+function refreshUsers(){toast('회원현황 새로고침');ldU();ldUsageSummary();}
+function refreshPay(){toast('결제현황 새로고침');ldP();}
+function refreshAigen(){toast('AI 이미지·영상 새로고침');ldS();}
+function refreshItems(){toast('아이템등록 새로고침');ldI();}
 // 401/403 공통 처리 — 세션 만료 시 재로그인 유도
 function _handleAuthErr(status){
-  if(status===401||status===403){
+  // [2026-06-30 KST · TJ 지시] 403(권한 부족)은 세션이 유효하므로 로그아웃하지 않는다.
+  //   일부 집계 엔드포인트(예: /admin/usage/summary=MASTER전용, runway/stats)가 403을 주는데,
+  //   이때 리프레시가 로그아웃되던 문제 수정. 오직 401(키 만료/무효)만 재로그인 유도.
+  if(status===401){
     var ok=confirm('세션이 만료되었거나 인증 오류가 발생했습니다.\n재로그인 하시겠습니까?');
     if(ok){doLogout();}
+  }else if(status===403){
+    if(typeof toast==='function') toast('이 데이터는 권한이 없어 표시할 수 없습니다 (로그인 유지)',true);
   }
 }
 // 인증 헤더 포함 fetch 래퍼
