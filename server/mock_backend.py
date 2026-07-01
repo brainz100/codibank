@@ -9168,6 +9168,23 @@ def track_payment():
 
 
 @app.post("/api/track/styling")
+def _log_generation_event(email, gen_type, gender="", plan="FREE", points=0):
+    """[2026-06-30] AI 생성 이벤트를 styling_logs 에 통합 기록 (관리자 집계용).
+    코디핏(closet)은 기존 track_styling 경로, 트라이온(tryon)은 클라이언트, 
+    런웨이(runway)는 서버(runway_generate)가 이 헬퍼로 기록. 실패해도 무시."""
+    try:
+        if not email:
+            return
+        body = {
+            "email": email, "type": gen_type,
+            "gender": (gender or ""), "plan": (plan or "FREE"),
+            "purpose": gen_type, "points_used": points,
+        }
+        sb_query("POST", "styling_logs", body=body)
+    except Exception as e:
+        print(f"[_log_generation_event] {gen_type} 기록 실패: {str(e)[:80]}", flush=True)
+
+
 def track_styling():
     """스타일링 사용 시 프론트에서 호출"""
     try:
@@ -9813,7 +9830,7 @@ def admin_styling_logs():
         return jsonify({"error": "Unauthorized"}), 401
     try:
         email = request.args.get('email', '')
-        params = {'order': 'created_at.desc', 'limit': '200'}
+        params = {'order': 'created_at.desc', 'limit': '5000'}  # [2026-06-30] 통합 집계용 상향
         if email:
             params['email'] = f'eq.{email}'
         r = sb_query('GET', 'styling_logs', params=params)
@@ -14255,6 +14272,8 @@ def runway_generate():
 
             # 3) Supabase 사용량 +1
             _runway_increment_usage(user_email)
+            # 3-b) [2026-06-30] 통합 집계용 styling_logs 기록 (type=runway)
+            _log_generation_event(user_email, "runway", gender="", plan=user_tier)
 
             # ─── 2026-05-29 KST · TJ 지시 (2번 — 영상 리스트 재생 안 됨 fix) ───
             #   원인: BytePlus 영상 URL 은 24h 만료 → 어제 만든 영상 오늘 재생 불가.
