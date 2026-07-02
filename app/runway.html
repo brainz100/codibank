@@ -43,7 +43,7 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: 'Outfit','Noto Sans KR',sans-serif;
-  padding-bottom: 100px;
+  padding-bottom: 84px; /* 2026-07-02 KST · TJ 지시 : 하단 여백 축소 100→84 */
   overflow-x: hidden;
 }
 
@@ -1167,6 +1167,160 @@ body::before {
      다른 페이지 (closet.html / tryon.html 등) 와 동일 패턴 -->
 <script src="config.js"></script>
 <script src="codibank.js"></script>
+<script src="i18n.js"></script>
+<!-- ─── 2026-07-02 KST · TJ 지시 ─── 런웨이 영어 버전 지원 (전체 한글 → 영어) ───
+     방식: 렌더 로직 무수정(비침습). 사전 + TreeWalker + MutationObserver 로
+     정적 마크업과 동적 렌더 텍스트를 모두 자동 번역. 네이티브 alert/confirm 만
+     _rwT() 래핑. album.html 의 검증된 applyI18n 패턴 확장판. -->
+<script>
+(function(){
+  var _T = {
+    // ── 헤더/타이틀 ──
+    "런웨이":"Runway",
+    "런웨이 · CodiBank":"Runway · CodiBank",
+    "코디핏·트라이온 이미지를 동영상으로 만들어":"Turn your CodiFit · Try-On images into video",
+    "나만의 워크 영상을 완성해보세요.":"and complete your own walk video.",
+    // ── 섹션/리스트 ──
+    "내가 찜한 추천코디 리스트":"My Saved Outfit Candidates",
+    "런웨이 동영상 리스트":"Runway Video List",
+    "불러오는 중...":"Loading...",
+    "이미지 목록 불러오는 중...":"Loading images...",
+    "영상 목록 불러오는 중...":"Loading videos...",
+    "이번 달 사용량 확인 중...":"Checking this month's usage...",
+    // ── 뷰박스/빈 상태 ──
+    "위에서 이미지를 선택하면":"Select an image above",
+    "AI가 6초 동영상을 생성합니다":"and AI will create a 6-second video",
+    "소요 시간 약 30~60초":"Takes about 30–60 seconds",
+    "아직 만든 코디핏이 없어요":"No CodiFit images yet",
+    "코디핏에서 코디를 만들면 여기에 표시됩니다":"Outfits you create in CodiFit will appear here",
+    "아직 만든 런웨이 영상이 없어요":"No runway videos yet",
+    "위에서 이미지를 선택해 첫 영상을 만들어보세요":"Select an image above to create your first video",
+    "후보 리스트를 불러오지 못했어요.":"Couldn't load the candidate list.",
+    "서버 연결에 실패했어요":"Server connection failed",
+    "잠시 후 다시 시도해주세요":"Please try again shortly",
+    "영상을 불러올 수 없어요 (오래된 영상은 다시 생성해주세요)":"Can't load this video (please regenerate older videos)",
+    "영상 URL 이 없습니다 (R2 저장 미연결)":"No video URL (R2 storage not connected)",
+    "생성이 완료되었어요":"Generation complete!",
+    "준비 중":"Preparing",
+    // ── 확인 모달/버튼 ──
+    "동영상 생성을 시작할까요?":"Start video generation?",
+    "선택하신 코디로 워킹 영상을 만듭니다.":"We'll create a walking video with your selected outfit.",
+    "사용횟수가 1회 차감됩니다.":"One credit will be deducted.",
+    "생성":"Generate","취소":"Cancel","리셋":"Reset","저장":"Save","공유":"Share",
+    // ── 상태/에러 라벨 ──
+    "생성 시간 초과":"Generation timed out",
+    "영상 생성에 너무 오래 걸리고 있어요. 잠시 후 다시 시도해주세요.":"Video generation is taking too long. Please try again shortly.",
+    "생성 실패":"Generation failed",
+    "서비스 준비 중":"Service coming soon",
+    "실제 영상은 BytePlus Seedance 통합 + 유료 회원에서 제공됩니다":"Real videos are provided with BytePlus Seedance for paid members",
+    "동영상 생성 완료 (stub 모드)":"Video generated (stub mode)",
+    "동영상 생성 서비스 활성화 후 다시 시도해주세요":"Please try again once video generation is enabled",
+    "일시적 오류":"Temporary error","오류":"Error","타임아웃":"Timeout",
+    "한도 소진":"Limit reached","유료 회원 전용":"Paid members only",
+    "런웨이 영상은 SILVER · GOLD · DIAMOND 회원만 이용 가능합니다":"Runway videos are available to SILVER · GOLD · DIAMOND members only",
+    "이미지 URL 누락":"Missing image URL",
+    "다른 코디핏 이미지로 시도해주세요. AI 안전 필터가 일부 이미지를 차단할 수 있어요.":"Please try a different CodiFit image. The AI safety filter may block some images.",
+    "코디핏 결과 이미지를 다시 선택하고 시도해주세요":"Please reselect a CodiFit result image and try again",
+    // ── 카드 라벨 ──
+    "코디":"Outfit","후보":"Candidate","동영상":"Video","코디핏":"CodiFit","트라이온":"Try On",
+    "런웨이 영상":"Runway Video","(게스트)":"(Guest)","비유료":"Free",
+    "후보에서 삭제":"Remove from candidates","영상 리스트에서 삭제":"Remove from video list",
+    "영상 해상도 선택":"Select video resolution",
+    // ── alert/공유 ──
+    "아직 동영상이 없어요. 먼저 이미지를 선택해 영상을 생성해주세요.":"No video yet. Select an image first to generate one.",
+    "공유할 영상이 없습니다":"No video to share",
+    "영상 링크가 복사되었어요!":"Video link copied!",
+    "이 브라우저에서는 공유 기능을 사용할 수 없어요.":"Sharing is not supported in this browser.",
+    "공유 실패":"Share failed","삭제 실패":"Delete failed",
+    "CodiBank 런웨이":"CodiBank Runway",
+    "내 런웨이 영상 ✨":"My Runway Video ✨",
+    "내 런웨이 영상을 확인해보세요":"Check out my runway video",
+    // ── 풋바 ──
+    "코디앨범":"Codi Album","Ai 옷장":"Ai Closet"
+  };
+  // 숫자 템플릿 패턴 (동적 값 포함 문자열)
+  var _R = [
+    [/^동영상 (\d+)회 가능$/, 'Videos left: $1'],
+    [/^총 (\d+)개$/, 'Total: $1'],
+    [/^(.+?) 영상 생성 중$/, 'Generating video — $1'],
+    [/ · 이번 달 (\d+)\/(\d+)개 사용 \(남은 영상 (\d+)개\)$/, ' · Used $1/$2 this month ($3 left)'],
+    [/ · 런웨이 영상은 GOLD 이상 요금제에서 이용 가능합니다$/, ' · Runway videos require a GOLD plan or higher']
+  ];
+  function _rwIsEn(){
+    try{ if(window.CodiBankI18n && CodiBankI18n.isEn) return CodiBankI18n.isEn(); }catch(_){}
+    try{ return (localStorage.getItem('cb_lang')||'ko')==='en'; }catch(_){ return false; }
+  }
+  function _rwT(s){
+    if(!_rwIsEn() || !s) return s;
+    if(_T[s]) return _T[s];
+    for(var i=0;i<_R.length;i++){ if(_R[i][0].test(s)) return s.replace(_R[i][0], _R[i][1]); }
+    return s;
+  }
+  window._rwIsEn=_rwIsEn; window._rwT=_rwT;
+
+  function _txNode(n){
+    var raw=n.nodeValue; if(!raw) return;
+    var t=raw.trim(); if(!t) return;
+    var tr=_rwT(t);
+    if(tr!==t) n.nodeValue=raw.replace(t,tr);
+  }
+  function _txAttrs(el){
+    ['title','aria-label','placeholder'].forEach(function(a){
+      var v=el.getAttribute&&el.getAttribute(a);
+      if(v){ var tv=_rwT(v.trim()); if(tv!==v.trim()) el.setAttribute(a,tv); }
+    });
+  }
+  function _translate(root){
+    if(!_rwIsEn()||!root) return;
+    if(root.nodeType===3){ _txNode(root); return; }
+    if(root.nodeType!==1&&root.nodeType!==9&&root.nodeType!==11) return;
+    if(root.nodeType===1){
+      var tag=root.tagName; if(tag==='SCRIPT'||tag==='STYLE') return;
+      _txAttrs(root);
+      root.querySelectorAll&&root.querySelectorAll('[title],[aria-label],[placeholder]').forEach(_txAttrs);
+    }
+    var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null,false),node;
+    while((node=w.nextNode())){
+      var p=node.parentNode;
+      if(p&&(p.tagName==='SCRIPT'||p.tagName==='STYLE')) continue;
+      _txNode(node);
+    }
+  }
+  var _obs=null;
+  function _startObserver(){
+    if(_obs||!document.body) return;
+    _obs=new MutationObserver(function(muts){
+      if(!_rwIsEn()) return;
+      muts.forEach(function(m){
+        if(m.type==='characterData'){ _txNode(m.target); return; }
+        m.addedNodes&&m.addedNodes.forEach(function(nd){ _translate(nd); });
+      });
+    });
+    _obs.observe(document.body,{childList:true,subtree:true,characterData:true});
+  }
+  window.applyI18n=function(){
+    if(!_rwIsEn()) return;
+    _translate(document.body);
+    try{ if(_T[document.title.trim()]) document.title=_T[document.title.trim()]; }catch(_){}
+    document.documentElement.setAttribute('lang','en');
+  };
+  function _boot(){ _startObserver(); setTimeout(window.applyI18n,200); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_boot);
+  else _boot();
+  // 언어 전환 감지 (album.html 과 동일 패턴)
+  var _ll=null; try{_ll=localStorage.getItem('cb_lang')||'ko';}catch(_){}
+  setInterval(function(){
+    var cur=null; try{cur=localStorage.getItem('cb_lang')||'ko';}catch(_){}
+    if(cur!==null&&cur!==_ll){ _ll=cur; if(cur==='en') setTimeout(window.applyI18n,100); else location.reload(); }
+  },500);
+  (function _hook(){
+    if(window.CodiBankI18n&&CodiBankI18n.setLang){
+      var _o=CodiBankI18n.setLang.bind(CodiBankI18n);
+      CodiBankI18n.setLang=function(l){_o(l); if(_rwIsEn()) setTimeout(window.applyI18n,150); else location.reload();};
+    } else { setTimeout(_hook,300); }
+  })();
+})();
+</script>
 
 <div class="rw-container">
 
@@ -1291,6 +1445,25 @@ body::before {
   </div>
 
 </div>
+
+<!-- ─── 2026-07-02 KST · TJ 지시 ─── 사업자정보 푸터(공통) + 가독성(그레이) + 여백 정리 -->
+<div id="company-footer-ko" style="margin-top:20px;padding:18px 16px 2px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(216,226,255,.55);line-height:1.85;text-align:center;">
+  착착두비 주식회사 &nbsp;|&nbsp; 대표이사 백태섭<br/>
+  사업자등록번호 632-87-02863 &nbsp;|&nbsp; 통신판매업신고 2023-서울종로-0261<br/>
+  개인정보보호책임자 백태섭 &nbsp;|&nbsp; 02-743-1850<br/>
+  서울특별시 종로구 종로 223, 4층 403호 (종로5가, 우교빌딩)<br/>
+  prowizard@naver.com<br/>
+  <span style="font-size:10px;color:rgba(216,226,255,.38);">&copy; 2026 CodiBank. All rights reserved.</span>
+</div>
+<div id="company-footer-en" style="display:none;margin-top:20px;padding:18px 16px 2px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(216,226,255,.55);line-height:1.85;text-align:center;">
+  Chakchak dobe Co., Ltd &nbsp;|&nbsp; CEO: Paek Taejun<br/>
+  Business Reg. No. 632-87-02863 &nbsp;|&nbsp; Mail-order No. 2023-Seoul Jongno-0261<br/>
+  Privacy Officer: Paek Taejun &nbsp;|&nbsp; +82-2-743-1850<br/>
+  #403, 4F, Ugyo Bldg, 223 Jongno, Jongno-gu, Seoul, Korea<br/>
+  prowizard@naver.com<br/>
+  <span style="font-size:10px;color:rgba(216,226,255,.38);">&copy; 2026 CodiBank. All rights reserved.</span>
+</div>
+<script>(function(){function _cf(){var en=window.CodiBankI18n&&CodiBankI18n.isEn();var k=document.getElementById('company-footer-ko'),e=document.getElementById('company-footer-en');if(k)k.style.display=en?'none':'block';if(e)e.style.display=en?'block':'none';}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(_cf,150);});else setTimeout(_cf,150);})();</script>
 
 <!-- ─── 풋바 네비 (6탭) ─── 코디핏 - 트라이온 - 런웨이(active) - Ai옷장 - 코디앨범 - MY ─── -->
 <nav class="cb-nav">
@@ -1945,7 +2118,7 @@ body::before {
 
     // 사용량 한도 사전 체크 (UX 개선)
     if (usageInfo.is_paid && usageInfo.used_this_month >= usageInfo.monthly_limit && usageInfo.monthly_limit > 0) {
-      alert(`이번 달 한도(${usageInfo.monthly_limit}개)를 모두 사용했습니다.\n다음 달까지 기다리시거나 요금제를 업그레이드해주세요.`);
+      alert(window._rwIsEn&&_rwIsEn() ? `You've used all ${usageInfo.monthly_limit} videos for this month.\nPlease wait until next month or upgrade your plan.` : `이번 달 한도(${usageInfo.monthly_limit}개)를 모두 사용했습니다.\n다음 달까지 기다리시거나 요금제를 업그레이드해주세요.`);
       card.classList.remove('selected');
       return;
     }
@@ -2257,7 +2430,7 @@ body::before {
 
   function onSaveClick() {
     if (!currentVideoUrl) {
-      alert('아직 동영상이 없어요. 먼저 이미지를 선택해 영상을 생성해주세요.');
+      alert(_rwT('아직 동영상이 없어요. 먼저 이미지를 선택해 영상을 생성해주세요.'));
       return;
     }
     const a = document.createElement('a');
@@ -2277,7 +2450,7 @@ body::before {
   //         또는 클립보드 복사 + 토스트.
   async function onShareClick() {
     if (!currentVideoUrl) {
-      alert('공유할 영상이 없습니다');
+      alert(_rwT('공유할 영상이 없습니다'));
       return;
     }
     const btn = $('rwBtnShare');
@@ -2296,8 +2469,8 @@ body::before {
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
-            title: 'CodiBank 런웨이',
-            text: '내 런웨이 영상 ✨'
+            title: _rwT('CodiBank 런웨이'),
+            text: _rwT('내 런웨이 영상 ✨')
           });
           return;  // 성공
         }
@@ -2306,8 +2479,8 @@ body::before {
       // 시도 2: Web Share API (URL only — 폴백)
       if (navigator.share) {
         await navigator.share({
-          title: 'CodiBank 런웨이',
-          text: '내 런웨이 영상을 확인해보세요',
+          title: _rwT('CodiBank 런웨이'),
+          text: _rwT('내 런웨이 영상을 확인해보세요'),
           url: currentVideoUrl
         });
         return;
@@ -2316,9 +2489,9 @@ body::before {
       // 시도 3: 클립보드 복사 (브라우저가 share API 미지원)
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(currentVideoUrl);
-        alert('영상 링크가 복사되었어요!');
+        alert(_rwT('영상 링크가 복사되었어요!'));
       } else {
-        alert('이 브라우저에서는 공유 기능을 사용할 수 없어요.');
+        alert(_rwT('이 브라우저에서는 공유 기능을 사용할 수 없어요.'));
       }
     } catch (e) {
       if (e && e.name === 'AbortError') {
@@ -2330,12 +2503,12 @@ body::before {
       try {
         if (navigator.clipboard && currentVideoUrl) {
           await navigator.clipboard.writeText(currentVideoUrl);
-          alert('영상 링크가 복사되었어요!');
+          alert(_rwT('영상 링크가 복사되었어요!'));
         } else {
-          alert('공유 실패: ' + (e.message || '잠시 후 다시 시도해주세요'));
+          alert(_rwT('공유 실패') + ': ' + (e.message || _rwT('잠시 후 다시 시도해주세요')));
         }
       } catch (_) {
-        alert('공유 실패: ' + (e.message || ''));
+        alert(_rwT('공유 실패') + ': ' + (e.message || ''));
       }
     } finally {
       if (btn) {
@@ -2442,7 +2615,7 @@ body::before {
   //   후보 카드의 X 버튼 클릭 시 호출. confirm 후 IDB 에서 해당 ts 의 항목 삭제 + UI 새로고침.
   async function _deleteCandidate(ts, label) {
     if (!ts) return;
-    if (!confirm((label||'후보') + '을(를) 후보 리스트에서 삭제할까요?\n(원본 코디핏/트라이온 결과는 그대로 유지됩니다)')) return;
+    if (!confirm(window._rwIsEn&&_rwIsEn() ? 'Remove "' + (label||_rwT('후보')) + '" from the candidate list?\n(The original CodiFit/Try-On result is kept)' : (label||'후보') + '을(를) 후보 리스트에서 삭제할까요?\n(원본 코디핏/트라이온 결과는 그대로 유지됩니다)')) return;
     try {
       const db = await new Promise(function(res, rej){
         const rq = indexedDB.open('codibank', 1);
@@ -2460,7 +2633,7 @@ body::before {
       tx.onerror = function(){ try{ db.close(); }catch(_){} };
     } catch(e) {
       console.warn('[런웨이] 후보 삭제 실패:', e);
-      alert('삭제 실패: ' + (e.message || e));
+      alert(_rwT('삭제 실패') + ': ' + (e.message || e));
     }
   }
   // 글로벌 노출 (HTML onclick 에서 호출)
@@ -2470,7 +2643,7 @@ body::before {
   //   영상 카드의 X 버튼 클릭 시 호출. confirm 후 localStorage 에서 해당 영상 삭제 + UI 새로고침.
   function _deleteVideo(videoId) {
     if (!videoId) return;
-    if (!confirm('이 영상을 리스트에서 삭제할까요?\n(BytePlus 원본 URL 은 24시간 후 자동 만료됩니다)')) return;
+    if (!confirm(window._rwIsEn&&_rwIsEn() ? 'Remove this video from the list?\n(The original BytePlus URL expires automatically after 24 hours)' : '이 영상을 리스트에서 삭제할까요?\n(BytePlus 원본 URL 은 24시간 후 자동 만료됩니다)')) return;
     try {
       // 2026-05-28 KST · TJ 보고 — 버그 수정: 존재하지 않는 _videosStorageKey(email) 호출 →
       //   실제 영상 저장 키/로더인 _rwLocalKey() + _rwLocalLoad() 사용으로 교체.
@@ -2482,7 +2655,7 @@ body::before {
       loadVideos();
     } catch(e) {
       console.warn('[런웨이] 영상 삭제 실패:', e);
-      alert('삭제 실패: ' + (e.message || e));
+      alert(_rwT('삭제 실패') + ': ' + (e.message || e));
     }
   }
   window._rwDeleteVideo = _deleteVideo;
