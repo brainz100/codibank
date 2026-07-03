@@ -77,7 +77,10 @@
     var _isEn = window.CodiBankI18n && CodiBankI18n.isEn();
     // 힌트
     var hintEl = document.getElementById('albumHint');
-    if(hintEl) hintEl.innerHTML = _isEn ? '<b style="color:#071952;">Long press</b> to bookmark your favorite styling' : '<b style="color:#071952;">길게 누르면</b> 마음에 드는 스타일링을 찜할 수 있어요';
+    // ─── 2026-07-02 KST · TJ 지시 ─── 7일 자동 삭제 정책 안내 문구 포함 (KO/EN)
+    if(hintEl) hintEl.innerHTML = _isEn
+      ? '<b style="color:#97FEED;">Long press</b> to bookmark your favorite styling<br/><span style="font-size:10.5px;color:rgba(216,226,255,.45);font-weight:500;">Outfits you don\'t like are <b style="color:rgba(255,179,193,.85);">auto-deleted after 7 days</b></span>'
+      : '<b style="color:#97FEED;">길게 누르면</b> 마음에 드는 스타일링을 찜할 수 있어요<br/><span style="font-size:10.5px;color:rgba(216,226,255,.45);font-weight:500;">찜하지 않은 코디는 <b style="color:rgba(255,179,193,.85);">7일 후 자동 삭제</b>돼요</span>';
     // 셀렉트
     var selOpts = {'저장일자':'By Date','좋아요':'Liked','코디목적':'By Purpose'};
     document.querySelectorAll('#sortSel option').forEach(function(opt){
@@ -182,6 +185,11 @@ html,body{min-height:100dvh;background:#00022E;color:#ffffff;font-family:'Inter'
 /* ── 찜 배지 (좌상단) ── */
 .liked-badge{position:absolute;top:8px;left:8px;font-size:22px;z-index:15;filter:drop-shadow(0 1px 4px rgba(0,0,0,.6));animation:heartPop .2s ease;}
 @keyframes heartPop{0%{transform:scale(1)}50%{transform:scale(1.4)}100%{transform:scale(1)}}
+/* ─── 2026-07-02 KST · TJ 지시 ─── 미찜 코디 7일 보관 D-day 칩 ───
+   찜(❤️)하지 않은 코디는 7일 후 자동 삭제 — 남은 기한을 카드 우상단에 표시 */
+.expire-chip{position:absolute;top:8px;right:8px;z-index:15;font-size:10px;font-weight:800;letter-spacing:.04em;padding:3px 8px;border-radius:9999px;background:rgba(7,19,42,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:rgba(151,254,237,.85);border:1px solid rgba(151,254,237,.25);font-family:'Inter','Noto Sans KR',sans-serif;pointer-events:none;}
+.expire-chip.warn{color:#ffb3c1;border-color:rgba(255,155,171,.4);animation:chipPulse 1.6s ease-in-out infinite;}
+@keyframes chipPulse{0%,100%{opacity:1}50%{opacity:.55}}
 
 /* ── 모달: 전체화면 ── */
 .modal-bg{position:fixed;inset:0;z-index:500;background:#00022E;display:flex;flex-direction:column;overflow:hidden;}
@@ -241,7 +249,7 @@ html,body{min-height:100dvh;background:#00022E;color:#ffffff;font-family:'Inter'
   <h1 class="hdr-title" id="albumTitle">코디 앨범</h1>
   <div style="display:flex;align-items:center;gap:6px;margin-top:6px;padding:8px 12px;background:rgba(11,102,106,0.2);border:1px solid rgba(151,254,237,0.2);border-radius:10px;">
     <span style="font-size:16px;flex-shrink:0;">❤️</span>
-    <p id="albumHint" style="font-size:11.5px;color:rgba(162,253,240,0.75);font-weight:600;line-height:1.5;"><b style="color:#97FEED;">길게 누르면</b> 마음에 드는 스타일링을 찜할 수 있어요</p>
+    <p id="albumHint" style="font-size:11.5px;color:rgba(162,253,240,0.75);font-weight:600;line-height:1.5;"><b style="color:#97FEED;">길게 누르면</b> 마음에 드는 스타일링을 찜할 수 있어요<br/><span style="font-size:10.5px;color:rgba(216,226,255,.45);font-weight:500;">찜하지 않은 코디는 <b style="color:rgba(255,179,193,.85);">7일 후 자동 삭제</b>돼요</span></p>
   </div>
   <div class="sort-wrap">
     <select id="sortSel" class="sort-sel" onchange="applySort(this.value)" aria-label="정렬">
@@ -437,6 +445,8 @@ function mkCard(entry) {
       </div>
       <!-- 찜 배지 (이미 찜한 경우 상단에 표시) -->
       ${isLiked ? '<div class="liked-badge" id="lbadge_'+entry.id+'">❤️</div>' : '<div class="liked-badge" id="lbadge_'+entry.id+'" style="display:none;">❤️</div>'}
+      <!-- 2026-07-02 KST · TJ 지시 — 미찜 코디 남은 보관일 칩 (D-2 이하 경고색) -->
+      ${(function(){ const d=_expireDaysLeft(entry); if(d===null) return '<div class="expire-chip" id="exp_'+entry.id+'" style="display:none;"></div>'; const warn=d<=2?' warn':''; const label=d<=0?(window.CodiBankI18n&&CodiBankI18n.isEn()?'Today':'오늘 삭제'):'D-'+d; return '<div class="expire-chip'+warn+'" id="exp_'+entry.id+'" title="'+(window.CodiBankI18n&&CodiBankI18n.isEn()?'Auto-deleted in '+Math.max(d,0)+' day(s) unless liked':'찜하지 않으면 '+Math.max(d,0)+'일 후 자동 삭제')+'">'+label+'</div>'; })()}
     </div>
     <div class="acard-info">
       <p class="acard-date">${fmt(entry.createdAt)}</p>
@@ -509,9 +519,42 @@ function mkCard(entry) {
   return wrap;
 }
 
+/* ─── 2026-07-02 KST · TJ 지시 ─── 미찜 코디 7일 자동 삭제 ───────────────
+   정책: liked(찜) 아닌 엔트리는 createdAt + 7일 경과 시 앨범에서 자동 삭제.
+         찜한 엔트리는 무기한 보관. 날짜 파싱 불가 데이터는 절대 삭제하지 않음(안전).
+   경로: 수동 삭제와 동일하게 CodiBank.deleteAiAlbumEntry 사용 (일관성). */
+const EXPIRE_MS = 7 * 24 * 60 * 60 * 1000;   // 7일
+function _entryTime(v){
+  if (v == null) return NaN;
+  if (typeof v === 'number') return v;
+  const t = Date.parse(v);
+  return isFinite(t) ? t : NaN;
+}
+// 남은 일수: 7(방금 저장)~1, 0 이하 = 만료. 파싱 불가면 null(칩 미표시·미삭제)
+function _expireDaysLeft(entry){
+  if (entry && entry.liked) return null;
+  const t = _entryTime(entry && entry.createdAt);
+  if (!isFinite(t)) return null;
+  return Math.ceil((t + EXPIRE_MS - Date.now()) / 86400000);
+}
+function _purgeExpired(){
+  try{
+    if (!_user || !window.CodiBank || !CodiBank.getAiAlbumEntries || !CodiBank.deleteAiAlbumEntry) return 0;
+    const list = CodiBank.getAiAlbumEntries(_user.email) || [];
+    let n = 0;
+    list.forEach(e => {
+      const d = _expireDaysLeft(e);
+      if (d !== null && d <= 0) { CodiBank.deleteAiAlbumEntry(_user.email, e.id); n++; }
+    });
+    if (n) console.log('[album] 7일 경과 미찜 코디 자동 삭제:', n, '건');
+    return n;
+  }catch(err){ console.warn('[album] auto-purge skip:', err); return 0; }
+}
+
 async function render() {
   _user = window.CodiBank && CodiBank.getCurrentUser ? CodiBank.getCurrentUser() : null;
   if (!_user) { location.replace('login.html'); return; }
+  _purgeExpired();   // 2026-07-02 KST · TJ 지시 — 렌더 전 만료분 정리
   _entries = (CodiBank.getAiAlbumEntries ? CodiBank.getAiAlbumEntries(_user.email) : []) || [];
   document.getElementById('loadEl').style.display = 'none';
   if (!_entries.length) {
@@ -686,6 +729,26 @@ function toggleLike(entryId) {
     const badge = document.getElementById('lbadge_' + entryId);
     const lov   = document.getElementById('lov_' + entryId);
     if (badge) badge.style.display = liked ? '' : 'none';
+    // ─── 2026-07-02 KST · TJ 지시 ─── 찜 토글 시 D-day 칩 동기화 ───
+    //   찜 → 칩 숨김(무기한 보관) / 찜 해제 → 남은 기한 재계산해 칩 표시
+    try {
+      const chip = document.getElementById('exp_' + entryId);
+      if (chip) {
+        if (liked) { chip.style.display = 'none'; }
+        else {
+          const d = _expireDaysLeft(all[idx]);
+          if (d === null) { chip.style.display = 'none'; }
+          else {
+            const en = window.CodiBankI18n && CodiBankI18n.isEn();
+            chip.textContent = d <= 0 ? (en ? 'Today' : '오늘 삭제') : 'D-' + d;
+            chip.classList.toggle('warn', d <= 2);
+            chip.title = en ? ('Auto-deleted in ' + Math.max(d,0) + ' day(s) unless liked')
+                            : ('찜하지 않으면 ' + Math.max(d,0) + '일 후 자동 삭제');
+            chip.style.display = '';
+          }
+        }
+      }
+    } catch(_) {}
     // 오버레이 이모티콘 업데이트 후 0.7초 뒤 숨김
     if (lov) {
       const em = lov.querySelector('.like-ov-emoji');

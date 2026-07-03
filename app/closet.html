@@ -889,6 +889,7 @@
     "AI 코디 분석 중…":   "Analyzing AI outfit…",
     "스와이프해서 AI 추천 아이템을 확인하세요": "Swipe to check AI recommended items",
     "Ai 옷장":            "AI Closet",
+    "런웨이":             "Runway", // 2026-07-02 KST · TJ 지시 — EN 풋바 '런웨이' 미번역 수정
 
     // ── 아이템 관련 ──
     "아이템":             "Item",
@@ -3094,7 +3095,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
 
     <!-- ─── 2026-05-16 KST · TJ 지시 1번 ─── Q1 질문 텍스트 ('스타일링 추천받기'와 동일 스타일) -->
     <!-- ─── 2026-05-23 KST · TJ 지시 ─── 여백 확장 (16px → 24px) + 라벨 아래 14px 간격 추가 ─── -->
-    <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-top:24px;margin-bottom:14px;">1st. 어떤 스타일링이 마음에 드세요?</h3>
+    <!-- ─── 2026-07-02 KST · TJ 지시 ─── '1st. 어떤 스타일링이 마음에 드세요?' 텍스트 삭제 ─── -->
 
 
 
@@ -3299,7 +3300,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
       <!-- ─── 2026-05-23 KST · TJ 지시 ─── 디폴트 visible (3rd 라벨 항상 표시) + 위 간격 24→40 ─── -->
       <div id="stepCLabel" style="margin-top:40px;">
         <!-- ─── 2026-05-23 KST · TJ 지시 ─── 라벨 아래 여백 10→14 ─── -->
-        <h3 class="text-[18px] font-bold text-white tracking-tight" style="margin-bottom:14px;">선택한 이미지 크게 보세요</h3>
+        <!-- ─── 2026-07-02 KST · TJ 지시 ─── '선택한 이미지 크게 보세요' 텍스트 삭제 (div 는 JS 표시제어용으로 유지) ─── -->
       </div>
 
       <!-- 이미지 박스 — 외부 어두운 네이비 레이어 + 내부 이미지 박스 -->
@@ -3547,8 +3548,8 @@ const PURPOSES = [
   {key:'officeDaily',  label:'오피스룩', labelEn:'Office Look', icon:'work',             kw:['오피스','세미정장','블레이저','슬랙스']},
   {key:'interview',    label:'면접룩',          labelEn:'Interview',          icon:'badge',           kw:['면접','단정','네이비','그레이']},
   {key:'weddingGuest', label:'결혼식 하객룩',   labelEn:'Wedding Guest',   icon:'celebration',     kw:['하객룩','원피스','세미포멀','우아함']},
-  {key:'blindDate',    label:'소개팅룩',         labelEn:'Blind Date',         icon:'favorite',        kw:['소개팅','니트','슬랙스','호감']},
-  {key:'romanticDate', label:'데이트룩', labelEn:'Date Look', icon:'favorite_border', kw:['데이트','로맨틱','드레스','감성']},
+  {key:'blindDate',    label:'소개팅룩',         labelEn:'Blind Date',         icon:'favorite',        kw:['소개팅','첫만남','단정','깔끔','니트','슬랙스','신뢰감']}, // 2026-07-02 KST · TJ 지시 — 데이트룩과 차별화(첫인상·단정·신뢰)
+  {key:'romanticDate', label:'데이트룩', labelEn:'Date Look', icon:'favorite_border', kw:['데이트','로맨틱','설렘','무드','드레이프','원피스','감성']}, // 2026-07-02 KST · TJ 지시 — 소개팅룩과 차별화(로맨틱 무드·설렘)
   {key:'familyMeet',   label:'올드머니룩', labelEn:'Old Money', icon:'diamond', kw:['올드머니','캐시미어','뉴트럴','클래식']},
   {key:'socialParty',  label:'빈티지 레트로',  labelEn:'Vintage Retro',  icon:'history',          kw:['빈티지','레트로','워싱데님','Y2K']},
   {key:'weekendOut',   label:'주말 나들이',      labelEn:'Weekend Outing',      icon:'weekend',         kw:['주말','캐주얼','야외','공원']},
@@ -4419,6 +4420,7 @@ function localPalette(pk,temp,seed){
     overseasTrip:{outer:'#1E293B',top:'#FFFFFF',pants:'#334155',shoes:'#0F172A',accent:'#C5A358'},
     meet:        {outer:'#1F2937',top:'#FFFFFF',pants:'#111827',shoes:'#1C1917',accent:accs[(s+1)%6]},
     blindDate:   {outer:'#0F172A',top:'#FFFFFF',pants:'#111827',shoes:'#111827',accent:'#DB2777'},
+    romanticDate:{outer:'#3F2A3C',top:'#FBEFF2',pants:'#2B2430',shoes:'#221B26',accent:'#E85D75'}, // 2026-07-02 KST · TJ 지시 — 데이트룩 전용 팩(로즈·플럼: 소개팅 크리스프 화이트와 차별화)
     partyLook:   {outer:'#1A1A2E',top:'#E2C27D',pants:'#2D2D2D',shoes:'#111827',accent:accs[(s+2)%6]},
     custom:      {outer:'#1F2937',top:'#FFFFFF',pants:'#111827',shoes:'#1C1917',accent:accs[s%6]},
   };
@@ -6843,6 +6845,9 @@ async function updateVTO(opts={}){
       weekendOut:'주말외출은 활동성과 스타일의 균형이 중요해요. 상·하의 한쪽은 톤을 맞춰 안정감을 주고, 신발로 포인트를 주세요.',
       weekendTrip:'주말여행은 레이어링과 편안한 신발이 기본이에요. 온도 변화에 대비해 가벼운 아우터를 꼭 챙기세요.',
       meet:'지인모임은"잘 차려입은 느낌"이 좋아요. 과하지 않게 컬러 포인트 1개를 더하면 세련된 인상을 줄 수 있어요.',
+      // 2026-07-02 KST · TJ 지시 — 소개팅룩/데이트룩 폴백 문구 차별화 (기존: 둘 다 동일 generic)
+      blindDate:'소개팅은 첫인상의 신뢰감이 핵심이에요. 깔끔한 니트나 셔츠에 단정한 슬랙스로 정돈된 실루엣을 만들고, 과한 포인트보다 클린한 컬러 매치로 호감을 주세요.',
+      romanticDate:'데이트룩은 부드러운 무드와 설렘이 포인트예요. 드레이프감 있는 소재에 로즈·버건디 계열 포인트 컬러를 더해 로맨틱한 분위기를 연출해보세요.',
     };
     const _fTip = _fTips[S.pk] || '목적과 날씨에 맞게 레이어링하고, 뉴트럴 컬러를 베이스로 포인트 아이템 한 가지를 더해보세요.';
     explain=trunc(`${_fTxt}${_fWx} 날씨에 어울리는 ${pm.label} 스타일이에요. ${_fTip}`.trim(), 400);
@@ -8683,6 +8688,20 @@ async function generateStyling(opts={}) {
 
 // 날씨
 const wE={loc:document.getElementById('wxLoc'),date:document.getElementById('wxDate'),temp:document.getElementById('wxTemp'),tempMax:document.getElementById('wxTempMax'),extras:document.getElementById('wxExtras'),desc:document.getElementById('wxDesc'),icon:document.getElementById('wxIcon'),hourly:document.getElementById('wxHourly'),day:document.getElementById('wxDayLabel')};
+/* ─── 2026-07-02 KST · TJ 지시 ─── 영어 모드 날씨 100% 번역 ─────────────────
+   문제: 날씨는 applyI18n(로드 직후) 이후 비동기 렌더 → 트리워커가 못 잡고
+         '대체로 Clear', 'UV 높음' 같은 한/영 혼용 발생.
+   해결: 렌더 시점에 직접 번역하는 _wxT() — 타이밍 무관 100% 결정적. */
+const _wxLangEn = () => { try{ return !!(window.CodiBankI18n && CodiBankI18n.isEn()); }catch(_){ return false; } };
+const _WX_EN = {
+  '맑음':'Clear','대체로 맑음':'Mostly Clear','구름많음':'Cloudy','흐림':'Overcast',
+  '안개':'Fog','이슬비':'Drizzle','어는 이슬비':'Freezing Drizzle','비':'Rain','어는 비':'Freezing Rain',
+  '눈':'Snow','싸락눈':'Snow Grains','소나기':'Showers','뇌우':'Thunderstorm','뇌우(우박)':'Thunderstorm (Hail)',
+  '날씨':'Weather','로딩중':'Loading','오늘':'Today','내일':'Tomorrow',
+  '높음':'High','매우높음':'Very High','나쁨':'Poor','매우나쁨':'Very Poor'
+};
+const _wxT = (t) => (_wxLangEn() && t && _WX_EN[String(t).trim()]) ? _WX_EN[String(t).trim()] : t;
+const _WX_DAYS = () => _wxLangEn() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
 
 const pad2 = (n)=>String(n).padStart(2,'0');
 const localDateKey = (d)=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
@@ -8769,7 +8788,7 @@ function renderHourly(h, _dayOffset=0){
     slots.forEach((dayIdx, relIdx) => {
       const timeStr = daily.time[dayIdx] || '';
       const d = timeStr ? new Date(timeStr + 'T00:00:00') : null;
-      const dowStr = d ? DAY_KO[d.getDay()] : '';
+      const dowStr = d ? _WX_DAYS()[d.getDay()] : ''; // 2026-07-02 KST · TJ 지시 — EN 요일
       const dateNum = d ? d.getDate() : '';
       const code = daily.weather_code?.[dayIdx];
       const wx = CodiBank.weatherCodeToKorean(code);
@@ -8817,7 +8836,7 @@ function renderHourly(h, _dayOffset=0){
     box.style.cssText = 'background:rgba(255,255,255,0.06);border-color:rgba(151,254,237,0.12);';
     box.innerHTML = `
       <span class="text-[16px] font-extrabold" style="color:${dayColorF};">${d.getDate()}</span>
-      <span class="text-[11px] font-semibold" style="color:${dayColorF};opacity:0.75;">${DAY_KO[d.getDay()]}</span>
+      <span class="text-[11px] font-semibold" style="color:${dayColorF};opacity:0.75;">${_WX_DAYS()[d.getDay()]}</span>
       <span class="material-symbols-outlined text-base my-1" style="color:#97FEED;">${wx.icon}</span>
       <span class="text-[11px] font-semibold text-white">${Number.isFinite(temp)?temp+'°':'--°'}</span>
     `;
@@ -9008,8 +9027,8 @@ function applySelectedWeatherUI(){
   // UI: 날짜/라벨
   if(wE.date) wE.date.textContent = formatKoDateKey(selKey);
   if(wE.day){
-    if(selKey===todayKey) wE.day.textContent = '오늘';
-    else if(off===1) wE.day.textContent = '내일';
+    if(selKey===todayKey) wE.day.textContent = _wxT('오늘'); // 2026-07-02 KST · TJ 지시 — EN
+    else if(off===1) wE.day.textContent = _wxT('내일');
     else wE.day.textContent = formatKoDateKeyShort(selKey);
   }
 
@@ -9045,7 +9064,7 @@ function applySelectedWeatherUI(){
       wE.tempMax.style.display = 'none';
     }
   }
-  if(wE.desc) wE.desc.textContent = (S.wx.text||wxMeta.text||'날씨');
+  if(wE.desc) wE.desc.textContent = _wxT(S.wx.text||wxMeta.text||'날씨'); // 2026-07-02 KST · TJ 지시 — EN 100% 번역
   if(wE.icon) wE.icon.textContent = (wxMeta.icon||'cloud');
   
   // [v11 TJ] 추가 정보: 강수확률 / 풍속 / UV / 미세먼지
@@ -9066,13 +9085,13 @@ function applySelectedWeatherUI(){
     }
     if(Number.isFinite(uv) && uv >= 6){
       // UV 6+ 부터 (높음~매우높음)
-      const uvLabel = uv>=8 ? '매우높음' : (uv>=6 ? '높음' : '');
+      const uvLabel = _wxT(uv>=8 ? '매우높음' : (uv>=6 ? '높음' : '')); // 2026-07-02 KST · TJ 지시 — EN
       parts.push(`<span class="inline-flex items-center gap-1" style="color:#FFD27A;"><span class="material-symbols-outlined" style="font-size:13px;">wb_sunny</span>UV ${uvLabel}</span>`);
     }
     if(Number.isFinite(pm) && pm >= 35){
       // PM2.5 35 이상 — 나쁨 (한국 기준)
       const pmColor = pm>=75 ? '#FF8080' : (pm>=35 ? '#FFD27A' : '#97FEED');
-      const pmLabel = pm>=75 ? '매우나쁨' : (pm>=35 ? '나쁨' : '');
+      const pmLabel = _wxT(pm>=75 ? '매우나쁨' : (pm>=35 ? '나쁨' : '')); // 2026-07-02 KST · TJ 지시 — EN
       parts.push(`<span class="inline-flex items-center gap-1" style="color:${pmColor};"><span class="material-symbols-outlined" style="font-size:13px;">masks</span>PM2.5 ${pmLabel}</span>`);
     }
     
