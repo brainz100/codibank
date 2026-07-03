@@ -710,6 +710,19 @@
       "Go to My Page to register your photo and style outfits on your face.",
     "등록":              "Register",
     "이미지 저장":         "Save Image",
+    // ─── 2026-07-03 KST · TJ 지시 ─── EN 잔존 한글 소탕: 미등록 키 일괄 등록 ───
+    "추천 스타일링 보고서": "Personal Styling Report",
+    "보고서 생성":         "Generate Report",
+    "스타일링 분석중":     "Analyzing…",
+    "스타일링 분석 중입니다…": "Analyzing your styling…",
+    "정면":               "Front",
+    "후면":               "Back",
+    "닫기":               "Close",
+    "액세서리":           "Accessories",
+    "남은 0회":           "0 left",
+    "크게 보기":           "View Large",
+    "분석 중…":            "Analyzing…",
+    "공유":               "Share",
     "다시요청":           "Retry",
     "공유":              "Share",
     "모바일 옷장":        "Mobile Closet",
@@ -741,7 +754,7 @@
     "(10~25초 소요)":      "(10–25 sec)",
     "사진촬영":           "Take Photo",
     "사진선택":           "Choose Photo",
-    "선택":               "Select",
+    // 2026-07-03 KST · TJ 지시 — 단문 키 "선택" 제거 (본문 오염 방지)
     "링크":               "Link",
     "다시요청":           "Retry",
     "리셋":               "Reset",
@@ -827,7 +840,7 @@
     "맞춤":                  "Custom",
     "카테고리별":         "Per category",
     "무제한":               "Unlimited",
-    "개":                     " items",
+    // 2026-07-03 KST · TJ 지시 — 1글자 키 "개" 제거 (본문 오염 방지)
     "한도 초과":           "Limit exceeded",
     "코트":                  "Coat",
     "자켓":                  "Jacket",
@@ -909,9 +922,9 @@
     "⚠️ AI 스타일링 이용 가능 횟수를 모두 사용했어요.": "⚠️ You've used all available styling sessions.",
     "유료 구독 또는 플랜 업그레이드 후 계속 이용하실 수 있어요.": "Upgrade your plan to continue.",
 
-    // ── 요일 ──
-    "일": "Sun", "월": "Mon", "화": "Tue", "수": "Wed",
-    "목": "Thu", "금": "Fri", "토": "Sat",
+    // ─── 2026-07-03 KST · TJ 지시 ─── 요일 1글자 키 제거 ───────────────
+    //   원인: 외부 스윕이 이 키들을 문장 중간에 부분치환 → '스타Sun링'·'Thu적'
+    //         같은 본문 오염 발생. 요일 표시는 렌더 소스(_WX_DAYS 등)에서 처리.
 
     // ── STEP 제목 ──
     "STEP 1": "STEP 1",
@@ -943,7 +956,6 @@
     "코디앨범":            "Codi Album",
     "카테고리별":          "per category",
     "무제한":              "Unlimited",
-    "개":                  "",
     "스타일몬스터 요청": "Request Style Monster",
     "코디핏 요청": "Request CodiFit",
     "잠시만 기다려주세요…": "Please wait…",
@@ -989,7 +1001,10 @@
   };
 })();
 // 페이지 로드 후 번역 적용
-if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){setTimeout(applyI18n,200);})}else{setTimeout(applyI18n,200);}
+/* 2026-07-03 KST · TJ 지시 — 즉시+반복 적용: 외부 후처리보다 exact 번역 선점 */
+(function(){function _go(){try{applyI18n();}catch(_){}}
+if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){_go();setTimeout(_go,200);setTimeout(_go,800);setTimeout(_go,2000);});}
+else{_go();setTimeout(_go,200);setTimeout(_go,800);setTimeout(_go,2000);}})();
 
 // 언어 전환 감지 — localStorage 변경 또는 CodiBankI18n 패치
 (function(){
@@ -3134,13 +3149,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             와 빈 카드 슬롯이 노출되어 1st 라벨 아래 화면이 엉킴.
             라벨은 박스 밖에 있어 이미 항상 보임. 박스는 데이터 있을 때만 표시.) -->
       <div id="stepAGrid" class="step-section hidden">
-        <!-- ─── 2026-05-16 KST · TJ 지시 2번 ─── 'STEP A·4명 추천' → 선택 안내 텍스트 -->
-        <!-- ─── 2026-05-23 KST · TJ 지시 ─── 안내문구 아래 여백 8px → 14px ─── -->
-        <div style="margin-bottom:14px;">
-          <span style="font-size:11px;color:rgba(151,254,237,0.6);font-weight:600;letter-spacing:0.05em;">
-            마음에 드는 스타일링 1개를 선택하세요
-          </span>
-        </div>
+        <!-- ─── 2026-07-03 KST · TJ 지시 ─── '마음에 드는 스타일링 1개를 선택하세요' 텍스트 삭제 ─── -->
         <!-- ─── 2026-05-14 KST · TJ 보고 1번 ─── 4개 카드 위 오버레이 (position: relative 부모) ─── -->
         <div class="step-a-wrap" style="position:relative;">
           <div class="step-a-grid" id="stepACards">
@@ -4082,7 +4091,8 @@ function updateQuotaBadge(){
     // 일일 합산 잔여 (DIAMOND FUP)는 보조 정보로 유지
     const _dRem = (ck.dailyRemaining !== null && ck.dailyRemaining !== undefined && Number.isFinite(Number(ck.dailyRemaining)))
       ? Number(ck.dailyRemaining) : null;
-    const daily = (_dRem !== null) ? ` · 오늘 ${_dRem}회` : '';
+    const _bEnQ = window.CodiBankI18n && CodiBankI18n.isEn();
+    const daily = (_dRem !== null) ? (_bEnQ ? ` · Today ${_dRem}` : ` · 오늘 ${_dRem}회`) : ''; // 2026-07-03 KST · TJ 지시 — EN
 
     const _isLow = !_coUnlimited && Number(_coRem) <= 2;
     badge.className = `ai-badge ${_isLow?'danger':'gray'}`;
@@ -8471,7 +8481,8 @@ function renderStylingPoint(){
           '면':'Cotton','린넨':'Linen','실크':'Silk','울':'Wool','데님':'Denim','캐시미어':'Cashmere','폴리':'Polyester','니트':'Knit',
           '머플러':'Muffler','스카프':'Scarf','가방':'Bag','백팩':'Backpack','토트백':'Tote Bag','크로스백':'Crossbody',
           '시계':'Watch','양말':'Socks'};
-        return m[v] || v;
+        // 2026-07-03 KST · TJ 지시 — 미등록/컴파운드 문구는 토큰 번역기로 폴백
+        return m[v] || (window._cbEnItem ? window._cbEnItem(v) : v);
       };
       var _isEn2 = window.CodiBankI18n && CodiBankI18n.isEn();
       const kws = _toKwArray(ckw[key]).map(function(k){ return _kwValEn(k); });
@@ -8589,6 +8600,38 @@ const _WX_EN = {
 };
 const _wxT = (t) => (_wxLangEn() && t && _WX_EN[String(t).trim()]) ? _WX_EN[String(t).trim()] : t;
 const _WX_DAYS = () => _wxLangEn() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
+/* ─── 2026-07-03 KST · TJ 지시 ─── 아이템 문구 토큰 번역기 (EN 백업) ─────────
+   용도: 서버가 한글 착장 문구를 줄 때(카테고리 포인트·팝업 착장 패널)
+         공백 토큰 단위로 번역해 '블랙 반팔 티셔츠'→'Black Short-Sleeve T-Shirt'.
+   원칙: 영어모드에서만 동작, 미등록 토큰은 원문 유지(안전). */
+window._cbEnItem = function(str){
+  try{
+    if(!(window.CodiBankI18n && CodiBankI18n.isEn())) return str;
+    var v = String(str||'').trim(); if(!v) return str;
+    var M = {
+      '블랙':'Black','화이트':'White','그레이':'Gray','라이트':'Light','미디엄':'Medium','다크':'Dark',
+      '베이지':'Beige','네이비':'Navy','차콜':'Charcoal','브라운':'Brown','카멜':'Camel','올리브':'Olive',
+      '버건디':'Burgundy','아이보리':'Ivory','코랄':'Coral','라벤더':'Lavender','민트':'Mint','핑크':'Pink',
+      '레드':'Red','블루':'Blue','그린':'Green','크림':'Cream','카키':'Khaki','와인':'Wine',
+      '셔츠':'Shirt','티셔츠':'T-Shirt','블라우스':'Blouse','니트':'Knit','맨투맨':'Sweatshirt','후드':'Hoodie',
+      '반팔':'Short-Sleeve','긴팔':'Long-Sleeve','브이넥':'V-Neck','라운드넥':'Crew-Neck','카라':'Collared',
+      '슬랙스':'Slacks','청바지':'Jeans','데님':'Denim','면바지':'Chinos','반바지':'Shorts',
+      '치마':'Skirt','스커트':'Skirt','미니스커트':'Mini-Skirt','팬츠':'Pants','조거':'Jogger','밴딩':'Banded',
+      'A라인':'A-Line','와이드':'Wide','슬림':'Slim','스트레이트':'Straight','플리츠':'Pleated',
+      '스니커즈':'Sneakers','로퍼':'Loafers','부츠':'Boots','힐':'Heels','구두':'Dress Shoes',
+      '더비':'Derby','옥스포드화':'Oxfords','옥스포드':'Oxford','샌들':'Sandals','플랫':'Flats',
+      '가죽':'Leather','스웨이드':'Suede','린넨':'Linen','면':'Cotton','울':'Wool','실크':'Silk',
+      '가방':'Bag','백팩':'Backpack','토트백':'Tote Bag','크로스백':'Crossbody Bag','숄더백':'Shoulder Bag',
+      '클러치':'Clutch','벨트':'Belt','안경':'Glasses','선글라스':'Sunglasses','모자':'Hat','캡':'Cap',
+      '시계':'Watch','스마트워치':'Smartwatch','머플러':'Muffler','스카프':'Scarf','양말':'Socks',
+      '가디건':'Cardigan','자켓':'Jacket','재킷':'Jacket','코트':'Coat','패딩':'Puffer','점퍼':'Jumper',
+      '조끼':'Vest','블레이저':'Blazer','원피스':'Dress','트렌치':'Trench','없음':'None'
+    };
+    if(M[v]) return M[v];
+    var parts = v.split(/\s+/).map(function(t){ return M[t] || t; });
+    return parts.join(' ');
+  }catch(_){ return str; }
+};
 
 const pad2 = (n)=>String(n).padStart(2,'0');
 const localDateKey = (d)=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
@@ -8688,7 +8731,7 @@ function renderHourly(h, _dayOffset=0){
       const box = document.createElement('div');
       box.className = 'flex flex-col items-center px-3 py-2.5 rounded-xl min-w-[62px] border';
       box.style.cssText = 'background:rgba(255,255,255,0.06);border-color:rgba(151,254,237,0.12);';
-      const label = DAY_LABEL[relIdx] || '';
+      const label = (_wxLangEn() ? (['Tomorrow','In 2 days','In 3 days','In 4 days'][relIdx] || '') : (DAY_LABEL[relIdx] || '')); // 2026-07-03 KST · TJ 지시 — EN
       const dayColor = d ? (d.getDay()===0 ? 'rgba(248,113,113,0.9)' : (d.getDay()===6 ? 'rgba(96,165,250,0.9)' : 'rgba(255,255,255,0.65)')) : 'rgba(255,255,255,0.65)';
       box.innerHTML = `
         <span class="text-[16px] font-extrabold" style="color:${dayColor};">${dateNum}</span>
@@ -9801,7 +9844,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           }
         }
       }catch(_){}
-      card.innerHTML = `<span class="dc-day">${DAY_KO[dow]}</span><span class="dc-num">${d.getDate()}</span>` + (_tempStr ? `<span class="dc-temp">${_tempStr}</span>` : '');
+      card.innerHTML = `<span class="dc-day">${(window.CodiBankI18n&&CodiBankI18n.isEn())?['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dow]:DAY_KO[dow]}</span><span class="dc-num">${d.getDate()}</span>` + (_tempStr ? `<span class="dc-temp">${_tempStr}</span>` : '');
 
       // 기존 선택 복원
       if(
@@ -10778,6 +10821,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       const r = await v68Fetch('/api/ai/styling/analysis', {
         cacheKey: cacheKey,
         imageUrl: imageUrl || '',
+        lang: (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'en' : 'ko',  // 2026-07-03 KST · TJ 지시 — 영어모드 분석
         user: _userInfo,                 // height/weight/gender/bodyType/ageGroup
         weather: _weatherInfo,           // 기준온도(최고−2)/최고/최저 — OCCASION 섹션용
         personalColor: _pc || undefined, // 퍼스널컬러(있으면)
@@ -11053,6 +11097,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       purposeLabel: (_isCustom && _customText) ? _customText : (S.purposeLabel || ''),
       customText: _customText,
       faceImage: S.faceImage || '',  // 이미 등록된 face Data URL
+      lang: (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'en' : 'ko',  // 2026-07-03 KST · TJ 지시 — 영어모드: 스토리/키워드 영어 생성
       // ★ v68 신규 hook
       _force_city: forceCity,
       _force_quality: 'low',
@@ -11255,28 +11300,30 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         const dot = document.createElement('span');
         dot.className = 'cody-status-dot';
         const t = document.createElement('span');
-        t.textContent = '스타일링 분석 중입니다…';
+        t.textContent = (window.CodiBankI18n&&CodiBankI18n.isEn()) ? 'Analyzing your styling…' : '스타일링 분석 중입니다…'; // 2026-07-03 KST · TJ 지시 — EN
         msg.appendChild(dot); msg.appendChild(t);
       }
       _cody.appendChild(msg);
       return;
     }
     // 생성 이미지를 직접 본 실제 착장 분석 (정확 — 이미지와 일치)
+    // 2026-07-03 KST · TJ 지시 — 라벨 EN + 값 토큰번역 (영어모드 한글 잔존 해소)
+    const _mEn = window.CodiBankI18n && CodiBankI18n.isEn();
     const rows = [
-      ['상의', outfit.top],
-      ['하의', outfit.bottom],
-      ['신발', outfit.shoes],
-      ['액세서리', outfit.accessory],
+      [_mEn ? 'Top' : '상의', outfit.top],
+      [_mEn ? 'Bottom' : '하의', outfit.bottom],
+      [_mEn ? 'Shoes' : '신발', outfit.shoes],
+      [_mEn ? 'Accessories' : '액세서리', outfit.accessory],
     ];
     rows.forEach(function(pair){
       const label = pair[0], val = pair[1];
       if(val == null) return;
       let text = '';
       if(Array.isArray(val)){
-        text = val.filter(Boolean).join(' · ');
+        text = val.filter(Boolean).map(function(x){return window._cbEnItem?window._cbEnItem(x):x;}).join(' · ');
       }else{
         text = String(val).split(',').map(function(s){return s.trim();})
-                 .filter(Boolean).join(' · ');
+                 .filter(Boolean).map(function(x){return window._cbEnItem?window._cbEnItem(x):x;}).join(' · ');
       }
       if(!text) return;
       const row = document.createElement('div');
@@ -11322,6 +11369,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       }catch(_){}
       try{ _pc = (user && user.personalColor) || (window.user && window.user.personalColor) || null; }catch(_){}
       const r = await v68Fetch('/api/ai/styling/analysis', {
+        lang: (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'en' : 'ko',  // 2026-07-03 KST · TJ 지시 — 영어모드 분석
         cacheKey: card.cacheKey,
         imageUrl: card.imageUrl || card.url || '',
         stylist: card.stylist || null,

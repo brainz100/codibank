@@ -692,6 +692,30 @@ function applyTranslation() {
   // 키를 길이 내림차순으로 정렬 (긴 텍스트 우선 매칭)
   var keys = Object.keys(dict).sort(function(a, b) { return b.length - a.length; });
 
+  /* ─── 2026-07-03 KST · TJ 지시 ─── 부분치환 안전 가드 (본문 오염 수정) ────────
+     문제: 부분 매칭이 '일'→Sun, '코디'→Outfit 같은 단문 키를 문장 중간에 적용해
+           '스타일링'→'스타Sun링', '목적'→'Thu적', '화이트'→'Tue이트' 등 본문 파괴.
+           오염된 텍스트는 exact 사전 키와도 불일치해 정상 번역까지 차단됨.
+     해결: ① 3글자 미만 키는 부분치환 금지 (exact 전용 — 버튼/라벨 단독 노출은 유지)
+           ② 한글 경계 가드 — 키 앞뒤가 한글이면 단어 중간이므로 치환 금지
+           ③ exact 우선은 기존 유지. 치환 횟수(1회)·정렬 등 기존 동작 보존. */
+  function _isHangul(ch){ return ch >= '\uAC00' && ch <= '\uD7A3'; }
+  function safePartialReplace(text, key, val){
+    if (key.length < 3) return text;                       // ① 단문 키 배제
+    var idx = text.indexOf(key);
+    while (idx !== -1) {
+      var pre  = idx > 0 ? text.charAt(idx - 1) : '';
+      var post = (idx + key.length < text.length) ? text.charAt(idx + key.length) : '';
+      var okPre  = !_isHangul(key.charAt(0)) || !_isHangul(pre);              // ② 경계 가드
+      var okPost = !_isHangul(key.charAt(key.length - 1)) || !_isHangul(post);
+      if (okPre && okPost) {
+        return text.slice(0, idx) + val + text.slice(idx + key.length);      // 기존과 동일: 1회 치환
+      }
+      idx = text.indexOf(key, idx + 1);
+    }
+    return text;
+  }
+
   collectTextNodes(document.body).forEach(function(node) {
     if (!_origMap.has(node)) _origMap.set(node, node.textContent);
     var orig = _origMap.get(node);
@@ -703,29 +727,37 @@ function applyTranslation() {
       node.textContent = text.replace(trimmed, dict[trimmed]);
       return;
     }
-    // 부분 매칭
+    // 부분 매칭 (안전 가드 적용)
     for (var i = 0; i < keys.length; i++) {
       if (text.indexOf(keys[i]) !== -1) {
-        text = text.replace(keys[i], dict[keys[i]]);
+        text = safePartialReplace(text, keys[i], dict[keys[i]]);
       }
     }
     if (text !== orig) node.textContent = text;
   });
 
-  // title 번역
+  // title 번역 — exact 우선 + 안전 가드
   if (!document._origTitle) document._origTitle = document.title;
   var tt = document.title;
-  for (var j = 0; j < keys.length; j++) {
-    if (tt.indexOf(keys[j]) !== -1) tt = tt.replace(keys[j], dict[keys[j]]);
+  if (dict[tt.trim()] !== undefined) {
+    tt = dict[tt.trim()];
+  } else {
+    for (var j = 0; j < keys.length; j++) {
+      if (tt.indexOf(keys[j]) !== -1) tt = safePartialReplace(tt, keys[j], dict[keys[j]]);
+    }
   }
   document.title = tt;
 
-  // placeholder 번역
+  // placeholder 번역 — exact 우선 + 안전 가드
   document.querySelectorAll('input[placeholder], textarea[placeholder]').forEach(function(el) {
     if (!el._origPh) el._origPh = el.placeholder;
     var ph = el._origPh;
-    for (var i = 0; i < keys.length; i++) {
-      if (ph.indexOf(keys[i]) !== -1) ph = ph.replace(keys[i], dict[keys[i]]);
+    if (dict[ph.trim()] !== undefined) {
+      ph = dict[ph.trim()];
+    } else {
+      for (var i = 0; i < keys.length; i++) {
+        if (ph.indexOf(keys[i]) !== -1) ph = safePartialReplace(ph, keys[i], dict[keys[i]]);
+      }
     }
     el.placeholder = ph;
   });
