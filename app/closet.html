@@ -1024,6 +1024,7 @@ else{_go();setTimeout(_go,200);setTimeout(_go,800);setTimeout(_go,2000);}})();
     if(cur !== _lastLang){
       _lastLang = cur;
       setTimeout(function(){applyI18n();try{renderPurposeGrid();}catch(_){}}, 100);
+      setTimeout(function(){try{window._cbAskReanalyze&&window._cbAskReanalyze();}catch(_){}}, 250); // 2026-07-04 KST · TJ 지시
     }
   }, 500);
   // 2) CodiBankI18n.setLang 패치 (존재할 경우)
@@ -1033,6 +1034,7 @@ else{_go();setTimeout(_go,200);setTimeout(_go,800);setTimeout(_go,2000);}})();
       CodiBankI18n.setLang = function(lang){
         _orig(lang);
         setTimeout(function(){applyI18n();try{renderPurposeGrid();}catch(_){}}, 150);
+        setTimeout(function(){try{window._cbAskReanalyze&&window._cbAskReanalyze();}catch(_){}}, 300); // 2026-07-04 KST · TJ 지시
       };
       clearInterval(_patchTry);
     }
@@ -7038,7 +7040,7 @@ async function updateVTO(opts={}){
         colorDirective: _colorDirective,
         customDirective: _customDirective,
         categoryKeywords: S.categoryKeywords || {},
-        lang: (window._cbFor()) ? 'en' : 'ko',
+        lang: ((window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko'),
         seed:S.seed,
         isRetry: S.isRetry || false,
         // [2026-04-08] Phase 2: 퍼스널컬러 전달 (12서브타입 대응)
@@ -10817,7 +10819,38 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   // 분석 별도 호출 (`/api/ai/styling/analysis`)
   // ─── 2026-05-16 KST · TJ 지시 (옵션 A) ─── imageUrl 전달 → 백엔드 vision 분석 ───
   // ─── 2026-05-16 KST · TJ 지시 ─── 실패 시 1회 재시도 (analysis 503/일시오류 대비) ───
+  /* ─── 2026-07-04 KST · TJ 지시 ─── 언어 변경 시 AI 분석 재생성 확인 ─────────
+     보고서/분석이 이미 표시된 상태에서 언어를 바꾸면:
+     확인 팝업 → '예' 시 새 언어로 Gemini 분석 재호출(fetchAnalysisAndFill 재사용).
+     팝업 문구는 9개 언어 지원. 분석이 없으면 아무 것도 묻지 않는다. */
+  window._cbLastAnalysisLang = null;   // 마지막 분석 언어 (중복 질문 방지)
+  window._cbAskReanalyze = function(){
+    try{
+      var cur = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko';
+      var box = document.getElementById('codiDetailBox');
+      var visible = box && !box.classList.contains('hidden');
+      var st = (typeof flow !== 'undefined') && flow.stepCResult;
+      if(!visible || !st || !st.cacheKey) return;                 // 분석 화면 아님
+      if(window._cbLastAnalysisLang === cur) return;              // 같은 언어 재질문 방지
+      var MSG = {
+        ko:'언어를 변경했습니다. AI 분석 보고서도 새 언어로 다시 생성할까요?',
+        en:'Language changed. Regenerate the AI analysis report in the new language?',
+        ja:'言語を変更しました。AI分析レポートも新しい言語で再生成しますか？',
+        zh:'语言已更改。要以新语言重新生成AI分析报告吗？',
+        es:'Idioma cambiado. ¿Regenerar el informe de análisis IA en el nuevo idioma?',
+        tr:'Dil değişti. AI analiz raporu yeni dilde yeniden oluşturulsun mu?',
+        fr:'Langue modifiée. Régénérer le rapport d\'analyse IA dans la nouvelle langue ?',
+        ar:'تم تغيير اللغة. هل تريد إعادة إنشاء تقرير التحليل باللغة الجديدة؟',
+        de:'Sprache geändert. KI-Analysebericht in der neuen Sprache neu erstellen?'
+      };
+      if(!confirm(MSG[cur] || MSG.en)) { window._cbLastAnalysisLang = cur; return; }
+      window._cbLastAnalysisLang = cur;
+      fetchAnalysisAndFill(st.cacheKey, st.image || '');          // 새 언어로 재분석
+    }catch(_){ }
+  };
+
   async function fetchAnalysisAndFill(cacheKey, imageUrl, _isRetry){
+    try{ window._cbLastAnalysisLang = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko'; }catch(_){}
     console.log('[analysis] 요청 전송 — cacheKey=', cacheKey || '(none)', '| imageUrl=', imageUrl ? imageUrl.slice(0,60) : '(none)');
     try{
       // ─── 2026-06-22 KST · TJ 지시 (#2) ─── 사용자 신체정보/퍼스널컬러 전달 ───
@@ -10838,7 +10871,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       const r = await v68Fetch('/api/ai/styling/analysis', {
         cacheKey: cacheKey,
         imageUrl: imageUrl || '',
-        lang: (window._cbFor()) ? 'en' : 'ko',  // 2026-07-03 KST · TJ 지시 — 영어모드 분석
+        lang: ((window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko'),  // 2026-07-03 KST · TJ 지시 — 영어모드 분석
         user: _userInfo,                 // height/weight/gender/bodyType/ageGroup
         weather: _weatherInfo,           // 기준온도(최고−2)/최고/최저 — OCCASION 섹션용
         personalColor: _pc || undefined, // 퍼스널컬러(있으면)
@@ -11114,7 +11147,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       purposeLabel: (_isCustom && _customText) ? _customText : (S.purposeLabel || ''),
       customText: _customText,
       faceImage: S.faceImage || '',  // 이미 등록된 face Data URL
-      lang: (window._cbFor()) ? 'en' : 'ko',  // 2026-07-03 KST · TJ 지시 — 영어모드: 스토리/키워드 영어 생성
+      lang: ((window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko'),  // 2026-07-03 KST · TJ 지시 — 영어모드: 스토리/키워드 영어 생성
       // ★ v68 신규 hook
       _force_city: forceCity,
       _force_quality: 'low',
@@ -11386,7 +11419,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       }catch(_){}
       try{ _pc = (user && user.personalColor) || (window.user && window.user.personalColor) || null; }catch(_){}
       const r = await v68Fetch('/api/ai/styling/analysis', {
-        lang: (window._cbFor()) ? 'en' : 'ko',  // 2026-07-03 KST · TJ 지시 — 영어모드 분석
+        lang: ((window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko'),  // 2026-07-03 KST · TJ 지시 — 영어모드 분석
         cacheKey: card.cacheKey,
         imageUrl: card.imageUrl || card.url || '',
         stylist: card.stylist || null,

@@ -1195,6 +1195,7 @@ function loadPersonalColorFromStorage() {
 
 async function analyzePersonalColor(imageDataUrl) {
   if(!imageDataUrl) return;
+  try{ window._pcLastLang = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko'; }catch(_){ } // 2026-07-04 KST · TJ 지시
   const loading = document.getElementById('pcLoading');
   const empty   = document.getElementById('pcEmpty');
   const result  = document.getElementById('pcResult');
@@ -1212,7 +1213,10 @@ async function analyzePersonalColor(imageDataUrl) {
       fetch(bb + '/api/ai/personal-color', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({image: imageDataUrl})
+        body: JSON.stringify({
+          image: imageDataUrl,
+          lang: (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko'  // 2026-07-04 KST · TJ 지시 — 9언어 분석
+        })
       }),
       new Promise((_,rej) => setTimeout(() => rej(new Error('timeout')), 25000))
     ]);
@@ -1279,6 +1283,40 @@ async function analyzePersonalColor(imageDataUrl) {
     console.warn('[퍼스널컬러 분석 실패]', e);
   }
 }
+
+/* ─── 2026-07-04 KST · TJ 지시 ─── 언어 변경 시 퍼스널컬러 재분석 확인 ─────────
+   분석 결과가 표시된 상태에서 언어가 바뀌면: 확인 팝업 → '예' 시 저장된
+   사진(_photoData)으로 새 언어 재분석. 코디핏 보고서와 동일한 UX 패턴. */
+(function(){
+  var MSG = {
+    ko:'언어를 변경했습니다. 퍼스널컬러 분석도 새 언어로 다시 생성할까요?',
+    en:'Language changed. Regenerate the personal color analysis in the new language?',
+    ja:'言語を変更しました。パーソナルカラー分析も新しい言語で再生成しますか？',
+    zh:'语言已更改。要以新语言重新生成个人色彩分析吗？',
+    es:'Idioma cambiado. ¿Regenerar el análisis de color personal en el nuevo idioma?',
+    tr:'Dil değişti. Kişisel renk analizi yeni dilde yeniden oluşturulsun mu?',
+    fr:'Langue modifiée. Régénérer l\'analyse colorimétrique dans la nouvelle langue ?',
+    ar:'تم تغيير اللغة. هل تريد إعادة إنشاء تحليل الألوان باللغة الجديدة؟',
+    de:'Sprache geändert. Farbtyp-Analyse in der neuen Sprache neu erstellen?'
+  };
+  window._pcAskReanalyze = function(){
+    try{
+      var cur = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko';
+      var rs = document.getElementById('pcResult');
+      var visible = rs && rs.style.display === 'block';
+      if(!visible || !window._photoData && !_photoData) return;
+      if(window._pcLastLang === cur) return;
+      if(!confirm(MSG[cur] || MSG.en)){ window._pcLastLang = cur; return; }
+      window._pcLastLang = cur;
+      reAnalyzePersonalColor();
+    }catch(_){ }
+  };
+  var _last = localStorage.getItem('cb_lang') || 'ko';
+  setInterval(function(){
+    var cur = localStorage.getItem('cb_lang') || 'ko';
+    if(cur !== _last){ _last = cur; setTimeout(window._pcAskReanalyze, 300); }
+  }, 500);
+})();
 
 async function reAnalyzePersonalColor() {
   if(!_photoData) { showToast('먼저 프로필 사진을 선택해주세요.'); return; }
