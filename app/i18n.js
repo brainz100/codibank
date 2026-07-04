@@ -9,6 +9,18 @@
 
 var LANG_KEY = 'codibank_lang';
 
+/* ─── 2026-07-04 KST · TJ 지시 ─── 다국어 코어 v2 ─────────────────────────
+   구조: 한국어 키 고정 + 언어 레이어. DICT(영어)는 무변경, DICT_JA/DICT_ZH 추가.
+   폴백: ja/zh 미번역 키 → 영어 값 사용 (외국 사용자에게 한글 노출 금지).
+   전환: 원본맵(_origMap) 기반 재적용이라 ko↔en↔ja↔zh 자유 전환. */
+var LANGS = {
+  ko: { label: '한국어',  short: 'KO' },
+  en: { label: 'English', short: 'EN' },
+  ja: { label: '日本語',   short: 'JA' },
+  zh: { label: '中文',     short: 'ZH' },
+  es: { label: 'Español',  short: 'ES' },  // 2026-07-04 KST · TJ 지시 — 스페인어 추가
+};
+
 // ── 번역 사전 (페이지별) ──
 var DICT = {
 
@@ -619,6 +631,165 @@ var DICT = {
 
 };
 
+/* ─── 2026-07-04 KST · TJ 지시 ─── 일본어/중국어 레이어 (한국어 키 → 현지어) ───
+   시드 범위: 공통 UI + 코디핏(목적·날씨·요일·핵심 상태) + 마이페이지 + 앨범.
+   여기 없는 키는 자동으로 영어 폴백. 추후 키만 추가하면 즉시 반영. */
+var DICT_JA = {
+  _common: {
+    '내옷장':'マイクローゼット', '코디앨범':'コーデアルバム', 'ITEM등록':'アイテム登録',
+    '코디하기':'コーデする', '전체삭제':'すべて削除', '저장':'保存', '공유':'共有',
+    '삭제':'削除', '로그인':'ログイン', '회원가입':'会員登録', '로그아웃':'ログアウト',
+    '취소':'キャンセル', '확인':'OK', '닫기':'閉じる', '필수':'必須', '선택':'任意',
+    '기타':'その他', '비즈니스':'ビジネス', '주말여행':'週末旅行', '코디':'コーデ',
+  },
+  closet: {
+    '내옷장 - 코디뱅크':'マイクローゼット - CodiBank', '내옷장':'マイクローゼット',
+    '위치 확인 중…':'位置情報を確認中…', '로딩중':'読み込み中', '오늘':'今日',
+    '코디 목적 선택':'コーデ目的を選択', '직접입력':'直接入力',
+    '코디 날짜 선택':'コーデ日付を選択', '코디를 생성할 날짜를 선택하세요':'コーデを作成する日付を選んでください',
+    '오늘의 코디':'今日のコーデ', '내일의 코디':'明日のコーデ',
+    '목적과 날짜를 먼저 선택하세요':'目的と日付を先に選択してください',
+    'AI 추천코디 이야기':'AIスタイリングストーリー',
+    '스타일 키워드':'スタイルキーワード', '카테고리별 코디 포인트':'カテゴリ別コーデポイント',
+    '추천 이미지 생성중':'コーデ画像を生成中', '초기화 중…':'初期化中…',
+    '얼굴 사진 불러오는 중…':'顔写真を読み込み中…',
+    '출퇴근':'通勤', '캐주얼':'カジュアル', '데이트':'デート', '여행':'旅行',
+    '국내여행':'国内旅行', '해외여행':'海外旅行', '운동/레저':'スポーツ/レジャー',
+    '결혼식/행사':'結婚式/イベント', '면접':'面接', '주말외출':'週末おでかけ',
+    '지인모임':'友人との集まり', '소개팅':'お見合いデート', '파티':'パーティー',
+    '파티룩':'パーティールック', '등산':'登山',
+    '맑음':'晴れ', '흐림':'くもり', '비':'雨', '눈':'雪', '구름많음':'曇りがち',
+    '예보 없음':'予報なし',
+    '일':'日', '월':'月', '화':'火', '수':'水', '목':'木', '금':'金', '토':'土',
+    '추천 이미지 없음':'コーデ画像なし', '무제한':'無制限', '다시 코디':'再コーデ', '다시코디':'再コーデ',
+    '등록':'登録', '모바일 옷장':'モバイルクローゼット',
+    '카테고리 추가':'カテゴリ追加', '추가하기':'追加', '추가':'追加',
+    '아이템 없음':'アイテムなし', '검색 결과가 없어요':'検索結果がありません', '아이템':'アイテム',
+    '코트':'コート', '자켓':'ジャケット', '탑/셔츠/블라우스':'トップス/シャツ',
+    '바지/스커트':'パンツ/スカート', '양말':'ソックス', '구두/운동화':'シューズ',
+    '시계':'時計', '스카프/목도리':'スカーフ/マフラー',
+  },
+  mypage: {
+    '마이페이지 - 코디뱅크':'マイページ - CodiBank', '마이페이지':'マイページ',
+    '사용자':'ユーザー', '계정 관리':'アカウント管理', '프로필 수정':'プロフィール編集',
+    '구독 플랜':'サブスクプラン', '서비스':'サービス', '내 옷장 바로가기':'マイクローゼットへ',
+    '이용약관':'利用規約', '개인정보처리방침':'プライバシーポリシー', '환불정책':'返金ポリシー',
+    '플랜':'プラン', '회원탈퇴':'退会', 'Ai 옷장':'AIクローゼット',
+    '회 가능':'回可能', '아이템':'アイテム',
+  },
+  album: {
+    '코디앨범 - 코디뱅크':'コーデアルバム - CodiBank', '앨범 불러오는 중…':'アルバムを読み込み中…',
+    '저장된 코디가 없어요':'保存されたコーデがありません',
+    'AI 코디 추천 받기':'AIコーデをもらう', '이미지를 불러올 수 없습니다.':'画像を読み込めません。',
+    '이 코디를 삭제할까요?':'このコーデを削除しますか？',
+  },
+};
+
+var DICT_ZH = {
+  _common: {
+    '내옷장':'我的衣橱', '코디앨범':'穿搭相册', 'ITEM등록':'添加单品',
+    '코디하기':'开始穿搭', '전체삭제':'全部删除', '저장':'保存', '공유':'分享',
+    '삭제':'删除', '로그인':'登录', '회원가입':'注册', '로그아웃':'退出登录',
+    '취소':'取消', '확인':'确认', '닫기':'关闭', '필수':'必填', '선택':'可选',
+    '기타':'其他', '비즈니스':'商务', '주말여행':'周末旅行', '코디':'穿搭',
+  },
+  closet: {
+    '내옷장 - 코디뱅크':'我的衣橱 - CodiBank', '내옷장':'我的衣橱',
+    '위치 확인 중…':'正在获取位置…', '로딩중':'加载中', '오늘':'今天',
+    '코디 목적 선택':'选择穿搭场合', '직접입력':'自定义输入',
+    '코디 날짜 선택':'选择穿搭日期', '코디를 생성할 날짜를 선택하세요':'请选择生成穿搭的日期',
+    '오늘의 코디':'今日穿搭', '내일의 코디':'明日穿搭',
+    '목적과 날짜를 먼저 선택하세요':'请先选择场合和日期',
+    'AI 추천코디 이야기':'AI穿搭故事',
+    '스타일 키워드':'风格关键词', '카테고리별 코디 포인트':'分类穿搭要点',
+    '추천 이미지 생성중':'正在生成穿搭图片', '초기화 중…':'初始化中…',
+    '얼굴 사진 불러오는 중…':'正在加载面部照片…',
+    '출퇴근':'通勤', '캐주얼':'休闲', '데이트':'约会', '여행':'旅行',
+    '국내여행':'国内旅行', '해외여행':'海外旅行', '운동/레저':'运动/休闲',
+    '결혼식/행사':'婚礼/活动', '면접':'面试', '주말외출':'周末外出',
+    '지인모임':'朋友聚会', '소개팅':'相亲', '파티':'派对',
+    '파티룩':'派对造型', '등산':'登山',
+    '맑음':'晴', '흐림':'阴', '비':'雨', '눈':'雪', '구름많음':'多云',
+    '예보 없음':'暂无预报',
+    '일':'日', '월':'一', '화':'二', '수':'三', '목':'四', '금':'五', '토':'六',
+    '추천 이미지 없음':'暂无穿搭图片', '무제한':'不限次数', '다시 코디':'重新穿搭', '다시코디':'重新穿搭',
+    '등록':'注册', '모바일 옷장':'移动衣橱',
+    '카테고리 추가':'添加分类', '추가하기':'添加', '추가':'添加',
+    '아이템 없음':'暂无单品', '검색 결과가 없어요':'没有搜索结果', '아이템':'单品',
+    '코트':'大衣', '자켓':'夹克', '탑/셔츠/블라우스':'上衣/衬衫',
+    '바지/스커트':'裤子/裙子', '양말':'袜子', '구두/운동화':'鞋子',
+    '시계':'手表', '스카프/목도리':'围巾',
+  },
+  mypage: {
+    '마이페이지 - 코디뱅크':'我的主页 - CodiBank', '마이페이지':'我的主页',
+    '사용자':'用户', '계정 관리':'账号管理', '프로필 수정':'编辑资料',
+    '구독 플랜':'订阅方案', '서비스':'服务', '내 옷장 바로가기':'前往我的衣橱',
+    '이용약관':'服务条款', '개인정보처리방침':'隐私政策', '환불정책':'退款政策',
+    '플랜':'方案', '회원탈퇴':'注销账号', 'Ai 옷장':'AI衣橱',
+    '회 가능':'次可用', '아이템':'单品',
+  },
+  album: {
+    '코디앨범 - 코디뱅크':'穿搭相册 - CodiBank', '앨범 불러오는 중…':'正在加载相册…',
+    '저장된 코디가 없어요':'暂无保存的穿搭',
+    'AI 코디 추천 받기':'获取AI穿搭', '이미지를 불러올 수 없습니다.':'无法加载图片。',
+    '이 코디를 삭제할까요?':'要删除这套穿搭吗？',
+  },
+};
+
+/* ─── 2026-07-04 KST · TJ 지시 ─── 스페인어 레이어 (한국어 키 → 스페인어) ───
+   시드 범위: JA/ZH 와 동일 (공통 UI + 코디핏 + 마이페이지 + 앨범).
+   여기 없는 키는 자동으로 영어 폴백. */
+var DICT_ES = {
+  _common: {
+    '내옷장':'Mi Armario', '코디앨범':'Álbum de Looks', 'ITEM등록':'Añadir Prenda',
+    '코디하기':'Crear Look', '전체삭제':'Eliminar Todo', '저장':'Guardar', '공유':'Compartir',
+    '삭제':'Eliminar', '로그인':'Iniciar Sesión', '회원가입':'Registrarse', '로그아웃':'Cerrar Sesión',
+    '취소':'Cancelar', '확인':'OK', '닫기':'Cerrar', '필수':'Obligatorio', '선택':'Opcional',
+    '기타':'Otros', '비즈니스':'Negocios', '주말여행':'Viaje de Fin de Semana', '코디':'Look',
+  },
+  closet: {
+    '내옷장 - 코디뱅크':'Mi Armario - CodiBank', '내옷장':'Mi Armario',
+    '위치 확인 중…':'Comprobando ubicación…', '로딩중':'Cargando', '오늘':'Hoy',
+    '코디 목적 선택':'Elige la Ocasión', '직접입력':'Entrada Manual',
+    '코디 날짜 선택':'Elige la Fecha', '코디를 생성할 날짜를 선택하세요':'Elige la fecha para crear tu look',
+    '오늘의 코디':'Look de Hoy', '내일의 코디':'Look de Mañana',
+    '목적과 날짜를 먼저 선택하세요':'Primero elige ocasión y fecha',
+    'AI 추천코디 이야기':'Historia de Estilo IA',
+    '스타일 키워드':'Palabras Clave de Estilo', '카테고리별 코디 포인트':'Puntos de Look por Categoría',
+    '추천 이미지 생성중':'Generando imagen del look', '초기화 중…':'Inicializando…',
+    '얼굴 사진 불러오는 중…':'Cargando foto de rostro…',
+    '출퇴근':'Trabajo', '캐주얼':'Casual', '데이트':'Cita', '여행':'Viaje',
+    '국내여행':'Viaje Nacional', '해외여행':'Viaje al Extranjero', '운동/레저':'Deporte/Ocio',
+    '결혼식/행사':'Boda/Evento', '면접':'Entrevista', '주말외출':'Salida de Fin de Semana',
+    '지인모임':'Reunión con Amigos', '소개팅':'Cita a Ciegas', '파티':'Fiesta',
+    '파티룩':'Look de Fiesta', '등산':'Senderismo',
+    '맑음':'Despejado', '흐림':'Nublado', '비':'Lluvia', '눈':'Nieve', '구름많음':'Muy Nublado',
+    '예보 없음':'Sin pronóstico',
+    '일':'Dom', '월':'Lun', '화':'Mar', '수':'Mié', '목':'Jue', '금':'Vie', '토':'Sáb',
+    '추천 이미지 없음':'Sin imagen del look', '무제한':'Ilimitado', '다시 코디':'Reintentar', '다시코디':'Reintentar',
+    '등록':'Registrar', '모바일 옷장':'Armario Móvil',
+    '카테고리 추가':'Añadir Categoría', '추가하기':'Añadir', '추가':'Añadir',
+    '아이템 없음':'Sin prendas', '검색 결과가 없어요':'Sin resultados', '아이템':'Prenda',
+    '코트':'Abrigo', '자켓':'Chaqueta', '탑/셔츠/블라우스':'Top/Camisa',
+    '바지/스커트':'Pantalón/Falda', '양말':'Calcetines', '구두/운동화':'Zapatos',
+    '시계':'Reloj', '스카프/목도리':'Bufanda',
+  },
+  mypage: {
+    '마이페이지 - 코디뱅크':'Mi Página - CodiBank', '마이페이지':'Mi Página',
+    '사용자':'Usuario', '계정 관리':'Gestión de Cuenta', '프로필 수정':'Editar Perfil',
+    '구독 플랜':'Plan de Suscripción', '서비스':'Servicios', '내 옷장 바로가기':'Ir a Mi Armario',
+    '이용약관':'Términos de Servicio', '개인정보처리방침':'Política de Privacidad', '환불정책':'Política de Reembolso',
+    '플랜':'Plan', '회원탈퇴':'Eliminar Cuenta', 'Ai 옷장':'Armario IA',
+    '회 가능':'usos disponibles', '아이템':'Prendas',
+  },
+  album: {
+    '코디앨범 - 코디뱅크':'Álbum de Looks - CodiBank', '앨범 불러오는 중…':'Cargando álbum…',
+    '저장된 코디가 없어요':'No hay looks guardados',
+    'AI 코디 추천 받기':'Obtener Look IA', '이미지를 불러올 수 없습니다.':'No se puede cargar la imagen.',
+    '이 코디를 삭제할까요?':'¿Eliminar este look?',
+  },
+};
+
 // ── 현재 페이지 감지 ──
 function detectPage() {
   var path = location.pathname.toLowerCase();
@@ -641,20 +812,26 @@ function detectPage() {
 }
 
 // ── 병합된 사전 생성 ──
-function getMergedDict() {
+function getMergedDict(lang) {
+  // ─── 2026-07-04 KST · TJ 지시 ─── 다국어 병합: ja/zh 는 EN 베이스 + 현지어 오버레이 ───
+  lang = lang || getLang();
   var page = detectPage();
-  var merged = {};
-  // 공통
-  var c = DICT._common || {};
-  for (var k in c) merged[k] = c[k];
-  // aicloset 페이지는 closet 사전도 필요 (코디쌤 생성 코드 공유)
-  if (page === 'aicloset') {
-    var cl = DICT.closet || {};
-    for (var k3 in cl) merged[k3] = cl[k3];
+  function mergeFrom(SRC, into) {
+    if (!SRC) return into;
+    var c = SRC._common || {};
+    for (var k in c) into[k] = c[k];
+    if (page === 'aicloset') {                 // 코디쌤 생성 코드 공유
+      var cl = SRC.closet || {};
+      for (var k3 in cl) into[k3] = cl[k3];
+    }
+    var p = SRC[page] || {};
+    for (var k2 in p) into[k2] = p[k2];
+    return into;
   }
-  // 페이지별 (페이지 전용이 closet보다 우선)
-  var p = DICT[page] || {};
-  for (var k2 in p) merged[k2] = p[k2];
+  var merged = mergeFrom(DICT, {});            // 1) 영어 베이스 (전체 커버리지)
+  if (lang === 'ja') mergeFrom(typeof DICT_JA !== 'undefined' ? DICT_JA : null, merged);
+  if (lang === 'zh') mergeFrom(typeof DICT_ZH !== 'undefined' ? DICT_ZH : null, merged);
+  if (lang === 'es') mergeFrom(typeof DICT_ES !== 'undefined' ? DICT_ES : null, merged);  // 2026-07-04 KST · TJ 지시
   return merged;
 }
 
@@ -663,6 +840,7 @@ function getLang() {
   try { return localStorage.getItem(LANG_KEY) || 'ko'; } catch(e) { return 'ko'; }
 }
 function setLang(lang) {
+  if (!LANGS[lang]) lang = 'ko';  // 2026-07-04 KST · TJ 지시 — 미등록 언어 방어
   try { localStorage.setItem(LANG_KEY, lang); } catch(e) {}
 }
 
@@ -688,7 +866,7 @@ function applyTranslation() {
     return;
   }
 
-  var dict = getMergedDict();
+  var dict = getMergedDict(lang);  // 2026-07-04 KST · TJ 지시 — 현재 언어 병합
   // 키를 길이 내림차순으로 정렬 (긴 텍스트 우선 매칭)
   var keys = Object.keys(dict).sort(function(a, b) { return b.length - a.length; });
 
@@ -736,9 +914,9 @@ function applyTranslation() {
     if (text !== orig) node.textContent = text;
   });
 
-  // title 번역 — exact 우선 + 안전 가드
+  // title 번역 — exact 우선 + 안전 가드 (원본 기준: ja↔zh 등 직접 전환 대응)
   if (!document._origTitle) document._origTitle = document.title;
-  var tt = document.title;
+  var tt = document._origTitle;
   if (dict[tt.trim()] !== undefined) {
     tt = dict[tt.trim()];
   } else {
@@ -769,44 +947,41 @@ function insertLangToggle() {
   var page = detectPage();
   if (page !== 'index' && page !== 'mypage') return;
 
+  /* ─── 2026-07-04 KST · TJ 지시 ─── 4언어 필 토글 (LANGS 레지스트리 구동) ───
+     KO · EN · JA · ZH — 언어 추가 시 LANGS 에 항목만 넣으면 자동 확장. */
   var lang = getLang();
   var div = document.createElement('div');
   div.id = 'cb-lang-toggle';
   div.style.cssText = 'position:fixed;top:10px;right:10px;z-index:999999;display:flex;border-radius:9999px;overflow:hidden;background:rgba(7,19,42,.65);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(76,219,206,.2);font-family:Inter,Noto Sans KR,sans-serif;font-size:11px;font-weight:700;';
 
-  var koBtn = document.createElement('button');
-  koBtn.textContent = '한국어';
-  koBtn.id = 'cb-lang-ko';
-  koBtn.style.cssText = 'padding:5px 12px;cursor:pointer;transition:all .2s;border:none;font-family:inherit;font-size:inherit;font-weight:inherit;letter-spacing:.03em;background:none;color:rgba(216,226,255,.5);';
-
-  var enBtn = document.createElement('button');
-  enBtn.textContent = 'EN';
-  enBtn.id = 'cb-lang-en';
-  enBtn.style.cssText = koBtn.style.cssText;
-
-  function updateBtns(l) {
-    if (l === 'ko') {
-      koBtn.style.background = 'linear-gradient(135deg,#4cdbce,#13bbaf)';
-      koBtn.style.color = '#003733';
-      koBtn.style.borderRadius = '9999px';
-      enBtn.style.background = 'none';
-      enBtn.style.color = 'rgba(216,226,255,.5)';
-      enBtn.style.borderRadius = '0';
-    } else {
-      enBtn.style.background = 'linear-gradient(135deg,#4cdbce,#13bbaf)';
-      enBtn.style.color = '#003733';
-      enBtn.style.borderRadius = '9999px';
-      koBtn.style.background = 'none';
-      koBtn.style.color = 'rgba(216,226,255,.5)';
-      koBtn.style.borderRadius = '0';
-    }
+  var btns = {};
+  function updateBtns(active) {
+    Object.keys(btns).forEach(function(l) {
+      var b = btns[l];
+      if (l === active) {
+        b.style.background = 'linear-gradient(135deg,#4cdbce,#13bbaf)';
+        b.style.color = '#003733';
+        b.style.borderRadius = '9999px';
+      } else {
+        b.style.background = 'none';
+        b.style.color = 'rgba(216,226,255,.5)';
+        b.style.borderRadius = '0';
+      }
+    });
   }
 
-  koBtn.onclick = function() { setLang('ko'); updateBtns('ko'); applyTranslation(); };
-  enBtn.onclick = function() { setLang('en'); updateBtns('en'); applyTranslation(); };
+  Object.keys(LANGS).forEach(function(l) {
+    var b = document.createElement('button');
+    b.textContent = LANGS[l].short;
+    b.id = 'cb-lang-' + l;
+    b.setAttribute('aria-label', LANGS[l].label);
+    b.title = LANGS[l].label;
+    b.style.cssText = 'padding:5px 11px;cursor:pointer;transition:all .2s;border:none;font-family:inherit;font-size:inherit;font-weight:inherit;letter-spacing:.03em;background:none;color:rgba(216,226,255,.5);';
+    b.onclick = function() { setLang(l); updateBtns(l); applyTranslation(); };
+    btns[l] = b;
+    div.appendChild(b);
+  });
 
-  div.appendChild(koBtn);
-  div.appendChild(enBtn);
   document.body.appendChild(div);
   updateBtns(lang);
 }
@@ -816,8 +991,19 @@ window.CodiBankI18n = {
   getLang: getLang,
   setLang: function(lang) { setLang(lang); applyTranslation(); },
   apply: applyTranslation,
-  t: function(ko, en) { return getLang() === 'en' ? (en || ko) : ko; },
+  // t(ko, en): 기존 호출부 하위호환 — ja/zh 는 사전 조회 후 en 폴백
+  t: function(ko, en) {
+    var l = getLang();
+    if (l === 'ko') return ko;
+    if (l === 'en') return (en || ko);
+    try { var d = getMergedDict(l); if (d[ko] !== undefined) return d[ko]; } catch(e) {}
+    return (en || ko);
+  },
   isEn: function() { return getLang() === 'en'; },
+  // ─── 2026-07-04 KST · TJ 지시 ─── 다국어 확장 API ───
+  isForeign: function() { return getLang() !== 'ko'; },
+  getLangs: function() { return LANGS; },
+  langLabel: function(l) { return (LANGS[l || getLang()] || {}).label || ''; },
 };
 
 // ── 자동 초기화 ──
