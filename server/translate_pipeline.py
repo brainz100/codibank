@@ -48,42 +48,43 @@ log = logging.getLogger("codibank.translate")
 # ═══════════════════════════════════════════════════════════════════════════
 PROTECTED_TERMS = {
     # ── 서비스 고유명사 ──
-    "코디뱅크":   {"en": "CodiBank",        "ja": "CodiBank",          "zh": "CodiBank", "es": "CodiBank"},
-    "코디핏":     {"en": "CodiFit",         "ja": "CodiFit",           "zh": "CodiFit", "es": "CodiFit"},
-    "트라이온":   {"en": "Try-On",          "ja": "Try-On",            "zh": "Try-On", "es": "Try-On"},
-    "런웨이":     {"en": "Runway",          "ja": "Runway",            "zh": "Runway", "es": "Runway"},
-    "스타일몬스터": {"en": "Style Monster", "ja": "Style Monster",     "zh": "Style Monster", "es": "Style Monster"},
+    "코디뱅크":   {"en": "CodiBank",        "ja": "CodiBank",          "zh": "CodiBank", "es": "CodiBank", "tr": "CodiBank", "fr": "CodiBank", "ar": "CodiBank", "de": "CodiBank"},
+    "코디핏":     {"en": "CodiFit",         "ja": "CodiFit",           "zh": "CodiFit", "es": "CodiFit", "tr": "CodiFit", "fr": "CodiFit", "ar": "CodiFit", "de": "CodiFit"},
+    "트라이온":   {"en": "Try-On",          "ja": "Try-On",            "zh": "Try-On", "es": "Try-On", "tr": "Try-On", "fr": "Try-On", "ar": "Try-On", "de": "Try-On"},
+    "런웨이":     {"en": "Runway",          "ja": "Runway",            "zh": "Runway", "es": "Runway", "tr": "Runway", "fr": "Runway", "ar": "Runway", "de": "Runway"},
+    "스타일몬스터": {"en": "Style Monster", "ja": "Style Monster",     "zh": "Style Monster", "es": "Style Monster", "tr": "Style Monster", "fr": "Style Monster", "ar": "Style Monster", "de": "Style Monster"},
     # ── 한국 패션 신조어 (직역 사고 다발 구간) ──
-    "꾸안꾸":     {"en": "effortless-chic", "ja": "抜け感スタイル",     "zh": "慵懒高级感", "es": "estilo effortless-chic"},
-    "꾸안꾸룩":   {"en": "effortless-chic look", "ja": "抜け感ルック", "zh": "慵懒高级感造型", "es": "look effortless-chic"},
-    "남친룩":     {"en": "boyfriend look",  "ja": "彼氏ルック",        "zh": "男友风", "es": "look boyfriend"},
-    "여친룩":     {"en": "girlfriend look", "ja": "彼女ルック",        "zh": "女友风", "es": "look girlfriend"},
-    "백꾸":       {"en": "bag charm styling", "ja": "バッグチャーム",   "zh": "包包挂饰装扮", "es": "decoración de bolso"},
-    "신꾸":       {"en": "shoe charm styling", "ja": "シューデコ",      "zh": "鞋子装饰", "es": "decoración de zapatillas"},
-    "올드머니룩": {"en": "old-money look",  "ja": "オールドマネールック", "zh": "老钱风", "es": "look old money"},
-    "하객룩":     {"en": "wedding-guest look", "ja": "結婚式お呼ばれコーデ", "zh": "婚礼宾客穿搭", "es": "look de invitada a boda"},
-    "소개팅룩":   {"en": "blind-date look", "ja": "お見合いデートルック", "zh": "相亲穿搭", "es": "look de cita a ciegas"},
-    "데이트룩":   {"en": "date look",       "ja": "デートルック",       "zh": "约会穿搭", "es": "look de cita"},
-    "공항패션":   {"en": "airport fashion", "ja": "空港ファッション",   "zh": "机场穿搭", "es": "moda de aeropuerto"},
-    "미니멀룩":   {"en": "minimal look",    "ja": "ミニマルルック",     "zh": "极简风", "es": "look minimalista"},
-    "스트릿패션": {"en": "street fashion",  "ja": "ストリートファッション", "zh": "街头风", "es": "moda urbana"},
-    "프레피룩":   {"en": "preppy look",     "ja": "プレッピールック",   "zh": "学院风", "es": "look preppy"},
-    "빈티지 레트로": {"en": "vintage retro", "ja": "ヴィンテージレトロ", "zh": "复古风", "es": "vintage retro"},
+    "꾸안꾸":     {"en": "effortless-chic", "ja": "抜け感スタイル",     "zh": "慵懒高级感", "es": "estilo effortless-chic", "tr": "zahmetsiz şıklık", "fr": "chic sans effort", "ar": "أناقة عفوية", "de": "mühelose Eleganz"},
+    "꾸안꾸룩":   {"en": "effortless-chic look", "ja": "抜け感ルック", "zh": "慵懒高级感造型", "es": "look effortless-chic", "tr": "zahmetsiz şık stil", "fr": "look chic sans effort", "ar": "إطلالة أنيقة عفوية", "de": "mühelos schicker Look"},
+    "남친룩":     {"en": "boyfriend look",  "ja": "彼氏ルック",        "zh": "男友风", "es": "look boyfriend", "tr": "erkek arkadaş stili", "fr": "look boyfriend", "ar": "إطلالة البويفريند", "de": "Boyfriend-Look"},
+    "여친룩":     {"en": "girlfriend look", "ja": "彼女ルック",        "zh": "女友风", "es": "look girlfriend", "tr": "kız arkadaş stili", "fr": "look girlfriend", "ar": "إطلالة الجيرلفريند", "de": "Girlfriend-Look"},
+    "백꾸":       {"en": "bag charm styling", "ja": "バッグチャーム",   "zh": "包包挂饰装扮", "es": "decoración de bolso", "tr": "çanta süsleme", "fr": "décoration de sac", "ar": "تزيين الحقيبة", "de": "Taschendeko"},
+    "신꾸":       {"en": "shoe charm styling", "ja": "シューデコ",      "zh": "鞋子装饰", "es": "decoración de zapatillas", "tr": "ayakkabı süsleme", "fr": "décoration de chaussures", "ar": "تزيين الحذاء", "de": "Schuhdeko"},
+    "올드머니룩": {"en": "old-money look",  "ja": "オールドマネールック", "zh": "老钱风", "es": "look old money", "tr": "old money stili", "fr": "look old money", "ar": "إطلالة أولد موني", "de": "Old-Money-Look"},
+    "하객룩":     {"en": "wedding-guest look", "ja": "結婚式お呼ばれコーデ", "zh": "婚礼宾客穿搭", "es": "look de invitada a boda", "tr": "düğün davetlisi stili", "fr": "tenue d'invité de mariage", "ar": "إطلالة ضيف الزفاف", "de": "Hochzeitsgast-Look"},
+    "소개팅룩":   {"en": "blind-date look", "ja": "お見合いデートルック", "zh": "相亲穿搭", "es": "look de cita a ciegas", "tr": "tanışma buluşması stili", "fr": "tenue de premier rendez-vous", "ar": "إطلالة موعد التعارف", "de": "Blind-Date-Look"},
+    "데이트룩":   {"en": "date look",       "ja": "デートルック",       "zh": "约会穿搭", "es": "look de cita", "tr": "randevu stili", "fr": "tenue de rendez-vous", "ar": "إطلالة الموعد", "de": "Date-Look"},
+    "공항패션":   {"en": "airport fashion", "ja": "空港ファッション",   "zh": "机场穿搭", "es": "moda de aeropuerto", "tr": "havalimanı modası", "fr": "mode aéroport", "ar": "موضة المطار", "de": "Airport-Fashion"},
+    "미니멀룩":   {"en": "minimal look",    "ja": "ミニマルルック",     "zh": "极简风", "es": "look minimalista", "tr": "minimal stil", "fr": "look minimaliste", "ar": "إطلالة بسيطة", "de": "Minimal-Look"},
+    "스트릿패션": {"en": "street fashion",  "ja": "ストリートファッション", "zh": "街头风", "es": "moda urbana", "tr": "sokak modası", "fr": "mode urbaine", "ar": "موضة الشارع", "de": "Streetwear"},
+    "프레피룩":   {"en": "preppy look",     "ja": "プレッピールック",   "zh": "学院风", "es": "look preppy", "tr": "preppy stil", "fr": "look preppy", "ar": "إطلالة بريبي", "de": "Preppy-Look"},
+    "빈티지 레트로": {"en": "vintage retro", "ja": "ヴィンテージレトロ", "zh": "复古风", "es": "vintage retro", "tr": "vintage retro", "fr": "vintage rétro", "ar": "فينتاج ريترو", "de": "Vintage-Retro"},
     # ── 스타일 용어 (오역 잦음) ──
-    "핏감":       {"en": "fit",             "ja": "フィット感",         "zh": "版型", "es": "ajuste"},
-    "레이어드":   {"en": "layering",        "ja": "レイヤード",         "zh": "叠穿", "es": "capas"},
-    "톤온톤":     {"en": "tone-on-tone",    "ja": "トーンオントーン",   "zh": "同色系搭配", "es": "tono sobre tono"},
-    "포인트 컬러": {"en": "accent color",   "ja": "ポイントカラー",     "zh": "点缀色", "es": "color de acento"},
-    "드레이프감": {"en": "drape",           "ja": "ドレープ感",         "zh": "垂坠感", "es": "caída"},
+    "핏감":       {"en": "fit",             "ja": "フィット感",         "zh": "版型", "es": "ajuste", "tr": "kalıp", "fr": "coupe", "ar": "القَصّة", "de": "Passform"},
+    "레이어드":   {"en": "layering",        "ja": "レイヤード",         "zh": "叠穿", "es": "capas", "tr": "katmanlama", "fr": "superposition", "ar": "طبقات", "de": "Layering"},
+    "톤온톤":     {"en": "tone-on-tone",    "ja": "トーンオントーン",   "zh": "同色系搭配", "es": "tono sobre tono", "tr": "ton sür ton", "fr": "ton sur ton", "ar": "درجات اللون الواحد", "de": "Ton-in-Ton"},
+    "포인트 컬러": {"en": "accent color",   "ja": "ポイントカラー",     "zh": "点缀色", "es": "color de acento", "tr": "vurgu rengi", "fr": "couleur d'accent", "ar": "لون مميز", "de": "Akzentfarbe"},
+    "드레이프감": {"en": "drape",           "ja": "ドレープ感",         "zh": "垂坠感", "es": "caída", "tr": "dökümlülük", "fr": "tombé", "ar": "انسدال", "de": "Fall"},
 }
 
 _SENTINEL = "\u27e6T{}\u27e7"          # ⟦T0⟧ ⟦T1⟧ … LLM이 건드리지 않는 특수 괄호
 _SENTINEL_RE = re.compile(r"\u27e6T(\d+)\u27e7")
 _TERM_KEYS = sorted(PROTECTED_TERMS.keys(), key=len, reverse=True)  # 긴 키 우선
 
-SUPPORTED_LANGS = ("en", "ja", "zh", "es")  # 2026-07-04 KST · TJ 지시 — es 추가
+SUPPORTED_LANGS = ("en", "ja", "zh", "es", "tr", "fr", "ar", "de")  # 2026-07-04 KST · TJ 지시 — 글로벌 8언어
 
-LANG_NAME = {"en": "English", "ja": "Japanese", "zh": "Simplified Chinese", "es": "Spanish"}
+LANG_NAME = {"en": "English", "ja": "Japanese", "zh": "Simplified Chinese", "es": "Spanish",
+             "tr": "Turkish", "fr": "French", "ar": "Arabic", "de": "German"}
 
 
 def mask_terms(text):

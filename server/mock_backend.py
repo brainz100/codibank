@@ -1700,6 +1700,15 @@ def _read_r2_bytes(key: str) -> bytes | None:
 
 
 app = Flask(__name__)
+
+# ─── 2026-07-04 KST · TJ 지시 ─── 장문 번역 파이프라인 등록 (/api/translate) ───
+try:
+    from translate_pipeline import translate_bp as _translate_bp
+    if _translate_bp is not None:
+        app.register_blueprint(_translate_bp)
+        print("[translate] /api/translate 등록 완료", flush=True)
+except Exception as _tp_e:
+    print(f"[translate] 파이프라인 미등록(선택 기능): {_tp_e}", flush=True)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 CORS(app, allow_headers=["Content-Type", "X-Admin-Key", "Authorization"])
 
@@ -2220,6 +2229,38 @@ def _korean_to_en_age(age_group: str) -> str:
 # 해결: 모든 가능한 성별 값('female','male','여성','남성','F','M' 등)을 통합 처리
 # 관련파일: closet.html(payload), codistyle.html(payload), profile.html(저장)
 # ────
+# ─── 2026-07-04 KST · TJ 지시 ─── 다국어(9언어) 지원 헬퍼 ─────────────────────
+#   프론트가 lang(ko/en/ja/zh/es/tr/fr/ar/de)을 보내면:
+#   · GPT/Gemini 분석 프롬프트는 해당 언어명으로 텍스트 작성 지시
+#   · 스토리(엔진 한국어 템플릿)는 응답 직전 translate_pipeline 로 번역(캐시 재사용)
+_LANG_NAMES = {
+    "ko": "한국어", "en": "English", "ja": "Japanese", "zh": "Simplified Chinese",
+    "es": "Spanish", "tr": "Turkish", "fr": "French", "ar": "Arabic", "de": "German",
+}
+def _norm_lang(lang):
+    l = str(lang or "ko").strip().lower()[:2]
+    return l if l in _LANG_NAMES else "ko"
+
+def _lang_name(lang):
+    return _LANG_NAMES[_norm_lang(lang)]
+
+try:
+    from translate_pipeline import translate_text as _tp_translate
+except Exception:
+    _tp_translate = None
+
+def _tr_story(story, payload):
+    """스토리(한국어 생성물)를 요청 언어로 번역. 실패/ko → 원문 (무중단)."""
+    try:
+        if not story:
+            return story
+        lang = _norm_lang((payload or {}).get("lang"))
+        if lang == "ko" or _tp_translate is None:
+            return story
+        return _tp_translate(story, lang)
+    except Exception:
+        return story
+
 def _normalize_gender_code(g: str) -> str:
     """어떤 형태의 gender 값이든 'F' 또는 'M'으로 정규화"""
     v = (g or "").strip().lower()
@@ -3909,7 +3950,7 @@ def _ai_styling_via_gemini(
                 matched_stylist, (meta or {}).get('active_city', '') if meta else ''
             )
         ),
-        stylingStory=(meta or {}).get("styling_story") if meta else None,
+        stylingStory=_tr_story((meta or {}).get("styling_story") if meta else None, payload),  # 2026-07-04 KST · TJ 지시 — 9언어
         engineKeywords=(meta or {}).get('keywords_selected', []) if meta else [],
         engineCategoryKeywords=merged_cat_kws,
         engineCity=(meta or {}).get('active_city', '') if meta else '',
@@ -3947,7 +3988,11 @@ def _codifit_analysis_via_gpt41mini(
 
     실패 시: RuntimeError 발생 (호출부가 503 응답 + 클라이언트 재시도 처리).
     """
-    _en = (str(lang or payload.get("lang") or "ko").strip().lower() == "en")
+    # ─── 2026-07-04 KST · TJ 지시 ─── 이진(en/ko) → 9언어: 비한국어 전체가 영어 프롬프트 경로 사용,
+    #     텍스트 작성 언어는 _report_lang_name 으로 정확히 지시 (ja/zh/es/tr/fr/ar/de 지원)
+    _report_lang = _norm_lang(lang or payload.get("lang"))
+    _report_lang_name = _lang_name(_report_lang)
+    _en = (_report_lang != "ko")
     user = payload.get("user") or {}
     weather = payload.get("weather") or {}
     pc = payload.get("personalColor") or {}
@@ -4052,7 +4097,7 @@ def _codifit_analysis_via_gpt41mini(
             )
 
     # ── 사용자 프롬프트 ──
-    _lang_label_text = "English" if _en else "한국어"
+    _lang_label_text = _report_lang_name  # 2026-07-04 KST · TJ 지시 — 9언어 (스키마 5곳 자동 주입)
     # vision 시 outfit 섹션 스키마 (없으면 빈 문자열 → 3섹션)
     _outfit_schema = ""
     if _vision:
@@ -4201,7 +4246,8 @@ def _generate_styling_analysis(payload, matched_stylist, meta, lang=None):
     """3개 측면 종합 분석 + 각 3개 키워드 생성 (템플릿 기반, API 호출 없음)"""
     # [2026-04-19 BUGFIX #2] _en 변수 누락 → NameError → 이 함수 호출 시마다 예외 발생
     # 영향: 캐시 히트 / Gemini 분석 JSON 파싱 실패 / OpenAI 폴백 3곳에서 모두 터짐
-    _en = (str(lang or payload.get("lang") or "ko").strip().lower() == "en")
+    # 2026-07-04 KST · TJ 지시 — 템플릿 폴백은 ko/en 2종뿐이므로 비한국어 전체 → 영어 템플릿(한글 노출 방지)
+    _en = (_norm_lang(lang or payload.get("lang")) != "ko")
     user      = payload.get("user") or {}
     weather   = payload.get("weather") or {}
     pc        = payload.get("personalColor") or {}
@@ -4661,7 +4707,7 @@ def ai_styling():
                     _matched_stylist, (_meta or {}).get('active_city', '') if _meta else ''
                 )
             ),
-            stylingStory=(_meta or {}).get("styling_story") if _meta else None,
+            stylingStory=_tr_story((_meta or {}).get("styling_story") if _meta else None, payload),  # 2026-07-04 KST · TJ 지시
             engineKeywords=(_meta or {}).get('keywords_selected', []) if _meta else [],
             engineCategoryKeywords=(_meta or {}).get('categoryKeywords', {}) if _meta else {},
             engineCity=(_meta or {}).get('active_city', '') if _meta else '',
@@ -4871,7 +4917,7 @@ def ai_styling():
                     _matched_stylist, _meta.get('active_city', '') if _meta else ''
                 )
             ),
-            stylingStory=_styling_story or None,
+            stylingStory=_tr_story(_styling_story or None, payload),  # 2026-07-04 KST · TJ 지시
             # [2026-04-06 추가] UI 스타일링 포인트용 데이터
             engineKeywords=_meta.get('keywords_selected', []),
             engineCategoryKeywords=_meta.get('categoryKeywords', {}),
@@ -9674,6 +9720,7 @@ def ai_personal_color():
     try:
         d = request.get_json(force=True) or {}
         image_data = d.get("image")
+        _pc_lang = _norm_lang(d.get("lang"))  # 2026-07-04 KST · TJ 지시 — 9언어
         if not image_data:
             return jsonify(ok=False, error="이미지 없음"), 400
 
@@ -9698,6 +9745,17 @@ def ai_personal_color():
                 print("[Phase2] error: " + str(_e))
 
         PROMPT = enhanced_prompt or _PC_FALLBACK_PROMPT
+        # ─── 2026-07-04 KST · TJ 지시 ─── 표시 텍스트만 요청 언어로 (구조/코드값은 한국어 유지) ───
+        #   · season("봄웜" 등)은 클라이언트 매핑이 의존하는 코드값 → 한국어 그대로
+        #   · summary / style_tip / best·avoid_color_names 는 사용자 언어로 작성
+        if _pc_lang != "ko":
+            PROMPT = PROMPT + (
+                "\n\nLANGUAGE OVERRIDE (highest priority):\n"
+                f"- Write 'summary', 'style_tip', 'best_color_names', 'avoid_color_names' in {_lang_name(_pc_lang)}.\n"
+                "- Keep 'season', 'undertone', 'skin_tone' values EXACTLY as the Korean codes specified in the schema "
+                "(e.g. \"봄웜\") — the client parses these codes.\n"
+                "- Keep all JSON keys and structure unchanged."
+            )
 
         _openai_key = os.environ.get("OPENAI_API_KEY", "")
         if not _openai_key:
