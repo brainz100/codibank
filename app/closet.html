@@ -967,37 +967,46 @@
   };
 
   window._cbI18n = _T;
-  // 헬퍼: JS 런타임 한글 → 영어 변환
-  window._L = function(ko){ return (window.CodiBankI18n && CodiBankI18n.isEn() && _T[ko]) ? _T[ko] : ko; };
+  /* ─── 2026-07-04 KST · TJ 지시 ─── 다국어 연결: 현지어 우선 → 영어 폴백 ─────
+     문제: 이 워커가 영어 전용이라 JA/ZH/ES 에서 코디핏 텍스트가 한글로 잔존.
+     해결: 외국어 전체에서 동작(_cbFor) + 값은 i18n.js 병합 사전(현지어) 우선,
+           없으면 이 페이지의 영어 사전(_T) 폴백. 한글 잔존 = 0. */
+  window._cbFor = function(){ try{ return !!(window.CodiBankI18n && (CodiBankI18n.isForeign ? CodiBankI18n.isForeign() : CodiBankI18n.isEn())); }catch(_){ return false; } };
+  window._V = function(ko){
+    try{ if(window.CodiBankI18n && CodiBankI18n.lookup){ var v = CodiBankI18n.lookup(ko); if(v !== undefined) return v; } }catch(_){}
+    return _T[ko];
+  };
+  // 헬퍼: JS 런타임 한글 → 현재 언어 변환 (현지어 → 영어 → 원문)
+  window._L = function(ko){ if(!window._cbFor()) return ko; var v = window._V(ko); return (v !== undefined && v !== null) ? v : ko; };
 
   window.applyI18n = function(){
-    if(!(window.CodiBankI18n && CodiBankI18n.isEn())) return;
+    if(!window._cbFor()) return;
     // 1) data-i18n 속성 우선
     document.querySelectorAll('[data-i18n]').forEach(function(el){
       var key = el.getAttribute('data-i18n');
-      if(_T[key]) el.textContent = _T[key];
+      var _v1 = window._V(key); if(_v1) el.textContent = _v1;
     });
     // 2) 텍스트 노드 순회 번역
     var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
     var node;
     while((node = walker.nextNode())){
       var txt = node.nodeValue.trim();
-      if(txt && _T[txt]){
-        node.nodeValue = node.nodeValue.replace(txt, _T[txt]);
+      var _v2 = txt && window._V(txt);
+      if(_v2){
+        node.nodeValue = node.nodeValue.replace(txt, _v2);
       }
     }
     // 3) placeholder 번역
     document.querySelectorAll('[placeholder]').forEach(function(el){
       var ph = el.getAttribute('placeholder');
-      if(_T[ph]) el.setAttribute('placeholder', _T[ph]);
+      var _v3 = window._V(ph); if(_v3) el.setAttribute('placeholder', _v3);
     });
     // 4) title 태그
     var titleEl = document.querySelector('title');
-    if(titleEl && _T[titleEl.textContent.trim()]){
-      titleEl.textContent = _T[titleEl.textContent.trim()];
-    }
+    var _v4 = titleEl && window._V(titleEl.textContent.trim());
+    if(_v4){ titleEl.textContent = _v4; }
     // 5) html lang 속성
-    document.documentElement.setAttribute('lang','en');
+    document.documentElement.setAttribute('lang', (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'en');
   };
 })();
 // 페이지 로드 후 번역 적용
@@ -3343,7 +3352,7 @@ else{_go();setTimeout(_go,200);setTimeout(_go,800);setTimeout(_go,2000);}})();
     <a href="terms.html" style="color:rgba(151,254,237,0.5);text-decoration:none;">Terms</a>
   </div>
 </div>
-<script>(function(){function _cf(){var en=window.CodiBankI18n&&CodiBankI18n.isEn();var k=document.getElementById('company-footer-ko'),e=document.getElementById('company-footer-en');if(k)k.style.display=en?'none':'block';if(e)e.style.display=en?'block':'none';}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(_cf,150);});else setTimeout(_cf,150);})();</script>
+<script>(function(){function _cf(){var en=window._cbFor();var k=document.getElementById('company-footer-ko'),e=document.getElementById('company-footer-en');if(k)k.style.display=en?'none':'block';if(e)e.style.display=en?'block':'none';}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(_cf,150);});else setTimeout(_cf,150);})();</script>
 <div class="cb-spacer"></div>
 <nav class="cb-nav">
   <!-- ─── 2026-05-24 KST · TJ 지시 ─── 6탭 풋바 (Ai옷장 복원) ───────────
@@ -3727,7 +3736,7 @@ function showSimilarItems(matches) {
   const top3 = matches.slice(0,3).filter(m => m.match_pct >= 40);
   if(top3.length === 0) return;
 
-  const isEn = window.CodiBankI18n && CodiBankI18n.isEn();
+  const isEn = window._cbFor();
   box.innerHTML = `
     <div style="font-size:12px;font-weight:800;color:rgba(255,255,255,.75);margin-bottom:10px;">
       🎯 ${isEn ? 'Similar items in your wardrobe' : '내 옷장 유사 아이템'}
@@ -4091,12 +4100,12 @@ function updateQuotaBadge(){
     // 일일 합산 잔여 (DIAMOND FUP)는 보조 정보로 유지
     const _dRem = (ck.dailyRemaining !== null && ck.dailyRemaining !== undefined && Number.isFinite(Number(ck.dailyRemaining)))
       ? Number(ck.dailyRemaining) : null;
-    const _bEnQ = window.CodiBankI18n && CodiBankI18n.isEn();
+    const _bEnQ = window._cbFor();
     const daily = (_dRem !== null) ? (_bEnQ ? ` · Today ${_dRem}` : ` · 오늘 ${_dRem}회`) : ''; // 2026-07-03 KST · TJ 지시 — EN
 
     const _isLow = !_coUnlimited && Number(_coRem) <= 2;
     badge.className = `ai-badge ${_isLow?'danger':'gray'}`;
-    var _bEn3=window.CodiBankI18n&&CodiBankI18n.isEn();
+    var _bEn3=window._cbFor();
     badge.textContent = _bEn3
       ? `Codi Fit: ${_coRem} left${daily}`
       : `코디핏 ${_coRem}회 사용가능${daily}`;
@@ -5551,7 +5560,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   })();
 
   // ── 영어 모드: codiStory 영어 버전 생성 ──
-  if(window.CodiBankI18n && CodiBankI18n.isEn()){
+  if(window._cbFor()){
     const _region = stylistCity || 'Seoul';
     const _pLabelEn = persona.en || persona.voice;
     const _wxEn = (Number.isFinite(nt) ? nt+'°C' : '') + ' ' + (wxTxt||'');
@@ -5584,7 +5593,7 @@ async function callClaude({faceSrc,wx,pk,profile,seed,day}){
   // ── [14] styleTitle
   const titleMap = {bizFormal:_L('셋업'),officeDaily:_L('오피스룩'),interview:_L('면접룩'),weddingGuest:_L('결혼식 하객룩'),blindDate:_L('소개팅룩'),romanticDate:_L('데이트룩'),familyMeet:_L('올드머니룩'),socialParty:_L('빈티지 레트로'),weekendOut:_L('주말 나들이'),travelShot:_L('여행룩'),dailyCasual:_L('꾸안꾸 데일리'),sporty:_L('스포티/애슬레저'),airport:_L('프레피룩'),minimal:_L('미니멀룩'),streetTrend:_L('스트릿패션'),custom:_L('맞춤')};
   const titleMapEn = {commute:'Commute',business:'Business',weekendOut:'Weekend',weekendTrip:'Trip',domesticTrip:'Domestic Trip',overseasTrip:'Overseas Trip',meet:'Social',blindDate:'Blind Date',partyLook:'Party',custom:'Custom'};
-  const _isEn = window.CodiBankI18n && CodiBankI18n.isEn();
+  const _isEn = window._cbFor();
   const baseTitle = _isEn ? (titleMapEn[pk]||purposeName||'Today') : (titleMap[pk]||purposeName||'오늘의');
   const styleTitle = `${baseTitle} · ${_isEn ? (persona.en||persona.voice) : persona.voice}`;
   const skinTip = (faceSrc&&faceSrc.startsWith('data:'))?'얼굴 등록':'';
@@ -7029,7 +7038,7 @@ async function updateVTO(opts={}){
         colorDirective: _colorDirective,
         customDirective: _customDirective,
         categoryKeywords: S.categoryKeywords || {},
-        lang: (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'en' : 'ko',
+        lang: (window._cbFor()) ? 'en' : 'ko',
         seed:S.seed,
         isRetry: S.isRetry || false,
         // [2026-04-08] Phase 2: 퍼스널컬러 전달 (12서브타입 대응)
@@ -7164,7 +7173,7 @@ async function updateVTO(opts={}){
           if(_sb2 && S.stylist) {
             const _sn = S.stylist.name || '';
             var _sv = S.stylist.career || S.stylist.voice || '';
-            if(window.CodiBankI18n && CodiBankI18n.isEn()){
+            if(window._cbFor()){
               _sv = _sv.replace('서울지역 활동','Seoul-based').replace('지역 활동',' area');
             }
             _sb2.textContent = _sn ? _sn + ' · ' + _sv : _sv;
@@ -7803,7 +7812,7 @@ function renderPurposeGrid(){
     // ─── 2026-05-19 KST · TJ 지시 ─── 직접입력은 전용 전체폭 박스로 분리 ───
     if(p.key==='custom') return;
     const b=document.createElement('button');b.type='button';b.className='purpose-card';b.dataset.purpose=p.key;
-    var _isEn2=window.CodiBankI18n&&CodiBankI18n.isEn();
+    var _isEn2=window._cbFor();
     b.innerHTML=`<span class="material-symbols-outlined">${p.icon}</span><span>${_isEn2&&p.labelEn?p.labelEn:p.label}</span>`;
     b.addEventListener('click',()=>setPurpose(p.key));el.appendChild(b);
   });
@@ -7813,7 +7822,7 @@ function renderPurposeGrid(){
   //   setActivePurpose 가 data-purpose='custom' 박스에 .active 를 토글하면
   //   CSS 가 라벨↔input 표시를 전환한다. 여기서는 input 값 동기화 + 포커스만.
   const ci = document.getElementById('purposeCustomInput');
-  const _isEnPcb = window.CodiBankI18n && CodiBankI18n.isEn();
+  const _isEnPcb = window._cbFor();
   const _pcbText = document.querySelector('#pcbLabel span:last-child');
   if (_pcbText) _pcbText.textContent = _isEnPcb ? 'Custom' : '직접입력';
   if (ci) {
@@ -8440,7 +8449,7 @@ function renderStylingPoint(){
     // ─── 2026-05-25 KST · 패치: _isEn2 외부 스코프 정의 누락 (ReferenceError 수정) ───
     //   line 8253의 forEach 콜백 안 `var _isEn2`는 콜백 스코프 한정이라 
     //   바깥(여기 line ~8211)에서는 ReferenceError 발생함. 외부 정의 명시.
-    const _isEn2 = window.CodiBankI18n && CodiBankI18n.isEn();
+    const _isEn2 = window._cbFor();
     const _outerDisplayLabel = S.outerLabel || (_isEn2?'Outer':'아우터');
     const CAT_LABELS = [
       { key:"outer",  label:_outerDisplayLabel, icon:"🧥" },
@@ -8484,7 +8493,7 @@ function renderStylingPoint(){
         // 2026-07-03 KST · TJ 지시 — 미등록/컴파운드 문구는 토큰 번역기로 폴백
         return m[v] || (window._cbEnItem ? window._cbEnItem(v) : v);
       };
-      var _isEn2 = window.CodiBankI18n && CodiBankI18n.isEn();
+      var _isEn2 = window._cbFor();
       const kws = _toKwArray(ckw[key]).map(function(k){ return _kwValEn(k); });
       if(!kws.length) return;
       hasAny = true;
@@ -8590,7 +8599,7 @@ const wE={loc:document.getElementById('wxLoc'),date:document.getElementById('wxD
    문제: 날씨는 applyI18n(로드 직후) 이후 비동기 렌더 → 트리워커가 못 잡고
          '대체로 Clear', 'UV 높음' 같은 한/영 혼용 발생.
    해결: 렌더 시점에 직접 번역하는 _wxT() — 타이밍 무관 100% 결정적. */
-const _wxLangEn = () => { try{ return !!(window.CodiBankI18n && CodiBankI18n.isEn()); }catch(_){ return false; } };
+const _wxLangEn = () => { try{ return !!(window._cbFor()); }catch(_){ return false; } };
 const _WX_EN = {
   '맑음':'Clear','대체로 맑음':'Mostly Clear','구름많음':'Cloudy','흐림':'Overcast',
   '안개':'Fog','이슬비':'Drizzle','어는 이슬비':'Freezing Drizzle','비':'Rain','어는 비':'Freezing Rain',
@@ -8599,14 +8608,22 @@ const _WX_EN = {
   '높음':'High','매우높음':'Very High','나쁨':'Poor','매우나쁨':'Very Poor'
 };
 const _wxT = (t) => (_wxLangEn() && t && _WX_EN[String(t).trim()]) ? _WX_EN[String(t).trim()] : t;
-const _WX_DAYS = () => _wxLangEn() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] : ['일','월','화','수','목','금','토'];
+const _WX_DAYS = () => {
+  if(!_wxLangEn()) return ['일','월','화','수','목','금','토'];
+  // 2026-07-04 KST · TJ 지시 — 현지어 요일 우선(JA/ZH/ES), 미등록 시 영어
+  const EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  try{ if(window.CodiBankI18n && CodiBankI18n.lookup){
+    return ['일','월','화','수','목','금','토'].map((k,i)=> CodiBankI18n.lookup(k) || EN[i]);
+  } }catch(_){}
+  return EN;
+};
 /* ─── 2026-07-03 KST · TJ 지시 ─── 아이템 문구 토큰 번역기 (EN 백업) ─────────
    용도: 서버가 한글 착장 문구를 줄 때(카테고리 포인트·팝업 착장 패널)
          공백 토큰 단위로 번역해 '블랙 반팔 티셔츠'→'Black Short-Sleeve T-Shirt'.
    원칙: 영어모드에서만 동작, 미등록 토큰은 원문 유지(안전). */
 window._cbEnItem = function(str){
   try{
-    if(!(window.CodiBankI18n && CodiBankI18n.isEn())) return str;
+    if(!(window._cbFor())) return str;
     var v = String(str||'').trim(); if(!v) return str;
     var M = {
       '블랙':'Black','화이트':'White','그레이':'Gray','라이트':'Light','미디엄':'Medium','다크':'Dark',
@@ -9537,7 +9554,7 @@ function buildSection(catMeta,items){
       const _gi = items[0]?.meta?.gemini;
       if(_gi && (_gi.pattern || _gi.material || _gi.main_color_name)) {
         const _info = [_gi.main_color_name, _gi.pattern !== '단색' ? _gi.pattern : '', _gi.material?.split(',')[0]].filter(Boolean).join(' · ');
-        const _lbl = (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'AI Analysis:' : 'AI분석 :';
+        const _lbl = (window._cbFor()) ? 'AI Analysis:' : 'AI분석 :';
         adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">${_lbl}</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">${_info}</span>`;
       } else {
         adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">← 스와이프로 아이템을 탐색하세요</span>`;
@@ -9808,7 +9825,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
 
     // 월 레이블 (오늘 기준) — ─── 2026-05-09 KST · TJ 지시 (v50) ─── 영어 분기
     if(monthLabel){
-      var _enMon = window.CodiBankI18n && CodiBankI18n.isEn && CodiBankI18n.isEn();
+      var _enMon = window._cbFor();
       if(_enMon){
         var _MN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
         monthLabel.textContent = `${_MN[today.getMonth()]} ${today.getFullYear()}`;
@@ -9844,7 +9861,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           }
         }
       }catch(_){}
-      card.innerHTML = `<span class="dc-day">${(window.CodiBankI18n&&CodiBankI18n.isEn())?['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dow]:DAY_KO[dow]}</span><span class="dc-num">${d.getDate()}</span>` + (_tempStr ? `<span class="dc-temp">${_tempStr}</span>` : '');
+      card.innerHTML = `<span class="dc-day">${(window._cbFor())?((window.CodiBankI18n&&CodiBankI18n.lookup&&CodiBankI18n.lookup(DAY_KO[dow]))||['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dow]):DAY_KO[dow]}</span><span class="dc-num">${d.getDate()}</span>` + (_tempStr ? `<span class="dc-temp">${_tempStr}</span>` : '');
 
       // 기존 선택 복원
       if(
@@ -10821,7 +10838,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       const r = await v68Fetch('/api/ai/styling/analysis', {
         cacheKey: cacheKey,
         imageUrl: imageUrl || '',
-        lang: (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'en' : 'ko',  // 2026-07-03 KST · TJ 지시 — 영어모드 분석
+        lang: (window._cbFor()) ? 'en' : 'ko',  // 2026-07-03 KST · TJ 지시 — 영어모드 분석
         user: _userInfo,                 // height/weight/gender/bodyType/ageGroup
         weather: _weatherInfo,           // 기준온도(최고−2)/최고/최저 — OCCASION 섹션용
         personalColor: _pc || undefined, // 퍼스널컬러(있으면)
@@ -11097,7 +11114,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       purposeLabel: (_isCustom && _customText) ? _customText : (S.purposeLabel || ''),
       customText: _customText,
       faceImage: S.faceImage || '',  // 이미 등록된 face Data URL
-      lang: (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'en' : 'ko',  // 2026-07-03 KST · TJ 지시 — 영어모드: 스토리/키워드 영어 생성
+      lang: (window._cbFor()) ? 'en' : 'ko',  // 2026-07-03 KST · TJ 지시 — 영어모드: 스토리/키워드 영어 생성
       // ★ v68 신규 hook
       _force_city: forceCity,
       _force_quality: 'low',
@@ -11300,7 +11317,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         const dot = document.createElement('span');
         dot.className = 'cody-status-dot';
         const t = document.createElement('span');
-        t.textContent = (window.CodiBankI18n&&CodiBankI18n.isEn()) ? 'Analyzing your styling…' : '스타일링 분석 중입니다…'; // 2026-07-03 KST · TJ 지시 — EN
+        t.textContent = (window._cbFor()) ? 'Analyzing your styling…' : '스타일링 분석 중입니다…'; // 2026-07-03 KST · TJ 지시 — EN
         msg.appendChild(dot); msg.appendChild(t);
       }
       _cody.appendChild(msg);
@@ -11308,7 +11325,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     }
     // 생성 이미지를 직접 본 실제 착장 분석 (정확 — 이미지와 일치)
     // 2026-07-03 KST · TJ 지시 — 라벨 EN + 값 토큰번역 (영어모드 한글 잔존 해소)
-    const _mEn = window.CodiBankI18n && CodiBankI18n.isEn();
+    const _mEn = window._cbFor();
     const rows = [
       [_mEn ? 'Top' : '상의', outfit.top],
       [_mEn ? 'Bottom' : '하의', outfit.bottom],
@@ -11369,7 +11386,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       }catch(_){}
       try{ _pc = (user && user.personalColor) || (window.user && window.user.personalColor) || null; }catch(_){}
       const r = await v68Fetch('/api/ai/styling/analysis', {
-        lang: (window.CodiBankI18n && CodiBankI18n.isEn()) ? 'en' : 'ko',  // 2026-07-03 KST · TJ 지시 — 영어모드 분석
+        lang: (window._cbFor()) ? 'en' : 'ko',  // 2026-07-03 KST · TJ 지시 — 영어모드 분석
         cacheKey: card.cacheKey,
         imageUrl: card.imageUrl || card.url || '',
         stylist: card.stylist || null,
@@ -11448,7 +11465,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     //   이전: "{도시} 스타일리스트 / {컨셉}" (지역 중심)
     //   변경: "{선정된 AI 스타일리스트 이름}의 추천코디" — 스타일리스트 이름 노출.
     const _stylistName = (card.stylist && card.stylist.name) ? String(card.stylist.name).trim() : '';
-    const _isEnHdr = !!(window.CodiBankI18n && CodiBankI18n.isEn());
+    const _isEnHdr = !!(window._cbFor());
     let _headerTxt;
     if(_stylistName){
       _headerTxt = _isEnHdr ? ('Cody by ' + _stylistName) : (_stylistName + '의 추천코디');
