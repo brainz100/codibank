@@ -4103,7 +4103,9 @@ function updateQuotaBadge(){
     const _dRem = (ck.dailyRemaining !== null && ck.dailyRemaining !== undefined && Number.isFinite(Number(ck.dailyRemaining)))
       ? Number(ck.dailyRemaining) : null;
     const _bEnQ = window._cbFor();
-    const daily = (_dRem !== null) ? (_bEnQ ? ` · Today ${_dRem}` : ` · 오늘 ${_dRem}회`) : ''; // 2026-07-03 KST · TJ 지시 — EN
+    const _bLang = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko';
+    const _bDaily = { ko:` · 오늘 ${_dRem}회`, zh:` · 今日 ${_dRem}次` }; // 2026-07-05 KST · TJ 지시 — 언어별 배지 (미등록 언어는 EN)
+    const daily = (_dRem !== null) ? (_bDaily[_bLang] || ` · Today ${_dRem}`) : '';
 
     const _isLow = !_coUnlimited && Number(_coRem) <= 2;
     badge.className = `ai-badge ${_isLow?'danger':'gray'}`;
@@ -8609,7 +8611,13 @@ const _WX_EN = {
   '날씨':'Weather','로딩중':'Loading','오늘':'Today','내일':'Tomorrow',
   '높음':'High','매우높음':'Very High','나쁨':'Poor','매우나쁨':'Very Poor'
 };
-const _wxT = (t) => (_wxLangEn() && t && _WX_EN[String(t).trim()]) ? _WX_EN[String(t).trim()] : t;
+const _wxT = (t) => {
+  if(!_wxLangEn() || !t) return t;
+  const k = String(t).trim();
+  // 2026-07-05 KST · TJ 지시 — 현지어 우선(중국어 등 i18n 사전) → 영어 폴백
+  try{ if(window.CodiBankI18n && CodiBankI18n.lookup){ const v = CodiBankI18n.lookup(k); if(v !== undefined) return v; } }catch(_){}
+  return _WX_EN[k] || t;
+};
 const _WX_DAYS = () => {
   if(!_wxLangEn()) return ['일','월','화','수','목','금','토'];
   // 2026-07-04 KST · TJ 지시 — 현지어 요일 우선(JA/ZH/ES), 미등록 시 영어
@@ -8646,6 +8654,39 @@ window._cbEnItem = function(str){
       '가디건':'Cardigan','자켓':'Jacket','재킷':'Jacket','코트':'Coat','패딩':'Puffer','점퍼':'Jumper',
       '조끼':'Vest','블레이저':'Blazer','원피스':'Dress','트렌치':'Trench','없음':'None'
     };
+    /* ─── 2026-07-05 KST · TJ 지시 ─── 언어별 아이템 토큰 맵 (중국어 100%) ───
+       현재 언어 맵 우선 → 영어 맵 폴백 → 원문. 언어 추가 시 _CB_ITEM 에 맵만 추가. */
+    var _CB_ITEM = window._CB_ITEM || (window._CB_ITEM = {
+      zh: {
+        '블랙':'黑色','화이트':'白色','그레이':'灰色','라이트':'浅','미디엄':'中','다크':'深',
+        '베이지':'米色','네이비':'藏青','차콜':'炭灰','브라운':'棕色','카멜':'驼色','올리브':'橄榄绿',
+        '버건디':'酒红','아이보리':'象牙白','코랄':'珊瑚色','라벤더':'薰衣草紫','민트':'薄荷绿','핑크':'粉色',
+        '레드':'红色','블루':'蓝色','그린':'绿色','크림':'奶油色','카키':'卡其','와인':'酒红',
+        '셔츠':'衬衫','티셔츠':'T恤','블라우스':'衬衣','니트':'针织衫','맨투맨':'卫衣','후드':'连帽衫',
+        '반팔':'短袖','긴팔':'长袖','브이넥':'V领','라운드넥':'圆领','카라':'翻领',
+        '슬랙스':'西裤','청바지':'牛仔裤','데님':'牛仔','면바지':'休闲裤','반바지':'短裤',
+        '치마':'裙子','스커트':'裙子','미니스커트':'迷你裙','팬츠':'裤子','조거':'束脚','밴딩':'松紧',
+        'A라인':'A字','와이드':'阔腿','슬림':'修身','스트레이트':'直筒','플리츠':'百褶',
+        '스니커즈':'运动鞋','로퍼':'乐福鞋','부츠':'靴子','힐':'高跟鞋','구두':'皮鞋',
+        '더비':'德比鞋','옥스포드화':'牛津鞋','옥스포드':'牛津','샌들':'凉鞋','플랫':'平底鞋',
+        '가죽':'皮革','스웨이드':'麂皮','린넨':'亚麻','면':'棉','울':'羊毛','실크':'真丝',
+        '가방':'包','백팩':'双肩包','토트백':'托特包','크로스백':'斜挎包','숄더백':'单肩包',
+        '클러치':'手拿包','벨트':'腰带','안경':'眼镜','선글라스':'太阳镜','모자':'帽子','캡':'棒球帽',
+        '시계':'手表','스마트워치':'智能手表','머플러':'围巾','스카프':'丝巾','양말':'袜子',
+        '가디건':'开衫','자켓':'夹克','재킷':'夹克','코트':'大衣','패딩':'羽绒服','점퍼':'夹克衫',
+        '조끼':'马甲','블레이저':'西装外套','원피스':'连衣裙','트렌치':'风衣','없음':'无'
+      }
+    });
+    try{
+      var _cl = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'en';
+      var L = _CB_ITEM[_cl];
+      if(L){
+        if(L[v]) return L[v];
+        var lp = v.split(/\s+/).map(function(t){ return L[t] || M[t] || t; });
+        // 중국어는 색상+명사 붙여쓰기 관례
+        return (_cl === 'zh') ? lp.join('') : lp.join(' ');
+      }
+    }catch(_){}
     if(M[v]) return M[v];
     var parts = v.split(/\s+/).map(function(t){ return M[t] || t; });
     return parts.join(' ');
