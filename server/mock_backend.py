@@ -5005,6 +5005,18 @@ def ai_styling_analysis():
     except Exception:
         pass
 
+    # ─── 2026-07-05 KST · TJ 지시 ─── 분석 캐시 언어별 분리 ───────────────────
+    #   문제: 캐시가 이미지+사용자 기준뿐 → 한국어로 첫 분석되면 중국어 요청에도
+    #         한국어 캐시 반환 (보고서 미번역의 근본 원인).
+    #   해결: 비한국어 요청은 캐시 키에 언어 접미(_l{lang}) — 언어별 독립 캐시.
+    #         ko 는 접미 없음(기존 캐시 그대로 호환).
+    try:
+        _a_lang = _norm_lang(payload.get("lang"))
+        if _a_lang != "ko":
+            cache_key = (cache_key + "_l" + _a_lang)[:64]
+    except Exception:
+        pass
+
     # 보안: cacheKey 영문/숫자/언더스코어만 허용 (path traversal 방지)
     if not re.match(r'^[A-Za-z0-9_]{8,64}$', cache_key):
         return jsonify(ok=False, error="cacheKey 형식 오류"), 400
