@@ -4104,7 +4104,7 @@ function updateQuotaBadge(){
       ? Number(ck.dailyRemaining) : null;
     const _bEnQ = window._cbFor();
     const _bLang = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko';
-    const _bDaily = { ko:` · 오늘 ${_dRem}회`, zh:` · 今日 ${_dRem}次`, ja:` · 本日 ${_dRem}回` }; // 2026-07-05 KST · TJ 지시 — 언어별 배지 (미등록 언어는 EN)
+    const _bDaily = { ko:` · 오늘 ${_dRem}회`, zh:` · 今日 ${_dRem}次`, ja:` · 本日 ${_dRem}回`, fr:` · Auj. ${_dRem}`, de:` · Heute ${_dRem}`, es:` · Hoy ${_dRem}` }; // 2026-07-05 KST · TJ 지시 — 언어별 배지 (미등록 언어는 EN)
     const daily = (_dRem !== null) ? (_bDaily[_bLang] || ` · Today ${_dRem}`) : '';
 
     const _isLow = !_coUnlimited && Number(_coRem) <= 2;
@@ -8677,6 +8677,64 @@ window._cbEnItem = function(str){
     /* ─── 2026-07-05 KST · TJ 지시 ─── 언어별 아이템 토큰 맵 (중국어 100%) ───
        현재 언어 맵 우선 → 영어 맵 폴백 → 원문. 언어 추가 시 _CB_ITEM 에 맵만 추가. */
     var _CB_ITEM = window._CB_ITEM || (window._CB_ITEM = {
+      /* 2026-07-05 KST · TJ 지시 — 프랑스어/독일어/스페인어 아이템 토큰 맵 (100%) */
+      fr: {
+        '블랙':'noir','화이트':'blanc','그레이':'gris','라이트':'clair','미디엄':'moyen','다크':'foncé',
+        '베이지':'beige','네이비':'marine','차콜':'anthracite','브라운':'marron','카멜':'camel','올리브':'olive',
+        '버건디':'bordeaux','아이보리':'ivoire','코랄':'corail','라벤더':'lavande','민트':'menthe','핑크':'rose',
+        '레드':'rouge','블루':'bleu','그린':'vert','크림':'crème','카키':'kaki','와인':'lie-de-vin',
+        '셔츠':'chemise','티셔츠':'t-shirt','블라우스':'blouse','니트':'pull','맨투맨':'sweat','후드':'hoodie',
+        '반팔':'manches courtes','긴팔':'manches longues','브이넥':'col V','라운드넥':'col rond','카라':'à col',
+        '슬랙스':'pantalon habillé','청바지':'jean','데님':'denim','면바지':'chino','반바지':'short',
+        '치마':'jupe','스커트':'jupe','미니스커트':'mini-jupe','팬츠':'pantalon','조거':'jogger','밴딩':'taille élastique',
+        'A라인':'trapèze','와이드':'large','슬림':'slim','스트레이트':'droit','플리츠':'plissé',
+        '스니커즈':'baskets','로퍼':'mocassins','부츠':'bottes','힐':'talons','구두':'chaussures habillées',
+        '더비':'derbies','옥스포드화':'richelieus','옥스포드':'oxford','샌들':'sandales','플랫':'ballerines',
+        '가죽':'cuir','스웨이드':'daim','린넨':'lin','면':'coton','울':'laine','실크':'soie',
+        '가방':'sac','백팩':'sac à dos','토트백':'cabas','크로스백':'sac bandoulière','숄더백':'sac épaule',
+        '클러치':'pochette','벨트':'ceinture','안경':'lunettes','선글라스':'lunettes de soleil','모자':'chapeau','캡':'casquette',
+        '시계':'montre','스마트워치':'montre connectée','머플러':'écharpe','스카프':'foulard','양말':'chaussettes',
+        '가디건':'cardigan','자켓':'veste','재킷':'veste','코트':'manteau','패딩':'doudoune','점퍼':'blouson',
+        '조끼':'gilet','블레이저':'blazer','원피스':'robe','트렌치':'trench','없음':'aucun'
+      },
+      de: {
+        '블랙':'Schwarz','화이트':'Weiß','그레이':'Grau','라이트':'Hell','미디엄':'Mittel','다크':'Dunkel',
+        '베이지':'Beige','네이비':'Marineblau','차콜':'Anthrazit','브라운':'Braun','카멜':'Camel','올리브':'Oliv',
+        '버건디':'Burgunderrot','아이보리':'Elfenbein','코랄':'Koralle','라벤더':'Lavendel','민트':'Mint','핑크':'Rosa',
+        '레드':'Rot','블루':'Blau','그린':'Grün','크림':'Creme','카키':'Khaki','와인':'Weinrot',
+        '셔츠':'Hemd','티셔츠':'T-Shirt','블라우스':'Bluse','니트':'Strickpullover','맨투맨':'Sweatshirt','후드':'Hoodie',
+        '반팔':'kurzärmelig','긴팔':'langärmelig','브이넥':'V-Ausschnitt','라운드넥':'Rundhals','카라':'mit Kragen',
+        '슬랙스':'Anzughose','청바지':'Jeans','데님':'Denim','면바지':'Chino','반바지':'Shorts',
+        '치마':'Rock','스커트':'Rock','미니스커트':'Minirock','팬츠':'Hose','조거':'Jogger','밴딩':'mit Gummibund',
+        'A라인':'A-Linie','와이드':'weit','슬림':'schmal','스트레이트':'gerade','플리츠':'plissiert',
+        '스니커즈':'Sneaker','로퍼':'Loafer','부츠':'Stiefel','힐':'High Heels','구두':'Anzugschuhe',
+        '더비':'Derby-Schuhe','옥스포드화':'Oxford-Schuhe','옥스포드':'Oxford','샌들':'Sandalen','플랫':'Ballerinas',
+        '가죽':'Leder','스웨이드':'Wildleder','린넨':'Leinen','면':'Baumwolle','울':'Wolle','실크':'Seide',
+        '가방':'Tasche','백팩':'Rucksack','토트백':'Shopper','크로스백':'Umhängetasche','숄더백':'Schultertasche',
+        '클러치':'Clutch','벨트':'Gürtel','안경':'Brille','선글라스':'Sonnenbrille','모자':'Hut','캡':'Cap',
+        '시계':'Uhr','스마트워치':'Smartwatch','머플러':'Schal','스카프':'Halstuch','양말':'Socken',
+        '가디건':'Cardigan','자켓':'Jacke','재킷':'Jacke','코트':'Mantel','패딩':'Daunenjacke','점퍼':'Blouson',
+        '조끼':'Weste','블레이저':'Blazer','원피스':'Kleid','트렌치':'Trenchcoat','없음':'keine'
+      },
+      es: {
+        '블랙':'negro','화이트':'blanco','그레이':'gris','라이트':'claro','미디엄':'medio','다크':'oscuro',
+        '베이지':'beige','네이비':'azul marino','차콜':'antracita','브라운':'marrón','카멜':'camel','올리브':'oliva',
+        '버건디':'burdeos','아이보리':'marfil','코랄':'coral','라벤더':'lavanda','민트':'menta','핑크':'rosa',
+        '레드':'rojo','블루':'azul','그린':'verde','크림':'crema','카키':'caqui','와인':'vino',
+        '셔츠':'camisa','티셔츠':'camiseta','블라우스':'blusa','니트':'jersey','맨투맨':'sudadera','후드':'sudadera con capucha',
+        '반팔':'manga corta','긴팔':'manga larga','브이넥':'cuello V','라운드넥':'cuello redondo','카라':'con cuello',
+        '슬랙스':'pantalón de vestir','청바지':'vaqueros','데님':'denim','면바지':'chinos','반바지':'shorts',
+        '치마':'falda','스커트':'falda','미니스커트':'minifalda','팬츠':'pantalones','조거':'jogger','밴딩':'con cintura elástica',
+        'A라인':'línea A','와이드':'ancho','슬림':'ajustado','스트레이트':'recto','플리츠':'plisado',
+        '스니커즈':'zapatillas','로퍼':'mocasines','부츠':'botas','힐':'tacones','구두':'zapatos de vestir',
+        '더비':'zapatos derby','옥스포드화':'zapatos oxford','옥스포드':'oxford','샌들':'sandalias','플랫':'bailarinas',
+        '가죽':'de cuero','스웨이드':'de ante','린넨':'de lino','면':'de algodón','울':'de lana','실크':'de seda',
+        '가방':'bolso','백팩':'mochila','토트백':'bolso tote','크로스백':'bolso bandolera','숄더백':'bolso de hombro',
+        '클러치':'clutch','벨트':'cinturón','안경':'gafas','선글라스':'gafas de sol','모자':'sombrero','캡':'gorra',
+        '시계':'reloj','스마트워치':'smartwatch','머플러':'bufanda','스카프':'pañuelo','양말':'calcetines',
+        '가디건':'cárdigan','자켓':'chaqueta','재킷':'chaqueta','코트':'abrigo','패딩':'plumífero','점퍼':'cazadora',
+        '조끼':'chaleco','블레이저':'blazer','원피스':'vestido','트렌치':'gabardina','없음':'ninguno'
+      },
       /* 2026-07-05 KST · TJ 지시 — 일본어 아이템 토큰 맵 (100%) */
       ja: {
         '블랙':'ブラック','화이트':'ホワイト','그레이':'グレー','라이트':'ライト','미디엄':'ミディアム','다크':'ダーク',
