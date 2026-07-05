@@ -4104,7 +4104,7 @@ function updateQuotaBadge(){
       ? Number(ck.dailyRemaining) : null;
     const _bEnQ = window._cbFor();
     const _bLang = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko';
-    const _bDaily = { ko:` · 오늘 ${_dRem}회`, zh:` · 今日 ${_dRem}次` }; // 2026-07-05 KST · TJ 지시 — 언어별 배지 (미등록 언어는 EN)
+    const _bDaily = { ko:` · 오늘 ${_dRem}회`, zh:` · 今日 ${_dRem}次`, ja:` · 本日 ${_dRem}回` }; // 2026-07-05 KST · TJ 지시 — 언어별 배지 (미등록 언어는 EN)
     const daily = (_dRem !== null) ? (_bDaily[_bLang] || ` · Today ${_dRem}`) : '';
 
     const _isLow = !_coUnlimited && Number(_coRem) <= 2;
@@ -7582,6 +7582,26 @@ document.getElementById('saveBtn')?.addEventListener('click', async function(){
   //   원인: flow.stepCResult 가 없으면 fillAnalysisBoxes 를 아예 호출 안 했음.
   //   해결: stepCResult 가 없거나 cacheKey/image 가 비면 현재 화면 이미지로
   //         결과 객체를 즉석 구성해서 분석을 반드시 요청한다.
+  /* ─── 2026-07-05 KST · TJ 지시 ─── 보고서 생성 전 언어 확인 팝업 ─────────────
+     현재 설정 언어로 보고서를 생성할지 먼저 확인 → '예'일 때만 해당 언어로
+     실시간 분석. '아니오'면 보고서를 열지 않는다 (언어 전환 직후 혼선 방지). */
+  try{
+    const _rl = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko';
+    const _RQ = {
+      ko:"'한국어'로 스타일링 보고서를 보시겠어요?",
+      en:"View the styling report in 'English'?",
+      ja:"『日本語』でスタイリングレポートを表示しますか？",
+      zh:"要用『中文』查看造型分析报告吗？",
+      es:"¿Ver el informe de estilismo en 'Español'?",
+      tr:"Stil raporunu 'Türkçe' görüntülemek ister misiniz?",
+      fr:"Afficher le rapport de style en « Français » ?",
+      ar:"هل تريد عرض تقرير التنسيق باللغة «العربية»؟",
+      de:"Styling-Bericht auf 'Deutsch' anzeigen?"
+    };
+    if(!confirm(_RQ[_rl] || _RQ.en)) return;
+    window._cbLastAnalysisLang = null;   // 확인 후엔 언어변경 재질문 초기화
+  }catch(_){}
+
   const _analyzing = document.getElementById('codiAnalyzing');
 
   // ─── 2026-06-22 KST · TJ 지시 ─── IIFE 스코프 연결 (핵심 수정) ───
@@ -8657,6 +8677,26 @@ window._cbEnItem = function(str){
     /* ─── 2026-07-05 KST · TJ 지시 ─── 언어별 아이템 토큰 맵 (중국어 100%) ───
        현재 언어 맵 우선 → 영어 맵 폴백 → 원문. 언어 추가 시 _CB_ITEM 에 맵만 추가. */
     var _CB_ITEM = window._CB_ITEM || (window._CB_ITEM = {
+      /* 2026-07-05 KST · TJ 지시 — 일본어 아이템 토큰 맵 (100%) */
+      ja: {
+        '블랙':'ブラック','화이트':'ホワイト','그레이':'グレー','라이트':'ライト','미디엄':'ミディアム','다크':'ダーク',
+        '베이지':'ベージュ','네이비':'ネイビー','차콜':'チャコール','브라운':'ブラウン','카멜':'キャメル','올리브':'オリーブ',
+        '버건디':'バーガンディ','아이보리':'アイボリー','코랄':'コーラル','라벤더':'ラベンダー','민트':'ミント','핑크':'ピンク',
+        '레드':'レッド','블루':'ブルー','그린':'グリーン','크림':'クリーム','카키':'カーキ','와인':'ワイン',
+        '셔츠':'シャツ','티셔츠':'Tシャツ','블라우스':'ブラウス','니트':'ニット','맨투맨':'スウェット','후드':'パーカー',
+        '반팔':'半袖','긴팔':'長袖','브이넥':'Vネック','라운드넥':'クルーネック','카라':'襟付き',
+        '슬랙스':'スラックス','청바지':'ジーンズ','데님':'デニム','면바지':'チノパン','반바지':'ショートパンツ',
+        '치마':'スカート','스커트':'スカート','미니스커트':'ミニスカート','팬츠':'パンツ','조거':'ジョガー','밴딩':'ゴム入り',
+        'A라인':'Aライン','와이드':'ワイド','슬림':'スリム','스트레이트':'ストレート','플리츠':'プリーツ',
+        '스니커즈':'スニーカー','로퍼':'ローファー','부츠':'ブーツ','힐':'ヒール','구두':'革靴',
+        '더비':'ダービー','옥스포드화':'オックスフォードシューズ','옥스포드':'オックスフォード','샌들':'サンダル','플랫':'フラットシューズ',
+        '가죽':'レザー','스웨이드':'スエード','린넨':'リネン','면':'コットン','울':'ウール','실크':'シルク',
+        '가방':'バッグ','백팩':'リュック','토트백':'トートバッグ','크로스백':'ショルダーバッグ','숄더백':'ショルダーバッグ',
+        '클러치':'クラッチ','벨트':'ベルト','안경':'メガネ','선글라스':'サングラス','모자':'帽子','캡':'キャップ',
+        '시계':'腕時計','스마트워치':'スマートウォッチ','머플러':'マフラー','스카프':'スカーフ','양말':'ソックス',
+        '가디건':'カーディガン','자켓':'ジャケット','재킷':'ジャケット','코트':'コート','패딩':'ダウン','점퍼':'ブルゾン',
+        '조끼':'ベスト','블레이저':'ブレザー','원피스':'ワンピース','트렌치':'トレンチコート','없음':'なし'
+      },
       zh: {
         '블랙':'黑色','화이트':'白色','그레이':'灰色','라이트':'浅','미디엄':'中','다크':'深',
         '베이지':'米色','네이비':'藏青','차콜':'炭灰','브라운':'棕色','카멜':'驼色','올리브':'橄榄绿',
@@ -10803,6 +10843,16 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   // 핵심 필드: data.stylist, data.engineCity, data.engineCategoryKeywords, data.stylingStory
   function fillAnalysisBoxes(data){
     if(!data) return;
+    /* ─── 2026-07-05 KST · TJ 지시 ─── 언어 가드: 저장된 분석의 언어가 현재
+       언어와 다르면 재사용하지 않고 새로 분석(현재 언어) 요청하게 무효화. */
+    try{
+      const _curL = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko';
+      if(data.stylingAnalysis && data._saLang !== _curL){
+        data.stylingAnalysis = null;
+        data.outfitAnalysis = null;
+        data._analysisDone = false;
+      }
+    }catch(_){}
     // 1) AI 코디핏 스토리 — 스타일리스트 요약 (#stylistSummaryBox + #stylistSummaryText)
     try{
       const ssBox = $('stylistSummaryBox');
@@ -10891,7 +10941,10 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   };
 
   async function fetchAnalysisAndFill(cacheKey, imageUrl, _isRetry){
-    try{ window._cbLastAnalysisLang = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko'; }catch(_){}
+    try{
+      window._cbLastAnalysisLang = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko';
+      if(typeof flow !== 'undefined' && flow && flow.stepCResult) flow.stepCResult._saLang = window._cbLastAnalysisLang; // 2026-07-05 KST · TJ 지시
+    }catch(_){}
     console.log('[analysis] 요청 전송 — cacheKey=', cacheKey || '(none)', '| imageUrl=', imageUrl ? imageUrl.slice(0,60) : '(none)');
     try{
       // ─── 2026-06-22 KST · TJ 지시 (#2) ─── 사용자 신체정보/퍼스널컬러 전달 ───
@@ -11486,6 +11539,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       //   팝업에서 받은 전체 분석(stylingAnalysis)을 카드에 저장 → '보고서 생성'이
       //   중복 분석 없이 이 데이터를 재사용. 분석 완료 시 '크게 보기' 버튼 활성화.
       try{ card.stylingAnalysis = (j && j.stylingAnalysis) || null; }catch(_){}
+      try{ card._saLang = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko'; }catch(_){} // 2026-07-05 KST · TJ 지시 — 분석 언어 기록
       try{ card._analysisDone = true; }catch(_){}
       try{ if(typeof _setExpandSelectEnabled === 'function') _setExpandSelectEnabled(true); }catch(_){}
       // 모달이 여전히 같은 카드를 보고 있을 때만 갱신
@@ -12014,6 +12068,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         //   받아둔 전체 분석(stylingAnalysis)과 outfit 을 결과에 그대로 전달.
         stylingAnalysis: card.stylingAnalysis || null,
         outfitAnalysis: card.outfitAnalysis || null,
+        _saLang: card._saLang || null,   // 2026-07-05 KST · TJ 지시 — 분석 언어 전달
         _analysisDone: !!card._analysisDone,
         _testMode: true,
       };
