@@ -3027,7 +3027,7 @@
   prowizard@naver.com<br/>
   <span style="font-size:10px;color:rgba(216,226,255,.38);">&copy; 2026 CodiBank. All rights reserved.</span>
 </div>
-<script>(function(){function _cf(){var en=window.CodiBankI18n&&CodiBankI18n.isEn();var k=document.getElementById('company-footer-ko'),e=document.getElementById('company-footer-en');if(k)k.style.display=en?'none':'block';if(e)e.style.display=en?'block':'none';}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(_cf,150);});else setTimeout(_cf,150);})();</script>
+<script>(function(){function _cf(){var en=window.CodiBankI18n&&(CodiBankI18n.isForeign?CodiBankI18n.isForeign():CodiBankI18n.isEn());var k=document.getElementById('company-footer-ko'),e=document.getElementById('company-footer-en');if(k)k.style.display=en?'none':'block';if(e)e.style.display=en?'block':'none';}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(_cf,150);});else setTimeout(_cf,150);})();</script>
 <div class="cb-spacer"></div>
 <nav class="cb-nav">
   <!-- ─── 2026-05-24 KST · TJ 지시 ─── 6탭 풋바 (Ai옷장 복원) ─────────── -->
@@ -3058,21 +3058,26 @@
 //          ③ title 영어
 //   호출: DOMContentLoaded 직후 + 100/600/1500/3000ms (동적 렌더링 대비)
 (function _applyTryonI18nOnLoad(){
+  /* ─── 2026-07-05 KST · TJ 지시 (v55) ─── 트라이온 9언어 ─────────────────────
+     체인: i18n.js 병합 사전(현지어, DICT_XX.tryon) 우선 → 인라인 map(영어) 폴백.
+     외국어 전체에서 동작. 한글 잔존 = 0. */
+  window._tFor = function(){ try{ return !!(window.CodiBankI18n && (CodiBankI18n.isForeign ? CodiBankI18n.isForeign() : CodiBankI18n.isEn())); }catch(_){ return false; } };
   function apply(){
     try{
-      var en = window.CodiBankI18n && CodiBankI18n.isEn && CodiBankI18n.isEn();
-      if(!en) return;
+      if(!window._tFor()) return;
+      var _lk = function(k){ try{ return (window.CodiBankI18n && CodiBankI18n.lookup) ? CodiBankI18n.lookup(k) : undefined; }catch(_){ return undefined; } };
       
       // ① step-title의 innerHTML 통째로 교체 — 부분 span(.ac) 디자인 의도 보존
       try{
         document.querySelectorAll('.step-title').forEach(function(el){
-          var ih = el.innerHTML || '';
+          if(!el._tOrig) el._tOrig = el.innerHTML || '';   // v55: 원본 기준 판별
+          var ih = el._tOrig;
           if(ih.indexOf('무엇을') !== -1 && ih.indexOf('입어볼까요') !== -1){
-            el.innerHTML = '<span class="step-prefix">Step 1.</span> What will you <span class="ac">wear</span>?';
+            el.innerHTML = _lk('__tryonStep1') || '<span class="step-prefix">Step 1.</span> What will you <span class="ac">wear</span>?';
           } else if(ih.indexOf('누구의') !== -1 && ih.indexOf('보고 싶어요') !== -1){
-            el.innerHTML = '<span class="step-prefix">Step 2.</span> <span class="ac">Whose</span> fit?';
+            el.innerHTML = _lk('__tryonStep2') || '<span class="step-prefix">Step 2.</span> <span class="ac">Whose</span> fit?';
           } else if(ih.indexOf('지금') !== -1 && ih.indexOf('입어볼까요') !== -1){
-            el.innerHTML = '<span class="step-prefix">Step 3.</span> <span class="ac">Try</span> it now?';
+            el.innerHTML = _lk('__tryonStep3') || '<span class="step-prefix">Step 3.</span> <span class="ac">Try</span> it now?';
           }
         });
       }catch(_){}
@@ -3146,22 +3151,33 @@
         '먼저 생성하기':'Generate first',
         '리포트 준비 중…':'Preparing report…',
         '리포트 실패':'Report failed',
+        /* ─── 2026-07-05 KST · TJ 지시 (v55) ─── 목업 아이템명 EN (기존 미커버) ─── */
+        '린넨 셔츠':'Linen Shirt','크루넥 니트':'Crewneck Knit','캐시미어 카디건':'Cashmere Cardigan',
+        '폴로 셔츠':'Polo Shirt','실크 블라우스':'Silk Blouse','코튼 티셔츠':'Cotton T-shirt',
+        '울 슬랙스':'Wool Slacks','와이드 데님':'Wide Denim','플리츠 스커트':'Pleated Skirt',
+        '치노 팬츠':'Chino Pants','린넨 쇼츠':'Linen Shorts','미디 스커트':'Midi Skirt',
+        '린넨 랩 드레스':'Linen Wrap Dress','플로럴 미디':'Floral Midi','니트 원피스':'Knit Dress',
+        '쉬폰 맥시':'Chiffon Maxi','셔츠 원피스':'Shirt Dress','슬립 드레스':'Slip Dress',
+        '롱 트렌치':'Long Trench','더블 코트':'Double Coat','레더 자켓':'Leather Jacket',
+        '블레이저':'Blazer','퀼팅 자켓':'Quilted Jacket','카디건 코트':'Cardigan Coat',
+        '레더 로퍼':'Leather Loafers','스니커즈':'Sneakers','첼시 부츠':'Chelsea Boots',
+        '페니 로퍼':'Penny Loafers','옥스퍼드':'Oxfords','단화':'Flats',
       };
+      window._tryonMap = map;
+      window._tV = function(ko){ var v = _lk(ko); return (v !== undefined) ? v : map[ko]; };
       
       var sels = ['div','span','button','h1','h2','h3','h4','p','label','a','b','strong','em','small','option'];
       document.querySelectorAll(sels.join(',')).forEach(function(el){
         if(el.children.length > 0) return;
         var cur = (el.textContent || '').trim();
-        if(map[cur]) el.textContent = map[cur];
+        var _v = window._tV(cur);
+        if(_v) el.textContent = _v;
       });
       
-      // ③ title
-      if(document.title.indexOf('트라이 온') !== -1){
-        document.title = document.title.replace('트라이 온', 'Try-On');
-      }
-      if(document.title.indexOf('트라이온') !== -1){
-        document.title = document.title.replace('트라이온', 'Try-On');
-      }
+      // ③ title — 9언어 (원본 기준: 언어 간 직접 전환 대응)
+      if(!document._tOrigTitle) document._tOrigTitle = document.title;
+      var _tt = _lk('트라이 온 — CodiBank');
+      document.title = _tt || document._tOrigTitle.replace('트라이 온', 'Try-On').replace('트라이온', 'Try-On');
       
       // ④ ─── 2026-05-09 KST · TJ 지시 (v52) ─── fit UI 영어 재적용 ───
       //   배경: state.fitTarget이 'somebody' 또는 'model'일 때 페이지 로드 시
@@ -3174,6 +3190,7 @@
     }catch(_){}
   }
   
+  window._tryonApplyI18n = apply;
   if(document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', function(){
       setTimeout(apply, 100);
@@ -3187,6 +3204,23 @@
     setTimeout(apply, 1500);
     setTimeout(apply, 3000);
   }
+  /* v55: 언어 전환 감지 → 재적용 (정적 노드는 i18n.js 스윕이, 동적/스텝타이틀은 apply가 갱신) */
+  (function(){
+    var _last = null;
+    try{ _last = localStorage.getItem('codibank_lang') || 'ko'; }catch(_){ }
+    setInterval(function(){
+      var cur = null;
+      try{ cur = localStorage.getItem('codibank_lang') || 'ko'; }catch(_){ return; }
+      if(cur !== _last){
+        _last = cur;
+        setTimeout(apply, 120);
+        try{
+          if(typeof applyFitUI === 'function' && typeof state !== 'undefined' && state.fitTarget) applyFitUI(state.fitTarget);
+          if(typeof setReportDownloadState === 'function' && window._tryonReportState) setReportDownloadState(window._tryonReportState);
+        }catch(_){ }
+      }
+    }, 500);
+  })();
 })();
 
 // ════════════════════════════════════════════════════════════════
@@ -3271,8 +3305,20 @@ const SLOT_LABELS_EN = { top:'Top', bottom:'Bottom', onepiece:'One-piece', outer
 const FIT_LABELS_EN  = { my:'My Fit', somebody:'Somebody', model:'Model Fit' };
 // 헬퍼: 현재 언어에 따라 라벨 반환
 function _isEn(){ return !!(window.CodiBankI18n && CodiBankI18n.isEn && CodiBankI18n.isEn()); }
-function _slotLabel(k){ return _isEn() ? (SLOT_LABELS_EN[k] || k) : (SLOT_LABELS[k] || k); }
-function _fitLabel(k){ return _isEn() ? (FIT_LABELS_EN[k] || k) : (FIT_LABELS[k] || k); }
+/* ─── 2026-07-05 KST · TJ 지시 (v55) ─── 9언어 런타임 헬퍼 ───
+   _tx(ko, en): 한국어 모드→ko · 외국어 모드→현지어 사전 조회, 없으면 en 폴백 */
+function _tx(ko, en){
+  try{
+    if(!(window._tFor && window._tFor())) return ko;
+    if(window.CodiBankI18n && CodiBankI18n.lookup){
+      var v = CodiBankI18n.lookup(ko);
+      if(v !== undefined) return v;
+    }
+  }catch(_){}
+  return en;
+}
+function _slotLabel(k){ return _tx(SLOT_LABELS[k] || k, SLOT_LABELS_EN[k] || k); }
+function _fitLabel(k){ return _tx(FIT_LABELS[k] || k, FIT_LABELS_EN[k] || k); }
 
 // ─── 2026-05-09 KST · TJ 지시 (v53→v54) ─── 리포트 다운로드 버튼 상태 제어 ───
 //   v54: 버튼이 b-actions(2x2) 안으로 이동. status span 없이 lbl만 토글.
@@ -3282,6 +3328,7 @@ function _fitLabel(k){ return _isEn() ? (FIT_LABELS_EN[k] || k) : (FIT_LABELS[k]
 //     ready   : 분석 완료 — 활성 (teal 그라데이션), 클릭 가능
 //     failed  : 분석 실패 — 붉은 톤, 비활성
 function setReportDownloadState(state){
+  try{ window._tryonReportState = state; }catch(_){ }  // v55: 언어 전환 시 라벨 재적용용
   var btn = document.getElementById('tryonReportDownloadBtn');
   if(!btn) return;
   var lbl = btn.querySelector('.lbl');
@@ -3289,19 +3336,19 @@ function setReportDownloadState(state){
   var en = _isEn();
   if(state === 'idle'){
     btn.disabled = true;
-    if(lbl) lbl.textContent = en ? 'Save Report' : '리포트 저장';
+    if(lbl) lbl.textContent = _tx('리포트 저장','Save Report');
   } else if(state === 'pending'){
     btn.disabled = true;
     btn.classList.add('is-pending');
-    if(lbl) lbl.textContent = en ? 'Preparing…' : '준비 중…';
+    if(lbl) lbl.textContent = _tx('준비 중…','Preparing…');
   } else if(state === 'ready'){
     btn.disabled = false;
     btn.classList.add('is-ready');
-    if(lbl) lbl.textContent = en ? 'Save Report' : '리포트 저장';
+    if(lbl) lbl.textContent = _tx('리포트 저장','Save Report');
   } else if(state === 'failed'){
     btn.disabled = true;
     btn.classList.add('is-failed');
-    if(lbl) lbl.textContent = en ? 'Report failed' : '리포트 실패';
+    if(lbl) lbl.textContent = _tx('리포트 실패','Report failed');
   }
 }
 // 페이지 로드 시 초기 상태
@@ -3811,9 +3858,7 @@ function renderStep1(){
   } else {
     state.stepDone[1] = false;
     // ─── 2026-05-09 KST · TJ 지시 (v52) ─── 영어 분기
-    $('#step1Summary').textContent = _isEn()
-      ? 'Choose top, bottom, outer, shoes'
-      : '상의 · 하의 · 아우터 · 신발을 선택하세요';
+    $('#step1Summary').textContent = _tx('상의 · 하의 · 아우터 · 신발을 선택하세요','Choose top, bottom, outer, shoes');
   }
   updateFinalSummary();
 }
@@ -3925,29 +3970,23 @@ function applyFitUI(fit){
   if(fit === 'my'){
     if(faceWrap) faceWrap.style.display = '';
     if(modelWrap) modelWrap.style.display = 'none';
-    if(titleText) titleText.textContent = _en ? 'Codi Profile' : '코디 프로필';
-    if(hintText) hintText.textContent = _en ? 'Used by AI to personalize your styling' : 'AI가 개인화된 착장을 만드는 데 쓰여요';
-    if(fitQuestion) fitQuestion.innerHTML = _en
-      ? 'Generated using the info in your <b style="color:var(--teal-light);">Codi Profile</b> below.'
-      : '아래 <b style="color:var(--teal-light);">코디 프로필</b> 박스의 정보로 생성됩니다.';
+    if(titleText) titleText.textContent = _tx('코디 프로필','Codi Profile');
+    if(hintText) hintText.textContent = _tx('AI가 개인화된 착장을 만드는 데 쓰여요','Used by AI to personalize your styling');
+    if(fitQuestion) fitQuestion.innerHTML = _tx('아래 <b style="color:var(--teal-light);">코디 프로필</b> 박스의 정보로 생성됩니다.','Generated using the info in your <b style="color:var(--teal-light);">Codi Profile</b> below.');
     loadMyProfile();
   } else if(fit === 'somebody'){
     if(faceWrap) faceWrap.style.display = '';
     if(modelWrap) modelWrap.style.display = 'none';
-    if(titleText) titleText.textContent = _en ? 'Somebody Profile' : '썸바디 프로필';
-    if(hintText) hintText.textContent = _en ? 'Please enter the info directly' : '정보를 직접 입력해 주세요';
-    if(fitQuestion) fitQuestion.innerHTML = _en
-      ? 'Please enter the <b style="color:var(--teal-light);">profile</b> of someone below.'
-      : '누군가의 <b style="color:var(--teal-light);">프로필</b>을 아래에 입력해 주세요.';
+    if(titleText) titleText.textContent = _tx('썸바디 프로필','Somebody Profile');
+    if(hintText) hintText.textContent = _tx('정보를 직접 입력해 주세요','Please enter the info directly');
+    if(fitQuestion) fitQuestion.innerHTML = _tx('누군가의 <b style="color:var(--teal-light);">프로필</b>을 아래에 입력해 주세요.','Please enter the <b style="color:var(--teal-light);">profile</b> of someone below.');
     resetProfileForSomebody();
   } else if(fit === 'model'){
     if(faceWrap) faceWrap.style.display = 'none';
     if(modelWrap) modelWrap.style.display = '';
-    if(titleText) titleText.textContent = _en ? 'Select Model' : '모델 선택';
-    if(hintText) hintText.textContent = _en ? 'Choose Male / Female model' : '남자 / 여자 모델 중 선택';
-    if(fitQuestion) fitQuestion.innerHTML = _en
-      ? 'Please select a <b style="color:var(--teal-light);">Male / Female model</b> below.'
-      : '아래에서 <b style="color:var(--teal-light);">남자 / 여자 모델</b>을 선택해 주세요.';
+    if(titleText) titleText.textContent = _tx('모델 선택','Select Model');
+    if(hintText) hintText.textContent = _tx('남자 / 여자 모델 중 선택','Choose Male / Female model');
+    if(fitQuestion) fitQuestion.innerHTML = _tx('아래에서 <b style="color:var(--teal-light);">남자 / 여자 모델</b>을 선택해 주세요.','Please select a <b style="color:var(--teal-light);">Male / Female model</b> below.');
     // 모델 모드 진입 시엔 성별 초기화
     state.modelGender = null;
     const gs = document.getElementById('genderSwitch');
@@ -4471,7 +4510,7 @@ function updateTryonQuotaBadge(){
       badge.style.background = 'rgba(239,68,68,.12)';
       badge.style.borderColor = 'rgba(239,68,68,.3)';
       badge.style.color = '#fca5a5';
-      badge.textContent = _en ? 'Limit reached' : '한도 초과';
+      badge.textContent = _tx('한도 초과','Limit reached');
       return;
     }
     const _trRem   = Number.isFinite(Number(ck.tryonRemaining)) ? Number(ck.tryonRemaining) : 0;
@@ -4481,7 +4520,7 @@ function updateTryonQuotaBadge(){
 
     // 일일 잔여 (DIAMOND FUP) 보조 표시
     const _dRemSrc = (typeof ck.dailyRemaining === 'number') ? ck.dailyRemaining : null;
-    const dailyTxt = (_dRemSrc !== null) ? ` · ${_en?'today':'오늘'} ${_dRemSrc}` : '';
+    const dailyTxt = (_dRemSrc !== null) ? ` · ${_tx('오늘','today')} ${_dRemSrc}` : '';
 
     if(_isLow){
       badge.style.background = 'rgba(239,68,68,.12)';
@@ -4557,7 +4596,7 @@ function _tryonBuildPayload(){
     modelGender: state.modelGender || '',   // 'male' | 'female'
     bodyType: bodyType,
     personalColor: pcPayload || null,
-    lang: (window.CodiBankI18n && CodiBankI18n.isEn && CodiBankI18n.isEn()) ? 'en' : 'ko',
+    lang: (window._tFor && window._tFor()) ? 'en' : 'ko',  // 2026-07-05 KST · TJ 지시 — 외국어 전체 EN 리포트 (서버 9언어 확장 전까지)
     _ts: Date.now(),
   };
 
@@ -4647,9 +4686,9 @@ function _tryonApplyResult(data){
       //   v32: 토글을 박스 밖으로 이동
       //   v40: '정면'/'후면' 영어 분기 ('Front'/'Back')
       var _enTog = window.CodiBankI18n && CodiBankI18n.isEn();
-      var _frontTxt = _enTog ? 'Front' : '정면';
-      var _backTxt  = _enTog ? 'Back'  : '후면';
-      var _hintTxt  = _enTog ? 'Front · Back' : '정·후면';
+      var _frontTxt = _tx('정면','Front');
+      var _backTxt  = _tx('후면','Back');
+      var _hintTxt  = _tx('정·후면','Front · Back');
       imgWrap.innerHTML = ''
         + '<div class="csty-result-img-box csty-empty" id="tryonResultBox">'
         +   '<canvas id="tryonCanvas" class="csty-canvas"></canvas>'
@@ -5096,15 +5135,11 @@ function _tryonApplyResult(data){
       // ─── 2026-05-09 KST · TJ 지시 (v40) ─── 영어 사용자 라벨 분기
       var _enAlb = window.CodiBankI18n && CodiBankI18n.isEn();
       // 트라이온 메타: 핏 타겟·모드를 "코디 목적"으로 사용
-      var _fitMap   = _enAlb
-        ? { my:'My Fit',  somebody:'Somebody', model:'Model Fit' }
-        : { my:'마이 핏', somebody:'썸바디',    model:'모델 핏'  };
-      var _modeMap  = _enAlb
-        ? { twopiece:'Two-piece', onepiece:'One-piece', outer:'Outer' }
-        : { twopiece:'투피스',     onepiece:'원피스',     outer:'아우터' };
-      var _fitLabel = _fitMap[state.fitTarget]   || (_enAlb ? 'Try-On' : '트라이온');
+      var _fitMap   = { my:_tx('마이 핏','My Fit'), somebody:_tx('썸바디','Somebody'), model:_tx('모델 핏','Model Fit') };
+      var _modeMap  = { twopiece:_tx('투피스','Two-piece'), onepiece:_tx('원피스','One-piece'), outer:_tx('아우터','Outer') };
+      var _fitLabel = _fitMap[state.fitTarget]   || _tx('트라이온','Try-On');
       var _modeLabel = _modeMap[state.mode]      || '';
-      var _trLabel  = _enAlb ? 'Try-On' : '트라이온';
+      var _trLabel  = _tx('트라이온','Try-On');
       var _purposeLabel = _trLabel + ' (' + _fitLabel + (_modeLabel ? ' · ' + _modeLabel : '') + ')';
       var _today = new Date();
       var _dateKey = _today.getFullYear() + '-' + String(_today.getMonth()+1).padStart(2,'0') + '-' + String(_today.getDate()).padStart(2,'0');
@@ -5114,11 +5149,11 @@ function _tryonApplyResult(data){
           ? (state.modelGender === 'female' ? 'Female Model' : 'Male Model')
           : (state.modelGender === 'female' ? '여자 모델'    : '남자 모델');
       } else if(state.fitTarget === 'somebody'){
-        _stylistName = _enAlb ? 'Somebody' : '썸바디';
+        _stylistName = _tx('썸바디','Somebody');
       } else {
         _stylistName = '';
       }
-      var _styleTitle = _enAlb ? 'Try-On Outfit' : '트라이온 착장';
+      var _styleTitle = _tx('트라이온 착장','Try-On Outfit');
       
       CodiBank.addAiAlbumEntry(email, {
         dateKey: _dateKey,
@@ -5510,12 +5545,12 @@ async function saveTryonImage(){
   var en = _isEn();
   var imgSrc = _getTryonResultImgUrl();
   if(!imgSrc){
-    showToast(en ? 'No image to save' : '저장할 이미지가 없어요');
+    showToast(_tx('저장할 이미지가 없어요','No image to save'));
     return;
   }
   
   try{
-    showToast(en ? 'Saving…' : '저장 중…', 1500);
+    showToast(_tx('저장 중…','Saving…'), 1500);
     
     // 1) JPEG로 변환
     var blob = await _toJpegBlob(imgSrc, 0.92);
@@ -5562,7 +5597,7 @@ async function saveTryonImage(){
     }
   } catch(e){
     console.error('[TryOn Save]', e);
-    showToast((en ? 'Save failed: ' : '저장 실패: ') + (e.message || e));
+    showToast(_tx('저장 실패: ','Save failed: ') + (e.message || e));
   }
 }
 
