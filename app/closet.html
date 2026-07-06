@@ -1041,6 +1041,7 @@ else{_go();setTimeout(_go,200);setTimeout(_go,800);setTimeout(_go,2000);}})();
       _lastLang = cur;
       setTimeout(function(){applyI18n();try{renderPurposeGrid();}catch(_){}}, 100);
       setTimeout(function(){try{window._cbAskReanalyze&&window._cbAskReanalyze();}catch(_){}}, 250); // 2026-07-04 KST · TJ 지시
+      setTimeout(function(){try{window._cbRefreshModalLang&&window._cbRefreshModalLang();}catch(_){}}, 280); // 2026-07-06 KST · TJ 지시 — 열린 팝업 갱신
     }
   }, 500);
   // 2) CodiBankI18n.setLang 패치 (존재할 경우)
@@ -1051,6 +1052,7 @@ else{_go();setTimeout(_go,200);setTimeout(_go,800);setTimeout(_go,2000);}})();
         _orig(lang);
         setTimeout(function(){applyI18n();try{renderPurposeGrid();}catch(_){}}, 150);
         setTimeout(function(){try{window._cbAskReanalyze&&window._cbAskReanalyze();}catch(_){}}, 300); // 2026-07-04 KST · TJ 지시
+        setTimeout(function(){try{window._cbRefreshModalLang&&window._cbRefreshModalLang();}catch(_){}}, 330); // 2026-07-06 KST · TJ 지시 — 열린 팝업 갱신
       };
       clearInterval(_patchTry);
     }
@@ -11036,6 +11038,31 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
      확인 팝업 → '예' 시 새 언어로 Gemini 분석 재호출(fetchAnalysisAndFill 재사용).
      팝업 문구는 9개 언어 지원. 분석이 없으면 아무 것도 묻지 않는다. */
   window._cbLastAnalysisLang = null;   // 마지막 분석 언어 (중복 질문 방지)
+  /* ─── 2026-07-06 KST · TJ 지시 ─── 팝업이 열린 상태에서 언어 변경 시 즉시 갱신 ───
+     헤더('Cody by …' / '…의 추천코디')를 현재 언어로 재조립하고,
+     분석 언어가 다르면 로딩 표시 후 새 언어로 재분석해 다시 렌더한다. */
+  window._cbRefreshModalLang = function(){
+    try{
+      const modal = $('expandModal');
+      if(!modal || modal.classList.contains('hidden')) return;
+      const card = window._cbModalCard;
+      if(!card) return;
+      const cur = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko';
+      // 헤더 재조립 (스타일리스트 이름은 고유명사 유지)
+      try{
+        const _nm = (card.stylist && card.stylist.name) ? String(card.stylist.name).trim() : '';
+        const _for = !!(window._cbFor && window._cbFor());
+        const cityEl = $('expandModalCity');
+        if(cityEl) cityEl.textContent = _nm ? (_for ? ('Cody by ' + _nm) : (_nm + '의 추천코디'))
+                                            : (_for ? 'Recommended Cody' : '추천코디');
+      }catch(_){}
+      if(card._saLang === cur) return;      // 같은 언어면 분석 유지
+      _renderModalCody(null, 'loading');
+      _setExpandSelectEnabled(false);
+      _fetchModalOutfit(card);              // 서버 언어별 캐시 → 새 언어 분석
+    }catch(_){}
+  };
+
   window._cbAskReanalyze = function(){
     try{
       var cur = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko';
@@ -11710,6 +11737,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     }
   }
   function _renderExpandModal(card, cityLabel){
+    try{ window._cbModalCard = card; }catch(_){}   // 2026-07-06 KST · TJ 지시 — 언어 전환 갱신용
     // ─── 2026-06-23 KST · TJ 지시 ─── 헤더: 지역보다 '누가 추천했는지'가 중요 ───
     //   이전: "{도시} 스타일리스트 / {컨셉}" (지역 중심)
     //   변경: "{선정된 AI 스타일리스트 이름}의 추천코디" — 스타일리스트 이름 노출.
@@ -11725,7 +11753,13 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     if(cityEl) cityEl.textContent = _headerTxt;
     // ─── 2026-05-16 KST · TJ 지시 2번 ─── 코디 분석: 캐시 즉시 / 없으면 '분석 중' ───
     // ─── 2026-06-21 KST · TJ 지시 (#2) ─── '크게 보기'는 분석 완료 후에만 활성화 ───
-    if(card._analysisDone && card.outfitAnalysis){
+    /* ─── 2026-07-06 KST · TJ 지시 ─── 팝업 분석 언어 가드 ─────────────────
+       기존: 분석이 있으면 언어 확인 없이 재사용 → 언어를 바꾼 뒤 팝업을 열면
+       이전 언어의 분석(Top/Bottom/Shoes/Accessories)이 그대로 표시되던 문제.
+       수정: 저장된 분석의 언어(_saLang)가 현재 언어와 같을 때만 재사용,
+       다르면 재분석(서버 언어별 캐시 → 두 번째부터는 즉시 응답). */
+    const _mCurLang = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko';
+    if(card._analysisDone && card.outfitAnalysis && card._saLang === _mCurLang){
       _renderModalCody(card.outfitAnalysis);
       _setExpandSelectEnabled(true);
     }else{

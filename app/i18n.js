@@ -57,6 +57,7 @@ var DICT = {
   closet: {
     /* 2026-07-05 KST · TJ 지시 — 바이라인 EN 폴백 (템플릿+도시) */
     '__regionLine': 'based in {city}',
+    '패션 스타일리스트': 'Fashion Stylist',  // 2026-07-06 KST · TJ 지시 — EN 모드 직함
     '뉴욕': 'New York', '파리': 'Paris', '밀라노': 'Milan', '런던': 'London', '도쿄': 'Tokyo', '서울': 'Seoul',
     '로스앤젤레스': 'Los Angeles', '상하이': 'Shanghai', '베를린': 'Berlin', '마드리드': 'Madrid', '이스탄불': 'Istanbul', '두바이': 'Dubai',
 
@@ -7142,7 +7143,27 @@ function collectTextNodes(root) {
 }
 
 // ── 번역 적용 ──
+/* ─── 2026-07-06 KST · TJ 지시 ─── 아랍어 자간(letter-spacing) 붕괴 수정 ─────
+   타이틀류의 letter-spacing CSS 가 아랍 문자의 연결형(shaping)을 끊어
+   글자가 분리되어 보이는 문제. lang=ar 일 때만 전역 자간 0 을 주입한다. */
+function _applyArabicTypography(lang) {
+  try {
+    var el = document.getElementById('cb-ar-typography');
+    if (lang === 'ar') {
+      if (!el) {
+        el = document.createElement('style');
+        el.id = 'cb-ar-typography';
+        el.textContent = '*{letter-spacing:0 !important;}';
+        document.head.appendChild(el);
+      }
+    } else if (el) {
+      el.remove();
+    }
+  } catch (_) {}
+}
+
 function applyTranslation() {
+  _applyArabicTypography(getLang());
   var lang = getLang();
   if (lang === 'ko') {
     // 원본 복원
