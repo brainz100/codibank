@@ -4155,6 +4155,18 @@ def _codifit_analysis_via_gpt41mini(
            f'4. JSON 외 추가 텍스트 출력 금지.\n'
            if _vision else
            f'3. JSON 외 추가 텍스트 출력 금지.\n')
+        # ─── 2026-07-05 KST · TJ 지시 ─── 비한국어 강제 오버라이드 ───────────────
+        #   원인: 프롬프트 틀 전체가 한국어라 괄호 언어명만으로는 tr/fr/de/es/ar 에서
+        #         모델이 한국어로 이탈 (zh/ja 만 우연히 준수). 최고 우선 지시로 고정.
+        + ("" if _report_lang == "ko" else (
+            f"\nLANGUAGE OVERRIDE — HIGHEST PRIORITY, overrides everything above:\n"
+            f"- Write EVERY \"text\" value ONLY in {_report_lang_name}. Absolutely NO Korean words.\n"
+            f"- Write EVERY keyword in {_report_lang_name} (2-6 chars each is not required; use natural short words).\n"
+            f"- Write outfit top/bottom/shoes/accessory values in {_report_lang_name} (color + item type; "
+            f"if no accessory, write the {_report_lang_name} word for 'none').\n"
+            f"- Ignore Korean character-count specs: write 2-4 natural {_report_lang_name} sentences per text "
+            f"(approx. 250-450 characters).\n"
+            f"- JSON keys stay in English exactly as the schema.\n"))
     )
 
     # ── gpt-4.1-mini 호출 ──
@@ -5013,7 +5025,9 @@ def ai_styling_analysis():
     try:
         _a_lang = _norm_lang(payload.get("lang"))
         if _a_lang != "ko":
-            cache_key = (cache_key + "_l" + _a_lang)[:64]
+            # 2026-07-05 KST · TJ 지시 — [버그수정] 기존: (key+"_lxx")[:64] 는 base 가 이미
+            # 64자 캡이면 접미가 잘려 언어 충돌(한국어 캐시 반환). base 를 먼저 자르고 접미 보장.
+            cache_key = cache_key[:59] + "_l" + _a_lang
     except Exception:
         pass
 
