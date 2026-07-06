@@ -2261,6 +2261,28 @@ def _tr_story(story, payload):
     except Exception:
         return story
 
+def _cap_analysis_text(txt, lang):
+    """2026-07-06 KST · TJ 지시 — 분석 text 캡: CJK(ko/ja/zh) 320자, 라틴/아랍 700자.
+    한국어 기준 300자 캡이 라틴계 언어에서 문장 중간 잘림('Ces ch', 'während d')을
+    만들던 문제의 수정. 한도 초과 시 문장 경계(마침표)에서 스마트 컷."""
+    t = str(txt or "").strip()
+    try:
+        limit = 320 if _norm_lang(lang) in ("ko", "ja", "zh") else 700
+    except Exception:
+        limit = 320
+    if len(t) <= limit:
+        return t
+    cut = t[:limit]
+    best = -1
+    for p in (". ", "。", "! ", "? ", ".\n"):
+        i = cut.rfind(p)
+        if i > best:
+            best = i
+    if best >= int(limit * 0.5):
+        return cut[:best + 1].strip()
+    return cut
+
+
 def _normalize_gender_code(g: str) -> str:
     """어떤 형태의 gender 값이든 'F' 또는 'M'으로 정규화"""
     v = (g or "").strip().lower()
@@ -3858,9 +3880,10 @@ def _ai_styling_via_gemini(
             _parsed = _json_a.loads(_json_str)
             # 스키마 검증 + 정규화
             styling_analysis = {}
+            _gm_lang = _norm_lang((payload or {}).get("lang"))  # 2026-07-06 KST · TJ 지시
             for sec in ("personalColor", "body", "purpose"):
                 _s = _parsed.get(sec) or {}
-                _txt = str(_s.get("text") or "").strip()[:300]
+                _txt = _cap_analysis_text(_s.get("text"), _gm_lang)
                 _kws = _s.get("keywords") or []
                 if not isinstance(_kws, list):
                     _kws = []
@@ -4166,7 +4189,9 @@ def _codifit_analysis_via_gpt41mini(
             f"if no accessory, write the {_report_lang_name} word for 'none').\n"
             f"- Ignore Korean character-count specs: write 2-4 natural {_report_lang_name} sentences per text "
             f"(approx. 250-450 characters).\n"
-            f"- JSON keys stay in English exactly as the schema.\n"))
+            f"- JSON keys stay in English exactly as the schema.\n"
+            f"- Paraphrase internal code names (e.g. body-type keys like 'neat_hourglass') into "
+            f"natural {_report_lang_name} descriptions; never print code names verbatim.\n"))
     )
 
     # ── gpt-4.1-mini 호출 ──
@@ -4223,7 +4248,7 @@ def _codifit_analysis_via_gpt41mini(
     result = {}
     for sec in ("personalColor", "body", "purpose"):
         _s = _parsed.get(sec) or {}
-        _txt = str(_s.get("text") or "").strip()[:320]
+        _txt = _cap_analysis_text(_s.get("text"), _report_lang)  # 2026-07-06 KST · TJ 지시
         _kws = _s.get("keywords") or []
         if not isinstance(_kws, list):
             _kws = []
