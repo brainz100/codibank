@@ -971,6 +971,22 @@
      문제: 이 워커가 영어 전용이라 JA/ZH/ES 에서 코디핏 텍스트가 한글로 잔존.
      해결: 외국어 전체에서 동작(_cbFor) + 값은 i18n.js 병합 사전(현지어) 우선,
            없으면 이 페이지의 영어 사전(_T) 폴백. 한글 잔존 = 0. */
+  /* ─── 2026-07-05 KST · TJ 지시 ─── 스타일리스트 바이라인 9언어 조립 ───
+     ko: "이름, 서울지역 활동" / 외국어: __regionLine 템플릿("{city} merkezli" 등)
+     도시명은 사전 현지어(뉴욕→纽约/Nueva York…), 미등록 도시는 원문. */
+  window._cbStylistLine = function(name, city){
+    var n = name || '';
+    var c = city || '';
+    try{
+      if(window._cbFor && window._cbFor() && window.CodiBankI18n && CodiBankI18n.lookup){
+        var cityL = CodiBankI18n.lookup(c) || c;
+        var tpl = CodiBankI18n.lookup('__regionLine');
+        var region = tpl ? tpl.replace('{city}', cityL) : ('based in ' + cityL);
+        return '<strong>' + n + '</strong>, ' + region;
+      }
+    }catch(_){}
+    return '<strong>' + n + '</strong>, ' + c + '지역 활동';
+  };
   window._cbFor = function(){ try{ return !!(window.CodiBankI18n && (CodiBankI18n.isForeign ? CodiBankI18n.isForeign() : CodiBankI18n.isEn())); }catch(_){ return false; } };
   window._V = function(ko){
     try{ if(window.CodiBankI18n && CodiBankI18n.lookup){ var v = CodiBankI18n.lookup(ko); if(v !== undefined) return v; } }catch(_){}
@@ -7126,8 +7142,8 @@ async function updateVTO(opts={}){
           // 백엔드도 동시에 수정 (matched_stylist에 city 주입)했지만 이중 안전망으로 유지
           var _activeCity = (data.stylist && data.stylist.city) || data.engineCity || '서울';
           if(_ssBox && _ssTxt && data.stylist){
-            _ssTxt.innerHTML = '<strong>' + (data.stylist.name||'') + '</strong>, ' + _activeCity + '지역 활동' +
-              '<br><span style="font-size:10px;color:rgba(255,255,255,0.5);">' + (data.stylist.voice||data.stylist.career||'') + '</span>';
+            _ssTxt.innerHTML = window._cbStylistLine(data.stylist.name||'', _activeCity) +
+              '<br><span style="font-size:10px;color:rgba(255,255,255,0.5);">' + window._L(data.stylist.voice||data.stylist.career||'') + '</span>';
             _ssBox.classList.remove('hidden');
           }
           }catch(_){}
@@ -8672,7 +8688,8 @@ window._cbEnItem = function(str){
       '클러치':'Clutch','벨트':'Belt','안경':'Glasses','선글라스':'Sunglasses','모자':'Hat','캡':'Cap',
       '시계':'Watch','스마트워치':'Smartwatch','머플러':'Muffler','스카프':'Scarf','양말':'Socks',
       '가디건':'Cardigan','자켓':'Jacket','재킷':'Jacket','코트':'Coat','패딩':'Puffer','점퍼':'Jumper',
-      '조끼':'Vest','블레이저':'Blazer','원피스':'Dress','트렌치':'Trench','없음':'None'
+      '조끼':'Vest','블레이저':'Blazer','원피스':'Dress','트렌치':'Trench','없음':'None',
+      '반소매':'Short-Sleeve','긴소매':'Long-Sleeve','민소매':'Sleeveless','일자':'Straight','라탄':'Rattan','크로스':'Crossbody','스트랩':'Strap','버킷햇':'Bucket Hat','볼캡':'Ball Cap','비니':'Beanie','크롭':'Cropped','오버핏':'Oversized','집업':'Zip-Up','카고':'Cargo','코듀로이':'Corduroy','트위드':'Tweed','새틴':'Satin','쉬폰':'Chiffon','백':'Bag'
     };
     /* ─── 2026-07-05 KST · TJ 지시 ─── 언어별 아이템 토큰 맵 (중국어 100%) ───
        현재 언어 맵 우선 → 영어 맵 폴백 → 원문. 언어 추가 시 _CB_ITEM 에 맵만 추가. */
@@ -8695,7 +8712,8 @@ window._cbEnItem = function(str){
         '클러치':'clutch','벨트':'kemer','안경':'gözlük','선글라스':'güneş gözlüğü','모자':'şapka','캡':'kep',
         '시계':'saat','스마트워치':'akıllı saat','머플러':'atkı','스카프':'fular','양말':'çorap',
         '가디건':'hırka','자켓':'ceket','재킷':'ceket','코트':'kaban','패딩':'şişme mont','점퍼':'mont',
-        '조끼':'yelek','블레이저':'blazer','원피스':'elbise','트렌치':'trençkot','없음':'yok'
+        '조끼':'yelek','블레이저':'blazer','원피스':'elbise','트렌치':'trençkot','없음':'yok',
+        '반소매':'kısa kollu','긴소매':'uzun kollu','민소매':'kolsuz','일자':'düz kesim','라탄':'hasır','크로스':'çapraz','스트랩':'bantlı','버킷햇':'balıkçı şapkası','볼캡':'kep','비니':'bere','크롭':'kısa','오버핏':'bol kesim','집업':'fermuarlı','카고':'kargo','코듀로이':'kadife','트위드':'tüvit','새틴':'saten','쉬폰':'şifon','백':'çanta'
       },
       ar: {
         '블랙':'أسود','화이트':'أبيض','그레이':'رمادي','라이트':'فاتح','미디엄':'متوسط','다크':'داكن',
@@ -8714,7 +8732,8 @@ window._cbEnItem = function(str){
         '클러치':'كلتش','벨트':'حزام','안경':'نظارة','선글라스':'نظارة شمسية','모자':'قبعة','캡':'كاب',
         '시계':'ساعة','스마트워치':'ساعة ذكية','머플러':'وشاح','스카프':'إيشارب','양말':'جوارب',
         '가디건':'كارديغان','자켓':'جاكيت','재킷':'جاكيت','코트':'معطف','패딩':'جاكيت منفوخ','점퍼':'جاكيت خفيف',
-        '조끼':'صديري','블레이저':'بليزر','원피스':'فستان','트렌치':'ترنش كوت','없음':'لا يوجد'
+        '조끼':'صديري','블레이저':'بليزر','원피스':'فستان','트렌치':'ترنش كوت','없음':'لا يوجد',
+        '반소매':'بأكمام قصيرة','긴소매':'بأكمام طويلة','민소매':'بلا أكمام','일자':'مستقيم','라탄':'خيزران','크로스':'كروس','스트랩':'بأحزمة','버킷햇':'قبعة دلو','볼캡':'كاب','비니':'قبعة صوف','크롭':'قصير','오버핏':'فضفاض','집업':'بسحاب','카고':'كارغو','코듀로이':'قطيفة مضلعة','트위드':'تويد','새틴':'ساتان','쉬폰':'شيفون','백':'حقيبة'
       },
       /* 2026-07-05 KST · TJ 지시 — 프랑스어/독일어/스페인어 아이템 토큰 맵 (100%) */
       fr: {
@@ -8734,7 +8753,8 @@ window._cbEnItem = function(str){
         '클러치':'pochette','벨트':'ceinture','안경':'lunettes','선글라스':'lunettes de soleil','모자':'chapeau','캡':'casquette',
         '시계':'montre','스마트워치':'montre connectée','머플러':'écharpe','스카프':'foulard','양말':'chaussettes',
         '가디건':'cardigan','자켓':'veste','재킷':'veste','코트':'manteau','패딩':'doudoune','점퍼':'blouson',
-        '조끼':'gilet','블레이저':'blazer','원피스':'robe','트렌치':'trench','없음':'aucun'
+        '조끼':'gilet','블레이저':'blazer','원피스':'robe','트렌치':'trench','없음':'aucun',
+        '반소매':'manches courtes','긴소매':'manches longues','민소매':'sans manches','일자':'droit','라탄':'rotin','크로스':'bandoulière','스트랩':'à brides','버킷햇':'bob','볼캡':'casquette','비니':'bonnet','크롭':'court','오버핏':'oversize','집업':'zippé','카고':'cargo','코듀로이':'velours côtelé','트위드':'tweed','새틴':'satin','쉬폰':'mousseline','백':'sac'
       },
       de: {
         '블랙':'Schwarz','화이트':'Weiß','그레이':'Grau','라이트':'Hell','미디엄':'Mittel','다크':'Dunkel',
@@ -8753,7 +8773,8 @@ window._cbEnItem = function(str){
         '클러치':'Clutch','벨트':'Gürtel','안경':'Brille','선글라스':'Sonnenbrille','모자':'Hut','캡':'Cap',
         '시계':'Uhr','스마트워치':'Smartwatch','머플러':'Schal','스카프':'Halstuch','양말':'Socken',
         '가디건':'Cardigan','자켓':'Jacke','재킷':'Jacke','코트':'Mantel','패딩':'Daunenjacke','점퍼':'Blouson',
-        '조끼':'Weste','블레이저':'Blazer','원피스':'Kleid','트렌치':'Trenchcoat','없음':'keine'
+        '조끼':'Weste','블레이저':'Blazer','원피스':'Kleid','트렌치':'Trenchcoat','없음':'keine',
+        '반소매':'kurzärmelig','긴소매':'langärmelig','민소매':'ärmellos','일자':'gerade','라탄':'Rattan','크로스':'Umhänge-','스트랩':'Riemen','버킷햇':'Fischerhut','볼캡':'Cap','비니':'Beanie','크롭':'kurz geschnitten','오버핏':'Oversize','집업':'Zip-','카고':'Cargo','코듀로이':'Cord','트위드':'Tweed','새틴':'Satin','쉬폰':'Chiffon','백':'Tasche'
       },
       es: {
         '블랙':'negro','화이트':'blanco','그레이':'gris','라이트':'claro','미디엄':'medio','다크':'oscuro',
@@ -8772,7 +8793,8 @@ window._cbEnItem = function(str){
         '클러치':'clutch','벨트':'cinturón','안경':'gafas','선글라스':'gafas de sol','모자':'sombrero','캡':'gorra',
         '시계':'reloj','스마트워치':'smartwatch','머플러':'bufanda','스카프':'pañuelo','양말':'calcetines',
         '가디건':'cárdigan','자켓':'chaqueta','재킷':'chaqueta','코트':'abrigo','패딩':'plumífero','점퍼':'cazadora',
-        '조끼':'chaleco','블레이저':'blazer','원피스':'vestido','트렌치':'gabardina','없음':'ninguno'
+        '조끼':'chaleco','블레이저':'blazer','원피스':'vestido','트렌치':'gabardina','없음':'ninguno',
+        '반소매':'manga corta','긴소매':'manga larga','민소매':'sin mangas','일자':'recto','라탄':'ratán','크로스':'bandolera','스트랩':'con tiras','버킷햇':'bucket','볼캡':'gorra','비니':'gorro','크롭':'corto','오버핏':'oversize','집업':'con cremallera','카고':'cargo','코듀로이':'pana','트위드':'tweed','새틴':'satén','쉬폰':'gasa','백':'bolso'
       },
       /* 2026-07-05 KST · TJ 지시 — 일본어 아이템 토큰 맵 (100%) */
       ja: {
@@ -8792,7 +8814,8 @@ window._cbEnItem = function(str){
         '클러치':'クラッチ','벨트':'ベルト','안경':'メガネ','선글라스':'サングラス','모자':'帽子','캡':'キャップ',
         '시계':'腕時計','스마트워치':'スマートウォッチ','머플러':'マフラー','스카프':'スカーフ','양말':'ソックス',
         '가디건':'カーディガン','자켓':'ジャケット','재킷':'ジャケット','코트':'コート','패딩':'ダウン','점퍼':'ブルゾン',
-        '조끼':'ベスト','블레이저':'ブレザー','원피스':'ワンピース','트렌치':'トレンチコート','없음':'なし'
+        '조끼':'ベスト','블레이저':'ブレザー','원피스':'ワンピース','트렌치':'トレンチコート','없음':'なし',
+        '반소매':'半袖','긴소매':'長袖','민소매':'ノースリーブ','일자':'ストレート','라탄':'ラタン','크로스':'クロス','스트랩':'ストラップ','버킷햇':'バケットハット','볼캡':'キャップ','비니':'ビーニー','크롭':'クロップド','오버핏':'オーバーサイズ','집업':'ジップアップ','카고':'カーゴ','코듀로이':'コーデュロイ','트위드':'ツイード','새틴':'サテン','쉬폰':'シフォン','백':'バッグ'
       },
       zh: {
         '블랙':'黑色','화이트':'白色','그레이':'灰色','라이트':'浅','미디엄':'中','다크':'深',
@@ -8811,7 +8834,8 @@ window._cbEnItem = function(str){
         '클러치':'手拿包','벨트':'腰带','안경':'眼镜','선글라스':'太阳镜','모자':'帽子','캡':'棒球帽',
         '시계':'手表','스마트워치':'智能手表','머플러':'围巾','스카프':'丝巾','양말':'袜子',
         '가디건':'开衫','자켓':'夹克','재킷':'夹克','코트':'大衣','패딩':'羽绒服','점퍼':'夹克衫',
-        '조끼':'马甲','블레이저':'西装外套','원피스':'连衣裙','트렌치':'风衣','없음':'无'
+        '조끼':'马甲','블레이저':'西装外套','원피스':'连衣裙','트렌치':'风衣','없음':'无',
+        '반소매':'短袖','긴소매':'长袖','민소매':'无袖','일자':'直筒','라탄':'藤编','크로스':'斜挎','스트랩':'带','버킷햇':'渔夫帽','볼캡':'棒球帽','비니':'毛线帽','크롭':'短款','오버핏':'宽松','집업':'拉链衫','카고':'工装','코듀로이':'灯芯绒','트위드':'粗花呢','새틴':'缎面','쉬폰':'雪纺','백':'包'
       }
     });
     try{
@@ -10958,8 +10982,8 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
         const _city = (data.stylist.city || data.engineCity || '서울');
         const _name = data.stylist.name || '';
         const _voice = data.stylist.voice || data.stylist.career || '';
-        ssTxt.innerHTML = '<strong>' + _name + '</strong>, ' + _city + '지역 활동' +
-          (_voice ? '<br><span style="font-size:10px;color:rgba(255,255,255,0.5);">' + _voice + '</span>' : '');
+        ssTxt.innerHTML = window._cbStylistLine(_name, _city) +
+          (_voice ? '<br><span style="font-size:10px;color:rgba(255,255,255,0.5);">' + window._L(_voice) + '</span>' : '');
         ssBox.classList.remove('hidden');
       }
     }catch(_){}
