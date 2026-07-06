@@ -7739,6 +7739,7 @@ def _tryon_build_analysis_prompt(
     shoes_info: dict,
     attached_keys: set = None,  # [2026-04-24 v7] 실제 첨부된 이미지 기반 판단
     lang_en: bool = False,
+    lang_name: str = "Korean",  # 2026-07-05 KST · TJ 지시 — 9언어 분석
 ):
     """
     [2026-04-23 16:00] 트라이온 분석 전용 프롬프트.
@@ -7997,7 +7998,12 @@ SCORING (C.S.I.):
 [4] harmony — 20 pts (overall styling completeness)
 Total = 100
 
-Respond in the EXACT format below (Korean text content):
+Respond in the EXACT format below.
+LANGUAGE RULE (critical): Write ALL analysis text values in {lang_name}.
+Keep every Korean field marker below (종합 평가:, 스타일 해시태그:, section titles,
+상의 스타일 분석:, 하의 스타일 분석:, 실루엣과 비율:, 전체 스타일 완성도:) EXACTLY
+as written — they are parsing anchors. Only the content after each marker is {lang_name}.
+Hashtags should also be written in {lang_name}.
 
 STYLING_SCORE:[total]/100
 body_shape:[score]
@@ -8268,8 +8274,11 @@ def tryon_generate():
       - executive_summary, tpo_recommendations, improvement_tips, style_hashtags
       - model, sdk
     """
-    _t_lang = str((request.json or {}).get("lang") or "ko").strip().lower()
-    _t_en = (_t_lang == "en")
+    # ─── 2026-07-05 KST · TJ 지시 ─── 트라이온 분석 9언어: 비한국어 전체가 영어 프롬프트
+    #     경로를 타되, 분석 텍스트 언어는 lang_name 으로 정확히 지시 ───
+    _t_lang = _norm_lang((request.json or {}).get("lang"))
+    _t_en = (_t_lang != "ko")
+    _t_lang_name = _lang_name(_t_lang)
     if not _GEMINI_KEY:
         return jsonify(ok=False, error="GEMINI_API_KEY 미설정"), 400
 
@@ -8492,6 +8501,7 @@ def tryon_generate():
         shoes_info=shoes_info,
         attached_keys=_attached,  # [v7] 신규 — 동일 원칙 적용
         lang_en=_t_en,
+        lang_name=_t_lang_name,  # 2026-07-05 KST · TJ 지시
     )
     
     # ─── Worker 1: 이미지 생성 전담 함수 ───
