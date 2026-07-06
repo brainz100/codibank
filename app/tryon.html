@@ -4596,7 +4596,7 @@ function _tryonBuildPayload(){
     modelGender: state.modelGender || '',   // 'male' | 'female'
     bodyType: bodyType,
     personalColor: pcPayload || null,
-    lang: (window._tFor && window._tFor()) ? 'en' : 'ko',  // 2026-07-05 KST · TJ 지시 — 외국어 전체 EN 리포트 (서버 9언어 확장 전까지)
+    lang: (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko',  // 2026-07-05 KST · TJ 지시 — 9언어 분석 (서버 확장 완료)
     _ts: Date.now(),
   };
 
@@ -5052,6 +5052,7 @@ function _tryonApplyResult(data){
     else _grade = 'D Grade';
     
     window._tryonPremiumData = {
+      _lang: (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko',  // 2026-07-05 KST · TJ 지시 — 분석 언어 기록
       score:       _total,
       grade:       _grade,
       breakdown:   data.score_breakdown || {},  // [v9] 레이더 차트용 4지표
@@ -6063,8 +6064,69 @@ setTimeout(loadMyProfileBodyInfo, 100);  // [2026-04-23] 신체정보 + 퍼스�
 // 데이터 소스: window._tryonPremiumData (_tryonApplyResult()에서 준비됨)
 // ══════════════════════════════════════════════════════════════════════
 
+/* ─── 2026-07-05 KST · TJ 지시 ─── 보고서 언어 확인 팝업 + 언어별 표시 ─────────
+   코디핏과 동일 UX: 클릭 → 현재 언어로 볼지 확인(9언어 문구) → '예'일 때만 표시.
+   저장된 분석의 언어와 다르면 /api/translate(용어 마스킹+캐시)로 필드 번역 후 표시. */
+function _tryonReportBase(){
+  try{ var c = window.CodiBank && CodiBank.getConfig && CodiBank.getConfig(); if(c && c.backendBase) return c.backendBase; }catch(_){ }
+  try{ if(window.CodiBank && CodiBank.getBackendBaseResolved) return CodiBank.getBackendBaseResolved(); }catch(_){ }
+  return '';
+}
+function _tryonTranslateReport(target){
+  var d = window._tryonPremiumData || {};
+  var sec = d.sections || {};
+  // 번역 대상 수집 (문자열만) — 순서 고정으로 재배치
+  var fields = [];
+  function put(get, set){ var v = get(); if(typeof v === 'string' && v.trim()){ fields.push({ v:v, set:set }); } }
+  put(function(){return d.execSummary;}, function(v){ d.execSummary = v; });
+  ['pc','top','bot','prop','harmony'].forEach(function(k){
+    put(function(){return sec[k];}, function(v){ sec[k] = v; });
+  });
+  ['hashtags','tpo','tips','curation'].forEach(function(arrKey){
+    (d[arrKey] || []).forEach(function(item, i){
+      if(typeof item === 'string' && item.trim()){
+        fields.push({ v:item, set:(function(key,idx){ return function(v){ d[key][idx] = v; }; })(arrKey, i) });
+      }
+    });
+  });
+  if(!fields.length){ d._lang = target; window._prmSkipConfirm = true; openPremiumReport(); return; }
+  try{ if(typeof showToast === 'function') showToast(_tx('리포트 준비 중…','Preparing report…'), 2500); }catch(_){ }
+  fetch(_tryonReportBase() + '/api/translate', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ texts: fields.map(function(f){ return f.v; }), targetLang: target })
+  }).then(function(r){ return r.json(); }).then(function(j){
+    if(j && j.ok && j.translations && j.translations.length === fields.length){
+      fields.forEach(function(f, i){ if(j.translations[i]) f.set(j.translations[i]); });
+      d._lang = target;
+    }
+    window._prmSkipConfirm = true;
+    openPremiumReport();
+  }).catch(function(){
+    window._prmSkipConfirm = true;   // 번역 실패 → 기존 언어 그대로 표시 (무중단)
+    openPremiumReport();
+  });
+}
 function openPremiumReport(){
   var data = window._tryonPremiumData || {};
+  try{
+    if(window._prmSkipConfirm){ window._prmSkipConfirm = false; }
+    else {
+      var _cur = (window.CodiBankI18n && CodiBankI18n.getLang) ? CodiBankI18n.getLang() : 'ko';
+      var _RQ = {
+        ko:"'한국어'로 착장 보고서를 보시겠어요?",
+        en:"View the styling report in 'English'?",
+        ja:"『日本語』で着装レポートを表示しますか？",
+        zh:"要用『中文』查看试穿分析报告吗？",
+        es:"¿Ver el informe del look en 'Español'?",
+        tr:"Kombin raporunu 'Türkçe' görüntülemek ister misiniz?",
+        fr:"Afficher le rapport du look en « Français » ?",
+        ar:"هل تريد عرض تقرير الإطلالة باللغة «العربية»؟",
+        de:"Outfit-Bericht auf 'Deutsch' anzeigen?"
+      };
+      if(!confirm(_RQ[_cur] || _RQ.en)) return;
+      if(_cur !== (data._lang || 'ko')){ _tryonTranslateReport(_cur); return; }
+    }
+  }catch(_){ }
   var modal = document.getElementById('premiumReportModal');
   if(!modal){ console.warn('[premium] modal not found'); return; }
   
