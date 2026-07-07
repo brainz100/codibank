@@ -7146,6 +7146,65 @@ function collectTextNodes(root) {
 /* ─── 2026-07-06 KST · TJ 지시 ─── 아랍어 자간(letter-spacing) 붕괴 수정 ─────
    타이틀류의 letter-spacing CSS 가 아랍 문자의 연결형(shaping)을 끊어
    글자가 분리되어 보이는 문제. lang=ar 일 때만 전역 자간 0 을 주입한다. */
+/* ─── 2026-07-06 KST · TJ 지시 ─── 풋바 네비 언어 정책 ─────────────────────
+   한국어를 제외한 모든 언어에서 풋바 라벨은 짧은 영어로 고정한다.
+   (현지어 번역이 길어 2~3줄로 꺾이며 UI 를 해치는 문제의 해결)
+   · 대상: 전 페이지 공용 <nav class="cb-nav"> 의 .nl 라벨
+   · 원본 키는 data-i18n 속성에 보존돼 있어 언어 왕복 전환에도 안전
+   · 사전 스윕이 현지어로 덮은 '뒤'에 실행되어 항상 최종 상태를 보장 */
+var NAV_EN = {
+  '코디핏': 'CodiFit',
+  '트라이온': 'Try On', '트라이 온': 'Try On',
+  '런웨이': 'Runway',
+  'Ai 옷장': 'AI Closet', 'AI 옷장': 'AI Closet',
+  '코디앨범': 'Codi Album', '코디 앨범': 'Codi Album',
+  'MY': 'MY', '마이페이지': 'MY',
+};
+/* 알려진 번역값 → 한국어 키 역매핑 (data-i18n 이 없는 페이지에서, 스윕이 먼저
+   현지어로 바꿔버린 뒤에도 어떤 탭인지 식별하기 위한 안전망) */
+var NAV_REVERSE = {
+  'CodiFit':'코디핏',
+  'Try-On':'트라이온','Try On':'트라이온',
+  'Runway':'런웨이',
+  'AI Closet':'Ai 옷장','AI衣橱':'Ai 옷장','AIクローゼット':'Ai 옷장','Garde-robe IA':'Ai 옷장',
+  'KI-Kleiderschrank':'Ai 옷장','Armario IA':'Ai 옷장','AI Gardırop':'Ai 옷장','الخزانة الذكية':'Ai 옷장',
+  'Codi Album':'코디앨범','穿搭相册':'코디앨범','コーデアルバム':'코디앨범','Album de Looks':'코디앨범',
+  'Outfit-Album':'코디앨범','Álbum de Looks':'코디앨범','Kombin Albümü':'코디앨범','ألبوم الإطلالات':'코디앨범',
+  '我的':'MY','マイ':'MY','MOI':'MY','MEIN':'MY','MI':'MY','BEN':'MY','أنا':'MY',
+};
+function applyFootbarPolicy() {
+  try {
+    var lang = getLang();
+    document.querySelectorAll('.cb-nav .nl').forEach(function (el) {
+      var txt = (el.textContent || '').trim();
+      var key = el.getAttribute('data-i18n') || el._navKo || txt;
+      if (NAV_EN[key] === undefined && NAV_REVERSE[txt] !== undefined) key = NAV_REVERSE[txt];
+      if (NAV_EN[key] === undefined) return;      // 풋바 어휘 외 노드는 무시
+      if (!el._navKo) el._navKo = key;            // 한국어 원본 보관
+      var want = (lang === 'ko') ? el._navKo : NAV_EN[el._navKo];
+      if ((el.textContent || '').trim() !== want) el.textContent = want;
+      el.style.whiteSpace = 'nowrap';             // 줄바꿈 원천 차단
+    });
+  } catch (_) {}
+}
+// 페이지별 워커/폴링과의 타이밍 경쟁을 차단하는 경량 가드 (라벨 6개 문자열 비교)
+(function () {
+  try {
+    if (typeof window !== 'undefined' && !window.__cbFootbarGuard) {
+      window.__cbFootbarGuard = setInterval(applyFootbarPolicy, 1000);
+    }
+    // 2026-07-07 KST · TJ 지시 — 선캡처: 스크립트 로드 직후(스윕 이전) 1회 실행해
+    // data-i18n 이 없는 페이지에서도 한국어 원본을 _navKo 에 확보한다.
+    if (typeof document !== 'undefined') {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyFootbarPolicy);
+      } else {
+        applyFootbarPolicy();
+      }
+    }
+  } catch (_) {}
+})();
+
 function _applyArabicTypography(lang) {
   try {
     var el = document.getElementById('cb-ar-typography');
@@ -7172,6 +7231,7 @@ function applyTranslation() {
     });
     // title 복원
     if (document._origTitle) document.title = document._origTitle;
+    applyFootbarPolicy();   // 2026-07-06 KST · TJ 지시 — ko 복원 경로에서도 풋바 즉시 복원
     return;
   }
 
@@ -7248,6 +7308,8 @@ function applyTranslation() {
     }
     el.placeholder = ph;
   });
+
+  applyFootbarPolicy();   // 2026-07-06 KST · TJ 지시 — 풋바는 항상 마지막에 정책 적용
 }
 
 // ── 언어 토글 버튼 삽입 (랜딩페이지 + 마이페이지에서만) ──
