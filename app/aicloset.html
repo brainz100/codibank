@@ -344,34 +344,85 @@
 
   window._cbI18n = _T;
 
+  /* ─── 2026-07-08 KST · TJ 지시 ─── AI옷장 9언어 ─────────────────────────────
+     게이트: 한국어 외 전체. 조회: i18n.js 병합 사전(현지어) 우선 → 인라인 _T(영어).
+     MutationObserver 로 동적 렌더(스와이프 카드·리스트)까지 실시간 번역. */
+  function _acFor(){
+    try{ if(window.CodiBankI18n && CodiBankI18n.isForeign) return CodiBankI18n.isForeign(); }catch(_){}
+    try{ return !!(window.CodiBankI18n && CodiBankI18n.isEn && CodiBankI18n.isEn()); }catch(_){ return false; }
+  }
+  function _acLk(k){
+    try{ if(window.CodiBankI18n && CodiBankI18n.lookup){ var v=CodiBankI18n.lookup(k); if(v!==undefined) return v; } }catch(_){}
+    return undefined;
+  }
+  function _acT(sv){
+    if(!sv) return sv;
+    var v=_acLk(sv); if(v!==undefined) return v;
+    return _T[sv];
+  }
+  window._acFor=_acFor; window._acT=_acT;
+  /* 외국어 모드: 한국어 분기 문자열도 렌더 즉시 치환 — 동적 노드 옵저버 */
+  var _acObs=null;
+  function _acTxNode(n){
+    var raw=n.nodeValue; if(!raw) return;
+    var t=raw.trim(); if(!t) return;
+    var tr=_acT(t);
+    if(tr && tr!==t) n.nodeValue=raw.replace(t,tr);
+  }
+  function _acTranslate(root){
+    if(!_acFor()||!root) return;
+    if(root.nodeType===3){ _acTxNode(root); return; }
+    if(root.nodeType!==1&&root.nodeType!==9&&root.nodeType!==11) return;
+    if(root.nodeType===1){
+      var tag=root.tagName; if(tag==='SCRIPT'||tag==='STYLE') return;
+      var ph=root.getAttribute&&root.getAttribute('placeholder');
+      if(ph){ var pv=_acT(ph); if(pv&&pv!==ph) root.setAttribute('placeholder',pv); }
+    }
+    var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null,false),node;
+    while((node=w.nextNode())){
+      var p=node.parentNode;
+      if(p&&(p.tagName==='SCRIPT'||p.tagName==='STYLE')) continue;
+      _acTxNode(node);
+    }
+  }
+  function _acStartObserver(){
+    if(_acObs||!document.body) return;
+    _acObs=new MutationObserver(function(muts){
+      if(!_acFor()) return;
+      muts.forEach(function(m){
+        if(m.type==='characterData'){ _acTxNode(m.target); return; }
+        m.addedNodes&&m.addedNodes.forEach(function(nd){ _acTranslate(nd); });
+      });
+    });
+    _acObs.observe(document.body,{childList:true,subtree:true,characterData:true});
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_acStartObserver);
+  else _acStartObserver();
+
   window.applyI18n = function(){
-    if(!(window.CodiBankI18n && CodiBankI18n.isEn())) return;
+    if(!_acFor()) return;
     // 1) data-i18n 속성 우선
     document.querySelectorAll('[data-i18n]').forEach(function(el){
       var key = el.getAttribute('data-i18n');
-      if(_T[key]) el.textContent = _T[key];
+      var v = _acT(key);
+      if(v) el.textContent = v;
     });
-    // 2) 텍스트 노드 순회 번역
-    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
-    var node;
-    while((node = walker.nextNode())){
-      var txt = node.nodeValue.trim();
-      if(txt && _T[txt]){
-        node.nodeValue = node.nodeValue.replace(txt, _T[txt]);
-      }
-    }
+    // 2) 텍스트 노드 순회 번역 (현지어 우선)
+    _acTranslate(document.body);
     // 3) placeholder 번역
     document.querySelectorAll('[placeholder]').forEach(function(el){
       var ph = el.getAttribute('placeholder');
-      if(_T[ph]) el.setAttribute('placeholder', _T[ph]);
+      var v = _acT(ph);
+      if(v) el.setAttribute('placeholder', v);
     });
     // 4) title 태그
     var titleEl = document.querySelector('title');
-    if(titleEl && _T[titleEl.textContent.trim()]){
-      titleEl.textContent = _T[titleEl.textContent.trim()];
+    if(titleEl){
+      var tv = _acT(titleEl.textContent.trim());
+      if(tv) titleEl.textContent = tv;
     }
-    // 5) html lang 속성
-    document.documentElement.setAttribute('lang','en');
+    // 5) html lang 속성 — 현재 언어
+    try{ document.documentElement.setAttribute('lang',(window.CodiBankI18n&&CodiBankI18n.getLang)?CodiBankI18n.getLang():'en'); }catch(_){ document.documentElement.setAttribute('lang','en'); }
   };
 })();
 // 페이지 로드 후 번역 적용
@@ -384,8 +435,9 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   setInterval(function(){
     var cur = localStorage.getItem('cb_lang') || 'ko';
     if(cur !== _lastLang){
-      _lastLang = cur;
-      setTimeout(applyI18n, 100);
+      var _prev = _lastLang; _lastLang = cur;
+      if(cur !== 'ko' && _prev === 'ko') setTimeout(applyI18n, 100);   // 2026-07-08 KST · TJ 지시 — ko→외국어 즉시 번역
+      else location.reload();                                          // →ko/외국어간: 원문 리로드 후 재번역
     }
   }, 500);
   // 2) CodiBankI18n.setLang 패치 (존재할 경우)
@@ -393,8 +445,10 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
     if(window.CodiBankI18n && CodiBankI18n.setLang){
       var _orig = CodiBankI18n.setLang.bind(CodiBankI18n);
       CodiBankI18n.setLang = function(lang){
+        var _p=null; try{ _p=localStorage.getItem('cb_lang')||'ko'; }catch(_){}
         _orig(lang);
-        setTimeout(applyI18n, 150);
+        if(lang !== 'ko' && (_p === 'ko' || _p === lang)) setTimeout(applyI18n, 150);
+        else location.reload();   // 2026-07-08 KST · TJ 지시
       };
       clearInterval(_patchTry);
     }
@@ -5872,7 +5926,7 @@ function buildSection(catMeta,items){
   } else if(score0){
     const tip=detail0?`카테고리 ${detail0.catScore}P + 컬러 ${detail0.colorScore}P + 디자인 ${detail0.designScore}P`:'';
     const _isEnMatch = !!(window.CodiBankI18n && CodiBankI18n.isEn());
-    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt">${_isEnMatch ? 'This item matches the recommended outfit with a score of' : '이 아이템은 코디핏와 매칭점수'} <strong style="color:#a2fdf0;">${score0}P</strong>`+(tip?` <span style="font-size:10px;color:rgba(255,255,255,0.4);">(${tip})</span>`:'')+'</span>';
+    adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt">${(window._acFor&&_acFor()) ? (_acT('이 아이템은 코디핏와 매칭점수')||'This item matches the recommended outfit with a score of') : '이 아이템은 코디핏와 매칭점수'} <strong style="color:#a2fdf0;">${score0}P</strong>`+(tip?` <span style="font-size:10px;color:rgba(255,255,255,0.4);">(${tip})</span>`:'')+'</span>';
   } else if(S.hasGenerated){
     adv.innerHTML=`<span class="m-adv-lbl">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.5);">${(window.CodiBankI18n&&CodiBankI18n.isEn()) ? 'Swipe to see AI-recommended items' : '스와이프해서 AI 추천 아이템을 확인하세요'}</span>`;
   } else {
@@ -6361,9 +6415,9 @@ renderCategories();
         var _mi = String(_d.getMinutes()).padStart(2,'0');
         var _ampm = _hh >= 12 ? 'PM' : 'AM';
         var _hhStr = String(_hh).padStart(2,'0');
-        dateLblEl.textContent = (_isEn ? 'Codi Fit : ' : '코디핏 코디핏 : ') + _yyyy+'.'+_mm+'.'+_dd+'  '+_ampm+' '+_hhStr+':'+_mi;
+        dateLblEl.textContent = ((window._acFor&&_acFor()) ? (_acT('코디핏 코디핏 : ')||'Codi Fit : ') : '코디핏 코디핏 : ') + _yyyy+'.'+_mm+'.'+_dd+'  '+_ampm+' '+_hhStr+':'+_mi;
       } else if(dateLblEl){
-        dateLblEl.textContent = _isEn ? 'Codi Fit' : '코디핏 코디핏';
+        dateLblEl.textContent = (window._acFor&&_acFor()) ? (_acT('코디핏 코디핏')||'Codi Fit') : '코디핏 코디핏';
       }
 
       // 타이틀 — 스타일리스트 이름 노출 안 함
@@ -6919,10 +6973,10 @@ cats.forEach(function(c){
   });
 });
 var e;
-e=document.getElementById('csCapacity');if(e)e.textContent=totalItems+' / '+(maxItems>=999?(_isEn?'Unlimited':'무제한'):maxItems)+' items';
+e=document.getElementById('csCapacity');if(e)e.textContent=totalItems+' / '+(maxItems>=999?((window._acFor&&_acFor())?(_acT('무제한')||'Unlimited'):'무제한'):maxItems)+' items';
 e=document.getElementById('csCapBar');if(e)e.style.width=Math.min(100,Math.round(totalItems/Math.max(maxItems,1)*100))+'%';
 e=document.getElementById('csComboNum');if(e)e.textContent=topCount*bottomCount;
-e=document.getElementById('csComboLabel');if(e)e.innerHTML=_isEn?'Outfit<br/>Combinations':'가지<br/>코디 조합';
+e=document.getElementById('csComboLabel');if(e)e.innerHTML=(window._acFor&&_acFor())?(_acT('가지<br/>코디 조합')||'Outfit<br/>Combinations'):'가지<br/>코디 조합';
 e=document.getElementById('csCatOuter');if(e)e.textContent=outerCount;
 e=document.getElementById('csCatTop');if(e)e.textContent=topCount;
 e=document.getElementById('csCatBottom');if(e)e.textContent=bottomCount;
