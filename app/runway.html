@@ -1250,13 +1250,39 @@ body::before {
     try{ if(window.CodiBankI18n && CodiBankI18n.isEn) return CodiBankI18n.isEn(); }catch(_){}
     try{ return (localStorage.getItem('cb_lang')||'ko')==='en'; }catch(_){ return false; }
   }
+  /* ─── 2026-07-07 KST · TJ 지시 (v2) ─── 런웨이 9언어 ───────────────────────
+     게이트: 한국어 외 전체(_rwFor). 조회: i18n.js 병합 사전(현지어) 우선 →
+     인라인 _T(영어) 폴백. 동적 패턴(_R)은 언어별 템플릿(__rwGen/__rwUsage/__rwGold). */
+  function _rwFor(){
+    try{ if(window.CodiBankI18n && CodiBankI18n.isForeign) return CodiBankI18n.isForeign(); }catch(_){}
+    return _rwIsEn();
+  }
+  function _rwLk(k){
+    try{ if(window.CodiBankI18n && CodiBankI18n.lookup){ var v=CodiBankI18n.lookup(k); if(v!==undefined) return v; } }catch(_){}
+    return undefined;
+  }
   function _rwT(s){
-    if(!_rwIsEn() || !s) return s;
+    if(!_rwFor() || !s) return s;
+    var lk=_rwLk(s); if(lk!==undefined) return lk;
     if(_T[s]) return _T[s];
+    var m;
+    if((m=s.match(/^(.+?) 영상 생성 중$/))){
+      var t1=_rwLk('__rwGen'); return t1 ? t1.replace('{name}', m[1]) : s.replace(_R[0][0], _R[0][1]);
+    }
+    if((m=s.match(/ · 이번 달 (\d+)\/(\d+)개 사용 \(남은 영상 (\d+)개\)$/))){
+      var t2=_rwLk('__rwUsage');
+      return t2 ? s.replace(m[0], t2.replace('{a}',m[1]).replace('{b}',m[2]).replace('{c}',m[3]))
+                : s.replace(_R[1][0], _R[1][1]);
+    }
+    if(/ · 런웨이 영상은 GOLD 이상 요금제에서 이용 가능합니다$/.test(s)){
+      var t3=_rwLk('__rwGold');
+      return t3 ? s.replace(/ · 런웨이 영상은 GOLD 이상 요금제에서 이용 가능합니다$/, t3)
+                : s.replace(_R[2][0], _R[2][1]);
+    }
     for(var i=0;i<_R.length;i++){ if(_R[i][0].test(s)) return s.replace(_R[i][0], _R[i][1]); }
     return s;
   }
-  window._rwIsEn=_rwIsEn; window._rwT=_rwT;
+  window._rwIsEn=_rwIsEn; window._rwFor=_rwFor; window._rwT=_rwT;
 
   function _txNode(n){
     var raw=n.nodeValue; if(!raw) return;
@@ -1271,7 +1297,7 @@ body::before {
     });
   }
   function _translate(root){
-    if(!_rwIsEn()||!root) return;
+    if(!_rwFor()||!root) return;
     if(root.nodeType===3){ _txNode(root); return; }
     if(root.nodeType!==1&&root.nodeType!==9&&root.nodeType!==11) return;
     if(root.nodeType===1){
@@ -1290,7 +1316,7 @@ body::before {
   function _startObserver(){
     if(_obs||!document.body) return;
     _obs=new MutationObserver(function(muts){
-      if(!_rwIsEn()) return;
+      if(!_rwFor()) return;
       muts.forEach(function(m){
         if(m.type==='characterData'){ _txNode(m.target); return; }
         m.addedNodes&&m.addedNodes.forEach(function(nd){ _translate(nd); });
@@ -1299,10 +1325,14 @@ body::before {
     _obs.observe(document.body,{childList:true,subtree:true,characterData:true});
   }
   window.applyI18n=function(){
-    if(!_rwIsEn()) return;
+    if(!_rwFor()) return;
     _translate(document.body);
-    try{ if(_T[document.title.trim()]) document.title=_T[document.title.trim()]; }catch(_){}
-    document.documentElement.setAttribute('lang','en');
+    try{
+      var _tt=document.title.trim();
+      var _tv=_rwLk(_tt); if(_tv===undefined && _T[_tt]) _tv=_T[_tt];
+      if(_tv) document.title=_tv;
+    }catch(_){}
+    try{ document.documentElement.setAttribute('lang',(window.CodiBankI18n&&CodiBankI18n.getLang)?CodiBankI18n.getLang():'en'); }catch(_){ document.documentElement.setAttribute('lang','en'); }
   };
   function _boot(){ _startObserver(); setTimeout(window.applyI18n,200); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_boot);
@@ -1311,12 +1341,16 @@ body::before {
   var _ll=null; try{_ll=localStorage.getItem('cb_lang')||'ko';}catch(_){}
   setInterval(function(){
     var cur=null; try{cur=localStorage.getItem('cb_lang')||'ko';}catch(_){}
-    if(cur!==null&&cur!==_ll){ _ll=cur; if(cur==='en') setTimeout(window.applyI18n,100); else location.reload(); }
+    if(cur!==null&&cur!==_ll){ var _prev=_ll; _ll=cur;
+      if(cur!=='ko'&&_prev==='ko') setTimeout(window.applyI18n,100);   // ko→외국어: 즉시 번역
+      else location.reload();                                           // →ko/외국어간: 원문 리로드 후 재번역
+    }
   },500);
   (function _hook(){
     if(window.CodiBankI18n&&CodiBankI18n.setLang){
       var _o=CodiBankI18n.setLang.bind(CodiBankI18n);
-      CodiBankI18n.setLang=function(l){_o(l); if(_rwIsEn()) setTimeout(window.applyI18n,150); else location.reload();};
+      CodiBankI18n.setLang=function(l){var _p=null; try{_p=localStorage.getItem('cb_lang')||'ko';}catch(_){ } _o(l);
+        if(l!=='ko'&&(_p===l||_p==='ko')) setTimeout(window.applyI18n,150); else location.reload(); };
     } else { setTimeout(_hook,300); }
   })();
 })();
@@ -1463,7 +1497,7 @@ body::before {
   prowizard@naver.com<br/>
   <span style="font-size:10px;color:rgba(216,226,255,.38);">&copy; 2026 CodiBank. All rights reserved.</span>
 </div>
-<script>(function(){function _cf(){var en=window.CodiBankI18n&&CodiBankI18n.isEn();var k=document.getElementById('company-footer-ko'),e=document.getElementById('company-footer-en');if(k)k.style.display=en?'none':'block';if(e)e.style.display=en?'block':'none';}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(_cf,150);});else setTimeout(_cf,150);})();</script>
+<script>(function(){function _cf(){var en=window.CodiBankI18n&&(CodiBankI18n.isForeign?CodiBankI18n.isForeign():CodiBankI18n.isEn());var k=document.getElementById('company-footer-ko'),e=document.getElementById('company-footer-en');if(k)k.style.display=en?'none':'block';if(e)e.style.display=en?'block':'none';}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(_cf,150);});else setTimeout(_cf,150);})();</script>
 
 <!-- ─── 풋바 네비 (6탭) ─── 코디핏 - 트라이온 - 런웨이(active) - Ai옷장 - 코디앨범 - MY ─── -->
 <nav class="cb-nav">
@@ -2118,7 +2152,9 @@ body::before {
 
     // 사용량 한도 사전 체크 (UX 개선)
     if (usageInfo.is_paid && usageInfo.used_this_month >= usageInfo.monthly_limit && usageInfo.monthly_limit > 0) {
-      alert(window._rwIsEn&&_rwIsEn() ? `You've used all ${usageInfo.monthly_limit} videos for this month.\nPlease wait until next month or upgrade your plan.` : `이번 달 한도(${usageInfo.monthly_limit}개)를 모두 사용했습니다.\n다음 달까지 기다리시거나 요금제를 업그레이드해주세요.`);
+      alert((function(){ if(!(window._rwFor&&_rwFor())) return `이번 달 한도(${usageInfo.monthly_limit}개)를 모두 사용했습니다.\n다음 달까지 기다리시거나 요금제를 업그레이드해주세요.`;
+        var t=_rwLk('__rwLimitAlert'); return t ? t.replace('{n}', usageInfo.monthly_limit)
+          : `You've used all ${usageInfo.monthly_limit} videos for this month.\nPlease wait until next month or upgrade your plan.`; })());
       card.classList.remove('selected');
       return;
     }
@@ -2615,7 +2651,9 @@ body::before {
   //   후보 카드의 X 버튼 클릭 시 호출. confirm 후 IDB 에서 해당 ts 의 항목 삭제 + UI 새로고침.
   async function _deleteCandidate(ts, label) {
     if (!ts) return;
-    if (!confirm(window._rwIsEn&&_rwIsEn() ? 'Remove "' + (label||_rwT('후보')) + '" from the candidate list?\n(The original CodiFit/Try-On result is kept)' : (label||'후보') + '을(를) 후보 리스트에서 삭제할까요?\n(원본 코디핏/트라이온 결과는 그대로 유지됩니다)')) return;
+    if (!confirm((function(){ if(!(window._rwFor&&_rwFor())) return (label||'후보') + '을(를) 후보 리스트에서 삭제할까요?\n(원본 코디핏/트라이온 결과는 그대로 유지됩니다)';
+      var t=_rwLk('__rwDelCand'); return t ? t.replace('{label}', (label||_rwT('후보')))
+        : 'Remove "' + (label||_rwT('후보')) + '" from the candidate list?\n(The original CodiFit/Try-On result is kept)'; })())) return;
     try {
       const db = await new Promise(function(res, rej){
         const rq = indexedDB.open('codibank', 1);
@@ -2643,7 +2681,9 @@ body::before {
   //   영상 카드의 X 버튼 클릭 시 호출. confirm 후 localStorage 에서 해당 영상 삭제 + UI 새로고침.
   function _deleteVideo(videoId) {
     if (!videoId) return;
-    if (!confirm(window._rwIsEn&&_rwIsEn() ? 'Remove this video from the list?\n(The original BytePlus URL expires automatically after 24 hours)' : '이 영상을 리스트에서 삭제할까요?\n(BytePlus 원본 URL 은 24시간 후 자동 만료됩니다)')) return;
+    if (!confirm((function(){ if(!(window._rwFor&&_rwFor())) return '이 영상을 리스트에서 삭제할까요?\n(BytePlus 원본 URL 은 24시간 후 자동 만료됩니다)';
+      var t=_rwLk('__rwDelVideo'); return t ? t
+        : 'Remove this video from the list?\n(The original BytePlus URL expires automatically after 24 hours)'; })())) return;
     try {
       // 2026-05-28 KST · TJ 보고 — 버그 수정: 존재하지 않는 _videosStorageKey(email) 호출 →
       //   실제 영상 저장 키/로더인 _rwLocalKey() + _rwLocalLoad() 사용으로 교체.
