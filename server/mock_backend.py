@@ -5790,6 +5790,7 @@ def codistyle_generate():
     _top_fit      = str(_top_analysis.get("fit","")).strip()
     _top_design   = str(_top_analysis.get("key_design","")).strip()
     top_info = _analyze_garment_category(_top_cat, _top_sub)
+    print(f"[TRYON-DIAG2] top_cls={top_info.get('garment_class')!r} top_cat={_top_cat!r} top_sub={_top_sub!r}", flush=True)  # 2026-07-27 KST · TJ 지시
     if _top_sub: top_info["ko"] = _top_sub
     top_info["color_ko"]   = _top_color_ko
     top_info["pattern"]    = _top_pattern
@@ -6173,7 +6174,10 @@ def codistyle_generate():
     if _is_skirt_out:
         # 치마와 함께 착용되는 상의
         if _top_cls == "outerwear":
-            _top_wear = "Wear it open, with a simple plain tee underneath."
+            # 2026-07-27 KST · TJ 지시 — 이너 미착용(맨살) 착장 방지: 단정형 강화
+            _top_wear = ("Worn OPEN over a plain white or black crew-neck T-shirt. "
+                         "The inner tee is clearly visible at the chest opening. "
+                         "It is NEVER worn on bare skin.")
         elif _top_cls == "shirt" and top_info.get("garment") == "dress_shirt":
             _top_wear = "Tuck into the skirt waist line for a clean formal look."
         elif _top_cls == "shirt":
@@ -6183,7 +6187,10 @@ def codistyle_generate():
     else:
         # 바지/반바지와 함께 착용되는 상의 (기존 로직 유지)
         if _top_cls == "outerwear":
-            _top_wear = "Wear it open, with a simple plain tee underneath."
+            # 2026-07-27 KST · TJ 지시 — 이너 미착용(맨살) 착장 방지: 단정형 강화
+            _top_wear = ("Worn OPEN over a plain white or black crew-neck T-shirt. "
+                         "The inner tee is clearly visible at the chest opening. "
+                         "It is NEVER worn on bare skin.")
         elif _top_cls == "shirt" and top_info.get("garment") == "dress_shirt":
             _top_wear = "Tuck neatly into the bottom for a clean formal look."
         elif _top_cls == "shirt":
@@ -6293,6 +6300,13 @@ def codistyle_generate():
         # [PHASE 2] GARMENTS — AI옷장/Phase1 분석 결과를 직접 주입
         + "\n\n[PHASE 2 — GARMENTS]: Reference images are the ABSOLUTE GROUND TRUTH for color, pattern, and design. "
         + f"\nTOP = {_top_ko} ({_top_en}). "
+        + ("INNER-WEAR SAFETY (judge from the TOP reference image itself, regardless of category metadata): "
+           "if the top garment is an open-front outer piece — blazer, suit jacket, cardigan, zip-up, vest, "
+           "coat, leather or denim jacket — the person ALWAYS wears a plain white or black crew-neck T-shirt "
+           "underneath it, and the outer piece hangs open over that inner tee. Bare chest or bare torso under "
+           "an open outer garment must never appear. If the top is a regular tee/shirt/knit worn alone, "
+           "this rule does not apply. This safety rule overrides any conflicting wearing instruction. "  # 2026-07-27 KST · TJ 지시 — 메타 무관 이미지 판정 안전망
+          )
         + (f"Color: {top_info.get('color_ko','')}. " if top_info.get('color_ko') else "")
         + (f"Pattern: {top_info.get('pattern','')}. " if top_info.get('pattern') and top_info.get('pattern') != '단색' else "")
         + (f"Material: {top_info.get('material','')}. " if top_info.get('material') else "")
@@ -12246,6 +12260,7 @@ print(f"[extract-product-images] curl_cffi(2차 폴백) 가용: {_HAS_CURL_CFFI}
 #         ③ 3차도 불가하면 '브라우저에서 실제 상품 URL 복사' 안내
 _APP_DEEPLINK_HOSTS = (
     "onelink.me",        # AppsFlyer (무신사 등)
+    "s.zigzag.kr", "link.zigzag.kr",   # 2026-07-27 KST · TJ 지시 — 지그재그 앱 공유 단축링크(JS 리디렉트 셔임)
     "app.link", "applink.io", "bnc.lt",   # Branch
     "page.link", "firebase.app",          # Firebase Dynamic Links
     "smart.link", "lnk.to",
@@ -12318,6 +12333,7 @@ def _unfurl_extract_from_html(html: str, base_url: str) -> list:
     ]):
         imgs.append(u)
     imgs += _extract_jsonld_images(html)
+    imgs += _extract_nextdata_images(html)   # 2026-07-27 KST · TJ 지시 — SPA(지그재그) 상세 이미지
     out, seen = [], set()
     for u in imgs:
         au = _resolve_url(base_url, u)
@@ -12422,6 +12438,35 @@ def _walk_jsonld_image(node, out, depth=0):
         for k in ("@graph", "hasVariant", "itemListElement", "mainEntity", "offers", "mainEntityOfPage"):
             if k in node:
                 _walk_jsonld_image(node[k], out, depth + 1)
+
+
+_NEXTDATA_RE = re.compile(
+    r'<script[^>]*id=["\']__NEXT_DATA__["\'][^>]*>(.*?)</script>', re.DOTALL | re.IGNORECASE)
+_NEXTDATA_IMGURL_RE = re.compile(
+    r'https?://[^"\'\s\\]+?\.(?:jpe?g|png|webp|avif)(?:\?[^"\'\s\\]*)?', re.IGNORECASE)
+
+def _extract_nextdata_images(html: str) -> list:
+    """2026-07-27 KST · TJ 지시 — Next.js __NEXT_DATA__ JSON 에서 상품 이미지 URL 수집.
+    지그재그(zigzag.kr) 등 SPA 쇼핑몰은 og:image 1장 외 상세 이미지가 이 JSON 안에만 존재.
+    JSON 전체를 파싱하지 않고 이미지 URL 패턴만 안전 추출(깨진 JSON 에도 견고)."""
+    out = []
+    try:
+        m = _NEXTDATA_RE.search(html)
+        if not m:
+            return out
+        blob = m.group(1)[:2_000_000]
+        seen = set()
+        for u in _NEXTDATA_IMGURL_RE.findall(blob):
+            u = u.replace("\\u002F", "/").replace("\\/", "/")
+            if u in seen:
+                continue
+            seen.add(u)
+            out.append(u)
+            if len(out) >= 40:
+                break
+    except Exception:
+        pass
+    return out
 
 
 def _extract_jsonld_images(html: str) -> list:
@@ -12696,6 +12741,10 @@ def api_extract_product_images():
     for url in _extract_jsonld_images(html):
         candidates.append((url, 90))
 
+    # 2.5) Next.js __NEXT_DATA__ — 지그재그 등 SPA 상세 이미지 (2026-07-27 KST · TJ 지시)
+    for url in _extract_nextdata_images(html):
+        candidates.append((url, 85))
+
     # 3) <img> 태그 전체
     for url in _extract_img_src(html):
         candidates.append((url, _score_image(url)))
@@ -12739,6 +12788,15 @@ def api_extract_product_images():
     images = [url for url, _ in dedup[:_EXTRACT_MAX_IMAGES]]
 
     if not images:
+        # ── 2026-07-27 KST · TJ 지시 ─── [Z3] 페이지는 200 이지만 이미지 0장 ───
+        #   지그재그 등 SPA/앱유도 페이지는 정적 HTML 이 비어 있어 여기로 떨어짐.
+        #   기존에는 즉시 404 → 3차(JS 렌더링) 폴백을 태워 실제 렌더 후 재추출한다.
+        print(f"[extract-product-images] 파싱 성공했지만 이미지 0장 → 3차 언퍼 폴백: {page_url[:100]}", flush=True)
+        _imgs0, _via0 = _unfurl_image_via_proxy(page_url)
+        if _imgs0:
+            print(f"[extract-product-images] ✅ 3차 폴백 성공 via={_via0} ({len(_imgs0)}장)", flush=True)
+            return jsonify({"ok": True, "images": _imgs0, "pageTitle": page_title,
+                            "sourceUrl": page_url, "count": len(_imgs0), "via": _via0}), 200
         return jsonify({
             "ok": False,
             "error": "No product images found on this page",
