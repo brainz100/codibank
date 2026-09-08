@@ -833,7 +833,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6991588244591343" crossorigin="anonymous"></script>
 
 <!-- ─── 2026-09-08 KST · TJ 지시 (v2) ─── 런웨이 피처 플래그 (다른 페이지와 동일 규칙, 풋바 마크업 무수정) -->
-<style id="cb-feat-runway">html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{display:none !important;}</style>
+<style id="cb-feat-runway">
+/* 풋바 런웨이 탭 (전 페이지 공통 규칙) */
+html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{display:none !important;}
+/* ─── 2026-09-09 KST · TJ 지시 ─── 구독플랜 내 런웨이 노출 숨김 (사용량 카드 · 플랜 pill) — 같은 플래그로 원복 ───
+   숨긴 뒤 2열 그리드에 홀수 항목이 남지 않도록 마지막 항목(아이템)을 전폭으로 확장 */
+html:not(.cb-runway-on) .summary-stat.runway{display:none !important;}
+html:not(.cb-runway-on) .summary-stats > .summary-stat:last-child{grid-column:1 / -1;}
+html:not(.cb-runway-on) .plan-pill.plan-pill-runway{display:none !important;}
+html:not(.cb-runway-on) .plan-pills > .plan-pill:last-child{grid-column:1 / -1;}
+</style>
 <script>(function(){function _on(){try{return !!(window.CODIBANK_CONFIG&&window.CODIBANK_CONFIG.featureRunway===true);}catch(e){return false;}}function _sync(){try{var el=document.documentElement;if(_on())el.classList.add('cb-runway-on');else el.classList.remove('cb-runway-on');}catch(e){}}window._cbSyncRunwayFlag=_sync;_sync();if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_sync);window.addEventListener('load',_sync);})();</script>
 </head>
 <body>
@@ -1175,7 +1184,7 @@ function renderPlans(){
           <div class="plan-pill-label">${en?'Try On · Closet':'트라이 온·옷장코디'}</div>
           <div class="plan-pill-value">${trVal}<span class="plan-pill-unit">${trUnlimited?'':unitMo}</span></div>
         </div>
-        <div class="plan-pill">
+        <div class="plan-pill plan-pill-runway"><!-- 2026-09-09 KST · TJ 지시 — featureRunway=false 이면 CSS 로 숨김 -->
           <div class="plan-pill-label">${en?'Runway':'런웨이'}</div>
           <div class="plan-pill-value">${rwVal}<span class="plan-pill-unit">${rwUnlimited?'':unitMo}</span></div>
         </div>

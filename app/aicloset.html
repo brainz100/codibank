@@ -1248,6 +1248,54 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 .sm-quota-foot{ display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:10.5px; color:rgba(255,255,255,0.45); }
 .sm-quota-foot b{ color:rgba(255,255,255,0.8); font-weight:800; }
 .sm-quota-link{ color:#97FEED; font-weight:800; text-decoration:none; opacity:.85; }
+/* ─── 2026-09-09 KST · TJ 지시 ─── 트라이온 결과 뷰박스 디자인 이식 (tryon.html .csty-* → .sm-*) ─── */
+.sm-result-box{border-radius:20px;overflow:visible;background:transparent;border:none}
+.sm-prog-bar{height:3px;background:rgba(151,254,237,0.08)}
+.sm-prog-fill{height:100%;width:0%;background:linear-gradient(90deg,#35A29F,#97FEED);transition:width .4s ease;border-radius:3px}
+.sm-status-row{display:flex;align-items:center;gap:10px;padding:14px 4px 10px}
+.sm-status-dot{width:8px;height:8px;border-radius:50%;background:#35A29F;flex-shrink:0;animation:smPdot 1.2s ease-in-out infinite}
+@keyframes smPdot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
+.sm-status-dot.idle{background:rgba(151,254,237,.35);animation:none}
+.sm-status-dot.done{background:#97FEED;animation:none}
+.sm-status-dot.err{background:#f87171;animation:none}
+.sm-status-txt{font-size:12px;color:rgba(162,253,240,0.7);font-weight:500}
+.sm-result-img-wrap{padding:0;position:relative;}
+.sm-result-img-box{
+  width:100% !important; aspect-ratio:1/1.62 !important; max-height:calc(100vh - 200px); min-height:380px;
+  border-radius:20px; overflow-x:auto; overflow-y:hidden; position:relative; display:block;
+  background:radial-gradient(ellipse 80% 60% at 50% 40%, rgba(53,162,159,0.08) 0%, transparent 60%), linear-gradient(160deg, #0B1238 0%, #050A24 100%);
+  border:1px solid rgba(151,254,237,0.12);
+  box-shadow:inset 0 1px 0 rgba(151,254,237,0.05), inset 0 -1px 0 rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.25);
+  scroll-behavior:smooth; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch;
+}
+.sm-result-img-box::-webkit-scrollbar{height:0;width:0;display:none;}
+.sm-result-img-box.sm-empty{display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.sm-canvas{display:none;}
+.sm-canvas.sm-result-image{display:block !important;height:100% !important;position:relative !important;inset:auto !important;width:auto !important;max-width:none !important;object-fit:contain !important;object-position:center;scroll-snap-align:start;border-radius:0;}
+.sm-pose-toggle{position:absolute !important;left:0 !important;right:0 !important;top:auto !important;bottom:14px !important;transform:none !important;display:flex !important;justify-content:space-between !important;align-items:center !important;padding:0 12px !important;width:auto !important;z-index:10;pointer-events:none;background:transparent !important;border:none !important;box-shadow:none !important;border-radius:0 !important;transition:opacity .25s;}
+.sm-pose-toggle.hidden{opacity:0 !important;pointer-events:none;display:none !important;}
+.sm-pose-toggle > .sm-pose-btn:first-child{margin-right:auto !important;}
+.sm-pose-toggle > .sm-pose-btn:last-child{margin-left:auto !important;}
+.sm-pose-btn{pointer-events:auto !important;padding:6px 16px !important;border-radius:999px !important;background:rgba(255,255,255,0.16) !important;backdrop-filter:blur(14px) saturate(1.4) !important;-webkit-backdrop-filter:blur(14px) saturate(1.4) !important;border:1px solid rgba(255,255,255,0.2) !important;color:rgba(255,255,255,0.85);font-size:11px;font-weight:700;letter-spacing:.02em;cursor:pointer;transition:all .22s cubic-bezier(.4,0,.2,1);font-family:'Noto Sans KR',sans-serif;text-shadow:0 1px 2px rgba(0,0,0,0.18);box-shadow:0 2px 6px rgba(0,0,0,0.14) !important;}
+.sm-pose-btn:active{transform:scale(0.96) !important;}
+.sm-pose-btn.active{background:rgba(151,254,237,0.85) !important;border-color:rgba(151,254,237,0.95) !important;color:#050a24 !important;text-shadow:none !important;box-shadow:0 2px 8px rgba(151,254,237,0.35) !important;}
+.sm-pose-hint{position:absolute;right:12px;top:12px;z-index:10;font-size:9px;font-weight:700;color:rgba(255,255,255,0.85);background:rgba(255,255,255,0.14);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:4px 8px;border-radius:999px;letter-spacing:.05em;display:flex;align-items:center;gap:4px;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,0.18);animation:smPosePulse 2s ease-in-out infinite;}
+.sm-pose-hint.hidden{display:none;}
+@keyframes smPosePulse{0%,100%{opacity:0.7;transform:translateX(0);}50%{opacity:1;transform:translateX(-3px);}}
+.sm-img-spin{width:100%;height:100%;border-radius:20px;overflow:hidden;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  background:radial-gradient(ellipse 90% 60% at 50% 45%, rgba(53,162,159,0.12) 0%, transparent 65%), linear-gradient(160deg, #0B1238 0%, #050A24 100%);}
+.sm-img-spin::before{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg, transparent 0%, rgba(151,254,237,0.04) 50%, transparent 100%);background-size:100% 300%;animation:smShimmer 3.5s ease-in-out infinite;}
+@keyframes smShimmer{0%,100%{background-position:50% 0%;}50%{background-position:50% 100%;}}
+.sm-img-spin.loading::after{content:'';position:absolute;width:140px;height:140px;border-radius:50%;border:1.5px solid rgba(151,254,237,0.15);animation:smPulseRing 2.2s ease-out infinite;pointer-events:none;}
+@keyframes smPulseRing{0%{transform:scale(0.7);opacity:0.8;}100%{transform:scale(1.4);opacity:0;}}
+.sm-rainbow{font-size:22px;font-weight:800;letter-spacing:3px;font-family:'Manrope','Inter',sans-serif;display:flex;justify-content:center;align-items:center;gap:1px;position:relative;z-index:2;filter:drop-shadow(0 2px 10px rgba(53,162,159,0.25));}
+.sm-rainbow span{color:rgba(255,255,255,0.2);transition:color .3s;}
+.sm-rainbow.animating span{animation:smRbFill 2.4s infinite;}
+.sm-rainbow span:nth-child(1){animation-delay:0s}.sm-rainbow span:nth-child(2){animation-delay:.15s}.sm-rainbow span:nth-child(3){animation-delay:.3s}.sm-rainbow span:nth-child(4){animation-delay:.45s}.sm-rainbow span:nth-child(5){animation-delay:.6s}.sm-rainbow span:nth-child(6){animation-delay:.75s}.sm-rainbow span:nth-child(7){animation-delay:.9s}.sm-rainbow span:nth-child(8){animation-delay:1.05s}.sm-rainbow span:nth-child(9){animation-delay:1.2s}.sm-rainbow span:nth-child(10){animation-delay:1.35s}.sm-rainbow span:nth-child(11){animation-delay:1.5s}.sm-rainbow span:nth-child(12){animation-delay:1.65s}
+@keyframes smRbFill{0%,100%{color:rgba(255,255,255,0.2)}40%{color:#97FEED}60%{color:#97FEED}}
+.sm-spin-txt{font-size:12px;font-weight:700;color:#97FEED;letter-spacing:.04em;position:relative;z-index:2;text-align:center;padding:0 16px;}
+.sm-spin-sub{font-size:10.5px;color:rgba(255,255,255,0.45);position:relative;z-index:2;min-height:14px;text-align:center;}
+.sm-err-box{margin-top:10px;padding:12px 14px;border-radius:12px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);color:#fca5a5;font-size:12px;line-height:1.55;}
 @keyframes smSpin{ to{ transform:rotate(360deg); } }
 </style>
 </head>
@@ -1578,18 +1626,27 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
     </div>
     <p id="smHint" class="mt-2 text-[11px] text-center" style="color:rgba(151,254,237,0.55);min-height:16px;" data-i18n="날짜와 목적을 먼저 선택하세요">날짜와 목적을 먼저 선택하세요</p>
 
-    <!-- ── 뷰박스 (트라이온 출력 16:9, 좌=정면 / 우=후면) ── -->
-    <div id="smViewWrap" class="mt-4" style="position:relative;border-radius:16px;overflow:hidden;background:#00022E;border:1px solid rgba(151,254,237,0.12);aspect-ratio:16/9;">
-      <img id="smViewImg" alt="" style="display:none;width:100%;height:100%;object-fit:contain;background:#00022E;"/>
-      <div id="smViewEmpty" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(151,254,237,0.22);">
-        <span class="material-symbols-outlined" style="font-size:64px;">checkroom</span>
-        <p style="margin-top:10px;font-size:11px;letter-spacing:0.2em;font-weight:700;" data-i18n="내 옷장 착장 대기 중">내 옷장 착장 대기 중</p>
+    <!-- ── 뷰박스 — 2026-09-09 KST · TJ 지시 ─── tryon.html 결과 뷰박스 디자인 그대로 이식 (sm- 접두어) ──
+         구조: 진행바 + 상태행 + 1:1.62 세로 박스(좌=정면/우=후면 가로 캔버스, 스크롤 스냅) + 정/후면 토글 + 힌트 -->
+    <div id="smResultArea" class="mt-4 sm-result-box">
+      <div class="sm-prog-bar"><div class="sm-prog-fill" id="smProgFill"></div></div>
+      <div class="sm-status-row"><div class="sm-status-dot idle" id="smStatusDot"></div><span class="sm-status-txt" id="smStatusTxt" data-i18n="날짜와 목적을 고르고 생성 버튼을 눌러주세요">날짜와 목적을 고르고 생성 버튼을 눌러주세요</span></div>
+      <div class="sm-result-img-wrap" id="smImgWrap">
+        <div class="sm-result-img-box sm-empty" id="smViewBox">
+          <div class="sm-img-spin" id="smViewEmpty">
+            <div class="sm-rainbow" id="smRainbow"><span>s</span><span>t</span><span>y</span><span>l</span><span>e</span><span>m</span><span>o</span><span>n</span><span>s</span><span>t</span><span>e</span><span>r</span></div>
+            <p class="sm-spin-txt" id="smViewLoadingText" style="opacity:.35" data-i18n="내 옷장 착장 대기 중">내 옷장 착장 대기 중</p>
+            <p class="sm-spin-sub" id="smViewLoadingSub"></p>
+          </div>
+          <canvas id="smCanvas" class="sm-canvas"></canvas>
+        </div>
+        <div id="smPoseToggle" class="sm-pose-toggle hidden">
+          <button type="button" class="sm-pose-btn active" data-pose="front" data-i18n="정면">정면</button>
+          <button type="button" class="sm-pose-btn" data-pose="back" data-i18n="후면">후면</button>
+        </div>
+        <div id="smPoseHint" class="sm-pose-hint hidden"><span data-i18n="정·후면">정·후면</span><span class="material-symbols-outlined" style="font-size:12px;">swipe</span></div>
       </div>
-      <div id="smViewLoading" style="display:none;position:absolute;inset:0;background:rgba(0,2,46,0.92);flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:3;">
-        <div style="width:40px;height:40px;border:3px solid rgba(151,254,237,.25);border-top-color:#97FEED;border-radius:50%;animation:smSpin 1s linear infinite;"></div>
-        <p id="smViewLoadingText" style="font-size:12px;font-weight:700;color:#97FEED;letter-spacing:.04em;">옷장에서 아이템 고르는 중…</p>
-        <p id="smViewLoadingSub" style="font-size:10.5px;color:rgba(255,255,255,0.45);">보통 40~60초 걸려요</p>
-      </div>
+      <div class="sm-err-box" id="smErrBox" style="display:none;"></div>
     </div>
 
     <!-- 결과 메타: 선택된 아이템 + 이유 + 저장 -->
@@ -7387,14 +7444,33 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     return 'https://codibank-api.onrender.com';
   };
   const _email = () => { try{ return String((user && user.email) || '').trim().toLowerCase(); }catch(_){ return ''; } };
-  const _postJson = async (path, body, timeoutMs) => {
-    const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), timeoutMs || 120000);
-    try{
-      const r = await fetch(_base() + path, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal:ctl.signal });
-      const j = await r.json().catch(()=>null);
-      if(!r.ok || (j && j.ok === false)) throw new Error((j && (j.error || j.message)) || ('HTTP ' + r.status));
-      return j;
-    } finally { clearTimeout(t); }
+  // ─── 2026-09-09 KST · TJ 지시 ─── 실패("signal is aborted without reason") 교정
+  //   원인: 서버 재배포/재시작 중 요청이 끊겨 AbortController 타임아웃 → 원문 그대로 노출.
+  //   조치: 타임아웃 상향(pick 90s · tryon 240s = gunicorn --timeout) · 사람이 읽는 오류 문구 · 재시도 옵션.
+  const _friendlyErr = (e) => {
+    const m = String((e && e.message) || e || '');
+    if(/abort/i.test(m)) return _T('서버 응답이 너무 늦어 중단했어요. 서버가 재시작 중일 수 있으니 30초 뒤 다시 시도해주세요.', 'The server took too long (it may be restarting). Please try again in 30 seconds.');
+    if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return _T('네트워크 연결에 실패했어요. 잠시 후 다시 시도해주세요.', 'Network error. Please try again shortly.');
+    if(/HTTP 5\d\d/.test(m)) return _T('서버 오류가 발생했어요 (' + m + '). 잠시 후 다시 시도해주세요.', 'Server error (' + m + '). Please retry.');
+    return m;
+  };
+  const _postJson = async (path, body, timeoutMs, retries) => {
+    let last = null;
+    for(let attempt = 0; attempt <= (retries || 0); attempt++){
+      const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), timeoutMs || 120000);
+      try{
+        const r = await fetch(_base() + path, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal:ctl.signal });
+        const j = await r.json().catch(()=>null);
+        if(!r.ok || (j && j.ok === false)) throw new Error((j && (j.error || j.message)) || ('HTTP ' + r.status));
+        return j;
+      } catch(e){
+        last = e;
+        const transient = /abort|Failed to fetch|NetworkError|Load failed|HTTP 502|HTTP 503|HTTP 504/i.test(String(e && e.message || e));
+        if(!transient || attempt >= (retries || 0)) throw e;
+        await new Promise(res => setTimeout(res, 2500));
+      } finally { clearTimeout(t); }
+    }
+    throw last;
   };
   const _getJson = async (path) => {
     const r = await fetch(_base() + path); const j = await r.json().catch(()=>null);
@@ -7529,18 +7605,100 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     return (Number.isFinite(lat) && Number.isFinite(lon)) ? { lat, lon } : { lat: 37.5665, lon: 126.978 };
   }
 
-  // ── 뷰박스 ──
-  function setLoading(on, text, sub){
-    const l = $('smViewLoading'); if(!l) return;
-    l.style.display = on ? 'flex' : 'none';
-    if(text) $('smViewLoadingText').textContent = text;
-    if(sub !== undefined) $('smViewLoadingSub').textContent = sub || '';
+  // ── 뷰박스 — 2026-09-09 KST · TJ 지시 ─── tryon.html _tryonApplyResult 렌더 로직 이식 ──
+  //   진행바/상태행 · 로딩 스피너 · 좌=정면/우=후면 캔버스 분할(cover) · 토글/스와이프 동기화 · resize 재그리기
+  const _SM_STAGES = { pick:33, images:55, gen:78, done:100 };
+  function setStatus(text, dot, pct){
+    const t = $('smStatusTxt'), d = $('smStatusDot'), p = $('smProgFill');
+    if(t && text !== undefined) t.textContent = text;
+    if(d){ d.className = 'sm-status-dot' + (dot ? ' ' + dot : ''); }
+    if(p && pct !== undefined) p.style.width = pct + '%';
+  }
+  function setLoading(on, text, sub, stage){
+    const box = $('smViewBox'), sp = $('smViewEmpty'), rb = $('smRainbow'), err = $('smErrBox');
+    if(err && on) err.style.display = 'none';
+    if(on){
+      // 새 생성 시작: 캔버스 숨기고 스피너 표시
+      const cv = $('smCanvas'); if(cv){ cv.classList.remove('sm-result-image'); }
+      $('smPoseToggle') && $('smPoseToggle').classList.add('hidden'); $('smPoseHint') && $('smPoseHint').classList.add('hidden');
+      if(box) box.classList.add('sm-empty');
+      if(sp){ sp.style.display = 'flex'; sp.classList.add('loading'); }
+      if(rb) rb.classList.add('animating');
+      const lt = $('smViewLoadingText'); if(lt){ lt.textContent = text || ''; lt.style.opacity = '1'; }
+      const ls = $('smViewLoadingSub'); if(ls) ls.textContent = sub || '';
+      setStatus(text || '', '', stage ? _SM_STAGES[stage] : undefined);
+    } else {
+      if(rb) rb.classList.remove('animating');
+      if(sp) sp.classList.remove('loading');
+    }
+  }
+  function showError(msg){
+    const e = $('smErrBox'); if(e){ e.textContent = msg; e.style.display = 'block'; }
+    setStatus(_T('생성에 실패했어요','Generation failed'), 'err', 0);
+    const lt = $('smViewLoadingText'); if(lt){ lt.textContent = _T('내 옷장 착장 대기 중','Waiting for closet outfit'); lt.style.opacity = '.35'; }
+    const ls = $('smViewLoadingSub'); if(ls) ls.textContent = '';
   }
   function showImage(src){
-    const img = $('smViewImg'), e = $('smViewEmpty');
-    if(!img) return;
-    img.src = src; img.style.display = 'block'; if(e) e.style.display = 'none';
+    const box = $('smViewBox'), canvas = $('smCanvas'), sp = $('smViewEmpty'), toggle = $('smPoseToggle'), hint = $('smPoseHint');
+    if(!box || !canvas) return;
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onerror = function(){
+      // CORS/로드 실패 폴백: <img> 로 표시 (트라이온과 동일)
+      box.classList.add('sm-empty'); if(sp) sp.style.display = 'none';
+      let f = box.querySelector('img.sm-fallback'); if(!f){ f = document.createElement('img'); f.className = 'sm-fallback'; f.alt = ''; f.style.cssText = 'max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:12px;'; box.appendChild(f); }
+      f.src = src; setStatus(_T('착장 이미지 완성','Outfit ready'), 'done', 100);
+    };
+    img.onload = function(){
+      const iw = img.naturalWidth || 0, ih = img.naturalHeight || 0; if(!iw || !ih) return;
+      const fb = box.querySelector('img.sm-fallback'); if(fb) fb.remove();
+      const hasTwoViews = (iw / ih) >= 0.45;          // tryon v28: 극단 세로만 단일, 그 외 좌/우 분할
+      if(sp) sp.style.display = 'none';
+      box.classList.remove('sm-empty');
+      const DPR = window.devicePixelRatio || 1;
+      function draw(){
+        const r = box.getBoundingClientRect(); const boxW = Math.max(1, r.width), boxH = Math.max(1, r.height);
+        const dispW = hasTwoViews ? boxW * 2 : boxW, dispH = boxH;
+        canvas.width = Math.round(dispW * DPR); canvas.height = Math.round(dispH * DPR);
+        canvas.style.width = dispW + 'px'; canvas.style.height = dispH + 'px';
+        canvas.classList.add('sm-result-image');
+        const ctx = canvas.getContext('2d'); ctx.setTransform(DPR,0,0,DPR,0,0); ctx.clearRect(0,0,dispW,dispH);
+        const boxRatio = boxW / boxH;
+        const fitCover = (srcW, srcH, srcX, srcY) => { const sR = srcW / srcH; let sx, sy, sw, sh; if(sR > boxRatio){ sh = srcH; sw = srcH * boxRatio; sx = srcX + (srcW - sw) / 2; sy = srcY; } else { sw = srcW; sh = srcW / boxRatio; sx = srcX; sy = srcY + (srcH - sh) / 2; } return { sx, sy, sw, sh }; };
+        if(hasTwoViews){
+          const half = iw / 2;
+          const f = fitCover(half, ih, 0, 0);    ctx.drawImage(img, f.sx, f.sy, f.sw, f.sh, 0, 0, boxW, boxH);
+          const b = fitCover(half, ih, half, 0); ctx.drawImage(img, b.sx, b.sy, b.sw, b.sh, boxW, 0, boxW, boxH);
+        } else {
+          const f = fitCover(iw, ih, 0, 0); ctx.drawImage(img, f.sx, f.sy, f.sw, f.sh, 0, 0, boxW, boxH);
+        }
+      }
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        draw(); box.scrollLeft = 0;
+        if(hasTwoViews){
+          if(toggle) toggle.classList.remove('hidden');
+          if(hint){ hint.classList.remove('hidden'); setTimeout(() => hint && hint.classList.add('hidden'), 5000); }
+        } else { if(toggle) toggle.classList.add('hidden'); }
+        setStatus(_T('착장 이미지 완성 · 좌우로 넘겨 정면/후면을 확인하세요','Outfit ready · swipe for front/back'), 'done', 100);
+      }));
+      // 토글/스크롤 동기화 (1회 바인딩)
+      if(toggle && !toggle._smBound){
+        toggle._smBound = true;
+        const btns = toggle.querySelectorAll('.sm-pose-btn');
+        box.addEventListener('scroll', () => { const sx = box.scrollLeft, sw = box.scrollWidth - box.clientWidth; const isBack = sx > sw / 2; if(btns[0]) btns[0].classList.toggle('active', !isBack); if(btns[1]) btns[1].classList.toggle('active', isBack); if(hint && sx > 5) hint.classList.add('hidden'); }, { passive:true });
+        btns.forEach(bt => bt.addEventListener('click', ev => {
+          ev.preventDefault(); ev.stopPropagation();
+          btns.forEach(x => x.classList.remove('active')); bt.classList.add('active');
+          const sw = box.scrollWidth - box.clientWidth; const target = bt.dataset.pose === 'front' ? 0 : sw;
+          try{ box.scrollTo({ left: target, behavior:'smooth' }); }catch(_){ box.scrollLeft = target; }
+          setTimeout(() => { if(Math.abs(box.scrollLeft - target) > 10) box.scrollLeft = target; }, 700);
+          if(hint) hint.classList.add('hidden');
+        }));
+      }
+      let rt = null; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { const wasBack = box.scrollLeft > (box.scrollWidth - box.clientWidth) / 2; draw(); box.scrollLeft = wasBack ? (box.scrollWidth - box.clientWidth) : 0; }, 150); });
+    };
+    img.src = src;
   }
+
   function showResult(res){
     ST.last = res;
     showImage(res.image);
@@ -7555,7 +7713,7 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     }
     if(reason) reason.textContent = res.reason || '';
     if(meta) meta.classList.remove('hidden');
-    try{ $('smViewWrap').scrollIntoView({ behavior:'smooth', block:'center' }); }catch(_){}
+    try{ $('smResultArea').scrollIntoView({ behavior:'smooth', block:'start' }); }catch(_){}
   }
   const escS = s => String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
@@ -7579,18 +7737,18 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     const dk = dateKey(), wx = wxFor(dk);
     try{
       // 1) 아이템 선정 (텍스트 모델 — 이미지 없이 메타만 전송)
-      setLoading(true, _T('옷장에서 아이템 고르는 중…','Picking items from your closet…'), _T('날씨와 목적을 함께 보고 있어요','Considering weather and purpose'));
+      setLoading(true, _T('옷장에서 아이템 고르는 중…','Picking items from your closet…'), _T('날씨와 목적을 함께 보고 있어요','Considering weather and purpose'), 'pick');
       const pick = await _postJson('/api/aicloset/pick-outfit', {
         email: em, dateKey: dk, weather: wx, purposeKey: ST.pk, purposeLabel: purposeLabel(), purposeHint: purposeHint(),
         user: userProfile(), lang: _isFor() ? 'en' : 'ko',
         exclude: (regen && ST.last && ST.last.picked) ? ST.last.picked.map(p => p.id) : [],
         items: cands.map(c => { const { _ref, _gemini, ...rest } = c; return rest; }),
-      }, 60000);
+      }, 90000, 1);   // 90s · 일시 오류 1회 재시도
       const picked = (pick && pick.picked) || [];
       if(!picked.length) throw new Error(_T('조건에 맞는 아이템 조합을 찾지 못했어요.','No matching combination found.'));
 
       // 2) 이미지 로드 → 트라이온 페이로드
-      setLoading(true, _T('아이템 이미지 준비 중…','Preparing item images…'), '');
+      setLoading(true, _T('아이템 이미지 준비 중…','Preparing item images…'), '', 'images');
       const byId = Object.fromEntries(cands.map(c => [c.id, c]));
       const payload = { user: userProfile(), fitTarget: 'my', lang: _isFor() ? 'en' : 'ko', mode: 'twopiece', source: 'aicloset_alarm' };
       const pickedOut = [];
@@ -7611,8 +7769,8 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
       try{ if(user && user.personalColor) payload.personalColor = user.personalColor; }catch(_){}
 
       // 3) 착장 생성 (기존 트라이온 엔진)
-      setLoading(true, _T('착장 이미지 생성 중…','Generating outfit image…'), _T('정면·후면을 함께 만들고 있어요 (40~60초)','Front and back views (40–60s)'));
-      const gen = await _postJson('/api/tryon/generate', payload, 180000);
+      setLoading(true, _T('착장 이미지 생성 중…','Generating outfit image…'), _T('정면·후면을 함께 만들고 있어요 (40~60초)','Front and back views (40–60s)'), 'gen');
+      const gen = await _postJson('/api/tryon/generate', payload, 240000);   // gunicorn --timeout 240 과 동일
       // ─── 2026-09-09 KST · TJ 지시 ─── 실패 원인 교정: 서버는 image 에 절대 URL(https://…/uploads/tryon_x.jpg) 을 주는데
       //     이전 코드가 'data:image/png;base64,' 를 앞에 붙여 깨진 이미지가 됨. 트라이온 페이지와 동일하게 URL 그대로 사용.
       const _rawImg = String(gen.image || gen.url || gen.path || '').trim();
@@ -7626,7 +7784,9 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
       showResult({ image: imgSrc, imageRef: gen.path || gen.url || '', picked: pickedOut, reason: pick.reason || '', dateKey: dk, wx, purposeLabel: purposeLabel() });
     }catch(e){
       console.warn('[SM] generateNow fail', e);
-      alert((_T('생성에 실패했어요: ','Generation failed: ')) + (e && e.message ? e.message : e));
+      const msg = _friendlyErr(e);
+      showError(msg);
+      alert((_T('생성에 실패했어요: ','Generation failed: ')) + msg);
     } finally {
       setLoading(false); ST.busy = false; refreshButtons();
     }
