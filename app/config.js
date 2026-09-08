@@ -10,6 +10,14 @@ window.CODIBANK_CONFIG = {
   aiProvider: "REMOTE",
   aiBase: "",
 
+  // ─── 2026-09-08 KST · TJ 지시 ─── 기능 플래그 (테스트 간소화) ────────────
+  //  featureRunway : 풋바 '런웨이' 탭 노출 + runway.html 직접 접근 허용 여부
+  //    false → 풋바에서 숨김 · runway.html 진입 시 closet.html 로 리다이렉트
+  //    true  → 원복 (runway.html · /api/runway/* · Seedance v21 프롬프트 그대로 살아있음)
+  //  ※ 파일 삭제가 아닌 플래그 방식이므로 이 한 줄만 true 로 바꾸면 즉시 복원됩니다.
+  featureRunway: false,
+  // ─────────────────────────────────────────────────────────────────────────
+
   // ── Supabase 인증 설정 (필수) ────────────────────────────────
   supabaseUrl:     "https://drgsayvlpzcacurcczjq.supabase.co",
   supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRyZ3NheXZscHpjYWN1cmNjempxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjU4MTMsImV4cCI6MjA4OTQwMTgxM30.4_M245-q2LeFKRf6go587R0U2ocPNa9iSv3qHCQMOPA",  // ← Supabase 대시보드 anon public 키 (eyJhbGci...)

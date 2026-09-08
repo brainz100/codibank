@@ -1644,12 +1644,35 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
   <div class="cb-nav-inner">
     <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl" data-i18n="코디핏">코디핏</span></a>
     <a href="tryon.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl" data-i18n="트라이온">트라이온</span></a>
-    <a href="runway.html" class="cb-nav-tab"><span class="ni">movie_filter</span><span class="nl" data-i18n="런웨이">런웨이</span></a>
+    <a href="runway.html" class="cb-nav-tab" data-cb-feature="runway" style="display:none;"><span class="ni">movie_filter</span><span class="nl" data-i18n="런웨이">런웨이</span></a>
     <a href="aicloset.html" class="cb-nav-tab on"><span class="ni">checkroom</span><span class="nl" data-i18n="Ai 옷장">Ai 옷장</span></a>
     <a href="album.html" class="cb-nav-tab"><span class="ni">photo_library</span><span class="nl" data-i18n="코디앨범">코디앨범</span></a>
     <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl" data-i18n="MY">MY</span></a>
   </div>
 </nav>
+<!-- ─── 2026-09-08 KST · TJ 지시 ─── 런웨이 풋바 탭 피처 플래그 숨김 ─────────
+     · 기본값 = 숨김. <a> 에 inline display:none 이 있어 깜빡임(FOUC) 없음.
+     · config.js 의 CODIBANK_CONFIG.featureRunway === true 일 때만 노출.
+     · <a> 태그 · runway.html · /api/runway/* · i18n 사전 모두 보존(복원 대비).
+     · 복원 방법: config.js 에서 featureRunway: true 로 변경 (이 파일 수정 불필요)
+──────────────────────────────────────────────────────────────────────────── -->
+<script>(function(){
+  function _cbRunwayOn(){
+    try { return !!(window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.featureRunway === true); }
+    catch(e){ return false; }
+  }
+  function _cbApplyRunwayNav(){
+    var on  = _cbRunwayOn();
+    var els = document.querySelectorAll('[data-cb-feature="runway"]');
+    for (var i = 0; i < els.length; i++){ els[i].style.display = on ? '' : 'none'; }
+  }
+  _cbApplyRunwayNav();                                   // 즉시 1회 (config.js 선로드 페이지)
+  if (document.readyState === 'loading') {               // config.js 후로드 페이지 대비
+    document.addEventListener('DOMContentLoaded', _cbApplyRunwayNav);
+  }
+  window.addEventListener('load', _cbApplyRunwayNav);    // 최종 보정
+})();</script>
+
 
 <!-- 카테고리 선택 모달 -->
 <div id="pickCatModal" class="hidden fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm">

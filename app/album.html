@@ -41,6 +41,10 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&family=Inter:wght@400;500;600&family=Outfit:wght@400;700;900&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<!-- ─── 2026-09-08 KST · TJ 지시 ─── config.js 로드 추가
+     사유: 런웨이 피처 플래그(CODIBANK_CONFIG.featureRunway) 참조 필요.
+     다른 페이지(closet/tryon/aicloset/runway)와 동일하게 codibank.js 앞에 배치. -->
+<script src="config.js"></script>
 <script src="codibank.js"></script>
 <script src="i18n.js"></script>
 <script>
@@ -355,12 +359,35 @@ html,body{min-height:100dvh;background:#00022E;color:#ffffff;font-family:'Inter'
   <div class="cb-nav-inner">
     <a href="closet.html" class="cb-nav-tab"><span class="ni">auto_awesome</span><span class="nl">코디핏</span></a>
     <a href="tryon.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">트라이온</span></a>
-    <a href="runway.html" class="cb-nav-tab"><span class="ni">movie_filter</span><span class="nl">런웨이</span></a>
+    <a href="runway.html" class="cb-nav-tab" data-cb-feature="runway" style="display:none;"><span class="ni">movie_filter</span><span class="nl">런웨이</span></a>
     <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
     <a href="album.html" class="cb-nav-tab on"><span class="ni">photo_library</span><span class="nl">코디앨범</span></a>
     <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
   </div>
 </nav>
+<!-- ─── 2026-09-08 KST · TJ 지시 ─── 런웨이 풋바 탭 피처 플래그 숨김 ─────────
+     · 기본값 = 숨김. <a> 에 inline display:none 이 있어 깜빡임(FOUC) 없음.
+     · config.js 의 CODIBANK_CONFIG.featureRunway === true 일 때만 노출.
+     · <a> 태그 · runway.html · /api/runway/* · i18n 사전 모두 보존(복원 대비).
+     · 복원 방법: config.js 에서 featureRunway: true 로 변경 (이 파일 수정 불필요)
+──────────────────────────────────────────────────────────────────────────── -->
+<script>(function(){
+  function _cbRunwayOn(){
+    try { return !!(window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.featureRunway === true); }
+    catch(e){ return false; }
+  }
+  function _cbApplyRunwayNav(){
+    var on  = _cbRunwayOn();
+    var els = document.querySelectorAll('[data-cb-feature="runway"]');
+    for (var i = 0; i < els.length; i++){ els[i].style.display = on ? '' : 'none'; }
+  }
+  _cbApplyRunwayNav();                                   // 즉시 1회 (config.js 선로드 페이지)
+  if (document.readyState === 'loading') {               // config.js 후로드 페이지 대비
+    document.addEventListener('DOMContentLoaded', _cbApplyRunwayNav);
+  }
+  window.addEventListener('load', _cbApplyRunwayNav);    // 최종 보정
+})();</script>
+
 
 <script>
 'use strict';
