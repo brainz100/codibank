@@ -361,6 +361,8 @@
     return _T[sv];
   }
   window._acFor=_acFor; window._acT=_acT;
+  // ─── 2026-09-09 KST · TJ 지시 ─── closet.html 이식 코드 호환 심 (window._cbFor → _acFor)
+  if(typeof window._cbFor !== 'function') window._cbFor = function(){ try{ return !!_acFor(); }catch(_){ return false; } };
   /* 외국어 모드: 한국어 분기 문자열도 렌더 즉시 치환 — 동적 노드 옵저버 */
   var _acObs=null;
   function _acTxNode(n){
@@ -1181,6 +1183,63 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
   }
   window.addEventListener('load', _cbSyncRunwayFlag);           // 최종 보정
 })();</script>
+
+<style id="sm-alarm-css">
+/* ─── 2026-09-09 KST · TJ 지시 ─── Ai옷장 TPO 스타일링 알람 섹션 스타일 ─── */
+/* 기존 '유사 아이템 찾기 / 코디핏 뷰박스 / 카테고리 분석' 은 삭제 지시. DOM 은 롤백 대비 보존, CSS 로 완전 차단. */
+#codiRecommendBox, #closetMatchPanel { display:none !important; }
+
+.sm-purpose-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+.sm-pc{
+  display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:14px; cursor:pointer;
+  background:rgba(255,255,255,0.05); border:1.5px solid rgba(151,254,237,0.15); color:rgba(255,255,255,0.7);
+  font-family:'Outfit','Noto Sans KR',sans-serif; text-align:left; transition:all .18s ease;
+}
+.sm-pc .sm-pc-ic{ font-size:20px; color:rgba(151,254,237,0.6); flex-shrink:0; }
+.sm-pc .sm-pc-t{ font-size:13px; font-weight:800; line-height:1.2; }
+.sm-pc .sm-pc-s{ font-size:10px; font-weight:600; color:rgba(255,255,255,0.4); margin-top:2px; }
+.sm-pc.on{ background:rgba(151,254,237,0.14); border-color:#97FEED; color:#fff; box-shadow:0 0 0 1px rgba(151,254,237,0.25) inset; }
+.sm-pc.on .sm-pc-ic{ color:#97FEED; }
+.sm-pc.on .sm-pc-s{ color:rgba(151,254,237,0.7); }
+.sm-pc:active{ transform:scale(0.97); }
+
+.sm-btn{
+  display:flex; align-items:center; justify-content:center; gap:6px; width:100%;
+  padding:15px 10px; border-radius:14px; font-size:13.5px; font-weight:800; letter-spacing:-0.01em;
+  font-family:'Outfit','Noto Sans KR',sans-serif; border:none; cursor:pointer; transition:all .18s ease; white-space:nowrap;
+}
+.sm-btn:disabled{ opacity:.38; cursor:default; pointer-events:none; }
+.sm-btn:active{ transform:scale(0.97); }
+.sm-btn-primary{ background:linear-gradient(90deg,#114b5f 0%,#32a097 100%); color:#e0f2f1; box-shadow:0 10px 24px rgba(11,102,106,0.35); }
+.sm-btn-primary:not(:disabled){ background:#0B666A; color:#97FEED; }
+.sm-btn-secondary{ background:rgba(255,255,255,0.06); color:#fff; border:1.5px solid rgba(151,254,237,0.3); }
+.sm-btn-ghost{ background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.8); border:1px solid rgba(255,255,255,0.12); padding:11px 8px; font-size:12px; }
+
+.sm-chip{ display:inline-flex; align-items:center; gap:4px; padding:5px 10px; border-radius:999px; font-size:11px; font-weight:700;
+  background:rgba(151,254,237,0.1); border:1px solid rgba(151,254,237,0.25); color:#97FEED; }
+.sm-chip b{ color:rgba(255,255,255,0.55); font-weight:600; margin-right:2px; }
+
+.sm-alarm-row{ display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:12px;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); }
+.sm-alarm-row .sm-ar-ic{ font-size:22px; color:rgba(151,254,237,0.6); flex-shrink:0; }
+.sm-alarm-row .sm-ar-main{ flex:1; min-width:0; }
+.sm-alarm-row .sm-ar-t{ font-size:13px; font-weight:800; color:#fff; }
+.sm-alarm-row .sm-ar-s{ font-size:10.5px; color:rgba(255,255,255,0.45); margin-top:2px; }
+.sm-alarm-row .sm-ar-st{ font-size:10px; font-weight:800; padding:3px 8px; border-radius:999px; flex-shrink:0; }
+.sm-st-pending{ background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.6); }
+.sm-st-done{ background:rgba(151,254,237,0.15); color:#97FEED; }
+.sm-st-failed{ background:rgba(248,113,113,0.15); color:#f87171; }
+.sm-alarm-row .sm-ar-del{ background:none; border:none; color:rgba(255,255,255,0.3); cursor:pointer; padding:4px; }
+.sm-alarm-row.sm-clickable{ cursor:pointer; }
+.sm-alarm-row.sm-clickable:active{ background:rgba(151,254,237,0.08); }
+
+/* 코디핏에서 이식한 날짜카드 온도 표기 (closet.html 2640~2642 와 동일) */
+.dc .dc-temp { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.50); letter-spacing: -0.3px; }
+.dc.dc-on .dc-temp { color: rgba(7,25,82,0.55); }
+.dc.dc-sat .dc-temp { color: rgba(96,165,250,0.6); }
+
+@keyframes smSpin{ to{ transform:rotate(360deg); } }
+</style>
 </head>
 <body style="background:#00022E;" class="text-white selection:bg-teal-400/20">
 <!-- ── 저장 완료 토스트 ── -->
@@ -1249,32 +1308,8 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 
   <!-- ── STEP 2. 코디 날짜 선택 ── -->
   <section class="px-5 mt-8">
-    <div class="flex items-center justify-between mb-4">
-      <div>
-        <p class="text-[11px] font-black tracking-[0.22em]" style="color:#97FEED;">STEP 2</p>
-        <h3 class="text-[18px] font-bold text-white tracking-tight mt-0.5">코디 날짜 선택</h3>
-        <p class="text-[12px] mt-0.5" style="color:rgba(255,255,255,0.5);">코디를 생성할 날짜를 선택하세요</p>
-      </div>
-      <button id="calendarIconBtn" style="color:rgba(151,254,237,0.5);">
-        <span class="material-symbols-outlined text-xl">calendar_month</span>
-      </button>
-    </div>
+    <!-- ─── 2026-09-09 KST · TJ 지시 ─── 코디 날짜 선택 블록은 #smAlarmSection > #smDateSlot 으로 이동됨 ─── -->
 
-    <!-- 연/월 레이블 -->
-    <div id="dateMonthLabel" class="text-[14px] font-bold mb-4" style="color:#97FEED;"></div>
-
-    <!-- 날짜 카드 스크롤 -->
-    <div id="dateCardScroll" class="flex gap-3 overflow-x-auto pb-10 no-scrollbar -mx-1 px-1"></div>
-
-    <!-- 숨김: JS 기존 로직 호환용 -->
-    <div id="dayPickWrap" style="display:none;">
-      <input id="dayPick" type="date"/>
-      <p id="dayPickHint"></p>
-    </div>
-    <button id="dayTodayBtn" type="button" style="display:none;" aria-pressed="false">오늘의 코디</button>
-    <button id="dayTomorrowBtn" type="button" style="display:none;" aria-pressed="false">내일의 코디</button>
-    <p id="dayToast" class="hidden mt-2 text-[12px] font-semibold" style="color:rgba(248,113,113,0.9);"></p>
-    <p id="doubleTapGuide" class="hidden mt-2 text-[11px]" style="color:rgba(151,254,237,0.7);"></p>
 
     <!-- ★ STEP 3 + AI 스타일리스트 요청하기 버튼 ★ -->
     <div class="mb-3">
@@ -1445,6 +1480,129 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
     <section class="mb-5"><h3 class="font-bold text-lg mb-3 flex items-center gap-2" style="color:#97feed;"><span data-i18n="소재 분석">소재 분석</span> <div class="h-[1px] flex-grow rounded-full" style="background:rgba(53,162,159,0.2);"></div></h3><div class="p-5 rounded-3xl" style="background:rgba(53,162,159,0.1);border:1px solid rgba(53,162,159,0.2);"><div id="csMaterialList" class="space-y-3 text-[11px]"></div></div></section>
     <section class="mb-5"><h3 class="font-bold text-lg mb-3 flex items-center gap-2" style="color:#97feed;"><span data-i18n="시즌 분석">시즌 분석</span> <div class="h-[1px] flex-grow rounded-full" style="background:rgba(53,162,159,0.2);"></div></h3><div class="p-5 rounded-3xl" style="background:rgba(53,162,159,0.1);border:1px solid rgba(53,162,159,0.2);"><div id="csSeasonList" class="grid grid-cols-2 gap-y-3 gap-x-5 text-[11px]"></div></div></section>
   </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════
+       ─── 2026-09-09 KST · TJ 지시 ─── Ai옷장 서비스 재정의: TPO 스타일링 알람
+       배경: 기존 '유사한 아이템 찾기 / 코디핏 생성 뷰박스 / 카테고리별 분석' 은
+             코디핏 추천을 내 옷장과 "매칭" 하는 기능이었음. TJ 지시로 폐기하고,
+             내 옷장 아이템만으로 날짜·날씨·목적(TPO)에 맞는 착장을 "생성" 하고
+             원하는 시각에 알람으로 받아보는 서비스로 교체.
+       구성: STEP 1 날짜(코디핏 STEP 2 날짜카드 그대로 이식) + 알람 시각
+             STEP 2 목적 6종 + 직접입력
+             [지금 생성하기] 즉시 생성 → 뷰박스 표시
+             [설정 후 알람 받기] 예약 → 서버가 해당 시각 날씨로 생성 → 푸시 알림
+       엔진: 아이템 선정 = /api/aicloset/pick-outfit (Gemini flash-lite, 텍스트)
+             착장 생성 = /api/tryon/generate (기존 트라이온 엔진 그대로 재사용)
+       ═══════════════════════════════════════════════════════════════════════════ -->
+  <section id="smAlarmSection" class="px-5 mt-2 mb-8" style="max-width:28rem;margin-left:auto;margin-right:auto;font-family:'Outfit','Noto Sans KR',sans-serif;">
+
+    <header class="mb-5">
+      <p class="text-[11px] font-black tracking-[0.22em]" style="color:#97FEED;" data-i18n="STYLE ALARM">STYLE ALARM</p>
+      <h2 class="text-[20px] font-bold text-white tracking-tight mt-0.5" data-i18n="내 옷장 코디 알람">내 옷장 코디 알람</h2>
+      <p class="text-[12px] mt-1" style="color:rgba(255,255,255,0.5);line-height:1.6;" data-i18n="옷장에 등록한 아이템만으로 날짜·날씨·목적에 맞는 착장을 만들어 드려요. 원하는 시각에 알람으로 받아보세요.">옷장에 등록한 아이템만으로 날짜·날씨·목적에 맞는 착장을 만들어 드려요. 원하는 시각에 알람으로 받아보세요.</p>
+    </header>
+
+    <!-- ── STEP 1. 날짜 (코디핏 STEP 2 블록 이식 — #dateCardScroll 등 ID 동일, JS 브릿지 그대로) ── -->
+    <div class="mb-2">
+      <p class="text-[11px] font-black tracking-[0.22em]" style="color:#97FEED;">STEP 1</p>
+      <h3 class="text-[18px] font-bold text-white tracking-tight mt-0.5" data-i18n="코디 날짜 선택">코디 날짜 선택</h3>
+    </div>
+    <div id="smDateSlot">
+    <div class="flex items-center justify-end mb-2 -mt-9"><button id="calendarIconBtn" style="color:rgba(151,254,237,0.5);">
+        <span class="material-symbols-outlined text-xl">calendar_month</span>
+      </button></div>
+
+    <!-- 연/월 레이블 -->
+    <div id="dateMonthLabel" class="text-[14px] font-bold mb-4" style="color:#97FEED;"></div>
+
+    <!-- 날짜 카드 스크롤 -->
+    <div id="dateCardScroll" class="flex gap-3 overflow-x-auto pb-10 no-scrollbar -mx-1 px-1"></div>
+
+    <!-- 숨김: JS 기존 로직 호환용 -->
+    <div id="dayPickWrap" style="display:none;">
+      <input id="dayPick" type="date"/>
+      <p id="dayPickHint"></p>
+    </div>
+    <button id="dayTodayBtn" type="button" style="display:none;" aria-pressed="false">오늘의 코디</button>
+    <button id="dayTomorrowBtn" type="button" style="display:none;" aria-pressed="false">내일의 코디</button>
+    <p id="dayToast" class="hidden mt-2 text-[12px] font-semibold" style="color:rgba(248,113,113,0.9);"></p>
+    <p id="doubleTapGuide" class="hidden mt-2 text-[11px]" style="color:rgba(151,254,237,0.7);"></p>
+    </div>
+
+    <!-- 알람 시각 (알람 예약 시에만 사용) -->
+    <div id="smTimeRow" class="flex items-center justify-between -mt-6 mb-6 px-1">
+      <div>
+        <p class="text-[12px] font-bold" style="color:rgba(255,255,255,0.75);" data-i18n="알람 받을 시각">알람 받을 시각</p>
+        <p class="text-[10.5px] mt-0.5" style="color:rgba(255,255,255,0.38);" data-i18n="예약 시 이 시각의 날씨로 코디를 만들어 보내드려요">예약 시 이 시각의 날씨로 코디를 만들어 보내드려요</p>
+      </div>
+      <input id="smAlarmTime" type="time" value="07:30" step="300"
+        style="background:rgba(255,255,255,0.07);border:1.5px solid rgba(151,254,237,0.25);border-radius:12px;color:#fff;font-weight:800;font-size:15px;padding:8px 12px;outline:none;font-family:'Outfit','Noto Sans KR',sans-serif;color-scheme:dark;"/>
+    </div>
+
+    <!-- ── STEP 2. 목적 ── -->
+    <div class="mb-3">
+      <p class="text-[11px] font-black tracking-[0.22em]" style="color:#97FEED;">STEP 2</p>
+      <h3 class="text-[18px] font-bold text-white tracking-tight mt-0.5" data-i18n="코디 목적 선택">코디 목적 선택</h3>
+    </div>
+    <div id="smPurposeGrid" class="sm-purpose-grid"></div>
+    <div id="smPurposeCustomWrap" class="hidden mt-3">
+      <input id="smPurposeCustom" type="text" maxlength="30"
+        class="w-full px-4 py-3 text-sm font-semibold placeholder-white/30 text-white outline-none"
+        style="background:rgba(255,255,255,0.07);border:1.5px solid rgba(151,254,237,0.2);border-radius:14px;font-family:'Outfit','Noto Sans KR',sans-serif;"
+        placeholder="예: 면접, 소개팅, 결혼식 하객" data-i18n-placeholder="예: 면접, 소개팅, 결혼식 하객"/>
+    </div>
+
+    <!-- ── 액션 버튼 ── -->
+    <div class="grid grid-cols-2 gap-3 mt-6">
+      <button id="smGenNowBtn" type="button" class="sm-btn sm-btn-primary" disabled>
+        <span class="material-symbols-outlined" style="font-size:20px;">auto_awesome</span>
+        <span data-i18n="지금 생성하기">지금 생성하기</span>
+      </button>
+      <button id="smAlarmBtn" type="button" class="sm-btn sm-btn-secondary" disabled>
+        <span class="material-symbols-outlined" style="font-size:20px;">alarm_add</span>
+        <span data-i18n="설정 후 알람 받기">설정 후 알람 받기</span>
+      </button>
+    </div>
+    <p id="smHint" class="mt-2 text-[11px] text-center" style="color:rgba(151,254,237,0.55);min-height:16px;" data-i18n="날짜와 목적을 먼저 선택하세요">날짜와 목적을 먼저 선택하세요</p>
+
+    <!-- ── 뷰박스 (트라이온 출력 16:9, 좌=정면 / 우=후면) ── -->
+    <div id="smViewWrap" class="mt-4" style="position:relative;border-radius:16px;overflow:hidden;background:#00022E;border:1px solid rgba(151,254,237,0.12);aspect-ratio:16/9;">
+      <img id="smViewImg" alt="" style="display:none;width:100%;height:100%;object-fit:contain;background:#00022E;"/>
+      <div id="smViewEmpty" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(151,254,237,0.22);">
+        <span class="material-symbols-outlined" style="font-size:64px;">checkroom</span>
+        <p style="margin-top:10px;font-size:11px;letter-spacing:0.2em;font-weight:700;" data-i18n="내 옷장 착장 대기 중">내 옷장 착장 대기 중</p>
+      </div>
+      <div id="smViewLoading" style="display:none;position:absolute;inset:0;background:rgba(0,2,46,0.92);flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:3;">
+        <div style="width:40px;height:40px;border:3px solid rgba(151,254,237,.25);border-top-color:#97FEED;border-radius:50%;animation:smSpin 1s linear infinite;"></div>
+        <p id="smViewLoadingText" style="font-size:12px;font-weight:700;color:#97FEED;letter-spacing:.04em;">옷장에서 아이템 고르는 중…</p>
+        <p id="smViewLoadingSub" style="font-size:10.5px;color:rgba(255,255,255,0.45);">보통 40~60초 걸려요</p>
+      </div>
+    </div>
+
+    <!-- 결과 메타: 선택된 아이템 + 이유 + 저장 -->
+    <div id="smResultMeta" class="hidden mt-3">
+      <div id="smResultChips" class="flex flex-wrap gap-1.5"></div>
+      <p id="smResultReason" class="mt-2 text-[12px]" style="color:rgba(255,255,255,0.6);line-height:1.6;"></p>
+      <div class="grid grid-cols-2 gap-2 mt-3">
+        <button id="smSaveAlbumBtn" type="button" class="sm-btn sm-btn-ghost">
+          <span class="material-symbols-outlined" style="font-size:18px;">bookmark_add</span><span data-i18n="코디앨범 저장">코디앨범 저장</span>
+        </button>
+        <button id="smRegenBtn" type="button" class="sm-btn sm-btn-ghost">
+          <span class="material-symbols-outlined" style="font-size:18px;">refresh</span><span data-i18n="다른 조합">다른 조합</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 예약된 알람 목록 -->
+    <div id="smAlarmListWrap" class="mt-7 hidden">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-[14px] font-bold text-white" data-i18n="예약된 코디 알람">예약된 코디 알람</h3>
+        <span id="smAlarmCount" class="text-[11px] font-bold" style="color:rgba(151,254,237,0.6);"></span>
+      </div>
+      <div id="smAlarmList" class="space-y-2"></div>
+    </div>
+  </section>
+
 
   <!-- 내 모바일 옷장 (다크 m_closet_0308) -->
   <section class="px-0 mt-16">
@@ -6716,6 +6874,8 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
 // 날짜 카드 스크롤 UI (STEP 2 신규 디자인)
 // 기존 dayTodayBtn / dayTomorrowBtn / dayPick 로직과 브릿지
 // ══════════════════════════════════════════════════════
+/* ─── 2026-09-09 KST · TJ 지시 ─── 코디핏(closet.html) 날짜카드 IIFE 최신본으로 교체
+   (날짜별 최저/최고 온도 표시 · 9언어 월/요일 · 안내문 제거) — 로직 동일, 브릿지 ID 동일 */
 (function(){
   const DAY_KO = ['일','월','화','수','목','금','토'];
   let _selectedDateKey = ''; // '' = 미선택, 'today', 'YYYY-MM-DD' = 미래
@@ -6752,9 +6912,15 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       }
     }catch(_){}
 
-    // 월 레이블 (오늘 기준)
+    // 월 레이블 (오늘 기준) — ─── 2026-05-09 KST · TJ 지시 (v50) ─── 영어 분기
     if(monthLabel){
-      monthLabel.textContent = `${today.getFullYear()}년 ${today.getMonth()+1}월`;
+      var _enMon = window._cbFor();
+      if(_enMon){
+        var _MN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        monthLabel.textContent = `${_MN[today.getMonth()]} ${today.getFullYear()}`;
+      } else {
+        monthLabel.textContent = `${today.getFullYear()}년 ${today.getMonth()+1}월`;
+      }
     }
 
     for(let i = 0; i < maxDays; i++){
@@ -6769,7 +6935,22 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       card.dataset.dateKey = dateKey;
       card.dataset.isToday = (i===0 ? '1' : '0');
 
-      card.innerHTML = `<span class="dc-day">${DAY_KO[dow]}</span><span class="dc-num">${d.getDate()}</span>`;
+      // [2026-04-11] 날짜별 최저/최고 온도 표시
+      var _tempStr = '';
+      try{
+        var _daily = S.weatherRaw?.daily;
+        if(_daily && _daily.time){
+          var _dIdx = _daily.time.findIndex(function(t){ return String(t).startsWith(dateKey); });
+          if(_dIdx >= 0){
+            var _tMin = Math.round(Number(_daily.temperature_2m_min?.[_dIdx]));
+            var _tMax = Math.round(Number(_daily.temperature_2m_max?.[_dIdx]));
+            if(Number.isFinite(_tMin) && Number.isFinite(_tMax)){
+              _tempStr = _tMin + '°/' + _tMax + '°';
+            }
+          }
+        }
+      }catch(_){}
+      card.innerHTML = `<span class="dc-day">${(window._cbFor())?((window.CodiBankI18n&&CodiBankI18n.lookup&&CodiBankI18n.lookup(DAY_KO[dow]))||['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dow]):DAY_KO[dow]}</span><span class="dc-num">${d.getDate()}</span>` + (_tempStr ? `<span class="dc-temp">${_tempStr}</span>` : '');
 
       // 기존 선택 복원
       if(
@@ -6808,8 +6989,10 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   function updateDateGuide(mode){
     const g = document.getElementById('doubleTapGuide');
     if(!g) return;
-    g.textContent = '✦ AI 스타일리스트 호출 버튼을 클릭하세요';
-    g.classList.remove('hidden');
+    // [2026-04-26 v13 TJ-1.1] '스타일몬스터 요청 버튼을 클릭하세요' 텍스트 삭제
+    // (Step 3 안내 텍스트와 중복돼 사용자에게 혼선)
+    g.textContent = '';
+    g.classList.add('hidden');
   }
 
   // AI 호출 버튼 연결
@@ -7040,5 +7223,433 @@ sl.innerHTML=sh;}
 var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetSummary();};renderClosetSummary();
 
 </script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   ─── 2026-09-09 KST · TJ 지시 ─── Ai옷장 TPO 스타일링 알람 모듈 (SM_ALARM)
+   · 날짜: 코디핏에서 이식한 날짜카드(#dateCardScroll) → 기존 브릿지(S.day/S.selDateKey) 그대로 사용
+   · 날씨: S.wxByDate[dateKey] (initWeather 가 채움) / 알람은 서버가 해당 시각에 재조회
+   · 아이템 선정: POST /api/aicloset/pick-outfit (텍스트 모델) → 슬롯별 item id
+   · 착장 생성:   POST /api/tryon/generate (기존 트라이온 엔진, 얼굴 + 아이템 이미지)
+   · 알람 예약:   POST /api/aicloset/alarm (아이템 스냅샷 + 푸시 구독) → 서버 스케줄러가 생성·푸시
+   · 딥링크:      aicloset.html?alarm=<id> → 결과 이미지를 뷰박스에 표시
+   의존(전역): S, user, CodiBank, getSelectedDateKey, getTodayKey, checkUnifiedUsage,
+              recordUnifiedUsage, _syncUsageToServer, shrinkDataUrl, loadImg
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function(){
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const _isFor = () => { try{ return !!(window._acFor && _acFor()); }catch(_){ return false; } };
+  const _T = (ko, en) => (_isFor() ? (en || ko) : ko);
+
+  // ── 목적 6종 + 직접입력 ──
+  const PURPOSES = [
+    { key:'work_formal',    ko:'출근용',  sub:'포멀',  en:'Work · Formal',    icon:'work',              hint:'business formal office look, polished and professional' },
+    { key:'work_casual',    ko:'출근용',  sub:'캐주얼', en:'Work · Casual',    icon:'badge',             hint:'business casual office look, neat but relaxed' },
+    { key:'out_comfy',      ko:'외출용',  sub:'편하게', en:'Outing · Comfy',   icon:'local_cafe',        hint:'comfortable everyday outing, relaxed and easy' },
+    { key:'out_effortless', ko:'외출용',  sub:'꾸안꾸', en:'Outing · Effortless', icon:'auto_awesome',  hint:'effortlessly chic outing look, styled but not trying too hard' },
+    { key:'sport_running',  ko:'운동용',  sub:'러닝',  en:'Sport · Running',  icon:'directions_run',    hint:'running / outdoor workout, breathable and functional' },
+    { key:'sport_gym',      ko:'운동용',  sub:'헬스장', en:'Sport · Gym',      icon:'fitness_center',    hint:'gym workout, athletic and flexible' },
+    { key:'custom',         ko:'직접입력', sub:'',      en:'Custom',           icon:'edit',              hint:'' },
+  ];
+  const ST = { pk:'', custom:'', busy:false, last:null, alarms:[] };
+
+  const _base = () => {
+    try{
+      if(window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) return String(window.CODIBANK_CONFIG.backendBase).replace(/\/+$/,'');
+      if(window.CodiBank && CodiBank.getBackendBaseResolved) return String(CodiBank.getBackendBaseResolved()||'').replace(/\/+$/,'');
+    }catch(_){}
+    return 'https://codibank-api.onrender.com';
+  };
+  const _email = () => { try{ return String((user && user.email) || '').trim().toLowerCase(); }catch(_){ return ''; } };
+  const _postJson = async (path, body, timeoutMs) => {
+    const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), timeoutMs || 120000);
+    try{
+      const r = await fetch(_base() + path, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal:ctl.signal });
+      const j = await r.json().catch(()=>null);
+      if(!r.ok || (j && j.ok === false)) throw new Error((j && (j.error || j.message)) || ('HTTP ' + r.status));
+      return j;
+    } finally { clearTimeout(t); }
+  };
+  const _getJson = async (path) => {
+    const r = await fetch(_base() + path); const j = await r.json().catch(()=>null);
+    if(!r.ok || (j && j.ok === false)) throw new Error((j && j.error) || ('HTTP ' + r.status));
+    return j;
+  };
+
+  // ── 목적 그리드 ──
+  function renderPurposes(){
+    const g = $('smPurposeGrid'); if(!g) return;
+    g.innerHTML = '';
+    PURPOSES.forEach(p => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'sm-pc'; b.dataset.key = p.key;
+      const label = _isFor() ? p.en : p.ko;
+      b.innerHTML = `<span class="material-symbols-outlined sm-pc-ic">${p.icon}</span><span><span class="sm-pc-t">${label}</span>${(!_isFor() && p.sub) ? `<span class="sm-pc-s">${p.sub}</span>` : ''}</span>`;
+      b.addEventListener('click', () => setPurpose(p.key));
+      g.appendChild(b);
+    });
+    if(ST.pk) setPurpose(ST.pk);
+  }
+  function setPurpose(k){
+    ST.pk = k;
+    document.querySelectorAll('#smPurposeGrid .sm-pc').forEach(b => b.classList.toggle('on', b.dataset.key === k));
+    const w = $('smPurposeCustomWrap'); if(w) w.classList.toggle('hidden', k !== 'custom');
+    if(k === 'custom') setTimeout(()=>{ try{ $('smPurposeCustom').focus(); }catch(_){} }, 50);
+    try{ localStorage.setItem('cb_sm_purpose_' + _email(), k); }catch(_){}
+    refreshButtons();
+  }
+  function purposeLabel(){
+    const p = PURPOSES.find(x => x.key === ST.pk); if(!p) return '';
+    if(p.key === 'custom') return String(($('smPurposeCustom')||{}).value || '').trim();
+    return _isFor() ? p.en : `${p.ko}(${p.sub})`;
+  }
+  function purposeHint(){
+    const p = PURPOSES.find(x => x.key === ST.pk); if(!p) return '';
+    return p.key === 'custom' ? purposeLabel() : p.hint;
+  }
+
+  // ── 날짜/날씨 컨텍스트 ──
+  function dateKey(){ try{ return getSelectedDateKey(); }catch(_){ return ''; } }
+  function dateChosen(){
+    // 날짜카드 브릿지: 미선택이면 S.day 가 비어있거나 카드 .dc-on 이 없음
+    try{ return !!document.querySelector('#dateCardScroll .dc.dc-on'); }catch(_){ return false; }
+  }
+  function wxFor(dk){
+    try{
+      const w = (S.wxByDate && S.wxByDate[dk]) || (dk === getTodayKey() ? S.wxAll.today : null) || S.wx || {};
+      return { temp: Number.isFinite(Number(w.temp)) ? Math.round(Number(w.temp)) : null, text: String(w.text||''), code: w.code ?? null };
+    }catch(_){ return { temp:null, text:'', code:null }; }
+  }
+  function refreshButtons(){
+    const okP = !!ST.pk && (ST.pk !== 'custom' || purposeLabel().length >= 2);
+    const okD = dateChosen();
+    const ready = okP && okD && !ST.busy;
+    const g = $('smGenNowBtn'), a = $('smAlarmBtn'), h = $('smHint');
+    if(g) g.disabled = !ready; if(a) a.disabled = !ready;
+    if(h){
+      if(ST.busy) h.textContent = _T('생성 중…', 'Generating…');
+      else if(!okD) h.textContent = _T('날짜를 먼저 선택하세요', 'Pick a date first');
+      else if(!okP) h.textContent = _T('코디 목적을 선택하세요', 'Choose a purpose');
+      else {
+        const dk = dateKey(), wx = wxFor(dk);
+        const isToday = dk === getTodayKey();
+        h.textContent = (isToday ? _T('오늘', 'Today') : dk) + (wx.temp !== null ? ` · ${wx.temp}° ${wx.text}` : '') + ' · ' + purposeLabel();
+      }
+    }
+  }
+
+  // ── 옷장 후보 수집 ──
+  const SLOT_KEYS = {
+    outer:    ['coat','jacket','outer','padding','cardigan'],
+    top:      ['top','shirt','knit','tshirt','blouse'],
+    bottom:   ['pants','skirt','slacks','jeans','bottom'],
+    onepiece: ['onepiece','dress'],
+    shoes:    ['shoes','sneakers','loafers','boots'],
+  };
+  function slotOf(catKey){
+    const k = String(catKey||'').toLowerCase();
+    for(const s in SLOT_KEYS){ if(SLOT_KEYS[s].includes(k)) return s; }
+    return '';
+  }
+  function collectCandidates(){
+    const em = _email();
+    const cats = (CodiBank.getCategoriesForUser && CodiBank.getCategoriesForUser(em)) || [];
+    const out = [];
+    cats.forEach(c => {
+      const slot = slotOf(c.key); if(!slot) return;
+      const items = (CodiBank.getItemsByUserAndCategory && CodiBank.getItemsByUserAndCategory(em, c.key)) || [];
+      items.forEach(it => {
+        const g = (it.meta && it.meta.gemini) || {};
+        const ref = (it.images && (it.images.front || it.images.brand || it.images.back)) || '';
+        if(!ref) return;
+        out.push({
+          id: String(it.id), slot, categoryKey: String(c.key), categoryLabel: String(c.label||c.key),
+          brand: String(it.brand||''), color: String(g.main_color_name || it.color || ''), subColor: String(g.sub_color_name || it.subColor || ''),
+          material: String(g.material||''), season: String(g.season||''), pattern: String(g.pattern||''), fit: String(g.fit||''),
+          subCategory: String(g.sub_category||''), outerType: String(g.outer_type||''), keywords: Array.isArray(g.style_keywords) ? g.style_keywords.slice(0,6) : [],
+          note: String(it.note||'').slice(0,60), _ref: ref, _gemini: g,
+        });
+      });
+    });
+    return out;
+  }
+  async function refToDataUrl(ref, maxSide){
+    try{
+      const src = await CodiBank.getImageSrc(ref); if(!src) return '';
+      if(String(src).startsWith('data:')) return await shrinkDataUrl(src, maxSide || 768, 0.85);
+      const img = await loadImg(src);
+      const c = document.createElement('canvas'); const sc = Math.min(1, (maxSide||768) / Math.max(img.naturalWidth||1, img.naturalHeight||1));
+      c.width = Math.round((img.naturalWidth||1) * sc); c.height = Math.round((img.naturalHeight||1) * sc);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      return c.toDataURL('image/jpeg', 0.85);
+    }catch(e){ console.warn('[SM] item image load fail', ref, e); return ''; }
+  }
+  async function faceDataUrl(){
+    try{
+      let src = '';
+      if(typeof CodiBank.getUserFaceImageSrc === 'function') src = await CodiBank.getUserFaceImageSrc(user);
+      else { const r = String((user && (user.avatarFace || user.photo)) || '').trim(); if(r) src = await CodiBank.getImageSrc(r); }
+      if(!src) return '';
+      return String(src).startsWith('data:') ? await shrinkDataUrl(src, 640, 0.88) : await refToDataUrl(src, 640);
+    }catch(_){ return ''; }
+  }
+  function userProfile(){
+    const g = String((user && user.gender) || '').toLowerCase();
+    return { gender: (g==='female'||g==='f') ? 'F' : 'M', ageGroup: (user && user.ageGroup) || '', height: (user && user.height) || '', weight: (user && user.weight) || '',
+             tier: (function(){ try{ return String((window.CodiBank && CodiBank.getCurrentTier) ? CodiBank.getCurrentTier() : ((user && user.plan) || 'FREE')).toUpperCase(); }catch(_){ return 'FREE'; } })() };
+  }
+  function geo(){
+    const g = (user && user.geo) || {};
+    const lat = Number(g.lat), lon = Number(g.lon);
+    return (Number.isFinite(lat) && Number.isFinite(lon)) ? { lat, lon } : { lat: 37.5665, lon: 126.978 };
+  }
+
+  // ── 뷰박스 ──
+  function setLoading(on, text, sub){
+    const l = $('smViewLoading'); if(!l) return;
+    l.style.display = on ? 'flex' : 'none';
+    if(text) $('smViewLoadingText').textContent = text;
+    if(sub !== undefined) $('smViewLoadingSub').textContent = sub || '';
+  }
+  function showImage(src){
+    const img = $('smViewImg'), e = $('smViewEmpty');
+    if(!img) return;
+    img.src = src; img.style.display = 'block'; if(e) e.style.display = 'none';
+  }
+  function showResult(res){
+    ST.last = res;
+    showImage(res.image);
+    const meta = $('smResultMeta'), chips = $('smResultChips'), reason = $('smResultReason');
+    if(chips){
+      chips.innerHTML = '';
+      const L = { outer:_T('아우터','Outer'), top:_T('상의','Top'), bottom:_T('하의','Bottom'), onepiece:_T('원피스','Dress'), shoes:_T('신발','Shoes') };
+      (res.picked || []).forEach(p => {
+        const s = document.createElement('span'); s.className = 'sm-chip';
+        s.innerHTML = `<b>${L[p.slot]||p.slot}</b>${escS(p.label||'')}`; chips.appendChild(s);
+      });
+    }
+    if(reason) reason.textContent = res.reason || '';
+    if(meta) meta.classList.remove('hidden');
+    try{ $('smViewWrap').scrollIntoView({ behavior:'smooth', block:'center' }); }catch(_){}
+  }
+  const escS = s => String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+  // ── 핵심: 아이템 선정 + 착장 생성 (지금 생성하기) ──
+  async function generateNow(regen){
+    if(ST.busy) return;
+    const em = _email();
+    if(!em){ alert(_T('로그인이 필요해요.','Please sign in.')); return; }
+    let usage = null;
+    try{ usage = checkUnifiedUsage('tryon'); }catch(_){ usage = { blocked:false }; }
+    if(usage && usage.blocked){ alert(usage.reason || _T('이미지 생성 한도를 모두 사용했어요.','Generation limit reached.')); return; }
+
+    const cands = collectCandidates();
+    const haveTop = cands.some(c => c.slot==='top'), haveBottom = cands.some(c => c.slot==='bottom'), haveOne = cands.some(c => c.slot==='onepiece');
+    if(!(haveOne || (haveTop && haveBottom))){
+      alert(_T('옷장에 상의·하의(또는 원피스)가 각각 1개 이상 등록돼 있어야 착장을 만들 수 있어요.', 'Register at least one top and one bottom (or a dress) in your closet first.'));
+      return;
+    }
+    ST.busy = true; refreshButtons();
+    const dk = dateKey(), wx = wxFor(dk);
+    try{
+      // 1) 아이템 선정 (텍스트 모델 — 이미지 없이 메타만 전송)
+      setLoading(true, _T('옷장에서 아이템 고르는 중…','Picking items from your closet…'), _T('날씨와 목적을 함께 보고 있어요','Considering weather and purpose'));
+      const pick = await _postJson('/api/aicloset/pick-outfit', {
+        email: em, dateKey: dk, weather: wx, purposeKey: ST.pk, purposeLabel: purposeLabel(), purposeHint: purposeHint(),
+        user: userProfile(), lang: _isFor() ? 'en' : 'ko',
+        exclude: (regen && ST.last && ST.last.picked) ? ST.last.picked.map(p => p.id) : [],
+        items: cands.map(c => { const { _ref, _gemini, ...rest } = c; return rest; }),
+      }, 60000);
+      const picked = (pick && pick.picked) || [];
+      if(!picked.length) throw new Error(_T('조건에 맞는 아이템 조합을 찾지 못했어요.','No matching combination found.'));
+
+      // 2) 이미지 로드 → 트라이온 페이로드
+      setLoading(true, _T('아이템 이미지 준비 중…','Preparing item images…'), '');
+      const byId = Object.fromEntries(cands.map(c => [c.id, c]));
+      const payload = { user: userProfile(), fitTarget: 'my', lang: _isFor() ? 'en' : 'ko', mode: 'twopiece', source: 'aicloset_alarm' };
+      const pickedOut = [];
+      for(const p of picked){
+        const c = byId[p.id]; if(!c) continue;
+        const du = await refToDataUrl(c._ref, 768); if(!du) continue;
+        const keyMap = { outer:'outer', top:'top', bottom:'bottom', onepiece:'onepiece', shoes:'shoes' };
+        const k = keyMap[c.slot]; if(!k) continue;
+        payload[k + 'DataUrl'] = du;
+        payload[k + 'Analysis'] = c._gemini || {};
+        pickedOut.push({ id:c.id, slot:c.slot, label: [c.color, c.subCategory || c.categoryLabel].filter(Boolean).join(' ') });
+      }
+      if(payload.onepieceDataUrl) payload.mode = 'onepiece';
+      else if(payload.outerDataUrl) payload.mode = 'outer';
+      if(!payload.onepieceDataUrl && !(payload.topDataUrl && payload.bottomDataUrl)) throw new Error(_T('아이템 이미지를 불러오지 못했어요.','Could not load item images.'));
+      const face = await faceDataUrl(); if(face) payload.faceImage = face;
+      if(user && user.bodyType) payload.bodyType = user.bodyType;
+      try{ if(user && user.personalColor) payload.personalColor = user.personalColor; }catch(_){}
+
+      // 3) 착장 생성 (기존 트라이온 엔진)
+      setLoading(true, _T('착장 이미지 생성 중…','Generating outfit image…'), _T('정면·후면을 함께 만들고 있어요 (40~60초)','Front and back views (40–60s)'));
+      const gen = await _postJson('/api/tryon/generate', payload, 180000);
+      const imgSrc = gen.image ? (String(gen.image).startsWith('data:') ? gen.image : 'data:image/png;base64,' + gen.image) : (gen.url || '');
+      if(!imgSrc) throw new Error(_T('이미지가 반환되지 않았어요.','No image returned.'));
+
+      // 4) 사용량 차감 (트라이온 1회)
+      try{ recordUnifiedUsage('tryon'); }catch(_){}
+      try{ if(typeof _syncUsageToServer === 'function') _syncUsageToServer('tryon'); }catch(_){}
+
+      showResult({ image: imgSrc, imageRef: gen.path || gen.url || '', picked: pickedOut, reason: pick.reason || '', dateKey: dk, wx, purposeLabel: purposeLabel() });
+    }catch(e){
+      console.warn('[SM] generateNow fail', e);
+      alert((_T('생성에 실패했어요: ','Generation failed: ')) + (e && e.message ? e.message : e));
+    } finally {
+      setLoading(false); ST.busy = false; refreshButtons();
+    }
+  }
+
+  // ── 코디앨범 저장 ──
+  async function saveAlbum(){
+    const r = ST.last; if(!r || !r.image) return;
+    const em = _email(); if(!em) return;
+    try{
+      let ref = r.imageRef || '';
+      if(!ref && CodiBank.saveImage) ref = await CodiBank.saveImage(r.image);
+      if(!ref) ref = r.image;
+      CodiBank.addAiAlbumEntry(em, {
+        dateKey: r.dateKey || '', weatherText: (r.wx && r.wx.text) || '', temp: (r.wx && r.wx.temp) ?? null,
+        purposeKey: 'aicloset', purposeLabel: r.purposeLabel || '', imageRef: ref, seed: 0,
+        styleTitle: _T('내 옷장 코디','My Closet Outfit'), explanation: r.reason || '', keywords: (r.picked||[]).map(p => p.label),
+        stylistName: '', stylistCity: '', liked: false, source: 'aicloset', createdAt: new Date().toISOString(),
+      });
+      const b = $('smSaveAlbumBtn'); if(b){ b.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">bookmark_added</span><span>' + _T('저장됨','Saved') + '</span>'; b.disabled = true; }
+    }catch(e){ console.warn('[SM] album save fail', e); alert(_T('앨범 저장에 실패했어요.','Failed to save.')); }
+  }
+
+  // ── 푸시 구독 ──
+  function _b64ToU8(b64){ const p = '='.repeat((4 - b64.length % 4) % 4); const s = (b64 + p).replace(/-/g,'+').replace(/_/g,'/'); const raw = atob(s); return Uint8Array.from([...raw].map(c => c.charCodeAt(0))); }
+  async function ensurePush(){
+    // 반환: { subscription | null, reason }
+    try{
+      if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return { subscription:null, reason:'unsupported' };
+      const perm = await Notification.requestPermission();
+      if(perm !== 'granted') return { subscription:null, reason:'denied' };
+      const reg = await navigator.serviceWorker.register('/sw.js', { scope:'/' });
+      await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if(!sub){
+        const k = await _getJson('/api/push/vapid-public');
+        if(!k || !k.key) return { subscription:null, reason:'no_vapid' };
+        sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: _b64ToU8(k.key) });
+      }
+      return { subscription: sub.toJSON(), reason:'ok' };
+    }catch(e){ console.warn('[SM] push setup fail', e); return { subscription:null, reason:'error' }; }
+  }
+
+  // ── 알람 예약 ──
+  async function scheduleAlarm(){
+    if(ST.busy) return;
+    const em = _email(); if(!em){ alert(_T('로그인이 필요해요.','Please sign in.')); return; }
+    const dk = dateKey(); const time = String(($('smAlarmTime')||{}).value || '07:30');
+    const when = new Date(dk + 'T' + time + ':00');
+    if(!(when instanceof Date) || isNaN(when.getTime())){ alert(_T('날짜/시각을 확인해주세요.','Check the date/time.')); return; }
+    if(when.getTime() < Date.now() + 5*60*1000){ alert(_T('알람은 최소 5분 뒤부터 예약할 수 있어요. 지금 바로 보려면 "지금 생성하기"를 눌러주세요.','Alarms must be at least 5 minutes ahead. Use "Generate now" for immediate results.')); return; }
+
+    const cands = collectCandidates();
+    const haveTop = cands.some(c => c.slot==='top'), haveBottom = cands.some(c => c.slot==='bottom'), haveOne = cands.some(c => c.slot==='onepiece');
+    if(!(haveOne || (haveTop && haveBottom))){ alert(_T('옷장에 상의·하의(또는 원피스)가 필요해요.','Need a top and bottom (or a dress) in your closet.')); return; }
+
+    ST.busy = true; refreshButtons();
+    try{
+      setLoading(true, _T('알람 준비 중…','Setting up alarm…'), _T('알림 권한을 허용해주세요','Please allow notifications'));
+      const push = await ensurePush();
+      // 아이템 스냅샷 (서버는 IndexedDB 에 접근할 수 없으므로 이미지를 함께 보냄 · 512px)
+      setLoading(true, _T('옷장 스냅샷 저장 중…','Saving closet snapshot…'), '');
+      const items = [];
+      for(const c of cands){
+        const du = await refToDataUrl(c._ref, 512); if(!du) continue;
+        const { _ref, _gemini, ...rest } = c;
+        items.push({ ...rest, analysis: _gemini || {}, image: du });
+      }
+      const face = await faceDataUrl();
+      const res = await _postJson('/api/aicloset/alarm', {
+        email: em, dateKey: dk, time, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul',
+        purposeKey: ST.pk, purposeLabel: purposeLabel(), purposeHint: purposeHint(),
+        user: userProfile(), geo: geo(), lang: _isFor() ? 'en' : 'ko',
+        bodyType: (user && user.bodyType) || '', personalColor: (user && user.personalColor) || null,
+        faceImage: face || '', items, pushSubscription: push.subscription, pushStatus: push.reason,
+      }, 180000);
+      await loadAlarms();
+      const msg = push.subscription
+        ? _T(`예약됐어요. ${dk} ${time}에 그날 날씨로 코디를 만들어 알림을 보내드릴게요.`, `Scheduled. You'll get a notification at ${dk} ${time}.`)
+        : _T(`예약됐어요. 알림 권한이 없어 푸시는 못 보내지만, ${dk} ${time} 이후 Ai옷장에 들어오면 결과를 볼 수 있어요.`, `Scheduled. Push is off, but the result will be waiting here after ${dk} ${time}.`);
+      alert(msg);
+    }catch(e){
+      console.warn('[SM] schedule fail', e);
+      alert((_T('알람 예약에 실패했어요: ','Failed to schedule: ')) + (e && e.message ? e.message : e));
+    } finally { setLoading(false); ST.busy = false; refreshButtons(); }
+  }
+
+  // ── 알람 목록 / 결과 열기 ──
+  async function loadAlarms(){
+    const em = _email(); if(!em) return;
+    try{
+      const j = await _getJson('/api/aicloset/alarms?email=' + encodeURIComponent(em));
+      ST.alarms = (j && j.alarms) || [];
+    }catch(_){ ST.alarms = []; }
+    renderAlarms();
+  }
+  function renderAlarms(){
+    const wrap = $('smAlarmListWrap'), list = $('smAlarmList'), cnt = $('smAlarmCount'); if(!wrap || !list) return;
+    const rows = ST.alarms.slice().sort((a,b) => String(b.runAt).localeCompare(String(a.runAt))).slice(0, 10);
+    wrap.classList.toggle('hidden', rows.length === 0);
+    if(cnt) cnt.textContent = rows.length ? `${rows.length}` : '';
+    list.innerHTML = '';
+    rows.forEach(a => {
+      const row = document.createElement('div'); row.className = 'sm-alarm-row' + (a.status === 'done' ? ' sm-clickable' : '');
+      const stL = { pending:_T('예약됨','Scheduled'), running:_T('생성 중','Running'), done:_T('완료 · 보기','Done · View'), failed:_T('실패','Failed') }[a.status] || a.status;
+      const stC = { pending:'sm-st-pending', running:'sm-st-pending', done:'sm-st-done', failed:'sm-st-failed' }[a.status] || 'sm-st-pending';
+      row.innerHTML = `<span class="material-symbols-outlined sm-ar-ic">${a.status==='done'?'notifications_active':'alarm'}</span>
+        <div class="sm-ar-main"><div class="sm-ar-t">${escS(a.dateKey)} ${escS(a.time)} · ${escS(a.purposeLabel||'')}</div>
+        <div class="sm-ar-s">${a.status==='done' && a.weatherText ? escS((a.temp!=null?a.temp+'° ':'')+a.weatherText) : (a.status==='failed' ? escS(a.error||'') : _T('예약 시각의 날씨로 생성돼요','Generated with the weather at that time'))}</div></div>
+        <span class="sm-ar-st ${stC}">${stL}</span>
+        <button type="button" class="sm-ar-del" aria-label="delete"><span class="material-symbols-outlined" style="font-size:18px;">close</span></button>`;
+      row.querySelector('.sm-ar-del').addEventListener('click', async (ev) => { ev.stopPropagation(); if(!confirm(_T('이 알람을 삭제할까요?','Delete this alarm?'))) return; try{ await fetch(_base() + '/api/aicloset/alarm/' + encodeURIComponent(a.id) + '?email=' + encodeURIComponent(_email()), { method:'DELETE' }); }catch(_){} loadAlarms(); });
+      if(a.status === 'done') row.addEventListener('click', () => openAlarmResult(a.id));
+      list.appendChild(row);
+    });
+  }
+  async function openAlarmResult(id){
+    try{
+      setLoading(true, _T('알람 결과 불러오는 중…','Loading result…'), '');
+      const j = await _getJson('/api/aicloset/alarm/' + encodeURIComponent(id) + '?email=' + encodeURIComponent(_email()));
+      const a = j && j.alarm; if(!a || !a.imageUrl) throw new Error('no image');
+      ST.pk = a.purposeKey || ST.pk; if(ST.pk) setPurpose(ST.pk);
+      showResult({ image: a.imageUrl, imageRef: a.imageUrl, picked: a.picked || [], reason: a.reason || '', dateKey: a.dateKey, wx: { temp: a.temp, text: a.weatherText }, purposeLabel: a.purposeLabel });
+      try{ history.replaceState(null, '', location.pathname); }catch(_){}
+    }catch(e){ console.warn('[SM] open alarm fail', e); alert(_T('결과를 불러오지 못했어요.','Could not load the result.')); }
+    finally{ setLoading(false); }
+  }
+
+  // ── 초기화 ──
+  function init(){
+    renderPurposes();
+    try{ const saved = localStorage.getItem('cb_sm_purpose_' + _email()); if(saved && PURPOSES.some(p => p.key === saved)) setPurpose(saved); }catch(_){}
+    $('smGenNowBtn') && $('smGenNowBtn').addEventListener('click', () => generateNow(false));
+    $('smRegenBtn') && $('smRegenBtn').addEventListener('click', () => generateNow(true));
+    $('smAlarmBtn') && $('smAlarmBtn').addEventListener('click', scheduleAlarm);
+    $('smSaveAlbumBtn') && $('smSaveAlbumBtn').addEventListener('click', saveAlbum);
+    $('smPurposeCustom') && $('smPurposeCustom').addEventListener('input', refreshButtons);
+    // 날짜카드 선택 변화 감지 (기존 브릿지가 .dc-on 을 토글) → 버튼 상태 동기화
+    const sc = $('dateCardScroll');
+    if(sc){ new MutationObserver(() => refreshButtons()).observe(sc, { attributes:true, subtree:true, attributeFilter:['class'] }); }
+    document.addEventListener('click', e => { if(e.target && e.target.closest && e.target.closest('#dateCardScroll')) setTimeout(refreshButtons, 60); });
+    refreshButtons();
+    loadAlarms();
+    // 딥링크: 알림 클릭 → aicloset.html?alarm=<id>
+    try{ const id = new URLSearchParams(location.search).get('alarm'); if(id) setTimeout(() => openAlarmResult(id), 400); }catch(_){}
+    // 알림 클릭으로 열린 SW 메시지
+    try{ navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', ev => { const d = ev.data || {}; if(d.type === 'sm_open_alarm' && d.id) openAlarmResult(d.id); }); }catch(_){}
+  }
+  window.SM_ALARM = { generateNow, scheduleAlarm, loadAlarms, openAlarmResult, refreshButtons, PURPOSES, ST };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
+
 </body>
 </html>
