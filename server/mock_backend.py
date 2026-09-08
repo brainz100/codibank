@@ -5429,6 +5429,15 @@ def _get_engine_config_summary() -> dict:
         "codifit": _resolve_engine("", "codifit"),
         "tryon":   _resolve_engine("", "tryon"),
     }
+    # ─── 2026-09-09 KST · TJ 지시 ─── 옷장코디(Ai옷장) = 트라이온 엔진 그대로 사용 (/api/tryon/generate 호출)
+    service_engines["aicloset"] = service_engines["tryon"]
+    # 코디핏 실제 경로 (v68 4→1 흐름): 1st = gpt_image_2_low ×4장 · 3rd = CODIBANK_Q3_ALIAS(기본 flash_v2)
+    _q3_alias = (os.getenv("CODIBANK_Q3_ALIAS") or "flash_v2").strip()
+    _codifit_detail = {
+        "step1_low":  {"alias": "gpt_image_2_low", "model": _ENGINE_MODEL_MAP.get("gpt_image_2_low"), "images_per_call": 4, "note": "1st 4장 (1536×1024, 정면+후면 합본)"},
+        "step3_high": {"alias": _q3_alias if _q3_alias in _ENGINE_MODEL_MAP else "flash_v2", "model": _ENGINE_MODEL_MAP.get(_q3_alias if _q3_alias in _ENGINE_MODEL_MAP else "flash_v2"), "images_per_call": 1, "note": "3rd 크게보기 (16:9 2K, 선택 카드 복제)"},
+        "legacy_default": service_engines["codifit"],
+    }
     # 하위호환: matrix 포맷도 같이 반환 (티어 4행 모두 동일 값)
     matrix = {
         tier: dict(service_engines)
@@ -5446,6 +5455,15 @@ def _get_engine_config_summary() -> dict:
         "engine_aliases": dict(_ENGINE_MODEL_MAP),
         "service_engines": service_engines,   # 신규 (권장)
         "matrix": matrix,                      # 하위호환
+        # ─── 2026-09-09 KST · TJ 지시 ─── 관리자 표시용 라벨/상세 (옷장코디 · 코디핏 단계별)
+        "service_labels": {"codifit": "코디핏", "tryon": "트라이온", "aicloset": "옷장코디(Ai옷장)", "runway": "런웨이"},
+        "codifit_detail": _codifit_detail,
+        "aicloset_detail": {
+            "image_model": service_engines["tryon"],
+            "pick_model": os.getenv("CODIBANK_SM_PICK_MODEL") or "gemini-2.5-flash-lite",
+            "usage_pool": "tryon",
+            "note": "옷장코디는 트라이온 한도(tryon_count)에서 차감되며 aicloset_count 로 세부 집계됨",
+        },
         "policy_note": "티어 무시 · 서비스별 단일 모델 (2026-04-22 17:05 KST)",
         # 트라이온 병렬 처리 설정 (2026-04-23 17:00)
         "tryon_parallel": {
@@ -10059,7 +10077,31 @@ def admin_styling_logs():
         for log in data:
             e = log.get('email', '')
             user_counts[e] = user_counts.get(e, 0) + 1
-        return jsonify({"ok": True, "logs": data, "total": len(data), "by_user": user_counts})
+        # ─── 2026-09-09 KST · TJ 지시 ─── type 별 집계 + 트라이온 풀(페이지+옷장코디) + 엔진 매핑
+        #   프론트/마이페이지의 '트라이온 N회' 는 옷장코디를 포함한 수치이므로 관리자도 tryon_pool 을 기준으로 맞춘다.
+        import datetime as _dt
+        _ym = _dt.datetime.now().strftime("%Y-%m")
+        by_type, by_type_month = {}, {}
+        for log in data:
+            t = str(log.get('type') or 'unknown')
+            by_type[t] = by_type.get(t, 0) + 1
+            if str(log.get('created_at') or '').startswith(_ym):
+                by_type_month[t] = by_type_month.get(t, 0) + 1
+        _pool = lambda d: int(d.get('tryon', 0)) + int(d.get('aicloset', 0))
+        try:
+            _eng = _get_engine_config_summary().get("service_engines", {})
+        except Exception:
+            _eng = {}
+        engine_by_type = {
+            "codifit":  _eng.get("codifit", ""), "closet": _eng.get("codifit", ""),
+            "tryon":    _eng.get("tryon", ""),   "aicloset": _eng.get("aicloset", _eng.get("tryon", "")),
+            "codistyle": _CODISTYLE_MODEL if "_CODISTYLE_MODEL" in globals() else "", "runway": "seedance-1-5-pro-251215",
+        }
+        type_labels = {"codifit": "코디핏", "closet": "코디핏", "tryon": "트라이온(페이지)", "aicloset": "옷장코디(Ai옷장)", "codistyle": "코디하기", "runway": "런웨이"}
+        return jsonify({"ok": True, "logs": data, "total": len(data), "by_user": user_counts,
+                        "by_type": by_type, "by_type_month": by_type_month,
+                        "tryon_pool": {"all": _pool(by_type), "month": _pool(by_type_month), "note": "트라이온 페이지 + 옷장코디 = 프론트/마이페이지의 '트라이온' 수치와 동일 정의"},
+                        "engine_by_type": engine_by_type, "type_labels": type_labels, "month": _ym})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -10105,9 +10147,16 @@ def admin_dashboard_stats():
             stats['total_payments'] = len(payments)
             stats['total_revenue'] = sum(p.get('amount', 0) for p in payments)
         # 스타일링 통계
-        r = sb_query('GET', 'styling_logs', params={'select': 'id', 'limit': '10000'})
+        r = sb_query('GET', 'styling_logs', params={'select': 'id,type', 'limit': '10000'})
         if r.status_code == 200:
-            stats['total_stylings'] = len(r.json())
+            _logs = r.json() or []
+            stats['total_stylings'] = len(_logs)
+            # ─── 2026-09-09 KST · TJ 지시 ─── type 별 + 트라이온 풀(페이지+옷장코디)
+            _bt = {}
+            for _l in _logs:
+                _t = str(_l.get('type') or 'unknown'); _bt[_t] = _bt.get(_t, 0) + 1
+            stats['stylings_by_type'] = _bt
+            stats['tryon_pool'] = int(_bt.get('tryon', 0)) + int(_bt.get('aicloset', 0))
         # 아이템 통계
         r = sb_query('GET', 'user_items', params={'select': 'category', 'limit': '10000'})
         if r.status_code == 200:
@@ -10614,8 +10663,9 @@ def api_usage_record():
         feature = str(data.get("feature", "")).strip().lower()
         if not email:
             return jsonify({"ok": False, "error": "email 필수"}), 400
-        if feature not in ("closet", "codistyle", "item", "tryon"):
-            return jsonify({"ok": False, "error": "feature must be closet, codistyle, item, or tryon"}), 400
+        # ─── 2026-09-09 KST · TJ 지시 ─── 'aicloset'(옷장코디) 추가: 트라이온 카운터 + aicloset 서브카운터 동시 증가
+        if feature not in ("closet", "codistyle", "item", "tryon", "aicloset"):
+            return jsonify({"ok": False, "error": "feature must be closet, codistyle, item, tryon, or aicloset"}), 400
 
         import datetime as _dt
         now      = _dt.datetime.now()
@@ -10641,6 +10691,7 @@ def api_usage_record():
                 row["closet_count"] = 0
                 row["codistyle_count"] = 0
                 row["tryon_count"] = 0
+                row["aicloset_count"] = 0
                 row["total_count"] = 0
                 row["item_count"] = 0
             if row.get("day") != day_k:
@@ -10648,6 +10699,7 @@ def api_usage_record():
                 row["day_closet_count"] = 0
                 row["day_codi_count"] = 0
                 row["day_tryon_count"] = 0
+                row["day_aicloset_count"] = 0
                 row["day_total"] = 0
                 row["day_item_count"] = 0
         else:
@@ -10672,6 +10724,12 @@ def api_usage_record():
         elif feature == "tryon":
             row["tryon_count"]      = int(row.get("tryon_count") or 0) + 1
             row["day_tryon_count"]  = int(row.get("day_tryon_count") or 0) + 1
+        elif feature == "aicloset":
+            # 옷장코디 = 트라이온 엔진 → 트라이온 풀에서 차감 + 서브카운터
+            row["tryon_count"]        = int(row.get("tryon_count") or 0) + 1
+            row["day_tryon_count"]    = int(row.get("day_tryon_count") or 0) + 1
+            row["aicloset_count"]     = int(row.get("aicloset_count") or 0) + 1
+            row["day_aicloset_count"] = int(row.get("day_aicloset_count") or 0) + 1
 
         row["total_count"] = int(row.get("closet_count") or 0) + int(row.get("codistyle_count") or 0) + int(row.get("tryon_count") or 0)
         row["day_total"]   = int(row.get("day_closet_count") or 0) + int(row.get("day_codi_count") or 0)
@@ -10687,12 +10745,19 @@ def api_usage_record():
             "day_tryon_count": int(row.get("day_tryon_count") or 0),
             "day_total": row["day_total"], "day_item_count": int(row.get("day_item_count") or 0),
             "updated_at": row["updated_at"],
+            "aicloset_count": int(row.get("aicloset_count") or 0),
+            "day_aicloset_count": int(row.get("day_aicloset_count") or 0),
         }
         import requests as _rq
         url = f"{supabase_url()}/rest/v1/user_usage"
         headers = supabase_admin_headers()
         headers["Prefer"] = "resolution=merge-duplicates,return=representation"
         resp = _rq.post(url, headers=headers, json=body, timeout=10)
+        # ─── 2026-09-09 KST · TJ 지시 ─── aicloset_count 컬럼 미생성 상태 폴백: 두 컬럼 제외하고 재시도 (트라이온 차감은 유지)
+        if resp.status_code >= 400 and "aicloset" in (resp.text or ""):
+            body.pop("aicloset_count", None); body.pop("day_aicloset_count", None)
+            resp = _rq.post(url, headers=headers, json=body, timeout=10)
+            print("[usage] ⚠ user_usage.aicloset_count 컬럼 없음 → tryon 만 기록. DDL: alter table user_usage add column if not exists aicloset_count int default 0, add column if not exists day_aicloset_count int default 0;", flush=True)
 
         # 메모리 폴백
         if not hasattr(app, "_usage_cache"):
@@ -10740,6 +10805,7 @@ def api_usage_get(email):
         if not row:
             return jsonify({"ok": True, "month": month_k, "day": day_k,
                             "closetCount": 0, "codistyleCount": 0, "tryonCount": 0,
+                            "aiclosetCount": 0, "dayAiclosetCount": 0,
                             "totalCount": 0, "itemCount": 0,
                             "dayClosetCount": 0, "dayCodiCount": 0, "dayTryonCount": 0,
                             "dayTotal": 0, "dayItemCount": 0})
@@ -10750,6 +10816,8 @@ def api_usage_get(email):
         cc = int(row.get("closet_count") or 0)
         cs = int(row.get("codistyle_count") or 0)
         tr = int(row.get("tryon_count") or 0)
+        ac = int(row.get("aicloset_count") or 0)       # 2026-09-09 KST · TJ 지시 — 옷장코디 서브카운터
+        dac = int(row.get("day_aicloset_count") or 0)
         tc = int(row.get("total_count") or 0)
         ic = int(row.get("item_count") or 0)
         dc = int(row.get("day_closet_count") or 0)
@@ -10759,13 +10827,14 @@ def api_usage_get(email):
         di = int(row.get("day_item_count") or 0)
 
         if r_month != month_k:
-            cc = cs = tr = tc = ic = 0
+            cc = cs = tr = tc = ic = ac = 0
         if r_day != day_k:
-            dc = dd = dtr = dt_ = di = 0
+            dc = dd = dtr = dt_ = di = dac = 0
 
         return jsonify({
             "ok": True, "month": month_k, "day": day_k,
             "closetCount": cc, "codistyleCount": cs, "tryonCount": tr,
+            "aiclosetCount": ac, "dayAiclosetCount": dac,
             "totalCount": tc, "itemCount": ic,
             "dayClosetCount": dc, "dayCodiCount": dd, "dayTryonCount": dtr,
             "dayTotal": dt_, "dayItemCount": di,
@@ -10773,6 +10842,7 @@ def api_usage_get(email):
     except Exception as e:
         return jsonify({"ok": True, "month": "", "closetCount": 0, "codistyleCount": 0,
                         "tryonCount": 0, "totalCount": 0, "itemCount": 0,
+                        "aiclosetCount": 0, "dayAiclosetCount": 0,
                         "dayClosetCount": 0, "dayCodiCount": 0, "dayTryonCount": 0,
                         "dayTotal": 0, "dayItemCount": 0, "error": str(e)})
 
@@ -10785,11 +10855,31 @@ def admin_usage_summary():
     try:
         import datetime as _dt
         now_ym  = _dt.datetime.now().strftime("%Y-") + str(_dt.datetime.now().month)
-        params  = {"month": f"eq.{now_ym}", "order": "total_count.desc", "limit": "500",
-                    "select": "email,month,day,closet_count,codistyle_count,tryon_count,total_count,item_count,day_closet_count,day_codi_count,day_tryon_count,day_total,day_item_count,updated_at"}
+        # ─── 2026-09-09 KST · TJ 지시 ─── aicloset_count(옷장코디) 포함. 컬럼 미생성 환경이면 구 select 로 폴백.
+        _sel_new = "email,month,day,closet_count,codistyle_count,tryon_count,aicloset_count,total_count,item_count,day_closet_count,day_codi_count,day_tryon_count,day_aicloset_count,day_total,day_item_count,updated_at"
+        _sel_old = "email,month,day,closet_count,codistyle_count,tryon_count,total_count,item_count,day_closet_count,day_codi_count,day_tryon_count,day_total,day_item_count,updated_at"
+        params  = {"month": f"eq.{now_ym}", "order": "total_count.desc", "limit": "500", "select": _sel_new}
         r = sb_query("GET", "user_usage", params=params)
+        _aicloset_col = True
+        if r.status_code != 200 and "aicloset" in (r.text or ""):
+            _aicloset_col = False
+            params["select"] = _sel_old
+            r = sb_query("GET", "user_usage", params=params)
         if r.status_code == 200:
-            return jsonify({"ok": True, "list": r.json(), "month": now_ym})
+            rows = r.json() or []
+            for _row in rows:
+                _row.setdefault("aicloset_count", 0); _row.setdefault("day_aicloset_count", 0)
+                _row["tryon_page_count"] = max(0, int(_row.get("tryon_count") or 0) - int(_row.get("aicloset_count") or 0))  # 트라이온 페이지 단독
+            totals = {
+                "closet_count":   sum(int(x.get("closet_count") or 0) for x in rows),
+                "tryon_count":    sum(int(x.get("tryon_count") or 0) for x in rows),      # = 트라이온 페이지 + 옷장코디 (프론트 tryonCount 와 동일 정의)
+                "aicloset_count": sum(int(x.get("aicloset_count") or 0) for x in rows),
+                "tryon_page_count": sum(int(x.get("tryon_page_count") or 0) for x in rows),
+                "total_count":    sum(int(x.get("total_count") or 0) for x in rows),
+                "users":          len(rows),
+            }
+            return jsonify({"ok": True, "list": rows, "month": now_ym, "totals": totals, "aicloset_column": _aicloset_col,
+                            "column_labels": {"closet_count": "코디핏", "tryon_count": "트라이온 풀 합계(페이지+옷장코디)", "tryon_page_count": "트라이온 페이지", "aicloset_count": "옷장코디(Ai옷장)"}})
 
         # 메모리 폴백
         if hasattr(app, "_usage_cache"):
@@ -15748,8 +15838,13 @@ def _sm_run_alarm(row: dict):
         _sm_store_update(aid, {"status": "done", "result_json": result, "error": ""})
         # 사용량 차감 (트라이온 1회) — SM_ALARM_CHARGE=0 이면 생략
         if str(os.getenv("SM_ALARM_CHARGE", "1")).strip() not in ("0", "false", "no"):
-            try: http_requests.post(f"{base}/api/usage/record", json={"email": row.get("email"), "feature": "tryon"}, timeout=10)
+            try: http_requests.post(f"{base}/api/usage/record", json={"email": row.get("email"), "feature": "aicloset"}, timeout=10)
             except Exception as e: print(f"[SM] usage record fail: {e}", flush=True)
+        # 관리자 'AI 이미지' 집계용 styling_logs (프론트 '지금 생성하기' 와 동일 패턴: type=aicloset, points_used=0)
+        try:
+            _uj = row.get("user_json") or {}
+            http_requests.post(f"{base}/api/track/styling", json={"email": row.get("email"), "type": "aicloset", "gender": _uj.get("gender", ""), "plan": _uj.get("tier") or "FREE", "purpose": row.get("purpose_label") or "", "points_used": 0}, timeout=10)
+        except Exception as e: print(f"[SM] track styling fail: {e}", flush=True)
         # 푸시
         title = "스타일몬스터 · 오늘의 옷장 코디" if lang == "ko" else "Stylemonster · Today's closet outfit"
         body = (f"{row.get('purpose_label') or ''} · {wx.get('temp')}° {wx.get('text')}".strip(" ·") if wx.get("temp") is not None else (row.get("purpose_label") or ""))
