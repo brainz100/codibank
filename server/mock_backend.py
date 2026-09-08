@@ -3156,6 +3156,53 @@ def _ai_styling_via_gemini(
     _head_ratio, _region_label_en = _get_head_ratio(_loc_for_ratio, _has_body_data_ratio, _has_face_for_ratio)
     _is_asia_region = (_head_ratio == "7.5")
 
+    # ─── 2026-09-08 KST · TJ 지시 ─── 키·몸무게가 체형에 실제 반영되도록 성별 기준 문구 ───
+    #   문제: _build_body_profile_block() 의 Stature/Body-mass 구간이 남녀 공통(남 173/여 161
+    #         평균을 하나의 잣대로) → 165cm 여성이 'AVERAGE', 60kg 여성이 'MODERATE' 로 기술돼
+    #         모델이 체형을 평균으로 뭉갬. 해당 함수는 codistyle(동결)도 쓰므로 수정하지 않고,
+    #         코디핏 STEP 1 에서만 그 두 줄을 걷어내고 성별 기준 문구로 대체한다.
+    #   기준: 한국 성인 평균 — 남 173cm/74kg, 여 161cm/57kg (KNHANES 근사치).
+    #   원칙: 긍정형·정량형(평균 대비 ±cm/±kg, BMI, 부피 부위) — 금지어 나열 없음.
+    def _codifit_body_lines(_g, _h, _w, _bmi):
+        _ln = []
+        try:
+            _h = int(_h); _w = int(_w)
+        except Exception:
+            return _ln
+        _is_f = (str(_g).upper() in ("F", "FEMALE", "여성"))
+        _avg_h, _avg_w = (161, 57) if _is_f else (173, 74)
+        _sex = "woman" if _is_f else "man"
+        if _h >= 100:
+            _dh = _h - _avg_h
+            if _dh >= 9:    _lbl = "TALL"
+            elif _dh >= 4:  _lbl = "ABOVE-AVERAGE"
+            elif _dh >= -3: _lbl = "AVERAGE"
+            elif _dh >= -8: _lbl = "BELOW-AVERAGE"
+            else:           _lbl = "PETITE"
+            _sign = "+" if _dh >= 0 else "\u2212"
+            _ln.append(f"- Stature ({_sex}): {_lbl} \u2014 {_h}cm, {_sign}{abs(_dh)}cm vs the Korean adult {_sex} average "
+                       f"({_avg_h}cm). Limb length and torso follow this height at the {_head_ratio}-head ratio.")
+        if _w >= 30:
+            _dw = _w - _avg_w
+            _bmi_f = float(_bmi or 0)
+            if _bmi_f >= 27:   _vol = "full, rounded volume in the shoulders, chest, midsection, hips and thighs"
+            elif _bmi_f >= 25: _vol = "noticeably fuller midsection, hips and thighs; solid shoulders"
+            elif _bmi_f >= 23: _vol = "slightly soft midsection with an otherwise average frame"
+            elif _bmi_f >= 18.5: _vol = "balanced, average-width frame"
+            else:              _vol = "slender, narrow frame with visible collarbones"
+            _sign = "+" if _dw >= 0 else "\u2212"
+            _ln.append(f"- Body mass ({_sex}): {_w}kg, {_sign}{abs(_dw)}kg vs the Korean adult {_sex} average ({_avg_w}kg); "
+                       f"BMI {_bmi} \u2192 render {_vol}. The clothes drape over THIS volume exactly.")
+        return _ln
+    _codifit_body_block = "\n".join(_codifit_body_lines(gender, h_int, w_int, bmi)) if _has_body_data_ratio else ""
+
+    # 공유 블록(codistyle 동결로 미수정)에서 남녀공통 Stature/Body mass 두 줄만 걷어낸다.
+    def _strip_shared_stature_lines(_txt):
+        return "\n".join(
+            _l for _l in (_txt or "").split("\n")
+            if not (_l.startswith("Stature:") or _l.startswith("Body mass:"))
+        )
+
     # ── Gemini 통합 프롬프트 (이미지 생성 + 분석 JSON 동시) ──
     # 핵심: response_modalities=["IMAGE","TEXT"] 활용해 한 번의 호출로 두 출력 동시 획득
     custom_directive = ""
@@ -3303,8 +3350,17 @@ def _ai_styling_via_gemini(
         "  - Left 0-50%: front view, face to camera.  - Right 50-100%: back view of same person, no face.\n"
         "- Each figure ~85% of height, centered in its half, ~7.5% margin above head and below feet; "
         "upright, feet flat at bottom, head near top, full head-to-toe.\n"
+        # ─── 2026-09-08 KST · TJ 지시 ─── 얼굴 과대 생성 교정 (픽셀 앵커) ───
+        #   증상: 1st 결과에서 얼굴이 몸 대비 크게 나옴.
+        #   원인: ① 'legs long' 이 8등신+ 왜곡을 유도해 7.5 지시와 충돌
+        #         ② images.edit 의 Image 1 이 얼굴 클로즈업이라 그 스케일이 레이아웃 단서로 오독됨
+        #   조치: 캔버스 기준 머리 크기를 픽셀로 못 박고, 카메라 문구를 '정확한 등신' 으로 교체.
+        "- HEAD SIZE ANCHOR: figure height \u2248 870 px on this 1024 px-tall canvas; head (crown to chin) "
+        f"\u2248 {int(round(870 / float(_head_ratio)))} px = 1/{_head_ratio} of the figure; shoulders "
+        "\u2248 2 head-widths (men) / \u2248 1.7 head-widths (women). Torso, legs and arms fill the "
+        "remaining height in true adult proportion.\n"
         "- Camera at waist-to-lower-chest height, straight-on eye level or very slight upward tilt; "
-        "legs long, body in correct proportion; no fisheye, no perspective distortion.\n"
+        f"whole body in exact {_head_ratio}-head proportion; no fisheye, no perspective distortion.\n"
         "- Background: one solid flat pastel, uniform edge-to-edge; no rooms, walls, gradients, text, logo, or watermark.\n"
         "- Photorealistic fashion editorial, professional studio lighting.\n"
 
@@ -3371,19 +3427,27 @@ def _ai_styling_via_gemini(
         #    · {_head_ratio}/{_region_label_en}/{_is_asia_region} 는 함수 진입부에서 계산
         #      (_is_asia_region == True  ⟺  얼굴 있음(7.5))
         # ────────────────────────────────────────────────────────────────
-        f"- Proportion: realistic everyday adult, ~{_head_ratio} head-to-body ratio "
-        f"({_region_label_en}); head and face are a natural part of the FULL BODY "
-        f"(about 1/{_head_ratio} of standing height), sized to the real body"
-        + (f" ({h_int}cm, {w_int}kg, BMI {bmi})." if _has_body_data_ratio
-           else " (user body data not registered; use general average).")
-        + (" Korean/East-Asian build, not a Western 8+ supermodel ratio; a real everyday "
-           "person, not a runway mannequin." if _is_asia_region
-           else " Clean fashion-model fit at 8-head proportion, balanced and natural, not a 9+ ratio.")
-        + " Natural head size and leg length; full body head-to-toe in frame; "
-        "oversized head or elongated legs = failure.\n"
-        + (f"- Avoid colors (STRICT — must not appear anywhere): {_avoid_clean}\n"
+        # ─── 2026-09-08 KST · TJ 지시 ─── 얼굴 과대 생성 교정 (Proportion 줄 재작성) ───
+        #   이전: '... oversized head or elongated legs = failure' — 금지어 나열형.
+        #         (금지 대상을 이름 붙여 나열하면 이미지 모델이 오히려 생성하는 현상 — 스카프 버그와 동일)
+        #   변경: 긍정형·정량형만. 머리 = 신장의 1/7.5(픽셀 앵커는 OUTPUT FORMAT 에 명시),
+        #         Image 1(얼굴 클로즈업)은 신원 소스일 뿐 크기 단서가 아님을 명시.
+        f"- Proportion: realistic everyday adult at a {_head_ratio}-head ratio ({_region_label_en}). "
+        f"Head height = standing height \u00f7 {_head_ratio}; the face reads as a small, natural part of a "
+        "FULL-BODY wide shot. The face reference (Image 1) is a close-up used for identity only \u2014 "
+        "its crop and scale are NOT a size cue; in the output the head is scaled DOWN to the "
+        f"1/{_head_ratio} full-body proportion"
+        + (f" built on the real body ({h_int}cm, {w_int}kg, BMI {bmi})." if _has_body_data_ratio
+           else " on a general average adult body.")
+        + (" Korean/East-Asian everyday build, a real person photographed head-to-toe." if _is_asia_region
+           else " Clean fashion-model fit at 8-head proportion, balanced and natural.")
+        + " Natural head size and leg length; the complete body from crown to soles stays in frame.\n"
+        + (_codifit_body_block + "\n" if _codifit_body_block else "")
+        + (f"- Avoid colors (STRICT \u2014 must not appear anywhere): {_avoid_clean}\n"
            if _has_avoid else "")
-        + _build_body_profile_block(gender, age, height, weight, body_type_key, "en", _loc_for_ratio, _has_face_for_ratio, objective=False) + "\n"
+        + _strip_shared_stature_lines(
+            _build_body_profile_block(gender, age, height, weight, body_type_key, "en", _loc_for_ratio, _has_face_for_ratio, objective=False)
+          ) + "\n"
 
         + "\n# STEP 2 — DRESS THE AVATAR (styling differs per image; the avatar above stays identical)\n"
         + "# STYLIST (differentiator — must visibly shape the result)\n"
@@ -3641,7 +3705,12 @@ def _ai_styling_via_gemini(
             # 짧고 명확한 reference 헤더 (prompt 앞에 prepend)
             _ref_lines = []
             if _has_face_ref:
-                _ref_lines.append("Image 1=user's face (preserve identity exactly)")
+                # ─── 2026-09-08 KST · TJ 지시 ─── 얼굴 과대 생성 교정 (참조 헤더) ───
+                #   images.edit 은 Image 1 을 '편집 대상 캔버스' 로 취급하는 경향이 있어 얼굴
+                #   클로즈업의 스케일이 결과에 전이됨 → 프롬프트 첫 줄에서 역할·크기를 못 박는다.
+                _ref_lines.append(f"Image 1=user's face, a close-up ID reference for identity only "
+                                  f"(copy the face; the output is a FULL-BODY wide shot where this head is "
+                                  f"1/{_head_ratio} of the figure height)")
             _idx = 2 if _has_face_ref else 1
             if _has_top_ref:
                 _ref_lines.append(f"Image {_idx}=top garment reference")
@@ -4515,8 +4584,21 @@ def ai_styling():
     #   매핑: alias 'pro' → gemini-3-pro-image-preview (provider=gemini).
     #   ※ Q1·Q2(_force_quality='low')는 기존 gpt_image_2_low 그대로 유지.
     if _force_quality == 'high':
-        payload['_override_alias'] = 'pro'
-        print(f"[v68 grid] _force_quality=high → Q3 최종 = Nano Banana Pro (alias=pro)", flush=True)
+        # ─── 2026-09-08 KST · TJ 지시 ─── Q3(3rd 크게보기) 엔진: Nano Banana Pro → Nano Banana 2 ───
+        #   변경: alias 'pro'(gemini-3-pro-image-preview, 2K $0.134) → 'flash_v2'
+        #         (gemini-3.1-flash-image-preview = Nano Banana 2, 2K $0.101, −25%)
+        #   근거: Q3 는 선택 카드의 99.9% 복제(고화질 확대) 작업이라 다양성이 필요 없고
+        #         복제 충실도만 필요. NB2 는 Pro 와 동일 SDK/ImageConfig(16:9, 2K)/프롬프트를
+        #         그대로 사용하므로 코드 변경 최소.
+        #   롤백: Render 환경변수 CODIBANK_Q3_ALIAS=pro (재배포 불필요).
+        #   ※ 트라이온(tryon_generate)은 별도 _resolve_engine('tryon') 경로 → 영향 없음.
+        _q3_alias = (os.getenv("CODIBANK_Q3_ALIAS") or "flash_v2").strip()
+        if _q3_alias not in _ENGINE_MODEL_MAP:
+            print(f"[v68 grid] ⚠ CODIBANK_Q3_ALIAS={_q3_alias!r} 미등록 alias → 'flash_v2' 로 폴백", flush=True)
+            _q3_alias = "flash_v2"
+        payload['_override_alias'] = _q3_alias
+        print(f"[v68 grid] _force_quality=high → Q3 최종 = alias={_q3_alias} "
+              f"({_ENGINE_MODEL_MAP.get(_q3_alias)})", flush=True)
     elif _force_quality in ('low', 'medium'):
         payload['_override_alias'] = f'gpt_image_2_{_force_quality}'
         print(f"[v68 grid] _force_quality={_force_quality} → alias={payload['_override_alias']}", flush=True)
