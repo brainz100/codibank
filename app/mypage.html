@@ -399,6 +399,39 @@
   }
 }
 </style>
+<!-- ═══ 2026-09-08 KST · TJ 지시 (v2) ═══ 런웨이 피처 플래그 (테스트 간소화) ═══
+     [방식] 풋바의 런웨이 링크 마크업은 원본 그대로 두고 CSS 로만 숨깁니다.
+            inline style 조작 방식(v1)은 codibank.js 풋바 정규화 / tryon.html i18n
+            반복 적용 시 스타일이 덮어써져 런웨이 탭이 되살아나는 문제가 있었습니다.
+            CSS !important 규칙은 노드가 다시 그려져도 계속 적용되므로 안전합니다.
+     [기본] 숨김. <head> CSS 이므로 로딩 중 깜빡임(FOUC) 없음.
+     [복원] config.js 에서 featureRunway: true → <html> 에 .cb-runway-on 부여 → 규칙 해제.
+            runway.html · /api/runway/* · Seedance v21 프롬프트 · i18n 사전 모두 보존됨.
+════════════════════════════════════════════════════════════════════════════════ -->
+<style id="cb-feat-runway">
+html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
+  display:none !important;
+}
+</style>
+<script>(function(){
+  function _cbRunwayOn(){
+    try { return !!(window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.featureRunway === true); }
+    catch(e){ return false; }
+  }
+  function _cbSyncRunwayFlag(){
+    try{
+      var el = document.documentElement;
+      if (_cbRunwayOn()) el.classList.add('cb-runway-on');
+      else               el.classList.remove('cb-runway-on');
+    }catch(e){}
+  }
+  window._cbSyncRunwayFlag = _cbSyncRunwayFlag;
+  _cbSyncRunwayFlag();                                          // 즉시 (config.js 선로드 페이지)
+  if (document.readyState === 'loading'){                       // config.js 후로드 페이지 대비
+    document.addEventListener('DOMContentLoaded', _cbSyncRunwayFlag);
+  }
+  window.addEventListener('load', _cbSyncRunwayFlag);           // 최종 보정
+})();</script>
 </head>
 
 <body class="bg-mesh">
@@ -570,6 +603,10 @@
   </div>
 </main>
 
+<!-- ─── 2026-09-08 KST · TJ 지시 ─── config.js 로드 추가 ───
+     사유: 런웨이 피처 플래그(CODIBANK_CONFIG.featureRunway) 참조 필요.
+     다른 페이지(closet/tryon/aicloset/runway)와 동일하게 codibank.js 앞 배치. -->
+<script src="config.js"></script>
 <script src="codibank.js"></script>
 <script src="i18n.js"></script>
 <script>

@@ -12,9 +12,11 @@ window.CODIBANK_CONFIG = {
 
   // ─── 2026-09-08 KST · TJ 지시 ─── 기능 플래그 (테스트 간소화) ────────────
   //  featureRunway : 풋바 '런웨이' 탭 노출 + runway.html 직접 접근 허용 여부
-  //    false → 풋바에서 숨김 · runway.html 진입 시 closet.html 로 리다이렉트
-  //    true  → 원복 (runway.html · /api/runway/* · Seedance v21 프롬프트 그대로 살아있음)
-  //  ※ 파일 삭제가 아닌 플래그 방식이므로 이 한 줄만 true 로 바꾸면 즉시 복원됩니다.
+  //    false → 풋바 5탭 (코디핏·트라이온·Ai옷장·코디앨범·MY)
+  //             runway.html 직접 URL 접근 시 closet.html 로 리다이렉트
+  //    true  → 6탭 원복. runway.html · /api/runway/* · Seedance v21 프롬프트는
+  //             삭제하지 않고 그대로 살려두었으므로 즉시 정상 동작합니다.
+  //  ※ 이 한 줄만 바꾸면 전 페이지가 동시에 원복됩니다 (HTML 재수정 불필요).
   featureRunway: false,
   // ─────────────────────────────────────────────────────────────────────────
 
