@@ -1238,6 +1238,16 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 .dc.dc-on .dc-temp { color: rgba(7,25,82,0.55); }
 .dc.dc-sat .dc-temp { color: rgba(96,165,250,0.6); }
 
+.sm-quota{ padding:10px 12px 9px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid rgba(151,254,237,0.14); }
+.sm-quota-top{ display:flex; align-items:center; gap:6px; }
+.sm-quota-main{ flex:1; font-size:12px; font-weight:700; color:rgba(255,255,255,0.85); }
+.sm-quota-main b{ color:#97FEED; font-weight:900; }
+.sm-quota-sub{ font-size:11px; font-weight:800; color:rgba(151,254,237,0.7); letter-spacing:.02em; }
+.sm-quota-track{ margin-top:7px; height:4px; border-radius:2px; background:rgba(255,255,255,0.08); overflow:hidden; }
+.sm-quota-fill{ height:100%; border-radius:2px; background:linear-gradient(90deg,#0B666A,#97FEED); transition:width .5s ease; }
+.sm-quota-foot{ display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:10.5px; color:rgba(255,255,255,0.45); }
+.sm-quota-foot b{ color:rgba(255,255,255,0.8); font-weight:800; }
+.sm-quota-link{ color:#97FEED; font-weight:800; text-decoration:none; opacity:.85; }
 @keyframes smSpin{ to{ transform:rotate(360deg); } }
 </style>
 </head>
@@ -1552,8 +1562,11 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
         placeholder="예: 면접, 소개팅, 결혼식 하객" data-i18n-placeholder="예: 면접, 소개팅, 결혼식 하객"/>
     </div>
 
+    <!-- ── 잔여 횟수 배지 (트라이온과 동일 풀) ── 2026-09-09 KST · TJ 지시 ── -->
+    <div id="smQuotaBar" class="sm-quota mt-6"></div>
+
     <!-- ── 액션 버튼 ── -->
-    <div class="grid grid-cols-2 gap-3 mt-6">
+    <div class="grid grid-cols-2 gap-3 mt-3">
       <button id="smGenNowBtn" type="button" class="sm-btn sm-btn-primary" disabled>
         <span class="material-symbols-outlined" style="font-size:20px;">auto_awesome</span>
         <span data-i18n="지금 생성하기">지금 생성하기</span>
@@ -7226,6 +7239,118 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════════════
+   ─── 2026-09-09 KST · TJ 지시 ─── Ai옷장 사용량 모듈 (SM_QUOTA)
+   [검토 결과] 이 페이지의 기존 recordUnifiedUsage()/checkUnifiedUsage() 는 2026-04 구모델
+     (closet/codistyle 2분류) 이라 'tryon' 을 넘기면 코디핏(closetCount) 으로 잘못 집계됨.
+   [정책] 옷장코디(Ai옷장 착장 생성) = 트라이온 엔진(/api/tryon/generate) 과 동일 원가·동일 엔진
+     → 트라이온 한도(tryonBase+tryonBonus) 를 함께 쓰고, 트라이온 페이지와 같은 localStorage
+       키(cb_usage_<email>.tryonCount / dayTryonCount / totalCount) 를 증가시킨다.
+     → 별도로 aiclosetCount / dayAiclosetCount 서브카운터를 기록해 "그중 옷장코디 몇 회" 를 표시.
+     → 서버: /api/usage/record feature='aicloset' (tryon_count + aicloset_count 동시 증가)
+              /api/track/styling type='aicloset' (관리자 집계)
+     → cb_plan_info_<email>.tryonUsed / aiclosetUsed 동기화 (마이페이지·구독플랜 즉시 반영)
+   [출처] tryon.html checkTryonUsage()/recordTryonUsage()/_syncTryonUsageFromServer() 와 동일 로직.
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function(){
+  'use strict';
+  const CODIFIT_LIMITS = {free:3, silver:60, gold:200, diamond:9999};   // tryon.html _TRYON_CODIFIT_LIMITS 와 동일
+  const TRYON_LIMITS   = {free:1, silver:10, gold:30,  diamond:100};    // tryon.html _TRYON_TRYON_LIMITS 와 동일
+  const DAILY_LIMIT    = {free:null, silver:null, gold:null, diamond:20};
+  const _user = () => { try{ return (typeof CodiBank!=='undefined' && CodiBank.getCurrentUser) ? (CodiBank.getCurrentUser()||null) : (window.user||null); }catch(_){ return null; } };
+  const _em   = () => { const u=_user(); return (u && u.email) || 'guest'; };
+  const _key  = () => 'cb_usage_' + _em();
+  const _base = () => { try{ if(window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) return String(window.CODIBANK_CONFIG.backendBase).replace(/\/+$/,''); if(window.CodiBank && CodiBank.getBackendBaseResolved) return String(CodiBank.getBackendBaseResolved()||'').replace(/\/+$/,''); }catch(_){} return 'https://codibank-api.onrender.com'; };
+  const _isFor = () => { try{ return !!(window._acFor && _acFor()); }catch(_){ return false; } };
+  const _T = (ko,en) => _isFor() ? en : ko;
+
+  function getUsage(){
+    let raw = {};
+    try{ raw = JSON.parse(localStorage.getItem(_key()) || '{}'); }catch(_){ raw = {}; }
+    const now = new Date(), monthKey = now.getFullYear()+'-'+(now.getMonth()+1), dayKey = now.toISOString().slice(0,10);
+    if(raw.month !== monthKey){ raw.month=monthKey; raw.closetCount=0; raw.codistyleCount=0; raw.tryonCount=0; raw.aiclosetCount=0; raw.totalCount=0; }
+    if(raw.day !== dayKey){ raw.day=dayKey; raw.dayClosetCount=0; raw.dayCodiCount=0; raw.dayTryonCount=0; raw.dayAiclosetCount=0; raw.dayTotal=0; }
+    ['closetCount','codistyleCount','tryonCount','aiclosetCount','totalCount','dayClosetCount','dayCodiCount','dayTryonCount','dayAiclosetCount','dayTotal'].forEach(k => { if(!(k in raw)) raw[k]=0; });
+    return raw;
+  }
+  function getPlanInfo(){
+    try{ const raw = localStorage.getItem('cb_plan_info_'+_em()); if(raw){ const i = JSON.parse(raw); if(i.updatedAt === new Date().toISOString().slice(0,7)) return i; } }catch(_){}
+    return null;
+  }
+  function check(){
+    const u = getUsage(), info = getPlanInfo();
+    const planId = String((_user() && _user().plan) || 'free').toLowerCase();
+    const coBase = (info && Number.isFinite(Number(info.codifitBase))) ? Number(info.codifitBase) : (CODIFIT_LIMITS[planId] || 3);
+    const trBase = (info && Number.isFinite(Number(info.tryonBase)))   ? Number(info.tryonBase)   : (TRYON_LIMITS[planId]   || 1);
+    const coBonus = (info && Number.isFinite(Number(info.codifitBonus))) ? Number(info.codifitBonus) : 0;
+    const trBonus = (info && Number.isFinite(Number(info.tryonBonus)))   ? Number(info.tryonBonus)   : 0;
+    const codifitLimit = coBase >= 9999 ? 9999 : (coBase + coBonus);
+    const tryonLimit = trBase + trBonus, totalLimit = codifitLimit + tryonLimit;
+    const closetUsed = Number(u.closetCount)||0, tryonUsed = Number(u.tryonCount)||0, aiclosetUsed = Number(u.aiclosetCount)||0;
+    const totalUsed = closetUsed + tryonUsed;
+    const dayTotalUsed = (Number(u.dayClosetCount)||0) + (Number(u.dayTryonCount)||0);
+    const base = { tryonLimit, tryonUsed, tryonRemaining: Math.max(0, tryonLimit - tryonUsed), aiclosetUsed, dayAiclosetUsed: Number(u.dayAiclosetCount)||0, totalLimit, totalUsed, planId };
+    if(tryonUsed >= tryonLimit) return Object.assign(base, { blocked:true, reason: _T('트라이온·옷장코디 한도('+tryonLimit+'회)를 모두 사용했어요. 구독플랜에서 잔여 횟수를 확인해주세요.', 'Try-on / closet outfit limit ('+tryonLimit+') reached. Check your plan.') });
+    if(totalUsed >= totalLimit) return Object.assign(base, { blocked:true, reason: _T('이미지 생성 합산 한도('+totalLimit+'회)를 모두 사용했어요.', 'Total image limit ('+totalLimit+') reached.') });
+    const dl = DAILY_LIMIT[planId];
+    if(dl && dayTotalUsed >= dl) return Object.assign(base, { blocked:true, reason: _T('오늘 일일 한도('+dl+'회)를 모두 사용했어요. 내일 다시 이용해주세요.', 'Daily limit ('+dl+') reached. Try again tomorrow.') });
+    return Object.assign(base, { blocked:false, reason:'' });
+  }
+  function record(){
+    const u = getUsage();
+    u.tryonCount = (u.tryonCount||0)+1; u.dayTryonCount = (u.dayTryonCount||0)+1;          // 트라이온과 같은 풀
+    u.aiclosetCount = (u.aiclosetCount||0)+1; u.dayAiclosetCount = (u.dayAiclosetCount||0)+1; // 그중 옷장코디
+    u.totalCount = (u.closetCount||0)+(u.tryonCount||0); u.dayTotal = (u.dayClosetCount||0)+(u.dayTryonCount||0);
+    try{ localStorage.setItem(_key(), JSON.stringify(u)); }catch(_){}
+    const em = _em(), bb = _base(), usr = _user()||{};
+    if(em !== 'guest' && bb){
+      try{ fetch(bb+'/api/usage/record', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email:em, feature:'aicloset'}), keepalive:true }).catch(()=>{}); }catch(_){}
+      try{ fetch(bb+'/api/track/styling', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email:em, type:'aicloset', gender:usr.gender||'', plan:usr.plan||'FREE', points_used:0}), keepalive:true }).catch(()=>{}); }catch(_){}
+    }
+    try{ const k='cb_plan_info_'+em, raw=localStorage.getItem(k); if(raw){ const pi=JSON.parse(raw); pi.closetUsed=Number(u.closetCount)||0; pi.tryonUsed=Number(u.tryonCount)||0; pi.aiclosetUsed=Number(u.aiclosetCount)||0; pi.updatedAt=new Date().toISOString().slice(0,7); localStorage.setItem(k, JSON.stringify(pi)); } }catch(_){}
+    render();
+  }
+  async function syncFromServer(){
+    try{
+      const em = _em(), bb = _base(); if(em==='guest' || !bb) return;
+      const r = await fetch(bb+'/api/usage/get/'+encodeURIComponent(em)); if(!r.ok) return;
+      const d = await r.json(); if(!d || !d.ok) return;
+      const raw = getUsage(); const now=new Date(), cur=now.getFullYear()+'-'+(now.getMonth()+1);
+      const s = (d.month===cur), l = (raw.month===cur);
+      const mx = (sk, lk) => Math.max(s?parseInt(d[sk]||0):0, l?parseInt(raw[lk]||0):0);   // 월 내 단조증가 → max 병합 (tryon.html 과 동일)
+      raw.tryonCount = mx('tryonCount','tryonCount'); raw.closetCount = mx('closetCount','closetCount');
+      raw.aiclosetCount = mx('aiclosetCount','aiclosetCount'); raw.dayTryonCount = mx('dayTryonCount','dayTryonCount'); raw.dayAiclosetCount = mx('dayAiclosetCount','dayAiclosetCount');
+      raw.totalCount = (raw.closetCount||0)+(raw.tryonCount||0); raw.month = cur;
+      localStorage.setItem(_key(), JSON.stringify(raw));
+    }catch(_){}
+    render();
+  }
+  function render(){
+    const el = document.getElementById('smQuotaBar'); if(!el) return;
+    const c = check();
+    const pct = c.tryonLimit ? Math.min(100, Math.round(c.tryonUsed / c.tryonLimit * 100)) : 0;
+    const warn = c.blocked || c.tryonRemaining <= 1;
+    el.innerHTML = `
+      <div class="sm-quota-top">
+        <span class="material-symbols-outlined" style="font-size:16px;color:${warn?'#f87171':'#97FEED'};">${c.blocked?'block':'toll'}</span>
+        <span class="sm-quota-main" style="${warn?'color:#f87171;':''}">${c.blocked
+          ? _T('트라이온·옷장코디 한도 소진', 'Try-on / closet outfit limit reached')
+          : _T('트라이온·옷장코디 잔여 <b>'+c.tryonRemaining+'</b>회', 'Try-on / closet outfit left: <b>'+c.tryonRemaining+'</b>')}</span>
+        <span class="sm-quota-sub">${c.tryonUsed} / ${c.tryonLimit}</span>
+      </div>
+      <div class="sm-quota-track"><div class="sm-quota-fill" style="width:${pct}%;${pct>80?'background:linear-gradient(90deg,#ef4444,#fca5a5);':''}"></div></div>
+      <div class="sm-quota-foot">
+        <span>${_T('이번 달 옷장코디 <b>'+c.aiclosetUsed+'</b>회 · 트라이온 페이지 <b>'+Math.max(0,c.tryonUsed-c.aiclosetUsed)+'</b>회', 'Closet outfits <b>'+c.aiclosetUsed+'</b> · Try-on page <b>'+Math.max(0,c.tryonUsed-c.aiclosetUsed)+'</b> this month')}</span>
+        <a href="pricing.html" class="sm-quota-link">${c.blocked ? _T('플랜 올리기','Upgrade') : _T('구독플랜','Plan')}</a>
+      </div>`;
+  }
+  window.SM_QUOTA = { check, record, render, syncFromServer, getUsage };
+  const boot = () => { render(); setTimeout(syncFromServer, 400); };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
    ─── 2026-09-09 KST · TJ 지시 ─── Ai옷장 TPO 스타일링 알람 모듈 (SM_ALARM)
    · 날짜: 코디핏에서 이식한 날짜카드(#dateCardScroll) → 기존 브릿지(S.day/S.selDateKey) 그대로 사용
    · 날씨: S.wxByDate[dateKey] (initWeather 가 채움) / 알람은 서버가 해당 시각에 재조회
@@ -7439,9 +7564,10 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     if(ST.busy) return;
     const em = _email();
     if(!em){ alert(_T('로그인이 필요해요.','Please sign in.')); return; }
+    // ─── 2026-09-09 KST · TJ 지시 ─── 한도 체크: 트라이온과 동일 풀 (SM_QUOTA)
     let usage = null;
-    try{ usage = checkUnifiedUsage('tryon'); }catch(_){ usage = { blocked:false }; }
-    if(usage && usage.blocked){ alert(usage.reason || _T('이미지 생성 한도를 모두 사용했어요.','Generation limit reached.')); return; }
+    try{ usage = (window.SM_QUOTA && SM_QUOTA.check) ? SM_QUOTA.check() : { blocked:false }; }catch(_){ usage = { blocked:false }; }
+    if(usage && usage.blocked){ alert(usage.reason || _T('이미지 생성 한도를 모두 사용했어요.','Generation limit reached.')); try{ SM_QUOTA.render(); }catch(_){} return; }
 
     const cands = collectCandidates();
     const haveTop = cands.some(c => c.slot==='top'), haveBottom = cands.some(c => c.slot==='bottom'), haveOne = cands.some(c => c.slot==='onepiece');
@@ -7487,12 +7613,15 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
       // 3) 착장 생성 (기존 트라이온 엔진)
       setLoading(true, _T('착장 이미지 생성 중…','Generating outfit image…'), _T('정면·후면을 함께 만들고 있어요 (40~60초)','Front and back views (40–60s)'));
       const gen = await _postJson('/api/tryon/generate', payload, 180000);
-      const imgSrc = gen.image ? (String(gen.image).startsWith('data:') ? gen.image : 'data:image/png;base64,' + gen.image) : (gen.url || '');
+      // ─── 2026-09-09 KST · TJ 지시 ─── 실패 원인 교정: 서버는 image 에 절대 URL(https://…/uploads/tryon_x.jpg) 을 주는데
+      //     이전 코드가 'data:image/png;base64,' 를 앞에 붙여 깨진 이미지가 됨. 트라이온 페이지와 동일하게 URL 그대로 사용.
+      const _rawImg = String(gen.image || gen.url || gen.path || '').trim();
+      const imgSrc = !_rawImg ? '' : (/^(data:|https?:\/\/|\/)/.test(_rawImg) ? _rawImg : ('data:image/png;base64,' + _rawImg));
       if(!imgSrc) throw new Error(_T('이미지가 반환되지 않았어요.','No image returned.'));
 
-      // 4) 사용량 차감 (트라이온 1회)
-      try{ recordUnifiedUsage('tryon'); }catch(_){}
-      try{ if(typeof _syncUsageToServer === 'function') _syncUsageToServer('tryon'); }catch(_){}
+      // 4) 사용량 차감 — 트라이온과 같은 풀(tryonCount) + 옷장코디 서브카운터(aiclosetCount)
+      //    ─── 2026-09-09 KST · TJ 지시 ─── 이전: recordUnifiedUsage('tryon') → 구모델이라 코디핏으로 잘못 집계되던 것 교정
+      try{ if(window.SM_QUOTA && SM_QUOTA.record) SM_QUOTA.record(); }catch(_){}
 
       showResult({ image: imgSrc, imageRef: gen.path || gen.url || '', picked: pickedOut, reason: pick.reason || '', dateKey: dk, wx, purposeLabel: purposeLabel() });
     }catch(e){

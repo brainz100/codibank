@@ -509,6 +509,8 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
           <span class="action-card-plan-chip" id="userPlanLabel">FREE</span>
         </div>
         <div class="action-card-sub" id="actionPlanSub" data-i18n="사용량 확인 · 플랜 변경">사용량 확인 · 플랜 변경</div>
+        <!-- ─── 2026-09-09 KST · TJ 지시 ─── 실사용량 요약: 코디핏 / 트라이온(옷장코디 포함) ─── -->
+        <div id="smMypageQuota" style="display:none;margin-top:6px;font-size:11px;line-height:1.5;color:rgba(216,226,255,.62);"></div>
       </div>
       <span class="action-card-arrow material-symbols-outlined">chevron_right</span>
     </div>
@@ -1082,11 +1084,12 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
         //         → 트라이온 자리에 코디하기 카운트가 표시되는 버그
         //   변경: tryonUsed = parseInt(raw.tryonCount || 0);
         //         (codistyleUsed는 레거시 데이터 보존용으로만 유지, 화면 표시 제외)
-        let closetUsed = 0, tryonUsed = 0, codistyleUsed = 0;
+        let closetUsed = 0, tryonUsed = 0, codistyleUsed = 0, aiclosetUsed = 0;   // 2026-09-09 KST · TJ 지시 — aiclosetUsed(옷장코디) 추가
         try{
           const raw = JSON.parse(localStorage.getItem('cb_usage_'+u.email)||'{}');
           closetUsed    = parseInt(raw.closetCount || 0);
           tryonUsed     = parseInt(raw.tryonCount  || 0);   // [Step2] 트라이온 정확한 필드
+          aiclosetUsed  = parseInt(raw.aiclosetCount || 0); // 옷장코디 (트라이온 풀 내 서브카운터)
           codistyleUsed = parseInt(raw.codistyleCount || 0); // 레거시 보존(미표시)
         }catch(_){}
         // ─── 2026-06-30 KST · TJ 지시 ─── 서버 사용량(권위) 우선 — 모든 기기 동기화 ───
@@ -1103,9 +1106,11 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
               var _sT=(_sM===_cur)?parseInt(_ud.tryonCount||0):0,  _lT=(_lM===_cur)?parseInt(raw.tryonCount||0):0;
               closetUsed = Math.max(_sC,_lC);
               tryonUsed  = Math.max(_sT,_lT);
+              var _sA=(_sM===_cur)?parseInt(_ud.aiclosetCount||0):0, _lA=(_lM===_cur)?parseInt(raw.aiclosetCount||0):0;
+              aiclosetUsed = Math.max(_sA,_lA);   // 2026-09-09 KST · TJ 지시
               try{
                 const _k='cb_usage_'+u.email, _r=JSON.parse(localStorage.getItem(_k)||'{}');
-                _r.closetCount=closetUsed; _r.tryonCount=tryonUsed; _r.month=_cur;
+                _r.closetCount=closetUsed; _r.tryonCount=tryonUsed; _r.aiclosetCount=aiclosetUsed; _r.month=_cur;
                 localStorage.setItem(_k, JSON.stringify(_r));
               }catch(_){}
             }
@@ -1153,6 +1158,18 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
             document.getElementById('mpUsedCount').textContent = totalUsed;
             document.getElementById('mpLimitCount').textContent = '/ ' + (totalLimit>=9999?'∞':totalLimit);
           }catch(_){}
+          // ─── 2026-09-09 KST · TJ 지시 ─── 구독플랜 카드에 실사용량 요약 (옷장코디 = 트라이온 풀 공유, 서브카운터로 표기)
+          try{
+            var _q = document.getElementById('smMypageQuota');
+            if(_q){
+              var _en = !!(window.CodiBankI18n && CodiBankI18n.isEn && CodiBankI18n.isEn());
+              var _tr = Math.max(0, trLimit - tryonUsed);
+              _q.innerHTML = _en
+                ? ('CodiFit <b style="color:#97FEED">' + closetUsed + '</b>/' + (coUnlim?'∞':coLimit) + ' &nbsp;·&nbsp; Try-on <b style="color:#97FEED">' + tryonUsed + '</b>/' + trLimit + ' <span style="opacity:.7">(closet outfits ' + aiclosetUsed + ')</span> &nbsp;·&nbsp; ' + _tr + ' left')
+                : ('코디핏 <b style="color:#97FEED">' + closetUsed + '</b>/' + (coUnlim?'∞':coLimit) + ' &nbsp;·&nbsp; 트라이온 <b style="color:#97FEED">' + tryonUsed + '</b>/' + trLimit + ' <span style="opacity:.7">(옷장코디 ' + aiclosetUsed + '회 포함)</span> &nbsp;·&nbsp; 잔여 ' + _tr + '회');
+              _q.style.display = 'block';
+            }
+          }catch(_){}
         }
 
         // 초기: 보너스 0 으로 즉시 표시
@@ -1196,6 +1213,7 @@ if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded"
               codifitBonus: coBonus, tryonBonus: trBonus, itemBonus: itemBonus,
               codifitBase: coBase, tryonBase: trBase, itemBase: itemBase,
               closetUsed: closetUsed, tryonUsed: tryonUsed,           // [Step2] 신규 필드
+              aiclosetUsed: aiclosetUsed,                              // 2026-09-09 KST · TJ 지시 — 옷장코디
               codistyleUsed: codistyleUsed,                            // 레거시 보존
               itemUsed: curItemUsed,
             }));

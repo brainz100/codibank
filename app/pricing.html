@@ -82,7 +82,7 @@
 </script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<title>코디뱅크 구독 플랜</title>
+<title>스타일몬스터 구독 플랜</title>
 <script src="config.js"></script>
 <script src="codibank.js"></script>
 <script src="i18n.js"></script>
@@ -104,7 +104,7 @@
     "MY":              "MY",
 
     // ── 내옷장 (closet.html) ──
-    "내옷장 - 코디뱅크":  "My Closet - CodiBank",
+    "내옷장 - 스타일몬스터":  "My Closet - Stylemonster",
     "코디 목적 선택":     "Choose Outfit Goal",
     "직접입력 (최대 30자)":"Custom (max 30 chars)",
     "30자 이내로 입력해주세요.":"Please enter up to 30 characters.",
@@ -153,7 +153,7 @@
     "개인정보처리방침":    "Privacy Policy",
 
     // ── 트라이 온 (codistyle.html) ──
-    "트라이 온 - 코디뱅크": "Try On - CodiBank",
+    "트라이 온 - 스타일몬스터": "Try On - Stylemonster",
     "상의":               "Top",
     "하의":               "Bottom",
     "상의 이미지":         "Top Image",
@@ -189,7 +189,7 @@
     "착장 이미지 생성 완료 ✨": "Outfit image ready ✨",
 
     // ── 코디앨범 (album.html) ──
-    "코디 앨범 - 코디뱅크": "Codi Album - CodiBank",
+    "코디 앨범 - 스타일몬스터": "Codi Album - Stylemonster",
     "앨범 불러오는 중…":   "Loading album…",
     "저장된 코디가 없어요": "No saved outfits yet",
     "내옷장에서 AI 코디를 추천받고": "Get AI outfit recommendations from My Closet",
@@ -199,10 +199,10 @@
 
     // ── 마이페이지 (mypage.html) ──
     "마이페이지":          "My Page",
-    "마이페이지 - 코디뱅크": "My Page - CodiBank",
+    "마이페이지 - 스타일몬스터": "My Page - Stylemonster",
     "계정 관리":           "Account",
     "프로필 수정":         "Edit Profile",
-    "코디뱅크 구독 플랜": "CodiBank Subscription Plans",
+    "스타일몬스터 구독 플랜": "Stylemonster Subscription Plans",
     "구독 플랜":           "Subscription",
     "서비스":              "Services",
     "환불정책":            "Refund Policy",
@@ -211,7 +211,7 @@
 
     // ── 구독플랜 (pricing.html) ──
     "구독 플랜":           "Subscription Plans",
-    "구독 플랜 - 코디뱅크": "Subscription - CodiBank",
+    "구독 플랜 - 스타일몬스터": "Subscription - Stylemonster",
     "구독하기":            "Subscribe",
     "현재 플랜":           "Current Plan",
     "로딩중…":             "Loading…",
@@ -831,6 +831,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 .toast.err{background:rgba(239,68,68,.95);color:#fff}
 </style>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6991588244591343" crossorigin="anonymous"></script>
+
+<!-- ─── 2026-09-08 KST · TJ 지시 (v2) ─── 런웨이 피처 플래그 (다른 페이지와 동일 규칙, 풋바 마크업 무수정) -->
+<style id="cb-feat-runway">html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{display:none !important;}</style>
+<script>(function(){function _on(){try{return !!(window.CODIBANK_CONFIG&&window.CODIBANK_CONFIG.featureRunway===true);}catch(e){return false;}}function _sync(){try{var el=document.documentElement;if(_on())el.classList.add('cb-runway-on');else el.classList.remove('cb-runway-on');}catch(e){}}window._cbSyncRunwayFlag=_sync;_sync();if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_sync);window.addEventListener('load',_sync);})();</script>
 </head>
 <body>
 <div class="page">
@@ -838,7 +842,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
     <a href="mypage.html" class="back-btn"><span class="mi">arrow_back_ios_new</span></a>
     <div>
       <div class="pg-title" id="pgTitle">구독 플랜</div>
-      <div class="pg-sub" id="pgSub">코디핏 + 트라이 온 각각 별도 카운트</div>
+      <div class="pg-sub" id="pgSub">코디핏 + 트라이 온(옷장코디 포함) 각각 별도 카운트</div>
     </div>
   </div>
 
@@ -888,6 +892,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
           <span class="summary-stat-limit" id="sumTrLimit">/ 1</span>
         </div>
         <div class="summary-stat-bonus" id="sumTrBonus">기본</div>
+        <!-- ─── 2026-09-09 KST · TJ 지시 ─── 옷장코디(Ai옷장) 는 트라이온 풀에서 차감 → 포함 횟수 표기 ─── -->
+        <div class="summary-stat-sub" id="sumTrSub" style="font-size:10px;color:rgba(7,25,82,.55);margin-top:2px;line-height:1.3;">옷장코디 0회 포함</div>
         <div class="summary-stat-bar"><div class="summary-stat-fill" id="sumTrFill" style="width:0%"></div></div>
       </div>
       <!-- ─── 2026-05-25 KST 신규 ─── 런웨이 동영상 (BytePlus Seedance 2.0) ─── -->
@@ -946,11 +952,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
   <div class="info-box" id="infoBoxKo">
     <div class="info-line">
       <span class="mi info-ico">tune</span>
-      <span>코디핏 · 트라이 온은 <strong>각각 별도</strong>로 카운트됩니다</span>
+      <span>코디핏 · 트라이 온은 <strong>각각 별도</strong>로 카운트됩니다 <span style="opacity:.75">(Ai옷장 <strong>옷장코디</strong>는 트라이 온에 포함)</span></span>
     </div>
     <div class="info-line">
       <span class="mi info-ico engine">auto_awesome</span>
-      <span>코디핏 = <strong>Nano Banana 2</strong> · 트라이 온 = <strong style="color:#a8770c">Nano Banana Pro 4K</strong></span>
+      <span>코디핏 = <strong>Nano Banana 2</strong> · 트라이 온·옷장코디 = <strong style="color:#a8770c">Nano Banana Pro 4K</strong></span>
     </div>
     <div class="info-line">
       <span class="mi info-ico">verified</span>
@@ -960,11 +966,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
   <div class="info-box" id="infoBoxEn" style="display:none;">
     <div class="info-line">
       <span class="mi info-ico">tune</span>
-      <span>Codi Fit · Try On are counted <strong>separately</strong></span>
+      <span>Codi Fit · Try On are counted <strong>separately</strong> <span style="opacity:.75">(AI Closet <strong>outfits</strong> count toward Try On)</span></span>
     </div>
     <div class="info-line">
       <span class="mi info-ico engine">auto_awesome</span>
-      <span>Codi Fit = <strong>Nano Banana 2</strong> · Try On = <strong style="color:#a8770c">Nano Banana Pro 4K</strong></span>
+      <span>Codi Fit = <strong>Nano Banana 2</strong> · Try On / Closet outfits = <strong style="color:#a8770c">Nano Banana Pro 4K</strong></span>
     </div>
     <div class="info-line">
       <span class="mi info-ico">verified</span>
@@ -974,20 +980,22 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx-d
 
   <!-- ─── 2026-07-02 KST · TJ 지시 ─── 사업자정보 푸터(공통·라이트테마) + 하단 여백 정리 -->
   <div id="company-footer-ko" style="margin-top:22px;padding:18px 4px 2px;border-top:1px solid #e8eef8;font-size:11px;color:#8898b4;line-height:1.85;text-align:center;">
+    <div style="margin-bottom:10px;"><img src="/app/brand/stylemonster_lockup_navy.png" alt="Stylemonster" style="height:16px;width:auto;opacity:.7;vertical-align:middle;" onerror="this.parentNode.style.display='none'"/></div>
     착착두비 주식회사 &nbsp;|&nbsp; 대표이사 백태섭<br/>
     사업자등록번호 632-87-02863 &nbsp;|&nbsp; 통신판매업신고 2023-서울종로-0261<br/>
     개인정보보호책임자 백태섭 &nbsp;|&nbsp; 02-743-1850<br/>
     서울특별시 종로구 종로 223, 4층 403호 (종로5가, 우교빌딩)<br/>
     prowizard@naver.com<br/>
-    <span style="font-size:10px;color:#a6b0c6;">&copy; 2026 CodiBank. All rights reserved.</span>
+    <span style="font-size:10px;color:#a6b0c6;">&copy; 2026 Stylemonster. All rights reserved.</span>
   </div>
   <div id="company-footer-en" style="display:none;margin-top:22px;padding:18px 4px 2px;border-top:1px solid #e8eef8;font-size:11px;color:#8898b4;line-height:1.85;text-align:center;">
+    <div style="margin-bottom:10px;"><img src="/app/brand/stylemonster_lockup_navy.png" alt="Stylemonster" style="height:16px;width:auto;opacity:.7;vertical-align:middle;" onerror="this.parentNode.style.display='none'"/></div>
     Chakchak dobe Co., Ltd &nbsp;|&nbsp; CEO: Paek Taejun<br/>
     Business Reg. No. 632-87-02863 &nbsp;|&nbsp; Mail-order No. 2023-Seoul Jongno-0261<br/>
     Privacy Officer: Paek Taejun &nbsp;|&nbsp; +82-2-743-1850<br/>
     #403, 4F, Ugyo Bldg, 223 Jongno, Jongno-gu, Seoul, Korea<br/>
     prowizard@naver.com<br/>
-    <span style="font-size:10px;color:#a6b0c6;">&copy; 2026 CodiBank. All rights reserved.</span>
+    <span style="font-size:10px;color:#a6b0c6;">&copy; 2026 Stylemonster. All rights reserved.</span>
   </div>
   <script>(function(){function _cf(){var en=window.CodiBankI18n&&CodiBankI18n.isEn();var k=document.getElementById('company-footer-ko'),e=document.getElementById('company-footer-en');if(k)k.style.display=en?'none':'block';if(e)e.style.display=en?'block':'none';}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(_cf,150);});else setTimeout(_cf,150);})();</script>
 </div>
@@ -1164,7 +1172,7 @@ function renderPlans(){
           <div class="plan-pill-value">${coVal}<span class="plan-pill-unit">${coUnlimited?'':unitMo}</span></div>
         </div>
         <div class="plan-pill">
-          <div class="plan-pill-label">${en?'Try On':'트라이 온'}</div>
+          <div class="plan-pill-label">${en?'Try On · Closet':'트라이 온·옷장코디'}</div>
           <div class="plan-pill-value">${trVal}<span class="plan-pill-unit">${trUnlimited?'':unitMo}</span></div>
         </div>
         <div class="plan-pill">
@@ -1188,7 +1196,7 @@ function renderPlans(){
         </div>
         <div class="engine-line tryon">
           <span class="mi engine-ico">auto_awesome</span>
-          <span class="engine-text">${en?'Try On image gen model':'트라이온 코디 이미지 생성 모델'} <strong>Nano Banana PRO<span class="engine-4k">, 4K</span></strong></span>
+          <span class="engine-text">${en?'Try On · Closet outfit image model':'트라이온·옷장코디 이미지 생성 모델'} <strong>Nano Banana PRO<span class="engine-4k">, 4K</span></strong></span>
         </div>
       </div>`;
 
@@ -1338,6 +1346,7 @@ async function renderStatus(){
   //   합산 기준도 closet + tryon (codistyle 제외)
   let closetUsed = 0;    // 코디핏 사용 횟수
   let tryonUsed  = 0;    // 트라이온 사용 횟수 [Step2 신규]
+  let aiclosetUsed = 0;  // ─── 2026-09-09 KST · TJ 지시 ─── 옷장코디(Ai옷장) — 트라이온 풀 내 서브카운터
   let codistyleUsed = 0; // 레거시 코디하기 사용 횟수 (보존용)
   let totalUsed = 0;
   try{
@@ -1345,6 +1354,7 @@ async function renderStatus(){
     const raw = JSON.parse(localStorage.getItem(key)||'{}');
     closetUsed    = parseInt(raw.closetCount || 0);
     tryonUsed     = parseInt(raw.tryonCount  || 0);          // [Step2] 정확한 필드
+    aiclosetUsed  = parseInt(raw.aiclosetCount || 0);
     codistyleUsed = parseInt(raw.codistyleCount || 0);
     // [Step2] totalCount: codistyle 제외, closet + tryon만 합산
     totalUsed     = parseInt(raw.totalCount || (closetUsed + tryonUsed)) || 0;
@@ -1366,10 +1376,12 @@ async function renderStatus(){
           var _sT=(_sM===_cur)?parseInt(_pd.tryonCount||0):0,  _lT=(_lM===_cur)?parseInt(raw.tryonCount||0):0;
           closetUsed = Math.max(_sC,_lC);
           tryonUsed  = Math.max(_sT,_lT);
+          var _sA=(_sM===_cur)?parseInt(_pd.aiclosetCount||0):0, _lA=(_lM===_cur)?parseInt(raw.aiclosetCount||0):0;
+          aiclosetUsed = Math.max(_sA,_lA);   // 2026-09-09 KST · TJ 지시
           totalUsed  = closetUsed + tryonUsed;
           try{
             const _k='cb_usage_'+(user.email||'guest'), _r=JSON.parse(localStorage.getItem(_k)||'{}');
-            _r.closetCount=closetUsed; _r.tryonCount=tryonUsed; _r.month=_cur;
+            _r.closetCount=closetUsed; _r.tryonCount=tryonUsed; _r.aiclosetCount=aiclosetUsed; _r.month=_cur;
             localStorage.setItem(_k, JSON.stringify(_r));
           }catch(_){}
         }
@@ -1427,6 +1439,8 @@ async function renderStatus(){
   // ─── 2026-05-09 Step 2-Design ─── 새 Summary 카드 stat 업데이트 (코디핏/트라이온)
   _updateSummaryStat('Co', closetUsed, codifitLimit, codifitBonus, {unlimited:codifitUnlimited});
   _updateSummaryStat('Tr', tryonUsed,  tryonLimit,   tryonBonus,   {unlimited:tryonUnlimited});
+  // ─── 2026-09-09 KST · TJ 지시 ─── 트라이온 카드 서브라인: 옷장코디 포함 횟수 (Ai옷장/마이페이지/관리자와 동일 정의)
+  try{ const _ts = document.getElementById('sumTrSub'); if(_ts) _ts.textContent = en ? ('incl. closet outfits ' + aiclosetUsed) : ('옷장코디 ' + aiclosetUsed + '회 포함'); }catch(_){}
   // 아이템은 아래 fetch 블록에서 itemUsed/itemBonus 조회 후 별도 호출됨
 
   // ─── 2026-05-25 KST 신규 ─── 런웨이 사용량/한도/보너스 조회 + 카드 업데이트 ───
@@ -1484,7 +1498,7 @@ async function renderStatus(){
       ? `*Try On total: <b style="color:#F0A3C5">${trTotalDisplay}</b> = Plan ${trBaseDisplay} + Bonus ${tryonBonus} <span style="opacity:0.65;font-size:11px;">(used ${tryonUsed}, remaining ${trRemain})</span>`
       : `*트라이온 생성 횟수 <b style="color:#F0A3C5">${trTotalDisplay}${tryonUnlimited?'':'회'}</b> = 구독플랜 ${trBaseDisplay}${tryonUnlimited?'':'회'} + 보너스 지급 ${tryonBonus}회 <span style="opacity:0.65;font-size:11px;">(${tryonUsed}회 사용, ${trRemain}${tryonUnlimited?'':'회'} 남음)</span>`;
     const trEl = document.getElementById('tryonQuotaText');
-    if(trEl) trEl.innerHTML = trLine;
+    if(trEl) trEl.innerHTML = trLine + (en ? ` <span style="opacity:0.65;font-size:11px;">· closet outfits ${aiclosetUsed} included</span>` : ` <span style="opacity:0.65;font-size:11px;">· 옷장코디 ${aiclosetUsed}회 포함</span>`);
 
     quotaBox.style.display = 'block';
   }
@@ -1509,7 +1523,7 @@ async function renderStatus(){
   var _ibKo = document.getElementById('infoBoxKo');
   var _ibEn = document.getElementById('infoBoxEn');
   if(_pgT) _pgT.textContent = en ? 'Subscription Plan' : '구독 플랜';
-  if(_pgS) _pgS.textContent = en ? 'Codi Fit + Try On are counted separately' : '코디핏 + 트라이 온 각각 별도 카운트';
+  if(_pgS) _pgS.textContent = en ? 'Codi Fit + Try On (incl. closet outfits) are counted separately' : '코디핏 + 트라이 온(옷장코디 포함) 각각 별도 카운트';
   if(_qL) _qL.textContent = en ? 'Monthly outfit generations available' : '이달 이미지 생성 가능 횟수';
   if(_qU) _qU.textContent = en ? ' remaining' : '회 가능';
   if(_iL) _iL.textContent = en ? 'Item registration status' : '아이템 등록 현황';
@@ -1536,6 +1550,7 @@ async function renderStatus(){
       tryonBonus:   tryonBonus,
       closetUsed:   closetUsed,
       tryonUsed:    tryonUsed,
+      aiclosetUsed: aiclosetUsed,    // 2026-09-09 KST · TJ 지시 — 옷장코디
       codistyleUsed: codistyleUsed,  // 레거시 보존
       updatedAt: new Date().toISOString().slice(0,7),
     };
@@ -1634,7 +1649,7 @@ function doPay(){
     pg: channelKey ? ('tosspayments.'+channelKey) : 'tosspayments',
     pay_method: 'card',
     merchant_uid: merchantUid,
-    name: en ? `CodiBank ${plan.nameEn}` : `코디뱅크 ${plan.nameKo}`,
+    name: en ? `Stylemonster ${plan.nameEn}` : `스타일몬스터 ${plan.nameKo}`,
     amount: isTest ? 0 : plan.price,
     buyer_email: user.email||'',
     buyer_name: user.nickname||user.email?.split('@')[0]||'',
