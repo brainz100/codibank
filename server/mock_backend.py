@@ -15328,6 +15328,468 @@ def admin_runway_bonus_list():
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ─── 2026-09-09 KST · TJ 지시 ─── Ai옷장 TPO 스타일링 알람 (SM_ALARM)
+# ───────────────────────────────────────────────────────────────────────────
+#  목적: 사용자가 등록한 옷장 아이템만으로 날짜·날씨·목적(TPO)에 맞는 착장을
+#        (a) 즉시 생성하거나 (b) 원하는 시각에 서버가 생성해 푸시 알림으로 보낸다.
+#  구성:
+#    · POST /api/aicloset/pick-outfit   아이템 메타 → 슬롯별 선정 (Gemini 텍스트, 저비용)
+#    · POST /api/aicloset/alarm         알람 예약 (스냅샷 R2 저장 + Supabase 레코드)
+#    · GET  /api/aicloset/alarms        내 알람 목록
+#    · GET/DELETE /api/aicloset/alarm/<id>
+#    · POST /api/aicloset/alarm/run-due 예약 시각 도달분 실행 (스케줄러 스레드 + 외부 cron 백업)
+#    · GET  /api/push/vapid-public      Web Push 공개키
+#  엔진 재사용: 착장 이미지는 기존 /api/tryon/generate 를 자체 HTTP 호출 (트라이온 코드 무수정)
+#  저장소:  Supabase 테이블 sm_alarms (없으면 로컬 JSON 폴백) · 스냅샷은 R2 JSON
+#  환경변수: VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_CLAIMS_EMAIL (푸시)
+#            SELF_BASE_URL (자체호출 베이스, 없으면 RENDER_EXTERNAL_URL → 127.0.0.1:PORT)
+#            SM_ALARM_SCHEDULER=0 (스레드 끄기) · SM_CRON_KEY (run-due 외부 호출 키)
+#            SM_ALARM_CHARGE=0 (알람 생성 시 트라이온 사용량 차감 안 함, 기본 차감)
+#            CODIBANK_SM_PICK_MODEL (기본 gemini-2.5-flash-lite)
+#  Supabase DDL (SQL Editor 에서 1회 실행):
+#    create table if not exists sm_alarms (
+#      id text primary key, email text not null, run_at timestamptz not null,
+#      date_key text, time_str text, tz text,
+#      purpose_key text, purpose_label text, purpose_hint text,
+#      user_json jsonb, geo_json jsonb, lang text, snapshot_ref text, push_json jsonb,
+#      status text default 'pending', result_json jsonb, error text,
+#      created_at timestamptz default now(), updated_at timestamptz default now());
+#    create index if not exists sm_alarms_due on sm_alarms(status, run_at);
+#    create index if not exists sm_alarms_email on sm_alarms(email);
+# ═══════════════════════════════════════════════════════════════════════════
+import threading as _sm_threading
+import uuid as _sm_uuid
+import datetime as _sm_dt
+
+_SM_LOCAL_STORE = os.path.join(_UPLOAD_DIR, "sm_alarms_local.json")
+_SM_LOCK = _sm_threading.Lock()
+_SM_SLOTS = ("outer", "top", "bottom", "onepiece", "shoes")
+
+def _sm_now_utc():
+    return _sm_dt.datetime.now(_sm_dt.timezone.utc)
+
+def _sm_iso(dt):
+    return dt.astimezone(_sm_dt.timezone.utc).isoformat().replace("+00:00", "Z")
+
+def _sm_parse_local(date_key: str, time_str: str, tz: str):
+    """'YYYY-MM-DD' + 'HH:MM' + IANA tz → aware UTC datetime"""
+    try:
+        from zoneinfo import ZoneInfo
+        z = ZoneInfo(tz or "Asia/Seoul")
+    except Exception:
+        z = _sm_dt.timezone(_sm_dt.timedelta(hours=9))
+    hh, mm = (time_str or "07:30").split(":")[:2]
+    y, m, d = [int(x) for x in date_key.split("-")]
+    return _sm_dt.datetime(y, m, d, int(hh), int(mm), tzinfo=z).astimezone(_sm_dt.timezone.utc)
+
+def _sm_self_base():
+    b = (os.getenv("SELF_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "").strip().rstrip("/")
+    if b: return b
+    return f"http://127.0.0.1:{os.getenv('PORT', '8787')}"
+
+# ── 저장소: Supabase 우선, 실패 시 로컬 JSON ─────────────────────────────
+def _sm_sb_ok():
+    return bool(os.environ.get("SUPABASE_SERVICE_KEY", "").strip())
+
+def _sm_local_load():
+    try:
+        with open(_SM_LOCAL_STORE, "r", encoding="utf-8") as f:
+            return json.load(f) or {}
+    except Exception:
+        return {}
+
+def _sm_local_save(d):
+    try:
+        os.makedirs(_UPLOAD_DIR, exist_ok=True)
+        with open(_SM_LOCAL_STORE, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"[SM] local save fail: {e}", flush=True)
+
+def _sm_row_to_alarm(r: dict) -> dict:
+    res = r.get("result_json") or {}
+    return {
+        "id": r.get("id"), "email": r.get("email"), "runAt": r.get("run_at"),
+        "dateKey": r.get("date_key"), "time": r.get("time_str"), "tz": r.get("tz"),
+        "purposeKey": r.get("purpose_key"), "purposeLabel": r.get("purpose_label"),
+        "status": r.get("status"), "error": r.get("error") or "",
+        "imageUrl": res.get("imageUrl", ""), "picked": res.get("picked", []), "reason": res.get("reason", ""),
+        "temp": res.get("temp"), "weatherText": res.get("weatherText", ""),
+        "createdAt": r.get("created_at"), "updatedAt": r.get("updated_at"),
+    }
+
+def _sm_store_insert(row: dict):
+    if _sm_sb_ok():
+        try:
+            r = sb_query("POST", "sm_alarms", body=row)
+            if r.status_code in (200, 201): return True
+            print(f"[SM] supabase insert {r.status_code}: {r.text[:200]}", flush=True)
+        except Exception as e:
+            print(f"[SM] supabase insert error: {e}", flush=True)
+    with _SM_LOCK:
+        d = _sm_local_load(); d[row["id"]] = row; _sm_local_save(d)
+    return True
+
+def _sm_store_update(aid: str, patch: dict, only_if_status: str = None):
+    patch = dict(patch); patch["updated_at"] = _sm_iso(_sm_now_utc())
+    if _sm_sb_ok():
+        try:
+            params = {"id": f"eq.{aid}"}
+            if only_if_status: params["status"] = f"eq.{only_if_status}"
+            r = sb_query("PATCH", "sm_alarms", params=params, body=patch)
+            if r.status_code in (200, 204):
+                try: return len(r.json()) > 0 if r.text else True
+                except Exception: return True
+            print(f"[SM] supabase patch {r.status_code}: {r.text[:200]}", flush=True)
+        except Exception as e:
+            print(f"[SM] supabase patch error: {e}", flush=True)
+    with _SM_LOCK:
+        d = _sm_local_load(); row = d.get(aid)
+        if not row: return False
+        if only_if_status and row.get("status") != only_if_status: return False
+        row.update(patch); _sm_local_save(d)
+    return True
+
+def _sm_store_get(aid: str):
+    if _sm_sb_ok():
+        try:
+            r = sb_query("GET", "sm_alarms", params={"id": f"eq.{aid}", "limit": "1"})
+            if r.status_code == 200:
+                rows = r.json() or []
+                if rows: return rows[0]
+        except Exception as e:
+            print(f"[SM] supabase get error: {e}", flush=True)
+    return _sm_local_load().get(aid)
+
+def _sm_store_list(email: str):
+    rows = []
+    if _sm_sb_ok():
+        try:
+            r = sb_query("GET", "sm_alarms", params={"email": f"eq.{email}", "order": "run_at.desc", "limit": "30"})
+            if r.status_code == 200: rows = r.json() or []
+        except Exception as e:
+            print(f"[SM] supabase list error: {e}", flush=True)
+    if not rows:
+        rows = [v for v in _sm_local_load().values() if v.get("email") == email]
+    return rows
+
+def _sm_store_delete(aid: str, email: str):
+    if _sm_sb_ok():
+        try:
+            sb_query("DELETE", "sm_alarms", params={"id": f"eq.{aid}", "email": f"eq.{email}"})
+        except Exception as e:
+            print(f"[SM] supabase delete error: {e}", flush=True)
+    with _SM_LOCK:
+        d = _sm_local_load()
+        if aid in d and d[aid].get("email") == email:
+            d.pop(aid); _sm_local_save(d)
+    return True
+
+def _sm_store_due(limit: int = 5):
+    now = _sm_iso(_sm_now_utc())
+    if _sm_sb_ok():
+        try:
+            r = sb_query("GET", "sm_alarms", params={"status": "eq.pending", "run_at": f"lte.{now}", "order": "run_at.asc", "limit": str(limit)})
+            if r.status_code == 200: return r.json() or []
+        except Exception as e:
+            print(f"[SM] supabase due error: {e}", flush=True)
+    return [v for v in _sm_local_load().values() if v.get("status") == "pending" and str(v.get("run_at", "")) <= now][:limit]
+
+# ── 스냅샷 (아이템 이미지 포함) ───────────────────────────────────────────
+def _sm_snapshot_save(aid: str, snap: dict) -> str:
+    fname = f"smalarm_{aid}_snapshot.json"
+    b = json.dumps(snap, ensure_ascii=False).encode("utf-8")
+    try: _upload_to_r2(fname, b, "application/json")
+    except Exception as e: print(f"[SM] snapshot r2 fail: {e}", flush=True)
+    try:
+        os.makedirs(_UPLOAD_DIR, exist_ok=True)
+        with open(os.path.join(_UPLOAD_DIR, fname), "wb") as f: f.write(b)
+    except Exception as e: print(f"[SM] snapshot local fail: {e}", flush=True)
+    return fname
+
+def _sm_snapshot_load(fname: str) -> dict:
+    p = os.path.join(_UPLOAD_DIR, fname)
+    if os.path.exists(p):
+        try:
+            with open(p, "r", encoding="utf-8") as f: return json.load(f)
+        except Exception: pass
+    if _R2_PUB_URL:
+        try:
+            r = http_requests.get(f"{_R2_PUB_URL}/uploads/{fname}", timeout=20)
+            if r.status_code == 200: return r.json()
+        except Exception as e: print(f"[SM] snapshot r2 load fail: {e}", flush=True)
+    return {}
+
+# ── 날씨 (알람 실행 시각 기준, Open-Meteo 직접) ───────────────────────────
+_SM_WMO_KO = {0:"맑음",1:"대체로 맑음",2:"구름 조금",3:"흐림",45:"안개",48:"안개",51:"이슬비",53:"이슬비",55:"이슬비",
+              61:"비",63:"비",65:"강한 비",66:"진눈깨비",67:"진눈깨비",71:"눈",73:"눈",75:"강한 눈",77:"싸락눈",
+              80:"소나기",81:"소나기",82:"강한 소나기",85:"눈 소나기",86:"눈 소나기",95:"뇌우",96:"뇌우",99:"뇌우"}
+def _sm_weather(lat: float, lon: float, date_key: str, tz: str, lang: str = "ko"):
+    try:
+        url = (f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
+               f"&current=temperature_2m,weather_code,precipitation"
+               f"&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max"
+               f"&timezone={tz or 'Asia/Seoul'}&forecast_days=14")
+        j = http_requests.get(url, timeout=8).json()
+        d = j.get("daily") or {}; times = d.get("time") or []
+        temp = None; code = None; pop = None
+        if date_key in times:
+            i = times.index(date_key)
+            tmax = d.get("temperature_2m_max", [None]*len(times))[i]; tmin = d.get("temperature_2m_min", [None]*len(times))[i]
+            if tmax is not None and tmin is not None: temp = round((float(tmax) + float(tmin)) / 2)
+            code = (d.get("weather_code") or [None]*len(times))[i]
+            pop = (d.get("precipitation_probability_max") or [None]*len(times))[i]
+        cur = j.get("current") or {}
+        if temp is None and cur.get("temperature_2m") is not None: temp = round(float(cur["temperature_2m"]))
+        if code is None: code = cur.get("weather_code")
+        text = _SM_WMO_KO.get(int(code), "") if code is not None else ""
+        return {"temp": temp, "code": code, "text": text, "pop": pop}
+    except Exception as e:
+        print(f"[SM] weather fail: {e}", flush=True)
+        return {"temp": None, "code": None, "text": "", "pop": None}
+
+# ── Gemini 텍스트 JSON 호출 (신/구 SDK 겸용) ──────────────────────────────
+def _sm_gemini_json(prompt: str, schema: dict, model: str = None) -> dict:
+    model = model or os.getenv("CODIBANK_SM_PICK_MODEL") or "gemini-2.5-flash-lite"
+    if not _GEMINI_KEY: raise RuntimeError("GEMINI_API_KEY 미설정")
+    try:
+        from google import genai as _g; from google.genai import types as _gt
+        cli = _g.Client(api_key=_GEMINI_KEY)
+        cfg = _gt.GenerateContentConfig(response_mime_type="application/json", response_schema=schema, temperature=0.4)
+        resp = cli.models.generate_content(model=model, contents=prompt, config=cfg)
+        txt = resp.text if hasattr(resp, "text") else str(resp)
+    except ImportError:
+        import google.generativeai as _go
+        _go.configure(api_key=_GEMINI_KEY)
+        m = _go.GenerativeModel(model, generation_config={"response_mime_type": "application/json", "response_schema": schema, "temperature": 0.4})
+        txt = m.generate_content(prompt).text
+    txt = (txt or "").strip()
+    if txt.startswith("```"): txt = txt.strip("`").replace("json", "", 1).strip()
+    return json.loads(txt)
+
+_SM_PICK_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "onepiece_id": {"type": "string"}, "top_id": {"type": "string"}, "bottom_id": {"type": "string"},
+        "outer_id": {"type": "string"}, "shoes_id": {"type": "string"}, "reason": {"type": "string"},
+    },
+    "required": ["reason"],
+}
+
+def _sm_pick_outfit(ctx: dict, items: list, exclude: list = None, lang: str = "ko") -> dict:
+    """ctx: {dateKey, weather:{temp,text,pop}, purposeLabel, purposeHint, user:{gender,ageGroup,...}}"""
+    exclude = set(str(x) for x in (exclude or []))
+    slim = []
+    for it in items:
+        if str(it.get("id")) in exclude: continue
+        if it.get("slot") not in _SM_SLOTS: continue
+        slim.append({k: it.get(k, "") for k in ("id", "slot", "categoryLabel", "subCategory", "outerType", "color", "subColor", "material", "season", "pattern", "fit", "keywords", "brand")})
+    if not slim: return {"picked": [], "reason": ""}
+    wx = ctx.get("weather") or {}; temp = wx.get("temp"); u = ctx.get("user") or {}
+    lang_name = {"ko": "Korean", "en": "English", "ja": "Japanese", "zh": "Chinese", "fr": "French", "de": "German", "es": "Spanish", "tr": "Turkish", "ar": "Arabic"}.get(lang, "Korean")
+    prompt = (
+        "You are a personal stylist choosing an outfit ONLY from the user's own closet items listed below.\n"
+        f"Date: {ctx.get('dateKey')} · Weather: {temp if temp is not None else 'unknown'}°C, {wx.get('text') or 'unknown'}"
+        f"{', rain chance ' + str(wx.get('pop')) + '%' if wx.get('pop') is not None else ''}\n"
+        f"Purpose (TPO): {ctx.get('purposeLabel')} — {ctx.get('purposeHint') or ''}\n"
+        f"User: {'woman' if str(u.get('gender','')).upper()=='F' else 'man'}, age group {u.get('ageGroup') or 'adult'}\n\n"
+        "RULES\n"
+        "1. Pick EITHER one onepiece OR (one top + one bottom). Never both.\n"
+        "2. outer: include one when the temperature is 15°C or below, or when rain is likely. Above 20°C leave empty.\n"
+        "3. shoes: include one if any shoes exist; match the purpose (running → sneakers/running shoes, formal → leather shoes).\n"
+        "4. Match season fields to the weather (겨울전용/가을겨울 for cold, 봄여름/여름전용 for warm, 사계절 anytime).\n"
+        "5. Colors must work together; prefer one accent at most. Respect material vs weather (no wool in heat, no linen in cold).\n"
+        "6. Use ONLY ids from the list. Leave a slot empty ('') when nothing suitable exists.\n"
+        f"7. 'reason': 1–2 sentences in {lang_name}, friendly, naming the key items and why they fit the weather and purpose.\n\n"
+        "CLOSET ITEMS (JSON):\n" + json.dumps(slim, ensure_ascii=False)
+    )
+    out = _sm_gemini_json(prompt, _SM_PICK_SCHEMA)
+    by_id = {str(i.get("id")): i for i in slim}
+    picked = []
+    def _add(slot, key):
+        v = str(out.get(key) or "").strip()
+        if v and v in by_id and by_id[v].get("slot") == slot:
+            it = by_id[v]
+            picked.append({"id": v, "slot": slot, "label": " ".join(x for x in [it.get("color", ""), it.get("subCategory") or it.get("categoryLabel", "")] if x)})
+    if str(out.get("onepiece_id") or "").strip() in by_id:
+        _add("onepiece", "onepiece_id")
+    else:
+        _add("top", "top_id"); _add("bottom", "bottom_id")
+    _add("outer", "outer_id"); _add("shoes", "shoes_id")
+    # 폴백: 모델이 상/하의를 못 고르면 시즌 적합 첫 아이템
+    slots = {p["slot"] for p in picked}
+    if "onepiece" not in slots and not ({"top", "bottom"} <= slots):
+        for s in ("top", "bottom"):
+            if s not in slots:
+                c = next((i for i in slim if i.get("slot") == s), None)
+                if c: picked.append({"id": str(c["id"]), "slot": s, "label": " ".join(x for x in [c.get("color", ""), c.get("subCategory") or c.get("categoryLabel", "")] if x)})
+    return {"picked": picked, "reason": str(out.get("reason") or "")}
+
+@app.post("/api/aicloset/pick-outfit")
+def sm_pick_outfit_api():
+    try:
+        p = request.get_json(silent=True) or {}
+        items = p.get("items") or []
+        if not items: return jsonify(ok=False, error="items 비어있음"), 400
+        ctx = {"dateKey": p.get("dateKey"), "weather": p.get("weather") or {}, "purposeLabel": p.get("purposeLabel"), "purposeHint": p.get("purposeHint"), "user": p.get("user") or {}}
+        res = _sm_pick_outfit(ctx, items, p.get("exclude") or [], _norm_lang(p.get("lang")))
+        return jsonify(ok=True, **res)
+    except Exception as e:
+        print(f"[SM] pick-outfit fail: {e}", flush=True)
+        return jsonify(ok=False, error=str(e)), 500
+
+# ── Web Push ───────────────────────────────────────────────────────────────
+@app.get("/api/push/vapid-public")
+def sm_vapid_public():
+    k = (os.getenv("VAPID_PUBLIC_KEY") or "").strip()
+    return jsonify(ok=bool(k), key=k)
+
+def _sm_send_push(sub: dict, payload: dict) -> bool:
+    if not sub or not sub.get("endpoint"): return False
+    priv = (os.getenv("VAPID_PRIVATE_KEY") or "").strip(); email = (os.getenv("VAPID_CLAIMS_EMAIL") or "mailto:codibank.kr@gmail.com").strip()
+    if not priv: print("[SM] VAPID_PRIVATE_KEY 미설정 → 푸시 생략", flush=True); return False
+    try:
+        from pywebpush import webpush
+        webpush(subscription_info=sub, data=json.dumps(payload, ensure_ascii=False), vapid_private_key=priv,
+                vapid_claims={"sub": email if email.startswith("mailto:") else "mailto:" + email}, ttl=3600)
+        return True
+    except ImportError:
+        print("[SM] pywebpush 미설치 (requirements.txt 에 pywebpush 추가) → 푸시 생략", flush=True)
+    except Exception as e:
+        print(f"[SM] push send fail: {e}", flush=True)
+    return False
+
+# ── 알람 CRUD ──────────────────────────────────────────────────────────────
+@app.post("/api/aicloset/alarm")
+def sm_alarm_create():
+    try:
+        p = request.get_json(silent=True) or {}
+        email = str(p.get("email") or "").strip().lower()
+        date_key = str(p.get("dateKey") or "").strip(); time_str = str(p.get("time") or "07:30").strip(); tz = str(p.get("tz") or "Asia/Seoul")
+        if not email or not re.match(r"^\d{4}-\d{2}-\d{2}$", date_key): return jsonify(ok=False, error="email/dateKey 필수"), 400
+        items = p.get("items") or []
+        if not items: return jsonify(ok=False, error="옷장 아이템이 없습니다"), 400
+        run_at = _sm_parse_local(date_key, time_str, tz)
+        if run_at < _sm_now_utc() + _sm_dt.timedelta(minutes=4): return jsonify(ok=False, error="알람은 최소 5분 뒤부터 예약 가능"), 400
+        aid = _sm_uuid.uuid4().hex[:16]
+        snap = {"items": items, "faceImage": p.get("faceImage") or "", "bodyType": p.get("bodyType") or "", "personalColor": p.get("personalColor")}
+        snap_ref = _sm_snapshot_save(aid, snap)
+        row = {
+            "id": aid, "email": email, "run_at": _sm_iso(run_at), "date_key": date_key, "time_str": time_str, "tz": tz,
+            "purpose_key": str(p.get("purposeKey") or ""), "purpose_label": str(p.get("purposeLabel") or ""), "purpose_hint": str(p.get("purposeHint") or ""),
+            "user_json": p.get("user") or {}, "geo_json": p.get("geo") or {}, "lang": _norm_lang(p.get("lang")),
+            "snapshot_ref": snap_ref, "push_json": p.get("pushSubscription") or None,
+            "status": "pending", "result_json": None, "error": "",
+            "created_at": _sm_iso(_sm_now_utc()), "updated_at": _sm_iso(_sm_now_utc()),
+        }
+        _sm_store_insert(row)
+        print(f"[SM] 알람 예약: {aid} {email} {date_key} {time_str} ({tz}) items={len(items)} push={'Y' if row['push_json'] else 'N'}", flush=True)
+        return jsonify(ok=True, alarm=_sm_row_to_alarm(row))
+    except Exception as e:
+        print(f"[SM] alarm create fail: {e}", flush=True)
+        return jsonify(ok=False, error=str(e)), 500
+
+@app.get("/api/aicloset/alarms")
+def sm_alarm_list():
+    email = str(request.args.get("email") or "").strip().lower()
+    if not email: return jsonify(ok=False, error="email 필수"), 400
+    return jsonify(ok=True, alarms=[_sm_row_to_alarm(r) for r in _sm_store_list(email)])
+
+@app.get("/api/aicloset/alarm/<aid>")
+def sm_alarm_get(aid):
+    email = str(request.args.get("email") or "").strip().lower()
+    row = _sm_store_get(aid)
+    if not row or (email and row.get("email") != email): return jsonify(ok=False, error="not found"), 404
+    return jsonify(ok=True, alarm=_sm_row_to_alarm(row))
+
+@app.delete("/api/aicloset/alarm/<aid>")
+def sm_alarm_delete(aid):
+    email = str(request.args.get("email") or "").strip().lower()
+    if not email: return jsonify(ok=False, error="email 필수"), 400
+    _sm_store_delete(aid, email)
+    return jsonify(ok=True)
+
+# ── 알람 실행 ──────────────────────────────────────────────────────────────
+def _sm_run_alarm(row: dict):
+    aid = row["id"]
+    if not _sm_store_update(aid, {"status": "running"}, only_if_status="pending"):
+        return  # 다른 워커가 선점
+    try:
+        snap = _sm_snapshot_load(row.get("snapshot_ref") or "")
+        items = snap.get("items") or []
+        if not items: raise RuntimeError("스냅샷을 불러올 수 없습니다")
+        geo = row.get("geo_json") or {}; lat = float(geo.get("lat") or 37.5665); lon = float(geo.get("lon") or 126.978)
+        lang = row.get("lang") or "ko"
+        wx = _sm_weather(lat, lon, row.get("date_key"), row.get("tz"), lang)
+        ctx = {"dateKey": row.get("date_key"), "weather": wx, "purposeLabel": row.get("purpose_label"), "purposeHint": row.get("purpose_hint"), "user": row.get("user_json") or {}}
+        pick = _sm_pick_outfit(ctx, items, [], lang)
+        picked = pick.get("picked") or []
+        if not picked: raise RuntimeError("조합 선정 실패")
+        by_id = {str(i.get("id")): i for i in items}
+        payload = {"user": row.get("user_json") or {}, "fitTarget": "my", "lang": lang, "mode": "twopiece", "source": "aicloset_alarm"}
+        for p in picked:
+            it = by_id.get(str(p["id"]));
+            if not it or not it.get("image"): continue
+            payload[p["slot"] + "DataUrl"] = it["image"]; payload[p["slot"] + "Analysis"] = it.get("analysis") or {}
+        if payload.get("onepieceDataUrl"): payload["mode"] = "onepiece"
+        elif payload.get("outerDataUrl"): payload["mode"] = "outer"
+        if snap.get("faceImage"): payload["faceImage"] = snap["faceImage"]
+        if snap.get("bodyType"): payload["bodyType"] = snap["bodyType"]
+        if snap.get("personalColor"): payload["personalColor"] = snap["personalColor"]
+        base = _sm_self_base()
+        r = http_requests.post(f"{base}/api/tryon/generate", json=payload, timeout=300)
+        j = r.json() if r.content else {}
+        if r.status_code != 200 or not j.get("ok"): raise RuntimeError(f"tryon {r.status_code}: {str(j.get('error') or r.text)[:160]}")
+        image_url = j.get("url") or j.get("image") or ""
+        if image_url and image_url.startswith("/"): image_url = base + image_url
+        result = {"imageUrl": image_url, "picked": picked, "reason": pick.get("reason") or "", "temp": wx.get("temp"), "weatherText": wx.get("text") or ""}
+        _sm_store_update(aid, {"status": "done", "result_json": result, "error": ""})
+        # 사용량 차감 (트라이온 1회) — SM_ALARM_CHARGE=0 이면 생략
+        if str(os.getenv("SM_ALARM_CHARGE", "1")).strip() not in ("0", "false", "no"):
+            try: http_requests.post(f"{base}/api/usage/record", json={"email": row.get("email"), "feature": "tryon"}, timeout=10)
+            except Exception as e: print(f"[SM] usage record fail: {e}", flush=True)
+        # 푸시
+        title = "스타일몬스터 · 오늘의 옷장 코디" if lang == "ko" else "Stylemonster · Today's closet outfit"
+        body = (f"{row.get('purpose_label') or ''} · {wx.get('temp')}° {wx.get('text')}".strip(" ·") if wx.get("temp") is not None else (row.get("purpose_label") or ""))
+        _sm_send_push(row.get("push_json") or {}, {"title": title, "body": body, "url": f"/app/aicloset.html?alarm={aid}", "alarmId": aid, "image": image_url})
+        print(f"[SM] ✅ 알람 완료 {aid} → {image_url[:80]}", flush=True)
+    except Exception as e:
+        print(f"[SM] ❌ 알람 실패 {aid}: {e}", flush=True)
+        _sm_store_update(aid, {"status": "failed", "error": str(e)[:300]})
+        try:
+            _sm_send_push(row.get("push_json") or {}, {"title": "스타일몬스터", "body": "코디 알람 생성에 실패했어요. Ai옷장에서 '지금 생성하기'를 눌러주세요.", "url": "/app/aicloset.html", "alarmId": aid})
+        except Exception: pass
+
+def _sm_run_due(limit: int = 3) -> int:
+    n = 0
+    for row in _sm_store_due(limit):
+        _sm_run_alarm(row); n += 1
+    return n
+
+@app.post("/api/aicloset/alarm/run-due")
+def sm_alarm_run_due_api():
+    key = (request.headers.get("X-Cron-Key") or request.args.get("key") or "").strip()
+    if not ((os.getenv("SM_CRON_KEY") and key == os.getenv("SM_CRON_KEY")) or verify_admin(request) or verify_master(request)):
+        return jsonify(ok=False, error="unauthorized"), 401
+    return jsonify(ok=True, ran=_sm_run_due(5))
+
+def _sm_scheduler_loop():
+    print("[SM] 스케줄러 시작 (60s 폴링)", flush=True)
+    while True:
+        try: _sm_run_due(3)
+        except Exception as e: print(f"[SM] scheduler loop error: {e}", flush=True)
+        time.sleep(60)
+
+if str(os.getenv("SM_ALARM_SCHEDULER", "1")).strip() not in ("0", "false", "no"):
+    try:
+        _sm_threading.Thread(target=_sm_scheduler_loop, name="sm-alarm-scheduler", daemon=True).start()
+    except Exception as _e:
+        print(f"[SM] 스케줄러 스레드 시작 실패: {_e}", flush=True)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8787"))
     # ✅ 안정성 기본값: debug OFF
