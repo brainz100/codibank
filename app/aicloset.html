@@ -1328,6 +1328,9 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 .sm-alarm-done{margin-top:12px;padding:14px;border-radius:14px;background:rgba(151,254,237,.12);border:1.5px solid rgba(151,254,237,.45);color:#fff;font-size:12.5px;line-height:1.6;}
 .sm-alarm-done b{color:#97FEED;font-weight:900;}
 .sm-alarm-done.hidden{display:none;}
+.sm-pct{position:relative;z-index:2;display:flex;align-items:baseline;justify-content:center;gap:2px;font-family:'Manrope','Inter',sans-serif;font-weight:800;color:#97FEED;letter-spacing:-.02em;text-shadow:0 2px 14px rgba(151,254,237,.35);}
+.sm-pct #smPctNum{font-size:56px;line-height:1;font-variant-numeric:tabular-nums;}
+.sm-pct .sm-pct-unit{font-size:20px;opacity:.8;}
 @keyframes smSpin{ to{ transform:rotate(360deg); } }
 </style>
 </head>
@@ -1698,6 +1701,8 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
         <div class="sm-result-img-box sm-empty" id="smViewBox">
           <div class="sm-img-spin" id="smViewEmpty">
             <div class="sm-rainbow" id="smRainbow"><span>s</span><span>t</span><span>y</span><span>l</span><span>e</span><span>m</span><span>o</span><span>n</span><span>s</span><span>t</span><span>e</span><span>r</span></div>
+            <!-- ─── 2026-09-09 KST · TJ 지시 ─── 생성 진행률 % (뷰박스 내 대형 숫자 + 링) ─── -->
+            <div class="sm-pct" id="smPct" style="display:none;"><span id="smPctNum">0</span><span class="sm-pct-unit">%</span></div>
             <p class="sm-spin-txt" id="smViewLoadingText" style="opacity:.35" data-i18n="내 옷장 착장 대기 중">내 옷장 착장 대기 중</p>
             <p class="sm-spin-sub" id="smViewLoadingSub"></p>
           </div>
@@ -1714,7 +1719,16 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 <div id="smResultMeta" class="hidden mt-3">
       <div id="smResultChips" class="flex flex-wrap gap-1.5"></div>
       <p id="smResultReason" class="mt-2 text-[12px]" style="color:rgba(255,255,255,0.6);line-height:1.6;"></p>
+      <!-- ─── 2026-09-09 KST · TJ 지시 ─── 이미지 저장 / 공유하기 (트라이온 2×2 액션 패턴) ─── -->
       <div class="grid grid-cols-2 gap-2 mt-3">
+        <button id="smDownloadBtn" type="button" class="sm-btn sm-btn-ghost">
+          <span class="material-symbols-outlined" style="font-size:18px;">download</span><span data-i18n="이미지 저장">이미지 저장</span>
+        </button>
+        <button id="smShareBtn" type="button" class="sm-btn sm-btn-ghost">
+          <span class="material-symbols-outlined" style="font-size:18px;">share</span><span data-i18n="공유하기">공유하기</span>
+        </button>
+      </div>
+      <div class="grid grid-cols-2 gap-2 mt-2">
         <button id="smSaveAlbumBtn" type="button" class="sm-btn sm-btn-ghost">
           <span class="material-symbols-outlined" style="font-size:18px;">bookmark_add</span><span data-i18n="코디앨범 저장">코디앨범 저장</span>
         </button>
@@ -7665,10 +7679,27 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
 
   // ── 뷰박스 — 2026-09-09 KST · TJ 지시 ─── tryon.html _tryonApplyResult 렌더 로직 이식 ──
   //   진행바/상태행 · 로딩 스피너 · 좌=정면/우=후면 캔버스 분할(cover) · 토글/스와이프 동기화 · resize 재그리기
-  const _SM_STAGES = { pick:33, images:55, gen:78, done:100 };
+  const _SM_STAGES = { pick:30, images:50, gen:95, done:100 };
+  // ─── 2026-09-09 KST · TJ 지시 ─── 진행률 % 엔진: 단계 목표치를 향해 300ms 마다 점근 (gen 단계 ≈ 50초 기준)
+  const _PCT = { cur:0, target:0, timer:null };
+  function _pctShow(on){ const e = $('smPct'); if(e) e.style.display = on ? 'flex' : 'none'; }
+  function _pctSet(v){ _PCT.cur = Math.max(_PCT.cur, Math.min(100, Math.round(v))); const n = $('smPctNum'); if(n) n.textContent = String(_PCT.cur); const p = $('smProgFill'); if(p) p.style.width = _PCT.cur + '%'; const t = $('smStatusTxt'); if(t && _PCT.cur < 100){ t.textContent = String(t.textContent).replace(/ · \d+%$/, '') + ' · ' + _PCT.cur + '%'; } }
+  function _pctTo(target, ms){
+    _PCT.target = Math.max(_PCT.target, target); clearInterval(_PCT.timer);
+    const start = _PCT.cur, t0 = Date.now(), dur = ms || 8000;
+    _PCT.timer = setInterval(() => {
+      const k = Math.min(1, (Date.now() - t0) / dur);
+      const eased = 1 - Math.pow(1 - k, 2);                       // ease-out
+      _pctSet(start + (_PCT.target - start) * eased);
+      if(k >= 1) clearInterval(_PCT.timer);
+    }, 300);
+  }
+  function _pctReset(){ clearInterval(_PCT.timer); _PCT.cur = 0; _PCT.target = 0; _pctSet(0); }
+  function _pctDone(){ clearInterval(_PCT.timer); _PCT.cur = 99; _pctSet(100); setTimeout(() => _pctShow(false), 600); }
   function setStatus(text, dot, pct){
     const t = $('smStatusTxt'), d = $('smStatusDot'), p = $('smProgFill');
     if(t && text !== undefined) t.textContent = text;
+    if(t && text && dot === '' && _PCT.target > 0) t.textContent = text + ' · ' + _PCT.cur + '%';
     if(d){ d.className = 'sm-status-dot' + (dot ? ' ' + dot : ''); }
     if(p && pct !== undefined) p.style.width = pct + '%';
   }
@@ -7684,13 +7715,17 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
       if(rb) rb.classList.add('animating');
       const lt = $('smViewLoadingText'); if(lt){ lt.textContent = text || ''; lt.style.opacity = '1'; }
       const ls = $('smViewLoadingSub'); if(ls) ls.textContent = sub || '';
-      setStatus(text || '', '', stage ? _SM_STAGES[stage] : undefined);
+      if(stage === 'pick'){ _pctReset(); _pctShow(true); _pctTo(_SM_STAGES.pick, 6000); }
+      else if(stage === 'images'){ _pctShow(true); _pctSet(_SM_STAGES.pick); _pctTo(_SM_STAGES.images, 4000); }     // 이전 단계 목표치로 스냅 후 진행
+      else if(stage === 'gen'){ _pctShow(true); _pctSet(_SM_STAGES.images); _pctTo(_SM_STAGES.gen, 55000); }
+      setStatus((text || '') , '', undefined);
     } else {
       if(rb) rb.classList.remove('animating');
       if(sp) sp.classList.remove('loading');
     }
   }
   function showError(msg){
+    clearInterval(_PCT.timer); _pctShow(false);
     const e = $('smErrBox'); if(e){ e.textContent = msg; e.style.display = 'block'; }
     setStatus(_T('생성에 실패했어요','Generation failed'), 'err', 0);
     const lt = $('smViewLoadingText'); if(lt){ lt.textContent = _T('내 옷장 착장 대기 중','Waiting for closet outfit'); lt.style.opacity = '.35'; }
@@ -7709,6 +7744,7 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     img.onload = function(){
       const iw = img.naturalWidth || 0, ih = img.naturalHeight || 0; if(!iw || !ih) return;
       const fb = box.querySelector('img.sm-fallback'); if(fb) fb.remove();
+      _pctDone();
       const hasTwoViews = (iw / ih) >= 0.45;          // tryon v28: 극단 세로만 단일, 그 외 좌/우 분할
       if(sp) sp.style.display = 'none';
       box.classList.remove('sm-empty');
@@ -7862,6 +7898,42 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     } finally {
       setLoading(false); ST.busy = false; refreshButtons();
     }
+  }
+
+  // ── 2026-09-09 KST · TJ 지시 ─── 이미지 저장 / 공유 ──
+  async function _resultBlob(){
+    const r = ST.last; if(!r || !r.image) return null;
+    const src = String(r.image);
+    if(src.startsWith('data:')){ const res = await fetch(src); return await res.blob(); }
+    const res = await fetch(src, { mode:'cors' }); if(!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.blob();
+  }
+  function _resultFileName(){ const r = ST.last || {}; return 'stylemonster_closet_' + String(r.dateKey || getTodayKey()).replace(/-/g,'') + '.jpg'; }
+  async function downloadImage(){
+    try{
+      const blob = await _resultBlob(); if(!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = _resultFileName(); document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }catch(e){
+      console.warn('[SM] download fail', e);
+      // CORS 등으로 blob 실패 시 새 탭에서 열어 길게 눌러 저장
+      try{ window.open(String(ST.last.image), '_blank'); }catch(_){}
+    }
+  }
+  async function shareImage(){
+    const r = ST.last; if(!r || !r.image) return;
+    const text = _T(`스타일몬스터 옷장코디 · ${r.dateKey || ''}${r.wx && r.wx.temp != null ? ' · ' + r.wx.temp + '° ' + (r.wx.text || '') : ''} · ${r.purposeLabel || ''}`, `Stylemonster closet outfit · ${r.dateKey || ''} · ${r.purposeLabel || ''}`).replace(/\s+·\s+$/,'');
+    try{
+      if(navigator.share){
+        let files = [];
+        try{ const blob = await _resultBlob(); if(blob) files = [new File([blob], _resultFileName(), { type: blob.type || 'image/jpeg' })]; }catch(_){}
+        if(files.length && navigator.canShare && navigator.canShare({ files })){ await navigator.share({ title: 'Stylemonster', text, files }); return; }
+        await navigator.share({ title: 'Stylemonster', text, url: String(r.image) }); return;
+      }
+      await navigator.clipboard.writeText(text + '\n' + String(r.image));
+      alert(_T('공유 링크를 복사했어요. 메시지나 SNS에 붙여넣기 하세요.', 'Link copied — paste it into a message or SNS.'));
+    }catch(e){ if(e && e.name === 'AbortError') return; console.warn('[SM] share fail', e); alert(_T('공유에 실패했어요.', 'Share failed.')); }
   }
 
   // ── 코디앨범(마이앨범) 저장 — 자동(silent) / 수동 버튼 공용 ──
@@ -8049,6 +8121,8 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     $('smRegenBtn') && $('smRegenBtn').addEventListener('click', () => generateNow(true));
     $('smAlarmBtn') && $('smAlarmBtn').addEventListener('click', scheduleAlarm);
     $('smSaveAlbumBtn') && $('smSaveAlbumBtn').addEventListener('click', () => saveAlbum());
+    $('smDownloadBtn') && $('smDownloadBtn').addEventListener('click', downloadImage);
+    $('smShareBtn') && $('smShareBtn').addEventListener('click', shareImage);
     $('smPurposeCustom') && $('smPurposeCustom').addEventListener('input', refreshButtons);
     // 날짜카드 선택 변화 감지 (기존 브릿지가 .dc-on 을 토글) → 버튼 상태 동기화
     const sc = $('dateCardScroll');
@@ -8061,7 +8135,7 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     // 알림 클릭으로 열린 SW 메시지
     try{ navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', ev => { const d = ev.data || {}; if(d.type === 'sm_open_alarm' && d.id) openAlarmResult(d.id); }); }catch(_){}
   }
-  window.SM_ALARM = { generateNow, scheduleAlarm, loadAlarms, openAlarmResult, refreshButtons, setTab, setMode, PURPOSES, ST };
+  window.SM_ALARM = { generateNow, scheduleAlarm, loadAlarms, openAlarmResult, refreshButtons, setTab, setMode, downloadImage, shareImage, PURPOSES, ST };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
