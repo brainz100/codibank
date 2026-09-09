@@ -7213,6 +7213,51 @@ _TRYON_MODE_ONEPIECE = "onepiece"  # 원피스 (+ 선택 아우터)
 _TRYON_MODE_OUTER    = "outer"     # 아우터 필수
 
 
+
+# ─── 2026-09-09 KST · TJ 지시 ─── 트라이온/옷장코디 얼굴 과대 생성 교정: 7.5등신 픽셀 앵커 + 성별 기준 신장·체중
+#   증상: 옷장코디 결과에서 얼굴이 몸 대비 크게 나옴 (트라이온 프롬프트에 두신 비율 지시가 전혀 없었음.
+#         'preserve identity 99.99%' 만 있어 참조 얼굴 클로즈업의 스케일이 전이됨).
+#   조치: 긍정형·정량형(픽셀 앵커) 규칙을 FRAMING RULES 에 추가. 코디핏 1st 교정과 동일 원칙(금지어 나열 없음).
+#   제어: CODIBANK_TRYON_HEAD_RATIO (기본 7.5, "0" 이면 미삽입 → 이전 프롬프트와 동일)
+def _tryon_proportion_rules(gender_en: str, height: str, weight: str) -> str:
+    try:
+        ratio = float(os.getenv("CODIBANK_TRYON_HEAD_RATIO") or "7.5")
+    except Exception:
+        ratio = 7.5
+    if ratio <= 0:
+        return ""
+    # 2048×1152 캔버스: 각 figure 는 절반(1024px) 안에서 위 8~12% / 아래 5~8% 여백 → 신장 ≈ 1152 × 0.82 ≈ 945px
+    fig_h = int(1152 * 0.82)
+    head_px = int(round(fig_h / ratio))
+    is_f = str(gender_en or "").lower().startswith("wom") or str(gender_en or "").lower().startswith("f")
+    avg_h, avg_w, sex = (161, 57, "woman") if is_f else (173, 74, "man")
+    body = ""
+    try:
+        h = int(float(height)) if height else 0; w = int(float(weight)) if weight else 0
+        if h >= 100:
+            dh = h - avg_h
+            body += (f"  Stature ({sex}): {h}cm, {'+' if dh >= 0 else '-'}{abs(dh)}cm vs the Korean adult {sex} average ({avg_h}cm) — "
+                     f"limb and torso length follow this height at the {ratio:g}-head ratio. ")
+        if w >= 30 and h >= 100:
+            bmi = w / ((h / 100) ** 2); dw = w - avg_w
+            vol = ("full, rounded volume in shoulders, chest, midsection, hips and thighs" if bmi >= 27 else
+                   "noticeably fuller midsection, hips and thighs" if bmi >= 25 else
+                   "slightly soft midsection with an otherwise average frame" if bmi >= 23 else
+                   "balanced, average-width frame" if bmi >= 18.5 else "slender, narrow frame with visible collarbones")
+            body += (f"  Body mass ({sex}): {w}kg, {'+' if dw >= 0 else '-'}{abs(dw)}kg vs average ({avg_w}kg); BMI {bmi:.1f} → render {vol}; "
+                     "the garments drape over THIS volume exactly. ")
+    except Exception:
+        pass
+    return (
+        "• PROPORTION RULES (both views): realistic everyday adult at a "
+        f"{ratio:g}-head ratio — head height (crown to chin) = standing height ÷ {ratio:g}. "
+        f"On this canvas each figure stands ≈ {fig_h}px tall, so the head is ≈ {head_px}px tall "
+        f"({'≈ 1.7' if is_f else '≈ 2'} head-widths across the shoulders). "
+        "The uploaded face photo is a close-up used for identity only; its crop and scale are NOT a size cue — "
+        f"in the output the head is scaled DOWN to 1/{ratio:g} of the full body. "
+        + body
+    )
+
 def _tryon_build_prompt(
     *,
     mode: str,
@@ -7553,6 +7598,7 @@ def _tryon_build_prompt(
         "  Feet: ~5-8% breathing space below (never cut at ankle or shin). "
         "• Both figures vertically centered in their respective half. "
         "• CROP GUARD: NEVER crop at knees, ankles, shins, calves, or above the shoes. "
+        + _tryon_proportion_rules(gender_en, height, weight) +
         "• POSE: natural relaxed standing posture for both views. Front = facing camera. Back = facing away. "
         "• LIGHTING: soft even studio lighting, no harsh shadows, IDENTICAL across both poses. "
         "• BACKGROUND: clean seamless neutral grey (#E8E8E8) shared by both poses. "
