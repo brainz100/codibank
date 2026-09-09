@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="theme-color" content="#020F26"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Stylemonster"/>
+<link rel="icon" type="image/png" sizes="32x32" href="/app/icons/favicon-32.png"/>
+<link rel="apple-touch-icon" href="/app/icons/icon-192.png"/>
+<title>Stylemonster</title>
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     ─── 2026-09-09 KST · TJ 지시 ─── 스타일몬스터 스플래시
+     stylemonster.kr 진입 / PWA 실행 시 1~2초 동안 몬스터가 옷을 갈아입는 7프레임을
+     동영상처럼 빠르게 보여준 뒤 메인(/app/closet.html)으로 이동.
+       · 프레임: /app/brand/splash/sm_splash_1~7.webp (720px, 총 208KB) · 포스터 15KB 즉시 표시
+       · 타이밍: 프리로드(최대 1.2s 대기) → 7프레임 × 190ms ≈ 1.3s → 마지막 프레임 0.35s 홀드 → 0.3s 페이드 → 이동
+       · 같은 세션에서는 재생 안 함(sessionStorage) · prefers-reduced-motion 이면 1프레임만 짧게
+       · ?next=/app/xxx.html 로 이동 대상 지정 가능 · 탭하면 즉시 스킵
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<style>
+  html,body{margin:0;height:100%;background:#020F26;overflow:hidden;-webkit-tap-highlight-color:transparent;}
+  body{display:flex;align-items:center;justify-content:center;font-family:'Outfit','Noto Sans KR',-apple-system,sans-serif;}
+  #stage{position:relative;width:100vw;height:100vh;height:100dvh;display:flex;align-items:center;justify-content:center;
+         background:radial-gradient(ellipse 70% 55% at 50% 60%, rgba(60,40,140,.18) 0%, transparent 65%), #020F26;}
+  .frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);height:min(100dvh,100vh);max-width:100vw;object-fit:contain;
+         opacity:0;transition:opacity .12s ease;will-change:opacity;pointer-events:none;user-select:none;-webkit-user-drag:none;}
+  .frame.on{opacity:1;}
+  #poster{opacity:1;filter:blur(0);}
+  #stage.out{transition:opacity .3s ease;opacity:0;}
+  #skip{position:absolute;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));padding:8px 14px;border-radius:999px;
+        background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.65);font-size:12px;font-weight:700;
+        letter-spacing:.06em;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:pointer;opacity:0;transition:opacity .4s;}
+  #skip.show{opacity:1;}
+  #bar{position:absolute;left:0;bottom:0;height:3px;width:0;background:linear-gradient(90deg,#7c3aed,#c084fc);transition:width .18s linear;}
+  @media (prefers-reduced-motion: reduce){ .frame{transition:none;} }
+</style>
+</head>
+<body>
+<div id="stage" role="img" aria-label="Stylemonster">
+  <img id="poster" class="frame on" src="/app/brand/splash/sm_splash_poster.jpg" alt="" decoding="async" fetchpriority="high"/>
+  <div id="bar"></div>
+  <button id="skip" type="button" aria-label="skip">SKIP</button>
+</div>
+<script>
+(function(){
+  'use strict';
+  var FRAMES = 7, FRAME_MS = 190, HOLD_MS = 350, FADE_MS = 300, PRELOAD_MAX_MS = 1200;
+  var BASE = '/app/brand/splash/sm_splash_';
+  var q = new URLSearchParams(location.search);
+  var next = q.get('next') || '/app/closet.html';
+  if(!/^\/app\/[a-z0-9_\-]+\.html(\?.*)?$/i.test(next)) next = '/app/closet.html';   // 오픈 리다이렉트 방지
+  var stage = document.getElementById('stage'), bar = document.getElementById('bar'), skip = document.getElementById('skip');
+  var done = false;
+  function go(){ if(done) return; done = true; try{ sessionStorage.setItem('sm_splash_seen','1'); }catch(_){} stage.classList.add('out'); setTimeout(function(){ location.replace(next); }, FADE_MS); }
+
+  // 같은 세션 재진입 → 즉시 이동 (뒤로가기 루프 방지)
+  try{ if(sessionStorage.getItem('sm_splash_seen') && !q.has('replay')){ location.replace(next); return; } }catch(_){}
+
+  var reduced = false; try{ reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(_){}
+  if(reduced){ setTimeout(go, 700); return; }
+
+  // 프레임 프리로드
+  var imgs = [], loaded = 0;
+  for(var i = 1; i <= FRAMES; i++){
+    var im = new Image(); im.className = 'frame'; im.alt = ''; im.decoding = 'async'; im.draggable = false;
+    im.onload = im.onerror = function(){ loaded++; };
+    im.src = BASE + i + '.webp'; stage.insertBefore(im, bar); imgs.push(im);
+  }
+  skip.addEventListener('click', go); stage.addEventListener('click', function(e){ if(e.target !== skip) go(); });
+  setTimeout(function(){ skip.classList.add('show'); }, 600);
+
+  var t0 = Date.now();
+  (function waitThenPlay(){
+    if(done) return;
+    if(loaded >= FRAMES || Date.now() - t0 > PRELOAD_MAX_MS) return play();
+    setTimeout(waitThenPlay, 40);
+  })();
+
+  function play(){
+    var idx = 0;
+    document.getElementById('poster').classList.remove('on');
+    (function step(){
+      if(done) return;
+      imgs.forEach(function(im, k){ im.classList.toggle('on', k === idx); });
+      bar.style.width = Math.round((idx + 1) / FRAMES * 100) + '%';
+      idx++;
+      if(idx < FRAMES) setTimeout(step, FRAME_MS);
+      else setTimeout(go, HOLD_MS);
+    })();
+  }
+})();
+</script>
+</body>
+</html>
