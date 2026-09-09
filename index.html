@@ -16,7 +16,8 @@
      동영상처럼 빠르게 보여준 뒤 메인(/app/closet.html)으로 이동.
        · 프레임: /app/brand/splash/sm_splash_1~7.webp (720px, 총 208KB) · 포스터 15KB 즉시 표시
        · 타이밍: 프리로드(최대 1.2s 대기) → 7프레임 × 190ms ≈ 1.3s → 마지막 프레임 0.35s 홀드 → 0.3s 페이드 → 이동
-       · 같은 세션에서는 재생 안 함(sessionStorage) · prefers-reduced-motion 이면 1프레임만 짧게
+       · 새 세션(브라우저/앱을 새로 열 때)마다 재생. 같은 세션 안에서 뒤로가기로 재진입 시에만 스킵(sessionStorage)
+       · 로그인 여부와 무관하게 재생 (자동 로그인 안 된 첫 진입 포함) · prefers-reduced-motion 이면 1프레임만 짧게
        · ?next=/app/xxx.html 로 이동 대상 지정 가능 · 탭하면 즉시 스킵
      ═══════════════════════════════════════════════════════════════════════════ -->
 <style>
@@ -52,6 +53,21 @@
   var next = q.get('next') || '/app/closet.html';
   if(!/^\/app\/[a-z0-9_\-]+\.html(\?.*)?$/i.test(next)) next = '/app/closet.html';   // 오픈 리다이렉트 방지
   var stage = document.getElementById('stage'), bar = document.getElementById('bar'), skip = document.getElementById('skip');
+
+  // ─── 2026-09-10 KST · TJ 지시 ─── 구 PWA 서비스워커/캐시 정리 (리브랜딩 전 설치본 대응)
+  //   /sw.js 가 아닌 다른 서비스워커(구 pwa-register.js 등록분)는 해제하고, 캐시를 비운다.
+  //   이 작업이 없으면 브라우저가 캐시된 옛 index.html(텍스트 스플래시)·manifest(CodiBank)를 계속 보여준다.
+  try{
+    var PURGE_KEY = 'sm_purge_v1';
+    if('serviceWorker' in navigator && !localStorage.getItem(PURGE_KEY)){
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        var foreign = regs.filter(function(r){ return !/\/sw\.js(\?|$)/.test((r.active||r.waiting||r.installing||{}).scriptURL||''); });
+        return Promise.all(foreign.map(function(r){ return r.unregister(); }));
+      }).then(function(){ return ('caches' in window) ? caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); }) : null; })
+      .then(function(){ try{ localStorage.setItem(PURGE_KEY,'1'); }catch(_){} })
+      .catch(function(){});
+    }
+  }catch(_){}
   var done = false;
   function go(){ if(done) return; done = true; try{ sessionStorage.setItem('sm_splash_seen','1'); }catch(_){} stage.classList.add('out'); setTimeout(function(){ location.replace(next); }, FADE_MS); }
 

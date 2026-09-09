@@ -3,7 +3,15 @@
    역할: ① 푸시 수신 → 알림 표시  ② 알림 클릭 → aicloset.html?alarm=<id> 열기 (열려있으면 포커스+메시지)
    주의: 캐싱/오프라인 기능은 넣지 않았습니다 (PWA 캐시 정책은 별도 결정 사항). */
 self.addEventListener('install', function(){ self.skipWaiting(); });
-self.addEventListener('activate', function(e){ e.waitUntil(self.clients.claim()); });
+/* ─── 2026-09-10 KST · TJ 지시 ─── 활성화 시 이전 서비스워커가 남긴 캐시 전부 삭제
+   (구 pwa-register.js 가 index.html/manifest.json/아이콘을 캐시해 두면 리브랜딩 후에도
+    'CodiBank' 아이콘·텍스트 스플래시가 계속 보이는 원인이 됨) */
+self.addEventListener('activate', function(e){
+  e.waitUntil((async function(){
+    try { var keys = await caches.keys(); await Promise.all(keys.map(function(k){ return caches.delete(k); })); } catch(_) {}
+    await self.clients.claim();
+  })());
+});
 
 self.addEventListener('push', function(event){
   var data = {};
