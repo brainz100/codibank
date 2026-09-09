@@ -1,29 +1,37 @@
 {
-  "rewrites": [
-    { "source": "/", "destination": "/app/index.html" }
-  ],
-  "headers": [
+  "redirects": [
     {
-      "source": "/app/(.*)\\.html",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, proxy-revalidate" },
-        { "key": "Pragma", "value": "no-cache" },
-        { "key": "Expires", "value": "0" }
-      ]
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "codibank.kr"
+        }
+      ],
+      "destination": "https://stylemonster.kr/$1",
+      "permanent": true
     },
     {
-      "source": "/app/(.*)\\.js",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }
-      ]
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.codibank.kr"
+        }
+      ],
+      "destination": "https://stylemonster.kr/$1",
+      "permanent": true
     },
     {
-      "source": "/(.*)\\.html",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, proxy-revalidate" },
-        { "key": "Pragma", "value": "no-cache" },
-        { "key": "Expires", "value": "0" }
-      ]
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.stylemonster.kr"
+        }
+      ],
+      "destination": "https://stylemonster.kr/$1",
+      "permanent": true
     }
   ]
 }
