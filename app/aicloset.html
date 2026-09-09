@@ -1331,6 +1331,22 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 .sm-pct{position:relative;z-index:2;display:flex;align-items:baseline;justify-content:center;gap:2px;font-family:'Manrope','Inter',sans-serif;font-weight:800;color:#97FEED;letter-spacing:-.02em;text-shadow:0 2px 14px rgba(151,254,237,.35);}
 .sm-pct #smPctNum{font-size:56px;line-height:1;font-variant-numeric:tabular-nums;}
 .sm-pct .sm-pct-unit{font-size:20px;opacity:.8;}
+/* ─── 2026-09-09 KST · TJ 지시 ─── 선택 상태 통일: 어떤 박스든 '그레이로 채움' 한 가지 규칙 ───
+   이전: 탭=옅은 민트, 세그=진한 청록, 목적칩=옅은 민트, 날짜카드=민트 채움 — 제각각.
+   토큰: --sm-sel-bg / --sm-sel-border / --sm-sel-fg  (여기 한 곳만 바꾸면 전체 반영) */
+:root{ --sm-sel-bg:#4A5570; --sm-sel-border:#8C99B8; --sm-sel-fg:#FFFFFF; --sm-sel-ic:#FFFFFF; }
+#smTabbar .sm-tab.on,
+#smAlarmSection .sm-seg-btn.on,
+#smAlarmSection .sm-pc.on,
+#smAlarmSection .sm-alarm-row.sm-clickable:active{
+  background:var(--sm-sel-bg) !important; border-color:var(--sm-sel-border) !important; color:var(--sm-sel-fg) !important; box-shadow:none !important;
+}
+#smTabbar .sm-tab.on .material-symbols-outlined, #smAlarmSection .sm-seg-btn.on .material-symbols-outlined, #smAlarmSection .sm-pc.on .sm-pc-ic{ color:var(--sm-sel-ic) !important; }
+#smAlarmSection .sm-pc.on .sm-pc-s{ color:rgba(255,255,255,.7) !important; }
+/* 코디핏에서 이식한 날짜카드 · 오늘/내일 버튼도 동일 규칙 */
+#smAlarmSection .dc.dc-on{ background:var(--sm-sel-bg) !important; border-color:var(--sm-sel-border) !important; box-shadow:none !important; }
+#smAlarmSection .dc.dc-on .dc-day, #smAlarmSection .dc.dc-on .dc-num, #smAlarmSection .dc.dc-on .dc-temp{ color:var(--sm-sel-fg) !important; }
+#smAlarmSection #dayTodayBtn.on, #smAlarmSection #dayTomorrowBtn.on, #smAlarmSection .day-btn.on{ background:var(--sm-sel-bg) !important; border-color:var(--sm-sel-border) !important; color:var(--sm-sel-fg) !important; }
 @keyframes smSpin{ to{ transform:rotate(360deg); } }
 </style>
 </head>
@@ -2027,7 +2043,10 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
    - 의상 실루엣 명확하게 개선
    ============================================================ */
 if (!CodiBank.requireAuth('login.html')) {}
-const user = CodiBank.getCurrentUser();
+// ─── 2026-09-09 KST · TJ 지시 ─── 비로그인(새 도메인 첫 진입 등) 시 user=null → user.email 접근에서
+//   이 스크립트 전체가 중단돼 날짜카드·써머리·날씨가 전부 사라지던 문제. 게스트 객체로 폴백해 페이지는
+//   정상 렌더하고, 생성/예약 시점에만 로그인 안내(SM_ALARM 이 처리).
+const user = CodiBank.getCurrentUser() || { email:'', plan:'FREE', gender:'', geo:null, _guest:true };
 console.info('[CodiBank] closet build: v18.6.3 (2026-02-26)');
 
 {
