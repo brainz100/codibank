@@ -1316,8 +1316,8 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 .sm-mode-desc b{color:#97FEED;font-weight:800;}
 #smAlarmSection.sm-mode-now  [data-mode="now"],
 #smAlarmSection.sm-mode-alarm [data-mode="alarm"]{display:block;}
-#smAlarmSection.sm-mode-now  [data-mode="alarm"],
-#smAlarmSection.sm-mode-alarm [data-mode="now"]{display:none !important;}
+#smAlarmSection.sm-mode-now  [data-mode="alarm"]:not(.sm-seg-btn),
+#smAlarmSection.sm-mode-alarm [data-mode="now"]:not(.sm-seg-btn){display:none !important;}
 #smAlarmSection.sm-mode-now  h3[data-mode="now"],#smAlarmSection.sm-mode-alarm h3[data-mode="alarm"]{display:block;}
 #smAlarmSection.sm-mode-now  #smTimeRow{display:none !important;}
 #smAlarmSection.sm-mode-alarm #smTimeRow{display:flex !important;}
@@ -1597,8 +1597,9 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 
     <!-- ─── 2026-09-09 KST · TJ 지시 ─── 모드 전환: 지금 코디 / 예약 알림 ─── -->
     <div class="sm-seg" role="tablist">
-      <button type="button" class="sm-seg-btn on" data-mode="now" role="tab"><span class="material-symbols-outlined" style="font-size:18px;">auto_awesome</span><span data-i18n="지금 코디">지금 코디</span></button>
-      <button type="button" class="sm-seg-btn" data-mode="alarm" role="tab"><span class="material-symbols-outlined" style="font-size:18px;">alarm</span><span data-i18n="예약 알림">예약 알림</span></button>
+      <!-- ─── 2026-09-09 KST · TJ 지시 ─── 버그 교정: 세그먼트 버튼이 data-mode 숨김 규칙에 걸려 한쪽이 사라짐 → data-seg 로 분리 · 라벨 '옷장코디 Now / 옷장코디 예약' -->
+      <button type="button" class="sm-seg-btn on" data-seg="now" role="tab"><span class="material-symbols-outlined" style="font-size:18px;">auto_awesome</span><span data-i18n="옷장코디 Now">옷장코디 Now</span></button>
+      <button type="button" class="sm-seg-btn" data-seg="alarm" role="tab"><span class="material-symbols-outlined" style="font-size:18px;">alarm</span><span data-i18n="옷장코디 예약">옷장코디 예약</span></button>
     </div>
     <p class="sm-mode-desc" data-mode="now" data-i18n="옷장에 등록한 아이템만으로 오늘(또는 고른 날짜)의 날씨·목적에 맞는 착장을 지금 바로 만들어 드려요.">옷장에 등록한 아이템만으로 오늘(또는 고른 날짜)의 날씨·목적에 맞는 착장을 지금 바로 만들어 드려요.</p>
     <p class="sm-mode-desc" data-mode="alarm" data-i18n="지금은 아무것도 만들지 않아요. 예약한 날짜·시각이 되면 그 시각의 실제 날씨와 목적, 내 얼굴·키·몸무게·체형을 반영한 착장을 만들어 알림으로 보내드려요.">지금은 아무것도 만들지 않아요. 예약한 날짜·시각이 되면 <b>그 시각의 실제 날씨</b>와 목적, <b>내 얼굴·키·몸무게·체형</b>을 반영한 착장을 만들어 알림으로 보내드려요.</p>
@@ -1660,7 +1661,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
       <div id="smQuotaBar" class="sm-quota mt-6"></div>
       <button id="smGenNowBtn" type="button" class="sm-btn sm-btn-primary mt-3" disabled>
         <span class="material-symbols-outlined" style="font-size:20px;">auto_awesome</span>
-        <span data-i18n="지금 코디 생성하기">지금 코디 생성하기</span>
+        <span data-i18n="옷장코디 지금 생성하기">옷장코디 지금 생성하기</span>
       </button>
       <p id="smHint" class="mt-2 text-[11px] text-center" style="color:rgba(151,254,237,0.55);min-height:16px;" data-i18n="날짜와 목적을 먼저 선택하세요">날짜와 목적을 먼저 선택하세요</p>
     </div>
@@ -1675,7 +1676,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
       </div>
       <button id="smAlarmBtn" type="button" class="sm-btn sm-btn-secondary mt-4" disabled>
         <span class="material-symbols-outlined" style="font-size:20px;">alarm_add</span>
-        <span id="smAlarmBtnLabel" data-i18n="이 시각에 알림 예약하기">이 시각에 알림 예약하기</span>
+        <span id="smAlarmBtnLabel" data-i18n="옷장코디 예약하기">옷장코디 예약하기</span>
       </button>
       <p id="smAlarmHint" class="mt-2 text-[11px] text-center" style="color:rgba(151,254,237,0.55);min-height:16px;" data-i18n="날짜·시각·목적을 고르면 예약할 수 있어요">날짜·시각·목적을 고르면 예약할 수 있어요</p>
       <div id="smAlarmDone" class="sm-alarm-done hidden"></div>
@@ -7756,10 +7757,22 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     img.src = src;
   }
 
+  function _resetSavedBtn(){ const b = $('smSaveAlbumBtn'); if(b){ b.disabled = false; b.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">bookmark_add</span><span>' + _T('코디앨범 저장','Save to album') + '</span>'; } }
   function showResult(res){
+    _resetSavedBtn();
     ST.last = res;
     try{ $('smResultWrap').classList.remove('sm-no-result'); }catch(_){}
     showImage(res.image);
+    // ─── 2026-09-09 KST · TJ 지시 ─── 옷장코디 결과는 코디앨범(마이앨범)에 자동 저장 · 알림 결과는 알람 id 당 1회
+    try{
+      const em = _email();
+      const key = 'cb_sm_album_saved_' + em;
+      const saved = JSON.parse(localStorage.getItem(key) || '[]');
+      const tag = res.alarmId ? ('alarm:' + res.alarmId) : ('img:' + String(res.imageRef || res.image || '').slice(-80));
+      if(em && !saved.includes(tag)){
+        saveAlbum({ silent:true }).then(okSaved => { if(okSaved){ saved.push(tag); localStorage.setItem(key, JSON.stringify(saved.slice(-200))); } });
+      } else { _markSavedBtn(); }
+    }catch(_){}
     const meta = $('smResultMeta'), chips = $('smResultChips'), reason = $('smResultReason');
     if(chips){
       chips.innerHTML = '';
@@ -7851,10 +7864,13 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     }
   }
 
-  // ── 코디앨범 저장 ──
-  async function saveAlbum(){
-    const r = ST.last; if(!r || !r.image) return;
-    const em = _email(); if(!em) return;
+  // ── 코디앨범(마이앨범) 저장 — 자동(silent) / 수동 버튼 공용 ──
+  function _markSavedBtn(){
+    const b = $('smSaveAlbumBtn'); if(b){ b.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">bookmark_added</span><span>' + _T('코디앨범 저장됨','Saved to album') + '</span>'; b.disabled = true; }
+  }
+  async function saveAlbum(opts){
+    const r = ST.last; if(!r || !r.image) return false;
+    const em = _email(); if(!em) return false;
     try{
       let ref = r.imageRef || '';
       if(!ref && CodiBank.saveImage) ref = await CodiBank.saveImage(r.image);
@@ -7862,11 +7878,13 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
       CodiBank.addAiAlbumEntry(em, {
         dateKey: r.dateKey || '', weatherText: (r.wx && r.wx.text) || '', temp: (r.wx && r.wx.temp) ?? null,
         purposeKey: 'aicloset', purposeLabel: r.purposeLabel || '', imageRef: ref, seed: 0,
-        styleTitle: _T('내 옷장 코디','My Closet Outfit'), explanation: r.reason || '', keywords: (r.picked||[]).map(p => p.label),
-        stylistName: '', stylistCity: '', liked: false, source: 'aicloset', createdAt: new Date().toISOString(),
+        styleTitle: _T('옷장코디','Closet Outfit'), explanation: r.reason || '', keywords: (r.picked||[]).map(p => p.label),
+        stylistName: _T('옷장코디','Closet Outfit'), stylistCity: r.alarmId ? _T('예약 알림','Scheduled') : _T('지금 생성','Now'),   // 앨범 카드에 "✦ 옷장코디 · 예약 알림" 로 표시
+        liked: false, source: 'aicloset', alarmId: r.alarmId || '', createdAt: new Date().toISOString(),
       });
-      const b = $('smSaveAlbumBtn'); if(b){ b.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">bookmark_added</span><span>' + _T('저장됨','Saved') + '</span>'; b.disabled = true; }
-    }catch(e){ console.warn('[SM] album save fail', e); alert(_T('앨범 저장에 실패했어요.','Failed to save.')); }
+      _markSavedBtn();
+      return true;
+    }catch(e){ console.warn('[SM] album save fail', e); if(!(opts && opts.silent)) alert(_T('앨범 저장에 실패했어요.','Failed to save.')); return false; }
   }
 
   // ── 푸시 구독 ──
@@ -7936,11 +7954,11 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
         done.classList.remove('hidden');
         try{ done.scrollIntoView({ behavior:'smooth', block:'center' }); }catch(_){}
       }
-      if(_lbl) _lbl.textContent = _T('이 시각에 알림 예약하기','Schedule for this time');
+      if(_lbl) _lbl.textContent = _T('옷장코디 예약하기','Schedule closet outfit');
       if(_hint2) _hint2.textContent = _T('예약 완료 · 다른 날짜도 예약할 수 있어요','Scheduled · you can add another');
     }catch(e){
       console.warn('[SM] schedule fail', e);
-      if(_lbl) _lbl.textContent = _T('이 시각에 알림 예약하기','Schedule for this time');
+      if(_lbl) _lbl.textContent = _T('옷장코디 예약하기','Schedule closet outfit');
       const msg = _friendlyErr(e);
       if(_hint2) _hint2.textContent = msg;
       alert((_T('알림 예약에 실패했어요: ','Failed to schedule: ')) + msg);
@@ -7983,7 +8001,7 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
       const a = j && j.alarm; if(!a || !a.imageUrl) throw new Error('no image');
       ST.pk = a.purposeKey || ST.pk; if(ST.pk) setPurpose(ST.pk);
       try{ setTab('styling', { silent:true }); }catch(_){}
-      showResult({ image: a.imageUrl, imageRef: a.imageUrl, picked: a.picked || [], reason: a.reason || '', dateKey: a.dateKey, wx: { temp: a.temp, text: a.weatherText }, purposeLabel: a.purposeLabel });
+      showResult({ image: a.imageUrl, imageRef: a.imageUrl, picked: a.picked || [], reason: a.reason || '', dateKey: a.dateKey, wx: { temp: a.temp, text: a.weatherText }, purposeLabel: a.purposeLabel, alarmId: a.id || id });
       try{ history.replaceState(null, '', location.pathname); }catch(_){}
     }catch(e){ console.warn('[SM] open alarm fail', e); alert(_T('결과를 불러오지 못했어요.','Could not load the result.')); }
     finally{ setLoading(false); }
@@ -8002,14 +8020,14 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     ST.mode = mode;
     const sec = $('smAlarmSection'); if(!sec) return;
     sec.classList.toggle('sm-mode-now', mode === 'now'); sec.classList.toggle('sm-mode-alarm', mode === 'alarm');
-    document.querySelectorAll('#smAlarmSection .sm-seg-btn').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+    document.querySelectorAll('#smAlarmSection .sm-seg-btn').forEach(b => b.classList.toggle('on', b.dataset.seg === mode));
     document.querySelectorAll('#smAlarmSection .sm-mode-desc').forEach(p => { p.style.display = (p.dataset.mode === mode) ? 'block' : 'none'; });
     try{ localStorage.setItem('cb_sm_mode_' + _email(), mode); }catch(_){}
     refreshButtons();
   }
   function initTabs(){
     document.querySelectorAll('#smTabbar .sm-tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
-    document.querySelectorAll('#smAlarmSection .sm-seg-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+    document.querySelectorAll('#smAlarmSection .sm-seg-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.seg)));
     const q = new URLSearchParams(location.search);
     let tab = q.get('tab') || (q.get('alarm') ? 'styling' : null);
     if(!tab){ try{ tab = localStorage.getItem(TAB_KEY()); }catch(_){} }
@@ -8030,7 +8048,7 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     $('smGenNowBtn') && $('smGenNowBtn').addEventListener('click', () => generateNow(false));
     $('smRegenBtn') && $('smRegenBtn').addEventListener('click', () => generateNow(true));
     $('smAlarmBtn') && $('smAlarmBtn').addEventListener('click', scheduleAlarm);
-    $('smSaveAlbumBtn') && $('smSaveAlbumBtn').addEventListener('click', saveAlbum);
+    $('smSaveAlbumBtn') && $('smSaveAlbumBtn').addEventListener('click', () => saveAlbum());
     $('smPurposeCustom') && $('smPurposeCustom').addEventListener('input', refreshButtons);
     // 날짜카드 선택 변화 감지 (기존 브릿지가 .dc-on 을 토글) → 버튼 상태 동기화
     const sc = $('dateCardScroll');
