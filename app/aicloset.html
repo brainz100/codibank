@@ -1296,6 +1296,38 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 .sm-spin-txt{font-size:12px;font-weight:700;color:#97FEED;letter-spacing:.04em;position:relative;z-index:2;text-align:center;padding:0 16px;}
 .sm-spin-sub{font-size:10.5px;color:rgba(255,255,255,0.45);position:relative;z-index:2;min-height:14px;text-align:center;}
 .sm-err-box{margin-top:10px;padding:12px 14px;border-radius:12px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);color:#fca5a5;font-size:12px;line-height:1.55;}
+/* ─── 2026-09-09 KST · TJ 지시 ─── Ai옷장 3탭 + Styling 모드 ─── */
+.sm-tabbar{position:sticky;top:0;z-index:40;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:10px 16px 10px;background:rgba(0,2,46,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(151,254,237,.08);}
+.sm-tab{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px 8px;border-radius:14px;border:1.5px solid rgba(151,254,237,.14);background:rgba(255,255,255,.04);color:rgba(255,255,255,.55);font-family:'Outfit','Noto Sans KR',sans-serif;font-size:11.5px;font-weight:700;letter-spacing:-.01em;cursor:pointer;transition:all .18s ease;}
+.sm-tab .material-symbols-outlined{font-size:20px;color:rgba(151,254,237,.55);}
+.sm-tab b{font-weight:800;}
+.sm-tab.on{background:rgba(151,254,237,.14);border-color:#97FEED;color:#fff;box-shadow:0 0 0 1px rgba(151,254,237,.25) inset;}
+.sm-tab.on .material-symbols-outlined{color:#97FEED;}
+.sm-tab:active{transform:scale(.97);}
+.sm-pane{display:none;padding-top:22px;padding-bottom:28px;}
+.sm-pane.on{display:block;animation:smPaneIn .22s ease;}
+@keyframes smPaneIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.sm-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(151,254,237,.14);}
+.sm-seg-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 8px;border-radius:12px;border:none;background:transparent;color:rgba(255,255,255,.55);font-family:'Outfit','Noto Sans KR',sans-serif;font-size:13.5px;font-weight:800;cursor:pointer;transition:all .18s ease;}
+.sm-seg-btn .material-symbols-outlined{color:rgba(151,254,237,.5);}
+.sm-seg-btn.on{background:#0B666A;color:#97FEED;box-shadow:0 6px 16px rgba(11,102,106,.35);}
+.sm-seg-btn.on .material-symbols-outlined{color:#97FEED;}
+.sm-mode-desc{display:none;margin-top:12px;font-size:12px;line-height:1.65;color:rgba(255,255,255,.55);}
+.sm-mode-desc b{color:#97FEED;font-weight:800;}
+#smAlarmSection.sm-mode-now  [data-mode="now"],
+#smAlarmSection.sm-mode-alarm [data-mode="alarm"]{display:block;}
+#smAlarmSection.sm-mode-now  [data-mode="alarm"],
+#smAlarmSection.sm-mode-alarm [data-mode="now"]{display:none !important;}
+#smAlarmSection.sm-mode-now  h3[data-mode="now"],#smAlarmSection.sm-mode-alarm h3[data-mode="alarm"]{display:block;}
+#smAlarmSection.sm-mode-now  #smTimeRow{display:none !important;}
+#smAlarmSection.sm-mode-alarm #smTimeRow{display:flex !important;}
+#smAlarmSection.sm-mode-alarm #smResultWrap.sm-no-result{display:none;}
+.sm-alarm-explain{padding:12px 14px;border-radius:14px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.16);}
+.sm-ae-row{display:flex;align-items:flex-start;gap:9px;font-size:12px;line-height:1.5;color:rgba(255,255,255,.72);padding:5px 0;}
+.sm-ae-row .material-symbols-outlined{font-size:18px;color:#97FEED;flex-shrink:0;margin-top:1px;}
+.sm-alarm-done{margin-top:12px;padding:14px;border-radius:14px;background:rgba(151,254,237,.12);border:1.5px solid rgba(151,254,237,.45);color:#fff;font-size:12.5px;line-height:1.6;}
+.sm-alarm-done b{color:#97FEED;font-weight:900;}
+.sm-alarm-done.hidden{display:none;}
 @keyframes smSpin{ to{ transform:rotate(360deg); } }
 </style>
 </head>
@@ -1313,6 +1345,13 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 </header>
 
 <main class="pb-32" style="background:#00022E;">
+
+  <!-- ─── 2026-09-09 KST · TJ 지시 ─── Ai옷장 3탭 (Summary / Styling / Items) — 터치한 탭만 표시 ─── -->
+  <nav id="smTabbar" class="sm-tabbar" role="tablist">
+    <button type="button" class="sm-tab on" data-tab="summary" role="tab"><span class="material-symbols-outlined">analytics</span><span><b data-i18n="옷장">옷장</b> Summary</span></button>
+    <button type="button" class="sm-tab" data-tab="styling" role="tab"><span class="material-symbols-outlined">styler</span><span><b data-i18n="옷장">옷장</b> Styling</span></button>
+    <button type="button" class="sm-tab" data-tab="items" role="tab"><span class="material-symbols-outlined">checkroom</span><span><b data-i18n="옷장">옷장</b> Items</span></button>
+  </nav>
 
   <!-- [2026-04-08] AI 코디핏 → 코디핏 전용, Ai 옷장에서는 숨김 -->
   <div id="aiRecommendSection" style="display:none;">
@@ -1508,6 +1547,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
   </div><!-- /aiRecommendSection -->
 
   <!-- [2026-04-08] Closet Summary 에디토리얼 -->
+  <div class="sm-pane" data-pane="summary">
   <div id="closetSummaryWrap" class="px-5 mt-4 mb-2" style="max-width:28rem;margin-left:auto;margin-right:auto;">
     <section class="p-5 rounded-2xl mb-5" style="background:rgba(53,162,159,0.15);border:1px solid rgba(53,162,159,0.25);backdrop-filter:blur(12px);">
       <div class="flex justify-between items-center mb-3">
@@ -1539,6 +1579,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
     <section class="mb-5"><h3 class="font-bold text-lg mb-3 flex items-center gap-2" style="color:#97feed;"><span data-i18n="시즌 분석">시즌 분석</span> <div class="h-[1px] flex-grow rounded-full" style="background:rgba(53,162,159,0.2);"></div></h3><div class="p-5 rounded-3xl" style="background:rgba(53,162,159,0.1);border:1px solid rgba(53,162,159,0.2);"><div id="csSeasonList" class="grid grid-cols-2 gap-y-3 gap-x-5 text-[11px]"></div></div></section>
   </div>
 
+  </div><!-- /sm-pane summary -->
   <!-- ═══════════════════════════════════════════════════════════════════════════
        ─── 2026-09-09 KST · TJ 지시 ─── Ai옷장 서비스 재정의: TPO 스타일링 알람
        배경: 기존 '유사한 아이템 찾기 / 코디핏 생성 뷰박스 / 카테고리별 분석' 은
@@ -1552,20 +1593,23 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
        엔진: 아이템 선정 = /api/aicloset/pick-outfit (Gemini flash-lite, 텍스트)
              착장 생성 = /api/tryon/generate (기존 트라이온 엔진 그대로 재사용)
        ═══════════════════════════════════════════════════════════════════════════ -->
-  <section id="smAlarmSection" class="px-5 mt-2 mb-8" style="max-width:28rem;margin-left:auto;margin-right:auto;font-family:'Outfit','Noto Sans KR',sans-serif;">
+  <section id="smAlarmSection" class="px-5 sm-pane" data-pane="styling" style="max-width:28rem;margin-left:auto;margin-right:auto;font-family:'Outfit','Noto Sans KR',sans-serif;">
 
-    <header class="mb-5">
-      <p class="text-[11px] font-black tracking-[0.22em]" style="color:#97FEED;" data-i18n="STYLE ALARM">STYLE ALARM</p>
-      <h2 class="text-[20px] font-bold text-white tracking-tight mt-0.5" data-i18n="내 옷장 코디 알람">내 옷장 코디 알람</h2>
-      <p class="text-[12px] mt-1" style="color:rgba(255,255,255,0.5);line-height:1.6;" data-i18n="옷장에 등록한 아이템만으로 날짜·날씨·목적에 맞는 착장을 만들어 드려요. 원하는 시각에 알람으로 받아보세요.">옷장에 등록한 아이템만으로 날짜·날씨·목적에 맞는 착장을 만들어 드려요. 원하는 시각에 알람으로 받아보세요.</p>
-    </header>
-
-    <!-- ── STEP 1. 날짜 (코디핏 STEP 2 블록 이식 — #dateCardScroll 등 ID 동일, JS 브릿지 그대로) ── -->
-    <div class="mb-2">
-      <p class="text-[11px] font-black tracking-[0.22em]" style="color:#97FEED;">STEP 1</p>
-      <h3 class="text-[18px] font-bold text-white tracking-tight mt-0.5" data-i18n="코디 날짜 선택">코디 날짜 선택</h3>
+    <!-- ─── 2026-09-09 KST · TJ 지시 ─── 모드 전환: 지금 코디 / 예약 알림 ─── -->
+    <div class="sm-seg" role="tablist">
+      <button type="button" class="sm-seg-btn on" data-mode="now" role="tab"><span class="material-symbols-outlined" style="font-size:18px;">auto_awesome</span><span data-i18n="지금 코디">지금 코디</span></button>
+      <button type="button" class="sm-seg-btn" data-mode="alarm" role="tab"><span class="material-symbols-outlined" style="font-size:18px;">alarm</span><span data-i18n="예약 알림">예약 알림</span></button>
     </div>
-    <div id="smDateSlot">
+    <p class="sm-mode-desc" data-mode="now" data-i18n="옷장에 등록한 아이템만으로 오늘(또는 고른 날짜)의 날씨·목적에 맞는 착장을 지금 바로 만들어 드려요.">옷장에 등록한 아이템만으로 오늘(또는 고른 날짜)의 날씨·목적에 맞는 착장을 지금 바로 만들어 드려요.</p>
+    <p class="sm-mode-desc" data-mode="alarm" data-i18n="지금은 아무것도 만들지 않아요. 예약한 날짜·시각이 되면 그 시각의 실제 날씨와 목적, 내 얼굴·키·몸무게·체형을 반영한 착장을 만들어 알림으로 보내드려요.">지금은 아무것도 만들지 않아요. 예약한 날짜·시각이 되면 <b>그 시각의 실제 날씨</b>와 목적, <b>내 얼굴·키·몸무게·체형</b>을 반영한 착장을 만들어 알림으로 보내드려요.</p>
+
+    <!-- ── STEP 1. 날짜 (코디핏 날짜카드 이식 · 두 모드 공유) ── -->
+    <div class="mb-2 mt-7">
+      <p class="text-[11px] font-black tracking-[0.22em]" style="color:#97FEED;">STEP 1</p>
+      <h3 class="text-[18px] font-bold text-white tracking-tight mt-0.5" data-mode="now" data-i18n="코디 날짜 선택">코디 날짜 선택</h3>
+      <h3 class="text-[18px] font-bold text-white tracking-tight mt-0.5" data-mode="alarm" data-i18n="알림 받을 날짜 선택">알림 받을 날짜 선택</h3>
+    </div>
+<div id="smDateSlot">
     <div class="flex items-center justify-end mb-2 -mt-9"><button id="calendarIconBtn" style="color:rgba(151,254,237,0.5);">
         <span class="material-symbols-outlined text-xl">calendar_month</span>
       </button></div>
@@ -1587,22 +1631,23 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
     <p id="doubleTapGuide" class="hidden mt-2 text-[11px]" style="color:rgba(151,254,237,0.7);"></p>
     </div>
 
-    <!-- 알람 시각 (알람 예약 시에만 사용) -->
-    <div id="smTimeRow" class="flex items-center justify-between -mt-6 mb-6 px-1">
+    <!-- 알림 시각 (예약 모드) -->
+    <div id="smTimeRow" data-mode="alarm" class="flex items-center justify-between -mt-6 mb-2 px-1">
       <div>
-        <p class="text-[12px] font-bold" style="color:rgba(255,255,255,0.75);" data-i18n="알람 받을 시각">알람 받을 시각</p>
-        <p class="text-[10.5px] mt-0.5" style="color:rgba(255,255,255,0.38);" data-i18n="예약 시 이 시각의 날씨로 코디를 만들어 보내드려요">예약 시 이 시각의 날씨로 코디를 만들어 보내드려요</p>
+        <p class="text-[12px] font-bold" style="color:rgba(255,255,255,0.75);" data-i18n="알림 받을 시각">알림 받을 시각</p>
+        <p class="text-[10.5px] mt-0.5" style="color:rgba(255,255,255,0.38);" data-i18n="이 시각의 시간별 예보로 코디를 만들어요">이 시각의 시간별 예보로 코디를 만들어요</p>
       </div>
       <input id="smAlarmTime" type="time" value="07:30" step="300"
         style="background:rgba(255,255,255,0.07);border:1.5px solid rgba(151,254,237,0.25);border-radius:12px;color:#fff;font-weight:800;font-size:15px;padding:8px 12px;outline:none;font-family:'Outfit','Noto Sans KR',sans-serif;color-scheme:dark;"/>
     </div>
+    <div data-mode="now" class="-mt-6 mb-2"></div>
 
-    <!-- ── STEP 2. 목적 ── -->
-    <div class="mb-3">
+    <!-- ── STEP 2. 목적 (공유) ── -->
+    <div class="mb-3 mt-6">
       <p class="text-[11px] font-black tracking-[0.22em]" style="color:#97FEED;">STEP 2</p>
       <h3 class="text-[18px] font-bold text-white tracking-tight mt-0.5" data-i18n="코디 목적 선택">코디 목적 선택</h3>
     </div>
-    <div id="smPurposeGrid" class="sm-purpose-grid"></div>
+<div id="smPurposeGrid" class="sm-purpose-grid"></div>
     <div id="smPurposeCustomWrap" class="hidden mt-3">
       <input id="smPurposeCustom" type="text" maxlength="30"
         class="w-full px-4 py-3 text-sm font-semibold placeholder-white/30 text-white outline-none"
@@ -1610,25 +1655,42 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
         placeholder="예: 면접, 소개팅, 결혼식 하객" data-i18n-placeholder="예: 면접, 소개팅, 결혼식 하객"/>
     </div>
 
-    <!-- ── 잔여 횟수 배지 (트라이온과 동일 풀) ── 2026-09-09 KST · TJ 지시 ── -->
-    <div id="smQuotaBar" class="sm-quota mt-6"></div>
-
-    <!-- ── 액션 버튼 ── -->
-    <div class="grid grid-cols-2 gap-3 mt-3">
-      <button id="smGenNowBtn" type="button" class="sm-btn sm-btn-primary" disabled>
+    <!-- ══ 지금 코디 모드 ══ -->
+    <div data-mode="now">
+      <div id="smQuotaBar" class="sm-quota mt-6"></div>
+      <button id="smGenNowBtn" type="button" class="sm-btn sm-btn-primary mt-3" disabled>
         <span class="material-symbols-outlined" style="font-size:20px;">auto_awesome</span>
-        <span data-i18n="지금 생성하기">지금 생성하기</span>
+        <span data-i18n="지금 코디 생성하기">지금 코디 생성하기</span>
       </button>
-      <button id="smAlarmBtn" type="button" class="sm-btn sm-btn-secondary" disabled>
-        <span class="material-symbols-outlined" style="font-size:20px;">alarm_add</span>
-        <span data-i18n="설정 후 알람 받기">설정 후 알람 받기</span>
-      </button>
+      <p id="smHint" class="mt-2 text-[11px] text-center" style="color:rgba(151,254,237,0.55);min-height:16px;" data-i18n="날짜와 목적을 먼저 선택하세요">날짜와 목적을 먼저 선택하세요</p>
     </div>
-    <p id="smHint" class="mt-2 text-[11px] text-center" style="color:rgba(151,254,237,0.55);min-height:16px;" data-i18n="날짜와 목적을 먼저 선택하세요">날짜와 목적을 먼저 선택하세요</p>
 
-    <!-- ── 뷰박스 — 2026-09-09 KST · TJ 지시 ─── tryon.html 결과 뷰박스 디자인 그대로 이식 (sm- 접두어) ──
-         구조: 진행바 + 상태행 + 1:1.62 세로 박스(좌=정면/우=후면 가로 캔버스, 스크롤 스냅) + 정/후면 토글 + 힌트 -->
-    <div id="smResultArea" class="mt-4 sm-result-box">
+    <!-- ══ 예약 알림 모드 ══ -->
+    <div data-mode="alarm">
+      <div class="sm-alarm-explain mt-6">
+        <div class="sm-ae-row"><span class="material-symbols-outlined">schedule</span><span data-i18n="예약 시각이 되면 자동으로 착장을 생성해 알림을 보내요">예약 시각이 되면 자동으로 착장을 생성해 알림을 보내요</span></div>
+        <div class="sm-ae-row"><span class="material-symbols-outlined">partly_cloudy_day</span><span data-i18n="그 시각의 시간별 예보(기온·강수)를 반영해요">그 시각의 시간별 예보(기온·강수)를 반영해요</span></div>
+        <div class="sm-ae-row"><span class="material-symbols-outlined">face</span><span data-i18n="내 얼굴·키·몸무게·체형이 적용된 입은 모습으로 받아요">내 얼굴·키·몸무게·체형이 적용된 입은 모습으로 받아요</span></div>
+        <div class="sm-ae-row"><span class="material-symbols-outlined">toll</span><span data-i18n="트라이온·옷장코디 횟수는 알림 생성 시점에 1회 차감돼요">트라이온·옷장코디 횟수는 알림 생성 시점에 1회 차감돼요</span></div>
+      </div>
+      <button id="smAlarmBtn" type="button" class="sm-btn sm-btn-secondary mt-4" disabled>
+        <span class="material-symbols-outlined" style="font-size:20px;">alarm_add</span>
+        <span id="smAlarmBtnLabel" data-i18n="이 시각에 알림 예약하기">이 시각에 알림 예약하기</span>
+      </button>
+      <p id="smAlarmHint" class="mt-2 text-[11px] text-center" style="color:rgba(151,254,237,0.55);min-height:16px;" data-i18n="날짜·시각·목적을 고르면 예약할 수 있어요">날짜·시각·목적을 고르면 예약할 수 있어요</p>
+      <div id="smAlarmDone" class="sm-alarm-done hidden"></div>
+<div id="smAlarmListWrap" class="mt-7 hidden">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-[14px] font-bold text-white" data-i18n="예약된 코디 알람">예약된 코디 알람</h3>
+        <span id="smAlarmCount" class="text-[11px] font-bold" style="color:rgba(151,254,237,0.6);"></span>
+      </div>
+      <div id="smAlarmList" class="space-y-2"></div>
+    </div>
+    </div>
+
+    <!-- ══ 결과 뷰박스 (지금 코디 결과 · 알림 결과 열람 공용) ══ -->
+    <div id="smResultWrap">
+<div id="smResultArea" class="mt-4 sm-result-box">
       <div class="sm-prog-bar"><div class="sm-prog-fill" id="smProgFill"></div></div>
       <div class="sm-status-row"><div class="sm-status-dot idle" id="smStatusDot"></div><span class="sm-status-txt" id="smStatusTxt" data-i18n="날짜와 목적을 고르고 생성 버튼을 눌러주세요">날짜와 목적을 고르고 생성 버튼을 눌러주세요</span></div>
       <div class="sm-result-img-wrap" id="smImgWrap">
@@ -1648,9 +1710,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
       </div>
       <div class="sm-err-box" id="smErrBox" style="display:none;"></div>
     </div>
-
-    <!-- 결과 메타: 선택된 아이템 + 이유 + 저장 -->
-    <div id="smResultMeta" class="hidden mt-3">
+<div id="smResultMeta" class="hidden mt-3">
       <div id="smResultChips" class="flex flex-wrap gap-1.5"></div>
       <p id="smResultReason" class="mt-2 text-[12px]" style="color:rgba(255,255,255,0.6);line-height:1.6;"></p>
       <div class="grid grid-cols-2 gap-2 mt-3">
@@ -1662,20 +1722,13 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
         </button>
       </div>
     </div>
-
-    <!-- 예약된 알람 목록 -->
-    <div id="smAlarmListWrap" class="mt-7 hidden">
-      <div class="flex items-center justify-between mb-2">
-        <h3 class="text-[14px] font-bold text-white" data-i18n="예약된 코디 알람">예약된 코디 알람</h3>
-        <span id="smAlarmCount" class="text-[11px] font-bold" style="color:rgba(151,254,237,0.6);"></span>
-      </div>
-      <div id="smAlarmList" class="space-y-2"></div>
     </div>
   </section>
 
 
   <!-- 내 모바일 옷장 (다크 m_closet_0308) -->
-  <section class="px-0 mt-16">
+  <div class="sm-pane" data-pane="items">
+  <section class="px-0 mt-2">
     <div class="pt-2">
 
       <!-- ★ 코디핏 코디핏 + 유사 아이템 찾기 (Atelier 스타일) -->
@@ -1890,6 +1943,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
       </div>
     </div>
   </section>
+  </div><!-- /sm-pane items -->
 <div id="floatingAddBtn" style="position:fixed;bottom:90px;right:20px;z-index:9998;"><a href="camera.html" style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#13bbaf,#4cdbce);box-shadow:0 6px 20px rgba(19,187,175,0.45);text-decoration:none;color:#071952;" ontouchstart="this.style.transform='scale(0.92)'" ontouchend="this.style.transform='scale(1)'"><span class="material-symbols-outlined" style="font-size:32px;font-variation-settings:'FILL' 1,'wght' 700;">add</span></a></div>
 </main>
 
@@ -7525,17 +7579,20 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     const okP = !!ST.pk && (ST.pk !== 'custom' || purposeLabel().length >= 2);
     const okD = dateChosen();
     const ready = okP && okD && !ST.busy;
-    const g = $('smGenNowBtn'), a = $('smAlarmBtn'), h = $('smHint');
+    const g = $('smGenNowBtn'), a = $('smAlarmBtn'), h = $('smHint'), ah = $('smAlarmHint');
     if(g) g.disabled = !ready; if(a) a.disabled = !ready;
+    const dk = dateKey(), wx = wxFor(dk), isToday = dk === getTodayKey();
     if(h){
       if(ST.busy) h.textContent = _T('생성 중…', 'Generating…');
       else if(!okD) h.textContent = _T('날짜를 먼저 선택하세요', 'Pick a date first');
       else if(!okP) h.textContent = _T('코디 목적을 선택하세요', 'Choose a purpose');
-      else {
-        const dk = dateKey(), wx = wxFor(dk);
-        const isToday = dk === getTodayKey();
-        h.textContent = (isToday ? _T('오늘', 'Today') : dk) + (wx.temp !== null ? ` · ${wx.temp}° ${wx.text}` : '') + ' · ' + purposeLabel();
-      }
+      else h.textContent = (isToday ? _T('오늘', 'Today') : dk) + (wx.temp !== null ? ` · ${wx.temp}° ${wx.text}` : '') + ' · ' + purposeLabel();
+    }
+    if(ah && !ST.busy){
+      const tm = String(($('smAlarmTime')||{}).value || '07:30');
+      if(!okD) ah.textContent = _T('알림 받을 날짜를 선택하세요', 'Pick the date');
+      else if(!okP) ah.textContent = _T('코디 목적을 선택하세요', 'Choose a purpose');
+      else ah.textContent = _T(`${isToday ? '오늘' : dk} ${tm} · ${purposeLabel()} — 그 시각 예보로 생성`, `${isToday ? 'Today' : dk} ${tm} · ${purposeLabel()} — generated with that hour's forecast`);
     }
   }
 
@@ -7701,6 +7758,7 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
 
   function showResult(res){
     ST.last = res;
+    try{ $('smResultWrap').classList.remove('sm-no-result'); }catch(_){}
     showImage(res.image);
     const meta = $('smResultMeta'), chips = $('smResultChips'), reason = $('smResultReason');
     if(chips){
@@ -7735,6 +7793,7 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     }
     ST.busy = true; refreshButtons();
     const dk = dateKey(), wx = wxFor(dk);
+    try{ $('smResultWrap').classList.remove('sm-no-result'); $('smResultArea').scrollIntoView({ behavior:'smooth', block:'start' }); }catch(_){}
     try{
       // 1) 아이템 선정 (텍스트 모델 — 이미지 없이 메타만 전송)
       setLoading(true, _T('옷장에서 아이템 고르는 중…','Picking items from your closet…'), _T('날씨와 목적을 함께 보고 있어요','Considering weather and purpose'), 'pick');
@@ -7844,17 +7903,22 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     if(!(haveOne || (haveTop && haveBottom))){ alert(_T('옷장에 상의·하의(또는 원피스)가 필요해요.','Need a top and bottom (or a dress) in your closet.')); return; }
 
     ST.busy = true; refreshButtons();
+    // ─── 2026-09-09 KST · TJ 지시 ─── 예약은 '지금 생성' 이 아님: 뷰박스는 건드리지 않고 버튼에만 진행 표시
+    const _btn = $('smAlarmBtn'), _lbl = $('smAlarmBtnLabel'), _hint2 = $('smAlarmHint');
+    const _prog = (t) => { if(_lbl) _lbl.textContent = t; if(_hint2) _hint2.textContent = t; };
     try{
-      setLoading(true, _T('알람 준비 중…','Setting up alarm…'), _T('알림 권한을 허용해주세요','Please allow notifications'));
+      _prog(_T('알림 권한 확인 중…','Checking notification permission…'));
       const push = await ensurePush();
-      // 아이템 스냅샷 (서버는 IndexedDB 에 접근할 수 없으므로 이미지를 함께 보냄 · 512px)
-      setLoading(true, _T('옷장 스냅샷 저장 중…','Saving closet snapshot…'), '');
+      // 아이템 스냅샷 (서버는 IndexedDB 에 접근할 수 없으므로 예약 시점에 옷장을 서버에 보관 · 512px)
       const items = [];
+      let _n = 0;
       for(const c of cands){
+        _n++; _prog(_T(`옷장 보관 중… ${_n}/${cands.length}`, `Saving closet… ${_n}/${cands.length}`));
         const du = await refToDataUrl(c._ref, 512); if(!du) continue;
         const { _ref, _gemini, ...rest } = c;
         items.push({ ...rest, analysis: _gemini || {}, image: du });
       }
+      _prog(_T('예약 등록 중…','Scheduling…'));
       const face = await faceDataUrl();
       const res = await _postJson('/api/aicloset/alarm', {
         email: em, dateKey: dk, time, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul',
@@ -7864,14 +7928,23 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
         faceImage: face || '', items, pushSubscription: push.subscription, pushStatus: push.reason,
       }, 180000);
       await loadAlarms();
-      const msg = push.subscription
-        ? _T(`예약됐어요. ${dk} ${time}에 그날 날씨로 코디를 만들어 알림을 보내드릴게요.`, `Scheduled. You'll get a notification at ${dk} ${time}.`)
-        : _T(`예약됐어요. 알림 권한이 없어 푸시는 못 보내지만, ${dk} ${time} 이후 Ai옷장에 들어오면 결과를 볼 수 있어요.`, `Scheduled. Push is off, but the result will be waiting here after ${dk} ${time}.`);
-      alert(msg);
+      const done = $('smAlarmDone');
+      if(done){
+        done.innerHTML = push.subscription
+          ? _T(`<b>${dk} ${time}</b> · ${escS(purposeLabel())}<br>그 시각의 실제 날씨와 내 체형 데이터로 착장을 만들어 <b>알림</b>을 보내드릴게요.`, `<b>${dk} ${time}</b> · ${escS(purposeLabel())}<br>We'll generate with that hour's weather and your body data, then <b>notify</b> you.`)
+          : _T(`<b>${dk} ${time}</b> · ${escS(purposeLabel())}<br>예약됐어요. 알림 권한이 꺼져 있어 푸시는 못 보내지만, 그 시각 이후 이 화면의 예약 목록에서 결과를 볼 수 있어요.`, `<b>${dk} ${time}</b> · ${escS(purposeLabel())}<br>Scheduled. Push is off; the result will appear in the list below after that time.`);
+        done.classList.remove('hidden');
+        try{ done.scrollIntoView({ behavior:'smooth', block:'center' }); }catch(_){}
+      }
+      if(_lbl) _lbl.textContent = _T('이 시각에 알림 예약하기','Schedule for this time');
+      if(_hint2) _hint2.textContent = _T('예약 완료 · 다른 날짜도 예약할 수 있어요','Scheduled · you can add another');
     }catch(e){
       console.warn('[SM] schedule fail', e);
-      alert((_T('알람 예약에 실패했어요: ','Failed to schedule: ')) + (e && e.message ? e.message : e));
-    } finally { setLoading(false); ST.busy = false; refreshButtons(); }
+      if(_lbl) _lbl.textContent = _T('이 시각에 알림 예약하기','Schedule for this time');
+      const msg = _friendlyErr(e);
+      if(_hint2) _hint2.textContent = msg;
+      alert((_T('알림 예약에 실패했어요: ','Failed to schedule: ')) + msg);
+    } finally { ST.busy = false; refreshButtons(); }
   }
 
   // ── 알람 목록 / 결과 열기 ──
@@ -7909,14 +7982,49 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
       const j = await _getJson('/api/aicloset/alarm/' + encodeURIComponent(id) + '?email=' + encodeURIComponent(_email()));
       const a = j && j.alarm; if(!a || !a.imageUrl) throw new Error('no image');
       ST.pk = a.purposeKey || ST.pk; if(ST.pk) setPurpose(ST.pk);
+      try{ setTab('styling', { silent:true }); }catch(_){}
       showResult({ image: a.imageUrl, imageRef: a.imageUrl, picked: a.picked || [], reason: a.reason || '', dateKey: a.dateKey, wx: { temp: a.temp, text: a.weatherText }, purposeLabel: a.purposeLabel });
       try{ history.replaceState(null, '', location.pathname); }catch(_){}
     }catch(e){ console.warn('[SM] open alarm fail', e); alert(_T('결과를 불러오지 못했어요.','Could not load the result.')); }
     finally{ setLoading(false); }
   }
 
+  // ── 2026-09-09 KST · TJ 지시 ─── 탭(Summary/Styling/Items) + 모드(지금/예약) 컨트롤러 ──
+  const TAB_KEY = () => 'cb_sm_tab_' + _email();
+  function setTab(name, opts){
+    document.querySelectorAll('#smTabbar .sm-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+    document.querySelectorAll('.sm-pane').forEach(p => p.classList.toggle('on', p.dataset.pane === name));
+    try{ localStorage.setItem(TAB_KEY(), name); }catch(_){}
+    if(!(opts && opts.silent)){ try{ window.scrollTo({ top: 0, behavior: 'smooth' }); }catch(_){} }
+    if(name === 'styling'){ try{ SM_QUOTA && SM_QUOTA.render(); }catch(_){} }
+  }
+  function setMode(mode){
+    ST.mode = mode;
+    const sec = $('smAlarmSection'); if(!sec) return;
+    sec.classList.toggle('sm-mode-now', mode === 'now'); sec.classList.toggle('sm-mode-alarm', mode === 'alarm');
+    document.querySelectorAll('#smAlarmSection .sm-seg-btn').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+    document.querySelectorAll('#smAlarmSection .sm-mode-desc').forEach(p => { p.style.display = (p.dataset.mode === mode) ? 'block' : 'none'; });
+    try{ localStorage.setItem('cb_sm_mode_' + _email(), mode); }catch(_){}
+    refreshButtons();
+  }
+  function initTabs(){
+    document.querySelectorAll('#smTabbar .sm-tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+    document.querySelectorAll('#smAlarmSection .sm-seg-btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+    const q = new URLSearchParams(location.search);
+    let tab = q.get('tab') || (q.get('alarm') ? 'styling' : null);
+    if(!tab){ try{ tab = localStorage.getItem(TAB_KEY()); }catch(_){} }
+    if(!['summary','styling','items'].includes(tab || '')) tab = 'summary';
+    setTab(tab, { silent:true });
+    let mode = q.get('alarm') ? 'alarm' : null;
+    if(!mode){ try{ mode = localStorage.getItem('cb_sm_mode_' + _email()); }catch(_){} }
+    setMode(mode === 'alarm' ? 'alarm' : 'now');
+    try{ if(!ST.last) $('smResultWrap').classList.add('sm-no-result'); }catch(_){}
+    $('smAlarmTime') && $('smAlarmTime').addEventListener('change', refreshButtons);
+  }
+
   // ── 초기화 ──
   function init(){
+    initTabs();
     renderPurposes();
     try{ const saved = localStorage.getItem('cb_sm_purpose_' + _email()); if(saved && PURPOSES.some(p => p.key === saved)) setPurpose(saved); }catch(_){}
     $('smGenNowBtn') && $('smGenNowBtn').addEventListener('click', () => generateNow(false));
@@ -7935,7 +8043,7 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     // 알림 클릭으로 열린 SW 메시지
     try{ navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', ev => { const d = ev.data || {}; if(d.type === 'sm_open_alarm' && d.id) openAlarmResult(d.id); }); }catch(_){}
   }
-  window.SM_ALARM = { generateNow, scheduleAlarm, loadAlarms, openAlarmResult, refreshButtons, PURPOSES, ST };
+  window.SM_ALARM = { generateNow, scheduleAlarm, loadAlarms, openAlarmResult, refreshButtons, setTab, setMode, PURPOSES, ST };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
