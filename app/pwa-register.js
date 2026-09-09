@@ -1,7 +1,9 @@
 /* ══════════════════════════════════════════
-   CodiBank PWA Registration
-   - Service Worker 등록
+   Stylemonster PWA Registration
+   - Service Worker 등록 (/sw.js — 푸시 알림 전용, 캐시 없음)
    - 홈화면 추가(A2HS) 배너 표시
+   ─── 2026-09-10 KST · TJ 지시 ─── 리브랜딩: 배너 아이콘 CB → 몬스터 심볼, 문구 코디뱅크 → 스타일몬스터
+        (등록 로직·localStorage 키 cb_pwa_dismissed 는 그대로 유지)
 ══════════════════════════════════════════ */
 (function(){
 'use strict';
@@ -57,9 +59,9 @@ function showInstallBanner() {
   banner.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:99998;width:calc(100% - 32px);max-width:400px;background:rgba(7,19,42,.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(76,219,206,.25);border-radius:20px;padding:16px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 16px 48px rgba(2,13,36,.6);animation:slideUpBanner .4s ease-out;';
 
   banner.innerHTML = [
-    '<div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#4cdbce,#13bbaf);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;font-weight:900;color:#003733;font-family:Arial,sans-serif;">CB</div>',
+    '<div style="width:44px;height:44px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;"><img src="/app/brand/stylemonster_symbol_black.png" alt="" style="width:30px;height:auto;" onerror="this.parentNode.textContent=\'SM\';this.parentNode.style.fontWeight=900;"/></div>',
     '<div style="flex:1;min-width:0;">',
-    '  <div style="font-size:13px;font-weight:700;color:#d8e2ff;margin-bottom:2px;">' + (isEn ? 'Add CodiBank to Home Screen' : '코디뱅크를 홈화면에 추가') + '</div>',
+    '  <div style="font-size:13px;font-weight:700;color:#d8e2ff;margin-bottom:2px;">' + (isEn ? 'Add Stylemonster to Home Screen' : '스타일몬스터를 홈화면에 추가') + '</div>',
     '  <div style="font-size:11px;color:rgba(216,226,255,.45);">' + (isEn ? 'Use like a native app — fast & convenient' : '앱처럼 빠르고 편리하게 사용하세요') + '</div>',
     '</div>',
     '<button id="cb-install-btn" style="padding:8px 16px;border-radius:9999px;background:linear-gradient(135deg,#4cdbce,#13bbaf);color:#003733;font-size:12px;font-weight:700;border:none;cursor:pointer;flex-shrink:0;font-family:Inter,sans-serif;">' + (isEn ? 'Install' : '설치') + '</button>',
@@ -117,7 +119,7 @@ if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.navigator.standalone
     banner.id = 'cb-install-banner';
     banner.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:99998;width:calc(100% - 32px);max-width:400px;background:rgba(7,19,42,.92);backdrop-filter:blur(24px);border:1px solid rgba(76,219,206,.25);border-radius:20px;padding:16px 20px;box-shadow:0 16px 48px rgba(2,13,36,.6);animation:slideUpBanner .4s ease-out;text-align:center;';
     banner.innerHTML = [
-      '<div style="font-size:13px;font-weight:700;color:#d8e2ff;margin-bottom:6px;">' + (isEn ? 'Add CodiBank to Home Screen' : '코디뱅크를 홈화면에 추가하세요') + '</div>',
+      '<div style="font-size:13px;font-weight:700;color:#d8e2ff;margin-bottom:6px;">' + (isEn ? 'Add Stylemonster to Home Screen' : '스타일몬스터를 홈화면에 추가하세요') + '</div>',
       '<div style="font-size:11px;color:rgba(216,226,255,.45);line-height:1.6;">' + (isEn ? 'Tap <b>Share</b> ↗ then <b>"Add to Home Screen"</b>' : '<b>공유</b> ↗ 버튼 → <b>"홈 화면에 추가"</b>를 눌러주세요') + '</div>',
       '<button id="cb-install-close" style="margin-top:10px;padding:6px 20px;border-radius:9999px;background:rgba(255,255,255,.08);border:none;cursor:pointer;color:rgba(216,226,255,.5);font-size:11px;font-weight:600;">' + (isEn ? 'Got it' : '알겠어요') + '</button>',
     ].join('');
