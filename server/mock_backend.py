@@ -15616,16 +15616,35 @@ def _sm_snapshot_load(fname: str) -> dict:
 _SM_WMO_KO = {0:"맑음",1:"대체로 맑음",2:"구름 조금",3:"흐림",45:"안개",48:"안개",51:"이슬비",53:"이슬비",55:"이슬비",
               61:"비",63:"비",65:"강한 비",66:"진눈깨비",67:"진눈깨비",71:"눈",73:"눈",75:"강한 눈",77:"싸락눈",
               80:"소나기",81:"소나기",82:"강한 소나기",85:"눈 소나기",86:"눈 소나기",95:"뇌우",96:"뇌우",99:"뇌우"}
-def _sm_weather(lat: float, lon: float, date_key: str, tz: str, lang: str = "ko"):
+def _sm_weather(lat: float, lon: float, date_key: str, tz: str, lang: str = "ko", time_str: str = None):
+    """─── 2026-09-09 KST · TJ 지시 ─── 알림 '그 시각' 의 실제 예보
+    time_str('HH:MM') 이 주어지면 시간별(hourly) 예보에서 해당 시각 값을 우선 사용하고,
+    없거나 범위 밖이면 일별 평균으로 폴백. 실행 시점(예약 시각)에 호출되므로 최신 예보가 반영된다."""
     try:
         url = (f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
                f"&current=temperature_2m,weather_code,precipitation"
+               f"&hourly=temperature_2m,apparent_temperature,weather_code,precipitation_probability"
                f"&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max"
                f"&timezone={tz or 'Asia/Seoul'}&forecast_days=14")
         j = http_requests.get(url, timeout=8).json()
         d = j.get("daily") or {}; times = d.get("time") or []
         temp = None; code = None; pop = None
-        if date_key in times:
+        # ① 시간별 (예약 시각) 우선
+        try:
+            hh = int(str(time_str or "").split(":")[0]) if time_str else None
+            hr = j.get("hourly") or {}; ht = hr.get("time") or []
+            if hh is not None and ht:
+                key = f"{date_key}T{hh:02d}:00"
+                if key in ht:
+                    k = ht.index(key)
+                    t_ = (hr.get("temperature_2m") or [None]*len(ht))[k]
+                    if t_ is not None: temp = round(float(t_))
+                    code = (hr.get("weather_code") or [None]*len(ht))[k]
+                    pop = (hr.get("precipitation_probability") or [None]*len(ht))[k]
+        except Exception as _e:
+            print(f"[SM] hourly parse skip: {_e}", flush=True)
+        # ② 일별 폴백
+        if temp is None and date_key in times:
             i = times.index(date_key)
             tmax = d.get("temperature_2m_max", [None]*len(times))[i]; tmin = d.get("temperature_2m_min", [None]*len(times))[i]
             if tmax is not None and tmin is not None: temp = round((float(tmax) + float(tmin)) / 2)
@@ -15812,7 +15831,7 @@ def _sm_run_alarm(row: dict):
         if not items: raise RuntimeError("스냅샷을 불러올 수 없습니다")
         geo = row.get("geo_json") or {}; lat = float(geo.get("lat") or 37.5665); lon = float(geo.get("lon") or 126.978)
         lang = row.get("lang") or "ko"
-        wx = _sm_weather(lat, lon, row.get("date_key"), row.get("tz"), lang)
+        wx = _sm_weather(lat, lon, row.get("date_key"), row.get("tz"), lang, row.get("time_str"))   # 예약 시각의 시간별 예보
         ctx = {"dateKey": row.get("date_key"), "weather": wx, "purposeLabel": row.get("purpose_label"), "purposeHint": row.get("purpose_hint"), "user": row.get("user_json") or {}}
         pick = _sm_pick_outfit(ctx, items, [], lang)
         picked = pick.get("picked") or []
