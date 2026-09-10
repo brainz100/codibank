@@ -257,6 +257,19 @@ html:not(.cb-runway-on) .plan-pill.plan-pill-runway{display:none !important;}
 
 </style>
 <script>(function(){function _on(){try{return !!(window.CODIBANK_CONFIG&&window.CODIBANK_CONFIG.featureRunway===true);}catch(e){return false;}}function _sync(){try{var el=document.documentElement;if(_on())el.classList.add('cb-runway-on');else el.classList.remove('cb-runway-on');}catch(e){}}window._cbSyncRunwayFlag=_sync;_sync();if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_sync);window.addEventListener('load',_sync);})();</script>
+
+<style id="sm-pricing-0910">
+/* ─── 2026-09-10 KST · TJ 지시 ─── ① 가격 = 타이틀과 같은 줄 우측 ② 써머리 아이콘 제거 */
+.plan-top{grid-template-rows:auto auto !important;}
+.plan-head-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;}
+.plan-head-row .plan-name-wrap{min-width:0;}
+.plan-head-row .plan-price-wrap{margin-top:0 !important;text-align:right;flex-shrink:0;}
+.plan-head-row .plan-price{font-size:22px !important;line-height:1.1;}
+.plan-head-row .plan-price .plan-period{font-size:12px;}
+.summary-stat-icon{display:none !important;}
+.summary-stat-head{padding-left:0 !important;min-height:auto !important;align-items:center !important;}
+.summary-stat{padding-left:14px !important;}
+</style>
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs>
@@ -392,7 +405,7 @@ html:not(.cb-runway-on) .plan-pill.plan-pill-runway{display:none !important;}
     </div>
     <div class="info-line">
       <svg class="mi info-ico engine art-icon" aria-hidden="true"><use href="#icon-spark"/></svg>
-      <span>코디핏 = <strong>Nano Banana 2</strong> · 트라이 온·옷장코디 = <strong style="color:#a8770c">Nano Banana Pro 4K</strong></span>
+      <span>코디핏 = <strong>GPT-image-2 → Nano Banana 2 (2K)</strong> · 트라이 온·옷장코디 = <strong style="color:#a8770c">Nano Banana Pro (2K)</strong></span>
     </div>
     <div class="info-line">
       <svg class="mi info-ico art-icon" aria-hidden="true"><use href="#icon-check"/></svg>
@@ -406,7 +419,7 @@ html:not(.cb-runway-on) .plan-pill.plan-pill-runway{display:none !important;}
     </div>
     <div class="info-line">
       <svg class="mi info-ico engine art-icon" aria-hidden="true"><use href="#icon-spark"/></svg>
-      <span>Codi Fit = <strong>Nano Banana 2</strong> · Try On / Closet outfits = <strong style="color:#a8770c">Nano Banana Pro 4K</strong></span>
+      <span>Codi Fit = <strong>GPT-image-2 → Nano Banana 2 (2K)</strong> · Try On / Closet outfits = <strong style="color:#a8770c">Nano Banana Pro (2K)</strong></span>
     </div>
     <div class="info-line">
       <svg class="mi info-ico art-icon" aria-hidden="true"><use href="#icon-check"/></svg>
@@ -496,8 +509,8 @@ const _en = () => window.CodiBankI18n?.isEn?.() || false;
 // 가격: FREE ₩0 / SILVER ₩5,900 / GOLD ₩19,900 / DIAMOND ₩39,900
 const PLANS_DEF = [
   // ─── 2026-05-09 KST · TJ 지시 (D2) ─── 엔진 정의 통일
-  //   코디핏 = Nano Banana 2 (Gemini 2.5 Flash Image) — 모든 플랜
-  //   트라이온 = Nano Banana Pro (Gemini 3 Pro Image) — 모든 플랜
+  //   코디핏 = 1st GPT-image-2 low ×4장 → 3rd Nano Banana 2 (gemini-3.1-flash-image) 2K — 모든 플랜
+  //   트라이온·옷장코디 = Nano Banana Pro (gemini-3-pro-image) 2K — 모든 플랜  ※ 4K 아님 (2026-09-10 교정)
   //   플랜별 차등은 '한도'와 '일일 제한'으로만.
   // ─── 2026-09-10 KST · TJ 지시 ─── 구독료·제공량 재설계 (원가 기준)
   //   FREE    코디핏 3  · 트라이온+옷장코디 2  · 아이템 20
@@ -514,7 +527,7 @@ const PLANS_DEF = [
     discountLabel: null,
     codifitMonthly: 3, tryonMonthly: 2, runwayMonthly: 0, itemsLimit: 20,
     dailyCodifit: null, dailyItems: null,
-    engineCo: 'Nano Banana 2', engineTry: 'Nano Banana Pro',
+    engineCo: 'GPT-image-2 → Nano Banana 2 (2K)', engineTry: 'Nano Banana Pro (2K)',   // 2026-09-10 KST · TJ 지시 — 실제 엔진/화질로 교정 (4K 아님)
     cardClass: 'card-free',
     nameClass: 'free',
     recommended: false,
@@ -528,7 +541,7 @@ const PLANS_DEF = [
     discountLabel: null,
     codifitMonthly: 10, tryonMonthly: 10, runwayMonthly: 2, itemsLimit: 100,
     dailyCodifit: null, dailyItems: null,
-    engineCo: 'Nano Banana 2', engineTry: 'Nano Banana Pro',
+    engineCo: 'GPT-image-2 → Nano Banana 2 (2K)', engineTry: 'Nano Banana Pro (2K)',   // 2026-09-10 KST · TJ 지시 — 실제 엔진/화질로 교정 (4K 아님)
     cardClass: 'card-silver',
     nameClass: 'silver',
     recommended: false,
@@ -542,7 +555,7 @@ const PLANS_DEF = [
     discountLabel: null,
     codifitMonthly: 20, tryonMonthly: 30, runwayMonthly: 20, itemsLimit: 300,
     dailyCodifit: null, dailyItems: null,
-    engineCo: 'Nano Banana 2', engineTry: 'Nano Banana Pro',
+    engineCo: 'GPT-image-2 → Nano Banana 2 (2K)', engineTry: 'Nano Banana Pro (2K)',   // 2026-09-10 KST · TJ 지시 — 실제 엔진/화질로 교정 (4K 아님)
     cardClass: 'card-gold',
     nameClass: 'gold',
     recommended: true,
@@ -557,7 +570,7 @@ const PLANS_DEF = [
     discountLabel: null,
     codifitMonthly: 30, tryonMonthly: 50, runwayMonthly: 50, itemsLimit: 9999,
     dailyCodifit: null, dailyItems: 30,   // 아이템 무제한 · 1일 30건 제한
-    engineCo: 'Nano Banana 2', engineTry: 'Nano Banana Pro',
+    engineCo: 'GPT-image-2 → Nano Banana 2 (2K)', engineTry: 'Nano Banana Pro (2K)',   // 2026-09-10 KST · TJ 지시 — 실제 엔진/화질로 교정 (4K 아님)
     cardClass: 'card-diamond',
     nameClass: 'diamond',
     recommended: false,
@@ -647,11 +660,11 @@ function renderPlans(){
       <div class="plan-engines">
         <div class="engine-line codifit">
           <svg class="mi engine-ico art-icon" aria-hidden="true"><use href="#icon-chip"/></svg>
-          <span class="engine-text">${en?'Codi Fit image gen model':'코디핏 코디 이미지 생성 모델'} <strong>Nano Banana 2</strong></span>
+          <span class="engine-text">${en?'Codi Fit image gen model':'코디핏 코디 이미지 생성 모델'} <strong>GPT-image-2 → Nano Banana 2<span class="engine-4k">, 2K</span></strong></span>
         </div>
         <div class="engine-line tryon">
           <svg class="mi engine-ico art-icon" aria-hidden="true"><use href="#icon-spark"/></svg>
-          <span class="engine-text">${en?'Try On · Closet outfit image model':'트라이온·옷장코디 이미지 생성 모델'} <strong>Nano Banana PRO<span class="engine-4k">, 4K</span></strong></span>
+          <span class="engine-text">${en?'Try On · Closet outfit image model':'트라이온·옷장코디 이미지 생성 모델'} <strong>Nano Banana PRO<span class="engine-4k">, 2K</span></strong></span>
         </div>
       </div>`;
 
@@ -683,12 +696,15 @@ function renderPlans(){
       ${recBadge}${curBadge}
       <div class="plan-top">
         <div class="plan-emblem">${art(planArt[p.id])}</div>
-        <div class="plan-name-wrap">
-          <div class="plan-name ${p.nameClass}">${en?p.nameEn:p.nameKo}</div>
-          <span class="plan-tier ${p.nameClass}">${tierLabel}</span>
-        </div>
-        <div class="plan-price-wrap">
-          ${priceBlock}
+        <!-- ─── 2026-09-10 KST · TJ 지시 ─── 가격을 타이틀과 같은 줄 우측으로 ─── -->
+        <div class="plan-head-row">
+          <div class="plan-name-wrap">
+            <div class="plan-name ${p.nameClass}">${en?p.nameEn:p.nameKo}</div>
+            <span class="plan-tier ${p.nameClass}">${tierLabel}</span>
+          </div>
+          <div class="plan-price-wrap">
+            ${priceBlock}
+          </div>
         </div>
         <p class="plan-caption">${planCaptions[p.id][en?1:0]}</p>
       </div>
@@ -764,9 +780,11 @@ function _updateSummaryStat(prefix, used, limit, bonus, opts){
   const meta = document.getElementById('sum'+prefix+'Meta');
   if(meta){
     const unit = en ? '' : (prefix==='It'?'개':'회');
+    // ─── 2026-09-10 KST · TJ 지시 ─── 사용/남음 명시 · 서버(관리자와 동일) 기준 표기 · DIAMOND 아이템 1일 30건
+    const _src = (window._smUsageSource==='server') ? (en?' · synced':' · 서버 기준') : '';
     meta.textContent = isUnlimited
-      ? (en?'Unlimited · daily cap '+(prefix==='It'?'100 items':'20 uses'):'무제한 · 일 '+(prefix==='It'?'100개':'20회')+' 한도')
-      : (en?`${pct}% used · ${Math.max(0,limit-used)} left`:`${pct}% 사용 · ${Math.max(0,limit-used)}${unit} 남음`);
+      ? (en?'Unlimited · daily cap 30 items':'무제한 · 1일 30개 한도') + _src
+      : (en?`Used ${used} · ${Math.max(0,limit-used)} left (${pct}%)`:`${used}${unit} 사용 · ${Math.max(0,limit-used)}${unit} 남음 (${pct}%)`) + _src;
   }
   // ─── 2026-05-09 KST · TJ 지시 (v35) ─── 보너스 부분 아이콘 삭제 — 텍스트만
   if(bonusEl){
@@ -842,15 +860,23 @@ async function renderStatus(){
       if(_pr.ok){
         const _pd = await _pr.json();
         if(_pd && _pd.ok){
-          // ─── 2026-07-01 KST · TJ 지시 ─── 서버값 '덮어쓰기' → '현재월 max 병합' ───
-          //   서버 저장이 실패(user_usage 컬럼 부재 등)해 0이 와도 로컬 차감분을 지우지 않음.
+          // ─── 2026-09-10 KST · TJ 지시 ─── 서버값(user_usage) = 관리자 페이지와 동일 소스 → 서버 우선
+          //   (2026-07-01 의 max 병합은 user_usage 에 tryon 컬럼이 없어 서버 저장이 실패하던 시기의 안전장치.
+          //    2026-09-09 sm_usage_setup.sql 로 컬럼이 생겨 서버 기록이 정상이므로 서버를 권위로 쓴다.
+          //    단, 서버가 이번 달 레코드를 아직 못 만든 경우(0/미존재)는 로컬값을 유지.)
           var _now=new Date(), _cur=_now.getFullYear()+'-'+(_now.getMonth()+1), _sM=_pd.month||'', _lM=raw.month||'';
-          var _sC=(_sM===_cur)?parseInt(_pd.closetCount||0):0, _lC=(_lM===_cur)?parseInt(raw.closetCount||0):0;
-          var _sT=(_sM===_cur)?parseInt(_pd.tryonCount||0):0,  _lT=(_lM===_cur)?parseInt(raw.tryonCount||0):0;
-          closetUsed = Math.max(_sC,_lC);
-          tryonUsed  = Math.max(_sT,_lT);
-          var _sA=(_sM===_cur)?parseInt(_pd.aiclosetCount||0):0, _lA=(_lM===_cur)?parseInt(raw.aiclosetCount||0):0;
-          aiclosetUsed = Math.max(_sA,_lA);   // 2026-09-09 KST · TJ 지시
+          var _srvHas = (_sM===_cur) && (parseInt(_pd.closetCount||0)+parseInt(_pd.tryonCount||0)+parseInt(_pd.aiclosetCount||0)) > 0;
+          if(_srvHas){
+            closetUsed   = parseInt(_pd.closetCount||0);
+            tryonUsed    = parseInt(_pd.tryonCount||0);
+            aiclosetUsed = parseInt(_pd.aiclosetCount||0);
+            window._smUsageSource = 'server';
+          } else {
+            closetUsed   = (_lM===_cur)?parseInt(raw.closetCount||0):0;
+            tryonUsed    = (_lM===_cur)?parseInt(raw.tryonCount||0):0;
+            aiclosetUsed = (_lM===_cur)?parseInt(raw.aiclosetCount||0):0;
+            window._smUsageSource = 'local';
+          }
           totalUsed  = closetUsed + tryonUsed;
           try{
             const _k='cb_usage_'+(user.email||'guest'), _r=JSON.parse(localStorage.getItem(_k)||'{}');
