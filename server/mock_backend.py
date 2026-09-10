@@ -5201,10 +5201,40 @@ def ai_styling_analysis():
                     break
             if not _img_bytes:
                 _img_url = str(payload.get("imageUrl") or payload.get("image") or "").strip()
-                if _img_url.startswith("http"):
-                    _rr = http_requests.get(_img_url, timeout=8)
-                    if _rr.ok:
-                        _img_bytes = _rr.content
+                # ─── 2026-09-10 KST · TJ 지시 ─── 자기 서버 URL(codibank-api.onrender.com/uploads/…) 을 HTTP 로
+                #   자체 호출하면 단일 워커에서 스레드가 서로 기다려 8초 타임아웃 → vision 실패 → outfit 없음 →
+                #   프론트 팝업이 '분석 중' 에서 멈춤. 해결: 파일명을 뽑아 ① 로컬 업로드 폴더 ② R2 공개 URL 순으로 직접 읽는다.
+                _fname = ""
+                try:
+                    from urllib.parse import urlparse as _up
+                    _pth = _up(_img_url).path if _img_url.startswith("http") else _img_url
+                    if "/uploads/" in _pth: _fname = _pth.split("/uploads/", 1)[1].split("?")[0]
+                except Exception: _fname = ""
+                if _fname:
+                    _lp = os.path.join(_UPLOAD_DIR, _fname)
+                    if os.path.exists(_lp):
+                        with open(_lp, "rb") as _f: _img_bytes = _f.read()
+                    elif _R2_PUB_URL:
+                        try:
+                            _rr = http_requests.get(f"{_R2_PUB_URL}/uploads/{_fname}", timeout=8)
+                            if _rr.ok: _img_bytes = _rr.content
+                        except Exception as _e2:
+                            print(f"[ai_styling_analysis] R2 직접 로드 실패: {_e2}", flush=True)
+                if not _img_bytes and _img_url.startswith("http"):
+                    _self_hosts = {h for h in [
+                        (os.getenv("SELF_BASE_URL") or "").replace("https://","").replace("http://","").strip("/"),
+                        (os.getenv("RENDER_EXTERNAL_URL") or "").replace("https://","").replace("http://","").strip("/"),
+                        "codibank-api.onrender.com"] if h}
+                    try:
+                        from urllib.parse import urlparse as _up2
+                        _host = _up2(_img_url).netloc
+                    except Exception: _host = ""
+                    if _host not in _self_hosts:      # 외부 URL 만 HTTP 로 (자체호출 금지)
+                        _rr = http_requests.get(_img_url, timeout=8)
+                        if _rr.ok:
+                            _img_bytes = _rr.content
+                    else:
+                        print(f"[ai_styling_analysis] 자체 URL 자체호출 생략 (파일 미확보): {_fname or _img_url}", flush=True)
             if _img_bytes:
                 from PIL import Image as _PILImg
                 import io as _io
