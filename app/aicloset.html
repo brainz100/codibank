@@ -1423,20 +1423,31 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 :root{ --sm-loader-color:#97FEED; }
 /* 오버레이(스피너 컨테이너)는 테두리 없이 부모 라운딩을 상속 → 네 모서리 일치 */
 .vto-img-spin, .step-a-overlay, .img-spin, .sm-img-spin{ border:none !important; border-radius:inherit !important; box-shadow:none !important; }
-.vto-img-spin, .step-a-overlay{ inset:0 !important; width:100% !important; height:100% !important; }
-/* 외곽 뷰박스가 그라데이션 테두리를 담당 — 현재 심볼 색(--sm-loader-color)으로 0.3초 전환 */
-.vto-result-box, .step-a-card, .csty-result-img-box, .sm-result-img-box{
-  border:2px solid transparent !important; border-radius:20px !important;
-  background:linear-gradient(165deg,#0B1238 0%,#050A24 100%) padding-box,
-             linear-gradient(135deg, var(--sm-loader-color) 0%, rgba(255,255,255,.10) 45%, rgba(255,255,255,.10) 55%, var(--sm-loader-color) 100%) border-box !important;
-  transition: --sm-loader-color .3s ease, box-shadow .3s ease;
-  box-shadow:0 0 0 1px rgba(0,0,0,.35) inset, 0 12px 34px rgba(0,0,0,.35), 0 0 28px color-mix(in srgb, var(--sm-loader-color) 28%, transparent) !important;
-}
-.step-a-card{ border-radius:12px !important; }
+.vto-img-spin{ inset:0 !important; width:100% !important; height:100% !important; }
 /* ② 진행률 숫자 +50%: 28vw → 42vw · % 기호는 종전 절대 크기(≈11.8vw) 유지 */
 .vto-spin-pct, .step-a-overlay-pct, .spin-pct, .sm-pct{ font-size:min(42vw,225px) !important; }
 .sm-pct #smPctNum{ font-size:min(42vw,225px) !important; }
 .vto-spin-pct .vto-spin-pct-sym, .spin-pct .spin-pct-sym, .sm-pct .sm-pct-unit{ font-size:min(11.8vw,63px) !important; }
+
+/* ─── 2026-09-11 KST · TJ 지시 (5차) ───
+   ① 효과(심볼 순환·야광 그라데이션 테두리·%)는 '생성 중' 인 박스에만 (.sm-glow-on) — 코디핏은 1st 4장 그리드(.step-a-wrap)에만, 3rd(크게보기)는 효과 없음
+   ② 심볼이 항상 최상위 (래퍼에 z-index) ③ % 는 심볼 아래(배면) ④ % 는 0%→100% 진행에 따라 크기 1.0→1.5배 */
+.cb-rainbow, .cb-rainbow-vto, .cb-rainbow-cs, .step-a-cb-rainbow, .sm-rainbow{ position:relative !important; z-index:3 !important; }
+.vto-spin-pct, .step-a-overlay-pct, .spin-pct, .sm-pct{ z-index:0 !important; transform:translate(-50%,-52%) scale(var(--sm-pct-scale,1)) !important; transform-origin:center center; transition:transform .45s ease; }
+/* 그라데이션·야광 테두리: 기본은 평범한 테두리, 생성 중(.sm-glow-on)에만 활성 */
+.vto-result-box, .csty-result-img-box, .sm-result-img-box, .step-a-wrap{
+  border:2px solid rgba(151,254,237,.16) !important; border-radius:20px !important; background:linear-gradient(165deg,#0B1238 0%,#050A24 100%) !important;
+  box-shadow:0 10px 30px rgba(0,0,0,.30) !important; transition: --sm-loader-color .45s ease, box-shadow .45s ease, border-color .45s ease;
+}
+.step-a-wrap{ overflow:hidden; }
+.sm-glow-on{
+  border-color:transparent !important;
+  background:linear-gradient(165deg,#0B1238 0%,#050A24 100%) padding-box,
+             linear-gradient(135deg, var(--sm-loader-color) 0%, rgba(255,255,255,.10) 45%, rgba(255,255,255,.10) 55%, var(--sm-loader-color) 100%) border-box !important;
+  box-shadow:0 0 0 1px rgba(0,0,0,.35) inset, 0 12px 34px rgba(0,0,0,.35), 0 0 34px color-mix(in srgb, var(--sm-loader-color) 42%, transparent) !important;
+}
+/* 코디핏 3rd(크게보기) 박스: 효과·% 없음, 심볼 고정 */
+.vto-result-box .vto-spin-pct{ display:none !important; }
 </style>
 <script>
 /* ─── 2026-09-10 KST · TJ 지시 ─── SM_LOADER: 보이는 .sm-loader-img 를 300ms 마다 다음 몬스터 심볼로 교체 */
@@ -1449,15 +1460,25 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 
   function preload(){ if(pre.length) return; for(var i=1;i<=N;i++){ var im = new Image(); im.src = BASE + i + '.webp'; pre.push(im); } }
   function visible(el){ try{ if(!el.isConnected) return false; if(el.offsetParent === null) return false; var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }catch(_){ return false; } }
+  var GLOW_SEL = '.step-a-wrap, .csty-result-img-box, .sm-result-img-box';
+  function pctScale(){
+    // 2026-09-11 KST · TJ 지시 — 진행률 숫자 크기: 0% = 1.0배 → 100% = 1.5배
+    var ps = document.querySelectorAll('.step-a-overlay-pct, .spin-pct, .sm-pct');
+    for(var k=0;k<ps.length;k++){ var n = parseInt(String(ps[k].textContent||'').replace(/[^0-9]/g,''),10); if(isNaN(n)) n = 0; ps[k].style.setProperty('--sm-pct-scale', String(1 + 0.5*Math.min(100,Math.max(0,n))/100)); }
+  }
   function tick(){
-    var els = document.querySelectorAll('.sm-loader-img'); if(!els.length) return;
+    pctScale();
+    var els = document.querySelectorAll('.sm-loader-img:not(.sm-loader-static)');
     var any = false;
     for(var i=0;i<els.length;i++){ if(visible(els[i])){ any = true; break; } }
+    // 생성 중인 박스에만 야광 테두리 (.sm-glow-on)
+    var boxes = document.querySelectorAll(GLOW_SEL);
+    for(var b=0;b<boxes.length;b++){ var on=false; var li=boxes[b].querySelectorAll('.sm-loader-img:not(.sm-loader-static)'); for(var q=0;q<li.length;q++){ if(visible(li[q])){ on=true; break; } } boxes[b].classList.toggle('sm-glow-on', on); }
     if(!any) return;
     idx = (idx % N) + 1; setColor(idx);
     for(var j=0;j<els.length;j++){ if(visible(els[j])) els[j].src = BASE + idx + '.webp'; }
   }
-  function start(){ preload(); if(!timer) timer = setInterval(tick, 300); }
+  function start(){ preload(); if(!timer) timer = setInterval(tick, 500); }   // 2026-09-11: 0.3s → 0.5s
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') start(); });
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
   window.SM_LOADER = { start: start, img: function(){ return '<img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/><div class="sm-loader-word">STYLE<b>MONSTER</b></div>'; } };
