@@ -1352,15 +1352,18 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 </style>
 
 <style id="sm-loader-css">
-/* ─── 2026-09-10 KST · TJ 지시 ─── 스타일몬스터 컬러 심볼 순환 로더 ─── */
-.sm-loader-img{display:block;width:32%;max-width:150px;min-width:84px;height:auto;margin:0 auto;object-fit:contain;
-  filter:drop-shadow(0 6px 18px rgba(0,0,0,.45));user-select:none;-webkit-user-drag:none;pointer-events:none;
-  transition:opacity .12s ease;}
-/* 옛 레인보우 글자 컨테이너를 로더 컨테이너로 재사용 — 글자 스타일 무력화 */
-.cb-rainbow, .cb-rainbow-vto, .cb-rainbow-cs, .step-a-cb-rainbow, .sm-rainbow{ letter-spacing:0 !important; font-size:0 !important; filter:none !important; }
-/* 진행률 숫자 축소 */
-.vto-spin-pct, .step-a-overlay-pct, .spin-pct, .sm-pct #smPctNum{ font-size:32px !important; line-height:1 !important; }
-.vto-spin-pct .vto-spin-pct-sym, .spin-pct .spin-pct-sym, .sm-pct .sm-pct-unit{ font-size:14px !important; }
+/* ─── 2026-09-10 KST · TJ 지시 (2차) ─── 스타일몬스터 컬러 심볼 순환 로더 (투명 배경 · +30% · % 배면 · 워드마크) ─── */
+.sm-loader-img{display:block;position:relative;z-index:3;width:42%;max-width:195px;min-width:110px;height:auto;margin:0 auto;object-fit:contain;
+  filter:drop-shadow(0 8px 22px rgba(0,0,0,.5));user-select:none;-webkit-user-drag:none;pointer-events:none;transition:opacity .12s ease;}
+.sm-loader-word{position:relative;z-index:3;margin-top:6px;text-align:center;font-family:'Manrope','Inter',sans-serif;font-weight:800;font-size:13px;letter-spacing:.24em;color:#fff;opacity:.9;pointer-events:none;}
+.sm-loader-word b{color:#c084fc;font-weight:800;}
+/* 옛 레인보우 글자 컨테이너를 로더 컨테이너로 재사용 — 글자 스타일 무력화 + 세로 배치 */
+.cb-rainbow, .cb-rainbow-vto, .cb-rainbow-cs, .step-a-cb-rainbow, .sm-rainbow{ letter-spacing:0 !important; font-size:0 !important; filter:none !important; flex-direction:column !important; gap:0 !important; }
+/* 진행률 숫자: 심볼 '뒤'(배면 중앙) — 크고 흐리게, 심볼이 덮는다 */
+.vto-spin-pct, .step-a-overlay-pct, .spin-pct, .sm-pct{ position:absolute !important; left:50% !important; top:50% !important; transform:translate(-50%,-56%) !important;
+  z-index:1 !important; margin:0 !important; font-size:72px !important; line-height:1 !important; opacity:.22 !important; text-shadow:none !important; pointer-events:none; }
+.sm-pct #smPctNum{ font-size:72px !important; line-height:1 !important; }
+.vto-spin-pct .vto-spin-pct-sym, .spin-pct .spin-pct-sym, .sm-pct .sm-pct-unit{ font-size:26px !important; opacity:.9; }
 </style>
 <script>
 /* ─── 2026-09-10 KST · TJ 지시 ─── SM_LOADER: 보이는 .sm-loader-img 를 300ms 마다 다음 몬스터 심볼로 교체 */
@@ -1380,7 +1383,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
   function start(){ preload(); if(!timer) timer = setInterval(tick, 300); }
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') start(); });
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
-  window.SM_LOADER = { start: start, img: function(){ return '<img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>'; } };
+  window.SM_LOADER = { start: start, img: function(){ return '<img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/><div class="sm-loader-word">STYLE<b>MONSTER</b></div>'; } };
 })();
 </script>
 </head>
@@ -1563,7 +1566,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
           <div class="vto-img-spin" id="vtoOverlay">
             <!-- codibank 레인보우 텍스트 -->
             <div id="vtoSpinner" class="cb-rainbow-vto" style="display:flex;">
-              <img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>
+              <img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/><div class="sm-loader-word">STYLE<b>MONSTER</b></div>
             </div>
             <p class="vto-spin-txt" id="vtoSpinTxt" style="color:rgba(162,253,240,0.55);">코디 목적을 선택하고 생성 버튼을 누르세요</p>
             <div id="vtoStep" class="vto-step" style="display:none;">초기화 중…</div>
@@ -1750,7 +1753,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
       <div class="sm-result-img-wrap" id="smImgWrap">
         <div class="sm-result-img-box sm-empty" id="smViewBox">
           <div class="sm-img-spin" id="smViewEmpty">
-            <div class="sm-rainbow" id="smRainbow"><!-- 2026-09-10 KST · TJ 지시 — 글자 → 몬스터 심볼 로더 --><img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/></div>
+            <div class="sm-rainbow" id="smRainbow"><!-- 2026-09-10 KST · TJ 지시 — 글자 → 몬스터 심볼 로더 --><img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/><div class="sm-loader-word">STYLE<b>MONSTER</b></div></div>
             <!-- ─── 2026-09-09 KST · TJ 지시 ─── 생성 진행률 % (뷰박스 내 대형 숫자 + 링) ─── -->
             <div class="sm-pct" id="smPct" style="display:none;"><span id="smPctNum">0</span><span class="sm-pct-unit">%</span></div>
             <p class="sm-spin-txt" id="smViewLoadingText" style="opacity:.35" data-i18n="내 옷장 착장 대기 중">내 옷장 착장 대기 중</p>
@@ -7847,6 +7850,22 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
   }
 
   function _resetSavedBtn(){ const b = $('smSaveAlbumBtn'); if(b){ b.disabled = false; b.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">bookmark_add</span><span>' + _T('코디앨범 저장','Save to album') + '</span>'; } }
+  // ─── 2026-09-10 KST · TJ 지시 (2차) ─── 10분 유휴 통합 리셋: 결과 + 목적 + 모드 전부
+  const _ACT_KEY = () => 'cb_sm_last_active_' + _email();
+  const _touch = () => { try{ localStorage.setItem(_ACT_KEY(), String(Date.now())); }catch(_){} };
+  const _expired = () => { try{ const l = parseInt(localStorage.getItem(_ACT_KEY())||'0',10)||0; return l > 0 && (Date.now() - l) > 10*60*1000; }catch(_){ return false; } };
+  function smIdleReset(){
+    try{ localStorage.removeItem(_KEEP_KEY()); localStorage.removeItem('cb_sm_purpose_' + _email()); localStorage.removeItem('cb_sm_mode_' + _email()); }catch(_){}
+    ST.last = null; ST.pk = null; ST.custom = '';
+    try{ document.querySelectorAll('#smPurposeGrid .sm-pc').forEach(b => b.classList.remove('on')); $('smPurposeCustomWrap') && $('smPurposeCustomWrap').classList.add('hidden'); }catch(_){}
+    try{ $('smResultWrap').classList.add('sm-no-result'); const cv = $('smCanvas'); if(cv) cv.classList.remove('sm-result-image'); $('smViewBox') && $('smViewBox').classList.add('sm-empty'); const sp = $('smViewEmpty'); if(sp) sp.style.display = 'flex'; }catch(_){}
+    try{ setMode('now'); refreshButtons(); }catch(_){}
+    _touch();
+    console.log('[SM] 10분 이상 미사용 → 목적·결과 리셋');
+  }
+  ['click','touchstart','keydown'].forEach(ev => document.addEventListener(ev, _touch, { passive:true }));
+  document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') _touch(); else if(_expired()) smIdleReset(); });
+  window.addEventListener('pageshow', () => { if(_expired()) smIdleReset(); });
   // ─── 2026-09-10 KST · TJ 지시 ─── 결과 10분 보존: 앱 전환 후 복귀(페이지 재로드)해도 뷰박스 유지
   const _KEEP_KEY = () => 'cb_sm_last_' + _email();
   function _keepResult(res){ try{ localStorage.setItem(_KEEP_KEY(), JSON.stringify({ ts: Date.now(), res: Object.assign({}, res, { image: String(res.image||'').startsWith('data:') ? '' : res.image }) })); }catch(_){} }
@@ -8198,8 +8217,8 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     document.addEventListener('click', e => { if(e.target && e.target.closest && e.target.closest('#dateCardScroll')) setTimeout(refreshButtons, 60); });
     refreshButtons();
     loadAlarms();
-    // 2026-09-10 KST · TJ 지시 — 10분 내 복귀면 마지막 결과 복원 (딥링크가 없을 때만)
-    try{ if(!new URLSearchParams(location.search).get('alarm')) setTimeout(_restoreResult, 300); }catch(_){}
+    // 2026-09-10 KST · TJ 지시 — 10분 내 복귀면 마지막 결과 복원 (딥링크가 없을 때만) · 만료면 전부 리셋
+    try{ if(_expired()) setTimeout(smIdleReset, 50); else if(!new URLSearchParams(location.search).get('alarm')) setTimeout(_restoreResult, 300); }catch(_){}
     // 딥링크: 알림 클릭 → aicloset.html?alarm=<id>
     try{ const id = new URLSearchParams(location.search).get('alarm'); if(id) setTimeout(() => openAlarmResult(id), 400); }catch(_){}
     // 알림 클릭으로 열린 SW 메시지

@@ -2975,15 +2975,18 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 </style>
 
 <style id="sm-loader-css">
-/* ─── 2026-09-10 KST · TJ 지시 ─── 스타일몬스터 컬러 심볼 순환 로더 ─── */
-.sm-loader-img{display:block;width:32%;max-width:150px;min-width:84px;height:auto;margin:0 auto;object-fit:contain;
-  filter:drop-shadow(0 6px 18px rgba(0,0,0,.45));user-select:none;-webkit-user-drag:none;pointer-events:none;
-  transition:opacity .12s ease;}
-/* 옛 레인보우 글자 컨테이너를 로더 컨테이너로 재사용 — 글자 스타일 무력화 */
-.cb-rainbow, .cb-rainbow-vto, .cb-rainbow-cs, .step-a-cb-rainbow, .sm-rainbow{ letter-spacing:0 !important; font-size:0 !important; filter:none !important; }
-/* 진행률 숫자 축소 */
-.vto-spin-pct, .step-a-overlay-pct, .spin-pct, .sm-pct #smPctNum{ font-size:32px !important; line-height:1 !important; }
-.vto-spin-pct .vto-spin-pct-sym, .spin-pct .spin-pct-sym, .sm-pct .sm-pct-unit{ font-size:14px !important; }
+/* ─── 2026-09-10 KST · TJ 지시 (2차) ─── 스타일몬스터 컬러 심볼 순환 로더 (투명 배경 · +30% · % 배면 · 워드마크) ─── */
+.sm-loader-img{display:block;position:relative;z-index:3;width:42%;max-width:195px;min-width:110px;height:auto;margin:0 auto;object-fit:contain;
+  filter:drop-shadow(0 8px 22px rgba(0,0,0,.5));user-select:none;-webkit-user-drag:none;pointer-events:none;transition:opacity .12s ease;}
+.sm-loader-word{position:relative;z-index:3;margin-top:6px;text-align:center;font-family:'Manrope','Inter',sans-serif;font-weight:800;font-size:13px;letter-spacing:.24em;color:#fff;opacity:.9;pointer-events:none;}
+.sm-loader-word b{color:#c084fc;font-weight:800;}
+/* 옛 레인보우 글자 컨테이너를 로더 컨테이너로 재사용 — 글자 스타일 무력화 + 세로 배치 */
+.cb-rainbow, .cb-rainbow-vto, .cb-rainbow-cs, .step-a-cb-rainbow, .sm-rainbow{ letter-spacing:0 !important; font-size:0 !important; filter:none !important; flex-direction:column !important; gap:0 !important; }
+/* 진행률 숫자: 심볼 '뒤'(배면 중앙) — 크고 흐리게, 심볼이 덮는다 */
+.vto-spin-pct, .step-a-overlay-pct, .spin-pct, .sm-pct{ position:absolute !important; left:50% !important; top:50% !important; transform:translate(-50%,-56%) !important;
+  z-index:1 !important; margin:0 !important; font-size:72px !important; line-height:1 !important; opacity:.22 !important; text-shadow:none !important; pointer-events:none; }
+.sm-pct #smPctNum{ font-size:72px !important; line-height:1 !important; }
+.vto-spin-pct .vto-spin-pct-sym, .spin-pct .spin-pct-sym, .sm-pct .sm-pct-unit{ font-size:26px !important; opacity:.9; }
 </style>
 <script>
 /* ─── 2026-09-10 KST · TJ 지시 ─── SM_LOADER: 보이는 .sm-loader-img 를 300ms 마다 다음 몬스터 심볼로 교체 */
@@ -3003,7 +3006,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
   function start(){ preload(); if(!timer) timer = setInterval(tick, 300); }
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') start(); });
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
-  window.SM_LOADER = { start: start, img: function(){ return '<img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>'; } };
+  window.SM_LOADER = { start: start, img: function(){ return '<img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/><div class="sm-loader-word">STYLE<b>MONSTER</b></div>'; } };
 })();
 </script>
 </head>
@@ -3287,7 +3290,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
             </div>
             <div class="step-a-overlay-text">
               <div class="step-a-cb-rainbow"><!-- 2026-09-10 KST · TJ 지시 — codibank 글자 → 몬스터 심볼 로더 -->
-                <img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>
+                <img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/><div class="sm-loader-word">STYLE<b>MONSTER</b></div>
               </div>
               <div class="step-a-overlay-pct" id="stepAProgress">0%</div>
             </div>
@@ -3345,7 +3348,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
             <div class="vto-spin-pct" id="vtoSpinPct" style="display:none;">0<span class="vto-spin-pct-sym">%</span></div>
             <!-- codibank 레인보우 텍스트 -->
             <div id="vtoSpinner" class="cb-rainbow-vto" style="display:flex;"><!-- 2026-09-10 KST · TJ 지시 — codibank 글자 → 몬스터 심볼 로더 -->
-              <img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>
+              <img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/><div class="sm-loader-word">STYLE<b>MONSTER</b></div>
             </div>
             <p class="vto-spin-txt" id="vtoSpinTxt" style="color:rgba(162,253,240,0.55);display:none;"></p>
             <div id="vtoStep" class="vto-step" style="display:none;">초기화 중…</div>
@@ -4494,6 +4497,7 @@ function _codifitTouch(){
 
 function _codifitClearState(){
   try{ _cbKeep.removeItem(_CODIFIT_STATE_KEY); }catch(_){}
+  try{ _cbKeep.removeItem('cb_closet_snap'); }catch(_){}   // 2026-09-10 KST · TJ 지시 — 구 스냅샷도 함께 삭제 (전부 리셋)
 }
 
 // ─── 2026-05-18 KST · TJ 지시 ─── 날짜/목적 변경 워닝 팝업 ───
@@ -10277,10 +10281,12 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   var TIMEOUT_MS = 10 * 60 * 1000; // 10분
 
   function _restoreSnap(){
+    // ─── 2026-09-10 KST · TJ 지시 ─── 구 단일 이미지 스냅샷 복원 폐기.
+    //   v68 상태(cb_codifit_state_v1)가 1st/2nd/3rd 를 한 번에 복원하므로, 이 경로가 3rd 이미지만
+    //   먼저 그려 놓으면 '이미지는 있는데 1st/2nd 는 빈' 반쪽 복원이 생긴다. 스냅샷은 지우고 종료.
+    try{ _cbKeep.removeItem(SNAP_KEY); }catch(_){}
+    return;
     try{
-      // ─── 2026-05-18 KST · TJ 지시 ─── v68 영속화 우선 ───
-      //   cb_codifit_state_v1(1st/2nd/3rd 흐름)이 있으면 구버전 단일
-      //   이미지 복원이 vto 캔버스를 덮어쓰지 않도록 스킵한다.
       if(_cbKeep.getItem('cb_codifit_state_v1')) return;
       var raw = _cbKeep.getItem(SNAP_KEY);
       if(!raw) return;
@@ -12184,7 +12190,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
             <span class="step-a-pulse p-br"></span><span class="step-a-pulse p-br d2"></span>
           </div>
           <div class="cbq2-cb">
-            <img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>
+            <img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/><div class="sm-loader-word">STYLE<b>MONSTER</b></div>
           </div>
           <div class="cbq2-pct" id="cbq2Pct">0%</div>
         </div>

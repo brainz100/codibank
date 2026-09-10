@@ -2288,15 +2288,18 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 })();</script>
 
 <style id="sm-loader-css">
-/* ─── 2026-09-10 KST · TJ 지시 ─── 스타일몬스터 컬러 심볼 순환 로더 ─── */
-.sm-loader-img{display:block;width:32%;max-width:150px;min-width:84px;height:auto;margin:0 auto;object-fit:contain;
-  filter:drop-shadow(0 6px 18px rgba(0,0,0,.45));user-select:none;-webkit-user-drag:none;pointer-events:none;
-  transition:opacity .12s ease;}
-/* 옛 레인보우 글자 컨테이너를 로더 컨테이너로 재사용 — 글자 스타일 무력화 */
-.cb-rainbow, .cb-rainbow-vto, .cb-rainbow-cs, .step-a-cb-rainbow, .sm-rainbow{ letter-spacing:0 !important; font-size:0 !important; filter:none !important; }
-/* 진행률 숫자 축소 */
-.vto-spin-pct, .step-a-overlay-pct, .spin-pct, .sm-pct #smPctNum{ font-size:32px !important; line-height:1 !important; }
-.vto-spin-pct .vto-spin-pct-sym, .spin-pct .spin-pct-sym, .sm-pct .sm-pct-unit{ font-size:14px !important; }
+/* ─── 2026-09-10 KST · TJ 지시 (2차) ─── 스타일몬스터 컬러 심볼 순환 로더 (투명 배경 · +30% · % 배면 · 워드마크) ─── */
+.sm-loader-img{display:block;position:relative;z-index:3;width:42%;max-width:195px;min-width:110px;height:auto;margin:0 auto;object-fit:contain;
+  filter:drop-shadow(0 8px 22px rgba(0,0,0,.5));user-select:none;-webkit-user-drag:none;pointer-events:none;transition:opacity .12s ease;}
+.sm-loader-word{position:relative;z-index:3;margin-top:6px;text-align:center;font-family:'Manrope','Inter',sans-serif;font-weight:800;font-size:13px;letter-spacing:.24em;color:#fff;opacity:.9;pointer-events:none;}
+.sm-loader-word b{color:#c084fc;font-weight:800;}
+/* 옛 레인보우 글자 컨테이너를 로더 컨테이너로 재사용 — 글자 스타일 무력화 + 세로 배치 */
+.cb-rainbow, .cb-rainbow-vto, .cb-rainbow-cs, .step-a-cb-rainbow, .sm-rainbow{ letter-spacing:0 !important; font-size:0 !important; filter:none !important; flex-direction:column !important; gap:0 !important; }
+/* 진행률 숫자: 심볼 '뒤'(배면 중앙) — 크고 흐리게, 심볼이 덮는다 */
+.vto-spin-pct, .step-a-overlay-pct, .spin-pct, .sm-pct{ position:absolute !important; left:50% !important; top:50% !important; transform:translate(-50%,-56%) !important;
+  z-index:1 !important; margin:0 !important; font-size:72px !important; line-height:1 !important; opacity:.22 !important; text-shadow:none !important; pointer-events:none; }
+.sm-pct #smPctNum{ font-size:72px !important; line-height:1 !important; }
+.vto-spin-pct .vto-spin-pct-sym, .spin-pct .spin-pct-sym, .sm-pct .sm-pct-unit{ font-size:26px !important; opacity:.9; }
 </style>
 <script>
 /* ─── 2026-09-10 KST · TJ 지시 ─── SM_LOADER: 보이는 .sm-loader-img 를 300ms 마다 다음 몬스터 심볼로 교체 */
@@ -2316,7 +2319,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
   function start(){ preload(); if(!timer) timer = setInterval(tick, 300); }
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') start(); });
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
-  window.SM_LOADER = { start: start, img: function(){ return '<img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>'; } };
+  window.SM_LOADER = { start: start, img: function(){ return '<img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/><div class="sm-loader-word">STYLE<b>MONSTER</b></div>'; } };
 })();
 </script>
 </head>
@@ -2887,7 +2890,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
         <div class="result-img-wrap" id="imgWrap">
           <div class="csty-result-img-box">
             <div class="img-spin">
-              <div class="cb-rainbow-cs"><img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/></div>
+              <div class="cb-rainbow-cs"><img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/><div class="sm-loader-word">STYLE<b>MONSTER</b></div></div>
               <p class="spin-txt" style="opacity:.3">아이템을 고르고 생성 버튼을 눌러주세요</p>
             </div>
           </div>
@@ -5368,7 +5371,7 @@ $('#finalGenerate').addEventListener('click', async () => {
     imgWrap.innerHTML = '<div class="csty-result-img-box csty-empty"><div class="img-spin">'
       + '<div class="spin-pct" id="imgSpinPct">0<span class="spin-pct-sym">%</span></div>'
       + '<div class="cb-rainbow-cs animating">'
-      + '<img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>'   // 2026-09-10 KST · TJ 지시 — codibank 글자 → 몬스터 심볼 로더
+      + '<img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/><div class="sm-loader-word">STYLE<b>MONSTER</b></div>'   // 2026-09-10 KST · TJ 지시 — codibank 글자 → 몬스터 심볼 로더
       + '</div>'
       + '<p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br>'
       + '<small>약 20~40초 소요</small></p>'
@@ -5513,7 +5516,7 @@ $('#finalGenerate').addEventListener('click', async () => {
     btn.innerHTML = originalHTML;
     // 이미지 뷰박스 복원
     if(imgWrap){
-      imgWrap.innerHTML = '<div class="csty-result-img-box csty-empty"><div class="img-spin"><div class="cb-rainbow-cs"><img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/></div><p class="spin-txt" style="opacity:.5;color:#ff6b6b;">생성 실패 — 다시 시도해 주세요</p></div></div>';
+      imgWrap.innerHTML = '<div class="csty-result-img-box csty-empty"><div class="img-spin"><div class="cb-rainbow-cs"><img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/><div class="sm-loader-word">STYLE<b>MONSTER</b></div></div><p class="spin-txt" style="opacity:.5;color:#ff6b6b;">생성 실패 — 다시 시도해 주세요</p></div></div>';
     }
     const sTxt2 = document.getElementById('sTxt');
     if(sTxt2) sTxt2.textContent = '생성 실패';
@@ -5811,7 +5814,7 @@ if(csBtnReset) csBtnReset.addEventListener('click', () => {
   // 이미지 뷰박스 기본 상태로 복원
   const imgWrap = document.getElementById('imgWrap');
   if(imgWrap){
-    imgWrap.innerHTML = '<div class="csty-result-img-box csty-empty"><div class="img-spin"><div class="cb-rainbow-cs"><img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/></div><p class="spin-txt" style="opacity:.3">아이템을 고르고 생성 버튼을 눌러주세요</p></div></div>';
+    imgWrap.innerHTML = '<div class="csty-result-img-box csty-empty"><div class="img-spin"><div class="cb-rainbow-cs"><img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/><div class="sm-loader-word">STYLE<b>MONSTER</b></div></div><p class="spin-txt" style="opacity:.3">아이템을 고르고 생성 버튼을 눌러주세요</p></div></div>';
   }
   // 저장/공유/리셋/리포트 비활성화 — ─── 2026-05-09 KST · TJ 지시 (v54) ─── CSS 분기 사용
   ['csBtn_save','csBtn_share','csBtn_reset'].forEach(id => {
@@ -5969,6 +5972,35 @@ if(!_restored){
 }
 // ─── 2026-07-01 KST · TJ 지시 ─── 생성 결과 이미지뷰박스 복원 (다른 페이지 다녀와도 유지)
 try{ setTimeout(_tryonRestoreResult, 250); }catch(_){}
+// ─── 2026-09-10 KST · TJ 지시 ─── 10분 유휴 통합 리셋 (아이템·핏·결과 전부) + 결과 복원 재시도
+(function(){
+  var IDLE_MS = 10*60*1000, KEY = 'tryon_last_active';
+  function touch(){ try{ _cbKeep.setItem(KEY, String(Date.now())); }catch(_){} }
+  function last(){ try{ return parseInt(_cbKeep.getItem(KEY)||'0',10)||0; }catch(_){ return 0; } }
+  function expired(){ var l = last(); return l > 0 && (Date.now() - l) > IDLE_MS; }
+  function hardReset(){
+    try{ _cbKeep.removeItem(TRYON_STATE_KEY); _cbKeep.removeItem(TRYON_RESULT_KEY); }catch(_){}
+    try{ sessionStorage.removeItem('tryon_pick_result'); }catch(_){}
+    try{ var b = document.getElementById('csBtn_reset'); if(b){ var was = b.disabled; b.disabled = false; b.click(); b.disabled = was; } }catch(_){}
+    try{ _cbKeep.removeItem(TRYON_STATE_KEY); _cbKeep.removeItem(TRYON_RESULT_KEY); }catch(_){}
+    touch();
+    console.log('[TryOn] 10분 이상 미사용 → 선택·결과 전부 리셋');
+  }
+  function restoreResultRetry(){
+    try{ if(typeof _tryonRestoreResult === 'function') _tryonRestoreResult(); }catch(_){}
+    setTimeout(function(){ try{ if(!document.querySelector('#imgWrap #tryonResultBox') && typeof _tryonRestoreResult === 'function') _tryonRestoreResult(); }catch(_){} }, 1200);
+  }
+  ['click','touchstart','keydown'].forEach(function(ev){ document.addEventListener(ev, touch, {passive:true}); });
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'hidden'){ touch(); try{ if(typeof saveTryonState==='function') saveTryonState(); }catch(_){} }
+    else if(document.visibilityState === 'visible'){ if(expired()) hardReset(); else restoreResultRetry(); }
+  });
+  window.addEventListener('pagehide', touch);
+  window.addEventListener('pageshow', function(e){ if(expired()) hardReset(); else if(e && e.persisted) restoreResultRetry(); });
+  // 최초 로드: 만료면 복원 전에 리셋
+  if(expired()){ setTimeout(hardReset, 50); } else { if(!last()) touch(); setTimeout(restoreResultRetry, 1200); }
+})();
+
 updateFinalSummary();
 // ─── 2026-05-09 KST · TJ 지시 ─── 트라이온 잔여 횟수 배지 초기 표시
 try{ updateTryonQuotaBadge(); }catch(_){}
