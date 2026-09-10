@@ -279,6 +279,18 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
   }
   window.addEventListener('load', _cbSyncRunwayFlag);           // 최종 보정
 })();</script>
+
+<style id="sm-album-0910">
+/* ─── 2026-09-10 KST · TJ 지시 ─── 출처 필터 칩 + 카드 출처 태그 ─── */
+.src-chip{flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:999px;border:1px solid rgba(151,254,237,.18);background:rgba(255,255,255,.05);color:rgba(216,226,255,.6);font-size:11.5px;font-weight:700;font-family:'Outfit','Noto Sans KR',sans-serif;cursor:pointer;}
+.src-chip .src-n{font-weight:800;color:rgba(151,254,237,.7);}
+.src-chip.on{background:#4A5570;border-color:#8C99B8;color:#fff;}
+.src-chip.on .src-n{color:#fff;}
+.src-tag{position:absolute;left:8px;bottom:8px;z-index:14;font-size:9.5px;font-weight:800;letter-spacing:.04em;padding:3px 7px;border-radius:999px;color:#fff;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);pointer-events:none;}
+.src-tag.src-codifit{background:rgba(11,102,106,.85);}
+.src-tag.src-tryon{background:rgba(180,26,106,.85);}
+.src-tag.src-aicloset{background:rgba(106,31,180,.85);}
+</style>
 </head>
 <body>
 
@@ -288,6 +300,13 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
   <div style="display:flex;align-items:center;gap:6px;margin-top:6px;padding:8px 12px;background:rgba(11,102,106,0.2);border:1px solid rgba(151,254,237,0.2);border-radius:10px;">
     <span style="font-size:16px;flex-shrink:0;">❤️</span>
     <p id="albumHint" style="font-size:11.5px;color:rgba(162,253,240,0.75);font-weight:600;line-height:1.5;"><b style="color:#97FEED;">길게 누르면</b> 마음에 드는 스타일링을 찜할 수 있어요<br/><span style="font-size:10.5px;color:rgba(216,226,255,.45);font-weight:500;">찜하지 않은 코디는 <b style="color:rgba(255,179,193,.85);">7일 후 자동 삭제</b>돼요</span></p>
+  </div>
+  <!-- ─── 2026-09-10 KST · TJ 지시 ─── 출처 필터: 코디핏 / 트라이온 / 옷장코디 ─── -->
+  <div id="srcChips" style="display:flex;gap:6px;margin-top:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;">
+    <button type="button" class="src-chip on" data-src="all" onclick="setSrcFilter('all')"><span data-i18n="전체">전체</span> <b class="src-n">0</b></button>
+    <button type="button" class="src-chip" data-src="codifit" onclick="setSrcFilter('codifit')"><span data-i18n="코디핏">코디핏</span> <b class="src-n">0</b></button>
+    <button type="button" class="src-chip" data-src="tryon" onclick="setSrcFilter('tryon')"><span data-i18n="트라이온">트라이온</span> <b class="src-n">0</b></button>
+    <button type="button" class="src-chip" data-src="aicloset" onclick="setSrcFilter('aicloset')"><span data-i18n="옷장코디">옷장코디</span> <b class="src-n">0</b></button>
   </div>
   <div class="sort-wrap">
     <select id="sortSel" class="sort-sel" onchange="applySort(this.value)" aria-label="정렬">
@@ -481,6 +500,7 @@ function mkCard(entry) {
         <span class="material-symbols-outlined" style="font-size:32px;color:rgba(216,226,255,.1);">style</span>
       </div>
       <img id="img_${entry.id}" class="acard-img" src="" alt="" style="opacity:0;"/>
+      <div class="src-tag src-${_srcOf(entry)}">${(_SRC_LABEL[_srcOf(entry)]||['',''])[(window.CodiBankI18n&&CodiBankI18n.isEn())?1:0]}</div>
       <!-- 찜 상태 오버레이 (길게 누를 때 표시) -->
       <div class="like-overlay" id="lov_${entry.id}" style="display:none;">
         <span class="like-ov-emoji">${isLiked?'❤️':'🤍'}</span>
@@ -604,31 +624,43 @@ async function render() {
     return;
   }
   const sortVal = (document.getElementById('sortSel') || {}).value || 'date';
-  const sorted = sortEntries(_entries, sortVal);
+  // ─── 2026-09-10 KST · TJ 지시 ─── 출처(코디핏/트라이온/옷장코디) 필터
+  const _filtered = (_srcFilter === 'all') ? _entries : _entries.filter(e => _srcOf(e) === _srcFilter);
+  try{ const _en = window.CodiBankI18n && CodiBankI18n.isEn(); const cnt = {codifit:0,tryon:0,aicloset:0}; _entries.forEach(e => { cnt[_srcOf(e)]++; });
+       document.querySelectorAll('#srcChips .src-chip').forEach(b => { const k=b.dataset.src; const n = (k==='all') ? _entries.length : cnt[k]; b.querySelector('.src-n').textContent = n; }); }catch(_){}
+  const sorted = sortEntries(_filtered, sortVal);
   const grid = document.getElementById('grid');
   grid.style.display = 'grid';
   grid.innerHTML = '';
+  if(!sorted.length){ grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px 0;color:rgba(216,226,255,.4);font-size:13px;">' + ((window.CodiBankI18n&&CodiBankI18n.isEn()) ? 'No saved outfits in this category yet' : '이 출처로 저장된 코디가 아직 없어요') + '</div>'; return; }
   sorted.forEach(e => grid.appendChild(mkCard(e)));
 }
 
 // 정렬 함수
+// ─── 2026-09-10 KST · TJ 지시 ─── createdAt 이 ISO 문자열이라 (b-a) 뺄셈이 NaN → 정렬이 사실상 무작위였던 버그 교정
+function _ts(e){ const v = e && e.createdAt; if(!v) return 0; if(typeof v === 'number') return v; const t = Date.parse(v); return isNaN(t) ? 0 : t; }
+// 출처 구분: 코디핏 / 트라이온 / 옷장코디 (구버전 엔트리는 source 없음 → 코디핏)
+function _srcOf(e){ const s = String((e && e.source) || '').toLowerCase(); if(s.startsWith('aicloset')) return 'aicloset'; if(s.startsWith('tryon')) return 'tryon'; return 'codifit'; }
+const _SRC_LABEL = { codifit:['코디핏','Codi Fit'], tryon:['트라이온','Try-On'], aicloset:['옷장코디','Closet Outfit'] };
+let _srcFilter = 'all';
+function setSrcFilter(v){ _srcFilter = v || 'all'; document.querySelectorAll('#srcChips .src-chip').forEach(b => b.classList.toggle('on', b.dataset.src === _srcFilter)); render(); }
 function sortEntries(arr, mode) {
   const copy = [...arr];
   if (mode === 'liked') {
     // 좋아요한 것 먼저, 그 다음 날짜순
     copy.sort((a, b) => {
       if (!!b.liked !== !!a.liked) return b.liked ? 1 : -1;
-      return (b.createdAt || 0) - (a.createdAt || 0);
+      return _ts(b) - _ts(a);
     });
   } else if (mode === 'purpose') {
     // 코디목적 가나다순
     copy.sort((a, b) => {
       const pa = (a.purposeLabel || '').localeCompare(b.purposeLabel || '', 'ko');
-      return pa !== 0 ? pa : (b.createdAt || 0) - (a.createdAt || 0);
+      return pa !== 0 ? pa : _ts(b) - _ts(a);
     });
   } else {
     // 저장일자 최신순 (기본)
-    copy.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    copy.sort((a, b) => _ts(b) - _ts(a));
   }
   return copy;
 }
@@ -636,7 +668,7 @@ function sortEntries(arr, mode) {
 // 정렬 변경 시 호출
 function applySort(val) {
   if (!_entries || !_entries.length) return;
-  const sorted = sortEntries(_entries, val);
+  const sorted = sortEntries((_srcFilter === 'all') ? _entries : _entries.filter(e => _srcOf(e) === _srcFilter), val);
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
   sorted.forEach(e => grid.appendChild(mkCard(e)));

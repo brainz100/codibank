@@ -7813,9 +7813,24 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
   }
 
   function _resetSavedBtn(){ const b = $('smSaveAlbumBtn'); if(b){ b.disabled = false; b.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">bookmark_add</span><span>' + _T('코디앨범 저장','Save to album') + '</span>'; } }
+  // ─── 2026-09-10 KST · TJ 지시 ─── 결과 10분 보존: 앱 전환 후 복귀(페이지 재로드)해도 뷰박스 유지
+  const _KEEP_KEY = () => 'cb_sm_last_' + _email();
+  function _keepResult(res){ try{ localStorage.setItem(_KEEP_KEY(), JSON.stringify({ ts: Date.now(), res: Object.assign({}, res, { image: String(res.image||'').startsWith('data:') ? '' : res.image }) })); }catch(_){} }
+  function _restoreResult(){
+    try{
+      const raw = localStorage.getItem(_KEEP_KEY()); if(!raw) return false;
+      const k = JSON.parse(raw);
+      if(!k || !k.res || !k.res.image) return false;
+      if(Date.now() - (k.ts||0) > 10*60*1000){ localStorage.removeItem(_KEEP_KEY()); return false; }
+      if(k.res.purposeLabel){ const p = PURPOSES.find(x => (x.key==='custom' ? true : `${x.ko}(${x.sub})` === k.res.purposeLabel)); if(p && p.key!=='custom') setPurpose(p.key); }
+      showResult(Object.assign({}, k.res, { _restored:true }));
+      return true;
+    }catch(_){ return false; }
+  }
   function showResult(res){
     _resetSavedBtn();
     ST.last = res;
+    if(!res._restored) _keepResult(res);
     try{ $('smResultWrap').classList.remove('sm-no-result'); }catch(_){}
     showImage(res.image);
     // ─── 2026-09-09 KST · TJ 지시 ─── 옷장코디 결과는 코디앨범(마이앨범)에 자동 저장 · 알림 결과는 알람 id 당 1회
@@ -8149,6 +8164,8 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     document.addEventListener('click', e => { if(e.target && e.target.closest && e.target.closest('#dateCardScroll')) setTimeout(refreshButtons, 60); });
     refreshButtons();
     loadAlarms();
+    // 2026-09-10 KST · TJ 지시 — 10분 내 복귀면 마지막 결과 복원 (딥링크가 없을 때만)
+    try{ if(!new URLSearchParams(location.search).get('alarm')) setTimeout(_restoreResult, 300); }catch(_){}
     // 딥링크: 알림 클릭 → aicloset.html?alarm=<id>
     try{ const id = new URLSearchParams(location.search).get('alarm'); if(id) setTimeout(() => openAlarmResult(id), 400); }catch(_){}
     // 알림 클릭으로 열린 SW 메시지

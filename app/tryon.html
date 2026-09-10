@@ -3080,6 +3080,17 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 
 <!-- [2026-04-22 14:15 TJ 지시3] CodiBank SDK 로드 — 회원 얼굴 사진 / 인증 사용
      순서: config.js → codibank.js (closet.html·codistyle.html과 동일 패턴) -->
+<script>
+/* ─── 2026-09-10 KST · TJ 지시 ─── 상태 보존 저장소 (_cbKeep)
+   sessionStorage 는 앱 전환 중 OS 가 브라우저 탭/PWA 프로세스를 정리하면 통째로 사라져
+   몇 초 만에 돌아와도 페이지가 리셋되던 원인. sessionStorage + localStorage 이중 기록,
+   읽을 땐 session → local 순. 리셋 버튼은 removeItem 으로 양쪽 모두 삭제. TTL 은 각 복원 로직(10분)에서 판정. */
+window._cbKeep = {
+  getItem: function(k){ try{ var v = sessionStorage.getItem(k); if(v != null) return v; }catch(_){} try{ return localStorage.getItem('cbkeep_'+k); }catch(_){ return null; } },
+  setItem: function(k,v){ try{ sessionStorage.setItem(k,v); }catch(_){} try{ localStorage.setItem('cbkeep_'+k, v); }catch(e){ try{ localStorage.removeItem('cbkeep_'+k); }catch(_){} } },
+  removeItem: function(k){ try{ sessionStorage.removeItem(k); }catch(_){} try{ localStorage.removeItem('cbkeep_'+k); }catch(_){} }
+};
+</script>
 <script src="config.js"></script>
 <script src="codibank.js"></script>
 <!-- ─── 2026-05-09 KST · TJ 지시 (v50) ─── i18n.js 로드 추가 (페이지 누락이 영어모드 미작동 원인) -->
@@ -3771,12 +3782,14 @@ const TRYON_STATE_KEY = 'tryon_state_v1';
 const TRYON_RESULT_KEY = 'tryon_result_v1';
 function _tryonRestoreResult(){
   try{
-    var raw = sessionStorage.getItem(TRYON_RESULT_KEY);
+    var raw = _cbKeep.getItem(TRYON_RESULT_KEY);
     if(!raw) return false;
     var iw = document.getElementById('imgWrap');
     // 이미 결과가 렌더돼 있으면(bfcache 복귀 등) 재렌더 불필요
     if(iw && iw.querySelector('#tryonResultBox')) return true;
     var data = JSON.parse(raw);
+    // ─── 2026-09-10 KST · TJ 지시 ─── 10분 이상 미사용 → 리셋 (그 안에 돌아오면 그대로 복원)
+    if(data && data._ts && (Date.now() - data._ts) > 10*60*1000){ _cbKeep.removeItem(TRYON_RESULT_KEY); return false; }
     if(typeof _tryonApplyResult !== 'function') return false;
     window._tryonRestoring = true;
     try{ _tryonApplyResult(data, true); }catch(e){ console.warn('[TryOn] 결과 복원 실패:', e); }
@@ -3810,13 +3823,13 @@ function saveTryonState(){
         };
       }
     });
-    sessionStorage.setItem(TRYON_STATE_KEY, JSON.stringify(snap));
+    _cbKeep.setItem(TRYON_STATE_KEY, JSON.stringify(snap));
   } catch(e){ console.warn('saveTryonState failed:', e); }
 }
 
 function loadTryonState(){
   try {
-    const raw = sessionStorage.getItem(TRYON_STATE_KEY);
+    const raw = _cbKeep.getItem(TRYON_STATE_KEY);
     if(!raw) return false;
     const snap = JSON.parse(raw);
     // 모드 복원 (setMode 호출하되 슬롯 리셋 방지를 위해 skipReset=true)
@@ -4696,10 +4709,12 @@ function _tryonApplyResult(data){
       // ─── 2026-07-01 KST · TJ 지시 ─── 결과를 세션에 저장 (페이지 복귀 시 복원용)
       //   base64(data.image)는 용량 커서 url/path 있으면 제외하고 저장.
       if(!window._tryonRestoring){
+        window._tryonFreshResult = true; setTimeout(function(){ window._tryonFreshResult = false; }, 8000);   // 2026-09-10 KST · TJ 지시
         try{
           var _rsave = data;
           if(data && data.image && (data.url || data.path)){ _rsave = Object.assign({}, data); delete _rsave.image; }
-          sessionStorage.setItem(TRYON_RESULT_KEY, JSON.stringify(_rsave));
+          _rsave = Object.assign({}, _rsave, { _ts: Date.now() });   // 2026-09-10 KST · TJ 지시 — 10분 TTL
+          _cbKeep.setItem(TRYON_RESULT_KEY, JSON.stringify(_rsave));
         }catch(_){}
       }
       // ─────────────────────────────────────────────────────
@@ -5168,7 +5183,7 @@ function _tryonApplyResult(data){
   
   function _doSaveTryonAlbum(email, ref){
     if(!ref) return;
-    if(window._tryonRestoring) return;  // [2026-07-01] 결과 복원 재렌더 시 앨범/런웨이후보 중복저장 방지
+    if(window._tryonRestoring && !window._tryonFreshResult) return;  // [2026-07-01] 복원 재렌더 시 중복저장 방지 · 2026-09-10: 새 생성(_tryonFreshResult)은 예외
     try{
       // ─── 2026-05-09 KST · TJ 지시 (v40) ─── 영어 사용자 라벨 분기
       var _enAlb = window.CodiBankI18n && CodiBankI18n.isEn();
@@ -5746,7 +5761,7 @@ if(csBtnReset) csBtnReset.addEventListener('click', () => {
   
   // ─── 영속화 상태 정리 ───
   try {
-    sessionStorage.removeItem(TRYON_STATE_KEY);
+    _cbKeep.removeItem(TRYON_STATE_KEY);
   } catch(_){}
   
   // ─── stepDone 모두 초기화 ───

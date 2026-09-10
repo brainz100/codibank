@@ -648,7 +648,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
   <!-- 2026-07-02 KST · TJ 지시 -- 보고서 에디토리얼 디자인용 Pretendard -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"/>
-  <script src="config.js"></script>
+  <script>
+/* ─── 2026-09-10 KST · TJ 지시 ─── 상태 보존 저장소 (_cbKeep)
+   sessionStorage 는 앱 전환 중 OS 가 브라우저 탭/PWA 프로세스를 정리하면 통째로 사라져
+   몇 초 만에 돌아와도 페이지가 리셋되던 원인. sessionStorage + localStorage 이중 기록,
+   읽을 땐 session → local 순. 리셋 버튼은 removeItem 으로 양쪽 모두 삭제. TTL 은 각 복원 로직(10분)에서 판정. */
+window._cbKeep = {
+  getItem: function(k){ try{ var v = sessionStorage.getItem(k); if(v != null) return v; }catch(_){} try{ return localStorage.getItem('cbkeep_'+k); }catch(_){ return null; } },
+  setItem: function(k,v){ try{ sessionStorage.setItem(k,v); }catch(_){} try{ localStorage.setItem('cbkeep_'+k, v); }catch(e){ try{ localStorage.removeItem('cbkeep_'+k); }catch(_){} } },
+  removeItem: function(k){ try{ sessionStorage.removeItem(k); }catch(_){} try{ localStorage.removeItem('cbkeep_'+k); }catch(_){} }
+};
+</script>
+<script src="config.js"></script>
   <script src="codibank.js"></script>
 <script src="i18n.js"></script>
 <script>
@@ -4255,7 +4266,7 @@ function resetStylingBox(msg){
     }
   }catch(_){ }
 
-  try{ sessionStorage.removeItem('cb_closet_snap'); }catch(_){}
+  try{ _cbKeep.removeItem('cb_closet_snap'); }catch(_){}
 }
 
 // (v18.3 hotfix)
@@ -4317,7 +4328,7 @@ function resetAll(){
     var _exp=document.getElementById('codiExplain');if(_exp)_exp.textContent=_L('목적을 선택하면 AI가 날씨에 맞는 코디를 추천해요.');
   }catch(_){}
   // ─── 세션/페르소나 캐시 정리 ───
-  try{ sessionStorage.removeItem('cb_closet_snap'); }catch(_){}
+  try{ _cbKeep.removeItem('cb_closet_snap'); }catch(_){}
   // ─── 2026-05-18 KST · TJ 지시 ─── 리셋 버튼 → 코디핏 진행상태 폐기 ───
   try{ if(typeof _codifitClearState === 'function') _codifitClearState(); }catch(_){}
   try{
@@ -4430,7 +4441,7 @@ function localPalette(pk,temp,seed){
 // ※ 이미지는 전부 R2 URL → 직렬화 용량 작음(데이터 URL 아님).
 // ════════════════════════════════════════════════════════════════════════
 const _CODIFIT_STATE_KEY = 'cb_codifit_state_v1';
-const _CODIFIT_IDLE_MS   = 30 * 60 * 1000;   // 30분 무활동 → 폐기
+const _CODIFIT_IDLE_MS   = 10 * 60 * 1000;   // 2026-09-10 KST · TJ 지시 — 10분 무활동 → 폐기 (그 안에 돌아오면 유지)
 
 // 마지막 활동 시각 — 생성·선택·터치 등 사용자 활동마다 갱신.
 let _codifitLastActive = Date.now();
@@ -4439,17 +4450,17 @@ function _codifitTouch(){
   _codifitLastActive = Date.now();
   // 저장본이 있으면 lastActive 만 즉시 갱신(가벼운 쓰기).
   try{
-    const raw = sessionStorage.getItem(_CODIFIT_STATE_KEY);
+    const raw = _cbKeep.getItem(_CODIFIT_STATE_KEY);
     if(raw){
       const o = JSON.parse(raw);
       o.lastActive = _codifitLastActive;
-      sessionStorage.setItem(_CODIFIT_STATE_KEY, JSON.stringify(o));
+      _cbKeep.setItem(_CODIFIT_STATE_KEY, JSON.stringify(o));
     }
   }catch(_){}
 }
 
 function _codifitClearState(){
-  try{ sessionStorage.removeItem(_CODIFIT_STATE_KEY); }catch(_){}
+  try{ _cbKeep.removeItem(_CODIFIT_STATE_KEY); }catch(_){}
 }
 
 // ─── 2026-05-18 KST · TJ 지시 ─── 날짜/목적 변경 워닝 팝업 ───
@@ -7472,7 +7483,7 @@ async function updateVTO(opts={}){
         stylistBadge: _getHTML('stylistBadge'),
         stylistSummaryHtml: _getHTML('stylistSummaryBox'),
       };
-      sessionStorage.setItem('cb_closet_snap', JSON.stringify(_snap));
+      _cbKeep.setItem('cb_closet_snap', JSON.stringify(_snap));
     }
   }catch(_e){}
 
@@ -8049,7 +8060,7 @@ function setPurpose(k){
   S.hasGenerated = false;
   resetVtoState('empty', '');
   // [2026-04-26 v15 TJ-2] 목적 변경 시 sessionStorage 삭제 (명시적 리셋)
-  try{ sessionStorage.removeItem('cb_closet_snap'); }catch(_){}
+  try{ _cbKeep.removeItem('cb_closet_snap'); }catch(_){}
   // [2026-04-11] 새 요청 시 이전 분석/스타일리스트 리셋
   try{
     var _ssb=document.getElementById('stylistSummaryBox');if(_ssb)_ssb.classList.add('hidden');
@@ -8189,7 +8200,7 @@ function resetRecommendation(){
   // [2026-04-26 v15 TJ-2] 명시적 리셋 시 sessionStorage 삭제
   // 호출처: 사용자 명시적 리셋 / 날짜 변경 (selectTodayStage1, setTomorrowDate)
   // 다음 페이지 로드 시 자동 복원되지 않음
-  try{ sessionStorage.removeItem('cb_closet_snap'); }catch(_){}
+  try{ _cbKeep.removeItem('cb_closet_snap'); }catch(_){}
 }
 
 function selectTodayStage1(){
@@ -9548,7 +9559,7 @@ purposeCustomInputEl?.addEventListener('input', (e)=>{
   _S.seed = 0;
   _S.hasGenerated = false;
   try{ resetVtoState('empty',''); }catch(_){}
-  try{ sessionStorage.removeItem('cb_closet_snap'); }catch(_){}
+  try{ _cbKeep.removeItem('cb_closet_snap'); }catch(_){}
 });
 
 // (요청) 오늘의 코디는 비활성화(0단계)로 시작
@@ -9572,7 +9583,7 @@ setTimeout(function(){
   try{
     if(typeof _restoreSnap === 'function'){
       var raw = null;
-      try{ raw = sessionStorage.getItem('cb_closet_snap'); }catch(_){}
+      try{ raw = _cbKeep.getItem('cb_closet_snap'); }catch(_){}
       if(raw){ _restoreSnap(); }
     }
   }catch(_){}
@@ -10237,18 +10248,18 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       // ─── 2026-05-18 KST · TJ 지시 ─── v68 영속화 우선 ───
       //   cb_codifit_state_v1(1st/2nd/3rd 흐름)이 있으면 구버전 단일
       //   이미지 복원이 vto 캔버스를 덮어쓰지 않도록 스킵한다.
-      if(sessionStorage.getItem('cb_codifit_state_v1')) return;
-      var raw = sessionStorage.getItem(SNAP_KEY);
+      if(_cbKeep.getItem('cb_codifit_state_v1')) return;
+      var raw = _cbKeep.getItem(SNAP_KEY);
       if(!raw) return;
       var snap = JSON.parse(raw);
       if(!snap || !snap.dataUrl) return;
       if(Date.now() - (snap.ts||0) > TIMEOUT_MS){
-        sessionStorage.removeItem(SNAP_KEY); return;
+        _cbKeep.removeItem(SNAP_KEY); return;
       }
       // [v15 TJ-2] 다른 사용자 로그인 시 복원 차단
       var _curEmail = (window.user && user.email) || '';
       if(_curEmail && snap.userEmail && _curEmail !== snap.userEmail){
-        sessionStorage.removeItem(SNAP_KEY); return;
+        _cbKeep.removeItem(SNAP_KEY); return;
       }
       
       var canvas  = document.getElementById('vtoCanvas');
@@ -10482,7 +10493,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           }
         });
       };
-      img.onerror = function(){ sessionStorage.removeItem(SNAP_KEY); };
+      img.onerror = function(){ _cbKeep.removeItem(SNAP_KEY); };
       img.src = snap.dataUrl;
     }catch(_e){ console.warn('[closet restore]', _e); }
   }
@@ -10782,7 +10793,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
           stylistBadge:_domHTML('stylistBadge'),
         },
       };
-      sessionStorage.setItem(_CODIFIT_STATE_KEY, JSON.stringify(data));
+      _cbKeep.setItem(_CODIFIT_STATE_KEY, JSON.stringify(data));
       _codifitLastActive = data.lastActive;
     }catch(e){ console.warn('[codifit] state 저장 실패', e); }
   }
@@ -10891,7 +10902,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   // 페이지 로드 시 호출 — 저장된 진행상태를 복원
   async function _codifitRestoreState(){
     let raw = null;
-    try{ raw = sessionStorage.getItem(_CODIFIT_STATE_KEY); }catch(_){ return false; }
+    try{ raw = _cbKeep.getItem(_CODIFIT_STATE_KEY); }catch(_){ return false; }
     if(!raw) return false;
 
     let data;
@@ -12032,6 +12043,29 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       }
     };
   }
+  // ─── 2026-09-10 KST · TJ 지시 ─── 3rd(크게보기) 결과 → 코디앨범 자동 저장
+  //   배경: 앨범 저장 로직이 STEP B(2026-06-19 삭제)에만 있어 현재 흐름(4장→고화질)에서는 아무것도 저장되지 않았음.
+  //   동작: _bindStepCPoseToggle() 끝에서 호출 → stepCResult.image + 선택 카드 메타로 1회 저장 (동일 ref 중복 방지).
+  function _codifitSaveStepCToAlbum(){
+    try{
+      if(!(window.CodiBank && CodiBank.addAiAlbumEntry)) return;
+      if(!user || !user.email) return;
+      const res = flow.stepCResult; if(!res || !res.image) return;
+      const base = (flow.stepACards||[])[flow.stepASelected] || (flow.stepBCards||[]).find(x=>x&&x.imageUrl) || {};
+      const built = _codifitAlbumEntryFromCard(Object.assign({}, base, { imageUrl: res.image }));
+      if(!built.ref) return;
+      if(flow._stepCSavedRef === built.ref) return;
+      const _norm = (u) => String(u||'').replace(/^https?:\/\/[^/]+/, '');
+      let existNorm = [];
+      try{ existNorm = (CodiBank.getAiAlbumEntries(user.email)||[]).map(x => _norm(x && x.imageRef)); }catch(_){}
+      if(existNorm.includes(_norm(built.ref))){ flow._stepCSavedRef = built.ref; return; }
+      built.entry.source = 'codifit_stepC';
+      built.entry.stylistCity = built.entry.stylistCity || _L('고화질');
+      CodiBank.addAiAlbumEntry(user.email, built.entry);
+      flow._stepCSavedRef = built.ref;
+      console.log('[코디핏] 3rd 고화질 결과 코디앨범 자동 저장');
+    }catch(e){ console.warn('[코디핏] stepC 앨범 저장 실패', e); }
+  }
   function _codifitSaveStepBToAlbum(){
     try{
       if(!(window.CodiBank && CodiBank.addAiAlbumEntry)) return;
@@ -12696,6 +12730,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     });
     // 초기 active = 정면
     btns.forEach(x => x.classList.toggle('active', (x.dataset.pose === 'front')));
+    try{ _codifitSaveStepCToAlbum(); }catch(_){}   // 2026-09-10 KST · TJ 지시 — 3rd 결과 코디앨범 자동 저장
 
     // ─── 2026-09-08 KST · TJ 지시 ─── 이미지박스 좌우 스와이프 → 정/후면 전환 ───
     //  배경: 정/후면 전환이 토글 버튼 클릭으로만 가능 → 박스 위에서 좌우로
@@ -13064,7 +13099,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
     //   비어있는데 저장 데이터가 있으면 재시도.
     setTimeout(function(){
       try{
-        const raw = sessionStorage.getItem(_CODIFIT_STATE_KEY);
+        const raw = _cbKeep.getItem(_CODIFIT_STATE_KEY);
         const has1st = document.querySelector('#stepACards .step-a-card, #stepACards [class*="step-a"]');
         if(raw && !has1st){
           console.log('[codifit] retry: 1st 비어있고 저장 데이터 존재 → 재복원');
@@ -13113,7 +13148,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
   window.addEventListener('focus', function(){
     try{
       if(Date.now() - _codifitLastActive > _CODIFIT_IDLE_MS) return;
-      const raw = sessionStorage.getItem(_CODIFIT_STATE_KEY);
+      const raw = _cbKeep.getItem(_CODIFIT_STATE_KEY);
       if(!raw) return;
       const has1st = document.querySelector('#stepACards .step-a-card, #stepACards [class*="step-a"]');
       if(!has1st){
