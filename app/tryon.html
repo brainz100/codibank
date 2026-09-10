@@ -2288,18 +2288,31 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 })();</script>
 
 <style id="sm-loader-css">
-/* ─── 2026-09-10 KST · TJ 지시 (2차) ─── 스타일몬스터 컬러 심볼 순환 로더 (투명 배경 · +30% · % 배면 · 워드마크) ─── */
-.sm-loader-img{display:block;position:relative;z-index:3;width:42%;max-width:195px;min-width:110px;height:auto;margin:0 auto;object-fit:contain;
-  filter:drop-shadow(0 8px 22px rgba(0,0,0,.5));user-select:none;-webkit-user-drag:none;pointer-events:none;transition:opacity .12s ease;}
-.sm-loader-word{position:relative;z-index:3;margin-top:6px;text-align:center;font-family:'Manrope','Inter',sans-serif;font-weight:800;font-size:13px;letter-spacing:.24em;color:#fff;opacity:.9;pointer-events:none;}
-.sm-loader-word b{color:#c084fc;font-weight:800;}
-/* 옛 레인보우 글자 컨테이너를 로더 컨테이너로 재사용 — 글자 스타일 무력화 + 세로 배치 */
+/* ─── 2026-09-11 KST · TJ 지시 (3차) ─── 3개 페이지 로딩 뷰박스 통일
+   ① 심볼 +20% (42%→50%, max 235px) ② 워드마크 Noto Sans KR Bold ③ 워드마크를 심볼 바로 아래(여백 2px)
+   ④ 뷰박스 안 다른 텍스트 숨김 (워드마크·% 만) ⑤ % = 최하위 레이어, 심볼보다 30% 큼 ⑥ 테두리·배경·효과 동일 */
+.sm-loader-img{display:block;position:relative;z-index:3;width:50%;max-width:235px;min-width:130px;height:auto;margin:0 auto;object-fit:contain;
+  filter:drop-shadow(0 10px 26px rgba(0,0,0,.55));user-select:none;-webkit-user-drag:none;pointer-events:none;transition:opacity .12s ease;}
+.sm-loader-word{position:relative;z-index:3;margin-top:2px;text-align:center;font-family:'Noto Sans KR','Noto Sans CJK KR',sans-serif;font-weight:700;font-size:15px;letter-spacing:.22em;color:#fff;opacity:.92;pointer-events:none;line-height:1.2;}
+.sm-loader-word b{color:#c084fc;font-weight:700;}
+/* 옛 레인보우 글자 컨테이너 → 로더 컨테이너 (세로 배치) */
 .cb-rainbow, .cb-rainbow-vto, .cb-rainbow-cs, .step-a-cb-rainbow, .sm-rainbow{ letter-spacing:0 !important; font-size:0 !important; filter:none !important; flex-direction:column !important; gap:0 !important; }
-/* 진행률 숫자: 심볼 '뒤'(배면 중앙) — 크고 흐리게, 심볼이 덮는다 */
-.vto-spin-pct, .step-a-overlay-pct, .spin-pct, .sm-pct{ position:absolute !important; left:50% !important; top:50% !important; transform:translate(-50%,-56%) !important;
-  z-index:1 !important; margin:0 !important; font-size:72px !important; line-height:1 !important; opacity:.22 !important; text-shadow:none !important; pointer-events:none; }
-.sm-pct #smPctNum{ font-size:72px !important; line-height:1 !important; }
-.vto-spin-pct .vto-spin-pct-sym, .spin-pct .spin-pct-sym, .sm-pct .sm-pct-unit{ font-size:26px !important; opacity:.9; }
+/* ⑤ 진행률 %: 최하위 레이어(중앙 배면), 심볼(50%)보다 30% 큰 폭 → 글자 크기 = 뷰박스 폭의 약 28% */
+.vto-spin-pct, .step-a-overlay-pct, .spin-pct, .sm-pct{ position:absolute !important; left:50% !important; top:50% !important; transform:translate(-50%,-52%) !important;
+  z-index:0 !important; margin:0 !important; font-family:'Manrope','Inter',sans-serif !important; font-weight:800 !important; font-size:min(28vw,150px) !important; line-height:1 !important;
+  opacity:.20 !important; color:#97FEED !important; text-shadow:none !important; pointer-events:none; letter-spacing:-.03em; white-space:nowrap; }
+.sm-pct #smPctNum{ font-size:min(28vw,150px) !important; line-height:1 !important; }
+.vto-spin-pct .vto-spin-pct-sym, .spin-pct .spin-pct-sym, .sm-pct .sm-pct-unit{ font-size:.42em !important; opacity:.9; }
+/* ④ 로딩 뷰박스 안 부가 텍스트 숨김 */
+.vto-img-spin .vto-step, .step-a-overlay-text .step-a-overlay-label, .img-spin .spin-txt, .img-spin .spin-sub, .sm-img-spin .sm-spin-txt, .sm-img-spin .sm-spin-sub{ display:none !important; }
+/* ⑥ 뷰박스(로딩 컨테이너) 테두리·배경·효과 통일 — 파동/시머/펄스 제거 */
+.vto-img-spin, .step-a-overlay, .img-spin, .sm-img-spin{
+  border-radius:20px !important; border:1px solid rgba(151,254,237,.16) !important; box-shadow:inset 0 1px 0 rgba(151,254,237,.06), 0 10px 30px rgba(0,0,0,.30) !important;
+  background:radial-gradient(ellipse 78% 58% at 50% 46%, rgba(96,60,200,.26) 0%, rgba(53,162,159,.10) 45%, transparent 72%), linear-gradient(165deg,#0B1238 0%,#050A24 100%) !important;
+  display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:0 !important; overflow:hidden !important;
+}
+.vto-img-spin::before, .vto-img-spin::after, .step-a-overlay::before, .step-a-overlay::after, .img-spin::before, .img-spin::after, .sm-img-spin::before, .sm-img-spin::after{ content:none !important; display:none !important; }
+.step-a-pulse-wrap, .step-a-pulse{ display:none !important; }
 </style>
 <script>
 /* ─── 2026-09-10 KST · TJ 지시 ─── SM_LOADER: 보이는 .sm-loader-img 를 300ms 마다 다음 몬스터 심볼로 교체 */
