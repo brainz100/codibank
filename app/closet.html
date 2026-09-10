@@ -2973,6 +2973,39 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 .dc.dc-on .dc-day, .dc.dc-on .dc-num, .dc.dc-on .dc-temp{ color:var(--sm-sel-fg) !important; }
 #dayTodayBtn.on, #dayTomorrowBtn.on, .day-btn.on{ background:var(--sm-sel-bg) !important; border-color:var(--sm-sel-border) !important; color:var(--sm-sel-fg) !important; }
 </style>
+
+<style id="sm-loader-css">
+/* ─── 2026-09-10 KST · TJ 지시 ─── 스타일몬스터 컬러 심볼 순환 로더 ─── */
+.sm-loader-img{display:block;width:32%;max-width:150px;min-width:84px;height:auto;margin:0 auto;object-fit:contain;
+  filter:drop-shadow(0 6px 18px rgba(0,0,0,.45));user-select:none;-webkit-user-drag:none;pointer-events:none;
+  transition:opacity .12s ease;}
+/* 옛 레인보우 글자 컨테이너를 로더 컨테이너로 재사용 — 글자 스타일 무력화 */
+.cb-rainbow, .cb-rainbow-vto, .cb-rainbow-cs, .step-a-cb-rainbow, .sm-rainbow{ letter-spacing:0 !important; font-size:0 !important; filter:none !important; }
+/* 진행률 숫자 축소 */
+.vto-spin-pct, .step-a-overlay-pct, .spin-pct, .sm-pct #smPctNum{ font-size:32px !important; line-height:1 !important; }
+.vto-spin-pct .vto-spin-pct-sym, .spin-pct .spin-pct-sym, .sm-pct .sm-pct-unit{ font-size:14px !important; }
+</style>
+<script>
+/* ─── 2026-09-10 KST · TJ 지시 ─── SM_LOADER: 보이는 .sm-loader-img 를 300ms 마다 다음 몬스터 심볼로 교체 */
+(function(){
+  if(window.SM_LOADER) return;
+  var N = 7, BASE = '/app/brand/loader/sm_loader_', idx = 0, timer = null, pre = [];
+  function preload(){ if(pre.length) return; for(var i=1;i<=N;i++){ var im = new Image(); im.src = BASE + i + '.webp'; pre.push(im); } }
+  function visible(el){ try{ if(!el.isConnected) return false; if(el.offsetParent === null) return false; var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }catch(_){ return false; } }
+  function tick(){
+    var els = document.querySelectorAll('.sm-loader-img'); if(!els.length) return;
+    var any = false;
+    for(var i=0;i<els.length;i++){ if(visible(els[i])){ any = true; break; } }
+    if(!any) return;
+    idx = (idx % N) + 1;
+    for(var j=0;j<els.length;j++){ if(visible(els[j])) els[j].src = BASE + idx + '.webp'; }
+  }
+  function start(){ preload(); if(!timer) timer = setInterval(tick, 300); }
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') start(); });
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+  window.SM_LOADER = { start: start, img: function(){ return '<img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>'; } };
+})();
+</script>
 </head>
 
 <body style="background:#00022E;" class="text-white selection:bg-teal-400/20">
@@ -3253,8 +3286,8 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
               <span class="step-a-pulse p-br"></span><span class="step-a-pulse p-br d2"></span>
             </div>
             <div class="step-a-overlay-text">
-              <div class="step-a-cb-rainbow">
-                <span>c</span><span>o</span><span>d</span><span>i</span><span>B</span><span>a</span><span>n</span><span>k</span>
+              <div class="step-a-cb-rainbow"><!-- 2026-09-10 KST · TJ 지시 — codibank 글자 → 몬스터 심볼 로더 -->
+                <img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>
               </div>
               <div class="step-a-overlay-pct" id="stepAProgress">0%</div>
             </div>
@@ -3311,8 +3344,8 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
             <!-- [2026-04-18] 진행률 표시 — 로딩 중에만 표시 (codibank 로고 위) -->
             <div class="vto-spin-pct" id="vtoSpinPct" style="display:none;">0<span class="vto-spin-pct-sym">%</span></div>
             <!-- codibank 레인보우 텍스트 -->
-            <div id="vtoSpinner" class="cb-rainbow-vto" style="display:flex;">
-              <span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span>
+            <div id="vtoSpinner" class="cb-rainbow-vto" style="display:flex;"><!-- 2026-09-10 KST · TJ 지시 — codibank 글자 → 몬스터 심볼 로더 -->
+              <img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>
             </div>
             <p class="vto-spin-txt" id="vtoSpinTxt" style="color:rgba(162,253,240,0.55);display:none;"></p>
             <div id="vtoStep" class="vto-step" style="display:none;">초기화 중…</div>
@@ -11740,13 +11773,24 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
       if(!r.ok){
         if(!_isRetry){ await new Promise(rs=>setTimeout(rs,1800)); return _fetchModalOutfit(card, true); }
         if(_stillSame()) _renderModalCody(null, 'error');
+        try{ card._analysisDone = true; card._analysisFallback = true; if(typeof _setExpandSelectEnabled === 'function') _setExpandSelectEnabled(true); }catch(_){}   // 2026-09-10 KST · TJ 지시 — 분석 실패해도 진행
         return;
       }
       const j = await r.json();
       const outfit = j && j.stylingAnalysis && j.stylingAnalysis.outfit;
       if(!outfit || !(outfit.top || outfit.bottom || outfit.shoes)){
         if(!_isRetry){ await new Promise(rs=>setTimeout(rs,1800)); return _fetchModalOutfit(card, true); }
-        if(_stillSame()) _renderModalCody(null, 'error');
+        // ─── 2026-09-10 KST · TJ 지시 ─── vision 분석 실패(outfit 없음)여도 흐름이 멈추면 안 됨:
+        //   엔진 키워드(engineCategoryKeywords)로 팝업을 채우고 '크게 보기' 를 활성화해 3rd 로 진행 가능하게.
+        //   (이전: error 렌더 후 버튼 비활성 유지 → 사용자가 팝업에서 갇힘)
+        try{
+          const fb = card.engineCategoryKeywords && typeof card.engineCategoryKeywords==='object' ? card.engineCategoryKeywords : null;
+          card.outfitAnalysis = fb || null;
+          card.stylingAnalysis = (j && j.stylingAnalysis) || null;
+          card._analysisDone = true; card._analysisFallback = true;
+          if(_stillSame()){ if(fb && (fb.top||fb.bottom||fb.shoes)) _renderModalCody(fb); else _renderModalCody(null, 'error'); }
+        }catch(_){ if(_stillSame()) _renderModalCody(null, 'error'); }
+        try{ if(typeof _setExpandSelectEnabled === 'function') _setExpandSelectEnabled(true); }catch(_){}
         return;
       }
       card.outfitAnalysis = outfit;   // 카드에 캐시 (다음 오픈 시 즉시)
@@ -12140,7 +12184,7 @@ document.getElementById('newCatName')?.addEventListener('keydown',e=>{if(e.key==
             <span class="step-a-pulse p-br"></span><span class="step-a-pulse p-br d2"></span>
           </div>
           <div class="cbq2-cb">
-            <span>c</span><span>o</span><span>d</span><span>i</span><span>B</span><span>a</span><span>n</span><span>k</span>
+            <img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>
           </div>
           <div class="cbq2-pct" id="cbq2Pct">0%</div>
         </div>

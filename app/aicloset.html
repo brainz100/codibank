@@ -1328,6 +1328,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 .sm-alarm-done{margin-top:12px;padding:14px;border-radius:14px;background:rgba(151,254,237,.12);border:1.5px solid rgba(151,254,237,.45);color:#fff;font-size:12.5px;line-height:1.6;}
 .sm-alarm-done b{color:#97FEED;font-weight:900;}
 .sm-alarm-done.hidden{display:none;}
+.sm-img-spin:not(.loading) .sm-loader-img{opacity:.35;}
 .sm-pct{position:relative;z-index:2;display:flex;align-items:baseline;justify-content:center;gap:2px;font-family:'Manrope','Inter',sans-serif;font-weight:800;color:#97FEED;letter-spacing:-.02em;text-shadow:0 2px 14px rgba(151,254,237,.35);}
 .sm-pct #smPctNum{font-size:56px;line-height:1;font-variant-numeric:tabular-nums;}
 .sm-pct .sm-pct-unit{font-size:20px;opacity:.8;}
@@ -1349,6 +1350,39 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 #smAlarmSection #dayTodayBtn.on, #smAlarmSection #dayTomorrowBtn.on, #smAlarmSection .day-btn.on{ background:var(--sm-sel-bg) !important; border-color:var(--sm-sel-border) !important; color:var(--sm-sel-fg) !important; }
 @keyframes smSpin{ to{ transform:rotate(360deg); } }
 </style>
+
+<style id="sm-loader-css">
+/* ─── 2026-09-10 KST · TJ 지시 ─── 스타일몬스터 컬러 심볼 순환 로더 ─── */
+.sm-loader-img{display:block;width:32%;max-width:150px;min-width:84px;height:auto;margin:0 auto;object-fit:contain;
+  filter:drop-shadow(0 6px 18px rgba(0,0,0,.45));user-select:none;-webkit-user-drag:none;pointer-events:none;
+  transition:opacity .12s ease;}
+/* 옛 레인보우 글자 컨테이너를 로더 컨테이너로 재사용 — 글자 스타일 무력화 */
+.cb-rainbow, .cb-rainbow-vto, .cb-rainbow-cs, .step-a-cb-rainbow, .sm-rainbow{ letter-spacing:0 !important; font-size:0 !important; filter:none !important; }
+/* 진행률 숫자 축소 */
+.vto-spin-pct, .step-a-overlay-pct, .spin-pct, .sm-pct #smPctNum{ font-size:32px !important; line-height:1 !important; }
+.vto-spin-pct .vto-spin-pct-sym, .spin-pct .spin-pct-sym, .sm-pct .sm-pct-unit{ font-size:14px !important; }
+</style>
+<script>
+/* ─── 2026-09-10 KST · TJ 지시 ─── SM_LOADER: 보이는 .sm-loader-img 를 300ms 마다 다음 몬스터 심볼로 교체 */
+(function(){
+  if(window.SM_LOADER) return;
+  var N = 7, BASE = '/app/brand/loader/sm_loader_', idx = 0, timer = null, pre = [];
+  function preload(){ if(pre.length) return; for(var i=1;i<=N;i++){ var im = new Image(); im.src = BASE + i + '.webp'; pre.push(im); } }
+  function visible(el){ try{ if(!el.isConnected) return false; if(el.offsetParent === null) return false; var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }catch(_){ return false; } }
+  function tick(){
+    var els = document.querySelectorAll('.sm-loader-img'); if(!els.length) return;
+    var any = false;
+    for(var i=0;i<els.length;i++){ if(visible(els[i])){ any = true; break; } }
+    if(!any) return;
+    idx = (idx % N) + 1;
+    for(var j=0;j<els.length;j++){ if(visible(els[j])) els[j].src = BASE + idx + '.webp'; }
+  }
+  function start(){ preload(); if(!timer) timer = setInterval(tick, 300); }
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') start(); });
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+  window.SM_LOADER = { start: start, img: function(){ return '<img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>'; } };
+})();
+</script>
 </head>
 <body style="background:#00022E;" class="text-white selection:bg-teal-400/20">
 <!-- ── 저장 완료 토스트 ── -->
@@ -1529,7 +1563,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
           <div class="vto-img-spin" id="vtoOverlay">
             <!-- codibank 레인보우 텍스트 -->
             <div id="vtoSpinner" class="cb-rainbow-vto" style="display:flex;">
-              <span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span>
+              <img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>
             </div>
             <p class="vto-spin-txt" id="vtoSpinTxt" style="color:rgba(162,253,240,0.55);">코디 목적을 선택하고 생성 버튼을 누르세요</p>
             <div id="vtoStep" class="vto-step" style="display:none;">초기화 중…</div>
@@ -1716,7 +1750,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
       <div class="sm-result-img-wrap" id="smImgWrap">
         <div class="sm-result-img-box sm-empty" id="smViewBox">
           <div class="sm-img-spin" id="smViewEmpty">
-            <div class="sm-rainbow" id="smRainbow"><span>s</span><span>t</span><span>y</span><span>l</span><span>e</span><span>m</span><span>o</span><span>n</span><span>s</span><span>t</span><span>e</span><span>r</span></div>
+            <div class="sm-rainbow" id="smRainbow"><!-- 2026-09-10 KST · TJ 지시 — 글자 → 몬스터 심볼 로더 --><img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/></div>
             <!-- ─── 2026-09-09 KST · TJ 지시 ─── 생성 진행률 % (뷰박스 내 대형 숫자 + 링) ─── -->
             <div class="sm-pct" id="smPct" style="display:none;"><span id="smPctNum">0</span><span class="sm-pct-unit">%</span></div>
             <p class="sm-spin-txt" id="smViewLoadingText" style="opacity:.35" data-i18n="내 옷장 착장 대기 중">내 옷장 착장 대기 중</p>

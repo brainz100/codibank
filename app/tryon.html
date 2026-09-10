@@ -2286,6 +2286,39 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
   }
   window.addEventListener('load', _cbSyncRunwayFlag);           // 최종 보정
 })();</script>
+
+<style id="sm-loader-css">
+/* ─── 2026-09-10 KST · TJ 지시 ─── 스타일몬스터 컬러 심볼 순환 로더 ─── */
+.sm-loader-img{display:block;width:32%;max-width:150px;min-width:84px;height:auto;margin:0 auto;object-fit:contain;
+  filter:drop-shadow(0 6px 18px rgba(0,0,0,.45));user-select:none;-webkit-user-drag:none;pointer-events:none;
+  transition:opacity .12s ease;}
+/* 옛 레인보우 글자 컨테이너를 로더 컨테이너로 재사용 — 글자 스타일 무력화 */
+.cb-rainbow, .cb-rainbow-vto, .cb-rainbow-cs, .step-a-cb-rainbow, .sm-rainbow{ letter-spacing:0 !important; font-size:0 !important; filter:none !important; }
+/* 진행률 숫자 축소 */
+.vto-spin-pct, .step-a-overlay-pct, .spin-pct, .sm-pct #smPctNum{ font-size:32px !important; line-height:1 !important; }
+.vto-spin-pct .vto-spin-pct-sym, .spin-pct .spin-pct-sym, .sm-pct .sm-pct-unit{ font-size:14px !important; }
+</style>
+<script>
+/* ─── 2026-09-10 KST · TJ 지시 ─── SM_LOADER: 보이는 .sm-loader-img 를 300ms 마다 다음 몬스터 심볼로 교체 */
+(function(){
+  if(window.SM_LOADER) return;
+  var N = 7, BASE = '/app/brand/loader/sm_loader_', idx = 0, timer = null, pre = [];
+  function preload(){ if(pre.length) return; for(var i=1;i<=N;i++){ var im = new Image(); im.src = BASE + i + '.webp'; pre.push(im); } }
+  function visible(el){ try{ if(!el.isConnected) return false; if(el.offsetParent === null) return false; var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }catch(_){ return false; } }
+  function tick(){
+    var els = document.querySelectorAll('.sm-loader-img'); if(!els.length) return;
+    var any = false;
+    for(var i=0;i<els.length;i++){ if(visible(els[i])){ any = true; break; } }
+    if(!any) return;
+    idx = (idx % N) + 1;
+    for(var j=0;j<els.length;j++){ if(visible(els[j])) els[j].src = BASE + idx + '.webp'; }
+  }
+  function start(){ preload(); if(!timer) timer = setInterval(tick, 300); }
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') start(); });
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+  window.SM_LOADER = { start: start, img: function(){ return '<img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>'; } };
+})();
+</script>
 </head>
 <body>
 
@@ -2854,7 +2887,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
         <div class="result-img-wrap" id="imgWrap">
           <div class="csty-result-img-box">
             <div class="img-spin">
-              <div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div>
+              <div class="cb-rainbow-cs"><img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/></div>
               <p class="spin-txt" style="opacity:.3">아이템을 고르고 생성 버튼을 눌러주세요</p>
             </div>
           </div>
@@ -5335,8 +5368,7 @@ $('#finalGenerate').addEventListener('click', async () => {
     imgWrap.innerHTML = '<div class="csty-result-img-box csty-empty"><div class="img-spin">'
       + '<div class="spin-pct" id="imgSpinPct">0<span class="spin-pct-sym">%</span></div>'
       + '<div class="cb-rainbow-cs animating">'
-      + '<span>c</span><span>o</span><span>d</span><span>i</span>'
-      + '<span>b</span><span>a</span><span>n</span><span>k</span>'
+      + '<img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/>'   // 2026-09-10 KST · TJ 지시 — codibank 글자 → 몬스터 심볼 로더
       + '</div>'
       + '<p class="spin-txt">AI가 착장 이미지를 생성하고 있어요…<br>'
       + '<small>약 20~40초 소요</small></p>'
@@ -5481,7 +5513,7 @@ $('#finalGenerate').addEventListener('click', async () => {
     btn.innerHTML = originalHTML;
     // 이미지 뷰박스 복원
     if(imgWrap){
-      imgWrap.innerHTML = '<div class="csty-result-img-box csty-empty"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.5;color:#ff6b6b;">생성 실패 — 다시 시도해 주세요</p></div></div>';
+      imgWrap.innerHTML = '<div class="csty-result-img-box csty-empty"><div class="img-spin"><div class="cb-rainbow-cs"><img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/></div><p class="spin-txt" style="opacity:.5;color:#ff6b6b;">생성 실패 — 다시 시도해 주세요</p></div></div>';
     }
     const sTxt2 = document.getElementById('sTxt');
     if(sTxt2) sTxt2.textContent = '생성 실패';
@@ -5779,7 +5811,7 @@ if(csBtnReset) csBtnReset.addEventListener('click', () => {
   // 이미지 뷰박스 기본 상태로 복원
   const imgWrap = document.getElementById('imgWrap');
   if(imgWrap){
-    imgWrap.innerHTML = '<div class="csty-result-img-box csty-empty"><div class="img-spin"><div class="cb-rainbow-cs"><span>c</span><span>o</span><span>d</span><span>i</span><span>b</span><span>a</span><span>n</span><span>k</span></div><p class="spin-txt" style="opacity:.3">아이템을 고르고 생성 버튼을 눌러주세요</p></div></div>';
+    imgWrap.innerHTML = '<div class="csty-result-img-box csty-empty"><div class="img-spin"><div class="cb-rainbow-cs"><img class="sm-loader-img" src="/app/brand/loader/sm_loader_1.webp" alt="" decoding="async" draggable="false"/></div><p class="spin-txt" style="opacity:.3">아이템을 고르고 생성 버튼을 눌러주세요</p></div></div>';
   }
   // 저장/공유/리셋/리포트 비활성화 — ─── 2026-05-09 KST · TJ 지시 (v54) ─── CSS 분기 사용
   ['csBtn_save','csBtn_share','csBtn_reset'].forEach(id => {
