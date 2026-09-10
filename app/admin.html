@@ -40,7 +40,7 @@
 </script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>CodiBank Admin</title>
+<title>Stylemonster Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -138,14 +138,14 @@ body {
 </head>
 <body>
 <div class="gate" id="gate"><div class="gate-box">
-  <h1>CodiBank Admin</h1><p>관리자 계정으로 로그인하세요</p>
+  <h1>Stylemonster Admin</h1><p>관리자 계정으로 로그인하세요</p>
   <input type="email" class="g-in" id="loginEmail" placeholder="이메일" onkeydown="if(event.key==='Enter')document.getElementById('pwIn').focus()">
   <input type="password" class="g-in" id="pwIn" placeholder="비밀번호" onkeydown="if(event.key==='Enter')tryLogin()">
   <button class="g-btn" onclick="tryLogin()">로그인</button>
   <div class="g-err" id="gErr">이메일 또는 비밀번호가 올바르지 않습니다</div>
 </div></div>
 <div class="page" id="main">
-<div class="top"><h1>CodiBank Admin</h1><div class="top-r"><a href="https://codibank-api.onrender.com/health" target="_blank"><span class="mi">monitor_heart</span>Health</a><button onclick="doLogout()">로그아웃</button></div></div>
+<div class="top"><h1>Stylemonster Admin</h1><div class="top-r"><a href="https://codibank-api.onrender.com/health" target="_blank"><span class="mi">monitor_heart</span>Health</a><button onclick="doLogout()">로그아웃</button></div></div>
 <div class="tabs">
 <button class="tab on" onclick="stab(this,'dash')">일반현황</button>
 <button class="tab" onclick="stab(this,'users')">회원현황</button>
@@ -174,10 +174,32 @@ body {
 <!-- ─── 2026-06-30 KST · TJ 지시 ─── 이달 AI 생성 총합계 (서버 집계, 회원현황 표와 동일 소스) ─── -->
 <div class="sec-t" style="margin:6px 2px 8px;font-size:13px;"><span class="mi">bolt</span>이달 AI 생성 총합계 <span style="font-size:10px;color:#888;font-weight:500;">(서버 기준 · 모든 기기 반영)</span></div>
 <div class="row r4">
-<div class="kpi g" id="kGenTotal"><div class="kpi-l">이달 AI 생성 총합계</div><div class="kpi-v">0</div><div class="kpi-s">코디핏+트라이온+런웨이</div></div>
+<div class="kpi g" id="kGenTotal"><div class="kpi-l">이달 AI 생성 총합계</div><div class="kpi-v">0</div><div class="kpi-s">코디핏+트라이온 풀+런웨이</div></div>
 <div class="kpi" id="kGenCodifit"><div class="kpi-l">코디핏 이미지</div><div class="kpi-v">0</div><div class="kpi-s">이달 생성</div></div>
-<div class="kpi" id="kGenTryon"><div class="kpi-l">트라이온 이미지</div><div class="kpi-v">0</div><div class="kpi-s">이달 생성</div></div>
+<div class="kpi" id="kGenTryon"><div class="kpi-l">트라이온 풀</div><div class="kpi-v">0</div><div class="kpi-s">이달 생성</div></div>
+<div class="kpi" id="kGenAicloset"><div class="kpi-l">옷장코디</div><div class="kpi-v">0</div><div class="kpi-s">이달 생성 (풀 포함)</div></div>
 <div class="kpi" id="kRunwayGen"><div class="kpi-l">런웨이 영상</div><div class="kpi-v">0</div><div class="kpi-s">이달 생성</div></div>
+</div>
+
+<!-- ─── 2026-09-10 KST · TJ 지시 ─── 엔진 · 구독플랜 정보 패널 (/admin/engine-config) ─── -->
+<div class="sec-t" style="margin:14px 2px 8px;font-size:13px;"><span class="mi">memory</span>AI 엔진 · 구독플랜 현황 <span style="font-size:10px;color:#888;font-weight:500;">(서버 engine-config 기준)</span></div>
+<div class="row r2">
+  <div class="card" style="padding:12px 14px;">
+    <div style="font-size:12px;font-weight:700;color:#071952;margin-bottom:8px;">서비스별 생성 엔진</div>
+    <table style="width:100%;font-size:12px;"><thead><tr><th style="text-align:left">서비스</th><th style="text-align:left">엔진</th><th style="text-align:left">비고</th></tr></thead>
+    <tbody id="tEngine"><tr><td colspan="3" class="ld"><span class="sp"></span></td></tr></tbody></table>
+  </div>
+  <div class="card" style="padding:12px 14px;">
+    <div style="font-size:12px;font-weight:700;color:#071952;margin-bottom:8px;">구독플랜 제공량 (2026-09-10 개정)</div>
+    <table style="width:100%;font-size:12px;text-align:center;"><thead><tr><th style="text-align:left">플랜</th><th>월 요금</th><th>코디핏</th><th>트라이온·옷장코디</th><th>아이템</th></tr></thead>
+    <tbody>
+      <tr><td style="text-align:left;font-weight:600">FREE</td><td>₩0</td><td>3</td><td>2</td><td>20</td></tr>
+      <tr><td style="text-align:left;font-weight:600">SILVER</td><td>₩6,900</td><td>10</td><td>10</td><td>100</td></tr>
+      <tr><td style="text-align:left;font-weight:600">GOLD</td><td>₩18,900</td><td>20</td><td>30</td><td>300</td></tr>
+      <tr><td style="text-align:left;font-weight:600">DIAMOND</td><td>₩35,900</td><td>30</td><td>50</td><td>무제한 (1일 30)</td></tr>
+    </tbody></table>
+    <div style="font-size:10.5px;color:#888;margin-top:6px;">코디핏 1회 = 1st 4장 + 3rd 고화질 1장 · 옷장코디는 트라이온 풀에서 차감</div>
+  </div>
 </div>
 <div class="row r2">
 <div class="chart-box"><h3>회원 가입 추이 (월별)</h3><div class="chart-wrap"><canvas id="chUserMonth"></canvas></div></div>
@@ -255,7 +277,8 @@ body {
   <div class="row r4" style="margin-bottom:10px;">
     <div class="kpi g" id="kuUsageTotal"><div class="kpi-l">이달 이미지생성</div><div class="kpi-v">0</div><div class="kpi-s">회</div></div>
     <div class="kpi" id="kuUsageCloset"><div class="kpi-l">코디핏</div><div class="kpi-v">0</div><div class="kpi-s">회</div></div>
-    <div class="kpi" id="kuUsageCodi"><div class="kpi-l">트라이 온</div><div class="kpi-v">0</div><div class="kpi-s">회</div></div>
+    <div class="kpi" id="kuUsageCodi"><div class="kpi-l">트라이온 풀</div><div class="kpi-v">0</div><div class="kpi-s">회</div></div>
+<div class="kpi" id="kuUsageAicloset"><div class="kpi-l">옷장코디</div><div class="kpi-v">0</div><div class="kpi-s">회 (풀 포함)</div></div>
     <div class="kpi" id="kuUsageItems"><div class="kpi-l">아이템등록</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
   </div>
   <div class="row r4" style="margin-bottom:10px;">
@@ -265,8 +288,10 @@ body {
     <div class="kpi" style="opacity:0;pointer-events:none"></div>
   </div>
   <div class="tw">
-    <table><thead><tr><th>이메일</th><th>닉네임</th><th>성별</th><th>코디핏</th><th>트라이 온</th><th>합계</th><th>아이템등록</th><th>오늘 코디핏</th><th>오늘 트라이온</th><th>오늘 합계</th><th>오늘 아이템</th><th>최종갱신</th></tr></thead>
-    <tbody id="tUsageSummary"><tr><td colspan="12" class="ld"><span class="sp"></span>불러오는 중...</td></tr></tbody></table>
+    <div id="usageColWarn" style="display:none;margin:0 0 8px;padding:8px 12px;border-radius:8px;background:#fff4e5;border:1px solid #f0c27b;color:#8a5a00;font-size:12px;">⚠ Supabase <code>user_usage</code> 에 <code>aicloset_count</code> 컬럼이 없어 옷장코디가 0 으로 표시됩니다. SQL Editor 에서 <code>sm_usage_setup.sql</code> 을 실행하세요.</div>
+<!-- 2026-09-10 KST · TJ 지시 — 옷장코디 열 추가: 트라이온 풀 = 페이지 + 옷장코디 (프론트/마이페이지와 동일 정의) -->
+<table><thead><tr><th>이메일</th><th>닉네임</th><th>성별</th><th>코디핏</th><th title="트라이온 페이지 단독">트라이온</th><th title="Ai옷장 옷장코디 (트라이온 풀에서 차감)">옷장코디</th><th title="트라이온 페이지 + 옷장코디">트라이온 풀</th><th>합계</th><th>아이템등록</th><th>오늘 코디핏</th><th>오늘 트라이온 풀</th><th>오늘 옷장코디</th><th>오늘 아이템</th><th>최종갱신</th></tr></thead>
+    <tbody id="tUsageSummary"><tr><td colspan="14" class="ld"><span class="sp"></span>불러오는 중...</td></tr></tbody></table>
   </div>
 </div>
 
@@ -306,7 +331,8 @@ body {
 <div class="row r4">
 <div class="kpi g" id="kAgTotal"><div class="kpi-l">전체 생성</div><div class="kpi-v">0</div><div class="kpi-s">코디핏+트라이온+런웨이</div></div>
 <div class="kpi" id="kAgCodifit"><div class="kpi-l">코디핏 이미지</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
-<div class="kpi" id="kAgTryon"><div class="kpi-l">트라이온 이미지</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="kpi" id="kAgTryon"><div class="kpi-l">트라이온 풀</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
+<div class="kpi" id="kAgAicloset"><div class="kpi-l">옷장코디</div><div class="kpi-v">0</div><div class="kpi-s">건 (풀 포함)</div></div>
 <div class="kpi" id="kAgRunway"><div class="kpi-l">런웨이 영상</div><div class="kpi-v">0</div><div class="kpi-s">건</div></div>
 </div>
 <div class="row r2">
@@ -315,15 +341,15 @@ body {
 </div>
 <div class="row r2">
 <div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">wc</span>성별별 집계</div></div>
-<table><thead><tr><th>성별</th><th>코디핏</th><th>트라이온</th><th>런웨이</th><th>합계</th></tr></thead><tbody id="tAgGender"></tbody></table></div>
+<table><thead><tr><th>성별</th><th>코디핏</th><th>트라이온</th><th>옷장코디</th><th>트라이온 풀</th><th>런웨이</th><th>합계</th></tr></thead><tbody id="tAgGender"></tbody></table></div>
 <div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">card_membership</span>구독플랜별 집계</div></div>
-<table><thead><tr><th>플랜</th><th>코디핏</th><th>트라이온</th><th>런웨이</th><th>합계</th></tr></thead><tbody id="tAgPlan"></tbody></table></div>
+<table><thead><tr><th>플랜</th><th>코디핏</th><th>트라이온</th><th>옷장코디</th><th>트라이온 풀</th><th>런웨이</th><th>합계</th></tr></thead><tbody id="tAgPlan"></tbody></table></div>
 </div>
 <div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">calendar_month</span>월별 집계</div><button class="rb" onclick="ldS()"><span class="mi">refresh</span>새로고침</button></div>
-<div class="tw"><table><thead><tr><th>월</th><th>코디핏</th><th>트라이온</th><th>런웨이</th><th>합계</th></tr></thead><tbody id="tAgMonth"></tbody></table></div></div>
+<div class="tw"><table><thead><tr><th>월</th><th>코디핏</th><th>트라이온</th><th>옷장코디</th><th>트라이온 풀</th><th>런웨이</th><th>합계</th></tr></thead><tbody id="tAgMonth"></tbody></table></div></div>
 <div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">group</span>회원 아이디별 집계</div><button class="rb" onclick="ldS()"><span class="mi">refresh</span>새로고침</button></div>
 <div class="tw"><div class="cb"><input id="qAg" placeholder="이메일 검색..." oninput="renderAgUsers()"><select id="fGAg" onchange="renderAgUsers()"><option value="">성별 전체</option><option value="M">남</option><option value="F">여</option></select><select id="fPAg" onchange="renderAgUsers()"><option value="">플랜 전체</option><option value="FREE">FREE</option><option value="SILVER">SILVER</option><option value="GOLD">GOLD</option><option value="DIAMOND">DIAMOND</option></select></div>
-<table><thead><tr><th>이메일</th><th>성별</th><th>플랜</th><th>코디핏</th><th>트라이온</th><th>런웨이</th><th>합계</th></tr></thead><tbody id="tAgUsers"></tbody></table></div></div>
+<table><thead><tr><th>이메일</th><th>성별</th><th>플랜</th><th>코디핏</th><th>트라이온</th><th>옷장코디</th><th>트라이온 풀</th><th>런웨이</th><th>합계</th></tr></thead><tbody id="tAgUsers"></tbody></table></div></div>
 </div>
 
 <!-- ═══ 아이템등록 ═══ -->
@@ -541,7 +567,7 @@ body {
   </div>
   <div class="card-sec-sub">
     테스트용 계정을 개별로 생성·삭제·보너스 지급합니다.<br>
-    생성된 계정은 <b>이메일 인증 없이</b> 즉시 CodiBank 앱에 로그인 가능합니다.
+    생성된 계정은 <b>이메일 인증 없이</b> 즉시 Stylemonster 앱에 로그인 가능합니다.
   </div>
 
   <!-- 개별 생성 폼 -->
@@ -1603,7 +1629,7 @@ async function loadMemberBonuses(){
 async function ldUsageSummary(){
   var tbody=document.getElementById('tUsageSummary');
   if(!tbody) return;
-  tbody.innerHTML='<tr><td colspan="12" class="ld"><span class="sp"></span>불러오는 중...</td></tr>';
+  tbody.innerHTML='<tr><td colspan="14" class="ld"><span class="sp"></span>불러오는 중...</td></tr>';
   try{
     var r=await authFetch(B+'/admin/usage/summary');
     if(!r.ok) throw new Error('status '+r.status);
@@ -1621,17 +1647,20 @@ async function ldUsageSummary(){
       if(em) userMap[em]=u;
     });
     // KPI 집계
-    var sumCloset=0, sumCodi=0, sumTotal=0, sumItems=0;
+    var sumCloset=0, sumCodi=0, sumTotal=0, sumItems=0, sumAic=0;
     list.forEach(function(x){
       sumCloset += parseInt(x.closet_count||0);
-      sumCodi   += parseInt(x.tryon_count||0);   // [2026-06-30] 트라이온 실집계(서버)
+      sumCodi   += parseInt(x.tryon_count||0);   // [2026-06-30] 트라이온 실집계(서버) = 페이지 + 옷장코디 (풀)
+      sumAic    += parseInt(x.aicloset_count||0); // 2026-09-10 KST · TJ 지시 — 옷장코디 서브카운터
       sumTotal  += parseInt(x.total_count||0);
       sumItems  += parseInt(x.item_count||0);
     });
     kpi('kuUsageTotal', sumTotal);
     kpi('kuUsageCloset', sumCloset);
-    kpi('kuUsageCodi', sumCodi);
+    kpi('kuUsageCodi', sumCodi, '페이지 '+Math.max(0,sumCodi-sumAic)+' + 옷장코디 '+sumAic);
+    kpi('kuUsageAicloset', sumAic);
     kpi('kuUsageItems', sumItems);
+    if(d.aicloset_column===false){ try{ var _w=document.getElementById('usageColWarn'); if(_w){ _w.style.display='block'; } }catch(_){} }
     kpi('kuUsageUsers', list.length);
     // ─── 2026-06-30 KST · TJ 지시 ─── 런웨이 영상 생성 집계(서버 runway_count) ───
     //   런웨이는 별도 월포맷/엔드포인트 → /api/admin/runway/stats 로 집계 표시.
@@ -1646,7 +1675,7 @@ async function ldUsageSummary(){
     }catch(_){}
 
     if(!list.length){
-      tbody.innerHTML='<tr><td colspan="12" class="empty">이달 사용 기록이 없습니다</td></tr>';
+      tbody.innerHTML='<tr><td colspan="14" class="empty">이달 사용 기록이 없습니다</td></tr>';
       return;
     }
     var h='';
@@ -1664,19 +1693,21 @@ async function ldUsageSummary(){
         +'<td>'+nnTxt+'</td>'
         +'<td style="text-align:center">'+genTxt+'</td>'
         +'<td style="text-align:center;color:#0B666A;font-weight:600">'+(x.closet_count||0)+'</td>'
-        +'<td style="text-align:center;color:#b41a6a;font-weight:600">'+(x.tryon_count||0)+'</td>'
+        +'<td style="text-align:center;color:#b41a6a;font-weight:600">'+(x.tryon_page_count!=null?x.tryon_page_count:Math.max(0,parseInt(x.tryon_count||0)-parseInt(x.aicloset_count||0)))+'</td>'
+        +'<td style="text-align:center;color:#6a1fb4;font-weight:600">'+(x.aicloset_count||0)+'</td>'
+        +'<td style="text-align:center;color:#b41a6a;font-weight:700">'+(x.tryon_count||0)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#071952">'+(x.total_count||0)+'</td>'
         +'<td style="text-align:center;font-weight:700;color:#1a5fb4">'+(x.item_count||0)+'</td>'
         +'<td style="text-align:center;color:#0B666A">'+(x.day_closet_count||0)+'</td>'
         +'<td style="text-align:center;color:#b41a6a">'+(x.day_tryon_count||0)+'</td>'
-        +'<td style="text-align:center;font-weight:600">'+(x.day_total||0)+'</td>'
+        +'<td style="text-align:center;color:#6a1fb4">'+(x.day_aicloset_count||0)+'</td>'
         +'<td style="text-align:center;font-weight:600;color:#1a5fb4">'+(x.day_item_count||0)+'</td>'
         +'<td style="font-size:10px;color:#888">'+upd+'</td>'
         +'</tr>';
     });
     tbody.innerHTML=h;
   }catch(e){
-    tbody.innerHTML='<tr><td colspan="12" class="empty">사용량 조회 실패: '+String(e.message||e)+'</td></tr>';
+    tbody.innerHTML='<tr><td colspan="14" class="empty">사용량 조회 실패: '+String(e.message||e)+'</td></tr>';
   }
 }
 
@@ -1820,7 +1851,7 @@ async function delU(id,em){if(!confirm('"'+em+'" 삭제?'))return;try{await auth
 //   코디핏·트라이온: /admin/usage/summary (서버 user_usage 이달)  ·  런웨이: /api/admin/runway/stats
 //   plain fetch 사용(403 자동 로그아웃 회피). 회원현황 '이달 사용량 현황' 표와 동일 수치.
 async function ldGenTotals(){
-  var coq=0, trq=0, rwq=0;
+  var coq=0, trq=0, rwq=0, acq=0;
   try{
     var _master = (typeof isMaster==='function') ? isMaster() : true;
     if(_master){
@@ -1830,7 +1861,8 @@ async function ldGenTotals(){
         if(d && d.ok){
           (d.list||[]).forEach(function(x){
             coq += parseInt(x.closet_count||0);
-            trq += parseInt(x.tryon_count||0);
+            trq += parseInt(x.tryon_count||0);      // 트라이온 풀 (페이지 + 옷장코디)
+            acq += parseInt(x.aicloset_count||0);   // 2026-09-10 KST · TJ 지시 — 옷장코디
           });
         }
       }
@@ -1845,9 +1877,28 @@ async function ldGenTotals(){
     }
   }catch(_){}
   kpi('kGenCodifit', coq);
-  kpi('kGenTryon', trq);
+  kpi('kGenTryon', trq, '페이지 '+Math.max(0,trq-acq)+' + 옷장코디 '+acq);
+  kpi('kGenAicloset', acq);
   kpi('kRunwayGen', rwq);
   kpi('kGenTotal', coq+trq+rwq);
+  try{ ldEngine(); }catch(_){}
+}
+// ─── 2026-09-10 KST · TJ 지시 ─── 엔진 패널: /admin/engine-config (service_engines · codifit_detail · aicloset_detail)
+async function ldEngine(){
+  var tb=document.getElementById('tEngine'); if(!tb) return;
+  try{
+    var r=await fetch(B+'/admin/engine-config', {headers:{'X-Admin-Key':K()}});
+    if(!r.ok) throw new Error('status '+r.status);
+    var d=await r.json();
+    var se=d.service_engines||{}, cd=d.codifit_detail||{}, ad=d.aicloset_detail||{};
+    var rows=[];
+    if(cd.step1_low) rows.push(['코디핏 1st','<code>'+(cd.step1_low.model||'')+'</code>', (cd.step1_low.images_per_call||4)+'장 · '+(cd.step1_low.note||'')]);
+    if(cd.step3_high) rows.push(['코디핏 3rd','<code>'+(cd.step3_high.model||'')+'</code>', 'alias '+(cd.step3_high.alias||'')+' · '+(cd.step3_high.note||'')]);
+    if(!cd.step1_low) rows.push(['코디핏','<code>'+(se.codifit||'')+'</code>','']);
+    rows.push(['트라이온','<code>'+(se.tryon||'')+'</code>','정면+후면 합본 2K']);
+    rows.push(['옷장코디','<code>'+(ad.image_model||se.aicloset||se.tryon||'')+'</code>','선정 '+(ad.pick_model||'')+' · 차감 풀: '+(ad.usage_pool||'tryon')]);
+    tb.innerHTML=rows.map(function(x){return '<tr><td style="font-weight:600;color:#071952">'+x[0]+'</td><td>'+x[1]+'</td><td style="color:#666">'+x[2]+'</td></tr>';}).join('');
+  }catch(e){ tb.innerHTML='<tr><td colspan="3" class="empty">엔진 정보 조회 실패: '+String(e.message||e)+'</td></tr>'; }
 }
 async function ldH(){try{var r=await authFetch(B+'/health');var j=await r.json();kpi('kServer',j.ok?'ONLINE':'ERROR',new Date().toLocaleTimeString())}catch(e){kpi('kServer','OFFLINE','연결실패')}}
 // Payments
@@ -1863,9 +1914,11 @@ function pgP2(d){pgState.P+=d;renderP()}
 // ─── 2026-06-30 KST · TJ 지시 ─── AI 이미지 및 영상 통합 집계 (styling_logs) ───
 //   type: closet=코디핏 · tryon=트라이온 · runway=런웨이. 회원/성별/플랜/월별 집계 후
 //   통합 페이지 렌더 + 일반현황 '이달 AI 생성' KPI + 대시보드 레거시 KPI 갱신.
-var AG={byUser:{},byMonth:{},byGender:{},byPlan:{},total:{codifit:0,tryon:0,runway:0},monthNow:{codifit:0,tryon:0,runway:0}};
-function _agZ(){return {codifit:0,tryon:0,runway:0};}
-function _agType(x){var t=(x.type||'').toLowerCase();if(t==='closet')return 'codifit';if(t==='tryon')return 'tryon';if(t==='runway')return 'runway';return null;}
+// ─── 2026-09-10 KST · TJ 지시 ─── aicloset(옷장코디) 항목 추가. 합계·트라이온 풀 = tryon + aicloset
+var AG={byUser:{},byMonth:{},byGender:{},byPlan:{},total:{codifit:0,tryon:0,aicloset:0,runway:0},monthNow:{codifit:0,tryon:0,aicloset:0,runway:0}};
+function _agZ(){return {codifit:0,tryon:0,aicloset:0,runway:0};}
+function _agSum(v){return (v.codifit||0)+(v.tryon||0)+(v.aicloset||0)+(v.runway||0);}
+function _agType(x){var t=(x.type||'').toLowerCase();if(t==='closet'||t==='codifit')return 'codifit';if(t==='tryon')return 'tryon';if(t==='aicloset')return 'aicloset';if(t==='runway')return 'runway';return null;}
 function _agPlan(p){p=(p||'').toString().toUpperCase().trim();if(['FREE','SILVER','GOLD','DIAMOND'].indexOf(p)>=0)return p;return p||'FREE';}
 function _aggAiGen(){
   var byUser={},byMonth={},byGender={M:_agZ(),F:_agZ(),'기타':_agZ()},byPlan={},total=_agZ(),monthNow=_agZ();
@@ -1876,7 +1929,7 @@ function _aggAiGen(){
     var g=(x.gender||'').toUpperCase();if(g!=='M'&&g!=='F')g='기타';
     var pl=_agPlan(x.plan);
     var mk=(x.created_at||'').slice(0,7)||'미상';
-    if(!byUser[em])byUser[em]={email:em,gender:g,plan:pl,codifit:0,tryon:0,runway:0};
+    if(!byUser[em])byUser[em]={email:em,gender:g,plan:pl,codifit:0,tryon:0,aicloset:0,runway:0};
     byUser[em][ty]++;if(g!=='기타')byUser[em].gender=g;byUser[em].plan=pl;
     if(!byMonth[mk])byMonth[mk]=_agZ();byMonth[mk][ty]++;
     byGender[g][ty]++;
@@ -1884,29 +1937,29 @@ function _aggAiGen(){
     total[ty]++;if(mk===nowKey)monthNow[ty]++;
   });
   AG={byUser:byUser,byMonth:byMonth,byGender:byGender,byPlan:byPlan,total:total,monthNow:monthNow};
-  kpi('kAgTotal',total.codifit+total.tryon+total.runway);kpi('kAgCodifit',total.codifit);kpi('kAgTryon',total.tryon);kpi('kAgRunway',total.runway);
+  kpi('kAgTotal',_agSum(total));kpi('kAgCodifit',total.codifit);kpi('kAgTryon',total.tryon+total.aicloset,'페이지 '+total.tryon+' + 옷장코디 '+total.aicloset);kpi('kAgAicloset',total.aicloset);kpi('kAgRunway',total.runway);
 }
 function _agTd(v,st){return '<td'+(st?' style="'+st+'"':'')+'>'+v+'</td>';}
-function _agLine(name,v,nameSt){var t=v.codifit+v.tryon+v.runway;return '<tr>'+_agTd(name,nameSt||'font-weight:600')+_agTd(v.codifit,'text-align:center;color:#0B666A')+_agTd(v.tryon,'text-align:center;color:#b41a6a')+_agTd(v.runway,'text-align:center;color:#1a5fb4')+_agTd(t,'text-align:center;font-weight:700;color:#071952')+'</tr>';}
+function _agLine(name,v,nameSt){var t=_agSum(v);return '<tr>'+_agTd(name,nameSt||'font-weight:600')+_agTd(v.codifit,'text-align:center;color:#0B666A')+_agTd(v.tryon,'text-align:center;color:#b41a6a')+_agTd(v.aicloset||0,'text-align:center;color:#6a1fb4')+_agTd((v.tryon||0)+(v.aicloset||0),'text-align:center;color:#b41a6a;font-weight:600')+_agTd(v.runway,'text-align:center;color:#1a5fb4')+_agTd(t,'text-align:center;font-weight:700;color:#071952')+'</tr>';}
 function renderAgUsers(){
   var tb=document.getElementById('tAgUsers');if(!tb)return;
   var q=(document.getElementById('qAg')&&document.getElementById('qAg').value.toLowerCase())||'';
   var fg=(document.getElementById('fGAg')&&document.getElementById('fGAg').value)||'';
   var fp=(document.getElementById('fPAg')&&document.getElementById('fPAg').value)||'';
-  var rows=Object.keys(AG.byUser).map(function(k){return AG.byUser[k];}).filter(function(u){return (u.codifit+u.tryon+u.runway)>0;});
+  var rows=Object.keys(AG.byUser).map(function(k){return AG.byUser[k];}).filter(function(u){return _agSum(u)>0;});
   if(q)rows=rows.filter(function(u){return u.email.toLowerCase().indexOf(q)>=0;});
   if(fg)rows=rows.filter(function(u){return u.gender===fg;});
   if(fp)rows=rows.filter(function(u){return u.plan===fp;});
-  rows.sort(function(a,b){return (b.codifit+b.tryon+b.runway)-(a.codifit+a.tryon+a.runway);});
-  if(!rows.length){tb.innerHTML='<tr><td colspan="7" class="empty">데이터 없음</td></tr>';return;}
-  tb.innerHTML=rows.map(function(u){var t=u.codifit+u.tryon+u.runway;var gt=u.gender==='M'?'남':(u.gender==='F'?'여':'-');
-    return '<tr>'+_agTd(u.email,'font-weight:600;color:#071952')+_agTd(gt,'text-align:center')+_agTd(u.plan,'text-align:center')+_agTd(u.codifit,'text-align:center;color:#0B666A;font-weight:600')+_agTd(u.tryon,'text-align:center;color:#b41a6a;font-weight:600')+_agTd(u.runway,'text-align:center;color:#1a5fb4;font-weight:600')+_agTd(t,'text-align:center;font-weight:700;color:#071952')+'</tr>';
+  rows.sort(function(a,b){return _agSum(b)-_agSum(a);});
+  if(!rows.length){tb.innerHTML='<tr><td colspan="9" class="empty">데이터 없음</td></tr>';return;}
+  tb.innerHTML=rows.map(function(u){var t=_agSum(u);var gt=u.gender==='M'?'남':(u.gender==='F'?'여':'-');
+    return '<tr>'+_agTd(u.email,'font-weight:600;color:#071952')+_agTd(gt,'text-align:center')+_agTd(u.plan,'text-align:center')+_agTd(u.codifit,'text-align:center;color:#0B666A;font-weight:600')+_agTd(u.tryon,'text-align:center;color:#b41a6a;font-weight:600')+_agTd(u.aicloset||0,'text-align:center;color:#6a1fb4;font-weight:600')+_agTd((u.tryon||0)+(u.aicloset||0),'text-align:center;color:#b41a6a;font-weight:700')+_agTd(u.runway,'text-align:center;color:#1a5fb4;font-weight:600')+_agTd(t,'text-align:center;font-weight:700;color:#071952')+'</tr>';
   }).join('');
 }
 function renderAgMonth(){
   var tb=document.getElementById('tAgMonth');if(!tb)return;
   var keys=Object.keys(AG.byMonth).filter(function(k){return k!=='미상';}).sort().reverse();
-  if(!keys.length){tb.innerHTML='<tr><td colspan="5" class="empty">데이터 없음</td></tr>';return;}
+  if(!keys.length){tb.innerHTML='<tr><td colspan="7" class="empty">데이터 없음</td></tr>';return;}
   tb.innerHTML=keys.map(function(k){return _agLine(k,AG.byMonth[k]);}).join('');
 }
 function renderAgGender(){
@@ -1917,7 +1970,7 @@ function renderAgPlan(){
   var tb=document.getElementById('tAgPlan');if(!tb)return;
   var order=['FREE','SILVER','GOLD','DIAMOND'];
   var keys=order.filter(function(p){return AG.byPlan[p];}).concat(Object.keys(AG.byPlan).filter(function(p){return order.indexOf(p)<0;}));
-  if(!keys.length){tb.innerHTML='<tr><td colspan="5" class="empty">데이터 없음</td></tr>';return;}
+  if(!keys.length){tb.innerHTML='<tr><td colspan="7" class="empty">데이터 없음</td></tr>';return;}
   tb.innerHTML=keys.map(function(p){return _agLine(p,AG.byPlan[p]);}).join('');
 }
 function drawAgCharts(){
@@ -1925,20 +1978,21 @@ function drawAgCharts(){
   mkChart('chAgMonth','bar',keys,[
     {label:'코디핏',data:keys.map(function(k){return AG.byMonth[k].codifit;}),backgroundColor:'#35A29F'},
     {label:'트라이온',data:keys.map(function(k){return AG.byMonth[k].tryon;}),backgroundColor:'#b41a6a'},
+    {label:'옷장코디',data:keys.map(function(k){return AG.byMonth[k].aicloset||0;}),backgroundColor:'#6a1fb4'},
     {label:'런웨이',data:keys.map(function(k){return AG.byMonth[k].runway;}),backgroundColor:'#1a5fb4'}
   ],{scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}});
   var porder=['FREE','SILVER','GOLD','DIAMOND'].filter(function(p){return AG.byPlan[p];});
-  mkChart('chAgPlan','doughnut',porder,[{data:porder.map(function(p){var v=AG.byPlan[p];return v.codifit+v.tryon+v.runway;}),backgroundColor:['#8894a8','#35A29F','#c17b00','#6a1fb4']}]);
+  mkChart('chAgPlan','doughnut',porder,[{data:porder.map(function(p){var v=AG.byPlan[p];return _agSum(v);}),backgroundColor:['#8894a8','#35A29F','#c17b00','#6a1fb4']}]);
 }
 async function ldS(){
-  ['tAgUsers','tAgMonth','tAgGender','tAgPlan'].forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML='<tr><td colspan="7" class="ld"><span class="sp"></span>불러오는 중...</td></tr>';});
+  ['tAgUsers','tAgMonth','tAgGender','tAgPlan'].forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML='<tr><td colspan="9" class="ld"><span class="sp"></span>불러오는 중...</td></tr>';});
   try{
     var r=await authFetch(B+'/admin/styling-logs');if(!r.ok)throw 0;
     aS=(await r.json()).logs||[];
     _aggAiGen();
     renderAgUsers();renderAgMonth();renderAgGender();renderAgPlan();drawAgCharts();
     var mn=AG.monthNow;
-    kpi('kGenCodifit',mn.codifit);kpi('kGenTryon',mn.tryon);kpi('kRunwayGen',mn.runway);kpi('kGenTotal',mn.codifit+mn.tryon+mn.runway);
+    kpi('kGenCodifit',mn.codifit);kpi('kGenTryon',mn.tryon+(mn.aicloset||0),'페이지 '+mn.tryon+' + 옷장코디 '+(mn.aicloset||0));kpi('kGenAicloset',mn.aicloset||0);kpi('kRunwayGen',mn.runway);kpi('kGenTotal',_agSum(mn));
     kpi('kCloset',AG.total.codifit);kpi('kCodi',AG.total.tryon);
   }catch(e){
     ['tAgUsers','tAgMonth','tAgGender','tAgPlan'].forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML='<tr><td colspan="7" class="empty">데이터 없음</td></tr>';});
