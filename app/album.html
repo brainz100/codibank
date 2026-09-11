@@ -84,7 +84,7 @@
     // ─── 2026-07-02 KST · TJ 지시 ─── 7일 자동 삭제 정책 안내 문구 포함 (KO/EN)
     if(hintEl) hintEl.innerHTML = _isEn
       ? '<b style="color:#97FEED;">Long press</b> to bookmark your favorite styling<br/><span style="font-size:10.5px;color:rgba(216,226,255,.45);font-weight:500;">Outfits you don\'t like are <b style="color:rgba(255,179,193,.85);">auto-deleted after 7 days</b></span>'
-      : '<b style="color:#97FEED;">길게 누르면</b> 마음에 드는 스타일링을 찜할 수 있어요<br/><span style="font-size:10.5px;color:rgba(216,226,255,.45);font-weight:500;">찜하지 않은 코디는 <b style="color:rgba(255,179,193,.85);">7일 후 자동 삭제</b>돼요</span>';
+      : '<span style="color:#97FEED;">길게 누르면 마음에 드는 스타일링을 찜할 수 있어요</span><br/><span style="font-size:10.5px;color:rgba(255,179,193,.75);font-weight:500;">찜하지 않은 코디는 7일 후 자동 삭제돼요</span>';   // 2026-09-12 KST · TJ 지시 — 문장 단위(다국어 번역 키)
     // 셀렉트
     var selOpts = {'저장일자':'By Date','좋아요':'Liked','코디목적':'By Purpose'};
     document.querySelectorAll('#sortSel option').forEach(function(opt){
@@ -299,7 +299,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
   <h1 class="hdr-title" id="albumTitle">코디 앨범</h1>
   <div style="display:flex;align-items:center;gap:6px;margin-top:6px;padding:8px 12px;background:rgba(11,102,106,0.2);border:1px solid rgba(151,254,237,0.2);border-radius:10px;">
     <span style="font-size:16px;flex-shrink:0;">❤️</span>
-    <p id="albumHint" style="font-size:11.5px;color:rgba(162,253,240,0.75);font-weight:600;line-height:1.5;"><b style="color:#97FEED;">길게 누르면</b> 마음에 드는 스타일링을 찜할 수 있어요<br/><span style="font-size:10.5px;color:rgba(216,226,255,.45);font-weight:500;">찜하지 않은 코디는 <b style="color:rgba(255,179,193,.85);">7일 후 자동 삭제</b>돼요</span></p>
+    <p id="albumHint" style="font-size:11.5px;color:rgba(162,253,240,0.75);font-weight:600;line-height:1.5;"><!-- 2026-09-12 KST · TJ 지시 — 문장 단위 번역 키 --><span style="color:#97FEED;">길게 누르면 마음에 드는 스타일링을 찜할 수 있어요</span><br/><span style="font-size:10.5px;color:rgba(255,179,193,.75);font-weight:500;">찜하지 않은 코디는 7일 후 자동 삭제돼요</span></p>
   </div>
   <!-- ─── 2026-09-10 KST · TJ 지시 ─── 출처 필터: 코디핏 / 트라이온 / 옷장코디 ─── -->
   <div id="srcChips" style="display:flex;gap:6px;margin-top:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;">
@@ -438,6 +438,13 @@ function fmt(iso) {
     const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     return `${months[d.getMonth()]} ${d.getDate()} (${days[d.getDay()]})`;
   }
+  // ─── 2026-09-12 KST · TJ 지시 ─── 영어 외 외국어: 해당 언어 로케일로 날짜 표기 (한국어 '9월 10일 (목)' 형식은 텍스트 치환이 불가)
+  try{
+    if(window.CodiBankI18n && CodiBankI18n.isForeign && CodiBankI18n.isForeign()){
+      const _tag = ({ja:'ja-JP',zh:'zh-CN',es:'es-ES',tr:'tr-TR',fr:'fr-FR',ar:'ar-EG',de:'de-DE'})[CodiBankI18n.getLang()] || 'en-US';
+      return d.toLocaleDateString(_tag, { month:'short', day:'numeric', weekday:'short' });
+    }
+  }catch(_){}
   const days = ['일','월','화','수','목','금','토'];
   return `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
