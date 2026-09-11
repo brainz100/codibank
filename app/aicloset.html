@@ -2124,7 +2124,60 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
     </div>
   </section>
   </div><!-- /sm-pane items -->
-<div id="floatingAddBtn" style="position:fixed;bottom:90px;right:20px;z-index:9998;"><a href="camera.html" style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#13bbaf,#4cdbce);box-shadow:0 6px 20px rgba(19,187,175,0.45);text-decoration:none;color:#071952;" ontouchstart="this.style.transform='scale(0.92)'" ontouchend="this.style.transform='scale(1)'"><span class="material-symbols-outlined" style="font-size:32px;font-variation-settings:'FILL' 1,'wght' 700;">add</span></a></div>
+<!-- ─── 2026-09-12 KST · TJ 지시 ─── 아이템 추가 플로팅 버튼: 'item +' · 드래그로 위치 이동(저장) · 무지개 배경 순환 ─── -->
+<div id="floatingAddBtn" class="sm-fab" style="position:fixed;bottom:90px;right:20px;z-index:9998;touch-action:none;">
+  <a id="smFabLink" href="camera.html" class="sm-fab-btn" draggable="false" aria-label="아이템 추가">
+    <span class="sm-fab-txt">item</span><span class="material-symbols-outlined sm-fab-plus">add</span>
+  </a>
+</div>
+<style id="sm-fab-css">
+  /* 무지개 순환: 7색 회전 그라데이션 (8초 주기) */
+  @keyframes smFabHue { 0%{--sm-fab-a:#ff3b5c;--sm-fab-b:#ff8a3b} 14%{--sm-fab-a:#ff8a3b;--sm-fab-b:#ffd23b} 28%{--sm-fab-a:#ffd23b;--sm-fab-b:#39e26b} 42%{--sm-fab-a:#39e26b;--sm-fab-b:#25c8ff} 57%{--sm-fab-a:#25c8ff;--sm-fab-b:#4f6bff} 71%{--sm-fab-a:#4f6bff;--sm-fab-b:#b23bff} 85%{--sm-fab-a:#b23bff;--sm-fab-b:#ff3bd6} 100%{--sm-fab-a:#ff3b5c;--sm-fab-b:#ff8a3b} }
+  @property --sm-fab-a { syntax:'<color>'; inherits:false; initial-value:#13bbaf; }
+  @property --sm-fab-b { syntax:'<color>'; inherits:false; initial-value:#4cdbce; }
+  .sm-fab-btn{ display:flex;align-items:center;justify-content:center;gap:2px;height:56px;padding:0 16px 0 18px;border-radius:999px;
+    background:linear-gradient(135deg,var(--sm-fab-a),var(--sm-fab-b)); box-shadow:0 8px 22px color-mix(in srgb, var(--sm-fab-a) 45%, transparent);
+    text-decoration:none;color:#0a1030;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;
+    animation:smFabHue 8s linear infinite; transition:transform .12s ease; }
+  .sm-fab-btn:active{ transform:scale(.94); }
+  .sm-fab-txt{ font-family:'Outfit','Noto Sans KR',sans-serif;font-weight:800;font-size:15px;letter-spacing:.02em;line-height:1; }
+  .sm-fab-plus{ font-size:26px;font-variation-settings:'FILL' 1,'wght' 700;line-height:1; }
+  .sm-fab.dragging .sm-fab-btn{ transform:scale(1.06); box-shadow:0 14px 30px rgba(0,0,0,.45); }
+  /* 애니메이션 미지원(구형) 폴백: 고정 민트 */
+  @supports not (background: color-mix(in srgb, red 50%, blue)) { .sm-fab-btn{ box-shadow:0 8px 22px rgba(19,187,175,.45); } }
+</style>
+<script>
+/* ─── 2026-09-12 KST · TJ 지시 ─── 플로팅 버튼 드래그 이동 (위치는 localStorage 에 저장, 화면 밖으로 못 나감, 드래그 후 클릭 오발동 방지) */
+(function(){
+  var fab = document.getElementById('floatingAddBtn'), link = document.getElementById('smFabLink'); if(!fab || !link) return;
+  var KEY = 'cb_sm_fab_pos';
+  function clamp(x, y){ var r = fab.getBoundingClientRect(); var W = window.innerWidth, H = window.innerHeight;
+    return { x: Math.min(Math.max(8, x), W - r.width - 8), y: Math.min(Math.max(8, y), H - r.height - 8) }; }
+  function apply(x, y){ var p = clamp(x, y); fab.style.left = p.x + 'px'; fab.style.top = p.y + 'px'; fab.style.right = 'auto'; fab.style.bottom = 'auto'; return p; }
+  try{ var saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if(saved && isFinite(saved.x) && isFinite(saved.y)) apply(saved.x, saved.y); }catch(_){}
+  var drag = null;
+  fab.addEventListener('pointerdown', function(e){
+    var r = fab.getBoundingClientRect();
+    drag = { id: e.pointerId, ox: e.clientX - r.left, oy: e.clientY - r.top, sx: e.clientX, sy: e.clientY, moved: false };
+    try{ fab.setPointerCapture(e.pointerId); }catch(_){}
+  });
+  fab.addEventListener('pointermove', function(e){
+    if(!drag || e.pointerId !== drag.id) return;
+    if(!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 6) return;   // 6px 이내 = 탭
+    drag.moved = true; fab.classList.add('dragging');
+    apply(e.clientX - drag.ox, e.clientY - drag.oy); e.preventDefault();
+  });
+  function end(e){
+    if(!drag || (e.pointerId !== undefined && e.pointerId !== drag.id)) return;
+    var moved = drag.moved; drag = null; fab.classList.remove('dragging');
+    if(moved){ try{ var r = fab.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({ x: r.left, y: r.top })); }catch(_){}
+      link.dataset.suppress = '1'; setTimeout(function(){ delete link.dataset.suppress; }, 250); }
+  }
+  fab.addEventListener('pointerup', end); fab.addEventListener('pointercancel', end);
+  link.addEventListener('click', function(e){ if(link.dataset.suppress){ e.preventDefault(); } });   // 드래그 직후 이동 방지
+  window.addEventListener('resize', function(){ try{ var r = fab.getBoundingClientRect(); if(fab.style.left) apply(r.left, r.top); }catch(_){} });
+})();
+</script>
 </main>
 
 <!-- ─── 2026-07-02 KST · TJ 지시 ─── 사업자정보 푸터(공통) + 가독성(그레이) + 여백 정리
