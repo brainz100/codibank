@@ -2996,7 +2996,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 .vto-img-spin, .step-a-overlay, .img-spin, .sm-img-spin{
   border-radius:20px !important; border:1px solid rgba(151,254,237,.16) !important; box-shadow:inset 0 1px 0 rgba(151,254,237,.06), 0 10px 30px rgba(0,0,0,.30) !important;
   background:radial-gradient(ellipse 78% 58% at 50% 46%, rgba(96,60,200,.26) 0%, rgba(53,162,159,.10) 45%, transparent 72%), linear-gradient(165deg,#0B1238 0%,#050A24 100%) !important;
-  display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:0 !important; overflow:hidden !important;
+  flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:0 !important; overflow:hidden !important;
 }
 .vto-img-spin::before, .vto-img-spin::after, .step-a-overlay::before, .step-a-overlay::after, .img-spin::before, .img-spin::after, .sm-img-spin::before, .sm-img-spin::after{ content:none !important; display:none !important; }
 .step-a-pulse-wrap, .step-a-pulse{ display:none !important; }
@@ -3031,6 +3031,22 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 }
 /* 코디핏 3rd(크게보기) 박스: 효과·% 없음, 심볼 고정 */
 .vto-result-box .vto-spin-pct{ display:none !important; }
+
+/* ─── 2026-09-12 KST · TJ 지시 (6차) ───
+   ① 결과가 로더에 가려지던 버그: 로더 컨테이너 display 를 !important 로 강제해 JS 의 display:none 이 무시됐음 → !important 제거
+   ② 대기 상태의 흐릿한 덧씌움(로더 35% 투명) 제거
+   ③ '00%' 는 STYLEMONSTER 아래, 고정 크기(22px), 숫자만 0→100 변화 (배면·확대 효과 폐기) */
+.vto-img-spin, .step-a-overlay, .img-spin, .sm-img-spin{ display:flex; }
+.vto-img-spin[style*="display: none"], .step-a-overlay[style*="display: none"], .img-spin[style*="display: none"], .sm-img-spin[style*="display: none"],
+.vto-img-spin[style*="display:none"], .step-a-overlay[style*="display:none"], .img-spin[style*="display:none"], .sm-img-spin[style*="display:none"]{ display:none !important; }
+.sm-img-spin:not(.loading) .sm-loader-img{ opacity:1 !important; }
+.cb-rainbow, .cb-rainbow-vto, .cb-rainbow-cs, .step-a-cb-rainbow, .sm-rainbow{ order:1; }
+.vto-spin-pct, .step-a-overlay-pct, .spin-pct, .sm-pct{
+  position:static !important; left:auto !important; top:auto !important; transform:none !important; order:2; z-index:auto !important;
+  margin:10px 0 0 !important; font-family:'Manrope','Inter',sans-serif !important; font-weight:800 !important; font-size:22px !important; line-height:1 !important;
+  opacity:.9 !important; color:#97FEED !important; letter-spacing:.02em !important; transition:none !important; text-shadow:none !important; }
+.sm-pct #smPctNum{ font-size:22px !important; line-height:1 !important; }
+.vto-spin-pct .vto-spin-pct-sym, .spin-pct .spin-pct-sym, .sm-pct .sm-pct-unit{ font-size:22px !important; opacity:1; }
 </style>
 <script>
 /* ─── 2026-09-10 KST · TJ 지시 ─── SM_LOADER: 보이는 .sm-loader-img 를 300ms 마다 다음 몬스터 심볼로 교체 */
@@ -3050,7 +3066,6 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
     for(var k=0;k<ps.length;k++){ var n = parseInt(String(ps[k].textContent||'').replace(/[^0-9]/g,''),10); if(isNaN(n)) n = 0; ps[k].style.setProperty('--sm-pct-scale', String(1 + 0.5*Math.min(100,Math.max(0,n))/100)); }
   }
   function tick(){
-    pctScale();
     var els = document.querySelectorAll('.sm-loader-img:not(.sm-loader-static)');
     var any = false;
     for(var i=0;i<els.length;i++){ if(visible(els[i])){ any = true; break; } }
