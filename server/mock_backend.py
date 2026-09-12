@@ -9080,25 +9080,38 @@ _ADMIN_DB: dict = {}
 def _admin_db_key() -> str:
     return "CB_ADMIN_ACCOUNTS_JSON"
 
+# ─── 2026-09-12 KST · TJ 지시 ─── 총괄관리자 ID 단일 정의
+_MASTER_EMAIL        = "admin@stylemonster.kr"
+_LEGACY_MASTER_EMAIL = "admin@codibank.kr"
+
 def _init_admin_db():
     global _ADMIN_DB
+    # ─── 2026-09-12 KST · TJ 지시 ───
+    # 총괄관리자(MASTER) ID: admin@codibank.kr → admin@stylemonster.kr
+    # 초기 비밀번호 pass1234 고정 (관리자페이지 로그인 후 변경)
+    _PASS1234_HASH = "bd94dcda26fccb4e68d6a31f9b5aac0b571ae266d822620e901ef7ebe3a11d4f"
     raw = os.environ.get(_admin_db_key(), "")
     if raw:
         try:
             _ADMIN_DB = _json.loads(raw)
+            # 저장된 JSON에 구 MASTER ID가 남아 있으면 새 ID로 이관 + pass1234 초기화
+            if _LEGACY_MASTER_EMAIL in _ADMIN_DB and _MASTER_EMAIL not in _ADMIN_DB:
+                _info = _ADMIN_DB.pop(_LEGACY_MASTER_EMAIL)
+                _info["hash"] = _PASS1234_HASH
+                _ADMIN_DB[_MASTER_EMAIL] = _info
+                os.environ[_admin_db_key()] = _json.dumps(_ADMIN_DB, ensure_ascii=False)
             return
         except Exception:
             pass
-    # 기본 마스터 계정: admin@codibank.kr / pass1234
+    # 기본 마스터 계정: admin@stylemonster.kr / pass1234
     # ★ Render ADMIN_PW_HASH가 구버전(password 해시) 일 수 있으므로
     #   pass1234 해시를 코드 기본값으로 고정하고, 구버전 해시는 무시
-    _PASS1234_HASH = "bd94dcda26fccb4e68d6a31f9b5aac0b571ae266d822620e901ef7ebe3a11d4f"
     _OLD_DEFAULT   = "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"
     _env_hash = os.environ.get("ADMIN_PW_HASH", "")
     # 환경변수가 구버전(password)이거나 비어있으면 pass1234 해시 사용
     master_hash = _env_hash if (_env_hash and _env_hash != _OLD_DEFAULT) else _PASS1234_HASH
     _ADMIN_DB = {
-        "admin@codibank.kr": {
+        _MASTER_EMAIL: {
             "role": "MASTER",
             "hash": master_hash,
             "permissions": ["all"],
@@ -9112,7 +9125,7 @@ _init_admin_db()
 
 def _auto_sync_master_to_supabase():
     """서버 시작 5초 후 MASTER 계정을 Supabase에 자동 동기화.
-    CodiBank 앱(Supabase 로그인)에서도 admin@codibank.kr / pass1234 로 로그인 가능.
+    Stylemonster 앱(Supabase 로그인)에서도 admin@stylemonster.kr / pass1234 로 로그인 가능.
     """
     import threading as _th
     def _run():
@@ -11421,7 +11434,7 @@ def admin_debug_supabase():
         result["api_exception"] = str(e)[:200]
         result["api_ok"] = False
 
-    # admin@codibank.kr Supabase 존재 여부
+    # admin@stylemonster.kr Supabase 존재 여부
     admin_exists = False
     test_exists  = {}
     try:
@@ -11437,8 +11450,8 @@ def admin_debug_supabase():
                     "confirmed": bool(u.get("email_confirmed_at")),
                     "confirmed_at": u.get("email_confirmed_at",""),
                 }
-            admin_exists = "admin@codibank.kr" in emails_confirmed
-            result["admin_confirmed"] = emails_confirmed.get("admin@codibank.kr",{}).get("confirmed", False)
+            admin_exists = _MASTER_EMAIL in emails_confirmed
+            result["admin_confirmed"] = emails_confirmed.get(_MASTER_EMAIL,{}).get("confirmed", False)
             for i in range(1, 11):
                 em = f"test{i:02d}@codibank.kr"
                 info = emails_confirmed.get(em, {"exists": False, "confirmed": False})
@@ -11456,14 +11469,14 @@ def admin_debug_supabase():
 
 @app.post("/admin/debug/force-create-admin")
 def admin_debug_force_create():
-    """admin@codibank.kr를 Supabase에 강제 생성/업데이트 (MASTER 전용).
+    """admin@stylemonster.kr를 Supabase에 강제 생성/업데이트 (MASTER 전용).
     진단 후 직접 호출로 즉시 해결.
     """
     if not verify_master(request):
         return jsonify({"ok": False, "error": "MASTER 권한 필요"}), 403
     import requests as _rq
     data = request.get_json(silent=True) or {}
-    target_email = str(data.get("email") or "admin@codibank.kr").strip().lower()
+    target_email = str(data.get("email") or _MASTER_EMAIL).strip().lower()
     password     = str(data.get("password") or "pass1234").strip()
 
     _sb  = supabase_url()
@@ -11555,7 +11568,7 @@ def admin_confirm_all_emails():
                         "action": "Render 환경변수에 SUPABASE_SERVICE_KEY(service_role 키) 추가 후 재배포"})
 
     # 대상 이메일 목록
-    targets = ["admin@codibank.kr"] + [f"test{i:02d}@codibank.kr" for i in range(1, 11)]
+    targets = [_MASTER_EMAIL] + [f"test{i:02d}@codibank.kr" for i in range(1, 11)]
     data = request.get_json(silent=True) or {}
     extra = data.get("extra_emails") or []
     targets += [e.strip().lower() for e in extra if e.strip()]
@@ -11617,7 +11630,7 @@ def admin_debug_test_login():
 
     import requests as _rq
     data     = request.get_json(silent=True) or {}
-    email    = str(data.get("email")    or "admin@codibank.kr").strip().lower()
+    email    = str(data.get("email")    or _MASTER_EMAIL).strip().lower()
     password = str(data.get("password") or "pass1234").strip()
 
     _sb      = supabase_url()
@@ -14306,7 +14319,8 @@ _RUNWAY_TIER_LIMITS = {
 
 # 총괄 관리자 이메일 — admin endpoint 접근 권한 + 자동 DIAMOND 처리
 _RUNWAY_ADMIN_EMAILS = {
-    "admin@codibank.kr",
+    "admin@stylemonster.kr",   # 2026-09-12 총괄관리자 ID 변경
+    "admin@codibank.kr",       # 구 ID — Supabase 잔존 계정 호환용
 }
 
 # 테스트 사용자 이메일 — 자동 DIAMOND 처리 (admin endpoint 접근 권한 없음)
@@ -15072,7 +15086,7 @@ def _runway_admin_check(req):
 @app.route("/api/admin/runway/stats", methods=["GET"])
 def admin_runway_stats():
     """런웨이 전체 통계 — 총 사용자 수, 총 영상 수, tier별 분포, 월별 사용량.
-       헤더: X-Admin-Email: admin@codibank.kr"""
+       헤더: X-Admin-Email: admin@stylemonster.kr"""
     admin = _runway_admin_check(request)
     if not admin:
         return jsonify({"ok": False, "error": "관리자 권한 필요 (X-Admin-Email 헤더 또는 admin_email 쿼리)"}), 403
