@@ -1365,6 +1365,14 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 .sm-alarm-explain{padding:12px 14px;border-radius:14px;background:rgba(151,254,237,.06);border:1px solid rgba(151,254,237,.16);}
 .sm-ae-row{display:flex;align-items:flex-start;gap:9px;font-size:12px;line-height:1.5;color:rgba(255,255,255,.72);padding:5px 0;}
 .sm-ae-row .material-symbols-outlined{font-size:18px;color:#97FEED;flex-shrink:0;margin-top:1px;}
+/* ─── 2026-09-15 KST · TJ 지시 ─── 인앱 알림함 배너 (푸시가 못 와도 완료된 착장을 놓치지 않게) */
+.sm-inbox{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);width:min(92vw,420px);z-index:9800;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;background:linear-gradient(135deg,#0B666A,#0d4f52);border:1.5px solid rgba(151,254,237,.55);box-shadow:0 10px 30px rgba(0,0,0,.45);color:#fff;font-size:12.5px;line-height:1.45;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;}
+.sm-inbox.on{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0);}
+.sm-inbox .material-symbols-outlined{color:#97FEED;font-size:24px;flex:none;}
+.sm-inbox .sm-inbox-t{flex:1;min-width:0;} .sm-inbox .sm-inbox-t b{color:#97FEED;}
+.sm-inbox button{flex:none;border:0;border-radius:10px;padding:8px 12px;font-weight:800;font-size:12px;background:#97FEED;color:#0B666A;cursor:pointer;}
+.sm-inbox .sm-inbox-x{background:transparent;color:rgba(255,255,255,.6);padding:4px;font-size:18px;line-height:1;}
+.sm-push-test{display:block;margin:6px auto 0;background:none;border:0;font-size:11px;color:rgba(151,254,237,.7);text-decoration:underline;cursor:pointer;}
 .sm-alarm-done{margin-top:12px;padding:14px;border-radius:14px;background:rgba(151,254,237,.12);border:1.5px solid rgba(151,254,237,.45);color:#fff;font-size:12.5px;line-height:1.6;}
 .sm-alarm-done b{color:#97FEED;font-weight:900;}
 .sm-alarm-done.hidden{display:none;}
@@ -1848,6 +1856,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
       </button>
       <p id="smAlarmHint" class="mt-2 text-[11px] text-center" style="color:rgba(151,254,237,0.55);min-height:16px;" data-i18n="날짜·시각·목적을 고르면 예약할 수 있어요">날짜·시각·목적을 고르면 예약할 수 있어요</p>
       <div id="smAlarmDone" class="sm-alarm-done hidden"></div>
+      <button id="smPushTestBtn" type="button" class="sm-push-test" data-i18n="알림이 잘 오는지 테스트">알림이 잘 오는지 테스트</button>
 <div id="smAlarmListWrap" class="mt-7 hidden">
       <div class="flex items-center justify-between mb-2">
         <h3 class="text-[14px] font-bold text-white" data-i18n="예약된 코디 알람">예약된 코디 알람</h3>
@@ -1855,6 +1864,14 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
       </div>
       <div id="smAlarmList" class="space-y-2"></div>
     </div>
+    </div>
+
+    <!-- ─── 2026-09-15 KST · TJ 지시 ─── 인앱 알림함 배너 (SM_ALARM.checkInbox 가 채움) -->
+    <div id="smInbox" class="sm-inbox" role="status" aria-live="polite">
+      <span class="material-symbols-outlined">notifications_active</span>
+      <div class="sm-inbox-t" id="smInboxText"></div>
+      <button type="button" id="smInboxOpen">보기</button>
+      <button type="button" class="sm-inbox-x" id="smInboxClose" aria-label="close">✕</button>
     </div>
 
     <!-- ══ 결과 뷰박스 (지금 코디 결과 · 알림 결과 열람 공용) ══ -->
@@ -8262,22 +8279,71 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
 
   // ── 푸시 구독 ──
   function _b64ToU8(b64){ const p = '='.repeat((4 - b64.length % 4) % 4); const s = (b64 + p).replace(/-/g,'+').replace(/_/g,'/'); const raw = atob(s); return Uint8Array.from([...raw].map(c => c.charCodeAt(0))); }
-  async function ensurePush(){
-    // 반환: { subscription | null, reason }
+  // ─── 2026-09-15 KST · TJ 지시 ─── 구독 실패 원인 추적 + VAPID 키 교체 시 자동 재구독
+  //   · opts.silent=true 면 권한 팝업을 띄우지 않음(이미 granted 일 때만 진행) — 페이지 로드 시 조용한 갱신용
+  //   · 서버 공개키가 기존 구독의 applicationServerKey 와 다르면 unsubscribe → 재구독 (키 교체 대응)
+  //   · reason: ok | unsupported | denied | no_vapid | sw_fail | error  (+ detail)
+  function _u8ToB64(buf){ try{ return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }catch(_){ return ''; } }
+  async function ensurePush(opts){
+    opts = opts || {};
     try{
       if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return { subscription:null, reason:'unsupported' };
-      const perm = await Notification.requestPermission();
-      if(perm !== 'granted') return { subscription:null, reason:'denied' };
-      const reg = await navigator.serviceWorker.register('/sw.js', { scope:'/' });
-      await navigator.serviceWorker.ready;
-      let sub = await reg.pushManager.getSubscription();
-      if(!sub){
-        const k = await _getJson('/api/push/vapid-public');
-        if(!k || !k.key) return { subscription:null, reason:'no_vapid' };
-        sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: _b64ToU8(k.key) });
+      let perm = Notification.permission;
+      if(perm !== 'granted'){
+        if(opts.silent || perm === 'denied') return { subscription:null, reason:'denied', detail: perm };
+        perm = await Notification.requestPermission();
+        if(perm !== 'granted') return { subscription:null, reason:'denied', detail: perm };
       }
+      let reg;
+      try{ reg = await navigator.serviceWorker.register('/sw.js', { scope:'/' }); await navigator.serviceWorker.ready; }
+      catch(e){ console.warn('[SM] sw register fail', e); return { subscription:null, reason:'sw_fail', detail: String(e && e.message || e) }; }
+      const k = await _getJson('/api/push/vapid-public').catch(()=>null);
+      if(!k || !k.key) return { subscription:null, reason:'no_vapid' };
+      let sub = await reg.pushManager.getSubscription();
+      if(sub){
+        const cur = sub.options && sub.options.applicationServerKey ? _u8ToB64(sub.options.applicationServerKey) : '';
+        if(cur && cur !== k.key){ console.warn('[SM] VAPID key changed → resubscribe'); try{ await sub.unsubscribe(); }catch(_){} sub = null; }
+      }
+      if(!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: _b64ToU8(k.key) });
       return { subscription: sub.toJSON(), reason:'ok' };
-    }catch(e){ console.warn('[SM] push setup fail', e); return { subscription:null, reason:'error' }; }
+    }catch(e){ console.warn('[SM] push setup fail', e); return { subscription:null, reason:'error', detail: String(e && e.message || e) }; }
+  }
+  // 사유별 사용자 안내 문구
+  function _pushReasonText(p){
+    const r = (p && p.reason) || 'error';
+    const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const standalone = !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || !!navigator.standalone;
+    if(r === 'unsupported' && ios && !standalone) return _T('아이폰은 Safari 공유(□↑) → "홈 화면에 추가" 후, 홈 화면 아이콘으로 열어야 알림을 받을 수 있어요.', 'On iPhone, add to Home Screen (Share → Add to Home Screen) and open from the icon to receive notifications.');
+    if(r === 'unsupported') return _T('이 브라우저는 푸시 알림을 지원하지 않아요. Chrome 또는 삼성 인터넷을 이용해주세요.', 'This browser does not support push notifications. Please use Chrome.');
+    if(r === 'denied') return _T('알림 권한이 꺼져 있어요. 주소창 자물쇠(⚙) → 권한 → 알림을 "허용"으로 바꾼 뒤 다시 예약해주세요.', 'Notifications are blocked. Tap the lock icon → Permissions → Notifications → Allow, then schedule again.');
+    if(r === 'no_vapid') return _T('알림 서버 설정이 아직 준비되지 않았어요. 결과는 이 화면의 예약 목록에서 볼 수 있어요.', 'Notification server is not configured yet. Results will appear in the list below.');
+    if(r === 'sw_fail') return _T('알림 모듈 등록에 실패했어요. 페이지를 새로고침한 뒤 다시 시도해주세요.', 'Failed to register the notification worker. Refresh and try again.');
+    return _T('알림 설정 중 오류가 났어요. 결과는 이 화면의 예약 목록에서 볼 수 있어요.', 'Notification setup failed. Results will appear in the list below.');
+  }
+  // 즉시 테스트 푸시
+  async function testPush(){
+    const btn = $('smPushTestBtn'); if(btn) btn.disabled = true;
+    try{
+      const p = await ensurePush();
+      if(!p.subscription){ alert(_pushReasonText(p)); return; }
+      const j = await _postJson('/api/push/test', { email: _email(), subscription: p.subscription, lang: _isFor() ? 'en' : 'ko' }, 30000);
+      if(j && j.ok) alert(_T('테스트 알림을 보냈어요. 상단 알림을 확인해주세요. (안 보이면 폰 설정 → 앱 → 브라우저 → 알림 확인)', 'Test notification sent — check your notification tray.'));
+      else alert(_T('서버에서 발송에 실패했어요: ', 'Server failed to send: ') + ((j && j.error) || ''));
+    }catch(e){ alert(_T('테스트 실패: ','Test failed: ') + _friendlyErr(e)); }
+    finally{ if(btn) btn.disabled = false; }
+  }
+  // 페이지 로드 시 조용한 재구독: 권한이 이미 허용돼 있고 대기 중 알람에 구독이 없으면(또는 키 교체) 서버에 갱신
+  async function _silentResubscribe(){
+    try{
+      if(!_email() || !('Notification' in window) || Notification.permission !== 'granted') return;
+      const p = await ensurePush({ silent:true }); if(!p.subscription) return;
+      const need = ST.alarms.some(a => a.status === 'pending' && !a.hasPush);
+      const key = 'cb_sm_pushep_' + _email(); let prev = ''; try{ prev = localStorage.getItem(key) || ''; }catch(_){}
+      if(!need && prev === p.subscription.endpoint) return;
+      await _postJson('/api/push/subscribe', { email: _email(), subscription: p.subscription }, 30000);
+      try{ localStorage.setItem(key, p.subscription.endpoint); }catch(_){}
+      if(need) loadAlarms();
+    }catch(e){ console.warn('[SM] silent resubscribe skip', e); }
   }
 
   // ── 알람 예약 ──
@@ -8323,7 +8389,7 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
       if(done){
         done.innerHTML = push.subscription
           ? _T(`<b>${dk} ${time}</b> · ${escS(purposeLabel())}<br>그 시각의 실제 날씨와 내 체형 데이터로 착장을 만들어 <b>알림</b>을 보내드릴게요.`, `<b>${dk} ${time}</b> · ${escS(purposeLabel())}<br>We'll generate with that hour's weather and your body data, then <b>notify</b> you.`)
-          : _T(`<b>${dk} ${time}</b> · ${escS(purposeLabel())}<br>예약됐어요. 알림 권한이 꺼져 있어 푸시는 못 보내지만, 그 시각 이후 이 화면의 예약 목록에서 결과를 볼 수 있어요.`, `<b>${dk} ${time}</b> · ${escS(purposeLabel())}<br>Scheduled. Push is off; the result will appear in the list below after that time.`);
+          : `<b>${dk} ${time}</b> · ${escS(purposeLabel())}<br>` + _T('예약은 됐지만 <b>알림은 보낼 수 없어요.</b> ', 'Scheduled, but <b>push cannot be sent.</b> ') + escS(_pushReasonText(push)) + '<br>' + _T('앱을 열면 완성된 착장을 바로 보여드려요.', 'Open the app to see the finished outfit.');   // 2026-09-15 KST · TJ 지시 — 사유별 안내
         done.classList.remove('hidden');
         try{ done.scrollIntoView({ behavior:'smooth', block:'center' }); }catch(_){}
       }
@@ -8359,15 +8425,43 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
       const stC = { pending:'sm-st-pending', running:'sm-st-pending', done:'sm-st-done', failed:'sm-st-failed' }[a.status] || 'sm-st-pending';
       row.innerHTML = `<span class="material-symbols-outlined sm-ar-ic">${a.status==='done'?'notifications_active':'alarm'}</span>
         <div class="sm-ar-main"><div class="sm-ar-t">${escS(a.dateKey)} ${escS(a.time)} · ${escS(a.purposeLabel||'')}</div>
-        <div class="sm-ar-s">${a.status==='done' && a.weatherText ? escS((a.temp!=null?a.temp+'° ':'')+a.weatherText) : (a.status==='failed' ? escS(a.error||'') : _T('예약 시각의 날씨로 생성돼요','Generated with the weather at that time'))}</div></div>
+        <div class="sm-ar-s">${a.status==='done' && a.weatherText ? escS((a.temp!=null?a.temp+'° ':'')+a.weatherText) : (a.status==='failed' ? escS(a.error||'') : (a.status==='pending' && !a.hasPush ? _T('⚠ 알림 미설정 · 앱을 열면 결과를 볼 수 있어요','⚠ No push · open the app to see the result') : _T('예약 시각의 날씨로 생성돼요','Generated with the weather at that time')))}</div></div>
         <span class="sm-ar-st ${stC}">${stL}</span>
         <button type="button" class="sm-ar-del" aria-label="delete"><span class="material-symbols-outlined" style="font-size:18px;">close</span></button>`;
       row.querySelector('.sm-ar-del').addEventListener('click', async (ev) => { ev.stopPropagation(); if(!confirm(_T('이 알람을 삭제할까요?','Delete this alarm?'))) return; try{ await fetch(_base() + '/api/aicloset/alarm/' + encodeURIComponent(a.id) + '?email=' + encodeURIComponent(_email()), { method:'DELETE' }); }catch(_){} loadAlarms(); });
       if(a.status === 'done') row.addEventListener('click', () => openAlarmResult(a.id));
       list.appendChild(row);
     });
+    checkInbox();   // 2026-09-15 KST · TJ 지시 — 인앱 알림함 갱신
   }
+  // ─── 2026-09-15 KST · TJ 지시 ─── 인앱 알림함: 완료됐는데 아직 안 본 알람을 배너로 알림 (푸시 실패·미허용 폴백)
+  const SEEN_KEY = () => 'cb_sm_seen_' + _email();
+  function _seen(){ try{ return new Set(JSON.parse(localStorage.getItem(SEEN_KEY()) || '[]')); }catch(_){ return new Set(); } }
+  function _markSeen(id){ try{ const s = _seen(); s.add(String(id)); localStorage.setItem(SEEN_KEY(), JSON.stringify([...s].slice(-100))); }catch(_){} }
+  function _hideInbox(){ const b = $('smInbox'); if(b) b.classList.remove('on'); }
+  function checkInbox(){
+    const b = $('smInbox'), t = $('smInboxText'); if(!b || !t) return;
+    const seen = _seen();
+    const unseen = ST.alarms.filter(a => a.status === 'done' && a.imageUrl && !seen.has(String(a.id))).sort((x,y) => String(y.runAt).localeCompare(String(x.runAt)));
+    if(!unseen.length){ _hideInbox(); return; }
+    const a = unseen[0];
+    t.innerHTML = _T(`<b>예약한 옷장코디가 완성됐어요</b><br>${escS(a.dateKey)} ${escS(a.time)} · ${escS(a.purposeLabel||'')}${unseen.length > 1 ? ` 외 ${unseen.length-1}건` : ''}`,
+                     `<b>Your scheduled outfit is ready</b><br>${escS(a.dateKey)} ${escS(a.time)} · ${escS(a.purposeLabel||'')}${unseen.length > 1 ? ` +${unseen.length-1} more` : ''}`);
+    b.dataset.id = a.id; b.classList.add('on');
+  }
+  let _inboxTimer = null;
+  async function _pollInbox(){ if(document.visibilityState !== 'visible' || !_email()) return; try{ await loadAlarms(); }catch(_){} }
+  function initInbox(){
+    $('smInboxOpen') && $('smInboxOpen').addEventListener('click', () => { const id = $('smInbox').dataset.id; _hideInbox(); if(id) openAlarmResult(id); });
+    $('smInboxClose') && $('smInboxClose').addEventListener('click', () => { ST.alarms.filter(a => a.status === 'done').forEach(a => _markSeen(a.id)); _hideInbox(); });
+    $('smPushTestBtn') && $('smPushTestBtn').addEventListener('click', testPush);
+    document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') _pollInbox(); });
+    if(_inboxTimer) clearInterval(_inboxTimer);
+    _inboxTimer = setInterval(() => { if(ST.alarms.some(a => a.status === 'pending' || a.status === 'running')) _pollInbox(); }, 60000);   // 대기 중 알람이 있을 때만 1분 폴링
+  }
+
   async function openAlarmResult(id){
+    _markSeen(id); _hideInbox();   // 2026-09-15 KST · TJ 지시 — 열람 처리
     try{
       setLoading(true, _T('알람 결과 불러오는 중…','Loading result…'), '');
       const j = await _getJson('/api/aicloset/alarm/' + encodeURIComponent(id) + '?email=' + encodeURIComponent(_email()));
@@ -8430,7 +8524,8 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     if(sc){ new MutationObserver(() => refreshButtons()).observe(sc, { attributes:true, subtree:true, attributeFilter:['class'] }); }
     document.addEventListener('click', e => { if(e.target && e.target.closest && e.target.closest('#dateCardScroll')) setTimeout(refreshButtons, 60); });
     refreshButtons();
-    loadAlarms();
+    initInbox();   // 2026-09-15 KST · TJ 지시
+    loadAlarms().then(_silentResubscribe).catch(()=>{});
     // 2026-09-10 KST · TJ 지시 — 10분 내 복귀면 마지막 결과 복원 (딥링크가 없을 때만) · 만료면 전부 리셋
     try{ if(_expired()) setTimeout(smIdleReset, 50); else if(!new URLSearchParams(location.search).get('alarm')) setTimeout(_restoreResult, 300); }catch(_){}
     // 딥링크: 알림 클릭 → aicloset.html?alarm=<id>
@@ -8438,7 +8533,7 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     // 알림 클릭으로 열린 SW 메시지
     try{ navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', ev => { const d = ev.data || {}; if(d.type === 'sm_open_alarm' && d.id) openAlarmResult(d.id); }); }catch(_){}
   }
-  window.SM_ALARM = { generateNow, scheduleAlarm, loadAlarms, openAlarmResult, refreshButtons, setTab, setMode, downloadImage, shareImage, PURPOSES, ST };
+  window.SM_ALARM = { generateNow, scheduleAlarm, loadAlarms, openAlarmResult, refreshButtons, setTab, setMode, downloadImage, shareImage, testPush, checkInbox, ensurePush, PURPOSES, ST };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
