@@ -15521,6 +15521,11 @@ def admin_runway_bonus_list():
 #    · GET/DELETE /api/aicloset/alarm/<id>
 #    · POST /api/aicloset/alarm/run-due 예약 시각 도달분 실행 (스케줄러 스레드 + 외부 cron 백업)
 #    · GET  /api/push/vapid-public      Web Push 공개키
+#    · POST /api/push/subscribe         (2026-09-15) 대기 중 알람에 푸시 구독 갱신
+#    · POST /api/push/test              (2026-09-15) 즉시 테스트 푸시
+#  (2026-09-15) sm_alarms 추가 컬럼: push_sent_at timestamptz, push_error text
+#    alter table sm_alarms add column if not exists push_sent_at timestamptz;
+#    alter table sm_alarms add column if not exists push_error text;
 #  엔진 재사용: 착장 이미지는 기존 /api/tryon/generate 를 자체 HTTP 호출 (트라이온 코드 무수정)
 #  저장소:  Supabase 테이블 sm_alarms (없으면 로컬 JSON 폴백) · 스냅샷은 R2 JSON
 #  환경변수: VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_CLAIMS_EMAIL (푸시)
@@ -15598,6 +15603,9 @@ def _sm_row_to_alarm(r: dict) -> dict:
         "imageUrl": res.get("imageUrl", ""), "picked": res.get("picked", []), "reason": res.get("reason", ""),
         "temp": res.get("temp"), "weatherText": res.get("weatherText", ""),
         "createdAt": r.get("created_at"), "updatedAt": r.get("updated_at"),
+        # 2026-09-15 KST · TJ 지시 — 푸시 상태 (프론트 인앱 알림함·재구독 판단용)
+        "hasPush": bool((r.get("push_json") or {}).get("endpoint")) if isinstance(r.get("push_json"), dict) else False,
+        "pushSentAt": r.get("push_sent_at"), "pushError": r.get("push_error") or "",
     }
 
 def _sm_store_insert(row: dict):
@@ -15845,20 +15853,68 @@ def sm_vapid_public():
     k = (os.getenv("VAPID_PUBLIC_KEY") or "").strip()
     return jsonify(ok=bool(k), key=k)
 
-def _sm_send_push(sub: dict, payload: dict) -> bool:
-    if not sub or not sub.get("endpoint"): return False
+# ─── 2026-09-15 KST · TJ 지시 ─── 푸시 발송 결과를 (ok, 사유) 로 반환 → sm_alarms.push_sent_at / push_error 에 기록
+#   원인 추적: 2026-09-10 알람 3건이 done 인데 알림 미도달 → push_json 이 전부 null(VAPID 미설정으로 폰이 구독 생성 실패).
+#   이후엔 실패 사유가 테이블에 남도록 함. 410/404 = 구독 만료(재구독 필요).
+def _sm_send_push_ex(sub: dict, payload: dict):
+    if not sub or not sub.get("endpoint"): return False, "no_subscription"
     priv = (os.getenv("VAPID_PRIVATE_KEY") or "").strip(); email = (os.getenv("VAPID_CLAIMS_EMAIL") or "mailto:codibank.kr@gmail.com").strip()
-    if not priv: print("[SM] VAPID_PRIVATE_KEY 미설정 → 푸시 생략", flush=True); return False
+    if not priv: print("[SM] VAPID_PRIVATE_KEY 미설정 → 푸시 생략", flush=True); return False, "no_vapid_private_key"
     try:
-        from pywebpush import webpush
+        from pywebpush import webpush, WebPushException
+    except ImportError:
+        print("[SM] pywebpush 미설치 (requirements.txt 에 pywebpush 추가) → 푸시 생략", flush=True); return False, "pywebpush_not_installed"
+    try:
         webpush(subscription_info=sub, data=json.dumps(payload, ensure_ascii=False), vapid_private_key=priv,
                 vapid_claims={"sub": email if email.startswith("mailto:") else "mailto:" + email}, ttl=3600)
-        return True
-    except ImportError:
-        print("[SM] pywebpush 미설치 (requirements.txt 에 pywebpush 추가) → 푸시 생략", flush=True)
+        return True, ""
+    except WebPushException as e:
+        code = getattr(getattr(e, "response", None), "status_code", None)
+        msg = f"webpush {code}: {str(e)[:200]}" if code else f"webpush: {str(e)[:200]}"
+        if code in (404, 410): msg = f"expired({code}): 구독 만료 — 앱에서 재구독 필요"
+        print(f"[SM] push send fail: {msg}", flush=True); return False, msg
     except Exception as e:
-        print(f"[SM] push send fail: {e}", flush=True)
-    return False
+        print(f"[SM] push send fail: {e}", flush=True); return False, str(e)[:240]
+
+def _sm_send_push(sub: dict, payload: dict) -> bool:
+    return _sm_send_push_ex(sub, payload)[0]
+
+def _sm_record_push(aid: str, ok: bool, err: str):
+    """push_sent_at / push_error 기록 — 컬럼이 없어도 알람 처리에는 영향 없음(별도 PATCH)"""
+    try:
+        _sm_store_update(aid, {"push_sent_at": _sm_iso(_sm_now_utc()) if ok else None, "push_error": "" if ok else (err or "unknown")[:300]})
+    except Exception as e:
+        print(f"[SM] push record fail: {e}", flush=True)
+
+# ─── 2026-09-15 KST · TJ 지시 ─── 구독 갱신: 권한을 나중에 켰거나 VAPID 키 교체 후, 대기 중 알람에 새 구독을 붙임
+@app.post("/api/push/subscribe")
+def sm_push_subscribe():
+    try:
+        p = request.get_json(silent=True) or {}
+        email = str(p.get("email") or "").strip().lower(); sub = p.get("subscription") or None
+        if not email or not sub or not sub.get("endpoint"): return jsonify(ok=False, error="email/subscription 필수"), 400
+        n = 0
+        for r in _sm_store_list(email):
+            if r.get("status") == "pending":
+                if _sm_store_update(r["id"], {"push_json": sub}): n += 1
+        print(f"[SM] push subscribe: {email} → pending {n}건 갱신", flush=True)
+        return jsonify(ok=True, updated=n)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 500
+
+# ─── 2026-09-15 KST · TJ 지시 ─── 즉시 테스트 푸시 (설정 검증용: 구독·VAPID·pywebpush 를 한 번에 확인)
+@app.post("/api/push/test")
+def sm_push_test():
+    try:
+        p = request.get_json(silent=True) or {}
+        sub = p.get("subscription") or None; lang = _norm_lang(p.get("lang"))
+        if not sub or not sub.get("endpoint"): return jsonify(ok=False, error="subscription 필수"), 400
+        title = "스타일몬스터" if lang == "ko" else "Stylemonster"
+        body = "알림 테스트 성공! 예약한 시각에 이렇게 도착해요." if lang == "ko" else "Test notification OK — alarms will arrive like this."
+        ok, err = _sm_send_push_ex(sub, {"title": title, "body": body, "url": "/app/aicloset.html", "alarmId": "test"})
+        return jsonify(ok=ok, error=err)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 500
 
 # ── 알람 CRUD ──────────────────────────────────────────────────────────────
 @app.post("/api/aicloset/alarm")
@@ -15957,13 +16013,15 @@ def _sm_run_alarm(row: dict):
         # 푸시
         title = "스타일몬스터 · 오늘의 옷장 코디" if lang == "ko" else "Stylemonster · Today's closet outfit"
         body = (f"{row.get('purpose_label') or ''} · {wx.get('temp')}° {wx.get('text')}".strip(" ·") if wx.get("temp") is not None else (row.get("purpose_label") or ""))
-        _sm_send_push(row.get("push_json") or {}, {"title": title, "body": body, "url": f"/app/aicloset.html?alarm={aid}", "alarmId": aid, "image": image_url})
-        print(f"[SM] ✅ 알람 완료 {aid} → {image_url[:80]}", flush=True)
+        _pok, _perr = _sm_send_push_ex(row.get("push_json") or {}, {"title": title, "body": body, "url": f"/app/aicloset.html?alarm={aid}", "alarmId": aid, "image": image_url})
+        _sm_record_push(aid, _pok, _perr)   # 2026-09-15 KST · TJ 지시 — 발송 결과 기록
+        print(f"[SM] ✅ 알람 완료 {aid} → {image_url[:80]} · push={'OK' if _pok else 'FAIL:' + _perr}", flush=True)
     except Exception as e:
         print(f"[SM] ❌ 알람 실패 {aid}: {e}", flush=True)
         _sm_store_update(aid, {"status": "failed", "error": str(e)[:300]})
         try:
-            _sm_send_push(row.get("push_json") or {}, {"title": "스타일몬스터", "body": "코디 알람 생성에 실패했어요. Ai옷장에서 '지금 생성하기'를 눌러주세요.", "url": "/app/aicloset.html", "alarmId": aid})
+            _pok, _perr = _sm_send_push_ex(row.get("push_json") or {}, {"title": "스타일몬스터", "body": "코디 알람 생성에 실패했어요. Ai옷장에서 '지금 생성하기'를 눌러주세요.", "url": "/app/aicloset.html", "alarmId": aid})
+            _sm_record_push(aid, _pok, _perr)
         except Exception: pass
 
 def _sm_run_due(limit: int = 3) -> int:
