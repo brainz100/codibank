@@ -13,6 +13,16 @@ self.addEventListener('activate', function(e){
   })());
 });
 
+/* ─── 2026-09-15 KST · TJ 지시 ─── 앱 아이콘 배지 = 알림창에 남아 있는 스타일몬스터 알림 수
+   알림 표시·클릭·닫기 때마다 다시 계산 → 사용자가 결과를 확인(알림 닫힘)하면 숫자가 줄어듦 */
+function _syncBadge(){
+  return self.registration.getNotifications().then(function(list){
+    var n = (list || []).filter(function(x){ return String(x.tag || '').indexOf('sm-alarm-') === 0; }).length;
+    if (!('setAppBadge' in self.navigator)) return;
+    return (n > 0 ? self.navigator.setAppBadge(n) : self.navigator.clearAppBadge()).catch(function(){});
+  }).catch(function(){});
+}
+
 self.addEventListener('push', function(event){
   var data = {};
   try { data = event.data ? event.data.json() : {}; } catch(_) { data = { body: event.data ? event.data.text() : '' }; }
@@ -26,8 +36,10 @@ self.addEventListener('push', function(event){
     renotify: true,
     data: { url: data.url || '/app/aicloset.html', alarmId: data.alarmId || '' }
   };
-  event.waitUntil(self.registration.showNotification(title, opts));
+  event.waitUntil(self.registration.showNotification(title, opts).then(_syncBadge));
 });
+
+self.addEventListener('notificationclose', function(event){ event.waitUntil(_syncBadge()); });
 
 self.addEventListener('notificationclick', function(event){
   event.notification.close();
@@ -43,6 +55,6 @@ self.addEventListener('notificationclick', function(event){
         }
       }
       return self.clients.openWindow(target);
-    })
+    }).then(_syncBadge)
   );
 });
