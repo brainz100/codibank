@@ -1254,6 +1254,13 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 .sm-btn-primary:not(:disabled){ background:#0B666A; color:#97FEED; }
 .sm-btn-secondary{ background:rgba(255,255,255,0.06); color:#fff; border:1.5px solid rgba(151,254,237,0.3); }
 .sm-btn-ghost{ background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.8); border:1px solid rgba(255,255,255,0.12); padding:11px 8px; font-size:12px; }
+/* ─── 2026-09-15 KST · TJ 지시 ─── 뷰박스 아래 액션 버튼 상태 구분
+   · 결과 없음(#smResultWrap.sm-no-result): 기존 그레이 그대로, 클릭·눌림 효과 없음
+   · 결과 있음: 테두리·글자 화이트
+   · 눌렀을 때(:active): 기존 그레이 컬러로 */
+#smResultWrap.sm-no-result #smResultMeta .sm-btn-ghost{ pointer-events:none; }
+#smResultWrap:not(.sm-no-result) #smResultMeta .sm-btn-ghost{ border-color:#fff; color:#fff; background:rgba(255,255,255,0.07); }
+#smResultWrap:not(.sm-no-result) #smResultMeta .sm-btn-ghost:active{ border-color:rgba(255,255,255,0.12); color:rgba(255,255,255,0.8); background:rgba(255,255,255,0.04); }
 
 .sm-chip{ display:inline-flex; align-items:center; gap:4px; padding:5px 10px; border-radius:999px; font-size:11px; font-weight:700;
   background:rgba(151,254,237,0.1); border:1px solid rgba(151,254,237,0.25); color:#97FEED; }
@@ -1344,7 +1351,8 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 .sm-tab.on{background:rgba(151,254,237,.14);border-color:#97FEED;color:#fff;box-shadow:0 0 0 1px rgba(151,254,237,.25) inset;}
 .sm-tab.on .material-symbols-outlined{color:#97FEED;}
 .sm-tab:active{transform:scale(.97);}
-.sm-pane{display:none;padding-top:22px;padding-bottom:28px;}
+.sm-pane{display:none;padding-top:22px;padding-bottom:10px;}   /* 2026-09-15 KST · TJ 지시 — 풋터 위 여백 축소 */
+main.pb-32{padding-bottom:10px !important;}   /* 2026-09-15 KST · TJ 지시 — 풋터 위 여백 축소 (128px→10px) */
 .sm-pane.on{display:block;animation:smPaneIn .22s ease;}
 @keyframes smPaneIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
 .sm-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(151,254,237,.14);}
@@ -1911,8 +1919,9 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
         </button>
       </div>
       <div class="grid grid-cols-2 gap-2 mt-2">
-        <button id="smSaveAlbumBtn" type="button" class="sm-btn sm-btn-ghost">
-          <span class="material-symbols-outlined" style="font-size:18px;">bookmark_add</span><span data-i18n="코디앨범 저장">코디앨범 저장</span>
+        <!-- ─── 2026-09-15 KST · TJ 지시 ─── '코디앨범 저장' 버튼 → '리셋' (앨범 저장은 자동, 별도 표시 없음) -->
+        <button id="smResetBtn" type="button" class="sm-btn sm-btn-ghost">
+          <span class="material-symbols-outlined" style="font-size:18px;">restart_alt</span><span data-i18n="리셋">리셋</span>
         </button>
         <button id="smRegenBtn" type="button" class="sm-btn sm-btn-ghost">
           <span class="material-symbols-outlined" style="font-size:18px;">refresh</span><span data-i18n="다른 조합">다른 조합</span>
@@ -2199,7 +2208,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
 
 <!-- ─── 2026-07-02 KST · TJ 지시 ─── 사업자정보 푸터(공통) + 가독성(그레이) + 여백 정리
      · 스페이서 앞으로 재배치 → 풋바에 가려지던 정책 링크 노출 문제도 해소 -->
-<div id="company-footer-ko" style="margin-top:20px;padding:18px 16px 2px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(216,226,255,.55);line-height:1.85;text-align:center;">
+<div id="company-footer-ko" style="margin-top:6px;padding:14px 16px 2px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(216,226,255,.55);line-height:1.85;text-align:center;">
   <!-- ─── 2026-09-08 KST · TJ 지시 ─── 리브랜딩: 풋터 브랜드 락업(심볼+워드마크) ─── -->
   <div style="margin-bottom:10px;"><img src="/app/brand/stylemonster_lockup_white.png" alt="Stylemonster" style="height:16px;width:auto;opacity:.6;vertical-align:middle;" onerror="this.parentNode.style.display='none'"/></div>
   착착두비 주식회사 &nbsp;|&nbsp; 대표이사 백태섭<br/>
@@ -2214,7 +2223,7 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
     <a href="terms.html" style="color:rgba(151,254,237,0.5);text-decoration:none;">이용약관</a>
   </div>
 </div>
-<div id="company-footer-en" style="display:none;margin-top:20px;padding:18px 16px 2px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(216,226,255,.55);line-height:1.85;text-align:center;">
+<div id="company-footer-en" style="display:none;margin-top:6px;padding:14px 16px 2px;border-top:1px solid rgba(255,255,255,.06);font-size:11px;color:rgba(216,226,255,.55);line-height:1.85;text-align:center;">
   <!-- ─── 2026-09-08 KST · TJ 지시 ─── 리브랜딩: 풋터 브랜드 락업(심볼+워드마크) ─── -->
   <div style="margin-bottom:10px;"><img src="/app/brand/stylemonster_lockup_white.png" alt="Stylemonster" style="height:16px;width:auto;opacity:.6;vertical-align:middle;" onerror="this.parentNode.style.display='none'"/></div>
   Chakchak dobe Co., Ltd &nbsp;|&nbsp; CEO: Paek Taejun<br/>
@@ -2230,30 +2239,12 @@ html:not(.cb-runway-on) .cb-nav .cb-nav-tab[href="runway.html"]{
   </div>
 </div>
 <script>(function(){function _cf(){var en=(window._cbFor?window._cbFor():(window._acFor?_acFor():false));var k=document.getElementById('company-footer-ko'),e=document.getElementById('company-footer-en');if(k)k.style.display=en?'none':'block';if(e)e.style.display=en?'block':'none';}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(_cf,150);});else setTimeout(_cf,150);})();</script>
-<div class="cb-spacer"></div>
-<nav class="cb-nav">
-  <!-- ─── 2026-05-24 KST · TJ 지시 ─── 6탭 풋바 (Ai옷장 복원) ───────────
-       순서: 코디핏 - 트라이온 - 런웨이(신규) - Ai옷장 - 코디앨범 - MY
-  ─────────────────────────────────────────────────────────────────── -->
-  <div class="cb-nav-inner">
-    <a href="closet.html" class="cb-nav-tab on"><span class="ni">auto_awesome</span><span class="nl">코디핏</span></a>
-    <a href="tryon.html" class="cb-nav-tab"><span class="ni">accessibility_new</span><span class="nl">트라이온</span></a>
-    <a href="runway.html" class="cb-nav-tab"><span class="ni">movie_filter</span><span class="nl">런웨이</span></a>
-    <a href="aicloset.html" class="cb-nav-tab"><span class="ni">checkroom</span><span class="nl">Ai 옷장</span></a>
-    <a href="album.html" class="cb-nav-tab"><span class="ni">photo_library</span><span class="nl">코디앨범</span></a>
-    <a href="mypage.html" class="cb-nav-tab"><span class="ni">person</span><span class="nl">MY</span></a>
-  </div>
-</nav>
+<!-- ─── 2026-09-15 KST · TJ 지시 ─── 중복 풋바(스페이서+nav 1벌) 제거 → 사업자정보 아래 불필요 여백(~190px) 해소. 아래 풋바 1벌만 유지 -->
 
 
 <!-- CodiBank 공통 풋바 -->
 <div class="cb-spacer"></div>
-<!-- 개인정보처리방침 링크 -->
-<div style="text-align:center;padding:8px 16px 0;font-size:11px;color:rgba(255,255,255,0.25);">
-  <a href="privacy.html" style="color:rgba(151,254,237,0.45);text-decoration:none;" data-i18n="개인정보처리방침">개인정보처리방침</a>
-  <span style="margin:0 6px;opacity:0.3">|</span>
-  <a href="terms.html" style="color:rgba(151,254,237,0.45);text-decoration:none;" data-i18n="이용약관">이용약관</a>
-</div>
+<!-- 2026-09-15 KST · TJ 지시 — 정책 링크는 사업자정보 풋터에 이미 있어 중복 블록 제거 -->
 <nav class="cb-nav">
   <!-- ─── 2026-05-24 KST · TJ 지시 ─── 6탭 풋바 (Ai옷장 active 복원) ───── -->
   <div class="cb-nav-inner">
@@ -8094,6 +8085,18 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     _touch();
     console.log('[SM] 10분 이상 미사용 → 목적·결과 리셋');
   }
+  // ─── 2026-09-15 KST · TJ 지시 ─── '리셋' 버튼: 모드(지금/예약)·날짜·시각·목적·생성 결과 전부 초기 상태로
+  function resetAll(){
+    smIdleReset();                                   // 결과 · 목적 · 모드(now) 초기화 (액션 버튼은 sm-no-result 로 비활성 표시)
+    try{ const first = document.querySelector('#dateCardScroll .dc'); if(first && !first.classList.contains('dc-on')) first.click(); }catch(_){}   // 날짜 → 오늘
+    try{ const t = $('smAlarmTime'); if(t) t.value = '07:30'; }catch(_){}
+    try{ const c = $('smPurposeCustom'); if(c) c.value = ''; }catch(_){}
+    try{ const ch = $('smResultChips'); if(ch) ch.innerHTML = ''; const rs = $('smResultReason'); if(rs) rs.textContent = ''; }catch(_){}
+    try{ $('smAlarmDone') && $('smAlarmDone').classList.add('hidden'); const e = $('smErrBox'); if(e) e.style.display = 'none'; }catch(_){}
+    try{ $('smPoseToggle') && $('smPoseToggle').classList.add('hidden'); $('smPoseHint') && $('smPoseHint').classList.add('hidden'); }catch(_){}
+    try{ history.replaceState(null, '', location.pathname); }catch(_){}
+    try{ refreshButtons(); window.scrollTo({ top: 0, behavior: 'smooth' }); }catch(_){}
+  }
   ['click','touchstart','keydown'].forEach(ev => document.addEventListener(ev, _touch, { passive:true }));
   document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') _touch(); else if(_expired()) smIdleReset(); });
   window.addEventListener('pageshow', () => { if(_expired()) smIdleReset(); });
@@ -8437,12 +8440,27 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
   // ─── 2026-09-15 KST · TJ 지시 ─── 인앱 알림함: 완료됐는데 아직 안 본 알람을 배너로 알림 (푸시 실패·미허용 폴백)
   const SEEN_KEY = () => 'cb_sm_seen_' + _email();
   function _seen(){ try{ return new Set(JSON.parse(localStorage.getItem(SEEN_KEY()) || '[]')); }catch(_){ return new Set(); } }
-  function _markSeen(id){ try{ const s = _seen(); s.add(String(id)); localStorage.setItem(SEEN_KEY(), JSON.stringify([...s].slice(-100))); }catch(_){} }
+  function _markSeen(id){ try{ const s = _seen(); s.add(String(id)); localStorage.setItem(SEEN_KEY(), JSON.stringify([...s].slice(-100))); }catch(_){} _closeNotif(id); }
+  // ─── 2026-09-15 KST · TJ 지시 ─── 열람한 알람의 알림을 알림창에서 닫고, 앱 아이콘 배지 숫자를 미열람 수로 동기화
+  //   (안드로이드 Chrome 은 알림창에 남은 알림 수 + Badging API 값으로 배지를 표시 → 둘 다 정리해야 숫자가 줄어듦)
+  function _closeNotif(id){
+    try{ if(!('serviceWorker' in navigator)) return;
+      navigator.serviceWorker.ready.then(r => r.getNotifications ? r.getNotifications(id ? { tag: 'sm-alarm-' + id } : {}) : []).then(ns => { (ns || []).forEach(n => { try{ n.close(); }catch(_){} }); _syncBadge(); }).catch(()=>{});
+    }catch(_){}
+  }
+  function _syncBadge(){
+    try{
+      const n = ST.alarms.filter(a => a.status === 'done' && a.imageUrl && !_seen().has(String(a.id))).length;
+      if(!('setAppBadge' in navigator)) return;
+      (n > 0 ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(()=>{});
+    }catch(_){}
+  }
   function _hideInbox(){ const b = $('smInbox'); if(b) b.classList.remove('on'); }
   function checkInbox(){
     const b = $('smInbox'), t = $('smInboxText'); if(!b || !t) return;
     const seen = _seen();
     const unseen = ST.alarms.filter(a => a.status === 'done' && a.imageUrl && !seen.has(String(a.id))).sort((x,y) => String(y.runAt).localeCompare(String(x.runAt)));
+    _syncBadge();   // 2026-09-15 KST · TJ 지시
     if(!unseen.length){ _hideInbox(); return; }
     const a = unseen[0];
     t.innerHTML = _T(`<b>예약한 옷장코디가 완성됐어요</b><br>${escS(a.dateKey)} ${escS(a.time)} · ${escS(a.purposeLabel||'')}${unseen.length > 1 ? ` 외 ${unseen.length-1}건` : ''}`,
@@ -8453,7 +8471,7 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
   async function _pollInbox(){ if(document.visibilityState !== 'visible' || !_email()) return; try{ await loadAlarms(); }catch(_){} }
   function initInbox(){
     $('smInboxOpen') && $('smInboxOpen').addEventListener('click', () => { const id = $('smInbox').dataset.id; _hideInbox(); if(id) openAlarmResult(id); });
-    $('smInboxClose') && $('smInboxClose').addEventListener('click', () => { ST.alarms.filter(a => a.status === 'done').forEach(a => _markSeen(a.id)); _hideInbox(); });
+    $('smInboxClose') && $('smInboxClose').addEventListener('click', () => { ST.alarms.filter(a => a.status === 'done').forEach(a => _markSeen(a.id)); _closeNotif(''); _hideInbox(); });
     $('smPushTestBtn') && $('smPushTestBtn').addEventListener('click', testPush);
     document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') _pollInbox(); });
     if(_inboxTimer) clearInterval(_inboxTimer);
@@ -8513,11 +8531,11 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     renderPurposes();
     try{ const saved = localStorage.getItem('cb_sm_purpose_' + _email()); if(saved && PURPOSES.some(p => p.key === saved)) setPurpose(saved); }catch(_){}
     $('smGenNowBtn') && $('smGenNowBtn').addEventListener('click', () => generateNow(false));
-    $('smRegenBtn') && $('smRegenBtn').addEventListener('click', () => generateNow(true));
+    $('smRegenBtn') && $('smRegenBtn').addEventListener('click', () => { if(ST.last) generateNow(true); });   // 2026-09-15 KST · TJ 지시 — 결과 없으면 무시
     $('smAlarmBtn') && $('smAlarmBtn').addEventListener('click', scheduleAlarm);
-    $('smSaveAlbumBtn') && $('smSaveAlbumBtn').addEventListener('click', () => saveAlbum());
-    $('smDownloadBtn') && $('smDownloadBtn').addEventListener('click', downloadImage);
-    $('smShareBtn') && $('smShareBtn').addEventListener('click', shareImage);
+    $('smResetBtn') && $('smResetBtn').addEventListener('click', resetAll);   // 2026-09-15 KST · TJ 지시
+    $('smDownloadBtn') && $('smDownloadBtn').addEventListener('click', () => { if(ST.last) downloadImage(); });
+    $('smShareBtn') && $('smShareBtn').addEventListener('click', () => { if(ST.last) shareImage(); });
     $('smPurposeCustom') && $('smPurposeCustom').addEventListener('input', refreshButtons);
     // 날짜카드 선택 변화 감지 (기존 브릿지가 .dc-on 을 토글) → 버튼 상태 동기화
     const sc = $('dateCardScroll');
@@ -8533,7 +8551,7 @@ var _origRC=renderCategories;renderCategories=function(){_origRC();renderClosetS
     // 알림 클릭으로 열린 SW 메시지
     try{ navigator.serviceWorker && navigator.serviceWorker.addEventListener('message', ev => { const d = ev.data || {}; if(d.type === 'sm_open_alarm' && d.id) openAlarmResult(d.id); }); }catch(_){}
   }
-  window.SM_ALARM = { generateNow, scheduleAlarm, loadAlarms, openAlarmResult, refreshButtons, setTab, setMode, downloadImage, shareImage, testPush, checkInbox, ensurePush, PURPOSES, ST };
+  window.SM_ALARM = { generateNow, scheduleAlarm, loadAlarms, openAlarmResult, refreshButtons, setTab, setMode, downloadImage, shareImage, testPush, checkInbox, ensurePush, resetAll, PURPOSES, ST };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
