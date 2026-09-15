@@ -9084,8 +9084,92 @@ def _admin_db_key() -> str:
 _MASTER_EMAIL        = "admin@stylemonster.kr"
 _LEGACY_MASTER_EMAIL = "admin@codibank.kr"
 
+# ─── 2026-09-15 KST · TJ 지시 ─── 관리자 계정 영구 저장 (비밀번호 리셋 문제 근본 해결)
+#   원인: _ADMIN_DB 가 os.environ(프로세스 메모리)에만 저장 → 깃허브 푸시/재배포/재시작마다 pass1234 로 초기화됨.
+#   조치: Supabase 테이블 sm_admins 를 원본으로 사용. 시작 시 로드, 변경 시 즉시 upsert. (없으면 로컬 JSON → 메모리 순 폴백)
+#   Supabase SQL Editor 에서 1회 실행:
+#     create table if not exists sm_admins (
+#       email text primary key, role text not null default 'SUB', hash text not null,
+#       permissions jsonb default '[]'::jsonb, name text default '',
+#       created_at timestamptz default now(), updated_at timestamptz default now());
+_ADMIN_LOCAL_STORE = os.path.join(_UPLOAD_DIR, "sm_admins_local.json")
+
+def _admin_sb_req(method, params=None, body=None):
+    """sm_admins 전용 REST 호출 (sb_query 는 이 지점보다 아래에 정의되어 import 시점엔 사용 불가)"""
+    key = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
+    if not key: return None
+    url = os.environ.get("SUPABASE_URL", "https://drgsayvlpzcacurcczjq.supabase.co") + "/rest/v1/sm_admins"
+    if params: url += "?" + "&".join(f"{k}={v}" for k, v in params.items())
+    hdr = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Prefer": "return=representation,resolution=merge-duplicates"}
+    try:
+        return http_requests.request(method, url, headers=hdr, json=body, timeout=10)
+    except Exception as e:
+        print(f"[ADMIN-DB] supabase {method} error: {e}", flush=True); return None
+
+def _admin_db_load_persistent():
+    """Supabase → 로컬 JSON 순으로 관리자 계정 로드. 반환: dict 또는 None(저장소 없음)"""
+    r = _admin_sb_req("GET", params={"select": "*", "limit": "200"})
+    if r is not None and r.status_code == 200:
+        rows = r.json() or []
+        if rows:
+            db = {}
+            for row in rows:
+                em = str(row.get("email") or "").strip().lower()
+                if not em: continue
+                db[em] = {"role": row.get("role") or "SUB", "hash": row.get("hash") or "", "permissions": row.get("permissions") or [],
+                          "created_at": row.get("created_at") or "", "name": row.get("name") or em}
+            print(f"[ADMIN-DB] Supabase 에서 관리자 {len(db)}명 로드", flush=True)
+            return db
+        return None   # 테이블은 있으나 비어 있음 → 초기값을 만들어 저장
+    if r is not None:
+        print(f"[ADMIN-DB] supabase GET {r.status_code}: {r.text[:160]} (테이블 sm_admins 생성 필요?)", flush=True)
+    try:
+        with open(_ADMIN_LOCAL_STORE, "r", encoding="utf-8") as f:
+            db = _json.load(f) or {}
+            if db: print(f"[ADMIN-DB] 로컬 JSON 에서 관리자 {len(db)}명 로드 (재배포 시 소실됨 — Supabase 권장)", flush=True); return db
+    except Exception:
+        pass
+    return None
+
+def _admin_db_persist():
+    """현재 _ADMIN_DB 전체를 Supabase(upsert) + 로컬 JSON 에 저장"""
+    rows = [{"email": em, "role": info.get("role", "SUB"), "hash": info.get("hash", ""), "permissions": info.get("permissions") or [],
+             "name": info.get("name") or em, "updated_at": _dt_now_iso()} for em, info in _ADMIN_DB.items()]
+    r = _admin_sb_req("POST", body=rows)
+    if r is not None and r.status_code not in (200, 201):
+        print(f"[ADMIN-DB] supabase upsert {r.status_code}: {r.text[:160]}", flush=True)
+    # 삭제된 계정 정리: Supabase 에 있으나 메모리에 없는 행 제거
+    try:
+        g = _admin_sb_req("GET", params={"select": "email"})
+        if g is not None and g.status_code == 200:
+            for row in (g.json() or []):
+                em = str(row.get("email") or "").lower()
+                if em and em not in _ADMIN_DB: _admin_sb_req("DELETE", params={"email": f"eq.{em}"})
+    except Exception: pass
+    try:
+        os.makedirs(_UPLOAD_DIR, exist_ok=True)
+        with open(_ADMIN_LOCAL_STORE, "w", encoding="utf-8") as f: _json.dump(_ADMIN_DB, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"[ADMIN-DB] local save fail: {e}", flush=True)
+
+def _dt_now_iso():
+    import datetime as _d
+    return _d.datetime.now(_d.timezone.utc).isoformat().replace("+00:00", "Z")
+
 def _init_admin_db():
     global _ADMIN_DB
+    # ─── 2026-09-15 KST · TJ 지시 ─── 영구 저장소(Supabase sm_admins)에 계정이 있으면 그것이 원본 — 코드 기본값·환경변수보다 우선
+    _persist = _admin_db_load_persistent()
+    if _persist:
+        _ADMIN_DB = _persist
+        _PASS1234_HASH_ = "bd94dcda26fccb4e68d6a31f9b5aac0b571ae266d822620e901ef7ebe3a11d4f"
+        if _LEGACY_MASTER_EMAIL in _ADMIN_DB and _MASTER_EMAIL not in _ADMIN_DB:
+            _info = _ADMIN_DB.pop(_LEGACY_MASTER_EMAIL); _ADMIN_DB[_MASTER_EMAIL] = _info; _admin_db_persist()
+        if _MASTER_EMAIL not in _ADMIN_DB:   # 마스터가 없으면 초기 마스터 추가 (기존 서브관리자는 유지)
+            _ADMIN_DB[_MASTER_EMAIL] = {"role": "MASTER", "hash": _PASS1234_HASH_, "permissions": ["all"], "created_at": "", "name": "마스터 관리자"}
+            _admin_db_persist()
+        os.environ[_admin_db_key()] = _json.dumps(_ADMIN_DB, ensure_ascii=False)
+        return
     # ─── 2026-09-12 KST · TJ 지시 ───
     # 총괄관리자(MASTER) ID: admin@codibank.kr → admin@stylemonster.kr
     # 초기 비밀번호 pass1234 고정 (관리자페이지 로그인 후 변경)
@@ -9119,6 +9203,7 @@ def _init_admin_db():
             "name": "마스터 관리자",
         }
     }
+    _admin_db_persist()   # 2026-09-15 KST · TJ 지시 — 최초 1회 기본 계정을 영구 저장 (이후엔 저장소가 원본)
 
 _init_admin_db()
 
@@ -9155,13 +9240,10 @@ def _auto_sync_master_to_supabase():
                     "app_metadata":  {"provider": "email", "providers": ["email"]},
                 }
                 uid = uid_map.get(em.lower())
+                # ─── 2026-09-15 KST · TJ 지시 ─── 이미 있는 계정의 비밀번호는 절대 덮어쓰지 않음 (재배포마다 pass1234 로 리셋되던 원인)
                 if uid:
-                    _rq2.put(f"{_sb}/auth/v1/admin/users/{uid}", headers=_hdr,
-                             json={"password": pw, "email_confirm": True,
-                                   "user_metadata": sb_body["user_metadata"]}, timeout=15)
-                else:
-                    _rq2.post(f"{_sb}/auth/v1/admin/users", headers=_hdr,
-                              json=sb_body, timeout=15)
+                    continue
+                _rq2.post(f"{_sb}/auth/v1/admin/users", headers=_hdr, json=sb_body, timeout=15)
         except Exception:
             pass
     _th.Thread(target=_run, daemon=True).start()
@@ -9170,8 +9252,21 @@ _auto_sync_master_to_supabase()
 
 
 def _save_admin_db():
-    """변경사항을 환경변수(인메모리)에 저장 — 재시작 전까지 유효."""
+    """변경사항 저장 — 2026-09-15 KST · TJ 지시: 인메모리 + Supabase sm_admins(영구) 동시 저장"""
     os.environ[_admin_db_key()] = _json.dumps(_ADMIN_DB, ensure_ascii=False)
+    _admin_db_persist()
+
+def _admin_sync_auth_password(email: str, new_pw: str):
+    """2026-09-15 KST · TJ 지시 — 마스터 비밀번호 변경 시 Supabase Auth 계정 비밀번호도 갱신 (실패해도 관리자페이지엔 영향 없음)"""
+    try:
+        _sb = supabase_url(); _hdr = supabase_admin_headers()
+        lr = http_requests.get(f"{_sb}/auth/v1/admin/users?per_page=1000", headers=_hdr, timeout=15)
+        if lr.status_code != 200: return
+        ud = lr.json(); ul = ud.get("users", ud) if isinstance(ud, dict) else ud
+        uid = next((u.get("id") for u in ul if str(u.get("email", "")).lower() == email.lower()), None)
+        if uid: http_requests.put(f"{_sb}/auth/v1/admin/users/{uid}", headers=_hdr, json={"password": new_pw}, timeout=15)
+    except Exception as e:
+        print(f"[ADMIN-DB] auth password sync fail: {e}", flush=True)
 
 def _get_admin_by_hash(hash_val: str):
     """해시로 어드민 정보 반환."""
@@ -9197,12 +9292,17 @@ def verify_admin(req) -> bool:
     _, info = _get_admin_by_hash(provided)
     if info:
         return True
-    # 2) 환경변수 ADMIN_PW_HASH
+    # 2) 환경변수 ADMIN_PW_HASH — 2026-09-15: 저장소의 마스터 해시와 같을 때만 (옛 값이 Render 에 남아도 무효)
     env_hash = os.environ.get("ADMIN_PW_HASH", "")
-    if env_hash and provided == env_hash:
+    if env_hash and provided == env_hash and env_hash == (_ADMIN_DB.get(_MASTER_EMAIL) or {}).get("hash", ""):
         return True
-    # 3) pass1234 고정 해시 (서버 재시작 후 세션 유지 보장)
-    return provided == _MASTER_FALLBACK_HASH
+    # 3) pass1234 고정 해시 — 2026-09-15 KST · TJ 지시: 마스터 비밀번호가 아직 초기값(pass1234)일 때만 허용
+    return provided == _MASTER_FALLBACK_HASH and _master_is_default()
+
+def _master_is_default() -> bool:
+    """마스터 비밀번호가 초기값(pass1234) 그대로인지 — 변경된 뒤에는 초기값 로그인 불가"""
+    try: return (_ADMIN_DB.get(_MASTER_EMAIL) or {}).get("hash", "") == _MASTER_FALLBACK_HASH
+    except Exception: return False
 
 def verify_master(req) -> bool:
     """MASTER 권한 어드민만 True — _ADMIN_DB → ADMIN_PW_HASH → MASTER_FALLBACK."""
@@ -9213,12 +9313,12 @@ def verify_master(req) -> bool:
     _, info = _get_admin_by_hash(provided)
     if info and info.get("role") == "MASTER":
         return True
-    # 2) 환경변수 ADMIN_PW_HASH (마스터 해시와 일치하면 MASTER)
+    # 2) 환경변수 ADMIN_PW_HASH — 2026-09-15: 저장소의 마스터 해시와 같을 때만
     env_hash = os.environ.get("ADMIN_PW_HASH", "")
-    if env_hash and provided == env_hash:
+    if env_hash and provided == env_hash and env_hash == (_ADMIN_DB.get(_MASTER_EMAIL) or {}).get("hash", ""):
         return True
-    # 3) pass1234 고정 해시 — 서버 재시작 후에도 마스터 접근 보장
-    return provided == _MASTER_FALLBACK_HASH
+    # 3) pass1234 고정 해시 — 2026-09-15 KST · TJ 지시: 초기값일 때만
+    return provided == _MASTER_FALLBACK_HASH and _master_is_default()
 
 def supabase_admin_headers():
     """Supabase Admin API용 헤더 (service_role 키 사용)"""
@@ -10397,6 +10497,7 @@ def admin_update_admin(admin_email):
         # 마스터 어드민이면 환경변수도 동기화
         if _ADMIN_DB[email].get("role") == "MASTER":
             os.environ["ADMIN_PW_HASH"] = _ADMIN_DB[email]["hash"]
+            _admin_sync_auth_password(email, new_pw)   # 2026-09-15 KST · TJ 지시
     # 권한 변경
     if "permissions" in data:
         _ADMIN_DB[email]["permissions"] = data["permissions"]
@@ -10470,6 +10571,7 @@ def admin_change_password():
     # 마스터 어드민이면 환경변수도 동기화
     if caller_info.get("role") == "MASTER":
         os.environ["ADMIN_PW_HASH"] = new_hash
+        _admin_sync_auth_password(caller_email, new_pw)   # 2026-09-15 KST · TJ 지시 — 앱(Supabase) 로그인 비밀번호도 동일하게
 
     return jsonify({
         "ok": True,
