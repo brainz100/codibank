@@ -27,6 +27,39 @@
 
   <!--
     ┏━━ camera.html 수정 이력 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+    │ ─── 2026-09-20 KST ───  [TJ 지시 — ai옷장 분석 1·2·3단계]      │
+    │                                                                 │
+    │ ① MobileNet(TF.js) 카테고리 분류 완전 제거                      │
+    │    · @tensorflow/tfjs + mobilenet CDN 약 16MB 다운로드 + 최대    │
+    │      8초 대기를 없앰 → 모바일 첫 진입 체감 개선.                │
+    │    · ImageNet 1000클래스 → 의류 매핑은 정확도가 낮아 실익 없음.  │
+    │    · 제거: getMobileNetModel / CAT_RULES / _normLabel /          │
+    │      mapPredictionsToCategory / classifyWithMobileNet /          │
+    │      guessCategoryKeyFromImage / inferStyleTagFromPreds /        │
+    │      _mnModel / _lastMnPreds                                    │
+    │    · 대체: fallbackCategoryKey() (수동선택 → 'etc'),            │
+    │      styleTagFromGemini() (style_keywords[0] → material)         │
+    │    · loadScript() 는 브랜드 OCR(Tesseract) 이 쓰므로 유지.       │
+    │                                                                 │
+    │ ② 분석 전용 768px 축소본 전송 (analyzeItemWithGemini)           │
+    │    · 이전: 1200px·최대 900KB JPEG 를 base64(+33%)로 전송.        │
+    │    · ⚠️ R2 에 저장되는 원본(shotBlob)은 1200px 그대로 유지.      │
+    │      트라이온/코디하기 착장 생성이 그 원본을 쓰므로 절대 축소 금지. │
+    │    · 여기서 만드는 768px 는 분석 호출에만 쓰고 버립니다.         │
+    │                                                                 │
+    │ ③ noteText 중복 계산 정리 (동일 로직이 두 번 돌고 있었음)       │
+    │    · 2026-05-23 '다운자켓 다운자켓' 중복 방지 규칙은 유지.       │
+    │                                                                 │
+    │ ④ meta.gemini 에 코디 매칭용 구조 필드 보강                     │
+    │    outer_type / is_skirt / is_onepiece / skirt_length /          │
+    │    dress_length — 서버에서 category 단일 진실로 정합성 보장된 값. │
+    │                                                                 │
+    │ ※ 호환성 점수(compatibility.evaluation) 표시 로직은 무수정.      │
+    │   서버가 2회 호출을 1회로 합치면서도 응답 구조를 유지했기 때문.  │
+    ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  -->
+  <!--
+    ┏━━ camera.html 수정 이력 (이전) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
     │ ─── 2026-04-22 17:40 KST ───  [TJ 지시 — 카테고리 개편]        │
     │                                                                 │
     │ [치명적 버그 수정] catMap 재구성 (line ~1240)                  │
@@ -933,7 +966,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // ===== AI helpers: Category (MobileNet) =====
+    // ===== 외부 스크립트 로더 (브랜드 OCR = Tesseract 전용) =====
     function loadScript(src) {
       return new Promise((resolve, reject) => {
         const s = document.createElement('script');
@@ -946,135 +979,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     
-    // ===== 카테고리 분류: MobileNet 기반(무료/상업적 사용 가능) =====
-    // - 외부 유료/키 필요 API(Claude 등)에 의존하지 않음
-    // - 브라우저에서 바로 동작 (CDN 로드 실패 시 분류는 스킵되고 '기타'로 저장)
-    // - AI가 헷갈릴 때를 대비해, 상세페이지에서 카테고리를 언제든 수정 가능
-
-    let _mnModel = null;
-    // 마지막 MobileNet 예측(설명/스타일 태그 생성에 사용)
-    let _lastMnPreds = null;
-
-    async function getMobileNetModel() {
-      if (_mnModel) return _mnModel;
-
-      // tfjs + mobilenet 로드
-      if (!window.tf) {
-        setAiProgress(56, 'AI 모델 로딩…');
-        await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0/dist/tf.min.js');
-      }
-      if (!window.mobilenet) {
-        await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js');
-      }
-
-      _mnModel = await window.mobilenet.load({ version: 2, alpha: 0.5 });
-      return _mnModel;
-    }
-
-    function _normLabel(s) {
-      return String(s || '').toLowerCase();
-    }
-
-    const CAT_RULES = [
-      // ✅ MobileNet 라벨(영문) 기반 분류 규칙
-      // - 실제 촬영 이미지에서 코트/자켓이 '탑'으로 잘못 분류되는 케이스가 많아
-      //   아우터 관련 키워드를 넓게 잡고, 필요 시 '탑→아우터' 보정을 수행합니다.
-      { key: 'coat',   kws: ['trench', 'overcoat', 'coat', 'fur coat', 'raincoat', 'cloak', 'puffer', 'down jacket', 'parka', 'anorak', 'duffel', 'pea coat', 'poncho', 'cape', 'macintosh', 'greatcoat'] },
-      { key: 'jacket', kws: ['jacket', 'blazer', 'sports jacket', 'windbreaker', 'bomber', 'leather jacket', 'jean jacket', 'denim jacket', 'suit', 'suit jacket', 'track jacket', 'motorcycle jacket'] },
-      { key: 'top',    kws: ['shirt', 'dress shirt', 't-shirt', 'tee', 'jersey', 'sweater', 'hoodie', 'sweatshirt', 'cardigan', 'blouse', 'tank', 'vest', 'pullover', 'polo'] },
-      { key: 'pants',  kws: ['jean', 'jeans', 'trousers', 'pants', 'shorts', 'skirt', 'miniskirt', 'leggings', 'chinos'] },
-      { key: 'shoes',  kws: ['shoe', 'sneaker', 'running shoe', 'boot', 'loafer', 'sandal', 'slipper', 'heel', 'high heel'] },
-      { key: 'socks',  kws: ['sock', 'stocking'] },
-      { key: 'scarf',  kws: ['scarf', 'stole', 'boa', 'muffler', 'neckwear', 'tie', 'bow tie'] },
-      { key: 'watch',  kws: ['watch', 'wristwatch', 'digital watch'] },
-    ];
-
-    function mapPredictionsToCategory(preds) {
-      const scores = {};
-      CAT_RULES.forEach(r => (scores[r.key] = 0));
-
-      const arr = Array.isArray(preds) ? preds : [];
-      arr.forEach((p) => {
-        const t = _normLabel(p.className);
-        const prob = Number(p.probability || 0);
-        CAT_RULES.forEach((r) => {
-          r.kws.forEach((kw) => {
-            if (t.includes(kw)) scores[r.key] += prob;
-          });
-        });
-      });
-
-      let bestKey = null;
-      let bestScore = 0;
-      Object.keys(scores).forEach((k) => {
-        if (scores[k] > bestScore) {
-          bestScore = scores[k];
-          bestKey = k;
-        }
-      });
-
-      // 너무 애매하면 null (상세에서 수정 가능)
-      if (bestKey && bestScore >= 0.08) {
-        // ✅ 코트/자켓이 탑으로 쏠리는 문제를 줄이는 보정
-        // - best가 top이어도 coat/jacket 점수가 충분히 높으면 아우터로 승격
-        if (bestKey === 'top') {
-          const coatS = Number(scores.coat || 0);
-          const jacketS = Number(scores.jacket || 0);
-          const outerS = Math.max(coatS, jacketS);
-          if (outerS >= Math.max(0.05, bestScore * 0.60)) {
-            return (coatS >= jacketS) ? 'coat' : 'jacket';
-          }
-        }
-        return bestKey;
-      }
-
-      // top-1 direct match
-      const top = _normLabel(arr?.[0]?.className);
-      if (top) {
-        for (const r of CAT_RULES) {
-          if (r.kws.some((kw) => top.includes(kw))) return r.key;
-        }
-      }
-      return null;
-    }
-
-    async function classifyWithMobileNet(imgSrc) {
-      // dataURL 또는 blobURL 모두 허용 (shots[key]가 /uploads/ 경로로 바뀐 경우도 대비)
-      if (!imgSrc || (!imgSrc.startsWith('data:image') && !imgSrc.startsWith('blob:'))) return null;
-
-      try {
-        const model = await Promise.race([
-          getMobileNetModel(),
-          new Promise((r) => setTimeout(() => r(null), 10000)),
-        ]);
-        if (!model) return null;
-
-        const img = await new Promise((resolve, reject) => {
-          const i = new Image();
-          i.onload = () => resolve(i);
-          i.onerror = reject;
-          i.src = imgSrc;
-        });
-
-        const preds = await Promise.race([
-          model.classify(img, 5),
-          new Promise((r) => setTimeout(() => r(null), 8000)),
-        ]);
-
-        if (!preds || !preds.length) return null;
-        _lastMnPreds = preds;
-        const cat = mapPredictionsToCategory(preds);
-        if (cat) {
-          console.log('MobileNet 분류:', cat, preds);
-          return cat;
-        }
-        return null;
-      } catch (e) {
-        console.warn('classifyWithMobileNet 실패:', e);
-        return null;
-      }
-    }
-
+    // ══════════════════════════════════════════════════════════
+    // ─── 2026-09-20 KST · TJ 지시 ─── MobileNet(TF.js) 카테고리 분류 제거
+    //   배경: ImageNet 1000클래스 → 의류 카테고리 매핑은 정확도가 낮은데
+    //         @tensorflow/tfjs + mobilenet CDN(약 16MB) 을 클라이언트가
+    //         내려받고 최대 8초를 기다려야 했음. 모바일 첫 진입 체감 저하.
+    //   대체: 서버 /api/ai/analyze-item 의 Gemini 모델 체인(3.1-flash-lite →
+    //         3.6-flash → 2.5-flash-lite)이 이미 3단 폴백을 제공.
+    //         그래도 전부 실패하면 'etc' 로 저장하고 상세페이지에서 수정.
+    //   제거 대상: getMobileNetModel / CAT_RULES / mapPredictionsToCategory /
+    //             classifyWithMobileNet / _mnModel / _lastMnPreds
+    //   ⚠️ loadScript() 는 브랜드 OCR(Tesseract) 이 계속 쓰므로 남겨둡니다.
+    // ══════════════════════════════════════════════════════════
 
     // ══════════════════════════════════════════════════════════
     // Gemini Vision 통합 분석 — 카테고리/컬러/패턴/소재/핏/스타일
@@ -1087,18 +1003,33 @@ document.addEventListener('DOMContentLoaded', () => {
           ? CodiBank.getBackendBaseResolved()
           : (window.CODIBANK_CONFIG?.backendBase || 'https://codibank-api.onrender.com');
 
-        // blobURL → base64 변환
+        // ── [2026-09-20 KST · TJ 지시] 분석 전용 768px 축소본 전송 ──
+        //   배경: 1200px / 최대 900KB JPEG 를 base64(+33%) 로 실어 싱가포르
+        //         Render 까지 보내고 있었음. 분석 정확도에는 기여하지 않고
+        //         업로드 시간만 잡아먹는 구간.
+        //   ⚠️ R2 에 영구 저장되는 이미지(shotBlob)는 1200px 그대로 유지합니다.
+        //      트라이온/코디하기 착장 생성이 그 원본을 쓰기 때문에 절대 줄이면 안 됨.
+        //      여기서 만드는 768px 는 "분석 호출에만" 쓰고 버립니다.
         let imagePayload = null;
-        if (imgSrc && imgSrc.startsWith('blob:')) {
-          const resp = await fetch(imgSrc);
-          const blob = await resp.blob();
-          imagePayload = await new Promise((res) => {
-            const fr = new FileReader();
-            fr.onload = () => res(fr.result);
-            fr.readAsDataURL(blob);
-          });
-        } else if (imgSrc && imgSrc.startsWith('data:')) {
-          imagePayload = imgSrc;
+        if (imgSrc && (imgSrc.startsWith('blob:') || imgSrc.startsWith('data:'))) {
+          let blob = null;
+          try {
+            blob = await resizeFromSrcToBlob(imgSrc, 768, 0.75);
+          } catch (e) {
+            console.warn('[분석용 축소 실패] 원본으로 진행', e);
+          }
+          if (!blob) {
+            try { blob = await fetch(imgSrc).then((r) => r.blob()); } catch (_) {}
+          }
+          if (blob) {
+            imagePayload = await new Promise((res) => {
+              const fr = new FileReader();
+              fr.onload = () => res(fr.result);
+              fr.onerror = () => res(null);
+              fr.readAsDataURL(blob);
+            });
+          }
+          if (!imagePayload && imgSrc.startsWith('data:')) imagePayload = imgSrc;
         }
 
         // [2026-04-08] 퍼스널컬러 + 체형 정보 함께 전달
@@ -1143,44 +1074,30 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    async function guessCategoryKeyFromImage(dataUrl) {
+    // ─── 2026-09-20 KST · TJ 지시 ───
+    //   guessCategoryKeyFromImage(MobileNet 폴백) 제거.
+    //   Gemini 3단 체인이 전부 실패한 경우에만 호출되며, 이제는
+    //   수동 선택값 → preferredCategoryKey → 'etc' 순으로 결정합니다.
+    function fallbackCategoryKey() {
       if (preferredCategoryKey) return preferredCategoryKey;
-
-      setAiProgress(52, 'AI 카테고리 분류 중…');
-      try {
-        const result = await classifyWithMobileNet(dataUrl);
-        if (result) return result;
-      } catch (e) {
-        console.warn('MobileNet 분류 실패:', e);
-      }
       return 'etc';
     }
 
-    // ===== 간단한 스타일 태그 추론(모델 예측 라벨 기반) =====
-    function inferStyleTagFromPreds(preds){
-      const t = _normLabel(preds?.[0]?.className || '');
-      if(!t) return '';
-      const rules = [
-        { kw: ['leather'], tag: '가죽' },
-        { kw: ['denim','jean'], tag: '데님' },
-        { kw: ['trench'], tag: '트렌치' },
-        { kw: ['bomber'], tag: '봄버' },
-        { kw: ['parka','anorak'], tag: '아웃도어' },
-        { kw: ['windbreaker','track'], tag: '윈드브레이커' },
-        { kw: ['hoodie'], tag: '후디' },
-        { kw: ['cardigan'], tag: '가디건' },
-        { kw: ['sweater','pullover'], tag: '니트' },
-        { kw: ['blazer','suit'], tag: '포멀' },
-        { kw: ['sneaker','running shoe'], tag: '스니커즈' },
-        { kw: ['boot'], tag: '부츠' },
-        { kw: ['loafer'], tag: '로퍼' },
-        { kw: ['sandal'], tag: '샌들' },
-        { kw: ['skirt','miniskirt'], tag: '스커트' },
-        { kw: ['leggings'], tag: '레깅스' },
-      ];
-      for(const r of rules){
-        if(r.kw.some(k=>t.includes(k))) return r.tag;
-      }
+    // ===== 스타일 태그 — Gemini 분석 결과 기반 =====
+    //   이전: MobileNet 영문 라벨(leather/denim/…) 키워드 매칭
+    //   신규: Gemini 가 준 style_keywords[0] → 없으면 material 첫 항목
+    function styleTagFromGemini(g) {
+      if (!g) return '';
+      try {
+        if (Array.isArray(g.style_keywords) && g.style_keywords.length) {
+          const s = String(g.style_keywords[0] || '').trim();
+          if (s) return s;
+        }
+        if (g.material) {
+          const m = String(g.material).split(',')[0].trim();
+          if (m) return m;
+        }
+      } catch (_) {}
       return '';
     }
 
@@ -1264,7 +1181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('Gemini 분석 오류:', e);
       }
 
-      // 1) Category — Gemini 결과 우선, 폴백: MobileNet
+      // 1) Category — Gemini 결과 우선, 폴백: 수동선택/기타
       try {
         setAiProgress(35, '카테고리 분류 중…');
         const manual = (categorySelectEl && String(categorySelectEl.value || '').trim());
@@ -1403,8 +1320,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
         } else {
-          // Gemini 실패 시 MobileNet 폴백
-          categoryKey = await guessCategoryKeyFromImage(getAnalysisSrc('front'));
+          // Gemini 3단 체인이 전부 실패 → 수동 선택값 또는 '기타'
+          categoryKey = fallbackCategoryKey();
         }
         aiCat.textContent = CodiBank.getCategoryMetaByKey(categoryKey, user.email)?.label || categoryKey;
         // 세부 정보 표시 (있으면)
@@ -1594,41 +1511,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!images.front && shots.front) images.front = shots.front;
 
         // ✅ 아이템 특징(설명) — Gemini 분석 결과 우선 사용
+        // ── [2026-09-20 KST · TJ 지시] noteText 중복 계산 정리 ──
+        //   이전: 동일한 로직이 두 번 실행되고 있었음(뒤쪽이 앞쪽을 덮어씀).
+        //         MobileNet 제거로 styleTag 출처도 Gemini 로 일원화.
+        //   [2026-05-23 유지] 카테고리명 중복 방지 — sub_category(또는 catLabel)를
+        //         parts 에 "한 번만" 넣고 join. ("다운자켓 다운자켓" 버그 재발 금지)
         const catLabel = (CodiBank.getCategoryMetaByKey(categoryKey, user.email)?.label) || categoryKey;
+        const styleTag = styleTagFromGemini(_geminiAnalysis);
         let noteText = '';
         if (_geminiAnalysis) {
           const g = _geminiAnalysis;
           const parts = [];
           if (g.main_color_name)  parts.push(g.main_color_name);
           if (g.pattern && g.pattern !== '단색') parts.push(g.pattern);
-          if (g.material)         parts.push(g.material.split(',')[0].trim());
+          if (g.material)         parts.push(String(g.material).split(',')[0].trim());
           if (g.fit && g.fit !== '레귤러') parts.push(g.fit);
-          if (g.sub_category)     parts.push(g.sub_category);
-          else                    parts.push(catLabel);
-          noteText = parts.join(' ').trim();
+          parts.push(g.sub_category || catLabel);
+          noteText = parts.filter(Boolean).join(' ').trim();
         }
         if (!noteText) {
-          const styleTag = inferStyleTagFromPreds(_lastMnPreds);
           noteText = [colorName, styleTag, catLabel].filter(Boolean).join(' ').trim() || '아이템';
-        }
-        const styleTag = inferStyleTagFromPreds(_lastMnPreds);
-
-        // Gemini 분석 결과를 note에 반영
-        if (_geminiAnalysis) {
-          const g = _geminiAnalysis;
-          const parts = [];
-          if (g.main_color_name) parts.push(g.main_color_name);
-          if (g.pattern && g.pattern !== '단색') parts.push(g.pattern);
-          if (g.material) parts.push(g.material.split(',')[0]);
-          if (g.fit && g.fit !== '레귤러') parts.push(g.fit);
-          // ── [2026-05-23 KST · TJ 지시] 카테고리명 중복 버그 수정 ──
-          //   이전: parts 에 sub_category 추가 후, join 결과에 또 ' ' + sub_category 를 append
-          //         → "블랙 폴리에스터 다운자켓 다운자켓" 같은 중복 텍스트 생성
-          //   수정: parts 에 sub_category(또는 폴백 catLabel) 한 번만 추가 후 join
-          const _tail = g.sub_category || catLabel;
-          if (_tail) parts.push(_tail);
-          if (parts.length > 0) noteText = parts.join(' ');
-          if (g.design_points) noteText = noteText.trim();
         }
 
         const result = CodiBank.addItem(user.email, {
@@ -1657,6 +1559,14 @@ document.addEventListener('DOMContentLoaded', () => {
               style_keywords: _geminiAnalysis.style_keywords,
               design_points:  _geminiAnalysis.design_points,
               coordinate_hint:_geminiAnalysis.coordinate_hint,
+              // ── [2026-09-20 KST · TJ 지시] 코디 매칭용 구조 필드 보강 ──
+              //   서버에서 category 단일 진실 기준으로 정합성이 보장된 값.
+              //   (코디핏/코디하기의 상·하의 판별 로직이 그대로 쓸 수 있음)
+              outer_type:     _geminiAnalysis.outer_type || null,
+              is_skirt:       !!_geminiAnalysis.is_skirt,
+              is_onepiece:    !!_geminiAnalysis.is_onepiece,
+              skirt_length:   _geminiAnalysis.skirt_length || null,
+              dress_length:   _geminiAnalysis.dress_length || null,
               // ✅ 유사도 매칭용 임베딩 벡터 (512차원)
               embedding:      _geminiAnalysis.embedding || null,
             } : null,
@@ -1709,7 +1619,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     updateRegisterState();
-    // MobileNet 기반 분류 사용
+    // 카테고리 분류는 서버 Gemini 체인이 담당 (2026-09-20 MobileNet 제거)
   </script>
 
 <!-- ─── 2026-05-23 KST · TJ 지시 ─── 풋바 nav 삭제 ─────────────────────
