@@ -5,6 +5,48 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-09-20 KST · TJ 지시 (ai옷장 분석 파이프라인 1·2·3단계 일괄) ───
+#  대상: /api/ai/analyze-item (ai_analyze_item, ~line 10063) 전면 재작성.
+#        기존 응답 스키마(analysis.*)는 100% 유지 → item.html / aicloset.html /
+#        codistyle_analyze_garments 는 무수정으로 동작합니다.
+#
+#  [1] 캐시 적중 — contents 순서를 [프롬프트] → [이미지] → [사용자 꼬리] 로 고정.
+#      이전엔 이미지가 맨 앞이라 매 호출 prefix 가 달라져 2,400 토큰짜리
+#      고정 프롬프트가 100% 새 입력으로 과금·처리되고 있었음(implicit cache 미적중).
+#      ⚠️ 이 순서를 다시 뒤집지 말 것. 사용자별 가변 문구는 반드시 꼬리 블록에만.
+#
+#  [2] media_resolution=MEDIUM(560토큰) 명시 — Gemini 3 계열 기본값은 HIGH(1120).
+#      의류 카테고리/컬러/패턴 판별에는 MEDIUM 으로 충분.
+#      thinking 최소화 — 3.x 는 thinking_level="minimal"(실패 시 "low"),
+#      2.5 는 thinking_budget=0. 미설정 시 출력 토큰이 몇 배로 튐.
+#
+#  [3] 모델 체인 세대 분리:
+#        gemini-3.1-flash-lite (주력)
+#        → gemini-3.6-flash    (품질 폴백)
+#        → gemini-2.5-flash-lite (최후 안전망, 3.x 미개방 프로젝트 대비)
+#      이전 [2.5-flash-lite, 2.5-flash] 는 같은 세대라 세대 은퇴 시 폴백 무의미.
+#      환경변수: CODIBANK_ANALYZE_MODEL / _FALLBACK / _LEGACY
+#      404·403·NOT_FOUND 계열 에러는 config 재시도 없이 즉시 다음 모델로 스킵
+#      (프론트 40초 타임아웃 보호).
+#
+#  [4] API 호출 2회 → 1회. 퍼스널컬러/체형 호환성 평가를 별도 텍스트 호출이 아니라
+#      같은 vision 호출의 compatibility_eval 필드로 수신.
+#      응답은 기존과 동일한 analysis.compatibility.evaluation 구조로 재조립.
+#      (이전 2차 호출은 모델명이 하드코딩돼 환경변수 교체에서 누락되던 문제도 해소)
+#
+#  [5] box_2d(의류 바운딩 박스, 0~1000 정규화) 수신 → crop 후 LAB/KMeans.
+#      배경: rembg 는 '블랙+버건디 콤비자켓 반쪽 삭제' 사고로 비활성(HOTFIX A) 상태라
+#            KMeans 가 나무바닥·침대·카펫 색을 그대로 먹고 있었음.
+#            (화이트 셔츠를 초록 카펫에 두면 main 색이 '다크그린' 으로 잡히던 수준)
+#      세그멘테이션이 아니라 사각형 crop 이라 옷을 잘라먹는 것이 구조적으로 불가능.
+#      추가 API 호출 0회 / 추가 비용 0원. 박스가 비정상이면 자동으로 원본 사용.
+#
+#  [6] 정합성 — sub_category / outer_type 을 free string → enum 고정,
+#      _normalize_item_analysis() 로 category 를 단일 진실로 삼고
+#      is_skirt / is_onepiece / skirt_length / dress_length / outer_type /
+#      style_keywords 를 전부 파생. (category=etc + sub_category=셔츠원피스 같은
+#      모순 제거. 신발/시계/스카프/양말/기타의 sub_category 도 신규 정의)
+#
 # ─── 2026-05-19 KST · TJ 보고 (STEP A 과거 이미지 재탕 — 캐시 HIT 수정) ───
 #  증상: 같은 목적(하객룩)으로 다시 생성 시 4개 도시 추천코디가 단 하나도
 #        안 바뀌고 과거 이미지 그대로. 오전 생성 = 오후 생성.
@@ -9619,80 +9661,176 @@ def track_styling():
 
 
 
-@app.post("/api/ai/analyze-item")
-def ai_analyze_item():
-    """
-    의류 아이템 이미지를 Gemini Vision으로 분석:
-    카테고리, 메인컬러(HEX), 패턴, 소재, 핏, 디자인 포인트, 스타일 키워드
-    """
-    if not _GEMINI_KEY:
-        return jsonify(ok=False, error="GEMINI_API_KEY 미설정"), 400
+# ══════════════════════════════════════════════════════════════════════
+#  ai옷장 아이템 분석 — 공용 상수 / 헬퍼
+#  ─── 2026-09-20 KST · TJ 지시 (Phase 4: 캐시·통합·박스크롭·정합성) ───
+#   [1] 프롬프트를 이미지보다 앞에 배치 → implicit context cache 적중
+#   [2] media_resolution=MEDIUM + thinking 최소화 → 토큰/레이턴시 절감
+#   [3] 모델 체인 세대 분리: 3.1-flash-lite → 3.6-flash → 2.5-flash-lite(최후)
+#   [4] 호환성 평가(pc/bt/total)를 같은 호출에 통합 → API 호출 2회 → 1회
+#   [5] box_2d(의류 바운딩 박스) 수신 → crop 후 KMeans → 배경색 오염 제거
+#   [6] sub_category / outer_type enum 고정 + category 단일 진실 후처리
+#  ⚠️ 응답 스키마(analysis.*)는 기존과 100% 호환 —
+#     camera.html / item.html / codistyle_analyze_garments 무수정 동작.
+# ══════════════════════════════════════════════════════════════════════
 
-    try:
-        d = request.get_json(force=True) or {}
-        image_data = d.get("image")          # base64 또는 URL
-        image_url  = d.get("image_url", "")  # /uploads/ 경로
+_ITEM_CAT_ENUM = [
+    "coat", "jacket", "top", "pants", "skirt", "onepiece",
+    "shoes", "watch", "scarf", "socks", "bag", "etc",
+]
 
-        if not image_data and not image_url:
-            return jsonify(ok=False, error="이미지 없음"), 400
+# ── sub_category enum (TJ 확정 분류표 2026-04-23 + 신발/시계/스카프/양말/기타 보강) ──
+#   free string 이던 필드를 enum 으로 고정 → 모델이 임의 값 생성 불가.
+_ITEM_SUB_ENUM = [
+    # coat (긴 아우터)
+    "아우터", "코트", "패딩", "버버리", "롱패딩", "트렌치코트", "더플코트",
+    # jacket (짧은 아우터)
+    "자켓", "블레이저", "점퍼", "다운자켓", "레더자켓", "데님자켓", "가디건",
+    "수트자켓", "콤비자켓", "사파리자켓", "집업자켓", "후드집업자켓",
+    "숏패딩", "다운조끼", "볼레로",
+    # top
+    "탑", "셔츠", "티셔츠", "후드티", "후드티셔츠", "블라우스", "면티",
+    "니트티", "니트셔츠", "니트", "반팔티", "긴팔티", "맨투맨", "스웨터",
+    # pants
+    "바지", "반바지", "데님팬츠", "조거팬츠", "트레이닝하의", "레깅스",
+    "숏팬츠", "러너팬츠", "청바지", "슬랙스", "면바지", "스키니", "와이드팬츠",
+    # skirt
+    "스커트", "H라인스커트", "A라인스커트", "플레어스커트", "플리츠스커트",
+    "머메이드스커트", "미니스커트", "미디스커트", "롱스커트", "레이어드스커트",
+    "랩스커트", "티어드스커트", "도트스커트",
+    # onepiece
+    "원피스", "미디원피스", "롱원피스", "셔츠원피스", "시스원피스", "랩원피스",
+    "슬립원피스", "시프트원피스", "미니원피스", "니트원피스",
+    "드레스", "웨딩드레스", "원피스수영복", "투피스수영복", "비키니수영복",
+    # bag
+    "핸드백", "토트백", "숄더백", "크로스백", "백팩", "클러치백", "미니백",
+    "에코백", "버킷백", "호보백", "새첼백", "메신저백", "더플백",
+    "보스턴백", "카메라백", "지갑",
+    # shoes
+    "스니커즈", "운동화", "구두", "로퍼", "부츠", "앵클부츠", "롱부츠",
+    "샌들", "슬리퍼", "슬립온", "힐", "펌프스", "워커",
+    # watch
+    "손목시계", "스마트워치", "아날로그시계", "디지털시계",
+    # scarf
+    "스카프", "머플러", "숄", "넥워머", "넥타이", "보타이",
+    # socks
+    "양말", "스타킹", "덧신", "니삭스",
+    # etc
+    "기타", "모자", "벨트", "안경", "선글라스", "장갑", "주얼리", "헤어밴드",
+]
 
-        # ── 이미지 데이터 준비 ──
-        img_bytes = None
-        img_mime  = "image/jpeg"
+_ITEM_OUTER_ENUM = [
+    "아우터", "코트", "패딩", "버버리", "롱패딩",
+    "자켓", "블레이저", "점퍼", "다운자켓", "레더자켓", "데님자켓", "가디건",
+    "none",
+]
 
-        if image_data:
-            # base64 dataURL
-            import base64
-            if "," in image_data:
-                header, b64 = image_data.split(",", 1)
-                if "png" in header: img_mime = "image/png"
-                elif "webp" in header: img_mime = "image/webp"
-            else:
-                b64 = image_data
-            img_bytes = base64.b64decode(b64)
+_ITEM_STYLE_KW_ENUM = [
+    "캐주얼", "포멀", "스트릿", "미니멀", "빈티지", "스포티", "로맨틱",
+    "클래식", "오피스", "데이트", "데일리", "파티", "여행", "운동",
+]
 
-        elif image_url:
-            # /uploads/ 경로 → R2 또는 로컬에서 로드
-            import requests as _rq
-            _backend = request.host_url.rstrip("/")
-            full_url = image_url if image_url.startswith("http") else _backend + image_url
-            resp = _rq.get(full_url, timeout=10)
-            if resp.status_code == 200:
-                img_bytes = resp.content
-                ct = resp.headers.get("content-type", "image/jpeg")
-                img_mime = ct.split(";")[0].strip()
-            else:
-                return jsonify(ok=False, error="이미지 로드 실패"), 400
+# ── sub_category 키워드 → category 역매핑 (위에서부터 우선) ──
+#   ⚠️ 순서가 정확도의 전부입니다. 구체적인 단어를 반드시 먼저 둘 것.
+#      예) '셔츠원피스' 가 '셔츠'(top) 로 새지 않도록 원피스를 최상단에,
+#          '숏패딩'(jacket) 이 '패딩'(coat) 으로 새지 않도록 앞에 배치.
+_SUB2CAT_RULES = [
+    ("원피스", "onepiece"), ("드레스", "onepiece"),
+    ("스커트", "skirt"), ("치마", "skirt"),
+    ("백팩", "bag"), ("지갑", "bag"), ("가방", "bag"), ("백", "bag"),
+    ("숏패딩", "jacket"), ("다운조끼", "jacket"), ("볼레로", "jacket"),
+    ("자켓", "jacket"), ("재킷", "jacket"), ("블레이저", "jacket"),
+    ("점퍼", "jacket"), ("가디건", "jacket"), ("카디건", "jacket"),
+    ("롱패딩", "coat"), ("패딩", "coat"), ("트렌치", "coat"),
+    ("버버리", "coat"), ("코트", "coat"), ("아우터", "coat"),
+    ("스니커즈", "shoes"), ("운동화", "shoes"), ("구두", "shoes"),
+    ("로퍼", "shoes"), ("부츠", "shoes"), ("샌들", "shoes"),
+    ("슬리퍼", "shoes"), ("슬립온", "shoes"), ("펌프스", "shoes"),
+    ("워커", "shoes"), ("힐", "shoes"),
+    ("시계", "watch"), ("워치", "watch"),
+    ("스카프", "scarf"), ("머플러", "scarf"), ("넥워머", "scarf"),
+    ("넥타이", "scarf"), ("보타이", "scarf"), ("숄", "scarf"),
+    ("양말", "socks"), ("삭스", "socks"), ("스타킹", "socks"), ("덧신", "socks"),
+    ("레깅스", "pants"), ("청바지", "pants"), ("슬랙스", "pants"),
+    ("바지", "pants"), ("팬츠", "pants"), ("트레이닝하의", "pants"),
+    ("조거", "pants"), ("스키니", "pants"),
+    ("후드티", "top"), ("맨투맨", "top"), ("스웨터", "top"), ("니트", "top"),
+    ("블라우스", "top"), ("티셔츠", "top"), ("셔츠", "top"),
+    ("면티", "top"), ("반팔티", "top"), ("긴팔티", "top"), ("탑", "top"),
+]
 
-        if not img_bytes:
-            return jsonify(ok=False, error="이미지 데이터 없음"), 400
+_COAT_OUTER_TYPES = ["아우터", "코트", "패딩", "버버리", "롱패딩"]
+_JACKET_OUTER_TYPES = ["자켓", "블레이저", "점퍼", "다운자켓",
+                       "레더자켓", "데님자켓", "가디건"]
 
-        # ── [Phase 1 — 2026-05-22 KST · TJ 지시] 파이프라인 단순화 ──────
-        #   변경:
-        #   · rembg — storage_upload() 에서 업로드 시점에 자동 실행됨 (재활성화).
-        #             여기서 다시 호출 안 함 (HF Space 대기 누적 방지).
-        #             image_url 로 받는 경우 이미 배경 제거된 PNG 가 R2 에 저장돼 있음.
-        #             base64 로 받는 경우 (예: 카메라 즉시 분석) 는 storage_upload 미경유
-        #             가능성 있으나, 분석 흐름 상 직전 업로드 → URL 경유가 대부분.
-        #   · Lykdat 호출 — 제거 (외부 유료 API, Gemini 와 중복 작업)
-        #   · Marqo embedding 호출 — 제거 (Render Starter RAM 부족으로 매번 silent 실패)
-        #   · skip_embedding 분기 — 제거 (이제 무의미)
-        # ──
+# ── JSON 응답 스키마 (모든 호출에서 동일 — 캐시 prefix 안정성 확보) ──
+_ITEM_ANALYSIS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "category":        {"type": "string", "enum": _ITEM_CAT_ENUM},
+        "sub_category":    {"type": "string", "enum": _ITEM_SUB_ENUM},
+        "is_skirt":        {"type": "boolean"},
+        "is_onepiece":     {"type": "boolean"},
+        "skirt_length":    {"type": "string", "enum": ["mini", "midi", "maxi", "none"]},
+        "dress_length":    {"type": "string", "enum": ["mini", "midi", "maxi", "none"]},
+        "outer_type":      {"type": "string", "enum": _ITEM_OUTER_ENUM},
+        "box_2d":          {"type": "array", "items": {"type": "integer"}},
+        "main_color":      {"type": "string"},
+        "main_color_name": {"type": "string"},
+        "sub_color":       {"type": "string"},
+        "sub_color_name":  {"type": "string"},
+        "pattern": {
+            "type": "string",
+            "enum": ["단색", "스트라이프", "체크", "도트", "플로럴", "기하학",
+                     "카무플라주", "그래픽", "레터링", "애니멀", "페이즐리", "추상"],
+        },
+        "material":        {"type": "string"},
+        "fit": {
+            "type": "string",
+            "enum": ["오버사이즈", "루즈", "레귤러", "슬림", "스키니"],
+        },
+        "season": {
+            "type": "string",
+            "enum": ["봄여름", "가을겨울", "사계절", "여름전용", "겨울전용"],
+        },
+        "style_keywords": {
+            "type": "array",
+            "items": {"type": "string", "enum": _ITEM_STYLE_KW_ENUM},
+        },
+        "design_points":   {"type": "string"},
+        "coordinate_hint": {"type": "string"},
+        # 사용자 퍼스널컬러/체형 정보가 있을 때만 채워짐 (required 아님)
+        "compatibility_eval": {
+            "type": "object",
+            "properties": {
+                "pc_score":      {"type": "integer"},
+                "pc_comment":    {"type": "string"},
+                "bt_score":      {"type": "integer"},
+                "bt_comment":    {"type": "string"},
+                "total_score":   {"type": "integer"},
+                "total_comment": {"type": "string"},
+            },
+        },
+    },
+    "required": [
+        "category", "sub_category", "is_skirt", "is_onepiece", "box_2d",
+        "main_color", "main_color_name", "pattern", "material",
+        "fit", "season", "style_keywords", "design_points", "coordinate_hint",
+    ],
+}
 
-        # ── img_bytes 최소 크기 검증 ──
-        if not img_bytes or len(img_bytes) < 100:
-            return jsonify(ok=False, error="이미지 데이터가 너무 작거나 없습니다"), 400
-
-        # ── [Phase 1 — 2026-05-22] Gemini Vision 프롬프트 ──
-        #   변경: Lykdat 컨텍스트(_lykdat_ctx) 제거. Gemini 단독 분석으로 단순화.
-        #         프롬프트 본문(카테고리 룰)은 정확도 핵심이므로 그대로 유지.
-        PROMPT = """
-당신은 세계 최고의 패션 전문가 AI입니다.
-이 의류 이미지를 분석하고 아래 JSON 형식으로만 응답하세요. JSON 외 다른 텍스트는 절대 포함하지 마세요.
+# ══════════════════════════════════════════════════════════════════════
+#  고정 프롬프트 (모듈 상수)
+#  ⚠️ 이 문자열은 "매 호출 바이트 단위로 동일"해야 implicit cache 가 걸립니다.
+#     사용자별로 달라지는 내용(퍼스널컬러/체형)은 절대 여기에 넣지 말고
+#     _build_item_user_context() 가 만드는 꼬리 블록에 넣으세요.
+# ══════════════════════════════════════════════════════════════════════
+_ITEM_BASE_PROMPT = """당신은 세계 최고의 패션 전문가 AI입니다.
+이 의류 이미지를 분석하고 지정된 JSON 스키마로만 응답하세요. JSON 외 다른 텍스트는 절대 포함하지 마세요.
 
 ⚠️ 배경 무시 규칙: 이미지에 바닥, 벽, 옷걸이, 손, 테이블 등 배경이 포함되어 있을 수 있습니다. 배경은 완전히 무시하고 의류 아이템 영역만 집중하여 분석하세요. 배경 색상을 의류 색상으로 착각하지 마세요.
 
-⚠️ [2026-04-22 17:40 KST] 카테고리 판별 CRITICAL RULES — 순서대로 적용:
+⚠️ 카테고리 판별 CRITICAL RULES — 순서대로 적용:
 
 [규칙 1] 원피스(onepiece) 판별 — 치마/바지/상의와 구분
 - 상의와 하의가 한 벌로 연결된 드레스 구조 → onepiece (원피스)
@@ -9711,58 +9849,323 @@ def ai_analyze_item():
 - 무릎 이상 긴 아우터 → coat (롱코트/트렌치코트/더플코트 등)
 - 엉덩이 길이 또는 짧은 아우터 → jacket (블레이저/가디건/숏패딩/점퍼 등)
 - 착용샷이어도 구조로만 판별 (디자인/패턴 무시)
+- 가디건은 반드시 jacket
 
-[규칙 4] 가방(bag) 판별 — 2026-05-23 신규 추가 (TJ 지시)
+[규칙 4] 가방(bag) 판별
 - 들거나 메는 가방류 → bag
   · 핸드백, 토트백, 숄더백, 크로스백, 백팩, 클러치, 미니백, 에코백 등 모두 bag
   · 손잡이(handle) 또는 스트랩(strap) 이 있고 내부 수납이 가능한 형태이면 bag
 - 가방을 든 사람 착용샷도 가방 자체가 주제이면 → bag (사람은 무시)
 - bag 은 etc 로 절대 분류하지 말 것
 
-[규칙 5] 모호한 경우 — 절대 etc 로 도피하지 말 것 (2026-05-23 TJ 지시)
+[규칙 5] 모호한 경우 — 절대 etc 로 도피하지 말 것
 - 의류 구조가 명확하면 (원피스/치마/바지/상의/아우터/신발/가방 등) 반드시 해당 카테고리 선택
-- etc 는 진짜로 카테고리 11종 중 어디에도 속하지 않을 때만 (예: 액세서리, 헤어밴드, 안경 등)
-- ⚠️ 명백한 원피스/드레스를 etc 로 분류한 사례가 있었음 → category 와 sub_category 는 반드시 일관성 있게
-  · sub_category 에 "원피스"/"드레스" 가 들어가면 category 는 onepiece
-  · sub_category 에 "가방"/"백" 이 들어가면 category 는 bag
-  · sub_category 에 "스커트"/"치마" 가 들어가면 category 는 skirt
+- etc 는 진짜로 카테고리 12종 중 어디에도 속하지 않을 때만 (예: 모자, 벨트, 안경, 장갑 등)
+- category 와 sub_category 는 반드시 일관성 있게:
+  · sub_category 가 "원피스"/"드레스" 계열 → category = onepiece
+  · sub_category 가 "스커트" 계열       → category = skirt
+  · sub_category 가 "백"/"가방" 계열     → category = bag
+  · sub_category 가 긴 아우터 계열       → category = coat
+  · sub_category 가 짧은 아우터 계열     → category = jacket
   · 두 필드가 모순되면 분석 실패로 간주
 
-{
-  "category": "coat | jacket | top | pants | skirt | onepiece | shoes | watch | scarf | socks | bag | etc 중 하나 — ⚠️ 치마/스커트는 반드시 skirt, 원피스는 반드시 onepiece, 가방은 반드시 bag. 혼동 금지.",
-  "sub_category": "아래 세부 품목 중 하나로 정확히 분류:\n[아우터(coat)] 긴 아우터류: 아우터/코트/패딩/버버리(트렌치코트)/롱패딩\n[자켓(jacket)] 짧은 아우터류: 자켓/블레이저/점퍼/다운자켓/레더자켓/데님자켓/가디건 (기타 짧은 아우터: 수트자켓/콤비자켓/사파리자켓/집업자켓/후드집업자켓/숏패딩/다운조끼/볼레로)\n[상의(top)] 탑/셔츠/티셔츠/후드티/후드티셔츠/블라우스/면티/니트티/니트셔츠 (기타: 반팔티/긴팔티/맨투맨/스웨터)\n[바지(pants)] 바지/반바지/데님팬츠/조거팬츠/트레이닝하의/레깅스/숏팬츠/러너팬츠 (기타: 청바지/슬랙스/면바지/스키니/와이드팬츠)\n[치마(skirt)] 스커트/H라인스커트/A라인스커트/플레어스커트/플리츠스커트/머메이드스커트/미니스커트/미디스커트/롱스커트/레이어드스커트 (기타: 랩스커트/티어드스커트/도트스커트)\n[원피스(onepiece)] 원피스/미디원피스/롱원피스/셔츠원피스/시스원피스/랩원피스/슬립원피스/시프트원피스/드레스/웨딩드레스/원피스수영복/투피스수영복/비키니수영복 (기타: 미니원피스/니트원피스)\n[가방(bag)] 핸드백/토트백/숄더백/크로스백/백팩/클러치백/미니백/에코백/버킷백/호보백/새첼백/메신저백/더플백 (기타: 보스턴백/카메라백/지갑)",
-  "is_skirt": "true if category=skirt, false otherwise — ⚠️ 원피스(onepiece)는 false로 설정",
-  "is_onepiece": "true if category=onepiece, false otherwise — ⚠️ 원피스 여부 신규 필드 (2026-04-22 추가)",
-  "skirt_length": "mini(무릎위) | midi(무릎~종아리중간) | maxi(종아리~발목) | null(치마아닌경우)",
-  "dress_length": "mini(무릎위) | midi(무릎~종아리중간) | maxi(종아리~발목) | null(원피스아닌경우) — ⚠️ onepiece 전용 신규 필드",
-  "outer_type": "아우터 | 코트 | 패딩 | 버버리 | 롱패딩 | 자켓 | 블레이저 | 점퍼 | 다운자켓 | 레더자켓 | 데님자켓 | 가디건 | null(아우터아닌경우) — ⚠️ [2026-04-23 TJ 분류] 긴 아우터(category=coat): 아우터/코트/패딩/버버리/롱패딩 · 짧은 아우터(category=jacket): 자켓/블레이저/점퍼/다운자켓/레더자켓/데님자켓/가디건",
-  "main_color": "#RRGGBB 형식의 주요 색상 HEX",
-  "main_color_name": "색상 이름 (한국어)",
-  "sub_color": "#RRGGBB 또는 null",
-  "sub_color_name": "보조 색상 이름 (한국어) 또는 null",
-  "pattern": "단색|스트라이프|체크|도트|플로럴|기하학|카무플라주|그래픽|레터링|애니멀|페이즐리|추상 중 하나",
-  "material": "면|린넨|울|캐시미어|실크|폴리에스터|나일론|데님|가죽|니트|혼방|기타 중 하나 이상 (쉼표 구분)",
-  "fit": "오버사이즈|루즈|레귤러|슬림|스키니 중 하나",
-  "season": "봄여름|가을겨울|사계절|여름전용|겨울전용 중 하나",
-  "style_keywords": ["캐주얼|포멀|스트릿|미니멀|빈티지|스포티|로맨틱|클래식|오피스|데이트|데일리|파티|여행|운동 중 최대 3개 — TPO/스타일 태그로 활용"],
-  "design_points": "이 아이템의 디자인 특징 1~2문장 (한국어) — 착용샷이면 의류 아이템만 묘사",
-  "coordinate_hint": "이 아이템이 적합한 TPO(시간/장소/상황) 추천 코디 — 한국어 1문장, **반드시 50자 이내** — 예시: '오피스룩과 데이트 모두 어울리는 데일리 아이템' / '주말 카페나 친구 모임에 좋은 캐주얼 가방' / '격식 있는 비즈니스 자리에 적합한 클래식 아이템'"
-}
+[sub_category 선택 가이드 — 스키마 enum 값 중 category 에 맞는 것만 고를 것]
+· coat    : 아우터 / 코트 / 패딩 / 버버리 / 롱패딩 / 트렌치코트 / 더플코트
+· jacket  : 자켓 / 블레이저 / 점퍼 / 다운자켓 / 레더자켓 / 데님자켓 / 가디건 /
+            수트자켓 / 콤비자켓 / 사파리자켓 / 집업자켓 / 후드집업자켓 / 숏패딩 / 다운조끼 / 볼레로
+· top     : 탑 / 셔츠 / 티셔츠 / 후드티 / 후드티셔츠 / 블라우스 / 면티 / 니트티 /
+            니트셔츠 / 니트 / 반팔티 / 긴팔티 / 맨투맨 / 스웨터
+· pants   : 바지 / 반바지 / 데님팬츠 / 조거팬츠 / 트레이닝하의 / 레깅스 / 숏팬츠 /
+            러너팬츠 / 청바지 / 슬랙스 / 면바지 / 스키니 / 와이드팬츠
+· skirt   : 스커트 / H라인스커트 / A라인스커트 / 플레어스커트 / 플리츠스커트 /
+            머메이드스커트 / 미니스커트 / 미디스커트 / 롱스커트 / 레이어드스커트 /
+            랩스커트 / 티어드스커트 / 도트스커트
+· onepiece: 원피스 / 미디원피스 / 롱원피스 / 셔츠원피스 / 시스원피스 / 랩원피스 /
+            슬립원피스 / 시프트원피스 / 미니원피스 / 니트원피스 / 드레스 / 웨딩드레스 /
+            원피스수영복 / 투피스수영복 / 비키니수영복
+· bag     : 핸드백 / 토트백 / 숄더백 / 크로스백 / 백팩 / 클러치백 / 미니백 / 에코백 /
+            버킷백 / 호보백 / 새첼백 / 메신저백 / 더플백 / 보스턴백 / 카메라백 / 지갑
+· shoes   : 스니커즈 / 운동화 / 구두 / 로퍼 / 부츠 / 앵클부츠 / 롱부츠 / 샌들 /
+            슬리퍼 / 슬립온 / 힐 / 펌프스 / 워커
+· watch   : 손목시계 / 스마트워치 / 아날로그시계 / 디지털시계
+· scarf   : 스카프 / 머플러 / 숄 / 넥워머 / 넥타이 / 보타이
+· socks   : 양말 / 스타킹 / 덧신 / 니삭스
+· etc     : 기타 / 모자 / 벨트 / 안경 / 선글라스 / 장갑 / 주얼리 / 헤어밴드
 
-분석 기준:
+[box_2d — 색상 정확도 확보용 필수 필드]
+- 이미지에서 "의류 아이템만" 감싸는 가장 작은 사각형을 [ymin, xmin, ymax, xmax] 로 출력
+- 각 값은 0~1000 으로 정규화한 정수 (좌상단=0,0 / 우하단=1000,1000)
+- 바닥·벽·옷걸이·테이블·손·사람의 얼굴과 맨살은 박스 밖으로 밀어낼 것
+- 착용샷이면 "옷이 실제로 덮고 있는 영역"만 감쌀 것
+- 아이템이 화면을 거의 꽉 채우면 [0, 0, 1000, 1000]
+
+[그 외 분석 기준]
 - 착용샷(사람이 입은 사진)이어도 의류 아이템 자체만 분석
 - 배경과 착용자 신체 무시, 의류 구조에만 집중
-- 원피스류(onepiece)는 category를 반드시 onepiece로, is_onepiece를 true로, dress_length를 채울 것
-- 치마류(skirt)는 category를 반드시 skirt로, is_skirt를 true로, skirt_length를 채울 것
-- 아우터일 때 outer_type 필드를 반드시 채울 것:
-  · 긴 아우터(category=coat): 아우터/코트/패딩/버버리/롱패딩 중 하나
-  · 짧은 아우터(category=jacket): 자켓/블레이저/점퍼/다운자켓/레더자켓/데님자켓/가디건 중 하나
-- 가디건은 반드시 category=jacket (2026-04-23 TJ 확정)
-- 반드시 유효한 JSON만 반환
+- skirt 면 skirt_length, onepiece 면 dress_length 를 반드시 채울 것 (아니면 "none")
+- coat / jacket 이면 outer_type 을 반드시 채울 것 (아니면 "none")
+- material 은 쉼표로 여러 개 가능 (예: "면,혼방")
+- main_color / sub_color 는 #RRGGBB 형식, *_name 은 한국어 색상명
+- design_points: 디자인 특징 1~2문장 (한국어)
+- coordinate_hint: 이 아이템이 어울리는 TPO 추천 코디, 한국어 1문장 **50자 이내**
 """
 
-        # ── Gemini SDK 호출 (codistyle_generate와 동일 방식) ──
+
+def _build_item_user_context(pc_data: dict, bt_info: dict, item_hint: str = "") -> str:
+    """[2026-09-20] 사용자별 가변 블록 — 고정 프롬프트 뒤(이미지 뒤)에 붙입니다.
+
+    이 블록만 사용자마다 달라지므로, 앞쪽 _ITEM_BASE_PROMPT 는 캐시 prefix 로
+    유지됩니다. (프롬프트↔이미지 순서를 바꾼 핵심 이유)
+    """
+    lines = []
+    if pc_data:
+        best = ", ".join((pc_data.get("best_color_names")
+                          or pc_data.get("best_colors") or [])[:4])
+        avoid = ", ".join((pc_data.get("avoid_color_names")
+                           or pc_data.get("avoid_colors") or [])[:3])
+        lines.append(
+            "· 퍼스널컬러(" + str(pc_data.get("season", "")) + "): "
+            "추천 컬러=" + (best or "정보없음") + " / 피해야 할 컬러=" + (avoid or "정보없음")
+        )
+    if bt_info:
+        lines.append(
+            "· 체형(" + str(bt_info.get("label", "")) + "): "
+            "추천=" + str(bt_info.get("do_style", "")) + " / "
+            "피해=" + str(bt_info.get("dont_style", "")) + " / "
+            "잘 맞는 컬러=" + str(bt_info.get("best_color", "")) + " / "
+            "피할 컬러=" + str(bt_info.get("worst_color", ""))
+        )
+
+    if not lines:
+        return "\n[사용자 정보 없음] compatibility_eval 필드는 출력하지 마세요.\n"
+
+    return (
+        "\n[사용자 맞춤 평가 — compatibility_eval 필드를 반드시 채우세요]\n"
+        + "\n".join(lines)
+        + "\n→ 위 사용자 정보와 방금 분석한 이 아이템(색상/핏/카테고리)을 비교해서 판단하세요.\n"
+          "   pc_score / bt_score / total_score = 0~100 정수,\n"
+          "   pc_comment / bt_comment / total_comment = 한국어 한 줄 평(각 40자 이내).\n"
+    )
+
+
+def _crop_by_box2d(img_bytes: bytes, box) -> bytes:
+    """[2026-09-20] Gemini box_2d 로 의류 영역만 잘라낸 이미지 바이트를 반환.
+
+    목적: rembg(배경제거)는 '블랙+버건디 콤비자켓 반쪽 삭제' 사고로 비활성 상태라
+          KMeans 색상 추출이 바닥/벽 색을 함께 먹고 있었음.
+          세그멘테이션 대신 "바운딩 박스 crop" 으로 옷을 절대 잘라먹지 않으면서
+          배경 비중만 크게 줄입니다. (추가 API 호출 0회 · 추가 비용 0원)
+
+    안전장치: 박스가 비정상이거나 crop 결과가 너무 작으면 원본을 그대로 반환.
+    """
+    try:
+        if not isinstance(box, (list, tuple)) or len(box) != 4:
+            return img_bytes
+        ymin, xmin, ymax, xmax = [float(v) for v in box]
+        for v in (ymin, xmin, ymax, xmax):
+            if v < 0 or v > 1000:
+                return img_bytes
+        if (ymax - ymin) < 60 or (xmax - xmin) < 60:
+            return img_bytes                      # 한 변이 6% 미만 → 오검출
+        if (ymax - ymin) * (xmax - xmin) < 30000:
+            return img_bytes                      # 면적 3% 미만 → 오검출
+        if (ymax - ymin) * (xmax - xmin) >= 980000:
+            return img_bytes                      # 사실상 전체 → crop 불필요
+
+        from PIL import Image
+        img = Image.open(io.BytesIO(img_bytes))
+        W, H = img.size
+        # 가장자리 배경 후광 제거용 4% 내부 수축
+        dy = (ymax - ymin) * 0.04
+        dx = (xmax - xmin) * 0.04
+        left   = max(0, int((xmin + dx) / 1000.0 * W))
+        top    = max(0, int((ymin + dy) / 1000.0 * H))
+        right  = min(W, int((xmax - dx) / 1000.0 * W))
+        bottom = min(H, int((ymax - dy) / 1000.0 * H))
+        if (right - left) < 40 or (bottom - top) < 40:
+            return img_bytes
+
+        crop = img.crop((left, top, right, bottom))
+        out = io.BytesIO()
+        if crop.mode == "RGBA":
+            crop.save(out, format="PNG")
+        else:
+            crop.convert("RGB").save(out, format="JPEG", quality=92)
+        print(f"[box2d] crop {W}x{H} → {right-left}x{bottom-top} box={box}", flush=True)
+        return out.getvalue()
+    except Exception as e:
+        print(f"[box2d] crop 실패 → 원본 사용: {e}", flush=True)
+        return img_bytes
+
+
+def _normalize_item_analysis(analysis: dict) -> dict:
+    """[2026-09-20] category 를 '단일 진실'로 삼고 나머지 필드를 전부 파생시킵니다.
+
+    배경: category / is_skirt / is_onepiece / sub_category / outer_type 이
+          서로 독립 필드라 JSON 스키마만으로는 모순을 막을 수 없었음
+          (예: category=etc 인데 sub_category=셔츠원피스).
+    """
+    if not isinstance(analysis, dict):
+        return analysis
+
+    def _s(v):
+        return str(v).strip() if v is not None else ""
+
+    cat = _s(analysis.get("category")).lower()
+    sub = _s(analysis.get("sub_category"))
+
+    # ── ① category ↔ sub_category 모순 해소 (sub_category 를 더 신뢰) ──
+    inferred = ""
+    for kw, c in _SUB2CAT_RULES:
+        if kw in sub:
+            inferred = c
+            break
+    if inferred and inferred != cat:
+        print(f"[normalize] category 보정: {cat or '(없음)'} → {inferred} (sub='{sub}')",
+              flush=True)
+        cat = inferred
+    if cat not in _ITEM_CAT_ENUM:
+        cat = inferred or "etc"
+    analysis["category"] = cat
+
+    # ── ② 파생 불리언 — category 에서만 생성 ──
+    analysis["is_skirt"] = (cat == "skirt")
+    analysis["is_onepiece"] = (cat == "onepiece")
+
+    # ── ③ 길이 필드 ──
+    def _fix_len(key, active):
+        v = _s(analysis.get(key)).lower()
+        if not active or v in ("", "none", "null"):
+            analysis[key] = None
+        elif v not in ("mini", "midi", "maxi"):
+            analysis[key] = "midi"
+    _fix_len("skirt_length", cat == "skirt")
+    _fix_len("dress_length", cat == "onepiece")
+
+    def _guess_len():
+        if "미니" in sub:
+            return "mini"
+        if "롱" in sub or "맥시" in sub:
+            return "maxi"
+        return "midi"
+    if cat == "skirt" and not analysis.get("skirt_length"):
+        analysis["skirt_length"] = _guess_len()
+    if cat == "onepiece" and not analysis.get("dress_length"):
+        analysis["dress_length"] = _guess_len()
+
+    # ── ④ outer_type ──
+    ot = _s(analysis.get("outer_type"))
+    if ot.lower() in ("none", "null"):
+        ot = ""
+    if cat == "coat":
+        if ot not in _COAT_OUTER_TYPES:
+            if "롱패딩" in sub:
+                ot = "롱패딩"
+            elif "패딩" in sub:
+                ot = "패딩"
+            elif "버버리" in sub or "트렌치" in sub:
+                ot = "버버리"
+            else:
+                ot = "코트"
+    elif cat == "jacket":
+        if ot not in _JACKET_OUTER_TYPES:
+            ot = ""
+            for t in ["다운자켓", "레더자켓", "데님자켓", "블레이저", "점퍼", "가디건"]:
+                if t in sub:
+                    ot = t
+                    break
+            if not ot:
+                ot = "자켓"
+    else:
+        ot = ""
+    analysis["outer_type"] = ot or None
+
+    # ── ⑤ style_keywords 화이트리스트 (최대 3개) ──
+    kws = analysis.get("style_keywords")
+    clean, seen = [], set()
+    if isinstance(kws, list):
+        for k in kws:
+            k = _s(k)
+            if k in _ITEM_STYLE_KW_ENUM and k not in seen:
+                seen.add(k)
+                clean.append(k)
+            if len(clean) >= 3:
+                break
+    analysis["style_keywords"] = clean or ["데일리"]
+
+    # ── ⑥ coordinate_hint 길이 안전망 (프론트 60자 trim 과 이중화) ──
+    hint = _s(analysis.get("coordinate_hint"))
+    if len(hint) > 60:
+        hint = hint[:57] + "…"
+    analysis["coordinate_hint"] = hint
+
+    return analysis
+
+
+@app.post("/api/ai/analyze-item")
+def ai_analyze_item():
+    """
+    의류 아이템 이미지를 Gemini Vision 으로 1회 호출 분석:
+    카테고리 · 세부품목 · 메인/보조 컬러(HEX) · 패턴 · 소재 · 핏 · 시즌 ·
+    스타일 키워드 · 디자인 포인트 · TPO 힌트 · 바운딩 박스 ·
+    (사용자 정보가 있으면) 퍼스널컬러/체형 호환성 점수까지 한 번에.
+    """
+    if not _GEMINI_KEY:
+        return jsonify(ok=False, error="GEMINI_API_KEY 미설정"), 400
+
+    try:
+        d = request.get_json(force=True) or {}
+        image_data = d.get("image")          # base64 dataURL
+        image_url  = d.get("image_url", "")  # /uploads/ 경로
+
+        if not image_data and not image_url:
+            return jsonify(ok=False, error="이미지 없음"), 400
+
+        # ── 이미지 데이터 준비 ──
+        img_bytes = None
+        img_mime  = "image/jpeg"
+
+        if image_data:
+            import base64
+            if "," in image_data:
+                header, b64 = image_data.split(",", 1)
+                if "png" in header:
+                    img_mime = "image/png"
+                elif "webp" in header:
+                    img_mime = "image/webp"
+            else:
+                b64 = image_data
+            img_bytes = base64.b64decode(b64)
+
+        elif image_url:
+            import requests as _rq
+            _backend = request.host_url.rstrip("/")
+            full_url = image_url if image_url.startswith("http") else _backend + image_url
+            resp = _rq.get(full_url, timeout=10)
+            if resp.status_code == 200:
+                img_bytes = resp.content
+                ct = resp.headers.get("content-type", "image/jpeg")
+                img_mime = ct.split(";")[0].strip()
+            else:
+                return jsonify(ok=False, error="이미지 로드 실패"), 400
+
+        if not img_bytes or len(img_bytes) < 100:
+            return jsonify(ok=False, error="이미지 데이터가 너무 작거나 없습니다"), 400
+
+        # ── 사용자 컨텍스트 (퍼스널컬러 / 체형) ──
+        pc_data   = d.get("personalColor") or {}
+        bt_key    = d.get("bodyType", "")
+        bt_gender = d.get("gender", "")
+        pc_active = bool(pc_data and pc_data.get("season"))
+        bt_info   = _get_body_type_info(bt_gender, bt_key) if bt_key else None
+
+        _tail_prompt = _build_item_user_context(
+            pc_data if pc_active else {}, bt_info or {}
+        )
+
+        # ── Gemini SDK 로드 ──
         _SDK = None
+        _gtypes = None
         try:
             from google import genai as _gmod
             from google.genai import types as _gtypes
@@ -9778,207 +10181,203 @@ def ai_analyze_item():
         if not _SDK:
             return jsonify(ok=False, error="Gemini SDK 없음"), 500
 
-        result_text = None
-
-        # ──── [Phase 1 — 2026-05-22 KST · TJ 지시] Gemini 모델 + JSON 스키마 ────
-        #   변경 1: 모델 체인 교체
-        #     이전: gemini-2.0-flash → gemini-1.5-flash → gemini-1.5-flash-8b
-        #            (셋 다 2026-06-01 deprecated 예정 — Google 공지)
-        #     신규: gemini-2.5-flash-lite (1순위, 1/3 비용)
-        #          → gemini-2.5-flash (fallback, 안정성)
-        #            (현역 모델만 사용, deprecated 회피)
-        #   변경 2: JSON 스키마 강제 (response_mime_type + response_schema)
-        #     이전: 텍스트 JSON 응답 → 정규식 정리 → json.loads → 가끔 실패
-        #     신규: API 레벨에서 JSON·enum·필드 누락 검증 → 파싱 실패 0%
-        #   호환성: 응답 필드 100% 유지 (camera.html / item.html 무수정)
-        # ────────────────────────────────────────────────────────────────────
-        _ANALYZE_PRIMARY = os.getenv("CODIBANK_ANALYZE_MODEL") or "gemini-2.5-flash-lite"
-        _ANALYZE_CHAIN = [_ANALYZE_PRIMARY, "gemini-2.5-flash"]
+        # ──────────────────────────────────────────────────────────────
+        # [2026-09-20 KST · TJ 지시] 모델 체인 — 세대를 분리합니다.
+        #   이전: [gemini-2.5-flash-lite, gemini-2.5-flash]
+        #         → 둘 다 2.5 세대라 세대 단위 은퇴 시 폴백이 무의미했음.
+        #   신규: 3.1-flash-lite (주력)
+        #         → 3.6-flash     (품질 폴백)
+        #         → 2.5-flash-lite(최후 안전망: 3.x 미개방 프로젝트 대비)
+        #   ⚠️ 2.5 세대는 Agent Platform 기준 2026-10-16 은퇴 예정.
+        #      3.x 가 안정적으로 도는 것을 로그로 확인하면 체인에서 빼도 됩니다.
+        # ──────────────────────────────────────────────────────────────
+        _ANALYZE_CHAIN = [
+            os.getenv("CODIBANK_ANALYZE_MODEL")    or "gemini-3.1-flash-lite",
+            os.getenv("CODIBANK_ANALYZE_FALLBACK") or "gemini-3.6-flash",
+            os.getenv("CODIBANK_ANALYZE_LEGACY")   or "gemini-2.5-flash-lite",
+        ]
         _seen_a = set()
-        _ANALYZE_CHAIN = [m for m in _ANALYZE_CHAIN if not (m in _seen_a or _seen_a.add(m))]
+        _ANALYZE_CHAIN = [m for m in _ANALYZE_CHAIN
+                          if m and not (m in _seen_a or _seen_a.add(m))]
 
-        # ── JSON 스키마 정의 (response_schema 용) ──
-        #   허용 값 enum 명시 → 모델이 임의 값 생성 불가 → 정확도 향상
-        _ITEM_SCHEMA = {
-            "type": "object",
-            "properties": {
-                "category": {
-                    "type": "string",
-                    "enum": ["coat", "jacket", "top", "pants", "skirt", "onepiece", "shoes", "watch", "scarf", "socks", "bag", "etc"]
-                },
-                "sub_category":     {"type": "string"},
-                "is_skirt":         {"type": "boolean"},
-                "is_onepiece":      {"type": "boolean"},
-                "skirt_length":     {"type": "string", "enum": ["mini", "midi", "maxi", "none"]},
-                "dress_length":     {"type": "string", "enum": ["mini", "midi", "maxi", "none"]},
-                "outer_type":       {"type": "string"},
-                "main_color":       {"type": "string"},
-                "main_color_name":  {"type": "string"},
-                "sub_color":        {"type": "string"},
-                "sub_color_name":   {"type": "string"},
-                "pattern": {
-                    "type": "string",
-                    "enum": ["단색", "스트라이프", "체크", "도트", "플로럴", "기하학", "카무플라주", "그래픽", "레터링", "애니멀", "페이즐리", "추상"]
-                },
-                "material":         {"type": "string"},
-                "fit": {
-                    "type": "string",
-                    "enum": ["오버사이즈", "루즈", "레귤러", "슬림", "스키니"]
-                },
-                "season": {
-                    "type": "string",
-                    "enum": ["봄여름", "가을겨울", "사계절", "여름전용", "겨울전용"]
-                },
-                "style_keywords": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                },
-                "design_points":     {"type": "string"},
-                "coordinate_hint":   {"type": "string"}
-            },
-            "required": [
-                "category", "sub_category", "is_skirt", "is_onepiece",
-                "main_color", "main_color_name", "pattern", "material",
-                "fit", "season", "style_keywords", "design_points", "coordinate_hint"
-            ]
-        }
+        # ──────────────────────────────────────────────────────────────
+        # config 변형 — SDK 버전/모델별 지원 편차를 런타임에 흡수합니다.
+        #   full  : response_schema + media_resolution(MEDIUM) + thinking 최소
+        #   basic : response_schema 만 (구 SDK · 미지원 모델용 안전망)
+        #
+        #   ⚠️ media_resolution 미지정 시 Gemini 3 계열 기본값은 HIGH(1120 토큰).
+        #      의류 카테고리/색/패턴 판별에는 MEDIUM(560) 으로 충분합니다.
+        #   ⚠️ Gemini 3 flash-lite 는 thinking_level 기본값이 높아 출력 토큰이
+        #      몇 배로 튑니다. JSON 추출 작업이므로 최소로 낮춥니다.
+        #      (2.5 세대는 thinking_level 대신 thinking_budget=0)
+        # ──────────────────────────────────────────────────────────────
+        def _build_cfg(model_name, variant):
+            kw = {
+                "response_mime_type": "application/json",
+                "response_schema": _ITEM_ANALYSIS_SCHEMA,
+            }
+            if variant != "basic":
+                try:
+                    kw["media_resolution"] = _gtypes.MediaResolution.MEDIA_RESOLUTION_MEDIUM
+                except Exception:
+                    pass
+                try:
+                    if str(model_name).startswith("gemini-2."):
+                        kw["thinking_config"] = _gtypes.ThinkingConfig(thinking_budget=0)
+                    else:
+                        kw["thinking_config"] = _gtypes.ThinkingConfig(
+                            thinking_level=("minimal" if variant == "full" else "low")
+                        )
+                except Exception:
+                    pass
+            return _gtypes.GenerateContentConfig(**kw)
 
+        _VARIANTS = ["full", "low", "basic"]
+
+        result_text = None
         _analyze_success_model = None
+        _analyze_success_variant = None
         _analyze_errors = []
 
         for _a_idx, _a_model in enumerate(_ANALYZE_CHAIN, 1):
-            try:
-                if _SDK == "new":
-                    _cli = _gmod.Client(api_key=_GEMINI_KEY)
-                    _img_part = _gtypes.Part.from_bytes(data=img_bytes, mime_type=img_mime)
-                    # ── [Phase 1] JSON 스키마 강제 (google-genai 신 SDK) ──
-                    _cfg = _gtypes.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_schema=_ITEM_SCHEMA,
-                    )
-                    _resp = _cli.models.generate_content(
-                        model=_a_model,
-                        contents=[_gtypes.Content(parts=[_img_part, _gtypes.Part.from_text(text=PROMPT)])],
-                        config=_cfg,
-                    )
-                    _tmp = _resp.text if hasattr(_resp, "text") else str(_resp)
-                else:
-                    _gmod.configure(api_key=_GEMINI_KEY)
-                    import PIL.Image as _PILImage
-                    import io
-                    _pil = _PILImage.open(io.BytesIO(img_bytes))
-                    # ── [Phase 1] JSON 스키마 강제 (google-generativeai 구 SDK) ──
-                    _gen_cfg = {
-                        "response_mime_type": "application/json",
-                        "response_schema": _ITEM_SCHEMA,
-                    }
-                    _model = _gmod.GenerativeModel(_a_model, generation_config=_gen_cfg)
-                    _resp = _model.generate_content([PROMPT, _pil])
-                    _tmp = _resp.text
+            for _variant in (_VARIANTS if _SDK == "new" else ["basic"]):
+                try:
+                    if _SDK == "new":
+                        _cli = _gmod.Client(api_key=_GEMINI_KEY)
+                        # ⚠️⚠️ 순서 고정: [고정 프롬프트] → [이미지] → [가변 꼬리]
+                        #   implicit context caching 은 "앞부분이 완전히 같을 때"만
+                        #   적중합니다. 이미지를 맨 앞에 두면 매 호출 prefix 가 달라져
+                        #   2,000+ 토큰 프롬프트가 100% 새 입력으로 과금됩니다.
+                        #   이 순서를 다시 뒤집지 마세요.
+                        _parts = [
+                            _gtypes.Part.from_text(text=_ITEM_BASE_PROMPT),
+                            _gtypes.Part.from_bytes(data=img_bytes, mime_type=img_mime),
+                            _gtypes.Part.from_text(text=_tail_prompt),
+                        ]
+                        _resp = _cli.models.generate_content(
+                            model=_a_model,
+                            contents=[_gtypes.Content(role="user", parts=_parts)],
+                            config=_build_cfg(_a_model, _variant),
+                        )
+                        _tmp = _resp.text if hasattr(_resp, "text") else str(_resp)
+                    else:
+                        # 구 SDK (google-generativeai) — 동일 순서 유지
+                        _gmod.configure(api_key=_GEMINI_KEY)
+                        import PIL.Image as _PILImage
+                        _pil = _PILImage.open(io.BytesIO(img_bytes))
+                        _gen_cfg = {
+                            "response_mime_type": "application/json",
+                            "response_schema": _ITEM_ANALYSIS_SCHEMA,
+                        }
+                        _model = _gmod.GenerativeModel(_a_model, generation_config=_gen_cfg)
+                        _resp = _model.generate_content(
+                            [_ITEM_BASE_PROMPT, _pil, _tail_prompt]
+                        )
+                        _tmp = _resp.text
 
-                # 최소 JSON 응답 길이 체크
-                if _tmp and len(_tmp.strip()) > 50:
-                    result_text = _tmp
-                    _analyze_success_model = _a_model
+                    if _tmp and len(_tmp.strip()) > 50:
+                        result_text = _tmp
+                        _analyze_success_model = _a_model
+                        _analyze_success_variant = _variant
+                        print(
+                            f"[analyze-item][DIAG] ✅ 성공: model={_a_model} "
+                            f"cfg={_variant} (시도={_a_idx}/{len(_ANALYZE_CHAIN)}) "
+                            f"resp_len={len(result_text)}",
+                            flush=True,
+                        )
+                        break
+                    _analyze_errors.append(
+                        f"{_a_model}/{_variant}: 응답 짧음({len(_tmp or '')}자)")
+                except Exception as _a_err:
+                    _msg = str(_a_err)
+                    _analyze_errors.append(f"{_a_model}/{_variant}: {_msg[:100]}")
                     print(
-                        f"[analyze-item][DIAG] ✅ 성공: model={_a_model} "
-                        f"(시도={_a_idx}/{len(_ANALYZE_CHAIN)}) resp_len={len(result_text)}",
+                        f"[analyze-item][DIAG] ⚠️ {_a_model}/{_variant} 실패: "
+                        f"{_msg[:120]}",
                         flush=True,
                     )
-                    break
-                else:
-                    _analyze_errors.append(f"{_a_model}: 응답 짧음({len(_tmp or '')}자)")
-            except Exception as _a_err:
-                _err_msg = f"{_a_model}: {str(_a_err)[:120]}"
-                _analyze_errors.append(_err_msg)
-                print(
-                    f"[analyze-item][DIAG] ⚠️ {_a_model} 실패: {str(_a_err)[:120]} → 다음 모델 시도",
-                    flush=True,
-                )
+                    # 모델 자체가 없거나 권한이 없으면 config 만 바꿔 재시도해봐야
+                    # 똑같이 실패합니다. 낭비되는 왕복(최대 2회 × 모델수)을 잘라내고
+                    # 곧바로 다음 모델로 넘어갑니다. (프론트 40초 타임아웃 보호)
+                    _low = _msg.lower()
+                    if any(k in _low for k in (
+                        "404", "not_found", "not found", "is not available",
+                        "permission", "403", "unsupported model", "does not exist",
+                    )):
+                        print(f"[analyze-item][DIAG] ↪ {_a_model} 사용 불가 → 다음 모델로",
+                              flush=True)
+                        break
+            if _analyze_success_model:
+                break
 
         if not _analyze_success_model:
-            print(
-                f"[analyze-item][DIAG] ❌ 모든 모델 실패: {_analyze_errors}",
-                flush=True,
-            )
-            return jsonify(ok=False, error=f"분석 모델 모두 실패: {_analyze_errors[:2]}"), 500
+            print(f"[analyze-item][DIAG] ❌ 모든 모델 실패: {_analyze_errors}", flush=True)
+            return jsonify(ok=False,
+                           error=f"분석 모델 모두 실패: {_analyze_errors[:3]}"), 500
 
         # ── JSON 파싱 ──
         import json, re as _re
         result_text = result_text.strip()
-        # 마크다운 코드블록 제거
         result_text = _re.sub(r"```json\s*", "", result_text)
-        result_text = _re.sub(r"```\s*", "", result_text)
-        result_text = result_text.strip()
+        result_text = _re.sub(r"```\s*", "", result_text).strip()
 
         try:
             analysis = json.loads(result_text)
         except json.JSONDecodeError:
-            # 중괄호 사이만 추출
             m = _re.search(r"\{.*\}", result_text, _re.DOTALL)
             if m:
                 analysis = json.loads(m.group())
             else:
-                return jsonify(ok=False, error="JSON 파싱 실패", raw=result_text[:300]), 500
+                return jsonify(ok=False, error="JSON 파싱 실패",
+                               raw=result_text[:300]), 500
 
-        # ── [Phase 1 — 2026-05-22] 결과 병합 단순화 ──
-        #   제거: Lykdat 폴백 보완 (lykdat_data 없음)
-        #   제거: Marqo embedding 응답 첨부 (Render Starter RAM 부족으로 미사용)
-        #   유지: Gemini analysis 결과만으로 응답 구성
+        # ── [2026-09-20] category 단일 진실 후처리 ──
+        analysis = _normalize_item_analysis(analysis)
 
-        # ── [Phase 3 — 2026-05-23 KST · TJ 지시] LAB/KMeans 색상 보강 ──
-        #   배경: Gemini 단독 분석은 다중 색상 의류 (예: 블랙+버건디 반반 자켓) 를
-        #         한 가지 색으로만 잡는 경향. 반대로 KMeans 는 색상 비율을
-        #         수치로 제공하므로 두 결과를 결합하면 정확도 ↑.
-        #   전략:
-        #     1. 항상 KMeans 실행해 상위 3색 추출 → response["color_palette"]
-        #     2. Gemini main_color HEX 와 KMeans top1 비교 → 불일치 + KMeans top2
-        #        가 충분히 큰 비율 (>=30%) 이면 sub_color 자동 보강
-        #     3. Gemini 결과는 보존 (덮어쓰기 X) — 사용자가 어느 쪽을 신뢰할지 선택
-        #   안전장치: 색상 추출 실패해도 Gemini 결과만으로 정상 응답
-        _color_palette = []
+        # ──────────────────────────────────────────────────────────────
+        # [2026-09-20] box_2d crop → LAB/KMeans 색상 추출
+        #   이전: 원본(배경 포함) 전체로 KMeans → 나무바닥/침대 색이 sub_color 로
+        #         들어가는 사고. rembg 는 옷 반쪽을 지우는 부작용으로 비활성 상태.
+        #   신규: 같은 호출에서 받은 바운딩 박스로 crop 후 KMeans.
+        #         옷을 잘라먹을 수 없는 구조 + 추가 호출/비용 0.
+        # ──────────────────────────────────────────────────────────────
+        _box = analysis.get("box_2d")
+        _color_src = _crop_by_box2d(img_bytes, _box) if _box else img_bytes
         try:
-            _color_palette = extract_dominant_colors(img_bytes, top_n=3)
+            _color_palette = extract_dominant_colors(_color_src, top_n=3)
             if _color_palette:
                 analysis["color_palette"] = _color_palette
-                # Gemini sub_color 가 비어있고 KMeans top2 가 충분히 크면 보강
                 _has_sub = bool(analysis.get("sub_color") or analysis.get("sub_color_name"))
                 if not _has_sub and len(_color_palette) >= 2:
                     top2 = _color_palette[1]
                     if top2["ratio"] >= 0.30:
                         analysis["sub_color"] = top2["hex"]
                         analysis["sub_color_name"] = top2["name"]
-                        print(f"[Phase3] sub_color 자동 보강: {top2['name']} ({top2['ratio']*100:.0f}%)")
+                        print(f"[Phase3] sub_color 자동 보강: "
+                              f"{top2['name']} ({top2['ratio']*100:.0f}%)", flush=True)
         except Exception as _ce:
-            print(f"[Phase3] color_palette 추출 스킵: {_ce}")
+            print(f"[Phase3] color_palette 추출 스킵: {_ce}", flush=True)
 
-        # [2026-04-08] 퍼스널컬러 + 체형 호환성 평가
-        pc_data = d.get("personalColor") or {}
-        bt_key  = d.get("bodyType", "")
-        bt_gender = d.get("gender", "")
-        
+        # ──────────────────────────────────────────────────────────────
+        # [2026-09-20] 호환성 평가 — 2차 API 호출 제거, 위 응답에서 추출
+        #   이전: gemini 텍스트 모델 별도 호출(항상 +1 round trip, 실패 지점 2개)
+        #   신규: 같은 vision 호출의 compatibility_eval 필드 사용.
+        #   ⚠️ 응답 구조(analysis.compatibility.evaluation)는 기존과 동일 —
+        #      camera.html 의 표시 로직을 건드릴 필요 없음.
+        # ──────────────────────────────────────────────────────────────
+        _eval = analysis.pop("compatibility_eval", None)
         compatibility = {}
-        
         item_color = analysis.get("main_color_name", "") or analysis.get("main_color", "")
-        item_pattern = analysis.get("pattern", "")
-        item_fit = analysis.get("fit", "")
-        item_cat = analysis.get("category", "")
-        item_sub = analysis.get("sub_category", "")
-        
-        # 퍼스널컬러 호환성
-        if pc_data and pc_data.get("season"):
-            pc_season = pc_data.get("season", "")
-            pc_best = ", ".join((pc_data.get("best_color_names") or pc_data.get("best_colors") or [])[:4])
-            pc_avoid = ", ".join((pc_data.get("avoid_color_names") or pc_data.get("avoid_colors") or [])[:3])
+
+        if pc_active:
             compatibility["personal_color"] = {
-                "season": pc_season,
-                "best_colors": pc_best,
-                "avoid_colors": pc_avoid,
+                "season": pc_data.get("season", ""),
+                "best_colors": ", ".join((pc_data.get("best_color_names")
+                                          or pc_data.get("best_colors") or [])[:4]),
+                "avoid_colors": ", ".join((pc_data.get("avoid_color_names")
+                                           or pc_data.get("avoid_colors") or [])[:3]),
                 "item_color": item_color,
             }
-        
-        # 체형 호환성
-        bt_info = _get_body_type_info(bt_gender, bt_key) if bt_key else None
         if bt_info:
             compatibility["body_type"] = {
                 "type": bt_info["label"],
@@ -9986,74 +10385,48 @@ def ai_analyze_item():
                 "dont_style": bt_info["dont_style"],
                 "best_color": bt_info["best_color"],
                 "worst_color": bt_info["worst_color"],
-                "item_fit": item_fit,
-                "item_category": item_sub or item_cat,
+                "item_fit": analysis.get("fit", ""),
+                "item_category": analysis.get("sub_category", "") or analysis.get("category", ""),
             }
-        
-        # GPT/Gemini로 종합 판단 (간단 텍스트)
+
         if compatibility:
-            try:
-                _compat_parts = []
-                if compatibility.get("personal_color"):
-                    pc = compatibility["personal_color"]
-                    _compat_parts.append(
-                        "퍼스널컬러(" + pc["season"] + "): "
-                        "추천 컬러=" + pc["best_colors"] + ", "
-                        "피해야 할 컬러=" + pc["avoid_colors"] + ". "
-                        "이 아이템 컬러=" + pc["item_color"]
-                    )
-                if compatibility.get("body_type"):
-                    bt = compatibility["body_type"]
-                    _compat_parts.append(
-                        "체형(" + bt["type"] + "): "
-                        "추천=" + bt["do_style"] + ", "
-                        "피해=" + bt["dont_style"] + ". "
-                        "이 아이템=" + bt["item_fit"] + " " + bt["item_category"]
-                    )
-                
-                _compat_prompt = (
-                    "아래 사용자 정보와 아이템 정보를 보고, 이 아이템이 사용자에게 어울리는지 판단하세요.\n"
-                    + "\n".join(_compat_parts)
-                    + "\n\n아래 JSON으로만 응답:\n"
-                    + '{"pc_score":0~100,"pc_comment":"퍼스널컬러 측면 한줄평(한국어)",'
-                    + '"bt_score":0~100,"bt_comment":"체형 측면 한줄평(한국어)",'
-                    + '"total_score":0~100,"total_comment":"종합 한줄평(한국어)"}'
-                )
-                
-                # ── [HOTFIX B — 2026-05-23 KST · TJ 지시] 호환성 평가 모델 교체 ──
-                #   원인: gemini-2.0-flash 가 신규 사용자에게 비활성화됨 (Google 정책 변경).
-                #         로그에서 매 analyze-item 호출마다 다음 에러 발생:
-                #         "404 NOT_FOUND. models/gemini-2.0-flash is no longer available
-                #          to new users."
-                #         → 호환성 평가(pc_score/bt_score/total_score) 누락된 채 응답.
-                #   해결: gemini-2.5-flash-lite 로 교체 (Phase 1 의 메인 분석과 동일 모델).
-                #         텍스트 전용 호출이라 image 모델 비호환 이슈 없음.
-                if _SDK == "new":
-                    _compat_resp = _cli.models.generate_content(
-                        model="gemini-2.5-flash-lite",
-                        contents=[_compat_prompt],
-                    )
-                    _compat_text = _compat_resp.text.strip()
-                else:
-                    _compat_model = _gmod.GenerativeModel("gemini-2.5-flash-lite")
-                    _compat_resp = _compat_model.generate_content(_compat_prompt)
-                    _compat_text = _compat_resp.text.strip()
-                
-                _compat_text = _re.sub(r"```json\s*", "", _compat_text)
-                _compat_text = _re.sub(r"```\s*", "", _compat_text).strip()
-                _compat_json = json.loads(_compat_text)
-                compatibility["evaluation"] = _compat_json
-            except Exception as _ce:
-                print(f"[analyze-item] 호환성 평가 실패: {_ce}")
-        
-        if compatibility:
+            if isinstance(_eval, dict) and _eval:
+                def _score(v):
+                    try:
+                        return max(0, min(100, int(round(float(v)))))
+                    except Exception:
+                        return None
+                _clean_eval = {}
+                for _k in ("pc_score", "bt_score", "total_score"):
+                    _sv = _score(_eval.get(_k))
+                    if _sv is not None:
+                        _clean_eval[_k] = _sv
+                for _k in ("pc_comment", "bt_comment", "total_comment"):
+                    _cv = str(_eval.get(_k) or "").strip()
+                    if _cv:
+                        _clean_eval[_k] = _cv[:60]
+                # 퍼스널컬러/체형 정보가 없는 쪽 점수는 노출하지 않음
+                if "personal_color" not in compatibility:
+                    _clean_eval.pop("pc_score", None)
+                    _clean_eval.pop("pc_comment", None)
+                if "body_type" not in compatibility:
+                    _clean_eval.pop("bt_score", None)
+                    _clean_eval.pop("bt_comment", None)
+                if _clean_eval:
+                    compatibility["evaluation"] = _clean_eval
+            else:
+                print("[analyze-item] compatibility_eval 누락 — 점수 표시 생략", flush=True)
             analysis["compatibility"] = compatibility
 
+        analysis["_model"] = _analyze_success_model
         return jsonify(ok=True, analysis=analysis)
 
     except Exception as e:
         import traceback
         return jsonify(ok=False, error=str(e), trace=traceback.format_exc()[-500:]), 500
+
+
+
 
 
 
