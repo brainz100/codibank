@@ -5,6 +5,27 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-09-21 KST · TJ 보고 (재발 — HOTFIX-2: 서버 무응답 원천 차단 + 진단) ───
+#  확인된 사실: 외부에서 서버에 GET 을 보내면 robots.txt 조차 타임아웃 → 서버 프로세스는
+#        살아 있으나 요청을 전혀 처리하지 못하는 "조용한 멈춤" 상태. R2 공개 URL 은
+#        정상 응답. aicloset/item.html 은 변경 전 백업과 바이트 단위 동일 → 프론트 원인 아님.
+#        → gunicorn 요청 스레드 8개가 전부 점유된 상태. 어떤 요청이 점유하는지는
+#          로그가 없어 확정 불가 → 이번 패치가 로그로 드러내도록 함.
+#  수정 A (분석 엔드포인트 — 어떤 경우에도 스레드를 묶지 않음):
+#    ① Gemini 호출을 격리 스레드풀(_ANALYZE_POOL, 4개)에서 실행하고
+#       future.result(timeout=15s+3s) 로 강제 종료. SDK 타임아웃이 안 먹어도
+#       gunicorn 스레드는 18초 안에 반드시 풀림.
+#    ② 끊긴 뒤에도 안 끝나는 호출을 _ANALYZE_HUNG 으로 집계, 3개 이상이면
+#       새 분석 요청은 503 즉시 반환 (프론트는 AI 없이 기본 저장으로 진행).
+#    ③ "남은 예산 < 호출 상한이면 시도 안 함" 규칙 → 최악 36s < 프론트 40s.
+#    ④ HttpOptions(timeout) 타입드/딕셔너리 2단 폴백, 구 SDK 는 request_options.
+#    ⑤ CODIBANK_ANALYZE_SIMPLE=1 → media_resolution/thinking 옵션 전부 제거(긴급 우회).
+#    ⑥ 시작/호출/응답 로그 추가 — "[analyze-item][DIAG]" 로 검색.
+#  수정 B (서버 전역 — 요청 워치독, CORS(app) 직후):
+#    모든 요청의 시작/종료 기록, 45초 이상 진행 중인 요청의 경로 + 스택을 30초마다
+#    로그 출력 ("[watchdog]" 검색), GET /api/debug/inflight 로 현재 진행 중 요청 조회.
+#    → 다음에 같은 증상이 나면 로그 한 줄로 어느 요청이 묶었는지 즉시 확정.
+#
 # ─── 2026-09-21 KST · TJ 보고 (아이템 등록 90% 멈춤 + 옷장 빈 화면 — HOTFIX) ───
 #  증상: 아이템 등록 진행바가 90%(저장 중)에서 멈추고, ai옷장에 아이템이 안 보임.
 #  원인: 전날 analyze-item 재작성에서 response_schema 에 sub_category enum(120값)
@@ -1775,6 +1796,77 @@ except Exception as _tp_e:
     print(f"[translate] 파이프라인 미등록(선택 기능): {_tp_e}", flush=True)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 CORS(app, allow_headers=["Content-Type", "X-Admin-Key", "Authorization"])
+
+# ══════════════════════════════════════════════════════════════════════
+# [2026-09-21 KST · HOTFIX-2] 요청 워치독 — "서버가 조용히 멈추는" 상황 진단용
+#   증상: gunicorn(1 worker × 8 threads)에서 오래 걸리는 요청이 스레드를 점유하면
+#         이후 모든 요청(이미지 서빙·업로드·헬스체크)이 큐에서 무기한 대기하는데,
+#         로그에는 아무것도 안 찍혀서 원인을 알 수 없었음.
+#   동작: ① 모든 요청의 시작/종료를 기록 (8초 이상 걸린 요청은 종료 시 로그)
+#         ② 30초마다 45초 이상 진행 중인 요청을 찾아 경로 + 스택 6줄을 로그로 출력
+#            → Render 로그에서 "[watchdog]" 만 검색하면 어디서 막혔는지 바로 보임
+#         ③ GET /api/debug/inflight — 현재 진행 중 요청 목록(JSON)
+#   비용: 요청당 dict 삽입/삭제 1회. 성능 영향 없음. 기존 동작 변경 없음.
+# ══════════════════════════════════════════════════════════════════════
+import threading as _wd_threading
+import traceback as _wd_tb
+_INFLIGHT = {}            # thread_ident -> (method, path, start_ts)
+_INFLIGHT_LOCK = _wd_threading.Lock()
+_WD_SLOW_SEC = float(os.getenv("CODIBANK_WATCHDOG_SLOW_SEC") or "45")
+_WD_THREADS = int(os.getenv("WEB_THREADS") or "8")
+
+@app.before_request
+def _wd_begin():
+    try:
+        with _INFLIGHT_LOCK:
+            _INFLIGHT[_wd_threading.get_ident()] = (request.method, request.path, time.time())
+    except Exception:
+        pass
+
+@app.teardown_request
+def _wd_end(_exc=None):
+    try:
+        with _INFLIGHT_LOCK:
+            rec = _INFLIGHT.pop(_wd_threading.get_ident(), None)
+        if rec:
+            _el = time.time() - rec[2]
+            if _el >= 8:
+                print(f"[watchdog] 느린 요청 종료: {rec[0]} {rec[1]} {_el:.1f}s", flush=True)
+    except Exception:
+        pass
+
+def _wd_loop():
+    while True:
+        time.sleep(30)
+        try:
+            _now = time.time()
+            with _INFLIGHT_LOCK:
+                _snap = dict(_INFLIGHT)
+            _stuck = [(tid, m, p, _now - t0) for tid, (m, p, t0) in _snap.items()
+                      if _now - t0 >= _WD_SLOW_SEC]
+            if not _stuck:
+                continue
+            _frames = sys._current_frames()
+            print(f"[watchdog] ⚠️ {len(_stuck)}개 요청이 {_WD_SLOW_SEC:.0f}s 이상 진행 중 "
+                  f"(in-flight {len(_snap)}/{_WD_THREADS})", flush=True)
+            for tid, m, p, el in sorted(_stuck, key=lambda x: -x[3])[:4]:
+                _fr = _frames.get(tid)
+                _st = "".join(_wd_tb.format_stack(_fr)[-6:]) if _fr else "(frame 없음)"
+                print(f"[watchdog]   {m} {p} {el:.0f}s\n{_st}", flush=True)
+        except Exception as _e:
+            print(f"[watchdog] 오류: {_e}", flush=True)
+
+_wd_threading.Thread(target=_wd_loop, name="sm-watchdog", daemon=True).start()
+
+@app.get("/api/debug/inflight")
+def debug_inflight():
+    _now = time.time()
+    with _INFLIGHT_LOCK:
+        _snap = dict(_INFLIGHT)
+    return jsonify(ok=True, count=len(_snap), threads=_WD_THREADS,
+                   items=sorted([{"method": m, "path": p, "elapsed_sec": round(_now - t0, 1)}
+                                 for (m, p, t0) in _snap.values()],
+                                key=lambda x: -x["elapsed_sec"]))
 
 # 얼굴 사진(DataURL)까지 포함되면 요청 바디가 커질 수 있어 넉넉히 허용합니다(10MB).
 # ✅ [버그1 수정] 얼굴 사진(base64) 포함 시 요청 바디가 커질 수 있어 허용 크기 확대
@@ -9788,6 +9880,17 @@ _SUB_DEFAULT_BY_CAT = {
     "watch": "손목시계", "scarf": "스카프", "socks": "양말", "etc": "기타",
 }
 
+# ── [2026-09-21 HOTFIX-2] Gemini 호출 격리 스레드풀 ──
+#   SDK 타임아웃이 어떤 이유로든 안 먹어도 gunicorn 요청 스레드는 절대 묶이지
+#   않도록, Gemini 호출을 별도 풀에서 돌리고 future.result(timeout) 으로 끊습니다.
+#   끊긴 뒤에도 안 끝나는 호출은 _ANALYZE_HUNG 에 집계 → 3개 이상이면 새 호출을
+#   받지 않고 즉시 503 (프론트는 AI 없이 기본 저장으로 진행).
+import concurrent.futures as _an_cf
+import threading as _an_threading
+_ANALYZE_POOL = _an_cf.ThreadPoolExecutor(max_workers=4, thread_name_prefix="sm-analyze")
+_ANALYZE_HUNG = {"n": 0}
+_ANALYZE_HUNG_LOCK = _an_threading.Lock()
+
 _COAT_OUTER_TYPES = ["아우터", "코트", "패딩", "버버리", "롱패딩"]
 _JACKET_OUTER_TYPES = ["자켓", "블레이저", "점퍼", "다운자켓",
                        "레더자켓", "데님자켓", "가디건"]
@@ -10200,6 +10303,19 @@ def ai_analyze_item():
         if not img_bytes or len(img_bytes) < 100:
             return jsonify(ok=False, error="이미지 데이터가 너무 작거나 없습니다"), 400
 
+        # ── [HOTFIX-2] 이전 호출들이 응답 없이 매달려 있으면 즉시 거절 ──
+        with _ANALYZE_HUNG_LOCK:
+            _hung_now = _ANALYZE_HUNG["n"]
+        if _hung_now >= 3:
+            print(f"[analyze-item][DIAG] ⛔ 응답 없는 Gemini 호출 {_hung_now}개 매달림 → 503 즉시 반환",
+                  flush=True)
+            return jsonify(ok=False, error="분석 엔진 응답 지연 — 잠시 후 다시 시도해주세요",
+                           hung=_hung_now), 503
+
+        print(f"[analyze-item][DIAG] ▶ 시작 img={len(img_bytes)//1024}KB mime={img_mime} "
+              f"pc={'Y' if (d.get('personalColor') or {}).get('season') else 'N'} "
+              f"bt={'Y' if d.get('bodyType') else 'N'}", flush=True)
+
         # ── 사용자 컨텍스트 (퍼스널컬러 / 체형) ──
         pc_data   = d.get("personalColor") or {}
         bt_key    = d.get("bodyType", "")
@@ -10228,6 +10344,7 @@ def ai_analyze_item():
                 pass
         if not _SDK:
             return jsonify(ok=False, error="Gemini SDK 없음"), 500
+        print(f"[analyze-item][DIAG] sdk={_SDK}", flush=True)
 
         # ──────────────────────────────────────────────────────────────
         # [2026-09-20 KST · TJ 지시] 모델 체인 — 세대를 분리합니다.
@@ -10283,6 +10400,10 @@ def ai_analyze_item():
         # [2026-09-21 HOTFIX] 변형 3종 → 2종. 모델 3 × 변형 3 = 최대 9회 왕복은
         #   프론트 40초 타임아웃을 넘겨 스레드를 오래 점유했음.
         _VARIANTS = ["full", "basic"]
+        # 긴급 우회: CODIBANK_ANALYZE_SIMPLE=1 이면 media_resolution/thinking 옵션을
+        # 전부 빼고 기존(2.5 시절)과 동일한 basic 설정만 사용합니다.
+        if str(os.getenv("CODIBANK_ANALYZE_SIMPLE") or "").strip() in ("1", "true", "yes"):
+            _VARIANTS = ["basic"]
 
         # [2026-09-21 HOTFIX] 호출당 HTTP 타임아웃 + 엔드포인트 전체 시간 예산.
         #   google-genai 는 기본 타임아웃이 없어 Gemini 응답이 늦으면 gunicorn
@@ -10291,15 +10412,46 @@ def ai_analyze_item():
         #   프론트 타임아웃(40s) 안에 반드시 응답하도록 예산을 둡니다.
         import time as _time
         _T0 = _time.time()
-        _PER_CALL_MS = int(os.getenv("CODIBANK_ANALYZE_CALL_TIMEOUT_MS") or "20000")
-        _BUDGET_SEC  = float(os.getenv("CODIBANK_ANALYZE_BUDGET_SEC") or "33")
+        #   호출당 15s(+3s 여유 = 18s 상한) × 최대 2회 = 36s < 프론트 40s.
+        #   "남은 예산이 한 번의 호출 상한보다 작으면 시도하지 않음" 규칙으로
+        #   어떤 조합에서도 36s 를 넘지 않습니다.
+        _PER_CALL_MS = int(os.getenv("CODIBANK_ANALYZE_CALL_TIMEOUT_MS") or "15000")
+        _BUDGET_SEC  = float(os.getenv("CODIBANK_ANALYZE_BUDGET_SEC") or "36")
+        _CALL_LIMIT  = _PER_CALL_MS / 1000.0 + 3.0
 
         def _mk_client():
+            # SDK 버전별로 http_options 형태가 달라 3단 폴백
+            try:
+                return _gmod.Client(api_key=_GEMINI_KEY,
+                                    http_options=_gtypes.HttpOptions(timeout=_PER_CALL_MS))
+            except Exception:
+                pass
             try:
                 return _gmod.Client(api_key=_GEMINI_KEY,
                                     http_options={"timeout": _PER_CALL_MS})
             except Exception:
-                return _gmod.Client(api_key=_GEMINI_KEY)
+                pass
+            print("[analyze-item][DIAG] ⚠️ http_options 미지원 SDK — 풀 타임아웃만 적용", flush=True)
+            return _gmod.Client(api_key=_GEMINI_KEY)
+
+        def _run_bounded(fn, label):
+            """Gemini 호출을 격리 풀에서 실행하고 (_PER_CALL_MS/1000 + 3)s 안에 끊습니다.
+            끊긴 호출이 나중에 끝나면 hung 카운터를 되돌립니다."""
+            _fut = _ANALYZE_POOL.submit(fn)
+            _limit = _CALL_LIMIT
+            try:
+                return _fut.result(timeout=_limit)
+            except _an_cf.TimeoutError:
+                with _ANALYZE_HUNG_LOCK:
+                    _ANALYZE_HUNG["n"] += 1
+                    _hn = _ANALYZE_HUNG["n"]
+                def _release(_f):
+                    with _ANALYZE_HUNG_LOCK:
+                        _ANALYZE_HUNG["n"] = max(0, _ANALYZE_HUNG["n"] - 1)
+                _fut.add_done_callback(_release)
+                print(f"[analyze-item][DIAG] ⏱ {label} {_limit:.0f}s 무응답 → 끊음 (매달린 호출 {_hn}개)",
+                      flush=True)
+                raise RuntimeError(f"timeout: Gemini {_limit:.0f}s 무응답")
 
         result_text = None
         _analyze_success_model = None
@@ -10309,14 +10461,16 @@ def ai_analyze_item():
         for _a_idx, _a_model in enumerate(_ANALYZE_CHAIN, 1):
             for _variant in (_VARIANTS if _SDK == "new" else ["basic"]):
                 _elapsed = _time.time() - _T0
-                if _elapsed > _BUDGET_SEC:
-                    _analyze_errors.append(f"시간 예산 초과({_elapsed:.0f}s) → 중단")
+                if _elapsed + _CALL_LIMIT > _BUDGET_SEC:
+                    _analyze_errors.append(f"시간 예산 초과({_elapsed:.0f}s+{_CALL_LIMIT:.0f}s>{_BUDGET_SEC:.0f}s) → 중단")
                     print(f"[analyze-item][DIAG] ⏱ 시간 예산 초과 {_elapsed:.0f}s → 중단",
                           flush=True)
                     break
                 try:
+                    _t_call = _time.time()
+                    print(f"[analyze-item][DIAG] → 호출 {_a_model}/{_variant}", flush=True)
                     if _SDK == "new":
-                        _cli = _mk_client()
+                        _cfg_obj = _build_cfg(_a_model, _variant)
                         # ⚠️⚠️ 순서 고정: [고정 프롬프트] → [이미지] → [가변 꼬리]
                         #   implicit context caching 은 "앞부분이 완전히 같을 때"만
                         #   적중합니다. 이미지를 맨 앞에 두면 매 호출 prefix 가 달라져
@@ -10327,26 +10481,37 @@ def ai_analyze_item():
                             _gtypes.Part.from_bytes(data=img_bytes, mime_type=img_mime),
                             _gtypes.Part.from_text(text=_tail_prompt),
                         ]
-                        _resp = _cli.models.generate_content(
-                            model=_a_model,
-                            contents=[_gtypes.Content(role="user", parts=_parts)],
-                            config=_build_cfg(_a_model, _variant),
-                        )
-                        _tmp = _resp.text if hasattr(_resp, "text") else str(_resp)
+                        def _call_new(_m=_a_model, _c=_cfg_obj, _p=_parts):
+                            _cli = _mk_client()
+                            _r = _cli.models.generate_content(
+                                model=_m,
+                                contents=[_gtypes.Content(role="user", parts=_p)],
+                                config=_c,
+                            )
+                            return _r.text if hasattr(_r, "text") else str(_r)
+                        _tmp = _run_bounded(_call_new, f"{_a_model}/{_variant}")
                     else:
                         # 구 SDK (google-generativeai) — 동일 순서 유지
-                        _gmod.configure(api_key=_GEMINI_KEY)
-                        import PIL.Image as _PILImage
-                        _pil = _PILImage.open(io.BytesIO(img_bytes))
-                        _gen_cfg = {
-                            "response_mime_type": "application/json",
-                            "response_schema": _ITEM_ANALYSIS_SCHEMA,
-                        }
-                        _model = _gmod.GenerativeModel(_a_model, generation_config=_gen_cfg)
-                        _resp = _model.generate_content(
-                            [_ITEM_BASE_PROMPT, _pil, _tail_prompt]
-                        )
-                        _tmp = _resp.text
+                        def _call_old(_m=_a_model):
+                            _gmod.configure(api_key=_GEMINI_KEY)
+                            import PIL.Image as _PILImage
+                            _pil = _PILImage.open(io.BytesIO(img_bytes))
+                            _gen_cfg = {
+                                "response_mime_type": "application/json",
+                                "response_schema": _ITEM_ANALYSIS_SCHEMA,
+                            }
+                            _model = _gmod.GenerativeModel(_m, generation_config=_gen_cfg)
+                            try:
+                                _r = _model.generate_content(
+                                    [_ITEM_BASE_PROMPT, _pil, _tail_prompt],
+                                    request_options={"timeout": _PER_CALL_MS / 1000.0},
+                                )
+                            except TypeError:
+                                _r = _model.generate_content([_ITEM_BASE_PROMPT, _pil, _tail_prompt])
+                            return _r.text
+                        _tmp = _run_bounded(_call_old, f"{_a_model}/old")
+                    print(f"[analyze-item][DIAG] ← 응답 {_a_model}/{_variant} "
+                          f"{_time.time()-_t_call:.1f}s len={len(_tmp or '')}", flush=True)
 
                     if _tmp and len(_tmp.strip()) > 50:
                         result_text = _tmp
@@ -10381,7 +10546,7 @@ def ai_analyze_item():
                         print(f"[analyze-item][DIAG] ↪ {_a_model} 사용 불가 → 다음 모델로",
                               flush=True)
                         break
-            if _analyze_success_model or (_time.time() - _T0) > _BUDGET_SEC:
+            if _analyze_success_model or (_time.time() - _T0) + _CALL_LIMIT > _BUDGET_SEC:
                 break
 
         if not _analyze_success_model:
