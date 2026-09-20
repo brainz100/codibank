@@ -5,6 +5,28 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-09-21 KST · TJ 보고 (아이템 등록 90% 멈춤 + 옷장 빈 화면 — HOTFIX) ───
+#  증상: 아이템 등록 진행바가 90%(저장 중)에서 멈추고, ai옷장에 아이템이 안 보임.
+#  원인: 전날 analyze-item 재작성에서 response_schema 에 sub_category enum(120값)
+#        등 대형 enum 을 넣은 것. Gemini 구조화 출력은 enum 값이 많을수록 제약
+#        디코딩이 급격히 느려지고(수십 초) "schema too complex" 400 도 발생.
+#        + google-genai 는 기본 HTTP 타임아웃이 없음 → 응답이 늦은 호출이
+#        gunicorn 스레드(1 worker × 8 threads)를 무기한 점유 → 테스트 반복으로
+#        8개 전부 점유 → 이후 업로드(/api/storage/upload)·이미지(/uploads/…)
+#        요청이 큐에서 대기 → 프론트는 90%(저장 단계)에서 멈추고, 옷장은
+#        이미지를 못 받아 빈 화면. 90% 이전 단계는 프론트 40초 타임아웃으로
+#        넘어가서 "분석은 되는 것처럼" 보였던 것.
+#  수정 (ai_analyze_item):
+#    ① 스키마에서 sub_category / outer_type / style_keywords enum 제거
+#       → 값 고정은 _normalize_item_analysis() 화이트리스트 스냅으로 동일 보장
+#         (정확 일치 → 끝단어 우선 포함 매칭 → category 기본값)
+#    ② Client(http_options={"timeout": 20000}) — 호출당 20초 상한
+#       (환경변수 CODIBANK_ANALYZE_CALL_TIMEOUT_MS)
+#    ③ 엔드포인트 전체 시간 예산 33초 (CODIBANK_ANALYZE_BUDGET_SEC) —
+#       프론트 40초 타임아웃 안에 반드시 응답. 예산 초과 시 즉시 500 반환.
+#    ④ config 변형 3종(full/low/basic) → 2종(full/basic). 최대 왕복 9회 → 6회.
+#  camera.html 도 같은 날 저장 단계에 상한(업로드 25s / saveImage 15s) 추가.
+#
 # ─── 2026-09-20 KST · TJ 지시 (ai옷장 분석 파이프라인 1·2·3단계 일괄) ───
 #  대상: /api/ai/analyze-item (ai_analyze_item, ~line 10063) 전면 재작성.
 #        기존 응답 스키마(analysis.*)는 100% 유지 → item.html / aicloset.html /
@@ -9759,21 +9781,34 @@ _SUB2CAT_RULES = [
     ("면티", "top"), ("반팔티", "top"), ("긴팔티", "top"), ("탑", "top"),
 ]
 
+# category 별 sub_category 기본값 (모델 응답이 화이트리스트에 전혀 안 맞을 때)
+_SUB_DEFAULT_BY_CAT = {
+    "coat": "코트", "jacket": "자켓", "top": "탑", "pants": "바지",
+    "skirt": "스커트", "onepiece": "원피스", "bag": "핸드백", "shoes": "스니커즈",
+    "watch": "손목시계", "scarf": "스카프", "socks": "양말", "etc": "기타",
+}
+
 _COAT_OUTER_TYPES = ["아우터", "코트", "패딩", "버버리", "롱패딩"]
 _JACKET_OUTER_TYPES = ["자켓", "블레이저", "점퍼", "다운자켓",
                        "레더자켓", "데님자켓", "가디건"]
 
 # ── JSON 응답 스키마 (모든 호출에서 동일 — 캐시 prefix 안정성 확보) ──
+#   ⚠️ [2026-09-21 HOTFIX] sub_category(120값)·outer_type·style_keywords 의 enum 을
+#      스키마에서 제거했습니다. Gemini 구조화 출력은 enum 값이 많을수록
+#      제약 디코딩 지연이 급격히 커지고 "schema too complex" 400 도 발생합니다.
+#      → 아이템 등록이 90% 에서 멈추고(서버 스레드 점유) 옷장이 비어 보이던 원인.
+#      값 고정은 _normalize_item_analysis() 의 화이트리스트 스냅으로 동일하게 보장.
+#      (여기 남긴 enum 은 기존 버전에도 있던 소형 enum 뿐입니다.)
 _ITEM_ANALYSIS_SCHEMA = {
     "type": "object",
     "properties": {
         "category":        {"type": "string", "enum": _ITEM_CAT_ENUM},
-        "sub_category":    {"type": "string", "enum": _ITEM_SUB_ENUM},
+        "sub_category":    {"type": "string"},
         "is_skirt":        {"type": "boolean"},
         "is_onepiece":     {"type": "boolean"},
         "skirt_length":    {"type": "string", "enum": ["mini", "midi", "maxi", "none"]},
         "dress_length":    {"type": "string", "enum": ["mini", "midi", "maxi", "none"]},
-        "outer_type":      {"type": "string", "enum": _ITEM_OUTER_ENUM},
+        "outer_type":      {"type": "string"},
         "box_2d":          {"type": "array", "items": {"type": "integer"}},
         "main_color":      {"type": "string"},
         "main_color_name": {"type": "string"},
@@ -9795,7 +9830,7 @@ _ITEM_ANALYSIS_SCHEMA = {
         },
         "style_keywords": {
             "type": "array",
-            "items": {"type": "string", "enum": _ITEM_STYLE_KW_ENUM},
+            "items": {"type": "string"},
         },
         "design_points":   {"type": "string"},
         "coordinate_hint": {"type": "string"},
@@ -10014,6 +10049,16 @@ def _normalize_item_analysis(analysis: dict) -> dict:
     cat = _s(analysis.get("category")).lower()
     sub = _s(analysis.get("sub_category"))
 
+    # ── ⓪ sub_category 화이트리스트 스냅 (스키마 enum 제거분 대체) ──
+    #   정확 일치 → 포함 매칭(한국어 복합명사는 끝 단어가 핵심이라 endswith 우선,
+    #   그다음 긴 값 우선) → 매칭 실패 시 원문 유지(아래 category 확정 후 기본값).
+    if sub and sub not in _ITEM_SUB_ENUM:
+        _cands = [v for v in _ITEM_SUB_ENUM if (v in sub) or (sub in v)]
+        if _cands:
+            _cands.sort(key=lambda v: (0 if sub.endswith(v) else 1, -len(v)))
+            print(f"[normalize] sub_category 스냅: '{sub}' → '{_cands[0]}'", flush=True)
+            sub = _cands[0]
+
     # ── ① category ↔ sub_category 모순 해소 (sub_category 를 더 신뢰) ──
     inferred = ""
     for kw, c in _SUB2CAT_RULES:
@@ -10027,6 +10072,9 @@ def _normalize_item_analysis(analysis: dict) -> dict:
     if cat not in _ITEM_CAT_ENUM:
         cat = inferred or "etc"
     analysis["category"] = cat
+    if sub not in _ITEM_SUB_ENUM:
+        sub = _SUB_DEFAULT_BY_CAT.get(cat, "기타")
+    analysis["sub_category"] = sub
 
     # ── ② 파생 불리언 — category 에서만 생성 ──
     analysis["is_skirt"] = (cat == "skirt")
@@ -10232,7 +10280,26 @@ def ai_analyze_item():
                     pass
             return _gtypes.GenerateContentConfig(**kw)
 
-        _VARIANTS = ["full", "low", "basic"]
+        # [2026-09-21 HOTFIX] 변형 3종 → 2종. 모델 3 × 변형 3 = 최대 9회 왕복은
+        #   프론트 40초 타임아웃을 넘겨 스레드를 오래 점유했음.
+        _VARIANTS = ["full", "basic"]
+
+        # [2026-09-21 HOTFIX] 호출당 HTTP 타임아웃 + 엔드포인트 전체 시간 예산.
+        #   google-genai 는 기본 타임아웃이 없어 Gemini 응답이 늦으면 gunicorn
+        #   스레드(총 8개)가 무기한 묶입니다. 테스트를 몇 번 반복하면 8개가 전부
+        #   점유돼 업로드/이미지 요청까지 대기 → "90% 멈춤 + 옷장 빈 화면".
+        #   프론트 타임아웃(40s) 안에 반드시 응답하도록 예산을 둡니다.
+        import time as _time
+        _T0 = _time.time()
+        _PER_CALL_MS = int(os.getenv("CODIBANK_ANALYZE_CALL_TIMEOUT_MS") or "20000")
+        _BUDGET_SEC  = float(os.getenv("CODIBANK_ANALYZE_BUDGET_SEC") or "33")
+
+        def _mk_client():
+            try:
+                return _gmod.Client(api_key=_GEMINI_KEY,
+                                    http_options={"timeout": _PER_CALL_MS})
+            except Exception:
+                return _gmod.Client(api_key=_GEMINI_KEY)
 
         result_text = None
         _analyze_success_model = None
@@ -10241,9 +10308,15 @@ def ai_analyze_item():
 
         for _a_idx, _a_model in enumerate(_ANALYZE_CHAIN, 1):
             for _variant in (_VARIANTS if _SDK == "new" else ["basic"]):
+                _elapsed = _time.time() - _T0
+                if _elapsed > _BUDGET_SEC:
+                    _analyze_errors.append(f"시간 예산 초과({_elapsed:.0f}s) → 중단")
+                    print(f"[analyze-item][DIAG] ⏱ 시간 예산 초과 {_elapsed:.0f}s → 중단",
+                          flush=True)
+                    break
                 try:
                     if _SDK == "new":
-                        _cli = _gmod.Client(api_key=_GEMINI_KEY)
+                        _cli = _mk_client()
                         # ⚠️⚠️ 순서 고정: [고정 프롬프트] → [이미지] → [가변 꼬리]
                         #   implicit context caching 은 "앞부분이 완전히 같을 때"만
                         #   적중합니다. 이미지를 맨 앞에 두면 매 호출 prefix 가 달라져
@@ -10282,7 +10355,8 @@ def ai_analyze_item():
                         print(
                             f"[analyze-item][DIAG] ✅ 성공: model={_a_model} "
                             f"cfg={_variant} (시도={_a_idx}/{len(_ANALYZE_CHAIN)}) "
-                            f"resp_len={len(result_text)}",
+                            f"resp_len={len(result_text)} "
+                            f"elapsed={_time.time()-_T0:.1f}s",
                             flush=True,
                         )
                         break
@@ -10307,7 +10381,7 @@ def ai_analyze_item():
                         print(f"[analyze-item][DIAG] ↪ {_a_model} 사용 불가 → 다음 모델로",
                               flush=True)
                         break
-            if _analyze_success_model:
+            if _analyze_success_model or (_time.time() - _T0) > _BUDGET_SEC:
                 break
 
         if not _analyze_success_model:
@@ -10424,10 +10498,6 @@ def ai_analyze_item():
     except Exception as e:
         import traceback
         return jsonify(ok=False, error=str(e), trace=traceback.format_exc()[-500:]), 500
-
-
-
-
 
 
 
