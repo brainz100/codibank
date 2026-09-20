@@ -27,6 +27,16 @@
 
   <!--
     ┏━━ camera.html 수정 이력 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+    │ ─── 2026-09-21 KST ───  [HOTFIX — 등록 90% 멈춤]                │
+    │ · 원인(서버): analyze-item 스키마의 대형 enum(120값) + 무제한     │
+    │   HTTP 타임아웃 → Gemini 응답 지연으로 gunicorn 스레드 점유 →     │
+    │   업로드/이미지 요청까지 대기 → 90% 멈춤·옷장 빈 화면.           │
+    │   서버는 enum 제거 + 호출당 20s / 전체 33s 예산으로 수정.        │
+    │ · 이 파일: 저장 단계에 상한 추가 — 업로드 25s, saveImage 15s.    │
+    │   초과 시 서버 경로(/uploads/…)를 참조로 저장하고 진행.          │
+    │   분석용 768px 리사이즈도 8s 상한.                               │
+    │   → 어떤 경우에도 90% 에서 멈추지 않고 저장 또는 명확한 알림.     │
+    │                                                                 │
     │ ─── 2026-09-20 KST ───  [TJ 지시 — ai옷장 분석 1·2·3단계]      │
     │                                                                 │
     │ ① MobileNet(TF.js) 카테고리 분류 완전 제거                      │
@@ -1014,7 +1024,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (imgSrc && (imgSrc.startsWith('blob:') || imgSrc.startsWith('data:'))) {
           let blob = null;
           try {
-            blob = await resizeFromSrcToBlob(imgSrc, 768, 0.75);
+            blob = await Promise.race([
+              resizeFromSrcToBlob(imgSrc, 768, 0.75),
+              new Promise((_, rej) => setTimeout(() => rej(new Error('resize timeout')), 8000)),
+            ]);
           } catch (e) {
             console.warn('[분석용 축소 실패] 원본으로 진행', e);
           }
@@ -1454,7 +1467,11 @@ document.addEventListener('DOMContentLoaded', () => {
           // ✅ 가장 안정적인 경로: Blob → multipart 업로드
           const b = shotBlob[slotKey];
           if (b) {
-            const up = await uploadBlobToServer(b, { slot: slotKey, email: user.email });
+            // [2026-09-21 HOTFIX] 서버가 느릴 때 90% 에서 무한 대기하지 않도록 25초 상한
+            const up = await Promise.race([
+              uploadBlobToServer(b, { slot: slotKey, email: user.email }),
+              new Promise((_, rej) => setTimeout(() => rej(new Error('timeout: 이미지 업로드 25초 초과')), 25000)),
+            ]);
             if (up && up.ok && up.path && String(up.path).startsWith('/uploads/')) {
               shots[slotKey] = String(up.path);
               return String(up.path);
@@ -1492,20 +1509,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (shotBlob.back || shots.back) await ensureServerRef('back');
         if (shotBlob.brand || shots.brand) await ensureServerRef('brand');
 
+        // ── [2026-09-21 HOTFIX] saveImage(IndexedDB 캐시) 15초 상한 ──
+        //   CodiBank.saveImage 는 서버 경로(/uploads/…)를 받으면 이미지를 다시
+        //   내려받아 IndexedDB 에 넣는데, 서버가 느리면 여기서 무한 대기 →
+        //   "90% 에서 멈춤". 상한을 넘기면 서버 경로를 그대로 참조로 저장합니다.
+        //   (aicloset/item 은 /uploads/ 경로도 직접 표시 가능 — 기존 폴백과 동일)
+        const _saveImgBounded = (ref) => Promise.race([
+          CodiBank.saveImage(ref),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout: saveImage 15초 초과')), 15000)),
+        ]);
         const images = {};
         try {
-          images.front = await CodiBank.saveImage(shots.front);
+          setAiProgress(92, '이미지 캐시 저장 중…');
+          images.front = await _saveImgBounded(shots.front);
         } catch(imgErr) {
-          console.warn('[이미지 저장 실패]', imgErr);
-          // 서버 경로가 있으면 그대로 사용
+          console.warn('[이미지 저장 실패 → 서버 경로로 대체]', imgErr);
           if (shots.front && typeof shots.front === 'string') images.front = shots.front;
         }
         try {
-          if (shotBlob.back || shots.back) images.back = await CodiBank.saveImage(shots.back);
+          if (shotBlob.back || shots.back) images.back = await _saveImgBounded(shots.back);
         } catch(_) { if(shots.back) images.back = shots.back; }
         try {
-          if (shotBlob.brand || shots.brand) images.brand = await CodiBank.saveImage(shots.brand);
+          if (shotBlob.brand || shots.brand) images.brand = await _saveImgBounded(shots.brand);
         } catch(_) { if(shots.brand) images.brand = shots.brand; }
+        setAiProgress(96, '아이템 저장 중…');
 
         // front 이미지 없으면 서버 업로드 경로 사용
         if (!images.front && shots.front) images.front = shots.front;
