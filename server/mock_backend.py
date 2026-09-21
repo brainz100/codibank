@@ -5,6 +5,24 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-09-22 KST · TJ 보고 (재재발 — HOTFIX-3: 자가 복구 + 원인 자동 보고) ───
+#  상황: HOTFIX-2 배포 후에도 등록 90%(이미지 업로드)에서 25초 타임아웃. 외부에서 GET 을
+#        보내도 여전히 무응답 → 분석 엔드포인트는 이제 스레드를 18초 이상 못 잡으므로
+#        멈춤의 주범은 다른 요청(R2 업로드/프록시, 트라이온 생성, 알람 스케줄러의
+#        자기 호출 등)일 가능성이 큼. 부팅 로그만으로는 확정 불가 → 이번 패치는
+#        "무엇이 멈추든 서비스가 스스로 살아나고, 원인을 다음 부팅 로그에 찍는" 구조.
+#  수정 A (워치독 자가 복구, CORS(app) 직후 블록):
+#    · 120초 이상 멈춘 요청이 (스레드수-1)개 이상 → 전체 스택을 로컬 파일 +
+#      R2(diag/watchdog_last.txt)에 기록 후 os._exit(3) → gunicorn 마스터가 새 워커 기동.
+#      → 어떤 원인이든 서비스 무응답이 최대 2~3분을 넘지 않음.
+#    · 워커 기동 시 직전 기록이 있으면 로그 맨 앞에 "[watchdog] 🔎 직전 워커가 …" 로 출력.
+#      → 배포/재시작 직후 부팅 로그에 멈춤 원인이 그대로 보임.
+#    · GET /api/debug/watchdog-last 로도 조회 가능. 환경변수 CODIBANK_WATCHDOG_SELF_HEAL=0 이면 끔.
+#  수정 B (R2 타임아웃): boto3 Config(connect 8s / read 30s / 재시도 2회). 기본값은
+#    connect·read 60s × 최대 5회 재시도라 R2 가 응답을 안 주면 업로드 1건이 수 분간
+#    스레드를 점유했음. serve_upload 프록시도 (connect 4s, read 10s) 로 명시.
+#  ※ 권장: Render 시작 명령 --threads 8 → 16 (스레드 여유 2배, 메모리 영향 미미)
+#
 # ─── 2026-09-21 KST · TJ 보고 (재발 — HOTFIX-2: 서버 무응답 원천 차단 + 진단) ───
 #  확인된 사실: 외부에서 서버에 GET 을 보내면 robots.txt 조차 타임아웃 → 서버 프로세스는
 #        살아 있으나 요청을 전혀 처리하지 못하는 "조용한 멈춤" 상태. R2 공개 URL 은
@@ -1726,12 +1744,23 @@ def _get_r2():
         return None
     try:
         import boto3
+        # ── [2026-09-22 HOTFIX-3] R2 호출 타임아웃 ──
+        #   기본값(connect 60s / read 60s / 최대 5회 재시도)이면 R2 가 응답을 안 줄 때
+        #   업로드 1건이 최대 수 분간 gunicorn 스레드를 점유 → 서버 전체 무응답.
+        #   connect 8s / read 30s / 재시도 2회 → 최악 ~80s 안에 반드시 실패로 끝남.
+        try:
+            from botocore.config import Config as _BotoCfg
+            _r2_cfg = _BotoCfg(connect_timeout=8, read_timeout=30,
+                               retries={"max_attempts": 2, "mode": "standard"})
+        except Exception:
+            _r2_cfg = None
         _R2_CLIENT = boto3.client(
             "s3",
             endpoint_url=ep,
             aws_access_key_id=ak,
             aws_secret_access_key=sk,
             region_name="auto",
+            **({"config": _r2_cfg} if _r2_cfg else {}),
         )
         print("[R2] ✅ 클라이언트 초기화 완료")
     except Exception as e:
@@ -1798,22 +1827,35 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 CORS(app, allow_headers=["Content-Type", "X-Admin-Key", "Authorization"])
 
 # ══════════════════════════════════════════════════════════════════════
-# [2026-09-21 KST · HOTFIX-2] 요청 워치독 — "서버가 조용히 멈추는" 상황 진단용
-#   증상: gunicorn(1 worker × 8 threads)에서 오래 걸리는 요청이 스레드를 점유하면
-#         이후 모든 요청(이미지 서빙·업로드·헬스체크)이 큐에서 무기한 대기하는데,
-#         로그에는 아무것도 안 찍혀서 원인을 알 수 없었음.
-#   동작: ① 모든 요청의 시작/종료를 기록 (8초 이상 걸린 요청은 종료 시 로그)
-#         ② 30초마다 45초 이상 진행 중인 요청을 찾아 경로 + 스택 6줄을 로그로 출력
-#            → Render 로그에서 "[watchdog]" 만 검색하면 어디서 막혔는지 바로 보임
-#         ③ GET /api/debug/inflight — 현재 진행 중 요청 목록(JSON)
-#   비용: 요청당 dict 삽입/삭제 1회. 성능 영향 없음. 기존 동작 변경 없음.
+# [2026-09-21 HOTFIX-2 → 2026-09-22 HOTFIX-3] 요청 워치독 = 진단 + 자가 복구
+#   증상: gunicorn(1 worker × 8 threads)에서 오래 걸리는 요청이 스레드를 전부 점유하면
+#         이후 모든 요청(이미지 서빙·업로드·헬스체크)이 무기한 대기하는 "조용한 멈춤".
+#         gunicorn --timeout 은 gthread 워커에서 스레드 단위 멈춤을 감지하지 못함.
+#   동작:
+#     ① 모든 요청의 시작/종료 기록. 8초 이상 걸린 요청은 종료 시 로그.
+#     ② 30초마다 점검: 45초 이상 진행 중인 요청 → 경로 + 스택 로그 ("[watchdog]").
+#     ③ [자가 복구] 120초 이상 멈춘 요청이 (스레드수-1)개 이상 → 전체 스택을
+#        로컬 파일 + R2(diag/watchdog_last.txt)에 기록한 뒤 워커를 종료(os._exit).
+#        gunicorn 마스터가 즉시 새 워커를 띄우므로 서비스는 수 초 안에 복구됨.
+#     ④ [부팅 보고] 워커가 시작될 때 ③의 기록이 있으면 로그 맨 앞에 출력
+#        → "배포 직후 부팅 로그"만 봐도 직전 멈춤의 원인이 그대로 보임.
+#     ⑤ GET /api/debug/inflight — 현재 진행 중 요청 / GET /api/debug/watchdog-last — 마지막 기록
+#   비용: 요청당 dict 삽입/삭제 1회. 기존 동작 변경 없음.
 # ══════════════════════════════════════════════════════════════════════
 import threading as _wd_threading
 import traceback as _wd_tb
 _INFLIGHT = {}            # thread_ident -> (method, path, start_ts)
 _INFLIGHT_LOCK = _wd_threading.Lock()
 _WD_SLOW_SEC = float(os.getenv("CODIBANK_WATCHDOG_SLOW_SEC") or "45")
-_WD_THREADS = int(os.getenv("WEB_THREADS") or "8")
+_WD_KILL_SEC = float(os.getenv("CODIBANK_WATCHDOG_KILL_SEC") or "120")
+_WD_THREADS  = int(os.getenv("WEB_THREADS") or "8")
+_WD_SELF_HEAL = str(os.getenv("CODIBANK_WATCHDOG_SELF_HEAL") or "1").strip() not in ("0", "false", "no")
+_WD_R2_KEY = "diag/watchdog_last.txt"
+
+def _wd_file():
+    return (os.getenv("CODIBANK_WATCHDOG_FILE")
+            or ("/opt/render/.codibank/watchdog_last.txt" if os.path.isdir("/opt/render")
+                else os.path.join(_HERE, "watchdog_last.txt")))
 
 @app.before_request
 def _wd_begin():
@@ -1835,6 +1877,36 @@ def _wd_end(_exc=None):
     except Exception:
         pass
 
+def _wd_dump(stuck, snap, frames, max_items=8, tail=10):
+    """멈춘 요청들의 경로·경과·스택을 한 덩어리 텍스트로."""
+    lines = [f"[watchdog] {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())} "
+             f"멈춘 요청 {len(stuck)}개 / in-flight {len(snap)}/{_WD_THREADS}"]
+    for tid, m, p, el in sorted(stuck, key=lambda x: -x[3])[:max_items]:
+        fr = frames.get(tid)
+        st = "".join(_wd_tb.format_stack(fr)[-tail:]) if fr else "(frame 없음)\n"
+        lines.append(f"── {m} {p} — {el:.0f}s 경과\n{st}")
+    return "\n".join(lines)
+
+def _wd_persist(text):
+    """로컬 파일(즉시) + R2(별도 스레드, 최대 6초)."""
+    try:
+        fp = _wd_file()
+        os.makedirs(os.path.dirname(fp), exist_ok=True)
+        with open(fp, "w", encoding="utf-8") as f:
+            f.write(text)
+    except Exception as e:
+        print(f"[watchdog] 로컬 기록 실패: {e}", flush=True)
+    try:
+        r2 = _get_r2()
+        if r2:
+            t = _wd_threading.Thread(
+                target=lambda: r2.put_object(Bucket=_R2_BUCKET, Key=_WD_R2_KEY,
+                                             Body=text.encode("utf-8"), ContentType="text/plain"),
+                daemon=True)
+            t.start(); t.join(6)
+    except Exception as e:
+        print(f"[watchdog] R2 기록 실패: {e}", flush=True)
+
 def _wd_loop():
     while True:
         time.sleep(30)
@@ -1851,12 +1923,60 @@ def _wd_loop():
                   f"(in-flight {len(_snap)}/{_WD_THREADS})", flush=True)
             for tid, m, p, el in sorted(_stuck, key=lambda x: -x[3])[:4]:
                 _fr = _frames.get(tid)
-                _st = "".join(_wd_tb.format_stack(_fr)[-6:]) if _fr else "(frame 없음)"
-                print(f"[watchdog]   {m} {p} {el:.0f}s\n{_st}", flush=True)
+                # 주기 로그는 "어디서 막혔는지" 마지막 2프레임만 (전체 스택은 자가 복구 기록에)
+                _st = "".join(_wd_tb.format_stack(_fr)[-2:]).strip() if _fr else "(frame 없음)"
+                print(f"[watchdog]   {m} {p} {el:.0f}s ← {_st}", flush=True)
+            # ── 자가 복구 판단 ──
+            _dead = [x for x in _stuck if x[3] >= _WD_KILL_SEC]
+            if _WD_SELF_HEAL and len(_dead) >= max(2, _WD_THREADS - 1):
+                text = ("[watchdog] ⛔ 자가 복구: 스레드 대부분이 "
+                        f"{_WD_KILL_SEC:.0f}s 이상 멈춤 → 워커 재시작\n"
+                        + _wd_dump(_dead, _snap, _frames))
+                print(text, flush=True)
+                _wd_persist(text)
+                try:
+                    sys.stdout.flush(); sys.stderr.flush()
+                except Exception:
+                    pass
+                os._exit(3)   # gunicorn 마스터가 새 워커를 즉시 기동
         except Exception as _e:
             print(f"[watchdog] 오류: {_e}", flush=True)
 
+def _wd_boot_report():
+    """워커 기동 시 직전 자가 복구 기록을 로그로 출력 (로컬 → R2 순)."""
+    time.sleep(2)
+    text = None
+    try:
+        fp = _wd_file()
+        if os.path.exists(fp):
+            with open(fp, "r", encoding="utf-8") as f:
+                text = f.read()
+            os.replace(fp, fp + ".prev")      # 같은 내용을 매 부팅마다 반복 출력하지 않도록
+    except Exception:
+        pass
+    if not text:
+        try:
+            b = _read_r2_bytes(_WD_R2_KEY)
+            if b:
+                text = b.decode("utf-8", "replace")
+                # R2 기록은 한 번 보고하면 이름을 바꿔 보관
+                r2 = _get_r2()
+                if r2:
+                    r2.put_object(Bucket=_R2_BUCKET, Key=_WD_R2_KEY + ".reported",
+                                  Body=b, ContentType="text/plain")
+                    r2.delete_object(Bucket=_R2_BUCKET, Key=_WD_R2_KEY)
+        except Exception:
+            pass
+    if text:
+        print("═" * 70, flush=True)
+        print("[watchdog] 🔎 직전 워커가 '요청 멈춤'으로 강제 재시작된 기록이 있습니다. 원인:", flush=True)
+        print(text[:6000], flush=True)
+        print("═" * 70, flush=True)
+    else:
+        print("[watchdog] 직전 자가 복구 기록 없음 (정상)", flush=True)
+
 _wd_threading.Thread(target=_wd_loop, name="sm-watchdog", daemon=True).start()
+_wd_threading.Thread(target=_wd_boot_report, name="sm-watchdog-boot", daemon=True).start()
 
 @app.get("/api/debug/inflight")
 def debug_inflight():
@@ -1864,9 +1984,32 @@ def debug_inflight():
     with _INFLIGHT_LOCK:
         _snap = dict(_INFLIGHT)
     return jsonify(ok=True, count=len(_snap), threads=_WD_THREADS,
+                   self_heal=_WD_SELF_HEAL, kill_sec=_WD_KILL_SEC,
                    items=sorted([{"method": m, "path": p, "elapsed_sec": round(_now - t0, 1)}
                                  for (m, p, t0) in _snap.values()],
                                 key=lambda x: -x["elapsed_sec"]))
+
+@app.get("/api/debug/watchdog-last")
+def debug_watchdog_last():
+    out = {"ok": True, "local": None, "r2": None}
+    try:
+        for suffix in ("", ".prev"):
+            fp = _wd_file() + suffix
+            if os.path.exists(fp):
+                with open(fp, "r", encoding="utf-8") as f:
+                    out["local"] = f.read()[:8000]
+                break
+    except Exception as e:
+        out["local_error"] = str(e)
+    try:
+        for key in (_WD_R2_KEY, _WD_R2_KEY + ".reported"):
+            b = _read_r2_bytes(key)
+            if b:
+                out["r2"] = b.decode("utf-8", "replace")[:8000]
+                break
+    except Exception as e:
+        out["r2_error"] = str(e)
+    return jsonify(out)
 
 # 얼굴 사진(DataURL)까지 포함되면 요청 바디가 커질 수 있어 넉넉히 허용합니다(10MB).
 # ✅ [버그1 수정] 얼굴 사진(base64) 포함 시 요청 바디가 커질 수 있어 허용 크기 확대
@@ -3030,7 +3173,7 @@ def serve_upload(filename: str):
         r2_url = f"{_R2_PUB_URL}/uploads/{filename}"
         try:
             import requests as _rq
-            r = _rq.get(r2_url, timeout=10)
+            r = _rq.get(r2_url, timeout=(4, 10))   # [HOTFIX-3] connect 4s / read 10s
             if r.status_code == 200:
                 resp = make_response(r.content)
                 ct = r.headers.get("Content-Type", "image/jpeg")
