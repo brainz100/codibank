@@ -10,6 +10,14 @@
 ═══════════════════════════════════════════════════════════════════════
 📋 수정 이력 (MODIFICATION HISTORY) — 최신순
 ═══════════════════════════════════════════════════════════════════════
+─── 2026-09-22 KST · TJ 지시 ───
+  ① 카드 이미지 "검은 배경" 해결 — trimLetterbox(): 이미지 자체에 들어 있는
+     균일한 색 띠(캡처 화면의 검은 상·하단 등)를 캔버스로 감지해 잘라낸 뒤 표시.
+     .layer-img 는 원래 object-fit:contain + 흰 배경이었고, 검은색은 이미지
+     픽셀 안에 있던 것. 결과는 카드별 캐시, 실패 시 원본 그대로 표시.
+  ② 카테고리 타이틀 아래 'AI분석 :' / 'codibank :' 텍스트 박스(.m-adv) 제거
+     (SM_SHOW_ADV_BOX=false). SWIPE 힌트·카드 덱·MATCH 배지는 그대로.
+═══════════════════════════════════════════════════════════════════════
 
 ─── 2026-05-22 KST · TJ 지시 v2026.05.21.003 (좌우 화살표 박스 분리) ───
  증상: 추천코디 이미지 viewbox 안에 position:absolute; bottom:14px 로
@@ -6385,9 +6393,14 @@ function layerContent(el,item,catKey){
   ph.className='layer-ph';
   ph.textContent='…';
   el.appendChild(ph);
-  CodiBank.getImageSrc(ref).then(src=>{
+  CodiBank.getImageSrc(ref).then(src0=>{
+    if(el.dataset.renderToken!==rt)return null;
+    if(!src0){ph.textContent=(window.CodiBankI18n&&CodiBankI18n.isEn())?'No image':'이미지 없음';return null;}
+    // [2026-09-22] 이미지 속 검은/균일 띠(레터박스) 제거 후 표시
+    return trimLetterbox(src0);
+  }).then(src=>{
+    if(src===null||src===undefined)return;
     if(el.dataset.renderToken!==rt)return;
-    if(!src){ph.textContent=(window.CodiBankI18n&&CodiBankI18n.isEn())?'No image':'이미지 없음';return;}
     // ── 카드 하단: 컬러(1줄) + 패턴·소재(2줄), 배경 없이 텍스트만
     const _g = item?.meta?.gemini;
     const _isEnCard = !!(window.CodiBankI18n && CodiBankI18n.isEn());
@@ -6406,6 +6419,89 @@ function layerContent(el,item,catKey){
       (_subLine ? `<div class="card-label-sub">${_subLine}</div>` : '') +
       (_colorTxt ? `<div class="card-label">${_colorTxt}</div>` : '');
   }).catch(function(){ if(el.dataset.renderToken===rt) ph.textContent=(window.CodiBankI18n&&CodiBankI18n.isEn())?'Image load failed':'이미지 로드 실패'; });
+}
+// ══════════════════════════════════════════════════════════════════════
+// ─── 2026-09-22 KST · TJ 지시 ─── 카드 이미지 "검은 배경" 문제 해결
+//   증상: 쇼핑앱 화면을 캡처해 등록한 아이템은 이미지 자체의 위/아래에
+//         검은 UI 띠가 들어 있어, 화이트 카드 안에서도 검은 배경처럼 보임.
+//         (.layer-img 는 이미 object-fit:contain + 흰 배경 — CSS 문제가 아님)
+//   해결: 이미지 4변의 "균일한 색 띠(레터박스)"를 캔버스에서 감지해 잘라낸 뒤
+//         표시. 검정·회색·흰색 어떤 색이든 균일하면 제거. 옷 영역은 색 변화가
+//         커서 절대 잘리지 않음 (변당 최대 45% 까지만 트림 + 실패 시 원본 표시).
+//   비용: 카드 1장당 최초 1회 256px 다운샘플 분석(수 ms) → 결과 캐시.
+// ══════════════════════════════════════════════════════════════════════
+const _trimCache = new Map();
+function trimLetterbox(src){
+  if(!src) return Promise.resolve(src);
+  if(_trimCache.has(src)) return _trimCache.get(src);
+  const p = new Promise((resolve)=>{
+    const img = new Image();
+    if(/^https?:/i.test(src)) img.crossOrigin = 'anonymous';
+    const done = (v)=>resolve(v||src);
+    img.onerror = ()=>done(src);
+    img.onload = ()=>{
+      try{
+        const W=img.naturalWidth, H=img.naturalHeight;
+        if(!W||!H) return done(src);
+        // ① 분석용 다운샘플
+        const S=256, sc=Math.min(1, S/Math.max(W,H));
+        const w=Math.max(8,Math.round(W*sc)), h=Math.max(8,Math.round(H*sc));
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        const g=c.getContext('2d',{willReadFrequently:true});
+        g.drawImage(img,0,0,w,h);
+        let d;
+        try{ d=g.getImageData(0,0,w,h).data; }catch(_){ return done(src); }   // CORS tainted
+        const px=(x,y)=>{const i=(y*w+x)*4; return [d[i],d[i+1],d[i+2]];};
+        const TOL=24;            // 같은 색으로 볼 허용 오차
+        const RATIO=0.96;        // 줄의 96% 이상이 기준색이면 "띠"
+        const MAXF=0.45;         // 한 변당 최대 트림 비율
+        const near=(a,b)=>Math.abs(a[0]-b[0])<=TOL&&Math.abs(a[1]-b[1])<=TOL&&Math.abs(a[2]-b[2])<=TOL;
+        // ⚠️ 흰색·아주 밝은 여백은 "배경"이 아니라 우리가 원하는 화이트 바탕이므로 절대 트림하지 않음
+        const whiteish=(c2)=>c2[0]>=228&&c2[1]>=228&&c2[2]>=228;
+        const refOf=(pts)=>{const [a,b,c2]=pts; let r=null; if(near(a,b))r=a; else if(near(b,c2))r=b; else if(near(a,c2))r=a; return (r&&!whiteish(r))?r:null;};
+        // 현재 영역(다운샘플 좌표)
+        let L=0,T=0,R=w,B=h;
+        const rowIsBar=(y,ref)=>{let n=0;for(let x=L;x<R;x++){if(near(px(x,y),ref))n++;}return n/(R-L)>=RATIO;};
+        const colIsBar=(x,ref)=>{let n=0;for(let y=T;y<B;y++){if(near(px(x,y),ref))n++;}return n/(B-T)>=RATIO;};
+        // ② 최대 3회 반복: 검은 띠 → 그 안쪽의 균일 배경(바닥·벽) 순서로 벗겨냄
+        for(let pass=0; pass<3; pass++){
+          const cw=R-L, ch=B-T; if(cw<16||ch<16) break;
+          let top=0,bot=0,left=0,right=0, r;
+          r=refOf([px(L+1,T),px((L+R)>>1,T),px(R-2,T)]);      if(r){ while(top<ch*MAXF && rowIsBar(T+top,r)) top++; }
+          r=refOf([px(L+1,B-1),px((L+R)>>1,B-1),px(R-2,B-1)]);if(r){ while(bot<ch*MAXF && rowIsBar(B-1-bot,r)) bot++; }
+          r=refOf([px(L,T+1),px(L,(T+B)>>1),px(L,B-2)]);      if(r){ while(left<cw*MAXF && colIsBar(L+left,r)) left++; }
+          r=refOf([px(R-1,T+1),px(R-1,(T+B)>>1),px(R-1,B-2)]);if(r){ while(right<cw*MAXF && colIsBar(R-1-right,r)) right++; }
+          // 의미 있는 띠(변 길이의 3% 이상)만 인정
+          const MIN=0.03;
+          if(top<ch*MIN) top=0; if(bot<ch*MIN) bot=0; if(left<cw*MIN) left=0; if(right<cw*MIN) right=0;
+          if(!top&&!bot&&!left&&!right) break;
+          // 양쪽이 모두 상한에 걸리면 전체가 균일한 이미지 → 중단
+          if((top>=ch*MAXF-1&&bot>=ch*MAXF-1)||(left>=cw*MAXF-1&&right>=cw*MAXF-1)) break;
+          L+=left; R-=right; T+=top; B-=bot;
+        }
+        if(L===0&&T===0&&R===w&&B===h) return done(src);
+        // 남는 영역이 원본의 12% 미만이면 과잉 트림 → 원본 유지
+        if((R-L)*(B-T) < w*h*0.12) return done(src);
+        // ③ 원본 해상도로 환산 + 1.5% 안쪽 수축(경계 잔선 제거)
+        const inv=1/sc;
+        let X=Math.floor(L*inv), Y=Math.floor(T*inv), CW=Math.floor((R-L)*inv), CH=Math.floor((B-T)*inv);
+        const shrink=Math.round(Math.min(CW,CH)*0.015);
+        X+=shrink; Y+=shrink; CW-=shrink*2; CH-=shrink*2;
+        if(CW<40||CH<40) return done(src);
+        // ④ 화이트 여백 12% 를 둘러 "흰 바탕 위의 아이템" 으로 출력
+        const MAXO=1200, so=Math.min(1, MAXO/Math.max(CW,CH));
+        const ow=Math.round(CW*so), oh=Math.round(CH*so), padW=Math.round(ow*0.12), padH=Math.round(oh*0.12);
+        const o=document.createElement('canvas'); o.width=ow+padW*2; o.height=oh+padH*2;
+        const og=o.getContext('2d'); og.fillStyle='#fff'; og.fillRect(0,0,o.width,o.height);
+        og.drawImage(img,X,Y,CW,CH,padW,padH,ow,oh);
+        if(o.toBlob){ o.toBlob(bl=>{ if(!bl) return done(src); done(URL.createObjectURL(bl)); },'image/jpeg',0.9); }
+        else done(o.toDataURL('image/jpeg',0.9));
+      }catch(_){ done(src); }
+    };
+    img.src=src;
+  });
+  _trimCache.set(src,p);
+  return p;
 }
 function slc(el,n){el.classList.remove('layer-1','layer-2','layer-3','layer-4','layer-5');el.classList.add(`layer-${n}`);}
 function rotL(a){if(!a.length)return a;return a.slice(1).concat(a[0]);}
@@ -6563,7 +6659,11 @@ function buildSection(catMeta,items){
       adv.innerHTML=`<span class="m-adv-lbl" style="color:rgba(151,254,237,0.4);">codibank :</span><span class="m-adv-txt" style="color:rgba(255,255,255,0.35);">${(window.CodiBankI18n&&CodiBankI18n.isEn()) ? '← Swipe to browse items' : '← 스와이프로 아이템을 탐색하세요'}</span>`;
     }
   }
-  sec.appendChild(adv);
+  // ─── 2026-09-22 KST · TJ 지시 ─── 카테고리 타이틀 아래 'AI분석 :' / 'codibank :' 텍스트 박스 제거
+  //   전체 카테고리 공통. 코디핏 매칭 점수는 카드의 MATCH 배지로 계속 표시되므로 정보 손실 없음.
+  //   복원이 필요하면 SM_SHOW_ADV_BOX 를 true 로.
+  const SM_SHOW_ADV_BOX = false;
+  if(SM_SHOW_ADV_BOX) sec.appendChild(adv);
 
   // ── SWIPE 힌트 ──
   const sw=document.createElement('div');sw.className='m-swipe';
