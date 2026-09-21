@@ -5,6 +5,37 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-09-22 KST · ROOT FIX (근본 원인 확정 — gunicorn --preload fork 교착) ───
+#  ★ 2026-09-20~22 "아이템 등록 90% 멈춤 · 옷장 이미지 공백 · 서버 무응답" 의 근본 원인.
+#  증거: 2026-09-22 부팅 로그의 첫 요청(HEAD /)에서
+#        "RuntimeError: reentrant call inside <_io.BufferedWriter name='<stdout>'>"
+#        → 워커의 stdout 락이 "fork 이전 마스터의 다른 스레드" 소유로 복사된 상태.
+#  메커니즘:
+#    · Render 는 기본으로 GUNICORN_CMD_ARGS="--preload --access-logfile - …" 를 설정
+#      (Render 공식 문서). → 이 모듈은 마스터에서 import 된 뒤 워커가 fork 됨.
+#    · 이 모듈은 import 시 스레드 4개(알람 스케줄러·관리자 동기화·워치독·부팅보고)를 시작.
+#    · fork 순간 그중 하나가 print 중이면 워커의 stdout 락이 영구 잠김 → 워커에서
+#      print / access log 를 쓰는 요청은 전부 영원히 대기(요청마다 스레드 1개 소멸)
+#      → 8개 소진 후 서버 전체 무응답. 업로드 핸들러는 print 를 하므로 90% 에서 멈춤,
+#      이미지 서빙은 응답 후 access log 에서 멈춰 몇 장만 뜨고 나머지 공백.
+#    · 스레드가 print 하는 타이밍이 네트워크 속도에 좌우돼 "배포마다 복불복".
+#      HOTFIX-3 의 부팅보고 스레드가 fork 시점에 print 하면서 거의 확정적으로 재발.
+#    · 또한 preload 에서는 모듈 레벨 스레드가 마스터에만 있어 워커에는 워치독이
+#      없었음 → HOTFIX-2/3 의 진단·자가복구가 한 번도 작동할 수 없었던 이유.
+#  로컬 재현(실제 gunicorn 23.0.0, Render 와 동일 옵션):
+#    · 수정 전 구조 → 12/12 요청 실패 + 운영 로그와 동일한 reentrant 에러
+#    · 수정 후 → 실제 mock_backend.py 로 업로드·이미지·헬스 45/45, 동시 40건 × 3라운드
+#      전부 200, 워커 강제 종료 후 재기동 시 스레드 자동 복구 확인.
+#  수정 (CORS(app) 직후 "fork 안전화" 블록):
+#    ① 백그라운드 스레드는 import 시 start() 금지 → _register_bg_task() 로 등록만.
+#       워커에서 시작 (fork 직후 hook / 첫 요청 / __main__). 마스터는 스레드 0개로 fork.
+#    ② 방어선: 워커 fork 직후 stdout/stderr 새로 생성 + gunicorn 로그 핸들러 재연결,
+#       모듈 전역 Lock 재생성, R2 클라이언트는 워커에서 새로 생성.
+#    ③ _get_r2() 동시 초기화 경쟁 방지 락 (로그의 "[R2] ✅ 초기화 완료" 2회 출력 원인).
+#    · 관리자 MASTER 동기화: 시작 위치만 워커로 이동. 동기화 로직과
+#      "기존 계정 비밀번호 절대 덮어쓰지 않음" 규칙은 한 글자도 변경하지 않음.
+#  ⚠️ 영구 규칙: 이 파일에서 모듈 레벨 Thread(...).start() 금지. 반드시 _register_bg_task().
+#
 # ─── 2026-09-22 KST · TJ 보고 (재재발 — HOTFIX-3: 자가 복구 + 원인 자동 보고) ───
 #  상황: HOTFIX-2 배포 후에도 등록 90%(이미지 업로드)에서 25초 타임아웃. 외부에서 GET 을
 #        보내도 여전히 무응답 → 분석 엔드포인트는 이제 스레드를 18초 이상 못 잡으므로
@@ -1724,6 +1755,8 @@ def extract_dominant_colors(img_bytes: bytes, top_n: int = 3) -> list:
 # Cloudflare R2 전역 클라이언트 (서버 시작 시 1회 초기화)
 # ══════════════════════════════════════════════════════════════
 _R2_CLIENT = None
+import threading as _r2_threading
+_R2_INIT_LOCK = _r2_threading.Lock()   # [2026-09-22] 동시 초기화 경쟁 방지
 _R2_BUCKET = os.getenv("R2_BUCKET_NAME", "codibank")
 _R2_PUB_URL = os.getenv("R2_PUBLIC_URL", "").rstrip("/")  # 예: https://pub.codibank.r2.dev
 
@@ -1731,6 +1764,13 @@ def _get_r2():
     global _R2_CLIENT
     if _R2_CLIENT is not None:
         return _R2_CLIENT
+    with _R2_INIT_LOCK:
+        if _R2_CLIENT is not None:
+            return _R2_CLIENT
+        return _get_r2_init_locked()
+
+def _get_r2_init_locked():
+    global _R2_CLIENT
     ep  = os.getenv("R2_ENDPOINT", "")
     # [2026-04-08] R2_ENDPOINT가 없으면 R2_ACCOUNT_ID로 자동 구성
     if not ep:
@@ -1825,6 +1865,150 @@ except Exception as _tp_e:
     print(f"[translate] 파이프라인 미등록(선택 기능): {_tp_e}", flush=True)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 CORS(app, allow_headers=["Content-Type", "X-Admin-Key", "Authorization"])
+
+# ══════════════════════════════════════════════════════════════════════
+# [2026-09-22 KST · ROOT FIX] gunicorn --preload 환경의 fork 안전화
+# ──────────────────────────────────────────────────────────────────────
+#  근본 원인 (2026-09-20 ~ 22 "등록 90% 멈춤 · 옷장 이미지 공백 · 서버 무응답"):
+#   · Render 는 기본으로 GUNICORN_CMD_ARGS="--preload --access-logfile - …" 를 설정.
+#     → 이 모듈은 gunicorn "마스터"에서 import 되고, 그 뒤 워커가 fork 됨.
+#   · 이 모듈은 import 시점에 백그라운드 스레드(알람 스케줄러, 관리자 동기화,
+#     워치독 등)를 시작함 → 마스터가 멀티스레드 상태에서 fork.
+#   · fork 순간 어떤 스레드가 stdout 에 쓰는 중이면(print), stdout 내부 락이
+#     "죽은 스레드가 쥔 채로" 워커에 복사됨 → 워커에서 print / access log 를
+#     쓰는 모든 스레드가 영원히 대기 → 요청마다 스레드 1개씩 소멸 → 8개 소진 후
+#     서버 전체 무응답. (2026-09-22 로그의 "RuntimeError: reentrant call inside
+#     <_io.BufferedWriter name='<stdout>'>" 가 바로 이 상태의 직접 증거)
+#   · 같은 원리로 boto3(R2) 커넥션 풀 락, 스케줄러 락도 오염될 수 있음.
+#   · 또한 preload 상태에서는 모듈 레벨 스레드가 "마스터"에만 존재 →
+#     워커에는 워치독·스케줄러가 없었음 (진단 로그가 한 줄도 안 나온 이유).
+#  해결:
+#   ① 백그라운드 스레드는 import 시 시작하지 않고 _register_bg_task() 로 등록만.
+#      실제 시작은 "요청을 처리하는 프로세스(워커)" 에서만:
+#        - fork 직후 자식에서 (os.register_at_fork after_in_child)
+#        - 또는 첫 요청 직전 (before_request, --preload 가 아닐 때 대비)
+#        - 또는 python mock_backend.py 로컬 실행 시 (__main__)
+#      → 마스터는 fork 시점에 스레드가 없어 오염될 락 자체가 없음.
+#   ② 방어선: 워커 fork 직후 stdout/stderr 를 새 객체로 교체하고
+#      gunicorn access/error 로그 핸들러도 새 스트림으로 재연결.
+#      모듈 전역 Lock/RLock 재생성, R2 클라이언트 재생성(워커에서 lazy).
+#      → 혹시 라이브러리가 마스터에 스레드를 띄워도 워커는 깨끗한 상태로 시작.
+#  ⚠️ 새 백그라운드 스레드를 추가할 때는 절대 모듈 레벨에서 .start() 하지 말고
+#     _register_bg_task("이름", 함수) 로 등록할 것.
+# ══════════════════════════════════════════════════════════════════════
+import threading as _fk_threading
+_BG_TASKS = []                    # [(name, target)]
+_BG_STATE = {"pid": None}
+_BG_LOCK = _fk_threading.Lock()
+_OLD_STDIO_KEEPALIVE = []         # 교체 전 stdout/stderr — GC 시 flush 교착 방지용 보관
+
+def _register_bg_task(name, target):
+    """백그라운드 스레드 등록 (시작은 워커에서만)."""
+    _BG_TASKS.append((name, target))
+
+def _start_background_threads(reason=""):
+    pid = os.getpid()
+    if _BG_STATE["pid"] == pid:
+        return
+    with _BG_LOCK:
+        if _BG_STATE["pid"] == pid:
+            return
+        _BG_STATE["pid"] = pid
+        started = []
+        for name, target in list(_BG_TASKS):
+            try:
+                _fk_threading.Thread(target=target, name=name, daemon=True).start()
+                started.append(name)
+            except Exception as e:
+                print(f"[bg] {name} 시작 실패: {e}", flush=True)
+    print(f"[bg] ✅ 백그라운드 스레드 {len(started)}개 시작 (pid={pid}, {reason}): "
+          + ", ".join(started), flush=True)
+
+def _fresh_stdio_in_child():
+    """fork 직후 자식에서 stdout/stderr 를 새 객체로 교체 + 로깅 핸들러 재연결."""
+    old_out, old_err = sys.stdout, sys.stderr
+    try:
+        new_out = io.TextIOWrapper(io.BufferedWriter(io.FileIO(1, "wb", closefd=False)),
+                                   encoding="utf-8", errors="replace",
+                                   line_buffering=True, write_through=True)
+        new_err = io.TextIOWrapper(io.BufferedWriter(io.FileIO(2, "wb", closefd=False)),
+                                   encoding="utf-8", errors="replace",
+                                   line_buffering=True, write_through=True)
+    except Exception:
+        return
+    _OLD_STDIO_KEEPALIVE.extend([old_out, old_err])
+    sys.stdout, sys.stderr = new_out, new_err
+    try:
+        import logging as _lg
+        olds_out = {id(old_out), id(sys.__stdout__)}
+        olds_err = {id(old_err), id(sys.__stderr__)}
+        loggers = [_lg.getLogger()] + [l for l in _lg.Logger.manager.loggerDict.values()
+                                       if isinstance(l, _lg.Logger)]
+        for lg in loggers:
+            for h in list(getattr(lg, "handlers", []) or []):
+                if isinstance(h, _lg.StreamHandler) and not isinstance(h, _lg.FileHandler):
+                    st = getattr(h, "stream", None)
+                    # ⚠️ setStream() 은 옛 스트림을 flush → 오염된 락이면 교착. 직접 대입.
+                    if id(st) in olds_out:
+                        h.stream = new_out
+                    elif id(st) in olds_err:
+                        h.stream = new_err
+    except Exception:
+        pass
+
+def _reinit_module_locks_in_child():
+    """모듈 전역 Lock/RLock 을 새것으로 (죽은 스레드가 쥔 채 복사됐을 수 있음)."""
+    g = globals()
+    lt, rlt = type(_fk_threading.Lock()), type(_fk_threading.RLock())
+    for k, v in list(g.items()):
+        try:
+            if type(v) is lt:
+                g[k] = _fk_threading.Lock()
+            elif type(v) is rlt:
+                g[k] = _fk_threading.RLock()
+        except Exception:
+            pass
+    # 커넥션 풀을 가진 클라이언트는 워커에서 새로 만든다 (boto3 공식 권장)
+    g["_R2_CLIENT"] = None
+    try:
+        import concurrent.futures as _cf_fk
+        if "_ANALYZE_POOL" in g:
+            g["_ANALYZE_POOL"] = _cf_fk.ThreadPoolExecutor(max_workers=4,
+                                                           thread_name_prefix="sm-analyze")
+        if "_ANALYZE_HUNG" in g:
+            g["_ANALYZE_HUNG"] = {"n": 0}
+    except Exception:
+        pass
+    try:
+        if "_INFLIGHT" in g:
+            g["_INFLIGHT"].clear()
+    except Exception:
+        pass
+
+def _after_fork_child():
+    try:
+        _fresh_stdio_in_child()
+    except Exception:
+        pass
+    try:
+        _reinit_module_locks_in_child()
+    except Exception:
+        pass
+    try:
+        _start_background_threads("fork 직후 워커")
+    except Exception:
+        pass
+
+try:
+    os.register_at_fork(after_in_child=_after_fork_child)
+except Exception as _fk_e:
+    print(f"[bg] register_at_fork 실패: {_fk_e}", flush=True)
+
+@app.before_request
+def _bg_ensure_started():
+    # --preload 가 아닌 경우(워커에서 import) 대비 — pid 비교 1회라 비용 없음
+    if _BG_STATE["pid"] != os.getpid():
+        _start_background_threads("첫 요청")
 
 # ══════════════════════════════════════════════════════════════════════
 # [2026-09-21 HOTFIX-2 → 2026-09-22 HOTFIX-3] 요청 워치독 = 진단 + 자가 복구
@@ -1975,8 +2159,9 @@ def _wd_boot_report():
     else:
         print("[watchdog] 직전 자가 복구 기록 없음 (정상)", flush=True)
 
-_wd_threading.Thread(target=_wd_loop, name="sm-watchdog", daemon=True).start()
-_wd_threading.Thread(target=_wd_boot_report, name="sm-watchdog-boot", daemon=True).start()
+# [ROOT FIX] import 시 시작 금지 → 워커에서 시작
+_register_bg_task("sm-watchdog", _wd_loop)
+_register_bg_task("sm-watchdog-boot", _wd_boot_report)
 
 @app.get("/api/debug/inflight")
 def debug_inflight():
@@ -9545,7 +9730,9 @@ def _auto_sync_master_to_supabase():
                 _rq2.post(f"{_sb}/auth/v1/admin/users", headers=_hdr, json=sb_body, timeout=15)
         except Exception:
             pass
-    _th.Thread(target=_run, daemon=True).start()
+    # [ROOT FIX 2026-09-22] 시작 "위치"만 변경 — 마스터 import 시점이 아니라 워커에서 실행.
+    #   동기화 로직·"기존 계정 비밀번호 절대 덮어쓰지 않음" 규칙은 한 글자도 바꾸지 않음.
+    _register_bg_task("sm-admin-sync", _run)
 
 _auto_sync_master_to_supabase()
 
@@ -16898,10 +17085,11 @@ def _sm_scheduler_loop():
         time.sleep(60)
 
 if str(os.getenv("SM_ALARM_SCHEDULER", "1")).strip() not in ("0", "false", "no"):
-    try:
-        _sm_threading.Thread(target=_sm_scheduler_loop, name="sm-alarm-scheduler", daemon=True).start()
-    except Exception as _e:
-        print(f"[SM] 스케줄러 스레드 시작 실패: {_e}", flush=True)
+    # [ROOT FIX 2026-09-22] import 시 시작 금지 → 워커에서 시작 (_start_background_threads)
+    #   이전: --preload 로 마스터에서 돌며, 워커를 HTTP 로 호출하고 print 하다가
+    #         fork 순간과 겹치면 워커의 stdout 락을 오염시켰음.
+    #   중복 실행 방지(only_if_status="pending" 선점)는 기존 그대로.
+    _register_bg_task("sm-alarm-scheduler", _sm_scheduler_loop)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
@@ -16912,4 +17100,5 @@ if __name__ == "__main__":
     #   사용자가 "포트가 점유"되었다고 오해하기 쉽습니다.
     # - 투자자 데모/외부 공유 목적이면 debug=False가 훨씬 안전합니다.
     debug = str(os.getenv("CODIBANK_DEBUG", "0")).strip().lower() in ("1", "true", "yes", "on")
+    _start_background_threads("__main__")
     app.run(host="0.0.0.0", port=port, debug=debug, use_reloader=debug)
