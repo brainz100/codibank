@@ -5,6 +5,26 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-09-22 KST · TJ 지시 (카테고리 체계 v2 + 착장 선택 고도화) ───
+#  [분류 — /api/ai/analyze-item]
+#    · category: outer·top·pants·skirt·onepiece·shoes·bag·socks·watch·scarf·etc (coat/jacket → outer 통합)
+#    · 카디건 → top (구 규칙 '가디건=jacket' 폐기), 넥타이/보타이 → etc(패션소품),
+#      점프수트/오버올 → onepiece, 치마바지 → skirt, 바람막이/레인웨어/겉옷용 베스트 → outer,
+#      니트·정장 베스트 → top, 타이즈 → socks, 모자·벨트·장갑·액세서리 → etc
+#    · outer_type(코트/패딩/재킷/블레이저…) + 신규 outer_length(long/short)로 기장 구분
+#    · _SUB2CAT_RULES 순서 함정 방지: 드레스셔츠>드레스, 치마바지>바지, 레인부츠>레인웨어,
+#      겉옷용 베스트>베스트, 넥타이>스카프
+#    · 구 모델/프론트가 coat·jacket 을 보내도 _ITEM_CAT_LEGACY 로 outer 처리
+#  [codistyle 호환] _analyze_garment_category: 'outer' 키를 세부품목으로 coat/jacket 분기에 연결
+#    (codistyle.html 은 수정 금지 — 이 한 줄로 v2 키에서도 기존과 동일한 착장 지시 생성)
+#  [착장 선택 — _sm_pick_outfit (지금 생성 / 예약 알람 공통)]
+#    · 위치 기준 계절(_sm_season_for: 남반구 반전, |위도|<15 연중 더운 기후), 키·몸무게,
+#      체형(권장/회피 스타일), 퍼스널컬러(얼굴 주변 베스트/회피 컬러) 반영
+#    · 소품 슬롯 추가: bag·scarf·watch·socks·acc(패션소품: 넥타이·장갑·모자·벨트) (TPO·기온 규칙)
+#    · 트라이온 이미지 슬롯은 5종뿐 → 소품은 accessoryHint 텍스트로 전달.
+#      tryon_generate 는 source='aicloset*' + accessoryHint 가 있을 때만 프롬프트 끝에 추가
+#      → 트라이온 페이지(tryon.html) 프롬프트는 무변경.
+#
 # ─── 2026-09-22 KST · ROOT FIX (근본 원인 확정 — gunicorn --preload fork 교착) ───
 #  ★ 2026-09-20~22 "아이템 등록 90% 멈춤 · 옷장 이미지 공백 · 서버 무응답" 의 근본 원인.
 #  증거: 2026-09-22 부팅 로그의 첫 요청(HEAD /)에서
@@ -6061,6 +6081,11 @@ def _analyze_garment_category(category_key: str, sub_category: str = "") -> dict
     """[2026-04-09] 카테고리+서브카테고리 → 착장 생성용 상세 의류 정보 (세분화)"""
     k = (category_key or "").lower().strip()
     sub = (sub_category or "").lower().strip()
+    # [2026-09-22 KST · 카테고리 v2 호환] codistyle.html 은 옷장 섹션 키를 그대로 보냄 →
+    #   coat·jacket 이 'outer' 로 통합됐으므로 세부품목으로 기존 두 분기 중 하나를 선택.
+    #   (coat/jacket 키로 들어오는 기존 경로는 아래 로직 그대로 — 동작 변경 없음)
+    if k == "outer":
+        k = "coat" if any(x in sub for x in ["코트", "트렌치", "더플", "롱패딩", "버버리", "케이프"]) else "jacket"
     combined = k + " " + sub
 
     # ── 아우터 (코트류) ──
@@ -9194,7 +9219,23 @@ def tryon_generate():
         attached_keys=_attached,  # [v7] 신규 — 실제 첨부된 이미지 기반 판단
         lang_en=_t_en,
     )
-    
+
+    # ─── 2026-09-22 KST · TJ 지시 ─── Ai옷장 착장 전용: 옷장에서 고른 소품을 텍스트로 반영 ───
+    #   트라이온 이미지 슬롯은 top/bottom/onepiece/outer/shoes 5종뿐 → 가방·스카프·시계·양말은
+    #   이미지 대신 설명으로 전달. source 가 aicloset* 이고 accessoryHint 가 있을 때만 적용하므로
+    #   트라이온 페이지(tryon.html)의 프롬프트는 한 글자도 바뀌지 않음.
+    try:
+        _acc_hint = str(payload.get("accessoryHint") or "").strip()[:300]
+        if _acc_hint and isinstance(prompt_img, str) and str(payload.get("source") or "").startswith("aicloset"):
+            prompt_img = prompt_img + (
+                "\n\n# STYLING ACCESSORIES (from the user's own closet — text reference only, no image attached)\n"
+                f"- Add naturally where visible in the pose and framing: {_acc_hint}\n"
+                "- Accessories must NOT change, cover, or replace any attached garment. Omit any that would be hidden.\n"
+            )
+            print(f"[TRYON-IMG] accessoryHint 적용: {_acc_hint[:80]}", flush=True)
+    except Exception as _ah_e:
+        print(f"[TRYON-IMG] accessoryHint 스킵: {_ah_e}", flush=True)
+
     # ─── 분석용 프롬프트 (텍스트 모델 전담) ───
     prompt_analysis, _analysis_img_meta = _tryon_build_analysis_prompt(
         mode=mode,
@@ -10119,55 +10160,57 @@ def track_styling():
 # ══════════════════════════════════════════════════════════════════════
 
 _ITEM_CAT_ENUM = [
-    "coat", "jacket", "top", "pants", "skirt", "onepiece",
-    "shoes", "watch", "scarf", "socks", "bag", "etc",
+    # ─── 2026-09-22 KST · TJ 지시 — 카테고리 체계 v2 (codibank.js 와 동일 키) ───
+    #   coat·jacket → outer 통합, etc = 패션소품(모자·벨트·넥타이·장갑·액세서리)
+    "outer", "top", "pants", "skirt", "onepiece",
+    "shoes", "bag", "socks", "watch", "scarf", "etc",
 ]
+# 레거시 카테고리 값(구 모델 응답·구 프론트) → v2
+_ITEM_CAT_LEGACY = {"coat": "outer", "jacket": "outer"}
 
-# ── sub_category enum (TJ 확정 분류표 2026-04-23 + 신발/시계/스카프/양말/기타 보강) ──
-#   free string 이던 필드를 enum 으로 고정 → 모델이 임의 값 생성 불가.
+# ── sub_category 화이트리스트 (2026-09-22 TJ 분류표 v2) ──
+#   스키마 enum 이 아니라 _normalize_item_analysis() 의 스냅용 (HOTFIX 2026-09-21 참고)
 _ITEM_SUB_ENUM = [
-    # coat (긴 아우터)
-    "아우터", "코트", "패딩", "버버리", "롱패딩", "트렌치코트", "더플코트",
-    # jacket (짧은 아우터)
-    "자켓", "블레이저", "점퍼", "다운자켓", "레더자켓", "데님자켓", "가디건",
-    "수트자켓", "콤비자켓", "사파리자켓", "집업자켓", "후드집업자켓",
-    "숏패딩", "다운조끼", "볼레로",
-    # top
-    "탑", "셔츠", "티셔츠", "후드티", "후드티셔츠", "블라우스", "면티",
-    "니트티", "니트셔츠", "니트", "반팔티", "긴팔티", "맨투맨", "스웨터",
-    # pants
-    "바지", "반바지", "데님팬츠", "조거팬츠", "트레이닝하의", "레깅스",
-    "숏팬츠", "러너팬츠", "청바지", "슬랙스", "면바지", "스키니", "와이드팬츠",
-    # skirt
-    "스커트", "H라인스커트", "A라인스커트", "플레어스커트", "플리츠스커트",
-    "머메이드스커트", "미니스커트", "미디스커트", "롱스커트", "레이어드스커트",
-    "랩스커트", "티어드스커트", "도트스커트",
-    # onepiece
-    "원피스", "미디원피스", "롱원피스", "셔츠원피스", "시스원피스", "랩원피스",
-    "슬립원피스", "시프트원피스", "미니원피스", "니트원피스",
-    "드레스", "웨딩드레스", "원피스수영복", "투피스수영복", "비키니수영복",
-    # bag
-    "핸드백", "토트백", "숄더백", "크로스백", "백팩", "클러치백", "미니백",
-    "에코백", "버킷백", "호보백", "새첼백", "메신저백", "더플백",
-    "보스턴백", "카메라백", "지갑",
-    # shoes
-    "스니커즈", "운동화", "구두", "로퍼", "부츠", "앵클부츠", "롱부츠",
-    "샌들", "슬리퍼", "슬립온", "힐", "펌프스", "워커",
-    # watch
-    "손목시계", "스마트워치", "아날로그시계", "디지털시계",
-    # scarf
-    "스카프", "머플러", "숄", "넥워머", "넥타이", "보타이",
-    # socks
-    "양말", "스타킹", "덧신", "니삭스",
-    # etc
-    "기타", "모자", "벨트", "안경", "선글라스", "장갑", "주얼리", "헤어밴드",
+    # outer (겉옷): 재킷·블레이저·코트·점퍼·패딩·바람막이·레인웨어·겉옷용 베스트
+    "재킷", "자켓", "블레이저", "수트자켓", "콤비자켓", "레더자켓", "데님자켓", "사파리자켓",
+    "코트", "트렌치코트", "더플코트", "롱코트", "점퍼", "집업자켓", "후드집업", "항공점퍼",
+    "패딩", "롱패딩", "숏패딩", "다운자켓", "바람막이", "레인웨어",
+    "패딩베스트", "다운베스트", "퀼팅베스트", "볼레로", "아우터",
+    # top (상의): 티셔츠·셔츠·블라우스·니트티·카디건·맨투맨·후드티·민소매·베스트
+    "티셔츠", "반팔티", "긴팔티", "면티", "셔츠", "드레스셔츠", "블라우스", "니트티", "니트", "스웨터",
+    "카디건", "가디건", "맨투맨", "후드티", "민소매", "베스트", "탑",
+    # pants (바지): 슬랙스·청바지·면바지·쇼츠·조거·레깅스
+    "슬랙스", "청바지", "면바지", "쇼츠", "반바지", "조거팬츠", "레깅스", "와이드팬츠", "트레이닝팬츠", "바지",
+    # skirt (스커트): 스커트·치마바지
+    "스커트", "미니스커트", "미디스커트", "롱스커트", "H라인스커트", "A라인스커트",
+    "플리츠스커트", "플레어스커트", "머메이드스커트", "랩스커트", "티어드스커트", "치마바지",
+    # onepiece (원피스): 원피스·드레스·점프수트·오버올
+    "원피스", "미니원피스", "미디원피스", "롱원피스", "셔츠원피스", "니트원피스", "슬립원피스", "랩원피스",
+    "드레스", "점프수트", "오버올",
+    # shoes (신발): 스니커즈·구두/로퍼·펌프스·부츠·샌들/슬리퍼
+    "스니커즈", "운동화", "구두", "로퍼", "펌프스", "힐", "부츠", "앵클부츠", "롱부츠", "레인부츠", "워커",
+    "샌들", "슬리퍼", "슬립온",
+    # bag (가방): 토트·숄더·크로스·백팩·클러치·기타가방
+    "토트백", "숄더백", "크로스백", "백팩", "클러치", "핸드백", "미니백", "에코백", "버킷백",
+    "호보백", "메신저백", "보스턴백", "기타가방",
+    # watch (시계)
+    "손목시계", "아날로그시계", "디지털시계", "스마트워치",
+    # scarf (스카프/머플러) — 넥타이는 패션소품으로 이동
+    "스카프", "머플러", "숄", "넥워머",
+    # socks (양말/타이즈)
+    "양말", "니삭스", "타이즈", "스타킹", "덧신",
+    # etc (패션소품): 모자·벨트·넥타이·장갑·액세서리
+    "모자", "캡모자", "비니", "버킷햇", "벨트", "넥타이", "보타이", "장갑",
+    "목걸이", "귀걸이", "반지", "팔찌", "선글라스", "안경", "헤어액세서리", "액세서리",
 ]
 
-_ITEM_OUTER_ENUM = [
-    "아우터", "코트", "패딩", "버버리", "롱패딩",
-    "자켓", "블레이저", "점퍼", "다운자켓", "레더자켓", "데님자켓", "가디건",
-    "none",
+# 겉옷 세부 유형 (outer_type) + 기장 판정 — codistyle/트라이온의 코트·재킷 구분 근거
+_OUTER_TYPES = [
+    "코트", "트렌치코트", "롱코트", "더플코트", "버버리", "패딩", "롱패딩", "숏패딩", "다운자켓",
+    "재킷", "자켓", "블레이저", "레더자켓", "데님자켓", "점퍼", "바람막이", "레인웨어", "베스트", "아우터",
 ]
+_OUTER_LONG_HINTS = ("코트", "트렌치", "롱패딩", "버버리", "더플", "롱")
+_ITEM_OUTER_ENUM = _OUTER_TYPES + ["none"]   # (하위호환 이름 유지)
 
 _ITEM_STYLE_KW_ENUM = [
     "캐주얼", "포멀", "스트릿", "미니멀", "빈티지", "스포티", "로맨틱",
@@ -10176,38 +10219,43 @@ _ITEM_STYLE_KW_ENUM = [
 
 # ── sub_category 키워드 → category 역매핑 (위에서부터 우선) ──
 #   ⚠️ 순서가 정확도의 전부입니다. 구체적인 단어를 반드시 먼저 둘 것.
-#      예) '셔츠원피스' 가 '셔츠'(top) 로 새지 않도록 원피스를 최상단에,
-#          '숏패딩'(jacket) 이 '패딩'(coat) 으로 새지 않도록 앞에 배치.
 _SUB2CAT_RULES = [
-    ("원피스", "onepiece"), ("드레스", "onepiece"),
-    ("스커트", "skirt"), ("치마", "skirt"),
-    ("백팩", "bag"), ("지갑", "bag"), ("가방", "bag"), ("백", "bag"),
-    ("숏패딩", "jacket"), ("다운조끼", "jacket"), ("볼레로", "jacket"),
-    ("자켓", "jacket"), ("재킷", "jacket"), ("블레이저", "jacket"),
-    ("점퍼", "jacket"), ("가디건", "jacket"), ("카디건", "jacket"),
-    ("롱패딩", "coat"), ("패딩", "coat"), ("트렌치", "coat"),
-    ("버버리", "coat"), ("코트", "coat"), ("아우터", "coat"),
-    ("스니커즈", "shoes"), ("운동화", "shoes"), ("구두", "shoes"),
-    ("로퍼", "shoes"), ("부츠", "shoes"), ("샌들", "shoes"),
-    ("슬리퍼", "shoes"), ("슬립온", "shoes"), ("펌프스", "shoes"),
-    ("워커", "shoes"), ("힐", "shoes"),
+    ("드레스셔츠", "top"),                                   # '드레스'(원피스)보다 먼저
+    ("원피스", "onepiece"), ("드레스", "onepiece"), ("점프수트", "onepiece"),
+    ("점프슈트", "onepiece"), ("오버올", "onepiece"), ("멜빵바지", "onepiece"),
+    ("스커트", "skirt"), ("치마", "skirt"),                  # '치마바지'가 '바지'로 새지 않도록 먼저
+    ("백팩", "bag"), ("클러치", "bag"), ("가방", "bag"), ("백", "bag"),
+    ("레인부츠", "shoes"),                                   # '레인웨어'(겉옷)와 구분
+    ("넥타이", "etc"), ("보타이", "etc"),                    # 넥타이 = 패션소품 (스카프보다 먼저)
+    ("모자", "etc"), ("비니", "etc"), ("버킷햇", "etc"), ("캡", "etc"), ("벨트", "etc"),
+    ("장갑", "etc"), ("목걸이", "etc"), ("귀걸이", "etc"), ("반지", "etc"), ("팔찌", "etc"),
+    ("선글라스", "etc"), ("안경", "etc"), ("헤어", "etc"), ("액세서리", "etc"),
+    ("패딩베스트", "outer"), ("다운베스트", "outer"), ("퀼팅베스트", "outer"),   # 겉옷용 베스트 (상의 베스트보다 먼저)
+    ("패딩조끼", "outer"), ("다운조끼", "outer"),
+    ("카디건", "top"), ("가디건", "top"),                    # 2026-09-22 카디건 = 상의
+    ("재킷", "outer"), ("자켓", "outer"), ("블레이저", "outer"), ("코트", "outer"),
+    ("점퍼", "outer"), ("패딩", "outer"), ("바람막이", "outer"), ("윈드브레이커", "outer"),
+    ("레인웨어", "outer"), ("레인코트", "outer"), ("우비", "outer"), ("집업", "outer"),
+    ("볼레로", "outer"), ("버버리", "outer"), ("트렌치", "outer"), ("아우터", "outer"),
+    ("스니커즈", "shoes"), ("운동화", "shoes"), ("구두", "shoes"), ("로퍼", "shoes"),
+    ("부츠", "shoes"), ("샌들", "shoes"), ("슬리퍼", "shoes"), ("슬립온", "shoes"),
+    ("펌프스", "shoes"), ("워커", "shoes"), ("힐", "shoes"),
     ("시계", "watch"), ("워치", "watch"),
-    ("스카프", "scarf"), ("머플러", "scarf"), ("넥워머", "scarf"),
-    ("넥타이", "scarf"), ("보타이", "scarf"), ("숄", "scarf"),
-    ("양말", "socks"), ("삭스", "socks"), ("스타킹", "socks"), ("덧신", "socks"),
-    ("레깅스", "pants"), ("청바지", "pants"), ("슬랙스", "pants"),
-    ("바지", "pants"), ("팬츠", "pants"), ("트레이닝하의", "pants"),
-    ("조거", "pants"), ("스키니", "pants"),
+    ("스카프", "scarf"), ("머플러", "scarf"), ("넥워머", "scarf"), ("숄", "scarf"),
+    ("양말", "socks"), ("삭스", "socks"), ("타이즈", "socks"), ("스타킹", "socks"), ("덧신", "socks"),
+    ("레깅스", "pants"), ("청바지", "pants"), ("슬랙스", "pants"), ("바지", "pants"),
+    ("팬츠", "pants"), ("쇼츠", "pants"), ("조거", "pants"), ("스키니", "pants"),
     ("후드티", "top"), ("맨투맨", "top"), ("스웨터", "top"), ("니트", "top"),
-    ("블라우스", "top"), ("티셔츠", "top"), ("셔츠", "top"),
-    ("면티", "top"), ("반팔티", "top"), ("긴팔티", "top"), ("탑", "top"),
+    ("블라우스", "top"), ("티셔츠", "top"), ("셔츠", "top"), ("면티", "top"),
+    ("반팔티", "top"), ("긴팔티", "top"), ("민소매", "top"), ("나시", "top"),
+    ("베스트", "top"), ("조끼", "top"), ("탑", "top"),
 ]
 
 # category 별 sub_category 기본값 (모델 응답이 화이트리스트에 전혀 안 맞을 때)
 _SUB_DEFAULT_BY_CAT = {
-    "coat": "코트", "jacket": "자켓", "top": "탑", "pants": "바지",
-    "skirt": "스커트", "onepiece": "원피스", "bag": "핸드백", "shoes": "스니커즈",
-    "watch": "손목시계", "scarf": "스카프", "socks": "양말", "etc": "기타",
+    "outer": "재킷", "top": "티셔츠", "pants": "바지", "skirt": "스커트", "onepiece": "원피스",
+    "bag": "기타가방", "shoes": "스니커즈", "watch": "손목시계", "scarf": "스카프",
+    "socks": "양말", "etc": "액세서리",
 }
 
 # ── [2026-09-21 HOTFIX-2] Gemini 호출 격리 스레드풀 ──
@@ -10221,9 +10269,6 @@ _ANALYZE_POOL = _an_cf.ThreadPoolExecutor(max_workers=4, thread_name_prefix="sm-
 _ANALYZE_HUNG = {"n": 0}
 _ANALYZE_HUNG_LOCK = _an_threading.Lock()
 
-_COAT_OUTER_TYPES = ["아우터", "코트", "패딩", "버버리", "롱패딩"]
-_JACKET_OUTER_TYPES = ["자켓", "블레이저", "점퍼", "다운자켓",
-                       "레더자켓", "데님자켓", "가디건"]
 
 # ── JSON 응답 스키마 (모든 호출에서 동일 — 캐시 prefix 안정성 확보) ──
 #   ⚠️ [2026-09-21 HOTFIX] sub_category(120값)·outer_type·style_keywords 의 enum 을
@@ -10301,64 +10346,64 @@ _ITEM_BASE_PROMPT = """당신은 세계 최고의 패션 전문가 AI입니다.
 ⚠️ 카테고리 판별 CRITICAL RULES — 순서대로 적용:
 
 [규칙 1] 원피스(onepiece) 판별 — 치마/바지/상의와 구분
-- 상의와 하의가 한 벌로 연결된 드레스 구조 → onepiece (원피스)
-  · 상반신부터 허벅지 이상까지 한 장으로 이어지는 옷
+- 상의와 하의가 한 벌로 연결된 구조 → onepiece (원피스)
+  · 원피스, 드레스, 점프수트, 오버올(멜빵바지) 모두 onepiece
   · 셔츠 형태여도 길이가 허벅지 이상 내려오며 벨트/허리 분리 없이 한 장이면 onepiece
   · 니트 원피스(knit dress), 셔츠 원피스(shirt dress) 등 모두 onepiece
 - 상반신만 덮는 옷(셔츠/니트/티셔츠/블라우스) → top (상의)
 
-[규칙 2] 치마/스커트 판별 — 원피스가 아닌 하의 전용
+[규칙 2] 스커트 판별 — 원피스가 아닌 하의 전용
 - 다리가 각각 분리된 통로(leg tube)가 있으면 → pants (바지류)
-- 다리 분리 없이 한 장의 천이 아래로 퍼지면 → skirt (치마류) ← 착용샷이어도 동일하게 적용
+- 다리 분리 없이 한 장의 천이 아래로 퍼지면 → skirt ← 착용샷이어도 동일하게 적용
 - 폭이 넓어 바지처럼 보여도 leg separation 없으면 반드시 skirt
+- 치마바지(스커트 팬츠/큘롯 스커트)는 skirt
 - 도트무늬/플리츠/티어드 등 디자인과 무관하게 구조로만 판별
 
-[규칙 3] 아우터(coat/jacket) 판별 — 무릎 기준 길이로 구분
-- 무릎 이상 긴 아우터 → coat (롱코트/트렌치코트/더플코트 등)
-- 엉덩이 길이 또는 짧은 아우터 → jacket (블레이저/가디건/숏패딩/점퍼 등)
+[규칙 3] 겉옷(outer) vs 상의(top) 판별 — 기장이 아니라 "맨 바깥에 걸치는 옷인가"로 판단
+- outer: 재킷, 블레이저, 코트, 점퍼, 패딩, 바람막이, 레인웨어, 겉옷용 베스트(패딩/다운/퀼팅 베스트)
+  · 긴 코트든 짧은 재킷이든 모두 outer. 기장은 outer_type 으로 구분
+- top: 티셔츠, 셔츠, 블라우스, 니트티, 카디건, 맨투맨, 후드티, 민소매, 베스트(니트/정장 베스트)
+  · ⚠️ 카디건은 반드시 top (outer 아님)
+  · ⚠️ 베스트는 소재로 판단: 패딩·다운·퀼팅 → outer / 니트·정장·트위드 → top
 - 착용샷이어도 구조로만 판별 (디자인/패턴 무시)
-- 가디건은 반드시 jacket
 
-[규칙 4] 가방(bag) 판별
-- 들거나 메는 가방류 → bag
-  · 핸드백, 토트백, 숄더백, 크로스백, 백팩, 클러치, 미니백, 에코백 등 모두 bag
+[규칙 4] 가방(bag)·패션소품(etc) 판별
+- 들거나 메는 가방류 → bag (토트, 숄더, 크로스, 백팩, 클러치, 기타 가방)
   · 손잡이(handle) 또는 스트랩(strap) 이 있고 내부 수납이 가능한 형태이면 bag
-- 가방을 든 사람 착용샷도 가방 자체가 주제이면 → bag (사람은 무시)
-- bag 은 etc 로 절대 분류하지 말 것
+  · 가방을 든 사람 착용샷도 가방 자체가 주제이면 → bag (사람은 무시)
+- etc 는 "패션소품" 입니다: 모자, 벨트, 넥타이, 보타이, 장갑, 목걸이·귀걸이·반지·팔찌, 안경·선글라스
+  · ⚠️ 넥타이는 scarf 가 아니라 etc
+- 양말·니삭스·타이즈·스타킹 → socks / 스카프·머플러·숄·넥워머 → scarf
 
-[규칙 5] 모호한 경우 — 절대 etc 로 도피하지 말 것
-- 의류 구조가 명확하면 (원피스/치마/바지/상의/아우터/신발/가방 등) 반드시 해당 카테고리 선택
-- etc 는 진짜로 카테고리 12종 중 어디에도 속하지 않을 때만 (예: 모자, 벨트, 안경, 장갑 등)
+[규칙 5] 모호한 경우
+- 의류 구조가 명확하면 반드시 해당 카테고리 선택 (etc 로 도피 금지 — etc 는 패션소품 전용)
 - category 와 sub_category 는 반드시 일관성 있게:
-  · sub_category 가 "원피스"/"드레스" 계열 → category = onepiece
-  · sub_category 가 "스커트" 계열       → category = skirt
-  · sub_category 가 "백"/"가방" 계열     → category = bag
-  · sub_category 가 긴 아우터 계열       → category = coat
-  · sub_category 가 짧은 아우터 계열     → category = jacket
+  · sub_category 가 원피스/드레스/점프수트/오버올 → onepiece
+  · sub_category 가 스커트/치마바지 → skirt
+  · sub_category 가 가방류 → bag
+  · sub_category 가 겉옷류 → outer / 카디건 → top
   · 두 필드가 모순되면 분석 실패로 간주
 
-[sub_category 선택 가이드 — 스키마 enum 값 중 category 에 맞는 것만 고를 것]
-· coat    : 아우터 / 코트 / 패딩 / 버버리 / 롱패딩 / 트렌치코트 / 더플코트
-· jacket  : 자켓 / 블레이저 / 점퍼 / 다운자켓 / 레더자켓 / 데님자켓 / 가디건 /
-            수트자켓 / 콤비자켓 / 사파리자켓 / 집업자켓 / 후드집업자켓 / 숏패딩 / 다운조끼 / 볼레로
-· top     : 탑 / 셔츠 / 티셔츠 / 후드티 / 후드티셔츠 / 블라우스 / 면티 / 니트티 /
-            니트셔츠 / 니트 / 반팔티 / 긴팔티 / 맨투맨 / 스웨터
-· pants   : 바지 / 반바지 / 데님팬츠 / 조거팬츠 / 트레이닝하의 / 레깅스 / 숏팬츠 /
-            러너팬츠 / 청바지 / 슬랙스 / 면바지 / 스키니 / 와이드팬츠
-· skirt   : 스커트 / H라인스커트 / A라인스커트 / 플레어스커트 / 플리츠스커트 /
-            머메이드스커트 / 미니스커트 / 미디스커트 / 롱스커트 / 레이어드스커트 /
-            랩스커트 / 티어드스커트 / 도트스커트
-· onepiece: 원피스 / 미디원피스 / 롱원피스 / 셔츠원피스 / 시스원피스 / 랩원피스 /
-            슬립원피스 / 시프트원피스 / 미니원피스 / 니트원피스 / 드레스 / 웨딩드레스 /
-            원피스수영복 / 투피스수영복 / 비키니수영복
-· bag     : 핸드백 / 토트백 / 숄더백 / 크로스백 / 백팩 / 클러치백 / 미니백 / 에코백 /
-            버킷백 / 호보백 / 새첼백 / 메신저백 / 더플백 / 보스턴백 / 카메라백 / 지갑
-· shoes   : 스니커즈 / 운동화 / 구두 / 로퍼 / 부츠 / 앵클부츠 / 롱부츠 / 샌들 /
-            슬리퍼 / 슬립온 / 힐 / 펌프스 / 워커
-· watch   : 손목시계 / 스마트워치 / 아날로그시계 / 디지털시계
-· scarf   : 스카프 / 머플러 / 숄 / 넥워머 / 넥타이 / 보타이
-· socks   : 양말 / 스타킹 / 덧신 / 니삭스
-· etc     : 기타 / 모자 / 벨트 / 안경 / 선글라스 / 장갑 / 주얼리 / 헤어밴드
+[sub_category 선택 가이드 — category 에 맞는 값만 고를 것]
+· outer   : 재킷 / 블레이저 / 수트자켓 / 레더자켓 / 데님자켓 / 코트 / 트렌치코트 / 롱코트 /
+            점퍼 / 집업자켓 / 후드집업 / 패딩 / 롱패딩 / 숏패딩 / 다운자켓 / 바람막이 /
+            레인웨어 / 패딩베스트 / 다운베스트 / 퀼팅베스트 / 볼레로
+· top     : 티셔츠 / 반팔티 / 긴팔티 / 셔츠 / 드레스셔츠 / 블라우스 / 니트티 / 니트 / 스웨터 /
+            카디건 / 맨투맨 / 후드티 / 민소매 / 베스트 / 탑
+· pants   : 슬랙스 / 청바지 / 면바지 / 쇼츠 / 반바지 / 조거팬츠 / 레깅스 / 와이드팬츠 / 트레이닝팬츠
+· skirt   : 미니스커트 / 미디스커트 / 롱스커트 / H라인스커트 / A라인스커트 / 플리츠스커트 /
+            플레어스커트 / 머메이드스커트 / 랩스커트 / 티어드스커트 / 치마바지
+· onepiece: 원피스 / 미니원피스 / 미디원피스 / 롱원피스 / 셔츠원피스 / 니트원피스 / 슬립원피스 /
+            랩원피스 / 드레스 / 점프수트 / 오버올
+· shoes   : 스니커즈 / 운동화 / 구두 / 로퍼 / 펌프스 / 힐 / 부츠 / 앵클부츠 / 롱부츠 / 레인부츠 /
+            워커 / 샌들 / 슬리퍼 / 슬립온
+· bag     : 토트백 / 숄더백 / 크로스백 / 백팩 / 클러치 / 핸드백 / 미니백 / 에코백 / 버킷백 /
+            호보백 / 메신저백 / 보스턴백 / 기타가방
+· watch   : 손목시계 / 아날로그시계 / 디지털시계 / 스마트워치
+· scarf   : 스카프 / 머플러 / 숄 / 넥워머
+· socks   : 양말 / 니삭스 / 타이즈 / 스타킹 / 덧신
+· etc     : 모자 / 캡모자 / 비니 / 버킷햇 / 벨트 / 넥타이 / 보타이 / 장갑 / 목걸이 / 귀걸이 /
+            반지 / 팔찌 / 선글라스 / 안경 / 헤어액세서리 / 액세서리
 
 [box_2d — 색상 정확도 확보용 필수 필드]
 - 이미지에서 "의류 아이템만" 감싸는 가장 작은 사각형을 [ymin, xmin, ymax, xmax] 로 출력
@@ -10371,7 +10416,7 @@ _ITEM_BASE_PROMPT = """당신은 세계 최고의 패션 전문가 AI입니다.
 - 착용샷(사람이 입은 사진)이어도 의류 아이템 자체만 분석
 - 배경과 착용자 신체 무시, 의류 구조에만 집중
 - skirt 면 skirt_length, onepiece 면 dress_length 를 반드시 채울 것 (아니면 "none")
-- coat / jacket 이면 outer_type 을 반드시 채울 것 (아니면 "none")
+- outer 이면 outer_type 을 반드시 채울 것: 코트/트렌치코트/롱코트/패딩/롱패딩/숏패딩/다운자켓/재킷/블레이저/레더자켓/데님자켓/점퍼/바람막이/레인웨어/베스트 중 하나 (아니면 "none")
 - material 은 쉼표로 여러 개 가능 (예: "면,혼방")
 - main_color / sub_color 는 #RRGGBB 형식, *_name 은 한국어 색상명
 - design_points: 디자인 특징 1~2문장 (한국어)
@@ -10480,6 +10525,7 @@ def _normalize_item_analysis(analysis: dict) -> dict:
         return str(v).strip() if v is not None else ""
 
     cat = _s(analysis.get("category")).lower()
+    cat = _ITEM_CAT_LEGACY.get(cat, cat)          # [2026-09-22] coat/jacket → outer
     sub = _s(analysis.get("sub_category"))
 
     # ── ⓪ sub_category 화이트리스트 스냅 (스키마 enum 제거분 대체) ──
@@ -10534,31 +10580,17 @@ def _normalize_item_analysis(analysis: dict) -> dict:
     if cat == "onepiece" and not analysis.get("dress_length"):
         analysis["dress_length"] = _guess_len()
 
-    # ── ④ outer_type ──
+    # ── ④ outer_type + outer_length (2026-09-22 v2: 겉옷 통합 — 기장은 여기서 구분) ──
     ot = _s(analysis.get("outer_type"))
     if ot.lower() in ("none", "null"):
         ot = ""
-    if cat == "coat":
-        if ot not in _COAT_OUTER_TYPES:
-            if "롱패딩" in sub:
-                ot = "롱패딩"
-            elif "패딩" in sub:
-                ot = "패딩"
-            elif "버버리" in sub or "트렌치" in sub:
-                ot = "버버리"
-            else:
-                ot = "코트"
-    elif cat == "jacket":
-        if ot not in _JACKET_OUTER_TYPES:
-            ot = ""
-            for t in ["다운자켓", "레더자켓", "데님자켓", "블레이저", "점퍼", "가디건"]:
-                if t in sub:
-                    ot = t
-                    break
-            if not ot:
-                ot = "자켓"
+    if cat == "outer":
+        if ot not in _OUTER_TYPES:
+            ot = next((t for t in sorted(_OUTER_TYPES, key=len, reverse=True) if t in sub), "") or "재킷"
+        analysis["outer_length"] = "long" if any(h in (sub + " " + ot) for h in _OUTER_LONG_HINTS) else "short"
     else:
         ot = ""
+        analysis["outer_length"] = None
     analysis["outer_type"] = ot or None
 
     # ── ⑤ style_keywords 화이트리스트 (최대 3개) ──
@@ -16590,7 +16622,12 @@ import datetime as _sm_dt
 
 _SM_LOCAL_STORE = os.path.join(_UPLOAD_DIR, "sm_alarms_local.json")
 _SM_LOCK = _sm_threading.Lock()
-_SM_SLOTS = ("outer", "top", "bottom", "onepiece", "shoes")
+# [2026-09-22 KST · TJ 지시] 소품 슬롯 추가 — 트라이온 이미지 슬롯은 앞 5개뿐이므로
+#   소품(bag/scarf/watch/socks)은 선택 후 텍스트 힌트(accessoryHint)로 착장에 반영.
+#   acc = 패션소품(etc: 모자·벨트·넥타이·장갑·액세서리) — 선택적 1개
+_SM_SLOTS = ("outer", "top", "bottom", "onepiece", "shoes", "bag", "scarf", "watch", "socks", "acc")
+_SM_IMAGE_SLOTS = ("outer", "top", "bottom", "onepiece", "shoes")
+_SM_ACC_SLOTS = ("bag", "scarf", "watch", "socks", "acc")
 
 def _sm_now_utc():
     return _sm_dt.datetime.now(_sm_dt.timezone.utc)
@@ -16820,10 +16857,44 @@ _SM_PICK_SCHEMA = {
     "type": "object",
     "properties": {
         "onepiece_id": {"type": "string"}, "top_id": {"type": "string"}, "bottom_id": {"type": "string"},
-        "outer_id": {"type": "string"}, "shoes_id": {"type": "string"}, "reason": {"type": "string"},
+        "outer_id": {"type": "string"}, "shoes_id": {"type": "string"},
+        "bag_id": {"type": "string"}, "scarf_id": {"type": "string"},
+        "watch_id": {"type": "string"}, "socks_id": {"type": "string"}, "acc_id": {"type": "string"},
+        "reason": {"type": "string"},
     },
     "required": ["reason"],
 }
+
+def _sm_accessory_hint(picked: list, items_by_id: dict) -> str:
+    """[2026-09-22] 선택된 소품(bag/scarf/watch/socks) → 트라이온 텍스트 힌트 (최대 300자)."""
+    parts = []
+    for p in picked or []:
+        if p.get("slot") not in _SM_ACC_SLOTS:
+            continue
+        it = items_by_id.get(str(p.get("id"))) or {}
+        g = it.get("analysis") or it.get("_gemini") or {}
+        mat = str(it.get("material") or g.get("material") or "").split(",")[0].strip()
+        label = p.get("label") or ""
+        parts.append((label + (f" ({mat})" if mat else "")).strip())
+    return "; ".join([x for x in parts if x])[:300]
+
+def _sm_season_for(date_key, lat):
+    """[2026-09-22] 날짜 + 위도 → 계절. 남반구는 계절 반전, 적도권(|위도|<15)은 연중 더운 기후."""
+    try:
+        m = int(str(date_key or "")[5:7])
+        if not 1 <= m <= 12: raise ValueError
+    except Exception:
+        m = _sm_now_utc().month
+    try:
+        la = float(lat)
+    except Exception:
+        la = 37.5665
+    if abs(la) < 15:
+        return "연중 더운 기후(건기/우기)"
+    if la < 0:
+        m = (m + 5) % 12 + 1          # 남반구: 6개월 이동
+    return {12: "겨울", 1: "겨울", 2: "겨울", 3: "봄", 4: "봄", 5: "봄",
+            6: "여름", 7: "여름", 8: "여름", 9: "가을", 10: "가을", 11: "가을"}[m]
 
 def _sm_pick_outfit(ctx: dict, items: list, exclude: list = None, lang: str = "ko") -> dict:
     """ctx: {dateKey, weather:{temp,text,pop}, purposeLabel, purposeHint, user:{gender,ageGroup,...}}"""
@@ -16836,20 +16907,51 @@ def _sm_pick_outfit(ctx: dict, items: list, exclude: list = None, lang: str = "k
     if not slim: return {"picked": [], "reason": ""}
     wx = ctx.get("weather") or {}; temp = wx.get("temp"); u = ctx.get("user") or {}
     lang_name = {"ko": "Korean", "en": "English", "ja": "Japanese", "zh": "Chinese", "fr": "French", "de": "German", "es": "Spanish", "tr": "Turkish", "ar": "Arabic"}.get(lang, "Korean")
+    # ─── 2026-09-22 KST · TJ 지시 ─── 위치 기준 계절 + 체형 + 퍼스널컬러 + 소품 ───
+    _is_f = str(u.get("gender", "")).upper() in ("F", "FEMALE")
+    geo = ctx.get("geo") or {}
+    season = _sm_season_for(ctx.get("dateKey"), geo.get("lat"))
+    loc_txt = str(u.get("location") or ctx.get("locationName") or "").strip()
+    bt_line = ""
+    try:
+        _bt = _get_body_type_info("female" if _is_f else "male", ctx.get("bodyType")) if ctx.get("bodyType") else None
+        if _bt:
+            bt_line = f"Body type: {_bt.get('label','')} — flattering: {_bt.get('do_style','')}; avoid: {_bt.get('dont_style','')}\n"
+    except Exception:
+        bt_line = ""
+    pc = ctx.get("personalColor") or {}
+    pc_line = ""
+    if isinstance(pc, dict) and pc.get("season"):
+        _best = ", ".join((pc.get("best_color_names") or pc.get("best_colors") or [])[:5])
+        _avoid = ", ".join((pc.get("avoid_color_names") or pc.get("avoid_colors") or [])[:4])
+        pc_line = f"Personal color: {pc.get('season')} — best: {_best or '-'}; avoid near the face: {_avoid or '-'}\n"
     prompt = (
         "You are a personal stylist choosing an outfit ONLY from the user's own closet items listed below.\n"
-        f"Date: {ctx.get('dateKey')} · Weather: {temp if temp is not None else 'unknown'}°C, {wx.get('text') or 'unknown'}"
+        f"Date: {ctx.get('dateKey')} · Season at the user's location: {season}"
+        f"{' · Location: ' + loc_txt if loc_txt else ''}\n"
+        f"Weather: {temp if temp is not None else 'unknown'}°C, {wx.get('text') or 'unknown'}"
         f"{', rain chance ' + str(wx.get('pop')) + '%' if wx.get('pop') is not None else ''}\n"
         f"Purpose (TPO): {ctx.get('purposeLabel')} — {ctx.get('purposeHint') or ''}\n"
-        f"User: {'woman' if str(u.get('gender','')).upper()=='F' else 'man'}, age group {u.get('ageGroup') or 'adult'}\n\n"
+        f"User: {'woman' if _is_f else 'man'}, age group {u.get('ageGroup') or 'adult'}"
+        f"{', height ' + str(u.get('height')) + 'cm' if u.get('height') else ''}"
+        f"{', weight ' + str(u.get('weight')) + 'kg' if u.get('weight') else ''}\n"
+        + bt_line + pc_line + "\n"
         "RULES\n"
         "1. Pick EITHER one onepiece OR (one top + one bottom). Never both.\n"
         "2. outer: include one when the temperature is 15°C or below, or when rain is likely. Above 20°C leave empty.\n"
         "3. shoes: include one if any shoes exist; match the purpose (running → sneakers/running shoes, formal → leather shoes).\n"
-        "4. Match season fields to the weather (겨울전용/가을겨울 for cold, 봄여름/여름전용 for warm, 사계절 anytime).\n"
+        "4. Match the season and item 'season' fields to the weather (겨울전용/가을겨울 for cold, 봄여름/여름전용 for warm, 사계절 anytime).\n"
         "5. Colors must work together; prefer one accent at most. Respect material vs weather (no wool in heat, no linen in cold).\n"
-        "6. Use ONLY ids from the list. Leave a slot empty ('') when nothing suitable exists.\n"
-        f"7. 'reason': 1–2 sentences in {lang_name}, friendly, naming the key items and why they fit the weather and purpose.\n\n"
+        "6. If a body type is given, prefer fits/lengths it lists as flattering and avoid the ones it says to avoid.\n"
+        "7. If a personal color is given, put best colors near the face (top/outer/scarf) and keep avoid-colors away from the face.\n"
+        "8. Accessories (each optional — leave '' if nothing suits):\n"
+        "   · bag: pick one that suits the TPO (office → tote/shoulder, date/party → small crossbody/clutch, travel/active → backpack/crossbody).\n"
+        "   · scarf: include a muffler/scarf at 10°C or below, or on windy/rainy cold days; in warm weather only as a light accent for formal/date TPO.\n"
+        "   · watch: include for business, formal, interview or date TPO; optional otherwise.\n"
+        "   · socks: include tights with a skirt/dress at 15°C or below, or visible socks that suit casual sneakers; otherwise leave empty.\n"
+        "   · acc (hat/belt/necktie/gloves/jewelry): at most one — necktie for business/formal/interview (men), gloves at 5°C or below, hat for sunny outdoor/travel, belt when trousers are tucked-in; otherwise leave empty.\n"
+        "9. Use ONLY ids from the list, each in its own slot. Leave a slot empty ('') when nothing suitable exists.\n"
+        f"10. 'reason': 1–2 sentences in {lang_name}, friendly, naming the key items and why they fit the weather, season and purpose.\n\n"
         "CLOSET ITEMS (JSON):\n" + json.dumps(slim, ensure_ascii=False)
     )
     out = _sm_gemini_json(prompt, _SM_PICK_SCHEMA)
@@ -16865,6 +16967,8 @@ def _sm_pick_outfit(ctx: dict, items: list, exclude: list = None, lang: str = "k
     else:
         _add("top", "top_id"); _add("bottom", "bottom_id")
     _add("outer", "outer_id"); _add("shoes", "shoes_id")
+    for _acc in _SM_ACC_SLOTS:                     # [2026-09-22] 소품
+        _add(_acc, _acc + "_id")
     # 폴백: 모델이 상/하의를 못 고르면 시즌 적합 첫 아이템
     slots = {p["slot"] for p in picked}
     if "onepiece" not in slots and not ({"top", "bottom"} <= slots):
@@ -16880,8 +16984,12 @@ def sm_pick_outfit_api():
         p = request.get_json(silent=True) or {}
         items = p.get("items") or []
         if not items: return jsonify(ok=False, error="items 비어있음"), 400
-        ctx = {"dateKey": p.get("dateKey"), "weather": p.get("weather") or {}, "purposeLabel": p.get("purposeLabel"), "purposeHint": p.get("purposeHint"), "user": p.get("user") or {}}
+        ctx = {"dateKey": p.get("dateKey"), "weather": p.get("weather") or {}, "purposeLabel": p.get("purposeLabel"), "purposeHint": p.get("purposeHint"), "user": p.get("user") or {},
+               # [2026-09-22] 위치 기준 계절 · 체형 · 퍼스널컬러 (구 프론트는 안 보내도 동작)
+               "geo": p.get("geo") or {}, "bodyType": p.get("bodyType") or "", "personalColor": p.get("personalColor") or {}}
         res = _sm_pick_outfit(ctx, items, p.get("exclude") or [], _norm_lang(p.get("lang")))
+        _by_id = {str(i.get("id")): i for i in items}
+        res["accessoryHint"] = _sm_accessory_hint(res.get("picked") or [], _by_id)
         return jsonify(ok=True, **res)
     except Exception as e:
         print(f"[SM] pick-outfit fail: {e}", flush=True)
@@ -17018,16 +17126,21 @@ def _sm_run_alarm(row: dict):
         geo = row.get("geo_json") or {}; lat = float(geo.get("lat") or 37.5665); lon = float(geo.get("lon") or 126.978)
         lang = row.get("lang") or "ko"
         wx = _sm_weather(lat, lon, row.get("date_key"), row.get("tz"), lang, row.get("time_str"))   # 예약 시각의 시간별 예보
-        ctx = {"dateKey": row.get("date_key"), "weather": wx, "purposeLabel": row.get("purpose_label"), "purposeHint": row.get("purpose_hint"), "user": row.get("user_json") or {}}
+        ctx = {"dateKey": row.get("date_key"), "weather": wx, "purposeLabel": row.get("purpose_label"), "purposeHint": row.get("purpose_hint"), "user": row.get("user_json") or {},
+               # [2026-09-22] 예약 위치 기준 계절 · 체형 · 퍼스널컬러
+               "geo": {"lat": lat, "lon": lon}, "bodyType": snap.get("bodyType") or "", "personalColor": snap.get("personalColor") or {}}
         pick = _sm_pick_outfit(ctx, items, [], lang)
         picked = pick.get("picked") or []
         if not picked: raise RuntimeError("조합 선정 실패")
         by_id = {str(i.get("id")): i for i in items}
         payload = {"user": row.get("user_json") or {}, "fitTarget": "my", "lang": lang, "mode": "twopiece", "source": "aicloset_alarm"}
         for p in picked:
+            if p["slot"] not in _SM_IMAGE_SLOTS: continue      # [2026-09-22] 소품은 이미지 슬롯이 아님 → 힌트로
             it = by_id.get(str(p["id"]));
             if not it or not it.get("image"): continue
             payload[p["slot"] + "DataUrl"] = it["image"]; payload[p["slot"] + "Analysis"] = it.get("analysis") or {}
+        _acc_hint = _sm_accessory_hint(picked, by_id)
+        if _acc_hint: payload["accessoryHint"] = _acc_hint
         if payload.get("onepieceDataUrl"): payload["mode"] = "onepiece"
         elif payload.get("outerDataUrl"): payload["mode"] = "outer"
         if snap.get("faceImage"): payload["faceImage"] = snap["faceImage"]
