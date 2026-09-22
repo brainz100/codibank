@@ -14,6 +14,12 @@
 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-09-22 KST · TJ 지시 (카테고리 개편 v2) ───
+  코트/자켓/패딩 → 겉옷(outer) 단일 키, 카디건 → 상의(top). CAT_SUBSTITUTE_MAP · 추천 팔레트 키 ·
+  pickOutfit · 유사도 SUB 맵 · _outerSet/_topSet 을 outer 기준으로 정리 (aicloset.html 과 동일 로직).
+  저장된 옛 추천(coat/jacket 키)도 겉옷 카드에서 매칭되도록 recId 조회에 옛 키 포함.
+  카테고리 목록은 getCategoriesForUser 로 그려지므로 남성은 스커트·원피스 자동 제외.
+
 ─── 2026-05-22 KST · TJ 지시 v2026.05.21.004 (분석 내용 이미지 불일치 수정) ───
  증상: AI 옷장 추천코디 박스에서 이미지는 흰색 V넥 블라우스+베이지 와이드
        팬츠인데 카테고리 분석은 "라이트 그레이 크루넥 니트 / 블랙 랩 스커트
@@ -3779,11 +3785,13 @@ function normalizeKColorName(name){
 // ── 카테고리 대체 그룹 정의
 const CAT_SUBSTITUTE_MAP = {
   // 코트 ↔ 자켓 상호 대체 (길이 다르지만 아우터로 묶어서 매칭)
-  coat:    ['jacket'],   // 코트 없으면 자켓으로 대체
-  jacket:  ['coat'],     // 자켓 없으면 코트로 대체
-  outer:   ['coat','jacket'],
-  padding: ['jacket','coat'],
-  cardigan:['jacket','coat'],
+  // [2026-09-22 카테고리 v2] 코트·자켓·패딩 → '겉옷(outer)' 1개 키로 통합, 카디건 → 상의(top)
+  //   CodiBank.getItemsByUserAndCategory 가 coat/jacket 을 outer 로 해석하므로 outer 대체목록은 비워 중복 조회 방지
+  coat:    ['outer'],
+  jacket:  ['outer'],
+  outer:   [],
+  padding: ['outer'],
+  cardigan:['top'],
   top:    ['shirt','knit','tshirt'],
   shirt:  ['top','knit'],
   knit:   ['top','shirt'],
@@ -4817,7 +4825,8 @@ function buildMatchPairsFromPalette(palette, temp){
   const t = Number(temp);
   // 온도별 아우터 카테고리 키 (CAT_SUBSTITUTE_MAP으로 대체 카테고리 자동 검색)
   // <=7°C → coat(코트) / 8~15°C → jacket(자켓) / >15°C → outer(아우터, 가디건 포함)
-  const outerKey = Number.isFinite(t) ? (t<=7?'coat':t<=15?'jacket':'outer') : 'jacket';
+  // [2026-09-22 v2] 코트/자켓 분리 키 폐지 → 'outer'(겉옷)
+  const outerKey = 'outer';
   const pairs = [
     { key: outerKey, color: colorNameFromHex(palette?.outer) },
     { key: 'top',   color: colorNameFromHex(palette?.top) },
@@ -8586,8 +8595,8 @@ function pickOutfit(pk,wx,seed){
 
   let outer = null;
   // 아우터는 기온에 따라(추운 날 우선)
-  if(t!==null && Number(t)<=9) outer = pickIt(gi('coat'), tone, s);
-  if(!outer) outer = pickIt(gi('jacket'), tone, s);
+  // [2026-09-22 v2] 겉옷 단일 키. 따뜻한 날(>22°C)엔 겉옷 생략
+  if(t===null || t===undefined || Number(t)<=22) outer = pickIt(gi('outer'), tone, s);
 
   const top = pickIt(gi('top'), tone, s);
   const pants = pickIt(gi('pants'), tone, s);
@@ -8606,7 +8615,7 @@ function pickOutfit(pk,wx,seed){
 }
 function renderFitChips(outfit){
   const el=document.getElementById('fitChips');if(!el)return;el.innerHTML='';
-  [{cat:outfit.outer?.categoryKey||'coat',item:outfit.outer,empty:'아우터 추가'},{cat:'top',item:outfit.top,empty:'상의 추가'},{cat:'pants',item:outfit.pants,empty:'하의 추가'},{cat:'shoes',item:outfit.shoes,empty:'신발 추가'},{cat:outfit.acc?.categoryKey||'watch',item:outfit.acc,empty:'액세서리 추가'}].forEach(s=>{
+  [{cat:outfit.outer?.categoryKey||'outer',item:outfit.outer,empty:'아우터 추가'},{cat:'top',item:outfit.top,empty:'상의 추가'},{cat:'pants',item:outfit.pants,empty:'하의 추가'},{cat:'shoes',item:outfit.shoes,empty:'신발 추가'},{cat:outfit.acc?.categoryKey||'watch',item:outfit.acc,empty:'액세서리 추가'}].forEach(s=>{
     const a=document.createElement('a');
     if(s.item?.id){a.href=`item.html?id=${encodeURIComponent(s.item.id)}`;a.className='fit-chip px-3 py-2 rounded-full bg-white border border-slate-200 shadow-sm text-[12px] font-extrabold text-slate-700 whitespace-nowrap';a.dataset.itemId=String(s.item.id);const meta=CodiBank.getCategoryMetaByKey(s.cat,user.email);a.textContent=`${meta?.label||s.cat} · ${s.item.brand||s.item.color||_L('아이템')}`;}
     else{a.href=`camera.html?category=${encodeURIComponent(s.cat)}`;a.className='px-3 py-2 rounded-full bg-slate-50 border border-slate-200 text-[12px] font-extrabold text-slate-500 flex items-center gap-1.5 whitespace-nowrap';a.innerHTML=`<span class="material-symbols-outlined filled text-[16px] text-accent">add</span>${s.empty}`;}
@@ -9748,7 +9757,7 @@ function layerContent(el,item,catKey){
   // ✅ 추천 코디 매칭 아이템이면 강조(스파클) + 매칭 점수 배지
   // coat↔jacket 등 대체 카테고리 포함 매칭 아이템 ID 조회
   const _subKL = CAT_SUBSTITUTE_MAP[String(catKey||'').toLowerCase()]||[];
-  const recId = (S.hasGenerated&&S.matchByCat) ? ([catKey,..._subKL].map(k=>S.matchByCat[k]).find(v=>v)||'') : '';
+  const recId = (S.hasGenerated&&S.matchByCat) ? ([catKey,..._subKL,...(String(catKey)==='outer'?['coat','jacket']:[])].map(k=>S.matchByCat[k]).find(v=>v)||'') : '';
   const isMatched = !!(recId && nid && nid===recId);
   if(isMatched){ el.classList.add('sparkle'); }
   // 매칭 배지 (이미지 하단 오른쪽)
@@ -9824,9 +9833,9 @@ function _getCatSimData(catKey){
   // pickBestItemByScore 기반 10점 만점 매칭 점수
   if(!S.hasGenerated) return null;
   const ckw = S.categoryKeywords || {};
-  const _outerSet = new Set(['outer','coat','jacket','padding','cardigan']);
+  const _outerSet = new Set(['outer','coat','jacket','padding']);   // [v2] cardigan → top
   const _bottomSet = new Set(['bottom','pants','slacks','jeans','skirt']);
-  const _topSet    = new Set(['top','shirt','knit','tshirt','blouse']);
+  const _topSet    = new Set(['top','shirt','knit','tshirt','blouse','cardigan']);
   const _shoesSet  = new Set(['shoes','sneakers','loafers','boots']);
   const _scarfSet  = new Set(['scarf','muffler','neckwear','accent']);
   let ckwKey = catKey;
@@ -9885,7 +9894,7 @@ function buildSection(catMeta,items){
 
   // ── codibank 어드바이스 박스 ──
   const _subKA = CAT_SUBSTITUTE_MAP[String(catMeta.key||'').toLowerCase()]||[];
-  const recId0 = (S.hasGenerated&&S.matchByCat) ? ([catMeta.key,..._subKA].map(k=>S.matchByCat[k]).find(v=>v)||'') : '';
+  const recId0 = (S.hasGenerated&&S.matchByCat) ? ([catMeta.key,..._subKA,...(String(catMeta.key)==='outer'?['coat','jacket']:[])].map(k=>S.matchByCat[k]).find(v=>v)||'') : '';
   const score0=recId0&&S.matchScoreMap?(S.matchScoreMap[recId0]||0):0;
   const detail0=recId0&&S.matchDetailMap?(S.matchDetailMap[recId0]||null):null;
   const adv=document.createElement('div');adv.className='m-adv';
@@ -9965,7 +9974,7 @@ function buildSection(catMeta,items){
   // ✅ 추천 코디 매칭 아이템(카테고리별) 우선으로 가운데에 배치
   // coat↔jacket 대체 포함 매칭 아이템 ID (카드 가운데 배치용)
   const _subKD = CAT_SUBSTITUTE_MAP[String(catMeta.key||'').toLowerCase()]||[];
-  const recId = (S.hasGenerated&&S.matchByCat) ? ([catMeta.key,..._subKD].map(k=>S.matchByCat[k]).find(v=>v)||'') : '';
+  const recId = (S.hasGenerated&&S.matchByCat) ? ([catMeta.key,..._subKD,...(String(catMeta.key)==='outer'?['coat','jacket']:[])].map(k=>S.matchByCat[k]).find(v=>v)||'') : '';
   const preferredId = recId || (highlightId ? String(highlightId) : '');
   let preferredIndex = -1;
   if(preferredId && l>0){
@@ -10016,11 +10025,12 @@ renderCategories();
   ];
   // CAT_SUBSTITUTE_MAP과 동일하게 유지 (자켓/코트/패딩/가디건 모두 포함)
   const SUB = {
-    outer:   ['coat','jacket','padding','cardigan'],
-    coat:    ['jacket','padding','outer','cardigan'],
-    jacket:  ['coat','padding','outer','cardigan'],
-    padding: ['coat','jacket','outer'],
-    cardigan:['outer','jacket','coat'],
+    // [2026-09-22 v2] 겉옷 단일 키 (coat/jacket 은 outer 로 해석되므로 중복 조회 방지)
+    outer:   ['padding'],
+    coat:    ['outer'],
+    jacket:  ['outer'],
+    padding: ['outer'],
+    cardigan:['top'],
     bottom:['pants','skirt'],pants:['bottom'],shoes:['sneakers','loafers'],
     top:['shirt','blouse'],scarf:['accent'],
   };

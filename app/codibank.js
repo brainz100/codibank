@@ -5,6 +5,27 @@
    각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
    점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+   ─── 2026-09-22 KST (👕 카테고리 체계 개편 v2 — TJ 지시) ─────────────────
+     [새 체계 11종 · TJ 지정 순서]
+       겉옷(outer) · 상의(top) · 바지(pants) · 스커트(skirt)F · 원피스(onepiece)F
+       · 신발 · 가방 · 양말/타이즈(socks) · 시계 · 스카프/머플러(scarf) · 패션소품(etc)
+       F = 여성 전용 표시. 남성 로그인은 스커트·원피스 제외(엄격). 성별 미설정 = 전체.
+     [기존 데이터 자동 변환 — migrateItemCategoryV2 / migrateAllItemsCategoryV2]
+       · coat·jacket → outer  (단, 가디건/카디건·니트/정장 베스트 → top)
+       · scarf 중 넥타이/보타이 → etc(패션소품)
+       · pants 중 점프수트/오버올 → onepiece, 치마바지 → skirt
+       · 판단 근거: meta.gemini.sub_category / outer_type / note
+       · 내용 기반 재분류는 아이템당 1회(meta.catSchema=2) — 이후 사용자가 직접 바꾼 값은 존중
+       · 원래 키는 meta.legacyCategoryKey 에 보존(롤백·추적용). 아이템 유실 0.
+       · ⚠️ migrateUserItemsCategories 의 '허용 안 된 키 → 기타' 폴백보다 반드시 먼저 실행
+            (순서가 바뀌면 모든 코트/자켓이 '기타'로 버려짐)
+     [레거시 키 호환 — LEGACY_CATEGORY_ALIAS]
+       · getItemsByUserAndCategory / getCategoryMetaByKey / addItem / updateItem 에서
+         coat·jacket 이 들어와도 outer 로 해석 (옛 캐시 페이지 대비)
+     [신규 export] normalizeGender, getCategoryKeysForGender, legacyCategoryToV2,
+                   migrateAllItemsCategoryV2, LEGACY_CATEGORY_ALIAS
+     [검증] jsdom 시뮬레이션 50/50 — 17종 레거시 아이템 변환·성별 목록·멱등성·사용자 수정 존중
+
    ─── 2026-04-23 13:00 KST (🧦 양말 위치 이동) ────────────────────────
      [TJ님 지시]
        양말(socks) 카테고리를 신발(shoes) 바로 다음으로 이동.
@@ -325,20 +346,157 @@ function getBackendBaseResolved() {
   //   ▸ 각 항목에 이모지 아이콘(icon) 필드 추가
   //   ▸ 기존 사용자는 ensureUserCategories()가 자동으로 신규 키 병합
   // ────────────────────────────────────────────────────────────────────
+  // ─── 2026-09-22 KST · TJ 지시 — 카테고리 체계 개편 (schema v2) ─────────────
+  //   ① 겉옷(outer) 신설: 기존 아우터(coat) + 자켓(jacket) 통합
+  //      포함: 재킷·블레이저·코트·점퍼·패딩·바람막이·레인웨어·겉옷용 베스트(패딩/다운/퀼팅)
+  //   ② 상의(top): 티셔츠·셔츠·블라우스·니트티·카디건·맨투맨·후드티·민소매·베스트(니트/정장)
+  //      ※ 카디건은 이제 상의 (이전 규칙 '가디건=자켓' 폐기)
+  //   ③ 바지(pants): 슬랙스·청바지·면바지·쇼츠·조거·레깅스
+  //   ④ 스커트(skirt): 스커트·치마바지            ← 여성 전용 표시
+  //   ⑤ 원피스(onepiece): 원피스·드레스·점프수트·오버올 ← 여성 전용 표시
+  //   ⑥ 신발 / ⑦ 가방 / ⑧ 양말/타이즈 / ⑨ 시계 / ⑩ 스카프/머플러
+  //   ⑪ 패션소품(etc 키 유지): 모자·벨트·넥타이·장갑·액세서리  ← 넥타이는 스카프에서 이동
+  //   순서 = TJ 지정 순서. gender:'F' 항목은 남성 로그인 시 목록에서 제외(엄격 적용).
+  //   기존 데이터는 아래 migrateItemCategoryV2() 가 1회 자동 변환 (유실 0, 원래 키 보존).
   const DEFAULT_CATEGORIES = [
-    { key: 'coat',     label: '아우터', icon: '🧥' },  // 2026-04-23 label 변경: 코트→아우터
-    { key: 'jacket',   label: '자켓',   icon: '🧥' },
-    { key: 'top',      label: '상의',   icon: '👕' },
-    { key: 'onepiece', label: '원피스', icon: '👗' },  // 2026-04-23 위치 이동: 맨 위→상의와 바지 사이
-    { key: 'pants',    label: '바지',   icon: '👖' },
-    { key: 'skirt',    label: '치마',   icon: '🎀' },
-    { key: 'shoes',    label: '신발',   icon: '👟' },
-    { key: 'socks',    label: '양말',   icon: '🧦' },  // 2026-04-23 13:00 TJ 지시: 신발 바로 다음으로 이동
-    { key: 'watch',    label: '시계',   icon: '⌚' },
-    { key: 'scarf',    label: '스카프', icon: '🧣' },
-    { key: 'bag',      label: '가방',   icon: '👜' },  // 2026-05-23 KST · TJ 지시 — 가방 독립 카테고리 신규 추가
-    { key: 'etc',      label: '기타',   icon: '🎁' },  // 2026-05-23 KST · TJ 지시 — 아이콘 변경: 👜(가방) → 🎁(잡화/기타), bag 분리에 따른 시각적 충돌 해소
+    { key: 'outer',    label: '겉옷',          icon: '🧥' },
+    { key: 'top',      label: '상의',          icon: '👕' },
+    { key: 'pants',    label: '바지',          icon: '👖' },
+    { key: 'skirt',    label: '스커트',        icon: '🎀', gender: 'F' },
+    { key: 'onepiece', label: '원피스',        icon: '👗', gender: 'F' },
+    { key: 'shoes',    label: '신발',          icon: '👟' },
+    { key: 'bag',      label: '가방',          icon: '👜' },
+    { key: 'socks',    label: '양말/타이즈',   icon: '🧦' },
+    { key: 'watch',    label: '시계',          icon: '⌚' },
+    { key: 'scarf',    label: '스카프/머플러', icon: '🧣' },
+    { key: 'etc',      label: '패션소품',      icon: '🧢' },
   ];
+
+  // 레거시 키(이전 체계) → 새 키. 조회·표시·입력 어디서 들어와도 새 키로 해석.
+  //   (옛 캐시 페이지가 'coat' 로 저장을 시도해도 '기타'로 떨어지지 않게 하는 안전망)
+  const LEGACY_CATEGORY_ALIAS = { coat: 'outer', jacket: 'outer' };
+  const CATEGORY_SCHEMA_VERSION = 2;
+
+  // 성별 값 정규화: 'M'/'F'/'male'/'female'/'남성'/'여성' 등 → 'M' | 'F' | ''
+  function normalizeGender(g) {
+    const v = String(g || '').trim().toLowerCase();
+    if (['m', 'male', 'man', 'men', '남', '남성', '남자'].indexOf(v) >= 0) return 'M';
+    if (['f', 'female', 'woman', 'women', '여', '여성', '여자'].indexOf(v) >= 0) return 'F';
+    return '';
+  }
+
+  // 아이템 내용(AI 분석 세부품목·설명)으로 레거시 키의 새 카테고리를 결정
+  function _catText(it) {
+    const g = (it && it.meta && it.meta.gemini) || {};
+    return [g.sub_category, g.outer_type, it && it.note].filter(Boolean).join(' ');
+  }
+  function legacyCategoryToV2(key, it) {
+    const k = String(key || '');
+    if (k === 'coat' || k === 'jacket') {
+      const t = _catText(it);
+      if (/가디건|카디건|cardigan/i.test(t)) return 'top';
+      if (/(니트|스웨터|정장|수트)\s*(베스트|조끼)|knit\s*vest/i.test(t)) return 'top';
+      return 'outer';
+    }
+    return LEGACY_CATEGORY_ALIAS[k] || k;
+  }
+
+  // 아이템 1개를 schema v2 로 변환 (내용 기반 재분류는 아이템당 딱 1회)
+  //   반환: true = 변경됨
+  function migrateItemCategoryV2(it) {
+    if (!it || typeof it !== 'object') return false;
+    const before = String(it.categoryKey || '');
+    if (!it.meta || typeof it.meta !== 'object') it.meta = {};
+    const done = Number(it.meta.catSchema || 0) >= CATEGORY_SCHEMA_VERSION;
+    let next = before;
+    if (!done) {
+      const t = _catText(it);
+      next = legacyCategoryToV2(before, it);
+      // 이번 개편으로 소속이 바뀐 품목 (최초 1회만 — 이후 사용자가 직접 바꾼 값은 존중)
+      if (next === 'scarf' && /넥타이|보타이|necktie|bow\s*tie/i.test(t)) next = 'etc';
+      if (next === 'pants' && /점프\s*수트|점프슈트|오버올|멜빵\s*바지|jumpsuit|overall/i.test(t)) next = 'onepiece';
+      if (next === 'pants' && /치마\s*바지|스커트\s*팬츠|skort/i.test(t)) next = 'skirt';
+      it.meta.catSchema = CATEGORY_SCHEMA_VERSION;
+    } else if (LEGACY_CATEGORY_ALIAS[before]) {
+      next = legacyCategoryToV2(before, it);          // 변환 후 다시 들어온 레거시 키 방어
+    }
+    if (next !== before) {
+      if (!it.meta.legacyCategoryKey) it.meta.legacyCategoryKey = before;   // 롤백·추적용 원래 키
+      it.categoryKey = next;
+    }
+    return (next !== before) || !done;
+  }
+
+  // ── [2026-09-22] AI 분석 결과(category/sub_category) → v2 카테고리 키 (등록 페이지 공용) ──
+  //   camera.html / camera_register.html 이 각자 들고 있던 catMap(서로 조금씩 달랐음)을 여기로 일원화.
+  //   ① 서버가 준 v2 키(etc 제외)는 그대로 신뢰 — 서버가 세부품목으로 이미 교정한 값
+  //   ② 그 외(구 서버 응답·영문·etc)는 세부품목→카테고리 문자열 순으로 키워드 매핑
+  //   ⚠️ 순서가 곧 정확도: 구체적인 단어를 먼저 (서버 _SUB2CAT_RULES 와 동일 원칙)
+  const _ANALYZED_CAT_RULES = [
+    ['드레스셔츠', 'top'], ['dress shirt', 'top'], ['waistcoat', 'top'], ['bootcut', 'pants'],
+    ['원피스', 'onepiece'], ['드레스', 'onepiece'], ['점프수트', 'onepiece'], ['점프슈트', 'onepiece'],
+    ['오버올', 'onepiece'], ['멜빵바지', 'onepiece'], ['올인원', 'onepiece'], ['jumpsuit', 'onepiece'],
+    ['overall', 'onepiece'], ['one-piece', 'onepiece'], ['one piece', 'onepiece'], ['onepiece', 'onepiece'], ['dress', 'onepiece'],
+    ['치마바지', 'skirt'], ['스커트', 'skirt'], ['치마', 'skirt'], ['skirt', 'skirt'],
+    ['백팩', 'bag'], ['클러치', 'bag'], ['가방', 'bag'], ['배낭', 'bag'], ['backpack', 'bag'], ['clutch', 'bag'],
+    ['handbag', 'bag'], ['tote', 'bag'], ['crossbody', 'bag'], ['bag', 'bag'], ['백', 'bag'],
+    ['레인부츠', 'shoes'], ['rain boot', 'shoes'],
+    ['넥타이', 'etc'], ['보타이', 'etc'], ['necktie', 'etc'], ['bow tie', 'etc'], ['모자', 'etc'], ['비니', 'etc'],
+    ['버킷햇', 'etc'], ['캡', 'etc'], ['벨트', 'etc'], ['장갑', 'etc'], ['목걸이', 'etc'], ['귀걸이', 'etc'],
+    ['반지', 'etc'], ['팔찌', 'etc'], ['선글라스', 'etc'], ['안경', 'etc'], ['헤어', 'etc'], ['액세서리', 'etc'],
+    ['패딩베스트', 'outer'], ['다운베스트', 'outer'], ['퀼팅베스트', 'outer'], ['패딩조끼', 'outer'], ['다운조끼', 'outer'],
+    ['down vest', 'outer'], ['puffer vest', 'outer'],
+    ['카디건', 'top'], ['가디건', 'top'], ['cardigan', 'top'],
+    ['재킷', 'outer'], ['자켓', 'outer'], ['블레이저', 'outer'], ['코트', 'outer'], ['점퍼', 'outer'], ['패딩', 'outer'],
+    ['바람막이', 'outer'], ['윈드브레이커', 'outer'], ['레인웨어', 'outer'], ['레인코트', 'outer'], ['우비', 'outer'],
+    ['집업', 'outer'], ['볼레로', 'outer'], ['버버리', 'outer'], ['트렌치', 'outer'], ['아우터', 'outer'], ['파카', 'outer'],
+    ['jacket', 'outer'], ['blazer', 'outer'], ['coat', 'outer'], ['parka', 'outer'], ['windbreaker', 'outer'],
+    ['anorak', 'outer'], ['puffer', 'outer'], ['outer', 'outer'],
+    ['스니커즈', 'shoes'], ['운동화', 'shoes'], ['구두', 'shoes'], ['로퍼', 'shoes'], ['부츠', 'shoes'], ['샌들', 'shoes'],
+    ['슬리퍼', 'shoes'], ['슬립온', 'shoes'], ['펌프스', 'shoes'], ['워커', 'shoes'], ['힐', 'shoes'], ['신발', 'shoes'],
+    ['sneaker', 'shoes'], ['loafer', 'shoes'], ['boot', 'shoes'], ['sandal', 'shoes'], ['heel', 'shoes'], ['shoe', 'shoes'],
+    ['시계', 'watch'], ['워치', 'watch'], ['watch', 'watch'],
+    ['스카프', 'scarf'], ['머플러', 'scarf'], ['목도리', 'scarf'], ['넥워머', 'scarf'], ['숄', 'scarf'], ['scarf', 'scarf'], ['muffler', 'scarf'],
+    ['양말', 'socks'], ['삭스', 'socks'], ['타이즈', 'socks'], ['스타킹', 'socks'], ['덧신', 'socks'],
+    ['sock', 'socks'], ['tights', 'socks'], ['stocking', 'socks'],
+    ['레깅스', 'pants'], ['청바지', 'pants'], ['슬랙스', 'pants'], ['바지', 'pants'], ['팬츠', 'pants'], ['쇼츠', 'pants'],
+    ['조거', 'pants'], ['스키니', 'pants'], ['jeans', 'pants'], ['trousers', 'pants'], ['shorts', 'pants'],
+    ['leggings', 'pants'], ['pants', 'pants'],
+    ['후드티', 'top'], ['맨투맨', 'top'], ['스웨터', 'top'], ['니트', 'top'], ['블라우스', 'top'], ['티셔츠', 'top'],
+    ['셔츠', 'top'], ['면티', 'top'], ['민소매', 'top'], ['나시', 'top'], ['베스트', 'top'], ['조끼', 'top'], ['탑', 'top'],
+    ['상의', 'top'], ['shirt', 'top'], ['blouse', 'top'], ['hoodie', 'top'], ['sweater', 'top'], ['knit', 'top'],
+    ['vest', 'top'], ['top', 'top'],
+  ];
+  function resolveAnalyzedCategory(g) {
+    if (!g) return 'etc';
+    const valid = new Set(DEFAULT_CATEGORIES.map((c) => c.key));
+    let cat = String(g.category || '').toLowerCase().trim();
+    cat = LEGACY_CATEGORY_ALIAS[cat] || cat;
+    if (valid.has(cat) && cat !== 'etc') return cat;
+    const sub = String(g.sub_category || '').toLowerCase().trim();
+    for (const src of [sub, cat]) {
+      if (!src) continue;
+      for (let i = 0; i < _ANALYZED_CAT_RULES.length; i++) {
+        if (src.indexOf(_ANALYZED_CAT_RULES[i][0]) >= 0) return _ANALYZED_CAT_RULES[i][1];
+      }
+    }
+    return valid.has(cat) ? cat : 'etc';
+  }
+
+  // 이 브라우저에 저장된 전체 아이템 일괄 변환 (페이지 로드 시 1회, 변경 있을 때만 저장)
+  function migrateAllItemsCategoryV2() {
+    try {
+      const items = getAllItems();
+      if (!Array.isArray(items) || !items.length) return 0;
+      let changed = 0;
+      items.forEach((it) => { if (migrateItemCategoryV2(it)) changed++; });
+      if (changed) setAllItems(items);
+      return changed;
+    } catch (e) {
+      console.warn('[category v2] migrate skipped', e);
+      return 0;
+    }
+  }
 
   // (레거시/확장용) 기본 외 카테고리는 사용자 커스텀으로 추가하도록 유도
   const OPTIONAL_CATEGORIES = [];
@@ -657,8 +815,13 @@ function getBackendBaseResolved() {
 
     items.forEach((it) => {
       if (normalizeEmail(it.userEmail) !== e) return;
+      // [2026-09-22] ⚠️ 반드시 v2 변환을 먼저 — 안 그러면 coat/jacket 아이템이
+      //   '허용되지 않은 키'로 판정돼 전부 '기타'로 버려짐.
+      if (migrateItemCategoryV2(it)) changed = true;
       const key = String(it.categoryKey || '');
       if (!allowedSet.has(key)) {
+        if (!it.meta) it.meta = {};
+        if (!it.meta.legacyCategoryKey) it.meta.legacyCategoryKey = key;
         it.categoryKey = 'etc';
         changed = true;
       }
@@ -709,7 +872,7 @@ function getBackendBaseResolved() {
   }
 
   function getCategoryMetaByKey(key, email) {
-    const k = String(key || '');
+    const k = LEGACY_CATEGORY_ALIAS[String(key || '')] || String(key || '');   // [2026-09-22] coat/jacket → 겉옷
     const all = [...DEFAULT_CATEGORIES, ...OPTIONAL_CATEGORIES];
     const found = all.find((c) => c.key === k);
     if (found) return found;
@@ -730,7 +893,18 @@ function getBackendBaseResolved() {
     const u = getUser(email);
     if (!u) return DEFAULT_CATEGORIES;
     ensureUserCategories(u);
-    return u.categories.map((k) => getCategoryMetaByKey(k, email));
+    // [2026-09-22 TJ 지시] 성별별 카테고리 — 남성은 스커트·원피스 제외(엄격 적용).
+    //   성별 미설정/알 수 없음 → 전체(여성 목록과 동일).
+    const g = normalizeGender(u.gender);
+    return u.categories
+      .map((k) => getCategoryMetaByKey(k, email))
+      .filter((c) => !(g === 'M' && c && c.gender === 'F'));
+  }
+
+  // [2026-09-22] 성별로 카테고리 키 목록 (로그인 전 화면·외부 모듈용)
+  function getCategoryKeysForGender(gender) {
+    const g = normalizeGender(gender);
+    return DEFAULT_CATEGORIES.filter((c) => !(g === 'M' && c.gender === 'F')).map((c) => c.key);
   }
 
   function addCategoriesToUser(email, categoryKeys) {
@@ -897,7 +1071,8 @@ function getBackendBaseResolved() {
   }
 
   function getItemsByUserAndCategory(email, categoryKey) {
-    return getItemsByUser(email).filter((it) => it.categoryKey === categoryKey);
+    const k = LEGACY_CATEGORY_ALIAS[String(categoryKey || '')] || categoryKey;   // [2026-09-22] coat/jacket → outer
+    return getItemsByUser(email).filter((it) => it.categoryKey === k);
   }
 
   function getItemById(id) {
@@ -945,7 +1120,8 @@ function getBackendBaseResolved() {
       } catch (_) {}
     }
 
-    const categoryKey = item.categoryKey;
+    // [2026-09-22] 옛 페이지·캐시가 레거시 키(coat/jacket)를 보내도 새 체계로 저장
+    const categoryKey = legacyCategoryToV2(item.categoryKey, item);
 
     const items = getAllItems();
     const saved = {
@@ -957,7 +1133,7 @@ function getBackendBaseResolved() {
       note: item.note || item.description || '',
       images: item.images || {},
       createdAt: item.createdAt || nowIso(),
-      meta: item.meta || {},
+      meta: Object.assign({}, item.meta || {}, { catSchema: CATEGORY_SCHEMA_VERSION }),
     };
 
     items.unshift(saved);
@@ -999,9 +1175,11 @@ function getBackendBaseResolved() {
     const next = Object.assign({}, before);
 
     // 카테고리 변경 시: 카테고리만 업데이트 (전체 한도는 addItem에서 이미 체크됨)
-    const nextCategory = (patch && patch.categoryKey !== undefined) ? String(patch.categoryKey || '') : String(before.categoryKey || '');
+    const _rawNext = (patch && patch.categoryKey !== undefined) ? String(patch.categoryKey || '') : String(before.categoryKey || '');
+    const nextCategory = LEGACY_CATEGORY_ALIAS[_rawNext] || _rawNext;   // [2026-09-22] 레거시 키 방어
     if (nextCategory && nextCategory !== String(before.categoryKey || '')) {
       next.categoryKey = nextCategory;
+      next.meta = Object.assign({}, before.meta || {}, { catSchema: CATEGORY_SCHEMA_VERSION });   // 사용자가 직접 정한 값 → 재분류 금지
       addCategoriesToUser(e, [nextCategory]);
     }
 
@@ -2051,6 +2229,14 @@ async function uploadImageToServer(dataUrl, opts) {
     }
   } catch (_) {}
 
+  // ─── 2026-09-22 KST · TJ 지시 ─── 카테고리 schema v2 자동 변환 (페이지 로드마다, 변경 시에만 저장)
+  //   coat/jacket → outer(가디건·니트베스트는 top), 넥타이 → etc, 점프수트·오버올 → onepiece,
+  //   치마바지 → skirt. 아이템당 1회만 내용 기반 재분류(meta.catSchema=2), 원래 키는 meta.legacyCategoryKey.
+  try {
+    const _mv2 = migrateAllItemsCategoryV2();
+    if (_mv2) console.log('[category v2] 아이템', _mv2, '개 변환 완료');
+  } catch (_) {}
+
 window.CodiBank = {
     // config
     getConfig,
@@ -2058,6 +2244,12 @@ window.CodiBank = {
 
     DEFAULT_CATEGORIES,
     OPTIONAL_CATEGORIES,
+    LEGACY_CATEGORY_ALIAS,          // [2026-09-22] 카테고리 v2
+    normalizeGender,
+    getCategoryKeysForGender,
+    legacyCategoryToV2,
+    migrateAllItemsCategoryV2,
+    resolveAnalyzedCategory,
     passwordMeetsRule,
     uid,
     nowIso,

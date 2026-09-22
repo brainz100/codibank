@@ -14,6 +14,11 @@
 
 <!--
   ┏━━ item.html 수정 이력 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  │ ─── 2026-09-22 KST · TJ 지시 (카테고리 개편 v2) ───              │
+  │ 편집 모달: 성별 목록에 없는 현재 카테고리(남성의 스커트·원피스)  │
+  │ 도 옵션에 넣어 저장 시 카테고리가 바뀌지 않게 함. 옛 키 coat/   │
+  │ jacket → 겉옷(outer). 옵션 라벨 HTML 이스케이프.                 │
+  │                                                                 │
   │ ─── 2026-04-22 17:40 KST ───  [TJ 카테고리 개편 점검 — 무수정]  │
   │                                                                 │
   │ [점검 결과 — 코드 수정 없음]                                    │
@@ -402,12 +407,23 @@
     if (!editModal || !currentItem) return;
 
     // categories
-    const cats = CodiBank.getCategoriesForUser(user.email) || [];
+    // ─── 2026-09-22 KST · TJ 지시 (카테고리 개편 v2) ───
+    //   남성 사용자는 스커트·원피스가 목록에서 빠지므로, 현재 아이템이 그 카테고리면
+    //   옵션을 따로 넣어 줌 → 저장 시 카테고리가 몰래 '패션소품' 등으로 바뀌는 것 방지.
+    //   옛 키(coat/jacket)는 겉옷(outer)으로 해석.
+    const cats = (CodiBank.getCategoriesForUser(user.email) || []).slice();
+    const _alias = (CodiBank.LEGACY_CATEGORY_ALIAS || {});
+    const _curKey = String(_alias[currentItem.categoryKey] || currentItem.categoryKey || 'etc');
+    if (!cats.some((c) => String(c.key) === _curKey)) {
+      const _m = CodiBank.getCategoryMetaByKey ? CodiBank.getCategoryMetaByKey(_curKey, user.email) : null;
+      cats.push({ key: _curKey, label: (_m && _m.label) || _curKey });
+    }
+    const _escO = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
     editCategory.innerHTML = cats
-      .map((c) => `<option value="${String(c.key)}">${String(c.label)}</option>`)
+      .map((c) => `<option value="${_escO(c.key)}">${_escO(c.label)}</option>`)
       .join('');
 
-    editCategory.value = String(currentItem.categoryKey || 'etc');
+    editCategory.value = _curKey;
     editBrand.value = String(currentItem.brand || '');
     editColor.value = String(currentItem.color || '');
     if (editNote) editNote.value = String(currentItem.note || '');

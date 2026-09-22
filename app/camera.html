@@ -27,6 +27,15 @@
 
   <!--
     ┏━━ camera.html 수정 이력 (newest first) ━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+    │ ─── 2026-09-22 KST ───  [TJ 지시 — 카테고리 체계 v2]            │
+    │ · catMap(100여 줄) 제거 → CodiBank.resolveAnalyzedCategory()     │
+    │   서버 v2 키(outer 등)를 그대로 신뢰, 그 외만 키워드 매핑.        │
+    │   (catMap 에 'outer' 가 없어 겉옷이 기타로 갈 뻔한 문제 선제 차단) │
+    │ · 라벨은 codibank.js 카테고리 메타 사용(겉옷·스커트·패션소품 …)  │
+    │ · 남성 + 스커트/원피스 등록 시 '옷장에 표시 안 됨' 안내          │
+    │ · ?category=coat/jacket 옛 링크 → outer                          │
+    │ · meta.gemini.outer_length 저장                                  │
+    │                                                                 │
     │ ─── 2026-09-21 KST ───  [HOTFIX — 등록 90% 멈춤]                │
     │ · 원인(서버): analyze-item 스키마의 대형 enum(120값) + 무제한     │
     │   HTTP 타임아웃 → Gemini 응답 지연으로 gunicorn 스레드 점유 →     │
@@ -419,7 +428,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const preferredCategoryKey = (function () {
       const q = getQueryParam('category');
-      return q ? String(q) : '';
+      if (!q) return '';
+      // [2026-09-22] 옛 링크(?category=coat/jacket) → outer
+      return (CodiBank.legacyCategoryToV2 ? CodiBank.legacyCategoryToV2(String(q)) : String(q));
     })();
 
     // 카테고리 선택(옵션): 기본은 AI 자동, 필요하면 사용자가 직접 선택 가능
@@ -1201,137 +1212,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (manual) {
           categoryKey = manual;
         } else if (geminiResult?.category) {
-          // Gemini가 분류한 카테고리 사용
-          // ── Gemini 카테고리 → CodiBank 카테고리 키 매핑 ──
-          // [2026-04-22 17:40 TJ 카테고리 개편]
-          // CodiBank 카테고리: coat | jacket | top | pants | skirt | onepiece | shoes | watch | scarf | socks | etc
-          //   ✨ 신규: onepiece(원피스), skirt(치마) 독립
-          //   ✨ 아우터 7종(코트/패딩/자켓/점퍼/가디건/다운/블레이저) 키워드 보강
-          //   ✨ 치명적 버그 수정: 이전에 dress/jumpsuit/skirt가 'pants'로 잘못 매핑됐음
-          const catMap = {
-            // ── 코트 (무릎 이상 길이의 긴 아우터) ──
-            'coat'       : 'coat',
-            '코트'       : 'coat', '반코트'    : 'coat', '롱코트'    : 'coat',
-            '트렌치코트' : 'coat', '더플코트'  : 'coat', '케이프코트': 'coat',
-            '패딩코트'   : 'coat',
-            'trench coat': 'coat', 'long coat' : 'coat', 'overcoat'  : 'coat',
-            'trench'     : 'coat', 'duffel'    : 'coat',
-
-            // ── 자켓 (짧은 아우터) — TJ 7종: 자켓/패딩/점퍼/가디건/다운/블레이저 ──
-            'jacket'     : 'jacket',
-            '자켓'       : 'jacket', '일반자켓' : 'jacket',
-            // 블레이저
-            'blazer'     : 'jacket', '블레이저' : 'jacket',
-            'suit jacket': 'jacket', 'suit'     : 'jacket',
-            '수트자켓'   : 'jacket', '수트'     : 'jacket', '콤비자켓': 'jacket',
-            // 점퍼 / 기타
-            'jumper'     : 'jacket', '점퍼'     : 'jacket',
-            'windbreaker': 'jacket', '윈드브레이커': 'jacket',
-            'anorak'     : 'jacket', 'parka'    : 'jacket', '파카': 'jacket',
-            // 레더/데님/사파리 등 변종
-            '레더자켓'   : 'jacket', '가죽자켓' : 'jacket',
-            'leather jacket':'jacket', 'safari jacket':'jacket',
-            '사파리자켓' : 'jacket', '데님자켓' : 'jacket',
-            '집업자켓'   : 'jacket', '집업'     : 'jacket',
-            '후드집업'   : 'jacket', '후드집업자켓': 'jacket',
-            // 가디건
-            'cardigan'   : 'jacket', '가디건'   : 'jacket', '볼레로' : 'jacket',
-            // 패딩 / 다운
-            '패딩'       : 'jacket', '패딩자켓' : 'jacket', '숏패딩' : 'jacket',
-            'padding'    : 'jacket', 'puffer'   : 'jacket',
-            '다운'       : 'jacket', '다운자켓' : 'jacket', '다운조끼': 'jacket',
-            'down'       : 'jacket', 'down jacket':'jacket',
-            // 베스트/조끼
-            'vest'       : 'jacket', 'waistcoat': 'jacket', '조끼'  : 'jacket', '베스트': 'jacket',
-
-            // ── 상의 ──
-            'top'        : 'top', 'shirt'    : 'top', 'blouse'  : 'top',
-            '상의'       : 'top', '셔츠'     : 'top', '블라우스': 'top',
-            't-shirt'    : 'top', 'tshirt'   : 'top', 'hoodie'  : 'top',
-            '티셔츠'     : 'top', '반팔티'   : 'top', '긴팔티'  : 'top',
-            'sweatshirt' : 'top', 'sweater'  : 'top', 'knit'    : 'top',
-            'knitwear'   : 'top', '니트'     : 'top', '스웨터'  : 'top',
-            '후드티'     : 'top', '맨투맨'   : 'top',
-
-            // ── 하의 (바지만) — 치마/원피스는 분리 ──
-            'pants'      : 'pants', 'bottom'  : 'pants', 'trousers':'pants',
-            '바지'       : 'pants', '청바지'  : 'pants', '슬랙스' : 'pants',
-            'jeans'      : 'pants', 'shorts'  : 'pants',
-            '면바지'     : 'pants', '스키니'  : 'pants', '와이드팬츠':'pants',
-            '조거팬츠'   : 'pants', '반바지'  : 'pants', '레깅스' : 'pants',
-
-            // ── 치마 (skirt 독립 카테고리) ──
-            // [CRITICAL] 이전에 'pants'로 매핑됐던 버그를 여기서 수정
-            'skirt'        : 'skirt', '치마'     : 'skirt', '스커트': 'skirt',
-            '미니스커트'   : 'skirt', '미디스커트':'skirt', '롱스커트': 'skirt',
-            '플리츠스커트' : 'skirt', 'A라인스커트':'skirt', '랩스커트': 'skirt',
-            '티어드스커트' : 'skirt', '도트스커트':'skirt',
-            'mini skirt'   : 'skirt', 'midi skirt':'skirt', 'long skirt':'skirt',
-
-            // ── 원피스 (onepiece 독립 카테고리) — TJ 세부 5종 ──
-            // [CRITICAL] 이전에 'pants'로 매핑됐던 버그를 여기서 수정
-            'onepiece'     : 'onepiece', 'one-piece': 'onepiece', 'one piece': 'onepiece',
-            'dress'        : 'onepiece', '원피스'   : 'onepiece', '드레스'  : 'onepiece',
-            '미니원피스'   : 'onepiece', '미디원피스':'onepiece', '롱원피스': 'onepiece',
-            '니트원피스'   : 'onepiece', '셔츠원피스':'onepiece',
-            'mini dress'   : 'onepiece', 'midi dress':'onepiece', 'maxi dress':'onepiece',
-            'knit dress'   : 'onepiece', 'shirt dress':'onepiece', 'long dress':'onepiece',
-            // 점프수트는 원피스 5종에 속하지 않지만 '통원피스' 성격이라 onepiece로 묶음
-            'jumpsuit'     : 'onepiece', '점프수트' : 'onepiece', '올인원' : 'onepiece',
-
-            // ── 신발/시계/스카프/양말/기타 ──
-            'shoes'      : 'shoes', 'sneakers': 'shoes', 'boots' : 'shoes',
-            '신발'       : 'shoes', '스니커즈': 'shoes', '부츠'  : 'shoes',
-            'heels'      : 'shoes', 'loafers' : 'shoes', 'sandals':'shoes',
-            '힐'         : 'shoes', '로퍼'    : 'shoes', '샌들'  : 'shoes',
-            'watch'      : 'watch', '시계'    : 'watch',
-            'scarf'      : 'scarf', '스카프'  : 'scarf', '목도리': 'scarf',
-            'socks'      : 'socks', '양말'    : 'socks',
-            // ── 가방 (bag 독립 카테고리) — 2026-05-23 KST · TJ 지시 ──
-            // [CRITICAL] 이전에 'etc'로 매핑됐던 버그를 여기서 수정
-            'bag'        : 'bag',   '가방'    : 'bag',   '백'    : 'bag',
-            'handbag'    : 'bag',   '핸드백'  : 'bag',
-            'tote'       : 'bag',   'tote bag': 'bag',   '토트백': 'bag',
-            'shoulder bag':'bag',   '숄더백'  : 'bag',
-            'crossbody'  : 'bag',   'crossbody bag':'bag', '크로스백':'bag',
-            'backpack'   : 'bag',   '백팩'    : 'bag',   '배낭'  : 'bag',
-            'clutch'     : 'bag',   '클러치'  : 'bag',   '클러치백':'bag',
-            'mini bag'   : 'bag',   '미니백'  : 'bag',
-            'eco bag'    : 'bag',   '에코백'  : 'bag',
-            'bucket bag' : 'bag',   '버킷백'  : 'bag',
-            'hobo bag'   : 'bag',   '호보백'  : 'bag',
-            'satchel'    : 'bag',   '새첼백'  : 'bag',
-            'messenger'  : 'bag',   '메신저백':'bag',
-            'duffel bag' : 'bag',   '더플백'  : 'bag',
-            'boston bag' : 'bag',   '보스턴백':'bag',
-            // ── 기타 (정말 어디에도 속하지 않는 액세서리/잡화) ──
-            'acc'        : 'etc',   'etc'     : 'etc',   '기타'  : 'etc',
-          };
-
-          // 소문자 변환 후 정확 매핑 → 부분 매핑 → etc
-          const _gemCat = String(geminiResult.category || '').toLowerCase().trim();
-          categoryKey = catMap[_gemCat]
-            || Object.entries(catMap).find(([k]) => _gemCat.includes(k))?.[1]
-            || 'etc';
-
-          // ── 보정 로직 [2026-05-23 KST · TJ 지시] ──
-          // Gemini 가 category=etc 로 잘못 분류했지만 sub_category 에 명확한 단서가
-          // 있는 경우, sub_category 로 재검증해서 올바른 카테고리로 보정.
-          // 사례: 사진은 명백한 원피스인데 category=etc + sub_category='원피스' 응답
-          //       → 사용자에게 '기타'로 잘못 표시되는 버그.
-          // _gemCat 와 sub_category 둘 다 동일 catMap 으로 탐색.
-          if (categoryKey === 'etc') {
-            const _gemSub = String(geminiResult.sub_category || '').toLowerCase().trim();
-            if (_gemSub) {
-              // 정확 매핑 우선 → includes() 폴백
-              const _subKey = catMap[_gemSub]
-                || Object.entries(catMap).find(([k]) => _gemSub.includes(k))?.[1];
-              if (_subKey && _subKey !== 'etc') {
-                console.log(`[category-fix] etc → ${_subKey} (sub_category="${_gemSub}" 로 보정)`);
-                categoryKey = _subKey;
-              }
-            }
-          }
+          // ─── 2026-09-22 KST · TJ 지시 ─── 카테고리 v2: 공용 resolver 로 일원화 ───
+          //   이전: 이 파일 안의 catMap(100여 줄) — 서버가 새로 주는 'outer' 키가 없어서
+          //         'etc' 로 떨어질 뻔했음. 서버 v2 키를 그대로 신뢰하고, 그 외만 키워드 매핑.
+          //   로직 본체: codibank.js resolveAnalyzedCategory() (서버 _SUB2CAT_RULES 와 같은 순서 원칙)
+          categoryKey = (CodiBank.resolveAnalyzedCategory
+            ? CodiBank.resolveAnalyzedCategory(geminiResult)
+            : String(geminiResult.category || 'etc'));
         } else {
           // Gemini 3단 체인이 전부 실패 → 수동 선택값 또는 '기타'
           categoryKey = fallbackCategoryKey();
@@ -1344,15 +1231,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // 카테고리 라벨도 한국어로 표시
         // [2026-04-22 17:40 TJ 카테고리 개편] onepiece/skirt 독립 카테고리 추가
         // [2026-05-23 KST · TJ 지시] bag 독립 카테고리 추가
-        const _catLabelMap = {
-          coat:'코트', jacket:'자켓', top:'상의', pants:'하의',
-          skirt:'치마', onepiece:'원피스',
-          shoes:'신발', watch:'시계', scarf:'스카프', socks:'양말',
-          bag:'가방', etc:'기타'
-        };
+        // [2026-09-22] 라벨은 codibank.js 카테고리 v2 메타에서 (겉옷·스커트·양말/타이즈·패션소품 …)
         if (!geminiResult?.sub_category) {
-          aiCat.textContent = _catLabelMap[categoryKey] || categoryKey;
+          aiCat.textContent = CodiBank.getCategoryMetaByKey(categoryKey, user.email)?.label || categoryKey;
         }
+        // [2026-09-22 TJ 지시 — 성별 카테고리 엄격 적용] 남성 옷장에는 스커트·원피스 섹션이 없음 → 등록 시 안내
+        try {
+          if (CodiBank.normalizeGender && CodiBank.normalizeGender(user.gender) === 'M'
+              && (categoryKey === 'skirt' || categoryKey === 'onepiece')) {
+            aiCat.textContent += ' · 남성 옷장에는 표시되지 않아요';
+          }
+        } catch (_) {}
       } catch (e) {
         console.warn('category failed', e);
         aiCat.textContent = CodiBank.getCategoryMetaByKey(categoryKey, user.email)?.label || categoryKey;
@@ -1590,6 +1479,7 @@ document.addEventListener('DOMContentLoaded', () => {
               //   서버에서 category 단일 진실 기준으로 정합성이 보장된 값.
               //   (코디핏/코디하기의 상·하의 판별 로직이 그대로 쓸 수 있음)
               outer_type:     _geminiAnalysis.outer_type || null,
+              outer_length:   _geminiAnalysis.outer_length || null,   // [2026-09-22] 겉옷 기장(long/short)
               is_skirt:       !!_geminiAnalysis.is_skirt,
               is_onepiece:    !!_geminiAnalysis.is_onepiece,
               skirt_length:   _geminiAnalysis.skirt_length || null,
