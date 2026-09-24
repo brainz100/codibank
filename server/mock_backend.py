@@ -5,6 +5,18 @@
 # 각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
 # 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 #
+# ─── 2026-09-24 KST · TJ 지시 (회원탈퇴 · 무료횟수 재지급 방지 · 동의 기록) ───
+#  [신규 API] POST /api/user/withdraw (+ /api/user/delete 별칭) — Bearer 토큰으로 본인 확인
+#             POST /api/consent/log — 가입·재동의 기록 / GET /admin/withdrawals — 탈퇴 현황(해시만)
+#  [탈퇴 처리 _smw_purge] 이메일 HMAC 해시 + 탈퇴월 사용량만 sm_withdrawn 에 1년 분리보관 →
+#     user_usage·보너스·예약(스냅샷 파일 포함)·userdata JSON·Auth 계정 삭제, 통계·동의기록은 가명처리
+#  [승계] /api/usage/get · /api/usage/record: 사용량 행이 없고 같은 달 탈퇴 이력이 있으면 그 달 횟수 이어서 적용
+#  [정규화] gmail 점·+태그 제거 후 해시 → 주소 변형으로 우회 불가
+#  [수정] 사용량 조회에서 '+' 이메일이 공백으로 해석돼 카운트가 1로 리셋되던 문제 (URL 인코딩)
+#  [수정] 관리자 회원 삭제가 이메일을 받으면 실패하던 문제 → 이메일/uid 모두 지원, 탈퇴와 같은 절차
+#  [파기] 옷장코디 예약 스냅샷(얼굴·옷장 이미지)을 생성 완료·실패·취소 시 삭제 (이전: 영구 잔존)
+#  [DB] sm_withdraw_consent.sql 1회 실행 필요 (없으면 로컬 JSON 폴백 — 재배포 시 유실)
+#
 # ─── 2026-09-22 KST · TJ 지시 (카테고리 체계 v2 + 착장 선택 고도화) ───
 #  [분류 — /api/ai/analyze-item]
 #    · category: outer·top·pants·skirt·onepiece·shoes·bag·socks·watch·scarf·etc (coat/jacket → outer 통합)
@@ -9886,6 +9898,20 @@ def admin_delete_user(uid):
     """유저 삭제"""
     if not verify_admin(request):
         return jsonify({"error": "Unauthorized"}), 401
+    # ─── 2026-09-24 KST · TJ 지시 ─── 관리자 삭제도 회원탈퇴와 같은 절차(분리보관 기록 + 개인데이터 삭제)
+    #   · admin.html 테스트계정 삭제(delTestAcct)는 uid 대신 이메일을 보내 Supabase 가 거부하던 문제도 해결
+    try:
+        _target = str(uid or "").strip()
+        _u = _smw_find_user_by_email(_target) if "@" in _target else _smw_get_user_by_id(_target)
+        if "@" in _target and not _u:
+            return jsonify({"ok": False, "error": "해당 이메일의 회원을 찾지 못했습니다."}), 404
+        if _u and _u.get("email"):
+            _res = _smw_purge(_u, reasons=["관리자 삭제"], by="admin")
+            if _res["ok"]:
+                return jsonify({"ok": True, "deleted": _u.get("id"), "steps": _res["steps"]})
+            return jsonify({"ok": False, "error": "계정 삭제 실패", "steps": _res["steps"]}), 502
+    except Exception as _e:
+        print(f"[admin-delete] 탈퇴 절차 실패 → 기존 삭제로 진행: {_e}", flush=True)
     try:
         url = f"{supabase_url()}/auth/v1/admin/users/{uid}"
         r = http_requests.delete(url, headers=supabase_admin_headers(), timeout=10)
@@ -11834,7 +11860,8 @@ def api_usage_record():
         day_k    = now.strftime("%Y-%m-%d")
 
         # 1) 기존 행 조회
-        params = {"email": f"eq.{email}", "select": "*", "limit": "1"}
+        #   [2026-09-24] 이메일 URL 인코딩 — '+' 가 들어간 주소(a+b@gmail.com)는 공백으로 해석돼 조회 실패 → 매번 새 행으로 덮어써 카운트가 1로 리셋되던 문제
+        params = {"email": f"eq.{_smw_q(email)}", "select": "*", "limit": "1"}
         row = None
         try:
             r = sb_query("GET", "user_usage", params=params)
@@ -11871,6 +11898,11 @@ def api_usage_record():
                 "day_closet_count": 0, "day_codi_count": 0, "day_tryon_count": 0,
                 "day_total": 0, "day_item_count": 0,
             }
+            # ─── 2026-09-24 KST · TJ 지시 ─── 같은 달 탈퇴 후 재가입 → 그 달 사용횟수 승계 (무료횟수 재지급 방지)
+            _seed = _smw_seed_usage(email, month_k, day_k)
+            if _seed:
+                row.update(_seed)
+                print(f"[usage/record] 재가입 사용량 승계 hash={_smw_hash(email)[:10]} {_seed}", flush=True)
 
         # 3) 카운터 증가
         if feature == "closet":
@@ -11950,7 +11982,7 @@ def api_usage_get(email):
 
         row = None
         try:
-            params = {"email": f"eq.{email}", "select": "*", "limit": "1"}
+            params = {"email": f"eq.{_smw_q(email)}", "select": "*", "limit": "1"}   # [2026-09-24] '+' 이메일 인코딩
             r = sb_query("GET", "user_usage", params=params)
             if r.status_code == 200:
                 rows = r.json()
@@ -11962,6 +11994,12 @@ def api_usage_get(email):
         # 메모리 폴백
         if not row and hasattr(app, "_usage_cache") and email in app._usage_cache:
             row = app._usage_cache[email]
+
+        # ─── 2026-09-24 KST · TJ 지시 ─── 사용량 행이 없으면 탈퇴 이력 확인 → 같은 달이면 사용횟수 승계
+        if not row:
+            _seed = _smw_seed_usage(email, month_k, day_k)
+            if _seed:
+                row = dict(_seed, email=email, month=month_k, day=day_k)
 
         if not row:
             return jsonify({"ok": True, "month": month_k, "day": day_k,
@@ -17100,6 +17138,22 @@ def sm_alarm_list():
     if not email: return jsonify(ok=False, error="email 필수"), 400
     return jsonify(ok=True, alarms=[_sm_row_to_alarm(r) for r in _sm_store_list(email)])
 
+def _sm_snapshot_delete(fname: str):
+    """[2026-09-24 KST · TJ 지시] 예약 스냅샷(얼굴 사진·옷장 이미지 포함) 파기 — 생성 완료/실패·예약 취소 시.
+       이전: 스냅샷이 R2·로컬에 영구 잔존 → 개인정보처리방침의 '생성 후 삭제' 와 불일치."""
+    fname = os.path.basename(str(fname or ""))
+    if not fname.startswith("smalarm_"):
+        return
+    try:
+        fp = os.path.join(_UPLOAD_DIR, fname)
+        if os.path.exists(fp): os.remove(fp)
+    except Exception: pass
+    try:
+        r2 = _get_r2()
+        if r2 is not None: r2.delete_object(Bucket=_R2_BUCKET, Key=f"uploads/{fname}")
+    except Exception as e:
+        print(f"[SM] snapshot delete fail {fname}: {e}", flush=True)
+
 @app.get("/api/aicloset/alarm/<aid>")
 def sm_alarm_get(aid):
     email = str(request.args.get("email") or "").strip().lower()
@@ -17111,6 +17165,11 @@ def sm_alarm_get(aid):
 def sm_alarm_delete(aid):
     email = str(request.args.get("email") or "").strip().lower()
     if not email: return jsonify(ok=False, error="email 필수"), 400
+    try:   # [2026-09-24] 대기 중 예약 취소 시 스냅샷도 파기
+        _row = _sm_store_get(aid)
+        if _row and _row.get("email") == email and _row.get("snapshot_ref"):
+            _sm_snapshot_delete(_row.get("snapshot_ref"))
+    except Exception: pass
     _sm_store_delete(aid, email)
     return jsonify(ok=True)
 
@@ -17176,6 +17235,8 @@ def _sm_run_alarm(row: dict):
             _pok, _perr = _sm_send_push_ex(row.get("push_json") or {}, {"title": "스타일몬스터", "body": "코디 알람 생성에 실패했어요. Ai옷장에서 '지금 생성하기'를 눌러주세요.", "url": "/app/aicloset.html", "alarmId": aid})
             _sm_record_push(aid, _pok, _perr)
         except Exception: pass
+    # [2026-09-24 KST · TJ 지시] 생성이 끝나면(성공·실패 모두) 스냅샷 파기 — 결과 이미지는 result_json 에 별도 보관
+    _sm_snapshot_delete(row.get("snapshot_ref") or "")
 
 def _sm_run_due(limit: int = 3) -> int:
     n = 0
@@ -17203,6 +17264,451 @@ if str(os.getenv("SM_ALARM_SCHEDULER", "1")).strip() not in ("0", "false", "no")
     #         fork 순간과 겹치면 워커의 stdout 락을 오염시켰음.
     #   중복 실행 방지(only_if_status="pending" 선점)는 기존 그대로.
     _register_bg_task("sm-alarm-scheduler", _sm_scheduler_loop)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ─── 2026-09-24 KST · TJ 지시 ─── 회원탈퇴 · 무료횟수 재지급 방지 · 동의 기록 ───
+#   [배경] withdraw.html 은 /api/user/withdraw, codibank.js 는 /api/user/delete 를 호출했지만
+#          서버에 두 라우트가 모두 없었음(404) → 탈퇴해도 Supabase 계정·사용량이 그대로 남았고,
+#          withdraw.html 은 404 를 성공으로 처리해 "탈퇴 완료" 를 띄웠음.
+#   [정책 — TJ 선택: 재가입은 허용, 무료횟수는 재지급하지 않음]
+#     · 탈퇴 시 이메일을 정규화(gmail 점·+태그 제거) → HMAC-SHA256 해시로만 sm_withdrawn 에 분리 보관
+#       (평문 이메일·신체데이터는 보관하지 않음, 기본 365일 후 파기 — SM_WITHDRAW_KEEP_DAYS)
+#     · 같은 사람이 같은 달에 재가입하면 그 달 사용횟수를 이어서 적용 (월 리셋 정책은 그대로)
+#       → /api/usage/get · /api/usage/record 에서 사용량 행이 없을 때 _smw_seed_usage() 로 승계
+#     · 개인 데이터 삭제: user_usage / user_usage_bonus / user_item_bonus / sm_alarms 행,
+#       옷장코디 예약 스냅샷(얼굴·옷장 이미지), R2·로컬 userdata JSON(items·album·profile_extra),
+#       Supabase Auth 계정(user_metadata 의 얼굴사진·키·몸무게 포함)
+#     · 통계용 styling_logs · 동의기록 sm_consent_logs 는 이메일을 해시 표식으로 가명처리
+#   [보안] 본인 확인: Authorization: Bearer <Supabase access_token> → /auth/v1/user 로 검증
+#   [동의 기록] POST /api/consent/log — 가입·재동의 시 버전·항목·시각·UA·IP 기록 (sm_consent_logs)
+#   [DB] Supabase SQL (1회): docs 의 sm_withdraw_consent.sql 참고. 테이블이 없어도 로컬 JSON 폴백으로 동작.
+# ═══════════════════════════════════════════════════════════════════════════
+import hmac as _smw_hmac
+import threading as _smw_threading
+import datetime as _smw_dt
+
+_SMW_SALT = (os.getenv("SM_WITHDRAW_SALT") or "stylemonster-withdraw-v1").encode("utf-8")
+try:
+    _SMW_KEEP_DAYS = max(30, int(os.getenv("SM_WITHDRAW_KEEP_DAYS") or "365"))
+except Exception:
+    _SMW_KEEP_DAYS = 365
+_SMW_LOCAL = os.path.join(_UPLOAD_DIR, "sm_withdrawn_local.json")
+_SMW_CONSENT_LOCAL = os.path.join(_UPLOAD_DIR, "sm_consent_local.json")
+_SMW_LOCK = _smw_threading.Lock()
+_SMW_USAGE_KEYS = ("closet_count", "codistyle_count", "tryon_count", "aicloset_count", "item_count", "total_count")
+_SMW_DAY_KEYS = ("day_closet_count", "day_codi_count", "day_tryon_count", "day_aicloset_count", "day_item_count", "day_total")
+
+def _smw_q(v) -> str:
+    """PostgREST 쿼리값 URL 인코딩 (+태그 이메일 등) — sb_query 는 인코딩하지 않음"""
+    import urllib.parse as _up
+    return _up.quote(str(v), safe="@._-:")
+
+def _smw_now():
+    return _smw_dt.datetime.now(_smw_dt.timezone.utc)
+
+def _smw_norm_email(email) -> str:
+    """중복가입 판정용 정규화: 소문자 · +태그 제거 · gmail 점 제거 · googlemail→gmail"""
+    e = str(email or "").strip().lower()
+    if "@" not in e:
+        return e
+    local, dom = e.rsplit("@", 1)
+    if dom == "googlemail.com":
+        dom = "gmail.com"
+    local = local.split("+", 1)[0]
+    if dom == "gmail.com":
+        local = local.replace(".", "")
+    return local + "@" + dom
+
+def _smw_hash(email) -> str:
+    return _smw_hmac.new(_SMW_SALT, _smw_norm_email(email).encode("utf-8"), hashlib.sha256).hexdigest()
+
+def _smw_local_load(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            d = json.load(f)
+            return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+def _smw_local_save(path, data):
+    try:
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+        os.replace(tmp, path)
+        return True
+    except Exception as e:
+        print(f"[withdraw] 로컬 저장 실패: {e}", flush=True)
+        return False
+
+def _smw_expired(rec) -> bool:
+    try:
+        exp = str(rec.get("expire_at") or "")
+        if not exp:
+            return False
+        return _smw_dt.datetime.fromisoformat(exp.replace("Z", "+00:00")) < _smw_now()
+    except Exception:
+        return False
+
+def _smw_store_get(h):
+    """sm_withdrawn 최신 1건 (Supabase → 로컬 JSON). 만료분은 무시."""
+    rec = None
+    try:
+        r = sb_query("GET", "sm_withdrawn", params={"email_hash": f"eq.{_smw_q(h)}", "select": "*",
+                                                    "order": "withdrawn_at.desc", "limit": "1"})
+        if r is not None and r.status_code == 200:
+            rows = r.json() or []
+            if rows:
+                rec = rows[0]
+    except Exception:
+        pass
+    if rec is None:
+        with _SMW_LOCK:
+            rec = _smw_local_load(_SMW_LOCAL).get(h)
+    if rec and _smw_expired(rec):
+        return None
+    return rec
+
+def _smw_store_put(rec) -> str:
+    """Supabase 저장 실패 시 로컬 JSON 에 보관. 반환: 'db' | 'local' | 'fail'"""
+    where = "fail"
+    try:
+        r = sb_query("POST", "sm_withdrawn", body=rec)
+        if r is not None and r.status_code in (200, 201):
+            where = "db"
+        else:
+            print(f"[withdraw] sm_withdrawn 저장 실패 status={getattr(r, 'status_code', None)} "
+                  f"{(getattr(r, 'text', '') or '')[:160]} → 로컬 폴백", flush=True)
+    except Exception as e:
+        print(f"[withdraw] sm_withdrawn 저장 예외 {e} → 로컬 폴백", flush=True)
+    if where != "db":
+        with _SMW_LOCK:
+            d = _smw_local_load(_SMW_LOCAL)
+            d[rec["email_hash"]] = rec
+            # 만료분 정리
+            d = {k: v for k, v in d.items() if not _smw_expired(v)}
+            if _smw_local_save(_SMW_LOCAL, d):
+                where = "local"
+    # 만료분 파기 (DB) — 요청 시점에 가볍게 정리 (별도 cron 불필요)
+    try:
+        sb_query("DELETE", "sm_withdrawn", params={"expire_at": f"lt.{_smw_now().strftime('%Y-%m-%dT%H:%M:%SZ')}"})
+        # 가명처리된 동의 기록: 동의일로부터 3년 경과분 파기 (개인정보처리방침 제3조)
+        _cut = (_smw_now() - _smw_dt.timedelta(days=365 * 3)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        sb_query("DELETE", "sm_consent_logs", params={"email": "like.wd:*", "created_at": f"lt.{_cut}"})
+    except Exception:
+        pass
+    return where
+
+def _smw_seed_usage(email, month_k, day_k):
+    """탈퇴 이력이 있는 사람이 같은 달에 재가입했으면 그 달 사용량을 반환 (없으면 None)."""
+    try:
+        rec = _smw_store_get(_smw_hash(email))
+        if not rec:
+            return None
+        u = rec.get("usage") or {}
+        if isinstance(u, str):
+            u = json.loads(u or "{}")
+        if str(u.get("month") or "") != str(month_k):
+            return None
+        seed = {k: int(u.get(k) or 0) for k in _SMW_USAGE_KEYS}
+        same_day = str(u.get("day") or "") == str(day_k)
+        for k in _SMW_DAY_KEYS:
+            seed[k] = int(u.get(k) or 0) if same_day else 0
+        if not any(seed.values()):
+            return None
+        return seed
+    except Exception as e:
+        print(f"[withdraw] seed 조회 실패(무시): {e}", flush=True)
+        return None
+
+def _smw_service_key():
+    return os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
+
+def _smw_verify_token(token):
+    """Supabase access_token → user dict (실패 시 None)"""
+    key = _smw_service_key() or os.environ.get("SUPABASE_ANON_KEY", "").strip()
+    if not token or not key:
+        return None
+    try:
+        r = http_requests.get(f"{supabase_url()}/auth/v1/user",
+                              headers={"apikey": key, "Authorization": f"Bearer {token}"}, timeout=10)
+        if r.status_code == 200:
+            u = r.json() or {}
+            return u if u.get("id") and u.get("email") else None
+    except Exception as e:
+        print(f"[withdraw] 토큰 검증 예외: {e}", flush=True)
+    return None
+
+def _smw_find_user_by_email(email):
+    """관리자 삭제용 — 이메일로 Auth 사용자 조회 (페이지 순회, 최대 5,000명)"""
+    email = str(email or "").strip().lower()
+    for page in range(1, 6):
+        try:
+            r = http_requests.get(f"{supabase_url()}/auth/v1/admin/users",
+                                  params={"page": page, "per_page": 1000},
+                                  headers=supabase_admin_headers(), timeout=15)
+            if r.status_code != 200:
+                return None
+            data = r.json()
+            users = data.get("users", data) if isinstance(data, dict) else data
+            for u in users or []:
+                if str(u.get("email") or "").lower() == email:
+                    return u
+            if not users or len(users) < 1000:
+                return None
+        except Exception:
+            return None
+    return None
+
+def _smw_get_user_by_id(uid):
+    try:
+        r = http_requests.get(f"{supabase_url()}/auth/v1/admin/users/{uid}",
+                              headers=supabase_admin_headers(), timeout=10)
+        if r.status_code == 200:
+            return r.json() or None
+    except Exception:
+        pass
+    return None
+
+def _smw_usage_snapshot(email):
+    row = None
+    try:
+        r = sb_query("GET", "user_usage", params={"email": f"eq.{_smw_q(email)}", "select": "*", "limit": "1"})
+        if r is not None and r.status_code == 200:
+            rows = r.json() or []
+            row = rows[0] if rows else None
+    except Exception:
+        pass
+    if row is None and hasattr(app, "_usage_cache"):
+        row = app._usage_cache.get(email)
+    if not row:
+        return {}
+    snap = {"month": str(row.get("month") or ""), "day": str(row.get("day") or "")}
+    for k in _SMW_USAGE_KEYS + _SMW_DAY_KEYS:
+        snap[k] = int(row.get(k) or 0)
+    return snap
+
+def _smw_purge(user, reasons=None, by="user"):
+    """탈퇴 처리 본체 — 분리보관 기록 → 개인 데이터 삭제 → Auth 계정 삭제."""
+    email = str(user.get("email") or "").strip().lower()
+    uid = str(user.get("id") or "")
+    h = _smw_hash(email)
+    meta = user.get("user_metadata") or {}
+    steps = {}
+    now = _smw_now()
+    rec = {
+        "email_hash": h,
+        "withdrawn_at": now.isoformat(),
+        "expire_at": (now + _smw_dt.timedelta(days=_SMW_KEEP_DAYS)).isoformat(),
+        "usage": _smw_usage_snapshot(email),
+        "plan": str(meta.get("plan") or "FREE")[:20],
+        "reasons": [str(x)[:100] for x in (reasons or [])][:6],
+        "joined_at": user.get("created_at") or None,
+        "by": by,
+    }
+    steps["record"] = _smw_store_put(rec)
+    r2 = None
+    try:
+        r2 = _get_r2()
+    except Exception:
+        r2 = None
+    # 옷장코디 예약 스냅샷(얼굴 사진·옷장 이미지 포함) 파일 삭제 → 예약 행 삭제
+    n_snap = 0
+    try:
+        _alarms = []
+        try:
+            r = sb_query("GET", "sm_alarms", params={"email": f"eq.{_smw_q(email)}", "select": "id,snapshot_ref", "limit": "500"})
+            if r is not None and r.status_code == 200:
+                _alarms = r.json() or []
+        except Exception:
+            pass
+        try:
+            _alarms += [v for v in (_sm_local_load() or {}).values() if str(v.get("email") or "").lower() == email]
+        except Exception:
+            pass
+        for al in _alarms:
+            aid = str(al.get("id") or "")
+            if not aid:
+                continue
+            fname = os.path.basename(str(al.get("snapshot_ref") or "")) or f"smalarm_{aid}_snapshot.json"
+            try:
+                fp = os.path.join(_UPLOAD_DIR, fname)
+                if os.path.exists(fp):
+                    os.remove(fp)
+            except Exception:
+                pass
+            if r2 is not None:
+                try:
+                    r2.delete_object(Bucket=_R2_BUCKET, Key=f"uploads/{fname}")
+                except Exception:
+                    pass
+            try:
+                _sm_store_delete(aid, email)
+            except Exception:
+                pass
+            n_snap += 1
+    except Exception as e:
+        print(f"[withdraw] 예약 스냅샷 정리 실패(계속): {e}", flush=True)
+    steps["alarm_snapshots"] = n_snap
+    for table in ("user_usage", "user_usage_bonus", "user_item_bonus", "sm_alarms"):
+        try:
+            r = sb_query("DELETE", table, params={"email": f"eq.{_smw_q(email)}"})
+            steps[table] = getattr(r, "status_code", None)
+        except Exception as e:
+            steps[table] = f"err:{str(e)[:60]}"
+    pseudo = "wd:" + h[:16]
+    for table in ("styling_logs", "sm_consent_logs"):
+        try:
+            r = sb_query("PATCH", table, params={"email": f"eq.{_smw_q(email)}"}, body={"email": pseudo})
+            steps[table] = getattr(r, "status_code", None)
+        except Exception as e:
+            steps[table] = f"err:{str(e)[:60]}"
+    # 로컬 동의기록 가명처리
+    try:
+        with _SMW_LOCK:
+            cl = _smw_local_load(_SMW_CONSENT_LOCAL)
+            if email in cl:
+                cl[pseudo] = cl.pop(email)
+                _smw_local_save(_SMW_CONSENT_LOCAL, cl)
+    except Exception:
+        pass
+    # userdata JSON (items · album · profile_extra) — R2 + 로컬
+    ud_hash = hashlib.sha256(email.encode()).hexdigest()[:16]
+    removed = 0
+    for key in ("items", "album", "profile_extra"):
+        fname = f"userdata_{ud_hash}_{key}.json"
+        try:
+            fpath = os.path.join(_UPLOAD_DIR, fname)
+            if os.path.exists(fpath):
+                os.remove(fpath); removed += 1
+        except Exception:
+            pass
+        if r2 is not None:
+            try:
+                r2.delete_object(Bucket=_R2_BUCKET, Key=f"uploads/{fname}"); removed += 1
+            except Exception:
+                pass
+    steps["userdata"] = removed
+    try:
+        if hasattr(app, "_usage_cache"):
+            app._usage_cache.pop(email, None)
+    except Exception:
+        pass
+    # Supabase Auth 계정 삭제
+    auth_ok = False
+    if uid:
+        try:
+            r = http_requests.delete(f"{supabase_url()}/auth/v1/admin/users/{uid}",
+                                     headers=supabase_admin_headers(), timeout=10)
+            steps["auth"] = r.status_code
+            auth_ok = r.status_code in (200, 204, 404)
+        except Exception as e:
+            steps["auth"] = f"err:{str(e)[:60]}"
+    else:
+        steps["auth"] = "no_uid"
+    print(f"[withdraw] {by} hash={h[:10]}… steps={steps}", flush=True)
+    return {"ok": auth_ok, "steps": steps, "hash": h[:10]}
+
+@app.post("/api/user/withdraw")
+@app.post("/api/user/delete", endpoint="sm_user_delete_alias")   # codibank.js deleteUserAccount 호환
+def sm_user_withdraw():
+    p = request.get_json(silent=True) or {}
+    auth = str(request.headers.get("Authorization") or "")
+    token = auth[7:].strip() if auth.lower().startswith("bearer ") else str(p.get("accessToken") or "").strip()
+    if not token:
+        return jsonify(ok=False, code="no_token", error="로그인 확인이 필요해요. 다시 로그인한 뒤 시도해주세요."), 401
+    if not _smw_service_key():
+        return jsonify(ok=False, code="server_config", error="서버 설정 오류로 탈퇴를 처리하지 못했어요. 고객센터로 요청해주세요."), 503
+    user = _smw_verify_token(token)
+    if not user:
+        return jsonify(ok=False, code="invalid_token", error="로그인이 만료됐어요. 다시 로그인한 뒤 탈퇴를 진행해주세요."), 401
+    req_email = str(p.get("email") or "").strip().lower()
+    if req_email and req_email != str(user.get("email") or "").lower():
+        return jsonify(ok=False, code="email_mismatch", error="로그인한 계정과 탈퇴 요청 계정이 달라요."), 403
+    reasons = p.get("reasons") if isinstance(p.get("reasons"), list) else []
+    res = _smw_purge(user, reasons=reasons, by="user")
+    if not res["ok"]:
+        return jsonify(ok=False, code="auth_delete_failed", steps=res["steps"],
+                       error="계정 삭제 중 오류가 발생했어요. 잠시 후 다시 시도해주세요."), 502
+    return jsonify(ok=True, steps=res["steps"])
+
+@app.post("/api/consent/log")
+def sm_consent_log():
+    """동의 기록 — 가입(세션 없음: verified=false) · 재동의(토큰 검증: verified=true)"""
+    try:
+        p = request.get_json(silent=True) or {}
+        items = p.get("items") if isinstance(p.get("items"), dict) else {}
+        items = {str(k)[:24]: bool(v) for k, v in list(items.items())[:12]}
+        version = str(p.get("version") or "")[:20]
+        auth = str(request.headers.get("Authorization") or "")
+        token = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+        user = _smw_verify_token(token) if token else None
+        email = str((user or {}).get("email") or p.get("email") or "").strip().lower()[:200]
+        if not email or not version or not items:
+            return jsonify(ok=False, error="email/version/items 필요"), 400
+        row = {
+            "email": email, "version": version, "items": items, "verified": bool(user),
+            "source": str(p.get("source") or "")[:20],
+            "ua": str(request.headers.get("User-Agent") or "")[:300],
+            "ip": str(request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",")[0].strip()[:64],
+            "created_at": _smw_now().isoformat(),
+        }
+        where = "fail"
+        try:
+            r = sb_query("POST", "sm_consent_logs", body=row)
+            if r is not None and r.status_code in (200, 201):
+                where = "db"
+        except Exception:
+            pass
+        if where != "db":
+            with _SMW_LOCK:
+                d = _smw_local_load(_SMW_CONSENT_LOCAL)
+                lst = d.get(email) or []
+                lst.append(row)
+                d[email] = lst[-20:]
+                if _smw_local_save(_SMW_CONSENT_LOCAL, d):
+                    where = "local"
+        return jsonify(ok=True, stored=where, verified=bool(user))
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)[:200]), 500
+
+@app.get("/admin/withdrawals")
+def admin_withdrawals():
+    """탈퇴 현황 (해시·사유·승계 사용량만 — 평문 이메일 없음)"""
+    if not verify_admin(request):
+        return jsonify({"error": "Unauthorized"}), 401
+    rows = []
+    try:
+        r = sb_query("GET", "sm_withdrawn", params={"select": "email_hash,withdrawn_at,plan,reasons,usage,by",
+                                                    "order": "withdrawn_at.desc", "limit": "200"})
+        if r is not None and r.status_code == 200:
+            rows = r.json() or []
+    except Exception:
+        rows = []
+    with _SMW_LOCK:
+        local = list(_smw_local_load(_SMW_LOCAL).values())
+    seen = {(x.get("email_hash"), x.get("withdrawn_at")) for x in rows}
+    rows += [x for x in local if (x.get("email_hash"), x.get("withdrawn_at")) not in seen]
+    rows.sort(key=lambda x: str(x.get("withdrawn_at") or ""), reverse=True)
+    reasons = {}
+    cutoff = (_smw_now() - _smw_dt.timedelta(days=30)).isoformat()
+    recent = 0
+    for x in rows:
+        if str(x.get("withdrawn_at") or "") >= cutoff:
+            recent += 1
+        rs = x.get("reasons") or []
+        if isinstance(rs, str):
+            try: rs = json.loads(rs)
+            except Exception: rs = [rs]
+        for s in rs:
+            k = str(s).split(":")[0].strip() or "기타"
+            reasons[k] = reasons.get(k, 0) + 1
+    out = [{"hash": str(x.get("email_hash") or "")[:10], "at": x.get("withdrawn_at"), "plan": x.get("plan"),
+            "by": x.get("by") or "user", "reasons": x.get("reasons") or [], "usage": x.get("usage") or {}}
+           for x in rows[:50]]
+    return jsonify(ok=True, total=len(rows), recent30=recent, reasons=reasons, list=out)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
