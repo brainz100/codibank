@@ -7,6 +7,10 @@
 각 항목은 실제 수정 지점에도 동일한 날짜/요약 주석이 존재합니다.
 점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+─── 2026-09-24 KST · TJ 지시 ─── [탈퇴 현황]
+  회원현황 탭 '회원 목록' 아래 '탈퇴 현황' 표 추가 (GET /admin/withdrawals — 해시·사유·탈퇴월 사용량, 평문 이메일 없음)
+  회원/테스트계정 삭제는 서버에서 탈퇴와 같은 절차로 처리(분리보관 기록 + 개인데이터 삭제). 이메일로 삭제 요청도 동작.
+
 ─── 2026-04-20 07:15 KST (관리자 페이지 PC 모니터 최적화) ────────────────
   [원인] 관리자 페이지는 원래 PC 대시보드용으로 설계됨:
     - .page max-width: 1200px (line 21)
@@ -301,6 +305,12 @@ body {
 <table><thead><tr><th>이메일</th><th>닉네임</th><th>가입일</th><th>최근로그인</th><th>회원구분</th><th>성별</th><th>상태</th><th>코디핏 보너스</th><th>트라이온 보너스</th><th>런웨이 보너스</th><th>관리</th></tr></thead><tbody id="tU"></tbody></table>
 <div class="pager" id="pgU"><span></span><span><button onclick="pgU(-1)">◀</button> <span id="pgUt">1/1</span> <button onclick="pgU(1)">▶</button> <select id="ppU" onchange="fU()"><option>20</option><option>50</option><option>100</option></select>건</span></div>
 </div></div>
+
+<!-- ─── 2026-09-24 KST · TJ 지시 ─── 탈퇴 현황 (평문 이메일 없음 · 해시 앞 10자리) -->
+<div class="sec"><div class="sec-h"><div class="sec-t"><span class="mi">person_remove</span>탈퇴 현황 <span style="font-size:10px;color:#888;font-weight:500;">(분리보관 1년 · 재가입 시 그 달 사용횟수 승계)</span></div><button class="rb" onclick="ldWd()"><span class="mi">refresh</span>새로고침</button></div>
+<div id="wdSummary" style="font-size:12px;color:#555;margin:2px 2px 8px;">-</div>
+<div class="tw"><table><thead><tr><th>탈퇴일</th><th>식별값(해시)</th><th>구분</th><th>플랜</th><th>탈퇴 월 사용</th><th>사유</th></tr></thead><tbody id="tWd"><tr><td colspan="6" class="ld">-</td></tr></tbody></table></div>
+</div>
 </div>
 
 <!-- ═══ 결제현황 ═══ -->
@@ -830,7 +840,24 @@ function stab(el,n){document.querySelectorAll('.tab').forEach(function(t){t.clas
 function toast(m,e){var el=document.getElementById('toast');el.textContent=m;el.className='toast show'+(e?' err':'');setTimeout(function(){el.className='toast'},3000)}
 // [2026-06-30 KST · TJ 지시] 페이지별 새로고침 — 로그인 시점 집계를 로그아웃 없이 갱신
 function refreshDash(){toast('일반현황 새로고침');ldH();ldU();ldP();ldS();ldI();}
-function refreshUsers(){toast('회원현황 새로고침');ldU();ldUsageSummary();}
+function refreshUsers(){toast('회원현황 새로고침');ldU();ldUsageSummary();ldWd();}
+// ─── 2026-09-24 KST · TJ 지시 ─── 탈퇴 현황
+function _wdEsc(t){return String(t==null?'':t).replace(/[&<>"']/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
+async function ldWd(){
+  var tb=document.getElementById('tWd'), sm=document.getElementById('wdSummary'); if(!tb) return;
+  tb.innerHTML='<tr><td colspan="6" class="ld"><span class="sp"></span></td></tr>';
+  try{
+    var r=await authFetch(B+'/admin/withdrawals'); if(!r.ok) throw new Error('status '+r.status);
+    var d=await r.json(); if(!d.ok) throw new Error(d.error||'unknown');
+    var rs=Object.keys(d.reasons||{}).sort(function(a,b){return d.reasons[b]-d.reasons[a];}).map(function(k){return _wdEsc(k)+' '+d.reasons[k];}).join(' · ');
+    if(sm) sm.innerHTML='보관 중 <b>'+d.total+'</b>건 · 최근 30일 <b>'+d.recent30+'</b>건'+(rs?' · 사유: '+rs:'');
+    var rows=(d.list||[]).map(function(x){
+      var u=x.usage||{}; var use=(u.month?u.month+' · ':'')+'코디핏 '+(u.closet_count||0)+' / 트라이온 '+(u.tryon_count||0)+' / 아이템 '+(u.item_count||0);
+      return '<tr><td>'+_wdEsc(String(x.at||'').slice(0,16).replace('T',' '))+'</td><td style="font-family:monospace">'+_wdEsc(x.hash)+'…</td><td>'+(x.by==='admin'?'관리자 삭제':'본인 탈퇴')+'</td><td>'+_wdEsc(x.plan||'')+'</td><td>'+_wdEsc(use)+'</td><td>'+_wdEsc((x.reasons||[]).join(', '))+'</td></tr>';
+    }).join('');
+    tb.innerHTML=rows||'<tr><td colspan="6" style="color:#aaa;text-align:center;">탈퇴 기록 없음</td></tr>';
+  }catch(e){ tb.innerHTML='<tr><td colspan="6" style="color:#e53e3e;">로드 실패: '+_wdEsc(e.message)+'</td></tr>'; }
+}
 function refreshPay(){toast('결제현황 새로고침');ldP();}
 function refreshAigen(){toast('AI 이미지·영상 새로고침');ldS();}
 function refreshItems(){toast('아이템등록 새로고침');ldI();}
@@ -1777,7 +1804,7 @@ function quickBonus(email){
 }
 
 function ldAll(){
-  ldH();ldU();ldP();ldS();ldI();
+  ldH();ldU();ldP();ldS();ldI();try{ldWd();}catch(_){}
   if(isMaster()){
     ldAdmins();
     ldBonusMgr();

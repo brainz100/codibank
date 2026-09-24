@@ -2,6 +2,8 @@
 <html lang="ko">
 <head>
 <!-- ─── 2026-09-09 KST · TJ 지시 ─── 리브랜딩: 코디뱅크/CodiBank → 스타일몬스터/Stylemonster ─── -->
+<!-- ─── 2026-09-24 KST · TJ 지시 ─── STEP1 서비스 이용 동의(필수 5·선택 1, 신체데이터 전문 펼침) — 필수 미동의 시 인증 요청 불가.
+     동의 기록: signUp options.data.consent(user_metadata) + /api/consent/log -->
 <meta charset="utf-8"/>
 <!-- ─── 2026-05-09 KST · TJ 지시 (v47) ─── signup.html 진입 가드 (sync, head 최상단)
      배경: 이메일 인증 클릭 시 Supabase가 emailRedirectTo를 무시하고 signup.html로
@@ -110,8 +112,13 @@
       <div><label class="field-label">이메일 (아이디)</label><input id="s1_email" type="email" class="input" placeholder="example@email.com"/></div>
       <div><label class="field-label">비밀번호 (영문+숫자 6자 이상)</label><input id="s1_pw" type="password" class="input" placeholder="비밀번호"/></div>
       <div><label class="field-label">비밀번호 확인</label><input id="s1_pw2" type="password" class="input" placeholder="비밀번호 재입력"/></div>
+      <!-- ─── 2026-09-24 KST · TJ 지시 ─── 서비스 이용 동의 (필수 5 · 선택 1) — codibank.js CodiBankConsent.build -->
+      <div style="margin-top:4px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1);">
+        <label class="field-label" id="consentLabel">서비스 이용 동의</label>
+        <div id="consentBox"></div>
+      </div>
       <p id="s1Err" class="err"></p>
-      <button class="btn-primary" id="btnStep1" onclick="sendVerification()">이메일 인증 요청 →</button>
+      <button class="btn-primary" id="btnStep1" onclick="sendVerification()" disabled>이메일 인증 요청 →</button>
       <p style="text-align:center;margin-top:12px;font-size:14px;color:rgba(255,255,255,.38);">이미 계정이 있으신가요? <a href="login.html" class="link-teal">로그인</a></p>
     </div>
 
@@ -181,6 +188,22 @@ let sb;
 if(window.CodiBank&&CodiBank.getCurrentUser&&CodiBank.getCurrentUser()) location.replace('closet.html');
 
 let G='',A='',sEmail='',sPw='';
+// ─── 2026-09-24 KST · TJ 지시 ─── 가입 동의 UI (필수 미동의 시 인증 요청 버튼 비활성)
+let _consentUI = null;
+(function _initConsent(){
+  function go(){
+    try{
+      const box = document.getElementById('consentBox');
+      if(!box || !window.CodiBankConsent) return;
+      _consentUI = CodiBankConsent.build(box);
+      const btn = document.getElementById('btnStep1');
+      _consentUI.onChange(function(valid){ if(btn && !btn.dataset.busy) btn.disabled = !valid; });
+      const en = window.CodiBankI18n && CodiBankI18n.isForeign && CodiBankI18n.isForeign();
+      const lb = document.getElementById('consentLabel'); if(lb && en) lb.textContent = 'Consent';
+    }catch(e){ console.warn('[signup] consent init', e); }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', go); else go();
+})();
 function sel(t,v,el){ if(t==='G')G=v; else A=v; el.closest('.sel-group').querySelectorAll('.sel-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
 function showErr(id,m){const e=document.getElementById(id);e.textContent=m;e.classList.add('show');}
 function clrErr(id){document.getElementById(id).classList.remove('show');}
@@ -258,6 +281,9 @@ async function sendVerification(){
   if(!em||!em.includes('@')) return showErr('s1Err',CodiBankI18n.t('올바른 이메일을 입력해주세요.','Please enter a valid email.'));
   if(!pw||pw.length<6) return showErr('s1Err',CodiBankI18n.t('비밀번호는 6자 이상이어야 합니다.','Password must be 6+ characters.'));
   if(pw!==pw2) return showErr('s1Err',CodiBankI18n.t('비밀번호가 일치하지 않습니다.','Passwords do not match.'));
+  // ─── 2026-09-24 KST · TJ 지시 ─── 필수 동의 확인
+  if(!_consentUI || !_consentUI.isValid()) return showErr('s1Err',CodiBankI18n.t('필수 동의 항목에 모두 동의해주세요.','Please agree to all required items.'));
+  const _consent = CodiBankConsent.snapshot(_consentUI.values());
 
   // ─── (v46) 흔한 도메인 오타 감지 — confirm으로 사용자 확인 ───
   const _suggestion = _suggestEmailFix(em);
@@ -295,7 +321,7 @@ async function sendVerification(){
     }));
   }catch(_){ /* localStorage 차단 환경에서는 자동 채우기 비활성 */ }
 
-  const btn=document.getElementById('btnStep1'); btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> 발송 중…';
+  const btn=document.getElementById('btnStep1'); btn.dataset.busy='1'; btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> 발송 중…';
   try{
     if(!sb) throw new Error(CodiBankI18n.t('인증 서버 연결 실패','Auth server connection failed'));
     const{data,error}=await sb.auth.signUp({
@@ -304,13 +330,15 @@ async function sendVerification(){
       // 이전: signup.html?verified=true (다시 회원가입 페이지로 와서 추가 정보 입력)
       // 변경: login.html?verified=true (사용자가 로그인 후 mypage로 자연스럽게 진입)
       // 의도: 추가 정보 입력 단계 강요 제거 — 서비스 이용 포기 방지
-      options:{ emailRedirectTo: location.origin + '/app/login.html?verified=true' }   // 2026-09-09 KST · TJ 지시 — 도메인 전환(stylemonster.kr) 대응: 하드코딩 제거
+      options:{ emailRedirectTo: location.origin + '/app/login.html?verified=true',   // 2026-09-09 KST · TJ 지시 — 도메인 전환(stylemonster.kr) 대응: 하드코딩 제거
+                data: { consent: _consent } }   // 2026-09-24 KST · TJ 지시 — 동의 기록을 계정 생성과 함께 저장(user_metadata.consent)
     });
     if(error){
       if(error.message.includes('already')) throw new Error(CodiBankI18n.t('이미 가입된 이메일입니다. 로그인해주세요.','Email already registered. Please log in.'));
       if(error.status===429) throw new Error(CodiBankI18n.t('잠시 후 다시 시도해주세요.','Please try again later.'));
       throw new Error(error.message);
     }
+    try{ CodiBankConsent.log(_consentUI.values(), 'signup', sEmail); }catch(_){}   // 2026-09-24 서버 동의 기록
     if(data&&data.session){
       // (Supabase가 confirm email 옵션 OFF로 즉시 로그인 케이스) → 바로 로그인 페이지로
       location.replace('login.html?verified=true');
@@ -320,7 +348,7 @@ async function sendVerification(){
     document.getElementById('otpEmail').textContent = sEmail;
     showStep('step2',2);
   }catch(e){ showErr('s1Err',e.message||'오류가 발생했습니다.'); }
-  finally{ btn.disabled=false; btn.innerHTML='이메일 인증 요청 →'; }
+  finally{ delete btn.dataset.busy; btn.disabled=!(_consentUI && _consentUI.isValid()); btn.innerHTML='이메일 인증 요청 →'; }
 }
 
 /* ── 인증 완료 확인 (Step 2 "이미 인증했어요" 버튼) ── */

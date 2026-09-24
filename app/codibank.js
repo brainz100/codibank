@@ -5,6 +5,17 @@
    각 항목은 실제 수정 지점(줄번호)에도 동일한 날짜/요약 주석이 존재합니다.
    점검 시 이 블록만 읽어도 파일의 최신 상태와 변경 이력을 알 수 있습니다.
 
+   ─── 2026-09-24 KST (🔐 서비스 이용 동의 · 회원탈퇴 — TJ 지시) ─────────────
+     [동의] 파일 끝 _cbConsentModule → window.CodiBankConsent
+       · 필수 5종(만14세·약관·개인정보·신체데이터·국외이전) + 선택 1종(서비스 개선)
+       · 신체데이터 동의 전문은 체크박스 아래 항상 펼쳐서 표시
+       · signup.html STEP1 에서 build() 사용 / 기록: user_metadata.consent + /api/consent/log
+       · 기존 회원: _cbAutoValidateSession 이 서버 검증 후 ensure() → 현재 버전(2026-09-24)
+         동의가 없으면 동의 시트 (필수 미동의 시 로그아웃·탈퇴만 가능)
+       · _sbUserToCb 에 consent 필드 추가
+     [탈퇴] deleteUserAccount: 서버 /api/user/withdraw(토큰 검증) 성공 후에만 로컬 정리
+       (이전: 없는 /api/user/delete 를 토큰 없이 호출 → 서버 계정이 남음)
+
    ─── 2026-09-22 KST (👕 카테고리 체계 개편 v2 — TJ 지시) ─────────────────
      [새 체계 11종 · TJ 지정 순서]
        겉옷(outer) · 상의(top) · 바지(pants) · 스커트(skirt)F · 원피스(onepiece)F
@@ -328,6 +339,7 @@ function getBackendBaseResolved() {
       createdAt:        sbUser.created_at  || nowIso(),
       updatedAt:        m.updatedAt  || nowIso(),
       sbId:             sbUser.id,
+      consent:          m.consent    || null,   // 2026-09-24 KST · TJ 지시 — 서비스 이용 동의 기록 {v, at, items}
     };
   }
 
@@ -2075,9 +2087,20 @@ async function uploadImageToServer(dataUrl, opts) {
     const e = normalizeEmail(email);
     if (!e) return { ok: false, error: '이메일이 없습니다.' };
     try {
+      // ─── 2026-09-24 KST · TJ 지시 ─── 서버 탈퇴(본인 토큰 검증) 먼저 → 성공해야 로컬 정리
+      //   이전: 존재하지 않는 /api/user/delete 를 로그아웃 뒤에 호출(토큰 없음) → 서버 계정이 남았음
+      const sb = (window.CodiBankConsent && window.CodiBankConsent.client) ? await window.CodiBankConsent.client() : _getSupabase();
+      let _tok = '';
+      try { const _s = sb ? await sb.auth.getSession() : null; _tok = (_s && _s.data && _s.data.session && _s.data.session.access_token) || ''; } catch (_) {}
+      const _base = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || 'https://codibank-api.onrender.com';
+      const _r = await fetch(_base + '/api/user/withdraw', { method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, _tok ? { Authorization: 'Bearer ' + _tok } : {}),
+        body: JSON.stringify({ email: e }) });
+      const _d = await _r.json().catch(() => ({}));
+      if (!_r.ok || !_d.ok) return { ok: false, error: _d.error || '회원탈퇴 처리 중 오류가 발생했습니다.' };
+
       // 1) Supabase 로그아웃 (세션 제거)
-      const sb = _getSupabase();
-      if (sb) await sb.auth.signOut();
+      if (sb) { try { await sb.auth.signOut({ scope: 'local' }); } catch (_) {} }
       clearSession();
 
       // 2) 로컬 데이터 정리
@@ -2093,14 +2116,6 @@ async function uploadImageToServer(dataUrl, opts) {
         setAiAlbumAll((Array.isArray(all)?all:[]).filter(x=>normalizeEmail(x&&x.email)!==e));
       } catch (_) {}
       try { localStorage.removeItem(`codibank_weather_cache_v1_${e}`); } catch (_) {}
-
-      // 3) 서버 경유 Supabase 계정 삭제 (service_role 필요 → 백엔드 API)
-      try {
-        const base = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || '';
-        if (base) await fetch(base + '/api/user/delete', { method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: e }) });
-      } catch (_) {}
 
       return { ok: true };
     } catch (err) {
@@ -2389,6 +2404,14 @@ window.CodiBank = {
       var result = await window.CodiBank.validateSession();
       if(result && !result.ok && result.cleared){
         try{ window.location.reload(); }catch(_){}
+        return;
+      }
+      // ─── 2026-09-24 KST · TJ 지시 ─── 로그인 사용자 → 현재 버전 동의 확인 (없으면 동의 시트)
+      //   대부분 페이지는 SDK 없이 로컬 캐시로 동작(reason='no_supabase') → 캐시 사용자 기준으로 확인,
+      //   부족하면 ensure() 가 SDK 를 지연 로드해 서버 기록을 재확인한 뒤에만 시트를 띄움
+      var _cu = (result && result.user) || (window.CodiBank.getCurrentUser && window.CodiBank.getCurrentUser());
+      if(result && result.ok && _cu && window.CodiBankConsent){
+        try{ await window.CodiBankConsent.ensure(); }catch(_){}
       }
     }catch(_){}
   }
@@ -2575,3 +2598,251 @@ function _cbApplyGlobalEnLabels(){
   }
 })();
 
+
+// ═══════════════════════════════════════════════════════════════════════
+// ─── 2026-09-24 KST · TJ 지시 ─── 서비스 이용 동의 (가입 · 기존회원 재동의) ───
+//   · 필수: 만 14세 이상 / 이용약관 / 개인정보 수집·이용 / 신체데이터(사진·신체사이즈) 이용 / 국외 이전
+//   · 선택: 서비스 개선 활용
+//   · 신체데이터 동의는 전문을 체크박스 바로 아래에 펼쳐서 표시 (나중에 "못 봤다" 는 다툼 방지)
+//   · 기록: Supabase user_metadata.consent {v, at, items} + 서버 /api/consent/log (시각·UA·IP)
+//   · 기존 회원: 로그인 페이지 진입 시 consent.v 가 현재 버전보다 낮으면 동의 시트 표시 (필수 미동의 시 이용 불가)
+//   · 사용처: signup.html STEP1 (CodiBankConsent.build), 전 페이지 자동(ensure), mypage 동의관리(openManage)
+// ═══════════════════════════════════════════════════════════════════════
+(function _cbConsentModule(){
+  var VERSION = '2026-09-24';
+  function _en(){ try{ return !!(window.CodiBankI18n && (CodiBankI18n.isForeign ? CodiBankI18n.isForeign() : CodiBankI18n.isEn())); }catch(_){ return false; } }
+  function T(ko, en){ return _en() ? en : ko; }
+  var BODY_KO = '스타일몬스터의 착장 서비스(코디핏·트라이온·AI옷장)를 이용하기 위해 본인이 제공하는 신체데이터(얼굴·전신 사진, 키·몸무게·체형·신체 사이즈, 퍼스널컬러 등)를 스타일몬스터가 수집하여 착장 이미지 생성, 체형 분석, 맞춤 코디 추천에 사용·응용·분석하는 것에 동의합니다. 신체데이터는 위 목적 외에는 사용하지 않으며, 마이페이지에서 언제든 삭제할 수 있고 회원 탈퇴 시 지체 없이 파기합니다. 동의하지 않으면 착장 이미지 생성 등 핵심 기능을 이용할 수 없습니다.';
+  var BODY_EN = 'To use Stylemonster\'s outfit services (Codi Fit, Try-On, AI Closet), I agree that Stylemonster collects the body data I provide (face and full-body photos, height, weight, body type and measurements, personal color, etc.) and uses, applies and analyzes it to generate outfit images, analyze body type and recommend outfits. Body data is not used for any other purpose, can be deleted at any time in My Page, and is destroyed without delay when I delete my account. Without this consent, core features such as outfit image generation are unavailable.';
+  var OVERSEAS_KO = '사진·신체데이터·생성 이미지는 AI 이미지 생성과 저장을 위해 Google LLC(미국), OpenAI(미국), BytePlus(싱가포르), Cloudflare(미국), Supabase(미국), Render(싱가포르)로 서비스 이용 시점에 암호화 전송되어 처리·보관됩니다. 자세한 내용은 개인정보처리방침 제5조를 확인하세요.';
+  var OVERSEAS_EN = 'Photos, body data and generated images are transferred (encrypted) at the time of use to Google LLC (USA), OpenAI (USA), BytePlus (Singapore), Cloudflare (USA), Supabase (USA) and Render (Singapore) for AI image generation and storage. See Article 5 of the Privacy Policy.';
+  var IMPROVE_KO = '생성된 착장 이미지와 신체데이터를 개인을 알아볼 수 없도록 처리한 뒤 추천 품질 개선·통계 분석에 활용하는 데 동의합니다. 동의하지 않아도 서비스 이용에는 제한이 없습니다.';
+  var IMPROVE_EN = 'I agree that generated outfit images and body data may be de-identified and used to improve recommendations and for statistics. Declining does not limit the service.';
+  var ITEMS = [
+    { key:'age14',    req:true,  ko:'만 14세 이상입니다',                      en:'I am 14 years of age or older' },
+    { key:'terms',    req:true,  ko:'이용약관 동의',                            en:'Terms of Service',                         link:'terms.html' },
+    { key:'privacy',  req:true,  ko:'개인정보 수집·이용 동의',                   en:'Collection & use of personal information',  link:'privacy.html' },
+    { key:'body',     req:true,  ko:'신체데이터(사진·신체사이즈) 이용 동의',      en:'Use of body data (photos & measurements)', detailKo:BODY_KO, detailEn:BODY_EN, open:true },
+    { key:'overseas', req:true,  ko:'개인정보 국외 이전 동의',                   en:'Overseas transfer of personal information', detailKo:OVERSEAS_KO, detailEn:OVERSEAS_EN },
+    { key:'improve',  req:false, ko:'서비스 개선 활용 동의',                     en:'Use for service improvement',              detailKo:IMPROVE_KO, detailEn:IMPROVE_EN },
+  ];
+  function _css(){
+    if(document.getElementById('cbcStyle')) return;
+    var st = document.createElement('style'); st.id = 'cbcStyle';
+    st.textContent = ''
+      + '.cbc{display:flex;flex-direction:column;gap:2px;text-align:left;font-family:inherit;}'
+      + '.cbc-all{display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:14px;background:rgba(151,254,237,.08);border:1.5px solid rgba(151,254,237,.28);cursor:pointer;margin-bottom:6px;}'
+      + '.cbc-all b{font-size:15px;font-weight:800;color:#fff;}'
+      + '.cbc-row{display:flex;align-items:flex-start;gap:10px;padding:9px 4px;}'
+      + '.cbc-row label{flex:1;font-size:13px;color:rgba(255,255,255,.82);line-height:1.5;cursor:pointer;}'
+      + '.cbc-tag{font-weight:800;margin-right:4px;}.cbc-req{color:#97FEED;}.cbc-opt{color:rgba(255,255,255,.45);}'
+      + '.cbc-link{flex-shrink:0;font-size:12px;color:rgba(151,254,237,.8);text-decoration:underline;background:none;border:none;cursor:pointer;padding:2px 0;font-family:inherit;}'
+      + '.cbc-box{appearance:none;-webkit-appearance:none;flex-shrink:0;width:20px;height:20px;border-radius:6px;border:1.5px solid rgba(255,255,255,.35);background:rgba(255,255,255,.04);cursor:pointer;margin-top:1px;position:relative;}'
+      + '.cbc-box:checked{background:#35A29F;border-color:#97FEED;}'
+      + '.cbc-box:checked::after{content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}'
+      + '.cbc-detail{margin:0 4px 6px 34px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);font-size:12px;line-height:1.65;color:rgba(255,255,255,.66);}'
+      + '.cbc-detail.hide{display:none;}'
+      + '.cbc-sheet-bg{position:fixed;inset:0;z-index:2147483000;background:rgba(0,2,46,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;}'
+      + '.cbc-sheet{width:100%;max-width:480px;max-height:92dvh;overflow:auto;background:#00022E;border:1px solid rgba(151,254,237,.22);border-bottom:none;border-radius:24px 24px 0 0;padding:22px 18px calc(18px + env(safe-area-inset-bottom));color:#fff;font-family:"Pretendard","Noto Sans KR",sans-serif;}'
+      + '.cbc-sheet h3{font-size:18px;font-weight:800;margin-bottom:6px;}'
+      + '.cbc-sheet .cbc-sub{font-size:12.5px;color:rgba(255,255,255,.55);line-height:1.6;margin-bottom:14px;}'
+      + '.cbc-btn{width:100%;padding:15px;border:none;border-radius:14px;background:linear-gradient(135deg,#0B666A,#35A29F);color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:12px;}'
+      + '.cbc-btn:disabled{opacity:.4;cursor:not-allowed;}'
+      + '.cbc-foot{display:flex;justify-content:center;gap:18px;margin-top:12px;}'
+      + '.cbc-foot button{background:none;border:none;color:rgba(255,255,255,.45);font-size:12px;text-decoration:underline;cursor:pointer;font-family:inherit;}'
+      + '.cbc-err{color:#ff8a8a;font-size:12px;margin-top:8px;min-height:1em;}';
+    (document.head || document.documentElement).appendChild(st);
+  }
+  function _esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); }
+  // 대부분의 페이지는 Supabase SDK 를 싣지 않음(로컬 캐시 기반) → 동의 저장·탈퇴에 필요할 때만 지연 로드
+  var SDK_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
+  var _sdkP = null;
+  function _loadSdk(){
+    if(window.supabase && window.supabase.createClient) return Promise.resolve(true);
+    if(_sdkP) return _sdkP;
+    _sdkP = new Promise(function(res){
+      var done = false; function fin(v){ if(done) return; done = true; if(!v) _sdkP = null; res(v); }
+      var sc = document.createElement('script'); sc.src = SDK_URL; sc.async = true;
+      sc.onload = function(){ fin(!!(window.supabase && window.supabase.createClient)); };
+      sc.onerror = function(){ fin(false); };
+      (document.head || document.documentElement).appendChild(sc);
+      setTimeout(function(){ fin(!!(window.supabase && window.supabase.createClient)); }, 12000);
+    });
+    return _sdkP;
+  }
+  async function client(){
+    var c = window.CodiBank && CodiBank.getSupabaseClient && CodiBank.getSupabaseClient();
+    if(c) return c;
+    await _loadSdk();
+    return (window.CodiBank && CodiBank.getSupabaseClient && CodiBank.getSupabaseClient()) || null;
+  }
+  function _remember(u, snap){
+    try{
+      if(!u || !snap) return;
+      u.consent = snap;
+      try{ localStorage.setItem('cb_consent_' + String(u.email||'').toLowerCase(), JSON.stringify(snap)); }catch(_){}
+      try{ var all = JSON.parse(localStorage.getItem('codibank_users') || '{}'); var k = String(u.email||'').toLowerCase(); if(all[k]){ all[k].consent = snap; localStorage.setItem('codibank_users', JSON.stringify(all)); } }catch(_){}
+    }catch(_){}
+  }
+  // container 에 동의 UI 를 그림 → { isValid, values, setAll, onChange }
+  function build(container, opts){
+    opts = opts || {};
+    _css();
+    var init = opts.values || {};
+    var uid = 'cbc' + Math.random().toString(36).slice(2, 8);
+    var html = '<div class="cbc">'
+      + '<label class="cbc-all" for="' + uid + '_all"><input type="checkbox" class="cbc-box" id="' + uid + '_all"><b>' + _esc(T('전체 동의','Agree to all')) + '</b></label>';
+    ITEMS.forEach(function(it){
+      var id = uid + '_' + it.key;
+      var detail = _en() ? it.detailEn : it.detailKo;
+      html += '<div class="cbc-row">'
+        + '<input type="checkbox" class="cbc-box" id="' + id + '" data-key="' + it.key + '"' + (init[it.key] ? ' checked' : '') + '>'
+        + '<label for="' + id + '"><span class="cbc-tag ' + (it.req ? 'cbc-req' : 'cbc-opt') + '">[' + _esc(it.req ? T('필수','Required') : T('선택','Optional')) + ']</span>' + _esc(_en() ? it.en : it.ko) + '</label>'
+        + (it.link ? '<a class="cbc-link" href="' + it.link + '" target="_blank" rel="noopener">' + _esc(T('보기','View')) + '</a>'
+           : (detail && !it.open ? '<button type="button" class="cbc-link" data-toggle="' + id + '_d">' + _esc(T('보기','View')) + '</button>' : ''))
+        + '</div>'
+        + (detail ? '<div class="cbc-detail' + (it.open ? '' : ' hide') + '" id="' + id + '_d">' + _esc(detail) + '</div>' : '');
+    });
+    html += '</div>';
+    container.innerHTML = html;
+    var all = container.querySelector('#' + uid + '_all');
+    var boxes = Array.prototype.slice.call(container.querySelectorAll('input[data-key]'));
+    var listeners = [];
+    function values(){ var v = {}; boxes.forEach(function(b){ v[b.getAttribute('data-key')] = !!b.checked; }); return v; }
+    function isValid(){ var v = values(); return ITEMS.every(function(it){ return !it.req || v[it.key]; }); }
+    function sync(){ all.checked = boxes.every(function(b){ return b.checked; }); listeners.forEach(function(fn){ try{ fn(isValid(), values()); }catch(_){} }); }
+    all.addEventListener('change', function(){ boxes.forEach(function(b){ b.checked = all.checked; }); sync(); });
+    boxes.forEach(function(b){ b.addEventListener('change', sync); });
+    Array.prototype.forEach.call(container.querySelectorAll('[data-toggle]'), function(btn){
+      btn.addEventListener('click', function(){ var d = document.getElementById(btn.getAttribute('data-toggle')); if(d) d.classList.toggle('hide'); });
+    });
+    all.checked = boxes.every(function(b){ return b.checked; });
+    return {
+      isValid: isValid, values: values,
+      onChange: function(fn){ listeners.push(fn); try{ fn(isValid(), values()); }catch(_){} },
+      setAll: function(on){ all.checked = !!on; boxes.forEach(function(b){ b.checked = !!on; }); sync(); },
+    };
+  }
+  function snapshot(vals){
+    var items = {}; ITEMS.forEach(function(it){ items[it.key] = !!(vals && vals[it.key]); });
+    return { v: VERSION, at: new Date().toISOString(), items: items };
+  }
+  function hasValid(user){
+    try{
+      var c = user && user.consent;
+      if(!c || String(c.v || '') < VERSION) return false;
+      return ITEMS.every(function(it){ return !it.req || (c.items && c.items[it.key]); });
+    }catch(_){ return false; }
+  }
+  async function _token(){
+    try{
+      var sb = await client();
+      if(!sb) return '';
+      var r = await sb.auth.getSession();
+      return (r && r.data && r.data.session && r.data.session.access_token) || '';
+    }catch(_){ return ''; }
+  }
+  // 서버 동의 기록 (실패해도 가입·이용은 막지 않음)
+  async function log(vals, source, email){
+    try{
+      var base = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || 'https://codibank-api.onrender.com';
+      var tok = await _token();
+      var h = { 'Content-Type':'application/json' }; if(tok) h['Authorization'] = 'Bearer ' + tok;
+      await fetch(base + '/api/consent/log', { method:'POST', headers:h, keepalive:true,
+        body: JSON.stringify({ email: String(email || '').trim().toLowerCase(), version: VERSION, items: snapshot(vals).items, source: source || '' }) });
+    }catch(_){}
+  }
+  // 로그인 사용자의 동의를 Supabase user_metadata 에 저장
+  async function save(vals, source){
+    var snap = snapshot(vals);
+    var sb = await client();
+    if(!sb) throw new Error('supabase_unavailable');
+    var r = await sb.auth.updateUser({ data: { consent: snap } });
+    if(r && r.error) throw r.error;
+    try{
+      var u = CodiBank.getCurrentUser && CodiBank.getCurrentUser();
+      _remember(u, snap);
+      log(vals, source || 'reconsent', u && u.email);
+    }catch(_){}
+    return snap;
+  }
+  function _sheet(opts){
+    _css();
+    var old = document.getElementById('cbcSheet'); if(old) old.remove();
+    var bg = document.createElement('div'); bg.className = 'cbc-sheet-bg'; bg.id = 'cbcSheet';
+    bg.innerHTML = '<div class="cbc-sheet" role="dialog" aria-modal="true">'
+      + '<h3>' + _esc(opts.title) + '</h3><p class="cbc-sub">' + _esc(opts.sub) + '</p>'
+      + '<div id="cbcSheetBox"></div><p class="cbc-err" id="cbcSheetErr"></p>'
+      + '<button type="button" class="cbc-btn" id="cbcSheetOk">' + _esc(opts.okLabel) + '</button>'
+      + (opts.foot ? '<div class="cbc-foot">' + opts.foot + '</div>' : '')
+      + '</div>';
+    document.body.appendChild(bg);
+    var ui = build(document.getElementById('cbcSheetBox'), { values: opts.values || {} });
+    var ok = document.getElementById('cbcSheetOk');
+    ui.onChange(function(valid){ ok.disabled = !valid; });
+    return { bg: bg, ui: ui, ok: ok, err: document.getElementById('cbcSheetErr') };
+  }
+  // 기존 회원 재동의 — 필수 항목 미동의면 서비스 이용 불가 (로그아웃·탈퇴 경로 제공)
+  var _ensuring = false;
+  async function ensure(){
+    if(_ensuring) return true;
+    try{
+      var p = (location.pathname || '').toLowerCase();
+      if(/(login|signup|terms|privacy|refund|withdraw|admin)\.html/.test(p)) return true;
+      var u = window.CodiBank && CodiBank.getCurrentUser && CodiBank.getCurrentUser();
+      if(!u || !u.email) return true;
+      if(hasValid(u)) return true;
+      try{ var loc = JSON.parse(localStorage.getItem('cb_consent_' + String(u.email).toLowerCase()) || 'null'); if(hasValid({ consent: loc })) return true; }catch(_){}
+      _ensuring = true;
+      // 다른 기기에서 이미 동의했을 수 있으므로 서버(Supabase)의 최신 동의 기록을 먼저 확인
+      var sb = await client();
+      if(!sb){ _ensuring = false; return true; }            // SDK 로드 실패 → 이번엔 건너뜀(다음 진입 때 재시도)
+      try{
+        var gu = await sb.auth.getUser();
+        var fu = gu && gu.data && gu.data.user;
+        if(!fu){ _ensuring = false; return true; }          // 세션 없음 → 저장 불가, 로그인 후 재시도
+        var fc = (fu.user_metadata || {}).consent;
+        if(hasValid({ consent: fc })){ _remember(u, fc); _ensuring = false; return true; }
+      }catch(_){ _ensuring = false; return true; }
+      var s = _sheet({
+        title: T('서비스 이용 동의 안내', 'Please review our updated terms'),
+        sub: T('개인정보 보호를 강화하기 위해 이용약관과 개인정보처리방침이 개정되었어요 (시행 2026.10.01). 계속 이용하시려면 아래 항목에 동의해 주세요.',
+               'We updated our Terms and Privacy Policy to better protect your data (effective Oct 1, 2026). Please agree to continue.'),
+        okLabel: T('동의하고 계속하기', 'Agree and continue'),
+        values: (u.consent && u.consent.items) || {},
+        foot: '<button type="button" id="cbcLogout">' + _esc(T('로그아웃','Log out')) + '</button><button type="button" id="cbcWithdraw">' + _esc(T('회원탈퇴','Delete account')) + '</button>',
+      });
+      document.getElementById('cbcLogout').onclick = async function(){ try{ if(CodiBank.logout) await CodiBank.logout(); }catch(_){} location.replace('login.html'); };
+      document.getElementById('cbcWithdraw').onclick = function(){ location.href = 'withdraw.html'; };
+      return await new Promise(function(resolve){
+        s.ok.onclick = async function(){
+          s.ok.disabled = true; s.err.textContent = '';
+          try{ await save(s.ui.values(), 'reconsent'); s.bg.remove(); _ensuring = false; resolve(true); }
+          catch(e){ s.ok.disabled = false; s.err.textContent = T('저장하지 못했어요. 네트워크를 확인한 뒤 다시 눌러주세요.', 'Could not save. Check your connection and try again.'); }
+        };
+      });
+    }catch(e){ _ensuring = false; return true; }
+  }
+  // 마이페이지 동의 관리 — 선택 동의 변경 · 필수 동의 확인
+  function openManage(){
+    var u = window.CodiBank && CodiBank.getCurrentUser && CodiBank.getCurrentUser();
+    if(!u){ location.href = 'login.html'; return; }
+    var s = _sheet({
+      title: T('동의 관리', 'Manage consent'),
+      sub: T('필수 항목 동의를 철회하시려면 회원탈퇴를 이용해 주세요. 얼굴 사진·신체정보는 프로필에서 언제든 삭제할 수 있어요.',
+             'To withdraw required consent, please delete your account. You can delete your face photo and body info anytime in Profile.'),
+      okLabel: T('저장', 'Save'),
+      values: (u.consent && u.consent.items) || {},
+      foot: '<button type="button" id="cbcClose">' + _esc(T('닫기','Close')) + '</button><button type="button" id="cbcProfile">' + _esc(T('사진·신체정보 삭제','Delete photo & body info')) + '</button><button type="button" id="cbcWithdraw2">' + _esc(T('회원탈퇴','Delete account')) + '</button>',
+    });
+    document.getElementById('cbcClose').onclick = function(){ s.bg.remove(); };
+    document.getElementById('cbcProfile').onclick = function(){ location.href = 'profile.html'; };
+    document.getElementById('cbcWithdraw2').onclick = function(){ location.href = 'withdraw.html'; };
+    s.ok.onclick = async function(){
+      s.ok.disabled = true; s.err.textContent = '';
+      try{ await save(s.ui.values(), 'mypage'); s.bg.remove(); try{ alert(T('저장했어요.', 'Saved.')); }catch(_){} }
+      catch(e){ s.ok.disabled = false; s.err.textContent = T('저장하지 못했어요. 다시 시도해주세요.', 'Could not save. Please try again.'); }
+    };
+  }
+  window.CodiBankConsent = { VERSION: VERSION, ITEMS: ITEMS, build: build, snapshot: snapshot, hasValid: hasValid, log: log, save: save, ensure: ensure, openManage: openManage, client: client, token: _token };
+})();

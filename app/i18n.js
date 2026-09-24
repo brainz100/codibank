@@ -5,6 +5,7 @@
    - DOMContentLoaded 시 자동 적용
    ─── 2026-09-22 KST · TJ 지시 ─── 카테고리 v2 라벨(겉옷·스커트·양말/타이즈·스카프/머플러·패션소품 등 11종)
         + 옷장 카드용 계절(5종)·패턴(12종) 번역을 8개 사전(_common)에 추가. 기존 키는 무변경.
+   ─── 2026-09-24 KST · TJ 지시 ─── 신체데이터 업로드 고지 4문장 + '동의 관리' 를 8개 사전(_common)에 추가.
 ══════════════════════════════════════════ */
 (function(){
 'use strict';
@@ -33,6 +34,12 @@ var DICT = {
 
   // 공통 (풋바, 토스트 등)
   _common: {
+    // ─── 2026-09-24 KST · TJ 지시 ─── 신체데이터 고지 · 동의 관리
+    "동의 관리": "Manage consent",
+    "사진과 키·몸무게 등 신체정보는 착장 이미지 생성과 코디 추천에만 사용되며, 이 화면에서 언제든 삭제할 수 있어요.": "Your photo and body info (height, weight, etc.) are used only to generate outfit images and recommendations, and you can delete them here anytime.",
+    "얼굴 사진은 착장 이미지 생성에만 사용되며, 마이페이지 프로필에서 언제든 삭제할 수 있어요.": "Your face photo is used only to generate outfit images and can be deleted anytime in My Page > Profile.",
+    "예약하면 그 시각 착장을 만들기 위해 얼굴 사진과 옷장 이미지가 서버에 보관되며, 생성이 끝나거나 예약을 취소하면 삭제돼요.": "When you schedule, your face photo and closet images are kept on our server to create the outfit at that time, and are deleted once it's generated or the schedule is canceled.",
+    "얼굴 사진과 체형 정보는 착장 이미지 생성에만 사용돼요.": "Your face photo and body type info are used only to generate outfit images.",
     // ─── 2026-09-22 KST · TJ 지시 ─── 카테고리 v2 라벨 + 옷장 카드(패턴·계절) ───
     "겉옷": "Outerwear",
     "상의": "Tops",
@@ -1151,6 +1158,12 @@ var DICT_JA = {
     '단화': 'フラットシューズ',
   },
   _common: {
+    // ─── 2026-09-24 KST · TJ 지시 ─── 신체데이터 고지 · 동의 관리
+    "동의 관리": "同意管理",
+    "사진과 키·몸무게 등 신체정보는 착장 이미지 생성과 코디 추천에만 사용되며, 이 화면에서 언제든 삭제할 수 있어요.": "写真や身長・体重などの身体情報は、コーデ画像の生成とおすすめにのみ使用され、この画面でいつでも削除できます。",
+    "얼굴 사진은 착장 이미지 생성에만 사용되며, 마이페이지 프로필에서 언제든 삭제할 수 있어요.": "顔写真はコーデ画像の生成にのみ使用され、マイページのプロフィールでいつでも削除できます。",
+    "예약하면 그 시각 착장을 만들기 위해 얼굴 사진과 옷장 이미지가 서버에 보관되며, 생성이 끝나거나 예약을 취소하면 삭제돼요.": "予約すると、その時刻にコーデを作成するため顔写真とクローゼット画像がサーバーに保管され、生成完了または予約キャンセル時に削除されます。",
+    "얼굴 사진과 체형 정보는 착장 이미지 생성에만 사용돼요.": "顔写真と体型情報はコーデ画像の生成にのみ使用されます。",
     // ─── 2026-09-22 KST · TJ 지시 ─── 카테고리 v2 라벨 + 옷장 카드(패턴·계절) ───
     "겉옷": "アウター",
     "상의": "トップス",
@@ -2617,6 +2630,12 @@ var DICT_ZH = {
     '단화': '平底鞋',
   },
   _common: {
+    // ─── 2026-09-24 KST · TJ 지시 ─── 신체데이터 고지 · 동의 관리
+    "동의 관리": "同意管理",
+    "사진과 키·몸무게 등 신체정보는 착장 이미지 생성과 코디 추천에만 사용되며, 이 화면에서 언제든 삭제할 수 있어요.": "照片及身高、体重等身体信息仅用于生成穿搭图片和推荐，可随时在此页面删除。",
+    "얼굴 사진은 착장 이미지 생성에만 사용되며, 마이페이지 프로필에서 언제든 삭제할 수 있어요.": "面部照片仅用于生成穿搭图片，可随时在“我的-个人资料”中删除。",
+    "예약하면 그 시각 착장을 만들기 위해 얼굴 사진과 옷장 이미지가 서버에 보관되며, 생성이 끝나거나 예약을 취소하면 삭제돼요.": "预约后，为在该时间生成穿搭，面部照片和衣橱图片将保存在服务器上，生成完成或取消预约后即删除。",
+    "얼굴 사진과 체형 정보는 착장 이미지 생성에만 사용돼요.": "面部照片和体型信息仅用于生成穿搭图片。",
     // ─── 2026-09-22 KST · TJ 지시 ─── 카테고리 v2 라벨 + 옷장 카드(패턴·계절) ───
     "겉옷": "外套",
     "상의": "上衣",
@@ -4083,6 +4102,12 @@ var DICT_ES = {
     '단화': 'Zapatos planos',
   },
   _common: {
+    // ─── 2026-09-24 KST · TJ 지시 ─── 신체데이터 고지 · 동의 관리
+    "동의 관리": "Gestionar consentimiento",
+    "사진과 키·몸무게 등 신체정보는 착장 이미지 생성과 코디 추천에만 사용되며, 이 화면에서 언제든 삭제할 수 있어요.": "Tu foto y tus datos corporales (altura, peso, etc.) solo se usan para generar imágenes de outfits y recomendaciones, y puedes borrarlos aquí cuando quieras.",
+    "얼굴 사진은 착장 이미지 생성에만 사용되며, 마이페이지 프로필에서 언제든 삭제할 수 있어요.": "Tu foto de rostro solo se usa para generar imágenes de outfits y puedes borrarla cuando quieras en Mi página > Perfil.",
+    "예약하면 그 시각 착장을 만들기 위해 얼굴 사진과 옷장 이미지가 서버에 보관되며, 생성이 끝나거나 예약을 취소하면 삭제돼요.": "Al programar, tu foto de rostro y las imágenes de tu armario se guardan en el servidor para crear el outfit a esa hora, y se eliminan al generarlo o al cancelar.",
+    "얼굴 사진과 체형 정보는 착장 이미지 생성에만 사용돼요.": "Tu foto de rostro y tu tipo de cuerpo solo se usan para generar imágenes de outfits.",
     // ─── 2026-09-22 KST · TJ 지시 ─── 카테고리 v2 라벨 + 옷장 카드(패턴·계절) ───
     "겉옷": "Abrigos",
     "상의": "Tops",
@@ -5551,6 +5576,12 @@ var DICT_TR = {
     '단화': 'Babet',
   },
   _common: {
+    // ─── 2026-09-24 KST · TJ 지시 ─── 신체데이터 고지 · 동의 관리
+    "동의 관리": "Onay yönetimi",
+    "사진과 키·몸무게 등 신체정보는 착장 이미지 생성과 코디 추천에만 사용되며, 이 화면에서 언제든 삭제할 수 있어요.": "Fotoğrafınız ve boy, kilo gibi vücut bilgileriniz yalnızca kombin görselleri ve öneriler için kullanılır; bu ekrandan istediğiniz zaman silebilirsiniz.",
+    "얼굴 사진은 착장 이미지 생성에만 사용되며, 마이페이지 프로필에서 언제든 삭제할 수 있어요.": "Yüz fotoğrafınız yalnızca kombin görseli oluşturmak için kullanılır ve Sayfam > Profil'den istediğiniz zaman silinebilir.",
+    "예약하면 그 시각 착장을 만들기 위해 얼굴 사진과 옷장 이미지가 서버에 보관되며, 생성이 끝나거나 예약을 취소하면 삭제돼요.": "Planladığınızda, o saatte kombini oluşturmak için yüz fotoğrafınız ve dolap görselleriniz sunucuda saklanır; oluşturulduğunda veya plan iptal edildiğinde silinir.",
+    "얼굴 사진과 체형 정보는 착장 이미지 생성에만 사용돼요.": "Yüz fotoğrafınız ve vücut tipi bilginiz yalnızca kombin görseli oluşturmak için kullanılır.",
     // ─── 2026-09-22 KST · TJ 지시 ─── 카테고리 v2 라벨 + 옷장 카드(패턴·계절) ───
     "겉옷": "Dış giyim",
     "상의": "Üst",
@@ -7017,6 +7048,12 @@ var DICT_FR = {
     '단화': 'Chaussures plates',
   },
   _common: {
+    // ─── 2026-09-24 KST · TJ 지시 ─── 신체데이터 고지 · 동의 관리
+    "동의 관리": "Gérer les consentements",
+    "사진과 키·몸무게 등 신체정보는 착장 이미지 생성과 코디 추천에만 사용되며, 이 화면에서 언제든 삭제할 수 있어요.": "Votre photo et vos données corporelles (taille, poids, etc.) servent uniquement à générer des tenues et des recommandations, et vous pouvez les supprimer ici à tout moment.",
+    "얼굴 사진은 착장 이미지 생성에만 사용되며, 마이페이지 프로필에서 언제든 삭제할 수 있어요.": "Votre photo de visage sert uniquement à générer des images de tenues et peut être supprimée à tout moment dans Mon compte > Profil.",
+    "예약하면 그 시각 착장을 만들기 위해 얼굴 사진과 옷장 이미지가 서버에 보관되며, 생성이 끝나거나 예약을 취소하면 삭제돼요.": "En programmant, votre photo de visage et les images de votre dressing sont conservées sur le serveur pour créer la tenue à l'heure prévue, puis supprimées une fois la tenue générée ou la programmation annulée.",
+    "얼굴 사진과 체형 정보는 착장 이미지 생성에만 사용돼요.": "Votre photo de visage et votre morphologie servent uniquement à générer des images de tenues.",
     // ─── 2026-09-22 KST · TJ 지시 ─── 카테고리 v2 라벨 + 옷장 카드(패턴·계절) ───
     "겉옷": "Vestes & manteaux",
     "상의": "Hauts",
@@ -8483,6 +8520,12 @@ var DICT_AR = {
     '단화': 'حذاء مسطح',
   },
   _common: {
+    // ─── 2026-09-24 KST · TJ 지시 ─── 신체데이터 고지 · 동의 관리
+    "동의 관리": "إدارة الموافقة",
+    "사진과 키·몸무게 등 신체정보는 착장 이미지 생성과 코디 추천에만 사용되며, 이 화면에서 언제든 삭제할 수 있어요.": "تُستخدم صورتك وبياناتك الجسدية (الطول والوزن وغيرها) فقط لإنشاء صور الإطلالات والتوصيات، ويمكنك حذفها من هنا في أي وقت.",
+    "얼굴 사진은 착장 이미지 생성에만 사용되며, 마이페이지 프로필에서 언제든 삭제할 수 있어요.": "تُستخدم صورة وجهك فقط لإنشاء صور الإطلالات، ويمكنك حذفها في أي وقت من صفحتي > الملف الشخصي.",
+    "예약하면 그 시각 착장을 만들기 위해 얼굴 사진과 옷장 이미지가 서버에 보관되며, 생성이 끝나거나 예약을 취소하면 삭제돼요.": "عند الجدولة، تُحفظ صورة وجهك وصور خزانتك على الخادم لإنشاء الإطلالة في ذلك الوقت، وتُحذف بعد الإنشاء أو عند إلغاء الجدولة.",
+    "얼굴 사진과 체형 정보는 착장 이미지 생성에만 사용돼요.": "تُستخدم صورة وجهك ومعلومات نوع جسمك فقط لإنشاء صور الإطلالات.",
     // ─── 2026-09-22 KST · TJ 지시 ─── 카테고리 v2 라벨 + 옷장 카드(패턴·계절) ───
     "겉옷": "ملابس خارجية",
     "상의": "ملابس علوية",
@@ -9949,6 +9992,12 @@ var DICT_DE = {
     '단화': 'Flache Schuhe',
   },
   _common: {
+    // ─── 2026-09-24 KST · TJ 지시 ─── 신체데이터 고지 · 동의 관리
+    "동의 관리": "Einwilligungen verwalten",
+    "사진과 키·몸무게 등 신체정보는 착장 이미지 생성과 코디 추천에만 사용되며, 이 화면에서 언제든 삭제할 수 있어요.": "Dein Foto und deine Körperdaten (Größe, Gewicht usw.) werden nur für Outfit-Bilder und Empfehlungen verwendet und können hier jederzeit gelöscht werden.",
+    "얼굴 사진은 착장 이미지 생성에만 사용되며, 마이페이지 프로필에서 언제든 삭제할 수 있어요.": "Dein Gesichtsfoto wird nur für Outfit-Bilder verwendet und kann jederzeit unter Meine Seite > Profil gelöscht werden.",
+    "예약하면 그 시각 착장을 만들기 위해 얼굴 사진과 옷장 이미지가 서버에 보관되며, 생성이 끝나거나 예약을 취소하면 삭제돼요.": "Bei einer Planung werden dein Gesichtsfoto und deine Kleiderschrankbilder auf dem Server gespeichert, um das Outfit zur geplanten Zeit zu erstellen, und nach der Erstellung oder Stornierung gelöscht.",
+    "얼굴 사진과 체형 정보는 착장 이미지 생성에만 사용돼요.": "Dein Gesichtsfoto und dein Körpertyp werden nur für Outfit-Bilder verwendet.",
     // ─── 2026-09-22 KST · TJ 지시 ─── 카테고리 v2 라벨 + 옷장 카드(패턴·계절) ───
     "겉옷": "Oberbekleidung",
     "상의": "Oberteile",

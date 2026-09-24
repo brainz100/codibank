@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<title>회원탈퇴 - 코디뱅크</title>
+<title>회원탈퇴 - 스타일몬스터</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <!-- Google tag (gtag.js) -->
@@ -44,7 +44,17 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Noto S
 .btn-cancel{width:100%;padding:14px;border:1.5px solid #e5e7eb;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;background:#fff;color:#6b7280;margin-top:10px;transition:background .15s;}
 .btn-cancel:active{background:#f5f5f5;}
 .mi{font-family:'Material Symbols Outlined';font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}
+/* 2026-09-24 분리 보관 안내 */
+.keep-box{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:14px;padding:14px 16px;margin:-12px 0 24px;}
+.keep-title{font-size:13px;font-weight:800;color:#334155;margin-bottom:8px;}
+.keep-box ul{padding-left:18px;margin:0 0 8px;}
+.keep-box li{font-size:12.5px;color:#475569;line-height:1.7;}
+.keep-note{font-size:12px;color:#64748b;line-height:1.6;}
+.sub-box{display:flex;gap:10px;align-items:flex-start;background:#fffbeb;border:1.5px solid #fde68a;border-radius:14px;padding:14px 16px;margin:-12px 0 24px;font-size:13px;color:#78350f;line-height:1.6;}
+.err-msg{color:#dc2626;font-size:13px;line-height:1.6;margin:0 0 12px;display:none;}
 </style>
+<!-- 2026-09-24 KST · TJ 지시 — 서버 탈퇴 본인확인(access_token)을 위해 Supabase SDK 로드 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script src="codibank.js"></script>
 <script src="i18n.js"></script>
@@ -74,12 +84,24 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Noto S
 
   <div class="section">
     <!-- 경고 박스 -->
+    <!-- ─── 2026-09-24 KST · TJ 지시 ─── 탈퇴 안내: 삭제 항목 + 분리 보관 항목 + 무료횟수 재지급 없음 고지 -->
     <div class="warn-box">
       <span class="warn-icon">warning</span>
-      <div class="warn-text">
-        탈퇴 시 모든 데이터가 <b>즉시 삭제</b>되며 복구할 수 없습니다.<br>
-        저장된 코디 이미지, 등록 아이템, 구독 내역이 모두 사라집니다.
+      <div class="warn-text" id="warnText">
+        탈퇴 시 계정, 프로필(얼굴 사진·신체정보), 등록 아이템, 코디 앨범, 옷장코디 예약이 <b>즉시 삭제</b>되며 복구할 수 없습니다.
       </div>
+    </div>
+    <div class="keep-box" id="keepBox">
+      <div class="keep-title" id="keepTitle">탈퇴 후에도 분리 보관되는 정보</div>
+      <ul id="keepList">
+        <li>이메일의 <b>복원 불가능한 암호화 값</b>과 탈퇴한 달의 이용 횟수 — 1년 보관 후 파기 (부정 가입 방지)</li>
+        <li>결제 기록 — 전자상거래법에 따라 5년</li>
+      </ul>
+      <p class="keep-note" id="keepNote">무료 이용 횟수는 1인 기준으로 제공되어, 탈퇴 후 재가입해도 새로 지급되지 않아요. 같은 달에 재가입하면 그 달 사용 횟수가 이어서 적용됩니다.</p>
+    </div>
+    <div class="sub-box" id="subBox" style="display:none;">
+      <span class="warn-icon" style="color:#b45309;">credit_card</span>
+      <div id="subText">유료 구독 중이에요. 탈퇴해도 결제가 자동으로 해지되지 않을 수 있으니 <b>구독플랜에서 먼저 해지</b>해 주세요.</div>
     </div>
 
     <!-- 탈퇴 이유 -->
@@ -116,8 +138,9 @@ html,body{min-height:100dvh;background:#ffffff;color:#111827;font-family:'Noto S
   <div class="confirm-section">
     <div class="confirm-check">
       <input type="checkbox" id="confirmCheck" onchange="updateBtn()">
-      <label for="confirmCheck">위 내용을 확인했으며, 탈퇴 후 모든 데이터가 삭제됨에 동의합니다.</label>
+      <label for="confirmCheck">위 내용을 확인했으며, 탈퇴 시 데이터가 삭제되고 무료 이용 횟수가 새로 지급되지 않는 것에 동의합니다.</label>
     </div>
+    <p class="err-msg" id="errMsg"></p>
     <button class="btn-withdraw" id="btnWithdraw" disabled onclick="doWithdraw()">회원탈퇴</button>
     <button class="btn-cancel" onclick="history.back()">취소</button>
   </div>
@@ -131,57 +154,75 @@ function updateBtn(){
   const ok = document.getElementById('confirmCheck').checked;
   document.getElementById('btnWithdraw').disabled = !ok;
 }
+// ─── 2026-09-24 KST · TJ 지시 ─── 서버 탈퇴(본인 토큰 검증) 성공 시에만 완료 처리
+//   이전: 서버에 /api/user/withdraw 가 없어 404 였는데 404·오류도 "탈퇴 완료" 로 처리
+//         → 서버 계정·사용량·신체데이터가 그대로 남았음 (법적 리스크)
+function _wT(ko, en){ return (window.CodiBankI18n && CodiBankI18n.isForeign && CodiBankI18n.isForeign()) ? en : ko; }
+function _showErr(m){ const e=document.getElementById('errMsg'); if(e){ e.textContent=m; e.style.display='block'; } }
+(function(){
+  try{
+    const u = window.CodiBank && CodiBank.getCurrentUser ? CodiBank.getCurrentUser() : null;
+    const plan = String((u && u.plan) || 'FREE').toUpperCase();
+    if(u && plan !== 'FREE' && ['admin@codibank.kr','prowizard@naver.com'].indexOf(String(u.email||'').toLowerCase()) < 0){
+      document.getElementById('subBox').style.display = 'flex';
+    }
+  }catch(_){}
+})();
+async function _accessToken(){
+  try{
+    const sb = (window.CodiBankConsent && CodiBankConsent.client) ? await CodiBankConsent.client()
+             : (window.CodiBank && CodiBank.getSupabaseClient ? CodiBank.getSupabaseClient() : null);
+    if(!sb) return '';
+    const r = await sb.auth.getSession();
+    return (r && r.data && r.data.session && r.data.session.access_token) || '';
+  }catch(_){ return ''; }
+}
 async function doWithdraw(){
   const user = window.CodiBank && CodiBank.getCurrentUser ? CodiBank.getCurrentUser() : null;
-  if(!user || !user.email){ alert('로그인이 필요합니다.'); location.href='login.html'; return; }
+  if(!user || !user.email){ alert(_wT('로그인이 필요합니다.','Please log in first.')); location.href='login.html'; return; }
 
   // 탈퇴 이유 수집
   const reasons = [];
   document.querySelectorAll('#reasonList input[type=checkbox]:checked').forEach(cb => {
     if(cb.value === '기타'){
       const txt = document.getElementById('otherText').value.trim();
-      if(txt) reasons.push('기타: '+txt);
+      reasons.push(txt ? '기타: '+txt : '기타');
     } else { reasons.push(cb.value); }
   });
 
-  if(!confirm('정말로 탈퇴하시겠습니까?\n\n모든 데이터가 즉시 삭제되며 복구할 수 없습니다.')) return;
+  if(!confirm(_wT('정말로 탈퇴하시겠습니까?\n\n계정과 데이터가 즉시 삭제되며 복구할 수 없습니다.','Are you sure? Your account and data will be permanently deleted.'))) return;
 
   const btn = document.getElementById('btnWithdraw');
+  const label = btn.textContent;
   btn.disabled = true;
-  btn.textContent = '처리 중…';
+  btn.textContent = _wT('처리 중…','Processing…');
+  const errBox = document.getElementById('errMsg'); if(errBox) errBox.style.display = 'none';
 
   try{
-    // 탈퇴 API 호출
+    const token = await _accessToken();
+    if(!token){ throw Object.assign(new Error(_wT('로그인이 만료됐어요. 다시 로그인한 뒤 탈퇴를 진행해주세요.','Your session expired. Please log in again.')), { relogin:true }); }
     const bb = (window.CODIBANK_CONFIG && window.CODIBANK_CONFIG.backendBase) || 'https://codibank-api.onrender.com';
     const r = await fetch(bb+'/api/user/withdraw', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ email: user.email, reasons })
     });
     const d = await r.json().catch(()=>({ok:false}));
-
-    if(d.ok || r.status === 200 || r.status === 404){
-      // 로컬 데이터 전체 삭제
-      try{
-        localStorage.clear();
-        sessionStorage.clear();
-        if(window.CodiBank && CodiBank.logout) await CodiBank.logout();
-      }catch(_){}
-      alert('회원탈퇴가 완료됐습니다.\n코디뱅크를 이용해 주셔서 감사합니다.');
-      location.replace('login.html');
-    } else {
-      // API 없어도 클라이언트 탈퇴 처리
-      try{ localStorage.clear(); sessionStorage.clear(); }catch(_){}
-      if(window.CodiBank && CodiBank.logout) try{ await CodiBank.logout(); }catch(_){}
-      alert('회원탈퇴가 완료됐습니다.\n코디뱅크를 이용해 주셔서 감사합니다.');
-      location.replace('login.html');
+    if(!(r.ok && d.ok)){
+      const e = new Error(d.error || _wT('탈퇴 처리 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.','Something went wrong. Please try again later.'));
+      if(r.status === 401) e.relogin = true;
+      throw e;
     }
-  }catch(e){
-    // 네트워크 오류여도 클라이언트 탈퇴 처리
+    // 서버 탈퇴 완료 → 이 기기 데이터 정리
     try{ localStorage.clear(); sessionStorage.clear(); }catch(_){}
     try{ if(window.CodiBank && CodiBank.logout) await CodiBank.logout(); }catch(_){}
-    alert('회원탈퇴가 완료됐습니다.');
+    alert(_wT('회원탈퇴가 완료됐습니다.\n스타일몬스터를 이용해 주셔서 감사합니다.','Your account has been deleted. Thank you for using Stylemonster.'));
     location.replace('login.html');
+  }catch(e){
+    btn.disabled = !document.getElementById('confirmCheck').checked;
+    btn.textContent = label;
+    _showErr((e && e.message ? e.message : '') + ' ' + _wT('계속 안 되면 prowizard@naver.com 으로 탈퇴를 요청해주세요.','If this keeps happening, email prowizard@naver.com.'));
+    if(e && e.relogin){ setTimeout(()=>{ if(confirm(_wT('다시 로그인하시겠어요?','Log in again?'))) location.href='login.html'; }, 50); }
   }
 }
 </script>
@@ -191,20 +232,24 @@ async function doWithdraw(){
 (function(){
   var EN = {
     title:        'Account Deletion',
-    warnText:     '<b>All data will be immediately deleted</b> and cannot be recovered.<br>Saved outfits, registered items, and subscription history will all be erased.',
+    warnText:     'Your account, profile (face photo & body info), items, outfit album and scheduled outfits will be <b>deleted immediately</b> and cannot be recovered.',
+    keepTitle:    'Information kept separately after deletion',
+    keepList:     '<li>An <b>irreversible hash</b> of your email and that month\'s usage — destroyed after 1 year (fraud prevention)</li><li>Payment records — 5 years (E-Commerce Act)</li>',
+    keepNote:     'Free usage is provided per person and is not re-issued if you re-register. If you re-register in the same month, that month\'s usage continues.',
+    subText:      'You have an active subscription. Deleting your account may not cancel billing — please <b>cancel your plan first</b>.',
     reasonTitle:  'Please tell us why you are leaving (multiple choices allowed)',
     r1: 'The service did not meet my expectations',
     r2: 'AI image quality was unsatisfactory',
-    r3: 'I I no longer use it often',
+    r3: 'I no longer use it often',
     r4: 'I have concerns about personal data privacy',
     r5: 'The pricing is a burden',
     r6: 'Other',
     otherPlaceholder: 'Please describe your reason',
-    confirmText:  "I have read and agree that all my data will be permanently deleted upon withdrawal.",
+    confirmText:  "I understand that my data will be deleted and free usage will not be re-issued.",
     btnWithdraw:  "Delete Account",
     btnCancel:    "Cancel",
     alertConfirm: "Are you sure? All data will be permanently deleted.",
-    alertDone:    "Account deleted. Thank you for using CodiBank.",
+    alertDone:    "Account deleted. Thank you for using Stylemonster.",
     alertLogin:   "Please log in first.",
     alertProcessing: "Processing…",
   };
@@ -212,7 +257,7 @@ async function doWithdraw(){
   function applyEn(){
     if(!(window.CodiBankI18n && CodiBankI18n.isEn())) return;
     document.documentElement.setAttribute('lang','en');
-    document.title = 'Account Deletion - CodiBank';
+    document.title = 'Account Deletion - Stylemonster';
     var q = function(id){ return document.getElementById(id); };
     var qs = function(sel){ return document.querySelector(sel); };
 
@@ -221,8 +266,12 @@ async function doWithdraw(){
     if(hdrTitle) hdrTitle.textContent = EN.title;
 
     // 경고 박스 텍스트
-    var warnText = qs('.warn-text');
+    var warnText = q('warnText');
     if(warnText) warnText.innerHTML = EN.warnText;
+    if(q('keepTitle')) q('keepTitle').textContent = EN.keepTitle;
+    if(q('keepList')) q('keepList').innerHTML = EN.keepList;
+    if(q('keepNote')) q('keepNote').textContent = EN.keepNote;
+    if(q('subText')) q('subText').innerHTML = EN.subText;
 
     // 탈퇴 이유 타이틀
     var reasonTitle = qs('.reason-title');
